@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relay — Claude Code session manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#12141C;
+  --panel:#1A1D28;
+  --panel-2:#20242F;
+  --line:#2B303F;
+  --paper:#E8E6E1;
+  --muted:#7A8093;
+  --dim:#565C6D;
+  --amber:#F2A33C;
+  --teal:#56C5D0;
+  --rose:#E36A6A;
+  --idle:#5A6070;
+  --violet:#9A8CF0;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+  --disp:'Archivo',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--ink);color:var(--paper);font-family:var(--sans);
+  font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1320px;margin:0 auto;padding:0 22px 80px}
+
+/* ---------- masthead ---------- */
+.mast{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;
+  padding:26px 0 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:12px}
+.brand h1{font-family:var(--disp);font-weight:800;font-size:26px;letter-spacing:-.03em;margin:0}
+.brand .sub{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.08em;text-transform:uppercase}
+.mast-right{display:flex;align-items:center;gap:22px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.mast-right b{color:var(--paper);font-weight:600}
+
+/* ---------- signature: attention ribbon ---------- */
+.ribbon{padding:20px 0 22px;border-bottom:1px solid var(--line)}
+.ribbon-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px;gap:16px;flex-wrap:wrap}
+.ribbon-title{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.ribbon-lede{font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:-.02em}
+.ribbon-lede em{font-style:normal;color:var(--amber)}
+.lanes{display:grid;gap:5px}
+.lane{display:grid;grid-template-columns:150px 1fr 62px;align-items:center;gap:14px}
+.lane-name{font-family:var(--mono);font-size:11.5px;color:var(--muted);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lane-track{display:flex;gap:1.5px;height:11px}
+.seg{flex:1;border-radius:1px;background:var(--line)}
+.seg.working{background:rgba(86,197,208,.5)}
+.seg.blocked{background:var(--amber)}
+.seg.idle{background:#252A38}
+.seg.failed{background:var(--rose)}
+.lane-clock{font-family:var(--mono);font-size:11.5px;text-align:right;color:var(--dim);font-variant-numeric:tabular-nums}
+.lane-clock.hot{color:var(--amber);font-weight:600}
+.ribbon-key{display:flex;gap:16px;margin-top:12px;font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+.ribbon-key span{display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:2px;display:inline-block}
+
+/* ---------- tabs ---------- */
+.tabs{display:flex;gap:2px;margin:22px 0 24px;flex-wrap:wrap}
+.tab{background:none;border:1px solid transparent;border-bottom:1px solid var(--line);
+  color:var(--muted);font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;
+  text-transform:uppercase;padding:9px 15px;cursor:pointer;transition:color .15s,border-color .15s}
+.tab:hover{color:var(--paper)}
+.tab[aria-selected="true"]{color:var(--ink);background:var(--amber);border-color:var(--amber);font-weight:600}
+.tab:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.view{display:none}
+.view.on{display:block;animation:fade .22s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* ---------- overview ---------- */
+.cols{display:grid;grid-template-columns:1fr 330px;gap:22px;align-items:start}
+.sechead{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--dim);margin:0 0 10px;display:flex;justify-content:space-between;align-items:baseline}
+.card{border:1px solid var(--line);background:var(--panel);margin-bottom:8px;
+  display:grid;grid-template-columns:4px 1fr;transition:border-color .15s}
+.card:hover{border-color:#3A4154}
+.rail{background:var(--idle)}
+.card.working .rail{background:var(--teal)}
+.card.blocked .rail{background:var(--amber)}
+.card.failed .rail{background:var(--rose)}
+.card-in{padding:13px 16px 14px}
+.row1{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.title{font-family:var(--disp);font-weight:700;font-size:15.5px;letter-spacing:-.015em}
+.state{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  padding:2.5px 7px;border:1px solid;border-radius:2px}
+.state.working{color:var(--teal);border-color:rgba(86,197,208,.4)}
+.state.blocked{color:var(--amber);border-color:rgba(242,163,60,.45);background:rgba(242,163,60,.09)}
+.state.idle{color:var(--idle);border-color:#333949}
+.state.failed{color:var(--rose);border-color:rgba(227,106,106,.4)}
+.spacer{flex:1}
+.timer{font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--dim)}
+.timer.hot{color:var(--amber);font-weight:600}
+.meta{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:5px;
+  display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.meta .sep{color:#333949}
+.meta .branch{color:var(--violet)}
+.last{margin-top:9px;font-size:12.5px;color:var(--muted);line-height:1.45}
+.last b{color:var(--paper);font-weight:500}
+.prompt-box{margin-top:10px;border:1px solid rgba(242,163,60,.3);background:rgba(242,163,60,.06);
+  padding:9px 11px;font-family:var(--mono);font-size:11.5px;color:#F5CC93}
+.prompt-box code{color:var(--amber)}
+.acts{margin-top:11px;display:flex;gap:6px;flex-wrap:wrap}
+.btn{font-family:var(--mono);font-size:11px;padding:5px 11px;border:1px solid var(--line);
+  background:var(--panel-2);color:var(--muted);cursor:pointer;transition:.15s}
+.btn:hover{color:var(--paper);border-color:#3F465A}
+.btn:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
+.btn.key{border-color:var(--amber);color:var(--amber)}
+.btn.key:hover{background:var(--amber);color:var(--ink)}
+
+/* ---------- lead panel ---------- */
+.lead{border:1px solid var(--line);background:var(--panel);position:sticky;top:18px}
+.lead-head{padding:13px 15px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px}
+.pulse{width:7px;height:7px;border-radius:50%;background:var(--teal);flex:0 0 auto;
+  box-shadow:0 0 0 0 rgba(86,197,208,.6);animation:pulse 2.4s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 7px rgba(86,197,208,0)}100%{box-shadow:0 0 0 0 rgba(86,197,208,0)}}
+.lead-head h3{margin:0;font-family:var(--disp);font-weight:700;font-size:14px;letter-spacing:-.01em}
+.lead-head .tag{font-family:var(--mono);font-size:10px;color:var(--dim);margin-left:auto}
+.chat{padding:14px 15px;display:grid;gap:13px;max-height:480px;overflow:auto}
+.msg-you{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.msg-you::before{content:'› ';color:var(--amber)}
+.msg-ai{font-size:12.5px;line-height:1.55;color:var(--paper);border-left:2px solid var(--line);padding-left:11px}
+.msg-ai .tool{display:block;font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-bottom:6px}
+.msg-ai ul{margin:7px 0 0;padding-left:16px;color:var(--muted);font-size:12px}
+.msg-ai li{margin-bottom:3px}
+.msg-ai b{color:var(--amber);font-weight:600}
+.lead-input{border-top:1px solid var(--line);padding:11px 15px;font-family:var(--mono);
+  font-size:11.5px;color:var(--dim);display:flex;justify-content:space-between}
+
+/* ---------- grid view ---------- */
+.pane-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.pane{border:1px solid var(--line);background:#0E1017;display:flex;flex-direction:column;min-height:230px}
+.pane.blocked{border-color:rgba(242,163,60,.55);box-shadow:0 0 0 1px rgba(242,163,60,.14)}
+.pane.working{border-color:rgba(86,197,208,.3)}
+.pane.failed{border-color:rgba(227,106,106,.4)}
+.pane-bar{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--panel);
+  border-bottom:1px solid var(--line);font-family:var(--mono);font-size:10.5px}
+.pane-bar .nm{color:var(--paper);font-weight:500}
+.pane-bar .br{color:var(--violet);margin-left:auto}
+.term{flex:1;padding:11px 12px;font-family:var(--mono);font-size:11px;line-height:1.62;
+  color:#B9BECD;white-space:pre-wrap;overflow:hidden}
+.term .c{color:var(--teal)}
+.term .g{color:#7FB98A}
+.term .a{color:var(--amber)}
+.term .r{color:var(--rose)}
+.term .d{color:#4E5566}
+.caret{display:inline-block;width:7px;height:13px;background:var(--paper);
+  vertical-align:-2px;animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* ---------- usage ---------- */
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px}
+.stat{border:1px solid var(--line);background:var(--panel);padding:15px 16px}
+.stat .k{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.stat .v{font-family:var(--disp);font-weight:800;font-size:30px;letter-spacing:-.035em;margin-top:6px;font-variant-numeric:tabular-nums}
+.stat .v small{font-size:14px;font-weight:600;color:var(--muted);letter-spacing:0}
+.stat .d{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:4px}
+.stat .d.up{color:var(--amber)}
+.panelbox{border:1px solid var(--line);background:var(--panel);padding:17px 18px;margin-bottom:10px}
+.panelbox h4{margin:0 0 3px;font-family:var(--disp);font-weight:700;font-size:14.5px;letter-spacing:-.015em}
+.panelbox .note{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-bottom:16px}
+.two{display:grid;grid-template-columns:1.35fr 1fr;gap:10px}
+.bars{display:flex;align-items:flex-end;gap:8px;height:130px}
+.bcol{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;height:100%}
+.bseg{width:100%}
+.bseg.i{background:#33566B}
+.bseg.o{background:var(--teal)}
+.bseg.cw{background:rgba(242,163,60,.55)}
+.blabel{font-family:var(--mono);font-size:10px;color:var(--dim);text-align:center;margin-top:7px}
+.legend{display:flex;gap:14px;margin-top:12px;font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+.split{display:grid;gap:9px}
+.split-row{display:grid;grid-template-columns:118px 1fr 66px;align-items:center;gap:11px;
+  font-family:var(--mono);font-size:11px}
+.split-row .n{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.split-bar{height:9px;background:#222733}
+.split-bar i{display:block;height:100%;background:var(--teal)}
+.split-row .amt{text-align:right;color:var(--paper);font-variant-numeric:tabular-nums}
+.tools{display:grid;gap:8px}
+.tool-row{display:grid;grid-template-columns:1fr 46px;font-family:var(--mono);font-size:11.5px;
+  padding-bottom:7px;border-bottom:1px solid #222736;color:var(--muted)}
+.tool-row b{color:var(--paper);text-align:right;font-weight:500;font-variant-numeric:tabular-nums}
+
+/* ---------- worktrees ---------- */
+.repo{border:1px solid var(--line);background:var(--panel);margin-bottom:10px}
+.repo-head{padding:13px 16px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:11px;flex-wrap:wrap}
+.repo-head .rn{font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:-.015em}
+.repo-head .rp{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.wt{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;
+  padding:11px 16px;border-bottom:1px solid #222736}
+.wt:last-child{border-bottom:none}
+.wt-l .b{font-family:var(--mono);font-size:12px;color:var(--violet)}
+.wt-l .p{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:3px}
+.chips{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.chip{font-family:var(--mono);font-size:10px;padding:2px 6px;border:1px solid var(--line);color:var(--muted)}
+.chip.dirty{color:var(--amber);border-color:rgba(242,163,60,.35)}
+.chip.clean{color:#7FB98A;border-color:rgba(127,185,138,.3)}
+.chip.owner{color:var(--teal);border-color:rgba(86,197,208,.3)}
+.chip.free{color:var(--dim)}
+.wt-r{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+
+/* ---------- permissions ---------- */
+.ask{border:1px solid rgba(242,163,60,.45);background:rgba(242,163,60,.05);
+  padding:14px 16px;margin-bottom:8px}
+.ask-top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:9px}
+.ask-top .who{font-family:var(--disp);font-weight:700;font-size:14.5px;letter-spacing:-.015em}
+.ask-top .when{font-family:var(--mono);font-size:11px;color:var(--amber);margin-left:auto;font-variant-numeric:tabular-nums}
+.call{font-family:var(--mono);font-size:12.5px;color:var(--amber);
+  background:#12141C;border:1px solid var(--line);padding:8px 11px;
+  overflow-x:auto;white-space:nowrap}
+.blast{font-size:12.5px;color:var(--muted);margin-top:9px;line-height:1.5}
+.blast b{color:var(--paper);font-weight:500}
+.rulechip{font-family:var(--mono);font-size:11px;color:var(--teal);
+  border:1px dashed rgba(86,197,208,.4);padding:2px 7px;display:inline-block}
+
+.srv{border:1px solid var(--line);background:var(--panel);margin-bottom:8px}
+.srv-head{display:grid;grid-template-columns:9px 1fr auto;gap:11px;align-items:center;
+  padding:12px 15px;border-bottom:1px solid #222736}
+.srv-head .nm{font-family:var(--disp);font-weight:700;font-size:14px;letter-spacing:-.01em}
+.srv-head .sc{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-left:9px}
+.live{width:7px;height:7px;border-radius:50%;background:var(--teal)}
+.live.off{background:var(--idle)}
+.live.err{background:var(--rose)}
+.srv-meta{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+.tl{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;
+  padding:9px 15px;border-bottom:1px solid #1E222E}
+.tl:last-child{border-bottom:none}
+.tl .tn{font-family:var(--mono);font-size:11.5px;color:var(--paper)}
+.tl .td{font-size:11.5px;color:var(--dim);margin-top:2px}
+.seg3{display:flex;border:1px solid var(--line);flex:0 0 auto}
+.seg3 button{font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;
+  padding:4px 9px;background:none;border:none;border-right:1px solid var(--line);
+  color:var(--dim);cursor:pointer;transition:.12s}
+.seg3 button:last-child{border-right:none}
+.seg3 button:hover{color:var(--paper)}
+.seg3 button:focus-visible{outline:2px solid var(--teal);outline-offset:-2px}
+.seg3 button[aria-pressed="true"]{color:var(--ink);font-weight:600}
+.seg3 button.a[aria-pressed="true"]{background:#6FA97A}
+.seg3 button.k[aria-pressed="true"]{background:var(--amber)}
+.seg3 button.d[aria-pressed="true"]{background:var(--rose)}
+
+.scope{display:flex;gap:0;border:1px solid var(--line);width:fit-content;margin-bottom:13px}
+.scope button{font-family:var(--mono);font-size:11px;padding:6px 13px;background:none;
+  border:none;border-right:1px solid var(--line);color:var(--dim);cursor:pointer}
+.scope button:last-child{border-right:none}
+.scope button[aria-pressed="true"]{background:var(--panel-2);color:var(--paper)}
+.scope button:focus-visible{outline:2px solid var(--teal);outline-offset:-2px}
+.json{font-family:var(--mono);font-size:11px;line-height:1.7;background:#0E1017;
+  border:1px solid var(--line);padding:12px 13px;overflow-x:auto;white-space:pre;color:#8A91A3}
+.json .add{color:#7FB98A;background:rgba(127,185,138,.08);display:block}
+.json .k{color:var(--violet)}
+.json .s{color:var(--teal)}
+.pend{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:11px;
+  display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+
+.foot{margin-top:26px;padding-top:16px;border-top:1px solid var(--line);
+  font-family:var(--mono);font-size:10.5px;color:var(--dim);line-height:1.7}
+.foot b{color:var(--muted);font-weight:500}
+
+@media (max-width:1080px){
+  .cols{grid-template-columns:1fr}
+  .lead{position:static}
+  .pane-grid{grid-template-columns:repeat(2,1fr)}
+  .stat-row{grid-template-columns:repeat(2,1fr)}
+  .two{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  .pane-grid{grid-template-columns:1fr}
+  .lane{grid-template-columns:100px 1fr 54px}
+  .stat-row{grid-template-columns:1fr 1fr}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="mast">
+    <div class="brand">
+      <h1>Relay</h1>
+      <span class="sub">6 sessions · 2 repos · mac</span>
+    </div>
+    <div class="mast-right">
+      <span>blocked <b id="m-blocked">2</b></span>
+      <span>working <b>2</b></span>
+      <span>today <b>$14.82</b></span>
+      <span>tmux <b>relay-0</b></span>
+    </div>
+  </header>
+
+  <!-- SIGNATURE: attention ribbon -->
+  <section class="ribbon">
+    <div class="ribbon-head">
+      <div class="ribbon-lede">Two sessions are waiting on you. The longest has been idle <em id="hero-clock">11:48</em>.</div>
+      <div class="ribbon-title">last 60 min</div>
+    </div>
+    <div class="lanes" id="lanes"></div>
+    <div class="ribbon-key">
+      <span><i class="dot" style="background:var(--amber)"></i>blocked on you</span>
+      <span><i class="dot" style="background:rgba(86,197,208,.5)"></i>working</span>
+      <span><i class="dot" style="background:#252A38"></i>idle</span>
+      <span><i class="dot" style="background:var(--rose)"></i>failed</span>
+    </div>
+  </section>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-v="overview">Overview</button>
+    <button class="tab" role="tab" aria-selected="false" data-v="grid">Session grid</button>
+    <button class="tab" role="tab" aria-selected="false" data-v="usage">Usage</button>
+    <button class="tab" role="tab" aria-selected="false" data-v="trees">Worktrees</button>
+    <button class="tab" role="tab" aria-selected="false" data-v="perms">Permissions</button>
+  </nav>
+
+  <!-- ============ OVERVIEW ============ -->
+  <section class="view on" id="v-overview">
+    <div class="cols">
+      <div>
+        <div class="sechead"><span>Sessions · sorted by how long they've been waiting</span><span>⌘1–6 to focus</span></div>
+
+        <article class="card blocked">
+          <div class="rail"></div>
+          <div class="card-in">
+            <div class="row1">
+              <span class="title">flaky-e2e-hunt</span>
+              <span class="state blocked">Needs you</span>
+              <span class="spacer"></span>
+              <span class="timer hot" data-since="708">11:48</span>
+            </div>
+            <div class="meta">web-console<span class="sep">/</span><span class="branch">worktree-e2e</span><span class="sep">·</span>opus<span class="sep">·</span>84k ctx<span class="sep">·</span>$3.41</div>
+            <div class="prompt-box">Plan approval · teammate wants to rewrite <code>playwright.config.ts</code> and drop the retry wrapper</div>
+            <div class="acts">
+              <button class="btn key">Approve</button>
+              <button class="btn">Read the plan</button>
+              <button class="btn">Reject with a note</button>
+              <button class="btn">Focus pane</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="card blocked">
+          <div class="rail"></div>
+          <div class="card-in">
+            <div class="row1">
+              <span class="title">auth-jwt-rotation</span>
+              <span class="state blocked">Needs you</span>
+              <span class="spacer"></span>
+              <span class="timer hot" data-since="252">04:12</span>
+            </div>
+            <div class="meta">ledger-api<span class="sep">/</span><span class="branch">worktree-auth</span><span class="sep">·</span>sonnet<span class="sep">·</span>41k ctx<span class="sep">·</span>$1.07</div>
+            <div class="prompt-box">Permission · <code>Bash(rm -rf ./.keys/staging)</code></div>
+            <div class="acts">
+              <button class="btn key">Allow once</button>
+              <button class="btn">Always allow</button>
+              <button class="btn">Deny</button>
+              <button class="btn">Focus pane</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="card failed">
+          <div class="rail"></div>
+          <div class="card-in">
+            <div class="row1">
+              <span class="title">db-migration-audit</span>
+              <span class="state failed">Failed</span>
+              <span class="spacer"></span>
+              <span class="timer">stopped 6m ago</span>
+            </div>
+            <div class="meta">ledger-api<span class="sep">/</span><span class="branch">worktree-migrate</span><span class="sep">·</span>sonnet<span class="sep">·</span>$0.94</div>
+            <div class="last">Turn ended on an API error: <b>overloaded_error</b> after 3 retries. Work up to migration 0041 is committed.</div>
+            <div class="acts">
+              <button class="btn key">Resume session</button>
+              <button class="btn">Read transcript</button>
+              <button class="btn">Discard worktree</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="card working">
+          <div class="rail"></div>
+          <div class="card-in">
+            <div class="row1">
+              <span class="title">payments-refactor</span>
+              <span class="state working">Working</span>
+              <span class="spacer"></span>
+              <span class="timer">running 22:06</span>
+            </div>
+            <div class="meta">ledger-api<span class="sep">/</span><span class="branch">worktree-payments</span><span class="sep">·</span>sonnet<span class="sep">·</span>112k ctx<span class="sep">·</span>$5.28</div>
+            <div class="last">Running <b>pytest tests/billing</b> — 214 of 380 passed, no failures yet.</div>
+            <div class="acts">
+              <button class="btn">Send a message</button>
+              <button class="btn">Focus pane</button>
+              <button class="btn">Interrupt</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="card working">
+          <div class="rail"></div>
+          <div class="card-in">
+            <div class="row1">
+              <span class="title">design-tokens</span>
+              <span class="state working">Working</span>
+              <span class="spacer"></span>
+              <span class="timer">running 03:19</span>
+            </div>
+            <div class="meta">web-console<span class="sep">/</span><span class="branch">worktree-tokens</span><span class="sep">·</span>haiku<span class="sep">·</span>18k ctx<span class="sep">·</span>$0.21</div>
+            <div class="last">Editing <b>tokens/color.css</b> — third of eleven files.</div>
+            <div class="acts">
+              <button class="btn">Send a message</button>
+              <button class="btn">Focus pane</button>
+              <button class="btn">Interrupt</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="rail"></div>
+          <div class="card-in">
+            <div class="row1">
+              <span class="title">docs-sweep</span>
+              <span class="state idle">Idle</span>
+              <span class="spacer"></span>
+              <span class="timer">done 12m ago</span>
+            </div>
+            <div class="meta">ledger-api<span class="sep">/</span><span class="branch">main</span><span class="sep">·</span>haiku<span class="sep">·</span>9k ctx<span class="sep">·</span>$0.11</div>
+            <div class="last">Finished. Rewrote 7 README sections, nothing committed yet.</div>
+            <div class="acts">
+              <button class="btn">Send a message</button>
+              <button class="btn">Review diff</button>
+              <button class="btn">Close session</button>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <!-- lead session -->
+      <aside class="lead">
+        <div class="lead-head">
+          <span class="pulse"></span>
+          <h3>atlas</h3>
+          <span class="tag">lead · opus</span>
+        </div>
+        <div class="chat">
+          <div class="msg-you">what's everyone stuck on?</div>
+          <div class="msg-ai">
+            <span class="tool">ListAgents → 6 sessions</span>
+            Two are blocked and one died.
+            <ul>
+              <li><b>flaky-e2e-hunt</b> wants plan approval — it's rewriting the Playwright config, which touches the retry wrapper you added last week.</li>
+              <li><b>auth-jwt-rotation</b> is asking to delete the staging keys directory.</li>
+              <li><b>db-migration-audit</b> hit an overloaded error and stopped at migration 0041.</li>
+            </ul>
+          </div>
+          <div class="msg-you">tell payments-refactor the token shape changed in design-tokens</div>
+          <div class="msg-ai">
+            <span class="tool">SendMessage → payments-refactor</span>
+            Sent. It replied that it doesn't import tokens directly and will keep going.
+          </div>
+          <div class="msg-you">spin up a session to fix the migration and put it in its own worktree</div>
+          <div class="msg-ai">
+            <span class="tool">relay spawn --worktree migrate-fix</span>
+            Started <b>migrate-fix</b> on <code>worktree-migrate-fix</code>, branched from main. It has the failed transcript as context.
+          </div>
+        </div>
+        <div class="lead-input"><span>Ask about any session…</span><span>⏎</span></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ============ GRID ============ -->
+  <section class="view" id="v-grid">
+    <div class="sechead"><span>Live panes · click to type into any session</span><span>⌥⇧G to tile</span></div>
+    <div class="pane-grid">
+
+      <div class="pane blocked">
+        <div class="pane-bar"><span class="dot" style="background:var(--amber)"></span><span class="nm">flaky-e2e-hunt</span><span class="br">worktree-e2e</span></div>
+        <div class="term"><span class="d">⏺</span> Read <span class="c">playwright.config.ts</span>
+<span class="d">⏺</span> Read <span class="c">tests/retry-wrapper.ts</span>
+
+<span class="a">Ready to code?</span>
+<span class="d">│</span> Rewrite the config, drop the
+<span class="d">│</span> wrapper, use native retries.
+
+<span class="a">❯ 1. Yes, go ahead</span>
+  2. No, keep planning
+  3. Let me edit the plan<span class="caret"></span></div>
+      </div>
+
+      <div class="pane blocked">
+        <div class="pane-bar"><span class="dot" style="background:var(--amber)"></span><span class="nm">auth-jwt-rotation</span><span class="br">worktree-auth</span></div>
+        <div class="term"><span class="d">⏺</span> Bash(openssl genrsa …)
+  <span class="g">└ wrote .keys/staging/new.pem</span>
+
+<span class="a">Claude needs permission</span>
+<span class="d">│</span> <span class="r">rm -rf ./.keys/staging</span>
+<span class="d">│</span> in ledger-api
+
+<span class="a">❯ 1. Allow once</span>
+  2. Allow for this session
+  3. Deny and tell Claude why<span class="caret"></span></div>
+      </div>
+
+      <div class="pane working">
+        <div class="pane-bar"><span class="dot" style="background:var(--teal)"></span><span class="nm">payments-refactor</span><span class="br">worktree-payments</span></div>
+        <div class="term"><span class="d">⏺</span> Edit <span class="c">billing/invoice.py</span>
+  <span class="g">└ +41 −18</span>
+<span class="d">⏺</span> Edit <span class="c">billing/proration.py</span>
+  <span class="g">└ +7 −7</span>
+<span class="d">⏺</span> Bash(pytest tests/billing)
+
+<span class="c">✻ Testing…</span> <span class="d">(22m 6s · 214/380)</span>
+<span class="d">esc to interrupt</span><span class="caret"></span></div>
+      </div>
+
+      <div class="pane working">
+        <div class="pane-bar"><span class="dot" style="background:var(--teal)"></span><span class="nm">design-tokens</span><span class="br">worktree-tokens</span></div>
+        <div class="term"><span class="d">⏺</span> Read <span class="c">tokens/spacing.css</span>
+<span class="d">⏺</span> Edit <span class="c">tokens/color.css</span>
+  <span class="g">└ +62 −54</span>
+
+<span class="c">✻ Writing…</span> <span class="d">(3/11 files)</span>
+<span class="d">esc to interrupt</span><span class="caret"></span></div>
+      </div>
+
+      <div class="pane failed">
+        <div class="pane-bar"><span class="dot" style="background:var(--rose)"></span><span class="nm">db-migration-audit</span><span class="br">worktree-migrate</span></div>
+        <div class="term"><span class="d">⏺</span> Bash(alembic upgrade head)
+  <span class="g">└ ok through 0041</span>
+<span class="d">⏺</span> Read <span class="c">migrations/0042_idx.py</span>
+
+<span class="r">API Error: overloaded_error</span>
+<span class="d">retry 3/3 failed · turn ended</span>
+
+<span class="d">/resume to pick this back up</span><span class="caret"></span></div>
+      </div>
+
+      <div class="pane">
+        <div class="pane-bar"><span class="dot" style="background:var(--idle)"></span><span class="nm">docs-sweep</span><span class="br">main</span></div>
+        <div class="term"><span class="d">⏺</span> Edit <span class="c">README.md</span>
+  <span class="g">└ +88 −31</span>
+
+Rewrote 7 sections. Install and
+troubleshooting were the stalest.
+Nothing committed — say the word
+and I'll open a PR.
+
+<span class="d">›</span><span class="caret"></span></div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ USAGE ============ -->
+  <section class="view" id="v-usage">
+    <div class="stat-row">
+      <div class="stat"><div class="k">Spend today</div><div class="v">$14.82</div><div class="d up">+38% vs 7-day median</div></div>
+      <div class="stat"><div class="k">Tokens today</div><div class="v">8.4<small>M</small></div><div class="d">71% served from cache</div></div>
+      <div class="stat"><div class="k">Agent time</div><div class="v">4:12<small>h</small></div><div class="d">across 6 sessions</div></div>
+      <div class="stat"><div class="k">You were the bottleneck</div><div class="v">38<small>m</small></div><div class="d">sessions blocked, waiting</div></div>
+    </div>
+
+    <div class="two">
+      <div class="panelbox">
+        <h4>Tokens by day</h4>
+        <div class="note">from CLAUDE_CODE_ENABLE_TELEMETRY → local otel collector :4318</div>
+        <div class="bars" id="bars"></div>
+        <div class="legend">
+          <span><i class="dot" style="background:#33566B"></i> input</span>
+          <span><i class="dot" style="background:var(--teal)"></i> output</span>
+          <span><i class="dot" style="background:rgba(242,163,60,.55)"></i> cache write</span>
+        </div>
+      </div>
+
+      <div class="panelbox">
+        <h4>Where today went</h4>
+        <div class="note">cost per session · estimates, not billing</div>
+        <div class="split">
+          <div class="split-row"><span class="n">payments-refactor</span><span class="split-bar"><i style="width:100%"></i></span><span class="amt">$5.28</span></div>
+          <div class="split-row"><span class="n">flaky-e2e-hunt</span><span class="split-bar"><i style="width:65%"></i></span><span class="amt">$3.41</span></div>
+          <div class="split-row"><span class="n">atlas (lead)</span><span class="split-bar"><i style="width:72%"></i></span><span class="amt">$3.80</span></div>
+          <div class="split-row"><span class="n">auth-jwt-rotation</span><span class="split-bar"><i style="width:20%"></i></span><span class="amt">$1.07</span></div>
+          <div class="split-row"><span class="n">db-migration-audit</span><span class="split-bar"><i style="width:18%"></i></span><span class="amt">$0.94</span></div>
+          <div class="split-row"><span class="n">design-tokens</span><span class="split-bar"><i style="width:4%"></i></span><span class="amt">$0.21</span></div>
+          <div class="split-row"><span class="n">docs-sweep</span><span class="split-bar"><i style="width:2%"></i></span><span class="amt">$0.11</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="two">
+      <div class="panelbox">
+        <h4>Interruptions</h4>
+        <div class="note">every time a session stopped and waited for you</div>
+        <div class="split">
+          <div class="split-row"><span class="n">Permission prompt</span><span class="split-bar"><i style="width:100%" ></i></span><span class="amt">31</span></div>
+          <div class="split-row"><span class="n">Plan approval</span><span class="split-bar"><i style="width:26%"></i></span><span class="amt">8</span></div>
+          <div class="split-row"><span class="n">Idle, awaiting input</span><span class="split-bar"><i style="width:19%"></i></span><span class="amt">6</span></div>
+          <div class="split-row"><span class="n">Auth expired</span><span class="split-bar"><i style="width:6%"></i></span><span class="amt">2</span></div>
+        </div>
+        <div class="legend"><span>Bash(git *) accounts for 19 of 31. Pre-approving it would save roughly 14 minutes a day.</span></div>
+      </div>
+
+      <div class="panelbox">
+        <h4>Tool calls today</h4>
+        <div class="note">from PostToolUse hook events</div>
+        <div class="tools">
+          <div class="tool-row"><span>Bash</span><b>412</b></div>
+          <div class="tool-row"><span>Read</span><b>388</b></div>
+          <div class="tool-row"><span>Edit</span><b>141</b></div>
+          <div class="tool-row"><span>Grep</span><b>96</b></div>
+          <div class="tool-row"><span>SendMessage</span><b>23</b></div>
+          <div class="tool-row" style="border:none"><span>WebFetch</span><b>11</b></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ WORKTREES ============ -->
+  <section class="view" id="v-trees">
+    <div class="sechead"><span>Worktrees · one agent per tree, no collisions</span><span>2 repos · 7 trees</span></div>
+
+    <div class="repo">
+      <div class="repo-head"><span class="rn">ledger-api</span><span class="rp">~/code/ledger-api · main is 4 commits behind origin</span></div>
+
+      <div class="wt">
+        <div class="wt-l">
+          <div class="b">main</div>
+          <div class="p">~/code/ledger-api</div>
+          <div class="chips"><span class="chip clean">clean</span><span class="chip owner">docs-sweep</span></div>
+        </div>
+        <div class="wt-r"><button class="btn">Open</button><button class="btn">Pull</button></div>
+      </div>
+
+      <div class="wt">
+        <div class="wt-l">
+          <div class="b">worktree-payments</div>
+          <div class="p">.claude/worktrees/payments · 12 commits ahead</div>
+          <div class="chips"><span class="chip dirty">9 files changed</span><span class="chip owner">payments-refactor</span><span class="chip">tests running</span></div>
+        </div>
+        <div class="wt-r"><button class="btn">Diff</button><button class="btn">Open PR</button></div>
+      </div>
+
+      <div class="wt">
+        <div class="wt-l">
+          <div class="b">worktree-auth</div>
+          <div class="p">.claude/worktrees/auth · 3 commits ahead</div>
+          <div class="chips"><span class="chip dirty">2 files changed</span><span class="chip owner">auth-jwt-rotation</span></div>
+        </div>
+        <div class="wt-r"><button class="btn">Diff</button><button class="btn">Open PR</button></div>
+      </div>
+
+      <div class="wt">
+        <div class="wt-l">
+          <div class="b">worktree-migrate</div>
+          <div class="p">.claude/worktrees/migrate · 1 commit ahead</div>
+          <div class="chips"><span class="chip clean">clean</span><span class="chip free">no session</span></div>
+        </div>
+        <div class="wt-r"><button class="btn key">Start a session here</button><button class="btn">Remove</button></div>
+      </div>
+
+      <div class="wt">
+        <div class="wt-l">
+          <div class="b">worktree-spike-cache</div>
+          <div class="p">.claude/worktrees/spike-cache · abandoned 6 days ago</div>
+          <div class="chips"><span class="chip dirty">uncommitted work</span><span class="chip free">no session</span></div>
+        </div>
+        <div class="wt-r"><button class="btn">Review</button><button class="btn">Remove</button></div>
+      </div>
+    </div>
+
+    <div class="repo">
+      <div class="repo-head"><span class="rn">web-console</span><span class="rp">~/code/web-console · main up to date</span></div>
+
+      <div class="wt">
+        <div class="wt-l">
+          <div class="b">worktree-e2e</div>
+          <div class="p">.claude/worktrees/e2e · 5 commits ahead</div>
+          <div class="chips"><span class="chip dirty">4 files changed</span><span class="chip owner">flaky-e2e-hunt</span><span class="chip">waiting on you</span></div>
+        </div>
+        <div class="wt-r"><button class="btn">Diff</button><button class="btn">Open PR</button></div>
+      </div>
+
+      <div class="wt">
+        <div class="wt-l">
+          <div class="b">worktree-tokens</div>
+          <div class="p">.claude/worktrees/tokens · 2 commits ahead</div>
+          <div class="chips"><span class="chip dirty">3 files changed</span><span class="chip owner">design-tokens</span></div>
+        </div>
+        <div class="wt-r"><button class="btn">Diff</button><button class="btn">Open PR</button></div>
+      </div>
+    </div>
+
+    <div class="panelbox" style="margin-top:14px">
+      <h4>New session</h4>
+      <div class="note">relay runs <code>claude --worktree &lt;name&gt;</code> under tmux and registers the title</div>
+      <div class="acts" style="margin-top:2px">
+        <button class="btn key">New worktree in ledger-api</button>
+        <button class="btn">New worktree in web-console</button>
+        <button class="btn">Attach to an existing branch</button>
+        <button class="btn">Prune 3 stale trees</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PERMISSIONS ============ -->
+  <section class="view" id="v-perms">
+    <div class="sechead"><span>Waiting on a decision · answer here instead of hunting for the pane</span><span>2 open</span></div>
+
+    <div class="ask">
+      <div class="ask-top"><span class="who">auth-jwt-rotation</span><span class="state blocked">Bash</span><span class="when">blocked 04:12</span></div>
+      <div class="call">rm -rf ./.keys/staging</div>
+      <div class="blast">Deletes <b>4 files</b> in the auth worktree. None are tracked by git, so this isn't recoverable from the branch.</div>
+      <div class="acts">
+        <button class="btn key">Allow once</button>
+        <button class="btn">Allow and remember <span class="rulechip">Bash(rm ./.keys/**)</span></button>
+        <button class="btn">Deny</button>
+      </div>
+    </div>
+
+    <div class="ask">
+      <div class="ask-top"><span class="who">payments-refactor</span><span class="state blocked">MCP</span><span class="when">blocked 00:38</span></div>
+      <div class="call">mcp__stripe__create_refund { charge: "ch_3PQ…", amount: 4200 }</div>
+      <div class="blast">Live Stripe key. This <b>moves real money</b> — the test key is configured on the <b>stripe-test</b> server instead.</div>
+      <div class="acts">
+        <button class="btn">Allow once</button>
+        <button class="btn key">Deny and suggest stripe-test</button>
+        <button class="btn">Deny</button>
+      </div>
+    </div>
+
+    <div class="two" style="margin-top:22px">
+      <div>
+        <div class="sechead"><span>MCP servers and tools</span><span>5 servers · 34 tools</span></div>
+
+        <div class="srv">
+          <div class="srv-head"><span class="live"></span>
+            <span><span class="nm">github</span><span class="sc">project · .mcp.json</span></span>
+            <span class="srv-meta">11 tools</span>
+          </div>
+          <div class="tl">
+            <div><div class="tn">search_repositories</div><div class="td">Read-only</div></div>
+            <div class="seg3"><button class="a" aria-pressed="true">Allow</button><button class="k" aria-pressed="false">Ask</button><button class="d" aria-pressed="false">Deny</button></div>
+          </div>
+          <div class="tl">
+            <div><div class="tn">create_pull_request</div><div class="td">Writes to the remote</div></div>
+            <div class="seg3"><button class="a" aria-pressed="false">Allow</button><button class="k" aria-pressed="true">Ask</button><button class="d" aria-pressed="false">Deny</button></div>
+          </div>
+          <div class="tl">
+            <div><div class="tn">merge_pull_request</div><div class="td">Writes to the remote</div></div>
+            <div class="seg3"><button class="a" aria-pressed="false">Allow</button><button class="k" aria-pressed="false">Ask</button><button class="d" aria-pressed="true">Deny</button></div>
+          </div>
+          <div class="tl">
+            <div><div class="tn">8 more read-only tools</div><div class="td">All set to allow</div></div>
+            <div class="seg3"><button class="a" aria-pressed="true">Allow</button><button class="k" aria-pressed="false">Ask</button><button class="d" aria-pressed="false">Deny</button></div>
+          </div>
+        </div>
+
+        <div class="srv">
+          <div class="srv-head"><span class="live"></span>
+            <span><span class="nm">stripe</span><span class="sc">user · ~/.claude.json</span></span>
+            <span class="srv-meta">6 tools · live key</span>
+          </div>
+          <div class="tl">
+            <div><div class="tn">list_charges</div><div class="td">Read-only</div></div>
+            <div class="seg3"><button class="a" aria-pressed="false">Allow</button><button class="k" aria-pressed="true">Ask</button><button class="d" aria-pressed="false">Deny</button></div>
+          </div>
+          <div class="tl">
+            <div><div class="tn">create_refund</div><div class="td">Moves money</div></div>
+            <div class="seg3"><button class="a" aria-pressed="false">Allow</button><button class="k" aria-pressed="true">Ask</button><button class="d" aria-pressed="false">Deny</button></div>
+          </div>
+          <div class="tl">
+            <div><div class="tn">4 more write tools</div><div class="td">Mixed</div></div>
+            <div class="seg3"><button class="a" aria-pressed="false">Allow</button><button class="k" aria-pressed="true">Ask</button><button class="d" aria-pressed="false">Deny</button></div>
+          </div>
+        </div>
+
+        <div class="srv">
+          <div class="srv-head"><span class="live off"></span>
+            <span><span class="nm">postgres-staging</span><span class="sc">project · not connected</span></span>
+            <span class="srv-meta">start to list tools</span>
+          </div>
+        </div>
+
+        <div class="srv">
+          <div class="srv-head"><span class="live err"></span>
+            <span><span class="nm">linear</span><span class="sc">user · auth expired</span></span>
+            <span class="srv-meta">reconnect</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="sechead"><span>What this writes</span></div>
+        <div class="panelbox" style="padding:15px 16px">
+          <div class="scope">
+            <button aria-pressed="false">User</button>
+            <button aria-pressed="true">Project</button>
+            <button aria-pressed="false">Local</button>
+          </div>
+          <div class="json"><span class="k">"permissions"</span>: {
+  <span class="k">"allow"</span>: [
+    <span class="s">"mcp__github__search_repositories"</span>,
+<span class="add">+   "Bash(rm ./.keys/**)",</span>
+    <span class="s">"Bash(git *)"</span>
+  ],
+  <span class="k">"ask"</span>: [
+    <span class="s">"mcp__stripe__.*"</span>,
+    <span class="s">"mcp__github__create_pull_request"</span>
+  ],
+  <span class="k">"deny"</span>: [
+    <span class="s">"mcp__github__merge_pull_request"</span>
+  ]
+}</div>
+          <div class="pend"><span>.claude/settings.json</span><span>3 unsaved changes</span></div>
+          <div class="acts">
+            <button class="btn key">Write and reload</button>
+            <button class="btn">Discard</button>
+          </div>
+          <div class="note" style="margin:14px 0 0">Claude Code's file watcher picks the change up in every running session — nothing restarts.</div>
+        </div>
+
+        <div class="panelbox" style="padding:15px 16px">
+          <h4>Worth pre-approving</h4>
+          <div class="note">based on 31 prompts today</div>
+          <div class="split">
+            <div class="split-row"><span class="n">Bash(git *)</span><span class="split-bar"><i style="width:100%"></i></span><span class="amt">19×</span></div>
+            <div class="split-row"><span class="n">Read(**)</span><span class="split-bar"><i style="width:37%"></i></span><span class="amt">7×</span></div>
+            <div class="split-row"><span class="n">Bash(npm test*)</span><span class="split-bar"><i style="width:26%"></i></span><span class="amt">5×</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="foot">
+    <b>Mockup — not a working app.</b> Overview state comes from Notification / Stop / TeammateIdle hooks keyed on CLAUDE_SESSION_ID. The lead panel uses ListAgents and SendMessage, plus CLAUDE_CODE_MESSAGING_SOCKET to post into a session from outside. Grid panes are tmux capture-pane rendered in xterm.js — sessions must be launched by Relay to appear here. Usage comes from the status line's stdin payload (rate_limits, cost, context) plus the OTel exporter; costs are estimates. Permissions use a PermissionRequest HTTP hook for live decisions, an MCP tools/list call for the tool inventory, and a deterministic JSON merge into settings.json.
+  </div>
+</div>
+
+<script>
+(function(){
+  // ---- tabs ----
+  var tabs=[].slice.call(document.querySelectorAll('.tab'));
+  tabs.forEach(function(t){
+    t.addEventListener('click',function(){
+      tabs.forEach(function(x){x.setAttribute('aria-selected','false')});
+      t.setAttribute('aria-selected','true');
+      document.querySelectorAll('.view').forEach(function(v){v.classList.remove('on')});
+      document.getElementById('v-'+t.dataset.v).classList.add('on');
+    });
+  });
+
+  // ---- attention ribbon ----
+  var lanes=[
+    {n:'flaky-e2e-hunt',   c:'11:48', hot:true,  p:'wwwwwwwwwwwwwwwwbbwwwwwwwwbbbbbbbbbbbbbbbbbbbbbbbb'},
+    {n:'auth-jwt-rotation',c:'04:12', hot:true,  p:'iiiiwwwwwwwwwwwwwwwwwwwwwwwwbbbbwwwwwwwwwwwwbbbbbbb'},
+    {n:'db-migration-audit',c:'—',    hot:false, p:'wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwfffffffff'},
+    {n:'payments-refactor',c:'22:06', hot:false, p:'wwwwwwwwbbwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww'},
+    {n:'design-tokens',    c:'03:19', hot:false, p:'iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiwwwwwwww'},
+    {n:'docs-sweep',       c:'—',     hot:false, p:'wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwiiiiiiiiiiiii'}
+  ];
+  var map={w:'working',b:'blocked',i:'idle',f:'failed'};
+  document.getElementById('lanes').innerHTML=lanes.map(function(l){
+    var segs=l.p.split('').map(function(ch){return '<i class="seg '+map[ch]+'"></i>'}).join('');
+    return '<div class="lane"><span class="lane-name">'+l.n+'</span>'+
+           '<span class="lane-track">'+segs+'</span>'+
+           '<span class="lane-clock'+(l.hot?' hot':'')+'">'+l.c+'</span></div>';
+  }).join('');
+
+  // ---- live blocked timers ----
+  function fmt(s){var m=Math.floor(s/60);return (m<10?'0':'')+m+':'+((s%60)<10?'0':'')+(s%60);}
+  var timers=[].slice.call(document.querySelectorAll('.timer[data-since]'));
+  var hero=document.getElementById('hero-clock');
+  setInterval(function(){
+    timers.forEach(function(el){
+      var s=parseInt(el.dataset.since,10)+1; el.dataset.since=s; el.textContent=fmt(s);
+    });
+    if(timers[0]) hero.textContent=timers[0].textContent;
+    var ln=document.querySelectorAll('.lane-clock.hot');
+    if(ln[0]&&timers[0]) ln[0].textContent=timers[0].textContent;
+    if(ln[1]&&timers[1]) ln[1].textContent=timers[1].textContent;
+  },1000);
+
+  // ---- segmented toggles ----
+  document.querySelectorAll('.seg3, .scope').forEach(function(g){
+    g.addEventListener('click',function(e){
+      var b=e.target.closest('button'); if(!b) return;
+      [].slice.call(g.children).forEach(function(x){x.setAttribute('aria-pressed','false')});
+      b.setAttribute('aria-pressed','true');
+    });
+  });
+
+  // ---- token bars ----
+  var days=[
+    ['Sat',18,9,5],['Sun',6,3,2],['Mon',44,22,12],['Tue',52,26,14],
+    ['Wed',38,19,10],['Thu',61,30,16],['Fri',49,25,13]
+  ];
+  var max=0; days.forEach(function(d){max=Math.max(max,d[1]+d[2]+d[3])});
+  document.getElementById('bars').innerHTML=days.map(function(d){
+    var h=function(v){return (v/max*100)+'%'};
+    return '<div class="bcol">'+
+      '<i class="bseg cw" style="height:'+h(d[3])+'"></i>'+
+      '<i class="bseg o" style="height:'+h(d[2])+'"></i>'+
+      '<i class="bseg i" style="height:'+h(d[1])+'"></i>'+
+      '<span class="blabel">'+d[0]+'</span></div>';
+  }).join('');
+})();
+</script>
+</body>
+</html>

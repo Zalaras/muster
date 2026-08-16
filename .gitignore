@@ -1,0 +1,29 @@
+# Go
+/bin/
+*.test
+*.out
+
+# SQLite (daemon state; never committed)
+*.db
+*.db-wal
+*.db-shm
+
+# Node / frontend
+node_modules/
+web/dist/
+web/.vite/
+
+# Playwright
+/web/test-results/
+/web/playwright-report/
+/web/blob-report/
+
+# Local, machine-specific
+.DS_Store
+.env
+.env.local
+/local/
+
+# Claude Code: the project settings.json IS committed (it is the AI build harness
+# config, next-steps.md item 3). Only personal overrides are ignored.
+.claude/settings.local.json
