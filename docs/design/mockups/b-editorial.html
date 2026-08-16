@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Muster — Direction B · Editorial</title>
+<style>
+:root{
+  --paper:#F7F4ED; --paper2:#FFFDF8; --ink:#1B1917; --ink2:#3D3833;
+  --rule:#E2DACB; --rule2:#CFC4B0; --muted:#7C7368; --faint:#A79C8D;
+  --blocked:#B24A1C; --failed:#8E2F2F; --working:#3B6B55; --planning:#3F5480;
+  --idle:#A79C8D;
+  --serif:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
+  --sans:system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;
+  -webkit-font-smoothing:antialiased;display:flex;flex-direction:column;overflow:hidden;
+}
+
+/* ── masthead ─────────────────────────────────────── */
+.mast{display:flex;align-items:flex-end;gap:30px;padding:16px 26px 13px;
+  border-bottom:1px solid var(--rule2);background:var(--paper2);flex:none}
+.brand h1{margin:0;font-family:var(--serif);font-weight:600;font-size:25px;
+  letter-spacing:-.015em;line-height:1}
+.brand .sub{display:block;margin-top:5px;font-size:11.5px;color:var(--faint);
+  letter-spacing:.04em}
+.gauges{margin-left:auto;display:flex;align-items:flex-end;gap:28px}
+.g{min-width:120px}
+.g .top{display:flex;align-items:baseline;gap:7px;margin-bottom:6px}
+.g .lbl{font-size:11px;color:var(--muted);letter-spacing:.06em}
+.g .num{font-family:var(--serif);font-size:19px;line-height:1;font-variant-numeric:tabular-nums}
+.g .rst{margin-left:auto;font-size:11px;color:var(--faint)}
+.rulebar{height:2px;background:var(--rule);position:relative}
+.rulebar i{position:absolute;inset:0 auto 0 0;background:var(--ink2)}
+.rulebar.warn i{background:var(--blocked)}
+.g.unknown .num{color:var(--faint);font-style:italic;font-size:15px}
+.model{font-family:var(--mono);font-size:11.5px;color:var(--muted);
+  border-bottom:2px solid var(--rule2);padding-bottom:3px}
+.health{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:7px;padding-bottom:3px}
+.health .dot{width:7px;height:7px;border-radius:50%;background:var(--working)}
+body.is-down .health .dot{background:var(--failed)}
+body.is-down .health{color:var(--failed)}
+.lbl-down{display:none}
+body.is-down .lbl-ok{display:none}
+body.is-down .lbl-down{display:inline}
+
+.down{display:none;padding:12px 26px;background:#F6E7E2;border-bottom:1px solid #E0C3B9;
+  font-size:13px;color:#6E2A20;flex:none;line-height:1.5}
+.down b{font-family:var(--serif);font-weight:600}
+body.is-down .down{display:block}
+
+/* ── split ────────────────────────────────────────── */
+.split{display:flex;flex:1;min-height:0}
+
+/* ── rail ─────────────────────────────────────────── */
+.rail{width:330px;flex:none;border-right:1px solid var(--rule2);
+  display:flex;flex-direction:column;min-height:0;background:var(--paper)}
+.railhead{padding:16px 22px 10px;flex:none}
+.railhead .k{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.railhead .lede{font-family:var(--serif);font-size:16.5px;line-height:1.35;margin-top:6px}
+.railhead .lede em{font-style:normal;color:var(--blocked)}
+.cards{overflow-y:auto;flex:1;min-height:0;padding:4px 0 20px}
+
+.card{padding:14px 22px 15px;border-top:1px solid var(--rule);cursor:pointer}
+.card:hover{background:var(--paper2)}
+.card.on{background:var(--paper2);box-shadow:inset 3px 0 0 var(--ink)}
+.r1{display:flex;align-items:baseline;gap:9px}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--idle);
+  transform:translateY(-1px)}
+.name{font-family:var(--serif);font-size:17px;font-weight:600;letter-spacing:-.01em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.timer{margin-left:auto;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;flex:none}
+.r2{margin-top:4px;display:flex;align-items:baseline;gap:8px;font-size:12.5px;color:var(--muted)}
+.r2 .state{color:var(--ink2)}
+.r2 .where{font-family:var(--mono);font-size:11.5px;color:var(--faint)}
+.r3{margin-top:9px;display:flex;align-items:center;gap:9px;font-size:11.5px;color:var(--muted)}
+.ctx{width:64px;height:2px;background:var(--rule);position:relative;flex:none}
+.ctx i{position:absolute;inset:0 auto 0 0;background:var(--muted)}
+.ctx.hot i{background:var(--blocked)}
+.tok{font-variant-numeric:tabular-nums;color:var(--faint)}
+.cmp{margin-left:auto;color:var(--faint)}
+.note{margin-top:10px;font-family:var(--serif);font-size:14px;line-height:1.5;
+  color:var(--ink2);border-left:2px solid var(--rule2);padding-left:11px}
+.card.blocked .dot{background:var(--blocked)}
+.card.blocked .r2 .state{color:var(--blocked)}
+.card.blocked .note{border-color:var(--blocked)}
+.card.failed .dot{background:var(--failed)}
+.card.failed .r2 .state{color:var(--failed)}
+.card.failed .note{border-color:var(--failed)}
+.card.working .dot{background:var(--working)}
+.card.planning .dot{background:var(--planning)}
+.card.planning .r2 .state{color:var(--planning)}
+.card.started .dot{background:var(--muted)}
+.card.idle .dot{background:transparent;border:1px solid var(--rule2)}
+.card.idle .name{color:var(--muted);font-weight:400}
+.snap{margin-top:9px;font-family:var(--mono);font-size:10.5px;line-height:1.45;
+  color:var(--faint);white-space:pre;overflow:hidden}
+
+/* ── main ─────────────────────────────────────────── */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;padding:22px 26px 0}
+.mhead{flex:none;padding-bottom:15px}
+.mhead .t{display:flex;align-items:baseline;gap:12px}
+.mhead h2{margin:0;font-family:var(--serif);font-size:24px;font-weight:600;letter-spacing:-.02em}
+.mhead .where{font-family:var(--mono);font-size:12px;color:var(--faint)}
+.mhead .sub{margin-top:6px;font-size:13px;color:var(--muted)}
+.mhead .sub em{font-style:italic;color:var(--faint)}
+.acts{margin-top:13px;display:flex;gap:9px}
+.btn{font-family:var(--sans);font-size:12.5px;padding:6px 14px;border:1px solid var(--rule2);
+  background:var(--paper2);color:var(--ink2);cursor:pointer;border-radius:2px}
+.btn:hover{border-color:var(--muted)}
+.btn.key{background:var(--ink);border-color:var(--ink);color:var(--paper2)}
+
+/* the terminal: the only dark surface, framed like a plate */
+.plate{flex:1;min-height:0;display:flex;flex-direction:column;
+  background:#211E1B;border-radius:3px 3px 0 0;box-shadow:0 1px 0 var(--rule2)}
+.plate .bar{flex:none;display:flex;align-items:center;gap:8px;padding:8px 14px;
+  border-bottom:1px solid #322D28;font-family:var(--mono);font-size:10.5px;color:#8A7F72}
+.plate .bar .sp{margin-left:auto}
+.term{flex:1;min-height:0;overflow:auto;padding:15px 18px;font-family:var(--mono);
+  font-size:12.5px;line-height:1.7;color:#DDD5C8;white-space:pre-wrap}
+.term .u{color:#8A7F72}
+.term .tool{color:#8FB39E}
+.term .ok{color:#7E9E86}
+.term .box{color:#D9A66B}
+.term .warn{color:#D9A66B}
+.term .cursor{background:#DDD5C8;color:#211E1B}
+
+/* ── modal ────────────────────────────────────────── */
+.scrim{display:none;position:fixed;inset:0;background:rgba(27,25,23,.38);
+  align-items:center;justify-content:center;z-index:20}
+body.is-new .scrim{display:flex}
+.modal{width:560px;background:var(--paper2);border:1px solid var(--rule2);border-radius:3px;
+  box-shadow:0 18px 50px rgba(27,25,23,.22)}
+.modal h2{margin:0;padding:18px 22px 14px;font-family:var(--serif);font-size:21px;font-weight:600}
+.picker{border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);
+  max-height:190px;overflow:auto}
+.dir{display:flex;align-items:baseline;gap:11px;padding:10px 22px;font-size:13px;
+  color:var(--ink2);cursor:pointer}
+.dir:hover,.dir.on{background:#F0EADD}
+.dir .p{font-family:var(--mono);font-size:12px}
+.dir .star{width:11px;color:var(--blocked)}
+.dir .br{margin-left:auto;color:var(--faint);font-size:12px}
+.dir .ago{width:36px;text-align:right;color:var(--faint);font-size:12px}
+.form{padding:18px 22px;display:grid;grid-template-columns:92px 1fr;gap:14px 14px;align-items:center}
+.form label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.field{font-family:var(--mono);font-size:12.5px;padding:7px 10px;border:1px solid var(--rule2);
+  background:var(--paper);border-radius:2px}
+.field.ph{color:var(--faint)}
+.radios{display:flex;gap:18px;font-size:13px;color:var(--muted)}
+.radios span{cursor:pointer}
+.radios .on{color:var(--ink)}
+.radios i{display:inline-block;width:10px;height:10px;border:1px solid var(--rule2);
+  border-radius:50%;margin-right:6px;vertical-align:-1px}
+.radios .on i{border-color:var(--ink);background:radial-gradient(circle,var(--ink) 0 3px,transparent 3px)}
+.mfoot{display:flex;gap:9px;justify-content:flex-end;padding:14px 22px;border-top:1px solid var(--rule)}
+
+.demo{position:fixed;right:18px;bottom:16px;display:flex;gap:8px;z-index:30}
+</style>
+</head>
+<body>
+
+<header class="mast">
+  <div class="brand"><h1>Muster</h1><span class="sub">Direction B · editorial</span></div>
+  <div class="gauges">
+    <div class="g">
+      <div class="top"><span class="lbl">5-hour</span><span class="num">61%</span><span class="rst">resets 14:20</span></div>
+      <div class="rulebar warn"><i style="width:61%"></i></div>
+    </div>
+    <div class="g">
+      <div class="top"><span class="lbl">7-day</span><span class="num">23%</span><span class="rst">resets Fri</span></div>
+      <div class="rulebar"><i style="width:23%"></i></div>
+    </div>
+    <span class="model">opus</span>
+    <div class="health"><span class="dot"></span><span class="lbl-ok">daemon ok</span><span class="lbl-down">daemon down</span></div>
+  </div>
+</header>
+
+<div class="down"><b>Muster's daemon is down.</b> The error lines filling every pane are Muster's absence — your sessions are still running in tmux. Everything below is last-known state, frozen at the time shown.</div>
+
+<div class="split">
+
+  <aside class="rail">
+    <div class="railhead">
+      <div class="k">Sessions · by who needs you</div>
+      <div class="lede">Two are waiting on you. The longest has been blocked <em>11 minutes</em>.</div>
+    </div>
+    <div class="cards">
+
+      <article class="card blocked on">
+        <div class="r1"><span class="dot"></span><span class="name">flaky-e2e-hunt</span><span class="timer">11:48</span></div>
+        <div class="r2"><span class="state">Needs you</span><span class="where">muster / feat-e2e</span></div>
+        <div class="r3"><span class="ctx"><i style="width:42%"></i></span><span>42%</span><span class="tok">84k</span><span class="cmp">compacted 2×</span></div>
+        <div class="note">Plan approval — rewrite <code>playwright.config.ts</code> and drop the retry wrapper.</div>
+      </article>
+
+      <article class="card blocked">
+        <div class="r1"><span class="dot"></span><span class="name">auth-jwt-rotation</span><span class="timer">04:12</span></div>
+        <div class="r2"><span class="state">Needs you</span><span class="where">ledger-api / wt-auth</span></div>
+        <div class="r3"><span class="ctx"><i style="width:19%"></i></span><span>19%</span><span class="tok">38k</span></div>
+        <div class="note">Permission — <code>Bash(rm -rf ./.keys/staging)</code></div>
+      </article>
+
+      <article class="card failed">
+        <div class="r1"><span class="dot"></span><span class="name">db-migration-audit</span><span class="timer">stopped 6m ago</span></div>
+        <div class="r2"><span class="state">Failed</span><span class="where">ledger-api / main</span></div>
+        <div class="r3"><span class="ctx hot"><i style="width:61%"></i></span><span>61%</span><span class="tok">122k</span></div>
+        <div class="note">The turn ended on an error Claude Code reported as <code>unknown</code>. Work up to migration 0041 is committed.</div>
+      </article>
+
+      <article class="card planning">
+        <div class="r1"><span class="dot"></span><span class="name">spec-research</span><span class="timer">00:47</span></div>
+        <div class="r2"><span class="state">Planning</span><span class="where">muster / main</span></div>
+        <div class="r3"><span class="ctx"><i style="width:12%"></i></span><span>12%</span><span class="tok">24k</span></div>
+        <div class="snap">> Reading SPEC.md §9 …</div>
+      </article>
+
+      <article class="card working">
+        <div class="r1"><span class="dot"></span><span class="name">payments-refactor</span><span class="timer">02:31</span></div>
+        <div class="r2"><span class="state">Working</span><span class="where">mdrostering / develop</span></div>
+        <div class="r3"><span class="ctx hot"><i style="width:77%"></i></span><span>77%</span><span class="tok">154k</span><span class="cmp">compacted 1×</span></div>
+        <div class="snap">  ⏵ Edit(internal/pay/charge.go)</div>
+      </article>
+
+      <article class="card started">
+        <div class="r1"><span class="dot"></span><span class="name">docs-pass</span><span class="timer">00:08</span></div>
+        <div class="r2"><span class="state">Started</span><span class="where">ccc-spike</span></div>
+        <div class="r3"><span style="color:var(--faint);font-style:italic">context unknown — no API response yet</span></div>
+        <div class="note">First launch in this directory — most likely waiting on Claude Code's trust prompt, which blocks startup silently. Focus the pane to answer it.</div>
+      </article>
+
+      <article class="card idle">
+        <div class="r1"><span class="dot"></span><span class="name">readme-tidy</span><span class="timer">34m</span></div>
+        <div class="r2"><span class="state">Idle</span><span class="where">muster / main</span></div>
+        <div class="r3"><span class="ctx"><i style="width:8%"></i></span><span>8%</span><span class="tok">16k</span></div>
+        <div class="snap">  last: rewrote the Commands section</div>
+      </article>
+
+    </div>
+  </aside>
+
+  <section class="main">
+    <div class="mhead">
+      <div class="t"><h2>flaky-e2e-hunt</h2><span class="where">muster / feat-e2e</span></div>
+      <div class="sub">opus · plan mode <em>(last known — Shift+Tab changes are invisible to Muster)</em> · blocked 11:48</div>
+      <div class="acts">
+        <button class="btn key">Approve plan</button>
+        <button class="btn">Reject with a note</button>
+        <button class="btn">Resume</button>
+        <button class="btn">Open in VS Code</button>
+      </div>
+    </div>
+
+    <div class="plate">
+      <div class="bar"><span>tmux · muster:3</span><span class="sp">80×24 · one live client · this pane owns the geometry</span></div>
+      <div class="term"><span class="u">> the e2e suite is flaky on CI — find out why</span>
+
+I've read the last 40 CI runs. Three specs fail non-deterministically and all
+three share the retry wrapper added in <span class="tool">a1f3c2</span>. My plan:
+
+<span class="tool">  ⏵ Read(web/playwright.config.ts)</span>          <span class="ok">✓ 61 lines</span>
+<span class="tool">  ⏵ Grep(test.retry, web/e2e/)</span>              <span class="ok">✓ 9 matches</span>
+<span class="tool">  ⏵ Bash(gh run list --limit 40 --json)</span>     <span class="ok">✓</span>
+
+<span class="box">╭──────────────────────────────────────────────────────────────╮
+│  Ready to code?                                              │
+│                                                              │
+│   1. Rewrite playwright.config.ts — per-run ports, no reuse  │
+│   2. Drop the retry wrapper; make the three specs wait on    │
+│      an explicit readiness signal instead                    │
+│   3. Re-run the suite 20× to confirm                         │
+│                                                              │
+│  ❯ 1. Yes, and auto-accept edits                             │
+│    2. Yes, and manually approve edits                        │
+│    3. No, keep planning                                      │
+╰──────────────────────────────────────────────────────────────╯</span>
+
+<span class="warn">  ⏸ waiting on you — 11:48</span> <span class="cursor"> </span></div>
+    </div>
+  </section>
+</div>
+
+<div class="scrim">
+  <div class="modal">
+    <h2>New session</h2>
+    <div class="picker">
+      <div class="dir on"><span class="star"></span><span class="p">~/code/Projects/muster</span><span class="br">main</span><span class="ago">2m</span></div>
+      <div class="dir"><span class="star"></span><span class="p">~/code/company/mdrostering</span><span class="br">develop</span><span class="ago">1h</span></div>
+      <div class="dir"><span class="star">★</span><span class="p">~/code/Projects/ledger-api</span><span class="br">main</span><span class="ago">2d</span></div>
+      <div class="dir"><span class="star"></span><span class="p">~/code/spikes/ccc-spike</span><span class="br">—</span><span class="ago">3d</span></div>
+    </div>
+    <div class="form">
+      <label>Directory</label><div class="field">~/code/Projects/muster</div>
+      <label>Title</label><div class="field ph">optional — Claude Code auto-generates one</div>
+      <label>Model</label><div class="radios"><span><i></i>sonnet</span><span class="on"><i></i>opus</span></div>
+      <label>Start in</label><div class="radios"><span class="on"><i></i>auto-accept</span><span><i></i>plan mode</span><span><i></i>default</span></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn" onclick="document.body.classList.remove('is-new')">Cancel</button>
+      <button class="btn key">Launch ⏎</button>
+    </div>
+  </div>
+</div>
+
+<div class="demo">
+  <button class="btn" onclick="document.body.classList.toggle('is-new')">New session ⌘N</button>
+  <button class="btn" onclick="document.body.classList.toggle('is-down')">Toggle daemon-down</button>
+</div>
+
+</body>
+</html>

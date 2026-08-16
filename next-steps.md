@@ -120,11 +120,24 @@ repo contaminated the first probe session with Muster's instructions.
 - A dev-loop/run skill is deliberately deferred into M0's definition of done — there is
   nothing to run until the daemon exists.
 
-## 4. Design (can overlap with M0)
-- UX flows first: the new-session flow and the worktree data layer (SPEC open
-  question #2 — the one genuinely unsettled area), then visual design.
-- Reference material: `session-manager-mockup.html` (aesthetic starting point; feature
-  content superseded by SPEC).
+## 4. Design — UX flows ✅ DONE 2026-08-16; visual direction ⏳ awaiting pick
+
+- ✅ **UX flows** → `docs/design/ux-flows.md`. Settles SPEC §9 Q2 (launch/worktree data
+  layer) plus the launch form, trust-prompt handling, dashboard layout, rail sort order
+  and the degraded/honest states. SPEC §11 carries the changelog entry.
+  - Directory memory: **hybrid MRU + promotion**. Worktrees: **recognized, never created**
+    in v1. Layout: **rail + one focused live pane** (the sizing constraint demands exactly
+    one live client per session). Launch form: directory + title + model + starting
+    permission mode.
+- ⏳ **Visual direction**: three mockups to compare in `docs/design/mockups/` —
+  `a-instrument.html` (control desk, dense, closest to the old mockup, keeps the attention
+  ribbon), `b-editorial.html` (warm light, typographic, terminal as the only dark surface),
+  `c-terminal.html` (monospace throughout, chrome recedes into the TUI). All three render
+  the same fixture including the unknown-usage, failed and daemon-down states.
+  **Next action: Damian picks one** (or a hybrid), then it becomes a design-system section
+  in `review-work`'s checklist, which is a placeholder until then.
+- Reference material: `session-manager-mockup.html` (superseded — its tabbed views and
+  lead-session chat panel are dropped; the aesthetic survives in direction A).
 - Must land before M1/M2 UI work, not before M0.
 
 ## 5. Build M0 → M4 per SPEC §10

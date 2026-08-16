@@ -383,10 +383,15 @@ restarts/reconcile; WebSocket fanout pushes deltas to the UI.
    a possible future state manages other agent CLIs (§4.6). Rejected on those grounds:
    `tower`, `wheelhouse`, `belfry`, `roost`, `pitwall`, `ccmux`. Rationale in
    `interview-notes.md`. Daemon binary is `musterd`; module is `github.com/Zalaras/muster`.
-2. **Launch/worktree data-layer design** — exactly what the "new session" flow remembers
-   and offers (recent dirs? repo registry curation? default worktree-per-session?).
-   Damian flagged this as genuinely unsettled. Design during build of §2.5, revisit at
-   §4.2.
+2. ~~**Launch/worktree data-layer design**~~ — **RESOLVED (2026-08-16)** by the design
+   session; full flows in `docs/design/ux-flows.md`. **Hybrid MRU + promotion**: every
+   launch auto-remembers its directory as a `repo` row, and a row becomes "promoted" only
+   when it carries per-repo config (§4.2's setup script / env globs) — no upfront
+   registration step. **No worktree creation in v1**: sessions launch into the checkout
+   picked, `worktree_id` stays NULL, and the only worktree work v1 does is *recognizing*
+   one it was pointed at (`git rev-parse --git-common-dir` ≠ `--git-dir`) so the session
+   list shows repo/branch truthfully. §4.2 then adds one field to the launch form and
+   repaints no table.
 3. ~~**Failed-state detection**~~ — **RESOLVED (2026-08-16).** The `StopFailure` hook fires
    with a typed `error` field. See `spikes/FINDINGS.md` §3. The last sub-question — whether
    `Stop` *also* fires alongside `StopFailure` — was settled by the H2 probe (2026-08-16):
@@ -443,6 +448,33 @@ not part of this spec.
 ---
 
 ## 11. Changelog
+
+### 2026-08-16 — design session (next-steps item 4)
+
+UX flows settled before M1/M2 UI work. Authority for interface behaviour is now
+`docs/design/ux-flows.md`; three visual directions to choose between are in
+`docs/design/mockups/`. Decisions:
+
+- **§9 Q2 resolved** — hybrid MRU + promotion for directory memory; no worktree creation
+  in v1, but v1 *recognizes* a worktree it is pointed at. See Q2 above.
+- **§2.5 launch form** — directory + optional title + **model** + **starting permission
+  mode**. Asking for the mode at launch is the only moment Muster can honestly seed
+  `permission_mode`, since manual Shift+Tab changes fire no hook and no status-line update
+  (§4.5). The seed is corrected by the first `UserPromptSubmit` that carries the field and
+  is always rendered as *last known*, never authoritative.
+- **§2.5 trust prompt** — surfaced, never auto-answered (it is the only gate before Claude
+  Code can read/edit/execute in a folder). Detected by absence plus Muster's own records —
+  a directory with no prior `repo` row is expected to block; otherwise no `SessionStart`
+  within ~10 s shows "no signal yet". Never by reading the pane. Open probe candidate:
+  whether Claude Code records per-directory trust somewhere readable.
+- **§2.1 / §2.4 layout** — **rail + one focused pane**. Exactly one live client per
+  session at a time, which is what the measured sizing constraint requires; rail cards are
+  static snapshots. Account usage lives in a persistent masthead, not behind a tab. The
+  mockup's tabbed views and its lead-session chat panel are dropped.
+- **§2.1 sort order** — Needs-Input (longest-blocked first) → Failed (most recent) →
+  Planning → Working → Started → Idle (longest-idle first).
+- **§2.2 / §2.3 honesty** — an unknown gauge renders as the word *unknown* with **no
+  track drawn at all**; a 0%-filled track reads as "0% used" and is forbidden.
 
 ### 2026-08-16 — stack pattern decisions (AI-harness session)
 

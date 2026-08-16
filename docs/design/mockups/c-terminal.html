@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Muster — Direction C · Terminal-native</title>
+<style>
+:root{
+  --bg:#0B0D0C; --bg2:#101312; --fg:#D3D8D1; --dim:#6B756E; --faint:#454E49;
+  --rule:#1E2321;
+  --amber:#E3B25C; --red:#DE7070; --cyan:#6FBFC9; --violet:#A98CD8; --green:#84BD8A;
+  --mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--fg);
+  font-family:var(--mono);font-size:12.5px;line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.hi{color:#fff}
+.dim{color:var(--dim)}
+.faint{color:var(--faint)}
+
+/* ── masthead: one status line ─────────────────────── */
+.mast{flex:none;display:flex;align-items:center;gap:0;padding:7px 12px;
+  border-bottom:1px solid var(--rule);background:var(--bg2);white-space:nowrap;overflow:hidden}
+.mast .seg{padding:0 14px;border-right:1px solid var(--rule)}
+.mast .seg:first-child{padding-left:0}
+.mast .seg:last-child{border-right:0}
+.mast .brand{color:var(--amber);letter-spacing:.22em;font-weight:700}
+.mast .push{margin-left:auto;border-right:0}
+.meter{color:var(--faint);letter-spacing:-.06em}
+.meter b{font-weight:400}
+.m5 b{color:var(--amber)}
+.m7 b{color:var(--cyan)}
+.pct{font-variant-numeric:tabular-nums;color:var(--fg)}
+.ok{color:var(--green)}
+.bad{color:var(--red)}
+
+.down{display:none;flex:none;padding:7px 12px;background:#2A1414;
+  border-bottom:1px solid #4A2222;color:#F0A8A8}
+body.is-down .down{display:block}
+body.is-down .daemon{color:var(--red)}
+body.is-down .daemon .ok{display:none}
+body.is-down .daemon::after{content:'down'}
+
+/* ── split ─────────────────────────────────────────── */
+.split{display:flex;flex:1;min-height:0}
+
+/* ── rail: a text column ───────────────────────────── */
+.rail{width:302px;flex:none;border-right:1px solid var(--rule);
+  display:flex;flex-direction:column;min-height:0;background:var(--bg2)}
+.railhead{flex:none;padding:8px 12px 7px;color:var(--faint);
+  border-bottom:1px solid var(--rule);display:flex}
+.railhead .n{margin-left:auto}
+.cards{flex:1;min-height:0;overflow-y:auto;padding:4px 0}
+
+.row{padding:7px 12px 9px;cursor:pointer;border-left:2px solid transparent}
+.row:hover{background:#151918}
+.row.on{background:#161B19;border-left-color:var(--fg)}
+.l1{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
+.mark{width:11px;flex:none;text-align:center}
+.nm{overflow:hidden;text-overflow:ellipsis}
+.tm{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--dim);flex:none}
+.l2{padding-left:19px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.l3{padding-left:19px;color:var(--dim);display:flex;gap:9px;align-items:baseline}
+.l3 .g{color:var(--faint);letter-spacing:-.06em}
+.l3 .cmp{margin-left:auto}
+.l4{padding-left:19px;margin-top:5px;color:var(--amber);white-space:pre-wrap;line-height:1.45}
+.l4.f{color:var(--red)}
+.snap{padding-left:19px;margin-top:5px;color:var(--faint);white-space:pre;overflow:hidden;line-height:1.4}
+
+.blocked .mark{color:var(--amber)} .blocked .nm{color:var(--amber)}
+.failed  .mark{color:var(--red)}   .failed .nm{color:var(--red)}
+.planning .mark{color:var(--violet)} .planning .nm{color:var(--violet)}
+.working .mark{color:var(--cyan)}
+.started .mark{color:var(--dim)}
+.idle    .mark{color:var(--faint)} .idle .nm{color:var(--dim)}
+
+/* ── main ──────────────────────────────────────────── */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+.mhead{flex:none;padding:7px 14px;border-bottom:1px solid var(--rule);
+  background:var(--bg2);display:flex;align-items:center;gap:14px;white-space:nowrap;overflow:hidden}
+.mhead .nm{color:var(--amber)}
+.acts{margin-left:auto;display:flex;gap:0}
+.btn{font-family:var(--mono);font-size:12px;padding:2px 11px;background:transparent;
+  border:1px solid var(--rule);border-right-width:0;color:var(--dim);cursor:pointer}
+.btn:last-child{border-right-width:1px}
+.btn:hover{color:var(--fg);background:#181D1B}
+.btn.key{color:var(--bg);background:var(--amber);border-color:var(--amber)}
+.term{flex:1;min-height:0;overflow:auto;padding:12px 14px;white-space:pre-wrap;
+  font-size:12.5px;line-height:1.65;color:var(--fg)}
+.term .u{color:var(--dim)}
+.term .t{color:var(--cyan)}
+.term .g{color:var(--green)}
+.term .b{color:var(--amber)}
+.cursor{background:var(--fg);color:var(--bg)}
+.foot{flex:none;padding:5px 14px;border-top:1px solid var(--rule);background:var(--bg2);
+  color:var(--faint);display:flex;gap:18px}
+
+/* ── new session: an overlay panel, not a card ─────── */
+.scrim{display:none;position:fixed;inset:0;background:rgba(5,7,6,.7);z-index:20;
+  align-items:center;justify-content:center}
+body.is-new .scrim{display:flex}
+.panel{width:560px;background:var(--bg2);border:1px solid var(--faint)}
+.panel .ttl{padding:6px 14px;border-bottom:1px solid var(--rule);color:var(--amber)}
+.picker{max-height:170px;overflow:auto;border-bottom:1px solid var(--rule);padding:5px 0}
+.dir{display:flex;gap:10px;padding:3px 14px;color:var(--dim);cursor:pointer;white-space:nowrap}
+.dir:hover,.dir.on{background:#181D1B;color:var(--fg)}
+.dir .ptr{width:9px;color:var(--amber)}
+.dir .br{margin-left:auto;color:var(--faint)}
+.dir .ago{width:32px;text-align:right;color:var(--faint)}
+.form{padding:11px 14px;display:grid;grid-template-columns:84px 1fr;gap:8px 12px;align-items:center}
+.form label{color:var(--faint)}
+.inp{border:1px solid var(--rule);padding:3px 8px;background:var(--bg);color:var(--fg)}
+.inp.ph{color:var(--faint)}
+.radios{display:flex;gap:16px;color:var(--dim)}
+.radios span{cursor:pointer}
+.radios .on{color:var(--fg)}
+.pfoot{display:flex;gap:0;justify-content:flex-end;padding:10px 14px;border-top:1px solid var(--rule)}
+.demo{position:fixed;right:14px;bottom:12px;display:flex;gap:0;z-index:30}
+.demo .btn{background:var(--bg2)}
+</style>
+</head>
+<body>
+
+<header class="mast">
+  <span class="seg brand">MUSTER</span>
+  <span class="seg m5 meter">5h <b>████████░░░░░</b> <span class="pct">61%</span> <span class="faint">14:20</span></span>
+  <span class="seg m7 meter">7d <b>███░░░░░░░░░░</b> <span class="pct">23%</span> <span class="faint">Fri</span></span>
+  <span class="seg dim">opus</span>
+  <span class="seg dim">7 sessions · 4 repos</span>
+  <span class="seg push daemon dim">daemon <span class="ok">ok</span></span>
+</header>
+
+<div class="down">! daemon is down — the hook-error lines filling every pane are muster's absence, not your sessions failing. state below is last-known, frozen.</div>
+
+<div class="split">
+
+  <aside class="rail">
+    <div class="railhead"><span>sessions · by who needs you</span><span class="n">7</span></div>
+    <div class="cards">
+
+      <div class="row blocked on">
+        <div class="l1"><span class="mark">!</span><span class="nm">flaky-e2e-hunt</span><span class="tm">11:48</span></div>
+        <div class="l2">muster/feat-e2e · needs you</div>
+        <div class="l3"><span class="g">ctx ████░░░░░░</span><span>42%</span><span>84k</span><span class="cmp">⟳2</span></div>
+        <div class="l4">└ plan approval · rewrite playwright.config.ts</div>
+      </div>
+
+      <div class="row blocked">
+        <div class="l1"><span class="mark">!</span><span class="nm">auth-jwt-rotation</span><span class="tm">04:12</span></div>
+        <div class="l2">ledger-api/wt-auth · needs you</div>
+        <div class="l3"><span class="g">ctx ██░░░░░░░░</span><span>19%</span><span>38k</span></div>
+        <div class="l4">└ permission · Bash(rm -rf ./.keys/staging)</div>
+      </div>
+
+      <div class="row failed">
+        <div class="l1"><span class="mark">✕</span><span class="nm">db-migration-audit</span><span class="tm">6m ago</span></div>
+        <div class="l2">ledger-api/main · failed</div>
+        <div class="l3"><span class="g">ctx ██████░░░░</span><span>61%</span><span>122k</span></div>
+        <div class="l4 f">└ StopFailure error=unknown <span class="faint">(raw, unmapped)</span></div>
+      </div>
+
+      <div class="row planning">
+        <div class="l1"><span class="mark">◆</span><span class="nm">spec-research</span><span class="tm">00:47</span></div>
+        <div class="l2">muster/main · planning</div>
+        <div class="l3"><span class="g">ctx █░░░░░░░░░</span><span>12%</span><span>24k</span></div>
+        <div class="snap">  > Reading SPEC.md §9 …</div>
+      </div>
+
+      <div class="row working">
+        <div class="l1"><span class="mark">●</span><span class="nm">payments-refactor</span><span class="tm">02:31</span></div>
+        <div class="l2">mdrostering/develop · working</div>
+        <div class="l3"><span class="g">ctx ████████░░</span><span>77%</span><span>154k</span><span class="cmp">⟳1</span></div>
+        <div class="snap">  ⏵ Edit(internal/pay/charge.go)</div>
+      </div>
+
+      <div class="row started">
+        <div class="l1"><span class="mark">○</span><span class="nm">docs-pass</span><span class="tm">00:08</span></div>
+        <div class="l2">ccc-spike · started</div>
+        <div class="l3"><span class="faint">ctx unknown — no API response yet</span></div>
+        <div class="l4">└ first launch here — likely blocked on the trust prompt. focus the pane to answer.</div>
+      </div>
+
+      <div class="row idle">
+        <div class="l1"><span class="mark">·</span><span class="nm">readme-tidy</span><span class="tm">34m</span></div>
+        <div class="l2">muster/main · idle</div>
+        <div class="l3"><span class="g">ctx █░░░░░░░░░</span><span>8%</span><span>16k</span></div>
+        <div class="snap">  last: rewrote the Commands section</div>
+      </div>
+
+    </div>
+  </aside>
+
+  <section class="main">
+    <div class="mhead">
+      <span class="nm">flaky-e2e-hunt</span>
+      <span class="dim">muster/feat-e2e</span>
+      <span class="faint">opus · plan mode (last known)</span>
+      <div class="acts">
+        <button class="btn key">approve</button>
+        <button class="btn">reject</button>
+        <button class="btn">resume</button>
+        <button class="btn">code →</button>
+      </div>
+    </div>
+
+    <div class="term"><span class="u">> the e2e suite is flaky on CI — find out why</span>
+
+I've read the last 40 CI runs. Three specs fail non-deterministically and all
+three share the retry wrapper added in <span class="t">a1f3c2</span>. My plan:
+
+<span class="t">  ⏵ Read(web/playwright.config.ts)</span>          <span class="g">✓ 61 lines</span>
+<span class="t">  ⏵ Grep(test.retry, web/e2e/)</span>              <span class="g">✓ 9 matches</span>
+<span class="t">  ⏵ Bash(gh run list --limit 40 --json)</span>     <span class="g">✓</span>
+
+<span class="b">╭──────────────────────────────────────────────────────────────╮
+│  Ready to code?                                              │
+│                                                              │
+│   1. Rewrite playwright.config.ts — per-run ports, no reuse  │
+│   2. Drop the retry wrapper; make the three specs wait on    │
+│      an explicit readiness signal instead                    │
+│   3. Re-run the suite 20× to confirm                         │
+│                                                              │
+│  ❯ 1. Yes, and auto-accept edits                             │
+│    2. Yes, and manually approve edits                        │
+│    3. No, keep planning                                      │
+╰──────────────────────────────────────────────────────────────╯</span>
+
+<span class="b">  ⏸ waiting on you — 11:48</span> <span class="cursor"> </span></div>
+
+    <div class="foot">
+      <span>tmux muster:3 · 80×24</span>
+      <span>one live client · this pane owns the geometry</span>
+      <span>rail = static snapshots</span>
+    </div>
+  </section>
+</div>
+
+<div class="scrim">
+  <div class="panel">
+    <div class="ttl">new session</div>
+    <div class="picker">
+      <div class="dir on"><span class="ptr">▸</span><span>~/code/Projects/muster</span><span class="br">main</span><span class="ago">2m</span></div>
+      <div class="dir"><span class="ptr"> </span><span>~/code/company/mdrostering</span><span class="br">develop</span><span class="ago">1h</span></div>
+      <div class="dir"><span class="ptr">★</span><span>~/code/Projects/ledger-api</span><span class="br">main</span><span class="ago">2d</span></div>
+      <div class="dir"><span class="ptr"> </span><span>~/code/spikes/ccc-spike</span><span class="br">—</span><span class="ago">3d</span></div>
+    </div>
+    <div class="form">
+      <label>directory</label><div class="inp">~/code/Projects/muster</div>
+      <label>title</label><div class="inp ph">optional — auto-generated</div>
+      <label>model</label><div class="radios"><span>( ) sonnet</span><span class="on">(•) opus</span></div>
+      <label>start in</label><div class="radios"><span class="on">(•) auto-accept</span><span>( ) plan</span><span>( ) default</span></div>
+    </div>
+    <div class="pfoot">
+      <button class="btn" onclick="document.body.classList.remove('is-new')">esc</button>
+      <button class="btn key">launch ⏎</button>
+    </div>
+  </div>
+</div>
+
+<div class="demo">
+  <button class="btn" onclick="document.body.classList.toggle('is-new')">new session ⌘N</button>
+  <button class="btn" onclick="document.body.classList.toggle('is-down')">toggle daemon-down</button>
+</div>
+
+</body>
+</html>

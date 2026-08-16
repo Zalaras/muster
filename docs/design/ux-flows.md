@@ -1,0 +1,262 @@
+# Muster — UX flows
+
+Design session 2026-08-16 (`next-steps.md` item 4). Settles SPEC §9 open question 2
+(launch/worktree data layer) and fixes the dashboard's shape before M1/M2 UI work.
+
+`SPEC.md` stays authoritative for *what* Muster does; this file is authoritative for
+*how the interface behaves*. Where this file adds a decision, SPEC §11 gets a changelog
+entry. Visual language is deliberately **not** settled here — see "Visual direction" at
+the end.
+
+## Decisions settled this session
+
+| # | Decision | Choice |
+|---|---|---|
+| 1 | Directory memory | **Hybrid MRU + promotion** — every launch auto-remembers its directory; a directory becomes a configured repo only when it needs per-repo config |
+| 2 | Worktrees in v1 | **Repo root only, schema ready** — launch into the checkout you picked; `worktree` table exists but no worktree UI until §4.2 |
+| 3 | Primary layout | **Rail + focused pane** — attention-sorted rail on the left, one live terminal filling the rest |
+| 4 | Launch form | **Directory + optional title + model + starting permission mode** |
+
+---
+
+## 1. New-session flow
+
+The only way sessions are created (§2.5 — Muster cannot adopt a session it did not
+start).
+
+### 1.1 The picker
+
+One list, ordered `pinned DESC, last_launched_at DESC`. No "add repo" ceremony: a
+directory earns its place by being used.
+
+```
+New session
+─────────────────────────────────────────────
+▸ ~/code/Projects/muster          main    2m
+  ~/code/company/mdrostering      develop 1h
+  ★ ~/code/Projects/ledger-api    main    2d
+  ~/code/spikes/ccc-spike         —       3d
+─────────────────────────────────────────────
+  Browse…                              ⌘O
+```
+
+- **★** marks a *promoted* directory — one that carries per-repo config. In v1 nothing
+  can be promoted yet (the config it would hold is §4.2's setup scripts and env globs),
+  so the marker is designed-for and unused. Pinning is manual and cheap; add it in M1
+  only if the MRU list gets long enough to annoy.
+- Branch is shown when the directory is a git checkout, `—` otherwise. Claude Code runs
+  anywhere; "repo" is the table's name, not a precondition.
+- `Browse…` opens a native directory chooser and, on launch, creates the row.
+
+### 1.2 The form
+
+```
+Directory   ~/code/Projects/muster
+Title       (optional — Claude Code auto-generates)
+Model       ( ) sonnet   (•) opus
+Start in    (•) auto-accept   ( ) plan mode   ( ) Claude Code default
+                                          [ Launch ]  ⏎
+```
+
+- **Title** maps to `--name`. Leaving it blank is a first-class choice: Claude Code
+  auto-generates a usable human title from session content (§2.1, verified), and Muster
+  reads the live title from the status line's `session_name` rather than maintaining its
+  own mapping.
+- **Model** and **Start in** default to whatever was used last, per directory. Rationale
+  for asking at all: starting a research session directly in plan mode avoids a Shift+Tab
+  dance, and it is the only moment Muster can honestly seed `permission_mode` — manual
+  Shift+Tab changes fire no hook and no status-line update (§4.5), so a mode Muster never
+  saw set is a mode it can never learn.
+- **Permission-mode honesty rule:** the launch flag seeds the indicator, the first
+  `UserPromptSubmit` carrying `permission_mode` corrects it, and the indicator is rendered
+  as *last known*, never as authoritative.
+
+### 1.3 What launch does
+
+1. Upsert the `repo` row (path, name, `is_git`, `default_branch`, `last_launched_at++`).
+2. Create the tmux window on the `muster` socket; **`tmux_target` is the session
+   identity** (§7) — a `/clear` later mints a new Claude `session_id` in the same pane and
+   must not look like a new session.
+3. Set `LANG`/`LC_ALL` on the spawned process — a process spawned by a Go daemon inherits
+   none, and the failure presents as a totally broken terminal bridge (TODO M2).
+4. Ensure the directory's project-scoped `<dir>/.claude/settings.json` registers Muster's
+   hooks, status line and `allowedHttpHookUrls`. Never `~/.claude/settings.json`; never
+   `CLAUDE_CONFIG_DIR` (breaks subscription OAuth).
+5. Insert the `session` row in state `Started` and show it in the rail immediately —
+   before any hook arrives, because the first hook may be a long way off (§1.4).
+
+### 1.4 First-launch trust prompt
+
+On the first launch into a directory Claude Code has never seen, a workspace-trust prompt
+**blocks startup**: no hooks fire, no status line renders (§2.5). The session looks merely
+slow while emitting nothing.
+
+Muster surfaces it; it does **not** auto-answer. That prompt is the only gate before
+Claude Code can read, edit and execute in a folder, and answering it on the user's behalf
+from a background daemon is a security decision, not a convenience.
+
+Detection is by **absence and by Muster's own records** — never by reading the pane
+(hard rule: state never comes from terminal output):
+
+- If the directory has no prior `repo` row, a trust prompt is *expected*. The rail card
+  says so from the moment it appears: `Started · first launch here — likely waiting on
+  Claude Code's trust prompt`, with a **Focus pane** action.
+- Otherwise, a session that has emitted no `SessionStart` within ~10 s shows
+  `Started · no signal yet` with the same action. Honest about not knowing, rather than
+  guessing.
+
+Open, and a good `/interface-probe` candidate: whether Claude Code records per-directory
+trust somewhere readable (`~/.claude.json`), which would turn the guess into a fact. Any
+such knowledge lives in `internal/claudecode/`.
+
+---
+
+## 2. Launch/worktree data layer (resolves SPEC §9 Q2)
+
+What the flow remembers, and nothing more:
+
+**`repo`** — one row per directory ever launched into.
+`id`, `path` (unique), `name` (basename), `is_git`, `default_branch` (nullable),
+`last_launched_at`, `launch_count`, `pinned`, `created_at`. §4.2 later adds
+`setup_script` and `env_globs`; a row with either is what "promoted" means.
+
+**`worktree`** — exists per SPEC §7, **not written by the launch flow in v1**.
+One thing v1 *does* do: **recognize** a worktree it was pointed at. If
+`git rev-parse --git-common-dir` differs from `--git-dir`, the directory is a linked
+worktree; record it so the rail can show `repo / branch` correctly. Damian already uses
+worktrees by hand — v1 must display them truthfully even though it can't create them.
+
+**`session`** — as SPEC §7, with `worktree_id` populated only by the recognition above,
+otherwise NULL.
+
+Consequence: when §4.2 lands, the launch form grows one field
+(`main checkout · existing worktree · new worktree`) and the picker gains a setup-script
+editor. No table is repainted, no identity changes.
+
+Deliberately not decided now: how worktrees are named on creation, and the setup-script
+format. Both belong to §4.2 and neither constrains M1.
+
+---
+
+## 3. The dashboard
+
+### 3.1 Shape
+
+```
+┌────────────────────────────────────────────────────────┐
+│ MUSTER      5h ▓▓▓▓▓░░ 61%   7d ▓▓░░░░ 23%   opus      │  masthead: account-level
+├──────────────┬─────────────────────────────────────────┤
+│ attention    │                                         │
+│ rail         │   focused session — one live pane       │
+│ (snapshots)  │                                         │
+└──────────────┴─────────────────────────────────────────┘
+```
+
+- **Masthead** carries what is true of the whole account: 5-hour and 7-day bars, current
+  model, session count, and the daemon-health indicator. Always visible — the success
+  criterion (§1) is *awareness*, and awareness you have to navigate to isn't awareness.
+- **Rail** is the session list of §2.1, sorted by who needs you.
+- **Main** is exactly one live terminal. Clicking a rail card swaps which session is live.
+
+### 3.2 Why exactly one live pane
+
+Not an aesthetic choice — it falls out of the measured sizing matrix (§2.4, §9 Q5). A
+session's geometry must be ≤ the smallest grid currently rendering it live, because a
+wider grid degrades gracefully while a narrower one **silently loses content**. A live
+narrow thumbnail beside a live wide pane would corrupt the wide one.
+
+So: rail cards render a **static last-known snapshot**, never a second live client. The
+focused pane owns the session's geometry, drives both `pty.Setsize` and
+`tmux resize-window` (never `resize-pane` — it exits 0 and no-ops on single-pane
+windows), and debounces resizes ~100 ms.
+
+### 3.3 Rail card
+
+Everything §2.1 requires, plus the context signal from §2.2:
+
+```
+│ ●  flaky-e2e-hunt              11:48 │   title · state · time in state
+│    muster / feat-e2e                 │   repo / branch (or worktree)
+│    ctx 42%  84k          ⟳2          │   pct + absolute tokens + compactions
+```
+
+- **Absolute tokens sit beside the percentage** because `context_window_size` varies by
+  model — 20% of a 1M window is five times 20% of a 200k one, so the bare percentage is a
+  weak "time to restart" signal.
+- **⟳n is the compaction counter** from `PreCompact`. After `/compact` the gauge reads 0%,
+  which otherwise looks like a brand-new session with a summary silently loaded.
+- **Before a session's first API response**, `rate_limits` is an absent key and the
+  context fields are `null`. That renders as `ctx —  unknown`, never as an empty gauge at
+  0%. Same rule in the masthead bars.
+
+### 3.4 States and ordering
+
+Six states (§2.1). There is deliberately no "Done": Claude Code knows a turn ended, not
+that a task is complete.
+
+| State | Source | Rail treatment |
+|---|---|---|
+| `Needs-Input` | `Notification` (`permission_prompt` / `idle_prompt`) | Loudest. Timer counts up and escalates. |
+| `Failed` | `StopFailure` with typed `error` | Loud, but static — it stopped, it isn't waiting. |
+| `Planning` | `permission_mode: plan`, latched forward from the last hook that carried it | Distinct from Working; it's the state you may want to interrupt. |
+| `Working` | mid-turn | Calm. Motion only, no color demand. |
+| `Started` | `SessionStart`, or Muster's own launch record | Calm, with the trust-prompt caveat of §1.4. |
+| `Idle` | `Stop` | Quietest. Shows last activity, not "done". |
+
+Sort order: **Needs-Input (longest-blocked first) → Failed (most recent first) → Planning
+→ Working → Started → Idle (longest-idle first)**. Blocked-longest-at-top is the
+spec-level rule (§2.1); the rest keeps the rail stable enough to build muscle memory.
+
+`StopFailure` **replaces** `Stop` — never both (H2 probe). But a killed session emits
+*neither*, only `SessionEnd`, and sometimes not even that. So the rail must tolerate a
+session that never closes its turn: tmux pane liveness is the authority, hooks are
+enrichment.
+
+Do not build UI that assumes `StopFailure.error` maps 1:1 from API errors — an injected
+400 surfaced as `"unknown"`. Show the raw value and a human line; don't switch on an
+enum you don't control.
+
+### 3.5 Degraded and honest states
+
+These are designed, not afterthoughts — three of the four are *guaranteed* to happen.
+
+- **Daemon down.** Every managed pane fills with inline hook-error lines. The masthead
+  turns into a full-width banner explaining that the noise in the panes is Muster's
+  absence, not the session's failure.
+- **Usage unknown.** Absent `rate_limits` (pre-first-response, or API-key auth) renders
+  the word *unknown*, not a 0% bar.
+- **Session vanished.** Pane dead but session known → the card offers
+  `claude --resume <session-id>`; `SessionStart` fires with `source: "resume"` and the
+  same `session_id`, so the daemon re-binds deterministically (H2 probe).
+- **Hook loss.** Delivery is best-effort, at-most-once, unordered, with no replay. The
+  rail shows last-known state with its age; a stale timer is the honest signal that
+  Muster may have missed something.
+
+---
+
+## 4. Not designed here
+
+- Plan-approval UI (§4.1), worktree manager UI (§4.2), start-from-PR (§4.3),
+  permissions editor (§4.4) — all v1.x, all deliberately absent from the mockups so the
+  v1 surface stays legible.
+- Keyboard model beyond ⌘1–9 focus and ⌘N new session.
+- The mockup's "attention ribbon" (60-min state timeline) and lead-session chat panel:
+  the chat panel is cut outright (§3); the ribbon is a maybe, and appears in exactly one
+  of the three visual directions so it can be judged rather than assumed.
+
+## 5. Visual direction — three mockups to compare
+
+Structure is fixed by decision 3; these differ in visual language and in how much they
+say when nothing is wrong. In `docs/design/mockups/`:
+
+| | Direction | Idea |
+|---|---|---|
+| **A** | `a-instrument.html` | Control desk. Dark, dense, mono metadata, hairline rules, tabular numerics, state as a colored rail stripe. Closest to `session-manager-mockup.html`. Includes the attention ribbon. |
+| **B** | `b-editorial.html` | Calm and typographic. Warm light ground, generous space, state carried by a single dot and a word rather than color fields. The terminal is the only dark surface, framed like a window. |
+| **C** | `c-terminal.html` | Terminal-native. Monospace throughout, box-drawing rules, no rounded corners — the chrome recedes so Claude Code's own TUI reads as continuous with the app. |
+
+All three render the same fixture: six sessions across the six states, one usage-unknown
+session, one failed session with a non-enum error, a daemon-down banner, and the
+new-session form.
+
+None of them show cost — cut by design (§3).

@@ -30,3 +30,6 @@ web/.vite/
 # Claude Code: the project settings.json IS committed (it is the AI build harness
 # config, next-steps.md item 3). Only personal overrides are ignored.
 .claude/settings.local.json
+
+# Playwright MCP scratch output
+/.playwright-mcp/

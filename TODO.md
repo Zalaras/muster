@@ -34,9 +34,13 @@ Milestone rule from the spec: **each milestone ends with something used day-to-d
       `.claude/skills/interface-probe/SKILL.md`; `spikes/RIG.md` marked historical.
       Acceptance passed: Stop-vs-StopFailure settled (mutually exclusive per prompt),
       and `--resume` verified while the rig was warm. See SPEC §11 changelog (H2 entry).
-- [ ] **UX design** (next-steps.md item 4): new-session flow and the worktree data layer
-      (SPEC §9.2 — the one genuinely unsettled area), then visual design. Must land before
-      M1/M2 UI work, not before M0.
+- [x] **UX flows** (next-steps.md item 4, first half; done 2026-08-16): new-session flow
+      and the launch/worktree data layer settled — SPEC §9 Q2 resolved. Written up in
+      `docs/design/ux-flows.md`; SPEC §11 has the changelog entry.
+- [ ] **Visual design** (item 4, second half): pick one of the three directions in
+      `docs/design/mockups/` (`a-instrument`, `b-editorial`, `c-terminal`), then turn it
+      into a design-system section for `review-work`'s checklist (currently a placeholder).
+      Must land before M1/M2 UI work, not before M0.
 
 ## M0 — Skeleton
 
