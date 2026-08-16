@@ -70,6 +70,8 @@ Design constraints already settled by the spikes — do not re-derive:
 - [ ] Ingest `SessionStart` / `Stop` / `StopFailure` / `Notification`
 - [ ] State machine: Started · Planning · Working · Needs-Input · Failed · Idle
 - [ ] Session list UI: title, state, repo/branch, time-in-state, blocked-longest first
+- [ ] Lay the masthead out with the **view switcher slot present** even though Tiles ships
+      in M2 — adding the second view must move nothing
 - [x] **Settle first:** does `Stop` also fire alongside `StopFailure`, or is it replaced?
       **Replaced — never both** (H2 probe 2026-08-16, SPEC §9.3). Caveat: a killed session
       emits *neither* (only `SessionEnd`), so the state machine must not assume every
@@ -80,9 +82,13 @@ Design constraints already settled by the spikes — do not re-derive:
 ## M2 — Terminal panes
 
 - [ ] PTY ↔ WebSocket bridge to tmux; xterm.js panes; click-to-focus; typing
-- [ ] Tiled view (`docs/design/mockups/d-tiled.html`): live tiles = top N by attention,
-      rest are snapshot cards; a tile owns its session's geometry while live and focusing
-      **moves** ownership rather than duplicating it; denser grid ⇒ narrower geometry
+- [ ] **Tiles view** — A's second view, a peer of Focus, not an extra
+      (`docs/design/mockups/d-tiled.html`). Live tiles = top N by attention, rest are
+      snapshot cards in the strip; density control (2×2 / 3×2) changes tile geometry
+- [ ] View switcher in the masthead + **⌘\\** toggle; chosen view persists across reloads
+      and daemon restarts. Switching **moves** geometry ownership rather than duplicating
+      it, so it resizes real tmux windows: debounce ~100 ms and touch only the sessions
+      whose live surface actually changed
 - [ ] Sizing: drive **both** `pty.Setsize` *and* `tmux resize-window`, in that order.
       `resize-pane` exits 0 and silently no-ops on a single-pane window.
 - [ ] One geometry per session, ≤ the smallest live view. The session list must **not** open

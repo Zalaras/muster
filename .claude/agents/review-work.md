@@ -123,9 +123,9 @@ Check:
 - **State colour is meaning** — `--amber` only ever means Needs-Input, `--rose` only Failed, `--violet` only Planning, `--teal` only Working. Colour is never the sole carrier: the state word and the sort position must also be present. At most one filled amber primary action per surface.
 - **Tabular numerics** — every value that changes over time (timers, percentages, token counts, resets) sets `font-variant-numeric: tabular-nums`.
 
-**Honesty rules (§5 of the design system) — each violation is Critical, because it makes the UI assert something the daemon does not know:** an empty/0% track drawn for unknown data instead of the word *unknown* with no track; a bare context percentage without absolute tokens and compaction count; `permission_mode` presented as authoritative rather than *last known*; `StopFailure.error` switched on as an enum; any "Done" state; any cost or spend display; daemon-down not surfaced prominently; possibly-stale state shown without its age.
+**Honesty rules (§6 of the design system) — each violation is Critical, because it makes the UI assert something the daemon does not know:** an empty/0% track drawn for unknown data instead of the word *unknown* with no track; a bare context percentage without absolute tokens and compaction count; `permission_mode` presented as authoritative rather than *last known*; `StopFailure.error` switched on as an enum; any "Done" state; any cost or spend display; daemon-down not surfaced prominently; possibly-stale state shown without its age.
 
-**Terminal rules (§6) — also Critical:** more than one live client for a single session (a rail card or snapshot strip opening a live client alongside a focused pane or tile); geometry duplicated rather than moved on focus; `resize-pane` used anywhere; `pty.Setsize` without `tmux resize-window` or the wrong order; xterm.js `scrollback` not 0; any styling applied to pane contents.
+**Terminal rules (§7) — also Critical:** more than one live client for a single session (a rail card or snapshot strip opening a live client alongside a focused pane or tile); geometry duplicated rather than moved on focus; `resize-pane` used anywhere; `pty.Setsize` without `tmux resize-window` or the wrong order; xterm.js `scrollback` not 0; any styling applied to pane contents.
 
 ### 7. Test Quality
 

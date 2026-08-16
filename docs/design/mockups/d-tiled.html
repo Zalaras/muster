@@ -31,6 +31,7 @@ body{margin:0;background:var(--ink);color:var(--paper);font-family:var(--sans);f
 .views :last-child{border-right-width:1px}
 .views .on{color:var(--paper);background:var(--panel2)}
 .views a:hover{color:var(--paper)}
+.views .kb{border:0;color:var(--dim);padding-left:9px}
 .gauges{display:flex;align-items:center;gap:22px;margin-left:auto;font-family:var(--mono);font-size:11px}
 .gauge{display:flex;align-items:center;gap:8px;color:var(--muted)}
 .gauge .lbl{color:var(--dim);letter-spacing:.08em;text-transform:uppercase;font-size:10px}
@@ -152,7 +153,7 @@ body.g32 .geo32{display:inline}
 
 <header class="mast">
   <div class="brand"><h1>MUSTER</h1><span class="sub">tiled view</span></div>
-  <div class="views"><a href="a-instrument.html">Focus</a><span class="on">Tiles</span></div>
+  <div class="views"><a href="a-instrument.html" title="⌘\">Focus</a><span class="on" title="⌘\">Tiles</span><span class="kb">⌘\</span></div>
   <div class="gauges">
     <div class="gauge"><span class="lbl">5h</span><span class="bar warn"><i style="width:61%"></i></span><span class="num">61%</span><span class="resets">· resets 14:20</span></div>
     <div class="gauge"><span class="lbl">7d</span><span class="bar"><i style="width:23%"></i></span><span class="num">23%</span><span class="resets">· resets Fri</span></div>
@@ -352,5 +353,10 @@ the constraint added out-of-band last week…
   <button onclick="document.body.classList.toggle('is-down')">Toggle daemon-down</button>
 </div>
 
+<script>
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === '\\') { e.preventDefault(); location.href = 'a-instrument.html'; }
+});
+</script>
 </body>
 </html>

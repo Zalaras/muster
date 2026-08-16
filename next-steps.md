@@ -137,9 +137,12 @@ repo contaminated the first probe session with Muster's instructions.
   localhost app, small dep tree) and the **attention ribbon deferred post-v1** (needs a
   state-history query + timeline renderer for a signal time-in-state already mostly
   carries; `event` covers it later with no schema change).
-- ✅ **Tiled view** (`docs/design/mockups/d-tiled.html`, added on request): A's language,
-  live tiles = top N by attention with the rest as snapshot cards, 2×2 / 3×2 density, and
-  each tile's real geometry stated. **M2+ work** — it can't exist before the PTY bridge.
+- ✅ **Two peer views, both part of A**: **Focus** (`a-instrument.html`) and **Tiles**
+  (`d-tiled.html`), switched from the masthead or **⌘\\**, with the choice persisted. Same
+  masthead, state colours, ordering and degraded states in both. Tiles: live tiles = top N
+  by attention, rest are snapshot cards, 2×2 / 3×2 density changing tile geometry.
+  Only the *build order* differs — Focus in M1, Tiles in M2 with the PTY bridge; M1 must
+  still lay out the switcher slot so adding the second view moves nothing.
 - Reference material: `session-manager-mockup.html` (superseded — its tabbed views and
   lead-session chat panel are dropped; the aesthetic survives in direction A).
 - Must land before M1/M2 UI work, not before M0.

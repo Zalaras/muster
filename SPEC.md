@@ -480,12 +480,19 @@ UX flows settled before M1/M2 UI work. Authority for interface behaviour is now
   design checklist. **Type: system stacks only** — no web fonts, no CDN, no vendored font
   binaries (localhost app, deliberately small dep tree). **Attention ribbon deferred
   post-v1**; the `event` table already carries what it needs, so it costs no schema change.
-- **§2.4 tiled view added** (`docs/design/mockups/d-tiled.html`) — a second view beside the
-  focus view, **M2+** since it needs the PTY bridge. Live tiles are the top N by attention
-  and everything else is a snapshot card; a tile owns its session's geometry while live and
-  focusing **moves** that ownership rather than duplicating it. This is §9 Q5's one-live-
-  client-per-session law applied, not an exception to it: many sessions may be live at once,
-  but no *single* session may be live on two surfaces at two widths.
+- **§2.4 — the dashboard has two peer views**, both part of direction A: **Focus** (rail +
+  one live pane, `mockups/a-instrument.html`) and **Tiles** (grid + snapshot strip,
+  `mockups/d-tiled.html`). Switched from the masthead or **⌘\\**, and the choice persists
+  across reloads and daemon restarts. Masthead, state colours, attention ordering and
+  degraded states are identical across both by rule. Only the build order differs: Focus in
+  M1, Tiles with the PTY bridge in M2 — and M1 lays the masthead out with the switcher slot
+  already present so adding it moves nothing.
+  In Tiles, live tiles are the top N by attention and everything else is a snapshot card;
+  the density control (2×2 / 3×2) changes every tile's geometry. This applies §9 Q5's
+  one-live-client-per-session law rather than excepting itself from it: many sessions may be
+  live at once, but no *single* session may be live on two surfaces at two widths, so
+  switching views **moves** geometry ownership instead of duplicating it (a real resize —
+  debounce it, and touch only sessions whose live surface changed).
 
 ### 2026-08-16 — stack pattern decisions (AI-harness session)
 

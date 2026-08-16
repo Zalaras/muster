@@ -140,11 +140,16 @@ format. Both belong to §4.2 and neither constrains M1.
 
 ## 3. The dashboard
 
-### 3.1 Shape
+The dashboard has **two peer views**, switched from the masthead and remembered across
+reloads: **Focus** (§3.1) and **Tiles** (§3.7). Neither is a mode you get stuck in and
+neither is a lesser surface — Focus answers *who needs me*, Tiles answers *show me several
+at once*. Everything in §3.2–§3.6 applies to both.
+
+### 3.1 Shape — Focus
 
 ```
 ┌────────────────────────────────────────────────────────┐
-│ MUSTER      5h ▓▓▓▓▓░░ 61%   7d ▓▓░░░░ 23%   opus      │  masthead: account-level
+│ MUSTER  [Focus|Tiles]   5h ▓▓▓▓▓░░ 61%  7d ▓▓░░ 23%    │  masthead: account-level
 ├──────────────┬─────────────────────────────────────────┤
 │ attention    │                                         │
 │ rail         │   focused session — one live pane       │
@@ -234,6 +239,44 @@ These are designed, not afterthoughts — three of the four are *guaranteed* to 
 
 ---
 
+### 3.7 Shape — Tiles
+
+```
+┌────────────────────────────────────────────────────────┐
+│ MUSTER  [Focus|Tiles]   5h ▓▓▓▓▓░░ 61%  7d ▓▓░░ 23%    │  same masthead
+├───────────────────────────┬────────────────────────────┤
+│ flaky-e2e-hunt      11:48 │ auth-jwt-rotation    04:12 │  live tiles,
+│  (live, owns geometry)    │  (live, owns geometry)     │  top N by attention
+├───────────────────────────┼────────────────────────────┤
+│ payments-refactor   02:31 │ spec-research        00:47 │
+│  (live)                   │  (live)                    │
+├───────────────┬───────────┴────┬───────────────────────┤
+│ db-migration  │ docs-pass      │ readme-tidy           │  snapshot strip:
+│ FAILED  6m    │ STARTED  00:08 │ IDLE  34m             │  the rail, on its side
+└───────────────┴────────────────┴───────────────────────┘
+```
+
+- **Live tiles are the top N by attention**, in the same order §3.4 defines. Everything
+  else is a snapshot card in the strip; clicking one promotes that session into the grid.
+- **Density is a control** (2×2 / 3×2). A denser grid means narrower tiles, so each tile
+  states its real geometry (72×26 at 2×2, 48×26 at 3×2). Narrow is safe; *inconsistent* is
+  not (§3.2).
+- The strip is not a downgrade — it carries the same title, state, timer and reason lines a
+  rail card does. It just doesn't get a terminal.
+
+### 3.8 Switching views
+
+- Masthead segmented control, or **⌘\\**. `⌘1–9` keeps meaning in both views: focus session
+  *n*, which in Tiles promotes it into the grid.
+- **The choice persists** across reloads and daemon restarts. A dashboard that silently
+  changes layout under you is worse than either layout.
+- Switching **moves geometry ownership, never duplicates it** — the same law as §3.2. Going
+  Focus → Tiles hands each affected session's geometry from the pane to its tile and back
+  again on return, which means a view change genuinely resizes tmux windows: debounce
+  (~100 ms), drive both `pty.Setsize` and `tmux resize-window`, and touch only the sessions
+  whose live surface actually changed. Sessions that are snapshots in both views are never
+  resized.
+
 ## 4. Not designed here
 
 - Plan-approval UI (§4.1), worktree manager UI (§4.2), start-from-PR (§4.3),
@@ -253,8 +296,8 @@ In `docs/design/mockups/`:
 
 | | File | Status |
 |---|---|---|
-| **A** | `a-instrument.html` | **Chosen.** Control desk: dark, dense, mono metadata, hairline rules, tabular numerics, state as a coloured rail stripe. The focus view. |
-| **D** | `d-tiled.html` | **Chosen**, A's language applied to the tiled view (added 2026-08-16 on request). An M2+ surface — it cannot exist before the PTY bridge. |
+| **A** | `a-instrument.html` | **Chosen.** Control desk: dark, dense, mono metadata, hairline rules, tabular numerics, state as a coloured rail stripe. A's **Focus** view. |
+| **A** | `d-tiled.html` | A's **Tiles** view — the same direction, not a separate one. Both views ship as A; only the build order differs (Focus in M1, Tiles with the PTY bridge in M2). |
 | B | `b-editorial.html` | Rejected. Warm light, typographic, terminal as the only dark surface. |
 | C | `c-terminal.html` | Rejected. Monospace throughout, chrome receding into the TUI. |
 
@@ -275,20 +318,6 @@ a pane — the surface where you answer it.
 
 None of them show cost — cut by design (§3).
 
-### 5.1 The tiled view
-
-A second view, not a replacement: the masthead is identical and the switcher sits beside the
-brand. It exists because a rail plus one pane answers "who needs me", while tiles answer
-"show me several at once".
-
-It obeys the same sizing law, and this is the part to get right in M2:
-
-- **Live tiles are the top N by attention**; every other session is a snapshot card in the
-  strip below. With 3–6 sessions and a 2×2 or 3×2 grid this covers everything that matters.
-- **A tile owns its session's geometry while it is live.** Focusing *moves* ownership, it
-  never duplicates it — a session is live in the focused pane **or** in a tile, never both.
-  This is the same constraint as §3.2, not a new one: one live client per session.
-- **Denser grids narrow every tile**, so the footer states each tile's actual geometry
-  (72×26 at 2×2, 48×26 at 3×2). Narrow is safe as long as the geometry matches; what loses
-  content is a session rendered live at two different widths at once.
-- **Snapshot cards never open a client.**
+Both views are specified in §3: Focus in §3.1, Tiles in §3.7, switching in §3.8. The
+masthead, state colours, attention ordering and degraded states are identical across them
+by rule — switching views should never make you re-learn anything.

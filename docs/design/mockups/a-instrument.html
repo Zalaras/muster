@@ -36,6 +36,7 @@ body{
 .views :last-child{border-right-width:1px}
 .views .on{color:var(--paper);background:var(--panel2)}
 .views a:hover{color:var(--paper)}
+.views .kb{border:0;color:var(--dim);padding-left:9px}
 .gauges{display:flex;align-items:center;gap:22px;margin-left:auto;font-family:var(--mono);font-size:11px}
 .gauge{display:flex;align-items:center;gap:8px;color:var(--muted)}
 .gauge .lbl{color:var(--dim);letter-spacing:.08em;text-transform:uppercase;font-size:10px}
@@ -192,7 +193,7 @@ body.is-new .scrim{display:flex}
 <header class="mast">
   <div class="brand"><h1>MUSTER</h1><span class="sub">Direction A · instrument</span></div>
   <div class="views">
-    <span class="on">Focus</span><a href="d-tiled.html">Tiles</a>
+    <span class="on" title="⌘\">Focus</span><a href="d-tiled.html" title="⌘\">Tiles</a><span class="kb">⌘\</span>
   </div>
   <div class="gauges">
     <div class="gauge"><span class="lbl">5h</span><span class="bar warn"><i style="width:61%"></i></span><span class="num">61%</span><span class="resets">· resets 14:20</span></div>
@@ -377,5 +378,10 @@ three share the retry wrapper added in <span class="tool">a1f3c2</span>. My plan
   <button class="btn" onclick="document.body.classList.toggle('show-ribbon')">Ribbon (deferred)</button>
 </div>
 
+<script>
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === '\\') { e.preventDefault(); location.href = 'd-tiled.html'; }
+});
+</script>
 </body>
 </html>

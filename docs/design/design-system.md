@@ -80,10 +80,54 @@ Rules:
 - Exactly **one** primary action per surface may use a filled amber button. Everything else
   is a bordered ghost button.
 
-## 4. Components
+## 4. The two views
+
+Direction A has **two peer views**, not one view plus an extra. Both are first-class, both
+are always reachable, and the switcher sits in the masthead beside the brand.
+
+| | View | Answers | Reference |
+|---|---|---|---|
+| **Focus** | rail of attention-sorted cards + one live pane | *who needs me, and let me deal with them* | `mockups/a-instrument.html` |
+| **Tiles** | grid of live tiles + snapshot strip | *show me several at once* | `mockups/d-tiled.html` |
+
+What is identical across both, and must stay identical: the **masthead** (brand, switcher,
+5-hour bar, 7-day bar, model, daemon health), the **state colours and badges**, the
+**attention ordering**, and the **degraded states**. A user should never have to re-learn
+anything when switching.
+
+What differs is only how sessions are laid out:
+
+- **Focus** — the rail is vertical, one session is live, the rest are snapshots.
+- **Tiles** — the top N by attention are live tiles; the rest become the horizontal
+  **snapshot strip** along the bottom. The strip *is* the rail, laid on its side; it is not
+  a lesser surface, and clicking a card there promotes that session.
+
+### 4.1 Switching
+
+- The switcher is a segmented control (`Focus` | `Tiles`), mono, 10.5px, sharing the
+  button border treatment. The active segment takes `--panel2` and `--paper`.
+- Keyboard: **⌘\\** toggles. `⌘1–9` keeps its meaning in both views — focus session *n*,
+  which in Tiles means promote it to a live tile.
+- The chosen view **persists across reloads and daemon restarts**. Coming back to a
+  dashboard that silently changed layout is worse than either layout.
+
+### 4.2 Switching moves geometry — it never duplicates it
+
+This is the one rule that makes two views safe, and it is the same law as §7.1:
+
+- A session is live on **exactly one surface at a time**. Switching Focus → Tiles moves
+  ownership of each affected session's geometry from the pane to its tile, and back again
+  on the way out.
+- A view change therefore **resizes** real tmux windows. Debounce it (~100 ms), drive both
+  `pty.Setsize` and `tmux resize-window`, and only touch sessions whose live surface
+  actually changed.
+- Sessions that are snapshots in both views are never resized at all.
+
+## 5. Components
 
 **Masthead** — brand, view switcher (`Focus` / `Tiles`), then right-aligned: 5-hour bar,
-7-day bar, model, daemon health. Always visible; account-level truth is never behind a tab.
+7-day bar, model, daemon health. Always visible in both views; account-level truth is never
+behind a tab.
 
 **Rail card** — 3px state stripe, then title + badge + timer, `repo / branch`, then the
 context row (gauge, %, absolute tokens, compaction count), then either a **note** (amber
@@ -98,7 +142,7 @@ single primary action. No border-radius above 2px anywhere in the app.
 
 **Modal** — `--panel` on a 72%-opaque scrim, 1px `--line2` border, header rule, footer rule.
 
-## 5. Honesty rules — these are correctness, not taste
+## 6. Honesty rules — these are correctness, not taste
 
 `review-work` treats a violation of any of these as a **Critical** finding, because each one
 makes the UI assert something Muster does not know.
@@ -120,7 +164,7 @@ makes the UI assert something Muster does not know.
 8. **Stale is labelled, not hidden.** Hook delivery is lossy and unordered; when state may be
    stale, show its age rather than implying freshness.
 
-## 6. Terminal rules — these are correctness too
+## 7. Terminal rules — these are correctness too
 
 1. **One live client per session.** A session may be live in the focused pane *or* in a
    tile, never both. Rail cards and snapshot strips render static snapshots.
@@ -132,12 +176,14 @@ makes the UI assert something Muster does not know.
 5. **Never restyle pane contents.** Claude Code draws its own TUI; the dashboard supplies the
    frame and nothing inside it.
 
-## 7. Deferred, with the slot kept dark
+## 8. Deferred, with the slot kept dark
 
 - **Attention ribbon** (60-minute state timeline) — designed, deferred post-v1
   (2026-08-16). It needs a rolling state-history query and a timeline renderer for a signal
   the rail's time-in-state largely already carries. The `event` table stores what it would
   need, so it costs no schema change later. Visible in `a-instrument.html` behind the
   "Ribbon (deferred)" demo toggle.
-- **Tiled view** — designed (`d-tiled.html`), and it is an M2+ surface: it cannot exist
-  before the PTY bridge. M1 ships the focus view only.
+**Not deferred, only sequenced:** the tiled view is part of the design (§4), not an
+extra. It simply cannot be *built* before the PTY bridge, so M1 ships the Focus view and
+the switcher arrives with M2. The masthead must be laid out from M1 as though the switcher
+is there, so adding it moves nothing.
