@@ -475,6 +475,17 @@ UX flows settled before M1/M2 UI work. Authority for interface behaviour is now
   Planning → Working → Started → Idle (longest-idle first).
 - **§2.2 / §2.3 honesty** — an unknown gauge renders as the word *unknown* with **no
   track drawn at all**; a 0%-filled track reads as "0% used" and is forbidden.
+- **Visual direction chosen: A, "instrument"** — dark, dense, mono metadata, state as a
+  coloured rail stripe. Rules in `docs/design/design-system.md`, now `review-work`'s
+  design checklist. **Type: system stacks only** — no web fonts, no CDN, no vendored font
+  binaries (localhost app, deliberately small dep tree). **Attention ribbon deferred
+  post-v1**; the `event` table already carries what it needs, so it costs no schema change.
+- **§2.4 tiled view added** (`docs/design/mockups/d-tiled.html`) — a second view beside the
+  focus view, **M2+** since it needs the PTY bridge. Live tiles are the top N by attention
+  and everything else is a snapshot card; a tile owns its session's geometry while live and
+  focusing **moves** that ownership rather than duplicating it. This is §9 Q5's one-live-
+  client-per-session law applied, not an exception to it: many sessions may be live at once,
+  but no *single* session may be live on two surfaces at two widths.
 
 ### 2026-08-16 — stack pattern decisions (AI-harness session)
 

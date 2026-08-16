@@ -244,19 +244,51 @@ These are designed, not afterthoughts — three of the four are *guaranteed* to 
   the chat panel is cut outright (§3); the ribbon is a maybe, and appears in exactly one
   of the three visual directions so it can be judged rather than assumed.
 
-## 5. Visual direction — three mockups to compare
+## 5. Visual direction — settled
 
-Structure is fixed by decision 3; these differ in visual language and in how much they
-say when nothing is wrong. In `docs/design/mockups/`:
+**Direction A, "instrument", chosen 2026-08-16.** The rules it becomes are in
+`docs/design/design-system.md`, which is now what `review-work` checks UI against.
 
-| | Direction | Idea |
+In `docs/design/mockups/`:
+
+| | File | Status |
 |---|---|---|
-| **A** | `a-instrument.html` | Control desk. Dark, dense, mono metadata, hairline rules, tabular numerics, state as a colored rail stripe. Closest to `session-manager-mockup.html`. Includes the attention ribbon. |
-| **B** | `b-editorial.html` | Calm and typographic. Warm light ground, generous space, state carried by a single dot and a word rather than color fields. The terminal is the only dark surface, framed like a window. |
-| **C** | `c-terminal.html` | Terminal-native. Monospace throughout, box-drawing rules, no rounded corners — the chrome recedes so Claude Code's own TUI reads as continuous with the app. |
+| **A** | `a-instrument.html` | **Chosen.** Control desk: dark, dense, mono metadata, hairline rules, tabular numerics, state as a coloured rail stripe. The focus view. |
+| **D** | `d-tiled.html` | **Chosen**, A's language applied to the tiled view (added 2026-08-16 on request). An M2+ surface — it cannot exist before the PTY bridge. |
+| B | `b-editorial.html` | Rejected. Warm light, typographic, terminal as the only dark surface. |
+| C | `c-terminal.html` | Rejected. Monospace throughout, chrome receding into the TUI. |
 
-All three render the same fixture: six sessions across the six states, one usage-unknown
-session, one failed session with a non-enum error, a daemon-down banner, and the
-new-session form.
+Two sub-decisions taken with the pick:
+
+- **Typefaces: system stacks only.** No web fonts, no CDN, no vendored binaries — the
+  dashboard is localhost-only and the dep tree is deliberately small. Display separates from
+  body by weight and tracking, not family.
+- **Attention ribbon: deferred post-v1.** It needs a rolling state-history query and a
+  timeline renderer for a signal the rail's time-in-state largely already carries. The
+  `event` table already stores what it would need, so it costs no schema change later. It
+  survives in `a-instrument.html` behind the "Ribbon (deferred)" toggle.
+
+All four render the same fixture: seven sessions across the six states, one usage-unknown
+session, one failed session with a non-enum error, the daemon-down banner and the
+new-session form. `d-tiled.html` adds the workspace-trust prompt as it actually appears in
+a pane — the surface where you answer it.
 
 None of them show cost — cut by design (§3).
+
+### 5.1 The tiled view
+
+A second view, not a replacement: the masthead is identical and the switcher sits beside the
+brand. It exists because a rail plus one pane answers "who needs me", while tiles answer
+"show me several at once".
+
+It obeys the same sizing law, and this is the part to get right in M2:
+
+- **Live tiles are the top N by attention**; every other session is a snapshot card in the
+  strip below. With 3–6 sessions and a 2×2 or 3×2 grid this covers everything that matters.
+- **A tile owns its session's geometry while it is live.** Focusing *moves* ownership, it
+  never duplicates it — a session is live in the focused pane **or** in a tile, never both.
+  This is the same constraint as §3.2, not a new one: one live client per session.
+- **Denser grids narrow every tile**, so the footer states each tile's actual geometry
+  (72×26 at 2×2, 48×26 at 3×2). Narrow is safe as long as the geometry matches; what loses
+  content is a session rendered live at two different widths at once.
+- **Snapshot cards never open a client.**

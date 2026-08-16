@@ -114,7 +114,18 @@ For each file in `web-implementation.md`, read the actual file and check:
 
 ### 6a. Design System Compliance
 
-**Placeholder** — no design system exists yet (it arrives with the UX-design work, next-steps item 4). Until it lands, check only that new UI stays consistent with existing markup/styling and introduces no styling dependencies. When `docs/design/` gains a design system, replace this section with its concrete rules.
+The design system is `docs/design/design-system.md` (direction A, "instrument", chosen 2026-08-16). Read it before reviewing any UI change; the reference renders are `docs/design/mockups/a-instrument.html` (focus view) and `d-tiled.html` (tiled view). Behaviour rules are `docs/design/ux-flows.md`.
+
+Check:
+
+- **Tokens** — no hard-coded hex values, font stacks or spacing in components; everything resolves to a `:root` custom property. A new colour must be added to the token block first.
+- **No web fonts** — no CDN link, no `@import`, no vendored font binary. System stacks only.
+- **State colour is meaning** — `--amber` only ever means Needs-Input, `--rose` only Failed, `--violet` only Planning, `--teal` only Working. Colour is never the sole carrier: the state word and the sort position must also be present. At most one filled amber primary action per surface.
+- **Tabular numerics** — every value that changes over time (timers, percentages, token counts, resets) sets `font-variant-numeric: tabular-nums`.
+
+**Honesty rules (§5 of the design system) — each violation is Critical, because it makes the UI assert something the daemon does not know:** an empty/0% track drawn for unknown data instead of the word *unknown* with no track; a bare context percentage without absolute tokens and compaction count; `permission_mode` presented as authoritative rather than *last known*; `StopFailure.error` switched on as an enum; any "Done" state; any cost or spend display; daemon-down not surfaced prominently; possibly-stale state shown without its age.
+
+**Terminal rules (§6) — also Critical:** more than one live client for a single session (a rail card or snapshot strip opening a live client alongside a focused pane or tile); geometry duplicated rather than moved on focus; `resize-pane` used anywhere; `pty.Setsize` without `tmux resize-window` or the wrong order; xterm.js `scrollback` not 0; any styling applied to pane contents.
 
 ### 7. Test Quality
 

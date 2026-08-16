@@ -129,13 +129,17 @@ repo contaminated the first probe session with Muster's instructions.
     in v1. Layout: **rail + one focused live pane** (the sizing constraint demands exactly
     one live client per session). Launch form: directory + title + model + starting
     permission mode.
-- ⏳ **Visual direction**: three mockups to compare in `docs/design/mockups/` —
-  `a-instrument.html` (control desk, dense, closest to the old mockup, keeps the attention
-  ribbon), `b-editorial.html` (warm light, typographic, terminal as the only dark surface),
-  `c-terminal.html` (monospace throughout, chrome recedes into the TUI). All three render
-  the same fixture including the unknown-usage, failed and daemon-down states.
-  **Next action: Damian picks one** (or a hybrid), then it becomes a design-system section
-  in `review-work`'s checklist, which is a placeholder until then.
+- ✅ **Visual direction**: **A, "instrument"** (`docs/design/mockups/a-instrument.html`) —
+  dark, dense, mono metadata, state as a coloured rail stripe. `b-editorial.html` and
+  `c-terminal.html` are kept as rejected alternatives. Written up as
+  `docs/design/design-system.md` and wired into `review-work`'s checklist (placeholder
+  gone). Sub-decisions: **system font stacks only** (no web fonts, no vendored binaries —
+  localhost app, small dep tree) and the **attention ribbon deferred post-v1** (needs a
+  state-history query + timeline renderer for a signal time-in-state already mostly
+  carries; `event` covers it later with no schema change).
+- ✅ **Tiled view** (`docs/design/mockups/d-tiled.html`, added on request): A's language,
+  live tiles = top N by attention with the rest as snapshot cards, 2×2 / 3×2 density, and
+  each tile's real geometry stated. **M2+ work** — it can't exist before the PTY bridge.
 - Reference material: `session-manager-mockup.html` (superseded — its tabbed views and
   lead-session chat panel are dropped; the aesthetic survives in direction A).
 - Must land before M1/M2 UI work, not before M0.

@@ -37,10 +37,11 @@ Milestone rule from the spec: **each milestone ends with something used day-to-d
 - [x] **UX flows** (next-steps.md item 4, first half; done 2026-08-16): new-session flow
       and the launch/worktree data layer settled — SPEC §9 Q2 resolved. Written up in
       `docs/design/ux-flows.md`; SPEC §11 has the changelog entry.
-- [ ] **Visual design** (item 4, second half): pick one of the three directions in
-      `docs/design/mockups/` (`a-instrument`, `b-editorial`, `c-terminal`), then turn it
-      into a design-system section for `review-work`'s checklist (currently a placeholder).
-      Must land before M1/M2 UI work, not before M0.
+- [x] **Visual design** (item 4, second half; done 2026-08-16): **direction A "instrument"**
+      chosen; `docs/design/design-system.md` written and wired into `review-work`'s
+      checklist (the placeholder is gone). System font stacks only — nothing vendored,
+      nothing fetched. Attention ribbon deferred post-v1. Tiled view designed
+      (`docs/design/mockups/d-tiled.html`) as an **M2+** surface.
 
 ## M0 — Skeleton
 
@@ -79,6 +80,9 @@ Design constraints already settled by the spikes — do not re-derive:
 ## M2 — Terminal panes
 
 - [ ] PTY ↔ WebSocket bridge to tmux; xterm.js panes; click-to-focus; typing
+- [ ] Tiled view (`docs/design/mockups/d-tiled.html`): live tiles = top N by attention,
+      rest are snapshot cards; a tile owns its session's geometry while live and focusing
+      **moves** ownership rather than duplicating it; denser grid ⇒ narrower geometry
 - [ ] Sizing: drive **both** `pty.Setsize` *and* `tmux resize-window`, in that order.
       `resize-pane` exits 0 and silently no-ops on a single-pane window.
 - [ ] One geometry per session, ≤ the smallest live view. The session list must **not** open

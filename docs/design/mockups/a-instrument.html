@@ -9,9 +9,10 @@
   --paper:#E8E6E1; --muted:#8A90A3; --dim:#565C6D;
   --amber:#F2A33C; --teal:#56C5D0; --rose:#E36A6A; --violet:#9A8CF0;
   --green:#7BC47F; --idle:#5A6070;
-  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
-  --sans:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
-  --disp:'Archivo','Helvetica Neue',system-ui,sans-serif;
+  /* system stacks only — nothing vendored, nothing fetched (decided 2026-08-16) */
+  --mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,'Segoe UI',sans-serif;
+  --disp:system-ui,-apple-system,'Segoe UI',sans-serif;
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -29,6 +30,12 @@ body{
 .brand{display:flex;align-items:baseline;gap:10px}
 .brand h1{font-family:var(--disp);font-weight:800;font-size:19px;letter-spacing:-.03em;margin:0}
 .brand .sub{font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase}
+.views{display:flex;margin-left:26px;font-family:var(--mono);font-size:10.5px}
+.views span,.views a{padding:4px 13px;border:1px solid var(--line2);border-right-width:0;
+  color:var(--dim);text-decoration:none;cursor:pointer}
+.views :last-child{border-right-width:1px}
+.views .on{color:var(--paper);background:var(--panel2)}
+.views a:hover{color:var(--paper)}
 .gauges{display:flex;align-items:center;gap:22px;margin-left:auto;font-family:var(--mono);font-size:11px}
 .gauge{display:flex;align-items:center;gap:8px;color:var(--muted)}
 .gauge .lbl{color:var(--dim);letter-spacing:.08em;text-transform:uppercase;font-size:10px}
@@ -60,7 +67,9 @@ body.is-down .lbl-down{display:inline}
 /* ── attention ribbon + rail ──────────────────────── */
 .rail{width:290px;flex:none;border-right:1px solid var(--line);background:var(--panel);
   display:flex;flex-direction:column;min-height:0}
-.ribbon{padding:11px 13px 13px;border-bottom:1px solid var(--line);flex:none}
+/* attention ribbon — DEFERRED post-v1 (decided 2026-08-16); design kept, slot dark */
+.ribbon{display:none;padding:11px 13px 13px;border-bottom:1px solid var(--line);flex:none}
+body.show-ribbon .ribbon{display:block}
 .ribbon-title{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;
   text-transform:uppercase;color:var(--dim);margin-bottom:9px}
 .lane{display:grid;grid-template-columns:1fr;height:7px;margin-bottom:3px;
@@ -182,6 +191,9 @@ body.is-new .scrim{display:flex}
 
 <header class="mast">
   <div class="brand"><h1>MUSTER</h1><span class="sub">Direction A · instrument</span></div>
+  <div class="views">
+    <span class="on">Focus</span><a href="d-tiled.html">Tiles</a>
+  </div>
   <div class="gauges">
     <div class="gauge"><span class="lbl">5h</span><span class="bar warn"><i style="width:61%"></i></span><span class="num">61%</span><span class="resets">· resets 14:20</span></div>
     <div class="gauge"><span class="lbl">7d</span><span class="bar"><i style="width:23%"></i></span><span class="num">23%</span><span class="resets">· resets Fri</span></div>
@@ -362,6 +374,7 @@ three share the retry wrapper added in <span class="tool">a1f3c2</span>. My plan
 <div class="demo">
   <button class="btn" onclick="document.body.classList.toggle('is-new')">New session ⌘N</button>
   <button class="btn" onclick="document.body.classList.toggle('is-down')">Toggle daemon-down</button>
+  <button class="btn" onclick="document.body.classList.toggle('show-ribbon')">Ribbon (deferred)</button>
 </div>
 
 </body>

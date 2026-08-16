@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Muster — Tiled view (Direction A)</title>
+<style>
+:root{
+  --ink:#12141C; --panel:#171A24; --panel2:#1C2029; --line:#282D3B; --line2:#343A4A;
+  --paper:#E8E6E1; --muted:#8A90A3; --dim:#565C6D;
+  --amber:#F2A33C; --teal:#56C5D0; --rose:#E36A6A; --violet:#9A8CF0;
+  --green:#7BC47F; --idle:#5A6070;
+  /* system stacks only — nothing vendored, nothing fetched */
+  --mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,'Segoe UI',sans-serif;
+  --disp:system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--ink);color:var(--paper);font-family:var(--sans);font-size:14px;
+  -webkit-font-smoothing:antialiased;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── masthead (identical to focus view) ───────────── */
+.mast{display:flex;align-items:center;gap:26px;padding:11px 18px;
+  border-bottom:1px solid var(--line);background:var(--panel);flex:none}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand h1{font-family:var(--disp);font-weight:800;font-size:19px;letter-spacing:-.03em;margin:0}
+.brand .sub{font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase}
+.views{display:flex;margin-left:26px;font-family:var(--mono);font-size:10.5px}
+.views span,.views a{padding:4px 13px;border:1px solid var(--line2);border-right-width:0;
+  color:var(--dim);text-decoration:none;cursor:pointer}
+.views :last-child{border-right-width:1px}
+.views .on{color:var(--paper);background:var(--panel2)}
+.views a:hover{color:var(--paper)}
+.gauges{display:flex;align-items:center;gap:22px;margin-left:auto;font-family:var(--mono);font-size:11px}
+.gauge{display:flex;align-items:center;gap:8px;color:var(--muted)}
+.gauge .lbl{color:var(--dim);letter-spacing:.08em;text-transform:uppercase;font-size:10px}
+.bar{width:96px;height:5px;background:var(--line);position:relative;overflow:hidden}
+.bar i{position:absolute;inset:0 auto 0 0;background:var(--teal)}
+.bar.warn i{background:var(--amber)}
+.num{font-variant-numeric:tabular-nums;color:var(--paper)}
+.resets{color:var(--dim)}
+.model{font-family:var(--mono);font-size:11px;color:var(--paper);border:1px solid var(--line2);padding:3px 9px}
+.health{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;
+  color:var(--dim);letter-spacing:.08em;text-transform:uppercase}
+.health .dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+.lbl-down{display:none}
+body.is-down .lbl-ok{display:none}
+body.is-down .lbl-down{display:inline}
+body.is-down .health,body.is-down .health .dot{color:var(--rose)}
+body.is-down .health .dot{background:var(--rose)}
+.down{display:none;padding:9px 18px;background:#3A1E1E;border-bottom:1px solid #5A2C2C;
+  font-family:var(--mono);font-size:11.5px;color:#F3B7B7;flex:none}
+.down b{color:#fff}
+body.is-down .down{display:block}
+
+/* ── grid toolbar ─────────────────────────────────── */
+.tools{display:flex;align-items:center;gap:14px;padding:7px 18px;flex:none;
+  border-bottom:1px solid var(--line);background:var(--panel);
+  font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.seg{display:flex;letter-spacing:0;text-transform:none;font-size:10.5px}
+.seg span{padding:3px 10px;border:1px solid var(--line2);border-right-width:0;cursor:pointer;color:var(--dim)}
+.seg span:last-child{border-right-width:1px}
+.seg span.on{color:var(--paper);background:var(--panel2)}
+.tools .note{margin-left:auto;letter-spacing:0;text-transform:none;font-size:10.5px}
+
+/* ── the grid ─────────────────────────────────────── */
+.grid{flex:1;min-height:0;display:grid;gap:1px;background:var(--line);
+  grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;padding:1px}
+body.g32 .grid{grid-template-columns:1fr 1fr 1fr}
+/* 3×2 promotes two snapshot sessions into live tiles — and narrows every tile */
+.tile.extra{display:none}
+body.g32 .tile.extra{display:flex}
+body.g32 .scard.promoted{display:none}
+.geo32{display:none}
+body.g32 .geo22{display:none}
+body.g32 .geo32{display:inline}
+
+.tile{background:var(--ink);display:flex;flex-direction:column;min-width:0;min-height:0;
+  position:relative;border:1px solid transparent}
+.tile.on{border-color:var(--line2)}
+.tile.blocked{border-color:#5C4526}
+.tile.failed{border-color:#5C2E2E}
+
+.thead{flex:none;display:flex;align-items:center;gap:9px;padding:7px 11px;
+  background:var(--panel);border-bottom:1px solid var(--line);min-width:0}
+.thead .sdot{width:7px;height:7px;flex:none;background:var(--idle)}
+.tile.blocked .sdot{background:var(--amber)}
+.tile.failed  .sdot{background:var(--rose)}
+.tile.working .sdot{background:var(--teal)}
+.tile.planning .sdot{background:var(--violet)}
+.thead .nm{font-family:var(--disp);font-weight:700;font-size:12.5px;letter-spacing:-.01em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.thead .wh{font-family:var(--mono);font-size:10px;color:var(--dim);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;min-width:0}
+.thead .ctx{width:34px;height:3px;background:var(--line);position:relative;flex:none;margin-left:auto}
+.thead .ctx i{position:absolute;inset:0 auto 0 0;background:var(--muted)}
+.thead .ctx.hot i{background:var(--amber)}
+.thead .pct{font-family:var(--mono);font-size:10px;color:var(--muted);flex:none;
+  font-variant-numeric:tabular-nums}
+.thead .tm{font-family:var(--mono);font-size:11px;color:var(--dim);flex:none;
+  font-variant-numeric:tabular-nums}
+.tile.blocked .tm{color:var(--amber)}
+
+.tbody{flex:1;min-height:0;overflow:auto;background:#0D0F16;padding:9px 11px;
+  font-family:var(--mono);font-size:11px;line-height:1.55;color:#C8CCDA;white-space:pre}
+.tbody .u{color:var(--muted)}
+.tbody .tool{color:var(--teal)}
+.tbody .ok{color:var(--green)}
+.tbody .box{color:var(--amber)}
+.tbody .warn{color:var(--amber)}
+.tbody .err{color:var(--rose)}
+.cursor{background:#C8CCDA;color:#0D0F16}
+
+.tfoot{flex:none;display:flex;gap:10px;padding:4px 11px;background:var(--panel);
+  border-top:1px solid var(--line);font-family:var(--mono);font-size:9.5px;color:var(--dim)}
+.tfoot .live{color:var(--teal)}
+.tfoot .snap{color:var(--dim)}
+.tfoot .sp{margin-left:auto}
+
+/* ── snapshot strip: sessions beyond the live grid ── */
+.strip{flex:none;display:flex;gap:1px;background:var(--line);border-top:1px solid var(--line)}
+.scard{flex:1;background:var(--panel);padding:8px 12px 9px;min-width:0;cursor:pointer;
+  border-left:3px solid var(--idle)}
+.scard:hover{background:var(--panel2)}
+.scard.failed{border-left-color:var(--rose)}
+.scard.started{border-left-color:var(--muted)}
+.scard.idle{border-left-color:var(--idle)}
+.scard .r1{display:flex;align-items:baseline;gap:8px}
+.scard .nm{font-family:var(--disp);font-weight:700;font-size:12.5px;letter-spacing:-.01em}
+.scard .st{font-family:var(--mono);font-size:8.5px;letter-spacing:.11em;text-transform:uppercase;
+  padding:1px 5px;border:1px solid var(--line2);color:var(--muted)}
+.scard.failed .st{color:var(--rose);border-color:#5C2E2E}
+.scard .tm{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+.scard .r2{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:4px}
+.scard .r3{font-family:var(--mono);font-size:9.5px;color:var(--dim);margin-top:5px;
+  border-left:2px solid var(--line2);padding-left:7px;line-height:1.45}
+.scard.failed .r3{color:#F1B0B0;border-color:var(--rose)}
+.scard.started .r3{color:#F5CC93;border-color:var(--amber)}
+.scard .unk{font-style:italic}
+
+.footnote{flex:none;padding:6px 18px;border-top:1px solid var(--line);background:var(--panel);
+  font-family:var(--mono);font-size:10px;color:var(--dim);display:flex;gap:18px}
+.footnote b{color:var(--muted);font-weight:400}
+
+.demo{position:fixed;right:14px;bottom:12px;display:flex;gap:7px;z-index:30}
+.demo button{font-family:var(--mono);font-size:10.5px;padding:5px 11px;background:var(--panel);
+  border:1px solid var(--line2);color:var(--muted);cursor:pointer}
+.demo button:hover{color:var(--paper)}
+</style>
+</head>
+<body>
+
+<header class="mast">
+  <div class="brand"><h1>MUSTER</h1><span class="sub">tiled view</span></div>
+  <div class="views"><a href="a-instrument.html">Focus</a><span class="on">Tiles</span></div>
+  <div class="gauges">
+    <div class="gauge"><span class="lbl">5h</span><span class="bar warn"><i style="width:61%"></i></span><span class="num">61%</span><span class="resets">· resets 14:20</span></div>
+    <div class="gauge"><span class="lbl">7d</span><span class="bar"><i style="width:23%"></i></span><span class="num">23%</span><span class="resets">· resets Fri</span></div>
+    <span class="model">opus</span>
+    <div class="health"><span class="dot"></span><span class="lbl-ok">daemon ok</span><span class="lbl-down">daemon down</span></div>
+  </div>
+</header>
+
+<div class="down">⚠ <b>Daemon is down.</b> The hook-error lines filling every tile are Muster's absence, not your sessions failing. Sessions keep running in tmux; state is last-known and frozen.</div>
+
+<div class="tools">
+  <span>tiles</span>
+  <div class="seg">
+    <span class="on" onclick="document.body.classList.remove('g32');this.classList.add('on');this.nextElementSibling.classList.remove('on')">2 × 2</span>
+    <span onclick="document.body.classList.add('g32');this.classList.add('on');this.previousElementSibling.classList.remove('on')">3 × 2</span>
+  </div>
+  <span class="note">live tiles are the top 4 by attention · each owns its own geometry · the rest are snapshots</span>
+</div>
+
+<div class="grid">
+
+  <!-- ── tile 1 ── -->
+  <section class="tile blocked on">
+    <div class="thead">
+      <span class="sdot"></span><span class="nm">flaky-e2e-hunt</span>
+      <span class="wh">muster / feat-e2e</span>
+      <span class="ctx"><i style="width:42%"></i></span><span class="pct">42%</span>
+      <span class="tm">11:48</span>
+    </div>
+    <div class="tbody"><span class="u">> the e2e suite is flaky on CI — find out why</span>
+
+<span class="tool">  ⏵ Read(web/playwright.config.ts)</span>   <span class="ok">✓</span>
+<span class="tool">  ⏵ Grep(test.retry, web/e2e/)</span>       <span class="ok">✓ 9</span>
+
+<span class="box">╭────────────────────────────────────────────────────╮
+│  Ready to code?                                    │
+│                                                    │
+│   1. Rewrite playwright.config.ts                  │
+│   2. Drop the retry wrapper                        │
+│   3. Re-run the suite 20× to confirm               │
+│                                                    │
+│  ❯ 1. Yes, and auto-accept edits                   │
+│    2. Yes, and manually approve edits              │
+│    3. No, keep planning                            │
+╰────────────────────────────────────────────────────╯</span>
+<span class="warn">  ⏸ waiting on you</span> <span class="cursor"> </span></div>
+    <div class="tfoot"><span class="live">● live</span><span class="geo22">72×26</span><span class="geo32">48×26</span><span class="sp">⌘1 focus</span></div>
+  </section>
+
+  <!-- ── tile 2 ── -->
+  <section class="tile blocked">
+    <div class="thead">
+      <span class="sdot"></span><span class="nm">auth-jwt-rotation</span>
+      <span class="wh">ledger-api / wt-auth</span>
+      <span class="ctx"><i style="width:19%"></i></span><span class="pct">19%</span>
+      <span class="tm">04:12</span>
+    </div>
+    <div class="tbody"><span class="u">> rotate the staging signing keys</span>
+
+<span class="tool">  ⏵ Read(internal/auth/keys.go)</span>       <span class="ok">✓</span>
+<span class="tool">  ⏵ Bash(openssl genpkey …)</span>          <span class="ok">✓</span>
+
+<span class="box">╭────────────────────────────────────────────────────╮
+│  Bash command                                      │
+│                                                    │
+│    rm -rf ./.keys/staging                          │
+│                                                    │
+│  ❯ 1. Yes                                          │
+│    2. Yes, and don't ask again                     │
+│    3. No, tell Claude what to do                   │
+╰────────────────────────────────────────────────────╯</span>
+<span class="warn">  ⏸ waiting on you</span> <span class="cursor"> </span></div>
+    <div class="tfoot"><span class="live">● live</span><span class="geo22">72×26</span><span class="geo32">48×26</span><span class="sp">⌘2 focus</span></div>
+  </section>
+
+  <!-- ── tile 3 ── -->
+  <section class="tile working">
+    <div class="thead">
+      <span class="sdot"></span><span class="nm">payments-refactor</span>
+      <span class="wh">mdrostering / develop</span>
+      <span class="ctx hot"><i style="width:77%"></i></span><span class="pct">77%</span>
+      <span class="tm">02:31</span>
+    </div>
+    <div class="tbody"><span class="u">> split the charge path off the ledger writer</span>
+
+I'll move the ledger write behind an interface first, then
+lift the charge path out of the handler.
+
+<span class="tool">  ⏵ Edit(internal/pay/charge.go)</span>      <span class="ok">✓ +41 −12</span>
+<span class="tool">  ⏵ Edit(internal/pay/ledger.go)</span>      <span class="ok">✓ +8 −3</span>
+<span class="tool">  ⏵ Bash(go build ./...)</span>             <span class="ok">✓</span>
+<span class="tool">  ⏵ Bash(go test ./internal/pay/…)</span>
+
+   running 14 tests… <span class="cursor"> </span></div>
+    <div class="tfoot"><span class="live">● live</span><span class="geo22">72×26</span><span class="geo32">48×26</span><span class="sp">⌘3 focus</span></div>
+  </section>
+
+  <!-- ── tile 4 ── -->
+  <section class="tile planning">
+    <div class="thead">
+      <span class="sdot"></span><span class="nm">spec-research</span>
+      <span class="wh">muster / main</span>
+      <span class="ctx"><i style="width:12%"></i></span><span class="pct">12%</span>
+      <span class="tm">00:47</span>
+    </div>
+    <div class="tbody"><span class="u">> what's still unsettled in the spec?</span>
+
+<span class="tool">  ⏵ Read(SPEC.md)</span>                    <span class="ok">✓ 537 lines</span>
+<span class="tool">  ⏵ Grep(open question, *.md)</span>        <span class="ok">✓ 11</span>
+<span class="tool">  ⏵ Read(docs/design/ux-flows.md)</span>    <span class="ok">✓</span>
+
+Three remain open: the refreshInterval unit, the
+StopFailure taxonomy, and the usage-source interface
+shape. Reading the spike findings before I write it up.
+
+<span class="tool">  ⏵ Read(spikes/FINDINGS.md)</span> <span class="cursor"> </span></div>
+    <div class="tfoot"><span class="live">● live</span><span class="geo22">72×26</span><span class="geo32">48×26</span><span class="sp">⌘4 focus</span></div>
+  </section>
+
+  <!-- ── tile 5 (3×2 only) ── -->
+  <section class="tile failed extra">
+    <div class="thead">
+      <span class="sdot"></span><span class="nm">db-migration-audit</span>
+      <span class="wh">ledger-api / main</span>
+      <span class="ctx hot"><i style="width:61%"></i></span><span class="pct">61%</span>
+      <span class="tm">6m ago</span>
+    </div>
+    <div class="tbody"><span class="u">> audit the migrations against the live schema</span>
+
+<span class="tool">  ⏵ Bash(psql -c '\d+ ledger_entry')</span>   <span class="ok">✓</span>
+<span class="tool">  ⏵ Read(migrations/0041_split.sql)</span>    <span class="ok">✓</span>
+
+Migrations 0001–0041 match. Checking 0042 against
+the constraint added out-of-band last week…
+
+<span class="err">  ✕ the turn ended on an error
+    StopFailure · error: unknown</span>
+
+<span class="u">  work up to 0041 is committed.</span> <span class="cursor"> </span></div>
+    <div class="tfoot"><span class="snap">✕ stopped</span><span class="geo32">48×26</span><span class="sp">⌘5 resume</span></div>
+  </section>
+
+  <!-- ── tile 6 (3×2 only) — the trust prompt, where you actually answer it ── -->
+  <section class="tile extra">
+    <div class="thead">
+      <span class="sdot"></span><span class="nm">docs-pass</span>
+      <span class="wh">ccc-spike</span>
+      <span class="pct" style="margin-left:auto;font-style:italic;color:var(--dim)">ctx unknown</span>
+      <span class="tm">00:08</span>
+    </div>
+    <div class="tbody"><span class="box">╭────────────────────────────────────────────────────╮
+│  Do you trust the files in this folder?            │
+│                                                    │
+│  /Users/damian/code/spikes/ccc-spike               │
+│                                                    │
+│  Claude Code may read, edit and execute files      │
+│  in this folder. Only proceed if you trust it.     │
+│                                                    │
+│  ❯ 1. Yes, proceed                                 │
+│    2. No, exit                                     │
+╰────────────────────────────────────────────────────╯</span> <span class="cursor"> </span>
+
+<span class="u">  no hooks fire and no status line renders until
+  this is answered — Muster infers it from silence,
+  never by reading this pane.</span></div>
+    <div class="tfoot"><span class="live">● live</span><span class="geo32">48×26</span><span class="sp">⌘6 focus</span></div>
+  </section>
+
+</div>
+
+<!-- ── sessions beyond the live grid ── -->
+<div class="strip">
+  <article class="scard failed promoted">
+    <div class="r1"><span class="nm">db-migration-audit</span><span class="st">failed</span><span class="tm">6m ago</span></div>
+    <div class="r2">ledger-api / main · 61% · 122k</div>
+    <div class="r3">StopFailure · error: unknown — raw value, not mapped</div>
+  </article>
+  <article class="scard started promoted">
+    <div class="r1"><span class="nm">docs-pass</span><span class="st">started</span><span class="tm">00:08</span></div>
+    <div class="r2">ccc-spike · <span class="unk">context unknown</span></div>
+    <div class="r3">First launch here — likely waiting on the trust prompt</div>
+  </article>
+  <article class="scard idle">
+    <div class="r1"><span class="nm">readme-tidy</span><span class="st">idle</span><span class="tm">34m</span></div>
+    <div class="r2">muster / main · 8% · 16k</div>
+    <div class="r3">last: rewrote the Commands section</div>
+  </article>
+</div>
+
+<div class="footnote">
+  <span><b>One live client per session.</b> A tile owns its session's geometry while it is live; focusing moves that ownership, it never duplicates it.</span>
+  <span class="sp"></span>
+  <span>snapshot cards never open a second client</span>
+</div>
+
+<div class="demo">
+  <button onclick="document.body.classList.toggle('is-down')">Toggle daemon-down</button>
+</div>
+
+</body>
+</html>
