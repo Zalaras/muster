@@ -18,6 +18,9 @@ web/.vite/
 /web/playwright-report/
 /web/blob-report/
 
+# Interface-probe rig captured payloads (instances live in /tmp/muster-probe)
+/test/rig/captures/
+
 # Local, machine-specific
 .DS_Store
 .env

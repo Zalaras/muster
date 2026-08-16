@@ -273,6 +273,10 @@ after approval the run needs babysitting.
 | Frontend | **Web app served by the daemon**, WebSocket transport, opened as a standalone app window (e.g. Chrome `--app=`) | Lowest cost; one codebase; keeps phone-maybe alive for free; own-window requirement met. Wails wrapper is a later cosmetic option (~thin shell). Native Go GUI (Gio) and Electron rejected. |
 | Terminal rendering | **xterm.js** (`@xterm/xterm`) | Mature emulator; selection, search, scrollback, links for free. Building a canvas renderer over a Go-side VT was considered and rejected for v1. |
 | Storage | **SQLite** via `modernc.org/sqlite` (pure Go, no cgo), WAL mode | Widely used, extensible, zero ops. |
+| DB access | `database/sql` + hand-written SQL; embedded numbered `.sql` migrations | Decided 2026-08-16. Six small tables don't justify an ORM (GORM familiar but heavy); queries stay visible. |
+| HTTP server | **stdlib `net/http`** (Go 1.22+ method/path routing) | Decided 2026-08-16. A handful of endpoints; Echo considered (familiar from MDR) but adds a tree for no need. |
+| WebSocket | **`coder/websocket`** | Decided 2026-08-16. Stdlib has none (`x/net/websocket` is deprecated — no pings/continuation frames); Echo just wraps third-party libs. Context-first API and a `net.Conn` adapter suit the PTY bridge; no transitive deps. |
+| Logging | **zerolog** | Decided 2026-08-16. Damian's structured logger of habit; `slog` considered, familiarity won. |
 | Git ops | `os/exec` + git CLI (and `gh` for GitHub) | Matches Claude Code's own behavior; avoids go-git drift. |
 | Misc | `creack/pty`, `fsnotify` | PTY bridge; watch transcripts/settings. |
 
@@ -384,9 +388,12 @@ restarts/reconcile; WebSocket fanout pushes deltas to the UI.
    Damian flagged this as genuinely unsettled. Design during build of §2.5, revisit at
    §4.2.
 3. ~~**Failed-state detection**~~ — **RESOLVED (2026-08-16).** The `StopFailure` hook fires
-   with a typed `error` field. See `spikes/FINDINGS.md` §3. One sub-question remains open:
-   whether `Stop` *also* fires alongside `StopFailure` or is replaced by it — settle this
-   before writing the state machine.
+   with a typed `error` field. See `spikes/FINDINGS.md` §3. The last sub-question — whether
+   `Stop` *also* fires alongside `StopFailure` — was settled by the H2 probe (2026-08-16):
+   they are **mutually exclusive per prompt** (`Stop` → `Idle`, `StopFailure` → `Failed`,
+   never both), verified across startup, first-API-call and genuinely mid-turn failures.
+   Caveat for the state machine: a killed process emits *neither* (only `SessionEnd`), so
+   not every prompt is closed by a Stop-family event.
 4. **Plan-approval mechanics (v1.x)** — **largely RESOLVED (2026-08-16).** "Plan is ready"
    is `PreToolUse` with `tool_name: "ExitPlanMode"`; the approval decision point is a
    blocking `PermissionRequest` on the same tool, so the dashboard can answer it; and
@@ -436,6 +443,16 @@ not part of this spec.
 ---
 
 ## 11. Changelog
+
+### 2026-08-16 — stack pattern decisions (AI-harness session)
+
+Chosen with Damian so the build agents inherit settled patterns rather than inventing them
+mid-pipeline (details in `docs/conventions.md`):
+
+- **§5** — HTTP: stdlib `net/http`; WebSocket: `coder/websocket` (stdlib has no real WS,
+  `x/net/websocket` deprecated, Echo wraps third-party anyway); logging: **zerolog**;
+  DB access: `database/sql` + hand-written SQL with embedded numbered migrations.
+- Web unit tests: **Vitest** to be added alongside Playwright (harness session H1).
 
 ### 2026-08-16 — step-1 spike corrections (validated against Claude Code 2.1.233)
 
@@ -489,3 +506,31 @@ was **GO** — every load-bearing assumption held. Confirmed corrections applied
 Items deliberately left open are listed at the end of `spikes/FINDINGS.md`. Two should be
 settled before the work they gate: whether `Stop` fires alongside `StopFailure` (before the
 state machine), and the multi-client sizing matrix (before M2).
+
+### 2026-08-16 — H2 interface-probe session (validated against Claude Code 2.1.233)
+
+The spike rig was ported into this repo (`test/rig/`: `newprobe.sh`, `capture/`,
+`failproxy/`) and encoded as the `/interface-probe` skill; `spikes/RIG.md` is now
+historical. Acceptance probe results, evidence in `test/rig/captures/capture-1.jsonl`:
+
+- **§9 Q3 fully closed** — `Stop` and `StopFailure` are **mutually exclusive per prompt**.
+  Verified with both hooks registered across 7 failed turns (3× `authentication_failed`
+  at startup, 3× injected HTTP 400 on the first API call, 1× genuinely mid-turn after a
+  completed tool call) and 3 successful turns: every failure emitted `StopFailure` only,
+  every success `Stop` only. Note the earlier docs disagreed with each other (§11 said
+  "replaces", §9 Q3 said open) — both now settled on "replaces".
+- **State-machine caveat** — a session killed mid-turn (SIGTERM during API retry) emitted
+  `SessionEnd` (`reason: "other"`) and **neither** `Stop` nor `StopFailure`. Turn closure
+  is not guaranteed; pane liveness stays the fallback authority (§2.5).
+- **§2.5 reconcile unblocked** — `--resume` verified: `SessionStart` fires with
+  `source: "resume"` and the **same** `session_id` and `transcript_path` as the original
+  session, so the daemon can re-bind a resumed session (and its title, which is
+  Muster-side state) to the new pane deterministically.
+- **`StopFailure.error` mapping is not pass-through** — an injected 400 with an
+  Anthropic-shaped `invalid_request_error` body surfaced as `error: "unknown"`, not
+  `invalid_request`. Don't build UI that assumes the taxonomy maps 1:1 from API errors.
+  Third observed value (after `authentication_failed`, `server_error`).
+- **Probe mechanics** — Claude Code retries HTTP 500 with backoff (~4 attempts / 90 s
+  observed), so induce failures with a non-retryable 400. Headless `claude -p` fires the
+  full hook sequence including command-wrapped `SessionStart`, so most wire-format
+  probes need no tmux at all.

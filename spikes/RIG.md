@@ -1,5 +1,11 @@
 # Muster spike rig — stand-up recipe
 
+> **Superseded (2026-08-16, H2).** The rig now lives in this repo — `test/rig/`
+> (`newprobe.sh`, `capture/`, `failproxy/`) — and the live recipe is the
+> `/interface-probe` skill (`.claude/skills/interface-probe/SKILL.md`). This file is
+> kept as the historical record of the original `../ccc-spike` rig; paths below point
+> at that checkout and are stale. Use the skill.
+
 Follow this verbatim. Everything here was verified against **Claude Code 2.1.233** on
 macOS on 2026-08-16. Findings and evidence live in `../A0-findings.md`.
 

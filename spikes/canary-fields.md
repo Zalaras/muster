@@ -7,7 +7,9 @@ Claude Code version, and treat any missing field as a blocker.
 **Validated against:** Claude Code `2.1.233` (native install), macOS Darwin 25.6.
 No auto-update drift occurred during the spike run.
 
-Raw evidence: `ccc-spike/captures/capture-1.jsonl`, `capture-3.jsonl`.
+Raw evidence: `ccc-spike/captures/capture-1.jsonl`, `capture-3.jsonl`; H2 probe additions
+(2026-08-16) in `test/rig/captures/capture-1.jsonl` (gitignored, regenerable via
+`/interface-probe`).
 
 ---
 
@@ -58,19 +60,23 @@ Observed values: `"default"`, `"plan"`, `"acceptEdits"`. Latch the last known mo
 
 ### Values worth asserting
 
-- `SessionStart.source`: `"startup"` observed. Distinguishes new sessions from
-  `resume`/`clear`/`compact` — load-bearing for SPEC §2.5 reconcile.
+- `SessionStart.source`: `"startup"` and `"resume"` both observed. On `--resume`, the
+  `session_id` and `transcript_path` are **the same as the original session's** —
+  load-bearing for SPEC §2.5 reconcile (re-bind by session id).
 - `permission_mode` observed values: `"default"`, `"plan"`, `"acceptEdits"`.
 - **`StopFailure` replaces `Stop`** — never both for the same turn. Assert this: a canary
-  that expects `Stop` on every turn end would break the `Failed` state.
+  that expects `Stop` on every turn end would break the `Failed` state. (H2 probe: verified
+  for startup, first-API-call and mid-turn failures; successes emit `Stop` only.)
 - **Plan-mode sequence to assert** (SPEC §4.1 depends on it):
   `PreToolUse{tool_name:"ExitPlanMode", permission_mode:"plan"}` →
   `PermissionRequest{tool_name:"ExitPlanMode"}` →
   `PostToolUse{tool_name:"ExitPlanMode", permission_mode:"acceptEdits"}`.
-- `StopFailure.error`: `"authentication_failed"` and `"server_error"` both observed. Full taxonomy present in the
-  binary: `rate_limit`, `overloaded`, `authentication_failed`, `oauth_org_not_allowed`,
-  `billing_error`, `invalid_request`, `model_not_found`, `server_error`,
-  `max_output_tokens`, `unknown`.
+- `StopFailure.error`: `"authentication_failed"`, `"server_error"` and `"unknown"` observed.
+  Full taxonomy present in the binary: `rate_limit`, `overloaded`, `authentication_failed`,
+  `oauth_org_not_allowed`, `billing_error`, `invalid_request`, `model_not_found`,
+  `server_error`, `max_output_tokens`, `unknown`. The mapping is **not pass-through**: an
+  injected HTTP 400 with an Anthropic-shaped `invalid_request_error` body surfaced as
+  `"unknown"`, not `"invalid_request"`.
 - `Notification.notification_type`: `"idle_prompt"` (message `"Claude is waiting for your
   input"`) and `"permission_prompt"` (message `"Claude needs your permission"`) both
   observed. Others in the binary: `auth_success`, `agent_needs_input`, `agent_completed`,
@@ -171,6 +177,12 @@ needed. It is absent from the earliest posts, before a title has been derived.
   daemon-assigned `seq`; `prompt_id` and `tool_use_id` are the only correlation keys.
 - `SessionEnd` does not fire on `kill -9`, and its `reason` is `other` for both a killed pane
   and an ordinary termination.
+- A SIGTERM'd session (killed while retrying a failed API call) emits `SessionEnd` but
+  **neither `Stop` nor `StopFailure`** — turn closure by a Stop-family event is not
+  guaranteed. Related: HTTP 500s are retried with backoff (~4 attempts / 90 s observed)
+  before any Stop-family event fires; induce test failures with a non-retryable 400.
+- Headless `claude -p` fires the full hook sequence, including command-wrapped
+  `SessionStart` — probes and E2E cases that don't need the TUI need no tmux.
 - `/clear` starts a **new `session_id`** in the same pane — assert that session identity is
   keyed on the tmux target, not the Claude session id.
 

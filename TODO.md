@@ -17,8 +17,23 @@ Milestone rule from the spec: **each milestone ends with something used day-to-d
 
 ## Before M0
 
-- [ ] **AI build harness** (next-steps.md item 3): agents, skills, `CLAUDE.md`, project
-      `.claude/settings.json`. Explicitly not part of SPEC.
+- [x] **AI build harness — base** (next-steps.md item 3): `CLAUDE.md`, project
+      `.claude/settings.json` allow-list, context7 MCP (`.mcp.json`), stack patterns
+      (SPEC §5 + `docs/conventions.md`). Done 2026-08-16.
+- [x] **H1 — multi-agent pipeline** (built 2026-08-16): mdrostering's skills + agents
+      adapted to Muster — `/spec`, `/plan-work`, `/orchestrate`, `/work-status`; agents
+      `daemon-impl`/`daemon-tests`/`web-impl`/`web-tests`/`e2e-specs`/`review-work`
+      (Sonnet workers + Opus review); Vitest added (`make web-test`); Playwright now
+      uses per-run ports with no server reuse; doc-upkeep backstop replaces MDR's
+      changelog check; workflow section added to CLAUDE.md.
+      **Acceptance still open**: M0's first slice must run through `/plan-work` +
+      `/orchestrate` end to end — verify at M0.
+- [x] **H2 — `interface-probe` skill** (done 2026-08-16): rig ported to `test/rig/`
+      (`newprobe.sh`, `capture/`, `failproxy/`; instances stamp into `/tmp/muster-probe`
+      to keep parent CLAUDE.md files out of probe sessions), encoded as
+      `.claude/skills/interface-probe/SKILL.md`; `spikes/RIG.md` marked historical.
+      Acceptance passed: Stop-vs-StopFailure settled (mutually exclusive per prompt),
+      and `--resume` verified while the rig was warm. See SPEC §11 changelog (H2 entry).
 - [ ] **UX design** (next-steps.md item 4): new-session flow and the worktree data layer
       (SPEC §9.2 — the one genuinely unsettled area), then visual design. Must land before
       M1/M2 UI work, not before M0.
@@ -50,8 +65,10 @@ Design constraints already settled by the spikes — do not re-derive:
 - [ ] Ingest `SessionStart` / `Stop` / `StopFailure` / `Notification`
 - [ ] State machine: Started · Planning · Working · Needs-Input · Failed · Idle
 - [ ] Session list UI: title, state, repo/branch, time-in-state, blocked-longest first
-- [ ] **Settle first:** does `Stop` also fire alongside `StopFailure`, or is it replaced?
-      (SPEC §9.3, `spikes/FINDINGS.md` still-open item 6.) Gates the state machine.
+- [x] **Settle first:** does `Stop` also fire alongside `StopFailure`, or is it replaced?
+      **Replaced — never both** (H2 probe 2026-08-16, SPEC §9.3). Caveat: a killed session
+      emits *neither* (only `SessionEnd`), so the state machine must not assume every
+      prompt closes with a Stop-family event.
 - [ ] Latch `permission_mode` forward — it is absent from `SessionStart`, `SessionEnd`,
       `Notification`, `StopFailure` and `PreCompact`, and from the status line entirely
 
@@ -82,7 +99,8 @@ Design constraints already settled by the spikes — do not re-derive:
 
 - [ ] Reconcile on daemon start; tmux pane existence is the authority on liveness
       (`SessionEnd` never fires on `kill -9`)
-- [ ] `--resume` for dead sessions — **unverified**, see open questions below
+- [ ] `--resume` for dead sessions — mechanics verified by the H2 probe (`source: "resume"`,
+      same `session_id`); the M4 work is building reconcile on top of it
 - [ ] Full canary E2E: unskip the assertions in `test/canary/canary_test.go`
 - [ ] Surface "daemon down" prominently — while it is down, every managed pane fills with
       hook-error lines
@@ -96,9 +114,10 @@ Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start
 
 From `spikes/FINDINGS.md` "Still open" and SPEC §9. None block M0.
 
-- [ ] **`--resume` never exercised** — `SessionStart` with `source=resume`, and whether
-      titles survive it. Shapes reconcile (M4).
-- [ ] **`Stop` alongside `StopFailure`?** Gates the M1 state machine.
+- [x] **`--resume` never exercised** — settled (H2 probe 2026-08-16): `SessionStart` fires
+      with `source: "resume"` and the **same** `session_id`/`transcript_path`, so reconcile
+      can re-bind deterministically. (Interactive resume / different-cwd not exercised.)
+- [x] **`Stop` alongside `StopFailure`?** Settled (H2 probe 2026-08-16): replaced, never both.
 - [ ] **`refreshInterval` unit** — proven not milliseconds; seconds-vs-ignored undetermined.
       Matters only if usage must tick while idle.
 - [ ] **Hook ordering under heavy concurrency** — no inversion observed at four parallel

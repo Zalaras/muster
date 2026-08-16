@@ -147,6 +147,26 @@ subscription OAuth: pointing it at a local proxy returning 500 produced
 `authentication_failed` case. Both a real mid-turn failure and a startup failure are
 therefore reproducible in the E2E suite.
 
+**Re-verified by the H2 probe (2026-08-16, `test/rig/captures/capture-1.jsonl`)** — the
+"replaces" claim above had been asserted while still-open item 6 listed it as unsettled, so
+it was re-run with broader coverage: 3× `authentication_failed`, 3× injected HTTP 400 at the
+first API call, and 1× **genuinely mid-turn** (400 injected on the second API call, after
+`PreToolUse`/`PostToolUse` on a completed `Read`). Every failure emitted `StopFailure` with
+no `Stop` for the same `prompt_id`; 3 successful control turns emitted `Stop` only.
+Additional facts from the same run:
+
+- **A killed session emits neither.** SIGTERM during API-retry produced `SessionEnd`
+  (`reason: "other"`) with no `Stop` and no `StopFailure` — the state machine must not
+  assume every `UserPromptSubmit` is closed by a Stop-family event; pane liveness is the
+  fallback authority (§2.5 reconcile).
+- **The `error` taxonomy is not pass-through.** An injected 400 carrying an Anthropic-shaped
+  `invalid_request_error` body surfaced as `error: "unknown"`, not `invalid_request` —
+  third observed value.
+- **500s are retried with backoff** (~4 attempts / 90 s observed) before anything fires;
+  induce probe/E2E failures with a non-retryable 400 instead.
+- **Headless `claude -p` fires the full hook sequence**, including command-wrapped
+  `SessionStart` — wire-format probes mostly need no tmux.
+
 ## 4. Permission mode is observable — but not everywhere
 
 SPEC §6 says permission mode comes from the "hook/status-line payload". Corrected, and the
@@ -503,9 +523,11 @@ can read, edit and execute in that folder.
 > records the full `shared`/`perclient` × `window-size` matrix — so the gap is closed, not
 > lost. `next-steps.md` still listed it as open and has been corrected.
 
-1. **`--resume` was never exercised.** `SessionStart` with `source=resume`, and whether
-   titles survive a resume, are unverified — directly relevant to §2.5's reconcile-and-resume
-   flow, which is M4.
+1. ~~**`--resume` was never exercised.**~~ — **RESOLVED (2026-08-16, H2 probe).**
+   `claude -p --resume <id>` fires `SessionStart` with `source: "resume"` and the **same**
+   `session_id` and `transcript_path` as the original session. Titles are Muster-side state
+   keyed to the session, so same-id resume makes re-binding (title included) deterministic.
+   Interactive resume and resume-into-a-different-cwd were not exercised.
 2. **`refreshInterval` unit.** Proven not to be milliseconds; seconds-vs-ignored is
    undetermined. Matters only if the dashboard needs usage to tick during idle.
 3. **Hook ordering under heavy concurrency** — interleaving confirmed at four parallel tool
@@ -515,9 +537,9 @@ can read, edit and execute in that folder.
 5. **Status-line invocation on failure paths** — whether a session that never reaches a
    first API response ever emits usable usage data, which affects what a freshly-launched
    or failed session shows in the dashboard.
-6. **Whether `Stop` also fires alongside `StopFailure`, or is replaced by it.** Tracked as
-   open in SPEC §9.3 and `next-steps.md` but never listed here. Settle before the state
-   machine is written (M1).
+6. ~~**Whether `Stop` also fires alongside `StopFailure`, or is replaced by it.**~~ —
+   **RESOLVED (2026-08-16, H2 probe): replaced, never both** — see §3. (This item had
+   contradicted §3's CONFIRMED claim; the re-run with mid-turn coverage settles it.)
 
-None of these block starting M0. Item 1 shapes the reconcile design, and item 6 gates the
-M1 state machine — both are worth an hour before M1 is finalised.
+None of these block starting M0. Items 1 and 6 — the two that gated M1's state machine and
+M4's reconcile — were settled by the H2 probe on 2026-08-16.

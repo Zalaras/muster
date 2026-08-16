@@ -38,6 +38,10 @@ web: ## Frontend dev server
 web-build: ## Build the frontend into web/dist
 	cd web && npm run build
 
+.PHONY: web-test
+web-test: ## Frontend unit tests (Vitest)
+	cd web && npm test
+
 .PHONY: e2e
 e2e: ## Playwright E2E suite
 	cd web && npm run e2e
