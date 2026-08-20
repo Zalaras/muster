@@ -151,10 +151,13 @@ notifications by design — the point is to be working *in* the dashboard.
   headless is not a way to pre-trust a directory. Muster must detect this state and either
   surface it or answer it deliberately — auto-answering is a security decision, since the
   prompt is the only gate before Claude Code can read/edit/execute in that folder.
-- **Config scope (confirmed 2026-08-16).** Per-repo config goes in project-scoped
-  `<repo>/.claude/settings.json`, which honors `hooks`, `statusLine` and
-  `allowedHttpHookUrls`. `CLAUDE_CONFIG_DIR` is **not** usable — it breaks subscription
-  OAuth and forces a fresh login.
+- **Config scope (confirmed 2026-08-16; refined 2026-08-20).** Per-repo config goes in
+  project-scoped `<repo>/.claude/settings.local.json` — the gitignored local file honors
+  `hooks`, `statusLine` and `allowedHttpHookUrls` on its own (probed 2026-08-20, 2.1.237),
+  and using it keeps Muster's ingest token out of committable files. Plain
+  `settings.json` works identically (2026-08-16) but risks being committed.
+  `CLAUDE_CONFIG_DIR` is **not** usable — it breaks subscription OAuth and forces a fresh
+  login.
 - **Reconcile on daemon start — must be liveness-driven** (confirmed 2026-08-16): poll
   **tmux pane existence as the authority** on whether a session is alive, treating hook
   events as enrichment only. `SessionEnd` is a hint, never a guarantee — a `kill -9`'d
@@ -584,3 +587,49 @@ historical. Acceptance probe results, evidence in `test/rig/captures/capture-1.j
   observed), so induce failures with a non-retryable 400. Headless `claude -p` fires the
   full hook sequence including command-wrapped `SessionStart`, so most wire-format
   probes need no tmux at all.
+
+### 2026-08-20 — daemon↔UI protocol v1 (M0 kickoff)
+
+`docs/protocol.md` written before any daemon code — it is now the wire contract the build
+pipeline holds agents to (CLAUDE.md already names it). Decisions taken there, beyond what
+this spec and `ux-flows.md` had fixed:
+
+- **Commands over HTTP; the state WebSocket is push-only** (server→client). The only
+  client→server WS traffic in v1 is terminal input/resize on per-session terminal sockets.
+- **Two tokens**: the §2.6 UI token (exchanged at `GET /auth` for a `SameSite=Strict`
+  cookie) plus a separate **ingest token** embedded in the hook/status-line URL path, so a
+  stray local process or webpage can't POST forged events.
+- **Event↔session binding via an envelope**: the command-wrapped `SessionStart` and
+  status-line posts wrap their stdin payload with `$MUSTER_SESSION` (set on the pane at
+  spawn) and `$TMUX_PANE`, establishing the `claude session_id → session` map; raw HTTP
+  hooks then route by `session_id` and are **never guessed at by `cwd`**. Needs one cheap
+  probe before M1 (wrapper env visibility — expected, unmeasured).
+- **Liveness is an orthogonal `alive` flag**, not a seventh state; a resumed session
+  re-enters as `Idle`; `/clear` (new `session_id` on a known pane) resets the context
+  gauge and compaction counter but not session identity.
+- **Ordering guards** for the unordered stream: events apply in ingest-`seq` order,
+  Stop-family events close their `prompt_id`, closed prompts never reopen, and an unseen
+  `prompt_id` starts a turn even when `UserPromptSubmit` was lost.
+- Whole-object session upserts; display sorting is client-side; terminal-socket takeover
+  (close code 4000) enforces the one-live-client law server-side.
+
+New open item (TODO "Open questions"): where per-directory config is written — the ingest
+token inside a committed `.claude/settings.json` would leak into a repo, and
+`allowedHttpHookUrls` at `settings.local.json` scope is unmeasured. Probe before M1.
+
+### 2026-08-20 — protocol-binding probe (against 2.1.237)
+
+`/interface-probe` closed the three questions `docs/protocol.md` v1 raised (evidence
+`test/rig/captures/capture-3.jsonl`; note the installed binary has auto-updated to
+2.1.237, past the 2.1.233 pin — the designed drift, to be adopted via the pin ritual):
+
+- **Envelope binding measured**: hook command wrappers and the status-line script inherit
+  the pane environment (`$TMUX_PANE` and `tmux new-window -e`-injected `MUSTER_SESSION`),
+  headless and interactive — protocol §4.2 rests on fact, not expectation.
+- **§2.5 config scope refined**: Muster writes `.claude/settings.local.json` (verified
+  sufficient alone; gitignored by Claude Code), so the ingest token never lands in a
+  committable file.
+- **`/clear` fully characterised**: `SessionEnd(reason:"clear")` for the old
+  `session_id`, then `SessionStart(source:"clear")` with a new one in the same pane. New
+  observed values for both fields; a `reason:"clear"` SessionEnd is not a liveness hint.
+  Protocol §7.3 updated accordingly.

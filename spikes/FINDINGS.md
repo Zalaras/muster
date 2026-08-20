@@ -543,3 +543,30 @@ can read, edit and execute in that folder.
 
 None of these block starting M0. Items 1 and 6 — the two that gated M1's state machine and
 M4's reconcile — were settled by the H2 probe on 2026-08-16.
+
+
+---
+
+## Addendum — protocol-binding probe (2026-08-20, against 2.1.237)
+
+Run to close the three open questions `docs/protocol.md` v1 raised (evidence:
+`test/rig/captures/capture-3.jsonl`; note the installed binary had auto-updated to
+**2.1.237**, past the 2.1.233 pin — the designed drift; adopt via `docs/claude-code-pin.md`
+when convenient):
+
+1. **Command hooks see the pane environment — CONFIRMED.** Inside a window created with
+   `tmux new-window -e MUSTER_SESSION=probe-ms-7`, the command-wrapped `SessionStart` and
+   the status-line script both observed `$MUSTER_SESSION` and `$TMUX_PANE`, in a headless
+   `-p` run (zero-token auth-failure induction) and in a real interactive session (2 of 2
+   sessions each). Protocol §4.2's envelope binding is load-bearing and now measured.
+2. **`.claude/settings.local.json` alone is sufficient — CONFIRMED.** With
+   `settings.json` removed, `hooks` (http and command), `statusLine` and
+   `allowedHttpHookUrls` all worked (1 session: enveloped `SessionStart`, http
+   `UserPromptSubmit` + `Stop`, status line rendered). M1 writes the gitignored local file;
+   the ingest token stays out of committable config.
+3. **`/clear` wire behaviour — richer than assumed.** The old session_id receives
+   `SessionEnd` with `reason: "clear"` (new observed value), then `SessionStart` fires with
+   `source: "clear"` (new observed value) and a new session_id in the same pane.
+   Consequences: `/clear` is directly detectable by `source`, and a `SessionEnd` whose
+   reason is `"clear"` must not be treated as a liveness hint — the pane is alive and a
+   successor session_id is about to bind.

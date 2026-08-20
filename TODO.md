@@ -45,8 +45,9 @@ Milestone rule from the spec: **each milestone ends with something used day-to-d
 
 ## M0 — Skeleton
 
-- [ ] Write down the daemon↔UI protocol before coding it: WS message contract, HTTP
-      endpoints, and the state-machine transitions, precisely (next-steps.md item 5)
+- [x] Write down the daemon↔UI protocol before coding it: WS message contract, HTTP
+      endpoints, and the state-machine transitions, precisely (next-steps.md item 5).
+      Done 2026-08-20 → `docs/protocol.md` (v1; per-milestone map in its §8)
 - [ ] `musterd`: HTTP + WebSocket server, token auth on localhost (SPEC §2.6)
 - [ ] SQLite via `modernc.org/sqlite`, WAL; schema per SPEC §7
 - [ ] `internal/claudecode` ingest: hook receiver + status-line receiver
@@ -142,4 +143,16 @@ From `spikes/FINDINGS.md` "Still open" and SPEC §9. None block M0.
 - [ ] **Launch/worktree data-layer design** (SPEC §9.2) — genuinely unsettled; design during
       §2.5, revisit at §4.2.
 - [ ] **Usage-source interface shape** (SPEC §9.6) — how much structure to give it now
-      without building the API/OTel sources.
+      without building the API/OTel sources. Protocol-side seam settled 2026-08-20
+      (`usage.source` field, `docs/protocol.md` §5.4); the Go interface shape is still open.
+- [x] **Hook command wrappers and the pane environment** — settled (probe 2026-08-20,
+      against 2.1.237): the `SessionStart` wrapper and status-line script see both
+      `$TMUX_PANE` and `tmux new-window -e`-injected vars, headless and interactive.
+      Protocol §4.2's envelope binding is measured, not assumed.
+- [x] **`SessionStart.source` on `/clear`** — settled (probe 2026-08-20): it's
+      `source: "clear"` with a new `session_id`, preceded by `SessionEnd` with
+      `reason: "clear"` for the old id. A `reason:"clear"` SessionEnd is NOT a death hint.
+- [x] **Where Muster writes its per-directory Claude Code config** — settled (probe
+      2026-08-20): `.claude/settings.local.json` alone honors `hooks`, `statusLine` and
+      `allowedHttpHookUrls`, and Claude Code gitignores it — so M1 writes the local file
+      and the ingest token never lands in committable config.

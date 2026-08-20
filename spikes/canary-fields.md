@@ -9,7 +9,10 @@ No auto-update drift occurred during the spike run.
 
 Raw evidence: `ccc-spike/captures/capture-1.jsonl`, `capture-3.jsonl`; H2 probe additions
 (2026-08-16) in `test/rig/captures/capture-1.jsonl` (gitignored, regenerable via
-`/interface-probe`).
+`/interface-probe`). Protocol-binding probe additions (2026-08-20) in
+`test/rig/captures/capture-3.jsonl` — **captured against 2.1.237**: the installed binary
+had auto-updated past the 2.1.233 pin by then (the designed, accepted drift; facts below
+that cite 2.1.237 have not been re-verified on 2.1.233 and don't need to be).
 
 ---
 
@@ -60,9 +63,13 @@ Observed values: `"default"`, `"plan"`, `"acceptEdits"`. Latch the last known mo
 
 ### Values worth asserting
 
-- `SessionStart.source`: `"startup"` and `"resume"` both observed. On `--resume`, the
-  `session_id` and `transcript_path` are **the same as the original session's** —
-  load-bearing for SPEC §2.5 reconcile (re-bind by session id).
+- `SessionStart.source`: `"startup"`, `"resume"` and `"clear"` all observed. On `--resume`,
+  the `session_id` and `transcript_path` are **the same as the original session's** —
+  load-bearing for SPEC §2.5 reconcile (re-bind by session id). On `/clear` (2.1.237,
+  2026-08-20 probe): the old session_id gets `SessionEnd` with `reason: "clear"`, then
+  `SessionStart` fires with `source: "clear"` and a **new** session_id in the same pane —
+  so `/clear` is directly detectable, and a `SessionEnd` with `reason: "clear"` must NOT
+  be read as the pane dying.
 - `permission_mode` observed values: `"default"`, `"plan"`, `"acceptEdits"`.
 - **`StopFailure` replaces `Stop`** — never both for the same turn. Assert this: a canary
   that expects `Stop` on every turn end would break the `Failed` state. (H2 probe: verified
@@ -81,7 +88,8 @@ Observed values: `"default"`, `"plan"`, `"acceptEdits"`. Latch the last known mo
   input"`) and `"permission_prompt"` (message `"Claude needs your permission"`) both
   observed. Others in the binary: `auth_success`, `agent_needs_input`, `agent_completed`,
   `elicitation_dialog`.
-- `SessionEnd.reason`: `"other"` observed.
+- `SessionEnd.reason`: `"other"` and `"clear"` observed (`"clear"` on 2.1.237). `"other"`
+  covers both a killed pane and ordinary termination; only `"clear"` is distinguishable.
 - `PermissionRequest.permission_suggestions`: array of
   `{type:"setMode", mode:"acceptEdits", destination:"session"}`. Directly useful for
   SPEC §4.1's plan-mode flow.
@@ -202,6 +210,16 @@ recycled PID. Use `pgrep -f` on the exact command line.
 - Project-scoped `<repo>/.claude/settings.json` honors `hooks`, `statusLine`, **and**
   `allowedHttpHookUrls` — `allowedHttpHookUrls` defined only at project scope successfully
   authorized the hook URLs. This is what lets Muster scope config per repo.
+- **`.claude/settings.local.json` alone honors all three too** (2.1.237, 2026-08-20 probe:
+  settings.json removed entirely; command-wrapped `SessionStart`, http `UserPromptSubmit`/
+  `Stop`, and the status line all delivered). Since Claude Code gitignores the local file,
+  this is where Muster writes per-directory config — the ingest token never lands in a
+  committable file.
+- **Hook command wrappers and the status-line script inherit the pane environment**
+  (2.1.237, 2026-08-20 probe): both `$TMUX_PANE` and a variable injected via
+  `tmux new-window -e MUSTER_SESSION=…` were visible to the `SessionStart` wrapper and the
+  status-line script, headless (`-p`) and interactive alike. This is what makes
+  `docs/protocol.md` §4.2's envelope binding work.
 - `CLAUDE_CONFIG_DIR` isolates settings, hooks and transcripts but **breaks subscription
   OAuth** ("Not logged in · Please run /login"). Not usable for managed sessions.
 - `statusLine.refreshInterval` is accepted at project scope.

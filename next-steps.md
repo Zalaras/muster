@@ -120,7 +120,7 @@ repo contaminated the first probe session with Muster's instructions.
 - A dev-loop/run skill is deliberately deferred into M0's definition of done — there is
   nothing to run until the daemon exists.
 
-## 4. Design — UX flows ✅ DONE 2026-08-16; visual direction ⏳ awaiting pick
+## 4. Design — ✅ DONE 2026-08-16 (UX flows + visual direction A, Focus & Tiles peer views)
 
 - ✅ **UX flows** → `docs/design/ux-flows.md`. Settles SPEC §9 Q2 (launch/worktree data
   layer) plus the launch form, trust-prompt handling, dashboard layout, rail sort order
