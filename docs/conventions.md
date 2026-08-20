@@ -63,6 +63,13 @@ first — never diverge silently in code.
 - The state machine, reconcile, and any JSON merge get exhaustive unit tests — they are
   the logic the whole tool rests on.
 
+## Commits
+
+Single-sentence semantic messages: `type(scope): imperative summary` — types `feat`,
+`fix`, `docs`, `test`, `refactor`, `chore`; scope optional. One sentence, no body;
+if a commit needs paragraphs of explanation, the explanation belongs in the docs the
+commit touches.
+
 ## Comments
 
 Default to none. Add one only when the *why* is non-obvious (hidden constraint, subtle
