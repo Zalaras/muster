@@ -125,7 +125,7 @@ Place new test files in `web/e2e/<feature-name>.spec.ts`. Follow the patterns in
 
 ## Constraints
 
-- Do NOT modify `web/playwright.config.ts` or global setup/teardown infrastructure
+- Do NOT modify `web/playwright.config.ts` or global setup/teardown infrastructure. This is a gate-integrity boundary, not a convenience: the config holds the knobs that decide what "passing" means (`retries`, `timeout`, `testIgnore`, `reuseExistingServer`), and the agent judged by the suite must not hold that pen. **web-impl owns the config.** If your fixtures genuinely need a config change, state exactly what and why in your log's handoff/blocked section — the orchestrator routes it to web-impl.
 - Tests must be runnable with `npm run e2e` from `web/`
 - Never launch a real `claude` — synthesized payloads only
 

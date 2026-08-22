@@ -21,6 +21,8 @@ This agent receives: `<plan-name>`
 
 All web code lives in `web/`; run every npm command from that directory. Before writing code, read the existing modules in `web/src/` and match their structure.
 
+**You own the web tree's tooling config** — `vite.config.*`, `tsconfig.json`, **and `web/playwright.config.ts`**. The E2E agent is forbidden from editing the Playwright config (it's judged by the suite, so it can't hold the knobs that define passing); when a plan lists a config change or the E2E agent's log requests one, it lands with you. Two properties are load-bearing and must never be weakened: per-run port allocation and no server reuse. Never loosen `tsconfig` strictness.
+
 ## Settled Patterns (from docs/conventions.md — do not diverge)
 
 - Strict TS, no `any`. Plain ES modules organized per feature.
@@ -30,9 +32,17 @@ All web code lives in `web/`; run every npm command from that directory. Before 
 - xterm.js 6.0.0 / addon-fit 0.11.0 are pinned — never bump them.
 - Keep logic (protocol decoding, state derivation, formatting) in pure modules separate from DOM code, so the test agent can unit-test it with Vitest.
 
-## Design System
+## Design System (binding)
 
-There is no design system yet (it arrives with the UX-design work, next-steps item 4). Until then: keep markup semantic and styling minimal and consistent with what exists; do not invent a visual language, import a CSS framework, or add dependencies for styling.
+The design system is `docs/design/design-system.md` (direction A, "instrument", chosen 2026-08-16). Read it before writing any markup or CSS. Reference renders: `docs/design/mockups/a-instrument.html` (focus) and `d-tiled.html` (tiles); behaviour rules: `docs/design/ux-flows.md`. The review agent re-checks every rule below (its §6a) and treats violations as blocking — you are the first line, the reviewer is the backstop.
+
+- **Tokens only** — no hard-coded hex values, font stacks or spacing in components; everything resolves to a `:root` custom property. If a surface needs a colour the token block doesn't have, **add it to the token block first** — never borrow an existing token that means something else.
+- **State colour is meaning** — `--amber` only ever means Needs-Input, `--rose` only Failed, `--violet` only Planning, `--teal` only Working. Never use one as a generic accent, ground or emphasis (M0's daemon-down banner grounded on `--rose` and it came back as a review Major). Colour is never the sole carrier of state.
+- **No web fonts** — no CDN link, no `@import`, no vendored font binary. System stacks only.
+- **Tabular numerics** — any value that changes over time (timers, percentages, token counts) sets `font-variant-numeric: tabular-nums`.
+- **Honesty rules (design-system §6)** — unknown data renders the word *unknown* with **no track** (never an empty/0% gauge); daemon-down is loud; no "Done" state; no cost/spend display; possibly-stale state shows its age.
+
+Do not import a CSS framework or add dependencies for styling.
 
 ## The Testable UI Elements Contract
 

@@ -81,6 +81,8 @@ Based on the codebase structure, identify which files will likely need changes:
 **Web (TypeScript, `web/src/`):**
 - Protocol/message modules, state-derivation modules, per-feature render modules, the single WebSocket client module
 
+**Tooling/config files belong to an impl track, never to a test agent.** In particular `web/playwright.config.ts` is owned by **web-impl** (e2e-specs is forbidden from editing it — the agent judged by the suite can't hold the knobs that define passing). When a plan needs a config change, list the file under the owning impl track's Affected Files explicitly; don't leave it in an E2E subsection where ownership is ambiguous (m0-skeleton did, and it resolved only by web-impl's generous reading).
+
 ### 5. Define the Protocol Contract (Critical for Parallel Execution)
 
 **This section is essential.** The daemon and web implementation agents run in parallel and use the daemon↔UI protocol as their shared interface — neither reads the other's code. The contract must be complete and unambiguous.
@@ -150,6 +152,11 @@ Define clear acceptance criteria that the review agent will check against. Write
 Then, with the user, distil the criteria into an **Automated Checks** block: the subset where "satisfied" is exactly "this one shell command exits 0". You author this deliberately — you are the only one who knows which backticked things in your prose are commands and which are type names or identifiers, so this cannot be left to a parser. Anything needing a human read stays in prose and is listed under `### Reviewer-Verified`, so the non-runnable half of a split criterion is assigned rather than lost.
 
 The orchestrator and the review agent execute the block **verbatim**, so every line must run from the project root with no arguments, no environment setup and no interactive prompt. Prefer the Make entry points (`make test`, `make lint`, `make web-build`, `make web-test`, `make e2e`) over ad-hoc pipelines.
+
+**Negative grep checks (`! rg …`) need two extra authoring steps** — learned from m0-skeleton, where skipping them cost work in three downstream agents:
+
+1. **Decide test-file scope explicitly.** State in the check's prose twin (or a note beside the block) whether `_test.go` / `*.test.ts` / `e2e/` files are inside the grep's net, and why. Tests often legitimately need the banned strings (a boundary test POSTing a real wire body, for example) — if test files are in scope, the plan must also say how tests obtain those strings legally (typically a helper exported from the boundary package), or agents will contort around the check (m0-skeleton produced a split string literal, `"hook_event" + "_name"`, flagged as a review Major).
+2. **Dry-run every negative grep against the plan document itself** before approval: `rg "<pattern>" plans/<plan-name>/plan.md`. If the plan's own snippets, DDL comments or prose contain the banned string, agents copying plan content into code will trip the check and be forced to deviate — the plan is instructing a violation of its own gate. Reword the plan (or re-scope the check) until the dry run is clean.
 
 ## Plan Document Format
 
