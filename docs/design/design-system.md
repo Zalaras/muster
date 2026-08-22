@@ -34,6 +34,13 @@ component** — if a needed colour isn't here, add it here first.
   --idle:#5A6070;     /* Idle */
   --green:#7BC47F;    /* health ok, tool success */
 
+  /* daemon-down banner (§6.7) — a muted rose-family treatment of its own, because the
+     banner describes the daemon, not any session's Failed state; --rose stays reserved
+     for Failed (§3). Values from the reference render (a-instrument.html, .down). */
+  --banner-bg:#3A1E1E;
+  --banner-line:#5A2C2C;
+  --banner-fg:#F3B7B7;
+
   /* type — system stacks only; nothing vendored, nothing fetched (decided 2026-08-16) */
   --mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
   --sans:system-ui,-apple-system,'Segoe UI',sans-serif;
@@ -160,7 +167,9 @@ makes the UI assert something Muster does not know.
 5. **Never show "Done".** A turn ended; the task may not have. `Idle` plus last activity.
 6. **Never show cost or spend.** Cut by design (SPEC §3).
 7. **Surface daemon-down loudly.** While it is down every managed pane fills with hook-error
-   lines; the UI must explain that noise or it reads as sessions failing.
+   lines; the UI must explain that noise or it reads as sessions failing. The banner grounds
+   on the dedicated `--banner-*` tokens (§1), never on `--rose` — per §3 a state colour may
+   only ever mean its state, and the banner is about the daemon, not a session.
 8. **Stale is labelled, not hidden.** Hook delivery is lossy and unordered; when state may be
    stale, show its age rather than implying freshness.
 

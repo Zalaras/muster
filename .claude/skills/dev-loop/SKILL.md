@@ -1,0 +1,49 @@
+---
+name: dev-loop
+description: "Builds and runs musterd locally against the real data dir for manual testing. Covers where the dashboard URL and tokens live and how to stop cleanly."
+allowed-tools: Bash, Read
+---
+
+> **Maintainer note:** Authored at m0-skeleton completion per the plan's Implementation
+> Notes (next-steps item 3's deferred dev-loop skill). Runs in the main session — it
+> starts a long-lived process the user interacts with.
+
+Run the Muster daemon locally for manual testing.
+
+## Build and run
+
+```bash
+make run
+```
+
+This builds `bin/musterd` and `web/dist`, then runs the daemon against the **real** data
+dir (`~/Library/Application Support/Muster`) serving `web/dist`, listening on
+`127.0.0.1:8765`. The startup log line includes `dashboard_url` — that URL (with the UI
+token baked in) is what to open in the browser.
+
+Because `make run` occupies the terminal, launch it in the background
+(`run_in_background`) or tell Damian to run `! make run` himself if he wants to watch
+the logs.
+
+## Where things live
+
+- **`~/Library/Application Support/Muster/tokens.json`** (0600, rewritten every
+  startup): `{"dashboardUrl", "uiToken", "ingestToken"}`. Read this if you need the
+  dashboard URL or an ingest URL after startup.
+- **`~/Library/Application Support/Muster/muster.db`** — SQLite (WAL). Query read-only
+  with `sqlite3` if you need to inspect ingested events; never write to it while the
+  daemon runs.
+- Tokens persist in the `kv` table, so URLs and cookies survive restarts.
+
+## Custom instances
+
+Flags: `-addr` (default `127.0.0.1:8765`), `-data-dir`, `-web-dist` (default
+`web/dist`), `-debug`. For a throwaway instance that must not touch the real data dir,
+pass a scratch `-data-dir` (that is exactly what the E2E harness does — prefer
+`make e2e` if the goal is verification rather than manual poking).
+
+## Stopping
+
+Send SIGINT/SIGTERM (Ctrl-C in the foreground, `kill <pid>` otherwise) — shutdown is
+graceful: contexts cancelled, ingest queue drained, DB closed. Don't `kill -9` unless
+it's wedged; find a stray instance with `lsof -i @127.0.0.1:8765`.

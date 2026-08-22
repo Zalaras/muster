@@ -4,9 +4,26 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Muster</title>
+    <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <main id="app" data-testid="app-shell"></main>
+    <div id="app">
+      <header class="masthead">
+        <h1>Muster</h1>
+        <div class="masthead-right">
+          <span id="usage-5h" class="usage-readout"></span>
+          <span id="usage-7d" class="usage-readout"></span>
+          <span id="claude-version" class="claude-version"></span>
+          <span id="connection-status" role="status"></span>
+        </div>
+      </header>
+      <div id="banner" class="banner" role="alert" hidden>
+        musterd unreachable — hook output in open panes is Muster's absence, not session
+        failure.
+      </div>
+      <main id="sessions"></main>
+    </div>
+    <div id="protocol-mismatch" hidden>protocol changed — reload the dashboard</div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

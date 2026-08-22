@@ -26,8 +26,9 @@ Milestone rule from the spec: **each milestone ends with something used day-to-d
       (Sonnet workers + Opus review); Vitest added (`make web-test`); Playwright now
       uses per-run ports with no server reuse; doc-upkeep backstop replaces MDR's
       changelog check; workflow section added to CLAUDE.md.
-      **Acceptance still open**: M0's first slice must run through `/plan-work` +
-      `/orchestrate` end to end — verify at M0.
+      **Acceptance passed 2026-08-22**: the m0-skeleton plan ran through `/plan-work` +
+      `/orchestrate` end to end (e2e-specs → impl ∥ impl → tests ∥ tests → e2e-validate →
+      review), approved on the first review cycle with zero fix waves.
 - [x] **H2 — `interface-probe` skill** (done 2026-08-16): rig ported to `test/rig/`
       (`newprobe.sh`, `capture/`, `failproxy/`; instances stamp into `/tmp/muster-probe`
       to keep parent CLAUDE.md files out of probe sessions), encoded as
@@ -48,11 +49,31 @@ Milestone rule from the spec: **each milestone ends with something used day-to-d
 - [x] Write down the daemon↔UI protocol before coding it: WS message contract, HTTP
       endpoints, and the state-machine transitions, precisely (next-steps.md item 5).
       Done 2026-08-20 → `docs/protocol.md` (v1; per-milestone map in its §8)
-- [ ] `musterd`: HTTP + WebSocket server, token auth on localhost (SPEC §2.6)
-- [ ] SQLite via `modernc.org/sqlite`, WAL; schema per SPEC §7
-- [ ] `internal/claudecode` ingest: hook receiver + status-line receiver
-- [ ] Web shell that connects and stays connected
-- [ ] E2E harness that runs a scratch daemon
+- [x] `musterd`: HTTP + WebSocket server, token auth on localhost (SPEC §2.6).
+      Done 2026-08-22 (plan `m0-skeleton`, via `/orchestrate`)
+- [x] SQLite via `modernc.org/sqlite`, WAL; schema per SPEC §7 — M0 ships only the
+      tables it writes (`kv`, `event`); `session`/`repo`/`usage_sample` land with the
+      milestones that first write them. Done 2026-08-22
+- [x] `internal/claudecode` ingest: hook receiver + status-line receiver (both shapes,
+      per-`claude_session_id` seq, bounded async queue). Done 2026-08-22
+- [x] Web shell that connects and stays connected (backoff reconnect, daemon-down
+      banner, protocol-version gate). Done 2026-08-22
+- [x] E2E harness that runs a scratch daemon (per-run port + data dir, sqlite3 oracle,
+      `restart()`). Done 2026-08-22
+
+Follow-ups from the M0 review (`plans/m0-skeleton/review.md`, both Major — fix before M1):
+
+- [x] **D4 check vs test bodies** — resolved 2026-08-22 (Damian chose the helper over
+      narrowing the check): `internal/claudecode/claudecodetest` now exports the
+      wire-body builders (`RawHookBody`, `EnvelopedHookBody`); the split literal in
+      `internal/server/ingest_test.go` is gone and D4 stands unchanged at full strength.
+- [x] **Daemon-down banner colour** — resolved 2026-08-22: dedicated `--banner-bg` /
+      `--banner-line` / `--banner-fg` tokens added to design-system §1 (values from
+      `a-instrument.html`'s `.down`) and `web/src/style.css` repointed; `--rose` again
+      means Failed only.
+- [x] Minor (same review) — resolved 2026-08-22: the E2E harness now drains and buffers
+      the scratch daemon's stdio, dumps the tail on unexpected exit, and appends it to
+      the never-became-healthy error.
 
 Design constraints already settled by the spikes — do not re-derive:
 
@@ -100,7 +121,9 @@ Design constraints already settled by the spikes — do not re-derive:
 
 ## M3 — Gauges
 
-- [ ] Status-line POST ingestion, de-duplicated (posts arrive in close pairs ~435 ms apart)
+- [ ] Status-line POST ingestion, de-duplicated (posts arrive in close pairs ~435 ms apart).
+      Note: `event.received_at` is second-granularity RFC3339 since M0 — switch the stamp
+      to RFC3339Nano before relying on it to separate those pairs (M0 review minor)
 - [ ] Per-session context gauge — show absolute `total_input_tokens` alongside the
       percentage (window size varies by model), plus a compaction counter from `PreCompact`
       (the gauge reads 0% after `/compact`)

@@ -43,8 +43,12 @@ web-test: ## Frontend unit tests (Vitest)
 	cd web && npm test
 
 .PHONY: e2e
-e2e: ## Playwright E2E suite
+e2e: build web-build ## Playwright E2E suite
 	cd web && npm run e2e
+
+.PHONY: run
+run: build web-build ## Run musterd against the real data dir and web/dist
+	./$(BIN) -web-dist web/dist
 
 .PHONY: canary
 canary: ## Assert the pinned Claude Code still emits every field Muster depends on

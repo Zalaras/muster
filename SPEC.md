@@ -633,3 +633,30 @@ token inside a committed `.claude/settings.json` would leak into a repo, and
   `session_id`, then `SessionStart(source:"clear")` with a new one in the same pane. New
   observed values for both fields; a `reason:"clear"` SessionEnd is not a liveness hint.
   Protocol §7.3 updated accordingly.
+
+### 2026-08-22 — M0 skeleton shipped (plan `m0-skeleton`, via `/orchestrate`)
+
+First vertical slice complete and reviewed (`plans/m0-skeleton/review.md`, approved on
+the first cycle). H1's pipeline acceptance is thereby passed. Decisions amended or
+settled by the work, beyond routine implementation:
+
+- **Migrations ship only the tables their milestone writes** (approved deviation from a
+  literal reading of "schema per §7"): `0001_init.sql` creates `kv` + `event` only;
+  `session`/`repo`/`usage_sample` arrive with M1/M3, since migrations are forward-only
+  and freezing untouched column sets now just risks churn migrations later.
+- **The daemon-down banner appears only after a first successful `hello`** (web-impl
+  judgment call, review-endorsed): on a fresh page load the shell shows `connecting…`
+  rather than a dishonest "musterd unreachable" flash from a daemon that just served
+  the page. §6.7's "loud when down" applies to a connection that was up.
+- **Static assets are served from disk** (`-web-dist`), not `go:embed`, so
+  `go build ./...` never depends on the web build. Revisit only if a self-contained
+  binary ever matters.
+- The §2.6 UI token is **reusable** at `/auth` (lives in `kv` for the install's life);
+  "one-time" described the launcher flow, not token burning. Cookie Max-Age 30 days.
+
+Both Major review findings were resolved the same day (details in `TODO.md`): tests
+outside `internal/claudecode` now get wire-shaped bodies from the new
+`internal/claudecode/claudecodetest` helper package — Damian chose this over narrowing
+D4, so the check stands unchanged — and the daemon-down banner grounds on dedicated
+`--banner-*` tokens added to design-system §1, returning `--rose` to Failed-only. No
+new wire-format facts — M0 never touches a real Claude Code.

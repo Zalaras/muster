@@ -1,0 +1,115 @@
+/* Muster dashboard — M0 shell styling.
+ * Tokens from docs/design/design-system.md §1 (direction A, "instrument"). Only the
+ * subset M0's masthead/banner/empty-state need; rail cards, tiles and the view
+ * switcher arrive with M1/M2 and bring the rest of the token set into use. */
+
+:root {
+  --ink: #12141c;
+  --panel: #171a24;
+  --line: #282d3b;
+  --paper: #e8e6e1;
+  --muted: #8a90a3;
+  --dim: #565c6d;
+  --rose: #e36a6a;
+  --banner-bg: #3a1e1e;
+  --banner-line: #5a2c2c;
+  --banner-fg: #f3b7b7;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --disp: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--sans);
+  font-size: 14px;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.masthead h1 {
+  font-family: var(--disp);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.masthead-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.masthead-right [role="status"] {
+  color: var(--paper);
+}
+
+.usage-readout,
+.claude-version,
+#connection-status {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Honesty rule (design-system §6.7): loud, full-width, on the dedicated banner tokens —
+ * this describes the daemon, not any session's state, so it never grounds on --rose
+ * (§3: a state colour may only ever mean its state). Reference: a-instrument.html .down. */
+.banner {
+  width: 100%;
+  background: var(--banner-bg);
+  border-bottom: 1px solid var(--banner-line);
+  color: var(--banner-fg);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 8px 16px;
+}
+
+.banner[hidden] {
+  display: none;
+}
+
+main#sessions {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+#protocol-mismatch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-family: var(--mono);
+  color: var(--paper);
+  background: var(--ink);
+}
+
+#protocol-mismatch[hidden] {
+  display: none;
+}

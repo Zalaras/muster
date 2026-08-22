@@ -1,7 +1,7 @@
 # Plan: M0 Skeleton
 
 **Created**: 2026-08-20
-**Status**: approved
+**Status**: completed
 **Work Type**: full-stack
 **Description**: First vertical slice — HTTP+WS server with token auth, SQLite with embedded migrations, hook/status-line ingest with per-session seq, a web shell that connects and stays connected, and the scratch-daemon E2E harness. Doubles as H1's pipeline acceptance shakedown.
 
