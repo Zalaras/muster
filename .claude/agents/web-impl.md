@@ -42,6 +42,8 @@ The design system is `docs/design/design-system.md` (direction A, "instrument", 
 - **Tabular numerics** — any value that changes over time (timers, percentages, token counts) sets `font-variant-numeric: tabular-nums`.
 - **Honesty rules (design-system §6)** — unknown data renders the word *unknown* with **no track** (never an empty/0% gauge); daemon-down is loud; no "Done" state; no cost/spend display; possibly-stale state shows its age.
 
+- **Every element JS hides via the `hidden` attribute needs a compensating CSS rule** (`.thing[hidden] { display: none; }`). Any author-origin `display` declaration on the element silently overrides the UA's `[hidden]` default regardless of specificity, so the attribute toggles and nothing disappears — this was m1-sessions' only E2E validate failure (six elements had the rule, the seventh didn't). When you add a `display` rule to anything conditionally hidden, add the `[hidden]` companion in the same edit, then sweep: every element `.hidden =` touches in TS must have one.
+
 Do not import a CSS framework or add dependencies for styling.
 
 ## The Testable UI Elements Contract
@@ -89,6 +91,7 @@ When invoked in fix mode:
 2. Read `plans/<plan-name>/web-implementation.md` for your previous changes
 3. Fix only what's needed
 4. **Append** your fix details to the existing output file under a new `## Fix Attempt <N>` section
+5. **Fix the category, not the reviewer's example.** For each Critical/Major, enumerate in your Fix Attempt every code path/element that exhibits the defect and state how each is closed — when a finding names a pattern ("every conditionally-hidden element…"), sweep for all instances rather than patching the cited one.
 
 ## Output
 
@@ -126,3 +129,5 @@ you could not implement as written, and why>
 Keep this file brief. File paths and descriptions tell the story.
 
 **Evidence rule for `## Decisions`.** If you deviate from the plan, abandon an approach, or reverse a change, quote the actual command output that justified it — the `tsc` error, the failing build, the `rg` result and its count. Do not assert a blast radius you have not measured. A confident, plausible, wrong justification is worse than no justification, because the reviewer may accept it.
+
+**The evidence rule covers claimed *effects*, not just decisions.** Any claim about a rendered or runtime outcome ("the row is hidden", "the error is announced", "nothing shifts on update") must be verified by observation and the observation noted in the log — not inferred from the diff (m1-sessions: JS toggled `hidden` correctly, yet the element stayed visible because a CSS rule overrode it).

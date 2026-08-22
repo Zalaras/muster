@@ -71,6 +71,7 @@ If your own refactor invalidated an import path in a test file, fix the import (
   - **Forbidden**: assertions, test bodies, mocks, fixtures, setup/teardown, adding an import to support new functionality, deleting or renaming a test, changing a test's expected values, and any "while I'm here" tidy-up.
   - Anything beyond the import line escalates to the test agent. List the files and the reason in your output.
 - You may NOT change the protocol contract (the plan's **Protocol Contract** section / `docs/protocol.md`) unilaterally. The web agent codes against the same contract without seeing your code. If the contract as written cannot work, implement nothing that contradicts it, document the conflict in `## Decisions`, and report it prominently — the orchestrator stops and escalates to the user.
+- **Two shapes for one wire field is a conflict to escalate, never a case to handle.** If the plan/canary-fields say one shape and a fixture (E2E helpers, test-specs) uses another, do NOT write code accepting both — that accommodation makes every test green while hiding a contract disagreement (m1-sessions: it survived to the Opus review and needed an interface probe to settle). Implement the measured/plan shape only and flag the mismatch prominently in `## Decisions` — the orchestrator resolves it, usually with `/interface-probe`.
 - If you need something not specified in the plan, document it and implement the minimal version.
 
 ## Fix Mode
@@ -80,6 +81,7 @@ When invoked in fix mode:
 2. Read `plans/<plan-name>/daemon-implementation.md` for your previous changes
 3. Fix only what's needed — don't refactor unrelated code
 4. **Append** your fix details to the existing output file under a new `## Fix Attempt <N>` section
+5. **Fix the category, not the reviewer's example.** For each Critical/Major, enumerate in your Fix Attempt every code path that reaches the defect and state how each is closed. A finding that says "clear-rebind (and plain re-bind)" names two doors; patching only the branch the reproduction used sends the same bug into the next review cycle (this exactly happened in m1-sessions).
 
 ## Output
 
@@ -116,3 +118,5 @@ Write (or append to) `plans/<plan-name>/daemon-implementation.md`:
 Keep this file brief. The file paths and action descriptions tell the story — another agent can read the actual code if they need details.
 
 **Evidence rule for `## Decisions`.** If you deviate from the plan, abandon an approach, or reverse a change, quote the actual command output that justified it — the `go vet` error, the failing build, the `rg` result and its count. Do not assert a blast radius you have not measured: "this would break dozens of call sites" is not a reason unless you ran the search and can paste what it returned. A confident, plausible, wrong justification is worse than no justification, because the reviewer may accept it.
+
+**The evidence rule covers claimed *effects*, not just decisions.** Any claim about a runtime, filesystem, or security outcome ("the file is no longer world-readable", "the token can't leak", "the handler returns immediately") must be verified by measurement and the measurement pasted into the log — the `ls -l`, the curl, the query output — not inferred from the diff. m1-sessions lesson: a fix log claimed a world-readable-data window was "closed" after chmodding one file; nobody looked at the directory, and the WAL sidecar holding the newest data was still world-readable. The code change was real; the claimed effect was false.

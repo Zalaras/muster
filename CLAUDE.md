@@ -36,7 +36,9 @@ Feature work goes through the multi-agent pipeline, not ad-hoc editing:
 Boundaries the pipeline enforces (also binding outside it): impl agents never edit
 tests; test agents never edit implementation; nobody changes the daemon↔UI protocol
 (`docs/protocol.md` / a plan's Protocol Contract) unilaterally; every agent leaves the
-tree compiling; claims need evidence (paste the failing output, don't assert).
+tree compiling; claims need evidence (paste the failing output, don't assert) — and
+claimed *effects* need measurement (a "the file is now private / the row is now hidden"
+claim requires the `ls -l` or the observed DOM, not just the diff).
 Trivial fixes and doc work don't need the pipeline — judgement call, default to it for
 anything with acceptance criteria.
 

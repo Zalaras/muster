@@ -122,6 +122,7 @@ Check:
 - **No web fonts** — no CDN link, no `@import`, no vendored font binary. System stacks only.
 - **State colour is meaning** — `--amber` only ever means Needs-Input, `--rose` only Failed, `--violet` only Planning, `--teal` only Working. Colour is never the sole carrier: the state word and the sort position must also be present. At most one filled amber primary action per surface.
 - **Tabular numerics** — every value that changes over time (timers, percentages, token counts, resets) sets `font-variant-numeric: tabular-nums`.
+- **`[hidden]` companions** — every element JS toggles via the `hidden` attribute has a compensating `[hidden] { display: none; }` rule wherever an author `display` declaration also applies to it (an author rule overrides the UA default regardless of specificity). Sweep: each `.hidden =` site in `web/src` maps to a covered element (m1-sessions' one validate failure was the single missed instance of this class).
 
 **Honesty rules (§6 of the design system) — each violation is Critical, because it makes the UI assert something the daemon does not know:** an empty/0% track drawn for unknown data instead of the word *unknown* with no track; a bare context percentage without absolute tokens and compaction count; `permission_mode` presented as authoritative rather than *last known*; `StopFailure.error` switched on as an enum; any "Done" state; any cost or spend display; daemon-down not surfaced prominently; possibly-stale state shown without its age.
 

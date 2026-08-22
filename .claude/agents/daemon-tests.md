@@ -32,6 +32,7 @@ This agent receives: `<plan-name>`
 Per `docs/conventions.md` and SPEC §8, unit tests target **specific logic** — the E2E suite covers wiring. Priorities:
 
 - **The state machine, reconcile, and any JSON merge get exhaustive unit tests** — they are the logic the whole tool rests on. Cover every transition the plan defines, plus the loss cases (hooks are best-effort, at-most-once, unordered).
+- **Invariants get cross-state coverage, not just per-row coverage** (m1-sessions lesson: both review Criticals were stated invariants that 157 passing per-transition tests missed). When the plan or protocol states an "iff"/"always"/"never" rule (e.g. "`attention` non-null iff `needs_input`"), assert it from **every reachable source state** — a table crossing each input against each starting state, checking the invariant after, is cheap. A transition test that always starts from the convenient state (the rebind tests all started from `started`, the one state with nothing to leak) proves nothing about the invariant.
 - **`internal/claudecode/` parsing/ingest**: feed it the real captured payload shapes from `spikes/canary-fields.md` / `spikes/FINDINGS.md`, not invented ones. Include the measured absences (e.g. fields that are null before a first API response, `permission_mode` missing from most events).
 - **Handlers**: decode/delegate/encode behaviour with `httptest`; mock the layer below via its consumer-side interface.
 

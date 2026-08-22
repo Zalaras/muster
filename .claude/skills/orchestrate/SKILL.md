@@ -103,6 +103,15 @@ When routing review issues back to fix agents:
    Read plans/<plan-name>/review.md for the complete issue descriptions.
    The issues tagged [<agent-tag>] are yours to fix. Fix ALL of them.
    ```
+5. **Require path enumeration for Critical/Major fixes** — always include:
+   ```
+   For each Critical or Major issue, enumerate in your Fix Attempt section EVERY code
+   path that reaches the defect and state how each one is now closed. When an issue
+   names a category ("clear-rebind and plain re-bind"), the fix must close every door
+   in the category, not just the branch the reviewer's example used.
+   ```
+   Learned from m1-sessions: a Critical naming two paths got a one-path fix, and the
+   identical bug came back through the other path a full review cycle later.
 
 ### Step 1: E2E Specs Agent
 
@@ -271,6 +280,7 @@ Two concrete ways a flat fan-out goes wrong: an impl agent moves or renames a sy
   This is not defensive boilerplate: review issues cite `file:line`, and a wave-1 edit in the same cycle invalidates those line numbers for every later wave reading the same review.md.
 - **Both impl agents tagged** → they run in parallel; their file trees are disjoint (`cmd/`/`internal/` vs `web/src/`). **Exception:** if any review issue asks for a change to the protocol contract (the plan's **Protocol Contract** section or `docs/protocol.md`), do NOT run them in parallel. Stop and report to the user. The contract is the shared source of truth that lets the two agents work independently at all, and neither may redefine it unilaterally.
 - **`[e2e-specs]` always lands in wave 3**, even when its issue looks self-contained. A locator repaired against pre-fix markup is worthless, and its fix mode ends in a live run — which must happen against the post-fix tree.
+- **New user-facing behaviour added by a fix wave must get E2E coverage in the same cycle.** When a cycle's `[web-impl]`/`[daemon-impl]` fixes *add* user-visible behaviour (a new error display, marker, shortcut, field), the wave-3 e2e-specs prompt must include: "read this cycle's ## Fix Attempt sections in both implementation logs and assert any new user-facing behaviour they added" — and e2e-specs runs in wave 3 for this purpose **even with no tagged `[e2e-specs]` issue** (this is a concrete coverage task, so it doesn't violate the never-spawn-with-nothing-to-fix rule). Learned from m1-sessions: seven behaviours shipped untested because the unit-test agent correctly said "DOM is Playwright's job" while e2e-specs was only prompted with its one tagged issue — the gap lives *between* agents, and only the orchestrator sees all waves.
 - **This same wave order governs `implementation-bug` verdicts** from Step 4 and Step 5, not just review cycles. When Step 5 reports `implementation-bug`: run the routed impl agent (wave 1), gate, re-run that side's unit test agent (wave 2), gate, then re-spawn Step 5 (wave 3).
 - **Two agents may never be spawned concurrently if one may write a file the other may write.** The wave table already guarantees this for the five pipeline tags; apply the same test before any ad-hoc parallel spawn.
 

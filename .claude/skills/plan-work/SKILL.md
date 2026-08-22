@@ -136,6 +136,18 @@ For each key interactive element that E2E tests will target, define its expected
 
 Bare `<details><summary>`, `<div>` and `<span>` carry **no** implicit ARIA role. When unsure what role a piece of markup exposes, put `—` in the Role column and describe the intent in Notes — `e2e-specs` verifies its locators against a real DOM and will pick a working one. Never resolve the uncertainty by requiring an extra `role=` attribute purely so a test can find the element — that trades away native semantics for test convenience.
 
+#### Invariants (learned from m1-sessions)
+
+If the plan or the protocol states a rule that must hold **at all times** — an "iff", an
+"always", a "never" (e.g. "`attention` is non-null iff state is `needs_input`") — list it
+in the plan as a **named invariant**, not just inside a requirement's prose. Invariants
+get a different test shape than transitions: the test agent must assert them from **every
+reachable source state**, not the convenient one. Both m1-sessions Criticals were stated
+§5.3 invariants that every per-row happy-path test missed, because the only rebind tests
+started from `started` — the one state with nothing to leak. A "run every input against
+every starting state, assert the invariant after" table is cheap; write it into the
+acceptance criteria explicitly.
+
 ### 8. Edge Cases and Error Handling
 
 Discuss edge cases and failure scenarios on both sides. For Muster, always cover the standing ones that apply: hook loss/duplication/reordering, `/clear` minting a new `session_id` in the same pane, daemon restart mid-session, no-data-yet nulls, tmux pane death without `SessionEnd`.

@@ -32,6 +32,7 @@ All Playwright commands run from `web/`.
 
 - **Ports are per-run and never reused.** The config derives a fresh port each run and sets `reuseExistingServer: false` — deliberately, to avoid silently testing a stale server. Never change this, never hardcode a port in a test (use relative `page.goto('/…')`; baseURL is set).
 - Payload fixtures must be **synthesized from the measured captures** (`spikes/canary-fields.md` is the field-by-field authority), including the awkward truths: no timestamps or sequence numbers on hooks, `SessionStart` absent over plain HTTP, null context fields before a first API response, status-line posts arriving in close pairs. Deterministic values only — no randomness, no wall-clock dependence.
+- **Never invent a wire shape.** Every field's *shape* in a fixture must be traceable to a canary-fields entry for **that event** — a shape measured on the status line is not evidence for the same-named field on a hook. If the shape you need is unmeasured, do not guess: flag it in your log's Notes/handoff as needing an `/interface-probe` and use the shape the plan asserts (or omit the field if optional). m1-sessions lesson: an invented `{id, display_name}` object on `SessionStart` propagated into the daemon (which then quietly accepted *both* shapes), survived two pipeline stages, and cost an Opus review finding plus a mid-pipeline probe to unwind.
 - Any tmux involvement (once the harness drives real panes) uses a per-test private socket — never `-L muster`, never the user's default server.
 - Tests must be independent — no test depends on another test's side effects or on execution order.
 
@@ -60,6 +61,8 @@ You must now actually RUN your spec file(s) and repair your own locators. See `#
 ### `fix` — the review agent tagged issues `[e2e-specs]`
 
 Read `plans/<plan-name>/review.md`, fix every one of them, then finish exactly as in `validate` mode (run the file live; `--list` alone is not sufficient). Append your work under a new `## Fix Attempt <N>` heading; do not rewrite the log.
+
+Additionally, in any fix-cycle invocation: read the latest `## Fix Attempt` sections of both implementation logs. If this cycle's impl fixes **added** user-visible behaviour (a new error display, marker, shortcut, field), add an assertion for each — that coverage is yours even when no review issue is tagged for it, because the unit-test agents correctly treat DOM behaviour as Playwright's job (m1-sessions lesson: seven behaviours shipped untested through that gap).
 
 ## Validate Mode
 
