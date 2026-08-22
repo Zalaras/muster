@@ -45,6 +45,11 @@ type Config struct {
 	ClaudeBin string
 	// TmuxSocket is the dedicated tmux socket name (REQ-19's -tmux-socket, default "muster").
 	TmuxSocket string
+	// BrowseRoot is the folder browser's root (protocol §3.6): GET /api/browse's
+	// no-param default and the "Up" ceiling. Empty means the daemon user's home
+	// directory. E2E passes its per-run scratch dir so browse tests never touch
+	// the real home.
+	BrowseRoot string
 	// BaseURL is the daemon's own http://127.0.0.1:<port> — used to build the ingest
 	// URLs written into a launched directory's settings.local.json.
 	BaseURL string
@@ -64,6 +69,7 @@ type Server struct {
 	uiToken     string
 	ingestToken string
 	webDist     string
+	browseRoot  string
 
 	daemonVersion string
 	claudeCode    ClaudeCodeInfo
@@ -90,6 +96,7 @@ func New(cfg Config) *Server {
 		uiToken:       cfg.UIToken,
 		ingestToken:   cfg.IngestToken,
 		webDist:       cfg.WebDist,
+		browseRoot:    cfg.BrowseRoot,
 		daemonVersion: cfg.DaemonVersion,
 		claudeCode:    cfg.ClaudeCode,
 		hub:           newWSHub(),

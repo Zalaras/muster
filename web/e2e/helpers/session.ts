@@ -8,7 +8,7 @@
 // via web/e2e/helpers/payloads.ts and POSTed to the daemon's ingest endpoints the same
 // way the real hook wrapper/status-line scripts would.
 import { mkdtemp, rm } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Locator, Page } from "@playwright/test";
 import type { ScratchDaemon } from "./daemon";
@@ -30,17 +30,18 @@ export async function scratchDirectory(
 }
 
 /**
- * Creates a fresh scratch directory directly under the real home directory — the only
- * place `GET /api/browse`'s no-`path` default (protocol §3.6) lands, and so the only
- * directory the launch modal's folder browser can reach in one click. The plan's E2
- * criterion ("launch via Browse… into a fresh directory") requires driving that actual
- * control, which is why this doesn't use `os.tmpdir()` — always paired with `cleanup()`
- * in a `finally` so nothing lingers in the real home directory.
+ * Creates a fresh scratch directory under the daemon's per-run browse root — where
+ * `GET /api/browse`'s no-`path` default (protocol §3.6, `-browse-root`) lands, and so
+ * the only place the launch modal's folder browser can reach in one click. The plan's
+ * E2 criterion ("launch via Browse… into a fresh directory") requires driving that
+ * actual control. The root lives inside the daemon's scratch data dir, so nothing ever
+ * touches the real home directory; `cleanup()` keeps tests isolated within a run.
  */
-export async function homeScratchDirectory(
+export async function browseScratchDirectory(
+  daemon: ScratchDaemon,
   prefix = "muster-e2e-browse-",
 ): Promise<{ path: string; cleanup: () => Promise<void> }> {
-  const path = await mkdtemp(join(homedir(), prefix));
+  const path = await mkdtemp(join(daemon.browseRoot, prefix));
   return {
     path,
     cleanup: async () => {

@@ -4,7 +4,7 @@ import { basename, join } from "node:path";
 import { promisify } from "node:util";
 import { expect, test } from "@playwright/test";
 import { type ScratchDaemon, startScratchDaemon } from "./helpers/daemon";
-import { getState, homeScratchDirectory, launchSession, scratchDirectory, sessionCard } from "./helpers/session";
+import { browseScratchDirectory, getState, launchSession, scratchDirectory, sessionCard } from "./helpers/session";
 
 const execFileAsync = promisify(execFile);
 
@@ -58,7 +58,7 @@ test("New session opens a modal exposing every Testable UI Element (REQ-14, W4)"
 test("Browse… into a fresh directory launches with the trust-prompt note and writes settings.local.json (E2, REQ-17)", async ({
   page,
 }) => {
-  const { path: dir, cleanup } = await homeScratchDirectory();
+  const { path: dir, cleanup } = await browseScratchDirectory(daemon);
   try {
     await page.goto(daemon.dashboardUrl);
     await page.getByRole("button", { name: "New session" }).click();
@@ -73,7 +73,7 @@ test("Browse… into a fresh directory launches with the trust-prompt note and w
     // the first time a test browses a real one, so match the name with an optional
     // suffix rather than pinning it exact (review m1-sessions cycle-2 Major 3).
     const dirButton = new RegExp(`^${dirName}( \\(git\\))?$`);
-    // Drills one level from the default (home-directory) listing into our fresh dir,
+    // Drills one level from the default (browse-root) listing into our fresh dir,
     // then Up and back in again — exercising Up + Subdirectory entry + Use this folder
     // together, and Current browse path implicitly (we never navigate anywhere else).
     await dialog.getByRole("button", { name: dirButton }).click();
@@ -204,7 +204,7 @@ test("a card for a known (non-first-launch) directory shows the no-signal note a
 test("Browse into a directory removed mid-session shows the daemon's error inline and keeps the stale listing (Edge Case 14, Launch error line)", async ({
   page,
 }) => {
-  const { path: dir, cleanup } = await homeScratchDirectory();
+  const { path: dir, cleanup } = await browseScratchDirectory(daemon);
   try {
     const vanishingName = "to-vanish";
     await mkdir(join(dir, vanishingName));
@@ -245,7 +245,7 @@ test("Browse into a directory removed mid-session shows the daemon's error inlin
 test("a real git checkout in the folder browser is marked (git) and a plain subdirectory is not (Major 6)", async ({
   page,
 }) => {
-  const { path: dir, cleanup } = await homeScratchDirectory();
+  const { path: dir, cleanup } = await browseScratchDirectory(daemon);
   try {
     const gitDirName = "git-subdir";
     const plainDirName = "plain-subdir";

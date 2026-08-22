@@ -61,6 +61,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 		debug       = fs.Bool("debug", false, "debug logging")
 		claudeBin   = fs.String("claude-bin", "claude", "the `claude` binary to spawn for a launched session (REQ-19: lets E2E launch a stub)")
 		tmuxSocket  = fs.String("tmux-socket", "muster", "dedicated tmux socket name (REQ-19: never the user's default server)")
+		browseRoot  = fs.String("browse-root", "", "root of the launch modal's folder browser — GET /api/browse's no-param default and its Up ceiling (empty = the user's home directory; E2E passes its scratch dir)")
 	)
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -136,6 +137,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 		},
 		ClaudeBin:          *claudeBin,
 		TmuxSocket:         *tmuxSocket,
+		BrowseRoot:         *browseRoot,
 		BaseURL:            baseURL,
 		SessionStartScript: sessionStartScript,
 		StatusLineScript:   statusLineScript,

@@ -114,24 +114,17 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
       Candidates: a scheduled canary run that auto-bumps the pin on green; pinning a
       *floor* + canary-on-drift instead of an exact version; or accepting drift and
       making the canary the nightly authority.
-- [ ] **For M2 plan-work** (review cycle-1 Minor 13 / cycle-2 Minor 6):
-      - REQ-21's `⟳n` counter: add a Testable UI Elements row pinning the context-row
-        pattern (`/ctx unknown ⟳\d+/`) and one E2E test (POST PreCompact → `⟳1`; second
-        POST → `⟳2`). The rendering already exists — this is purely a table row + test.
-      - Browse E2E off the real `$HOME`: add a `-browse-root` flag to `musterd`
-        (default `$HOME`; `GET /api/browse`'s no-param default and the "Up" ceiling).
-        The E2E harness passes its per-run scratch dir, so browse tests never touch the
-        real home directory. Daemon-side flag, no UI change.
+- [x] Browse E2E off the real `$HOME` — done 2026-08-22 (review cycle-1 Minor 13, second
+      half): `musterd -browse-root` (empty = home) is now `GET /api/browse`'s no-param
+      default and the Up ceiling (protocol §3.6 updated); the E2E harness passes a
+      per-run root inside its scratch data dir and `browseScratchDirectory()` replaced
+      the home-dir helper — no test touches the real home directory anymore.
 - [x] Cosmetic (cycle-3 minor): ⌘N with the modal open fell through to the browser's
       new-window shortcut. Fixed 2026-08-22 — `preventDefault()` now precedes the
       `dialog.open` guard in `web/src/render/launch.ts`.
-- [ ] **E2E/probe harness: no tmux socket litter** (cycle-3 housekeeping note; ~80 dead
-      socket files found in `/private/tmp`, zero leaked processes): switch the harness
-      (and `test/rig`) from `tmux -L <name>` (socket in tmux's shared tmp dir, orphaned
-      after kill-server) to `tmux -S <path>` with the socket inside the per-run scratch
-      dir that already gets deleted — Go tests use `t.TempDir()`. Needs `-tmux-socket`
-      to accept a path (use `-S` when the value contains a `/`, `-L` otherwise, so the
-      default `muster` name keeps working). One-off: sweep the existing dead files.
+- [x] One-off sweep of the dead tmux socket files in `/private/tmp/tmux-501/` — done
+      2026-08-22 (258 `muster*` files removed, zero tmux processes running). The
+      structural fix (sockets in the per-run scratch dir) is queued in M2 below.
 
 ## M2 — Terminal panes
 
@@ -150,6 +143,17 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
 - [ ] tmux owns scrollback: set xterm `scrollback: 0`
 - [ ] Set `LANG`/`LC_ALL` on session creation — a process spawned by a Go daemon has none,
       and the failure looks like a totally broken bridge
+- [ ] **Include in the M2 plan** (M1 review follow-up, cycle-1 Minor 13): REQ-21's `⟳n`
+      compaction counter needs a Testable UI Elements row pinning the context-row pattern
+      (`/ctx unknown ⟳\d+/`) and one E2E test (synthesized PreCompact → `⟳1`, second →
+      `⟳2`). The rendering already exists — this is purely a plan table row + a test.
+- [ ] **Include in the M2 plan** (M1 review cycle-3 housekeeping): no tmux socket litter —
+      switch the E2E harness, per-test Go tests, and `test/rig` from `tmux -L <name>`
+      (socket orphaned in tmux's shared tmp dir after kill-server) to `tmux -S <path>`
+      with the socket inside the per-run scratch dir that already gets deleted (Go tests:
+      `t.TempDir()`). Needs `-tmux-socket` to accept a path — use `-S` when the value
+      contains `/`, `-L` otherwise, so the default `muster` name keeps working. Natural
+      fit for M2 since its geometry work touches `internal/tmux` anyway.
 
 ## M3 — Gauges
 

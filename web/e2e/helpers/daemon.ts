@@ -14,7 +14,7 @@
 // process. The stub never exits on its own — pane-liveness tests (E9) control death
 // explicitly via `tmux kill-window`.
 import { type ChildProcess, execFile, spawn } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
@@ -81,6 +81,11 @@ export class ScratchDaemon {
   readonly tmuxSocket: string;
   /** Absolute path to the stub `claude` binary this run's launches will invoke. */
   readonly claudeBinPath: string;
+  /**
+   * Per-run folder-browser root (`-browse-root`): the modal's Browse… flow starts and
+   * stops here, so browse tests never create anything under the real `$HOME`.
+   */
+  readonly browseRoot: string;
   uiToken = "";
   ingestToken = "";
   dashboardUrl = "";
@@ -97,12 +102,14 @@ export class ScratchDaemon {
     // socket name too, so no separate uniqueness scheme is needed.
     this.tmuxSocket = basename(dataDir);
     this.claudeBinPath = join(dataDir, "stub-claude.sh");
+    this.browseRoot = join(dataDir, "browse-root");
   }
 
   static async start(): Promise<ScratchDaemon> {
     const port = await freePort();
     const dataDir = await mkdtemp(join(tmpdir(), "muster-e2e-"));
     const daemon = new ScratchDaemon(port, dataDir);
+    await mkdir(daemon.browseRoot, { recursive: true });
     await daemon.writeStubClaude();
     await daemon.spawnAndWait();
     return daemon;
@@ -135,6 +142,8 @@ export class ScratchDaemon {
         this.claudeBinPath,
         "-tmux-socket",
         this.tmuxSocket,
+        "-browse-root",
+        this.browseRoot,
       ],
       { stdio: ["ignore", "pipe", "pipe"] },
     );

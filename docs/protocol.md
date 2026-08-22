@@ -142,14 +142,18 @@ row keeps its Muster `id` and moves to the new `tmuxTarget` once the enveloped
 ### 3.6 `GET /api/browse` (M1)
 
 **Auth**: UI cookie (401 `unauthorized` without it).
-**Request:** query param `path` — absolute directory path; omitted → the daemon user's
-home directory.
+**Request:** query param `path` — absolute directory path; omitted → the daemon's
+**browse root** (`-browse-root` flag; empty/default = the daemon user's home
+directory — E2E passes its per-run scratch dir so browse tests never touch the real
+home).
 **Response 200:**
 
 ```jsonc
 {
   "path": "/Users/damian/code",          // the directory listed (absolute, cleaned)
-  "parent": "/Users/damian",             // null at filesystem root
+  "parent": "/Users/damian",             // null at the browse root and at filesystem
+                                         //   root (the root is the Up ceiling; explicit
+                                         //   absolute paths elsewhere stay browsable)
   "dirs": [                              // subdirectories only, dotfiles excluded,
     { "name": "Projects",                //   sorted by name; files never appear
       "path": "/Users/damian/code/Projects",
@@ -474,3 +478,9 @@ unknown to the DB → logged, never adopted (Muster only manages what it started
   §7.3's status-line row is scoped to M3 (M1 persists and routes status posts, mutates
   nothing); §8's M1 row gains `/api/browse`, M3 gains the title/model refresh. All
   additive; no version bump.
+- **2026-08-22 — §3.6 gains the browse root** (M1 review follow-up, user-approved):
+  `musterd -browse-root` (empty = the user's home directory) is `GET /api/browse`'s
+  no-param default and the "Up" ceiling (`parent` null there); explicit absolute paths
+  outside it remain browsable. Motivation: the E2E harness had to create scratch
+  directories under the real `$HOME` to drive the Browse… flow. Additive; no version
+  bump.

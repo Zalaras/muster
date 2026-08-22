@@ -135,6 +135,55 @@ func TestHandleBrowse_APathThatIsAFileIs404(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, rec.Code)
 }
 
+// newBrowseRootTestServer builds a test server whose folder browser is rooted at a
+// temp dir (the -browse-root seam the E2E harness uses to stay off the real $HOME).
+func newBrowseRootTestServer(t *testing.T) (*testServer, string) {
+	t.Helper()
+	root := t.TempDir()
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	srv.browseRoot = root
+	return srv, root
+}
+
+func TestHandleBrowse_NoPathDefaultsToConfiguredBrowseRoot(t *testing.T) {
+	srv, root := newBrowseRootTestServer(t)
+	require.NoError(t, os.Mkdir(filepath.Join(root, "inside"), 0o755))
+
+	rec := getBrowseRequest(t, srv, "")
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var out browseResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
+	assert.Equal(t, filepath.Clean(root), out.Path)
+	assert.Nil(t, out.Parent, "the browse root is the Up ceiling")
+	require.Len(t, out.Dirs, 1)
+	assert.Equal(t, "inside", out.Dirs[0].Name)
+}
+
+func TestHandleBrowse_ConfiguredBrowseRootIsTheUpCeilingButExplicitPathsElsewhereStillWork(t *testing.T) {
+	srv, root := newBrowseRootTestServer(t)
+	inside := filepath.Join(root, "inside")
+	require.NoError(t, os.Mkdir(inside, 0o755))
+	elsewhere := t.TempDir()
+
+	rec := getBrowseRequest(t, srv, "?path="+inside)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var out browseResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
+	require.NotNil(t, out.Parent, "a directory under the root has a parent")
+	assert.Equal(t, filepath.Clean(root), *out.Parent)
+
+	rec = getBrowseRequest(t, srv, "?path="+filepath.Clean(root))
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
+	assert.Nil(t, out.Parent, "Up stops at the browse root")
+
+	rec = getBrowseRequest(t, srv, "?path="+elsewhere)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
+	require.NotNil(t, out.Parent, "explicit absolute paths outside the root stay browsable")
+}
+
 func TestHandleBrowse_RootHasNilParent(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 

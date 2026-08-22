@@ -27,16 +27,23 @@ type browseResponse struct {
 
 // handleBrowse is GET /api/browse: lists a directory's subdirectories for the launch
 // modal's folder browser (REQ-6), since browsers never reveal a chosen folder's
-// absolute path.
+// absolute path. The browse root (-browse-root; empty = the user's home directory)
+// is the no-param default and the "Up" ceiling; explicit paths elsewhere stay allowed.
 func (s *Server) handleBrowse(w http.ResponseWriter, r *http.Request) {
-	path := r.URL.Query().Get("path")
-	if path == "" {
+	root := s.browseRoot
+	if root == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			writeJSONError(w, http.StatusInternalServerError, "internal_error", "could not determine home directory")
 			return
 		}
-		path = home
+		root = home
+	}
+	root = filepath.Clean(root)
+
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		path = root
 	} else if !filepath.IsAbs(path) {
 		writeJSONError(w, http.StatusBadRequest, "invalid_request", "path must be an absolute directory path")
 		return
@@ -66,7 +73,7 @@ func (s *Server) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	sort.Slice(dirs, func(i, j int) bool { return dirs[i].Name < dirs[j].Name })
 
 	var parent *string
-	if p := filepath.Dir(path); p != path {
+	if p := filepath.Dir(path); p != path && path != root {
 		parent = &p
 	}
 
