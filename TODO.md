@@ -107,17 +107,31 @@ Design constraints already settled by the spikes — do not re-derive:
 
 Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22):
 
-- [ ] **Claude Code pin drift — decision needed**: `docs/claude-code-pin.md` pins
-      **2.1.233**, but the installed binary is **2.1.240** and `spikes/canary-fields.md`
-      now carries measurements against 2.1.237 and 2.1.240. Either bump the pin (gated by
-      `make canary` per the ritual) or reinstall the pinned version — stop the silent drift.
-- [ ] **For M2 plan-work** (review cycle-1 Minor 13 / cycle-2 Minor 6): add REQ-21's `⟳n`
-      compaction counter to the Testable UI Elements table so it gets an E2E assertion;
-      and give the E2E harness a way off the real `$HOME` for browse tests — a
-      `-home-dir`-style flag on `GET /api/browse`'s default, or a path input in the modal.
-- [ ] Cosmetic (cycle-3 minor): with the launch modal already open, ⌘N now falls through
-      to the browser's new-window shortcut — the `dialog.open` early-return sits above
-      `preventDefault()` in `web/src/render/launch.ts`; swap the two lines to swallow it.
+- [ ] **Claude Code pin — deferred to post-v1** (decided 2026-08-22): the drift stands
+      (pin 2.1.233, installed 2.1.240, measurements against three versions) until v1
+      ships. Then **rethink the pin strategy itself**, not just bump it: Claude Code
+      releases most weekdays, so a static pin + manual canary ritual churns constantly.
+      Candidates: a scheduled canary run that auto-bumps the pin on green; pinning a
+      *floor* + canary-on-drift instead of an exact version; or accepting drift and
+      making the canary the nightly authority.
+- [ ] **For M2 plan-work** (review cycle-1 Minor 13 / cycle-2 Minor 6):
+      - REQ-21's `⟳n` counter: add a Testable UI Elements row pinning the context-row
+        pattern (`/ctx unknown ⟳\d+/`) and one E2E test (POST PreCompact → `⟳1`; second
+        POST → `⟳2`). The rendering already exists — this is purely a table row + test.
+      - Browse E2E off the real `$HOME`: add a `-browse-root` flag to `musterd`
+        (default `$HOME`; `GET /api/browse`'s no-param default and the "Up" ceiling).
+        The E2E harness passes its per-run scratch dir, so browse tests never touch the
+        real home directory. Daemon-side flag, no UI change.
+- [x] Cosmetic (cycle-3 minor): ⌘N with the modal open fell through to the browser's
+      new-window shortcut. Fixed 2026-08-22 — `preventDefault()` now precedes the
+      `dialog.open` guard in `web/src/render/launch.ts`.
+- [ ] **E2E/probe harness: no tmux socket litter** (cycle-3 housekeeping note; ~80 dead
+      socket files found in `/private/tmp`, zero leaked processes): switch the harness
+      (and `test/rig`) from `tmux -L <name>` (socket in tmux's shared tmp dir, orphaned
+      after kill-server) to `tmux -S <path>` with the socket inside the per-run scratch
+      dir that already gets deleted — Go tests use `t.TempDir()`. Needs `-tmux-socket`
+      to accept a path (use `-S` when the value contains a `/`, `-L` otherwise, so the
+      default `muster` name keeps working). One-off: sweep the existing dead files.
 
 ## M2 — Terminal panes
 

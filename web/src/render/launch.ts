@@ -217,11 +217,11 @@ export function initLaunchModal(elements: LaunchModalElements, handlers: LaunchM
   // anywhere in the shell.
   window.addEventListener("keydown", (event) => {
     if (event.metaKey && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "n") {
-      // Guard lives here, not just inside openModal()'s own early return, so it's
-      // visible at the point where we swallow the browser's own Cmd+N (review
-      // m1-sessions cycle-2 Minor 4).
-      if (elements.dialog.open) return;
+      // Always swallow the browser's own Cmd+N while the dashboard has focus — even
+      // with the modal already open, a new browser window is never what ⌘N means here
+      // (review m1-sessions cycle-3 minor: preventDefault must precede the open-guard).
       event.preventDefault();
+      if (elements.dialog.open) return;
       openModal();
     }
   });
