@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/Zalaras/muster/internal/claudecode"
+	"github.com/Zalaras/muster/internal/session"
 	"github.com/Zalaras/muster/internal/store"
 )
 
@@ -31,6 +32,10 @@ type ingestQueue struct {
 	log     zerolog.Logger
 	dropped atomic.Int64
 	wg      sync.WaitGroup
+
+	// manager routes an event to its bound Muster session and feeds the §7 state
+	// machine (m1-sessions). Nil in tests that only exercise raw persistence.
+	manager *session.Manager
 }
 
 func newIngestQueue(st *store.Store, log zerolog.Logger, size int) *ingestQueue {
@@ -80,8 +85,11 @@ func (q *ingestQueue) Stop(ctx context.Context) {
 	}
 }
 
-// process parses and persists one job. Never logs job.body — hook/status payloads carry
-// prompt text and must never reach a log (REQ-13, D11).
+// process parses, routes and persists one job, then feeds the routed event into the §7
+// state machine (m1-sessions: "parse → persist (with routing) → feed the manager,
+// sequentially, so seq order and apply order are the same thing by construction").
+// Never logs job.body — hook/status payloads carry prompt text and must never reach a
+// log (REQ-13, D11, D18).
 func (q *ingestQueue) process(job ingestJob) {
 	ev, err := claudecode.ParseIngestBody(job.body, job.kind)
 	if err != nil {
@@ -93,7 +101,10 @@ func (q *ingestQueue) process(job ingestJob) {
 		return
 	}
 
-	if err := q.store.InsertEvent(context.Background(), store.Event{
+	sessionID := q.resolveSessionID(job.kind, ev)
+
+	ctx := context.Background()
+	if err := q.store.InsertEvent(ctx, store.Event{
 		ClaudeSessionID: ev.SessionID,
 		Type:            ev.Type,
 		PromptID:        ev.PromptID,
@@ -101,9 +112,45 @@ func (q *ingestQueue) process(job ingestJob) {
 		MusterSession:   ev.MusterSession,
 		TmuxPane:        ev.TmuxPane,
 		Payload:         ev.Payload,
+		SessionID:       sessionID,
 	}); err != nil {
 		q.log.Error().Err(err).Str("kind", string(job.kind)).Msg("failed to persist ingest event")
+		return
 	}
+
+	if sessionID == nil || q.manager == nil {
+		return
+	}
+
+	input := claudecode.Interpret(ev.Type, ev.Payload)
+	if _, err := q.manager.Apply(ctx, *sessionID, ev.SessionID, ev.PromptID, input); err != nil {
+		q.log.Warn().Err(err).Str("kind", string(job.kind)).Msg("applying ingest event to session state failed")
+	}
+}
+
+// resolveSessionID determines which Muster session (if any) ev routes to (REQ-7).
+// An envelope's musterSession field is authoritative when present and known (Edge
+// Case 12: a stale/unknown value is never trusted); otherwise it falls back to the
+// existing claude-session-id binding. An unresolved event is logged (never the
+// payload) and persists with a NULL event.session_id (D9, Edge Case 11).
+func (q *ingestQueue) resolveSessionID(kind claudecode.Kind, ev claudecode.Event) *int64 {
+	if q.manager == nil {
+		return nil
+	}
+	if ev.MusterSession != nil {
+		if q.manager.Exists(*ev.MusterSession) {
+			id := *ev.MusterSession
+			return &id
+		}
+		q.log.Info().Str("kind", string(kind)).Int64("muster_session", *ev.MusterSession).
+			Msg("ingest envelope named an unknown muster session; persisting unrouted")
+		return nil
+	}
+	if id, ok := q.manager.Resolve(ev.SessionID); ok {
+		return &id
+	}
+	q.log.Info().Str("kind", string(kind)).Msg("ingest event has no bound muster session; persisting unrouted")
+	return nil
 }
 
 func (s *Server) handleIngestHook(w http.ResponseWriter, r *http.Request) {

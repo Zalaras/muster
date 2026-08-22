@@ -9,7 +9,10 @@
   <body>
     <div id="app">
       <header class="masthead">
-        <h1>Muster</h1>
+        <div class="brand"><h1>Muster</h1></div>
+        <!-- design-system §8: sized now so M2's Focus/Tiles switcher moves nothing when
+             it lands here. Deliberately empty in M1. -->
+        <div id="view-switcher" class="view-switcher" aria-hidden="true"></div>
         <div class="masthead-right">
           <span id="usage-5h" class="usage-readout"></span>
           <span id="usage-7d" class="usage-readout"></span>
@@ -21,9 +24,107 @@
         musterd unreachable — hook output in open panes is Muster's absence, not session
         failure.
       </div>
-      <main id="sessions"></main>
+      <div class="split">
+        <aside class="rail" aria-label="Sessions">
+          <div class="railhead">
+            <button id="new-session-button" type="button" class="btn">New session</button>
+            <span id="rail-count" class="n"></span>
+          </div>
+          <div id="sessions" class="cards"></div>
+        </aside>
+        <section class="main">
+          <div class="placeholder">terminal panes arrive in M2</div>
+        </section>
+      </div>
     </div>
-    <div id="protocol-mismatch" hidden>protocol changed — reload the dashboard</div>
+    <div id="protocol-mismatch" role="alert" tabindex="-1" hidden>protocol changed — reload the dashboard</div>
+
+    <dialog id="launch-dialog" class="modal" aria-labelledby="launch-dialog-title">
+      <h2 id="launch-dialog-title">New session</h2>
+
+      <div id="mru-list" class="picker"></div>
+
+      <button id="browse-button" type="button" class="btn browse-btn">Browse…</button>
+
+      <div id="browse-panel" class="browse-panel" hidden>
+        <div id="browse-path" class="browse-path"></div>
+        <div class="browse-actions">
+          <button id="browse-up" type="button" class="btn">Up</button>
+          <button id="use-this-folder" type="button" class="btn">Use this folder</button>
+        </div>
+        <div id="browse-dirs" class="browse-dirs"></div>
+      </div>
+
+      <form id="launch-form">
+        <div class="field-row">
+          <span class="field-label">Directory</span>
+          <span id="selected-directory">—</span>
+        </div>
+
+        <div class="field-row">
+          <label for="title-input">Title</label>
+          <input id="title-input" type="text" autocomplete="off" placeholder="optional — Claude Code auto-generates" />
+        </div>
+
+        <fieldset class="radios">
+          <legend>Model</legend>
+          <label><input type="radio" name="model" value="sonnet" checked /> sonnet</label>
+          <label><input type="radio" name="model" value="opus" /> opus</label>
+          <label><input type="radio" name="model" value="haiku" /> haiku</label>
+          <label><input type="radio" name="model" value="other" /> other</label>
+        </fieldset>
+
+        <div id="custom-model-row" class="field-row" hidden>
+          <label for="custom-model-input">Custom model</label>
+          <input id="custom-model-input" type="text" autocomplete="off" />
+        </div>
+
+        <fieldset class="radios">
+          <legend>Start in</legend>
+          <label><input type="radio" name="permission-mode" value="default" checked /> Claude Code default</label>
+          <label><input type="radio" name="permission-mode" value="plan" /> plan mode</label>
+          <label><input type="radio" name="permission-mode" value="acceptEdits" /> auto-accept</label>
+        </fieldset>
+
+        <p id="launch-error" class="launch-error" role="alert" hidden></p>
+
+        <div class="modal-foot">
+          <button id="cancel-button" type="button" class="btn">Cancel</button>
+          <button id="launch-button" type="submit" class="btn key">Launch</button>
+        </div>
+      </form>
+    </dialog>
+
+    <template id="session-card-template">
+      <article class="card" data-testid="session-card">
+        <div class="stripe"></div>
+        <div class="card-in">
+          <div class="r1">
+            <span class="name"></span>
+            <span class="badge"></span>
+            <span class="timer" aria-label="time in state"></span>
+          </div>
+          <div class="r2"></div>
+          <div class="r3"></div>
+          <div class="activity" hidden></div>
+          <div class="note" hidden></div>
+        </div>
+      </article>
+    </template>
+
+    <template id="mru-entry-template">
+      <button type="button" class="dir">
+        <span class="dir-name"></span>
+        <span class="dir-path"></span>
+        <span class="dir-branch"></span>
+        <span class="dir-age"></span>
+      </button>
+    </template>
+
+    <template id="subdir-entry-template">
+      <button type="button" class="subdir"></button>
+    </template>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

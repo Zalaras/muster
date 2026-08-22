@@ -34,12 +34,13 @@ func TestMigrate_AppliesInitSchema(t *testing.T) {
 
 	require.NoError(t, Migrate(ctx, db))
 
-	// D9/Schema Changes: exactly the 0001_init migration is recorded.
-	assert.Equal(t, 1, schemaMigrationsCount(t, db))
+	// m1-sessions added 0002_sessions.sql, so a fresh database now records two
+	// migrations (was 1 pre-M1 — see plans/m1-sessions/daemon-implementation.md Handoff).
+	assert.Equal(t, 2, schemaMigrationsCount(t, db))
 
 	var version int
-	require.NoError(t, db.QueryRowContext(ctx, `SELECT version FROM schema_migrations`).Scan(&version))
-	assert.Equal(t, 1, version)
+	require.NoError(t, db.QueryRowContext(ctx, `SELECT MAX(version) FROM schema_migrations`).Scan(&version))
+	assert.Equal(t, 2, version)
 
 	// The tables the migration creates are usable.
 	_, err := db.ExecContext(ctx, `INSERT INTO kv (key, value) VALUES ('k', 'v')`)
@@ -56,7 +57,7 @@ func TestMigrate_SecondCallIsANoOp(t *testing.T) {
 
 	require.NoError(t, Migrate(ctx, db))
 	before := schemaMigrationsCount(t, db)
-	require.Equal(t, 1, before)
+	require.Equal(t, 2, before) // m1-sessions: 0001_init + 0002_sessions
 
 	require.NoError(t, Migrate(ctx, db))
 	after := schemaMigrationsCount(t, db)

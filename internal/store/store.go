@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	// modernc.org/sqlite registers the "sqlite" driver used by Open below.
@@ -42,6 +43,21 @@ func Open(ctx context.Context, path string) (*Store, error) {
 	if err := Migrate(ctx, db); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("migrating %q: %w", path, err)
+	}
+
+	// The driver creates the file world-readable by default; M1 is the first milestone
+	// where real prompt text actually flows into it (hook payloads), so tighten it
+	// (review Minor 3 — adjacent to, not a violation of, the "never log hook payloads"
+	// hard rule, since a DB isn't a log). In WAL mode SQLite has, by this point, already
+	// created the -wal/-shm sidecars at the driver's default (world-readable) mode too —
+	// and the WAL is precisely where the most recently written pages (i.e. the newest
+	// hook payloads) live, so it needs the same restriction as the main file (review
+	// cycle 2 Major 1: chmod'ing only the main file left the sidecars world-readable).
+	for _, p := range []string{path, path + "-wal", path + "-shm"} {
+		if err := os.Chmod(p, 0o600); err != nil && !os.IsNotExist(err) {
+			_ = db.Close()
+			return nil, fmt.Errorf("restricting permissions on %q: %w", p, err)
+		}
 	}
 
 	return &Store{db: db}, nil
@@ -88,6 +104,12 @@ type Event struct {
 	MusterSession   *int64
 	TmuxPane        *string
 	Payload         []byte // verbatim inner payload JSON
+
+	// SessionID is the Muster session (session.id) this event routed to, resolved by
+	// the caller (internal/server/ingest.go, via internal/session's binding map)
+	// before persistence. Nil means unrouted (m1-sessions REQ-7/D9): an unknown Claude
+	// session id, or a stale/absent envelope — never guessed at by cwd.
+	SessionID *int64
 }
 
 // InsertEvent persists ev, assigning it the next seq for its ClaudeSessionID as part of
@@ -96,11 +118,11 @@ type Event struct {
 func (s *Store) InsertEvent(ctx context.Context, ev Event) error {
 	receivedAt := time.Now().UTC().Format(time.RFC3339)
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO event (claude_session_id, seq, type, prompt_id, tool_use_id, muster_session, tmux_pane, payload, received_at)
-		VALUES (?, (SELECT COALESCE(MAX(seq), 0) + 1 FROM event WHERE claude_session_id = ?), ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO event (claude_session_id, seq, type, prompt_id, tool_use_id, muster_session, tmux_pane, payload, received_at, session_id)
+		VALUES (?, (SELECT COALESCE(MAX(seq), 0) + 1 FROM event WHERE claude_session_id = ?), ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		ev.ClaudeSessionID, ev.ClaudeSessionID, ev.Type, ev.PromptID, ev.ToolUseID,
-		ev.MusterSession, ev.TmuxPane, string(ev.Payload), receivedAt,
+		ev.MusterSession, ev.TmuxPane, string(ev.Payload), receivedAt, ev.SessionID,
 	)
 	if err != nil {
 		return fmt.Errorf("inserting event for session %q: %w", ev.ClaudeSessionID, err)

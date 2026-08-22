@@ -9,7 +9,9 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"github.com/Zalaras/muster/internal/session"
 	"github.com/Zalaras/muster/internal/store"
+	"github.com/Zalaras/muster/internal/tmux"
 )
 
 // ClaudeCodeInfo is the daemon's startup snapshot of the installed Claude Code, used to
@@ -35,10 +37,25 @@ type Config struct {
 	// IngestQueueSize bounds the ingest queue; a full queue drops and logs rather than
 	// blocking the HTTP response (REQ-23). Zero uses a sane default.
 	IngestQueueSize int
+
+	// The following wire up m1-sessions' launch path (plan Implementation Notes).
+	// Zero values are safe for tests that never call POST /api/sessions.
+
+	// ClaudeBin is the `claude` binary to spawn (REQ-19's -claude-bin, default "claude").
+	ClaudeBin string
+	// TmuxSocket is the dedicated tmux socket name (REQ-19's -tmux-socket, default "muster").
+	TmuxSocket string
+	// BaseURL is the daemon's own http://127.0.0.1:<port> — used to build the ingest
+	// URLs written into a launched directory's settings.local.json.
+	BaseURL string
+	// SessionStartScript/StatusLineScript are the absolute paths to the generated
+	// command-hook wrapper scripts (internal/claudecode.WriteWrapperScripts).
+	SessionStartScript string
+	StatusLineScript   string
 }
 
-// Server holds musterd's HTTP mux and the long-lived pieces (ingest queue, WS registry)
-// that outlive any single request.
+// Server holds musterd's HTTP mux and the long-lived pieces (ingest queue, WS registry,
+// session manager) that outlive any single request.
 type Server struct {
 	mux *http.ServeMux
 	log zerolog.Logger
@@ -51,8 +68,10 @@ type Server struct {
 	daemonVersion string
 	claudeCode    ClaudeCodeInfo
 
-	ingest *ingestQueue
-	hub    *wsHub
+	ingest   *ingestQueue
+	hub      *wsHub
+	manager  *session.Manager
+	launcher *sessionLauncher
 }
 
 const defaultIngestQueueSize = 1024
@@ -73,9 +92,39 @@ func New(cfg Config) *Server {
 		webDist:       cfg.WebDist,
 		daemonVersion: cfg.DaemonVersion,
 		claudeCode:    cfg.ClaudeCode,
-		ingest:        newIngestQueue(cfg.Store, cfg.Logger, size),
 		hub:           newWSHub(),
 	}
+
+	tmuxClient := tmux.New(cfg.TmuxSocket)
+	s.manager = session.NewManager(session.Config{
+		Store:       cfg.Store,
+		Logger:      cfg.Logger,
+		PaneChecker: tmuxClient,
+		OnUpsert: func(sess *session.Session) {
+			s.hub.broadcast(sessionUpsertMessage{Type: "sessionUpsert", Session: toWireSession(sess)})
+		},
+	})
+
+	claudeBin := cfg.ClaudeBin
+	if claudeBin == "" {
+		claudeBin = "claude"
+	}
+	s.launcher = &sessionLauncher{
+		store:              cfg.Store,
+		manager:            s.manager,
+		tmux:               tmuxClient,
+		log:                cfg.Logger,
+		claudeBin:          claudeBin,
+		hookURL:            cfg.BaseURL + "/ingest/" + cfg.IngestToken + "/hook",
+		statusURL:          cfg.BaseURL + "/ingest/" + cfg.IngestToken + "/status",
+		sessionStartScript: cfg.SessionStartScript,
+		statusLineScript:   cfg.StatusLineScript,
+	}
+
+	q := newIngestQueue(cfg.Store, cfg.Logger, size)
+	q.manager = s.manager
+	s.ingest = q
+
 	s.routes()
 	return s
 }
@@ -85,16 +134,23 @@ func (s *Server) Handler() http.Handler {
 	return s.mux
 }
 
-// Start begins asynchronous ingest processing. Call once, after New.
+// Start reloads persisted sessions, begins the liveness poll, and begins asynchronous
+// ingest processing. Call once, after New.
 func (s *Server) Start() {
+	ctx := context.Background()
+	if err := s.manager.LoadAll(ctx); err != nil {
+		s.log.Error().Err(err).Msg("failed to load sessions at startup")
+	}
+	s.manager.Start()
 	s.ingest.Start()
 }
 
 // Shutdown closes every open WS connection (unblocking their handler goroutines, which
-// http.Server.Shutdown cannot do for hijacked connections) and drains the ingest queue,
-// giving up when ctx is done.
+// http.Server.Shutdown cannot do for hijacked connections), stops the liveness poll, and
+// drains the ingest queue, giving up when ctx is done.
 func (s *Server) Shutdown(ctx context.Context) {
 	s.hub.closeAll()
+	s.manager.Stop(ctx)
 	s.ingest.Stop(ctx)
 }
 
@@ -106,6 +162,9 @@ func (s *Server) routes() {
 
 	mux.Handle("GET /api/state", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleState)))
 	mux.Handle("GET /ws", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleWS)))
+	mux.Handle("POST /api/sessions", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleCreateSession)))
+	mux.Handle("GET /api/repos", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleListRepos)))
+	mux.Handle("GET /api/browse", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleBrowse)))
 
 	mux.HandleFunc("POST /ingest/{token}/hook", s.handleIngestHook)
 	mux.HandleFunc("POST /ingest/{token}/status", s.handleIngestStatus)

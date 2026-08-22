@@ -59,6 +59,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 		dataDir     = fs.String("data-dir", defaultDataDir, "directory for the database, tokens and other daemon-local state")
 		webDist     = fs.String("web-dist", "web/dist", "directory containing the built dashboard")
 		debug       = fs.Bool("debug", false, "debug logging")
+		claudeBin   = fs.String("claude-bin", "claude", "the `claude` binary to spawn for a launched session (REQ-19: lets E2E launch a stub)")
+		tmuxSocket  = fs.String("tmux-socket", "muster", "dedicated tmux socket name (REQ-19: never the user's default server)")
 	)
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -109,9 +111,15 @@ func run(args []string, stdout, stderr io.Writer) error {
 		port = tcpAddr.Port
 	}
 
-	dashboardURL := fmt.Sprintf("http://127.0.0.1:%d/auth?token=%s", port, uiToken)
-	if err := writeTokensFile(*dataDir, dashboardURL, uiToken, ingestToken); err != nil {
+	baseURL := fmt.Sprintf("http://127.0.0.1:%d", port)
+	dashboardURL := fmt.Sprintf("%s/auth?token=%s", baseURL, uiToken)
+	if err = writeTokensFile(*dataDir, dashboardURL, uiToken, ingestToken); err != nil {
 		return fmt.Errorf("writing tokens file: %w", err)
+	}
+
+	sessionStartScript, statusLineScript, err := claudecode.WriteWrapperScripts(*dataDir, baseURL, ingestToken)
+	if err != nil {
+		return fmt.Errorf("writing hook wrapper scripts: %w", err)
 	}
 
 	srv := server.New(server.Config{
@@ -126,6 +134,11 @@ func run(args []string, stdout, stderr io.Writer) error {
 			Installed: installed,
 			Drift:     drift,
 		},
+		ClaudeBin:          *claudeBin,
+		TmuxSocket:         *tmuxSocket,
+		BaseURL:            baseURL,
+		SessionStartScript: sessionStartScript,
+		StatusLineScript:   statusLineScript,
 	})
 	srv.Start()
 

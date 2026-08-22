@@ -75,9 +75,8 @@ export interface SessionContext {
   compactions: number;
 }
 
-// Full shape per docs/protocol.md §5.3. M0's daemon only ever sends an empty `sessions`
-// array (the state machine and its fields arrive in M1) — this type exists so
-// `Snapshot.sessions` is correctly typed for M1 without a churn migration of this file.
+// Full shape per docs/protocol.md §5.3 (M1: the state machine now produces non-empty
+// arrays, so parseSession below validates every field rather than trusting the daemon).
 export interface Session {
   id: number;
   title: string | null;
@@ -95,6 +94,9 @@ export interface Session {
   lastActivity: string | null;
   claudeSessionId: string | null;
   tmuxTarget: string;
+  // M1 addition (protocol §5.3): true iff the launch created this directory's repo row —
+  // drives the trust-prompt vs. no-signal honesty note client-side (REQ-17).
+  firstLaunchHere: boolean;
   createdAt: string;
 }
 
@@ -109,7 +111,12 @@ export interface Snapshot {
   prefs: Prefs;
 }
 
-export type Message = Hello | Snapshot;
+export interface SessionUpsert {
+  type: "sessionUpsert";
+  session: Session;
+}
+
+export type Message = Hello | Snapshot | SessionUpsert;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -171,13 +178,166 @@ function parsePrefs(value: unknown): Prefs | null {
   return { view };
 }
 
-// M0's daemon only ever sends `sessions: []`. Deep per-field validation of the §5.3
-// shape is M1 work (it lands with the state machine that actually produces non-empty
-// arrays); trusting the daemon's shape here avoids dead validation code that nothing
-// in M0 can exercise.
+function isSessionState(value: unknown): value is SessionState {
+  return (
+    value === "started" ||
+    value === "planning" ||
+    value === "working" ||
+    value === "needs_input" ||
+    value === "failed" ||
+    value === "idle"
+  );
+}
+
+function parseAttention(value: unknown): SessionAttention | null {
+  if (!isRecord(value)) return null;
+  const reason = value["reason"];
+  const since = value["since"];
+  if (reason !== "permission" && reason !== "idle") return null;
+  if (typeof since !== "string") return null;
+  return { reason, since };
+}
+
+function parseFailure(value: unknown): SessionFailure | null {
+  if (!isRecord(value)) return null;
+  const error = value["error"];
+  const message = value["message"];
+  if (typeof error !== "string" || typeof message !== "string") return null;
+  return { error, message };
+}
+
+function parseRepoInfo(value: unknown): SessionRepo | null {
+  if (!isRecord(value)) return null;
+  const name = value["name"];
+  const branch = value["branch"];
+  const isWorktree = value["isWorktree"];
+  if (typeof name !== "string") return null;
+  if (branch !== null && typeof branch !== "string") return null;
+  if (typeof isWorktree !== "boolean") return null;
+  return { name, branch, isWorktree };
+}
+
+function parseModelInfo(value: unknown): SessionModelInfo | null {
+  if (!isRecord(value)) return null;
+  const id = value["id"];
+  const displayName = value["displayName"];
+  if (typeof id !== "string" || typeof displayName !== "string") return null;
+  return { id, displayName };
+}
+
+function parsePermissionModeInfo(value: unknown): PermissionModeInfo | null {
+  if (!isRecord(value)) return null;
+  const modeValue = value["value"];
+  const source = value["source"];
+  if (typeof modeValue !== "string") return null;
+  if (source !== "seed" && source !== "hook") return null;
+  return { value: modeValue, source };
+}
+
+function parseNullableNumber(value: unknown): number | null | undefined {
+  if (value === null) return null;
+  if (typeof value === "number") return value;
+  return undefined; // sentinel: caller treats as invalid
+}
+
+function parseContext(value: unknown): SessionContext | null {
+  if (!isRecord(value)) return null;
+  const usedPct = parseNullableNumber(value["usedPct"]);
+  const totalInputTokens = parseNullableNumber(value["totalInputTokens"]);
+  const windowSize = parseNullableNumber(value["windowSize"]);
+  const compactions = value["compactions"];
+  if (usedPct === undefined || totalInputTokens === undefined || windowSize === undefined) return null;
+  if (typeof compactions !== "number") return null;
+  return { usedPct, totalInputTokens, windowSize, compactions };
+}
+
+/** Validates one Session object per docs/protocol.md §5.3. Every field is read-checked;
+ * an unrecognized field name or type anywhere in the object rejects the whole session
+ * (the caller drops the snapshot/upsert rather than render a half-formed card). */
+export function parseSession(value: unknown): Session | null {
+  if (!isRecord(value)) return null;
+
+  const id = value["id"];
+  const title = value["title"];
+  const state = value["state"];
+  const stateSince = value["stateSince"];
+  const alive = value["alive"];
+  const endedAt = value["endedAt"];
+  const rawAttention = value["attention"];
+  const rawFailure = value["failure"];
+  const directory = value["directory"];
+  const rawRepo = value["repo"];
+  const rawModel = value["model"];
+  const lastActivity = value["lastActivity"];
+  const claudeSessionId = value["claudeSessionId"];
+  const tmuxTarget = value["tmuxTarget"];
+  const firstLaunchHere = value["firstLaunchHere"];
+  const createdAt = value["createdAt"];
+
+  if (typeof id !== "number") return null;
+  if (title !== null && typeof title !== "string") return null;
+  if (!isSessionState(state)) return null;
+  if (typeof stateSince !== "string") return null;
+  if (typeof alive !== "boolean") return null;
+  if (endedAt !== null && typeof endedAt !== "string") return null;
+
+  const attention = rawAttention === null ? null : parseAttention(rawAttention);
+  if (rawAttention !== null && attention === null) return null;
+
+  const failure = rawFailure === null ? null : parseFailure(rawFailure);
+  if (rawFailure !== null && failure === null) return null;
+
+  if (typeof directory !== "string") return null;
+
+  const repo = rawRepo === null ? null : parseRepoInfo(rawRepo);
+  if (rawRepo !== null && repo === null) return null;
+
+  const model = rawModel === null ? null : parseModelInfo(rawModel);
+  if (rawModel !== null && model === null) return null;
+
+  const permissionMode = parsePermissionModeInfo(value["permissionMode"]);
+  if (!permissionMode) return null;
+
+  const context = parseContext(value["context"]);
+  if (!context) return null;
+
+  if (lastActivity !== null && typeof lastActivity !== "string") return null;
+  if (claudeSessionId !== null && typeof claudeSessionId !== "string") return null;
+  if (typeof tmuxTarget !== "string") return null;
+  if (typeof firstLaunchHere !== "boolean") return null;
+  if (typeof createdAt !== "string") return null;
+
+  return {
+    id,
+    title,
+    state,
+    stateSince,
+    alive,
+    endedAt,
+    attention,
+    failure,
+    directory,
+    repo,
+    model,
+    permissionMode,
+    context,
+    lastActivity,
+    claudeSessionId,
+    tmuxTarget,
+    firstLaunchHere,
+    createdAt,
+  };
+}
+
 function parseSessions(value: unknown): Session[] | null {
   if (!Array.isArray(value)) return null;
-  return value as Session[];
+  const sessions: Session[] = [];
+  for (const item of value) {
+    const session = parseSession(item);
+    if (!session) return null;
+    sessions.push(session);
+  }
+  return sessions;
 }
 
 function parseSnapshot(rec: Record<string, unknown>): Snapshot | null {
@@ -186,6 +346,12 @@ function parseSnapshot(rec: Record<string, unknown>): Snapshot | null {
   const prefs = parsePrefs(rec["prefs"]);
   if (!sessions || !usage || !prefs) return null;
   return { type: "snapshot", sessions, usage, prefs };
+}
+
+function parseSessionUpsert(rec: Record<string, unknown>): SessionUpsert | null {
+  const session = parseSession(rec["session"]);
+  if (!session) return null;
+  return { type: "sessionUpsert", session };
 }
 
 /** Parses one WS text frame's decoded JSON. Unknown/malformed messages yield `null`. */
@@ -197,6 +363,8 @@ export function parseMessage(data: unknown): Message | null {
       return parseHello(data);
     case "snapshot":
       return parseSnapshot(data);
+    case "sessionUpsert":
+      return parseSessionUpsert(data);
     default:
       return null; // unknown message types are ignored (protocol §1)
   }

@@ -64,6 +64,7 @@ message (additive fields don't bump it).
 | `GET /api/state` | M0 | Full snapshot as JSON — same object as the WS `snapshot` payload (§5.2). E2E oracle and debugging; the UI itself uses the WS |
 | `POST /api/sessions` | M1 | Launch a session |
 | `GET /api/repos` | M1 | Directory picker list |
+| `GET /api/browse` | M1 | Folder-browser directory listing (§3.6) |
 | `PUT /api/prefs` | M2 | Persist UI preferences (view choice) |
 | `GET /api/sessions/{id}/pane` | M2 | Last-known pane snapshot (rail/strip cards) |
 | `POST /api/sessions/{id}/resume` | M4 | `claude --resume` a dead session in a fresh pane |
@@ -80,7 +81,7 @@ only client→server WS traffic in v1 is terminal input/resize on the terminal s
 {
   "directory": "/Users/damian/code/Projects/muster",  // required, absolute
   "title": "flaky-e2e-hunt",                          // optional → `claude --name`
-  "model": "opus",                                     // required; passed to `--model` verbatim (UI offers presets)
+  "model": "opus",                                     // required; passed to `--model` verbatim — any non-empty string (UI offers sonnet/opus/haiku presets + free-text override)
   "permissionMode": "acceptEdits"                      // required: "default" | "plan" | "acceptEdits" — seeds the latch (§7.3)
 }
 // response: 201 + the Session object (§5.3), state "started"
@@ -92,8 +93,11 @@ socket with `MUSTER_SESSION` set in the pane environment (§4.2); ensure the dir
 Muster's hooks/status-line/ingest URLs;
 insert the session row and broadcast `sessionUpsert` **immediately** — before any hook
 arrives, because the first hook may be a long way off (trust prompt, ux-flows §1.4).
-Errors: `400 invalid_request` (missing/relative directory), `500 launch_failed`
-(tmux/spawn failure; message carries stderr).
+Errors: `400 invalid_request` (missing/relative directory; empty/unknown
+`permissionMode`; empty `model`; directory that does not exist or is not a directory),
+`500 launch_failed` (tmux/spawn failure, message carries stderr; also a
+`settings.local.json` that exists but is not valid JSON — Muster refuses to guess at
+merging into a corrupt file, and the error message names the file).
 
 ### 3.2 `GET /api/repos` (M1)
 
@@ -102,11 +106,17 @@ Errors: `400 invalid_request` (missing/relative directory), `500 launch_failed`
 ```jsonc
 [{ "id": 3, "path": "/Users/damian/code/Projects/muster", "name": "muster",
    "isGit": true, "branch": "main",            // branch read at request time; null when !isGit
-   "pinned": false, "lastLaunchedAt": "2026-08-20T08:01:00Z", "launchCount": 12 }]
+   "pinned": false, "lastLaunchedAt": "2026-08-20T08:01:00Z", "launchCount": 12,
+   "lastModel": "opus",                        // model value of the last launch here; null before any
+   "lastPermissionMode": "acceptEdits" }]      // starting mode of the last launch here; null likewise
 ```
 
-Browse… uses no endpoint — the native chooser feeds the chosen path into
-`POST /api/sessions`, which creates the row.
+`lastModel`/`lastPermissionMode` are the per-directory launch defaults (ux-flows §1.2
+"Model and Start in default to whatever was used last, per directory").
+
+Browse… navigates via `GET /api/browse` (§3.6). The earlier "native chooser" note here
+was wrong: browsers deliberately never reveal a picked folder's absolute path, so the
+dashboard browses via the daemon instead.
 
 ### 3.3 `PUT /api/prefs` (M2)
 
@@ -128,6 +138,29 @@ row keeps its Muster `id` and moves to the new `tmuxTarget` once the enveloped
 `SessionStart` (`source:"resume"`, same `session_id` — H2 probe) confirms the bind.
 `200` + Session object. `409 not_resumable` when the session is still alive or has no
 `claudeSessionId`.
+
+### 3.6 `GET /api/browse` (M1)
+
+**Auth**: UI cookie (401 `unauthorized` without it).
+**Request:** query param `path` — absolute directory path; omitted → the daemon user's
+home directory.
+**Response 200:**
+
+```jsonc
+{
+  "path": "/Users/damian/code",          // the directory listed (absolute, cleaned)
+  "parent": "/Users/damian",             // null at filesystem root
+  "dirs": [                              // subdirectories only, dotfiles excluded,
+    { "name": "Projects",                //   sorted by name; files never appear
+      "path": "/Users/damian/code/Projects",
+      "isGit": false }                   // true iff it looks like a git checkout
+  ]
+}
+```
+
+**Errors:**
+- 400 `invalid_request`: `path` present but not absolute.
+- 404 `not_found`: path doesn't exist or isn't a directory (or is unreadable).
 
 ## 4. HTTP endpoints — ingest (Claude Code → daemon)
 
@@ -253,14 +286,28 @@ is complexity with no payoff, and whole-object replacement is naturally loss-tol
   "lastActivity": "Fixed the flaky retry; running the suite…",   // truncated last_assistant_message from the closing Stop; null until first Stop
   "claudeSessionId": "3f2a…",       // null until SessionStart binds
   "tmuxTarget": "muster:@4",        // the identity key; exposed for debugging/tests
+  "firstLaunchHere": true,          // boolean, on every Session object — true iff the launch created this directory's repo row
   "createdAt": "2026-08-20T09:11:02Z"
 }
 ```
 
 First-launch honesty (ux-flows §1.4) is derived client-side: `state == "started"` +
-`claudeSessionId == null` + (new directory → "likely waiting on trust prompt", else after
-~10 s → "no signal yet"). The daemon adds `"firstLaunchHere": true` on the launch
-response/upserts so the client needn't track repo history.
+`claudeSessionId == null` + (`firstLaunchHere` → "likely waiting on trust prompt", else
+after ~10 s → "no signal yet"). `firstLaunchHere` is on every Session object so the
+client needn't track repo history.
+
+M1 value semantics (within the nullability rules above):
+
+- `title`: the launch form's title, else `null` (status-line titles are M3).
+- `model`: `{id, displayName}` where both carry the launch value verbatim until the
+  SessionStart payload's optional model field (a plain model-ID string, sometimes
+  absent — measured 2026-08-20) replaces `id`; `displayName` stays the verbatim string
+  until M3's status line supplies a real display name.
+- `context`: `usedPct`/`totalInputTokens`/`windowSize` always `null` in M1 (gauges are
+  M3); `compactions` is live from PreCompact.
+- `lastActivity`: the closing Stop's last-assistant-message text, truncated to 200
+  chars by the daemon; `null` until a first Stop.
+- `alive`/`endedAt`: live from the liveness poll and the SessionEnd hint.
 
 ### 5.4 The Usage object & `usage` message
 
@@ -351,7 +398,7 @@ distinct, and the latch is what separates them.
 | `SubagentStop` | Persist only |
 | `SessionEnd` (`reason:"clear"`) | `/clear` in progress: **not** a death hint — no effect on `alive`; the successor `SessionStart(source:"clear")` follows |
 | `SessionEnd` (any other reason) | `alive := false`, `endedAt` set; **state unchanged** (it's a hint — §7.5 is the authority) |
-| Status-line post | Title / model / context / usage refresh; **never a state source** |
+| Status-line post | Title / model / context / usage refresh; **never a state source**. Implemented in M3, not M1 (planning decision 2026-08-22): M1 persists and routes status posts, and mutates nothing |
 | Unknown `hook_event_name` | Persist + log; inert (forward compatibility) |
 
 `needs_input` exits through the same table: the user answering in the terminal produces
@@ -390,10 +437,11 @@ unknown to the DB → logged, never adopted (Muster only manages what it started
   with `hello` + `snapshot` (empty sessions, null usage) + reconnect/banner behaviour,
   both ingest endpoints persisting enveloped/raw events with `seq` (no state machine —
   events land in the `event` table and are visible via `/api/state`'s future shape).
-- **M1**: `POST /api/sessions`, `GET /api/repos`, the state machine (§7), `sessionUpsert`,
-  liveness polling, the envelope binding (§4.2).
+- **M1**: `POST /api/sessions`, `GET /api/repos`, `GET /api/browse`, the state machine
+  (§7), `sessionUpsert`, liveness polling, the envelope binding (§4.2).
 - **M2**: terminal sockets (§6), `PUT /api/prefs` + `prefs`, pane snapshots (§3.4).
-- **M3**: `usage` message + `usage_sample` persistence + context in `sessionUpsert`.
+- **M3**: `usage` message + `usage_sample` persistence + context in `sessionUpsert` +
+  title/model refresh from the status line.
 - **M4**: `/resume`, reconcile-on-start, canary unskip.
 
 ## 9. Changelog
@@ -416,3 +464,13 @@ unknown to the DB → logged, never adopted (Muster only manages what it started
   `SessionEnd(reason:"clear")` → `SessionStart(source:"clear")` with a new `session_id`,
   so §7.3 gained a `source:"clear"` fast path and exempted `reason:"clear"` from the
   death-hint rule.
+- **2026-08-22 — m1-sessions plan approved, delta merged.** New `GET /api/browse` (§3.6)
+  replaces §3.2's "native chooser" note (wrong: browsers never reveal a picked folder's
+  absolute path). `GET /api/repos` elements gain nullable `lastModel`/
+  `lastPermissionMode` (per-directory launch defaults). `POST /api/sessions` error
+  coverage clarified (400 for bad mode/model/directory; 500 for a corrupt
+  `settings.local.json`); `model` accepts any non-empty string. Session objects gain
+  `firstLaunchHere` (boolean, every object) and M1 value semantics are noted in §5.3.
+  §7.3's status-line row is scoped to M3 (M1 persists and routes status posts, mutates
+  nothing); §8's M1 row gains `/api/browse`, M3 gains the title/model refresh. All
+  additive; no version bump.

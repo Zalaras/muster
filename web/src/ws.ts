@@ -5,7 +5,7 @@
 // Owns: connecting, reconnecting with backoff, and dispatching parsed messages to
 // handlers. Message parsing and the protocol-version gate live in protocol.ts; this
 // module just wires the socket lifecycle to them.
-import { type Hello, type Message, type Snapshot, isSupportedProtocolVersion, parseMessage } from "./protocol";
+import { type Hello, type Message, type Session, type Snapshot, isSupportedProtocolVersion, parseMessage } from "./protocol";
 
 const RECONNECT_BASE_MS = 500;
 const RECONNECT_CAP_MS = 8000;
@@ -20,6 +20,7 @@ export interface WsClientHandlers {
   onConnected?: () => void;
   onHello?: (hello: Hello) => void;
   onSnapshot?: (snapshot: Snapshot) => void;
+  onSessionUpsert?: (session: Session) => void;
   onDisconnected?: () => void;
   onProtocolMismatch?: (protocolVersion: number) => void;
 }
@@ -112,6 +113,10 @@ export class WsClient {
       }
       this.attempt = 0;
       this.handlers.onHello?.(message);
+      return;
+    }
+    if (message.type === "sessionUpsert") {
+      this.handlers.onSessionUpsert?.(message.session);
       return;
     }
     this.handlers.onSnapshot?.(message);

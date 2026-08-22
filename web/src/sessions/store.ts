@@ -1,0 +1,23 @@
+// In-memory session store: snapshot replace + upsert merge (docs/protocol.md §5.5 —
+// "sessionUpsert ... broadcast whole ... naturally loss-tolerant"). Pure state holder,
+// no DOM; render/sessions.ts reads it out through main.ts.
+import type { Session } from "../protocol";
+
+export class SessionStore {
+  private sessions = new Map<number, Session>();
+
+  /** Replaces the whole store — the WS `snapshot` resync (no partial merge: a fresh
+   * snapshot is authoritative and loss-tolerant by construction). */
+  replaceAll(sessions: readonly Session[]): void {
+    this.sessions = new Map(sessions.map((session) => [session.id, session]));
+  }
+
+  /** Applies one `sessionUpsert` — whole-object replace of that session only. */
+  upsert(session: Session): void {
+    this.sessions.set(session.id, session);
+  }
+
+  values(): Session[] {
+    return Array.from(this.sessions.values());
+  }
+}

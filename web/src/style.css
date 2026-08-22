@@ -1,19 +1,54 @@
-/* Muster dashboard — M0 shell styling.
- * Tokens from docs/design/design-system.md §1 (direction A, "instrument"). Only the
- * subset M0's masthead/banner/empty-state need; rail cards, tiles and the view
- * switcher arrive with M1/M2 and bring the rest of the token set into use. */
+/* Muster dashboard styling. Tokens from docs/design/design-system.md §1 (direction A,
+ * "instrument"). Reference render: docs/design/mockups/a-instrument.html — the Focus
+ * view this file implements for M1 (the switcher/tiles view arrives with M2). */
 
 :root {
+  /* surfaces, back to front */
   --ink: #12141c;
   --panel: #171a24;
+  --panel2: #1c2029;
+  --term: #0d0f16;
   --line: #282d3b;
+  --line2: #343a4a;
+
+  /* text */
   --paper: #e8e6e1;
   --muted: #8a90a3;
   --dim: #565c6d;
+
+  /* state — the ONLY meanings these colours carry (design-system §3) */
+  --amber: #f2a33c;
   --rose: #e36a6a;
+  --violet: #9a8cf0;
+  --teal: #56c5d0;
+  --idle: #5a6070;
+  /* --green ("health ok, tool success" per design-system §1) has no consumer yet — M1
+   * ships no health dot and no tool-success surface. Left undeclared rather than
+   * declared-and-unused (review m1-sessions Minor 5); reintroduce it with its first real
+   * consumer instead of guessing the shade needed then. */
+
+  /* daemon-down banner — a treatment of its own, never --rose (design-system §1) */
   --banner-bg: #3a1e1e;
   --banner-line: #5a2c2c;
   --banner-fg: #f3b7b7;
+
+  /* state border shades, paired with the badge/stripe colours above */
+  --border-blocked: #5c4526;
+  --border-failed: #5c2e2e;
+  --border-plan: #3e3663;
+  --border-work: #215058;
+
+  /* note text — a lighter tint of --amber/--rose so the left-border note reads at
+   * body-text weight against --panel (design-system §1: add a token, never a raw hex,
+   * when an existing one doesn't fit). */
+  --note-fg-amber: #f5cc93;
+  --note-fg-rose: #f1b0b0;
+
+  /* modal scrim — matches the reference render's dialog::backdrop value, hoisted here
+   * per design-system §1 ("never hard-code a hex value in a component"). */
+  --scrim: rgba(8, 9, 13, 0.72);
+
+  /* system stacks only — nothing vendored, nothing fetched (decided 2026-08-16) */
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
   --disp: system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -23,30 +58,44 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  height: 100%;
+}
+
 body {
   margin: 0;
   background: var(--ink);
   color: var(--paper);
   font-family: var(--sans);
   font-size: 14px;
+  -webkit-font-smoothing: antialiased;
 }
 
 #app {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
+
+#app[hidden] {
+  display: none;
+}
+
+/* ── masthead ─────────────────────────────────────────────────────────── */
 
 .masthead {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 20px;
   padding: 10px 16px;
   background: var(--panel);
   border-bottom: 1px solid var(--line);
+  flex: none;
 }
 
-.masthead h1 {
+.brand h1 {
   font-family: var(--disp);
   font-size: 16px;
   font-weight: 800;
@@ -54,10 +103,19 @@ body {
   margin: 0;
 }
 
+/* design-system §8: sized now, filled by M2's Focus/Tiles switcher — never letting the
+ * later control's arrival shift anything to its right. */
+.view-switcher {
+  width: 104px;
+  height: 22px;
+  flex: none;
+}
+
 .masthead-right {
   display: flex;
   align-items: center;
   gap: 16px;
+  margin-left: auto;
   font-family: var(--mono);
   font-size: 11px;
   color: var(--muted);
@@ -75,7 +133,7 @@ body {
 
 /* Honesty rule (design-system §6.7): loud, full-width, on the dedicated banner tokens —
  * this describes the daemon, not any session's state, so it never grounds on --rose
- * (§3: a state colour may only ever mean its state). Reference: a-instrument.html .down. */
+ * (§3: a state colour may only ever mean its state). */
 .banner {
   width: 100%;
   background: var(--banner-bg);
@@ -84,21 +142,495 @@ body {
   font-family: var(--mono);
   font-size: 12px;
   padding: 8px 16px;
+  flex: none;
 }
 
 .banner[hidden] {
   display: none;
 }
 
-main#sessions {
+/* ── body split: rail + main ─────────────────────────────────────────── */
+
+.split {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.rail {
+  width: 300px;
+  flex: none;
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.railhead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  flex: none;
+  border-bottom: 1px solid var(--line);
+}
+
+.railhead .n {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.cards {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  padding: 16px 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--dim);
+}
+
+/* the "No sessions yet" empty state is a plain text node in #sessions — no gauge, no
+ * placeholder card, just the honest word. */
+.cards:has(.card) {
+  padding: 0;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.placeholder {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--dim);
+  background: var(--term);
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 11.5px;
+  color: var(--dim);
 }
+
+/* ── rail cards ───────────────────────────────────────────────────────── */
+
+.card {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+  position: relative;
+}
+
+.card .stripe {
+  width: 3px;
+  flex: none;
+  /* Inert default, not the Idle state colour (design-system §3: a state colour may only
+   * ever mean its state) — every state class below overrides this. */
+  background: var(--dim);
+}
+
+.card-in {
+  padding: 9px 11px 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.r1 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.card .name {
+  font-family: var(--disp);
+  font-weight: 700;
+  font-size: 13.5px;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card .badge {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  padding: 2px 5px;
+  border: 1px solid var(--line2);
+  color: var(--muted);
+  flex: none;
+}
+
+.card .timer {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--dim);
+  flex: none;
+}
+
+.r2 {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--dim);
+  margin-top: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.r3 {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--dim);
+  font-style: italic;
+  margin-top: 7px;
+  /* carries the live ⟳n compaction counter today, and M3's percentage/token count
+   * later — design-system §2's tabular-nums rule for anything that changes over time. */
+  font-variant-numeric: tabular-nums;
+}
+
+.activity {
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--dim);
+  margin-top: 6px;
+}
+
+.activity[hidden] {
+  display: none;
+}
+
+.note {
+  margin-top: 7px;
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--note-fg-amber);
+  border-left: 2px solid var(--amber);
+  padding-left: 8px;
+}
+
+.note.fail {
+  color: var(--note-fg-rose);
+  border-color: var(--rose);
+}
+
+.note[hidden] {
+  display: none;
+}
+
+/* state colours (design-system §3: colour is never the only carrier — the badge word
+ * and sort position always agree with it). */
+.s-blocked .stripe {
+  background: var(--amber);
+}
+.s-blocked .badge {
+  color: var(--amber);
+  border-color: var(--border-blocked);
+}
+.s-failed .stripe {
+  background: var(--rose);
+}
+.s-failed .badge {
+  color: var(--rose);
+  border-color: var(--border-failed);
+}
+.s-plan .stripe {
+  background: var(--violet);
+}
+.s-plan .badge {
+  color: var(--violet);
+  border-color: var(--border-plan);
+}
+.s-work .stripe {
+  background: var(--teal);
+}
+.s-work .badge {
+  color: var(--teal);
+  border-color: var(--border-work);
+}
+.s-start .stripe {
+  background: var(--muted);
+}
+.s-start .badge {
+  color: var(--muted);
+}
+.s-idle .stripe {
+  background: var(--idle);
+}
+.s-idle .badge {
+  color: var(--idle);
+}
+
+/* Degraded state (REQ-18): dead session greys out, keeping its last badge/state — a pure
+ * visual cue (design-system --dim), never hidden or relabelled. */
+.card.ended {
+  opacity: 0.55;
+}
+
+/* ── buttons (design-system §5) ───────────────────────────────────────── */
+
+.btn {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  padding: 5px 11px;
+  background: transparent;
+  border: 1px solid var(--line2);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.btn:hover {
+  color: var(--paper);
+  border-color: var(--muted);
+}
+
+/* Exactly one filled-amber primary action per surface (design-system §3/§5). */
+.btn.key {
+  color: var(--ink);
+  background: var(--amber);
+  border-color: var(--amber);
+  font-weight: 600;
+}
+
+/* ── new-session modal ────────────────────────────────────────────────── */
+
+dialog#launch-dialog {
+  width: 520px;
+  max-width: calc(100vw - 32px);
+  padding: 0;
+  background: var(--panel);
+  color: var(--paper);
+  border: 1px solid var(--line2);
+  font-family: var(--sans);
+}
+
+dialog#launch-dialog::backdrop {
+  background: var(--scrim);
+}
+
+dialog#launch-dialog h2 {
+  margin: 0;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--disp);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.015em;
+}
+
+.picker {
+  max-height: 186px;
+  overflow: auto;
+  border-bottom: 1px solid var(--line);
+}
+
+.picker .dir {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 16px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  cursor: pointer;
+}
+
+.picker .dir:last-child {
+  border-bottom: 0;
+}
+
+.picker .dir:hover {
+  background: var(--panel2);
+  color: var(--paper);
+}
+
+.dir-name {
+  flex: none;
+  color: var(--paper);
+  white-space: nowrap;
+}
+
+.dir-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--dim);
+  font-size: 10.5px;
+}
+
+.dir-branch {
+  margin-left: auto;
+  color: var(--dim);
+}
+
+.dir-age {
+  width: 34px;
+  text-align: right;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.browse-btn {
+  margin: 10px 16px;
+}
+
+.browse-panel {
+  margin: 0 16px 10px;
+  border: 1px solid var(--line2);
+  padding: 10px;
+}
+
+.browse-panel[hidden] {
+  display: none;
+}
+
+.browse-path {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--paper);
+  word-break: break-all;
+  margin-bottom: 8px;
+}
+
+.browse-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.browse-dirs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 140px;
+  overflow: auto;
+}
+
+.subdir {
+  text-align: left;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  padding: 6px 9px;
+  background: transparent;
+  border: 1px solid var(--line2);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.subdir:hover {
+  color: var(--paper);
+  border-color: var(--muted);
+}
+
+#launch-form {
+  padding: 14px 16px 0;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 6px 12px;
+  align-items: center;
+  margin-bottom: 11px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+.field-row[hidden] {
+  display: none;
+}
+
+.field-row label,
+.field-row .field-label {
+  color: var(--dim);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 9.5px;
+}
+
+.field-row input[type="text"] {
+  border: 1px solid var(--line2);
+  padding: 6px 9px;
+  color: var(--paper);
+  background: var(--term);
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+#selected-directory {
+  color: var(--paper);
+}
+
+fieldset.radios {
+  border: 0;
+  padding: 0;
+  margin: 0 0 11px;
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 6px 12px;
+  align-items: baseline;
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+fieldset.radios legend {
+  grid-column: 1;
+  color: var(--dim);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 9.5px;
+  padding: 0;
+}
+
+fieldset.radios > label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  margin-right: 14px;
+  cursor: pointer;
+}
+
+.launch-error {
+  margin: 0 0 11px;
+  font-family: var(--mono);
+  font-size: 11px;
+  /* An HTTP error from POST /api/sessions describes the request, not a session's Failed
+   * state — --rose stays reserved for Failed (design-system §1/§3). Same reasoning as
+   * the daemon-down banner; reuses its text tone rather than adding a near-duplicate. */
+  color: var(--banner-fg);
+}
+
+.launch-error[hidden] {
+  display: none;
+}
+
+.modal-foot {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+  justify-content: flex-end;
+}
+
+/* ── protocol mismatch ────────────────────────────────────────────────── */
 
 #protocol-mismatch {
   display: flex;

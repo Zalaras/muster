@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Hello, Snapshot } from "./protocol";
+import type { Hello, Session, Snapshot } from "./protocol";
 import { backoffDelay, type SocketLike, WsClient, type WsClientHandlers } from "./ws";
 
 const hello: Hello = {
@@ -14,6 +14,27 @@ const snapshot: Snapshot = {
   sessions: [],
   usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
   prefs: { view: "focus" },
+};
+
+const session: Session = {
+  id: 1,
+  title: "fix the thing",
+  state: "working",
+  stateSince: "2026-08-22T00:00:00Z",
+  alive: true,
+  endedAt: null,
+  attention: null,
+  failure: null,
+  directory: "/Users/damian/code/muster",
+  repo: { name: "muster", branch: "main", isWorktree: false },
+  model: { id: "claude-sonnet-4-5", displayName: "sonnet" },
+  permissionMode: { value: "default", source: "seed" },
+  context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
+  lastActivity: null,
+  claudeSessionId: "claude-session-abc",
+  tmuxTarget: "muster:@1",
+  firstLaunchHere: false,
+  createdAt: "2026-08-22T00:00:00Z",
 };
 
 describe("backoffDelay", () => {
@@ -69,6 +90,7 @@ function makeHandlers(): WsClientHandlers & Record<string, ReturnType<typeof vi.
     onConnected: vi.fn(),
     onHello: vi.fn(),
     onSnapshot: vi.fn(),
+    onSessionUpsert: vi.fn(),
     onDisconnected: vi.fn(),
     onProtocolMismatch: vi.fn(),
   };
@@ -106,6 +128,14 @@ describe("WsClient.dispatch — pure message application, no socket involved", (
     expect(handlers.onHello).not.toHaveBeenCalled();
     expect(handlers.onSnapshot).not.toHaveBeenCalled();
     expect(handlers.onProtocolMismatch).not.toHaveBeenCalled();
+  });
+
+  it("routes a sessionUpsert to onSessionUpsert with the bare session, not onSnapshot", () => {
+    const handlers = makeHandlers();
+    const client = new WsClient("ws://x", handlers);
+    client.dispatch({ type: "sessionUpsert", session });
+    expect(handlers.onSessionUpsert).toHaveBeenCalledWith(session);
+    expect(handlers.onSnapshot).not.toHaveBeenCalled();
   });
 });
 
@@ -149,6 +179,13 @@ describe("WsClient — full socket lifecycle via an injected fake socket", () =>
     sockets[0]!.emitOpen();
     expect(() => sockets[0]!.emitMessage("not json{")).not.toThrow();
     expect(handlers.onHello).not.toHaveBeenCalled();
+  });
+
+  it("dispatches a sessionUpsert frame to onSessionUpsert", () => {
+    client.start();
+    sockets[0]!.emitOpen();
+    sockets[0]!.emitMessage(JSON.stringify({ type: "sessionUpsert", session }));
+    expect(handlers.onSessionUpsert).toHaveBeenCalledWith(session);
   });
 
   it("ignores a binary (non-string) message frame", () => {

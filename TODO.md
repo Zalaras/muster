@@ -86,20 +86,38 @@ Design constraints already settled by the spikes — do not re-derive:
 - Session identity keys on the **tmux target**, not Claude's `session_id` (`/clear` starts a
   new one in the same pane).
 
-## M1 — Sessions exist
+## M1 — Sessions exist ✅ done 2026-08-22 (plan `m1-sessions`, via `/orchestrate`)
 
-- [ ] Launch `claude` in tmux from the dashboard (directory picker + title)
-- [ ] Ingest `SessionStart` / `Stop` / `StopFailure` / `Notification`
-- [ ] State machine: Started · Planning · Working · Needs-Input · Failed · Idle
-- [ ] Session list UI: title, state, repo/branch, time-in-state, blocked-longest first
-- [ ] Lay the masthead out with the **view switcher slot present** even though Tiles ships
+- [x] Launch `claude` in tmux from the dashboard (directory picker + title).
+      Done 2026-08-22 — plus `GET /api/browse` (daemon-backed folder browser; the
+      "native chooser" idea was wrong — browsers never reveal absolute paths)
+- [x] Ingest `SessionStart` / `Stop` / `StopFailure` / `Notification` — envelope binding
+      by `musterSession`, raw routing by Claude session id, unknown ids persist unrouted
+- [x] State machine: Started · Planning · Working · Needs-Input · Failed · Idle
+      (`internal/session` over neutral `StateInput`; interpreter in `internal/claudecode`)
+- [x] Session list UI: title, state, repo/branch, time-in-state, blocked-longest first
+- [x] Lay the masthead out with the **view switcher slot present** even though Tiles ships
       in M2 — adding the second view must move nothing
 - [x] **Settle first:** does `Stop` also fire alongside `StopFailure`, or is it replaced?
       **Replaced — never both** (H2 probe 2026-08-16, SPEC §9.3). Caveat: a killed session
       emits *neither* (only `SessionEnd`), so the state machine must not assume every
       prompt closes with a Stop-family event.
-- [ ] Latch `permission_mode` forward — it is absent from `SessionStart`, `SessionEnd`,
+- [x] Latch `permission_mode` forward — it is absent from `SessionStart`, `SessionEnd`,
       `Notification`, `StopFailure` and `PreCompact`, and from the status line entirely
+
+Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22):
+
+- [ ] **Claude Code pin drift — decision needed**: `docs/claude-code-pin.md` pins
+      **2.1.233**, but the installed binary is **2.1.240** and `spikes/canary-fields.md`
+      now carries measurements against 2.1.237 and 2.1.240. Either bump the pin (gated by
+      `make canary` per the ritual) or reinstall the pinned version — stop the silent drift.
+- [ ] **For M2 plan-work** (review cycle-1 Minor 13 / cycle-2 Minor 6): add REQ-21's `⟳n`
+      compaction counter to the Testable UI Elements table so it gets an E2E assertion;
+      and give the E2E harness a way off the real `$HOME` for browse tests — a
+      `-home-dir`-style flag on `GET /api/browse`'s default, or a path input in the modal.
+- [ ] Cosmetic (cycle-3 minor): with the launch modal already open, ⌘N now falls through
+      to the browser's new-window shortcut — the `dialog.open` early-return sits above
+      `preventDefault()` in `web/src/render/launch.ts`; swap the two lines to swallow it.
 
 ## M2 — Terminal panes
 

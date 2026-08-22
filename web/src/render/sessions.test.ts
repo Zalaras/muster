@@ -1,31 +1,19 @@
 import { describe, expect, it } from "vitest";
-import type { Session } from "../protocol";
 import { renderSessions } from "./sessions";
 
 function fakeElement(): HTMLElement {
   return { textContent: "" } as unknown as HTMLElement;
 }
 
-// M0's daemon only ever sends an empty array; the non-empty branch is dead code until
-// M1's state machine exists, but it's still reachable logic worth pinning down now.
-const stubSession = {} as Session;
-
+// The non-empty branch now clones real `<template>` DOM (`#session-card-template`) via
+// `buildCardViewModel` (docs/conventions.md: rendering/DOM is Playwright's job, not
+// Vitest's) — see web/e2e/sessions.spec.ts for card-rendering coverage and
+// ../sessions/card.test.ts for the pure view-model logic it's built from. Only the
+// honest-empty-state branch is DOM-free enough to unit test here.
 describe("renderSessions", () => {
-  it("renders the honest empty state when there are no sessions (M0's only reachable case)", () => {
+  it("renders the honest empty state when there are no sessions", () => {
     const el = fakeElement();
     renderSessions(el, []);
     expect(el.textContent).toBe("No sessions yet");
-  });
-
-  it("renders a count placeholder for a non-empty list (pre-M1 fallback)", () => {
-    const el = fakeElement();
-    renderSessions(el, [stubSession, stubSession, stubSession]);
-    expect(el.textContent).toBe("3 sessions");
-  });
-
-  it("renders the singular count for exactly one session", () => {
-    const el = fakeElement();
-    renderSessions(el, [stubSession]);
-    expect(el.textContent).toBe("1 sessions");
   });
 });

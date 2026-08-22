@@ -30,6 +30,291 @@ func EnvelopedHookBody(musterSession int, tmuxPane, event, sessionID string) str
 	})
 }
 
+// SessionStartOpts customizes EnvelopedSessionStart beyond its M0-compatible defaults
+// (musterSession 1, tmuxPane "%12", source "startup", a present model).
+type SessionStartOpts struct {
+	MusterSession int
+	TmuxPane      string
+	// Source is one of "startup" (default), "resume" or "clear" (canary-fields.md
+	// "Values worth asserting" — all three observed).
+	Source string
+	// ModelID, when non-empty, is embedded as the SessionStart payload's optional
+	// model field (m1-sessions plan Implementation Notes: sometimes absent). Leave
+	// empty and set OmitModel to omit the field entirely.
+	ModelID   string
+	OmitModel bool
+}
+
+// EnvelopedSessionStart returns the enveloped `SessionStart` body — the one hook that
+// is silently never delivered over plain HTTP (canary-fields.md "Transport"), so the
+// real wrapper always posts it enveloped. Passing a zero-value SessionStartOpts
+// reproduces M0's fixture byte-for-byte.
+func EnvelopedSessionStart(sessionID string, opts SessionStartOpts) string {
+	musterSession := opts.MusterSession
+	if musterSession == 0 {
+		musterSession = 1
+	}
+	tmuxPane := opts.TmuxPane
+	if tmuxPane == "" {
+		tmuxPane = "%12"
+	}
+	source := opts.Source
+	if source == "" {
+		source = "startup"
+	}
+
+	payload := map[string]any{
+		"hook_event_name": "SessionStart",
+		"session_id":      sessionID,
+		"transcript_path": "/tmp/t.jsonl",
+		"cwd":             "/tmp",
+		"source":          source,
+	}
+	if !opts.OmitModel {
+		modelID := opts.ModelID
+		if modelID == "" {
+			modelID = "claude-haiku-4-5-20251001"
+		}
+		// A plain model-id string, never an {id, display_name} object (settled by
+		// measurement — interface probe, 2026-08-22, spikes/canary-fields.md "Values
+		// worth asserting" → SessionStart.model; review Major 11).
+		payload["model"] = modelID
+	}
+
+	return marshal(map[string]any{
+		"musterSession": musterSession,
+		"tmuxPane":      tmuxPane,
+		"payload":       payload,
+	})
+}
+
+// TurnActivityOpts customizes the turn-activity builders below.
+type TurnActivityOpts struct {
+	PromptID       string // default "p1"
+	PermissionMode string // default "default"
+}
+
+func (o TurnActivityOpts) promptID() string {
+	if o.PromptID == "" {
+		return "p1"
+	}
+	return o.PromptID
+}
+
+func (o TurnActivityOpts) permissionMode() string {
+	if o.PermissionMode == "" {
+		return "default"
+	}
+	return o.PermissionMode
+}
+
+// RawUserPromptSubmit returns a raw `UserPromptSubmit` — opens a turn (protocol §7.3).
+func RawUserPromptSubmit(sessionID string, opts TurnActivityOpts) string {
+	return marshal(map[string]any{
+		"hook_event_name": "UserPromptSubmit",
+		"session_id":      sessionID,
+		"transcript_path": "/tmp/t.jsonl",
+		"cwd":             "/tmp",
+		"prompt_id":       opts.promptID(),
+		"permission_mode": opts.permissionMode(),
+		"prompt":          "do the thing",
+	})
+}
+
+// RawPostToolUse returns a raw `PostToolUse` — also a turn-activity event; useful for
+// straggler-past-Stop cases.
+func RawPostToolUse(sessionID string, opts TurnActivityOpts) string {
+	return marshal(map[string]any{
+		"hook_event_name": "PostToolUse",
+		"session_id":      sessionID,
+		"transcript_path": "/tmp/t.jsonl",
+		"cwd":             "/tmp",
+		"prompt_id":       opts.promptID(),
+		"permission_mode": opts.permissionMode(),
+		"tool_name":       "Write",
+		"tool_input":      map[string]any{"file_path": "/tmp/x.txt"},
+		"tool_use_id":     "tu1",
+		"tool_response":   map[string]any{"ok": true},
+		"duration_ms":     42,
+	})
+}
+
+// RawNotification returns a raw `Notification` — the two observed types that drive
+// needs_input (canary-fields.md "Values worth asserting"); permission_mode is never
+// present on this event.
+func RawNotification(sessionID, promptID, notificationType string) string {
+	message := "Claude is waiting for your input"
+	if notificationType == "permission_prompt" {
+		message = "Claude needs your permission"
+	}
+	return marshal(map[string]any{
+		"hook_event_name":   "Notification",
+		"session_id":        sessionID,
+		"transcript_path":   "/tmp/t.jsonl",
+		"cwd":               "/tmp",
+		"prompt_id":         promptID,
+		"notification_type": notificationType,
+		"message":           message,
+	})
+}
+
+// RawPermissionRequest returns a raw `PermissionRequest` — corroborates a
+// permission-prompt needs_input (protocol §7.3).
+func RawPermissionRequest(sessionID, promptID string) string {
+	return marshal(map[string]any{
+		"hook_event_name":        "PermissionRequest",
+		"session_id":             sessionID,
+		"transcript_path":        "/tmp/t.jsonl",
+		"cwd":                    "/tmp",
+		"prompt_id":              promptID,
+		"permission_mode":        "default",
+		"tool_name":              "Write",
+		"tool_input":             map[string]any{"file_path": "/tmp/x.txt"},
+		"permission_suggestions": []any{map[string]any{"type": "setMode", "mode": "acceptEdits", "destination": "session"}},
+	})
+}
+
+// StopOpts customizes RawStop beyond its M0-compatible defaults.
+type StopOpts struct {
+	PromptID             string
+	PermissionMode       string
+	LastAssistantMessage string
+}
+
+// RawStop returns a raw (non-enveloped) `Stop` — the common shape for ordinary
+// plain-HTTP hooks. A zero-value StopOpts reproduces M0's fixture.
+func RawStop(sessionID string, opts StopOpts) string {
+	promptID := opts.PromptID
+	if promptID == "" {
+		promptID = "p1"
+	}
+	permissionMode := opts.PermissionMode
+	if permissionMode == "" {
+		permissionMode = "default"
+	}
+	lastAssistantMessage := opts.LastAssistantMessage
+	if lastAssistantMessage == "" {
+		lastAssistantMessage = "hi"
+	}
+	return marshal(map[string]any{
+		"hook_event_name":        "Stop",
+		"session_id":             sessionID,
+		"transcript_path":        "/tmp/t.jsonl",
+		"cwd":                    "/tmp",
+		"prompt_id":              promptID,
+		"permission_mode":        permissionMode,
+		"last_assistant_message": lastAssistantMessage,
+		"stop_hook_active":       false,
+		"background_tasks":       []any{},
+		"session_crons":          []any{},
+	})
+}
+
+// StopFailureOpts customizes RawStopFailure beyond its M0-compatible defaults.
+type StopFailureOpts struct {
+	PromptID             string
+	Error                string
+	LastAssistantMessage string
+}
+
+// RawStopFailure returns a raw `StopFailure` — mutually exclusive with `Stop` for a
+// given turn (canary-fields.md: "never both for the same turn"); carries no
+// permission_mode (the never-present list).
+func RawStopFailure(sessionID string, opts StopFailureOpts) string {
+	promptID := opts.PromptID
+	if promptID == "" {
+		promptID = "p1"
+	}
+	errTok := opts.Error
+	if errTok == "" {
+		errTok = "server_error"
+	}
+	lastAssistantMessage := opts.LastAssistantMessage
+	if lastAssistantMessage == "" {
+		lastAssistantMessage = "API error ended the turn"
+	}
+	return marshal(map[string]any{
+		"hook_event_name":        "StopFailure",
+		"session_id":             sessionID,
+		"transcript_path":        "/tmp/t.jsonl",
+		"cwd":                    "/tmp",
+		"prompt_id":              promptID,
+		"error":                  errTok,
+		"last_assistant_message": lastAssistantMessage,
+	})
+}
+
+// RawPreCompact returns a raw `PreCompact` — increments the compaction counter only,
+// no transition.
+func RawPreCompact(sessionID, promptID string) string {
+	if promptID == "" {
+		promptID = "p1"
+	}
+	return marshal(map[string]any{
+		"hook_event_name": "PreCompact",
+		"session_id":      sessionID,
+		"transcript_path": "/tmp/t.jsonl",
+		"cwd":             "/tmp",
+		"prompt_id":       promptID,
+	})
+}
+
+// RawSessionEnd returns a raw `SessionEnd` — reason "clear" is not a death hint
+// (protocol §7.3); any other reason sets alive:false. Carries no permission_mode.
+func RawSessionEnd(sessionID, reason string) string {
+	if reason == "" {
+		reason = "other"
+	}
+	return marshal(map[string]any{
+		"hook_event_name": "SessionEnd",
+		"session_id":      sessionID,
+		"transcript_path": "/tmp/t.jsonl",
+		"cwd":             "/tmp",
+		"reason":          reason,
+	})
+}
+
+// EnvelopedStatusLinePreFirstResponse returns an enveloped status-line body in the
+// pre-first-API-response shape: context_window's percentages/current_usage are null
+// and rate_limits is entirely absent (canary-fields.md's measured pre-response state).
+// sessionName, when non-empty, adds the status line's session_name field.
+func EnvelopedStatusLinePreFirstResponse(sessionID string, musterSession int, tmuxPane, sessionName string) string {
+	if tmuxPane == "" {
+		tmuxPane = "%12"
+	}
+	payload := map[string]any{
+		"session_id":          sessionID,
+		"transcript_path":     "/tmp/t.jsonl",
+		"cwd":                 "/tmp",
+		"version":             "2.1.233",
+		"model":               map[string]any{"id": "claude-haiku-4-5-20251001", "display_name": "Haiku 4.5"},
+		"workspace":           map[string]any{"current_dir": "/tmp", "project_dir": "/tmp", "added_dirs": []any{}},
+		"output_style":        map[string]any{"name": "default"},
+		"thinking":            map[string]any{"enabled": false},
+		"fast_mode":           false,
+		"exceeds_200k_tokens": false,
+		"context_window": map[string]any{
+			"context_window_size":  200000,
+			"used_percentage":      nil,
+			"remaining_percentage": nil,
+			"total_input_tokens":   0,
+			"total_output_tokens":  0,
+			"current_usage":        nil,
+		},
+	}
+	if sessionName != "" {
+		payload["session_name"] = sessionName
+	}
+	env := map[string]any{"payload": payload}
+	if musterSession != 0 {
+		env["musterSession"] = musterSession
+	}
+	if tmuxPane != "" {
+		env["tmuxPane"] = tmuxPane
+	}
+	return marshal(env)
+}
+
 func marshal(v any) string {
 	b, err := json.Marshal(v)
 	if err != nil {

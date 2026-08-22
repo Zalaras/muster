@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isSupportedProtocolVersion, parseMessage, PROTOCOL_VERSION, UNKNOWN_USAGE } from "./protocol";
+import { isSupportedProtocolVersion, parseMessage, parseSession, PROTOCOL_VERSION, UNKNOWN_USAGE } from "./protocol";
 
 const validHello = {
   type: "hello",
@@ -140,5 +140,230 @@ describe("isSupportedProtocolVersion", () => {
 describe("UNKNOWN_USAGE", () => {
   it("is the fully-null pre-hello usage state, never zero/empty-gauge shaped", () => {
     expect(UNKNOWN_USAGE).toEqual({ fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" });
+  });
+});
+
+// A fully-populated Session per docs/protocol.md §5.3, used as the baseline every
+// parseSession/sessionUpsert test mutates a single field of.
+const validSession = {
+  id: 1,
+  title: "fix the thing",
+  state: "working",
+  stateSince: "2026-08-22T00:00:00Z",
+  alive: true,
+  endedAt: null,
+  attention: null,
+  failure: null,
+  directory: "/Users/damian/code/muster",
+  repo: { name: "muster", branch: "main", isWorktree: false },
+  model: { id: "claude-sonnet-4-5", displayName: "sonnet" },
+  permissionMode: { value: "default", source: "seed" },
+  context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
+  lastActivity: null,
+  claudeSessionId: "claude-session-abc",
+  tmuxTarget: "muster:@1",
+  firstLaunchHere: false,
+  createdAt: "2026-08-22T00:00:00Z",
+};
+
+// The measured "no data yet" shape (spikes/canary-fields.md): a session that has just
+// been launched — no Claude session id bound yet, no repo/model/attention/failure known,
+// context fully null. This must decode successfully (a view renders it as "unknown",
+// never rejected outright and never an empty gauge).
+const freshLaunchSession = {
+  id: 2,
+  title: null,
+  state: "started",
+  stateSince: "2026-08-22T00:00:00Z",
+  alive: true,
+  endedAt: null,
+  attention: null,
+  failure: null,
+  directory: "/Users/damian/code/muster",
+  repo: null,
+  model: null,
+  permissionMode: { value: "default", source: "seed" },
+  context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
+  lastActivity: null,
+  claudeSessionId: null,
+  tmuxTarget: "muster:@2",
+  firstLaunchHere: true,
+  createdAt: "2026-08-22T00:00:00Z",
+};
+
+describe("parseSession — full §5.3 shape", () => {
+  it("parses a fully-populated session", () => {
+    expect(parseSession(validSession)).toEqual(validSession);
+  });
+
+  it("parses the fresh-launch 'no data yet' shape: no claudeSessionId, no repo/model, null context — never rejected", () => {
+    expect(parseSession(freshLaunchSession)).toEqual(freshLaunchSession);
+  });
+
+  it("parses every displayed state value", () => {
+    for (const state of ["started", "planning", "working", "needs_input", "failed", "idle"]) {
+      expect(parseSession({ ...validSession, state })).toEqual({ ...validSession, state });
+    }
+  });
+
+  it("rejects an unrecognized state value", () => {
+    expect(parseSession({ ...validSession, state: "unknown_state" })).toBeNull();
+  });
+
+  it("parses a needs_input session with attention populated", () => {
+    const session = {
+      ...validSession,
+      state: "needs_input",
+      attention: { reason: "permission", since: "2026-08-22T00:01:00Z" },
+    };
+    expect(parseSession(session)).toEqual(session);
+  });
+
+  it("rejects an attention object with an unrecognized reason", () => {
+    const session = { ...validSession, attention: { reason: "confused", since: "2026-08-22T00:01:00Z" } };
+    expect(parseSession(session)).toBeNull();
+  });
+
+  it("parses a failed session with the raw error token and message", () => {
+    const session = { ...validSession, state: "failed", failure: { error: "ETOOLERROR", message: "Something broke." } };
+    expect(parseSession(session)).toEqual(session);
+  });
+
+  it("rejects a failure object missing the error field", () => {
+    const session = { ...validSession, failure: { message: "Something broke." } };
+    expect(parseSession(session)).toBeNull();
+  });
+
+  it("parses a null repo (no directory match / not git)", () => {
+    const session = { ...validSession, repo: null };
+    expect(parseSession(session)).toEqual(session);
+  });
+
+  it("parses a repo with a null branch and isWorktree true", () => {
+    const session = { ...validSession, repo: { name: "muster", branch: null, isWorktree: true } };
+    expect(parseSession(session)).toEqual(session);
+  });
+
+  it("rejects a repo object missing isWorktree", () => {
+    const session = { ...validSession, repo: { name: "muster", branch: "main" } };
+    expect(parseSession(session)).toBeNull();
+  });
+
+  it("parses a null model (before SessionStart's optional model field arrives)", () => {
+    const session = { ...validSession, model: null };
+    expect(parseSession(session)).toEqual(session);
+  });
+
+  it("rejects a model object missing displayName", () => {
+    const session = { ...validSession, model: { id: "claude-sonnet-4-5" } };
+    expect(parseSession(session)).toBeNull();
+  });
+
+  it("parses permissionMode with source 'hook'", () => {
+    const session = { ...validSession, permissionMode: { value: "acceptEdits", source: "hook" } };
+    expect(parseSession(session)).toEqual(session);
+  });
+
+  it("rejects a permissionMode with an unrecognized source", () => {
+    const session = { ...validSession, permissionMode: { value: "default", source: "guessed" } };
+    expect(parseSession(session)).toBeNull();
+  });
+
+  it("rejects a session missing permissionMode entirely", () => {
+    const { permissionMode, ...rest } = validSession;
+    expect(parseSession(rest)).toBeNull();
+  });
+
+  it("parses a context with all-null numeric fields and a positive compaction count (REQ-21)", () => {
+    const session = { ...validSession, context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 3 } };
+    expect(parseSession(session)).toEqual(session);
+  });
+
+  it("parses a context with populated numeric fields (post-M3, forward-compatible)", () => {
+    const session = { ...validSession, context: { usedPct: 42.5, totalInputTokens: 1000, windowSize: 200000, compactions: 0 } };
+    expect(parseSession(session)).toEqual(session);
+  });
+
+  it("rejects a context missing compactions", () => {
+    const session = { ...validSession, context: { usedPct: null, totalInputTokens: null, windowSize: null } };
+    expect(parseSession(session)).toBeNull();
+  });
+
+  it("rejects a session missing context entirely", () => {
+    const { context, ...rest } = validSession;
+    expect(parseSession(rest)).toBeNull();
+  });
+
+  it("parses a null title (REQ-15 'untitled' fallback is the view's job, not the parser's)", () => {
+    const session = { ...validSession, title: null };
+    expect(parseSession(session)).toEqual(session);
+  });
+
+  it("rejects a session missing the firstLaunchHere field", () => {
+    const { firstLaunchHere, ...rest } = validSession;
+    expect(parseSession(rest)).toBeNull();
+  });
+
+  it("rejects a non-boolean firstLaunchHere", () => {
+    expect(parseSession({ ...validSession, firstLaunchHere: "true" })).toBeNull();
+  });
+
+  it("parses alive:false with a populated endedAt", () => {
+    const session = { ...validSession, alive: false, endedAt: "2026-08-22T00:10:00Z" };
+    expect(parseSession(session)).toEqual(session);
+  });
+
+  it("rejects a non-object session value", () => {
+    expect(parseSession(null)).toBeNull();
+    expect(parseSession("session")).toBeNull();
+    expect(parseSession(42)).toBeNull();
+  });
+
+  it("rejects a session missing id", () => {
+    const { id, ...rest } = validSession;
+    expect(parseSession(rest)).toBeNull();
+  });
+});
+
+describe("parseMessage — sessionUpsert", () => {
+  it("parses a sessionUpsert carrying a fully-populated session", () => {
+    const message = { type: "sessionUpsert", session: validSession };
+    expect(parseMessage(message)).toEqual(message);
+  });
+
+  it("parses a sessionUpsert carrying the fresh-launch session (REQ-2: card must render before any hook)", () => {
+    const message = { type: "sessionUpsert", session: freshLaunchSession };
+    expect(parseMessage(message)).toEqual(message);
+  });
+
+  it("rejects a sessionUpsert whose session is malformed", () => {
+    const message = { type: "sessionUpsert", session: { ...validSession, state: "bogus" } };
+    expect(parseMessage(message)).toBeNull();
+  });
+
+  it("rejects a sessionUpsert missing the session field", () => {
+    expect(parseMessage({ type: "sessionUpsert" })).toBeNull();
+  });
+});
+
+describe("parseMessage — snapshot with sessions (M1: non-empty for the first time)", () => {
+  it("parses a snapshot with multiple valid sessions", () => {
+    const snapshot = {
+      type: "snapshot",
+      sessions: [validSession, freshLaunchSession],
+      usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
+      prefs: { view: "focus" },
+    };
+    expect(parseMessage(snapshot)).toEqual(snapshot);
+  });
+
+  it("rejects the whole snapshot if any one session in the array is malformed", () => {
+    const snapshot = {
+      type: "snapshot",
+      sessions: [validSession, { ...freshLaunchSession, state: "bogus" }],
+      usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
+      prefs: { view: "focus" },
+    };
+    expect(parseMessage(snapshot)).toBeNull();
   });
 });

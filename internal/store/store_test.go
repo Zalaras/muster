@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -37,7 +38,34 @@ func TestOpen_SecondOpenOnSamePathDoesNotReapplyMigrations(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st2.Close() })
 
-	assert.Equal(t, 1, schemaMigrationsCount(t, st2.db))
+	// m1-sessions: 0001_init + 0002_sessions.
+	assert.Equal(t, 2, schemaMigrationsCount(t, st2.db))
+}
+
+// TestOpen_RestrictsPermissionsOnDatabaseAndSidecars covers review cycle 2 Major 1: the
+// sqlite driver creates the main file (and, once WAL mode has produced them, its -wal/
+// -shm sidecars) world-readable by default. From m1-sessions on, hook payload/prompt
+// text flows into the database, and the WAL sidecar specifically holds the most
+// recently written pages — i.e. the newest such text — so chmod'ing only the main file
+// left the freshest data world-readable. This regression guard exists so a future
+// change can't silently reopen that hole by touching only one of the three files.
+func TestOpen_RestrictsPermissionsOnDatabaseAndSidecars(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "muster.db")
+
+	st, err := Open(context.Background(), path)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = st.Close() })
+
+	// Force a write past the migrations themselves so the -wal/-shm sidecars are
+	// guaranteed to exist on disk (WAL mode creates them lazily on first write).
+	require.NoError(t, st.KVSet(context.Background(), "probe", "value"))
+
+	for _, suffix := range []string{"", "-wal", "-shm"} {
+		p := path + suffix
+		info, statErr := os.Stat(p)
+		require.NoError(t, statErr, "expected sidecar %q to exist", p)
+		assert.Equal(t, os.FileMode(0o600), info.Mode().Perm(), "%q must be mode 0600, not world/group-readable", p)
+	}
 }
 
 func TestKV_RoundTrip(t *testing.T) {
@@ -211,4 +239,34 @@ func TestInsertEvent_PopulatedEnvelopeAndCorrelationFields(t *testing.T) {
 	assert.Equal(t, "tu-1", toolUseID)
 	assert.Equal(t, int64(7), musterSession)
 	assert.Equal(t, "%3", tmuxPane)
+}
+
+// TestInsertEvent_SessionIDRoutingColumn covers m1-sessions' D8/D9: a routed event
+// persists with its Muster session_id populated; an unrouted one (nil SessionID) must
+// still persist with a NULL session_id rather than erroring or guessing.
+func TestInsertEvent_SessionIDRoutingColumn(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	repo, _, err := st.UpsertRepo(ctx, UpsertRepoParams{Path: "/tmp/proj", Name: "proj", Model: "sonnet", PermissionMode: "default"})
+	require.NoError(t, err)
+	sess, err := st.InsertSession(ctx, InsertSessionParams{RepoID: repo.ID, Directory: "/tmp/proj", PermissionMode: "default"})
+	require.NoError(t, err)
+
+	require.NoError(t, st.InsertEvent(ctx, Event{
+		ClaudeSessionID: "sess-routed", Type: "SessionStart", Payload: []byte(`{}`), SessionID: &sess.ID,
+	}))
+	require.NoError(t, st.InsertEvent(ctx, Event{
+		ClaudeSessionID: "sess-unrouted", Type: "SessionStart", Payload: []byte(`{}`), SessionID: nil,
+	}))
+
+	var routed *int64
+	require.NoError(t, st.db.QueryRowContext(ctx,
+		`SELECT session_id FROM event WHERE claude_session_id = 'sess-routed'`).Scan(&routed))
+	require.NotNil(t, routed)
+	assert.Equal(t, sess.ID, *routed)
+
+	var unrouted *int64
+	require.NoError(t, st.db.QueryRowContext(ctx,
+		`SELECT session_id FROM event WHERE claude_session_id = 'sess-unrouted'`).Scan(&unrouted))
+	assert.Nil(t, unrouted, "an unrouted event must persist with a NULL session_id, never a guessed one")
 }

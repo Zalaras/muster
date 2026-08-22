@@ -26,6 +26,14 @@ export function renderUsage(elements: UsageElements, usage: Usage): void {
     : "7d unknown";
 }
 
+// design-system §8: "the masthead must be laid out from M1 as though the switcher is
+// there, so adding it moves nothing." The slot is sized by CSS (.view-switcher); M1
+// keeps it empty and M2 fills it with the Focus/Tiles segmented control without
+// shifting layout.
+export function renderViewSwitcherSlot(el: HTMLElement): void {
+  el.textContent = "";
+}
+
 export function renderClaudeVersion(el: HTMLElement, info: ClaudeCodeInfo | null): void {
   if (!info) {
     el.textContent = "claude unknown";

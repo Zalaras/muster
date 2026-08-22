@@ -63,6 +63,13 @@ Observed values: `"default"`, `"plan"`, `"acceptEdits"`. Latch the last known mo
 
 ### Values worth asserting
 
+- `SessionStart.model`: a **plain model-ID string** when present (e.g.
+  `"claude-haiku-4-5-20251001"`), never an object — the `{id, display_name}` object shape
+  belongs to the **status line only**. It is optional: present on 2 of 5 captured
+  SessionStarts (both `source:"startup"`, 2026-08-20 probe against 2.1.237), absent on
+  one startup (2.1.237), absent on `source:"clear"` (2.1.237), and absent on a fresh
+  headless startup (2026-08-22 probe against 2.1.240). Replace a launch-seeded model only
+  when the field is present, and expect a bare string.
 - `SessionStart.source`: `"startup"`, `"resume"` and `"clear"` all observed. On `--resume`,
   the `session_id` and `transcript_path` are **the same as the original session's** —
   load-bearing for SPEC §2.5 reconcile (re-bind by session id). On `/clear` (2.1.237,

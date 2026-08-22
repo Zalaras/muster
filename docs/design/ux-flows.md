@@ -46,7 +46,11 @@ New session
   only if the MRU list gets long enough to annoy.
 - Branch is shown when the directory is a git checkout, `—` otherwise. Claude Code runs
   anywhere; "repo" is the table's name, not a precondition.
-- `Browse…` opens a native directory chooser and, on launch, creates the row.
+- `Browse…` opens a daemon-backed folder browser (`GET /api/browse`: current path, Up,
+  subdirectory buttons with git checkouts marked, "Use this folder") and, on launch,
+  creates the row. *(Corrected at m1-sessions approval, 2026-08-22: the original "native
+  directory chooser" idea was unimplementable — browsers deliberately never reveal a
+  picked folder's absolute path.)*
 
 ### 1.2 The form
 
