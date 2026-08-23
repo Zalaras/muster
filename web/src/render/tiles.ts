@@ -29,7 +29,7 @@ export interface TileRefs {
  * textarea, so updates must mutate the existing nodes instead). */
 function updateTileChrome(root: HTMLElement, session: Session, now: Date): void {
   const vm = buildCardViewModel(session, now);
-  root.className = `tile ${vm.stateClass}`;
+  root.className = `tile ${vm.stateClass}${vm.ended ? " ended" : ""}`;
 
   const name = root.querySelector<HTMLElement>(".nm");
   const where = root.querySelector<HTMLElement>(".wh");

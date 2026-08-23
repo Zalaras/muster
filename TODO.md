@@ -182,6 +182,13 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
 Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start-from-PR/issue
 (§4.3) → permissions UI (§4.4) → `code <worktree>` button (trivial, anytime).
 
+- Scaling note (m2 review cycle-2 Minor 3): `terminalRegistry.takeover` holds one global
+  mutex across the PTY spawn — deliberate and correct for REQ-2's evict-before-attach
+  ordering, imperceptible at 6 tiles, but it serializes attaches across *all* sessions.
+  If tile counts ever grow past 3×2, move to a per-session lock (same ordering guarantee,
+  no cross-session serialization). The rejected-alternative reasoning is in
+  `internal/server/terminal.go`'s `takeover` doc comment.
+
 ## Open questions carried forward
 
 From `spikes/FINDINGS.md` "Still open" and SPEC §9. None block M0.

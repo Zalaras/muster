@@ -74,11 +74,11 @@ a tmux CLI oracle call, never a synthesized Claude-Code payload.
 | REQ-8 (Tiles view) | views.spec.ts: E8 density growth, E9 promotion |
 | REQ-9 (view switcher) | views.spec.ts: E5 reload persistence, E7 keyboard (⌘\\, ⌘1) |
 | REQ-10 (prefs) | views.spec.ts: E5, E6, prefs-snapshot test |
-| REQ-11/INV-3 (geometry single writer) | views.spec.ts: E10 |
+| REQ-11/INV-3 (geometry single writer) | views.spec.ts: E10 (both halves since Fix Attempt 1: stripped session's `#{window_width}` unchanged AND a continuing-live tile's geometry moved + matches its footer via the tmux oracle); E8/E9 (oracle cross-check after density change / promotion) |
 | REQ-12/INV-2 (snapshots never attach) | terminal.spec.ts: rail-card refocus swap; views.spec.ts: E11 |
 | REQ-13 (degraded states) | terminal.spec.ts: E12 (dead/ended), dead-on-focus (no attach), E13 (daemon down + reattach); terminal.spec.ts E3 (superseded overlay) |
 | REQ-14 (⟳n compaction) | sessions.spec.ts: E14 |
-| REQ-15 (sizenote/footer, Should Have) | terminal.spec.ts: E4 (sizenote parse); views.spec.ts: E8 (tile footer geometry pattern) |
+| REQ-15 (sizenote/footer, Should Have) | terminal.spec.ts: E4 (sizenote parse); views.spec.ts: E8/E9/E10 (tile footer geometry cross-checked against the tmux oracle via `expectTileGeometryMatchesTmux` — upgraded from a pattern match in Fix Attempt 1, review cycle-1 Critical 6) |
 | REQ-16 (scrollback, Nice to Have, explicitly out of scope) | no test — that is the point; enforced by the plan's D5 negative grep, not e2e |
 | INV-4 (prefs echo) | views.spec.ts: dedicated INV-4 test |
 

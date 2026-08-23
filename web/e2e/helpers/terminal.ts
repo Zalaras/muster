@@ -67,10 +67,12 @@ export function stripCard(page: Page, titleOrUntitled: string): Locator {
  */
 export class TerminalSocketTracker {
   private openSockets = new Set<WebSocket>();
+  private opened = 0;
 
   constructor(page: Page) {
     page.on("websocket", (ws) => {
       if (!ws.url().includes("/ws/terminal/")) return;
+      this.opened += 1;
       this.openSockets.add(ws);
       ws.on("close", () => this.openSockets.delete(ws));
       ws.on("socketerror", () => this.openSockets.delete(ws));
@@ -79,6 +81,13 @@ export class TerminalSocketTracker {
 
   get liveCount(): number {
     return this.openSockets.size;
+  }
+
+  /** Cumulative opens since construction — unlike `liveCount` (a net gauge that an
+   * open-then-close also brings back to zero), this asserts "never opened" literally
+   * (m2 review cycle-2 Minor 5: REQ-13's "no attach attempt" needs the gross count). */
+  get totalOpened(): number {
+    return this.opened;
   }
 }
 

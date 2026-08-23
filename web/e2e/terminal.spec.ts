@@ -295,6 +295,9 @@ test("focusing a dead session shows the ended placeholder without ever attemptin
     });
     // REQ-13: "no attach attempt" — the client must never even request /ws/terminal/ for
     // a session it already knows is dead (409 not_attachable is the server-side backstop).
+    // totalOpened, not liveCount: a socket that opened and then closed nets to zero on the
+    // live gauge, but "no attempt" means the gross count must be zero too.
+    expect(tracker.totalOpened).toBe(0);
     expect(tracker.liveCount).toBe(0);
   } finally {
     await cleanup();
@@ -331,6 +334,9 @@ test.describe.serial("daemon down while a terminal is attached (E13)", () => {
 
       const banner = page.getByRole("alert");
       await expect(banner).toBeVisible({ timeout: 15_000 });
+      // Assert it is the daemon-down banner specifically, not just any alert (the
+      // protocol-mismatch element is also role="alert").
+      await expect(banner).toContainText(/musterd unreachable/);
       await expect(terminalOverlay(region)).toHaveText(/disconnected/i, { timeout: 15_000 });
 
       await restartDaemon.restart();

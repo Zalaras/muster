@@ -94,6 +94,9 @@ test("Cmd+\\ toggles the view and Cmd+1 focuses the top-priority session regardl
 
       await page.keyboard.press("Meta+1");
       await expect(terminalRegion(page, "prio-a")).toBeVisible();
+      // The old surface must be unmounted, not merely covered — ⌘1 moves focus the same
+      // way a rail-card click does (one live surface at a time, INV-2).
+      await expect(terminalRegion(page, "prio-b")).toHaveCount(0);
     } finally {
       await Promise.all([dirA.cleanup(), dirB.cleanup()]);
     }

@@ -30,6 +30,24 @@ func New(socket string) *Client {
 	return &Client{socket: socket}
 }
 
+// maxSocketPathLen is the longest -S socket path tmux can actually bind: AF_UNIX's
+// sun_path is 104 bytes on macOS including the trailing NUL. Exceeding it fails deep
+// inside tmux with a bare "File name too long" (m2 review cycle-2 Minor 8), so
+// ValidateSocket rejects it up front with an error that says what to do instead.
+const maxSocketPathLen = 103
+
+// ValidateSocket rejects a socket value that cannot work before any tmux command runs:
+// a filesystem path (contains "/", used with -S) longer than AF_UNIX's sun_path limit.
+// Named sockets (-L) are not length-checked — tmux composes their path in its own short
+// socket directory.
+func ValidateSocket(socket string) error {
+	if strings.Contains(socket, "/") && len(socket) > maxSocketPathLen {
+		return fmt.Errorf("tmux socket path is %d bytes, over AF_UNIX's %d-byte sun_path limit — tmux would fail with \"File name too long\"; use a shorter path: %q",
+			len(socket), maxSocketPathLen, socket)
+	}
+	return nil
+}
+
 // socketFlag returns the -L/-S argument pair for this client's socket.
 func (c *Client) socketFlag() []string {
 	if strings.Contains(c.socket, "/") {

@@ -24,6 +24,7 @@ import (
 	"github.com/Zalaras/muster/internal/claudecode"
 	"github.com/Zalaras/muster/internal/server"
 	"github.com/Zalaras/muster/internal/store"
+	"github.com/Zalaras/muster/internal/tmux"
 )
 
 // version is set at build time via -ldflags (see the Makefile).
@@ -70,6 +71,12 @@ func run(args []string, stdout, stderr io.Writer) error {
 	if *showVersion {
 		fmt.Fprintf(stdout, "musterd %s (pinned to Claude Code %s)\n", version, claudecode.PinnedVersion)
 		return nil
+	}
+
+	// Fail fast on a socket path tmux cannot bind (AF_UNIX sun_path limit) — otherwise
+	// the failure surfaces later as a bare "File name too long" from inside tmux.
+	if err := tmux.ValidateSocket(*tmuxSocket); err != nil {
+		return err
 	}
 
 	level := zerolog.InfoLevel

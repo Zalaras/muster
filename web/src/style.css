@@ -724,6 +724,15 @@ body {
   opacity: 0.55;
 }
 
+/* A dead tile's chrome greys out the same way its rail/strip card does (m2 review
+ * cycle-2 Minor 2 — same session, same treatment in every surface). Only the header
+ * and footer dim: the body keeps full opacity so the "session ended" overlay and the
+ * frozen last-drawn terminal content stay legible. */
+.tile.ended .thead,
+.tile.ended .tfoot {
+  opacity: 0.55;
+}
+
 /* ── buttons (design-system §5) ───────────────────────────────────────── */
 
 .btn {

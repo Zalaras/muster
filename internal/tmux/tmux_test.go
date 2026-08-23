@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -387,4 +388,20 @@ func TestNewSession_AppliesServerOptionsOnlyOnceOnAnAlreadyRunningServer(t *test
 func TestNewClient_UsesAPerTestSocketNeverTheSharedDefault(t *testing.T) {
 	c := New(newTestSocket(t))
 	assert.NotEqual(t, "muster", c.socket)
+}
+
+// TestValidateSocket pins the up-front rejection of a -S path over AF_UNIX's sun_path
+// limit (m2 review cycle-2 Minor 8): without it the failure surfaces later as a bare
+// "File name too long" from inside tmux. Named (-L) sockets are never length-checked.
+func TestValidateSocket(t *testing.T) {
+	long := "/" + strings.Repeat("a", 103) // 104 bytes total, one over the limit
+
+	assert.NoError(t, ValidateSocket("muster"), "named sockets pass")
+	assert.NoError(t, ValidateSocket("/tmp/short/tmux.sock"), "short paths pass")
+	assert.NoError(t, ValidateSocket(strings.Repeat("a", 103)), "long *names* are not paths and pass")
+	assert.NoError(t, ValidateSocket("/"+strings.Repeat("a", 102)), "exactly 103 bytes passes")
+
+	err := ValidateSocket(long)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "sun_path", "the error explains the limit")
 }
