@@ -155,6 +155,11 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
 
 ## M3 — Gauges (plan `m3-gauges` approved 2026-08-23; run via `/orchestrate m3-gauges`)
 
+> **Caveat, added 2026-08-23 after manual testing:** every item below is implemented and
+> passes its tests, but all of it was validated against *synthesized* status-line posts.
+> The real chain never delivered a single one — see M4's unquoted-command-path entry —
+> so these surfaces have not yet been seen rendering real data. Re-verify there.
+
 - [x] Status-line POST ingestion, de-duplicated (posts arrive in close pairs ~435 ms apart).
       Done 2026-08-23 (m3-gauges, review-approved cycle 2): value-level dedup in
       `internal/usage.Aggregator`; `event.received_at` stamped RFC3339Nano (the M0 review
@@ -178,7 +183,15 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
       same `session_id`); the M4 work is building reconcile on top of it
 - [ ] Full canary E2E: unskip the assertions in `test/canary/canary_test.go`
 - [ ] Surface "daemon down" prominently — while it is down, every managed pane fills with
-      hook-error lines
+      hook-error lines. **Scope correction (2026-08-23):** this item assumed *managed*
+      panes. Measured otherwise — the hook entries live in the directory's
+      `.claude/settings.local.json`, so with musterd stopped every Claude Code session in
+      that directory prints `PreToolUse:Bash hook error connect ECONNREFUSED
+      127.0.0.1:8765` per tool call, Muster-launched or not (observed in Damian's own
+      editing session in the muster repo, with no daemon running and no Muster session
+      live). The banner only covers the dashboard; the noise in unmanaged sessions has no
+      surface at all. See the per-directory-hooks and hook-entry-lifetime entries below —
+      same file, same root.
 - [ ] **End / remove a session** — found missing during manual testing 2026-08-23: there is
       no delete flow at all (`docs/protocol.md` §5.5 reserves the `sessionRemoved` type but
       nothing sends it; `session.Manager.DeleteSession` exists only as the launch-failure
@@ -209,6 +222,86 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
       only enveloped (Muster-launched) posts are stored. Caveat on the measurement above:
       the unquoted-command-path bug found the same day leaves *every* event unrouted, which
       exaggerates the symptom — re-measure once that is fixed, before choosing an option.
+- [ ] **Muster never removes its own hook entries** — found 2026-08-23, the flip side of
+      the entry above. `MergeSettings` writes into `.claude/settings.local.json` on launch
+      and nothing ever takes those entries back out: not daemon shutdown, not session end,
+      not the (unbuilt) remove-a-session flow. So a stopped daemon leaves the directory
+      permanently instrumented against a dead port. The entries genuinely must survive a
+      daemon *restart* (musterd can be restarted under a live session and the pane's
+      Claude Code re-reads nothing), so "strip on shutdown" is wrong as stated — the real
+      question is what the entries' lifetime is keyed to. Options: reference-count against
+      live sessions in that directory and strip when the last one ends (needs the
+      end/remove flow below, and a crash still leaks); strip on clean shutdown only and
+      accept the crash case; leave them and make the hook wrapper fail silently when the
+      daemon is unreachable, so the cost of a stale file is zero noise instead of a line
+      per tool call (cheapest, and arguably the honest one — hook delivery is best-effort
+      by design). Note the HTTP hooks are Claude Code's own `type:"http"` entries, so the
+      silent-failure option can only be reached by routing them through a wrapper script
+      too, which is a protocol-shape change, not a one-liner. Immediate workaround while
+      this is open: delete the file (Muster's launch rewrites it).
+- [ ] **Command-hook paths are not shell-quoted** — the live bug behind M3's gauges never
+      having rendered real data (found 2026-08-23, diagnosis in this file's git history).
+      `MergeSettings` writes `hooks.SessionStart[].command` and `statusLine.command` as
+      bare paths, so the default macOS data dir (`~/Library/Application Support/Muster`,
+      `cmd/musterd/main.go`) splits on its space when the shell invokes it and **both
+      wrapper scripts silently never run**: zero `SessionStart` and zero `status_line`
+      events ever reached the real daemon. Everything downstream follows from that —
+      `claude_session_id` never binds (`Manager.Apply` binds only on
+      `KindBind`/`KindClearRebind`), so every HTTP hook persists unrouted and every card
+      reads "no signal yet" forever; the usage aggregator stays empty (masthead
+      permanently "unknown", `usage_sample` at 0 rows); the M3 context gauge, model
+      readout and status-line title are all blank. Mechanic proved locally: a 0700 script
+      at a space-bearing path runs on direct exec and dies `rc=127` under `sh -c`.
+      Decision taken (Damian, 2026-08-23): **fix by shell-quoting the path**, not by
+      relocating the data dir — the `command` field is a shell command line, not a path
+      field, so a tool writing a path into it must quote it, and `-data-dir` already
+      accepts arbitrary paths. Work, in order:
+  - **Probe first — the fix is unsafe without it.** `/interface-probe` against the
+    installed binary, one instance stamped into a path *containing a space*
+    (`--model claude-haiku-4-5-20251001`, "say hi", killed after): (a) is a
+    `type:"command"` hook / `statusLine` shell-invoked at all — bare fails, quoted
+    delivers? (b) does quoting break a space-*free* path (the control — otherwise we
+    trade one bug for another)? (c) does `'…'` or `"…"` survive? If (a) says
+    not-a-shell, quoting is the wrong fix and the fallback is moving just the two
+    wrapper scripts to a space-free dir (e.g. `~/.local/share/muster/bin/`) with the
+    data dir staying put. Stamp the measured version in the finding (pin is 2.1.233,
+    installed 2.1.241; drift stays deferred per the M1 follow-up).
+  - Single-quote with `'` → `'\''` escaping, not double quotes — `"…"` still
+    interpolates `$`, backticks and backslashes.
+  - **`isMusterEntry` must match quoted *and* bare.** It recognizes Muster's own
+    command entries by exact string equality against the config paths
+    (`internal/claudecode/settings.go`); teaching it only the new quoted form makes
+    every existing `settings.local.json` unrecognizable, so the stale bare entry
+    survives the wholesale-replace and the file accumulates two entries per event, one
+    permanently broken. This is the part most likely to be got wrong.
+  - Keep `SettingsConfig` holding raw paths — quote at the write boundary only — and
+    keep `MergeSettings` byte-identical on a second call with the same config.
+  - Audit the other path-into-shell sites in the same pass. Already checked and clean:
+    the launch path is argv all the way (`BuildArgv` → `tmux new-session … -- argv…`
+    via `exec.Command`, no shell), and `writeEnvelopeScript` already quotes the URL in
+    `curl "%s"`; `$MUSTER_SESSION`/`$TMUX_PANE` are interpolated unquoted into the
+    envelope JSON (daemon-controlled, but worth a look).
+  - Record the quoting rule in `docs/protocol.md` §4.2 so a later refactor can't undo it.
+- [ ] **Coverage gap that let the above ship green** — pairs with the entry above; the
+      milestone isn't done without it. Three holes: (1) no test uses a data dir with a
+      space — the H2 rig stamps into `/tmp/muster-probe` and the E2E harness into
+      `mkdtemp(…, "muster-e2e-")`, both space-free, so the *default production path* is
+      the one path nothing exercises; (2) **nothing anywhere executes the generated
+      wrapper scripts the way Claude Code does** — the E2E fake `claude`
+      (`web/e2e/helpers/daemon.ts`) is an echo loop that never reads
+      `settings.local.json`, and every spec synthesizes ingest POSTs directly, so the
+      settings → shell → script → POST → route → gauge chain has never once run in CI;
+      (3) the canary asserts nothing about command-hook execution. Fixes: flip the E2E
+      `mkdtemp` prefix to contain a space (all 71 specs then exercise it for free); add a
+      test that reads the *generated* `settings.local.json`, pulls `statusLine.command`
+      verbatim, runs it **through `sh -c`** with `MUSTER_SESSION`/`TMUX_PANE` set and a
+      status-line payload on stdin, and asserts a routed `status_line` event plus a
+      `usage_sample` row — no real `claude` needed, and it is the single assertion that
+      would have failed on day one; add a canary assertion for the real binary per the
+      probe's finding. Then **manually re-verify every M3 surface against real data**
+      (masthead bars, per-session context row, model readout, status-line title) — none
+      of them has ever rendered anything but synthesized input, so M3's "done" is
+      unproven, not wrong.
 
 ## M5+ (v1.x, re-rank when reached)
 
