@@ -202,6 +202,10 @@ locators. This is validate attempt <N> of 2.
 Spec file(s): <paths from the File column of test-specs.md's Tests table>
 Read plans/<plan-name>/daemon-implementation.md and
 plans/<plan-name>/web-implementation.md for what was built and where.
+Rebuild before running (make build web-build — the harness serves prebuilt binaries), and
+once your own file passes, sweep the FULL suite (make e2e) per your Validate Mode step 5:
+pre-existing specs superseded by this plan's approved protocol delta are yours to update
+as sanctioned breakage; failures the delta does not explain are implementation-bugs.
 You may NOT change implementation code, and you may NOT weaken or delete an assertion to make
 a test green. If the only way to pass is to weaken the test, report implementation-bug.
 ```

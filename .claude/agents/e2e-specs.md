@@ -66,7 +66,17 @@ Additionally, in any fix-cycle invocation: read the latest `## Fix Attempt` sect
 
 ## Validate Mode
 
-### 1. Run your spec file live (from `web/`)
+### 1. Rebuild, then run your spec file live
+
+**Rebuild first, every time** — from the project root:
+
+```bash
+make build web-build
+```
+
+The E2E harness serves the prebuilt `bin/musterd` binary and the prebuilt `web/dist` and never rebuilds either; `npm run e2e` run directly therefore tests whatever was last compiled, which in a pipeline is usually a binary older than the implementation you are validating (m3-gauges lesson: a validate run failed 10/12 against a pre-M3 daemon and the failures looked exactly like implementation bugs). `make e2e` has both builds as prerequisites; a targeted `npm run e2e -- <file>` does not, so it gets the explicit rebuild above.
+
+Then, from `web/`:
 
 ```bash
 npm run e2e -- e2e/<your-file>.spec.ts
@@ -112,6 +122,15 @@ Your edits can break *global* collection (one duplicate title aborts every file)
 ```bash
 npx playwright test --list
 ```
+
+### 5. Sweep the full suite for plan-superseded specs
+
+Once your own spec file passes, run the **full** suite (`make e2e` from the project root) before reporting `pass`. Your plan's approved protocol delta changes wire shapes and value semantics that *pre-existing* specs may assert the old way, and those specs are also yours (m3-gauges lesson: both review Criticals were an M1-era title assertion and a frozen `/api/state` shape that the plan's own merged §5.3/§5.4 delta superseded — mechanical updates that instead surfaced at review and burned an Opus cycle). Triage each non-plan failure:
+
+- **The plan's approved delta (its Protocol Contract section / the merged `docs/protocol.md`) directly contradicts the old expectation** → sanctioned breakage. Update the expectation to the approved contract — this must *strengthen or preserve* the assertion (assert the new positive behaviour; keep every other assertion in the test intact; retitle if the old title claims a superseded scope note) — and record it in `## Repairs` citing the delta section.
+- **The failure is not explained by the plan's delta** → that is an `implementation-bug` (a regression your plan's implementation caused in existing behaviour), not a repair. Route it; do not touch the old spec.
+
+The deciding question is the same as always: does the *approved plan* pin the new behaviour? Only a documented delta sanctions changing an old expectation.
 
 ## Writing Tests
 

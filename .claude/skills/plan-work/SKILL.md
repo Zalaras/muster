@@ -136,6 +136,8 @@ For each key interactive element that E2E tests will target, define its expected
 
 Bare `<details><summary>`, `<div>` and `<span>` carry **no** implicit ARIA role. When unsure what role a piece of markup exposes, put `—` in the Role column and describe the intent in Notes — `e2e-specs` verifies its locators against a real DOM and will pick a working one. Never resolve the uncertainty by requiring an extra `role=` attribute purely so a test can find the element — that trades away native semantics for test convenience.
 
+**Transcribe text patterns from the reference render, never compose them from memory.** When a mockup is the design authority, open it and derive each Name/Text Pattern from the markup it actually contains — separators, spacing, and element boundaries included. A composed pattern invents details the mockup doesn't have and the implementation (correctly following the mockup) won't ship (m3-gauges: the plan's context-row pattern included a ` · ` middot separator; the mockup had none, the shipped DOM had none, and the pattern survived as a false reference the review had to disclaim). Remember `textContent` concatenates adjacent elements with no whitespace — a pattern spanning sibling spans must not assume spaces between them.
+
 #### Invariants (learned from m1-sessions)
 
 If the plan or the protocol states a rule that must hold **at all times** — an "iff", an
@@ -180,6 +182,7 @@ Define clear acceptance criteria that the review agent will check against. Write
 
 1. **One clause per criterion.** Never mix a runnable command with a judgement call in the same item. "`make test` and `make lint` pass; no `any` types; the gauge shows unknown before first response" is four separate criteria — and a reader who watches the build go green marks the whole thing done, quietly discarding the constraints most likely to be violated. If you find yourself typing `;` or `and also`, start a new criterion.
 2. **Number criteria uniquely across the whole section**, not per subsection. Prefix by area: `D1, D2…` (Daemon), `W1, W2…` (Web), `E1, E2…` (E2E). Restarting the count per subsection makes "criterion 12 passed" ambiguous in a review.
+3. **Every UI element a criterion asserts must be defined somewhere in the plan** — in a Requirement, the UI Specifications, or the Testable UI Elements table. Cross-check each `E*` criterion against those sections before approval: a criterion is a *test* of the plan's surface, not a place to introduce new surface (m3-gauges: E7 asserted "the card's model readout", an element no plan section defined — only a masthead readout existed — leaving the E2E agent to guess what to test and flag the ambiguity downstream).
 
 Then, with the user, distil the criteria into an **Automated Checks** block: the subset where "satisfied" is exactly "this one shell command exits 0". You author this deliberately — you are the only one who knows which backticked things in your prose are commands and which are type names or identifiers, so this cannot be left to a parser. Anything needing a human read stays in prose and is listed under `### Reviewer-Verified`, so the non-runnable half of a split criterion is assigned rather than lost.
 
