@@ -1,7 +1,9 @@
 // Package usage holds the account-level usage aggregator (m3-gauges): a neutral Sample
 // shape plus one in-memory Aggregator, the SPEC §9.6 seam for a second usage source down
-// the line. Nothing here is Claude-Code-format vocabulary — internal/claudecode is the
-// only package that reads status-line payload keys and converts them into a Sample.
+// the line. Nothing here is Claude-Code-format vocabulary — internal/claudecode reads
+// the status-line payload keys into its own neutral StatusAccount, and internal/server
+// maps that into a Sample at the seam (so this package and the adapter stay mutually
+// dependency-free; m3 review cycle-1 Minor 3).
 package usage
 
 import "time"

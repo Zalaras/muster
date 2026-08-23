@@ -157,7 +157,17 @@ func (q *ingestQueue) processStatus(ctx context.Context, sessionID int64, payloa
 	if update.Account == nil || q.usage == nil {
 		return
 	}
-	if err := q.usage.Record(ctx, *update.Account); err != nil {
+	// The adapter's neutral StatusAccount maps into the aggregator's Sample here — this
+	// is the SPEC §9.6 seam, and keeping the conversion in server code keeps
+	// internal/claudecode dependency-free of internal/usage (and transitively the store).
+	acct := update.Account
+	sample := usage.Sample{
+		FiveHour: usage.Bucket{UsedPct: acct.FiveHour.UsedPct, ResetsAt: acct.FiveHour.ResetsAt},
+		SevenDay: usage.Bucket{UsedPct: acct.SevenDay.UsedPct, ResetsAt: acct.SevenDay.ResetsAt},
+		Model:    usage.Model{ID: acct.Model.ID, DisplayName: acct.Model.DisplayName},
+		Source:   acct.Source,
+	}
+	if err := q.usage.Record(ctx, sample); err != nil {
 		q.log.Warn().Err(err).Msg("recording usage sample failed")
 	}
 }

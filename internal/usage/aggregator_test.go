@@ -264,3 +264,37 @@ func TestAggregator_Record_PersistsExactRowValues(t *testing.T) {
 	assert.Equal(t, "2026-08-25T06:00:00Z", sevenDayResetsAt)
 	assert.Equal(t, "subscription", source)
 }
+
+// TestAggregator_Record_PersistFailureLeavesMemoryUnchanged covers the m3 review
+// cycle-2 Minor 4 ordering fix: a failed usage_sample write must leave Current()
+// reporting the previous sample (snapshots never carry values that have no row), and
+// must NOT advance the dedup state — the same values arriving again retry persistence
+// instead of being silently deduped away forever.
+func TestAggregator_Record_PersistFailureLeavesMemoryUnchanged(t *testing.T) {
+	st, _ := openTestStore(t)
+	broadcasts := 0
+	agg := newTestAggregator(st, func(Snapshot) { broadcasts++ })
+
+	first := fullSample(61, 23)
+	require.NoError(t, agg.Record(context.Background(), first))
+	require.Equal(t, 1, broadcasts)
+
+	// Kill the store so the next insert fails.
+	require.NoError(t, st.Close())
+
+	second := fullSample(70, 30)
+	err := agg.Record(context.Background(), second)
+	require.Error(t, err, "a failed persist must be reported, not swallowed")
+	assert.Equal(t, 1, broadcasts, "no broadcast for a sample that never persisted")
+
+	cur := agg.Current()
+	require.NotNil(t, cur.FiveHour)
+	assert.Equal(t, 61.0, cur.FiveHour.UsedPct,
+		"Current() must keep the last persisted sample, not the failed one")
+
+	// The failed sample must not have advanced the dedup state: recording the same
+	// values again attempts persistence again (and errors again on the dead store),
+	// rather than being deduped into a silent nil.
+	err = agg.Record(context.Background(), fullSample(70, 30))
+	require.Error(t, err, "retry of an unpersisted sample must not be deduped away")
+}

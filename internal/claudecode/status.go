@@ -3,8 +3,6 @@ package claudecode
 import (
 	"encoding/json"
 	"time"
-
-	"github.com/Zalaras/muster/internal/usage"
 )
 
 // statusPayload is the status-line payload's fields InterpretStatus reads
@@ -60,6 +58,25 @@ type StatusContext struct {
 	WindowSize       int64
 }
 
+// StatusBucket is one neutral usage-limit readout (five-hour or seven-day) with the
+// wire's epoch reset time already converted to UTC (REQ-3).
+type StatusBucket struct {
+	UsedPct  float64
+	ResetsAt time.Time
+}
+
+// StatusAccount is the neutral account-usage reading a status-line payload carries.
+// It is deliberately this package's own type rather than internal/usage's Sample, so
+// the adapter stays dependency-free of the aggregator (and, transitively, the storage
+// layer) — internal/server maps it into a usage.Sample at the seam (m3 review cycle-1
+// Minor 3). Field meanings match usage.Sample one-for-one.
+type StatusAccount struct {
+	FiveHour StatusBucket
+	SevenDay StatusBucket
+	Model    StatusModel
+	Source   string // "subscription" — the status line is the subscription source
+}
+
 // StatusUpdate is the neutral result of interpreting one status-line payload (REQ-1):
 // optional title, optional model, optional context, optional account usage sample.
 // Every field is nil when the payload didn't carry it — callers apply only what's
@@ -68,7 +85,7 @@ type StatusUpdate struct {
 	Title   *string
 	Model   *StatusModel
 	Context *StatusContext
-	Account *usage.Sample
+	Account *StatusAccount
 }
 
 // InterpretStatus derives the neutral StatusUpdate for one status-line payload. It is a
@@ -103,16 +120,16 @@ func InterpretStatus(payload []byte) StatusUpdate {
 	// when the model object is present in the same payload — a sample is never recorded
 	// with a stale/last-known model.
 	if p.RateLimits != nil && p.Model != nil {
-		out.Account = &usage.Sample{
-			FiveHour: usage.Bucket{
+		out.Account = &StatusAccount{
+			FiveHour: StatusBucket{
 				UsedPct:  p.RateLimits.FiveHour.UsedPercentage,
 				ResetsAt: time.Unix(p.RateLimits.FiveHour.ResetsAt, 0).UTC(),
 			},
-			SevenDay: usage.Bucket{
+			SevenDay: StatusBucket{
 				UsedPct:  p.RateLimits.SevenDay.UsedPercentage,
 				ResetsAt: time.Unix(p.RateLimits.SevenDay.ResetsAt, 0).UTC(),
 			},
-			Model:  usage.Model{ID: p.Model.ID, DisplayName: p.Model.DisplayName},
+			Model:  StatusModel{ID: p.Model.ID, DisplayName: p.Model.DisplayName},
 			Source: "subscription",
 		}
 	}

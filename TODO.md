@@ -191,24 +191,23 @@ Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start
   If tile counts ever grow past 3×2, move to a per-session lock (same ordering guarantee,
   no cross-session serialization). The rejected-alternative reasoning is in
   `internal/server/terminal.go`'s `takeover` doc comment.
-- Layering note (m3 review cycle-1 Minor 3, ruled follow-up not fix): `internal/claudecode`
-  transitively depends on `internal/store`, because `InterpretStatus` returns the neutral
-  `usage.Sample` value type and that type shares a package with `Aggregator` (which holds
-  a `*store.Store`). No rule broken (D6 clean); when next touching `internal/usage`, split
-  the value types into their own package (or have `InterpretStatus` return its own bucket
-  triple that `internal/server` maps into a `Sample`) to keep the adapter boundary free of
-  the storage layer.
+- ~~Layering note (m3 review cycle-1 Minor 3)~~ — resolved 2026-08-23 (m3 retro chore):
+  `InterpretStatus` now returns its own neutral `StatusAccount`/`StatusBucket` types and
+  `internal/server`'s `processStatus` maps them into a `usage.Sample` at the §9.6 seam;
+  `go list -deps ./internal/claudecode` no longer includes `internal/usage` or
+  `internal/store`.
 - Staleness follow-up (m3 review Minor, honesty rule 8 "stale is labelled, not hidden"):
   `usage.sampledAt` is on the wire but rendered nowhere, and an idle session emits no
   status posts (measured — `refreshInterval` doesn't tick while idle), so the masthead
   bars can be minutes stale with no cue. Deliberately scoped out of M3 (reference render
   shows no sample age either); if it ever matters, render a sample-age cue from
   `sampledAt` client-side.
-- Durability nit (m3 review cycle-2 Minor 4): `usage.Aggregator.Record` commits the new
-  sample to memory before persisting; a failed `InsertUsageSample` leaves snapshots
-  reporting values that have no row and dedups away the retry. Logged + returned error,
-  tiny local-SQLite window — persist before the in-memory commit (or roll back
-  `a.current` on error) next time the file is touched.
+- ~~Durability nit (m3 review cycle-2 Minor 4)~~ — resolved 2026-08-23 (m3 retro chore):
+  `Record` now persists the `usage_sample` row *before* committing to memory and
+  broadcasting, so a failed write leaves `Current()` on the last persisted sample and the
+  retry is never deduped away (regression test
+  `TestAggregator_Record_PersistFailureLeavesMemoryUnchanged`; safe to drop the lock
+  across the write because Record runs only on the single ingest worker goroutine, R4).
 
 ## Open questions carried forward
 

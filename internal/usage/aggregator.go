@@ -56,10 +56,15 @@ func (a *Aggregator) Record(ctx context.Context, s Sample) error {
 		a.log.Debug().Msg("usage sample unchanged, skipping persist and broadcast")
 		return nil
 	}
-	a.current = &s
-	snap := a.snapshotLocked()
 	a.mu.Unlock()
 
+	// Persist BEFORE the in-memory commit: if the row write fails, Current() must keep
+	// reporting the previous sample, so snapshots never carry values that have no row —
+	// and because a.current has not advanced, the next post with the same values retries
+	// persistence instead of being deduped away (m3 review cycle-2 Minor 4). Dropping the
+	// lock across the write is safe: Record only ever runs on the single ingest worker
+	// goroutine (R4), so no second Record can interleave — the mutex guards Current()
+	// readers on other goroutines.
 	if err := a.store.InsertUsageSample(ctx, store.UsageSampleRow{
 		ModelID:          s.Model.ID,
 		ModelDisplayName: s.Model.DisplayName,
@@ -72,6 +77,11 @@ func (a *Aggregator) Record(ctx context.Context, s Sample) error {
 		a.log.Error().Err(err).Msg("persisting usage sample failed")
 		return fmt.Errorf("persisting usage sample: %w", err)
 	}
+
+	a.mu.Lock()
+	a.current = &s
+	snap := a.snapshotLocked()
+	a.mu.Unlock()
 
 	if a.onChange != nil {
 		a.onChange(snap)
