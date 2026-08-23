@@ -137,10 +137,10 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 		"LANG":   "en_US.UTF-8",
 		"LC_ALL": "en_US.UTF-8",
 	}
-	target, pane, err := l.tmux.NewWindow(ctx, dir, env, argv)
+	target, pane, err := l.tmux.NewSession(ctx, sess.ID, dir, env, argv)
 	if err != nil {
 		l.rollback(ctx, sess.ID)
-		return nil, launchFailed(fmt.Sprintf("spawning tmux window: %v", err))
+		return nil, launchFailed(fmt.Sprintf("spawning tmux session: %v", err))
 	}
 
 	final, err := l.manager.RecordLaunch(ctx, sess.ID, target, pane)

@@ -50,6 +50,12 @@ type testServer struct {
 	dbPath string
 	logs   *syncBuffer
 	store  *store.Store
+	// tmuxSocket is the socket path backing srv.tmuxClient, populated only by
+	// newTerminalTestServer (terminal_test.go). It exists purely so terminal tests can
+	// run their own tmux CLI oracle queries (list-clients, #{session_attached}) that
+	// tmux.Client itself does not expose — production code has no reason to read either
+	// (CLAUDE.md: capture/attach are display + oracle only, never a state source).
+	tmuxSocket string
 }
 
 // newTestServer builds a Server against a fresh temp-dir SQLite store. It does not call

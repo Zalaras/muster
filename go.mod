@@ -4,6 +4,7 @@ go 1.26.6
 
 require (
 	github.com/coder/websocket v1.8.15
+	github.com/creack/pty v1.1.24
 	github.com/rs/zerolog v1.35.1
 	github.com/stretchr/testify v1.11.1
 	modernc.org/sqlite v1.57.0

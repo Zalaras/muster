@@ -1,0 +1,19 @@
+{
+  "plan_name": "m2-terminal",
+  "status": "completed",
+  "current_step": "review",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 1,
+    "web-impl": 0,
+    "daemon-tests": 1,
+    "web-tests": 0,
+    "e2e-validate": 0,
+    "review": 1
+  },
+  "completed_steps": ["e2e-specs", "daemon-impl", "web-impl", "daemon-tests", "web-tests", "e2e-validate", "review"],
+  "failed_steps": [],
+  "started_at": "2026-08-23T00:00:00Z",
+  "updated_at": "2026-08-23T16:45:00Z",
+  "notes": "Review approved on cycle 2. Cycle 1 (needs-changes, preserved as review.cycle-1.md): 7 criticals/gaps fixed across 3 waves — daemon (detach-on-destroy amendment, PTY teardown leak, takeover ordering), web (tiles refit, in-place grid reconcile, alive-driven marker), tests (multi-session death coverage, geometry-moves oracle, daemon-side INV-2). Plan REQ-4 amended in-flight (detach-on-destroy on). Pre-review: 1 daemon-impl fix cycle (Nudge context race, D6)."
+}

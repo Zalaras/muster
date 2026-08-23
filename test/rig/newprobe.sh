@@ -17,7 +17,9 @@
 #   repo/                         scratch git repo with junk files and one commit
 #   env.sh                        source this to get the instance's env + helper vars
 #
-# Port is 878<index>; tmux socket is muster-probe-<index>; capture file is
+# Port is 878<index>; the tmux socket is a path inside the instance's own scratch dir
+# (m2-terminal REQ-5: -tmux-socket accepts a filesystem path, so probe sockets live and
+# die with the instance instead of tmux's shared socket directory); capture file is
 # test/rig/captures/capture-<index>.jsonl.
 #
 # Idempotent: safe to re-run. Regenerates settings/scripts, leaves the repo and
@@ -37,7 +39,7 @@ RIG_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROBE_HOME="${MUSTER_PROBE_HOME:-/tmp/muster-probe}"
 INST="$PROBE_HOME/instances/$IDX"
 PORT="878$IDX"
-SOCKET="muster-probe-$IDX"
+SOCKET="$INST/tmux.sock"
 CAPTURE_DIR="$RIG_ROOT/captures"
 CONFIG_DIR="$INST/claude-config"
 REPO="$INST/repo"

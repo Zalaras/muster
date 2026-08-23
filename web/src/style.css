@@ -103,12 +103,44 @@ body {
   margin: 0;
 }
 
-/* design-system §8: sized now, filled by M2's Focus/Tiles switcher — never letting the
- * later control's arrival shift anything to its right. */
+/* design-system §4.1: Focus/Tiles segmented control, mono, sharing the button border
+ * treatment with the density control below (.seg / .seg-btn). */
 .view-switcher {
-  width: 104px;
-  height: 22px;
+  display: flex;
   flex: none;
+}
+
+.seg-btn {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  padding: 4px 13px;
+  background: transparent;
+  border: 1px solid var(--line2);
+  color: var(--dim);
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.view-switcher .seg-btn,
+.seg .seg-btn {
+  border-right-width: 0;
+}
+
+.view-switcher .seg-btn:last-child,
+.seg .seg-btn:last-child {
+  border-right-width: 1px;
+}
+
+.seg-btn:hover {
+  color: var(--paper);
+}
+
+/* The active segment takes --panel2/--paper (design-system §4.1) — never a state
+ * colour; view/density selection isn't session state. */
+.seg-btn[aria-pressed="true"] {
+  color: var(--paper);
+  background: var(--panel2);
 }
 
 .masthead-right {
@@ -155,6 +187,10 @@ body {
   display: flex;
   flex: 1;
   min-height: 0;
+}
+
+#view-focus[hidden] {
+  display: none;
 }
 
 .rail {
@@ -219,12 +255,322 @@ body {
   color: var(--dim);
 }
 
+.placeholder[hidden] {
+  display: none;
+}
+
+.terminal-slot {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.terminal-slot[hidden] {
+  display: none;
+}
+
+.sizenote {
+  flex: none;
+  padding: 6px 16px;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--dim);
+  display: flex;
+  gap: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sizenote[hidden] {
+  display: none;
+}
+
+/* ── terminal surface (shared by Focus's slot and every Tiles tile body) ────────────── */
+
+.terminal-surface {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--term);
+}
+
+.terminal-body {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* design-system §7.5: the dashboard supplies the frame, never pane contents — this
+ * overlay sits ON TOP of the terminal, it never restyles what's drawn inside it. */
+.terminal-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  text-align: center;
+  background: var(--scrim);
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.terminal-overlay[hidden] {
+  display: none;
+}
+
+/* ── Tiles view ───────────────────────────────────────────────────────────────────── */
+
+.tiles-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.tiles-view[hidden] {
+  display: none;
+}
+
+.tools {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 7px 18px;
+  flex: none;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.tools[hidden] {
+  display: none;
+}
+
+.seg {
+  display: flex;
+}
+
+.grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  gap: 1px;
+  background: var(--line);
+  padding: 1px;
+}
+
+.grid[hidden] {
+  display: none;
+}
+
+.grid[data-density="2x2"] {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+.grid[data-density="3x2"] {
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+.tile {
+  background: var(--ink);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  border: 1px solid transparent;
+}
+
+/* design-system §5: "Blocked and failed tiles take a coloured border; nothing else
+ * does" — reusing the rail card's own state-border tokens (§1), never a new colour. */
+.tile.s-blocked {
+  border-color: var(--border-blocked);
+}
+.tile.s-failed {
+  border-color: var(--border-failed);
+}
+
+.thead {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 11px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  min-width: 0;
+}
+
+.thead .sdot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--idle);
+}
+
+/* Same state->colour meaning as the rail card's stripe (design-system §3) — never a
+ * second palette for the same six states. */
+.tile.s-blocked .sdot {
+  background: var(--amber);
+}
+.tile.s-failed .sdot {
+  background: var(--rose);
+}
+.tile.s-plan .sdot {
+  background: var(--violet);
+}
+.tile.s-work .sdot {
+  background: var(--teal);
+}
+.tile.s-start .sdot {
+  background: var(--muted);
+}
+.tile.s-idle .sdot {
+  background: var(--idle);
+}
+
+.thead .nm {
+  font-family: var(--disp);
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.thead .wh {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.thead .ctxinfo {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.thead .tm {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--dim);
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.tile.s-blocked .tm {
+  color: var(--amber);
+}
+
+.tbody-slot {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  background: var(--term);
+}
+
+.tfoot {
+  flex: none;
+  display: flex;
+  gap: 10px;
+  padding: 4px 11px;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.tfoot .marker.live {
+  color: var(--teal);
+}
+
+/* ── snapshot strip: the rail card component, laid on its side ──────────────────────── */
+
+.strip {
+  flex: none;
+  display: flex;
+  gap: 1px;
+  background: var(--line);
+  border-top: 1px solid var(--line);
+}
+
+.strip[hidden] {
+  display: none;
+}
+
+.strip .card {
+  flex: 1;
+  min-width: 0;
+  border-bottom: 0;
+  border-left: 3px solid var(--idle);
+  cursor: pointer;
+}
+
+.strip .card .stripe {
+  display: none;
+}
+
+.strip .card:hover {
+  background: var(--panel2);
+}
+
+.strip .card.s-blocked {
+  border-left-color: var(--amber);
+}
+.strip .card.s-failed {
+  border-left-color: var(--rose);
+}
+.strip .card.s-plan {
+  border-left-color: var(--violet);
+}
+.strip .card.s-work {
+  border-left-color: var(--teal);
+}
+.strip .card.s-start {
+  border-left-color: var(--muted);
+}
+.strip .card.s-idle {
+  border-left-color: var(--idle);
+}
+
 /* ── rail cards ───────────────────────────────────────────────────────── */
 
 .card {
   display: flex;
   border-bottom: 1px solid var(--line);
   position: relative;
+  /* REQ-7/REQ-8: cards became interactive in M2 (rail: focuses; strip: promotes). */
+  cursor: pointer;
+}
+
+.card:hover {
+  background: var(--panel2);
 }
 
 .card .stripe {

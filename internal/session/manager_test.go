@@ -382,6 +382,152 @@ func TestPollLoop_RunsUntilStopped(t *testing.T) {
 	mgr.Stop(stopCtx)
 }
 
+// TestGet_ReturnsCloneForAKnownSessionFalseForUnknown covers the terminal bridge's
+// pre-upgrade check (docs/protocol.md §6: 404 unknown id / 409 not_attachable).
+func TestGet_ReturnsCloneForAKnownSessionFalseForUnknown(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+	dir := t.TempDir()
+	params := createParams(dir)
+	params.RepoID = seedRepo(t, st, dir)
+	sess, err := mgr.CreateSession(context.Background(), params)
+	require.NoError(t, err)
+
+	got, ok := mgr.Get(sess.ID)
+	require.True(t, ok)
+	assert.Equal(t, sess.ID, got.ID)
+	got.State = StateFailed // mutate the returned value
+	again, _ := mgr.Get(sess.ID)
+	assert.Equal(t, StateStarted, again.State, "Get must return an independent clone, not the manager's live pointer")
+
+	_, ok = mgr.Get(999)
+	assert.False(t, ok)
+}
+
+// TestNudge_FlipsAliveFalseImmediatelyWithoutWaitingForThePollTicker covers REQ-6/D6:
+// Nudge re-checks liveness right away rather than lagging the ~5s poll interval — proven
+// here by giving the manager a poll interval far longer than the test's timeout, so any
+// observed alive:false flip can only have come from Nudge itself, never the ticker.
+func TestNudge_FlipsAliveFalseImmediatelyWithoutWaitingForThePollTicker(t *testing.T) {
+	st := openTestStore(t)
+	pc := newFakePaneChecker()
+	rec := &upsertsRecorder{}
+	mgr := NewManager(Config{
+		Store: st, Logger: zerolog.Nop(), PaneChecker: pc, OnUpsert: rec.record,
+		PollInterval: time.Hour,
+	})
+	dir := t.TempDir()
+	params := createParams(dir)
+	params.RepoID = seedRepo(t, st, dir)
+	sess, err := mgr.CreateSession(context.Background(), params)
+	require.NoError(t, err)
+	_, err = mgr.RecordLaunch(context.Background(), sess.ID, "muster-1:@1", "%1")
+	require.NoError(t, err)
+	pc.setExists("muster-1:@1", false) // PTY already reported EOF for this pane
+
+	mgr.Nudge(context.Background(), sess.ID)
+
+	got, ok := mgr.Get(sess.ID)
+	require.True(t, ok)
+	assert.False(t, got.Alive)
+	require.NotNil(t, got.EndedAt)
+
+	seen := rec.all()
+	require.Len(t, seen, 2, "RecordLaunch's broadcast plus Nudge's liveness-flip broadcast")
+	assert.False(t, seen[1].Alive)
+
+	persisted, err := st.GetSession(context.Background(), sess.ID)
+	require.NoError(t, err)
+	assert.False(t, persisted.Alive)
+}
+
+func TestNudge_PaneStillAliveDoesNotBroadcast(t *testing.T) {
+	st := openTestStore(t)
+	pc := newFakePaneChecker()
+	rec := &upsertsRecorder{}
+	mgr := newTestManager(t, st, pc, rec.record)
+	dir := t.TempDir()
+	params := createParams(dir)
+	params.RepoID = seedRepo(t, st, dir)
+	sess, err := mgr.CreateSession(context.Background(), params)
+	require.NoError(t, err)
+	_, err = mgr.RecordLaunch(context.Background(), sess.ID, "muster-2:@1", "%1")
+	require.NoError(t, err)
+	pc.setExists("muster-2:@1", true)
+
+	before := len(rec.all())
+	mgr.Nudge(context.Background(), sess.ID)
+
+	assert.Equal(t, before, len(rec.all()))
+	got, _ := mgr.Get(sess.ID)
+	assert.True(t, got.Alive)
+}
+
+func TestNudge_UnknownSessionIsANoOp(t *testing.T) {
+	st := openTestStore(t)
+	pc := newFakePaneChecker()
+	mgr := newTestManager(t, st, pc, nil)
+
+	assert.NotPanics(t, func() { mgr.Nudge(context.Background(), 999) })
+	assert.Equal(t, 0, pc.calls)
+}
+
+// TestNudge_PlaceholderTargetIsANoOp covers the narrow CreateSession..RecordLaunch
+// window (mirrors TestCheckLiveness_SkipsSessionsWithNoTmuxTargetYet for the poll path):
+// Nudge must never pane-check a session whose tmux target is still the "" placeholder.
+func TestNudge_PlaceholderTargetIsANoOp(t *testing.T) {
+	st := openTestStore(t)
+	pc := newFakePaneChecker()
+	mgr := newTestManager(t, st, pc, nil)
+	dir := t.TempDir()
+	params := createParams(dir)
+	params.RepoID = seedRepo(t, st, dir)
+	sess, err := mgr.CreateSession(context.Background(), params)
+	require.NoError(t, err)
+
+	mgr.Nudge(context.Background(), sess.ID)
+
+	assert.Equal(t, 0, pc.calls)
+}
+
+func TestNudge_NilPaneCheckerIsANoOp(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+	dir := t.TempDir()
+	params := createParams(dir)
+	params.RepoID = seedRepo(t, st, dir)
+	sess, err := mgr.CreateSession(context.Background(), params)
+	require.NoError(t, err)
+	_, err = mgr.RecordLaunch(context.Background(), sess.ID, "muster-3:@1", "%1")
+	require.NoError(t, err)
+
+	assert.NotPanics(t, func() { mgr.Nudge(context.Background(), sess.ID) })
+}
+
+// TestNudge_AnAlreadyDeadSessionIsANoOp covers checkOneLiveness's shared guard from the
+// Nudge entry point specifically: a second Nudge (e.g. a racing takeover and EOF) after
+// the session is already alive:false must not re-broadcast.
+func TestNudge_AnAlreadyDeadSessionIsANoOp(t *testing.T) {
+	st := openTestStore(t)
+	pc := newFakePaneChecker()
+	rec := &upsertsRecorder{}
+	mgr := newTestManager(t, st, pc, rec.record)
+	dir := t.TempDir()
+	params := createParams(dir)
+	params.RepoID = seedRepo(t, st, dir)
+	sess, err := mgr.CreateSession(context.Background(), params)
+	require.NoError(t, err)
+	_, err = mgr.RecordLaunch(context.Background(), sess.ID, "muster-4:@1", "%1")
+	require.NoError(t, err)
+	pc.setExists("muster-4:@1", false)
+	mgr.Nudge(context.Background(), sess.ID)
+	firstCount := len(rec.all())
+
+	mgr.Nudge(context.Background(), sess.ID)
+
+	assert.Equal(t, firstCount, len(rec.all()), "a session already flipped dead must not broadcast again")
+}
+
 func TestList_ReturnsClonesNotLiveReferences(t *testing.T) {
 	st := openTestStore(t)
 	mgr := newTestManager(t, st, nil, nil)

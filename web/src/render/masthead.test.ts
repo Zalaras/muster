@@ -1,9 +1,29 @@
 import { describe, expect, it } from "vitest";
-import type { ClaudeCodeInfo, Usage } from "../protocol";
-import { renderClaudeVersion, renderConnectionStatus, renderUsage, type UsageElements } from "./masthead";
+import type { ClaudeCodeInfo, Density, Usage } from "../protocol";
+import {
+  renderClaudeVersion,
+  renderConnectionStatus,
+  renderDensityControl,
+  renderUsage,
+  renderViewSwitcher,
+  type DensityControlElements,
+  type UsageElements,
+  type ViewSwitcherElements,
+} from "./masthead";
 
 function fakeElement(): HTMLElement {
   return { textContent: "" } as unknown as HTMLElement;
+}
+
+/** A fake button that records `aria-pressed` the way a real HTMLButtonElement would
+ * report it back via `getAttribute` — enough for renderViewSwitcher/renderDensityControl,
+ * which never touch anything else on these elements. */
+function fakeButton(): HTMLButtonElement {
+  const attrs = new Map<string, string>();
+  return {
+    setAttribute: (name: string, value: string) => attrs.set(name, value),
+    getAttribute: (name: string) => attrs.get(name) ?? null,
+  } as unknown as HTMLButtonElement;
 }
 
 describe("renderConnectionStatus", () => {
@@ -84,5 +104,64 @@ describe("renderClaudeVersion", () => {
     const info: ClaudeCodeInfo = { pinned: "2.1.233", installed: "2.1.233", drift: false };
     renderClaudeVersion(el, info);
     expect(el.textContent).toBe("claude 2.1.233");
+  });
+});
+
+describe("renderViewSwitcher — Testable UI Elements: aria-pressed reflects selection", () => {
+  function elements(): ViewSwitcherElements {
+    return { focusButton: fakeButton(), tilesButton: fakeButton() };
+  }
+
+  it("marks Focus pressed and Tiles not pressed when view is 'focus'", () => {
+    const els = elements();
+    renderViewSwitcher(els, "focus");
+    expect(els.focusButton.getAttribute("aria-pressed")).toBe("true");
+    expect(els.tilesButton.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("marks Tiles pressed and Focus not pressed when view is 'tiles'", () => {
+    const els = elements();
+    renderViewSwitcher(els, "tiles");
+    expect(els.focusButton.getAttribute("aria-pressed")).toBe("false");
+    expect(els.tilesButton.getAttribute("aria-pressed")).toBe("true");
+  });
+});
+
+describe("renderDensityControl — renders only in Tiles; aria-pressed reflects density", () => {
+  function elements(): DensityControlElements {
+    return { container: fakeElement(), twoByTwoButton: fakeButton(), threeByTwoButton: fakeButton() };
+  }
+
+  it("hides the container in Focus regardless of density", () => {
+    const els = elements();
+    renderDensityControl(els, "focus", "2x2");
+    expect(els.container.hidden).toBe(true);
+  });
+
+  it("shows the container in Tiles", () => {
+    const els = elements();
+    renderDensityControl(els, "tiles", "2x2");
+    expect(els.container.hidden).toBe(false);
+  });
+
+  it("marks 2x2 pressed and 3x2 not pressed when density is '2x2'", () => {
+    const els = elements();
+    renderDensityControl(els, "tiles", "2x2");
+    expect(els.twoByTwoButton.getAttribute("aria-pressed")).toBe("true");
+    expect(els.threeByTwoButton.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("marks 3x2 pressed and 2x2 not pressed when density is '3x2'", () => {
+    const els = elements();
+    renderDensityControl(els, "tiles", "3x2");
+    expect(els.twoByTwoButton.getAttribute("aria-pressed")).toBe("false");
+    expect(els.threeByTwoButton.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it.each(["2x2", "3x2"] as Density[])("still sets aria-pressed correctly even while hidden in Focus (density %s)", (density) => {
+    const els = elements();
+    renderDensityControl(els, "focus", density);
+    expect(els.twoByTwoButton.getAttribute("aria-pressed")).toBe(String(density === "2x2"));
+    expect(els.threeByTwoButton.getAttribute("aria-pressed")).toBe(String(density === "3x2"));
   });
 });

@@ -12,15 +12,16 @@ import (
 
 func TestBuildSnapshot_M0Shape(t *testing.T) {
 	// REQ-6/REQ-16: M0's snapshot is fixed — empty sessions, every usage field null except
-	// source, prefs.view defaults to "focus". This is the exact object docs/protocol.md
-	// §5.2/§8 pins for M0, shared verbatim by GET /api/state and the WS `snapshot` message.
+	// source, prefs.view/density default to "focus"/"2x2" (density added in m2-terminal,
+	// REQ-10). This is the exact object docs/protocol.md §5.2/§8 pins, shared verbatim by
+	// GET /api/state and the WS `snapshot` message.
 	got, err := json.Marshal(buildSnapshot())
 	require.NoError(t, err)
 
 	assert.JSONEq(t, `{
 		"sessions": [],
 		"usage": {"fiveHour": null, "sevenDay": null, "sampledAt": null, "source": "subscription"},
-		"prefs": {"view": "focus"}
+		"prefs": {"view": "focus", "density": "2x2"}
 	}`, string(got))
 }
 
@@ -43,4 +44,25 @@ func TestHandleState_ReturnsSnapshotJSON(t *testing.T) {
 	assert.Nil(t, snap.Usage.SampledAt)
 	assert.Equal(t, "subscription", snap.Usage.Source)
 	assert.Equal(t, "focus", snap.Prefs.View)
+	assert.Equal(t, "2x2", snap.Prefs.Density)
+}
+
+// TestCurrentSnapshot_LoadsPersistedPrefsFromKV covers the currentSnapshot half of
+// REQ-10 directly (D10's daemon-restart half lives in prefs_test.go): once a prefs PUT
+// has landed in kv, a later snapshot (GET /api/state or the WS `snapshot`) reflects it,
+// not the fixed default buildSnapshot returns.
+func TestCurrentSnapshot_LoadsPersistedPrefsFromKV(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	rec := putPrefsRequest(t, srv, `{"view":"tiles","density":"3x2"}`)
+	require.Equal(t, http.StatusNoContent, rec.Code)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/state", nil)
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	out := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(out, req)
+
+	var snap Snapshot
+	require.NoError(t, json.Unmarshal(out.Body.Bytes(), &snap))
+	assert.Equal(t, "tiles", snap.Prefs.View)
+	assert.Equal(t, "3x2", snap.Prefs.Density)
 }

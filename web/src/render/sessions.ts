@@ -9,7 +9,17 @@ function requireTemplate(id: string): HTMLTemplateElement {
   return el;
 }
 
-function buildCardElement(session: Session, now: Date, template: HTMLTemplateElement): HTMLElement {
+/** Builds one session card element (rail card in Focus, or — reusing this exact markup —
+ * a strip card in Tiles per the plan's UI spec: "the M1 card content on its side").
+ * `onClick` is optional so the honest-empty-state-only Vitest coverage in sessions.test.ts
+ * keeps working unchanged; every real caller (rail, strip) supplies one (REQ-7's "clicking
+ * a rail card moves focus" / REQ-8's "clicking a strip card promotes it"). */
+export function buildSessionCardElement(
+  session: Session,
+  now: Date,
+  template: HTMLTemplateElement,
+  onClick?: (id: number) => void,
+): HTMLElement {
   const fragment = template.content.cloneNode(true) as DocumentFragment;
   const card = fragment.querySelector<HTMLElement>(".card");
   if (!card) throw new Error("session-card-template is missing its .card root");
@@ -17,8 +27,7 @@ function buildCardElement(session: Session, now: Date, template: HTMLTemplateEle
 
   card.className = `card ${vm.stateClass}${vm.ended ? " ended" : ""}`;
   // Gives the card an accessible name (review m1-sessions Minor 9) — a bare <span> title
-  // carries none on its own. Harmless now (cards aren't interactive in M1) and mandatory
-  // once M2 makes them focusable.
+  // carries none on its own. Mandatory now that M2 makes cards focusable/clickable.
   card.setAttribute("aria-label", vm.title);
 
   const name = card.querySelector<HTMLElement>(".name");
@@ -55,18 +64,63 @@ function buildCardElement(session: Session, now: Date, template: HTMLTemplateEle
     note.dataset.noteKind = vm.noteKind;
   }
 
+  if (onClick) {
+    // REQ-7/REQ-8: cards become interactive in M2 — keyboard-reachable too, not just a
+    // mouse target.
+    card.tabIndex = 0;
+    card.addEventListener("click", () => onClick(session.id));
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        onClick(session.id);
+      }
+    });
+  }
+
   return card;
 }
 
 /** Renders the honest empty state ("No sessions yet" — never a placeholder list) or one
  * card per session, in the order given (sorting is sessions/sort.ts's job, applied by
  * the caller). `now` defaults to the render-time clock so callers driving the 1s tick
- * don't need to thread it through every call site. */
-export function renderSessions(el: HTMLElement, sessions: readonly Session[], now: Date = new Date()): void {
+ * don't need to thread it through every call site. `onClick` is the rail's focus action
+ * (REQ-7) — omitted only by sessions.test.ts's empty-state check. */
+export function renderSessions(
+  el: HTMLElement,
+  sessions: readonly Session[],
+  now: Date = new Date(),
+  onClick?: (id: number) => void,
+): void {
   if (sessions.length === 0) {
     el.textContent = "No sessions yet";
     return;
   }
   const template = requireTemplate("session-card-template");
-  el.replaceChildren(...sessions.map((session) => buildCardElement(session, now, template)));
+  el.replaceChildren(...sessions.map((session) => buildSessionCardElement(session, now, template, onClick)));
+}
+
+export interface FocusMainElements {
+  emptyEl: HTMLElement;
+  slotEl: HTMLElement;
+}
+
+/** Toggles Focus's main area between the honest empty state and the terminal slot — the
+ * slot's contents (a TerminalSurface's root) are main.ts's surface manager's job, not
+ * this module's (docs/conventions.md: DOM here, sockets/pane lifecycle in main.ts). */
+export function renderFocusMain(elements: FocusMainElements, hasSessions: boolean): void {
+  elements.emptyEl.hidden = hasSessions;
+  elements.slotEl.hidden = !hasSessions;
+}
+
+/** REQ-15's sizenote line: `<cols>×<rows> · one live client · geometry owned by this
+ * pane`. `null` geometry (no focused session, or one not yet laid out) hides the line
+ * entirely rather than rendering a half-formed one. */
+export function renderSizenote(el: HTMLElement, geometry: { cols: number; rows: number } | null): void {
+  if (!geometry) {
+    el.hidden = true;
+    el.textContent = "";
+    return;
+  }
+  el.hidden = false;
+  el.textContent = `${geometry.cols}×${geometry.rows} · one live client · geometry owned by this pane`;
 }

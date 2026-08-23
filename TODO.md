@@ -126,34 +126,32 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
       2026-08-22 (258 `muster*` files removed, zero tmux processes running). The
       structural fix (sockets in the per-run scratch dir) is queued in M2 below.
 
-## M2 — Terminal panes
+## M2 — Terminal panes ✅ done 2026-08-23 (plan `m2-terminal`, via `/orchestrate`; approved review cycle 2)
 
-- [ ] PTY ↔ WebSocket bridge to tmux; xterm.js panes; click-to-focus; typing
-- [ ] **Tiles view** — A's second view, a peer of Focus, not an extra
-      (`docs/design/mockups/d-tiled.html`). Live tiles = top N by attention, rest are
-      snapshot cards in the strip; density control (2×2 / 3×2) changes tile geometry
-- [ ] View switcher in the masthead + **⌘\\** toggle; chosen view persists across reloads
-      and daemon restarts. Switching **moves** geometry ownership rather than duplicating
-      it, so it resizes real tmux windows: debounce ~100 ms and touch only the sessions
-      whose live surface actually changed
-- [ ] Sizing: drive **both** `pty.Setsize` *and* `tmux resize-window`, in that order.
-      `resize-pane` exits 0 and silently no-ops on a single-pane window.
-- [ ] One geometry per session, ≤ the smallest live view. The session list must **not** open
-      a second live client at a smaller size — use a static snapshot.
-- [ ] tmux owns scrollback: set xterm `scrollback: 0`
-- [ ] Set `LANG`/`LC_ALL` on session creation — a process spawned by a Go daemon has none,
-      and the failure looks like a totally broken bridge
-- [ ] **Include in the M2 plan** (M1 review follow-up, cycle-1 Minor 13): REQ-21's `⟳n`
-      compaction counter needs a Testable UI Elements row pinning the context-row pattern
-      (`/ctx unknown ⟳\d+/`) and one E2E test (synthesized PreCompact → `⟳1`, second →
-      `⟳2`). The rendering already exists — this is purely a plan table row + a test.
-- [ ] **Include in the M2 plan** (M1 review cycle-3 housekeeping): no tmux socket litter —
-      switch the E2E harness, per-test Go tests, and `test/rig` from `tmux -L <name>`
-      (socket orphaned in tmux's shared tmp dir after kill-server) to `tmux -S <path>`
-      with the socket inside the per-run scratch dir that already gets deleted (Go tests:
-      `t.TempDir()`). Needs `-tmux-socket` to accept a path — use `-S` when the value
-      contains `/`, `-L` otherwise, so the default `muster` name keeps working. Natural
-      fit for M2 since its geometry work touches `internal/tmux` anyway.
+- [x] PTY ↔ WebSocket bridge to tmux; xterm.js panes; click-to-focus; typing.
+      Done 2026-08-23 — `internal/termbridge` (creack/pty) + `/ws/terminal/{id}`
+      (`internal/server/terminal.go`); one-live-client takeover (4000), pane-ended (4001)
+      + liveness nudge. Topology change: one tmux session per Muster session
+      (`muster-<id>`), which forced a REQ-4 amendment — `detach-on-destroy on`, because
+      `off` made a dead session's attach client hop to another session and misroute
+      keystrokes (review cycle-1 Critical 3, measured).
+- [x] **Tiles view** — done 2026-08-23: live grid + snapshot strip, sticky membership
+      (top-N at entry/density change only; promotion by click), density 2×2/3×2,
+      "ended" placeholder in place on death
+- [x] View switcher in the masthead + **⌘\\** toggle (+ ⌘1–9 focus/promote); view AND
+      density persist via `PUT /api/prefs` → kv → `prefs` broadcast, survive reload and
+      daemon restart. Geometry moves, never duplicates (INV-3, tmux-oracle-tested)
+- [x] Sizing: `pty.Setsize` then `tmux resize-window`, in that order; `resize-pane`
+      banned by check D5
+- [x] One geometry per session — rail/strip cards are static metadata cards, never a
+      second live client (INV-2 asserted browser-side and via `#{session_attached}`)
+- [x] tmux owns scrollback: xterm `scrollback: 0` (check W3)
+- [x] `TERM`/`LANG` set explicitly on the attach PTY (REQ-6); launch env unchanged from M1
+- [x] `⟳n` compaction counter E2E (M1 follow-up) — done 2026-08-23: plan table row +
+      E14 test (PreCompact → `⟳1`, second → `⟳2`)
+- [x] tmux socket litter (M1 follow-up) — done 2026-08-23: `-tmux-socket` accepts a path
+      (`-S` iff it contains `/`); E2E harness, Go tests (`t.TempDir()`) and `test/rig`
+      all use per-run scratch-dir sockets (check D12); leftover shared-dir sockets swept
 
 ## M3 — Gauges
 

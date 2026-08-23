@@ -6,6 +6,7 @@ import {
   envelopedStatusLinePreFirstResponse,
   rawNotification,
   rawPostToolUse,
+  rawPreCompact,
   rawSessionEnd,
   rawStop,
   rawStopFailure,
@@ -388,6 +389,34 @@ test("a status-line post persists and routes but mutates no session field in M1 
     // The status line's session_name must NOT have overwritten the launch title — that
     // refresh is M3, not M1 (plan §7.3 scope note).
     expect(found?.title).toBe("walk-status-line");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("two synthesized PreCompact hooks bump the rail card's compaction counter to circle-2 (E14, REQ-14)", async ({
+  page,
+  request,
+}) => {
+  // Plan m2-terminal, REQ-14: one of the two queued M1 follow-ups. Rendering has existed
+  // since M1 (web/src/sessions/card.ts) — only the E2E test was missing.
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, { directory: dir, title: "walk-e14-compact" });
+    const card = sessionCard(page, "walk-e14-compact");
+    const claudeId = "claude-e14-1";
+
+    await request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+    });
+    await expect(card.getByText(/ctx\s+unknown/i)).toBeVisible();
+
+    await request.post(daemon.ingestURL("hook"), { data: rawPreCompact(claudeId, "p1") });
+    await expect(card.getByText(/ctx\s+unknown\s+⟳1\b/)).toBeVisible();
+
+    await request.post(daemon.ingestURL("hook"), { data: rawPreCompact(claudeId, "p2") });
+    await expect(card.getByText(/ctx\s+unknown\s+⟳2\b/)).toBeVisible();
   } finally {
     await cleanup();
   }

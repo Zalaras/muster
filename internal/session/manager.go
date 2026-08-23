@@ -194,6 +194,19 @@ func (m *Manager) DeleteSession(ctx context.Context, id int64) error {
 	return m.store.DeleteSession(ctx, id)
 }
 
+// Get returns session id's current snapshot, if known — used by the terminal bridge's
+// pre-upgrade checks (docs/protocol.md §6: 404 unknown id, 409 not_attachable when
+// Alive is false).
+func (m *Manager) Get(id int64) (*Session, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	sess, ok := m.sessions[id]
+	if !ok {
+		return nil, false
+	}
+	return sess.Clone(), true
+}
+
 // Exists reports whether id is a known (not necessarily alive) Muster session — used
 // by the ingest worker to validate an envelope's musterSession before trusting it
 // (Edge Case 12: a stale env must persist unrouted, never bind).
@@ -295,34 +308,60 @@ func (m *Manager) checkLiveness(ctx context.Context) {
 	m.mu.Unlock()
 
 	for _, target := range targets {
-		exists, err := m.paneChecker.PaneExists(ctx, target.target)
-		if err != nil {
-			m.log.Warn().Err(err).Str("tmux_target", target.target).Msg("liveness check failed")
-			continue
-		}
-		if exists {
-			continue
-		}
-
-		m.mu.Lock()
-		sess, ok := m.sessions[target.id]
-		if !ok || !sess.Alive {
-			m.mu.Unlock()
-			continue
-		}
-		sess.Alive = false
-		endedAt := time.Now().UTC()
-		sess.EndedAt = &endedAt
-		row := sessionToRow(sess)
-		snapshot := sess.Clone()
-		m.mu.Unlock()
-
-		if err := m.store.UpdateSession(ctx, row); err != nil {
-			m.log.Error().Err(err).Int64("session_id", target.id).Msg("persisting liveness update failed")
-			continue
-		}
-		m.broadcast(snapshot)
+		m.checkOneLiveness(ctx, target.id, target.target)
 	}
+}
+
+// Nudge immediately re-checks one session's pane liveness rather than waiting for the
+// next poll tick (protocol §6: a PTY EOF should promptly flip alive:false — "the daemon
+// also nudges the liveness poll" — rather than lagging up to the ~5s interval).
+func (m *Manager) Nudge(ctx context.Context, sessionID int64) {
+	if m.paneChecker == nil {
+		return
+	}
+	m.mu.Lock()
+	sess, ok := m.sessions[sessionID]
+	var target string
+	if ok {
+		target = sess.TmuxTarget
+	}
+	m.mu.Unlock()
+	if !ok || target == "" {
+		return
+	}
+	m.checkOneLiveness(ctx, sessionID, target)
+}
+
+// checkOneLiveness is checkLiveness/Nudge's shared body: check one target's pane, and
+// flip the session dead on the first miss.
+func (m *Manager) checkOneLiveness(ctx context.Context, id int64, target string) {
+	exists, err := m.paneChecker.PaneExists(ctx, target)
+	if err != nil {
+		m.log.Warn().Err(err).Str("tmux_target", target).Msg("liveness check failed")
+		return
+	}
+	if exists {
+		return
+	}
+
+	m.mu.Lock()
+	sess, ok := m.sessions[id]
+	if !ok || !sess.Alive {
+		m.mu.Unlock()
+		return
+	}
+	sess.Alive = false
+	endedAt := time.Now().UTC()
+	sess.EndedAt = &endedAt
+	row := sessionToRow(sess)
+	snapshot := sess.Clone()
+	m.mu.Unlock()
+
+	if err := m.store.UpdateSession(ctx, row); err != nil {
+		m.log.Error().Err(err).Int64("session_id", id).Msg("persisting liveness update failed")
+		return
+	}
+	m.broadcast(snapshot)
 }
 
 func rowToSession(row store.SessionRow) *Session {

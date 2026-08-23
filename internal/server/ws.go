@@ -123,7 +123,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	snapshot := snapshotMessage{Type: "snapshot", Snapshot: s.currentSnapshot()}
+	snapshot := snapshotMessage{Type: "snapshot", Snapshot: s.currentSnapshot(r.Context())}
 	if err := wsjson.Write(ctx, c, snapshot); err != nil {
 		return
 	}

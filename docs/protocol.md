@@ -65,8 +65,8 @@ message (additive fields don't bump it).
 | `POST /api/sessions` | M1 | Launch a session |
 | `GET /api/repos` | M1 | Directory picker list |
 | `GET /api/browse` | M1 | Folder-browser directory listing (§3.6) |
-| `PUT /api/prefs` | M2 | Persist UI preferences (view choice) |
-| `GET /api/sessions/{id}/pane` | M2 | Last-known pane snapshot (rail/strip cards) |
+| `PUT /api/prefs` | M2 | Persist UI preferences (view + density) |
+| `GET /api/sessions/{id}/pane` | M4 (deferred) | Last-known pane snapshot (dead-session review; see §3.4) |
 | `POST /api/sessions/{id}/resume` | M4 | `claude --resume` a dead session in a fresh pane |
 
 Design rule: **commands travel over HTTP; the WS pushes state one way (server→client)**.
@@ -120,16 +120,29 @@ dashboard browses via the daemon instead.
 
 ### 3.3 `PUT /api/prefs` (M2)
 
-Request `{"view": "focus" | "tiles"}` → `204`. Persisted in kv (survives daemon
-restarts — ux-flows §3.8) and re-broadcast to all UI sockets as a `prefs` message, which
-is how a second window stays in sync.
+**Auth**: UI cookie (401 `unauthorized` without it).
+**Request** (at least one field; unknown fields ignored):
 
-### 3.4 `GET /api/sessions/{id}/pane` (M2 — shape may be refined by the M2 plan)
+```jsonc
+{ "view": "tiles",       // optional: "focus" | "tiles"
+  "density": "3x2" }     // optional: "2x2" | "3x2" — the Tiles grid density
+```
 
-`200 text/plain; charset=utf-8` — the last-captured pane content (ANSI passthrough),
-captured via `tmux capture-pane` on the muster socket (display source, never a state
-source). The UI refreshes a card's snapshot when that session's `sessionUpsert` arrives.
-`404 not_found` if the session or capture doesn't exist yet.
+→ `204`, no body. Persisted in kv under one JSON key (survives daemon restarts —
+ux-flows §3.8) and re-broadcast to all UI sockets as a `prefs` message carrying the
+**full** prefs object, which is how a second window stays in sync. Defaults before any
+PUT: `{"view":"focus","density":"2x2"}`.
+**Errors:** 400 `invalid_request` — body not JSON, no known field present, or a field
+value outside its enum.
+
+### 3.4 `GET /api/sessions/{id}/pane` — deferred to M4 (m2-terminal planning, 2026-08-23)
+
+Not implemented in M2: the mockups render no terminal content in rail/strip cards —
+"snapshot" in the design docs means *static metadata card*, not screenshot — so nothing
+designed consumes this endpoint. Its one real use case (showing a dead session's final
+screen) belongs with M4's resume flow, where it will be designed against that flow. The
+sketched shape (last-captured pane content via `tmux capture-pane`, display source never
+a state source) remains the starting point when M4 picks it up.
 
 ### 3.5 `POST /api/sessions/{id}/resume` (M4)
 
@@ -259,7 +272,7 @@ A `protocolVersion` the client doesn't know → client shows "reload the dashboa
 { "type": "snapshot",
   "sessions": [ /* Session objects, §5.3 — order unspecified; the client sorts */ ],
   "usage": { /* Usage object, §5.4 */ },
-  "prefs": { "view": "focus" } }
+  "prefs": { "view": "focus", "density": "2x2" } }   // density added M2 (Tiles grid)
 ```
 
 **Sorting is client-side**, a pure function over Session fields per ux-flows §3.4
@@ -289,7 +302,11 @@ is complexity with no payoff, and whole-object replacement is naturally loss-tol
                "windowSize": 200000, "compactions": 2 },          // usedPct/totalInputTokens/windowSize null before first API response → "ctx — unknown"
   "lastActivity": "Fixed the flaky retry; running the suite…",   // truncated last_assistant_message from the closing Stop; null until first Stop
   "claudeSessionId": "3f2a…",       // null until SessionStart binds
-  "tmuxTarget": "muster:@4",        // the identity key; exposed for debugging/tests
+  "tmuxTarget": "muster:@4",        // the identity key; exposed for debugging/tests.
+                                    //   Sessions launched ≥M2 use "muster-<id>:@<n>" —
+                                    //   one tmux session per Muster session (m2-terminal:
+                                    //   concurrent live tiles each need their own attach
+                                    //   client). Opaque to the UI either way.
   "firstLaunchHere": true,          // boolean, on every Session object — true iff the launch created this directory's repo row
   "createdAt": "2026-08-20T09:11:02Z"
 }
@@ -331,29 +348,49 @@ freshest values regardless.
 
 ```jsonc
 { "type": "sessionUpsert", "session": { /* §5.3 */ } }
-{ "type": "prefs", "prefs": { "view": "tiles" } }        // M2; echo of PUT /api/prefs
+{ "type": "prefs", "prefs": { "view": "tiles", "density": "3x2" } }  // M2; full-object echo of PUT /api/prefs
 ```
 
 `sessionRemoved` is reserved (type name claimed, unused in v1 — dead sessions stay
 visible offering resume; there is no delete flow).
 
-## 6. WebSocket `/ws/terminal/{id}` — the PTY bridge (M2; the M2 plan owns refinements)
+## 6. WebSocket `/ws/terminal/{id}` — the PTY bridge (M2; refined by m2-terminal, 2026-08-23)
 
-One socket per **live** surface. Frames:
+One socket per **live** surface, bridged to a daemon-owned PTY running `tmux attach`
+against that session's own tmux session (`muster-<id>` — see §5.3's tmuxTarget note).
 
-- **Binary server→client**: raw PTY output bytes (tmux attach stream). xterm.js writes
-  them verbatim; the dashboard restyles nothing inside a pane; `scrollback: 0`.
+**Auth**: UI cookie on the upgrade + the §2 Origin check. Pre-upgrade errors (plain HTTP):
+401 `unauthorized` (no/invalid cookie), 404 `not_found` (unknown session id),
+409 `not_attachable` (session exists but `alive` is false).
+
+Frames:
+
+- **Binary server→client**: raw PTY output bytes (tmux attach stream), verbatim — the
+  daemon transforms nothing and chunks only on byte boundaries (multi-byte UTF-8 may
+  split across frames; byte order is the only guarantee). xterm.js writes them verbatim;
+  the dashboard restyles nothing inside a pane; `scrollback: 0`.
 - **Binary client→server**: raw input bytes (keystrokes/paste).
-- **Text frames**: JSON control. Client→server:
-  `{"type":"resize","cols":210,"rows":52}` — client debounces ~100 ms; the daemon applies
-  `pty.Setsize` **then** `tmux resize-window`, in that order, never `resize-pane`.
+- **Text frames**: JSON control, client→server only (no server→client text frames in M2):
+  `{"type":"resize","cols":210,"rows":52}` — client sends one immediately after open
+  (the attach PTY starts at 80×24 until it arrives), then debounced ~100 ms; the daemon
+  applies `pty.Setsize` **then** `tmux resize-window`, in that order, never the
+  pane-level primitive (FINDINGS §7(d)). `cols` clamped to [20, 500], `rows` to
+  [5, 300]; an unparseable or unknown text frame is ignored and logged, never fatal.
+
+**Close codes** (server-initiated):
+
+- `4000` `superseded` — a newer socket claimed this session (one-live-client law). The
+  UI shows a click-to-reclaim overlay; nothing auto-reconnects on 4000 (no flap loop).
+- `4001` `pane_ended` — PTY EOF: the tmux session/pane is gone. The daemon also nudges
+  the liveness poll, so a `sessionUpsert` with `alive:false` follows shortly.
+- Normal close (1001) on daemon shutdown.
 
 **One-live-client law, enforced server-side** (SPEC §9 Q5): at most one terminal socket
 per session; a new connection for the same session **takes over** — the daemon closes the
-previous socket with close code `4000` (reason `superseded`). Geometry ownership moves
-with the socket, which is exactly the resize mechanics view-switching needs
-(ux-flows §3.8): the newly-owning surface sends its `resize` on connect, and sessions
-whose live surface didn't change are never touched.
+previous socket with close code `4000` (reason `superseded`) and tears down its PTY
+before the new attach starts. Geometry ownership moves with the socket, which is exactly
+the resize mechanics view-switching needs (ux-flows §3.8): the newly-owning surface sends
+its `resize` on connect, and sessions whose live surface didn't change are never touched.
 
 ## 7. The state machine (M1; specified now because everything above serves it)
 
@@ -443,10 +480,11 @@ unknown to the DB → logged, never adopted (Muster only manages what it started
   events land in the `event` table and are visible via `/api/state`'s future shape).
 - **M1**: `POST /api/sessions`, `GET /api/repos`, `GET /api/browse`, the state machine
   (§7), `sessionUpsert`, liveness polling, the envelope binding (§4.2).
-- **M2**: terminal sockets (§6), `PUT /api/prefs` + `prefs`, pane snapshots (§3.4).
+- **M2**: terminal sockets (§6), `PUT /api/prefs` + `prefs` (view + density).
 - **M3**: `usage` message + `usage_sample` persistence + context in `sessionUpsert` +
   title/model refresh from the status line.
-- **M4**: `/resume`, reconcile-on-start, canary unskip.
+- **M4**: `/resume`, reconcile-on-start, canary unskip, pane snapshots (§3.4 — deferred
+  from M2; design it against the resume flow).
 
 ## 9. Changelog
 
@@ -478,6 +516,16 @@ unknown to the DB → logged, never adopted (Muster only manages what it started
   §7.3's status-line row is scoped to M3 (M1 persists and routes status posts, mutates
   nothing); §8's M1 row gains `/api/browse`, M3 gains the title/model refresh. All
   additive; no version bump.
+- **2026-08-23 — m2-terminal plan approved, delta merged.** §6 refined: upgrade auth +
+  pre-upgrade errors (401/404/409 `not_attachable`), resize clamps and the
+  initial-resize rule, close codes `4000 superseded` / `4001 pane_ended` (EOF also
+  nudges liveness), no server→client text frames. §3.3 `PUT /api/prefs` gains `density`
+  ("2x2"|"3x2"), partial bodies, and the full-object `prefs` echo; `snapshot.prefs`
+  gains `density`. §3.4 pane snapshots **deferred to M4** (mockup cards are
+  metadata-only; the dead-session use case belongs with resume). §5.3 notes the new
+  tmuxTarget format `muster-<id>:@<n>` — one tmux session per Muster session, because
+  concurrent live tiles each need their own attach client. All additive; no version
+  bump.
 - **2026-08-22 — §3.6 gains the browse root** (M1 review follow-up, user-approved):
   `musterd -browse-root` (empty = the user's home directory) is `GET /api/browse`'s
   no-param default and the "Up" ceiling (`parent` null there); explicit absolute paths

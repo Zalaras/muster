@@ -12,7 +12,7 @@ const validSnapshot = {
   type: "snapshot",
   sessions: [],
   usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
-  prefs: { view: "focus" },
+  prefs: { view: "focus", density: "2x2" },
 };
 
 describe("parseMessage — hello", () => {
@@ -98,18 +98,58 @@ describe("parseMessage — snapshot", () => {
   });
 
   it("rejects a prefs.view outside the known enum", () => {
-    const snapshot = { ...validSnapshot, prefs: { view: "grid" } };
+    const snapshot = { ...validSnapshot, prefs: { view: "grid", density: "2x2" } };
     expect(parseMessage(snapshot)).toBeNull();
+  });
+
+  it("rejects a prefs.density outside the known enum (M2 §3.3 refinement)", () => {
+    const snapshot = { ...validSnapshot, prefs: { view: "focus", density: "4x4" } };
+    expect(parseMessage(snapshot)).toBeNull();
+  });
+
+  it("rejects a snapshot whose prefs.density is missing entirely (M2: density is always present on the wire)", () => {
+    const snapshot = { ...validSnapshot, prefs: { view: "focus" } };
+    expect(parseMessage(snapshot)).toBeNull();
+  });
+
+  it("parses prefs.density '3x2'", () => {
+    const snapshot = { ...validSnapshot, prefs: { view: "tiles", density: "3x2" } };
+    expect(parseMessage(snapshot)).toEqual(snapshot);
   });
 
   it("ignores unknown fields inside usage and prefs (additive evolution)", () => {
     const snapshot = {
       ...validSnapshot,
       usage: { ...validSnapshot.usage, futureUsageField: 1 },
-      prefs: { view: "tiles", futurePrefsField: true },
+      prefs: { view: "tiles", density: "3x2", futurePrefsField: true },
     };
     const parsed = parseMessage(snapshot);
-    expect(parsed).toEqual({ ...validSnapshot, prefs: { view: "tiles" } });
+    expect(parsed).toEqual({ ...validSnapshot, prefs: { view: "tiles", density: "3x2" } });
+  });
+});
+
+describe("parseMessage — prefs (M2 REQ-10/INV-4: the PUT /api/prefs echo broadcast)", () => {
+  const validPrefsMessage = { type: "prefs", prefs: { view: "tiles", density: "3x2" } };
+
+  it("parses a fully-populated prefs message", () => {
+    expect(parseMessage(validPrefsMessage)).toEqual(validPrefsMessage);
+  });
+
+  it("rejects a prefs message missing the prefs field", () => {
+    expect(parseMessage({ type: "prefs" })).toBeNull();
+  });
+
+  it("rejects a prefs message whose density is invalid", () => {
+    expect(parseMessage({ type: "prefs", prefs: { view: "focus", density: "1x1" } })).toBeNull();
+  });
+
+  it("rejects a prefs message whose prefs is not an object", () => {
+    expect(parseMessage({ type: "prefs", prefs: "tiles" })).toBeNull();
+  });
+
+  it("ignores unknown fields inside prefs (additive evolution)", () => {
+    const message = { type: "prefs", prefs: { view: "focus", density: "2x2", futureField: 1 } };
+    expect(parseMessage(message)).toEqual({ type: "prefs", prefs: { view: "focus", density: "2x2" } });
   });
 });
 
@@ -352,7 +392,7 @@ describe("parseMessage — snapshot with sessions (M1: non-empty for the first t
       type: "snapshot",
       sessions: [validSession, freshLaunchSession],
       usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
-      prefs: { view: "focus" },
+      prefs: { view: "focus", density: "2x2" },
     };
     expect(parseMessage(snapshot)).toEqual(snapshot);
   });
@@ -362,7 +402,7 @@ describe("parseMessage — snapshot with sessions (M1: non-empty for the first t
       type: "snapshot",
       sessions: [validSession, { ...freshLaunchSession, state: "bogus" }],
       usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
-      prefs: { view: "focus" },
+      prefs: { view: "focus", density: "2x2" },
     };
     expect(parseMessage(snapshot)).toBeNull();
   });

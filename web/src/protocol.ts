@@ -100,8 +100,14 @@ export interface Session {
   createdAt: string;
 }
 
+export type Density = "2x2" | "3x2";
+
+// M2 (docs/protocol.md §3.3 refinement): density is always present alongside view — the
+// daemon's default before any PUT is {"view":"focus","density":"2x2"} — so both fields
+// are required here, matching every real `snapshot`/`prefs` payload on the wire.
 export interface Prefs {
   view: "focus" | "tiles";
+  density: Density;
 }
 
 export interface Snapshot {
@@ -116,7 +122,14 @@ export interface SessionUpsert {
   session: Session;
 }
 
-export type Message = Hello | Snapshot | SessionUpsert;
+// M2 (docs/protocol.md §5.5): full-object echo of every accepted `PUT /api/prefs`,
+// broadcast to every connected UI socket (INV-4).
+export interface PrefsMessage {
+  type: "prefs";
+  prefs: Prefs;
+}
+
+export type Message = Hello | Snapshot | SessionUpsert | PrefsMessage;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -174,8 +187,10 @@ function parseUsage(value: unknown): Usage | null {
 function parsePrefs(value: unknown): Prefs | null {
   if (!isRecord(value)) return null;
   const view = value["view"];
+  const density = value["density"];
   if (view !== "focus" && view !== "tiles") return null;
-  return { view };
+  if (density !== "2x2" && density !== "3x2") return null;
+  return { view, density };
 }
 
 function isSessionState(value: unknown): value is SessionState {
@@ -354,6 +369,12 @@ function parseSessionUpsert(rec: Record<string, unknown>): SessionUpsert | null 
   return { type: "sessionUpsert", session };
 }
 
+function parsePrefsMessage(rec: Record<string, unknown>): PrefsMessage | null {
+  const prefs = parsePrefs(rec["prefs"]);
+  if (!prefs) return null;
+  return { type: "prefs", prefs };
+}
+
 /** Parses one WS text frame's decoded JSON. Unknown/malformed messages yield `null`. */
 export function parseMessage(data: unknown): Message | null {
   if (!isRecord(data)) return null;
@@ -365,6 +386,8 @@ export function parseMessage(data: unknown): Message | null {
       return parseSnapshot(data);
     case "sessionUpsert":
       return parseSessionUpsert(data);
+    case "prefs":
+      return parsePrefsMessage(data);
     default:
       return null; // unknown message types are ignored (protocol §1)
   }

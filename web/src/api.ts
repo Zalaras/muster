@@ -3,7 +3,7 @@
 // daemon's response shape before any caller (render/launch.ts) sees it. Errors never
 // throw — every call returns an ApiResult so the launch modal can render `error.message`
 // inline (REQ-14) instead of an uncaught rejection.
-import { type Session, parseSession } from "./protocol";
+import { type Density, type Session, parseSession } from "./protocol";
 
 export interface ApiErrorBody {
   code: string;
@@ -42,6 +42,13 @@ export interface LaunchRequest {
   title?: string;
   model: string;
   permissionMode: "default" | "plan" | "acceptEdits";
+}
+
+// M2 (docs/protocol.md §3.3): at least one field, unknown fields ignored — both optional
+// here since a caller only ever changes one of view/density at a time.
+export interface PrefsRequest {
+  view?: "focus" | "tiles";
+  density?: Density;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -166,4 +173,25 @@ export async function browse(path?: string): Promise<ApiResult<BrowseResult>> {
   const url = path ? `/api/browse?path=${encodeURIComponent(path)}` : "/api/browse";
   const res = await fetch(url, { credentials: "same-origin" });
   return decodeJson(res, parseBrowseResult);
+}
+
+/** `PUT /api/prefs` (docs/protocol.md §3.3). Returns `204` with no body on success — the
+ * actual new prefs value reaches every UI socket (this one included) via the `prefs` WS
+ * broadcast (INV-4), so the caller here never needs to decode a response body. */
+export async function putPrefs(body: PrefsRequest): Promise<ApiResult<null>> {
+  const res = await fetch("/api/prefs", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify(body),
+  });
+  if (res.status === 204) return { ok: true, value: null };
+  let errorBody: unknown;
+  try {
+    errorBody = await res.json();
+  } catch {
+    return { ok: false, error: genericError };
+  }
+  const error = parseApiError(errorBody);
+  return { ok: false, error: error ?? genericError };
 }

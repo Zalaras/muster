@@ -660,3 +660,30 @@ outside `internal/claudecode` now get wire-shaped bodies from the new
 D4, so the check stands unchanged — and the daemon-down banner grounds on dedicated
 `--banner-*` tokens added to design-system §1, returning `--rose` to Failed-only. No
 new wire-format facts — M0 never touches a real Claude Code.
+
+### 2026-08-23 — M2 terminal panes shipped (plan `m2-terminal`, via `/orchestrate`)
+
+Live terminals land: `/ws/terminal/{id}` (PTY↔WS bridge over `creack/pty`), the Tiles
+view, the view switcher with persisted prefs (`view` + `density`), and both queued M1
+follow-ups (⟳n compaction E2E, per-run scratch-dir tmux sockets via `-tmux-socket`
+path support). Approved on review cycle 2 (`plans/m2-terminal/review.md`; cycle 1
+preserved as `review.cycle-1.md`). Decisions amended or settled by the work:
+
+- **tmux topology: one tmux session per Muster session** (`muster-<id>`, settled at
+  planning with Damian 2026-08-23): a tmux client attaches to a *session*, and Tiles
+  needs up to 6 concurrent live surfaces, so M1's shared-session layout could not
+  serve it. Pre-M2 session rows need no migration.
+- **`detach-on-destroy on`, not the spike's `off`** (review cycle-1 Critical 3,
+  measured): under the new topology `off` hops a destroyed session's attach client to
+  another session and misroutes keystrokes into the wrong claude. Plan REQ-4 amended;
+  `spikes/FINDINGS.md` §7 carry-over config carries the amendment note.
+  `destroy-unattached off` re-examined and kept.
+- **`GET /api/sessions/{id}/pane` deferred to M4** (settled at planning): rail/strip
+  cards are static metadata cards — the one real consumer of pane snapshots is the
+  dead-session case, which belongs with M4's resume flow. Protocol §3.4/§8 updated.
+- **Sticky tile membership**: live-grid membership recomputes only at view entry and
+  density change; afterwards only user action changes it. A terminal never vanishes
+  mid-keystroke.
+
+No new Claude-Code wire-format facts — M2 never touches a real claude (echo stub only);
+the new measured facts are tmux-side (FINDINGS §7 amendment).

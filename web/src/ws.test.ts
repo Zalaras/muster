@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Hello, Session, Snapshot } from "./protocol";
+import type { Hello, PrefsMessage, Session, Snapshot } from "./protocol";
 import { backoffDelay, type SocketLike, WsClient, type WsClientHandlers } from "./ws";
 
 const hello: Hello = {
@@ -13,8 +13,10 @@ const snapshot: Snapshot = {
   type: "snapshot",
   sessions: [],
   usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
-  prefs: { view: "focus" },
+  prefs: { view: "focus", density: "2x2" },
 };
+
+const prefsMessage: PrefsMessage = { type: "prefs", prefs: { view: "tiles", density: "3x2" } };
 
 const session: Session = {
   id: 1,
@@ -91,6 +93,7 @@ function makeHandlers(): WsClientHandlers & Record<string, ReturnType<typeof vi.
     onHello: vi.fn(),
     onSnapshot: vi.fn(),
     onSessionUpsert: vi.fn(),
+    onPrefs: vi.fn(),
     onDisconnected: vi.fn(),
     onProtocolMismatch: vi.fn(),
   };
@@ -135,6 +138,14 @@ describe("WsClient.dispatch — pure message application, no socket involved", (
     const client = new WsClient("ws://x", handlers);
     client.dispatch({ type: "sessionUpsert", session });
     expect(handlers.onSessionUpsert).toHaveBeenCalledWith(session);
+    expect(handlers.onSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("routes a prefs message to onPrefs with the bare prefs object, not onSnapshot (M2 REQ-10/INV-4)", () => {
+    const handlers = makeHandlers();
+    const client = new WsClient("ws://x", handlers);
+    client.dispatch(prefsMessage);
+    expect(handlers.onPrefs).toHaveBeenCalledWith(prefsMessage.prefs);
     expect(handlers.onSnapshot).not.toHaveBeenCalled();
   });
 });
@@ -186,6 +197,13 @@ describe("WsClient — full socket lifecycle via an injected fake socket", () =>
     sockets[0]!.emitOpen();
     sockets[0]!.emitMessage(JSON.stringify({ type: "sessionUpsert", session }));
     expect(handlers.onSessionUpsert).toHaveBeenCalledWith(session);
+  });
+
+  it("dispatches a prefs frame to onPrefs", () => {
+    client.start();
+    sockets[0]!.emitOpen();
+    sockets[0]!.emitMessage(JSON.stringify(prefsMessage));
+    expect(handlers.onPrefs).toHaveBeenCalledWith(prefsMessage.prefs);
   });
 
   it("ignores a binary (non-string) message frame", () => {

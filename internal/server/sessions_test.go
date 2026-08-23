@@ -2,8 +2,6 @@ package server
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -160,16 +158,23 @@ func newStubClaudeBin(t *testing.T, envOutFile string) string {
 	return path
 }
 
-// newTestTmuxClient returns a tmux.Client bound to a private, per-test socket — never
-// "-L muster" and never the user's default server (CLAUDE.md hard rule).
+// newTestTmuxClient returns a tmux.Client bound to a private, per-test socket *path* —
+// never a bare -L name in tmux's shared socket directory (D12) and never the user's
+// default server (CLAUDE.md hard rule).
+//
+// Deliberately not t.TempDir() directly: that path is rooted under this test's full
+// name, and with "/tmux.sock" appended it can overflow AF_UNIX's ~104-byte sun_path
+// limit on macOS ("File name too long" from tmux itself) — see internal/tmux/tmux_test.go's
+// newTestSocket for the same fix. os.MkdirTemp with a short, fixed prefix keeps the
+// whole path well under that limit regardless of the test's name length.
 func newTestTmuxClient(t *testing.T) *tmux.Client {
 	t.Helper()
-	b := make([]byte, 8)
-	_, err := rand.Read(b)
+	dir, err := os.MkdirTemp("", "muster-server-test-")
 	require.NoError(t, err)
-	socket := "muster-server-test-" + hex.EncodeToString(b)
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	socket := filepath.Join(dir, "tmux.sock")
 	t.Cleanup(func() {
-		_ = exec.Command("tmux", "-L", socket, "kill-server").Run()
+		_ = exec.Command("tmux", "-S", socket, "kill-server").Run()
 	})
 	return tmux.New(socket)
 }

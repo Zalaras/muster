@@ -9,15 +9,24 @@
 //
 // M1 addition: every scratch daemon also gets its own dedicated tmux socket (never
 // `-L muster`, never the user's default server — CLAUDE.md hard rule) and a stub
-// `claude` binary (a `#!/bin/sh` sleep loop) passed via `-claude-bin`, so `POST
-// /api/sessions` really spawns a tmux window without ever launching a real `claude`
-// process. The stub never exits on its own — pane-liveness tests (E9) control death
-// explicitly via `tmux kill-window`.
+// `claude` binary passed via `-claude-bin`, so `POST /api/sessions` really spawns a tmux
+// window without ever launching a real `claude` process. The stub never exits on its
+// own — pane-liveness tests (E9/E12) control death explicitly via `tmux kill-window`.
+//
+// M2 addition (plan m2-terminal, REQ-5 — the queued M1 follow-up): the socket is now a
+// filesystem *path* inside the scratch data dir (`-S`, never a bare `-L` name), so every
+// tmux server this harness starts lives, and dies, inside a directory the harness already
+// deletes — matching REQ-5's socket-path support the daemon itself gains. The stub
+// `claude` binary is upgraded from a plain sleep loop to an echo loop (REQ-1/E1/E2's
+// terminal-bridge round trip needs *something* to read back): it prints
+// `MUSTER-STUB-READY`, then `stub-echo:<line>` per input line, then falls into the old
+// sleep-forever loop once its stdin hits EOF (pane death) — so M1's liveness specs, which
+// depend on the pane staying alive until explicitly killed, are unaffected.
 import { type ChildProcess, execFile, spawn } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
-import { basename, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
@@ -77,7 +86,11 @@ export class ScratchDaemon {
   readonly baseURL: string;
   readonly dataDir: string;
   readonly dbPath: string;
-  /** Dedicated tmux socket name for this run only (REQ-19) — never `-L muster`. */
+  /**
+   * Dedicated tmux socket *path* for this run only (REQ-19, path form per M2 REQ-5) —
+   * never `-L muster`. Living inside `dataDir` means `teardown()`'s `rm` cleans up the
+   * socket file too; every `tmux` invocation below uses `-S`, never `-L`.
+   */
   readonly tmuxSocket: string;
   /** Absolute path to the stub `claude` binary this run's launches will invoke. */
   readonly claudeBinPath: string;
@@ -98,9 +111,10 @@ export class ScratchDaemon {
     this.baseURL = `http://127.0.0.1:${port}`;
     this.dataDir = dataDir;
     this.dbPath = join(dataDir, "muster.db");
-    // dataDir's mkdtemp suffix is already a fresh random name — reuse it as the tmux
-    // socket name too, so no separate uniqueness scheme is needed.
-    this.tmuxSocket = basename(dataDir);
+    // M2 REQ-5: a path (contains "/"), not a bare name — exercises the daemon's own
+    // `-S` vs `-L` branch and keeps the socket file inside the scratch dir teardown()
+    // already deletes.
+    this.tmuxSocket = join(dataDir, "tmux.sock");
     this.claudeBinPath = join(dataDir, "stub-claude.sh");
     this.browseRoot = join(dataDir, "browse-root");
   }
@@ -116,15 +130,27 @@ export class ScratchDaemon {
   }
 
   /**
-   * Writes the fake `claude` binary musterd will spawn (REQ-19's `-claude-bin` seam).
-   * A sleep loop that never exits on its own: liveness tests kill the tmux window
-   * explicitly (E9) rather than relying on the stub to die. No real `claude` binary is
-   * ever invoked by this harness (CLAUDE.md hard rule).
+   * Writes the fake `claude` binary musterd will spawn (REQ-19's `-claude-bin` seam),
+   * upgraded by m2-terminal from a plain sleep loop to an echo loop so the terminal
+   * bridge (REQ-1) has something deterministic to stream both directions: it prints
+   * `MUSTER-STUB-READY` (E1's readback token) once at startup, then `stub-echo:<line>`
+   * for every line it reads from its controlling pty (E2's round trip), then — once
+   * stdin hits EOF, which only happens when the pane itself is torn down — falls into
+   * the old sleep-forever loop. Liveness tests still kill the tmux window explicitly
+   * (E9/E12) rather than relying on the stub to exit on its own. No real `claude` binary
+   * is ever invoked by this harness (CLAUDE.md hard rule).
    */
   private async writeStubClaude(): Promise<void> {
-    await writeFile(this.claudeBinPath, "#!/bin/sh\nwhile true; do sleep 3600; done\n", {
-      mode: 0o755,
-    });
+    const script = [
+      "#!/bin/sh",
+      'echo "MUSTER-STUB-READY"',
+      "while IFS= read -r line; do",
+      '  echo "stub-echo:$line"',
+      "done",
+      "while true; do sleep 3600; done",
+      "",
+    ].join("\n");
+    await writeFile(this.claudeBinPath, script, { mode: 0o755 });
   }
 
   private async spawnAndWait(): Promise<void> {
@@ -205,25 +231,74 @@ export class ScratchDaemon {
   async teardown(): Promise<void> {
     await this.kill();
     try {
-      await execFileAsync("tmux", ["-L", this.tmuxSocket, "kill-server"]);
+      await execFileAsync("tmux", ["-S", this.tmuxSocket, "kill-server"]);
     } catch {
       // No server was ever started on this socket (no session launched) — fine.
     }
     await rm(this.dataDir, { recursive: true, force: true });
   }
 
-  /** Kills one tmux window by its recorded `tmuxTarget` (E9's explicit-death control). */
+  /** Kills one tmux window by its recorded `tmuxTarget` (E9/E12's explicit-death control). */
   async killTmuxWindow(tmuxTarget: string): Promise<void> {
-    await execFileAsync("tmux", ["-L", this.tmuxSocket, "kill-window", "-t", tmuxTarget]);
+    await execFileAsync("tmux", ["-S", this.tmuxSocket, "kill-window", "-t", tmuxTarget]);
   }
 
   /** True iff a pane still exists for the given `tmuxTarget` on this run's socket. */
   async tmuxPaneExists(tmuxTarget: string): Promise<boolean> {
     try {
-      await execFileAsync("tmux", ["-L", this.tmuxSocket, "list-panes", "-t", tmuxTarget]);
+      await execFileAsync("tmux", ["-S", this.tmuxSocket, "list-panes", "-t", tmuxTarget]);
       return true;
     } catch {
       return false;
+    }
+  }
+
+  /**
+   * Tmux geometry oracle for E4/INV-3 (plan m2-terminal): `display-message -p` evaluates
+   * a tmux format string against `target` (a window or session, e.g. `#{window_width}` /
+   * `#{window_height}`) and returns the trimmed result — never a state source (CLAUDE.md
+   * hard rule: capture/attach are display + oracle only), used purely to observe geometry
+   * the daemon already applied via `pty.Setsize` + `resize-window`.
+   */
+  async tmuxDisplay(target: string, format: string): Promise<string> {
+    const { stdout } = await execFileAsync("tmux", [
+      "-S",
+      this.tmuxSocket,
+      "display-message",
+      "-p",
+      "-t",
+      target,
+      format,
+    ]);
+    return stdout.trim();
+  }
+
+  /**
+   * Daemon-side oracle for INV-2 (review m2-terminal Minor 7): sums `#{session_attached}`
+   * (each Muster session is its own tmux session under structural decision 1, so this is
+   * an attach-client count per session, 0 or 1 under the one-live-client law) across every
+   * tmux session on this run's socket. A browser-only `page.on('websocket')` count can't
+   * see the server-side truth diverge from what the client believes — exactly the gap
+   * behind Critical 4, where a client-initiated close leaked a PTY/attach client the
+   * browser had already stopped counting. Returns 0 if the tmux server on this socket
+   * hasn't started yet (no session launched), rather than throwing.
+   */
+  async totalAttachedClients(): Promise<number> {
+    try {
+      const { stdout } = await execFileAsync("tmux", [
+        "-S",
+        this.tmuxSocket,
+        "list-sessions",
+        "-F",
+        "#{session_attached}",
+      ]);
+      return stdout
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .reduce((sum, line) => sum + Number(line), 0);
+    } catch {
+      return 0;
     }
   }
 }

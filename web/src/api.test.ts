@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { browse, fetchRepos, launchSession } from "./api";
+import { browse, fetchRepos, launchSession, putPrefs } from "./api";
 import type { Session } from "./protocol";
 
 const validSession: Session = {
@@ -201,5 +201,78 @@ describe("api — browse (GET /api/browse)", () => {
     fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "not_found", message: "no such directory" } }));
     const result = await browse("/does/not/exist");
     expect(result).toEqual({ ok: false, error: { code: "not_found", message: "no such directory" } });
+  });
+});
+
+function fakeStatusResponse(status: number, body?: unknown): Response {
+  return {
+    status,
+    json: () => (body === undefined ? Promise.reject(new Error("no body")) : Promise.resolve(body)),
+  } as unknown as Response;
+}
+
+describe("api — putPrefs (PUT /api/prefs, docs/protocol.md §3.3 / M2 REQ-10)", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("decodes a bare 204 with no body as success, never trying to parse a body", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(204));
+    const result = await putPrefs({ view: "tiles" });
+    expect(result).toEqual({ ok: true, value: null });
+  });
+
+  it("sends only the field(s) the caller supplies (a single-field PUT), with same-origin credentials", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(204));
+    await putPrefs({ density: "3x2" });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/prefs",
+      expect.objectContaining({
+        method: "PUT",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ density: "3x2" }),
+      }),
+    );
+  });
+
+  it("can send both fields in one request", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(204));
+    await putPrefs({ view: "focus", density: "2x2" });
+    const call = fetchMock.mock.calls[0] as [string, { body: string }];
+    expect(JSON.parse(call[1].body)).toEqual({ view: "focus", density: "2x2" });
+  });
+
+  it("decodes a 400 invalid_request error envelope (unknown/out-of-enum field)", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(400, { error: { code: "invalid_request", message: "density must be 2x2 or 3x2" } }));
+    const result = await putPrefs({ density: "4x4" as never });
+    expect(result).toEqual({ ok: false, error: { code: "invalid_request", message: "density must be 2x2 or 3x2" } });
+  });
+
+  it("decodes a 401 unauthorized error envelope (no/invalid cookie)", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(401, { error: { code: "unauthorized", message: "missing session cookie" } }));
+    const result = await putPrefs({ view: "tiles" });
+    expect(result).toEqual({ ok: false, error: { code: "unauthorized", message: "missing session cookie" } });
+  });
+
+  it("falls back to a generic error when a non-204 error body doesn't match the error envelope shape", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(500, { oops: "no error field" }));
+    const result = await putPrefs({ view: "tiles" });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+
+  it("never throws when a non-204 response body isn't valid JSON at all", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(500));
+    const result = await putPrefs({ view: "tiles" });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
   });
 });

@@ -74,10 +74,12 @@ type Server struct {
 	daemonVersion string
 	claudeCode    ClaudeCodeInfo
 
-	ingest   *ingestQueue
-	hub      *wsHub
-	manager  *session.Manager
-	launcher *sessionLauncher
+	ingest     *ingestQueue
+	hub        *wsHub
+	manager    *session.Manager
+	launcher   *sessionLauncher
+	tmuxClient *tmux.Client
+	terminals  *terminalRegistry
 }
 
 const defaultIngestQueueSize = 1024
@@ -100,9 +102,11 @@ func New(cfg Config) *Server {
 		daemonVersion: cfg.DaemonVersion,
 		claudeCode:    cfg.ClaudeCode,
 		hub:           newWSHub(),
+		terminals:     newTerminalRegistry(),
 	}
 
 	tmuxClient := tmux.New(cfg.TmuxSocket)
+	s.tmuxClient = tmuxClient
 	s.manager = session.NewManager(session.Config{
 		Store:       cfg.Store,
 		Logger:      cfg.Logger,
@@ -157,6 +161,7 @@ func (s *Server) Start() {
 // drains the ingest queue, giving up when ctx is done.
 func (s *Server) Shutdown(ctx context.Context) {
 	s.hub.closeAll()
+	s.terminals.closeAll()
 	s.manager.Stop(ctx)
 	s.ingest.Stop(ctx)
 }
@@ -172,6 +177,8 @@ func (s *Server) routes() {
 	mux.Handle("POST /api/sessions", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleCreateSession)))
 	mux.Handle("GET /api/repos", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleListRepos)))
 	mux.Handle("GET /api/browse", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleBrowse)))
+	mux.Handle("PUT /api/prefs", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handlePutPrefs)))
+	mux.Handle("GET /ws/terminal/{id}", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleTerminal)))
 
 	mux.HandleFunc("POST /ingest/{token}/hook", s.handleIngestHook)
 	mux.HandleFunc("POST /ingest/{token}/status", s.handleIngestStatus)

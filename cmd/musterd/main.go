@@ -60,7 +60,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 		webDist     = fs.String("web-dist", "web/dist", "directory containing the built dashboard")
 		debug       = fs.Bool("debug", false, "debug logging")
 		claudeBin   = fs.String("claude-bin", "claude", "the `claude` binary to spawn for a launched session (REQ-19: lets E2E launch a stub)")
-		tmuxSocket  = fs.String("tmux-socket", "muster", "dedicated tmux socket name (REQ-19: never the user's default server)")
+		tmuxSocket  = fs.String("tmux-socket", "muster", "dedicated tmux socket (REQ-19: never the user's default server); a value containing '/' is used as a filesystem path (-S), otherwise a named socket (-L) — m2-terminal REQ-5")
 		browseRoot  = fs.String("browse-root", "", "root of the launch modal's folder browser — GET /api/browse's no-param default and its Up ceiling (empty = the user's home directory; E2E passes its scratch dir)")
 	)
 	if err := fs.Parse(args); err != nil {

@@ -3,7 +3,7 @@
 //
 // Honesty rules (design-system §6.1): a null usage bucket renders the word "unknown"
 // and no track/gauge markup at all — never a 0%-filled bar.
-import type { ClaudeCodeInfo, Usage } from "../protocol";
+import type { ClaudeCodeInfo, Density, Usage } from "../protocol";
 
 export type ConnectionStatus = "connecting" | "connected" | "reconnecting";
 
@@ -26,12 +26,31 @@ export function renderUsage(elements: UsageElements, usage: Usage): void {
     : "7d unknown";
 }
 
-// design-system §8: "the masthead must be laid out from M1 as though the switcher is
-// there, so adding it moves nothing." The slot is sized by CSS (.view-switcher); M1
-// keeps it empty and M2 fills it with the Focus/Tiles segmented control without
-// shifting layout.
-export function renderViewSwitcherSlot(el: HTMLElement): void {
-  el.textContent = "";
+export interface ViewSwitcherElements {
+  focusButton: HTMLButtonElement;
+  tilesButton: HTMLButtonElement;
+}
+
+/** Focus/Tiles segmented control (design-system §4.1) — the M1 slot design-system §8
+ * required to be laid out from the start now gets filled in. `aria-pressed` is the
+ * Testable UI Elements contract for both buttons. */
+export function renderViewSwitcher(elements: ViewSwitcherElements, view: "focus" | "tiles"): void {
+  elements.focusButton.setAttribute("aria-pressed", String(view === "focus"));
+  elements.tilesButton.setAttribute("aria-pressed", String(view === "tiles"));
+}
+
+export interface DensityControlElements {
+  container: HTMLElement;
+  twoByTwoButton: HTMLButtonElement;
+  threeByTwoButton: HTMLButtonElement;
+}
+
+/** The density control renders only in Tiles (design-system §4/UI Specifications:
+ * "Masthead ... the density control renders only in Tiles"). */
+export function renderDensityControl(elements: DensityControlElements, view: "focus" | "tiles", density: Density): void {
+  elements.container.hidden = view !== "tiles";
+  elements.twoByTwoButton.setAttribute("aria-pressed", String(density === "2x2"));
+  elements.threeByTwoButton.setAttribute("aria-pressed", String(density === "3x2"));
 }
 
 export function renderClaudeVersion(el: HTMLElement, info: ClaudeCodeInfo | null): void {

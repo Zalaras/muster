@@ -24,7 +24,12 @@ test("renders the masthead, connection status and empty sessions state after the
   // Testable UI Elements: mandated role="status" on the masthead connection element.
   await expect(page.getByRole("status")).toHaveText(/connected/i);
 
-  await expect(page.getByText("No sessions yet")).toBeVisible();
+  // Exact match: M2 (plan m2-terminal) added two more empty-state placeholders that
+  // contain this string as a substring ("No sessions yet — ⌘N to launch", in the Focus
+  // main area and the Tiles view) — a non-exact getByText now resolves to 3 elements.
+  // The rail's own bare-text empty state (`#sessions`, M1, unchanged) is the one this
+  // test asserts on; exact:true disambiguates without weakening the assertion.
+  await expect(page.getByText("No sessions yet", { exact: true })).toBeVisible();
 });
 
 test("renders both usage readouts as the word unknown, never an empty gauge", async ({ page }) => {
@@ -50,9 +55,12 @@ test("GET /api/state returns exactly the M0 snapshot object once authenticated",
   const res = await page.request.get(`${daemon.baseURL}/api/state`);
   expect(res.status()).toBe(200);
   const body = await res.json();
+  // `prefs.density` was added by plan m2-terminal (protocol §3.3 delta, default "2x2"
+  // before any PUT /api/prefs) — updated here so this M0 assertion tracks the merged
+  // protocol contract rather than going stale the moment m2-terminal ships.
   expect(body).toEqual({
     sessions: [],
     usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
-    prefs: { view: "focus" },
+    prefs: { view: "focus", density: "2x2" },
   });
 });

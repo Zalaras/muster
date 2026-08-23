@@ -475,8 +475,18 @@ set -g  history-limit 20000
 set -g  mouse off
 setw -g aggressive-resize off
 set -g  destroy-unattached off
-set -g  detach-on-destroy off
+set -g  detach-on-destroy off   # AMENDED — see note below
 ```
+
+> **Amendment (2026-08-23, measured during m2-terminal review):** `detach-on-destroy off`
+> was measured against the M1 shared-session topology (all windows in one tmux session).
+> Under M2's one-tmux-session-per-Muster-session topology it is actively harmful: with ≥2
+> sessions on the socket, destroying the attached one does not end its client — tmux hops
+> the client to *another* session, so no PTY EOF/4001 fires and keystrokes typed into the
+> dead session's surface are delivered to a different session's claude (verified via
+> `list-clients` + `capture-pane`, with a control experiment). Production value is now
+> `detach-on-destroy on` (the client exits, PTY EOFs cleanly). `destroy-unattached off`
+> was re-examined and stays correct — sessions must survive with no dashboard viewer.
 
 Plus, from the bridge itself: set `LANG=en_US.UTF-8` and `TERM=xterm-256color` explicitly in
 the PTY environment (without them tmux falls back to ASCII line-drawing and Claude's boxes
