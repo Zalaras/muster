@@ -179,6 +179,36 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
 - [ ] Full canary E2E: unskip the assertions in `test/canary/canary_test.go`
 - [ ] Surface "daemon down" prominently — while it is down, every managed pane fills with
       hook-error lines
+- [ ] **End / remove a session** — found missing during manual testing 2026-08-23: there is
+      no delete flow at all (`docs/protocol.md` §5.5 reserves the `sessionRemoved` type but
+      nothing sends it; `session.Manager.DeleteSession` exists only as the launch-failure
+      rollback path, called from `internal/server/sessions.go`; no `kill-session` in
+      production code; the cards/tiles carry no buttons). Sessions therefore accumulate
+      forever — a dead session's card stays visible with no way to clear it, and the only
+      escape is `tmux -L muster kill-session` by hand, which still leaves the row. Two
+      distinct actions to design, not one: **end** (kill the pane on a live session) and
+      **remove** (delete the row + broadcast `sessionRemoved`, only sane once dead). Decide
+      whether removal is allowed on a live session at all, and how it interacts with M4's
+      resume affordance (a removed session can never be resumed — its `claude_session_id`
+      goes with the row).
+- [ ] **Per-directory hooks instrument every Claude Code session in that directory** —
+      investigate; found 2026-08-23. Muster writes its hooks into the *directory's*
+      `.claude/settings.local.json` (settled by the 2026-08-20 probe: only the local file
+      honors `hooks`/`statusLine`/`allowedHttpHookUrls`), which is per-directory and not
+      per-pane — so any Claude Code session Damian runs in that directory outside Muster
+      also POSTs to `/ingest`. Measured: one such outside session accounted for 46 of the
+      51 rows in the real `event` table (and still climbing while it ran), all correctly
+      persisted unrouted (`resolveSessionID` → `persisting unrouted`), which also floods
+      the log. Functionally harmless (routing
+      already refuses to guess), but it grows the DB with events Muster will never use and
+      puts prompt-adjacent metadata from unmanaged sessions into it. Options to weigh:
+      drop unrouted events instead of persisting them (loses the M0 debugging affordance
+      and the unknown-id audit trail — D9/Edge Case 11 chose to keep them deliberately, so
+      this is a spec-level revisit, not a tweak); keep persisting but rate-limit the log
+      line; prune unrouted rows on a retention policy; or gate ingest on the envelope so
+      only enveloped (Muster-launched) posts are stored. Caveat on the measurement above:
+      the unquoted-command-path bug found the same day leaves *every* event unrouted, which
+      exaggerates the symptom — re-measure once that is fixed, before choosing an option.
 
 ## M5+ (v1.x, re-rank when reached)
 
