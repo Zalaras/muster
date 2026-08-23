@@ -330,19 +330,41 @@ M1 value semantics (within the nullability rules above):
   chars by the daemon; `null` until a first Stop.
 - `alive`/`endedAt`: live from the liveness poll and the SessionEnd hint.
 
+M3 value semantics (m3-gauges, 2026-08-23 — supersede the M1 rules for title/model/context):
+
+- `title`: refreshes from the status line's session name whenever present (early posts
+  carry none — last-known stands until then).
+- `model`: `id` and `displayName` refresh from the status line's model object whenever
+  present; the M1 launch-value rules stand until the first such post.
+- `context`: `usedPct`/`totalInputTokens`/`windowSize` are non-null from the session's
+  first status post carrying real context data (the daemon adopts the block only when the
+  payload's used-percentage is non-null — pre-first-response posts carry null percentages
+  with a zero token count, which must stay *unknown*), all-null before it and again after
+  `/clear`. The three are always all-null or all-non-null.
+- Status posts change **only** these fields, and only when a value actually changed (no
+  no-op upserts) — never `state`/`stateSince`/`attention`/`failure`/`alive`/
+  `permissionMode`/`compactions` (m3-gauges INV-1; §7.3's "never a state source").
+
 ### 5.4 The Usage object & `usage` message
 
 ```jsonc
 { "type": "usage", "usage": {
-    "fiveHour": { "usedPct": 61.2, "resetsAt": "2026-08-20T11:00:00Z" },  // null until first API response of some session → masthead "unknown"
+    "fiveHour": { "usedPct": 61.2, "resetsAt": "2026-08-20T11:00:00Z" },  // null until the first post-boot sample → masthead "unknown"
     "sevenDay": { "usedPct": 23.0, "resetsAt": "2026-08-22T06:00:00Z" },  // wire name seven_day; null as above
-    "sampledAt": "2026-08-20T09:15:31Z",   // null when both buckets null
+    "model": { "id": "claude-opus-5", "displayName": "Opus 5" },  // freshest sample's model (M3, masthead readout); null iff buckets null
+    "sampledAt": "2026-08-20T09:15:31Z",   // null iff buckets null
     "source": "subscription" } }            // the §9 Q6 seam: "api"/"otel" later
 ```
 
-Percentages arrive as floats; the client rounds for display. The daemon de-duplicates
-status-line pair-posts (~435 ms apart) before persisting `usage_sample`, but forwards the
-freshest values regardless.
+Percentages arrive as floats; the client rounds for display. The daemon records a sample
+only when bucket values or model **changed** — `sampledAt` advancing alone is not a
+change — so the measured ~435 ms pair posts (identical values) produce one `usage`
+broadcast and one `usage_sample` row, not two. **No hydration**: after a daemon restart
+the buckets are null until the next status post (m3-gauges, 2026-08-23) — per-session
+context, by contrast, lives on the session row and survives restarts like title/state. A
+sample is recorded only from a **routed** status post (valid envelope) carrying both
+buckets and the model in the same payload; anything less persists as an event and feeds
+nothing.
 
 ### 5.5 `sessionUpsert` and `prefs`
 
@@ -439,7 +461,7 @@ distinct, and the latch is what separates them.
 | `SubagentStop` | Persist only |
 | `SessionEnd` (`reason:"clear"`) | `/clear` in progress: **not** a death hint — no effect on `alive`; the successor `SessionStart(source:"clear")` follows |
 | `SessionEnd` (any other reason) | `alive := false`, `endedAt` set; **state unchanged** (it's a hint — §7.5 is the authority) |
-| Status-line post | Title / model / context / usage refresh; **never a state source**. Implemented in M3, not M1 (planning decision 2026-08-22): M1 persists and routes status posts, and mutates nothing |
+| Status-line post | Title / model / context refresh (§5.3 M3 semantics) + account usage (§5.4), applied outside the state machine; **never a state source** — no effect on any state-machine-owned field (m3-gauges INV-1). Implemented in M3 (M1 persisted and routed status posts, mutating nothing) |
 | Unknown `hook_event_name` | Persist + log; inert (forward compatibility) |
 
 `needs_input` exits through the same table: the user answering in the terminal produces
@@ -526,6 +548,15 @@ unknown to the DB → logged, never adopted (Muster only manages what it started
   tmuxTarget format `muster-<id>:@<n>` — one tmux session per Muster session, because
   concurrent live tiles each need their own attach client. All additive; no version
   bump.
+- **2026-08-23 — m3-gauges plan approved, delta merged.** §5.4 Usage gains nullable
+  `model` (freshest sample's; masthead readout) and precise semantics: record/broadcast
+  only on bucket-value or model change (collapses the ~435 ms pair posts), no hydration
+  across daemon restart (buckets null until the next post), samples only from routed
+  posts carrying buckets + model together. §5.3 gains M3 value semantics (title/model
+  refresh whenever the status post carries them; context adopted only when the payload's
+  used-percentage is non-null, all-or-nothing, reset by `/clear`; status posts mutate
+  nothing state-owned — INV-1). §7.3's status-line row resolved accordingly. All
+  additive; no version bump.
 - **2026-08-22 — §3.6 gains the browse root** (M1 review follow-up, user-approved):
   `musterd -browse-root` (empty = the user's home directory) is `GET /api/browse`'s
   no-param default and the "Up" ceiling (`parent` null there); explicit absolute paths

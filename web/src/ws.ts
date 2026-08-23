@@ -11,6 +11,7 @@ import {
   type Prefs,
   type Session,
   type Snapshot,
+  type Usage,
   isSupportedProtocolVersion,
   parseMessage,
 } from "./protocol";
@@ -30,6 +31,7 @@ export interface WsClientHandlers {
   onSnapshot?: (snapshot: Snapshot) => void;
   onSessionUpsert?: (session: Session) => void;
   onPrefs?: (prefs: Prefs) => void;
+  onUsage?: (usage: Usage) => void;
   onDisconnected?: () => void;
   onProtocolMismatch?: (protocolVersion: number) => void;
 }
@@ -130,6 +132,10 @@ export class WsClient {
     }
     if (message.type === "prefs") {
       this.handlers.onPrefs?.(message.prefs);
+      return;
+    }
+    if (message.type === "usage") {
+      this.handlers.onUsage?.(message.usage);
       return;
     }
     this.handlers.onSnapshot?.(message);

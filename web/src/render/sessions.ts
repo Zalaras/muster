@@ -2,6 +2,7 @@
 // DOM only — every displayed string comes from ../sessions/card.ts's pure view-model.
 import type { Session } from "../protocol";
 import { buildCardViewModel } from "../sessions/card";
+import { renderContextRow } from "./context";
 
 function requireTemplate(id: string): HTMLTemplateElement {
   const el = document.getElementById(id);
@@ -43,7 +44,7 @@ export function buildSessionCardElement(
   if (repoLine) repoLine.textContent = vm.repoLine;
 
   const contextRow = card.querySelector<HTMLElement>(".r3");
-  if (contextRow) contextRow.textContent = vm.contextText;
+  if (contextRow) renderContextRow(contextRow, session.context, "r3");
 
   const activity = card.querySelector<HTMLElement>(".activity");
   if (activity) {

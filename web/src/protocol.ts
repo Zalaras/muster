@@ -28,6 +28,11 @@ export interface UsageBucket {
 export interface Usage {
   fiveHour: UsageBucket | null;
   sevenDay: UsageBucket | null;
+  // M3 addition (docs/protocol.md §5.4): the freshest sample's model, masthead-only.
+  // Optional (not just nullable) so a pre-M3 wire payload that omits the key entirely
+  // round-trips unchanged (additive evolution, protocol §1) — present-and-null still
+  // means "no sample yet", same as the buckets.
+  model?: SessionModelInfo | null;
   sampledAt: string | null;
   source: string;
 }
@@ -129,7 +134,14 @@ export interface PrefsMessage {
   prefs: Prefs;
 }
 
-export type Message = Hello | Snapshot | SessionUpsert | PrefsMessage;
+// M3 (docs/protocol.md §5.4): broadcast whenever a routed status post's bucket values or
+// model changed — a bare `sampledAt` advance produces no broadcast (server-side dedup).
+export interface UsageMessage {
+  type: "usage";
+  usage: Usage;
+}
+
+export type Message = Hello | Snapshot | SessionUpsert | PrefsMessage | UsageMessage;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -181,7 +193,19 @@ function parseUsage(value: unknown): Usage | null {
   const source = value["source"];
   if (sampledAt !== null && typeof sampledAt !== "string") return null;
   if (typeof source !== "string") return null;
-  return { fiveHour, sevenDay, sampledAt, source };
+
+  const usage: Usage = { fiveHour, sevenDay, sampledAt, source };
+  // `model` (M3) is read only when the key is actually present on the wire — an absent
+  // key stays absent on the parsed object (additive evolution, protocol §1), so an M0–M2
+  // payload with no `model` key round-trips byte-for-byte rather than gaining a
+  // synthesized `model: null`.
+  if ("model" in value) {
+    const rawModel = value["model"];
+    const model = rawModel === null ? null : parseModelInfo(rawModel);
+    if (rawModel !== null && model === null) return null;
+    usage.model = model;
+  }
+  return usage;
 }
 
 function parsePrefs(value: unknown): Prefs | null {
@@ -375,6 +399,12 @@ function parsePrefsMessage(rec: Record<string, unknown>): PrefsMessage | null {
   return { type: "prefs", prefs };
 }
 
+function parseUsageMessage(rec: Record<string, unknown>): UsageMessage | null {
+  const usage = parseUsage(rec["usage"]);
+  if (!usage) return null;
+  return { type: "usage", usage };
+}
+
 /** Parses one WS text frame's decoded JSON. Unknown/malformed messages yield `null`. */
 export function parseMessage(data: unknown): Message | null {
   if (!isRecord(data)) return null;
@@ -388,6 +418,8 @@ export function parseMessage(data: unknown): Message | null {
       return parseSessionUpsert(data);
     case "prefs":
       return parsePrefsMessage(data);
+    case "usage":
+      return parseUsageMessage(data);
     default:
       return null; // unknown message types are ignored (protocol §1)
   }

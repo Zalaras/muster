@@ -40,10 +40,22 @@ type Failure struct {
 }
 
 // Model is the session's model readout; both fields start at the launch value
-// verbatim (M1 value semantics — DisplayName never changes until M3).
+// verbatim (M1 value semantics). From M3 on, a routed status-line post refreshes both
+// fields whenever its model object is present (§5.3 M3 value semantics).
 type Model struct {
 	ID          string
 	DisplayName string
+}
+
+// Context is the session's live context-window gauge (§5.3 M3 value semantics):
+// UsedPct/TotalInputTokens/WindowSize are always all present together — a nil *Context
+// means unknown (INV-2), never a zero value. Populated only by a routed status-line
+// post whose payload carries a non-null used-percentage (REQ-2); reset to nil by
+// `/clear` (REQ-9).
+type Context struct {
+	UsedPct          float64
+	TotalInputTokens int64
+	WindowSize       int64
 }
 
 // Session is one row of the §7 state machine, held in memory and persisted on every
@@ -64,6 +76,7 @@ type Session struct {
 	PermissionMode       PermissionMode
 	PermissionModeSource string // "seed" | "hook"
 	Model                *Model
+	Context              *Context
 	Compactions          int
 	Attention            *Attention
 	Failure              *Failure

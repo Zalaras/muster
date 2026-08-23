@@ -23,12 +23,16 @@ type UsageBucket struct {
 }
 
 // UsageInfo is the `usage` object inside a snapshot. M0 has no usage samples yet, so
-// every field renders null/"unknown" (REQ-16).
+// every field renders null/"unknown" (REQ-16). Model is new in M3 (§5.4): the freshest
+// sample's model, for the masthead readout — present as an explicit `null` key (no
+// `omitempty`), matching FiveHour/SevenDay/SampledAt: "null iff buckets null" per the
+// plan's Protocol Contract, not an absent key.
 type UsageInfo struct {
-	FiveHour  *UsageBucket `json:"fiveHour"`
-	SevenDay  *UsageBucket `json:"sevenDay"`
-	SampledAt *string      `json:"sampledAt"`
-	Source    string       `json:"source"`
+	FiveHour  *UsageBucket      `json:"fiveHour"`
+	SevenDay  *UsageBucket      `json:"sevenDay"`
+	Model     *sessionWireModel `json:"model"`
+	SampledAt *string           `json:"sampledAt"`
+	Source    string            `json:"source"`
 }
 
 // PrefsInfo is the `prefs` object inside a snapshot (docs/protocol.md §3.3/§5.2). M2
@@ -66,6 +70,7 @@ func (s *Server) currentSnapshot(ctx context.Context) Snapshot {
 		wire = append(wire, toWireSession(sess))
 	}
 	snap.Sessions = wire
+	snap.Usage = toWireUsage(s.usage.Current())
 	snap.Prefs = s.loadPrefs(ctx)
 	return snap
 }

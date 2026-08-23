@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,8 +39,8 @@ func TestOpen_SecondOpenOnSamePathDoesNotReapplyMigrations(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st2.Close() })
 
-	// m1-sessions: 0001_init + 0002_sessions.
-	assert.Equal(t, 2, schemaMigrationsCount(t, st2.db))
+	// 0001_init + 0002_sessions (m1-sessions) + 0003_gauges (m3-gauges).
+	assert.Equal(t, 3, schemaMigrationsCount(t, st2.db))
 }
 
 // TestOpen_RestrictsPermissionsOnDatabaseAndSidecars covers review cycle 2 Major 1: the
@@ -208,6 +209,37 @@ func TestInsertEvent_NullableEnvelopeAndCorrelationFields(t *testing.T) {
 	assert.Nil(t, tmuxPane)
 	assert.Equal(t, `{"source":"startup"}`, payload)
 	assert.NotEmpty(t, receivedAt)
+}
+
+// TestInsertEvent_ReceivedAtIsRFC3339NanoAndDiffersAcrossImmediateInserts covers
+// REQ-10/D13 (M0 review minor): received_at now carries nanosecond precision, so two
+// inserts that land within the same wall-clock second still get distinguishable
+// timestamps — plain RFC3339's second granularity made that impossible.
+func TestInsertEvent_ReceivedAtIsRFC3339NanoAndDiffersAcrossImmediateInserts(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+
+	require.NoError(t, st.InsertEvent(ctx, Event{ClaudeSessionID: "nano-1", Type: "SessionStart", Payload: []byte(`{}`)}))
+	require.NoError(t, st.InsertEvent(ctx, Event{ClaudeSessionID: "nano-2", Type: "SessionStart", Payload: []byte(`{}`)}))
+
+	rows, err := st.db.QueryContext(ctx, `SELECT received_at FROM event ORDER BY id ASC`)
+	require.NoError(t, err)
+	defer rows.Close()
+
+	var receivedAts []string
+	for rows.Next() {
+		var v string
+		require.NoError(t, rows.Scan(&v))
+		receivedAts = append(receivedAts, v)
+	}
+	require.NoError(t, rows.Err())
+	require.Len(t, receivedAts, 2)
+
+	for _, v := range receivedAts {
+		_, err := time.Parse(time.RFC3339Nano, v)
+		assert.NoError(t, err, "received_at must parse as RFC3339Nano")
+	}
+	assert.NotEqual(t, receivedAts[0], receivedAts[1], "two immediate inserts must not collapse to the same timestamp")
 }
 
 func TestInsertEvent_PopulatedEnvelopeAndCorrelationFields(t *testing.T) {

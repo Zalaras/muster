@@ -163,6 +163,53 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* M3 masthead gauges (design-system §5 "Gauge thresholds"; mockups/a-instrument.html
+ * lines 199-202): `renderUsageTrack` appends the track-fill and reset-time suffix as
+ * children of the same `.usage-readout` element `renderUsage`'s M2-era text lives in
+ * (render/masthead.ts) — laid out inline-flex so the "5h NN%" text, the bar and the
+ * resets suffix read as one readout with even spacing. */
+.usage-readout {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bar {
+  width: 96px;
+  height: 5px;
+  background: var(--line);
+  position: relative;
+  flex: none;
+  overflow: hidden;
+}
+
+.bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--teal);
+}
+
+/* ≥60% used (design-system §5 "Gauge thresholds") — amber, same meaning as everywhere
+ * else amber appears (Needs-Input/urgent), never a generic accent. */
+.bar.warn i {
+  background: var(--amber);
+}
+
+.resets {
+  color: var(--dim);
+}
+
+.model {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--paper);
+  font-variant-numeric: tabular-nums;
+}
+
+.model[hidden] {
+  display: none;
+}
+
 /* Honesty rule (design-system §6.7): loud, full-width, on the dedicated banner tokens —
  * this describes the daemon, not any session's state, so it never grounds on --rose
  * (§3: a state colour may only ever mean its state). */
@@ -465,12 +512,20 @@ body {
 }
 
 .thead .ctxinfo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   margin-left: auto;
   font-family: var(--mono);
   font-size: 10px;
   color: var(--muted);
   flex: none;
   font-variant-numeric: tabular-nums;
+}
+
+.thead .ctxinfo.unk {
+  color: var(--dim);
+  font-style: italic;
 }
 
 .thead .tm {
@@ -633,15 +688,68 @@ body {
   text-overflow: ellipsis;
 }
 
+/* M3 context row (design-system §5 card anatomy; mockups/a-instrument.html lines 103-111):
+ * a flex row of track + percent + tokens + compaction count when known, or plain
+ * italic/dim text (`.unk`) when the session has no context data yet — render/context.ts
+ * toggles the modifier class, never both states' markup at once. */
 .r3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 7px;
   font-family: var(--mono);
   font-size: 10px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.r3.unk {
   color: var(--dim);
   font-style: italic;
-  margin-top: 7px;
-  /* carries the live ⟳n compaction counter today, and M3's percentage/token count
-   * later — design-system §2's tabular-nums rule for anything that changes over time. */
+}
+
+.r3 .ctx,
+.ctxinfo .ctx {
+  height: 3px;
+  background: var(--line);
+  position: relative;
+  flex: none;
+}
+
+.r3 .ctx {
+  width: 52px;
+}
+
+.ctxinfo .ctx {
+  width: 34px;
+}
+
+.r3 .ctx i,
+.ctxinfo .ctx i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--muted);
+}
+
+/* ≥60% used (design-system §5 "Gauge thresholds") — same amber meaning as the masthead's
+ * `.bar.warn`. */
+.r3 .ctx.hot i,
+.ctxinfo .ctx.hot i {
+  background: var(--amber);
+}
+
+.r3 .tok,
+.ctxinfo .tok {
   font-variant-numeric: tabular-nums;
+}
+
+.r3 .compact {
+  margin-left: auto;
+  color: var(--dim);
+}
+
+.ctxinfo .compact {
+  color: var(--dim);
 }
 
 .activity {

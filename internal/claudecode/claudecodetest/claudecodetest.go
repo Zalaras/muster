@@ -315,6 +315,132 @@ func EnvelopedStatusLinePreFirstResponse(sessionID string, musterSession int, tm
 	return marshal(env)
 }
 
+// StatusLineFullOpts customizes EnvelopedStatusLineFull beyond its M3-baseline defaults
+// (musterSession 1, tmuxPane "%12", model "claude-haiku-4-5-20251001"/"Haiku 4.5", 42%
+// context used / 84000 input tokens / 200000 window, 61% five-hour / 23% seven-day
+// usage, both resetting at a fixed far-future epoch). Every default is fixed and
+// non-wall-clock-dependent so two zero-value calls are byte-identical (REQ-15's
+// dedup-testing requirement, m3-gauges INV-5/D9).
+type StatusLineFullOpts struct {
+	MusterSession int
+	TmuxPane      string
+	// SessionName, when non-empty, adds the status line's session_name field (title
+	// refresh, REQ-4).
+	SessionName      string
+	ModelID          string
+	ModelDisplayName string
+	// UsedPct/TotalInputTokens/WindowSize are context_window's fields (REQ-2's non-null
+	// "post-first-response" shape). UsedPct is a pointer so a genuine 0% reading (REQ-2's
+	// converse — a real zero, not the null/absent case) can be expressed; nil means "use
+	// the 42% default", not "send zero".
+	UsedPct          *float64
+	TotalInputTokens int64
+	WindowSize       int64
+	// FiveHourPct/SevenDayPct/*ResetsAt are rate_limits' two buckets (REQ-3). ResetsAt
+	// values are Unix epoch seconds, matching the wire's integer shape (canary-fields.md
+	// correction #2).
+	FiveHourPct      float64
+	FiveHourResetsAt int64
+	SevenDayPct      float64
+	SevenDayResetsAt int64
+}
+
+// farFutureResetsAt is a fixed, non-wall-clock-dependent Unix epoch second
+// (2099-01-01T00:00:00Z) used as StatusLineFullOpts' default reset time.
+const farFutureResetsAt = 4070908800
+
+// EnvelopedStatusLineFull returns an enveloped status-line body in the
+// post-first-API-response shape: real context_window percentages/current_usage and
+// both rate_limits buckets present (canary-fields.md's measured post-response state) —
+// the counterpart to EnvelopedStatusLinePreFirstResponse. A zero-value
+// StatusLineFullOpts reproduces the fixed default fixture byte-for-byte.
+func EnvelopedStatusLineFull(sessionID string, opts StatusLineFullOpts) string {
+	musterSession := opts.MusterSession
+	if musterSession == 0 {
+		musterSession = 1
+	}
+	tmuxPane := opts.TmuxPane
+	if tmuxPane == "" {
+		tmuxPane = "%12"
+	}
+	modelID := opts.ModelID
+	if modelID == "" {
+		modelID = "claude-haiku-4-5-20251001"
+	}
+	modelDisplayName := opts.ModelDisplayName
+	if modelDisplayName == "" {
+		modelDisplayName = "Haiku 4.5"
+	}
+	usedPct := 42.0
+	if opts.UsedPct != nil {
+		usedPct = *opts.UsedPct
+	}
+	totalInputTokens := opts.TotalInputTokens
+	if totalInputTokens == 0 {
+		totalInputTokens = 84000
+	}
+	windowSize := opts.WindowSize
+	if windowSize == 0 {
+		windowSize = 200000
+	}
+	fiveHourPct := opts.FiveHourPct
+	if fiveHourPct == 0 {
+		fiveHourPct = 61
+	}
+	fiveHourResetsAt := opts.FiveHourResetsAt
+	if fiveHourResetsAt == 0 {
+		fiveHourResetsAt = farFutureResetsAt
+	}
+	sevenDayPct := opts.SevenDayPct
+	if sevenDayPct == 0 {
+		sevenDayPct = 23
+	}
+	sevenDayResetsAt := opts.SevenDayResetsAt
+	if sevenDayResetsAt == 0 {
+		sevenDayResetsAt = farFutureResetsAt
+	}
+
+	payload := map[string]any{
+		"session_id":          sessionID,
+		"transcript_path":     "/tmp/t.jsonl",
+		"cwd":                 "/tmp",
+		"version":             "2.1.233",
+		"model":               map[string]any{"id": modelID, "display_name": modelDisplayName},
+		"workspace":           map[string]any{"current_dir": "/tmp", "project_dir": "/tmp", "added_dirs": []any{}},
+		"output_style":        map[string]any{"name": "default"},
+		"thinking":            map[string]any{"enabled": false},
+		"fast_mode":           false,
+		"exceeds_200k_tokens": false,
+		"context_window": map[string]any{
+			"context_window_size":  windowSize,
+			"used_percentage":      usedPct,
+			"remaining_percentage": 100 - usedPct,
+			"total_input_tokens":   totalInputTokens,
+			"total_output_tokens":  49,
+			"current_usage": map[string]any{
+				"input_tokens": 10, "output_tokens": 49,
+				"cache_creation_input_tokens": 15558, "cache_read_input_tokens": 23318,
+			},
+		},
+		"rate_limits": map[string]any{
+			"five_hour": map[string]any{"used_percentage": fiveHourPct, "resets_at": fiveHourResetsAt},
+			"seven_day": map[string]any{"used_percentage": sevenDayPct, "resets_at": sevenDayResetsAt},
+		},
+	}
+	if opts.SessionName != "" {
+		payload["session_name"] = opts.SessionName
+	}
+
+	env := map[string]any{"payload": payload}
+	if musterSession != 0 {
+		env["musterSession"] = musterSession
+	}
+	if tmuxPane != "" {
+		env["tmuxPane"] = tmuxPane
+	}
+	return marshal(env)
+}
+
 func marshal(v any) string {
 	b, err := json.Marshal(v)
 	if err != nil {

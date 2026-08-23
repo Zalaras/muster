@@ -242,6 +242,89 @@ export function envelopedStatusLinePreFirstResponse(
   return envelope(payload, { musterSession, tmuxPane });
 }
 
+interface StatusLineFullOpts extends EnvelopeOpts {
+  /** `session_name` — the title source (canary-fields.md); omitted entirely by default,
+   * matching the "absent from the earliest posts" measured behaviour. Pass a string to
+   * exercise REQ-4's title-refresh path. */
+  sessionName?: string;
+  /** Status line's `model` object shape — always `{id, display_name}` on the wire
+   * (canary-fields.md "Other fields"), never the hook's plain-string shape. Defaults to
+   * the measured Haiku capture. */
+  model?: { id: string; displayName: string };
+  /** `context_window.used_percentage` (0-100 scale, canary-fields.md). */
+  contextUsedPct?: number;
+  /** `context_window.total_input_tokens`. */
+  totalInputTokens?: number;
+  /** `context_window.context_window_size`. */
+  windowSize?: number;
+  /** `rate_limits.five_hour.used_percentage`. */
+  fiveHourPct?: number;
+  /** `rate_limits.five_hour.resets_at` — Unix epoch integer on the wire (canary-fields.md
+   * correction 2), converted to RFC3339 by `internal/claudecode`. Defaults to a fixed
+   * far-future instant so tests never depend on wall-clock "is this in the past". */
+  fiveHourResetsAt?: number;
+  /** `rate_limits.seven_day.used_percentage`. */
+  sevenDayPct?: number;
+  /** `rate_limits.seven_day.resets_at` — Unix epoch integer, see `fiveHourResetsAt`. */
+  sevenDayResetsAt?: number;
+}
+
+/**
+ * Enveloped status-line body, post-first-API-response shape (REQ-15): `context_window`'s
+ * percentages/current_usage are real numbers and `rate_limits` carries both buckets — the
+ * "present on every subsequent post for the life of that session" state from
+ * canary-fields.md. Every value defaults to a fixed, deterministic figure (no randomness,
+ * no wall-clock reads) so repeated calls with no overrides produce byte-identical
+ * payloads — required by E6/INV-5's exact-dedup assertion (two calls with the same
+ * options must be indistinguishable to the aggregator).
+ */
+export function envelopedStatusLineFull(sessionId: string, opts: StatusLineFullOpts = {}): Record<string, unknown> {
+  const {
+    musterSession = 1,
+    tmuxPane = "%12",
+    sessionName,
+    model = { id: "claude-haiku-4-5-20251001", displayName: "Haiku 4.5" },
+    contextUsedPct = 42,
+    totalInputTokens = 84000,
+    windowSize = 200000,
+    fiveHourPct = 61,
+    fiveHourResetsAt = 4070908800, // 2099-01-01T00:00:00Z — fixed, always future
+    sevenDayPct = 23,
+    sevenDayResetsAt = 4070908800,
+  } = opts;
+  const payload: Record<string, unknown> = {
+    session_id: sessionId,
+    transcript_path: "/tmp/t.jsonl",
+    cwd: "/tmp",
+    version: "2.1.233",
+    model: { id: model.id, display_name: model.displayName },
+    workspace: { current_dir: "/tmp", project_dir: "/tmp", added_dirs: [] },
+    output_style: { name: "default" },
+    thinking: { enabled: false },
+    fast_mode: false,
+    exceeds_200k_tokens: false,
+    context_window: {
+      context_window_size: windowSize,
+      used_percentage: contextUsedPct,
+      remaining_percentage: 100 - contextUsedPct,
+      total_input_tokens: totalInputTokens,
+      total_output_tokens: 49,
+      current_usage: {
+        input_tokens: 10,
+        output_tokens: 49,
+        cache_creation_input_tokens: 15558,
+        cache_read_input_tokens: 23318,
+      },
+    },
+    rate_limits: {
+      five_hour: { used_percentage: fiveHourPct, resets_at: fiveHourResetsAt },
+      seven_day: { used_percentage: sevenDayPct, resets_at: sevenDayResetsAt },
+    },
+  };
+  if (sessionName !== undefined) payload.session_name = sessionName;
+  return envelope(payload, { musterSession, tmuxPane });
+}
+
 /** A body that is not valid JSON at all (REQ-13's malformed-body drop path). */
 export const malformedJsonBody = "{not valid json";
 

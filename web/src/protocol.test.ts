@@ -74,6 +74,20 @@ describe("parseMessage — snapshot", () => {
     expect(parseMessage(snapshot)).toEqual(snapshot);
   });
 
+  it("parses a snapshot whose usage carries the M3 model field (REQ-11/12)", () => {
+    const snapshot = {
+      ...validSnapshot,
+      usage: {
+        fiveHour: { usedPct: 61.2, resetsAt: "2026-08-20T11:00:00Z" },
+        sevenDay: null,
+        model: { id: "claude-haiku-4-5", displayName: "Haiku 4.5" },
+        sampledAt: "2026-08-20T09:15:31Z",
+        source: "subscription",
+      },
+    };
+    expect(parseMessage(snapshot)).toEqual(snapshot);
+  });
+
   it("rejects a snapshot whose sessions field is not an array", () => {
     const snapshot = { ...validSnapshot, sessions: null };
     expect(parseMessage(snapshot)).toBeNull();
@@ -153,9 +167,67 @@ describe("parseMessage — prefs (M2 REQ-10/INV-4: the PUT /api/prefs echo broad
   });
 });
 
+describe("parseMessage — usage (M3 REQ-5/protocol §5.4: broadcast on value/model change)", () => {
+  const knownUsage = {
+    type: "usage",
+    usage: {
+      fiveHour: { usedPct: 61.2, resetsAt: "2026-08-23T11:00:00Z" },
+      sevenDay: { usedPct: 23.0, resetsAt: "2026-08-25T06:00:00Z" },
+      model: { id: "claude-opus-5", displayName: "Opus 5" },
+      sampledAt: "2026-08-23T09:15:31Z",
+      source: "subscription",
+    },
+  };
+
+  it("parses a fully-populated usage message including the M3 model field", () => {
+    expect(parseMessage(knownUsage)).toEqual(knownUsage);
+  });
+
+  it("parses the boot/no-hydration state: null buckets, no model key at all, null sampledAt (REQ-7)", () => {
+    const message = {
+      type: "usage",
+      usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
+    };
+    const parsed = parseMessage(message);
+    expect(parsed).toEqual(message);
+    // Distinguishes "no model key on the wire" from "model: null" — additive evolution
+    // (protocol.ts's parseUsage comment): the parsed object must not gain a synthesized key.
+    expect(parsed && "usage" in parsed && "model" in (parsed.usage as object)).toBe(false);
+  });
+
+  it("parses an explicit usage.model: null the same as an absent key (both mean 'no sample yet')", () => {
+    const message = { ...knownUsage, usage: { ...knownUsage.usage, model: null } };
+    expect(parseMessage(message)).toEqual(message);
+  });
+
+  it("rejects a usage.model missing displayName", () => {
+    const message = { ...knownUsage, usage: { ...knownUsage.usage, model: { id: "claude-opus-5" } } };
+    expect(parseMessage(message)).toBeNull();
+  });
+
+  it("rejects a usage.model that isn't an object", () => {
+    const message = { ...knownUsage, usage: { ...knownUsage.usage, model: "Opus 5" } };
+    expect(parseMessage(message)).toBeNull();
+  });
+
+  it("rejects a usage message missing the usage field", () => {
+    expect(parseMessage({ type: "usage" })).toBeNull();
+  });
+
+  it("rejects a usage message whose bucket has a non-numeric usedPct", () => {
+    const message = { ...knownUsage, usage: { ...knownUsage.usage, fiveHour: { usedPct: "61", resetsAt: "2026-08-23T11:00:00Z" } } };
+    expect(parseMessage(message)).toBeNull();
+  });
+
+  it("ignores unknown fields inside usage (additive evolution)", () => {
+    const message = { ...knownUsage, usage: { ...knownUsage.usage, futureField: 1 } };
+    expect(parseMessage(message)).toEqual(knownUsage);
+  });
+});
+
 describe("parseMessage — unknown/malformed envelopes", () => {
   it("ignores an unknown message type (forward compatibility, protocol §1)", () => {
-    expect(parseMessage({ type: "usage", usage: {} })).toBeNull();
+    expect(parseMessage({ type: "futureMessageType", payload: {} })).toBeNull();
   });
 
   it("ignores a message with no type field", () => {

@@ -132,6 +132,25 @@ func TestToWireSession_ContextGaugesAreAlwaysNullExceptCompactions(t *testing.T)
 	assert.Nil(t, w.Context.WindowSize)
 }
 
+// TestToWireSession_ContextGaugesPopulateAllThreeFieldsTogetherWhenPresent covers
+// m3-gauges REQ-4/INV-2: once a routed status post has filled Session.Context, all
+// three numeric fields render together (never a partial gauge), alongside compactions.
+func TestToWireSession_ContextGaugesPopulateAllThreeFieldsTogetherWhenPresent(t *testing.T) {
+	s := minimalSession()
+	s.Compactions = 2
+	s.Context = &session.Context{UsedPct: 42, TotalInputTokens: 84000, WindowSize: 200000}
+
+	w := toWireSession(s)
+
+	assert.Equal(t, 2, w.Context.Compactions)
+	require.NotNil(t, w.Context.UsedPct)
+	assert.Equal(t, 42.0, *w.Context.UsedPct)
+	require.NotNil(t, w.Context.TotalInputTokens)
+	assert.Equal(t, int64(84000), *w.Context.TotalInputTokens)
+	require.NotNil(t, w.Context.WindowSize)
+	assert.Equal(t, int64(200000), *w.Context.WindowSize)
+}
+
 // TestSessionWire_JSONShapeHasNoUnexpectedNulls pins the exact wire shape for a fully
 // populated session against the protocol's field names — a regression here means the
 // wire contract silently changed.

@@ -528,6 +528,161 @@ func TestNudge_AnAlreadyDeadSessionIsANoOp(t *testing.T) {
 	assert.Equal(t, firstCount, len(rec.all()), "a session already flipped dead must not broadcast again")
 }
 
+// TestApplyStatus_PersistsAndBroadcastsOnAChange covers REQ-4's happy path: a status
+// post carrying new title/model/context data persists the row and broadcasts once.
+func TestApplyStatus_PersistsAndBroadcastsOnAChange(t *testing.T) {
+	st := openTestStore(t)
+	rec := &upsertsRecorder{}
+	mgr := newTestManager(t, st, nil, rec.record)
+	dir := t.TempDir()
+	params := createParams(dir)
+	params.RepoID = seedRepo(t, st, dir)
+	sess, err := mgr.CreateSession(context.Background(), params)
+	require.NoError(t, err)
+	_, err = mgr.RecordLaunch(context.Background(), sess.ID, "muster:@1", "%1")
+	require.NoError(t, err)
+	before := len(rec.all())
+
+	title := "From Status Line"
+	final, err := mgr.ApplyStatus(context.Background(), sess.ID, claudecode.StatusUpdate{
+		Title:   &title,
+		Model:   &claudecode.StatusModel{ID: "claude-opus-5", DisplayName: "Opus 5"},
+		Context: &claudecode.StatusContext{UsedPct: 42, TotalInputTokens: 84000, WindowSize: 200000},
+	})
+	require.NoError(t, err)
+
+	require.NotNil(t, final.Title)
+	assert.Equal(t, "From Status Line", *final.Title)
+	require.NotNil(t, final.Model)
+	assert.Equal(t, "claude-opus-5", final.Model.ID)
+	require.NotNil(t, final.Context)
+	assert.Equal(t, 42.0, final.Context.UsedPct)
+
+	assert.Len(t, rec.all(), before+1, "a real change must broadcast exactly once")
+
+	persisted, err := st.GetSession(context.Background(), sess.ID)
+	require.NoError(t, err)
+	require.NotNil(t, persisted.ContextUsedPct)
+	assert.Equal(t, 42.0, *persisted.ContextUsedPct)
+	require.NotNil(t, persisted.ModelDisplayName)
+	assert.Equal(t, "Opus 5", *persisted.ModelDisplayName)
+}
+
+// TestApplyStatus_NoChangeDoesNotBroadcast covers REQ-4/INV-5's session-side twin:
+// status posts fire on every tool use, so applying the same data twice must not
+// double-broadcast a no-op sessionUpsert.
+func TestApplyStatus_NoChangeDoesNotBroadcast(t *testing.T) {
+	st := openTestStore(t)
+	rec := &upsertsRecorder{}
+	mgr := newTestManager(t, st, nil, rec.record)
+	dir := t.TempDir()
+	params := createParams(dir)
+	params.RepoID = seedRepo(t, st, dir)
+	sess, err := mgr.CreateSession(context.Background(), params)
+	require.NoError(t, err)
+	_, err = mgr.RecordLaunch(context.Background(), sess.ID, "muster:@1", "%1")
+	require.NoError(t, err)
+
+	update := claudecode.StatusUpdate{
+		Context: &claudecode.StatusContext{UsedPct: 42, TotalInputTokens: 84000, WindowSize: 200000},
+	}
+	_, err = mgr.ApplyStatus(context.Background(), sess.ID, update)
+	require.NoError(t, err)
+	afterFirst := len(rec.all())
+
+	_, err = mgr.ApplyStatus(context.Background(), sess.ID, update)
+	require.NoError(t, err)
+
+	assert.Equal(t, afterFirst, len(rec.all()), "an identical status update must not re-broadcast")
+}
+
+func TestApplyStatus_UnknownSessionErrors(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+
+	_, err := mgr.ApplyStatus(context.Background(), 999, claudecode.StatusUpdate{})
+
+	assert.Error(t, err)
+}
+
+// TestApplyStatus_NeverTouchesAttentionWhileNeedsInput is INV-1's manager-level twin
+// (E8's unit-level equivalent): a status post applied while a session is needs_input
+// must leave its state and attention exactly as they were.
+func TestApplyStatus_NeverTouchesAttentionWhileNeedsInput(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+	dir := t.TempDir()
+	params := createParams(dir)
+	params.RepoID = seedRepo(t, st, dir)
+	sess, err := mgr.CreateSession(context.Background(), params)
+	require.NoError(t, err)
+	_, err = mgr.RecordLaunch(context.Background(), sess.ID, "muster:@1", "%1")
+	require.NoError(t, err)
+	_, err = mgr.Apply(context.Background(), sess.ID, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindBind})
+	require.NoError(t, err)
+	promptID := "p1"
+	_, err = mgr.Apply(context.Background(), sess.ID, "claude-1", &promptID, claudecode.StateInput{Kind: claudecode.KindNeedsInputPermission})
+	require.NoError(t, err)
+
+	before, ok := mgr.Get(sess.ID)
+	require.True(t, ok)
+	require.Equal(t, StateNeedsInput, before.State)
+	require.NotNil(t, before.Attention)
+
+	title := "Renamed"
+	final, err := mgr.ApplyStatus(context.Background(), sess.ID, claudecode.StatusUpdate{Title: &title})
+	require.NoError(t, err)
+
+	assert.Equal(t, StateNeedsInput, final.State)
+	require.NotNil(t, final.Attention)
+	assert.Equal(t, before.Attention.Reason, final.Attention.Reason)
+	assert.True(t, before.Attention.Since.Equal(final.Attention.Since))
+}
+
+// TestApplyStatus_ModelDisplayNamePersistsAcrossARestart covers REQ-16: a restarted
+// daemon shows the real display name a status post provided, not one re-derived from
+// the model id.
+func TestApplyStatus_ModelDisplayNamePersistsAcrossARestart(t *testing.T) {
+	st := openTestStore(t)
+	dir := t.TempDir()
+	params := createParams(dir)
+	params.RepoID = seedRepo(t, st, dir)
+
+	mgr1 := newTestManager(t, st, nil, nil)
+	sess, err := mgr1.CreateSession(context.Background(), params)
+	require.NoError(t, err)
+	_, err = mgr1.RecordLaunch(context.Background(), sess.ID, "muster:@1", "%1")
+	require.NoError(t, err)
+	_, err = mgr1.ApplyStatus(context.Background(), sess.ID, claudecode.StatusUpdate{
+		Model: &claudecode.StatusModel{ID: "claude-haiku-4-5-20251001", DisplayName: "Haiku 4.5"},
+	})
+	require.NoError(t, err)
+
+	mgr2 := newTestManager(t, st, nil, nil)
+	require.NoError(t, mgr2.LoadAll(context.Background()))
+
+	got, ok := mgr2.Get(sess.ID)
+	require.True(t, ok)
+	require.NotNil(t, got.Model)
+	assert.Equal(t, "claude-haiku-4-5-20251001", got.Model.ID)
+	assert.Equal(t, "Haiku 4.5", got.Model.DisplayName, "REQ-16: the real display name must survive a restart, not be re-derived from the id")
+}
+
+// TestRowToSession_ModelDisplayNameFallsBackToIDForPreM3Rows covers REQ-16's other
+// half: a row written before M3 (or before any status post ever arrived) has a null
+// model_display_name column — rowToSession must fall back to the id, matching the
+// pre-M3 behaviour, rather than surfacing an empty display name.
+func TestRowToSession_ModelDisplayNameFallsBackToIDForPreM3Rows(t *testing.T) {
+	modelID := "sonnet"
+	row := store.SessionRow{ID: 1, Model: &modelID, ModelDisplayName: nil}
+
+	got := rowToSession(row)
+
+	require.NotNil(t, got.Model)
+	assert.Equal(t, "sonnet", got.Model.ID)
+	assert.Equal(t, "sonnet", got.Model.DisplayName)
+}
+
 func TestList_ReturnsClonesNotLiveReferences(t *testing.T) {
 	st := openTestStore(t)
 	mgr := newTestManager(t, st, nil, nil)

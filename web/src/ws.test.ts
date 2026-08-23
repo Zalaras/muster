@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Hello, PrefsMessage, Session, Snapshot } from "./protocol";
+import type { Hello, PrefsMessage, Session, Snapshot, Usage, UsageMessage } from "./protocol";
 import { backoffDelay, type SocketLike, WsClient, type WsClientHandlers } from "./ws";
 
 const hello: Hello = {
@@ -17,6 +17,16 @@ const snapshot: Snapshot = {
 };
 
 const prefsMessage: PrefsMessage = { type: "prefs", prefs: { view: "tiles", density: "3x2" } };
+
+const usage: Usage = {
+  fiveHour: { usedPct: 61.2, resetsAt: "2026-08-23T11:00:00Z" },
+  sevenDay: { usedPct: 23.0, resetsAt: "2026-08-25T06:00:00Z" },
+  model: { id: "claude-opus-5", displayName: "Opus 5" },
+  sampledAt: "2026-08-23T09:15:31Z",
+  source: "subscription",
+};
+
+const usageMessage: UsageMessage = { type: "usage", usage };
 
 const session: Session = {
   id: 1,
@@ -94,6 +104,7 @@ function makeHandlers(): WsClientHandlers & Record<string, ReturnType<typeof vi.
     onSnapshot: vi.fn(),
     onSessionUpsert: vi.fn(),
     onPrefs: vi.fn(),
+    onUsage: vi.fn(),
     onDisconnected: vi.fn(),
     onProtocolMismatch: vi.fn(),
   };
@@ -146,6 +157,14 @@ describe("WsClient.dispatch — pure message application, no socket involved", (
     const client = new WsClient("ws://x", handlers);
     client.dispatch(prefsMessage);
     expect(handlers.onPrefs).toHaveBeenCalledWith(prefsMessage.prefs);
+    expect(handlers.onSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("routes a usage message to onUsage with the bare usage object, not onSnapshot (M3 protocol §5.4)", () => {
+    const handlers = makeHandlers();
+    const client = new WsClient("ws://x", handlers);
+    client.dispatch(usageMessage);
+    expect(handlers.onUsage).toHaveBeenCalledWith(usage);
     expect(handlers.onSnapshot).not.toHaveBeenCalled();
   });
 });
@@ -204,6 +223,13 @@ describe("WsClient — full socket lifecycle via an injected fake socket", () =>
     sockets[0]!.emitOpen();
     sockets[0]!.emitMessage(JSON.stringify(prefsMessage));
     expect(handlers.onPrefs).toHaveBeenCalledWith(prefsMessage.prefs);
+  });
+
+  it("dispatches a usage frame to onUsage", () => {
+    client.start();
+    sockets[0]!.emitOpen();
+    sockets[0]!.emitMessage(JSON.stringify(usageMessage));
+    expect(handlers.onUsage).toHaveBeenCalledWith(usage);
   });
 
   it("ignores a binary (non-string) message frame", () => {

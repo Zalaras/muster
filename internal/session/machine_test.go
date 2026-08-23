@@ -133,6 +133,44 @@ func TestApplyInput_ClearRebind(t *testing.T) {
 		assert.Equal(t, "Old Model", sess.Model.DisplayName)
 	})
 
+	// m3-gauges REQ-9/D12: /clear starts a fresh conversation with no context data yet —
+	// the stale gauge from the previous conversation must not survive, alongside the
+	// existing compactions/lastActivity reset.
+	t.Run("explicit clear-rebind resets context to nil", func(t *testing.T) {
+		sess := newTestSession()
+		sess.ClaudeSessionID = "old-claude-id"
+		sess.Context = &Context{UsedPct: 84, TotalInputTokens: 168000, WindowSize: 200000}
+
+		applyInput(sess, "new-claude-id", nil, claudecode.StateInput{Kind: claudecode.KindClearRebind}, fixedNow)
+
+		assert.Nil(t, sess.Context)
+	})
+
+	t.Run("id-change escalation to clear-rebind also resets context to nil", func(t *testing.T) {
+		// The loss-tolerant auto-detection path (Edge Case 5) is still a real /clear —
+		// its context reset must fire exactly like the explicit-source path above.
+		sess := newTestSession()
+		sess.ClaudeSessionID = "old-claude-id"
+		sess.Context = &Context{UsedPct: 84, TotalInputTokens: 168000, WindowSize: 200000}
+
+		applyInput(sess, "new-claude-id", nil, claudecode.StateInput{Kind: claudecode.KindBind}, fixedNow)
+
+		assert.Nil(t, sess.Context)
+	})
+
+	t.Run("a plain bind with an unchanged claude session id leaves context untouched", func(t *testing.T) {
+		// Not a /clear — the pre-existing context must survive (mirrors the existing
+		// compactions/lastActivity assertions for this same non-clear path below).
+		sess := newTestSession()
+		sess.ClaudeSessionID = "claude-1"
+		sess.Context = &Context{UsedPct: 84, TotalInputTokens: 168000, WindowSize: 200000}
+
+		applyInput(sess, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindBind}, fixedNow)
+
+		require.NotNil(t, sess.Context)
+		assert.Equal(t, 84.0, sess.Context.UsedPct)
+	})
+
 	// review Critical 1: protocol §5.3's invariants ("attention non-null iff
 	// needs_input", "failure non-null iff failed") must hold across a clear-rebind.
 	// Before the fix, applyBind forced state=started without ever touching Attention/

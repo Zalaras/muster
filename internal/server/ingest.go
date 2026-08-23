@@ -13,6 +13,7 @@ import (
 	"github.com/Zalaras/muster/internal/claudecode"
 	"github.com/Zalaras/muster/internal/session"
 	"github.com/Zalaras/muster/internal/store"
+	"github.com/Zalaras/muster/internal/usage"
 )
 
 // ingestJob is a raw, not-yet-parsed ingest post. Parsing happens in the worker, not the
@@ -36,6 +37,10 @@ type ingestQueue struct {
 	// manager routes an event to its bound Muster session and feeds the §7 state
 	// machine (m1-sessions). Nil in tests that only exercise raw persistence.
 	manager *session.Manager
+
+	// usage receives a routed status post's account sample, when present (m3-gauges
+	// REQ-5/6). Nil in tests that only exercise raw persistence or the state machine.
+	usage *usage.Aggregator
 }
 
 func newIngestQueue(st *store.Store, log zerolog.Logger, size int) *ingestQueue {
@@ -122,9 +127,38 @@ func (q *ingestQueue) process(job ingestJob) {
 		return
 	}
 
+	// status_line never reaches Interpret/manager.Apply — it takes the ApplyStatus +
+	// aggregator.Record path instead (m3-gauges Implementation Notes: "the interpreter
+	// split"), so a status post's title/model/context refresh is broadcast only on real
+	// change (REQ-4/INV-5), never as a no-op sessionUpsert on every tool use.
+	if ev.Type == "status_line" {
+		q.processStatus(ctx, *sessionID, ev.Payload)
+		return
+	}
+
 	input := claudecode.Interpret(ev.Type, ev.Payload)
 	if _, err := q.manager.Apply(ctx, *sessionID, ev.SessionID, ev.PromptID, input); err != nil {
 		q.log.Warn().Err(err).Str("kind", string(job.kind)).Msg("applying ingest event to session state failed")
+	}
+}
+
+// processStatus applies one routed status-line post: title/model/context to the session
+// manager, then (only when the payload carried a complete account sample) the reading to
+// the usage aggregator — sequentially, on this single ingest worker goroutine, so seq
+// order and apply order stay the same thing by construction (R4, same guarantee as the
+// state machine's own Apply).
+func (q *ingestQueue) processStatus(ctx context.Context, sessionID int64, payload []byte) {
+	update := claudecode.InterpretStatus(payload)
+
+	if _, err := q.manager.ApplyStatus(ctx, sessionID, update); err != nil {
+		q.log.Warn().Err(err).Msg("applying status update to session failed")
+	}
+
+	if update.Account == nil || q.usage == nil {
+		return
+	}
+	if err := q.usage.Record(ctx, *update.Account); err != nil {
+		q.log.Warn().Err(err).Msg("recording usage sample failed")
 	}
 }
 

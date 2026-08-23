@@ -66,6 +66,12 @@ func TestInsertSession_NilOptionalFieldsRoundTripAsNil(t *testing.T) {
 	assert.Nil(t, row.Title)
 	assert.Nil(t, row.Model)
 	assert.False(t, row.FirstLaunchHere)
+
+	// m3-gauges REQ-8: InsertSession is untouched — the new columns default NULL.
+	assert.Nil(t, row.ModelDisplayName)
+	assert.Nil(t, row.ContextUsedPct)
+	assert.Nil(t, row.ContextTotalInputTokens)
+	assert.Nil(t, row.ContextWindowSize)
 }
 
 func TestGetSession_ReturnsErrorForUnknownID(t *testing.T) {
@@ -94,12 +100,16 @@ func TestUpdateSession_RoundTripsEveryField(t *testing.T) {
 	title := "Renamed"
 	branch := "feature/x"
 	model := "haiku"
+	modelDisplayName := "Haiku 4.5"
 	attentionReason := "permission"
 	attentionSince := time.Date(2026, 8, 22, 12, 0, 0, 0, time.UTC)
 	failureError := "server_error"
 	failureMessage := "boom"
 	lastActivity := "did the thing"
 	endedAt := time.Date(2026, 8, 22, 13, 0, 0, 0, time.UTC)
+	contextUsedPct := 42.0
+	contextTotalInputTokens := int64(84000)
+	contextWindowSize := int64(200000)
 
 	row.TmuxTarget = "muster:@4"
 	row.TmuxPane = &pane
@@ -112,6 +122,7 @@ func TestUpdateSession_RoundTripsEveryField(t *testing.T) {
 	row.PermissionMode = "plan"
 	row.PermissionModeSource = "hook"
 	row.Model = &model
+	row.ModelDisplayName = &modelDisplayName
 	row.Compactions = 4
 	row.AttentionReason = &attentionReason
 	row.AttentionSince = &attentionSince
@@ -121,6 +132,9 @@ func TestUpdateSession_RoundTripsEveryField(t *testing.T) {
 	row.Alive = false
 	row.EndedAt = &endedAt
 	row.FirstLaunchHere = false
+	row.ContextUsedPct = &contextUsedPct
+	row.ContextTotalInputTokens = &contextTotalInputTokens
+	row.ContextWindowSize = &contextWindowSize
 
 	require.NoError(t, st.UpdateSession(ctx, row))
 
@@ -143,7 +157,15 @@ func TestUpdateSession_RoundTripsEveryField(t *testing.T) {
 	assert.Equal(t, "hook", got.PermissionModeSource)
 	require.NotNil(t, got.Model)
 	assert.Equal(t, "haiku", *got.Model)
+	require.NotNil(t, got.ModelDisplayName)
+	assert.Equal(t, "Haiku 4.5", *got.ModelDisplayName)
 	assert.Equal(t, 4, got.Compactions)
+	require.NotNil(t, got.ContextUsedPct)
+	assert.Equal(t, 42.0, *got.ContextUsedPct)
+	require.NotNil(t, got.ContextTotalInputTokens)
+	assert.Equal(t, int64(84000), *got.ContextTotalInputTokens)
+	require.NotNil(t, got.ContextWindowSize)
+	assert.Equal(t, int64(200000), *got.ContextWindowSize)
 	require.NotNil(t, got.AttentionReason)
 	assert.Equal(t, "permission", *got.AttentionReason)
 	require.NotNil(t, got.AttentionSince)
@@ -183,6 +205,45 @@ func TestUpdateSession_CanClearPointerFieldsBackToNil(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, got.AttentionReason)
 	assert.Nil(t, got.AttentionSince)
+}
+
+// TestUpdateSession_ContextFieldsRoundTripAllOrNothingIncludingBackToNil covers INV-2's
+// storage-level twin: the three context columns travel all-non-nil (a real status post)
+// or all-nil (unknown / REQ-9's /clear reset) — this locks in both directions of that
+// round trip, not just the fill direction TestUpdateSession_RoundTripsEveryField covers.
+func TestUpdateSession_ContextFieldsRoundTripAllOrNothingIncludingBackToNil(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	repoID := seedTestRepo(t, st)
+
+	row, err := st.InsertSession(ctx, InsertSessionParams{RepoID: repoID, Directory: "/tmp/proj", PermissionMode: "default"})
+	require.NoError(t, err)
+
+	usedPct := 84.0
+	totalInputTokens := int64(168000)
+	windowSize := int64(200000)
+	row.ContextUsedPct = &usedPct
+	row.ContextTotalInputTokens = &totalInputTokens
+	row.ContextWindowSize = &windowSize
+	require.NoError(t, st.UpdateSession(ctx, row))
+
+	filled, err := st.GetSession(ctx, row.ID)
+	require.NoError(t, err)
+	require.NotNil(t, filled.ContextUsedPct)
+	assert.Equal(t, 84.0, *filled.ContextUsedPct)
+
+	// REQ-9: a /clear resets context back to all-nil — the persisted row must be able to
+	// travel back to unknown, not just forward to filled.
+	row.ContextUsedPct = nil
+	row.ContextTotalInputTokens = nil
+	row.ContextWindowSize = nil
+	require.NoError(t, st.UpdateSession(ctx, row))
+
+	cleared, err := st.GetSession(ctx, row.ID)
+	require.NoError(t, err)
+	assert.Nil(t, cleared.ContextUsedPct)
+	assert.Nil(t, cleared.ContextTotalInputTokens)
+	assert.Nil(t, cleared.ContextWindowSize)
 }
 
 func TestDeleteSession_RemovesTheRow(t *testing.T) {

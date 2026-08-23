@@ -254,6 +254,37 @@ func (m *Manager) Apply(ctx context.Context, musterSessionID int64, claudeSessio
 	return snapshot, nil
 }
 
+// ApplyStatus applies one routed status-line post's neutral StatusUpdate (REQ-4):
+// title, model, and context refresh, whichever fields the payload actually carried.
+// Persists and broadcasts sessionUpsert only when a surfaced field actually changed
+// (applyStatusUpdate's return value) — status posts fire on every tool use, and a
+// no-op upsert on every one of them would spam the wire (INV-5's session-side twin).
+// Never a state source (INV-1): applyStatusUpdate has no path to state/stateSince/
+// attention/failure/alive/compactions/permissionMode.
+func (m *Manager) ApplyStatus(ctx context.Context, musterSessionID int64, update claudecode.StatusUpdate) (*Session, error) {
+	m.mu.Lock()
+	sess, ok := m.sessions[musterSessionID]
+	if !ok {
+		m.mu.Unlock()
+		return nil, fmt.Errorf("apply status: unknown session %d", musterSessionID)
+	}
+
+	if !applyStatusUpdate(sess, update) {
+		snapshot := sess.Clone()
+		m.mu.Unlock()
+		return snapshot, nil
+	}
+	row := sessionToRow(sess)
+	snapshot := sess.Clone()
+	m.mu.Unlock()
+
+	if err := m.store.UpdateSession(ctx, row); err != nil {
+		return nil, fmt.Errorf("persisting status update for session %d: %w", musterSessionID, err)
+	}
+	m.broadcast(snapshot)
+	return snapshot, nil
+}
+
 // List returns every known session (order unspecified — the client sorts).
 func (m *Manager) List() []*Session {
 	m.mu.Lock()
@@ -391,12 +422,23 @@ func rowToSession(row store.SessionRow) *Session {
 		s.ClaudeSessionID = *row.ClaudeSessionID
 	}
 	if row.Model != nil {
-		// DisplayName is not persisted separately in M1 (the session table has one
-		// `model` column) — it re-derives from the same stored value across a
-		// restart, which loses the original launch string once SessionStart has
-		// overwritten the id. Not observable within one daemon lifetime; see
-		// daemon-implementation.md Decisions.
-		s.Model = &Model{ID: *row.Model, DisplayName: *row.Model}
+		// M3 (REQ-16): model_display_name persists the real display name once a
+		// status-line post has provided one, so a restart shows "Haiku 4.5" rather
+		// than re-deriving it from the id. Rows written before M3 (or before any
+		// status post arrived) have a null column — fall back to the id, matching
+		// the pre-M3 behaviour.
+		displayName := *row.Model
+		if row.ModelDisplayName != nil && *row.ModelDisplayName != "" {
+			displayName = *row.ModelDisplayName
+		}
+		s.Model = &Model{ID: *row.Model, DisplayName: displayName}
+	}
+	if row.ContextUsedPct != nil && row.ContextTotalInputTokens != nil && row.ContextWindowSize != nil {
+		s.Context = &Context{
+			UsedPct:          *row.ContextUsedPct,
+			TotalInputTokens: *row.ContextTotalInputTokens,
+			WindowSize:       *row.ContextWindowSize,
+		}
 	}
 	if row.AttentionReason != nil {
 		a := &Attention{Reason: *row.AttentionReason}
@@ -446,6 +488,16 @@ func sessionToRow(s *Session) store.SessionRow {
 	if s.Model != nil {
 		id := s.Model.ID
 		row.Model = &id
+		displayName := s.Model.DisplayName
+		row.ModelDisplayName = &displayName
+	}
+	if s.Context != nil {
+		usedPct := s.Context.UsedPct
+		totalInputTokens := s.Context.TotalInputTokens
+		windowSize := s.Context.WindowSize
+		row.ContextUsedPct = &usedPct
+		row.ContextTotalInputTokens = &totalInputTokens
+		row.ContextWindowSize = &windowSize
 	}
 	if s.Attention != nil {
 		reason := s.Attention.Reason

@@ -153,19 +153,22 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
       (`-S` iff it contains `/`); E2E harness, Go tests (`t.TempDir()`) and `test/rig`
       all use per-run scratch-dir sockets (check D12); leftover shared-dir sockets swept
 
-## M3 — Gauges
+## M3 — Gauges (plan `m3-gauges` approved 2026-08-23; run via `/orchestrate m3-gauges`)
 
-- [ ] Status-line POST ingestion, de-duplicated (posts arrive in close pairs ~435 ms apart).
-      Note: `event.received_at` is second-granularity RFC3339 since M0 — switch the stamp
-      to RFC3339Nano before relying on it to separate those pairs (M0 review minor)
-- [ ] Per-session context gauge — show absolute `total_input_tokens` alongside the
-      percentage (window size varies by model), plus a compaction counter from `PreCompact`
-      (the gauge reads 0% after `/compact`)
-- [ ] Account usage bars: `five_hour` and `seven_day`; `resets_at` is a Unix epoch int,
-      `used_percentage` a float
-- [ ] Render **"unknown", not an empty gauge**, before a session's first API response —
-      `rate_limits` is absent and the context fields are null (SPEC §9.9)
-- [ ] Persist `usage_sample` history
+- [x] Status-line POST ingestion, de-duplicated (posts arrive in close pairs ~435 ms apart).
+      Done 2026-08-23 (m3-gauges, review-approved cycle 2): value-level dedup in
+      `internal/usage.Aggregator`; `event.received_at` stamped RFC3339Nano (the M0 review
+      minor), though `seq` remains the only ordering authority
+- [x] Per-session context gauge — done 2026-08-23: card `.r3` + tile `.ctxinfo` render
+      track + rounded % + compact absolute tokens alongside the existing `⟳n` counter;
+      `hot` at ≥ 60%
+- [x] Account usage bars — done 2026-08-23: masthead design-system gauges for both buckets
+      + model readout; epoch `resets_at` converted in `internal/claudecode`, `warn` ≥ 60%
+- [x] Render **"unknown", not an empty gauge** — done 2026-08-23: null bucket/context
+      renders the word "unknown" with zero track markup, asserted on all three surfaces
+      (INV-3), null-is-not-0% asserted end-to-end (E2)
+- [x] Persist `usage_sample` history — done 2026-08-23: migration `0003_gauges.sql`,
+      rows written only on value change; no history UI in v1 (per plan)
 
 ## M4 — Durability → v1 complete
 
@@ -188,6 +191,24 @@ Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start
   If tile counts ever grow past 3×2, move to a per-session lock (same ordering guarantee,
   no cross-session serialization). The rejected-alternative reasoning is in
   `internal/server/terminal.go`'s `takeover` doc comment.
+- Layering note (m3 review cycle-1 Minor 3, ruled follow-up not fix): `internal/claudecode`
+  transitively depends on `internal/store`, because `InterpretStatus` returns the neutral
+  `usage.Sample` value type and that type shares a package with `Aggregator` (which holds
+  a `*store.Store`). No rule broken (D6 clean); when next touching `internal/usage`, split
+  the value types into their own package (or have `InterpretStatus` return its own bucket
+  triple that `internal/server` maps into a `Sample`) to keep the adapter boundary free of
+  the storage layer.
+- Staleness follow-up (m3 review Minor, honesty rule 8 "stale is labelled, not hidden"):
+  `usage.sampledAt` is on the wire but rendered nowhere, and an idle session emits no
+  status posts (measured — `refreshInterval` doesn't tick while idle), so the masthead
+  bars can be minutes stale with no cue. Deliberately scoped out of M3 (reference render
+  shows no sample age either); if it ever matters, render a sample-age cue from
+  `sampledAt` client-side.
+- Durability nit (m3 review cycle-2 Minor 4): `usage.Aggregator.Record` commits the new
+  sample to memory before persisting; a failed `InsertUsageSample` leaves snapshots
+  reporting values that have no row and dedups away the retry. Logged + returned error,
+  tiny local-SQLite window — persist before the in-memory commit (or roll back
+  `a.current` on error) next time the file is touched.
 
 ## Open questions carried forward
 
@@ -206,9 +227,10 @@ From `spikes/FINDINGS.md` "Still open" and SPEC §9. None block M0.
       API response ever emit usable usage data?
 - [ ] **Launch/worktree data-layer design** (SPEC §9.2) — genuinely unsettled; design during
       §2.5, revisit at §4.2.
-- [ ] **Usage-source interface shape** (SPEC §9.6) — how much structure to give it now
-      without building the API/OTel sources. Protocol-side seam settled 2026-08-20
-      (`usage.source` field, `docs/protocol.md` §5.4); the Go interface shape is still open.
+- [x] **Usage-source interface shape** (SPEC §9.6) — settled 2026-08-23 (m3-gauges
+      planning): a neutral `Sample` type + one aggregator in `internal/usage`; no Go
+      interface type until a second source exists. Protocol-side seam was already
+      settled 2026-08-20 (`usage.source` field, `docs/protocol.md` §5.4).
 - [x] **Hook command wrappers and the pane environment** — settled (probe 2026-08-20,
       against 2.1.237): the `SessionStart` wrapper and status-line script see both
       `$TMUX_PANE` and `tmux new-window -e`-injected vars, headless and interactive.

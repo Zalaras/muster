@@ -17,6 +17,8 @@ import {
   renderConnectionStatus,
   renderDensityControl,
   renderUsage,
+  renderUsageModel,
+  renderUsageTrack,
   renderViewSwitcher,
   type ConnectionStatus,
 } from "./render/masthead";
@@ -24,7 +26,7 @@ import { renderFocusMain, renderSessions, renderSizenote } from "./render/sessio
 import { buildTile, renderStrip, renderTileGeometry, updateTile, type TileRefs } from "./render/tiles";
 import { initLaunchModal, type LaunchModalElements } from "./render/launch";
 import { type ApiResult, putPrefs } from "./api";
-import { type Density, type Prefs, type Session, UNKNOWN_USAGE } from "./protocol";
+import { type Density, type Prefs, type Session, type Usage, UNKNOWN_USAGE } from "./protocol";
 import { applyDensity, densityCount, initialLive, promote, surfaceDiff } from "./sessions/live";
 import { SessionStore } from "./sessions/store";
 import { sortSessions } from "./sessions/sort";
@@ -44,6 +46,7 @@ function requireElements<T extends HTMLElement>(selector: string): T[] {
 const connectionStatusEl = requireElement<HTMLElement>("#connection-status");
 const usageFiveHourEl = requireElement<HTMLElement>("#usage-5h");
 const usageSevenDayEl = requireElement<HTMLElement>("#usage-7d");
+const usageModelEl = requireElement<HTMLElement>("#usage-model");
 const claudeVersionEl = requireElement<HTMLElement>("#claude-version");
 const bannerEl = requireElement<HTMLElement>("#banner");
 const sessionsEl = requireElement<HTMLElement>("#sessions");
@@ -78,6 +81,10 @@ let view: "focus" | "tiles" = "focus";
 let density: Density = "2x2";
 let focusedId: number | null = null;
 let tilesLive: number[] = [];
+// M3: the account-global Usage object, from the initial `snapshot` and every subsequent
+// `usage` broadcast (docs/protocol.md §5.4) — re-rendered every pass (like the rest of
+// `render()`) so REQ-14's reset-time formatting stays current against the wall clock.
+let currentUsage: Usage = UNKNOWN_USAGE;
 const surfaces = new Map<number, TerminalSurface>();
 // Tiles' mounted chrome per live session id — kept across render passes so the 1s tick
 // (and every other render trigger) updates existing tiles in place instead of rebuilding
@@ -91,6 +98,17 @@ const tileElements = new Map<number, TileRefs>();
 // served by that same daemon. Once we've seen a first `hello`, a later drop really is
 // the daemon going away, and the banner applies.
 let everConnected = false;
+
+/** The masthead's usage gauges: the M2-era text readout (`renderUsage`, unchanged) plus
+ * M3's track/resets markup (appended into the same elements — see renderUsageTrack's own
+ * doc comment for why call order matters here) and the model readout — all derived from
+ * the one `currentUsage` state so every surface always shows the same sample. */
+function renderUsageBlock(usage: Usage, now: Date): void {
+  renderUsage({ fiveHour: usageFiveHourEl, sevenDay: usageSevenDayEl }, usage);
+  renderUsageTrack(usageFiveHourEl, usage.fiveHour, now);
+  renderUsageTrack(usageSevenDayEl, usage.sevenDay, now);
+  renderUsageModel(usageModelEl, usage.model);
+}
 
 function setStatus(status: ConnectionStatus): void {
   renderConnectionStatus(connectionStatusEl, status);
@@ -288,6 +306,8 @@ function render(): void {
   const sessions = store.values();
   const now = new Date();
 
+  renderUsageBlock(currentUsage, now);
+
   if (view === "tiles") {
     tilesLive = applyDensity(tilesLive, densityCount(density), sessions);
   } else if (focusedId === null || !sessions.some((s) => s.id === focusedId)) {
@@ -349,7 +369,6 @@ window.addEventListener("keydown", (event) => {
   }
 });
 
-renderUsage({ fiveHour: usageFiveHourEl, sevenDay: usageSevenDayEl }, UNKNOWN_USAGE);
 renderClaudeVersion(claudeVersionEl, null);
 render();
 setStatus("connecting");
@@ -408,7 +427,7 @@ const client = new WsClient(wsUrl, {
   onSnapshot: (snapshot) => {
     store.replaceAll(snapshot.sessions);
     applyPrefsFromSnapshot(snapshot.prefs);
-    renderUsage({ fiveHour: usageFiveHourEl, sevenDay: usageSevenDayEl }, snapshot.usage);
+    currentUsage = snapshot.usage;
     reattachDisconnectedSurfaces();
     render();
   },
@@ -418,6 +437,10 @@ const client = new WsClient(wsUrl, {
   },
   onPrefs: (prefs) => {
     applyPrefsFromSnapshot(prefs);
+    render();
+  },
+  onUsage: (usage) => {
+    currentUsage = usage;
     render();
   },
   onDisconnected: () => {

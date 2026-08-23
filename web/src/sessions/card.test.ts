@@ -92,32 +92,6 @@ describe("buildCardViewModel — repo / branch line", () => {
   });
 });
 
-describe("buildCardViewModel — context row (honesty rule 1: unknown, never an empty gauge)", () => {
-  it("renders 'ctx unknown' with no compaction suffix when compactions is 0", () => {
-    const vm = buildCardViewModel(
-      makeSession({ id: 1, context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 } }),
-      NOW,
-    );
-    expect(vm.contextText).toBe("ctx unknown");
-  });
-
-  it("appends the compaction counter when compactions is positive (REQ-21)", () => {
-    const vm = buildCardViewModel(
-      makeSession({ id: 1, context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 3 } }),
-      NOW,
-    );
-    expect(vm.contextText).toBe("ctx unknown ⟳3");
-  });
-
-  it("renders 'ctx unknown' even when usedPct/totalInputTokens/windowSize are present (M1 never surfaces them — gauges are M3)", () => {
-    const vm = buildCardViewModel(
-      makeSession({ id: 1, context: { usedPct: 42, totalInputTokens: 1000, windowSize: 200000, compactions: 0 } }),
-      NOW,
-    );
-    expect(vm.contextText).toBe("ctx unknown");
-  });
-});
-
 describe("buildCardViewModel — activity", () => {
   it("is null when lastActivity is null (no Stop yet)", () => {
     const vm = buildCardViewModel(makeSession({ id: 1, lastActivity: null }), NOW);

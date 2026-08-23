@@ -12,6 +12,7 @@ import (
 	"github.com/Zalaras/muster/internal/session"
 	"github.com/Zalaras/muster/internal/store"
 	"github.com/Zalaras/muster/internal/tmux"
+	"github.com/Zalaras/muster/internal/usage"
 )
 
 // ClaudeCodeInfo is the daemon's startup snapshot of the installed Claude Code, used to
@@ -77,6 +78,7 @@ type Server struct {
 	ingest     *ingestQueue
 	hub        *wsHub
 	manager    *session.Manager
+	usage      *usage.Aggregator
 	launcher   *sessionLauncher
 	tmuxClient *tmux.Client
 	terminals  *terminalRegistry
@@ -116,6 +118,14 @@ func New(cfg Config) *Server {
 		},
 	})
 
+	s.usage = usage.NewAggregator(usage.Config{
+		Store:  cfg.Store,
+		Logger: cfg.Logger,
+		OnChange: func(snap usage.Snapshot) {
+			s.hub.broadcast(usageMessage{Type: "usage", Usage: toWireUsage(snap)})
+		},
+	})
+
 	claudeBin := cfg.ClaudeBin
 	if claudeBin == "" {
 		claudeBin = "claude"
@@ -134,6 +144,7 @@ func New(cfg Config) *Server {
 
 	q := newIngestQueue(cfg.Store, cfg.Logger, size)
 	q.manager = s.manager
+	q.usage = s.usage
 	s.ingest = q
 
 	s.routes()

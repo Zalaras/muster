@@ -57,8 +57,9 @@ type sessionWirePermissionMode struct {
 	Source string `json:"source"`
 }
 
-// sessionWireContext is always the "gauges are M3" shape in M1: the three numeric
-// fields stay null, only compactions is live (m1-sessions Protocol Contract).
+// sessionWireContext is the §5.3 M3 context gauge: the three numeric fields are always
+// all-null (unknown, INV-2) or all-non-null, populated only once a routed status-line
+// post has carried a non-null used-percentage (REQ-2); compactions is live since M1.
 type sessionWireContext struct {
 	UsedPct          *float64 `json:"usedPct"`
 	TotalInputTokens *int64   `json:"totalInputTokens"`
@@ -107,6 +108,14 @@ func toWireSession(s *session.Session) sessionWire {
 	}
 	if s.Model != nil {
 		w.Model = &sessionWireModel{ID: s.Model.ID, DisplayName: s.Model.DisplayName}
+	}
+	if s.Context != nil {
+		usedPct := s.Context.UsedPct
+		totalInputTokens := s.Context.TotalInputTokens
+		windowSize := s.Context.WindowSize
+		w.Context.UsedPct = &usedPct
+		w.Context.TotalInputTokens = &totalInputTokens
+		w.Context.WindowSize = &windowSize
 	}
 	if s.ClaudeSessionID != "" {
 		v := s.ClaudeSessionID

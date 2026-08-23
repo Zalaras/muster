@@ -24,6 +24,7 @@ type SessionRow struct {
 	PermissionMode       string
 	PermissionModeSource string
 	Model                *string
+	ModelDisplayName     *string // m3-gauges REQ-8/REQ-16; NULL = derive from Model (id)
 	Compactions          int
 	AttentionReason      *string
 	AttentionSince       *time.Time
@@ -34,6 +35,12 @@ type SessionRow struct {
 	EndedAt              *time.Time
 	FirstLaunchHere      bool
 	CreatedAt            time.Time
+
+	// Context gauge (m3-gauges REQ-8): always all-nil or all-non-nil (INV-2). NULL =
+	// unknown — a session that hasn't yet received a post-first-response status post.
+	ContextUsedPct          *float64
+	ContextTotalInputTokens *int64
+	ContextWindowSize       *int64
 }
 
 // InsertSessionParams seeds a new session row (REQ-1/REQ-2): state "started", the
@@ -107,16 +114,18 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 		UPDATE session SET
 			tmux_target = ?, tmux_pane = ?, claude_session_id = ?, directory = ?, branch = ?,
 			is_worktree = ?, title = ?, state = ?, state_since = ?, permission_mode = ?,
-			permission_mode_source = ?, model = ?, compactions = ?, attention_reason = ?,
-			attention_since = ?, failure_error = ?, failure_message = ?, last_activity = ?,
-			alive = ?, ended_at = ?, first_launch_here = ?
+			permission_mode_source = ?, model = ?, model_display_name = ?, compactions = ?,
+			attention_reason = ?, attention_since = ?, failure_error = ?, failure_message = ?,
+			last_activity = ?, alive = ?, ended_at = ?, first_launch_here = ?,
+			context_used_pct = ?, context_total_input_tokens = ?, context_window_size = ?
 		WHERE id = ?
 	`,
 		row.TmuxTarget, row.TmuxPane, row.ClaudeSessionID, row.Directory, row.Branch,
 		boolToInt(row.IsWorktree), row.Title, row.State, stateSince, row.PermissionMode,
-		row.PermissionModeSource, row.Model, row.Compactions, row.AttentionReason,
-		attentionSince, row.FailureError, row.FailureMessage, row.LastActivity,
-		boolToInt(row.Alive), endedAt, boolToInt(row.FirstLaunchHere),
+		row.PermissionModeSource, row.Model, row.ModelDisplayName, row.Compactions,
+		row.AttentionReason, attentionSince, row.FailureError, row.FailureMessage,
+		row.LastActivity, boolToInt(row.Alive), endedAt, boolToInt(row.FirstLaunchHere),
+		row.ContextUsedPct, row.ContextTotalInputTokens, row.ContextWindowSize,
 		row.ID,
 	)
 	if err != nil {
@@ -127,9 +136,10 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 
 const sessionColumns = `
 	id, tmux_target, tmux_pane, claude_session_id, repo_id, directory, branch, is_worktree,
-	title, state, state_since, permission_mode, permission_mode_source, model, compactions,
-	attention_reason, attention_since, failure_error, failure_message, last_activity, alive,
-	ended_at, first_launch_here, created_at
+	title, state, state_since, permission_mode, permission_mode_source, model,
+	model_display_name, compactions, attention_reason, attention_since, failure_error,
+	failure_message, last_activity, alive, ended_at, first_launch_here, created_at,
+	context_used_pct, context_total_input_tokens, context_window_size
 `
 
 func (s *Store) GetSession(ctx context.Context, id int64) (SessionRow, error) {
@@ -173,9 +183,10 @@ func scanSession(row rowScanner) (SessionRow, error) {
 	)
 	if err := row.Scan(
 		&r.ID, &r.TmuxTarget, &r.TmuxPane, &r.ClaudeSessionID, &r.RepoID, &r.Directory, &r.Branch, &isWorktree,
-		&r.Title, &r.State, &stateSince, &r.PermissionMode, &r.PermissionModeSource, &r.Model, &r.Compactions,
-		&r.AttentionReason, &attentionSince, &r.FailureError, &r.FailureMessage, &r.LastActivity, &alive,
-		&endedAt, &firstHere, &createdAt,
+		&r.Title, &r.State, &stateSince, &r.PermissionMode, &r.PermissionModeSource, &r.Model,
+		&r.ModelDisplayName, &r.Compactions, &r.AttentionReason, &attentionSince, &r.FailureError,
+		&r.FailureMessage, &r.LastActivity, &alive, &endedAt, &firstHere, &createdAt,
+		&r.ContextUsedPct, &r.ContextTotalInputTokens, &r.ContextWindowSize,
 	); err != nil {
 		return SessionRow{}, err
 	}

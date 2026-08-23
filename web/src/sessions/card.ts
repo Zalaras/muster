@@ -13,7 +13,6 @@ export interface CardViewModel {
   badge: string;
   timer: string;
   repoLine: string;
-  contextText: string;
   activity: string | null;
   noteKind: NoteKind;
   noteText: string | null;
@@ -59,20 +58,6 @@ function repoLine(session: Session): string {
     return `${session.repo.name} / ${branch}${worktree}`;
   }
   return basename(session.directory);
-}
-
-/** Honesty rule 1 (design-system §6): unknown context data renders the word "unknown"
- * with no gauge track — M1 never has a usedPct (gauges are M3). The compaction counter
- * is live (REQ-21) and is the only real number in this row during M1.
- *
- * TODO(M3): `session.context.usedPct` / `totalInputTokens` / `windowSize` are already
- * parsed and typed but unread here — once the daemon populates them this must render the
- * real percentage, and per honesty rule 2 (design-system §6.2) it may never show a bare
- * percentage: pair it with absolute tokens and the compaction count in the same row. */
-function contextText(session: Session): string {
-  const compactions = session.context.compactions;
-  const suffix = compactions > 0 ? ` ⟳${compactions}` : "";
-  return `ctx unknown${suffix}`;
 }
 
 /** Plan line 287 / design-system §3: the attention note pairs the reason with a
@@ -131,7 +116,6 @@ export function buildCardViewModel(session: Session, now: Date): CardViewModel {
     badge: BADGE_TEXT[session.state],
     timer: formatTimer(session.stateSince, now),
     repoLine: repoLine(session),
-    contextText: contextText(session),
     activity: session.lastActivity ? `last: ${session.lastActivity}` : null,
     noteKind,
     noteText,

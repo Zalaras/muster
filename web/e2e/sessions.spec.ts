@@ -357,7 +357,7 @@ test("killing the scratch tmux window greys the card without changing its badge 
   }
 });
 
-test("a status-line post persists and routes but mutates no session field in M1 (REQ-13)", async ({
+test("a status-line post persists, routes, and refreshes the title per M3 value semantics (REQ-4)", async ({
   page,
   request,
 }) => {
@@ -386,9 +386,12 @@ test("a status-line post persists and routes but mutates no session field in M1 
 
     const state = await getState(page, daemon);
     const found = state.sessions.find((s) => s.id === session.id);
-    // The status line's session_name must NOT have overwritten the launch title — that
-    // refresh is M3, not M1 (plan §7.3 scope note).
-    expect(found?.title).toBe("walk-status-line");
+    // M3 supersedes the M1 rule (protocol §5.3): the status line's session_name now
+    // refreshes `title` whenever present (REQ-4). This is sanctioned protocol-delta
+    // breakage of the old M1-era expectation, not an implementation defect — routing
+    // and event persistence (asserted above) are unaffected and still the point of
+    // this test.
+    expect(found?.title).toBe("a status-line-derived title");
   } finally {
     await cleanup();
   }

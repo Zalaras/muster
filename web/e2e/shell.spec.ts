@@ -58,9 +58,12 @@ test("GET /api/state returns exactly the M0 snapshot object once authenticated",
   // `prefs.density` was added by plan m2-terminal (protocol §3.3 delta, default "2x2"
   // before any PUT /api/prefs) — updated here so this M0 assertion tracks the merged
   // protocol contract rather than going stale the moment m2-terminal ships.
+  // `usage.model` was added by plan m3-gauges (protocol §5.4 delta) — present as an
+  // explicit null until the first status post carries buckets + model together, same
+  // as fiveHour/sevenDay/sampledAt — updated here for the same reason as density above.
   expect(body).toEqual({
     sessions: [],
-    usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
+    usage: { fiveHour: null, sevenDay: null, model: null, sampledAt: null, source: "subscription" },
     prefs: { view: "focus", density: "2x2" },
   });
 });

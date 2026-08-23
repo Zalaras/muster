@@ -116,7 +116,11 @@ type Event struct {
 // the same insert (MAX(seq)+1 scoped to that session). Safe under M0's single ingest
 // worker; it is not a general-purpose concurrent seq allocator.
 func (s *Store) InsertEvent(ctx context.Context, ev Event) error {
-	receivedAt := time.Now().UTC().Format(time.RFC3339)
+	// RFC3339Nano (m3-gauges REQ-10, M0 review minor): plain RFC3339's second granularity
+	// let two immediate inserts land with identical timestamps; readers parse with
+	// RFC3339Nano, which accepts both old (second-granularity) and new rows, and seq
+	// remains the only ordering authority regardless.
+	receivedAt := time.Now().UTC().Format(time.RFC3339Nano)
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO event (claude_session_id, seq, type, prompt_id, tool_use_id, muster_session, tmux_pane, payload, received_at, session_id)
 		VALUES (?, (SELECT COALESCE(MAX(seq), 0) + 1 FROM event WHERE claude_session_id = ?), ?, ?, ?, ?, ?, ?, ?, ?)

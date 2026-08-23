@@ -117,6 +117,9 @@ func applyBind(sess *Session, claudeSessionID string, input claudecode.StateInpu
 		// a first Stop". This part is genuinely /clear-only semantics, unlike the
 		// attention/failure reset above.
 		sess.LastActivity = nil
+		// m3-gauges REQ-9: a fresh conversation has no context data yet either — the
+		// next status post of the new conversation refills it.
+		sess.Context = nil
 	}
 	sess.setState(StateStarted, now)
 }

@@ -149,6 +149,10 @@ single primary action. No border-radius above 2px anywhere in the app.
 
 **Modal** — `--panel` on a 72%-opaque scrim, 1px `--line2` border, header rule, footer rule.
 
+**Gauge thresholds** — a masthead usage bar takes `warn` and a context track takes `hot`
+at **≥ 60% used** (settled by m3-gauges planning, 2026-08-23 — the mockups' 61%-warn /
+23%-plain examples made concrete).
+
 ## 6. Honesty rules — these are correctness, not taste
 
 `review-work` treats a violation of any of these as a **Critical** finding, because each one

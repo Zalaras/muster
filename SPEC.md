@@ -415,8 +415,10 @@ restarts/reconcile; WebSocket fanout pushes deltas to the UI.
    because a wider grid degrades gracefully while a narrower one silently loses content.
    Consequence for §2.1: the session list must **not** open a second live client at a smaller
    size — use a static snapshot. See `spikes/FINDINGS.md` §7.
-6. **Usage-source interface** — how much shape to give the pluggable usage source now
-   without building the API/OTel sources.
+6. **Usage-source interface** — ~~how much shape to give the pluggable usage source now
+   without building the API/OTel sources~~ **Resolved 2026-08-23** (m3-gauges planning):
+   a neutral `Sample` type + one aggregator (`internal/usage`); no Go interface type
+   until a second source exists. Wire seam (`usage.source`) settled 2026-08-20.
 7. **Risk: Claude Code interface churn** — mitigated (pin/canary/adapter) but not
    removable; standing tax on the project.
 8. **Risk: hook delivery gaps** — hooks can be missed (daemon down at event time);
@@ -687,3 +689,29 @@ preserved as `review.cycle-1.md`). Decisions amended or settled by the work:
 
 No new Claude-Code wire-format facts — M2 never touches a real claude (echo stub only);
 the new measured facts are tmux-side (FINDINGS §7 amendment).
+
+### 2026-08-23 — m3-gauges planning session (plan approved)
+
+M3's plan (`plans/m3-gauges/plan.md`) approved; protocol delta merged the same day
+(protocol §9 changelog). Decisions settled with Damian:
+
+- **§9 Q6 resolved (usage-source Go shape)** — a neutral `Sample` type + one aggregator
+  in a new `internal/usage` package; **no Go interface type** until a second source
+  exists. §2.3's "small usage-source interface" is satisfied by the source-agnostic
+  `Sample` shape plus the wire's `usage.source` field — API/OTel sources later mean a
+  new producer of `Sample`s, nothing else changes.
+- **No usage hydration across daemon restart** — account gauges read unknown until the
+  next status post; per-session context, by contrast, persists on the session row.
+- **Masthead model readout ships** — the Usage object gains a nullable `model`
+  (freshest sample's); flicker under mixed-model sessions accepted.
+- **Usage history is persist-only in v1** — `usage_sample` rows are written; no history
+  UI (any timeline rendering joins the post-v1 attention-ribbon family).
+- **Gauge warning thresholds: ≥ 60%** for both the context track (`hot`) and the usage
+  bars (`warn`) — recorded in `docs/design/design-system.md` §5.
+- **Dedup is by value, not timestamp** — a sample is recorded/broadcast only when bucket
+  values or model changed, which collapses the measured ~435 ms pair posts; the
+  `event.received_at` RFC3339Nano switch (M0 review minor) still lands but nothing
+  relies on it.
+
+No new wire-format facts; all carried-over status-line measurements re-validated against
+M3's design in the plan (no topology or lifecycle change touches them).

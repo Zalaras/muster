@@ -4,6 +4,7 @@
 // rail card per the plan's UI spec: "the M1 card content on its side".
 import type { Session } from "../protocol";
 import { buildCardViewModel } from "../sessions/card";
+import { renderContextRow } from "./context";
 import { buildSessionCardElement } from "./sessions";
 
 function requireTemplate(id: string): HTMLTemplateElement {
@@ -38,7 +39,7 @@ function updateTileChrome(root: HTMLElement, session: Session, now: Date): void 
 
   if (name) name.textContent = vm.title;
   if (where) where.textContent = vm.repoLine;
-  if (ctx) ctx.textContent = vm.contextText;
+  if (ctx) renderContextRow(ctx, session.context, "ctxinfo");
   if (timer) timer.textContent = vm.timer;
 }
 

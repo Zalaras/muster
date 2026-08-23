@@ -20,7 +20,7 @@ func TestBuildSnapshot_M0Shape(t *testing.T) {
 
 	assert.JSONEq(t, `{
 		"sessions": [],
-		"usage": {"fiveHour": null, "sevenDay": null, "sampledAt": null, "source": "subscription"},
+		"usage": {"fiveHour": null, "sevenDay": null, "model": null, "sampledAt": null, "source": "subscription"},
 		"prefs": {"view": "focus", "density": "2x2"}
 	}`, string(got))
 }
@@ -41,6 +41,7 @@ func TestHandleState_ReturnsSnapshotJSON(t *testing.T) {
 	assert.Empty(t, snap.Sessions)
 	assert.Nil(t, snap.Usage.FiveHour)
 	assert.Nil(t, snap.Usage.SevenDay)
+	assert.Nil(t, snap.Usage.Model)
 	assert.Nil(t, snap.Usage.SampledAt)
 	assert.Equal(t, "subscription", snap.Usage.Source)
 	assert.Equal(t, "focus", snap.Prefs.View)
