@@ -34,6 +34,7 @@ Before writing code, read neighbouring files in the package you are changing and
 - Hook handling: return 200 immediately, process asynchronously; assign `seq` at ingest; design for loss (best-effort, at-most-once, unordered, no timestamps).
 - Session identity keys on the tmux target, never Claude's `session_id`.
 - tmux always via a dedicated socket (`tmux -L muster`, or per-test sockets) — never the user's default server. Sizing drives `pty.Setsize` **and** `resize-window`; never rely on `resize-pane`.
+- **Ad-hoc verification probes follow the same socket hygiene as tests**: any throwaway tmux server you start to verify behaviour uses a `-S <path>` socket inside a scratch directory you delete, and you `kill-server` it when done. m2-terminal lesson: a quick `prefix None` probe used `-L` names and left socket files in the shared `/private/tmp/tmux-*/` dir — the exact litter that milestone existed to eliminate.
 - Never log hook payloads anywhere world-readable.
 - `context.Context` first parameter on anything that blocks or does I/O; the daemon shuts down gracefully.
 

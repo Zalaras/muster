@@ -148,6 +148,26 @@ started from `started` — the one state with nothing to leak. A "run every inpu
 every starting state, assert the invariant after" table is cheap; write it into the
 acceptance criteria explicitly.
 
+**Source states include multi-instance configurations.** When a per-session resource
+lives on shared infrastructure (a tmux socket, a registry, a pool), "every reachable
+source state" includes *with other sessions present* — and the invariant covers the
+bystanders ("killing one session never touches another's client/pane/socket"). All five
+m2-terminal review Criticals lived in exactly the states the plan's source-state lists
+omitted: multi-session death, and interaction inside the second view. If the plan ships
+an interactive surface in more than one view, the invariants section must name each
+hosting view as a state the round-trip is asserted from.
+
+#### Carried-over measurements (learned from m2-terminal)
+
+A measured value is evidence **for the configuration it was measured in**. When the plan
+makes a structural decision (a topology change, a lifecycle change, a new ownership
+model), every spike/FINDINGS value the plan carries forward must be re-examined against
+that decision before it becomes a requirement — in writing, per value, in the plan
+("re-checked against decision N: still valid because …"). m2-terminal carried the spike's
+`detach-on-destroy off` (measured under M1's shared-session topology) into the same plan
+that replaced that topology; under the new one it misrouted keystrokes into the wrong
+claude and cost a review cycle. The measurement was real; its applicability had expired.
+
 ### 8. Edge Cases and Error Handling
 
 Discuss edge cases and failure scenarios on both sides. For Muster, always cover the standing ones that apply: hook loss/duplication/reordering, `/clear` minting a new `session_id` in the same pane, daemon restart mid-session, no-data-yet nulls, tmux pane death without `SessionEnd`.
