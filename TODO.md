@@ -177,6 +177,17 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
 
 ## M4 — Durability → v1 complete
 
+**Plan split (decided 2026-08-25, after m4-hook-quoting; don't re-derive):**
+- **A `m4-reconcile`** — next. Reconcile on start + daemon-shutdown-vs-running-sessions
+  policy (one design question, decide together) + end/remove a session (reconcile needs a
+  "dead, confirmed" sink) + `--resume` on top. Also absorbs the D5 regression guard below.
+- **B `m4-hook-lifetime`** — after A. Per-directory hooks, never-removed hook entries, and
+  the "daemon down" surface: one root (`.claude/settings.local.json`), one protocol-shape
+  question (route HTTP hooks through a wrapper so failure can be silent). Depends on A's
+  end/remove flow if the reference-counting option is picked.
+- **C `m4-canary`** — independent. Unskip `test/canary/canary_test.go` (incl.
+  `TestCommandHookPathQuoting`); the pin-bump gate. Burns real subscription per run.
+
 - [ ] Reconcile on daemon start; tmux pane existence is the authority on liveness
       (`SessionEnd` never fires on `kill -9`)
 - [ ] **Stopping the daemon does not stop the sessions it launched** — observed 2026-08-25
