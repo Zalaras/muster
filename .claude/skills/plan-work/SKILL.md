@@ -61,6 +61,11 @@ Establish which tracks are affected. Ask the user to confirm:
 
 This determines which agents the orchestrator will invoke later.
 
+Also settle the **E2E Scope** header explicitly — the orchestrator must not infer it from prose:
+- **new-specs**: the plan adds Playwright specs (any plan with user-visible behaviour)
+- **harness-only**: no new spec, but an edit to `web/e2e/helpers/*` or fixtures is part of the deliverable (m4-hook-quoting's space-bearing scratch dir) — e2e-specs still runs, reporting `harness-only` then sweeping the full suite
+- **none**: nothing E2E-observable; Steps 1 and 5 are skipped
+
 ### 3. Define Requirements
 
 Work with the user to create clear, testable requirements. Each requirement should be:
@@ -203,6 +208,7 @@ Write the plan to `plans/<plan-name>/plan.md` using this structure. The template
 **Created**: <date>
 **Status**: draft | approved | in-progress | completed
 **Work Type**: daemon | web | full-stack
+**E2E Scope**: new-specs | harness-only | none
 **Description**: <one-line summary>
 
 ## Overview

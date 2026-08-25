@@ -138,7 +138,7 @@ Check:
 ### 8. Issue Classification
 
 **Critical** — must fix: requirements not implemented, tests failing, hard-rule violations (§4), build failures, protocol contract broken
-**Major** — should fix: missing error handling, missing test coverage, convention violations that aren't hard rules
+**Major** — must fix within the pipeline when a pipeline agent owns it: missing error handling, missing test coverage, convention violations that aren't hard rules. A Major tagged `[daemon-impl]`/`[web-impl]`/`[daemon-tests]`/`[web-tests]`/`[e2e-specs]` blocks `approved` — those agents exist precisely to fix such issues, and "approved with a Major" just hands the orchestrator a TODO line to write (m4-hook-quoting: D5's missing regression test shipped as a backlog entry instead of a five-minute wave-2 fix). A Major nobody in the pipeline can fix (doc upkeep, plan defect) is tagged `[orchestrator]` and does **not** block approval.
 **Minor** — nice to fix: style inconsistencies, naming improvements
 
 ## Output
@@ -210,8 +210,9 @@ Tag every issue with the responsible agent so the orchestrator knows where to ro
 - `[web-impl]` → web implementation agent
 - `[web-tests]` → web tests agent
 - `[e2e-specs]` → E2E test agent
+- `[orchestrator]` → nothing a pipeline agent may edit: `TODO.md` ticks, `SPEC.md` changelog, `docs/protocol.md` reconciliation, a plan defect (missing ```checks block, contradictory criteria), a manual-verification record the plan requires. The orchestrator's Doc-Upkeep Backstop and Completion steps own these. Do not tag doc upkeep `[daemon-impl]` — the impl agent may not touch `SPEC.md`, and the mis-route only surfaces at completion.
 
 ## Verdict Rules
 
-- **approved**: Zero critical issues, all tests pass, every authored acceptance check passes, hard-rule checklist clean, browser verification done and recorded (when there is UI), all must-have requirements verified
-- **needs-changes**: Any critical issue, test failures, or missing must-have requirements
+- **approved**: Zero Critical issues, **zero Major issues tagged to a pipeline agent** (`[orchestrator]`-tagged Majors are permitted and must be listed so the backstop can act on them), all tests pass, every authored acceptance check passes, hard-rule checklist clean, browser verification done and recorded (when there is UI), all must-have requirements verified
+- **needs-changes**: Any Critical issue, any agent-tagged Major, test failures, or missing must-have requirements

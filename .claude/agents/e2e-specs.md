@@ -52,6 +52,8 @@ This loads the config and **all** test files, so it catches duplicate test title
 
 Do **not** try to make tests pass in this mode, and do **not** weaken an assertion to accommodate code that isn't written yet. Finish with `**Verdict**: authored`.
 
+**Harness-only plans.** When the plan's `E2E Scope` is `harness-only` (or the orchestrator's prompt says so), your deliverable is the helper/fixture edit the plan names under Affected Files — not a new spec. Make the edit, run the collection gate, and in the Tests table list the *existing* spec files that now exercise the change. Finish with `**Verdict**: harness-only`: `authored` would claim tests you did not write, `pass` would claim a run that did not happen.
+
 **Collection is not validation.** A spec that collects cleanly can still contain locators that could never match anything. The pipeline's E2E Validate step exists to catch those, and you will be re-invoked for it.
 
 ### `validate` — implementation and unit tests are complete
@@ -163,7 +165,7 @@ Write your log to `plans/<plan-name>/test-specs.md`. In validate/fix mode, **app
 
 **Plan**: <plan-name>
 **Mode**: authoring | validate (attempt N) | fix (attempt N)
-**Verdict**: authored | pass | implementation-bug | blocked
+**Verdict**: authored | harness-only | pass | implementation-bug | blocked
 **Tests created**: <count>
 **Live run**: not run (authoring) | <passed>/<total> passing
 
@@ -218,6 +220,7 @@ Then state explicitly: `No assertion was deleted, skipped, or weakened.` If you 
 
 The **Verdict** field is what the orchestrator reads to decide next steps:
 - `authored` — authoring mode only: the collection gate is clean and the tests are not yet executable. **Never report `pass` in authoring mode.**
+- `harness-only` — authoring mode, harness-only plan: no new spec; the named helper/fixture edit is made and collection is clean. Validate mode later proves it by running the full suite.
 - `pass` — validate/fix mode: the spec file ran live and every test passed, with no assertion weakened
 - `implementation-bug` — your spec is correct but the implementation contradicts the plan. Every row of the **E2E Implementation Bugs** table must carry a `Route` tag; the orchestrator routes on it.
 - `blocked` — cannot run at all (harness broken, missing dependency). The orchestrator stops and reports.

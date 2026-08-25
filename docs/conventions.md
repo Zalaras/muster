@@ -35,6 +35,14 @@ first — never diverge silently in code.
 - Business logic never lives in HTTP handlers; handlers decode, delegate, encode.
 - Everything Claude-Code-format-specific stays in `internal/claudecode/` (CLAUDE.md hard
   rule — the review agent treats a leak as a critical issue).
+- **Doc comments must not contain `''` or a pair of backticks.** `gofmt` (Go ≥ 1.19)
+  reformats *doc* comments — the comment block directly above a declaration — and
+  rewrites two adjacent straight apostrophes to `”` (U+201D) and paired backticks to
+  `“`. Reproduced on go1.26.6 (2026-08-25): `// escapes each quote as '\''` became
+  `'\”`, silently, on `gofmt -w`. It bit three agents in one pipeline run. Describe a
+  quoting rule in prose in godoc ("a single quote becomes quote, backslash, quote,
+  quote") and keep the literal in code or in a comment *inside* the function body,
+  which gofmt leaves alone. Non-ASCII quotes in a `.go` file are a bug, not style.
 
 ## TypeScript / web
 

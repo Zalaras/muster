@@ -25,6 +25,10 @@ Before starting:
    - `daemon` → skip web agents; run the E2E steps only if the plan defines `E*` acceptance criteria (a daemon-only change can still be E2E-observable through the dashboard)
    - `web` → skip daemon agents
    - `full-stack` → run all agents
+3a. Check the **E2E Scope** field (plans before 2026-08-25 lack it — infer from the `E*` criteria and say so):
+   - `new-specs` → Step 1 authors tests; expected verdict `authored`
+   - `harness-only` → the plan's E2E deliverable is an edit to `web/e2e/helpers/*` or fixtures with no new spec (e.g. m4's space-bearing data dir); Step 1 still runs e2e-specs, expected verdict `harness-only`; Step 5 runs as the full-suite sweep
+   - `none` → skip Steps 1 and 5
 4. Determine the project root (the directory containing `.claude/`)
 5. Update plan status to "in-progress"
 
@@ -124,7 +128,15 @@ The implementation does not exist yet, so your tests are expected to fail if exe
 is the collection check only. Finish with Verdict: authored — do not report `pass`.
 ```
 
-Wait for completion. Verify `plans/<plan-name>/test-specs.md` was created and reports `**Verdict**: authored`. A `pass` verdict here means the agent misread its mode — the feature cannot exist yet. Step 5 is where these tests are proven to actually run.
+For an `E2E Scope: harness-only` plan, replace the last sentence with:
+```
+This plan authors no new spec: its E2E deliverable is the harness/fixture edit named in the
+plan's Affected Files. Make that edit, prove collection is still clean, list the existing
+spec files the change now covers, and finish with Verdict: harness-only — not `authored`
+(nothing was authored) and not `pass` (nothing ran).
+```
+
+Wait for completion. Verify `plans/<plan-name>/test-specs.md` was created and reports `**Verdict**: authored` (or `harness-only` for a harness-only plan). A `pass` verdict here means the agent misread its mode — the feature cannot exist yet. Step 5 is where these tests are proven to actually run.
 
 ### Step 2: Implementation Agents
 
@@ -231,7 +243,7 @@ Project root: <project-root>
 
 **Review Retry Logic**: If the review verdict is `needs-changes`:
 
-1. Read `review.md` and bucket every tagged issue by tag: `[daemon-impl]`, `[web-impl]`, `[daemon-tests]`, `[web-tests]`, `[e2e-specs]`.
+1. Read `review.md` and bucket every tagged issue by tag: `[daemon-impl]`, `[web-impl]`, `[daemon-tests]`, `[web-tests]`, `[e2e-specs]`. Issues tagged `[orchestrator]` are yours — never spawn an agent for them; handle them in the Doc-Upkeep Backstop / Completion step.
 2. **Do not fan all five out at once — they are not independent.** Group the non-empty buckets into waves per `## Fix Wave Ordering` below, and run the waves strictly in order. Within a wave, spawn its agents in parallel (multiple Task calls in one message); between waves, wait for completion and run the wave's gate.
 3. If a wave's gate fails, that wave's fix was incomplete. End the cycle there — count it against the review budget and report — rather than starting the next wave on a broken tree.
 4. **MANDATORY**: after the last wave completes and its gate passes, re-run the full suite fresh:
@@ -292,7 +304,22 @@ Two concrete ways a flat fan-out goes wrong: an impl agent moves or renames a sy
 
 ## State Tracking
 
-After each agent completes, update `plans/<plan-name>/orchestration-state.json`:
+After each agent completes, update `plans/<plan-name>/orchestration-state.json` **via the
+bundled script** — never by hand-editing or ad-hoc Python (the m4 run lost a step to a
+stale `cd`). Run from the project root:
+
+```bash
+S=.claude/skills/orchestrate/scripts/orch-state.py
+python3 $S <plan> init                              # pre-flight, fresh plan
+python3 $S <plan> done <step> --next <next-step>    # after a step's verdict is read
+python3 $S <plan> retry <step>                      # each fix/validate/review cycle
+python3 $S <plan> status blocked --step <step>      # on exhaustion
+python3 $S <plan> status completed                  # only after review = approved
+python3 $S <plan> reopen <step>                     # resume from blocked/completed
+python3 $S <plan> show
+```
+
+The file it maintains has this shape:
 
 ```json
 {
@@ -327,7 +354,7 @@ When `/orchestrate` is invoked for a plan that already has an `orchestration-sta
 - For the `current_step`, check if there's an existing output file with a verdict:
   - If the verdict is `needs-changes` or `implementation-bug`, enter the retry loop for that step (respecting existing `retry_counts`)
   - If no output file exists, run the step fresh
-- `test-specs.md` is written by **both** `e2e-specs` (Step 1) and `e2e-validate` (Step 5). Read its `**Mode**` field, not just its existence: `Mode: authoring` with `Verdict: authored` means Step 1 completed and Step 5 has not run. **Never treat `Verdict: authored` as satisfying Step 5.**
+- `test-specs.md` is written by **both** `e2e-specs` (Step 1) and `e2e-validate` (Step 5). Read its `**Mode**` field, not just its existence: `Mode: authoring` with `Verdict: authored` or `harness-only` means Step 1 completed and Step 5 has not run. **Never treat `Verdict: authored`/`harness-only` as satisfying Step 5.**
 - Continue the pipeline from there
 
 **`"blocked"`** — The pipeline previously hit max retries or an unrecoverable error:
@@ -392,6 +419,7 @@ State what you found and changed in the completion summary.
 When all steps pass AND the review verdict is "approved":
 1. Verify the review.md file on disk contains `**Verdict**: approved` — do NOT rely on memory
 2. Run the Doc-Upkeep Backstop above
+2a. Resolve every `[orchestrator]`-tagged issue in review.md: do the doc edit, or record it as a TODO.md entry in the right milestone if it is genuinely follow-up work. List each one and its disposition in the completion summary. An approved review may carry these; a `completed` pipeline may not leave them unaddressed.
 3. Update plan status to "completed"
 4. Update orchestration state status to "completed"
 5. Print a summary: what was done, files changed, retry count, and any notable issues
