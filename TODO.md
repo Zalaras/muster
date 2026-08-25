@@ -256,16 +256,15 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
       relocating the data dir — the `command` field is a shell command line, not a path
       field, so a tool writing a path into it must quote it, and `-data-dir` already
       accepts arbitrary paths. Work, in order:
-  - **Probe first — the fix is unsafe without it.** `/interface-probe` against the
-    installed binary, one instance stamped into a path *containing a space*
-    (`--model claude-haiku-4-5-20251001`, "say hi", killed after): (a) is a
-    `type:"command"` hook / `statusLine` shell-invoked at all — bare fails, quoted
-    delivers? (b) does quoting break a space-*free* path (the control — otherwise we
-    trade one bug for another)? (c) does `'…'` or `"…"` survive? If (a) says
-    not-a-shell, quoting is the wrong fix and the fallback is moving just the two
-    wrapper scripts to a space-free dir (e.g. `~/.local/share/muster/bin/`) with the
-    data dir staying put. Stamp the measured version in the finding (pin is 2.1.233,
-    installed 2.1.241; drift stays deferred per the M1 follow-up).
+  - [x] **Probe first — done 2026-08-25** (`/interface-probe`, against **2.1.245**;
+    `spikes/FINDINGS.md` 2026-08-25 addendum, `test/rig/captures/capture-{4,5}.jsonl`):
+    (a) **it is a shell** — the TUI printed `/bin/sh: /tmp/muster: No such file or
+    directory` for the bare space-bearing `SessionStart` command, while every http hook
+    in the same session arrived; the status line failed *silently* (no render, no post,
+    no error). (b) quoting a space-free path is harmless (control: bare/`'…'`/`"…"` all
+    delivered). (c) both `'…'` and `"…"` deliver on the space-bearing path. **Quoting is
+    the fix**; the relocate-the-scripts fallback is not needed. Bonus: `refreshInterval`
+    is seconds and ticks while idle (open question below closed).
   - Single-quote with `'` → `'\''` escaping, not double quotes — `"…"` still
     interpolates `$`, backticks and backslashes.
   - **`isMusterEntry` must match quoted *and* bare.** It recognizes Muster's own
@@ -321,7 +320,8 @@ Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start
   `internal/store`.
 - Staleness follow-up (m3 review Minor, honesty rule 8 "stale is labelled, not hidden"):
   `usage.sampledAt` is on the wire but rendered nowhere, and an idle session emits no
-  status posts (measured — `refreshInterval` doesn't tick while idle), so the masthead
+  status posts (measured without `refreshInterval`; the 2026-08-25 probe showed
+  `refreshInterval: 5` *does* tick every 5 s while idle), so the masthead
   bars can be minutes stale with no cue. Deliberately scoped out of M3 (reference render
   shows no sample age either); if it ever matters, render a sample-age cue from
   `sampledAt` client-side.
@@ -340,8 +340,10 @@ From `spikes/FINDINGS.md` "Still open" and SPEC §9. None block M0.
       with `source: "resume"` and the **same** `session_id`/`transcript_path`, so reconcile
       can re-bind deterministically. (Interactive resume / different-cwd not exercised.)
 - [x] **`Stop` alongside `StopFailure`?** Settled (H2 probe 2026-08-16): replaced, never both.
-- [ ] **`refreshInterval` unit** — proven not milliseconds; seconds-vs-ignored undetermined.
-      Matters only if usage must tick while idle.
+- [x] **`refreshInterval` unit** — settled 2026-08-25 (quoting probe, 2.1.245): **seconds,
+      and honoured while idle** — `refreshInterval: 5` posted every 5.00 s through 60 s of
+      idle. Relevant to the M5+ staleness follow-up: setting it is enough to keep the
+      masthead bars ticking; the usage dedup absorbs the repeats.
 - [ ] **Hook ordering under heavy concurrency** — no inversion observed at four parallel
       tool calls; low risk given turn-level transitions.
 - [ ] **`StopFailure` error taxonomy** — 2 of 9 types induced; 7 unobserved.

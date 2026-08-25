@@ -263,8 +263,9 @@ by a debounced re-render. Muster should de-duplicate near-simultaneous posts bef
 and 58 s** occurred with no post at all. That **rules out milliseconds** — at ms units the
 first gap alone would have yielded ~127 posts. It is consistent with either seconds
 (1000 s ≈ 16.7 min, never elapsed in these sessions) *or* the setting being ignored
-entirely; this spike cannot distinguish those two. **Unit: UNVERIFIED.** Test with a small
-value before relying on it.
+entirely; this spike cannot distinguish those two. ~~**Unit: UNVERIFIED.**~~ **Settled
+2026-08-25 (2.1.245): seconds, honoured while idle** — `refreshInterval: 5` ticked every
+5.00 s through a 60 s idle stretch (see the 2026-08-25 addendum).
 
 Practical consequence either way: an **idle session emits no status-line posts**, so its
 usage figures go stale between turns. Whether that is fixable via `refreshInterval` is
@@ -538,8 +539,11 @@ can read, edit and execute in that folder.
    `session_id` and `transcript_path` as the original session. Titles are Muster-side state
    keyed to the session, so same-id resume makes re-binding (title included) deterministic.
    Interactive resume and resume-into-a-different-cwd were not exercised.
-2. **`refreshInterval` unit.** Proven not to be milliseconds; seconds-vs-ignored is
-   undetermined. Matters only if the dashboard needs usage to tick during idle.
+2. ~~**`refreshInterval` unit.**~~ — **RESOLVED (2026-08-25, quoting probe, 2.1.245):
+   seconds, and honoured while idle.** `refreshInterval: 5` produced a post every 5.00 s
+   through a 60 s idle stretch (12 ticks, 2 of 2 interactive sessions). See the
+   2026-08-25 addendum. The 2.1.233 observation (no ticks at `1000`) was simply a value
+   that never elapsed.
 3. **Hook ordering under heavy concurrency** — interleaving confirmed at four parallel tool
    calls, no inversion observed (§5c). Low risk given turn-level transitions.
 4. **Whether `StopFailure` covers *all* turn-ending errors.** Two error types were induced;
@@ -580,3 +584,53 @@ when convenient):
    Consequences: `/clear` is directly detectable by `source`, and a `SessionEnd` whose
    reason is `"clear"` must not be treated as a liveness hint — the pane is alive and a
    successor session_id is about to bind.
+
+
+---
+
+## Addendum — command-path quoting probe (2026-08-25, against 2.1.245)
+
+Run for the TODO M4 "command-hook paths are not shell-quoted" entry: Muster writes bare
+script paths into `hooks.SessionStart[].command` and `statusLine.command`, and the default
+macOS data dir (`~/Library/Application Support/Muster`) contains a space. Evidence:
+`test/rig/captures/capture-4.jsonl` (instance stamped under `/tmp/muster probe/…`, with a
+space) and `capture-5.jsonl` (control, `/tmp/muster-probe/…`). Installed binary
+**2.1.245** — twelve minors past the 2.1.233 pin; drift stays deferred per the M1
+follow-up. Each variant: `-p "say hi"`, haiku, plus interactive tmux runs for the status
+line (which never runs headless).
+
+| path | `command` form | `SessionStart` (command) delivered | status line rendered + posted |
+|---|---|---|---|
+| with space | bare | **no** (0/2: 1 headless, 1 interactive) | **no** (0/1, silent) |
+| with space | `'…'` | yes (2/2) | yes (1/1, `MUSTER-PROBE`) |
+| with space | `"…"` | yes (1/1 headless) | not run |
+| no space (control) | bare | yes (1/1) | not run (M1–M3 already live on this) |
+| no space (control) | `'…'` | yes (2/2) | yes (1/1) |
+| no space (control) | `"…"` | yes (1/1 headless) | not run |
+
+1. **(a) It is a shell.** The interactive bare-with-space run printed, under the prompt,
+   `SessionStart:startup hook error` / `Failed with non-blocking status code: /bin/sh:
+   /tmp/muster: No such file or directory` — `/bin/sh -c` word-splitting the path. In the
+   same session every `type:"http"` hook (`UserPromptSubmit`, `Stop`, `SessionEnd`)
+   arrived normally, so the gap is exactly the two command-invoked entries. Headless `-p`
+   shows nothing at all, which is why the real daemon never saw the defect.
+2. **The status line fails silently.** No render, no post, no error line — the pane just
+   has no status row. This is the worse of the two failures: nothing in the TUI hints at
+   it, and the M3 masthead reads "unknown" forever with no diagnostic anywhere.
+3. **(c) Both quote styles deliver.** `'…'` and `"…"` each delivered `SessionStart` on the
+   space-bearing path; `'…'` also drove the status line. Muster should use single quotes
+   with `'` → `'\''` escaping (double quotes still interpolate `$`, backticks, `\`).
+4. **(b) Quoting a space-free path is harmless.** Control: bare, `'…'` and `"…"` all
+   delivered; `'…'` drove the status line interactively. So the fix does not trade one
+   bug for another, and `isMusterEntry` still has to recognise the *existing* bare
+   entries in already-instrumented directories (TODO M4).
+5. **Bonus — `refreshInterval` settled (open item 2).** The rig sets `refreshInterval: 5`;
+   both interactive sessions posted every 5.00 s ± 0.02 through 60 s of idle (12 ticks),
+   plus the usual event-driven posts. Unit is **seconds** and idle polling **does** happen
+   when it is set — the 2.1.233 "no idle polling" observation was a `1000` that never
+   elapsed. Consequence for the M5+ staleness follow-up: if Muster wants live bars during
+   idle, setting `refreshInterval` in the written `statusLine` block is sufficient; the
+   dedup already in `internal/usage` absorbs the extra identical posts.
+
+Fallback that was on the table (relocate the wrapper scripts to a space-free dir) is not
+needed; quoting is the correct fix.

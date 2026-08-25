@@ -158,9 +158,13 @@ Event-driven, **not** interval-driven: posts follow tool activity and assistant 
 (typically within ~50 ms of a `PostToolUse`), and arrive in **close pairs** median 435 ms
 apart. De-duplicate near-simultaneous posts before persisting a `usage_sample`.
 
-**`refreshInterval` is in seconds, not milliseconds.** With `refreshInterval: 1000`, idle
-gaps of 127 s / 83 s / 58 s produced no posts at all — `1000` meant ~16.7 minutes. An idle
-session emits nothing, so usage figures go stale between turns.
+**`refreshInterval` is in seconds, not milliseconds — and it does tick while idle.**
+With `refreshInterval: 1000` (2.1.233), idle gaps of 127 s / 83 s / 58 s produced no posts
+at all — `1000` meant ~16.7 minutes. With `refreshInterval: 5` (2.1.245, 2026-08-25
+quoting probe, `test/rig/captures/capture-4.jsonl`), an interactive session posted every
+**5.00 s ± 0.02** for a 60 s idle stretch (12 consecutive idle ticks, 2 of 2 interactive
+sessions), interleaved with the usual event-driven posts. Without `refreshInterval`, an
+idle session emits nothing and usage figures go stale between turns.
 
 ### `session_name` — the title source
 
@@ -229,4 +233,15 @@ recycled PID. Use `pgrep -f` on the exact command line.
   `docs/protocol.md` §4.2's envelope binding work.
 - `CLAUDE_CONFIG_DIR` isolates settings, hooks and transcripts but **breaks subscription
   OAuth** ("Not logged in · Please run /login"). Not usable for managed sessions.
-- `statusLine.refreshInterval` is accepted at project scope.
+- `statusLine.refreshInterval` is accepted at project scope (and honoured — see cadence).
+- **`type:"command"` hook `command` and `statusLine.command` are shell command lines,
+  run via `/bin/sh -c` — NOT argv paths** (2.1.245, 2026-08-25 probe, captures 4 and 5).
+  A bare script path containing a space is word-split: the `SessionStart` command hook
+  surfaces `Failed with non-blocking status code: /bin/sh: /tmp/muster: No such file or
+  directory` in the TUI (headless `-p`: no output at all), and the status line **fails
+  silently** — no render, no post, no error line. Both `'…'` and `"…"` quoting deliver on
+  a space-bearing path (3 headless + 2 interactive sessions), and quoting a space-free
+  path is harmless (control: bare/`'…'`/`"…"` all delivered, 3 headless + 1 interactive).
+  Muster must single-quote the paths it writes into these fields (`docs/protocol.md` §4.2
+  rule; TODO M4). Canary: assert `SessionStart` delivery *and* a status-line post from a
+  data dir whose path contains a space.

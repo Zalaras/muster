@@ -715,3 +715,17 @@ M3's plan (`plans/m3-gauges/plan.md`) approved; protocol delta merged the same d
 
 No new wire-format facts; all carried-over status-line measurements re-validated against
 M3's design in the plan (no topology or lifecycle change touches them).
+
+### 2026-08-25 — command-path quoting probe (against 2.1.245)
+
+`/interface-probe` for the M4 shell-quoting defect (`spikes/FINDINGS.md` 2026-08-25
+addendum). Two facts settled, no decision reopened:
+
+- **`hooks[].command` and `statusLine.command` are `/bin/sh -c` command lines**, not
+  paths: a bare path with a space word-splits (TUI shows `/bin/sh: /tmp/muster: No such
+  file or directory` for the hook; the status line fails silently). Both `'…'` and `"…"`
+  deliver; quoting a space-free path is harmless. Muster will single-quote at the write
+  boundary (M4) — the default data dir under `~/Library/Application Support` stays.
+- **§7's `refreshInterval` note is now measured**: seconds, and it does drive idle posts
+  (`5` → a post every 5.00 s through 60 s of idle). Closes the last open item from the
+  step-1 spikes about status-line cadence.
