@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 )
 
 // hookTimeoutSeconds is the timeout Muster registers on every hook it owns — never 5
@@ -28,8 +29,20 @@ var httpHookEvents = []string{
 type SettingsConfig struct {
 	HookURL             string // single ingest URL for every plain-HTTP hook event
 	StatusURL           string // ingest URL for the status-line post
-	SessionStartCommand string // absolute path to the generated SessionStart wrapper script
-	StatusLineCommand   string // absolute path to the generated status-line wrapper script
+	SessionStartCommand string // absolute path to the generated SessionStart wrapper script — raw, unquoted; MergeSettings quotes it (shellQuote) at the write boundary
+	StatusLineCommand   string // absolute path to the generated status-line wrapper script — raw, unquoted; MergeSettings quotes it (shellQuote) at the write boundary
+}
+
+// shellQuote returns s as a single-quoted POSIX shell word, safe to place verbatim into
+// a command string handed to `/bin/sh -c` (docs/protocol.md §4.2 "Command fields are
+// shell command lines"). A literal quote character inside s is escaped by closing the
+// quoted word, emitting a backslash-escaped quote, and reopening — see the
+// implementation below for the exact four-character replacement. No other character
+// needs handling inside single quotes. Kept unexported here — a second user elsewhere
+// would be a boundary smell (D7: quoting is a write-time concern of internal/claudecode
+// alone).
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 type hookEntry struct {
@@ -54,15 +67,27 @@ var musterIngestPath = regexp.MustCompile(`^/ingest/[^/]+/(hook|status)$`)
 // isMusterEntry reports whether e is one of Muster's own generated hook entries (as
 // opposed to a hook some other tool or the user registered on the same event) — REQ-4's
 // "preserves all keys Muster does not own" applies within an owned event's hook array
-// too (Edge Case 9), not just to whole top-level keys.
+// too (Edge Case 9), not just to whole top-level keys. A command entry matches on either
+// the quoted form MergeSettings now writes or the legacy bare form earlier versions
+// wrote (REQ-3), so an already-instrumented directory's stale bare entry is dropped and
+// replaced by the quoted one, not duplicated alongside it (plan Edge Case 1).
 func isMusterEntry(e hookEntry, cfg SettingsConfig) bool {
 	if e.Type == "http" {
 		if u, err := url.Parse(e.URL); err == nil && musterIngestPath.MatchString(u.Path) && isLoopbackHost(u.Hostname()) {
 			return true
 		}
 	}
-	if e.Type == "command" && (e.Command == cfg.SessionStartCommand || e.Command == cfg.StatusLineCommand) {
-		return true
+	if e.Type == "command" {
+		for _, p := range [...]string{cfg.SessionStartCommand, cfg.StatusLineCommand} {
+			// Guard p != "" (m4-hook-quoting Implementation Notes): an empty configured
+			// path must never match a foreign entry with an empty command — the existing
+			// code had the same latent issue before quoting made it worth fixing in
+			// passing, since shellQuote("") would otherwise introduce a new spurious "''"
+			// match.
+			if p != "" && (e.Command == p || e.Command == shellQuote(p)) {
+				return true
+			}
+		}
 	}
 	return false
 }
@@ -115,7 +140,12 @@ func foreignHookGroups(raw json.RawMessage, cfg SettingsConfig) ([]hookGroup, er
 // yet), preserving every key and every hook event Muster doesn't own, and every foreign
 // hook entry *within* an event Muster does own (REQ-4, D7, Edge Case 9). Muster's own
 // entries are replaced wholesale each call, so a token/port change heals itself;
-// calling this twice with the same cfg produces byte-identical output.
+// calling this twice with the same cfg produces byte-identical output. The two
+// type:"command" entries (SessionStart, statusLine) are `/bin/sh -c` command lines, not
+// path fields (docs/protocol.md §4.2 "Command fields are shell command lines"), so the
+// configured script path is written through shellQuote — a bare space-bearing path
+// (the default macOS data dir, `~/Library/Application Support/Muster`) would otherwise
+// word-split and fail to execute (REQ-1).
 func MergeSettings(existing []byte, cfg SettingsConfig) ([]byte, error) {
 	doc := map[string]json.RawMessage{}
 	if len(existing) > 0 {
@@ -147,11 +177,11 @@ func MergeSettings(existing []byte, cfg SettingsConfig) ([]byte, error) {
 		return nil, fmt.Errorf("parsing existing settings.local.json hooks[%q]: %w", "SessionStart", err)
 	}
 	hooks["SessionStart"] = mustMarshal(append(foreignSessionStart, hookGroup{Hooks: []hookEntry{
-		{Type: "command", Command: cfg.SessionStartCommand, Timeout: hookTimeoutSeconds},
+		{Type: "command", Command: shellQuote(cfg.SessionStartCommand), Timeout: hookTimeoutSeconds},
 	}}))
 	doc["hooks"] = mustMarshal(hooks)
 
-	doc["statusLine"] = mustMarshal(hookEntry{Type: "command", Command: cfg.StatusLineCommand})
+	doc["statusLine"] = mustMarshal(hookEntry{Type: "command", Command: shellQuote(cfg.StatusLineCommand)})
 
 	var allowed []string
 	if raw, ok := doc["allowedHttpHookUrls"]; ok {

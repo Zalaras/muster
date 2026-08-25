@@ -729,3 +729,25 @@ addendum). Two facts settled, no decision reopened:
 - **§7's `refreshInterval` note is now measured**: seconds, and it does drive idle posts
   (`5` → a post every 5.00 s through 60 s of idle). Closes the last open item from the
   step-1 spikes about status-line cadence.
+
+### 2026-08-25 — M4 command-path quoting shipped (plan `m4-hook-quoting`, via `/orchestrate`)
+
+Closes the live bug behind M3's gauges never having rendered real data. Settled as
+implemented:
+
+- **`MergeSettings` single-quotes both command-hook paths** (`hooks.SessionStart[].command`,
+  `statusLine.command`) at the write boundary — `'`→`'\''` — via unexported `shellQuote` in
+  `internal/claudecode`. `SettingsConfig` keeps raw paths; nothing outside the package
+  quotes. `isMusterEntry` matches both the quoted and legacy bare forms for both script
+  paths, so an already-instrumented directory's stale bare entry is replaced, never
+  duplicated. Recorded in `docs/protocol.md` §4.2.
+- **The wrapper-script chain is now executed in tests**: `internal/server/settings_shell_test.go`
+  takes both `command` strings verbatim from the generated `settings.local.json` and runs
+  them through `sh -c` from a space-bearing data dir against a live handler (SessionStart
+  binds; status line yields a routed `status_line` event and a `usage_sample` row). The E2E
+  harness mints its scratch data dir as `"muster e2e-"` so all 71 specs run on the
+  production path shape. `test/canary/canary_test.go` carries `TestCommandHookPathQuoting`
+  (skipped, `needsHarness`) as the pin-bump assertion.
+- Review (Opus) manually reproduced the bare-path failure (`rc=127`) and the quoted-path fix
+  end-to-end on a real daemon at `/tmp/muster manual review/data`. The REQ-9 record against
+  the real default data dir with a real haiku session is still to be filled in by Damian.

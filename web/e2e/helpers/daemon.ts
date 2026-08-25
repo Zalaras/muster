@@ -121,7 +121,13 @@ export class ScratchDaemon {
 
   static async start(): Promise<ScratchDaemon> {
     const port = await freePort();
-    const dataDir = await mkdtemp(join(tmpdir(), "muster-e2e-"));
+    // M4 (plan m4-hook-quoting, REQ-6/E1): the prefix contains a literal space so every
+    // scratch daemon's data dir exercises the production path shape — the default macOS
+    // data dir (`~/Library/Application Support/Muster`) contains a space, and until this
+    // change no E2E run ever exercised the shell-quoting path the two command hooks rely
+    // on (spikes/FINDINGS.md 2026-08-25 addendum). Do not "fix" a spec that breaks on the
+    // space — that's the harness doing its job; report it instead (plan Affected Files).
+    const dataDir = await mkdtemp(join(tmpdir(), "muster e2e-"));
     const daemon = new ScratchDaemon(port, dataDir);
     await mkdir(daemon.browseRoot, { recursive: true });
     await daemon.writeStubClaude();

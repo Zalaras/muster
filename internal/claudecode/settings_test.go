@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -52,12 +53,17 @@ func TestMergeSettings_FreshFileRegistersEveryHTTPHookEventAndSessionStartAsComm
 	require.Len(t, hooks["SessionStart"][0].Hooks, 1)
 	sessionStart := hooks["SessionStart"][0].Hooks[0]
 	assert.Equal(t, "command", sessionStart.Type)
-	assert.Equal(t, cfg.SessionStartCommand, sessionStart.Command)
+	// REQ-1 sanctioned-breakage update: the command field is the single-quoted shell
+	// word of the configured path, not the bare path — /bin/sh -c word-splits a bare
+	// space-bearing path (spikes/FINDINGS.md 2026-08-25 addendum).
+	assert.Equal(t, shellQuote(cfg.SessionStartCommand), sessionStart.Command)
+	assert.Equal(t, hookTimeoutSeconds, sessionStart.Timeout, "REQ-1: timeout 2 on SessionStart must survive the quoting change")
 
 	var statusLine hookEntry
 	require.NoError(t, json.Unmarshal(doc["statusLine"], &statusLine))
 	assert.Equal(t, "command", statusLine.Type)
-	assert.Equal(t, cfg.StatusLineCommand, statusLine.Command)
+	assert.Equal(t, shellQuote(cfg.StatusLineCommand), statusLine.Command)
+	assert.Zero(t, statusLine.Timeout, "REQ-1: statusLine carries no timeout")
 
 	var allowed []string
 	require.NoError(t, json.Unmarshal(doc["allowedHttpHookUrls"], &allowed))
@@ -289,6 +295,224 @@ func TestMergeSettings_EmptyExistingBehavesLikeNilExisting(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, string(fromNil), string(fromEmpty))
+}
+
+// TestShellQuote covers the unit itself: single-quoting, and the four-character
+// close-escape-reopen replacement for an embedded quote, independent of MergeSettings'
+// JSON plumbing.
+func TestShellQuote(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"space-free path", "/data/hook-sessionstart.sh", "'/data/hook-sessionstart.sh'"},
+		{"space-bearing path (the production shape)", "/Users/damian/Library/Application Support/Muster/status-line.sh", "'/Users/damian/Library/Application Support/Muster/status-line.sh'"},
+		{"single quote embedded", "/a'b", `'/a'\''b'`},
+		{"multiple embedded quotes", "'''", `''\'''\'''\'''`},
+		{"empty string", "", "''"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, shellQuote(tt.in))
+		})
+	}
+}
+
+// TestMergeSettings_CommandFieldsAreShellQuotedForSpaceBearingPath covers D1/REQ-1: on a
+// fresh file, both command-hook fields are written as the single-quoted shell word of
+// the configured path when that path contains a space — the default macOS data dir
+// shape (spikes/FINDINGS.md 2026-08-25 addendum: a bare space-bearing path fails for
+// both SessionStart and, silently, the status line).
+func TestMergeSettings_CommandFieldsAreShellQuotedForSpaceBearingPath(t *testing.T) {
+	cfg := SettingsConfig{
+		HookURL:             "http://127.0.0.1:8765/ingest/tok/hook",
+		StatusURL:           "http://127.0.0.1:8765/ingest/tok/status",
+		SessionStartCommand: "/Users/damian/Library/Application Support/Muster/hook-sessionstart.sh",
+		StatusLineCommand:   "/Users/damian/Library/Application Support/Muster/status-line.sh",
+	}
+
+	out, err := MergeSettings(nil, cfg)
+	require.NoError(t, err)
+
+	var doc map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(out, &doc))
+	var hooks map[string][]hookGroup
+	require.NoError(t, json.Unmarshal(doc["hooks"], &hooks))
+
+	require.Len(t, hooks["SessionStart"], 1)
+	require.Len(t, hooks["SessionStart"][0].Hooks, 1)
+	assert.Equal(t, "'"+cfg.SessionStartCommand+"'", hooks["SessionStart"][0].Hooks[0].Command)
+
+	var statusLine hookEntry
+	require.NoError(t, json.Unmarshal(doc["statusLine"], &statusLine))
+	assert.Equal(t, "'"+cfg.StatusLineCommand+"'", statusLine.Command)
+}
+
+// TestMergeSettings_ShellQuoteEscapesSingleQuoteAndStaysIdempotent covers D2/Edge Case 2:
+// a configured path containing a literal single quote gets the close-escape-reopen
+// replacement at that point, and a second merge on that output is byte-identical to the
+// first.
+func TestMergeSettings_ShellQuoteEscapesSingleQuoteAndStaysIdempotent(t *testing.T) {
+	cfg := SettingsConfig{
+		HookURL:             "http://127.0.0.1:8765/ingest/tok/hook",
+		StatusURL:           "http://127.0.0.1:8765/ingest/tok/status",
+		SessionStartCommand: "/Users/damian/Damian's stuff/hook-sessionstart.sh",
+		StatusLineCommand:   "/Users/damian/Damian's stuff/status-line.sh",
+	}
+
+	first, err := MergeSettings(nil, cfg)
+	require.NoError(t, err)
+
+	var doc map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(first, &doc))
+	var hooks map[string][]hookGroup
+	require.NoError(t, json.Unmarshal(doc["hooks"], &hooks))
+	require.Len(t, hooks["SessionStart"][0].Hooks, 1)
+	assert.Equal(t, `'/Users/damian/Damian'\''s stuff/hook-sessionstart.sh'`, hooks["SessionStart"][0].Hooks[0].Command)
+
+	var statusLine hookEntry
+	require.NoError(t, json.Unmarshal(doc["statusLine"], &statusLine))
+	assert.Equal(t, `'/Users/damian/Damian'\''s stuff/status-line.sh'`, statusLine.Command)
+
+	second, err := MergeSettings(first, cfg)
+	require.NoError(t, err)
+	assert.Equal(t, string(first), string(second), "MergeSettings must be idempotent on an already-escaped path (REQ-4)")
+}
+
+// TestMergeSettings_ReplacesLegacyBareCommandEntriesWithQuoted covers D3/Edge Case 1:
+// the scenario the plan calls "most likely to be got wrong" — a directory instrumented
+// by an M1-M3 daemon has bare (unquoted) command entries on disk. After the merge there
+// is exactly one Muster SessionStart command entry, quoted, and no bare entry survives
+// anywhere in the output.
+func TestMergeSettings_ReplacesLegacyBareCommandEntriesWithQuoted(t *testing.T) {
+	cfg := testSettingsConfig()
+	// Legacy bare entries, exactly what a pre-quoting MergeSettings would have written.
+	existing := []byte(`{
+		"hooks": {
+			"SessionStart": [{"hooks": [{"type": "command", "command": "` + cfg.SessionStartCommand + `", "timeout": 2}]}]
+		},
+		"statusLine": {"type": "command", "command": "` + cfg.StatusLineCommand + `"}
+	}`)
+
+	out, err := MergeSettings(existing, cfg)
+	require.NoError(t, err)
+
+	var doc map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(out, &doc))
+	var hooks map[string][]hookGroup
+	require.NoError(t, json.Unmarshal(doc["hooks"], &hooks))
+
+	require.Len(t, hooks["SessionStart"], 1, "the stale bare entry must be replaced, not appended alongside the quoted one")
+	require.Len(t, hooks["SessionStart"][0].Hooks, 1, "exactly one Muster SessionStart entry after the merge")
+	assert.Equal(t, shellQuote(cfg.SessionStartCommand), hooks["SessionStart"][0].Hooks[0].Command)
+	assert.NotEqual(t, cfg.SessionStartCommand, hooks["SessionStart"][0].Hooks[0].Command, "no bare entry may survive")
+
+	var statusLine hookEntry
+	require.NoError(t, json.Unmarshal(doc["statusLine"], &statusLine))
+	assert.Equal(t, shellQuote(cfg.StatusLineCommand), statusLine.Command)
+
+	// Belt-and-braces: scan the raw output bytes for the bare (unquoted) path — it must
+	// not appear anywhere, quoted or not, confirming no duplicate survived under a
+	// different JSON shape than the one asserted above.
+	assert.Equal(t, 1, strings.Count(string(out), cfg.SessionStartCommand),
+		"the bare SessionStart path substring must appear exactly once in the whole file, only as part of the quoted form")
+}
+
+// TestMergeSettings_QuotedExistingEntriesAreByteIdentical covers D4: MergeSettings over
+// an existing file already holding its own quoted output (a second launch) is a true
+// no-op — the existing TestMergeSettings_CalledTwiceProducesByteIdenticalOutput proves
+// this generically; this test additionally confirms the quoted form specifically
+// survives re-parsing (a quoted command string round-trips through isMusterEntry's own
+// comparison, not just JSON's).
+func TestMergeSettings_QuotedExistingEntriesAreByteIdentical(t *testing.T) {
+	cfg := testSettingsConfig()
+	first, err := MergeSettings(nil, cfg)
+	require.NoError(t, err)
+
+	second, err := MergeSettings(first, cfg)
+	require.NoError(t, err)
+	assert.Equal(t, string(first), string(second))
+
+	var doc map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(second, &doc))
+	var hooks map[string][]hookGroup
+	require.NoError(t, json.Unmarshal(doc["hooks"], &hooks))
+	require.Len(t, hooks["SessionStart"][0].Hooks, 1, "the quoted entry must be recognized and replaced in place, not duplicated")
+	assert.Equal(t, shellQuote(cfg.SessionStartCommand), hooks["SessionStart"][0].Hooks[0].Command)
+}
+
+// TestIsMusterEntry_RecognizesBothFormsForBothConfiguredPaths covers R1: isMusterEntry's
+// command branch must compare a candidate entry against both the bare and shellQuote'd
+// form of *each* configured path (SessionStartCommand and StatusLineCommand) — four
+// comparisons. D3 above only exercises one path shape (SessionStartCommand, bare) on
+// its natural event; this table drives all four combinations through the same
+// SessionStart event, since Edge Case 4 states a foreign command hook whose command
+// happens to equal one of Muster's *other* configured paths is indistinguishable from
+// Muster's own by construction and must be treated as Muster's (existing semantics,
+// deliberately unchanged by this plan).
+func TestIsMusterEntry_RecognizesBothFormsForBothConfiguredPaths(t *testing.T) {
+	cfg := testSettingsConfig()
+
+	tests := []struct {
+		name    string
+		command string
+	}{
+		{"SessionStartCommand bare", cfg.SessionStartCommand},
+		{"SessionStartCommand quoted", shellQuote(cfg.SessionStartCommand)},
+		{"StatusLineCommand bare", cfg.StatusLineCommand},
+		{"StatusLineCommand quoted", shellQuote(cfg.StatusLineCommand)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			entry := hookEntry{Type: "command", Command: tt.command, Timeout: 99}
+			assert.True(t, isMusterEntry(entry, cfg), "isMusterEntry must recognize %q as Muster's own", tt.command)
+		})
+	}
+}
+
+// TestMergeSettings_ForeignCommandMatchingStatusLinePathOnSessionStartIsTreatedAsMusters
+// exercises Edge Case 4 end-to-end through MergeSettings (not just isMusterEntry
+// directly): a foreign SessionStart command hook whose command happens to equal
+// cfg.StatusLineCommand (a different configured path than the one that event normally
+// carries) is still replaced by the merge, not preserved as foreign — because isMusterEntry
+// cannot distinguish it from Muster's own by construction.
+func TestMergeSettings_ForeignCommandMatchingStatusLinePathOnSessionStartIsTreatedAsMusters(t *testing.T) {
+	cfg := testSettingsConfig()
+	existing := []byte(`{
+		"hooks": {
+			"SessionStart": [{"hooks": [{"type": "command", "command": "` + cfg.StatusLineCommand + `", "timeout": 30}]}]
+		}
+	}`)
+
+	out, err := MergeSettings(existing, cfg)
+	require.NoError(t, err)
+
+	var doc map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(out, &doc))
+	var hooks map[string][]hookGroup
+	require.NoError(t, json.Unmarshal(doc["hooks"], &hooks))
+
+	require.Len(t, hooks["SessionStart"], 1, "the entry matching cfg.StatusLineCommand must be dropped as Muster's own, not preserved as foreign")
+	require.Len(t, hooks["SessionStart"][0].Hooks, 1)
+	assert.Equal(t, shellQuote(cfg.SessionStartCommand), hooks["SessionStart"][0].Hooks[0].Command)
+}
+
+// TestIsMusterEntry_EmptyConfiguredPathNeverMatchesAnEmptyForeignCommand covers the
+// Implementation Notes' guard: an empty configured path (SessionStartCommand or
+// StatusLineCommand left unset) must never match a foreign command entry that also
+// happens to have an empty command string — without the p != "" guard,
+// the quoted form (two adjacent single quotes) would never equal "" anyway, but the *bare* comparison
+// (e.Command == p) would spuriously match "" == "" and silently eat a foreign entry.
+func TestIsMusterEntry_EmptyConfiguredPathNeverMatchesAnEmptyForeignCommand(t *testing.T) {
+	cfg := SettingsConfig{
+		HookURL:   "http://127.0.0.1:8765/ingest/tok/hook",
+		StatusURL: "http://127.0.0.1:8765/ingest/tok/status",
+		// SessionStartCommand and StatusLineCommand deliberately left empty.
+	}
+	entry := hookEntry{Type: "command", Command: "", Timeout: 5}
+
+	assert.False(t, isMusterEntry(entry, cfg), "an empty configured path must never match a foreign empty command")
 }
 
 // TestWriteWrapperScripts covers the generated command-hook wrapper scripts: correct

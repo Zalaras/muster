@@ -355,6 +355,8 @@ const farFutureResetsAt = 4070908800
 // the counterpart to EnvelopedStatusLinePreFirstResponse. A zero-value
 // StatusLineFullOpts reproduces the fixed default fixture byte-for-byte.
 func EnvelopedStatusLineFull(sessionID string, opts StatusLineFullOpts) string {
+	payload := statusLineFullPayload(sessionID, opts)
+
 	musterSession := opts.MusterSession
 	if musterSession == 0 {
 		musterSession = 1
@@ -363,6 +365,32 @@ func EnvelopedStatusLineFull(sessionID string, opts StatusLineFullOpts) string {
 	if tmuxPane == "" {
 		tmuxPane = "%12"
 	}
+
+	env := map[string]any{"payload": payload}
+	if musterSession != 0 {
+		env["musterSession"] = musterSession
+	}
+	if tmuxPane != "" {
+		env["tmuxPane"] = tmuxPane
+	}
+	return marshal(env)
+}
+
+// RawStatusLineFull returns the same post-first-API-response status-line shape as
+// EnvelopedStatusLineFull, but as Claude Code itself would emit it on stdin to the
+// status-line command — no musterSession/tmuxPane envelope (m4-hook-quoting
+// Implementation Notes: the real wrapper script adds the envelope itself from the pane
+// environment, so a test driving the wrapper script end-to-end via `sh -c` needs the
+// bare payload, not the pre-enveloped shape the ingest handler expects directly).
+// opts.MusterSession/TmuxPane are ignored here since there is no envelope to carry them.
+func RawStatusLineFull(sessionID string, opts StatusLineFullOpts) string {
+	return marshal(statusLineFullPayload(sessionID, opts))
+}
+
+// statusLineFullPayload builds the inner status-line payload map shared by
+// EnvelopedStatusLineFull and RawStatusLineFull, applying StatusLineFullOpts' documented
+// defaults.
+func statusLineFullPayload(sessionID string, opts StatusLineFullOpts) map[string]any {
 	modelID := opts.ModelID
 	if modelID == "" {
 		modelID = "claude-haiku-4-5-20251001"
@@ -430,15 +458,7 @@ func EnvelopedStatusLineFull(sessionID string, opts StatusLineFullOpts) string {
 	if opts.SessionName != "" {
 		payload["session_name"] = opts.SessionName
 	}
-
-	env := map[string]any{"payload": payload}
-	if musterSession != 0 {
-		env["musterSession"] = musterSession
-	}
-	if tmuxPane != "" {
-		env["tmuxPane"] = tmuxPane
-	}
-	return marshal(env)
+	return payload
 }
 
 func marshal(v any) string {

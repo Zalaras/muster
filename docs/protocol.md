@@ -240,6 +240,17 @@ variables, headless and interactive. The per-directory config Muster writes is
 `allowedHttpHookUrls` on its own, and gitignored by Claude Code, so the ingest token
 never lands in a committable file.
 
+**Command fields are shell command lines** (m4-hook-quoting, 2026-08-25).
+`hooks.<Event>[].hooks[].command` and `statusLine.command` are handed to `/bin/sh -c` by
+Claude Code (probe 2026-08-25 against 2.1.245, `spikes/FINDINGS.md` addendum: a bare
+space-bearing path fails with `/bin/sh: /tmp/muster: No such file or directory` for
+`SessionStart` and *silently* for the status line). Muster therefore writes each
+wrapper-script path as a **single-quoted shell word** (`'` inside the path escaped as
+`'\''`), and recognises its own prior entries in either the quoted or the legacy bare
+form when replacing them wholesale. Quoting a space-free path is harmless (measured). The
+default macOS data dir (`~/Library/Application Support/Muster`) contains a space, so this
+is the production path, not an edge case.
+
 ## 5. WebSocket `/ws` — the state stream (M0)
 
 - Auth: cookie on the upgrade request. Ordered, server→client only. Client never sends
@@ -509,6 +520,11 @@ unknown to the DB → logged, never adopted (Muster only manages what it started
   from M2; design it against the resume flow).
 
 ## 9. Changelog
+
+- **2026-08-25 — m4-hook-quoting plan approved, doc-only delta merged.** §4.2 records that
+  `hooks[].command` / `statusLine.command` are `/bin/sh -c` command lines and that Muster
+  single-quotes the wrapper-script paths it writes (recognising quoted and legacy bare
+  forms on replace). No wire-shape change; no version bump.
 
 - **2026-08-20 — v1 written** (M0 kickoff). Decisions made here, beyond what SPEC/ux-flows
   already fixed: commands-over-HTTP / push-only state WS; two tokens (UI cookie exchange,

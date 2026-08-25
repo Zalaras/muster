@@ -179,6 +179,20 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
 
 - [ ] Reconcile on daemon start; tmux pane existence is the authority on liveness
       (`SessionEnd` never fires on `kill -9`)
+- [ ] **Stopping the daemon does not stop the sessions it launched** — observed 2026-08-25
+      during the m4-hook-quoting REQ-9 run: `make run` was SIGTERM'd at 21:39 while haiku
+      session 3 was live; the daemon shut down cleanly but `tmux -L muster ls` still showed
+      `muster-3` with a real `claude` inside it, burning subscription with nothing tracking
+      it (the DB row stayed `alive=1`). Nothing in shutdown touches the tmux server, and
+      the muster socket outlives musterd. Decide the policy explicitly as part of reconcile:
+      either (a) daemon shutdown kills its tmux server (`tmux -L muster kill-server`) so
+      sessions never outlive the process — simple, but a daemon restart under a live
+      session (which the hook-entry-lifetime entry says must work) becomes impossible; or
+      (b) sessions are meant to survive a restart, in which case reconcile-on-start must
+      re-adopt them (pane exists → alive, re-bind on next hook) **and** the dashboard needs a
+      "daemon down / sessions still running" cue plus the end/remove flow so an orphan can
+      be killed from the UI. Until decided, the manual-testing rule is: kill sessions from
+      the dashboard *before* stopping the daemon, and check `tmux -L muster ls` after.
 - [ ] `--resume` for dead sessions — mechanics verified by the H2 probe (`source: "resume"`,
       same `session_id`); the M4 work is building reconcile on top of it
 - [ ] Full canary E2E: unskip the assertions in `test/canary/canary_test.go`
@@ -239,7 +253,7 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
       silent-failure option can only be reached by routing them through a wrapper script
       too, which is a protocol-shape change, not a one-liner. Immediate workaround while
       this is open: delete the file (Muster's launch rewrites it).
-- [ ] **Command-hook paths are not shell-quoted** — the live bug behind M3's gauges never
+- [x] **Command-hook paths are not shell-quoted** — shipped 2026-08-25 (plan `m4-hook-quoting`). — the live bug behind M3's gauges never
       having rendered real data (found 2026-08-23, diagnosis in this file's git history).
       `MergeSettings` writes `hooks.SessionStart[].command` and `statusLine.command` as
       bare paths, so the default macOS data dir (`~/Library/Application Support/Muster`,
@@ -281,7 +295,7 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
     `curl "%s"`; `$MUSTER_SESSION`/`$TMUX_PANE` are interpolated unquoted into the
     envelope JSON (daemon-controlled, but worth a look).
   - Record the quoting rule in `docs/protocol.md` §4.2 so a later refactor can't undo it.
-- [ ] **Coverage gap that let the above ship green** — pairs with the entry above; the
+- [x] **Coverage gap that let the above ship green** — shipped 2026-08-25 (plan `m4-hook-quoting`). — pairs with the entry above; the
       milestone isn't done without it. Three holes: (1) no test uses a data dir with a
       space — the H2 rig stamps into `/tmp/muster-probe` and the E2E harness into
       `mkdtemp(…, "muster-e2e-")`, both space-free, so the *default production path* is
@@ -302,6 +316,11 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
       of them has ever rendered anything but synthesized input, so M3's "done" is
       unproven, not wrong.
 
+- [ ] **D5 regression guard (m4 review Major, non-blocking)** — no committed test puts a
+      *foreign* `type:"command"` hook on `SessionStart` alongside Muster's quoted entry (the
+      existing foreign-hook test uses `PostToolUse`, an HTTP-owned event). Behaviour hand-probed
+      correct; add the unit test in `internal/claudecode/settings_test.go`. See
+      `plans/m4-hook-quoting/review.md`.
 ## M5+ (v1.x, re-rank when reached)
 
 Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start-from-PR/issue

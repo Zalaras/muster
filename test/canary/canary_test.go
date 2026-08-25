@@ -134,3 +134,39 @@ func TestStatusLineFields(t *testing.T) {
 func TestUnknownVersusZero(t *testing.T) {
 	t.Skip(needsHarness)
 }
+
+// TestCommandHookPathQuoting guards m4-hook-quoting REQ-8/D9: the finding that gates the
+// whole plan — a command-hook path is a `/bin/sh -c` command line, not a filesystem path
+// field, so an unquoted space-bearing path silently breaks both command hooks Muster
+// depends on. The table below is the six rows measured by the command-path quoting
+// probe (2026-08-25, against 2.1.245, spikes/FINDINGS.md addendum): for each of a
+// space-bearing path and a space-free (control) path, in each of three command forms
+// (bare, single-quoted — the fix, using shellQuote's close-escape-reopen replacement for
+// an embedded quote — and double-quoted), whether the SessionStart command hook was
+// delivered and whether the status line rendered and posted. wantStatusPost is nil for
+// the three cells the probe did not run (the status line never runs headless, and M1-M3
+// already ran live on the bare/no-space cell). Once the M4 capture harness (scratch repo
+// plus capture server) lands, this table becomes the executable assertion for the
+// space-bearing+quoted row that makes the fix binding; until then it is kept here in
+// executable form so the expectation cannot silently drift from the probe that measured
+// it.
+func TestCommandHookPathQuoting(t *testing.T) {
+	t.Skip(needsHarness)
+
+	trueVal, falseVal := true, false
+
+	table := []struct {
+		pathHasSpace     bool
+		form             string // "bare", "'…'" (single-quoted, the fix), or `"…"` (double-quoted)
+		wantSessionStart bool   // SessionStart (command hook) delivered
+		wantStatusPost   *bool  // status line rendered + posted; nil = not run by the probe
+	}{
+		{pathHasSpace: true, form: "bare", wantSessionStart: false, wantStatusPost: &falseVal},
+		{pathHasSpace: true, form: "'…'", wantSessionStart: true, wantStatusPost: &trueVal},
+		{pathHasSpace: true, form: `"…"`, wantSessionStart: true, wantStatusPost: nil},
+		{pathHasSpace: false, form: "bare", wantSessionStart: true, wantStatusPost: nil},
+		{pathHasSpace: false, form: "'…'", wantSessionStart: true, wantStatusPost: &trueVal},
+		{pathHasSpace: false, form: `"…"`, wantSessionStart: true, wantStatusPost: nil},
+	}
+	_ = table
+}
