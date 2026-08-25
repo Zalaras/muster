@@ -321,6 +321,14 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
       existing foreign-hook test uses `PostToolUse`, an HTTP-owned event). Behaviour hand-probed
       correct; add the unit test in `internal/claudecode/settings_test.go`. See
       `plans/m4-hook-quoting/review.md`.
+
+## Pre-v1 Cleanup
+These are some minor changes and cleanup needed before we can move into post v1.
+- Change how the left sidebar works. Sessions should be pinned in the order they are opened but allow the user to update the order by dragging and also allow "pinnng" (using pin icon) sessions (automatically go to the top in order of pinned).
+- User should be able to move the grids around in the grid view so they can order them as they please. This would be done by dragging the title bar. I'm also wondering if we want status icons (dot - green, orange/yellow and red) in the title to quickly show if running, idle or error.
+- Look to see if we can also put in Fable as a model in the options (create new session) and update the usage indicator to include the weekly Fable limit. This might need to be dynamic for new models in the future? Might be worth investigating that 3rd bar (specific model not the 5h or weekly usage). This is also displayed in the `/usage` command that Claude Code has
+- Improve the Create new session dialog, especially the file explorer and selecting a directory. The dialog is messy, even the model select is "squashed". File explorder should be in a view that shows the parents and should auto use whatever directory is currently select rather than having to "apply" the selection. Similar to the Mac Finder interface.
+
 ## M5+ (v1.x, re-rank when reached)
 
 Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start-from-PR/issue
