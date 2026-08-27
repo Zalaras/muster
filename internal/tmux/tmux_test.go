@@ -390,6 +390,159 @@ func TestNewClient_UsesAPerTestSocketNeverTheSharedDefault(t *testing.T) {
 	assert.NotEqual(t, "muster", c.socket)
 }
 
+// TestKillSession_RemovesTheWholeSessionErrorsForAnUnknownName covers m4-reconcile
+// REQ-5's End path: kill-session by name actually removes the session (not just one
+// window — under the one-window-per-session topology the two are equivalent per the
+// plan's Implementation Notes), and an unknown session name errors rather than
+// silently no-op'ing.
+func TestKillSession_RemovesTheWholeSessionErrorsForAnUnknownName(t *testing.T) {
+	socket := newTestSocket(t)
+	c := New(socket)
+	dir := t.TempDir()
+	id := nextID(t)
+	name := "muster-" + strconv.FormatInt(id, 10)
+
+	_, _, err := c.NewSession(context.Background(), id, dir, nil, sleepCommand())
+	require.NoError(t, err)
+
+	require.NoError(t, c.KillSession(context.Background(), name))
+
+	out, listErr := exec.Command("tmux", "-S", socket, "list-sessions", "-F", "#{session_name}").CombinedOutput()
+	assert.Error(t, listErr, "the server has no sessions left at all: %s", out)
+
+	err = c.KillSession(context.Background(), "muster-does-not-exist")
+	assert.Error(t, err, "killing an unknown session name must error")
+}
+
+// TestListSessions_ReturnsEveryNameNoServerIsAnEmptyResultNotAnError covers m4-reconcile
+// REQ-2's tmux primitive: every session name on the socket comes back, and a socket with
+// no server running yet (never touched by NewSession) is an empty, non-error result — the
+// same shape PaneExists already treats as "not there" rather than a real failure.
+func TestListSessions_ReturnsEveryNameNoServerIsAnEmptyResultNotAnError(t *testing.T) {
+	t.Run("no server yet is empty, not an error", func(t *testing.T) {
+		c := New(newTestSocket(t))
+
+		names, err := c.ListSessions(context.Background())
+
+		require.NoError(t, err)
+		assert.Empty(t, names)
+	})
+
+	t.Run("every session name on the socket is returned", func(t *testing.T) {
+		socket := newTestSocket(t)
+		c := New(socket)
+		dir := t.TempDir()
+		id1, id2 := nextID(t), nextID(t)+1
+		name1 := "muster-" + strconv.FormatInt(id1, 10)
+		name2 := "muster-" + strconv.FormatInt(id2, 10)
+
+		_, _, err := c.NewSession(context.Background(), id1, dir, nil, sleepCommand())
+		require.NoError(t, err)
+		_, _, err = c.NewSession(context.Background(), id2, dir, nil, sleepCommand())
+		require.NoError(t, err)
+
+		names, err := c.ListSessions(context.Background())
+		require.NoError(t, err)
+		assert.ElementsMatch(t, []string{name1, name2}, names)
+	})
+
+	t.Run("killing every session leaves an empty, non-error result (mirrors the no-server-yet shape)", func(t *testing.T) {
+		socket := newTestSocket(t)
+		c := New(socket)
+		dir := t.TempDir()
+		id := nextID(t)
+		name := "muster-" + strconv.FormatInt(id, 10)
+		_, _, err := c.NewSession(context.Background(), id, dir, nil, sleepCommand())
+		require.NoError(t, err)
+		require.NoError(t, c.KillSession(context.Background(), name))
+
+		names, err := c.ListSessions(context.Background())
+		require.NoError(t, err)
+		assert.Empty(t, names)
+	})
+}
+
+// TestCapturePane_ReturnsPaneTextAndTrimsTrailingBlankLines covers m4-reconcile REQ-4's
+// snapshot primitive: the captured text contains what the pane actually printed, and
+// trailing blank lines (capture-pane pads to the pane's height) are trimmed so the UI's
+// pre.snapshot doesn't scroll into emptiness.
+func TestCapturePane_ReturnsPaneTextAndTrimsTrailingBlankLines(t *testing.T) {
+	c := New(newTestSocket(t))
+	dir := t.TempDir()
+	marker := "muster-capture-pane-marker-hello"
+
+	target, _, err := c.NewSession(context.Background(), nextID(t), dir, nil,
+		[]string{"/bin/sh", "-c", "echo " + marker + "; sleep 60"})
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		text, capErr := c.CapturePane(context.Background(), target)
+		return capErr == nil && strings.Contains(text, marker)
+	}, 3*time.Second, 50*time.Millisecond)
+
+	text, err := c.CapturePane(context.Background(), target)
+	require.NoError(t, err)
+	assert.Contains(t, text, marker)
+	assert.False(t, strings.HasSuffix(text, "\n"), "trailing blank lines must be trimmed")
+}
+
+// TestCapturePane_UnknownTargetErrors documents that, unlike DisplayVar, capture-pane
+// against a nonexistent target errors rather than silently returning empty text — the
+// same "tmux exits non-zero for an unresolvable target" shape PaneExists/KillWindow rely
+// on, not DisplayVar's special case.
+func TestCapturePane_UnknownTargetErrors(t *testing.T) {
+	c := New(newTestSocket(t))
+	dir := t.TempDir()
+	_, _, err := c.NewSession(context.Background(), nextID(t), dir, nil, sleepCommand())
+	require.NoError(t, err)
+
+	_, err = c.CapturePane(context.Background(), "muster-999999:@999")
+
+	assert.Error(t, err)
+}
+
+// TestCapturePane_FailureNeverLeaksPaneTextIntoTheError covers review cycle 1 Minor
+// 4/R3: runCapture keeps stdout and stderr in separate buffers (unlike run's
+// CombinedOutput), so a failing capture-pane's error can only ever carry tmux's own
+// stderr diagnostic, never the pane text that was captured moments earlier from the same
+// target. Captures a marker successfully, kills the window (so the target genuinely
+// existed and had real captured text), then re-captures the same now-gone target and
+// asserts neither the error nor the (necessarily empty) returned text contains the
+// marker.
+//
+// Read this as a mechanism guard, not a reproduction of the historical leak: the real
+// tmux binary under test never actually writes pane text to stdout alongside a non-zero
+// exit (an unknown target fails with only a stderr diagnostic, confirmed by probing this
+// exact scenario during review cycle 1's Fix Attempt 1 — "failures write only to
+// stderr"), so this test cannot force the failure mode runCapture guards against and its
+// green result is not evidence such a leak ever fired in production. What it does prove
+// is the mechanism: even the marker from a *successful* prior capture of the same target
+// is absent from the next call's error, which is the strongest assertion obtainable
+// without a fake exec.Cmd seam. Review cycle 2 Minor 8 flagged this distinction; noted
+// here so a future reader doesn't mistake this test for proof a leak once existed.
+func TestCapturePane_FailureNeverLeaksPaneTextIntoTheError(t *testing.T) {
+	c := New(newTestSocket(t))
+	dir := t.TempDir()
+	marker := "muster-capture-leak-marker-should-never-appear-in-an-error"
+
+	target, _, err := c.NewSession(context.Background(), nextID(t), dir, nil,
+		[]string{"/bin/sh", "-c", "echo " + marker + "; sleep 60"})
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		text, capErr := c.CapturePane(context.Background(), target)
+		return capErr == nil && strings.Contains(text, marker)
+	}, 3*time.Second, 50*time.Millisecond)
+
+	require.NoError(t, c.KillWindow(context.Background(), target))
+
+	text, err := c.CapturePane(context.Background(), target)
+
+	require.Error(t, err)
+	assert.Empty(t, text, "a failing capture must return no text at all, never a partial stdout")
+	assert.NotContains(t, err.Error(), marker, "R3: a capture-pane failure's error must never carry previously-captured pane text")
+}
+
 // TestValidateSocket pins the up-front rejection of a -S path over AF_UNIX's sun_path
 // limit (m2 review cycle-2 Minor 8): without it the failure surfaces later as a bare
 // "File name too long" from inside tmux. Named (-L) sockets are never length-checked.

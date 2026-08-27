@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -29,6 +30,42 @@ func postSessionsRequest(t *testing.T, srv *testServer, body string) *httptest.R
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
 	return rec
+}
+
+// sessionActionRequest fires one cookie-authed request at srv's mux and returns the
+// recorded response — the shared shape D17/D18's End/Resume/Remove/Pane tests all need.
+func sessionActionRequest(t *testing.T, srv *testServer, method, path string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(method, path, nil)
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	return rec
+}
+
+// seedSessionRow inserts a repo+session row directly via the store (no real tmux/launch
+// needed for D17/D18's error-path tests) and loads it into srv's manager so the HTTP
+// handlers under test can find it. mutate, if non-nil, edits the freshly-inserted row
+// before it's persisted and loaded — e.g. to seed a dead session or one with no
+// claudeSessionId.
+func seedSessionRow(t *testing.T, srv *testServer, mutate func(*store.SessionRow)) int64 {
+	t.Helper()
+	ctx := context.Background()
+	dir := t.TempDir()
+	repo, _, err := srv.store.UpsertRepo(ctx, store.UpsertRepoParams{
+		Path: dir, Name: "proj", Model: "sonnet", PermissionMode: "default",
+	})
+	require.NoError(t, err)
+	row, err := srv.store.InsertSession(ctx, store.InsertSessionParams{
+		RepoID: repo.ID, Directory: dir, PermissionMode: "default",
+	})
+	require.NoError(t, err)
+	if mutate != nil {
+		mutate(&row)
+		require.NoError(t, srv.store.UpdateSession(ctx, row))
+	}
+	require.NoError(t, srv.manager.LoadAll(ctx))
+	return row.ID
 }
 
 func decodeErrorCode(t *testing.T, rec *httptest.ResponseRecorder) string {
@@ -254,6 +291,169 @@ func TestLauncher_SuccessfulLaunchEndToEnd(t *testing.T) {
 	require.NoError(t, err)
 	var doc map[string]any
 	require.NoError(t, json.Unmarshal(b, &doc))
+}
+
+// TestHandleEndSession_AlreadyDeadSessionIs409NotAlive covers D17's first clause
+// (docs/protocol.md §3.7): ending an already-ended session is a conflict, not a 404 or a
+// silent success.
+func TestHandleEndSession_AlreadyDeadSessionIs409NotAlive(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	endedAt := time.Now().UTC()
+	id := seedSessionRow(t, srv, func(row *store.SessionRow) {
+		row.Alive = false
+		row.EndedAt = &endedAt
+	})
+
+	rec := sessionActionRequest(t, srv, http.MethodPost, fmt.Sprintf("/api/sessions/%d/end", id))
+
+	assert.Equal(t, http.StatusConflict, rec.Code)
+	assert.Equal(t, "not_alive", decodeErrorCode(t, rec))
+}
+
+func TestHandleEndSession_UnknownSessionIs404(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+
+	rec := sessionActionRequest(t, srv, http.MethodPost, "/api/sessions/999999/end")
+
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+	assert.Equal(t, "unknown_session", decodeErrorCode(t, rec))
+}
+
+// TestHandleResumeSession_LiveSessionIs409NotResumable covers D17's second clause
+// (docs/protocol.md §3.5): resuming a still-alive session is a conflict.
+func TestHandleResumeSession_LiveSessionIs409NotResumable(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	id := seedSessionRow(t, srv, func(row *store.SessionRow) {
+		claudeID := "claude-1"
+		row.ClaudeSessionID = &claudeID
+		// row.Alive is already true from InsertSession.
+	})
+
+	rec := sessionActionRequest(t, srv, http.MethodPost, fmt.Sprintf("/api/sessions/%d/resume", id))
+
+	assert.Equal(t, http.StatusConflict, rec.Code)
+	assert.Equal(t, "not_resumable", decodeErrorCode(t, rec))
+}
+
+// TestHandleResumeSession_DeadSessionWithoutClaudeIDIs409NotResumable covers D17's third
+// clause: a dead session that never got a claude session id bound (e.g. it died before its
+// first SessionStart hook ever landed) has nothing to resume.
+func TestHandleResumeSession_DeadSessionWithoutClaudeIDIs409NotResumable(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	endedAt := time.Now().UTC()
+	id := seedSessionRow(t, srv, func(row *store.SessionRow) {
+		row.Alive = false
+		row.EndedAt = &endedAt
+		row.ClaudeSessionID = nil
+	})
+
+	rec := sessionActionRequest(t, srv, http.MethodPost, fmt.Sprintf("/api/sessions/%d/resume", id))
+
+	assert.Equal(t, http.StatusConflict, rec.Code)
+	assert.Equal(t, "not_resumable", decodeErrorCode(t, rec))
+}
+
+func TestHandleResumeSession_UnknownSessionIs404(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+
+	rec := sessionActionRequest(t, srv, http.MethodPost, "/api/sessions/999999/resume")
+
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+	assert.Equal(t, "unknown_session", decodeErrorCode(t, rec))
+}
+
+// TestHandleRemoveSession_UnknownSessionIs404 covers D17's fourth clause (docs/protocol.md
+// §3.8): DELETE against an id nothing knows about is a 404, not a silent 204.
+func TestHandleRemoveSession_UnknownSessionIs404(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+
+	rec := sessionActionRequest(t, srv, http.MethodDelete, "/api/sessions/999999")
+
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+	assert.Equal(t, "unknown_session", decodeErrorCode(t, rec))
+}
+
+// TestHandleRemoveSession_DeadSessionSucceeds covers the ordinary (non-alive) Remove path
+// at the HTTP layer: 204 with no body, and the row is actually gone afterward.
+func TestHandleRemoveSession_DeadSessionSucceeds(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	endedAt := time.Now().UTC()
+	id := seedSessionRow(t, srv, func(row *store.SessionRow) {
+		row.Alive = false
+		row.EndedAt = &endedAt
+	})
+
+	rec := sessionActionRequest(t, srv, http.MethodDelete, fmt.Sprintf("/api/sessions/%d", id))
+
+	assert.Equal(t, http.StatusNoContent, rec.Code)
+	assert.Empty(t, rec.Body.Bytes())
+	_, err := srv.store.GetSession(context.Background(), id)
+	assert.Error(t, err, "the row must actually be gone from the store")
+}
+
+// TestHandlePaneSnapshot_404BeforeCaptureThen200WithTextAfter covers D18 (docs/protocol.md
+// §3.4): no capture yet is 404 no_snapshot; once one lands, GET returns text+capturedAt.
+func TestHandlePaneSnapshot_404BeforeCaptureThen200WithTextAfter(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	id := seedSessionRow(t, srv, nil)
+
+	rec := sessionActionRequest(t, srv, http.MethodGet, fmt.Sprintf("/api/sessions/%d/pane", id))
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+	assert.Equal(t, "no_snapshot", decodeErrorCode(t, rec))
+
+	capturedAt := time.Now().UTC()
+	require.NoError(t, srv.store.UpdateSnapshot(context.Background(), id, "captured pane text", capturedAt))
+	require.NoError(t, srv.manager.LoadAll(context.Background()))
+
+	rec2 := sessionActionRequest(t, srv, http.MethodGet, fmt.Sprintf("/api/sessions/%d/pane", id))
+	assert.Equal(t, http.StatusOK, rec2.Code)
+	var body struct {
+		Text       string `json:"text"`
+		CapturedAt string `json:"capturedAt"`
+	}
+	require.NoError(t, json.Unmarshal(rec2.Body.Bytes(), &body))
+	assert.Equal(t, "captured pane text", body.Text)
+	// D18: capturedAt must be the seeded value, not merely non-empty — a wrong-but-
+	// non-empty timestamp must fail this test (review cycle 1 Minor 5). The store
+	// truncates to RFC3339 seconds precision on write (session.go's UpdateSnapshot) and
+	// the handler formats with the same layout, so exact string equality is sound and
+	// deterministic, not a flaky sub-second race.
+	assert.Equal(t, capturedAt.Format(time.RFC3339), body.CapturedAt)
+}
+
+func TestHandlePaneSnapshot_UnknownSessionIs404UnknownSession(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+
+	rec := sessionActionRequest(t, srv, http.MethodGet, "/api/sessions/999999/pane")
+
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+	assert.Equal(t, "unknown_session", decodeErrorCode(t, rec))
+}
+
+// TestSessionActionHandlers_RequireCookie covers the auth wiring shared by all four new
+// endpoints — none of them may be reachable without the muster_auth cookie.
+func TestSessionActionHandlers_RequireCookie(t *testing.T) {
+	tests := []struct {
+		name   string
+		method string
+		path   string
+	}{
+		{"end", http.MethodPost, "/api/sessions/1/end"},
+		{"resume", http.MethodPost, "/api/sessions/1/resume"},
+		{"remove", http.MethodDelete, "/api/sessions/1"},
+		{"pane", http.MethodGet, "/api/sessions/1/pane"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := newTestServer(t, ClaudeCodeInfo{})
+
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			rec := httptest.NewRecorder()
+			srv.Handler().ServeHTTP(rec, req)
+
+			assert.Equal(t, http.StatusUnauthorized, rec.Code)
+		})
+	}
 }
 
 // Note: a dedicated "tmux spawn failure rolls back the row" test was attempted and

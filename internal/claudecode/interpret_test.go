@@ -25,13 +25,13 @@ func TestInterpret_SessionStart(t *testing.T) {
 		assert.Nil(t, in.PermissionMode)
 	})
 
-	t.Run("resume binds (same session id path, still a Bind kind at the interpreter level)", func(t *testing.T) {
+	t.Run("resume source is a distinct resume-bind kind (m4-reconcile REQ-8: lands in idle, not started)", func(t *testing.T) {
 		body := claudecodetest.EnvelopedSessionStart("claude-1", claudecodetest.SessionStartOpts{Source: "resume"})
 		payload := innerPayload(t, body)
 
 		in := Interpret("SessionStart", payload)
 
-		assert.Equal(t, KindBind, in.Kind)
+		assert.Equal(t, KindResumeBind, in.Kind)
 	})
 
 	t.Run("clear source is a clear-rebind", func(t *testing.T) {

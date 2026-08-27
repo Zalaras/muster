@@ -72,7 +72,11 @@ Observed values: `"default"`, `"plan"`, `"acceptEdits"`. Latch the last known mo
   when the field is present, and expect a bare string.
 - `SessionStart.source`: `"startup"`, `"resume"` and `"clear"` all observed. On `--resume`,
   the `session_id` and `transcript_path` are **the same as the original session's** —
-  load-bearing for SPEC §2.5 reconcile (re-bind by session id). On `/clear` (2.1.237,
+  load-bearing for SPEC §2.5 reconcile (re-bind by session id). **Caveat (2026-08-27):**
+  that same-id fact was measured headless on 2.1.233; m4-reconcile's Resume is interactive
+  (`claude --resume <id>` in a fresh tmux session) and the pipeline did not re-measure it on
+  the pinned binary (R2, burns subscription — TODO M4). A divergence would land the resumed
+  session in `started` instead of `idle` (clear-rebind path), not break it. On `/clear` (2.1.237,
   2026-08-20 probe): the old session_id gets `SessionEnd` with `reason: "clear"`, then
   `SessionStart` fires with `source: "clear"` and a **new** session_id in the same pane —
   so `/clear` is directly detectable, and a `SessionEnd` with `reason: "clear"` must NOT

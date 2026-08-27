@@ -105,6 +105,7 @@ function makeHandlers(): WsClientHandlers & Record<string, ReturnType<typeof vi.
     onSessionUpsert: vi.fn(),
     onPrefs: vi.fn(),
     onUsage: vi.fn(),
+    onSessionRemoved: vi.fn(),
     onDisconnected: vi.fn(),
     onProtocolMismatch: vi.fn(),
   };
@@ -165,6 +166,14 @@ describe("WsClient.dispatch — pure message application, no socket involved", (
     const client = new WsClient("ws://x", handlers);
     client.dispatch(usageMessage);
     expect(handlers.onUsage).toHaveBeenCalledWith(usage);
+    expect(handlers.onSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("routes a sessionRemoved message to onSessionRemoved with the bare id, not onSnapshot (M4 protocol §5.5, REQ-15)", () => {
+    const handlers = makeHandlers();
+    const client = new WsClient("ws://x", handlers);
+    client.dispatch({ type: "sessionRemoved", id: 7 });
+    expect(handlers.onSessionRemoved).toHaveBeenCalledWith(7);
     expect(handlers.onSnapshot).not.toHaveBeenCalled();
   });
 });
@@ -230,6 +239,13 @@ describe("WsClient — full socket lifecycle via an injected fake socket", () =>
     sockets[0]!.emitOpen();
     sockets[0]!.emitMessage(JSON.stringify(usageMessage));
     expect(handlers.onUsage).toHaveBeenCalledWith(usage);
+  });
+
+  it("dispatches a sessionRemoved frame to onSessionRemoved", () => {
+    client.start();
+    sockets[0]!.emitOpen();
+    sockets[0]!.emitMessage(JSON.stringify({ type: "sessionRemoved", id: 3 }));
+    expect(handlers.onSessionRemoved).toHaveBeenCalledWith(3);
   });
 
   it("ignores a binary (non-string) message frame", () => {

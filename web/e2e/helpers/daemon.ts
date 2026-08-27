@@ -44,6 +44,16 @@ interface TokensFile {
   ingestToken: string;
 }
 
+/** `-on-exit` values (plan m4-reconcile REQ-3): `ask` is the daemon's own default when
+ * the flag is omitted entirely, so `start()`'s `onExit` option defaults to `undefined`
+ * (no flag passed) rather than the string `"ask"` — that keeps the default-flag path
+ * exercised by every pre-M4 spec unchanged. */
+export type OnExitPolicy = "ask" | "leave" | "kill";
+
+export interface ScratchDaemonOptions {
+  onExit?: OnExitPolicy;
+}
+
 async function freePort(): Promise<number> {
   return await new Promise((resolvePort, reject) => {
     const srv = createServer();
@@ -105,8 +115,12 @@ export class ScratchDaemon {
   private proc: ChildProcess | null = null;
   /** Tail of the current process's stdout+stderr, kept for crash diagnostics. */
   private output = "";
+  /** `-on-exit` policy this run's process is (re)spawned with — set once at construction
+   * and reused by every `restart()` (plan m4-reconcile REQ-3). `undefined` omits the flag
+   * entirely, exercising the daemon's own default (`ask`). */
+  private readonly onExit: OnExitPolicy | undefined;
 
-  private constructor(port: number, dataDir: string) {
+  private constructor(port: number, dataDir: string, onExit?: OnExitPolicy) {
     this.port = port;
     this.baseURL = `http://127.0.0.1:${port}`;
     this.dataDir = dataDir;
@@ -117,9 +131,10 @@ export class ScratchDaemon {
     this.tmuxSocket = join(dataDir, "tmux.sock");
     this.claudeBinPath = join(dataDir, "stub-claude.sh");
     this.browseRoot = join(dataDir, "browse-root");
+    this.onExit = onExit;
   }
 
-  static async start(): Promise<ScratchDaemon> {
+  static async start(opts: ScratchDaemonOptions = {}): Promise<ScratchDaemon> {
     const port = await freePort();
     // M4 (plan m4-hook-quoting, REQ-6/E1): the prefix contains a literal space so every
     // scratch daemon's data dir exercises the production path shape — the default macOS
@@ -128,7 +143,7 @@ export class ScratchDaemon {
     // on (spikes/FINDINGS.md 2026-08-25 addendum). Do not "fix" a spec that breaks on the
     // space — that's the harness doing its job; report it instead (plan Affected Files).
     const dataDir = await mkdtemp(join(tmpdir(), "muster e2e-"));
-    const daemon = new ScratchDaemon(port, dataDir);
+    const daemon = new ScratchDaemon(port, dataDir, opts.onExit);
     await mkdir(daemon.browseRoot, { recursive: true });
     await daemon.writeStubClaude();
     await daemon.spawnAndWait();
@@ -161,24 +176,32 @@ export class ScratchDaemon {
 
   private async spawnAndWait(): Promise<void> {
     this.output = "";
-    const proc = spawn(
-      musterdBin,
-      [
-        "-addr",
-        `127.0.0.1:${this.port}`,
-        "-data-dir",
-        this.dataDir,
-        "-web-dist",
-        webDist,
-        "-claude-bin",
-        this.claudeBinPath,
-        "-tmux-socket",
-        this.tmuxSocket,
-        "-browse-root",
-        this.browseRoot,
-      ],
-      { stdio: ["ignore", "pipe", "pipe"] },
-    );
+    const args = [
+      "-addr",
+      `127.0.0.1:${this.port}`,
+      "-data-dir",
+      this.dataDir,
+      "-web-dist",
+      webDist,
+      "-claude-bin",
+      this.claudeBinPath,
+      "-tmux-socket",
+      this.tmuxSocket,
+      "-browse-root",
+      this.browseRoot,
+    ];
+    // Plan m4-reconcile REQ-3: omit the flag entirely to exercise the daemon's own
+    // default (`ask`) rather than hardcoding the string here.
+    if (this.onExit !== undefined) {
+      args.push("-on-exit", this.onExit);
+    }
+    const proc = spawn(musterdBin, args, {
+      // stdin "ignore" (=/dev/null) is never a character device, so every scratch daemon
+      // this harness spawns is a non-TTY process by construction — REQ-3's "ask behaves
+      // as leave under non-TTY stdin" path, not the interactive prompt (which E2E cannot
+      // drive: the daemon-side `-on-exit=ask` TTY-prompt path is D21/a Go test's job).
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     // Drain stdio: an unread pipe discards a crashed daemon's diagnostics and can stall
     // a chatty process once the pipe buffer fills. Keep only a bounded tail.
     for (const stream of [proc.stdout, proc.stderr]) {
@@ -249,6 +272,52 @@ export class ScratchDaemon {
     await execFileAsync("tmux", ["-S", this.tmuxSocket, "kill-window", "-t", tmuxTarget]);
   }
 
+  /**
+   * Plan m4-reconcile REQ-2's oracle: every tmux session name live on this run's socket
+   * (`tmux ls -F '#{session_name}'`), used to assert reconcile never adopts a row for a
+   * `muster-*` pane it doesn't already know, and to confirm `-on-exit=kill`/End actually
+   * removed a named session. Returns `[]` if the tmux server on this socket hasn't
+   * started yet, rather than throwing (mirrors `totalAttachedClients`).
+   */
+  async tmuxSessions(): Promise<string[]> {
+    try {
+      const { stdout } = await execFileAsync("tmux", [
+        "-S",
+        this.tmuxSocket,
+        "list-sessions",
+        "-F",
+        "#{session_name}",
+      ]);
+      return stdout
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Plan m4-reconcile REQ-2's "unknown panes are reported, never adopted" fixture: creates
+   * a tmux session on this run's socket that the daemon never launched — the exact shape
+   * reconcile must log-and-skip. Named by the caller so tests can use a `muster-<n>` name
+   * with no corresponding row.
+   */
+  async createForeignTmuxSession(name: string): Promise<void> {
+    await execFileAsync("tmux", ["-S", this.tmuxSocket, "new-session", "-d", "-s", name]);
+  }
+
+  /**
+   * Plan m4-reconcile E7's resume-argv oracle: `#{pane_start_command}` reports the shell
+   * command line tmux actually started the pane with, so a resumed session's pane can be
+   * proven to carry `--resume <claudeSessionId>` without ever launching a real `claude`
+   * (the harness's stub binary receives the same argv either way). Thin wrapper over
+   * `tmuxDisplay` for call-site clarity at the plan's named seam.
+   */
+  async paneStartCommand(target: string): Promise<string> {
+    return await this.tmuxDisplay(target, "#{pane_start_command}");
+  }
+
   /** True iff a pane still exists for the given `tmuxTarget` on this run's socket. */
   async tmuxPaneExists(tmuxTarget: string): Promise<boolean> {
     try {
@@ -309,6 +378,6 @@ export class ScratchDaemon {
   }
 }
 
-export async function startScratchDaemon(): Promise<ScratchDaemon> {
-  return await ScratchDaemon.start();
+export async function startScratchDaemon(opts: ScratchDaemonOptions = {}): Promise<ScratchDaemon> {
+  return await ScratchDaemon.start(opts);
 }

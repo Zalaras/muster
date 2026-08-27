@@ -141,7 +141,15 @@ export interface UsageMessage {
   usage: Usage;
 }
 
-export type Message = Hello | Snapshot | SessionUpsert | PrefsMessage | UsageMessage;
+// M4 (docs/protocol.md §5.5, plan m4-reconcile REQ-15): sent once per `DELETE
+// /api/sessions/{id}` — a client that has never seen `id` ignores it (main.ts's remove
+// handler is a no-op on an unknown id, same tolerance as every other broadcast here).
+export interface SessionRemoved {
+  type: "sessionRemoved";
+  id: number;
+}
+
+export type Message = Hello | Snapshot | SessionUpsert | PrefsMessage | UsageMessage | SessionRemoved;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -405,6 +413,12 @@ function parseUsageMessage(rec: Record<string, unknown>): UsageMessage | null {
   return { type: "usage", usage };
 }
 
+function parseSessionRemoved(rec: Record<string, unknown>): SessionRemoved | null {
+  const id = rec["id"];
+  if (typeof id !== "number") return null;
+  return { type: "sessionRemoved", id };
+}
+
 /** Parses one WS text frame's decoded JSON. Unknown/malformed messages yield `null`. */
 export function parseMessage(data: unknown): Message | null {
   if (!isRecord(data)) return null;
@@ -420,6 +434,8 @@ export function parseMessage(data: unknown): Message | null {
       return parsePrefsMessage(data);
     case "usage":
       return parseUsageMessage(data);
+    case "sessionRemoved":
+      return parseSessionRemoved(data);
     default:
       return null; // unknown message types are ignored (protocol §1)
   }

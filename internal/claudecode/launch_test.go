@@ -50,6 +50,19 @@ func TestBuildArgv(t *testing.T) {
 			params: LaunchParams{Model: "sonnet", Title: "", PermissionMode: "default"},
 			want:   []string{"claude", "--model", "sonnet"},
 		},
+		{
+			// D13/REQ-7: a resume relaunch emits --resume <id> and omits --name, even when
+			// a Title was also set — --name is meaningless for a resumed session (the
+			// tmux/pane title comes from the original launch, not a resume).
+			name:   "ResumeSessionID emits --resume and omits --name even when Title is also set",
+			params: LaunchParams{Model: "sonnet", Title: "Should Be Omitted", PermissionMode: "default", ResumeSessionID: "abc-123"},
+			want:   []string{"claude", "--model", "sonnet", "--resume", "abc-123"},
+		},
+		{
+			name:   "ResumeSessionID combines with a non-default permission mode",
+			params: LaunchParams{Model: "sonnet", PermissionMode: "plan", ResumeSessionID: "abc-123"},
+			want:   []string{"claude", "--model", "sonnet", "--resume", "abc-123", "--permission-mode", "plan"},
+		},
 	}
 
 	for _, tt := range tests {

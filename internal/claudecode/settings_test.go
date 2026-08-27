@@ -515,6 +515,64 @@ func TestIsMusterEntry_EmptyConfiguredPathNeverMatchesAnEmptyForeignCommand(t *t
 	assert.False(t, isMusterEntry(entry, cfg), "an empty configured path must never match a foreign empty command")
 }
 
+// TestMergeSettings_ForeignCommandHookOnSessionStartSurvives covers REQ-16/D8 (the
+// m4-reconcile plan's regression guard for m4-hook-quoting review Major 1): a foreign
+// type:"command" SessionStart hook (some other tool's own instrumentation, not Muster's)
+// must survive the merge alongside Muster's own quoted entry, and a re-merge must not
+// duplicate the foreign one. TestMergeSettings_ForeignHookOnAMusterOwnedEventSurvives
+// above already covers this for a type:"http" entry on a plain HTTP-hook event; this is
+// the SessionStart-specific case (the one event Muster itself registers as type:"command",
+// per spikes/FINDINGS.md §1), which isMusterEntry's command branch must not conflate with
+// Muster's own entry unless the command string actually matches one of Muster's own
+// configured paths (Edge Case 4).
+func TestMergeSettings_ForeignCommandHookOnSessionStartSurvives(t *testing.T) {
+	existing := []byte(`{
+		"hooks": {
+			"SessionStart": [{"hooks": [{"type": "command", "command": "/Users/x/bin/my-other-tool.sh", "timeout": 10}]}]
+		}
+	}`)
+	cfg := testSettingsConfig()
+
+	out, err := MergeSettings(existing, cfg)
+	require.NoError(t, err)
+
+	var doc map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(out, &doc))
+	var hooks map[string][]hookGroup
+	require.NoError(t, json.Unmarshal(doc["hooks"], &hooks))
+
+	require.Contains(t, hooks, "SessionStart")
+	var allCommands []string
+	for _, group := range hooks["SessionStart"] {
+		for _, entry := range group.Hooks {
+			if entry.Command != "" {
+				allCommands = append(allCommands, entry.Command)
+			}
+		}
+	}
+	assert.Contains(t, allCommands, "/Users/x/bin/my-other-tool.sh", "the foreign SessionStart command hook must survive the merge")
+	assert.Contains(t, allCommands, shellQuote(cfg.SessionStartCommand), "Muster's own quoted SessionStart entry must also be present")
+
+	// Re-merging with the same cfg must not duplicate the foreign entry.
+	second, err := MergeSettings(out, cfg)
+	require.NoError(t, err)
+	assert.Equal(t, string(out), string(second), "re-merging must be a true no-op on disk")
+
+	var doc2 map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(second, &doc2))
+	var hooks2 map[string][]hookGroup
+	require.NoError(t, json.Unmarshal(doc2["hooks"], &hooks2))
+	count := 0
+	for _, group := range hooks2["SessionStart"] {
+		for _, entry := range group.Hooks {
+			if entry.Command == "/Users/x/bin/my-other-tool.sh" {
+				count++
+			}
+		}
+	}
+	assert.Equal(t, 1, count, "the foreign entry must not be duplicated across repeated merges")
+}
+
 // TestWriteWrapperScripts covers the generated command-hook wrapper scripts: correct
 // paths, executable mode, a 2s curl timeout (never 5, CLAUDE.md hard rule), always exit
 // 0 (hook delivery is best-effort — Claude Code must never be made to retry), and the

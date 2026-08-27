@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { elapsedSeconds, formatAge, formatResets, formatTimer, formatTokens, GAUGE_WARN_THRESHOLD } from "./format";
+import { elapsedSeconds, formatAge, formatEndedAge, formatResets, formatTimer, formatTokens, GAUGE_WARN_THRESHOLD } from "./format";
 
 describe("elapsedSeconds", () => {
   it("computes whole elapsed seconds", () => {
@@ -79,6 +79,34 @@ describe("formatAge", () => {
   ])("formats %d elapsed seconds as %s", (seconds, expected) => {
     const now = new Date(new Date(since).getTime() + seconds * 1000);
     expect(formatAge(since, now)).toBe(expected);
+  });
+});
+
+describe("formatEndedAge (REQ-9/REQ-10/REQ-13, plan m4-reconcile): same coarse buckets as formatAge", () => {
+  const endedAt = "2026-08-22T00:00:00Z";
+
+  it.each([
+    [0, "now"],
+    [59, "now"],
+    [60, "1m"],
+    [3599, "59m"],
+    [3600, "1h"],
+    [86399, "23h"],
+    [86400, "1d"],
+  ])("formats %d elapsed seconds since endedAt as %s", (seconds, expected) => {
+    const now = new Date(new Date(endedAt).getTime() + seconds * 1000);
+    expect(formatEndedAge(endedAt, now)).toBe(expected);
+  });
+
+  it("never shows a negative age for an endedAt timestamp momentarily in the future (clock race)", () => {
+    const now = new Date("2026-08-22T00:00:00Z");
+    const future = "2026-08-22T00:00:05Z";
+    expect(formatEndedAge(future, now)).toBe("now");
+  });
+
+  it("returns 'now' for an unparsable endedAt rather than throwing", () => {
+    expect(() => formatEndedAge("not-a-date", new Date())).not.toThrow();
+    expect(formatEndedAge("not-a-date", new Date("2026-08-22T00:00:00Z"))).toBe("now");
   });
 });
 

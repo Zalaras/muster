@@ -262,9 +262,20 @@ test("killing the stub's tmux session shows the ended placeholder on its live su
   }
 });
 
-test("focusing a dead session shows the ended placeholder without ever attempting a socket (REQ-13)", async ({
+test("focusing a dead session shows the dead surface, never the terminal region, without ever attempting a socket (REQ-13)", async ({
   page,
 }) => {
+  // Sanctioned breakage (plan m4-reconcile, validate-mode step 5): this test originally
+  // asserted a "session ended" overlay INSIDE the mounted terminal region
+  // (`terminalOverlay(terminalRegion(...))`). m4-reconcile's approved delta (REQ-13,
+  // UI Specifications "Dead surface", States: "never an empty terminal pretending to be
+  // live") replaces that with a dedicated `#dead-surface` — `renderFocusView` in
+  // `web/src/main.ts` now hides/clears `mainSlotEl` entirely for `alive:false` and never
+  // opens a terminal surface for it (`aliveOnly` filters focus's desired-live set before
+  // diffing against open surfaces). The old assertion is strengthened, not weakened: it
+  // now also asserts the terminal region never mounts at all (a stronger claim than "no
+  // attach attempt"), plus checks the richer dead-surface content (endbar/endcap/snapshot)
+  // the plan's Testable UI Elements table pins.
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
@@ -276,6 +287,18 @@ test("focusing a dead session shows the ended placeholder without ever attemptin
     // directly (5/5 passes in isolation, transient timeouts only under full-suite
     // parallelism) — never a case where the readback fails to arrive at all.
     await expect(region).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
+
+    // Wait for at least one liveness-poll snapshot capture to land WHILE the pane is still
+    // alive (REQ-4: captured on every tick the pane exists) before killing it — otherwise
+    // killing races the ~5s poll interval and the capture can land empty, same trap as
+    // actions.spec.ts's E13 ("killed before the first tick"). Polling the pane endpoint
+    // itself (rather than a fixed sleep) is exact regardless of the poll's real interval.
+    await expect
+      .poll(
+        async () => (await page.request.get(`${daemon.baseURL}/api/sessions/${session.id}/pane`)).status(),
+        { message: "waiting for the first pane snapshot to be captured while the pane is alive", timeout: 15_000 },
+      )
+      .toBe(200);
 
     await daemon.killTmuxWindow(session.tmuxTarget);
     await expect
@@ -290,9 +313,17 @@ test("focusing a dead session shows the ended placeholder without ever attemptin
     // it is still "top of sort" and gets refocused).
     const tracker = new TerminalSocketTracker(page);
     await page.reload();
-    await expect(terminalOverlay(terminalRegion(page, "dead-on-focus"))).toHaveText(/session ended/i, {
-      timeout: 15_000,
-    });
+
+    const deadSurface = page.locator("#dead-surface");
+    await expect(deadSurface).toBeVisible({ timeout: 15_000 });
+    await expect(deadSurface.locator(".endbar")).toHaveText(/^ended /);
+    await expect(deadSurface.locator(".endcap")).toContainText(/session ended/i);
+    await expect(deadSurface.locator("pre.snapshot")).toContainText("MUSTER-STUB-READY");
+
+    // The terminal region itself never mounts for a dead session (m4-reconcile REQ-13) —
+    // stronger than "no attach attempt": there is no live-surface DOM at all to attach to.
+    await expect(terminalRegion(page, "dead-on-focus")).toHaveCount(0);
+
     // REQ-13: "no attach attempt" — the client must never even request /ws/terminal/ for
     // a session it already knows is dead (409 not_attachable is the server-side backstop).
     // totalOpened, not liveCount: a socket that opened and then closed nets to zero on the

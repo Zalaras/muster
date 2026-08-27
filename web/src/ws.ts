@@ -32,6 +32,7 @@ export interface WsClientHandlers {
   onSessionUpsert?: (session: Session) => void;
   onPrefs?: (prefs: Prefs) => void;
   onUsage?: (usage: Usage) => void;
+  onSessionRemoved?: (id: number) => void;
   onDisconnected?: () => void;
   onProtocolMismatch?: (protocolVersion: number) => void;
 }
@@ -136,6 +137,10 @@ export class WsClient {
     }
     if (message.type === "usage") {
       this.handlers.onUsage?.(message.usage);
+      return;
+    }
+    if (message.type === "sessionRemoved") {
+      this.handlers.onSessionRemoved?.(message.id);
       return;
     }
     this.handlers.onSnapshot?.(message);

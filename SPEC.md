@@ -730,6 +730,34 @@ addendum). Two facts settled, no decision reopened:
   (`5` → a post every 5.00 s through 60 s of idle). Closes the last open item from the
   step-1 spikes about status-line cadence.
 
+### 2026-08-27 — M4 reconcile / shutdown policy / End · Remove · Resume shipped (plan `m4-reconcile`, via `/orchestrate`)
+
+Settled as implemented (decisions taken with Damian 2026-08-26 in planning, plus two during
+the run):
+
+- **Sessions survive daemon shutdown by policy.** `-on-exit` flag: `ask` (default — TTY
+  prompt "N live sessions on tmux socket X — kill them? [y/N]", 10 s timeout → No; non-TTY
+  behaves as `leave`), `leave`, `kill` (final snapshot, `kill-session`, row ended).
+- **Reconcile on start is synchronous, before the first snapshot is served.** `alive=0` rows
+  are swept (the user had their resume chance in the previous lifetime); `alive=1` rows whose
+  pane is gone are marked ended with `endedAt = startup time` and kept; unknown `muster-*`
+  sessions on the socket are logged at warn and never adopted. `alive` is set only from tmux
+  pane existence — never from a hook payload (review cycle 1 Major 1 removed the one leak).
+- **Last pane snapshot is in** (closes the protocol §3.4 deferral): `capture-pane -p` on every
+  liveness tick, display source only, served by `GET /api/sessions/{id}/pane`, rendered dimmed
+  under a "session ended" cap for dead sessions.
+- **End / Remove / Resume** with confirm dialogs; Remove is allowed on a live session (ends
+  first). Placement C — mainhead above the focused terminal *and* action rows on cards / tile
+  footers. Action rows on cards are **hover / focus-within revealed** (Damian, 2026-08-27).
+- **Resume lands in `idle`** via `KindResumeBind` (protocol §7.3 — the code previously landed
+  it in `started`); a resume with a different claude id still escalates to clear-rebind.
+- **Design system: `--danger` family** (`--danger`, `--danger-line`, `--danger-fg`) for
+  destructive actions — `--rose` stays reserved for Failed (§3 "rose is never delete").
+  Option A chosen by Damian 2026-08-27 over amending §3.
+- Protocol: `POST …/end`, `DELETE …/{id}` (→ `sessionRemoved`), `POST …/resume` refined,
+  `GET …/pane`, all in `docs/protocol.md`. Review (Opus, 4 cycles) approved; R2 (real-haiku
+  End → Resume) is still owed — see TODO.
+
 ### 2026-08-25 — M4 command-path quoting shipped (plan `m4-hook-quoting`, via `/orchestrate`)
 
 Closes the live bug behind M3's gauges never having rendered real data. Settled as

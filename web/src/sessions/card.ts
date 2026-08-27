@@ -2,9 +2,13 @@
 // with no DOM involved (docs/conventions.md — "keep logic in pure modules separate from
 // DOM code"). render/sessions.ts is the only consumer.
 import type { Session } from "../protocol";
-import { elapsedSeconds, formatTimer } from "./format";
+import { elapsedSeconds, formatEndedAge, formatTimer } from "./format";
 
 export type NoteKind = "attention" | "failure" | "trust" | "no-signal" | "none";
+
+/** REQ-11's card action-row contract: a live card offers only End; an ended card offers
+ * Resume then Remove, in that order — the exact button label text (Testable UI Elements). */
+export type CardAction = "End" | "Resume" | "Remove";
 
 export interface CardViewModel {
   id: number;
@@ -17,6 +21,7 @@ export interface CardViewModel {
   noteKind: NoteKind;
   noteText: string | null;
   ended: boolean;
+  actions: readonly CardAction[];
 }
 
 // design-system §3: the state->colour token map (applied via CSS class, never inline).
@@ -38,6 +43,14 @@ const BADGE_TEXT: Record<Session["state"], string> = {
   failed: "failed",
   idle: "idle",
 };
+
+/** The lowercase state word, shared with render/mainhead.ts and render/dead.ts (the
+ * mainhead meta line and the dead surface's endbar/cap both quote "last state <state>"
+ * from the same map the card badge uses — one source of truth for the word, never a
+ * second copy). */
+export function stateBadgeText(state: Session["state"]): string {
+  return BADGE_TEXT[state];
+}
 
 // ux-flows §1.4: "a session that has emitted no SessionStart within ~10s shows
 // 'no signal yet'".
@@ -109,16 +122,24 @@ export function buildCardViewModel(session: Session, now: Date): CardViewModel {
     noteText = firstLaunch.text;
   }
 
+  const ended = !session.alive;
+  // REQ-9: an ended card's timer reads "ended <age>" from `endedAt`, not the running
+  // state timer — `stateSince` stopped advancing the instant reconcile/End froze `state`.
+  // `session.endedAt` is only ever null while `alive:true` (protocol §7.5's paired
+  // invariant), so the fallback below is defensive-only and never observed in practice.
+  const timer = ended && session.endedAt ? `ended ${formatEndedAge(session.endedAt, now)}` : formatTimer(session.stateSince, now);
+
   return {
     id: session.id,
     title: session.title ?? "untitled",
     stateClass: STATE_CLASS[session.state],
     badge: BADGE_TEXT[session.state],
-    timer: formatTimer(session.stateSince, now),
+    timer,
     repoLine: repoLine(session),
     activity: session.lastActivity ? `last: ${session.lastActivity}` : null,
     noteKind,
     noteText,
-    ended: !session.alive,
+    ended,
+    actions: ended ? ["Resume", "Remove"] : ["End"],
   };
 }

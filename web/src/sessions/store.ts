@@ -17,6 +17,12 @@ export class SessionStore {
     this.sessions.set(session.id, session);
   }
 
+  /** Applies one `sessionRemoved` (REQ-15). A no-op if `id` is unknown (edge case 12 —
+   * "a client that has never seen this id ignores it"), not an error. */
+  remove(id: number): void {
+    this.sessions.delete(id);
+  }
+
   values(): Session[] {
     return Array.from(this.sessions.values());
   }

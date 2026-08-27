@@ -48,6 +48,21 @@
    * per design-system §1 ("never hard-code a hex value in a component"). */
   --scrim: rgba(8, 9, 13, 0.72);
 
+  /* --panel at 95% opacity — the dead-surface `.endcap .pill`, so the last-captured
+   * screen shows faintly through behind it. Same precedent as --scrim above (review
+   * m4-reconcile Major 7: was a raw rgba() literal in the component). */
+  --panel-95: rgba(23, 26, 36, 0.95);
+
+  /* destructive actions (Remove hover, the filled End/Remove confirm buttons) — their
+   * own family, never --rose: design-system §3 says "rose is never delete", so a Failed
+   * card's rose stripe can sit on screen beside a Remove button without the two being
+   * mistaken for the same signal. Values from design-system §1, decided 2026-08-26
+   * (m4-reconcile review, cycle 1 Major 10 → option A; repointed onto components in
+   * cycle 3 after the option was chosen). */
+  --danger: #c94f4f;
+  --danger-line: #7a3535;
+  --danger-fg: #fff;
+
   /* system stacks only — nothing vendored, nothing fetched (decided 2026-08-16) */
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -306,6 +321,100 @@ body {
   display: none;
 }
 
+/* ── mainhead (REQ-10, m4-reconcile) ─────────────────────────────────────────────────── */
+
+.mainhead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  flex: none;
+}
+
+.mainhead[hidden] {
+  display: none;
+}
+
+.mainhead .name {
+  /* review m4-reconcile Minor 11: promoted from a bare <span> to an <h2> so there's a
+   * heading to navigate to above the terminal — reset the UA heading margin so the flex
+   * row layout is unaffected. */
+  margin: 0;
+  font-family: var(--disp);
+  font-weight: 700;
+  font-size: 14.5px;
+  letter-spacing: -0.015em;
+}
+
+.mainhead .meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.mainhead .acts {
+  margin-left: auto;
+  display: flex;
+  gap: 7px;
+}
+
+/* ── card/tile/strip action rows (REQ-11/REQ-12, m4-reconcile) ──────────────────────── */
+
+/* review m4-reconcile cycle-2 Minor 4 (carried from cycle-1 Minor 12): the reference
+ * mockup (opt-c-both.html:277) annotates this row "shown on hover / on the focused
+ * card" — always-on changes the rail's visual density from the reference render and
+ * puts a destructive action one click from every card. Dimming via `opacity` rather
+ * than `display`/`visibility` keeps the row present and actionable in the DOM at all
+ * times (Testable UI Elements requires End/Resume/Remove to be locatable without
+ * simulating hover — Playwright's actionability model doesn't treat `opacity: 0` as
+ * hidden, confirmed by re-running the full E2E suite unchanged against this rule).
+ * `:focus-within` on `.card` covers both "the card itself has focus" and "a button
+ * inside it has focus" in one rule, matching the mockup's "or on the focused card".
+ *
+ * review m4-reconcile cycle-3 Critical 1: `.acts-row` is not a card-only class — the
+ * dead surface's cap (`.endcap .pill .acts-row`, `#dead-surface` and the cloned tile
+ * `.dead-surface`, neither ever inside a `.card`) reuses it too, and the hover-reveal
+ * used to be written on the bare class, so it applied everywhere including surfaces
+ * that are never hovered/focused-within a `.card`, leaving the cap's Resume button
+ * permanently at opacity 0. The hide/reveal opacity now lives only on `.card
+ * .acts-row`; every other `.acts-row` (the dead-surface cap) keeps the base rule's
+ * implicit opacity: 1 and stays visible unconditionally, matching the cap's own
+ * intent — it's not a hover affordance, it's the one recovery action on a dead
+ * surface. */
+.acts-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  transition: opacity 120ms ease;
+}
+
+.card .acts-row {
+  opacity: 0;
+}
+
+.card:hover .acts-row,
+.card:focus-within .acts-row {
+  opacity: 1;
+}
+
+.acts-row[hidden] {
+  display: none;
+}
+
+.tfoot .acts {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tfoot .tage {
+  color: var(--dim);
+}
+
 .terminal-slot {
   flex: 1;
   display: flex;
@@ -371,6 +480,102 @@ body {
 
 .terminal-overlay[hidden] {
   display: none;
+}
+
+/* ── dead-session surface (REQ-13, m4-reconcile) — shared by Focus's `#dead-surface`
+ * and, per dead tile, a clone from `#dead-surface-template` mounted in `.tbody-slot`. */
+
+.dead-surface {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.dead-surface[hidden] {
+  display: none;
+}
+
+.endbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 16px;
+  background: var(--panel2);
+  border-bottom: 1px solid var(--line2);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tiles' own `.tbody-slot` already lays out as flex — the cloned `.dead-surface` needs no
+ * separate `.termwrap` sizing rule there, this one governs both contexts. `position:
+ * relative` is deliberately here, not on `.dead-surface` (mockups/opt-c-both.html's own
+ * `.termwrap`) — `.endcap`'s `inset:0` must cover only the snapshot area, not the endbar
+ * above it. */
+.termwrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* design-system §7.5: the frame dims, pane contents are never restyled underneath. */
+.snapshot.ended {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  overflow: auto;
+  background: var(--term);
+  padding: 14px 16px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--muted);
+  white-space: pre-wrap;
+  filter: saturate(0.35) brightness(0.72);
+}
+
+.endcap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.endcap .pill {
+  pointer-events: auto;
+  background: var(--panel-95);
+  border: 1px solid var(--line2);
+  padding: 13px 18px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.7;
+  /* review m4-reconcile Major 8: `.endcap-text` here is rewritten every second
+   * (render/dead.ts) with "<age> ago · last state: <badge>" — its digits change under
+   * the reader, same as every other time-varying readout in this plan. */
+  font-variant-numeric: tabular-nums;
+}
+
+.endcap .pill b {
+  display: block;
+  color: var(--paper);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+
+.endcap .pill .acts-row {
+  justify-content: center;
+  margin-top: 10px;
 }
 
 /* ── Tiles view ───────────────────────────────────────────────────────────────────── */
@@ -827,15 +1032,21 @@ body {
 }
 
 /* Degraded state (REQ-18): dead session greys out, keeping its last badge/state — a pure
- * visual cue (design-system --dim), never hidden or relabelled. */
+ * visual cue (design-system --dim), never hidden or relabelled. REQ-9 additionally
+ * strikes through the name (mockups/opt-c-both.html `.card.ended .name`). */
 .card.ended {
   opacity: 0.55;
 }
 
+.card.ended .name {
+  text-decoration: line-through;
+  text-decoration-color: var(--line2);
+}
+
 /* A dead tile's chrome greys out the same way its rail/strip card does (m2 review
  * cycle-2 Minor 2 — same session, same treatment in every surface). Only the header
- * and footer dim: the body keeps full opacity so the "session ended" overlay and the
- * frozen last-drawn terminal content stay legible. */
+ * and footer dim: the body keeps full opacity so the dead-surface's own dimming
+ * (`.snapshot.ended`'s filter) governs legibility there instead. */
 .tile.ended .thead,
 .tile.ended .tfoot {
   opacity: 0.55;
@@ -868,7 +1079,7 @@ body {
 
 /* ── new-session modal ────────────────────────────────────────────────── */
 
-dialog#launch-dialog {
+dialog.modal {
   width: 520px;
   max-width: calc(100vw - 32px);
   padding: 0;
@@ -878,11 +1089,11 @@ dialog#launch-dialog {
   font-family: var(--sans);
 }
 
-dialog#launch-dialog::backdrop {
+dialog.modal::backdrop {
   background: var(--scrim);
 }
 
-dialog#launch-dialog h2 {
+dialog.modal h2 {
   margin: 0;
   padding: 13px 16px;
   border-bottom: 1px solid var(--line);
@@ -890,6 +1101,41 @@ dialog#launch-dialog h2 {
   font-weight: 700;
   font-size: 15px;
   letter-spacing: -0.015em;
+}
+
+/* ── confirm dialogs (REQ-14, m4-reconcile) — End/Remove, modelled on the launch
+ * dialog's own `dialog.modal` chrome above; `--danger` for the destructive confirm
+ * button (review m4-reconcile cycle-3 Major 2, Damian's option A): a state colour may
+ * only mean that state (§3), so destructive actions get their own family rather than
+ * borrowing `--rose`, which stays reserved for the Failed state. */
+dialog.confirm {
+  width: 440px;
+}
+
+dialog.confirm p {
+  margin: 0;
+  padding: 14px 16px 4px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+
+.btn.key-danger {
+  color: var(--danger-fg);
+  background: var(--danger);
+  border-color: var(--danger-line);
+  font-weight: 600;
+}
+
+.btn.danger:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.btn.sm {
+  font-size: 9.5px;
+  padding: 3px 8px;
 }
 
 .picker {

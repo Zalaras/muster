@@ -36,7 +36,31 @@
         </aside>
         <section class="main">
           <div id="main-empty" class="placeholder">No sessions yet — ⌘N to launch</div>
+          <div id="mainhead" class="mainhead" hidden>
+            <h2 class="name"></h2>
+            <span class="meta"></span>
+            <div class="acts">
+              <button type="button" class="btn" data-action="end">End</button>
+              <button type="button" class="btn" data-action="resume">Resume</button>
+              <button type="button" class="btn danger" data-action="remove">Remove</button>
+            </div>
+          </div>
           <div id="main-terminal-slot" class="terminal-slot" hidden></div>
+          <div id="dead-surface" class="dead-surface" hidden>
+            <div class="endbar"></div>
+            <div class="termwrap">
+              <pre class="snapshot ended"></pre>
+              <div class="endcap">
+                <div class="pill">
+                  <b role="status">session ended</b>
+                  <span class="endcap-text"></span>
+                  <div class="acts-row">
+                    <button type="button" class="btn sm" data-action="resume">Resume</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
           <div id="sizenote" class="sizenote" hidden></div>
         </section>
       </div>
@@ -112,6 +136,24 @@
       </form>
     </dialog>
 
+    <dialog id="end-dialog" class="modal confirm" aria-labelledby="end-dialog-title" aria-describedby="end-dialog-body">
+      <h2 id="end-dialog-title">End session?</h2>
+      <p id="end-dialog-body"></p>
+      <div class="modal-foot">
+        <button type="button" id="end-cancel-button" class="btn">Cancel</button>
+        <button type="button" id="end-confirm-button" class="btn key-danger">End session</button>
+      </div>
+    </dialog>
+
+    <dialog id="remove-dialog" class="modal confirm" aria-labelledby="remove-dialog-title" aria-describedby="remove-dialog-body">
+      <h2 id="remove-dialog-title">Remove session?</h2>
+      <p id="remove-dialog-body"></p>
+      <div class="modal-foot">
+        <button type="button" id="remove-cancel-button" class="btn">Cancel</button>
+        <button type="button" id="remove-confirm-button" class="btn key-danger">Remove</button>
+      </div>
+    </dialog>
+
     <template id="session-card-template">
       <article class="card" data-testid="session-card">
         <div class="stripe"></div>
@@ -125,6 +167,7 @@
           <div class="r3"></div>
           <div class="activity" hidden></div>
           <div class="note" hidden></div>
+          <div class="acts-row" hidden></div>
         </div>
       </article>
     </template>
@@ -142,8 +185,27 @@
         <div class="tfoot">
           <span class="geo"></span>
           <span class="marker"></span>
+          <span class="acts"></span>
         </div>
       </article>
+    </template>
+
+    <template id="dead-surface-template">
+      <div class="dead-surface">
+        <div class="endbar"></div>
+        <div class="termwrap">
+          <pre class="snapshot ended"></pre>
+          <div class="endcap">
+            <div class="pill">
+              <b role="status">session ended</b>
+              <span class="endcap-text"></span>
+              <div class="acts-row">
+                <button type="button" class="btn sm" data-action="resume">Resume</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </template>
 
     <template id="mru-entry-template">

@@ -73,6 +73,20 @@ type sessionUpsertMessage struct {
 	Session sessionWire `json:"session"`
 }
 
+// sessionRemovedMessage is the WS `sessionRemoved` envelope (m4-reconcile REQ-6, docs/
+// protocol.md §5.5) — sent once per DELETE /api/sessions/{id}.
+type sessionRemovedMessage struct {
+	Type string `json:"type"`
+	ID   int64  `json:"id"`
+}
+
+// paneSnapshotWire is GET /api/sessions/{id}/pane's response shape (m4-reconcile REQ-4,
+// docs/protocol.md §3.4).
+type paneSnapshotWire struct {
+	Text       string `json:"text"`
+	CapturedAt string `json:"capturedAt"`
+}
+
 // toWireSession converts a session.Session to its wire shape. repo is null "when
 // directory isn't a git checkout" (§5.3) — session.Branch is authoritatively nil in
 // exactly that case (Schema Changes: "branch ... null when not git"), so that's the

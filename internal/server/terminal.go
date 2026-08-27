@@ -90,6 +90,24 @@ func (r *terminalRegistry) release(sessionID int64, conn *terminalConn) {
 	}
 }
 
+// closeSession closes sessionID's live terminal socket, if any, with 4001 pane_ended —
+// End's pre-kill step (m4-reconcile REQ-5, Implementation Notes: closing here first
+// means the UI's dead-surface overlay arrives ahead of the alive:false sessionUpsert).
+// A no-op when no socket is open for sessionID.
+func (r *terminalRegistry) closeSession(sessionID int64) {
+	r.mu.Lock()
+	conn := r.conns[sessionID]
+	if conn != nil {
+		delete(r.conns, sessionID)
+	}
+	r.mu.Unlock()
+	if conn == nil {
+		return
+	}
+	_ = conn.ws.Close(closePaneEnded, "pane_ended")
+	_ = conn.bridge.Close()
+}
+
 // closeAll closes every live terminal socket (daemon shutdown — normal close 1001,
 // protocol §6) and clears the map, so a takeover racing shutdown can't re-close an
 // already-closed conn it still thinks is live (review.md Minor 3).

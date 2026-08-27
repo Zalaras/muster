@@ -479,3 +479,27 @@ describe("parseMessage — snapshot with sessions (M1: non-empty for the first t
     expect(parseMessage(snapshot)).toBeNull();
   });
 });
+
+describe("parseMessage — sessionRemoved (W6, plan m4-reconcile REQ-15, docs/protocol.md §5.5)", () => {
+  it("parses a well-formed sessionRemoved", () => {
+    const message = { type: "sessionRemoved", id: 7 };
+    expect(parseMessage(message)).toEqual(message);
+  });
+
+  it("ignores unknown top-level fields (additive evolution, protocol §1)", () => {
+    const message = { type: "sessionRemoved", id: 7, futureField: "surprise" };
+    expect(parseMessage(message)).toEqual({ type: "sessionRemoved", id: 7 });
+  });
+
+  it("rejects a sessionRemoved missing id", () => {
+    expect(parseMessage({ type: "sessionRemoved" })).toBeNull();
+  });
+
+  it.each(["7", null, undefined, {}, [7], true])("rejects a sessionRemoved whose id is not a number: %p", (id) => {
+    expect(parseMessage({ type: "sessionRemoved", id })).toBeNull();
+  });
+
+  it("accepts id 0 (a valid session id, not a falsy 'missing' sentinel)", () => {
+    expect(parseMessage({ type: "sessionRemoved", id: 0 })).toEqual({ type: "sessionRemoved", id: 0 });
+  });
+});

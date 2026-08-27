@@ -158,3 +158,64 @@ describe("sortSessions — unparsable stateSince/attention.since", () => {
     expect(sortSessions(sessions).map((s) => s.id)).toEqual([2, 1]);
   });
 });
+
+describe("sortSessions — ended sessions sort last, most-recently-ended first (REQ-9, plan m4-reconcile)", () => {
+  it("puts every alive:false session after every alive:true session, regardless of state priority", () => {
+    // id 3 is ended but in "needs_input" (highest live priority) — must still fall after
+    // a live "idle" (lowest live priority) session.
+    const sessions = [
+      makeSession({ id: 1, state: "idle", alive: true }),
+      makeSession({
+        id: 2,
+        state: "needs_input",
+        alive: false,
+        endedAt: "2026-08-22T00:10:00Z",
+        attention: { reason: "permission", since: "2026-08-22T00:00:00Z" },
+      }),
+    ];
+    expect(sortSessions(sessions).map((s) => s.id)).toEqual([1, 2]);
+  });
+
+  it("orders the ended group by endedAt descending (most-recently-ended first)", () => {
+    const sessions = [
+      makeSession({ id: 1, alive: false, endedAt: "2026-08-22T00:01:00Z" }),
+      makeSession({ id: 2, alive: false, endedAt: "2026-08-22T00:05:00Z" }),
+      makeSession({ id: 3, alive: false, endedAt: "2026-08-22T00:03:00Z" }),
+    ];
+    expect(sortSessions(sessions).map((s) => s.id)).toEqual([2, 3, 1]);
+  });
+
+  it("interleaves live and ended sessions correctly: all live (state-ordered) first, then all ended (recency-ordered)", () => {
+    const sessions = [
+      makeSession({ id: 1, alive: false, endedAt: "2026-08-22T00:01:00Z" }),
+      makeSession({ id: 2, state: "idle", alive: true }),
+      makeSession({ id: 3, alive: false, endedAt: "2026-08-22T00:05:00Z" }),
+      makeSession({ id: 4, state: "needs_input", alive: true, attention: { reason: "idle", since: "2026-08-22T00:00:00Z" } }),
+    ];
+    expect(sortSessions(sessions).map((s) => s.id)).toEqual([4, 2, 3, 1]);
+  });
+
+  it("breaks a tie in endedAt by ascending id, same convention as the live groups", () => {
+    const endedAt = "2026-08-22T00:05:00Z";
+    const sessions = [
+      makeSession({ id: 5, alive: false, endedAt }),
+      makeSession({ id: 2, alive: false, endedAt }),
+    ];
+    expect(sortSessions(sessions).map((s) => s.id)).toEqual([2, 5]);
+  });
+
+  it("sorts a (defensive, can't happen per REQ-1/3/5's paired alive/endedAt invariant) null endedAt last within the ended group", () => {
+    const sessions = [
+      makeSession({ id: 1, alive: false, endedAt: "2026-08-22T00:01:00Z" }),
+      makeSession({ id: 2, alive: false, endedAt: null }),
+    ];
+    expect(sortSessions(sessions).map((s) => s.id)).toEqual([1, 2]);
+  });
+
+  it("never mutates the input array when ended sessions are present", () => {
+    const sessions = [makeSession({ id: 1, alive: false, endedAt: "2026-08-22T00:00:00Z" }), makeSession({ id: 2, alive: true })];
+    const original = [...sessions];
+    sortSessions(sessions);
+    expect(sessions).toEqual(original);
+  });
+});

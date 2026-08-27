@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { browse, fetchRepos, launchSession, putPrefs } from "./api";
+import { browse, endSession, fetchPane, fetchRepos, launchSession, putPrefs, removeSession, resumeSession } from "./api";
 import type { Session } from "./protocol";
 
 const validSession: Session = {
@@ -272,6 +272,172 @@ describe("api — putPrefs (PUT /api/prefs, docs/protocol.md §3.3 / M2 REQ-10)"
   it("never throws when a non-204 response body isn't valid JSON at all", async () => {
     fetchMock.mockResolvedValue(fakeStatusResponse(500));
     const result = await putPrefs({ view: "tiles" });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+});
+
+const endedSession: Session = { ...validSession, alive: false, endedAt: "2026-08-22T00:05:00Z" };
+
+describe("api — endSession (POST /api/sessions/{id}/end, docs/protocol.md §3.7)", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("posts to the id-scoped end endpoint and decodes the 200 Session response (alive:false, endedAt set)", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, endedSession));
+    const result = await endSession(1);
+    expect(result).toEqual({ ok: true, value: endedSession });
+    expect(fetchMock).toHaveBeenCalledWith("/api/sessions/1/end", { method: "POST", credentials: "same-origin" });
+  });
+
+  it("decodes a 404 unknown_session error envelope", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "unknown_session", message: "no such session" } }));
+    const result = await endSession(999);
+    expect(result).toEqual({ ok: false, error: { code: "unknown_session", message: "no such session" } });
+  });
+
+  it("decodes a 409 not_alive error envelope (already ended)", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "not_alive", message: "session already ended" } }));
+    const result = await endSession(1);
+    expect(result).toEqual({ ok: false, error: { code: "not_alive", message: "session already ended" } });
+  });
+
+  it("falls back to a generic error when the success body is not a valid Session", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { not: "a session" }));
+    const result = await endSession(1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+});
+
+describe("api — resumeSession (POST /api/sessions/{id}/resume, docs/protocol.md §3.5)", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("posts to the id-scoped resume endpoint and decodes the 200 Session response (state unchanged until SessionStart)", async () => {
+    const resumedSession: Session = { ...validSession, alive: true, endedAt: null, state: "started" };
+    fetchMock.mockResolvedValue(fakeResponse(true, resumedSession));
+    const result = await resumeSession(1);
+    expect(result).toEqual({ ok: true, value: resumedSession });
+    expect(fetchMock).toHaveBeenCalledWith("/api/sessions/1/resume", { method: "POST", credentials: "same-origin" });
+  });
+
+  it("decodes a 409 not_resumable error envelope (alive, or claudeSessionId is null)", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "not_resumable", message: "session is still alive" } }));
+    const result = await resumeSession(1);
+    expect(result).toEqual({ ok: false, error: { code: "not_resumable", message: "session is still alive" } });
+  });
+
+  it("decodes a 409 directory_missing error envelope", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "directory_missing", message: "directory no longer exists" } }));
+    const result = await resumeSession(1);
+    expect(result).toEqual({ ok: false, error: { code: "directory_missing", message: "directory no longer exists" } });
+  });
+
+  it("decodes a 500 launch_failed error envelope", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "launch_failed", message: "spawn failed" } }));
+    const result = await resumeSession(1);
+    expect(result).toEqual({ ok: false, error: { code: "launch_failed", message: "spawn failed" } });
+  });
+});
+
+describe("api — removeSession (DELETE /api/sessions/{id}, docs/protocol.md §3.8)", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("decodes a bare 204 with no body as success, never trying to parse a body (the removal reaches the client via sessionRemoved, not the response)", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(204));
+    const result = await removeSession(1);
+    expect(result).toEqual({ ok: true, value: null });
+    expect(fetchMock).toHaveBeenCalledWith("/api/sessions/1", { method: "DELETE", credentials: "same-origin" });
+  });
+
+  it("decodes a 404 unknown_session error envelope", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(404, { error: { code: "unknown_session", message: "no such session" } }));
+    const result = await removeSession(999);
+    expect(result).toEqual({ ok: false, error: { code: "unknown_session", message: "no such session" } });
+  });
+
+  it("decodes a 500 end_failed error envelope (alive, kill failed — row not deleted)", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(500, { error: { code: "end_failed", message: "kill-session failed" } }));
+    const result = await removeSession(1);
+    expect(result).toEqual({ ok: false, error: { code: "end_failed", message: "kill-session failed" } });
+  });
+
+  it("never throws when a non-204 response body isn't valid JSON at all", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(500));
+    const result = await removeSession(1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+});
+
+describe("api — fetchPane (GET /api/sessions/{id}/pane, docs/protocol.md §3.4)", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("decodes a 200 pane snapshot (text + capturedAt)", async () => {
+    const pane = { text: "$ claude\nWorking on it...", capturedAt: "2026-08-22T00:05:00Z" };
+    fetchMock.mockResolvedValue(fakeResponse(true, pane));
+    const result = await fetchPane(1);
+    expect(result).toEqual({ ok: true, value: pane });
+    expect(fetchMock).toHaveBeenCalledWith("/api/sessions/1/pane", { credentials: "same-origin" });
+  });
+
+  it("decodes a 404 unknown_session error envelope", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "unknown_session", message: "no such session" } }));
+    const result = await fetchPane(999);
+    expect(result).toEqual({ ok: false, error: { code: "unknown_session", message: "no such session" } });
+  });
+
+  it("decodes a 404 no_snapshot error envelope — the 'no capture has succeeded yet' honesty case, distinct from unknown_session", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "no_snapshot", message: "no capture yet" } }));
+    const result = await fetchPane(1);
+    expect(result).toEqual({ ok: false, error: { code: "no_snapshot", message: "no capture yet" } });
+  });
+
+  it("preserves an empty-string pane text verbatim rather than treating it as missing", async () => {
+    const pane = { text: "", capturedAt: "2026-08-22T00:05:00Z" };
+    fetchMock.mockResolvedValue(fakeResponse(true, pane));
+    const result = await fetchPane(1);
+    expect(result).toEqual({ ok: true, value: pane });
+  });
+
+  it("rejects a success body missing capturedAt", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { text: "hello" }));
+    const result = await fetchPane(1);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("unknown_error");
   });

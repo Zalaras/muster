@@ -280,6 +280,68 @@ func TestApplyInput_ClearRebind(t *testing.T) {
 	})
 }
 
+// TestApplyInput_ResumeBind_SameClaudeIDFromEveryStateLandsIdleWithAttentionAndFailureCleared
+// covers REQ-8/D11/INV-6: a same-claude-id resume bind must land in idle with attention
+// and failure cleared — asserted from every one of the six displayed states, not just the
+// convenient one, per the m1-sessions review lesson (both review Criticals were stated
+// invariants that per-transition tests missed because they all started from the one state
+// with nothing to leak). Also asserts the REQ-8 "history exists, it is waiting for input,
+// not new" contract: compactions/lastActivity/context survive, unlike a clear-rebind.
+func TestApplyInput_ResumeBind_SameClaudeIDFromEveryStateLandsIdleWithAttentionAndFailureCleared(t *testing.T) {
+	states := []State{StateStarted, StatePlanning, StateWorking, StateNeedsInput, StateFailed, StateIdle}
+	for _, from := range states {
+		t.Run(string(from), func(t *testing.T) {
+			sess := newTestSession()
+			sess.ClaudeSessionID = "claude-1"
+			sess.State = from
+			sess.Alive = false // dead before the resume — RecordResume sets Alive separately in the manager
+			sess.Attention = &Attention{Reason: "permission", Since: fixedNow}
+			sess.Failure = &Failure{Error: "server_error", Message: "boom"}
+			sess.Compactions = 3
+			prior := "earlier activity"
+			sess.LastActivity = &prior
+			sess.Context = &Context{UsedPct: 50, TotalInputTokens: 1000, WindowSize: 2000}
+
+			applyInput(sess, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindResumeBind}, laterNow())
+
+			assert.Equal(t, StateIdle, sess.State)
+			assert.Nil(t, sess.Attention, "INV-6: attention non-null iff needs_input — a resume bind must never leave a stale note")
+			assert.Nil(t, sess.Failure, "INV-6: failure non-null iff failed — a resume bind must never leave a stale failure")
+			assert.False(t, sess.Alive, "INV-1: tmux pane existence is the sole authority for alive — a resume-bind hook (queued/late relative to tmux) must never flip it; RecordResume owns alive on the real resume path")
+			assert.Equal(t, 3, sess.Compactions, "REQ-8: history exists — a resume is not a /clear, compactions survive")
+			require.NotNil(t, sess.LastActivity, "REQ-8: lastActivity survives a resume")
+			assert.Equal(t, "earlier activity", *sess.LastActivity)
+			require.NotNil(t, sess.Context, "REQ-8: context survives a resume")
+			assert.Equal(t, 50.0, sess.Context.UsedPct)
+		})
+	}
+}
+
+// TestApplyInput_ResumeBind_DifferentClaudeIDEscalatesToClearRebind covers REQ-8/D12/Edge
+// Case 5: a resume bind for a claude session id the machine doesn't already have bound
+// (claude no longer has the requested id, or some other loss-tolerant mismatch) escalates
+// to the ordinary clear-rebind path exactly like a plain Bind would, landing in started
+// with a full reset rather than idle.
+func TestApplyInput_ResumeBind_DifferentClaudeIDEscalatesToClearRebind(t *testing.T) {
+	sess := newTestSession()
+	sess.ClaudeSessionID = "old-claude-id"
+	sess.State = StateFailed
+	sess.Failure = &Failure{Error: "server_error", Message: "boom"}
+	sess.Attention = nil
+	sess.Compactions = 5
+	prior := "earlier activity"
+	sess.LastActivity = &prior
+
+	applyInput(sess, "new-claude-id", nil, claudecode.StateInput{Kind: claudecode.KindResumeBind}, fixedNow)
+
+	assert.Equal(t, StateStarted, sess.State, "an unrecognized resume id escalates to clear-rebind, landing started — not idle")
+	assert.Equal(t, "new-claude-id", sess.ClaudeSessionID)
+	assert.Nil(t, sess.Attention)
+	assert.Nil(t, sess.Failure)
+	assert.Equal(t, 0, sess.Compactions, "escalation to clear-rebind resets compactions like any other /clear")
+	assert.Nil(t, sess.LastActivity, "escalation to clear-rebind resets lastActivity like any other /clear")
+}
+
 // TestApplyInput_TurnActivity covers the ACTIVE transition and REQ-9's latch semantics.
 func TestApplyInput_TurnActivity(t *testing.T) {
 	t.Run("enters working when the permission latch is not plan", func(t *testing.T) {

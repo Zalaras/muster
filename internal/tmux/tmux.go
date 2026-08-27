@@ -9,6 +9,7 @@
 package tmux
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -208,6 +209,56 @@ func (c *Client) KillWindow(ctx context.Context, target string) error {
 	return nil
 }
 
+// KillSession kills a whole tmux session by name (m4-reconcile REQ-5's End path — named
+// for clarity over KillWindow; under the one-window-per-session topology the two are
+// equivalent, plan Implementation Notes).
+func (c *Client) KillSession(ctx context.Context, name string) error {
+	if _, err := c.run(ctx, "kill-session", "-t", name); err != nil {
+		return fmt.Errorf("tmux kill-session %q: %w", name, err)
+	}
+	return nil
+}
+
+// ListSessions returns every tmux session name currently on this socket (m4-reconcile
+// REQ-2's "unknown panes are reported, never adopted" check). An empty, non-error result
+// means no server is running yet on this socket — list-sessions exits non-zero in that
+// case, the same shape PaneExists already treats as "not there" rather than a real error.
+func (c *Client) ListSessions(ctx context.Context) ([]string, error) {
+	out, err := c.run(ctx, "list-sessions", "-F", "#{session_name}")
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("listing tmux sessions: %w", err)
+	}
+	trimmed := strings.TrimSpace(out)
+	if trimmed == "" {
+		return nil, nil
+	}
+	return strings.Split(trimmed, "\n"), nil
+}
+
+// CapturePane returns target's pane contents as plain text (m4-reconcile REQ-4's
+// snapshot) — display source only, never read by the state machine (CLAUDE.md hard
+// rule) and never logged by any caller (may hold prompt text). Trailing blank lines are
+// trimmed so the UI's `pre.snapshot` doesn't scroll into emptiness.
+func (c *Client) CapturePane(ctx context.Context, target string) (string, error) {
+	out, err := c.runCapture(ctx, "capture-pane", "-p", "-t", target)
+	if err != nil {
+		return "", fmt.Errorf("tmux capture-pane %q: %w", target, err)
+	}
+	return trimTrailingBlankLines(out), nil
+}
+
+func trimTrailingBlankLines(s string) string {
+	lines := strings.Split(s, "\n")
+	for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {
+		lines = lines[:len(lines)-1]
+	}
+	return strings.Join(lines, "\n")
+}
+
 func (c *Client) run(ctx context.Context, args ...string) (string, error) {
 	full := append(c.socketFlag(), args...)
 	cmd := exec.CommandContext(ctx, "tmux", full...)
@@ -216,4 +267,21 @@ func (c *Client) run(ctx context.Context, args ...string) (string, error) {
 		return string(out), fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
 	}
 	return string(out), nil
+}
+
+// runCapture is run's capture-pane-only variant (review cycle 1 Minor 4/R3): unlike
+// run, it never folds the subprocess's stdout into the returned error. For
+// `capture-pane -p`, stdout *is* the live pane text — which may hold prompt content —
+// and no caller may ever log it (CLAUDE.md hard rule, R3). Stdout and stderr are kept
+// separate so a failure's error can only ever carry tmux's own stderr diagnostic.
+func (c *Client) runCapture(ctx context.Context, args ...string) (string, error) {
+	full := append(c.socketFlag(), args...)
+	cmd := exec.CommandContext(ctx, "tmux", full...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
+	}
+	return stdout.String(), nil
 }

@@ -1,5 +1,5 @@
 // Muster dashboard entrypoint (docs/protocol.md §8, plans m0-skeleton + m1-sessions +
-// m2-terminal).
+// m2-terminal + m4-reconcile).
 //
 // Wires the single WS client module (ws.ts) to the render functions, the launch modal
 // (render/launch.ts) to the session store, and a 1s tick so timers/notes/geometry keep
@@ -8,9 +8,11 @@
 // which sessions are live in the current view (Focus's one pane, or Tiles' grid) and
 // which `terminal/pane.ts` instances exist for them — computed via the pure functions in
 // sessions/live.ts and applied here as the only place a TerminalSurface is constructed or
-// disposed (W7: no render path opens a socket outside this manager). No other business
-// logic here: protocol decoding, sort order, card/tile view-models and membership math
-// all live in pure modules.
+// disposed (W7/W8: no render path opens a socket outside this manager, and never for an
+// `alive:false` session). Plan m4-reconcile adds the End/Resume/Remove dispatcher, the
+// dead-session pane-snapshot cache, and the mainhead/confirm-dialog wiring — still no
+// other business logic here: protocol decoding, sort order, card/tile/dead view-models
+// and membership math all live in pure modules.
 import { renderBanner } from "./render/banner";
 import {
   renderClaudeVersion,
@@ -22,12 +24,15 @@ import {
   renderViewSwitcher,
   type ConnectionStatus,
 } from "./render/masthead";
-import { renderFocusMain, renderSessions, renderSizenote } from "./render/sessions";
-import { buildTile, renderStrip, renderTileGeometry, updateTile, type TileRefs } from "./render/tiles";
+import { renderFocusMain, renderSessions, renderSizenote, type SessionAction } from "./render/sessions";
+import { buildTile, mountTileDeadSurface, renderStrip, renderTileFooterActions, renderTileGeometry, updateTile, type TileRefs } from "./render/tiles";
 import { initLaunchModal, type LaunchModalElements } from "./render/launch";
-import { type ApiResult, putPrefs } from "./api";
+import { initConfirmDialogs, type ConfirmDialogs } from "./render/confirm";
+import { renderMainhead, type MainheadElements } from "./render/mainhead";
+import { collectDeadSurfaceRefs, loadPane, renderDeadSurface, type DeadSurfaceRefs, type PaneState } from "./render/dead";
+import { endSession, putPrefs, removeSession, resumeSession, type ApiResult } from "./api";
 import { type Density, type Prefs, type Session, type Usage, UNKNOWN_USAGE } from "./protocol";
-import { applyDensity, densityCount, initialLive, promote, surfaceDiff } from "./sessions/live";
+import { aliveOnly, applyDensity, densityCount, initialLive, promote, surfaceDiff } from "./sessions/live";
 import { SessionStore } from "./sessions/store";
 import { sortSessions } from "./sessions/sort";
 import { TerminalSurface } from "./terminal/pane";
@@ -69,6 +74,19 @@ const tilesEmptyEl = requireElement<HTMLElement>("#tiles-empty");
 const tilesGridEl = requireElement<HTMLElement>("#tiles-grid");
 const tilesStripEl = requireElement<HTMLElement>("#tiles-strip");
 
+// ── m4-reconcile: mainhead / dead surface / confirm dialogs ────────────────────────────
+const mainheadElements: MainheadElements = {
+  root: requireElement<HTMLElement>("#mainhead"),
+  nameEl: requireElement<HTMLElement>("#mainhead .name"),
+  metaEl: requireElement<HTMLElement>("#mainhead .meta"),
+  endBtn: requireElement<HTMLButtonElement>('#mainhead button[data-action="end"]'),
+  resumeBtn: requireElement<HTMLButtonElement>('#mainhead button[data-action="resume"]'),
+  removeBtn: requireElement<HTMLButtonElement>('#mainhead button[data-action="remove"]'),
+};
+const deadSurfaceEl = requireElement<HTMLElement>("#dead-surface");
+const deadSurfaceRefs: DeadSurfaceRefs = collectDeadSurfaceRefs(deadSurfaceEl);
+const deadSurfaceTemplate = requireElement<HTMLTemplateElement>("#dead-surface-template");
+
 const store = new SessionStore();
 
 // ── view/prefs state ────────────────────────────────────────────────────────────────
@@ -92,12 +110,54 @@ const surfaces = new Map<number, TerminalSurface>();
 // textarea within ~1s of the user clicking into it (review m2-terminal Critical 2).
 const tileElements = new Map<number, TileRefs>();
 
+// m4-reconcile: the dead-surface pane-snapshot cache (REQ-4/REQ-13). Keyed by session id,
+// populated by `ensurePaneFetch` and consumed by `renderFocusView`/`reconcileTilesGrid`.
+// `previousAlive` tracks each session's `alive` from the last render pass so an
+// alive->dead transition (a fresh End, or Resume-then-End again) invalidates any stale
+// cache entry — "re-fetch when a sessionUpsert flips alive -> false" (plan Implementation
+// Notes: the snapshot may have just been finalised by End). Both maps are pruned to the
+// current store's ids every render pass so a removed session never leaks an entry.
+const deadPaneCache = new Map<number, PaneState>();
+const previousAlive = new Map<number, boolean>();
+
+function ensurePaneFetch(id: number): void {
+  if (deadPaneCache.has(id)) return;
+  deadPaneCache.set(id, { status: "loading" });
+  void loadPane(id).then((state) => {
+    deadPaneCache.set(id, state);
+    render();
+  });
+}
+
+/** Prunes the dead-pane tracking maps to the current session id set, then invalidates any
+ * cache entry whose session just transitioned alive -> dead this pass. Called once at the
+ * top of every `render()`, before either view reads from `deadPaneCache`. */
+function updateDeadPaneTracking(sessions: readonly Session[]): void {
+  const ids = new Set(sessions.map((s) => s.id));
+  for (const id of previousAlive.keys()) {
+    if (!ids.has(id)) previousAlive.delete(id);
+  }
+  for (const id of deadPaneCache.keys()) {
+    if (!ids.has(id)) deadPaneCache.delete(id);
+  }
+  for (const session of sessions) {
+    const wasAlive = previousAlive.get(session.id);
+    if (wasAlive === true && !session.alive) deadPaneCache.delete(session.id);
+    previousAlive.set(session.id, session.alive);
+  }
+}
+
 // Only true once a `hello` has ever been received. Before that, a socket that hasn't
 // connected yet is "connecting…", not "daemon down" — the banner would otherwise flash
 // "musterd unreachable" on every page load while the very page it's rendering was just
 // served by that same daemon. Once we've seen a first `hello`, a later drop really is
 // the daemon going away, and the banner applies.
 let everConnected = false;
+let connectionStatus: ConnectionStatus = "connecting";
+
+function isConnected(): boolean {
+  return connectionStatus === "connected";
+}
 
 /** The masthead's usage gauges: the M2-era text readout (`renderUsage`, unchanged) plus
  * M3's track/resets markup (appended into the same elements — see renderUsageTrack's own
@@ -111,8 +171,19 @@ function renderUsageBlock(usage: Usage, now: Date): void {
 }
 
 function setStatus(status: ConnectionStatus): void {
+  connectionStatus = status;
   renderConnectionStatus(connectionStatusEl, status);
   renderBanner(bannerEl, everConnected && status !== "connected");
+  // States (m4-reconcile): "Daemon down ... Dialogs, if open, close" — an End/Remove
+  // against a dead daemon can never be confirmed as done.
+  if (status !== "connected") confirmDialogs.closeAll();
+  // review m4-reconcile Major 3: every already-drawn surface (mainhead, dead-surface
+  // cap, rail cards, tile footers) carries `connected` baked into its last render call.
+  // A focused *dead* session has no terminal socket to incidentally trigger a re-render
+  // on disconnect, so without this call its action buttons (and a since-opened confirm
+  // dialog) stay stuck in the stale `connected: true` state indefinitely. Re-render on
+  // every status transition (down and back up) so button-disabled state never goes stale.
+  render();
 }
 
 function showProtocolMismatch(): void {
@@ -152,7 +223,8 @@ function promoteSession(id: number): void {
   render();
 }
 
-/** ⌘1–9: focus session n of the sorted list (Focus: focus it; Tiles: promote it). */
+/** ⌘1–9: focus session n of the sorted list (Focus: focus it, even if ended — REQ-18;
+ * Tiles: promote it). */
 function focusNth(n: number): void {
   const sorted = sortSessions(store.values());
   const session = sorted[n - 1];
@@ -164,6 +236,105 @@ function focusNth(n: number): void {
     promoteSession(session.id);
   }
 }
+
+// ── m4-reconcile: End / Resume / Remove dispatcher ──────────────────────────────────────
+// One dispatcher, called from the mainhead, every card action row (rail + strip), and
+// every tile footer/dead-surface cap — End/Remove open a confirm dialog (REQ-14); Resume
+// has none (User Flow 3) and calls the API directly.
+function dispatchAction(action: SessionAction, id: number): void {
+  const session = store.values().find((s) => s.id === id);
+  if (!session) return;
+  if (action === "end") {
+    confirmDialogs.openEnd(session);
+  } else if (action === "remove") {
+    confirmDialogs.openRemove(session);
+  } else {
+    void doResume(id);
+  }
+}
+
+function doEnd(id: number): void {
+  void endSession(id).then((result) => {
+    if (!result.ok) {
+      console.error(`POST /api/sessions/${id}/end failed: ${result.error.code} ${result.error.message}`);
+      return;
+    }
+    store.upsert(result.value);
+    render();
+  });
+}
+
+async function doResume(id: number): Promise<void> {
+  const result = await resumeSession(id);
+  if (!result.ok) {
+    console.error(`POST /api/sessions/${id}/resume failed: ${result.error.code} ${result.error.message}`);
+    return;
+  }
+  store.upsert(result.value);
+  render();
+}
+
+/** REQ-15: strips a removed session from the store, the live surface map, Tiles'
+ * membership and the mounted tile chrome; if it was focused, focus falls through to
+ * `render()`'s existing "top of the sorted list" default. */
+function handleRemoved(id: number): void {
+  store.remove(id);
+  surfaces.get(id)?.dispose();
+  surfaces.delete(id);
+  const tileRefs = tileElements.get(id);
+  if (tileRefs) {
+    tileRefs.root.remove();
+    tileElements.delete(id);
+  }
+  tilesLive = tilesLive.filter((x) => x !== id);
+  deadPaneCache.delete(id);
+  previousAlive.delete(id);
+  if (focusedId === id) focusedId = null;
+  render();
+}
+
+function doRemove(id: number): void {
+  void removeSession(id).then((result) => {
+    if (!result.ok) {
+      console.error(`DELETE /api/sessions/${id} failed: ${result.error.code} ${result.error.message}`);
+      return;
+    }
+    handleRemoved(id);
+  });
+}
+
+const confirmDialogs: ConfirmDialogs = initConfirmDialogs(
+  {
+    endDialog: requireElement<HTMLDialogElement>("#end-dialog"),
+    endBody: requireElement<HTMLElement>("#end-dialog-body"),
+    endConfirmBtn: requireElement<HTMLButtonElement>("#end-confirm-button"),
+    endCancelBtn: requireElement<HTMLButtonElement>("#end-cancel-button"),
+    removeDialog: requireElement<HTMLDialogElement>("#remove-dialog"),
+    removeBody: requireElement<HTMLElement>("#remove-dialog-body"),
+    removeConfirmBtn: requireElement<HTMLButtonElement>("#remove-confirm-button"),
+    removeCancelBtn: requireElement<HTMLButtonElement>("#remove-cancel-button"),
+  },
+  {
+    onConfirmEnd: doEnd,
+    onConfirmRemove: doRemove,
+  },
+);
+
+mainheadElements.endBtn.addEventListener("click", () => {
+  if (focusedId !== null) dispatchAction("end", focusedId);
+});
+mainheadElements.resumeBtn.addEventListener("click", () => {
+  if (focusedId !== null) dispatchAction("resume", focusedId);
+});
+mainheadElements.removeBtn.addEventListener("click", () => {
+  if (focusedId !== null) dispatchAction("remove", focusedId);
+});
+// The Focus dead surface's own cap carries a Resume button too (REQ-13/User Flow 3) —
+// same dispatcher, since collectDeadSurfaceRefs already wired its `data-id` in
+// `renderDeadSurface`, but that dataset is only ever read here at click time.
+deadSurfaceRefs.resumeBtn.addEventListener("click", () => {
+  if (focusedId !== null) dispatchAction("resume", focusedId);
+});
 
 /** Adopts a `prefs` object (from the initial snapshot or a `prefs` broadcast) as local
  * view/density state — only resetting Tiles' sticky membership when the value actually
@@ -191,15 +362,40 @@ function reattachDisconnectedSurfaces(): void {
   }
 }
 
-function renderFocusView(sessions: readonly Session[]): void {
-  renderFocusMain({ emptyEl: mainEmptyEl, slotEl: mainSlotEl }, sessions.length > 0);
-  const session = sessions.find((s) => s.id === focusedId);
-  const surface = session ? surfaces.get(session.id) : undefined;
+function renderFocusView(sessions: readonly Session[], now: Date, connected: boolean): void {
+  const hasSessions = sessions.length > 0;
+  renderFocusMain({ emptyEl: mainEmptyEl, slotEl: mainSlotEl }, hasSessions);
+  const session = sessions.find((s) => s.id === focusedId) ?? null;
+  renderMainhead(mainheadElements, session, now, connected);
+
+  if (!session) {
+    mainSlotEl.hidden = true;
+    mainSlotEl.replaceChildren();
+    deadSurfaceEl.hidden = true;
+    renderSizenote(sizenoteEl, null);
+    return;
+  }
+
+  if (!session.alive) {
+    // REQ-13/W8: never a live terminal for a dead session — the dead surface replaces
+    // the terminal slot entirely, fetching (and caching) the last pane snapshot.
+    mainSlotEl.hidden = true;
+    mainSlotEl.replaceChildren();
+    deadSurfaceEl.hidden = false;
+    ensurePaneFetch(session.id);
+    renderDeadSurface(deadSurfaceRefs, session, deadPaneCache.get(session.id) ?? { status: "loading" }, now, connected);
+    renderSizenote(sizenoteEl, null);
+    return;
+  }
+
+  deadSurfaceEl.hidden = true;
+  const surface = surfaces.get(session.id);
   if (!surface) {
     mainSlotEl.replaceChildren();
     renderSizenote(sizenoteEl, null);
     return;
   }
+  mainSlotEl.hidden = false;
   if (mainSlotEl.firstElementChild !== surface.root) {
     mainSlotEl.replaceChildren(surface.root);
   }
@@ -211,13 +407,20 @@ function renderFocusView(sessions: readonly Session[]): void {
   // reserves the right amount of space before the measurement happens.
   if (sizenoteEl.hidden) {
     sizenoteEl.hidden = false;
-    sizenoteEl.textContent = " ";
+    // review m4-reconcile Minor 10: this must be an explicit NBSP escape, not an ASCII
+    // space — `.sizenote` is `display: flex`, and a flex item containing only
+    // collapsible whitespace renders at zero height, silently defeating the
+    // layout-shift reservation this comment block describes. A prior pass regressed
+    // this to a plain space (probably a formatter artifact); verified via `od -c` that
+    // it had become a literal 0x20 rather than U+00A0.
+    sizenoteEl.textContent = "\u00A0";
   }
   surface.refit();
   renderSizenote(sizenoteEl, surface.geometry);
 }
 
-/** Reconciles the Tiles grid to `liveSessions` (in priority order) against the persisted
+/** Reconciles the Tiles grid to `liveSessions` (in priority order, dead-but-sticky ones
+ * included — REQ-12's "a dead tile keeps its grid slot") against the persisted
  * `tileElements` map: existing tiles are updated and, if needed, *moved* in place;
  * departed ids are removed; only genuinely new ids get a freshly built tile. This never
  * rebuilds the grid wholesale (review m2-terminal Critical 2 — a wholesale rebuild
@@ -227,7 +430,7 @@ function renderFocusView(sessions: readonly Session[]): void {
  * container is a silent no-op, so a fit attempted before insertion never sends a
  * `resize`).
  */
-function reconcileTilesGrid(liveSessions: readonly Session[], now: Date): void {
+function reconcileTilesGrid(liveSessions: readonly Session[], now: Date, connected: boolean): void {
   const desiredIds = new Set(liveSessions.map((s) => s.id));
 
   for (const [id, refs] of tileElements) {
@@ -261,27 +464,46 @@ function reconcileTilesGrid(liveSessions: readonly Session[], now: Date): void {
     }
     previousRoot = refs.root;
 
-    // Insert into the grid FIRST, then mount/refit — a detached container's fit() is a
-    // silent no-op (Critical 1).
-    const surface = surfaces.get(session.id);
-    if (surface) {
-      if (isNewTile || refs.bodySlot.firstElementChild !== surface.root) {
-        refs.bodySlot.replaceChildren(surface.root);
+    if (session.alive) {
+      // Insert into the grid FIRST, then mount/refit — a detached container's fit() is a
+      // silent no-op (Critical 1).
+      const surface = surfaces.get(session.id);
+      if (surface) {
+        if (isNewTile || refs.bodySlot.firstElementChild !== surface.root) {
+          refs.bodySlot.replaceChildren(surface.root);
+        }
+        surface.refit();
       }
-      surface.refit();
+      renderTileGeometry(refs, true, surface?.geometry ?? null);
+    } else {
+      // REQ-12/REQ-13/W8: a dead tile never gets a live surface — its body slot mounts
+      // the shared dead-surface component instead, fetching the pane snapshot exactly
+      // like Focus's does.
+      ensurePaneFetch(session.id);
+      mountTileDeadSurface(
+        refs.bodySlot,
+        session,
+        deadPaneCache.get(session.id) ?? { status: "loading" },
+        now,
+        connected,
+        deadSurfaceTemplate,
+        dispatchAction,
+      );
+      renderTileGeometry(refs, false, null);
     }
-    renderTileGeometry(refs, session.alive, surface?.geometry ?? null);
+
+    if (refs.actsEl) renderTileFooterActions(refs.actsEl, session, now, connected, dispatchAction);
   }
 }
 
-function renderTilesView(sessions: readonly Session[], now: Date): void {
+function renderTilesView(sessions: readonly Session[], now: Date, connected: boolean): void {
   const hasSessions = sessions.length > 0;
   tilesEmptyEl.hidden = hasSessions;
   tilesGridEl.hidden = !hasSessions;
   if (!hasSessions) {
     tilesGridEl.replaceChildren();
     tileElements.clear();
-    renderStrip(tilesStripEl, [], now, promoteSession);
+    renderStrip(tilesStripEl, [], now, promoteSession, dispatchAction, connected);
     return;
   }
 
@@ -293,31 +515,36 @@ function renderTilesView(sessions: readonly Session[], now: Date): void {
   const liveIds = new Set(tilesLive);
   const stripSessions = sortSessions(sessions.filter((s) => !liveIds.has(s.id)));
 
-  reconcileTilesGrid(liveSessions, now);
+  reconcileTilesGrid(liveSessions, now, connected);
 
-  renderStrip(tilesStripEl, stripSessions, now, promoteSession);
+  renderStrip(tilesStripEl, stripSessions, now, promoteSession, dispatchAction, connected);
 }
 
 /** The single render pass: reconciles which sessions should be live in the current view
- * (opening/closing TerminalSurfaces via sessions/live.ts's pure diff — W7) and redraws
+ * (opening/closing TerminalSurfaces via sessions/live.ts's pure diff — W7/W8) and redraws
  * every view's chrome. Idempotent and safe to call after every store mutation, prefs
  * change, keyboard action or the 1s tick. */
 function render(): void {
   const sessions = store.values();
   const now = new Date();
+  const connected = isConnected();
 
+  updateDeadPaneTracking(sessions);
   renderUsageBlock(currentUsage, now);
 
   if (view === "tiles") {
     tilesLive = applyDensity(tilesLive, densityCount(density), sessions);
   } else if (focusedId === null || !sessions.some((s) => s.id === focusedId)) {
     // Default focus on load / whenever the current focus stops existing: top of the
-    // §3.4 sort order (REQ-7). Not persisted — recomputed, never remembered across a
-    // reload the way view/density are.
+    // §3.4 sort order (REQ-7), which now sorts ended sessions last (REQ-9) — a removed
+    // session's focus falls through to here.
     focusedId = sortSessions(sessions)[0]?.id ?? null;
   }
 
-  const desired = view === "focus" ? (focusedId !== null ? [focusedId] : []) : tilesLive;
+  // REQ-13/INV-5/W8: only alive sessions may ever open a terminal socket — Tiles' sticky
+  // grid membership (`tilesLive`) can include a dead id (REQ-12), so the filter is
+  // applied here, the last step before diffing against currently-open surfaces.
+  const desired = aliveOnly(view === "focus" ? (focusedId !== null ? [focusedId] : []) : tilesLive, sessions);
   const diff = surfaceDiff(Array.from(surfaces.keys()), desired);
 
   for (const id of diff.toClose) {
@@ -329,10 +556,17 @@ function render(): void {
     if (session) surfaces.set(id, new TerminalSurface(session));
   }
 
-  renderSessions(sessionsEl, sortSessions(sessions), now, (id) => {
-    focusedId = id;
-    render();
-  });
+  renderSessions(
+    sessionsEl,
+    sortSessions(sessions),
+    now,
+    (id) => {
+      focusedId = id;
+      render();
+    },
+    dispatchAction,
+    connected,
+  );
   railCountEl.textContent = sessions.length > 0 ? String(sessions.length) : "";
 
   renderViewSwitcher({ focusButton: viewFocusBtn, tilesButton: viewTilesBtn }, view);
@@ -344,8 +578,8 @@ function render(): void {
   viewFocusEl.hidden = view !== "focus";
   viewTilesEl.hidden = view !== "tiles";
 
-  if (view === "focus") renderFocusView(sessions);
-  else renderTilesView(sessions, now);
+  if (view === "focus") renderFocusView(sessions, now, connected);
+  else renderTilesView(sessions, now, connected);
 }
 
 viewFocusBtn.addEventListener("click", () => requestView("focus"));
@@ -434,6 +668,9 @@ const client = new WsClient(wsUrl, {
   onSessionUpsert: (session) => {
     store.upsert(session);
     render();
+  },
+  onSessionRemoved: (id) => {
+    handleRemoved(id);
   },
   onPrefs: (prefs) => {
     applyPrefsFromSnapshot(prefs);

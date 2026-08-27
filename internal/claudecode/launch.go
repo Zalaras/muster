@@ -7,6 +7,11 @@ type LaunchParams struct {
 	Model          string
 	Title          string // optional; empty omits --name
 	PermissionMode string // "default" | "plan" | "acceptEdits"
+
+	// ResumeSessionID is non-empty for a resume relaunch (m4-reconcile REQ-7 / docs/
+	// protocol.md §3.5): emits `--resume <id>` and omits `--name` (D13) — the only place
+	// the `--resume` flag string may appear (D6).
+	ResumeSessionID string
 }
 
 // BuildArgv returns the full argv (binary included) for launching `claude` with p.
@@ -15,7 +20,9 @@ type LaunchParams struct {
 // default and carries no CLI flag of its own.
 func BuildArgv(binary string, p LaunchParams) []string {
 	args := []string{binary, "--model", p.Model}
-	if p.Title != "" {
+	if p.ResumeSessionID != "" {
+		args = append(args, "--resume", p.ResumeSessionID)
+	} else if p.Title != "" {
 		args = append(args, "--name", p.Title)
 	}
 	switch p.PermissionMode {

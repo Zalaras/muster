@@ -41,6 +41,15 @@ component** — if a needed colour isn't here, add it here first.
   --banner-line:#5A2C2C;
   --banner-fg:#F3B7B7;
 
+  /* destructive actions (Remove hover, the filled Remove confirm button) — their own
+     family, because --rose means Failed and nothing else (§3: "rose is never delete").
+     Deliberately a deeper, duller red than --rose so the two read as different things
+     when a Failed card sits beside a Remove button. Decided 2026-08-26 (m4-reconcile
+     review, cycle 1 Major 10 → option A). */
+  --danger:#C94F4F;
+  --danger-line:#7A3535;
+  --danger-fg:#FFFFFF;
+
   /* type — system stacks only; nothing vendored, nothing fetched (decided 2026-08-16) */
   --mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
   --sans:system-ui,-apple-system,'Segoe UI',sans-serif;
@@ -81,7 +90,8 @@ dashboard twitch.
 Rules:
 
 - A state colour may **only** mean that state. Amber is never "highlight", teal is never
-  "link", rose is never "delete".
+  "link", rose is never "delete" — destructive actions use the `--danger` family (§1),
+  never `--rose`.
 - Colour is never the only carrier: every state also has a **word** (the badge) and a
   **position** (sort order). A colour-blind read of the rail must still work.
 - Exactly **one** primary action per surface may use a filled amber button. Everything else

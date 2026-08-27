@@ -39,6 +39,26 @@ export function formatAge(sinceIso: string, now: Date): string {
   return `${Math.floor(seconds / 86400)}d`;
 }
 
+/** REQ-9/REQ-10/REQ-13 (plan m4-reconcile): the coarse age since a session ended, in the
+ * same buckets as `formatAge` ("now", "2m", "1h", "2d") — `endedAt` is only ever non-null
+ * together with `alive:false` (protocol §7.5's paired invariant), so callers never need to
+ * special-case a null endedAt for a session they already know is dead. */
+export function formatEndedAge(endedAtIso: string, now: Date): string {
+  return formatAge(endedAtIso, now);
+}
+
+/** review m4-reconcile Major 6: every caller that composes "<age> ago" copy around
+ * `formatEndedAge` must go through this instead of appending " ago" directly —
+ * `formatEndedAge`'s sub-minute bucket is the literal string "now" (format.test.ts:104
+ * asserts this deliberately), and "ended now ago" is ungrammatical on the plan's most
+ * common path (looking at a session immediately after ending it). Mainhead, `.endbar`/
+ * `.endcap` and the tile footer age readout all render this instead of composing their
+ * own "${formatEndedAge(...)} ago" string. */
+export function formatEndedAgo(endedAtIso: string, now: Date): string {
+  const age = formatEndedAge(endedAtIso, now);
+  return age === "now" ? "now" : `${age} ago`;
+}
+
 // M3 (plan m3-gauges): the single ≥60%-used threshold shared by every gauge surface —
 // a masthead usage bar takes `warn` and a context track takes `hot` at this value
 // (design-system §5 "Gauge thresholds"). Compared against the raw (unrounded) percentage,

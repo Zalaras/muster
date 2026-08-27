@@ -270,3 +270,46 @@ describe("buildCardViewModel — ended (alive:false, REQ-18 degraded state)", ()
     expect(vm.stateClass).toBe("s-work");
   });
 });
+
+describe("buildCardViewModel — actions (REQ-11: live -> End; ended -> Resume, Remove)", () => {
+  it("offers only End for a live session", () => {
+    const vm = buildCardViewModel(makeSession({ id: 1, alive: true }), NOW);
+    expect(vm.actions).toEqual(["End"]);
+  });
+
+  it("offers Resume then Remove, in that order, for an ended session", () => {
+    const vm = buildCardViewModel(makeSession({ id: 1, alive: false, endedAt: "2026-08-22T00:00:00Z" }), NOW);
+    expect(vm.actions).toEqual(["Resume", "Remove"]);
+  });
+});
+
+describe("buildCardViewModel — ended timer (REQ-9): 'ended <age>' from endedAt, not the running stateSince timer", () => {
+  it("reads 'ended <age>' from endedAt, ignoring stateSince entirely", () => {
+    const vm = buildCardViewModel(
+      makeSession({
+        id: 1,
+        alive: false,
+        // stateSince is far in the past (would format as "1h" via formatTimer) — the
+        // ended timer must derive from endedAt (10s ago -> "now"), not stateSince.
+        stateSince: "2026-08-21T22:00:00Z",
+        endedAt: "2026-08-22T00:00:00Z",
+      }),
+      NOW,
+    );
+    expect(vm.timer).toBe("ended now");
+  });
+
+  it("uses formatEndedAge's minute/hour/day buckets in the timer text", () => {
+    const vm = buildCardViewModel(
+      makeSession({ id: 1, alive: false, endedAt: "2026-08-21T23:54:00Z" }),
+      NOW, // 6 minutes before NOW
+    );
+    expect(vm.timer).toBe("ended 6m");
+  });
+
+  it("does not use the 'ended' prefix for a live session's timer", () => {
+    const vm = buildCardViewModel(makeSession({ id: 1, alive: true, stateSince: "2026-08-22T00:00:00Z" }), NOW);
+    expect(vm.timer).not.toMatch(/^ended /);
+    expect(vm.timer).toBe("00:10");
+  });
+});

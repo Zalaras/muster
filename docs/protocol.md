@@ -66,8 +66,10 @@ message (additive fields don't bump it).
 | `GET /api/repos` | M1 | Directory picker list |
 | `GET /api/browse` | M1 | Folder-browser directory listing (§3.6) |
 | `PUT /api/prefs` | M2 | Persist UI preferences (view + density) |
-| `GET /api/sessions/{id}/pane` | M4 (deferred) | Last-known pane snapshot (dead-session review; see §3.4) |
-| `POST /api/sessions/{id}/resume` | M4 | `claude --resume` a dead session in a fresh pane |
+| `GET /api/sessions/{id}/pane` | M4 | Last captured pane screen (§3.4) — display source only |
+| `POST /api/sessions/{id}/resume` | M4 | `claude --resume` a dead session in a fresh pane (§3.5) |
+| `POST /api/sessions/{id}/end` | M4 | Kill a live session's tmux session (§3.7) |
+| `DELETE /api/sessions/{id}` | M4 | Remove a session (ends it first if live); broadcasts `sessionRemoved` (§3.8) |
 
 Design rule: **commands travel over HTTP; the WS pushes state one way (server→client)**.
 Rationale: idempotency and errors are natural in request/response, the E2E harness can
@@ -135,22 +137,35 @@ PUT: `{"view":"focus","density":"2x2"}`.
 **Errors:** 400 `invalid_request` — body not JSON, no known field present, or a field
 value outside its enum.
 
-### 3.4 `GET /api/sessions/{id}/pane` — deferred to M4 (m2-terminal planning, 2026-08-23)
+### 3.4 `GET /api/sessions/{id}/pane` (M4 — m4-reconcile, 2026-08-26; was deferred from M2)
 
-Not implemented in M2: the mockups render no terminal content in rail/strip cards —
-"snapshot" in the design docs means *static metadata card*, not screenshot — so nothing
-designed consumes this endpoint. Its one real use case (showing a dead session's final
-screen) belongs with M4's resume flow, where it will be designed against that flow. The
-sketched shape (last-captured pane content via `tmux capture-pane`, display source never
-a state source) remains the starting point when M4 picks it up.
+Serves the last screen the daemon captured for the session. The daemon runs
+`tmux capture-pane -p` on every liveness tick (~5 s) for each alive session and on End
+immediately before the kill; the text is persisted only when it changes. **Display source
+only** — never read by the state machine (CLAUDE.md hard rule); never logged (it holds
+prompt text).
 
-### 3.5 `POST /api/sessions/{id}/resume` (M4)
+**Response 200:**
+```jsonc
+{ "text": "…",                          // last capture-pane -p output, LF-separated, trailing blank lines trimmed
+  "capturedAt": "2026-08-26T09:15:00Z" } // when that capture was taken
+```
+Errors: `404 unknown_session`; `404 no_snapshot` (no capture has succeeded yet). Served for
+live sessions too; the UI asks only for `alive:false` ones.
 
-No body. Spawns `claude --resume <claudeSessionId>` in a fresh tmux window; the session
-row keeps its Muster `id` and moves to the new `tmuxTarget` once the enveloped
-`SessionStart` (`source:"resume"`, same `session_id` — H2 probe) confirms the bind.
-`200` + Session object. `409 not_resumable` when the session is still alive or has no
-`claudeSessionId`.
+### 3.5 `POST /api/sessions/{id}/resume` (M4 — refined by m4-reconcile, 2026-08-26)
+
+No body. Rewrites the directory's `.claude/settings.local.json` (§4.2), then spawns
+`claude --resume <claudeSessionId> --model <model.id> [--permission-mode <latched>]` in a
+new tmux session named `muster-<id>` (the dead one's name is free again) with the same
+pane environment as a launch. The row keeps its Muster `id`; `tmuxTarget`/`tmuxPane` are
+the new pane's, `alive:true`, `endedAt:null`, the snapshot is cleared, and a
+`sessionUpsert` is broadcast. `state` is **unchanged** until the enveloped
+`SessionStart(source:"resume", same session_id)` arrives and lands it in `idle` (§7.3).
+
+`200` + Session object. Errors: `404 unknown_session`; `409 not_resumable` (still alive,
+or `claudeSessionId` null); `409 directory_missing` (the directory no longer exists);
+`500 launch_failed` (settings write or tmux spawn failed — row unchanged).
 
 ### 3.6 `GET /api/browse` (M1)
 
@@ -178,6 +193,25 @@ home).
 **Errors:**
 - 400 `invalid_request`: `path` present but not absolute.
 - 404 `not_found`: path doesn't exist or isn't a directory (or is unreadable).
+
+### 3.7 `POST /api/sessions/{id}/end` (M4 — m4-reconcile, 2026-08-26)
+
+No body. Captures a final pane snapshot, then `tmux kill-session -t muster-<id>`, then
+nudges the liveness check. Open terminal sockets for the id close `4001 pane_ended`; a
+`sessionUpsert` with `alive:false` is broadcast before the response. No other session is
+touched. Recoverable: the daemon still holds `claudeSessionId`, so §3.5 can resume it.
+
+`200` + Session object (`alive:false`, `endedAt` set). Errors: `404 unknown_session`;
+`409 not_alive`.
+
+### 3.8 `DELETE /api/sessions/{id}` (M4 — m4-reconcile, 2026-08-26)
+
+No body. If the session is alive, the §3.7 End path runs first (its upsert is broadcast);
+then the row is deleted and `sessionRemoved` (§5.5) is broadcast. `event` rows keep their
+`session_id` (audit trail). A removed session can no longer be resumed from Muster.
+
+`204`. Errors: `404 unknown_session`; `500 end_failed` (alive and the kill failed — the
+row is **not** deleted).
 
 ## 4. HTTP endpoints — ingest (Claude Code → daemon)
 
@@ -384,8 +418,13 @@ nothing.
 { "type": "prefs", "prefs": { "view": "tiles", "density": "3x2" } }  // M2; full-object echo of PUT /api/prefs
 ```
 
-`sessionRemoved` is reserved (type name claimed, unused in v1 — dead sessions stay
-visible offering resume; there is no delete flow).
+```jsonc
+{ "type": "sessionRemoved", "id": 7 }   // M4; sent once per DELETE /api/sessions/{id} (§3.8)
+```
+
+A client that has never seen `id` ignores it. Startup sweeps (§7.5) send nothing — swept
+rows are simply absent from the first `snapshot`. Dead sessions otherwise stay visible
+(sorted last, offering Resume/Remove) until removed or swept.
 
 ## 6. WebSocket `/ws/terminal/{id}` — the PTY bridge (M2; refined by m2-terminal, 2026-08-23)
 
@@ -496,14 +535,32 @@ Hooks are best-effort, at-most-once, unordered, timestamp-free. Rules, in priori
 The state machine and these guards get exhaustive table-driven unit tests (conventions —
 "the logic the whole tool rests on").
 
-### 7.5 Liveness (M1 basic; M4 reconcile)
+### 7.5 Liveness (M1 basic; M4 reconcile — settled by m4-reconcile, 2026-08-26)
 
 `alive` is decided by **tmux pane existence on the muster socket** — polled (~5 s) and
-event-nudged (`SessionEnd`, PTY EOF in M2). `SessionEnd` is only a hint (`kill -9` emits
-nothing; `reason` can't distinguish crash from clean exit). A dead session keeps its last
-`state`, greys out, and offers resume (M4). Reconcile at daemon start walks every known
-session: pane alive → resume tracking; pane dead → `alive:false`, offer `--resume`; pane
-unknown to the DB → logged, never adopted (Muster only manages what it started).
+event-nudged (`SessionEnd`, PTY EOF in M2, End in M4). `SessionEnd` is only a hint
+(`kill -9` emits nothing; `reason` can't distinguish crash from clean exit). A dead
+session keeps its last `state`, greys out, sorts last, and offers Resume/Remove.
+
+**Reconcile at daemon start** runs synchronously, before `/ws` or `GET /api/state` can
+answer, over every persisted row:
+
+- `alive=0` (ended in an earlier daemon lifetime — the user had their resume chance) →
+  the row is **deleted** (count logged). Nothing is broadcast; it is absent from the
+  first `snapshot`.
+- `alive=1`, pane exists → unchanged; tracking resumes.
+- `alive=1`, pane gone (died while the daemon was down, or a reboot) → `alive:false`,
+  `endedAt` = the startup time (the true death time is unknown and not guessed). Kept, so
+  the resume chance survives; swept on the *following* startup.
+- A `muster-<n>` tmux session with no row → logged at warn, never adopted (Muster only
+  manages what it started).
+
+**Daemon shutdown leaves sessions running** by default — they are meant to outlive a
+restart. `musterd -on-exit=ask|leave|kill` (default `ask`): with a TTY on stdin and ≥1
+live session, `ask` prompts once ("N live sessions on tmux socket X — kill them? [y/N]",
+10 s timeout → No); without a TTY `ask` behaves as `leave`. `kill` (or a `y`) takes a
+final snapshot, kills each live session's tmux session and sets its row `alive=0` before
+exit — so the next startup sweeps it.
 
 ## 8. Milestone map (what each milestone must implement of this contract)
 
@@ -516,10 +573,20 @@ unknown to the DB → logged, never adopted (Muster only manages what it started
 - **M2**: terminal sockets (§6), `PUT /api/prefs` + `prefs` (view + density).
 - **M3**: `usage` message + `usage_sample` persistence + context in `sessionUpsert` +
   title/model refresh from the status line.
-- **M4**: `/resume`, reconcile-on-start, canary unskip, pane snapshots (§3.4 — deferred
-  from M2; design it against the resume flow).
+- **M4**: `/resume` (§3.5), `/end` (§3.7), `DELETE` + `sessionRemoved` (§3.8, §5.5),
+  reconcile-on-start + shutdown policy (§7.5), pane snapshots (§3.4), resume → `idle`
+  (§7.3) — plan `m4-reconcile`; canary unskip — plan `m4-canary`.
 
 ## 9. Changelog
+
+- **2026-08-26 — m4-reconcile plan approved, delta merged.** §3.4 pane snapshot un-deferred
+  (capture on every liveness tick, display only); §3.5 resume refined (reuses
+  `muster-<id>`, state unchanged until the resume SessionStart, new `directory_missing`);
+  new §3.7 `POST …/end` and §3.8 `DELETE /api/sessions/{id}`; §5.5 `sessionRemoved` is
+  live; §7.5 settles reconcile (sweep `alive=0` rows at startup; keep newly-found-dead
+  rows one lifetime) and the shutdown policy (`-on-exit`, default survive). §7.3's
+  `source:"resume"` → `idle` row was already the contract — the code lands in `started`
+  today and the plan fixes it. All additive; no version bump.
 
 - **2026-08-25 — m4-hook-quoting plan approved, doc-only delta merged.** §4.2 records that
   `hooks[].command` / `statusLine.command` are `/bin/sh -c` command lines and that Muster

@@ -12,7 +12,7 @@ import (
 // hold the manager's lock.
 func applyInput(sess *Session, claudeSessionID string, promptID *string, input claudecode.StateInput, now time.Time) {
 	switch input.Kind {
-	case claudecode.KindBind, claudecode.KindClearRebind:
+	case claudecode.KindBind, claudecode.KindClearRebind, claudecode.KindResumeBind:
 		applyBind(sess, claudeSessionID, input, now)
 
 	case claudecode.KindTurnActivity:
@@ -120,6 +120,22 @@ func applyBind(sess *Session, claudeSessionID string, input claudecode.StateInpu
 		// m3-gauges REQ-9: a fresh conversation has no context data yet either — the
 		// next status post of the new conversation refills it.
 		sess.Context = nil
+	}
+
+	// m4-reconcile REQ-8: a same-id resume bind lands in idle and leaves compactions/
+	// lastActivity/context alone (history exists; it is waiting for input, not new) —
+	// this only runs when kind wasn't escalated to KindClearRebind above, which already
+	// took the full-reset/started path a different claude id implies.
+	//
+	// REQ-8 does not authorise touching `alive` here (review cycle 1 Major 1): INV-1
+	// makes tmux pane existence the sole authority for liveness, and this branch runs
+	// from a hook payload, which may be queued/late relative to the tmux state it
+	// describes. RecordResume already sets `alive` on the real resume path, from the
+	// tmux spawn that actually happened; a resume-bind hook that outraces or follows a
+	// pane's real death must never override that.
+	if kind == claudecode.KindResumeBind {
+		sess.setState(StateIdle, now)
+		return
 	}
 	sess.setState(StateStarted, now)
 }

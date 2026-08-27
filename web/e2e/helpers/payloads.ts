@@ -58,6 +58,20 @@ export function envelopedSessionStart(sessionId: string, opts: SessionStartOpts 
   return envelope(payload, { musterSession, tmuxPane });
 }
 
+/**
+ * Enveloped `SessionStart(source:"resume")` — REQ-8's resume-bind trigger (plan
+ * m4-reconcile). Measured fact (canary-fields.md "Values worth asserting"): on `--resume`
+ * the `session_id`/`transcript_path` are the **same** as the original session's — so
+ * callers pass the ORIGINAL claude id to exercise the same-id rebind path
+ * (`KindResumeBind` → `idle`), or a different one to exercise the different-id escalation
+ * to clear-rebind (Edge Case 5 / REQ-8's second clause). Thin wrapper over
+ * `envelopedSessionStart` — the resume shape is not a distinct wire format, just a
+ * different `source` value on the same hook.
+ */
+export function sessionStartResume(claudeSessionId: string, opts: SessionStartOpts = {}): Record<string, unknown> {
+  return envelopedSessionStart(claudeSessionId, { ...opts, source: "resume" });
+}
+
 interface TurnActivityOpts {
   promptId?: string;
   permissionMode?: "default" | "plan" | "acceptEdits";

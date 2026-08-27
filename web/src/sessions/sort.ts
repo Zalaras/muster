@@ -32,9 +32,26 @@ function orderKey(session: Session): number {
   return parseTime(session.stateSince);
 }
 
-/** Pure, total order over sessions. Never mutates the input array. */
+/** REQ-9 (plan m4-reconcile): within the ended group, most-recently-ended first —
+ * descending `endedAt`, negated so ascending numeric sort reads as descending time. A
+ * (defensive — can't happen per REQ-1/3/5's paired alive/endedAt invariant) null
+ * `endedAt` sorts last within the group rather than throwing. */
+function endedOrderKey(session: Session): number {
+  return session.endedAt ? -parseTime(session.endedAt) : Number.POSITIVE_INFINITY;
+}
+
+/** Pure, total order over sessions. Every `alive:false` session sorts after every
+ * `alive:true` one (REQ-9) regardless of state; the live group keeps the existing
+ * state-priority order, the ended group orders by recency of `endedAt`. Never mutates the
+ * input array. */
 export function sortSessions(sessions: readonly Session[]): Session[] {
   return [...sessions].sort((a, b) => {
+    if (a.alive !== b.alive) return a.alive ? -1 : 1;
+    if (!a.alive) {
+      const byEnded = endedOrderKey(a) - endedOrderKey(b);
+      if (byEnded !== 0) return byEnded;
+      return a.id - b.id;
+    }
     const byPriority = STATE_PRIORITY[a.state] - STATE_PRIORITY[b.state];
     if (byPriority !== 0) return byPriority;
     const byOrder = orderKey(a) - orderKey(b);

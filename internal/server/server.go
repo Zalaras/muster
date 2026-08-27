@@ -71,6 +71,7 @@ type Server struct {
 	ingestToken string
 	webDist     string
 	browseRoot  string
+	tmuxSocket  string
 
 	daemonVersion string
 	claudeCode    ClaudeCodeInfo
@@ -101,6 +102,7 @@ func New(cfg Config) *Server {
 		ingestToken:   cfg.IngestToken,
 		webDist:       cfg.WebDist,
 		browseRoot:    cfg.BrowseRoot,
+		tmuxSocket:    cfg.TmuxSocket,
 		daemonVersion: cfg.DaemonVersion,
 		claudeCode:    cfg.ClaudeCode,
 		hub:           newWSHub(),
@@ -110,11 +112,16 @@ func New(cfg Config) *Server {
 	tmuxClient := tmux.New(cfg.TmuxSocket)
 	s.tmuxClient = tmuxClient
 	s.manager = session.NewManager(session.Config{
-		Store:       cfg.Store,
-		Logger:      cfg.Logger,
-		PaneChecker: tmuxClient,
+		Store:           cfg.Store,
+		Logger:          cfg.Logger,
+		PaneChecker:     tmuxClient,
+		PaneSnapshotter: tmuxClient,
+		SessionKiller:   tmuxClient,
 		OnUpsert: func(sess *session.Session) {
 			s.hub.broadcast(sessionUpsertMessage{Type: "sessionUpsert", Session: toWireSession(sess)})
+		},
+		OnRemoved: func(id int64) {
+			s.hub.broadcast(sessionRemovedMessage{Type: "sessionRemoved", ID: id})
 		},
 	})
 
@@ -156,15 +163,50 @@ func (s *Server) Handler() http.Handler {
 	return s.mux
 }
 
-// Start reloads persisted sessions, begins the liveness poll, and begins asynchronous
-// ingest processing. Call once, after New.
+// Start reloads persisted sessions, reconciles them against tmux reality, begins the
+// liveness poll, and begins asynchronous ingest processing. Call once, after New —
+// Reconcile (m4-reconcile REQ-1) runs synchronously here, before the caller starts
+// accepting connections, so neither `/ws` nor `GET /api/state` can observe a
+// pre-reconcile session list.
 func (s *Server) Start() {
 	ctx := context.Background()
 	if err := s.manager.LoadAll(ctx); err != nil {
 		s.log.Error().Err(err).Msg("failed to load sessions at startup")
 	}
+	if _, err := s.manager.Reconcile(ctx); err != nil {
+		s.log.Error().Err(err).Msg("failed to reconcile sessions at startup")
+	}
 	s.manager.Start()
 	s.ingest.Start()
+}
+
+// LiveSessionCount reports how many sessions are currently alive — used by cmd/musterd's
+// `-on-exit=ask` prompt to decide whether to prompt at all (REQ-3: zero live sessions,
+// no prompt, no log line).
+func (s *Server) LiveSessionCount() int {
+	count := 0
+	for _, sess := range s.manager.List() {
+		if sess.Alive {
+			count++
+		}
+	}
+	return count
+}
+
+// TmuxSocket returns the dedicated tmux socket this daemon instance is bound to — used
+// by cmd/musterd's `-on-exit=ask` prompt copy ("N live sessions on tmux socket X").
+func (s *Server) TmuxSocket() string {
+	return s.tmuxSocket
+}
+
+// EndAllSessions ends every currently alive session (REQ-3's `-on-exit=kill` path): a
+// final snapshot, tmux kill, and alive:=false for each, before the rest of shutdown
+// proceeds. cmd/musterd calls this itself, ahead of Shutdown, once it has resolved
+// (and, for `-on-exit=ask`, prompted) the final leave/kill decision — Shutdown's own
+// signature is unchanged so it keeps working for every existing caller that never deals
+// with the on-exit policy at all. Returns how many sessions were ended.
+func (s *Server) EndAllSessions(ctx context.Context) int {
+	return s.manager.EndAll(ctx)
 }
 
 // Shutdown closes every open WS connection (unblocking their handler goroutines, which
@@ -190,6 +232,10 @@ func (s *Server) routes() {
 	mux.Handle("GET /api/browse", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleBrowse)))
 	mux.Handle("PUT /api/prefs", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handlePutPrefs)))
 	mux.Handle("GET /ws/terminal/{id}", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleTerminal)))
+	mux.Handle("GET /api/sessions/{id}/pane", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handlePaneSnapshot)))
+	mux.Handle("POST /api/sessions/{id}/end", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleEndSession)))
+	mux.Handle("POST /api/sessions/{id}/resume", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleResumeSession)))
+	mux.Handle("DELETE /api/sessions/{id}", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleRemoveSession)))
 
 	mux.HandleFunc("POST /ingest/{token}/hook", s.handleIngestHook)
 	mux.HandleFunc("POST /ingest/{token}/status", s.handleIngestStatus)

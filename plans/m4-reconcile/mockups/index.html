@@ -1,0 +1,54 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>m4-reconcile — placement mockups</title>
+<style>
+:root{--ink:#12141C;--panel:#171A24;--line:#282D3B;--line2:#343A4A;--paper:#E8E6E1;--muted:#8A90A3;--dim:#565C6D;--amber:#F2A33C;--teal:#56C5D0;--rose:#E36A6A;
+--mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;--sans:system-ui,-apple-system,'Segoe UI',sans-serif}
+body{margin:0;background:var(--ink);color:var(--paper);font-family:var(--sans);font-size:14px;padding:32px 40px;max-width:960px;line-height:1.55}
+h1{font-size:22px;letter-spacing:-.02em;margin:0 0 4px}
+.sub{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin-bottom:28px}
+h2{font-size:15px;margin:30px 0 8px;color:var(--amber)}
+a{color:var(--teal)}
+.opts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.opt{background:var(--panel);border:1px solid var(--line2);padding:14px 16px}
+.opt h3{margin:0 0 6px;font-size:14px}
+.opt p{margin:0;color:var(--muted);font-size:12.5px}
+.opt .pro{color:#7BC47F}.opt .con{color:var(--rose)}
+ul{color:var(--muted);font-size:13px;padding-left:20px}
+li b{color:var(--paper);font-weight:600}
+code{font-family:var(--mono);font-size:11.5px;color:var(--teal)}
+.sw{display:inline-block;width:14px;height:9px;outline:2px dashed var(--amber);outline-offset:1px;margin:0 6px 0 2px;vertical-align:-1px}
+</style></head><body>
+<h1>m4-reconcile — where End / Resume / Remove live</h1>
+<div class="sub">plan mockups · 2026-08-26 · direction A styling · <span class="sw"></span> marks what each page adds</div>
+
+<h2>Pick one for the Focus view</h2>
+<div class="opts">
+  <div class="opt"><h3><a href="opt-a-card-actions.html">A — on the rail card</a></h3>
+    <p>Small action row inside the card: <b>End</b> on a live card (hover / focused), <b>Resume</b> + <b>Remove</b> on an ended one. Nothing added above the terminal.</p>
+    <p class="pro">+ reachable for every session without focusing it; least new chrome</p>
+    <p class="con">− buttons inside a clickable card (click-to-focus vs click-a-button); rail gets busier</p></div>
+  <div class="opt"><h3><a href="opt-b-mainhead.html">B — mainhead above the terminal</a></h3>
+    <p>The design mockup's <code>.acts</code> bar: session name, meta, and <b>End</b> / <b>Resume</b> / <b>Remove</b>. Cards stay as they are.</p>
+    <p class="pro">+ matches <code>a-instrument.html</code>; buttons have room; one obvious place</p>
+    <p class="con">− only the focused session has actions (two clicks to end a background session); takes ~40px from the terminal</p></div>
+  <div class="opt"><h3><a href="opt-c-both.html">C — both</a></h3>
+    <p>Card row and mainhead.</p>
+    <p class="pro">+ most reachable</p>
+    <p class="con">− duplicated controls; most to build, test and keep consistent</p></div>
+</div>
+
+<h2>Common to every option (already decided this session)</h2>
+<ul>
+  <li><b>Tiles</b> → <a href="tiles-dead.html">tiles-dead.html</a>. The tile footer already acts as the tile's own header bar, so tiles are the same in A/B/C: live footer gains <b>End</b>; a dead tile shows its last snapshot under an <i>ended</i> cap and swaps its geometry readout for <b>Resume</b> / <b>Remove</b>; strip cards for ended sessions carry the same pair.</li>
+  <li><b>Confirm dialogs</b> for both End and Remove (buttons bottom-right on each page show them). End's copy says the session is recoverable via Resume — Muster already holds the Claude session id from the envelope, which is exactly the hash <code>claude</code> prints on exit, so nothing needs to read the pane.</li>
+  <li><b>Remove only when ended</b> (shown greyed / absent on live cards). Overrule if you want Remove-on-live; the dialog would then say "ends the session first".</li>
+  <li><b>Last snapshot</b>: an ended session's final screen is shown dimmed with an <i>ended</i> cap and a thin status bar ("ended 6m ago · last state failed · last captured screen, not a live client"). Captured every liveness tick (~5 s) for live sessions, so the snapshot is at most ~5 s before death.</li>
+  <li><b>Ended card</b> in the rail: dashed stripe, dimmed, name struck through, timer reads <code>ended 6m</code>; the state badge keeps the last known state (alive is orthogonal to state — protocol §7.5).</li>
+</ul>
+
+<h2>Open for you to call while looking</h2>
+<ul>
+  <li>Should the <i>ended</i> cap over the snapshot also carry a <b>Resume</b> button (in every option)? Currently it's passive text so the options differ cleanly.</li>
+  <li>Strike-through on the ended card's name: honest or too much? The dashed stripe + dimming may be enough.</li>
+  <li>Tiles: is <code>⌘n</code> on a dead tile "Resume" (as the mockup says) or should ⌘n stay focus-only?</li>
+</ul>
+</body></html>

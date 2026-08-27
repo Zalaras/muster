@@ -2,7 +2,10 @@ package session
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,28 +22,57 @@ type PaneChecker interface {
 	PaneExists(ctx context.Context, target string) (bool, error)
 }
 
+// PaneSnapshotter captures a live pane's current screen text (m4-reconcile REQ-4) —
+// display source only, never read by the state machine and never logged (may hold
+// prompt text). internal/tmux.Client satisfies it.
+type PaneSnapshotter interface {
+	CapturePane(ctx context.Context, target string) (string, error)
+}
+
+// Killer kills a whole tmux session by name and lists what's on the socket — Reconcile's
+// unknown-panes check (REQ-2) and End/EndAll's kill path (REQ-5) both need it.
+// internal/tmux.Client satisfies it.
+type Killer interface {
+	KillSession(ctx context.Context, name string) error
+	ListSessions(ctx context.Context) ([]string, error)
+}
+
+// Sentinel errors the internal/server package branches on to pick an HTTP status
+// (docs/protocol.md §3.5/§3.7/§3.8) — the one place callers of End/Remove/RecordResume
+// must inspect a specific error rather than treating every failure alike.
+var (
+	ErrUnknownSession  = errors.New("unknown session")
+	ErrSessionNotAlive = errors.New("session not alive")
+)
+
 // defaultPollInterval is protocol §7.5's "~5s" liveness poll.
 const defaultPollInterval = 5 * time.Second
 
 // Config wires a Manager. Built by internal/server; nothing here starts a goroutine
 // until Start is called.
 type Config struct {
-	Store        *store.Store
-	Logger       zerolog.Logger
-	PaneChecker  PaneChecker
-	OnUpsert     func(*Session) // broadcasts a sessionUpsert; may be nil in tests
-	PollInterval time.Duration  // 0 uses defaultPollInterval
+	Store           *store.Store
+	Logger          zerolog.Logger
+	PaneChecker     PaneChecker
+	PaneSnapshotter PaneSnapshotter // m4-reconcile REQ-4; may be nil (snapshot capture becomes a no-op)
+	SessionKiller   Killer          // m4-reconcile REQ-2/REQ-5; may be nil (Reconcile's unknown-panes check and End/EndAll's kill become no-ops)
+	OnUpsert        func(*Session)  // broadcasts a sessionUpsert; may be nil in tests
+	OnRemoved       func(id int64)  // broadcasts sessionRemoved (m4-reconcile REQ-6); may be nil in tests
+	PollInterval    time.Duration   // 0 uses defaultPollInterval
 }
 
 // Manager is the in-memory session registry and the §7 state machine's home. Every
 // mutation persists the full row and (unless OnUpsert is nil) broadcasts the fresh
 // Session — the "whole-object sessionUpsert" design (docs/protocol.md §5.3).
 type Manager struct {
-	store       *store.Store
-	log         zerolog.Logger
-	paneChecker PaneChecker
-	onUpsert    func(*Session)
-	interval    time.Duration
+	store           *store.Store
+	log             zerolog.Logger
+	paneChecker     PaneChecker
+	paneSnapshotter PaneSnapshotter
+	sessionKiller   Killer
+	onUpsert        func(*Session)
+	onRemoved       func(id int64)
+	interval        time.Duration
 
 	mu       sync.Mutex
 	sessions map[int64]*Session
@@ -57,13 +89,16 @@ func NewManager(cfg Config) *Manager {
 		interval = defaultPollInterval
 	}
 	return &Manager{
-		store:       cfg.Store,
-		log:         cfg.Logger,
-		paneChecker: cfg.PaneChecker,
-		onUpsert:    cfg.OnUpsert,
-		interval:    interval,
-		sessions:    make(map[int64]*Session),
-		byClaude:    make(map[string]int64),
+		store:           cfg.Store,
+		log:             cfg.Logger,
+		paneChecker:     cfg.PaneChecker,
+		paneSnapshotter: cfg.PaneSnapshotter,
+		sessionKiller:   cfg.SessionKiller,
+		onUpsert:        cfg.OnUpsert,
+		onRemoved:       cfg.OnRemoved,
+		interval:        interval,
+		sessions:        make(map[int64]*Session),
+		byClaude:        make(map[string]int64),
 	}
 }
 
@@ -182,6 +217,14 @@ func (m *Manager) RecordLaunch(ctx context.Context, id int64, tmuxTarget, tmuxPa
 // DeleteSession removes a session that failed to launch after its row was inserted
 // (plan Implementation Notes: "on spawn failure: delete the row").
 func (m *Manager) DeleteSession(ctx context.Context, id int64) error {
+	m.removeFromMemory(id)
+	return m.store.DeleteSession(ctx, id)
+}
+
+// removeFromMemory drops id from the in-memory registry and its claude-id index, if
+// present. Shared by DeleteSession (launch rollback), Reconcile's sweep (REQ-1) and
+// Remove (REQ-6).
+func (m *Manager) removeFromMemory(id int64) {
 	m.mu.Lock()
 	delete(m.sessions, id)
 	for claudeID, sid := range m.byClaude {
@@ -190,8 +233,117 @@ func (m *Manager) DeleteSession(ctx context.Context, id int64) error {
 		}
 	}
 	m.mu.Unlock()
+}
 
-	return m.store.DeleteSession(ctx, id)
+// sessionTmuxName returns the tmux session name Muster spawns for id ("muster-<id>" —
+// internal/tmux.Client.NewSession's own naming), used by End/EndAll to name the kill
+// target without needing the live tmuxTarget string.
+func sessionTmuxName(id int64) string {
+	return "muster-" + strconv.FormatInt(id, 10)
+}
+
+// ReconcileReport summarizes what Reconcile did (REQ-17's log line; D9/D10's test
+// assertions).
+type ReconcileReport struct {
+	KeptAlive       int
+	MarkedEnded     int
+	Swept           int
+	UnknownSessions []string // muster-<n> tmux sessions on the socket with no row (REQ-2)
+}
+
+// Reconcile runs once at daemon startup, synchronously, before the first snapshot is
+// served (REQ-1/REQ-2/REQ-17, protocol §7.5). Call after LoadAll and before Start:
+//   - rows already alive=false (ended in an earlier daemon lifetime — the user had their
+//     resume chance) are deleted; nothing is broadcast, they are simply absent from the
+//     first snapshot.
+//   - rows alive=true whose pane still exists are left untouched.
+//   - rows alive=true whose pane is gone (died while the daemon was down, or a reboot)
+//     are marked ended (alive:false, endedAt = now, the startup time — the true death
+//     time is unknown and is not guessed) and kept, so the resume chance is not lost;
+//     the *following* startup sweeps them.
+//   - tmux sessions on the socket with no row are logged at warn and never adopted.
+func (m *Manager) Reconcile(ctx context.Context) (ReconcileReport, error) {
+	type row struct {
+		id     int64
+		alive  bool
+		target string
+	}
+
+	m.mu.Lock()
+	rows := make([]row, 0, len(m.sessions))
+	for id, sess := range m.sessions {
+		rows = append(rows, row{id: id, alive: sess.Alive, target: sess.TmuxTarget})
+	}
+	m.mu.Unlock()
+
+	var report ReconcileReport
+	var toEnd, toSweep []int64
+	for _, r := range rows {
+		if !r.alive {
+			toSweep = append(toSweep, r.id)
+			continue
+		}
+		exists := true
+		if m.paneChecker != nil {
+			var err error
+			exists, err = m.paneChecker.PaneExists(ctx, r.target)
+			if err != nil {
+				m.log.Warn().Err(err).Str("tmux_target", r.target).Msg("reconcile: liveness check failed; leaving session as-is")
+				report.KeptAlive++
+				continue
+			}
+		}
+		if exists {
+			report.KeptAlive++
+		} else {
+			toEnd = append(toEnd, r.id)
+		}
+	}
+
+	for _, id := range toEnd {
+		if _, err := m.markEnded(ctx, id); err != nil {
+			return report, fmt.Errorf("reconcile: marking session %d ended: %w", id, err)
+		}
+		report.MarkedEnded++
+	}
+	for _, id := range toSweep {
+		m.removeFromMemory(id)
+		if err := m.store.DeleteSession(ctx, id); err != nil {
+			return report, fmt.Errorf("reconcile: sweeping session %d: %w", id, err)
+		}
+		report.Swept++
+	}
+
+	if m.sessionKiller != nil {
+		names, err := m.sessionKiller.ListSessions(ctx)
+		if err != nil {
+			m.log.Warn().Err(err).Msg("reconcile: listing tmux sessions failed")
+		} else {
+			m.mu.Lock()
+			known := make(map[string]bool, len(m.sessions))
+			for _, sess := range m.sessions {
+				if sess.TmuxTarget != "" {
+					known[sessionTmuxName(sess.ID)] = true
+				}
+			}
+			m.mu.Unlock()
+			for _, name := range names {
+				if !strings.HasPrefix(name, "muster-") || known[name] {
+					continue
+				}
+				report.UnknownSessions = append(report.UnknownSessions, name)
+				m.log.Warn().Str("tmux_session", name).Msg("unknown muster tmux session on socket; not adopted")
+			}
+		}
+	}
+
+	m.log.Info().
+		Int("kept_alive", report.KeptAlive).
+		Int("marked_ended", report.MarkedEnded).
+		Int("swept", report.Swept).
+		Msg("reconciled sessions")
+
+	return report, nil
 }
 
 // Get returns session id's current snapshot, if known — used by the terminal bridge's
@@ -296,6 +448,200 @@ func (m *Manager) List() []*Session {
 	return out
 }
 
+// Snapshot returns id's last captured pane screen, if any (REQ-4's GET .../pane read
+// path) — display source only, never a state source.
+func (m *Manager) Snapshot(id int64) (text string, at time.Time, ok bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	sess, exists := m.sessions[id]
+	// LastSnapshotAt.IsZero() (never captured) is the honest sentinel, not
+	// LastSnapshot == "" (review cycle 1 Minor 2) — a genuinely blank pane that was
+	// captured successfully has LastSnapshot == "" too, and must still serve 200 text,
+	// not a 404 no_snapshot claiming nothing was ever captured.
+	if !exists || sess.LastSnapshotAt.IsZero() {
+		return "", time.Time{}, false
+	}
+	return sess.LastSnapshot, sess.LastSnapshotAt, true
+}
+
+// captureSnapshot runs capture-pane for an alive session and persists the result only
+// when it changed (REQ-4). A capture error (Edge Case 9: transient tmux failure) is not
+// a pane-missing signal — the previous snapshot is kept and liveness is never touched.
+func (m *Manager) captureSnapshot(ctx context.Context, id int64, target string) {
+	if m.paneSnapshotter == nil {
+		return
+	}
+	text, err := m.paneSnapshotter.CapturePane(ctx, target)
+	if err != nil {
+		m.log.Debug().Err(err).Int64("session_id", id).Msg("pane snapshot capture failed")
+		return
+	}
+	m.storeSnapshot(ctx, id, text)
+}
+
+// storeSnapshot persists text for id iff it differs from what's already stored
+// (REQ-4/Schema Changes: "written only when the text changes"). Never logs text (may
+// hold prompt text) and never broadcasts — the snapshot isn't part of the Session wire
+// object (protocol §3.4's own GET endpoint serves it).
+func (m *Manager) storeSnapshot(ctx context.Context, id int64, text string) {
+	m.mu.Lock()
+	sess, ok := m.sessions[id]
+	// The diff check alone would short-circuit a genuinely blank first capture (zero
+	// value LastSnapshot == "" already equals text == ""), leaving LastSnapshotAt zero
+	// forever even though a capture did succeed — Snapshot's IsZero() sentinel would then
+	// wrongly report "never captured" (review cycle 2 Minor 2). Requiring LastSnapshotAt
+	// to already be set before the diff can skip means the very first capture — blank or
+	// not — always persists.
+	if !ok || (sess.LastSnapshot == text && !sess.LastSnapshotAt.IsZero()) {
+		m.mu.Unlock()
+		return
+	}
+	now := time.Now().UTC()
+	sess.LastSnapshot = text
+	sess.LastSnapshotAt = now
+	m.mu.Unlock()
+
+	if err := m.store.UpdateSnapshot(ctx, id, text, now); err != nil {
+		m.log.Error().Err(err).Int64("session_id", id).Msg("persisting pane snapshot failed")
+	}
+}
+
+// End kills a live session's tmux session (REQ-5, docs/protocol.md §3.7): a final pane
+// snapshot is captured, then the tmux session is killed, then the existing liveness
+// nudge path (checkOneLiveness/markEnded) observes the now-missing pane and does the
+// alive:=false persist + broadcast — the same single code path every other death goes
+// through (INV-1). Returns ErrUnknownSession (404) or ErrSessionNotAlive (409
+// not_alive, already ended).
+func (m *Manager) End(ctx context.Context, id int64) (*Session, error) {
+	m.mu.Lock()
+	sess, ok := m.sessions[id]
+	if !ok {
+		m.mu.Unlock()
+		return nil, ErrUnknownSession
+	}
+	if !sess.Alive {
+		m.mu.Unlock()
+		return nil, ErrSessionNotAlive
+	}
+	target := sess.TmuxTarget
+	m.mu.Unlock()
+
+	if m.paneSnapshotter != nil {
+		if text, err := m.paneSnapshotter.CapturePane(ctx, target); err != nil {
+			m.log.Debug().Err(err).Int64("session_id", id).Msg("final pane snapshot capture failed")
+		} else {
+			m.storeSnapshot(ctx, id, text)
+		}
+	}
+
+	if m.sessionKiller != nil {
+		if err := m.sessionKiller.KillSession(ctx, sessionTmuxName(id)); err != nil {
+			return nil, fmt.Errorf("ending session %d: %w", id, err)
+		}
+	}
+
+	if m.paneChecker != nil {
+		// endOnCheckError:=true here (review cycle 1 Minor 1): we just killed the tmux
+		// session ourselves, so a PaneExists error on this specific check is not an
+		// ordinary transient hiccup to shrug off until the next poll — End must not
+		// return alive:true after a kill it just performed. The periodic poll/nudge
+		// callers below keep the conservative default (leave as-is on a check error).
+		m.checkOneLiveness(ctx, id, target, true)
+	} else if _, err := m.markEnded(ctx, id); err != nil {
+		return nil, err
+	}
+
+	snapshot, ok := m.Get(id)
+	if !ok {
+		return nil, ErrUnknownSession
+	}
+	return snapshot, nil
+}
+
+// EndAll ends every currently alive session — the `-on-exit=kill` shutdown path
+// (REQ-3): each gets a final snapshot, is killed, and its row is marked alive:false
+// before the daemon exits. One session's failure is logged and does not stop the rest.
+// Returns how many were successfully ended.
+func (m *Manager) EndAll(ctx context.Context) int {
+	m.mu.Lock()
+	var ids []int64
+	for id, sess := range m.sessions {
+		if sess.Alive {
+			ids = append(ids, id)
+		}
+	}
+	m.mu.Unlock()
+
+	ended := 0
+	for _, id := range ids {
+		if _, err := m.End(ctx, id); err != nil {
+			m.log.Error().Err(err).Int64("session_id", id).Msg("ending session at shutdown failed")
+			continue
+		}
+		ended++
+	}
+	return ended
+}
+
+// Remove deletes id's row (REQ-6, docs/protocol.md §3.8): if alive, the End path runs
+// first; a failing kill (End's own error) leaves the row untouched and propagates — never
+// a deleted row with a running pane (Edge Case 5). On success the in-memory entry and the
+// row are both gone and OnRemoved fires (the sessionRemoved broadcast).
+func (m *Manager) Remove(ctx context.Context, id int64) error {
+	m.mu.Lock()
+	sess, ok := m.sessions[id]
+	if !ok {
+		m.mu.Unlock()
+		return ErrUnknownSession
+	}
+	alive := sess.Alive
+	m.mu.Unlock()
+
+	if alive {
+		if _, err := m.End(ctx, id); err != nil {
+			return fmt.Errorf("removing session %d: %w", id, err)
+		}
+	}
+
+	m.removeFromMemory(id)
+	if err := m.store.DeleteSession(ctx, id); err != nil {
+		return fmt.Errorf("removing session %d: %w", id, err)
+	}
+	if m.onRemoved != nil {
+		m.onRemoved(id)
+	}
+	return nil
+}
+
+// RecordResume stamps the new tmux target/pane after a successful resume spawn (REQ-7,
+// docs/protocol.md §3.5): alive:=true, endedAt cleared, the stale snapshot cleared (a
+// fresh pane has nothing captured yet), persisted and broadcast. state is left
+// untouched — it becomes idle only once the enveloped SessionStart(source:"resume")
+// arrives (REQ-8, via the ordinary Apply/KindResumeBind path).
+func (m *Manager) RecordResume(ctx context.Context, id int64, tmuxTarget, tmuxPane string) (*Session, error) {
+	m.mu.Lock()
+	sess, ok := m.sessions[id]
+	if !ok {
+		m.mu.Unlock()
+		return nil, ErrUnknownSession
+	}
+	sess.TmuxTarget = tmuxTarget
+	sess.TmuxPane = tmuxPane
+	sess.Alive = true
+	sess.EndedAt = nil
+	sess.LastSnapshot = ""
+	sess.LastSnapshotAt = time.Time{}
+	row := sessionToRow(sess)
+	snapshot := sess.Clone()
+	m.mu.Unlock()
+
+	if err := m.store.UpdateSession(ctx, row); err != nil {
+		return nil, fmt.Errorf("persisting resume for session %d: %w", id, err)
+	}
+	m.broadcast(snapshot)
+	return snapshot, nil
+}
+
 func (m *Manager) broadcast(s *Session) {
 	if m.onUpsert != nil {
 		m.onUpsert(s)
@@ -339,7 +685,7 @@ func (m *Manager) checkLiveness(ctx context.Context) {
 	m.mu.Unlock()
 
 	for _, target := range targets {
-		m.checkOneLiveness(ctx, target.id, target.target)
+		m.checkOneLiveness(ctx, target.id, target.target, false)
 	}
 }
 
@@ -360,26 +706,49 @@ func (m *Manager) Nudge(ctx context.Context, sessionID int64) {
 	if !ok || target == "" {
 		return
 	}
-	m.checkOneLiveness(ctx, sessionID, target)
+	m.checkOneLiveness(ctx, sessionID, target, false)
 }
 
-// checkOneLiveness is checkLiveness/Nudge's shared body: check one target's pane, and
-// flip the session dead on the first miss.
-func (m *Manager) checkOneLiveness(ctx context.Context, id int64, target string) {
+// checkOneLiveness is checkLiveness/Nudge/End's shared body: check one target's pane,
+// capture a fresh snapshot while it's alive (REQ-4), and flip the session dead on the
+// first miss. endOnCheckError controls what happens when PaneExists itself errors
+// (distinct from a clean "pane not found"): the periodic poll/nudge callers pass false
+// and leave the session as-is for the next tick (an ordinary transient tmux hiccup —
+// review cycle 1 Minor 1), while End passes true because it just killed the session
+// itself and a check error there must not leave End reporting alive:true.
+func (m *Manager) checkOneLiveness(ctx context.Context, id int64, target string, endOnCheckError bool) {
 	exists, err := m.paneChecker.PaneExists(ctx, target)
 	if err != nil {
 		m.log.Warn().Err(err).Str("tmux_target", target).Msg("liveness check failed")
-		return
-	}
-	if exists {
+		if !endOnCheckError {
+			return
+		}
+	} else if exists {
+		m.captureSnapshot(ctx, id, target)
 		return
 	}
 
+	if _, err := m.markEnded(ctx, id); err != nil && !errors.Is(err, ErrUnknownSession) {
+		m.log.Error().Err(err).Int64("session_id", id).Msg("persisting liveness update failed")
+	}
+}
+
+// markEnded flips one session's alive to false with endedAt=now, persists the whole row,
+// and broadcasts. Idempotent (already-ended is a no-op, no double broadcast). Shared by
+// checkOneLiveness (the ordinary poll/nudge path), Reconcile's mark-ended rows, and End
+// (via its own liveness nudge — Implementation Notes: "final snapshot → kill-session →
+// liveness nudge").
+func (m *Manager) markEnded(ctx context.Context, id int64) (*Session, error) {
 	m.mu.Lock()
 	sess, ok := m.sessions[id]
-	if !ok || !sess.Alive {
+	if !ok {
 		m.mu.Unlock()
-		return
+		return nil, ErrUnknownSession
+	}
+	if !sess.Alive {
+		snapshot := sess.Clone()
+		m.mu.Unlock()
+		return snapshot, nil
 	}
 	sess.Alive = false
 	endedAt := time.Now().UTC()
@@ -389,10 +758,10 @@ func (m *Manager) checkOneLiveness(ctx context.Context, id int64, target string)
 	m.mu.Unlock()
 
 	if err := m.store.UpdateSession(ctx, row); err != nil {
-		m.log.Error().Err(err).Int64("session_id", id).Msg("persisting liveness update failed")
-		return
+		return nil, fmt.Errorf("persisting ended session %d: %w", id, err)
 	}
 	m.broadcast(snapshot)
+	return snapshot, nil
 }
 
 func rowToSession(row store.SessionRow) *Session {
@@ -454,6 +823,12 @@ func rowToSession(row store.SessionRow) *Session {
 		}
 		s.Failure = f
 	}
+	if row.LastSnapshot != nil {
+		s.LastSnapshot = *row.LastSnapshot
+	}
+	if row.LastSnapshotAt != nil {
+		s.LastSnapshotAt = *row.LastSnapshotAt
+	}
 	return s
 }
 
@@ -510,6 +885,14 @@ func sessionToRow(s *Session) store.SessionRow {
 		msg := s.Failure.Message
 		row.FailureError = &errTok
 		row.FailureMessage = &msg
+	}
+	if s.LastSnapshot != "" {
+		text := s.LastSnapshot
+		row.LastSnapshot = &text
+	}
+	if !s.LastSnapshotAt.IsZero() {
+		at := s.LastSnapshotAt
+		row.LastSnapshotAt = &at
 	}
 	return row
 }

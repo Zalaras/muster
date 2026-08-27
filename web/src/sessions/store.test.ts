@@ -70,3 +70,43 @@ describe("SessionStore", () => {
     expect(byId.get(2)?.state).toBe("failed");
   });
 });
+
+describe("SessionStore.remove (REQ-15, applies a sessionRemoved)", () => {
+  it("removes an existing session by id", () => {
+    const store = new SessionStore();
+    store.replaceAll([makeSession({ id: 1 }), makeSession({ id: 2 })]);
+    store.remove(1);
+    expect(store.values().map((s) => s.id)).toEqual([2]);
+  });
+
+  it("is a no-op on an unknown id (edge case 12: a client that has never seen this id ignores it)", () => {
+    const store = new SessionStore();
+    store.replaceAll([makeSession({ id: 1 }), makeSession({ id: 2 })]);
+    expect(() => store.remove(999)).not.toThrow();
+    expect(store.values().map((s) => s.id).sort()).toEqual([1, 2]);
+  });
+
+  it("is a no-op on an empty store", () => {
+    const store = new SessionStore();
+    expect(() => store.remove(1)).not.toThrow();
+    expect(store.values()).toEqual([]);
+  });
+
+  it("only removes the targeted id, leaving every other session untouched (INV-2 at the store layer)", () => {
+    const store = new SessionStore();
+    store.replaceAll([makeSession({ id: 1, state: "working" }), makeSession({ id: 2, state: "idle" }), makeSession({ id: 3, state: "failed" })]);
+    store.remove(2);
+    const byId = new Map(store.values().map((s) => [s.id, s]));
+    expect(byId.has(2)).toBe(false);
+    expect(byId.get(1)?.state).toBe("working");
+    expect(byId.get(3)?.state).toBe("failed");
+  });
+
+  it("removing then re-upserting the same id (e.g. a stale broadcast race) works normally", () => {
+    const store = new SessionStore();
+    store.replaceAll([makeSession({ id: 1 })]);
+    store.remove(1);
+    store.upsert(makeSession({ id: 1, state: "working" }));
+    expect(store.values().map((s) => s.id)).toEqual([1]);
+  });
+});

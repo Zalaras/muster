@@ -86,6 +86,12 @@ type Session struct {
 	FirstLaunchHere      bool
 	CreatedAt            time.Time
 
+	// LastSnapshot/LastSnapshotAt (m4-reconcile REQ-4): the last capture-pane text and
+	// when it was captured. "" / zero means "never captured yet" — display source only,
+	// never read by the state machine, never logged (may hold prompt text).
+	LastSnapshot   string
+	LastSnapshotAt time.Time
+
 	currentPromptID string
 	closedPromptIDs []string // bounded ring, most recent last, capped at maxClosedPrompts
 }

@@ -12,6 +12,7 @@ type InputKind string
 const (
 	KindBind                 InputKind = "bind"
 	KindClearRebind          InputKind = "clear_rebind"
+	KindResumeBind           InputKind = "resume_bind"
 	KindTurnActivity         InputKind = "turn_activity"
 	KindNeedsInputPermission InputKind = "needs_input_permission"
 	KindNeedsInputIdle       InputKind = "needs_input_idle"
@@ -110,8 +111,14 @@ func interpretSessionStart(payload []byte) StateInput {
 	_ = json.Unmarshal(payload, &f)
 
 	kind := KindBind
-	if f.Source == "clear" {
+	switch f.Source {
+	case "clear":
 		kind = KindClearRebind
+	case "resume":
+		// m4-reconcile REQ-8: a resume bind lands in idle (history exists; it is waiting
+		// for input, not new) unless applyBind escalates it to a clear-rebind because the
+		// claude session id actually changed (Edge Case 5 loss tolerance).
+		kind = KindResumeBind
 	}
 
 	in := StateInput{Kind: kind}

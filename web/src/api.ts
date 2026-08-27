@@ -195,3 +195,58 @@ export async function putPrefs(body: PrefsRequest): Promise<ApiResult<null>> {
   const error = parseApiError(errorBody);
   return { ok: false, error: error ?? genericError };
 }
+
+/** `POST /api/sessions/{id}/end` (docs/protocol.md §3.7). `200` + the Session object
+ * (`alive:false`, `endedAt` set); errors `404 unknown_session` / `409 not_alive`. */
+export async function endSession(id: number): Promise<ApiResult<Session>> {
+  const res = await fetch(`/api/sessions/${id}/end`, { method: "POST", credentials: "same-origin" });
+  return decodeJson(res, parseSession);
+}
+
+/** `POST /api/sessions/{id}/resume` (docs/protocol.md §3.5). `200` + the Session object
+ * (`state` unchanged until the enveloped `SessionStart(source:"resume")` arrives); errors
+ * `404 unknown_session` / `409 not_resumable` / `409 directory_missing` /
+ * `500 launch_failed`. */
+export async function resumeSession(id: number): Promise<ApiResult<Session>> {
+  const res = await fetch(`/api/sessions/${id}/resume`, { method: "POST", credentials: "same-origin" });
+  return decodeJson(res, parseSession);
+}
+
+/** `DELETE /api/sessions/{id}` (docs/protocol.md §3.8). `204` with no body on success —
+ * the removal itself reaches every UI socket via the `sessionRemoved` broadcast, same
+ * "response carries no state, the socket does" shape as `putPrefs` above. Errors
+ * `404 unknown_session` / `500 end_failed` (alive and the kill failed — row not deleted). */
+export async function removeSession(id: number): Promise<ApiResult<null>> {
+  const res = await fetch(`/api/sessions/${id}`, { method: "DELETE", credentials: "same-origin" });
+  if (res.status === 204) return { ok: true, value: null };
+  let errorBody: unknown;
+  try {
+    errorBody = await res.json();
+  } catch {
+    return { ok: false, error: genericError };
+  }
+  const error = parseApiError(errorBody);
+  return { ok: false, error: error ?? genericError };
+}
+
+/** REQ-4/§3.4: the last `capture-pane -p` text for a session, display source only. */
+export interface PaneSnapshot {
+  text: string;
+  capturedAt: string;
+}
+
+function parsePaneSnapshot(value: unknown): PaneSnapshot | null {
+  if (!isRecord(value)) return null;
+  const text = value["text"];
+  const capturedAt = value["capturedAt"];
+  if (typeof text !== "string" || typeof capturedAt !== "string") return null;
+  return { text, capturedAt };
+}
+
+/** `GET /api/sessions/{id}/pane` (docs/protocol.md §3.4). Errors `404 unknown_session` /
+ * `404 no_snapshot` (no capture has succeeded yet — render/dead.ts's "no snapshot
+ * captured" honesty case, not a fetch failure). */
+export async function fetchPane(id: number): Promise<ApiResult<PaneSnapshot>> {
+  const res = await fetch(`/api/sessions/${id}/pane`, { credentials: "same-origin" });
+  return decodeJson(res, parsePaneSnapshot);
+}

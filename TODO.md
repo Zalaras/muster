@@ -188,9 +188,13 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
 - **C `m4-canary`** — independent. Unskip `test/canary/canary_test.go` (incl.
   `TestCommandHookPathQuoting`); the pin-bump gate. Burns real subscription per run.
 
-- [ ] Reconcile on daemon start; tmux pane existence is the authority on liveness
-      (`SessionEnd` never fires on `kill -9`)
-- [ ] **Stopping the daemon does not stop the sessions it launched** — observed 2026-08-25
+- [x] Reconcile on daemon start; tmux pane existence is the authority on liveness
+      (`SessionEnd` never fires on `kill -9`) — shipped 2026-08-27 (plan `m4-reconcile`):
+      synchronous `Reconcile` before serving; `alive=0` rows swept, `alive=1`-no-pane rows
+      marked ended and kept for one resume chance; unknown `muster-*` panes logged, never adopted.
+- [x] **Stopping the daemon does not stop the sessions it launched** — settled 2026-08-27 (plan
+      `m4-reconcile`): option (b). Sessions survive by policy; `-on-exit` flag `ask` (TTY prompt,
+      10 s → leave) | `leave` | `kill`. Original observation 2026-08-25
       during the m4-hook-quoting REQ-9 run: `make run` was SIGTERM'd at 21:39 while haiku
       session 3 was live; the daemon shut down cleanly but `tmux -L muster ls` still showed
       `muster-3` with a real `claude` inside it, burning subscription with nothing tracking
@@ -204,7 +208,8 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
       "daemon down / sessions still running" cue plus the end/remove flow so an orphan can
       be killed from the UI. Until decided, the manual-testing rule is: kill sessions from
       the dashboard *before* stopping the daemon, and check `tmux -L muster ls` after.
-- [ ] `--resume` for dead sessions — mechanics verified by the H2 probe (`source: "resume"`,
+- [x] `--resume` for dead sessions — shipped 2026-08-27 (plan `m4-reconcile`): `POST
+      /api/sessions/{id}/resume`, `KindResumeBind` lands in `idle`. Mechanics verified by the H2 probe (`source: "resume"`,
       same `session_id`); the M4 work is building reconcile on top of it
 - [ ] Full canary E2E: unskip the assertions in `test/canary/canary_test.go`
 - [ ] Surface "daemon down" prominently — while it is down, every managed pane fills with
@@ -217,7 +222,10 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
       live). The banner only covers the dashboard; the noise in unmanaged sessions has no
       surface at all. See the per-directory-hooks and hook-entry-lifetime entries below —
       same file, same root.
-- [ ] **End / remove a session** — found missing during manual testing 2026-08-23: there is
+- [x] **End / remove a session** — shipped 2026-08-27 (plan `m4-reconcile`): End/Remove/Resume
+      with confirm dialogs on mainhead, cards and tile footers; Remove allowed on a live session
+      (ends first); ended cards sort to the bottom with the last captured pane as the dead
+      surface. Originally found missing during manual testing 2026-08-23: there is
       no delete flow at all (`docs/protocol.md` §5.5 reserves the `sessionRemoved` type but
       nothing sends it; `session.Manager.DeleteSession` exists only as the launch-failure
       rollback path, called from `internal/server/sessions.go`; no `kill-session` in
@@ -327,11 +335,25 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
       of them has ever rendered anything but synthesized input, so M3's "done" is
       unproven, not wrong.
 
-- [ ] **D5 regression guard (m4 review Major, non-blocking)** — no committed test puts a
+- [x] **D5 regression guard (m4 review Major, non-blocking)** — shipped 2026-08-27 (plan
+      `m4-reconcile`, `TestMergeSettings_ForeignCommandHookOnSessionStartSurvives`). Was: no committed test puts a
       *foreign* `type:"command"` hook on `SessionStart` alongside Muster's quoted entry (the
       existing foreign-hook test uses `PostToolUse`, an HTTP-owned event). Behaviour hand-probed
       correct; add the unit test in `internal/claudecode/settings_test.go`. See
       `plans/m4-hook-quoting/review.md`.
+
+- [ ] **Tiles grid loses focus on reorder** (m4-reconcile review cycle 4, Minor 2 — measured):
+      `reconcileTilesGrid` in `web/src/main.ts` still `insertBefore`s without re-focusing, so a
+      focused tile-footer End/Remove button falls to `<body>` on a real priority change. The rail
+      got the fix (`reconcileCards`); port the same logical-identity re-focus, then add the Tiles
+      half of the keyboard-survives-reorder E2E (Minor 3). Two of the nine `reconcileCards`
+      focus unit tests are vacuous under the `FakeDomNode` shim (Minor 1) — the E2E case is the
+      real guard; tighten or drop them.
+- [ ] **R2 real-haiku End → Resume check** (m4-reconcile Reviewer-Verified R2, not run by the
+      pipeline — it burns subscription): `claude --model claude-haiku-4-5-20251001` "say hi",
+      End from the dashboard, Resume, confirm the enveloped `SessionStart(source:"resume")`
+      carries the same `session_id` interactively on the pinned binary and the badge reads
+      `idle`; record in `spikes/canary-fields.md` (placeholder note added there). Kill it after.
 
 ## Pre-v1 Cleanup
 These are some minor changes and cleanup needed before we can move into post v1.

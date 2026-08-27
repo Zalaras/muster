@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -16,6 +17,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -38,14 +40,18 @@ const versionCheckTimeout = 5 * time.Second
 // closing, and the ingest queue draining, combined.
 const shutdownTimeout = 10 * time.Second
 
+// onExitPromptTimeout bounds the `-on-exit=ask` confirmation (REQ-3): unanswered within
+// this window (or stdin isn't a TTY at all) resolves to "leave", never a silent kill.
+const onExitPromptTimeout = 10 * time.Second
+
 func main() {
-	if err := run(os.Args[1:], os.Stdout, os.Stderr); err != nil {
+	if err := run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr); err != nil {
 		fmt.Fprintln(os.Stderr, "musterd:", err)
 		os.Exit(1)
 	}
 }
 
-func run(args []string, stdout, stderr io.Writer) error {
+func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 	fs := flag.NewFlagSet("musterd", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 
@@ -63,9 +69,16 @@ func run(args []string, stdout, stderr io.Writer) error {
 		claudeBin   = fs.String("claude-bin", "claude", "the `claude` binary to spawn for a launched session (REQ-19: lets E2E launch a stub)")
 		tmuxSocket  = fs.String("tmux-socket", "muster", "dedicated tmux socket (REQ-19: never the user's default server); a value containing '/' is used as a filesystem path (-S), otherwise a named socket (-L) — m2-terminal REQ-5")
 		browseRoot  = fs.String("browse-root", "", "root of the launch modal's folder browser — GET /api/browse's no-param default and its Up ceiling (empty = the user's home directory; E2E passes its scratch dir)")
+		onExit      = fs.String("on-exit", "ask", "what to do with live sessions on shutdown: ask (default, prompts once if stdin is a TTY) | leave | kill")
 	)
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+
+	switch *onExit {
+	case "ask", "leave", "kill":
+	default:
+		return fmt.Errorf("invalid -on-exit value %q: must be ask, leave, or kill", *onExit)
 	}
 
 	if *showVersion {
@@ -178,6 +191,26 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return nil
 	}
 
+	// Resolved (and, for "ask", possibly prompted) before the shutdown timeout budget
+	// starts — the REQ-3 prompt has its own 10s timeout, separate from shutdownTimeout's
+	// budget for the rest of teardown. Zero live sessions: neither branch below prints
+	// anything (REQ-3).
+	live := srv.LiveSessionCount()
+	if live > 0 {
+		switch resolveOnExit(*onExit, stdin, stderr, live, srv.TmuxSocket()) {
+		case onExitKill:
+			// Bounded (review cycle 1 Minor 3): context.Background() had no deadline at
+			// all, so a wedged tmux kill-session could hang shutdown indefinitely,
+			// outside shutdownTimeout's own budget for the rest of teardown below.
+			endAllCtx, endAllCancel := context.WithTimeout(context.Background(), shutdownTimeout)
+			ended := srv.EndAllSessions(endAllCtx)
+			endAllCancel()
+			log.Info().Int("count", ended).Str("tmux_socket", srv.TmuxSocket()).Msg("ended live sessions on shutdown")
+		case onExitLeave:
+			log.Info().Int("count", live).Str("tmux_socket", srv.TmuxSocket()).Msg("leaving live sessions running")
+		}
+	}
+
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer shutdownCancel()
 
@@ -284,4 +317,74 @@ func checkClaudeCode(ctx context.Context, log zerolog.Logger) (installed *string
 
 	log.Warn().Err(err).Msg("could not determine claude code version")
 	return nil, nil
+}
+
+// onExitDecision is -on-exit's final, already-resolved leave/kill decision (REQ-3):
+// "ask" is resolved to one of these by resolveOnExit before run's shutdown path acts on
+// it — nothing downstream of resolveOnExit ever sees "ask" itself.
+type onExitDecision int
+
+const (
+	onExitLeave onExitDecision = iota
+	onExitKill
+)
+
+// resolveOnExit turns the raw -on-exit flag value into a final leave/kill decision.
+// "leave"/"kill" pass straight through; "ask" prompts once — but only when stdin is a
+// character device (a real terminal, checked via Stat's ModeCharDevice, per
+// Implementation Notes — stdlib only, no new dependency) — and otherwise resolves to
+// "leave" without printing anything. Callers only invoke this once they already know
+// liveSessions > 0 (REQ-3: zero live sessions gets no prompt and no log line at all).
+func resolveOnExit(flagValue string, stdin *os.File, stderr io.Writer, liveSessions int, tmuxSocket string) onExitDecision {
+	switch flagValue {
+	case "kill":
+		return onExitKill
+	case "leave":
+		return onExitLeave
+	}
+	if !isCharDevice(stdin) {
+		return onExitLeave
+	}
+	return askKillPrompt(stdin, stderr, liveSessions, tmuxSocket)
+}
+
+// isCharDevice reports whether f is a TTY-shaped file (stdin's Stat().Mode(), stdlib
+// only — Implementation Notes: "os.Stdin.Stat() mode ModeCharDevice"). A stat failure or
+// nil file is treated as "not a TTY" (Edge Case: never prompt into the void).
+func isCharDevice(f *os.File) bool {
+	if f == nil {
+		return false
+	}
+	info, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return info.Mode()&os.ModeCharDevice != 0
+}
+
+// askKillPrompt prints the REQ-3 confirmation to stderr and reads one line from stdin,
+// racing a 10s timeout: only "y"/"Y"/"yes" (case-insensitive) answers kill; anything
+// else, or the timeout firing first, answers leave (Edge Case 10: a TTY with nobody
+// watching must never be silently killed).
+func askKillPrompt(stdin *os.File, stderr io.Writer, liveSessions int, tmuxSocket string) onExitDecision {
+	fmt.Fprintf(stderr, "%d live sessions on tmux socket %s — kill them? [y/N] ", liveSessions, tmuxSocket)
+
+	answer := make(chan string, 1)
+	go func() {
+		line, _ := bufio.NewReader(stdin).ReadString('\n')
+		answer <- strings.TrimSpace(line)
+	}()
+
+	select {
+	case a := <-answer:
+		switch strings.ToLower(a) {
+		case "y", "yes":
+			return onExitKill
+		default:
+			return onExitLeave
+		}
+	case <-time.After(onExitPromptTimeout):
+		fmt.Fprintln(stderr)
+		return onExitLeave
+	}
 }

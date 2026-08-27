@@ -3,9 +3,11 @@
 // ../sessions/card.ts's pure view-model, shared with the rail, since a strip card IS a
 // rail card per the plan's UI spec: "the M1 card content on its side".
 import type { Session } from "../protocol";
+import { buildDeadSurfaceFromTemplate, collectDeadSurfaceRefs, renderDeadSurface, type PaneState } from "./dead";
 import { buildCardViewModel } from "../sessions/card";
+import { formatEndedAge, formatEndedAgo } from "../sessions/format";
 import { renderContextRow } from "./context";
-import { buildSessionCardElement } from "./sessions";
+import { buildActionButton, reconcileCards, type SessionAction } from "./sessions";
 
 function requireTemplate(id: string): HTMLTemplateElement {
   const el = document.getElementById(id);
@@ -15,11 +17,16 @@ function requireTemplate(id: string): HTMLTemplateElement {
 
 export interface TileRefs {
   root: HTMLElement;
-  /** Where the caller (main.ts's surface manager) moves a live TerminalSurface's root —
-   * this module never touches a socket or an xterm instance. */
+  /** Where the caller (main.ts's surface manager) moves a live TerminalSurface's root, OR
+   * (REQ-12) where a dead tile's dead-surface is mounted — this module never touches a
+   * socket or an xterm instance itself. */
   bodySlot: HTMLElement;
   geoEl: HTMLElement;
   markerEl: HTMLElement;
+  /** REQ-12's footer action row — optional so `tiles.test.ts`'s existing hand-built
+   * `TileRefs` fixtures (built before this plan, with only the four original fields) keep
+   * typechecking unchanged; every real tile built via `buildTile` always has one. */
+  actsEl?: HTMLElement;
 }
 
 /** Updates one tile's header chrome (title/where/context/timer + state class) in place
@@ -40,7 +47,15 @@ function updateTileChrome(root: HTMLElement, session: Session, now: Date): void 
   if (name) name.textContent = vm.title;
   if (where) where.textContent = vm.repoLine;
   if (ctx) renderContextRow(ctx, session.context, "ctxinfo");
-  if (timer) timer.textContent = vm.timer;
+  // A dead tile's header timer shows the bare age, deliberately WITHOUT the "ended"
+  // word — `vm.timer` ("ended <age>") is the rail/strip card's own wording (REQ-9), and
+  // a tile's dead-surface (mounted in the same subtree, unlike a card) already has an
+  // `.endbar` that starts with "ended " per the Testable UI Elements' `/^ended /`
+  // contract. Two elements inside one tile both starting with "ended " would make any
+  // `tile.getByText(/^ended /)` locator ambiguous (Playwright strict-mode violation) —
+  // REQ-12's own footer age readout (`.tage`, see `renderTileFooterActions`) sidesteps
+  // the same trap by leading with "✕" instead.
+  if (timer) timer.textContent = session.alive ? vm.timer : session.endedAt ? formatEndedAge(session.endedAt, now) : "";
 }
 
 /** Builds one tile's chrome (header + empty body slot + footer) from the shared
@@ -57,12 +72,13 @@ export function buildTile(session: Session, now: Date): TileRefs {
   const bodySlot = root.querySelector<HTMLElement>(".tbody-slot");
   const geoEl = root.querySelector<HTMLElement>(".geo");
   const markerEl = root.querySelector<HTMLElement>(".marker");
-  if (!bodySlot || !geoEl || !markerEl) throw new Error("tile-template is missing a required element");
+  const actsEl = root.querySelector<HTMLElement>(".acts");
+  if (!bodySlot || !geoEl || !markerEl || !actsEl) throw new Error("tile-template is missing a required element");
 
   root.dataset["sessionId"] = String(session.id);
   updateTileChrome(root, session, now);
 
-  return { root, bodySlot, geoEl, markerEl };
+  return { root, bodySlot, geoEl, markerEl, actsEl };
 }
 
 /** Refreshes an existing tile's chrome for the current render pass — never rebuilds or
@@ -89,12 +105,19 @@ export function renderTileGeometry(
 
 /** Renders the snapshot strip: the same rail-card markup, on its side — clicking
  * promotes (REQ-8's "clicking a strip card promotes it"). Hides the strip entirely when
- * every session is live (plan edge case 7: "the strip hides when empty"). */
+ * every session is live (plan edge case 7: "the strip hides when empty"). `onAction`/
+ * `connected` thread through to each strip card's action row exactly like the rail
+ * (REQ-11's "a strip card carries the same pair" — it's the same shared card template).
+ * Reconciles by session id via `render/sessions.ts`'s shared `reconcileCards` (review
+ * m4-reconcile cycle-2 Major 1) rather than rebuilding every strip card each tick — same
+ * fix, same reason, as the rail's `renderSessions`. */
 export function renderStrip(
   el: HTMLElement,
   sessions: readonly Session[],
   now: Date,
   onPromote: (id: number) => void,
+  onAction?: (action: SessionAction, id: number) => void,
+  connected = true,
 ): void {
   el.hidden = sessions.length === 0;
   if (sessions.length === 0) {
@@ -102,5 +125,97 @@ export function renderStrip(
     return;
   }
   const template = requireTemplate("session-card-template");
-  el.replaceChildren(...sessions.map((session) => buildSessionCardElement(session, now, template, onPromote)));
+  reconcileCards(el, sessions, now, template, onPromote, onAction, connected);
+}
+
+/** REQ-12's tile footer action row: a live tile gets End; a dead tile gets the "ended
+ * <age> ago" text (the geometry readout's replacement — `.geo` itself stays untouched and
+ * empty, per `renderTileGeometry`'s existing frozen contract) plus Resume + Remove. Text
+ * and buttons share one `<span class="acts">` (the plan's own DOM spec: "footer gains a
+ * single `.acts` span after `.marker`" — no second element was added for the age text).
+ *
+ * Updates the existing button(s) in place when the row's shape (live-End vs.
+ * dead-age+Resume+Remove) hasn't changed, rather than unconditionally rebuilding —
+ * review m4-reconcile cycle-2 Major 1: this ran via `actsEl.replaceChildren(...)` on
+ * every 1s render tick regardless of whether anything changed, destroying and rebuilding
+ * every tile footer's action button(s) a second after they were focused, with focus
+ * falling to `<body>` rather than the new node. The row's shape only changes on a
+ * genuine live/ended transition, which does legitimately need a rebuild (Resume/Remove
+ * didn't exist a moment ago). */
+export function renderTileFooterActions(
+  actsEl: HTMLElement,
+  session: Session,
+  now: Date,
+  connected: boolean,
+  onAction?: (action: SessionAction, id: number) => void,
+): void {
+  if (session.alive) {
+    const existingEnd =
+      actsEl.children.length === 1 ? actsEl.firstElementChild : null;
+    if (existingEnd instanceof HTMLButtonElement && existingEnd.dataset["action"] === "end") {
+      existingEnd.disabled = !connected;
+      return;
+    }
+    actsEl.replaceChildren(buildActionButton("End", session.id, connected, onAction));
+    return;
+  }
+  // Leads with "✕" rather than "ended" (mockups/tiles-dead.html's `.tfoot .snap`: "✕
+  // ended 6m ago") — deliberately not the word this tile's `.endbar` also starts with
+  // (see `updateTileChrome`'s comment on the same collision).
+  const ageText = session.endedAt ? `✕ ended ${formatEndedAgo(session.endedAt, now)}` : "✕ ended";
+  const resumeEnabled = connected && session.claudeSessionId !== null;
+
+  const [ageEl, resumeEl, removeEl] = Array.from(actsEl.children);
+  const sameShape =
+    actsEl.children.length === 3 &&
+    ageEl instanceof HTMLElement &&
+    ageEl.className === "tage" &&
+    resumeEl instanceof HTMLButtonElement &&
+    resumeEl.dataset["action"] === "resume" &&
+    removeEl instanceof HTMLButtonElement &&
+    removeEl.dataset["action"] === "remove";
+
+  if (sameShape && ageEl && resumeEl instanceof HTMLButtonElement && removeEl instanceof HTMLButtonElement) {
+    ageEl.textContent = ageText;
+    resumeEl.disabled = !resumeEnabled;
+    removeEl.disabled = !connected;
+    return;
+  }
+
+  const age = document.createElement("span");
+  age.className = "tage";
+  age.textContent = ageText;
+  actsEl.replaceChildren(
+    age,
+    buildActionButton("Resume", session.id, resumeEnabled, onAction),
+    buildActionButton("Remove", session.id, connected, onAction),
+  );
+}
+
+/** REQ-12/REQ-13: mounts (once) or refreshes a dead tile's dead-surface inside its
+ * `.tbody-slot`, cloning from `#dead-surface-template` the first time this tile goes dead
+ * and requerying the existing instance on every later pass — same convention as
+ * `updateTileChrome`'s existing chrome nodes, never a live TerminalSurface for `alive:false`
+ * (W8/INV-5). The cap's Resume button's click listener is attached exactly once, only in
+ * the fresh-clone branch — `renderDeadSurface` itself runs every pass and only ever
+ * updates text/dataset/disabled, never re-wires a listener (which would otherwise stack a
+ * new one on the same button every render tick for as long as the tile stays dead). */
+export function mountTileDeadSurface(
+  bodySlot: HTMLElement,
+  session: Session,
+  pane: PaneState,
+  now: Date,
+  connected: boolean,
+  template: HTMLTemplateElement,
+  onAction?: (action: SessionAction, id: number) => void,
+): void {
+  const existing = bodySlot.querySelector<HTMLElement>(".dead-surface");
+  const refs = existing ? collectDeadSurfaceRefs(existing) : buildDeadSurfaceFromTemplate(template);
+  if (!existing) {
+    bodySlot.replaceChildren(refs.root);
+    refs.resumeBtn.addEventListener("click", () => {
+      if (!refs.resumeBtn.disabled) onAction?.("resume", session.id);
+    });
+  }
+  renderDeadSurface(refs, session, pane, now, connected);
 }

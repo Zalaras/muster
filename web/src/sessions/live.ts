@@ -78,6 +78,16 @@ export function applyDensity(live: readonly number[], n: number, sessions: reado
   return result;
 }
 
+/** REQ-13/INV-5/W8 (plan m4-reconcile): filters a desired-live id list down to sessions
+ * that are actually alive. The Focus/Tiles membership functions above have no notion of
+ * aliveness — a session can be "in the grid" (sticky tile membership, m2) while dead — so
+ * this is the one place that decides which of those ids may ever open a terminal socket.
+ * Applied as the last step before `surfaceDiff`, never inside it. */
+export function aliveOnly(ids: readonly number[], sessions: readonly Session[]): number[] {
+  const aliveIds = new Set(sessions.filter((s) => s.alive).map((s) => s.id));
+  return ids.filter((id) => aliveIds.has(id));
+}
+
 export interface SurfaceDiff {
   toOpen: number[];
   toClose: number[];

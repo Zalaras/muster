@@ -3,11 +3,13 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/rs/zerolog"
 
@@ -42,6 +44,22 @@ func invalidRequest(message string) *launchError {
 
 func launchFailed(message string) *launchError {
 	return &launchError{status: http.StatusInternalServerError, code: "launch_failed", message: message}
+}
+
+// notFound, notResumable and directoryMissing are Resume's own error codes
+// (m4-reconcile REQ-7, docs/protocol.md §3.5) — reusing launchError's shape rather than
+// a parallel type, since the server-side handling (writeJSONError(status, code,
+// message)) is identical.
+func notFound(message string) *launchError {
+	return &launchError{status: http.StatusNotFound, code: "unknown_session", message: message}
+}
+
+func notResumable(message string) *launchError {
+	return &launchError{status: http.StatusConflict, code: "not_resumable", message: message}
+}
+
+func directoryMissing(message string) *launchError {
+	return &launchError{status: http.StatusConflict, code: "directory_missing", message: message}
 }
 
 // sessionLauncher composes store+tmux+claudecode+session.Manager to perform one launch
@@ -167,6 +185,58 @@ func (l *sessionLauncher) rollback(ctx context.Context, id int64) {
 	}
 }
 
+// Resume relaunches a dead, resumable session (REQ-7, docs/protocol.md §3.5): rewrites
+// settings, spawns `claude --resume <claudeSessionId>` in a fresh muster-<id> tmux
+// session (the dead one's name is free again after End/reconcile), and records the new
+// pane. state is left untouched — it becomes idle only once the enveloped
+// SessionStart(source:"resume") arrives (REQ-8).
+func (l *sessionLauncher) Resume(ctx context.Context, id int64) (*session.Session, *launchError) {
+	sess, ok := l.manager.Get(id)
+	if !ok {
+		return nil, notFound("unknown session id")
+	}
+	if sess.Alive || sess.ClaudeSessionID == "" {
+		return nil, notResumable("session is alive or has no resumable claude session id")
+	}
+	if info, err := os.Stat(sess.Directory); err != nil || !info.IsDir() {
+		return nil, directoryMissing("session directory no longer exists")
+	}
+
+	if err := l.writeSettings(sess.Directory); err != nil {
+		return nil, launchFailed(err.Error())
+	}
+
+	model := ""
+	if sess.Model != nil {
+		model = sess.Model.ID
+	}
+	argv := claudecode.BuildArgv(l.claudeBin, claudecode.LaunchParams{
+		Model:           model,
+		PermissionMode:  string(sess.PermissionMode),
+		ResumeSessionID: sess.ClaudeSessionID,
+	})
+	env := map[string]string{
+		"MUSTER_SESSION": strconv.FormatInt(id, 10),
+		// Same rationale as Launch's own env (REQ-20): a Go-daemon child inherits no
+		// LANG/LC_ALL of its own.
+		"LANG":   "en_US.UTF-8",
+		"LC_ALL": "en_US.UTF-8",
+	}
+	target, pane, err := l.tmux.NewSession(ctx, id, sess.Directory, env, argv)
+	if err != nil {
+		return nil, launchFailed(fmt.Sprintf("spawning tmux session: %v", err))
+	}
+
+	final, err := l.manager.RecordResume(ctx, id, target, pane)
+	if err != nil {
+		if killErr := l.tmux.KillWindow(ctx, target); killErr != nil {
+			l.log.Error().Err(killErr).Str("tmux_target", target).Msg("failed to kill tmux window after RecordResume failure")
+		}
+		return nil, launchFailed(fmt.Sprintf("recording resume: %v", err))
+	}
+	return final, nil
+}
+
 // writeSettings ensures dir/.claude/settings.local.json registers Muster's hooks,
 // status-line and allowed-URL config (REQ-4). A corrupt existing file refuses the
 // launch by name (docs/protocol.md §3.1 / Edge Case 9) rather than guessing.
@@ -220,4 +290,111 @@ func (s *Server) handleCreateSession(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(toWireSession(sess))
+}
+
+// parseSessionID reads the {id} path value, writing a 404 unknown_session itself on a
+// malformed value (an unparseable id is indistinguishable from an unknown one to the
+// caller — same response either way).
+func parseSessionID(w http.ResponseWriter, r *http.Request) (int64, bool) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
+		return 0, false
+	}
+	return id, true
+}
+
+// handleEndSession is POST /api/sessions/{id}/end (REQ-5, docs/protocol.md §3.7). Any
+// open terminal socket for id is closed (4001) before the kill, so the UI's dead-surface
+// overlay arrives ahead of the alive:false broadcast (Implementation Notes).
+func (s *Server) handleEndSession(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseSessionID(w, r)
+	if !ok {
+		return
+	}
+
+	s.terminals.closeSession(id)
+
+	sess, endErr := s.manager.End(context.WithoutCancel(r.Context()), id)
+	if endErr != nil {
+		switch {
+		case errors.Is(endErr, session.ErrUnknownSession):
+			writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
+		case errors.Is(endErr, session.ErrSessionNotAlive):
+			writeJSONError(w, http.StatusConflict, "not_alive", "session is already ended")
+		default:
+			s.log.Error().Err(endErr).Int64("session_id", id).Msg("ending session failed")
+			writeJSONError(w, http.StatusInternalServerError, "end_failed", endErr.Error())
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(toWireSession(sess))
+}
+
+// handleRemoveSession is DELETE /api/sessions/{id} (REQ-6, docs/protocol.md §3.8).
+func (s *Server) handleRemoveSession(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseSessionID(w, r)
+	if !ok {
+		return
+	}
+
+	// If id is alive, Remove runs the End path first — close any terminal socket ahead
+	// of that too (same rationale as handleEndSession).
+	s.terminals.closeSession(id)
+
+	if remErr := s.manager.Remove(context.WithoutCancel(r.Context()), id); remErr != nil {
+		switch {
+		case errors.Is(remErr, session.ErrUnknownSession):
+			writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
+		default:
+			s.log.Error().Err(remErr).Int64("session_id", id).Msg("removing session failed")
+			writeJSONError(w, http.StatusInternalServerError, "end_failed", remErr.Error())
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleResumeSession is POST /api/sessions/{id}/resume (REQ-7, docs/protocol.md §3.5).
+func (s *Server) handleResumeSession(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseSessionID(w, r)
+	if !ok {
+		return
+	}
+
+	sess, lerr := s.launcher.Resume(context.WithoutCancel(r.Context()), id)
+	if lerr != nil {
+		writeJSONError(w, lerr.status, lerr.code, lerr.message)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(toWireSession(sess))
+}
+
+// handlePaneSnapshot is GET /api/sessions/{id}/pane (REQ-4, docs/protocol.md §3.4 —
+// closes the M2 deferral). Served for live sessions too; the UI only asks for dead ones.
+func (s *Server) handlePaneSnapshot(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseSessionID(w, r)
+	if !ok {
+		return
+	}
+	if !s.manager.Exists(id) {
+		writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
+		return
+	}
+	text, at, ok := s.manager.Snapshot(id)
+	if !ok {
+		writeJSONError(w, http.StatusNotFound, "no_snapshot", "no pane capture yet for this session")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(paneSnapshotWire{Text: text, CapturedAt: at.UTC().Format(time.RFC3339)})
 }

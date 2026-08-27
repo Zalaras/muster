@@ -41,6 +41,12 @@ type SessionRow struct {
 	ContextUsedPct          *float64
 	ContextTotalInputTokens *int64
 	ContextWindowSize       *int64
+
+	// LastSnapshot/LastSnapshotAt (m4-reconcile REQ-4): the last capture-pane text and
+	// when it was captured — always both-nil or both-non-nil. Display source only, never
+	// read by the state machine; never logged (may hold prompt text).
+	LastSnapshot   *string
+	LastSnapshotAt *time.Time
 }
 
 // InsertSessionParams seeds a new session row (REQ-1/REQ-2): state "started", the
@@ -110,6 +116,12 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 		endedAt = &v
 	}
 
+	var lastSnapshotAt *string
+	if row.LastSnapshotAt != nil {
+		v := row.LastSnapshotAt.UTC().Format(time.RFC3339)
+		lastSnapshotAt = &v
+	}
+
 	_, err := s.db.ExecContext(ctx, `
 		UPDATE session SET
 			tmux_target = ?, tmux_pane = ?, claude_session_id = ?, directory = ?, branch = ?,
@@ -117,7 +129,8 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 			permission_mode_source = ?, model = ?, model_display_name = ?, compactions = ?,
 			attention_reason = ?, attention_since = ?, failure_error = ?, failure_message = ?,
 			last_activity = ?, alive = ?, ended_at = ?, first_launch_here = ?,
-			context_used_pct = ?, context_total_input_tokens = ?, context_window_size = ?
+			context_used_pct = ?, context_total_input_tokens = ?, context_window_size = ?,
+			last_snapshot = ?, last_snapshot_at = ?
 		WHERE id = ?
 	`,
 		row.TmuxTarget, row.TmuxPane, row.ClaudeSessionID, row.Directory, row.Branch,
@@ -126,6 +139,7 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 		row.AttentionReason, attentionSince, row.FailureError, row.FailureMessage,
 		row.LastActivity, boolToInt(row.Alive), endedAt, boolToInt(row.FirstLaunchHere),
 		row.ContextUsedPct, row.ContextTotalInputTokens, row.ContextWindowSize,
+		row.LastSnapshot, lastSnapshotAt,
 		row.ID,
 	)
 	if err != nil {
@@ -139,7 +153,8 @@ const sessionColumns = `
 	title, state, state_since, permission_mode, permission_mode_source, model,
 	model_display_name, compactions, attention_reason, attention_since, failure_error,
 	failure_message, last_activity, alive, ended_at, first_launch_here, created_at,
-	context_used_pct, context_total_input_tokens, context_window_size
+	context_used_pct, context_total_input_tokens, context_window_size,
+	last_snapshot, last_snapshot_at
 `
 
 func (s *Store) GetSession(ctx context.Context, id int64) (SessionRow, error) {
@@ -180,6 +195,7 @@ func scanSession(row rowScanner) (SessionRow, error) {
 		isWorktree, alive, firstHere int
 		stateSince, createdAt        string
 		attentionSince, endedAt      *string
+		lastSnapshotAt               *string
 	)
 	if err := row.Scan(
 		&r.ID, &r.TmuxTarget, &r.TmuxPane, &r.ClaudeSessionID, &r.RepoID, &r.Directory, &r.Branch, &isWorktree,
@@ -187,6 +203,7 @@ func scanSession(row rowScanner) (SessionRow, error) {
 		&r.ModelDisplayName, &r.Compactions, &r.AttentionReason, &attentionSince, &r.FailureError,
 		&r.FailureMessage, &r.LastActivity, &alive, &endedAt, &firstHere, &createdAt,
 		&r.ContextUsedPct, &r.ContextTotalInputTokens, &r.ContextWindowSize,
+		&r.LastSnapshot, &lastSnapshotAt,
 	); err != nil {
 		return SessionRow{}, err
 	}
@@ -203,5 +220,21 @@ func scanSession(row rowScanner) (SessionRow, error) {
 		t, _ := time.Parse(time.RFC3339, *endedAt)
 		r.EndedAt = &t
 	}
+	if lastSnapshotAt != nil {
+		t, _ := time.Parse(time.RFC3339, *lastSnapshotAt)
+		r.LastSnapshotAt = &t
+	}
 	return r, nil
+}
+
+// UpdateSnapshot persists only the last captured pane screen for id (REQ-4), separate
+// from UpdateSession's whole-row write since it happens on every liveness tick for every
+// alive session — called only when the captured text actually changed (same pattern as
+// usage_sample). Never logged (may hold prompt text).
+func (s *Store) UpdateSnapshot(ctx context.Context, id int64, text string, at time.Time) error {
+	ts := at.UTC().Format(time.RFC3339)
+	if _, err := s.db.ExecContext(ctx, `UPDATE session SET last_snapshot = ?, last_snapshot_at = ? WHERE id = ?`, text, ts, id); err != nil {
+		return fmt.Errorf("updating snapshot for session %d: %w", id, err)
+	}
+	return nil
 }
