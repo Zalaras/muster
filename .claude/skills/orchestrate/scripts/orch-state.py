@@ -7,7 +7,7 @@ Usage (run from the project root):
   orch-state.py <plan> retry <step>                  bump retry_counts[<step>]
   orch-state.py <plan> fail <step>                   append to failed_steps
   orch-state.py <plan> status <in-progress|blocked|completed> [--step STEP]
-  orch-state.py <plan> reopen <step>                 resume: status in-progress, retry 0,
+  orch-state.py <plan> reopen <step>                 resume: status in-progress, retries kept (--reset-retries zeroes),
                                                      remove <step> from completed_steps
   orch-state.py <plan> show                          print the state
 
@@ -28,6 +28,8 @@ def main():
     ap.add_argument("arg", nargs="?")
     ap.add_argument("--step")
     ap.add_argument("--next")
+    ap.add_argument("--reset-retries", action="store_true",
+                    help="reopen only: zero the step's retry count (a fresh budget the user granted)")
     a = ap.parse_args()
 
     path = pathlib.Path("plans") / a.plan / "orchestration-state.json"
@@ -71,7 +73,8 @@ def main():
         elif a.cmd == "reopen":
             s["status"] = "in-progress"
             s["current_step"] = a.arg
-            s["retry_counts"][a.arg] = 0
+            if a.reset_retries:
+                s["retry_counts"][a.arg] = 0
             s["completed_steps"] = [x for x in s["completed_steps"] if x != a.arg]
         s["updated_at"] = now()
     path.parent.mkdir(parents=True, exist_ok=True)

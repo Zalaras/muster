@@ -84,6 +84,8 @@ When invoked in fix mode:
 3. Fix only what's needed — don't refactor unrelated code
 4. **Append** your fix details to the existing output file under a new `## Fix Attempt <N>` section
 5. **Fix the category, not the reviewer's example.** For each Critical/Major, enumerate in your Fix Attempt every code path that reaches the defect and state how each is closed. A finding that says "clear-rebind (and plain re-bind)" names two doors; patching only the branch the reproduction used sends the same bug into the next review cycle (this exactly happened in m1-sessions).
+6. **Measure the blast radius of anything shared before you change it.** Before changing a function, sentinel, or struct field that other packages read, `rg` every consumer and paste the list; state for each how it behaves after the change. A reviewer's example names one caller; the fix must hold for all of them.
+7. **Re-run the reviewer's repro, not your theory.** When an issue carries a measured reproduction (a `curl` sequence against a scratch daemon, a log line, a state dump), your Fix Attempt must re-run **that exact repro** and paste the after-output. Removing the cause you identified is not evidence the symptom is gone.
 
 ## Output
 

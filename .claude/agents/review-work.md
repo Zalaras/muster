@@ -211,6 +211,7 @@ Tag every issue with the responsible agent so the orchestrator knows where to ro
 - `[web-tests]` → web tests agent
 - `[e2e-specs]` → E2E test agent
 - `[orchestrator]` → nothing a pipeline agent may edit: `TODO.md` ticks, `SPEC.md` changelog, `docs/protocol.md` reconciliation, a plan defect (missing ```checks block, contradictory criteria), a manual-verification record the plan requires. The orchestrator's Doc-Upkeep Backstop and Completion steps own these. Do not tag doc upkeep `[daemon-impl]` — the impl agent may not touch `SPEC.md`, and the mis-route only surfaces at completion.
+  Also `[orchestrator]`: **any issue whose resolution is a product or design decision rather than a defect** — rail density (always-on vs hover-reveal), placement, a colour's semantics, whether a behaviour is in scope. State the options and the measured trade-offs, but do not assign it to an impl agent: an impl agent told to "make a decision" will make one inside a fix cycle with no authority to, and the choice then has to be re-litigated (m4-reconcile cycle 2 → 3: hover-only was decided by web-impl, produced the next cycle's Critical, and still needed Damian's sign-off afterwards). Tag these `[orchestrator:decision]` (not bare `[orchestrator]`) and write the two options as two labelled lines — the orchestrator runs the `/decide` debate on exactly that pair, and the debaters argue the options as you wrote them. Doc upkeep, plan defects and manual-verification records stay bare `[orchestrator]`.
 
 ## Verdict Rules
 

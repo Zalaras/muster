@@ -115,6 +115,10 @@ npm run e2e -- e2e/<your-file>.spec.ts
 - deleting a test, or renaming it so the coverage table no longer maps it to a requirement
 - making a fixture payload dishonest — a synthesized POST must stay shape-faithful to the captures; never "fix" a test by sending a field the real Claude Code never sends (that is exactly the dishonesty the canary suite exists to catch)
 
+**Never route around a defect.** If a test only passes with a shortcut a real user does not have — `locator.press()` bundling focus and key so a focus-drop between them is invisible, a `waitForTimeout` tuned to land inside a window, re-fetching state the UI should already show — you have found an implementation-bug, not a flaky test. Report it in the **E2E Implementation Bugs** table and leave the honest test failing; never hide it in a passing one. m4-reconcile cycle 1: the wave-3 agent noticed the 1 s render tick dropped focus to `<body>`, wrote a `locator.press()` test that could not see it, and logged the workaround — the defect surfaced only in the next Opus review as a Major, and the fix cycle it triggered would have been free if it had been reported.
+
+**Visibility of an interactive element is asserted by computed style, not `toBeVisible()` alone.** Playwright's actionability model treats `opacity: 0` as visible, so `toBeVisible()` passes on a button the user cannot see. For any button, link, or control a requirement says the user must be able to see, pair `toBeVisible()` with `toHaveCSS("opacity", "1")` (and, where a hover/focus reveal is the design, assert `0` at rest and `1` on hover / `:focus-within`). m4-reconcile cycle 3: the dead-surface cap's Resume button sat at `opacity: 0` on every dead session while `toBeVisible()` passed — a vacuous pass over a Critical.
+
 If the only way to make a test green is to weaken it, that is an `implementation-bug`, not a repair. **Every repair must be declared** in the `## Repairs` table with the requirement its assertion still covers.
 
 ### 4. Re-verify collection suite-wide

@@ -93,6 +93,8 @@ When invoked in fix mode:
 3. Fix only what's needed
 4. **Append** your fix details to the existing output file under a new `## Fix Attempt <N>` section
 5. **Fix the category, not the reviewer's example.** For each Critical/Major, enumerate in your Fix Attempt every code path/element that exhibits the defect and state how each is closed — when a finding names a pattern ("every conditionally-hidden element…"), sweep for all instances rather than patching the cited one.
+6. **Measure the blast radius of anything shared before you change it.** A CSS class, selector, or exported function usually has more consumers than the surface you are fixing. Before editing it, `rg` every consumer (`rg -n '\.acts-row' web/src web/index.html`) and paste the list; after editing, re-measure **each** consumer surface in a real browser, not just the one the issue named. m4-reconcile cycle 2 → 3: a hover-reveal rule written on the bare `.acts-row` hid the dead-surface cap's only Resume button, because the class was shared and only the rail was re-checked — one line of CSS cost a full Opus review cycle.
+7. **Re-run the reviewer's repro, not your theory.** When an issue carries a measured reproduction (a computed-style chain, an `activeElement` read, a screenshot), your Fix Attempt must re-run **that exact repro** and paste the after-numbers. Fixing the cause you identified is not evidence the symptom is gone — m4-reconcile cycle 1 → 2: the `preventDefault` guard was the right fix for one cause of "Enter does nothing", and the symptom still reproduced because a second cause (the per-tick DOM rebuild) was never re-measured.
 
 ## Output
 

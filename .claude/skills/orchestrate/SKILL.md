@@ -214,7 +214,9 @@ locators. This is validate attempt <N> of 2.
 Spec file(s): <paths from the File column of test-specs.md's Tests table>
 Read plans/<plan-name>/daemon-implementation.md and
 plans/<plan-name>/web-implementation.md for what was built and where.
-Rebuild before running (make build web-build — the harness serves prebuilt binaries), and
+Rebuild before running (make build web-build — the harness serves prebuilt binaries, so a stale
+web/dist means you are testing the previous tree; note `make web-build` runs tsc over web/e2e/ too,
+so a type error in any spec — including a throwaway one — fails the build and leaves dist stale), and
 once your own file passes, sweep the FULL suite (make e2e) per your Validate Mode step 5:
 pre-existing specs superseded by this plan's approved protocol delta are yours to update
 as sanctioned breakage; failures the delta does not explain are implementation-bugs.
@@ -244,6 +246,7 @@ Project root: <project-root>
 **Review Retry Logic**: If the review verdict is `needs-changes`:
 
 1. Read `review.md` and bucket every tagged issue by tag: `[daemon-impl]`, `[web-impl]`, `[daemon-tests]`, `[web-tests]`, `[e2e-specs]`. Issues tagged `[orchestrator]` are yours — never spawn an agent for them; handle them in the Doc-Upkeep Backstop / Completion step.
+1a. **Decision items first.** For every issue tagged `[orchestrator:decision]`, run the `decide` skill (`.claude/skills/decide/SKILL.md`) **before** spawning any fix wave: two `debater` agents argue the two options directly to each other, a fresh `judge` breaks a tie, and `plans/<plan>/decisions/<slug>/decision.md` records the outcome. Quote the outcome verbatim in the fix-wave prompt of the agent that implements it. Max 2 debates per run; a third decision item, or any item on the skill's never-debated list (protocol contract, scope, a recorded SPEC decision, spending money), stops the pipeline and asks the user. Learned from m4-reconcile: two decision items were carried through three review cycles, one was then decided inside a fix wave by an impl agent and produced the next cycle's Critical.
 2. **Do not fan all five out at once — they are not independent.** Group the non-empty buckets into waves per `## Fix Wave Ordering` below, and run the waves strictly in order. Within a wave, spawn its agents in parallel (multiple Task calls in one message); between waves, wait for completion and run the wave's gate.
 3. If a wave's gate fails, that wave's fix was incomplete. End the cycle there — count it against the review budget and report — rather than starting the next wave on a broken tree.
 4. **MANDATORY**: after the last wave completes and its gate passes, re-run the full suite fresh:
@@ -264,7 +267,7 @@ If all 3 review cycles are used and the final verdict is still `needs-changes`:
 1. Do NOT mark the pipeline as "completed"
 2. Update orchestration state to `status: "blocked"`, `current_step: "review"`
 3. Report to the user exactly what issues remain, referencing the review.md file
-4. Ask the user whether to: (a) continue with more review cycles, (b) fix manually, or (c) abort
+4. Ask the user whether to: (a) continue with more review cycles, (b) fix manually, or (c) abort. (Decision items are never the reason to reach this point — they are settled by the `decide` skill in cycle 1a.)
 
 **CRITICAL**: The pipeline can ONLY be marked "completed" when the review verdict is "approved". Any other verdict means the pipeline is either "in-progress" or "blocked". Never override a review verdict.
 
@@ -297,6 +300,7 @@ Two concrete ways a flat fan-out goes wrong: an impl agent moves or renames a sy
 - **Both impl agents tagged** → they run in parallel; their file trees are disjoint (`cmd/`/`internal/` vs `web/src/`). **Exception:** if any review issue asks for a change to the protocol contract (the plan's **Protocol Contract** section or `docs/protocol.md`), do NOT run them in parallel. Stop and report to the user. The contract is the shared source of truth that lets the two agents work independently at all, and neither may redefine it unilaterally.
 - **Wave-1 web gate vs test-file compilation** (learned from m2-terminal): `make web-build` runs `tsc` over test files too, so a *sanctioned* wave-1 signature change can fail the gate purely inside a test file that only wave 2 may edit. The gate still passes iff **all** of: (a) the tsc failures are confined to `*.test.ts` files the impl agent's Handoff explicitly names as needing the wave-2 update, (b) `tsc --noEmit` with those test files excluded exits 0, and (c) a standalone `vite build` exits 0 — the impl agent must paste (b) and (c) as evidence. Any failure outside the named test files is a real gate failure. The wave-2 gate (`make web-test`, and full `make web-build` before review) then proves the handoff was honoured.
 - **Plan amendments mid-run** (learned from m2-terminal, where the plan's own REQ contradicted its acceptance criteria): a review issue may prove a plan requirement wrong. Protocol-contract changes always stop the pipeline (rule above). A **non-protocol** requirement may be amended by the orchestrator without stopping iff all of: the review demonstrates the defect **by measurement** (not argument), the amendment restores consistency with the plan's own acceptance criteria or a structural decision the user already approved, and the amendment is recorded in three places — an *Amended* note inline in the plan's requirement citing the review issue, a SPEC.md changelog entry, and the completion summary to the user. If the amendment would change scope or contradict a decision the user made, stop and ask instead.
+- **Every wave-3 prompt says "rebuild first (`make build web-build`)"** and every `make e2e` you run yourself is preceded by `make web-build`. The harness serves prebuilt binaries; a stale `web/dist` silently tests the previous tree (m4-reconcile review cycle 4 briefly measured a defect that was already fixed in source for exactly this reason).
 - **`[e2e-specs]` always lands in wave 3**, even when its issue looks self-contained. A locator repaired against pre-fix markup is worthless, and its fix mode ends in a live run — which must happen against the post-fix tree.
 - **New user-facing behaviour added by a fix wave must get E2E coverage in the same cycle.** When a cycle's `[web-impl]`/`[daemon-impl]` fixes *add* user-visible behaviour (a new error display, marker, shortcut, field), the wave-3 e2e-specs prompt must include: "read this cycle's ## Fix Attempt sections in both implementation logs and assert any new user-facing behaviour they added" — and e2e-specs runs in wave 3 for this purpose **even with no tagged `[e2e-specs]` issue** (this is a concrete coverage task, so it doesn't violate the never-spawn-with-nothing-to-fix rule). Learned from m1-sessions: seven behaviours shipped untested because the unit-test agent correctly said "DOM is Playwright's job" while e2e-specs was only prompted with its one tagged issue — the gap lives *between* agents, and only the orchestrator sees all waves.
 - **This same wave order governs `implementation-bug` verdicts** from Step 4 and Step 5, not just review cycles. When Step 5 reports `implementation-bug`: run the routed impl agent (wave 1), gate, re-run that side's unit test agent (wave 2), gate, then re-spawn Step 5 (wave 3).
@@ -315,7 +319,7 @@ python3 $S <plan> done <step> --next <next-step>    # after a step's verdict is 
 python3 $S <plan> retry <step>                      # each fix/validate/review cycle
 python3 $S <plan> status blocked --step <step>      # on exhaustion
 python3 $S <plan> status completed                  # only after review = approved
-python3 $S <plan> reopen <step>                     # resume from blocked/completed
+python3 $S <plan> reopen <step>                     # resume from blocked/completed (keeps retry count; add --reset-retries only when the user grants a fresh budget)
 python3 $S <plan> show
 ```
 
@@ -423,6 +427,7 @@ When all steps pass AND the review verdict is "approved":
 3. Update plan status to "completed"
 4. Update orchestration state status to "completed"
 5. Print a summary: what was done, files changed, retry count, and any notable issues
+6. **Decisions section** — for every debate run this pipeline (`plans/<plan>/decisions/*/decision.md`): the two options, the outcome, consensus-or-judged, the decisive argument in one or two sentences, and any dissent. The user may overrule with one line; if they do, `reopen` the affected wave and re-run it with the user's choice quoted.
 
 **NEVER mark the pipeline as completed if:**
 - The review.md verdict is anything other than "approved"
