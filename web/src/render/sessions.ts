@@ -3,6 +3,7 @@
 import type { Session } from "../protocol";
 import { buildCardViewModel, type CardAction } from "../sessions/card";
 import { renderContextRow } from "./context";
+import { captureFocusedControl, restoreFocusedControl } from "./focus";
 
 /** REQ-11's card/strip/tile action-row buttons all dispatch through this one shape —
  * `main.ts`'s dispatcher owns what each action actually does (open a confirm dialog, or
@@ -258,24 +259,10 @@ export function reconcileCards(
     if (Number.isFinite(id)) existingById.set(id, child);
   }
 
-  // review m4-reconcile cycle-3 Minor 1: `insertBefore` on an already-mounted node still
-  // detaches it first per the DOM spec, and Chrome blurs a focused descendant on detach
-  // even though the reattach is synchronous — measured live: `SORT-CHANGE focus:
-  // before=true after=false active=BODY` when a priority change (not just a clock tick)
-  // moved the focused card. Record *which* logical control was focused — the card itself
-  // (by session id) or one of its action buttons (by data-action + session id) — before
-  // the reorder loop runs, so it can be re-focused afterwards if the move blurred it.
-  const active = document.activeElement;
-  let focusedSessionId: number | undefined;
-  let focusedAction: string | undefined;
-  if (active instanceof HTMLElement && container.contains(active)) {
-    if (active.dataset["action"] !== undefined && active.dataset["id"] !== undefined) {
-      focusedAction = active.dataset["action"];
-      focusedSessionId = Number(active.dataset["id"]);
-    } else if (active.dataset["sessionId"] !== undefined) {
-      focusedSessionId = Number(active.dataset["sessionId"]);
-    }
-  }
+  // review m4-reconcile cycle-3 Minor 1: the reorder below can blur a focused card or
+  // action button (see render/focus.ts for the measured mechanism). Snapshot the focused
+  // logical control before the loop so it can be re-focused afterwards.
+  const focused = captureFocusedControl(container);
 
   const seen = new Set<number>();
   let previous: HTMLElement | null = null;
@@ -302,20 +289,10 @@ export function reconcileCards(
     if (!seen.has(id)) card.remove();
   }
 
-  // Re-focus the same logical control if the reorder blurred it — `document.activeElement`
-  // falls back to `<body>` on blur, so any mismatch here means focus was lost, not
-  // deliberately moved elsewhere by the caller mid-reconcile.
-  if (focusedSessionId !== undefined && document.activeElement !== active) {
-    const card = existingById.get(focusedSessionId) ?? container.querySelector<HTMLElement>(
-      `[data-session-id="${focusedSessionId}"]`,
-    );
-    if (card) {
-      const target = focusedAction
-        ? card.querySelector<HTMLElement>(`[data-action="${focusedAction}"]`)
-        : card;
-      target?.focus();
-    }
-  }
+  restoreFocusedControl(
+    focused,
+    (id) => existingById.get(id) ?? container.querySelector<HTMLElement>(`[data-session-id="${id}"]`),
+  );
 }
 
 /** Renders the honest empty state ("No sessions yet" — never a placeholder list) or one

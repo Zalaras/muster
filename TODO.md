@@ -342,7 +342,7 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
       correct; add the unit test in `internal/claudecode/settings_test.go`. See
       `plans/m4-hook-quoting/review.md`.
 
-- [ ] **Tiles grid loses focus on reorder** (m4-reconcile review cycle 4, Minor 2 — measured):
+- [x] **Tiles grid loses focus on reorder** — shipped 2026-08-27: shared `web/src/render/focus.ts` capture/restore used by both `reconcileCards` and `reconcileTilesGrid`; Tiles re-sort E2E added (proven red without the fix: `Received: inactive`); the `FakeDomNode` shim now blurs on detach so the two formerly-vacuous unit tests exercise the restore branch (plus a stub-focus proof test). Was (m4-reconcile review cycle 4, Minor 2 — measured):
       `reconcileTilesGrid` in `web/src/main.ts` still `insertBefore`s without re-focusing, so a
       focused tile-footer End/Remove button falls to `<body>` on a real priority change. The rail
       got the fix (`reconcileCards`); port the same logical-identity re-focus, then add the Tiles

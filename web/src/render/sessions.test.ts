@@ -166,6 +166,16 @@ class FakeDomNode {
     const idx = this.parent.nodeChildren.indexOf(this);
     if (idx !== -1) this.parent.nodeChildren.splice(idx, 1);
     this.parent = null;
+    // Chrome blurs a focused descendant the moment its subtree is detached, even when
+    // `insertBefore` reattaches it synchronously — that is the measured mechanism behind
+    // review m4-reconcile cycle-3 Minor 1 / cycle-4 Minor 2. Mirror it here so the focus
+    // capture/restore tests below exercise the restore branch for real (cycle-4 Minor 1
+    // found two of them vacuous: with no blur on detach, the branch never ran and a
+    // no-op `focus()` still passed).
+    const doc = (globalThis as unknown as { document: { activeElement: FakeDomNode | null } }).document;
+    if (doc.activeElement && (doc.activeElement === this || this.contains(doc.activeElement))) {
+      doc.activeElement = null;
+    }
   }
 
   appendChild(child: FakeChild): FakeChild {
@@ -447,6 +457,29 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
   // logical identity before the reorder loop and re-focuses the same logical target
   // afterwards if the move blurred it.
   describe("focus capture/restore across a reorder (Fix Attempt 3)", () => {
+    it("shim contract: detaching a node that contains the focused element blurs it (the Chrome behaviour under test)", () => {
+      const el = container();
+      reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1 }), makeSession({ id: 2 })], NOW, fakeTemplate(), undefined, undefined, true);
+      const endBtn = el.children[1]?.querySelector('[data-action="end"]');
+      endBtn?.focus();
+      expect(fakeDocument.activeElement).toBe(endBtn);
+      // Move card 2 ahead of card 1 with a raw insertBefore, bypassing reconcileCards.
+      el.insertBefore(el.children[1] as FakeDomNode, el.children[0] as FakeDomNode);
+      expect(fakeDocument.activeElement).toBeNull();
+    });
+
+    it("the restore branch does the work: with focus() stubbed to a no-op, a reorder leaves focus lost", () => {
+      const el = container();
+      reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1 }), makeSession({ id: 2 })], NOW, fakeTemplate(), undefined, undefined, true);
+      const endBtn = el.children[1]?.querySelector('[data-action="end"]') as FakeDomNode;
+      endBtn.focus();
+      const realFocus = endBtn.focus.bind(endBtn);
+      endBtn.focus = () => {};
+      reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 2 }), makeSession({ id: 1 })], NOW, fakeTemplate(), undefined, undefined, true);
+      expect(fakeDocument.activeElement).toBeNull();
+      endBtn.focus = realFocus;
+    });
+
     it("restores focus to the same session's action button after a reorder moves its card", () => {
       const el = container();
       reconcileCards(

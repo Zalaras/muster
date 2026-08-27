@@ -29,6 +29,7 @@ import { buildTile, mountTileDeadSurface, renderStrip, renderTileFooterActions, 
 import { initLaunchModal, type LaunchModalElements } from "./render/launch";
 import { initConfirmDialogs, type ConfirmDialogs } from "./render/confirm";
 import { renderMainhead, type MainheadElements } from "./render/mainhead";
+import { captureFocusedControl, restoreFocusedControl } from "./render/focus";
 import { collectDeadSurfaceRefs, loadPane, renderDeadSurface, type DeadSurfaceRefs, type PaneState } from "./render/dead";
 import { endSession, putPrefs, removeSession, resumeSession, type ApiResult } from "./api";
 import { type Density, type Prefs, type Session, type Usage, UNKNOWN_USAGE } from "./protocol";
@@ -440,6 +441,12 @@ function reconcileTilesGrid(liveSessions: readonly Session[], now: Date, connect
     }
   }
 
+  // review m4-reconcile cycle-4 Minor 2: the same `insertBefore` detach that blurs a rail
+  // card blurs a focused tile-footer button when a priority change reorders the grid
+  // (measured: survives 2.5 s of ticks, falls to `<body>` on the reorder). Snapshot the
+  // focused logical control before the loop; re-focus it after if the move blurred it.
+  const focused = captureFocusedControl(tilesGridEl);
+
   let previousRoot: HTMLElement | null = null;
   for (const session of liveSessions) {
     let refs = tileElements.get(session.id);
@@ -451,11 +458,11 @@ function reconcileTilesGrid(liveSessions: readonly Session[], now: Date, connect
       updateTile(refs, session, now);
     }
 
-    // Moving an already-mounted node via insertBefore/appendChild repositions it in
-    // place — it does not detach-then-reattach the subtree the way rebuilding the grid
-    // did, so a surface mounted inside stays mounted and keeps focus. Skipped entirely
-    // when the tile is already in the right slot, so a steady grid touches no DOM at all
-    // on the 1s tick.
+    // Moving an already-mounted node via insertBefore repositions it in place rather than
+    // rebuilding the subtree — the mounted surface survives — but the detach step still
+    // runs and blurs a focused descendant (see render/focus.ts); the restore after the
+    // loop covers action buttons. Skipped entirely when the tile is already in the right
+    // slot, so a steady grid touches no DOM at all on the 1s tick.
     const desiredNext: Element | null = previousRoot
       ? previousRoot.nextElementSibling
       : tilesGridEl.firstElementChild;
@@ -494,6 +501,8 @@ function reconcileTilesGrid(liveSessions: readonly Session[], now: Date, connect
 
     if (refs.actsEl) renderTileFooterActions(refs.actsEl, session, now, connected, dispatchAction);
   }
+
+  restoreFocusedControl(focused, (id) => tileElements.get(id)?.root);
 }
 
 function renderTilesView(sessions: readonly Session[], now: Date, connected: boolean): void {
