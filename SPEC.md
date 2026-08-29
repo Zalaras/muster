@@ -319,8 +319,9 @@ Gotchas to honor, all measured 2026-08-16 (`spikes/FINDINGS.md` §5c–5d):
 - A *slow* receiver is worse than a dead one: each hook stalls for its full `timeout`,
   additively per hook. **Use a 1–2 s timeout, not 5.** Return `200` immediately and do all
   work asynchronously.
-- While the daemon is down, every managed pane fills with inline hook-error lines — so
-  "daemon down" must be surfaced prominently in the UI to explain the noise.
+- While the daemon is down, command-wrapped hooks exit 0 silently when the daemon is
+  unreachable (m4-hook-lifetime, 2026-08-27), so panes stay clean; the dashboard banner
+  is the only daemon-down surface.
 - A `PermissionRequest` HTTP hook that times out renders no decision — confirmed that
   Claude Code falls back to its own prompt gracefully.
 
@@ -779,3 +780,42 @@ implemented:
 - Review (Opus) manually reproduced the bare-path failure (`rc=127`) and the quoted-path fix
   end-to-end on a real daemon at `/tmp/muster manual review/data`. The REQ-9 record against
   the real default data dir with a real haiku session is still to be filled in by Damian.
+
+### 2026-08-27 — M4 hook lifetime shipped (plan `m4-hook-lifetime`, via `/orchestrate`)
+
+Closes the three open M4 items sharing one root (per-directory hooks instrumenting every
+Claude Code session, Muster never removing its own hook entries, "daemon down" surfaced
+prominently): all resolved by making every hook a command wrapper. Settled as
+implemented:
+
+- **Every hook, including `SessionStart` and the status line, is a `type:"command"`
+  wrapper** — one `hook.sh` in the data dir, registered on all eleven events, whose first
+  line is `[ -z "$MUSTER_SESSION" ] && exit 0`. Muster writes no `type:"http"` entry and
+  no `allowedHttpHookUrls` key anywhere; `MergeSettings` strips both from an
+  already-instrumented directory (legacy http entries, the legacy `hook-sessionstart.sh`
+  command entry, and Muster's own prior `allowedHttpHookUrls` values) rather than
+  replacing them with new ones.
+- **Binding is monotonic** (decided with Damian 2026-08-28, from the review's Critical:
+  a reordered `SessionEnd(reason:"clear")` for the old id — delivery is unordered — was
+  read as a forward `/clear` and reset a working session, zeroing its compaction count).
+  Options were (A) accept the window as a residual, (B) never rebind backwards onto a
+  claude id the session has already left, using the stale-id knowledge `byClaude`
+  retains. **B chosen**; protocol §4.2/§7.3 amended.
+- **Hook entries are permanent by design** (decided with Damian 2026-08-27): no
+  reference-counting, no strip-on-shutdown, no strip-on-remove. A stale entry now costs a
+  silent 6–32 ms `sh` exit instead of a line of inline noise per tool call, so the
+  lifetime question dissolves rather than needing an answer.
+- **Binding is envelope-authoritative** (`Manager.Apply` gains an `enveloped bool`):
+  since every event now carries the §4.2 envelope, an enveloped non-status event whose
+  `session_id` differs from the session's bound one is treated as a `/clear` rebind
+  before the event itself applies; an enveloped event on a never-bound session binds it
+  with no transition. Raw (non-enveloped) posts, still accepted for the canary/legacy
+  path, keep routing by the existing mapping and never bind (unchanged). Status-line
+  posts never bind or rebind (unchanged, M3 INV-1).
+- Cost measured at ~50 ms/event vs. ~25 ms for http (`spikes/FINDINGS.md` "command-hook
+  latency probe", 2026-08-27 against 2.1.246); accepted. A compiled hook helper (~10
+  ms/event) is recorded post-v1, not built here.
+- Protocol: §4/§4.1/§4.2/§7.3 updated in `docs/protocol.md`. The manual real-haiku
+  migration/silence check (launch against an already-instrumented directory, stop
+  musterd, confirm no hook-error lines) is Damian's post-merge acceptance step, recorded
+  in `spikes/canary-fields.md` once run.

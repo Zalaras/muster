@@ -217,11 +217,12 @@ row is **not** deleted).
 
 | Method & path | Milestone | Body |
 |---|---|---|
-| `POST /ingest/{token}/hook` | M0 | One hook payload — raw or enveloped (§4.2) |
+| `POST /ingest/{token}/hook` | M0 | One hook payload — **enveloped** (§4.2) from the command wrapper; raw still accepted (canary / legacy) |
 | `POST /ingest/{token}/status` | M0 | Enveloped status-line stdin JSON |
 
-- One hook URL for **all** events (`hook_event_name` is in every payload) — a single
-  `allowedHttpHookUrls` entry.
+- One hook URL for **all** events (`hook_event_name` is in every payload), reached only
+  from the generated wrapper script — Muster writes **no** `allowedHttpHookUrls` and no
+  `type:"http"` entries (m4-hook-lifetime, 2026-08-27).
 - **Return `200` with empty body immediately; process asynchronously.** A slow receiver
   taxes every turn by its timeout, additively per hook (SPEC §6). Hook timeouts Muster
   configures are 1–2 s, never 5. Malformed JSON is still `200` (logged, dropped) — there
@@ -238,6 +239,15 @@ row is **not** deleted).
 `type:"command"` wrapper script that POSTs its stdin. The status line is likewise a
 command script POSTing its stdin. Everything else arrives as a plain HTTP hook. Delivery
 is best-effort, at-most-once, unordered; design for loss (SPEC §6).
+
+**All hooks are `type:"command"` wrappers** (m4-hook-lifetime, 2026-08-27). Command hooks
+see the pane environment on every event (probe 2026-08-27 against 2.1.246: 15/15 events
+enveloped across 3 sessions), so every event carries the §4.2 envelope, and the wrapper
+exits 0 silently when `$MUSTER_SESSION` is unset or the daemon is unreachable — an
+unmanaged session posts nothing and a stopped daemon produces no inline hook errors. The
+entries reference the wrapper's *path*, so a port/token rotation rewrites only the scripts
+(done at every daemon start), never the settings file. Cost ~50 ms/event vs ~25 ms for
+http (measured). The "plain HTTP hook" wording above is historical (M0–M4a).
 
 ### 4.2 The envelope — how events bind to a Muster session
 
@@ -256,10 +266,17 @@ this, because a command hook runs inside the session's environment:
 ```
 
 - `/ingest/{token}/hook` accepts both shapes: enveloped (has a `payload` key) and raw.
-- **Binding rule**: the enveloped `SessionStart` establishes the authoritative
-  `claudeSessionId → session` mapping (and confirms/records the tmux target). Every raw
-  HTTP hook then routes by `session_id` through that mapping. A raw event whose
-  `session_id` is unknown is persisted unrouted and logged — never guessed at by `cwd`.
+- **Binding rule** (envelope-authoritative since m4-hook-lifetime, 2026-08-27): every
+  event Muster's wrapper posts is enveloped, and the envelope's `musterSession` routes it
+  (a stale/unknown value is never trusted — persisted unrouted). The enveloped
+  `SessionStart` remains the *normal* binder of `claudeSessionId → session` (and
+  confirms/records the tmux target), but any enveloped non-status event whose
+  `session_id` differs from the bound one is the "new `session_id` on a known pane" case
+  below and is applied as a `/clear` rebind first; an enveloped event on a never-bound
+  session binds it without a transition. Rebinding is **monotonic** (decided with Damian 2026-08-28, review of `m4-hook-lifetime`): an enveloped event whose `session_id` is one this session has *already left* — `byClaude[session_id]` already points at this session and it is not the current `claudeSessionId` — is a reordered straggler from the previous conversation (typically the `/clear` pair's own `SessionEnd(reason:"clear")`, since delivery is unordered). It is routed and applied but **never rebinds backwards**; the current binding, context gauge and compaction counter are untouched. Residuals (measured, accepted): if the pane genuinely returns to an earlier conversation via `--resume` and that `SessionStart(source:"resume")` is lost, `claudeSessionId` stays on the newer id until the next bind event — events still route and apply. And INV-1 (§7.3) holds for the *bound* session only: an enveloped event whose `musterSession` is A but whose `session_id` is bound to B rebinds A and moves `byClaude`, leaving B's `claudeSessionId` unattributed — pre-existing on the `KindResumeBind` path, reachable only by posting one conversation under two `MUSTER_SESSION` values.
+  Raw (non-enveloped) posts route by `session_id`
+  through the existing mapping, never bind, and persist unrouted when unknown — never
+  guessed at by `cwd`. Status-line posts never bind or rebind (§7.3, INV-1).
 - `/clear` is directly observable (probe 2026-08-20, 2.1.237): the old `session_id` gets
   `SessionEnd` with `reason:"clear"`, then `SessionStart` fires with `source:"clear"` and
   a **new** `session_id` in the same pane. On it: rebind `claudeSessionId`, reset the
@@ -497,7 +514,9 @@ distinct, and the latch is what separates them.
 |---|---|
 | Muster launch | Row created → `started`; latch seeded from the form |
 | `SessionStart` (`source:"startup"`, enveloped) | Bind `claudeSessionId`, record model → stay/enter `started` |
-| `SessionStart` (`source:"clear"`, or any new `session_id` on a known pane) | `/clear`: rebind, reset context + compactions → `started` |
+| `SessionStart` (`source:"clear"`), or any enveloped non-status event whose `session_id` differs from the bound one | `/clear`: rebind, reset context + compactions → `started`; a non-`SessionStart` trigger then applies its own row |
+| Any enveloped non-status event whose `session_id` is a *previous* id of this session (already in `byClaude` → this session, not the current one) | Reordered straggler: route and apply the event's own row; **no** rebind, no reset (monotonic binding) |
+| Any enveloped non-status event on a never-bound session | Bind `claudeSessionId` (no transition), then apply the event's own row |
 | `SessionStart` (`source:"resume"`, same `session_id`) | Re-bind to new pane, `alive := true` → `idle` (history exists; it is waiting for input, not new) |
 | Turn-activity event (prompt not closed) | Adopt `prompt_id` as current (a new id is a new turn even if `UserPromptSubmit` was lost) → `ACTIVE`; update latch |
 | Turn-activity event (prompt already closed) | Straggler from an unordered stream: persist, **no transition** |
@@ -578,6 +597,24 @@ exit — so the next startup sweeps it.
   (§7.3) — plan `m4-reconcile`; canary unskip — plan `m4-canary`.
 
 ## 9. Changelog
+
+- **2026-08-28 — §4.2/§7.3: rebinding is monotonic** (plan `m4-hook-lifetime`, review cycle 1
+  Critical, Option B chosen by Damian; `plans/m4-hook-lifetime/decisions/monotonic-rebind/`).
+  An enveloped event naming a claude id this session has already left (a reordered
+  straggler, typically the `/clear` pair's own `SessionEnd(reason:"clear")`) is routed and
+  applied but never rebinds backwards or resets the gauge/compaction count. Known
+  residuals: a resume-back whose `SessionStart(source:"resume")` is lost keeps a stale
+  `claudeSessionId` until the next bind event (state stays correct); and a cross-session id
+  collision (one conversation posted under two `MUSTER_SESSION` values) leaves the
+  bystander's `claudeSessionId` unattributed in the map — pre-existing on the
+  `KindResumeBind` path, not introduced here. No wire change; no version bump.
+
+- **2026-08-27 — §4/§4.1/§4.2/§7.3: all hooks are command wrappers; envelope-authoritative
+  binding** (plan `m4-hook-lifetime`). Muster writes one `type:"command"` entry per event
+  pointing at `<dataDir>/hook.sh`, no `type:"http"` entries and no `allowedHttpHookUrls`;
+  the wrapper exits 0 silently when `$MUSTER_SESSION` is unset or the daemon is down.
+  Binding may occur on any enveloped event. Wire shapes on `/ingest/*` unchanged; no
+  version bump.
 
 - **2026-08-26 — m4-reconcile plan approved, delta merged.** §3.4 pane snapshot un-deferred
   (capture on every liveness tick, display only); §3.5 resume refined (reuses

@@ -249,3 +249,9 @@ recycled PID. Use `pgrep -f` on the exact command line.
   Muster must single-quote the paths it writes into these fields (`docs/protocol.md` §4.2
   rule; TODO M4). Canary: assert `SessionStart` delivery *and* a status-line post from a
   data dir whose path contains a space.
+- **Command hooks see the pane env on every event, at ~50 ms/event** (2.1.246, 2026-08-27
+  probe, capture 3): `UserPromptSubmit`/`PreToolUse`/`PostToolUse`/`Stop`/`SessionEnd`
+  wrapped in a sh+curl command hook all delivered the envelope with `$MUSTER_SESSION`
+  (15/15 events, 3 sessions). Local overhead vs http hooks ≈ +25 ms/event; the
+  `$MUSTER_SESSION`-unset early exit costs ~6 ms. Basis for m4-hook-lifetime's
+  all-command-hooks design (`spikes/FINDINGS.md` 2026-08-27 addendum).

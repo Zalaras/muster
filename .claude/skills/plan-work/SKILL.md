@@ -86,6 +86,8 @@ Based on the codebase structure, identify which files will likely need changes:
 **Web (TypeScript, `web/src/`):**
 - Protocol/message modules, state-derivation modules, per-feature render modules, the single WebSocket client module
 
+**`SPEC.md` and `TODO.md` are never listed under an impl track.** They are the orchestrator's (Doc-Upkeep Backstop / Completion), and the review rules forbid an impl agent from touching `SPEC.md`. Describe the required upkeep under Implementation Notes → Doc upkeep addressed to the orchestrator instead (m4-hook-lifetime listed them under Daemon and daemon-impl duly edited both — content was fine, ownership was not).
+
 **Tooling/config files belong to an impl track, never to a test agent.** In particular `web/playwright.config.ts` is owned by **web-impl** (e2e-specs is forbidden from editing it — the agent judged by the suite can't hold the knobs that define passing). When a plan needs a config change, list the file under the owning impl track's Affected Files explicitly; don't leave it in an E2E subsection where ownership is ambiguous (m0-skeleton did, and it resolved only by web-impl's generous reading).
 
 ### 5. Define the Protocol Contract (Critical for Parallel Execution)

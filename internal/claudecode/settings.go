@@ -16,21 +16,41 @@ import (
 // (CLAUDE.md hard rule: a slow hook taxes every turn by its timeout, additively).
 const hookTimeoutSeconds = 2
 
-// httpHookEvents is every event Muster's ingest/state machine consumes that Claude
-// Code will actually deliver over plain HTTP (spikes/canary-fields.md "Transport" —
-// SessionStart is the one exception, wired as a command hook below).
+// httpHookEvents was every event Claude Code delivered over plain HTTP before this plan
+// (spikes/canary-fields.md "Transport"). It is kept as the ten non-SessionStart event
+// names because allHookEvents below is built from it (plus SessionStart) and
+// settings_test.go iterates it — not because legacy-http-entry stripping treats these
+// ten differently from SessionStart: isMusterEntry strips a Muster http entry the same
+// way on all eleven events (REQ-2/REQ-3); SessionStart's legacy entry was always a
+// command hook, handled separately.
 var httpHookEvents = []string{
 	"UserPromptSubmit", "PreToolUse", "PostToolUse", "Notification",
 	"PermissionRequest", "Stop", "StopFailure", "PreCompact", "SubagentStop", "SessionEnd",
 }
 
+// allHookEvents is every event Muster's single command-hook wrapper is registered on
+// (REQ-1: httpHookEvents plus SessionStart, eleven events total). Since m4-hook-lifetime
+// every one of them gets the same type:"command" entry — there is no longer an event
+// that needs different treatment.
+var allHookEvents = append([]string{"SessionStart"}, httpHookEvents...)
+
 // SettingsConfig is what MergeSettings needs to write Muster's entries into a
-// directory's .claude/settings.local.json (docs/protocol.md §4.2).
+// directory's .claude/settings.local.json (docs/protocol.md §4.2). Since
+// m4-hook-lifetime there is no URL and no token in this file at all — every event
+// (including SessionStart) is a type:"command" entry pointing at a stable script path,
+// and the ingest URL lives only inside that script (WriteWrapperScripts).
 type SettingsConfig struct {
-	HookURL             string // single ingest URL for every plain-HTTP hook event
-	StatusURL           string // ingest URL for the status-line post
-	SessionStartCommand string // absolute path to the generated SessionStart wrapper script — raw, unquoted; MergeSettings quotes it (shellQuote) at the write boundary
-	StatusLineCommand   string // absolute path to the generated status-line wrapper script — raw, unquoted; MergeSettings quotes it (shellQuote) at the write boundary
+	// HookCommand is the absolute path to the generated hook wrapper script, registered
+	// on every event in allHookEvents — raw, unquoted; MergeSettings quotes it
+	// (shellQuote) at the write boundary.
+	HookCommand string
+	// StatusLineCommand is the absolute path to the generated status-line wrapper
+	// script — raw, unquoted; MergeSettings quotes it (shellQuote) at the write boundary.
+	StatusLineCommand string
+	// LegacyCommands lists prior wrapper script paths (bare or quoted) isMusterEntry
+	// must still recognise and drop from an already-instrumented directory (REQ-3/REQ-4)
+	// — e.g. the pre-plan SessionStart-only hook-sessionstart.sh.
+	LegacyCommands []string
 }
 
 // shellQuote returns s as a single-quoted POSIX shell word, safe to place verbatim into
@@ -67,29 +87,49 @@ var musterIngestPath = regexp.MustCompile(`^/ingest/[^/]+/(hook|status)$`)
 // isMusterEntry reports whether e is one of Muster's own generated hook entries (as
 // opposed to a hook some other tool or the user registered on the same event) — REQ-4's
 // "preserves all keys Muster does not own" applies within an owned event's hook array
-// too (Edge Case 9), not just to whole top-level keys. A command entry matches on either
-// the quoted form MergeSettings now writes or the legacy bare form earlier versions
-// wrote (REQ-3), so an already-instrumented directory's stale bare entry is dropped and
-// replaced by the quoted one, not duplicated alongside it (plan Edge Case 1).
+// too (Edge Case 9), not just to whole top-level keys. A command entry matches the
+// current HookCommand/StatusLineCommand or any LegacyCommands path, in either the
+// quoted form MergeSettings writes or a bare form an earlier version wrote (REQ-3), so
+// an already-instrumented directory's stale entry is dropped and replaced, never
+// duplicated (plan Edge Case 1). Legacy commands are matched by exact path only — never
+// by basename — so a foreign script sharing a legacy script's filename elsewhere is
+// never mistaken for Muster's own (Implementation Notes).
 func isMusterEntry(e hookEntry, cfg SettingsConfig) bool {
 	if e.Type == "http" {
-		if u, err := url.Parse(e.URL); err == nil && musterIngestPath.MatchString(u.Path) && isLoopbackHost(u.Hostname()) {
-			return true
-		}
+		return isMusterIngestURL(e.URL)
 	}
 	if e.Type == "command" {
-		for _, p := range [...]string{cfg.SessionStartCommand, cfg.StatusLineCommand} {
-			// Guard p != "" (m4-hook-quoting Implementation Notes): an empty configured
-			// path must never match a foreign entry with an empty command — the existing
-			// code had the same latent issue before quoting made it worth fixing in
-			// passing, since shellQuote("") would otherwise introduce a new spurious "''"
-			// match.
-			if p != "" && (e.Command == p || e.Command == shellQuote(p)) {
+		if isMusterCommand(e.Command, cfg.HookCommand) || isMusterCommand(e.Command, cfg.StatusLineCommand) {
+			return true
+		}
+		for _, p := range cfg.LegacyCommands {
+			if isMusterCommand(e.Command, p) {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+// isMusterCommand reports whether command (a hook entry's raw command field) equals
+// path, bare or single-quoted (shellQuote). Guard path != "" (m4-hook-quoting
+// Implementation Notes): an empty configured path must never match a foreign entry with
+// an empty command, since shellQuote("") would otherwise introduce a spurious match.
+func isMusterCommand(command, path string) bool {
+	return path != "" && (command == path || command == shellQuote(path))
+}
+
+// isMusterIngestURL reports whether u names one of Muster's own ingest endpoints, by URL
+// path shape and loopback host — independent of host, port or token so a rotated
+// daemon's stale allowedHttpHookUrls entry or legacy http hook entry is still recognized
+// on the next merge (REQ-2/REQ-3, review Critical 2 on the original http-only version of
+// this check).
+func isMusterIngestURL(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	return musterIngestPath.MatchString(u.Path) && isLoopbackHost(u.Hostname())
 }
 
 // isLoopbackHost reports whether host (a URL's hostname, no port) is one Muster's own
@@ -135,17 +175,20 @@ func foreignHookGroups(raw json.RawMessage, cfg SettingsConfig) ([]hookGroup, er
 	return kept, nil
 }
 
-// MergeSettings deterministically merges Muster's hooks/statusLine/allowedHttpHookUrls
-// entries into existing (the current file content, nil/empty if the file didn't exist
-// yet), preserving every key and every hook event Muster doesn't own, and every foreign
-// hook entry *within* an event Muster does own (REQ-4, D7, Edge Case 9). Muster's own
-// entries are replaced wholesale each call, so a token/port change heals itself;
-// calling this twice with the same cfg produces byte-identical output. The two
-// type:"command" entries (SessionStart, statusLine) are `/bin/sh -c` command lines, not
-// path fields (docs/protocol.md §4.2 "Command fields are shell command lines"), so the
-// configured script path is written through shellQuote — a bare space-bearing path
-// (the default macOS data dir, `~/Library/Application Support/Muster`) would otherwise
-// word-split and fail to execute (REQ-1).
+// MergeSettings deterministically merges Muster's hooks/statusLine entries into existing
+// (the current file content, nil/empty if the file didn't exist yet), preserving every
+// key and every hook event Muster doesn't own, and every foreign hook entry *within* an
+// event Muster does own (REQ-4, D7, Edge Case 9). Muster's own entries are replaced
+// wholesale each call, so a token/port change heals itself (the entries reference stable
+// script paths, not URLs — WriteWrapperScripts rewrites the scripts themselves at every
+// daemon start); calling this twice with the same cfg produces byte-identical output.
+// Every entry is a `/bin/sh -c` command line, not a path field (docs/protocol.md §4.2
+// "Command fields are shell command lines"), so the configured script path is written
+// through shellQuote — a bare space-bearing path (the default macOS data dir,
+// `~/Library/Application Support/Muster`) would otherwise word-split and fail to execute
+// (REQ-1). Since m4-hook-lifetime this writes no `type:"http"` entry on any event and no
+// `allowedHttpHookUrls` key (REQ-2): an already-instrumented directory's legacy http
+// entries and Muster ingest URLs are stripped, never replaced with new ones.
 func MergeSettings(existing []byte, cfg SettingsConfig) ([]byte, error) {
 	doc := map[string]json.RawMessage{}
 	if len(existing) > 0 {
@@ -160,40 +203,22 @@ func MergeSettings(existing []byte, cfg SettingsConfig) ([]byte, error) {
 			return nil, fmt.Errorf("parsing existing settings.local.json hooks: %w", err)
 		}
 	}
-	for _, event := range httpHookEvents {
+	for _, event := range allHookEvents {
 		foreign, err := foreignHookGroups(hooks[event], cfg)
 		if err != nil {
 			return nil, fmt.Errorf("parsing existing settings.local.json hooks[%q]: %w", event, err)
 		}
 		hooks[event] = mustMarshal(append(foreign, hookGroup{Hooks: []hookEntry{
-			{Type: "http", URL: cfg.HookURL, Timeout: hookTimeoutSeconds},
+			{Type: "command", Command: shellQuote(cfg.HookCommand), Timeout: hookTimeoutSeconds},
 		}}))
 	}
-	// SessionStart is silently never delivered over type:"http" (spikes/FINDINGS.md §1);
-	// it must be a command hook wrapping the ingest URL. Same foreign-preservation rule
-	// applies: only Muster's own prior command entry is dropped.
-	foreignSessionStart, err := foreignHookGroups(hooks["SessionStart"], cfg)
-	if err != nil {
-		return nil, fmt.Errorf("parsing existing settings.local.json hooks[%q]: %w", "SessionStart", err)
-	}
-	hooks["SessionStart"] = mustMarshal(append(foreignSessionStart, hookGroup{Hooks: []hookEntry{
-		{Type: "command", Command: shellQuote(cfg.SessionStartCommand), Timeout: hookTimeoutSeconds},
-	}}))
 	doc["hooks"] = mustMarshal(hooks)
 
 	doc["statusLine"] = mustMarshal(hookEntry{Type: "command", Command: shellQuote(cfg.StatusLineCommand)})
 
-	var allowed []string
-	if raw, ok := doc["allowedHttpHookUrls"]; ok {
-		if unmarshalErr := json.Unmarshal(raw, &allowed); unmarshalErr != nil {
-			return nil, fmt.Errorf("parsing existing settings.local.json allowedHttpHookUrls: %w", unmarshalErr)
-		}
+	if err := stripMusterAllowedURLs(doc); err != nil {
+		return nil, err
 	}
-	if !containsString(allowed, cfg.HookURL) {
-		allowed = append(allowed, cfg.HookURL)
-	}
-	sort.Strings(allowed)
-	doc["allowedHttpHookUrls"] = mustMarshal(allowed)
 
 	out, err := json.MarshalIndent(doc, "", "  ")
 	if err != nil {
@@ -202,13 +227,36 @@ func MergeSettings(existing []byte, cfg SettingsConfig) ([]byte, error) {
 	return append(out, '\n'), nil
 }
 
-func containsString(haystack []string, needle string) bool {
-	for _, s := range haystack {
-		if s == needle {
-			return true
+// stripMusterAllowedURLs removes every Muster-owned entry from doc's existing
+// allowedHttpHookUrls array in place (REQ-2), preserving foreign entries and their
+// relative order (D7 idempotency via sort.Strings, unchanged when foreign entries
+// remain), and deletes the key entirely once nothing foreign is left (D5's converse: a
+// file that had no key never gains one, and a file whose array becomes empty loses the
+// key rather than keeping an empty array). Elements that don't parse as a URL are
+// treated as foreign (kept) — MergeSettings has no business judging a value it doesn't
+// understand.
+func stripMusterAllowedURLs(doc map[string]json.RawMessage) error {
+	raw, ok := doc["allowedHttpHookUrls"]
+	if !ok {
+		return nil
+	}
+	var allowed []string
+	if err := json.Unmarshal(raw, &allowed); err != nil {
+		return fmt.Errorf("parsing existing settings.local.json allowedHttpHookUrls: %w", err)
+	}
+	var kept []string
+	for _, u := range allowed {
+		if !isMusterIngestURL(u) {
+			kept = append(kept, u)
 		}
 	}
-	return false
+	if len(kept) == 0 {
+		delete(doc, "allowedHttpHookUrls")
+		return nil
+	}
+	sort.Strings(kept)
+	doc["allowedHttpHookUrls"] = mustMarshal(kept)
+	return nil
 }
 
 func mustMarshal(v any) json.RawMessage {
@@ -219,38 +267,48 @@ func mustMarshal(v any) json.RawMessage {
 	return b
 }
 
-// WriteWrapperScripts generates the two command-hook wrapper scripts (SessionStart and
-// the status line — plan Implementation Notes) into dataDir, returning their absolute
-// paths. Each script reads stdin, wraps it in the §4.2 envelope from
-// $MUSTER_SESSION/$TMUX_PANE (omitting absent vars), and POSTs it with a 2s timeout,
-// always exiting 0.
-func WriteWrapperScripts(dataDir, baseURL, ingestToken string) (sessionStartScript, statusLineScript string, err error) {
+// WriteWrapperScripts generates the two command-hook wrapper scripts — the single hook
+// wrapper serving all eleven events (REQ-15) and the status line — into dataDir,
+// returning their absolute paths plus the pre-plan legacy SessionStart-only script path
+// (for SettingsConfig.LegacyCommands) whose file this also best-effort removes (REQ-5).
+// Each script reads stdin, wraps it in the §4.2 envelope from $MUSTER_SESSION/
+// $TMUX_PANE, and POSTs it with a 2s timeout, always exiting 0.
+func WriteWrapperScripts(dataDir, baseURL, ingestToken string) (hookScript, statusLineScript, legacyScript string, err error) {
 	hookURL := baseURL + "/ingest/" + ingestToken + "/hook"
 	statusURL := baseURL + "/ingest/" + ingestToken + "/status"
 
-	sessionStartScript = filepath.Join(dataDir, "hook-sessionstart.sh")
+	hookScript = filepath.Join(dataDir, "hook.sh")
 	statusLineScript = filepath.Join(dataDir, "status-line.sh")
+	legacyScript = filepath.Join(dataDir, "hook-sessionstart.sh")
 
-	if err := writeEnvelopeScript(sessionStartScript, hookURL); err != nil {
-		return "", "", err
+	if err := writeEnvelopeScript(hookScript, hookURL); err != nil {
+		return "", "", "", err
 	}
 	if err := writeEnvelopeScript(statusLineScript, statusURL); err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
-	return sessionStartScript, statusLineScript, nil
+	// Best-effort (Edge Case 14): the legacy script is no longer referenced by any
+	// settings entry MergeSettings writes (REQ-3 drops its command entry too), so a
+	// removal failure here (permissions) must not fail the launch — the caller has a
+	// logger and may note it, this package does not.
+	_ = os.Remove(legacyScript)
+
+	return hookScript, statusLineScript, legacyScript, nil
 }
 
 func writeEnvelopeScript(path, url string) error {
 	script := fmt.Sprintf(`#!/bin/sh
-# Generated by musterd (internal/claudecode.WriteWrapperScripts). Wraps stdin in the
-# docs/protocol.md §4.2 envelope from the pane environment and posts it. Always exits
-# 0 — hook delivery is best-effort and Claude Code must never be made to retry.
+# Generated by musterd (internal/claudecode.WriteWrapperScripts). Every event this
+# script is registered on (hook.sh) or the status-line post (status-line.sh) runs
+# through here (docs/protocol.md §4.2). An unmanaged session (no $MUSTER_SESSION) and a
+# stopped daemon must both be silent and always exit 0 — hook delivery is best-effort,
+# and a command hook's stdout is a decision to Claude Code and non-zero exit a block.
+[ -z "$MUSTER_SESSION" ] && exit 0
 input=$(cat)
-fields=""
-if [ -n "$MUSTER_SESSION" ]; then fields="\"musterSession\":$MUSTER_SESSION,"; fi
+fields="\"musterSession\":$MUSTER_SESSION,"
 if [ -n "$TMUX_PANE" ]; then fields="$fields\"tmuxPane\":\"$TMUX_PANE\","; fi
 body="{${fields}\"payload\":${input}}"
-curl --max-time 2 --silent --output /dev/null -H 'Content-Type: application/json' --data-binary "$body" "%s"
+curl --max-time 2 --silent --output /dev/null -H 'Content-Type: application/json' --data-binary "$body" '%s'
 exit 0
 `, url)
 	// 0o700, not 0o755 (review Major 9): the script embeds the ingest token in

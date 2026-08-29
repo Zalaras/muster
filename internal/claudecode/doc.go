@@ -16,4 +16,10 @@
 //   - Hook delivery is best-effort and at-most-once. A dropped event is dropped permanently,
 //     with no retry and no replay, so every consumer must tolerate gaps rather than assume a
 //     complete event stream.
+//
+// Since m4-hook-lifetime (2026-08-27) every hook Muster registers, including SessionStart
+// and the status line, is a type:"command" wrapper script rather than a plain HTTP hook —
+// Claude Code's own type:"http" transport left an unmanaged session's failures visible
+// inline and a stopped daemon noisy on every tool call. The wrapper exits 0 silently in
+// both cases (docs/protocol.md §4.1). Wire shapes on /ingest/* are unchanged.
 package claudecode

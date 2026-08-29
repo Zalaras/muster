@@ -212,7 +212,7 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
       /api/sessions/{id}/resume`, `KindResumeBind` lands in `idle`. Mechanics verified by the H2 probe (`source: "resume"`,
       same `session_id`); the M4 work is building reconcile on top of it
 - [ ] Full canary E2E: unskip the assertions in `test/canary/canary_test.go`
-- [ ] Surface "daemon down" prominently — while it is down, every managed pane fills with
+- [x] Surface "daemon down" prominently — while it is down, every managed pane fills with
       hook-error lines. **Scope correction (2026-08-23):** this item assumed *managed*
       panes. Measured otherwise — the hook entries live in the directory's
       `.claude/settings.local.json`, so with musterd stopped every Claude Code session in
@@ -221,7 +221,13 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
       editing session in the muster repo, with no daemon running and no Muster session
       live). The banner only covers the dashboard; the noise in unmanaged sessions has no
       surface at all. See the per-directory-hooks and hook-entry-lifetime entries below —
-      same file, same root.
+      same file, same root. **Resolved 2026-08-27 (plan `m4-hook-lifetime`)**: the noise
+      itself is gone rather than merely surfaced. Every hook Muster registers, including
+      `SessionStart` and the status line, is now a `type:"command"` wrapper that exits 0
+      silently when the daemon is unreachable — Claude Code sees a clean exit, never an
+      inline `hook error`. The dashboard banner (`web/src/render/banner.ts`, unchanged) is
+      therefore now the *only* daemon-down surface, and it is honest: no managed pane
+      fills with error lines anymore.
 - [x] **End / remove a session** — shipped 2026-08-27 (plan `m4-reconcile`): End/Remove/Resume
       with confirm dialogs on mainhead, cards and tile footers; Remove allowed on a live session
       (ends first); ended cards sort to the bottom with the last captured pane as the dead
@@ -237,7 +243,7 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
       whether removal is allowed on a live session at all, and how it interacts with M4's
       resume affordance (a removed session can never be resumed — its `claude_session_id`
       goes with the row).
-- [ ] **Per-directory hooks instrument every Claude Code session in that directory** —
+- [x] **Per-directory hooks instrument every Claude Code session in that directory** —
       investigate; found 2026-08-23. Muster writes its hooks into the *directory's*
       `.claude/settings.local.json` (settled by the 2026-08-20 probe: only the local file
       honors `hooks`/`statusLine`/`allowedHttpHookUrls`), which is per-directory and not
@@ -255,7 +261,14 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
       only enveloped (Muster-launched) posts are stored. Caveat on the measurement above:
       the unquoted-command-path bug found the same day leaves *every* event unrouted, which
       exaggerates the symptom — re-measure once that is fixed, before choosing an option.
-- [ ] **Muster never removes its own hook entries** — found 2026-08-23, the flip side of
+      **Resolved 2026-08-27 (plan `m4-hook-lifetime`)**: chose the "gate ingest on the
+      envelope" option in spirit, but reached it by making every hook a command wrapper
+      that exits before posting anything when `$MUSTER_SESSION` is unset — an unmanaged
+      session in an instrumented directory now posts **zero** requests (measured ~6 ms
+      early-exit cost per event, vs. ~48 ms for a real post) rather than posting and being
+      dropped unrouted. `event` rows from unmanaged sessions stop accumulating entirely;
+      the existing unrouted-persistence path (D9) is unchanged for the raw/legacy case.
+- [x] **Muster never removes its own hook entries** — found 2026-08-23, the flip side of
       the entry above. `MergeSettings` writes into `.claude/settings.local.json` on launch
       and nothing ever takes those entries back out: not daemon shutdown, not session end,
       not the (unbuilt) remove-a-session flow. So a stopped daemon leaves the directory
@@ -272,6 +285,21 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
       silent-failure option can only be reached by routing them through a wrapper script
       too, which is a protocol-shape change, not a one-liner. Immediate workaround while
       this is open: delete the file (Muster's launch rewrites it).
+      **Resolved 2026-08-27 (plan `m4-hook-lifetime`), decided with Damian**: entries are
+      **permanent by design** — no reference-counting, no strip-on-shutdown. The
+      "route through a wrapper so failure can be silent" option is what was built (every
+      event, not just SessionStart/status-line, is now `type:"command"`), which changes
+      the cost of a stale entry from "a line of noise per tool call" to a silent 6–32
+      ms/event `sh` exit (measured, `spikes/FINDINGS.md` "command-hook latency probe"),
+      dissolving the lifetime question rather than answering it. The one residual: a
+      moved/deleted data dir leaves entries pointing at missing scripts, and they are
+      **not** self-healing: `isMusterEntry` matches command paths exactly (deliberately,
+      so a foreign script sharing a basename is never deleted), so a later launch with a
+      different `-data-dir` cannot recognise the old entries and adds its own beside
+      them — the directory accumulates one dead entry per event per abandoned data dir,
+      and Claude Code prints a "no such file" error per event, forever (measured in the
+      m4-hook-lifetime review rig, 2026-08-28). Workaround: delete the stale entries or
+      the file (Muster's launch rewrites it). Accepted residual, not solved here.
 - [x] **Command-hook paths are not shell-quoted** — shipped 2026-08-25 (plan `m4-hook-quoting`). — the live bug behind M3's gauges never
       having rendered real data (found 2026-08-23, diagnosis in this file's git history).
       `MergeSettings` writes `hooks.SessionStart[].command` and `statusLine.command` as
@@ -391,6 +419,13 @@ Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start
   retry is never deduped away (regression test
   `TestAggregator_Record_PersistFailureLeavesMemoryUnchanged`; safe to drop the lock
   across the write because Record runs only on the single ingest worker goroutine, R4).
+- **Compiled hook helper** (m4-hook-lifetime, 2026-08-27): the `sh`+`curl` wrapper costs
+  ~50 ms/event vs. ~25 ms for the old http hooks (measured, `spikes/FINDINGS.md`
+  "command-hook latency probe" — curl startup dominates, ~48 ms of the 50). A small
+  compiled helper binary doing the same envelope+POST was estimated at ~10 ms/event in
+  that probe's micro-benchmark. Not built for m4-hook-lifetime (YAGNI — the shell version
+  is measured-correct and ships one file, no build/distribution story); revisit if the
+  per-event cost is ever felt on a tool-heavy turn.
 
 ## Open questions carried forward
 

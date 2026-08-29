@@ -137,7 +137,13 @@ func (q *ingestQueue) process(job ingestJob) {
 	}
 
 	input := claudecode.Interpret(ev.Type, ev.Payload)
-	if _, err := q.manager.Apply(ctx, *sessionID, ev.SessionID, ev.PromptID, input); err != nil {
+	// enveloped is authoritative for binding (REQ-9, docs/protocol.md §4.2): every event
+	// Muster's command wrapper posts carries the envelope, so ev.MusterSession != nil is
+	// exactly "this arrived through the wrapper, trust its session_id for binding" — a
+	// raw (non-enveloped) post, still accepted for the canary/legacy path, never binds
+	// (REQ-10).
+	enveloped := ev.MusterSession != nil
+	if _, err := q.manager.Apply(ctx, *sessionID, ev.SessionID, ev.PromptID, input, enveloped); err != nil {
 		q.log.Warn().Err(err).Str("kind", string(job.kind)).Msg("applying ingest event to session state failed")
 	}
 }

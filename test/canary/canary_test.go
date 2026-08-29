@@ -170,3 +170,33 @@ func TestCommandHookPathQuoting(t *testing.T) {
 	}
 	_ = table
 }
+
+// TestCommandHooksCarryEnvelopeOnEveryEvent guards m4-hook-lifetime REQ-14: the finding
+// that makes envelope-authoritative binding (REQ-9) possible at all is that a
+// type:"command" wrapper sees the pane environment on *every* event, not just
+// SessionStart and the status line. Probe recipe (2026-08-27, against 2.1.246,
+// spikes/FINDINGS.md "Addendum — command-hook latency probe"): config B — every event
+// registered as the same command wrapper (sh + curl, `[ -z "$MUSTER_SESSION" ] && exit
+// 0`) — 9 headless haiku runs (`--allowedTools Bash`, prompt `echo hi`, one tool call
+// each) on `tmux new-window -e MUSTER_SESSION=42`, capture `test/rig/captures/
+// capture-3.jsonl`. Once the M4 capture harness lands, this becomes the executable
+// assertion; until then the expectation is kept here in executable form so it cannot
+// silently drift from the probe that measured it.
+func TestCommandHooksCarryEnvelopeOnEveryEvent(t *testing.T) {
+	t.Skip(needsHarness)
+
+	// Measured 15/15 (5 events × 3 sessions): every one of these arrived enveloped with
+	// musterSession set, through the same single command-wrapper script that also
+	// serves SessionStart and the status line.
+	wantEnvelopedEvents := []string{
+		"UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop", "SessionEnd",
+	}
+	_ = wantEnvelopedEvents
+
+	// A session launched with no $MUSTER_SESSION in its environment (an unmanaged
+	// `claude`, run in the same instrumented directory) must produce zero posts to the
+	// ingest server across its whole lifecycle — the early-exit line, not a filtered
+	// event stream (REQ-6).
+	wantUnmanagedPostCount := 0
+	_ = wantUnmanagedPostCount
+}

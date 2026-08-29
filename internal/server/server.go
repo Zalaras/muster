@@ -51,13 +51,15 @@ type Config struct {
 	// directory. E2E passes its per-run scratch dir so browse tests never touch
 	// the real home.
 	BrowseRoot string
-	// BaseURL is the daemon's own http://127.0.0.1:<port> — used to build the ingest
-	// URLs written into a launched directory's settings.local.json.
-	BaseURL string
-	// SessionStartScript/StatusLineScript are the absolute paths to the generated
-	// command-hook wrapper scripts (internal/claudecode.WriteWrapperScripts).
-	SessionStartScript string
-	StatusLineScript   string
+	// HookScript/StatusLineScript are the absolute paths to the generated command-hook
+	// wrapper scripts (internal/claudecode.WriteWrapperScripts) — every event, including
+	// SessionStart, is registered against HookScript now.
+	HookScript       string
+	StatusLineScript string
+	// LegacyScripts lists prior wrapper paths MergeSettings must still recognise and
+	// drop from an already-instrumented directory (REQ-3/REQ-4) — currently just the
+	// pre-plan hook-sessionstart.sh path WriteWrapperScripts returns for removal.
+	LegacyScripts []string
 }
 
 // Server holds musterd's HTTP mux and the long-lived pieces (ingest queue, WS registry,
@@ -138,15 +140,14 @@ func New(cfg Config) *Server {
 		claudeBin = "claude"
 	}
 	s.launcher = &sessionLauncher{
-		store:              cfg.Store,
-		manager:            s.manager,
-		tmux:               tmuxClient,
-		log:                cfg.Logger,
-		claudeBin:          claudeBin,
-		hookURL:            cfg.BaseURL + "/ingest/" + cfg.IngestToken + "/hook",
-		statusURL:          cfg.BaseURL + "/ingest/" + cfg.IngestToken + "/status",
-		sessionStartScript: cfg.SessionStartScript,
-		statusLineScript:   cfg.StatusLineScript,
+		store:            cfg.Store,
+		manager:          s.manager,
+		tmux:             tmuxClient,
+		log:              cfg.Logger,
+		claudeBin:        claudeBin,
+		hookScript:       cfg.HookScript,
+		statusLineScript: cfg.StatusLineScript,
+		legacyScripts:    cfg.LegacyScripts,
 	}
 
 	q := newIngestQueue(cfg.Store, cfg.Logger, size)

@@ -267,7 +267,7 @@ func TestDeleteSession_RemovesFromMemoryAndStoreAndByClaudeIndex(t *testing.T) {
 	require.NoError(t, err)
 	_, err = mgr.RecordLaunch(context.Background(), sess.ID, "muster:@1", "%1")
 	require.NoError(t, err)
-	_, err = mgr.Apply(context.Background(), sess.ID, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindBind})
+	_, err = mgr.Apply(context.Background(), sess.ID, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
 	require.NoError(t, err)
 
 	require.NoError(t, mgr.DeleteSession(context.Background(), sess.ID))
@@ -296,7 +296,7 @@ func TestApply_RoutesByClaudeSessionIDAndBroadcasts(t *testing.T) {
 	_, err = mgr.RecordLaunch(context.Background(), sess.ID, "muster:@1", "%1")
 	require.NoError(t, err)
 
-	_, err = mgr.Apply(context.Background(), sess.ID, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindBind})
+	_, err = mgr.Apply(context.Background(), sess.ID, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
 	require.NoError(t, err)
 
 	boundID, ok := mgr.Resolve("claude-1")
@@ -304,7 +304,7 @@ func TestApply_RoutesByClaudeSessionIDAndBroadcasts(t *testing.T) {
 	assert.Equal(t, sess.ID, boundID)
 
 	promptID := "p1"
-	final, err := mgr.Apply(context.Background(), sess.ID, "claude-1", &promptID, claudecode.StateInput{Kind: claudecode.KindTurnActivity})
+	final, err := mgr.Apply(context.Background(), sess.ID, "claude-1", &promptID, claudecode.StateInput{Kind: claudecode.KindTurnActivity}, true)
 	require.NoError(t, err)
 	assert.Equal(t, StateWorking, final.State)
 
@@ -320,7 +320,7 @@ func TestApply_UnknownSessionErrors(t *testing.T) {
 	st := openTestStore(t)
 	mgr := newTestManager(t, st, nil, nil)
 
-	_, err := mgr.Apply(context.Background(), 42, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindBind})
+	_, err := mgr.Apply(context.Background(), 42, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
 
 	assert.Error(t, err)
 }
@@ -340,7 +340,7 @@ func TestLoadAll_ReconstructsInMemoryStateAndClaudeBinding(t *testing.T) {
 	require.NoError(t, err)
 	_, err = mgr1.RecordLaunch(context.Background(), sess.ID, "muster:@7", "%7")
 	require.NoError(t, err)
-	_, err = mgr1.Apply(context.Background(), sess.ID, "claude-9", nil, claudecode.StateInput{Kind: claudecode.KindBind})
+	_, err = mgr1.Apply(context.Background(), sess.ID, "claude-9", nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
 	require.NoError(t, err)
 
 	// Second "daemon lifetime": a fresh Manager over the same store.
@@ -745,10 +745,10 @@ func TestApplyStatus_NeverTouchesAttentionWhileNeedsInput(t *testing.T) {
 	require.NoError(t, err)
 	_, err = mgr.RecordLaunch(context.Background(), sess.ID, "muster:@1", "%1")
 	require.NoError(t, err)
-	_, err = mgr.Apply(context.Background(), sess.ID, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindBind})
+	_, err = mgr.Apply(context.Background(), sess.ID, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
 	require.NoError(t, err)
 	promptID := "p1"
-	_, err = mgr.Apply(context.Background(), sess.ID, "claude-1", &promptID, claudecode.StateInput{Kind: claudecode.KindNeedsInputPermission})
+	_, err = mgr.Apply(context.Background(), sess.ID, "claude-1", &promptID, claudecode.StateInput{Kind: claudecode.KindNeedsInputPermission}, true)
 	require.NoError(t, err)
 
 	before, ok := mgr.Get(sess.ID)
@@ -1056,11 +1056,11 @@ func TestCaptureSnapshot_NeverMutatesStateFields(t *testing.T) {
 			_, err = mgr.RecordLaunch(ctx, sess.ID, target, "%1")
 			require.NoError(t, err)
 
-			_, err = mgr.Apply(ctx, sess.ID, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindBind})
+			_, err = mgr.Apply(ctx, sess.ID, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
 			require.NoError(t, err)
 			if tt.name != "started" {
 				promptID := "p1"
-				_, err = mgr.Apply(ctx, sess.ID, "claude-1", &promptID, tt.input)
+				_, err = mgr.Apply(ctx, sess.ID, "claude-1", &promptID, tt.input, true)
 				require.NoError(t, err)
 			}
 
@@ -1441,7 +1441,7 @@ func TestRemove_EndsAnAliveSessionFirstAndLeavesTheRowOnAFailingKill(t *testing.
 		targetTmux := "muster-" + strconv.FormatInt(target.ID, 10) + ":@1"
 		_, err = mgr.RecordLaunch(ctx, target.ID, targetTmux, "%1")
 		require.NoError(t, err)
-		_, err = mgr.Apply(ctx, target.ID, "claude-remove-1", nil, claudecode.StateInput{Kind: claudecode.KindBind})
+		_, err = mgr.Apply(ctx, target.ID, "claude-remove-1", nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
 		require.NoError(t, err)
 
 		bystander, err := mgr.CreateSession(ctx, params)
@@ -1520,4 +1520,507 @@ func TestList_ReturnsClonesNotLiveReferences(t *testing.T) {
 	require.Len(t, again, 1)
 	assert.Equal(t, StateStarted, again[0].State, "List must return independent clones, not the manager's live Session pointers")
 	assert.Equal(t, sess.ID, again[0].ID)
+}
+
+// --- m4-hook-lifetime: REQ-9/REQ-10/REQ-11 envelope-authoritative binding invariants ---
+//
+// Per docs/conventions.md and the m1-sessions review lesson (both review Criticals were
+// stated invariants that 157 passing per-transition tests missed because every rebind
+// test started from the one state with nothing to leak), the tests below assert each
+// invariant from every reachable source state, not just the convenient one.
+
+// createLaunchedSession creates and launches a fresh session in dir, in its initial
+// State=started, ClaudeSessionID="" shape — the common starting point every helper below
+// builds on.
+func createLaunchedSession(t *testing.T, mgr *Manager, st *store.Store, dir string) *Session {
+	t.Helper()
+	ctx := context.Background()
+	params := createParams(dir)
+	params.RepoID = seedRepo(t, st, dir)
+	sess, err := mgr.CreateSession(ctx, params)
+	require.NoError(t, err)
+	target := "muster-inv-" + strconv.FormatInt(sess.ID, 10) + ":@1"
+	_, err = mgr.RecordLaunch(ctx, sess.ID, target, "%1")
+	require.NoError(t, err)
+	return sess
+}
+
+// advanceToState drives sess (already created+launched, in Started/unbound) toward the
+// given displayed state via Apply, either binding it to claudeID along the way
+// (enveloped=true) or leaving it permanently unbound (enveloped=false — REQ-10's raw
+// path never binds, which is exactly how a "never bound but in state X" fixture is
+// built for the invariant tables below).
+func advanceToState(t *testing.T, mgr *Manager, sessID int64, claudeID string, state State, enveloped bool) {
+	t.Helper()
+	ctx := context.Background()
+	setupPrompt := "setup-p1"
+	var err error
+	switch state {
+	case StateStarted:
+		if enveloped {
+			_, err = mgr.Apply(ctx, sessID, claudeID, nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
+		}
+		// unbound+started: CreateSession/RecordLaunch already leaves it exactly there.
+	case StatePlanning:
+		mode := "plan"
+		_, err = mgr.Apply(ctx, sessID, claudeID, &setupPrompt, claudecode.StateInput{Kind: claudecode.KindTurnActivity, PermissionMode: &mode}, enveloped)
+	case StateWorking:
+		_, err = mgr.Apply(ctx, sessID, claudeID, &setupPrompt, claudecode.StateInput{Kind: claudecode.KindTurnActivity}, enveloped)
+	case StateNeedsInput:
+		_, err = mgr.Apply(ctx, sessID, claudeID, &setupPrompt, claudecode.StateInput{Kind: claudecode.KindNeedsInputPermission}, enveloped)
+	case StateFailed:
+		errTok := "server_error"
+		_, err = mgr.Apply(ctx, sessID, claudeID, &setupPrompt, claudecode.StateInput{Kind: claudecode.KindTurnFailed, FailureError: &errTok}, enveloped)
+	case StateIdle:
+		_, err = mgr.Apply(ctx, sessID, claudeID, &setupPrompt, claudecode.StateInput{Kind: claudecode.KindTurnClosed}, enveloped)
+	default:
+		t.Fatalf("advanceToState: unsupported state %s", state)
+	}
+	require.NoError(t, err)
+}
+
+// assertBindingConsistent is INV-1 itself: whenever a session has a bound claude id, the
+// manager's reverse index must resolve that id back to exactly this session.
+func assertBindingConsistent(t *testing.T, mgr *Manager, sess *Session) {
+	t.Helper()
+	if sess.ClaudeSessionID == "" {
+		return
+	}
+	got, ok := mgr.Resolve(sess.ClaudeSessionID)
+	assert.True(t, ok, "INV-1: a non-empty ClaudeSessionID must resolve via byClaude")
+	assert.Equal(t, sess.ID, got, "INV-1: byClaude[sess.ClaudeSessionID] must equal sess.ID")
+}
+
+// TestApply_INV1_BindingMapConsistencyAcrossStatesAndInputClasses covers D14: after any
+// Apply, byClaude[sess.ClaudeSessionID] == sess.ID whenever ClaudeSessionID != "" —
+// asserted from every displayed state plus the alive=false (ended, kept-for-resume) row,
+// crossed against every REQ-9/REQ-10 input class: an enveloped event naming the same
+// bound id, one naming a different id (rebind), one on a never-bound session (bind), and
+// a raw event (never binds).
+func TestApply_INV1_BindingMapConsistencyAcrossStatesAndInputClasses(t *testing.T) {
+	type sourceRow struct {
+		name  string
+		state State
+		alive bool
+	}
+	rows := []sourceRow{
+		{"started", StateStarted, true},
+		{"planning", StatePlanning, true},
+		{"working", StateWorking, true},
+		{"needs_input", StateNeedsInput, true},
+		{"failed", StateFailed, true},
+		{"idle", StateIdle, true},
+		{"ended_kept_for_resume", StateIdle, false},
+	}
+
+	for _, row := range rows {
+		t.Run(row.name+"/enveloped_same_id", func(t *testing.T) {
+			st := openTestStore(t)
+			mgr := newTestManager(t, st, nil, nil)
+			sess := createLaunchedSession(t, mgr, st, t.TempDir())
+			advanceToState(t, mgr, sess.ID, "claude-old", row.state, true)
+			if !row.alive {
+				_, err := mgr.markEnded(context.Background(), sess.ID)
+				require.NoError(t, err)
+			}
+
+			promptID := "test-p2"
+			final, err := mgr.Apply(context.Background(), sess.ID, "claude-old", &promptID, claudecode.StateInput{Kind: claudecode.KindTurnActivity}, true)
+			require.NoError(t, err)
+
+			assertBindingConsistent(t, mgr, final)
+			assert.Equal(t, "claude-old", final.ClaudeSessionID, "a same-id enveloped event must not rebind")
+		})
+
+		t.Run(row.name+"/enveloped_different_id", func(t *testing.T) {
+			st := openTestStore(t)
+			mgr := newTestManager(t, st, nil, nil)
+			sess := createLaunchedSession(t, mgr, st, t.TempDir())
+			advanceToState(t, mgr, sess.ID, "claude-old", row.state, true)
+			if !row.alive {
+				_, err := mgr.markEnded(context.Background(), sess.ID)
+				require.NoError(t, err)
+			}
+
+			promptID := "test-p2"
+			final, err := mgr.Apply(context.Background(), sess.ID, "claude-new", &promptID, claudecode.StateInput{Kind: claudecode.KindTurnActivity}, true)
+			require.NoError(t, err)
+
+			assertBindingConsistent(t, mgr, final)
+			assert.Equal(t, "claude-new", final.ClaudeSessionID, "REQ-9: an enveloped event naming a different claude id must rebind")
+		})
+
+		t.Run(row.name+"/enveloped_never_bound", func(t *testing.T) {
+			st := openTestStore(t)
+			mgr := newTestManager(t, st, nil, nil)
+			sess := createLaunchedSession(t, mgr, st, t.TempDir())
+			if row.state != StateStarted {
+				advanceToState(t, mgr, sess.ID, "irrelevant", row.state, false) // raw: never binds
+			}
+			if !row.alive {
+				_, err := mgr.markEnded(context.Background(), sess.ID)
+				require.NoError(t, err)
+			}
+			before, ok := mgr.Get(sess.ID)
+			require.True(t, ok)
+			require.Empty(t, before.ClaudeSessionID, "sanity: the session must still be unbound before the tested event")
+
+			promptID := "test-p2"
+			final, err := mgr.Apply(context.Background(), sess.ID, "claude-fresh", &promptID, claudecode.StateInput{Kind: claudecode.KindTurnActivity}, true)
+			require.NoError(t, err)
+
+			assertBindingConsistent(t, mgr, final)
+			assert.Equal(t, "claude-fresh", final.ClaudeSessionID, "REQ-9: a never-bound session must bind on its first enveloped event")
+		})
+
+		t.Run(row.name+"/raw_event", func(t *testing.T) {
+			st := openTestStore(t)
+			mgr := newTestManager(t, st, nil, nil)
+			sess := createLaunchedSession(t, mgr, st, t.TempDir())
+			advanceToState(t, mgr, sess.ID, "claude-old", row.state, true)
+			if !row.alive {
+				_, err := mgr.markEnded(context.Background(), sess.ID)
+				require.NoError(t, err)
+			}
+			before, ok := mgr.Get(sess.ID)
+			require.True(t, ok)
+
+			promptID := "test-p2"
+			final, err := mgr.Apply(context.Background(), sess.ID, "claude-raw-imposter", &promptID, claudecode.StateInput{Kind: claudecode.KindTurnActivity}, false)
+			require.NoError(t, err)
+
+			assertBindingConsistent(t, mgr, final)
+			assert.Equal(t, before.ClaudeSessionID, final.ClaudeSessionID, "REQ-10: a raw event must never bind or rebind, regardless of the id it names")
+		})
+	}
+}
+
+// TestApply_NeverBoundSessionBindsWithNoTransitionThenAppliesItsOwnEvent covers REQ-9's
+// precise "no transition" clause: the binding step itself must cause no state change —
+// only the triggering event's own row does. Proven with PreCompact (Kind that has no
+// transition of its own), so any state movement observed would have to have come from
+// the binding step, not the event.
+func TestApply_NeverBoundSessionBindsWithNoTransitionThenAppliesItsOwnEvent(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+	sess := createLaunchedSession(t, mgr, st, t.TempDir())
+	require.Equal(t, StateStarted, sess.State)
+	require.Empty(t, sess.ClaudeSessionID)
+
+	final, err := mgr.Apply(context.Background(), sess.ID, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindCompaction}, true)
+	require.NoError(t, err)
+
+	assert.Equal(t, "claude-1", final.ClaudeSessionID, "REQ-9: binds on the first enveloped event")
+	assert.Equal(t, StateStarted, final.State, "REQ-9: binding itself causes no transition")
+	assert.Equal(t, 1, final.Compactions, "PreCompact's own (no-transition) row is what actually applied")
+}
+
+// TestApply_EnvelopedSameBoundIDNeverRebindsEvenForClearDeathHint covers Edge Case 6:
+// SessionEnd(reason:"clear") for the *currently bound* id arriving enveloped is not a
+// death hint and must not rebind — the id matches, so the same-id branch (no-op) applies.
+func TestApply_EnvelopedSameBoundIDNeverRebindsEvenForClearDeathHint(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+	sess := createLaunchedSession(t, mgr, st, t.TempDir())
+	_, err := mgr.Apply(context.Background(), sess.ID, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
+	require.NoError(t, err)
+
+	final, err := mgr.Apply(context.Background(), sess.ID, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindClearDeathHint}, true)
+	require.NoError(t, err)
+
+	assert.True(t, final.Alive, "Edge Case 6: SessionEnd(reason:clear) for the currently-bound id is not a death hint and must not rebind")
+	assert.Equal(t, "claude-1", final.ClaudeSessionID)
+	assert.Equal(t, StateStarted, final.State, "no rebind means no reset-to-started either")
+}
+
+// TestApply_INV2_RebindResetsContextAndCompactionsBeforeItsOwnRowApplies covers D15:
+// an enveloped different-id event resets context to nil and compactions to 0 *before*
+// its own row applies, from every displayed source state, for both a UserPromptSubmit-
+// like trigger (ends working) and a Stop trigger (ends idle).
+func TestApply_INV2_RebindResetsContextAndCompactionsBeforeItsOwnRowApplies(t *testing.T) {
+	states := []State{StateStarted, StatePlanning, StateWorking, StateNeedsInput, StateFailed, StateIdle}
+	triggers := []struct {
+		name      string
+		input     claudecode.StateInput
+		wantState State
+	}{
+		// PermissionMode is a sticky latch applyBind never resets (it's a CLI launch
+		// setting, not conversation state) — the trigger sets it explicitly to "default"
+		// so the expected end state is deterministic regardless of what the source-state
+		// setup above latched (e.g. the "planning" row latches "plan").
+		{"UserPromptSubmit-like turn activity", claudecode.StateInput{Kind: claudecode.KindTurnActivity, PermissionMode: strPtr("default")}, StateWorking},
+		{"Stop", claudecode.StateInput{Kind: claudecode.KindTurnClosed}, StateIdle},
+	}
+	for _, state := range states {
+		for _, trig := range triggers {
+			t.Run(string(state)+"/"+trig.name, func(t *testing.T) {
+				st := openTestStore(t)
+				mgr := newTestManager(t, st, nil, nil)
+				sess := createLaunchedSession(t, mgr, st, t.TempDir())
+				advanceToState(t, mgr, sess.ID, "claude-old", state, true)
+				// Give the rebind something to lose: a compaction and a context gauge.
+				_, err := mgr.Apply(context.Background(), sess.ID, "claude-old", nil, claudecode.StateInput{Kind: claudecode.KindCompaction}, true)
+				require.NoError(t, err)
+				_, err = mgr.ApplyStatus(context.Background(), sess.ID, claudecode.StatusUpdate{
+					Context: &claudecode.StatusContext{UsedPct: 84, TotalInputTokens: 168000, WindowSize: 200000},
+				})
+				require.NoError(t, err)
+				before, ok := mgr.Get(sess.ID)
+				require.True(t, ok)
+				require.Equal(t, 1, before.Compactions, "sanity: compactions must be nonzero before the rebind")
+				require.NotNil(t, before.Context, "sanity: context must be populated before the rebind")
+
+				promptID := "test-p2"
+				final, err := mgr.Apply(context.Background(), sess.ID, "claude-new", &promptID, trig.input, true)
+				require.NoError(t, err)
+
+				assert.Equal(t, 0, final.Compactions, "INV-2: a rebind must reset compactions before its own row applies")
+				assert.Nil(t, final.Context, "INV-2: a rebind must reset the context gauge before its own row applies")
+				assert.Equal(t, trig.wantState, final.State)
+				assert.Equal(t, "claude-new", final.ClaudeSessionID)
+			})
+		}
+	}
+}
+
+// TestApply_MonotonicRebindGuard_ReorderedStragglerNeverRebindsBackwards is the
+// permanent regression test for review.md cycle 1 Critical 1 / Edge Case 6a, decided as
+// Option B in decisions/monotonic-rebind/decision.md and landed in docs/protocol.md
+// §4.2: an enveloped event naming a claude id this session has already left
+// (byClaude[id] already points at this session, but it is not the current
+// ClaudeSessionID) is a reordered straggler, not a forward rebind. It must be routed
+// and applied, but must never move the binding backwards, reset the context gauge, or
+// zero the compaction counter. This is INV-2's mirror case: INV-2 (above) proves a
+// genuine forward rebind resets those fields before its own row; this proves a
+// backward-looking straggler must not.
+//
+// Sequence (the reviewer's exact repro): bind claude-old -> one PreCompact on
+// claude-old (gives a rebind something to lose) -> SessionStart(clear) to claude-new
+// -> claude-new goes working and compacts once more (sanity checkpoint) -> a reordered
+// enveloped event naming claude-old arrives last, after the new conversation is
+// already live.
+func TestApply_MonotonicRebindGuard_ReorderedStragglerNeverRebindsBackwards(t *testing.T) {
+	// setUpLiveNewConversation drives the common prefix every subtest shares, up to and
+	// including the sanity checkpoint, and returns the manager/store/recorder/session
+	// for the subtest's own reordered-straggler step. The store and recorder are handed
+	// back (rather than built fresh per subtest) so each subtest can assert, after its
+	// own straggler Apply call, that it persisted and broadcast exactly once (D18's
+	// guarantee, extended to this path per review.md cycle 1 Minor 2) with the
+	// straggler's own content already in the row — not merely inferred from the
+	// broadcast count alone.
+	setUpLiveNewConversation := func(t *testing.T) (*Manager, *store.Store, *upsertsRecorder, *Session) {
+		t.Helper()
+		ctx := context.Background()
+		st := openTestStore(t)
+		rec := &upsertsRecorder{}
+		mgr := newTestManager(t, st, nil, rec.record)
+		sess := createLaunchedSession(t, mgr, st, t.TempDir())
+
+		_, err := mgr.Apply(ctx, sess.ID, "claude-old", nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
+		require.NoError(t, err)
+		_, err = mgr.Apply(ctx, sess.ID, "claude-old", nil, claudecode.StateInput{Kind: claudecode.KindCompaction}, true)
+		require.NoError(t, err)
+
+		_, err = mgr.Apply(ctx, sess.ID, "claude-new", nil, claudecode.StateInput{Kind: claudecode.KindClearRebind}, true)
+		require.NoError(t, err)
+
+		mode := "default"
+		_, err = mgr.Apply(ctx, sess.ID, "claude-new", nil, claudecode.StateInput{Kind: claudecode.KindTurnActivity, PermissionMode: &mode}, true)
+		require.NoError(t, err)
+		_, err = mgr.ApplyStatus(ctx, sess.ID, claudecode.StatusUpdate{
+			Context: &claudecode.StatusContext{UsedPct: 12, TotalInputTokens: 24000, WindowSize: 200000},
+		})
+		require.NoError(t, err)
+		final, err := mgr.Apply(ctx, sess.ID, "claude-new", nil, claudecode.StateInput{Kind: claudecode.KindCompaction}, true)
+		require.NoError(t, err)
+
+		require.Equal(t, StateWorking, final.State, "sanity: the new conversation is live before the straggler arrives")
+		require.Equal(t, 1, final.Compactions, "sanity: the new conversation has compacted once before the straggler arrives")
+		require.NotNil(t, final.Context, "sanity: the context gauge is populated before the straggler arrives")
+		require.Equal(t, "claude-new", final.ClaudeSessionID)
+
+		return mgr, st, rec, sess
+	}
+
+	t.Run("reordered SessionEnd(reason=clear) death hint for the old id", func(t *testing.T) {
+		mgr, st, rec, sess := setUpLiveNewConversation(t)
+		before, ok := mgr.Get(sess.ID)
+		require.True(t, ok)
+		broadcastsBefore := len(rec.all())
+
+		final, err := mgr.Apply(context.Background(), sess.ID, "claude-old", nil, claudecode.StateInput{Kind: claudecode.KindClearDeathHint}, true)
+		require.NoError(t, err)
+
+		assert.Equal(t, "claude-new", final.ClaudeSessionID, "the reordered straggler for a left-behind id must not rebind backwards")
+		assert.Equal(t, StateWorking, final.State, "no rebind means no reset-to-started")
+		assert.Equal(t, 1, final.Compactions, "no rebind means the compaction counter is not zeroed")
+		require.NotNil(t, final.Context)
+		assert.Equal(t, before.Context.UsedPct, final.Context.UsedPct, "no rebind means the context gauge is not reset")
+		assert.True(t, final.Alive, "SessionEnd(reason:clear) is not a death hint")
+		assertBindingConsistent(t, mgr, final)
+
+		got, ok := mgr.Resolve("claude-old")
+		require.True(t, ok, "byClaude keeps the old id mapped to this session — that memory is what the guard relies on")
+		assert.Equal(t, sess.ID, got)
+
+		assert.Len(t, rec.all(), broadcastsBefore+1, "D18: the straggler path must also broadcast exactly once")
+		persisted, err := st.GetSession(context.Background(), sess.ID)
+		require.NoError(t, err)
+		assert.Equal(t, "working", persisted.State, "the persisted row must already reflect the non-rebind (state untouched)")
+		assert.Equal(t, 1, persisted.Compactions, "the persisted row must carry the un-zeroed compaction count")
+		require.NotNil(t, persisted.ClaudeSessionID)
+		assert.Equal(t, "claude-new", *persisted.ClaudeSessionID, "the persisted row must not have rebound backwards")
+	})
+
+	t.Run("reordered non-death-hint PostToolUse straggler for the old id applies its own row without rebinding", func(t *testing.T) {
+		mgr, st, rec, sess := setUpLiveNewConversation(t)
+		before, ok := mgr.Get(sess.ID)
+		require.True(t, ok)
+		require.Equal(t, PermissionMode("default"), before.PermissionMode, "sanity: latched to \"default\" by the setup's own turn activity")
+		broadcastsBefore := len(rec.all())
+
+		mode := "acceptEdits"
+		final, err := mgr.Apply(context.Background(), sess.ID, "claude-old", nil, claudecode.StateInput{Kind: claudecode.KindTurnActivity, PermissionMode: &mode}, true)
+		require.NoError(t, err)
+
+		// The straggler's own row still applies (REQ-9: "route and apply the event") —
+		// proven by the permission-mode latch actually moving, which a plain no-op
+		// could not produce.
+		assert.Equal(t, PermissionMode("acceptEdits"), final.PermissionMode, "the straggler's own row must still apply")
+
+		// But it must not rebind: binding, context and compactions are untouched.
+		assert.Equal(t, "claude-new", final.ClaudeSessionID, "the reordered straggler for a left-behind id must not rebind backwards")
+		assert.Equal(t, StateWorking, final.State)
+		assert.Equal(t, 1, final.Compactions, "no rebind means the compaction counter is not zeroed")
+		require.NotNil(t, final.Context)
+		assert.Equal(t, before.Context.UsedPct, final.Context.UsedPct, "no rebind means the context gauge is not reset")
+		assertBindingConsistent(t, mgr, final)
+
+		assert.Len(t, rec.all(), broadcastsBefore+1, "D18: the straggler path must also broadcast exactly once")
+		persisted, err := st.GetSession(context.Background(), sess.ID)
+		require.NoError(t, err)
+		assert.Equal(t, "acceptEdits", persisted.PermissionMode, "the persisted row must already carry the straggler's own applied effect")
+		assert.Equal(t, 1, persisted.Compactions, "the persisted row must carry the un-zeroed compaction count")
+		require.NotNil(t, persisted.ClaudeSessionID)
+		assert.Equal(t, "claude-new", *persisted.ClaudeSessionID, "the persisted row must not have rebound backwards")
+	})
+}
+
+// TestApply_INV3_RawEventNeverBindsFromAnyState covers D16's first half: a raw event
+// with an unknown session_id changes no session's ClaudeSessionID and creates no
+// byClaude entry, from every displayed source state.
+func TestApply_INV3_RawEventNeverBindsFromAnyState(t *testing.T) {
+	states := []State{StateStarted, StatePlanning, StateWorking, StateNeedsInput, StateFailed, StateIdle}
+	for _, state := range states {
+		t.Run(string(state), func(t *testing.T) {
+			st := openTestStore(t)
+			mgr := newTestManager(t, st, nil, nil)
+			sess := createLaunchedSession(t, mgr, st, t.TempDir())
+			if state != StateStarted {
+				advanceToState(t, mgr, sess.ID, "irrelevant", state, false)
+			}
+			before, ok := mgr.Get(sess.ID)
+			require.True(t, ok)
+			require.Empty(t, before.ClaudeSessionID, "sanity: never bound")
+
+			promptID := "test-p2"
+			final, err := mgr.Apply(context.Background(), sess.ID, "claude-unknown", &promptID, claudecode.StateInput{Kind: claudecode.KindTurnActivity}, false)
+			require.NoError(t, err)
+
+			assert.Empty(t, final.ClaudeSessionID, "INV-3: a raw event with an unknown session_id must never bind")
+			_, ok = mgr.Resolve("claude-unknown")
+			assert.False(t, ok, "INV-3: a raw event must never create a byClaude entry")
+		})
+	}
+}
+
+// TestApplyStatus_INV4_NeverTouchesBindingOrStateFromAnyState covers D16's other half:
+// a status post never binds, rebinds, or changes any state-machine-owned field, from
+// every displayed source state (m3-gauges INV-1's cross-state twin).
+func TestApplyStatus_INV4_NeverTouchesBindingOrStateFromAnyState(t *testing.T) {
+	states := []State{StateStarted, StatePlanning, StateWorking, StateNeedsInput, StateFailed, StateIdle}
+	for _, state := range states {
+		t.Run(string(state), func(t *testing.T) {
+			st := openTestStore(t)
+			mgr := newTestManager(t, st, nil, nil)
+			sess := createLaunchedSession(t, mgr, st, t.TempDir())
+			advanceToState(t, mgr, sess.ID, "claude-old", state, true)
+			before, ok := mgr.Get(sess.ID)
+			require.True(t, ok)
+
+			title := "status-only change"
+			final, err := mgr.ApplyStatus(context.Background(), sess.ID, claudecode.StatusUpdate{Title: &title})
+			require.NoError(t, err)
+
+			assert.Equal(t, before.ClaudeSessionID, final.ClaudeSessionID, "INV-4: a status post must never bind or rebind")
+			assert.Equal(t, before.State, final.State, "INV-4: a status post must never change state")
+			assert.Equal(t, before.Attention, final.Attention)
+			assert.Equal(t, before.Failure, final.Failure)
+			got, ok := mgr.Resolve("claude-old")
+			require.True(t, ok)
+			assert.Equal(t, sess.ID, got, "INV-4: byClaude must be untouched by a status post")
+		})
+	}
+}
+
+// TestApply_INV7_RebindOnOneSessionLeavesABystanderUntouched covers D17: two live
+// sessions sharing a manager/directory — a rebind on one must never touch the other's
+// ClaudeSessionID or byClaude entry (the m2-terminal multi-instance lesson: a
+// destructive/identity-changing path must be proven safe with a bystander present, not
+// just alone).
+func TestApply_INV7_RebindOnOneSessionLeavesABystanderUntouched(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+	dir := t.TempDir()
+	target := createLaunchedSession(t, mgr, st, dir)
+	bystander := createLaunchedSession(t, mgr, st, dir)
+
+	_, err := mgr.Apply(context.Background(), target.ID, "claude-target-old", nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
+	require.NoError(t, err)
+	_, err = mgr.Apply(context.Background(), bystander.ID, "claude-bystander", nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
+	require.NoError(t, err)
+
+	promptID := "p1"
+	final, err := mgr.Apply(context.Background(), target.ID, "claude-target-new", &promptID, claudecode.StateInput{Kind: claudecode.KindTurnActivity}, true)
+	require.NoError(t, err)
+	assert.Equal(t, "claude-target-new", final.ClaudeSessionID)
+
+	bystanderAfter, ok := mgr.Get(bystander.ID)
+	require.True(t, ok)
+	assert.Equal(t, "claude-bystander", bystanderAfter.ClaudeSessionID, "INV-7: a rebind on one session must never touch a bystander's binding")
+	got, ok := mgr.Resolve("claude-bystander")
+	require.True(t, ok)
+	assert.Equal(t, bystander.ID, got)
+}
+
+// TestApply_RebindThenApplyPersistsAndBroadcastsExactlyOnce covers D18: even though the
+// rebind-then-apply path (REQ-9) performs two logical mutations (the /clear-style reset,
+// then the triggering event's own transition), Manager.Apply must coalesce them into a
+// single persist and a single broadcast — never two separate sessionUpsert messages for
+// one ingest POST. The store side is verified by content (the persisted row already
+// carries both the reset and the transition, which a correct single UpdateSession call
+// must produce) since internal/session.Manager takes a concrete *store.Store rather than
+// an interface, leaving no seam to install a call-counting fake without touching
+// production code.
+func TestApply_RebindThenApplyPersistsAndBroadcastsExactlyOnce(t *testing.T) {
+	st := openTestStore(t)
+	rec := &upsertsRecorder{}
+	mgr := newTestManager(t, st, nil, rec.record)
+	dir := t.TempDir()
+	sess := createLaunchedSession(t, mgr, st, dir)
+	_, err := mgr.Apply(context.Background(), sess.ID, "claude-old", nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
+	require.NoError(t, err)
+	before := len(rec.all())
+
+	promptID := "p1"
+	_, err = mgr.Apply(context.Background(), sess.ID, "claude-new", &promptID, claudecode.StateInput{Kind: claudecode.KindTurnActivity}, true)
+	require.NoError(t, err)
+
+	assert.Len(t, rec.all(), before+1, "D18: the rebind-then-apply path must broadcast exactly once, not once per logical mutation")
+
+	persisted, err := st.GetSession(context.Background(), sess.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "working", persisted.State, "the persisted row must already carry the post-rebind transition")
+	require.NotNil(t, persisted.ClaudeSessionID)
+	assert.Equal(t, "claude-new", *persisted.ClaudeSessionID)
 }

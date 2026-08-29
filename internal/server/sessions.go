@@ -72,10 +72,14 @@ type sessionLauncher struct {
 
 	claudeBin string
 
-	hookURL            string
-	statusURL          string
-	sessionStartScript string
-	statusLineScript   string
+	// hookScript/statusLineScript are the generated command-hook wrapper script paths
+	// (internal/claudecode.WriteWrapperScripts) — since m4-hook-lifetime the launcher
+	// holds no ingest URL at all; the URL lives only inside the scripts themselves.
+	hookScript       string
+	statusLineScript string
+	// legacyScripts lists prior wrapper paths MergeSettings must still recognise and
+	// drop from an already-instrumented directory (REQ-3/REQ-4).
+	legacyScripts []string
 }
 
 // Launch validates req, upserts the repo row, inserts the session row, writes
@@ -251,10 +255,9 @@ func (l *sessionLauncher) writeSettings(dir string) error {
 	}
 
 	merged, err := claudecode.MergeSettings(existing, claudecode.SettingsConfig{
-		HookURL:             l.hookURL,
-		StatusURL:           l.statusURL,
-		SessionStartCommand: l.sessionStartScript,
-		StatusLineCommand:   l.statusLineScript,
+		HookCommand:       l.hookScript,
+		StatusLineCommand: l.statusLineScript,
+		LegacyCommands:    l.legacyScripts,
 	})
 	if err != nil {
 		return fmt.Errorf("%s: %w", path, err)

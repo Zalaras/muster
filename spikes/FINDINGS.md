@@ -634,3 +634,32 @@ line (which never runs headless).
 
 Fallback that was on the table (relocate the wrapper scripts to a space-free dir) is not
 needed; quoting is the correct fix.
+
+## Addendum — command-hook latency probe (2026-08-27, against 2.1.246)
+
+Question (m4-hook-lifetime planning): if every hook becomes a `type:"command"` wrapper
+(sh + curl, exiting 0 when `$MUSTER_SESSION` is unset), what does it cost per event, and
+does the pane env reach command hooks on *every* event, not just `SessionStart`?
+Instance 3, `test/rig/captures/capture-3.jsonl`; 9 headless haiku runs, one `echo hi`
+tool call each, `--output-format json` for `duration_ms` / `duration_api_ms`.
+
+| Config (6 events/run) | local overhead = `duration_ms − duration_api_ms` (3 runs) |
+|---|---|
+| **A** http hooks (rig default) | 1071 · 928 · 916 ms |
+| **B** command wrapper on every event | 1686 · 1008 · 924 ms |
+| **C** no hooks (SessionStart + status line only) | 852 · 846 · 808 ms |
+
+- Over baseline C, http hooks cost ~**25 ms/event**, command wrappers ~**50 ms/event**
+  (median; one B outlier at 1686). Micro-benchmark of the wrapper alone, ×100: **48 ms**
+  posting to a live server, **32 ms** against a refused port (daemon down), **6 ms** on the
+  `$MUSTER_SESSION`-unset early exit (`sh -c true` alone is ~9 ms — curl startup is the
+  cost, not the shell).
+- **`$MUSTER_SESSION` reached the command wrapper on every event**: `UserPromptSubmit`,
+  `PreToolUse`, `PostToolUse`, `Stop`, `SessionEnd` all arrived enveloped with
+  `musterSession: 42` in 3/3 B sessions (15/15 events). The http A sessions carry no
+  binding at all, as expected.
+- Consequence for the design: a tool-heavy turn of 20 calls pays ~1 s more than http
+  hooks, spread across the turn's minutes of API time; an unmanaged session in an
+  instrumented directory pays ~6 ms per event and posts nothing; a stale file with the
+  daemon down costs ~32 ms per event and **no visible error** (Claude Code sees exit 0).
+- Pin drift: measured on 2.1.246; pin is 2.1.233.

@@ -138,10 +138,13 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		return fmt.Errorf("writing tokens file: %w", err)
 	}
 
-	sessionStartScript, statusLineScript, err := claudecode.WriteWrapperScripts(*dataDir, baseURL, ingestToken)
+	hookScript, statusLineScript, legacyScript, err := claudecode.WriteWrapperScripts(*dataDir, baseURL, ingestToken)
 	if err != nil {
 		return fmt.Errorf("writing hook wrapper scripts: %w", err)
 	}
+	// REQ-16: paths only, never the token or URL either script embeds.
+	log.Info().Str("hook_script", hookScript).Str("status_line_script", statusLineScript).
+		Msg("wrote hook wrapper scripts")
 
 	srv := server.New(server.Config{
 		Store:         st,
@@ -155,12 +158,12 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 			Installed: installed,
 			Drift:     drift,
 		},
-		ClaudeBin:          *claudeBin,
-		TmuxSocket:         *tmuxSocket,
-		BrowseRoot:         *browseRoot,
-		BaseURL:            baseURL,
-		SessionStartScript: sessionStartScript,
-		StatusLineScript:   statusLineScript,
+		ClaudeBin:        *claudeBin,
+		TmuxSocket:       *tmuxSocket,
+		BrowseRoot:       *browseRoot,
+		HookScript:       hookScript,
+		StatusLineScript: statusLineScript,
+		LegacyScripts:    []string{legacyScript},
 	})
 	srv.Start()
 

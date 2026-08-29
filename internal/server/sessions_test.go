@@ -154,8 +154,7 @@ func TestLauncher_CorruptSettingsFileRefusesAndRollsBackTheSessionRow(t *testing
 
 	l := &sessionLauncher{
 		store: st, manager: mgr, log: zerolog.Nop(), claudeBin: "irrelevant-never-reached",
-		hookURL: "http://127.0.0.1:0/ingest/tok/hook", statusURL: "http://127.0.0.1:0/ingest/tok/status",
-		sessionStartScript: "/bin/true", statusLineScript: "/bin/true",
+		hookScript: "/bin/true", statusLineScript: "/bin/true",
 	}
 
 	_, lerr := l.Launch(context.Background(), createSessionRequest{
@@ -237,8 +236,7 @@ func TestLauncher_SuccessfulLaunchEndToEnd(t *testing.T) {
 
 	l := &sessionLauncher{
 		store: st, manager: mgr, tmux: tmuxClient, log: zerolog.Nop(), claudeBin: newStubClaudeBin(t, envOutFile),
-		hookURL: "http://127.0.0.1:0/ingest/tok/hook", statusURL: "http://127.0.0.1:0/ingest/tok/status",
-		sessionStartScript: "/bin/true", statusLineScript: "/bin/true",
+		hookScript: "/bin/true", statusLineScript: "/bin/true",
 	}
 
 	sess, lerr := l.Launch(context.Background(), createSessionRequest{
