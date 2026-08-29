@@ -109,7 +109,8 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
 
 - [ ] **Claude Code pin — deferred to post-v1** (decided 2026-08-22): the drift stands
       (pin 2.1.233, installed 2.1.240, measurements against three versions) until v1
-      ships. Then **rethink the pin strategy itself**, not just bump it: Claude Code
+      ships. *Update 2026-08-29:* pin bumped to 2.1.246 on the first green full canary
+      (the ritual, not a strategy change); the rethink below still stands. Then **rethink the pin strategy itself**, not just bump it: Claude Code
       releases most weekdays, so a static pin + manual canary ritual churns constantly.
       Candidates: a scheduled canary run that auto-bumps the pin on green; pinning a
       *floor* + canary-on-drift instead of an exact version; or accepting drift and
@@ -211,7 +212,14 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
 - [x] `--resume` for dead sessions — shipped 2026-08-27 (plan `m4-reconcile`): `POST
       /api/sessions/{id}/resume`, `KindResumeBind` lands in `idle`. Mechanics verified by the H2 probe (`source: "resume"`,
       same `session_id`); the M4 work is building reconcile on top of it
-- [ ] Full canary E2E: unskip the assertions in `test/canary/canary_test.go`
+- [x] Full canary E2E — shipped 2026-08-29 (plan `m4-canary`, main-session build, not
+      `/orchestrate`): `test/canary/harness_test.go` drives the real binary through the
+      production settings→sh→wrapper→POST chain from a space-bearing data dir; 3 haiku
+      turns + 1 zero-token run, ~40 s. Green twice on 2.1.246 → pin bumped 2.1.233 →
+      2.1.246 (`docs/claude-code-pin.md`). Accepted residual: plan-mode sequence,
+      `PermissionRequest`, `Notification`, `SubagentStop` stay skipped
+      (`needsInteractiveDialog`). New wire fact recorded: on the auth-failure exit claude
+      does not await hooks — Muster's curl wrapper loses `SessionEnd` there (`spikes/canary-fields.md`).
 - [x] Surface "daemon down" prominently — while it is down, every managed pane fills with
       hook-error lines. **Scope correction (2026-08-23):** this item assumed *managed*
       panes. Measured otherwise — the hook entries live in the directory's

@@ -819,3 +819,17 @@ implemented:
   migration/silence check (launch against an already-instrumented directory, stop
   musterd, confirm no hook-error lines) is Damian's post-merge acceptance step, recorded
   in `spikes/canary-fields.md` once run.
+
+### 2026-08-29 — canary harness real; pin 2.1.233 → 2.1.246 (plan `m4-canary`, main-session build)
+
+- `make canary` now drives the installed `claude` through the production
+  settings → `/bin/sh -c` → wrapper → enveloped POST chain (`test/canary/harness_test.go`):
+  3 haiku turns + 1 zero-token run, ~40 s. Every previously-skipped field/behaviour test is
+  binding except the plan-mode / `PermissionRequest` / `Notification` / `SubagentStop`
+  rows (interactive dialog; accepted residual, verify via `/interface-probe`).
+- Green twice on 2.1.246 → `PinnedVersion` bumped per `docs/claude-code-pin.md`. The
+  post-v1 pin-*strategy* rethink (TODO M1 follow-ups) is unchanged.
+- New wire fact (2.1.246): on the authentication-failure exit, Claude Code does **not** await
+  its hooks — `SessionEnd` (and, marginally, `StopFailure`) can be lost through Muster's
+  ~48 ms curl wrapper. Consistent with §8's best-effort stance; reconcile keys on pane
+  liveness, so no design change. Details in `spikes/canary-fields.md`.

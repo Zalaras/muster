@@ -51,7 +51,7 @@ run: build web-build ## Run musterd against the real data dir and web/dist
 	./$(BIN) -web-dist web/dist
 
 .PHONY: canary
-canary: ## Assert the pinned Claude Code still emits every field Muster depends on
+canary: ## Drive the real claude (3 haiku turns + 1 zero-token) and assert every field Muster depends on; MUSTER_CANARY_OFFLINE=1 = compile + pin check only
 	go test -tags=canary -count=1 -v ./test/canary/...
 
 .PHONY: check

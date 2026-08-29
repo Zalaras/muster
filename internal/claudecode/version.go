@@ -15,7 +15,7 @@ import (
 // constant without a green canary run is how Muster breaks silently.
 //
 // The upgrade ritual is in docs/claude-code-pin.md.
-const PinnedVersion = "2.1.233"
+const PinnedVersion = "2.1.246"
 
 // versionRE matches the leading semver of `claude --version`, e.g. "2.1.233 (Claude Code)".
 var versionRE = regexp.MustCompile(`^(\d+\.\d+\.\d+)`)

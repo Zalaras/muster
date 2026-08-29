@@ -1,11 +1,14 @@
-# Canary field inventory — Claude Code 2.1.233
+# Canary field inventory — Claude Code 2.1.233 → 2.1.246
 
 Derived from real captured payloads during the step-1 spikes (2026-08-16). This is the
 assertion list for the canary E2E described in `SPEC.md` §8: run it before adopting any new
 Claude Code version, and treat any missing field as a blocker.
 
 **Validated against:** Claude Code `2.1.233` (native install), macOS Darwin 25.6.
-No auto-update drift occurred during the spike run.
+No auto-update drift occurred during the spike run. **Re-validated by the automated canary
+(`make canary`, `test/canary/harness_test.go`) against `2.1.246` on 2026-08-29** — every
+row below marked binding in `test/canary/canary_test.go` held; deltas are noted inline as
+"(2.1.246 canary)". Pin bumped to 2.1.246 the same day.
 
 Raw evidence: `ccc-spike/captures/capture-1.jsonl`, `capture-3.jsonl`; H2 probe additions
 (2026-08-16) in `test/rig/captures/capture-1.jsonl` (gitignored, regenerable via
@@ -101,6 +104,14 @@ Observed values: `"default"`, `"plan"`, `"acceptEdits"`. Latch the last known mo
   `elicitation_dialog`.
 - `SessionEnd.reason`: `"other"` and `"clear"` observed (`"clear"` on 2.1.237). `"other"`
   covers both a killed pane and ordinary termination; only `"clear"` is distinguishable.
+- **Hooks are not awaited on the authentication-failure exit** (2.1.246 canary, 2026-08-29):
+  headless `-p` with an unauthenticated `CLAUDE_CONFIG_DIR` fires `SessionStart`,
+  `UserPromptSubmit`, `StopFailure`, `SessionEnd` — a `cat >>` command hook records all
+  four, but the same hook behind `sleep 0.05` records only the first two, and Muster's
+  ~48 ms curl wrapper delivered `StopFailure` 2/2 runs and `SessionEnd` 0/2. The process
+  exits ~100 ms after the failure (`duration_ms: 107`) without waiting for hook children.
+  The success path (run A) delivers `SessionEnd` through the same wrapper every time. Do
+  not assert `SessionEnd` on a failure path; treat `StopFailure` there as at-risk.
 - `PermissionRequest.permission_suggestions`: array of
   `{type:"setMode", mode:"acceptEdits", destination:"session"}`. Directly useful for
   SPEC §4.1's plan-mode flow.
@@ -178,7 +189,9 @@ Present in the status line. Two distinct behaviours observed:
   `"Run echo hello bash command"`).
 
 So Muster gets a usable title for free, from the status line, with no `sessionTitle` hook
-needed. It is absent from the earliest posts, before a title has been derived.
+needed. It is absent from the earliest posts, before a title has been derived — and a
+one-turn "say hi" session may never derive one (2.1.246 canary: absent on every post of
+the interactive run, 2/2 runs), so the canary treats it as optional.
 
 ### Other fields
 
@@ -206,6 +219,9 @@ needed. It is absent from the earliest posts, before a title has been derived.
   before any Stop-family event fires; induce test failures with a non-retryable 400.
 - Headless `claude -p` fires the full hook sequence, including command-wrapped
   `SessionStart` — probes and E2E cases that don't need the TUI need no tmux.
+  (2.1.246 canary: `SessionStart.model` absent on headless startup, 2/2; the pre-response
+  status-line post with `rate_limits` absent and null `used_percentage` was captured 1/1
+  per interactive run, 2/2 runs, so the unknown-vs-zero shape is still live.)
 - `/clear` starts a **new `session_id`** in the same pane — assert that session identity is
   keyed on the tmux target, not the Claude session id.
 

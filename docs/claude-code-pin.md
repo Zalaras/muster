@@ -1,6 +1,6 @@
 # Claude Code version pin and upgrade ritual
 
-**Pinned version: `2.1.233`** — declared in `internal/claudecode/version.go` as
+**Pinned version: `2.1.246`** (bumped from 2.1.233 on 2026-08-29 after a green `make canary`) — declared in `internal/claudecode/version.go` as
 `PinnedVersion`, and asserted by `make canary`.
 
 ## Why there is a pin at all
@@ -65,11 +65,28 @@ makes step 3's rollback cheap.
 
 ## Current state of the canary
 
-`make canary` today asserts only that the installed version matches the pin — that
-assertion is real and runs against the live binary. The field assertions in
-`test/canary/canary_test.go` are present but skipped: they need the M4 harness (a scratch
-repo, a capture server, a session driven through a full turn). They are kept in executable
-form so the list cannot silently drift from `spikes/canary-fields.md`.
+`make canary` is real since 2026-08-29 (plan `m4-canary`). `test/canary/harness_test.go`
+drives the **installed** `claude` through the production chain — `WriteWrapperScripts` +
+`MergeSettings` into a scratch repo's `.claude/settings.local.json`, from a data dir whose
+path contains a space — and captures the wrapper's enveloped POSTs on an in-test server.
+Four runs per invocation, ~40 s wall time:
 
-Until M4, treat a green canary as **necessary but not sufficient** before trusting a new
-Claude Code version.
+| run | shape | cost | proves |
+|---|---|---|---|
+| A | headless `-p`, `$MUSTER_SESSION` set, one `echo hi` tool call | 1 haiku turn | SessionStart transport, hook field inventory, envelope on every event, quoting |
+| B | same, no `$MUSTER_SESSION` | 1 haiku turn | an unmanaged session posts **nothing** |
+| C | headless with an unauthenticated `CLAUDE_CONFIG_DIR` | 0 tokens | `StopFailure{authentication_failed}` replaces `Stop` |
+| D | interactive in tmux on a scratch socket, "say hi" | 1 haiku turn | status-line fields, unknown-vs-zero (pre-response post), `version` |
+
+`MUSTER_CANARY_OFFLINE=1 make canary` compiles the package and checks only the pin — no
+tokens. The harness never touches `~/.claude/settings.json` (verify: `md5 -q` before and
+after), lives under `/var/folders` (no parent `CLAUDE.md` leaks in), and tears its tmux
+server and scratch dirs down in `TestMain`.
+
+**Still manual** (skipped rows, reason `needsInteractiveDialog`): the plan-mode sequence,
+`PermissionRequest`, `Notification`, `SubagentStop` — they need a permission dialog driven
+by `send-keys`, too fragile for a gate; verify with `/interface-probe` when they matter.
+Also manual: the R2 End → Resume same-`session_id` check (TODO M4).
+
+A green canary is now **sufficient** for a pin bump as far as Muster's automated
+dependence on Claude Code goes; the manual rows above are the residual.

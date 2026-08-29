@@ -663,3 +663,25 @@ tool call each, `--output-format json` for `duration_ms` / `duration_api_ms`.
   instrumented directory pays ~6 ms per event and posts nothing; a stale file with the
   daemon down costs ~32 ms per event and **no visible error** (Claude Code sees exit 0).
 - Pin drift: measured on 2.1.246; pin is 2.1.233.
+
+## Addendum — automated canary harness (2026-08-29, against 2.1.246)
+
+Plan `m4-canary` turned `make canary` into a real gate: `test/canary/harness_test.go` runs
+the production `WriteWrapperScripts` + `MergeSettings` output from a space-bearing data dir,
+drives the installed binary (headless managed / headless unmanaged / unauthenticated /
+interactive-in-tmux), and parses the wrapper's posts with `ParseIngestBody`. Two consecutive
+runs green on 2.1.246 (~40 s each); pin bumped.
+
+- **Hooks are not awaited on the authentication-failure exit.** With hooks pointed at
+  `cat >> file`, the unauthenticated run records `SessionStart, UserPromptSubmit,
+  StopFailure, SessionEnd`; with `sleep 0.05; cat >> file` only the first two survive;
+  Muster's curl wrapper (≈48 ms) landed `StopFailure` 2/2 and `SessionEnd` 0/2. Process
+  exit is ~100 ms after the failure. The success path delivers `SessionEnd` reliably through
+  the same wrapper. Consequence: the `Failed` state's `StopFailure` is marginal on this one
+  path (auth failure — which a managed session cannot hit under subscription OAuth unless
+  logged out); no design change, reconcile already keys on pane liveness.
+- `session_name` never appeared on a one-turn interactive session (2/2); `SessionStart.model`
+  absent on headless startup (2/2). Both already documented as optional; the canary treats
+  them so.
+- The trust prompt appeared on every interactive run in the never-seen scratch repo and was
+  dismissed by a bare `Enter` — §9 still holds on 2.1.246.

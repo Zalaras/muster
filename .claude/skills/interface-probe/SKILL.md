@@ -9,7 +9,9 @@ allowed-tools: Bash, Read, Write, Edit, Grep, Glob
 > interactively and holds a conversation about ambiguous captures, which a subagent
 > can't. It is the live version of the historical spike recipe (`spikes/RIG.md`);
 > the rig itself lives in `test/rig/` and is shared with the M4 canary/E2E harness.
-> Everything here was verified against Claude Code **2.1.233** — on a version bump,
+> The automated counterpart is `make canary` (`test/canary/harness_test.go`), which
+> drives the same production chain but cannot answer *new* questions — that is this
+> skill's job. Everything here was verified against Claude Code **2.1.233** — on a version bump,
 > re-verify via `docs/claude-code-pin.md` before trusting the gotchas.
 
 You are running an interface probe: a controlled experiment against the **real**

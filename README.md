@@ -20,7 +20,7 @@ frontend that proves the bundler works.
 | [`SPEC.md`](SPEC.md) | **Authoritative spec.** Features, tech stack, milestones, risks |
 | [`TODO.md`](TODO.md) | Milestone backlog (SPEC §10) and open questions |
 | [`next-steps.md`](next-steps.md) | Session-by-session plan |
-| [`spikes/FINDINGS.md`](spikes/FINDINGS.md) | Validated interface facts, measured against Claude Code 2.1.233 |
+| [`spikes/FINDINGS.md`](spikes/FINDINGS.md) | Validated interface facts, measured against Claude Code 2.1.233 (addenda through 2.1.246) |
 | [`spikes/canary-fields.md`](spikes/canary-fields.md) | Field inventory the canary asserts before any version bump |
 | [`interview-notes.md`](interview-notes.md) | Rationale and rejected options |
 | [`docs/claude-code-pin.md`](docs/claude-code-pin.md) | The version pin and the upgrade ritual |
@@ -49,7 +49,7 @@ the SQLite store.
 | Go | 1.26.6 | |
 | Node | 24.19.0 | pinned in `.nvmrc`; `nvm use` in the repo root |
 | tmux | 3.7b | Muster uses a dedicated socket (`-L muster`), never your default server |
-| Claude Code | 2.1.233 | The pin. Auto-update is deliberately **left on** — see below |
+| Claude Code | 2.1.246 | The pin. Auto-update is deliberately **left on** — see below |
 
 Frontend toolchain: Vite 8, TypeScript 7, Playwright 1.62.
 
