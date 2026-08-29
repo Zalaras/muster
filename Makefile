@@ -15,8 +15,8 @@ build: ## Build the daemon into ./bin/musterd
 	go build -ldflags "-X main.version=$(VERSION)" -o $(BIN) ./cmd/musterd
 
 .PHONY: test
-test: ## Run unit tests
-	go test $(PKG)
+test: ## Run unit tests (uncached — every gate must be a fresh run)
+	go test -count=1 $(PKG)
 
 .PHONY: lint
 lint: ## Run golangci-lint

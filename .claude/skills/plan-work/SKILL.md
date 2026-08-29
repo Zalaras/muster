@@ -179,7 +179,11 @@ claude and cost a review cycle. The measurement was real; its applicability had 
 
 ### 8. Edge Cases and Error Handling
 
-Discuss edge cases and failure scenarios on both sides. For Muster, always cover the standing ones that apply: hook loss/duplication/reordering, `/clear` minting a new `session_id` in the same pane, daemon restart mid-session, no-data-yet nulls, tmux pane death without `SessionEnd`.
+Discuss edge cases and failure scenarios on both sides. For Muster, always cover the standing ones that apply: hook loss/duplication/reordering, `/clear` minting a new `session_id` in the same pane,
+
+  **Reordering is not abstract — write the late-arrival cases out.** For every rule that compares an event's `session_id` against the session's bound one, write one edge case per event of the `/clear` pair arriving *after* the other has already been applied (e.g. `SessionEnd(reason:"clear")` for the old id landing after `SessionStart(source:"clear")` has rebound and the new conversation is `working`), and one for a straggler from the previous turn arriving after the rebind. m4-hook-lifetime covered `SessionEnd(clear)` only in its natural order; the late case was the review's Critical and cost an Opus cycle plus a protocol amendment.
+
+ daemon restart mid-session, no-data-yet nulls, tmux pane death without `SessionEnd`.
 
 ### 9. Acceptance Criteria
 
