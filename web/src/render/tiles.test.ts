@@ -57,7 +57,8 @@ function fakeTileRoot(): HTMLElement & { className: string } {
   const wh = fakeElement();
   const ctx = fakeElement();
   const tm = fakeElement();
-  const byClass: Record<string, HTMLElement> = { ".nm": nm, ".wh": wh, ".ctxinfo": ctx, ".tm": tm };
+  const dot = { ...fakeElement(), title: "" } as HTMLElement & { title: string };
+  const byClass: Record<string, HTMLElement> = { ".nm": nm, ".wh": wh, ".ctxinfo": ctx, ".tm": tm, ".sdot": dot };
   return {
     className: "",
     querySelector: (selector: string) => byClass[selector] ?? null,
@@ -137,6 +138,48 @@ describe("updateTile — refreshes existing chrome in place, never touches bodyS
     // as constructed.
     expect(bodySlot.textContent).toBe("");
     expect(bodySlot.className).toBe("");
+  });
+});
+
+describe("updateTile — REQ-9 (plan move-tiles): the state dot gets a title = the state badge word, so a hover explains the colour", () => {
+  const cases: Array<{ state: Session["state"]; word: string }> = [
+    { state: "started", word: "started" },
+    { state: "planning", word: "planning" },
+    { state: "working", word: "working" },
+    { state: "needs_input", word: "needs input" },
+    { state: "failed", word: "failed" },
+    { state: "idle", word: "idle" },
+  ];
+
+  for (const { state, word } of cases) {
+    it(`sets .sdot's title to "${word}" for state "${state}"`, () => {
+      const root = fakeTileRoot();
+      const refs: TileRefs = { root, bodySlot: fakeElement(), geoEl: fakeElement(), markerEl: fakeElement() };
+
+      updateTile(refs, makeSession({ id: 1, state }), NOW);
+
+      expect((root.querySelector(".sdot") as (HTMLElement & { title: string }) | null)?.title).toBe(word);
+    });
+  }
+
+  it("updates the title on every pass, so a stale state's word doesn't linger after a transition", () => {
+    const root = fakeTileRoot();
+    const refs: TileRefs = { root, bodySlot: fakeElement(), geoEl: fakeElement(), markerEl: fakeElement() };
+
+    updateTile(refs, makeSession({ id: 1, state: "working" }), NOW);
+    expect((root.querySelector(".sdot") as (HTMLElement & { title: string }) | null)?.title).toBe("working");
+
+    updateTile(refs, makeSession({ id: 1, state: "needs_input" }), NOW);
+    expect((root.querySelector(".sdot") as (HTMLElement & { title: string }) | null)?.title).toBe("needs input");
+  });
+
+  it("does not touch the dot's size or colour — className carries the state class, not the dot's own attributes", () => {
+    const root = fakeTileRoot();
+    const refs: TileRefs = { root, bodySlot: fakeElement(), geoEl: fakeElement(), markerEl: fakeElement() };
+
+    updateTile(refs, makeSession({ id: 1, state: "failed" }), NOW);
+
+    expect(root.className).toBe("tile s-failed");
   });
 });
 

@@ -16,10 +16,12 @@ import {
   stateBadge,
 } from "./helpers/session";
 import {
+  dragTileOnto,
   liveTile,
   stripCard,
   TerminalSocketTracker,
   terminalRegion,
+  tilesGridOrder,
 } from "./helpers/terminal";
 
 // Plan m4-reconcile — REQ-5 through REQ-16 (End / Remove / Resume, dialogs, dead
@@ -1124,11 +1126,19 @@ test("a tile footer's End button survives a render tick and still opens the End 
   });
 });
 
-// review m4-reconcile cycle-4 Minor 2/3: the Tiles half of the focus-on-reorder contract.
-// `applyDensity` re-sorts `tilesLive` by priority on every render, so a Notification on the
-// second tile's session genuinely moves its node via `insertBefore` — the exact detach that
-// measured `activeTag=BODY` before `reconcileTilesGrid` gained the capture/restore step.
-test("a focused tile-footer action button survives a Tiles-grid re-sort triggered by a real priority change (REQ-12, cycle-4 Minor 2)", async ({
+// Plan move-tiles removes the auto-sort these two tests used to exercise together
+// (`applyDensity` re-sorting `tilesLive` by priority on every render). REQ-1's grid is now
+// slot-stable — a priority change updates chrome only (REQ-2) — and the only thing that
+// ever moves a tile's DOM node is a user drag (REQ-3/REQ-5). Retargeted per plan Affected
+// Files ("web/e2e/actions.spec.ts — e2e-specs only: ... Retarget: the reorder trigger
+// becomes a drag (REQ-10), and the priority change becomes the REQ-2 'does not move'
+// assertion"), split into the two independent behaviours the old single test conflated.
+
+// review m4-reconcile cycle-4 Minor 2/3, retargeted by plan move-tiles REQ-2/E5: a
+// Notification making a live tile's session needs_input must NOT move its node anymore —
+// membership is unchanged, so the grid's DOM order stays exactly as it was; only the
+// tile's own chrome (state class driving the dot/border colour) updates.
+test("a priority change updates a live tile's chrome but never moves it in the Tiles grid (REQ-2, E5)", async ({
   page,
   request,
 }) => {
@@ -1144,19 +1154,19 @@ test("a focused tile-footer action button survives a Tiles-grid re-sort triggere
       await page.goto(isolated.dashboardUrl);
       const sessionA = await launchSession(page, isolated, {
         directory: dirA.path,
-        title: "tile-resort-a",
+        title: "tile-prio-a",
       });
       const sessionB = await launchSession(page, isolated, {
         directory: dirB.path,
-        title: "tile-resort-b",
+        title: "tile-prio-b",
       });
       await request.post(isolated.ingestURL("hook"), {
-        data: envelopedSessionStart("claude-tile-resort-a", {
+        data: envelopedSessionStart("claude-tile-prio-a", {
           musterSession: sessionA.id,
         }),
       });
       await request.post(isolated.ingestURL("hook"), {
-        data: envelopedSessionStart("claude-tile-resort-b", {
+        data: envelopedSessionStart("claude-tile-prio-b", {
           musterSession: sessionB.id,
         }),
       });
@@ -1167,17 +1177,90 @@ test("a focused tile-footer action button survives a Tiles-grid re-sort triggere
         "true",
       );
 
-      const tileA = liveTile(page, "tile-resort-a");
-      const tileB = liveTile(page, "tile-resort-b");
+      const tileA = liveTile(page, "tile-prio-a");
+      const tileB = liveTile(page, "tile-prio-b");
+      await expect(tileA).toBeVisible();
+      await expect(tileB).toBeVisible();
+      await expect(tileB).not.toHaveClass(/s-blocked/);
+
+      const orderBefore = await tilesGridOrder(page);
+      expect(orderBefore).toHaveLength(2);
+      expect(orderBefore).toContain("tile-prio-a");
+      expect(orderBefore).toContain("tile-prio-b");
+
+      // A genuine priority change — `needs_input` sorts first under §3.4 — used to move
+      // tile B's node via a re-sorting `applyDensity`. This plan removes that re-sort.
+      await request.post(isolated.ingestURL("hook"), {
+        data: rawUserPromptSubmit("claude-tile-prio-b"),
+      });
+      await request.post(isolated.ingestURL("hook"), {
+        data: rawNotification(
+          "claude-tile-prio-b",
+          "p1",
+          "permission_prompt",
+        ),
+      });
+
+      // Chrome DOES update — REQ-2's exact carve-out ("only chrome (dot/border/timer)
+      // updates") — the tile's state class flips to the needs-input token.
+      await expect(tileB).toHaveClass(/s-blocked/, { timeout: 15_000 });
+
+      // ...but the DOM order is byte-for-byte the same: no `insertBefore`, no node move.
+      expect(await tilesGridOrder(page)).toEqual(orderBefore);
+    } finally {
+      await Promise.all([dirA.cleanup(), dirB.cleanup()]);
+    }
+  });
+});
+
+// review m4-reconcile cycle-4 Minor 2/3, retargeted by plan move-tiles REQ-10/E6: the only
+// thing that still moves a tile's DOM node is a user drag, so the focus-survives-a-reorder
+// contract (`captureFocusedControl`/`restoreFocusedControl` inside `reconcileTilesGrid`)
+// must now be exercised via a drop, not a priority change.
+test("a focused tile-footer action button survives a drag-drop reorder (REQ-10, E6)", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(30_000);
+  await withDaemon(async (isolated) => {
+    const [dirA, dirB] = await Promise.all([
+      scratchDirectory(),
+      scratchDirectory(),
+    ]);
+    try {
+      await page.goto(isolated.dashboardUrl);
+      const sessionA = await launchSession(page, isolated, {
+        directory: dirA.path,
+        title: "tile-drag-focus-a",
+      });
+      const sessionB = await launchSession(page, isolated, {
+        directory: dirB.path,
+        title: "tile-drag-focus-b",
+      });
+      await request.post(isolated.ingestURL("hook"), {
+        data: envelopedSessionStart("claude-tile-drag-focus-a", {
+          musterSession: sessionA.id,
+        }),
+      });
+      await request.post(isolated.ingestURL("hook"), {
+        data: envelopedSessionStart("claude-tile-drag-focus-b", {
+          musterSession: sessionB.id,
+        }),
+      });
+
+      await page.getByRole("button", { name: "Tiles" }).click();
+      await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+
+      const tileA = liveTile(page, "tile-drag-focus-a");
+      const tileB = liveTile(page, "tile-drag-focus-b");
       await expect(tileA).toBeVisible();
       await expect(tileB).toBeVisible();
 
-      const orderBefore = await page
-        .locator("article.tile .nm")
-        .allInnerTexts();
-      expect(orderBefore.indexOf("tile-resort-a")).toBeLessThan(
-        orderBefore.indexOf("tile-resort-b"),
-      );
+      const orderBefore = await tilesGridOrder(page);
+      expect(orderBefore).toHaveLength(2);
 
       const endBtnB = tileB
         .locator(".tfoot")
@@ -1185,37 +1268,17 @@ test("a focused tile-footer action button survives a Tiles-grid re-sort triggere
       await endBtnB.focus();
       await expect(endBtnB).toBeFocused();
 
-      // Control: render ticks alone must not blur it (already covered by the tick test above,
-      // re-asserted here so the reorder below is the only variable).
+      // Control: render ticks alone must not blur it (already covered by the tick test
+      // above, re-asserted here so the drop below is the only variable).
       await page.waitForTimeout(1_400);
       await expect(endBtnB).toBeFocused();
 
-      // A genuine priority change — `needs_input` sorts first — moves tile B's node.
-      await request.post(isolated.ingestURL("hook"), {
-        data: rawUserPromptSubmit("claude-tile-resort-b"),
-      });
-      await request.post(isolated.ingestURL("hook"), {
-        data: rawNotification(
-          "claude-tile-resort-b",
-          "p1",
-          "permission_prompt",
-        ),
-      });
-      // The tile marker only reads live/stopped (design-system §5), so the reorder itself is
-      // the observable: `applyDensity` re-sorts the grid by priority on the next render.
+      // Dragging A's header onto B moves A's node past B — B (and its focused button)
+      // shifts in the DOM, exercising the exact `insertBefore` path REQ-10 must survive.
+      await dragTileOnto(page, "tile-drag-focus-a", "tile-drag-focus-b");
       await expect
-        .poll(
-          async () => {
-            const order = await page
-              .locator("article.tile .nm")
-              .allInnerTexts();
-            return (
-              order.indexOf("tile-resort-b") < order.indexOf("tile-resort-a")
-            );
-          },
-          { timeout: 15_000 },
-        )
-        .toBe(true);
+        .poll(() => tilesGridOrder(page), { timeout: 15_000 })
+        .toEqual(["tile-drag-focus-b", "tile-drag-focus-a"]);
 
       // Focus survived the reorder, and the button is still operable from the keyboard.
       await expect(endBtnB).toBeFocused();

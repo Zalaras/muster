@@ -115,8 +115,9 @@ anything when switching.
 What differs is only how sessions are laid out:
 
 - **Focus** — the rail is vertical, one session is live, the rest are snapshots.
-- **Tiles** — the top N by attention are live tiles; the rest become the horizontal
-  **snapshot strip** along the bottom. The strip *is* the rail, laid on its side; it is not
+- **Tiles** — the top N by attention are live tiles (filled by attention at entry and
+  growth, then slot-stable and user-ordered by dragging — ux-flows §3.7); the rest become
+  the horizontal **snapshot strip** along the bottom. The strip *is* the rail, laid on its side; it is not
   a lesser surface, and clicking a card there promotes that session.
 
 ### 4.1 Switching
@@ -152,7 +153,11 @@ left-border, for the reason it needs you) or a **snapshot** (mono, `--term` grou
 
 **Tile** (tiled view) — header (state dot, title, where, context, timer), terminal body on
 `--term`, footer stating `live` or `stopped` plus the tile's geometry. Blocked and failed
-tiles take a coloured border; nothing else does.
+tiles take a coloured border; nothing else does. The header is the tile's **drag handle**
+(`cursor: grab`; the terminal body never starts a drag); while dragging, the source tile
+dims (`.dragging`) and the tile under the pointer takes a 1px inset `--line2` outline
+(`.drop-target`) — neutral tokens only, never a state colour (§3). The state dot carries
+a `title` with the state word so a hover explains the colour.
 
 **Buttons** — mono, 10.5px, 1px `--line2` border, transparent ground. Filled amber for the
 single primary action. No border-radius above 2px anywhere in the app.

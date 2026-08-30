@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { Session } from "../protocol";
-import { aliveOnly, applyDensity, densityCount, initialLive, promote, surfaceDiff } from "./live";
+import type { Session, SessionState } from "../protocol";
+import { aliveOnly, applyDensity, densityCount, initialLive, moveTile, promote, surfaceDiff } from "./live";
 
 // All sessions share the same state ("idle") with strictly increasing `stateSince`, so
 // sort.ts's tiebreak (stateSince ascending) makes the §3.4 sort order exactly the
@@ -78,17 +78,22 @@ describe("promote — sticky membership: promotes one id, demotes exactly the wo
     expect(result).toHaveLength(4);
   });
 
-  it("re-sorts the result into §3.4 order even though the demoted member wasn't last in the input array", () => {
-    // live given out of sort order (4 is worst but listed first) — 7 still displaces 4.
-    expect(promote([4, 1, 2, 3], 7, all)).toEqual([1, 2, 3, 7]);
+  it("demotes in place at the worst member's own index, even when that member isn't last in the input array (first-slot demotion, plan move-tiles REQ-1/W3)", () => {
+    // live given out of sort order (4 is worst but listed first) — 7 replaces 4's own
+    // slot (index 0); the array is never re-sorted.
+    expect(promote([4, 1, 2, 3], 7, all)).toEqual([7, 1, 2, 3]);
   });
 
-  it("is a no-op (re-sorted) when the id is already live", () => {
-    expect(promote([4, 1, 3, 2], 2, all)).toEqual([1, 2, 3, 4]);
+  it("demotes in place at the worst member's own index when that member sits in the middle of the input array (middle-slot demotion, W3)", () => {
+    expect(promote([1, 4, 2, 3], 7, all)).toEqual([1, 7, 2, 3]);
   });
 
-  it("is a no-op (re-sorted) when the id isn't a known session", () => {
-    expect(promote([3, 1, 2], 999, all)).toEqual([1, 2, 3]);
+  it("is a no-op, preserving the input's exact order (not re-sorted), when the id is already live", () => {
+    expect(promote([4, 1, 3, 2], 2, all)).toEqual([4, 1, 3, 2]);
+  });
+
+  it("is a no-op, preserving the input's exact order (not re-sorted), when the id isn't a known session", () => {
+    expect(promote([3, 1, 2], 999, all)).toEqual([3, 1, 2]);
   });
 
   it("promotes into a single-member live set by replacing that one member", () => {
@@ -99,9 +104,10 @@ describe("promote — sticky membership: promotes one id, demotes exactly the wo
     expect(promote([], 1, all)).toEqual([]);
   });
 
-  it("demoting an already-stale live id (not in the session list) demotes that one first", () => {
-    // 999 isn't a known session; promoting 7 must displace the stale entry, not a valid one.
-    expect(promote([1, 999, 2], 7, all)).toEqual([1, 2, 7]);
+  it("demoting an already-stale live id (not in the session list) demotes that one first, in its own slot (last-slot-equivalent: the stale entry, wherever it sits, is worst)", () => {
+    // 999 isn't a known session; promoting 7 must displace the stale entry's own slot
+    // (index 1) — no valid member moves.
+    expect(promote([1, 999, 2], 7, all)).toEqual([1, 7, 2]);
   });
 });
 
@@ -129,8 +135,11 @@ describe("applyDensity — shrink", () => {
     expect(applyDensity([1, 2, 3, 4, 5, 6], 4, sessions([1, 2, 3, 4, 5, 6]))).toEqual([1, 2, 3, 4]);
   });
 
-  it("re-sorts before truncating, so an out-of-order live set still keeps its best members", () => {
-    expect(applyDensity([6, 1, 5, 2, 4, 3], 4, sessions([1, 2, 3, 4, 5, 6]))).toEqual([1, 2, 3, 4]);
+  it("keeps survivors in their existing relative order instead of re-sorting them, for a deliberately out-of-order input (W4)", () => {
+    // Top 4 by §3.4 order are {1,2,3,4}; the plan requires their INPUT relative order
+    // (1,2,4,3, taken from the live array [6,1,5,2,4,3] with 6 and 5 dropped) to survive,
+    // not a re-sort to §3.4 order (1,2,3,4).
+    expect(applyDensity([6, 1, 5, 2, 4, 3], 4, sessions([1, 2, 3, 4, 5, 6]))).toEqual([1, 2, 4, 3]);
   });
 });
 
@@ -167,6 +176,81 @@ describe("applyDensity — a newly-launched session fills a genuinely free slot 
   it("does not touch a live set that's already at capacity, even when a new session appears", () => {
     expect(applyDensity([1, 2, 3, 4], 4, sessions([1, 2, 3, 4, 9]))).toEqual([1, 2, 3, 4]);
   });
+});
+
+describe("moveTile (plan move-tiles REQ-3/W6): pure insert-and-shift reorder — the only way the grid's order ever changes", () => {
+  it("forward drag: dragging the first tile onto a later tile — plan edge case 2's worked example ([A,B,C,D] drop A on C -> [B,C,A,D])", () => {
+    expect(moveTile([1, 2, 3, 4], 1, 3)).toEqual([2, 3, 1, 4]);
+  });
+
+  it("backward drag: dragging the last tile onto an earlier tile — plan edge case 2's worked example ([A,B,C,D] drop D on B -> [A,D,B,C])", () => {
+    expect(moveTile([1, 2, 3, 4], 4, 2)).toEqual([1, 4, 2, 3]);
+  });
+
+  it("is identity (new array, same contents) when a tile is dropped on itself (edge case 1, W7)", () => {
+    const input = [1, 2, 3, 4];
+    const result = moveTile(input, 2, 2);
+    expect(result).toEqual([1, 2, 3, 4]);
+    expect(result).not.toBe(input);
+  });
+
+  it("is identity when the dragged id is no longer live — session removed mid-drag (edge case 6, W7)", () => {
+    const input = [1, 2, 3, 4];
+    const result = moveTile(input, 9, 2);
+    expect(result).toEqual([1, 2, 3, 4]);
+    expect(result).not.toBe(input);
+  });
+
+  it("is identity when the target id is no longer live — drop target removed mid-drag (W7)", () => {
+    const input = [1, 2, 3, 4];
+    const result = moveTile(input, 2, 9);
+    expect(result).toEqual([1, 2, 3, 4]);
+    expect(result).not.toBe(input);
+  });
+
+  it("preserves set membership and length for a middle-to-middle move", () => {
+    const result = moveTile([1, 2, 3, 4, 5], 2, 4);
+    expect(result).toHaveLength(5);
+    expect([...result].sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it("dragging a tile one slot forward is a plain adjacent swap", () => {
+    expect(moveTile([1, 2, 3, 4], 2, 3)).toEqual([1, 3, 2, 4]);
+  });
+
+  it("dragging a tile one slot backward is a plain adjacent swap", () => {
+    expect(moveTile([1, 2, 3, 4], 3, 2)).toEqual([1, 3, 2, 4]);
+  });
+});
+
+describe("applyDensity — INV-7: a priority change alone, with membership unchanged, never reorders the grid (REQ-2/W5)", () => {
+  // At capacity (stillValid.length === n), applyDensity's shrink branch keeps every
+  // member — toKeep is the top n of exactly n survivors, i.e. all of them — so the
+  // result is the input array's own order, filtered but not resorted. This table pins
+  // that for every §3.4 state, transitioning at the first, middle, and last slot.
+  const live = [1, 2, 3, 4];
+  const allStates: SessionState[] = ["needs_input", "failed", "planning", "working", "started", "idle"];
+  const slots: Array<{ label: string; id: number }> = [
+    { label: "first", id: 1 },
+    { label: "middle", id: 2 },
+    { label: "last", id: 4 },
+  ];
+
+  function withState(id: number, state: SessionState): Session[] {
+    return sessions([1, 2, 3, 4, 5, 6, 7, 8]).map((s) =>
+      s.id === id
+        ? { ...s, state, attention: state === "needs_input" ? { reason: "idle" as const, since: s.stateSince } : null }
+        : s,
+    );
+  }
+
+  for (const state of allStates) {
+    for (const slot of slots) {
+      it(`transitioning the ${slot.label}-slot member (id ${slot.id}) to "${state}" leaves the order [1,2,3,4] unchanged`, () => {
+        expect(applyDensity(live, 4, withState(slot.id, state))).toEqual([1, 2, 3, 4]);
+      });
+    }
+  }
 });
 
 describe("aliveOnly (REQ-13/INV-5/W8, plan m4-reconcile): filters a desired-live id list to actually-alive sessions", () => {

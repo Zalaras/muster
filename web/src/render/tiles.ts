@@ -4,7 +4,7 @@
 // rail card per the plan's UI spec: "the M1 card content on its side".
 import type { Session } from "../protocol";
 import { buildDeadSurfaceFromTemplate, collectDeadSurfaceRefs, renderDeadSurface, type PaneState } from "./dead";
-import { buildCardViewModel } from "../sessions/card";
+import { buildCardViewModel, stateBadgeText } from "../sessions/card";
 import { formatEndedAge, formatEndedAgo } from "../sessions/format";
 import { renderContextRow } from "./context";
 import { buildActionButton, reconcileCards, type SessionAction } from "./sessions";
@@ -39,11 +39,16 @@ function updateTileChrome(root: HTMLElement, session: Session, now: Date): void 
   const vm = buildCardViewModel(session, now);
   root.className = `tile ${vm.stateClass}${vm.ended ? " ended" : ""}`;
 
+  const dot = root.querySelector<HTMLElement>(".sdot");
   const name = root.querySelector<HTMLElement>(".nm");
   const where = root.querySelector<HTMLElement>(".wh");
   const ctx = root.querySelector<HTMLElement>(".ctxinfo");
   const timer = root.querySelector<HTMLElement>(".tm");
 
+  // REQ-9 (plan move-tiles): the dot carries no text of its own, so a hover is the only
+  // way to learn what its colour means — `title` is the same state word the badge/dead
+  // surface already use (`stateBadgeText`), not a second copy.
+  if (dot) dot.title = stateBadgeText(session.state);
   if (name) name.textContent = vm.title;
   if (where) where.textContent = vm.repoLine;
   if (ctx) renderContextRow(ctx, session.context, "ctxinfo");

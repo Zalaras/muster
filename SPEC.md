@@ -820,6 +820,23 @@ implemented:
   musterd, confirm no hook-error lines) is Damian's post-merge acceptance step, recorded
   in `spikes/canary-fields.md` once run.
 
+### 2026-08-29 — Tiles grid slot-stable + drag reorder (plan `move-tiles`, via `/orchestrate`)
+
+- The Tiles grid no longer re-sorts itself by §3.4 attention priority: `promote` lands the
+  promoted session in the demoted tile's slot, `applyDensity` keeps survivors' relative
+  order (shrink drops lowest-priority wherever they sit, grow/backfill append), and only
+  the user reorders. Amends ux-flows §3.7's "in the same order §3.4 defines" (decided
+  with Damian 2026-08-29). Order is per-window and ephemeral like `tilesLive` membership —
+  no protocol or prefs change.
+- Drag-to-reorder: the tile header (`.thead`) is the only drag handle; drop on another tile
+  is insert-and-shift (tab-bar semantics, chosen over swap). Feedback uses neutral
+  `--line2` only. Reorder is geometry-neutral (INV-6) and works with the daemon down.
+- State dot in the tile title was already shipped (design-system §3 tokens); the
+  green/orange/red palette floated in TODO was not adopted (§3: a state colour may only
+  mean that state). Added: `.sdot` `title` = state word on hover.
+- Measured during the run: a `mousedown` on the header blurs any focused control before
+  `dragstart`, so focus is now captured on `mousedown` and handed to `reconcileTilesGrid`.
+
 ### 2026-08-29 — canary harness real; pin 2.1.233 → 2.1.246 (plan `m4-canary`, main-session build)
 
 - `make canary` now drives the installed `claude` through the production

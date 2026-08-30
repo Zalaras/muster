@@ -260,8 +260,14 @@ These are designed, not afterthoughts — three of the four are *guaranteed* to 
 └───────────────┴────────────────┴───────────────────────┘
 ```
 
-- **Live tiles are the top N by attention**, in the same order §3.4 defines. Everything
-  else is a snapshot card in the strip; clicking one promotes that session into the grid.
+- **Live tiles are the top N by attention** at view entry and when the grid grows; §3.4
+  order fills the slots then. After that the grid is **slot-stable**: a promoted session
+  takes the demoted tile's slot, a departed tile's slot closes and the rest shift left,
+  and no state change ever moves a tile. Only the user reorders — **drag a tile by its
+  header** onto another tile to insert it there (the others shift). Order is per-window
+  and not persisted, like membership. (Amended 2026-08-29, plan `move-tiles`; before that
+  the grid re-sorted itself by §3.4 on every change.) Everything else is a snapshot card
+  in the strip, still §3.4-sorted; clicking one promotes that session into the grid.
 - **Density is a control** (2×2 / 3×2). A denser grid means narrower tiles, so each tile
   states its real geometry (72×26 at 2×2, 48×26 at 3×2). Narrow is safe; *inconsistent* is
   not (§3.2).

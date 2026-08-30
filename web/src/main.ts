@@ -29,11 +29,12 @@ import { buildTile, mountTileDeadSurface, renderStrip, renderTileFooterActions, 
 import { initLaunchModal, type LaunchModalElements } from "./render/launch";
 import { initConfirmDialogs, type ConfirmDialogs } from "./render/confirm";
 import { renderMainhead, type MainheadElements } from "./render/mainhead";
-import { captureFocusedControl, restoreFocusedControl } from "./render/focus";
+import { captureFocusedControl, type FocusedControl, restoreFocusedControl } from "./render/focus";
 import { collectDeadSurfaceRefs, loadPane, renderDeadSurface, type DeadSurfaceRefs, type PaneState } from "./render/dead";
+import { installTileDrag } from "./render/tiledrag";
 import { endSession, putPrefs, removeSession, resumeSession, type ApiResult } from "./api";
 import { type Density, type Prefs, type Session, type Usage, UNKNOWN_USAGE } from "./protocol";
-import { aliveOnly, applyDensity, densityCount, initialLive, promote, surfaceDiff } from "./sessions/live";
+import { aliveOnly, applyDensity, densityCount, initialLive, moveTile, promote, surfaceDiff } from "./sessions/live";
 import { SessionStore } from "./sessions/store";
 import { sortSessions } from "./sessions/sort";
 import { TerminalSurface } from "./terminal/pane";
@@ -96,10 +97,21 @@ const store = new SessionStore();
 // never a local optimistic update, so every open window converges on the same broadcast
 // (INV-4). `focusedId`/`tilesLive` are per-window, ephemeral, client-only state: Focus's
 // explicit focus and Tiles' sticky live-tile membership are never synced across windows.
+// `tilesLive`'s ORDER (not just its membership) is also client-only and user-owned as of
+// plan move-tiles: `promote`/`applyDensity` never reorder it, and the only thing that
+// ever changes the array's order is a drag (`moveTile`, wired below via
+// `installTileDrag`) — see sessions/live.ts's header comment for the full rule.
 let view: "focus" | "tiles" = "focus";
 let density: Density = "2x2";
 let focusedId: number | null = null;
 let tilesLive: number[] = [];
+// Fix attempt 2 (REQ-10/E6): a drag's initiating `mousedown` blurs any focused control in
+// the grid to `<body>` before `dragstart`/`drop` ever runs, so `reconcileTilesGrid`'s own
+// live `captureFocusedControl` call always finds nothing by drop time. `tiledrag.ts`
+// captures the pre-blur snapshot on that `mousedown` instead and hands it back through
+// `onMove`; this holds it for the one `reconcileTilesGrid` pass the resulting `render()`
+// call triggers, then is cleared so it never leaks into an unrelated later render.
+let pendingTileFocus: FocusedControl | null = null;
 // M3: the account-global Usage object, from the initial `snapshot` and every subsequent
 // `usage` broadcast (docs/protocol.md §5.4) — re-rendered every pass (like the rest of
 // `render()`) so REQ-14's reset-time formatting stays current against the wall clock.
@@ -445,7 +457,14 @@ function reconcileTilesGrid(liveSessions: readonly Session[], now: Date, connect
   // card blurs a focused tile-footer button when a priority change reorders the grid
   // (measured: survives 2.5 s of ticks, falls to `<body>` on the reorder). Snapshot the
   // focused logical control before the loop; re-focus it after if the move blurred it.
-  const focused = captureFocusedControl(tilesGridEl);
+  //
+  // Fix attempt 2 (REQ-10/E6): for a drag-triggered reorder, focus is already gone by the
+  // time we get here (the drag's `mousedown` blurred it before `dragstart`/`drop` ever
+  // ran) — `installTileDrag`'s `onMove` callback stashed the pre-blur snapshot in
+  // `pendingTileFocus` for exactly this pass. Prefer it when present; always consume it
+  // (clear it) so a stale snapshot can never apply to a later, unrelated render.
+  const focused = pendingTileFocus ?? captureFocusedControl(tilesGridEl);
+  pendingTileFocus = null;
 
   let previousRoot: HTMLElement | null = null;
   for (const session of liveSessions) {
@@ -595,6 +614,18 @@ viewFocusBtn.addEventListener("click", () => requestView("focus"));
 viewTilesBtn.addEventListener("click", () => requestView("tiles"));
 density2x2Btn.addEventListener("click", () => requestDensity("2x2"));
 density3x2Btn.addEventListener("click", () => requestDensity("3x2"));
+
+// plan move-tiles REQ-4/REQ-5/REQ-8: delegated drag-to-reorder on the grid container —
+// installed once, covers every tile the reconciler ever builds, works even with the
+// daemon down (ordering is client-only state, untouched by connection status).
+installTileDrag(tilesGridEl, (draggedId, targetId, focusedBeforeDrag) => {
+  tilesLive = moveTile(tilesLive, draggedId, targetId);
+  // See `pendingTileFocus`'s declaration: the drop's own `mousedown` already blurred
+  // whatever was focused by the time we get here, so `reconcileTilesGrid`'s live capture
+  // would find nothing — feed it this pre-blur snapshot instead, for this one pass only.
+  pendingTileFocus = focusedBeforeDrag;
+  render();
+});
 
 // design-system §4.1 / ux-flows §3.8: ⌘\ toggles the view; ⌘1–9 keeps its meaning in
 // both views. ⌘N (launch modal) is wired separately in render/launch.ts.

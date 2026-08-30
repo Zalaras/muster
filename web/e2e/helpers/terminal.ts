@@ -129,6 +129,90 @@ export async function expectTileGeometryMatchesTmux(
 }
 
 /**
+ * Waits until every listed tile's footer geometry agrees with a fresh tmux read, for ALL
+ * of them at once in the same poll iteration.
+ *
+ * This differs from calling `expectTileGeometryMatchesTmux` once per tile in a sequential
+ * loop: a freshly-populated 2x2 grid settles as one shared reflow (all tiles resize
+ * together as the grid's own layout finishes, not independently), so a per-tile loop can
+ * observe tile 0 "matched" on its own poll cycle, move on to tile 1, and never re-check
+ * tile 0 again — even though a later shared reflow (triggered while waiting on tile 1/2/3)
+ * still changes tile 0's true final size after that early match. move-tiles E2E validate
+ * attempt 2 hit exactly this: a per-tile sequential wait still produced an off-by-one
+ * "before" vs "after" height on a pure reorder, purely from this race, on every one of 8
+ * repeated runs. Requiring all tiles to match in the *same* poll callback closes it: the
+ * poll only returns true once every tile agrees simultaneously, so an in-flight shared
+ * reflow that would invalidate an earlier match keeps the whole poll failing until it's
+ * truly done everywhere.
+ */
+export async function expectAllTileGeometrySettled(
+  page: Page,
+  daemon: ScratchDaemon,
+  entries: ReadonlyArray<{ title: string; tmuxTarget: string }>,
+): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        for (const { title, tmuxTarget } of entries) {
+          const text = await liveTile(page, title).locator(".geo").textContent();
+          if (!text) return `no-geo-text:${title}`;
+          const match = /(\d+)\s*×\s*(\d+)/.exec(text);
+          if (!match) return `unparseable:${title}:${text}`;
+          const [, footerCols, footerRows] = match;
+          const width = await daemon.tmuxDisplay(tmuxTarget, "#{window_width}");
+          const height = await daemon.tmuxDisplay(tmuxTarget, "#{window_height}");
+          if (footerCols !== width || footerRows !== height) {
+            return `mismatch:${title}:footer ${footerCols}x${footerRows} vs tmux ${width}x${height}`;
+          }
+        }
+        return "match";
+      },
+      { timeout: 15_000 },
+    )
+    .toBe("match");
+}
+
+/**
+ * Plan move-tiles' drag handle locator: the Testable UI Elements table pins
+ * `article.tile .thead[draggable="true"]` as "the only draggable element in a tile"
+ * (REQ-4) — this is the sole source locator for every drag-based reorder in the suite.
+ * Scoped through `liveTile` so a dragged/target title still disambiguates from the same
+ * session's strip/rail card the way every other tile locator in this file does.
+ */
+export function tileDragHandle(page: Page, title: string): Locator {
+  return liveTile(page, title).locator(".thead");
+}
+
+/**
+ * The state dot inside a tile (move-tiles REQ-9: gains a `title` attribute with the
+ * lowercase state word — `.sdot[title]` per the Testable UI Elements table).
+ */
+export function tileStateDot(page: Page, title: string): Locator {
+  return liveTile(page, title).locator(".sdot");
+}
+
+/**
+ * The grid-order oracle move-tiles' Testable UI Elements table names directly:
+ * `#tiles-grid article.tile .nm` in DOM order. Every reorder assertion in that plan reads
+ * titles through this one helper so a locator fix (if the real markup diverges) only ever
+ * needs to happen here.
+ */
+export async function tilesGridOrder(page: Page): Promise<string[]> {
+  return await page.locator("#tiles-grid article.tile .nm").allInnerTexts();
+}
+
+/**
+ * Drags a live tile's header onto another live tile — move-tiles REQ-5: "Dropping a tile
+ * drag on another tile (anywhere on that tile, header or body) applies `moveTile`", so the
+ * source must be the `.thead` handle (REQ-4) but the drop target is the whole tile.
+ * `locator.dragTo` drives real HTML5 DnD in Chromium (plan Implementation Notes) as long
+ * as the source element itself is `draggable="true"`, which is exactly what `.thead` is.
+ */
+export async function dragTileOnto(page: Page, draggedTitle: string, targetTitle: string): Promise<void> {
+  await tileDragHandle(page, draggedTitle).dragTo(liveTile(page, targetTitle));
+}
+
+/**
  * Parses the Focus sizenote line's leading `<cols>×<rows>` (REQ-15, a-instrument mockup:
  * `<cols>×<rows> · one live client · geometry owned by this pane`) out of its text
  * content, for E4's cross-check against the tmux geometry oracle.

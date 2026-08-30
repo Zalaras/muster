@@ -656,6 +656,18 @@ body {
   border-color: var(--border-failed);
 }
 
+/* plan move-tiles REQ-4/REQ-6: drag feedback uses only the neutral `--line2` token —
+ * never a state colour (design-system §3: state colour is meaning, and a drag is not a
+ * state). `.dragging` is the drag source, `.drop-target` is whichever tile the pointer is
+ * currently over; both are cleared on drop/dragend (render/tiledrag.ts). */
+.tile.dragging {
+  opacity: 0.6;
+}
+.tile.drop-target {
+  outline: 1px solid var(--line2);
+  outline-offset: -1px;
+}
+
 .thead {
   flex: none;
   display: flex;
@@ -665,6 +677,11 @@ body {
   background: var(--panel);
   border-bottom: 1px solid var(--line);
   min-width: 0;
+  cursor: grab;
+}
+
+.tile.dragging .thead {
+  cursor: grabbing;
 }
 
 .thead .sdot {

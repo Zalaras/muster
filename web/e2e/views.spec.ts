@@ -1,14 +1,19 @@
 import { expect, test } from "@playwright/test";
 import { type ScratchDaemon, startScratchDaemon } from "./helpers/daemon";
 import { envelopedSessionStart, rawNotification, rawUserPromptSubmit } from "./helpers/payloads";
-import { launchSession, scratchDirectory, sessionCard, stateBadge } from "./helpers/session";
+import { launchSession, scratchDirectory, type SessionObject, sessionCard, stateBadge } from "./helpers/session";
 import {
+  dragTileOnto,
+  expectAllTileGeometrySettled,
   expectTileGeometryMatchesTmux,
   liveTile,
   stripCard,
   TerminalSocketTracker,
   terminalOverlay,
   terminalRegion,
+  tileDragHandle,
+  tileStateDot,
+  tilesGridOrder,
 } from "./helpers/terminal";
 
 // Plan m2-terminal — REQ-8 (Tiles), REQ-9 (view switcher/keyboard), REQ-10 (prefs),
@@ -479,5 +484,283 @@ test("GET /api/state's prefs snapshot carries both view and density (M2 protocol
     const afterRes = await page.request.get(`${daemon.baseURL}/api/state`);
     const after = (await afterRes.json()) as { prefs: { view: string; density: string } };
     expect(after.prefs).toEqual({ view: "focus", density: "3x2" });
+  });
+});
+
+// Plan move-tiles — REQ-1 through REQ-10, INV-3/6/7. The Tiles grid stops re-sorting
+// itself on every render (m2-terminal's `promote`/`applyDensity` auto-sort, the same
+// re-sort behind the m4-reconcile focus-on-reorder Minor); only a drag reorders it. Every
+// test below gets its own private daemon for the same reason as the rest of this file:
+// order and density are both functions of the daemon's total session count/state, which
+// would leak across parallel tests sharing one daemon.
+
+test("dragging a tile's header onto another tile reorders forward, preserves tmux geometry, and clears drag classes (E1, E3, E4)", async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await withDaemon(async (daemon) => {
+    const dirs = await Promise.all(Array.from({ length: 4 }, () => scratchDirectory()));
+    try {
+      await page.goto(daemon.dashboardUrl);
+      const titles = dirs.map((_, i) => `mv-fwd-${i}`);
+      const sessions: SessionObject[] = [];
+      for (const [i, dir] of dirs.entries()) {
+        sessions.push(await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" }));
+      }
+
+      await page.getByRole("button", { name: "Tiles" }).click();
+      await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute("aria-pressed", "true");
+      for (const t of titles) {
+        await expect(liveTile(page, t)).toBeVisible();
+      }
+
+      const orderBefore = await tilesGridOrder(page);
+      expect(orderBefore).toHaveLength(4);
+      const [slot1, slot2, slot3, slot4] = orderBefore;
+      if (!slot1 || !slot2 || !slot3 || !slot4) throw new Error("expected 4 distinct tile titles");
+
+      // E3/INV-6 baseline: every live tile's real tmux geometry before the drop.
+      //
+      // A freshly-launched 2x2 grid does not arrive at its final fitted size the instant
+      // its tiles become visible: the initial refit reaches tmux asynchronously (same race
+      // `expectTileGeometryMatchesTmux`'s doc comment describes for a density change), and
+      // it settles as one shared reflow across all four tiles together rather than tile by
+      // tile — a diagnostic trace read tmux=130x25 (pre-fit) -> 84x11 (footer already ahead,
+      // reading 10) -> 84x10 (both agree, held for 9+ subsequent seconds), on every tile at
+      // once. Capturing "before" synchronously right after `toBeVisible()` (as this test
+      // originally did) races that settle. Waiting per tile in a sequential loop is *also*
+      // insufficient — an early-matched tile can still be invalidated by a later shared
+      // reflow that finishes while a later tile in the loop is still being waited on; this
+      // reproduced an off-by-one "before" vs "after" height on 8/8 repeated runs. Waiting
+      // for every tile to agree with a fresh tmux read *simultaneously*
+      // (`expectAllTileGeometrySettled`) closes both races: it only returns once no tile is
+      // mid-reflow. This changes when the baseline is captured, not what is asserted — the
+      // invariant under test (a pure reorder never touches geometry) is unchanged.
+      const byTitle = new Map(titles.map((t, i) => [t, sessions[i]]));
+      const geometryEntries = titles.map((t) => {
+        const s = byTitle.get(t);
+        if (!s) throw new Error(`no session object for ${t}`);
+        return { title: t, tmuxTarget: s.tmuxTarget };
+      });
+      await expectAllTileGeometrySettled(page, daemon, geometryEntries);
+
+      const widthBefore = new Map<string, string>();
+      const heightBefore = new Map<string, string>();
+      for (const t of titles) {
+        const s = byTitle.get(t);
+        if (!s) throw new Error(`no session object for ${t}`);
+        widthBefore.set(t, await daemon.tmuxDisplay(s.tmuxTarget, "#{window_width}"));
+        heightBefore.set(t, await daemon.tmuxDisplay(s.tmuxTarget, "#{window_height}"));
+      }
+
+      // Edge Case 2 forward case: [A,B,C,D], drop A on C -> [B,C,A,D].
+      await dragTileOnto(page, slot1, slot3);
+
+      await expect.poll(() => tilesGridOrder(page), { timeout: 15_000 }).toEqual([slot2, slot3, slot1, slot4]);
+
+      // E4: both drag-feedback classes are cleared once the drop completes.
+      await expect(page.locator("article.tile.dragging")).toHaveCount(0);
+      await expect(page.locator("article.tile.drop-target")).toHaveCount(0);
+
+      // E3/INV-6: geometry is untouched by a pure reorder — read the tmux oracle fresh on
+      // both sides (not the tile footer, which a stale value would satisfy just as well).
+      for (const t of titles) {
+        const s = byTitle.get(t);
+        if (!s) throw new Error(`no session object for ${t}`);
+        const widthAfter = await daemon.tmuxDisplay(s.tmuxTarget, "#{window_width}");
+        const heightAfter = await daemon.tmuxDisplay(s.tmuxTarget, "#{window_height}");
+        expect(widthAfter).toBe(widthBefore.get(t));
+        expect(heightAfter).toBe(heightBefore.get(t));
+      }
+    } finally {
+      await Promise.all(dirs.map((d) => d.cleanup()));
+    }
+  });
+});
+
+test("dragging a tile's header onto an earlier tile reorders backward (E2)", async ({ page }) => {
+  test.setTimeout(60_000);
+  await withDaemon(async (daemon) => {
+    const dirs = await Promise.all(Array.from({ length: 4 }, () => scratchDirectory()));
+    try {
+      await page.goto(daemon.dashboardUrl);
+      const titles = dirs.map((_, i) => `mv-bwd-${i}`);
+      for (const [i, dir] of dirs.entries()) {
+        await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" });
+      }
+
+      await page.getByRole("button", { name: "Tiles" }).click();
+      await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute("aria-pressed", "true");
+      for (const t of titles) {
+        await expect(liveTile(page, t)).toBeVisible();
+      }
+
+      const orderBefore = await tilesGridOrder(page);
+      expect(orderBefore).toHaveLength(4);
+      const [slot1, slot2, slot3, slot4] = orderBefore;
+      if (!slot1 || !slot2 || !slot3 || !slot4) throw new Error("expected 4 distinct tile titles");
+
+      // Edge Case 2 backward case: [A,B,C,D], drop D on B -> [A,D,B,C].
+      await dragTileOnto(page, slot4, slot2);
+
+      await expect.poll(() => tilesGridOrder(page), { timeout: 15_000 }).toEqual([slot1, slot4, slot2, slot3]);
+    } finally {
+      await Promise.all(dirs.map((d) => d.cleanup()));
+    }
+  });
+});
+
+test("clicking a strip card at capacity places the promoted tile into the demoted tile's former index (E7, REQ-1)", async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await withDaemon(async (daemon) => {
+    const dirs = await Promise.all(Array.from({ length: 5 }, () => scratchDirectory()));
+    try {
+      await page.goto(daemon.dashboardUrl);
+      const titles = dirs.map((_, i) => `mv-prm-${i}`);
+      for (const [i, dir] of dirs.entries()) {
+        await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" });
+      }
+
+      await page.getByRole("button", { name: "Tiles" }).click();
+      await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute("aria-pressed", "true");
+
+      let strippedTitle: string | undefined;
+      for (const t of titles) {
+        if ((await liveTile(page, t).count()) === 0) strippedTitle = t;
+      }
+      if (!strippedTitle) throw new Error("expected exactly one stripped title at 2x2 with 5 sessions");
+
+      const orderBefore = await tilesGridOrder(page);
+      expect(orderBefore).toHaveLength(4);
+
+      await stripCard(page, strippedTitle).click();
+      await expect(liveTile(page, strippedTitle)).toBeVisible();
+      await expect(stripCard(page, strippedTitle)).toHaveCount(0);
+
+      const orderAfter = await tilesGridOrder(page);
+      expect(orderAfter).toHaveLength(4);
+
+      // REQ-1: the promoted id lands in the demoted (worst-ranked) member's slot, and
+      // every other index is untouched — assert both halves at once by reconstructing the
+      // expected array from `orderBefore` with only the demoted slot swapped.
+      const demotedTitle = orderBefore.find((t) => !orderAfter.includes(t));
+      if (!demotedTitle) throw new Error("expected exactly one demoted title");
+      const expectedOrder = orderBefore.map((t) => (t === demotedTitle ? strippedTitle : t));
+      expect(orderAfter).toEqual(expectedOrder);
+    } finally {
+      await Promise.all(dirs.map((d) => d.cleanup()));
+    }
+  });
+});
+
+test("a drag released over the strip leaves the tile order unchanged (E8)", async ({ page }) => {
+  test.setTimeout(60_000);
+  await withDaemon(async (daemon) => {
+    const dirs = await Promise.all(Array.from({ length: 5 }, () => scratchDirectory()));
+    try {
+      await page.goto(daemon.dashboardUrl);
+      const titles = dirs.map((_, i) => `mv-strip-${i}`);
+      for (const [i, dir] of dirs.entries()) {
+        await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" });
+      }
+
+      await page.getByRole("button", { name: "Tiles" }).click();
+      await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute("aria-pressed", "true");
+
+      let strippedTitle: string | undefined;
+      for (const t of titles) {
+        if ((await liveTile(page, t).count()) === 0) strippedTitle = t;
+      }
+      if (!strippedTitle) throw new Error("expected exactly one stripped title at 2x2 with 5 sessions");
+
+      const orderBefore = await tilesGridOrder(page);
+      expect(orderBefore).toHaveLength(4);
+      const draggedTitle = orderBefore[0];
+      if (!draggedTitle) throw new Error("expected a live tile to drag");
+
+      // Edge Case 3: `dragover` is never prevented outside `#tiles-grid`, so the browser's
+      // own `drop` never fires here — `dragTo` still completes the mouse gesture either way.
+      // The drop target is the strip card itself (outside the grid), not another tile, so
+      // this drags the raw `.thead` handle directly rather than going through
+      // `dragTileOnto` (which always targets a live tile).
+      await tileDragHandle(page, draggedTitle).dragTo(stripCard(page, strippedTitle));
+
+      await expect(page.locator("article.tile.dragging")).toHaveCount(0);
+      await expect(page.locator("article.tile.drop-target")).toHaveCount(0);
+      expect(await tilesGridOrder(page)).toEqual(orderBefore);
+    } finally {
+      await Promise.all(dirs.map((d) => d.cleanup()));
+    }
+  });
+});
+
+test("a drag still reorders the grid while the daemon is down (E9, REQ-8)", async ({ page }) => {
+  test.setTimeout(60_000);
+  await withDaemon(async (daemon) => {
+    const dirs = await Promise.all(Array.from({ length: 4 }, () => scratchDirectory()));
+    try {
+      await page.goto(daemon.dashboardUrl);
+      const titles = dirs.map((_, i) => `mv-down-${i}`);
+      for (const [i, dir] of dirs.entries()) {
+        await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" });
+      }
+
+      await page.getByRole("button", { name: "Tiles" }).click();
+      await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute("aria-pressed", "true");
+      for (const t of titles) {
+        await expect(liveTile(page, t)).toBeVisible();
+      }
+
+      const orderBefore = await tilesGridOrder(page);
+      expect(orderBefore).toHaveLength(4);
+      const [slot1, slot2, slot3, slot4] = orderBefore;
+      if (!slot1 || !slot2 || !slot3 || !slot4) throw new Error("expected 4 distinct tile titles");
+
+      await daemon.kill();
+      const banner = page.getByRole("alert");
+      await expect(banner).toBeVisible({ timeout: 15_000 });
+
+      // REQ-8: ordering is client-only state — a drag while the banner shows still
+      // reorders the grid, exactly per Edge Case 2's forward case.
+      await dragTileOnto(page, slot1, slot3);
+      await expect.poll(() => tilesGridOrder(page), { timeout: 15_000 }).toEqual([slot2, slot3, slot1, slot4]);
+    } finally {
+      await Promise.all(dirs.map((d) => d.cleanup()));
+    }
+  });
+});
+
+test("a tile's state dot title tracks the state word, and updates on a real state change (E10, REQ-9)", async ({
+  page,
+  request,
+}) => {
+  await withDaemon(async (daemon) => {
+    const { path: dir, cleanup } = await scratchDirectory();
+    try {
+      await page.goto(daemon.dashboardUrl);
+      const session = await launchSession(page, daemon, { directory: dir, title: "mv-dot" });
+
+      await page.getByRole("button", { name: "Tiles" }).click();
+      await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute("aria-pressed", "true");
+      await expect(liveTile(page, "mv-dot")).toBeVisible();
+
+      const dot = tileStateDot(page, "mv-dot");
+      await expect(dot).toHaveAttribute("title", "started");
+
+      const claudeId = "claude-mv-dot";
+      await request.post(daemon.ingestURL("hook"), {
+        data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      });
+      await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit(claudeId) });
+      await request.post(daemon.ingestURL("hook"), {
+        data: rawNotification(claudeId, "p1", "permission_prompt"),
+      });
+
+      await expect(dot).toHaveAttribute("title", "needs input", { timeout: 15_000 });
+    } finally {
+      await cleanup();
+    }
   });
 });
