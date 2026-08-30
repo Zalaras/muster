@@ -65,7 +65,8 @@ message (additive fields don't bump it).
 | `POST /api/sessions` | M1 | Launch a session |
 | `GET /api/repos` | M1 | Directory picker list |
 | `GET /api/browse` | M1 | Folder-browser directory listing (§3.6) |
-| `PUT /api/prefs` | M2 | Persist UI preferences (view + density) |
+| `PUT /api/prefs` | M2 | Persist UI preferences (view + density + usageModel) |
+| `POST /api/usage/refresh` | Pre-v1 (`usage-model-bar`) | Force an immediate per-model usage fetch |
 | `GET /api/sessions/{id}/pane` | M4 | Last captured pane screen (§3.4) — display source only |
 | `POST /api/sessions/{id}/resume` | M4 | `claude --resume` a dead session in a fresh pane (§3.5) |
 | `POST /api/sessions/{id}/end` | M4 | Kill a live session's tmux session (§3.7) |
@@ -127,15 +128,16 @@ dashboard browses via the daemon instead.
 
 ```jsonc
 { "view": "tiles",       // optional: "focus" | "tiles"
-  "density": "3x2" }     // optional: "2x2" | "3x2" — the Tiles grid density
+  "density": "3x2",      // optional: "2x2" | "3x2" — the Tiles grid density
+  "usageModel": "Fable" } // optional: 1–32 chars after trim — which per-model weekly window the masthead shows (usage-model-bar, 2026-08-30)
 ```
 
 → `204`, no body. Persisted in kv under one JSON key (survives daemon restarts —
 ux-flows §3.8) and re-broadcast to all UI sockets as a `prefs` message carrying the
 **full** prefs object, which is how a second window stays in sync. Defaults before any
-PUT: `{"view":"focus","density":"2x2"}`.
-**Errors:** 400 `invalid_request` — body not JSON, no known field present, or a field
-value outside its enum.
+PUT: `{"view":"focus","density":"2x2","usageModel":"Fable"}`.
+**Errors:** 400 `invalid_request` — body not JSON, no known field present, a field
+value outside its enum, or `usageModel` empty / longer than 32 chars.
 
 ### 3.4 `GET /api/sessions/{id}/pane` (M4 — m4-reconcile, 2026-08-26; was deferred from M2)
 
@@ -212,6 +214,13 @@ then the row is deleted and `sessionRemoved` (§5.5) is broadcast. `event` rows 
 
 `204`. Errors: `404 unknown_session`; `500 end_failed` (alive and the kill failed — the
 row is **not** deleted).
+
+### 3.9 `POST /api/usage/refresh` (Pre-v1 — `usage-model-bar`, 2026-08-30)
+
+**Auth**: UI cookie (401 `unauthorized`). No body. Wakes the per-model usage poller
+(§5.4 `modelScoped`) for an immediate fetch; concurrent requests coalesce into at most one
+in-flight fetch. → `202`, no body; the result arrives as a `usage` message. Errors:
+`404 not_found` — polling disabled (`musterd -usage-poll 0`).
 
 ## 4. HTTP endpoints — ingest (Claude Code → daemon)
 
@@ -415,7 +424,12 @@ M3 value semantics (m3-gauges, 2026-08-23 — supersede the M1 rules for title/m
     "sevenDay": { "usedPct": 23.0, "resetsAt": "2026-08-22T06:00:00Z" },  // wire name seven_day; null as above
     "model": { "id": "claude-opus-5", "displayName": "Opus 5" },  // freshest sample's model (M3, masthead readout); null iff buckets null
     "sampledAt": "2026-08-20T09:15:31Z",   // null iff buckets null
-    "source": "subscription" } }            // the §9 Q6 seam: "api"/"otel" later
+    "source": "subscription",              // the §9 Q6 seam: "api"/"otel" later
+    "modelScoped": [                        // usage-model-bar (2026-08-30): per-model weekly windows from GET /api/oauth/usage; null until the first successful fetch, then the full list sorted by displayName ([] is a valid, distinct result)
+      { "displayName": "Fable", "usedPct": 61.0, "resetsAt": "2026-09-01T13:59:59Z" } ],
+    "modelScopedAt": "2026-08-30T10:00:00Z", // null iff modelScoped null — last successful fetch
+    "modelScopedError": null,               // null after a successful fetch; "no-credentials" | "unauthorized" | "unreachable" after a failed one — modelScoped keeps the last-good list
+    "modelScopedSource": "subscription-api" } } // constant in v1
 ```
 
 Percentages arrive as floats; the client rounds for display. The daemon records a sample
@@ -428,11 +442,20 @@ sample is recorded only from a **routed** status post (valid envelope) carrying 
 buckets and the model in the same payload; anything less persists as an event and feeds
 nothing.
 
+**Two sources, one object** (usage-model-bar, 2026-08-30): the `fiveHour`/`sevenDay`/`model`
+half comes from routed status posts as above; the `modelScoped*` half comes from musterd's
+own poll of Claude Code's `/api/oauth/usage` endpoint (default every 5 min, plus §3.9),
+because the status line filters the per-model window out (`spikes/FINDINGS.md`
+2026-08-30 addendum). Each half has its own change detection; a `usage` message is sent
+whenever **either** changes (or `modelScopedError` changes) and always carries the merged
+full object built at send time. Neither half hydrates across a daemon restart. The
+`usageModel` pref (§3.3) selects which `modelScoped` entry the masthead renders.
+
 ### 5.5 `sessionUpsert` and `prefs`
 
 ```jsonc
 { "type": "sessionUpsert", "session": { /* §5.3 */ } }
-{ "type": "prefs", "prefs": { "view": "tiles", "density": "3x2" } }  // M2; full-object echo of PUT /api/prefs
+{ "type": "prefs", "prefs": { "view": "tiles", "density": "3x2", "usageModel": "Fable" } }  // M2; full-object echo of PUT /api/prefs (usageModel added 2026-08-30)
 ```
 
 ```jsonc
@@ -597,6 +620,14 @@ exit — so the next startup sweeps it.
   (§7.3) — plan `m4-reconcile`; canary unskip — plan `m4-canary`.
 
 ## 9. Changelog
+
+- **2026-08-30 — §3.3/§3.9/§5.4/§5.5: per-model weekly usage** (plan `usage-model-bar`,
+  Pre-v1 Cleanup). The Usage object gains `modelScoped[]` (+ `modelScopedAt`,
+  `modelScopedError`, `modelScopedSource`), fed by musterd polling
+  `GET https://api.anthropic.com/api/oauth/usage` with the Claude Code OAuth token read
+  from the macOS Keychain (read-only) — the status line explicitly omits this window
+  (measured 2.1.251). `PUT /api/prefs` gains `usageModel` (default `"Fable"`); new
+  `POST /api/usage/refresh`. Additive; no version bump.
 
 - **2026-08-28 — §4.2/§7.3: rebinding is monotonic** (plan `m4-hook-lifetime`, review cycle 1
   Critical, Option B chosen by Damian; `plans/m4-hook-lifetime/decisions/monotonic-rebind/`).

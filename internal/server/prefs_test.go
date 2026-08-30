@@ -132,7 +132,7 @@ func TestHandlePutPrefs_PersistsToKVUnderOneJSONKey(t *testing.T) {
 	raw, ok, err := srv.store.KVGet(context.Background(), "prefs")
 	require.NoError(t, err)
 	require.True(t, ok)
-	assert.JSONEq(t, `{"view":"tiles","density":"3x2"}`, raw)
+	assert.JSONEq(t, `{"view":"tiles","density":"3x2","usageModel":"Fable"}`, raw)
 }
 
 func TestLoadPrefs_DefaultsBeforeAnyPUT(t *testing.T) {
@@ -292,9 +292,172 @@ func TestPrefs_PersistAcrossADaemonRestart(t *testing.T) {
 type prefsWire struct {
 	Type  string `json:"type"`
 	Prefs struct {
-		View    string `json:"view"`
-		Density string `json:"density"`
+		View       string `json:"view"`
+		Density    string `json:"density"`
+		UsageModel string `json:"usageModel"`
 	} `json:"prefs"`
+}
+
+// TestLoadPrefs_DefaultUsageModelIsFable covers §3.3's default-before-any-PUT clause for
+// the new field.
+func TestLoadPrefs_DefaultUsageModelIsFable(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+
+	got := srv.loadPrefs(context.Background())
+
+	assert.Equal(t, "Fable", got.UsageModel)
+}
+
+// TestHandlePutPrefs_UsageModelValidationErrors covers §3.3's 400 invalid_request
+// clause for usageModel: present and empty, or present and over 32 chars after trim.
+func TestHandlePutPrefs_UsageModelValidationErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+	}{
+		{"empty string", `{"usageModel":""}`},
+		{"whitespace-only string trims to empty", `{"usageModel":"   "}`},
+		{"33 chars, one over the limit", `{"usageModel":"` + strings.Repeat("x", 33) + `"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := newTestServer(t, ClaudeCodeInfo{})
+
+			rec := putPrefsRequest(t, srv, tt.body)
+
+			assert.Equal(t, http.StatusBadRequest, rec.Code)
+			assert.Equal(t, "invalid_request", decodeErrorCode(t, rec))
+		})
+	}
+}
+
+// TestHandlePutPrefs_UsageModelExactly32CharsIsAccepted covers the boundary of §3.3's
+// "1-32 chars after trim" range.
+func TestHandlePutPrefs_UsageModelExactly32CharsIsAccepted(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	name := strings.Repeat("x", 32)
+
+	rec := putPrefsRequest(t, srv, `{"usageModel":"`+name+`"}`)
+
+	require.Equal(t, http.StatusNoContent, rec.Code)
+	assert.Equal(t, name, srv.loadPrefs(context.Background()).UsageModel)
+}
+
+// TestHandlePutPrefs_SetsUsageModelOnlyLeavesViewAndDensityUntouched covers the
+// per-field independence REQ-8 requires, mirroring
+// TestHandlePutPrefs_SetsViewOnlyLeavesDensityUntouched for the third field.
+func TestHandlePutPrefs_SetsUsageModelOnlyLeavesViewAndDensityUntouched(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	require.Equal(t, http.StatusNoContent, putPrefsRequest(t, srv, `{"view":"tiles","density":"3x2"}`).Code)
+
+	rec := putPrefsRequest(t, srv, `{"usageModel":"Opus"}`)
+
+	require.Equal(t, http.StatusNoContent, rec.Code)
+	got := srv.loadPrefs(context.Background())
+	assert.Equal(t, "tiles", got.View, "a usageModel-only PUT must not reset view")
+	assert.Equal(t, "3x2", got.Density, "a usageModel-only PUT must not reset density")
+	assert.Equal(t, "Opus", got.UsageModel)
+}
+
+// TestHandlePutPrefs_UsageModelIsTrimmedBeforePersisting covers §3.3's "optional
+// string, 1-32 chars after trim" — the persisted/echoed value itself must be trimmed,
+// not just validated as if it were.
+func TestHandlePutPrefs_UsageModelIsTrimmedBeforePersisting(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+
+	rec := putPrefsRequest(t, srv, `{"usageModel":"  Opus  "}`)
+
+	require.Equal(t, http.StatusNoContent, rec.Code)
+	assert.Equal(t, "Opus", srv.loadPrefs(context.Background()).UsageModel)
+}
+
+// TestHandlePutPrefs_UsageModelPresentAloneSatisfiesAtLeastOneFieldRequired covers the
+// "at least one of view, density or usageModel is required" clause from usageModel's
+// side — a request naming only usageModel must not be rejected as empty.
+func TestHandlePutPrefs_UsageModelPresentAloneSatisfiesAtLeastOneFieldRequired(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+
+	rec := putPrefsRequest(t, srv, `{"usageModel":"Opus"}`)
+
+	assert.Equal(t, http.StatusNoContent, rec.Code)
+}
+
+// TestHandlePutPrefs_UsageModelPersistsToKVAlongsideViewAndDensity covers the plan's
+// Schema Changes note ("Prefs stay in the kv JSON blob") for the new field.
+func TestHandlePutPrefs_UsageModelPersistsToKVAlongsideViewAndDensity(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+
+	rec := putPrefsRequest(t, srv, `{"view":"tiles","density":"3x2","usageModel":"Opus"}`)
+	require.Equal(t, http.StatusNoContent, rec.Code)
+
+	raw, ok, err := srv.store.KVGet(context.Background(), "prefs")
+	require.NoError(t, err)
+	require.True(t, ok)
+	assert.JSONEq(t, `{"view":"tiles","density":"3x2","usageModel":"Opus"}`, raw)
+}
+
+// TestHandlePutPrefs_BroadcastsUsageModelInPrefsMessage covers D10/INV-4's echo clause
+// for the new field: an accepted PUT broadcasts the full prefs object including
+// usageModel to every connected UI socket.
+func TestHandlePutPrefs_BroadcastsUsageModelInPrefsMessage(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	httpSrv := httptest.NewServer(srv.Handler())
+	t.Cleanup(httpSrv.Close)
+	wsURL := "ws" + httpSrv.URL[len("http"):] + "/ws"
+
+	c, err := dialWS(t, wsURL, nil)
+	require.NoError(t, err)
+	defer func() { _ = c.CloseNow() }()
+	_ = readJSON[helloWire](t, c)
+	_ = readJSON[snapshotWire](t, c)
+
+	rec := putPrefsRequest(t, srv, `{"usageModel":"Opus"}`)
+	require.Equal(t, http.StatusNoContent, rec.Code)
+
+	msg := readJSON[prefsWire](t, c)
+	assert.Equal(t, "prefs", msg.Type)
+	assert.Equal(t, "Opus", msg.Prefs.UsageModel)
+}
+
+// TestLoadPrefs_InvalidUsageModelInKVFallsBackToFableIndependently extends
+// TestLoadPrefs_InvalidEnumValuesInKVFallBackPerField's per-field-independence coverage
+// to the third field: an over-length usageModel in a hand-edited/legacy kv row must
+// fall back to the default without discarding the other two fields.
+func TestLoadPrefs_InvalidUsageModelInKVFallsBackToFableIndependently(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	require.NoError(t, srv.store.KVSet(context.Background(), "prefs", `{"view":"tiles","density":"3x2","usageModel":""}`))
+
+	got := srv.loadPrefs(context.Background())
+
+	assert.Equal(t, "tiles", got.View)
+	assert.Equal(t, "3x2", got.Density)
+	assert.Equal(t, "Fable", got.UsageModel, "an invalid persisted usageModel must fall back to the default")
+}
+
+// TestPrefs_UsageModelPersistsAcrossADaemonRestart mirrors
+// TestPrefs_PersistAcrossADaemonRestart for the third field.
+func TestPrefs_UsageModelPersistsAcrossADaemonRestart(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "muster.db")
+	st1, err := store.Open(context.Background(), dbPath)
+	require.NoError(t, err)
+
+	srv1 := New(Config{
+		Store: st1, Logger: zerolog.Nop(), UIToken: testUIToken, IngestToken: testIngestToken,
+		WebDist: t.TempDir(), DaemonVersion: "test-version",
+	})
+	rec := putPrefsRequest(t, &testServer{Server: srv1}, `{"usageModel":"Opus"}`)
+	require.Equal(t, http.StatusNoContent, rec.Code)
+	require.NoError(t, st1.Close())
+
+	st2, err := store.Open(context.Background(), dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = st2.Close() })
+	srv2 := New(Config{
+		Store: st2, Logger: zerolog.Nop(), UIToken: testUIToken, IngestToken: testIngestToken,
+		WebDist: t.TempDir(), DaemonVersion: "test-version",
+	})
+
+	assert.Equal(t, "Opus", srv2.loadPrefs(context.Background()).UsageModel)
 }
 
 // assertNoPrefsMessageArrives reads with a short deadline and requires that either the

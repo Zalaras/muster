@@ -108,7 +108,7 @@ are always reachable, and the switcher sits in the masthead beside the brand.
 | **Tiles** | grid of live tiles + snapshot strip | *show me several at once* | `mockups/d-tiled.html` |
 
 What is identical across both, and must stay identical: the **masthead** (brand, switcher,
-5-hour bar, 7-day bar, model, daemon health), the **state colours and badges**, the
+5-hour bar, 7-day bar, model-week (selectable), refresh, model, daemon health), the **state colours and badges**, the
 **attention ordering**, and the **degraded states**. A user should never have to re-learn
 anything when switching.
 
@@ -144,7 +144,7 @@ This is the one rule that makes two views safe, and it is the same law as §7.1:
 ## 5. Components
 
 **Masthead** — brand, view switcher (`Focus` / `Tiles`), then right-aligned: 5-hour bar,
-7-day bar, model, daemon health. Always visible in both views; account-level truth is never
+7-day bar, model-week (selectable), refresh, model, daemon health. Always visible in both views; account-level truth is never
 behind a tab.
 
 **Rail card** — 3px state stripe, then title + badge + timer, `repo / branch`, then the

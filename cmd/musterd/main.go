@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"os/user"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -44,6 +45,9 @@ const shutdownTimeout = 10 * time.Second
 // this window (or stdin isn't a TTY at all) resolves to "leave", never a silent kill.
 const onExitPromptTimeout = 10 * time.Second
 
+// defaultUsagePoll is -usage-poll's default (plan usage-model-bar REQ-1).
+const defaultUsagePoll = 5 * time.Minute
+
 func main() {
 	if err := run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr); err != nil {
 		fmt.Fprintln(os.Stderr, "musterd:", err)
@@ -61,15 +65,18 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 	}
 
 	var (
-		showVersion = fs.Bool("version", false, "print version and exit")
-		addr        = fs.String("addr", "127.0.0.1:8765", "listen address (localhost only by design)")
-		dataDir     = fs.String("data-dir", defaultDataDir, "directory for the database, tokens and other daemon-local state")
-		webDist     = fs.String("web-dist", "web/dist", "directory containing the built dashboard")
-		debug       = fs.Bool("debug", false, "debug logging")
-		claudeBin   = fs.String("claude-bin", "claude", "the `claude` binary to spawn for a launched session (REQ-19: lets E2E launch a stub)")
-		tmuxSocket  = fs.String("tmux-socket", "muster", "dedicated tmux socket (REQ-19: never the user's default server); a value containing '/' is used as a filesystem path (-S), otherwise a named socket (-L) — m2-terminal REQ-5")
-		browseRoot  = fs.String("browse-root", "", "root of the launch modal's folder browser — GET /api/browse's no-param default and its Up ceiling (empty = the user's home directory; E2E passes its scratch dir)")
-		onExit      = fs.String("on-exit", "ask", "what to do with live sessions on shutdown: ask (default, prompts once if stdin is a TTY) | leave | kill")
+		showVersion    = fs.Bool("version", false, "print version and exit")
+		addr           = fs.String("addr", "127.0.0.1:8765", "listen address (localhost only by design)")
+		dataDir        = fs.String("data-dir", defaultDataDir, "directory for the database, tokens and other daemon-local state")
+		webDist        = fs.String("web-dist", "web/dist", "directory containing the built dashboard")
+		debug          = fs.Bool("debug", false, "debug logging")
+		claudeBin      = fs.String("claude-bin", "claude", "the `claude` binary to spawn for a launched session (REQ-19: lets E2E launch a stub)")
+		tmuxSocket     = fs.String("tmux-socket", "muster", "dedicated tmux socket (REQ-19: never the user's default server); a value containing '/' is used as a filesystem path (-S), otherwise a named socket (-L) — m2-terminal REQ-5")
+		browseRoot     = fs.String("browse-root", "", "root of the launch modal's folder browser — GET /api/browse's no-param default and its Up ceiling (empty = the user's home directory; E2E passes its scratch dir)")
+		onExit         = fs.String("on-exit", "ask", "what to do with live sessions on shutdown: ask (default, prompts once if stdin is a TTY) | leave | kill")
+		usagePoll      = fs.Duration("usage-poll", defaultUsagePoll, "how often musterd polls Claude Code's per-model weekly usage endpoint; 0 disables polling (POST /api/usage/refresh then 404s)")
+		usageAPIURL    = fs.String("usage-api-url", "https://api.anthropic.com", "base URL for the per-model usage endpoint — a test seam like -claude-bin")
+		usageTokenFile = fs.String("usage-token-file", "", "read the Claude Code OAuth token from this file instead of the macOS Keychain — a test seam like -claude-bin (empty = the daemon's usual Keychain lookup)")
 	)
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -164,6 +171,10 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		HookScript:       hookScript,
 		StatusLineScript: statusLineScript,
 		LegacyScripts:    []string{legacyScript},
+		UsagePoll:        *usagePoll,
+		UsageAPIURL:      *usageAPIURL,
+		UsageTokenFile:   *usageTokenFile,
+		KeychainUser:     keychainUser(),
 	})
 	srv.Start()
 
@@ -294,6 +305,19 @@ func writeTokensFile(dataDir, dashboardURL, uiToken, ingestToken string) error {
 		return fmt.Errorf("chmod %s: %w", path, err)
 	}
 	return nil
+}
+
+// keychainUser returns the current OS account name for KeychainTokenReader's
+// `security find-generic-password -a <user>` lookup (Implementation Notes: "user from
+// os/user.Current() in main, passed in"). Empty on lookup failure — KeychainTokenReader
+// then simply fails every tick with ErrNoCredentials rather than musterd refusing to
+// start.
+func keychainUser() string {
+	u, err := user.Current()
+	if err != nil {
+		return ""
+	}
+	return u.Username
 }
 
 // checkClaudeCode reports the installed Claude Code version and whether it drifted from

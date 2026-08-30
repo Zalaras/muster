@@ -44,11 +44,14 @@ export interface LaunchRequest {
   permissionMode: "default" | "plan" | "acceptEdits";
 }
 
-// M2 (docs/protocol.md §3.3): at least one field, unknown fields ignored — both optional
-// here since a caller only ever changes one of view/density at a time.
+// M2 (docs/protocol.md §3.3): at least one field, unknown fields ignored — all optional
+// here since a caller only ever changes one of view/density/usageModel at a time.
+// `usageModel` added by plan usage-model-bar (REQ-8): 1-32 chars after trim, validated
+// daemon-side.
 export interface PrefsRequest {
   view?: "focus" | "tiles";
   density?: Density;
+  usageModel?: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -186,6 +189,23 @@ export async function putPrefs(body: PrefsRequest): Promise<ApiResult<null>> {
     body: JSON.stringify(body),
   });
   if (res.status === 204) return { ok: true, value: null };
+  let errorBody: unknown;
+  try {
+    errorBody = await res.json();
+  } catch {
+    return { ok: false, error: genericError };
+  }
+  const error = parseApiError(errorBody);
+  return { ok: false, error: error ?? genericError };
+}
+
+/** `POST /api/usage/refresh` (docs/protocol.md §3.9). `202` with no body on success — the
+ * fetch itself runs asynchronously and its result reaches every UI socket via the next
+ * `usage` broadcast, same "response carries no state, the socket does" shape as
+ * `putPrefs`. Errors: `404 not_found` when the poller is disabled (`-usage-poll 0`). */
+export async function refreshUsage(): Promise<ApiResult<null>> {
+  const res = await fetch("/api/usage/refresh", { method: "POST", credentials: "same-origin" });
+  if (res.status === 202) return { ok: true, value: null };
   let errorBody: unknown;
   try {
     errorBody = await res.json();

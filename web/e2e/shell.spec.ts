@@ -61,9 +61,25 @@ test("GET /api/state returns exactly the M0 snapshot object once authenticated",
   // `usage.model` was added by plan m3-gauges (protocol §5.4 delta) — present as an
   // explicit null until the first status post carries buckets + model together, same
   // as fiveHour/sevenDay/sampledAt — updated here for the same reason as density above.
+  // `usage.modelScoped`/`modelScopedAt`/`modelScopedError`/`modelScopedSource` and
+  // `prefs.usageModel` were added by plan usage-model-bar (protocol §5.4/§5.5/§3.3
+  // delta, merged into docs/protocol.md on approval) — this scratch daemon has no
+  // usage-token-file content written, so its immediate on-Start fetch (REQ-1) fails
+  // fast with "no-credentials" (the same shape a real machine with no Keychain item
+  // would see), and `modelScoped`/`modelScopedAt` stay null (INV-1: null iff null).
   expect(body).toEqual({
     sessions: [],
-    usage: { fiveHour: null, sevenDay: null, model: null, sampledAt: null, source: "subscription" },
-    prefs: { view: "focus", density: "2x2" },
+    usage: {
+      fiveHour: null,
+      sevenDay: null,
+      model: null,
+      sampledAt: null,
+      source: "subscription",
+      modelScoped: null,
+      modelScopedAt: null,
+      modelScopedError: "no-credentials",
+      modelScopedSource: "subscription-api",
+    },
+    prefs: { view: "focus", density: "2x2", usageModel: "Fable" },
   });
 });

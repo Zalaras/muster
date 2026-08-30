@@ -97,6 +97,13 @@ notifications by design — the point is to be working *in* the dashboard.
   string), and `used_percentage` is a **float** (not an int).
 - v1 implements the **subscription (Pro/Max) source only**, but behind a small usage-source
   interface so API-key/OTel sources can be added later without touching the UI.
+- **Second source (2026-08-30, plan `usage-model-bar`):** a third masthead bar shows the
+  **per-model weekly limit** (Claude Code's "Fable 5 limit"), which the status line does not
+  carry. musterd polls `GET /api/oauth/usage` every 5 min (`-usage-poll`, `0` disables) plus
+  an explicit ↻ refresh, using the Claude Code OAuth token read from the Keychain. The model
+  shown is user-selectable (`prefs.usageModel`, default `"Fable"`); a failed poll keeps the
+  last-good bar and marks it stale (`modelScopedError`). No history is persisted for this
+  source beyond the last-good list.
 - Samples are persisted (SQLite) so the weekly picture is real history, not just the
   live number.
 - Known limitation, accepted: the entire `rate_limits` **key is absent** — not empty —
@@ -174,6 +181,10 @@ notifications by design — the point is to be working *in* the dashboard.
   tokenized URL, the daemon sets a cookie, and all HTTP/WS requests without it are
   rejected. Accepted residual risk: same-user malware can read the token file — but that
   attacker can read Claude credentials directly anyway.
+- musterd reads the Claude Code OAuth token from the macOS Keychain item
+  `Claude Code-credentials` **read-only** (via `security find-generic-password`); it never
+  writes, refreshes, logs, persists or forwards the token. Threat model unchanged: the
+  same-user attacker above already had that item.
 
 ---
 
@@ -419,7 +430,8 @@ restarts/reconcile; WebSocket fanout pushes deltas to the UI.
 6. **Usage-source interface** — ~~how much shape to give the pluggable usage source now
    without building the API/OTel sources~~ **Resolved 2026-08-23** (m3-gauges planning):
    a neutral `Sample` type + one aggregator (`internal/usage`); no Go interface type
-   until a second source exists. Wire seam (`usage.source`) settled 2026-08-20.
+   until a second source exists. A second source landed 2026-08-30 (`usage-model-bar`) as a
+   second concrete holder (`ModelScoped`), still no interface — see changelog. Wire seam (`usage.source`) settled 2026-08-20.
 7. **Risk: Claude Code interface churn** — mitigated (pin/canary/adapter) but not
    removable; standing tax on the project.
 8. **Risk: hook delivery gaps** — hooks can be missed (daemon down at event time);
@@ -698,7 +710,8 @@ M3's plan (`plans/m3-gauges/plan.md`) approved; protocol delta merged the same d
 
 - **§9 Q6 resolved (usage-source Go shape)** — a neutral `Sample` type + one aggregator
   in a new `internal/usage` package; **no Go interface type** until a second source
-  exists. §2.3's "small usage-source interface" is satisfied by the source-agnostic
+  exists (revisited 2026-08-30: the second source became a second concrete holder, still
+  no interface — see that entry). §2.3's "small usage-source interface" is satisfied by the source-agnostic
   `Sample` shape plus the wire's `usage.source` field — API/OTel sources later mean a
   new producer of `Sample`s, nothing else changes.
 - **No usage hydration across daemon restart** — account gauges read unknown until the
@@ -850,3 +863,20 @@ implemented:
   its hooks — `SessionEnd` (and, marginally, `StopFailure`) can be lost through Muster's
   ~48 ms curl wrapper. Consistent with §8's best-effort stance; reconcile keys on pane
   liveness, so no design change. Details in `spikes/canary-fields.md`.
+
+### 2026-08-30 — per-model weekly usage bar shipped (plan `usage-model-bar`, via `/orchestrate`)
+
+- TODO decision taken: **(b)** — musterd calls `GET /api/oauth/usage` itself rather than
+  waiting for the status line to grow the per-model window (§2.3 amended). Poll every 5 min
+  from an immediate fetch on start, `POST /api/usage/refresh` (coalesced) behind a ↻ button,
+  `prefs.usageModel` selects the displayed model (default `"Fable"`).
+- Credentials: Keychain item `Claude Code-credentials` read **read-only** (§2.6 amended);
+  `-usage-token-file` / `-usage-api-url` are the test seams so no Go or E2E test touches the
+  real Keychain or api.anthropic.com. Token never logged, stored or put on the wire.
+- §9 Q6 revisited: the second source is a second concrete holder (`usage.ModelScoped`) beside
+  the `Aggregator`, merged at the wire layer — still **no Go interface**; two concrete types
+  is not yet enough to justify one.
+- Protocol: `usage.modelScoped/modelScopedAt/modelScopedError/modelScopedSource`,
+  `prefs.usageModel`, new `POST /api/usage/refresh` (`docs/protocol.md` §3.3, §3.9, §5.4, §5.5).
+- Masthead order is now: 5-hour bar, 7-day bar, model-week (selectable), refresh, model,
+  daemon health (`docs/design/design-system.md` §4/§5).

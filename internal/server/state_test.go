@@ -20,8 +20,11 @@ func TestBuildSnapshot_M0Shape(t *testing.T) {
 
 	assert.JSONEq(t, `{
 		"sessions": [],
-		"usage": {"fiveHour": null, "sevenDay": null, "model": null, "sampledAt": null, "source": "subscription"},
-		"prefs": {"view": "focus", "density": "2x2"}
+		"usage": {
+			"fiveHour": null, "sevenDay": null, "model": null, "sampledAt": null, "source": "subscription",
+			"modelScoped": null, "modelScopedAt": null, "modelScopedError": null, "modelScopedSource": "subscription-api"
+		},
+		"prefs": {"view": "focus", "density": "2x2", "usageModel": "Fable"}
 	}`, string(got))
 }
 
@@ -44,8 +47,13 @@ func TestHandleState_ReturnsSnapshotJSON(t *testing.T) {
 	assert.Nil(t, snap.Usage.Model)
 	assert.Nil(t, snap.Usage.SampledAt)
 	assert.Equal(t, "subscription", snap.Usage.Source)
+	assert.Nil(t, snap.Usage.ModelScoped)
+	assert.Nil(t, snap.Usage.ModelScopedAt)
+	assert.Nil(t, snap.Usage.ModelScopedError)
+	assert.Equal(t, "subscription-api", snap.Usage.ModelScopedSource)
 	assert.Equal(t, "focus", snap.Prefs.View)
 	assert.Equal(t, "2x2", snap.Prefs.Density)
+	assert.Equal(t, "Fable", snap.Prefs.UsageModel)
 }
 
 // TestCurrentSnapshot_LoadsPersistedPrefsFromKV covers the currentSnapshot half of

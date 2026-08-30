@@ -25,6 +25,19 @@ export interface UsageBucket {
   resetsAt: string;
 }
 
+/** Plan usage-model-bar (docs/protocol.md §5.4): one model-scoped weekly window, as
+ * musterd's own `GET /api/oauth/usage` poller reports it — a second usage source,
+ * independent of the status-line buckets above. */
+export interface ModelWindow {
+  displayName: string;
+  usedPct: number;
+  resetsAt: string;
+}
+
+/** REQ-6: the three failure kinds a model-scoped poll can end in; `null` after a
+ * successful fetch. */
+export type ModelScopedError = "no-credentials" | "unauthorized" | "unreachable";
+
 export interface Usage {
   fiveHour: UsageBucket | null;
   sevenDay: UsageBucket | null;
@@ -35,6 +48,15 @@ export interface Usage {
   model?: SessionModelInfo | null;
   sampledAt: string | null;
   source: string;
+  // Plan usage-model-bar additions (docs/protocol.md §5.4) — optional wire fields, same
+  // "absent key round-trips as absent, not synthesized null" pattern as `model` above,
+  // so a pre-plan daemon's payload (all four keys absent) round-trips unchanged. INV-1
+  // (modelScopedAt null iff modelScoped null) is a daemon-side invariant only — a client
+  // reads `usage.modelScoped ?? null` and `usage.modelScopedAt ?? null` uniformly.
+  modelScoped?: ModelWindow[] | null;
+  modelScopedAt?: string | null;
+  modelScopedError?: ModelScopedError | null;
+  modelScopedSource?: string;
 }
 
 /** M0 never sends a non-null bucket; kept so callers don't special-case M0 vs later. */
@@ -108,11 +130,14 @@ export interface Session {
 export type Density = "2x2" | "3x2";
 
 // M2 (docs/protocol.md §3.3 refinement): density is always present alongside view — the
-// daemon's default before any PUT is {"view":"focus","density":"2x2"} — so both fields
-// are required here, matching every real `snapshot`/`prefs` payload on the wire.
+// daemon's default before any PUT is {"view":"focus","density":"2x2","usageModel":"Fable"}
+// — so all three fields are required here, matching every real `snapshot`/`prefs` payload
+// on the wire. `usageModel` was added by plan usage-model-bar; `parsePrefs` below defaults
+// a missing key to `"Fable"` so a pre-plan daemon's payload still parses.
 export interface Prefs {
   view: "focus" | "tiles";
   density: Density;
+  usageModel: string;
 }
 
 export interface Snapshot {
@@ -189,6 +214,32 @@ function parseUsageBucket(value: unknown): UsageBucket | null {
   return { usedPct, resetsAt };
 }
 
+function parseModelWindow(value: unknown): ModelWindow | null {
+  if (!isRecord(value)) return null;
+  const displayName = value["displayName"];
+  const usedPct = value["usedPct"];
+  const resetsAt = value["resetsAt"];
+  if (typeof displayName !== "string") return null;
+  if (typeof usedPct !== "number") return null;
+  if (typeof resetsAt !== "string") return null;
+  return { displayName, usedPct, resetsAt };
+}
+
+function parseModelScopedList(value: unknown): ModelWindow[] | null {
+  if (!Array.isArray(value)) return null;
+  const windows: ModelWindow[] = [];
+  for (const item of value) {
+    const window = parseModelWindow(item);
+    if (!window) return null;
+    windows.push(window);
+  }
+  return windows;
+}
+
+function isModelScopedError(value: unknown): value is ModelScopedError {
+  return value === "no-credentials" || value === "unauthorized" || value === "unreachable";
+}
+
 function parseUsage(value: unknown): Usage | null {
   if (!isRecord(value)) return null;
   const rawFiveHour = value["fiveHour"];
@@ -213,6 +264,32 @@ function parseUsage(value: unknown): Usage | null {
     if (rawModel !== null && model === null) return null;
     usage.model = model;
   }
+  // Plan usage-model-bar (docs/protocol.md §5.4): same present-only pattern as `model`
+  // above — each of the four new fields is read only when its key is on the wire, and a
+  // malformed value (wrong type, an unrecognized `modelScopedError` string, a malformed
+  // `modelScoped` element) rejects the whole message rather than silently degrading to
+  // "unknown" (W5).
+  if ("modelScoped" in value) {
+    const rawModelScoped = value["modelScoped"];
+    const modelScoped = rawModelScoped === null ? null : parseModelScopedList(rawModelScoped);
+    if (rawModelScoped !== null && modelScoped === null) return null;
+    usage.modelScoped = modelScoped;
+  }
+  if ("modelScopedAt" in value) {
+    const rawModelScopedAt = value["modelScopedAt"];
+    if (rawModelScopedAt !== null && typeof rawModelScopedAt !== "string") return null;
+    usage.modelScopedAt = rawModelScopedAt;
+  }
+  if ("modelScopedError" in value) {
+    const rawModelScopedError = value["modelScopedError"];
+    if (rawModelScopedError !== null && !isModelScopedError(rawModelScopedError)) return null;
+    usage.modelScopedError = rawModelScopedError;
+  }
+  if ("modelScopedSource" in value) {
+    const rawModelScopedSource = value["modelScopedSource"];
+    if (typeof rawModelScopedSource !== "string") return null;
+    usage.modelScopedSource = rawModelScopedSource;
+  }
   return usage;
 }
 
@@ -222,7 +299,12 @@ function parsePrefs(value: unknown): Prefs | null {
   const density = value["density"];
   if (view !== "focus" && view !== "tiles") return null;
   if (density !== "2x2" && density !== "3x2") return null;
-  return { view, density };
+  // Plan usage-model-bar: missing key (pre-plan daemon) defaults to the daemon's own
+  // documented default, "Fable" (docs/protocol.md §5.5).
+  const rawUsageModel = value["usageModel"];
+  const usageModel = rawUsageModel === undefined ? "Fable" : rawUsageModel;
+  if (typeof usageModel !== "string") return null;
+  return { view, density, usageModel };
 }
 
 function isSessionState(value: unknown): value is SessionState {

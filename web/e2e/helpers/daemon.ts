@@ -52,6 +52,28 @@ export type OnExitPolicy = "ask" | "leave" | "kill";
 
 export interface ScratchDaemonOptions {
   onExit?: OnExitPolicy;
+  /**
+   * Plan usage-model-bar REQ-13 test seam: `-usage-poll` duration string (e.g. `"0"` to
+   * exercise the disabled-poller path, E6). Omit to leave the daemon's own 5m default —
+   * every test still observes the poller's immediate on-Start fetch (REQ-1), so a short
+   * interval is rarely needed and no spec here relies on a second, timer-driven tick.
+   */
+  usagePoll?: string;
+  /**
+   * Plan usage-model-bar REQ-13 test seam: `-usage-api-url` base, pointed at a
+   * `FakeUsageAPI` (helpers/usageapi.ts) so this run's poller never reaches
+   * api.anthropic.com. Omit to leave the daemon's real default — still safe, because
+   * `usageTokenPath` is always a scratch path (see below), so every run without
+   * `usageTokenContent` fails at the credentials step before any network call.
+   */
+  usageApiURL?: string;
+  /**
+   * JSON content to write to the scratch `-usage-token-file` before spawning — the
+   * `{"claudeAiOauth":{"accessToken":"…"}}` shape `internal/claudecode` reads
+   * (spikes/canary-fields.md; use helpers/usageapi.ts's `credentialsFileContent`). Omit
+   * to leave the file absent — the "no-credentials" fixture (REQ-6 edge case 1).
+   */
+  usageTokenContent?: string;
 }
 
 async function freePort(): Promise<number> {
@@ -109,18 +131,38 @@ export class ScratchDaemon {
    * stops here, so browse tests never create anything under the real `$HOME`.
    */
   readonly browseRoot: string;
+  /**
+   * Plan usage-model-bar REQ-13/INV-4: always a scratch path inside `dataDir`, passed
+   * unconditionally via `-usage-token-file` for every scratch daemon — regardless of
+   * whether a given test cares about the usage-model feature — so no E2E run, in this
+   * file or any other, can ever fall through to the real macOS Keychain.
+   */
+  readonly usageTokenPath: string;
   uiToken = "";
   ingestToken = "";
   dashboardUrl = "";
   private proc: ChildProcess | null = null;
-  /** Tail of the current process's stdout+stderr, kept for crash diagnostics. */
+  /** Tail of the current process's stdout+stderr, kept for crash diagnostics and for
+   * INV-4/E7's "the token never appears in a log line" grep. */
   private output = "";
   /** `-on-exit` policy this run's process is (re)spawned with — set once at construction
    * and reused by every `restart()` (plan m4-reconcile REQ-3). `undefined` omits the flag
    * entirely, exercising the daemon's own default (`ask`). */
   private readonly onExit: OnExitPolicy | undefined;
+  /** `-usage-poll` value for this run, or `undefined` to omit the flag (plan
+   * usage-model-bar REQ-13). */
+  private readonly usagePoll: string | undefined;
+  /** `-usage-api-url` value for this run, or `undefined` to omit the flag (plan
+   * usage-model-bar REQ-13). */
+  private readonly usageApiURL: string | undefined;
 
-  private constructor(port: number, dataDir: string, onExit?: OnExitPolicy) {
+  private constructor(
+    port: number,
+    dataDir: string,
+    onExit?: OnExitPolicy,
+    usagePoll?: string,
+    usageApiURL?: string,
+  ) {
     this.port = port;
     this.baseURL = `http://127.0.0.1:${port}`;
     this.dataDir = dataDir;
@@ -131,7 +173,10 @@ export class ScratchDaemon {
     this.tmuxSocket = join(dataDir, "tmux.sock");
     this.claudeBinPath = join(dataDir, "stub-claude.sh");
     this.browseRoot = join(dataDir, "browse-root");
+    this.usageTokenPath = join(dataDir, "usage-token.json");
     this.onExit = onExit;
+    this.usagePoll = usagePoll;
+    this.usageApiURL = usageApiURL;
   }
 
   static async start(opts: ScratchDaemonOptions = {}): Promise<ScratchDaemon> {
@@ -143,11 +188,20 @@ export class ScratchDaemon {
     // on (spikes/FINDINGS.md 2026-08-25 addendum). Do not "fix" a spec that breaks on the
     // space — that's the harness doing its job; report it instead (plan Affected Files).
     const dataDir = await mkdtemp(join(tmpdir(), "muster e2e-"));
-    const daemon = new ScratchDaemon(port, dataDir, opts.onExit);
+    const daemon = new ScratchDaemon(port, dataDir, opts.onExit, opts.usagePoll, opts.usageApiURL);
     await mkdir(daemon.browseRoot, { recursive: true });
     await daemon.writeStubClaude();
+    if (opts.usageTokenContent !== undefined) {
+      await writeFile(daemon.usageTokenPath, opts.usageTokenContent, "utf-8");
+    }
     await daemon.spawnAndWait();
     return daemon;
+  }
+
+  /** Tail of this run's captured stdout+stderr (plan usage-model-bar E7/INV-4: grepped
+   * for the fake usage token to prove it never appears in a log line). */
+  get log(): string {
+    return this.output;
   }
 
   /**
@@ -189,11 +243,22 @@ export class ScratchDaemon {
       this.tmuxSocket,
       "-browse-root",
       this.browseRoot,
+      // Plan usage-model-bar REQ-13/INV-4: unconditional on every scratch daemon so no
+      // E2E run — this file or any other — can ever fall through to the real Keychain.
+      "-usage-token-file",
+      this.usageTokenPath,
     ];
     // Plan m4-reconcile REQ-3: omit the flag entirely to exercise the daemon's own
     // default (`ask`) rather than hardcoding the string here.
     if (this.onExit !== undefined) {
       args.push("-on-exit", this.onExit);
+    }
+    // Plan usage-model-bar REQ-13: both test seams are opt-in per run.
+    if (this.usagePoll !== undefined) {
+      args.push("-usage-poll", this.usagePoll);
+    }
+    if (this.usageApiURL !== undefined) {
+      args.push("-usage-api-url", this.usageApiURL);
     }
     const proc = spawn(musterdBin, args, {
       // stdin "ignore" (=/dev/null) is never a character device, so every scratch daemon

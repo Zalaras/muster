@@ -225,6 +225,49 @@ body {
   display: none;
 }
 
+/* Plan usage-model-bar: the model-week readout's `<select>` (persisted across render
+ * passes by renderModelWeek/modelWeekCache — rebuilt only when the option set or
+ * placeholder-need actually changes, see masthead.ts) takes over the `.lbl` slot the two
+ * static buckets fill with a plain span — chrome stripped so it reads as the same mono
+ * label text as "5h"/"7d", never as a distinct form control, and only gains a
+ * hover/enabled affordance when it actually has more than the placeholder option to
+ * offer. */
+.usage-model-select {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--dim);
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  appearance: none;
+}
+
+.usage-model-select:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.usage-model-select:hover:not(:disabled),
+.usage-model-select:focus-visible {
+  color: var(--paper);
+}
+
+/* Honesty rule (design-system §6): a stale readout keeps its last-good bar/number (never
+ * hides them — that would be more dishonest than showing a number that might be a few
+ * minutes old) but dims and underlines the number so it visibly differs from a fresh one.
+ * Its own signal — never --rose/--amber, which are reserved for session state (§3). */
+.usage-readout.stale .num {
+  color: var(--dim);
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+#usage-refresh {
+  line-height: 1;
+}
+
 /* Honesty rule (design-system §6.7): loud, full-width, on the dedicated banner tokens —
  * this describes the daemon, not any session's state, so it never grounds on --rose
  * (§3: a state colour may only ever mean its state). */

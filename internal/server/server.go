@@ -6,9 +6,11 @@ package server
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/rs/zerolog"
 
+	"github.com/Zalaras/muster/internal/claudecode"
 	"github.com/Zalaras/muster/internal/session"
 	"github.com/Zalaras/muster/internal/store"
 	"github.com/Zalaras/muster/internal/tmux"
@@ -60,6 +62,30 @@ type Config struct {
 	// drop from an already-instrumented directory (REQ-3/REQ-4) — currently just the
 	// pre-plan hook-sessionstart.sh path WriteWrapperScripts returns for removal.
 	LegacyScripts []string
+
+	// The following wire up usage-model-bar's per-model weekly usage poller (plan
+	// Implementation Notes). Zero values are safe: UsagePoll <= 0 means the poller is
+	// never constructed at all (Edge Case 14) — the default test server never hits the
+	// network by construction, not by an extra guard.
+
+	// UsagePoll is the poll interval (-usage-poll). <= 0 disables polling entirely:
+	// POST /api/usage/refresh then 404s (docs/protocol.md §3.9).
+	UsagePoll time.Duration
+	// UsageAPIURL is the per-model usage endpoint's base URL (-usage-api-url). main
+	// always passes the flag's non-empty default, so this is the *only* place that
+	// URL is defined — there is deliberately no fallback constant here duplicating it.
+	// Empty disables the poller entirely (same fail-safe shape as UsagePoll <= 0):
+	// a zero-value Config must never reach the real api.anthropic.com.
+	UsageAPIURL string
+	// UsageTokenFile, when non-empty, reads the Claude Code OAuth token from this file
+	// instead of the macOS Keychain (-usage-token-file, REQ-13's test seam — makes it
+	// structurally impossible for a test using it to fall through to the real Keychain).
+	UsageTokenFile string
+	// KeychainUser is the account name `security` looks the Keychain item up under
+	// (main passes os/user.Current()'s value) — used only when UsageTokenFile is empty.
+	KeychainUser string
+	// HTTPClient is the client FetchUsage uses; nil defaults to http.DefaultClient.
+	HTTPClient *http.Client
 }
 
 // Server holds musterd's HTTP mux and the long-lived pieces (ingest queue, WS registry,
@@ -78,13 +104,15 @@ type Server struct {
 	daemonVersion string
 	claudeCode    ClaudeCodeInfo
 
-	ingest     *ingestQueue
-	hub        *wsHub
-	manager    *session.Manager
-	usage      *usage.Aggregator
-	launcher   *sessionLauncher
-	tmuxClient *tmux.Client
-	terminals  *terminalRegistry
+	ingest      *ingestQueue
+	hub         *wsHub
+	manager     *session.Manager
+	usage       *usage.Aggregator
+	modelScoped *usage.ModelScoped
+	usagePoller *usagePoller // nil when UsagePoll <= 0 (Edge Case 14)
+	launcher    *sessionLauncher
+	tmuxClient  *tmux.Client
+	terminals   *terminalRegistry
 }
 
 const defaultIngestQueueSize = 1024
@@ -131,9 +159,40 @@ func New(cfg Config) *Server {
 		Store:  cfg.Store,
 		Logger: cfg.Logger,
 		OnChange: func(snap usage.Snapshot) {
-			s.hub.broadcast(usageMessage{Type: "usage", Usage: toWireUsage(snap)})
+			s.hub.broadcast(usageMessage{Type: "usage", Usage: toWireUsage(snap, s.modelScoped.Current())})
 		},
 	})
+
+	// ModelScoped is always constructed, independent of whether the poller runs
+	// (Edge Case 14): -usage-poll 0 still needs a holder so the wire's modelScoped*
+	// fields render their honest null/"subscription-api" shape.
+	s.modelScoped = usage.NewModelScoped(usage.ModelScopedConfig{
+		Store:  cfg.Store,
+		Logger: cfg.Logger,
+		OnChange: func(msnap usage.ModelSnapshot) {
+			s.hub.broadcast(usageMessage{Type: "usage", Usage: toWireUsage(s.usage.Current(), msnap)})
+		},
+	})
+
+	switch {
+	case cfg.UsagePoll > 0 && cfg.UsageAPIURL != "":
+		client := cfg.HTTPClient
+		if client == nil {
+			client = http.DefaultClient
+		}
+		var tokenReader claudecode.TokenReader
+		if cfg.UsageTokenFile != "" {
+			tokenReader = claudecode.FileTokenReader(cfg.UsageTokenFile)
+		} else {
+			tokenReader = claudecode.KeychainTokenReader(cfg.KeychainUser, claudecode.RunCommand)
+		}
+		s.usagePoller = newUsagePoller(client, cfg.UsageAPIURL, tokenReader, cfg.UsagePoll, s.modelScoped, cfg.Logger)
+	case cfg.UsagePoll > 0:
+		// Misconfiguration, not a code path main.go can ever hit (it always passes
+		// the flag's non-empty default): fail toward no polling rather than toward a
+		// silent default that would reach the real api.anthropic.com/Keychain.
+		cfg.Logger.Warn().Msg("usage polling requested (-usage-poll > 0) but UsageAPIURL is empty; usage polling disabled")
+	}
 
 	claudeBin := cfg.ClaudeBin
 	if claudeBin == "" {
@@ -179,6 +238,9 @@ func (s *Server) Start() {
 	}
 	s.manager.Start()
 	s.ingest.Start()
+	if s.usagePoller != nil {
+		s.usagePoller.Start()
+	}
 }
 
 // LiveSessionCount reports how many sessions are currently alive — used by cmd/musterd's
@@ -218,6 +280,9 @@ func (s *Server) Shutdown(ctx context.Context) {
 	s.terminals.closeAll()
 	s.manager.Stop(ctx)
 	s.ingest.Stop(ctx)
+	if s.usagePoller != nil {
+		s.usagePoller.Stop(ctx)
+	}
 }
 
 func (s *Server) routes() {
@@ -232,6 +297,7 @@ func (s *Server) routes() {
 	mux.Handle("GET /api/repos", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleListRepos)))
 	mux.Handle("GET /api/browse", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleBrowse)))
 	mux.Handle("PUT /api/prefs", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handlePutPrefs)))
+	mux.Handle("POST /api/usage/refresh", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleUsageRefresh)))
 	mux.Handle("GET /ws/terminal/{id}", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleTerminal)))
 	mux.Handle("GET /api/sessions/{id}/pane", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handlePaneSnapshot)))
 	mux.Handle("POST /api/sessions/{id}/end", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleEndSession)))

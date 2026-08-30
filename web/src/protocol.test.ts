@@ -12,7 +12,7 @@ const validSnapshot = {
   type: "snapshot",
   sessions: [],
   usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
-  prefs: { view: "focus", density: "2x2" },
+  prefs: { view: "focus", density: "2x2", usageModel: "Fable" },
 };
 
 describe("parseMessage — hello", () => {
@@ -126,9 +126,19 @@ describe("parseMessage — snapshot", () => {
     expect(parseMessage(snapshot)).toBeNull();
   });
 
-  it("parses prefs.density '3x2'", () => {
-    const snapshot = { ...validSnapshot, prefs: { view: "tiles", density: "3x2" } };
+  it("parses prefs.density '3x2' alongside an explicit usageModel (plan usage-model-bar REQ-8)", () => {
+    const snapshot = { ...validSnapshot, prefs: { view: "tiles", density: "3x2", usageModel: "Opus" } };
     expect(parseMessage(snapshot)).toEqual(snapshot);
+  });
+
+  it("defaults a missing prefs.usageModel to 'Fable' (pre-plan daemon payload, plan usage-model-bar REQ-8)", () => {
+    const snapshot = { ...validSnapshot, prefs: { view: "tiles", density: "3x2" } };
+    expect(parseMessage(snapshot)).toEqual({ ...snapshot, prefs: { ...snapshot.prefs, usageModel: "Fable" } });
+  });
+
+  it("rejects a prefs.usageModel that is not a string", () => {
+    const snapshot = { ...validSnapshot, prefs: { view: "tiles", density: "3x2", usageModel: 42 } };
+    expect(parseMessage(snapshot)).toBeNull();
   });
 
   it("ignores unknown fields inside usage and prefs (additive evolution)", () => {
@@ -138,12 +148,12 @@ describe("parseMessage — snapshot", () => {
       prefs: { view: "tiles", density: "3x2", futurePrefsField: true },
     };
     const parsed = parseMessage(snapshot);
-    expect(parsed).toEqual({ ...validSnapshot, prefs: { view: "tiles", density: "3x2" } });
+    expect(parsed).toEqual({ ...validSnapshot, prefs: { view: "tiles", density: "3x2", usageModel: "Fable" } });
   });
 });
 
 describe("parseMessage — prefs (M2 REQ-10/INV-4: the PUT /api/prefs echo broadcast)", () => {
-  const validPrefsMessage = { type: "prefs", prefs: { view: "tiles", density: "3x2" } };
+  const validPrefsMessage = { type: "prefs", prefs: { view: "tiles", density: "3x2", usageModel: "Fable" } };
 
   it("parses a fully-populated prefs message", () => {
     expect(parseMessage(validPrefsMessage)).toEqual(validPrefsMessage);
@@ -163,7 +173,7 @@ describe("parseMessage — prefs (M2 REQ-10/INV-4: the PUT /api/prefs echo broad
 
   it("ignores unknown fields inside prefs (additive evolution)", () => {
     const message = { type: "prefs", prefs: { view: "focus", density: "2x2", futureField: 1 } };
-    expect(parseMessage(message)).toEqual({ type: "prefs", prefs: { view: "focus", density: "2x2" } });
+    expect(parseMessage(message)).toEqual({ type: "prefs", prefs: { view: "focus", density: "2x2", usageModel: "Fable" } });
   });
 });
 
@@ -222,6 +232,109 @@ describe("parseMessage — usage (M3 REQ-5/protocol §5.4: broadcast on value/mo
   it("ignores unknown fields inside usage (additive evolution)", () => {
     const message = { ...knownUsage, usage: { ...knownUsage.usage, futureField: 1 } };
     expect(parseMessage(message)).toEqual(knownUsage);
+  });
+});
+
+describe("parseMessage — usage.modelScoped (plan usage-model-bar REQ-4/REQ-14/W5)", () => {
+  const baseUsage = { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" };
+  const window1 = { displayName: "Fable", usedPct: 61.0, resetsAt: "2026-09-01T13:59:59Z" };
+  const window2 = { displayName: "Opus", usedPct: 20.0, resetsAt: "2026-09-01T13:59:59Z" };
+
+  it("parses a fully-populated modelScoped list with modelScopedAt/Error/Source", () => {
+    const message = {
+      type: "usage",
+      usage: {
+        ...baseUsage,
+        modelScoped: [window1, window2],
+        modelScopedAt: "2026-08-30T10:00:00Z",
+        modelScopedError: null,
+        modelScopedSource: "subscription-api",
+      },
+    };
+    expect(parseMessage(message)).toEqual(message);
+  });
+
+  it("treats a fully-absent set of the four keys as absent, not synthesized null (pre-plan daemon payload, additive evolution)", () => {
+    const message = { type: "usage", usage: baseUsage };
+    const parsed = parseMessage(message);
+    expect(parsed).toEqual(message);
+    const usage = parsed && "usage" in parsed ? (parsed.usage as unknown as Record<string, unknown>) : {};
+    expect("modelScoped" in usage).toBe(false);
+    expect("modelScopedAt" in usage).toBe(false);
+    expect("modelScopedError" in usage).toBe(false);
+    expect("modelScopedSource" in usage).toBe(false);
+    // The pattern every consumer relies on (protocol.ts's parseUsage comment): reading
+    // `usage.modelScoped ?? null` treats an absent key the same as an explicit null.
+    expect((usage as { modelScoped?: unknown }).modelScoped ?? null).toBeNull();
+  });
+
+  it("parses explicit nulls for all four fields the same as the boot/no-hydration state (INV-1 shape)", () => {
+    const message = {
+      type: "usage",
+      usage: { ...baseUsage, modelScoped: null, modelScopedAt: null, modelScopedError: null, modelScopedSource: "subscription-api" },
+    };
+    expect(parseMessage(message)).toEqual(message);
+  });
+
+  it("parses an empty modelScoped list as distinct from null (a successful fetch with no scoped windows)", () => {
+    const message = {
+      type: "usage",
+      usage: { ...baseUsage, modelScoped: [], modelScopedAt: "2026-08-30T10:00:00Z", modelScopedError: null, modelScopedSource: "subscription-api" },
+    };
+    const parsed = parseMessage(message);
+    expect(parsed).toEqual(message);
+    expect(Array.isArray((parsed as { usage: { modelScoped: unknown } }).usage.modelScoped)).toBe(true);
+  });
+
+  it.each(["no-credentials", "unauthorized", "unreachable"] as const)(
+    "parses each modelScopedError enum value (%s), keeping the last-good list",
+    (errorKind) => {
+      const message = {
+        type: "usage",
+        usage: { ...baseUsage, modelScoped: [window1], modelScopedAt: "2026-08-30T10:00:00Z", modelScopedError: errorKind, modelScopedSource: "subscription-api" },
+      };
+      expect(parseMessage(message)).toEqual(message);
+    },
+  );
+
+  it("rejects an unrecognized modelScopedError string", () => {
+    const message = { type: "usage", usage: { ...baseUsage, modelScoped: null, modelScopedAt: null, modelScopedError: "offline" } };
+    expect(parseMessage(message)).toBeNull();
+  });
+
+  it("rejects the whole message when one modelScoped element is missing displayName", () => {
+    const message = { type: "usage", usage: { ...baseUsage, modelScoped: [{ usedPct: 61, resetsAt: "2026-09-01T13:59:59Z" }] } };
+    expect(parseMessage(message)).toBeNull();
+  });
+
+  it("rejects the whole message when one modelScoped element has a non-numeric usedPct", () => {
+    const message = { type: "usage", usage: { ...baseUsage, modelScoped: [{ ...window1, usedPct: "61" }] } };
+    expect(parseMessage(message)).toBeNull();
+  });
+
+  it("rejects the whole message when one modelScoped element has a non-string resetsAt", () => {
+    const message = { type: "usage", usage: { ...baseUsage, modelScoped: [{ ...window1, resetsAt: 123 }] } };
+    expect(parseMessage(message)).toBeNull();
+  });
+
+  it("rejects the whole message when modelScoped is a non-array, non-null value", () => {
+    const message = { type: "usage", usage: { ...baseUsage, modelScoped: "Fable" } };
+    expect(parseMessage(message)).toBeNull();
+  });
+
+  it("rejects a non-string modelScopedAt (e.g. epoch number instead of RFC3339)", () => {
+    const message = { type: "usage", usage: { ...baseUsage, modelScoped: null, modelScopedAt: 1735689600 } };
+    expect(parseMessage(message)).toBeNull();
+  });
+
+  it("rejects a non-string modelScopedSource", () => {
+    const message = { type: "usage", usage: { ...baseUsage, modelScoped: [], modelScopedSource: 1 } };
+    expect(parseMessage(message)).toBeNull();
+  });
+
+  it("ignores unknown fields inside one modelScoped element (additive evolution)", () => {
+    const message = { type: "usage", usage: { ...baseUsage, modelScoped: [{ ...window1, futureField: "x" }] } };
+    expect(parseMessage(message)).toEqual({ type: "usage", usage: { ...baseUsage, modelScoped: [window1] } });
   });
 });
 
@@ -464,7 +577,7 @@ describe("parseMessage — snapshot with sessions (M1: non-empty for the first t
       type: "snapshot",
       sessions: [validSession, freshLaunchSession],
       usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
-      prefs: { view: "focus", density: "2x2" },
+      prefs: { view: "focus", density: "2x2", usageModel: "Fable" },
     };
     expect(parseMessage(snapshot)).toEqual(snapshot);
   });

@@ -13,10 +13,13 @@ const snapshot: Snapshot = {
   type: "snapshot",
   sessions: [],
   usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
-  prefs: { view: "focus", density: "2x2" },
+  prefs: { view: "focus", density: "2x2", usageModel: "Fable" },
 };
 
-const prefsMessage: PrefsMessage = { type: "prefs", prefs: { view: "tiles", density: "3x2" } };
+const prefsMessage: PrefsMessage = {
+  type: "prefs",
+  prefs: { view: "tiles", density: "3x2", usageModel: "Opus" },
+};
 
 const usage: Usage = {
   fiveHour: { usedPct: 61.2, resetsAt: "2026-08-23T11:00:00Z" },

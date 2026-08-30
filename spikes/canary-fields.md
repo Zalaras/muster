@@ -79,7 +79,9 @@ Observed values: `"default"`, `"plan"`, `"acceptEdits"`. Latch the last known mo
   that same-id fact was measured headless on 2.1.233; m4-reconcile's Resume is interactive
   (`claude --resume <id>` in a fresh tmux session) and the pipeline did not re-measure it on
   the pinned binary (R2, burns subscription — TODO M4). A divergence would land the resumed
-  session in `started` instead of `idle` (clear-rebind path), not break it. On `/clear` (2.1.237,
+  session in `started` instead of `idle` (clear-rebind path), not break it. **Closed
+  2026-08-30:** R2 run manually by Damian on the pinned 2.1.246 — interactive dashboard
+  End → Resume carried the same `session_id` and the badge read `idle`. On `/clear` (2.1.237,
   2026-08-20 probe): the old session_id gets `SessionEnd` with `reason: "clear"`, then
   `SessionStart` fires with `source: "clear"` and a **new** session_id in the same pane —
   so `/clear` is directly detectable, and a `SessionEnd` with `reason: "clear"` must NOT
@@ -145,6 +147,38 @@ Three corrections to SPEC:
 response, then present on every subsequent post for the life of that session (verified to 17
 consecutive posts). Assert both states. When analysing status-line captures, **group by
 `session_id`** — pooling posts across sessions makes the absent/present ratio meaningless.
+
+**No per-model (Fable/Opus) bucket in the status line — settled 2026-08-30 against 2.1.251
+(installed; pin is 2.1.246), by reading the binary, not by capture.** The `/usage` dialog's
+third bar ("Current week (Fable)") does **not** come from the status-line JSON and cannot,
+on this version: the status-line builder copies only `five_hour`, `seven_day` and (gateway
+accounts only) `spend_limit` out of the unified rate-limit windows and discards the
+per-model window `seven_day_overage_included`, even though the client parses it from the
+API response headers (`anthropic-ratelimit-unified-7d_oi-{utilization,reset}`). The
+`/usage` dialog gets its per-model rows from a separate authenticated call,
+`GET https://api.anthropic.com/api/oauth/usage` → `limits[]` entries with
+`kind:"weekly_scoped"`, `scope.model.display_name` (e.g. `"Fable"`), `percent`,
+`resets_at`, filtered by a server-side model allowlist (Statsig
+`tengu_usage_overage_included_models`); the same response also carries `seven_day_opus`,
+`seven_day_sonnet`, `seven_day_oauth_apps`, `extra_usage`. The embedded status-line schema
+doc in the binary lists only `five_hour` / `seven_day` / `spend_limit`. All earlier
+captures (2.1.245, `capture-4/5.jsonl`, 27 posts) show exactly `["five_hour","seven_day"]`,
+consistent with this. Re-check the `jt={...}` status-line builder on each pin bump — the
+internal `unifiedWindows` telemetry schema already carries the third window, so it may
+appear in a later release.
+
+**`GET /api/oauth/usage` measured live 2026-08-30 (HTTP 200, one call, Damian's token):**
+headers `Authorization: Bearer <claudeAiOauth.accessToken>` (Keychain item
+`Claude Code-credentials`, read via `security find-generic-password -a "$USER" -w -s …`),
+`anthropic-beta: oauth-2025-04-20`. Response: `five_hour`/`seven_day` as
+`{utilization: 7.0, resets_at: "2026-08-30T13:39:59.522275+00:00", …}` (percent scale,
+**RFC3339 string with micros and `+00:00` offset — not epoch**); `seven_day_opus`/`_sonnet`/
+`_oauth_apps` null on this account; and `limits[]` = `{kind:"session"|"weekly_all"|
+"weekly_scoped", group, percent (int), severity:"normal", resets_at (same string form),
+scope: null | {model:{id:null, display_name:"Fable"}, surface:null}, is_active}`. The
+Fable row was `weekly_scoped`/61%. Many other top-level keys are feature-flag noise
+(`amber_ladder`, `cinder_cove`, …) — ignore unknown keys. Undocumented endpoint: re-check on
+every pin bump alongside the status-line builder.
 
 ### `context_window` — SPEC §2.2's gauge
 

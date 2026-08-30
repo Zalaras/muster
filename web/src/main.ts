@@ -18,6 +18,7 @@ import {
   renderClaudeVersion,
   renderConnectionStatus,
   renderDensityControl,
+  renderModelWeek,
   renderUsage,
   renderUsageModel,
   renderUsageTrack,
@@ -32,7 +33,7 @@ import { renderMainhead, type MainheadElements } from "./render/mainhead";
 import { captureFocusedControl, type FocusedControl, restoreFocusedControl } from "./render/focus";
 import { collectDeadSurfaceRefs, loadPane, renderDeadSurface, type DeadSurfaceRefs, type PaneState } from "./render/dead";
 import { installTileDrag } from "./render/tiledrag";
-import { endSession, putPrefs, removeSession, resumeSession, type ApiResult } from "./api";
+import { endSession, putPrefs, refreshUsage, removeSession, resumeSession, type ApiResult } from "./api";
 import { type Density, type Prefs, type Session, type Usage, UNKNOWN_USAGE } from "./protocol";
 import { aliveOnly, applyDensity, densityCount, initialLive, moveTile, promote, surfaceDiff } from "./sessions/live";
 import { SessionStore } from "./sessions/store";
@@ -53,6 +54,8 @@ function requireElements<T extends HTMLElement>(selector: string): T[] {
 const connectionStatusEl = requireElement<HTMLElement>("#connection-status");
 const usageFiveHourEl = requireElement<HTMLElement>("#usage-5h");
 const usageSevenDayEl = requireElement<HTMLElement>("#usage-7d");
+const usageModelWeekEl = requireElement<HTMLElement>("#usage-model-week");
+const usageRefreshBtn = requireElement<HTMLButtonElement>("#usage-refresh");
 const usageModelEl = requireElement<HTMLElement>("#usage-model");
 const claudeVersionEl = requireElement<HTMLElement>("#claude-version");
 const bannerEl = requireElement<HTMLElement>("#banner");
@@ -103,6 +106,10 @@ const store = new SessionStore();
 // `installTileDrag`) — see sessions/live.ts's header comment for the full rule.
 let view: "focus" | "tiles" = "focus";
 let density: Density = "2x2";
+// Plan usage-model-bar: which model-scoped window the masthead's third readout shows —
+// same "daemon's `prefs` broadcast is the single source of truth" rule as view/density
+// (INV-6); the daemon's own default before any PUT is "Fable" (docs/protocol.md §5.5).
+let usageModel = "Fable";
 let focusedId: number | null = null;
 let tilesLive: number[] = [];
 // Fix attempt 2 (REQ-10/E6): a drag's initiating `mousedown` blurs any focused control in
@@ -174,13 +181,16 @@ function isConnected(): boolean {
 
 /** The masthead's usage gauges: the M2-era text readout (`renderUsage`, unchanged) plus
  * M3's track/resets markup (appended into the same elements — see renderUsageTrack's own
- * doc comment for why call order matters here) and the model readout — all derived from
- * the one `currentUsage` state so every surface always shows the same sample. */
+ * doc comment for why call order matters here), the freshest-sample model readout, and
+ * plan usage-model-bar's third readout (the per-model weekly window, driven by the
+ * client-local `usageModel` pref selection) — all derived from the one `currentUsage`
+ * state so every surface always shows the same sample. */
 function renderUsageBlock(usage: Usage, now: Date): void {
   renderUsage({ fiveHour: usageFiveHourEl, sevenDay: usageSevenDayEl }, usage);
   renderUsageTrack(usageFiveHourEl, usage.fiveHour, now);
   renderUsageTrack(usageSevenDayEl, usage.sevenDay, now);
   renderUsageModel(usageModelEl, usage.model);
+  renderModelWeek(usageModelWeekEl, usage, usageModel, now, requestUsageModel);
 }
 
 function setStatus(status: ConnectionStatus): void {
@@ -226,6 +236,26 @@ function requestView(newView: "focus" | "tiles"): void {
 
 function requestDensity(newDensity: Density): void {
   void putPrefs({ density: newDensity }).then(reportPrefsFailure);
+}
+
+/** REQ-12: the model-week `<select>`'s change handler — same fire-and-forget shape as
+ * `requestView`/`requestDensity` above (`usageModel` only ever changes via the `prefs`
+ * echo, never optimistically here, so every open window converges from the wire). */
+function requestUsageModel(newModel: string): void {
+  void putPrefs({ usageModel: newModel }).then(reportPrefsFailure);
+}
+
+/** REQ-12: clears the refresh button's `aria-busy` state and cancels the 5s fallback
+ * timer — called both when a `usage` message actually arrives (the common case) and when
+ * `POST /api/usage/refresh` itself fails outright (network error / 404 poller-disabled),
+ * so a failed request never leaves the button spinning until the fallback timer. */
+let usageRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+function clearUsageRefreshBusy(): void {
+  usageRefreshBtn.removeAttribute("aria-busy");
+  if (usageRefreshTimer !== null) {
+    clearTimeout(usageRefreshTimer);
+    usageRefreshTimer = null;
+  }
 }
 
 /** Strip-card click / ⌘1–9 in Tiles: promotes, demoting exactly the lowest-priority live
@@ -362,6 +392,9 @@ function applyPrefsFromSnapshot(prefs: Prefs): void {
     density = prefs.density;
     if (view === "tiles") tilesLive = applyDensity(tilesLive, densityCount(density), store.values());
   }
+  // No sticky client-side state depends on usageModel the way tilesLive does on
+  // view/density, so there's no reason to skip the assignment when unchanged.
+  usageModel = prefs.usageModel;
 }
 
 /** After the daemon connection is restored (`hello`), every currently-mounted surface
@@ -615,6 +648,22 @@ viewTilesBtn.addEventListener("click", () => requestView("tiles"));
 density2x2Btn.addEventListener("click", () => requestDensity("2x2"));
 density3x2Btn.addEventListener("click", () => requestDensity("3x2"));
 
+// REQ-12: aria-busy from click until the next `usage` message or 5s, whichever is first
+// (the onUsage handler below calls clearUsageRefreshBusy() on every message; this timer
+// is only the fallback for a fetch that hangs or a result that never triggers a broadcast
+// because the list didn't change).
+usageRefreshBtn.addEventListener("click", () => {
+  usageRefreshBtn.setAttribute("aria-busy", "true");
+  if (usageRefreshTimer !== null) clearTimeout(usageRefreshTimer);
+  usageRefreshTimer = setTimeout(clearUsageRefreshBusy, 5000);
+  void refreshUsage().then((result) => {
+    if (!result.ok) {
+      console.error(`POST /api/usage/refresh failed: ${result.error.code} ${result.error.message}`);
+      clearUsageRefreshBusy();
+    }
+  });
+});
+
 // plan move-tiles REQ-4/REQ-5/REQ-8: delegated drag-to-reorder on the grid container —
 // installed once, covers every tile the reconciler ever builds, works even with the
 // daemon down (ordering is client-only state, untouched by connection status).
@@ -718,6 +767,7 @@ const client = new WsClient(wsUrl, {
   },
   onUsage: (usage) => {
     currentUsage = usage;
+    clearUsageRefreshBusy();
     render();
   },
   onDisconnected: () => {

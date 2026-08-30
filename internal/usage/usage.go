@@ -42,3 +42,24 @@ type Snapshot struct {
 	SampledAt *time.Time
 	Source    string
 }
+
+// ModelWindow is one neutral per-model weekly usage window (usage-model-bar,
+// 2026-08-30) — internal/claudecode's own UsageWindow is this seam's other half;
+// internal/server maps between them at the seam, mirroring StatusAccount → Sample.
+type ModelWindow struct {
+	DisplayName string
+	UsedPct     float64
+	ResetsAt    time.Time
+}
+
+// ModelSnapshot is ModelScoped's exposed state. Windows is nil until the first
+// successful fetch; an empty-but-non-nil slice is a valid, distinct successful result
+// (an account with no scoped windows) — REQ-14/INV-1 depend on At mirroring that
+// nullability exactly. Error is nil except right after a failed poll — a success clears
+// it even when the list itself didn't change. Source is never empty.
+type ModelSnapshot struct {
+	Windows []ModelWindow
+	At      *time.Time
+	Error   *string
+	Source  string
+}

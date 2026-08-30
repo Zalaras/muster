@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ClaudeCodeInfo, Density, SessionModelInfo, Usage } from "../protocol";
+import type { ClaudeCodeInfo, Density, ModelWindow, SessionModelInfo, Usage } from "../protocol";
 import { formatResets } from "../sessions/format";
 import {
   renderClaudeVersion,
   renderConnectionStatus,
   renderDensityControl,
+  renderModelWeek,
   renderUsage,
   renderUsageModel,
   renderUsageTrack,
@@ -367,5 +368,460 @@ describe("renderUsageModel (REQ-12): the masthead model readout", () => {
     renderUsageModel(el, null);
     expect(el.hidden).toBe(true);
     expect(el.textContent).toBe("");
+  });
+});
+
+// Plan usage-model-bar: `renderModelWeek` needs more than the plain `.lbl`/`.num` span
+// pair `FakeDomNode` above models — it builds a `<select>` with `disabled`/`value`
+// properties and a `change` listener, and toggles `.stale`/`title` directly on the
+// container. `FakeDomNodeRich` extends the same minimal-DOM-stand-in approach (see the
+// comment on `FakeDomNode` above) with exactly those extra primitives, still without
+// jsdom (docs/conventions.md: DOM construction is Playwright's job; this is pure logic —
+// which child nodes exist, in which order, with which text/attributes).
+class FakeDomNodeRich {
+  readonly tagName: string;
+  className = "";
+  disabled = false;
+  value = "";
+  title = "";
+  readonly style: Record<string, string> = {};
+  private attrs = new Map<string, string>();
+  private listeners = new Map<string, (() => void)[]>();
+  private children: FakeDomNodeRich[] = [];
+  private ownText = "";
+
+  constructor(tagName: string) {
+    this.tagName = tagName;
+  }
+
+  get textContent(): string {
+    return this.children.length > 0 ? this.children.map((c) => c.textContent).join("") : this.ownText;
+  }
+
+  set textContent(value: string) {
+    this.ownText = value;
+    this.children = [];
+  }
+
+  get classList(): { toggle: (name: string, force?: boolean) => void; contains: (name: string) => boolean } {
+    return {
+      toggle: (name: string, force?: boolean) => {
+        const classes = new Set(this.className.split(" ").filter(Boolean));
+        const shouldHave = force === undefined ? !classes.has(name) : force;
+        if (shouldHave) classes.add(name);
+        else classes.delete(name);
+        this.className = Array.from(classes).join(" ");
+      },
+      contains: (name: string) => this.className.split(" ").filter(Boolean).includes(name),
+    };
+  }
+
+  setAttribute(name: string, value: string): void {
+    this.attrs.set(name, value);
+  }
+
+  getAttribute(name: string): string | null {
+    return this.attrs.get(name) ?? null;
+  }
+
+  removeAttribute(name: string): void {
+    this.attrs.delete(name);
+    if (name === "title") this.title = "";
+  }
+
+  addEventListener(type: string, listener: () => void): void {
+    const list = this.listeners.get(type) ?? [];
+    list.push(listener);
+    this.listeners.set(type, list);
+  }
+
+  dispatch(type: string): void {
+    (this.listeners.get(type) ?? []).forEach((l) => l());
+  }
+
+  appendChild(child: FakeDomNodeRich): FakeDomNodeRich {
+    this.children.push(child);
+    return child;
+  }
+
+  insertBefore(newNode: FakeDomNodeRich, referenceNode: FakeDomNodeRich | null): FakeDomNodeRich {
+    const index = referenceNode ? this.children.indexOf(referenceNode) : -1;
+    if (index === -1) this.children.push(newNode);
+    else this.children.splice(index, 0, newNode);
+    return newNode;
+  }
+
+  replaceChildren(...nodes: FakeDomNodeRich[]): void {
+    this.children = nodes;
+  }
+
+  querySelector(selector: string): FakeDomNodeRich | null {
+    const wanted = selector.replace(/^\./, "");
+    return this.children.find((c) => c.className.split(" ").includes(wanted)) ?? null;
+  }
+
+  nodes(): FakeDomNodeRich[] {
+    return this.children;
+  }
+
+  childClasses(): string[] {
+    return this.children.map((c) => c.className);
+  }
+
+  optionTexts(): string[] {
+    return this.children.filter((c) => c.tagName === "option").map((c) => c.textContent);
+  }
+}
+
+describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-2/INV-3)", () => {
+  const now = new Date("2026-08-30T10:00:00Z");
+  const fable: ModelWindow = { displayName: "Fable", usedPct: 61.0, resetsAt: "2026-09-01T13:59:59Z" };
+  const opus: ModelWindow = { displayName: "Opus", usedPct: 20.0, resetsAt: "2026-09-01T13:59:59Z" };
+  const baseUsage: Usage = { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" };
+
+  beforeEach(() => {
+    vi.stubGlobal("document", { createElement: (tag: string) => new FakeDomNodeRich(tag) });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function container(): FakeDomNodeRich {
+    return new FakeDomNodeRich("div");
+  }
+
+  it("renders unknown with a disabled single-option select when modelScoped is null (no data yet)", () => {
+    const el = container();
+    const usage: Usage = { ...baseUsage, modelScoped: null, modelScopedAt: null, modelScopedError: null };
+    renderModelWeek(el as unknown as HTMLElement, usage, "Fable", now, vi.fn());
+
+    expect(el.childClasses()).toEqual(["lbl usage-model-select", "num"]);
+    const [select, num] = el.nodes();
+    expect(select!.getAttribute("aria-label")).toBe("Usage model");
+    expect(select!.disabled).toBe(true);
+    expect(select!.optionTexts()).toEqual(["Fable"]);
+    expect(num!.textContent).toBe("unknown");
+    expect(el.classList.contains("stale")).toBe(false);
+  });
+
+  it("renders unknown with a disabled select when modelScoped is undefined (pre-plan daemon payload)", () => {
+    const el = container();
+    renderModelWeek(el as unknown as HTMLElement, baseUsage, "Fable", now, vi.fn());
+
+    const [select, num] = el.nodes();
+    expect(select!.disabled).toBe(true);
+    expect(select!.optionTexts()).toEqual(["Fable"]);
+    expect(num!.textContent).toBe("unknown");
+  });
+
+  it("renders unknown with a disabled select when modelScoped is an empty list (successful fetch, no scoped windows)", () => {
+    const el = container();
+    const usage: Usage = { ...baseUsage, modelScoped: [], modelScopedAt: "2026-08-30T09:59:00Z", modelScopedError: null };
+    renderModelWeek(el as unknown as HTMLElement, usage, "Fable", now, vi.fn());
+
+    const [select, num] = el.nodes();
+    expect(select!.disabled).toBe(true);
+    expect(select!.optionTexts()).toEqual(["Fable"]);
+    expect(num!.textContent).toBe("unknown");
+  });
+
+  it("renders the selected model's bar/percent/resets when it is present in a non-null list (REQ-9)", () => {
+    const el = container();
+    const usage: Usage = { ...baseUsage, modelScoped: [fable, opus], modelScopedAt: "2026-08-30T09:59:00Z", modelScopedError: null };
+    renderModelWeek(el as unknown as HTMLElement, usage, "Fable", now, vi.fn());
+
+    expect(el.childClasses()).toEqual(["lbl usage-model-select", "bar warn", "num", "resets"]);
+    const [select, , num, resets] = el.nodes();
+    expect(select!.disabled).toBe(false);
+    expect(select!.optionTexts()).toEqual(["Fable", "Opus"]);
+    expect(select!.value).toBe("Fable");
+    expect(num!.textContent).toBe("61%");
+    expect(resets!.textContent).toBe(`· ${formatResets(fable.resetsAt, now)}`);
+  });
+
+  it("applies the warn modifier at or above 60% and omits it below (design-system §5 threshold)", () => {
+    const belowWarn: ModelWindow = { ...fable, usedPct: 59.9 };
+    const elBelow = container();
+    renderModelWeek(
+      elBelow as unknown as HTMLElement,
+      { ...baseUsage, modelScoped: [belowWarn], modelScopedError: null },
+      "Fable",
+      now,
+      vi.fn(),
+    );
+    expect(elBelow.querySelector(".bar")?.className).toBe("bar");
+
+    const atWarn: ModelWindow = { ...fable, usedPct: 60 };
+    const elAt = container();
+    renderModelWeek(elAt as unknown as HTMLElement, { ...baseUsage, modelScoped: [atWarn], modelScopedError: null }, "Fable", now, vi.fn());
+    expect(elAt.querySelector(".bar")?.className).toBe("bar warn");
+  });
+
+  it("renders unknown with zero track markup when the selected pref names a model absent from a non-null list (REQ-10/INV-2)", () => {
+    const el = container();
+    const usage: Usage = { ...baseUsage, modelScoped: [fable, opus], modelScopedError: null };
+    renderModelWeek(el as unknown as HTMLElement, usage, "Sonnet", now, vi.fn());
+
+    expect(el.childClasses()).toEqual(["lbl usage-model-select", "num"]);
+    const [select, num] = el.nodes();
+    expect(select!.disabled).toBe(false);
+    // Fix Attempt 1 (Minor 3): a pref naming a model absent from a non-null list gets a
+    // synthesized, disabled placeholder option prepended — showing the pref name instead
+    // of leaving the select blank at selectedIndex -1 — while the honesty rule (the number
+    // readout, no track markup) is unaffected.
+    expect(select!.optionTexts()).toEqual(["Sonnet", "Fable", "Opus"]);
+    const [placeholder] = select!.nodes();
+    expect(placeholder!.disabled).toBe(true);
+    expect(select!.value).toBe("Sonnet");
+    expect(num!.textContent).toBe("unknown");
+  });
+
+  it("adds .stale and a title = the error word while keeping the last-good bar (REQ-11/INV-3)", () => {
+    const el = container();
+    const usage: Usage = { ...baseUsage, modelScoped: [fable], modelScopedError: "unauthorized" };
+    renderModelWeek(el as unknown as HTMLElement, usage, "Fable", now, vi.fn());
+
+    expect(el.classList.contains("stale")).toBe(true);
+    expect(el.title).toBe("unauthorized");
+    // The last-good bucket is still rendered — the error never discards it.
+    const num = el.querySelector(".num");
+    expect(num?.textContent).toBe("61%");
+    expect(el.querySelector(".bar")).not.toBeNull();
+  });
+
+  it("clears .stale and the title on the next error-free render (self-healing, matches renderBucket's pattern)", () => {
+    const el = container();
+    renderModelWeek(
+      el as unknown as HTMLElement,
+      { ...baseUsage, modelScoped: [fable], modelScopedError: "unreachable" },
+      "Fable",
+      now,
+      vi.fn(),
+    );
+    expect(el.classList.contains("stale")).toBe(true);
+
+    renderModelWeek(el as unknown as HTMLElement, { ...baseUsage, modelScoped: [fable], modelScopedError: null }, "Fable", now, vi.fn());
+    expect(el.classList.contains("stale")).toBe(false);
+    expect(el.title).toBe("");
+  });
+
+  it.each(["no-credentials", "unauthorized", "unreachable"] as const)("uses %s verbatim as the title", (errorKind) => {
+    const el = container();
+    renderModelWeek(
+      el as unknown as HTMLElement,
+      { ...baseUsage, modelScoped: null, modelScopedError: errorKind },
+      "Fable",
+      now,
+      vi.fn(),
+    );
+    expect(el.title).toBe(errorKind);
+  });
+
+  it("invokes the onSelectModel callback with the new value on a select change event (REQ-12)", () => {
+    const el = container();
+    const onSelect = vi.fn();
+    const usage: Usage = { ...baseUsage, modelScoped: [fable, opus], modelScopedError: null };
+    renderModelWeek(el as unknown as HTMLElement, usage, "Fable", now, onSelect);
+
+    const [select] = el.nodes();
+    select!.value = "Opus";
+    select!.dispatch("change");
+    expect(onSelect).toHaveBeenCalledWith("Opus");
+  });
+
+  it("rebuilds when the option list changes — a known -> unknown transition leaves no stale bar/resets behind (self-healing)", () => {
+    const el = container();
+    renderModelWeek(el as unknown as HTMLElement, { ...baseUsage, modelScoped: [fable], modelScopedError: null }, "Fable", now, vi.fn());
+    expect(el.childClasses()).toContain("bar warn");
+
+    // Selected model removed from the next list (["Fable"] -> ["Fable", "Opus"], since the
+    // absent-pref placeholder now keeps "Fable" in the option set) — the known -> unknown
+    // honesty transition, and a genuine option-list change, so this is one of the cases
+    // that legitimately still rebuilds (see the node-reuse describe block below for the
+    // steady-state case that must NOT rebuild).
+    renderModelWeek(el as unknown as HTMLElement, { ...baseUsage, modelScoped: [opus], modelScopedError: null }, "Fable", now, vi.fn());
+    expect(el.childClasses()).toEqual(["lbl usage-model-select", "num"]);
+    expect(el.querySelector(".num")?.textContent).toBe("unknown");
+  });
+});
+
+// Fix Attempt 1 (review cycle 1, Critical 1): the `<select>` used to be torn down and
+// rebuilt via `el.replaceChildren` on every render pass, which detaches an already-attached
+// node — blurring focus and always closing a native `<select>` popup, even on a plain 1s
+// re-render tick with unchanged data (the common case, since `modelScoped` only refreshes on
+// a ~5-min poll). These tests pin the fixed contract: the same `<select>` node instance
+// (and the `.num`/`.bar`/`.resets` siblings) persists across renders whenever the option-name
+// sequence is unchanged, and only a genuine option-list change is allowed to replace it.
+describe("renderModelWeek — node reuse across render passes (review cycle 1, Critical 1)", () => {
+  const now = new Date("2026-08-30T10:00:00Z");
+  const fable: ModelWindow = { displayName: "Fable", usedPct: 61.0, resetsAt: "2026-09-01T13:59:59Z" };
+  const opus: ModelWindow = { displayName: "Opus", usedPct: 20.0, resetsAt: "2026-09-01T13:59:59Z" };
+  const baseUsage: Usage = { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" };
+
+  beforeEach(() => {
+    vi.stubGlobal("document", { createElement: (tag: string) => new FakeDomNodeRich(tag) });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function container(): FakeDomNodeRich {
+    return new FakeDomNodeRich("div");
+  }
+
+  it("keeps the same <select> node instance across a re-render with an unchanged option list, updating only .value/.disabled in place", () => {
+    const el = container();
+    const usage: Usage = { ...baseUsage, modelScoped: [fable, opus], modelScopedError: null };
+    renderModelWeek(el as unknown as HTMLElement, usage, "Fable", now, vi.fn());
+
+    const [select1, , num1, resets1] = el.nodes();
+    expect(select1!.value).toBe("Fable");
+    expect(select1!.disabled).toBe(false);
+
+    // Same names ["Fable", "Opus"] — only the selection and the bucket values differ.
+    renderModelWeek(el as unknown as HTMLElement, usage, "Opus", now, vi.fn());
+
+    const [select2, , num2, resets2] = el.nodes();
+    expect(select2).toBe(select1); // identity, not just equality — the node was never detached
+    expect(num2).toBe(num1);
+    expect(resets2).toBe(resets1);
+    expect(select2!.value).toBe("Opus");
+    expect(select2!.optionTexts()).toEqual(["Fable", "Opus"]);
+    // Values updated in place, not by rebuilding — no duplicate nodes appended.
+    expect(el.nodes().length).toBe(4);
+    expect(num2!.textContent).toBe("20%");
+  });
+
+  it("toggles select.disabled in place (true -> false) across the loading -> loaded transition when the option list is unchanged", () => {
+    const el = container();
+    // "No data yet": modelScoped null, so the single-option list is just the pref name.
+    renderModelWeek(el as unknown as HTMLElement, { ...baseUsage, modelScoped: null, modelScopedError: null }, "Fable", now, vi.fn());
+    const [select1, num1] = el.nodes();
+    expect(select1!.disabled).toBe(true);
+    expect(select1!.optionTexts()).toEqual(["Fable"]);
+    expect(el.nodes().length).toBe(2); // no bar/resets while the bucket is null
+
+    // Data arrives, and it happens to be the same single-name list ["Fable"] — names are
+    // unchanged, so this must reuse the same select/num nodes rather than rebuilding, while
+    // still picking up disabled=false and the newly-available bar/resets.
+    renderModelWeek(el as unknown as HTMLElement, { ...baseUsage, modelScoped: [fable], modelScopedError: null }, "Fable", now, vi.fn());
+    const [select2, , num2] = el.nodes();
+    expect(select2).toBe(select1);
+    expect(num2).toBe(num1);
+    expect(select2!.disabled).toBe(false);
+    expect(num2!.textContent).toBe("61%");
+    expect(el.nodes().length).toBe(4); // bar + resets newly appended, select/num not duplicated
+  });
+
+  it("does not duplicate bar/num/resets nodes across repeated renders of an unchanged bucket", () => {
+    const el = container();
+    const usage: Usage = { ...baseUsage, modelScoped: [fable], modelScopedError: null };
+    renderModelWeek(el as unknown as HTMLElement, usage, "Fable", now, vi.fn());
+    const firstPass = el.nodes();
+    expect(firstPass.length).toBe(4);
+
+    renderModelWeek(el as unknown as HTMLElement, usage, "Fable", now, vi.fn());
+    renderModelWeek(el as unknown as HTMLElement, usage, "Fable", now, vi.fn());
+    const thirdPass = el.nodes();
+
+    expect(thirdPass.length).toBe(4);
+    expect(thirdPass[0]).toBe(firstPass[0]); // select
+    expect(thirdPass[1]).toBe(firstPass[1]); // bar
+    expect(thirdPass[2]).toBe(firstPass[2]); // num
+    expect(thirdPass[3]).toBe(firstPass[3]); // resets
+  });
+
+  it("rebuilds a brand-new <select> node when the option list actually changes", () => {
+    const el = container();
+    renderModelWeek(el as unknown as HTMLElement, { ...baseUsage, modelScoped: [fable], modelScopedError: null }, "Fable", now, vi.fn());
+    const [select1] = el.nodes();
+    expect(select1!.optionTexts()).toEqual(["Fable"]);
+
+    // Option set genuinely grows from ["Fable"] to ["Fable", "Opus"] — a real change of
+    // choices, which is the one path still allowed to replace the node.
+    renderModelWeek(el as unknown as HTMLElement, { ...baseUsage, modelScoped: [fable, opus], modelScopedError: null }, "Fable", now, vi.fn());
+    const [select2] = el.nodes();
+    expect(select2).not.toBe(select1);
+    expect(select2!.optionTexts()).toEqual(["Fable", "Opus"]);
+  });
+
+  it("re-wires the change listener onto the rebuilt node so onSelectModel still fires after an option-list rebuild", () => {
+    const el = container();
+    const onSelectFirst = vi.fn();
+    renderModelWeek(el as unknown as HTMLElement, { ...baseUsage, modelScoped: [fable], modelScopedError: null }, "Fable", now, onSelectFirst);
+
+    const onSelectSecond = vi.fn();
+    renderModelWeek(
+      el as unknown as HTMLElement,
+      { ...baseUsage, modelScoped: [fable, opus], modelScopedError: null },
+      "Fable",
+      now,
+      onSelectSecond,
+    );
+
+    const [select] = el.nodes();
+    select!.value = "Opus";
+    select!.dispatch("change");
+    expect(onSelectSecond).toHaveBeenCalledWith("Opus");
+    expect(onSelectFirst).not.toHaveBeenCalled();
+  });
+
+  // Fix Attempt 2 (review cycle 2, Major 1): `names` alone collides across a placeholder
+  // flip — pref "Fable" against list [Opus] (placeholder needed) and pref "Fable" against
+  // list [Fable, Opus] (no placeholder) both produce the identical sequence
+  // ["Fable", "Opus"]. Before the fix the reuse branch took this for "unchanged" and never
+  // re-synced the Fable option's `disabled` flag, so a live, listed model stayed
+  // permanently unselectable. `placeholderNeeded` is now part of the cached state, so a
+  // flip in it forces the rebuild path even when `names` itself is unchanged.
+  it("rebuilds the select — not just reuse — when a placeholder flip leaves the name sequence unchanged (list gains the pref model)", () => {
+    const el = container();
+    renderModelWeek(el as unknown as HTMLElement, { ...baseUsage, modelScoped: [opus], modelScopedError: null }, "Fable", now, vi.fn());
+    const [select1] = el.nodes();
+    expect(select1!.optionTexts()).toEqual(["Fable", "Opus"]);
+    const [placeholder1] = select1!.nodes();
+    expect(placeholder1!.disabled).toBe(true);
+
+    // The endpoint now includes "Fable" too: placeholderNeeded flips true -> false, but
+    // the resulting name sequence is still exactly ["Fable", "Opus"] — the collision
+    // Major 1 found.
+    renderModelWeek(
+      el as unknown as HTMLElement,
+      { ...baseUsage, modelScoped: [fable, opus], modelScopedError: null },
+      "Fable",
+      now,
+      vi.fn(),
+    );
+    const [select2] = el.nodes();
+    expect(select2).not.toBe(select1); // identity change: the placeholder flip forced a rebuild
+    expect(select2!.optionTexts()).toEqual(["Fable", "Opus"]);
+    const [fableOption] = select2!.nodes();
+    expect(fableOption!.disabled).toBe(false); // Fable is now a live, listed, selectable window
+  });
+
+  it("rebuilds the select when a placeholder flip leaves the name sequence unchanged (list loses the pref model, reverse of the above)", () => {
+    const el = container();
+    renderModelWeek(
+      el as unknown as HTMLElement,
+      { ...baseUsage, modelScoped: [fable, opus], modelScopedError: null },
+      "Fable",
+      now,
+      vi.fn(),
+    );
+    const [select1] = el.nodes();
+    expect(select1!.optionTexts()).toEqual(["Fable", "Opus"]);
+    const [fableOption1] = select1!.nodes();
+    expect(fableOption1!.disabled).toBe(false);
+
+    // The endpoint drops "Fable": placeholderNeeded flips false -> true, but the name
+    // sequence is still exactly ["Fable", "Opus"] (the synthesized placeholder reuses the
+    // pref name as names[0]).
+    renderModelWeek(el as unknown as HTMLElement, { ...baseUsage, modelScoped: [opus], modelScopedError: null }, "Fable", now, vi.fn());
+    const [select2] = el.nodes();
+    expect(select2).not.toBe(select1); // identity change: the placeholder flip forced a rebuild
+    expect(select2!.optionTexts()).toEqual(["Fable", "Opus"]);
+    const [placeholder2] = select2!.nodes();
+    expect(placeholder2!.disabled).toBe(true); // Fable is once again the disabled placeholder
   });
 });

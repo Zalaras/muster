@@ -142,6 +142,17 @@ func spawnDaemon(t *testing.T, onExit string, stdin *os.File) *spawnedDaemon {
 		"-claude-bin", newSleepStubClaude(t),
 		"-tmux-socket", tmuxSocket,
 		"-on-exit", onExit,
+		// D19-D21 have nothing to do with usage polling; -usage-poll's non-zero CLI
+		// default plus its immediate fetch on Start would otherwise make every spawned
+		// musterd here shell out to the real macOS Keychain and, if that lookup
+		// succeeded, call the real https://api.anthropic.com with whatever real Claude
+		// Code OAuth token is on the machine running `go test` — an unannounced touch of
+		// a real subscription CLAUDE.md forbids. -usage-token-file points at a scratch
+		// file that's never written, so the reader fails fast with ErrNoCredentials
+		// (ordinary "no-credentials", not a real lookup) even with polling left off by
+		// -usage-poll 0 belt-and-braces.
+		"-usage-poll", "0",
+		"-usage-token-file", filepath.Join(dataDir, "usage-token-not-present"),
 	}
 	cmd := exec.Command(musterdBinary, args...)
 	if stdin != nil {

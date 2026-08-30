@@ -385,7 +385,7 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
       half of the keyboard-survives-reorder E2E (Minor 3). Two of the nine `reconcileCards`
       focus unit tests are vacuous under the `FakeDomNode` shim (Minor 1) — the E2E case is the
       real guard; tighten or drop them.
-- [ ] **R2 real-haiku End → Resume check** (m4-reconcile Reviewer-Verified R2, not run by the
+- [x] **R2 real-haiku End → Resume check** — done 2026-08-30 (run manually by Damian). (m4-reconcile Reviewer-Verified R2, not run by the
       pipeline — it burns subscription): `claude --model claude-haiku-4-5-20251001` "say hi",
       End from the dashboard, Resume, confirm the enveloped `SessionStart(source:"resume")`
       carries the same `session_id` interactively on the pinned binary and the badge reads
@@ -395,8 +395,18 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
 These are some minor changes and cleanup needed before we can move into post v1.
 - Change how the left sidebar works. Sessions should be pinned in the order they are opened but allow the user to update the order by dragging and also allow "pinnng" (using pin icon) sessions (automatically go to the top in order of pinned).
 - [x] User should be able to move the grids around in the grid view so they can order them as they please. This would be done by dragging the title bar. I'm also wondering if we want status icons (dot - green, orange/yellow and red) in the title to quickly show if running, idle or error. — **Done 2026-08-29 (plan `move-tiles`)**: header drag, insert-and-shift, grid never auto-sorts. The status dot was already shipped (state-coloured per design-system §3); the green/orange/red palette was deliberately not adopted (§3 forbids reusing state colours), a hover `title` with the state word was added instead. Deferred: keyboard reorder, persisting order across reloads.
-- Look to see if we can also put in Fable as a model in the options (create new session) and update the usage indicator to include the weekly Fable limit. This might need to be dynamic for new models in the future? Might be worth investigating that 3rd bar (specific model not the 5h or weekly usage). This is also displayed in the `/usage` command that Claude Code has
+- [x] Look to see if we can also put in Fable as a model in the options (create new session) and update the usage indicator to include the weekly Fable limit. — **Third bar shipped 2026-08-30 (plan `usage-model-bar`, decision (b))**: musterd polls `GET /api/oauth/usage` with the read-only Keychain OAuth token (5-min poll + ↻ refresh), `#usage-model-week` readout with a model `<select>` persisted as `prefs.usageModel`. The "add Fable to the launch model select" half stays open with the new-session-dialog item below. This might need to be dynamic for new models in the future? Might be worth investigating that 3rd bar (specific model not the 5h or weekly usage). This is also displayed in the `/usage` command that Claude Code has
+  - **Probed 2026-08-30 (static, against installed 2.1.251):** the third bar is **not in the
+    status line** — the builder explicitly emits only `five_hour`/`seven_day`/`spend_limit`
+    and drops the per-model window `seven_day_overage_included` ("Fable 5 limit"). `/usage`
+    gets it from `GET /api/oauth/usage` `limits[]` (`kind:"weekly_scoped"`,
+    `scope.model.display_name`, `percent`, `resets_at`) with the OAuth token. Details:
+    `spikes/FINDINGS.md` 2026-08-30 addendum. **Decision (resolved 2026-08-30 → (b), shipped as `usage-model-bar`; kept as history):** (a) wait for the status
+    line to grow it (re-check on each pin bump — default), or (b) musterd calls
+    `/api/oauth/usage` with the Keychain OAuth token (SPEC §2.3 change + credential
+    handling). The "add Fable to the model select" half is independent and can proceed.
 - Improve the Create new session dialog, especially the file explorer and selecting a directory. The dialog is messy, even the model select is "squashed". File explorder should be in a view that shows the parents and should auto use whatever directory is currently select rather than having to "apply" the selection. Similar to the Mac Finder interface.
+- Create new session from tile view
 
 ## M5+ (v1.x, re-rank when reached)
 

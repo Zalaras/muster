@@ -74,3 +74,53 @@ export function tileContextInfo(tile: Locator): Locator {
 export function tileContextTrack(tile: Locator): Locator {
   return tileContextInfo(tile).locator("i");
 }
+
+// --- Plan usage-model-bar (2026-08-30): the third masthead readout, the per-model
+// weekly ("Fable") window fetched by musterd itself (`GET /api/oauth/usage`), unlike
+// the two buckets above which come from the status line. Unlike `mastheadModelReadout`
+// above, this plan's Testable UI Elements table PINS the container id (`#usage-model-week`),
+// the select's accessible name (`aria-label="Usage model"`), and the refresh button's
+// accessible name (`"Refresh usage"`) directly in the plan's own markup snippet — so
+// these locators are not hedged guesses the way the pre-existing ones in this file are.
+
+/** The model-week readout container (Testable UI Elements: `#usage-model-week`,
+ * `.usage-readout`; gains `.stale` when `modelScopedError` is non-null, INV-2/E5). */
+export function mastheadModelWeek(page: Page): Locator {
+  return page.locator("#usage-model-week");
+}
+
+/** The model-week readout's percent text (`.num`) — `"NN%"` or `"unknown"`. */
+export function mastheadModelWeekPercent(page: Page): Locator {
+  return mastheadModelWeek(page).locator(".num");
+}
+
+/** The model-week readout's track-fill element (`.bar > i`) — absent whenever `.num`
+ * reads "unknown" (INV-2). */
+export function mastheadModelWeekTrack(page: Page): Locator {
+  return mastheadModelWeek(page).locator(".bar i");
+}
+
+/** Matches iff the model-week bar carries the >=60%-used `warn` class (design-system
+ * §6, reused here per REQ-9). */
+export function mastheadModelWeekWarn(page: Page): Locator {
+  return mastheadModelWeek(page).locator(".bar.warn");
+}
+
+/** The model-week readout's reset suffix (`.resets`) — present only when the selected
+ * model is known. */
+export function mastheadModelWeekResets(page: Page): Locator {
+  return mastheadModelWeek(page).locator(".resets");
+}
+
+/** The model-choosing `<select>` (Testable UI Elements: role `combobox`, accessible
+ * name "Usage model" via `aria-label`; `disabled` when `modelScoped` is null/empty). */
+export function mastheadModelSelect(page: Page): Locator {
+  return page.getByRole("combobox", { name: "Usage model" });
+}
+
+/** The refresh button beside the model-week readout (Testable UI Elements: role
+ * `button`, accessible name "Refresh usage"; `aria-busy="true"` while a refresh from
+ * either the button or `POST /api/usage/refresh` is pending). */
+export function mastheadUsageRefreshButton(page: Page): Locator {
+  return page.getByRole("button", { name: "Refresh usage" });
+}

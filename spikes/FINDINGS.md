@@ -685,3 +685,42 @@ runs green on 2.1.246 (~40 s each); pin bumped.
   them so.
 - The trust prompt appeared on every interactive run in the never-seen scratch repo and was
   dismissed by a bare `Enter` — §9 still holds on 2.1.246.
+
+## Addendum — per-model usage bucket probe (2026-08-30, against 2.1.251, static)
+
+**Question (Pre-v1 Cleanup):** can Muster's masthead grow the third `/usage` bar — the
+per-model weekly limit ("Fable 5 limit", formerly Opus)?
+
+**Method:** no live session. The installed binary (2.1.251 — drift from pin 2.1.246) was
+read with `strings`/`perl`; the relevant code is a handful of small, unambiguous functions,
+and a haiku session could never have exhibited a Fable bucket anyway.
+
+**Findings:**
+- The client parses four unified windows from API response headers:
+  `anthropic-ratelimit-unified-{5h,7d,7d_oi,overage}-{utilization,reset}`, mapped to
+  `five_hour` / `seven_day` / `seven_day_overage_included` / `overage`. The label table
+  reads `seven_day_overage_included: "Fable 5 limit"`, `seven_day_opus: "Opus limit"`,
+  `seven_day_sonnet: "Sonnet limit"`.
+- **The status-line JSON drops the per-model window.** Its `rate_limits` object is built as
+  `{five_hour?, seven_day?, spend_limit? (gateway only)}` and emitted only when one of those
+  three is set. `seven_day_overage_included` is never copied in. The binary's embedded
+  status-line schema documentation agrees. This is not a "field not yet observed" gap — it
+  is an explicit filter.
+- The `/usage` dialog's rows are `five_hour`, `seven_day`, `seven_day_sonnet` (max/team
+  plans) plus one row per `limits[]` entry with `kind:"weekly_scoped"` whose
+  `scope.model.display_name` is on the Statsig allowlist
+  `tengu_usage_overage_included_models` — fetched from
+  `GET https://api.anthropic.com/api/oauth/usage` with the subscription OAuth token, not
+  from headers or hooks. Row shape: `{percent, resets_at, scope:{model:{display_name}}}`.
+- No hook payload carries any rate-limit field (no co-occurrence of `hook_event_name` and
+  `rate_limit*` anywhere in the binary).
+
+**Consequences for Muster:** SPEC §2.3's "status line is the only usage source" cannot
+deliver the Fable bar on 2.1.251. The options are (a) wait — the internal telemetry schema
+already models the third window, so the status line may gain it; re-check the builder on
+every pin bump; (b) have `musterd` call `/api/oauth/usage` itself — requires reading
+Damian's OAuth token out of the macOS Keychain (`Claude Code-credentials`), a
+credential-handling and SPEC-level decision, not a tweak; (c) drop the item. Recommendation
+recorded in TODO.md: (a) by default, decide on (b) explicitly if wanted.
+
+Zero tokens spent; `~/.claude/settings.json` untouched (no rig instance was stamped).

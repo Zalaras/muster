@@ -461,6 +461,51 @@ func statusLineFullPayload(sessionID string, opts StatusLineFullOpts) map[string
 	return payload
 }
 
+// UsageWindowOpt is one weekly-scoped window for UsageAPIBody's fixture. ResetsAt,
+// left empty, defaults to farFutureResetsAt encoded as a bare epoch number — exercising
+// REQ-4's "RFC3339 or epoch seconds" dual format for free; pass an RFC3339 string
+// explicitly to test that branch instead.
+type UsageWindowOpt struct {
+	DisplayName string
+	Percent     float64
+	ResetsAt    string
+}
+
+// UsageAPIBody returns a GET /api/oauth/usage-shaped response body (measured live
+// 2026-08-30, spikes/canary-fields.md "GET /api/oauth/usage measured live 2026-08-30")
+// carrying the given weekly-scoped windows plus the session/weekly_all noise the real
+// endpoint always returns alongside them. Tests outside internal/claudecode must never
+// spell out this endpoint's own wire vocabulary (the D3 boundary check on plan
+// usage-model-bar) — this is the sanctioned way to get a realistic body, mirroring
+// EnvelopedSessionStart's role for hook payloads above.
+func UsageAPIBody(windows ...UsageWindowOpt) string {
+	limits := []any{
+		map[string]any{"kind": "session", "percent": 12, "resets_at": farFutureResetsAt, "scope": nil},
+		map[string]any{"kind": "weekly_all", "percent": 30, "resets_at": farFutureResetsAt, "scope": nil},
+	}
+	for _, w := range windows {
+		var resetsAt any = farFutureResetsAt
+		if w.ResetsAt != "" {
+			resetsAt = w.ResetsAt
+		}
+		limits = append(limits, map[string]any{
+			"kind":      "weekly_scoped",
+			"percent":   w.Percent,
+			"resets_at": resetsAt,
+			"scope":     map[string]any{"model": map[string]any{"id": nil, "display_name": w.DisplayName}},
+		})
+	}
+	return marshal(map[string]any{"limits": limits})
+}
+
+// OAuthCredentialsBody returns the Keychain-item/scratch-token-file JSON shape musterd
+// reads its OAuth token from — the same D3 sanctioned-fixture reasoning as UsageAPIBody.
+func OAuthCredentialsBody(token string) string {
+	return marshal(map[string]any{
+		"claudeAiOauth": map[string]any{"accessToken": token},
+	})
+}
+
 func marshal(v any) string {
 	b, err := json.Marshal(v)
 	if err != nil {

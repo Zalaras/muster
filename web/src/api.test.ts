@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { browse, endSession, fetchPane, fetchRepos, launchSession, putPrefs, removeSession, resumeSession } from "./api";
+import { browse, endSession, fetchPane, fetchRepos, launchSession, putPrefs, refreshUsage, removeSession, resumeSession } from "./api";
 import type { Session } from "./protocol";
 
 const validSession: Session = {
@@ -272,6 +272,74 @@ describe("api — putPrefs (PUT /api/prefs, docs/protocol.md §3.3 / M2 REQ-10)"
   it("never throws when a non-204 response body isn't valid JSON at all", async () => {
     fetchMock.mockResolvedValue(fakeStatusResponse(500));
     const result = await putPrefs({ view: "tiles" });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+
+  // Plan usage-model-bar REQ-8: usageModel joins view/density as a third optional field.
+  it("sends a usageModel-only PUT (a select change) as its own single field", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(204));
+    const result = await putPrefs({ usageModel: "Opus" });
+    expect(result).toEqual({ ok: true, value: null });
+    const call = fetchMock.mock.calls[0] as [string, { body: string }];
+    expect(JSON.parse(call[1].body)).toEqual({ usageModel: "Opus" });
+  });
+
+  it("can send usageModel alongside view/density in one request", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(204));
+    await putPrefs({ view: "tiles", density: "3x2", usageModel: "Fable" });
+    const call = fetchMock.mock.calls[0] as [string, { body: string }];
+    expect(JSON.parse(call[1].body)).toEqual({ view: "tiles", density: "3x2", usageModel: "Fable" });
+  });
+
+  it("decodes a 400 invalid_request error envelope for an out-of-range usageModel (empty or >32 chars)", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(400, { error: { code: "invalid_request", message: "usageModel must be 1-32 characters" } }));
+    const result = await putPrefs({ usageModel: "" });
+    expect(result).toEqual({ ok: false, error: { code: "invalid_request", message: "usageModel must be 1-32 characters" } });
+  });
+});
+
+describe("api — refreshUsage (POST /api/usage/refresh, docs/protocol.md §3.9, plan usage-model-bar REQ-7)", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("decodes a bare 202 with no body as success, never trying to parse a body", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(202));
+    const result = await refreshUsage();
+    expect(result).toEqual({ ok: true, value: null });
+    expect(fetchMock).toHaveBeenCalledWith("/api/usage/refresh", { method: "POST", credentials: "same-origin" });
+  });
+
+  it("decodes a 404 not_found error envelope when polling is disabled (-usage-poll 0, edge case 14)", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(404, { error: { code: "not_found", message: "usage polling is disabled" } }));
+    const result = await refreshUsage();
+    expect(result).toEqual({ ok: false, error: { code: "not_found", message: "usage polling is disabled" } });
+  });
+
+  it("decodes a 401 unauthorized error envelope (no/invalid cookie)", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(401, { error: { code: "unauthorized", message: "missing session cookie" } }));
+    const result = await refreshUsage();
+    expect(result).toEqual({ ok: false, error: { code: "unauthorized", message: "missing session cookie" } });
+  });
+
+  it("falls back to a generic error when a non-202 error body doesn't match the error envelope shape", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(500, { oops: "no error field" }));
+    const result = await refreshUsage();
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+
+  it("never throws when a non-202 response body isn't valid JSON at all", async () => {
+    fetchMock.mockResolvedValue(fakeStatusResponse(500));
+    const result = await refreshUsage();
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("unknown_error");
   });

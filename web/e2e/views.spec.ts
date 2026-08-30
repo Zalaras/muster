@@ -475,15 +475,19 @@ test("GET /api/state's prefs snapshot carries both view and density (M2 protocol
 
     const stateRes = await page.request.get(`${daemon.baseURL}/api/state`);
     expect(stateRes.status()).toBe(200);
-    const before = (await stateRes.json()) as { prefs: { view: string; density: string } };
-    expect(before.prefs).toEqual({ view: "focus", density: "2x2" });
+    // `usageModel` was added by plan usage-model-bar (protocol §3.3/§5.5 delta, merged
+    // into docs/protocol.md on approval; default "Fable" before any PUT) — included
+    // here so this M2 assertion tracks the merged protocol contract rather than going
+    // stale the moment usage-model-bar ships, same rationale as density's own addition.
+    const before = (await stateRes.json()) as { prefs: { view: string; density: string; usageModel: string } };
+    expect(before.prefs).toEqual({ view: "focus", density: "2x2", usageModel: "Fable" });
 
     const putRes = await page.request.put(`${daemon.baseURL}/api/prefs`, { data: { density: "3x2" } });
     expect(putRes.status()).toBe(204);
 
     const afterRes = await page.request.get(`${daemon.baseURL}/api/state`);
-    const after = (await afterRes.json()) as { prefs: { view: string; density: string } };
-    expect(after.prefs).toEqual({ view: "focus", density: "3x2" });
+    const after = (await afterRes.json()) as { prefs: { view: string; density: string; usageModel: string } };
+    expect(after.prefs).toEqual({ view: "focus", density: "3x2", usageModel: "Fable" });
   });
 });
 
