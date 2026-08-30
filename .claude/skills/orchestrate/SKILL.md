@@ -30,7 +30,7 @@ Before starting:
    - `harness-only` → the plan's E2E deliverable is an edit to `web/e2e/helpers/*` or fixtures with no new spec (e.g. m4's space-bearing data dir); Step 1 still runs e2e-specs, expected verdict `harness-only`; Step 5 runs as the full-suite sweep
    - `none` → skip Steps 1 and 5
 4. Determine the project root (the directory containing `.claude/`)
-4a. **Branch.** The pipeline never commits on `main`. If `plan/<plan-name>` exists (resume), `git checkout` it. Otherwise inspect `git status --short`: if every dirty file is the plan's own directory or a planning-session doc edit (`docs/protocol.md`, `SPEC.md`, `TODO.md`, `spikes/*`, `next-steps.md`), commit them on a new branch — `git checkout -b plan/<plan-name>` then `git add <those files>` and `git commit -m "docs(<plan-name>): approved plan and planning-session edits"`. If anything else is dirty, stop and ask the user what to do with it — never `git add -A`, never stash. Every agent then commits its own files at the end of its step (their definitions say how); you commit **your** edits (state file, doc-upkeep, decisions) per `docs/conventions.md` §Commits as `docs(<plan-name>): <summary>` (or `chore(...)` for the state file alone) and never commit an agent's files for it. If an agent finishes with its files uncommitted, that is a Handoff defect — tell it to commit before its gate is read. Never push.
+4a. **Branch.** The pipeline never commits on `main`. If `plan/<plan-name>` exists (resume), `git checkout` it. Otherwise inspect `git status --short`: if every dirty file is the plan's own directory or a planning-session doc edit (`docs/protocol.md`, `SPEC.md`, `TODO.md`, `spikes/*`, `next-steps.md`), commit them on a new branch — `git checkout -b plan/<plan-name>` then `git add <those files>` and `git commit -m "docs(<plan-name>): approved plan and planning-session edits"`. If any **tracked** file outside that set is dirty, stop and ask the user what to do with it — never `git add -A`, never stash. An **untracked** file outside the plan's directory that nothing in the plan or docs references (a stray screenshot, a scratch note) does not block the pipeline: leave it untracked, tell every agent to leave it alone, never `git add` it, and list it in the completion summary (learned from order-sidebar: `masthead.png`). Every agent then commits its own files at the end of its step (their definitions say how); you commit **your** edits (state file, doc-upkeep, decisions) per `docs/conventions.md` §Commits as `docs(<plan-name>): <summary>` (or `chore(...)` for the state file alone) and never commit an agent's files for it. If an agent finishes with its files uncommitted, that is a Handoff defect — tell it to commit before its gate is read. Never push.
 5. Update plan status to "in-progress"
 
 ## Pipeline Execution Order
@@ -244,6 +244,15 @@ Execute the review task for plan: <plan-name>
 Project root: <project-root>
 ```
 
+**Approved with open decision items is conditional.** An `approved` verdict may carry
+`[orchestrator:decision]` / `[orchestrator:user-decision]` items (they never block approval),
+but they block completion. Settle each per step 1a below before anything else. If the settled
+outcome changes no code, the approval stands — continue to Completion. If it changes code,
+implement it through the ordinary fix waves (Fix Wave Ordering) with gates, re-run the full
+suite, then a delta-focused re-review — counting one review cycle. Learned from order-sidebar:
+cycle 1 approved with one decision item; Option A won and changed `focusNth`, so a cycle 2
+(wave 1 web-impl → wave 3 e2e-specs → re-review) had to be improvised.
+
 **Review Retry Logic**: If the review verdict is `needs-changes`:
 
 1. Read `review.md` and bucket every tagged issue by tag: `[daemon-impl]`, `[web-impl]`, `[daemon-tests]`, `[web-tests]`, `[e2e-specs]`. Issues tagged `[orchestrator]` are yours — never spawn an agent for them; handle them in the Doc-Upkeep Backstop / Completion step. **Minors ride along:** an agent that is being spawned for a Critical/Major also gets every Minor tagged to it in the same prompt (the Fix Prompt Rules' "ALL issues for that agent" includes Minors). An agent tagged **only** with Minors is not spawned — those Minors go to `TODO.md` at completion (see Completion 2b). `[note]` items are never routed; list them in the completion summary.
@@ -426,7 +435,7 @@ When all steps pass AND the review verdict is "approved":
 2. Run the Doc-Upkeep Backstop above
 2a. Resolve every `[orchestrator]`-tagged issue in review.md: do the doc edit, or record it as a TODO.md entry in the right milestone if it is genuinely follow-up work. List each one and its disposition in the completion summary. An approved review may carry these; a `completed` pipeline may not leave them unaddressed.
 2b. Every agent-tagged **Minor** still open in the approved review.md becomes a `TODO.md` follow-up line under the right milestone (quote the issue, cite `plans/<plan>/review.md`). Every `[note]` is listed in the completion summary verbatim — no TODO line, no agent.
-2c. **End with everything committed.** Commit your doc-upkeep and state edits (`docs(<plan-name>): doc upkeep and pipeline completion`) and confirm `git status --short` is empty on `plan/<plan-name>` — the branch is the review artifact: the user reviews with `git diff main...plan/<plan-name>` and squash-merges. An agent's uncommitted files here are that agent's defect — have it commit them; if it cannot, commit them yourself as `chore(<plan-name>): commit <agent>'s uncommitted work (orchestrator)` so nothing is left dangling. The pipeline is not `completed` while the tree is dirty.
+2c. **End with everything committed.** Commit your doc-upkeep and state edits (`docs(<plan-name>): doc upkeep and pipeline completion`) and confirm `git status --short` on `plan/<plan-name>` shows nothing beyond the untracked strays noted at pre-flight — the branch is the review artifact: the user reviews with `git diff main...plan/<plan-name>` and squash-merges. An agent's uncommitted files here are that agent's defect — have it commit them; if it cannot, commit them yourself as `chore(<plan-name>): commit <agent>'s uncommitted work (orchestrator)` so nothing is left dangling. The pipeline is not `completed` while the tree is dirty (pre-flight-noted untracked strays excepted).
 3. Update plan status to "completed"
 4. Update orchestration state status to "completed"
 5. Print a summary: what was done, files changed, retry count, any notable issues, the `[note]` items verbatim, and the branch name (`plan/<plan-name>`) with `git log --oneline main..` so the user can squash-merge — the pipeline never merges or pushes
@@ -436,7 +445,7 @@ When all steps pass AND the review verdict is "approved":
 - The review.md verdict is anything other than "approved"
 - Any test suite has failing tests
 - Build failures exist in either the daemon or the web tree
-- `git status --short` on `plan/<plan-name>` is not empty
+- `git status --short` on `plan/<plan-name>` shows anything beyond the untracked strays noted at pre-flight
 
 ## Error Handling
 

@@ -78,7 +78,9 @@ prompt:
 ```
 
 Then **wait**. Do not poll, do not message either agent, do not read `debate.md` while it is
-live. You will receive exactly one message at `main`: `consensus: …` or `no consensus — …`.
+live. The advocates' idle/progress notifications will also reach `main` after each turn, and
+their wrap-ups may re-narrate the result — ignore all of it; act only on the one explicit
+report: `consensus: …` or `no consensus — …` (order-sidebar's debate produced six messages).
 If both agents' completion notifications arrive with no message to `main`, read `debate.md`
 and treat its last turn as the ending turn.
 
