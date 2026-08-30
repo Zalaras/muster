@@ -1,7 +1,7 @@
 // The client-side rail sort (REQ-16, docs/protocol.md §5.2, ux-flows §3.4). The daemon
 // never orders for display — this is the one place that priority table lives, kept pure
 // so Vitest can pin every state and tiebreak without a DOM.
-import type { Session, SessionState } from "../protocol";
+import type { RailSort, Session, SessionState } from "../protocol";
 
 const STATE_PRIORITY: Record<SessionState, number> = {
   needs_input: 0,
@@ -58,4 +58,20 @@ export function sortSessions(sessions: readonly Session[]): Session[] {
     if (byOrder !== 0) return byOrder;
     return a.id - b.id;
   });
+}
+
+/** REQ-6 (plan order-sidebar): pinned block first (by `railPos`, `id` tiebreak), the
+ * unpinned group after — `manual` orders that unpinned group by `railPos`/`id` too
+ * (INV-3: independent of `state`/`alive`/`attention`/`stateSince`), `attention` orders it
+ * by `sortSessions`'s existing §3.4 priority (INV-4: the pinned block still precedes
+ * every unpinned session in this mode). Never mutates its input — the rail, the Tiles
+ * strip and `main.ts`'s default-focus pick all read display order through this one
+ * function rather than calling `sortSessions` directly. */
+export function orderRail(sessions: readonly Session[], mode: RailSort): Session[] {
+  const pinned = sessions.filter((s) => s.pinned).sort((a, b) => a.railPos - b.railPos || a.id - b.id);
+  const unpinned = sessions.filter((s) => !s.pinned);
+  if (mode === "manual") {
+    return [...pinned, ...unpinned.sort((a, b) => a.railPos - b.railPos || a.id - b.id)];
+  }
+  return [...pinned, ...sortSessions(unpinned)];
 }

@@ -12,7 +12,7 @@ const validSnapshot = {
   type: "snapshot",
   sessions: [],
   usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
-  prefs: { view: "focus", density: "2x2", usageModel: "Fable" },
+  prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual" },
 };
 
 describe("parseMessage — hello", () => {
@@ -127,13 +127,13 @@ describe("parseMessage — snapshot", () => {
   });
 
   it("parses prefs.density '3x2' alongside an explicit usageModel (plan usage-model-bar REQ-8)", () => {
-    const snapshot = { ...validSnapshot, prefs: { view: "tiles", density: "3x2", usageModel: "Opus" } };
+    const snapshot = { ...validSnapshot, prefs: { view: "tiles", density: "3x2", usageModel: "Opus", railSort: "manual" } };
     expect(parseMessage(snapshot)).toEqual(snapshot);
   });
 
   it("defaults a missing prefs.usageModel to 'Fable' (pre-plan daemon payload, plan usage-model-bar REQ-8)", () => {
     const snapshot = { ...validSnapshot, prefs: { view: "tiles", density: "3x2" } };
-    expect(parseMessage(snapshot)).toEqual({ ...snapshot, prefs: { ...snapshot.prefs, usageModel: "Fable" } });
+    expect(parseMessage(snapshot)).toEqual({ ...snapshot, prefs: { ...snapshot.prefs, usageModel: "Fable", railSort: "manual" } });
   });
 
   it("rejects a prefs.usageModel that is not a string", () => {
@@ -148,12 +148,34 @@ describe("parseMessage — snapshot", () => {
       prefs: { view: "tiles", density: "3x2", futurePrefsField: true },
     };
     const parsed = parseMessage(snapshot);
-    expect(parsed).toEqual({ ...validSnapshot, prefs: { view: "tiles", density: "3x2", usageModel: "Fable" } });
+    expect(parsed).toEqual({ ...validSnapshot, prefs: { view: "tiles", density: "3x2", usageModel: "Fable", railSort: "manual" } });
+  });
+});
+
+describe("parsePrefs — railSort (plan order-sidebar REQ-5/§3.3)", () => {
+  it("defaults a missing railSort to 'manual' (pre-plan daemon payload)", () => {
+    const snapshot = { ...validSnapshot, prefs: { view: "focus", density: "2x2", usageModel: "Fable" } };
+    expect(parseMessage(snapshot)).toEqual({ ...snapshot, prefs: { ...snapshot.prefs, railSort: "manual" } });
+  });
+
+  it("parses an explicit railSort of 'attention'", () => {
+    const snapshot = { ...validSnapshot, prefs: { ...validSnapshot.prefs, railSort: "attention" } };
+    expect(parseMessage(snapshot)).toEqual(snapshot);
+  });
+
+  it("rejects a railSort value outside the manual|attention enum", () => {
+    const snapshot = { ...validSnapshot, prefs: { ...validSnapshot.prefs, railSort: "priority" } };
+    expect(parseMessage(snapshot)).toBeNull();
+  });
+
+  it("rejects a non-string railSort", () => {
+    const snapshot = { ...validSnapshot, prefs: { ...validSnapshot.prefs, railSort: 1 } };
+    expect(parseMessage(snapshot)).toBeNull();
   });
 });
 
 describe("parseMessage — prefs (M2 REQ-10/INV-4: the PUT /api/prefs echo broadcast)", () => {
-  const validPrefsMessage = { type: "prefs", prefs: { view: "tiles", density: "3x2", usageModel: "Fable" } };
+  const validPrefsMessage = { type: "prefs", prefs: { view: "tiles", density: "3x2", usageModel: "Fable", railSort: "manual" } };
 
   it("parses a fully-populated prefs message", () => {
     expect(parseMessage(validPrefsMessage)).toEqual(validPrefsMessage);
@@ -173,7 +195,7 @@ describe("parseMessage — prefs (M2 REQ-10/INV-4: the PUT /api/prefs echo broad
 
   it("ignores unknown fields inside prefs (additive evolution)", () => {
     const message = { type: "prefs", prefs: { view: "focus", density: "2x2", futureField: 1 } };
-    expect(parseMessage(message)).toEqual({ type: "prefs", prefs: { view: "focus", density: "2x2", usageModel: "Fable" } });
+    expect(parseMessage(message)).toEqual({ type: "prefs", prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual" } });
   });
 });
 
@@ -389,6 +411,8 @@ const validSession = {
   tmuxTarget: "muster:@1",
   firstLaunchHere: false,
   createdAt: "2026-08-22T00:00:00Z",
+  pinned: false,
+  railPos: 5,
 };
 
 // The measured "no data yet" shape (spikes/canary-fields.md): a session that has just
@@ -414,6 +438,8 @@ const freshLaunchSession = {
   tmuxTarget: "muster:@2",
   firstLaunchHere: true,
   createdAt: "2026-08-22T00:00:00Z",
+  pinned: false,
+  railPos: 6,
 };
 
 describe("parseSession — full §5.3 shape", () => {
@@ -550,6 +576,39 @@ describe("parseSession — full §5.3 shape", () => {
   });
 });
 
+describe("parseSession — pinned/railPos (plan order-sidebar §5.3: required on every wire Session, never defaulted)", () => {
+  it("parses pinned:true with a positive railPos", () => {
+    const session = { ...validSession, pinned: true, railPos: 0 };
+    expect(parseSession(session)).toEqual(session);
+  });
+
+  it("rejects a session missing pinned entirely (no pre-plan-daemon tolerance for this field)", () => {
+    const { pinned, ...rest } = validSession;
+    expect(parseSession(rest)).toBeNull();
+  });
+
+  it("rejects a session missing railPos entirely", () => {
+    const { railPos, ...rest } = validSession;
+    expect(parseSession(rest)).toBeNull();
+  });
+
+  it("rejects a non-boolean pinned", () => {
+    expect(parseSession({ ...validSession, pinned: "true" })).toBeNull();
+  });
+
+  it("rejects a non-numeric railPos", () => {
+    expect(parseSession({ ...validSession, railPos: "5" })).toBeNull();
+  });
+
+  it("rejects a null pinned (the field is required and boolean, never nullable)", () => {
+    expect(parseSession({ ...validSession, pinned: null })).toBeNull();
+  });
+
+  it("rejects a null railPos (the field is required and numeric, never nullable)", () => {
+    expect(parseSession({ ...validSession, railPos: null })).toBeNull();
+  });
+});
+
 describe("parseMessage — sessionUpsert", () => {
   it("parses a sessionUpsert carrying a fully-populated session", () => {
     const message = { type: "sessionUpsert", session: validSession };
@@ -577,7 +636,7 @@ describe("parseMessage — snapshot with sessions (M1: non-empty for the first t
       type: "snapshot",
       sessions: [validSession, freshLaunchSession],
       usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
-      prefs: { view: "focus", density: "2x2", usageModel: "Fable" },
+      prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual" },
     };
     expect(parseMessage(snapshot)).toEqual(snapshot);
   });

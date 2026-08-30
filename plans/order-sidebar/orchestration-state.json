@@ -1,0 +1,26 @@
+{
+  "plan_name": "order-sidebar",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 1,
+    "daemon-impl": 1,
+    "web-impl": 1,
+    "daemon-tests": 1,
+    "web-tests": 0,
+    "e2e-validate": 0,
+    "review": 1
+  },
+  "completed_steps": [
+    "e2e-specs",
+    "daemon-impl",
+    "web-impl",
+    "web-tests",
+    "daemon-tests",
+    "e2e-validate",
+    "review"
+  ],
+  "failed_steps": [],
+  "started_at": "2026-08-30T17:09:26Z",
+  "updated_at": "2026-08-30T18:40:54Z"
+}

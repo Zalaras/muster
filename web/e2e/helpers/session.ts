@@ -82,6 +82,10 @@ export interface SessionObject {
   tmuxTarget: string;
   firstLaunchHere: boolean;
   createdAt: string;
+  /** Plan order-sidebar §5.3: user-owned rail order, never null on the wire. */
+  pinned: boolean;
+  /** Plan order-sidebar §5.3: unique across all sessions; gaps allowed. */
+  railPos: number;
 }
 
 /**

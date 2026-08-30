@@ -92,6 +92,12 @@ type Session struct {
 	LastSnapshot   string
 	LastSnapshotAt time.Time
 
+	// Pinned/RailPos (plan order-sidebar): user-owned rail order. Display-only —
+	// never read by the state machine (D17); mutated only by railorder.go's pure
+	// applyPin/applyOrder, via Manager.SetPinned/SetOrder.
+	Pinned  bool
+	RailPos int64
+
 	currentPromptID string
 	closedPromptIDs []string // bounded ring, most recent last, capped at maxClosedPrompts
 }

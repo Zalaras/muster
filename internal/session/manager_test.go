@@ -2024,3 +2024,389 @@ func TestApply_RebindThenApplyPersistsAndBroadcastsExactlyOnce(t *testing.T) {
 	require.NotNil(t, persisted.ClaudeSessionID)
 	assert.Equal(t, "claude-new", *persisted.ClaudeSessionID)
 }
+
+// --- plan order-sidebar: CreateSession's RailPos assignment ---
+
+// TestCreateSession_FirstSessionRailPosIsZeroAndUnpinned covers REQ-1/D5's base case:
+// with no existing sessions, the first one gets railPos 0 and pinned:false.
+func TestCreateSession_FirstSessionRailPosIsZeroAndUnpinned(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+	dir := t.TempDir()
+	params := createParams(dir)
+	params.RepoID = seedRepo(t, st, dir)
+
+	sess, err := mgr.CreateSession(context.Background(), params)
+	require.NoError(t, err)
+
+	assert.Equal(t, int64(0), sess.RailPos)
+	assert.False(t, sess.Pinned)
+}
+
+// TestCreateSession_RailPosIsMaxOfExistingPlusOne covers REQ-1/D5: each new session's
+// railPos is strictly greater than every existing session's — "opened order = bottom of
+// the unpinned block" — computed from the manager's in-memory registry, not a
+// pinned-aware MAX (a later session must still sort after an earlier pinned one on
+// creation, since REQ-1 only promises "greater than every existing session's railPos",
+// not "greater than every unpinned one's").
+func TestCreateSession_RailPosIsMaxOfExistingPlusOne(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+	dir := t.TempDir()
+	params := createParams(dir)
+	params.RepoID = seedRepo(t, st, dir)
+
+	first, err := mgr.CreateSession(context.Background(), params)
+	require.NoError(t, err)
+	second, err := mgr.CreateSession(context.Background(), params)
+	require.NoError(t, err)
+	third, err := mgr.CreateSession(context.Background(), params)
+	require.NoError(t, err)
+
+	assert.Equal(t, int64(0), first.RailPos)
+	assert.Equal(t, int64(1), second.RailPos)
+	assert.Equal(t, int64(2), third.RailPos)
+	assert.False(t, first.Pinned)
+	assert.False(t, second.Pinned)
+	assert.False(t, third.Pinned)
+}
+
+// TestCreateSession_RailPosAccountsForAPinnedExistingSession covers REQ-1's own wording
+// precisely from a non-trivial starting state (m1-sessions lesson: don't only test the
+// all-unpinned case) — a pinned existing session (with a high railPos, since pinning
+// renumbers the whole rail) must still be beaten by the new session's railPos.
+func TestCreateSession_RailPosAccountsForAPinnedExistingSession(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+	dir := t.TempDir()
+	params := createParams(dir)
+	params.RepoID = seedRepo(t, st, dir)
+
+	first, err := mgr.CreateSession(context.Background(), params)
+	require.NoError(t, err)
+	second, err := mgr.CreateSession(context.Background(), params)
+	require.NoError(t, err)
+	require.NoError(t, mgr.SetPinned(context.Background(), first.ID, true))
+
+	third, err := mgr.CreateSession(context.Background(), params)
+	require.NoError(t, err)
+
+	assert.Greater(t, third.RailPos, second.RailPos)
+	after, ok := mgr.Get(first.ID)
+	require.True(t, ok)
+	assert.Greater(t, third.RailPos, after.RailPos, "the new session's railPos must exceed even the pinned bystander's")
+}
+
+// --- plan order-sidebar: SetPinned ---
+
+// TestSetPinned_PinPersistsAndBroadcastsOnlyChangedSessions covers D6/D15: pinning the
+// second-of-two unpinned sessions changes *both* of them — b becomes pinned at railPos
+// 0, and a (previously railPos 0) is pushed to railPos 1 to keep INV-1, since the
+// unpinned block can no longer start at 0 once a pinned block exists ahead of it. Both
+// are real changes the invariant requires, so both (and only both) are broadcast —
+// there is no third bystander here to prove the "nothing else" half; that is covered by
+// TestSetOrder_AppliesAndBroadcastsOnlyChangedSessions's unlisted-bystander case instead.
+func TestSetPinned_PinPersistsAndBroadcastsOnlyChangedSessions(t *testing.T) {
+	st := openTestStore(t)
+	rec := &upsertsRecorder{}
+	mgr := newTestManager(t, st, nil, rec.record)
+	dir := t.TempDir()
+	a := createLaunchedSession(t, mgr, st, dir)
+	b := createLaunchedSession(t, mgr, st, dir)
+	before := len(rec.all())
+
+	require.NoError(t, mgr.SetPinned(context.Background(), b.ID, true))
+
+	seen := rec.all()
+	require.Len(t, seen, before+2, "D6: pinning b also shifts a's railPos, since the unpinned block can no longer start at 0")
+	byID := map[int64]*Session{}
+	for _, s := range seen[before:] {
+		byID[s.ID] = s
+	}
+	require.Contains(t, byID, b.ID)
+	require.Contains(t, byID, a.ID)
+	assert.True(t, byID[b.ID].Pinned)
+	assert.Equal(t, int64(0), byID[b.ID].RailPos, "D6: pinning into an empty pinned block lands at railPos 0")
+	assert.False(t, byID[a.ID].Pinned)
+	assert.Equal(t, int64(1), byID[a.ID].RailPos, "a is pushed down one slot only because the invariant requires it")
+
+	persisted, err := st.GetSession(context.Background(), b.ID)
+	require.NoError(t, err)
+	assert.True(t, persisted.Pinned)
+	assert.Equal(t, int64(0), persisted.RailPos)
+
+	aPersisted, err := st.GetSession(context.Background(), a.ID)
+	require.NoError(t, err)
+	assert.False(t, aPersisted.Pinned)
+	assert.Equal(t, int64(1), aPersisted.RailPos, "D6: the untouched bystander moves down one slot only because the invariant requires it, but is still persisted with its new position")
+}
+
+// TestSetPinned_UnpinPersistsAndBroadcasts covers D7's happy path at the Manager level.
+func TestSetPinned_UnpinPersistsAndBroadcasts(t *testing.T) {
+	st := openTestStore(t)
+	rec := &upsertsRecorder{}
+	mgr := newTestManager(t, st, nil, rec.record)
+	dir := t.TempDir()
+	a := createLaunchedSession(t, mgr, st, dir)
+	require.NoError(t, mgr.SetPinned(context.Background(), a.ID, true))
+	before := len(rec.all())
+
+	require.NoError(t, mgr.SetPinned(context.Background(), a.ID, false))
+
+	seen := rec.all()
+	require.Len(t, seen, before+1)
+	assert.False(t, seen[len(seen)-1].Pinned)
+
+	persisted, err := st.GetSession(context.Background(), a.ID)
+	require.NoError(t, err)
+	assert.False(t, persisted.Pinned)
+}
+
+// TestSetPinned_NoOpDoesNotPersistOrBroadcast covers D8 at the Manager level: pinning a
+// session already in the requested state issues no store write and no broadcast at all.
+func TestSetPinned_NoOpDoesNotPersistOrBroadcast(t *testing.T) {
+	st := openTestStore(t)
+	rec := &upsertsRecorder{}
+	mgr := newTestManager(t, st, nil, rec.record)
+	dir := t.TempDir()
+	a := createLaunchedSession(t, mgr, st, dir)
+	before := len(rec.all())
+	beforeRow, err := st.GetSession(context.Background(), a.ID)
+	require.NoError(t, err)
+
+	require.NoError(t, mgr.SetPinned(context.Background(), a.ID, false)) // already false
+
+	assert.Equal(t, before, len(rec.all()), "D8: a pin call matching the current flag must not broadcast")
+	afterRow, err := st.GetSession(context.Background(), a.ID)
+	require.NoError(t, err)
+	assert.Equal(t, beforeRow, afterRow, "D8: a pin call matching the current flag must not persist a write")
+}
+
+// TestSetPinned_NoOpWithABystanderGapFromAnEarlierRemoveStillBroadcastsNothing extends
+// D8 to a dirty rail (m2-terminal lesson: a destructive path — Remove — leaves a shared
+// substrate, here the rail's railPos sequence, in a state every other test's tidy setup
+// never reaches). Three sessions are created (railPos 0,1,2); the middle one is removed,
+// leaving a REQ-14-sanctioned gap between the two survivors. A pin call whose flag
+// already matches the current state on one of the survivors must still broadcast and
+// persist nothing — including for the *other*, untouched survivor.
+func TestSetPinned_NoOpWithABystanderGapFromAnEarlierRemoveStillBroadcastsNothing(t *testing.T) {
+	st := openTestStore(t)
+	rec := &upsertsRecorder{}
+	mgr := newTestManager(t, st, nil, rec.record)
+	dir := t.TempDir()
+	a := createLaunchedSession(t, mgr, st, dir)
+	middle := createLaunchedSession(t, mgr, st, dir)
+	c := createLaunchedSession(t, mgr, st, dir)
+	require.NoError(t, mgr.Remove(context.Background(), middle.ID)) // leaves a gap: a=0, c=2
+
+	before := len(rec.all())
+	aBefore, err := st.GetSession(context.Background(), a.ID)
+	require.NoError(t, err)
+	cBefore, err := st.GetSession(context.Background(), c.ID)
+	require.NoError(t, err)
+
+	require.NoError(t, mgr.SetPinned(context.Background(), a.ID, false)) // a is already unpinned: a literal no-op
+
+	assert.Equal(t, before, len(rec.all()), "D8: a pin call matching the current flag must not broadcast, even with a bystander railPos gap from an earlier Remove")
+	aAfter, err := st.GetSession(context.Background(), a.ID)
+	require.NoError(t, err)
+	cAfter, err := st.GetSession(context.Background(), c.ID)
+	require.NoError(t, err)
+	assert.Equal(t, aBefore, aAfter)
+	assert.Equal(t, cBefore, cAfter, "the untouched bystander's gap-closing renumbering must not be persisted by an otherwise no-op pin call")
+}
+
+// TestSetPinned_PinNoOpWithABystanderGapFromAnEarlierRemoveStillBroadcastsNothing
+// mirrors the test above from the other flag direction: the fix's short-circuit
+// (applyPin's `current.Pinned == pinned`) is symmetric in the flag, so this asserts the
+// already-pinned/pin-again no-op is equally silent when a bystander's railPos has a
+// pre-existing gap — not just the already-unpinned/unpin-again direction above.
+func TestSetPinned_PinNoOpWithABystanderGapFromAnEarlierRemoveStillBroadcastsNothing(t *testing.T) {
+	st := openTestStore(t)
+	rec := &upsertsRecorder{}
+	mgr := newTestManager(t, st, nil, rec.record)
+	dir := t.TempDir()
+	a := createLaunchedSession(t, mgr, st, dir)
+	middle := createLaunchedSession(t, mgr, st, dir)
+	c := createLaunchedSession(t, mgr, st, dir)
+	require.NoError(t, mgr.SetPinned(context.Background(), a.ID, true))
+	require.NoError(t, mgr.SetPinned(context.Background(), c.ID, true))
+	require.NoError(t, mgr.Remove(context.Background(), middle.ID)) // leaves a gap in the pinned block: a=0, c=2
+
+	before := len(rec.all())
+	aBefore, err := st.GetSession(context.Background(), a.ID)
+	require.NoError(t, err)
+	cBefore, err := st.GetSession(context.Background(), c.ID)
+	require.NoError(t, err)
+
+	require.NoError(t, mgr.SetPinned(context.Background(), a.ID, true)) // a is already pinned: a literal no-op
+
+	assert.Equal(t, before, len(rec.all()), "D8: a pin call matching the current flag must not broadcast, even with a bystander railPos gap in the pinned block from an earlier Remove")
+	aAfter, err := st.GetSession(context.Background(), a.ID)
+	require.NoError(t, err)
+	cAfter, err := st.GetSession(context.Background(), c.ID)
+	require.NoError(t, err)
+	assert.Equal(t, aBefore, aAfter)
+	assert.Equal(t, cBefore, cAfter, "the untouched bystander's gap-closing renumbering must not be persisted by an otherwise no-op pin call")
+}
+
+func TestSetPinned_UnknownSessionReturnsErrUnknownSession(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+
+	err := mgr.SetPinned(context.Background(), 999, true)
+
+	assert.ErrorIs(t, err, ErrUnknownSession)
+}
+
+// --- plan order-sidebar: SetOrder ---
+
+// TestSetOrder_AppliesAndBroadcastsOnlyChangedSessions covers D9/D15 at the Manager
+// level: the listed ids/pinnedCount are applied, persisted, and broadcast — a session
+// whose position/flag didn't change is not among the broadcasts.
+func TestSetOrder_AppliesAndBroadcastsOnlyChangedSessions(t *testing.T) {
+	st := openTestStore(t)
+	rec := &upsertsRecorder{}
+	mgr := newTestManager(t, st, nil, rec.record)
+	dir := t.TempDir()
+	a := createLaunchedSession(t, mgr, st, dir)
+	b := createLaunchedSession(t, mgr, st, dir)
+	c := createLaunchedSession(t, mgr, st, dir)
+	before := len(rec.all())
+
+	// Swap a and b; leave c unlisted (it stays last, its railPos unaffected).
+	require.NoError(t, mgr.SetOrder(context.Background(), []int64{b.ID, a.ID}, 0))
+
+	seen := rec.all()
+	changedIDs := map[int64]bool{}
+	for _, s := range seen[before:] {
+		changedIDs[s.ID] = true
+	}
+	assert.True(t, changedIDs[a.ID])
+	assert.True(t, changedIDs[b.ID])
+	assert.False(t, changedIDs[c.ID], "an unlisted, unmoved bystander must not be broadcast")
+
+	bRow, err := st.GetSession(context.Background(), b.ID)
+	require.NoError(t, err)
+	aRow, err := st.GetSession(context.Background(), a.ID)
+	require.NoError(t, err)
+	assert.Less(t, bRow.RailPos, aRow.RailPos)
+}
+
+// TestSetOrder_InvalidRequestReturnsErrInvalidOrderAndChangesNothing covers D10/D11 at
+// the Manager level: a 400-shaped request leaves the store and every broadcast list
+// untouched.
+func TestSetOrder_InvalidRequestReturnsErrInvalidOrderAndChangesNothing(t *testing.T) {
+	st := openTestStore(t)
+	rec := &upsertsRecorder{}
+	mgr := newTestManager(t, st, nil, rec.record)
+	dir := t.TempDir()
+	a := createLaunchedSession(t, mgr, st, dir)
+	before := len(rec.all())
+	beforeRow, err := st.GetSession(context.Background(), a.ID)
+	require.NoError(t, err)
+
+	err = mgr.SetOrder(context.Background(), []int64{a.ID, 999999}, 0) // unknown id
+
+	assert.ErrorIs(t, err, ErrInvalidOrder)
+	assert.Equal(t, before, len(rec.all()))
+	afterRow, err := st.GetSession(context.Background(), a.ID)
+	require.NoError(t, err)
+	assert.Equal(t, beforeRow, afterRow)
+}
+
+// --- plan order-sidebar: Remove and the state machine leave pinned/railPos alone ---
+
+// TestRemove_LeavesBystandersPinnedAndRailPosUnchanged covers D18 with the multi-session
+// coexistence coverage the m2-terminal lesson calls for on a destructive path sharing a
+// substrate (here: the rail's railPos sequence spans every session, not just the removed
+// one) — removing one session must leave every other session's pinned/railPos exactly as
+// they were, gaps and all (REQ-14).
+func TestRemove_LeavesBystandersPinnedAndRailPosUnchanged(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+	dir := t.TempDir()
+	a := createLaunchedSession(t, mgr, st, dir)
+	b := createLaunchedSession(t, mgr, st, dir)
+	c := createLaunchedSession(t, mgr, st, dir)
+	require.NoError(t, mgr.SetPinned(context.Background(), a.ID, true))
+
+	aBefore, err := st.GetSession(context.Background(), a.ID)
+	require.NoError(t, err)
+	cBefore, err := st.GetSession(context.Background(), c.ID)
+	require.NoError(t, err)
+
+	require.NoError(t, mgr.Remove(context.Background(), b.ID))
+
+	aAfter, err := st.GetSession(context.Background(), a.ID)
+	require.NoError(t, err)
+	cAfter, err := st.GetSession(context.Background(), c.ID)
+	require.NoError(t, err)
+	assert.Equal(t, aBefore.Pinned, aAfter.Pinned)
+	assert.Equal(t, aBefore.RailPos, aAfter.RailPos)
+	assert.Equal(t, cBefore.Pinned, cAfter.Pinned)
+	assert.Equal(t, cBefore.RailPos, cAfter.RailPos)
+
+	_, err = st.GetSession(context.Background(), b.ID)
+	assert.Error(t, err, "the removed session's own row is gone")
+}
+
+// TestApply_NeverTouchesPinnedOrRailPos covers D17 (state machine transitions must never
+// write pinned/railPos — display-only columns, m3-gauges INV-1 style discipline): a
+// session pinned at a non-zero railPos is driven through bind, working, needs_input and
+// idle transitions, and pinned/railPos must be byte-identical throughout.
+func TestApply_NeverTouchesPinnedOrRailPos(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+	dir := t.TempDir()
+	_ = createLaunchedSession(t, mgr, st, dir) // pushes the session under test off railPos 0
+	sess := createLaunchedSession(t, mgr, st, dir)
+	require.NoError(t, mgr.SetPinned(context.Background(), sess.ID, true))
+	pinned, ok := mgr.Get(sess.ID)
+	require.True(t, ok)
+	require.True(t, pinned.Pinned)
+	wantRailPos := pinned.RailPos
+
+	ctx := context.Background()
+	_, err := mgr.Apply(ctx, sess.ID, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
+	require.NoError(t, err)
+	promptID := "p1"
+	_, err = mgr.Apply(ctx, sess.ID, "claude-1", &promptID, claudecode.StateInput{Kind: claudecode.KindTurnActivity}, true)
+	require.NoError(t, err)
+	_, err = mgr.Apply(ctx, sess.ID, "claude-1", &promptID, claudecode.StateInput{Kind: claudecode.KindNeedsInputPermission}, true)
+	require.NoError(t, err)
+	_, err = mgr.Apply(ctx, sess.ID, "claude-1", &promptID, claudecode.StateInput{Kind: claudecode.KindTurnClosed}, true)
+	require.NoError(t, err)
+
+	final, ok := mgr.Get(sess.ID)
+	require.True(t, ok)
+	assert.True(t, final.Pinned, "D17: no state transition may unpin a session")
+	assert.Equal(t, wantRailPos, final.RailPos, "D17: no state transition may change railPos")
+
+	persisted, err := st.GetSession(ctx, sess.ID)
+	require.NoError(t, err)
+	assert.True(t, persisted.Pinned)
+	assert.Equal(t, wantRailPos, persisted.RailPos)
+}
+
+// TestApplyStatus_NeverTouchesPinnedOrRailPos is TestApply_NeverTouchesPinnedOrRailPos's
+// twin for status-line posts (D17).
+func TestApplyStatus_NeverTouchesPinnedOrRailPos(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+	dir := t.TempDir()
+	sess := createLaunchedSession(t, mgr, st, dir)
+	require.NoError(t, mgr.SetPinned(context.Background(), sess.ID, true))
+	pinned, ok := mgr.Get(sess.ID)
+	require.True(t, ok)
+	wantRailPos := pinned.RailPos
+
+	title := "Renamed via status"
+	_, err := mgr.ApplyStatus(context.Background(), sess.ID, claudecode.StatusUpdate{Title: &title})
+	require.NoError(t, err)
+
+	final, ok := mgr.Get(sess.ID)
+	require.True(t, ok)
+	assert.True(t, final.Pinned)
+	assert.Equal(t, wantRailPos, final.RailPos)
+}

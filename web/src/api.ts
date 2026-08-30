@@ -3,7 +3,7 @@
 // daemon's response shape before any caller (render/launch.ts) sees it. Errors never
 // throw — every call returns an ApiResult so the launch modal can render `error.message`
 // inline (REQ-14) instead of an uncaught rejection.
-import { type Density, type Session, parseSession } from "./protocol";
+import { type Density, type RailSort, type Session, parseSession } from "./protocol";
 
 export interface ApiErrorBody {
   code: string;
@@ -52,6 +52,8 @@ export interface PrefsRequest {
   view?: "focus" | "tiles";
   density?: Density;
   usageModel?: string;
+  // Plan order-sidebar (docs/protocol.md §3.3): the rail's sort mode.
+  railSort?: RailSort;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -269,4 +271,50 @@ function parsePaneSnapshot(value: unknown): PaneSnapshot | null {
 export async function fetchPane(id: number): Promise<ApiResult<PaneSnapshot>> {
   const res = await fetch(`/api/sessions/${id}/pane`, { credentials: "same-origin" });
   return decodeJson(res, parsePaneSnapshot);
+}
+
+/** `PUT /api/sessions/{id}/pin` (docs/protocol.md §3.10, plan order-sidebar REQ-3). `204`
+ * with no body on success — the resulting `pinned`/`railPos` changes reach every UI
+ * socket (this one included) via `sessionUpsert` broadcasts (same "response carries no
+ * state, the socket does" shape as `putPrefs`); main.ts never applies an optimistic
+ * reorder (REQ-15/Implementation Notes), so a caller here doesn't need a decoded body.
+ * Errors: `400 invalid_request` / `404 unknown_session`. */
+export async function pinSession(id: number, pinned: boolean): Promise<ApiResult<null>> {
+  const res = await fetch(`/api/sessions/${id}/pin`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ pinned }),
+  });
+  if (res.status === 204) return { ok: true, value: null };
+  let errorBody: unknown;
+  try {
+    errorBody = await res.json();
+  } catch {
+    return { ok: false, error: genericError };
+  }
+  const error = parseApiError(errorBody);
+  return { ok: false, error: error ?? genericError };
+}
+
+/** `PUT /api/sessions/order` (docs/protocol.md §3.11, plan order-sidebar REQ-4/REQ-11).
+ * Same no-optimistic-update shape as `pinSession` above — the rail redraws from the
+ * resulting `sessionUpsert`s. Errors: `400 invalid_request` (unknown/duplicate id,
+ * `pinnedCount` out of range) — nothing changes on a 400. */
+export async function putSessionOrder(ids: readonly number[], pinnedCount: number): Promise<ApiResult<null>> {
+  const res = await fetch("/api/sessions/order", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ ids, pinnedCount }),
+  });
+  if (res.status === 204) return { ok: true, value: null };
+  let errorBody: unknown;
+  try {
+    errorBody = await res.json();
+  } catch {
+    return { ok: false, error: genericError };
+  }
+  const error = parseApiError(errorBody);
+  return { ok: false, error: error ?? genericError };
 }

@@ -74,6 +74,54 @@ func TestInsertSession_NilOptionalFieldsRoundTripAsNil(t *testing.T) {
 	assert.Nil(t, row.ContextWindowSize)
 }
 
+// TestInsertSession_RailPosRoundTripsPinnedDefaultsFalse covers plan order-sidebar's
+// Schema Changes note: InsertSessionParams.RailPos is written verbatim, and pinned
+// always starts false regardless of RailPos (a caller has no way to seed pinned:true at
+// insert time — REQ-1 says every new session starts pinned:false).
+func TestInsertSession_RailPosRoundTripsPinnedDefaultsFalse(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	repoID := seedTestRepo(t, st)
+
+	row, err := st.InsertSession(ctx, InsertSessionParams{
+		RepoID: repoID, Directory: "/tmp/proj", PermissionMode: "default", RailPos: 7,
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, int64(7), row.RailPos)
+	assert.False(t, row.Pinned)
+}
+
+// TestUpdateSession_PinnedAndRailPosRoundTrip covers the manager's SetPinned/SetOrder
+// persistence path directly against the store: both fields travel through
+// UpdateSession/GetSession unchanged, in both directions (pinned true->false too).
+func TestUpdateSession_PinnedAndRailPosRoundTrip(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	repoID := seedTestRepo(t, st)
+
+	row, err := st.InsertSession(ctx, InsertSessionParams{RepoID: repoID, Directory: "/tmp/proj", PermissionMode: "default"})
+	require.NoError(t, err)
+
+	row.Pinned = true
+	row.RailPos = 3
+	require.NoError(t, st.UpdateSession(ctx, row))
+
+	got, err := st.GetSession(ctx, row.ID)
+	require.NoError(t, err)
+	assert.True(t, got.Pinned)
+	assert.Equal(t, int64(3), got.RailPos)
+
+	got.Pinned = false
+	got.RailPos = 0
+	require.NoError(t, st.UpdateSession(ctx, got))
+
+	got2, err := st.GetSession(ctx, row.ID)
+	require.NoError(t, err)
+	assert.False(t, got2.Pinned)
+	assert.Equal(t, int64(0), got2.RailPos)
+}
+
 func TestGetSession_ReturnsErrorForUnknownID(t *testing.T) {
 	st := openTestStore(t)
 

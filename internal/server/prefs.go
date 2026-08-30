@@ -15,16 +15,22 @@ const prefsKVKey = "prefs"
 // usage-model-bar) — the masthead's per-model readout before any PUT ever names one.
 const defaultUsageModel = "Fable"
 
+// defaultRailSort is prefs.railSort's default (docs/protocol.md §3.3, plan
+// order-sidebar) — the Focus rail's sort mode before any PUT ever names one.
+const defaultRailSort = "manual"
+
 // prefsRequest is PUT /api/prefs' request body (docs/protocol.md §3.3): at least one
 // field required, unknown fields ignored. Pointers distinguish "absent" from "present".
 type prefsRequest struct {
 	View       *string `json:"view"`
 	Density    *string `json:"density"`
 	UsageModel *string `json:"usageModel"`
+	RailSort   *string `json:"railSort"`
 }
 
-func validView(v string) bool    { return v == "focus" || v == "tiles" }
-func validDensity(v string) bool { return v == "2x2" || v == "3x2" }
+func validView(v string) bool     { return v == "focus" || v == "tiles" }
+func validDensity(v string) bool  { return v == "2x2" || v == "3x2" }
+func validRailSort(v string) bool { return v == "manual" || v == "attention" }
 
 // validUsageModel reports whether v (after trimming) is 1–32 chars (protocol §3.3).
 func validUsageModel(v string) bool {
@@ -34,7 +40,7 @@ func validUsageModel(v string) bool {
 
 // defaultPrefs is the shape before any PUT /api/prefs has ever landed (protocol §3.3).
 func defaultPrefs() PrefsInfo {
-	return PrefsInfo{View: "focus", Density: "2x2", UsageModel: defaultUsageModel}
+	return PrefsInfo{View: "focus", Density: "2x2", UsageModel: defaultUsageModel, RailSort: defaultRailSort}
 }
 
 // prefsMessage is the WS `prefs` broadcast (docs/protocol.md §5.5): a full-object echo
@@ -65,6 +71,9 @@ func (s *Server) loadPrefs(ctx context.Context) PrefsInfo {
 	if !validUsageModel(p.UsageModel) {
 		p.UsageModel = defaultUsageModel
 	}
+	if !validRailSort(p.RailSort) {
+		p.RailSort = defaultRailSort
+	}
 	return p
 }
 
@@ -76,8 +85,8 @@ func (s *Server) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "invalid_request", "invalid JSON body")
 		return
 	}
-	if req.View == nil && req.Density == nil && req.UsageModel == nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid_request", "at least one of view, density or usageModel is required")
+	if req.View == nil && req.Density == nil && req.UsageModel == nil && req.RailSort == nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid_request", "at least one of view, density, usageModel or railSort is required")
 		return
 	}
 	if req.View != nil && !validView(*req.View) {
@@ -92,6 +101,10 @@ func (s *Server) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "invalid_request", "usageModel must be 1-32 characters after trim")
 		return
 	}
+	if req.RailSort != nil && !validRailSort(*req.RailSort) {
+		writeJSONError(w, http.StatusBadRequest, "invalid_request", "railSort must be one of manual, attention")
+		return
+	}
 
 	ctx := r.Context()
 	prefs := s.loadPrefs(ctx)
@@ -103,6 +116,9 @@ func (s *Server) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.UsageModel != nil {
 		prefs.UsageModel = strings.TrimSpace(*req.UsageModel)
+	}
+	if req.RailSort != nil {
+		prefs.RailSort = *req.RailSort
 	}
 
 	encoded, err := json.Marshal(prefs)

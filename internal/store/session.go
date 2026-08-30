@@ -47,6 +47,11 @@ type SessionRow struct {
 	// read by the state machine; never logged (may hold prompt text).
 	LastSnapshot   *string
 	LastSnapshotAt *time.Time
+
+	// Pinned/RailPos (plan order-sidebar): user-owned rail order. Display-only —
+	// never read by the state machine or the status path (D17).
+	Pinned  bool
+	RailPos int64
 }
 
 // InsertSessionParams seeds a new session row (REQ-1/REQ-2): state "started", the
@@ -63,6 +68,12 @@ type InsertSessionParams struct {
 	PermissionMode  string
 	Model           *string
 	FirstLaunchHere bool
+
+	// RailPos is the manual rail position for the new session (plan order-sidebar
+	// REQ-1): the caller (internal/session.Manager, under its lock) computes
+	// max(existing)+1 so the newest session lands at the bottom of the unpinned
+	// block. Pinned always starts false.
+	RailPos int64
 }
 
 func (s *Store) InsertSession(ctx context.Context, p InsertSessionParams) (SessionRow, error) {
@@ -72,16 +83,16 @@ func (s *Store) InsertSession(ctx context.Context, p InsertSessionParams) (Sessi
 			tmux_target, tmux_pane, claude_session_id, repo_id, directory, branch, is_worktree,
 			title, state, state_since, permission_mode, permission_mode_source, model,
 			compactions, attention_reason, attention_since, failure_error, failure_message,
-			last_activity, alive, ended_at, first_launch_here, created_at
+			last_activity, alive, ended_at, first_launch_here, created_at, pinned, rail_pos
 		) VALUES (
 			'', NULL, NULL, ?, ?, ?, ?,
 			?, 'started', ?, ?, 'seed', ?,
 			0, NULL, NULL, NULL, NULL,
-			NULL, 1, NULL, ?, ?
+			NULL, 1, NULL, ?, ?, 0, ?
 		)
 	`, p.RepoID, p.Directory, p.Branch, boolToInt(p.IsWorktree),
 		p.Title, now, p.PermissionMode, p.Model,
-		boolToInt(p.FirstLaunchHere), now,
+		boolToInt(p.FirstLaunchHere), now, p.RailPos,
 	)
 	if err != nil {
 		return SessionRow{}, fmt.Errorf("inserting session for %q: %w", p.Directory, err)
@@ -130,7 +141,7 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 			attention_reason = ?, attention_since = ?, failure_error = ?, failure_message = ?,
 			last_activity = ?, alive = ?, ended_at = ?, first_launch_here = ?,
 			context_used_pct = ?, context_total_input_tokens = ?, context_window_size = ?,
-			last_snapshot = ?, last_snapshot_at = ?
+			last_snapshot = ?, last_snapshot_at = ?, pinned = ?, rail_pos = ?
 		WHERE id = ?
 	`,
 		row.TmuxTarget, row.TmuxPane, row.ClaudeSessionID, row.Directory, row.Branch,
@@ -139,7 +150,7 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 		row.AttentionReason, attentionSince, row.FailureError, row.FailureMessage,
 		row.LastActivity, boolToInt(row.Alive), endedAt, boolToInt(row.FirstLaunchHere),
 		row.ContextUsedPct, row.ContextTotalInputTokens, row.ContextWindowSize,
-		row.LastSnapshot, lastSnapshotAt,
+		row.LastSnapshot, lastSnapshotAt, boolToInt(row.Pinned), row.RailPos,
 		row.ID,
 	)
 	if err != nil {
@@ -154,7 +165,7 @@ const sessionColumns = `
 	model_display_name, compactions, attention_reason, attention_since, failure_error,
 	failure_message, last_activity, alive, ended_at, first_launch_here, created_at,
 	context_used_pct, context_total_input_tokens, context_window_size,
-	last_snapshot, last_snapshot_at
+	last_snapshot, last_snapshot_at, pinned, rail_pos
 `
 
 func (s *Store) GetSession(ctx context.Context, id int64) (SessionRow, error) {
@@ -193,6 +204,7 @@ func scanSession(row rowScanner) (SessionRow, error) {
 	var (
 		r                            SessionRow
 		isWorktree, alive, firstHere int
+		pinned                       int
 		stateSince, createdAt        string
 		attentionSince, endedAt      *string
 		lastSnapshotAt               *string
@@ -203,13 +215,14 @@ func scanSession(row rowScanner) (SessionRow, error) {
 		&r.ModelDisplayName, &r.Compactions, &r.AttentionReason, &attentionSince, &r.FailureError,
 		&r.FailureMessage, &r.LastActivity, &alive, &endedAt, &firstHere, &createdAt,
 		&r.ContextUsedPct, &r.ContextTotalInputTokens, &r.ContextWindowSize,
-		&r.LastSnapshot, &lastSnapshotAt,
+		&r.LastSnapshot, &lastSnapshotAt, &pinned, &r.RailPos,
 	); err != nil {
 		return SessionRow{}, err
 	}
 	r.IsWorktree = isWorktree != 0
 	r.Alive = alive != 0
 	r.FirstLaunchHere = firstHere != 0
+	r.Pinned = pinned != 0
 	r.StateSince, _ = time.Parse(time.RFC3339, stateSince)
 	r.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
 	if attentionSince != nil {

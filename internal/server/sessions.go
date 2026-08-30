@@ -401,3 +401,65 @@ func (s *Server) handlePaneSnapshot(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(paneSnapshotWire{Text: text, CapturedAt: at.UTC().Format(time.RFC3339)})
 }
+
+// pinSessionRequest is PUT /api/sessions/{id}/pin's request body (docs/protocol.md §3.10).
+type pinSessionRequest struct {
+	Pinned *bool `json:"pinned"`
+}
+
+// handlePinSession is PUT /api/sessions/{id}/pin (plan order-sidebar REQ-3).
+func (s *Server) handlePinSession(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseSessionID(w, r)
+	if !ok {
+		return
+	}
+
+	var req pinSessionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Pinned == nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid_request", "pinned is required and must be a boolean")
+		return
+	}
+
+	if err := s.manager.SetPinned(context.WithoutCancel(r.Context()), id, *req.Pinned); err != nil {
+		switch {
+		case errors.Is(err, session.ErrUnknownSession):
+			writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
+		default:
+			s.log.Error().Err(err).Int64("session_id", id).Msg("pinning session failed")
+			writeJSONError(w, http.StatusInternalServerError, "internal_error", err.Error())
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// setOrderRequest is PUT /api/sessions/order's request body (docs/protocol.md §3.11).
+type setOrderRequest struct {
+	IDs         []int64 `json:"ids"`
+	PinnedCount *int    `json:"pinnedCount"`
+}
+
+// handleSetOrder is PUT /api/sessions/order (plan order-sidebar REQ-4). Registered
+// ahead of the /api/sessions/{id}/... wildcard routes so Go's mux (a literal segment
+// beats a wildcard) never parses "order" as a session id.
+func (s *Server) handleSetOrder(w http.ResponseWriter, r *http.Request) {
+	var req setOrderRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.IDs == nil || req.PinnedCount == nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid_request", "ids and pinnedCount are required")
+		return
+	}
+
+	if err := s.manager.SetOrder(context.WithoutCancel(r.Context()), req.IDs, *req.PinnedCount); err != nil {
+		switch {
+		case errors.Is(err, session.ErrInvalidOrder):
+			writeJSONError(w, http.StatusBadRequest, "invalid_request", "ids must be a duplicate-free list of known session ids, and pinnedCount must be in [0, len(ids)]")
+		default:
+			s.log.Error().Err(err).Msg("setting rail order failed")
+			writeJSONError(w, http.StatusInternalServerError, "internal_error", err.Error())
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

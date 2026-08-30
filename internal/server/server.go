@@ -303,6 +303,12 @@ func (s *Server) routes() {
 	mux.Handle("POST /api/sessions/{id}/end", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleEndSession)))
 	mux.Handle("POST /api/sessions/{id}/resume", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleResumeSession)))
 	mux.Handle("DELETE /api/sessions/{id}", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleRemoveSession)))
+	// Registered ahead of PUT /api/sessions/{id}/pin (plan order-sidebar): Go's Go 1.22
+	// mux prefers a literal segment over a wildcard, so "order" is never parsed as {id}
+	// regardless of registration order, but the literal route is listed first here to
+	// read that way too.
+	mux.Handle("PUT /api/sessions/order", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleSetOrder)))
+	mux.Handle("PUT /api/sessions/{id}/pin", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handlePinSession)))
 
 	mux.HandleFunc("POST /ingest/{token}/hook", s.handleIngestHook)
 	mux.HandleFunc("POST /ingest/{token}/status", s.handleIngestStatus)

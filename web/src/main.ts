@@ -33,11 +33,13 @@ import { renderMainhead, type MainheadElements } from "./render/mainhead";
 import { captureFocusedControl, type FocusedControl, restoreFocusedControl } from "./render/focus";
 import { collectDeadSurfaceRefs, loadPane, renderDeadSurface, type DeadSurfaceRefs, type PaneState } from "./render/dead";
 import { installTileDrag } from "./render/tiledrag";
-import { endSession, putPrefs, refreshUsage, removeSession, resumeSession, type ApiResult } from "./api";
-import { type Density, type Prefs, type Session, type Usage, UNKNOWN_USAGE } from "./protocol";
+import { installDragReorder } from "./render/dragreorder";
+import { endSession, pinSession, putPrefs, putSessionOrder, refreshUsage, removeSession, resumeSession, type ApiResult } from "./api";
+import { type Density, type Prefs, type RailSort, type Session, type Usage, UNKNOWN_USAGE } from "./protocol";
 import { aliveOnly, applyDensity, densityCount, initialLive, moveTile, promote, surfaceDiff } from "./sessions/live";
+import { moveCard } from "./sessions/railorder";
 import { SessionStore } from "./sessions/store";
-import { sortSessions } from "./sessions/sort";
+import { orderRail } from "./sessions/sort";
 import { TerminalSurface } from "./terminal/pane";
 import { WsClient } from "./ws";
 
@@ -61,6 +63,7 @@ const claudeVersionEl = requireElement<HTMLElement>("#claude-version");
 const bannerEl = requireElement<HTMLElement>("#banner");
 const sessionsEl = requireElement<HTMLElement>("#sessions");
 const railCountEl = requireElement<HTMLElement>("#rail-count");
+const railSortSelect = requireElement<HTMLSelectElement>("#rail-sort");
 const shellEl = requireElement<HTMLElement>("#app");
 const mismatchEl = requireElement<HTMLElement>("#protocol-mismatch");
 
@@ -110,6 +113,10 @@ let density: Density = "2x2";
 // same "daemon's `prefs` broadcast is the single source of truth" rule as view/density
 // (INV-6); the daemon's own default before any PUT is "Fable" (docs/protocol.md §5.5).
 let usageModel = "Fable";
+// Plan order-sidebar: the rail's sort mode — same "daemon's `prefs` broadcast is the
+// single source of truth" rule as view/density/usageModel above (INV-6); the daemon's
+// own default before any PUT is "manual" (docs/protocol.md §3.3).
+let railSort: RailSort = "manual";
 let focusedId: number | null = null;
 let tilesLive: number[] = [];
 // Fix attempt 2 (REQ-10/E6): a drag's initiating `mousedown` blurs any focused control in
@@ -119,6 +126,11 @@ let tilesLive: number[] = [];
 // `onMove`; this holds it for the one `reconcileTilesGrid` pass the resulting `render()`
 // call triggers, then is cleared so it never leaks into an unrelated later render.
 let pendingTileFocus: FocusedControl | null = null;
+// Same shape as `pendingTileFocus` above, for the rail's own drag reorder (plan
+// order-sidebar REQ-10/REQ-16) — `installDragReorder`'s `onMove` stashes the pre-blur
+// snapshot here for the one `reconcileCards` pass the resulting `render()` call
+// triggers, then it's cleared so it never leaks into an unrelated later render.
+let pendingRailFocus: FocusedControl | null = null;
 // M3: the account-global Usage object, from the initial `snapshot` and every subsequent
 // `usage` broadcast (docs/protocol.md §5.4) — re-rendered every pass (like the rest of
 // `render()`) so REQ-14's reset-time formatting stays current against the wall clock.
@@ -245,6 +257,13 @@ function requestUsageModel(newModel: string): void {
   void putPrefs({ usageModel: newModel }).then(reportPrefsFailure);
 }
 
+/** REQ-12's `#rail-sort` change handler — same fire-and-forget shape as the above:
+ * `railSort` only ever changes locally via the resulting `prefs` broadcast (INV-6),
+ * never optimistically here. */
+function requestRailSort(newSort: RailSort): void {
+  void putPrefs({ railSort: newSort }).then(reportPrefsFailure);
+}
+
 /** REQ-12: clears the refresh button's `aria-busy` state and cancels the 5s fallback
  * timer — called both when a `usage` message actually arrives (the common case) and when
  * `POST /api/usage/refresh` itself fails outright (network error / 404 poller-disabled),
@@ -266,10 +285,12 @@ function promoteSession(id: number): void {
   render();
 }
 
-/** ⌘1–9: focus session n of the sorted list (Focus: focus it, even if ended — REQ-18;
- * Tiles: promote it). */
+/** ⌘1–9: focus session n of the rail's own order — `orderRail` under the current
+ * `railSort` (manual or attention), the same order the rail/strip currently display, per
+ * the cmd-n-ordering decision (Option A: ⌘N follows the rail, not a separate priority
+ * sort). Focus: focus it, even if ended — REQ-18; Tiles: promote it. */
 function focusNth(n: number): void {
-  const sorted = sortSessions(store.values());
+  const sorted = orderRail(store.values(), railSort);
   const session = sorted[n - 1];
   if (!session) return;
   if (view === "focus") {
@@ -291,9 +312,20 @@ function dispatchAction(action: SessionAction, id: number): void {
     confirmDialogs.openEnd(session);
   } else if (action === "remove") {
     confirmDialogs.openRemove(session);
+  } else if (action === "pin") {
+    doPin(session.id, !session.pinned);
   } else {
     void doResume(id);
   }
+}
+
+/** REQ-3/REQ-15: fire-and-forget, no optimistic state — the resulting `sessionUpsert`s
+ * (or nothing, on a failed request) drive the redraw, same "round-trip only" rule as
+ * `putSessionOrder` below (Implementation Notes: "no optimistic reorder"). */
+function doPin(id: number, pinned: boolean): void {
+  void pinSession(id, pinned).then((result) => {
+    if (!result.ok) console.error(`PUT /api/sessions/${id}/pin failed: ${result.error.code} ${result.error.message}`);
+  });
 }
 
 function doEnd(id: number): void {
@@ -395,6 +427,9 @@ function applyPrefsFromSnapshot(prefs: Prefs): void {
   // No sticky client-side state depends on usageModel the way tilesLive does on
   // view/density, so there's no reason to skip the assignment when unchanged.
   usageModel = prefs.usageModel;
+  // Same: no sticky client-side state depends on railSort — the rail/strip just render
+  // through `orderRail(sessions, railSort)` on every pass.
+  railSort = prefs.railSort;
 }
 
 /** After the daemon connection is restored (`hello`), every currently-mounted surface
@@ -574,7 +609,12 @@ function renderTilesView(sessions: readonly Session[], now: Date, connected: boo
     .map((id) => sessions.find((s) => s.id === id))
     .filter((s): s is Session => s !== undefined);
   const liveIds = new Set(tilesLive);
-  const stripSessions = sortSessions(sessions.filter((s) => !liveIds.has(s.id)));
+  // REQ-13: the strip follows the rail's own order (minus live tiles) — same order
+  // across both views, not a separate §3.4 sort.
+  const stripSessions = orderRail(
+    sessions.filter((s) => !liveIds.has(s.id)),
+    railSort,
+  );
 
   reconcileTilesGrid(liveSessions, now, connected);
 
@@ -597,9 +637,10 @@ function render(): void {
     tilesLive = applyDensity(tilesLive, densityCount(density), sessions);
   } else if (focusedId === null || !sessions.some((s) => s.id === focusedId)) {
     // Default focus on load / whenever the current focus stops existing: top of the
-    // §3.4 sort order (REQ-7), which now sorts ended sessions last (REQ-9) — a removed
+    // rail's own order (REQ-6/REQ-7) — manual mode's pinned-then-opened order, or
+    // attention mode's §3.4 order (which sorts ended sessions last, REQ-9) — a removed
     // session's focus falls through to here.
-    focusedId = sortSessions(sessions)[0]?.id ?? null;
+    focusedId = orderRail(sessions, railSort)[0]?.id ?? null;
   }
 
   // REQ-13/INV-5/W8: only alive sessions may ever open a terminal socket — Tiles' sticky
@@ -619,7 +660,7 @@ function render(): void {
 
   renderSessions(
     sessionsEl,
-    sortSessions(sessions),
+    orderRail(sessions, railSort),
     now,
     (id) => {
       focusedId = id;
@@ -627,8 +668,12 @@ function render(): void {
     },
     dispatchAction,
     connected,
+    railSort === "manual",
+    pendingRailFocus,
   );
+  pendingRailFocus = null;
   railCountEl.textContent = sessions.length > 0 ? String(sessions.length) : "";
+  railSortSelect.value = railSort;
 
   renderViewSwitcher({ focusButton: viewFocusBtn, tilesButton: viewTilesBtn }, view);
   renderDensityControl(
@@ -647,6 +692,12 @@ viewFocusBtn.addEventListener("click", () => requestView("focus"));
 viewTilesBtn.addEventListener("click", () => requestView("tiles"));
 density2x2Btn.addEventListener("click", () => requestDensity("2x2"));
 density3x2Btn.addEventListener("click", () => requestDensity("3x2"));
+
+// REQ-12: the rail-sort select's value is set from `railSort` on every render pass
+// (above); this only ever fires from a genuine user interaction with the control.
+railSortSelect.addEventListener("change", () => {
+  requestRailSort(railSortSelect.value === "attention" ? "attention" : "manual");
+});
 
 // REQ-12: aria-busy from click until the next `usage` message or 5s, whichever is first
 // (the onUsage handler below calls clearUsageRefreshBusy() on every message; this timer
@@ -676,8 +727,30 @@ installTileDrag(tilesGridEl, (draggedId, targetId, focusedBeforeDrag) => {
   render();
 });
 
+// plan order-sidebar REQ-10/REQ-11/REQ-16: delegated drag-to-reorder on the rail
+// container — installed once, covers every card the reconciler ever builds. No
+// `handleSelector`: the whole card is the drag handle (REQ-10 — a card has no header bar
+// distinct from its content). Cards carry `draggable="false"` in attention mode
+// (render/sessions.ts), so the browser never fires `dragstart` for them there — no mode
+// check is needed here. `moveCard` returning `null` (self-drop, a departed id — edge
+// case 2) is a no-op: nothing to send, nothing to re-render.
+installDragReorder(sessionsEl, {
+  itemSelector: "article.card",
+  onMove: (draggedId, targetId, focusedBeforeDrag) => {
+    const move = moveCard(orderRail(store.values(), "manual"), draggedId, targetId);
+    if (!move) return;
+    // See `pendingTileFocus`'s declaration for the same reasoning, applied to the rail.
+    pendingRailFocus = focusedBeforeDrag;
+    void putSessionOrder(move.ids, move.pinnedCount).then((result) => {
+      if (!result.ok) console.error(`PUT /api/sessions/order failed: ${result.error.code} ${result.error.message}`);
+    });
+  },
+});
+
 // design-system §4.1 / ux-flows §3.8: ⌘\ toggles the view; ⌘1–9 keeps its meaning in
-// both views. ⌘N (launch modal) is wired separately in render/launch.ts.
+// both views — it selects the nth card in the rail's current order (`focusNth` ->
+// `orderRail`), so it follows whatever the rail/strip display (manual or attention),
+// not a fixed priority sort. ⌘N (launch modal) is wired separately in render/launch.ts.
 window.addEventListener("keydown", (event) => {
   if (!event.metaKey || event.shiftKey || event.altKey) return;
   if (event.key === "\\") {

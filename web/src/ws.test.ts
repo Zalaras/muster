@@ -13,12 +13,12 @@ const snapshot: Snapshot = {
   type: "snapshot",
   sessions: [],
   usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
-  prefs: { view: "focus", density: "2x2", usageModel: "Fable" },
+  prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual" },
 };
 
 const prefsMessage: PrefsMessage = {
   type: "prefs",
-  prefs: { view: "tiles", density: "3x2", usageModel: "Opus" },
+  prefs: { view: "tiles", density: "3x2", usageModel: "Opus", railSort: "manual" },
 };
 
 const usage: Usage = {
@@ -50,6 +50,8 @@ const session: Session = {
   tmuxTarget: "muster:@1",
   firstLaunchHere: false,
   createdAt: "2026-08-22T00:00:00Z",
+  pinned: false,
+  railPos: 0,
 };
 
 describe("backoffDelay", () => {

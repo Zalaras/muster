@@ -35,14 +35,15 @@ func TestMigrate_AppliesInitSchema(t *testing.T) {
 	require.NoError(t, Migrate(ctx, db))
 
 	// m1-sessions added 0002_sessions.sql, m3-gauges added 0003_gauges.sql,
-	// m4-reconcile added 0004_reconcile.sql, and usage-model-bar added
-	// 0005_usage_model.sql, so a fresh database now records five migrations (was 1
-	// pre-M1 — see plans/m1-sessions/daemon-implementation.md Handoff).
-	assert.Equal(t, 5, schemaMigrationsCount(t, db))
+	// m4-reconcile added 0004_reconcile.sql, usage-model-bar added 0005_usage_model.sql,
+	// and order-sidebar added 0006_rail_order.sql, so a fresh database now records six
+	// migrations (was 1 pre-M1 — see plans/m1-sessions/daemon-implementation.md
+	// Handoff).
+	assert.Equal(t, 6, schemaMigrationsCount(t, db))
 
 	var version int
 	require.NoError(t, db.QueryRowContext(ctx, `SELECT MAX(version) FROM schema_migrations`).Scan(&version))
-	assert.Equal(t, 5, version)
+	assert.Equal(t, 6, version)
 
 	// The tables the migration creates are usable.
 	_, err := db.ExecContext(ctx, `INSERT INTO kv (key, value) VALUES ('k', 'v')`)
@@ -59,7 +60,7 @@ func TestMigrate_SecondCallIsANoOp(t *testing.T) {
 
 	require.NoError(t, Migrate(ctx, db))
 	before := schemaMigrationsCount(t, db)
-	require.Equal(t, 5, before) // 0001_init + 0002_sessions (m1-sessions) + 0003_gauges (m3-gauges) + 0004_reconcile (m4-reconcile) + 0005_usage_model (usage-model-bar)
+	require.Equal(t, 6, before) // 0001_init + 0002_sessions (m1-sessions) + 0003_gauges (m3-gauges) + 0004_reconcile (m4-reconcile) + 0005_usage_model (usage-model-bar) + 0006_rail_order (order-sidebar)
 
 	require.NoError(t, Migrate(ctx, db))
 	after := schemaMigrationsCount(t, db)

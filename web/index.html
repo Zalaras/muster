@@ -33,6 +33,10 @@
           <div class="railhead">
             <button id="new-session-button" type="button" class="btn">New session</button>
             <span id="rail-count" class="n"></span>
+            <select id="rail-sort" class="sel" aria-label="Sort">
+              <option value="manual">Manual</option>
+              <option value="attention">Attention</option>
+            </select>
           </div>
           <div id="sessions" class="cards"></div>
         </aside>
@@ -165,6 +169,7 @@
             <span class="name"></span>
             <span class="badge"></span>
             <span class="timer" aria-label="time in state"></span>
+            <button class="pin" type="button" aria-label="Pin" aria-pressed="false" title="Pin to top"></button>
           </div>
           <div class="r2"></div>
           <div class="r3"></div>

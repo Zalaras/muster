@@ -169,6 +169,14 @@ type CreateParams struct {
 // is known.
 func (m *Manager) CreateSession(ctx context.Context, p CreateParams) (*Session, error) {
 	model := p.Model
+
+	// RailPos = max(existing)+1 (plan order-sidebar REQ-1), computed from the manager's
+	// own in-memory registry rather than a separate SQL MAX() query (Implementation
+	// Notes: "the manager already holds every session in memory under m.mu").
+	m.mu.Lock()
+	railPos := m.maxRailPosLocked() + 1
+	m.mu.Unlock()
+
 	row, err := m.store.InsertSession(ctx, store.InsertSessionParams{
 		RepoID:          p.RepoID,
 		Directory:       p.Directory,
@@ -178,6 +186,7 @@ func (m *Manager) CreateSession(ctx context.Context, p CreateParams) (*Session, 
 		PermissionMode:  string(p.PermissionMode),
 		Model:           &model,
 		FirstLaunchHere: p.FirstLaunchHere,
+		RailPos:         railPos,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("creating session: %w", err)
@@ -706,6 +715,97 @@ func (m *Manager) RecordResume(ctx context.Context, id int64, tmuxTarget, tmuxPa
 	return snapshot, nil
 }
 
+// maxRailPosLocked returns 1 + the largest RailPos among known sessions, or 0 when
+// there are none — CreateSession's "opened order = bottom of the unpinned block"
+// (REQ-1). Must be called with m.mu held.
+func (m *Manager) maxRailPosLocked() int64 {
+	highest := int64(-1)
+	for _, s := range m.sessions {
+		if s.RailPos > highest {
+			highest = s.RailPos
+		}
+	}
+	return highest
+}
+
+// railEntriesLocked returns a railEntry view of every known session — the pure input
+// railorder.go's applyPin/applyOrder operate over. Must be called with m.mu held.
+func (m *Manager) railEntriesLocked() []railEntry {
+	out := make([]railEntry, 0, len(m.sessions))
+	for _, s := range m.sessions {
+		out = append(out, railEntry{ID: s.ID, Pinned: s.Pinned, RailPos: s.RailPos})
+	}
+	return out
+}
+
+// applyRailChangesLocked writes each changed entry's Pinned/RailPos into the live
+// in-memory session and returns value-copy snapshots to persist and broadcast once
+// unlocked. Must be called with m.mu held; entries naming a session no longer present
+// (removed between the read and the write) are silently skipped.
+func (m *Manager) applyRailChangesLocked(changed []railEntry) []*Session {
+	snapshots := make([]*Session, 0, len(changed))
+	for _, c := range changed {
+		sess, ok := m.sessions[c.ID]
+		if !ok {
+			continue
+		}
+		sess.Pinned = c.Pinned
+		sess.RailPos = c.RailPos
+		snapshots = append(snapshots, sess.Clone())
+	}
+	return snapshots
+}
+
+// persistAndBroadcastRail persists and broadcasts each of snapshots in turn — the tail
+// shared by SetPinned/SetOrder once the in-memory mutation is done and the lock
+// released (REQ-3/REQ-4: "every session whose pinned or railPos changed is broadcast").
+// Stops and returns the first persist error, wrapped with the session id; sessions
+// already persisted in this call have already been broadcast.
+func (m *Manager) persistAndBroadcastRail(ctx context.Context, snapshots []*Session) error {
+	for _, snap := range snapshots {
+		if err := m.store.UpdateSession(ctx, sessionToRow(snap)); err != nil {
+			return fmt.Errorf("persisting rail order for session %d: %w", snap.ID, err)
+		}
+		m.broadcast(snap)
+	}
+	return nil
+}
+
+// SetPinned applies docs/protocol.md §3.10's pin mutation to id: pins or unpins it,
+// renumbering whatever the invariant requires (railorder.go's applyPin), and persists +
+// broadcasts every session whose pinned or railPos changed — nothing when id was
+// already in the requested state (D8, INV-5). Returns ErrUnknownSession if id doesn't
+// exist (the server maps it to 404 unknown_session).
+func (m *Manager) SetPinned(ctx context.Context, id int64, pinned bool) error {
+	m.mu.Lock()
+	changed, err := applyPin(m.railEntriesLocked(), id, pinned)
+	if err != nil {
+		m.mu.Unlock()
+		return err
+	}
+	snapshots := m.applyRailChangesLocked(changed)
+	m.mu.Unlock()
+
+	return m.persistAndBroadcastRail(ctx, snapshots)
+}
+
+// SetOrder applies docs/protocol.md §3.11's full rail-order mutation: the pure
+// applyOrder computes the new (pinned, railPos) for every session, and this persists +
+// broadcasts only the ones that changed. Returns ErrInvalidOrder for a malformed
+// request (the server maps it to 400 invalid_request) — nothing changes on that path.
+func (m *Manager) SetOrder(ctx context.Context, ids []int64, pinnedCount int) error {
+	m.mu.Lock()
+	changed, err := applyOrder(m.railEntriesLocked(), ids, pinnedCount)
+	if err != nil {
+		m.mu.Unlock()
+		return err
+	}
+	snapshots := m.applyRailChangesLocked(changed)
+	m.mu.Unlock()
+
+	return m.persistAndBroadcastRail(ctx, snapshots)
+}
+
 func (m *Manager) broadcast(s *Session) {
 	if m.onUpsert != nil {
 		m.onUpsert(s)
@@ -847,6 +947,8 @@ func rowToSession(row store.SessionRow) *Session {
 		EndedAt:              row.EndedAt,
 		FirstLaunchHere:      row.FirstLaunchHere,
 		CreatedAt:            row.CreatedAt,
+		Pinned:               row.Pinned,
+		RailPos:              row.RailPos,
 	}
 	if row.TmuxPane != nil {
 		s.TmuxPane = *row.TmuxPane
@@ -915,6 +1017,8 @@ func sessionToRow(s *Session) store.SessionRow {
 		EndedAt:              s.EndedAt,
 		FirstLaunchHere:      s.FirstLaunchHere,
 		CreatedAt:            s.CreatedAt,
+		Pinned:               s.Pinned,
+		RailPos:              s.RailPos,
 	}
 	if s.TmuxPane != "" {
 		pane := s.TmuxPane

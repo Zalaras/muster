@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -452,6 +453,221 @@ func TestSessionActionHandlers_RequireCookie(t *testing.T) {
 			assert.Equal(t, http.StatusUnauthorized, rec.Code)
 		})
 	}
+}
+
+// putSessionPinRequest issues PUT /api/sessions/{id}/pin with the UI cookie attached
+// (plan order-sidebar, mirrors putPrefsRequest/postSessionsRequest for the other write
+// endpoints).
+func putSessionPinRequest(t *testing.T, srv *testServer, id int64, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/sessions/%d/pin", id), strings.NewReader(body))
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	return rec
+}
+
+// putSessionOrderRequest issues PUT /api/sessions/order with the UI cookie attached.
+func putSessionOrderRequest(t *testing.T, srv *testServer, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPut, "/api/sessions/order", strings.NewReader(body))
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	return rec
+}
+
+// TestHandlePinSession_RequiresCookie covers the auth wiring for plan order-sidebar's
+// new endpoint.
+func TestHandlePinSession_RequiresCookie(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+
+	req := httptest.NewRequest(http.MethodPut, "/api/sessions/1/pin", strings.NewReader(`{"pinned":true}`))
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+// TestHandlePinSession_InvalidBodyIs400 covers §3.10's 400 invalid_request clause: body
+// not JSON, or pinned missing/not a boolean.
+func TestHandlePinSession_InvalidBodyIs400(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+	}{
+		{"not JSON", `not valid json`},
+		{"pinned missing", `{}`},
+		{"pinned is a string, not a boolean", `{"pinned":"true"}`},
+		{"pinned is null", `{"pinned":null}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := newTestServer(t, ClaudeCodeInfo{})
+			id := seedSessionRow(t, srv, nil)
+
+			rec := putSessionPinRequest(t, srv, id, tt.body)
+
+			assert.Equal(t, http.StatusBadRequest, rec.Code)
+			assert.Equal(t, "invalid_request", decodeErrorCode(t, rec))
+		})
+	}
+}
+
+func TestHandlePinSession_UnknownSessionIs404(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+
+	rec := putSessionPinRequest(t, srv, 999999, `{"pinned":true}`)
+
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+	assert.Equal(t, "unknown_session", decodeErrorCode(t, rec))
+}
+
+// TestHandlePinSession_SuccessIs204AndPersists covers D6 through the real HTTP handler
+// (decode -> delegate -> encode): a valid pin request returns 204 with no body and the
+// store row reflects the new pinned flag.
+func TestHandlePinSession_SuccessIs204AndPersists(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	id := seedSessionRow(t, srv, nil)
+
+	rec := putSessionPinRequest(t, srv, id, `{"pinned":true}`)
+
+	assert.Equal(t, http.StatusNoContent, rec.Code)
+	assert.Empty(t, rec.Body.Bytes())
+	row, err := srv.store.GetSession(context.Background(), id)
+	require.NoError(t, err)
+	assert.True(t, row.Pinned)
+}
+
+// TestHandlePinSession_NoOpIs204WithNoBroadcast covers D8 at the HTTP layer: pinning a
+// session already in the requested state is still a 204, and no sessionUpsert reaches a
+// connected UI socket.
+func TestHandlePinSession_NoOpIs204WithNoBroadcast(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	id := seedSessionRow(t, srv, nil) // freshly seeded rows start pinned:false
+
+	httpSrv := httptest.NewServer(srv.Handler())
+	t.Cleanup(httpSrv.Close)
+	wsURL := "ws" + httpSrv.URL[len("http"):] + "/ws"
+	c, err := dialWS(t, wsURL, nil)
+	require.NoError(t, err)
+	defer func() { _ = c.CloseNow() }()
+	_ = readJSON[helloWire](t, c)
+	_ = readJSON[snapshotWire](t, c)
+
+	rec := putSessionPinRequest(t, srv, id, `{"pinned":false}`) // already false
+
+	assert.Equal(t, http.StatusNoContent, rec.Code)
+	assertNoSessionUpsertArrives(t, c)
+}
+
+// assertNoSessionUpsertArrives mirrors prefs_test.go's assertNoPrefsMessageArrives for
+// the sessionUpsert message type (D8/INV-5's no-broadcast half): a short read either
+// times out (nothing arrived) or, if something did arrive, it must never be a
+// sessionUpsert.
+func assertNoSessionUpsertArrives(t *testing.T, c *websocket.Conn) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	defer cancel()
+	_, data, err := c.Read(ctx)
+	if err != nil {
+		return // timeout: nothing arrived, as expected
+	}
+	var msg struct {
+		Type string `json:"type"`
+	}
+	require.NoError(t, json.Unmarshal(data, &msg))
+	assert.NotEqual(t, "sessionUpsert", msg.Type, "no sessionUpsert broadcast was expected for a no-op pin call")
+}
+
+// TestSessionOrderAndPinHandlers_RequireCookie extends the shared cookie-check table
+// with the two new endpoints.
+func TestSessionOrderAndPinHandlers_RequireCookie(t *testing.T) {
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		body   string
+	}{
+		{"pin", http.MethodPut, "/api/sessions/1/pin", `{"pinned":true}`},
+		{"order", http.MethodPut, "/api/sessions/order", `{"ids":[],"pinnedCount":0}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := newTestServer(t, ClaudeCodeInfo{})
+
+			req := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
+			rec := httptest.NewRecorder()
+			srv.Handler().ServeHTTP(rec, req)
+
+			assert.Equal(t, http.StatusUnauthorized, rec.Code)
+		})
+	}
+}
+
+// TestHandleSetOrder_InvalidBodyIs400 covers §3.11's 400 invalid_request clause: body
+// not JSON, ids/pinnedCount missing, a duplicate/unknown id, or pinnedCount out of
+// range — exercised through the real HTTP handler.
+func TestHandleSetOrder_InvalidBodyIs400(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	id := seedSessionRow(t, srv, nil)
+
+	tests := []struct {
+		name string
+		body string
+	}{
+		{"not JSON", `not valid json`},
+		{"ids missing", `{"pinnedCount":0}`},
+		{"pinnedCount missing", fmt.Sprintf(`{"ids":[%d]}`, id)},
+		{"pinnedCount negative", fmt.Sprintf(`{"ids":[%d],"pinnedCount":-1}`, id)},
+		{"pinnedCount above len(ids)", fmt.Sprintf(`{"ids":[%d],"pinnedCount":2}`, id)},
+		{"duplicate id", fmt.Sprintf(`{"ids":[%d,%d],"pinnedCount":0}`, id, id)},
+		{"unknown id", `{"ids":[999999],"pinnedCount":0}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := putSessionOrderRequest(t, srv, tt.body)
+
+			assert.Equal(t, http.StatusBadRequest, rec.Code)
+			assert.Equal(t, "invalid_request", decodeErrorCode(t, rec))
+		})
+	}
+}
+
+// TestHandleSetOrder_SuccessIs204AndAppliesTheOrder covers D9 through the real HTTP
+// handler: a valid order request returns 204 and the store reflects the new
+// pinned/railPos values.
+func TestHandleSetOrder_SuccessIs204AndAppliesTheOrder(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	idA := seedSessionRow(t, srv, nil)
+	idB := seedSessionRow(t, srv, nil)
+
+	rec := putSessionOrderRequest(t, srv, fmt.Sprintf(`{"ids":[%d,%d],"pinnedCount":1}`, idB, idA))
+
+	assert.Equal(t, http.StatusNoContent, rec.Code)
+	rowB, err := srv.store.GetSession(context.Background(), idB)
+	require.NoError(t, err)
+	rowA, err := srv.store.GetSession(context.Background(), idA)
+	require.NoError(t, err)
+	assert.True(t, rowB.Pinned)
+	assert.False(t, rowA.Pinned)
+	assert.Less(t, rowB.RailPos, rowA.RailPos)
+}
+
+// TestHandleSetOrder_EmptyIDsIs204AndChangesNothing covers §3.11's explicit "empty ids
+// is valid (a no-op ...)" clause through the real HTTP handler.
+func TestHandleSetOrder_EmptyIDsIs204AndChangesNothing(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	id := seedSessionRow(t, srv, nil)
+	before, err := srv.store.GetSession(context.Background(), id)
+	require.NoError(t, err)
+
+	rec := putSessionOrderRequest(t, srv, `{"ids":[],"pinnedCount":0}`)
+
+	assert.Equal(t, http.StatusNoContent, rec.Code)
+	after, err := srv.store.GetSession(context.Background(), id)
+	require.NoError(t, err)
+	assert.Equal(t, before, after)
 }
 
 // Note: a dedicated "tmux spawn failure rolls back the row" test was attempted and

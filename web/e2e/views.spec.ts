@@ -97,6 +97,16 @@ test("Cmd+\\ toggles the view and Cmd+1 focuses the top-priority session regardl
       await sessionCard(page, "prio-b").click();
       await expect(terminalRegion(page, "prio-b")).toBeVisible();
 
+      // order-sidebar's approved protocol delta + decision `cmd-n-ordering` (Option A):
+      // Cmd+1 now indexes into `orderRail`'s CURRENT order, which depends on `railSort`.
+      // REQ-5's default is "manual" (creation order here: B launched first, then A), so
+      // in manual mode Cmd+1 would now focus B, not A. Switch to Attention (needs-input
+      // sorts first) before the Cmd+1 assertion below — same repair class as
+      // actions.spec.ts #3-#5 (select Attention mode before the priority assertion,
+      // assertion preserved verbatim).
+      await page.locator("#rail-sort").selectOption("attention");
+      await expect(page.locator("#rail-sort")).toHaveValue("attention");
+
       await page.keyboard.press("Meta+1");
       await expect(terminalRegion(page, "prio-a")).toBeVisible();
       // The old surface must be unmounted, not merely covered — ⌘1 moves focus the same
@@ -479,15 +489,21 @@ test("GET /api/state's prefs snapshot carries both view and density (M2 protocol
     // into docs/protocol.md on approval; default "Fable" before any PUT) — included
     // here so this M2 assertion tracks the merged protocol contract rather than going
     // stale the moment usage-model-bar ships, same rationale as density's own addition.
-    const before = (await stateRes.json()) as { prefs: { view: string; density: string; usageModel: string } };
-    expect(before.prefs).toEqual({ view: "focus", density: "2x2", usageModel: "Fable" });
+    // `railSort` was added by plan order-sidebar (protocol §3.3 delta, merged into
+    // docs/protocol.md on approval; default "manual" before any PUT) — same rationale.
+    const before = (await stateRes.json()) as {
+      prefs: { view: string; density: string; usageModel: string; railSort: string };
+    };
+    expect(before.prefs).toEqual({ view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual" });
 
     const putRes = await page.request.put(`${daemon.baseURL}/api/prefs`, { data: { density: "3x2" } });
     expect(putRes.status()).toBe(204);
 
     const afterRes = await page.request.get(`${daemon.baseURL}/api/state`);
-    const after = (await afterRes.json()) as { prefs: { view: string; density: string; usageModel: string } };
-    expect(after.prefs).toEqual({ view: "focus", density: "3x2", usageModel: "Fable" });
+    const after = (await afterRes.json()) as {
+      prefs: { view: string; density: string; usageModel: string; railSort: string };
+    };
+    expect(after.prefs).toEqual({ view: "focus", density: "3x2", usageModel: "Fable", railSort: "manual" });
   });
 });
 

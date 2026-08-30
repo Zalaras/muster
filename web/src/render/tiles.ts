@@ -130,7 +130,9 @@ export function renderStrip(
     return;
   }
   const template = requireTemplate("session-card-template");
-  reconcileCards(el, sessions, now, template, onPromote, onAction, connected);
+  // Plan order-sidebar REQ-13: a strip card is never draggable, regardless of the rail's
+  // current sort mode — the strip is a promote surface, not a manual-order drop target.
+  reconcileCards(el, sessions, now, template, onPromote, onAction, connected, false);
 }
 
 /** REQ-12's tile footer action row: a live tile gets End; a dead tile gets the "ended

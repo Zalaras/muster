@@ -29,6 +29,8 @@ type sessionWire struct {
 	TmuxTarget      string                    `json:"tmuxTarget"`
 	FirstLaunchHere bool                      `json:"firstLaunchHere"`
 	CreatedAt       string                    `json:"createdAt"`
+	Pinned          bool                      `json:"pinned"`
+	RailPos         int64                     `json:"railPos"`
 }
 
 type sessionWireAttention struct {
@@ -105,6 +107,8 @@ func toWireSession(s *session.Session) sessionWire {
 		TmuxTarget:      s.TmuxTarget,
 		FirstLaunchHere: s.FirstLaunchHere,
 		CreatedAt:       s.CreatedAt.UTC().Format(time.RFC3339),
+		Pinned:          s.Pinned,
+		RailPos:         s.RailPos,
 	}
 
 	if s.EndedAt != nil {

@@ -61,7 +61,9 @@ notifications by design — the point is to be working *in* the dashboard.
   (error ended the turn) · `Idle` (turn finished). There is deliberately no "Done" —
   Claude Code only knows a turn ended, not that a task is complete; `Idle` plus a
   last-activity line is the honest representation.
-- Sorted with Needs-Input first, longest-blocked at the top.
+- Sorted with Needs-Input first, longest-blocked at the top — this is the rail's *attention*
+  mode; the default *manual* mode keeps the user's own order (pinned block + opened order,
+  drag-to-reorder). Amended 2026-08-30, plan `order-sidebar`; see §11.
 - State is derived from hook events (see §6), never from parsing terminal output.
 - Titles use Claude Code's native session titles (`--name`, `/rename`, `SessionStart`
   hook's `sessionTitle`) — Muster does not maintain its own ID→title mapping.
@@ -891,3 +893,21 @@ implemented:
   admitted only if a slot happens to be free. Focus behaviour unchanged.
 - No protocol, schema or daemon change. Rejected: a "+" pseudo-tile in the grid (would
   fight the slot-stable reconcile, the drag delegation and the fixed 2×2/3×2 geometry).
+
+### 2026-08-30 — Rail order is user-owned (plan `order-sidebar`)
+
+- §2.1's needs-input-first sort is no longer *the* rail order; it is the rail's **attention**
+  mode. The default **manual** mode keeps a daemon-owned, per-session order: `pinned` +
+  `railPos` on the Session object (two new columns, migration 0006), opened order = bottom of
+  the unpinned block, drag-to-reorder by card (insert-and-shift, drop position decides pin
+  state), a pin control that lifts a session into a pinned block at the top. The mode is a
+  rail-head toggle persisted as `prefs.railSort` (default `manual`). Tiles strip follows the
+  rail order; the Tiles grid (`tilesLive`) is untouched.
+- Daemon owns the invariants (unique `railPos`, pinned before unpinned) and never orders for
+  display; the client sorts (`orderRail`). Protocol: `PUT /api/sessions/{id}/pin`,
+  `PUT /api/sessions/order`, `prefs.railSort`, `session.pinned/railPos` (`docs/protocol.md`
+  §3.3, §3.10, §3.11, §5.3).
+- Decision `cmd-n-ordering` (review issue, settled by `/decide` consensus): **⌘1–9 follows the
+  rail's displayed order** (Option A) rather than staying attention-ranked (Option B). Cost
+  accepted: no one-key jump to the most-blocked session — follow-up in TODO.md.
+

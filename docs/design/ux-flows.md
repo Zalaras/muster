@@ -203,6 +203,12 @@ Everything §2.1 requires, plus the context signal from §2.2:
 Six states (§2.1). There is deliberately no "Done": Claude Code knows a turn ended, not
 that a task is complete.
 
+*Amended 2026-08-30 (plan `order-sidebar`)*: the needs-input-first ordering below is the
+rail's **attention** sort mode. The default mode is **manual**: sessions sit in the order they
+were opened, drag-to-reorder by card, a pin control lifts a session into a pinned block at the
+top, and no state change ever moves a card. The mode is a rail-head toggle persisted as
+`prefs.railSort`; the Tiles strip follows the same order.
+
 | State | Source | Rail treatment |
 |---|---|---|
 | `Needs-Input` | `Notification` (`permission_prompt` / `idle_prompt`) | Loudest. Timer counts up and escalates. |
@@ -267,7 +273,8 @@ These are designed, not afterthoughts — three of the four are *guaranteed* to 
   header** onto another tile to insert it there (the others shift). Order is per-window
   and not persisted, like membership. (Amended 2026-08-29, plan `move-tiles`; before that
   the grid re-sorted itself by §3.4 on every change.) Everything else is a snapshot card
-  in the strip, still §3.4-sorted; clicking one promotes that session into the grid.
+  in the strip, in the rail's order (§3.4 — manual or attention, minus the live tiles;
+  amended 2026-08-30, plan `order-sidebar`); clicking one promotes that session into the grid.
 - **Density is a control** (2×2 / 3×2). A denser grid means narrower tiles, so each tile
   states its real geometry (72×26 at 2×2, 48×26 at 3×2). Narrow is safe; *inconsistent* is
   not (§3.2).
@@ -281,7 +288,9 @@ These are designed, not afterthoughts — three of the four are *guaranteed* to 
 ### 3.8 Switching views
 
 - Masthead segmented control, or **⌘\\**. `⌘1–9` keeps meaning in both views: focus session
-  *n*, which in Tiles promotes it into the grid.
+  *n*, which in Tiles promotes it into the grid. *n* counts the rail's displayed order (§3.4:
+  manual by default, attention when selected) — not the attention rank on its own
+  (2026-08-30, plan `order-sidebar`, decision `cmd-n-ordering`).
 - **The choice persists** across reloads and daemon restarts. A dashboard that silently
   changes layout under you is worse than either layout.
 - Switching **moves geometry ownership, never duplicates it** — the same law as §3.2. Going

@@ -40,8 +40,9 @@ func TestOpen_SecondOpenOnSamePathDoesNotReapplyMigrations(t *testing.T) {
 	t.Cleanup(func() { _ = st2.Close() })
 
 	// 0001_init + 0002_sessions (m1-sessions) + 0003_gauges (m3-gauges) + 0004_reconcile
-	// (m4-reconcile) + 0005_usage_model (usage-model-bar).
-	assert.Equal(t, 5, schemaMigrationsCount(t, st2.db))
+	// (m4-reconcile) + 0005_usage_model (usage-model-bar) + 0006_rail_order
+	// (order-sidebar).
+	assert.Equal(t, 6, schemaMigrationsCount(t, st2.db))
 }
 
 // TestOpen_RestrictsPermissionsOnDatabaseAndSidecars covers review cycle 2 Major 1: the

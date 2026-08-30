@@ -132,7 +132,7 @@ func TestHandlePutPrefs_PersistsToKVUnderOneJSONKey(t *testing.T) {
 	raw, ok, err := srv.store.KVGet(context.Background(), "prefs")
 	require.NoError(t, err)
 	require.True(t, ok)
-	assert.JSONEq(t, `{"view":"tiles","density":"3x2","usageModel":"Fable"}`, raw)
+	assert.JSONEq(t, `{"view":"tiles","density":"3x2","usageModel":"Fable","railSort":"manual"}`, raw)
 }
 
 func TestLoadPrefs_DefaultsBeforeAnyPUT(t *testing.T) {
@@ -393,7 +393,7 @@ func TestHandlePutPrefs_UsageModelPersistsToKVAlongsideViewAndDensity(t *testing
 	raw, ok, err := srv.store.KVGet(context.Background(), "prefs")
 	require.NoError(t, err)
 	require.True(t, ok)
-	assert.JSONEq(t, `{"view":"tiles","density":"3x2","usageModel":"Opus"}`, raw)
+	assert.JSONEq(t, `{"view":"tiles","density":"3x2","usageModel":"Opus","railSort":"manual"}`, raw)
 }
 
 // TestHandlePutPrefs_BroadcastsUsageModelInPrefsMessage covers D10/INV-4's echo clause
@@ -458,6 +458,152 @@ func TestPrefs_UsageModelPersistsAcrossADaemonRestart(t *testing.T) {
 	})
 
 	assert.Equal(t, "Opus", srv2.loadPrefs(context.Background()).UsageModel)
+}
+
+// TestLoadPrefs_DefaultRailSortIsManual covers plan order-sidebar §3.3's
+// default-before-any-PUT clause for the new field.
+func TestLoadPrefs_DefaultRailSortIsManual(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+
+	got := srv.loadPrefs(context.Background())
+
+	assert.Equal(t, "manual", got.RailSort)
+}
+
+// TestHandlePutPrefs_RailSortValidationErrors covers §3.3's 400 invalid_request clause
+// for railSort: anything other than "manual" or "attention".
+func TestHandlePutPrefs_RailSortValidationErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+	}{
+		{"empty string", `{"railSort":""}`},
+		{"unknown enum value", `{"railSort":"alphabetical"}`},
+		{"case-sensitive mismatch", `{"railSort":"Manual"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := newTestServer(t, ClaudeCodeInfo{})
+
+			rec := putPrefsRequest(t, srv, tt.body)
+
+			assert.Equal(t, http.StatusBadRequest, rec.Code)
+			assert.Equal(t, "invalid_request", decodeErrorCode(t, rec))
+		})
+	}
+}
+
+// TestHandlePutPrefs_RailSortAcceptsBothEnumValues covers both accepted values of the
+// new field round-tripping through loadPrefs.
+func TestHandlePutPrefs_RailSortAcceptsBothEnumValues(t *testing.T) {
+	for _, v := range []string{"manual", "attention"} {
+		t.Run(v, func(t *testing.T) {
+			srv := newTestServer(t, ClaudeCodeInfo{})
+
+			rec := putPrefsRequest(t, srv, `{"railSort":"`+v+`"}`)
+
+			require.Equal(t, http.StatusNoContent, rec.Code)
+			assert.Equal(t, v, srv.loadPrefs(context.Background()).RailSort)
+		})
+	}
+}
+
+// TestHandlePutPrefs_RailSortPresentAloneSatisfiesAtLeastOneFieldRequired mirrors the
+// usageModel case: a request naming only railSort must not be rejected as empty.
+func TestHandlePutPrefs_RailSortPresentAloneSatisfiesAtLeastOneFieldRequired(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+
+	rec := putPrefsRequest(t, srv, `{"railSort":"attention"}`)
+
+	assert.Equal(t, http.StatusNoContent, rec.Code)
+}
+
+// TestHandlePutPrefs_SetsRailSortOnlyLeavesOtherFieldsUntouched covers the per-field
+// independence REQ-5 requires, mirroring the view/density/usageModel equivalents.
+func TestHandlePutPrefs_SetsRailSortOnlyLeavesOtherFieldsUntouched(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	require.Equal(t, http.StatusNoContent, putPrefsRequest(t, srv, `{"view":"tiles","density":"3x2","usageModel":"Opus"}`).Code)
+
+	rec := putPrefsRequest(t, srv, `{"railSort":"attention"}`)
+
+	require.Equal(t, http.StatusNoContent, rec.Code)
+	got := srv.loadPrefs(context.Background())
+	assert.Equal(t, "tiles", got.View, "a railSort-only PUT must not reset view")
+	assert.Equal(t, "3x2", got.Density, "a railSort-only PUT must not reset density")
+	assert.Equal(t, "Opus", got.UsageModel, "a railSort-only PUT must not reset usageModel")
+	assert.Equal(t, "attention", got.RailSort)
+}
+
+// TestLoadPrefs_InvalidRailSortInKVFallsBackToManualIndependently extends the
+// per-field-independence coverage to the fourth field: an invalid persisted railSort in
+// a hand-edited/legacy kv row must fall back to the default without discarding the
+// other three fields.
+func TestLoadPrefs_InvalidRailSortInKVFallsBackToManualIndependently(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	require.NoError(t, srv.store.KVSet(context.Background(), "prefs", `{"view":"tiles","density":"3x2","usageModel":"Opus","railSort":"bogus"}`))
+
+	got := srv.loadPrefs(context.Background())
+
+	assert.Equal(t, "tiles", got.View)
+	assert.Equal(t, "3x2", got.Density)
+	assert.Equal(t, "Opus", got.UsageModel)
+	assert.Equal(t, "manual", got.RailSort, "an invalid persisted railSort must fall back to the default")
+}
+
+// TestPrefs_RailSortPersistsAcrossADaemonRestart mirrors
+// TestPrefs_UsageModelPersistsAcrossADaemonRestart for the fourth field.
+func TestPrefs_RailSortPersistsAcrossADaemonRestart(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "muster.db")
+	st1, err := store.Open(context.Background(), dbPath)
+	require.NoError(t, err)
+
+	srv1 := New(Config{
+		Store: st1, Logger: zerolog.Nop(), UIToken: testUIToken, IngestToken: testIngestToken,
+		WebDist: t.TempDir(), DaemonVersion: "test-version",
+	})
+	rec := putPrefsRequest(t, &testServer{Server: srv1}, `{"railSort":"attention"}`)
+	require.Equal(t, http.StatusNoContent, rec.Code)
+	require.NoError(t, st1.Close())
+
+	st2, err := store.Open(context.Background(), dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = st2.Close() })
+	srv2 := New(Config{
+		Store: st2, Logger: zerolog.Nop(), UIToken: testUIToken, IngestToken: testIngestToken,
+		WebDist: t.TempDir(), DaemonVersion: "test-version",
+	})
+
+	assert.Equal(t, "attention", srv2.loadPrefs(context.Background()).RailSort)
+}
+
+// TestHandlePutPrefs_BroadcastsRailSortInPrefsMessage covers D16/INV-4's echo clause for
+// the new field: an accepted PUT broadcasts the full prefs object including railSort to
+// every connected UI socket.
+func TestHandlePutPrefs_BroadcastsRailSortInPrefsMessage(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	httpSrv := httptest.NewServer(srv.Handler())
+	t.Cleanup(httpSrv.Close)
+	wsURL := "ws" + httpSrv.URL[len("http"):] + "/ws"
+
+	c, err := dialWS(t, wsURL, nil)
+	require.NoError(t, err)
+	defer func() { _ = c.CloseNow() }()
+	_ = readJSON[helloWire](t, c)
+	_ = readJSON[snapshotWire](t, c)
+
+	rec := putPrefsRequest(t, srv, `{"railSort":"attention"}`)
+	require.Equal(t, http.StatusNoContent, rec.Code)
+
+	msg := readJSON[prefsWireWithRailSort](t, c)
+	assert.Equal(t, "prefs", msg.Type)
+	assert.Equal(t, "attention", msg.Prefs.RailSort)
+}
+
+type prefsWireWithRailSort struct {
+	Type  string `json:"type"`
+	Prefs struct {
+		RailSort string `json:"railSort"`
+	} `json:"prefs"`
 }
 
 // assertNoPrefsMessageArrives reads with a short deadline and requires that either the

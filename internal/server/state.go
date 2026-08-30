@@ -54,11 +54,14 @@ type UsageInfo struct {
 // PrefsInfo is the `prefs` object inside a snapshot (docs/protocol.md §3.3/§5.2). M2
 // makes this persist (kv) and broadcast; Density is new in M2 (the Tiles grid density).
 // UsageModel is new in the usage-model-bar plan (2026-08-30): which modelScoped entry
-// the masthead's third readout shows, default "Fable".
+// the masthead's third readout shows, default "Fable". RailSort is new in the
+// order-sidebar plan (2026-08-30): the rail's sort mode, "manual" | "attention",
+// default "manual".
 type PrefsInfo struct {
 	View       string `json:"view"`
 	Density    string `json:"density"`
 	UsageModel string `json:"usageModel"`
+	RailSort   string `json:"railSort"`
 }
 
 // buildSnapshot returns the fixed parts of a snapshot: no sessions, unknown usage,

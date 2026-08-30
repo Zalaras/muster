@@ -118,7 +118,20 @@ test("End from the mainhead ends only the focused session; a live neighbour is u
     expect(foundB.alive).toBe(true);
     expect(foundB.state).toBe(sessionB.state);
 
-    // A sorts after B (REQ-9: every ended session after every live one).
+    // A sorts after B (REQ-9: every ended session after every live one) — plan
+    // order-sidebar's approved protocol delta (§3.3/§5.3) makes this an Attention-mode
+    // guarantee only: REQ-5's default `railSort` is "manual", and REQ-7 says a state
+    // change (ending A is one) never moves a card in manual mode. Switch to Attention,
+    // then wait for the resulting resort before asserting the REQ-9 order.
+    await page.locator("#rail-sort").selectOption("attention");
+    await expect
+      .poll(async () => {
+        const cardTexts = await page.getByTestId("session-card").allInnerTexts();
+        const idxA = cardTexts.findIndex((t) => t.includes("end-mainhead-a"));
+        const idxB = cardTexts.findIndex((t) => t.includes("end-mainhead-b"));
+        return idxA >= 0 && idxB >= 0 && idxB < idxA;
+      })
+      .toBe(true);
     const cardTexts = await page.getByTestId("session-card").allInnerTexts();
     const idxA = cardTexts.findIndex((t) => t.includes("end-mainhead-a"));
     const idxB = cardTexts.findIndex((t) => t.includes("end-mainhead-b"));
@@ -185,6 +198,28 @@ test("ended sessions sort after every live session, most recently ended first (R
       { timeout: 15_000 },
     );
 
+    // These orderings are an Attention-mode guarantee under plan order-sidebar's
+    // approved protocol delta (REQ-5 default `railSort` is "manual"; REQ-7: a state
+    // change — ending a session — never moves a card in manual mode). Switch to
+    // Attention, then wait for the resort before asserting REQ-9's ordering.
+    await page.locator("#rail-sort").selectOption("attention");
+    await expect
+      .poll(async () => {
+        const cardTexts = await page.getByTestId("session-card").allInnerTexts();
+        const indexOf = (label: string): number => cardTexts.findIndex((t) => t.includes(label));
+        const liveIdx = indexOf("sort-req9-live");
+        const firstEndedIdx = indexOf("sort-req9-ended-first");
+        const secondEndedIdx = indexOf("sort-req9-ended-second");
+        return (
+          liveIdx >= 0 &&
+          firstEndedIdx >= 0 &&
+          secondEndedIdx >= 0 &&
+          liveIdx < firstEndedIdx &&
+          liveIdx < secondEndedIdx &&
+          secondEndedIdx < firstEndedIdx
+        );
+      })
+      .toBe(true);
     const cardTexts = await page.getByTestId("session-card").allInnerTexts();
     const indexOf = (label: string): number =>
       cardTexts.findIndex((t) => t.includes(label));
@@ -1568,6 +1603,15 @@ test("a focused card action button survives a rail re-sort triggered by a real p
     const cardB = sessionCard(page, "resort-focus-b");
     await expect(cardA).toBeVisible();
     await expect(cardB).toBeVisible();
+
+    // This test needs a real priority-driven DOM reorder — under plan order-sidebar's
+    // approved protocol delta that only happens in Attention mode (REQ-5's default
+    // `railSort` is "manual"; REQ-7: a state change never moves a card in manual mode).
+    // The unpinned ordering within Attention mode still delegates to the same
+    // `sortSessions` launch-order tiebreak the pre-order-sidebar rail always used
+    // (REQ-6), so the "A before B" check right below is unaffected by the switch.
+    await page.locator("#rail-sort").selectOption("attention");
+    await expect(page.locator("#rail-sort")).toHaveValue("attention");
 
     // Both sessions land in the same live priority band with no state change yet, so
     // they sort by launch order: A before B.

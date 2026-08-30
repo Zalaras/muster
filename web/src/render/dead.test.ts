@@ -100,6 +100,8 @@ describe("renderDeadSurface — REQ-19's '· captured <age>' clause", () => {
       tmuxTarget: "muster:@1",
       firstLaunchHere: false,
       createdAt: "2026-08-26T23:00:00Z",
+      pinned: false,
+      railPos: overrides.id,
       ...overrides,
     };
   }

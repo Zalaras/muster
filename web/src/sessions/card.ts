@@ -22,6 +22,9 @@ export interface CardViewModel {
   noteText: string | null;
   ended: boolean;
   actions: readonly CardAction[];
+  // Plan order-sidebar (REQ-8/REQ-9): drives the pin button's aria-label/aria-pressed/
+  // title and the card's `pinned` class — render/sessions.ts is the only consumer.
+  pinned: boolean;
 }
 
 // design-system §3: the state->colour token map (applied via CSS class, never inline).
@@ -141,5 +144,6 @@ export function buildCardViewModel(session: Session, now: Date): CardViewModel {
     noteText,
     ended,
     actions: ended ? ["Resume", "Remove"] : ["End"],
+    pinned: session.pinned,
   };
 }

@@ -151,6 +151,27 @@ func TestToWireSession_ContextGaugesPopulateAllThreeFieldsTogetherWhenPresent(t 
 	assert.Equal(t, int64(200000), *w.Context.WindowSize)
 }
 
+// TestToWireSession_PinnedAndRailPosAreNeverNull covers plan order-sidebar's Protocol
+// Contract delta (§5.3): pinned/railPos are plain, never-null fields on every Session
+// object — carried through verbatim from the domain type, with no nil-check branch
+// (unlike Attention/Failure/Model etc., which are pointer fields precisely because they
+// *can* be absent).
+func TestToWireSession_PinnedAndRailPosAreNeverNull(t *testing.T) {
+	s := minimalSession()
+	s.Pinned = true
+	s.RailPos = 12
+
+	w := toWireSession(s)
+
+	assert.True(t, w.Pinned)
+	assert.Equal(t, int64(12), w.RailPos)
+
+	s2 := minimalSession()
+	w2 := toWireSession(s2)
+	assert.False(t, w2.Pinned, "the zero value (false) must render, not be mistaken for absent")
+	assert.Equal(t, int64(0), w2.RailPos)
+}
+
 // TestSessionWire_JSONShapeHasNoUnexpectedNulls pins the exact wire shape for a fully
 // populated session against the protocol's field names — a regression here means the
 // wire contract silently changed.
@@ -172,7 +193,7 @@ func TestSessionWire_JSONShapeHasNoUnexpectedNulls(t *testing.T) {
 	for _, field := range []string{
 		"id", "title", "state", "stateSince", "alive", "endedAt", "attention", "failure",
 		"directory", "repo", "model", "permissionMode", "context", "lastActivity",
-		"claudeSessionId", "tmuxTarget", "firstLaunchHere", "createdAt",
+		"claudeSessionId", "tmuxTarget", "firstLaunchHere", "createdAt", "pinned", "railPos",
 	} {
 		assert.Contains(t, got, field)
 	}

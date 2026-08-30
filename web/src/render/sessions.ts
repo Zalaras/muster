@@ -3,12 +3,14 @@
 import type { Session } from "../protocol";
 import { buildCardViewModel, type CardAction } from "../sessions/card";
 import { renderContextRow } from "./context";
-import { captureFocusedControl, restoreFocusedControl } from "./focus";
+import { captureFocusedControl, restoreFocusedControl, type FocusedControl } from "./focus";
 
 /** REQ-11's card/strip/tile action-row buttons all dispatch through this one shape —
  * `main.ts`'s dispatcher owns what each action actually does (open a confirm dialog, or
- * call Resume directly per User Flow 3). */
-export type SessionAction = "end" | "resume" | "remove";
+ * call Resume directly per User Flow 3). Plan order-sidebar REQ-8 adds `"pin"` — the
+ * card's pin button dispatches through the same shape; `main.ts`'s dispatcher calls
+ * `pinSession(id, !session.pinned)` directly, same as Resume (no confirm dialog). */
+export type SessionAction = "end" | "resume" | "remove" | "pin";
 
 const ACTION_BY_LABEL: Record<CardAction, SessionAction> = {
   End: "end",
@@ -106,16 +108,23 @@ function updateSessionCardContent(
   now: Date,
   connected: boolean,
   onAction?: (action: SessionAction, id: number) => void,
+  draggable = false,
+  pinnedLast = false,
 ): void {
   const vm = buildCardViewModel(session, now);
 
-  card.className = `card ${vm.stateClass}${vm.ended ? " ended" : ""}`;
+  card.className = `card ${vm.stateClass}${vm.ended ? " ended" : ""}${vm.pinned ? " pinned" : ""}${pinnedLast ? " pinned-last" : ""}`;
   // Gives the card an accessible name (review m1-sessions Minor 9) — a bare <span> title
   // carries none on its own. Mandatory now that M2 makes cards focusable/clickable.
   card.setAttribute("aria-label", vm.title);
   // The reconciliation key `reconcileCards` uses to match existing DOM nodes against
   // incoming sessions (review m4-reconcile cycle-2 Major 1).
   card.dataset["sessionId"] = String(session.id);
+  // REQ-10: manual-mode rail cards are draggable; attention-mode rail cards and every
+  // strip card are not (the caller decides which, per its own context — this module has
+  // no notion of "rail vs strip" or the current sort mode). Explicit "false" (not just an
+  // absent attribute) per the plan's DOM spec and the Testable UI Elements table.
+  card.setAttribute("draggable", draggable ? "true" : "false");
 
   const name = card.querySelector<HTMLElement>(".name");
   if (name) name.textContent = vm.title;
@@ -159,6 +168,22 @@ function updateSessionCardContent(
     actsRow.hidden = false;
     reconcileActsRow(actsRow, vm.actions, session.id, session.claudeSessionId, connected, onAction);
   }
+
+  // REQ-8/REQ-17: the pin button's aria-label/aria-pressed/title follow `pinned` on
+  // every pass. `data-action`/`data-id` (not the `.acts-row` buttons' own convention,
+  // since this button lives in `.r1` rather than an acts row) let it participate in the
+  // existing `captureFocusedControl`/`restoreFocusedControl` contract unchanged
+  // (render/focus.ts: "an action button (data-action + data-id)") — REQ-16's focus
+  // survival needs no new code path, just this button carrying the same two attributes
+  // `buildActionButton` already sets.
+  const pinBtn = card.querySelector<HTMLButtonElement>(".pin");
+  if (pinBtn) {
+    pinBtn.setAttribute("aria-label", vm.pinned ? "Unpin" : "Pin");
+    pinBtn.setAttribute("aria-pressed", vm.pinned ? "true" : "false");
+    pinBtn.title = vm.pinned ? "Unpin" : "Pin to top";
+    pinBtn.dataset["action"] = "pin";
+    pinBtn.dataset["id"] = String(session.id);
+  }
 }
 
 /** Builds one session card element (rail card in Focus, or — reusing this exact markup —
@@ -176,11 +201,21 @@ export function buildSessionCardElement(
   onClick?: (id: number) => void,
   onAction?: (action: SessionAction, id: number) => void,
   connected = true,
+  draggable = false,
+  pinnedLast = false,
 ): HTMLElement {
   const fragment = template.content.cloneNode(true) as DocumentFragment;
   const card = fragment.querySelector<HTMLElement>(".card");
   if (!card) throw new Error("session-card-template is missing its .card root");
-  updateSessionCardContent(card, session, now, connected, onAction);
+  updateSessionCardContent(card, session, now, connected, onAction, draggable, pinnedLast);
+
+  // REQ-8: wired once, like the click/keydown listeners below — reconcileCards never
+  // rebuilds an existing card, so this never double-attaches on a later render tick.
+  const pinBtn = card.querySelector<HTMLButtonElement>(".pin");
+  pinBtn?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    onAction?.("pin", session.id);
+  });
 
   if (onClick) {
     // REQ-7/REQ-8: cards become interactive in M2 — keyboard-reachable too, not just a
@@ -219,8 +254,10 @@ export function updateSessionCardElement(
   now: Date,
   connected: boolean,
   onAction?: (action: SessionAction, id: number) => void,
+  draggable = false,
+  pinnedLast = false,
 ): void {
-  updateSessionCardContent(card, session, now, connected, onAction);
+  updateSessionCardContent(card, session, now, connected, onAction, draggable, pinnedLast);
 }
 
 /** Reconciles `container`'s card children against `sessions`, matching existing DOM
@@ -243,6 +280,16 @@ export function reconcileCards(
   onClick: ((id: number) => void) | undefined,
   onAction: ((action: SessionAction, id: number) => void) | undefined,
   connected: boolean,
+  draggable = false,
+  // Plan order-sidebar REQ-16: a rail drag's initiating `mousedown` blurs whatever
+  // control currently has focus before `dragstart`/`drop` ever runs (same mechanism as
+  // `installTileDrag`'s `pendingTileFocus` — see render/dragreorder.ts's header
+  // comment), so by the time this reconcile runs a *live* `captureFocusedControl` would
+  // find nothing. `main.ts` passes the pre-blur snapshot it stashed from
+  // `installDragReorder`'s `onMove` here instead; every other caller (a plain render
+  // tick, a pin click, a strip reconcile) omits this and gets the live capture, same as
+  // before this plan.
+  pendingFocus?: FocusedControl | null,
 ): void {
   // Drop any stray non-element children (e.g. the honest-empty-state's lone text node,
   // left behind when the session list goes from empty to non-empty) before reconciling —
@@ -261,18 +308,35 @@ export function reconcileCards(
 
   // review m4-reconcile cycle-3 Minor 1: the reorder below can blur a focused card or
   // action button (see render/focus.ts for the measured mechanism). Snapshot the focused
-  // logical control before the loop so it can be re-focused afterwards.
-  const focused = captureFocusedControl(container);
+  // logical control before the loop so it can be re-focused afterwards — preferring a
+  // caller-supplied pre-blur snapshot (see `pendingFocus`'s doc comment above) when one
+  // was handed in.
+  const focused = pendingFocus ?? captureFocusedControl(container);
+
+  // Plan order-sidebar REQ-9: the last pinned entry in display order (`sessions` is
+  // already `orderRail`ed by the caller — pinned block first, in both modes) gets
+  // `pinned-last`; `undefined` when nothing is pinned. Computed up front (not folded
+  // into the loop below) because it depends on the *whole* ordered list — the last
+  // pinned session isn't known until every session has been walked — so each card's
+  // `pinned-last` membership is decided before that same card's `className` is written,
+  // in the one pass `updateSessionCardContent` already makes (no second DOM-touching
+  // pass, and no dependency on `classList`, which the codebase never uses elsewhere here
+  // — every other modifier on this element is folded into the same `className` string).
+  let lastPinnedId: number | undefined;
+  for (const session of sessions) {
+    if (session.pinned) lastPinnedId = session.id;
+  }
 
   const seen = new Set<number>();
   let previous: HTMLElement | null = null;
   for (const session of sessions) {
     seen.add(session.id);
+    const pinnedLast = session.id === lastPinnedId;
     let card = existingById.get(session.id);
     if (card) {
-      updateSessionCardElement(card, session, now, connected, onAction);
+      updateSessionCardElement(card, session, now, connected, onAction, draggable, pinnedLast);
     } else {
-      card = buildSessionCardElement(session, now, template, onClick, onAction, connected);
+      card = buildSessionCardElement(session, now, template, onClick, onAction, connected, draggable, pinnedLast);
     }
 
     // Moving an already-mounted node via insertBefore repositions it in place rather
@@ -307,6 +371,8 @@ export function renderSessions(
   onClick?: (id: number) => void,
   onAction?: (action: SessionAction, id: number) => void,
   connected = true,
+  draggable = false,
+  pendingFocus?: FocusedControl | null,
 ): void {
   if (sessions.length === 0) {
     // `textContent` assignment already clears any existing children (real DOM), so no
@@ -315,7 +381,7 @@ export function renderSessions(
     return;
   }
   const template = requireTemplate("session-card-template");
-  reconcileCards(el, sessions, now, template, onClick, onAction, connected);
+  reconcileCards(el, sessions, now, template, onClick, onAction, connected, draggable, pendingFocus);
 }
 
 export interface FocusMainElements {

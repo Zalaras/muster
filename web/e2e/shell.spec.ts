@@ -67,6 +67,9 @@ test("GET /api/state returns exactly the M0 snapshot object once authenticated",
   // usage-token-file content written, so its immediate on-Start fetch (REQ-1) fails
   // fast with "no-credentials" (the same shape a real machine with no Keychain item
   // would see), and `modelScoped`/`modelScopedAt` stay null (INV-1: null iff null).
+  // `prefs.railSort` was added by plan order-sidebar (protocol §3.3 delta, merged into
+  // docs/protocol.md on approval) — default "manual" before any PUT /api/prefs;
+  // updated here for the same reason as density/usageModel above.
   expect(body).toEqual({
     sessions: [],
     usage: {
@@ -80,6 +83,6 @@ test("GET /api/state returns exactly the M0 snapshot object once authenticated",
       modelScopedError: "no-credentials",
       modelScopedSource: "subscription-api",
     },
-    prefs: { view: "focus", density: "2x2", usageModel: "Fable" },
+    prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual" },
   });
 });

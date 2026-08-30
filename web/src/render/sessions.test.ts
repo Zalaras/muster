@@ -107,6 +107,10 @@ class FakeDomNode {
   hidden = false;
   disabled = false;
   tabIndex = -1;
+  // Plan order-sidebar: `updateSessionCardContent` writes the pin button's `.title`
+  // directly (not via `setAttribute`, matching real HTMLElement.title) — not read by any
+  // pre-existing test in this file, so it was never needed on the shim until now.
+  title = "";
   readonly style: Record<string, string> = {};
   readonly dataset: Record<string, string | undefined> = {};
   private readonly attrs: Record<string, string> = {};
@@ -294,6 +298,12 @@ function buildCardTemplateFragment(): FakeDomNode {
   r1.appendChild(name);
   r1.appendChild(badge);
   r1.appendChild(timer);
+  // Plan order-sidebar REQ-8: the pin button appended to `.r1` in
+  // `session-card-template` (index.html) — mirrored here so
+  // `updateSessionCardContent`'s real `querySelector(".pin")` resolves it.
+  const pin = new FakeDomNode("button");
+  pin.className = "pin";
+  r1.appendChild(pin);
   const r2 = new FakeDomNode("div");
   r2.className = "r2";
   const r3 = new FakeDomNode("div");
@@ -349,6 +359,8 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     tmuxTarget: "muster:@1",
     firstLaunchHere: false,
     createdAt: "2026-08-27T00:00:00Z",
+    pinned: false,
+    railPos: overrides.id,
     ...overrides,
   };
 }
@@ -596,5 +608,212 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
 
       expect(fakeDocument.activeElement).toBe(cardOne);
     });
+  });
+});
+
+// Plan order-sidebar: the pin button (REQ-8/REQ-17/W13), the pinned-block visual
+// (REQ-9/W14) and the draggable attribute (REQ-10/W15/W16) all live in
+// updateSessionCardContent, exercised through reconcileCards exactly like the rest of
+// this file's coverage.
+describe("reconcileCards — pin button attributes (plan order-sidebar REQ-8/REQ-17/W13)", () => {
+  beforeEach(() => {
+    vi.stubGlobal("HTMLElement", FakeDomNode);
+    vi.stubGlobal("HTMLButtonElement", FakeDomNode);
+    vi.stubGlobal("document", { activeElement: null, createElement: (tag: string) => new FakeDomNode(tag) });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function container(): FakeDomNode {
+    return new FakeDomNode("div");
+  }
+
+  it("sets aria-label 'Pin', aria-pressed 'false' and title 'Pin to top' on an unpinned card's first build", () => {
+    const el = container();
+    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1, pinned: false })], NOW, fakeTemplate(), undefined, undefined, true);
+    const pin = el.children[0]?.querySelector(".pin");
+    expect(pin?.getAttribute("aria-label")).toBe("Pin");
+    expect(pin?.getAttribute("aria-pressed")).toBe("false");
+    expect(pin?.title).toBe("Pin to top");
+  });
+
+  it("sets aria-label 'Unpin', aria-pressed 'true' and title 'Unpin' on a pinned card's first build", () => {
+    const el = container();
+    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1, pinned: true })], NOW, fakeTemplate(), undefined, undefined, true);
+    const pin = el.children[0]?.querySelector(".pin");
+    expect(pin?.getAttribute("aria-label")).toBe("Unpin");
+    expect(pin?.getAttribute("aria-pressed")).toBe("true");
+    expect(pin?.title).toBe("Unpin");
+  });
+
+  it("updates the pin button's attributes in place (same node) when pinned flips false -> true on an existing card", () => {
+    const el = container();
+    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1, pinned: false })], NOW, fakeTemplate(), undefined, undefined, true);
+    const pinBefore = el.children[0]?.querySelector(".pin");
+
+    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1, pinned: true })], NOW, fakeTemplate(), undefined, undefined, true);
+    const pinAfter = el.children[0]?.querySelector(".pin");
+
+    expect(pinAfter).toBe(pinBefore);
+    expect(pinAfter?.getAttribute("aria-label")).toBe("Unpin");
+    expect(pinAfter?.getAttribute("aria-pressed")).toBe("true");
+    expect(pinAfter?.title).toBe("Unpin");
+  });
+
+  it("updates the pin button's attributes in place when pinned flips true -> false on an existing card", () => {
+    const el = container();
+    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1, pinned: true })], NOW, fakeTemplate(), undefined, undefined, true);
+    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1, pinned: false })], NOW, fakeTemplate(), undefined, undefined, true);
+    const pin = el.children[0]?.querySelector(".pin");
+    expect(pin?.getAttribute("aria-label")).toBe("Pin");
+    expect(pin?.getAttribute("aria-pressed")).toBe("false");
+    expect(pin?.title).toBe("Pin to top");
+  });
+
+  it("carries the pin button's data-action/data-id for the focus-capture contract, same convention as an .acts-row button", () => {
+    const el = container();
+    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 7, pinned: false })], NOW, fakeTemplate(), undefined, undefined, true);
+    const pin = el.children[0]?.querySelector(".pin");
+    expect(pin?.dataset["action"]).toBe("pin");
+    expect(pin?.dataset["id"]).toBe("7");
+  });
+});
+
+describe("reconcileCards — pinned block visual: `pinned`/`pinned-last` classes (plan order-sidebar REQ-9/W14)", () => {
+  beforeEach(() => {
+    vi.stubGlobal("HTMLElement", FakeDomNode);
+    vi.stubGlobal("HTMLButtonElement", FakeDomNode);
+    vi.stubGlobal("document", { activeElement: null, createElement: (tag: string) => new FakeDomNode(tag) });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function container(): FakeDomNode {
+    return new FakeDomNode("div");
+  }
+
+  it("gives every pinned card the `pinned` class and no unpinned card that class", () => {
+    const el = container();
+    // Caller supplies sessions already in orderRail order (pinned block first) — this
+    // reconciler has no notion of sort mode, only display order + each session's own flag.
+    reconcileCards(
+      el as unknown as HTMLElement,
+      [makeSession({ id: 1, pinned: true }), makeSession({ id: 2, pinned: true }), makeSession({ id: 3, pinned: false })],
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+    );
+    expect(el.children[0]?.className.split(/\s+/)).toContain("pinned");
+    expect(el.children[1]?.className.split(/\s+/)).toContain("pinned");
+    expect(el.children[2]?.className.split(/\s+/)).not.toContain("pinned");
+  });
+
+  it("gives only the last pinned card in display order `pinned-last`, no other card", () => {
+    const el = container();
+    reconcileCards(
+      el as unknown as HTMLElement,
+      [makeSession({ id: 1, pinned: true }), makeSession({ id: 2, pinned: true }), makeSession({ id: 3, pinned: false })],
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+    );
+    expect(el.children[0]?.className.split(/\s+/)).not.toContain("pinned-last");
+    expect(el.children[1]?.className.split(/\s+/)).toContain("pinned-last");
+    expect(el.children[2]?.className.split(/\s+/)).not.toContain("pinned-last");
+  });
+
+  it("gives no card `pinned-last` when nothing is pinned", () => {
+    const el = container();
+    reconcileCards(
+      el as unknown as HTMLElement,
+      [makeSession({ id: 1, pinned: false }), makeSession({ id: 2, pinned: false })],
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+    );
+    for (const card of el.children) {
+      expect(card.className.split(/\s+/)).not.toContain("pinned-last");
+    }
+  });
+
+  it("moves pinned-last to the new last pinned card once a session is unpinned (a re-render after an upsert)", () => {
+    const el = container();
+    reconcileCards(
+      el as unknown as HTMLElement,
+      [makeSession({ id: 1, pinned: true }), makeSession({ id: 2, pinned: true }), makeSession({ id: 3, pinned: false })],
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+    );
+    // Session 2 is unpinned; the caller re-renders with the new orderRail-ordered list
+    // (pinned block first) — id 1 is now the sole pinned session.
+    reconcileCards(
+      el as unknown as HTMLElement,
+      [makeSession({ id: 1, pinned: true }), makeSession({ id: 2, pinned: false }), makeSession({ id: 3, pinned: false })],
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+    );
+    expect(el.children[0]?.className.split(/\s+/)).toContain("pinned-last");
+    expect(el.children[1]?.className.split(/\s+/)).not.toContain("pinned-last");
+    expect(el.children[2]?.className.split(/\s+/)).not.toContain("pinned-last");
+  });
+});
+
+describe("reconcileCards — draggable attribute (plan order-sidebar REQ-10/W15/W16)", () => {
+  beforeEach(() => {
+    vi.stubGlobal("HTMLElement", FakeDomNode);
+    vi.stubGlobal("HTMLButtonElement", FakeDomNode);
+    vi.stubGlobal("document", { activeElement: null, createElement: (tag: string) => new FakeDomNode(tag) });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function container(): FakeDomNode {
+    return new FakeDomNode("div");
+  }
+
+  it("defaults every card to draggable=\"false\" when the caller omits the parameter", () => {
+    const el = container();
+    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1 })], NOW, fakeTemplate(), undefined, undefined, true);
+    expect(el.children[0]?.getAttribute("draggable")).toBe("false");
+  });
+
+  it("sets draggable=\"true\" on every card when the caller passes draggable:true (manual-mode rail)", () => {
+    const el = container();
+    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1 }), makeSession({ id: 2 })], NOW, fakeTemplate(), undefined, undefined, true, true);
+    expect(el.children[0]?.getAttribute("draggable")).toBe("true");
+    expect(el.children[1]?.getAttribute("draggable")).toBe("true");
+  });
+
+  it("explicitly sets draggable=\"false\" (not just an absent attribute) when the caller passes draggable:false (attention-mode rail / strip)", () => {
+    const el = container();
+    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1 })], NOW, fakeTemplate(), undefined, undefined, true, false);
+    expect(el.children[0]?.getAttribute("draggable")).toBe("false");
+  });
+
+  it("flips an existing card's draggable attribute in place when the caller's mode changes between renders", () => {
+    const el = container();
+    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1 })], NOW, fakeTemplate(), undefined, undefined, true, true);
+    expect(el.children[0]?.getAttribute("draggable")).toBe("true");
+
+    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1 })], NOW, fakeTemplate(), undefined, undefined, true, false);
+    expect(el.children[0]?.getAttribute("draggable")).toBe("false");
   });
 });

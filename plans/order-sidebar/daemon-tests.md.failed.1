@@ -1,0 +1,181 @@
+# Daemon Tests: order-sidebar
+
+**Plan**: order-sidebar
+**Verdict**: implementation-bug
+
+## Summary
+
+Tests created: 70 new | Sanctioned-breakage fixes: 6 (updated, not counted as new)
+Passing: 68 | Failing: 2 (both demonstrate the same underlying implementation bug)
+
+`go build ./...`, `go vet ./...`, `gofmt -l .` and `make lint` are all clean.
+`make test` fails only on the two tests below — everything else in the repository
+(including all pre-existing tests, with the 6 sanctioned-breakage tests updated per the
+approved contract) passes.
+
+## Tests
+
+| File | Test Name | What It Tests | Status |
+|------|-----------|---------------|--------|
+| `internal/session/railorder_test.go` | `TestApplyPin_UnknownSessionReturnsErrUnknownSession` | applyPin 404 mapping input | pass |
+| `internal/session/railorder_test.go` | `TestApplyPin_InvariantsHoldFromEveryStartingConfiguration` (14 subtests) | INV-1/INV-2 after pin/unpin from every named starting configuration (D13/D14) | pass |
+| `internal/session/railorder_test.go` | `TestApplyPin_PinMovesToBottomOfPinnedBlock` | D6 | pass |
+| `internal/session/railorder_test.go` | `TestApplyPin_UnpinMovesToTopOfUnpinnedBlock` | D7 | pass |
+| `internal/session/railorder_test.go` | `TestApplyPin_NoOpWhenFlagAlreadyMatchesBroadcastsNothing` (4 subtests) | D8/INV-5 no-op, clean rail | pass |
+| `internal/session/railorder_test.go` | `TestApplyPin_NoOpWithPreExistingGapsStillBroadcastsNothing` | D8 no-op from a rail with a REQ-14 gap | **FAIL — implementation bug** |
+| `internal/session/railorder_test.go` | `TestApplyOrder_NegativePinnedCountReturnsErrInvalidOrder` | D11 | pass |
+| `internal/session/railorder_test.go` | `TestApplyOrder_PinnedCountAboveLenIDsReturnsErrInvalidOrder` | D11 | pass |
+| `internal/session/railorder_test.go` | `TestApplyOrder_DuplicateIDReturnsErrInvalidOrder` | D10 | pass |
+| `internal/session/railorder_test.go` | `TestApplyOrder_UnknownIDReturnsErrInvalidOrder` | D10 | pass |
+| `internal/session/railorder_test.go` | `TestApplyOrder_InvalidRequestChangesNothing` | D10/D11 nothing computed on the error path | pass |
+| `internal/session/railorder_test.go` | `TestApplyOrder_EmptyIDsIsALiteralNoOpEvenWithGaps` | plan Decisions: empty ids short-circuits before rebuild | pass |
+| `internal/session/railorder_test.go` | `TestApplyOrder_EmptyIDsWithNonZeroPinnedCountIsInvalid` | §3.11 bounds check still runs first | pass |
+| `internal/session/railorder_test.go` | `TestApplyOrder_AppliesListedIDsAsPositionsAndFlags` | D9 | pass |
+| `internal/session/railorder_test.go` | `TestApplyOrder_UnlistedSessionsKeepFlagAndFollowInExistingRelativeOrder` | D12 | pass |
+| `internal/session/railorder_test.go` | `TestApplyOrder_UnlistedPinnedBystanderIsPushedToEndOfPinnedBlockNotStranded` | INV-1 enforcement over D12's placement rule | pass |
+| `internal/session/railorder_test.go` | `TestApplyOrder_InvariantsHoldFromEveryStartingConfiguration` (9 subtests) | INV-1/INV-2 across order-request shapes (D13/D14) | pass |
+| `internal/session/railorder_test.go` | `TestApplyOrder_OnlyChangedSessionsAreReturned` | D15/INV-5 full no-op | pass |
+| `internal/session/railorder_test.go` | `TestApplyOrder_PartialChangeOnlyReturnsTheSessionsThatActuallyMoved` | D15/INV-5 partial change | pass |
+| `internal/session/manager_test.go` | `TestCreateSession_FirstSessionRailPosIsZeroAndUnpinned` | D5 base case | pass |
+| `internal/session/manager_test.go` | `TestCreateSession_RailPosIsMaxOfExistingPlusOne` | D5 sequential creation | pass |
+| `internal/session/manager_test.go` | `TestCreateSession_RailPosAccountsForAPinnedExistingSession` | D5 from a non-trivial (pinned bystander) state | pass |
+| `internal/session/manager_test.go` | `TestSetPinned_PinPersistsAndBroadcastsOnlyChangedSessions` | D6/D15 at the Manager level | pass |
+| `internal/session/manager_test.go` | `TestSetPinned_UnpinPersistsAndBroadcasts` | D7 at the Manager level | pass |
+| `internal/session/manager_test.go` | `TestSetPinned_NoOpDoesNotPersistOrBroadcast` | D8, clean rail | pass |
+| `internal/session/manager_test.go` | `TestSetPinned_NoOpWithABystanderGapFromAnEarlierRemoveStillBroadcastsNothing` | D8 with a real Remove-induced gap, persisted to the store | **FAIL — implementation bug** |
+| `internal/session/manager_test.go` | `TestSetPinned_UnknownSessionReturnsErrUnknownSession` | 404 mapping input | pass |
+| `internal/session/manager_test.go` | `TestSetOrder_AppliesAndBroadcastsOnlyChangedSessions` | D9/D15 at the Manager level | pass |
+| `internal/session/manager_test.go` | `TestSetOrder_InvalidRequestReturnsErrInvalidOrderAndChangesNothing` | D10/D11 at the Manager level | pass |
+| `internal/session/manager_test.go` | `TestRemove_LeavesBystandersPinnedAndRailPosUnchanged` | D18, multi-session coexistence (3 sessions, remove 1) | pass |
+| `internal/session/manager_test.go` | `TestApply_NeverTouchesPinnedOrRailPos` | D17 across bind/working/needs_input/idle transitions | pass |
+| `internal/session/manager_test.go` | `TestApplyStatus_NeverTouchesPinnedOrRailPos` | D17 for status-line posts | pass |
+| `internal/server/sessions_test.go` | `TestHandlePinSession_RequiresCookie` | auth wiring | pass |
+| `internal/server/sessions_test.go` | `TestHandlePinSession_InvalidBodyIs400` (4 subtests) | §3.10 400 clause | pass |
+| `internal/server/sessions_test.go` | `TestHandlePinSession_UnknownSessionIs404` | §3.10 404 clause | pass |
+| `internal/server/sessions_test.go` | `TestHandlePinSession_SuccessIs204AndPersists` | D6 through the real HTTP handler | pass |
+| `internal/server/sessions_test.go` | `TestHandlePinSession_NoOpIs204WithNoBroadcast` | D8 at the HTTP+WS layer | pass |
+| `internal/server/sessions_test.go` | `TestSessionOrderAndPinHandlers_RequireCookie` | auth wiring for both new routes | pass |
+| `internal/server/sessions_test.go` | `TestHandleSetOrder_InvalidBodyIs400` (7 subtests) | §3.11 400 clause | pass |
+| `internal/server/sessions_test.go` | `TestHandleSetOrder_SuccessIs204AndAppliesTheOrder` | D9 through the real HTTP handler | pass |
+| `internal/server/sessions_test.go` | `TestHandleSetOrder_EmptyIDsIs204AndChangesNothing` | §3.11 empty-ids no-op clause | pass |
+| `internal/server/prefs_test.go` | `TestLoadPrefs_DefaultRailSortIsManual` | D16 default | pass |
+| `internal/server/prefs_test.go` | `TestHandlePutPrefs_RailSortValidationErrors` (3 subtests) | D16 400 clause | pass |
+| `internal/server/prefs_test.go` | `TestHandlePutPrefs_RailSortAcceptsBothEnumValues` | D16 accepted values | pass |
+| `internal/server/prefs_test.go` | `TestHandlePutPrefs_RailSortPresentAloneSatisfiesAtLeastOneFieldRequired` | REQ-5 field independence | pass |
+| `internal/server/prefs_test.go` | `TestHandlePutPrefs_SetsRailSortOnlyLeavesOtherFieldsUntouched` | REQ-5 field independence | pass |
+| `internal/server/prefs_test.go` | `TestLoadPrefs_InvalidRailSortInKVFallsBackToManualIndependently` | per-field fallback | pass |
+| `internal/server/prefs_test.go` | `TestPrefs_RailSortPersistsAcrossADaemonRestart` | persistence | pass |
+| `internal/server/prefs_test.go` | `TestHandlePutPrefs_BroadcastsRailSortInPrefsMessage` | INV-4 echo | pass |
+| `internal/server/prefs_test.go` | `TestHandlePutPrefs_PersistsToKVUnderOneJSONKey` | **updated** (sanctioned breakage) | pass |
+| `internal/server/prefs_test.go` | `TestHandlePutPrefs_UsageModelPersistsToKVAlongsideViewAndDensity` | **updated** (sanctioned breakage) | pass |
+| `internal/server/state_test.go` | `TestBuildSnapshot_M0Shape` | **updated** (sanctioned breakage) | pass |
+| `internal/server/state_test.go` | `TestHandleState_ReturnsSnapshotJSON` | added railSort assertion | pass |
+| `internal/server/sessionwire_test.go` | `TestToWireSession_PinnedAndRailPosAreNeverNull` | §5.3 never-null fields | pass |
+| `internal/server/sessionwire_test.go` | `TestSessionWire_JSONShapeHasNoUnexpectedNulls` | extended field list to include pinned/railPos | pass |
+| `internal/store/session_test.go` | `TestInsertSession_RailPosRoundTripsPinnedDefaultsFalse` | InsertSessionParams.RailPos | pass |
+| `internal/store/session_test.go` | `TestUpdateSession_PinnedAndRailPosRoundTrip` | whole-object update round trip, both directions | pass |
+| `internal/store/migrate_test.go` | `TestMigrate_AppliesInitSchema` | **updated** (sanctioned breakage, 5→6) | pass |
+| `internal/store/migrate_test.go` | `TestMigrate_SecondCallIsANoOp` | **updated** (sanctioned breakage, 5→6) | pass |
+| `internal/store/store_test.go` | `TestOpen_SecondOpenOnSamePathDoesNotReapplyMigrations` | **updated** (sanctioned breakage, 5→6) | pass |
+
+## Implementation Bugs (verdict = implementation-bug)
+
+| Bug | File | Expected (per plan) | Actual |
+|-----|------|---------------------|--------|
+| `applyPin`'s no-op path unconditionally renumbers and reports a changed bystander when a REQ-14-sanctioned gap exists in `railPos` | `internal/session/railorder.go:31-50` (`applyPin`) | Protocol §3.10 / REQ-3: "Already in the requested state → 204 and no broadcast" — unconditional, no carve-out for a rail with gaps. `rebuild`'s "railPos = index" renumbering is documented (Implementation Notes) as the mechanism for *real* order/pin changes, not as something a same-flag no-op call should ever trigger. | When a bystander's `railPos` has a gap (the only way this arises in production: an earlier `Remove`, which REQ-14 explicitly permits to leave), a pin/unpin call whose `pinned` flag already matches the session's current state still returns a non-empty diff for the *other*, untouched session — because `applyPin` always runs `sortedByRailPos` → flip the target's flag (a no-op) → `rebuild` (which reassigns every `railPos` as a contiguous `0..n-1` index) → `diffChanged`. Closing the gap changes the bystander's numeric `railPos`, so `diffChanged` reports it as "changed" even though nothing about the request required touching it. |
+
+**Evidence** (pure-function level, `internal/session/railorder_test.go`):
+```
+=== RUN   TestApplyPin_NoOpWithPreExistingGapsStillBroadcastsNothing
+    railorder_test.go:330:
+        Error Trace:  /Users/damian/Documents/code/Projects/muster/internal/session/railorder_test.go:330
+        Error:        Should be empty, but was [{3 false 1}]
+        Test:         TestApplyPin_NoOpWithPreExistingGapsStillBroadcastsNothing
+        Messages:     D8: a pin call matching the current flag must broadcast nothing, even when
+                      a bystander's railPos has a pre-existing gap from an earlier Remove
+--- FAIL: TestApplyPin_NoOpWithPreExistingGapsStillBroadcastsNothing (0.00s)
+```
+Test setup: `sessions := []railEntry{{ID:1,Pinned:false,RailPos:0},{ID:3,Pinned:false,RailPos:2}}`
+(simulating: 3 sessions created at railPos 0,1,2; the middle one, id 2, removed — leaving
+ids 1 and 3 at railPos 0 and 2, the REQ-14-sanctioned gap). Calling
+`applyPin(sessions, 1, false)` — id 1 is already unpinned, a literal no-op request — still
+returns `[{ID:3, Pinned:false, RailPos:1}]`: session 3's `railPos` silently closed from 2 to
+1, reported as "changed" by a request that never named it.
+
+**Evidence** (Manager level, `internal/session/manager_test.go`, real store persistence and
+broadcast recorder — three real sessions created via `CreateSession`/`RecordLaunch`, the
+middle one actually removed via `mgr.Remove`):
+```
+=== RUN   TestSetPinned_NoOpWithABystanderGapFromAnEarlierRemoveStillBroadcastsNothing
+    manager_test.go:2210:
+        Error:   Not equal:
+                 expected: 4
+                 actual  : 5
+        Messages: D8: a pin call matching the current flag must not broadcast, even with a
+                  bystander railPos gap from an earlier Remove
+    manager_test.go:2216:
+        Error:   Not equal:
+                 expected: store.SessionRow{... Pinned:false, RailPos:2}
+                 actual  : store.SessionRow{... Pinned:false, RailPos:1}
+        Messages: the untouched bystander's gap-closing renumbering must not be persisted by
+                  an otherwise no-op pin call
+--- FAIL: TestSetPinned_NoOpWithABystanderGapFromAnEarlierRemoveStillBroadcastsNothing (0.01s)
+```
+This confirms the bug is not merely a pure-function curiosity: `SetPinned`'s otherwise-no-op
+call actually issues an extra `UpdateSession` write and an extra `sessionUpsert` broadcast for
+session 3, changing its persisted `railPos` from 2 to 1 — a real side effect on a call the
+protocol promises changes nothing.
+
+**Not a bug in `applyOrder`**: the equivalent scenario was tested for `applyOrder`
+(`TestApplyOrder_EmptyIDsIsALiteralNoOpEvenWithGaps`) and passes, because the plan's own
+Decisions section documents that `applyOrder` special-cases empty `ids` as a literal no-op
+*before* the general rebuild path runs specifically to avoid this problem. `applyPin` has no
+equivalent short-circuit for its own no-op case (`pinned == current flag`) — the fix is
+almost certainly the same shape: check whether the target's flag already matches before
+running `sortedByRailPos`/`rebuild`, and return `nil, nil` immediately if so, skipping the
+renumbering pass entirely for that path.
+
+## Test Run Output
+
+```
+$ make test
+go test -count=1 ./...
+ok  	github.com/Zalaras/muster/cmd/musterd	7.154s
+ok  	github.com/Zalaras/muster/internal/claudecode	3.216s
+?   	github.com/Zalaras/muster/internal/claudecode/claudecodetest	[no test files]
+ok  	github.com/Zalaras/muster/internal/gitutil	4.857s
+ok  	github.com/Zalaras/muster/internal/server	16.821s
+--- FAIL: TestSetPinned_NoOpWithABystanderGapFromAnEarlierRemoveStillBroadcastsNothing (0.01s)
+    (see Evidence above)
+--- FAIL: TestApplyPin_NoOpWithPreExistingGapsStillBroadcastsNothing (0.00s)
+    (see Evidence above)
+FAIL
+FAIL	github.com/Zalaras/muster/internal/session	6.249s
+ok  	github.com/Zalaras/muster/internal/store	0.705s
+ok  	github.com/Zalaras/muster/internal/termbridge	5.497s
+ok  	github.com/Zalaras/muster/internal/tmux	5.429s
+ok  	github.com/Zalaras/muster/internal/usage	2.162s
+FAIL
+make: *** [test] Error 1
+```
+
+`go build ./...`, `go vet ./...`, `gofmt -l .` and `make lint` (`golangci-lint run` → `0
+issues`) are all clean — only the two tests above fail, and both demonstrate the same
+`applyPin` bug from a different layer (pure function vs. Manager+store).
+
+## Notes for the next daemon-impl pass
+
+- The fix belongs in `internal/session/railorder.go`'s `applyPin`, not in the tests above —
+  per the daemon-tests agent's constraints, implementation code was not touched.
+- All six sanctioned-breakage tests named in `plans/order-sidebar/daemon-implementation.md`'s
+  Handoff were updated to match the approved contract (`railSort` key added to the two
+  `prefs_test.go` JSON assertions; migration count 5→6 in `migrate_test.go` (both tests) and
+  `store_test.go`) and now pass.
+- `internal/store` has no dedicated migration-backfill round-trip test for
+  `0006_rail_order.sql` — per this agent's brief ("Don't write migration round-trip
+  tests — migrations are forward-only and verified by running them at startup plus the
+  feature's own tests reading the new schema") and the plan's own Automated Checks
+  (`D4 rg -q "rail_pos" internal/store/migrations/0006_rail_order.sql`), that check is
+  already structural; `TestInsertSession_RailPosRoundTripsPinnedDefaultsFalse` and
+  `TestUpdateSession_PinnedAndRailPosRoundTrip` cover the resulting schema's read/write path
+  instead.

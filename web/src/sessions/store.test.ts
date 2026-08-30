@@ -21,6 +21,8 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     tmuxTarget: "muster:@1",
     firstLaunchHere: false,
     createdAt: "2026-08-22T00:00:00Z",
+    pinned: false,
+    railPos: overrides.id,
     ...overrides,
   };
 }

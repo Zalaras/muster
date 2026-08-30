@@ -125,7 +125,17 @@ export interface Session {
   // drives the trust-prompt vs. no-signal honesty note client-side (REQ-17).
   firstLaunchHere: boolean;
   createdAt: string;
+  // Plan order-sidebar (protocol §5.3): the rail's user-owned order. Required on every
+  // wire Session (never null, both fields ship together) — unlike `model`/`usageModel`'s
+  // "absent key defaults" pattern, there is no pre-plan daemon to tolerate here (the
+  // daemon and client ship together for this plan), so parseSession below rejects a
+  // session missing either field rather than defaulting it.
+  pinned: boolean;
+  railPos: number;
 }
+
+// Plan order-sidebar (protocol §3.3): the rail's sort mode pref.
+export type RailSort = "manual" | "attention";
 
 export type Density = "2x2" | "3x2";
 
@@ -138,6 +148,9 @@ export interface Prefs {
   view: "focus" | "tiles";
   density: Density;
   usageModel: string;
+  // Plan order-sidebar (docs/protocol.md §3.3): defaulted to "manual" client-side when
+  // the key is absent (same "pre-plan daemon" tolerance as `usageModel`).
+  railSort: RailSort;
 }
 
 export interface Snapshot {
@@ -304,7 +317,12 @@ function parsePrefs(value: unknown): Prefs | null {
   const rawUsageModel = value["usageModel"];
   const usageModel = rawUsageModel === undefined ? "Fable" : rawUsageModel;
   if (typeof usageModel !== "string") return null;
-  return { view, density, usageModel };
+  // Plan order-sidebar: missing key (pre-plan daemon) defaults to "manual" (docs/
+  // protocol.md §3.3's documented default).
+  const rawRailSort = value["railSort"];
+  const railSort = rawRailSort === undefined ? "manual" : rawRailSort;
+  if (railSort !== "manual" && railSort !== "attention") return null;
+  return { view, density, usageModel, railSort };
 }
 
 function isSessionState(value: unknown): value is SessionState {
@@ -402,6 +420,8 @@ export function parseSession(value: unknown): Session | null {
   const tmuxTarget = value["tmuxTarget"];
   const firstLaunchHere = value["firstLaunchHere"];
   const createdAt = value["createdAt"];
+  const pinned = value["pinned"];
+  const railPos = value["railPos"];
 
   if (typeof id !== "number") return null;
   if (title !== null && typeof title !== "string") return null;
@@ -435,6 +455,8 @@ export function parseSession(value: unknown): Session | null {
   if (typeof tmuxTarget !== "string") return null;
   if (typeof firstLaunchHere !== "boolean") return null;
   if (typeof createdAt !== "string") return null;
+  if (typeof pinned !== "boolean") return null;
+  if (typeof railPos !== "number") return null;
 
   return {
     id,
@@ -455,6 +477,8 @@ export function parseSession(value: unknown): Session | null {
     tmuxTarget,
     firstLaunchHere,
     createdAt,
+    pinned,
+    railPos,
   };
 }
 

@@ -24,7 +24,7 @@ func TestBuildSnapshot_M0Shape(t *testing.T) {
 			"fiveHour": null, "sevenDay": null, "model": null, "sampledAt": null, "source": "subscription",
 			"modelScoped": null, "modelScopedAt": null, "modelScopedError": null, "modelScopedSource": "subscription-api"
 		},
-		"prefs": {"view": "focus", "density": "2x2", "usageModel": "Fable"}
+		"prefs": {"view": "focus", "density": "2x2", "usageModel": "Fable", "railSort": "manual"}
 	}`, string(got))
 }
 
@@ -54,6 +54,7 @@ func TestHandleState_ReturnsSnapshotJSON(t *testing.T) {
 	assert.Equal(t, "focus", snap.Prefs.View)
 	assert.Equal(t, "2x2", snap.Prefs.Density)
 	assert.Equal(t, "Fable", snap.Prefs.UsageModel)
+	assert.Equal(t, "manual", snap.Prefs.RailSort)
 }
 
 // TestCurrentSnapshot_LoadsPersistedPrefsFromKV covers the currentSnapshot half of

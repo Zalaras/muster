@@ -325,6 +325,27 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* plan order-sidebar REQ-12: `#rail-sort` — a real, always-present control (unlike the
+ * masthead's `.usage-model-select`, which strips its own chrome to blend as plain-text
+ * readout label), so it keeps a visible border rather than borrowing that class. */
+.railhead .sel {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid var(--line2);
+  border-radius: 3px;
+  padding: 2px 4px;
+  cursor: pointer;
+  appearance: none;
+}
+
+.railhead .sel:hover,
+.railhead .sel:focus-visible {
+  color: var(--paper);
+  border-color: var(--muted);
+}
+
 .cards {
   overflow-y: auto;
   flex: 1;
@@ -1109,6 +1130,72 @@ body {
 .card.ended .name {
   text-decoration: line-through;
   text-decoration-color: var(--line2);
+}
+
+/* ── pin control (plan order-sidebar REQ-8/REQ-9/REQ-17) ─────────────────────────────── */
+
+/* Same hover/focus-within reveal rule as `.card .acts-row` (design-system §5) — scoped to
+ * `.card .pin` specifically, not the bare `.pin` class, for the same reason `.acts-row`'s
+ * own reveal rule is scoped (review m4-reconcile cycle-3 Critical 1): a class shared by
+ * more than one surface must never carry a hover-only rule that assumes it is always
+ * inside a hoverable `.card`. */
+.card .pin {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 0 2px;
+  margin-left: 6px;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--dim);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease, color 120ms ease;
+}
+
+.card .pin::before {
+  content: "⚲";
+}
+
+.card.pinned .pin,
+.card:hover .pin,
+.card:focus-within .pin {
+  opacity: 1;
+}
+
+.card .pin:hover,
+.card .pin[aria-pressed="true"] {
+  color: var(--paper);
+}
+
+/* REQ-9: a neutral (never state-coloured) rule separating the pinned block from the
+ * unpinned cards below it — the last pinned card in display order carries this class,
+ * cleared everywhere else (render/sessions.ts's `reconcileCards`). */
+.card.pinned-last {
+  border-bottom: 1px solid var(--line2);
+}
+
+/* The strip lays cards side by side (`.strip .card` above sets `border-bottom: 0`) — the
+ * pinned-block boundary reads as a vertical rule there instead. */
+.strip .card.pinned-last {
+  border-bottom: 0;
+  border-right: 1px solid var(--line2);
+}
+
+/* ── drag-to-reorder feedback (plan order-sidebar REQ-10, generalising plan move-tiles'
+ * `.tile.dragging`/`.tile.drop-target`) — neutral `--line2` only, never a state colour
+ * (design-system §3: a drag is not a state). */
+.card[draggable="true"] {
+  cursor: grab;
+}
+
+.card.dragging {
+  opacity: 0.6;
+}
+
+.card.drop-target {
+  outline: 1px solid var(--line2);
+  outline-offset: -1px;
 }
 
 /* A dead tile's chrome greys out the same way its rail/strip card does (m2 review

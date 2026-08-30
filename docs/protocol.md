@@ -129,15 +129,20 @@ dashboard browses via the daemon instead.
 ```jsonc
 { "view": "tiles",       // optional: "focus" | "tiles"
   "density": "3x2",      // optional: "2x2" | "3x2" — the Tiles grid density
-  "usageModel": "Fable" } // optional: 1–32 chars after trim — which per-model weekly window the masthead shows (usage-model-bar, 2026-08-30)
+  "usageModel": "Fable",  // optional: 1–32 chars after trim — which per-model weekly window the masthead shows (usage-model-bar, 2026-08-30)
+  "railSort": "manual" }  // optional: "manual" | "attention" — the rail's sort mode (order-sidebar, 2026-08-30)
 ```
 
 → `204`, no body. Persisted in kv under one JSON key (survives daemon restarts —
 ux-flows §3.8) and re-broadcast to all UI sockets as a `prefs` message carrying the
 **full** prefs object, which is how a second window stays in sync. Defaults before any
-PUT: `{"view":"focus","density":"2x2","usageModel":"Fable"}`.
+PUT: `{"view":"focus","density":"2x2","usageModel":"Fable","railSort":"manual"}`.
 **Errors:** 400 `invalid_request` — body not JSON, no known field present, a field
 value outside its enum, or `usageModel` empty / longer than 32 chars.
+
+`railSort` (plan `order-sidebar`): `manual` shows the rail in the user-owned order
+(`pinned` block first, then `railPos` — §5.3); `attention` keeps the pinned block first
+and sorts the unpinned group by the §5.2 attention order. Client-side sort in both cases.
 
 ### 3.4 `GET /api/sessions/{id}/pane` (M4 — m4-reconcile, 2026-08-26; was deferred from M2)
 
@@ -221,6 +226,39 @@ row is **not** deleted).
 (§5.4 `modelScoped`) for an immediate fetch; concurrent requests coalesce into at most one
 in-flight fetch. → `202`, no body; the result arrives as a `usage` message. Errors:
 `404 not_found` — polling disabled (`musterd -usage-poll 0`).
+
+### 3.10 `PUT /api/sessions/{id}/pin` (Pre-v1 — `order-sidebar`, 2026-08-30)
+
+**Auth**: UI cookie (401 `unauthorized`). **Request:** `{ "pinned": true }` (`pinned`
+required, boolean). → `204`, no body. `pinned:true` moves the session to the **bottom of
+the pinned block** (pinned in order of pinning); `pinned:false` moves it to the **top of
+the unpinned block** (immediately after the last pinned session). The daemon renumbers
+whatever `railPos` values are needed to keep §5.3's invariant (every pinned session's
+`railPos` below every unpinned one's; `railPos` unique). Already in the requested state →
+`204` and no broadcast. Otherwise every session whose `pinned` or `railPos` changed is
+broadcast as a `sessionUpsert` — and only those. Errors: `400 invalid_request` (body not
+JSON / `pinned` missing or not boolean), `404 unknown_session`.
+
+### 3.11 `PUT /api/sessions/order` (Pre-v1 — `order-sidebar`, 2026-08-30)
+
+**Auth**: UI cookie (401 `unauthorized`). **Request:**
+
+```jsonc
+{ "ids": [4, 9, 2, 7],   // session ids, no duplicates, each must exist; may be empty
+  "pinnedCount": 1 }      // integer in [0, len(ids)]: the first pinnedCount ids become pinned
+```
+
+→ `204`, no body. The first `pinnedCount` ids become `pinned:true`, the rest
+`pinned:false`; `railPos` = index in `ids` (this is how a drag across the pin boundary
+pins/unpins in one atomic call). Sessions that exist but are not listed keep their
+`pinned` flag and follow the listed ones in their existing relative `railPos` order — an
+unlisted *pinned* session is still kept inside the pinned block (end of it), renumbering
+the unpinned listed ones, so the §5.3 invariant always holds. Every session whose `pinned`
+or `railPos` changed is broadcast as a `sessionUpsert`; none if nothing changed. Errors:
+`400 invalid_request` — body not JSON, `ids` missing / not an integer array / duplicate or
+unknown id, `pinnedCount` missing or outside `[0, len(ids)]`. Nothing changes on a 400.
+Route note: Go's mux prefers the literal `order` segment over `{id}`, so this coexists with
+`/api/sessions/{id}/…`.
 
 ## 4. HTTP endpoints — ingest (Claude Code → daemon)
 
@@ -379,7 +417,17 @@ is complexity with no payoff, and whole-object replacement is naturally loss-tol
                                     //   concurrent live tiles each need their own attach
                                     //   client). Opaque to the UI either way.
   "firstLaunchHere": true,          // boolean, on every Session object — true iff the launch created this directory's repo row
-  "createdAt": "2026-08-20T09:11:02Z"
+  "createdAt": "2026-08-20T09:11:02Z",
+  "pinned": false,                  // order-sidebar: user pinned it into the rail's top block
+  "railPos": 12                     // order-sidebar: integer ≥ 0, manual rail position, unique across
+                                    //   all sessions (gaps allowed). INV: every pinned session's
+                                    //   railPos < every unpinned one's. New sessions get
+                                    //   max(railPos)+1, pinned:false; existing rows backfilled
+                                    //   railPos = id (opened order). Display-only — never read or
+                                    //   written by the state machine or the status path. The
+                                    //   client sorts by it (prefs.railSort); the daemon never
+                                    //   orders for display (§5.2 unchanged). Changes arrive as
+                                    //   ordinary sessionUpserts, one per changed session.
 }
 ```
 
@@ -620,6 +668,13 @@ exit — so the next startup sweeps it.
   (§7.3) — plan `m4-reconcile`; canary unskip — plan `m4-canary`.
 
 ## 9. Changelog
+
+- **2026-08-30 — §3.3/§3.10/§3.11/§5.3: user-owned rail order** (plan `order-sidebar`,
+  Pre-v1 Cleanup). Session object gains `pinned` + `railPos` (invariant: pinned before
+  unpinned, unique `railPos`; display-only columns). New `PUT /api/sessions/{id}/pin` and
+  `PUT /api/sessions/order {ids, pinnedCount}`. `PUT /api/prefs` gains `railSort`
+  (`manual` default | `attention`) — SPEC §2.1's needs-input-first order is now the rail's
+  *attention* mode, the pinned block leads in both. Additive; no version bump.
 
 - **2026-08-30 — §3.3/§3.9/§5.4/§5.5: per-model weekly usage** (plan `usage-model-bar`,
   Pre-v1 Cleanup). The Usage object gains `modelScoped[]` (+ `modelScopedAt`,
