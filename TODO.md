@@ -406,7 +406,7 @@ These are some minor changes and cleanup needed before we can move into post v1.
     `/api/oauth/usage` with the Keychain OAuth token (SPEC §2.3 change + credential
     handling). The "add Fable to the model select" half is independent and can proceed.
 - Improve the Create new session dialog, especially the file explorer and selecting a directory. The dialog is messy, even the model select is "squashed". File explorder should be in a view that shows the parents and should auto use whatever directory is currently select rather than having to "apply" the selection. Similar to the Mac Finder interface.
-- Create new session from tile view
+- [x] Create new session from tile view — **Done 2026-08-30 (main-session build)**: a `New session` button in the Tiles density toolbar (`#tiles-new-session-button`) drives the same `#launch-dialog` as the rail button and ⌘N; a launch made from Tiles is promoted into the grid (demoting the lowest-priority tile when full) instead of landing in the strip. E2E: `web/e2e/tiles-launch.spec.ts` (private daemon per test). No protocol change.
 
 ## M5+ (v1.x, re-rank when reached)
 

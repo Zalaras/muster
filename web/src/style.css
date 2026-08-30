@@ -653,6 +653,14 @@ body {
   display: none;
 }
 
+/* Tiles' own New session entry point (the Focus rail's is hidden with the rail). Reset the
+ * toolbar's uppercase/letter-spacing so it reads like every other .btn. */
+.tools .btn {
+  margin-left: auto;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 .seg {
   display: flex;
 }

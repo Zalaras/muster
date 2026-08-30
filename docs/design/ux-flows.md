@@ -273,6 +273,10 @@ These are designed, not afterthoughts — three of the four are *guaranteed* to 
   not (§3.2).
 - The strip is not a downgrade — it carries the same title, state, timer and reason lines a
   rail card does. It just doesn't get a terminal.
+- **New session lives in the density toolbar** (the rail's button is hidden with the rail);
+  it opens the §1 modal exactly as the rail button and ⌘N do. A session launched while in
+  Tiles is promoted into the grid the way a strip-card click is — you asked for it here, so
+  it gets a tile, even if that demotes the lowest-priority one. (Added 2026-08-30.)
 
 ### 3.8 Switching views
 

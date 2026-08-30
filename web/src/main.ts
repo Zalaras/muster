@@ -698,7 +698,10 @@ setStatus("connecting");
 
 const launchModalElements: LaunchModalElements = {
   dialog: requireElement<HTMLDialogElement>("#launch-dialog"),
-  openButton: requireElement<HTMLButtonElement>("#new-session-button"),
+  openButtons: [
+    requireElement<HTMLButtonElement>("#new-session-button"),
+    requireElement<HTMLButtonElement>("#tiles-new-session-button"),
+  ],
   mruList: requireElement<HTMLElement>("#mru-list"),
   mruEntryTemplate: requireElement<HTMLTemplateElement>("#mru-entry-template"),
   browseButton: requireElement<HTMLButtonElement>("#browse-button"),
@@ -725,7 +728,12 @@ initLaunchModal(launchModalElements, {
   // is a harmless duplicate upsert once the WS delivers it.
   onLaunched: (session) => {
     store.upsert(session);
-    render();
+    // Launched from Tiles: the new session must become a live tile even when the grid is
+    // full — `applyDensity` alone would only admit it to a free slot and otherwise leave
+    // it in the strip. `promoteSession` demotes exactly the lowest-priority live tile
+    // (REQ-8) and renders; it is a no-op guard in Focus, so render there explicitly.
+    if (view === "tiles") promoteSession(session.id);
+    else render();
   },
 });
 

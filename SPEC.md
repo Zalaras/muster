@@ -880,3 +880,14 @@ implemented:
   `prefs.usageModel`, new `POST /api/usage/refresh` (`docs/protocol.md` §3.3, §3.9, §5.4, §5.5).
 - Masthead order is now: 5-hour bar, 7-day bar, model-week (selectable), refresh, model,
   daemon health (`docs/design/design-system.md` §4/§5).
+
+### 2026-08-30 — New session from Tiles (TODO "Create new session from tile view", main-session build)
+
+- Tiles gets its own **New session** button in the density toolbar — the rail's button is
+  hidden with the rail, so Tiles previously had only ⌘N. Same `#launch-dialog`, same flow
+  (ux-flows §1); `initLaunchModal` now takes `openButtons[]`.
+- A session launched **from Tiles is promoted into the grid** (same rule as a strip-card
+  click — the lowest-priority live tile is demoted when the grid is full) rather than being
+  admitted only if a slot happens to be free. Focus behaviour unchanged.
+- No protocol, schema or daemon change. Rejected: a "+" pseudo-tile in the grid (would
+  fight the slot-stable reconcile, the drag delegation and the fixed 2×2/3×2 geometry).

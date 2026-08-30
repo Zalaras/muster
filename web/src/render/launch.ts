@@ -10,7 +10,9 @@ const MODEL_PRESETS = ["sonnet", "opus", "haiku"] as const;
 
 export interface LaunchModalElements {
   dialog: HTMLDialogElement;
-  openButton: HTMLButtonElement;
+  /** Every "New session" button in the shell — the Focus rail's and the Tiles toolbar's;
+   * each view hides the other's, so exactly one is visible at a time. */
+  openButtons: readonly HTMLButtonElement[];
   mruList: HTMLElement;
   mruEntryTemplate: HTMLTemplateElement;
   browseButton: HTMLButtonElement;
@@ -211,7 +213,9 @@ export function initLaunchModal(elements: LaunchModalElements, handlers: LaunchM
     void loadRepos();
   }
 
-  elements.openButton.addEventListener("click", openModal);
+  for (const button of elements.openButtons) {
+    button.addEventListener("click", openModal);
+  }
 
   // REQ-22 (nice-to-have) / ux-flows keyboard model: Cmd+N opens the launch modal from
   // anywhere in the shell.
