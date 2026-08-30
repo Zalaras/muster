@@ -74,6 +74,7 @@ If tests fail:
 - You CAN create new test files and test helpers
 - All tests must be in `*_test.go` files in the appropriate package
 - Per-test tmux (if a test genuinely needs it) uses its own private socket, never `-L muster` and never the user's default server
+- **Git — commit your own work, never rewrite the tree.** The pipeline runs on the plan's `plan/<plan-name>` branch (the orchestrator created it). When your step's gate passes, `git add` **only the files you changed** (name them — never `git add -A`/`-u`), including your `plans/<plan-name>/` log, and commit per `docs/conventions.md` §Commits — `test(<plan-name>): <imperative summary>` (fix mode: append ` (review cycle N)`), one sentence, plus the harness's `Co-Authored-By`/`Claude-Session` trailers. Never run `git stash`, `git checkout -- <path>`, `git reset`, `git clean`, `git rebase` or anything else that rewrites the working tree — other agents' uncommitted work may be sitting beside yours (usage-model-bar lesson: a mid-fix `git stash` reverted the entire uncommitted feature; it was recovered, but only by luck). To compare against the previous state use `git diff`, `git show HEAD:<path>`, or copy the file aside. Never push, and never commit on `main`.
 
 ## Output
 

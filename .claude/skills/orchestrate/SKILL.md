@@ -30,6 +30,7 @@ Before starting:
    - `harness-only` → the plan's E2E deliverable is an edit to `web/e2e/helpers/*` or fixtures with no new spec (e.g. m4's space-bearing data dir); Step 1 still runs e2e-specs, expected verdict `harness-only`; Step 5 runs as the full-suite sweep
    - `none` → skip Steps 1 and 5
 4. Determine the project root (the directory containing `.claude/`)
+4a. **Branch.** The pipeline never commits on `main`. If `plan/<plan-name>` exists (resume), `git checkout` it. Otherwise inspect `git status --short`: if every dirty file is the plan's own directory or a planning-session doc edit (`docs/protocol.md`, `SPEC.md`, `TODO.md`, `spikes/*`, `next-steps.md`), commit them on a new branch — `git checkout -b plan/<plan-name>` then `git add <those files>` and `git commit -m "docs(<plan-name>): approved plan and planning-session edits"`. If anything else is dirty, stop and ask the user what to do with it — never `git add -A`, never stash. Every agent then commits its own files at the end of its step (their definitions say how); you commit **your** edits (state file, doc-upkeep, decisions) per `docs/conventions.md` §Commits as `docs(<plan-name>): <summary>` (or `chore(...)` for the state file alone) and never commit an agent's files for it. If an agent finishes with its files uncommitted, that is a Handoff defect — tell it to commit before its gate is read. Never push.
 5. Update plan status to "in-progress"
 
 ## Pipeline Execution Order
@@ -245,7 +246,7 @@ Project root: <project-root>
 
 **Review Retry Logic**: If the review verdict is `needs-changes`:
 
-1. Read `review.md` and bucket every tagged issue by tag: `[daemon-impl]`, `[web-impl]`, `[daemon-tests]`, `[web-tests]`, `[e2e-specs]`. Issues tagged `[orchestrator]` are yours — never spawn an agent for them; handle them in the Doc-Upkeep Backstop / Completion step.
+1. Read `review.md` and bucket every tagged issue by tag: `[daemon-impl]`, `[web-impl]`, `[daemon-tests]`, `[web-tests]`, `[e2e-specs]`. Issues tagged `[orchestrator]` are yours — never spawn an agent for them; handle them in the Doc-Upkeep Backstop / Completion step. **Minors ride along:** an agent that is being spawned for a Critical/Major also gets every Minor tagged to it in the same prompt (the Fix Prompt Rules' "ALL issues for that agent" includes Minors). An agent tagged **only** with Minors is not spawned — those Minors go to `TODO.md` at completion (see Completion 2b). `[note]` items are never routed; list them in the completion summary.
 1a. **Decision items first.** An issue tagged `[orchestrator:user-decision]` (protocol contract, scope, a recorded SPEC decision, money) goes straight to the user via `AskUserQuestion` with the reviewer's two options quoted verbatim — no debate; record the outcome in `plans/<plan>/decisions/<slug>/decision.md` with `Reached by: user decision`, land the protocol/plan/SPEC edits yourself (you are the only party allowed to edit the contract), then quote the outcome in the fix-wave prompt. For every issue tagged `[orchestrator:decision]`, run the `decide` skill (`.claude/skills/decide/SKILL.md`) **before** spawning any fix wave: two `debater` agents argue the two options directly to each other, a fresh `judge` breaks a tie, and `plans/<plan>/decisions/<slug>/decision.md` records the outcome. Quote the outcome verbatim in the fix-wave prompt of the agent that implements it. Max 2 debates per run; a third decision item, or any item on the skill's never-debated list (protocol contract, scope, a recorded SPEC decision, spending money), stops the pipeline and asks the user. Learned from m4-reconcile: two decision items were carried through three review cycles, one was then decided inside a fix wave by an impl agent and produced the next cycle's Critical.
 2. **Do not fan all five out at once — they are not independent.** Group the non-empty buckets into waves per `## Fix Wave Ordering` below, and run the waves strictly in order. Within a wave, spawn its agents in parallel (multiple Task calls in one message); between waves, wait for completion and run the wave's gate.
 3. If a wave's gate fails, that wave's fix was incomplete. End the cycle there — count it against the review budget and report — rather than starting the next wave on a broken tree.
@@ -424,15 +425,18 @@ When all steps pass AND the review verdict is "approved":
 1. Verify the review.md file on disk contains `**Verdict**: approved` — do NOT rely on memory
 2. Run the Doc-Upkeep Backstop above
 2a. Resolve every `[orchestrator]`-tagged issue in review.md: do the doc edit, or record it as a TODO.md entry in the right milestone if it is genuinely follow-up work. List each one and its disposition in the completion summary. An approved review may carry these; a `completed` pipeline may not leave them unaddressed.
+2b. Every agent-tagged **Minor** still open in the approved review.md becomes a `TODO.md` follow-up line under the right milestone (quote the issue, cite `plans/<plan>/review.md`). Every `[note]` is listed in the completion summary verbatim — no TODO line, no agent.
+2c. **End with everything committed.** Commit your doc-upkeep and state edits (`docs(<plan-name>): doc upkeep and pipeline completion`) and confirm `git status --short` is empty on `plan/<plan-name>` — the branch is the review artifact: the user reviews with `git diff main...plan/<plan-name>` and squash-merges. An agent's uncommitted files here are that agent's defect — have it commit them; if it cannot, commit them yourself as `chore(<plan-name>): commit <agent>'s uncommitted work (orchestrator)` so nothing is left dangling. The pipeline is not `completed` while the tree is dirty.
 3. Update plan status to "completed"
 4. Update orchestration state status to "completed"
-5. Print a summary: what was done, files changed, retry count, and any notable issues
+5. Print a summary: what was done, files changed, retry count, any notable issues, the `[note]` items verbatim, and the branch name (`plan/<plan-name>`) with `git log --oneline main..` so the user can squash-merge — the pipeline never merges or pushes
 6. **Decisions section** — for every debate run this pipeline (`plans/<plan>/decisions/*/decision.md`): the two options, the outcome, consensus-or-judged, the decisive argument in one or two sentences, and any dissent. The user may overrule with one line; if they do, `reopen` the affected wave and re-run it with the user's choice quoted.
 
 **NEVER mark the pipeline as completed if:**
 - The review.md verdict is anything other than "approved"
 - Any test suite has failing tests
 - Build failures exist in either the daemon or the web tree
+- `git status --short` on `plan/<plan-name>` is not empty
 
 ## Error Handling
 

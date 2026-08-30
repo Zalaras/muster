@@ -139,7 +139,8 @@ Check:
 
 **Critical** — must fix: requirements not implemented, tests failing, hard-rule violations (§4), build failures, protocol contract broken
 **Major** — must fix within the pipeline when a pipeline agent owns it: missing error handling, missing test coverage, convention violations that aren't hard rules. A Major tagged `[daemon-impl]`/`[web-impl]`/`[daemon-tests]`/`[web-tests]`/`[e2e-specs]` blocks `approved` — those agents exist precisely to fix such issues, and "approved with a Major" just hands the orchestrator a TODO line to write (m4-hook-quoting: D5's missing regression test shipped as a backlog entry instead of a five-minute wave-2 fix). A Major nobody in the pipeline can fix (doc upkeep, plan defect) is tagged `[orchestrator]` and does **not** block approval.
-**Minor** — nice to fix: style inconsistencies, naming improvements
+**Minor** — a real, small change you want made: style inconsistencies, naming, a misleading comment, a cosmetic rendering defect. Tag it with the owning agent. Minors never block `approved`; the orchestrator routes an agent's Minors **in the same wave** as that agent's Critical/Major fixes, and turns any left over on an `approved` review into `TODO.md` follow-ups.
+**Note** — an observation with **no change requested** (a risk to remember, an accepted trade-off, "not a defect but worth knowing"). Tag it `[note]`, never with an agent tag — an agent tag is a request for work, and the orchestrator must not have to read the prose to learn there is none (usage-model-bar: a `[daemon-impl]` Minor that said "purely a note" needed an orchestrator judgement call and a re-review to bless). List notes under their own `### Notes` heading.
 
 ## Output
 
@@ -200,6 +201,9 @@ of why it could not be done>
 
 ### Minor
 1. **[daemon-tests]** <issue> — `file` — <suggestion>
+
+### Notes
+1. **[note]** <observation, no change requested>
 ```
 
 ## Issue Routing
@@ -210,6 +214,7 @@ Tag every issue with the responsible agent so the orchestrator knows where to ro
 - `[web-impl]` → web implementation agent
 - `[web-tests]` → web tests agent
 - `[e2e-specs]` → E2E test agent
+- `[note]` → nobody: an observation with no change requested; listed in the completion summary, never routed
 - `[orchestrator]` → nothing a pipeline agent may edit: `TODO.md` ticks, `SPEC.md` changelog, `docs/protocol.md` reconciliation, a plan defect (missing ```checks block, contradictory criteria), a manual-verification record the plan requires. The orchestrator's Doc-Upkeep Backstop and Completion steps own these. Do not tag doc upkeep `[daemon-impl]` — the impl agent may not touch `SPEC.md`, and the mis-route only surfaces at completion.
   Also `[orchestrator]`: **any issue whose resolution is a product or design decision rather than a defect** — rail density (always-on vs hover-reveal), placement, a colour's semantics, whether a behaviour is in scope. State the options and the measured trade-offs, but do not assign it to an impl agent: an impl agent told to "make a decision" will make one inside a fix cycle with no authority to, and the choice then has to be re-litigated (m4-reconcile cycle 2 → 3: hover-only was decided by web-impl, produced the next cycle's Critical, and still needed Damian's sign-off afterwards). Tag these `[orchestrator:decision]` (not bare `[orchestrator]`) and write the two options as two labelled lines — the orchestrator runs the `/decide` debate on exactly that pair, and the debaters argue the options as you wrote them. Doc upkeep, plan defects and manual-verification records stay bare `[orchestrator]`.
   If the decision touches anything on the `decide` skill's never-debated list — the protocol contract (`docs/protocol.md` / the plan's Protocol Contract), plan scope, a decision already recorded in `SPEC.md`/`interview-notes.md`, or spending money — tag it `[orchestrator:user-decision]` instead: still two labelled options with measured trade-offs, but the orchestrator takes it straight to Damian rather than to a debate that would have to refuse it (m4-hook-lifetime cycle 1: the monotonic-rebind Critical was a §4.2/§7.3 change).
