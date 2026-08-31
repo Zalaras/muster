@@ -323,6 +323,17 @@ Two concrete ways a flat fan-out goes wrong: an impl agent moves or renames a sy
 - **`[e2e-specs]` always lands in wave 3**, even when its issue looks self-contained. A locator repaired against pre-fix markup is worthless, and its fix mode ends in a live run — which must happen against the post-fix tree.
 - **New user-facing behaviour added by a fix wave must get E2E coverage in the same cycle.** When a cycle's `[web-impl]`/`[daemon-impl]` fixes *add* user-visible behaviour (a new error display, marker, shortcut, field), the wave-3 e2e-specs prompt must include: "read this cycle's ## Fix Attempt sections in both implementation logs and assert any new user-facing behaviour they added" — and e2e-specs runs in wave 3 for this purpose **even with no tagged `[e2e-specs]` issue** (this is a concrete coverage task, so it doesn't violate the never-spawn-with-nothing-to-fix rule). Learned from m1-sessions: seven behaviours shipped untested because the unit-test agent correctly said "DOM is Playwright's job" while e2e-specs was only prompted with its one tagged issue — the gap lives *between* agents, and only the orchestrator sees all waves.
 - **This same wave order governs `implementation-bug` verdicts** from Step 4 and Step 5, not just review cycles. When Step 5 reports `implementation-bug`: run the routed impl agent (wave 1), gate, re-run that side's unit test agent (wave 2), gate, then re-spawn Step 5 (wave 3).
+- **A review cycle's wave 3 can itself report `implementation-bug`** — a fix wave building
+  better fixtures can uncover a new product defect, exactly as Step 5 does
+  (new-session-dialog cycle 1: fixing an E13 Major required a 25-entry fixture, which
+  exposed a missing `min-height: 0` that let the listing paint over the form). That verdict
+  does not fail the wave and does not end the cycle — the wave's own tagged fixes are
+  complete; fold the same cycle back on itself: route the new bug to the impl agent as a
+  fresh wave 1 (the review's open Minors tagged to that agent ride along, since it is now
+  being spawned for a Major-level defect), gate, wave 2, gate, wave 3 again, then the
+  full-suite run and the re-review — all within the current cycle's single review retry.
+  End the cycle early only when a wave's *own tagged fixes* are incomplete (its gate fails
+  on its own work), never because it honestly surfaced someone else's defect.
 - **Two agents may never be spawned concurrently if one may write a file the other may write.** The wave table already guarantees this for the five pipeline tags; apply the same test before any ad-hoc parallel spawn.
 
 ## State Tracking
