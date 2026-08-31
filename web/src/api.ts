@@ -139,6 +139,23 @@ const genericError: ApiErrorBody = {
   message: "Unexpected response from musterd.",
 };
 
+// REQ-13's `network` failure mode (daemon down, connection refused, sleep/wake, aborted
+// request): a rejected `fetch` must never propagate — every exported function below
+// routes its fetch through this so the module-header contract ("errors never throw")
+// actually holds for every call site, not just JSON-decoding failures.
+const networkError: ApiErrorBody = {
+  code: "network_error",
+  message: "Could not reach musterd.",
+};
+
+async function safeFetch(input: string, init?: RequestInit): Promise<Response | null> {
+  try {
+    return await fetch(input, init);
+  } catch {
+    return null;
+  }
+}
+
 async function decodeJson<T>(res: Response, parse: (value: unknown) => T | null): Promise<ApiResult<T>> {
   let body: unknown;
   try {
@@ -157,18 +174,20 @@ async function decodeJson<T>(res: Response, parse: (value: unknown) => T | null)
 
 /** `POST /api/sessions` (docs/protocol.md §3.1). */
 export async function launchSession(body: LaunchRequest): Promise<ApiResult<Session>> {
-  const res = await fetch("/api/sessions", {
+  const res = await safeFetch("/api/sessions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "same-origin",
     body: JSON.stringify(body),
   });
+  if (!res) return { ok: false, error: networkError };
   return decodeJson(res, parseSession);
 }
 
 /** `GET /api/repos` (docs/protocol.md §3.2) — the MRU picker list. */
 export async function fetchRepos(): Promise<ApiResult<Repo[]>> {
-  const res = await fetch("/api/repos", { credentials: "same-origin" });
+  const res = await safeFetch("/api/repos", { credentials: "same-origin" });
+  if (!res) return { ok: false, error: networkError };
   return decodeJson(res, parseRepos);
 }
 
@@ -176,7 +195,8 @@ export async function fetchRepos(): Promise<ApiResult<Repo[]>> {
  * home directory. */
 export async function browse(path?: string): Promise<ApiResult<BrowseResult>> {
   const url = path ? `/api/browse?path=${encodeURIComponent(path)}` : "/api/browse";
-  const res = await fetch(url, { credentials: "same-origin" });
+  const res = await safeFetch(url, { credentials: "same-origin" });
+  if (!res) return { ok: false, error: networkError };
   return decodeJson(res, parseBrowseResult);
 }
 
@@ -184,12 +204,13 @@ export async function browse(path?: string): Promise<ApiResult<BrowseResult>> {
  * actual new prefs value reaches every UI socket (this one included) via the `prefs` WS
  * broadcast (INV-4), so the caller here never needs to decode a response body. */
 export async function putPrefs(body: PrefsRequest): Promise<ApiResult<null>> {
-  const res = await fetch("/api/prefs", {
+  const res = await safeFetch("/api/prefs", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     credentials: "same-origin",
     body: JSON.stringify(body),
   });
+  if (!res) return { ok: false, error: networkError };
   if (res.status === 204) return { ok: true, value: null };
   let errorBody: unknown;
   try {
@@ -206,7 +227,8 @@ export async function putPrefs(body: PrefsRequest): Promise<ApiResult<null>> {
  * `usage` broadcast, same "response carries no state, the socket does" shape as
  * `putPrefs`. Errors: `404 not_found` when the poller is disabled (`-usage-poll 0`). */
 export async function refreshUsage(): Promise<ApiResult<null>> {
-  const res = await fetch("/api/usage/refresh", { method: "POST", credentials: "same-origin" });
+  const res = await safeFetch("/api/usage/refresh", { method: "POST", credentials: "same-origin" });
+  if (!res) return { ok: false, error: networkError };
   if (res.status === 202) return { ok: true, value: null };
   let errorBody: unknown;
   try {
@@ -221,7 +243,8 @@ export async function refreshUsage(): Promise<ApiResult<null>> {
 /** `POST /api/sessions/{id}/end` (docs/protocol.md §3.7). `200` + the Session object
  * (`alive:false`, `endedAt` set); errors `404 unknown_session` / `409 not_alive`. */
 export async function endSession(id: number): Promise<ApiResult<Session>> {
-  const res = await fetch(`/api/sessions/${id}/end`, { method: "POST", credentials: "same-origin" });
+  const res = await safeFetch(`/api/sessions/${id}/end`, { method: "POST", credentials: "same-origin" });
+  if (!res) return { ok: false, error: networkError };
   return decodeJson(res, parseSession);
 }
 
@@ -230,7 +253,8 @@ export async function endSession(id: number): Promise<ApiResult<Session>> {
  * `404 unknown_session` / `409 not_resumable` / `409 directory_missing` /
  * `500 launch_failed`. */
 export async function resumeSession(id: number): Promise<ApiResult<Session>> {
-  const res = await fetch(`/api/sessions/${id}/resume`, { method: "POST", credentials: "same-origin" });
+  const res = await safeFetch(`/api/sessions/${id}/resume`, { method: "POST", credentials: "same-origin" });
+  if (!res) return { ok: false, error: networkError };
   return decodeJson(res, parseSession);
 }
 
@@ -239,7 +263,8 @@ export async function resumeSession(id: number): Promise<ApiResult<Session>> {
  * "response carries no state, the socket does" shape as `putPrefs` above. Errors
  * `404 unknown_session` / `500 end_failed` (alive and the kill failed — row not deleted). */
 export async function removeSession(id: number): Promise<ApiResult<null>> {
-  const res = await fetch(`/api/sessions/${id}`, { method: "DELETE", credentials: "same-origin" });
+  const res = await safeFetch(`/api/sessions/${id}`, { method: "DELETE", credentials: "same-origin" });
+  if (!res) return { ok: false, error: networkError };
   if (res.status === 204) return { ok: true, value: null };
   let errorBody: unknown;
   try {
@@ -269,7 +294,8 @@ function parsePaneSnapshot(value: unknown): PaneSnapshot | null {
  * `404 no_snapshot` (no capture has succeeded yet — render/dead.ts's "no snapshot
  * captured" honesty case, not a fetch failure). */
 export async function fetchPane(id: number): Promise<ApiResult<PaneSnapshot>> {
-  const res = await fetch(`/api/sessions/${id}/pane`, { credentials: "same-origin" });
+  const res = await safeFetch(`/api/sessions/${id}/pane`, { credentials: "same-origin" });
+  if (!res) return { ok: false, error: networkError };
   return decodeJson(res, parsePaneSnapshot);
 }
 
@@ -280,12 +306,13 @@ export async function fetchPane(id: number): Promise<ApiResult<PaneSnapshot>> {
  * reorder (REQ-15/Implementation Notes), so a caller here doesn't need a decoded body.
  * Errors: `400 invalid_request` / `404 unknown_session`. */
 export async function pinSession(id: number, pinned: boolean): Promise<ApiResult<null>> {
-  const res = await fetch(`/api/sessions/${id}/pin`, {
+  const res = await safeFetch(`/api/sessions/${id}/pin`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     credentials: "same-origin",
     body: JSON.stringify({ pinned }),
   });
+  if (!res) return { ok: false, error: networkError };
   if (res.status === 204) return { ok: true, value: null };
   let errorBody: unknown;
   try {
@@ -302,12 +329,13 @@ export async function pinSession(id: number, pinned: boolean): Promise<ApiResult
  * resulting `sessionUpsert`s. Errors: `400 invalid_request` (unknown/duplicate id,
  * `pinnedCount` out of range) — nothing changes on a 400. */
 export async function putSessionOrder(ids: readonly number[], pinnedCount: number): Promise<ApiResult<null>> {
-  const res = await fetch("/api/sessions/order", {
+  const res = await safeFetch("/api/sessions/order", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     credentials: "same-origin",
     body: JSON.stringify({ ids, pinnedCount }),
   });
+  if (!res) return { ok: false, error: networkError };
   if (res.status === 204) return { ok: true, value: null };
   let errorBody: unknown;
   try {

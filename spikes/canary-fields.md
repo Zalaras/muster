@@ -305,3 +305,10 @@ recycled PID. Use `pgrep -f` on the exact command line.
   (15/15 events, 3 sessions). Local overhead vs http hooks ≈ +25 ms/event; the
   `$MUSTER_SESSION`-unset early exit costs ~6 ms. Basis for m4-hook-lifetime's
   all-command-hooks design (`spikes/FINDINGS.md` 2026-08-27 addendum).
+- **`fable` is a valid `--model` alias** (2.1.251, 2026-08-30 — static inspection of the
+  installed `~/.local/share/claude/versions/2.1.251` bundle, not a canary run): the
+  model-alias switch contains `case"fable":case"mythos"` alongside haiku/sonnet/opus, and
+  the resolver has a `case"fable"` branch. Muster passes the literal string `fable` to
+  `--model` verbatim (§3.1) — nothing leaks into `internal/claudecode`. Not asserted by
+  `make canary` (subscription rule: the canary launches haiku only); re-verify by static
+  inspection on any pin bump.

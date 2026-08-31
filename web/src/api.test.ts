@@ -1,5 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { browse, endSession, fetchPane, fetchRepos, launchSession, putPrefs, refreshUsage, removeSession, resumeSession } from "./api";
+import {
+  browse,
+  endSession,
+  fetchPane,
+  fetchRepos,
+  launchSession,
+  pinSession,
+  putPrefs,
+  putSessionOrder,
+  refreshUsage,
+  removeSession,
+  resumeSession,
+} from "./api";
 import type { Session } from "./protocol";
 
 const validSession: Session = {
@@ -510,5 +522,62 @@ describe("api — fetchPane (GET /api/sessions/{id}/pane, docs/protocol.md §3.4
     const result = await fetchPane(1);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+});
+
+// REQ-13's `network` failure mode (daemon down, connection refused, sleep/wake, aborted
+// request): plan new-session-dialog Fix Attempt 3 added `safeFetch`, a try/catch choke
+// point that every exported function routes its `fetch` call through, so a *rejected*
+// fetch promise (never surfaced by `fakeResponse`/`fakeStatusResponse` above, which only
+// ever simulate a *resolved* Response) short-circuits to a `network_error` ApiResult
+// instead of propagating out of the `async function` and rejecting the caller's promise.
+// Table-driven over all 11 exported functions per web-implementation.md's Fix Attempt 3
+// audit ("Category swept, not just the cited functions") — a per-function regression here
+// would mean one call site's `safeFetch` guard was missed or a decode path after it still
+// assumes `res` is non-null.
+describe("api — network_error short-circuit on a rejected fetch (REQ-13, plan new-session-dialog Fix Attempt 3)", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const networkError = { code: "network_error", message: "Could not reach musterd." };
+
+  const cases: Array<[string, () => Promise<{ ok: boolean; error?: unknown }>]> = [
+    ["launchSession", () => launchSession({ directory: "/tmp", model: "sonnet", permissionMode: "default" })],
+    ["fetchRepos", () => fetchRepos()],
+    ["browse (no path)", () => browse()],
+    ["browse (with path)", () => browse("/tmp")],
+    ["putPrefs", () => putPrefs({ view: "focus" })],
+    ["refreshUsage", () => refreshUsage()],
+    ["endSession", () => endSession(1)],
+    ["resumeSession", () => resumeSession(1)],
+    ["removeSession", () => removeSession(1)],
+    ["fetchPane", () => fetchPane(1)],
+    ["pinSession", () => pinSession(1, true)],
+    ["putSessionOrder", () => putSessionOrder([1, 2, 3], 1)],
+  ];
+
+  for (const [name, call] of cases) {
+    it(`${name}: a rejected fetch resolves to { ok: false, error: network_error } instead of throwing`, async () => {
+      const result = await call();
+      expect(result).toEqual({ ok: false, error: networkError });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+  }
+
+  it("does not call Response.json at all when fetch itself rejects (nothing to decode)", async () => {
+    // A regression where safeFetch's catch was removed would make this promise reject
+    // instead of resolve — asserting on the resolved shape below is sufficient to catch
+    // that, but this test also documents that no Response is ever constructed to decode.
+    const result = await fetchRepos();
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("network_error");
   });
 });

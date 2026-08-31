@@ -911,3 +911,15 @@ implemented:
   rail's displayed order** (Option A) rather than staying attention-ranked (Option B). Cost
   accepted: no one-key jump to the most-blocked session — follow-up in TODO.md.
 
+### 2026-08-30 — Launch dialog rebuilt as a Finder-style picker (plan `new-session-dialog`)
+
+- ux-flows §1.1–1.2 replaced: the MRU list + `Browse…` unfold + Up/"Use this folder" flow is
+  gone. A persistent **Recent** sidebar sits beside a browse pane — clickable breadcrumb over
+  a single child listing — and **the listed directory is the selection** (no apply step); ⌘↑
+  goes up; clicking a recent restores that directory's last model/mode. Model and Start-in are
+  segmented radio controls; Model gains a `fable` preset (a measured alias in the installed
+  Claude Code 2.1.251, `spikes/canary-fields.md`), passed to `--model` verbatim. The footer
+  always reads `Launch in <path>`; the dialog is fixed at 720px with internally scrolling panes.
+- No protocol or schema change (`docs/protocol.md` §3.1's preset comment updated, doc-only).
+  Rejected in planning: Finder columns, a path field with completion, and folding the Title
+  into existing dialog chrome (plan Overview records the comparison).

@@ -1,0 +1,145 @@
+<!doctype html>
+<!-- Reference render for plan new-session-dialog (chosen 2026-08-30: option B "sidebar + list",
+     segmented Model/Start-in, Title above, 720px fixed). This is the design authority for
+     web-impl and the text-pattern source for e2e-specs: transcribe names from THIS markup.
+     Tokens are the live design-system ones; the markup below is the intended DOM shape at
+     feature level (ids/classes are the ones web-impl should ship). -->
+<html lang="en"><head><meta charset="utf-8"><title>New session — reference</title>
+<style>
+:root{--ink:#12141C;--panel:#171A24;--panel2:#1C2029;--term:#0D0F16;--line:#282D3B;--line2:#343A4A;--paper:#E8E6E1;--muted:#8A90A3;--dim:#565C6D;--amber:#F2A33C;--banner-fg:#F3B7B7;--scrim:rgba(0,0,0,.72);
+--mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;--sans:system-ui,-apple-system,'Segoe UI',sans-serif;--disp:system-ui,-apple-system,'Segoe UI',sans-serif}
+body{background:var(--ink);margin:0;padding:40px;font-family:var(--sans);color:var(--paper)}
+dialog.modal{position:static;display:block;width:720px;max-width:calc(100vw - 32px);padding:0;margin:0 auto;background:var(--panel);color:var(--paper);border:1px solid var(--line2)}
+dialog.modal h2{margin:0;padding:13px 16px;border-bottom:1px solid var(--line);font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:-.015em;display:flex;align-items:center}
+.kbd{margin-left:auto;font-family:var(--mono);font-size:9.5px;font-weight:400;color:var(--dim);border:1px solid var(--line2);padding:1px 5px}
+.lab,legend,.side-head{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
+.btn{font-family:var(--mono);font-size:10.5px;padding:5px 10px;border:1px solid var(--line2);background:transparent;color:var(--muted);border-radius:2px;cursor:pointer}
+.btn.key{background:var(--amber);color:#1a1200;border-color:var(--amber);font-weight:600}
+/* picker: sidebar + pane */
+.picker{display:grid;grid-template-columns:200px 1fr;height:300px;border-bottom:1px solid var(--line)}
+.recents{border-right:1px solid var(--line);background:var(--panel);overflow:auto;display:flex;flex-direction:column}
+.side-head{padding:10px 12px 4px}
+.recents .dir{display:flex;flex-direction:column;align-items:flex-start;width:100%;padding:5px 12px;border:0;background:transparent;text-align:left;font-family:var(--mono);font-size:11.5px;color:var(--muted);line-height:1.35;cursor:pointer}
+.recents .dir:hover{background:var(--panel2);color:var(--paper)}
+.recents .dir[aria-pressed="true"]{background:var(--panel2);color:var(--paper);box-shadow:inset 3px 0 0 var(--amber)}
+.recents .dir-meta{display:flex;gap:8px;font-size:9.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+.recents .empty{padding:6px 12px;font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+.browse{display:flex;flex-direction:column;min-width:0;background:var(--term)}
+.crumbs{display:flex;align-items:center;gap:2px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel);font-family:var(--mono);font-size:11px;white-space:nowrap;overflow-x:auto}
+.crumbs button{background:transparent;border:0;color:var(--muted);padding:2px 6px;border-radius:2px;font:inherit;cursor:pointer}
+.crumbs button:hover{background:var(--panel2);color:var(--paper)}
+.crumbs .sep{color:var(--dim)}
+.crumbs [aria-current]{color:var(--paper);background:var(--panel2);padding:2px 6px;border-radius:2px}
+.entries{flex:1;overflow:auto;display:flex;flex-direction:column}
+.entries .entry{display:flex;align-items:center;gap:8px;width:100%;padding:6px 12px;border:0;background:transparent;text-align:left;font-family:var(--mono);font-size:11.5px;color:var(--muted);cursor:pointer;white-space:nowrap}
+.entries .entry:hover{background:var(--panel2);color:var(--paper)}
+.entries .entry .git{color:var(--dim);font-size:9.5px;letter-spacing:.06em}
+.entries .entry .chev{margin-left:auto;color:var(--dim)}
+.entries .empty,.entries .loading{padding:8px 12px;font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+/* form */
+#launch-form .fields{display:grid;grid-template-columns:70px 1fr;gap:11px 14px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line)}
+.fields .row{display:contents}
+.fields input[type=text]{border:1px solid var(--line2);padding:6px 9px;color:var(--paper);background:var(--term);font-family:var(--mono);font-size:11.5px;min-width:0}
+.fields input[type=text]::placeholder{color:var(--dim)}
+fieldset.seg{display:contents;border:0;padding:0;margin:0}
+fieldset.seg legend{padding:0}
+.seg-track{display:inline-flex;border:1px solid var(--line2);border-radius:2px;overflow:hidden;justify-self:start}
+.seg-track label{font-family:var(--mono);font-size:10.5px;padding:5px 10px;color:var(--muted);border-right:1px solid var(--line2);cursor:pointer;position:relative}
+.seg-track label:last-child{border-right:0}
+.seg-track input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.seg-track label:has(input:checked){background:var(--panel2);color:var(--paper)}
+.seg-track label:has(input:focus-visible){outline:1px solid var(--amber);outline-offset:-1px}
+.fields [hidden]{display:none}
+.launch-error{margin:0;padding:8px 16px 0;font-family:var(--mono);font-size:11px;color:var(--banner-fg)}
+.modal-foot{display:flex;gap:8px;padding:12px 16px;align-items:center;justify-content:flex-end}
+#launch-target{margin-right:auto;font-family:var(--mono);font-size:10.5px;color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#launch-target b{color:var(--paper);font-weight:500}
+</style></head><body>
+
+<dialog id="launch-dialog" class="modal" aria-labelledby="launch-dialog-title" open>
+  <h2 id="launch-dialog-title">New session <span class="kbd" aria-hidden="true">⌘N</span></h2>
+
+  <div class="picker">
+    <aside class="recents" aria-label="Recent directories">
+      <div class="side-head">Recent</div>
+      <div id="mru-list">
+        <button type="button" class="dir" aria-pressed="true" title="/Users/damian/Documents/code/Projects/muster">
+          <span class="dir-name">muster</span>
+          <span class="dir-meta"><span class="dir-branch">plan/order-sidebar</span><span class="dir-age">2m</span></span>
+        </button>
+        <button type="button" class="dir" aria-pressed="false" title="/Users/damian/Documents/code/company/mdrostering">
+          <span class="dir-name">mdrostering</span>
+          <span class="dir-meta"><span class="dir-branch">develop</span><span class="dir-age">1h</span></span>
+        </button>
+        <button type="button" class="dir" aria-pressed="false" title="/Users/damian/Documents/code/spikes/ccc-spike">
+          <span class="dir-name">ccc-spike</span>
+          <span class="dir-meta"><span class="dir-branch">—</span><span class="dir-age">3d</span></span>
+        </button>
+        <!-- empty state (replaces the buttons): <p class="empty">No recent directories</p> -->
+      </div>
+    </aside>
+
+    <div class="browse">
+      <nav id="browse-crumbs" class="crumbs" aria-label="Path">
+        <button type="button" data-path="/">/</button><span class="sep" aria-hidden="true">›</span>
+        <button type="button" data-path="/Users">Users</button><span class="sep" aria-hidden="true">›</span>
+        <button type="button" data-path="/Users/damian">damian</button><span class="sep" aria-hidden="true">›</span>
+        <button type="button" data-path="/Users/damian/Documents">Documents</button><span class="sep" aria-hidden="true">›</span>
+        <button type="button" data-path="/Users/damian/Documents/code">code</button><span class="sep" aria-hidden="true">›</span>
+        <button type="button" data-path="/Users/damian/Documents/code/Projects">Projects</button><span class="sep" aria-hidden="true">›</span>
+        <span aria-current="location">muster</span>
+        <span class="kbd" aria-hidden="true">⌘↑</span>
+      </nav>
+      <div id="browse-dirs" class="entries">
+        <button type="button" class="entry"><span class="nm">cmd</span><span class="chev" aria-hidden="true">›</span></button>
+        <button type="button" class="entry"><span class="nm">docs</span><span class="chev" aria-hidden="true">›</span></button>
+        <button type="button" class="entry"><span class="nm">internal</span><span class="chev" aria-hidden="true">›</span></button>
+        <button type="button" class="entry"><span class="nm">plans</span><span class="chev" aria-hidden="true">›</span></button>
+        <button type="button" class="entry"><span class="nm">web</span><span class="chev" aria-hidden="true">›</span></button>
+        <!-- a git checkout: <button type="button" class="entry"><span class="nm">ledger-api</span><span class="git"> (git)</span><span class="chev" aria-hidden="true">›</span></button>
+             → textContent "ledger-api (git)›"; the accessible name is "ledger-api (git)" (chev is aria-hidden)
+             empty:   <p class="empty">No subdirectories</p>
+             loading: <p class="loading">loading…</p> -->
+      </div>
+    </div>
+  </div>
+
+  <form id="launch-form">
+    <div class="fields">
+      <label class="lab" for="title-input">Title</label>
+      <input id="title-input" type="text" autocomplete="off" placeholder="optional — Claude Code auto-generates" />
+
+      <fieldset class="seg">
+        <legend>Model</legend>
+        <div class="seg-track" role="radiogroup" aria-label="Model">
+          <label><input type="radio" name="model" value="sonnet" checked />sonnet</label>
+          <label><input type="radio" name="model" value="opus" />opus</label>
+          <label><input type="radio" name="model" value="haiku" />haiku</label>
+          <label><input type="radio" name="model" value="fable" />fable</label>
+          <label><input type="radio" name="model" value="other" />other…</label>
+        </div>
+      </fieldset>
+
+      <label class="lab" for="custom-model-input" id="custom-model-row" hidden>Custom model</label>
+      <input id="custom-model-input" type="text" autocomplete="off" hidden />
+
+      <fieldset class="seg">
+        <legend>Start in</legend>
+        <div class="seg-track" role="radiogroup" aria-label="Start in">
+          <label><input type="radio" name="permission-mode" value="default" checked />default</label>
+          <label><input type="radio" name="permission-mode" value="plan" />plan</label>
+          <label><input type="radio" name="permission-mode" value="acceptEdits" />auto-accept</label>
+        </div>
+      </fieldset>
+    </div>
+
+    <p id="launch-error" class="launch-error" role="alert" hidden></p>
+
+    <div class="modal-foot">
+      <span id="launch-target">Launch in <b>/Users/damian/Documents/code/Projects/muster</b><span class="branch"> · plan/order-sidebar</span></span>
+      <button id="cancel-button" type="button" class="btn">Cancel</button>
+      <button id="launch-button" type="submit" class="btn key">Launch</button>
+    </div>
+  </form>
+</dialog>
+</body></html>

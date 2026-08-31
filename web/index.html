@@ -88,55 +88,53 @@
     <div id="protocol-mismatch" role="alert" tabindex="-1" hidden>protocol changed — reload the dashboard</div>
 
     <dialog id="launch-dialog" class="modal" aria-labelledby="launch-dialog-title">
-      <h2 id="launch-dialog-title">New session</h2>
+      <h2 id="launch-dialog-title">New session <span class="kbd" aria-hidden="true">⌘N</span></h2>
 
-      <div id="mru-list" class="picker"></div>
+      <div class="picker">
+        <aside class="recents" aria-label="Recent directories">
+          <div class="side-head">Recent</div>
+          <div id="mru-list"></div>
+        </aside>
 
-      <button id="browse-button" type="button" class="btn browse-btn">Browse…</button>
-
-      <div id="browse-panel" class="browse-panel" hidden>
-        <div id="browse-path" class="browse-path"></div>
-        <div class="browse-actions">
-          <button id="browse-up" type="button" class="btn">Up</button>
-          <button id="use-this-folder" type="button" class="btn">Use this folder</button>
+        <div class="browse">
+          <nav id="browse-crumbs" class="crumbs" aria-label="Path"></nav>
+          <div id="browse-dirs" class="entries"></div>
         </div>
-        <div id="browse-dirs" class="browse-dirs"></div>
       </div>
 
       <form id="launch-form">
-        <div class="field-row">
-          <span class="field-label">Directory</span>
-          <span id="selected-directory">—</span>
-        </div>
-
-        <div class="field-row">
-          <label for="title-input">Title</label>
+        <div class="fields">
+          <label class="lab" for="title-input">Title</label>
           <input id="title-input" type="text" autocomplete="off" placeholder="optional — Claude Code auto-generates" />
+
+          <fieldset class="seg">
+            <legend>Model</legend>
+            <div class="seg-track" role="radiogroup" aria-label="Model">
+              <label><input type="radio" name="model" value="sonnet" checked />sonnet</label>
+              <label><input type="radio" name="model" value="opus" />opus</label>
+              <label><input type="radio" name="model" value="haiku" />haiku</label>
+              <label><input type="radio" name="model" value="fable" />fable</label>
+              <label><input type="radio" name="model" value="other" />other…</label>
+            </div>
+          </fieldset>
+
+          <label class="lab" for="custom-model-input" id="custom-model-row" hidden>Custom model</label>
+          <input id="custom-model-input" type="text" autocomplete="off" hidden />
+
+          <fieldset class="seg">
+            <legend>Start in</legend>
+            <div class="seg-track" role="radiogroup" aria-label="Start in">
+              <label><input type="radio" name="permission-mode" value="default" checked />default</label>
+              <label><input type="radio" name="permission-mode" value="plan" />plan</label>
+              <label><input type="radio" name="permission-mode" value="acceptEdits" />auto-accept</label>
+            </div>
+          </fieldset>
         </div>
-
-        <fieldset class="radios">
-          <legend>Model</legend>
-          <label><input type="radio" name="model" value="sonnet" checked /> sonnet</label>
-          <label><input type="radio" name="model" value="opus" /> opus</label>
-          <label><input type="radio" name="model" value="haiku" /> haiku</label>
-          <label><input type="radio" name="model" value="other" /> other</label>
-        </fieldset>
-
-        <div id="custom-model-row" class="field-row" hidden>
-          <label for="custom-model-input">Custom model</label>
-          <input id="custom-model-input" type="text" autocomplete="off" />
-        </div>
-
-        <fieldset class="radios">
-          <legend>Start in</legend>
-          <label><input type="radio" name="permission-mode" value="default" checked /> Claude Code default</label>
-          <label><input type="radio" name="permission-mode" value="plan" /> plan mode</label>
-          <label><input type="radio" name="permission-mode" value="acceptEdits" /> auto-accept</label>
-        </fieldset>
 
         <p id="launch-error" class="launch-error" role="alert" hidden></p>
 
         <div class="modal-foot">
+          <span id="launch-target">Launch in <b>—</b><span class="branch" hidden></span></span>
           <button id="cancel-button" type="button" class="btn">Cancel</button>
           <button id="launch-button" type="submit" class="btn key">Launch</button>
         </div>
@@ -217,16 +215,17 @@
     </template>
 
     <template id="mru-entry-template">
-      <button type="button" class="dir">
+      <button type="button" class="dir" aria-pressed="false">
         <span class="dir-name"></span>
-        <span class="dir-path"></span>
-        <span class="dir-branch"></span>
-        <span class="dir-age"></span>
+        <span class="dir-meta"><span class="dir-branch"></span><span class="dir-age"></span></span>
       </button>
     </template>
 
     <template id="subdir-entry-template">
-      <button type="button" class="subdir"></button>
+      <button type="button" class="entry">
+        <span class="nm"></span>
+        <span class="chev" aria-hidden="true">›</span>
+      </button>
     </template>
 
     <script type="module" src="/src/main.ts"></script>

@@ -164,6 +164,12 @@ a `title` with the state word so a hover explains the colour.
 single primary action. No border-radius above 2px anywhere in the app.
 
 **Modal** — `--panel` on a 72%-opaque scrim, 1px `--line2` border, header rule, footer rule.
+The launch dialog is 720px wide (its picker panes scroll internally); confirm dialogs are 440px.
+
+**Segmented control** — mono, 10.5px, 1px `--line2` border; native radio inputs visually
+hidden inside their labels, the checked segment taking `--panel2` ground and `--paper` text,
+focus-visible an amber 1px inset outline. Used by the Focus/Tiles view switcher and the
+launch form's Model and Start-in rows.
 
 **Gauge thresholds** — a masthead usage bar takes `warn` and a context track takes `hot`
 at **≥ 60% used** (settled by m3-gauges planning, 2026-08-23 — the mockups' 61%-warn /

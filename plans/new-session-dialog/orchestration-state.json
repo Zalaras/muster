@@ -1,0 +1,24 @@
+{
+  "plan_name": "new-session-dialog",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 0,
+    "web-impl": 0,
+    "daemon-tests": 0,
+    "web-tests": 0,
+    "e2e-validate": 1,
+    "review": 2
+  },
+  "completed_steps": [
+    "e2e-specs",
+    "web-impl",
+    "web-tests",
+    "e2e-validate",
+    "review"
+  ],
+  "failed_steps": [],
+  "started_at": "2026-08-30T20:40:00Z",
+  "updated_at": "2026-08-30T22:39:52Z"
+}

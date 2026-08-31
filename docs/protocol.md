@@ -84,7 +84,7 @@ only client→server WS traffic in v1 is terminal input/resize on the terminal s
 {
   "directory": "/Users/damian/code/Projects/muster",  // required, absolute
   "title": "flaky-e2e-hunt",                          // optional → `claude --name`
-  "model": "opus",                                     // required; passed to `--model` verbatim — any non-empty string (UI offers sonnet/opus/haiku presets + free-text override)
+  "model": "opus",                                     // required; passed to `--model` verbatim — any non-empty string (UI offers sonnet/opus/haiku/fable presets + free-text override)
   "permissionMode": "acceptEdits"                      // required: "default" | "plan" | "acceptEdits" — seeds the latch (§7.3)
 }
 // response: 201 + the Session object (§5.3), state "started"
@@ -668,6 +668,12 @@ exit — so the next startup sweeps it.
   (§7.3) — plan `m4-reconcile`; canary unskip — plan `m4-canary`.
 
 ## 9. Changelog
+
+- **2026-08-30 — §3.1 request comment: `fable` preset** (plan `new-session-dialog`,
+  Pre-v1 Cleanup). The launch dialog's Model control gains a `fable` preset (a measured
+  alias in the installed Claude Code 2.1.251, `spikes/canary-fields.md`) — doc-only:
+  `model` was already any non-empty string passed to `--model` verbatim. No wire change;
+  no version bump.
 
 - **2026-08-30 — §3.3/§3.10/§3.11/§5.3: user-owned rail order** (plan `order-sidebar`,
   Pre-v1 Cleanup). Session object gains `pinned` + `railPos` (invariant: pinned before

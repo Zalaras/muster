@@ -1,6 +1,8 @@
+import { basename } from "node:path";
 import { expect, test } from "@playwright/test";
 import { type ScratchDaemon, startScratchDaemon } from "./helpers/daemon";
-import { browseScratchDirectory, launchSession, scratchDirectory } from "./helpers/session";
+import { childEntry, crumbButton, launchDialog } from "./helpers/picker";
+import { browseScratchDirectory, launchSession } from "./helpers/session";
 import { liveTile, stripCard } from "./helpers/terminal";
 
 // TODO.md "Create new session from tile view": the Focus rail's New session button is
@@ -53,11 +55,13 @@ test("a session launched from Tiles appears as a live tile", async ({ page }) =>
       await page.goto(daemon.dashboardUrl);
       await page.getByRole("button", { name: "Tiles" }).click();
       await newSessionButton(page).click();
-      const dialog = page.getByRole("dialog", { name: "New session" });
+      const dialog = launchDialog(page);
 
-      await dialog.getByRole("button", { name: "Browse…" }).click();
-      await dialog.getByRole("button", { name: new RegExp(`^${dir.split("/").pop()}( \\(git\\))?$`) }).click();
-      await dialog.getByRole("button", { name: "Use this folder" }).click();
+      // No prior launches on this fresh daemon, so the dialog opens directly on the
+      // browse root — `dir` is a direct child of it (plan new-session-dialog: the
+      // Browse…/Use this folder flow no longer exists; the listed directory is the
+      // selection).
+      await childEntry(dialog, basename(dir)).click();
       await dialog.getByLabel("Title").fill("from-tiles");
       await dialog.getByRole("button", { name: "Launch" }).click();
       await expect(dialog).toBeHidden();
@@ -74,7 +78,11 @@ test("launching from Tiles with a full 2×2 grid promotes the new session and de
   page,
 }) => {
   await withDaemon(async (daemon) => {
-    const dirs = await Promise.all([1, 2, 3, 4].map(() => scratchDirectory()));
+    // All four seeds live under the daemon's browse root (not an arbitrary system tmp
+    // dir, as a plain `scratchDirectory()` would give) so `browse.path` — reached below
+    // via crumb navigation up to that shared root — is actually navigable from wherever
+    // the most-recently-launched seed leaves the dialog open.
+    const dirs = await Promise.all([1, 2, 3, 4].map(() => browseScratchDirectory(daemon)));
     const browse = await browseScratchDirectory(daemon);
     try {
       await page.goto(daemon.dashboardUrl);
@@ -86,12 +94,13 @@ test("launching from Tiles with a full 2×2 grid promotes the new session and de
       await expect(page.locator("#tiles-strip [data-testid='session-card']")).toHaveCount(0);
 
       await newSessionButton(page).click();
-      const dialog = page.getByRole("dialog", { name: "New session" });
-      await dialog.getByRole("button", { name: "Browse…" }).click();
-      await dialog
-        .getByRole("button", { name: new RegExp(`^${browse.path.split("/").pop()}( \\(git\\))?$`) })
-        .click();
-      await dialog.getByRole("button", { name: "Use this folder" }).click();
+      const dialog = launchDialog(page);
+
+      // Four prior launches means the dialog opens on the most recently launched
+      // directory (a sibling of `browse.path` under the same browse root) — go up one
+      // crumb to the root, then descend into `browse.path`.
+      await crumbButton(dialog, basename(daemon.browseRoot)).click();
+      await childEntry(dialog, basename(browse.path)).click();
       await dialog.getByLabel("Title").fill("fifth");
       await dialog.getByRole("button", { name: "Launch" }).click();
       await expect(dialog).toBeHidden();

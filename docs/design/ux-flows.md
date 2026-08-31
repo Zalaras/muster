@@ -15,7 +15,7 @@ the end.
 | 1 | Directory memory | **Hybrid MRU + promotion** — every launch auto-remembers its directory; a directory becomes a configured repo only when it needs per-repo config |
 | 2 | Worktrees in v1 | **Repo root only, schema ready** — launch into the checkout you picked; `worktree` table exists but no worktree UI until §4.2 |
 | 3 | Primary layout | **Rail + focused pane** — attention-sorted rail on the left, one live terminal filling the rest |
-| 4 | Launch form | **Directory + optional title + model + starting permission mode** |
+| 4 | Launch form | **Directory + optional title + model + starting permission mode** — segmented Model/Start-in controls; Model gains a `fable` preset (2026-08-30, plan `new-session-dialog`) |
 
 ---
 
@@ -30,14 +30,13 @@ One list, ordered `pinned DESC, last_launched_at DESC`. No "add repo" ceremony: 
 directory earns its place by being used.
 
 ```
-New session
-─────────────────────────────────────────────
-▸ ~/code/Projects/muster          main    2m
-  ~/code/company/mdrostering      develop 1h
-  ★ ~/code/Projects/ledger-api    main    2d
-  ~/code/spikes/ccc-spike         —       3d
-─────────────────────────────────────────────
-  Browse…                              ⌘O
+New session                                       ⌘N
+─────────────────────────────────────────────────────
+Recent             │ / › Users › damian › code    ⌘↑
+▸ muster   main 2m │   Projects (git)              ›
+  mdroste… dev  1h │   spikes                      ›
+  ledger…  main 2d │   scratch                     ›
+─────────────────────────────────────────────────────
 ```
 
 - **★** marks a *promoted* directory — one that carries per-repo config. In v1 nothing
@@ -46,22 +45,31 @@ New session
   only if the MRU list gets long enough to annoy.
 - Branch is shown when the directory is a git checkout, `—` otherwise. Claude Code runs
   anywhere; "repo" is the table's name, not a precondition.
-- `Browse…` opens a daemon-backed folder browser (`GET /api/browse`: current path, Up,
-  subdirectory buttons with git checkouts marked, "Use this folder") and, on launch,
-  creates the row. *(Corrected at m1-sessions approval, 2026-08-22: the original "native
-  directory chooser" idea was unimplementable — browsers deliberately never reveal a
-  picked folder's absolute path.)*
+- *(Rebuilt 2026-08-30, plan `new-session-dialog` — the macOS Open-panel idiom.)* The MRU
+  list is a persistent **Recent** sidebar beside a browse pane: a **clickable breadcrumb**
+  (every ancestor a button, the current directory the highlighted last segment, ⌘↑ goes up)
+  over a **single child listing** (`GET /api/browse`, git checkouts marked `(git)`).
+  **The listed directory *is* the selection** — descending into a child changes it; there is
+  no `Browse…` unfold, no Up button and no "Use this folder" apply step. The footer always
+  states `Launch in <path>`. Clicking a recent navigates the browse pane to it and restores
+  that directory's last-used model and permission mode. *(The 2026-08-22 correction stands:
+  browsing is daemon-backed because browsers deliberately never reveal a picked folder's
+  absolute path.)*
 
 ### 1.2 The form
 
 ```
-Directory   ~/code/Projects/muster
 Title       (optional — Claude Code auto-generates)
-Model       ( ) sonnet   (•) opus
-Start in    (•) auto-accept   ( ) plan mode   ( ) Claude Code default
-                                          [ Launch ]  ⏎
+Model       [ sonnet │ opus │ haiku │ fable │ other… ]
+Start in    [ default │ plan │ auto-accept ]
+            Launch in ~/code/Projects/muster · main      [ Launch ]  ⏎
 ```
 
+- **Model** and **Start in** are segmented controls (native radios, design-system §5);
+  Model's presets are `sonnet / opus / haiku / fable` plus `other…`, which reveals a
+  free-text `Custom model` row. `Directory` is no longer a form row — the picker's listed
+  directory is the selection, restated by the footer readout (2026-08-30, plan
+  `new-session-dialog`).
 - **Title** maps to `--name`. Leaving it blank is a first-class choice: Claude Code
   auto-generates a usable human title from session content (§2.1, verified), and Muster
   reads the live title from the status line's `session_name` rather than maintaining its

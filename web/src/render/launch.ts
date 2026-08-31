@@ -1,34 +1,39 @@
-// The launch modal: MRU picker + folder browser + form (docs/protocol.md §3.1/§3.2/§3.6;
-// plan m1-sessions UI Specifications > Launch modal; ux-flows §1.2). DOM + wiring only —
-// every daemon call goes through ../api.ts, and the parsed Session comes back through
-// `onLaunched` so main.ts (which owns the session store) decides what happens next.
-import { browse, fetchRepos, launchSession, type BrowseResult, type LaunchRequest, type Repo } from "../api";
+// The launch dialog: a Finder-style picker (recents sidebar + clickable breadcrumb + one
+// child listing) over a stacked segmented form (docs/protocol.md §3.1/§3.2/§3.6; plan
+// new-session-dialog UI Specifications; design authority
+// plans/new-session-dialog/mockup.html). DOM + wiring only — every daemon call goes
+// through ../api.ts, and the parsed Session comes back through `onLaunched` so main.ts
+// (which owns the session store) decides what happens next.
+//
+// The listed directory *is* the selection (REQ-3): there is a single `current:
+// BrowseResult | null`, and the readout, the crumbs and the submit body all derive from
+// it — that's what makes INV-1 hold by construction. `navigate(path)` is the one door:
+// child click, crumb click, ⌘↑, a recent click and open all call it.
+import { browse, fetchRepos, launchSession, type BrowseEntry, type BrowseResult, type LaunchRequest, type Repo } from "../api";
 import type { Session } from "../protocol";
 import { formatAge } from "../sessions/format";
+import { renderCrumbs, splitCrumbs } from "./crumbs";
 
-const MODEL_PRESETS = ["sonnet", "opus", "haiku"] as const;
+const MODEL_PRESETS = ["sonnet", "opus", "haiku", "fable"] as const;
 
 export interface LaunchModalElements {
   dialog: HTMLDialogElement;
   /** Every "New session" button in the shell — the Focus rail's and the Tiles toolbar's;
    * each view hides the other's, so exactly one is visible at a time. */
   openButtons: readonly HTMLButtonElement[];
-  mruList: HTMLElement;
-  mruEntryTemplate: HTMLTemplateElement;
-  browseButton: HTMLButtonElement;
-  browsePanel: HTMLElement;
-  browsePath: HTMLElement;
-  browseUpButton: HTMLButtonElement;
+  recentsList: HTMLElement;
+  recentEntryTemplate: HTMLTemplateElement;
+  crumbsNav: HTMLElement;
   browseDirs: HTMLElement;
-  subdirEntryTemplate: HTMLTemplateElement;
-  useThisFolderButton: HTMLButtonElement;
-  selectedDirectoryDisplay: HTMLElement;
+  entryTemplate: HTMLTemplateElement;
   titleInput: HTMLInputElement;
   modelRadios: HTMLInputElement[];
   customModelRow: HTMLElement;
   customModelInput: HTMLInputElement;
   permissionModeRadios: HTMLInputElement[];
   launchError: HTMLElement;
+  launchTargetPath: HTMLElement;
+  launchTargetBranch: HTMLElement;
   cancelButton: HTMLButtonElement;
   form: HTMLFormElement;
 }
@@ -51,11 +56,26 @@ function checkedValue(radios: readonly HTMLInputElement[]): string | null {
 }
 
 export function initLaunchModal(elements: LaunchModalElements, handlers: LaunchModalHandlers): void {
-  let selectedDirectory: string | null = null;
-  let browseState: BrowseResult | null = null;
+  // The picker's whole state: what GET /api/browse most recently returned (null before
+  // the first successful browse of this open), the served MRU list, whether that list has
+  // resolved at all yet, and a monotonic counter guarding against a stale response landing
+  // after a newer navigation was issued (edge cases 7/8).
+  let current: BrowseResult | null = null;
+  let repos: Repo[] = [];
+  let reposLoaded = false;
+  let browseRequestId = 0;
+  // Whether the error currently shown in `#launch-error` is the "repos unavailable"
+  // kind. That error has no fix-it action in this dialog (nothing re-fetches repos
+  // mid-open), so it must survive the browse-root fallback `initOpen()` issues right
+  // after it — unlike a *browse* failure, which a later successful navigate() is meant
+  // to clear (edge case 2). Reset whenever a non-repos error replaces it or the error is
+  // explicitly cleared.
+  let reposErrorPersistent = false;
 
   function updateCustomModelVisibility(): void {
-    elements.customModelRow.hidden = checkedValue(elements.modelRadios) !== "other";
+    const isOther = checkedValue(elements.modelRadios) === "other";
+    elements.customModelRow.hidden = !isOther;
+    elements.customModelInput.hidden = !isOther;
   }
 
   function setModel(value: string): void {
@@ -86,101 +106,236 @@ export function initLaunchModal(elements: LaunchModalElements, handlers: LaunchM
   function showError(message: string): void {
     elements.launchError.textContent = message;
     elements.launchError.hidden = false;
+    reposErrorPersistent = false;
+  }
+
+  // The repos-fetch failure (REQ-13): shown the same way as any other error, but must
+  // not be wiped by the browse-root fallback that `initOpen()` runs immediately
+  // afterwards (there is no user action, inside this dialog, that fixes GET /api/repos).
+  function showReposError(message: string): void {
+    elements.launchError.textContent = message;
+    elements.launchError.hidden = false;
+    reposErrorPersistent = true;
   }
 
   function clearError(): void {
     elements.launchError.textContent = "";
     elements.launchError.hidden = true;
+    reposErrorPersistent = false;
   }
 
-  function setSelectedDirectory(path: string): void {
-    selectedDirectory = path;
-    elements.selectedDirectoryDisplay.textContent = path;
-    elements.browsePanel.hidden = true;
+  function buildRecentButton(repo: Repo, now: Date): HTMLButtonElement {
+    const fragment = elements.recentEntryTemplate.content.cloneNode(true) as DocumentFragment;
+    const button = fragment.querySelector<HTMLButtonElement>("button.dir");
+    if (!button) throw new Error("mru-entry-template is missing its button");
+    const name = button.querySelector<HTMLElement>(".dir-name");
+    const branch = button.querySelector<HTMLElement>(".dir-branch");
+    const age = button.querySelector<HTMLElement>(".dir-age");
+    if (name) name.textContent = repo.name;
+    if (branch) branch.textContent = repo.branch ?? "—";
+    if (age) age.textContent = formatAge(repo.lastLaunchedAt, now);
+    // REQ-18: the full path lives in `title`; the visible entry stays name · branch · age.
+    button.title = repo.path;
+    // INV-2: pressed is derived, never stored — recomputed on every render from whether
+    // this repo's path equals the current selection.
+    button.setAttribute("aria-pressed", current?.path === repo.path ? "true" : "false");
+    button.addEventListener("click", () => {
+      void (async () => {
+        const success = await navigate(repo.path);
+        // Implementation notes: model/mode apply only after the navigation succeeds, so a
+        // 404'd recent leaves the form untouched (INV-3 covers launch-time failures too).
+        if (success) {
+          setModel(repo.lastModel ?? "sonnet");
+          setPermissionMode(repo.lastPermissionMode ?? "default");
+        }
+      })();
+    });
+    return button;
+  }
+
+  function renderRecents(): void {
+    if (!reposLoaded) {
+      // States: "no data yet" — nothing beneath the Recent heading until repos arrive.
+      elements.recentsList.replaceChildren();
+      return;
+    }
+    if (repos.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "empty";
+      empty.textContent = "No recent directories";
+      elements.recentsList.replaceChildren(empty);
+      return;
+    }
+    const now = new Date();
+    elements.recentsList.replaceChildren(...repos.map((repo) => buildRecentButton(repo, now)));
+  }
+
+  function buildEntryButton(dir: BrowseEntry): HTMLButtonElement {
+    const fragment = elements.entryTemplate.content.cloneNode(true) as DocumentFragment;
+    const button = fragment.querySelector<HTMLButtonElement>("button.entry");
+    if (!button) throw new Error("subdir-entry-template is missing its button");
+    const nm = button.querySelector<HTMLElement>(".nm");
+    if (nm) nm.textContent = dir.name;
+    if (dir.isGit) {
+      const git = document.createElement("span");
+      git.className = "git";
+      git.textContent = " (git)";
+      button.querySelector(".chev")?.before(git);
+    }
+    button.addEventListener("click", () => void navigate(dir.path));
+    return button;
+  }
+
+  function renderListing(): void {
+    if (!current) {
+      // Daemon-down / never-succeeded state: an empty region, never "No subdirectories" —
+      // that would claim knowledge Muster does not have (design-system §6 honesty rules).
+      elements.browseDirs.replaceChildren();
+      return;
+    }
+    if (current.dirs.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "empty";
+      empty.textContent = "No subdirectories";
+      elements.browseDirs.replaceChildren(empty);
+      return;
+    }
+    elements.browseDirs.replaceChildren(...current.dirs.map((dir) => buildEntryButton(dir)));
+  }
+
+  function renderListingLoading(): void {
+    const loading = document.createElement("p");
+    loading.className = "loading";
+    loading.textContent = "loading…";
+    elements.browseDirs.replaceChildren(loading);
+  }
+
+  function updateCrumbs(): void {
+    if (!current) {
+      elements.crumbsNav.replaceChildren();
+      return;
+    }
+    renderCrumbs(elements.crumbsNav, splitCrumbs(current.path), (path) => void navigate(path));
+  }
+
+  function renderFooter(): void {
+    const path = current?.path;
+    if (!path) {
+      elements.launchTargetPath.textContent = "—";
+      elements.launchTargetBranch.hidden = true;
+      elements.launchTargetBranch.textContent = "";
+      return;
+    }
+    elements.launchTargetPath.textContent = path;
+    // REQ-17: the browse endpoint never reports the listed directory's own branch — the
+    // only honest source is a recent whose served path matches (derived, like `pressed`,
+    // not tracked separately as "how did we get here").
+    const branch = repos.find((repo) => repo.path === path)?.branch ?? null;
+    if (branch) {
+      elements.launchTargetBranch.textContent = ` · ${branch}`;
+      elements.launchTargetBranch.hidden = false;
+    } else {
+      elements.launchTargetBranch.textContent = "";
+      elements.launchTargetBranch.hidden = true;
+    }
+  }
+
+  function renderAll(): void {
+    renderRecents();
+    updateCrumbs();
+    renderListing();
+    renderFooter();
+  }
+
+  /** The one door for changing the selection. Bumps the request counter, shows
+   * `loading…`, awaits the browse, drops the response if a newer navigation was issued
+   * meanwhile (edge case 7), and on failure restores the previous listing untouched
+   * (INV-3) while surfacing the error. Resolves to whether the navigation succeeded, so
+   * callers (recents) can gate a model/mode change on it. */
+  async function navigate(path?: string): Promise<boolean> {
+    const requestId = ++browseRequestId;
+    renderListingLoading();
+    const result = await browse(path);
+    if (requestId !== browseRequestId) return false;
+    if (result.ok) {
+      // Edge case 2 preserved: a *browse* error (including a validation/launch error, or
+      // no error at all) is cleared by the next successful navigation. A *repos* error is
+      // not — see `showReposError`.
+      if (!reposErrorPersistent) clearError();
+      current = result.value;
+      renderAll();
+      return true;
+    }
+    showError(result.error.message);
+    renderListing();
+    return false;
+  }
+
+  /** Returns `null` when there is no parent crumb to ascend to (nothing was attempted —
+   * a true no-op), otherwise the underlying `navigate()` result (success or failure,
+   * both of which re-render the listing and so do lose focus regardless). Callers that
+   * re-anchor focus after ascending (REQ-15) key off the `null` case to skip that
+   * re-anchor on the genuine no-op — see the `ArrowLeft` handler below. */
+  function navigateUp(): Promise<boolean | null> {
+    const buttons = elements.crumbsNav.querySelectorAll<HTMLButtonElement>("button[data-path]");
+    const last = buttons[buttons.length - 1];
+    if (last?.dataset.path) return navigate(last.dataset.path);
+    return Promise.resolve(null);
+  }
+
+  /** REQ-15 traversal continuity: `renderAll()` replaces every entry button on each
+   * navigation (the picker's per-navigation full-rebuild — see Decisions), so the button
+   * that held focus before a descend/ascend is gone afterward and focus silently falls to
+   * `<body>`. Re-anchoring on the first entry of the new listing keeps ↑/↓/←/→ usable past
+   * one keystroke instead of one-shot. */
+  function focusFirstEntry(): void {
+    elements.browseDirs.querySelector<HTMLButtonElement>("button.entry")?.focus();
+  }
+
+  async function initOpen(): Promise<void> {
+    const reposResult = await fetchRepos();
+    if (reposResult.ok) {
+      repos = reposResult.value;
+      clearError();
+    } else {
+      repos = [];
+      showReposError(reposResult.error.message);
+    }
+    reposLoaded = true;
+    renderRecents();
+
+    const first = repos[0];
+    if (first) {
+      const success = await navigate(first.path);
+      if (success) {
+        setModel(first.lastModel ?? "sonnet");
+        setPermissionMode(first.lastPermissionMode ?? "default");
+        return;
+      }
+      // Edge case 2: the first recent's directory no longer exists. Without a fallback
+      // there would be no crumbs to click, so fall back to the browse root; its success
+      // clears the error the failed attempt raised (acceptable per the plan).
+      await navigate(undefined);
+      return;
+    }
+    await navigate(undefined);
   }
 
   function resetForm(): void {
-    selectedDirectory = null;
-    elements.selectedDirectoryDisplay.textContent = "—";
+    current = null;
+    repos = [];
+    reposLoaded = false;
     elements.titleInput.value = "";
     elements.customModelInput.value = "";
     setModel("sonnet");
     setPermissionMode("default");
-    elements.browsePanel.hidden = true;
     clearError();
-  }
-
-  function renderMruList(repos: readonly Repo[]): void {
-    const now = new Date();
-    elements.mruList.replaceChildren(
-      ...repos.map((repo) => {
-        const fragment = elements.mruEntryTemplate.content.cloneNode(true) as DocumentFragment;
-        const button = fragment.querySelector<HTMLButtonElement>("button");
-        if (!button) throw new Error("mru-entry-template is missing its button");
-        const name = button.querySelector<HTMLElement>(".dir-name");
-        const path = button.querySelector<HTMLElement>(".dir-path");
-        const br = button.querySelector<HTMLElement>(".dir-branch");
-        const age = button.querySelector<HTMLElement>(".dir-age");
-        if (name) name.textContent = repo.name;
-        // Plan UI spec: "name, path, branch or —, relative last-launch age" — the path is
-        // what distinguishes a repo from a linked worktree in the picker (ux-flows §2).
-        if (path) path.textContent = repo.path;
-        if (br) br.textContent = repo.branch ?? "—";
-        if (age) age.textContent = formatAge(repo.lastLaunchedAt, now);
-        button.addEventListener("click", () => {
-          setSelectedDirectory(repo.path);
-          setModel(repo.lastModel ?? "sonnet");
-          setPermissionMode(repo.lastPermissionMode ?? "default");
-        });
-        return button;
-      }),
-    );
-  }
-
-  function renderBrowse(result: BrowseResult): void {
-    browseState = result;
-    elements.browsePath.textContent = result.path;
-    elements.browseDirs.replaceChildren(
-      ...result.dirs.map((dir) => {
-        const fragment = elements.subdirEntryTemplate.content.cloneNode(true) as DocumentFragment;
-        const button = fragment.querySelector<HTMLButtonElement>("button");
-        if (!button) throw new Error("subdir-entry-template is missing its button");
-        // Plan UI spec: "subdirectory buttons (from GET /api/browse, git checkouts
-        // marked)". Additive marker text — the button's name still contains the
-        // directory's own name (Testable UI Elements table).
-        button.textContent = dir.isGit ? `${dir.name} (git)` : dir.name;
-        button.addEventListener("click", () => void loadBrowse(dir.path));
-        return button;
-      }),
-    );
-  }
-
-  async function loadBrowse(path?: string): Promise<void> {
-    const result = await browse(path);
-    // Edge case 14 (plan): a browse failure (removed/unreadable directory) leaves the
-    // panel showing its last-known listing rather than clearing it silently — but the
-    // failure itself must still be visible (plan: "the browser UI shows the error and
-    // stays where it was"), not just silently swallowed.
-    if (result.ok) {
-      clearError();
-      renderBrowse(result.value);
-    } else {
-      showError(result.error.message);
-    }
-  }
-
-  async function loadRepos(): Promise<void> {
-    const result = await fetchRepos();
-    if (result.ok) {
-      clearError();
-      renderMruList(result.value);
-    } else {
-      showError(result.error.message);
-    }
+    renderAll();
   }
 
   async function submit(): Promise<void> {
-    if (!selectedDirectory) {
+    const directory = current?.path;
+    if (!directory) {
       showError("Choose a directory to launch into.");
       return;
     }
@@ -190,7 +345,7 @@ export function initLaunchModal(elements: LaunchModalElements, handlers: LaunchM
       return;
     }
     const body: LaunchRequest = {
-      directory: selectedDirectory,
+      directory,
       model,
       permissionMode: selectedPermissionMode(),
     };
@@ -210,15 +365,14 @@ export function initLaunchModal(elements: LaunchModalElements, handlers: LaunchM
     if (elements.dialog.open) return;
     resetForm();
     elements.dialog.showModal();
-    void loadRepos();
+    void initOpen();
   }
 
   for (const button of elements.openButtons) {
     button.addEventListener("click", openModal);
   }
 
-  // REQ-22 (nice-to-have) / ux-flows keyboard model: Cmd+N opens the launch modal from
-  // anywhere in the shell.
+  // ⌘N opens the launch modal from anywhere in the shell.
   window.addEventListener("keydown", (event) => {
     if (event.metaKey && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "n") {
       // Always swallow the browser's own Cmd+N while the dashboard has focus — even
@@ -230,17 +384,45 @@ export function initLaunchModal(elements: LaunchModalElements, handlers: LaunchM
     }
   });
 
-  elements.browseButton.addEventListener("click", () => {
-    elements.browsePanel.hidden = false;
-    void loadBrowse();
+  // REQ-6: ⌘↑ navigates to the parent of the listed directory. Dialog-scoped, not
+  // listing-scoped (edge case 11 — it still fires with focus in the Title input), mirrors
+  // the ⌘N handler above.
+  window.addEventListener("keydown", (event) => {
+    if (event.metaKey && !event.shiftKey && !event.altKey && event.key === "ArrowUp") {
+      if (!elements.dialog.open) return;
+      event.preventDefault();
+      void navigateUp();
+    }
   });
 
-  elements.browseUpButton.addEventListener("click", () => {
-    if (browseState?.parent) void loadBrowse(browseState.parent);
-  });
-
-  elements.useThisFolderButton.addEventListener("click", () => {
-    if (browseState) setSelectedDirectory(browseState.path);
+  // REQ-15: with focus on a child entry, ↑/↓ move focus between entries and →/Enter
+  // descend (Enter already works for free — it's a <button>); ← is ⌘↑'s synonym, but only
+  // when focus is inside the listing (the window-level handler above covers the ⌘↑ case
+  // everywhere else, so this bows out whenever the meta key is held).
+  elements.browseDirs.addEventListener("keydown", (event) => {
+    if (event.metaKey || event.altKey) return;
+    const entries = Array.from(elements.browseDirs.querySelectorAll<HTMLButtonElement>("button.entry"));
+    if (entries.length === 0) return;
+    const activeIndex = entries.indexOf(document.activeElement as HTMLButtonElement);
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      entries[(activeIndex + 1 + entries.length) % entries.length]?.focus();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      entries[(activeIndex - 1 + entries.length) % entries.length]?.focus();
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      const dir = current?.dirs[activeIndex];
+      if (dir) void navigate(dir.path).then(() => focusFirstEntry());
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      // `null` means there was no parent crumb — a genuine no-op — so focus stays put
+      // instead of re-anchoring to the (unchanged) first entry (review Minor: a no-op
+      // ascend must not jump focus).
+      void navigateUp().then((result) => {
+        if (result !== null) focusFirstEntry();
+      });
+    }
   });
 
   for (const radio of elements.modelRadios) {
