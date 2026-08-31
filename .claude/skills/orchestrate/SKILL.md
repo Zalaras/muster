@@ -118,6 +118,13 @@ When routing review issues back to fix agents:
    Learned from m1-sessions: a Critical naming two paths got a one-path fix, and the
    identical bug came back through the other path a full review cycle later.
 
+6. **State the cycle label** — every fix-mode prompt names the current review cycle
+   ("This is review cycle 2's fix wave"), or the pre-review context ("this is an
+   e2e-validate fix, no review has run") when routing a Step 4/5 implementation-bug;
+   agents copy that label into their commit-message suffix. Learned from
+   new-session-dialog: two commits shipped with the literal suffix `(review cycle N)`
+   and two more guessed the wrong number.
+
 ### Step 1: E2E Specs Agent
 
 Spawn `subagent_type: "e2e-specs"` with prompt:
@@ -242,6 +249,8 @@ Spawn `subagent_type: "review-work"`:
 ```
 Execute the review task for plan: <plan-name>
 Project root: <project-root>
+This is review cycle <N>. When your review is written, commit plans/<plan-name>/review.md
+yourself (your definition says how).
 ```
 
 **Approved with open decision items is conditional.** An `approved` verdict may carry
@@ -255,7 +264,7 @@ cycle 1 approved with one decision item; Option A won and changed `focusNth`, so
 
 **Review Retry Logic**: If the review verdict is `needs-changes`:
 
-1. Read `review.md` and bucket every tagged issue by tag: `[daemon-impl]`, `[web-impl]`, `[daemon-tests]`, `[web-tests]`, `[e2e-specs]`. Issues tagged `[orchestrator]` are yours — never spawn an agent for them; handle them in the Doc-Upkeep Backstop / Completion step. **Minors ride along:** an agent that is being spawned for a Critical/Major also gets every Minor tagged to it in the same prompt (the Fix Prompt Rules' "ALL issues for that agent" includes Minors). An agent tagged **only** with Minors is not spawned — those Minors go to `TODO.md` at completion (see Completion 2b). `[note]` items are never routed; list them in the completion summary.
+1. Read `review.md` and bucket every tagged issue by tag: `[daemon-impl]`, `[web-impl]`, `[daemon-tests]`, `[web-tests]`, `[e2e-specs]`. Issues tagged `[orchestrator]` are yours — never spawn an agent for them; handle them in the Doc-Upkeep Backstop / Completion step. A doc-only `[orchestrator]` issue may instead be fixed while a fix wave runs, iff its file set (`docs/`, `TODO.md`, `SPEC.md`, `spikes/`) is disjoint from every file the wave's agents may write and each wave prompt says to leave those files alone (new-session-dialog: cycle 1's doc Major landed in parallel with the e2e fix wave, the reviewer verified it accurate, and a full wave of wall-clock was saved). **Minors ride along:** an agent that is being spawned for a Critical/Major also gets every Minor tagged to it in the same prompt (the Fix Prompt Rules' "ALL issues for that agent" includes Minors). An agent tagged **only** with Minors is not spawned — those Minors go to `TODO.md` at completion (see Completion 2b). `[note]` items are never routed; list them in the completion summary.
 1a. **Decision items first.** An issue tagged `[orchestrator:user-decision]` (protocol contract, scope, a recorded SPEC decision, money) goes straight to the user via `AskUserQuestion` with the reviewer's two options quoted verbatim — no debate; record the outcome in `plans/<plan>/decisions/<slug>/decision.md` with `Reached by: user decision`, land the protocol/plan/SPEC edits yourself (you are the only party allowed to edit the contract), then quote the outcome in the fix-wave prompt. For every issue tagged `[orchestrator:decision]`, run the `decide` skill (`.claude/skills/decide/SKILL.md`) **before** spawning any fix wave: two `debater` agents argue the two options directly to each other, a fresh `judge` breaks a tie, and `plans/<plan>/decisions/<slug>/decision.md` records the outcome. Quote the outcome verbatim in the fix-wave prompt of the agent that implements it. Max 2 debates per run; a third decision item, or any item on the skill's never-debated list (protocol contract, scope, a recorded SPEC decision, spending money), stops the pipeline and asks the user. Learned from m4-reconcile: two decision items were carried through three review cycles, one was then decided inside a fix wave by an impl agent and produced the next cycle's Critical.
 2. **Do not fan all five out at once — they are not independent.** Group the non-empty buckets into waves per `## Fix Wave Ordering` below, and run the waves strictly in order. Within a wave, spawn its agents in parallel (multiple Task calls in one message); between waves, wait for completion and run the wave's gate.
 3. If a wave's gate fails, that wave's fix was incomplete. End the cycle there — count it against the review budget and report — rather than starting the next wave on a broken tree.

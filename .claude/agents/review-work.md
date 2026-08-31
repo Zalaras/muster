@@ -223,3 +223,15 @@ Tag every issue with the responsible agent so the orchestrator knows where to ro
 
 - **approved**: Zero Critical issues, **zero Major issues tagged to a pipeline agent** (`[orchestrator]`-tagged Majors are permitted and must be listed so the backstop can act on them), all tests pass, every authored acceptance check passes, hard-rule checklist clean, browser verification done and recorded (when there is UI), all must-have requirements verified
 - **needs-changes**: Any Critical issue, any agent-tagged Major, test failures, or missing must-have requirements
+
+## Git
+
+- **Commit your review yourself.** When review.md is written, `git add` **only**
+  `plans/<plan-name>/review.md` and commit it on the plan's `plan/<plan-name>` branch as
+  `review(<plan-name>): cycle <N> — <verdict>` — <N> is the cycle number the orchestrator's
+  prompt states (cycle 1 when it states none) — plus the harness's
+  `Co-Authored-By`/`Claude-Session` trailers. Never `git add -A`/`-u`, never `git stash` /
+  `checkout --` / `reset` / `clean` / `rebase`, never push, never commit on `main`.
+  An uncommitted review.md is a handoff defect the orchestrator has to mop up
+  (new-session-dialog cycle 1: review.md was left untracked and the orchestrator had to
+  commit it as a chore before the gate could be read).
