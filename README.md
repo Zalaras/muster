@@ -13,8 +13,8 @@ Personal tool, macOS only, single user. Not a product.
 
 **M0–M4 shipped.** The daemon manages real sessions end to end: hook/status-line ingest, the
 state machine, the SQLite store, tmux-backed terminal panes, reconcile and shutdown policy,
-and a dashboard with Focus and Tiles views. Remaining work is the Pre-v1 Cleanup in
-[`TODO.md`](TODO.md).
+and a dashboard with Focus and Tiles views. Remaining work is the Pre-v1 Cleanup and the
+triaged pre-v1 issues in [`TODO.md`](TODO.md).
 
 `musterd` ships as a **single self-contained binary** — the dashboard is compiled in via
 `internal/webui` (`//go:embed`), so a copy of the binary needs nothing beside it.

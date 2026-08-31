@@ -999,3 +999,27 @@ lists it (it does not — the feature is additive to the MVP set):
   in `TODO.md` via commit references.
 - Cycle-1 review decision (user): no disabled-button affordance in this plan (Option B);
   the app-wide `.btn:disabled` sweep is a TODO.md M5+ item.
+
+### 2026-08-31 — Issue triage and landing policy (`/triage`, `/land`)
+
+Settles what happens to a filed issue after creation. Extends the entry above rather than
+changing it: **the daemon is unchanged** and still only creates issues — both commands are
+dev-workflow skills outside musterd, so the "scope ends at creation" boundary holds.
+
+- **An issue closes when the fix lands on `main`, never at triage.** Closing at triage would
+  make "closed" mean "we read it", destroying the only status field that survives
+  open-sourcing, reading as a brush-off to any future reporter, and removing the duplicate-filing
+  guard that matters most given how cheap the Issue button makes re-filing. The close is free at
+  the other end: `closes #N` in the squash subject (`docs/conventions.md` § Commits). The one
+  exception is a duplicate or invalid issue, closed as such with explicit approval — a real
+  resolution, not a filing convention.
+- **Triage state is derived, not stored**: an issue is triaged iff its number appears in
+  `TODO.md`. No labels, no close-state, no second list to keep in sync — and it self-heals,
+  since deleting a TODO item makes its issue correctly reappear as untriaged.
+- **`/orchestrate` never closes an issue.** At pipeline completion the fix exists only on a
+  branch the user has not accepted, and a review verdict of `approved` is the reviewer's opinion,
+  not acceptance. It records `closes_issues` in `orchestration-state.json` and hands off.
+- **`/land` is the landing ritual**, previously an undocumented end-of-session request: it
+  gates on an approved review, composes the conventional subject with the issue references,
+  shows the predicted `svu` bump before pushing (landing chooses the version), and deletes the
+  plan branch by content diff (`git branch --merged` is defeated by squash-merging).

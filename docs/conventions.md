@@ -95,8 +95,17 @@ Two consequences of the one-sentence rule above:
   convention forbids. Don't reach for one; it would be silently ignored.
 - **While Muster is on 0.x, don't use `!` at all.** svu follows semver strictly, so a
   breaking marker on `0.x` jumps straight to `1.0.0` rather than bumping the minor.
-  Breaking changes ride along as `feat` until the Pre-v1 Cleanup in `TODO.md` closes and
+  Breaking changes ride along as `feat` until the pre-v1 sections in `TODO.md` close and
   v1 is cut deliberately.
+
+**Closing issues.** Issues on `Zalaras/muster` (filed from the dashboard's masthead `Issue`
+button) are triaged by hand into `TODO.md`; the commit that fixes one closes it with a
+trailing `Closes #N` in the summary line — e.g. `fix(launch): preflight tmux and name the
+remedy (Closes #2)`. That is the only issue automation Muster has: the daemon creates
+issues and never reads, labels, or syncs them (`SPEC.md` 2026-08-31 changelog). `/land`
+composes that subject from the plan's `closes_issues`, so the reference is not left to whoever
+happens to run the merge; `/triage --audit` reports any issue still open whose `TODO.md` item is
+ticked, which is how a dropped reference gets caught.
 
 ## Comments
 

@@ -452,10 +452,52 @@ These are some minor changes and cleanup needed before we can move into post v1.
   lastActivity, failure.message), directory/branch/repo/worktree, Claude session id value,
   account usage. Follow-up already filed separately: app-wide `.btn:disabled` sweep (M5+).
 
+## Reported issues (pre-v1 release)
+
+Issues filed from the dashboard's masthead `Issue` button land on
+[`Zalaras/muster`](https://github.com/Zalaras/muster/issues) and are triaged into this file by
+**`/triage`**: muster creates issues and does nothing else with them — no reading, no labels, no
+status sync (`SPEC.md` 2026-08-31 changelog, `plans/issue-capture/plan.md` §Overview). An issue
+counts as triaged iff its `issues/N` link appears in this file, so **every entry below must keep
+its full markdown link** — a bare `#N` is a cross-reference and does not mark an issue triaged.
+Closing happens when the fix lands: `/land` puts `closes #N` in the squash subject
+(`docs/conventions.md` § Commits), and `/triage --audit` reports any issue whose entry is ticked
+while the issue is still open.
+
+- [ ] **tmux dependency is unhandled at first launch** ([#2](https://github.com/Zalaras/muster/issues/2))
+  — on a machine without tmux the first launch dies with the raw exec error
+  (`spawning tmux session: tmux new-session: exec: "tmux": executable file not found in $PATH`).
+  Either bundle tmux or preflight the dependency at startup and name the remedy
+  (`brew install tmux`); the failure has to be legible before v1 either way. Same seam as
+  #4 — one plan can close both.
+
+- [ ] **Install instructions are insufficient** ([#4](https://github.com/Zalaras/muster/issues/4))
+  — the GitHub Release is the only distribution path (Homebrew deliberately deferred, see
+  the CI item above), so `README.md` has to carry the whole story: separate Intel and Apple
+  Silicon archives, where the binary belongs, and how to verify it runs. Pairs with #2.
+
+- [ ] **Contrast pass + design tokens** ([#3](https://github.com/Zalaras/muster/issues/3))
+  — some text fails on contrast, and the fix is structural rather than a one-off colour
+  tweak: move `web/src/style.css` onto a token system with a standard light/dark pair and
+  room for custom themes. Touches the design system (`docs/design/design-system.md`),
+  so it wants a `/spec` pass before planning. Note the M5+ `.btn:disabled` affordance item
+  is the same layer — if this lands first, fold that pass into it.
+
+- [ ] **⌘N collides with the browser** ([#5](https://github.com/Zalaras/muster/issues/5))
+  — the new-session shortcut is swallowed by Safari's own new-window binding. Muster
+  shouldn't override browser defaults; rebind to something unclaimed (⇧⌘N was the
+  suggestion) and re-check the ⌘1–9 focus shortcuts for the same problem while in there.
+
 ## M5+ (v1.x, re-rank when reached)
 
 Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start-from-PR/issue
 (§4.3) → permissions UI (§4.4) → `code <worktree>` button (trivial, anytime).
+
+- [ ] **Version-pin warning is developer-facing** ([#6](https://github.com/Zalaras/muster/issues/6))
+  — "drift from pinned 2.1.246" means nothing to someone who didn't set the pin. It should
+  read as a support warning (this Claude Code version isn't verified yet; things past the
+  pin may misbehave): a warning icon with a hover explanation and a dismiss. Post-v1 — the
+  drift banner is correct today, just written for the person who wrote it.
 
 - [ ] **App-wide `.btn:disabled` affordance pass** — no disabled button anywhere in Muster has
   a visual disabled state (issue-capture review cycle 1, Minor 5: `#issue-submit-button`
