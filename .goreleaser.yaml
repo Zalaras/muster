@@ -1,0 +1,59 @@
+version: 2
+
+project_name: muster
+
+before:
+  hooks:
+    # The dashboard is compiled into the binary by internal/webui's //go:embed, so it must
+    # be built before the Go build runs — a stale or absent internal/webui/assets ships a
+    # stale or assetless daemon. MUSTER_RELEASE drops the 955 kB sourcemap (web/vite.config.ts).
+    # before.hooks takes plain strings (verified against the v2.18 schema — the cmd/dir/env
+    # object form is builds.hooks only), and GoReleaser execs them without a shell, hence sh -c.
+    - sh -c "cd web && npm ci"
+    - sh -c "cd web && MUSTER_RELEASE=1 npm run build"
+
+builds:
+  - id: musterd
+    main: ./cmd/musterd
+    binary: musterd
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    # Only `version` — cmd/musterd/main.go declares no commit/date variable, and -X against
+    # a symbol that does not exist is silently ignored rather than caught.
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  - id: musterd
+    formats:
+      - tar.gz
+    name_template: "musterd_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    # Most of this repo's history is docs(pipeline) retro entries; release notes are for
+    # features and fixes only. Trigger types are tabulated in docs/conventions.md § Commits.
+    exclude:
+      - "^docs"
+      - "^chore"
+      - "^test"
+      - "^ci"
+      - "^style"
+      - "^refactor"
+
+release:
+  github:
+    owner: Zalaras
+    name: muster

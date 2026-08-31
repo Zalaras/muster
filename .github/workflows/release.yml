@@ -1,0 +1,73 @@
+# Release on every push to main whose commits warrant a version bump (docs-only pushes
+# exit green without releasing). Trigger types: docs/conventions.md § Commits.
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # svu reads the whole commit history and the tag list; a shallow clone silently
+          # computes the wrong version.
+          fetch-depth: 0
+
+      - name: Fetch tags
+        run: git fetch --force --tags
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Compute next version
+        id: version
+        run: |
+          set -euo pipefail
+          go install github.com/caarlos0/svu/v3@v3.4.1
+          current="$(svu current 2>/dev/null || echo v0.0.0)"
+          next="$(svu next)"
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          echo "next=$next" >> "$GITHUB_OUTPUT"
+          if [ "$current" = "$next" ]; then
+            echo "No release-worthy commits since $current; skipping release."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Releasing $current -> $next"
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Tagging and releasing must stay in one job: a tag pushed with GITHUB_TOKEN does not
+      # trigger workflows, so a separate tag-triggered release workflow would never fire.
+      - name: Tag
+        if: steps.version.outputs.release == 'true'
+        run: |
+          set -euo pipefail
+          git tag "${{ steps.version.outputs.next }}"
+          git push origin "${{ steps.version.outputs.next }}"
+
+      - uses: goreleaser/goreleaser-action@v6
+        if: steps.version.outputs.release == 'true'
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

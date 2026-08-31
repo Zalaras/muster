@@ -7,8 +7,8 @@ VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
 .PHONY: help
 help: ## List targets
-	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
-		| awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-11s\033[0m %s\n", $$1, $$2}'
+	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
+		| awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-13s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: build
 build: ## Build the daemon into ./bin/musterd
@@ -61,7 +61,27 @@ canary: ## Drive the real claude (3 haiku turns + 1 zero-token) and assert every
 .PHONY: check
 check: lint test ## Lint + test
 
+# gh (unlike a browser) does not set the com.apple.quarantine xattr, so the unsigned binary
+# runs without a Gatekeeper prompt. Arch is resolved here because releases ship one archive
+# per arch rather than a universal binary.
+.PHONY: install
+install: ## Install the latest released musterd into ~/.local/bin
+	@arch=$$(uname -m | sed 's/^x86_64$$/amd64/; s/^aarch64$$/arm64/'); \
+	tmp=$$(mktemp -d); \
+	trap 'rm -rf "$$tmp"' EXIT; \
+	echo "fetching latest musterd_*_darwin_$$arch.tar.gz"; \
+	gh release download --repo Zalaras/muster \
+		--pattern "musterd_*_darwin_$$arch.tar.gz" --dir "$$tmp"; \
+	mkdir -p $(HOME)/.local/bin; \
+	tar -xzf "$$tmp"/*.tar.gz -C $(HOME)/.local/bin musterd; \
+	echo "installed $(HOME)/.local/bin/musterd ($$($(HOME)/.local/bin/musterd -version))"
+
+.PHONY: release-check
+release-check: ## Validate .goreleaser.yaml and build a local snapshot release into ./dist
+	goreleaser check
+	goreleaser release --snapshot --clean
+
 .PHONY: clean
 clean: ## Remove build output (preserves internal/webui/assets/.gitkeep so a post-clean build still embeds)
-	rm -rf bin web/dist
+	rm -rf bin web/dist dist
 	find internal/webui/assets -mindepth 1 ! -name .gitkeep -delete

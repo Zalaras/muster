@@ -11,9 +11,13 @@ Personal tool, macOS only, single user. Not a product.
 
 ## Status
 
-**Pre-M0.** Spec and validation spikes are complete; the build has not started. What exists
-today is the toolchain, a daemon entrypoint that checks the Claude Code version pin, and a
-frontend that proves the bundler works.
+**M0–M4 shipped.** The daemon manages real sessions end to end: hook/status-line ingest, the
+state machine, the SQLite store, tmux-backed terminal panes, reconcile and shutdown policy,
+and a dashboard with Focus and Tiles views. Remaining work is the Pre-v1 Cleanup in
+[`TODO.md`](TODO.md).
+
+`musterd` ships as a **single self-contained binary** — the dashboard is compiled in via
+`internal/webui` (`//go:embed`), so a copy of the binary needs nothing beside it.
 
 | Document | What it is |
 |---|---|
@@ -41,6 +45,28 @@ spikes/               step-1 validation findings (historical record, not built c
 
 Packages arrive when they have contents — M0 adds the HTTP/WS server, the state machine and
 the SQLite store.
+
+## Install
+
+Releases are published to GitHub whenever a `feat` or `fix` lands on `main` (see
+[`docs/conventions.md`](docs/conventions.md) § Commits). The repo is private, so downloads go
+through `gh`:
+
+```sh
+make install     # latest release -> ~/.local/bin/musterd
+```
+
+Or by hand, if you want a specific version or a different location:
+
+```sh
+gh release download --repo Zalaras/muster \
+  --pattern 'musterd_*_darwin_amd64.tar.gz'   # arm64 on Apple Silicon
+tar -xzf musterd_*.tar.gz musterd
+```
+
+The binary is unsigned, but `gh` doesn't set the `com.apple.quarantine` xattr, so it runs
+without a Gatekeeper prompt. If you download one through a browser instead, clear it with
+`xattr -d com.apple.quarantine musterd`.
 
 ## Requirements
 

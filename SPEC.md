@@ -945,3 +945,31 @@ implemented:
 - Build ordering is now load-bearing: `make e2e` orders `web-build` before `build` — a Go
   compile before the web build embeds a stale dashboard (the successor of the
   stale-`web/dist` trap; pipeline lore docs updated accordingly).
+
+### 2026-08-31 — Distribution settled: tagged GitHub Releases, automatic versioning
+
+Follows the `embed-dashboard` entry above — a self-contained binary is only useful once
+there is a way to get one. Decisions:
+
+- **Distribution is the GitHub Release.** `make install` / `gh release download` pulls the
+  latest darwin archive into `~/.local/bin`. **Homebrew is deferred to any open-sourcing**:
+  a private tap works, but only via `GitHubPrivateRepositoryReleaseDownloadStrategy` plus a
+  permanent `HOMEBREW_GITHUB_API_TOKEN` — not worth the standing setup for a single user.
+  Once the repo is public, a GoReleaser `brews:` block makes it near-free; revisit then.
+- **Versioning is automatic and commit-driven.** `svu` reads the conventional commits since
+  the last tag on every push to `main`: `feat` → minor, `fix` → patch, `!` → major,
+  everything else no release. This makes `docs/conventions.md` § Commits load-bearing rather
+  than stylistic. Muster stays on **0.x** until the Pre-v1 Cleanup closes, so `!` is not to
+  be used — svu would take `0.x` straight to `1.0.0`.
+- **Builds run on Linux, not macOS.** Every Go dependency is pure Go (`modernc.org/sqlite`,
+  `creack/pty`, `coder/websocket`), so `CGO_ENABLED=0` cross-compiles darwin from
+  `ubuntu-latest`. On a private repo that is a 10x runner-minute saving, and it is a
+  standing reason not to introduce a cgo dependency casually.
+- **Two arch archives, not a universal binary** (`darwin/amd64` + `darwin/arm64`) — smaller
+  downloads, and arch selection is one `uname -m` in `make install`.
+- **Release builds drop the JS sourcemap** (`MUSTER_RELEASE=1` → Vite `sourcemap: false`),
+  resolving the ~955 kB question the `embed-dashboard` review deferred to this work. Local
+  and E2E builds keep maps; the shipped artifact therefore differs from the E2E-tested one
+  by the maps alone, which was accepted deliberately.
+- **No test or lint job in CI yet** — deliberate, pending possible open-sourcing. The
+  release build is the compile gate; adding `make check` is a one-line step when wanted.

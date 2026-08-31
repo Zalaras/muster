@@ -424,6 +424,22 @@ These are some minor changes and cleanup needed before we can move into post v1.
   passing the real `webui.FS()` — so daemon-tests can assert the fatal error and its two-remedy
   wording deterministically.
 
+- [x] Add CI that builds and publishes a shippable binary, with automatic semantic versioning
+  — **Done 2026-08-31**: `.github/workflows/release.yml` runs on push to `main` (plus
+  `workflow_dispatch`), computes the next version with `svu` from the conventional commits,
+  tags it, and publishes darwin `amd64`/`arm64` archives via GoReleaser (`.goreleaser.yaml`).
+  Builds run on `ubuntu-latest` — every Go dep is pure Go, so `CGO_ENABLED=0` cross-compiles
+  darwin, and the repo being private makes macOS runners cost 10x. Tag and release are one
+  job deliberately (a `GITHUB_TOKEN` tag push cannot trigger another workflow). Release
+  builds set `MUSTER_RELEASE=1` so Vite drops the 955 kB sourcemap the `embed-dashboard`
+  review flagged; every other build path keeps it. Distribution is the GitHub Release
+  (`make install` / `gh release download`) — **Homebrew deliberately deferred** to any
+  open-sourcing, since a private tap needs
+  `GitHubPrivateRepositoryReleaseDownloadStrategy` plus a permanent
+  `HOMEBREW_GITHUB_API_TOKEN`. **No test/lint job yet** — Damian's call pending possible
+  open-sourcing; the release build is the de facto compile gate, and adding `make check` as
+  a step is a one-liner when wanted. Trigger table lives in `docs/conventions.md` § Commits.
+
 ## M5+ (v1.x, re-rank when reached)
 
 Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start-from-PR/issue

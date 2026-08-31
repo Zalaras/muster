@@ -33,7 +33,12 @@ export default defineConfig({
   build: {
     outDir: "../internal/webui/assets",
     emptyOutDir: true,
-    sourcemap: true,
+    // Sourcemaps are embedded into the binary along with everything else in outDir, and
+    // the map alone is ~955 kB of reconstructible TypeScript. Release builds
+    // (.goreleaser.yaml's before-hook) set MUSTER_RELEASE=1 to drop it; every other build
+    // path — `make web-build`, `make e2e` — keeps maps so a failing spec still yields an
+    // original-source stack trace.
+    sourcemap: process.env.MUSTER_RELEASE !== "1",
   },
   plugins: [keepGitkeep],
 });

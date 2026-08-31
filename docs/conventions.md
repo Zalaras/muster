@@ -74,9 +74,29 @@ first — never diverge silently in code.
 ## Commits
 
 Single-sentence semantic messages: `type(scope): imperative summary` — types `feat`,
-`fix`, `docs`, `test`, `refactor`, `chore`; scope optional. One sentence, no body;
+`fix`, `docs`, `test`, `refactor`, `chore`, `ci`; scope optional. One sentence, no body;
 if a commit needs paragraphs of explanation, the explanation belongs in the docs the
 commit touches.
+
+These types are **load-bearing**: `.github/workflows/release.yml` runs `svu` over the
+commits since the last tag on every push to `main`, and the type decides the release.
+
+| Type | Release |
+|---|---|
+| `feat` | minor |
+| `fix` | patch |
+| `feat(x)!:` — `!` before the colon | major |
+| `docs`, `test`, `refactor`, `chore`, `ci` | none — the workflow exits green without releasing |
+
+Two consequences of the one-sentence rule above:
+
+- **`!` is the only way to signal a breaking change.** The conventional-commits
+  alternative is a `BREAKING CHANGE:` footer, which requires a body — which this
+  convention forbids. Don't reach for one; it would be silently ignored.
+- **While Muster is on 0.x, don't use `!` at all.** svu follows semver strictly, so a
+  breaking marker on `0.x` jumps straight to `1.0.0` rather than bumping the minor.
+  Breaking changes ride along as `feat` until the Pre-v1 Cleanup in `TODO.md` closes and
+  v1 is cut deliberately.
 
 ## Comments
 

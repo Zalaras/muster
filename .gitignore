@@ -3,6 +3,9 @@
 *.test
 *.out
 
+# GoReleaser build output (make release-check / goreleaser release --snapshot)
+/dist/
+
 # SQLite (daemon state; never committed)
 *.db
 *.db-wal
