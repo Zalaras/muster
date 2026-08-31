@@ -16,8 +16,10 @@ Run the Muster daemon locally for manual testing.
 make run
 ```
 
-This builds `bin/musterd` and `web/dist`, then runs the daemon against the **real** data
-dir (`~/Library/Application Support/Muster`) serving `web/dist`, listening on
+This builds `bin/musterd` and the dashboard assets (`internal/webui/assets/`), then runs
+the daemon against the **real** data dir (`~/Library/Application Support/Muster`) serving
+those assets from disk (`-web-dist internal/webui/assets` — the dev override, so the
+edit-TS → `make web-build` → reload loop needs no Go relink), listening on
 `127.0.0.1:8765`. The startup log line includes `dashboard_url` — that URL (with the UI
 token baked in) is what to open in the browser.
 
@@ -37,8 +39,9 @@ the logs.
 
 ## Custom instances
 
-Flags: `-addr` (default `127.0.0.1:8765`), `-data-dir`, `-web-dist` (default
-`web/dist`), `-debug`. For a throwaway instance that must not touch the real data dir,
+Flags: `-addr` (default `127.0.0.1:8765`), `-data-dir`, `-web-dist` (default `""` —
+empty serves the dashboard embedded in the binary at build time; non-empty serves that
+directory from disk, as `make run` does with `internal/webui/assets`), `-debug`. For a throwaway instance that must not touch the real data dir,
 pass a scratch `-data-dir` (that is exactly what the E2E harness does — prefer
 `make e2e` if the goal is verification rather than manual poking).
 

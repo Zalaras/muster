@@ -75,10 +75,10 @@ Additionally, in any fix-cycle invocation: read the latest `## Fix Attempt` sect
 **Rebuild first, every time** — from the project root:
 
 ```bash
-make build web-build
+make web-build build
 ```
 
-The E2E harness serves the prebuilt `bin/musterd` binary and the prebuilt `web/dist` and never rebuilds either; `npm run e2e` run directly therefore tests whatever was last compiled, which in a pipeline is usually a binary older than the implementation you are validating (m3-gauges lesson: a validate run failed 10/12 against a pre-M3 daemon and the failures looked exactly like implementation bugs). `make e2e` has both builds as prerequisites; a targeted `npm run e2e -- <file>` does not, so it gets the explicit rebuild above.
+The E2E harness serves the prebuilt `bin/musterd` binary and the prebuilt `internal/webui/assets` (passed as the disk override) and never rebuilds either; `npm run e2e` run directly therefore tests whatever was last compiled, which in a pipeline is usually a binary older than the implementation you are validating (m3-gauges lesson: a validate run failed 10/12 against a pre-M3 daemon and the failures looked exactly like implementation bugs). The order is load-bearing: the binary **embeds** `internal/webui/assets`, so `web-build` must run before `build` — compiling first embeds the previous dashboard. `make e2e` has both builds as ordered prerequisites; a targeted `npm run e2e -- <file>` does not, so it gets the explicit rebuild above.
 
 Then, from `web/`:
 

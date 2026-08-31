@@ -28,6 +28,7 @@ import (
 	"github.com/Zalaras/muster/internal/server"
 	"github.com/Zalaras/muster/internal/store"
 	"github.com/Zalaras/muster/internal/tmux"
+	"github.com/Zalaras/muster/internal/webui"
 )
 
 // version is set at build time via -ldflags (see the Makefile).
@@ -68,7 +69,7 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		showVersion    = fs.Bool("version", false, "print version and exit")
 		addr           = fs.String("addr", "127.0.0.1:8765", "listen address (localhost only by design)")
 		dataDir        = fs.String("data-dir", defaultDataDir, "directory for the database, tokens and other daemon-local state")
-		webDist        = fs.String("web-dist", "web/dist", "directory containing the built dashboard")
+		webDist        = fs.String("web-dist", "", "serve the dashboard from this directory instead of the embedded copy (dev override; empty uses the binary's embedded dashboard)")
 		debug          = fs.Bool("debug", false, "debug logging")
 		claudeBin      = fs.String("claude-bin", "claude", "the `claude` binary to spawn for a launched session (REQ-19: lets E2E launch a stub)")
 		tmuxSocket     = fs.String("tmux-socket", "muster", "dedicated tmux socket (REQ-19: never the user's default server); a value containing '/' is used as a filesystem path (-S), otherwise a named socket (-L) — m2-terminal REQ-5")
@@ -104,6 +105,10 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		level = zerolog.DebugLevel
 	}
 	log := zerolog.New(zerolog.ConsoleWriter{Out: stderr}).Level(level).With().Timestamp().Logger()
+
+	if err := checkWebDist(*webDist, log); err != nil {
+		return err
+	}
 
 	if err := os.MkdirAll(*dataDir, 0o700); err != nil {
 		return fmt.Errorf("creating data dir %q: %w", *dataDir, err)
@@ -233,6 +238,29 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 	}
 	srv.Shutdown(shutdownCtx)
 
+	return nil
+}
+
+// checkWebDist validates the -web-dist / embedded-dashboard serving precedence at
+// startup (plan embed-dashboard REQ-3/REQ-9). An on-disk override (-web-dist set) is a
+// permissive dev override: a directory missing index.html only logs a warning and
+// startup proceeds — cmd/musterd/onexit_test.go:125 depends on an empty -web-dist dir
+// being accepted, and Edge Case 2 calls this out explicitly ("serve whatever is there").
+// Falling through to the embedded dashboard (-web-dist unset) with nothing actually
+// embedded — a binary built before any `make web-build` — is fatal: it replaces today's
+// silent 404-everything failure with an actionable error naming both remedies, before
+// the daemon ever starts listening.
+func checkWebDist(webDist string, log zerolog.Logger) error {
+	if webDist != "" {
+		if _, err := os.Stat(filepath.Join(webDist, "index.html")); err != nil {
+			log.Warn().Str("web_dist", webDist).
+				Msg("-web-dist directory has no index.html; serving whatever is there")
+		}
+		return nil
+	}
+	if !webui.HasDashboard(webui.FS()) {
+		return fmt.Errorf("no dashboard embedded in this binary: run `make web-build` before building musterd, or pass -web-dist pointing at a built dashboard directory")
+	}
 	return nil
 }
 

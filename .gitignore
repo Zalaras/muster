@@ -10,8 +10,15 @@
 
 # Node / frontend
 node_modules/
+# Historic: pre-embed-dashboard Vite output dir; stale checkouts may still have one.
 web/dist/
 web/.vite/
+
+# Embedded dashboard build output (plan embed-dashboard REQ-4/REQ-5): the built assets
+# are gitignored, but .gitkeep is committed so `//go:embed all:assets` always resolves
+# on a fresh clone even before `make web-build` has ever run.
+internal/webui/assets/*
+!internal/webui/assets/.gitkeep
 
 # Playwright
 /web/test-results/

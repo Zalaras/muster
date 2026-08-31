@@ -23,7 +23,7 @@
 // sleep-forever loop once its stdin hits EOF (pane death) — so M1's liveness specs, which
 // depend on the pane staying alive until explicitly killed, are unaffected.
 import { type ChildProcess, execFile, spawn } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -36,7 +36,11 @@ const here = fileURLToPath(new URL(".", import.meta.url));
 // web/e2e/helpers -> repo root
 const repoRoot = resolve(here, "../../..");
 const musterdBin = join(repoRoot, "bin", "musterd");
-const webDist = join(repoRoot, "web", "dist");
+// Plan embed-dashboard REQ-7: the disk-override fixture every non-embedded spec in this
+// suite uses now points at the daemon's new build output (internal/webui/assets), not
+// the retired web/dist — the flag was always passed explicitly, but the path it named
+// stopped being produced once web-impl repointed vite.config.ts's outDir.
+const webDist = join(repoRoot, "internal", "webui", "assets");
 
 interface TokensFile {
   dashboardUrl: string;
@@ -74,6 +78,17 @@ export interface ScratchDaemonOptions {
    * to leave the file absent — the "no-credentials" fixture (REQ-6 edge case 1).
    */
   usageTokenContent?: string;
+  /**
+   * Plan embed-dashboard REQ-7/E1 test seam: the embedded-serving fixture. When true,
+   * this run copies `bin/musterd` into the scratch data dir, spawns that copy with
+   * `cwd` set to the data dir, and omits `-web-dist` entirely — proving the binary
+   * serves its `go:embed`-ed dashboard rather than a disk directory. The scratch data
+   * dir is an OS tmpdir this harness creates fresh per run, so it genuinely contains no
+   * `web/` or `internal/` tree next to the copied binary (R7). Omit (default false) to
+   * keep every other spec's existing disk-override behaviour, passing `-web-dist`
+   * pointed at `webDist` exactly as before.
+   */
+  serveEmbedded?: boolean;
 }
 
 async function freePort(): Promise<number> {
@@ -138,6 +153,17 @@ export class ScratchDaemon {
    * file or any other, can ever fall through to the real macOS Keychain.
    */
   readonly usageTokenPath: string;
+  /**
+   * Plan embed-dashboard REQ-7/E1: absolute path this run copies `bin/musterd` to
+   * inside `dataDir`, used only when `serveEmbedded` is true. Living inside `dataDir`
+   * means `teardown()`'s `rm` cleans it up like everything else this run creates.
+   */
+  readonly embeddedBinPath: string;
+  /** Plan embed-dashboard REQ-7: true iff this run spawns the copied binary from
+   * `embeddedBinPath` with `cwd` = `dataDir` and no `-web-dist` flag at all — the
+   * embedded-serving fixture — rather than the shared `musterdBin` with `-web-dist
+   * webDist` every other spec uses. */
+  private readonly serveEmbedded: boolean;
   uiToken = "";
   ingestToken = "";
   dashboardUrl = "";
@@ -162,6 +188,7 @@ export class ScratchDaemon {
     onExit?: OnExitPolicy,
     usagePoll?: string,
     usageApiURL?: string,
+    serveEmbedded = false,
   ) {
     this.port = port;
     this.baseURL = `http://127.0.0.1:${port}`;
@@ -174,9 +201,11 @@ export class ScratchDaemon {
     this.claudeBinPath = join(dataDir, "stub-claude.sh");
     this.browseRoot = join(dataDir, "browse-root");
     this.usageTokenPath = join(dataDir, "usage-token.json");
+    this.embeddedBinPath = join(dataDir, "musterd");
     this.onExit = onExit;
     this.usagePoll = usagePoll;
     this.usageApiURL = usageApiURL;
+    this.serveEmbedded = serveEmbedded;
   }
 
   static async start(opts: ScratchDaemonOptions = {}): Promise<ScratchDaemon> {
@@ -188,9 +217,24 @@ export class ScratchDaemon {
     // on (spikes/FINDINGS.md 2026-08-25 addendum). Do not "fix" a spec that breaks on the
     // space — that's the harness doing its job; report it instead (plan Affected Files).
     const dataDir = await mkdtemp(join(tmpdir(), "muster e2e-"));
-    const daemon = new ScratchDaemon(port, dataDir, opts.onExit, opts.usagePoll, opts.usageApiURL);
+    const daemon = new ScratchDaemon(
+      port,
+      dataDir,
+      opts.onExit,
+      opts.usagePoll,
+      opts.usageApiURL,
+      opts.serveEmbedded,
+    );
     await mkdir(daemon.browseRoot, { recursive: true });
     await daemon.writeStubClaude();
+    if (daemon.serveEmbedded) {
+      // Plan embed-dashboard REQ-7: a COPY, not the shared musterdBin in place — the
+      // fixture must prove a binary can be moved away from the checkout and still serve
+      // its own dashboard. copyFile doesn't preserve the executable bit on all
+      // platforms, so chmod it explicitly.
+      await copyFile(musterdBin, daemon.embeddedBinPath);
+      await chmod(daemon.embeddedBinPath, 0o755);
+    }
     if (opts.usageTokenContent !== undefined) {
       await writeFile(daemon.usageTokenPath, opts.usageTokenContent, "utf-8");
     }
@@ -235,8 +279,6 @@ export class ScratchDaemon {
       `127.0.0.1:${this.port}`,
       "-data-dir",
       this.dataDir,
-      "-web-dist",
-      webDist,
       "-claude-bin",
       this.claudeBinPath,
       "-tmux-socket",
@@ -248,6 +290,13 @@ export class ScratchDaemon {
       "-usage-token-file",
       this.usageTokenPath,
     ];
+    // Plan embed-dashboard REQ-7: the embedded-serving fixture omits -web-dist
+    // ENTIRELY (not an empty-string flag — R7) so the daemon falls through to its
+    // go:embed default; every other run keeps passing the disk override exactly as
+    // before.
+    if (!this.serveEmbedded) {
+      args.push("-web-dist", webDist);
+    }
     // Plan m4-reconcile REQ-3: omit the flag entirely to exercise the daemon's own
     // default (`ask`) rather than hardcoding the string here.
     if (this.onExit !== undefined) {
@@ -260,7 +309,12 @@ export class ScratchDaemon {
     if (this.usageApiURL !== undefined) {
       args.push("-usage-api-url", this.usageApiURL);
     }
-    const proc = spawn(musterdBin, args, {
+    const proc = spawn(this.serveEmbedded ? this.embeddedBinPath : musterdBin, args, {
+      // Plan embed-dashboard REQ-7: the embedded fixture runs from the scratch data dir
+      // itself (an OS tmpdir containing no web/ or internal/ tree) rather than the repo
+      // root every other run inherits as its cwd — proving the binary doesn't need a
+      // checkout nearby to find its dashboard.
+      cwd: this.serveEmbedded ? this.dataDir : undefined,
       // stdin "ignore" (=/dev/null) is never a character device, so every scratch daemon
       // this harness spawns is a non-TTY process by construction — REQ-3's "ask behaves
       // as leave under non-TTY stdin" path, not the interactive prompt (which E2E cannot

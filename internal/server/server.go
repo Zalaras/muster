@@ -15,6 +15,7 @@ import (
 	"github.com/Zalaras/muster/internal/store"
 	"github.com/Zalaras/muster/internal/tmux"
 	"github.com/Zalaras/muster/internal/usage"
+	"github.com/Zalaras/muster/internal/webui"
 )
 
 // ClaudeCodeInfo is the daemon's startup snapshot of the installed Claude Code, used to
@@ -29,10 +30,14 @@ type ClaudeCodeInfo struct {
 // Config wires everything a Server needs. Built entirely in main — no init() magic, no
 // package-level state.
 type Config struct {
-	Store         *store.Store
-	Logger        zerolog.Logger
-	UIToken       string
-	IngestToken   string
+	Store       *store.Store
+	Logger      zerolog.Logger
+	UIToken     string
+	IngestToken string
+	// WebDist, when non-empty, serves the dashboard from this on-disk directory instead
+	// of the embedded copy (dev override, plan embed-dashboard REQ-2) — behaviour
+	// unchanged from before that plan. Empty (the new -web-dist default) serves
+	// internal/webui's go:embed-ed tree instead.
 	WebDist       string
 	DaemonVersion string
 	ClaudeCode    ClaudeCodeInfo
@@ -313,7 +318,17 @@ func (s *Server) routes() {
 	mux.HandleFunc("POST /ingest/{token}/hook", s.handleIngestHook)
 	mux.HandleFunc("POST /ingest/{token}/status", s.handleIngestStatus)
 
-	static := http.FileServer(http.Dir(s.webDist))
+	// Serving precedence (plan embed-dashboard REQ-2): -web-dist non-empty serves the
+	// disk directory exactly as before (dev override); empty serves the embedded
+	// dashboard tree. requireCookie wraps both branches identically (R5) — the only
+	// intended divergence is embed.FS's zero ModTime (no Last-Modified/304s), accepted
+	// per the plan's Edge Case 7.
+	var static http.Handler
+	if s.webDist != "" {
+		static = http.FileServer(http.Dir(s.webDist))
+	} else {
+		static = http.FileServer(http.FS(webui.FS()))
+	}
 	mux.Handle("/", requireCookie(s.uiToken, writeHTMLUnauthorized, static))
 
 	s.mux = mux

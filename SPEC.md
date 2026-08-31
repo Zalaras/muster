@@ -667,7 +667,8 @@ settled by the work, beyond routine implementation:
   the page. §6.7's "loud when down" applies to a connection that was up.
 - **Static assets are served from disk** (`-web-dist`), not `go:embed`, so
   `go build ./...` never depends on the web build. Revisit only if a self-contained
-  binary ever matters.
+  binary ever matters. *(Amended 2026-08-31, plan `embed-dashboard` — see changelog:
+  the dashboard is now embedded by default and `-web-dist` is a dev override.)*
 - The §2.6 UI token is **reusable** at `/auth` (lives in `kv` for the install's life);
   "one-time" described the launcher flow, not token burning. Cookie Max-Age 30 days.
 
@@ -923,3 +924,24 @@ implemented:
 - No protocol or schema change (`docs/protocol.md` §3.1's preset comment updated, doc-only).
   Rejected in planning: Finder columns, a path field with completion, and folding the Title
   into existing dialog chrome (plan Overview records the comparison).
+
+### 2026-08-31 — Dashboard embedded in the binary (plan `embed-dashboard`, via `/orchestrate`)
+
+- Amends the 2026-08-22 M0 decision "Static assets are served from disk (`-web-dist`), not
+  `go:embed`". That decision's own text ends "Revisit only if a self-contained binary ever
+  matters" — and it now does: this is the precondition for the CI/GoReleaser follow-up plan.
+- Vite builds into `internal/webui/assets/` and `internal/webui` embeds it
+  (`//go:embed all:assets`); a committed `.gitkeep` plus a `.gitignore` carve-out keep
+  `go build ./...` working on a fresh clone with no npm build, and a `closeBundle` plugin
+  restores `.gitkeep` after `emptyOutDir` so the tree stays clean (`git describe` never
+  picks up a spurious `-dirty`).
+- Serving precedence: `-web-dist` set → disk exactly as before (dev override; `make run`
+  uses it so the frontend loop needs no Go relink); unset (new default `""`) → embedded FS.
+  Both branches are `http.FileServer` behind the same `requireCookie`; the only intended
+  divergence is the embedded path's zero ModTime (no `Last-Modified`/304s).
+- Fail-fast: a binary built with no web build exits non-zero at startup naming both remedies
+  (`make web-build` before building, or `-web-dist`), replacing the old silent-404 mode. A
+  disk override without `index.html` stays a startup warning (permissive dev path).
+- Build ordering is now load-bearing: `make e2e` orders `web-build` before `build` — a Go
+  compile before the web build embeds a stale dashboard (the successor of the
+  stale-`web/dist` trap; pipeline lore docs updated accordingly).

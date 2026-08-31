@@ -408,6 +408,22 @@ These are some minor changes and cleanup needed before we can move into post v1.
 - [x] Improve the Create new session dialog, especially the file explorer and selecting a directory. The dialog is messy, even the model select is "squashed". File explorder should be in a view that shows the parents and should auto use whatever directory is currently select rather than having to "apply" the selection. Similar to the Mac Finder interface. — **Done 2026-08-30 (plan `new-session-dialog`)**: Finder-style picker — persistent Recent sidebar + clickable breadcrumb + single child listing where the listed directory *is* the selection (no Browse…/Up/"Use this folder"), segmented Model (gains `fable`) and Start-in controls, stacked full-width form, `Launch in <path>` footer readout, 720px fixed-height dialog (picker panes scroll internally).
 - [x] Create new session from tile view — **Done 2026-08-30 (main-session build)**: a `New session` button in the Tiles density toolbar (`#tiles-new-session-button`) drives the same `#launch-dialog` as the rail button and ⌘N; a launch made from Tiles is promoted into the grid (demoting the lowest-priority tile when full) instead of landing in the strip. E2E: `web/e2e/tiles-launch.spec.ts` (private daemon per test). No protocol change.
 
+- [x] Embed the dashboard into the `musterd` binary so it ships as a single self-contained
+  executable (precondition for the CI/GoReleaser follow-up; entry added retroactively — the
+  review found no pre-existing TODO item to tick, `plans/embed-dashboard/review.md` Major 2) —
+  **Done 2026-08-31 (plan `embed-dashboard`)**: `internal/webui` embeds `internal/webui/assets/`
+  via `//go:embed all:assets`, Vite builds straight into it (`.gitkeep`-restoring `closeBundle`
+  plugin keeps the tree clean), `-web-dist` default flips to `""` (embedded) and becomes a dev
+  override, an assetless binary fails fast at startup naming both remedies, `make e2e` orders
+  `web-build build`. Follow-ups from the review (`plans/embed-dashboard/review.md`, both Minor
+  `[daemon-impl]`): (1) "`Makefile:66` — `clean`'s `rm -rf bin web/dist` is the last live
+  mention of the retired path, and unlike `.gitignore:11-12` it carries no `# Historic:`
+  comment saying why" — add the same one-line historic comment. (2) REQ-3's fatal branch has no
+  automated regression guard (only the cycle-1 hands-on D5 check): add the reviewer's one-line
+  seam — `checkWebDist(webDist string, embedded fs.FS, log zerolog.Logger)` with `run()` still
+  passing the real `webui.FS()` — so daemon-tests can assert the fatal error and its two-remedy
+  wording deterministically.
+
 ## M5+ (v1.x, re-rank when reached)
 
 Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start-from-PR/issue
