@@ -440,10 +440,30 @@ These are some minor changes and cleanup needed before we can move into post v1.
   open-sourcing; the release build is the de facto compile gate, and adding `make check` as
   a step is a one-liner when wanted. Trigger table lives in `docs/conventions.md` § Commits.
 
+- [x] File a GitHub issue from the dashboard (dogfooding capture) — entry added
+  retroactively; the review found no pre-existing TODO item to tick
+  (`plans/issue-capture/review.md` cycle 3, orchestrator Major) — **Done 2026-08-31 (plan
+  `issue-capture`, via `/orchestrate`; approved review cycle 3)**: masthead `Issue` button →
+  `#issue-dialog` with session scope select, server-held strict-allowlist snapshot
+  (`POST /api/issue/captures` → `POST /api/issues`), full-body preview asserted byte-identical
+  to the posted GitHub body (INV-2, SHA-256-verified in review), auth via `gh auth token` at
+  time of use, `internal/ghissue` isolated from all muster-internal packages. Hard exclusions:
+  prompt text, hook payloads, status-line JSON, pane captures, assistant text (title,
+  lastActivity, failure.message), directory/branch/repo/worktree, Claude session id value,
+  account usage. Follow-up already filed separately: app-wide `.btn:disabled` sweep (M5+).
+
 ## M5+ (v1.x, re-rank when reached)
 
 Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start-from-PR/issue
 (§4.3) → permissions UI (§4.4) → `code <worktree>` button (trivial, anytime).
+
+- [ ] **App-wide `.btn:disabled` affordance pass** — no disabled button anywhere in Muster has
+  a visual disabled state (issue-capture review cycle 1, Minor 5: `#issue-submit-button`
+  measured pixel-identical enabled vs disabled — `opacity: 1`, full amber, `cursor: pointer`;
+  End/Resume/Remove in the masthead, tiles and dead surface share the gap). Settled Option B
+  (user decision, `plans/issue-capture/decisions/disabled-button-affordance/decision.md`):
+  ship issue-capture as-is, then do one app-wide disabled-state token pass in `style.css`.
+  Cite: `plans/issue-capture/review.md`.
 
 - Scaling note (m2 review cycle-2 Minor 3): `terminalRegistry.takeover` holds one global
   mutex across the PTY spawn — deliberate and correct for REQ-2's evict-before-attach

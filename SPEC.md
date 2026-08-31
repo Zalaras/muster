@@ -973,3 +973,29 @@ there is a way to get one. Decisions:
   by the maps alone, which was accepted deliberately.
 - **No test or lint job in CI yet** — deliberate, pending possible open-sourcing. The
   release build is the compile gate; adding `make check` is a one-line step when wanted.
+
+### 2026-08-31 — Issue capture shipped (plan `issue-capture`, via `/orchestrate`)
+
+A masthead `Issue` button files a GitHub issue on `Zalaras/muster` carrying a
+strict-allowlist snapshot of muster state, previewed in full before it posts. Post-spec,
+user-facing; recorded here because it settles standing decisions rather than because §2
+lists it (it does not — the feature is additive to the MVP set):
+
+- **The payload is an allowlist, never a dump.** The snapshot is assembled by explicit
+  field copy from the pinned list in `plans/issue-capture/plan.md` §"The allowlist";
+  hard-excluded forever: prompt text, hook payload bodies, raw status-line JSON, pane
+  captures, assistant-generated text (`title`, `lastActivity`, `failure.message`),
+  identifying data (directory, branch, worktree flag, repo name, Claude session id value),
+  and all account usage. Per-session context percentages are deliberately included.
+- **The preview is the leak check**: the dialog renders the daemon's `snapshotMarkdown`
+  verbatim and E2E asserts the preview is byte-identical to the POSTed body (INV-2).
+- **Capture-then-file**: `POST /api/issue/captures` holds a server-side snapshot
+  (8-cap/15-min TTL store); `POST /api/issues` files the held capture — never a
+  client-supplied payload. Protocol: `docs/protocol.md` §3.12/§3.13.
+- **Auth is `gh auth token` at time of use** — no storage, no OAuth flow. The GitHub host
+  lives only in `cmd/musterd/main.go`'s `-issue-api-url` flag default; `internal/ghissue`
+  imports no muster-internal package; E2E always stubs GitHub (REQ-17).
+- **Scope ends at creation**: no issue reading, no labels, no status sync — triage stays
+  in `TODO.md` via commit references.
+- Cycle-1 review decision (user): no disabled-button affordance in this plan (Option B);
+  the app-wide `.btn:disabled` sweep is a TODO.md M5+ item.

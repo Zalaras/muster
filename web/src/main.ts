@@ -29,6 +29,7 @@ import { renderFocusMain, renderSessions, renderSizenote, type SessionAction } f
 import { buildTile, mountTileDeadSurface, renderStrip, renderTileFooterActions, renderTileGeometry, updateTile, type TileRefs } from "./render/tiles";
 import { initLaunchModal, type LaunchModalElements } from "./render/launch";
 import { initConfirmDialogs, type ConfirmDialogs } from "./render/confirm";
+import { initIssueDialog, renderIssueButton, type IssueDialogController, type IssueDialogElements } from "./render/issue";
 import { renderMainhead, type MainheadElements } from "./render/mainhead";
 import { captureFocusedControl, type FocusedControl, restoreFocusedControl } from "./render/focus";
 import { collectDeadSurfaceRefs, loadPane, renderDeadSurface, type DeadSurfaceRefs, type PaneState } from "./render/dead";
@@ -59,6 +60,7 @@ const usageSevenDayEl = requireElement<HTMLElement>("#usage-7d");
 const usageModelWeekEl = requireElement<HTMLElement>("#usage-model-week");
 const usageRefreshBtn = requireElement<HTMLButtonElement>("#usage-refresh");
 const usageModelEl = requireElement<HTMLElement>("#usage-model");
+const issueButtonEl = requireElement<HTMLButtonElement>("#issue-button");
 const claudeVersionEl = requireElement<HTMLElement>("#claude-version");
 const bannerEl = requireElement<HTMLElement>("#banner");
 const sessionsEl = requireElement<HTMLElement>("#sessions");
@@ -212,6 +214,10 @@ function setStatus(status: ConnectionStatus): void {
   // States (m4-reconcile): "Daemon down ... Dialogs, if open, close" — an End/Remove
   // against a dead daemon can never be confirmed as done.
   if (status !== "connected") confirmDialogs.closeAll();
+  // REQ-13: "Daemon down ... an open #issue-dialog closes." The button's own disabled
+  // state is set below in render() (renderIssueButton), same "every render pass" shape
+  // as renderMainhead's `connected` parameter.
+  if (status !== "connected") issueDialog.closeAll();
   // review m4-reconcile Major 3: every already-drawn surface (mainhead, dead-surface
   // cap, rail cards, tile footers) carries `connected` baked into its last render call.
   // A focused *dead* session has no terminal socket to incidentally trigger a re-render
@@ -394,6 +400,32 @@ const confirmDialogs: ConfirmDialogs = initConfirmDialogs(
     onConfirmRemove: doRemove,
   },
 );
+
+// Plan issue-capture: the masthead's Issue button + `#issue-dialog`. REQ-2's frozen
+// session list is the rail's own current order (`orderRail`, same order the rail/strip
+// display) plus `focusedId` — computed here, at click time, never inside render/issue.ts
+// (which owns no session-store access of its own).
+const issueDialogElements: IssueDialogElements = {
+  dialog: requireElement<HTMLDialogElement>("#issue-dialog"),
+  form: requireElement<HTMLFormElement>("#issue-form"),
+  sessionSelect: requireElement<HTMLSelectElement>("#issue-session-select"),
+  titleInput: requireElement<HTMLInputElement>("#issue-title-input"),
+  noteTextarea: requireElement<HTMLTextAreaElement>("#issue-note-input"),
+  bodyEl: requireElement<HTMLElement>("#issue-body"),
+  previewEl: requireElement<HTMLElement>("#issue-preview"),
+  captureTimeEl: requireElement<HTMLElement>("#issue-captured-at"),
+  successEl: requireElement<HTMLElement>("#issue-success"),
+  successLinkEl: requireElement<HTMLAnchorElement>("#issue-success-link"),
+  errorEl: requireElement<HTMLElement>("#issue-error"),
+  errorDetailEl: requireElement<HTMLElement>("#issue-error-detail"),
+  cancelBtn: requireElement<HTMLButtonElement>("#issue-cancel-button"),
+  submitBtn: requireElement<HTMLButtonElement>("#issue-submit-button"),
+  closeBtn: requireElement<HTMLButtonElement>("#issue-close-button"),
+};
+const issueDialog: IssueDialogController = initIssueDialog(issueDialogElements);
+issueButtonEl.addEventListener("click", () => {
+  issueDialog.open(orderRail(store.values(), railSort), focusedId);
+});
 
 mainheadElements.endBtn.addEventListener("click", () => {
   if (focusedId !== null) dispatchAction("end", focusedId);
@@ -632,6 +664,7 @@ function render(): void {
 
   updateDeadPaneTracking(sessions);
   renderUsageBlock(currentUsage, now);
+  renderIssueButton(issueButtonEl, connected);
 
   if (view === "tiles") {
     tilesLive = applyDensity(tilesLive, densityCount(density), sessions);

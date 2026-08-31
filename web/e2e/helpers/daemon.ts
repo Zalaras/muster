@@ -24,6 +24,7 @@
 // depend on the pane staying alive until explicitly killed, are unaffected.
 import { type ChildProcess, execFile, spawn } from "node:child_process";
 import { chmod, copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { createServer as createHttpServer, type Server as HttpServer } from "node:http";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -53,6 +54,43 @@ interface TokensFile {
  * (no flag passed) rather than the string `"ask"` — that keeps the default-flag path
  * exercised by every pre-M4 spec unchanged. */
 export type OnExitPolicy = "ask" | "leave" | "kill";
+
+/**
+ * Plan issue-capture REQ-17/REQ-14: `-issue-repo` value the harness passes
+ * unconditionally for every scratch daemon, regardless of whether a given test cares
+ * about the feature. Deliberately NOT the daemon's own default (`Zalaras/muster`) —
+ * a distinct, obviously-fake identifier means no scratch run's response can ever be
+ * confused with the real repo, and tests get a fixed string to assert `Filed
+ * <owner>/<repo>#<n>` against without depending on the daemon's production default.
+ */
+export const ISSUE_REPO_FIXTURE = "muster-e2e/fake-repo";
+
+/**
+ * Plan issue-capture REQ-17: every scratch daemon that doesn't opt into a real fake
+ * GitHub server (helpers/ghapi.ts's `FakeGitHubAPI`) still gets `-issue-api-url` pointed
+ * somewhere — this run-local stub, which 403s every request with a loud, diagnosable
+ * body. Never the real GitHub API host; never silently unset (an unset `-issue-api-url` means
+ * the flag is empty, which *disables* the feature per REQ-14 rather than reaching a real
+ * host — but E2E always passes a live URL so `POST /api/issue/captures` still works for
+ * tests that don't care about the filing step).
+ */
+async function startIssueDenyStub(): Promise<{ server: HttpServer; url: string }> {
+  return await new Promise((resolvePromise, reject) => {
+    const server = createHttpServer((_req, res) => {
+      res.writeHead(403, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ message: "e2e: no fake GitHub configured for this test" }));
+    });
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (address && typeof address === "object") {
+        resolvePromise({ server, url: `http://127.0.0.1:${address.port}` });
+      } else {
+        reject(new Error("issue deny stub could not bind a port"));
+      }
+    });
+  });
+}
 
 export interface ScratchDaemonOptions {
   onExit?: OnExitPolicy;
@@ -89,6 +127,23 @@ export interface ScratchDaemonOptions {
    * pointed at `webDist` exactly as before.
    */
   serveEmbedded?: boolean;
+  /**
+   * Plan issue-capture REQ-13/E3/E4: `-issue-api-url` base, pointed at a
+   * `FakeGitHubAPI` (helpers/ghapi.ts) so a filing test never reaches the real GitHub API host.
+   * Omit to get this run's own per-run deny stub (`startIssueDenyStub`), which answers
+   * every request `403 {"message":"e2e: no fake GitHub configured for this test"}` —
+   * loud and diagnosable, never the real host. Either way the flag is passed
+   * unconditionally (REQ-17).
+   */
+  issueApiURL?: string;
+  /**
+   * Plain-text content (the trimmed-contents-are-the-token shape, REQ-14 — unlike
+   * `-usage-token-file`'s JSON) written to the scratch `-issue-token-file` before
+   * spawning. Omit to leave the file absent — safe for every test that never calls
+   * `POST /api/issues` (capture-only assertions), since `-issue-token-file` is still
+   * passed unconditionally (REQ-17) so `gh` is never executed regardless.
+   */
+  issueTokenContent?: string;
 }
 
 async function freePort(): Promise<number> {
@@ -159,6 +214,23 @@ export class ScratchDaemon {
    * means `teardown()`'s `rm` cleans it up like everything else this run creates.
    */
   readonly embeddedBinPath: string;
+  /**
+   * Plan issue-capture REQ-17/REQ-14: always a scratch path inside `dataDir`, passed
+   * unconditionally via `-issue-token-file` for every scratch daemon — mirroring
+   * `usageTokenPath`'s discipline — so no E2E run can ever fall through to a real `gh`
+   * invocation.
+   */
+  readonly issueTokenPath: string;
+  /**
+   * Plan issue-capture REQ-17: this run's `-issue-api-url` value — either the caller's
+   * `FakeGitHubAPI` base URL or this run's own deny stub (`startIssueDenyStub`). Always
+   * set, always passed (REQ-17), never the real GitHub API host.
+   */
+  readonly issueApiURL: string;
+  /** The deny stub server started for this run when no `issueApiURL` option was given,
+   * or `null` when the caller supplied its own (nothing here to close). Closed in
+   * `teardown()`. */
+  private denyStubServer: HttpServer | null = null;
   /** Plan embed-dashboard REQ-7: true iff this run spawns the copied binary from
    * `embeddedBinPath` with `cwd` = `dataDir` and no `-web-dist` flag at all — the
    * embedded-serving fixture — rather than the shared `musterdBin` with `-web-dist
@@ -185,6 +257,7 @@ export class ScratchDaemon {
   private constructor(
     port: number,
     dataDir: string,
+    issueApiURL: string,
     onExit?: OnExitPolicy,
     usagePoll?: string,
     usageApiURL?: string,
@@ -201,6 +274,8 @@ export class ScratchDaemon {
     this.claudeBinPath = join(dataDir, "stub-claude.sh");
     this.browseRoot = join(dataDir, "browse-root");
     this.usageTokenPath = join(dataDir, "usage-token.json");
+    this.issueTokenPath = join(dataDir, "issue-token.txt");
+    this.issueApiURL = issueApiURL;
     this.embeddedBinPath = join(dataDir, "musterd");
     this.onExit = onExit;
     this.usagePoll = usagePoll;
@@ -217,14 +292,25 @@ export class ScratchDaemon {
     // on (spikes/FINDINGS.md 2026-08-25 addendum). Do not "fix" a spec that breaks on the
     // space — that's the harness doing its job; report it instead (plan Affected Files).
     const dataDir = await mkdtemp(join(tmpdir(), "muster e2e-"));
+    // Plan issue-capture REQ-17: resolve the deny stub BEFORE constructing, since the
+    // constructor wants a concrete `issueApiURL` string, never `undefined`.
+    let denyStubServer: HttpServer | null = null;
+    let issueApiURL = opts.issueApiURL;
+    if (issueApiURL === undefined) {
+      const stub = await startIssueDenyStub();
+      denyStubServer = stub.server;
+      issueApiURL = stub.url;
+    }
     const daemon = new ScratchDaemon(
       port,
       dataDir,
+      issueApiURL,
       opts.onExit,
       opts.usagePoll,
       opts.usageApiURL,
       opts.serveEmbedded,
     );
+    daemon.denyStubServer = denyStubServer;
     await mkdir(daemon.browseRoot, { recursive: true });
     await daemon.writeStubClaude();
     if (daemon.serveEmbedded) {
@@ -237,6 +323,9 @@ export class ScratchDaemon {
     }
     if (opts.usageTokenContent !== undefined) {
       await writeFile(daemon.usageTokenPath, opts.usageTokenContent, "utf-8");
+    }
+    if (opts.issueTokenContent !== undefined) {
+      await writeFile(daemon.issueTokenPath, opts.issueTokenContent, "utf-8");
     }
     await daemon.spawnAndWait();
     return daemon;
@@ -289,6 +378,15 @@ export class ScratchDaemon {
       // E2E run — this file or any other — can ever fall through to the real Keychain.
       "-usage-token-file",
       this.usageTokenPath,
+      // Plan issue-capture REQ-17: all three issue-capture flags are unconditional on
+      // every scratch daemon — same discipline as `-usage-token-file` above — so no run
+      // can reach the real GitHub API host or execute `gh`.
+      "-issue-api-url",
+      this.issueApiURL,
+      "-issue-token-file",
+      this.issueTokenPath,
+      "-issue-repo",
+      ISSUE_REPO_FIXTURE,
     ];
     // Plan embed-dashboard REQ-7: the embedded-serving fixture omits -web-dist
     // ENTIRELY (not an empty-string flag — R7) so the daemon falls through to its
@@ -375,13 +473,19 @@ export class ScratchDaemon {
     await this.spawnAndWait();
   }
 
-  /** Kills the process, kills this run's private tmux server, removes the temp data dir. */
+  /** Kills the process, kills this run's private tmux server, closes this run's own
+   * issue-capture deny stub (if started), removes the temp data dir. */
   async teardown(): Promise<void> {
     await this.kill();
     try {
       await execFileAsync("tmux", ["-S", this.tmuxSocket, "kill-server"]);
     } catch {
       // No server was ever started on this socket (no session launched) — fine.
+    }
+    if (this.denyStubServer) {
+      const server = this.denyStubServer;
+      this.denyStubServer = null;
+      await new Promise<void>((resolvePromise) => server.close(() => resolvePromise()));
     }
     await rm(this.dataDir, { recursive: true, force: true });
   }

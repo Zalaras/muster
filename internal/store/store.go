@@ -133,3 +133,65 @@ func (s *Store) InsertEvent(ctx context.Context, ev Event) error {
 	}
 	return nil
 }
+
+// EventSummary is the per-Muster-session event-routing summary behind the issue-capture
+// snapshot's allowlisted session.events fields (plan issue-capture, Schema Changes) —
+// bounds, a count and the last 10 event.type values, never a payload.
+type EventSummary struct {
+	FirstSeq       *int64
+	LastSeq        *int64
+	Count          int
+	LastReceivedAt *time.Time // nil when Count == 0
+	RecentTypes    []string   // last 10 event.type values, oldest-first
+}
+
+// EventSummary reads the routing summary for sessionID (event.session_id — the Muster
+// session id, not claude_session_id). A session with no routed events yet returns a
+// zero-value-ish EventSummary: Count 0, both seq bounds and LastReceivedAt nil,
+// RecentTypes nil.
+func (s *Store) EventSummary(ctx context.Context, sessionID int64) (EventSummary, error) {
+	var (
+		out            EventSummary
+		lastReceivedAt *string
+	)
+	row := s.db.QueryRowContext(ctx, `
+		SELECT MIN(seq), MAX(seq), COUNT(*), MAX(received_at)
+		FROM event WHERE session_id = ?
+	`, sessionID)
+	if err := row.Scan(&out.FirstSeq, &out.LastSeq, &out.Count, &lastReceivedAt); err != nil {
+		return EventSummary{}, fmt.Errorf("summarizing events for session %d: %w", sessionID, err)
+	}
+	if lastReceivedAt != nil {
+		if t, err := time.Parse(time.RFC3339Nano, *lastReceivedAt); err == nil {
+			t = t.UTC()
+			out.LastReceivedAt = &t
+		}
+	}
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT type FROM event WHERE session_id = ? ORDER BY id DESC LIMIT 10
+	`, sessionID)
+	if err != nil {
+		return EventSummary{}, fmt.Errorf("reading recent event types for session %d: %w", sessionID, err)
+	}
+	defer rows.Close()
+
+	var recent []string
+	for rows.Next() {
+		var t string
+		if err := rows.Scan(&t); err != nil {
+			return EventSummary{}, fmt.Errorf("scanning recent event type for session %d: %w", sessionID, err)
+		}
+		recent = append(recent, t)
+	}
+	if err := rows.Err(); err != nil {
+		return EventSummary{}, fmt.Errorf("reading recent event types for session %d: %w", sessionID, err)
+	}
+	// recent arrives newest-first (ORDER BY id DESC); the wire wants oldest-first.
+	for i, j := 0, len(recent)-1; i < j; i, j = i+1, j-1 {
+		recent[i], recent[j] = recent[j], recent[i]
+	}
+	out.RecentTypes = recent
+
+	return out, nil
+}

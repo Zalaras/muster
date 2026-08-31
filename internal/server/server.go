@@ -6,11 +6,13 @@ package server
 import (
 	"context"
 	"net/http"
+	"os/exec"
 	"time"
 
 	"github.com/rs/zerolog"
 
 	"github.com/Zalaras/muster/internal/claudecode"
+	"github.com/Zalaras/muster/internal/ghissue"
 	"github.com/Zalaras/muster/internal/session"
 	"github.com/Zalaras/muster/internal/store"
 	"github.com/Zalaras/muster/internal/tmux"
@@ -91,6 +93,23 @@ type Config struct {
 	KeychainUser string
 	// HTTPClient is the client FetchUsage uses; nil defaults to http.DefaultClient.
 	HTTPClient *http.Client
+
+	// The following wire up issue-capture's file-an-issue button (plan Implementation
+	// Notes: "-issue-api-url's empty-disables-everything behaviour mirrors
+	// UsageAPIURL's"). A zero-value Config must never reach the real GitHub API host or
+	// execute `gh`, for the same reason UsagePoll/UsageAPIURL's zero values are fail-safe.
+
+	// IssueRepo is the GitHub repo issues are filed against (-issue-repo).
+	IssueRepo string
+	// IssueAPIURL is the GitHub API's base URL (-issue-api-url). main always passes the
+	// flag's non-empty default, so this is the only place that URL is defined — no
+	// fallback constant duplicates it here. Empty disables both new endpoints entirely:
+	// they 404 not_found (docs/protocol.md §3.12/§3.13).
+	IssueAPIURL string
+	// IssueTokenFile, when non-empty, reads the bearer token from this file's trimmed
+	// contents instead of running `gh auth token` (-issue-token-file, REQ-14's test seam
+	// — makes it structurally impossible for a test using it to execute the real gh).
+	IssueTokenFile string
 }
 
 // Server holds musterd's HTTP mux and the long-lived pieces (ingest queue, WS registry,
@@ -118,6 +137,11 @@ type Server struct {
 	launcher    *sessionLauncher
 	tmuxClient  *tmux.Client
 	terminals   *terminalRegistry
+
+	issueRepo     string
+	issueAPIURL   string
+	issueCaptures *captureStore
+	issueClient   *ghissue.Client
 }
 
 const defaultIngestQueueSize = 1024
@@ -219,6 +243,21 @@ func New(cfg Config) *Server {
 	q.usage = s.usage
 	s.ingest = q
 
+	issueHTTPClient := cfg.HTTPClient
+	if issueHTTPClient == nil {
+		issueHTTPClient = http.DefaultClient
+	}
+	var issueTokenReader ghissue.TokenReader
+	if cfg.IssueTokenFile != "" {
+		issueTokenReader = ghissue.FileTokenReader(cfg.IssueTokenFile)
+	} else {
+		issueTokenReader = ghissue.GhCLITokenReader(exec.LookPath, ghissue.RunCommand)
+	}
+	s.issueRepo = cfg.IssueRepo
+	s.issueAPIURL = cfg.IssueAPIURL
+	s.issueCaptures = newCaptureStore()
+	s.issueClient = &ghissue.Client{HTTPClient: issueHTTPClient, BaseURL: cfg.IssueAPIURL, TokenReader: issueTokenReader}
+
 	s.routes()
 	return s
 }
@@ -314,6 +353,8 @@ func (s *Server) routes() {
 	// read that way too.
 	mux.Handle("PUT /api/sessions/order", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleSetOrder)))
 	mux.Handle("PUT /api/sessions/{id}/pin", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handlePinSession)))
+	mux.Handle("POST /api/issue/captures", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleCreateCapture)))
+	mux.Handle("POST /api/issues", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleCreateIssue)))
 
 	mux.HandleFunc("POST /ingest/{token}/hook", s.handleIngestHook)
 	mux.HandleFunc("POST /ingest/{token}/status", s.handleIngestStatus)

@@ -52,7 +52,8 @@ message (additive fields don't bump it).
   present and not the daemon's own origin. Belt to the SameSite braces.
 - Errors (HTTP, non-2xx): `{"error": {"code": "<machine_token>", "message": "<human>"}}`.
   Codes are stable strings (`unauthorized`, `invalid_request`, `not_found`,
-  `launch_failed`, …); the UI may switch on them.
+  `launch_failed`, `capture_expired`, `issue_auth_failed`, `issue_post_failed`, …); the UI
+  may switch on them.
 
 ## 3. HTTP endpoints — UI
 
@@ -71,6 +72,8 @@ message (additive fields don't bump it).
 | `POST /api/sessions/{id}/resume` | M4 | `claude --resume` a dead session in a fresh pane (§3.5) |
 | `POST /api/sessions/{id}/end` | M4 | Kill a live session's tmux session (§3.7) |
 | `DELETE /api/sessions/{id}` | M4 | Remove a session (ends it first if live); broadcasts `sessionRemoved` (§3.8) |
+| `POST /api/issue/captures` | Pre-v1 (`issue-capture`) | Take an allowlisted state snapshot and hold it (§3.12) |
+| `POST /api/issues` | Pre-v1 (`issue-capture`) | File a held capture as a GitHub issue (§3.13) |
 
 Design rule: **commands travel over HTTP; the WS pushes state one way (server→client)**.
 Rationale: idempotency and errors are natural in request/response, the E2E harness can
@@ -259,6 +262,89 @@ or `railPos` changed is broadcast as a `sessionUpsert`; none if nothing changed.
 unknown id, `pinnedCount` missing or outside `[0, len(ids)]`. Nothing changes on a 400.
 Route note: Go's mux prefers the literal `order` segment over `{id}`, so this coexists with
 `/api/sessions/{id}/…`.
+
+### 3.12 `POST /api/issue/captures` (Pre-v1 — `issue-capture`, 2026-08-31)
+
+**Auth**: UI cookie (401 `unauthorized`). Takes a snapshot of muster's own state for the
+dashboard's file-an-issue button and holds it server-side. **Request** (body optional):
+
+```jsonc
+{ "sessionId": 7 }   // the muster session to snapshot; null or absent = dashboard scope
+```
+
+**Response 201:**
+
+```jsonc
+{ "captureId": "9f3c…",                       // 32 hex chars, opaque; the handle §3.13 files
+  "capturedAt": "2026-08-31T09:15:00Z",
+  "snapshot": { /* the allowlisted object — see below */ },
+  "snapshotMarkdown": "## Snapshot\n\n| field | value |\n…" }  // rendered; no trailing newline
+```
+
+The snapshot is a **strict allowlist**, assembled by explicit field copy, never by
+subtracting keys from a whole-object shape:
+
+- always — `capturedAt`, `scope`, `musterd.version`, `claudeCode.{pinned,installed,drift}`,
+  `host.{os,arch}`, `dashboard.{sessionsTotal,sessionsAlive,view,density,railSort}`;
+- session scope only — `session.{state,stateSince,alive,endedAt}`,
+  `session.attention.{reason,since}`, `session.failure.error` (**the raw token only**),
+  `session.model.id`, `session.permissionMode.{value,source}`,
+  `session.context.{usedPct,totalInputTokens,windowSize}`, `session.compactions`,
+  `session.tmuxTarget`, `session.createdAt`, `session.claudeSessionIdBound` (a boolean —
+  never the id), `session.events.{firstSeq,lastSeq,count,lastReceivedAt,recentTypes}`.
+
+**Never** on the wire here: prompt text, hook payload bodies, raw status-line JSON, pane
+captures, `lastActivity`, `failure.message` (it *is* the last assistant message),
+`title` (it refreshes from the status line's auto-generated session name — §5.3),
+`directory`, `branch`, `isWorktree`, the repo name, the `claudeSessionId` value, and every
+account-usage field of §5.4. `Zalaras/muster` may be open-sourced; this list is the
+boundary. Unknown values render the word `unknown` in `snapshotMarkdown`, never `0` (§1).
+
+No side effects on muster state; nothing is broadcast. At most 8 captures are held, each
+expiring 15 minutes after `capturedAt`; taking a 9th evicts the oldest. Captures live in
+memory only — a daemon restart drops them.
+
+Errors: `400 invalid_request` (body present but not JSON; `sessionId` not an integer);
+`404 unknown_session`; `404 not_found` (issue capture disabled — `musterd -issue-api-url ""`).
+
+### 3.13 `POST /api/issues` (Pre-v1 — `issue-capture`, 2026-08-31)
+
+**Auth**: UI cookie (401 `unauthorized`). Files a held §3.12 capture as a GitHub issue on
+the daemon's configured repo (`-issue-repo`, default `Zalaras/muster`). The daemon obtains
+a token by running `gh auth token` **at time of use** — never stored, never logged, never
+in a response body — and POSTs to `{-issue-api-url}/repos/{owner}/{name}/issues`.
+
+**Request:**
+
+```jsonc
+{ "captureId": "9f3c…",              // required; from §3.12
+  "title": "Rail drag drops on the wrong index",  // required; 1–200 chars after trimming
+  "note": "dragged card 3 above card 1…" }        // optional; ≤ 8000 chars, CRLF → LF
+```
+
+**Response 201:**
+
+```jsonc
+{ "number": 14, "url": "https://github.com/Zalaras/muster/issues/14",
+  "repo": "Zalaras/muster" }
+```
+
+The posted body is the note section (`"## What happened\n\n" + trimmedNote + "\n\n"`,
+omitted entirely when the trimmed note is empty) followed by the capture's
+`snapshotMarkdown`, with no trailing newline — so the dashboard's preview is byte-identical
+to what GitHub receives. A successful file **consumes** the capture; a failure does not, so
+a retry needs no re-capture.
+
+**No fallback by design**: on any failure nothing is queued, retried or written to disk.
+
+Errors: `400 invalid_request` (body not JSON; `captureId` missing; `title` missing, blank
+after trimming or over 200 chars; `note` over 8000 chars); `404 not_found` (disabled);
+`409 capture_expired` (unknown, expired, or already-consumed `captureId`);
+`502 issue_auth_failed` (`gh` not on `PATH`, `gh auth token` non-zero, or an empty token —
+`message` carries `gh`'s stderr, never its stdout); `502 issue_post_failed` (GitHub non-2xx,
+a transport failure, or a 2xx whose body would not parse — in that last case the message
+says the issue may nonetheless have been created). `502` rather than `500` because this is
+the one endpoint whose failure is genuinely upstream, and the UI says so.
 
 ## 4. HTTP endpoints — ingest (Claude Code → daemon)
 
@@ -668,6 +754,17 @@ exit — so the next startup sweeps it.
   (§7.3) — plan `m4-reconcile`; canary unskip — plan `m4-canary`.
 
 ## 9. Changelog
+
+- **2026-08-31 — §2/§3.12/§3.13: issue capture** (plan `issue-capture`, Pre-v1 Cleanup).
+  Two new UI endpoints let the dashboard file a GitHub issue carrying a strict-allowlist
+  snapshot of muster's own state: `POST /api/issue/captures` takes and holds the snapshot,
+  `POST /api/issues` files a held capture. §2 gains three error codes (`capture_expired`,
+  `issue_auth_failed`, `issue_post_failed`). Additive: no WS message, no Session-object
+  change, no state-machine change, no version bump — a filed issue is not muster state, so
+  nothing is broadcast. The allowlist in §3.12 is the load-bearing part: prompt text, hook
+  payload bodies, status-line JSON, pane captures, `title`, `lastActivity`,
+  `failure.message`, `directory`, `branch`, the repo name, the `claudeSessionId` value and
+  all account usage are excluded, because the repo may be open-sourced.
 
 - **2026-08-30 — §3.1 request comment: `fable` preset** (plan `new-session-dialog`,
   Pre-v1 Cleanup). The launch dialog's Model control gains a `fable` preset (a measured

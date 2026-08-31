@@ -1612,6 +1612,172 @@ fieldset.seg legend {
   display: none;
 }
 
+/* ── issue dialog (plan issue-capture) ──────────────────────────────────
+ * UI Specifications: 560px — wider than a confirm dialog (it hosts a preview pane),
+ * narrower than the 720px launch dialog. The dialog never grows past 80vh; the preview
+ * pane is what scrolls internally, not the whole dialog (`.foot` and the form stay put).
+ */
+
+#issue-dialog.modal {
+  width: 560px;
+  max-height: 80vh;
+}
+
+#issue-dialog.modal[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+#issue-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#issue-body[hidden] {
+  display: none;
+}
+
+#issue-form {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 10px 14px;
+  align-items: start;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+
+#issue-form .lab {
+  padding-top: 7px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+#issue-form .sel,
+#issue-form input[type="text"],
+#issue-form textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line2);
+  padding: 6px 9px;
+  color: var(--paper);
+  background: var(--term);
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+#issue-form textarea {
+  line-height: 1.4;
+  resize: vertical;
+}
+
+.preview {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 10px 16px 14px;
+  overflow: hidden;
+}
+
+.preview h3 {
+  display: inline;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.preview .meta {
+  margin-left: 8px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+#issue-preview {
+  flex: 1 1 auto;
+  min-height: 120px;
+  margin: 8px 0 0;
+  padding: 10px;
+  overflow-y: auto;
+  background: var(--term);
+  border: 1px solid var(--line2);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+#issue-success {
+  flex: none;
+  padding: 16px;
+}
+
+#issue-success[hidden] {
+  display: none;
+}
+
+#issue-success p {
+  margin: 0;
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+#issue-success a {
+  color: var(--paper);
+}
+
+/* The error detail is a plain selectable <pre> (no Copy button — a clipboard button
+ * needs a browser permission Playwright has to be told about; selectable text already
+ * satisfies "available to copy", per the plan). */
+#issue-error-detail {
+  flex: none;
+  margin: 8px 16px 0;
+  padding: 8px 10px;
+  overflow-x: auto;
+  background: var(--term);
+  border: 1px solid var(--line2);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
+
+#issue-error-detail[hidden] {
+  display: none;
+}
+
+/* `.foot` mirrors `.modal-foot` (launch dialog) — the issue dialog's own footer class
+ * per the plan's pinned DOM. */
+.foot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+}
+
+#issue-submit-button[hidden],
+#issue-cancel-button[hidden],
+#issue-close-button[hidden] {
+  display: none;
+}
+
 /* ── protocol mismatch ────────────────────────────────────────────────── */
 
 #protocol-mismatch {

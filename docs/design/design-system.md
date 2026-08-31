@@ -164,7 +164,7 @@ a `title` with the state word so a hover explains the colour.
 single primary action. No border-radius above 2px anywhere in the app.
 
 **Modal** — `--panel` on a 72%-opaque scrim, 1px `--line2` border, header rule, footer rule.
-The launch dialog is 720px wide (its picker panes scroll internally); confirm dialogs are 440px.
+The launch dialog is 720px wide (its picker panes scroll internally); confirm dialogs are 440px; the issue dialog is 560px, capped at 80vh (its preview scrolls internally).
 
 **Segmented control** — mono, 10.5px, 1px `--line2` border; native radio inputs visually
 hidden inside their labels, the checked segment taking `--panel2` ground and `--paper` text,

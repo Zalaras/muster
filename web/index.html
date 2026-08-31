@@ -20,6 +20,7 @@
           <span id="usage-model-week" class="usage-readout"></span>
           <button id="usage-refresh" class="btn sm" type="button" aria-label="Refresh usage" title="Refresh usage">↻</button>
           <span id="usage-model" class="model" hidden></span>
+          <button id="issue-button" class="btn" type="button" aria-label="File an issue" title="File an issue">Issue</button>
           <span id="claude-version" class="claude-version"></span>
           <span id="connection-status" role="status"></span>
         </div>
@@ -156,6 +157,35 @@
       <div class="modal-foot">
         <button type="button" id="remove-cancel-button" class="btn">Cancel</button>
         <button type="button" id="remove-confirm-button" class="btn key-danger">Remove</button>
+      </div>
+    </dialog>
+
+    <dialog id="issue-dialog" class="modal issue" aria-labelledby="issue-dialog-title">
+      <h2 id="issue-dialog-title">File an issue</h2>
+      <div id="issue-body">
+        <form id="issue-form">
+          <label class="lab" for="issue-session-select">Session</label>
+          <select id="issue-session-select" class="sel"></select>
+          <label class="lab" for="issue-title-input">Title</label>
+          <input id="issue-title-input" type="text" autocomplete="off" maxlength="200" required />
+          <label class="lab" for="issue-note-input">What happened</label>
+          <textarea id="issue-note-input" rows="5" maxlength="8000"></textarea>
+        </form>
+        <section class="preview" aria-labelledby="issue-preview-title">
+          <h3 id="issue-preview-title">Payload preview</h3>
+          <span id="issue-captured-at" class="meta"></span>
+          <pre id="issue-preview" data-testid="issue-preview"></pre>
+        </section>
+      </div>
+      <div id="issue-success" hidden>
+        <p role="status">Filed <a id="issue-success-link" href="" target="_blank" rel="noreferrer noopener"></a></p>
+      </div>
+      <p id="issue-error" class="launch-error" role="alert" hidden></p>
+      <pre id="issue-error-detail" hidden></pre>
+      <div class="foot">
+        <button type="button" id="issue-cancel-button" class="btn">Cancel</button>
+        <button type="submit" form="issue-form" id="issue-submit-button" class="btn key">File issue</button>
+        <button type="button" id="issue-close-button" class="btn key" hidden>Close</button>
       </div>
     </dialog>
 

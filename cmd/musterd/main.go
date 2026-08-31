@@ -78,6 +78,9 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		usagePoll      = fs.Duration("usage-poll", defaultUsagePoll, "how often musterd polls Claude Code's per-model weekly usage endpoint; 0 disables polling (POST /api/usage/refresh then 404s)")
 		usageAPIURL    = fs.String("usage-api-url", "https://api.anthropic.com", "base URL for the per-model usage endpoint — a test seam like -claude-bin")
 		usageTokenFile = fs.String("usage-token-file", "", "read the Claude Code OAuth token from this file instead of the macOS Keychain — a test seam like -claude-bin (empty = the daemon's usual Keychain lookup)")
+		issueRepo      = fs.String("issue-repo", "Zalaras/muster", "GitHub repo (owner/name) the Issue button files issues against")
+		issueAPIURL    = fs.String("issue-api-url", "https://api.github.com", "base URL for the GitHub API the Issue button posts to — a test seam like -usage-api-url; empty disables issue capture entirely (POST /api/issue/captures and POST /api/issues then 404)")
+		issueTokenFile = fs.String("issue-token-file", "", "read the GitHub bearer token from this file's trimmed contents instead of running `gh auth token` — a test seam like -usage-token-file (empty = the daemon's usual `gh auth token`)")
 	)
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -180,6 +183,9 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		UsageAPIURL:      *usageAPIURL,
 		UsageTokenFile:   *usageTokenFile,
 		KeychainUser:     keychainUser(),
+		IssueRepo:        *issueRepo,
+		IssueAPIURL:      *issueAPIURL,
+		IssueTokenFile:   *issueTokenFile,
 	})
 	srv.Start()
 
