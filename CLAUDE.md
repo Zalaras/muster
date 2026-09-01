@@ -45,6 +45,9 @@ tests; test agents never edit implementation; nobody changes the daemon↔UI pro
 tree compiling; claims need evidence (paste the failing output, don't assert) — and
 claimed *effects* need measurement (a "the file is now private / the row is now hidden"
 claim requires the `ls -l` or the observed DOM, not just the diff).
+Never `sleep`/poll to wait on a subagent or a background task — the harness re-invokes you
+when it finishes; a wait loop just burns a turn and delays the notification you're waiting for.
+
 Trivial fixes and doc work don't need the pipeline — judgement call, default to it for
 anything with acceptance criteria.
 

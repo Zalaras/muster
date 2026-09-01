@@ -9,6 +9,7 @@ Usage (run from the project root):
   orch-state.py <plan> status <in-progress|blocked|completed> [--step STEP]
   orch-state.py <plan> reopen <step>                 resume: status in-progress, retries kept (--reset-retries zeroes),
                                                      remove <step> from completed_steps
+  orch-state.py <plan> closes [N ...]                set closes_issues (no N clears it)
   orch-state.py <plan> show                          print the state
 
 Every mutating command stamps updated_at and prints the resulting state.
@@ -24,8 +25,10 @@ def now():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("plan")
-    ap.add_argument("cmd", choices=["init", "done", "retry", "fail", "status", "reopen", "show"])
+    ap.add_argument("cmd", choices=["init", "done", "retry", "fail", "status", "reopen", "show",
+                                   "closes"])
     ap.add_argument("arg", nargs="?")
+    ap.add_argument("rest", nargs="*", help="closes: any further issue numbers")
     ap.add_argument("--step")
     ap.add_argument("--next")
     ap.add_argument("--reset-retries", action="store_true",
@@ -70,6 +73,16 @@ def main():
                 s["current_step"] = a.step
             if a.arg == "completed":
                 s["current_step"] = "completed"
+        elif a.cmd == "closes":
+            nums = ([a.arg] if a.arg else []) + list(a.rest)
+            issues = []
+            for n in nums:
+                n = n.lstrip("#")
+                if not n.isdigit():
+                    sys.exit(f"closes takes issue numbers, got {n!r}")
+                if int(n) not in issues:
+                    issues.append(int(n))
+            s["closes_issues"] = issues
         elif a.cmd == "reopen":
             s["status"] = "in-progress"
             s["current_step"] = a.arg
