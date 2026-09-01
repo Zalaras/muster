@@ -78,6 +78,17 @@ Single-sentence semantic messages: `type(scope): imperative summary` — types `
 if a commit needs paragraphs of explanation, the explanation belongs in the docs the
 commit touches.
 
+**Keep a `feat` or `fix` summary to 72 characters** (before any `(closes #N)` tail).
+The cap binds those two types specifically, because such a subject is not only for
+`git log` — **it is published verbatim as the release
+note.** `.goreleaser.yaml` sets `changelog.use: github` with `exclude` filters for
+`docs|chore|test|ci|style|refactor`, so exactly the `feat`/`fix` subjects reach the
+GitHub Release, one bullet each. Some of this repo's early subjects run to 200-400
+characters and one to 1,900; they are published that way and are the reason this limit
+exists. Do not copy them. Other types are not capped — a `docs(pipeline)` subject may
+run long to carry a retro finding, since the filters keep it out of the notes — but the
+one-sentence, no-body rule still binds every type.
+
 These types are **load-bearing**: `.github/workflows/release.yml` runs `svu` over the
 commits since the last tag on every push to `main`, and the type decides the release.
 
@@ -100,8 +111,10 @@ Two consequences of the one-sentence rule above:
 
 **Closing issues.** Issues on `Zalaras/muster` (filed from the dashboard's masthead `Issue`
 button) are triaged by hand into `TODO.md`; the commit that fixes one closes it with a
-trailing `Closes #N` in the summary line — e.g. `fix(launch): preflight tmux and name the
-remedy (Closes #2)`. That is the only issue automation Muster has: the daemon creates
+trailing `closes #N` in the summary line — e.g. `fix(launch): preflight tmux and name the
+remedy (closes #2)`; lowercase, and one `closes #N` per issue. The subject carries no
+`(plan <name>)` marker — the squash includes `plans/<name>/`, so the plan is recoverable
+from the commit's own file list (decision 2026-09-01). That is the only issue automation Muster has: the daemon creates
 issues and never reads, labels, or syncs them (`SPEC.md` 2026-08-31 changelog). `/land`
 composes that subject from the plan's `closes_issues`, so the reference is not left to whoever
 happens to run the merge; `/triage --audit` reports any issue still open whose `TODO.md` item is

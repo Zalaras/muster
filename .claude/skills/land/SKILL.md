@@ -55,7 +55,7 @@ command. Say so and let the user commit it themselves.
 Format, per `docs/conventions.md` § Commits — one sentence, no body:
 
 ```
-type(scope): imperative summary (plan <plan-name>)
+type(scope): imperative summary (closes #N, closes #M)
 ```
 
 - **Type** decides the release, so choose it deliberately: `feat` for new behaviour, `fix` for a
@@ -63,8 +63,17 @@ type(scope): imperative summary (plan <plan-name>)
   impl logs rather than guessing from the plan name.
 - **`!` is never used** while Muster is on 0.x — `svu` would take it straight to 1.0.0
   (`docs/conventions.md`).
-- **Summary** describes what shipped, not what the plan was called. `git log` on `main` shows the
-  established length and shape (`1b145d1`, `a654795`, `f66dda6`).
+- **Summary** describes what shipped, not what the plan was called, and is **at most 72
+  characters** before the `(closes …)` tail.
+
+  **This subject is published verbatim as the release note.** `.goreleaser.yaml` sets
+  `changelog.use: github` and excludes `docs|chore|test|ci|style|refactor`, so every `feat` and
+  `fix` subject — and only those — becomes one bullet in the GitHub Release. Write it for that
+  reader. Do **not** take the length of this repo's older subjects as the house style: measured
+  2026-09-01, `main` carries subjects of 394, 272, 224 and 205 characters, and the m3-gauges one
+  is a single 1,900-character sentence published as one changelog bullet. They are the mistake
+  this rule exists to stop, not the model. `docs/conventions.md` § Commits has the right shape in
+  its own worked example.
 
 ### The issue references
 
@@ -73,7 +82,13 @@ completion for every issue the plan **fully** resolves. If the key is absent (an
 fall back to grepping the `TODO.md` items the plan ticked for issue links, and ask the user to
 confirm rather than inferring silently.
 
-Append one reference per issue: `... (plan <name>, closes #2, closes #4)`.
+Append one reference per issue, lowercase: `... (closes #2, closes #4)`.
+
+**The subject carries no `(plan <name>)` marker.** It is bookkeeping in a user-facing release
+note, and the plan is always recoverable from the commit itself — the squash includes
+`plans/<name>/`, so `git show --stat <sha> | grep plans/` names it. (Decision 2026-09-01, after
+`v0.2.0` shipped a note in which 48 of 125 characters were bookkeeping.) If a plan closes no
+issues, the subject simply has no tail.
 
 **Only fully-resolved issues.** Ticking a TODO item and closing an issue are different claims —
 a plan can advance an issue without finishing it. If orchestrate flagged an issue as partially
@@ -124,7 +139,9 @@ usually staleness rather than lost work — `merge-tree` writes conflict markers
 an old branch collides with later work on `main`, which changes the tree hash without any content
 being unlanded. Don't delete on that alone; establish all three:
 
-1. the plan's squash commit exists on `main` (`git log --oneline --grep "(plan <plan>)"`),
+1. the plan's squash commit exists on `main` — find it by the issues it closed
+   (`git log --oneline --grep "closes #<N>"`) or by the plan directory it carries
+   (`git log --oneline -- plans/<plan>/`); subjects no longer carry a `(plan <name>)` marker,
 2. the branch has **zero commits after** that squash landed (compare `git log -1 --format=%ci`
    on both) — this is the case that would actually lose work,
 3. `git diff plan/<plan> <squash-sha>` shows only lines `main` later superseded, never lines the
