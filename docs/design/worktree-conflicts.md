@@ -374,3 +374,35 @@ discussion.
   Deferred nice-to-have.
 - **Ownership tracking rides Claude Code's native worktree hooks**
   (`WorktreeCreate`/`WorktreeRemove`, SPEC §4.2 preference) — no bespoke registration.
+
+### Status at end of 2026-09-01 session
+
+**Decided (Damian):**
+- Worktree conflict handling is muster-core, generic; this repo's pipeline is one
+  adapter/consumer.
+- An integration session for the merge queue is acceptable, user opt-in at setup.
+- **Queue is daemon-driven** (state machine in musterd, git plumbing deterministic);
+  the integration session is summoned for judgment only.
+
+**Recommended, not yet confirmed:**
+- Integration session is summonable by default, persistent as an opt-up.
+- "Ready to integrate" is a branch state set from the dashboard.
+- Escalation ladder v1 (replay → owning session via dashboard trigger → integration
+  session → human); auto-inject to owner only as a later opt-in.
+
+**Open decisions (next session):**
+1. **Push policy** — does the queue push after merging, or hold? (Here a push cuts a
+   release.) Per-repo config, but pick the default.
+2. **Undo depth** — what "revert this land" must cover before automation is trusted
+   to merge (local revert only? what if pushed? batched lands?).
+3. Integration session details: model choice, permission mode, role prompt, failure
+   handling specifics.
+4. Whether the queue waits for the §4.2 worktree manager or ships radar-first
+   (radar is unblocked; queue depends on ownership handoff).
+5. Build order/timing overall — explicitly parked.
+6. Adapter-side (this repo): the four debate caveats before anything reaches SPEC.md
+   — doc-check⇄permutation-rule interlock, scoped-review-as-default budgeting,
+   per-file-class teeth for "mechanical composition", tier-1 benign suppression.
+
+Next session: start from this section; the requirements inventory above is the
+skeleton for an eventual `/spec` pass on the feature.
