@@ -538,6 +538,62 @@ while the issue is still open.
   - The E2E suite cannot verify any of this: Playwright injects below the browser chrome
     (`web/e2e/views.spec.ts:110` pressed `Meta+1` green the whole time ⌘N was broken).
 
+- [ ] **README's install command doesn't work on Apple Silicon** ([#7](https://github.com/Zalaras/muster/issues/7))
+  — the block at `README.md:76-79` fails three separate ways, all reproduced by the reporter:
+  `tar -xzf musterd_*.tar.gz musterd` passes the glob *and* a member name, so tar sees five
+  arguments (`tar: accepts at most 1 arg(s), received 5`); a second `gh release download`
+  aborts (`musterd_0.2.1_darwin_arm64.tar.gz already exists (use --clobber to overwrite
+  file...)`); and `~/.local/bin/musterd` loses to an existing `/usr/local/bin/musterd`
+  earlier in `$PATH`, so an upgrade silently keeps running the old binary. The reporter's
+  working four-line version is in the issue. Beyond patching those lines the issue asks for a
+  real install path — the `curl | sh` script most non-brew tools ship — since Homebrew stays
+  deferred. This is the ground #4 was ticked for: the text written to close #4 is the text
+  that's broken.
+
+- [ ] **The launcher's "auto-accept" isn't auto mode** ([#12](https://github.com/Zalaras/muster/issues/12))
+  — picking it on a new session gives edit access, not auto. The wire is self-consistent
+  (`web/index.html:130` sends `acceptEdits`; `BuildArgv` emits `--permission-mode
+  acceptEdits`), but Claude Code separately reports a mode literally named `auto` — which is
+  what the reporter's own snapshot shows once the session is running — and muster cannot
+  request it: `bypassPermissions` appears nowhere in the tree. Decide the fix: rename the
+  radio so it can't be read as Claude's `auto`, or add a fourth option that really asks for
+  it. The second wants the guardrails the §4.4 permissions UI (M5+) implies.
+
+- [ ] **Sidebar click doesn't move focus into the terminal** ([#11](https://github.com/Zalaras/muster/issues/11))
+  — clicking a rail card should leave you able to type immediately; today it selects the
+  session but keyboard focus stays put, so the pane needs a second click. Same focus seam as
+  the approved `shortcut-fixes` plan above (⌥⌘1–9 focus, ⌥⌘0 jump-to-neediest), unstarted on
+  `plan/shortcut-fixes` — it could absorb this, and probably should, since "focus session n"
+  and "click session n" ought to agree on what focus means.
+
+- [ ] **No scrollback affordance on the terminal pane, and scrolling is slow** ([#13](https://github.com/Zalaras/muster/issues/13))
+  — two complaints, and the first is a settled decision rather than a bug:
+  `web/src/terminal/pane.ts:80` sets `scrollback: 0` deliberately ("tmux owns scrollback,
+  never xterm", design-system §7.4 / protocol §6), so xterm has no buffer to scroll and no
+  scrollbar to draw, and a wheel gesture reaches tmux copy-mode instead. Do **not** fix it by
+  giving xterm a buffer — that duplicates tmux's and re-opens the decision. What's needed is a
+  design pass on surfacing copy-mode from the browser: how it's entered, how that state is
+  indicated, and at what rate it scrolls. The "rather slow" half is unmeasured — measure
+  before planning.
+
+- [ ] **No way to rename a session after it starts** ([#10](https://github.com/Zalaras/muster/issues/10))
+  — the reporter wants to click the title and edit it. Today `title` is set once from the
+  launch form via `claude --name` and thereafter refreshed from the status line's session name
+  whenever present (`docs/protocol.md` §5.3, M3 semantics); there is no rename route, and
+  `POST /api/sessions` is the only place a title is accepted. So this is a protocol delta (a
+  new endpoint) *plus* a precedence rule that delta must settle — a manually chosen name has to
+  survive the next status-line post, which means a "manual title wins" flag on the session row,
+  not just a write. Wants a `/spec` pass before planning.
+
+- [ ] **Dropping a file on a terminal pane navigates the browser** ([#8](https://github.com/Zalaras/muster/issues/8))
+  — in a real terminal a dragged file inserts its path; in the dashboard Safari (and likely
+  every other browser) opens the file, losing the dashboard. Nothing in `web/src/` handles
+  `dragover`/`drop` outside the tile and rail reorder, so the browser default wins. The cheap
+  half is worth doing alone: preventing the default on the pane stops the navigation. Matching
+  terminal behaviour is the hard half — a drop yields a `File` blob and never a filesystem
+  path (deliberately, for security), so the path must come from elsewhere: the `/api/browse`
+  picker already in the tree, or a daemon-side staging write. Decide which before planning.
+
 ## M5+ (v1.x, re-rank when reached)
 
 Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start-from-PR/issue
@@ -548,6 +604,16 @@ Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start
   read as a support warning (this Claude Code version isn't verified yet; things past the
   pin may misbehave): a warning icon with a hover explanation and a dismiss. Post-v1 — the
   drift banner is correct today, just written for the person who wrote it.
+
+- [ ] **Usage gauges are dead on API-key auth** ([#9](https://github.com/Zalaras/muster/issues/9))
+  — the ask is "support API usage billing as well". On a subscription the gauges come from the
+  status line's `rate_limits`; under API-key auth that key is **absent entirely** (SPEC §2.3,
+  measured), so the gauges honestly render "unknown" and never move. The seam is already named
+  and deliberately post-v1: `usage.source` is `subscription` today with `api`/`otel` reserved
+  (`internal/usage/aggregator.go:14-15`). Scope decision comes first — an `api` source
+  reporting *tokens* fits the existing seam, but if what's wanted is spend in dollars it runs
+  into SPEC §3's explicit v1 non-goal ("Cost/spend tracking"), which is a SPEC change, not a
+  plan.
 
 - [ ] **App-wide `.btn:disabled` affordance pass** — no disabled button anywhere in Muster has
   a visual disabled state (issue-capture review cycle 1, Minor 5: `#issue-submit-button`
