@@ -602,6 +602,8 @@ unless he re-ranks — don't re-sort this list.
 
 Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start-from-PR/issue
 (§4.3) → permissions UI (§4.4) → `code <worktree>` button (trivial, anytime).
+Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-09-01) is in
+`docs/design/worktree-conflicts.md` — read it before planning the worktree manager.
 
 - [ ] **Version-pin warning is developer-facing** ([#6](https://github.com/Zalaras/muster/issues/6))
   — "drift from pinned 2.1.246" means nothing to someone who didn't set the pin. It should
