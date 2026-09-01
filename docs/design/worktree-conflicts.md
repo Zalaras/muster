@@ -160,3 +160,33 @@ Notable per-tool details worth remembering:
   <https://www.onorca.dev/docs/review/diff-viewer>
 - Claude Code official worktrees doc (isolation only, no merge story):
   <https://code.claude.com/docs/en/worktrees>
+
+## Experiment log — 2026-09-01, steps 1–3 verified on real history
+
+Scratch-clone simulation: `move-tiles` (7f8a312) and `usage-model-bar` (a740fa3)
+reconstructed as parallel branches off the common base 7f8a312^ (B rebuilt by
+cherry-picking a740fa3 onto the base; the reconstruction itself conflicted in 2 files,
+proving these adjacent plans would have collided had they truly run in parallel).
+
+1. **Radar works and is cheap**: `git merge-tree --write-tree` between the branches ran
+   in ~45 ms, exit 1, named the conflicting files. Crucially, only **2 of the 7
+   overlapping files actually conflicted** (TODO.md, `web/src/main.ts`) — the other 5
+   (SPEC.md, design-system.md, views.spec.ts, index.html, style.css) auto-merged.
+   Overlap ≠ conflict: the radar has far fewer false positives than an Affected-Files
+   warning, which would have flagged all 7.
+2. **`merge=union` caveat sharpened**: with `TODO.md merge=union` the conflict
+   disappears (merge-tree respects `info/attributes`) — but the result **duplicates the
+   ticked line**, because TODO.md items are edited in place, not appended. Union is only
+   safe for genuinely append-only files; hot doc files must be *restructured*
+   append-only (or given a custom merge driver) before this defusing is applied.
+3. **Land queue reproduces history byte-for-byte**: landing A (squash), rebasing B onto
+   the new main, and resolving the 2 conflicts with the historically-correct content
+   yielded a tree **identical to the real a740fa3 tree** (`git diff --stat` empty). The
+   serialized rebase-resolve-land flow loses nothing.
+4. **rerere replays**: with `rerere.enabled` + `rerere.autoUpdate`, a second branch
+   hitting the same conflicts rebased with zero unresolved files — resolutions recorded
+   once, replayed automatically, retry tree also matched history. rr-cache is in the
+   shared `.git`, so this covers all worktrees.
+
+No blocking issue found; mechanics validated. Ground truth exists for the resolver
+probe: a blind agent resolution of this pair's conflicts can be diffed against a740fa3.
