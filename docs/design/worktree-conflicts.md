@@ -313,3 +313,64 @@ binding and the scoped re-review; `make doc-check`; `TODO.d/<plan>.md` fragments
 the permutation-refusal rule; `/orchestrate <plan> --resolve`. These consume muster's
 generic hook points: pre-merge command, verify command, resolver-context provider,
 per-repo hot-file policy. The pipeline is one consumer of the feature, not its shape.
+
+## Muster-core v1 shape — session discussion 2026-09-01 (continued)
+
+Damian: a dedicated **integration session** for queueing merges is acceptable — user
+opt-in at repo setup. Feature to be fully defined now; build order/timing is a later
+discussion.
+
+### Settled direction
+
+- **Queue driver fork**: recommend **daemon-driven queue, session-on-demand** — the
+  queue is a daemon state machine (`queued → rebasing → verifying →
+  awaiting-resolution/confirm → merging → done/failed`) doing git plumbing free and
+  deterministically; the integration session is summoned only for judgment (conflict
+  resolution, verify-failure diagnosis). Alternative (session runs the whole queue,
+  like /land today) burns tokens on mechanics and makes queue reliability an LLM
+  property. Integration session default = summonable; "persistent" is an opt-up.
+- The integration session resolves the earlier "defer rung (c)" — muster launches
+  sessions natively, so the resolver is just a session with a role, not new machinery.
+- Queue never operates in a live session's worktree (git also refuses same branch in
+  two worktrees): it works in its own integration worktree after an ownership handoff.
+- "Ready to integrate" is a **branch** state set from the dashboard, decoupled from
+  the session (session may live on for follow-ups).
+- Empty verify command ⇒ merge requires explicit dashboard confirm (resolution diff
+  shown); green verify ⇒ auto per config.
+- Escalation ladder v1: rerere replay → owning session (dashboard-triggered inject
+  when idle) → integration session → human. Auto-inject is a later opt-in policy.
+- Deferred: rerere forget-wrapper (matters only once automation resolves), full
+  merge-style generality (squash + merge suffice), queue-order optimization.
+
+### To define next (requirements inventory — each a future spec section)
+
+1. Integration session spec: lifecycle, own worktree, role prompt, permission mode,
+   model choice/cost controls, failure handling (dies mid-resolution → daemon aborts
+   rebase, entry failed, tree clean).
+2. Queue data model: entries/states, SQLite persistence, one queue per repo; user
+   controls reorder/cancel/retry/pause.
+3. Entry + exit semantics: how a branch is marked ready; post-land worktree policy
+   (auto-remove / keep / ask).
+4. Per-repo config schema: verify command + timeout, merge style, **push policy**
+   (auto vs hold — here a push cuts a release), suppression list, auto vs confirm.
+5. Conflict→owner handoff loop: prompt template, idle detection, re-enqueue after
+   owner resolves.
+6. Undo story: record pre-merge main SHA per land; "revert this land" action —
+   trust requires one-click undo.
+7. Protocol delta: WS (queue state, conflict matrix) + REST (enqueue, reorder,
+   confirm, send-to-owner). Plan-time detail.
+8. Resolver context sourcing without violating the never-log-prompt-text rule
+   (transcript paths + commit messages, never stored copies).
+
+### Additional ideas (this round)
+
+- **Post-land freshness sweep**: after each land, recompute the matrix and flag each
+  remaining session whose touched files changed — "main moved; you now conflict on X."
+  Automatic "rebase early" nudge while owner context is hottest. Core-worthy.
+- **Conflict preview**: clicking a red matrix cell shows the actual conflict hunks
+  (merge-tree yields the conflicted blobs) — decide *which side should move* from the
+  dashboard.
+- **Queue-order suggestion** from the pairwise matrix (land conflict-free first).
+  Deferred nice-to-have.
+- **Ownership tracking rides Claude Code's native worktree hooks**
+  (`WorktreeCreate`/`WorktreeRemove`, SPEC §4.2 preference) — no bespoke registration.
