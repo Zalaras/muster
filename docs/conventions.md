@@ -73,41 +73,63 @@ first — never diverge silently in code.
 
 ## Commits
 
-Single-sentence semantic messages: `type(scope): imperative summary` — types `feat`,
-`fix`, `docs`, `test`, `refactor`, `chore`, `ci`; scope optional. One sentence, no body;
-if a commit needs paragraphs of explanation, the explanation belongs in the docs the
-commit touches.
+Single-sentence semantic messages: `type(scope): imperative summary` — the eleven
+standard types (the `@commitlint/config-conventional` list, settled 2026-09-01):
+`build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style`,
+`test`; scope optional. One extra, `review(<plan-name>)`, is legal **on plan branches
+only** — it is the review agent's verdict commit and is squashed away by `/land`; it
+never reaches `main`. One sentence, no body; if a commit needs paragraphs of
+explanation, the explanation belongs in the docs the commit touches.
 
-**Keep a `feat` or `fix` summary to 72 characters** (before any `(closes #N)` tail).
-The cap binds those two types specifically, because such a subject is not only for
-`git log` — **it is published verbatim as the release
-note.** `.goreleaser.yaml` sets `changelog.use: github` with `exclude` filters for
-`docs|chore|test|ci|style|refactor`, so exactly the `feat`/`fix` subjects reach the
-GitHub Release, one bullet each. Some of this repo's early subjects run to 200-400
-characters and one to 1,900; they are published that way and are the reason this limit
-exists. Do not copy them. Other types are not capped — a `docs(pipeline)` subject may
-run long to carry a retro finding, since the filters keep it out of the notes — but the
-one-sentence, no-body rule still binds every type.
-
-These types are **load-bearing**: `.github/workflows/release.yml` runs `svu` over the
-commits since the last tag on every push to `main`, and the type decides the release.
+These types are **load-bearing**: `.github/workflows/release.yml` decides the release
+from the commits since the last tag on every push to `main`.
 
 | Type | Release |
 |---|---|
 | `feat` | minor |
-| `fix` | patch |
-| `feat(x)!:` — `!` before the colon | major |
-| `docs`, `test`, `refactor`, `chore`, `ci` | none — the workflow exits green without releasing |
+| `fix`, `perf`, `refactor` | patch |
+| everything else | none — the workflow exits green without releasing |
 
-Two consequences of the one-sentence rule above:
+svu itself hardwires only `feat`→minor and `fix`→patch (measured 2026-09-01 against the
+pinned v3.4.1; its config has no type→bump mapping), so `release.yml` carries a small
+shim: when `svu next --v0` reports no bump but a `perf`/`refactor` commit exists since
+the last tag, it forces `svu patch`.
 
-- **`!` is the only way to signal a breaking change.** The conventional-commits
-  alternative is a `BREAKING CHANGE:` footer, which requires a body — which this
-  convention forbids. Don't reach for one; it would be silently ignored.
-- **While Muster is on 0.x, don't use `!` at all.** svu follows semver strictly, so a
-  breaking marker on `0.x` jumps straight to `1.0.0` rather than bumping the minor.
-  Breaking changes ride along as `feat` until the pre-v1 sections in `TODO.md` close and
-  v1 is cut deliberately.
+**Keep a `feat`, `fix`, `perf` or `refactor` summary to 72 characters** (before any
+`(closes #N)` tail). The cap binds exactly those four because such a subject is not only
+for `git log` — **it is published verbatim as the release note.** `.goreleaser.yaml`
+filters the changelog to `include: ^(feat|fix|perf|refactor)` — the notes show exactly
+the types that cut the release, by construction, so the filter and this table cannot
+drift apart. Some of this repo's early subjects run to 200–400 characters and the two
+longest past 1,100 (measured 2026-09-01: a 1,155-char `docs` retro, `5d4e1d6`, and the
+1,138-char `feat(m3)`, `3f1c7a3`); the feat one is published that way and is the reason
+this limit exists. Do not copy them. Other types are not capped — a `docs(pipeline)`
+subject may run long to carry a retro finding, since the include filter keeps it out of
+the notes — but the one-sentence, no-body rule still binds every type.
+
+**Breaking changes** (all measured 2026-09-01, svu v3.4.1, scratch repo):
+
+- **`!` before the colon is the only sanctioned marker**, and it requires a deliberate
+  human decision: the commit-msg hook rejects it unless `MUSTER_BREAKING=1` is set.
+  Agents and skills never set that variable.
+- **The `BREAKING CHANGE:` footer is banned from commit messages entirely**, and the
+  hook rejects the phrase anywhere in a message. An earlier version of this file claimed
+  the no-body rule made the footer inert ("silently ignored") — measured wrong, and
+  doubly so: svu matches the phrase *anywhere* in the message (mid-sentence, hyphenated
+  `BREAKING-CHANGE:` too), and commits carry bodies in practice (trailers on 47 commits,
+  full retro paragraphs on `0b6f446`). Without the guards, a docs body merely
+  *mentioning* the phrase would have forced a major.
+- **On 0.x nothing can cut v1.0.0 by accident**: `release.yml` passes `svu next --v0`,
+  which clamps every breaking marker to a minor bump while the current version is 0.x
+  (measured: `feat!:` on v0.2.0 → v0.3.0). Cutting v1 is the deliberate act of removing
+  `--v0` (TODO.md § Pre-v1 Cleanup). So a `!` on 0.x is honest history — it marks the
+  breakage and bumps minor like any `feat`; at v1 it resumes meaning major.
+
+**All of this is machine-enforced** by `.githooks/commit-msg` — armed per clone with
+`make hooks` (`git config core.hooksPath .githooks`), binding humans and pipeline agents
+on every branch: known type (plus `review` off-`main` only), the 72-char cap on the four
+published types (enforced on `main` only — plan-branch subjects are squashed away and
+never publish), the phrase ban, and the `MUSTER_BREAKING=1` gate on `!`.
 
 **Closing issues.** Issues on `Zalaras/muster` (filed from the dashboard's masthead `Issue`
 button) are triaged by hand into `TODO.md`; the commit that fixes one closes it with a

@@ -476,6 +476,12 @@ These are some minor changes and cleanup needed before we can move into post v1.
     "is never a character device" — precisely the falsehood REQ-9 exists to correct: `/dev/null`
     **is** a character device, it simply is not a terminal. Reword to "is never a *terminal*".
 
+- [ ] **Cutting v1.0.0 is the act of removing `--v0`** (settled 2026-09-01, SPEC changelog):
+  `release.yml` passes `svu next --v0`, so while the flag exists a 1.0.0 cannot be cut, by
+  accident or otherwise. When the pre-v1 sections here close, v1 ships as one deliberate commit
+  that deletes the flag and carries `feat!:` (`MUSTER_BREAKING=1`, human-set — the commit-msg
+  hook gates it). Until then `!` on 0.x just bumps minor and records the breakage.
+
 ## Reported issues (pre-v1 release)
 
 Issues filed from the dashboard's masthead `Issue` button land on

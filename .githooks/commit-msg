@@ -1,0 +1,69 @@
+#!/bin/sh
+# Commit-message guard — enforces docs/conventions.md § Commits. Armed per clone by
+# `make hooks` (git config core.hooksPath .githooks); it binds humans and pipeline
+# agents alike, on every branch.
+#
+# Measured 2026-09-01 against svu v3.4.1 (the release.yml pin): a breaking footer
+# forces a major bump on ANY type and matches the phrase anywhere in the message —
+# mid-sentence, hyphenated, in a body or trailer — and `!` forces major on every
+# type, known or not. release.yml passes --v0 so 0.x clamps those to minor, but a
+# release still cuts; this hook is what makes both deliberate.
+
+msg_file="$1"
+# Strip comment lines; git hasn't removed them yet at commit-msg time.
+msg=$(grep -v '^#' "$msg_file")
+subject=$(printf '%s\n' "$msg" | head -n1)
+
+fail() {
+  echo "commit-msg guard: $1" >&2
+  echo "  subject: $subject" >&2
+  echo "  rules: docs/conventions.md § Commits" >&2
+  exit 1
+}
+
+# Porcelain-generated merge subjects pass through untouched.
+case "$subject" in
+  "Merge "*) exit 0 ;;
+esac
+
+# The breaking footer/phrase is banned outright — svu matches it anywhere in the
+# message, so even a body that merely mentions it cuts a release. Use `!` instead.
+if printf '%s\n' "$msg" | grep -qiE 'BREAKING[- ]CHANGE'; then
+  fail "the breaking footer/phrase may not appear anywhere in a commit message; mark a breaking change with '!' instead"
+fi
+
+# type(scope)!: imperative summary
+if ! printf '%s\n' "$subject" | grep -qE '^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test|review)(\([^)]*\))?!?: .+'; then
+  fail "subject must be 'type(scope): summary' with a known type (build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test; review on plan branches only)"
+fi
+
+type=$(printf '%s\n' "$subject" | sed -E 's/^([a-z]+).*/\1/')
+branch=$(git symbolic-ref --quiet --short HEAD || echo detached)
+
+# review(<plan>) is the review agent's plan-branch verdict commit; the /land squash
+# is what reaches main, so a review subject on main is always a mistake.
+if [ "$type" = review ] && [ "$branch" = main ]; then
+  fail "'review' commits belong on plan branches only, never on main"
+fi
+
+# `!` is the only breaking marker and needs an explicit human decision:
+# MUSTER_BREAKING=1 git commit ... — agents never set it.
+if printf '%s\n' "$subject" | grep -qE '^[a-z]+(\([^)]*\))?!:' && [ "${MUSTER_BREAKING:-}" != 1 ]; then
+  fail "'!' marks a breaking change and requires MUSTER_BREAKING=1 set by a human"
+fi
+
+# The four release-worthy types are published verbatim as release-note bullets;
+# their summary (after 'type(scope): ', before any '(closes #N)' tail) caps at 72.
+# Only main publishes — plan-branch subjects (e.g. fix(<plan>): … (review cycle N))
+# are squashed away, so the cap does not bind there.
+case "$branch:$type" in
+  main:feat|main:fix|main:perf|main:refactor)
+    summary=${subject#*: }
+    summary=$(printf '%s' "$summary" | sed -E 's/ \(closes #[0-9]+(, closes #[0-9]+)*\)$//')
+    if [ "${#summary}" -gt 72 ]; then
+      fail "a $type summary is a published release note and caps at 72 chars before the (closes …) tail (got ${#summary})"
+    fi
+    ;;
+esac
+
+exit 0

@@ -43,15 +43,12 @@ changelog:
   use: github
   sort: asc
   filters:
-    # Most of this repo's history is docs(pipeline) retro entries; release notes are for
-    # features and fixes only. Trigger types are tabulated in docs/conventions.md § Commits.
-    exclude:
-      - "^docs"
-      - "^chore"
-      - "^test"
-      - "^ci"
-      - "^style"
-      - "^refactor"
+    # The notes show exactly the four types that cut the release (docs/conventions.md
+    # § Commits) — an include list can't drift as types come and go, unlike the exclude
+    # list it replaced (which let perf/build/revert and pre-convention subjects leak into
+    # published notes). GoReleaser ignores `exclude` whenever `include` is non-empty.
+    include:
+      - "^(feat|fix|perf|refactor)[(!:]"
 
 release:
   github:

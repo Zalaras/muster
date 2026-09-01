@@ -44,7 +44,18 @@ jobs:
           set -euo pipefail
           go install github.com/caarlos0/svu/v3@v3.4.1
           current="$(svu current 2>/dev/null || echo v0.0.0)"
-          next="$(svu next)"
+          # --v0 clamps any breaking marker to a minor bump while on 0.x, so v1.0.0
+          # cannot be cut by accident — removing this flag is the deliberate act that
+          # cuts v1 (TODO.md § Pre-v1 Cleanup). Measured 2026-09-01 (svu v3.4.1):
+          # without it, `!` on any type — and the breaking footer phrase anywhere in a
+          # commit body, even mid-sentence — jumps 0.x straight to 1.0.0.
+          next="$(svu next --v0)"
+          # svu hardwires feat→minor and fix→patch only; conventions also give perf and
+          # refactor a patch (docs/conventions.md § Commits), so when they are all that
+          # is new since the last tag, force the patch by hand.
+          if [ "$current" = "$next" ] && git log "${current}..HEAD" --format=%s 2>/dev/null | grep -qE '^(perf|refactor)[(!:]'; then
+            next="$(svu patch)"
+          fi
           echo "current=$current" >> "$GITHUB_OUTPUT"
           echo "next=$next" >> "$GITHUB_OUTPUT"
           if [ "$current" = "$next" ]; then

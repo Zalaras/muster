@@ -61,6 +61,10 @@ canary: ## Drive the real claude (3 haiku turns + 1 zero-token) and assert every
 .PHONY: check
 check: lint test ## Lint + test
 
+.PHONY: hooks
+hooks: ## Arm the commit-msg guard (.githooks/) for this clone — enforces docs/conventions.md § Commits
+	git config core.hooksPath .githooks
+
 # gh (unlike a browser) does not set the com.apple.quarantine xattr, so the unsigned binary
 # runs without a Gatekeeper prompt. Arch is resolved here because releases ship one archive
 # per arch rather than a universal binary.

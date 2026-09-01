@@ -1048,3 +1048,39 @@ Settled while implementing plan `tmux-installation` (issues #2 and #4).
   gracefully. Replaced with a real terminal test (`isTerminal`, `github.com/mattn/go-isatty`,
   already in the module graph - `go.sum` unchanged). This is a macOS/POSIX fact, not a Claude
   Code wire-format one, so it is recorded here and not in `spikes/`.
+
+### 2026-09-01 — release policy unified (types, bumps, notes, breaking, guard)
+
+The release policy lived in five places that had drifted (conventions, the goreleaser
+filters, `release.yml`, `/land`, the agents' hardcoded types). Settled with Damian after
+re-measuring everything against the pinned svu v3.4.1; details and the worked
+measurements are in `docs/conventions.md` § Commits.
+
+- **Types are the eleven-strong commitlint standard** (`build chore ci docs feat fix
+  perf refactor revert style test`), plus `review(<plan>)` on plan branches only.
+  Previously seven; `perf`, `build`, `revert`, `style` were undefined.
+- **Bumps: `feat` → minor; `fix`/`perf`/`refactor` → patch; everything else none.** svu
+  hardwires only feat/fix and its config has no type→bump mapping (measured), so
+  `release.yml` shims perf/refactor to `svu patch` when they are all that is new.
+- **Release notes are derived, not maintained**: the goreleaser filter is now
+  `include: ^(feat|fix|perf|refactor)` — exactly the types that bump. The old exclude
+  list had already let pre-convention subjects into the v0.1.0 notes and would have
+  published `perf`/`build`/`revert` bullets that shipped no release.
+- **The "a breaking footer would be silently ignored" claim was measured wrong**, and
+  dangerously: svu matches the phrase anywhere in a message (mid-sentence, hyphenated),
+  it forces major on *any* type, and `!` forces major even on unknown types — while
+  `main` carries real bodies (trailers on 47 commits, retro paragraphs on `0b6f446`).
+  On 0.x any of these went straight to 1.0.0.
+- **Mechanical safety instead of convention**: `release.yml` now runs `svu next --v0`
+  (majors clamp to minor while on 0.x — measured `feat!:` on v0.2.0 → v0.3.0), and a
+  `commit-msg` hook (`.githooks/`, armed by `make hooks`) enforces the type list, the
+  72-char cap on the four published types, bans the footer phrase outright, and gates
+  `!` on `MUSTER_BREAKING=1`, which only a human ever sets.
+- **`!` is the only breaking marker and is now legal on 0.x when sanctioned** — it bumps
+  minor and records the breakage in history; at v1 it resumes meaning major.
+- **v1.0.0 is cut by deliberately removing `--v0`** from `release.yml` (with a `feat!:`)
+  once the pre-v1 sections in `TODO.md` close. While the flag exists, v1 is impossible.
+- The 72-char release-note cap (decision 2026-09-01, commit `112c36c`) now binds `perf`
+  and `refactor` too, since they are published. Corrected en route: the longest subject
+  on `main` is 1,155 chars (`5d4e1d6`, docs) and the `feat(m3)` bullet is 1,138 — not
+  1,900 as `112c36c` recorded.

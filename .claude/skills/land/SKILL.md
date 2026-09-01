@@ -58,22 +58,27 @@ Format, per `docs/conventions.md` § Commits — one sentence, no body:
 type(scope): imperative summary (closes #N, closes #M)
 ```
 
-- **Type** decides the release, so choose it deliberately: `feat` for new behaviour, `fix` for a
-  defect, `docs`/`test`/`refactor`/`chore`/`ci` for the rest. Read the plan's description and the
-  impl logs rather than guessing from the plan name.
-- **`!` is never used** while Muster is on 0.x — `svu` would take it straight to 1.0.0
-  (`docs/conventions.md`).
+- **Type** decides the release, so choose it deliberately: `feat` (minor) for new behaviour;
+  `fix`, `perf` or `refactor` (patch) when that is what shipped; the remaining types
+  (`docs`/`test`/`chore`/`ci`/`build`/`style`/`revert`) release nothing. Read the plan's
+  description and the impl logs rather than guessing from the plan name.
+- **`!` needs an explicit go-ahead from the user** — the commit-msg hook rejects it unless a
+  human sets `MUSTER_BREAKING=1`, and this skill never sets it on its own. On 0.x it is safe
+  when sanctioned: `release.yml` runs `svu next --v0`, so a breaking marker bumps minor, never
+  1.0.0 (`docs/conventions.md` § Commits). The breaking-footer phrase is banned outright — never
+  put it in a commit message; the hook rejects it anywhere, including bodies.
 - **Summary** describes what shipped, not what the plan was called, and is **at most 72
   characters** before the `(closes …)` tail.
 
   **This subject is published verbatim as the release note.** `.goreleaser.yaml` sets
-  `changelog.use: github` and excludes `docs|chore|test|ci|style|refactor`, so every `feat` and
-  `fix` subject — and only those — becomes one bullet in the GitHub Release. Write it for that
+  `changelog.use: github` with `include: ^(feat|fix|perf|refactor)`, so every subject of those
+  four types — and only those — becomes one bullet in the GitHub Release. Write it for that
   reader. Do **not** take the length of this repo's older subjects as the house style: measured
-  2026-09-01, `main` carries subjects of 394, 272, 224 and 205 characters, and the m3-gauges one
-  is a single 1,900-character sentence published as one changelog bullet. They are the mistake
-  this rule exists to stop, not the model. `docs/conventions.md` § Commits has the right shape in
-  its own worked example.
+  2026-09-01, `main` carries subjects of 394, 272, 224 and 205 characters, and the `feat(m3)`
+  one is a single 1,138-character sentence published as one changelog bullet (`3f1c7a3`; the
+  longest overall is a 1,155-char docs retro, `5d4e1d6`). They are the mistake this rule exists
+  to stop, not the model. `docs/conventions.md` § Commits has the right shape in its own worked
+  example.
 
 ### The issue references
 
@@ -102,8 +107,9 @@ Print, and get confirmation:
 - the issues it will close;
 - `git log --oneline main..plan/<plan>` — what is being squashed;
 - `git diff --stat main...plan/<plan>` — the size of what lands;
-- the **predicted release**: `feat`→minor, `fix`→patch, everything else→none. Note that
-  `.github/workflows/release.yml` runs `svu` on push and computes the actual version.
+- the **predicted release**: `feat`→minor; `fix`/`perf`/`refactor`→patch; everything
+  else→none. Note that `.github/workflows/release.yml` computes the actual version on push
+  (`svu next --v0`, plus its perf/refactor patch shim).
 
 Landing chooses the version bump. Make that visible rather than implicit.
 
@@ -162,5 +168,7 @@ Then remind the user that `/triage --audit` will show any issue whose close sile
 
 - Never land a plan whose review verdict is not `approved`.
 - Never `git add -A`, never stash, never force-push, never amend a commit already on `main`.
-- Never use `!` in the subject while Muster is on 0.x.
+- Never use `!` in the subject without the user's explicit go-ahead (the hook gates it on
+  `MUSTER_BREAKING=1`, which only a human sets), and never write the breaking-footer phrase
+  anywhere in a commit message.
 - Never delete a branch whose diff against `main` is non-empty.
