@@ -272,3 +272,44 @@ flaws in the v1 stack:
 
 Open items before any of this reaches `SPEC.md`: the four debate caveats above, and
 sizing `/orchestrate --resolve` against the existing resume machinery.
+
+## Generalization — muster feature vs. this repo's adapter (2026-09-01)
+
+Correction from Damian after step 4: the debate drifted repo-specific. Worktree
+conflict handling is a **muster feature** — target repos will NOT have plans/,
+/orchestrate, review.md, TODO.md conventions, or our gates. Re-cut of stack v2:
+
+### Muster core (any repo, pure git + sessions)
+
+- **Two-tier radar** — tier 1 (`git status --porcelain` + `git diff --name-only HEAD`
+  per worktree, filename intersection), tier 2 (`merge-tree` between branches).
+  Dashboard conflict matrix, `stale` vs `colliding`. Per-repo config: benign-file
+  suppression list (here TODO.md/SPEC.md; elsewhere e.g. CHANGELOG, lockfiles).
+- **Merge queue** — serialize: rebase → run the repo's configured **verify command**
+  (here `make check && make e2e`; elsewhere `npm test`; empty = none) → merge
+  (squash/merge/rebase configurable). `--onto <parent-tip>` for stacked branches.
+  Queue records the tree the verify ran on; UI flags "verified tree ≠ merge tree".
+- **rerere wrapper** — `enabled=true`, `autoUpdate=false`, record rr ids at stage,
+  forget on verify failure, log replays. Nothing repo-specific in it.
+- **Resolution escalation ladder** — and here the debate's A4 finding *inverts*:
+  in the pipeline the owning agent is dead by land time, but in general muster usage
+  **the owning session is a live tmux session the daemon already manages**. So the
+  generic ladder is: (a) rerere replay → (b) **hand the conflict to the owning
+  session** (daemon injects a "your branch conflicts with X on these files" prompt —
+  the session has the task in context; this is muster's natural differentiator and
+  no surveyed tool does it) → (c) spawn a resolver session fed per-branch task
+  context → (d) human via dashboard. "Bounce to owner" is dead only in *our*
+  pipeline; for the product it's the primary rung.
+- **Task context for resolvers** — the generic analog of "plans": session titles,
+  branch commit messages, and session prompt history. ⚠ Constraint: hook payloads
+  carry prompt text and must never be logged world-readable (CLAUDE.md hard rule);
+  feeding a resolver session context must respect that boundary — likely via the
+  transcript path handed to a spawned session, not via stored copies.
+
+### This repo's adapter (conventions, not musterd features)
+
+Affected-Files overlap warning at plan approval; review.md/`reviewed_tree` approval
+binding and the scoped re-review; `make doc-check`; `TODO.d/<plan>.md` fragments and
+the permutation-refusal rule; `/orchestrate <plan> --resolve`. These consume muster's
+generic hook points: pre-merge command, verify command, resolver-context provider,
+per-repo hot-file policy. The pipeline is one consumer of the feature, not its shape.
