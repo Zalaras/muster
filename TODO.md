@@ -499,6 +499,10 @@ Closing happens when the fix lands: `/land` puts `closes #N` in the squash subje
 (`docs/conventions.md` § Commits), and `/triage --audit` reports any issue whose entry is ticked
 while the issue is still open.
 
+Open entries below are in **Damian's priority order** (set 2026-09-01), not issue-number or
+filing order: #3 → #8 → #11 → #7 → #13, then the rest. Keep new entries appended at the end
+unless he re-ranks — don't re-sort this list.
+
 - [x] **tmux dependency is unhandled at first launch** ([#2](https://github.com/Zalaras/muster/issues/2))
   — on a machine without tmux the first launch dies with the raw exec error
   (`spawning tmux session: tmux new-session: exec: "tmux": executable file not found in $PATH`).
@@ -517,6 +521,44 @@ while the issue is still open.
   room for custom themes. Touches the design system (`docs/design/design-system.md`),
   so it wants a `/spec` pass before planning. Note the M5+ `.btn:disabled` affordance item
   is the same layer — if this lands first, fold that pass into it.
+
+- [ ] **Dropping a file on a terminal pane navigates the browser** ([#8](https://github.com/Zalaras/muster/issues/8))
+  — in a real terminal a dragged file inserts its path; in the dashboard Safari (and likely
+  every other browser) opens the file, losing the dashboard. Nothing in `web/src/` handles
+  `dragover`/`drop` outside the tile and rail reorder, so the browser default wins. The cheap
+  half is worth doing alone: preventing the default on the pane stops the navigation. Matching
+  terminal behaviour is the hard half — a drop yields a `File` blob and never a filesystem
+  path (deliberately, for security), so the path must come from elsewhere: the `/api/browse`
+  picker already in the tree, or a daemon-side staging write. Decide which before planning.
+
+- [ ] **Sidebar click doesn't move focus into the terminal** ([#11](https://github.com/Zalaras/muster/issues/11))
+  — clicking a rail card should leave you able to type immediately; today it selects the
+  session but keyboard focus stays put, so the pane needs a second click. Same focus seam as
+  the approved `shortcut-fixes` plan for #5 below (⌥⌘1–9 focus, ⌥⌘0 jump-to-neediest), unstarted on
+  `plan/shortcut-fixes` — it could absorb this, and probably should, since "focus session n"
+  and "click session n" ought to agree on what focus means.
+
+- [ ] **README's install command doesn't work on Apple Silicon** ([#7](https://github.com/Zalaras/muster/issues/7))
+  — the block at `README.md:76-79` fails three separate ways, all reproduced by the reporter:
+  `tar -xzf musterd_*.tar.gz musterd` passes the glob *and* a member name, so tar sees five
+  arguments (`tar: accepts at most 1 arg(s), received 5`); a second `gh release download`
+  aborts (`musterd_0.2.1_darwin_arm64.tar.gz already exists (use --clobber to overwrite
+  file...)`); and `~/.local/bin/musterd` loses to an existing `/usr/local/bin/musterd`
+  earlier in `$PATH`, so an upgrade silently keeps running the old binary. The reporter's
+  working four-line version is in the issue. Beyond patching those lines the issue asks for a
+  real install path — the `curl | sh` script most non-brew tools ship — since Homebrew stays
+  deferred. This is the ground #4 was ticked for: the text written to close #4 is the text
+  that's broken.
+
+- [ ] **No scrollback affordance on the terminal pane, and scrolling is slow** ([#13](https://github.com/Zalaras/muster/issues/13))
+  — two complaints, and the first is a settled decision rather than a bug:
+  `web/src/terminal/pane.ts:80` sets `scrollback: 0` deliberately ("tmux owns scrollback,
+  never xterm", design-system §7.4 / protocol §6), so xterm has no buffer to scroll and no
+  scrollbar to draw, and a wheel gesture reaches tmux copy-mode instead. Do **not** fix it by
+  giving xterm a buffer — that duplicates tmux's and re-opens the decision. What's needed is a
+  design pass on surfacing copy-mode from the browser: how it's entered, how that state is
+  indicated, and at what rate it scrolls. The "rather slow" half is unmeasured — measure
+  before planning.
 
 - [ ] **⌘N collides with the browser** ([#5](https://github.com/Zalaras/muster/issues/5))
   — the new-session shortcut is swallowed by Safari's own new-window binding. Muster
@@ -538,18 +580,6 @@ while the issue is still open.
   - The E2E suite cannot verify any of this: Playwright injects below the browser chrome
     (`web/e2e/views.spec.ts:110` pressed `Meta+1` green the whole time ⌘N was broken).
 
-- [ ] **README's install command doesn't work on Apple Silicon** ([#7](https://github.com/Zalaras/muster/issues/7))
-  — the block at `README.md:76-79` fails three separate ways, all reproduced by the reporter:
-  `tar -xzf musterd_*.tar.gz musterd` passes the glob *and* a member name, so tar sees five
-  arguments (`tar: accepts at most 1 arg(s), received 5`); a second `gh release download`
-  aborts (`musterd_0.2.1_darwin_arm64.tar.gz already exists (use --clobber to overwrite
-  file...)`); and `~/.local/bin/musterd` loses to an existing `/usr/local/bin/musterd`
-  earlier in `$PATH`, so an upgrade silently keeps running the old binary. The reporter's
-  working four-line version is in the issue. Beyond patching those lines the issue asks for a
-  real install path — the `curl | sh` script most non-brew tools ship — since Homebrew stays
-  deferred. This is the ground #4 was ticked for: the text written to close #4 is the text
-  that's broken.
-
 - [ ] **The launcher's "auto-accept" isn't auto mode** ([#12](https://github.com/Zalaras/muster/issues/12))
   — picking it on a new session gives edit access, not auto. The wire is self-consistent
   (`web/index.html:130` sends `acceptEdits`; `BuildArgv` emits `--permission-mode
@@ -559,23 +589,6 @@ while the issue is still open.
   radio so it can't be read as Claude's `auto`, or add a fourth option that really asks for
   it. The second wants the guardrails the §4.4 permissions UI (M5+) implies.
 
-- [ ] **Sidebar click doesn't move focus into the terminal** ([#11](https://github.com/Zalaras/muster/issues/11))
-  — clicking a rail card should leave you able to type immediately; today it selects the
-  session but keyboard focus stays put, so the pane needs a second click. Same focus seam as
-  the approved `shortcut-fixes` plan above (⌥⌘1–9 focus, ⌥⌘0 jump-to-neediest), unstarted on
-  `plan/shortcut-fixes` — it could absorb this, and probably should, since "focus session n"
-  and "click session n" ought to agree on what focus means.
-
-- [ ] **No scrollback affordance on the terminal pane, and scrolling is slow** ([#13](https://github.com/Zalaras/muster/issues/13))
-  — two complaints, and the first is a settled decision rather than a bug:
-  `web/src/terminal/pane.ts:80` sets `scrollback: 0` deliberately ("tmux owns scrollback,
-  never xterm", design-system §7.4 / protocol §6), so xterm has no buffer to scroll and no
-  scrollbar to draw, and a wheel gesture reaches tmux copy-mode instead. Do **not** fix it by
-  giving xterm a buffer — that duplicates tmux's and re-opens the decision. What's needed is a
-  design pass on surfacing copy-mode from the browser: how it's entered, how that state is
-  indicated, and at what rate it scrolls. The "rather slow" half is unmeasured — measure
-  before planning.
-
 - [ ] **No way to rename a session after it starts** ([#10](https://github.com/Zalaras/muster/issues/10))
   — the reporter wants to click the title and edit it. Today `title` is set once from the
   launch form via `claude --name` and thereafter refreshed from the status line's session name
@@ -584,15 +597,6 @@ while the issue is still open.
   new endpoint) *plus* a precedence rule that delta must settle — a manually chosen name has to
   survive the next status-line post, which means a "manual title wins" flag on the session row,
   not just a write. Wants a `/spec` pass before planning.
-
-- [ ] **Dropping a file on a terminal pane navigates the browser** ([#8](https://github.com/Zalaras/muster/issues/8))
-  — in a real terminal a dragged file inserts its path; in the dashboard Safari (and likely
-  every other browser) opens the file, losing the dashboard. Nothing in `web/src/` handles
-  `dragover`/`drop` outside the tile and rail reorder, so the browser default wins. The cheap
-  half is worth doing alone: preventing the default on the pane stops the navigation. Matching
-  terminal behaviour is the hard half — a drop yields a `File` blob and never a filesystem
-  path (deliberately, for security), so the path must come from elsewhere: the `/api/browse`
-  picker already in the tree, or a daemon-side staging write. Decide which before planning.
 
 ## M5+ (v1.x, re-rank when reached)
 
