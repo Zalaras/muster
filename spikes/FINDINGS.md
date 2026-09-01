@@ -12,6 +12,11 @@ Alongside this file: `canary-fields.md` (the canary E2E assertion list),
 `RIG.md` (how to stand up an isolated instance again), and `A0-rig-findings.md`
 (the rig/isolation write-up in full).
 
+Later, unrelated to the Step 1 run: `S5-key-probe.md` (2026-09-01) — which macOS keyboard
+chords Safari and Chrome handle above the page, where `preventDefault()` cannot reach them.
+Browser behaviour rather than Claude Code wire format, but the same kind of measured
+platform fact, and the E2E suite is structurally unable to observe it.
+
 **`~/.claude/settings.json` md5 before and after: `20a641769314c762f0390de5495a9e31`** —
 byte-identical. Damian's live config was never modified.
 

@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Muster key probe</title>
+<style>
+  :root {
+    --ink: #e6e9ef; --dim: #98a0b3; --paper: #14161c; --panel: #1c1f28;
+    --panel2: #262b38; --line: #343a4a; --ok: #6fcf87; --bad: #e2707a;
+    --amber: #e0a13a; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    padding: 28px 20px 60px;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: var(--dim); font-size: 12.5px; margin: 0 0 20px; font-family: var(--mono); }
+  .stage {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 22px; text-align: center; margin-bottom: 18px;
+  }
+  .step { font-family: var(--mono); font-size: 11px; color: var(--dim); letter-spacing: .08em; text-transform: uppercase; }
+  .combo { font-family: var(--mono); font-size: 40px; margin: 12px 0 6px; letter-spacing: .04em; }
+  .note { color: var(--dim); font-size: 12.5px; min-height: 2.6em; margin: 0 auto; max-width: 52ch; }
+  .actions { margin-top: 16px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  button {
+    font: 12.5px var(--mono); background: var(--panel2); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 5px; padding: 8px 14px; cursor: pointer;
+  }
+  button:hover { border-color: var(--dim); }
+  button.primary { background: var(--amber); color: #1a1206; border-color: var(--amber); font-weight: 600; }
+  .flash { color: var(--ok); font-family: var(--mono); font-size: 12.5px; min-height: 1.5em; margin-top: 10px; }
+  .flash.bad { color: var(--bad); }
+  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+  th { text-align: left; color: var(--dim); font-weight: 400; padding: 6px 8px; border-bottom: 1px solid var(--line); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+  td { padding: 5px 8px; border-bottom: 1px solid #23262f; }
+  tr.now td { background: #2a2113; }
+  .v-safe { color: var(--ok); }
+  .v-blocked { color: var(--bad); }
+  .v-pending { color: var(--dim); }
+  .grp { color: var(--dim); font-size: 11px; padding-top: 14px; letter-spacing: .06em; text-transform: uppercase; }
+  textarea {
+    width: 100%; height: 220px; margin-top: 12px; background: var(--panel);
+    color: var(--ink); border: 1px solid var(--line); border-radius: 6px;
+    font: 12px var(--mono); padding: 10px; resize: vertical;
+  }
+  .raw { font-family: var(--mono); font-size: 11.5px; color: var(--dim); margin-top: 8px; }
+  details { margin-bottom: 20px; }
+  summary { cursor: pointer; color: var(--dim); font-size: 12.5px; }
+  details p, details li { color: var(--dim); font-size: 12.5px; }
+  .done { text-align: center; padding: 20px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Muster key probe</h1>
+  <p class="sub" id="env">—</p>
+
+  <details>
+    <summary>How to run this</summary>
+    <ol>
+      <li><b>Open at least three tabs in this window</b> before starting, so a ⌘-digit tab switch is actually observable.</li>
+      <li>Press the combo shown. If the page records it, it advances by itself.</li>
+      <li>If the browser stole it instead (new window, tab switch, nothing at all), click <b>Browser took it</b>.</li>
+      <li>If a new window or tab opened, close it and come back <b>by clicking</b> the window/tab — do not press another ⌘-digit to get back, or you will spend the next candidate on it.</li>
+      <li>At the end, copy the results block and paste it back to Claude.</li>
+    </ol>
+  </details>
+
+  <section class="stage" id="stage">
+    <div class="step" id="step">—</div>
+    <div class="combo" id="combo">—</div>
+    <p class="note" id="note">—</p>
+    <div class="actions">
+      <button class="primary" id="blocked">Browser took it</button>
+      <button id="skip">Skip</button>
+      <button id="restart">Restart</button>
+    </div>
+    <div class="flash" id="flash"></div>
+    <div class="raw" id="raw"></div>
+  </section>
+
+  <table>
+    <thead><tr><th style="width:22%">Combo</th><th style="width:20%">Verdict</th><th>Evidence</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <textarea id="out" readonly placeholder="Results appear here once the run finishes."></textarea>
+  <div class="actions" style="justify-content:flex-start">
+    <button id="copy">Copy results</button>
+  </div>
+</main>
+
+<script>
+"use strict";
+
+// Each candidate is matched on `code` (physical key) plus an exact modifier signature.
+// `code` rather than `key` because Option+digit and Option+letter produce dead-key
+// characters on macOS ("¡", "˜") that would never match a literal.
+const M = (o) => ({ meta: !!o.meta, alt: !!o.alt, shift: !!o.shift, ctrl: !!o.ctrl });
+const c = (label, code, mods, group, note) => ({ label, code, ...M(mods), group, note });
+
+const CANDIDATES = [
+  // ── Baselines: confirm the bug and rule out the TODO's suggestion ────────────
+  c("⌘N",   "KeyN",   { meta: 1 }, "Baseline (expected BLOCKED)",
+    "Muster's current new-session binding. This is the reported bug — expect Safari to open a new window."),
+  c("⇧⌘N",  "KeyN",   { meta: 1, shift: 1 }, "Baseline (expected BLOCKED)",
+    "The rebind the TODO suggested. Expect a private/incognito window — i.e. no better than ⌘N."),
+  c("⌘1",   "Digit1", { meta: 1 }, "Baseline (expected BLOCKED)",
+    "Muster's current focus-session-1 binding. Expect a switch to tab 1."),
+  c("⌘2",   "Digit2", { meta: 1 }, "Baseline (expected BLOCKED)",
+    "Second data point for the ⌘-digit family."),
+  c("⌘9",   "Digit9", { meta: 1 }, "Baseline (expected BLOCKED)",
+    "Chrome maps ⌘9 to last tab rather than tab 9 — worth its own row."),
+
+  // ── The chosen focus family ──────────────────────────────────────────────────
+  ...[1,2,3,4,5,6,7,8,9].map(n => c(`⌥⌘${n}`, `Digit${n}`, { meta: 1, alt: 1 },
+    "Focus family — ⌥⌘1–9 (need ALL safe)",
+    `Candidate replacement for ⌘${n}. All nine must reach the page for the family to be usable.`)),
+
+  // ── New-session candidates: need at least one safe ───────────────────────────
+  c("⌥⌘N",  "KeyN",   { meta: 1, alt: 1 }, "New session (need one safe)",
+    "Keeps the N mnemonic and matches the ⌥⌘ focus family."),
+  c("⌘K",   "KeyK",   { meta: 1 }, "New session (need one safe)",
+    "Unclaimed by Safari and Chrome on macOS as far as I know — the probe is the check."),
+  c("⌘/",   "Slash",  { meta: 1 }, "New session (need one safe)",
+    "Fallback candidate."),
+  c("⌘;",   "Semicolon", { meta: 1 }, "New session (need one safe)",
+    "Fallback candidate."),
+  c("⌘↩",   "Enter",  { meta: 1 }, "New session (need one safe)",
+    "Fallback candidate. Note it may already mean something inside a focused form."),
+  c("⇧⌘K",  "KeyK",   { meta: 1, shift: 1 }, "New session (need one safe)",
+    "Fallback candidate."),
+
+  // ── Jump-to-neediest candidates (the order-sidebar dissent) ──────────────────
+  c("⌥⌘0",  "Digit0", { meta: 1, alt: 1 }, "Jump to neediest (need one safe)",
+    "Sits naturally beside ⌥⌘1–9 as 'the one that outranks the list'."),
+  c("⌥⌘J",  "KeyJ",   { meta: 1, alt: 1 }, "Jump to neediest (need one safe)",
+    "Fallback candidate."),
+  c("⇧⌘↩",  "Enter",  { meta: 1, shift: 1 }, "Jump to neediest (need one safe)",
+    "Fallback candidate."),
+
+  // ── Existing bindings worth re-confirming while we're here ───────────────────
+  c("⌘\\",  "Backslash", { meta: 1 }, "Existing bindings (expect SAFE)",
+    "Muster's Focus/Tiles view toggle. Believed fine — confirm it."),
+  c("⌘↑",   "ArrowUp", { meta: 1 }, "Existing bindings (expect SAFE)",
+    "The launch dialog's parent-directory navigation. Believed fine — confirm it."),
+];
+
+const results = new Map();
+let i = 0;
+let armed = true;
+
+const $ = (id) => document.getElementById(id);
+const ua = navigator.userAgent;
+const browser =
+  /Firefox\//.test(ua) ? "Firefox" :
+  /Edg\//.test(ua) ? "Edge" :
+  /Chrome\//.test(ua) ? "Chrome" :
+  /Safari\//.test(ua) ? "Safari" : "Unknown";
+$("env").textContent = `${browser} · ${navigator.platform || "?"} · ${CANDIDATES.length} combos`;
+
+function renderTable() {
+  const rows = $("rows");
+  rows.innerHTML = "";
+  let lastGroup = null;
+  CANDIDATES.forEach((cand, idx) => {
+    if (cand.group !== lastGroup) {
+      const gr = document.createElement("tr");
+      const gd = document.createElement("td");
+      gd.colSpan = 3; gd.className = "grp"; gd.textContent = cand.group;
+      gr.appendChild(gd); rows.appendChild(gr);
+      lastGroup = cand.group;
+    }
+    const r = results.get(cand.label);
+    const tr = document.createElement("tr");
+    if (idx === i) tr.className = "now";
+    const td1 = document.createElement("td"); td1.textContent = cand.label;
+    const td2 = document.createElement("td");
+    td2.textContent = r ? r.verdict : "pending";
+    td2.className = r ? (r.verdict === "SAFE" ? "v-safe" : "v-blocked") : "v-pending";
+    const td3 = document.createElement("td"); td3.textContent = r ? r.evidence : "";
+    tr.append(td1, td2, td3);
+    tr.style.cursor = "pointer";
+    tr.title = "Click to retest this combo";
+    tr.addEventListener("click", () => { i = idx; renderStage(); });
+    rows.appendChild(tr);
+  });
+}
+
+function renderStage() {
+  if (i >= CANDIDATES.length) {
+    $("step").textContent = "run complete";
+    $("combo").textContent = "Done";
+    $("note").textContent = "Copy the results block below. To redo any single combo — a " +
+      "mis-press, or one you skipped — click its row in the table.";
+    $("flash").textContent = "";
+    $("flash").className = "flash";
+    armed = false;
+    renderTable(); renderOut();
+    return;
+  }
+  const cand = CANDIDATES[i];
+  $("step").textContent = `${i + 1} of ${CANDIDATES.length} · ${cand.group}`;
+  $("combo").textContent = cand.label;
+  $("note").textContent = cand.note;
+  $("flash").textContent = "";
+  $("flash").className = "flash";
+  armed = true;
+  armedAt = Date.now();
+  renderTable();
+}
+
+function record(verdict, evidence) {
+  if (i >= CANDIDATES.length) return;
+  results.set(CANDIDATES[i].label, { verdict, evidence });
+  const f = $("flash");
+  f.textContent = verdict === "SAFE" ? `reached the page — ${evidence}` : `browser took it — ${evidence}`;
+  f.className = verdict === "SAFE" ? "flash" : "flash bad";
+  armed = false;
+  i += 1;
+  renderOut();
+  setTimeout(renderStage, 320);
+}
+
+function renderOut() {
+  const lines = [`# Muster key probe — ${browser}`, ""];
+  let lastGroup = null;
+  for (const cand of CANDIDATES) {
+    if (cand.group !== lastGroup) { lines.push(`## ${cand.group}`); lastGroup = cand.group; }
+    const r = results.get(cand.label);
+    lines.push(`${(r ? r.verdict : "PENDING").padEnd(8)} ${cand.label.padEnd(6)} ${r ? r.evidence : ""}`);
+  }
+  $("out").value = lines.join("\n");
+}
+
+// Capture phase at the window, so nothing downstream sees these while probing.
+window.addEventListener("keydown", (event) => {
+  if (!armed || i >= CANDIDATES.length) return;
+  // Ignore bare modifier presses — they fire their own keydowns.
+  if (["MetaLeft","MetaRight","AltLeft","AltRight","ShiftLeft","ShiftRight","ControlLeft","ControlRight"].includes(event.code)) return;
+
+  $("raw").textContent = `last event: code=${event.code} key=${JSON.stringify(event.key)} ` +
+    `meta=${event.metaKey} alt=${event.altKey} shift=${event.shiftKey} ctrl=${event.ctrlKey}`;
+
+  const cand = CANDIDATES[i];
+  const matches = event.code === cand.code && event.metaKey === cand.meta &&
+    event.altKey === cand.alt && event.shiftKey === cand.shift && event.ctrlKey === cand.ctrl;
+  if (!matches) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+  record("SAFE", `keydown reached the page (code=${event.code})`);
+}, true);
+
+// A steal that opens a window or switches tabs costs this page its focus/visibility.
+// That is direct evidence, so record it without waiting for the button.
+//
+// Two guards against a false BLOCKED on the *next* candidate: coming back from a stolen
+// window can fire a second blur/visibilitychange pair, and macOS may report occlusion
+// late. So ignore anything within 400ms of arming, and debounce auto-records to one per
+// 2s. A genuine steal the guards swallow still gets recorded by the button.
+let armedAt = Date.now();
+let lastAuto = 0;
+function stolen(how) {
+  const now = Date.now();
+  if (!armed || i >= CANDIDATES.length) return;
+  if (now - armedAt < 400 || now - lastAuto < 2000) return;
+  lastAuto = now;
+  record("BLOCKED", `${how} — the browser handled it`);
+}
+window.addEventListener("blur", () => stolen("page lost focus"));
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) stolen("page was hidden (tab switch)");
+});
+
+$("blocked").addEventListener("click", () => {
+  if (i < CANDIDATES.length) record("BLOCKED", "reported by hand — no keydown reached the page");
+});
+$("skip").addEventListener("click", () => {
+  if (i < CANDIDATES.length) { results.set(CANDIDATES[i].label, { verdict: "SKIPPED", evidence: "" }); i += 1; renderStage(); }
+});
+$("restart").addEventListener("click", () => { results.clear(); i = 0; $("out").value = ""; location.reload(); });
+$("copy").addEventListener("click", async () => {
+  renderOut();
+  try { await navigator.clipboard.writeText($("out").value); $("copy").textContent = "Copied"; }
+  catch { $("out").select(); $("copy").textContent = "Select + ⌘C"; }
+  setTimeout(() => { $("copy").textContent = "Copy results"; }, 1600);
+});
+
+renderStage();
+</script>
+</body>
+</html>
