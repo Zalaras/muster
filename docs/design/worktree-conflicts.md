@@ -80,6 +80,8 @@ Context specific to this repo (but the design should generalize into muster):
 
 ## Recommended stack (tentative, not yet decided)
 
+> **Superseded 2026-09-01** by "Revised stack (v2)" below, after the red-team debate.
+
 1. Defuse hot files + `git rerere` (free, do first).
 2. Conflict radar in musterd (daemon watches, dashboard warns).
 3. Serialized land queue, with the plan-aware resolver (idea 2) inside it; conflicts
@@ -190,3 +192,83 @@ proving these adjacent plans would have collided had they truly run in parallel)
 
 No blocking issue found; mechanics validated. Ground truth exists for the resolver
 probe: a blind agent resolution of this pair's conflicts can be diffed against a740fa3.
+
+## Experiment log — 2026-09-01, step 4: resolver probes + red-team debate
+
+### Blind resolver probes (measured, Opus)
+
+Two clean-room repos were frozen at the identical conflicted rebase (usage-model-bar
+onto move-tiles' main; history stripped so ground truth could not leak). One resolver
+got both `plan.md`s; the other got only the diff/commit messages (plans/ removed).
+
+- **Both scored 100%** — byte-identical to the real historical resolution on both
+  `TODO.md` and `web/src/main.ts` — and both independently detected and correctly
+  repaired a construction defect in branch B (an orphaned callback body missing its
+  `installTileDrag(` opener; an artifact of the reconstruction script, noted honestly).
+- **Caveat (adversary's, valid):** this weakens but does not kill the "plan context is
+  the differentiator" claim — the pair was textually gnarly yet *semantically disjoint*,
+  and a conflict reconstructed from history is one a model can pattern-match. The probe
+  says nothing about conflicts whose correct answer isn't recoverable from either diff.
+
+### Red-team debate (Opus advocate vs Opus adversary, one rebuttal round + verdicts)
+
+Six ranked attacks; final verdicts: **all six absorbed by amendments, none fatal**, one
+adversary claim retracted (orchestrate SKILL.md churn is 1/13 squashes, not 6/12 — its
+edits are serial main-session retro commits). The advocate's three concessions — real
+flaws in the v1 stack:
+
+1. **"Resolution re-enters the gates" was a false floor.** `/land` step 4 runs *zero*
+   gates today, and no gate reads the churn-dominant files (per-squash: `TODO.md`
+   13/13, `SPEC.md` 12/13, `docs/protocol.md` 9/13). A semantic collision between two
+   textually disjoint plans (state-machine change vs sort-rule change) passes every
+   suite; the impl/test boundary rules guarantee nobody writes the crossing test.
+2. **"Bounce to the owning session" named a rung that essentially never exists** —
+   subagents are gone at land time, the orchestrator is a main-session skill, and
+   CLAUDE.md's boundaries make no single agent legal for a conflict spanning
+   `internal/` and `web/e2e/`.
+3. **v1 stack item 1 was two mistakes in one line**: `rerere.autoUpdate` silently
+   re-stages a gate-rejected resolution on the queue's own retry (non-idempotent), and
+   `merge=union` is wrong for the hottest file.
+
+### Revised stack (v2) — carries all debate amendments
+
+1. **`/land` runs gates**: `make check && make e2e` on the rebased tree *before* the
+   squash. Everything else assumes this floor exists.
+2. **Bind approval to a tree**: `orchestration-state.json` gains `base_sha`,
+   `reviewed_tree`, `parent_branch`. Post-rebase, `git diff <reviewed_tree> HEAD` is
+   the delta no reviewer saw — empty ⇒ approval stands; non-empty ⇒ review scoped to
+   that diff only. (Adversary caveat: with TODO/SPEC in ~every squash, the non-empty
+   path is the *default*, not the exception — budget scoped review per land; it is
+   still gate-minutes + small review, not O(N²) Opus-hours.) Stacked plans rebase with
+   `git rebase --onto main <parent-tip> plan/<child>`, killing the spurious-conflict
+   class squash-landing a parent otherwise creates.
+3. **Defuse hot files narrowly**: `merge=union` ONLY for genuinely append-only files
+   (e.g. `spikes/canary-fields.md`), never `TODO.md`. TODO.md: new backlog entries go
+   to `TODO.d/<plan>.md` fragments; the file stays plain 3-way (in-place ticks on
+   different lines merge cleanly; same-line ticks *should* conflict for a human); the
+   queue **refuses to auto-resolve TODO.md when base→ours is a permutation** — the only
+   rule in the exchange that protects the priority ordering. Folding fragments back
+   into TODO.md stays a *human* step, never the queue's. `make doc-check` (grep-level:
+   triage `issues/N` links, no duplicates, priority paragraph, changelog dates) folds
+   into `make check` — note it cannot see a permutation, so it depends on the
+   refusal rule; the two are load-bearing on each other.
+4. **rerere: `enabled=true`, `autoUpdate=false`.** The queue `git add`s deliberately,
+   records rr-cache ids per path at stage time, `git rerere forget`s them on gate
+   failure, and logs every replay. ~15 lines of queue code.
+5. **Two-tier radar**: tier 1 live (~30 s): per-worktree `git status --porcelain` +
+   `git diff --name-only HEAD`, pairwise filename intersection, warn-only — closes the
+   blind window while an agent step is mid-flight; **suppress known-hot benign files**
+   (TODO.md/SPEC.md) or it cries wolf on every pair. Tier 2 on commit: `merge-tree`,
+   authoritative, cells labelled `stale` vs `colliding` against the merge base.
+6. **Serialized land queue** with escalation: rerere replay → `/orchestrate <plan>
+   --resolve` (re-enters the plan's own context/roles/gates via the resume path — this
+   replaces the dead "owning session" rung) → dedicated `merge-resolver` agent role,
+   boundary-exempt for conflict hunks only, permitted to emit only content present in a
+   parent or a mechanical composition of both (adversary caveat: "mechanical
+   composition" needs per-file-class teeth — union is mechanical and still corrupts an
+   in-place tick) → human. Resolved merges re-enter gates **plus** a scoped review over
+   the union hunks and both plans' Requirements.
+7. **Affected-Files overlap warning** at plan approval, warn-only (unchanged).
+
+Open items before any of this reaches `SPEC.md`: the four debate caveats above, and
+sizing `/orchestrate --resolve` against the existing resume machinery.
