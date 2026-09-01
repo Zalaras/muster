@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -42,6 +43,8 @@ func TestRunTmuxPreflight_NotFoundReportsInstallRemedy(t *testing.T) {
 	assert.Contains(t, err.Error(), "brew install tmux")
 	assert.Contains(t, stderr.String(), "musterd preflight")
 	assert.Contains(t, stderr.String(), "not found in $PATH")
+	assert.True(t, strings.HasSuffix(stderr.String(), "\n\n"),
+		"the UI spec separates the report from main's \"musterd: ...\" verdict line with a blank line")
 }
 
 // TestRunTmuxPreflight_TooOldNamesDetectedAndMinimum covers D2: a tmux below MinVersion
@@ -58,6 +61,8 @@ func TestRunTmuxPreflight_TooOldNamesDetectedAndMinimum(t *testing.T) {
 	assert.Contains(t, err.Error(), "brew upgrade tmux")
 	assert.Contains(t, stderr.String(), "3.1a", "the detected version must be named")
 	assert.Contains(t, stderr.String(), tmux.MinVersion.String(), "the 3.2 minimum must be named")
+	assert.True(t, strings.HasSuffix(stderr.String(), "\n\n"),
+		"the UI spec separates the report from main's \"musterd: ...\" verdict line with a blank line")
 }
 
 // TestRunTmuxPreflight_UnrecognizedVersionIsNotFatal covers D3: an unparsing `tmux -V`
@@ -74,6 +79,8 @@ func TestRunTmuxPreflight_UnrecognizedVersionIsNotFatal(t *testing.T) {
 	assert.Contains(t, stderr.String(), "musterd preflight")
 	assert.Contains(t, stderr.String(), "? tmux")
 	assert.Contains(t, stderr.String(), "unrecognised version")
+	assert.False(t, strings.HasSuffix(stderr.String(), "\n\n"),
+		"the warning path has no verdict line following it, so it gets no trailing blank line")
 }
 
 // TestRunTmuxPreflight_OKPrintsNothing covers REQ-13: an all-clear preflight must not
@@ -139,13 +146,13 @@ func TestRun_VersionFlagSucceedsWithTmuxAbsent(t *testing.T) {
 }
 
 // TestReadmeTmuxRemedyMatchesPreflight covers D13/R1: README.md's Prerequisites section
-// must quote the exact same "not installed" remedy string the preflight's fatal error
-// carries — not merely both containing similar text.
+// must quote the exact same remedy strings the preflight's fatal errors carry — both
+// constants, not merely text that looks similar.
 func TestReadmeTmuxRemedyMatchesPreflight(t *testing.T) {
 	b, err := os.ReadFile(filepath.Join("..", "..", "README.md"))
 	require.NoError(t, err)
 	readme := string(b)
 
 	assert.Contains(t, readme, tmuxInstallRemedy, "README must quote the preflight's own remedy constant byte-for-byte")
-	assert.Contains(t, readme, "brew upgrade tmux", "README must also carry the too-old remedy")
+	assert.Contains(t, readme, tmuxUpgradeRemedy, "README must quote the preflight's too-old remedy constant byte-for-byte")
 }

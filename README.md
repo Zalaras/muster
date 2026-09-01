@@ -49,8 +49,8 @@ the SQLite store.
 ## Prerequisites
 
 - **tmux 3.2 or newer.** Muster runs every session in tmux, on its own dedicated socket,
-  never your default server. `musterd` checks this at startup and refuses to start with a
-  named remedy if it's missing or too old — same as the note below:
+  never your default server. `musterd` checks this at startup and refuses to start if
+  it's missing or too old, naming the remedy:
   ```
   brew install tmux    # not installed
   brew upgrade tmux    # older than 3.2
@@ -90,7 +90,7 @@ musterd -version   # prints the musterd version and the Claude Code version it's
 ```
 
 `musterd -version` succeeds even without tmux installed — the tmux preflight above only runs
-once musterd actually starts serving.
+when musterd actually starts.
 
 ## Requirements
 

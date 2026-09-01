@@ -452,8 +452,13 @@ These are some minor changes and cleanup needed before we can move into post v1.
   lastActivity, failure.message), directory/branch/repo/worktree, Claude session id value,
   account usage. Follow-up already filed separately: app-wide `.btn:disabled` sweep (M5+).
 
-- [ ] **tmux-installation review cycle 1 Minors** (`plans/tmux-installation/review.md`, all six
-  left open at an approved review — no agent was respawned, per the pipeline's Minors-only rule):
+- [x] **tmux-installation review cycle 1 Minors** — all six resolved 2026-09-01 in one `fix(preflight)`
+  commit: the two fatal paths now print the spec's trailing blank line (measured `\n \n m u s t e r d :`
+  with `od -c`, and pinned by three new assertions — proven red without the fix), `tmuxUpgradeRemedy`
+  joins `tmuxInstallRemedy` as a const the README test asserts against, `:33` is `errors.New`, and the
+  README prose plus the two stale comments are corrected. Was
+  (`plans/tmux-installation/review.md`, all six left open at an approved review — no agent was
+  respawned, per the pipeline's Minors-only rule):
   - `[daemon-impl]` The plan's UI spec illustrates a **blank line** between the report block and
     the `musterd:` verdict line for both fatal cases; the implementation prints none. Measured
     with `od -c`. `cmd/musterd/preflight.go:33,42` — add a trailing `fmt.Fprintln(stderr)` on the

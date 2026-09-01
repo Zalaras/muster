@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -30,7 +31,8 @@ func runTmuxPreflight(ctx context.Context, stderr io.Writer) (tmux.PreflightResu
 	case tmux.StatusTooOld:
 		fmt.Fprintln(stderr, "musterd preflight")
 		fmt.Fprintf(stderr, "  x tmux    %s at %s - need %s or newer\n", result.Version, result.Path, tmux.MinVersion)
-		return result, fmt.Errorf("tmux is required - Muster runs every session in tmux. Upgrade it with: brew upgrade tmux")
+		fmt.Fprintln(stderr) // UI spec: a blank line separates the report from main's "musterd: ..." verdict line
+		return result, errors.New("tmux is required - Muster runs every session in tmux. Upgrade it with: " + tmuxUpgradeRemedy)
 
 	default: // tmux.StatusNotFound: absent, not executable, exiting non-zero, or timed out
 		fmt.Fprintln(stderr, "musterd preflight")
@@ -39,6 +41,7 @@ func runTmuxPreflight(ctx context.Context, stderr io.Writer) (tmux.PreflightResu
 		} else {
 			fmt.Fprintln(stderr, "  x tmux    not found in $PATH")
 		}
+		fmt.Fprintln(stderr) // UI spec: a blank line separates the report from main's "musterd: ..." verdict line
 		return result, fmt.Errorf("tmux is required - Muster runs every session in tmux. Install it with: %s", tmuxInstallRemedy)
 	}
 }
@@ -47,3 +50,8 @@ func runTmuxPreflight(ctx context.Context, stderr io.Writer) (tmux.PreflightResu
 // section (REQ-12) quotes this byte-for-byte (D13/R1) — keep the two in sync by hand,
 // since README is prose, not generated.
 const tmuxInstallRemedy = "brew install tmux"
+
+// tmuxUpgradeRemedy is the "too old" remedy string. README.md's Prerequisites section
+// (REQ-12) quotes this byte-for-byte too — keep the two in sync by hand, same as
+// tmuxInstallRemedy above.
+const tmuxUpgradeRemedy = "brew upgrade tmux"

@@ -417,10 +417,11 @@ export class ScratchDaemon {
       // root every other run inherits as its cwd — proving the binary doesn't need a
       // checkout nearby to find its dashboard.
       cwd: this.serveEmbedded ? this.dataDir : undefined,
-      // stdin "ignore" (=/dev/null) is never a character device, so every scratch daemon
-      // this harness spawns is a non-TTY process by construction — REQ-3's "ask behaves
-      // as leave under non-TTY stdin" path, not the interactive prompt (which E2E cannot
-      // drive: the daemon-side `-on-exit=ask` TTY-prompt path is D21/a Go test's job).
+      // stdin "ignore" (= /dev/null) is never a *terminal* (it is a character device,
+      // it just isn't a tty), so every scratch daemon this harness spawns is a non-TTY
+      // process by construction — REQ-3's "ask behaves as leave under non-TTY stdin"
+      // path, not the interactive prompt (which E2E cannot drive: the daemon-side
+      // `-on-exit=ask` TTY-prompt path is D21/a Go test's job).
       stdio: ["ignore", "pipe", "pipe"],
     });
     // Drain stdio: an unread pipe discards a crashed daemon's diagnostics and can stall

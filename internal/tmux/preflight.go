@@ -14,7 +14,7 @@ import (
 const preflightTimeout = 2 * time.Second
 
 // MinVersion is the oldest tmux Muster's own tmux usage can rely on (REQ-2). NewSession
-// above uses "new-session -e" and applyServerOptions uses "set-option -as
+// in tmux.go uses "new-session -e" and applyServerOptions there uses "set-option -as
 // terminal-features", both introduced in tmux 3.2; below that they fail obscurely at
 // first launch instead of at startup.
 var MinVersion = ParsedVersion{Major: 3, Minor: 2}
