@@ -22,6 +22,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mattn/go-isatty"
 	"github.com/rs/zerolog"
 
 	"github.com/Zalaras/muster/internal/claudecode"
@@ -81,6 +82,8 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		issueRepo      = fs.String("issue-repo", "Zalaras/muster", "GitHub repo (owner/name) the Issue button files issues against")
 		issueAPIURL    = fs.String("issue-api-url", "https://api.github.com", "base URL for the GitHub API the Issue button posts to — a test seam like -usage-api-url; empty disables issue capture entirely (POST /api/issue/captures and POST /api/issues then 404)")
 		issueTokenFile = fs.String("issue-token-file", "", "read the GitHub bearer token from this file's trimmed contents instead of running `gh auth token` — a test seam like -usage-token-file (empty = the daemon's usual `gh auth token`)")
+		openFlag       = fs.Bool("open", true, "auto-open the dashboard in the default browser at startup; fires only when stdin is also a real terminal (REQ-6)")
+		openCmd        = fs.String("open-cmd", "open", "the program run with the dashboard URL to auto-open it — a test seam like -claude-bin (REQ-7)")
 	)
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -108,6 +111,18 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		level = zerolog.DebugLevel
 	}
 	log := zerolog.New(zerolog.ConsoleWriter{Out: stderr}).Level(level).With().Timestamp().Logger()
+
+	// Startup ordering (plan tmux-installation, Affected Files): the tmux preflight runs
+	// here — after -version's early return and after tmux.ValidateSocket above, but
+	// before anything below (data dir, store, listener) has any side effect (D4).
+	// Its own error variable (never "err"): run() has no outer-scope err yet at this
+	// point, and naming this one "err" would make every `if err := ...` below it (there
+	// are several, plus the shutdown select's `case err := <-serveErr`) a govet shadow
+	// warning against it — see plans/tmux-installation/daemon-tests.md fix attempt 1.
+	preflight, preflightErr := runTmuxPreflight(context.Background(), stderr)
+	if preflightErr != nil {
+		return preflightErr
+	}
 
 	if err := checkWebDist(*webDist, log); err != nil {
 		return err
@@ -201,7 +216,16 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		Int("port", port).
 		Str("data_dir", *dataDir).
 		Str("dashboard_url", dashboardURL).
+		Str("tmux", preflight.Version).
 		Msg("musterd starting")
+
+	// REQ-6: fires only when both the flag and stdin's terminal-ness hold — the
+	// terminal condition is load-bearing (Implementation Notes): it is what guarantees
+	// no test run can open a browser, independent of any flag a test does or doesn't
+	// pass. Runs on its own goroutine (REQ-8) and never logs dashboardURL itself (R4).
+	if *openFlag && isTerminal(stdin) {
+		openDashboard(ctx, *openCmd, dashboardURL, log)
+	}
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -392,10 +416,9 @@ const (
 
 // resolveOnExit turns the raw -on-exit flag value into a final leave/kill decision.
 // "leave"/"kill" pass straight through; "ask" prompts once — but only when stdin is a
-// character device (a real terminal, checked via Stat's ModeCharDevice, per
-// Implementation Notes — stdlib only, no new dependency) — and otherwise resolves to
-// "leave" without printing anything. Callers only invoke this once they already know
-// liveSessions > 0 (REQ-3: zero live sessions gets no prompt and no log line at all).
+// real terminal (isTerminal) — and otherwise resolves to "leave" without printing
+// anything. Callers only invoke this once they already know liveSessions > 0 (REQ-3:
+// zero live sessions gets no prompt and no log line at all).
 func resolveOnExit(flagValue string, stdin *os.File, stderr io.Writer, liveSessions int, tmuxSocket string) onExitDecision {
 	switch flagValue {
 	case "kill":
@@ -403,24 +426,24 @@ func resolveOnExit(flagValue string, stdin *os.File, stderr io.Writer, liveSessi
 	case "leave":
 		return onExitLeave
 	}
-	if !isCharDevice(stdin) {
+	if !isTerminal(stdin) {
 		return onExitLeave
 	}
 	return askKillPrompt(stdin, stderr, liveSessions, tmuxSocket)
 }
 
-// isCharDevice reports whether f is a TTY-shaped file (stdin's Stat().Mode(), stdlib
-// only — Implementation Notes: "os.Stdin.Stat() mode ModeCharDevice"). A stat failure or
-// nil file is treated as "not a TTY" (Edge Case: never prompt into the void).
-func isCharDevice(f *os.File) bool {
+// isTerminal reports whether f is attached to a real terminal, via
+// github.com/mattn/go-isatty rather than Stat's ModeCharDevice (REQ-9): /dev/null is
+// also a character device (measured 2026-08-31: mode=Dcrw-rw-rw- charDevice=true), which
+// made the old check wrongly treat every /dev/null stdin — every onexit_test.go
+// subprocess, every E2E-spawned scratch daemon — as if it were a terminal. A stat/fd
+// failure or a nil file is treated as "not a terminal" (Edge Case 13: run's own
+// nil-stdin callers must keep resolving to false).
+func isTerminal(f *os.File) bool {
 	if f == nil {
 		return false
 	}
-	info, err := f.Stat()
-	if err != nil {
-		return false
-	}
-	return info.Mode()&os.ModeCharDevice != 0
+	return isatty.IsTerminal(f.Fd())
 }
 
 // askKillPrompt prints the REQ-3 confirmation to stderr and reads one line from stdin,

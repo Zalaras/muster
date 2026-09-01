@@ -153,6 +153,9 @@ func spawnDaemon(t *testing.T, onExit string, stdin *os.File) *spawnedDaemon {
 		// -usage-poll 0 belt-and-braces.
 		"-usage-poll", "0",
 		"-usage-token-file", filepath.Join(dataDir, "usage-token-not-present"),
+		// REQ-11: defence in depth over REQ-6's terminal condition, which already covers
+		// every spawn in this file (none of them set a terminal stdin).
+		"-open=false",
 	}
 	cmd := exec.Command(musterdBinary, args...)
 	if stdin != nil {
@@ -294,9 +297,13 @@ func TestOnExit_Kill_LiveSessionIsKilledAndRowMarkedDead(t *testing.T) {
 	assert.NotNil(t, rows[0].EndedAt)
 }
 
-// TestOnExit_AskWithNonTTYStdinBehavesAsLeave covers D21: `-on-exit=ask` with a non-TTY
-// stdin (a pipe, never a real terminal) never prompts and behaves exactly like "leave" —
-// the tmux session survives, never a silent kill.
+// TestOnExit_AskWithNonTTYStdinBehavesAsLeave covers D21 and D11: `-on-exit=ask` with a
+// non-TTY stdin (a pipe, never a real terminal) never prompts and behaves exactly like
+// "leave" — the tmux session survives, never a silent kill — and D11's bounded wait
+// proves it resolved immediately via isTerminal rather than sitting out the 10s prompt
+// timeout (Edge Case 14): before REQ-9, a /dev/null-shaped stdin was wrongly treated as
+// a TTY, entered the prompt, and was still waiting when the E2E harness's 5s SIGKILL
+// escalation fired mid-shutdown.
 func TestOnExit_AskWithNonTTYStdinBehavesAsLeave(t *testing.T) {
 	r, w, err := os.Pipe()
 	require.NoError(t, err)
@@ -306,8 +313,12 @@ func TestOnExit_AskWithNonTTYStdinBehavesAsLeave(t *testing.T) {
 	d.launchSession(t, t.TempDir())
 	d.waitForLiveTmuxSession(t)
 
+	start := time.Now()
 	exitCode := d.signalAndWaitExit(t, syscall.SIGTERM, 15*time.Second)
+	elapsed := time.Since(start)
 
 	assert.Equal(t, 0, exitCode, "stderr: %s", d.stderr)
 	assert.NotEmpty(t, tmuxSessionNames(d.tmuxSocket), "ask under non-TTY stdin must behave as leave, never a silent kill")
+	assert.Less(t, elapsed, 5*time.Second,
+		"D11: a non-TTY stdin must resolve immediately via isTerminal, well inside the 10s prompt timeout, not sit out the prompt")
 }

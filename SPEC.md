@@ -1023,3 +1023,28 @@ dev-workflow skills outside musterd, so the "scope ends at creation" boundary ho
   gates on an approved review, composes the conventional subject with the issue references,
   shows the predicted `svu` bump before pushing (landing chooses the version), and deletes the
   plan branch by content diff (`git branch --merged` is defeated by squash-merging).
+
+### 2026-08-31 - tmux is a preflighted hard dependency; the dashboard auto-opens
+
+Settled while implementing plan `tmux-installation` (issues #2 and #4).
+
+- **tmux is a hard dependency, checked at startup rather than at first launch.** `musterd` runs
+  a preflight before it creates the data dir or binds the listener: tmux absent, not executable,
+  exiting non-zero, or not answering `tmux -V` within 2 s is fatal, with a report on stderr and
+  an error naming the remedy (`brew install tmux` / `brew upgrade tmux`). Previously the failure
+  surfaced as a raw exec error inside `POST /api/sessions`, in the launch dialog.
+- **The stated minimum is tmux 3.2**, because `internal/tmux` uses `new-session -e` and
+  `set-option -as terminal-features`, both 3.2. A `tmux -V` that runs but does not parse
+  (`tmux master`) is a *warning*, not fatal — Muster cannot prove an unrecognised build is too
+  old. Version knowledge lives in `internal/tmux`; `cmd/musterd` only renders and gates.
+  Versions compare as two integers, never as strings, so `3.10` correctly orders above `3.2`.
+- **The dashboard auto-opens by default** (`-open`, default true; `-open-cmd`, default `open`),
+  and only when stdin is a real terminal. The terminal condition is the guarantee, not the flag:
+  it is what makes it impossible for a test run to open a browser, since every daemon spawned
+  under test gets a `/dev/null` stdin.
+- **`isCharDevice` was never a TTY check.** `/dev/null` **is** a character device - measured
+  2026-08-31, `mode=Dcrw-rw-rw- charDevice=true`. Every scratch daemon therefore entered the
+  `-on-exit=ask` prompt and was SIGKILLed by the E2E harness 5 s later, never shutting down
+  gracefully. Replaced with a real terminal test (`isTerminal`, `github.com/mattn/go-isatty`,
+  already in the module graph - `go.sum` unchanged). This is a macOS/POSIX fact, not a Claude
+  Code wire-format one, so it is recorded here and not in `spikes/`.

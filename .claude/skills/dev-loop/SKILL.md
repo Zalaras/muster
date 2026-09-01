@@ -27,6 +27,12 @@ Because `make run` occupies the terminal, launch it in the background
 (`run_in_background`) or tell Damian to run `! make run` himself if he wants to watch
 the logs.
 
+`make run` now also opens the dashboard in the default browser once it's up (plan
+tmux-installation REQ-6, default `-open=true`) — a real terminal stdin is required for
+this to fire, so it does nothing when launched via `run_in_background` (no terminal
+stdin there). Pass `-open=false` to suppress it either way; the dashboard URL is on the
+startup log line regardless.
+
 ## Where things live
 
 - **`~/Library/Application Support/Muster/tokens.json`** (0600, rewritten every

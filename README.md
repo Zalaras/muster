@@ -46,11 +46,25 @@ spikes/               step-1 validation findings (historical record, not built c
 Packages arrive when they have contents — M0 adds the HTTP/WS server, the state machine and
 the SQLite store.
 
+## Prerequisites
+
+- **tmux 3.2 or newer.** Muster runs every session in tmux, on its own dedicated socket,
+  never your default server. `musterd` checks this at startup and refuses to start with a
+  named remedy if it's missing or too old — same as the note below:
+  ```
+  brew install tmux    # not installed
+  brew upgrade tmux    # older than 3.2
+  ```
+- **macOS.** Muster is single-user, macOS-only tooling — see [`SPEC.md`](SPEC.md).
+- **Claude Code.** Auto-update stays on; see Version pinning below.
+
 ## Install
 
 Releases are published to GitHub whenever a `feat` or `fix` lands on `main` (see
-[`docs/conventions.md`](docs/conventions.md) § Commits). The repo is private, so downloads go
-through `gh`:
+[`docs/conventions.md`](docs/conventions.md) § Commits). Each release publishes two darwin
+archives — `musterd_*_darwin_amd64.tar.gz` (Intel) and `musterd_*_darwin_arm64.tar.gz` (Apple
+Silicon); take the one matching your Mac (`uname -m`: `x86_64` → amd64, `arm64` → arm64). The
+repo is private, so downloads go through `gh`:
 
 ```sh
 make install     # latest release -> ~/.local/bin/musterd
@@ -60,13 +74,23 @@ Or by hand, if you want a specific version or a different location:
 
 ```sh
 gh release download --repo Zalaras/muster \
-  --pattern 'musterd_*_darwin_amd64.tar.gz'   # arm64 on Apple Silicon
+  --pattern 'musterd_*_darwin_arm64.tar.gz'   # or _amd64 on Intel
 tar -xzf musterd_*.tar.gz musterd
+mv musterd ~/.local/bin/musterd   # or anywhere else already on your $PATH
 ```
 
 The binary is unsigned, but `gh` doesn't set the `com.apple.quarantine` xattr, so it runs
 without a Gatekeeper prompt. If you download one through a browser instead, clear it with
 `xattr -d com.apple.quarantine musterd`.
+
+Confirm it worked:
+
+```sh
+musterd -version   # prints the musterd version and the Claude Code version it's pinned to
+```
+
+`musterd -version` succeeds even without tmux installed — the tmux preflight above only runs
+once musterd actually starts serving.
 
 ## Requirements
 
@@ -74,7 +98,7 @@ without a Gatekeeper prompt. If you download one through a browser instead, clea
 |---|---|---|
 | Go | 1.26.6 | |
 | Node | 24.19.0 | pinned in `.nvmrc`; `nvm use` in the repo root |
-| tmux | 3.7b | Muster uses a dedicated socket (`-L muster`), never your default server |
+| tmux | 3.7b | Dev machine's version; `musterd` preflights 3.2+ at startup (see Prerequisites) |
 | Claude Code | 2.1.246 | The pin. Auto-update is deliberately **left on** — see below |
 
 Frontend toolchain: Vite 8, TypeScript 7, Playwright 1.62.

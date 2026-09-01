@@ -1,0 +1,28 @@
+{
+  "plan_name": "tmux-installation",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 1,
+    "web-impl": 0,
+    "daemon-tests": 1,
+    "web-tests": 0,
+    "e2e-validate": 0,
+    "review": 0
+  },
+  "completed_steps": [
+    "e2e-specs",
+    "daemon-impl",
+    "daemon-tests",
+    "e2e-validate",
+    "review"
+  ],
+  "failed_steps": [],
+  "started_at": "2026-08-31T20:54:01Z",
+  "updated_at": "2026-08-31T21:47:06Z",
+  "closes_issues": [
+    2,
+    4
+  ]
+}

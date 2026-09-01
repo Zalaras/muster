@@ -452,6 +452,30 @@ These are some minor changes and cleanup needed before we can move into post v1.
   lastActivity, failure.message), directory/branch/repo/worktree, Claude session id value,
   account usage. Follow-up already filed separately: app-wide `.btn:disabled` sweep (M5+).
 
+- [ ] **tmux-installation review cycle 1 Minors** (`plans/tmux-installation/review.md`, all six
+  left open at an approved review — no agent was respawned, per the pipeline's Minors-only rule):
+  - `[daemon-impl]` The plan's UI spec illustrates a **blank line** between the report block and
+    the `musterd:` verdict line for both fatal cases; the implementation prints none. Measured
+    with `od -c`. `cmd/musterd/preflight.go:33,42` — add a trailing `fmt.Fprintln(stderr)` on the
+    two fatal paths (not the warning path, which has no verdict line following it).
+  - `[daemon-impl]` `brew upgrade tmux` is an inline literal in `fmt.Errorf`
+    (`cmd/musterd/preflight.go:33`) while the install remedy is the `tmuxInstallRemedy` const.
+    Both are quoted by README, so both deserve one source — promote a `tmuxUpgradeRemedy` const
+    and have `TestReadmeTmuxRemedyMatchesPreflight` assert against it rather than a re-typed
+    literal (`preflight_test.go:150`).
+  - `[daemon-impl]` `cmd/musterd/preflight.go:33` calls `fmt.Errorf` with a constant string and
+    no format verbs — `errors.New` is the right call (the sibling at `:42` genuinely formats).
+  - `[daemon-impl]` Two README prose inaccuracies. `README.md:92-93` says the preflight "only
+    runs once musterd actually starts serving" — it runs *before* the data dir is created and
+    the port is bound, which is the whole point of D4; say "only runs when musterd actually
+    starts". `README.md:53`'s "— same as the note below:" dangles; what follows is the remedy
+    fence itself, not a note.
+  - `[daemon-impl]` `internal/tmux/preflight.go:17` — "NewSession **above** uses ..."; both
+    `NewSession` and `applyServerOptions` live in `tmux.go`, not above that declaration.
+  - `[e2e-specs]` `web/e2e/helpers/daemon.ts:420` still asserts stdin `"ignore"` (=`/dev/null`)
+    "is never a character device" — precisely the falsehood REQ-9 exists to correct: `/dev/null`
+    **is** a character device, it simply is not a terminal. Reword to "is never a *terminal*".
+
 ## Reported issues (pre-v1 release)
 
 Issues filed from the dashboard's masthead `Issue` button land on
@@ -464,14 +488,14 @@ Closing happens when the fix lands: `/land` puts `closes #N` in the squash subje
 (`docs/conventions.md` § Commits), and `/triage --audit` reports any issue whose entry is ticked
 while the issue is still open.
 
-- [ ] **tmux dependency is unhandled at first launch** ([#2](https://github.com/Zalaras/muster/issues/2))
+- [x] **tmux dependency is unhandled at first launch** ([#2](https://github.com/Zalaras/muster/issues/2))
   — on a machine without tmux the first launch dies with the raw exec error
   (`spawning tmux session: tmux new-session: exec: "tmux": executable file not found in $PATH`).
   Either bundle tmux or preflight the dependency at startup and name the remedy
   (`brew install tmux`); the failure has to be legible before v1 either way. Same seam as
   #4 — one plan can close both.
 
-- [ ] **Install instructions are insufficient** ([#4](https://github.com/Zalaras/muster/issues/4))
+- [x] **Install instructions are insufficient** ([#4](https://github.com/Zalaras/muster/issues/4))
   — the GitHub Release is the only distribution path (Homebrew deliberately deferred, see
   the CI item above), so `README.md` has to carry the whole story: separate Intel and Apple
   Silicon archives, where the binary belongs, and how to verify it runs. Pairs with #2.

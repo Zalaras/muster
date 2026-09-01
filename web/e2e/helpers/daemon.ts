@@ -387,6 +387,10 @@ export class ScratchDaemon {
       this.issueTokenPath,
       "-issue-repo",
       ISSUE_REPO_FIXTURE,
+      // Plan tmux-installation REQ-10: defence in depth over REQ-6's terminal condition
+      // (stdio "ignore" below already makes fd 0 /dev/null, which is not a terminal) — no
+      // scratch daemon this harness spawns may ever auto-open a real browser.
+      "-open=false",
     ];
     // Plan embed-dashboard REQ-7: the embedded-serving fixture omits -web-dist
     // ENTIRELY (not an empty-string flag — R7) so the daemon falls through to its
@@ -458,7 +462,16 @@ export class ScratchDaemon {
     this.proc = null;
     if (!proc || proc.exitCode !== null) return;
     await new Promise<void>((resolveExit) => {
-      const timer = setTimeout(() => proc.kill("SIGKILL"), 5_000);
+      // Plan tmux-installation REQ-15: this escalation firing means the daemon did not
+      // shut down gracefully within 5s of SIGTERM — surface it instead of silently
+      // force-killing, so a regression (e.g. back into the -on-exit=ask prompt this plan
+      // fixed) is visible in the suite's own output rather than masked.
+      const timer = setTimeout(() => {
+        console.warn(
+          `scratch musterd did not exit within 5s of SIGTERM; escalating to SIGKILL. last output:\n${this.output}`,
+        );
+        proc.kill("SIGKILL");
+      }, 5_000);
       proc.once("exit", () => {
         clearTimeout(timer);
         resolveExit();
