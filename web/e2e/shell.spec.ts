@@ -70,6 +70,11 @@ test("GET /api/state returns exactly the M0 snapshot object once authenticated",
   // `prefs.railSort` was added by plan order-sidebar (protocol §3.3 delta, merged into
   // docs/protocol.md on approval) — default "manual" before any PUT /api/prefs;
   // updated here for the same reason as density/usageModel above.
+  // `prefs.theme` and top-level `claudeTheme` were added by plan new-ui-design-colors
+  // (protocol §3.3/§5.2 delta, merged into docs/protocol.md on approval) — default
+  // theme "follow" before any PUT /api/prefs; `claudeTheme.family` is "unknown" because
+  // this scratch daemon passes no `-claude-theme-poll` (REQ-15, REQ-19) — updated here
+  // for the same reason as density/usageModel/railSort above.
   expect(body).toEqual({
     sessions: [],
     usage: {
@@ -83,6 +88,7 @@ test("GET /api/state returns exactly the M0 snapshot object once authenticated",
       modelScopedError: "no-credentials",
       modelScopedSource: "subscription-api",
     },
-    prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual" },
+    prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual", theme: "follow" },
+    claudeTheme: { family: "unknown" },
   });
 });

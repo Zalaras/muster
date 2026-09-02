@@ -64,7 +64,7 @@ npm test           # Web unit tests (Vitest), from web/
 
 If any fail, tag as Critical and continue with the review to catch additional issues.
 
-Then run the plan's **authored acceptance checks**. Find the block with `grep -n '^```checks' plans/<plan-name>/plan.md`. Each line is `<ID> <single-line shell command>` run from the repo root; it passes iff it exits 0. Report every result by ID in the `## Acceptance Checks` table. A failing check is a **Critical** issue, tagged with the agent that owns the file the check names. Do not treat a check as satisfied because a related command passed — run the exact line.
+Then run the plan's **authored acceptance checks** — `.claude/skills/orchestrate/scripts/gates.sh <plan-name> --checks-only` runs the whole ```checks block from the repo root, one `PASS`/`FAIL` line per ID, with the `rg` shim and pinned Node handled for you (find the block by hand with `grep -n '^```checks' plans/<plan-name>/plan.md` only if you need to read it). Each line is `<ID> <single-line shell command>`; it passes iff it exits 0. Report every result by ID in the `## Acceptance Checks` table. A failing check is a **Critical** issue, tagged with the agent that owns the file the check names. Do not treat a check as satisfied because a related command passed — run the exact line.
 
 If the plan has no ```checks block, note it under Minor (no routing tag; it is a plan defect) and verify the prose criteria by hand. Never substitute a partial parse of a compound prose criterion for the criterion itself.
 
@@ -118,7 +118,7 @@ The design system is `docs/design/design-system.md` (direction A, "instrument", 
 
 Check:
 
-- **Tokens** — no hard-coded hex values, font stacks or spacing in components; everything resolves to a `:root` custom property. A new colour must be added to the token block first.
+- **Tokens** — no hard-coded colour literal (hex, `rgb()`, `hsl()`, named), font stack or spacing in components; everything resolves to a semantic token from design-system §1's vocabulary (`--bg`, `--fg-dim`, `--amber`, …), and colour literals appear only inside the per-theme `[data-theme]` blocks in `web/src/style.css`. A new colour is a new token added to **every** theme block, never to one. Old names (`--ink`, `--panel`, `--paper`, `--muted`, `--dim`, `--line2`) are gone — any survivor is a defect. `make contrast` (the AA gate, design-system §1) must pass; the exempt list there is closed — adding to it is a plan decision, not an implementation one. `--term` grounds only the live pane (it follows Claude's theme family); chrome recesses use `--well`.
 - **No web fonts** — no CDN link, no `@import`, no vendored font binary. System stacks only.
 - **State colour is meaning** — `--amber` only ever means Needs-Input, `--rose` only Failed, `--violet` only Planning, `--teal` only Working. Colour is never the sole carrier: the state word and the sort position must also be present. At most one filled amber primary action per surface.
 - **Tabular numerics** — every value that changes over time (timers, percentages, token counts, resets) sets `font-variant-numeric: tabular-nums`.

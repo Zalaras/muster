@@ -312,3 +312,13 @@ recycled PID. Use `pgrep -f` on the exact command line.
   `--model` verbatim (§3.1) — nothing leaks into `internal/claudecode`. Not asserted by
   `make canary` (subscription rule: the canary launches haiku only); re-verify by static
   inspection on any pin bump.
+- **Claude Code's theme setting lives in its global config file under the key `theme`**
+  (installed bundle `2.1.258`, 2026-09-02 — static inspection plus a read-only look at
+  Damian's real file, not a canary run; the file's basename is deliberately recorded only
+  in `internal/claudecode/theme.go`). The bundle's value enum is
+  `["dark","light","light-daltonized","dark-daltonized","light-ansi","dark-ansi"]`, its
+  own family test is `startsWith("light")`, and the default when the key is absent is
+  `dark` (`resolveSetting("theme","dark")`). Damian's live file has no `theme` key. Basis
+  for `ReadThemeFamily`'s prefix mapping (plan `new-ui-design-colors`, REQ-13). Not asserted
+  by `make canary`; re-verify by static inspection on any pin bump. Note the installed
+  bundle (2.1.258) is ahead of the pin (2.1.246) — see `docs/claude-code-pin.md`.

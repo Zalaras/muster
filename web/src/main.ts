@@ -33,14 +33,16 @@ import { initIssueDialog, renderIssueButton, type IssueDialogController, type Is
 import { renderMainhead, type MainheadElements } from "./render/mainhead";
 import { captureFocusedControl, type FocusedControl, restoreFocusedControl } from "./render/focus";
 import { collectDeadSurfaceRefs, loadPane, renderDeadSurface, type DeadSurfaceRefs, type PaneState } from "./render/dead";
+import { initSettingsDialog, type SettingsDialogController, type SettingsDialogElements } from "./render/settings";
 import { installTileDrag } from "./render/tiledrag";
 import { installDragReorder } from "./render/dragreorder";
 import { endSession, pinSession, putPrefs, putSessionOrder, refreshUsage, removeSession, resumeSession, type ApiResult } from "./api";
-import { type Density, type Prefs, type RailSort, type Session, type Usage, UNKNOWN_USAGE } from "./protocol";
+import { type ClaudeFamily, type Density, type Prefs, type RailSort, type Session, type Usage, UNKNOWN_USAGE } from "./protocol";
 import { aliveOnly, applyDensity, densityCount, initialLive, moveTile, promote, surfaceDiff } from "./sessions/live";
 import { moveCard } from "./sessions/railorder";
 import { SessionStore } from "./sessions/store";
 import { orderRail } from "./sessions/sort";
+import { resolveTheme, writeThemeHint, type ThemeChoice } from "./theme";
 import { TerminalSurface } from "./terminal/pane";
 import { WsClient } from "./ws";
 
@@ -61,6 +63,7 @@ const usageModelWeekEl = requireElement<HTMLElement>("#usage-model-week");
 const usageRefreshBtn = requireElement<HTMLButtonElement>("#usage-refresh");
 const usageModelEl = requireElement<HTMLElement>("#usage-model");
 const issueButtonEl = requireElement<HTMLButtonElement>("#issue-button");
+const settingsButtonEl = requireElement<HTMLButtonElement>("#settings-button");
 const claudeVersionEl = requireElement<HTMLElement>("#claude-version");
 const bannerEl = requireElement<HTMLElement>("#banner");
 const sessionsEl = requireElement<HTMLElement>("#sessions");
@@ -119,6 +122,16 @@ let usageModel = "Fable";
 // single source of truth" rule as view/density/usageModel above (INV-6); the daemon's
 // own default before any PUT is "manual" (docs/protocol.md §3.3).
 let railSort: RailSort = "manual";
+// Plan new-ui-design-colors: `themeChoice` mirrors `prefs.theme` (same "daemon's `prefs`
+// broadcast is the single source of truth" rule as view/density/usageModel/railSort —
+// INV-7); `claudeFamily` mirrors `snapshot.claudeTheme.family`/the `claudeTheme`
+// broadcast (INV-2: a `prefs` message never changes it). Both default to the values a
+// fresh daemon reports before any snapshot arrives. Neither is applied to the DOM until
+// the first real message — the `<head>` hint script already painted the last-known
+// theme before any JS ran (REQ-11), and overwriting it with these defaults here would
+// destroy that first paint.
+let themeChoice = "follow";
+let claudeFamily: ClaudeFamily = "unknown";
 let focusedId: number | null = null;
 let tilesLive: number[] = [];
 // Fix attempt 2 (REQ-10/E6): a drag's initiating `mousedown` blurs any focused control in
@@ -218,6 +231,9 @@ function setStatus(status: ConnectionStatus): void {
   // state is set below in render() (renderIssueButton), same "every render pass" shape
   // as renderMainhead's `connected` parameter.
   if (status !== "connected") issueDialog.closeAll();
+  // States (new-ui-design-colors): "Daemon down ... The Settings dialog closes with the
+  // other dialogs ... since a PUT cannot land."
+  if (status !== "connected") settingsDialog.close();
   // review m4-reconcile Major 3: every already-drawn surface (mainhead, dead-surface
   // cap, rail cards, tile footers) carries `connected` baked into its last render call.
   // A focused *dead* session has no terminal socket to incidentally trigger a re-render
@@ -268,6 +284,30 @@ function requestUsageModel(newModel: string): void {
  * never optimistically here. */
 function requestRailSort(newSort: RailSort): void {
   void putPrefs({ railSort: newSort }).then(reportPrefsFailure);
+}
+
+/** REQ-9's theme radios' change handler — same fire-and-forget shape as the above:
+ * `themeChoice` only ever changes locally via the resulting `prefs` broadcast (INV-7),
+ * never optimistically here. */
+function requestTheme(newTheme: ThemeChoice): void {
+  void putPrefs({ theme: newTheme }).then(reportPrefsFailure);
+}
+
+/** REQ-12: applies the resolved theme + Claude family to `<html>`, re-themes every live
+ * terminal surface in place, and rewrites the first-paint hint (REQ-11) — called after
+ * `themeChoice` and/or `claudeFamily` change from a `snapshot`, `prefs` or `claudeTheme`
+ * message. Never called from the 1s render tick. `resolveTheme` alone is what makes
+ * INV-1/INV-2 hold here: a known `themeChoice` resolves the same theme regardless of
+ * `claudeFamily`, so a family-only change never moves `data-theme` while an override is
+ * set, and a `prefs`-only change never touches `data-claude-family` (this function
+ * doesn't set it from anything but the current `claudeFamily` state, which only the
+ * `claudeTheme` handler and the initial snapshot ever assign). */
+function applyThemeAttributes(): void {
+  const theme = resolveTheme(themeChoice, claudeFamily);
+  document.documentElement.dataset["theme"] = theme;
+  document.documentElement.dataset["claudeFamily"] = claudeFamily;
+  for (const surface of surfaces.values()) surface.applyTheme();
+  writeThemeHint({ theme, family: claudeFamily });
 }
 
 /** REQ-12: clears the refresh button's `aria-busy` state and cancels the 5s fallback
@@ -427,6 +467,17 @@ issueButtonEl.addEventListener("click", () => {
   issueDialog.open(orderRail(store.values(), railSort), focusedId);
 });
 
+// REQ-9: the Settings button + `#settings-dialog` (the theme picker, v1's only content).
+const settingsDialogElements: SettingsDialogElements = {
+  dialog: requireElement<HTMLDialogElement>("#settings-dialog"),
+  themeRadios: requireElements<HTMLInputElement>('#settings-dialog input[name="theme"]'),
+  closeBtn: requireElement<HTMLButtonElement>("#settings-close-button"),
+};
+const settingsDialog: SettingsDialogController = initSettingsDialog(settingsDialogElements, {
+  onChooseTheme: requestTheme,
+});
+settingsButtonEl.addEventListener("click", () => settingsDialog.open());
+
 mainheadElements.endBtn.addEventListener("click", () => {
   if (focusedId !== null) dispatchAction("end", focusedId);
 });
@@ -462,6 +513,10 @@ function applyPrefsFromSnapshot(prefs: Prefs): void {
   // Same: no sticky client-side state depends on railSort — the rail/strip just render
   // through `orderRail(sessions, railSort)` on every pass.
   railSort = prefs.railSort;
+  // INV-7: `themeChoice` (and the Settings dialog's checked radio) only ever changes
+  // here, from the broadcast — never optimistically from the radio's own click handler.
+  themeChoice = prefs.theme;
+  settingsDialog.setChecked(themeChoice);
 }
 
 /** After the daemon connection is restored (`hello`), every currently-mounted surface
@@ -861,6 +916,8 @@ const client = new WsClient(wsUrl, {
   onSnapshot: (snapshot) => {
     store.replaceAll(snapshot.sessions);
     applyPrefsFromSnapshot(snapshot.prefs);
+    claudeFamily = snapshot.claudeTheme.family;
+    applyThemeAttributes();
     currentUsage = snapshot.usage;
     reattachDisconnectedSurfaces();
     render();
@@ -874,12 +931,19 @@ const client = new WsClient(wsUrl, {
   },
   onPrefs: (prefs) => {
     applyPrefsFromSnapshot(prefs);
+    applyThemeAttributes();
     render();
   },
   onUsage: (usage) => {
     currentUsage = usage;
     clearUsageRefreshBusy();
     render();
+  },
+  // §5.6/INV-2: never touches `themeChoice` — only `claudeFamily`, so `data-theme` only
+  // moves when `themeChoice` is currently "follow" (resolveTheme's own logic).
+  onClaudeTheme: (family) => {
+    claudeFamily = family;
+    applyThemeAttributes();
   },
   onDisconnected: () => {
     setStatus(everConnected ? "reconnecting" : "connecting");

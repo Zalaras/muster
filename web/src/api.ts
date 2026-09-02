@@ -54,6 +54,9 @@ export interface PrefsRequest {
   usageModel?: string;
   // Plan order-sidebar (docs/protocol.md §3.3): the rail's sort mode.
   railSort?: RailSort;
+  // Plan new-ui-design-colors (docs/protocol.md §3.3): matches ^[a-z][a-z0-9-]{0,31}$;
+  // opaque to the daemon. "follow" means no override.
+  theme?: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

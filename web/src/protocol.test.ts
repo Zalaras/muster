@@ -12,7 +12,8 @@ const validSnapshot = {
   type: "snapshot",
   sessions: [],
   usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
-  prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual" },
+  prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual", theme: "follow" },
+  claudeTheme: { family: "unknown" },
 };
 
 describe("parseMessage — hello", () => {
@@ -127,13 +128,16 @@ describe("parseMessage — snapshot", () => {
   });
 
   it("parses prefs.density '3x2' alongside an explicit usageModel (plan usage-model-bar REQ-8)", () => {
-    const snapshot = { ...validSnapshot, prefs: { view: "tiles", density: "3x2", usageModel: "Opus", railSort: "manual" } };
+    const snapshot = { ...validSnapshot, prefs: { view: "tiles", density: "3x2", usageModel: "Opus", railSort: "manual", theme: "follow" } };
     expect(parseMessage(snapshot)).toEqual(snapshot);
   });
 
   it("defaults a missing prefs.usageModel to 'Fable' (pre-plan daemon payload, plan usage-model-bar REQ-8)", () => {
     const snapshot = { ...validSnapshot, prefs: { view: "tiles", density: "3x2" } };
-    expect(parseMessage(snapshot)).toEqual({ ...snapshot, prefs: { ...snapshot.prefs, usageModel: "Fable", railSort: "manual" } });
+    expect(parseMessage(snapshot)).toEqual({
+      ...snapshot,
+      prefs: { ...snapshot.prefs, usageModel: "Fable", railSort: "manual", theme: "follow" },
+    });
   });
 
   it("rejects a prefs.usageModel that is not a string", () => {
@@ -148,14 +152,17 @@ describe("parseMessage — snapshot", () => {
       prefs: { view: "tiles", density: "3x2", futurePrefsField: true },
     };
     const parsed = parseMessage(snapshot);
-    expect(parsed).toEqual({ ...validSnapshot, prefs: { view: "tiles", density: "3x2", usageModel: "Fable", railSort: "manual" } });
+    expect(parsed).toEqual({
+      ...validSnapshot,
+      prefs: { view: "tiles", density: "3x2", usageModel: "Fable", railSort: "manual", theme: "follow" },
+    });
   });
 });
 
 describe("parsePrefs — railSort (plan order-sidebar REQ-5/§3.3)", () => {
   it("defaults a missing railSort to 'manual' (pre-plan daemon payload)", () => {
     const snapshot = { ...validSnapshot, prefs: { view: "focus", density: "2x2", usageModel: "Fable" } };
-    expect(parseMessage(snapshot)).toEqual({ ...snapshot, prefs: { ...snapshot.prefs, railSort: "manual" } });
+    expect(parseMessage(snapshot)).toEqual({ ...snapshot, prefs: { ...snapshot.prefs, railSort: "manual", theme: "follow" } });
   });
 
   it("parses an explicit railSort of 'attention'", () => {
@@ -175,7 +182,10 @@ describe("parsePrefs — railSort (plan order-sidebar REQ-5/§3.3)", () => {
 });
 
 describe("parseMessage — prefs (M2 REQ-10/INV-4: the PUT /api/prefs echo broadcast)", () => {
-  const validPrefsMessage = { type: "prefs", prefs: { view: "tiles", density: "3x2", usageModel: "Fable", railSort: "manual" } };
+  const validPrefsMessage = {
+    type: "prefs",
+    prefs: { view: "tiles", density: "3x2", usageModel: "Fable", railSort: "manual", theme: "follow" },
+  };
 
   it("parses a fully-populated prefs message", () => {
     expect(parseMessage(validPrefsMessage)).toEqual(validPrefsMessage);
@@ -195,7 +205,93 @@ describe("parseMessage — prefs (M2 REQ-10/INV-4: the PUT /api/prefs echo broad
 
   it("ignores unknown fields inside prefs (additive evolution)", () => {
     const message = { type: "prefs", prefs: { view: "focus", density: "2x2", futureField: 1 } };
-    expect(parseMessage(message)).toEqual({ type: "prefs", prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual" } });
+    expect(parseMessage(message)).toEqual({
+      type: "prefs",
+      prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual", theme: "follow" },
+    });
+  });
+});
+
+describe("parsePrefs — theme (plan new-ui-design-colors REQ-19, W7)", () => {
+  it("defaults a missing theme key to 'follow' (pre-plan daemon payload)", () => {
+    const snapshot = { ...validSnapshot, prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual" } };
+    expect(parseMessage(snapshot)).toEqual({ ...snapshot, prefs: { ...snapshot.prefs, theme: "follow" } });
+  });
+
+  it("parses an explicit opaque theme name unchanged (the daemon treats it as opaque, docs/protocol.md §3.3)", () => {
+    const snapshot = { ...validSnapshot, prefs: { ...validSnapshot.prefs, theme: "dark" } };
+    expect(parseMessage(snapshot)).toEqual(snapshot);
+  });
+
+  it("rejects a non-string theme", () => {
+    const snapshot = { ...validSnapshot, prefs: { ...validSnapshot.prefs, theme: 42 } };
+    expect(parseMessage(snapshot)).toBeNull();
+  });
+
+  it("rejects a null theme (the field is required and string, never nullable)", () => {
+    const snapshot = { ...validSnapshot, prefs: { ...validSnapshot.prefs, theme: null } };
+    expect(parseMessage(snapshot)).toBeNull();
+  });
+});
+
+describe("parseSnapshot — claudeTheme (plan new-ui-design-colors REQ-19, W8)", () => {
+  it("defaults a missing claudeTheme key to {family: 'unknown'} (pre-plan daemon payload — the 'no data yet' state, docs §5.2)", () => {
+    const { claudeTheme, ...rest } = validSnapshot;
+    void claudeTheme;
+    expect(parseMessage(rest)).toEqual(validSnapshot);
+  });
+
+  it("parses each known family value", () => {
+    for (const family of ["light", "dark", "unknown"] as const) {
+      const snapshot = { ...validSnapshot, claudeTheme: { family } };
+      expect(parseMessage(snapshot)).toEqual(snapshot);
+    }
+  });
+
+  it("rejects a family outside light|dark|unknown", () => {
+    const snapshot = { ...validSnapshot, claudeTheme: { family: "sepia" } };
+    expect(parseMessage(snapshot)).toBeNull();
+  });
+
+  it("rejects a claudeTheme that isn't an object", () => {
+    const snapshot = { ...validSnapshot, claudeTheme: "unknown" };
+    expect(parseMessage(snapshot)).toBeNull();
+  });
+
+  it("rejects a claudeTheme missing the family field", () => {
+    const snapshot = { ...validSnapshot, claudeTheme: {} };
+    expect(parseMessage(snapshot)).toBeNull();
+  });
+});
+
+describe("parseMessage — claudeTheme (plan new-ui-design-colors §5.6, W9)", () => {
+  it("decodes a well-formed claudeTheme message", () => {
+    const message = { type: "claudeTheme", family: "light" };
+    expect(parseMessage(message)).toEqual(message);
+  });
+
+  it("decodes each known family value", () => {
+    for (const family of ["light", "dark", "unknown"] as const) {
+      const message = { type: "claudeTheme", family };
+      expect(parseMessage(message)).toEqual(message);
+    }
+  });
+
+  it("ignores unknown top-level fields (additive evolution, protocol §1)", () => {
+    const message = { type: "claudeTheme", family: "dark", futureField: "surprise" };
+    expect(parseMessage(message)).toEqual({ type: "claudeTheme", family: "dark" });
+  });
+
+  it("rejects a claudeTheme message with an unrecognized family", () => {
+    expect(parseMessage({ type: "claudeTheme", family: "sepia" })).toBeNull();
+  });
+
+  it("rejects a claudeTheme message missing family", () => {
+    expect(parseMessage({ type: "claudeTheme" })).toBeNull();
+  });
+
+  it("rejects a non-string family", () => {
+    expect(parseMessage({ type: "claudeTheme", family: 1 })).toBeNull();
   });
 });
 
@@ -636,7 +732,8 @@ describe("parseMessage — snapshot with sessions (M1: non-empty for the first t
       type: "snapshot",
       sessions: [validSession, freshLaunchSession],
       usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
-      prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual" },
+      prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual", theme: "follow" },
+      claudeTheme: { family: "unknown" },
     };
     expect(parseMessage(snapshot)).toEqual(snapshot);
   });

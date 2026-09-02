@@ -42,6 +42,10 @@ web-build: ## Build the frontend into internal/webui/assets (embedded into the b
 web-test: ## Frontend unit tests (Vitest)
 	cd web && npm test
 
+.PHONY: contrast
+contrast: ## Contrast/hue/literal gate over web/src/style.css (REQ-4, plan new-ui-design-colors)
+	cd web && npm run contrast
+
 # Order is load-bearing: web-build must produce fresh internal/webui/assets before build
 # compiles them into the binary via go:embed, or the E2E-embedded spec (embedded.spec.ts)
 # runs against stale assets (plan embed-dashboard Edge Case 3/8 — this repo never runs
@@ -59,7 +63,7 @@ canary: ## Drive the real claude (3 haiku turns + 1 zero-token) and assert every
 	go test -tags=canary -count=1 -v ./test/canary/...
 
 .PHONY: check
-check: lint test ## Lint + test
+check: lint test contrast ## Lint + test + contrast
 
 .PHONY: hooks
 hooks: ## Arm the commit-msg guard (.githooks/) for this clone — enforces docs/conventions.md § Commits

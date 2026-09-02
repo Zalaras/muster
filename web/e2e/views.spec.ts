@@ -491,19 +491,33 @@ test("GET /api/state's prefs snapshot carries both view and density (M2 protocol
     // stale the moment usage-model-bar ships, same rationale as density's own addition.
     // `railSort` was added by plan order-sidebar (protocol §3.3 delta, merged into
     // docs/protocol.md on approval; default "manual" before any PUT) — same rationale.
+    // `theme` was added by plan new-ui-design-colors (protocol §3.3 delta, merged into
+    // docs/protocol.md on approval; default "follow" before any PUT) — same rationale.
     const before = (await stateRes.json()) as {
-      prefs: { view: string; density: string; usageModel: string; railSort: string };
+      prefs: { view: string; density: string; usageModel: string; railSort: string; theme: string };
     };
-    expect(before.prefs).toEqual({ view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual" });
+    expect(before.prefs).toEqual({
+      view: "focus",
+      density: "2x2",
+      usageModel: "Fable",
+      railSort: "manual",
+      theme: "follow",
+    });
 
     const putRes = await page.request.put(`${daemon.baseURL}/api/prefs`, { data: { density: "3x2" } });
     expect(putRes.status()).toBe(204);
 
     const afterRes = await page.request.get(`${daemon.baseURL}/api/state`);
     const after = (await afterRes.json()) as {
-      prefs: { view: string; density: string; usageModel: string; railSort: string };
+      prefs: { view: string; density: string; usageModel: string; railSort: string; theme: string };
     };
-    expect(after.prefs).toEqual({ view: "focus", density: "3x2", usageModel: "Fable", railSort: "manual" });
+    expect(after.prefs).toEqual({
+      view: "focus",
+      density: "3x2",
+      usageModel: "Fable",
+      railSort: "manual",
+      theme: "follow",
+    });
   });
 });
 

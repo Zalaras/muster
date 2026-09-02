@@ -6,6 +6,7 @@
 // handlers. Message parsing and the protocol-version gate live in protocol.ts; this
 // module just wires the socket lifecycle to them.
 import {
+  type ClaudeFamily,
   type Hello,
   type Message,
   type Prefs,
@@ -33,6 +34,7 @@ export interface WsClientHandlers {
   onPrefs?: (prefs: Prefs) => void;
   onUsage?: (usage: Usage) => void;
   onSessionRemoved?: (id: number) => void;
+  onClaudeTheme?: (family: ClaudeFamily) => void;
   onDisconnected?: () => void;
   onProtocolMismatch?: (protocolVersion: number) => void;
 }
@@ -141,6 +143,10 @@ export class WsClient {
     }
     if (message.type === "sessionRemoved") {
       this.handlers.onSessionRemoved?.(message.id);
+      return;
+    }
+    if (message.type === "claudeTheme") {
+      this.handlers.onClaudeTheme?.(message.family);
       return;
     }
     this.handlers.onSnapshot?.(message);

@@ -144,6 +144,22 @@ export interface ScratchDaemonOptions {
    * passed unconditionally (REQ-17) so `gh` is never executed regardless.
    */
   issueTokenContent?: string;
+  /**
+   * Plan new-ui-design-colors REQ-18/REQ-14 test seam: `-claude-theme-poll` duration
+   * string (e.g. `"200ms"` for E9/E10's fast-flip fixtures, or `"0"` to exercise the
+   * disabled-poller path, edge case 11). Omit to leave the daemon's own 10s default —
+   * most tests never need a second, timer-driven tick since `Start()`'s immediate first
+   * tick (REQ-14) already observes whatever's on disk at boot.
+   */
+  claudeThemePoll?: string;
+  /**
+   * JSON content written to the scratch `-claude-config-file` before spawning — stands
+   * in for Claude Code's own global config file that `internal/claudecode/theme.go`'s
+   * `ReadThemeFamily` reads (spikes/canary-fields.md shape, e.g. `{"theme":"light"}`).
+   * Omit to leave the file absent entirely — the "config file missing" fixture (edge
+   * case 1), distinct from a present-but-keyless file (edge case 2, pass `"{}"`).
+   */
+  claudeConfigContent?: string;
 }
 
 async function freePort(): Promise<number> {
@@ -227,6 +243,16 @@ export class ScratchDaemon {
    * set, always passed (REQ-17), never the real GitHub API host.
    */
   readonly issueApiURL: string;
+  /**
+   * Plan new-ui-design-colors REQ-18/INV-5: always a scratch path inside `dataDir`,
+   * passed unconditionally via `-claude-config-file` for every scratch daemon —
+   * mirroring `usageTokenPath`'s discipline — so no E2E run can ever read the real
+   * Claude Code config file. Written to at construction time only when the caller
+   * supplies `claudeConfigContent`; otherwise the path simply doesn't exist (the
+   * "missing config file" fixture, edge case 1). `writeClaudeConfig()` overwrites it
+   * mid-test for the poller-flip fixtures (E9/E10).
+   */
+  readonly claudeConfigPath: string;
   /** The deny stub server started for this run when no `issueApiURL` option was given,
    * or `null` when the caller supplied its own (nothing here to close). Closed in
    * `teardown()`. */
@@ -253,6 +279,9 @@ export class ScratchDaemon {
   /** `-usage-api-url` value for this run, or `undefined` to omit the flag (plan
    * usage-model-bar REQ-13). */
   private readonly usageApiURL: string | undefined;
+  /** `-claude-theme-poll` value for this run, or `undefined` to omit the flag — the
+   * daemon's own 10s default (plan new-ui-design-colors REQ-18). */
+  private readonly claudeThemePoll: string | undefined;
 
   private constructor(
     port: number,
@@ -262,6 +291,7 @@ export class ScratchDaemon {
     usagePoll?: string,
     usageApiURL?: string,
     serveEmbedded = false,
+    claudeThemePoll?: string,
   ) {
     this.port = port;
     this.baseURL = `http://127.0.0.1:${port}`;
@@ -277,10 +307,12 @@ export class ScratchDaemon {
     this.issueTokenPath = join(dataDir, "issue-token.txt");
     this.issueApiURL = issueApiURL;
     this.embeddedBinPath = join(dataDir, "musterd");
+    this.claudeConfigPath = join(dataDir, "claude-config.json");
     this.onExit = onExit;
     this.usagePoll = usagePoll;
     this.usageApiURL = usageApiURL;
     this.serveEmbedded = serveEmbedded;
+    this.claudeThemePoll = claudeThemePoll;
   }
 
   static async start(opts: ScratchDaemonOptions = {}): Promise<ScratchDaemon> {
@@ -309,6 +341,7 @@ export class ScratchDaemon {
       opts.usagePoll,
       opts.usageApiURL,
       opts.serveEmbedded,
+      opts.claudeThemePoll,
     );
     daemon.denyStubServer = denyStubServer;
     await mkdir(daemon.browseRoot, { recursive: true });
@@ -326,6 +359,9 @@ export class ScratchDaemon {
     }
     if (opts.issueTokenContent !== undefined) {
       await writeFile(daemon.issueTokenPath, opts.issueTokenContent, "utf-8");
+    }
+    if (opts.claudeConfigContent !== undefined) {
+      await writeFile(daemon.claudeConfigPath, opts.claudeConfigContent, "utf-8");
     }
     await daemon.spawnAndWait();
     return daemon;
@@ -387,6 +423,12 @@ export class ScratchDaemon {
       this.issueTokenPath,
       "-issue-repo",
       ISSUE_REPO_FIXTURE,
+      // Plan new-ui-design-colors REQ-18/INV-5: unconditional on every scratch daemon —
+      // same discipline as `-usage-token-file` above — so no E2E run can ever read the
+      // real Claude Code global config file, regardless of whether a given test cares
+      // about the theme feature.
+      "-claude-config-file",
+      this.claudeConfigPath,
       // Plan tmux-installation REQ-10: defence in depth over REQ-6's terminal condition
       // (stdio "ignore" below already makes fd 0 /dev/null, which is not a terminal) — no
       // scratch daemon this harness spawns may ever auto-open a real browser.
@@ -410,6 +452,11 @@ export class ScratchDaemon {
     }
     if (this.usageApiURL !== undefined) {
       args.push("-usage-api-url", this.usageApiURL);
+    }
+    // Plan new-ui-design-colors REQ-18: opt-in per run, mirroring -usage-poll — omit to
+    // leave the daemon's own 10s default.
+    if (this.claudeThemePoll !== undefined) {
+      args.push("-claude-theme-poll", this.claudeThemePoll);
     }
     const proc = spawn(this.serveEmbedded ? this.embeddedBinPath : musterdBin, args, {
       // Plan embed-dashboard REQ-7: the embedded fixture runs from the scratch data dir
@@ -485,6 +532,18 @@ export class ScratchDaemon {
   async restart(): Promise<void> {
     await this.kill();
     await this.spawnAndWait();
+  }
+
+  /**
+   * Plan new-ui-design-colors REQ-18: overwrites the scratch `-claude-config-file`
+   * mid-test — the fixture behind E9/E10's "Claude Code's theme changes while polling"
+   * scenarios and edge case 4's torn-write retry. The poller's own ticker (or its
+   * immediate on-Start tick, for a write before the daemon starts) picks up the new
+   * content; this method only performs the write and deliberately does not wait for any
+   * resulting broadcast or DOM change — synchronizing on that is the caller's job.
+   */
+  async writeClaudeConfig(content: string): Promise<void> {
+    await writeFile(this.claudeConfigPath, content, "utf-8");
   }
 
   /** Kills the process, kills this run's private tmux server, closes this run's own

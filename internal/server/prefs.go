@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"regexp"
 	"strings"
 )
 
@@ -19,6 +20,16 @@ const defaultUsageModel = "Fable"
 // order-sidebar) — the Focus rail's sort mode before any PUT ever names one.
 const defaultRailSort = "manual"
 
+// defaultTheme is prefs.theme's default (docs/protocol.md §3.3, plan
+// new-ui-design-colors) — "follow" means the dashboard resolves its theme from
+// claudeTheme.family; the daemon treats the value as opaque beyond validThemePattern.
+const defaultTheme = "follow"
+
+// validThemePattern is prefs.theme's wire pattern (docs/protocol.md §3.3): 1-32 chars,
+// a-z/0-9/-, starting with a letter. The daemon never interprets the value beyond this
+// — the client owns the theme registry (plan new-ui-design-colors, REQ-7).
+var validThemePattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
+
 // prefsRequest is PUT /api/prefs' request body (docs/protocol.md §3.3): at least one
 // field required, unknown fields ignored. Pointers distinguish "absent" from "present".
 type prefsRequest struct {
@@ -26,11 +37,13 @@ type prefsRequest struct {
 	Density    *string `json:"density"`
 	UsageModel *string `json:"usageModel"`
 	RailSort   *string `json:"railSort"`
+	Theme      *string `json:"theme"`
 }
 
 func validView(v string) bool     { return v == "focus" || v == "tiles" }
 func validDensity(v string) bool  { return v == "2x2" || v == "3x2" }
 func validRailSort(v string) bool { return v == "manual" || v == "attention" }
+func validTheme(v string) bool    { return validThemePattern.MatchString(v) }
 
 // validUsageModel reports whether v (after trimming) is 1–32 chars (protocol §3.3).
 func validUsageModel(v string) bool {
@@ -40,7 +53,7 @@ func validUsageModel(v string) bool {
 
 // defaultPrefs is the shape before any PUT /api/prefs has ever landed (protocol §3.3).
 func defaultPrefs() PrefsInfo {
-	return PrefsInfo{View: "focus", Density: "2x2", UsageModel: defaultUsageModel, RailSort: defaultRailSort}
+	return PrefsInfo{View: "focus", Density: "2x2", UsageModel: defaultUsageModel, RailSort: defaultRailSort, Theme: defaultTheme}
 }
 
 // prefsMessage is the WS `prefs` broadcast (docs/protocol.md §5.5): a full-object echo
@@ -74,6 +87,9 @@ func (s *Server) loadPrefs(ctx context.Context) PrefsInfo {
 	if !validRailSort(p.RailSort) {
 		p.RailSort = defaultRailSort
 	}
+	if !validTheme(p.Theme) {
+		p.Theme = defaultTheme
+	}
 	return p
 }
 
@@ -85,8 +101,8 @@ func (s *Server) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "invalid_request", "invalid JSON body")
 		return
 	}
-	if req.View == nil && req.Density == nil && req.UsageModel == nil && req.RailSort == nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid_request", "at least one of view, density, usageModel or railSort is required")
+	if req.View == nil && req.Density == nil && req.UsageModel == nil && req.RailSort == nil && req.Theme == nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid_request", "at least one of view, density, usageModel, railSort or theme is required")
 		return
 	}
 	if req.View != nil && !validView(*req.View) {
@@ -105,6 +121,10 @@ func (s *Server) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "invalid_request", "railSort must be one of manual, attention")
 		return
 	}
+	if req.Theme != nil && !validTheme(*req.Theme) {
+		writeJSONError(w, http.StatusBadRequest, "invalid_request", "theme must be 1-32 chars of a-z, 0-9 or -, starting with a letter")
+		return
+	}
 
 	ctx := r.Context()
 	prefs := s.loadPrefs(ctx)
@@ -119,6 +139,9 @@ func (s *Server) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.RailSort != nil {
 		prefs.RailSort = *req.RailSort
+	}
+	if req.Theme != nil {
+		prefs.Theme = *req.Theme
 	}
 
 	encoded, err := json.Marshal(prefs)

@@ -50,6 +50,10 @@ const onExitPromptTimeout = 10 * time.Second
 // defaultUsagePoll is -usage-poll's default (plan usage-model-bar REQ-1).
 const defaultUsagePoll = 5 * time.Minute
 
+// defaultClaudeThemePoll is -claude-theme-poll's default (plan new-ui-design-colors
+// REQ-14).
+const defaultClaudeThemePoll = 10 * time.Second
+
 func main() {
 	if err := run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr); err != nil {
 		fmt.Fprintln(os.Stderr, "musterd:", err)
@@ -66,24 +70,35 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		defaultDataDir = filepath.Join(home, "Library", "Application Support", "Muster")
 	}
 
+	// -claude-config-file's default (plan new-ui-design-colors, Affected Files): empty
+	// when DefaultConfigPath itself fails (no home directory) — polling then stays
+	// enabled but every read reports "unknown", never a fallback constant duplicating
+	// the file's own name outside internal/claudecode.
+	defaultClaudeConfigFile := ""
+	if p, err := claudecode.DefaultConfigPath(); err == nil {
+		defaultClaudeConfigFile = p
+	}
+
 	var (
-		showVersion    = fs.Bool("version", false, "print version and exit")
-		addr           = fs.String("addr", "127.0.0.1:8765", "listen address (localhost only by design)")
-		dataDir        = fs.String("data-dir", defaultDataDir, "directory for the database, tokens and other daemon-local state")
-		webDist        = fs.String("web-dist", "", "serve the dashboard from this directory instead of the embedded copy (dev override; empty uses the binary's embedded dashboard)")
-		debug          = fs.Bool("debug", false, "debug logging")
-		claudeBin      = fs.String("claude-bin", "claude", "the `claude` binary to spawn for a launched session (REQ-19: lets E2E launch a stub)")
-		tmuxSocket     = fs.String("tmux-socket", "muster", "dedicated tmux socket (REQ-19: never the user's default server); a value containing '/' is used as a filesystem path (-S), otherwise a named socket (-L) — m2-terminal REQ-5")
-		browseRoot     = fs.String("browse-root", "", "root of the launch modal's folder browser — GET /api/browse's no-param default and its Up ceiling (empty = the user's home directory; E2E passes its scratch dir)")
-		onExit         = fs.String("on-exit", "ask", "what to do with live sessions on shutdown: ask (default, prompts once if stdin is a TTY) | leave | kill")
-		usagePoll      = fs.Duration("usage-poll", defaultUsagePoll, "how often musterd polls Claude Code's per-model weekly usage endpoint; 0 disables polling (POST /api/usage/refresh then 404s)")
-		usageAPIURL    = fs.String("usage-api-url", "https://api.anthropic.com", "base URL for the per-model usage endpoint — a test seam like -claude-bin")
-		usageTokenFile = fs.String("usage-token-file", "", "read the Claude Code OAuth token from this file instead of the macOS Keychain — a test seam like -claude-bin (empty = the daemon's usual Keychain lookup)")
-		issueRepo      = fs.String("issue-repo", "Zalaras/muster", "GitHub repo (owner/name) the Issue button files issues against")
-		issueAPIURL    = fs.String("issue-api-url", "https://api.github.com", "base URL for the GitHub API the Issue button posts to — a test seam like -usage-api-url; empty disables issue capture entirely (POST /api/issue/captures and POST /api/issues then 404)")
-		issueTokenFile = fs.String("issue-token-file", "", "read the GitHub bearer token from this file's trimmed contents instead of running `gh auth token` — a test seam like -usage-token-file (empty = the daemon's usual `gh auth token`)")
-		openFlag       = fs.Bool("open", true, "auto-open the dashboard in the default browser at startup; fires only when stdin is also a real terminal (REQ-6)")
-		openCmd        = fs.String("open-cmd", "open", "the program run with the dashboard URL to auto-open it — a test seam like -claude-bin (REQ-7)")
+		showVersion      = fs.Bool("version", false, "print version and exit")
+		addr             = fs.String("addr", "127.0.0.1:8765", "listen address (localhost only by design)")
+		dataDir          = fs.String("data-dir", defaultDataDir, "directory for the database, tokens and other daemon-local state")
+		webDist          = fs.String("web-dist", "", "serve the dashboard from this directory instead of the embedded copy (dev override; empty uses the binary's embedded dashboard)")
+		debug            = fs.Bool("debug", false, "debug logging")
+		claudeBin        = fs.String("claude-bin", "claude", "the `claude` binary to spawn for a launched session (REQ-19: lets E2E launch a stub)")
+		tmuxSocket       = fs.String("tmux-socket", "muster", "dedicated tmux socket (REQ-19: never the user's default server); a value containing '/' is used as a filesystem path (-S), otherwise a named socket (-L) — m2-terminal REQ-5")
+		browseRoot       = fs.String("browse-root", "", "root of the launch modal's folder browser — GET /api/browse's no-param default and its Up ceiling (empty = the user's home directory; E2E passes its scratch dir)")
+		onExit           = fs.String("on-exit", "ask", "what to do with live sessions on shutdown: ask (default, prompts once if stdin is a TTY) | leave | kill")
+		usagePoll        = fs.Duration("usage-poll", defaultUsagePoll, "how often musterd polls Claude Code's per-model weekly usage endpoint; 0 disables polling (POST /api/usage/refresh then 404s)")
+		usageAPIURL      = fs.String("usage-api-url", "https://api.anthropic.com", "base URL for the per-model usage endpoint — a test seam like -claude-bin")
+		usageTokenFile   = fs.String("usage-token-file", "", "read the Claude Code OAuth token from this file instead of the macOS Keychain — a test seam like -claude-bin (empty = the daemon's usual Keychain lookup)")
+		issueRepo        = fs.String("issue-repo", "Zalaras/muster", "GitHub repo (owner/name) the Issue button files issues against")
+		issueAPIURL      = fs.String("issue-api-url", "https://api.github.com", "base URL for the GitHub API the Issue button posts to — a test seam like -usage-api-url; empty disables issue capture entirely (POST /api/issue/captures and POST /api/issues then 404)")
+		issueTokenFile   = fs.String("issue-token-file", "", "read the GitHub bearer token from this file's trimmed contents instead of running `gh auth token` — a test seam like -usage-token-file (empty = the daemon's usual `gh auth token`)")
+		openFlag         = fs.Bool("open", true, "auto-open the dashboard in the default browser at startup; fires only when stdin is also a real terminal (REQ-6)")
+		openCmd          = fs.String("open-cmd", "open", "the program run with the dashboard URL to auto-open it — a test seam like -claude-bin (REQ-7)")
+		claudeThemePoll  = fs.Duration("claude-theme-poll", defaultClaudeThemePoll, "how often musterd polls Claude Code's own theme setting for the terminal pane ground and the dashboard's Follow Claude Code preference; 0 disables polling (claudeTheme.family stays unknown)")
+		claudeConfigFile = fs.String("claude-config-file", defaultClaudeConfigFile, "path to Claude Code's global config file to poll for its theme setting — a test seam like -usage-token-file")
 	)
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -201,6 +216,8 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		IssueRepo:        *issueRepo,
 		IssueAPIURL:      *issueAPIURL,
 		IssueTokenFile:   *issueTokenFile,
+		ClaudeThemePoll:  *claudeThemePoll,
+		ClaudeConfigFile: *claudeConfigFile,
 	})
 	srv.Start()
 

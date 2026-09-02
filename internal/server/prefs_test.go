@@ -132,7 +132,7 @@ func TestHandlePutPrefs_PersistsToKVUnderOneJSONKey(t *testing.T) {
 	raw, ok, err := srv.store.KVGet(context.Background(), "prefs")
 	require.NoError(t, err)
 	require.True(t, ok)
-	assert.JSONEq(t, `{"view":"tiles","density":"3x2","usageModel":"Fable","railSort":"manual"}`, raw)
+	assert.JSONEq(t, `{"view":"tiles","density":"3x2","usageModel":"Fable","railSort":"manual","theme":"follow"}`, raw)
 }
 
 func TestLoadPrefs_DefaultsBeforeAnyPUT(t *testing.T) {
@@ -393,7 +393,7 @@ func TestHandlePutPrefs_UsageModelPersistsToKVAlongsideViewAndDensity(t *testing
 	raw, ok, err := srv.store.KVGet(context.Background(), "prefs")
 	require.NoError(t, err)
 	require.True(t, ok)
-	assert.JSONEq(t, `{"view":"tiles","density":"3x2","usageModel":"Opus","railSort":"manual"}`, raw)
+	assert.JSONEq(t, `{"view":"tiles","density":"3x2","usageModel":"Opus","railSort":"manual","theme":"follow"}`, raw)
 }
 
 // TestHandlePutPrefs_BroadcastsUsageModelInPrefsMessage covers D10/INV-4's echo clause
@@ -603,6 +603,189 @@ type prefsWireWithRailSort struct {
 	Type  string `json:"type"`
 	Prefs struct {
 		RailSort string `json:"railSort"`
+	} `json:"prefs"`
+}
+
+// TestLoadPrefs_DefaultThemeIsFollow covers §3.3's default-before-any-PUT clause for the
+// new field (plan new-ui-design-colors).
+func TestLoadPrefs_DefaultThemeIsFollow(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+
+	got := srv.loadPrefs(context.Background())
+
+	assert.Equal(t, "follow", got.Theme)
+}
+
+// TestHandlePutPrefs_ThemeValidationErrors covers D13 and the Protocol Contract's 400
+// invalid_request clause for theme: anything not matching
+// ^[a-z][a-z0-9-]{0,31}$.
+func TestHandlePutPrefs_ThemeValidationErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+	}{
+		{"empty string", `{"theme":""}`},
+		{"spaces and punctuation (D13's exact case)", `{"theme":"Dark Mode!"}`},
+		{"uppercase", `{"theme":"Dark"}`},
+		{"starts with a digit", `{"theme":"1dark"}`},
+		{"contains a space", `{"theme":"dark mode"}`},
+		{"33 chars, one over the limit", `{"theme":"` + strings.Repeat("a", 33) + `"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := newTestServer(t, ClaudeCodeInfo{})
+
+			rec := putPrefsRequest(t, srv, tt.body)
+
+			assert.Equal(t, http.StatusBadRequest, rec.Code)
+			assert.Equal(t, "invalid_request", decodeErrorCode(t, rec))
+		})
+	}
+}
+
+// TestHandlePutPrefs_ThemeAcceptsTheOpaquePattern covers the accepted half of the
+// pattern: the daemon never interprets the value beyond validThemePattern (REQ-7's "the
+// client owns the theme registry"), so any 1-32 char lowercase/digit/hyphen string
+// starting with a letter is accepted, known theme name or not.
+func TestHandlePutPrefs_ThemeAcceptsTheOpaquePattern(t *testing.T) {
+	tests := []string{"follow", "dark", "light", "instrument", "a", "dark-daltonized", strings.Repeat("a", 32)}
+	for _, v := range tests {
+		t.Run(v, func(t *testing.T) {
+			srv := newTestServer(t, ClaudeCodeInfo{})
+
+			rec := putPrefsRequest(t, srv, `{"theme":"`+v+`"}`)
+
+			require.Equal(t, http.StatusNoContent, rec.Code)
+			assert.Equal(t, v, srv.loadPrefs(context.Background()).Theme)
+		})
+	}
+}
+
+// TestHandlePutPrefs_ThemePersistsToKV covers D12: a PUT naming theme lands in the kv
+// blob under the existing single "prefs" key.
+func TestHandlePutPrefs_ThemePersistsToKV(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+
+	rec := putPrefsRequest(t, srv, `{"theme":"dark"}`)
+	require.Equal(t, http.StatusNoContent, rec.Code)
+
+	raw, ok, err := srv.store.KVGet(context.Background(), "prefs")
+	require.NoError(t, err)
+	require.True(t, ok)
+	assert.JSONEq(t, `{"view":"focus","density":"2x2","usageModel":"Fable","railSort":"manual","theme":"dark"}`, raw)
+}
+
+// TestHandlePutPrefs_ThemeFollowRoundTripsAfterAnOverride covers D14 from the "returning
+// to follow" reachable state, not just the fresh-daemon default: after overriding to
+// "dark", a PUT of "follow" is accepted and the stored value is exactly "follow".
+func TestHandlePutPrefs_ThemeFollowRoundTripsAfterAnOverride(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	require.Equal(t, http.StatusNoContent, putPrefsRequest(t, srv, `{"theme":"dark"}`).Code)
+	require.Equal(t, "dark", srv.loadPrefs(context.Background()).Theme)
+
+	rec := putPrefsRequest(t, srv, `{"theme":"follow"}`)
+
+	require.Equal(t, http.StatusNoContent, rec.Code)
+	assert.Equal(t, "follow", srv.loadPrefs(context.Background()).Theme)
+}
+
+// TestHandlePutPrefs_ThemePresentAloneSatisfiesAtLeastOneFieldRequired mirrors the other
+// fields: a request naming only theme must not be rejected as empty.
+func TestHandlePutPrefs_ThemePresentAloneSatisfiesAtLeastOneFieldRequired(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+
+	rec := putPrefsRequest(t, srv, `{"theme":"dark"}`)
+
+	assert.Equal(t, http.StatusNoContent, rec.Code)
+}
+
+// TestHandlePutPrefs_SetsThemeOnlyLeavesOtherFieldsUntouched covers the per-field
+// independence REQ-10 requires, mirroring the view/density/usageModel/railSort
+// equivalents.
+func TestHandlePutPrefs_SetsThemeOnlyLeavesOtherFieldsUntouched(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	require.Equal(t, http.StatusNoContent, putPrefsRequest(t, srv, `{"view":"tiles","density":"3x2","usageModel":"Opus","railSort":"attention"}`).Code)
+
+	rec := putPrefsRequest(t, srv, `{"theme":"dark"}`)
+
+	require.Equal(t, http.StatusNoContent, rec.Code)
+	got := srv.loadPrefs(context.Background())
+	assert.Equal(t, "tiles", got.View, "a theme-only PUT must not reset view")
+	assert.Equal(t, "3x2", got.Density, "a theme-only PUT must not reset density")
+	assert.Equal(t, "Opus", got.UsageModel, "a theme-only PUT must not reset usageModel")
+	assert.Equal(t, "attention", got.RailSort, "a theme-only PUT must not reset railSort")
+	assert.Equal(t, "dark", got.Theme)
+}
+
+// TestLoadPrefs_InvalidThemeInKVFallsBackToFollowIndependently covers D16: a persisted
+// theme value that fails validThemePattern (hand-edited, or from a since-removed shape)
+// falls back to "follow" without discarding the other fields (m1-sessions per-field
+// independence lesson).
+func TestLoadPrefs_InvalidThemeInKVFallsBackToFollowIndependently(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	require.NoError(t, srv.store.KVSet(context.Background(), "prefs", `{"view":"tiles","density":"3x2","usageModel":"Opus","railSort":"attention","theme":"BAD VALUE"}`))
+
+	got := srv.loadPrefs(context.Background())
+
+	assert.Equal(t, "tiles", got.View)
+	assert.Equal(t, "3x2", got.Density)
+	assert.Equal(t, "Opus", got.UsageModel)
+	assert.Equal(t, "attention", got.RailSort)
+	assert.Equal(t, "follow", got.Theme, "an invalid persisted theme must fall back to follow")
+}
+
+// TestPrefs_ThemePersistsAcrossADaemonRestart mirrors the other fields' restart tests.
+func TestPrefs_ThemePersistsAcrossADaemonRestart(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "muster.db")
+	st1, err := store.Open(context.Background(), dbPath)
+	require.NoError(t, err)
+
+	srv1 := New(Config{
+		Store: st1, Logger: zerolog.Nop(), UIToken: testUIToken, IngestToken: testIngestToken,
+		WebDist: t.TempDir(), DaemonVersion: "test-version",
+	})
+	rec := putPrefsRequest(t, &testServer{Server: srv1}, `{"theme":"dark"}`)
+	require.Equal(t, http.StatusNoContent, rec.Code)
+	require.NoError(t, st1.Close())
+
+	st2, err := store.Open(context.Background(), dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = st2.Close() })
+	srv2 := New(Config{
+		Store: st2, Logger: zerolog.Nop(), UIToken: testUIToken, IngestToken: testIngestToken,
+		WebDist: t.TempDir(), DaemonVersion: "test-version",
+	})
+
+	assert.Equal(t, "dark", srv2.loadPrefs(context.Background()).Theme)
+}
+
+// TestHandlePutPrefs_BroadcastsThemeInPrefsMessage covers D12/INV-4's echo clause for the
+// new field: an accepted PUT broadcasts the full prefs object including theme to every
+// connected UI socket.
+func TestHandlePutPrefs_BroadcastsThemeInPrefsMessage(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	httpSrv := httptest.NewServer(srv.Handler())
+	t.Cleanup(httpSrv.Close)
+	wsURL := "ws" + httpSrv.URL[len("http"):] + "/ws"
+
+	c, err := dialWS(t, wsURL, nil)
+	require.NoError(t, err)
+	defer func() { _ = c.CloseNow() }()
+	_ = readJSON[helloWire](t, c)
+	_ = readJSON[snapshotWire](t, c)
+
+	rec := putPrefsRequest(t, srv, `{"theme":"dark"}`)
+	require.Equal(t, http.StatusNoContent, rec.Code)
+
+	msg := readJSON[prefsWireWithTheme](t, c)
+	assert.Equal(t, "prefs", msg.Type)
+	assert.Equal(t, "dark", msg.Prefs.Theme)
+}
+
+type prefsWireWithTheme struct {
+	Type  string `json:"type"`
+	Prefs struct {
+		Theme string `json:"theme"`
 	} `json:"prefs"`
 }
 

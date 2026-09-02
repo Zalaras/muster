@@ -22,4 +22,9 @@
 // Claude Code's own type:"http" transport left an unmanaged session's failures visible
 // inline and a stopped daemon noisy on every tool call. The wrapper exits 0 silently in
 // both cases (docs/protocol.md §4.1). Wire shapes on /ingest/* are unchanged.
+//
+// Since new-ui-design-colors (2026-09-02), theme.go also owns Claude Code's own global
+// config file (name, location, and its "theme" key) — read-only, polled for the theme
+// family that grounds the terminal pane and drives the dashboard's "Follow Claude Code"
+// preference.
 package claudecode

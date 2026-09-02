@@ -94,6 +94,19 @@ type Config struct {
 	// HTTPClient is the client FetchUsage uses; nil defaults to http.DefaultClient.
 	HTTPClient *http.Client
 
+	// The following wire up new-ui-design-colors' Claude-theme poller (plan
+	// Implementation Notes, REQ-14). ClaudeThemePoll <= 0 means the poller is never
+	// constructed at all (mirrors UsagePoll's Edge Case 14 shape) — a zero-value Config
+	// never opens ClaudeConfigFile.
+
+	// ClaudeThemePoll is the poll interval (-claude-theme-poll). <= 0 disables polling
+	// entirely: snapshot.claudeTheme.family stays "unknown" forever.
+	ClaudeThemePoll time.Duration
+	// ClaudeConfigFile is Claude Code's global config file to poll
+	// (-claude-config-file, default claudecode.DefaultConfigPath()) — a test seam like
+	// UsageTokenFile (INV-5: E2E always passes a scratch path).
+	ClaudeConfigFile string
+
 	// The following wire up issue-capture's file-an-issue button (plan Implementation
 	// Notes: "-issue-api-url's empty-disables-everything behaviour mirrors
 	// UsageAPIURL's"). A zero-value Config must never reach the real GitHub API host or
@@ -134,6 +147,7 @@ type Server struct {
 	usage       *usage.Aggregator
 	modelScoped *usage.ModelScoped
 	usagePoller *usagePoller // nil when UsagePoll <= 0 (Edge Case 14)
+	themePoller *themePoller // nil when ClaudeThemePoll <= 0
 	launcher    *sessionLauncher
 	tmuxClient  *tmux.Client
 	terminals   *terminalRegistry
@@ -223,6 +237,12 @@ func New(cfg Config) *Server {
 		cfg.Logger.Warn().Msg("usage polling requested (-usage-poll > 0) but UsageAPIURL is empty; usage polling disabled")
 	}
 
+	if cfg.ClaudeThemePoll > 0 {
+		s.themePoller = newThemePoller(cfg.ClaudeConfigFile, claudecode.ReadThemeFamily, cfg.ClaudeThemePoll, func(family claudecode.ThemeFamily) {
+			s.hub.broadcast(claudeThemeMessage{Type: "claudeTheme", Family: string(family)})
+		}, cfg.Logger)
+	}
+
 	claudeBin := cfg.ClaudeBin
 	if claudeBin == "" {
 		claudeBin = "claude"
@@ -285,6 +305,9 @@ func (s *Server) Start() {
 	if s.usagePoller != nil {
 		s.usagePoller.Start()
 	}
+	if s.themePoller != nil {
+		s.themePoller.Start()
+	}
 }
 
 // LiveSessionCount reports how many sessions are currently alive — used by cmd/musterd's
@@ -326,6 +349,9 @@ func (s *Server) Shutdown(ctx context.Context) {
 	s.ingest.Stop(ctx)
 	if s.usagePoller != nil {
 		s.usagePoller.Stop(ctx)
+	}
+	if s.themePoller != nil {
+		s.themePoller.Stop(ctx)
 	}
 }
 

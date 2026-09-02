@@ -348,7 +348,7 @@ test("killing the scratch tmux window greys the card without changing its badge 
     // unchanged even though the session is now dead.
     await expect(stateBadge(card)).toHaveText(/working/i);
 
-    // "ended" treatment is a pure visual cue (design-system --dim, no pinned role/text)
+    // "ended" treatment is a pure visual cue (design-system --fg-dim, no pinned role/text)
     // — checked as reduced opacity rather than a guessed class/testid.
     const opacity = await card.evaluate((el) => getComputedStyle(el).opacity);
     expect(Number(opacity)).toBeLessThan(1);

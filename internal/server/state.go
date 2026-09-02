@@ -4,15 +4,26 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+
+	"github.com/Zalaras/muster/internal/claudecode"
 )
 
 // Snapshot is the daemon's full state, shared verbatim (aside from the WS "type"
 // wrapper) between GET /api/state and the WS `snapshot` message (docs/protocol.md §5.2)
 // — one function builds it so the two can never drift apart.
 type Snapshot struct {
-	Sessions []sessionWire `json:"sessions"`
-	Usage    UsageInfo     `json:"usage"`
-	Prefs    PrefsInfo     `json:"prefs"`
+	Sessions    []sessionWire   `json:"sessions"`
+	Usage       UsageInfo       `json:"usage"`
+	Prefs       PrefsInfo       `json:"prefs"`
+	ClaudeTheme ClaudeThemeInfo `json:"claudeTheme"`
+}
+
+// ClaudeThemeInfo is the `claudeTheme` object inside a snapshot (docs/protocol.md
+// §5.2/§5.6, plan new-ui-design-colors REQ-15) — the daemon's latest read of Claude
+// Code's own theme family. Family is always present: "unknown" while polling is
+// disabled (-claude-theme-poll 0) or no read has yet succeeded.
+type ClaudeThemeInfo struct {
+	Family string `json:"family"`
 }
 
 // UsageBucket is one of the five-hour/seven-day usage readouts (docs/protocol.md §5.4).
@@ -56,18 +67,21 @@ type UsageInfo struct {
 // UsageModel is new in the usage-model-bar plan (2026-08-30): which modelScoped entry
 // the masthead's third readout shows, default "Fable". RailSort is new in the
 // order-sidebar plan (2026-08-30): the rail's sort mode, "manual" | "attention",
-// default "manual".
+// default "manual". Theme is new in new-ui-design-colors (2026-09-02): opaque to the
+// daemon beyond its pattern (docs/protocol.md §3.3), default "follow".
 type PrefsInfo struct {
 	View       string `json:"view"`
 	Density    string `json:"density"`
 	UsageModel string `json:"usageModel"`
 	RailSort   string `json:"railSort"`
+	Theme      string `json:"theme"`
 }
 
 // buildSnapshot returns the fixed parts of a snapshot: no sessions, unknown usage,
-// default prefs (before any PUT /api/prefs). Retained as the M0 baseline (still
-// exercised directly by TestBuildSnapshot_M0Shape); production handlers call
-// (*Server).currentSnapshot, which fills Sessions and the real persisted Prefs.
+// default prefs, unknown claudeTheme family (before any PUT /api/prefs or poll tick).
+// Retained as the M0 baseline (still exercised directly by TestBuildSnapshot_M0Shape);
+// production handlers call (*Server).currentSnapshot, which fills Sessions, the real
+// persisted Prefs, and the poller's current family.
 func buildSnapshot() Snapshot {
 	return Snapshot{
 		Sessions: []sessionWire{},
@@ -78,13 +92,15 @@ func buildSnapshot() Snapshot {
 			Source:            "subscription",
 			ModelScopedSource: "subscription-api",
 		},
-		Prefs: defaultPrefs(),
+		Prefs:       defaultPrefs(),
+		ClaudeTheme: ClaudeThemeInfo{Family: string(claudecode.ThemeUnknown)},
 	}
 }
 
 // currentSnapshot is buildSnapshot's M1+ successor: the same fixed usage shape, with
-// Sessions filled from the live session registry (REQ-12) and Prefs loaded from kv
-// (M2 REQ-10 — survives daemon restarts).
+// Sessions filled from the live session registry (REQ-12), Prefs loaded from kv (M2
+// REQ-10 — survives daemon restarts), and ClaudeTheme filled from the theme poller (or
+// left "unknown" when polling is disabled, REQ-15 — s.themePoller is nil in that case).
 func (s *Server) currentSnapshot(ctx context.Context) Snapshot {
 	snap := buildSnapshot()
 	sessions := s.manager.List()
@@ -95,6 +111,9 @@ func (s *Server) currentSnapshot(ctx context.Context) Snapshot {
 	snap.Sessions = wire
 	snap.Usage = toWireUsage(s.usage.Current(), s.modelScoped.Current())
 	snap.Prefs = s.loadPrefs(ctx)
+	if s.themePoller != nil {
+		snap.ClaudeTheme = ClaudeThemeInfo{Family: string(s.themePoller.Current())}
+	}
 	return snap
 }
 

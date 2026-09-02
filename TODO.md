@@ -515,7 +515,7 @@ unless he re-ranks — don't re-sort this list.
   the CI item above), so `README.md` has to carry the whole story: separate Intel and Apple
   Silicon archives, where the binary belongs, and how to verify it runs. Pairs with #2.
 
-- [ ] **Contrast pass + design tokens** ([#3](https://github.com/Zalaras/muster/issues/3))
+- [x] **Contrast pass + design tokens** ([#3](https://github.com/Zalaras/muster/issues/3)) ✅ done 2026-09-02 (plan `new-ui-design-colors`, via `/orchestrate`, approved review cycle 1; lands with `/land new-ui-design-colors`, which closes #3)
   — some text fails on contrast, and the fix is structural rather than a one-off colour
   tweak: move `web/src/style.css` onto a token system with a standard light/dark pair and
   room for custom themes. Touches the design system (`docs/design/design-system.md`),
@@ -524,7 +524,7 @@ unless he re-ranks — don't re-sort this list.
   **Spec written 2026-09-02** → `plans/new-ui-design-colors/spec.md` (three built-in themes:
   Instrument/Dark/Light, AA-everywhere contrast gate, Settings dialog + `theme` pref, daemon
   polls Claude's `~/.claude.json` theme key for the terminal ground; `.btn:disabled` pass
-  folded in). Next: `/plan-work new-ui-design-colors`.
+  folded in). Planned and built 2026-09-02.
 
 - [ ] **Dropping a file on a terminal pane navigates the browser** ([#8](https://github.com/Zalaras/muster/issues/8))
   — in a real terminal a dragged file inserts its path; in the dashboard Safari (and likely
@@ -625,7 +625,7 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
   into SPEC §3's explicit v1 non-goal ("Cost/spend tracking"), which is a SPEC change, not a
   plan.
 
-- [ ] **App-wide `.btn:disabled` affordance pass** — no disabled button anywhere in Muster has
+- [x] **App-wide `.btn:disabled` affordance pass** ✅ done 2026-09-02 (shipped inside plan `new-ui-design-colors`, REQ-8) — no disabled button anywhere in Muster had
   a visual disabled state (issue-capture review cycle 1, Minor 5: `#issue-submit-button`
   measured pixel-identical enabled vs disabled — `opacity: 1`, full amber, `cursor: pointer`;
   End/Resume/Remove in the masthead, tiles and dead surface share the gap). Settled Option B
@@ -633,6 +633,12 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
   ship issue-capture as-is, then do one app-wide disabled-state token pass in `style.css`.
   Cite: `plans/issue-capture/review.md`. **Folded into plan `new-ui-design-colors`
   (spec 2026-09-02, #3 above)** — do not plan separately.
+
+- [ ] **`isThemeChoice` should derive from the theme registry** — `web/src/render/settings.ts`
+  hard-codes the four radio values instead of reading `THEMES`, so adding a theme (REQ-1's
+  "one block plus one registry entry") would silently leave its radio dead until this guard
+  is also edited. Suggested: `value === "follow" || (THEMES as readonly string[]).includes(value)`.
+  Cite: `plans/new-ui-design-colors/review.md` (cycle 1, Minor 1, `[web-impl]`).
 
 - Scaling note (m2 review cycle-2 Minor 3): `terminalRegistry.takeover` holds one global
   mutex across the PTY spawn — deliberate and correct for REQ-2's evict-before-attach

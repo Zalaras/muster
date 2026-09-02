@@ -151,6 +151,20 @@ export interface Prefs {
   // Plan order-sidebar (docs/protocol.md §3.3): defaulted to "manual" client-side when
   // the key is absent (same "pre-plan daemon" tolerance as `usageModel`).
   railSort: RailSort;
+  // Plan new-ui-design-colors (docs/protocol.md §3.3, REQ-19): opaque to the daemon
+  // beyond its pattern — the client owns the theme registry (theme.ts). Missing key
+  // (pre-plan daemon) defaults to "follow", same tolerance as usageModel/railSort.
+  theme: string;
+}
+
+// Plan new-ui-design-colors (docs/protocol.md §5.2/§5.6): the daemon's latest read of
+// Claude Code's own theme setting, folded to a family. Always present on every
+// snapshot/GET /api/state — "unknown" while polling is disabled or nothing has been
+// read yet.
+export type ClaudeFamily = "light" | "dark" | "unknown";
+
+export interface ClaudeThemeInfo {
+  family: ClaudeFamily;
 }
 
 export interface Snapshot {
@@ -158,6 +172,7 @@ export interface Snapshot {
   sessions: Session[];
   usage: Usage;
   prefs: Prefs;
+  claudeTheme: ClaudeThemeInfo;
 }
 
 export interface SessionUpsert {
@@ -187,7 +202,15 @@ export interface SessionRemoved {
   id: number;
 }
 
-export type Message = Hello | Snapshot | SessionUpsert | PrefsMessage | UsageMessage | SessionRemoved;
+// Plan new-ui-design-colors (docs/protocol.md §5.6): sent only when the polled family
+// differs from the previously broadcast one — never per tick. Note the flat shape
+// (`family` a top-level key, not nested under `claudeTheme` like the snapshot field).
+export interface ClaudeThemeMessage {
+  type: "claudeTheme";
+  family: ClaudeFamily;
+}
+
+export type Message = Hello | Snapshot | SessionUpsert | PrefsMessage | UsageMessage | SessionRemoved | ClaudeThemeMessage;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -322,7 +345,24 @@ function parsePrefs(value: unknown): Prefs | null {
   const rawRailSort = value["railSort"];
   const railSort = rawRailSort === undefined ? "manual" : rawRailSort;
   if (railSort !== "manual" && railSort !== "attention") return null;
-  return { view, density, usageModel, railSort };
+  // Plan new-ui-design-colors (REQ-19): missing key (pre-plan daemon) defaults to
+  // "follow" (docs/protocol.md §3.3's documented default) — the daemon treats the
+  // string as opaque beyond its pattern, so no further validation happens client-side.
+  const rawTheme = value["theme"];
+  const theme = rawTheme === undefined ? "follow" : rawTheme;
+  if (typeof theme !== "string") return null;
+  return { view, density, usageModel, railSort, theme };
+}
+
+function isClaudeFamily(value: unknown): value is ClaudeFamily {
+  return value === "light" || value === "dark" || value === "unknown";
+}
+
+function parseClaudeThemeInfo(value: unknown): ClaudeThemeInfo | null {
+  if (!isRecord(value)) return null;
+  const family = value["family"];
+  if (!isClaudeFamily(family)) return null;
+  return { family };
 }
 
 function isSessionState(value: unknown): value is SessionState {
@@ -497,8 +537,13 @@ function parseSnapshot(rec: Record<string, unknown>): Snapshot | null {
   const sessions = parseSessions(rec["sessions"]);
   const usage = parseUsage(rec["usage"]);
   const prefs = parsePrefs(rec["prefs"]);
-  if (!sessions || !usage || !prefs) return null;
-  return { type: "snapshot", sessions, usage, prefs };
+  // Plan new-ui-design-colors (REQ-19): missing key (pre-plan daemon) defaults to
+  // {family: "unknown"}, same pre-plan-daemon tolerance as prefs.theme above.
+  const rawClaudeTheme = rec["claudeTheme"];
+  const claudeTheme: ClaudeThemeInfo | null =
+    rawClaudeTheme === undefined ? { family: "unknown" } : parseClaudeThemeInfo(rawClaudeTheme);
+  if (!sessions || !usage || !prefs || !claudeTheme) return null;
+  return { type: "snapshot", sessions, usage, prefs, claudeTheme };
 }
 
 function parseSessionUpsert(rec: Record<string, unknown>): SessionUpsert | null {
@@ -525,6 +570,12 @@ function parseSessionRemoved(rec: Record<string, unknown>): SessionRemoved | nul
   return { type: "sessionRemoved", id };
 }
 
+function parseClaudeThemeMessage(rec: Record<string, unknown>): ClaudeThemeMessage | null {
+  const family = rec["family"];
+  if (!isClaudeFamily(family)) return null;
+  return { type: "claudeTheme", family };
+}
+
 /** Parses one WS text frame's decoded JSON. Unknown/malformed messages yield `null`. */
 export function parseMessage(data: unknown): Message | null {
   if (!isRecord(data)) return null;
@@ -542,6 +593,8 @@ export function parseMessage(data: unknown): Message | null {
       return parseUsageMessage(data);
     case "sessionRemoved":
       return parseSessionRemoved(data);
+    case "claudeTheme":
+      return parseClaudeThemeMessage(data);
     default:
       return null; // unknown message types are ignored (protocol §1)
   }

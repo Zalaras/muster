@@ -1130,3 +1130,30 @@ Spec interview for issue #3; settled with Damian, not yet built. Full text in
 - **Mockups are re-rendered under all three themes during planning**, so plan approval means
   seeing every palette on both views first — the same mockup-first order the original
   direction was chosen by.
+
+### 2026-09-02 — theme tokens shipped (plan `new-ui-design-colors`, via `/orchestrate`, approved review cycle 1)
+
+Built on branch `plan/new-ui-design-colors`; lands with `/land`. Four decisions the plan
+took where the spec above left room, plus one split the spec did not foresee:
+
+- **Control borders split.** `.btn` borders stay on `--line-control` (1.5:1) under WCAG
+  1.4.11's allowance for a button whose label meets 4.5:1, and are exempt. Text inputs,
+  selects, textareas and the segmented-control track take a new 3:1 token `--edge`.
+- **State border tints exempt.** `--amber-line`/`--rose-line`/`--violet-line`/`--teal-line`
+  are redundant carriers — design-system §3 already requires the badge word and position to
+  carry state — so they sit on the exempt list with that reason.
+- **Surface and text tokens renamed to role names** (`--bg`, `--bg-raised`, `--bg-hover`,
+  `--well`, `--fg`, `--fg-muted`, `--fg-dim`, `--line-control`, `--edge`); state tokens keep
+  their hue names because the hue is the semantic.
+- **`prefs.theme` is an enum with a `"follow"` default**, not a nullable — same shape as
+  `view`/`density`/`railSort`; the spec's "unset until the user picks" is realised as
+  `"follow"`, keeping protocol §1's "null means unknown" rule intact. The daemon treats the
+  value as opaque (`^[a-z][a-z0-9-]{0,31}$`); the client owns the theme registry.
+- **`--term` splits from `--well`.** The pane ground follows Claude's family; chrome recesses
+  (inputs, previews, browse pane, placeholder, dead snapshot) ground on `--well`, which
+  follows the Muster theme — so a light Claude never bleaches a dark Muster's inputs.
+
+Shipped: three palettes (Instrument/Dark/Light), `make contrast` under `make check` (43
+pairs per theme, 0 failures), Settings dialog, `claudeTheme` poll and broadcast, app-wide
+`.btn:disabled` affordance. Measured during review: the daemon never writes Claude's config
+file (mtime unchanged over ~480 ticks) and logs nothing per tick.

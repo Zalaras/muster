@@ -1,13 +1,20 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Zalaras/muster/internal/store"
 )
 
 func TestBuildSnapshot_M0Shape(t *testing.T) {
@@ -24,7 +31,8 @@ func TestBuildSnapshot_M0Shape(t *testing.T) {
 			"fiveHour": null, "sevenDay": null, "model": null, "sampledAt": null, "source": "subscription",
 			"modelScoped": null, "modelScopedAt": null, "modelScopedError": null, "modelScopedSource": "subscription-api"
 		},
-		"prefs": {"view": "focus", "density": "2x2", "usageModel": "Fable", "railSort": "manual"}
+		"prefs": {"view": "focus", "density": "2x2", "usageModel": "Fable", "railSort": "manual", "theme": "follow"},
+		"claudeTheme": {"family": "unknown"}
 	}`, string(got))
 }
 
@@ -55,6 +63,48 @@ func TestHandleState_ReturnsSnapshotJSON(t *testing.T) {
 	assert.Equal(t, "2x2", snap.Prefs.Density)
 	assert.Equal(t, "Fable", snap.Prefs.UsageModel)
 	assert.Equal(t, "manual", snap.Prefs.RailSort)
+	assert.Equal(t, "follow", snap.Prefs.Theme)
+	assert.Equal(t, "unknown", snap.ClaudeTheme.Family)
+}
+
+// TestCurrentSnapshot_FreshDaemonHasFollowThemeAndUnknownFamily covers D15 directly: a
+// fresh daemon built with the zero-value (polling-disabled) Config has prefs.theme
+// "follow" and claudeTheme.family "unknown" — the same assertion as
+// TestHandleState_ReturnsSnapshotJSON's added lines, but against currentSnapshot
+// directly rather than only through the HTTP handler.
+func TestCurrentSnapshot_FreshDaemonHasFollowThemeAndUnknownFamily(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+
+	snap := srv.currentSnapshot(context.Background())
+
+	assert.Equal(t, "follow", snap.Prefs.Theme)
+	assert.Equal(t, "unknown", snap.ClaudeTheme.Family)
+}
+
+// TestCurrentSnapshot_UsesThemePollerCurrentFamilyWhenPollingEnabled covers REQ-15's
+// wiring in currentSnapshot: once the theme poller has read a known family, a snapshot
+// reflects it rather than the fixed "unknown" default buildSnapshot returns. tick() is
+// called directly (not Start()) so the test has no goroutine-timing dependency.
+func TestCurrentSnapshot_UsesThemePollerCurrentFamilyWhenPollingEnabled(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "claude-config.json")
+	require.NoError(t, os.WriteFile(configPath, []byte(`{"theme":"light"}`), 0o600))
+
+	dbPath := filepath.Join(t.TempDir(), "muster.db")
+	st, err := store.Open(context.Background(), dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = st.Close() })
+
+	srv := New(Config{
+		Store: st, Logger: zerolog.Nop(), UIToken: testUIToken, IngestToken: testIngestToken,
+		WebDist: t.TempDir(), DaemonVersion: "test-version",
+		ClaudeThemePoll: time.Hour, ClaudeConfigFile: configPath,
+	})
+	require.NotNil(t, srv.themePoller)
+	srv.themePoller.tick(context.Background())
+
+	snap := srv.currentSnapshot(context.Background())
+
+	assert.Equal(t, "light", snap.ClaudeTheme.Family)
 }
 
 // TestCurrentSnapshot_LoadsPersistedPrefsFromKV covers the currentSnapshot half of

@@ -4,6 +4,27 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Muster</title>
+    <!-- REQ-11: no-wrong-theme-first-frame. Plain inline script (not a module — Vite
+         leaves a non-module inline script in place, and a module would run deferred,
+         too late to beat the stylesheet), runs before the stylesheet link below so the
+         first paint is never in the wrong theme. Mirrors theme.ts's readThemeHint
+         shape, deliberately duplicated rather than imported (this must run standalone,
+         before any bundle loads). Every storage access is try/catch'd — a throwing
+         storage (private mode, disabled storage) just leaves the attributes unset,
+         falling through to the bare :root default (Instrument, dark terminal pair). -->
+    <script>
+      (function () {
+        try {
+          var raw = localStorage.getItem("muster.theme-hint");
+          if (!raw) return;
+          var hint = JSON.parse(raw);
+          if (hint && typeof hint.theme === "string") document.documentElement.dataset.theme = hint.theme;
+          if (hint && typeof hint.family === "string") document.documentElement.dataset.claudeFamily = hint.family;
+        } catch (e) {
+          // swallowed — see comment above.
+        }
+      })();
+    </script>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
@@ -21,6 +42,7 @@
           <button id="usage-refresh" class="btn sm" type="button" aria-label="Refresh usage" title="Refresh usage">↻</button>
           <span id="usage-model" class="model" hidden></span>
           <button id="issue-button" class="btn" type="button" aria-label="File an issue" title="File an issue">Issue</button>
+          <button id="settings-button" class="btn" type="button" title="Settings">Settings</button>
           <span id="claude-version" class="claude-version"></span>
           <span id="connection-status" role="status"></span>
         </div>
@@ -186,6 +208,28 @@
         <button type="button" id="issue-cancel-button" class="btn">Cancel</button>
         <button type="submit" form="issue-form" id="issue-submit-button" class="btn key">File issue</button>
         <button type="button" id="issue-close-button" class="btn key" hidden>Close</button>
+      </div>
+    </dialog>
+
+    <dialog id="settings-dialog" class="modal confirm" aria-labelledby="settings-dialog-title">
+      <h2 id="settings-dialog-title">Settings</h2>
+      <form id="settings-form" class="fields">
+        <fieldset class="seg">
+          <legend>Theme</legend>
+          <div class="seg-track">
+            <label><input type="radio" name="theme" value="follow" />Follow Claude Code</label>
+            <label><input type="radio" name="theme" value="instrument" />Instrument</label>
+            <label><input type="radio" name="theme" value="dark" />Dark</label>
+            <label><input type="radio" name="theme" value="light" />Light</label>
+          </div>
+        </fieldset>
+        <p class="hint">
+          Follow Claude Code paints Light when Claude Code's theme is light, Instrument otherwise. The terminal ground
+          always follows Claude Code's theme, whichever Muster theme is chosen.
+        </p>
+      </form>
+      <div class="modal-foot">
+        <button type="button" id="settings-close-button" class="btn">Close</button>
       </div>
     </dialog>
 

@@ -199,10 +199,11 @@ Then, with the user, distil the criteria into an **Automated Checks** block: the
 
 The orchestrator and the review agent execute the block **verbatim**, so every line must run from the project root with no arguments, no environment setup and no interactive prompt. Prefer the Make entry points (`make test`, `make lint`, `make web-build`, `make web-test`, `make e2e`) over ad-hoc pipelines.
 
-**Negative grep checks (`! rg …`) need two extra authoring steps** — learned from m0-skeleton, where skipping them cost work in three downstream agents:
+**Negative grep checks (`! rg …`) need three extra authoring steps** — the first two learned from m0-skeleton, where skipping them cost work in three downstream agents; the third from new-ui-design-colors:
 
 1. **Decide test-file scope explicitly.** State in the check's prose twin (or a note beside the block) whether `_test.go` / `*.test.ts` / `e2e/` files are inside the grep's net, and why. Tests often legitimately need the banned strings (a boundary test POSTing a real wire body, for example) — if test files are in scope, the plan must also say how tests obtain those strings legally (typically a helper exported from the boundary package), or agents will contort around the check (m0-skeleton produced a split string literal, `"hook_event" + "_name"`, flagged as a review Major).
 2. **Dry-run every negative grep against the plan document itself** before approval: `rg "<pattern>" plans/<plan-name>/plan.md`. If the plan's own snippets, DDL comments or prose contain the banned string, agents copying plan content into code will trip the check and be forced to deviate — the plan is instructing a violation of its own gate. Reword the plan (or re-scope the check) until the dry run is clean.
+3. **Dry-run every negative grep against the working tree too**, exactly as the check is written minus the leading `!` (e.g. `rg -n -e "<pattern>" web/ --glob '!web/node_modules/**'`), before approval. A pre-existing hit is a file some agent must edit for the check to pass — so either list that file under **Affected Files** against the agent that owns it (a comment in `web/e2e/*.spec.ts` belongs to e2e-specs, not web-impl) or re-scope the check. new-ui-design-colors' W4 had one such hit, a prose comment in `web/e2e/sessions.spec.ts` naming an old token: web-impl found it, could not touch the file, and the orchestrator had to route it by hand through the validate prompt. A tree dry-run at planning time assigns it before anyone is spawned.
 
 ## Plan Document Format
 

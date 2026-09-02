@@ -23,6 +23,7 @@ import {
   terminalRegion,
   tilesGridOrder,
 } from "./helpers/terminal";
+import { resolvedCssVar } from "./helpers/theme";
 
 // Plan m4-reconcile — REQ-5 through REQ-16 (End / Remove / Resume, dialogs, dead
 // surface, tiles). Plan acceptance: E5-E15 (E2-E4 live in reconcile.spec.ts).
@@ -589,23 +590,20 @@ test("Removing a live session ends it first, warns in the dialog copy, and moves
       await expect(dialog).toContainText(/ends the session first/i);
 
       // review m4-reconcile Fix Attempt 3 (web-implementation.md): the confirm dialog's
-      // destructive buttons were repointed from `--rose` (#E36A6A, reserved for the
-      // Failed state per design-system §3) to a dedicated `--danger` family
-      // (#C94F4F fill). Assert the computed background is the new danger colour and,
-      // explicitly, not the old rose one — a same-family off-by-one token swap would
-      // otherwise pass a same-name "it has a dark red background" check.
+      // destructive buttons were repointed from `--rose` (reserved for the Failed state
+      // per design-system §3) to a dedicated `--danger` family fill. Assert the computed
+      // background against the live `--danger`/`--rose` tokens (not a hardcoded literal —
+      // plan new-ui-design-colors REQ-2 adjusted `--danger`'s Instrument shade for AA, so
+      // a hex literal here would silently drift out of sync with style.css) — explicitly
+      // not `--rose` either, so a same-family off-by-one token swap would still fail.
       const removeConfirmBtn = dialog.getByRole("button", {
         name: "Remove",
         exact: true,
       });
-      await expect(removeConfirmBtn).toHaveCSS(
-        "background-color",
-        "rgb(201, 79, 79)",
-      );
-      await expect(removeConfirmBtn).not.toHaveCSS(
-        "background-color",
-        "rgb(227, 106, 106)",
-      );
+      const dangerBg = await resolvedCssVar(page, "--danger", "background-color");
+      const roseBg = await resolvedCssVar(page, "--rose", "background-color");
+      await expect(removeConfirmBtn).toHaveCSS("background-color", dangerBg);
+      await expect(removeConfirmBtn).not.toHaveCSS("background-color", roseBg);
 
       await removeConfirmBtn.click();
       // review m4-reconcile fix-cycle-1: `<dialog>.close()` runs synchronously on click,

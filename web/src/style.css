@@ -1,72 +1,157 @@
-/* Muster dashboard styling. Tokens from docs/design/design-system.md §1 (direction A,
- * "instrument"). Reference render: docs/design/mockups/a-instrument.html — the Focus
- * view this file implements for M1 (the switcher/tiles view arrives with M2). */
+/* Muster dashboard styling. Tokens from docs/design/design-system.md §1 (plan
+ * new-ui-design-colors, 2026-09-02): two layers — semantic token names (referenced by
+ * every rule below the token section) and one self-contained palette block per theme,
+ * selected by <html data-theme="instrument|dark|light">. Reference render:
+ * docs/design/mockups/a-instrument.html and d-tiled.html — their [data-theme] blocks
+ * are the palette authority; the three blocks below are transcribed verbatim from them
+ * (W11/R4). Adding a theme = adding one block here plus one entry in web/src/theme.ts's
+ * THEMES registry — no component rule below this section ever changes. */
 
 :root {
-  /* surfaces, back to front */
-  --ink: #12141c;
-  --panel: #171a24;
-  --panel2: #1c2029;
-  --term: #0d0f16;
-  --line: #282d3b;
-  --line2: #343a4a;
-
-  /* text */
-  --paper: #e8e6e1;
-  --muted: #8a90a3;
-  --dim: #565c6d;
-
-  /* state — the ONLY meanings these colours carry (design-system §3) */
-  --amber: #f2a33c;
-  --rose: #e36a6a;
-  --violet: #9a8cf0;
-  --teal: #56c5d0;
-  --idle: #5a6070;
-  /* --green ("health ok, tool success" per design-system §1) has no consumer yet — M1
-   * ships no health dot and no tool-success surface. Left undeclared rather than
-   * declared-and-unused (review m1-sessions Minor 5); reintroduce it with its first real
-   * consumer instead of guessing the shade needed then. */
-
-  /* daemon-down banner — a treatment of its own, never --rose (design-system §1) */
-  --banner-bg: #3a1e1e;
-  --banner-line: #5a2c2c;
-  --banner-fg: #f3b7b7;
-
-  /* state border shades, paired with the badge/stripe colours above */
-  --border-blocked: #5c4526;
-  --border-failed: #5c2e2e;
-  --border-plan: #3e3663;
-  --border-work: #215058;
-
-  /* note text — a lighter tint of --amber/--rose so the left-border note reads at
-   * body-text weight against --panel (design-system §1: add a token, never a raw hex,
-   * when an existing one doesn't fit). */
-  --note-fg-amber: #f5cc93;
-  --note-fg-rose: #f1b0b0;
-
-  /* modal scrim — matches the reference render's dialog::backdrop value, hoisted here
-   * per design-system §1 ("never hard-code a hex value in a component"). */
-  --scrim: rgba(8, 9, 13, 0.72);
-
-  /* --panel at 95% opacity — the dead-surface `.endcap .pill`, so the last-captured
-   * screen shows faintly through behind it. Same precedent as --scrim above (review
-   * m4-reconcile Major 7: was a raw rgba() literal in the component). */
-  --panel-95: rgba(23, 26, 36, 0.95);
-
-  /* destructive actions (Remove hover, the filled End/Remove confirm buttons) — their
-   * own family, never --rose: design-system §3 says "rose is never delete", so a Failed
-   * card's rose stripe can sit on screen beside a Remove button without the two being
-   * mistaken for the same signal. Values from design-system §1, decided 2026-08-26
-   * (m4-reconcile review, cycle 1 Major 10 → option A; repointed onto components in
-   * cycle 3 after the option was chosen). */
-  --danger: #c94f4f;
-  --danger-line: #7a3535;
-  --danger-fg: #fff;
-
   /* system stacks only — nothing vendored, nothing fetched (decided 2026-08-16) */
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
   --disp: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* Instrument — the default (direction A, 2026-08-16; contrast-fixed 2026-09-02) */
+:root,
+:root[data-theme="instrument"] {
+  --bg: #12141c;
+  --bg-raised: #171a24;
+  --bg-hover: #1c2029;
+  --well: #0d0f16;
+  --line: #282d3b;
+  --line-control: #343a4a;
+  --edge: #6a7286;
+  --fg: #e8e6e1;
+  --fg-muted: #9096a8;
+  --fg-dim: #8087a0;
+  --amber: #f2a33c;
+  --rose: #e36a6a;
+  --violet: #9a8cf0;
+  --teal: #56c5d0;
+  --idle: #7f869e;
+  --amber-line: #5c4526;
+  --rose-line: #5c2e2e;
+  --violet-line: #3e3663;
+  --teal-line: #215058;
+  --amber-note: #f5cc93;
+  --rose-note: #f1b0b0;
+  --amber-fg: #12141c;
+  --banner-bg: #3a1e1e;
+  --banner-line: #5a2c2c;
+  --banner-fg: #f3b7b7;
+  --danger: #c24646;
+  --danger-line: #7a3535;
+  --danger-fg: #ffffff;
+  --disabled-fg: #5a6070;
+  --disabled-line: #2c3140;
+  --disabled-bg: #22262f;
+  --term-dark-bg: #0d0f16;
+  --term-dark-fg: #e8e6e1;
+  --term-light-bg: #fbfaf7;
+  --term-light-fg: #1c1e26;
+  --scrim: rgba(8, 9, 13, 0.72);
+  --bg-raised-95: rgba(23, 26, 36, 0.95);
+  /* --green ("health ok, tool success" per design-system §1) has no consumer yet — the
+   * mockups declare it (a health dot), this file doesn't. Left undeclared rather than
+   * declared-and-unused (review m1-sessions Minor 5); reintroduce it with its first real
+   * consumer instead of guessing the shade needed then. */
+}
+
+/* Dark — conventional web-style dark (neutral greys, editor/GitHub sense) */
+:root[data-theme="dark"] {
+  --bg: #181a1f;
+  --bg-raised: #1f2228;
+  --bg-hover: #282c34;
+  --well: #121418;
+  --line: #2c3038;
+  --line-control: #3a3f49;
+  --edge: #737a87;
+  --fg: #e8e9eb;
+  --fg-muted: #a3a9b4;
+  --fg-dim: #8e95a1;
+  --amber: #e6a642;
+  --rose: #ef7079;
+  --violet: #a99cf5;
+  --teal: #4fcbc6;
+  --idle: #8c95a4;
+  --amber-line: #5a4422;
+  --rose-line: #5d2d31;
+  --violet-line: #3f3a66;
+  --teal-line: #1f5352;
+  --amber-note: #f2cf95;
+  --rose-note: #f5b7bb;
+  --amber-fg: #181a1f;
+  --banner-bg: #3b2020;
+  --banner-line: #5c2f2f;
+  --banner-fg: #f4b9b9;
+  --danger: #c24646;
+  --danger-line: #7a3535;
+  --danger-fg: #ffffff;
+  --disabled-fg: #5e646e;
+  --disabled-line: #2f343c;
+  --disabled-bg: #252930;
+  --term-dark-bg: #121418;
+  --term-dark-fg: #e8e9eb;
+  --term-light-bg: #fafafa;
+  --term-light-fg: #1f2228;
+  --scrim: rgba(10, 11, 14, 0.72);
+  --bg-raised-95: rgba(31, 34, 40, 0.95);
+}
+
+/* Light — standard light */
+:root[data-theme="light"] {
+  --bg: #f3f2ee;
+  --bg-raised: #fbfaf7;
+  --bg-hover: #edece7;
+  --well: #ffffff;
+  --line: #e0ded8;
+  --line-control: #cbc9c2;
+  --edge: #8a8983;
+  --fg: #1c1e26;
+  --fg-muted: #585d6b;
+  --fg-dim: #61667a;
+  --amber: #9d5600;
+  --rose: #c0323c;
+  --violet: #6a4fd6;
+  --teal: #0c737a;
+  --idle: #656a7a;
+  --amber-line: #efd6ac;
+  --rose-line: #f2c3c5;
+  --violet-line: #d8d1f4;
+  --teal-line: #b8e1e3;
+  --amber-note: #7a4400;
+  --rose-note: #962c34;
+  --amber-fg: #ffffff;
+  --banner-bg: #fbe8e8;
+  --banner-line: #e5b6b6;
+  --banner-fg: #7a1f1f;
+  --danger: #b23838;
+  --danger-line: #8c2b2b;
+  --danger-fg: #ffffff;
+  --disabled-fg: #a6aab3;
+  --disabled-line: #dddbd5;
+  --disabled-bg: #ecebe6;
+  --term-dark-bg: #14161c;
+  --term-dark-fg: #e8e6e1;
+  --term-light-bg: #ffffff;
+  --term-light-fg: #1c1e26;
+  --scrim: rgba(28, 30, 38, 0.45);
+  --bg-raised-95: rgba(251, 250, 247, 0.95);
+}
+
+/* Terminal ground follows Claude Code's own theme family, never the Muster theme
+ * (design-system §7.5: Muster cannot restyle the TUI Claude draws, so it matches the
+ * ground to the theme Claude is drawing for) — independent of the three blocks above. */
+:root {
+  --term: var(--term-dark-bg);
+  --term-fg: var(--term-dark-fg);
+}
+:root[data-claude-family="light"] {
+  --term: var(--term-light-bg);
+  --term-fg: var(--term-light-fg);
 }
 
 * {
@@ -80,8 +165,8 @@ body {
 
 body {
   margin: 0;
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--bg);
+  color: var(--fg);
   font-family: var(--sans);
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
@@ -105,7 +190,7 @@ body {
   align-items: center;
   gap: 20px;
   padding: 10px 16px;
-  background: var(--panel);
+  background: var(--bg-raised);
   border-bottom: 1px solid var(--line);
   flex: none;
 }
@@ -130,8 +215,8 @@ body {
   font-size: 10.5px;
   padding: 4px 13px;
   background: transparent;
-  border: 1px solid var(--line2);
-  color: var(--dim);
+  border: 1px solid var(--line-control);
+  color: var(--fg-dim);
   cursor: pointer;
   text-transform: none;
   letter-spacing: normal;
@@ -148,14 +233,14 @@ body {
 }
 
 .seg-btn:hover {
-  color: var(--paper);
+  color: var(--fg);
 }
 
-/* The active segment takes --panel2/--paper (design-system §4.1) — never a state
+/* The active segment takes --bg-hover/--fg (design-system §4.1) — never a state
  * colour; view/density selection isn't session state. */
 .seg-btn[aria-pressed="true"] {
-  color: var(--paper);
-  background: var(--panel2);
+  color: var(--fg);
+  background: var(--bg-hover);
 }
 
 .masthead-right {
@@ -165,11 +250,11 @@ body {
   margin-left: auto;
   font-family: var(--mono);
   font-size: 11px;
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 .masthead-right [role="status"] {
-  color: var(--paper);
+  color: var(--fg);
 }
 
 .usage-readout,
@@ -211,13 +296,13 @@ body {
 }
 
 .resets {
-  color: var(--dim);
+  color: var(--fg-dim);
 }
 
 .model {
   font-family: var(--mono);
   font-size: 11px;
-  color: var(--paper);
+  color: var(--fg);
   font-variant-numeric: tabular-nums;
 }
 
@@ -235,7 +320,7 @@ body {
 .usage-model-select {
   font-family: var(--mono);
   font-size: 11px;
-  color: var(--dim);
+  color: var(--fg-dim);
   background: transparent;
   border: none;
   padding: 0;
@@ -251,7 +336,7 @@ body {
 
 .usage-model-select:hover:not(:disabled),
 .usage-model-select:focus-visible {
-  color: var(--paper);
+  color: var(--fg);
 }
 
 /* Honesty rule (design-system §6): a stale readout keeps its last-good bar/number (never
@@ -259,7 +344,7 @@ body {
  * minutes old) but dims and underlines the number so it visibly differs from a fresh one.
  * Its own signal — never --rose/--amber, which are reserved for session state (§3). */
 .usage-readout.stale .num {
-  color: var(--dim);
+  color: var(--fg-dim);
   text-decoration: underline dotted;
   text-underline-offset: 2px;
 }
@@ -302,7 +387,7 @@ body {
   width: 300px;
   flex: none;
   border-right: 1px solid var(--line);
-  background: var(--panel);
+  background: var(--bg-raised);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -321,7 +406,7 @@ body {
   margin-left: auto;
   font-family: var(--mono);
   font-size: 10px;
-  color: var(--dim);
+  color: var(--fg-dim);
   font-variant-numeric: tabular-nums;
 }
 
@@ -331,9 +416,9 @@ body {
 .railhead .sel {
   font-family: var(--mono);
   font-size: 10px;
-  color: var(--dim);
+  color: var(--fg-dim);
   background: transparent;
-  border: 1px solid var(--line2);
+  border: 1px solid var(--edge);
   border-radius: 3px;
   padding: 2px 4px;
   cursor: pointer;
@@ -342,8 +427,8 @@ body {
 
 .railhead .sel:hover,
 .railhead .sel:focus-visible {
-  color: var(--paper);
-  border-color: var(--muted);
+  color: var(--fg);
+  border-color: var(--fg-muted);
 }
 
 .cards {
@@ -353,7 +438,7 @@ body {
   padding: 16px 12px;
   font-family: var(--mono);
   font-size: 12px;
-  color: var(--dim);
+  color: var(--fg-dim);
 }
 
 /* the "No sessions yet" empty state is a plain text node in #sessions — no gauge, no
@@ -375,10 +460,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--term);
+  background: var(--well);
   font-family: var(--mono);
   font-size: 11.5px;
-  color: var(--dim);
+  color: var(--fg-dim);
 }
 
 .placeholder[hidden] {
@@ -393,7 +478,7 @@ body {
   gap: 12px;
   padding: 9px 14px;
   border-bottom: 1px solid var(--line);
-  background: var(--panel);
+  background: var(--bg-raised);
   flex: none;
 }
 
@@ -415,7 +500,7 @@ body {
 .mainhead .meta {
   font-family: var(--mono);
   font-size: 10.5px;
-  color: var(--dim);
+  color: var(--fg-dim);
   font-variant-numeric: tabular-nums;
 }
 
@@ -476,7 +561,7 @@ body {
 }
 
 .tfoot .tage {
-  color: var(--dim);
+  color: var(--fg-dim);
 }
 
 .terminal-slot {
@@ -495,10 +580,10 @@ body {
   flex: none;
   padding: 6px 16px;
   border-top: 1px solid var(--line);
-  background: var(--panel);
+  background: var(--bg-raised);
   font-family: var(--mono);
   font-size: 10px;
-  color: var(--dim);
+  color: var(--fg-dim);
   display: flex;
   gap: 16px;
   font-variant-numeric: tabular-nums;
@@ -537,7 +622,7 @@ body {
   padding: 12px;
   text-align: center;
   background: var(--scrim);
-  color: var(--paper);
+  color: var(--fg);
   font-family: var(--mono);
   font-size: 11px;
 }
@@ -567,11 +652,11 @@ body {
   align-items: center;
   gap: 10px;
   padding: 6px 16px;
-  background: var(--panel2);
-  border-bottom: 1px solid var(--line2);
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--line-control);
   font-family: var(--mono);
   font-size: 10.5px;
-  color: var(--muted);
+  color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -594,12 +679,12 @@ body {
   min-height: 0;
   margin: 0;
   overflow: auto;
-  background: var(--term);
+  background: var(--well);
   padding: 14px 16px;
   font-family: var(--mono);
   font-size: 12.5px;
   line-height: 1.65;
-  color: var(--muted);
+  color: var(--fg-muted);
   white-space: pre-wrap;
   filter: saturate(0.35) brightness(0.72);
 }
@@ -615,12 +700,12 @@ body {
 
 .endcap .pill {
   pointer-events: auto;
-  background: var(--panel-95);
-  border: 1px solid var(--line2);
+  background: var(--bg-raised-95);
+  border: 1px solid var(--line-control);
   padding: 13px 18px;
   font-family: var(--mono);
   font-size: 11px;
-  color: var(--muted);
+  color: var(--fg-muted);
   text-align: center;
   line-height: 1.7;
   /* review m4-reconcile Major 8: `.endcap-text` here is rewritten every second
@@ -631,7 +716,7 @@ body {
 
 .endcap .pill b {
   display: block;
-  color: var(--paper);
+  color: var(--fg);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   font-size: 10px;
@@ -662,12 +747,12 @@ body {
   padding: 7px 18px;
   flex: none;
   border-bottom: 1px solid var(--line);
-  background: var(--panel);
+  background: var(--bg-raised);
   font-family: var(--mono);
   font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--dim);
+  color: var(--fg-dim);
 }
 
 .tools[hidden] {
@@ -710,7 +795,7 @@ body {
 }
 
 .tile {
-  background: var(--ink);
+  background: var(--bg);
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -722,13 +807,13 @@ body {
 /* design-system §5: "Blocked and failed tiles take a coloured border; nothing else
  * does" — reusing the rail card's own state-border tokens (§1), never a new colour. */
 .tile.s-blocked {
-  border-color: var(--border-blocked);
+  border-color: var(--amber-line);
 }
 .tile.s-failed {
-  border-color: var(--border-failed);
+  border-color: var(--rose-line);
 }
 
-/* plan move-tiles REQ-4/REQ-6: drag feedback uses only the neutral `--line2` token —
+/* plan move-tiles REQ-4/REQ-6: drag feedback uses only the neutral `--line-control` token —
  * never a state colour (design-system §3: state colour is meaning, and a drag is not a
  * state). `.dragging` is the drag source, `.drop-target` is whichever tile the pointer is
  * currently over; both are cleared on drop/dragend (render/tiledrag.ts). */
@@ -736,7 +821,7 @@ body {
   opacity: 0.6;
 }
 .tile.drop-target {
-  outline: 1px solid var(--line2);
+  outline: 1px solid var(--line-control);
   outline-offset: -1px;
 }
 
@@ -746,7 +831,7 @@ body {
   align-items: center;
   gap: 9px;
   padding: 7px 11px;
-  background: var(--panel);
+  background: var(--bg-raised);
   border-bottom: 1px solid var(--line);
   min-width: 0;
   cursor: grab;
@@ -779,7 +864,7 @@ body {
   background: var(--teal);
 }
 .tile.s-start .sdot {
-  background: var(--muted);
+  background: var(--fg-muted);
 }
 .tile.s-idle .sdot {
   background: var(--idle);
@@ -798,7 +883,7 @@ body {
 .thead .wh {
   font-family: var(--mono);
   font-size: 10px;
-  color: var(--dim);
+  color: var(--fg-dim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -812,20 +897,20 @@ body {
   margin-left: auto;
   font-family: var(--mono);
   font-size: 10px;
-  color: var(--muted);
+  color: var(--fg-muted);
   flex: none;
   font-variant-numeric: tabular-nums;
 }
 
 .thead .ctxinfo.unk {
-  color: var(--dim);
+  color: var(--fg-dim);
   font-style: italic;
 }
 
 .thead .tm {
   font-family: var(--mono);
   font-size: 11px;
-  color: var(--dim);
+  color: var(--fg-dim);
   flex: none;
   font-variant-numeric: tabular-nums;
 }
@@ -847,11 +932,11 @@ body {
   display: flex;
   gap: 10px;
   padding: 4px 11px;
-  background: var(--panel);
+  background: var(--bg-raised);
   border-top: 1px solid var(--line);
   font-family: var(--mono);
   font-size: 9.5px;
-  color: var(--dim);
+  color: var(--fg-dim);
   font-variant-numeric: tabular-nums;
 }
 
@@ -886,7 +971,7 @@ body {
 }
 
 .strip .card:hover {
-  background: var(--panel2);
+  background: var(--bg-hover);
 }
 
 .strip .card.s-blocked {
@@ -902,7 +987,7 @@ body {
   border-left-color: var(--teal);
 }
 .strip .card.s-start {
-  border-left-color: var(--muted);
+  border-left-color: var(--fg-muted);
 }
 .strip .card.s-idle {
   border-left-color: var(--idle);
@@ -919,7 +1004,7 @@ body {
 }
 
 .card:hover {
-  background: var(--panel2);
+  background: var(--bg-hover);
 }
 
 .card .stripe {
@@ -927,7 +1012,7 @@ body {
   flex: none;
   /* Inert default, not the Idle state colour (design-system §3: a state colour may only
    * ever mean its state) — every state class below overrides this. */
-  background: var(--dim);
+  background: var(--fg-dim);
 }
 
 .card-in {
@@ -958,8 +1043,8 @@ body {
   letter-spacing: 0.11em;
   text-transform: uppercase;
   padding: 2px 5px;
-  border: 1px solid var(--line2);
-  color: var(--muted);
+  border: 1px solid var(--line-control);
+  color: var(--fg-muted);
   flex: none;
 }
 
@@ -968,14 +1053,14 @@ body {
   font-family: var(--mono);
   font-size: 11.5px;
   font-variant-numeric: tabular-nums;
-  color: var(--dim);
+  color: var(--fg-dim);
   flex: none;
 }
 
 .r2 {
   font-family: var(--mono);
   font-size: 10.5px;
-  color: var(--dim);
+  color: var(--fg-dim);
   margin-top: 5px;
   white-space: nowrap;
   overflow: hidden;
@@ -993,12 +1078,12 @@ body {
   margin-top: 7px;
   font-family: var(--mono);
   font-size: 10px;
-  color: var(--muted);
+  color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
 }
 
 .r3.unk {
-  color: var(--dim);
+  color: var(--fg-dim);
   font-style: italic;
 }
 
@@ -1022,7 +1107,7 @@ body {
 .ctxinfo .ctx i {
   position: absolute;
   inset: 0 auto 0 0;
-  background: var(--muted);
+  background: var(--fg-muted);
 }
 
 /* ≥60% used (design-system §5 "Gauge thresholds") — same amber meaning as the masthead's
@@ -1039,18 +1124,18 @@ body {
 
 .r3 .compact {
   margin-left: auto;
-  color: var(--dim);
+  color: var(--fg-dim);
 }
 
 .ctxinfo .compact {
-  color: var(--dim);
+  color: var(--fg-dim);
 }
 
 .activity {
   font-family: var(--mono);
   font-size: 10px;
   line-height: 1.4;
-  color: var(--dim);
+  color: var(--fg-dim);
   margin-top: 6px;
 }
 
@@ -1063,13 +1148,13 @@ body {
   font-family: var(--mono);
   font-size: 10px;
   line-height: 1.5;
-  color: var(--note-fg-amber);
+  color: var(--amber-note);
   border-left: 2px solid var(--amber);
   padding-left: 8px;
 }
 
 .note.fail {
-  color: var(--note-fg-rose);
+  color: var(--rose-note);
   border-color: var(--rose);
 }
 
@@ -1084,34 +1169,34 @@ body {
 }
 .s-blocked .badge {
   color: var(--amber);
-  border-color: var(--border-blocked);
+  border-color: var(--amber-line);
 }
 .s-failed .stripe {
   background: var(--rose);
 }
 .s-failed .badge {
   color: var(--rose);
-  border-color: var(--border-failed);
+  border-color: var(--rose-line);
 }
 .s-plan .stripe {
   background: var(--violet);
 }
 .s-plan .badge {
   color: var(--violet);
-  border-color: var(--border-plan);
+  border-color: var(--violet-line);
 }
 .s-work .stripe {
   background: var(--teal);
 }
 .s-work .badge {
   color: var(--teal);
-  border-color: var(--border-work);
+  border-color: var(--teal-line);
 }
 .s-start .stripe {
-  background: var(--muted);
+  background: var(--fg-muted);
 }
 .s-start .badge {
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 .s-idle .stripe {
   background: var(--idle);
@@ -1121,7 +1206,7 @@ body {
 }
 
 /* Degraded state (REQ-18): dead session greys out, keeping its last badge/state — a pure
- * visual cue (design-system --dim), never hidden or relabelled. REQ-9 additionally
+ * visual cue (design-system --fg-dim), never hidden or relabelled. REQ-9 additionally
  * strikes through the name (mockups/opt-c-both.html `.card.ended .name`). */
 .card.ended {
   opacity: 0.55;
@@ -1129,7 +1214,7 @@ body {
 
 .card.ended .name {
   text-decoration: line-through;
-  text-decoration-color: var(--line2);
+  text-decoration-color: var(--line-control);
 }
 
 /* ── pin control (plan order-sidebar REQ-8/REQ-9/REQ-17) ─────────────────────────────── */
@@ -1147,7 +1232,7 @@ body {
   margin-left: 6px;
   font-size: 12px;
   line-height: 1;
-  color: var(--dim);
+  color: var(--fg-dim);
   cursor: pointer;
   opacity: 0;
   transition: opacity 120ms ease, color 120ms ease;
@@ -1165,25 +1250,25 @@ body {
 
 .card .pin:hover,
 .card .pin[aria-pressed="true"] {
-  color: var(--paper);
+  color: var(--fg);
 }
 
 /* REQ-9: a neutral (never state-coloured) rule separating the pinned block from the
  * unpinned cards below it — the last pinned card in display order carries this class,
  * cleared everywhere else (render/sessions.ts's `reconcileCards`). */
 .card.pinned-last {
-  border-bottom: 1px solid var(--line2);
+  border-bottom: 1px solid var(--line-control);
 }
 
 /* The strip lays cards side by side (`.strip .card` above sets `border-bottom: 0`) — the
  * pinned-block boundary reads as a vertical rule there instead. */
 .strip .card.pinned-last {
   border-bottom: 0;
-  border-right: 1px solid var(--line2);
+  border-right: 1px solid var(--line-control);
 }
 
 /* ── drag-to-reorder feedback (plan order-sidebar REQ-10, generalising plan move-tiles'
- * `.tile.dragging`/`.tile.drop-target`) — neutral `--line2` only, never a state colour
+ * `.tile.dragging`/`.tile.drop-target`) — neutral `--line-control` only, never a state colour
  * (design-system §3: a drag is not a state). */
 .card[draggable="true"] {
   cursor: grab;
@@ -1194,7 +1279,7 @@ body {
 }
 
 .card.drop-target {
-  outline: 1px solid var(--line2);
+  outline: 1px solid var(--line-control);
   outline-offset: -1px;
 }
 
@@ -1214,19 +1299,19 @@ body {
   font-size: 10.5px;
   padding: 5px 11px;
   background: transparent;
-  border: 1px solid var(--line2);
-  color: var(--muted);
+  border: 1px solid var(--line-control);
+  color: var(--fg-muted);
   cursor: pointer;
 }
 
-.btn:hover {
-  color: var(--paper);
-  border-color: var(--muted);
+.btn:hover:not(:disabled) {
+  color: var(--fg);
+  border-color: var(--fg-muted);
 }
 
 /* Exactly one filled-amber primary action per surface (design-system §3/§5). */
 .btn.key {
-  color: var(--ink);
+  color: var(--amber-fg);
   background: var(--amber);
   border-color: var(--amber);
   font-weight: 600;
@@ -1238,9 +1323,9 @@ dialog.modal {
   width: 520px;
   max-width: calc(100vw - 32px);
   padding: 0;
-  background: var(--panel);
-  color: var(--paper);
-  border: 1px solid var(--line2);
+  background: var(--bg-raised);
+  color: var(--fg);
+  border: 1px solid var(--line-control);
   font-family: var(--sans);
 }
 
@@ -1271,8 +1356,8 @@ dialog.modal h2 {
   font-family: var(--mono);
   font-size: 9.5px;
   font-weight: 400;
-  color: var(--dim);
-  border: 1px solid var(--line2);
+  color: var(--fg-dim);
+  border: 1px solid var(--line-control);
   padding: 1px 5px;
 }
 
@@ -1291,7 +1376,7 @@ dialog.confirm p {
   font-family: var(--mono);
   font-size: 11.5px;
   line-height: 1.65;
-  color: var(--muted);
+  color: var(--fg-muted);
 }
 
 .btn.key-danger {
@@ -1301,14 +1386,33 @@ dialog.confirm p {
   font-weight: 600;
 }
 
-.btn.danger:hover {
-  color: var(--danger);
-  border-color: var(--danger);
+/* Ghost danger (design-system §5, decided 2026-09-02): fills on hover — --danger ground,
+ * --danger-fg text — rather than colouring its own text, because no theme can hold both
+ * "text on --bg-raised" and "white on --danger" at 4.5:1 with one token. */
+.btn.danger:hover:not(:disabled) {
+  color: var(--danger-fg);
+  background: var(--danger);
+  border-color: var(--danger-line);
 }
 
 .btn.sm {
   font-size: 9.5px;
   padding: 3px 8px;
+}
+
+/* REQ-8: one rule set covers every `.btn` disabled site (`.btn.key`, `.btn.key-danger`,
+ * `.btn.danger`, `.btn.sm` included — they're all `.btn` at the element level, just
+ * carrying an extra modifier class) — placed after every `.btn.*` background/colour rule
+ * above so it wins the cascade on the equal-specificity ties those rules would otherwise
+ * produce (`.btn.key`/`.btn.key-danger` both set colour+background at the same 0,2,0
+ * specificity as `.btn:disabled`). Every `.btn` hover rule above is guarded
+ * `:hover:not(:disabled)` so a disabled button never changes on hover. */
+.btn:disabled {
+  color: var(--disabled-fg);
+  background: var(--disabled-bg);
+  border-color: var(--disabled-line);
+  font-weight: 400;
+  cursor: not-allowed;
 }
 
 /* picker: recents sidebar + browse pane (mockup: .picker/.recents/.browse) */
@@ -1322,7 +1426,7 @@ dialog.confirm p {
 
 .recents {
   border-right: 1px solid var(--line);
-  background: var(--panel);
+  background: var(--bg-raised);
   overflow: auto;
   display: flex;
   flex-direction: column;
@@ -1335,7 +1439,7 @@ dialog.confirm p {
   font-size: 9.5px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--dim);
+  color: var(--fg-dim);
 }
 
 .recents .dir {
@@ -1349,21 +1453,21 @@ dialog.confirm p {
   text-align: left;
   font-family: var(--mono);
   font-size: 11.5px;
-  color: var(--muted);
+  color: var(--fg-muted);
   line-height: 1.35;
   cursor: pointer;
 }
 
 .recents .dir:hover {
-  background: var(--panel2);
-  color: var(--paper);
+  background: var(--bg-hover);
+  color: var(--fg);
 }
 
 /* --amber marks the pressed (active) recent — the one inset-stripe use of it outside the
  * Launch button and the focus ring (design-system §3 / plan R2). */
 .recents .dir[aria-pressed="true"] {
-  background: var(--panel2);
-  color: var(--paper);
+  background: var(--bg-hover);
+  color: var(--fg);
   box-shadow: inset 3px 0 0 var(--amber);
 }
 
@@ -1371,7 +1475,7 @@ dialog.confirm p {
   display: flex;
   gap: 8px;
   font-size: 9.5px;
-  color: var(--dim);
+  color: var(--fg-dim);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1379,7 +1483,7 @@ dialog.confirm p {
   padding: 6px 12px;
   font-family: var(--mono);
   font-size: 10.5px;
-  color: var(--dim);
+  color: var(--fg-dim);
 }
 
 .browse {
@@ -1387,7 +1491,7 @@ dialog.confirm p {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  background: var(--term);
+  background: var(--well);
 }
 
 .crumbs {
@@ -1396,7 +1500,7 @@ dialog.confirm p {
   gap: 2px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--line);
-  background: var(--panel);
+  background: var(--bg-raised);
   font-family: var(--mono);
   font-size: 11px;
   white-space: nowrap;
@@ -1406,7 +1510,7 @@ dialog.confirm p {
 .crumbs button {
   background: transparent;
   border: 0;
-  color: var(--muted);
+  color: var(--fg-muted);
   padding: 2px 6px;
   border-radius: 2px;
   font: inherit;
@@ -1414,17 +1518,17 @@ dialog.confirm p {
 }
 
 .crumbs button:hover {
-  background: var(--panel2);
-  color: var(--paper);
+  background: var(--bg-hover);
+  color: var(--fg);
 }
 
 .crumbs .sep {
-  color: var(--dim);
+  color: var(--fg-dim);
 }
 
 .crumbs [aria-current] {
-  color: var(--paper);
-  background: var(--panel2);
+  color: var(--fg);
+  background: var(--bg-hover);
   padding: 2px 6px;
   border-radius: 2px;
 }
@@ -1447,25 +1551,25 @@ dialog.confirm p {
   text-align: left;
   font-family: var(--mono);
   font-size: 11.5px;
-  color: var(--muted);
+  color: var(--fg-muted);
   cursor: pointer;
   white-space: nowrap;
 }
 
 .entries .entry:hover {
-  background: var(--panel2);
-  color: var(--paper);
+  background: var(--bg-hover);
+  color: var(--fg);
 }
 
 .entries .entry .git {
-  color: var(--dim);
+  color: var(--fg-dim);
   font-size: 9.5px;
   letter-spacing: 0.06em;
 }
 
 .entries .entry .chev {
   margin-left: auto;
-  color: var(--dim);
+  color: var(--fg-dim);
 }
 
 .entries .empty,
@@ -1473,7 +1577,7 @@ dialog.confirm p {
   padding: 8px 12px;
   font-family: var(--mono);
   font-size: 10.5px;
-  color: var(--dim);
+  color: var(--fg-dim);
 }
 
 /* form: stacked rows, Title/Model/Custom-model/Start-in (mockup: #launch-form .fields) */
@@ -1487,26 +1591,50 @@ dialog.confirm p {
   border-bottom: 1px solid var(--line);
 }
 
+/* REQ-9's Settings dialog reuses the same fields/fieldset.seg/seg-track pattern as the
+ * launch form's Model/Start-in rows (design-system §5 "Segmented control") — its own
+ * grid rule, since #launch-form .fields is scoped to that one dialog. No border-bottom:
+ * the Settings dialog has no picker above it and the form is the dialog's only body
+ * content before the footer rule. */
+#settings-form.fields {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 11px 14px;
+  align-items: start;
+  padding: 14px 16px;
+}
+
+/* The hint paragraph spans both grid columns, reading as a full-width line under the
+ * Theme row rather than a second labelled field. */
+#settings-form .hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
 .fields .lab {
   font-family: var(--mono);
   font-size: 9.5px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--dim);
+  color: var(--fg-dim);
 }
 
 .fields input[type="text"] {
-  border: 1px solid var(--line2);
+  border: 1px solid var(--edge);
   padding: 6px 9px;
-  color: var(--paper);
-  background: var(--term);
+  color: var(--fg);
+  background: var(--well);
   font-family: var(--mono);
   font-size: 11.5px;
   min-width: 0;
 }
 
 .fields input[type="text"]::placeholder {
-  color: var(--dim);
+  color: var(--fg-dim);
 }
 
 .fields [hidden] {
@@ -1526,12 +1654,12 @@ fieldset.seg legend {
   font-size: 9.5px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--dim);
+  color: var(--fg-dim);
 }
 
 .seg-track {
   display: inline-flex;
-  border: 1px solid var(--line2);
+  border: 1px solid var(--edge);
   border-radius: 2px;
   overflow: hidden;
   justify-self: start;
@@ -1541,8 +1669,8 @@ fieldset.seg legend {
   font-family: var(--mono);
   font-size: 10.5px;
   padding: 5px 10px;
-  color: var(--muted);
-  border-right: 1px solid var(--line2);
+  color: var(--fg-muted);
+  border-right: 1px solid var(--edge);
   cursor: pointer;
   position: relative;
 }
@@ -1560,8 +1688,8 @@ fieldset.seg legend {
 }
 
 .seg-track label:has(input:checked) {
-  background: var(--panel2);
-  color: var(--paper);
+  background: var(--bg-hover);
+  color: var(--fg);
 }
 
 .seg-track label:has(input:focus-visible) {
@@ -1596,7 +1724,7 @@ fieldset.seg legend {
   margin-right: auto;
   font-family: var(--mono);
   font-size: 10.5px;
-  color: var(--muted);
+  color: var(--fg-muted);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1604,7 +1732,7 @@ fieldset.seg legend {
 }
 
 #launch-target b {
-  color: var(--paper);
+  color: var(--fg);
   font-weight: 500;
 }
 
@@ -1655,7 +1783,7 @@ fieldset.seg legend {
   font-size: 9.5px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--dim);
+  color: var(--fg-dim);
 }
 
 #issue-form .sel,
@@ -1663,10 +1791,10 @@ fieldset.seg legend {
 #issue-form textarea {
   width: 100%;
   min-width: 0;
-  border: 1px solid var(--line2);
+  border: 1px solid var(--edge);
   padding: 6px 9px;
-  color: var(--paper);
-  background: var(--term);
+  color: var(--fg);
+  background: var(--well);
   font-family: var(--mono);
   font-size: 11.5px;
 }
@@ -1692,14 +1820,14 @@ fieldset.seg legend {
   font-size: 9.5px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--dim);
+  color: var(--fg-dim);
 }
 
 .preview .meta {
   margin-left: 8px;
   font-family: var(--mono);
   font-size: 9.5px;
-  color: var(--dim);
+  color: var(--fg-dim);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1709,9 +1837,9 @@ fieldset.seg legend {
   margin: 8px 0 0;
   padding: 10px;
   overflow-y: auto;
-  background: var(--term);
-  border: 1px solid var(--line2);
-  color: var(--muted);
+  background: var(--well);
+  border: 1px solid var(--edge);
+  color: var(--fg-muted);
   font-family: var(--mono);
   font-size: 10.5px;
   white-space: pre-wrap;
@@ -1729,13 +1857,13 @@ fieldset.seg legend {
 
 #issue-success p {
   margin: 0;
-  color: var(--paper);
+  color: var(--fg);
   font-family: var(--mono);
   font-size: 11.5px;
 }
 
 #issue-success a {
-  color: var(--paper);
+  color: var(--fg);
 }
 
 /* The error detail is a plain selectable <pre> (no Copy button — a clipboard button
@@ -1746,9 +1874,9 @@ fieldset.seg legend {
   margin: 8px 16px 0;
   padding: 8px 10px;
   overflow-x: auto;
-  background: var(--term);
-  border: 1px solid var(--line2);
-  color: var(--muted);
+  background: var(--well);
+  border: 1px solid var(--edge);
+  color: var(--fg-muted);
   font-family: var(--mono);
   font-size: 10.5px;
   white-space: pre-wrap;
@@ -1786,8 +1914,8 @@ fieldset.seg legend {
   justify-content: center;
   min-height: 100vh;
   font-family: var(--mono);
-  color: var(--paper);
-  background: var(--ink);
+  color: var(--fg);
+  background: var(--bg);
 }
 
 #protocol-mismatch[hidden] {

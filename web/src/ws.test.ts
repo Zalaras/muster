@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Hello, PrefsMessage, Session, Snapshot, Usage, UsageMessage } from "./protocol";
+import type { ClaudeThemeMessage, Hello, PrefsMessage, Session, Snapshot, Usage, UsageMessage } from "./protocol";
 import { backoffDelay, type SocketLike, WsClient, type WsClientHandlers } from "./ws";
 
 const hello: Hello = {
@@ -13,12 +13,13 @@ const snapshot: Snapshot = {
   type: "snapshot",
   sessions: [],
   usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
-  prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual" },
+  prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual", theme: "follow" },
+  claudeTheme: { family: "unknown" },
 };
 
 const prefsMessage: PrefsMessage = {
   type: "prefs",
-  prefs: { view: "tiles", density: "3x2", usageModel: "Opus", railSort: "manual" },
+  prefs: { view: "tiles", density: "3x2", usageModel: "Opus", railSort: "manual", theme: "dark" },
 };
 
 const usage: Usage = {
@@ -30,6 +31,8 @@ const usage: Usage = {
 };
 
 const usageMessage: UsageMessage = { type: "usage", usage };
+
+const claudeThemeMessage: ClaudeThemeMessage = { type: "claudeTheme", family: "light" };
 
 const session: Session = {
   id: 1,
@@ -111,6 +114,7 @@ function makeHandlers(): WsClientHandlers & Record<string, ReturnType<typeof vi.
     onPrefs: vi.fn(),
     onUsage: vi.fn(),
     onSessionRemoved: vi.fn(),
+    onClaudeTheme: vi.fn(),
     onDisconnected: vi.fn(),
     onProtocolMismatch: vi.fn(),
   };
@@ -180,6 +184,21 @@ describe("WsClient.dispatch — pure message application, no socket involved", (
     client.dispatch({ type: "sessionRemoved", id: 7 });
     expect(handlers.onSessionRemoved).toHaveBeenCalledWith(7);
     expect(handlers.onSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("routes a claudeTheme message to onClaudeTheme with the bare family, not onSnapshot (plan new-ui-design-colors §5.6)", () => {
+    const handlers = makeHandlers();
+    const client = new WsClient("ws://x", handlers);
+    client.dispatch(claudeThemeMessage);
+    expect(handlers.onClaudeTheme).toHaveBeenCalledWith("light");
+    expect(handlers.onSnapshot).not.toHaveBeenCalled();
+  });
+
+  it.each(["light", "dark", "unknown"] as const)("routes each known claudeTheme family (%s) to onClaudeTheme", (family) => {
+    const handlers = makeHandlers();
+    const client = new WsClient("ws://x", handlers);
+    client.dispatch({ type: "claudeTheme", family });
+    expect(handlers.onClaudeTheme).toHaveBeenCalledWith(family);
   });
 });
 
@@ -251,6 +270,13 @@ describe("WsClient — full socket lifecycle via an injected fake socket", () =>
     sockets[0]!.emitOpen();
     sockets[0]!.emitMessage(JSON.stringify({ type: "sessionRemoved", id: 3 }));
     expect(handlers.onSessionRemoved).toHaveBeenCalledWith(3);
+  });
+
+  it("dispatches a claudeTheme frame to onClaudeTheme", () => {
+    client.start();
+    sockets[0]!.emitOpen();
+    sockets[0]!.emitMessage(JSON.stringify(claudeThemeMessage));
+    expect(handlers.onClaudeTheme).toHaveBeenCalledWith("light");
   });
 
   it("ignores a binary (non-string) message frame", () => {

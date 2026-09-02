@@ -84,12 +84,14 @@ export class TerminalSurface {
       fontSize: 12.5,
       lineHeight: 1.65,
       theme: {
-        // Neutral CSS system-color keywords, not a literal duplicate of --term/--paper's
+        // Neutral CSS system-color keywords, not a literal duplicate of --term/--term-fg's
         // hex values (review m2-terminal Minor 5) — these only ever apply if the token
         // read itself comes back empty, which in practice never happens since both are
-        // always declared on :root.
+        // always declared on :root. --term-fg (not --fg, plan new-ui-design-colors REQ-1):
+        // the pane's foreground follows Claude Code's own theme family, independent of
+        // the Muster chrome theme (design-system §7.5).
         background: cssVar("--term", "Canvas"),
-        foreground: cssVar("--paper", "CanvasText"),
+        foreground: cssVar("--term-fg", "CanvasText"),
       },
     });
     const fitAddon = new FitAddon();
@@ -184,6 +186,19 @@ export class TerminalSurface {
   get geometry(): TerminalSurfaceGeometry | null {
     if (!this.term) return null;
     return { cols: this.term.cols, rows: this.term.rows };
+  }
+
+  /** REQ-12: re-themes a live terminal in place — xterm.js 6's `term.options.theme`
+   * assignment restyles without recreating the `Terminal` instance. Called by main.ts on
+   * every live surface after a `snapshot`/`prefs`/`claudeTheme` message sets the theme
+   * attributes; never from the 1s render tick. A no-op for a dead session's surface
+   * (`this.term` is null — it never had a terminal to restyle). */
+  applyTheme(): void {
+    if (!this.term) return;
+    this.term.options.theme = {
+      background: cssVar("--term", "Canvas"),
+      foreground: cssVar("--term-fg", "CanvasText"),
+    };
   }
 
   /** Called after the daemon connection is restored (`hello`): reattaches only if this

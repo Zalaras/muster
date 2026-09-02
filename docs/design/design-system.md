@@ -6,56 +6,71 @@ tiled view in `d-tiled.html`). B and C are kept as rejected alternatives, not li
 This file is the concrete rule set `review-work` checks UI work against. Behaviour lives in
 `docs/design/ux-flows.md`; `SPEC.md` stays authoritative for what the product does.
 
-## 1. Tokens
+## 1. Tokens and themes
 
-Declare these once as CSS custom properties on `:root`. **Never hard-code a hex value in a
-component** — if a needed colour isn't here, add it here first.
+Rewritten 2026-09-02 (plan `new-ui-design-colors`, closes #3). Two layers:
 
-```css
-:root{
-  /* surfaces, back to front */
-  --ink:#12141C;      /* app background */
-  --panel:#171A24;    /* masthead, rail, tile chrome */
-  --panel2:#1C2029;   /* hover + selected */
-  --term:#0D0F16;     /* terminal ground — darker than the app, always */
-  --line:#282D3B;     /* hairline rules */
-  --line2:#343A4A;    /* control borders */
+1. **Semantic tokens** — the vocabulary below. A component rule may reference **only these
+   names**. Never a hex, `rgb()`, `hsl()` or named colour in a component; if a needed colour
+   isn't a token, add the token to *every* theme block first.
+2. **Theme blocks** — one self-contained palette per theme, selected by
+   `<html data-theme="…">`: `:root, :root[data-theme="instrument"]` (default), `[data-theme="dark"]`,
+   `[data-theme="light"]`. **Adding a theme is adding one block** (plus its name in
+   `web/src/theme.ts`'s registry) — never a component edit. Font stacks sit on a bare
+   `:root`; they don't vary by theme.
 
-  /* text */
-  --paper:#E8E6E1;    /* primary */
-  --muted:#8A90A3;    /* secondary */
-  --dim:#565C6D;      /* metadata, labels */
+The values live in the reference renders (`mockups/a-instrument.html`, `d-tiled.html` —
+each has a theme switcher) and are transcribed verbatim into `web/src/style.css`. This file
+defines the **roles**; it does not repeat the numbers.
 
-  /* state — see §3; these are the ONLY meanings these colours carry */
-  --amber:#F2A33C;    /* Needs-Input */
-  --rose:#E36A6A;     /* Failed */
-  --violet:#9A8CF0;   /* Planning */
-  --teal:#56C5D0;     /* Working */
-  --idle:#5A6070;     /* Idle */
-  --green:#7BC47F;    /* health ok, tool success */
+| Token | Role |
+|---|---|
+| `--bg` | app background |
+| `--bg-raised` | masthead, rail, tile chrome, dialogs |
+| `--bg-hover` | hover + selected |
+| `--well` | chrome recesses that follow the Muster theme: text inputs, previews, browse pane, empty placeholder, dead-session snapshot |
+| `--line` | hairline rules between sections (decorative — exempt from the contrast bar) |
+| `--line-control` | button borders, badge borders, drag/drop outline (exempt — the label identifies the control) |
+| `--edge` | boundaries that must be seen on their own, ≥ 3:1: inputs, selects, textarea, the segmented-control track |
+| `--fg` / `--fg-muted` / `--fg-dim` | primary / secondary / metadata-and-label text |
+| `--amber` `--rose` `--violet` `--teal` `--idle` | state (§3): Needs-Input / Failed / Planning / Working / Idle — **fixed hue families in every theme** (amber 25–45°, rose 345–15°, violet 235–270°, teal 165–195°, idle ≤ 20% saturation); a theme tunes only lightness |
+| `--amber-line` `--rose-line` `--violet-line` `--teal-line` | state border tints: badge borders, Blocked/Failed tile borders (exempt — redundant carriers; the word and position carry state) |
+| `--amber-note` / `--rose-note` | the card note's copy (Needs-Input reason / Failed reason) |
+| `--amber-fg` | text on an amber fill (the one filled primary per surface) |
+| `--banner-bg` / `--banner-line` / `--banner-fg` | daemon-down banner (§6.7) — never `--rose` |
+| `--danger` / `--danger-line` / `--danger-fg` | destructive actions (§3: rose is never delete) |
+| `--disabled-fg` / `--disabled-line` / `--disabled-bg` | every `.btn:disabled` (§5) — exempt from the contrast bar (inactive components) |
+| `--term-dark-bg`/`-fg`, `--term-light-bg`/`-fg` | the two terminal pairs every theme supplies |
+| `--term` / `--term-fg` | **the live pane's ground/foreground — chosen by `<html data-claude-family>`, not by the theme** (see below) |
+| `--scrim` / `--bg-raised-95` | modal backdrop and overlays / the dead-surface pill (translucent; exempt) |
+| `--mono` / `--sans` / `--disp` | type — system stacks only |
 
-  /* daemon-down banner (§6.7) — a muted rose-family treatment of its own, because the
-     banner describes the daemon, not any session's Failed state; --rose stays reserved
-     for Failed (§3). Values from the reference render (a-instrument.html, .down). */
-  --banner-bg:#3A1E1E;
-  --banner-line:#5A2C2C;
-  --banner-fg:#F3B7B7;
+`--green` (health dot) exists in the mockups only; it has no consumer in the app yet and is
+added to `style.css` with its first real one.
 
-  /* destructive actions (Remove hover, the filled Remove confirm button) — their own
-     family, because --rose means Failed and nothing else (§3: "rose is never delete").
-     Deliberately a deeper, duller red than --rose so the two read as different things
-     when a Failed card sits beside a Remove button. Decided 2026-08-26 (m4-reconcile
-     review, cycle 1 Major 10 → option A). */
-  --danger:#C94F4F;
-  --danger-line:#7A3535;
-  --danger-fg:#FFFFFF;
+**The terminal pair follows Claude Code, not Muster.** Claude Code draws its own TUI colours
+for *its* theme (read from Claude Code's own global config by `internal/claudecode`, which alone knows the file and key), which Muster reads but never sets (§7.5 forbids
+restyling pane contents). So `--term`/`--term-fg` resolve from `data-claude-family`:
+`light` → the theme's light pair; `dark` or `unknown` → its dark pair — whichever Muster theme
+is active. Chrome recesses use `--well` instead, so a light Claude never bleaches a dark
+Muster's inputs.
 
-  /* type — system stacks only; nothing vendored, nothing fetched (decided 2026-08-16) */
-  --mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
-  --sans:system-ui,-apple-system,'Segoe UI',sans-serif;
-  --disp:system-ui,-apple-system,'Segoe UI',sans-serif;
-}
-```
+**Themes shipped (v1):** **Instrument** — the 2026-08-16 direction-A palette, contrast-fixed
+(the default); **Dark** — conventional web-style dark, neutral greys; **Light** — standard
+light. Chosen in the Settings dialog (§5): *Follow Claude Code · Instrument · Dark · Light*.
+*Follow* paints Light when Claude's family is light and Instrument otherwise, and keeps
+following. The choice is `prefs.theme` (`docs/protocol.md` §3.3). Custom themes are
+architecture only: a new block and a rebuild, not a loadable file.
+
+**Contrast bar — WCAG AA on every theme, machine-gated** (`make contrast`, part of
+`make check`; `web/scripts/contrast.mjs` + `contrast-pairs.json`). ≥ 4.5:1 for every text
+pair, including the 9–11.5px mono metadata layer; ≥ 3:1 for non-text UI that carries
+information alone: gauge fills on their track, `--edge` on the surfaces it bounds, the amber
+focus ring, state dots and stripes on `--bg`. The script also enforces the hue bands and
+"no literal outside a theme block". **Exempt list** (each with its reason in the JSON):
+`--line` hairlines, `--line-control` button borders, the four `--*-line` state tints, gauge
+tracks under a fill, disabled controls, `--scrim`/`--bg-raised-95`. This is SPEC §3's one
+bounded accessibility exception; nothing else in that non-goal moves.
 
 **No web fonts, no CDN links, no vendored font binaries.** The dashboard is localhost-only
 and the dep tree is deliberately small; a font request is a network dependency and a
@@ -84,7 +99,7 @@ dashboard twitch.
 | Failed | `--rose` | same |
 | Planning | `--violet` | same |
 | Working | `--teal` | same |
-| Started | `--muted` | same |
+| Started | `--fg-muted` | same |
 | Idle | `--idle` | same |
 
 Rules:
@@ -123,7 +138,7 @@ What differs is only how sessions are laid out:
 ### 4.1 Switching
 
 - The switcher is a segmented control (`Focus` | `Tiles`), mono, 10.5px, sharing the
-  button border treatment. The active segment takes `--panel2` and `--paper`.
+  button border treatment. The active segment takes `--bg-hover` and `--fg`.
 - Keyboard: **⌘\\** toggles. `⌘1–9` keeps its meaning in both views — focus session *n*,
   which in Tiles means promote it to a live tile. *n* is the rail's displayed order
   (ux-flows §3.4/§3.8; decision `cmd-n-ordering`, 2026-08-30).
@@ -150,26 +165,40 @@ behind a tab.
 
 **Rail card** — 3px state stripe, then title + badge + timer, `repo / branch`, then the
 context row (gauge, %, absolute tokens, compaction count), then either a **note** (amber
-left-border, for the reason it needs you) or a **snapshot** (mono, `--term` ground, clipped).
+left-border, for the reason it needs you) or a **snapshot** (mono, `--well` ground, clipped).
 
 **Tile** (tiled view) — header (state dot, title, where, context, timer), terminal body on
 `--term`, footer stating `live` or `stopped` plus the tile's geometry. Blocked and failed
-tiles take a coloured border; nothing else does. The header is the tile's **drag handle**
-(`cursor: grab`; the terminal body never starts a drag); while dragging, the source tile
-dims (`.dragging`) and the tile under the pointer takes a 1px inset `--line2` outline
-(`.drop-target`) — neutral tokens only, never a state colour (§3). The state dot carries
-a `title` with the state word so a hover explains the colour.
+tiles take a coloured border (`--amber-line` / `--rose-line`); nothing else does. The header
+is the tile's **drag handle** (`cursor: grab`; the terminal body never starts a drag); while
+dragging, the source tile dims (`.dragging`) and the tile under the pointer takes a 1px inset
+`--line-control` outline (`.drop-target`) — neutral tokens only, never a state colour (§3).
+The state dot carries a `title` with the state word so a hover explains the colour.
 
-**Buttons** — mono, 10.5px, 1px `--line2` border, transparent ground. Filled amber for the
-single primary action. No border-radius above 2px anywhere in the app.
+**Buttons** — mono, 10.5px, 1px `--line-control` border, transparent ground. Filled amber
+(`--amber` ground, `--amber-fg` text) for the single primary action. No border-radius above
+2px anywhere in the app. **Disabled** (`.btn:disabled`, any variant): `--disabled-fg` /
+`--disabled-line` / `--disabled-bg`, weight 400, `cursor: not-allowed`, and no hover change
+(every `.btn` hover rule is `:hover:not(:disabled)`). **Ghost danger** (`.btn.danger`, e.g.
+Remove) fills on hover — `--danger` ground, `--danger-fg` text — rather than colouring its
+text, because no dark palette can hold both "white on `--danger`" and "`--danger` on
+`--bg-raised`" at 4.5:1 with one token (decided 2026-09-02).
 
-**Modal** — `--panel` on a 72%-opaque scrim, 1px `--line2` border, header rule, footer rule.
-The launch dialog is 720px wide (its picker panes scroll internally); confirm dialogs are 440px; the issue dialog is 560px, capped at 80vh (its preview scrolls internally).
+**Modal** — `--bg-raised` on the `--scrim` backdrop, 1px `--line-control` border, header
+rule, footer rule. The launch dialog is 720px wide (its picker panes scroll internally);
+confirm dialogs are 440px; the issue dialog is 560px, capped at 80vh (its preview scrolls
+internally); the **Settings** dialog is 440px and holds, in v1, only the theme picker (a
+segmented control of four radios — Follow Claude Code · Instrument · Dark · Light — applied
+on change, no Save) plus a one-line hint and a Close button. Reference: the Settings modal
+in `mockups/a-instrument.html`.
 
-**Segmented control** — mono, 10.5px, 1px `--line2` border; native radio inputs visually
-hidden inside their labels, the checked segment taking `--panel2` ground and `--paper` text,
-focus-visible an amber 1px inset outline. Used by the Focus/Tiles view switcher and the
-launch form's Model and Start-in rows.
+**Form fields** — text inputs, selects and textareas sit on `--well` with a 1px `--edge`
+border (≥ 3:1 on the surface they sit on — nothing else marks a field's extent).
+
+**Segmented control** — mono, 10.5px, 1px `--edge` track border; native radio inputs
+visually hidden inside their labels, the checked segment taking `--bg-hover` ground and
+`--fg` text, focus-visible an amber 1px inset outline. Used by the Focus/Tiles view switcher,
+the launch form's Model and Start-in rows, and the Settings dialog's theme picker.
 
 **Gauge thresholds** — a masthead usage bar takes `warn` and a context track takes `hot`
 at **≥ 60% used** (settled by m3-gauges planning, 2026-08-23 — the mockups' 61%-warn /
@@ -209,7 +238,11 @@ makes the UI assert something Muster does not know.
    0 and silently no-ops on a single-pane window.
 4. **`scrollback: 0` in xterm.js.** tmux owns scrollback.
 5. **Never restyle pane contents.** Claude Code draws its own TUI; the dashboard supplies the
-   frame and nothing inside it.
+   frame and nothing inside it. The one thing the frame *does* match is the **ground**:
+   `--term`/`--term-fg` follow Claude Code's own theme family (§1), in every Muster theme,
+   because a dark TUI drawn on a light ground (or the reverse) is unreadable and Muster
+   cannot change what Claude draws. A theme switch re-themes live xterm instances in place
+   (`term.options.theme`); it never recreates them.
 
 ## 8. Deferred, with the slot kept dark
 

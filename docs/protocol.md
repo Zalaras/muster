@@ -133,15 +133,24 @@ dashboard browses via the daemon instead.
 { "view": "tiles",       // optional: "focus" | "tiles"
   "density": "3x2",      // optional: "2x2" | "3x2" — the Tiles grid density
   "usageModel": "Fable",  // optional: 1–32 chars after trim — which per-model weekly window the masthead shows (usage-model-bar, 2026-08-30)
-  "railSort": "manual" }  // optional: "manual" | "attention" — the rail's sort mode (order-sidebar, 2026-08-30)
+  "railSort": "manual",   // optional: "manual" | "attention" — the rail's sort mode (order-sidebar, 2026-08-30)
+  "theme": "dark" }       // optional: ^[a-z][a-z0-9-]{0,31}$ — the dashboard theme; "follow" = no override (new-ui-design-colors, 2026-09-02)
 ```
 
 → `204`, no body. Persisted in kv under one JSON key (survives daemon restarts —
 ux-flows §3.8) and re-broadcast to all UI sockets as a `prefs` message carrying the
 **full** prefs object, which is how a second window stays in sync. Defaults before any
-PUT: `{"view":"focus","density":"2x2","usageModel":"Fable","railSort":"manual"}`.
+PUT: `{"view":"focus","density":"2x2","usageModel":"Fable","railSort":"manual","theme":"follow"}`.
 **Errors:** 400 `invalid_request` — body not JSON, no known field present, a field
-value outside its enum, or `usageModel` empty / longer than 32 chars.
+value outside its enum, `usageModel` empty / longer than 32 chars, or `theme` not
+matching its pattern.
+
+`theme` (plan `new-ui-design-colors`): **opaque to the daemon** beyond the pattern — the
+client owns the theme registry (`web/src/theme.ts`), so a new theme never needs a daemon
+release. `"follow"` means the dashboard resolves the theme from `claudeTheme.family`
+(§5.2): `light` → Light, `dark`/`unknown` → Instrument. A stored name the client no longer
+knows resolves the same way as `"follow"`. A persisted value failing the pattern loads as
+`"follow"` (same silent fallback as the other fields).
 
 `railSort` (plan `order-sidebar`): `manual` shows the rail in the user-owned order
 (`pinned` block first, then `railPos` — §5.3); `attention` keeps the pinned block first
@@ -467,8 +476,18 @@ A `protocolVersion` the client doesn't know → client shows "reload the dashboa
 { "type": "snapshot",
   "sessions": [ /* Session objects, §5.3 — order unspecified; the client sorts */ ],
   "usage": { /* Usage object, §5.4 */ },
-  "prefs": { "view": "focus", "density": "2x2" } }   // density added M2 (Tiles grid)
+  "prefs": { "view": "focus", "density": "2x2", "usageModel": "Fable", "railSort": "manual", "theme": "follow" },   // density added M2; theme added 2026-09-02
+  "claudeTheme": { "family": "dark" } }   // "light" | "dark" | "unknown" — always present (new-ui-design-colors, 2026-09-02)
 ```
+
+`claudeTheme.family` is the daemon's latest read of Claude Code's own theme setting,
+folded to a family: `light`, `dark`, or `unknown` (polling disabled via
+`-claude-theme-poll 0`, or the setting unreadable). Claude Code's default is dark, so an
+absent setting reports `dark`, not `unknown`. The dashboard uses it for the terminal
+pane's ground/foreground pair **in every theme** (design-system §7.5: Muster cannot restyle
+the TUI Claude draws, so it matches the ground to the theme Claude is drawing for) and, when
+`prefs.theme` is `"follow"`, to resolve the dashboard theme. Where the setting lives and how
+it is read is `internal/claudecode`'s business — not specified here.
 
 **Sorting is client-side**, a pure function over Session fields per ux-flows §3.4
 (needs-input longest-blocked first → failed most recent → planning → working → started →
@@ -589,7 +608,7 @@ full object built at send time. Neither half hydrates across a daemon restart. T
 
 ```jsonc
 { "type": "sessionUpsert", "session": { /* §5.3 */ } }
-{ "type": "prefs", "prefs": { "view": "tiles", "density": "3x2", "usageModel": "Fable" } }  // M2; full-object echo of PUT /api/prefs (usageModel added 2026-08-30)
+{ "type": "prefs", "prefs": { "view": "tiles", "density": "3x2", "usageModel": "Fable", "railSort": "manual", "theme": "dark" } }  // M2; full-object echo of PUT /api/prefs (usageModel added 2026-08-30, theme 2026-09-02)
 ```
 
 ```jsonc
@@ -599,6 +618,20 @@ full object built at send time. Neither half hydrates across a daemon restart. T
 A client that has never seen `id` ignores it. Startup sweeps (§7.5) send nothing — swept
 rows are simply absent from the first `snapshot`. Dead sessions otherwise stay visible
 (sorted last, offering Resume/Remove) until removed or swept.
+
+### 5.6 `claudeTheme` (Pre-v1 — `new-ui-design-colors`, 2026-09-02)
+
+```jsonc
+{ "type": "claudeTheme", "family": "light" }   // "light" | "dark" | "unknown"
+```
+
+Sent **only when the polled family changed** since the last broadcast — never per tick,
+never with a timestamp (it is a current-state fact, not an event). The first value a client
+sees is `snapshot.claudeTheme` (§5.2), so a reconnect needs no replay. On receipt the
+client always re-derives the terminal pair (`<html data-claude-family>`) and, only while
+`prefs.theme` is `"follow"`, re-derives the dashboard theme (`<html data-theme>`). A
+`prefs` message never changes the family; a `claudeTheme` message never changes the
+dashboard theme while an override is set.
 
 ## 6. WebSocket `/ws/terminal/{id}` — the PTY bridge (M2; refined by m2-terminal, 2026-08-23)
 
@@ -755,6 +788,14 @@ exit — so the next startup sweeps it.
 
 ## 9. Changelog
 
+- **2026-09-02 — §3.3/§5.2/§5.5/§5.6: theme pref and Claude theme family** (plan
+  `new-ui-design-colors`, Pre-v1 Cleanup, closes #3). `PUT /api/prefs` gains `theme`
+  (pattern-validated, otherwise opaque to the daemon; default `"follow"`); `snapshot` and
+  `GET /api/state` gain `claudeTheme.family` (`light`/`dark`/`unknown`, always present); the
+  `prefs` echo carries `theme`; new `claudeTheme` broadcast on family change only. The
+  daemon reads Claude Code's own theme setting on a poll (`-claude-theme-poll`, default 10 s;
+  `-claude-config-file` test seam) — read-only, knowledge confined to `internal/claudecode`.
+  Additive; no version bump.
 - **2026-08-31 — §2/§3.12/§3.13: issue capture** (plan `issue-capture`, Pre-v1 Cleanup).
   Two new UI endpoints let the dashboard file a GitHub issue carrying a strict-allowlist
   snapshot of muster's own state: `POST /api/issue/captures` takes and holds the snapshot,

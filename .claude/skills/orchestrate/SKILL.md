@@ -275,7 +275,7 @@ cycle 1 approved with one decision item; Option A won and changed `focusNth`, so
    - `make lint` — exit 0
    - `make web-build` and `make web-test` — exit 0
    - `make e2e` — required whenever this cycle included a `[daemon-impl]`, `[web-impl]` or `[e2e-specs]` wave. May be skipped only for a cycle whose waves were unit-test-only. If wave 3's gate already ran the full suite and nothing has changed since, that run satisfies this requirement — do not run it twice.
-   - Every line of the plan's ```checks block (see `## Final Validation`)
+   - Every line of the plan's ```checks block — run the whole list above through `.claude/skills/orchestrate/scripts/gates.sh <plan>` (see `## Final Validation`) rather than one command at a time
    - If any of these fail, the fix was incomplete — count it against the retry budget
 5. Only AFTER all of the above pass, re-spawn the review agent.
 6. Increment `retry_counts["review"]` **once per cycle**, not once per wave. Max 3 review cycles total.
@@ -417,7 +417,23 @@ When `/orchestrate` is invoked for a plan that already has an `orchestration-sta
 
 ## Final Validation
 
-Before marking the pipeline as completed, run the baseline gates fresh and verify each passes:
+Before marking the pipeline as completed, run the baseline gates and the plan's authored
+checks fresh **via the bundled runner** — never a hand-rolled loop (the new-ui-design-colors
+run lost a turn to zsh word-splitting inside an ad-hoc `for c in …; do $c; done`):
+
+```bash
+.claude/skills/orchestrate/scripts/gates.sh <plan-name>            # baseline + ```checks block
+.claude/skills/orchestrate/scripts/gates.sh <plan-name> --no-e2e   # daemon plan whose Step 1 was skipped
+```
+
+It runs the baseline gates below, then every line of the plan's ```checks block, dedupes by
+exact command string (a check that names a baseline command is reported under its ID without a
+second run), prints `PASS`/`FAIL` per ID with the tail of every failure, writes each command's
+full output to a log dir it names in its summary, and exits non-zero on any failure. It sources
+nvm for the pinned Node and recreates the `rg` shim when no real `rg` is on PATH, so its
+subshells see what your interactive shell sees. Paste its summary into the completion report.
+
+For reference, the baseline it runs is:
 
 ```bash
 # Daemon
@@ -433,13 +449,12 @@ make web-test           # Must show all tests passing (Vitest)
 make e2e                # Must show all tests passing
 ```
 
-Then run the plan's **authored acceptance checks**. Locate the block:
-
-```bash
-grep -n '^```checks' plans/<plan-name>/plan.md
-```
-
-Each line in that block is `<ID> <single-line shell command>`. Run each command from the project root exactly as written; it passes iff it exits 0. Run the lines in your interactive shell, not via `bash -c`/`sh -c` — `rg` is a shell *function* in Damian's profile and is invisible to a subshell, so a check would fail spuriously (m4-hook-lifetime D25). Report results by ID. Dedupe by exact command string against the baseline gates above: run each distinct command once, but report it under every ID that claims it.
+Each line in the plan's ```checks block is `<ID> <single-line shell command>`, run from the
+project root exactly as written; it passes iff it exits 0. If you ever run a line by hand
+instead of through the runner, run it in your interactive shell, not via `bash -c`/`sh -c` —
+`rg` is Claude Code's shell-function shim over the `claude` binary, not a binary on PATH, so a
+bare subshell cannot see it and the check fails spuriously (m4-hook-lifetime D25). Report
+results by ID; a command that appears under several IDs runs once and is reported under each.
 
 **Every baseline gate and every authored check must pass.** If any fail, the pipeline is NOT complete — investigate and fix before proceeding.
 
