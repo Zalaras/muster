@@ -201,6 +201,15 @@ export class TerminalSurface {
     };
   }
 
+  /** Moves DOM focus into xterm's input. Called by main.ts only on a pointer selection,
+   * never from a render pass (REQ-4/INV-1). A silent no-op for a dead session's surface
+   * (`term` is null — never had a terminal to focus) and for a disposed surface. Never
+   * opens, closes or otherwise touches the socket. */
+  focus(): void {
+    if (this.disposed || !this.term) return;
+    this.term.focus();
+  }
+
   /** Called after the daemon connection is restored (`hello`): reattaches only if this
    * surface is currently showing the "disconnected" overlay for a still-alive session —
    * never for "ended" (still dead) or "superseded" (nothing auto-reconnects on 4000,

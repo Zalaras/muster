@@ -1,7 +1,16 @@
 import { expect, test } from "@playwright/test";
 import { type ScratchDaemon, startScratchDaemon } from "./helpers/daemon";
-import { getState, launchSession, scratchDirectory } from "./helpers/session";
-import { parseSizenote, TerminalSocketTracker, terminalOverlay, terminalRegion } from "./helpers/terminal";
+import { envelopedSessionStart, rawNotification, rawUserPromptSubmit } from "./helpers/payloads";
+import { pinButton, railCard, railOrderIds, railSortSelect } from "./helpers/railorder";
+import { getState, launchSession, scratchDirectory, stateBadge } from "./helpers/session";
+import {
+  activeElementInsideAnyTerminal,
+  activeElementInsideTerminal,
+  parseSizenote,
+  TerminalSocketTracker,
+  terminalOverlay,
+  terminalRegion,
+} from "./helpers/terminal";
 
 // Plan m2-terminal — REQ-1 (bridge), REQ-2/INV-1 (one-live-client), REQ-3 (resize),
 // REQ-6 (PTY env/EOF), REQ-7 (Focus live pane), REQ-13 (degraded states).
@@ -386,4 +395,418 @@ test.describe.serial("daemon down while a terminal is attached (E13)", () => {
       await cleanup();
     }
   });
+});
+
+// Plan terminal-focus — REQ-1 through REQ-8, INV-1 through INV-4.
+// Plan acceptance: E1-E9. Every INV-1 source state (a-f) and every INV-4 source state
+// (i-iii) is asserted from, not just the acceptance IDs' convenient subset — the
+// Invariants section names them explicitly and the m1-sessions lesson in the e2e-specs
+// brief is exactly this: assert every listed source state, not the convenient one.
+//
+// Not covered here, on purpose (Scope decisions, plan terminal-focus): the Tiles strip's
+// promote click, ⌘1-9 (`focusNth`), and any keyboard-activation path other than Enter on
+// a card — none of them move focus into a terminal, and none of them are in scope for
+// this plan to change.
+
+test("clicking a rail card in Focus moves keyboard focus into its terminal with no second click, and the typed round trip proves it end to end (E1, E2, E9, REQ-1, REQ-4)", async ({
+  page,
+}) => {
+  const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
+  try {
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, { directory: dirA.path, title: "focus-e1-a" });
+    await launchSession(page, daemon, { directory: dirB.path, title: "focus-e1-b" });
+
+    // A is launched first, so it is manual order's top-of-rail and the session Focus
+    // auto-selects on load (main.ts's default-focus fallback in `render()`) — "two live
+    // sessions A (focused) and B" per the plan's E1 setup, with no click needed to
+    // establish A as the live pane's session.
+    await expect(terminalRegion(page, "focus-e1-a")).toBeVisible();
+    // Auto-focus on load never moves keyboard focus into the terminal — only a pointer
+    // click on a rail card does that (REQ-1's deliberately narrow scope).
+    expect(await activeElementInsideTerminal(page, "focus-e1-a")).toBe(false);
+
+    await railCard(page, "focus-e1-b").click();
+
+    // REQ-1: the click alone — no second click on the region — lands keyboard focus
+    // inside B's terminal container.
+    expect(await activeElementInsideTerminal(page, "focus-e1-b")).toBe(true);
+    // E9/INV-2: exactly one live terminal exists — the old surface is gone, not hidden.
+    await expect(page.locator('[aria-label^="Terminal: "]')).toHaveCount(1);
+
+    const regionB = terminalRegion(page, "focus-e1-b");
+    await expect(regionB).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
+
+    // E2 (behavioural proof): typing with NO click on the region at all proves the whole
+    // path end to end — the callback moved DOM focus, not just some internal flag.
+    await page.keyboard.type("hello");
+    await page.keyboard.press("Enter");
+    await expect(regionB).toContainText("stub-echo:hello");
+  } finally {
+    await Promise.all([dirA.cleanup(), dirB.cleanup()]);
+  }
+});
+
+test("re-clicking the already-focused session's card returns keyboard focus to its terminal after focus moved elsewhere (E3, REQ-2)", async ({
+  page,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, { directory: dir, title: "focus-e3-solo" });
+    const region = terminalRegion(page, "focus-e3-solo");
+    await expect(region).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
+
+    // First click puts focus in the terminal (REQ-1).
+    await railCard(page, "focus-e3-solo").click();
+    expect(await activeElementInsideTerminal(page, "focus-e3-solo")).toBe(true);
+
+    // Move focus away deliberately (User Flow 2: "the rail-sort select, say") before the
+    // re-click under test.
+    await railSortSelect(page).focus();
+    await expect(railSortSelect(page)).toBeFocused();
+    expect(await activeElementInsideTerminal(page, "focus-e3-solo")).toBe(false);
+
+    // Edge Case 1, "I clicked away, bring me back": the re-click's surface diff is a
+    // no-op (the surface is already mounted), but `focus()` must still fire.
+    await railCard(page, "focus-e3-solo").click();
+    expect(await activeElementInsideTerminal(page, "focus-e3-solo")).toBe(true);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("clicking a card's pin button pins the session, leaves the live pane unchanged, and never moves focus into a terminal (E4, REQ-5, INV-3)", async ({
+  page,
+}) => {
+  const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
+  try {
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, { directory: dirA.path, title: "focus-e4-a" });
+    await launchSession(page, daemon, { directory: dirB.path, title: "focus-e4-b" });
+    await expect(terminalRegion(page, "focus-e4-a")).toBeVisible();
+
+    const cardB = railCard(page, "focus-e4-b");
+    const btn = pinButton(cardB);
+    await expect(btn).toHaveAttribute("aria-pressed", "false");
+    await btn.click();
+
+    // REQ-5: pinning B doesn't select it — the live pane stays on A — and INV-3: focus
+    // never lands in any terminal from a card-control click. The pin button is icon-only
+    // (its accessible name lives in `aria-label`, not text content — `pinButton`'s
+    // role/name locator already proves that), so the state flip is asserted the same way
+    // rail-order.spec.ts does: `aria-pressed` plus the accessible-name change surfaced via
+    // `getByRole`'s name filter finding the button at all.
+    await expect(cardB.getByRole("button", { name: "Unpin" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#mainhead .name")).toHaveText("focus-e4-a");
+    expect(await activeElementInsideAnyTerminal(page)).toBe(false);
+  } finally {
+    await Promise.all([dirA.cleanup(), dirB.cleanup()]);
+  }
+});
+
+test("clicking a live card's End button opens the confirm dialog without selecting the session or moving focus into a terminal (REQ-5, INV-3)", async ({
+  page,
+}) => {
+  const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
+  try {
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, { directory: dirA.path, title: "focus-inv3-end-a" });
+    await launchSession(page, daemon, { directory: dirB.path, title: "focus-inv3-end-b" });
+    await expect(terminalRegion(page, "focus-inv3-end-a")).toBeVisible();
+
+    const cardB = railCard(page, "focus-inv3-end-b");
+    await cardB.getByRole("button", { name: "End" }).click();
+
+    const dialog = page.getByRole("dialog", { name: "End session?" });
+    await expect(dialog).toBeVisible();
+    await expect(page.locator("#mainhead .name")).toHaveText("focus-inv3-end-a");
+    expect(await activeElementInsideAnyTerminal(page)).toBe(false);
+
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
+  } finally {
+    await Promise.all([dirA.cleanup(), dirB.cleanup()]);
+  }
+});
+
+test("clicking Resume or Remove on an ended card never selects the session or moves focus into a terminal (REQ-5, INV-3)", async ({
+  page,
+  request,
+}) => {
+  const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
+  try {
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, { directory: dirA.path, title: "focus-inv3-dead-a" });
+    const sessionB = await launchSession(page, daemon, { directory: dirB.path, title: "focus-inv3-dead-b" });
+    await expect(terminalRegion(page, "focus-inv3-dead-a")).toBeVisible();
+
+    // Give B a claudeSessionId (via a real SessionStart) so its Resume button is enabled
+    // (sessions/card.ts: Resume is disabled while `claudeSessionId` is null), then end it
+    // so the card's `.acts-row` switches to the ended pair (REQ-11: Resume + Remove).
+    await request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart("claude-inv3-dead-b", { musterSession: sessionB.id }),
+    });
+    const endRes = await page.request.post(`${daemon.baseURL}/api/sessions/${sessionB.id}/end`);
+    expect(endRes.status()).toBe(200);
+
+    const cardB = railCard(page, "focus-inv3-dead-b");
+    const removeBtn = cardB.getByRole("button", { name: "Remove" });
+    const resumeBtn = cardB.getByRole("button", { name: "Resume" });
+    await expect(removeBtn).toBeVisible({ timeout: 15_000 });
+    await expect(resumeBtn).toBeVisible();
+
+    await removeBtn.click();
+    const removeDialog = page.getByRole("dialog", { name: "Remove session?" });
+    await expect(removeDialog).toBeVisible();
+    await expect(page.locator("#mainhead .name")).toHaveText("focus-inv3-dead-a");
+    expect(await activeElementInsideAnyTerminal(page)).toBe(false);
+    await removeDialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(removeDialog).toBeHidden();
+
+    // Resume has no confirm dialog (User Flow 3) — its `stopPropagation()` still runs
+    // synchronously in the same click, strictly before the async relaunch even starts.
+    await resumeBtn.click();
+    await expect(page.locator("#mainhead .name")).toHaveText("focus-inv3-dead-a");
+    expect(await activeElementInsideAnyTerminal(page)).toBe(false);
+  } finally {
+    await Promise.all([dirA.cleanup(), dirB.cleanup()]);
+  }
+});
+
+test("clicking an ended session's card shows the dead surface and leaves keyboard focus on that card, never in a terminal (E5, REQ-6)", async ({
+  page,
+  request,
+}) => {
+  const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
+  try {
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, { directory: dirA.path, title: "focus-e5-a" });
+    const sessionB = await launchSession(page, daemon, { directory: dirB.path, title: "focus-e5-b" });
+    await expect(terminalRegion(page, "focus-e5-a")).toBeVisible();
+
+    await request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart("claude-e5-b", { musterSession: sessionB.id }),
+    });
+    const endRes = await page.request.post(`${daemon.baseURL}/api/sessions/${sessionB.id}/end`);
+    expect(endRes.status()).toBe(200);
+
+    const cardB = railCard(page, "focus-e5-b");
+    await expect(cardB.getByRole("button", { name: "Resume" })).toBeVisible({ timeout: 15_000 });
+
+    await cardB.click();
+
+    // REQ-6/Edge Case 2: the dead surface replaces the terminal slot entirely; no
+    // Terminal container ever mounts for a dead session, and (browser default click
+    // focus on the tabindex="0" card, un-overridden since `surfaces.get(id)` is
+    // undefined) keyboard focus lands, and stays, on the clicked card.
+    await expect(page.locator("#dead-surface")).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('[aria-label="Terminal: focus-e5-b"]')).toHaveCount(0);
+    expect(await activeElementInsideAnyTerminal(page)).toBe(false);
+    await expect(cardB).toBeFocused();
+  } finally {
+    await Promise.all([dirA.cleanup(), dirB.cleanup()]);
+  }
+});
+
+test("dragging a rail card onto another in manual mode reorders the rail without changing focusedId or stealing focus from the terminal (E6, REQ-7, INV-4 source state (i): focus in the live terminal)", async ({
+  page,
+}) => {
+  const dirs = await Promise.all([scratchDirectory(), scratchDirectory(), scratchDirectory()]);
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const a = await launchSession(page, daemon, { directory: dirs[0]?.path ?? "", title: "focus-e6-a" });
+    const b = await launchSession(page, daemon, { directory: dirs[1]?.path ?? "", title: "focus-e6-b" });
+    const c = await launchSession(page, daemon, { directory: dirs[2]?.path ?? "", title: "focus-e6-c" });
+    await expect.poll(() => railOrderIds(page)).toEqual([a.id, b.id, c.id]);
+    await expect(railSortSelect(page)).toHaveValue("manual");
+
+    // A is the default-focused, top-of-manual-order session — click its own card to put
+    // keyboard focus inside its terminal before dragging (INV-4 source state (i)).
+    await railCard(page, "focus-e6-a").click();
+    expect(await activeElementInsideTerminal(page, "focus-e6-a")).toBe(true);
+
+    await railCard(page, "focus-e6-c").dragTo(railCard(page, "focus-e6-a"));
+    await expect.poll(() => railOrderIds(page), { timeout: 15_000 }).toEqual([c.id, a.id, b.id]);
+
+    // The drag never changes focusedId (the live pane stays on A, REQ-7) and never
+    // leaves keyboard focus inside any terminal (Edge Case 4: the drag's `mousedown`
+    // blurs the terminal; nothing re-throws focus into it afterwards, INV-4).
+    await expect(page.locator("#mainhead .name")).toHaveText("focus-e6-a");
+    expect(await activeElementInsideAnyTerminal(page)).toBe(false);
+  } finally {
+    await Promise.all(dirs.map((d) => d.cleanup()));
+  }
+});
+
+test("dragging a rail card leaves focus untouched whether it started on an uninvolved card or the rail-sort select (INV-4 source states (ii), (iii))", async ({
+  page,
+}) => {
+  const dirs = await Promise.all([scratchDirectory(), scratchDirectory(), scratchDirectory()]);
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const a = await launchSession(page, daemon, { directory: dirs[0]?.path ?? "", title: "focus-inv4-a" });
+    const b = await launchSession(page, daemon, { directory: dirs[1]?.path ?? "", title: "focus-inv4-b" });
+    const c = await launchSession(page, daemon, { directory: dirs[2]?.path ?? "", title: "focus-inv4-c" });
+    await expect.poll(() => railOrderIds(page)).toEqual([a.id, b.id, c.id]);
+
+    // (ii) focus starts on a card not involved in the drag.
+    await railCard(page, "focus-inv4-b").focus();
+    await expect(railCard(page, "focus-inv4-b")).toBeFocused();
+    await railCard(page, "focus-inv4-c").dragTo(railCard(page, "focus-inv4-a"));
+    await expect.poll(() => railOrderIds(page), { timeout: 15_000 }).toEqual([c.id, a.id, b.id]);
+    expect(await activeElementInsideAnyTerminal(page)).toBe(false);
+
+    // (iii) focus starts on the rail-sort select.
+    await railSortSelect(page).focus();
+    await expect(railSortSelect(page)).toBeFocused();
+    await railCard(page, "focus-inv4-b").dragTo(railCard(page, "focus-inv4-c"));
+    await expect.poll(() => railOrderIds(page), { timeout: 15_000 }).toEqual([b.id, c.id, a.id]);
+    expect(await activeElementInsideAnyTerminal(page)).toBe(false);
+  } finally {
+    await Promise.all(dirs.map((d) => d.cleanup()));
+  }
+});
+
+test("Enter on a keyboard-focused rail card selects the session but leaves focus on the card (E7, REQ-8)", async ({
+  page,
+}) => {
+  const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
+  try {
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, { directory: dirA.path, title: "focus-e7-a" });
+    await launchSession(page, daemon, { directory: dirB.path, title: "focus-e7-b" });
+    await expect(terminalRegion(page, "focus-e7-a")).toBeVisible();
+
+    const cardB = railCard(page, "focus-e7-b");
+    // The "Tab to a card" precondition, via `focus()` on the card's own `tabindex="0"`
+    // — the control genuinely under test here is the keyboard activation (Enter),
+    // driven with a real keypress, not `.click()`.
+    await cardB.focus();
+    await expect(cardB).toBeFocused();
+
+    await page.keyboard.press("Enter");
+
+    // REQ-8: the live pane swaps to B, but focus stays on B's card — never the terminal.
+    await expect(page.locator("#mainhead .name")).toHaveText("focus-e7-b");
+    await expect(cardB).toBeFocused();
+    expect(await activeElementInsideAnyTerminal(page)).toBe(false);
+  } finally {
+    await Promise.all([dirA.cleanup(), dirB.cleanup()]);
+  }
+});
+
+test("a 1s render tick never moves focus into a terminal when it starts outside one, and never steals it once inside (E8, INV-1 source state (a))", async ({
+  page,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, { directory: dir, title: "focus-e8-solo" });
+    const region = terminalRegion(page, "focus-e8-solo");
+    await expect(region).toBeVisible();
+
+    // On load the session is auto-focused (the live pane shows it) but keyboard focus is
+    // deliberately NOT moved there — only a pointer click does that (REQ-1's scope).
+    expect(await activeElementInsideTerminal(page, "focus-e8-solo")).toBe(false);
+    // 2.5s spans at least two of main.ts's 1s render ticks.
+    await page.waitForTimeout(2_500);
+    expect(await activeElementInsideTerminal(page, "focus-e8-solo")).toBe(false);
+
+    // Now click in — the tick must neither steal focus away nor need to "re-assert" it;
+    // the exact same DOM node stays focused across two more ticks (tagged so identity,
+    // not just "some element under this aria-label", is what's checked).
+    await railCard(page, "focus-e8-solo").click();
+    expect(await activeElementInsideTerminal(page, "focus-e8-solo")).toBe(true);
+    await page.evaluate(() => {
+      const active = document.activeElement as (HTMLElement & { dataset: DOMStringMap }) | null;
+      if (active) active.dataset.e2eFocusMarker = "terminal-focus-e8";
+    });
+
+    await page.waitForTimeout(2_500);
+
+    expect(await activeElementInsideTerminal(page, "focus-e8-solo")).toBe(true);
+    const stillSameNode = await page.evaluate(
+      () =>
+        (document.activeElement as (HTMLElement & { dataset: DOMStringMap }) | null)?.dataset.e2eFocusMarker ===
+        "terminal-focus-e8",
+    );
+    expect(stillSameNode).toBe(true);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("a sessionUpsert for the focused session doesn't move keyboard focus into its terminal (INV-1 source state (b))", async ({
+  page,
+  request,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, { directory: dir, title: "focus-inv1b-solo" });
+    await expect(terminalRegion(page, "focus-inv1b-solo")).toBeVisible();
+
+    const initialBadge = await stateBadge(railCard(page, "focus-inv1b-solo")).textContent();
+
+    // Focus deliberately outside any terminal beforehand (INV-1's precondition).
+    await railSortSelect(page).focus();
+    await expect(railSortSelect(page)).toBeFocused();
+
+    // A turn-activity hook for the FOCUSED session's own claude id triggers a
+    // sessionUpsert (state moves off its initial value) and a `render()` pass, with no
+    // card click anywhere in this test.
+    await request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart("claude-inv1b-solo", { musterSession: session.id }),
+    });
+    await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit("claude-inv1b-solo") });
+
+    await expect.poll(() => stateBadge(railCard(page, "focus-inv1b-solo")).textContent()).not.toBe(initialBadge);
+
+    // The render pass this state change caused must not have moved focus.
+    await expect(railSortSelect(page)).toBeFocused();
+    expect(await activeElementInsideAnyTerminal(page)).toBe(false);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("a rail reorder from a state change in attention mode doesn't move keyboard focus into a terminal (INV-1 source state (c))", async ({
+  page,
+  request,
+}) => {
+  const dirs = await Promise.all([scratchDirectory(), scratchDirectory(), scratchDirectory()]);
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const a = await launchSession(page, daemon, { directory: dirs[0]?.path ?? "", title: "focus-inv1c-a" });
+    const b = await launchSession(page, daemon, { directory: dirs[1]?.path ?? "", title: "focus-inv1c-b" });
+    const c = await launchSession(page, daemon, { directory: dirs[2]?.path ?? "", title: "focus-inv1c-c" });
+    await expect(terminalRegion(page, "focus-inv1c-a")).toBeVisible();
+
+    await page.locator("#rail-sort").selectOption("attention");
+    await expect(railSortSelect(page)).toHaveValue("attention");
+    await expect.poll(() => railOrderIds(page)).toEqual([a.id, b.id, c.id]);
+
+    // Focus deliberately outside any terminal beforehand (INV-1's precondition).
+    await railSortSelect(page).focus();
+    await expect(railSortSelect(page)).toBeFocused();
+
+    // Drive C to needs-input — attention mode's pinned-then-need-sorted order (order-
+    // sidebar REQ-7) puts it first, reordering the rail with no click anywhere.
+    await request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart("claude-inv1c-c", { musterSession: c.id }),
+    });
+    await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit("claude-inv1c-c") });
+    await request.post(daemon.ingestURL("hook"), {
+      data: rawNotification("claude-inv1c-c", "p1", "permission_prompt"),
+    });
+
+    await expect.poll(() => railOrderIds(page), { timeout: 15_000 }).toEqual([c.id, a.id, b.id]);
+
+    // The reorder must not have moved focus off the select or into any terminal.
+    await expect(railSortSelect(page)).toBeFocused();
+    expect(await activeElementInsideAnyTerminal(page)).toBe(false);
+  } finally {
+    await Promise.all(dirs.map((d) => d.cleanup()));
+  }
 });

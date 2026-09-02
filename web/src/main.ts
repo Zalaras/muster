@@ -750,9 +750,16 @@ function render(): void {
     sessionsEl,
     orderRail(sessions, railSort),
     now,
-    (id) => {
+    (id, source) => {
       focusedId = id;
       render();
+      // plan terminal-focus REQ-1/REQ-2/REQ-4/REQ-6: only a deliberate pointer click on
+      // a rail card moves keyboard focus into the terminal — the ⌘1-9 shortcut,
+      // Enter/Space on a card, and the Tiles strip's promote click leave focus where it
+      // was (Scope decision 1). `render()` above is synchronous and has already mounted
+      // the surface, so its root is in the DOM by the time `focus()` runs.
+      // `surfaces.get(id)` is `undefined` for a dead session, which is REQ-6 for free.
+      if (source === "pointer") surfaces.get(id)?.focus();
     },
     dispatchAction,
     connected,

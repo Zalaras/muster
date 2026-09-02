@@ -1157,3 +1157,20 @@ Shipped: three palettes (Instrument/Dark/Light), `make contrast` under `make che
 pairs per theme, 0 failures), Settings dialog, `claudeTheme` poll and broadcast, app-wide
 `.btn:disabled` affordance. Measured during review: the daemon never writes Claude's config
 file (mtime unchanged over ~480 ticks) and logs nothing per tick.
+
+### 2026-09-02 — rail click puts the cursor in the terminal (plan `terminal-focus`, via `/orchestrate`, approved review cycle 1)
+
+Issue #11. Built on branch `plan/terminal-focus`; lands with `/land`. Web-only, no protocol
+or schema delta.
+
+- **A pointer click on a rail card moves keyboard focus into that session's live terminal**,
+  so typing lands without a second click. `TerminalSurface` gained `focus()` (a wrapper over
+  xterm's `Terminal.focus()`, a no-op for a dead or disposed surface); its single call site
+  is the rail callback in `main.ts`, after `render()` returns, guarded on the click source.
+- **Deliberately not moved**: keyboard activation (Enter/Space on a card), ⌘1–9 and the
+  Tiles strip keep their existing behaviour — they select but leave focus where it is. A
+  dead session's card shows the dead surface and leaves focus on the card. Nothing on the
+  render tick, reconcile, view-switch or drag-reorder paths touches focus (INV-1).
+- Measured during review: after one card click `document.activeElement` is xterm's helper
+  textarea inside the clicked session's `Terminal:` container, and typed input reaches that
+  pane's stub echo with no click on the pane.

@@ -19,6 +19,34 @@ export function terminalRegion(page: Page, title: string): Locator {
 }
 
 /**
+ * Plan terminal-focus's focus oracle (Testable UI Elements: "the focus oracle is
+ * `document.activeElement` is a descendant of this container — assert via
+ * `page.evaluate`, not by locating xterm's textarea"). `closest()` also matches when the
+ * container element itself is the active element (never true in practice for xterm's
+ * hidden textarea, but keeps the check honest either way).
+ */
+export async function activeElementInsideTerminal(page: Page, title: string): Promise<boolean> {
+  return await page.evaluate((t) => {
+    const active = document.activeElement;
+    if (!active) return false;
+    return active.closest(`[aria-label="Terminal: ${t}"]`) !== null;
+  }, title);
+}
+
+/**
+ * Same oracle, unscoped to a title — plan terminal-focus's INV-3/INV-4 assertions only
+ * need "not inside ANY terminal", since the point under test (a card control click, a
+ * drag) must never move focus into a terminal at all, regardless of which session's.
+ */
+export async function activeElementInsideAnyTerminal(page: Page): Promise<boolean> {
+  return await page.evaluate(() => {
+    const active = document.activeElement;
+    if (!active) return false;
+    return active.closest('[aria-label^="Terminal: "]') !== null;
+  });
+}
+
+/**
  * The one state-overlay element inside a live surface (down/superseded/ended), per the
  * Testable UI Elements row `/disconnected|another window|session ended/`.
  */

@@ -190,15 +190,19 @@ function updateSessionCardContent(
  * a strip card in Tiles per the plan's UI spec: "the M1 card content on its side").
  * `onClick` is optional so the honest-empty-state-only Vitest coverage in sessions.test.ts
  * keeps working unchanged; every real caller (rail, strip) supplies one (REQ-7's "clicking
- * a rail card moves focus" / REQ-8's "clicking a strip card promotes it"). Listeners are
- * wired up exactly once here — `reconcileCards` never rebuilds an existing card, it calls
+ * a rail card moves focus" / REQ-8's "clicking a strip card promotes it"). The callback
+ * now also learns its source — `"pointer"` for a mouse click, `"keyboard"` for Enter/Space
+ * activation (plan terminal-focus REQ-8) — so a caller that only wants to move keyboard
+ * focus into the terminal on a deliberate pointer selection (main.ts's rail callback) can
+ * tell the two apart without a second callback or a DOM flag. Listeners are wired up
+ * exactly once here — `reconcileCards` never rebuilds an existing card, it calls
  * `updateSessionCardElement` on the same node instead (review m4-reconcile cycle-2
  * Major 1). */
 export function buildSessionCardElement(
   session: Session,
   now: Date,
   template: HTMLTemplateElement,
-  onClick?: (id: number) => void,
+  onClick?: (id: number, source: "pointer" | "keyboard") => void,
   onAction?: (action: SessionAction, id: number) => void,
   connected = true,
   draggable = false,
@@ -221,7 +225,11 @@ export function buildSessionCardElement(
     // REQ-7/REQ-8: cards become interactive in M2 — keyboard-reachable too, not just a
     // mouse target.
     card.tabIndex = 0;
-    card.addEventListener("click", () => onClick(session.id));
+    // plan terminal-focus REQ-8: the pointer path is the only one main.ts's rail
+    // callback uses to move keyboard focus into the terminal (REQ-1/REQ-4) — the
+    // keyboard-activation branch below reports itself as "keyboard" so that callback can
+    // decline to do so and leave focus on the card.
+    card.addEventListener("click", () => onClick(session.id, "pointer"));
     card.addEventListener("keydown", (event) => {
       // review m4-reconcile Major 5: this listener is on `.card`, but REQ-11 nests real
       // `<button>`s inside it (.acts-row) whose own keydown (Enter/Space) bubbles up
@@ -234,7 +242,7 @@ export function buildSessionCardElement(
       if (event.target !== card) return;
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        onClick(session.id);
+        onClick(session.id, "keyboard");
       }
     });
   }
@@ -277,7 +285,7 @@ export function reconcileCards(
   sessions: readonly Session[],
   now: Date,
   template: HTMLTemplateElement,
-  onClick: ((id: number) => void) | undefined,
+  onClick: ((id: number, source: "pointer" | "keyboard") => void) | undefined,
   onAction: ((action: SessionAction, id: number) => void) | undefined,
   connected: boolean,
   draggable = false,
@@ -368,7 +376,7 @@ export function renderSessions(
   el: HTMLElement,
   sessions: readonly Session[],
   now: Date = new Date(),
-  onClick?: (id: number) => void,
+  onClick?: (id: number, source: "pointer" | "keyboard") => void,
   onAction?: (action: SessionAction, id: number) => void,
   connected = true,
   draggable = false,

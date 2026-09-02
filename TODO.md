@@ -535,12 +535,17 @@ unless he re-ranks — don't re-sort this list.
   path (deliberately, for security), so the path must come from elsewhere: the `/api/browse`
   picker already in the tree, or a daemon-side staging write. Decide which before planning.
 
-- [ ] **Sidebar click doesn't move focus into the terminal** ([#11](https://github.com/Zalaras/muster/issues/11))
-  — clicking a rail card should leave you able to type immediately; today it selects the
-  session but keyboard focus stays put, so the pane needs a second click. Same focus seam as
-  the approved `shortcut-fixes` plan for #5 below (⌥⌘1–9 focus, ⌥⌘0 jump-to-neediest), unstarted on
-  `plan/shortcut-fixes` — it could absorb this, and probably should, since "focus session n"
-  and "click session n" ought to agree on what focus means.
+- [x] **Sidebar click doesn't move focus into the terminal** ([#11](https://github.com/Zalaras/muster/issues/11))
+  — clicking a rail card should leave you able to type immediately; it used to select the
+  session but leave keyboard focus on the card, so the pane needed a second click.
+  **Done 2026-09-02** (plan `terminal-focus`, approved review cycle 1, on
+  `plan/terminal-focus` — lands with `/land terminal-focus`, which closes #11). Web-only, no
+  protocol or schema delta: `TerminalSurface` gained `focus()`, called once from the rail
+  card's pointer-click callback after `render()`. Scope settled at planning: the rail
+  pointer click only — ⌘1–9, Enter/Space on a card and the Tiles strip deliberately keep
+  their behaviour, and a dead session's card leaves focus in place. Shares the `main.ts`
+  seam with `shortcut-fixes` (#5 below) but touched neither `focusNth` nor the keydown
+  listener; `shortcut-fixes` may now run.
 
 - [ ] **The launcher's "auto-accept" isn't auto mode** ([#12](https://github.com/Zalaras/muster/issues/12))
   — picking it on a new session gives edit access, not auto. The wire is self-consistent

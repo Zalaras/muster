@@ -173,7 +173,8 @@ at once*. Everything in §3.2–§3.6 applies to both.
   model, session count, and the daemon-health indicator. Always visible — the success
   criterion (§1) is *awareness*, and awareness you have to navigate to isn't awareness.
 - **Rail** is the session list of §2.1, sorted by who needs you.
-- **Main** is exactly one live terminal. Clicking a rail card swaps which session is live.
+- **Main** is exactly one live terminal. Clicking a rail card swaps which session is live,
+  and puts the cursor in the pane.
 
 ### 3.2 Why exactly one live pane
 
