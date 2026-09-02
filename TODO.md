@@ -566,8 +566,28 @@ unless he re-ranks — don't re-sort this list.
   indicated, and at what rate it scrolls. The "rather slow" half is unmeasured — measure
   before planning.
 
-- [ ] **README's install command doesn't work on Apple Silicon** ([#7](https://github.com/Zalaras/muster/issues/7))
-  — the block at `README.md:76-79` fails three separate ways, all reproduced by the reporter:
+- [x] **README's install command doesn't work on Apple Silicon** ([#7](https://github.com/Zalaras/muster/issues/7))
+  ✅ done 2026-09-02 (direct fix, no pipeline — doc + Makefile only). The README's by-hand
+  block is now **two full per-arch fences** (arm64 and amd64), each downloading into a fresh
+  `mktemp -d` and extracting with `-C ~/.local/bin` — which kills the `--clobber` and the
+  glob-plus-member failures by construction rather than by patching the symptoms — plus a
+  prose note saying *why* the temp dir is load-bearing so a later edit can't undo it, and a
+  latest-vs-pinned note (no tag = latest, which is *why* `--pattern` is mandatory there; a tag
+  as first argument pins — both verified, `v0.3.0` fetched and ran as `musterd 0.3.0`) closing
+  a gap in the old lead-in, which offered "a specific version" and then showed no way to ask
+  for one. The
+  shadowing half is answered with verification rather than a location change: "Confirm it
+  worked" now runs `command -v musterd` **before** `-version` and explains that a mismatch
+  means a stale copy earlier in `$PATH` is what `-version` just reported. Both commands were
+  run end to end before being written down (arm64 and amd64, twice each, rc=0 — re-runnable
+  without `--clobber`); `chmod +x` is *not* needed, the archived binary is already
+  `-rwxr-xr-x`. Two extras found while verifying: `make install` had no shadow warning (added,
+  same wording as the README), and — pre-existing, worse — its recipe chained with `;` and no
+  `set -e`, so a failed `gh release download` still printed `installed …` and **exited 0**
+  (measured: rc=0 on a broken-auth run; now `make: *** [install] Error 4`, rc=2).
+  **Deliberately not done: the `curl | sh` installer the issue also asks for** — deferred to
+  post-v1 open-sourcing, see the M5+ entry. Was: the block at `README.md:76-79` failed three
+  separate ways, all reproduced by the reporter:
   `tar -xzf musterd_*.tar.gz musterd` passes the glob *and* a member name, so tar sees five
   arguments (`tar: accepts at most 1 arg(s), received 5`); a second `gh release download`
   aborts (`musterd_0.2.1_darwin_arm64.tar.gz already exists (use --clobber to overwrite
@@ -613,6 +633,17 @@ Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start
 (§4.3) → permissions UI (§4.4) → `code <worktree>` button (trivial, anytime).
 Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-09-01) is in
 `docs/design/worktree-conflicts.md` — read it before planning the worktree manager.
+
+- [ ] **A real `curl | sh` installer** — the second half of
+  [#7](https://github.com/Zalaras/muster/issues/7) (the first half, the broken README command,
+  shipped 2026-09-02). **Deferred to post-v1 as part of open-sourcing** (Damian, 2026-09-02),
+  and the reason is structural, not priority: the repo is **private**, so neither the script
+  fetch nor the asset download can be anonymous — the one-liner every non-brew tool ships
+  (`curl -fsSL … | sh`) cannot exist here at all, and any version of it today would still be
+  `gh`-gated, i.e. the same dependency `make install` already has. Open-sourcing is what
+  unblocks it, and it unblocks the deferred Homebrew tap in the same move (see the CI item
+  above), so the two should be planned together rather than separately. Until then `make
+  install` is the supported path and the README carries the by-hand fences.
 
 - [ ] **Version-pin warning is developer-facing** ([#6](https://github.com/Zalaras/muster/issues/6))
   — "drift from pinned 2.1.246" means nothing to someone who didn't set the pin. It should

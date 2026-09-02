@@ -70,24 +70,61 @@ repo is private, so downloads go through `gh`:
 make install     # latest release -> ~/.local/bin/musterd
 ```
 
-Or by hand, if you want a specific version or a different location:
+Or by hand, if you want a different location or a specific version. Both blocks below take
+the **latest** release — `gh release download` defaults to it when given no tag, which is why
+`--pattern` is mandatory there. **Apple Silicon** (`uname -m` → `arm64`):
 
 ```sh
+tmp=$(mktemp -d) &&
 gh release download --repo Zalaras/muster \
-  --pattern 'musterd_*_darwin_arm64.tar.gz'   # or _amd64 on Intel
-tar -xzf musterd_*.tar.gz musterd
-mv musterd ~/.local/bin/musterd   # or anywhere else already on your $PATH
+  --pattern 'musterd_*_darwin_arm64.tar.gz' --dir "$tmp" &&
+mkdir -p ~/.local/bin &&
+tar -xzf "$tmp"/musterd_*.tar.gz -C ~/.local/bin musterd &&
+rm -rf "$tmp"
+```
+
+**Intel** (`uname -m` → `x86_64`) — identical but for the pattern:
+
+```sh
+tmp=$(mktemp -d) &&
+gh release download --repo Zalaras/muster \
+  --pattern 'musterd_*_darwin_amd64.tar.gz' --dir "$tmp" &&
+mkdir -p ~/.local/bin &&
+tar -xzf "$tmp"/musterd_*.tar.gz -C ~/.local/bin musterd &&
+rm -rf "$tmp"
+```
+
+Both download into a **fresh temp dir** on purpose, and that is not cosmetic (it is what
+`make install` does too). Downloading into the current directory needs `--clobber` on every
+re-run, and leaves last version's archive sitting there — so `musterd_*.tar.gz` then matches
+several files and `tar` is handed a list of archives plus a member name and fails
+(`tar: musterd_0.3.0_darwin_arm64.tar.gz: Not found in archive`). An empty dir per run makes
+the glob single by construction. Substitute a different `-C` target for a location other than
+`~/.local/bin`; anything already on your `$PATH` works.
+
+To pin a version instead of taking the latest, pass the tag as the first argument — the rest
+of the command is unchanged:
+
+```sh
+gh release download v0.3.0 --repo Zalaras/muster \
+  --pattern 'musterd_*_darwin_arm64.tar.gz' --dir "$tmp"
 ```
 
 The binary is unsigned, but `gh` doesn't set the `com.apple.quarantine` xattr, so it runs
 without a Gatekeeper prompt. If you download one through a browser instead, clear it with
 `xattr -d com.apple.quarantine musterd`.
 
-Confirm it worked:
+Confirm it worked — **both lines**, not just the second:
 
 ```sh
-musterd -version   # prints the musterd version and the Claude Code version it's pinned to
+command -v musterd   # must print the path you just installed to
+musterd -version     # prints the musterd version and the Claude Code version it's pinned to
 ```
+
+If `command -v` prints some *other* path, an older copy earlier in your `$PATH`
+(`/usr/local/bin/musterd` is the usual one) is shadowing the install and `-version` is
+reporting that stale binary, not the one you just fetched. Delete the old copy, or re-run the
+install with `-C` pointing at the directory it lives in.
 
 `musterd -version` succeeds even without tmux installed — the tmux preflight above only runs
 when musterd actually starts.

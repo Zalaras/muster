@@ -74,7 +74,8 @@ hooks: ## Arm the commit-msg guard (.githooks/) for this clone — enforces docs
 # per arch rather than a universal binary.
 .PHONY: install
 install: ## Install the latest released musterd into ~/.local/bin
-	@arch=$$(uname -m | sed 's/^x86_64$$/amd64/; s/^aarch64$$/arm64/'); \
+	@set -e; \
+	arch=$$(uname -m | sed 's/^x86_64$$/amd64/; s/^aarch64$$/arm64/'); \
 	tmp=$$(mktemp -d); \
 	trap 'rm -rf "$$tmp"' EXIT; \
 	echo "fetching latest musterd_*_darwin_$$arch.tar.gz"; \
@@ -82,7 +83,12 @@ install: ## Install the latest released musterd into ~/.local/bin
 		--pattern "musterd_*_darwin_$$arch.tar.gz" --dir "$$tmp"; \
 	mkdir -p $(HOME)/.local/bin; \
 	tar -xzf "$$tmp"/*.tar.gz -C $(HOME)/.local/bin musterd; \
-	echo "installed $(HOME)/.local/bin/musterd ($$($(HOME)/.local/bin/musterd -version))"
+	echo "installed $(HOME)/.local/bin/musterd ($$($(HOME)/.local/bin/musterd -version))"; \
+	resolved=$$(command -v musterd || true); \
+	if [ -n "$$resolved" ] && [ "$$resolved" != "$(HOME)/.local/bin/musterd" ]; then \
+		echo "warning: 'musterd' on your PATH resolves to $$resolved, not the copy just installed"; \
+		echo "         that older binary shadows this one - remove it, or install over it instead"; \
+	fi
 
 .PHONY: release-check
 release-check: ## Validate .goreleaser.yaml and build a local snapshot release into ./dist
