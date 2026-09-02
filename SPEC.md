@@ -125,6 +125,9 @@ notifications by design — the point is to be working *in* the dashboard.
   pane-level vocabulary is what produced the `resize-pane` error below.) The daemon bridges a
   PTY attached to tmux over WebSocket; the UI renders with xterm.js.
 - The dashboard does not restyle anything inside a pane — Claude Code draws its own TUI.
+  The pane's *ground and foreground* (the frame, not the contents) follow the theme family
+  Claude Code itself is drawing for — read from its `theme` setting, never set — regardless
+  of which Muster theme is active (2026-09-02 changelog, plan `new-ui-design-colors`).
 - Sizing (all measured 2026-08-16). **`resize-pane` is wrong** — it exits 0 and silently does
   nothing on a single-pane window. Drive **both** `pty.Setsize` *and* `tmux resize-window`,
   in that order: the first sizes the region the tmux client paints into, the second sizes the
@@ -207,7 +210,11 @@ notifications by design — the point is to be working *in* the dashboard.
   resources.
 - **Resource gauges (CPU/RAM)** — never.
 - **Second machine / distributed sessions** — never.
-- Accessibility, i18n, multi-user, non-macOS platforms.
+- Accessibility, i18n, multi-user, non-macOS platforms. **One bounded exception (2026-09-02,
+  plan `new-ui-design-colors`):** the dashboard's own chrome is held to a WCAG AA contrast
+  bar (4.5:1 text, 3:1 non-text UI) across every built-in theme, because it fell out of the
+  theme-token work for free once a script measured the pairs. Screen-reader, keyboard-audit
+  and i18n work stay non-goals.
 
 ---
 
@@ -1084,3 +1091,42 @@ measurements are in `docs/conventions.md` § Commits.
   and `refactor` too, since they are published. Corrected en route: the longest subject
   on `main` is 1,155 chars (`5d4e1d6`, docs) and the `feat(m3)` bullet is 1,138 — not
   1,900 as `112c36c` recorded.
+
+### 2026-09-02 — theme tokens, light/dark pair, contrast pass (spec, plan `new-ui-design-colors`)
+
+Spec interview for issue #3; settled with Damian, not yet built. Full text in
+`plans/new-ui-design-colors/spec.md`.
+
+- **Theming, not white labelling.** Muster stays single-user (§3); the same dashboard gets
+  swappable palettes. A two-layer token architecture (semantic tokens referenced by
+  components; per-theme palette blocks) replaces design-system §1's single flat palette.
+  Custom themes are *architecture only* in v1 — a new source block, not a loadable file.
+- **Three built-in themes ship in v1**: **Instrument** (the 2026-08-16 direction-A palette,
+  contrast-fixed; the default), a **conventional web-style dark**, and a **standard light**.
+  The light theme does not re-litigate rejected direction B — that was a layout direction;
+  this is a palette on direction A's structure.
+- **AA everywhere** (4.5:1 text, 3:1 non-text UI; decorative hairlines exempt), gated by a
+  script under `make check`. Recorded as the one bounded exception to §3's accessibility
+  non-goal. Measured 2026-09-02: `--dim` 2.6:1 and the Idle badge 2.8:1 on `--panel` fail
+  today.
+- **State colours keep fixed hue families in every theme** (amber/rose/violet/teal/grey),
+  tuned per theme for lightness only; design-system §3's meaning rules carry over.
+- **Theme choice**: a basic **Settings dialog** off the masthead with exactly *Follow Claude
+  Code · Instrument · Dark · Light*, persisted as `prefs.theme` via the existing prefs path.
+  The pref is **unset until the user picks**; unset follows Claude Code's theme family
+  (light → Light, dark/unknown → Instrument) and keeps following. *Follow Claude Code*
+  clears the override.
+- **Claude Code's theme is read, never set**: musterd polls only the `theme` key of
+  `~/.claude.json` (read-only; the file is otherwise account data) and broadcasts a
+  `light`/`dark`/`unknown` family. It is not on the wire — no hook or status-line field
+  carries it — and `claude config get` no longer exists in the installed CLI. All knowledge
+  of that file stays in `internal/claudecode`.
+- **The terminal ground always follows Claude's family**, override or not: Muster cannot
+  restyle the TUI Claude Code draws (design-system §7.5), so it matches the pane ground to
+  the theme Claude is drawing for instead. Each theme supplies a light and a dark terminal
+  pair.
+- **The M5+ app-wide `.btn:disabled` affordance pass is folded in** (same layer; Option B in
+  `plans/issue-capture/decisions/disabled-button-affordance/`).
+- **Mockups are re-rendered under all three themes during planning**, so plan approval means
+  seeing every palette on both views first — the same mockup-first order the original
+  direction was chosen by.

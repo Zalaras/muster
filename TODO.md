@@ -521,6 +521,10 @@ unless he re-ranks — don't re-sort this list.
   room for custom themes. Touches the design system (`docs/design/design-system.md`),
   so it wants a `/spec` pass before planning. Note the M5+ `.btn:disabled` affordance item
   is the same layer — if this lands first, fold that pass into it.
+  **Spec written 2026-09-02** → `plans/new-ui-design-colors/spec.md` (three built-in themes:
+  Instrument/Dark/Light, AA-everywhere contrast gate, Settings dialog + `theme` pref, daemon
+  polls Claude's `~/.claude.json` theme key for the terminal ground; `.btn:disabled` pass
+  folded in). Next: `/plan-work new-ui-design-colors`.
 
 - [ ] **Dropping a file on a terminal pane navigates the browser** ([#8](https://github.com/Zalaras/muster/issues/8))
   — in a real terminal a dragged file inserts its path; in the dashboard Safari (and likely
@@ -627,7 +631,8 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
   End/Resume/Remove in the masthead, tiles and dead surface share the gap). Settled Option B
   (user decision, `plans/issue-capture/decisions/disabled-button-affordance/decision.md`):
   ship issue-capture as-is, then do one app-wide disabled-state token pass in `style.css`.
-  Cite: `plans/issue-capture/review.md`.
+  Cite: `plans/issue-capture/review.md`. **Folded into plan `new-ui-design-colors`
+  (spec 2026-09-02, #3 above)** — do not plan separately.
 
 - Scaling note (m2 review cycle-2 Minor 3): `terminalRegistry.takeover` holds one global
   mutex across the PTY spawn — deliberate and correct for REQ-2's evict-before-attach
