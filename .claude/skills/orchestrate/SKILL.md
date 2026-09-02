@@ -132,8 +132,12 @@ Spawn `subagent_type: "e2e-specs"` with prompt:
 Execute in AUTHORING MODE the E2E specs task for plan: <plan-name>
 Project root: <project-root>
 
-The implementation does not exist yet, so your tests are expected to fail if executed. Your gate
-is the collection check only. Finish with Verdict: authored — do not report `pass`.
+The implementation does not exist yet, so tests that assert NEW behaviour are expected to fail if
+executed; for those your gate is the collection check only. Tests that pin UNCHANGED behaviour
+(REQs phrased "still"/"unaffected"/"does not", INV source states, controls the plan marks
+Existing) must run green against the current tree now — see your definition's "Regression pins
+run live at authoring" — and a red one is your locator defect to fix before you log. Finish with
+Verdict: authored — do not report `pass`.
 ```
 
 For an `E2E Scope: harness-only` plan, replace the last sentence with:
@@ -144,7 +148,7 @@ spec files the change now covers, and finish with Verdict: harness-only — not 
 (nothing was authored) and not `pass` (nothing ran).
 ```
 
-Wait for completion. Verify `plans/<plan-name>/test-specs.md` was created and reports `**Verdict**: authored` (or `harness-only` for a harness-only plan). A `pass` verdict here means the agent misread its mode — the feature cannot exist yet. Step 5 is where these tests are proven to actually run.
+Wait for completion. Verify `plans/<plan-name>/test-specs.md` was created and reports `**Verdict**: authored` (or `harness-only` for a harness-only plan). A `pass` verdict here means the agent misread its mode — the feature cannot exist yet. Also check the Tests table marks each row `ran-green-at-authoring` or `collection-only` and that at least the regression-pin rows carry the former with a pasted run summary; a table that is all `collection-only` for a plan whose REQs include "unchanged" behaviour means the agent skipped the live run — send it back once. Step 5 is where the remaining (new-behaviour) tests are proven to actually run. Learned from terminal-focus: seven of eleven authored tests pinned existing behaviour, none ran at authoring, and the run's only locator defect lived in one of them until validate.
 
 ### Step 2: Implementation Agents
 
@@ -366,7 +370,14 @@ python3 $S <plan> status blocked --step <step>      # on exhaustion
 python3 $S <plan> status completed                  # only after review = approved
 python3 $S <plan> reopen <step>                     # resume from blocked/completed (keeps retry count; add --reset-retries only when the user grants a fresh budget)
 python3 $S <plan> show
+python3 $S <plan> timings                           # Completion 5: per-step wall-clock table (from step_finished_at)
 ```
+
+`done` also stamps `step_finished_at[<step>]`. Per-step wall-clock is the one number a retro
+cannot reconstruct afterwards — `started_at`/`updated_at` alone told the terminal-focus retro
+nothing about why authoring took 32 of the run's 51 minutes, and no prior run had a baseline
+to compare against. Also keep each agent's **token count and duration** from its task
+notification (`<usage>` block) as you go — they are not on disk anywhere else.
 
 The file it maintains has this shape:
 
@@ -386,6 +397,7 @@ The file it maintains has this shape:
   },
   "completed_steps": ["e2e-specs", "daemon-impl", "web-impl", "daemon-tests", "web-tests", "e2e-validate"],
   "failed_steps": [],
+  "step_finished_at": {"e2e-specs": "<timestamp>", "daemon-impl": "<timestamp>", "...": "..."},
   "started_at": "<timestamp>",
   "updated_at": "<timestamp>"
 }
@@ -490,7 +502,7 @@ When all steps pass AND the review verdict is "approved":
 2d. **End with everything committed.** Commit your doc-upkeep and state edits (`docs(<plan-name>): doc upkeep and pipeline completion`) and confirm `git status --short` on `plan/<plan-name>` shows nothing beyond the untracked strays noted at pre-flight — the branch is the review artifact: the user reviews with `git diff main...plan/<plan-name>` and lands it with `/land <plan-name>`. An agent's uncommitted files here are that agent's defect — have it commit them; if it cannot, commit them yourself as `chore(<plan-name>): commit <agent>'s uncommitted work (orchestrator)` so nothing is left dangling. The pipeline is not `completed` while the tree is dirty (pre-flight-noted untracked strays excepted).
 3. Update plan status to "completed"
 4. Update orchestration state status to "completed"
-5. Print a summary: what was done, files changed, retry count, any notable issues, the `[note]` items verbatim, and the branch name (`plan/<plan-name>`) with `git log --oneline main..`. Point at **`/land <plan-name>`** as the landing step and name the issues it will close (from 2c), plus any issue deliberately left open. The pipeline itself never merges or pushes
+5. Print a summary: what was done, files changed, retry count, any notable issues, the `[note]` items verbatim, **a per-step cost table** (`python3 $S <plan> timings` for wall-clock, plus each agent's tokens and duration from its task notification), and the branch name (`plan/<plan-name>`) with `git log --oneline main..`. Point at **`/land <plan-name>`** as the landing step and name the issues it will close (from 2c), plus any issue deliberately left open. The pipeline itself never merges or pushes
 6. **Decisions section** — for every debate run this pipeline (`plans/<plan>/decisions/*/decision.md`): the two options, the outcome, consensus-or-judged, the decisive argument in one or two sentences, and any dissent. The user may overrule with one line; if they do, `reopen` the affected wave and re-run it with the user's choice quoted.
 
 **NEVER mark the pipeline as completed if:**
