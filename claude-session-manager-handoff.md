@@ -53,17 +53,24 @@ Context summary for starting a fresh session. Covers research findings, decision
 | Tool | Runs Claude via | Cost / License | Notable |
 |---|---|---|---|
 | Conductor | **Agent SDK** | Free, proprietary | Best diff review w/ inline comments; bundles its own Claude Code version |
-| Claude Squad | tmux + real CLI | Free, AGPL-3.0 | Diff tab, `gh` push; commit rate slowing (last commit Jun 2026) |
+| Claude Squad | tmux + real CLI | Free, AGPL-3.0 | Diff tab, `gh` push; 8.4k stars, last push 2026-08-20 |
 | ccmanager | Real CLI, no tmux | Free, MIT | Cross-branch conversation copy; small, active, easiest contribution target |
-| agent-deck | tmux | Free, OSS | tmux status bar alerts |
-| Pane (runpane.com, dcouple) | Real PTY, Electron+xterm.js | Free, AGPL-3.0 | Pane Chat orchestrator, `runpane` CLI, resource manager; 359 stars, `curl\|sh` install bypasses Gatekeeper |
+| agent-deck | tmux | Free, MIT | tmux status bar alerts; 827 stars, active |
+| Pane (runpane.com, dcouple) | Real PTY, Electron+xterm.js | Free, AGPL-3.0 | Pane Chat orchestrator, `runpane` CLI, resource manager; 439 stars, `curl\|sh` install bypasses Gatekeeper |
 | Pane (pane.works, bryantebeek) | tmux over SSH | Free, closed source | Native Swift + Ghostty, iOS app, tile-all-tabs grid, v0.5.0, signed/Homebrew |
 | Sculptor | Containers | Free beta, proprietary | Container isolation + Pairing Mode |
-| Nimbalyst (ex-Crystal) | "Pluggable harnesses" (unclear) | Free for individuals | Crystal deprecated Feb 2026 |
-| Vibe Kanban | Subprocess | Free, Apache-2.0 | Bloop shut down Apr 2026, community-run |
-| Superset | Electron + xterm.js | Source-available | Theme marketplace, remote workspaces |
+| Nimbalyst (ex-Crystal) | "Pluggable harnesses" (unclear) | Free, MIT | Open-sourced MIT Apr 2026 (was free-for-individuals); Crystal deprecated Feb 2026, `stravu/crystal` frozen and MIT |
+| Vibe Kanban | Subprocess | Free, Apache-2.0 | Bloop shut down Apr 2026; nominally community-run but no push since 2026-04-24 and 539 open issues against 28k stars |
+| Superset | Electron + xterm.js | Source-available (Elastic License 2.0) | Theme marketplace, remote workspaces |
 | AgentsRoom | Real CLI | Commercial | E2E-encrypted mobile push |
-| ccusage / ccstatusline | n/a | Free | The only tools doing usage properly; complement any manager |
+| ccusage / ccstatusline | n/a | Free, MIT (both) | The only tools doing usage properly; complement any manager |
+
+Licence column re-verified 2026-09-03 against the GitHub API and each repo's `LICENSE`
+file (see `docs/design/open-sourcing.md` for the tally and what it implies for muster's
+own licence). Both Pane repos (`dcouple/Pane`, `Dcouple-Inc/Pane`) are the same
+repository and report `NOASSERTION` on the API while the `LICENSE` file is plainly
+AGPL-3.0 — don't trust the API field alone. Conductor, Sculptor, Pane (pane.works) and
+AgentsRoom were not re-verified; they have no public repo to check.
 
 **Features competitors have that weren't in the original spec:**
 
