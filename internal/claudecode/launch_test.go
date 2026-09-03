@@ -1,6 +1,7 @@
 package claudecode
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -85,4 +86,30 @@ func TestBuildArgv_UsesTheGivenBinaryName(t *testing.T) {
 	got := BuildArgv("/tmp/stub-claude.sh", LaunchParams{Model: "sonnet", PermissionMode: "default"})
 
 	assert.Equal(t, []string{"/tmp/stub-claude.sh", "--model", "sonnet"}, got)
+}
+
+// TestLaunchEnv pins the exact Claude Code variable name and a usable value. The name is
+// an unsupported interface (spikes/S6-scroll-bandwidth.md §6) — a rename upstream degrades
+// silently rather than failing, so the spelling is worth asserting somewhere that a diff
+// will show. The value is checked as a positive integer rather than a literal so tuning
+// ScrollSpeed doesn't churn the test.
+func TestLaunchEnv(t *testing.T) {
+	env := LaunchEnv()
+
+	v, ok := env["CLAUDE_CODE_SCROLL_SPEED"]
+	assert.True(t, ok, "CLAUDE_CODE_SCROLL_SPEED must be set — it is the only lever on wheel scroll distance")
+
+	n, err := strconv.Atoi(v)
+	assert.NoError(t, err, "Claude Code parses this as an integer and rejects anything else")
+	assert.Greater(t, n, 1, "must beat Claude Code's own ~1 line per notch default to be worth setting")
+}
+
+// TestLaunchEnv_ReturnsAFreshMap guards the two call sites in internal/server, which merge
+// the result into their own env map: handing back a shared map would let one launch's
+// mutation leak into the next.
+func TestLaunchEnv_ReturnsAFreshMap(t *testing.T) {
+	first := LaunchEnv()
+	first["CLAUDE_CODE_SCROLL_SPEED"] = "999"
+
+	assert.Equal(t, ScrollSpeed, LaunchEnv()["CLAUDE_CODE_SCROLL_SPEED"])
 }

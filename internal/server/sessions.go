@@ -161,6 +161,9 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 		"LANG":   "en_US.UTF-8",
 		"LC_ALL": "en_US.UTF-8",
 	}
+	for k, v := range claudecode.LaunchEnv() {
+		env[k] = v
+	}
 	target, pane, err := l.tmux.NewSession(ctx, sess.ID, dir, env, argv)
 	if err != nil {
 		l.rollback(ctx, sess.ID)
@@ -227,6 +230,9 @@ func (l *sessionLauncher) Resume(ctx context.Context, id int64) (*session.Sessio
 		// LANG/LC_ALL of its own.
 		"LANG":   "en_US.UTF-8",
 		"LC_ALL": "en_US.UTF-8",
+	}
+	for k, v := range claudecode.LaunchEnv() {
+		env[k] = v
 	}
 	target, pane, err := l.tmux.NewSession(ctx, id, sess.Directory, env, argv)
 	if err != nil {

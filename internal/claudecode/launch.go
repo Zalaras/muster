@@ -34,3 +34,35 @@ func BuildArgv(binary string, p LaunchParams) []string {
 	}
 	return args
 }
+
+// ScrollSpeed is the mouse-wheel scroll rate, in lines per notch, handed to Claude Code's
+// TUI via CLAUDE_CODE_SCROLL_SPEED. Claude Code owns the wheel — its TUI enables mouse
+// tracking (1000/1002/1003 plus SGR 1006) whether or not tmux is in the loop
+// (spikes/S6-scroll-bandwidth.md §1) — so this is the only lever Muster has over scroll
+// distance; nothing in the dashboard or in tmux can widen it.
+//
+// Why 5: Claude Code's own default measured ~1 line per notch (9 lines over 10 notches,
+// S6 §5) against 17 lines for a single PageUp on the same screen, which is the "scrolling
+// is slow" half of issue #13. 5 is the conventional terminal wheel step of 3 rounded up
+// toward that PageUp distance, and measured 4.9 lines/notch end to end through a
+// Muster-launched session. Values above ~10 are unverified: the 15 probe ran off the top
+// of its 120-line transcript before the rate could be read, so proportionality is
+// confirmed at 5 and assumed, not measured, beyond it.
+//
+// UNSUPPORTED INTERFACE: the variable is absent from `claude --help` and was found by
+// reading strings out of the binary; it carries no compatibility promise. Measured on
+// 2.1.259, which is *ahead* of the 2.1.246 pin in docs/claude-code-pin.md, so these
+// numbers want re-confirming against the pinned build. It is not yet asserted by
+// `make canary` — until it is, an upstream rename or removal is expected to degrade
+// silently to today's one-line-per-notch behaviour (unknown env vars being ignored)
+// rather than fail loudly, which is precisely why the canary assertion is owed.
+const ScrollSpeed = "5"
+
+// LaunchEnv returns the Claude-Code-specific environment shared by a launch and a resume.
+// It lives here, not at the two call sites in internal/server, so no Claude Code variable
+// name leaks outside this package (the package-boundary hard rule). Callers merge it over
+// their own env; it never overwrites MUSTER_SESSION or the locale pair, which use
+// different keys.
+func LaunchEnv() map[string]string {
+	return map[string]string{"CLAUDE_CODE_SCROLL_SPEED": ScrollSpeed}
+}

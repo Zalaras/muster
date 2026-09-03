@@ -599,15 +599,34 @@ unless he re-ranks — don't re-sort this list.
     '`null` coerced to the empty string by callers', but the same fix dropped both `?? "default"`
     coercions … Reword both to name both callers and to say the function takes `null` directly."
 
-- [ ] **No scrollback affordance on the terminal pane, and scrolling is slow** ([#13](https://github.com/Zalaras/muster/issues/13))
-  — two complaints, and the first is a settled decision rather than a bug:
-  `web/src/terminal/pane.ts:80` sets `scrollback: 0` deliberately ("tmux owns scrollback,
-  never xterm", design-system §7.4 / protocol §6), so xterm has no buffer to scroll and no
-  scrollbar to draw, and a wheel gesture reaches tmux copy-mode instead. Do **not** fix it by
-  giving xterm a buffer — that duplicates tmux's and re-opens the decision. What's needed is a
-  design pass on surfacing copy-mode from the browser: how it's entered, how that state is
-  indicated, and at what rate it scrolls. The "rather slow" half is unmeasured — measure
-  before planning.
+- [x] **No scrollback affordance on the terminal pane, and scrolling is slow** ([#13](https://github.com/Zalaras/muster/issues/13))
+  ✅ done 2026-09-03 (direct fix, no pipeline — one const + two call sites + unit tests).
+  Investigated in `spikes/S6-scroll-bandwidth.md`, which disproved **both** of the causes this
+  entry previously asserted. Scrolling is now **5 lines per wheel notch** instead of ~1, via
+  `CLAUDE_CODE_SCROLL_SPEED` (`internal/claudecode/launch.go`, merged into the launch *and*
+  resume env by `LaunchEnv()`), measured 4.9 lines/notch end to end through a Muster-launched
+  session. **The scrollbar half is won't-fix, not deferred**: Claude Code emits `ESC[?1049h`
+  itself on a bare PTY with no tmux in the loop (S6 §1), so the alternate screen — and the
+  absence of any buffer to scroll — is Claude Code's doing, not tmux's and not
+  `pane.ts`'s `scrollback: 0`, which merely documents it. Raising `scrollback` changes
+  nothing; neither would dropping tmux.
+  Two claims in the old entry are now disproved and must not be reintroduced:
+  **(a)** "a wheel gesture reaches tmux copy-mode instead" — it does not; with `mouse off`
+  the wheel goes to Claude Code, which requests mouse tracking itself (S6 §1/§5).
+  **(b)** "what's needed is a design pass on surfacing copy-mode from the browser" — copy-mode
+  would open onto an **empty buffer**: with Claude Code in the alt screen, `capture-pane -S
+  -2000` returns exactly the visible screen (30 of 30 lines, against 76 with the alt screen
+  disabled — controlled A/B, S6 §2). That design pass would have shipped nothing.
+  Two follow-ups are owed and are **not** covered by this fix:
+  - [ ] `make canary` must assert `CLAUDE_CODE_SCROLL_SPEED`. It is an unsupported interface
+    (absent from `claude --help`, found by reading strings out of the binary), so an upstream
+    rename degrades silently back to ~1 line/notch rather than failing. Measured on **2.1.259**
+    while the pin is **2.1.246** — re-confirm against the pinned build (`docs/claude-code-pin.md`).
+  - [ ] Bandwidth is untouched: today's `tmux attach` path costs **19.4×** the bytes of a bare
+    PTY for the same repaint, and 1,759 bytes/sec while idle against zero (S6 §3). `tmux -CC`
+    control mode measured **2.1×** and would keep tmux, identity, reconcile and the tests
+    intact (S6 §4). Worth planning separately; `SCROLL_SPEED` cuts the *number* of repaints,
+    `-CC` would cut the cost of each.
 
 - [x] **README's install command doesn't work on Apple Silicon** ([#7](https://github.com/Zalaras/muster/issues/7))
   ✅ done 2026-09-02 (direct fix, no pipeline — doc + Makefile only). The README's by-hand
