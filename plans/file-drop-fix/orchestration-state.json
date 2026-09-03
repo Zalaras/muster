@@ -1,0 +1,38 @@
+{
+  "plan_name": "file-drop-fix",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 0,
+    "web-impl": 1,
+    "daemon-tests": 0,
+    "web-tests": 0,
+    "e2e-validate": 0,
+    "review": 1
+  },
+  "completed_steps": [
+    "e2e-specs",
+    "daemon-impl",
+    "web-impl",
+    "web-tests",
+    "daemon-tests",
+    "e2e-validate",
+    "review"
+  ],
+  "failed_steps": [],
+  "step_finished_at": {
+    "e2e-specs": "2026-09-02T21:34:00Z",
+    "daemon-impl": "2026-09-02T21:49:18Z",
+    "web-impl": "2026-09-02T21:49:18Z",
+    "web-tests": "2026-09-02T22:02:32Z",
+    "daemon-tests": "2026-09-02T22:04:00Z",
+    "e2e-validate": "2026-09-02T22:09:52Z",
+    "review": "2026-09-02T23:07:11Z"
+  },
+  "started_at": "2026-09-02T21:22:45Z",
+  "updated_at": "2026-09-02T23:07:11Z",
+  "closes_issues": [
+    8
+  ]
+}

@@ -1174,3 +1174,34 @@ or schema delta.
 - Measured during review: after one card click `document.activeElement` is xterm's helper
   textarea inside the clicked session's `Terminal:` container, and typed input reaches that
   pane's stub echo with no click on the pane.
+
+### 2026-09-03 — file drop pastes the original path (plan `file-drop-fix`, via `/orchestrate`, approved review cycle 2)
+
+Issue #8. Built on branch `plan/file-drop-fix`; lands with `/land`. Additive protocol delta
+(`POST /api/sessions/{id}/locate`, `docs/protocol.md` §3.14), no schema or WS change.
+
+- **Dropping a file on a live terminal pane types its real path**, Terminal.app-escaped with a
+  trailing space, and moves focus into the pane. The browser never learns the path: the page
+  uploads the bytes and the daemon locates the original on disk (Spotlight by exact name + size,
+  then a walk of the session directory, byte-compared; exactly one identical match or nothing).
+  The daemon never writes the upload anywhere — the upload is read straight off the multipart
+  wire, never through `ParseMultipartForm`, so INV-2 is structural. Foreign drags anywhere on
+  the dashboard are swallowed; text-only drops paste verbatim; every outcome shows a
+  `role="status"` notice on the surface.
+- **Settled in the run, not the plan.** (1) The internal reorder drag MIME changed from
+  `text/plain` to `application/x-muster-drag-id`: with `text/plain` a `dragover` handler cannot
+  tell a tile/rail reorder from a dragged text selection, so the plan's edge case 1 was
+  unsolvable as worded; nothing reads the value, and the reorder specs drive real HTML5 drags.
+  (2) `404 not_located` / `409 ambiguous` bodies use the standard `{"error":{…}}` envelope
+  (`paths` sits inside it); the plan's and §3.14's flat illustrative snippets were wrong and
+  are corrected. (3) REQ-4's prose was amended to match its own character list (`~` and `=`
+  escaped; `:` `@` `+` not). (4) `web/e2e/drop.spec.ts` runs serial: eleven scratch daemons
+  fanned across six workers tipped three marginal 5 s assertions in other specs (measured 3/6
+  red runs, 0/3 without the file, 0/5 on `main`); serial mode gave eight consecutive green
+  full-suite runs.
+- Measured during review: a dropped file's original path landed with its space and both
+  parentheses escaped, focus moved into the pane, Enter produced the stub echo, and the session
+  directory and data dir listed identically before and after. The real `mdfind` query, including
+  its apostrophe-escaping form, was run by hand — nothing automated exercises Spotlight query
+  syntax (review note), and `make test` is intermittently red on `main` under default
+  parallelism (`TODO.md`, Pre-v1 Cleanup).

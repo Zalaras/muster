@@ -26,6 +26,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/Zalaras/muster/internal/claudecode"
+	"github.com/Zalaras/muster/internal/locate"
 	"github.com/Zalaras/muster/internal/server"
 	"github.com/Zalaras/muster/internal/store"
 	"github.com/Zalaras/muster/internal/tmux"
@@ -218,6 +219,7 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		IssueTokenFile:   *issueTokenFile,
 		ClaudeThemePoll:  *claudeThemePoll,
 		ClaudeConfigFile: *claudeConfigFile,
+		Locator:          locate.New(),
 	})
 	srv.Start()
 

@@ -36,6 +36,7 @@ import { collectDeadSurfaceRefs, loadPane, renderDeadSurface, type DeadSurfaceRe
 import { initSettingsDialog, type SettingsDialogController, type SettingsDialogElements } from "./render/settings";
 import { installTileDrag } from "./render/tiledrag";
 import { installDragReorder } from "./render/dragreorder";
+import { installDropGuard } from "./render/dropguard";
 import { endSession, pinSession, putPrefs, putSessionOrder, refreshUsage, removeSession, resumeSession, type ApiResult } from "./api";
 import { type ClaudeFamily, type Density, type Prefs, type RailSort, type Session, type Usage, UNKNOWN_USAGE } from "./protocol";
 import { aliveOnly, applyDensity, densityCount, initialLive, moveTile, promote, surfaceDiff } from "./sessions/live";
@@ -809,6 +810,13 @@ usageRefreshBtn.addEventListener("click", () => {
     }
   });
 });
+
+// plan file-drop-fix REQ-1: a document-level foreign-drag/drop guard, installed once at
+// startup — swallows a drag/drop anywhere it isn't already claimed by a terminal
+// surface's own drop target or the tile/rail reorder handlers below (REQ-9/INV-3, see
+// dropguard.ts's header comment for why installation order relative to those doesn't
+// matter: it checks `event.defaultPrevented`, not listener registration order).
+installDropGuard(document);
 
 // plan move-tiles REQ-4/REQ-5/REQ-8: delegated drag-to-reorder on the grid container —
 // installed once, covers every tile the reconciler ever builds, works even with the

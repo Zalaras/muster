@@ -7,7 +7,10 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
+import { locateDroppedFile } from "../api";
 import type { Session } from "../protocol";
+import { DRAG_MIME } from "../render/dragreorder";
+import { classifyApiFailure, classifyDrop, escapePath, locatingText, MAX_DROP_BYTES, noticeForFailure } from "./drop";
 import { overlayForCloseCode, overlayText, type OverlayKind } from "./overlay";
 
 // Debounce window for resize frames after the initial one (protocol §6 / design-system
@@ -39,11 +42,13 @@ export class TerminalSurface {
   readonly root: HTMLElement;
   private readonly bodyEl: HTMLElement;
   private readonly overlayEl: HTMLElement;
+  private readonly noticeEl: HTMLElement;
   private readonly sessionId: number;
   private term: Terminal | null = null;
   private fitAddon: FitAddon | null = null;
   private socket: WebSocket | null = null;
   private resizeTimer: ReturnType<typeof setTimeout> | undefined;
+  private noticeTimer: ReturnType<typeof setTimeout> | undefined;
   private lastSentCols = 0;
   private lastSentRows = 0;
   private overlayKind: OverlayKind | null = null;
@@ -68,7 +73,15 @@ export class TerminalSurface {
       if (this.overlayKind === "superseded") this.attach();
     });
 
-    this.root.append(this.bodyEl, this.overlayEl);
+    // Plan file-drop-fix, UI Specifications > DOM: lives alongside `.terminal-overlay`,
+    // toggled the same way (the `hidden` attribute).
+    this.noticeEl = document.createElement("div");
+    this.noticeEl.className = "terminal-notice";
+    this.noticeEl.setAttribute("role", "status");
+    this.noticeEl.hidden = true;
+
+    this.root.append(this.bodyEl, this.overlayEl, this.noticeEl);
+    this.installDropHandlers();
 
     if (!session.alive) {
       this.setOverlay("ended");
@@ -151,6 +164,142 @@ export class TerminalSurface {
     this.overlayEl.textContent = "";
   }
 
+  // ── file-drop-fix: drag-and-drop onto this surface ──────────────────────────────────
+
+  /** Edge case 1 / INV-3: a tile-header or rail-card reorder drag carries
+   * `render/dragreorder.ts`'s own MIME, never `Files` or plain `text/plain` — checking
+   * for its presence (rather than sniffing the absence of `Files`/`text/plain`, which a
+   * real text drop would satisfy identically) is what lets an internal reorder drag pass
+   * straight through a terminal surface it happens to cross (Tiles: a tile header dragged
+   * over another tile's body) to the grid/rail container's own listener further up the
+   * bubble chain, instead of being wrongly claimed here as a foreign drop. */
+  private isInternalDrag(event: DragEvent): boolean {
+    return event.dataTransfer?.types.includes(DRAG_MIME) ?? false;
+  }
+
+  /** Installs the three drag listeners on `root` (UI Specifications: "Focus pane and
+   * Tiles tiles ... become a drop target"). Called unconditionally from the constructor —
+   * REQ-8: even a dead session's surface (`this.term` still null when these fire) installs
+   * the handlers, they just prevent the browser's default navigation and stop there; no
+   * notice, no request, no drop-target styling for that case. */
+  private installDropHandlers(): void {
+    this.root.addEventListener("dragover", (event) => {
+      if (this.isInternalDrag(event)) return;
+      event.preventDefault();
+      if (!this.term) return;
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+      this.root.classList.add("drop-target");
+    });
+
+    this.root.addEventListener("dragleave", (event) => {
+      const related = event.relatedTarget;
+      if (related instanceof Node && this.root.contains(related)) return;
+      this.root.classList.remove("drop-target");
+    });
+
+    this.root.addEventListener("drop", (event) => {
+      if (this.isInternalDrag(event)) return;
+      event.preventDefault();
+      this.root.classList.remove("drop-target");
+      if (!this.term) return;
+      void this.handleDrop(event);
+    });
+  }
+
+  /** REQ-2/REQ-10: classifies the drop and either runs the sequential locate→paste loop
+   * (files) or pastes verbatim (text-only). A `"none"` classification (neither files nor
+   * text) is silently swallowed — nothing here for this feature to do, and the drop was
+   * already prevented above. */
+  private async handleDrop(event: DragEvent): Promise<void> {
+    const dt = event.dataTransfer;
+    if (!dt) return;
+    const kind = classifyDrop(Array.from(dt.types), dt.files.length);
+    if (kind === "none") return;
+
+    if (kind === "text") {
+      const text = dt.getData("text/plain");
+      if (!text) return;
+      if (!this.canPasteNow()) {
+        this.showNotice(noticeForFailure("", { kind: "not_connected" }));
+        return;
+      }
+      if (this.pasteText(text)) {
+        this.showNotice(null);
+        this.focus();
+      }
+      return;
+    }
+
+    // "files": sequential, not parallel (Implementation Notes) — pasted paths keep drop
+    // order and the notice always names the file currently in flight.
+    for (const file of Array.from(dt.files)) {
+      await this.locateAndPasteOne(file);
+    }
+  }
+
+  private async locateAndPasteOne(file: File): Promise<void> {
+    if (!this.canPasteNow()) {
+      // REQ-8: no request when there's nowhere to paste — checked before the size cap
+      // and before the network call, so a disconnected pane never issues either.
+      this.showNotice(noticeForFailure(file.name, { kind: "not_connected" }));
+      return;
+    }
+    if (file.size > MAX_DROP_BYTES) {
+      this.showNotice(noticeForFailure(file.name, { kind: "too_large" }));
+      return;
+    }
+    this.showNotice(locatingText(file.name));
+    const result = await locateDroppedFile(this.sessionId, file);
+    if (!result.ok) {
+      this.showNotice(noticeForFailure(file.name, classifyApiFailure(result.error)));
+      return;
+    }
+    if (this.pasteText(escapePath(result.value.path) + " ")) {
+      this.showNotice(null);
+      this.focus();
+    } else {
+      // Edge case 3: the session/socket died between the request and the response.
+      this.showNotice(noticeForFailure(file.name, { kind: "not_connected" }));
+    }
+  }
+
+  private canPasteNow(): boolean {
+    return this.term !== null && this.socket?.readyState === WebSocket.OPEN;
+  }
+
+  /** Pastes `text` through xterm's own paste routine (normalises line endings, wraps in
+   * bracketed-paste markers iff the application enabled mode 2004 — Implementation
+   * Notes), which routes through the same `onData` → socket-send path as typed input.
+   * Returns false and sends nothing when there's no terminal or the socket isn't open
+   * (W8) — the caller shows the not-connected notice in that case. */
+  pasteText(text: string): boolean {
+    if (!this.canPasteNow()) return false;
+    this.term?.paste(text);
+    return true;
+  }
+
+  /** Shows (or, given `null`, clears) the one `role="status"` notice this surface owns —
+   * a new outcome always replaces whatever text was there (edge case 19), cancelling any
+   * pending auto-hide timer first. A non-null text auto-hides after ~5s (REQ-6); `null`
+   * hides immediately with no timer. */
+  showNotice(text: string | null): void {
+    if (this.disposed) return;
+    clearTimeout(this.noticeTimer);
+    this.noticeTimer = undefined;
+    if (text === null) {
+      this.noticeEl.hidden = true;
+      this.noticeEl.textContent = "";
+      return;
+    }
+    this.noticeEl.textContent = text;
+    this.noticeEl.hidden = false;
+    this.noticeTimer = setTimeout(() => {
+      this.noticeEl.hidden = true;
+      this.noticeEl.textContent = "";
+      this.noticeTimer = undefined;
+    }, 5000);
+  }
+
   /**
    * Re-fits to the container's current size and sends a `resize` frame if the fitted
    * geometry changed. `immediate` skips the ~100ms debounce for the one-time initial
@@ -223,6 +372,7 @@ export class TerminalSurface {
   dispose(): void {
     this.disposed = true;
     clearTimeout(this.resizeTimer);
+    clearTimeout(this.noticeTimer);
     const socket = this.socket;
     this.socket = null;
     socket?.close();

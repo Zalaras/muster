@@ -74,6 +74,7 @@ message (additive fields don't bump it).
 | `DELETE /api/sessions/{id}` | M4 | Remove a session (ends it first if live); broadcasts `sessionRemoved` (§3.8) |
 | `POST /api/issue/captures` | Pre-v1 (`issue-capture`) | Take an allowlisted state snapshot and hold it (§3.12) |
 | `POST /api/issues` | Pre-v1 (`issue-capture`) | File a held capture as a GitHub issue (§3.13) |
+| `POST /api/sessions/{id}/locate` | Pre-v1 (`file-drop-fix`) | Resolve a dropped file's bytes to its original on-disk path (§3.14) |
 
 Design rule: **commands travel over HTTP; the WS pushes state one way (server→client)**.
 Rationale: idempotency and errors are natural in request/response, the E2E harness can
@@ -354,6 +355,57 @@ after trimming or over 200 chars; `note` over 8000 chars); `404 not_found` (disa
 a transport failure, or a 2xx whose body would not parse — in that last case the message
 says the issue may nonetheless have been created). `502` rather than `500` because this is
 the one endpoint whose failure is genuinely upstream, and the UI says so.
+
+### 3.14 `POST /api/sessions/{id}/locate` (Pre-v1 — `file-drop-fix`, 2026-09-02)
+
+**Auth**: UI cookie (401 `unauthorized`). Backs drag-and-drop onto a terminal pane (#8).
+A browser hands a page a dropped file's **name and bytes, never its path**, and macOS keeps
+the drag pasteboard private to the dragging app (measured 2026-09-02), so the daemon
+**locates the original** instead: the upload is a fingerprint, compared in memory against
+every file on disk with the same basename and size; the daemon **never writes the bytes to
+disk** — it is the original file or nothing (plan `file-drop-fix`, settled with Damian).
+
+**Request:** `multipart/form-data` with exactly one file part named `file`; the part's
+`filename` is the dropped file's basename (UTF-8, as the browser supplies it). No other
+parts are read. Bodies over 50 MiB + 64 KiB (multipart overhead) are refused.
+
+**Response 200:**
+
+```json
+{ "path": "/Users/damian/Desktop/Screenshot 2026-08-30 at 14.35.00.png" }
+```
+
+`path` is the absolute, symlink-resolved path of the **single** file whose basename, size
+and bytes equal the upload. Not shell-escaped — escaping is the UI's job (Terminal.app
+style: backslash before spaces and shell metacharacters, trailing space).
+
+Candidate discovery is Spotlight first (`mdfind` with an exact `kMDItemFSName` +
+`kMDItemFSSize` query, 2 s timeout), then — only if Spotlight yields no verified
+candidate — a walk of the session's `directory` filtered by basename and size (skipping
+`.git`, capped at 200 000 entries). Every candidate is byte-compared before it counts;
+duplicate paths (after `EvalSymlinks`) count once. A Spotlight timeout or a missing
+`mdfind` binary degrades to the walk, never errors — the Spotlight finder is the only
+OS-specific step (Linux `plocate` / Windows Search finders are a future addition).
+
+**Errors:**
+
+- `400 invalid_request` — body is not multipart, has no `file` part, or the part's
+  filename is empty / contains a path separator.
+- `404 unknown_session` — no session with that id.
+- `404 not_located` — no file on disk matched name, size and bytes.
+  `{ "error": { "code": "not_located", "message": "no file named <name> with identical contents was found" } }`
+- `409 ambiguous` — two or more distinct files matched.
+  `{ "error": { "code": "ambiguous", "message": "<N> identical files named <name>", "paths": ["…", "…"] } }`
+  `paths` lists every verified match (absolute, sorted) so a future UI can offer a choice;
+  the current UI only counts them.
+- `413 too_large` — body exceeded the cap; the message names the 50 MiB limit.
+- `500 internal_error` — the walk failed for a reason other than "nothing found" (e.g. the
+  session directory is unreadable).
+
+Requests are independent; the UI sends them sequentially in drop order so pasted paths land
+in the order the files were dropped. The session's `alive` flag is not consulted — locating
+is a filesystem question; the UI itself refuses to paste into a surface whose terminal
+socket is not open.
 
 ## 4. HTTP endpoints — ingest (Claude Code → daemon)
 
@@ -788,6 +840,11 @@ exit — so the next startup sweeps it.
 
 ## 9. Changelog
 
+- **2026-09-02 — §3.14 `POST /api/sessions/{id}/locate`** (plan `file-drop-fix`, Pre-v1,
+  closes #8). New endpoint resolving a dropped file's uploaded bytes to its original
+  on-disk path via Spotlight then a session-directory walk, byte-compared; `404
+  not_located` / `409 ambiguous` (with `paths`) / `413 too_large`. The daemon never stages
+  a copy. No WS change; additive, no version bump.
 - **2026-09-02 — §3.3/§5.2/§5.5/§5.6: theme pref and Claude theme family** (plan
   `new-ui-design-colors`, Pre-v1 Cleanup, closes #3). `PUT /api/prefs` gains `theme`
   (pattern-validated, otherwise opaque to the daemon; default `"follow"`); `snapshot` and

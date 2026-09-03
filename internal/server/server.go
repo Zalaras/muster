@@ -13,6 +13,7 @@ import (
 
 	"github.com/Zalaras/muster/internal/claudecode"
 	"github.com/Zalaras/muster/internal/ghissue"
+	"github.com/Zalaras/muster/internal/locate"
 	"github.com/Zalaras/muster/internal/session"
 	"github.com/Zalaras/muster/internal/store"
 	"github.com/Zalaras/muster/internal/tmux"
@@ -123,6 +124,11 @@ type Config struct {
 	// contents instead of running `gh auth token` (-issue-token-file, REQ-14's test seam
 	// — makes it structurally impossible for a test using it to execute the real gh).
 	IssueTokenFile string
+
+	// Locator resolves a dropped file's original path for POST /api/sessions/{id}/locate
+	// (plan file-drop-fix, docs/protocol.md §3.14). main always constructs locate.New();
+	// tests that never exercise the endpoint may leave this nil.
+	Locator *locate.Locator
 }
 
 // Server holds musterd's HTTP mux and the long-lived pieces (ingest queue, WS registry,
@@ -151,6 +157,7 @@ type Server struct {
 	launcher    *sessionLauncher
 	tmuxClient  *tmux.Client
 	terminals   *terminalRegistry
+	locator     *locate.Locator
 
 	issueRepo     string
 	issueAPIURL   string
@@ -180,6 +187,7 @@ func New(cfg Config) *Server {
 		claudeCode:    cfg.ClaudeCode,
 		hub:           newWSHub(),
 		terminals:     newTerminalRegistry(),
+		locator:       cfg.Locator,
 	}
 
 	tmuxClient := tmux.New(cfg.TmuxSocket)
@@ -370,6 +378,7 @@ func (s *Server) routes() {
 	mux.Handle("POST /api/usage/refresh", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleUsageRefresh)))
 	mux.Handle("GET /ws/terminal/{id}", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleTerminal)))
 	mux.Handle("GET /api/sessions/{id}/pane", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handlePaneSnapshot)))
+	mux.Handle("POST /api/sessions/{id}/locate", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleLocateFile)))
 	mux.Handle("POST /api/sessions/{id}/end", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleEndSession)))
 	mux.Handle("POST /api/sessions/{id}/resume", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleResumeSession)))
 	mux.Handle("DELETE /api/sessions/{id}", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleRemoveSession)))

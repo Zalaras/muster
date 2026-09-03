@@ -252,3 +252,86 @@ export function parseSizenote(text: string): { cols: string; rows: string } {
   if (!cols || !rows) throw new Error(`sizenote regex matched without capture groups: ${text}`);
   return { cols, rows };
 }
+
+// ── file-drop-fix: drop simulation ─────────────────────────────────────────────────────
+//
+// Plan file-drop-fix, Affected Files > E2E: `dropFiles`/`dropText` build a `DataTransfer`
+// in-page (`page.evaluateHandle`, `new File([...])`) and `dispatchEvent("drop", {
+// dataTransfer })`; `dropNotice` returns the one `role="status"` element per surface. A
+// dropped file's *content* never needs to cross the CDP wire when only its *size* is
+// under test (REQ-7's 50 MiB+1 fixture) — passing `size` instead of `bytes` builds a
+// zero-filled `Uint8Array` of that length directly in the page.
+
+/** One file to include in a synthesized drop. Provide `bytes` whenever the daemon must
+ * find a byte-identical match on disk (E1-E4, E8); provide `size` alone when only the
+ * File's size matters (E7) so tens of megabytes of literal content never round-trip
+ * through this Node process as a JSON array. */
+export interface DropFileSpec {
+  name: string;
+  bytes?: Buffer;
+  size?: number;
+}
+
+async function buildFileDataTransfer(page: Page, files: readonly DropFileSpec[]) {
+  const serializable = files.map((f) => ({
+    name: f.name,
+    bytes: f.bytes ? Array.from(f.bytes) : null,
+    size: f.size ?? f.bytes?.length ?? 0,
+  }));
+  return await page.evaluateHandle((fs) => {
+    const dt = new DataTransfer();
+    for (const f of fs) {
+      const content = f.bytes ? new Uint8Array(f.bytes) : new Uint8Array(f.size);
+      dt.items.add(new File([content], f.name));
+    }
+    return dt;
+  }, serializable);
+}
+
+async function buildTextDataTransfer(page: Page, text: string) {
+  return await page.evaluateHandle((t) => {
+    const dt = new DataTransfer();
+    dt.setData("text/plain", t);
+    return dt;
+  }, text);
+}
+
+/**
+ * Dispatches one "drop" carrying every listed file, in order, onto `region` — the UI's own
+ * sequential locate→paste loop (REQ-2) then processes them one at a time. Playwright's
+ * `dispatchEvent` bypasses the native drag gesture entirely, so no preceding `dragover` is
+ * needed to reach a target's own `drop` listener (plan Implementation Notes); use
+ * `dragoverThenDropFiles` when the *document-level guard's* `dragover` listener is itself
+ * what's under test (E5).
+ */
+export async function dropFiles(region: Locator, files: readonly DropFileSpec[]): Promise<void> {
+  const dataTransfer = await buildFileDataTransfer(region.page(), files);
+  await region.dispatchEvent("drop", { dataTransfer });
+}
+
+/** REQ-10: a text/plain-only drop (no Files) onto `region`. */
+export async function dropText(region: Locator, text: string): Promise<void> {
+  const dataTransfer = await buildTextDataTransfer(region.page(), text);
+  await region.dispatchEvent("drop", { dataTransfer });
+}
+
+/**
+ * E5: dispatches `dragover` then `drop` with the SAME `DataTransfer` handle — the
+ * documented Playwright drag-and-drop testing pattern (reusing one handle across both
+ * events, mirroring its own `dragstart`+`drop` example) — so a foreign drag over a
+ * non-terminal part of the dashboard exercises the document-level drop guard's real
+ * `dragover` listener, not just its `drop` handler.
+ */
+export async function dragoverThenDropFiles(target: Locator, files: readonly DropFileSpec[]): Promise<void> {
+  const dataTransfer = await buildFileDataTransfer(target.page(), files);
+  await target.dispatchEvent("dragover", { dataTransfer });
+  await target.dispatchEvent("drop", { dataTransfer });
+}
+
+/**
+ * The one-per-surface drop notice (Testable UI Elements: "Only one notice element exists
+ * per surface" — `role="status"` inside `.terminal-surface`, REQ-6).
+ */
+export function dropNotice(region: Locator): Locator {
+  return region.getByRole("status");
+}

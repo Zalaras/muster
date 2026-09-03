@@ -631,6 +631,35 @@ body {
   display: none;
 }
 
+/* plan file-drop-fix, UI Specifications > DOM: a one-line strip across the BOTTOM of the
+ * surface, not a full scrim like `.terminal-overlay` above — the pane stays readable
+ * while a locate request is in flight or a failure notice is showing (design-system
+ * §7.5: the dashboard supplies the frame, never restyles pane contents). */
+.terminal-notice {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 3px 10px;
+  background: var(--scrim);
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.terminal-notice[hidden] {
+  display: none;
+}
+
+/* REQ-12: a foreign drag over a live surface gets the same neutral drop-target language
+ * as `.tile.drop-target`/`.card.drop-target` below — --line-control only, never a state
+ * colour (design-system §3: state colour is meaning, and a drag is not a state). */
+.terminal-surface.drop-target {
+  outline: 1px solid var(--line-control);
+  outline-offset: -1px;
+}
+
 /* ── dead-session surface (REQ-13, m4-reconcile) — shared by Focus's `#dead-surface`
  * and, per dead tile, a clone from `#dead-surface-template` mounted in `.tbody-slot`. */
 

@@ -8,6 +8,10 @@ import { type Density, type RailSort, type Session, parseSession } from "./proto
 export interface ApiErrorBody {
   code: string;
   message: string;
+  // Plan file-drop-fix (docs/protocol.md §3.14): only the `409 ambiguous` locate error
+  // carries this — every verified match, so the caller can count them (REQ-3). Ignored
+  // by every other error path.
+  paths?: string[];
 }
 
 export type ApiResult<T> = { ok: true; value: T } | { ok: false; error: ApiErrorBody };
@@ -70,7 +74,10 @@ function parseApiError(value: unknown): ApiErrorBody | null {
   const code = err["code"];
   const message = err["message"];
   if (typeof code !== "string" || typeof message !== "string") return null;
-  return { code, message };
+  const paths = err["paths"];
+  if (paths === undefined) return { code, message };
+  if (!Array.isArray(paths) || !paths.every((p) => typeof p === "string")) return { code, message };
+  return { code, message, paths };
 }
 
 function parseRepo(value: unknown): Repo | null {
@@ -431,4 +438,35 @@ export async function fileIssue(body: FileIssueRequest): Promise<ApiResult<Filed
   });
   if (!res) return { ok: false, error: networkError };
   return decodeJson(res, parseFiledIssue);
+}
+
+/** The `200` body of `POST /api/sessions/{id}/locate` (docs/protocol.md §3.14). */
+export interface LocatedFile {
+  path: string;
+}
+
+function parseLocatedFile(value: unknown): LocatedFile | null {
+  if (!isRecord(value)) return null;
+  const path = value["path"];
+  if (typeof path !== "string") return null;
+  return { path };
+}
+
+/** `POST /api/sessions/{id}/locate` (docs/protocol.md §3.14, plan file-drop-fix
+ * REQ-2/REQ-3). Uploads one dropped file's bytes as a fingerprint — never a transfer, the
+ * daemon never persists it (INV-2) — and gets back the single on-disk path whose
+ * basename, size and bytes match, or an error the caller classifies via
+ * `terminal/drop.ts`'s `noticeForFailure`. Errors: `400 invalid_request` /
+ * `404 unknown_session` / `404 not_located` / `409 ambiguous` (carries `paths`) /
+ * `413 too_large` / `500 internal_error`. */
+export async function locateDroppedFile(sessionId: number, file: File): Promise<ApiResult<LocatedFile>> {
+  const formData = new FormData();
+  formData.append("file", file, file.name);
+  const res = await safeFetch(`/api/sessions/${sessionId}/locate`, {
+    method: "POST",
+    credentials: "same-origin",
+    body: formData,
+  });
+  if (!res) return { ok: false, error: networkError };
+  return decodeJson(res, parseLocatedFile);
 }

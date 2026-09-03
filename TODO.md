@@ -487,6 +487,18 @@ These are some minor changes and cleanup needed before we can move into post v1.
   that deletes the flag and carries `feat!:` (`MUSTER_BREAKING=1`, human-set — the commit-msg
   hook gates it). Until then `!` on 0.x just bumps minor and records the breakage.
 
+- [ ] **Re-evaluate how tests are run across the codebase** (Go unit, Vitest, Playwright) — decide
+  the standing strategy for deterministic suites at acceptable runtime: mock the subprocess
+  boundary, reduce concurrency, raise marginal timeouts, share fixtures, or a combination.
+  Triggered 2026-09-03 by two measured load-sensitivity flakes from the `file-drop-fix` run:
+  `make test` intermittently red on `main` (eight tmux-preflight tests hit their 2 s subprocess
+  timeout under default `go test` parallelism, always green under `-p 1`) and `make e2e` ~50 % red
+  after one new spec file added 11 per-test scratch daemons (three unrelated 5 s waits tipped;
+  interim fix: `drop.spec.ts` runs serial). Measurements, options and constraints are in
+  `docs/design/test-strategy.md` — start there with `/spec`. Until it lands: a red `make test`
+  naming only `TestPreflight_*`/`TestRunTmuxPreflight_*` is load, confirm with
+  `go test -count=1 -p 1 ./...`.
+
 ## Reported issues (pre-v1 release)
 
 Issues filed from the dashboard's masthead `Issue` button land on
@@ -526,7 +538,7 @@ unless he re-ranks — don't re-sort this list.
   polls Claude's `~/.claude.json` theme key for the terminal ground; `.btn:disabled` pass
   folded in). Planned and built 2026-09-02.
 
-- [ ] **Dropping a file on a terminal pane navigates the browser** ([#8](https://github.com/Zalaras/muster/issues/8))
+- [x] **Dropping a file on a terminal pane navigates the browser** ([#8](https://github.com/Zalaras/muster/issues/8))
   — in a real terminal a dragged file inserts its path; in the dashboard Safari (and likely
   every other browser) opens the file, losing the dashboard. Nothing in `web/src/` handles
   `dragover`/`drop` outside the tile and rail reorder, so the browser default wins. The cheap
@@ -534,6 +546,25 @@ unless he re-ranks — don't re-sort this list.
   terminal behaviour is the hard half — a drop yields a `File` blob and never a filesystem
   path (deliberately, for security), so the path must come from elsewhere: the `/api/browse`
   picker already in the tree, or a daemon-side staging write. Decide which before planning.
+  **Done 2026-09-03** (plan `file-drop-fix`, approved review cycle 2, on `plan/file-drop-fix` —
+  lands with `/land file-drop-fix`, which closes #8). Neither of the two options above: the daemon
+  *locates the original file* — the page uploads the dropped bytes to `POST /api/sessions/{id}/locate`,
+  the daemon asks Spotlight (`mdfind`, exact name + size) then walks the session directory, byte-compares
+  candidates and returns the single identical path (`404 not_located` / `409 ambiguous` otherwise; never
+  writes a copy). The page pastes it Terminal.app-escaped with a trailing space via xterm's paste and
+  focuses the pane; a document-level guard swallows every foreign drag so nothing navigates; text-only
+  drops paste verbatim; per-surface `role="status"` notices for every outcome. Follow-ups from the
+  approved review (`plans/file-drop-fix/review.md`, cycle 2 Minors, none routed — agents tagged only
+  with Minors are not spawned):
+  - `[web-impl]` The in-flight `Locating <name>…` notice auto-hides after 5 s while the request is
+    still running — `showNotice` in `web/src/terminal/pane.ts` arms the 5 s timer for every non-null
+    text; REQ-6 ties the hide to the failure text only. Arm the timer only for the failure branch.
+  - `[daemon-impl]` `Locator.walkCap` and `Locator.spotlightTimeout` (`internal/locate/locate.go`) are
+    set by `New()` and never read — the acting values are baked into `SpotlightFinder`/`WalkFinder`.
+    Drop the fields, or have `Locate` use them.
+  - `[daemon-impl]` A nil `Locator` panics the handler (`internal/server/locate.go` dereferences
+    `s.locator` unguarded while `Config.Locator`'s comment invites tests to leave it nil). A two-line
+    guard returning `500 internal_error` turns the panic into a diagnosable error.
 
 - [x] **Sidebar click doesn't move focus into the terminal** ([#11](https://github.com/Zalaras/muster/issues/11))
   — clicking a rail card should leave you able to type immediately; it used to select the
