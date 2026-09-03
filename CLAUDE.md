@@ -38,6 +38,9 @@ Feature work goes through the multi-agent pipeline, not ad-hoc editing:
 6. `/land <name>` — squash-merges the approved `plan/<name>` branch to `main` with a
    conventional subject carrying `closes #N`, pushes (which cuts a release), and deletes
    the branch. The push is what closes the issue.
+7. `/retro <name>` — run in the session that ran `/orchestrate`, once it completes: names
+   what the run cost and proposes the smallest pipeline-doc change (net ≤ 0 lines) that
+   would have prevented it, or says nothing needs changing. Commits on `main` (`docs(retro)`).
 
 Boundaries the pipeline enforces (also binding outside it): impl agents never edit
 tests; test agents never edit implementation; nobody changes the daemon↔UI protocol
