@@ -12,7 +12,28 @@ import type { Session } from "../protocol";
 import { renderStrip, renderTileGeometry, updateTile, type TileRefs } from "./tiles";
 
 function fakeElement(): HTMLElement {
-  return { textContent: "", className: "", hidden: false, replaceChildren: () => {} } as unknown as HTMLElement;
+  return { textContent: "", className: "", hidden: false, dataset: {}, replaceChildren: () => {} } as unknown as HTMLElement;
+}
+
+/** `.nm`'s real shape (plan ui-text-and-focus REQ-13(b)): a wrapper with no text of its
+ * own, holding one `button.rename` child whose text `updateTileChrome` writes (see
+ * render/tiles.ts's `updateTileChrome`, which reads `nameEl.dataset["editing"]` and
+ * writes `nameEl.querySelector("button.rename")`'s textContent, never `.nm`'s own). This
+ * fake's `textContent` getter proxies to that button, mirroring real `HTMLElement`
+ * behaviour (a parent's `.textContent` aggregates its descendants') so every existing
+ * `root.querySelector(".nm")?.textContent` assertion below keeps working unchanged. */
+function fakeNameEl(): HTMLElement {
+  const button = { textContent: "" } as unknown as HTMLElement;
+  return {
+    className: "",
+    hidden: false,
+    dataset: {} as Record<string, string | undefined>,
+    replaceChildren: () => {},
+    querySelector: (selector: string) => (selector === "button.rename" ? button : null),
+    get textContent(): string {
+      return button.textContent as string;
+    },
+  } as unknown as HTMLElement;
 }
 
 function fakeRefs(): TileRefs {
@@ -29,6 +50,7 @@ const NOW = new Date("2026-08-22T00:00:10Z");
 function makeSession(overrides: Partial<Session> & { id: number }): Session {
   return {
     title: null,
+    titleOverride: null,
     state: "idle",
     stateSince: "2026-08-22T00:00:00Z",
     alive: true,
@@ -55,7 +77,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
  * mutates, backed by plain fake elements — no real DOM/template involved, matching this
  * file's existing `fakeElement`/`fakeRefs` convention. */
 function fakeTileRoot(): HTMLElement & { className: string } {
-  const nm = fakeElement();
+  const nm = fakeNameEl();
   const wh = fakeElement();
   const ctx = fakeElement();
   const tm = fakeElement();
@@ -182,6 +204,53 @@ describe("updateTile — REQ-9 (plan move-tiles): the state dot gets a title = t
     updateTile(refs, makeSession({ id: 1, state: "failed" }), NOW);
 
     expect(root.className).toBe("tile s-failed");
+  });
+});
+
+// REQ-15/INV-4/W12 (plan ui-text-and-focus): the 1s render tick (`updateTile` ->
+// `updateTileChrome`) must leave an open rename field's value untouched — it does this
+// by skipping the title write entirely while `.nm` is marked `data-editing="true"` by
+// render/rename.ts's editor. `fakeNameEl()`'s `dataset` is a real mutable object (not a
+// getter), so this test can flip the flag directly, matching what the editor itself does
+// to the real node.
+describe("updateTile — REQ-15/INV-4: skips the title write while `.nm.dataset.editing` is \"true\" (W12)", () => {
+  it("leaves the rename button's text untouched while an edit is open, even though a new sessionUpsert carries a different title", () => {
+    const root = fakeTileRoot();
+    const refs: TileRefs = { root, bodySlot: fakeElement(), geoEl: fakeElement(), markerEl: fakeElement() };
+    updateTile(refs, makeSession({ id: 1, title: "before" }), NOW);
+    expect(root.querySelector(".nm")?.textContent).toBe("before");
+
+    const nameEl = root.querySelector(".nm") as unknown as { dataset: Record<string, string | undefined> };
+    nameEl.dataset["editing"] = "true";
+
+    updateTile(refs, makeSession({ id: 1, title: "sneaking in mid-edit" }), NOW);
+    expect(root.querySelector(".nm")?.textContent).toBe("before");
+  });
+
+  it("writes the title once the edit closes (dataset.editing cleared) — not stuck stale forever", () => {
+    const root = fakeTileRoot();
+    const refs: TileRefs = { root, bodySlot: fakeElement(), geoEl: fakeElement(), markerEl: fakeElement() };
+    updateTile(refs, makeSession({ id: 1, title: "before" }), NOW);
+
+    const nameEl = root.querySelector(".nm") as unknown as { dataset: Record<string, string | undefined> };
+    nameEl.dataset["editing"] = "true";
+    updateTile(refs, makeSession({ id: 1, title: "typed but not committed" }), NOW);
+    expect(root.querySelector(".nm")?.textContent).toBe("before");
+
+    delete nameEl.dataset["editing"];
+    updateTile(refs, makeSession({ id: 1, title: "committed name" }), NOW);
+    expect(root.querySelector(".nm")?.textContent).toBe("committed name");
+  });
+
+  it("writes the title normally when dataset.editing is absent (the common, non-editing case)", () => {
+    const root = fakeTileRoot();
+    const refs: TileRefs = { root, bodySlot: fakeElement(), geoEl: fakeElement(), markerEl: fakeElement() };
+
+    updateTile(refs, makeSession({ id: 1, title: "first" }), NOW);
+    expect(root.querySelector(".nm")?.textContent).toBe("first");
+
+    updateTile(refs, makeSession({ id: 1, title: "second" }), NOW);
+    expect(root.querySelector(".nm")?.textContent).toBe("second");
   });
 });
 

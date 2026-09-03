@@ -22,6 +22,7 @@ import type { Session } from "./protocol";
 const validSession: Session = {
   id: 1,
   title: null,
+  titleOverride: null,
   state: "started",
   stateSince: "2026-08-22T00:00:00Z",
   alive: true,

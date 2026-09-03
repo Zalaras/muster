@@ -13,6 +13,7 @@ import (
 type sessionWire struct {
 	ID              int64                     `json:"id"`
 	Title           *string                   `json:"title"`
+	TitleOverride   *string                   `json:"titleOverride"`
 	State           string                    `json:"state"`
 	StateSince      string                    `json:"stateSince"`
 	Alive           bool                      `json:"alive"`
@@ -96,7 +97,8 @@ type paneSnapshotWire struct {
 func toWireSession(s *session.Session) sessionWire {
 	w := sessionWire{
 		ID:              s.ID,
-		Title:           s.Title,
+		Title:           s.DisplayTitle(), // REQ-11: the display title, not the raw Title column
+		TitleOverride:   s.TitleOverride,
 		State:           string(s.State),
 		StateSince:      s.StateSince.UTC().Format(time.RFC3339),
 		Alive:           s.Alive,

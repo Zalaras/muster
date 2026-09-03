@@ -12,6 +12,20 @@
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
   --disp: system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* REQ-6 (plan ui-text-and-focus, 2026-09-03): the type ramp, in rem anchored to
+   * --fs-root — theme-independent, so it lives on the bare :root alongside the font
+   * stacks above. Ramp mapping (REQ-7, Implementation Notes): every font-size
+   * declaration below resolves to one of these seven tokens; no numeric literal
+   * remains outside this block and the html rule that consumes --fs-root. */
+  --fs-root: 15px;
+  --fs-2xs: 0.68rem;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.82rem;
+  --fs-md: 0.89rem;
+  --fs-base: 1rem;
+  --fs-lg: 1.07rem;
+  --fs-xl: 1.14rem;
 }
 
 /* Instrument — the default (direction A, 2026-08-16; contrast-fixed 2026-09-02) */
@@ -25,13 +39,13 @@
   --line-control: #343a4a;
   --edge: #6a7286;
   --fg: #e8e6e1;
-  --fg-muted: #9096a8;
-  --fg-dim: #8087a0;
+  --fg-muted: #b2b6c3;
+  --fg-dim: #a6abbc;
   --amber: #f2a33c;
-  --rose: #e36a6a;
-  --violet: #9a8cf0;
+  --rose: #e77f7f;
+  --violet: #9e91f1;
   --teal: #56c5d0;
-  --idle: #7f869e;
+  --idle: #989db1;
   --amber-line: #5c4526;
   --rose-line: #5c2e2e;
   --violet-line: #3e3663;
@@ -70,13 +84,13 @@
   --line-control: #3a3f49;
   --edge: #737a87;
   --fg: #e8e9eb;
-  --fg-muted: #a3a9b4;
-  --fg-dim: #8e95a1;
+  --fg-muted: #c1c5cc;
+  --fg-dim: #b4b8c0;
   --amber: #e6a642;
-  --rose: #ef7079;
-  --violet: #a99cf5;
+  --rose: #f28e95;
+  --violet: #ada1f5;
   --teal: #4fcbc6;
-  --idle: #8c95a4;
+  --idle: #a4abb7;
   --amber-line: #5a4422;
   --rose-line: #5d2d31;
   --violet-line: #3f3a66;
@@ -111,19 +125,19 @@
   --line-control: #cbc9c2;
   --edge: #8a8983;
   --fg: #1c1e26;
-  --fg-muted: #585d6b;
-  --fg-dim: #61667a;
-  --amber: #9d5600;
-  --rose: #c0323c;
-  --violet: #6a4fd6;
-  --teal: #0c737a;
-  --idle: #656a7a;
+  --fg-muted: #41454f;
+  --fg-dim: #494d5c;
+  --amber: #844800;
+  --rose: #a22a33;
+  --violet: #583ad1;
+  --teal: #0a6167;
+  --idle: #535764;
   --amber-line: #efd6ac;
   --rose-line: #f2c3c5;
   --violet-line: #d8d1f4;
   --teal-line: #b8e1e3;
-  --amber-note: #7a4400;
-  --rose-note: #962c34;
+  --amber-note: #754100;
+  --rose-note: #8e2a31;
   --amber-fg: #ffffff;
   --banner-bg: #fbe8e8;
   --banner-line: #e5b6b6;
@@ -163,12 +177,18 @@ body {
   height: 100%;
 }
 
+/* REQ-6: the root anchors the whole ramp — html/body sizes were previously an
+ * unlinked 16px browser default / 14px body rule; both now come from the ramp. */
+html {
+  font-size: var(--fs-root);
+}
+
 body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
   font-family: var(--sans);
-  font-size: 14px;
+  font-size: var(--fs-base);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -197,7 +217,7 @@ body {
 
 .brand h1 {
   font-family: var(--disp);
-  font-size: 16px;
+  font-size: var(--fs-xl);
   font-weight: 800;
   letter-spacing: -0.02em;
   margin: 0;
@@ -212,7 +232,7 @@ body {
 
 .seg-btn {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   padding: 4px 13px;
   background: transparent;
   border: 1px solid var(--line-control);
@@ -249,7 +269,7 @@ body {
   gap: 16px;
   margin-left: auto;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   color: var(--fg-muted);
 }
 
@@ -301,7 +321,7 @@ body {
 
 .model {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   color: var(--fg);
   font-variant-numeric: tabular-nums;
 }
@@ -319,7 +339,7 @@ body {
  * offer. */
 .usage-model-select {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   color: var(--fg-dim);
   background: transparent;
   border: none;
@@ -362,7 +382,7 @@ body {
   border-bottom: 1px solid var(--banner-line);
   color: var(--banner-fg);
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: var(--fs-md);
   padding: 8px 16px;
   flex: none;
 }
@@ -405,7 +425,7 @@ body {
 .railhead .n {
   margin-left: auto;
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   color: var(--fg-dim);
   font-variant-numeric: tabular-nums;
 }
@@ -415,7 +435,7 @@ body {
  * readout label), so it keeps a visible border rather than borrowing that class. */
 .railhead .sel {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   color: var(--fg-dim);
   background: transparent;
   border: 1px solid var(--edge);
@@ -437,7 +457,7 @@ body {
   min-height: 0;
   padding: 16px 12px;
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: var(--fs-md);
   color: var(--fg-dim);
 }
 
@@ -462,7 +482,7 @@ body {
   justify-content: center;
   background: var(--well);
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
   color: var(--fg-dim);
 }
 
@@ -493,13 +513,47 @@ body {
   margin: 0;
   font-family: var(--disp);
   font-weight: 700;
-  font-size: 14.5px;
+  font-size: var(--fs-lg);
   letter-spacing: -0.015em;
+}
+
+/* REQ-13 (plan ui-text-and-focus, 2026-09-03): the rename trigger — no button chrome,
+ * just a text label that opens the shared editor (render/rename.ts) on click or
+ * Enter/Space. Inherits its container's font (the mainhead's h2, or a tile's `.thead
+ * .nm`) so it reads exactly like the plain text it replaces; `display: inline` keeps a
+ * tile's existing overflow/ellipsis truncation (set on `.thead .nm` itself) working the
+ * same as it did for a bare text node. Shared by both surfaces — REQ-13's "one shared
+ * editor module serves both". */
+.rename {
+  display: inline;
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: text;
+}
+
+/* REQ-13: the editor's input, swapped in for `.rename` while open — the heading's own
+ * font/size (inherited, same as `.rename` above), on a --well ground with a 1px --edge
+ * border so it reads as an active field rather than more static text. */
+.name-edit {
+  display: inline-block;
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--fg);
+  background: var(--well);
+  border: 1px solid var(--edge);
+  border-radius: 2px;
+  padding: 0 3px;
+  max-width: 100%;
 }
 
 .mainhead .meta {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   color: var(--fg-dim);
   font-variant-numeric: tabular-nums;
 }
@@ -545,7 +599,8 @@ body {
 }
 
 .card:hover .acts-row,
-.card:focus-within .acts-row {
+.card:focus-within .acts-row,
+.card.current .acts-row {
   opacity: 1;
 }
 
@@ -582,7 +637,7 @@ body {
   border-top: 1px solid var(--line);
   background: var(--bg-raised);
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   color: var(--fg-dim);
   display: flex;
   gap: 16px;
@@ -624,7 +679,7 @@ body {
   background: var(--scrim);
   color: var(--fg);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 .terminal-overlay[hidden] {
@@ -644,7 +699,7 @@ body {
   background: var(--scrim);
   color: var(--fg);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 1.4;
 }
 
@@ -684,7 +739,7 @@ body {
   background: var(--bg-hover);
   border-bottom: 1px solid var(--line-control);
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -711,7 +766,7 @@ body {
   background: var(--well);
   padding: 14px 16px;
   font-family: var(--mono);
-  font-size: 12.5px;
+  font-size: var(--fs-md);
   line-height: 1.65;
   color: var(--fg-muted);
   white-space: pre-wrap;
@@ -733,7 +788,7 @@ body {
   border: 1px solid var(--line-control);
   padding: 13px 18px;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   color: var(--fg-muted);
   text-align: center;
   line-height: 1.7;
@@ -748,7 +803,7 @@ body {
   color: var(--fg);
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  font-size: 10px;
+  font-size: var(--fs-xs);
 }
 
 .endcap .pill .acts-row {
@@ -778,7 +833,7 @@ body {
   border-bottom: 1px solid var(--line);
   background: var(--bg-raised);
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -902,7 +957,7 @@ body {
 .thead .nm {
   font-family: var(--disp);
   font-weight: 700;
-  font-size: 12.5px;
+  font-size: var(--fs-md);
   letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
@@ -911,7 +966,7 @@ body {
 
 .thead .wh {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   color: var(--fg-dim);
   white-space: nowrap;
   overflow: hidden;
@@ -925,7 +980,7 @@ body {
   gap: 4px;
   margin-left: auto;
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   color: var(--fg-muted);
   flex: none;
   font-variant-numeric: tabular-nums;
@@ -938,7 +993,7 @@ body {
 
 .thead .tm {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   color: var(--fg-dim);
   flex: none;
   font-variant-numeric: tabular-nums;
@@ -964,7 +1019,7 @@ body {
   background: var(--bg-raised);
   border-top: 1px solid var(--line);
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--fs-2xs);
   color: var(--fg-dim);
   font-variant-numeric: tabular-nums;
 }
@@ -1036,6 +1091,17 @@ body {
   background: var(--bg-hover);
 }
 
+/* REQ-2 (plan ui-text-and-focus, 2026-09-03): "the session the Focus pane is showing" —
+ * neutral treatment, no state colour (design-system §3: state colours are spoken for).
+ * Sits after `.card:hover` so both resolve to the same --bg-hover ground; the strip never
+ * passes a currentId (render/tiles.ts's `renderStrip`), so `.strip .card` never carries
+ * this class and needs no override here. */
+.card.current {
+  background: var(--bg-hover);
+  outline: 1px solid var(--edge);
+  outline-offset: -1px;
+}
+
 .card .stripe {
   width: 3px;
   flex: none;
@@ -1059,7 +1125,7 @@ body {
 .card .name {
   font-family: var(--disp);
   font-weight: 700;
-  font-size: 13.5px;
+  font-size: var(--fs-base);
   letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
@@ -1068,7 +1134,7 @@ body {
 
 .card .badge {
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.11em;
   text-transform: uppercase;
   padding: 2px 5px;
@@ -1080,7 +1146,7 @@ body {
 .card .timer {
   margin-left: auto;
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
   color: var(--fg-dim);
   flex: none;
@@ -1088,7 +1154,7 @@ body {
 
 .r2 {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   color: var(--fg-dim);
   margin-top: 5px;
   white-space: nowrap;
@@ -1106,7 +1172,7 @@ body {
   gap: 7px;
   margin-top: 7px;
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -1162,7 +1228,7 @@ body {
 
 .activity {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   line-height: 1.4;
   color: var(--fg-dim);
   margin-top: 6px;
@@ -1175,7 +1241,7 @@ body {
 .note {
   margin-top: 7px;
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   line-height: 1.5;
   color: var(--amber-note);
   border-left: 2px solid var(--amber);
@@ -1259,7 +1325,7 @@ body {
   background: transparent;
   padding: 0 2px;
   margin-left: 6px;
-  font-size: 12px;
+  font-size: var(--fs-md);
   line-height: 1;
   color: var(--fg-dim);
   cursor: pointer;
@@ -1325,7 +1391,7 @@ body {
 
 .btn {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   padding: 5px 11px;
   background: transparent;
   border: 1px solid var(--line-control);
@@ -1374,7 +1440,7 @@ dialog.modal h2 {
   border-bottom: 1px solid var(--line);
   font-family: var(--disp);
   font-weight: 700;
-  font-size: 15px;
+  font-size: var(--fs-lg);
   letter-spacing: -0.015em;
   display: flex;
   align-items: center;
@@ -1383,7 +1449,7 @@ dialog.modal h2 {
 .kbd {
   margin-left: auto;
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--fs-2xs);
   font-weight: 400;
   color: var(--fg-dim);
   border: 1px solid var(--line-control);
@@ -1403,7 +1469,7 @@ dialog.confirm p {
   margin: 0;
   padding: 14px 16px 4px;
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
   line-height: 1.65;
   color: var(--fg-muted);
 }
@@ -1425,7 +1491,7 @@ dialog.confirm p {
 }
 
 .btn.sm {
-  font-size: 9.5px;
+  font-size: var(--fs-2xs);
   padding: 3px 8px;
 }
 
@@ -1465,7 +1531,7 @@ dialog.confirm p {
 .side-head {
   padding: 10px 12px 4px;
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -1481,7 +1547,7 @@ dialog.confirm p {
   background: transparent;
   text-align: left;
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
   color: var(--fg-muted);
   line-height: 1.35;
   cursor: pointer;
@@ -1503,7 +1569,7 @@ dialog.confirm p {
 .dir-meta {
   display: flex;
   gap: 8px;
-  font-size: 9.5px;
+  font-size: var(--fs-2xs);
   color: var(--fg-dim);
   font-variant-numeric: tabular-nums;
 }
@@ -1511,7 +1577,7 @@ dialog.confirm p {
 .recents .empty {
   padding: 6px 12px;
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   color: var(--fg-dim);
 }
 
@@ -1531,7 +1597,7 @@ dialog.confirm p {
   border-bottom: 1px solid var(--line);
   background: var(--bg-raised);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   white-space: nowrap;
   overflow-x: auto;
 }
@@ -1579,7 +1645,7 @@ dialog.confirm p {
   background: transparent;
   text-align: left;
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
   color: var(--fg-muted);
   cursor: pointer;
   white-space: nowrap;
@@ -1592,7 +1658,7 @@ dialog.confirm p {
 
 .entries .entry .git {
   color: var(--fg-dim);
-  font-size: 9.5px;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.06em;
 }
 
@@ -1605,7 +1671,7 @@ dialog.confirm p {
 .entries .loading {
   padding: 8px 12px;
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   color: var(--fg-dim);
 }
 
@@ -1639,14 +1705,14 @@ dialog.confirm p {
   grid-column: 1 / -1;
   margin: 0;
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   line-height: 1.5;
   color: var(--fg-muted);
 }
 
 .fields .lab {
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -1658,7 +1724,7 @@ dialog.confirm p {
   color: var(--fg);
   background: var(--well);
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
   min-width: 0;
 }
 
@@ -1680,7 +1746,7 @@ fieldset.seg {
 fieldset.seg legend {
   padding: 0;
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -1696,7 +1762,7 @@ fieldset.seg legend {
 
 .seg-track label {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   padding: 5px 10px;
   color: var(--fg-muted);
   border-right: 1px solid var(--edge);
@@ -1730,7 +1796,7 @@ fieldset.seg legend {
   margin: 0;
   padding: 8px 16px 0;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   /* An HTTP error from POST /api/sessions describes the request, not a session's Failed
    * state — --rose stays reserved for Failed (design-system §1/§3). Same reasoning as
    * the daemon-down banner; reuses its text tone rather than adding a near-duplicate. */
@@ -1752,7 +1818,7 @@ fieldset.seg legend {
 #launch-target {
   margin-right: auto;
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   color: var(--fg-muted);
   min-width: 0;
   overflow: hidden;
@@ -1809,7 +1875,7 @@ fieldset.seg legend {
 #issue-form .lab {
   padding-top: 7px;
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -1825,7 +1891,7 @@ fieldset.seg legend {
   color: var(--fg);
   background: var(--well);
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
 }
 
 #issue-form textarea {
@@ -1846,7 +1912,7 @@ fieldset.seg legend {
   display: inline;
   margin: 0;
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -1855,7 +1921,7 @@ fieldset.seg legend {
 .preview .meta {
   margin-left: 8px;
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--fs-2xs);
   color: var(--fg-dim);
   font-variant-numeric: tabular-nums;
 }
@@ -1870,7 +1936,7 @@ fieldset.seg legend {
   border: 1px solid var(--edge);
   color: var(--fg-muted);
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -1888,7 +1954,7 @@ fieldset.seg legend {
   margin: 0;
   color: var(--fg);
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
 }
 
 #issue-success a {
@@ -1907,7 +1973,7 @@ fieldset.seg legend {
   border: 1px solid var(--edge);
   color: var(--fg-muted);
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   white-space: pre-wrap;
   word-break: break-word;
   user-select: text;

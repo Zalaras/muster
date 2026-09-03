@@ -132,6 +132,14 @@ export interface Session {
   // session missing either field rather than defaulting it.
   pinned: boolean;
   railPos: number;
+  // Plan ui-text-and-focus (protocol §5.3): the user's rename via `PUT
+  // /api/sessions/{id}/title`; `null` means no override. `title` above is already the
+  // daemon's precedence-resolved DISPLAY title (titleOverride when non-null, else
+  // Claude's last-known name) — a client renders `title` and reads this field only to
+  // decide whether "clear" means anything (sessions/rename.ts's `titleCommand`).
+  // Required on every wire Session, same "no pre-plan daemon to tolerate" reasoning as
+  // pinned/railPos above (ship together).
+  titleOverride: string | null;
 }
 
 // Plan order-sidebar (protocol §3.3): the rail's sort mode pref.
@@ -462,6 +470,7 @@ export function parseSession(value: unknown): Session | null {
   const createdAt = value["createdAt"];
   const pinned = value["pinned"];
   const railPos = value["railPos"];
+  const titleOverride = value["titleOverride"];
 
   if (typeof id !== "number") return null;
   if (title !== null && typeof title !== "string") return null;
@@ -497,6 +506,7 @@ export function parseSession(value: unknown): Session | null {
   if (typeof createdAt !== "string") return null;
   if (typeof pinned !== "boolean") return null;
   if (typeof railPos !== "number") return null;
+  if (titleOverride !== null && typeof titleOverride !== "string") return null;
 
   return {
     id,
@@ -519,6 +529,7 @@ export function parseSession(value: unknown): Session | null {
     createdAt,
     pinned,
     railPos,
+    titleOverride,
   };
 }
 

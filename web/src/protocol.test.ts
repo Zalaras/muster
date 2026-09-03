@@ -509,6 +509,7 @@ const validSession = {
   createdAt: "2026-08-22T00:00:00Z",
   pinned: false,
   railPos: 5,
+  titleOverride: null,
 };
 
 // The measured "no data yet" shape (spikes/canary-fields.md): a session that has just
@@ -536,6 +537,7 @@ const freshLaunchSession = {
   createdAt: "2026-08-22T00:00:00Z",
   pinned: false,
   railPos: 6,
+  titleOverride: null,
 };
 
 describe("parseSession — full §5.3 shape", () => {
@@ -702,6 +704,27 @@ describe("parseSession — pinned/railPos (plan order-sidebar §5.3: required on
 
   it("rejects a null railPos (the field is required and numeric, never nullable)", () => {
     expect(parseSession({ ...validSession, railPos: null })).toBeNull();
+  });
+});
+
+describe("parseSession — titleOverride (plan ui-text-and-focus §5.3/REQ-11/W7: required on every wire Session, never defaulted)", () => {
+  it("parses titleOverride: null (no override set)", () => {
+    const session = { ...validSession, titleOverride: null };
+    expect(parseSession(session)).toEqual(session);
+  });
+
+  it("parses a titleOverride string (the user's rename)", () => {
+    const session = { ...validSession, titleOverride: "hunting flake" };
+    expect(parseSession(session)).toEqual(session);
+  });
+
+  it("rejects a session missing titleOverride entirely (no pre-plan-daemon tolerance for this field)", () => {
+    const { titleOverride, ...rest } = validSession;
+    expect(parseSession(rest)).toBeNull();
+  });
+
+  it("rejects a non-string, non-null titleOverride (e.g. numeric)", () => {
+    expect(parseSession({ ...validSession, titleOverride: 42 })).toBeNull();
   });
 });
 

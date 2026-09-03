@@ -71,6 +71,18 @@ export function liveTile(page: Page, title: string): Locator {
 }
 
 /**
+ * Live tile locator scoped by `data-session-id` rather than title text. Validate-mode
+ * repair (plan ui-text-and-focus): once a tile's rename editor is open, its title text
+ * lives in the `input.name-edit`'s `value` attribute, which `filter({ hasText })` never
+ * sees (`textContent` doesn't include form-control values) — so `liveTile(page, title)`
+ * stops matching the very tile whose editor was just opened by title. Use this id-scoped
+ * variant whenever a tile must still be found while its own rename field may be open.
+ */
+export function liveTileById(page: Page, id: number): Locator {
+  return page.locator(`article.tile[data-session-id="${id}"]`);
+}
+
+/**
  * Strip-card locator (Tiles view). The plan's UI spec says a strip card is literally "the
  * M1 card content on its side" — i.e. the same rail-card component M1 already ships
  * (`data-testid="session-card"`), and web-impl's `renderStrip` does reuse that exact
@@ -209,6 +221,20 @@ export async function expectAllTileGeometrySettled(
  */
 export function tileDragHandle(page: Page, title: string): Locator {
   return liveTile(page, title).locator(".thead");
+}
+
+/**
+ * Drag-handle locator scoped by `data-session-id` (`liveTileById`) rather than title
+ * text. Validate-mode repair (plan ui-text-and-focus): a Playwright `Locator` is a lazy
+ * definition re-resolved on every `expect`/action call, not a snapshot taken at
+ * construction — so a single `tileDragHandle(page, title)` captured before a rename
+ * stops matching once that tile's rename editor swaps its title text for
+ * `input.name-edit` (mid-edit), and never matches again once the title actually changes
+ * (post-commit). Use this id-scoped variant for any drag-handle assertion that spans a
+ * rename.
+ */
+export function tileDragHandleById(page: Page, id: number): Locator {
+  return liveTileById(page, id).locator(".thead");
 }
 
 /**

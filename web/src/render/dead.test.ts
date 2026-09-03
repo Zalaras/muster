@@ -84,6 +84,7 @@ describe("renderDeadSurface — REQ-19's '· captured <age>' clause", () => {
   function makeSession(overrides: Partial<Session> & { id: number }): Session {
     return {
       title: "some-session",
+      titleOverride: null,
       state: "idle",
       stateSince: "2026-08-27T00:00:00Z",
       alive: false,

@@ -26,21 +26,32 @@ import {
   type ConnectionStatus,
 } from "./render/masthead";
 import { renderFocusMain, renderSessions, renderSizenote, type SessionAction } from "./render/sessions";
-import { buildTile, mountTileDeadSurface, renderStrip, renderTileFooterActions, renderTileGeometry, updateTile, type TileRefs } from "./render/tiles";
+import {
+  buildTile,
+  mountTileDeadSurface,
+  renderStrip,
+  renderTileFooterActions,
+  renderTileGeometry,
+  updateTile,
+  type TileRefs,
+  type TileRenameHandlers,
+} from "./render/tiles";
 import { initLaunchModal, type LaunchModalElements } from "./render/launch";
 import { initConfirmDialogs, type ConfirmDialogs } from "./render/confirm";
 import { initIssueDialog, renderIssueButton, type IssueDialogController, type IssueDialogElements } from "./render/issue";
 import { renderMainhead, type MainheadElements } from "./render/mainhead";
+import { attachRenameEditor } from "./render/rename";
 import { captureFocusedControl, type FocusedControl, restoreFocusedControl } from "./render/focus";
 import { collectDeadSurfaceRefs, loadPane, renderDeadSurface, type DeadSurfaceRefs, type PaneState } from "./render/dead";
 import { initSettingsDialog, type SettingsDialogController, type SettingsDialogElements } from "./render/settings";
 import { installTileDrag } from "./render/tiledrag";
 import { installDragReorder } from "./render/dragreorder";
 import { installDropGuard } from "./render/dropguard";
-import { endSession, pinSession, putPrefs, putSessionOrder, refreshUsage, removeSession, resumeSession, type ApiResult } from "./api";
+import { endSession, pinSession, putPrefs, putSessionOrder, putTitle, refreshUsage, removeSession, resumeSession, type ApiResult } from "./api";
 import { type ClaudeFamily, type Density, type Prefs, type RailSort, type Session, type Usage, UNKNOWN_USAGE } from "./protocol";
 import { aliveOnly, applyDensity, densityCount, initialLive, moveTile, promote, surfaceDiff } from "./sessions/live";
 import { moveCard } from "./sessions/railorder";
+import { type TitleCommand } from "./sessions/rename";
 import { SessionStore } from "./sessions/store";
 import { orderRail } from "./sessions/sort";
 import { resolveTheme, writeThemeHint, type ThemeChoice } from "./theme";
@@ -96,12 +107,51 @@ const mainheadElements: MainheadElements = {
   endBtn: requireElement<HTMLButtonElement>('#mainhead button[data-action="end"]'),
   resumeBtn: requireElement<HTMLButtonElement>('#mainhead button[data-action="resume"]'),
   removeBtn: requireElement<HTMLButtonElement>('#mainhead button[data-action="remove"]'),
+  renameBtn: requireElement<HTMLButtonElement>("#mainhead button.rename"),
 };
 const deadSurfaceEl = requireElement<HTMLElement>("#dead-surface");
 const deadSurfaceRefs: DeadSurfaceRefs = collectDeadSurfaceRefs(deadSurfaceEl);
 const deadSurfaceTemplate = requireElement<HTMLTemplateElement>("#dead-surface-template");
 
 const store = new SessionStore();
+
+/** REQ-13/REQ-14: the one `putTitle` dispatcher both the mainhead's editor and every
+ * tile's editor route through (render/rename.ts's `onCommit` — never fires for a
+ * `"noop"`). Fire-and-forget, same failure-logging shape as `doPin`/`doEnd` — the
+ * resulting `sessionUpsert` (or nothing, on a failed request) drives the redraw; the
+ * heading/tile always shows the last *broadcast* title (REQ-14), never a locally-typed
+ * one. */
+function handleRenameCommit(id: number, command: TitleCommand): void {
+  const title = command.kind === "set" ? command.title : null;
+  void putTitle(id, title).then((result) => {
+    if (!result.ok) console.error(`PUT /api/sessions/${id}/title failed: ${result.error.code} ${result.error.message}`);
+  });
+}
+
+// REQ-13: the mainhead's editor is attached once, here, at startup (unlike a tile's,
+// which `render/tiles.ts`'s `buildTile` attaches per tile) — `getSession` always reads
+// the *current* `focusedId` fresh, never a stale closed-over session.
+const mainheadRename = attachRenameEditor(mainheadElements.nameEl, {
+  getSession: () => store.values().find((s) => s.id === focusedId) ?? null,
+  onCommit: handleRenameCommit,
+});
+
+// REQ-13(b): the one pair of callbacks every tile's editor shares — `render/tiles.ts`'s
+// `buildTile` adapts `getSession(id)` into the per-tile `getSession()` shape
+// `attachRenameEditor` expects.
+const tileRenameHandlers: TileRenameHandlers = {
+  getSession: (id) => store.values().find((s) => s.id === id) ?? null,
+  onCommit: handleRenameCommit,
+};
+
+/** REQ-15: every path that changes `focusedId` routes through here so the mainhead's
+ * open edit (if any) is always cancelled — with no request — before the new session's
+ * chrome renders (Implementation Notes: "On focusedId change main.ts calls the mainhead
+ * editor's cancel() before render()"). */
+function setFocusedId(id: number | null): void {
+  mainheadRename.cancel();
+  focusedId = id;
+}
 
 // ── view/prefs state ────────────────────────────────────────────────────────────────
 // `view`/`density` mirror the daemon's persisted prefs (docs/protocol.md §3.3) — the
@@ -157,6 +207,20 @@ const surfaces = new Map<number, TerminalSurface>();
 // the grid, which used to re-parent a mounted TerminalSurface root and blur its xterm
 // textarea within ~1s of the user clicking into it (review m2-terminal Critical 2).
 const tileElements = new Map<number, TileRefs>();
+
+/** Cancels the mainhead's and every tile's open rename editor, with no request sent
+ * either way (review cycle 1 Critical 1 / REQ-15's view-switch clause). Shared by every
+ * trigger that must not let a blur-driven commit through: a disconnect (`setStatus`), a
+ * `view` change arriving over the wire (`applyPrefsFromSnapshot`), and — the gap a live
+ * browser check found in this fix wave — a direct mousedown on the Focus/Tiles masthead
+ * buttons, which blurs whichever editor is open (as part of the browser's own
+ * mousedown-default focus shift) *before* that click's own `requestView()`/`putPrefs`
+ * round-trip ever reaches `applyPrefsFromSnapshot`. `cancel()` is a no-op when nothing is
+ * open, so calling this unconditionally on every one of those triggers is safe and cheap. */
+function cancelOpenRenames(): void {
+  mainheadRename.cancel();
+  for (const refs of tileElements.values()) refs.rename?.cancel();
+}
 
 // m4-reconcile: the dead-surface pane-snapshot cache (REQ-4/REQ-13). Keyed by session id,
 // populated by `ensurePaneFetch` and consumed by `renderFocusView`/`reconcileTilesGrid`.
@@ -235,6 +299,9 @@ function setStatus(status: ConnectionStatus): void {
   // States (new-ui-design-colors): "Daemon down ... The Settings dialog closes with the
   // other dialogs ... since a PUT cannot land."
   if (status !== "connected") settingsDialog.close();
+  // States (ui-text-and-focus): "an edit already open when the connection drops is
+  // cancelled on the next render" — both surfaces, no request sent either way.
+  if (status !== "connected") cancelOpenRenames();
   // review m4-reconcile Major 3: every already-drawn surface (mainhead, dead-surface
   // cap, rail cards, tile footers) carries `connected` baked into its last render call.
   // A focused *dead* session has no terminal socket to incidentally trigger a re-render
@@ -341,7 +408,7 @@ function focusNth(n: number): void {
   const session = sorted[n - 1];
   if (!session) return;
   if (view === "focus") {
-    focusedId = session.id;
+    setFocusedId(session.id);
     render();
   } else {
     promoteSession(session.id);
@@ -405,13 +472,17 @@ function handleRemoved(id: number): void {
   surfaces.delete(id);
   const tileRefs = tileElements.get(id);
   if (tileRefs) {
+    // REQ-15/edge case 18: cancel (no request) and detach the editor's own listener
+    // before the tile itself is removed from the DOM.
+    tileRefs.rename?.cancel();
+    tileRefs.rename?.dispose();
     tileRefs.root.remove();
     tileElements.delete(id);
   }
   tilesLive = tilesLive.filter((x) => x !== id);
   deadPaneCache.delete(id);
   previousAlive.delete(id);
-  if (focusedId === id) focusedId = null;
+  if (focusedId === id) setFocusedId(null);
   render();
 }
 
@@ -501,6 +572,16 @@ deadSurfaceRefs.resumeBtn.addEventListener("click", () => {
  * reshuffles a live grid the user already customized via promotion. */
 function applyPrefsFromSnapshot(prefs: Prefs): void {
   if (prefs.view !== view) {
+    // review cycle 1 Critical 1: a view switch hides the other view's whole subtree
+    // (`hidden`, not a detach) rather than routing through `reconcileTilesGrid`, so an
+    // open rename editor's own `hidden`-triggered blur would otherwise reach `onBlur`
+    // and commit. Cancel both surfaces here, before the assignment below — this is what
+    // covers a `view` arriving from another tab, a reload's snapshot, or the ⌘\\
+    // shortcut (which never moves DOM focus, so no native blur races ahead of this).
+    // The masthead Focus/Tiles buttons need a *second* guard below (their `mousedown`
+    // listener) because a direct click blurs the open editor synchronously, before this
+    // function is ever reached by the round-trip.
+    cancelOpenRenames();
     view = prefs.view;
     if (view === "tiles") tilesLive = initialLive(store.values(), densityCount(density));
   }
@@ -604,6 +685,11 @@ function reconcileTilesGrid(liveSessions: readonly Session[], now: Date, connect
 
   for (const [id, refs] of tileElements) {
     if (!desiredIds.has(id)) {
+      // REQ-15/edge case 18: a tile leaving the grid (demotion, view switch) has its
+      // edit cancelled — no request — before the node is detached, and its editor's own
+      // listener is removed so the detach-blur never reaches a live handler.
+      refs.rename?.cancel();
+      refs.rename?.dispose();
       refs.root.remove();
       tileElements.delete(id);
     }
@@ -627,7 +713,7 @@ function reconcileTilesGrid(liveSessions: readonly Session[], now: Date, connect
     let refs = tileElements.get(session.id);
     const isNewTile = !refs;
     if (!refs) {
-      refs = buildTile(session, now);
+      refs = buildTile(session, now, tileRenameHandlers);
       tileElements.set(session.id, refs);
     } else {
       updateTile(refs, session, now);
@@ -675,6 +761,9 @@ function reconcileTilesGrid(liveSessions: readonly Session[], now: Date, connect
     }
 
     if (refs.actsEl) renderTileFooterActions(refs.actsEl, session, now, connected, dispatchAction);
+    // States: "the rename button is disabled while the WS is disconnected" — same
+    // connected gate as the footer's own End/Resume/Remove, applied every render pass.
+    refs.rename?.setEnabled(connected);
   }
 
   restoreFocusedControl(focused, (id) => tileElements.get(id)?.root);
@@ -729,7 +818,7 @@ function render(): void {
     // rail's own order (REQ-6/REQ-7) — manual mode's pinned-then-opened order, or
     // attention mode's §3.4 order (which sorts ended sessions last, REQ-9) — a removed
     // session's focus falls through to here.
-    focusedId = orderRail(sessions, railSort)[0]?.id ?? null;
+    setFocusedId(orderRail(sessions, railSort)[0]?.id ?? null);
   }
 
   // REQ-13/INV-5/W8: only alive sessions may ever open a terminal socket — Tiles' sticky
@@ -752,7 +841,7 @@ function render(): void {
     orderRail(sessions, railSort),
     now,
     (id, source) => {
-      focusedId = id;
+      setFocusedId(id);
       render();
       // plan terminal-focus REQ-1/REQ-2/REQ-4/REQ-6: only a deliberate pointer click on
       // a rail card moves keyboard focus into the terminal — the ⌘1-9 shortcut,
@@ -766,6 +855,7 @@ function render(): void {
     connected,
     railSort === "manual",
     pendingRailFocus,
+    focusedId,
   );
   pendingRailFocus = null;
   railCountEl.textContent = sessions.length > 0 ? String(sessions.length) : "";
@@ -784,6 +874,15 @@ function render(): void {
   else renderTilesView(sessions, now, connected);
 }
 
+// review cycle 1 Critical 1, live-browser-verified gap: a `mousedown` on either button
+// fires (and its default action shifts focus, blurring any open rename editor) before
+// the `click` listener below runs — so cancelling inside the click handler is too late,
+// the editor's `onBlur` has already committed by then. Cancelling on `mousedown` instead
+// pre-empts that native blur: `attachRenameEditor`'s `closeEditor()` removes the input's
+// own blur listener before detaching it, so the blur the browser still fires next has
+// nothing left to call.
+viewFocusBtn.addEventListener("mousedown", cancelOpenRenames);
+viewTilesBtn.addEventListener("mousedown", cancelOpenRenames);
 viewFocusBtn.addEventListener("click", () => requestView("focus"));
 viewTilesBtn.addEventListener("click", () => requestView("tiles"));
 density2x2Btn.addEventListener("click", () => requestDensity("2x2"));

@@ -318,6 +318,33 @@ function parsePaneSnapshot(value: unknown): PaneSnapshot | null {
   return { text, capturedAt };
 }
 
+/** `PUT /api/sessions/{id}/title` (docs/protocol.md §3.15, plan ui-text-and-focus
+ * REQ-10). `title: null` clears the override; a non-null string sets it (1-100
+ * characters after trimming, validated daemon-side — sessions/rename.ts's `titleCommand`
+ * already avoids sending an out-of-range value from the UI's own editor, but a direct
+ * caller still gets the daemon's `400`). `204` with no body on success — same
+ * "response carries no state, the socket does" shape as `pinSession`: the resulting
+ * `title`/`titleOverride` change reaches every UI socket via `sessionUpsert`. Errors:
+ * `400 invalid_request` / `404 unknown_session`. */
+export async function putTitle(id: number, title: string | null): Promise<ApiResult<null>> {
+  const res = await safeFetch(`/api/sessions/${id}/title`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ title }),
+  });
+  if (!res) return { ok: false, error: networkError };
+  if (res.status === 204) return { ok: true, value: null };
+  let errorBody: unknown;
+  try {
+    errorBody = await res.json();
+  } catch {
+    return { ok: false, error: genericError };
+  }
+  const error = parseApiError(errorBody);
+  return { ok: false, error: error ?? genericError };
+}
+
 /** `GET /api/sessions/{id}/pane` (docs/protocol.md §3.4). Errors `404 unknown_session` /
  * `404 no_snapshot` (no capture has succeeded yet — render/dead.ts's "no snapshot
  * captured" honesty case, not a fetch failure). */

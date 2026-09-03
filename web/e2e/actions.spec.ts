@@ -97,7 +97,11 @@ test("End from the mainhead ends only the focused session; a live neighbour is u
       "#{session_attached}",
     );
 
-    await mainhead.getByRole("button", { name: "End" }).click();
+    // exact: true — sanctioned repair (plan ui-text-and-focus, REQ-13/Testable UI
+    // Elements): the mainhead heading now also hosts a rename trigger whose accessible
+    // name is the display title, and this test's own fixture title ("end-mainhead-a")
+    // contains "end" as a substring, so a non-exact match is ambiguous.
+    await mainhead.getByRole("button", { name: "End", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "End session?" });
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText("end-mainhead-a");
@@ -584,7 +588,11 @@ test("Removing a live session ends it first, warns in the dialog copy, and moves
         0,
       );
 
-      await mainhead.getByRole("button", { name: "Remove" }).click();
+      // exact: true — sanctioned repair (plan ui-text-and-focus, REQ-13/Testable UI
+      // Elements): the mainhead's rename trigger's accessible name is the display
+      // title, and this test's own fixture title ("remove-live-a") contains "remove"
+      // as a substring, so a non-exact match is ambiguous.
+      await mainhead.getByRole("button", { name: "Remove", exact: true }).click();
       const dialog = page.getByRole("dialog", { name: "Remove session?" });
       await expect(dialog).toBeVisible();
       await expect(dialog).toContainText(/ends the session first/i);

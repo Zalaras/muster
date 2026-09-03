@@ -494,6 +494,16 @@ func (m *Manager) ApplyStatus(ctx context.Context, musterSessionID int64, update
 		return nil, fmt.Errorf("apply status: unknown session %d", musterSessionID)
 	}
 
+	// Captured before applyStatusUpdate mutates sess, so the wire-visible delta (REQ-12)
+	// can be judged independently of the persist-worthy delta applyStatusUpdate itself
+	// reports: Model/Context are always replaced wholesale on a real change (never
+	// mutated in place, per applyStatusUpdate's own doc comment), so a pointer
+	// inequality after is exactly "this field changed"; DisplayTitle() folds in
+	// TitleOverride so a Claude-name-only change while an override is set compares equal.
+	beforeDisplay := sess.DisplayTitle()
+	beforeModel := sess.Model
+	beforeContext := sess.Context
+
 	if !applyStatusUpdate(sess, update) {
 		snapshot := sess.Clone()
 		m.mu.Unlock()
@@ -501,13 +511,53 @@ func (m *Manager) ApplyStatus(ctx context.Context, musterSessionID int64, update
 	}
 	row := sessionToRow(sess)
 	snapshot := sess.Clone()
+	// REQ-12: a status post that only refreshed Claude's name while an override is set
+	// persists the row (Title changed, above — applyStatusUpdate reported it) but must
+	// not broadcast — the wire object (DisplayTitle()/model/context) is unchanged, and
+	// §5.3's no-no-op-upserts rule stands.
+	broadcast := !stringPtrEqual(beforeDisplay, sess.DisplayTitle()) || beforeModel != sess.Model || beforeContext != sess.Context
 	m.mu.Unlock()
 
 	if err := m.store.UpdateSession(ctx, row); err != nil {
 		return nil, fmt.Errorf("persisting status update for session %d: %w", musterSessionID, err)
 	}
-	m.broadcast(snapshot)
+	if broadcast {
+		m.broadcast(snapshot)
+	}
 	return snapshot, nil
+}
+
+// SetTitle applies docs/protocol.md §3.15's PUT .../title mutation (REQ-10/REQ-11):
+// sets or clears id's title override under the lock and persists+broadcasts iff the
+// wire title or the override itself changed — a no-op request (edge cases 3/4) neither
+// writes nor broadcasts. Returns ErrUnknownSession for a missing id (the server maps it
+// to 404 unknown_session).
+func (m *Manager) SetTitle(ctx context.Context, id int64, title *string) (bool, error) {
+	m.mu.Lock()
+	sess, ok := m.sessions[id]
+	if !ok {
+		m.mu.Unlock()
+		return false, ErrUnknownSession
+	}
+
+	beforeDisplay := sess.DisplayTitle()
+	beforeOverride := sess.TitleOverride
+	sess.TitleOverride = title
+
+	if stringPtrEqual(beforeDisplay, sess.DisplayTitle()) && stringPtrEqual(beforeOverride, sess.TitleOverride) {
+		m.mu.Unlock()
+		return false, nil
+	}
+
+	row := sessionToRow(sess)
+	snapshot := sess.Clone()
+	m.mu.Unlock()
+
+	if err := m.store.UpdateSession(ctx, row); err != nil {
+		return false, fmt.Errorf("persisting title for session %d: %w", id, err)
+	}
+	m.broadcast(snapshot)
+	return true, nil
 }
 
 // List returns every known session (order unspecified — the client sorts).
@@ -949,6 +999,7 @@ func rowToSession(row store.SessionRow) *Session {
 		CreatedAt:            row.CreatedAt,
 		Pinned:               row.Pinned,
 		RailPos:              row.RailPos,
+		TitleOverride:        row.TitleOverride,
 	}
 	if row.TmuxPane != nil {
 		s.TmuxPane = *row.TmuxPane
@@ -1019,6 +1070,7 @@ func sessionToRow(s *Session) store.SessionRow {
 		CreatedAt:            s.CreatedAt,
 		Pinned:               s.Pinned,
 		RailPos:              s.RailPos,
+		TitleOverride:        s.TitleOverride,
 	}
 	if s.TmuxPane != "" {
 		pane := s.TmuxPane

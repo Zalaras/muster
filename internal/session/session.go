@@ -74,7 +74,7 @@ type Session struct {
 	Directory            string
 	Branch               *string // nil iff Directory isn't a git checkout
 	IsWorktree           bool
-	Title                *string
+	Title                *string // Claude's last-known name (status-line session_name, or launch --name until then)
 	State                State
 	StateSince           time.Time
 	PermissionMode       PermissionMode
@@ -102,6 +102,12 @@ type Session struct {
 	Pinned  bool
 	RailPos int64
 
+	// TitleOverride (plan ui-text-and-focus REQ-9/REQ-11): the user's rename via PUT
+	// .../title, nil = none. Display-only, wins over Title in DisplayTitle() — never
+	// read by the state machine or the status path (INV-2); mutated only by
+	// Manager.SetTitle.
+	TitleOverride *string
+
 	currentPromptID string
 	closedPromptIDs []string // bounded ring, most recent last, capped at maxClosedPrompts
 }
@@ -114,6 +120,16 @@ const maxClosedPrompts = 8
 func (s *Session) Clone() *Session {
 	c := *s
 	return &c
+}
+
+// DisplayTitle returns the wire "title" (plan ui-text-and-focus REQ-11): TitleOverride
+// when non-nil, else Claude's last-known name (Title), else nil. The daemon owns this
+// precedence; no client computes it (docs/protocol.md §5.3).
+func (s *Session) DisplayTitle() *string {
+	if s.TitleOverride != nil {
+		return s.TitleOverride
+	}
+	return s.Title
 }
 
 func (s *Session) promptClosed(id string) bool {
@@ -155,6 +171,16 @@ func (s *Session) activeState() State {
 		return StatePlanning
 	}
 	return StateWorking
+}
+
+// stringPtrEqual reports whether two nullable strings hold the same value — nil equals
+// only nil (plan ui-text-and-focus: SetTitle/applyStatusUpdate's "did the wire title
+// change" checks).
+func stringPtrEqual(a, b *string) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
 }
 
 func truncate(s string, n int) string {

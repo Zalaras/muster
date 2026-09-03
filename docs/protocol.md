@@ -411,6 +411,31 @@ in the order the files were dropped. The session's `alive` flag is not consulted
 is a filesystem question; the UI itself refuses to paste into a surface whose terminal
 socket is not open.
 
+### 3.15 `PUT /api/sessions/{id}/title` (Pre-v1 — `ui-text-and-focus`, 2026-09-03)
+
+**Auth**: UI cookie (401 `unauthorized`). Backs inline rename from the Focus mainhead and a
+tile header (#10). **Request:** `{ "title": "hunting flake" }` sets the session's **title
+override** (1–100 characters after trimming, counted in runes); `{ "title": null }` clears it.
+The `title` key is **required** — an absent key is not a clear. Leading/trailing whitespace is
+trimmed before validation and storage. → `204`, no body. Every UI socket receives one
+`sessionUpsert` iff the wire `title` or `titleOverride` changed; a request that leaves both as
+they were is a `204` with no broadcast. The session's `alive` flag is not consulted (a dead
+session can be renamed — display-only field).
+
+Precedence (§5.3): the wire `title` is `titleOverride` when non-null, else Claude's last-known
+`session_name`, else `null`. Status posts keep refreshing Claude's name into the daemon's own
+column but never read or write the override; while an override is set, a post that changes only
+Claude's name persists and broadcasts nothing (the wire object is unchanged). The launch form's
+title still reaches Claude Code as `--name` and is *not* an override.
+
+**Errors** (envelope per §2):
+
+- `400 invalid_request` — body not JSON, `title` key missing, `title` neither string nor null,
+  or the trimmed string empty / longer than 100 runes.
+  `{ "error": { "code": "invalid_request", "message": "title must be null or 1-100 characters after trimming" } }`
+- `404 unknown_session` — no session with that id.
+  `{ "error": { "code": "unknown_session", "message": "unknown session id" } }`
+
 ## 4. HTTP endpoints — ingest (Claude Code → daemon)
 
 | Method & path | Milestone | Body |
@@ -557,7 +582,11 @@ is complexity with no payoff, and whole-object replacement is naturally loss-tol
 ```jsonc
 {
   "id": 7,
-  "title": "flaky-e2e-hunt",        // last known from status-line session_name; launch --name until then; null if none yet
+  "title": "flaky-e2e-hunt",        // DISPLAY title (ui-text-and-focus, 2026-09-03): titleOverride when non-null, else the
+                                    //   last-known status-line session_name (launch --name until then), else null
+  "titleOverride": null,            // string | null — the user's rename via PUT /api/sessions/{id}/title (§3.15); null = none.
+                                    //   Never touched by status posts, rebinds, resume or reconcile. INV: title == titleOverride
+                                    //   whenever titleOverride is non-null.
   "state": "working",                // "started"|"planning"|"working"|"needs_input"|"failed"|"idle"
   "stateSince": "2026-08-20T09:15:00Z",
   "alive": true,                     // liveness is ORTHOGONAL to state (§7.5); false = pane gone, card greys out, offers resume
@@ -612,8 +641,9 @@ M1 value semantics (within the nullability rules above):
 
 M3 value semantics (m3-gauges, 2026-08-23 — supersede the M1 rules for title/model/context):
 
-- `title`: refreshes from the status line's session name whenever present (early posts
-  carry none — last-known stands until then).
+- `title`: **Claude's name** refreshes from the status line's session name whenever present
+  (early posts carry none — last-known stands until then); the wire `title` reflects it only
+  while `titleOverride` is null (§3.15, ui-text-and-focus 2026-09-03).
 - `model`: `id` and `displayName` refresh from the status line's model object whenever
   present; the M1 launch-value rules stand until the first such post.
 - `context`: `usedPct`/`totalInputTokens`/`windowSize` are non-null from the session's
@@ -847,6 +877,11 @@ exit — so the next startup sweeps it.
 
 ## 9. Changelog
 
+- **2026-09-03 — §3.15 `PUT /api/sessions/{id}/title`; §5.3 `title` becomes the display title
+  and gains `titleOverride`** (plan `ui-text-and-focus`, Pre-v1, closes #10 with #16/#18/#19).
+  A daemon-owned, nullable title override that wins over the status line's `session_name`;
+  status posts never touch it; a hidden Claude-name change persists without a broadcast.
+  Additive on the wire (one new nullable field, one new endpoint); no version bump.
 - **2026-09-03 — §3.1/§3.2/§5.3/§7.2: `permissionMode` gains `"auto"`** (plan
   `fix-auto-mode-select`, closes #12). Claude Code 2.1.259 has a distinct `auto` mode
   (`--permission-mode auto`, hooks report `"auto"`); the launcher's "auto-accept" radio was

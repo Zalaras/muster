@@ -162,7 +162,12 @@ test("the same status data renders in the Tiles view's tile header (E4)", async 
       });
       await expect(sessionCard(page, "gauge-e4-tiles")).toBeVisible();
 
-      await page.getByRole("button", { name: "Tiles" }).click();
+      // exact: true — sanctioned repair (plan ui-text-and-focus, REQ-13/Testable UI
+      // Elements): live tile headers now host a rename trigger whose accessible name
+      // is the display title, and this test's own fixture title ("gauge-e4-tiles")
+      // contains "tiles" as a substring, so a non-exact match on the view switcher's
+      // "Tiles" button is ambiguous.
+      await page.getByRole("button", { name: "Tiles", exact: true }).click();
 
       const tile = liveTile(page, "gauge-e4-tiles");
       await expect(tile).toBeVisible();

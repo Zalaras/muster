@@ -37,6 +37,7 @@ const claudeThemeMessage: ClaudeThemeMessage = { type: "claudeTheme", family: "l
 const session: Session = {
   id: 1,
   title: "fix the thing",
+  titleOverride: null,
   state: "working",
   stateSince: "2026-08-22T00:00:00Z",
   alive: true,

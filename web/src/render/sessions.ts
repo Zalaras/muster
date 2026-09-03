@@ -110,10 +110,12 @@ function updateSessionCardContent(
   onAction?: (action: SessionAction, id: number) => void,
   draggable = false,
   pinnedLast = false,
+  currentId: number | null = null,
 ): void {
   const vm = buildCardViewModel(session, now);
+  const isCurrent = session.id === currentId;
 
-  card.className = `card ${vm.stateClass}${vm.ended ? " ended" : ""}${vm.pinned ? " pinned" : ""}${pinnedLast ? " pinned-last" : ""}`;
+  card.className = `card ${vm.stateClass}${vm.ended ? " ended" : ""}${vm.pinned ? " pinned" : ""}${pinnedLast ? " pinned-last" : ""}${isCurrent ? " current" : ""}`;
   // Gives the card an accessible name (review m1-sessions Minor 9) — a bare <span> title
   // carries none on its own. Mandatory now that M2 makes cards focusable/clickable.
   card.setAttribute("aria-label", vm.title);
@@ -125,6 +127,11 @@ function updateSessionCardContent(
   // no notion of "rail vs strip" or the current sort mode). Explicit "false" (not just an
   // absent attribute) per the plan's DOM spec and the Testable UI Elements table.
   card.setAttribute("draggable", draggable ? "true" : "false");
+  // REQ-1: the marker means "the session the Focus pane is showing" — the rail passes
+  // `focusedId` as `currentId`; the strip always passes `null` (renderStrip below), so a
+  // strip card never matches and the attribute is removed, never set to "false" (INV-3).
+  if (isCurrent) card.setAttribute("aria-current", "true");
+  else card.removeAttribute("aria-current");
 
   const name = card.querySelector<HTMLElement>(".name");
   if (name) name.textContent = vm.title;
@@ -207,11 +214,12 @@ export function buildSessionCardElement(
   connected = true,
   draggable = false,
   pinnedLast = false,
+  currentId: number | null = null,
 ): HTMLElement {
   const fragment = template.content.cloneNode(true) as DocumentFragment;
   const card = fragment.querySelector<HTMLElement>(".card");
   if (!card) throw new Error("session-card-template is missing its .card root");
-  updateSessionCardContent(card, session, now, connected, onAction, draggable, pinnedLast);
+  updateSessionCardContent(card, session, now, connected, onAction, draggable, pinnedLast, currentId);
 
   // REQ-8: wired once, like the click/keydown listeners below — reconcileCards never
   // rebuilds an existing card, so this never double-attaches on a later render tick.
@@ -264,8 +272,9 @@ export function updateSessionCardElement(
   onAction?: (action: SessionAction, id: number) => void,
   draggable = false,
   pinnedLast = false,
+  currentId: number | null = null,
 ): void {
-  updateSessionCardContent(card, session, now, connected, onAction, draggable, pinnedLast);
+  updateSessionCardContent(card, session, now, connected, onAction, draggable, pinnedLast, currentId);
 }
 
 /** Reconciles `container`'s card children against `sessions`, matching existing DOM
@@ -298,6 +307,10 @@ export function reconcileCards(
   // tick, a pin click, a strip reconcile) omits this and gets the live capture, same as
   // before this plan.
   pendingFocus?: FocusedControl | null,
+  // REQ-1/REQ-3: the id of the session the Focus pane is currently showing — the rail
+  // passes `focusedId`, the strip always passes `null` (render/tiles.ts's `renderStrip`)
+  // so a strip card is never current (INV-3).
+  currentId: number | null = null,
 ): void {
   // Drop any stray non-element children (e.g. the honest-empty-state's lone text node,
   // left behind when the session list goes from empty to non-empty) before reconciling —
@@ -342,9 +355,9 @@ export function reconcileCards(
     const pinnedLast = session.id === lastPinnedId;
     let card = existingById.get(session.id);
     if (card) {
-      updateSessionCardElement(card, session, now, connected, onAction, draggable, pinnedLast);
+      updateSessionCardElement(card, session, now, connected, onAction, draggable, pinnedLast, currentId);
     } else {
-      card = buildSessionCardElement(session, now, template, onClick, onAction, connected, draggable, pinnedLast);
+      card = buildSessionCardElement(session, now, template, onClick, onAction, connected, draggable, pinnedLast, currentId);
     }
 
     // Moving an already-mounted node via insertBefore repositions it in place rather
@@ -381,6 +394,9 @@ export function renderSessions(
   connected = true,
   draggable = false,
   pendingFocus?: FocusedControl | null,
+  // REQ-1/REQ-3: the id of the session the Focus pane is showing — passed straight
+  // through to `reconcileCards`. `main.ts` supplies `focusedId` here for the rail.
+  currentId: number | null = null,
 ): void {
   if (sessions.length === 0) {
     // `textContent` assignment already clears any existing children (real DOM), so no
@@ -389,7 +405,7 @@ export function renderSessions(
     return;
   }
   const template = requireTemplate("session-card-template");
-  reconcileCards(el, sessions, now, template, onClick, onAction, connected, draggable, pendingFocus);
+  reconcileCards(el, sessions, now, template, onClick, onAction, connected, draggable, pendingFocus, currentId);
 }
 
 export interface FocusMainElements {

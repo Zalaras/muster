@@ -661,7 +661,7 @@ unless he re-ranks — don't re-sort this list.
   - The E2E suite cannot verify any of this: Playwright injects below the browser chrome
     (`web/e2e/views.spec.ts:110` pressed `Meta+1` green the whole time ⌘N was broken).
 
-- [ ] **No way to rename a session after it starts** ([#10](https://github.com/Zalaras/muster/issues/10))
+- [x] **No way to rename a session after it starts** ([#10](https://github.com/Zalaras/muster/issues/10)) ✅ done 2026-09-03 (plan `ui-text-and-focus`, via `/orchestrate`, approved review cycle 2; lands with `/land ui-text-and-focus`, which closes #10, #16, #18 and #19).
   — the reporter wants to click the title and edit it. Today `title` is set once from the
   launch form via `claude --name` and thereafter refreshed from the status line's session name
   whenever present (`docs/protocol.md` §5.3, M3 semantics); there is no rename route, and
@@ -670,12 +670,80 @@ unless he re-ranks — don't re-sort this list.
   survive the next status-line post, which means a "manual title wins" flag on the session row,
   not just a write. Wants a `/spec` pass before planning.
 
+- [ ] **Clicking the already-active view segment discards an open rename** — follow-up from
+  `ui-text-and-focus` (review cycle 2 Minor 1, `plans/ui-text-and-focus/review.md`): the
+  `mousedown` guard on `viewFocusBtn`/`viewTilesBtn` in `web/src/main.ts` calls
+  `cancelOpenRenames()` unconditionally, so clicking **Focus** while already in Focus (or Tiles in
+  Tiles) drops the typed text with zero PUTs, where REQ-14's blur-commit should apply — the
+  gesture is not a view switch. Fix: guard each listener by the view it would select
+  (`if (view !== "focus") cancelOpenRenames()` and the mirror), which also stops a right- or
+  middle-click on the switcher from cancelling an edit. Add an E2E pin beside the four
+  view-switch cancel tests in `web/e2e/rename.spec.ts`.
+
+- [ ] **A session reads Idle in the rail while it is still working** ([#14](https://github.com/Zalaras/muster/issues/14))
+  — "Had this session go IDLE in the UI on the sidebar while it's still working and editing
+  files". The issue's own snapshot corroborates it rather than just reporting it: `state idle
+  since 2026-09-01T16:05:07Z` with events running to `16:07:08Z` and the last ten ending
+  `PreToolUse, PostToolUse, status_line` — so tool activity arrived *after* the Idle and did
+  not move the state back. Prime suspect is the Edge Case 2 straggler guard
+  (`internal/session/machine.go:20`): `KindTurnActivity` returns early with no transition when
+  the prompt id it carries has already been closed by a `Stop`, which makes genuine post-`Stop`
+  work under that same prompt id indistinguishable from a late straggler. Needs an
+  `/interface-probe` establishing what a continued turn's prompt id actually looks like after a
+  `Stop` before a fix is chosen — the guard exists for a real reason and must not simply be
+  deleted. Same seam as #15; likely one plan covers both.
+
+- [ ] **Attention stays latched on "needs permission" after work resumes** ([#15](https://github.com/Zalaras/muster/issues/15))
+  — "Doesn't need my permission it's currently thinking but UI says needs permissions".
+  Confirmed in the tree, not just plausible: `internal/session/machine.go`'s `KindTurnActivity`
+  branch latches `permission_mode` and sets the active state but never clears `sess.Attention`
+  — only `KindTurnClosed`, `KindTurnFailed` and a re-bind (`machine.go:47,59,109`) do. The
+  snapshot shows the consequence: `state working since 2026-09-01T16:28:57Z` alongside
+  `attention permission since 2026-09-01T16:17:54Z`, eleven minutes stale, which violates
+  §5.3's unconditional "attention iff needs_input" invariant that the same file's comment
+  claims to hold. Clear attention on turn activity and add the unit test that would have caught
+  it (`internal/session/machine_test.go` has no activity-after-permission case). Same seam
+  as #14.
+
+- [x] **The rail never shows which session the Focus pane is displaying** ([#16](https://github.com/Zalaras/muster/issues/16)) ✅ done 2026-09-03 (plan `ui-text-and-focus`, via `/orchestrate`, approved review cycle 2; lands with `/land ui-text-and-focus`, which closes #10, #16, #18 and #19).
+  — "it should better show which session you have active in that nav". Measured: `focusedId` is
+  `web/src/main.ts`-local (`main.ts:136`) and is never passed to `reconcileCards`
+  (`web/src/render/sessions.ts:283`), so a card's only visual cue is CSS `:focus-within`
+  (`web/src/style.css:523`) — transient DOM focus that disappears the moment you click into the
+  terminal, which is the normal case. Wants a persistent selected-card treatment threaded from
+  `focusedId` through the render pass, on the new design tokens; the same card renders in the
+  Tiles strip, so decide whether the marker means "focused in Focus view" or "live in the
+  current view". A design-system §3 question — state colours are already spoken for.
+
+- [x] **Dark themes still read too dim after the contrast pass** ([#18](https://github.com/Zalaras/muster/issues/18)) ✅ done 2026-09-03 (plan `ui-text-and-focus`, via `/orchestrate`, approved review cycle 2; lands with `/land ui-text-and-focus`, which closes #10, #16, #18 and #19).
+  — "in the darker themes (not light) the text needs to be lighter it's still a little hard to
+  see". Filed against musterd 0.5.0, i.e. *after* `new-ui-design-colors` shipped its
+  AA-everywhere gate, so this is a follow-up on the landed token system and not a re-file of
+  #3: the gate passes while the result still reads dim, which points at the muted/secondary
+  foreground tokens sitting *at* the AA floor rather than above it. Re-check the Instrument and
+  Dark ramps against a target above AA for body text (AAA where it's cheap) and record which
+  tokens moved. Pairs with #19 — one pass over `style.css` can close both.
+
+- [x] **No type scale — text is too small on a large screen** ([#19](https://github.com/Zalaras/muster/issues/19)) ✅ done 2026-09-03 (plan `ui-text-and-focus`, via `/orchestrate`, approved review cycle 2; lands with `/land ui-text-and-focus`, which closes #10, #16, #18 and #19).
+  — "It's a little small on a large screen. How are we doing text size?" Badly, is the honest
+  answer: `web/src/style.css` carries ~40 hardcoded `font-size` literals between 10px and 16px
+  (`10.5px`, `11.5px`, `12.5px` among them) and no `--fs-*` tokens at all, so unlike colour
+  after #3 there is nothing to turn. The structural fix mirrors that colour work — a named type
+  scale in tokens — and then one decision: does the user get a size control (a `prefs` scale
+  factor alongside `theme`, which the Settings dialog already has a home for), or do we simply
+  move the ramp up. Pairs with #18.
+
 ## M5+ (v1.x, re-rank when reached)
 
 Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start-from-PR/issue
 (§4.3) → permissions UI (§4.4) → `code <worktree>` button (trivial, anytime).
 Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-09-01) is in
 `docs/design/worktree-conflicts.md` — read it before planning the worktree manager.
+
+- [ ] **Text-size setting** — `prefs.textSize` enum (`small | medium | large`), a Settings-dialog
+  segmented control beside Theme, `<html data-text-size>` driving `--fs-root`, and the first-paint
+  hint extended so a reload doesn't flash. Deferred from `ui-text-and-focus` (Damian, 2026-09-03):
+  tokens first, control later — the `--fs-*` ramp shipped there is the thing this control turns.
 
 - [ ] **A real `curl | sh` installer** — the second half of
   [#7](https://github.com/Zalaras/muster/issues/7) (the first half, the broken README command,
@@ -718,6 +786,17 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
   "one block plus one registry entry") would silently leave its radio dead until this guard
   is also edited. Suggested: `value === "follow" || (THEMES as readonly string[]).includes(value)`.
   Cite: `plans/new-ui-design-colors/review.md` (cycle 1, Minor 1, `[web-impl]`).
+
+- [ ] **Rail cards should carry a session summary, not a truncated last reply** ([#17](https://github.com/Zalaras/muster/issues/17))
+  — "it would be nicer to have a summary of what's going on in the chat. Just a short sentence
+  or two". Today the card's one-liner is the closing `Stop` hook's `last_assistant_message`
+  truncated to 200 chars (`internal/claudecode/interpret.go:45`, `internal/session/machine.go`
+  `KindTurnClosed`), so it reads as a mid-thought fragment rather than an overview. A real
+  summary cannot come from a hook payload at all — it needs the transcript plus a summarizer,
+  i.e. a model call Muster does not currently make. Two things have to be settled before this
+  can be planned: whether Muster may spend tokens summarizing (SPEC §3's v1 non-goal is
+  cost *tracking*, but spending is a new class of behaviour either way), and where a summary
+  is cached and invalidated so it isn't recomputed every render. Wants a `/spec` pass.
 
 - Scaling note (m2 review cycle-2 Minor 3): `terminalRegistry.takeover` holds one global
   mutex across the PTY spawn — deliberate and correct for REQ-2's evict-before-attach

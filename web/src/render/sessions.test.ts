@@ -130,6 +130,17 @@ class FakeDomNode {
     return this.attrs[name] ?? null;
   }
 
+  // REQ-1 (plan ui-text-and-focus): `updateSessionCardContent` removes `aria-current`
+  // outright on a non-current card (never sets it to `"false"` — INV-3), so the shim
+  // needs a real remove, not just an absent `setAttribute` call.
+  removeAttribute(name: string): void {
+    delete this.attrs[name];
+  }
+
+  hasAttribute(name: string): boolean {
+    return Object.hasOwn(this.attrs, name);
+  }
+
   // Vitest's DOM-element pretty-printer (used by matchers like `toContain`'s failure
   // diff) probes for this — harmless to implement for real, avoids a serializer crash
   // on assertion failure.
@@ -343,6 +354,7 @@ const NOW = new Date("2026-08-27T00:00:10Z");
 function makeSession(overrides: Partial<Session> & { id: number }): Session {
   return {
     title: `session-${overrides.id}`,
+    titleOverride: null,
     state: "idle",
     stateSince: "2026-08-27T00:00:00Z",
     alive: true,
@@ -771,6 +783,101 @@ describe("reconcileCards — pinned block visual: `pinned`/`pinned-last` classes
     expect(el.children[0]?.className.split(/\s+/)).toContain("pinned-last");
     expect(el.children[1]?.className.split(/\s+/)).not.toContain("pinned-last");
     expect(el.children[2]?.className.split(/\s+/)).not.toContain("pinned-last");
+  });
+});
+
+// REQ-1/REQ-3/INV-3/W6 (plan ui-text-and-focus): "the session the Focus pane is
+// showing" marker — exactly one `#sessions` card carries `aria-current="true"` whenever
+// `currentId` matches a card in the list, and the attribute is *removed* (not set to
+// `"false"`) on every other card, including one that used to be current.
+describe("reconcileCards — INV-3 marker: aria-current follows currentId (W6)", () => {
+  beforeEach(() => {
+    vi.stubGlobal("HTMLElement", FakeDomNode);
+    vi.stubGlobal("HTMLButtonElement", FakeDomNode);
+    vi.stubGlobal("document", { activeElement: null, createElement: (tag: string) => new FakeDomNode(tag) });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function container(): FakeDomNode {
+    return new FakeDomNode("div");
+  }
+
+  it("with three sessions, only the currentId card has aria-current=\"true\"; the other two carry no such attribute at all", () => {
+    const el = container();
+    const sessions = [makeSession({ id: 1 }), makeSession({ id: 2 }), makeSession({ id: 3 })];
+    reconcileCards(el as unknown as HTMLElement, sessions, NOW, fakeTemplate(), undefined, undefined, true, false, undefined, 2);
+
+    const [c1, c2, c3] = el.children;
+    expect(c1?.hasAttribute("aria-current")).toBe(false);
+    expect(c2?.getAttribute("aria-current")).toBe("true");
+    expect(c3?.hasAttribute("aria-current")).toBe(false);
+    expect(c1?.className.split(/\s+/)).not.toContain("current");
+    expect(c2?.className.split(/\s+/)).toContain("current");
+    expect(c3?.className.split(/\s+/)).not.toContain("current");
+  });
+
+  it("with currentId: null, no card carries aria-current", () => {
+    const el = container();
+    const sessions = [makeSession({ id: 1 }), makeSession({ id: 2 })];
+    reconcileCards(el as unknown as HTMLElement, sessions, NOW, fakeTemplate(), undefined, undefined, true, false, undefined, null);
+
+    for (const card of el.children) {
+      expect(card.hasAttribute("aria-current")).toBe(false);
+      expect(card.className.split(/\s+/)).not.toContain("current");
+    }
+  });
+
+  it("moves the marker to the new currentId on a later reconcile, removing it from the previous card (same nodes, updated in place)", () => {
+    const el = container();
+    const sessions = [makeSession({ id: 1 }), makeSession({ id: 2 })];
+    reconcileCards(el as unknown as HTMLElement, sessions, NOW, fakeTemplate(), undefined, undefined, true, false, undefined, 1);
+    expect(el.children[0]?.getAttribute("aria-current")).toBe("true");
+    expect(el.children[1]?.hasAttribute("aria-current")).toBe(false);
+
+    reconcileCards(el as unknown as HTMLElement, sessions, NOW, fakeTemplate(), undefined, undefined, true, false, undefined, 2);
+    expect(el.children[0]?.hasAttribute("aria-current")).toBe(false);
+    expect(el.children[1]?.getAttribute("aria-current")).toBe("true");
+  });
+
+  it("keeps exactly one current card after a reorder moves the current session's card into a slot a bystander previously occupied (INV-3 with bystanders)", () => {
+    const el = container();
+    // Session 1 is current, in slot 0.
+    reconcileCards(
+      el as unknown as HTMLElement,
+      [makeSession({ id: 1 }), makeSession({ id: 2 }), makeSession({ id: 3 })],
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+      false,
+      undefined,
+      1,
+    );
+    expect(el.children.map((c) => c.getAttribute("aria-current"))).toEqual(["true", null, null]);
+
+    // A manual-mode drag/attention re-rank moves session 1 (still current) into what was
+    // session 2's slot; session 2 now takes slot 0 — it must not inherit the attribute.
+    reconcileCards(
+      el as unknown as HTMLElement,
+      [makeSession({ id: 2 }), makeSession({ id: 1 }), makeSession({ id: 3 })],
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+      false,
+      undefined,
+      1,
+    );
+
+    const currentCards = el.children.filter((c) => c.hasAttribute("aria-current"));
+    expect(currentCards).toHaveLength(1);
+    expect(currentCards[0]?.dataset["sessionId"]).toBe("1");
+    expect(el.children[0]?.hasAttribute("aria-current")).toBe(false);
   });
 });
 

@@ -8,6 +8,8 @@ import { buildCardViewModel, stateBadgeText } from "../sessions/card";
 import { formatEndedAge, formatEndedAgo } from "../sessions/format";
 import { renderContextRow } from "./context";
 import { buildActionButton, reconcileCards, type SessionAction } from "./sessions";
+import { attachRenameEditor, type RenameEditorController } from "./rename";
+import type { TitleCommand } from "../sessions/rename";
 
 function requireTemplate(id: string): HTMLTemplateElement {
   const el = document.getElementById(id);
@@ -27,6 +29,20 @@ export interface TileRefs {
    * `TileRefs` fixtures (built before this plan, with only the four original fields) keep
    * typechecking unchanged; every real tile built via `buildTile` always has one. */
   actsEl?: HTMLElement;
+  /** REQ-13/REQ-15: this tile's rename editor, attached to `.thead .nm` — optional for
+   * the same pre-plan-fixture reason as `actsEl` above; every real tile built via
+   * `buildTile` always has one. `main.ts` calls `cancel()`/`dispose()` on demotion
+   * (before the tile leaves the grid) and `setEnabled()` on every connection change. */
+  rename?: RenameEditorController;
+}
+
+/** `main.ts` supplies one pair of callbacks, shared by every tile — `getSession` is
+ * parameterized by id so `buildTile` can close over the one session this tile owns, and
+ * `onCommit` is the single `putTitle` dispatcher both the mainhead and every tile route
+ * through (REQ-13's "one shared editor module serves both"). */
+export interface TileRenameHandlers {
+  getSession: (id: number) => Session | null;
+  onCommit: (id: number, command: TitleCommand) => void;
 }
 
 /** Updates one tile's header chrome (title/where/context/timer + state class) in place
@@ -40,7 +56,7 @@ function updateTileChrome(root: HTMLElement, session: Session, now: Date): void 
   root.className = `tile ${vm.stateClass}${vm.ended ? " ended" : ""}`;
 
   const dot = root.querySelector<HTMLElement>(".sdot");
-  const name = root.querySelector<HTMLElement>(".nm");
+  const nameEl = root.querySelector<HTMLElement>(".nm");
   const where = root.querySelector<HTMLElement>(".wh");
   const ctx = root.querySelector<HTMLElement>(".ctxinfo");
   const timer = root.querySelector<HTMLElement>(".tm");
@@ -49,7 +65,16 @@ function updateTileChrome(root: HTMLElement, session: Session, now: Date): void 
   // way to learn what its colour means — `title` is the same state word the badge/dead
   // surface already use (`stateBadgeText`), not a second copy.
   if (dot) dot.title = stateBadgeText(session.state);
-  if (name) name.textContent = vm.title;
+  // REQ-15/INV-4 (plan ui-text-and-focus): render/rename.ts marks `.nm` with
+  // `data-editing="true"` while its editor is open — skip the title write entirely so a
+  // render tick or `sessionUpsert` mid-edit never touches the open field's value, focus
+  // or selection. `.nm` wraps a `button.rename` (built once, in `buildTile` below) whose
+  // text this writes, never `.nm`'s own textContent, so the button node — and its click
+  // listener — survives every tick untouched.
+  if (nameEl && nameEl.dataset["editing"] !== "true") {
+    const renameBtn = nameEl.querySelector<HTMLButtonElement>("button.rename");
+    if (renameBtn) renameBtn.textContent = vm.title;
+  }
   if (where) where.textContent = vm.repoLine;
   if (ctx) renderContextRow(ctx, session.context, "ctxinfo");
   // A dead tile's header timer shows the bare age, deliberately WITHOUT the "ended"
@@ -68,7 +93,7 @@ function updateTileChrome(root: HTMLElement, session: Session, now: Date): void 
  * template's root is a bare `<article>`, which is the one plain element that carries an
  * implicit ARIA role (`article`) without any attribute, and its header (`.nm`) carries
  * the session title text the table also requires. */
-export function buildTile(session: Session, now: Date): TileRefs {
+export function buildTile(session: Session, now: Date, renameHandlers: TileRenameHandlers): TileRefs {
   const template = requireTemplate("tile-template");
   const fragment = template.content.cloneNode(true) as DocumentFragment;
   const root = fragment.querySelector<HTMLElement>(".tile");
@@ -78,12 +103,30 @@ export function buildTile(session: Session, now: Date): TileRefs {
   const geoEl = root.querySelector<HTMLElement>(".geo");
   const markerEl = root.querySelector<HTMLElement>(".marker");
   const actsEl = root.querySelector<HTMLElement>(".acts");
-  if (!bodySlot || !geoEl || !markerEl || !actsEl) throw new Error("tile-template is missing a required element");
+  const nameEl = root.querySelector<HTMLElement>(".nm");
+  if (!bodySlot || !geoEl || !markerEl || !actsEl || !nameEl) throw new Error("tile-template is missing a required element");
 
   root.dataset["sessionId"] = String(session.id);
+
+  // REQ-13(b): `.nm` wraps the same rename trigger the mainhead uses — built once, here,
+  // so `updateTileChrome`'s later passes only ever write its text, never rebuild it (the
+  // click listener `attachRenameEditor` wires below survives every tick).
+  const renameBtn = document.createElement("button");
+  renameBtn.type = "button";
+  renameBtn.className = "rename";
+  // REQ-19: the revert path (clear -> Claude Code's own name) is discoverable without
+  // documentation; the accessible name is still the button's text either way (Testable
+  // UI Elements).
+  renameBtn.title = "Rename · clear to use Claude Code's name";
+  nameEl.replaceChildren(renameBtn);
+  const rename = attachRenameEditor(nameEl, {
+    getSession: () => renameHandlers.getSession(session.id),
+    onCommit: renameHandlers.onCommit,
+  });
+
   updateTileChrome(root, session, now);
 
-  return { root, bodySlot, geoEl, markerEl, actsEl };
+  return { root, bodySlot, geoEl, markerEl, actsEl, rename };
 }
 
 /** Refreshes an existing tile's chrome for the current render pass — never rebuilds or
@@ -132,7 +175,9 @@ export function renderStrip(
   const template = requireTemplate("session-card-template");
   // Plan order-sidebar REQ-13: a strip card is never draggable, regardless of the rail's
   // current sort mode — the strip is a promote surface, not a manual-order drop target.
-  reconcileCards(el, sessions, now, template, onPromote, onAction, connected, false);
+  // REQ-1: `currentId` is always `null` here — a strip card is never "the session the
+  // Focus pane is showing" (edge case 14), so it can never carry the marker.
+  reconcileCards(el, sessions, now, template, onPromote, onAction, connected, false, undefined, null);
 }
 
 /** REQ-12's tile footer action row: a live tile gets End; a dead tile gets the "ended

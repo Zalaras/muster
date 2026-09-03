@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Locator, Page } from "@playwright/test";
 import type { ScratchDaemon } from "./daemon";
+import { liveTile, liveTileById } from "./terminal";
 
 /**
  * Creates a fresh, never-before-launched-into scratch directory for one test, for tests
@@ -88,6 +89,13 @@ export interface SessionObject {
   pinned: boolean;
   /** Plan order-sidebar §5.3: unique across all sessions; gaps allowed. */
   railPos: number;
+  /**
+   * Plan ui-text-and-focus §5.3 (REQ-11): the user's rename via `PUT …/title`, or `null`
+   * when none is set. `title` above is already the *display* title (override when
+   * non-null, else Claude's last-known name) — the daemon's precedence, never
+   * recomputed here.
+   */
+  titleOverride: string | null;
 }
 
 /**
@@ -145,4 +153,97 @@ export function sessionCard(page: Page, titleOrUntitled: string): Locator {
 /** The state-badge word inside a session card (Testable UI Elements: lowercase in DOM). */
 export function stateBadge(card: Locator): Locator {
   return card.getByText(/^\s*(started|planning|working|needs input|failed|idle)\s*$/i);
+}
+
+// --- ui-text-and-focus (plan) helpers: the Focus-pane marker, and the shared rename
+// editor on both surfaces (mainhead, tile header). ---
+
+/**
+ * The rail card carrying the Focus-pane marker (REQ-1): `[aria-current="true"]` scoped
+ * to `#sessions` so it can never match a strip card of the same session (the same
+ * `data-testid="session-card"` template is reused there, per `helpers/terminal.ts`'s
+ * `stripCard` comment). Resolves to zero-or-one; INV-3 asserts exactly one whenever the
+ * rail is non-empty.
+ */
+export function currentRailCard(page: Page): Locator {
+  return page.locator('#sessions [data-testid="session-card"][aria-current="true"]');
+}
+
+/**
+ * The same marker locator, scoped to the Tiles strip instead (`#tiles-strip`) — INV-3
+ * says this must resolve to zero matches always, since a strip card is never current
+ * (the strip's `renderStrip` passes `null` for `currentId`, REQ-1).
+ */
+export function currentStripCard(page: Page): Locator {
+  return page.locator('#tiles-strip [data-testid="session-card"][aria-current="true"]');
+}
+
+/** `#mainhead h2.name` — the heading wrapping the rename trigger (REQ-13). */
+export function mainheadHeading(page: Page): Locator {
+  return page.locator("#mainhead h2.name");
+}
+
+/**
+ * The mainhead's rename trigger button. Its accessible name IS the display title (or
+ * "untitled") — the button's own text content, per the Testable UI Elements row; the
+ * `title="Rename"` attribute is a tooltip/description, not the accessible name, since a
+ * `<button>` with visible text content always names itself from that content first.
+ */
+export function mainheadRenameButton(page: Page): Locator {
+  return mainheadHeading(page).getByRole("button");
+}
+
+/**
+ * The mainhead's rename field — present only while editing (`aria-label="Session
+ * title"`, REQ-13). Scoped to the heading so it can never collide with a tile's own
+ * field when both happen to be attached in the DOM.
+ */
+export function mainheadRenameField(page: Page): Locator {
+  return mainheadHeading(page).getByRole("textbox", { name: "Session title" });
+}
+
+/**
+ * A tile's rename trigger button, scoped to that tile (`article.tile` via `liveTile`)
+ * since two tiles may share a title/accessible name (Testable UI Elements note, edge
+ * case 19) — an unscoped `getByRole("button", { name: title })` would be ambiguous the
+ * moment two sessions are both "untitled".
+ */
+export function tileRenameButton(page: Page, title: string): Locator {
+  return liveTile(page, title).locator(".thead .nm").getByRole("button");
+}
+
+/** A tile's rename field, scoped the same way as `tileRenameButton`. */
+export function tileRenameField(page: Page, title: string): Locator {
+  return liveTile(page, title).getByRole("textbox", { name: "Session title" });
+}
+
+/**
+ * A tile's rename field, scoped by `data-session-id` (`liveTileById`) instead of by
+ * title text. Validate-mode repair (plan ui-text-and-focus): use this variant whenever
+ * the field must still be found while that same tile's own rename editor is open —
+ * `tileRenameField`'s title-text scoping stops matching the moment the button's text is
+ * swapped for `input.name-edit` (the title lives in the input's `value`, not its
+ * `textContent`).
+ */
+export function tileRenameFieldById(page: Page, id: number): Locator {
+  return liveTileById(page, id).getByRole("textbox", { name: "Session title" });
+}
+
+/**
+ * Sets a session's title override directly via the real `PUT /api/sessions/{id}/title`
+ * (protocol §3.15) — used to build a starting configuration (e.g. "an override already
+ * set before a daemon restart") without re-deriving it through the UI editor in every
+ * test that needs one, mirroring `helpers/railorder.ts`'s `pinViaApi`. Throws on
+ * anything but the documented 204.
+ */
+export async function putTitleViaApi(
+  page: Page,
+  daemonBaseURL: string,
+  id: number,
+  title: string | null,
+): Promise<void> {
+  const res = await page.request.put(`${daemonBaseURL}/api/sessions/${id}/title`, { data: { title } });
+  if (res.status() !== 204) {
+    throw new Error(`title PUT failed: ${res.status()} ${await res.text()}`);
+  }
 }

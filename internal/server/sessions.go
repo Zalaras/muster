@@ -9,7 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/rs/zerolog"
 
@@ -456,6 +458,74 @@ func (s *Server) handleSetOrder(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, http.StatusBadRequest, "invalid_request", "ids must be a duplicate-free list of known session ids, and pinnedCount must be in [0, len(ids)]")
 		default:
 			s.log.Error().Err(err).Msg("setting rail order failed")
+			writeJSONError(w, http.StatusInternalServerError, "internal_error", err.Error())
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+const maxSessionTitleLen = 100
+
+// setTitleRequest is PUT /api/sessions/{id}/title's request body (plan ui-text-and-focus
+// REQ-10, docs/protocol.md §3.15). Title is decoded as json.RawMessage rather than
+// *string so an absent "title" key (400) is distinguishable from an explicit
+// `"title": null` (204, clears the override) — json.RawMessage.UnmarshalJSON copies the
+// literal bytes verbatim, including a bare `null`, while a missing key leaves the field
+// at its nil zero value.
+type setTitleRequest struct {
+	Title json.RawMessage `json:"title"`
+}
+
+// invalidTitleMessage is §3.15's single 400 message for every validation failure (body
+// not JSON, title key missing, title neither string nor null, or trimmed-empty/too-long).
+const invalidTitleMessage = "title must be null or 1-100 characters after trimming"
+
+// handleSetTitle is PUT /api/sessions/{id}/title (plan ui-text-and-focus REQ-10,
+// docs/protocol.md §3.15).
+func (s *Server) handleSetTitle(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseSessionID(w, r)
+	if !ok {
+		return
+	}
+
+	var req setTitleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid_request", "invalid JSON body")
+		return
+	}
+	if len(req.Title) == 0 {
+		// The key was absent — distinct from an explicit null (§3.15: "the title key is
+		// required (absent key != null)").
+		writeJSONError(w, http.StatusBadRequest, "invalid_request", invalidTitleMessage)
+		return
+	}
+
+	var title *string
+	if string(req.Title) != "null" {
+		var raw string
+		if err := json.Unmarshal(req.Title, &raw); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid_request", invalidTitleMessage)
+			return
+		}
+		// Trimmed before validation and storage (§3.15); counted in runes, not bytes,
+		// same rule handleCreateIssue's title uses (a multi-byte-rune title the client's
+		// maxlength already allowed must not be rejected by a byte-length check).
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" || utf8.RuneCountInString(trimmed) > maxSessionTitleLen {
+			writeJSONError(w, http.StatusBadRequest, "invalid_request", invalidTitleMessage)
+			return
+		}
+		title = &trimmed
+	}
+
+	if _, err := s.manager.SetTitle(context.WithoutCancel(r.Context()), id, title); err != nil {
+		switch {
+		case errors.Is(err, session.ErrUnknownSession):
+			writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
+		default:
+			s.log.Error().Err(err).Int64("session_id", id).Msg("setting session title failed")
 			writeJSONError(w, http.StatusInternalServerError, "internal_error", err.Error())
 		}
 		return

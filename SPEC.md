@@ -66,7 +66,11 @@ notifications by design — the point is to be working *in* the dashboard.
   drag-to-reorder). Amended 2026-08-30, plan `order-sidebar`; see §11.
 - State is derived from hook events (see §6), never from parsing terminal output.
 - Titles use Claude Code's native session titles (`--name`, `/rename`, `SessionStart`
-  hook's `sessionTitle`) — Muster does not maintain its own ID→title mapping.
+  hook's `sessionTitle`) — Muster does not maintain its own ID→title mapping for the *launch*
+  name: the form's `--name` reaches Claude Code unchanged. Amended 2026-09-03, plan
+  `ui-text-and-focus` (#10): a **post-launch rename from the dashboard is Muster-owned** —
+  a `title_override` on the session row that wins over the status line's `session_name` in
+  the wire `title`, cleared by an empty rename to fall back to Claude Code's name; see §11.
   **All three verified working 2026-08-16.** Read the current title from the **status
   line's `session_name`**, which reflects every mechanism live: `--name`
   (`"Spike Title Probe"`), `/rename` (`"Renamed Via Slash"`), and a `SessionStart` hook
@@ -1205,6 +1209,32 @@ Issue #8. Built on branch `plan/file-drop-fix`; lands with `/land`. Additive pro
   its apostrophe-escaping form, was run by hand — nothing automated exercises Spotlight query
   syntax (review note), and `make test` is intermittently red on `main` under default
   parallelism (`TODO.md`, Pre-v1 Cleanup).
+
+### 2026-09-03 — focus marker, lifted dim-text floors, 15px type ramp, inline rename (plan `ui-text-and-focus`, via `/orchestrate`, approved review cycle 2)
+
+Four dashboard issues in one pass — #16, #18, #19, #10.
+
+- **§2.1 — the rail marks the session the Focus pane is showing** (#16). `focusedId` now reaches
+  `reconcileCards`; the card carries `class="current"` + `aria-current="true"` on a neutral
+  treatment (`--bg-hover` ground, 1px inset `--edge` ring, action row revealed) — state colours
+  stay reserved for state. The marker means "shown in the Focus pane", never "live in this view",
+  so the Tiles strip never renders one.
+- **Contrast floors rise above AA on every theme** (#18, option A): `--fg-muted` ≥ 8:1, `--fg-dim`
+  ≥ 7:1, `--idle` and the four state hues as text ≥ 6:1, the two note tokens ≥ 7:1 — Light moves
+  with the dark themes. `web/scripts/contrast-pairs.json` gates the new minimums; the mockups
+  remain the authority and `style.css` transcribes them.
+- **A tokenised type scale on a 15px root** (#19): seven `--fs-*` steps in rem on the bare `:root`;
+  every `font-size` in `style.css` references one (a negative `rg` check pins it). The whole
+  chrome grows ≈7%. The terminal's xterm size is not part of the ramp. **No user-facing text-size
+  control yet** — deferred to a `prefs.textSize` item in `TODO.md` (tokens first, control later).
+- **§2.1 amended — a post-launch rename is Muster-owned** (#10). New nullable
+  `session.title_override` (migration 0007), `PUT /api/sessions/{id}/title` (§3.15: `{"title":
+  string|null}`, absent key ≠ null, 1–100 runes after trim, 204, broadcast only on a wire change),
+  and the wire `title` becomes the *display* title (override, else Claude's last-known name) with
+  a new `titleOverride` field. Status posts still refresh Claude's name and never touch the
+  override. The affordance is click-to-edit on the Focus mainhead heading and every Tiles tile
+  header, from one shared editor; Enter/blur commit, Escape cancels, clearing reverts to Claude
+  Code's name. The UI never writes the title locally — it shows the last broadcast.
 
 ### 2026-09-03 — launcher offers Claude Code's four tabbed permission modes (plan `fix-auto-mode-select`, via `/orchestrate`, approved review cycle 2)
 

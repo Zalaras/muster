@@ -388,6 +388,7 @@ func (s *Server) routes() {
 	// read that way too.
 	mux.Handle("PUT /api/sessions/order", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleSetOrder)))
 	mux.Handle("PUT /api/sessions/{id}/pin", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handlePinSession)))
+	mux.Handle("PUT /api/sessions/{id}/title", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleSetTitle)))
 	mux.Handle("POST /api/issue/captures", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleCreateCapture)))
 	mux.Handle("POST /api/issues", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleCreateIssue)))
 

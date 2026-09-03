@@ -5,6 +5,7 @@ import { SessionStore } from "./store";
 function makeSession(overrides: Partial<Session> & { id: number }): Session {
   return {
     title: null,
+    titleOverride: null,
     state: "idle",
     stateSince: "2026-08-22T00:00:00Z",
     alive: true,

@@ -10,10 +10,13 @@ import "github.com/Zalaras/muster/internal/claudecode"
 // would spam sessionUpsert.
 //
 // This function's switch never reaches state/stateSince/attention/failure/alive/
-// compactions/permissionMode (INV-1): there is no code path here that touches them.
-// Attention/Failure/Model/Context are treated as immutable snapshots elsewhere
-// (Session.Clone's doc comment), so a changed field is always replaced with a fresh
-// pointer, never mutated in place.
+// compactions/permissionMode/titleOverride (INV-1; plan ui-text-and-focus INV-2): there
+// is no code path here that touches them — Title always means Claude's last-known name,
+// never the user's override, and callers needing the display-title (wire "title")
+// distinction compare Session.DisplayTitle() themselves (Manager.ApplyStatus's REQ-12
+// persist-vs-broadcast split). Attention/Failure/Model/Context are treated as immutable
+// snapshots elsewhere (Session.Clone's doc comment), so a changed field is always
+// replaced with a fresh pointer, never mutated in place.
 func applyStatusUpdate(sess *Session, update claudecode.StatusUpdate) bool {
 	changed := false
 

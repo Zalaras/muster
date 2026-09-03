@@ -203,7 +203,12 @@ test("Tiles: choosing a theme re-themes both live tiles' grounds (E8, INV-3 Tile
         data: envelopedSessionStart("claude-e8-b", { musterSession: sessionB.id }),
       });
 
-      await page.getByRole("button", { name: "Tiles" }).click();
+      // exact: true — sanctioned repair (plan ui-text-and-focus, REQ-13/Testable UI
+      // Elements): live tile headers now host a rename trigger whose accessible name
+      // is the display title, and this test's own fixture title ("tiles-e8-a")
+      // contains "tiles" as a substring, so a non-exact match on the view switcher's
+      // "Tiles" button is ambiguous.
+      await page.getByRole("button", { name: "Tiles", exact: true }).click();
       const regionA = terminalRegion(page, "tiles-e8-a");
       const regionB = terminalRegion(page, "tiles-e8-b");
       await expect(regionA).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });

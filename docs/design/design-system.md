@@ -63,14 +63,19 @@ following. The choice is `prefs.theme` (`docs/protocol.md` §3.3). Custom themes
 architecture only: a new block and a rebuild, not a loadable file.
 
 **Contrast bar — WCAG AA on every theme, machine-gated** (`make contrast`, part of
-`make check`; `web/scripts/contrast.mjs` + `contrast-pairs.json`). ≥ 4.5:1 for every text
-pair, including the 9–11.5px mono metadata layer; ≥ 3:1 for non-text UI that carries
-information alone: gauge fills on their track, `--edge` on the surfaces it bounds, the amber
-focus ring, state dots and stripes on `--bg`. The script also enforces the hue bands and
-"no literal outside a theme block". **Exempt list** (each with its reason in the JSON):
-`--line` hairlines, `--line-control` button borders, the four `--*-line` state tints, gauge
-tracks under a fill, disabled controls, `--scrim`/`--bg-raised-95`. This is SPEC §3's one
-bounded accessibility exception; nothing else in that non-goal moves.
+`make check`; `web/scripts/contrast.mjs` + `contrast-pairs.json`). Tiered floors, raised
+2026-09-03 (plan `ui-text-and-focus`, REQ-4, option A — the AA gate passed while the
+metadata layer sat *at* the floor): `--fg-muted` ≥ 8:1, `--fg-dim` ≥ 7:1 on `--bg`,
+`--bg-raised`, `--bg-hover` and `--well`; `--idle` and the four state hues (`--amber`
+`--rose` `--violet` `--teal`) ≥ 6:1, and `--amber-note`/`--rose-note` ≥ 7:1, on
+`--bg-raised` and `--bg-hover`; every other text pair keeps the prior ≥ 4.5:1 floor. ≥
+3:1 for non-text UI that carries information alone: gauge fills on their track, `--edge`
+on the surfaces it bounds, the amber focus ring, state dots and stripes on `--bg`. The
+script also enforces the hue bands and "no literal outside a theme block". **Exempt
+list** (each with its reason in the JSON): `--line` hairlines, `--line-control` button
+borders, the four `--*-line` state tints, gauge tracks under a fill, disabled controls,
+`--scrim`/`--bg-raised-95`. This is SPEC §3's one bounded accessibility exception;
+nothing else in that non-goal moves.
 
 **No web fonts, no CDN links, no vendored font binaries.** The dashboard is localhost-only
 and the dep tree is deliberately small; a font request is a network dependency and a
@@ -79,13 +84,20 @@ tracking (`-.01em` to `-.03em`), not by family.
 
 ## 2. Type roles
 
+Tokenised 2026-09-03 (plan `ui-text-and-focus`, REQ-6/REQ-7): a seven-step `--fs-*` ramp
+in rem, anchored to `--fs-root` (15px, up from the previous unlinked 14px body / 16px
+browser default). Sizes below are each role's token(s) with the resulting px at the 15px
+root; a per-viewer text-size control (a `prefs.textSize` enum moving `--fs-root`) is a
+post-release TODO — v1 ships the tokens, not the control.
+
 | Role | Family | Size | Notes |
 |---|---|---|---|
-| Session title, brand, pane heading | `--disp` | 13.5–19px, 700–800 | tight tracking |
-| Body / buttons | `--sans` | 14px | |
-| **All metadata, gauges, timers, paths, state badges** | `--mono` | 9–11.5px | this is what makes it read as an instrument |
-| Terminal | `--mono` | 12.5px / 1.65 | xterm.js owns this; don't restyle pane contents |
-| Section headers | `--mono` | 9.5–10.5px, `letter-spacing:.12em`, uppercase | |
+| Session title, brand, pane heading | `--disp` | `--fs-md`–`--fs-xl` (13.35–17.1px), 700–800 | tight tracking; tile header `--fs-md`, rail card `--fs-base` (15px), mainhead `--fs-lg`, brand `--fs-xl` |
+| Body | `--sans` | `--fs-base` (15px) | |
+| Buttons, segmented controls | `--mono` | `--fs-xs` (11.25px) | |
+| **All metadata, gauges, timers, paths, state badges** | `--mono` | `--fs-2xs`–`--fs-sm` (10.2–12.3px) | this is what makes it read as an instrument |
+| Terminal | `--mono` | 12.5px / 1.65 | xterm.js owns this; don't restyle pane contents — untouched by the `--fs-*` ramp (REQ-8) |
+| Section headers | `--mono` | `--fs-2xs`–`--fs-xs` (10.2–11.25px), `letter-spacing:.12em`, uppercase | |
 
 Every number that changes over time — timers, percentages, token counts, resets —
 gets `font-variant-numeric: tabular-nums`. Non-negotiable: digits that shift width make a
@@ -137,8 +149,8 @@ What differs is only how sessions are laid out:
 
 ### 4.1 Switching
 
-- The switcher is a segmented control (`Focus` | `Tiles`), mono, 10.5px, sharing the
-  button border treatment. The active segment takes `--bg-hover` and `--fg`.
+- The switcher is a segmented control (`Focus` | `Tiles`), mono, `--fs-xs` (11.25px),
+  sharing the button border treatment. The active segment takes `--bg-hover` and `--fg`.
 - Keyboard: **⌘\\** toggles. `⌘1–9` keeps its meaning in both views — focus session *n*,
   which in Tiles means promote it to a live tile. *n* is the rail's displayed order
   (ux-flows §3.4/§3.8; decision `cmd-n-ordering`, 2026-08-30).
@@ -166,6 +178,14 @@ behind a tab.
 **Rail card** — 3px state stripe, then title + badge + timer, `repo / branch`, then the
 context row (gauge, %, absolute tokens, compaction count), then either a **note** (amber
 left-border, for the reason it needs you) or a **snapshot** (mono, `--well` ground, clipped).
+The card whose session the Focus pane is currently showing carries **`current`**
+(plan `ui-text-and-focus`, REQ-1/REQ-2) — `--bg-hover` ground, a 1px inset `--edge` ring, its
+action row shown unconditionally (same reveal as hover/focus-within) — a neutral treatment,
+no state colour, since state colours are already spoken for (§3). The strip (Tiles' snapshot
+copy of the rail card) never carries it — nothing in Tiles is "the session the Focus pane
+shows". The rail card's title is plain text, not a rename trigger — renaming happens from
+the Focus mainhead's heading or a tile's header in Tiles (REQ-13), one shared editor for
+both.
 
 **Tile** (tiled view) — header (state dot, title, where, context, timer), terminal body on
 `--term`, footer stating `live` or `stopped` plus the tile's geometry. Blocked and failed
@@ -173,9 +193,13 @@ tiles take a coloured border (`--amber-line` / `--rose-line`); nothing else does
 is the tile's **drag handle** (`cursor: grab`; the terminal body never starts a drag); while
 dragging, the source tile dims (`.dragging`) and the tile under the pointer takes a 1px inset
 `--line-control` outline (`.drop-target`) — neutral tokens only, never a state colour (§3).
-The state dot carries a `title` with the state word so a hover explains the colour.
+The state dot carries a `title` with the state word so a hover explains the colour. The
+header's title is also a **rename trigger** (plan `ui-text-and-focus`, REQ-13, the same
+editor the Focus mainhead uses): a click-and-release opens it, a click-and-drag still
+reorders the grid; while an edit is open that header is `draggable="false"` so typing never
+starts a drag.
 
-**Buttons** — mono, 10.5px, 1px `--line-control` border, transparent ground. Filled amber
+**Buttons** — mono, `--fs-xs` (11.25px), 1px `--line-control` border, transparent ground. Filled amber
 (`--amber` ground, `--amber-fg` text) for the single primary action. No border-radius above
 2px anywhere in the app. **Disabled** (`.btn:disabled`, any variant): `--disabled-fg` /
 `--disabled-line` / `--disabled-bg`, weight 400, `cursor: not-allowed`, and no hover change
@@ -195,7 +219,7 @@ in `mockups/a-instrument.html`.
 **Form fields** — text inputs, selects and textareas sit on `--well` with a 1px `--edge`
 border (≥ 3:1 on the surface they sit on — nothing else marks a field's extent).
 
-**Segmented control** — mono, 10.5px, 1px `--edge` track border; native radio inputs
+**Segmented control** — mono, `--fs-xs` (11.25px), 1px `--edge` track border; native radio inputs
 visually hidden inside their labels, the checked segment taking `--bg-hover` ground and
 `--fg` text, focus-visible an amber 1px inset outline. Used by the Focus/Tiles view switcher,
 the launch form's Model and Start-in rows, and the Settings dialog's theme picker.

@@ -330,3 +330,47 @@ func TestListSessions_EmptyStoreReturnsNoRowsNoError(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, rows)
 }
+
+// TestInsertSession_TitleOverrideDefaultsNil covers plan ui-text-and-focus's Schema
+// Changes note: InsertSessionParams carries no TitleOverride field at all — a new session
+// never starts with an override (REQ-9's "no default, no backfill" is trivially true for
+// a freshly inserted row too).
+func TestInsertSession_TitleOverrideDefaultsNil(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	repoID := seedTestRepo(t, st)
+
+	row, err := st.InsertSession(ctx, InsertSessionParams{RepoID: repoID, Directory: "/tmp/proj", PermissionMode: "default"})
+	require.NoError(t, err)
+
+	assert.Nil(t, row.TitleOverride)
+}
+
+// TestUpdateSession_TitleOverrideRoundTrip covers D9: title_override survives insert ->
+// update -> load, in both directions (setting it, and clearing it back to nil — REQ-10's
+// "clear the override" path persists a NULL, not an empty string).
+func TestUpdateSession_TitleOverrideRoundTrip(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	repoID := seedTestRepo(t, st)
+
+	row, err := st.InsertSession(ctx, InsertSessionParams{RepoID: repoID, Directory: "/tmp/proj", PermissionMode: "default"})
+	require.NoError(t, err)
+	require.Nil(t, row.TitleOverride, "sanity: no override at insert time")
+
+	override := "User's Rename"
+	row.TitleOverride = &override
+	require.NoError(t, st.UpdateSession(ctx, row))
+
+	got, err := st.GetSession(ctx, row.ID)
+	require.NoError(t, err)
+	require.NotNil(t, got.TitleOverride)
+	assert.Equal(t, "User's Rename", *got.TitleOverride)
+
+	got.TitleOverride = nil
+	require.NoError(t, st.UpdateSession(ctx, got))
+
+	cleared, err := st.GetSession(ctx, row.ID)
+	require.NoError(t, err)
+	assert.Nil(t, cleared.TitleOverride, "clearing the override must persist a NULL, not survive as a stale value")
+}

@@ -16,6 +16,10 @@ export interface MainheadElements {
   endBtn: HTMLButtonElement;
   resumeBtn: HTMLButtonElement;
   removeBtn: HTMLButtonElement;
+  // Plan ui-text-and-focus REQ-13: the rename trigger inside `nameEl` — its text is
+  // written here on every non-editing pass; `main.ts` attaches the actual editor
+  // (render/rename.ts) to `nameEl` once at startup, this module never opens/closes it.
+  renameBtn: HTMLButtonElement;
 }
 
 /** REQ-10's meta line: "repo/branch · model · `ended <age>` when dead" — reuses
@@ -38,12 +42,33 @@ function mainheadMeta(session: Session, now: Date): string {
 export function renderMainhead(elements: MainheadElements, session: Session | null, now: Date, connected: boolean): void {
   if (!session) {
     elements.root.hidden = true;
-    elements.nameEl.textContent = "";
+    // Pre-review fix (ui-text-and-focus): this branch used to run
+    // `elements.nameEl.textContent = ""`, which permanently detached the
+    // `button.rename` child `nameEl` must always keep (Testable UI Elements:
+    // "Mainhead heading — heading — #mainhead h2.name" always contains the rename
+    // button; REQ-13(a)). `main.ts` captures that button once via `requireElement`
+    // and `attachRenameEditor` finds it once at startup — there is no later rebuild
+    // path — and the dashboard always runs one render() pass with zero sessions
+    // before the first sessionUpsert, so this branch fired on every page load and
+    // wiped the button before any session data ever arrived. `elements.root` is
+    // hidden in this state, so the button (and any stale text on it) is not visible;
+    // only `metaEl` needs clearing here.
     elements.metaEl.textContent = "";
     return;
   }
   elements.root.hidden = false;
-  elements.nameEl.textContent = session.title ?? "untitled";
+  // REQ-15/INV-4: `render/rename.ts` marks `nameEl` while its editor is open — skip the
+  // title write entirely so a render tick or `sessionUpsert` mid-edit never touches the
+  // input's value, focus or selection. The rename button (inside `nameEl`) is written
+  // only on the non-editing branch below, same reasoning.
+  if (elements.nameEl.dataset["editing"] !== "true") {
+    elements.renameBtn.textContent = session.title ?? "untitled";
+  }
+  // Same "every render pass, regardless of the editing skip above" rule as its three
+  // siblings below — disabling reflects `connected`, not the edit state (States: "the
+  // rename button is disabled while the WS is disconnected"; main.ts separately cancels
+  // an open edit on disconnect).
+  elements.renameBtn.disabled = !connected;
   elements.metaEl.textContent = mainheadMeta(session, now);
   elements.endBtn.disabled = !connected || !session.alive;
   elements.resumeBtn.disabled = !connected || session.alive || session.claudeSessionId === null;

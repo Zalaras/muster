@@ -52,6 +52,11 @@ type SessionRow struct {
 	// never read by the state machine or the status path (D17).
 	Pinned  bool
 	RailPos int64
+
+	// TitleOverride (plan ui-text-and-focus REQ-9): the user's rename via PUT
+	// .../title. Display-only, nullable, never touched by the status path (INV-2) —
+	// wins over Title in the wire "title" (internal/session.Session.DisplayTitle()).
+	TitleOverride *string
 }
 
 // InsertSessionParams seeds a new session row (REQ-1/REQ-2): state "started", the
@@ -141,7 +146,7 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 			attention_reason = ?, attention_since = ?, failure_error = ?, failure_message = ?,
 			last_activity = ?, alive = ?, ended_at = ?, first_launch_here = ?,
 			context_used_pct = ?, context_total_input_tokens = ?, context_window_size = ?,
-			last_snapshot = ?, last_snapshot_at = ?, pinned = ?, rail_pos = ?
+			last_snapshot = ?, last_snapshot_at = ?, pinned = ?, rail_pos = ?, title_override = ?
 		WHERE id = ?
 	`,
 		row.TmuxTarget, row.TmuxPane, row.ClaudeSessionID, row.Directory, row.Branch,
@@ -150,7 +155,7 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 		row.AttentionReason, attentionSince, row.FailureError, row.FailureMessage,
 		row.LastActivity, boolToInt(row.Alive), endedAt, boolToInt(row.FirstLaunchHere),
 		row.ContextUsedPct, row.ContextTotalInputTokens, row.ContextWindowSize,
-		row.LastSnapshot, lastSnapshotAt, boolToInt(row.Pinned), row.RailPos,
+		row.LastSnapshot, lastSnapshotAt, boolToInt(row.Pinned), row.RailPos, row.TitleOverride,
 		row.ID,
 	)
 	if err != nil {
@@ -165,7 +170,7 @@ const sessionColumns = `
 	model_display_name, compactions, attention_reason, attention_since, failure_error,
 	failure_message, last_activity, alive, ended_at, first_launch_here, created_at,
 	context_used_pct, context_total_input_tokens, context_window_size,
-	last_snapshot, last_snapshot_at, pinned, rail_pos
+	last_snapshot, last_snapshot_at, pinned, rail_pos, title_override
 `
 
 func (s *Store) GetSession(ctx context.Context, id int64) (SessionRow, error) {
@@ -215,7 +220,7 @@ func scanSession(row rowScanner) (SessionRow, error) {
 		&r.ModelDisplayName, &r.Compactions, &r.AttentionReason, &attentionSince, &r.FailureError,
 		&r.FailureMessage, &r.LastActivity, &alive, &endedAt, &firstHere, &createdAt,
 		&r.ContextUsedPct, &r.ContextTotalInputTokens, &r.ContextWindowSize,
-		&r.LastSnapshot, &lastSnapshotAt, &pinned, &r.RailPos,
+		&r.LastSnapshot, &lastSnapshotAt, &pinned, &r.RailPos, &r.TitleOverride,
 	); err != nil {
 		return SessionRow{}, err
 	}
