@@ -30,21 +30,31 @@ def parse(ts):
     return datetime.datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
 
 def print_timings(s):
-    """Wall-clock per step, in finish order. Gap = this stamp minus the previous one
-    (started_at for the first). Parallel steps share a gap; retries are folded into the
-    step whose verdict ended them. Prints a Markdown table the completion summary can paste."""
+    """Wall-clock per step, in finish order. Duration = finish − start when the step has a
+    `start` stamp (the normal case); otherwise the gap since the previous finish (started_at
+    for the first), marked `~` because that fallback is wrong for parallel steps. Retries are
+    folded into the step whose verdict ended them. Total is run start → last finish, not the
+    column sum (parallel steps overlap). Prints a Markdown table the summary can paste."""
     stamps = s.get("step_finished_at") or {}
+    starts = s.get("step_started_at") or {}
     if not stamps:
         print("no step_finished_at stamps (state predates timings, or no step is done yet)"); return
     prev = parse(s["started_at"])
     rows = sorted(stamps.items(), key=lambda kv: kv[1])
-    print("| Step | Finished (UTC) | Wall-clock | Retries |")
-    print("|---|---|---|---|")
-    total = datetime.timedelta()
+    print("| Step | Started (UTC) | Finished (UTC) | Wall-clock | Retries |")
+    print("|---|---|---|---|---|")
     for step, ts in rows:
-        t = parse(ts); gap = t - prev; total += gap; prev = t
-        print(f"| {step} | {ts[11:16]} | {fmt(gap)} | {s['retry_counts'].get(step, 0)} |")
-    print(f"| **total** | | **{fmt(total)}** | |")
+        t = parse(ts)
+        if step in starts:
+            st = parse(starts[step]); dur = fmt(t - st); started = starts[step][11:16]
+        else:
+            dur = "~" + fmt(t - prev); started = "—"
+        prev = t
+        print(f"| {step} | {started} | {ts[11:16]} | {dur} | {s['retry_counts'].get(step, 0)} |")
+    total = parse(rows[-1][1]) - parse(s["started_at"])
+    print(f"| **run** | {s['started_at'][11:16]} | {rows[-1][1][11:16]} | **{fmt(total)}** | |")
+    if any(step not in starts for step, _ in rows):
+        print("\n`~` = no start stamp; gap since the previous finish (unreliable for parallel steps).")
 
 def fmt(td):
     m, sec = divmod(int(td.total_seconds()), 60)
@@ -53,7 +63,7 @@ def fmt(td):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("plan")
-    ap.add_argument("cmd", choices=["init", "done", "retry", "fail", "status", "reopen", "show",
+    ap.add_argument("cmd", choices=["init", "start", "done", "retry", "fail", "status", "reopen", "show",
                                    "closes", "timings"])
     ap.add_argument("arg", nargs="?")
     ap.add_argument("rest", nargs="*", help="closes: any further issue numbers")
@@ -71,7 +81,7 @@ def main():
              "current_step": a.step or STEPS[0],
              "retry_counts": {k: 0 for k in STEPS},
              "completed_steps": [], "failed_steps": [],
-             "step_finished_at": {},
+             "step_started_at": {}, "step_finished_at": {},
              "started_at": now(), "updated_at": now()}
     else:
         if not path.exists():
@@ -81,12 +91,14 @@ def main():
             print(json.dumps(s, indent=2)); return
         if a.cmd == "timings":
             print_timings(s); return
-        need = a.cmd in ("done", "retry", "fail", "reopen", "status")
+        need = a.cmd in ("start", "done", "retry", "fail", "reopen", "status")
         if need and not a.arg:
             sys.exit(f"{a.cmd} needs an argument")
-        if a.cmd in ("done", "retry", "fail", "reopen") and a.arg not in STEPS:
+        if a.cmd in ("start", "done", "retry", "fail", "reopen") and a.arg not in STEPS:
             sys.exit(f"unknown step {a.arg!r}; one of {STEPS}")
-        if a.cmd == "done":
+        if a.cmd == "start":
+            s.setdefault("step_started_at", {})[a.arg] = now()
+        elif a.cmd == "done":
             if not a.next:
                 sys.exit("done needs --next STEP (use 'completed' after review)")
             if a.arg not in s["completed_steps"]:

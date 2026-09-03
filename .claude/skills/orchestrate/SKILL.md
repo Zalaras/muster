@@ -121,9 +121,11 @@ When routing review issues back to fix agents:
 6. **State the cycle label** — every fix-mode prompt names the current review cycle
    ("This is review cycle 2's fix wave"), or the pre-review context ("this is an
    e2e-validate fix, no review has run") when routing a Step 4/5 implementation-bug;
-   agents copy that label into their commit-message suffix. Learned from
+   agents copy that label into their commit-message suffix — `(review cycle <N>)` or
+   `(pre-review fix)`, the only two forms their definitions know. Learned from
    new-session-dialog: two commits shipped with the literal suffix `(review cycle N)`
-   and two more guessed the wrong number.
+   and two more guessed the wrong number; and from file-drop-fix: two pre-review fix
+   commits shipped as `(review cycle 1)` because the pre-review case had no suffix.
 
 ### Step 1: E2E Specs Agent
 
@@ -362,6 +364,7 @@ stale `cd`). Run from the project root:
 ```bash
 S=.claude/skills/orchestrate/scripts/orch-state.py
 python3 $S <plan> init                              # pre-flight, fresh plan
+python3 $S <plan> start <step>                      # the moment you spawn the step's agent(s)
 python3 $S <plan> done <step> --next <next-step>    # after a step's verdict is read
 python3 $S <plan> done review --next completed      # the terminal step still needs --next
 python3 $S <plan> retry <step>                      # each fix/validate/review cycle
@@ -370,14 +373,21 @@ python3 $S <plan> status blocked --step <step>      # on exhaustion
 python3 $S <plan> status completed                  # only after review = approved
 python3 $S <plan> reopen <step>                     # resume from blocked/completed (keeps retry count; add --reset-retries only when the user grants a fresh budget)
 python3 $S <plan> show
-python3 $S <plan> timings                           # Completion 5: per-step wall-clock table (from step_finished_at)
+python3 $S <plan> timings                           # Completion 5: per-step wall-clock table (finish − start)
 ```
 
-`done` also stamps `step_finished_at[<step>]`. Per-step wall-clock is the one number a retro
-cannot reconstruct afterwards — `started_at`/`updated_at` alone told the terminal-focus retro
-nothing about why authoring took 32 of the run's 51 minutes, and no prior run had a baseline
-to compare against. Also keep each agent's **token count and duration** from its task
-notification (`<usage>` block) as you go — they are not on disk anywhere else.
+`start` stamps `step_started_at[<step>]` and `done` stamps `step_finished_at[<step>]`;
+`timings` reports finish − start per step. Call `start` for every step you spawn, including
+each agent of a parallel pair and every fix-mode re-spawn (the stamp is overwritten, so the
+row reports the last attempt; retries are in their own column). Without the start stamp the
+table falls back to the gap since the previous finish, which is wrong for parallel steps —
+file-drop-fix's table showed web-impl at 0 s and daemon-tests at 88 s when both ran ~15 min
+beside a sibling. Per-step wall-clock is the one number a retro cannot reconstruct
+afterwards — `started_at`/`updated_at` alone told the terminal-focus retro nothing about why
+authoring took 32 of the run's 51 minutes. Also keep each agent's **token count and
+duration** from its task notification when it carries a `<usage>` block; teammate-style
+notifications carry none, and then wall-clock is the only cost figure — say so in the summary
+rather than leaving the column blank.
 
 The file it maintains has this shape:
 
@@ -397,6 +407,7 @@ The file it maintains has this shape:
   },
   "completed_steps": ["e2e-specs", "daemon-impl", "web-impl", "daemon-tests", "web-tests", "e2e-validate"],
   "failed_steps": [],
+  "step_started_at": {"e2e-specs": "<timestamp>", "daemon-impl": "<timestamp>", "...": "..."},
   "step_finished_at": {"e2e-specs": "<timestamp>", "daemon-impl": "<timestamp>", "...": "..."},
   "started_at": "<timestamp>",
   "updated_at": "<timestamp>"

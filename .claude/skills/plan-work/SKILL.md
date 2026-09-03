@@ -96,7 +96,7 @@ Based on the codebase structure, identify which files will likely need changes:
 
 State this plan's **delta against `docs/protocol.md`**: every WS message and HTTP endpoint added or changed, with full shapes. For each:
 - **WS messages**: direction (daemon→UI / UI→daemon), `type`, full JSON shape with types, which fields are optional/nullable and exactly when (e.g. null before a session's first API response), ordering/delivery caveats
-- **HTTP endpoints**: method and path, request body, response body, error responses with status codes, auth (localhost token per SPEC §2.6)
+- **HTTP endpoints**: method and path, request body, response body, error responses with status codes, auth (localhost token per SPEC §2.6). Any example body is the **exact wire shape**: error examples sit inside the `{"error": {"code", "message", …}}` envelope protocol §2 mandates, with any extra field (a `paths` list, a `retryAfter`) inside that object — never a flat `{"code": …}` sketch. file-drop-fix: the plan's two flat error snippets were copied into `docs/protocol.md` at approval and became a review Major once the daemon (correctly) enveloped them.
 
 Example of sufficient detail:
 
