@@ -53,6 +53,42 @@ Common to every hook: `cwd`, `hook_event_name`, `session_id`, `transcript_path`.
 ¹ `session_title` is present **only when the session was launched with `--name`**; absent
 otherwise.
 
+### Subagent and background-task fields (2.1.259 probe, 2026-09-03, issue #14)
+
+- **Tool hooks fired by a subagent carry the parent turn's `prompt_id`** plus `agent_id`
+  and `agent_type` (`PreToolUse` keys observed: `agent_id, agent_type, cwd,
+  hook_event_name, permission_mode, prompt_id, session_id, tool_input, tool_name,
+  tool_use_id, transcript_path`). Main-agent tool hooks have no `agent_id`. 2/2 sessions,
+  4/4 subagent tool hooks.
+- **They arrive after the parent's `Stop`** when the subagent runs in the background: TUI
+  run had `Stop` at +0.0 s, the subagent's `PreToolUse`/`PostToolUse` at +2.1/+3.0 s,
+  `SubagentStop` at +5.2 s, all under the same `prompt_id`. A prompt-id-closed-by-Stop
+  guard therefore classifies legitimate subagent work as a straggler (root cause of #14).
+- **`Stop.background_tasks` is non-empty while background work is still running**:
+  `[{"type":"subagent","id","agent_type","description","status":"running"}]`, and shells
+  the subagent backgrounded appear as `{"type":"shell","id","command","description",
+  "status":"running"}`. `[]` when nothing is outstanding. Also present on `SubagentStop`.
+  Headless `-p` ordering differed (main `Stop` after `SubagentStop`, `background_tasks:
+  []`) — do not assume the main `Stop` precedes subagent activity.
+- **Background completion re-invokes the main agent as a `UserPromptSubmit` with a NEW
+  `prompt_id`** whose `prompt` begins `<task-notification>`; that turn is closed by its
+  own `Stop`. 3/3 completions (one per finished background task, subagent or shell).
+- **A subagent's `PermissionRequest` carries the parent `prompt_id` plus `agent_id` and
+  `agent_type`** (keys: `agent_id, agent_type, cwd, hook_event_name, permission_mode,
+  permission_suggestions, prompt_id, scratchpad_dir, session_id, tool_input, tool_name,
+  transcript_path`), and arrives after the parent's `Stop` (+1.6 s in the 2026-09-03 run).
+  **The `Notification` `permission_prompt` that follows it (+7.7 s) carries NO agent marker**
+  (keys: `cwd, hook_event_name, message, notification_type, prompt_id, scratchpad_dir,
+  session_id, transcript_path`) — only the `PermissionRequest` identifies subagent-originated
+  permission waits. 1/1 session. `scratchpad_dir` is a new common key on 2.1.259 (also seen
+  on `Notification`); not yet checked on every event.
+- Extra `SubagentStop` events with `agent_id`s that never appear on any tool hook were
+  observed (3 in the TUI run) — internal helper agents; don't count `SubagentStop`s to
+  infer outstanding work, read `background_tasks`.
+- `SubagentStop` keys: `agent_id, agent_transcript_path, agent_type, background_tasks,
+  cwd, hook_event_name, last_assistant_message, permission_mode, prompt_id,
+  session_crons, session_id, stop_hook_active, transcript_path`.
+
 **`permission_mode` is NOT universal.** Documentation describes it as a common field on all
 hook inputs. Measured across 134 payloads, the split is clean — every event is either always
 or never:

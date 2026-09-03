@@ -34,7 +34,7 @@ settle: **$ARGUMENTS**
    claude-haiku-4-5-20251001`, trivial prompts ("say hi"), and tear down when done —
    an orphan keeps burning. Prefer the zero-token inductions wherever they answer
    the question.
-4. **tmux only via the instance's private socket** (`tmux -L muster-probe-<i>`),
+4. **tmux only via the instance's private socket** (`tmux -S "$PROBE_SOCKET"` — env.sh exports a socket *path*, so `-S`, never `-L`),
    never the user's default server.
 5. Ports are `878<index>` (8780–8789). **5000/7000 are AirPlay — never use them.**
 
@@ -91,19 +91,21 @@ cd $PROBE_REPO && /Users/damian/.local/bin/claude -p "say hi" \
 
 ```bash
 export PATH=/usr/local/bin:$PATH        # tmux 3.7b
-tmux -L $PROBE_SOCKET new-session -d -s s1 -x 200 -y 50 -c "$PROBE_REPO"
-tmux -L $PROBE_SOCKET set-option -g escape-time 0
-tmux -L $PROBE_SOCKET set-option -g status off
-tmux -L $PROBE_SOCKET set-option -g focus-events on
-tmux -L $PROBE_SOCKET send-keys -t s1 \
+tmux -S "$PROBE_SOCKET" new-session -d -s s1 -x 200 -y 50 -c "$PROBE_REPO"
+tmux -S "$PROBE_SOCKET" set-option -g escape-time 0
+tmux -S "$PROBE_SOCKET" set-option -g status off
+tmux -S "$PROBE_SOCKET" set-option -g focus-events on
+tmux -S "$PROBE_SOCKET" send-keys -t s1 \
   'export LANG=en_US.UTF-8 TERM=xterm-256color; cd '"$PROBE_REPO"'; unset CLAUDE_CONFIG_DIR; /Users/damian/.local/bin/claude --model claude-haiku-4-5-20251001' Enter
 ```
 
 - `-x 200 -y 50` is load-bearing (default 80x24 wraps the TUI into garbage);
   `LANG`/`TERM` prevent mojibake.
 - **First launch in a fresh repo blocks on the workspace-trust prompt** — no hooks,
-  no status line until answered. Poll `tmux -L $PROBE_SOCKET capture-pane -p -t s1`
-  for "Quick safety check", then send a bare `Enter` (option 1 preselected).
+  no status line until answered. Poll `tmux -S "$PROBE_SOCKET" capture-pane -p -t s1`
+  for "Quick safety check", then answer it. On 2.1.233 option 1 ("trust") was preselected
+  and a bare `Enter` sufficed; **on 2.1.259 "No, exit" is preselected** — send `Down`,
+  then `Enter`. Read the pane's `❯` marker rather than assuming either.
   Headless runs do **not** record trust; interactive hits it anyway.
 - Startup takes 10–20 s; a blank pane is normal, poll — don't conclude failure.
 - Type and submit **separately**: `send-keys -t s1 'say hi'`, wait ~1 s, then
@@ -160,7 +162,7 @@ Analysis traps (each produced a wrong conclusion once — see `spikes/FINDINGS.m
 ## 6. Tear down (always — an orphan burns tokens)
 
 ```bash
-tmux -L $PROBE_SOCKET kill-server 2>/dev/null
+tmux -S "$PROBE_SOCKET" kill-server 2>/dev/null
 pkill -f "probe-capture -port $PROBE_PORT"; pkill -f probe-failproxy
 ps aux | grep '[c]laude'                 # none of YOURS survived (Damian's own sessions will be here — leave them)
 md5 -q ~/.claude/settings.json           # matches your baseline

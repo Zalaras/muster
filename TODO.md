@@ -707,10 +707,18 @@ unless he re-ranks — don't re-sort this list.
   not move the state back. Prime suspect is the Edge Case 2 straggler guard
   (`internal/session/machine.go:20`): `KindTurnActivity` returns early with no transition when
   the prompt id it carries has already been closed by a `Stop`, which makes genuine post-`Stop`
-  work under that same prompt id indistinguishable from a late straggler. Needs an
-  `/interface-probe` establishing what a continued turn's prompt id actually looks like after a
-  `Stop` before a fix is chosen — the guard exists for a real reason and must not simply be
-  deleted. Same seam as #15; likely one plan covers both.
+  work under that same prompt id indistinguishable from a late straggler. **Probed
+  2026-09-03 (2.1.259, `spikes/FINDINGS.md` → "subagent / background-task probe"): root cause
+  confirmed.** A background subagent's `PreToolUse`/`PostToolUse` carry the *parent turn's*
+  `prompt_id` and arrive after that turn's `Stop`, so the guard drops them; they are
+  distinguishable by `agent_id`/`agent_type` (present on every subagent tool hook, absent on
+  main-agent ones), and `Stop.background_tasks` is non-empty while the work is outstanding.
+  Resumption is already handled: each completion arrives as a `UserPromptSubmit` with a fresh
+  `prompt_id` closed by its own `Stop`. Fix direction: let subagent-tagged tool hooks bypass
+  the straggler guard (a flag/kind derived in `internal/claudecode`, never a parse elsewhere)
+  and use `background_tasks` as the E2E oracle; do not hold "working" on `background_tasks`
+  alone, since a backgrounded shell keeps it non-empty indefinitely. Ready to plan; independent
+  of #15's attention fix, though one plan can carry both.
 
 - [ ] **Attention stays latched on "needs permission" after work resumes** ([#15](https://github.com/Zalaras/muster/issues/15), [#20](https://github.com/Zalaras/muster/issues/20))
   — "Doesn't need my permission it's currently thinking but UI says needs permissions".

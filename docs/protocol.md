@@ -780,6 +780,12 @@ the orthogonal `alive` flag (§7.5).
   the first `UserPromptSubmit`, via this same seed-then-correct path; nothing special-cased.
 - `currentPromptId` — from the latest turn-scoped event; `closedPromptIds` — prompts
   closed by a Stop-family event (keeping the last few suffices).
+- Turn-scoped events may carry a **subagent marker** (measured 2.1.259, canary-fields
+  "Subagent and background-task fields"; plan `claude-status-fixes`, 2026-09-03): a
+  background subagent's `PreToolUse`, `PostToolUse` and `PermissionRequest` carry the
+  *parent turn's* `prompt_id` plus the marker; the `Notification` a subagent triggers does
+  not. The state machine sees the marker only as a neutral flag derived in
+  `internal/claudecode`.
 - `compactions`, `context`, `attention`, `failure`, `lastActivity` — as surfaced in §5.3.
 
 ### 7.3 Transitions
@@ -797,13 +803,15 @@ distinct, and the latch is what separates them.
 | Any enveloped non-status event whose `session_id` is a *previous* id of this session (already in `byClaude` → this session, not the current one) | Reordered straggler: route and apply the event's own row; **no** rebind, no reset (monotonic binding) |
 | Any enveloped non-status event on a never-bound session | Bind `claudeSessionId` (no transition), then apply the event's own row |
 | `SessionStart` (`source:"resume"`, same `session_id`) | Re-bind to new pane, `alive := true` → `idle` (history exists; it is waiting for input, not new) |
-| Turn-activity event (prompt not closed) | Adopt `prompt_id` as current (a new id is a new turn even if `UserPromptSubmit` was lost) → `ACTIVE`; update latch |
-| Turn-activity event (prompt already closed) | Straggler from an unordered stream: persist, **no transition** |
+| Turn-activity event (prompt not closed) | Adopt `prompt_id` as current (a new id is a new turn even if `UserPromptSubmit` was lost) → `ACTIVE`; update latch; **clear `attention` and `failure`** (§5.3's iff rules — `claude-status-fixes`, #15/#20) |
+| Turn-activity event (prompt already closed, **no subagent marker**) | Straggler from an unordered stream: persist, **no transition, no field change** (the latch still updates) |
+| Turn-activity event (prompt already closed, **subagent marker present**) | A background subagent still working past the parent's `Stop` (#14, measured 2.1.259): → `ACTIVE`, clear `attention` and `failure`; the closed prompt is neither reopened nor adopted as current — the next Stop-family event still lands `idle`/`failed` |
 | `Notification` `permission_prompt` (prompt not closed) | → `needs_input`, `attention.reason:"permission"` |
 | `Notification` `idle_prompt` (prompt not closed) | → `needs_input`, `attention.reason:"idle"` |
 | `Notification` — any other `notification_type` | Persist only, no transition (unobserved types stay inert) |
-| `PermissionRequest` (prompt not closed) | Corroborates → `needs_input`, reason `"permission"` (v1 never answers it; the terminal prompt races and wins) |
-| `Stop` | Close `prompt_id` → `idle`; capture `lastActivity` |
+| `PermissionRequest` (prompt not closed, **or closed with the subagent marker present**) | Corroborates → `needs_input`, reason `"permission"` (v1 never answers it; the terminal prompt races and wins). A subagent's permission wait past the parent's `Stop` is identified by this event alone — its `Notification` carries no marker |
+| `Notification` `permission_prompt` / `idle_prompt` (prompt already closed) | Straggler: persist, no transition (if the subagent's `PermissionRequest` was lost, the terminal itself still shows the prompt — the honest gap) |
+| `Stop` | Close `prompt_id` → `idle`; capture `lastActivity`. `background_tasks` is never read: a `Stop` with background work still running lands `idle`, and the first subagent-marked hook returns it to `ACTIVE` (~2 s later, measured) — holding `working` on `background_tasks` would pin a session for as long as a backgrounded shell lives |
 | `StopFailure` | Close `prompt_id` → `failed`; capture raw `error` (`Stop`/`StopFailure` are mutually exclusive per prompt — H2) |
 | `PreCompact` | `compactions++`, no transition |
 | `SubagentStop` | Persist only |
@@ -822,8 +830,13 @@ clears it — if Muster missed the resolving event, the stale timer *is* the hon
 Hooks are best-effort, at-most-once, unordered, timestamp-free. Rules, in priority order:
 
 1. Events apply in ingest (`seq`) order — arrival order is the only order there is.
-2. A Stop-family event closes its `prompt_id`; later-arriving events for a closed prompt
-   never reopen a turn (the one measured hazard: tool events interleaving past a `Stop`).
+2. A Stop-family event closes its `prompt_id`; later-arriving **unmarked** events for a
+   closed prompt never reopen a turn (the one measured hazard: tool events interleaving
+   past a `Stop`). **Subagent-marked** events for a closed prompt are not stragglers — they
+   are a background subagent still running under the parent's prompt id (measured 2.1.259)
+   — and transition the state without reopening the prompt. Resumption is ordinary: each
+   background completion arrives as a `UserPromptSubmit` with a fresh `prompt_id`, closed
+   by its own `Stop`.
 3. Any turn-scoped event with an unseen `prompt_id` starts that turn — every transition
    into `ACTIVE` self-heals a lost predecessor.
 4. Not every turn closes: a killed session emits neither `Stop` nor `StopFailure`
@@ -1017,3 +1030,12 @@ exit — so the next startup sweeps it.
   outside it remain browsable. Motivation: the E2E harness had to create scratch
   directories under the real `$HOME` to drive the Browse… flow. Additive; no version
   bump.
+- **2026-09-03 — §7.2/§7.3/§7.4: subagent-marked events are never stragglers; turn activity
+  clears `attention` and `failure`** (plan `claude-status-fixes`, closes #14, #15, #20).
+  Measured on 2.1.259: a background subagent's `PreToolUse`/`PostToolUse`/`PermissionRequest`
+  carry the parent turn's `prompt_id` plus an agent marker and arrive after the parent's
+  `Stop`; the closed-prompt guard now lets marked events through (→ `ACTIVE` /
+  `needs_input`) without reopening the prompt, while unmarked stragglers stay inert.
+  `Stop.background_tasks` is deliberately not a state input. Every transition into `ACTIVE`
+  now enforces §5.3's "non-null iff" rules for `attention` and `failure`, which the
+  turn-activity row previously left stale. Semantics only; no wire shape changes.

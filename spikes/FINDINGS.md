@@ -739,3 +739,59 @@ credential-handling and SPEC-level decision, not a tweak; (c) drop the item. Rec
 recorded in TODO.md: (a) by default, decide on (b) explicitly if wanted.
 
 Zero tokens spent; `~/.claude/settings.json` untouched (no rig instance was stamped).
+
+## Addendum — subagent / background-task probe (2026-09-03, against 2.1.259, pin 2.1.246)
+
+**Question (#14, "session reads Idle in the rail while it is still working"):** after the
+main agent's `Stop`, what do a background subagent's tool hooks carry, what does
+`Stop.background_tasks` hold while work is outstanding, and how does the main agent resume?
+
+**Method:** rig instance 6, haiku, one headless `-p` run and one interactive TUI run, each
+asking the model to launch a `general-purpose` subagent (the TUI one running `sleep 20 &&
+echo hi`) and reply immediately. Full field list in `canary-fields.md` → "Subagent and
+background-task fields".
+
+**Findings (TUI run, times relative to the main `Stop`):**
+
+| +s | event | prompt_id | note |
+|---|---|---|---|
+| −1.6 | `PostToolUse` Agent | P1 | agent backgrounded |
+| 0.0 | `Stop` | P1 | `background_tasks: [subagent running]` |
+| +2.1 / +3.0 | `PreToolUse`/`PostToolUse` Bash | **P1** | `agent_id` set — the subagent's own tool call |
+| +5.2 | `SubagentStop` | P1 | |
+| +5.3 | `UserPromptSubmit` | **P2 (new)** | prompt is a `<task-notification>` |
+| +7.8 | `Stop` | P2 | `background_tasks: [shell running]` |
+| +40.4 | `UserPromptSubmit` | P3 (new) | shell finished → another notification turn |
+| +55.7 | `Stop` | P3 | `background_tasks: []` |
+
+1. **Subagent tool hooks carry the parent turn's `prompt_id`** and arrive after that turn's
+   `Stop`. Muster's Edge Case 2 straggler guard (`internal/session/machine.go`) therefore
+   drops them, which is exactly #14: idle in the rail while files are still being edited.
+2. **They are distinguishable**: `agent_id`/`agent_type` are present on every subagent tool
+   hook and absent on main-agent ones.
+3. **`Stop.background_tasks` says whether the turn really finished**: non-empty (subagent
+   and/or shell entries with `status:"running"`) while work is outstanding, `[]` otherwise.
+4. **Resumption is ordinary**: each background completion is delivered as a `UserPromptSubmit`
+   with a fresh `prompt_id` and closed by its own `Stop` — the existing TurnActivity →
+   TurnClosed path already handles it. Only the in-between window is wrong today.
+
+**Consequences for Muster (design, not yet decided):** either (a) let subagent-tagged tool
+hooks bypass the straggler guard (they are not stragglers — a separate `StateInput` kind or
+flag derived in `internal/claudecode`), or (b) treat a `Stop` with non-empty
+`background_tasks` as not-idle. (a) is local and self-correcting (the next `Stop` still
+lands idle); (b) alone would hold a session at "working" for as long as a backgrounded
+shell lives. Recommend (a), with `background_tasks` as the E2E oracle. #15's fix (clear
+attention on TurnActivity) is independent of this.
+
+**Follow-up (same day, third session, manual mode, subagent asked to `Write` a file):** the
+subagent's `PermissionRequest` arrived +1.6 s after the parent's `Stop`, under the parent's
+`prompt_id`, **with `agent_id`/`agent_type`**; the `Notification` `permission_prompt` that
+followed (+7.7 s) carried **no agent marker**. After acceptance: subagent `PreToolUse`/
+`PostToolUse` (marked), `SubagentStop`, then the usual fresh-`prompt_id` `UserPromptSubmit` +
+`Stop` with `background_tasks: []`. So a "subagent-marked events are never stragglers" rule
+covers the permission wait too — via `PermissionRequest`; the unmarked `Notification` stays
+guarded, which only matters if the `PermissionRequest` was lost. 1/1 session.
+
+Gotcha for the rig on 2.1.259: the workspace-trust prompt now preselects **"No, exit"** —
+send `Down` then `Enter`. Tokens: two haiku sessions, ~30 k tokens total (subagent
+included). Torn down; `~/.claude/settings.json` hash unchanged.
