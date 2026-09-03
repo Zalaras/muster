@@ -9,7 +9,17 @@
 // BrowseResult | null`, and the readout, the crumbs and the submit body all derive from
 // it — that's what makes INV-1 hold by construction. `navigate(path)` is the one door:
 // child click, crumb click, ⌘↑, a recent click and open all call it.
-import { browse, fetchRepos, launchSession, type BrowseEntry, type BrowseResult, type LaunchRequest, type Repo } from "../api";
+import {
+  browse,
+  fetchRepos,
+  launchSession,
+  permissionModeToCheck,
+  type BrowseEntry,
+  type BrowseResult,
+  type LaunchRequest,
+  type PermissionMode,
+  type Repo,
+} from "../api";
 import type { Session } from "../protocol";
 import { formatAge } from "../sessions/format";
 import { renderCrumbs, splitCrumbs } from "./crumbs";
@@ -87,8 +97,12 @@ export function initLaunchModal(elements: LaunchModalElements, handlers: LaunchM
     updateCustomModelVisibility();
   }
 
-  function setPermissionMode(value: string): void {
-    checkRadio(elements.permissionModeRadios, value);
+  // REQ-6: a stored value the dialog has no radio for (a future Claude Code mode, or
+  // `null` coerced to the empty string by callers) falls back to `manual` (`default`) —
+  // decided by the pure, unit-tested `permissionModeToCheck` (api.ts), so the radio is
+  // guaranteed to match on the first pass — no uncheck-then-recheck.
+  function setPermissionMode(value: string | null): void {
+    checkRadio(elements.permissionModeRadios, permissionModeToCheck(value));
   }
 
   function selectedModel(): string {
@@ -98,9 +112,8 @@ export function initLaunchModal(elements: LaunchModalElements, handlers: LaunchM
     return checkedValue(elements.modelRadios) ?? "";
   }
 
-  function selectedPermissionMode(): "default" | "plan" | "acceptEdits" {
-    const value = checkedValue(elements.permissionModeRadios);
-    return value === "plan" || value === "acceptEdits" ? value : "default";
+  function selectedPermissionMode(): PermissionMode {
+    return permissionModeToCheck(checkedValue(elements.permissionModeRadios));
   }
 
   function showError(message: string): void {
@@ -146,7 +159,7 @@ export function initLaunchModal(elements: LaunchModalElements, handlers: LaunchM
         // 404'd recent leaves the form untouched (INV-3 covers launch-time failures too).
         if (success) {
           setModel(repo.lastModel ?? "sonnet");
-          setPermissionMode(repo.lastPermissionMode ?? "default");
+          setPermissionMode(repo.lastPermissionMode);
         }
       })();
     });
@@ -309,7 +322,7 @@ export function initLaunchModal(elements: LaunchModalElements, handlers: LaunchM
       const success = await navigate(first.path);
       if (success) {
         setModel(first.lastModel ?? "sonnet");
-        setPermissionMode(first.lastPermissionMode ?? "default");
+        setPermissionMode(first.lastPermissionMode);
         return;
       }
       // Edge case 2: the first recent's directory no longer exists. Without a fallback

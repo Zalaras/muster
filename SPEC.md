@@ -1205,3 +1205,27 @@ Issue #8. Built on branch `plan/file-drop-fix`; lands with `/land`. Additive pro
   its apostrophe-escaping form, was run by hand — nothing automated exercises Spotlight query
   syntax (review note), and `make test` is intermittently red on `main` under default
   parallelism (`TODO.md`, Pre-v1 Cleanup).
+
+### 2026-09-03 — launcher offers Claude Code's four tabbed permission modes (plan `fix-auto-mode-select`, via `/orchestrate`, approved review cycle 2)
+
+- **"auto-accept" in §4.1 / §4.5 means Claude Code's *accept edits* mode (`acceptEdits`).**
+  The shorthand was coined when it was the only auto-ish mode. Claude Code has since grown a
+  distinct mode literally named `auto` (measured 2026-09-03 against 2.1.259, `spikes/canary-fields.md`
+  § Hook payloads, "Permission-mode probe"): `--permission-mode` accepts `acceptEdits | auto |
+  bypassPermissions | manual | dontAsk | plan`; `manual`, `default` and no-flag are one mode on the
+  wire (hooks report `"default"`); `auto` reports `"auto"` and is model-gated (haiku drops to manual
+  and reports `"default"`). Issue #12 — picking "auto-accept" in the launcher produced accept-edits,
+  not auto — was a vocabulary bug, not a wire bug.
+- **The "Start in" control now offers `manual │ accept edits │ plan │ auto`**, in Shift+Tab cycle
+  order, with Claude Code's own labels. Wire values `default` (behind "manual" — it is what hooks
+  report, so seed and hook agree with no mapping and existing rows need no migration),
+  `acceptEdits` and `plan` are unchanged; `auto` is new end-to-end (request validation, argv, Go
+  constant, TypeScript unions, protocol §3.1/§3.2/§5.3/§7.2). `default` still emits no
+  `--permission-mode` flag — the only spelling known to work on both the 2.1.246 pin and 2.1.259.
+  A stored per-directory mode the dialog has no radio for falls back to `manual`, so the checked
+  radio always matches the value the form sends.
+- **`bypassPermissions` and `dontAsk` remain deliberately unoffered** pending the §4.4
+  permissions UI and its guardrails; `auto`'s guardrail is Claude Code's own classifier. `manual`
+  as a fifth accepted request value was rejected — an alias with no behavioural difference.
+- No dialog-side model×mode warning: a seeded `auto` on a model that cannot run it is corrected to
+  `default / hook` by the first `UserPromptSubmit` — the ordinary honesty-rule path (ux-flows §1.2).

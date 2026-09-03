@@ -246,6 +246,16 @@ status line carries no such field. So Muster cannot observe a user cycling modes
 mode display will be stale until the next hook that happens to carry `permission_mode`.
 Seed the mode from Muster's own launch flag and correct it on the first `UserPromptSubmit`.
 
+**Addendum (2026-09-03, against 2.1.259, plan `fix-auto-mode-select`): a fourth mode, `auto`.**
+The CLI's `--permission-mode` choices are now `acceptEdits | auto | bypassPermissions | manual
+| dontAsk | plan`. `default` is unlisted but still accepted, and `manual`/`default`/no-flag are
+one mode on the wire — all three report `permission_mode: "default"` (3/3 headless sessions),
+footer `⏸ manual mode on`. `--permission-mode auto` reports `"auto"` on `UserPromptSubmit`
+(1/1 interactive) with footer `⏵⏵ auto mode on`. Auto is **model-gated**: haiku prints
+`auto mode unavailable for this model`, drops to manual, and reports `"default"` (2/2) —
+exactly the seed-then-correct path above. Sonnet, opus and fable presets all honoured it
+(footer only, zero tokens via the fail-proxy). Details: `canary-fields.md` § Hook payloads.
+
 ## 5. `Needs-Input` is buildable
 
 Both matchers captured with real payloads:

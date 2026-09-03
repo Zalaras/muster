@@ -498,6 +498,12 @@ These are some minor changes and cleanup needed before we can move into post v1.
   `docs/design/test-strategy.md` — start there with `/spec`. Until it lands: a red `make test`
   naming only `TestPreflight_*`/`TestRunTmuxPreflight_*` is load, confirm with
   `go test -count=1 -p 1 ./...`.
+  Third measured instance 2026-09-03 (`fix-auto-mode-select` review cycle 1): `terminal.spec.ts`
+  REQ-7 and REQ-13 failed one full `make e2e` sweep on the tmux stub's `MUSTER-STUB-READY`
+  pane-content assertion; REQ-13 also fails on a clean `main` worktree, both pass 3/3 in isolation,
+  and two further full sweeps were 221/221 — the REQ-13 test's own comments name the race (a
+  liveness-poll snapshot capture landing empty). Whoever next touches the terminal specs owns it
+  (`plans/fix-auto-mode-select/review.md`, Notes 1).
 
 ## Reported issues (pre-v1 release)
 
@@ -578,7 +584,7 @@ unless he re-ranks — don't re-sort this list.
   seam with `shortcut-fixes` (#5 below) but touched neither `focusNth` nor the keydown
   listener; `shortcut-fixes` may now run.
 
-- [ ] **The launcher's "auto-accept" isn't auto mode** ([#12](https://github.com/Zalaras/muster/issues/12))
+- [x] **The launcher's "auto-accept" isn't auto mode** ([#12](https://github.com/Zalaras/muster/issues/12)) ✅ done 2026-09-03 (plan `fix-auto-mode-select`, via `/orchestrate`, approved review cycle 2; lands with `/land fix-auto-mode-select`, which closes #12). Shipped the second option: the "Start in" control is now `manual │ accept edits │ plan │ auto`, `auto` is requestable end-to-end, `bypassPermissions`/`dontAsk` stay unoffered pending §4.4.
   — picking it on a new session gives edit access, not auto. The wire is self-consistent
   (`web/index.html:130` sends `acceptEdits`; `BuildArgv` emits `--permission-mode
   acceptEdits`), but Claude Code separately reports a mode literally named `auto` — which is
@@ -586,6 +592,12 @@ unless he re-ranks — don't re-sort this list.
   request it: `bypassPermissions` appears nowhere in the tree. Decide the fix: rename the
   radio so it can't be read as Claude's `auto`, or add a fourth option that really asks for
   it. The second wants the guardrails the §4.4 permissions UI (M5+) implies.
+  - [ ] Follow-up (review Minor, `plans/fix-auto-mode-select/review.md` cycle 2 Minor 1, `[web-impl]`):
+    "Two comments on the new REQ-6 code describe a world the fix removed — `web/src/api.ts:52-57`
+    and `web/src/render/launch.ts:99-103`. `api.ts` says '`setPermissionMode` is the only caller',
+    but `selectedPermissionMode` is a second caller … `launch.ts` says the fallback handles
+    '`null` coerced to the empty string by callers', but the same fix dropped both `?? "default"`
+    coercions … Reword both to name both callers and to say the function takes `null` directly."
 
 - [ ] **No scrollback affordance on the terminal pane, and scrolling is slow** ([#13](https://github.com/Zalaras/muster/issues/13))
   — two complaints, and the first is a settled decision rather than a bug:

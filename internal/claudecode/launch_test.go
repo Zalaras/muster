@@ -31,6 +31,13 @@ func TestBuildArgv(t *testing.T) {
 			want:   []string{"claude", "--model", "opus", "--permission-mode", "acceptEdits"},
 		},
 		{
+			// D5: 2026-09-03 permission-mode probe against 2.1.259 confirmed
+			// `--permission-mode auto` (spikes/canary-fields.md § Hook payloads).
+			name:   "auto mode adds --permission-mode auto",
+			params: LaunchParams{Model: "sonnet", PermissionMode: "auto"},
+			want:   []string{"claude", "--model", "sonnet", "--permission-mode", "auto"},
+		},
+		{
 			name:   "a title adds --name after --model",
 			params: LaunchParams{Model: "sonnet", Title: "Spike Title Probe", PermissionMode: "default"},
 			want:   []string{"claude", "--model", "sonnet", "--name", "Spike Title Probe"},

@@ -41,11 +41,29 @@ export interface BrowseResult {
   dirs: BrowseEntry[];
 }
 
+// Plan fix-auto-mode-select (docs/protocol.md §3.1): the accepted wire values for
+// permissionMode, in dialog/cycle order. `default` is Claude Code's manual mode (the UI
+// labels it "manual"); one source for both the request union and render/launch.ts's
+// radio guard, so they can't drift apart.
+export const PERMISSION_MODES = ["default", "acceptEdits", "plan", "auto"] as const;
+export type PermissionMode = (typeof PERMISSION_MODES)[number];
+
+// Plan fix-auto-mode-select REQ-6: the single decision point for "which radio should be
+// checked for this stored value" — a stored mode this dialog has no radio for (a future
+// Claude Code mode, or `null`/the empty string) falls back to `manual` (`default`). Pure
+// and exported so it's unit-testable without a fake DOM; render/launch.ts's
+// `setPermissionMode` is the only caller and just feeds the result straight to
+// `checkRadio`, so the radio is guaranteed to match on the first pass (no
+// uncheck-then-recheck).
+export function permissionModeToCheck(stored: string | null): PermissionMode {
+  return (PERMISSION_MODES as readonly string[]).includes(stored ?? "") ? (stored as PermissionMode) : "default";
+}
+
 export interface LaunchRequest {
   directory: string;
   title?: string;
   model: string;
-  permissionMode: "default" | "plan" | "acceptEdits";
+  permissionMode: PermissionMode;
 }
 
 // M2 (docs/protocol.md §3.3): at least one field, unknown fields ignored — all optional

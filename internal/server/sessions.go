@@ -99,9 +99,9 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 		return nil, invalidRequest("model must not be empty")
 	}
 	switch req.PermissionMode {
-	case "default", "plan", "acceptEdits":
+	case "default", "plan", "acceptEdits", "auto":
 	default:
-		return nil, invalidRequest("permissionMode must be one of default, plan, acceptEdits")
+		return nil, invalidRequest("permissionMode must be one of default, plan, acceptEdits, auto")
 	}
 
 	isGit := gitutil.IsRepo(ctx, dir)

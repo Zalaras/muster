@@ -74,7 +74,9 @@ export function sessionStartResume(claudeSessionId: string, opts: SessionStartOp
 
 interface TurnActivityOpts {
   promptId?: string;
-  permissionMode?: "default" | "plan" | "acceptEdits";
+  /** Plan fix-auto-mode-select: `auto` is a fourth observed value (2.1.259 probe,
+   * spikes/canary-fields.md "Permission-mode probe") alongside the three already here. */
+  permissionMode?: "default" | "plan" | "acceptEdits" | "auto";
 }
 
 /** Raw `UserPromptSubmit` — opens a turn (turn-activity event, protocol §7.3). */

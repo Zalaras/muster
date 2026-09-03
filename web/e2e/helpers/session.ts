@@ -54,7 +54,9 @@ export interface LaunchBody {
   directory: string;
   title?: string;
   model?: string;
-  permissionMode?: "default" | "plan" | "acceptEdits";
+  /** Plan fix-auto-mode-select: `auto` is a fourth accepted request value (protocol
+   * §3.1) alongside the three already here. */
+  permissionMode?: "default" | "plan" | "acceptEdits" | "auto";
 }
 
 /** The Session object shape per protocol §5.3, as returned by the launch/state endpoints. */

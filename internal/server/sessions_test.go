@@ -129,6 +129,25 @@ func TestHandleCreateSession_ValidationErrors(t *testing.T) {
 	}
 }
 
+// TestHandleCreateSession_UnknownPermissionModeMessageNamesAllFour covers D4: the
+// rejection message must name all four accepted values, not just say "invalid".
+func TestHandleCreateSession_UnknownPermissionModeMessageNamesAllFour(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+
+	rec := postSessionsRequest(t, srv, `{"directory":"`+os.TempDir()+`","model":"sonnet","permissionMode":"bypassPermissions"}`)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	var envelope struct {
+		Error struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &envelope))
+	assert.Equal(t, "invalid_request", envelope.Error.Code)
+	assert.Equal(t, "permissionMode must be one of default, plan, acceptEdits, auto", envelope.Error.Message)
+}
+
 // TestHandleCreateSession_ADirectoryThatIsAFileIs400 covers the "not a directory" half
 // of the Protocol Contract's validation clause.
 func TestHandleCreateSession_ADirectoryThatIsAFileIs400(t *testing.T) {
@@ -290,6 +309,37 @@ func TestLauncher_SuccessfulLaunchEndToEnd(t *testing.T) {
 	require.NoError(t, err)
 	var doc map[string]any
 	require.NoError(t, json.Unmarshal(b, &doc))
+}
+
+// TestLauncher_AutoPermissionModeSeedsLatchAndRepoDefault covers D3 (a launch with
+// "auto" seeds the session's permission latch with {"auto", "seed"}) and D7 (the
+// directory's per-directory default records "auto" as the raw requested value).
+func TestLauncher_AutoPermissionModeSeedsLatchAndRepoDefault(t *testing.T) {
+	st := openLauncherTestStore(t)
+	mgr := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop()})
+	tmuxClient := newTestTmuxClient(t)
+	dir := t.TempDir()
+
+	l := &sessionLauncher{
+		store: st, manager: mgr, tmux: tmuxClient, log: zerolog.Nop(), claudeBin: newStubClaudeBin(t, filepath.Join(t.TempDir(), "env-output.txt")),
+		hookScript: "/bin/true", statusLineScript: "/bin/true",
+	}
+
+	sess, lerr := l.Launch(context.Background(), createSessionRequest{
+		Directory: dir, Model: "sonnet", PermissionMode: "auto",
+	})
+	require.Nil(t, lerr)
+	t.Cleanup(func() { _ = tmuxClient.KillWindow(context.Background(), sess.TmuxTarget) })
+
+	// D3: the returned session's permission latch is seeded auto/seed.
+	assert.Equal(t, session.PermissionAuto, sess.PermissionMode)
+	assert.Equal(t, "seed", sess.PermissionModeSource)
+
+	// D7: the directory's stored default now records the raw requested value "auto".
+	repo, err := st.GetRepo(context.Background(), sess.RepoID)
+	require.NoError(t, err)
+	require.NotNil(t, repo.LastPermissionMode)
+	assert.Equal(t, "auto", *repo.LastPermissionMode)
 }
 
 // TestHandleEndSession_AlreadyDeadSessionIs409NotAlive covers D17's first clause

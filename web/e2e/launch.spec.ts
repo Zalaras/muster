@@ -94,7 +94,9 @@ test("opens on the browse root with an empty sidebar when there are no recents, 
     await dialog.getByRole("radio", { name: "other…" }).check();
     await expect(dialog.getByLabel("Custom model")).toBeVisible();
 
-    for (const mode of ["default", "plan", "auto-accept"]) {
+    // REQ-1: renamed to Claude Code's own vocabulary, plus the new `auto` fourth radio,
+    // in Shift+Tab cycle order.
+    for (const mode of ["manual", "accept edits", "plan", "auto"]) {
       await expect(dialog.getByRole("radio", { name: mode })).toBeVisible();
     }
 
@@ -177,7 +179,8 @@ test("opening the dialog with two prior launches lists both recents, marks the m
       expect(await launchTargetBranch(dialog).innerText()).toBe(` · ${branch}`);
 
       await expect(dialog.getByRole("radio", { name: "opus" })).toBeChecked();
-      await expect(dialog.getByRole("radio", { name: "auto-accept" })).toBeChecked();
+      // REQ-1: was named for the old shorthand; the stored value is still `acceptEdits`.
+      await expect(dialog.getByRole("radio", { name: "accept edits" })).toBeChecked();
     } finally {
       await older.cleanup();
       await newer.cleanup();
@@ -325,7 +328,8 @@ test("clicking a second recent swaps the pressed mark and the model/mode radios 
       // the whole sidebar, not just the two named buttons individually true/false.
       await expect(recentsSidebar(dialog).locator('[aria-pressed="true"]')).toHaveCount(1);
       await expect(dialog.getByRole("radio", { name: "haiku" })).toBeChecked();
-      await expect(dialog.getByRole("radio", { name: "default" })).toBeChecked();
+      // REQ-1: was named "default"; the stored value is still `default`.
+      await expect(dialog.getByRole("radio", { name: "manual" })).toBeChecked();
       await expect(currentCrumb(dialog)).toHaveText(firstName);
       await expect(launchTargetPath(dialog)).toHaveText(first.path);
       // INV-1 (review cycle 1 Major 5): composed ancestor chain after a recent click.
@@ -391,7 +395,8 @@ test("launching with no interaction after open relaunches the first recent's dir
       await expect(dialog).toBeVisible();
       await expect(recentButton(dialog, basename(dir.path))).toHaveAttribute("aria-pressed", "true");
       await expect(dialog.getByRole("radio", { name: "opus" })).toBeChecked();
-      await expect(dialog.getByRole("radio", { name: "auto-accept" })).toBeChecked();
+      // REQ-1: was named for the old shorthand; the stored value is still `acceptEdits`.
+      await expect(dialog.getByRole("radio", { name: "accept edits" })).toBeChecked();
       await expect(launchTargetPath(dialog)).toHaveText(dir.path);
 
       await page.keyboard.press("Enter");

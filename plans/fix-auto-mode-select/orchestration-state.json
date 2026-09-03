@@ -1,0 +1,47 @@
+{
+  "plan_name": "fix-auto-mode-select",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 0,
+    "web-impl": 1,
+    "daemon-tests": 0,
+    "web-tests": 1,
+    "e2e-validate": 0,
+    "review": 1
+  },
+  "completed_steps": [
+    "e2e-specs",
+    "daemon-impl",
+    "web-impl",
+    "web-tests",
+    "daemon-tests",
+    "e2e-validate",
+    "review"
+  ],
+  "failed_steps": [],
+  "step_started_at": {
+    "e2e-specs": "2026-09-03T08:07:03Z",
+    "daemon-impl": "2026-09-03T08:16:32Z",
+    "web-impl": "2026-09-03T09:05:55Z",
+    "daemon-tests": "2026-09-03T08:25:16Z",
+    "web-tests": "2026-09-03T09:13:05Z",
+    "e2e-validate": "2026-09-03T08:37:54Z",
+    "review": "2026-09-03T09:19:43Z"
+  },
+  "step_finished_at": {
+    "e2e-specs": "2026-09-03T08:16:32Z",
+    "daemon-impl": "2026-09-03T08:23:40Z",
+    "web-impl": "2026-09-03T08:25:16Z",
+    "web-tests": "2026-09-03T09:19:43Z",
+    "daemon-tests": "2026-09-03T08:37:54Z",
+    "e2e-validate": "2026-09-03T08:45:49Z",
+    "review": "2026-09-03T09:39:24Z"
+  },
+  "started_at": "2026-09-03T08:07:03Z",
+  "updated_at": "2026-09-03T09:39:24Z",
+  "closes_issues": [
+    12
+  ]
+}

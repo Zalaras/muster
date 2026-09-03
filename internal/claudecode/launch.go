@@ -6,7 +6,7 @@ package claudecode
 type LaunchParams struct {
 	Model          string
 	Title          string // optional; empty omits --name
-	PermissionMode string // "default" | "plan" | "acceptEdits"
+	PermissionMode string // "default" | "plan" | "acceptEdits" | "auto"
 
 	// ResumeSessionID is non-empty for a resume relaunch (m4-reconcile REQ-7 / docs/
 	// protocol.md §3.5): emits `--resume <id>` and omits `--name` (D13) — the only place
@@ -16,8 +16,11 @@ type LaunchParams struct {
 
 // BuildArgv returns the full argv (binary included) for launching `claude` with p.
 // `--permission-mode` is confirmed by spike S2 (`--permission-mode plan`,
-// `--permission-mode acceptEdits`); "default" needs no flag — it's Claude Code's own
-// default and carries no CLI flag of its own.
+// `--permission-mode acceptEdits`) and by the 2026-09-03 permission-mode probe against
+// 2.1.259 (`--permission-mode auto`, spikes/canary-fields.md § Hook payloads); "default"
+// needs no flag — it's Claude Code's own default and carries no CLI flag of its own, and
+// remains the safer spelling since `default` is unlisted in the CLI's own choices while
+// `manual` may not exist on the 2.1.246 pin.
 func BuildArgv(binary string, p LaunchParams) []string {
 	args := []string{binary, "--model", p.Model}
 	if p.ResumeSessionID != "" {
@@ -26,7 +29,7 @@ func BuildArgv(binary string, p LaunchParams) []string {
 		args = append(args, "--name", p.Title)
 	}
 	switch p.PermissionMode {
-	case "plan", "acceptEdits":
+	case "plan", "acceptEdits", "auto":
 		args = append(args, "--permission-mode", p.PermissionMode)
 	}
 	return args

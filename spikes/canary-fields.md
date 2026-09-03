@@ -61,8 +61,25 @@ or never:
   `SubagentStop`, `PermissionRequest`.
 - **Never present:** `SessionStart`, `SessionEnd`, `Notification`, `StopFailure`, `PreCompact`.
 
-Observed values: `"default"`, `"plan"`, `"acceptEdits"`. Latch the last known mode; note that
-`StopFailure` carries none, so a session failing in plan mode must not be reset to default.
+Observed values: `"default"`, `"plan"`, `"acceptEdits"`, and (2.1.259 probe, 2026-09-03)
+`"auto"`. Latch the last known mode; note that `StopFailure` carries none, so a session failing
+in plan mode must not be reset to default.
+
+**Permission-mode probe (2026-09-03, against 2.1.259, `fix-auto-mode-select`).** The CLI now
+lists `--permission-mode` choices `acceptEdits | auto | bypassPermissions | manual | dontAsk |
+plan` — `default` is no longer listed but is **still accepted** (launched fine, 1/1). On the
+wire the "manual" mode is still spelled `default`: sessions launched with `--permission-mode
+manual`, with `--permission-mode default`, and with no flag all reported
+`permission_mode: "default"` on `UserPromptSubmit` and `Stop` (3/3 sessions, headless), and the
+TUI footer for that mode reads `⏸ manual mode on`. `--permission-mode auto` reports
+`permission_mode: "auto"` on `UserPromptSubmit` (1/1, interactive, sonnet) and the footer reads
+`⏵⏵ auto mode on (shift+tab to cycle)`. **Auto is model-gated:** with
+`claude-haiku-4-5-20251001` the TUI prints `auto mode unavailable for this model`, silently
+falls back to `⏸ manual mode on`, and every hook reports `"default"` (2/2 sessions, headless
+and interactive) — so a seeded `auto` must be allowed to be corrected to `default` by the
+first `UserPromptSubmit`. Auto was available on the `sonnet`, `opus` and `fable` presets
+(footer check, zero tokens via the fail-proxy). Headless `-p` mode honours the flag
+(`acceptEdits` → `"acceptEdits"`, 1/1), so the haiku fallback is the model gate, not `-p`.
 
 ### Values worth asserting
 
@@ -86,7 +103,8 @@ Observed values: `"default"`, `"plan"`, `"acceptEdits"`. Latch the last known mo
   `SessionStart` fires with `source: "clear"` and a **new** session_id in the same pane —
   so `/clear` is directly detectable, and a `SessionEnd` with `reason: "clear"` must NOT
   be read as the pane dying.
-- `permission_mode` observed values: `"default"`, `"plan"`, `"acceptEdits"`.
+- `permission_mode` observed values: `"default"`, `"plan"`, `"acceptEdits"`, `"auto"` (2.1.259). The
+  CLI's `manual` choice is `"default"` on the wire.
 - **`StopFailure` replaces `Stop`** — never both for the same turn. Assert this: a canary
   that expects `Stop` on every turn end would break the `Failed` state. (H2 probe: verified
   for startup, first-API-call and mid-turn failures; successes emit `Stop` only.)

@@ -8,6 +8,8 @@ import {
   fileIssue,
   launchSession,
   locateDroppedFile,
+  PERMISSION_MODES,
+  permissionModeToCheck,
   pinSession,
   putPrefs,
   putSessionOrder,
@@ -47,6 +49,42 @@ function fakeResponse(ok: boolean, body: unknown): Response {
 function fakeResponseThatThrows(): Response {
   return { ok: true, json: () => Promise.reject(new Error("not json")) } as unknown as Response;
 }
+
+// Plan fix-auto-mode-select (Implementation Notes — "Web pattern"): PERMISSION_MODES is
+// the single source for both LaunchRequest's permissionMode union and render/launch.ts's
+// radio guard, so REQ-1's four wire values and their dialog/cycle order live in exactly
+// one place. Pinning its content here catches an accidental reorder or a fifth value
+// (bypassPermissions/dontAsk, deliberately out per the plan) landing silently.
+describe("api — PERMISSION_MODES", () => {
+  it("is exactly the four accepted wire values in dialog/cycle order (REQ-1)", () => {
+    expect(PERMISSION_MODES).toEqual(["default", "acceptEdits", "plan", "auto"]);
+  });
+});
+
+// Plan fix-auto-mode-select REQ-6 (review cycle 1, Major 2): permissionModeToCheck is the
+// single decision point for "which radio should be checked for this stored value" —
+// render/launch.ts's setPermissionMode and selectedPermissionMode both go through it
+// (review.md Major 1's extraction). Each recognised PERMISSION_MODES value must round-trip
+// to itself; anything else — an unrecognised string, null, or "" — must fall back to
+// "default" (the "manual" radio), never leave every radio unchecked (the bug the reviewer
+// measured on main: `checked: []`).
+describe("api — permissionModeToCheck (REQ-6)", () => {
+  it.each(PERMISSION_MODES)("round-trips the recognised value %j to itself", (mode) => {
+    expect(permissionModeToCheck(mode)).toBe(mode);
+  });
+
+  it("falls back to default for an unrecognised string", () => {
+    expect(permissionModeToCheck("someFutureMode")).toBe("default");
+  });
+
+  it("falls back to default for null", () => {
+    expect(permissionModeToCheck(null)).toBe("default");
+  });
+
+  it("falls back to default for the empty string", () => {
+    expect(permissionModeToCheck("")).toBe("default");
+  });
+});
 
 describe("api — launchSession (POST /api/sessions)", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -116,6 +154,34 @@ describe("api — launchSession (POST /api/sessions)", () => {
     const call = fetchMock.mock.calls[0] as [string, { body: string }];
     expect(JSON.parse(call[1].body)).toEqual({ directory: "/tmp", model: "sonnet", permissionMode: "plan" });
   });
+
+  // Plan fix-auto-mode-select REQ-2/D3: "auto" is the new fourth permissionMode value —
+  // serialises on the request and decodes back off the seeded Session the same as the
+  // three pre-existing values above.
+  it("serialises permissionMode: 'auto' on the request body (REQ-2)", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, validSession));
+    await launchSession({ directory: "/tmp", model: "sonnet", permissionMode: "auto" });
+    const call = fetchMock.mock.calls[0] as [string, { body: string }];
+    expect(JSON.parse(call[1].body)).toEqual({ directory: "/tmp", model: "sonnet", permissionMode: "auto" });
+  });
+
+  it("decodes a 201 Session whose permissionMode was seeded 'auto' (REQ-2/D3)", async () => {
+    const autoSeeded: Session = { ...validSession, permissionMode: { value: "auto", source: "seed" } };
+    fetchMock.mockResolvedValue(fakeResponse(true, autoSeeded));
+    const result = await launchSession({ directory: "/tmp", model: "sonnet", permissionMode: "auto" });
+    expect(result).toEqual({ ok: true, value: autoSeeded });
+  });
+
+  it("decodes the 400 invalid_request naming all four accepted values for an unknown permissionMode (D4)", async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, { error: { code: "invalid_request", message: "permissionMode must be one of default, plan, acceptEdits, auto" } }),
+    );
+    const result = await launchSession({ directory: "/tmp", model: "sonnet", permissionMode: "bypassPermissions" as never });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "invalid_request", message: "permissionMode must be one of default, plan, acceptEdits, auto" },
+    });
+  });
 });
 
 describe("api — fetchRepos (GET /api/repos)", () => {
@@ -174,6 +240,29 @@ describe("api — fetchRepos (GET /api/repos)", () => {
     );
     const result = await fetchRepos();
     expect(result.ok).toBe(false);
+  });
+
+  // Plan fix-auto-mode-select REQ-4: lastPermissionMode is an open string (last-known,
+  // never authoritative per api.ts's Repo doc) — "auto" round-trips exactly like the three
+  // pre-existing values, with no enum check to update.
+  it("decodes lastPermissionMode: 'auto' (REQ-4)", async () => {
+    const repos = [
+      {
+        id: 3,
+        path: "/Users/damian/code/auto-repo",
+        name: "auto-repo",
+        isGit: true,
+        branch: "main",
+        pinned: false,
+        lastLaunchedAt: "2026-08-22T00:00:00Z",
+        launchCount: 1,
+        lastModel: "sonnet",
+        lastPermissionMode: "auto",
+      },
+    ];
+    fetchMock.mockResolvedValue(fakeResponse(true, repos));
+    const result = await fetchRepos();
+    expect(result).toEqual({ ok: true, value: repos });
   });
 });
 

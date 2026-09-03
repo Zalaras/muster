@@ -61,7 +61,7 @@ Recent             │ / › Users › damian › code    ⌘↑
 ```
 Title       (optional — Claude Code auto-generates)
 Model       [ sonnet │ opus │ haiku │ fable │ other… ]
-Start in    [ default │ plan │ auto-accept ]
+Start in    [ manual │ accept edits │ plan │ auto ]
             Launch in ~/code/Projects/muster · main      [ Launch ]  ⏎
 ```
 
@@ -74,6 +74,11 @@ Start in    [ default │ plan │ auto-accept ]
   auto-generates a usable human title from session content (§2.1, verified), and Muster
   reads the live title from the status line's `session_name` rather than maintaining its
   own mapping.
+- **Start in** offers Claude Code's four tabbed modes with Claude Code's own labels
+  (2026-09-03, plan `fix-auto-mode-select`, #12): `manual` is the wire's `default` (measured
+  identical on 2.1.259), `accept edits` is `acceptEdits` (the radio formerly mis-labelled
+  "auto-accept"), `plan`, and `auto` (`--permission-mode auto`). `bypassPermissions`/`dontAsk`
+  are deliberately absent pending §4.4.
 - **Model** and **Start in** default to whatever was used last, per directory. Rationale
   for asking at all: starting a research session directly in plan mode avoids a Shift+Tab
   dance, and it is the only moment Muster can honestly seed `permission_mode` — manual

@@ -89,7 +89,10 @@ only client→server WS traffic in v1 is terminal input/resize on the terminal s
   "directory": "/Users/damian/code/Projects/muster",  // required, absolute
   "title": "flaky-e2e-hunt",                          // optional → `claude --name`
   "model": "opus",                                     // required; passed to `--model` verbatim — any non-empty string (UI offers sonnet/opus/haiku/fable presets + free-text override)
-  "permissionMode": "acceptEdits"                      // required: "default" | "plan" | "acceptEdits" — seeds the latch (§7.3)
+  "permissionMode": "acceptEdits"                      // required: "default" | "plan" | "acceptEdits" | "auto" — seeds the latch (§7.3).
+                                                       // "default" is Claude Code's manual mode (UI label "manual"; measured 2.1.259: no-flag,
+                                                       // `manual` and `default` all report permission_mode "default"). "auto" added by
+                                                       // plan fix-auto-mode-select; bypassPermissions/dontAsk deliberately not offered (SPEC §4.4).
 }
 // response: 201 + the Session object (§5.3), state "started"
 ```
@@ -101,7 +104,8 @@ Muster's hooks/status-line/ingest URLs;
 insert the session row and broadcast `sessionUpsert` **immediately** — before any hook
 arrives, because the first hook may be a long way off (trust prompt, ux-flows §1.4).
 Errors: `400 invalid_request` (missing/relative directory; empty/unknown
-`permissionMode`; empty `model`; directory that does not exist or is not a directory),
+`permissionMode` — message `permissionMode must be one of default, plan, acceptEdits, auto`;
+empty `model`; directory that does not exist or is not a directory),
 `500 launch_failed` (tmux/spawn failure, message carries stderr; also a
 `settings.local.json` that exists but is not valid JSON — Muster refuses to guess at
 merging into a corrupt file, and the error message names the file).
@@ -115,7 +119,7 @@ merging into a corrupt file, and the error message names the file).
    "isGit": true, "branch": "main",            // branch read at request time; null when !isGit
    "pinned": false, "lastLaunchedAt": "2026-08-20T08:01:00Z", "launchCount": 12,
    "lastModel": "opus",                        // model value of the last launch here; null before any
-   "lastPermissionMode": "acceptEdits" }]      // starting mode of the last launch here; null likewise
+   "lastPermissionMode": "acceptEdits" }]      // starting mode of the last launch here ("default" | "plan" | "acceptEdits" | "auto"); null likewise
 ```
 
 `lastModel`/`lastPermissionMode` are the per-directory launch defaults (ux-flows §1.2
@@ -563,7 +567,7 @@ is complexity with no payoff, and whole-object replacement is naturally loss-tol
   "directory": "/Users/damian/code/Projects/muster",
   "repo": { "name": "muster", "branch": "feat-e2e", "isWorktree": false },  // null when directory isn't a git checkout
   "model": { "id": "claude-opus-5", "displayName": "Opus 5" },  // launch value until the status line confirms; null if unknown
-  "permissionMode": { "value": "plan", "source": "hook" },       // source "seed" (launch flag) | "hook" (a payload carried it); ALWAYS last-known, never authoritative (SPEC §4.5)
+  "permissionMode": { "value": "plan", "source": "hook" },       // source "seed" (launch flag) | "hook" (a payload carried it); ALWAYS last-known, never authoritative (SPEC §4.5). value is an open string; observed "default" | "plan" | "acceptEdits" | "auto" (2.1.259)
   "context": { "usedPct": 42, "totalInputTokens": 84211,
                "windowSize": 200000, "compactions": 2 },          // usedPct/totalInputTokens/windowSize null before first API response → "ctx — unknown"
   "lastActivity": "Fixed the flaky retry; running the suite…",   // truncated last_assistant_message from the closing Stop; null until first Stop
@@ -741,6 +745,9 @@ the orthogonal `alive` flag (§7.5).
   (`source:"seed"`), overwritten by any payload carrying the field (`source:"hook"`).
   Events without the field (`SessionStart`, `SessionEnd`, `Notification`, `StopFailure`,
   `PreCompact` — measured) **never reset it**: a session failing in plan mode stays plan.
+  A seeded `auto` on a model that cannot run it (haiku — measured 2.1.259, the TUI prints
+  `auto mode unavailable for this model` and drops to manual) is corrected to `"default"` by
+  the first `UserPromptSubmit`, via this same seed-then-correct path; nothing special-cased.
 - `currentPromptId` — from the latest turn-scoped event; `closedPromptIds` — prompts
   closed by a Stop-family event (keeping the last few suffices).
 - `compactions`, `context`, `attention`, `failure`, `lastActivity` — as surfaced in §5.3.
@@ -840,6 +847,11 @@ exit — so the next startup sweeps it.
 
 ## 9. Changelog
 
+- **2026-09-03 — §3.1/§3.2/§5.3/§7.2: `permissionMode` gains `"auto"`** (plan
+  `fix-auto-mode-select`, closes #12). Claude Code 2.1.259 has a distinct `auto` mode
+  (`--permission-mode auto`, hooks report `"auto"`); the launcher's "auto-accept" radio was
+  accept-edits (`acceptEdits`) mis-labelled. `"default"` stays the wire value for what Claude
+  Code now calls manual (measured identical on the wire). The 400 message names all four.
 - **2026-09-02 — §3.14 `POST /api/sessions/{id}/locate`** (plan `file-drop-fix`, Pre-v1,
   closes #8). New endpoint resolving a dropped file's uploaded bytes to its original
   on-disk path via Spotlight then a session-directory walk, byte-compared; `404

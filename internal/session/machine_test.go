@@ -385,6 +385,20 @@ func TestApplyInput_TurnActivity(t *testing.T) {
 		assert.Equal(t, "seed", sess.PermissionModeSource)
 	})
 
+	t.Run("REQ-5/D8: a session seeded auto is corrected to default/hook and lands in working, not planning, on the haiku-fallback UserPromptSubmit", func(t *testing.T) {
+		sess := newTestSession()
+		sess.PermissionMode = PermissionAuto
+		sess.PermissionModeSource = "seed"
+		mode := "default"
+		promptID := "p1"
+
+		applyInput(sess, "c1", &promptID, claudecode.StateInput{Kind: claudecode.KindTurnActivity, PermissionMode: &mode}, fixedNow)
+
+		assert.Equal(t, PermissionDefault, sess.PermissionMode)
+		assert.Equal(t, "hook", sess.PermissionModeSource)
+		assert.Equal(t, StateWorking, sess.State, "the haiku fallback must never land in planning")
+	})
+
 	t.Run("D12: an unseen prompt id opens ACTIVE even with no prior prompt at all", func(t *testing.T) {
 		sess := newTestSession()
 		require.Empty(t, sess.currentPromptID)
@@ -705,6 +719,7 @@ func TestActiveState(t *testing.T) {
 		{"plan latches to planning", PermissionPlan, StatePlanning},
 		{"default latches to working", PermissionDefault, StateWorking},
 		{"acceptEdits latches to working", PermissionAcceptEdits, StateWorking},
+		{"auto latches to working", PermissionAuto, StateWorking},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -712,6 +727,71 @@ func TestActiveState(t *testing.T) {
 			sess.PermissionMode = tt.mode
 			assert.Equal(t, tt.want, sess.activeState())
 		})
+	}
+}
+
+// TestLatchPermissionMode_SeedThenHookInvariant covers INV-1 exhaustively: "source is
+// seed until the first hook carrying permission_mode, then hook forever after; the
+// value is always the last one carried." Per-transition tests above (e.g. "a present
+// permission_mode latches the mode with source hook") each start from one convenient
+// seed; this table instead crosses every reachable starting seed (including the new
+// auto value, REQ-5's instance of the invariant) against every possible hook-reported
+// value, through both input kinds that call latchPermissionMode (TurnActivity and
+// TurnClosed/Stop), so a bug that only shows up from a non-default starting seed (e.g.
+// an auto seed getting stuck instead of correcting) can't hide behind the narrower
+// per-transition tests.
+func TestLatchPermissionMode_SeedThenHookInvariant(t *testing.T) {
+	seeds := []PermissionMode{PermissionDefault, PermissionPlan, PermissionAcceptEdits, PermissionAuto}
+	hookValues := []string{"default", "plan", "acceptEdits", "auto"}
+	kinds := []claudecode.InputKind{claudecode.KindTurnActivity, claudecode.KindTurnClosed}
+
+	for _, seed := range seeds {
+		for _, kind := range kinds {
+			for _, hookValue := range hookValues {
+				name := string(seed) + "_seed/" + kindName(kind) + "/hook_" + hookValue
+				t.Run(name, func(t *testing.T) {
+					sess := newTestSession()
+					sess.PermissionMode = seed
+					sess.PermissionModeSource = "seed"
+					promptID := "p1"
+					mode := hookValue
+
+					applyInput(sess, "c1", &promptID, claudecode.StateInput{Kind: kind, PermissionMode: &mode}, fixedNow)
+
+					assert.Equal(t, PermissionMode(hookValue), sess.PermissionMode, "value must always be the last one carried")
+					assert.Equal(t, "hook", sess.PermissionModeSource, "any hook carrying permission_mode must flip source to hook, regardless of the starting seed")
+				})
+			}
+		}
+	}
+
+	// The other half of the invariant: with no hook value carried at all (nil
+	// permission_mode), source must stay "seed" from every starting seed — already
+	// covered per-kind above ("REQ-9: a nil permission_mode never resets the latch" for
+	// TurnActivity); this closes the same gap for TurnClosed/Stop across all four seeds.
+	for _, seed := range seeds {
+		t.Run(string(seed)+"_seed/turn_closed/nil_hook_leaves_seed_untouched", func(t *testing.T) {
+			sess := newTestSession()
+			sess.PermissionMode = seed
+			sess.PermissionModeSource = "seed"
+			promptID := "p1"
+
+			applyInput(sess, "c1", &promptID, claudecode.StateInput{Kind: claudecode.KindTurnClosed}, fixedNow)
+
+			assert.Equal(t, seed, sess.PermissionMode)
+			assert.Equal(t, "seed", sess.PermissionModeSource)
+		})
+	}
+}
+
+func kindName(k claudecode.InputKind) string {
+	switch k {
+	case claudecode.KindTurnActivity:
+		return "turn_activity"
+	case claudecode.KindTurnClosed:
+		return "turn_closed"
+	default:
+		return "other"
 	}
 }
 
