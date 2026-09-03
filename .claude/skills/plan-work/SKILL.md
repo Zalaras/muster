@@ -187,6 +187,8 @@ Discuss edge cases and failure scenarios on both sides. For Muster, always cover
 
  daemon restart mid-session, no-data-yet nulls, tmux pane death without `SessionEnd`.
 
+  **Every edge case with a user-visible or wire-visible outcome names the criterion that checks it.** End each numbered edge case with `→ E<n>` / `→ W<n>` / `→ D<n>` (a criterion you then write in §9), or `→ untested: <reason>` when it genuinely cannot be driven (a platform behaviour, a race the harness cannot stage). An edge case that describes what the product must do is a requirement; if no criterion pins it, no agent tests it, and it reaches the Opus reviewer as the first person to try it. ui-text-and-focus edge case 18 ("⌘\ to Focus … no request is sent") had no `E*`; it was review cycle 1's Critical and cost the whole second cycle. Write the mapping in the plan, not in your head — e2e-specs and review-work both read it.
+
 ### 9. Acceptance Criteria
 
 Define clear acceptance criteria that the review agent will check against. Write them as prose, one behaviour per criterion, covering daemon-verifiable and web-verifiable outcomes.
@@ -290,7 +292,7 @@ Delta against `docs/protocol.md` (merged there on approval). "No protocol change
 
 ## Edge Cases
 
-1. <edge case and how to handle it>
+1. <edge case and how to handle it> → E<n> | W<n> | D<n> | untested: <reason>
 
 ## Acceptance Criteria
 

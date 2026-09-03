@@ -70,9 +70,13 @@ Before starting:
 
 **Parallel execution**: For `full-stack` plans, daemon and web tracks run in parallel:
 - Spawn daemon-impl and web-impl simultaneously using two Task tool calls in a single message
-- Wait for both to complete
-- Then spawn daemon-tests and web-tests simultaneously
-- Wait for both to complete
+- **Each track's test agent starts the moment its own impl agent reports** — do not hold the
+  daemon tester for the web coder or vice versa. daemon-tests writes only Go test files and
+  web-tests only `web/src/**/*.test.ts`, so a tester and the other track's coder never share a
+  file (the concurrency test in Fix Wave Ordering is satisfied). Tell the tester the other coder
+  is still running and to leave its uncommitted files alone. ui-text-and-focus: daemon-impl
+  finished 23 minutes before web-impl; starting daemon-tests immediately saved 13 minutes.
+- Wait for both testers to complete
 - Then run E2E Validate & Repair (Step 5) — a single agent, not parallel
 - Then run review
 
@@ -168,13 +172,15 @@ Execute the web implementation task for plan: <plan-name>
 Project root: <project-root>
 ```
 
-Wait for both to complete. Verify both output files were created.
+As each reports, verify its output file was created and run its wave-1 gate; then spawn that
+track's test agent (Step 3) without waiting for the other track.
 
 **For daemon-only or web-only** — spawn just the relevant agent.
 
 ### Step 3: Test Agents
 
-**For full-stack plans** — spawn BOTH in the same message (parallel):
+**For full-stack plans** — spawn each track's tester as soon as that track's impl agent has
+reported and passed its gate (both in one message only if both impls finished together):
 
 `subagent_type: "daemon-tests"` and `subagent_type: "web-tests"`, each with:
 ```
@@ -182,7 +188,7 @@ Execute the <daemon|web> testing task for plan: <plan-name>
 Project root: <project-root>
 ```
 
-Wait for both to complete.
+Wait for both to complete before Step 5.
 
 ### Step 4: Handle Test Results
 
@@ -493,7 +499,12 @@ Do NOT rely on cached test results or previous agent verdicts. Run the commands 
 
 CLAUDE.md's "Doc upkeep" section binds every session, this pipeline included. **You verify and amend — you are the backstop, not primarily the author.**
 
-Do this after Final Validation passes and before marking the pipeline completed:
+Do this after Final Validation passes and before marking the pipeline completed. You may
+**draft** these edits earlier (during a review cycle, in your own `docs(<plan-name>)` commit —
+the file set is disjoint from every agent's) but **never write the verdict before it exists**:
+no "approved", no "review cycle N", no ✅ tick, until `review.md` on disk says `approved`. Leave
+those words out of the draft and add them at completion. ui-text-and-focus: "approved review
+cycle 1" written during cycle 1 became a Minor in both reviews and a five-place fix.
 
 1. Read the implementation logs (including `## Fix Attempt` sections) so you know what actually shipped. You don't need to re-read source.
 2. Check, and fix what's missing:

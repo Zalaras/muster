@@ -14,14 +14,17 @@ Usage (run from the project root):
                                                      remove <step> from completed_steps
   orch-state.py <plan> closes [N ...]                set closes_issues (no N clears it)
   orch-state.py <plan> show                          print the state
-  orch-state.py <plan> timings                       per-step wall-clock table (from step_finished_at)
+  orch-state.py <plan> timings                       wall-clock table, one row per attempt (from step_attempts)
 
 Every mutating command stamps updated_at and prints the resulting state. `done` and `finish`
 stamp step_finished_at[<step>] so a retro can see where the wall-clock went. `timings` reports
 finish − start, so a fix-mode re-spawn needs both `start` (at spawn) and `finish` (when it
 reports): fix-auto-mode-select called only `start` for its web-impl fix wave and the row read
 -41m21s. Without a start stamp the fallback is the gap since the previous finish, which is
-wrong for parallel steps.
+wrong for parallel steps. Every `start` also opens an entry in `step_attempts[<step>]`
+and the next `finish`/`done` closes it, so a re-spawned step keeps every attempt's timing —
+`step_started_at`/`step_finished_at` hold only the last one (ui-text-and-focus: authoring's
+~19 min and web-impl's ~44 min first pass were overwritten by their fix re-spawns).
 """
 import argparse, datetime, json, pathlib, sys
 
@@ -35,31 +38,54 @@ def parse(ts):
     return datetime.datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
 
 def print_timings(s):
-    """Wall-clock per step, in finish order. Duration = finish − start when the step has a
-    `start` stamp (the normal case); otherwise the gap since the previous finish (started_at
-    for the first), marked `~` because that fallback is wrong for parallel steps. Retries are
-    folded into the step whose verdict ended them. Total is run start → last finish, not the
-    column sum (parallel steps overlap). Prints a Markdown table the summary can paste."""
-    stamps = s.get("step_finished_at") or {}
-    starts = s.get("step_started_at") or {}
-    if not stamps:
-        print("no step_finished_at stamps (state predates timings, or no step is done yet)"); return
+    """Wall-clock per attempt, in finish order. One row per entry of step_attempts[<step>]
+    (attempt 2+ labelled), falling back to step_started_at/step_finished_at for a state that
+    predates attempts. Duration = finish − start when a start stamp exists; otherwise the gap
+    since the previous finish (started_at for the first), marked `~` because that fallback is
+    wrong for parallel steps. Total is run start → last finish, not the column sum (parallel
+    steps overlap). Prints a Markdown table the summary can paste."""
+    rows = []   # (finish_ts, step, label, start_ts or None)
+    attempts = s.get("step_attempts") or {}
+    for step, lst in attempts.items():
+        for i, at in enumerate(lst):
+            if not at.get("finish"):
+                continue
+            label = step if i == 0 else f"{step} (attempt {i + 1})"
+            rows.append((at["finish"], step, label, at.get("start")))
+    if not rows:
+        stamps = s.get("step_finished_at") or {}
+        starts = s.get("step_started_at") or {}
+        rows = [(ts, step, step, starts.get(step)) for step, ts in stamps.items()]
+    if not rows:
+        print("no finish stamps (state predates timings, or no step is done yet)"); return
+    rows.sort(key=lambda r: r[0])
     prev = parse(s["started_at"])
-    rows = sorted(stamps.items(), key=lambda kv: kv[1])
+    fallback = False
     print("| Step | Started (UTC) | Finished (UTC) | Wall-clock | Retries |")
     print("|---|---|---|---|---|")
-    for step, ts in rows:
+    for ts, step, label, start in rows:
         t = parse(ts)
-        if step in starts:
-            st = parse(starts[step]); dur = fmt(t - st); started = starts[step][11:16]
+        if start:
+            dur = fmt(t - parse(start)); started = start[11:16]
         else:
-            dur = "~" + fmt(t - prev); started = "—"
+            dur = "~" + fmt(t - prev); started = "—"; fallback = True
         prev = t
-        print(f"| {step} | {started} | {ts[11:16]} | {dur} | {s['retry_counts'].get(step, 0)} |")
-    total = parse(rows[-1][1]) - parse(s["started_at"])
-    print(f"| **run** | {s['started_at'][11:16]} | {rows[-1][1][11:16]} | **{fmt(total)}** | |")
-    if any(step not in starts for step, _ in rows):
+        print(f"| {label} | {started} | {ts[11:16]} | {dur} | {s['retry_counts'].get(step, 0)} |")
+    total = parse(rows[-1][0]) - parse(s["started_at"])
+    print(f"| **run** | {s['started_at'][11:16]} | {rows[-1][0][11:16]} | **{fmt(total)}** | |")
+    if fallback:
         print("\n`~` = no start stamp; gap since the previous finish (unreliable for parallel steps).")
+
+def close_attempt(s, step):
+    """Stamp step_finished_at[step] and close the step's open attempt (or record a finish-only
+    attempt when no `start` was called — the fallback the timings table marks `~`)."""
+    ts = now()
+    s.setdefault("step_finished_at", {})[step] = ts
+    lst = s.setdefault("step_attempts", {}).setdefault(step, [])
+    if lst and lst[-1].get("finish") is None:
+        lst[-1]["finish"] = ts
+    else:
+        lst.append({"start": None, "finish": ts})
 
 def fmt(td):
     m, sec = divmod(int(td.total_seconds()), 60)
@@ -86,7 +112,7 @@ def main():
              "current_step": a.step or STEPS[0],
              "retry_counts": {k: 0 for k in STEPS},
              "completed_steps": [], "failed_steps": [],
-             "step_started_at": {}, "step_finished_at": {},
+             "step_started_at": {}, "step_finished_at": {}, "step_attempts": {},
              "started_at": now(), "updated_at": now()}
     else:
         if not path.exists():
@@ -102,15 +128,17 @@ def main():
         if a.cmd in ("start", "finish", "done", "retry", "fail", "reopen") and a.arg not in STEPS:
             sys.exit(f"unknown step {a.arg!r}; one of {STEPS}")
         if a.cmd == "start":
-            s.setdefault("step_started_at", {})[a.arg] = now()
+            ts = now()
+            s.setdefault("step_started_at", {})[a.arg] = ts
+            s.setdefault("step_attempts", {}).setdefault(a.arg, []).append({"start": ts, "finish": None})
         elif a.cmd == "finish":
-            s.setdefault("step_finished_at", {})[a.arg] = now()
+            close_attempt(s, a.arg)
         elif a.cmd == "done":
             if not a.next:
                 sys.exit("done needs --next STEP (use 'completed' after review)")
             if a.arg not in s["completed_steps"]:
                 s["completed_steps"].append(a.arg)
-            s.setdefault("step_finished_at", {})[a.arg] = now()
+            close_attempt(s, a.arg)
             s["current_step"] = a.next
         elif a.cmd == "retry":
             s["retry_counts"][a.arg] = s["retry_counts"].get(a.arg, 0) + 1

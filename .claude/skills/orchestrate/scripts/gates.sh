@@ -109,7 +109,16 @@ if (( RUN_BASELINE )); then
   run_one lint  "make lint"
   run_one web-build "make web-build"
   run_one web-test  "make web-test"
-  if (( RUN_E2E )); then run_one e2e "make e2e"; else echo "SKIP  e2e  make e2e  (--no-e2e)"; fi
+  if (( RUN_E2E )); then
+    run_one e2e "make e2e"
+  else
+    # Register the skip in SEEN so a ```checks line that names `make e2e` (E1 in most plans)
+    # dedupes to SKIP instead of running the suite anyway (ui-text-and-focus: --no-e2e skipped
+    # the baseline line and then ran E1's identical command for five minutes).
+    echo "SKIP  e2e  make e2e  (--no-e2e)"
+    SEEN="$SEEN
+SKIP	make e2e"
+  fi
 fi
 
 if (( RUN_CHECKS )); then
