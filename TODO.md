@@ -712,7 +712,7 @@ unless he re-ranks — don't re-sort this list.
   `Stop` before a fix is chosen — the guard exists for a real reason and must not simply be
   deleted. Same seam as #15; likely one plan covers both.
 
-- [ ] **Attention stays latched on "needs permission" after work resumes** ([#15](https://github.com/Zalaras/muster/issues/15))
+- [ ] **Attention stays latched on "needs permission" after work resumes** ([#15](https://github.com/Zalaras/muster/issues/15), [#20](https://github.com/Zalaras/muster/issues/20))
   — "Doesn't need my permission it's currently thinking but UI says needs permissions".
   Confirmed in the tree, not just plausible: `internal/session/machine.go`'s `KindTurnActivity`
   branch latches `permission_mode` and sets the active state but never clears `sess.Attention`
@@ -722,7 +722,15 @@ unless he re-ranks — don't re-sort this list.
   §5.3's unconditional "attention iff needs_input" invariant that the same file's comment
   claims to hold. Clear attention on turn activity and add the unit test that would have caught
   it (`internal/session/machine_test.go` has no activity-after-permission case). Same seam
-  as #14.
+  as #14. Re-filed as #20 against musterd 0.5.0 — "I accepted the plan in auto mode but it now
+  says needs your permission but it's running and thinking and no permission prompt is present",
+  with `state working since 13:01:42Z` against `attention permission since 12:08:05Z`, a
+  53-minute latch. Two things that adds: the cause is unchanged in the current tree
+  (`machine.go:18` still returns from the `KindTurnActivity` branch without touching
+  `sess.Attention`, while `:47`, `:59` and `:109` are the only clears), and the path in is
+  plan-acceptance into auto mode — so the missing unit test should cover activity arriving
+  after a permission latch *under a mode change*, not just under a steady mode. One fix closes
+  both.
 
 - [x] **The rail never shows which session the Focus pane is displaying** ([#16](https://github.com/Zalaras/muster/issues/16)) ✅ done 2026-09-03 (plan `ui-text-and-focus`, via `/orchestrate`, approved review cycle 2; lands with `/land ui-text-and-focus`, which closes #10, #16, #18 and #19).
   — "it should better show which session you have active in that nav". Measured: `focusedId` is
@@ -751,6 +759,20 @@ unless he re-ranks — don't re-sort this list.
   scale in tokens — and then one decision: does the user get a size control (a `prefs` scale
   factor alongside `theme`, which the Settings dialog already has a home for), or do we simply
   move the ramp up. Pairs with #18.
+
+- [ ] **Offer a plain shell session, not only a Claude Code one** ([#21](https://github.com/Zalaras/muster/issues/21))
+  — "I find myself sometimes swapping to terminal to run git commands or something I don't
+  want to use ! with claude. I think we should offer a 'plain' terminal session. So select a
+  file and it will start with that as the pwd." A session kind that runs the user's shell in a
+  chosen working directory instead of `claude`. Net-new scope, not a defect: SPEC.md has no
+  non-Claude session type, and `internal/server/sessions.go:152,222` is the only launch path —
+  both calls go through `claudecode.BuildArgv`, so the kind has to branch there. The harder half
+  is state: every signal muster has arrives from Claude Code's hooks and status line, so a plain
+  session has no state machine, no attention, no context gauge and no model, and the rail card,
+  the launcher and the ⌘1–9 shortcut/focus behaviour each need a defined shape for a session
+  that is only alive or ended. The tmux/PTY layer and the terminal pane already carry it
+  unchanged. Decide the card shape and whether a plain session is addressable by the shortcuts
+  before implementing.
 
 ## M5+ (v1.x, re-rank when reached)
 
