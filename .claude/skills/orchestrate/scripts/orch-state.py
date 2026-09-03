@@ -3,6 +3,9 @@
 
 Usage (run from the project root):
   orch-state.py <plan> init [--step STEP]            create a fresh in-progress state
+  orch-state.py <plan> start <step>                  stamp step_started_at[<step>] (every spawn, fix re-spawns too)
+  orch-state.py <plan> finish <step>                 stamp step_finished_at[<step>] only — for a fix-mode re-spawn that
+                                                     reports; leaves completed_steps/current_step alone
   orch-state.py <plan> done <step> --next STEP       mark <step> completed, move on
   orch-state.py <plan> retry <step>                  bump retry_counts[<step>]
   orch-state.py <plan> fail <step>                   append to failed_steps
@@ -13,10 +16,12 @@ Usage (run from the project root):
   orch-state.py <plan> show                          print the state
   orch-state.py <plan> timings                       per-step wall-clock table (from step_finished_at)
 
-Every mutating command stamps updated_at and prints the resulting state. `done` also stamps
-step_finished_at[<step>] so a retro can see where the wall-clock went; a step's duration is
-the gap since the previous stamp (or started_at), so it includes any fix waves that ran
-before its verdict was read, and two steps run in parallel share one gap.
+Every mutating command stamps updated_at and prints the resulting state. `done` and `finish`
+stamp step_finished_at[<step>] so a retro can see where the wall-clock went. `timings` reports
+finish − start, so a fix-mode re-spawn needs both `start` (at spawn) and `finish` (when it
+reports): fix-auto-mode-select called only `start` for its web-impl fix wave and the row read
+-41m21s. Without a start stamp the fallback is the gap since the previous finish, which is
+wrong for parallel steps.
 """
 import argparse, datetime, json, pathlib, sys
 
@@ -63,8 +68,8 @@ def fmt(td):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("plan")
-    ap.add_argument("cmd", choices=["init", "start", "done", "retry", "fail", "status", "reopen", "show",
-                                   "closes", "timings"])
+    ap.add_argument("cmd", choices=["init", "start", "finish", "done", "retry", "fail", "status", "reopen",
+                                   "show", "closes", "timings"])
     ap.add_argument("arg", nargs="?")
     ap.add_argument("rest", nargs="*", help="closes: any further issue numbers")
     ap.add_argument("--step")
@@ -91,13 +96,15 @@ def main():
             print(json.dumps(s, indent=2)); return
         if a.cmd == "timings":
             print_timings(s); return
-        need = a.cmd in ("start", "done", "retry", "fail", "reopen", "status")
+        need = a.cmd in ("start", "finish", "done", "retry", "fail", "reopen", "status")
         if need and not a.arg:
             sys.exit(f"{a.cmd} needs an argument")
-        if a.cmd in ("start", "done", "retry", "fail", "reopen") and a.arg not in STEPS:
+        if a.cmd in ("start", "finish", "done", "retry", "fail", "reopen") and a.arg not in STEPS:
             sys.exit(f"unknown step {a.arg!r}; one of {STEPS}")
         if a.cmd == "start":
             s.setdefault("step_started_at", {})[a.arg] = now()
+        elif a.cmd == "finish":
+            s.setdefault("step_finished_at", {})[a.arg] = now()
         elif a.cmd == "done":
             if not a.next:
                 sys.exit("done needs --next STEP (use 'completed' after review)")

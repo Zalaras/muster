@@ -35,6 +35,7 @@ All web code lives in `web/`; run every npm command from that directory.
 - **State derivation**: every input the plan defines, plus daemon-down and reconnect transitions.
 - **Formatting** (durations, percentages, token counts): boundary values, null/absent inputs.
 - Use `vi.fn()` / `vi.mock()` for module seams. If a piece of logic is untestable because it is tangled into DOM code, that is an `implementation-bug` (conventions require logic in pure modules) — report it, don't work around it with a DOM harness.
+- **A declined coverage item cites the specific existing test, after reading it.** When you leave a plan requirement or criterion uncovered because another suite covers it, name the file and test title and quote the assertion that covers the *exact* case. If no such test exists the item is yours: cover it, or report `implementation-bug` when the logic is not unit-testable as built — "not mine" is never a verdict. fix-auto-mode-select: web-tests wrote that the E2E suite's E4 covered the `null`/unrecognised stored-mode case; E4 covered the four recognised values, e2e-specs had already logged the gap, and it cost a review cycle.
 
 Test files sit alongside the module: `web/src/foo/bar.ts` → `web/src/foo/bar.test.ts` (the Vitest config includes `src/**/*.test.ts`).
 
