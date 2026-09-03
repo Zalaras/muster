@@ -144,6 +144,37 @@ Show the exact text before posting. `gh issue comment` is not in `.claude/settin
 allowlist, so it prompts — that is correct for an outward-facing write. Default is silent:
 `TODO.md` is the record, and the comment is for when other people are reading the tracker.
 
+## 7. Commit the `TODO.md` edit
+
+A triage pass that leaves `TODO.md` dirty is half-done: the next session inherits backlog edits
+it did not make, and `/orchestrate`'s pre-flight has to guess whether they belong to the plan.
+Commit before reporting.
+
+Only when § 4 actually wrote something. `--audit`, and any pass that changed nothing, commit
+nothing — there is no empty commit.
+
+```bash
+git status --short TODO.md    # BEFORE your first edit — see "Pre-existing edits" below
+# ... triage edits ...
+git add TODO.md
+git commit -m "docs(triage): file #12 and #14 into the pre-v1 backlog"
+```
+
+- **Stage `TODO.md` and nothing else.** Never `git add -A`, never `git add .`, never stash. Other
+  dirty files in the tree are not yours — leave them exactly as they are, and say so in the report.
+- **Pre-existing edits.** Run `git status --short TODO.md` *before* your first edit. If it was
+  already dirty, the commit would carry someone else's unrelated changes: show them the diff, get
+  explicit approval, or leave the pass uncommitted and hand it back. Never try to split the file.
+- **Type is always `docs`, scope `triage`** — `TODO.md` is documentation, and `docs` cuts no
+  release (`docs/conventions.md` § Commits). One sentence naming the issues and the section they
+  landed in. The 72-character cap does not bind `docs`, but keep it to a line anyway.
+- **Never `closes #N` in a triage commit.** The subject may name issues; it must never carry a
+  closing keyword, or the pass would close the very issues it just filed (§ The close policy).
+- **Never push.** A push to `main` runs the release workflow; landing is `/land`'s job.
+- **Check the branch first** (`git branch --show-current`). Triage is `main`-level doc work; if
+  you are on a `plan/*` branch, say which one in the report so the commit is not a surprise.
+- If a § 4b close was approved, that is a `gh issue close`, not part of this commit.
+
 ## Never
 
 - Never close an issue as "triaged" (§ The close policy).
@@ -153,8 +184,12 @@ allowlist, so it prompts — that is correct for an outward-facing write. Defaul
 - Never write a TODO entry for an issue you have not read in full.
 - Never duplicate an existing entry — if `/triage <N>` is run on an already-triaged issue,
   find the existing entry and offer to update it.
+- Never commit anything but `TODO.md`, never push, and never put `closes #N` in the commit
+  subject (§ 7).
 
 ## Report
 
-Finish with: how many issues were triaged and into which sections, the audit table, and the
-untriaged count remaining (`0` is the goal). If nothing needed doing, say so in one line.
+Finish with: how many issues were triaged and into which sections, the audit table, the commit
+subject and short sha (or why nothing was committed), any dirty files you deliberately left
+alone, and the untriaged count remaining (`0` is the goal). If nothing needed doing, say so in
+one line.
