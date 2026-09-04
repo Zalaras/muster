@@ -400,7 +400,8 @@ restarts/reconcile; WebSocket fanout pushes deltas to the UI.
   deliberately, gated on the canary. All Claude-Code-format knowledge lives in
   `internal/claudecode/` so breakage is a one-package fix. Accepted: interfaces are
   unstable and undocumented; when they break, the answer is "fix Muster that week."
-- **Licensing/repo**: private for now; license decided later.
+- **Licensing/repo**: **MIT** (`LICENSE`, decided 2026-09-04). Repo stays private until the
+  open-sourcing chores in `docs/design/open-sourcing.md` are done.
 
 ---
 
@@ -1320,3 +1321,23 @@ Four dashboard issues in one pass — #16, #18, #19, #10.
   Playwright injects key events below the browser chrome, which is exactly why
   `web/e2e/views.spec.ts:110` pressed `Meta+1` green the whole time ⌘N was broken in Safari. It
   is Reviewer-Verified against the probe file, and a green `make e2e` must never be cited for it.
+
+### 2026-09-04 — licence chosen: MIT (`LICENSE` added; repo still private)
+
+Settles the "license decided later" posture in §8. Recorded arguments are in
+`docs/design/open-sourcing.md`; the decision in brief:
+
+- **MIT over Apache-2.0.** The Apache-2.0 advantages recorded in the note do not bite here: a
+  copyright licence never grants trademark rights, so MIT withholds the name just as well;
+  inbound contributions follow the inbound-equals-outbound norm, and the contribution question
+  is deferred to the first real PR regardless; there are no patents to grant on a tmux session
+  dashboard. MIT is GPLv2-compatible where Apache-2.0 is not, and it is what all six comparable
+  individual-maintainer tools chose (tally MIT 6, AGPL 2, Apache 1, ELv2 1).
+- **AGPL-3.0 ruled out** — its network clause never fires for a localhost single-user daemon,
+  and many employers forbid engineers from reading AGPL code.
+- **Copyright is retained**; MIT is a non-exclusive grant, so relicensing or sale stays open.
+  No CLA/DCO pre-emptively — decide when the first PR arrives.
+- **The repo remains private.** Adding `LICENSE` is the hard blocker cleared; the visibility
+  flip waits on the remaining chores (README build/contributions lines, deleting `a.png` and
+  `session-manager-mockup.html`, the `plans/` privacy skim) and on Damian checking the SPAN
+  employment IP clause.

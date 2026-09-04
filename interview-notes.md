@@ -104,7 +104,7 @@ The handoff doc remains the reference; highlights that shaped decisions:
 - **Before any build work**: a separate session creates the AI build harness — agents
   and skills for developing Muster. Not part of the spec.
 - Testing bar (also in SPEC): functional E2E always; unit tests confirm specific logic.
-- Repo private for now; license decision deferred.
+- Repo private for now; licence **MIT** (decided 2026-09-04, see SPEC changelog).
 - Naming: **settled on "Muster" 2026-08-16.** Earlier candidates "CCC (Claude Code Control)"
   and "Claude Control Plane" were dropped on two constraints Damian raised: the name must not
   collide with an existing product/trademark, and it must not contain "Claude"/"cc" because a

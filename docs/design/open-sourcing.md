@@ -1,10 +1,11 @@
 # Open-sourcing muster — audit & licence options
 
 Research/discussion session 2026-09-02/03. The repo is currently **private**
-(`gh repo view` → `PRIVATE`). Damian wants to publish it; nothing here is decided yet,
-and **no `LICENSE` file has been added**. This note records the pre-flight audit and the
-licence analysis so the next session doesn't re-derive them. When the licence is chosen,
-it goes to `SPEC.md` per the usual changelog rule.
+(`gh repo view` → `PRIVATE`). Damian wants to publish it. **Decided 2026-09-04: MIT** —
+`LICENSE` is added (canonical text, © 2026 Damian Hunter) and the reasoning is in the
+`SPEC.md` changelog entry of that date. Everything else below is still open; the repo stays
+private until the chores are done. This note records the pre-flight audit and the licence
+analysis so the next session doesn't re-derive them.
 
 ## Pre-flight audit (run 2026-09-02, `main` at c71a759)
 
@@ -26,7 +27,7 @@ Cleaner than expected. Findings, each verified by actually grepping rather than 
 
 Blockers and chores, in order:
 
-1. **A `LICENSE` file is the only hard blocker** — with none, nobody may legally use it.
+1. ~~**A `LICENSE` file is the only hard blocker**~~ — **done 2026-09-04 (MIT).**
 2. Flip visibility:
    `gh repo edit --visibility public --accept-visibility-change-consequences`. Note this
    makes Actions minutes free and makes existing releases public.
@@ -79,7 +80,7 @@ nothing — four months without a push and 539 open issues against 28k stars. Pe
 licensing is necessary but nowhere near sufficient for a project to outlive its author's
 interest. Don't lean on this argument.
 
-## MIT vs Apache-2.0 — open, genuinely thin
+## MIT vs Apache-2.0 — resolved MIT 2026-09-04; the arguments as weighed
 
 Both permissive; the differences only bite in individually-unlikely scenarios. AGPL-3.0
 is **ruled out**: its distinguishing network-use clause never fires on a local
