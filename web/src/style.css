@@ -1899,6 +1899,21 @@ fieldset.seg legend {
   resize: vertical;
 }
 
+/* Plan open-sourcing: the dialog says up front that the issue is public and goes out
+ * under the user's own gh identity (README § Issues and contributions). */
+.modal.issue .notice {
+  margin: 0;
+  padding: 10px 16px 0;
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+  color: var(--fg-dim);
+}
+
+.modal.issue .notice code {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+}
+
 .preview {
   display: flex;
   flex-direction: column;
