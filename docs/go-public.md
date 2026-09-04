@@ -23,13 +23,9 @@ exposure, but don't leave it open for a day.
 - [x] GitHub Projects tab turned off (2026-09-04).
 - [x] `CONTRIBUTING.md` added (2026-09-04) — GitHub links it above the new-issue and new-PR
       forms, which the PR template alone cannot reach.
-- [ ] Skim `plans/*/review*.md` (and anything else under `plans/`) for private content.
-      Damian's call that it publishes as-is; this is the last look.
+- [x] `plans/` publishes as-is — Damian's call (2026-09-04), no skim wanted.
 - [x] Delete the two junk root files, `a.png` and `session-manager-mockup.html` (done
       2026-09-04). `claude-session-manager-handoff.md` **stays** — still referenced.
-- [ ] README § Install: reword "The repo is private, so downloads go through `gh`". Once
-      public, `gh` is still the supported path (`make install`), but the sentence's
-      reason is wrong and a plain browser download also works.
 - [ ] **Community Standards (Insights → Community Standards) — to discuss.** GitHub's
       checklist for a public repo: description ✓, README ✓, licence ✓, contributing ✓,
       PR template ✓, **code of conduct ✗, security policy ✗, issue templates ✗**,
@@ -67,6 +63,9 @@ Run the script once, read its output, then tick these off against what it printe
 - [ ] Open the repo logged out (or in a private window) and confirm: LICENSE shows in the
       sidebar, the PR template appears on a test PR from a fork you then close, the Issue
       button in a running `musterd` still files (the token path is unchanged, but check).
+- [ ] README § Install: rewrite for a public repo — drop "The repo is private, so downloads
+      go through `gh`", add the new install instructions (plain download / `curl | sh` /
+      Homebrew as they land below). Deliberately deferred to here so it is written once.
 - [ ] `docs/design/open-sourcing.md`: mark the visibility flip done; `SPEC.md` § 8
       posture line: "Repo public since <date>"; changelog entry.
 - [ ] Now unblocked, plan together (TODO.md M5+): the Homebrew tap (GoReleaser `brews:`

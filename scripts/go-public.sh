@@ -31,8 +31,7 @@ git fetch -q origin main
 for f in a.png session-manager-mockup.html; do
   [[ -e "$f" ]] && die "junk root file still present: $f (docs/go-public.md §1)"
 done
-grep -q 'The repo is private' README.md && die "README § Install still says the repo is private (docs/go-public.md §1)"
-echo "ok: on main, clean, pushed, LICENSE present, junk files gone, README reworded"
+echo "ok: on main, clean, pushed, LICENSE present, junk files gone"
 echo "current visibility: $(gh repo view "$REPO" --json visibility -q .visibility)"
 (( APPLY )) || echo "(dry-run — re-run with --yes to apply)"
 
