@@ -36,10 +36,9 @@ Blockers and chores, in order (the live run-through is `docs/go-public.md`, with
    whether issues/PRs are accepted — **decided 2026-09-04: issues yes, no PRs accepted at
    this time.** It already sets expectations well otherwise ("Personal tool, macOS only,
    single user. Not a product.").
-4. Three stray root files to delete, all tracked: `a.png`,
-   `session-manager-mockup.html`, `claude-session-manager-handoff.md` — except the
-   handoff doc is still the referenced research source (see §5 there and this file), so
-   it stays; only the first two are junk.
+4. ~~Three stray root files to delete~~ — `a.png` and `session-manager-mockup.html`
+   **deleted 2026-09-04**; `claude-session-manager-handoff.md` stays, still the referenced
+   research source (see §5 there and this file).
 5. ~~**Decide about `plans/`.**~~ **Decided 2026-09-04: publish it as-is.** 408 tracked
    files, much of it the internal process journal (specs, protocol contracts, review
    cycles, retros) — probably the highest-value part of going public. Damian will skim the

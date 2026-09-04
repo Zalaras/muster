@@ -144,7 +144,8 @@ repo contaminated the first probe session with Muster's instructions.
   Only the *build order* differs — Focus in M1, Tiles in M2 with the PTY bridge; M1 must
   still lay out the switcher slot so adding the second view moves nothing.
 - Reference material: `session-manager-mockup.html` (superseded — its tabbed views and
-  lead-session chat panel are dropped; the aesthetic survives in direction A).
+  lead-session chat panel are dropped; the aesthetic survives in direction A; file deleted
+  2026-09-04).
 - Must land before M1/M2 UI work, not before M0.
 
 ## 5. Build M0 → M4 per SPEC §10

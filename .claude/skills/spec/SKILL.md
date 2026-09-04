@@ -87,7 +87,7 @@ Frame each criterion as a testable statement. Suggest drafts based on what the u
 ### 7. References _(optional)_
 > Are there any supporting materials?
 
-SPEC.md sections, spike findings, mockups (`session-manager-mockup.html`), related TODO.md items. If none, skip this section.
+SPEC.md sections, spike findings, mockups (`docs/design/mockups/`), related TODO.md items. If none, skip this section.
 
 ## Output
 

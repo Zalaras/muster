@@ -11,8 +11,8 @@ why, context behind decisions, and the disposition of the earlier research/mocku
   features, gotchas, and security findings. Its "Decisions made" section is superseded
   by SPEC.md (though most survived re-examination: Go, GUI, real CLI, manager-launched
   sessions).
-- `session-manager-mockup.html` — a five-view mockup made under the working name
-  **"Relay"**. That name is dead (Damian never chose it). Mockup disposition:
+- `session-manager-mockup.html` (deleted 2026-09-04 ahead of open-sourcing; the notes below
+  are the record) — a five-view mockup made under the working name **"Relay"**. That name is dead (Damian never chose it). Mockup disposition:
   - **Overview view** — closest to v1; but the "lead session" chat panel is cut, and the
     attention-ribbon (60-min state timeline) is unrated — nice visual, decide during build.
   - **Session grid** — survives as the interactive panes (must-have).

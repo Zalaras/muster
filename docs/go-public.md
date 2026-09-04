@@ -21,14 +21,21 @@ exposure, but don't leave it open for a day.
 - [x] README: build-from-source snippet, Issue-button caveats (public, `gh auth login`).
 - [x] Issue dialog in the app states the issue is public and goes out under the user's `gh` login.
 - [x] GitHub Projects tab turned off (2026-09-04).
+- [x] `CONTRIBUTING.md` added (2026-09-04) — GitHub links it above the new-issue and new-PR
+      forms, which the PR template alone cannot reach.
 - [ ] Skim `plans/*/review*.md` (and anything else under `plans/`) for private content.
       Damian's call that it publishes as-is; this is the last look.
-- [ ] Delete the two junk root files, `a.png` and `session-manager-mockup.html`
-      (`git rm`, commit). `claude-session-manager-handoff.md` **stays** — still referenced.
+- [x] Delete the two junk root files, `a.png` and `session-manager-mockup.html` (done
+      2026-09-04). `claude-session-manager-handoff.md` **stays** — still referenced.
 - [ ] README § Install: reword "The repo is private, so downloads go through `gh`". Once
       public, `gh` is still the supported path (`make install`), but the sentence's
       reason is wrong and a plain browser download also works.
-- [ ] Decide on `SECURITY.md`. Recommended: three lines — where to report, no bounty,
+- [ ] **Community Standards (Insights → Community Standards) — to discuss.** GitHub's
+      checklist for a public repo: description ✓, README ✓, licence ✓, contributing ✓,
+      PR template ✓, **code of conduct ✗, security policy ✗, issue templates ✗**,
+      plus a repo-image (social preview) and topics (script sets topics). Decide which of
+      the missing ones are wanted vs deliberately skipped; not urgent for the flip.
+- [ ] Decide on `SECURITY.md` (part of the Community Standards item above). Recommended: three lines — where to report, no bounty,
       best-effort response. The daemon holds a `gh` token in memory and drives tmux, so a
       report is plausible. Not written yet because the contact address is Damian's to pick.
 - [ ] Be aware: the existing releases (v0.7.x, v0.8.0 and later) become public at the
