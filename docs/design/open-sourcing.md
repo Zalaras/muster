@@ -32,22 +32,20 @@ Blockers and chores, in order:
    `gh repo edit --visibility public --accept-visibility-change-consequences`. Note this
    makes Actions minutes free and makes existing releases public.
 3. `README.md` needs a build-from-source snippet (`nvm use && make build`) and a line on
-   whether issues/PRs are accepted. It already sets expectations well otherwise
-   ("Personal tool, macOS only, single user. Not a product.").
+   whether issues/PRs are accepted — **decided 2026-09-04: issues yes, no PRs accepted at
+   this time.** It already sets expectations well otherwise ("Personal tool, macOS only,
+   single user. Not a product.").
 4. Three stray root files to delete, all tracked: `a.png`,
    `session-manager-mockup.html`, `claude-session-manager-handoff.md` — except the
    handoff doc is still the referenced research source (see §5 there and this file), so
    it stays; only the first two are junk.
-5. **Decide about `plans/`.** 408 tracked files, much of it the internal process journal
-   (specs, protocol contracts, review cycles, retros). Publishing it is probably the
-   highest-value part of going public — very few people have a public record of a
-   disciplined multi-agent pipeline — but skim `plans/*/review*.md` first for anything
-   private.
+5. ~~**Decide about `plans/`.**~~ **Decided 2026-09-04: publish it as-is.** 408 tracked
+   files, much of it the internal process journal (specs, protocol contracts, review
+   cycles, retros) — probably the highest-value part of going public. Damian will skim the
+   files himself before the flip.
 
-**Unresolved, and Damian's to check, not Claude's:** the SPAN employment IP clause.
-Employment contracts often assign IP created during employment, sometimes broadly enough
-to cover personal projects in an adjacent space. The contracts are in
-`~/Documents/03-Career/`; they have not been opened.
+The SPAN employment IP question raised on 2026-09-02 is **closed** — Damian confirmed
+2026-09-04 he knows the terms and it is not a blocker.
 
 ## Licence landscape — what comparable tools chose
 
