@@ -1,0 +1,81 @@
+{
+  "plan_name": "shortcut-fixes",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 0,
+    "web-impl": 0,
+    "daemon-tests": 0,
+    "web-tests": 0,
+    "e2e-validate": 0,
+    "review": 1
+  },
+  "completed_steps": [
+    "e2e-specs",
+    "web-impl",
+    "web-tests",
+    "e2e-validate",
+    "review"
+  ],
+  "failed_steps": [],
+  "step_started_at": {
+    "e2e-specs": "2026-09-04T07:34:02Z",
+    "web-impl": "2026-09-04T08:18:42Z",
+    "web-tests": "2026-09-04T07:54:41Z",
+    "e2e-validate": "2026-09-04T07:59:10Z",
+    "review": "2026-09-04T08:21:45Z"
+  },
+  "step_finished_at": {
+    "e2e-specs": "2026-09-04T07:45:41Z",
+    "web-impl": "2026-09-04T08:21:45Z",
+    "web-tests": "2026-09-04T07:59:09Z",
+    "e2e-validate": "2026-09-04T08:03:56Z",
+    "review": "2026-09-04T08:28:17Z"
+  },
+  "step_attempts": {
+    "e2e-specs": [
+      {
+        "start": "2026-09-04T07:34:02Z",
+        "finish": "2026-09-04T07:45:41Z"
+      }
+    ],
+    "web-impl": [
+      {
+        "start": "2026-09-04T07:45:58Z",
+        "finish": "2026-09-04T07:54:41Z"
+      },
+      {
+        "start": "2026-09-04T08:18:42Z",
+        "finish": "2026-09-04T08:21:45Z"
+      }
+    ],
+    "web-tests": [
+      {
+        "start": "2026-09-04T07:54:41Z",
+        "finish": "2026-09-04T07:59:09Z"
+      }
+    ],
+    "e2e-validate": [
+      {
+        "start": "2026-09-04T07:59:10Z",
+        "finish": "2026-09-04T08:03:56Z"
+      }
+    ],
+    "review": [
+      {
+        "start": "2026-09-04T08:03:57Z",
+        "finish": null
+      },
+      {
+        "start": "2026-09-04T08:21:45Z",
+        "finish": "2026-09-04T08:28:17Z"
+      }
+    ]
+  },
+  "started_at": "2026-09-04T07:34:02Z",
+  "updated_at": "2026-09-04T08:28:17Z",
+  "closes_issues": [
+    5
+  ]
+}

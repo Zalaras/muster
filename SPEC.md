@@ -922,6 +922,8 @@ implemented:
 - Decision `cmd-n-ordering` (review issue, settled by `/decide` consensus): **⌘1–9 follows the
   rail's displayed order** (Option A) rather than staying attention-ranked (Option B). Cost
   accepted: no one-key jump to the most-blocked session — follow-up in TODO.md.
+  **Discharged 2026-09-04** (plan `shortcut-fixes`): ⌥⌘0 restores that jump without reopening
+  Option A, which stands unchanged. See the 2026-09-04 entry.
 
 ### 2026-08-30 — Launch dialog rebuilt as a Finder-style picker (plan `new-session-dialog`)
 
@@ -1284,3 +1286,37 @@ Four dashboard issues in one pass — #16, #18, #19, #10.
   it, and sends no prefs request (REQ-6 as written — the plan's Implementation Note to leave
   the `click` listeners untouched was overruled by its own requirement). Right/middle click on
   either segment never cancels. Switching views still cancels, as before.
+
+### 2026-09-04 — keyboard bindings moved off browser-reserved chords, jump-to-neediest added (plan `shortcut-fixes`, via `/orchestrate`, approved review cycle 2)
+
+- **⌘N → ⌥⌘N, ⌘1–9 → ⌥⌘1–9, plus a new ⌥⌘0 jump-to-neediest** (#5). Safari handles ⌘N above
+  the page as New Window, so `preventDefault()` never reaches it; Muster no longer intercepts
+  bare ⌘N at all. ⇧⌘N — the rebind #5 and TODO.md originally suggested — was **measured
+  equally reserved** in both browsers (New Private Window), so the obvious fix would have
+  fixed nothing. Chords settled by probe, not reasoning: `spikes/S5-key-probe.md`.
+- **⌘1–9 was never measured broken.** Chrome delivers ⌘-digits to the page and Safari's
+  ⌘-digit rows went unmeasured. That family moved on a consistency-and-robustness argument —
+  ⌥⌘ is provably clear in both browsers and one modifier for the whole session-shortcut family
+  beats a split table — not on an observed failure. Recorded so no later reader cites the probe
+  as evidence of a ⌘1–9 bug.
+- **⌘\ (view toggle) and ⌘↑ (launch-dialog parent directory) are unchanged** — both measured
+  SAFE in both browsers, and deliberately not "tidied" onto ⌥⌘ for symmetry.
+- **Matching moved from `event.key` to `event.code`**, in one pure module
+  (`web/src/shortcuts.ts`) that holds the whole binding table; `main.ts` and `render/launch.ts`
+  dispatch from it and match nothing themselves. `event.key` cannot express an ⌥-chord at all —
+  on macOS ⌥N is `"˜"` and ⌥1 is `"¡"` — and Playwright does **not** emulate that dead-key
+  transform, so a matcher wrongly written against `event.key` would pass the E2E suite and fail
+  on the real keyboard. That gap is held by a Vitest criterion (W16) constructing the event by
+  hand, plus a 192-case loop (12 chords × 16 modifier signatures) pinning exact-modifier match.
+- **Decision `cmd-n-ordering` Option A is preserved** — ⌥⌘1–9 still follows the rail's
+  displayed order; only the chord moved. The dissent recorded against it on 2026-08-30 (no
+  keyboard path to the most-blocked session) is **discharged** by ⌥⌘0, which selects on §2.1's
+  priority order while ignoring both the rail's sort mode and the pinned block. With no live
+  session it is a silent no-op — a user decision taken at approval, not an implementation
+  default.
+- No protocol, schema or daemon change; the changeset contains no `.go` file. Bindings are
+  compiled in, not configurable.
+- **INV-1 (no chord is browser-reserved) is structurally unverifiable by the suite** —
+  Playwright injects key events below the browser chrome, which is exactly why
+  `web/e2e/views.spec.ts:110` pressed `Meta+1` green the whole time ⌘N was broken in Safari. It
+  is Reviewer-Verified against the probe file, and a green `make e2e` must never be cited for it.

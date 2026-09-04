@@ -53,7 +53,8 @@ import { aliveOnly, applyDensity, densityCount, initialLive, moveTile, promote, 
 import { moveCard } from "./sessions/railorder";
 import { type TitleCommand } from "./sessions/rename";
 import { SessionStore } from "./sessions/store";
-import { orderRail } from "./sessions/sort";
+import { orderRail, pickNeediest } from "./sessions/sort";
+import { matchShortcut } from "./shortcuts";
 import { resolveTheme, writeThemeHint, type ThemeChoice } from "./theme";
 import { TerminalSurface } from "./terminal/pane";
 import { WsClient } from "./ws";
@@ -391,28 +392,54 @@ function clearUsageRefreshBusy(): void {
   }
 }
 
-/** Strip-card click / ⌘1–9 in Tiles: promotes, demoting exactly the lowest-priority live
- * tile (REQ-8). Membership is per-window state, not a prefs field. */
+/** Strip-card click / ⌥⌘1–9 or ⌥⌘0 in Tiles: promotes, demoting exactly the lowest-priority
+ * live tile (REQ-8). Membership is per-window state, not a prefs field. */
 function promoteSession(id: number): void {
   if (view !== "tiles") return;
   tilesLive = promote(tilesLive, id, store.values());
   render();
 }
 
-/** ⌘1–9: focus session n of the rail's own order — `orderRail` under the current
- * `railSort` (manual or attention), the same order the rail/strip currently display, per
- * the cmd-n-ordering decision (Option A: ⌘N follows the rail, not a separate priority
- * sort). Focus: focus it, even if ended — REQ-18; Tiles: promote it. */
-function focusNth(n: number): void {
-  const sorted = orderRail(store.values(), railSort);
-  const session = sorted[n - 1];
-  if (!session) return;
+/** Focus (Focus view) or promote (Tiles) `session` — the shared tail of `focusNth` and
+ * `focusNeediest` below. */
+function focusSession(session: Session): void {
   if (view === "focus") {
     setFocusedId(session.id);
     render();
   } else {
     promoteSession(session.id);
   }
+}
+
+/** ⌥⌘1–9: focus session n of the rail's own order — `orderRail` under the current
+ * `railSort` (manual or attention), per the cmd-n-ordering decision (Option A: the
+ * shortcut follows the rail, not a separate priority sort). Note this is the *rail's*
+ * order, not necessarily the Tiles strip's: the strip renders that order minus whichever
+ * sessions are already live tiles (order-sidebar review follow-up 4), so in Tiles ⌥⌘3 is
+ * not always the strip's third visible card. Focus: focus it, even if ended — REQ-18;
+ * Tiles: promote it. */
+function focusNth(n: number): void {
+  const session = orderRail(store.values(), railSort)[n - 1];
+  if (session) focusSession(session);
+}
+
+/** ⌥⌘0 (plan shortcut-fixes REQ-6): jump to the single highest-attention *live* session,
+ * ignoring `railSort` and the pinned block entirely (INV-4) — `pickNeediest` is
+ * `sortSessions`'s own §2.1 order, not `orderRail`'s. Silent no-op with no live session
+ * (REQ-7): don't "improve" this into a toast or a flash, per the plan's approval note. */
+function focusNeediest(): void {
+  const session = pickNeediest(store.values());
+  if (session) focusSession(session);
+}
+
+/** Edge case 8: session-focusing shortcuts no-op while a modal `<dialog>` other than the
+ * launch dialog is open (End/Remove confirm, Issue, Settings) — the window-level listener
+ * still fires under those, and changing which session is focused underneath a confirm is
+ * confusing. Stated once here rather than per-dialog. */
+function isBlockingDialogOpen(): boolean {
+  return Array.from(document.querySelectorAll<HTMLDialogElement>("dialog[open]")).some(
+    (dialog) => dialog.id !== "launch-dialog",
+  );
 }
 
 // ── m4-reconcile: End / Resume / Remove dispatcher ──────────────────────────────────────
@@ -844,7 +871,7 @@ function render(): void {
       setFocusedId(id);
       render();
       // plan terminal-focus REQ-1/REQ-2/REQ-4/REQ-6: only a deliberate pointer click on
-      // a rail card moves keyboard focus into the terminal — the ⌘1-9 shortcut,
+      // a rail card moves keyboard focus into the terminal — the ⌥⌘1-9/⌥⌘0 shortcuts,
       // Enter/Space on a card, and the Tiles strip's promote click leave focus where it
       // was (Scope decision 1). `render()` above is synchronous and has already mounted
       // the surface, so its root is in the DOM by the time `focus()` runs.
@@ -967,21 +994,32 @@ installDragReorder(sessionsEl, {
   },
 });
 
-// design-system §4.1 / ux-flows §3.8: ⌘\ toggles the view; ⌘1–9 keeps its meaning in
+// design-system §4.1 / ux-flows §3.8: ⌘\ toggles the view; ⌥⌘1–9 keeps its meaning in
 // both views — it selects the nth card in the rail's current order (`focusNth` ->
-// `orderRail`), so it follows whatever the rail/strip display (manual or attention),
-// not a fixed priority sort. ⌘N (launch modal) is wired separately in render/launch.ts.
+// `orderRail`), so it follows whatever the rail/strip display (manual or attention), not
+// a fixed priority sort. ⌥⌘0 jumps to the single neediest live session regardless of rail
+// order (REQ-6). Matching itself lives in shortcuts.ts (REQ-3) — this dispatches on the
+// returned action only, never on `event.key`/`event.code` directly (W11). ⌥⌘N (launch
+// modal) and ⌘↑ (parent directory) are wired separately in render/launch.ts, from the
+// same table.
 window.addEventListener("keydown", (event) => {
-  if (!event.metaKey || event.shiftKey || event.altKey) return;
-  if (event.key === "\\") {
-    event.preventDefault();
-    requestView(view === "focus" ? "tiles" : "focus");
-    return;
-  }
-  const n = Number(event.key);
-  if (Number.isInteger(n) && n >= 1 && n <= 9) {
-    event.preventDefault();
-    focusNth(n);
+  const action = matchShortcut(event);
+  if (action === null) return;
+  switch (action.type) {
+    case "toggle-view":
+      event.preventDefault();
+      requestView(view === "focus" ? "tiles" : "focus");
+      break;
+    case "focus-nth":
+      event.preventDefault();
+      if (!isBlockingDialogOpen()) focusNth(action.n);
+      break;
+    case "focus-neediest":
+      event.preventDefault();
+      if (!isBlockingDialogOpen()) focusNeediest();
+      break;
+    default:
+      break;
   }
 });
 

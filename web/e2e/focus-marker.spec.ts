@@ -111,7 +111,7 @@ test("Tiles never shows a current strip card; switching back to Focus restores e
   });
 });
 
-test("Cmd+2 moves the marker to the rail's second card (REQ-3)", async ({ page }) => {
+test("Opt+Cmd+2 moves the marker to the rail's second card (REQ-3)", async ({ page }) => {
   await withDaemon(async (daemon) => {
     const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
     try {
@@ -123,7 +123,7 @@ test("Cmd+2 moves the marker to the rail's second card (REQ-3)", async ({ page }
       const cardB = railCard(page, "marker-cmdn-b");
       await expect(cardA).toHaveAttribute("aria-current", "true");
 
-      await page.keyboard.press("Meta+2");
+      await page.keyboard.press("Alt+Meta+Digit2");
 
       await expect(cardB).toHaveAttribute("aria-current", "true");
       await expect(cardA).not.toHaveAttribute("aria-current", "true");

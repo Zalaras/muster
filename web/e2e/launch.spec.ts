@@ -385,7 +385,7 @@ test("launching with no interaction after open relaunches the first recent's dir
       });
       expect(seed.state).toBe("started");
 
-      await page.keyboard.press("Meta+n");
+      await page.keyboard.press("Alt+Meta+KeyN");
       const dialog = launchDialog(page);
       await expect(dialog).toBeVisible();
       await expect(recentButton(dialog, basename(dir.path))).toHaveAttribute("aria-pressed", "true");
@@ -794,7 +794,7 @@ test("the child listing shows No subdirectories for an empty directory (REQ-16)"
   });
 });
 
-test("Escape and Cancel close the dialog; Cmd+N while already open does not reset the form (REQ-14, E15)", async ({
+test("Escape and Cancel close the dialog; Opt+Cmd+N while already open does not reset the form (REQ-14, E15)", async ({
   page,
 }) => {
   await withDaemon(async (daemon) => {
@@ -812,7 +812,7 @@ test("Escape and Cancel close the dialog; Cmd+N while already open does not rese
 
     dialog = await openLaunchDialog(page);
     await dialog.getByLabel("Title").fill("still-here");
-    await page.keyboard.press("Meta+n");
+    await page.keyboard.press("Alt+Meta+KeyN");
     await expect(dialog).toBeVisible();
     await expect(dialog.getByLabel("Title")).toHaveValue("still-here");
   });

@@ -30,7 +30,7 @@ One list, ordered `pinned DESC, last_launched_at DESC`. No "add repo" ceremony: 
 directory earns its place by being used.
 
 ```
-New session                                       ⌘N
+New session                                       ⌥⌘N
 ─────────────────────────────────────────────────────
 Recent             │ / › Users › damian › code    ⌘↑
 ▸ muster   main 2m │   Projects (git)              ›
@@ -295,16 +295,18 @@ These are designed, not afterthoughts — three of the four are *guaranteed* to 
 - The strip is not a downgrade — it carries the same title, state, timer and reason lines a
   rail card does. It just doesn't get a terminal.
 - **New session lives in the density toolbar** (the rail's button is hidden with the rail);
-  it opens the §1 modal exactly as the rail button and ⌘N do. A session launched while in
+  it opens the §1 modal exactly as the rail button and ⌥⌘N do. A session launched while in
   Tiles is promoted into the grid the way a strip-card click is — you asked for it here, so
   it gets a tile, even if that demotes the lowest-priority one. (Added 2026-08-30.)
 
 ### 3.8 Switching views
 
-- Masthead segmented control, or **⌘\\**. `⌘1–9` keeps meaning in both views: focus session
+- Masthead segmented control, or **⌘\\**. `⌥⌘1–9` keeps meaning in both views: focus session
   *n*, which in Tiles promotes it into the grid. *n* counts the rail's displayed order (§3.4:
   manual by default, attention when selected) — not the attention rank on its own
-  (2026-08-30, plan `order-sidebar`, decision `cmd-n-ordering`).
+  (2026-08-30, plan `order-sidebar`, decision `cmd-n-ordering`). `⌥⌘0` jumps to the single
+  highest-attention live session, ignoring the rail's order and the pinned block entirely
+  (plan `shortcut-fixes`, discharging the `cmd-n-ordering` dissent).
 - **The choice persists** across reloads and daemon restarts. A dashboard that silently
   changes layout under you is worse than either layout.
 - Switching **moves geometry ownership, never duplicates it** — the same law as §3.2. Going
@@ -319,7 +321,7 @@ These are designed, not afterthoughts — three of the four are *guaranteed* to 
 - Plan-approval UI (§4.1), worktree manager UI (§4.2), start-from-PR (§4.3),
   permissions editor (§4.4) — all v1.x, all deliberately absent from the mockups so the
   v1 surface stays legible.
-- Keyboard model beyond ⌘1–9 focus and ⌘N new session.
+- Keyboard model beyond ⌥⌘1–9/⌥⌘0 focus and ⌥⌘N new session.
 - The mockup's "attention ribbon" (60-min state timeline) and lead-session chat panel:
   the chat panel is cut outright (§3); the ribbon is a maybe, and appears in exactly one
   of the three visual directions so it can be judged rather than assumed.

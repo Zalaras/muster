@@ -72,7 +72,7 @@ test("picking auto and launching sends permissionMode: auto and seeds the sessio
 
       // E2: re-opening the dialog on the same directory pre-selects auto — the
       // per-directory launch default (REQ-4).
-      await page.keyboard.press("Meta+n");
+      await page.keyboard.press("Alt+Meta+KeyN");
       const reopened = launchDialog(page);
       await expect(reopened).toBeVisible();
       await expect(recentButton(reopened, basename(dir.path))).toHaveAttribute("aria-pressed", "true");

@@ -151,9 +151,10 @@ What differs is only how sessions are laid out:
 
 - The switcher is a segmented control (`Focus` | `Tiles`), mono, `--fs-xs` (11.25px),
   sharing the button border treatment. The active segment takes `--bg-hover` and `--fg`.
-- Keyboard: **⌘\\** toggles. `⌘1–9` keeps its meaning in both views — focus session *n*,
+- Keyboard: **⌘\\** toggles. `⌥⌘1–9` keeps its meaning in both views — focus session *n*,
   which in Tiles means promote it to a live tile. *n* is the rail's displayed order
-  (ux-flows §3.4/§3.8; decision `cmd-n-ordering`, 2026-08-30).
+  (ux-flows §3.4/§3.8; decision `cmd-n-ordering`, 2026-08-30). `⌥⌘0` jumps to the single
+  highest-attention live session regardless of rail order or pinning (plan `shortcut-fixes`).
 - The chosen view **persists across reloads and daemon restarts**. Coming back to a
   dashboard that silently changed layout is worse than either layout.
 

@@ -1,7 +1,7 @@
 # Plan: shortcut-fixes
 
 **Created**: 2026-09-01
-**Status**: approved
+**Status**: completed
 **Work Type**: web
 **E2E Scope**: new-specs
 **Description**: Move every Muster keyboard binding off browser-reserved chords, and add the jump-to-neediest shortcut the `cmd-n-ordering` decision left owing.

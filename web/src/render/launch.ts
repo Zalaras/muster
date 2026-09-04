@@ -22,6 +22,7 @@ import {
 } from "../api";
 import type { Session } from "../protocol";
 import { formatAge } from "../sessions/format";
+import { matchShortcut } from "../shortcuts";
 import { renderCrumbs, splitCrumbs } from "./crumbs";
 
 const MODEL_PRESETS = ["sonnet", "opus", "haiku", "fable"] as const;
@@ -385,23 +386,22 @@ export function initLaunchModal(elements: LaunchModalElements, handlers: LaunchM
     button.addEventListener("click", openModal);
   }
 
-  // ⌘N opens the launch modal from anywhere in the shell.
+  // ⌥⌘N opens the launch modal from anywhere in the shell (plan shortcut-fixes — ⌘N is
+  // reserved by the browser, spikes/S5-key-probe.md). Matching lives in shortcuts.ts
+  // (REQ-3); this dispatches on the returned action only.
   window.addEventListener("keydown", (event) => {
-    if (event.metaKey && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "n") {
-      // Always swallow the browser's own Cmd+N while the dashboard has focus — even
-      // with the modal already open, a new browser window is never what ⌘N means here
-      // (review m1-sessions cycle-3 minor: preventDefault must precede the open-guard).
+    const action = matchShortcut(event);
+    if (action === null) return;
+    if (action.type === "new-session") {
+      // preventDefault unconditionally, even with the dialog already open (REQ-8;
+      // review m1-sessions cycle-3 minor: preventDefault must precede the open-guard).
+      // REQ-2: the browser's own bare ⌘N is left alone — this only ever fires for ⌥⌘N.
       event.preventDefault();
       if (elements.dialog.open) return;
       openModal();
-    }
-  });
-
-  // REQ-6: ⌘↑ navigates to the parent of the listed directory. Dialog-scoped, not
-  // listing-scoped (edge case 11 — it still fires with focus in the Title input), mirrors
-  // the ⌘N handler above.
-  window.addEventListener("keydown", (event) => {
-    if (event.metaKey && !event.shiftKey && !event.altKey && event.key === "ArrowUp") {
+    } else if (action.type === "launch-parent-dir") {
+      // REQ-6: ⌘↑ navigates to the parent of the listed directory. Dialog-scoped, not
+      // listing-scoped (edge case 11 — it still fires with focus in the Title input).
       if (!elements.dialog.open) return;
       event.preventDefault();
       void navigateUp();

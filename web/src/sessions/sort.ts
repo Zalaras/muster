@@ -75,3 +75,12 @@ export function orderRail(sessions: readonly Session[], mode: RailSort): Session
   }
   return [...pinned, ...sortSessions(unpinned)];
 }
+
+/** REQ-6 (plan shortcut-fixes): the single highest-attention *live* session, by
+ * `sortSessions`'s own §2.1 priority order — ignoring `railSort`, `pinned` and `railPos`
+ * entirely (INV-4), unlike `orderRail`. `null` when no session is `alive` (REQ-7): the
+ * `alive` filter runs before the sort, so an ended session is never handed back even
+ * though `sortSessions` would otherwise sort it last rather than excluding it. */
+export function pickNeediest(sessions: readonly Session[]): Session | null {
+  return sortSessions(sessions.filter((s) => s.alive))[0] ?? null;
+}

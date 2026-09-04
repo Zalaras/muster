@@ -585,7 +585,7 @@ test("the rail sort select keeps focus and node identity across a render tick", 
 // tests are the reviewer's measured repro (Major 1) plus the drag/pin and attention-mode
 // cases the decision's "one order across both views" reasoning implies.
 
-test("Cmd+1 follows the manual rail order even when the needs-input session is not first", async ({
+test("Opt+Cmd+1 follows the manual rail order even when the needs-input session is not first", async ({
   page,
   request,
 }) => {
@@ -608,14 +608,14 @@ test("Cmd+1 follows the manual rail order even when the needs-input session is n
       await expect(stateBadge(railCard(page, "order-cmdn-three"))).toHaveText(/needs input/i);
       expect(await railOrderIds(page)).toEqual([one.id, two.id, three.id]);
 
-      // Explicitly focus a different card first, so Cmd+1 has to move focus rather than
+      // Explicitly focus a different card first, so Opt+Cmd+1 has to move focus rather than
       // merely leave it where it already was.
       await railCard(page, "order-cmdn-two").click();
       await expect(page.locator("#mainhead .name")).toHaveText("order-cmdn-two");
 
-      await page.keyboard.press("Meta+1");
+      await page.keyboard.press("Alt+Meta+Digit1");
 
-      // Cmd+1 must select the rail's actual first card (one), not the needs-input card
+      // Opt+Cmd+1 must select the rail's actual first card (one), not the needs-input card
       // (three) that a fixed attention sort would have picked.
       await expect(page.locator("#mainhead .name")).toHaveText("order-cmdn-one");
     } finally {
@@ -624,7 +624,7 @@ test("Cmd+1 follows the manual rail order even when the needs-input session is n
   });
 });
 
-test("Cmd+1 follows the rail order after a drag reorder", async ({ page }) => {
+test("Opt+Cmd+1 follows the rail order after a drag reorder", async ({ page }) => {
   await withDaemon(async (daemon) => {
     await page.goto(daemon.dashboardUrl);
     const { sessions, cleanup } = await launchTitled(page, daemon, [
@@ -644,7 +644,7 @@ test("Cmd+1 follows the rail order after a drag reorder", async ({ page }) => {
       await railCard(page, "order-cmdn-drag-b").click();
       await expect(page.locator("#mainhead .name")).toHaveText("order-cmdn-drag-b");
 
-      await page.keyboard.press("Meta+1");
+      await page.keyboard.press("Alt+Meta+Digit1");
       await expect(page.locator("#mainhead .name")).toHaveText("order-cmdn-drag-c");
     } finally {
       await cleanup();
@@ -652,7 +652,7 @@ test("Cmd+1 follows the rail order after a drag reorder", async ({ page }) => {
   });
 });
 
-test("Cmd+1 follows the rail order after a pin", async ({ page }) => {
+test("Opt+Cmd+1 follows the rail order after a pin", async ({ page }) => {
   await withDaemon(async (daemon) => {
     await page.goto(daemon.dashboardUrl);
     const { sessions, cleanup } = await launchTitled(page, daemon, [
@@ -673,7 +673,7 @@ test("Cmd+1 follows the rail order after a pin", async ({ page }) => {
       await railCard(page, "order-cmdn-pin-a").click();
       await expect(page.locator("#mainhead .name")).toHaveText("order-cmdn-pin-a");
 
-      await page.keyboard.press("Meta+1");
+      await page.keyboard.press("Alt+Meta+Digit1");
       await expect(page.locator("#mainhead .name")).toHaveText("order-cmdn-pin-c");
     } finally {
       await cleanup();
@@ -681,7 +681,7 @@ test("Cmd+1 follows the rail order after a pin", async ({ page }) => {
   });
 });
 
-test("Cmd+1 selects the pinned card in Attention mode, ahead of the neediest unpinned session", async ({
+test("Opt+Cmd+1 selects the pinned card in Attention mode, ahead of the neediest unpinned session", async ({
   page,
   request,
 }) => {
@@ -703,7 +703,7 @@ test("Cmd+1 selects the pinned card in Attention mode, ahead of the neediest unp
       await pinButton(railCard(page, "order-cmdn-att-b")).click();
       await expect.poll(() => railOrderIds(page)).toEqual([b.id, a.id, c.id]);
 
-      // C (unpinned) becomes the neediest session — if Cmd+1 merely followed attention
+      // C (unpinned) becomes the neediest session — if Opt+Cmd+1 merely followed attention
       // priority with no pinned-block rule, C would win. It must not: B is pinned.
       await makeNeedsInput(request, daemon, c, "claude-cmdn-att-c");
       await expect(stateBadge(railCard(page, "order-cmdn-att-c"))).toHaveText(/needs input/i);
@@ -717,8 +717,8 @@ test("Cmd+1 selects the pinned card in Attention mode, ahead of the neediest unp
       await railCard(page, "order-cmdn-att-a").click();
       await expect(page.locator("#mainhead .name")).toHaveText("order-cmdn-att-a");
 
-      await page.keyboard.press("Meta+1");
-      // Pinned B is the rail's actual first card in Attention mode — Cmd+1 must select
+      await page.keyboard.press("Alt+Meta+Digit1");
+      // Pinned B is the rail's actual first card in Attention mode — Opt+Cmd+1 must select
       // it, not the needs-input unpinned card C.
       await expect(page.locator("#mainhead .name")).toHaveText("order-cmdn-att-b");
     } finally {

@@ -393,7 +393,7 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
 
 ## Pre-v1 Cleanup
 These are some minor changes and cleanup needed before we can move into post v1.
-- [x] Change how the left sidebar works. Sessions should be pinned in the order they are opened but allow the user to update the order by dragging and also allow "pinnng" (using pin icon) sessions (automatically go to the top in order of pinned). — **Done 2026-08-30 (plan `order-sidebar`)**: daemon-owned `pinned`/`railPos`, whole-card drag (insert-and-shift), pin control, rail-head Manual/Attention toggle (`prefs.railSort`, default manual), strip follows the rail order. Follow-ups from the review (`plans/order-sidebar/review.md`): (1) decision `cmd-n-ordering` dissent — ⌘1–9 now follows the rail, so there is no keyboard path to "jump to the neediest session"; consider a dedicated shortcut. **Planned as ⌥⌘0 in plan `shortcut-fixes` (approved 2026-09-01, not yet run) — don't plan this separately.** (2) Minor `[daemon-impl]`: `maxRailPosLocked`'s doc comment says "returns 1 + the largest" but the function returns the largest or `-1`. (3) Minor `[daemon-impl]`: `handlePinSession`/`handleSetOrder` put `err.Error()` in the 500 body where every other handler in the package sends a fixed string. (4) Minor `[web-impl]` (review cycle 2): `focusNth`'s doc comment says "the same order the rail/strip currently display" but the strip renders that order minus live tiles, so in Tiles ⌘3 is not the strip's third card — comment accuracy only. (5) `[note]`: the pinned-block separator (`.pinned-last`, `#343a4a` 1px) reads weakly against ordinary dividers — as REQ-9 specified, but worth a look.
+- [x] Change how the left sidebar works. Sessions should be pinned in the order they are opened but allow the user to update the order by dragging and also allow "pinnng" (using pin icon) sessions (automatically go to the top in order of pinned). — **Done 2026-08-30 (plan `order-sidebar`)**: daemon-owned `pinned`/`railPos`, whole-card drag (insert-and-shift), pin control, rail-head Manual/Attention toggle (`prefs.railSort`, default manual), strip follows the rail order. Follow-ups from the review (`plans/order-sidebar/review.md`): (1) decision `cmd-n-ordering` dissent — ⌘1–9 now follows the rail, so there is no keyboard path to "jump to the neediest session"; consider a dedicated shortcut. **Done 2026-09-04 (plan `shortcut-fixes`): ⌥⌘0 jumps to the neediest session, ignoring the rail's sort mode and the pinned block; decision `cmd-n-ordering` Option A stands unchanged. Dissent discharged.** (2) Minor `[daemon-impl]`: `maxRailPosLocked`'s doc comment says "returns 1 + the largest" but the function returns the largest or `-1`. (3) Minor `[daemon-impl]`: `handlePinSession`/`handleSetOrder` put `err.Error()` in the 500 body where every other handler in the package sends a fixed string. (4) ~~Minor `[web-impl]` (review cycle 2): `focusNth`'s doc comment says "the same order the rail/strip currently display" but the strip renders that order minus live tiles, so in Tiles ⌘3 is not the strip's third card — comment accuracy only.~~ **Fixed 2026-09-04 in passing by plan `shortcut-fixes`** (`web/src/main.ts:414-419`). (5) `[note]`: the pinned-block separator (`.pinned-last`, `#343a4a` 1px) reads weakly against ordinary dividers — as REQ-9 specified, but worth a look.
 - [x] User should be able to move the grids around in the grid view so they can order them as they please. This would be done by dragging the title bar. I'm also wondering if we want status icons (dot - green, orange/yellow and red) in the title to quickly show if running, idle or error. — **Done 2026-08-29 (plan `move-tiles`)**: header drag, insert-and-shift, grid never auto-sorts. The status dot was already shipped (state-coloured per design-system §3); the green/orange/red palette was deliberately not adopted (§3 forbids reusing state colours), a hover `title` with the state word was added instead. Deferred: keyboard reorder, persisting order across reloads.
 - [x] Look to see if we can also put in Fable as a model in the options (create new session) and update the usage indicator to include the weekly Fable limit. — **Third bar shipped 2026-08-30 (plan `usage-model-bar`, decision (b))**: musterd polls `GET /api/oauth/usage` with the read-only Keychain OAuth token (5-min poll + ↻ refresh), `#usage-model-week` readout with a model `<select>` persisted as `prefs.usageModel`. The "add Fable to the launch model select" half shipped 2026-08-30 with plan `new-session-dialog` (segmented Model control gains a `fable` preset). This might need to be dynamic for new models in the future? Might be worth investigating that 3rd bar (specific model not the 5h or weekly usage). This is also displayed in the `/usage` command that Claude Code has
   - **Probed 2026-08-30 (static, against installed 2.1.251):** the third bar is **not in the
@@ -660,13 +660,16 @@ unless he re-ranks — don't re-sort this list.
   deferred. This is the ground #4 was ticked for: the text written to close #4 is the text
   that's broken.
 
-- [ ] **⌘N collides with the browser** ([#5](https://github.com/Zalaras/muster/issues/5))
+- [x] **⌘N collides with the browser** ([#5](https://github.com/Zalaras/muster/issues/5))
+  ✅ done 2026-09-04 (plan `shortcut-fixes`, via `/orchestrate`, approved review cycle 2;
+  lands with `/land shortcut-fixes`, which closes #5).
   — the new-session shortcut is swallowed by Safari's own new-window binding. Muster
   shouldn't override browser defaults; rebind to something unclaimed and re-check the
   ⌘1–9 focus shortcuts for the same problem while in there.
-  **Planned, not started** (plan `shortcut-fixes` approved 2026-09-01 on branch
-  `plan/shortcut-fixes`; run via `/orchestrate shortcut-fixes`). Web-only, no protocol or
-  schema delta. Chords settled by measurement — `spikes/S5-key-probe.md`, re-runnable probe
+  **Shipped**: ⌘N → **⌥⌘N**, ⌘1–9 → **⌥⌘1–9**, new **⌥⌘0** jump-to-neediest; bare ⌘N is no
+  longer intercepted at all. Matching moved off `event.key` onto `event.code` in one pure
+  module (`web/src/shortcuts.ts`) — `event.key` cannot express an ⌥-chord (⌥N is `"˜"`).
+  Web-only, no protocol or schema delta. Chords settled by measurement — `spikes/S5-key-probe.md`, re-runnable probe
   at `spikes/key-probe.html`:
   - **⇧⌘N (the suggestion originally in this item and in #5) is reserved in *both* Safari
     and Chrome** — private/incognito window. It was never a fix; that is why the plan
@@ -705,6 +708,18 @@ unless he re-ranks — don't re-sort this list.
   against `resumed.stateSince` two lines later, and the comment beside it talks about
   `lastActivity`, so a maintainer reads the assertion as being about a field it never
   touches. Rename to `stateSinceBefore`." Cosmetic; fold into the next E2E touch.
+
+- [ ] **Six E2E comments still name the pre-plan chords** — follow-up from `shortcut-fixes`
+  (review cycle 1 Minor 1, `plans/shortcut-fixes/review.md`): "Six internal comments across
+  the suite still name the pre-plan chords, after the same pass renamed comments in the five
+  files it did touch. Each is a comment a maintainer reads while deciding what a test covers,
+  and each now describes a binding that no longer exists" — `web/e2e/shell.spec.ts:28`
+  (quotes the placeholder as `"No sessions yet — ⌘N to launch"`; the string is now `⌥⌘N`),
+  `web/e2e/helpers/picker.ts:11`, `web/e2e/views.spec.ts:112`,
+  `web/e2e/rail-order.spec.ts:582,584`, `web/e2e/terminal.spec.ts:407`. Wrong-but-inert —
+  every assertion beside them is correct, which is why the suite is green. Note for the
+  fixer: `rail-order.spec.ts:582-586` describes a *past* decision, so `⌥⌘1–9` is the right
+  replacement there rather than a rewording. Cosmetic; fold into the next E2E touch.
 
 - [x] **A session reads Idle in the rail while it is still working** ([#14](https://github.com/Zalaras/muster/issues/14)) ✅ done 2026-09-03 (plan `claude-status-fixes`, via `/orchestrate`, approved review cycle 1; lands with `/land claude-status-fixes`, which closes #14, #15 and #20).
   — "Had this session go IDLE in the UI on the sidebar while it's still working and editing

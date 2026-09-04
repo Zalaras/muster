@@ -66,7 +66,7 @@ test("the chosen view survives a daemon restart (E6)", async ({ page }) => {
   });
 });
 
-test("Cmd+\\ toggles the view and Cmd+1 focuses the top-priority session regardless of launch order (E7)", async ({
+test("Cmd+\\ toggles the view and Opt+Cmd+1 focuses the top-priority session regardless of launch order (E7)", async ({
   page,
   request,
 }) => {
@@ -93,21 +93,21 @@ test("Cmd+\\ toggles the view and Cmd+1 focuses the top-priority session regardl
       await page.keyboard.press("Meta+Backslash");
       await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "true");
 
-      // Explicitly focus B first, so Cmd+1 has to move focus rather than merely leave it.
+      // Explicitly focus B first, so Opt+Cmd+1 has to move focus rather than merely leave it.
       await sessionCard(page, "prio-b").click();
       await expect(terminalRegion(page, "prio-b")).toBeVisible();
 
       // order-sidebar's approved protocol delta + decision `cmd-n-ordering` (Option A):
-      // Cmd+1 now indexes into `orderRail`'s CURRENT order, which depends on `railSort`.
+      // Opt+Cmd+1 now indexes into `orderRail`'s CURRENT order, which depends on `railSort`.
       // REQ-5's default is "manual" (creation order here: B launched first, then A), so
-      // in manual mode Cmd+1 would now focus B, not A. Switch to Attention (needs-input
-      // sorts first) before the Cmd+1 assertion below — same repair class as
+      // in manual mode Opt+Cmd+1 would now focus B, not A. Switch to Attention (needs-input
+      // sorts first) before the Opt+Cmd+1 assertion below — same repair class as
       // actions.spec.ts #3-#5 (select Attention mode before the priority assertion,
       // assertion preserved verbatim).
       await page.locator("#rail-sort").selectOption("attention");
       await expect(page.locator("#rail-sort")).toHaveValue("attention");
 
-      await page.keyboard.press("Meta+1");
+      await page.keyboard.press("Alt+Meta+Digit1");
       await expect(terminalRegion(page, "prio-a")).toBeVisible();
       // The old surface must be unmounted, not merely covered — ⌘1 moves focus the same
       // way a rail-card click does (one live surface at a time, INV-2).

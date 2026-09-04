@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RailSort, Session, SessionState } from "../protocol";
-import { orderRail, sortSessions } from "./sort";
+import { orderRail, pickNeediest, sortSessions } from "./sort";
 
 // Minimal valid Session fixture; each test overrides only the fields it cares about.
 function makeSession(overrides: Partial<Session> & { id: number }): Session {
@@ -375,5 +375,111 @@ describe("orderRail — never mutates its input (W9)", () => {
     const sessions = [makeSession({ id: 1 })];
     const mode: RailSort = "manual";
     expect(orderRail(sessions, mode)).not.toBe(sessions);
+  });
+});
+
+describe("pickNeediest — highest-attention live session (plan shortcut-fixes REQ-6/W7)", () => {
+  it("returns the longest-blocked needs_input session when one exists", () => {
+    const sessions = [
+      makeSession({
+        id: 1,
+        state: "needs_input",
+        attention: { reason: "permission", since: "2026-08-22T00:10:00Z" },
+      }),
+      makeSession({
+        id: 2,
+        state: "needs_input",
+        attention: { reason: "permission", since: "2026-08-22T00:00:00Z" },
+      }),
+      makeSession({ id: 3, state: "working", stateSince: "2026-08-22T00:00:00Z" }),
+    ];
+    expect(pickNeediest(sessions)?.id).toBe(2);
+  });
+
+  it("falls through to sortSessions's full state-priority order when nothing needs input", () => {
+    const sessions = [makeSession({ id: 1, state: "idle" }), makeSession({ id: 2, state: "working" })];
+    expect(pickNeediest(sessions)?.id).toBe(2);
+  });
+});
+
+describe("pickNeediest — no live session is a null no-op, never a fallback (REQ-7/W8)", () => {
+  it("returns null for an empty store (edge case 3)", () => {
+    expect(pickNeediest([])).toBeNull();
+  });
+
+  it("returns null when sessions exist but none is alive, never falling through to the most-recently-ended one (edge case 4)", () => {
+    const sessions = [
+      makeSession({ id: 1, alive: false, endedAt: "2026-08-22T00:10:00Z" }),
+      // sortSessions would otherwise hand this one back first — it's the most recently
+      // ended — which is exactly the fallback REQ-7 forbids.
+      makeSession({ id: 2, alive: false, endedAt: "2026-08-22T00:20:00Z" }),
+    ];
+    expect(pickNeediest(sessions)).toBeNull();
+  });
+
+  it("ignores ended sessions when picking among the alive ones, even an ended needs_input session", () => {
+    const sessions = [
+      makeSession({
+        id: 1,
+        alive: false,
+        endedAt: "2026-08-22T00:30:00Z",
+        state: "needs_input",
+        attention: { reason: "permission", since: "2026-08-22T00:00:00Z" },
+      }),
+      makeSession({ id: 2, alive: true, state: "idle" }),
+    ];
+    expect(pickNeediest(sessions)?.id).toBe(2);
+  });
+});
+
+describe("pickNeediest — ignores pinned and railPos entirely (INV-4/W9)", () => {
+  it("picks the needs_input session over one pinned to railPos 1", () => {
+    const sessions = [
+      makeSession({ id: 1, pinned: true, railPos: 1, state: "idle" }),
+      makeSession({
+        id: 2,
+        pinned: false,
+        railPos: 99,
+        state: "needs_input",
+        attention: { reason: "permission", since: "2026-08-22T00:00:00Z" },
+      }),
+    ];
+    expect(pickNeediest(sessions)?.id).toBe(2);
+  });
+
+  it("picks the needs_input target when a different session is pinned above it (INV-4's third source-state combination)", () => {
+    const sessions = [
+      makeSession({ id: 1, pinned: true, railPos: 1, state: "working" }),
+      makeSession({
+        id: 2,
+        pinned: false,
+        railPos: 2,
+        state: "needs_input",
+        attention: { reason: "permission", since: "2026-08-22T00:00:00Z" },
+      }),
+      makeSession({ id: 3, pinned: false, railPos: 3, state: "idle" }),
+    ];
+    expect(pickNeediest(sessions)?.id).toBe(2);
+  });
+
+  it("picks the same session whether or not the target itself is pinned", () => {
+    const sessions = [
+      makeSession({
+        id: 1,
+        pinned: true,
+        railPos: 5,
+        state: "needs_input",
+        attention: { reason: "permission", since: "2026-08-22T00:00:00Z" },
+      }),
+      makeSession({ id: 2, pinned: false, railPos: 1, state: "idle" }),
+    ];
+    expect(pickNeediest(sessions)?.id).toBe(1);
+  });
+
+  it("does not mutate its input array", () => {
+    const sessions = [makeSession({ id: 2, railPos: 2 }), makeSession({ id: 1, railPos: 1 })];
+    const original = [...sessions];
+    pickNeediest(sessions);
+    expect(sessions).toEqual(original);
   });
 });
