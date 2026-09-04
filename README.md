@@ -32,6 +32,30 @@ triaged pre-v1 issues in [`TODO.md`](TODO.md).
 `claude-session-manager-handoff.md` is prior research, treated as input only — SPEC.md
 supersedes it wherever they disagree.
 
+## Issues and contributions
+
+**Issues are welcome; pull requests are not accepted at this time.** Muster is built through
+a fixed multi-agent pipeline (`CLAUDE.md` § Workflow) with one maintainer, and outside
+changes don't fit that flow yet — a PR will be closed without review. Fork freely instead;
+the [MIT licence](LICENSE) permits it. If that policy changes, this section will say so.
+
+Two ways to file an issue:
+
+- **The dashboard's `Issue` button** (masthead). It attaches a snapshot of muster's own
+  state — session states, timings, context percentages — built from a strict allowlist
+  that never includes prompt text, hook payloads, pane contents, directories, branches or
+  repo names. The dialog shows the exact payload before you post, and what you see is
+  byte-for-byte what gets sent.
+- **GitHub directly**, if you'd rather not attach anything.
+
+Things to know about the button:
+
+- **The issue is public**, filed on this repo under **your** GitHub account, so read the
+  preview as you would any public post.
+- **It needs the `gh` CLI, logged in.** Muster takes the token from `gh auth token` at the
+  moment you click, stores nothing, and has no login flow of its own. If filing fails with
+  an auth error, run `gh auth login` and try again.
+
 ## Layout
 
 ```
@@ -148,6 +172,13 @@ install. It **detects drift instead**: `musterd` compares the installed version 
 in [`docs/claude-code-pin.md`](docs/claude-code-pin.md).
 
 ## Development
+
+Build from source (Go and Node versions in the table above; `nvm use` picks the pinned Node):
+
+```sh
+git clone https://github.com/Zalaras/muster && cd muster
+nvm use && make build        # ./bin/musterd, dashboard embedded
+```
 
 ```sh
 make help      # list targets

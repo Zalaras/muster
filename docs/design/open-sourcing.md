@@ -25,7 +25,8 @@ Cleaner than expected. Findings, each verified by actually grepping rather than 
   Vite, Vitest, Playwright, TypeScript. No copyleft to inherit, so no licence conflict
   whichever option below is chosen.
 
-Blockers and chores, in order:
+Blockers and chores, in order (the live run-through is `docs/go-public.md`, with
+`scripts/go-public.sh` applying the GitHub-settings half — dry-run unless `--yes`):
 
 1. ~~**A `LICENSE` file is the only hard blocker**~~ — **done 2026-09-04 (MIT).**
 2. Flip visibility:
