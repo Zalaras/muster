@@ -26,14 +26,13 @@ exposure, but don't leave it open for a day.
 - [x] `plans/` publishes as-is — Damian's call (2026-09-04), no skim wanted.
 - [x] Delete the two junk root files, `a.png` and `session-manager-mockup.html` (done
       2026-09-04). `claude-session-manager-handoff.md` **stays** — still referenced.
-- [ ] **Community Standards (Insights → Community Standards) — to discuss.** GitHub's
-      checklist for a public repo: description ✓, README ✓, licence ✓, contributing ✓,
-      PR template ✓, **code of conduct ✗, security policy ✗, issue templates ✗**,
-      plus a repo-image (social preview) and topics (script sets topics). Decide which of
-      the missing ones are wanted vs deliberately skipped; not urgent for the flip.
-- [ ] Decide on `SECURITY.md` (part of the Community Standards item above). Recommended: three lines — where to report, no bounty,
-      best-effort response. The daemon holds a `gh` token in memory and drives tmux, so a
-      report is plausible. Not written yet because the contact address is Damian's to pick.
+- [x] **Community Standards (Insights → Community Standards) — decided 2026-09-04.**
+      Description ✓, README ✓, licence ✓, contributing ✓, PR template ✓, **security policy ✓**
+      (`SECURITY.md`, routes reports to GitHub private vulnerability reporting — the script
+      enables it, so no email address is published). **Deliberately skipped:** code of
+      conduct (single-maintainer issue tracker; nothing to govern yet), issue templates (the
+      dashboard's Issue button already attaches the structure a template would ask for),
+      social preview image (cosmetic). Revisit only if a community actually forms.
 - [ ] Be aware: the existing releases (v0.7.x, v0.8.0 and later) become public at the
       flip, binaries included. The audit found nothing in them; nothing to do, just know it.
 - [ ] Tree clean, on `main`, pushed — the script refuses otherwise.
@@ -50,8 +49,9 @@ Run the script once, read its output, then tick these off against what it printe
       (GoReleaser's action is verified); default workflow token stays read-only; fork-PR
       workflow runs require approval for first-time contributors (belt-and-braces — the
       only workflow triggers on push to `main`, which a fork PR cannot do).
-- [ ] **[script]** Dependabot alerts on; secret scanning + push protection on. **Not**
-      Dependabot version-update PRs — no PRs accepted, and the pins are deliberate.
+- [ ] **[script]** Private vulnerability reporting on (what `SECURITY.md`'s "Report a
+      vulnerability" button needs); Dependabot alerts on; secret scanning + push protection
+      on. **Not** Dependabot version-update PRs — no PRs accepted, and the pins are deliberate.
 - [ ] **[script]** Repo features: projects off, wiki off, discussions off,
       delete-branch-on-merge on.
 - [ ] **[script]** Topics set (`claude-code`, `tmux`, `go`, `macos`, `session-manager`,
@@ -61,7 +61,7 @@ Run the script once, read its output, then tick these off against what it printe
 ## 3. After the flip — by hand
 
 - [ ] Open the repo logged out (or in a private window) and confirm: LICENSE shows in the
-      sidebar, the PR template appears on a test PR from a fork you then close, the Issue
+      sidebar, the Security tab offers "Report a vulnerability", the PR template appears on a test PR from a fork you then close, the Issue
       button in a running `musterd` still files (the token path is unchanged, but check).
 - [ ] README § Install: rewrite for a public repo — drop "The repo is private, so downloads
       go through `gh`", add the new install instructions (plain download / `curl | sh` /

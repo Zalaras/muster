@@ -68,7 +68,10 @@ run gh api --method PUT "repos/$REPO/actions/permissions/fork-pr-contributor-app
   -f approval_policy=first_time_contributors || echo "warn: fork-pr approval endpoint unavailable — set it in Settings > Actions > General"
 
 # ---- 4. security -----------------------------------------------------------------------
-step "4. security: dependabot alerts, secret scanning + push protection (no version-update PRs)"
+step "4. security: private vuln reporting, dependabot alerts, secret scanning + push protection (no version-update PRs)"
+# SECURITY.md points reporters at the Security tab's "Report a vulnerability" button; this is
+# what makes that button exist. Public repos only, hence after step 1.
+run gh api --method PUT "repos/$REPO/private-vulnerability-reporting"
 run gh api --method PUT "repos/$REPO/vulnerability-alerts"
 run gh api --method PATCH "repos/$REPO" --input - <<'JSON'
 { "security_and_analysis": {
@@ -91,6 +94,7 @@ if (( APPLY )); then
   gh api "repos/$REPO/actions/permissions"
   gh api "repos/$REPO/actions/permissions/workflow"
   gh api "repos/$REPO" -q .security_and_analysis
+  gh api "repos/$REPO/private-vulnerability-reporting"
   echo; echo "done — now work through docs/go-public.md §3"
 else
   echo "(dry-run — nothing changed)"
