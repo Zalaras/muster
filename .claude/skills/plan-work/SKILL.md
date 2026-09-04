@@ -153,11 +153,12 @@ If the plan or the protocol states a rule that must hold **at all times** — an
 "always", a "never" (e.g. "`attention` is non-null iff state is `needs_input`") — list it
 in the plan as a **named invariant**, not just inside a requirement's prose. Invariants
 get a different test shape than transitions: the test agent must assert them from **every
-reachable source state**, not the convenient one. Both m1-sessions Criticals were stated
-§5.3 invariants that every per-row happy-path test missed, because the only rebind tests
-started from `started` — the one state with nothing to leak. A "run every input against
-every starting state, assert the invariant after" table is cheap; write it into the
-acceptance criteria explicitly.
+reachable source state**, not the convenient one. Before approval, walk every state-changing
+path Affected Files and Implementation Notes name against each named invariant: a path the plan
+calls "unchanged" or "untouched" that an invariant now reaches is a fix wave the tester will
+spend (claude-status-fixes: "`KindNeedsInputIdle` unchanged" vs INV-F, one wave). A "run every
+input against every starting state, assert the invariant after" table is cheap; write it into
+the acceptance criteria explicitly.
 
 **Source states include multi-instance configurations.** When a per-session resource
 lives on shared infrastructure (a tmux socket, a registry, a pool), "every reachable
