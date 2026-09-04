@@ -1,0 +1,101 @@
+{
+  "plan_name": "claude-status-fixes",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 1,
+    "web-impl": 0,
+    "daemon-tests": 1,
+    "web-tests": 0,
+    "e2e-validate": 0,
+    "review": 0
+  },
+  "completed_steps": [
+    "e2e-specs",
+    "web-impl",
+    "daemon-impl",
+    "web-tests",
+    "daemon-tests",
+    "e2e-validate",
+    "review"
+  ],
+  "failed_steps": [],
+  "step_started_at": {
+    "e2e-specs": "2026-09-03T21:10:12Z",
+    "daemon-impl": "2026-09-03T21:30:13Z",
+    "web-impl": "2026-09-03T21:18:52Z",
+    "web-tests": "2026-09-03T21:21:44Z",
+    "daemon-tests": "2026-09-03T21:33:48Z",
+    "e2e-validate": "2026-09-03T21:37:03Z",
+    "review": "2026-09-03T21:43:56Z"
+  },
+  "step_finished_at": {
+    "e2e-specs": "2026-09-03T21:18:52Z",
+    "web-impl": "2026-09-03T21:21:44Z",
+    "daemon-impl": "2026-09-03T21:33:48Z",
+    "web-tests": "2026-09-03T21:23:23Z",
+    "daemon-tests": "2026-09-03T21:37:03Z",
+    "e2e-validate": "2026-09-03T21:43:56Z",
+    "review": "2026-09-03T21:58:22Z"
+  },
+  "step_attempts": {
+    "e2e-specs": [
+      {
+        "start": "2026-09-03T21:10:12Z",
+        "finish": "2026-09-03T21:18:52Z"
+      }
+    ],
+    "daemon-impl": [
+      {
+        "start": "2026-09-03T21:18:52Z",
+        "finish": "2026-09-03T21:22:16Z"
+      },
+      {
+        "start": "2026-09-03T21:30:13Z",
+        "finish": "2026-09-03T21:33:48Z"
+      }
+    ],
+    "web-impl": [
+      {
+        "start": "2026-09-03T21:18:52Z",
+        "finish": "2026-09-03T21:21:44Z"
+      }
+    ],
+    "web-tests": [
+      {
+        "start": "2026-09-03T21:21:44Z",
+        "finish": "2026-09-03T21:23:23Z"
+      }
+    ],
+    "daemon-tests": [
+      {
+        "start": "2026-09-03T21:22:16Z",
+        "finish": "2026-09-03T21:30:13Z"
+      },
+      {
+        "start": "2026-09-03T21:33:48Z",
+        "finish": "2026-09-03T21:37:03Z"
+      }
+    ],
+    "e2e-validate": [
+      {
+        "start": "2026-09-03T21:37:03Z",
+        "finish": "2026-09-03T21:43:56Z"
+      }
+    ],
+    "review": [
+      {
+        "start": "2026-09-03T21:43:56Z",
+        "finish": "2026-09-03T21:58:22Z"
+      }
+    ]
+  },
+  "started_at": "2026-09-03T21:10:12Z",
+  "updated_at": "2026-09-03T22:00:21Z",
+  "closes_issues": [
+    14,
+    15,
+    20
+  ]
+}

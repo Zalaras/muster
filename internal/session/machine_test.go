@@ -435,6 +435,274 @@ func TestApplyInput_TurnActivity(t *testing.T) {
 	})
 }
 
+// TestApplyInput_TurnActivity_ClosedPromptSubagentMarked covers REQ-2: a turn-activity
+// input for an already-closed prompt that carries the subagent marker is not a
+// straggler — it transitions to ACTIVE exactly like open-prompt activity does, but
+// (INV-P) the closed prompt id is neither reopened nor adopted as currentPromptID.
+func TestApplyInput_TurnActivity_ClosedPromptSubagentMarked(t *testing.T) {
+	sess := newTestSession()
+	sess.State = StateIdle
+	sess.StateSince = fixedNow
+	sess.closedPromptIDs = []string{"p1"}
+	sess.currentPromptID = ""
+
+	promptID := "p1"
+	applyInput(sess, "c1", &promptID, claudecode.StateInput{Kind: claudecode.KindTurnActivity, FromSubagent: true}, laterNow())
+
+	assert.Equal(t, StateWorking, sess.State, "a background subagent still working past the parent's Stop must read as working, not idle (#14)")
+	assert.NotEqual(t, fixedNow, sess.StateSince, "the transition must actually move stateSince")
+	assert.Empty(t, sess.currentPromptID, "INV-P: the closed prompt must not be adopted as current")
+	assert.True(t, sess.promptClosed("p1"), "INV-P: the closed prompt id must stay closed")
+}
+
+// TestApplyInput_NeedsInputPermission_ClosedPromptSubagentMarked covers REQ-3: a
+// needs-input-permission input for an already-closed prompt that carries the subagent
+// marker corroborates a background permission wait exactly like the open-prompt case —
+// same transition, no prompt reopening.
+func TestApplyInput_NeedsInputPermission_ClosedPromptSubagentMarked(t *testing.T) {
+	sess := newTestSession()
+	sess.State = StateIdle
+	sess.closedPromptIDs = []string{"p1"}
+	sess.currentPromptID = ""
+
+	promptID := "p1"
+	applyInput(sess, "c1", &promptID, claudecode.StateInput{Kind: claudecode.KindNeedsInputPermission, FromSubagent: true}, fixedNow)
+
+	assert.Equal(t, StateNeedsInput, sess.State)
+	require.NotNil(t, sess.Attention)
+	assert.Equal(t, "permission", sess.Attention.Reason)
+	assert.Empty(t, sess.currentPromptID, "INV-P: a permission corroboration for a closed prompt must never adopt it as current")
+	assert.True(t, sess.promptClosed("p1"), "INV-P: the closed prompt id must stay closed")
+}
+
+// TestApplyInput_NeedsInputIdle_FromFailedViaUnseenFreshPromptClearsFailure covers the
+// second INV-F gap the orchestrator's ruling named explicitly (daemon-implementation.md
+// "Fix Attempt 1"): StopFailure closes p1 and sets Failure, then p2's UserPromptSubmit
+// hook is lost, then a Notification idle_prompt for p2 arrives. p2 is neither closed nor
+// current, so KindNeedsInputIdle's closed-prompt guard does not fire (promptID != nil &&
+// sess.promptClosed(*promptID) is false for an unseen id) and the branch transitions
+// failed -> needs_input. INV-F (failure non-null iff state == failed, protocol §5.3,
+// unconditional) requires the stale failure note not survive that transition. This path
+// is distinct from TestApplyInput_CrossStateInvariants's
+// "closed_prompt_unmarked_notification_idle" row, which seeds p1 as CLOSED (a genuine
+// straggler, INV-G, no transition) rather than unseen.
+func TestApplyInput_NeedsInputIdle_FromFailedViaUnseenFreshPromptClearsFailure(t *testing.T) {
+	sess := newTestSession()
+	sess.State = StateFailed
+	sess.StateSince = fixedNow
+	sess.Failure = &Failure{Error: "stale_error", Message: "stale message"}
+	sess.closedPromptIDs = []string{"p1"}
+	sess.currentPromptID = ""
+
+	promptID := "p2" // unseen: not in closedPromptIDs, not currentPromptID
+	applyInput(sess, "c1", &promptID, claudecode.StateInput{Kind: claudecode.KindNeedsInputIdle}, laterNow())
+
+	assert.Equal(t, StateNeedsInput, sess.State, "an unseen fresh prompt id is not gated by the closed-prompt guard")
+	require.NotNil(t, sess.Attention, "INV-A: state is needs_input, attention must be non-null")
+	assert.Equal(t, "idle", sess.Attention.Reason)
+	assert.Nil(t, sess.Failure, "INV-F: failure must be nil once state has moved off failed to needs_input, even via the idle door")
+	assert.True(t, sess.promptClosed("p1"), "the unrelated earlier closed prompt must stay closed")
+}
+
+// TestApplyInput_TurnActivity_REQ20Shape covers #20's exact reported shape (Edge Case
+// 5): attention latched under plan mode via an open PermissionRequest, then activity on
+// the SAME open prompt arrives with a different permission_mode (auto, the
+// plan-acceptance path) — must land working with attention cleared and the latch
+// corrected to auto, not stuck on the stale plan/permission combination.
+func TestApplyInput_TurnActivity_REQ20Shape(t *testing.T) {
+	sess := newTestSession()
+	sess.State = StateNeedsInput
+	sess.Attention = &Attention{Reason: "permission", Since: fixedNow}
+	sess.PermissionMode = PermissionPlan
+	sess.PermissionModeSource = "hook"
+	sess.currentPromptID = "p1"
+
+	promptID := "p1"
+	mode := "auto"
+	applyInput(sess, "c1", &promptID, claudecode.StateInput{Kind: claudecode.KindTurnActivity, PermissionMode: &mode}, laterNow())
+
+	assert.Equal(t, StateWorking, sess.State, "auto must latch to working, never planning")
+	assert.Nil(t, sess.Attention, "#20: activity on the resumed prompt must clear the stale permission-wait attention")
+	assert.Equal(t, PermissionAuto, sess.PermissionMode)
+	assert.Equal(t, "hook", sess.PermissionModeSource)
+}
+
+// TestApplyInput_TurnActivity_AfterFailureClearsFailureKeepsLastActivity covers Edge
+// Case 6: failed (after StopFailure p1), then UserPromptSubmit p2 on a fresh prompt →
+// working, failure cleared, lastActivity (set by an earlier successful Stop, untouched
+// by StopFailure itself) left exactly as it was.
+func TestApplyInput_TurnActivity_AfterFailureClearsFailureKeepsLastActivity(t *testing.T) {
+	sess := newTestSession()
+	sess.State = StateFailed
+	sess.Failure = &Failure{Error: "server_error", Message: "boom"}
+	prior := "earlier successful turn"
+	sess.LastActivity = &prior
+
+	promptID := "p2"
+	applyInput(sess, "c1", &promptID, claudecode.StateInput{Kind: claudecode.KindTurnActivity}, laterNow())
+
+	assert.Equal(t, StateWorking, sess.State)
+	assert.Nil(t, sess.Failure, "a new turn's activity must clear the previous turn's failure note")
+	require.NotNil(t, sess.LastActivity, "turn-activity never touches lastActivity")
+	assert.Equal(t, "earlier successful turn", *sess.LastActivity)
+}
+
+// TestApplyInput_TurnActivity_SubagentMarkedWhileParentPromptStillOpen covers Edge Case
+// 7: subagent-marked activity arriving while the parent prompt is still open (mid-turn)
+// is ordinary activity — adopts nothing new (same prompt already current), stays
+// ACTIVE, clears attention/failure exactly like an unmarked event on the same open
+// prompt would.
+func TestApplyInput_TurnActivity_SubagentMarkedWhileParentPromptStillOpen(t *testing.T) {
+	sess := newTestSession()
+	sess.State = StateWorking
+	sess.currentPromptID = "p1"
+	sess.Attention = &Attention{Reason: "permission", Since: fixedNow} // stale, must still clear
+	sess.Failure = &Failure{Error: "stale", Message: "stale"}
+
+	promptID := "p1"
+	applyInput(sess, "c1", &promptID, claudecode.StateInput{Kind: claudecode.KindTurnActivity, FromSubagent: true}, laterNow())
+
+	assert.Equal(t, StateWorking, sess.State)
+	assert.Equal(t, "p1", sess.currentPromptID, "the marker is irrelevant when the prompt is already open and current")
+	assert.Nil(t, sess.Attention)
+	assert.Nil(t, sess.Failure)
+}
+
+// TestApplyInput_TurnActivity_SubagentMarkedUnseenPromptSelfHeals covers Edge Case 8:
+// marked activity with an unseen prompt id (neither closed nor current) is the
+// ordinary §7.4 rule-3 self-heal — the marker is irrelevant when the prompt is open (in
+// the sense of "not known closed"); it is simply adopted.
+func TestApplyInput_TurnActivity_SubagentMarkedUnseenPromptSelfHeals(t *testing.T) {
+	sess := newTestSession()
+	require.Empty(t, sess.currentPromptID)
+	require.Empty(t, sess.closedPromptIDs)
+
+	promptID := "brand-new"
+	applyInput(sess, "c1", &promptID, claudecode.StateInput{Kind: claudecode.KindTurnActivity, FromSubagent: true}, fixedNow)
+
+	assert.Equal(t, StateWorking, sess.State)
+	assert.Equal(t, "brand-new", sess.currentPromptID)
+}
+
+// TestApplyInput_TurnActivity_SubagentMarkedNilPromptIsTreatedAsOpen covers Edge Case
+// 9: marked activity with a nil prompt id is treated as open (existing rule); no
+// closed-prompt guard applies, and since promptID is nil there is nothing to adopt —
+// currentPromptID is left exactly as it was.
+func TestApplyInput_TurnActivity_SubagentMarkedNilPromptIsTreatedAsOpen(t *testing.T) {
+	sess := newTestSession()
+	sess.currentPromptID = "p-old"
+	sess.Attention = &Attention{Reason: "idle", Since: fixedNow}
+	sess.Failure = &Failure{Error: "stale", Message: "stale"}
+
+	applyInput(sess, "c1", nil, claudecode.StateInput{Kind: claudecode.KindTurnActivity, FromSubagent: true}, laterNow())
+
+	assert.Equal(t, StateWorking, sess.State)
+	assert.Equal(t, "p-old", sess.currentPromptID, "a nil prompt id has nothing to adopt; the existing current prompt is left alone")
+	assert.Nil(t, sess.Attention)
+	assert.Nil(t, sess.Failure)
+}
+
+// TestApplyInput_CrossStateInvariants covers D5/REQ-8 (m1-sessions review lesson): the
+// named invariants INV-A ("attention non-null iff needs_input"), INV-F ("failure
+// non-null iff failed"), INV-G (an event without the subagent marker whose prompt id is
+// closed never changes any state-machine-owned field) and INV-P (a closed prompt id
+// stays closed) must hold from EVERY reachable source state crossed against every input
+// variant in the plan's Affected Files table — not just the one convenient state each
+// narrower per-transition test above happens to start from. Every row seeds BOTH a
+// stale Attention and a stale Failure regardless of the starting state's own
+// invariant-consistency, so a clearing bug that only shows up leaving one convenient
+// state can't hide behind a source state that never carried the stale field to begin
+// with.
+func TestApplyInput_CrossStateInvariants(t *testing.T) {
+	sourceStates := []struct {
+		name  string
+		state State
+	}{
+		{"started", StateStarted},
+		{"planning", StatePlanning},
+		{"working", StateWorking},
+		{"needs_input_permission", StateNeedsInput},
+		{"needs_input_idle", StateNeedsInput},
+		{"failed", StateFailed},
+		{"idle", StateIdle},
+	}
+
+	type step struct {
+		name           string
+		kind           claudecode.InputKind
+		closed         bool // promptID "p1" pre-seeded into closedPromptIDs
+		fromSubagent   bool
+		wantTransition bool // false => genuine straggler, INV-G applies
+	}
+	steps := []step{
+		{"open_prompt_activity", claudecode.KindTurnActivity, false, false, true},
+		{"closed_prompt_marked_activity", claudecode.KindTurnActivity, true, true, true},
+		{"closed_prompt_unmarked_activity", claudecode.KindTurnActivity, true, false, false},
+		{"closed_prompt_marked_permission", claudecode.KindNeedsInputPermission, true, true, true},
+		{"closed_prompt_unmarked_permission", claudecode.KindNeedsInputPermission, true, false, false},
+		{"closed_prompt_unmarked_notification_idle", claudecode.KindNeedsInputIdle, true, false, false},
+	}
+
+	for _, from := range sourceStates {
+		for _, st := range steps {
+			t.Run(from.name+"/"+st.name, func(t *testing.T) {
+				sess := newTestSession()
+				sess.State = from.state
+				sess.StateSince = fixedNow
+				// Seed stale Attention and Failure regardless of the starting state's
+				// own consistency (see doc comment above).
+				sess.Attention = &Attention{Reason: "permission", Since: fixedNow}
+				sess.Failure = &Failure{Error: "stale_error", Message: "stale message"}
+				sess.currentPromptID = ""
+				if st.closed {
+					sess.closedPromptIDs = []string{"p1"}
+				}
+
+				promptID := "p1"
+				in := claudecode.StateInput{Kind: st.kind, FromSubagent: st.fromSubagent}
+				applyInput(sess, "c1", &promptID, in, laterNow())
+
+				if !st.wantTransition {
+					// INV-G: a genuine straggler must not change ANY state-machine-owned
+					// field this input's kind could touch.
+					assert.Equal(t, from.state, sess.State, "INV-G: a straggler must not transition state")
+					assert.Equal(t, fixedNow, sess.StateSince, "INV-G: a straggler must not move stateSince")
+					require.NotNil(t, sess.Attention, "INV-G: a straggler must not clear a pre-existing attention note")
+					assert.Equal(t, "permission", sess.Attention.Reason)
+					require.NotNil(t, sess.Failure, "INV-G: a straggler must not clear a pre-existing failure note")
+					assert.Equal(t, "stale_error", sess.Failure.Error)
+					assert.Empty(t, sess.currentPromptID, "INV-G/INV-P: a straggler must not adopt the closed prompt as current")
+					assert.True(t, sess.promptClosed("p1"), "INV-P: the closed prompt id must stay closed")
+					return
+				}
+
+				switch st.kind {
+				case claudecode.KindTurnActivity:
+					assert.Equal(t, StateWorking, sess.State, "default-latched permission mode activates to working")
+					assert.Nil(t, sess.Attention, "INV-A: a transitioning turn-activity input must clear a stale attention note (state is no longer needs_input)")
+					assert.Nil(t, sess.Failure, "INV-F: a transitioning turn-activity input must clear a stale failure note (state is no longer failed)")
+					if st.closed {
+						assert.NotEqual(t, "p1", sess.currentPromptID, "INV-P: a closed prompt must never be adopted as current")
+						assert.True(t, sess.promptClosed("p1"), "INV-P: the closed prompt id must stay closed")
+					} else {
+						assert.Equal(t, "p1", sess.currentPromptID, "an open prompt id is adopted as current")
+					}
+				case claudecode.KindNeedsInputPermission:
+					assert.Equal(t, StateNeedsInput, sess.State)
+					require.NotNil(t, sess.Attention, "INV-A: state is needs_input, attention must be non-null")
+					assert.Equal(t, "permission", sess.Attention.Reason)
+					assert.NotEqual(t, "p1", sess.currentPromptID, "INV-P: a permission corroboration for a closed prompt must never adopt it as current")
+					assert.True(t, sess.promptClosed("p1"), "INV-P: the closed prompt id must stay closed")
+					// INV-F (protocol §5.3, unconditional): failure non-null IFF state ==
+					// failed. State has just moved to needs_input, so a stale failure
+					// left over from an earlier failed turn must not survive here.
+					assert.Nil(t, sess.Failure, "INV-F: failure must be nil once state has moved off failed to needs_input")
+				}
+			})
+		}
+	}
+}
+
 // TestApplyInput_NeedsInput covers both needs_input notification variants and their
 // shared closed-prompt guard.
 func TestApplyInput_NeedsInput(t *testing.T) {

@@ -508,6 +508,132 @@ test("switching to Tiles while the mainhead rename is open sends no PUT and leav
   });
 });
 
+// Plan claude-status-fixes REQ-6/REQ-7 (follow-up from ui-text-and-focus review cycle 2
+// Minor 1): the view-switcher `mousedown` listeners at web/src/main.ts:884-885
+// unconditionally cancel any open rename today. This plan guards them — cancel only on
+// a primary-button mousedown whose target view differs from the current view — so the
+// two cases below are new behaviour, not yet built; EXPECTED TO FAIL until web-impl
+// lands the guard. The three existing "switching to..." tests above (cmd-backslash, the
+// masthead Focus click, and the masthead Tiles click) all cancel via the *inactive*
+// segment and are unaffected by this change — deliberately left unedited as REQ-7's
+// regression pins.
+//
+// Update (validate mode): the authoring pass flagged that the plan's Affected Files
+// section named only the two `mousedown` listeners, leaving the paired `click` →
+// `requestView()` listeners unguarded — which would have left a same-view
+// `PUT /api/prefs` firing even after this plan landed, contradicting REQ-6's own prose
+// ("no prefs request... for the view"). web-impl's implementation log records guarding
+// the `click` listeners too, as a superset of the plan's stated scope, per the
+// orchestrator's explicit instruction. E5 below now asserts that absence directly.
+
+test("clicking the pressed view segment while its own rename editor is open commits instead of cancelling, on both the mainhead and a tile header (E5)", async ({
+  page,
+}) => {
+  await withDaemon(async (daemon) => {
+    const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
+    try {
+      await page.goto(daemon.dashboardUrl);
+      const sessionA = await launchSession(page, daemon, { directory: dirA.path, title: "active-seg-mainhead" });
+      const sessionB = await launchSession(page, daemon, { directory: dirB.path, title: "active-seg-tile" });
+
+      let titlePuts = 0;
+      let prefsPuts = 0;
+      page.on("request", (req) => {
+        if (req.method() !== "PUT") return;
+        const pathname = new URL(req.url()).pathname;
+        if (/^\/api\/sessions\/\d+\/title$/.test(pathname)) titlePuts++;
+        if (pathname === "/api/prefs") prefsPuts++;
+      });
+
+      // Mainhead: default view is Focus, already pressed.
+      await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "true");
+      await mainheadRenameButton(page).click();
+      await mainheadRenameField(page).fill("active segment commit mainhead");
+      await page.getByRole("button", { name: "Focus" }).click(); // the already-active segment
+
+      await expect(mainheadRenameField(page)).toHaveCount(0);
+      await expect(mainheadRenameButton(page)).toHaveText("active segment commit mainhead");
+      await expect(railCard(page, "active segment commit mainhead")).toBeVisible();
+      await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "true");
+      expect(titlePuts).toBe(1);
+      // REQ-6 ("no prefs request... for the view"): the already-active segment's click
+      // guard now also skips `requestView`, so this commit-only click sends no
+      // `PUT /api/prefs` — web-impl's fix log confirms the click listener, not just the
+      // mousedown listener, was guarded. No view switch has happened yet at all, so 0.
+      expect(prefsPuts).toBe(0);
+
+      // Tile mirror: switch to Tiles first (no editor open yet, so the guard is inert
+      // for this click). This IS a real view change, so it legitimately sends one
+      // `PUT /api/prefs` — the assertion below isolates the active-segment click that
+      // follows, not this genuine switch.
+      await page.getByRole("button", { name: "Tiles" }).click();
+      await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute("aria-pressed", "true");
+      const prefsPutsAfterRealSwitch = prefsPuts;
+      expect(prefsPutsAfterRealSwitch).toBe(1);
+
+      await tileRenameButton(page, "active-seg-tile").click();
+      const tileField = tileRenameFieldById(page, sessionB.id);
+      await expect(tileField).toBeFocused();
+      await tileField.fill("active segment commit tile");
+      await page.getByRole("button", { name: "Tiles" }).click(); // the already-active segment
+
+      await expect(tileRenameFieldById(page, sessionB.id)).toHaveCount(0);
+      await expect(tileRenameButton(page, "active segment commit tile")).toBeVisible();
+      await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute("aria-pressed", "true");
+      expect(titlePuts).toBe(2);
+      // The already-active Tiles click sends no further prefs PUT beyond the one real
+      // switch above.
+      expect(prefsPuts).toBe(prefsPutsAfterRealSwitch);
+
+      const state = await getState(page, daemon);
+      expect(findSession(state, sessionA.id).title).toBe("active segment commit mainhead");
+      expect(findSession(state, sessionB.id).title).toBe("active segment commit tile");
+    } finally {
+      await Promise.all([dirA.cleanup(), dirB.cleanup()]);
+    }
+  });
+});
+
+test("a right-click on the inactive Tiles segment while a mainhead rename is open does not cancel it — no click fires, the blur commits, and the view stays Focus (E6, REQ-7)", async ({
+  page,
+}) => {
+  await withDaemon(async (daemon) => {
+    const { path: dir, cleanup } = await scratchDirectory();
+    try {
+      await page.goto(daemon.dashboardUrl);
+      const session = await launchSession(page, daemon, { directory: dir, title: "right-click-guard" });
+
+      let titlePuts = 0;
+      page.on("request", (req) => {
+        if (req.method() !== "PUT") return;
+        if (/^\/api\/sessions\/\d+\/title$/.test(new URL(req.url()).pathname)) titlePuts++;
+      });
+
+      await mainheadRenameButton(page).click();
+      await mainheadRenameField(page).fill("right click should commit");
+
+      // A right-click's mousedown still fires (any button), but REQ-7 only cancels on
+      // e.button === 0 — and no `click` event follows a non-primary button, so
+      // `requestView` never runs either. The native mousedown-default blur still
+      // reaches the field's own `onBlur`, which commits per ordinary REQ-14 semantics.
+      await page.getByRole("button", { name: "Tiles" }).click({ button: "right" });
+
+      await expect(mainheadRenameField(page)).toHaveCount(0);
+      await expect(mainheadRenameButton(page)).toHaveText("right click should commit");
+      await expect(railCard(page, "right click should commit")).toBeVisible();
+      await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "true");
+      expect(titlePuts).toBe(1);
+
+      const state = await getState(page, daemon);
+      const updated = findSession(state, session.id);
+      expect(updated.title).toBe("right click should commit");
+      expect(updated.titleOverride).toBe("right click should commit");
+    } finally {
+      await cleanup();
+    }
+  });
+});
+
 test("clicking an unrelated control (New session) still commits an open mainhead rename, per ordinary REQ-14 blur semantics", async ({
   page,
 }) => {

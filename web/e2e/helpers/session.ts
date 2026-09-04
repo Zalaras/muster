@@ -51,6 +51,20 @@ export async function browseScratchDirectory(
   };
 }
 
+/** Any daemon timestamp compared for strict ordering across two events posted back to
+ * back can tie: every wire timestamp this dashboard reads (`stateSince`, `last_launched_at`,
+ * `attention.since`, …) is formatted with `time.RFC3339` (whole-second resolution — see
+ * `internal/server/sessionwire.go`, `internal/store/repo.go`), so two transitions inside
+ * the same wall-clock second are indistinguishable on the wire even though the daemon
+ * ordered them correctly in memory. Originally local to launch.spec.ts (recents
+ * ordering); hoisted here once subagent-status.spec.ts needed the same wait for
+ * `stateSince` ordering across quick successive hook POSTs. Waits only as long as the
+ * current second has left to run (worst case ~1.05s), never a fixed sleep. */
+export async function waitForNextClockSecond(): Promise<void> {
+  const msIntoSecond = Date.now() % 1000;
+  await new Promise((resolve) => setTimeout(resolve, 1000 - msIntoSecond + 50));
+}
+
 export interface LaunchBody {
   directory: string;
   title?: string;

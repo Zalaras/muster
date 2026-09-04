@@ -689,7 +689,7 @@ unless he re-ranks — don't re-sort this list.
   survive the next status-line post, which means a "manual title wins" flag on the session row,
   not just a write. Wants a `/spec` pass before planning.
 
-- [ ] **Clicking the already-active view segment discards an open rename** — follow-up from
+- [x] **Clicking the already-active view segment discards an open rename** ✅ done 2026-09-03 (plan `claude-status-fixes`, via `/orchestrate`, approved review cycle 1; lands with `/land claude-status-fixes`, which closes #14, #15 and #20). Follow-up from
   `ui-text-and-focus` (review cycle 2 Minor 1, `plans/ui-text-and-focus/review.md`): the
   `mousedown` guard on `viewFocusBtn`/`viewTilesBtn` in `web/src/main.ts` calls
   `cancelOpenRenames()` unconditionally, so clicking **Focus** while already in Focus (or Tiles in
@@ -699,7 +699,14 @@ unless he re-ranks — don't re-sort this list.
   middle-click on the switcher from cancelling an edit. Add an E2E pin beside the four
   view-switch cancel tests in `web/e2e/rename.spec.ts`.
 
-- [ ] **A session reads Idle in the rail while it is still working** ([#14](https://github.com/Zalaras/muster/issues/14))
+- [ ] **E7 spec variable misnamed** — follow-up from `claude-status-fixes` (review cycle 1
+  Minor 1, `plans/claude-status-fixes/review.md`): in `web/e2e/subagent-status.spec.ts`'s E7
+  test "the variable holding `failed.stateSince` is named `lastActivityBefore` … compared
+  against `resumed.stateSince` two lines later, and the comment beside it talks about
+  `lastActivity`, so a maintainer reads the assertion as being about a field it never
+  touches. Rename to `stateSinceBefore`." Cosmetic; fold into the next E2E touch.
+
+- [x] **A session reads Idle in the rail while it is still working** ([#14](https://github.com/Zalaras/muster/issues/14)) ✅ done 2026-09-03 (plan `claude-status-fixes`, via `/orchestrate`, approved review cycle 1; lands with `/land claude-status-fixes`, which closes #14, #15 and #20).
   — "Had this session go IDLE in the UI on the sidebar while it's still working and editing
   files". The issue's own snapshot corroborates it rather than just reporting it: `state idle
   since 2026-09-01T16:05:07Z` with events running to `16:07:08Z` and the last ten ending
@@ -720,7 +727,7 @@ unless he re-ranks — don't re-sort this list.
   alone, since a backgrounded shell keeps it non-empty indefinitely. Ready to plan; independent
   of #15's attention fix, though one plan can carry both.
 
-- [ ] **Attention stays latched on "needs permission" after work resumes** ([#15](https://github.com/Zalaras/muster/issues/15), [#20](https://github.com/Zalaras/muster/issues/20))
+- [x] **Attention stays latched on "needs permission" after work resumes** ([#15](https://github.com/Zalaras/muster/issues/15), [#20](https://github.com/Zalaras/muster/issues/20)) ✅ done 2026-09-03 (plan `claude-status-fixes`, via `/orchestrate`, approved review cycle 1; lands with `/land claude-status-fixes`, which closes #14, #15 and #20).
   — "Doesn't need my permission it's currently thinking but UI says needs permissions".
   Confirmed in the tree, not just plausible: `internal/session/machine.go`'s `KindTurnActivity`
   branch latches `permission_mode` and sets the active state but never clears `sess.Attention`

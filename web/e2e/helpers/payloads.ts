@@ -77,12 +77,20 @@ interface TurnActivityOpts {
   /** Plan fix-auto-mode-select: `auto` is a fourth observed value (2.1.259 probe,
    * spikes/canary-fields.md "Permission-mode probe") alongside the three already here. */
   permissionMode?: "default" | "plan" | "acceptEdits" | "auto";
+  /**
+   * Plan claude-status-fixes REQ-1: when set, adds the measured subagent marker —
+   * `agent_id` plus `agent_type: "general-purpose"` (spikes/canary-fields.md "Subagent
+   * and background-task fields", 2.1.259 probe) — to the payload, so `FromSubagent`
+   * derivation and the straggler-guard bypass can be exercised end-to-end. Omitted by
+   * default, matching every main-agent hook (no `agent_id` key at all, never `null`).
+   */
+  agentId?: string;
 }
 
 /** Raw `UserPromptSubmit` — opens a turn (turn-activity event, protocol §7.3). */
 export function rawUserPromptSubmit(sessionId: string, opts: TurnActivityOpts = {}): Record<string, unknown> {
-  const { promptId = "p1", permissionMode = "default" } = opts;
-  return {
+  const { promptId = "p1", permissionMode = "default", agentId } = opts;
+  const payload: Record<string, unknown> = {
     hook_event_name: "UserPromptSubmit",
     session_id: sessionId,
     transcript_path: "/tmp/t.jsonl",
@@ -91,12 +99,17 @@ export function rawUserPromptSubmit(sessionId: string, opts: TurnActivityOpts = 
     permission_mode: permissionMode,
     prompt: "do the thing",
   };
+  if (agentId !== undefined) {
+    payload.agent_id = agentId;
+    payload.agent_type = "general-purpose";
+  }
+  return payload;
 }
 
 /** Raw `PostToolUse` — also a turn-activity event; used for straggler-past-Stop cases. */
 export function rawPostToolUse(sessionId: string, opts: TurnActivityOpts = {}): Record<string, unknown> {
-  const { promptId = "p1", permissionMode = "default" } = opts;
-  return {
+  const { promptId = "p1", permissionMode = "default", agentId } = opts;
+  const payload: Record<string, unknown> = {
     hook_event_name: "PostToolUse",
     session_id: sessionId,
     transcript_path: "/tmp/t.jsonl",
@@ -109,6 +122,11 @@ export function rawPostToolUse(sessionId: string, opts: TurnActivityOpts = {}): 
     tool_response: { ok: true },
     duration_ms: 42,
   };
+  if (agentId !== undefined) {
+    payload.agent_id = agentId;
+    payload.agent_type = "general-purpose";
+  }
+  return payload;
 }
 
 /**
@@ -134,9 +152,18 @@ export function rawNotification(
   };
 }
 
-/** Raw `PermissionRequest` — corroborates a permission-prompt `needs_input` (protocol §7.3). */
-export function rawPermissionRequest(sessionId: string, promptId: string): Record<string, unknown> {
-  return {
+/**
+ * Raw `PermissionRequest` — corroborates a permission-prompt `needs_input` (protocol
+ * §7.3). `opts.agentId` adds the same measured subagent marker as `TurnActivityOpts`
+ * (canary-fields.md: a subagent's `PermissionRequest` carries `agent_id`/`agent_type`
+ * under the parent's `prompt_id`, unlike the `Notification` that follows it).
+ */
+export function rawPermissionRequest(
+  sessionId: string,
+  promptId: string,
+  opts: { agentId?: string } = {},
+): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
     hook_event_name: "PermissionRequest",
     session_id: sessionId,
     transcript_path: "/tmp/t.jsonl",
@@ -147,18 +174,32 @@ export function rawPermissionRequest(sessionId: string, promptId: string): Recor
     tool_input: { file_path: "/tmp/x.txt" },
     permission_suggestions: [{ type: "setMode", mode: "acceptEdits", destination: "session" }],
   };
+  if (opts.agentId !== undefined) {
+    payload.agent_id = opts.agentId;
+    payload.agent_type = "general-purpose";
+  }
+  return payload;
 }
 
 interface StopOpts extends TurnActivityOpts {
   lastAssistantMessage?: string;
+  /**
+   * Plan claude-status-fixes decision 3 / Edge Case 1: `background_tasks` is fixture
+   * realism for the E2E specs only, never a state input — a `Stop` with a non-empty
+   * list still lands `idle`, and only the first marked subagent hook returns the
+   * session to `working`. Defaults to `[]` (M0's fixture). Use `runningSubagentTask()`
+   * / `runningShellTask()` for the measured non-empty entry shapes.
+   */
+  backgroundTasks?: unknown[];
 }
 
 /**
  * Raw (non-enveloped) `Stop` — the common shape for ordinary plain-HTTP hooks. Defaults
- * (`promptId: "p1"`, `permissionMode: "default"`, message `"hi"`) reproduce M0's fixture.
+ * (`promptId: "p1"`, `permissionMode: "default"`, message `"hi"`, empty
+ * `background_tasks`) reproduce M0's fixture.
  */
 export function rawStop(sessionId: string, opts: StopOpts = {}): Record<string, unknown> {
-  const { promptId = "p1", permissionMode = "default", lastAssistantMessage = "hi" } = opts;
+  const { promptId = "p1", permissionMode = "default", lastAssistantMessage = "hi", backgroundTasks = [] } = opts;
   return {
     hook_event_name: "Stop",
     session_id: sessionId,
@@ -168,9 +209,27 @@ export function rawStop(sessionId: string, opts: StopOpts = {}): Record<string, 
     permission_mode: permissionMode,
     last_assistant_message: lastAssistantMessage,
     stop_hook_active: false,
-    background_tasks: [],
+    background_tasks: backgroundTasks,
     session_crons: [],
   };
+}
+
+/**
+ * A `background_tasks` entry: a subagent still running (measured shape,
+ * spikes/canary-fields.md "Subagent and background-task fields" — `type, id,
+ * agent_type, description, status`). Fixture realism only for `rawStop`'s
+ * `backgroundTasks` option; the state machine never reads this list (decision 3).
+ */
+export function runningSubagentTask(id = "agent-1"): Record<string, unknown> {
+  return { type: "subagent", id, agent_type: "general-purpose", description: "background work", status: "running" };
+}
+
+/**
+ * A `background_tasks` entry: a backgrounded shell still running (same measured
+ * source as `runningSubagentTask`). Fixture realism only.
+ */
+export function runningShellTask(id = "shell-1"): Record<string, unknown> {
+  return { type: "shell", id, command: "sleep 20 && echo hi", description: "background work", status: "running" };
 }
 
 /**

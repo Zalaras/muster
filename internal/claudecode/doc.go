@@ -27,4 +27,9 @@
 // config file (name, location, and its "theme" key) — read-only, polled for the theme
 // family that grounds the terminal pane and drives the dashboard's "Follow Claude Code"
 // preference.
+//
+// Since claude-status-fixes (2026-09-03), Interpret also reads a background subagent's
+// agent marker (measured 2.1.259, canary-fields.md "Subagent and background-task
+// fields") and exposes it to internal/session only as StateInput.FromSubagent — a
+// neutral bool, never the payload key name.
 package claudecode

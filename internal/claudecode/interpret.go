@@ -46,6 +46,15 @@ type StateInput struct {
 	// (daemon-side truncation to 200 chars is internal/session's job, not a wire-format
 	// concern).
 	LastActivity *string
+
+	// FromSubagent is true iff the payload carries the subagent agent marker (measured
+	// 2.1.259, canary-fields.md "Subagent and background-task fields": a background
+	// subagent's PreToolUse/PostToolUse/PermissionRequest carry the parent turn's
+	// prompt_id plus an agent id key that main-agent hooks never carry — not even null).
+	// It is derived only for the turn-activity events and PermissionRequest; every other
+	// event (including Notification, which never carries the marker) leaves this false.
+	// internal/session sees only this neutral bool, never the marker's payload key name.
+	FromSubagent bool
 }
 
 // Interpret derives the neutral StateInput for one persisted event. eventType is the
@@ -59,17 +68,19 @@ func Interpret(eventType string, payload []byte) StateInput {
 	case "UserPromptSubmit", "PreToolUse", "PostToolUse":
 		var f struct {
 			PermissionMode *string `json:"permission_mode"`
+			AgentID        *string `json:"agent_id"`
 		}
 		_ = json.Unmarshal(payload, &f)
-		return StateInput{Kind: KindTurnActivity, PermissionMode: f.PermissionMode}
+		return StateInput{Kind: KindTurnActivity, PermissionMode: f.PermissionMode, FromSubagent: f.AgentID != nil}
 	case "Notification":
 		return interpretNotification(payload)
 	case "PermissionRequest":
 		var f struct {
 			PermissionMode *string `json:"permission_mode"`
+			AgentID        *string `json:"agent_id"`
 		}
 		_ = json.Unmarshal(payload, &f)
-		return StateInput{Kind: KindNeedsInputPermission, PermissionMode: f.PermissionMode}
+		return StateInput{Kind: KindNeedsInputPermission, PermissionMode: f.PermissionMode, FromSubagent: f.AgentID != nil}
 	case "Stop":
 		var f struct {
 			PermissionMode       *string `json:"permission_mode"`

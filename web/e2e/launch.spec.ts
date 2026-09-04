@@ -18,7 +18,14 @@ import {
   recentButton,
   recentsSidebar,
 } from "./helpers/picker";
-import { browseScratchDirectory, getState, launchSession, scratchDirectory, sessionCard } from "./helpers/session";
+import {
+  browseScratchDirectory,
+  getState,
+  launchSession,
+  scratchDirectory,
+  sessionCard,
+  waitForNextClockSecond,
+} from "./helpers/session";
 
 const execFileAsync = promisify(execFile);
 
@@ -41,18 +48,6 @@ async function withDaemon<T>(fn: (daemon: ScratchDaemon) => Promise<T>): Promise
   } finally {
     await daemon.teardown();
   }
-}
-
-/** Two launches inside the same wall-clock second get an identical `last_launched_at`
- * (`internal/store/repo.go`'s `UpsertRepo` formats `time.Now()` with `time.RFC3339`,
- * whole-second resolution), so `ORDER BY last_launched_at DESC` (protocol §3.2) ties and
- * the served order is not guaranteed to put the second launch first. Tests that assert
- * *which* recent is most-recent must force the two launches across a real second
- * boundary — this waits only as long as the current second has left to run (worst case
- * ~1.05s), not a fixed sleep. */
-async function waitForNextClockSecond(): Promise<void> {
-  const msIntoSecond = Date.now() % 1000;
-  await new Promise((resolve) => setTimeout(resolve, 1000 - msIntoSecond + 50));
 }
 
 test("opens on the browse root with an empty sidebar when there are no recents, exposing every Testable UI Element and none of the removed M1 controls (REQ-2, REQ-9, REQ-10, REQ-11, REQ-16, E2)", async ({

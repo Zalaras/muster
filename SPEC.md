@@ -1259,3 +1259,28 @@ Four dashboard issues in one pass — #16, #18, #19, #10.
   as a fifth accepted request value was rejected — an alias with no behavioural difference.
 - No dialog-side model×mode warning: a seeded `auto` on a model that cannot run it is corrected to
   `default / hook` by the first `UserPromptSubmit` — the ordinary honesty-rule path (ux-flows §1.2).
+
+### 2026-09-03 — subagent activity keeps a session working; attention/failure clear on resume; active segment click commits a rename (plan `claude-status-fixes`, via `/orchestrate`, approved review cycle 1)
+
+- **A background subagent's hooks are not stragglers** (#14). Measured on 2.1.259
+  (`spikes/FINDINGS.md` "subagent / background-task probe"): a subagent's `PreToolUse`/
+  `PostToolUse`/`PermissionRequest` carry the *parent turn's* `prompt_id`, arrive after that
+  turn's `Stop`, and carry an agent marker main-agent hooks never do. `internal/claudecode`
+  derives a neutral `StateInput.FromSubagent` from the marker (the key name never leaves the
+  package — D4 negative grep); a marked event for a closed prompt transitions to `working` /
+  `needs_input` without reopening or adopting the prompt (INV-P), so the next Stop-family event
+  still lands `idle`/`failed`. Unmarked closed-prompt events keep the §7.4 straggler guard
+  bit-for-bit. `Stop.background_tasks` is fixture realism only, never a state input: a `Stop`
+  with running background work lands `idle` and the first marked hook returns it to `working`
+  (~2 s blip, seen in review — the price of not pinning a session for as long as a backgrounded
+  shell lives).
+- **§5.3's iff rules are now unconditional in code** (#15, #20). Every transition into ACTIVE
+  clears `attention` and `failure`; every transition into `needs_input` (permission or idle
+  door) clears `failure`. The idle door was not in the plan's Affected Files — daemon-tests'
+  D5 table exposed the permission door, and the idle door is reachable from `failed` via an
+  unseen fresh prompt id when its `UserPromptSubmit` was lost; both were closed in one
+  pre-review fix and are pinned by unit tests. Protocol §7.3 rows say so explicitly.
+- **Clicking the already-pressed view segment commits an open rename** instead of cancelling
+  it, and sends no prefs request (REQ-6 as written — the plan's Implementation Note to leave
+  the `click` listeners untouched was overruled by its own requirement). Right/middle click on
+  either segment never cancels. Switching views still cancels, as before.

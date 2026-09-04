@@ -1,7 +1,7 @@
 # Plan: claude-status-fixes
 
 **Created**: 2026-09-03
-**Status**: approved
+**Status**: completed
 **Work Type**: full-stack
 **E2E Scope**: new-specs
 **Closes**: #14, #15, #20
@@ -187,7 +187,9 @@ All pre-existing; transcribed from `ui-text-and-focus`'s table and `web/index.ht
   transitioning path set `sess.Attention = nil` and `sess.Failure = nil`.
   `KindNeedsInputPermission`: the closed-prompt early return applies only when
   `!input.FromSubagent`. `KindNeedsInputIdle` unchanged. Update the §5.3 comment block so it
-  is true.
+  is true. *Amended at review cycle 1 (Minor 2): both `needs_input` branches also clear
+  `sess.Failure` — INV-F is unconditional, and `KindNeedsInputIdle` is reachable from `failed`
+  via an unseen fresh prompt id; see `daemon-implementation.md` Fix Attempt 1.*
 - `internal/claudecode/doc.go` — one line in the package doc naming the subagent marker as
   part of the boundary's vocabulary (optional, daemon-impl's call).
 
@@ -371,8 +373,10 @@ into `internal/session`.
   failure and `setState(activeState())`.
 - **Rename guard.** `viewFocusBtn.addEventListener("mousedown", (e) => { if (e.button === 0
   && view !== "focus") cancelOpenRenames(); })` and the mirror. `view` is the module-level
-  current view already read by `applyPrefsFromSnapshot`. Keep the existing `click` →
-  `requestView` listeners untouched.
+  current view already read by `applyPrefsFromSnapshot`. ~~Keep the existing `click` →
+  `requestView` listeners untouched.~~ *Amended at review cycle 1 (Minor 2): the `click` →
+  `requestView` listeners are guarded the same way, because REQ-6 says no prefs request is
+  sent for the view; see `web-implementation.md` Decisions.*
 - **E2E fixtures** are e2e-specs' to extend (`payloads.ts` is a helper, not implementation).
   Post raw hooks through the scratch daemon's ingest URL exactly as `sessions.spec.ts` does;
   wait on `queryEvents` for persistence before asserting, as the existing straggler test does.

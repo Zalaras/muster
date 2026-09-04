@@ -17,19 +17,39 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 
 	case claudecode.KindTurnActivity:
 		latchPermissionMode(sess, input.PermissionMode)
-		if promptID != nil && sess.promptClosed(*promptID) {
+		closed := promptID != nil && sess.promptClosed(*promptID)
+		if closed && !input.FromSubagent {
 			return // straggler past a Stop — persist only, no transition (Edge Case 2)
 		}
-		if promptID != nil {
+		// A closed prompt with the subagent marker is a background subagent still
+		// working past the parent's Stop (measured 2.1.259, canary-fields.md): it
+		// transitions the session like ordinary activity, but the closed prompt is
+		// never reopened or adopted as current (INV-P) — only an open/unseen prompt id
+		// is adopted here.
+		if !closed && promptID != nil {
 			sess.currentPromptID = *promptID
 		}
+		// §5.3's attention-iff-needs_input / failure-iff-failed invariants (INV-A,
+		// INV-F) are unconditional: every transitioning path here — whether the prompt
+		// was open or a subagent-marked closed prompt — clears both, so a stale
+		// permission wait or failure note never survives into the next working state.
+		sess.Attention = nil
+		sess.Failure = nil
 		sess.setState(sess.activeState(), now)
 
 	case claudecode.KindNeedsInputPermission:
-		if promptID != nil && sess.promptClosed(*promptID) {
+		if promptID != nil && sess.promptClosed(*promptID) && !input.FromSubagent {
 			return
 		}
+		// A subagent-marked PermissionRequest for a closed prompt corroborates a
+		// background permission wait (measured 2.1.259) exactly like the open-prompt
+		// case — same transition, no prompt reopening.
 		sess.Attention = &Attention{Reason: "permission", Since: now}
+		// INV-F (§5.3, unconditional): failure is non-null iff state == failed. This
+		// branch always transitions to needs_input, so a failure note carried over
+		// from an earlier failed turn (e.g. StopFailure, then a subagent-marked
+		// PermissionRequest against that same now-closed prompt) must not survive.
+		sess.Failure = nil
 		sess.setState(StateNeedsInput, now)
 
 	case claudecode.KindNeedsInputIdle:
@@ -37,6 +57,10 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 			return
 		}
 		sess.Attention = &Attention{Reason: "idle", Since: now}
+		// INV-F: same reasoning as KindNeedsInputPermission above — this branch is
+		// also reachable from failed (an unseen fresh prompt id when the preceding
+		// UserPromptSubmit was itself lost), and must not strand a stale failure note.
+		sess.Failure = nil
 		sess.setState(StateNeedsInput, now)
 
 	case claudecode.KindTurnClosed:

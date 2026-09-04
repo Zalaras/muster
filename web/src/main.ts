@@ -881,10 +881,28 @@ function render(): void {
 // pre-empts that native blur: `attachRenameEditor`'s `closeEditor()` removes the input's
 // own blur listener before detaching it, so the blur the browser still fires next has
 // nothing left to call.
-viewFocusBtn.addEventListener("mousedown", cancelOpenRenames);
-viewTilesBtn.addEventListener("mousedown", cancelOpenRenames);
-viewFocusBtn.addEventListener("click", () => requestView("focus"));
-viewTilesBtn.addEventListener("click", () => requestView("tiles"));
+//
+// plan claude-status-fixes REQ-6/REQ-7: a click on the segment that is **already** the
+// current view must not cancel — the ordinary mousedown-default blur should reach the
+// field's own `onBlur` and commit the edit instead. So each `mousedown` guard only
+// cancels for a primary-button press (`e.button === 0`) whose target view differs from
+// the current `view`; a non-primary button (REQ-7) or a same-view press leaves the
+// editor alone. The paired `click` listener below carries the identical "differs from
+// current view" guard so a same-view click also sends no `PUT /api/prefs` for the view
+// (REQ-6's "no prefs request... for the view") — without it the mousedown guard alone
+// stops the cancel, but the click still fired `requestView` unconditionally.
+viewFocusBtn.addEventListener("mousedown", (e) => {
+  if (e.button === 0 && view !== "focus") cancelOpenRenames();
+});
+viewTilesBtn.addEventListener("mousedown", (e) => {
+  if (e.button === 0 && view !== "tiles") cancelOpenRenames();
+});
+viewFocusBtn.addEventListener("click", () => {
+  if (view !== "focus") requestView("focus");
+});
+viewTilesBtn.addEventListener("click", () => {
+  if (view !== "tiles") requestView("tiles");
+});
 density2x2Btn.addEventListener("click", () => requestDensity("2x2"));
 density3x2Btn.addEventListener("click", () => requestDensity("3x2"));
 

@@ -244,6 +244,89 @@ func TestInterpret_MalformedPayloadNeverPanics(t *testing.T) {
 	}
 }
 
+// TestInterpret_FromSubagentMarker covers REQ-1/D6: FromSubagent is derived only for
+// the turn-activity events (UserPromptSubmit/PreToolUse/PostToolUse) and
+// PermissionRequest, true iff the payload carries the agent_id key at all (measured
+// 2.1.259, canary-fields.md "Subagent and background-task fields": main-agent hooks
+// have no agent_id key — not even null) — presence, never the value, per the daemon
+// implementation's own decision log. Every other event path (including Notification,
+// which never carries the marker on either observed type) leaves it false via the zero
+// value.
+func TestInterpret_FromSubagentMarker(t *testing.T) {
+	t.Run("marked turn-activity events derive FromSubagent true", func(t *testing.T) {
+		for _, event := range []string{"UserPromptSubmit", "PreToolUse", "PostToolUse"} {
+			t.Run(event, func(t *testing.T) {
+				payload := []byte(`{"hook_event_name":"` + event + `","session_id":"c1","prompt_id":"p1","permission_mode":"plan","agent_id":"agent-1","agent_type":"general-purpose"}`)
+
+				in := Interpret(event, payload)
+
+				assert.Equal(t, KindTurnActivity, in.Kind)
+				assert.True(t, in.FromSubagent, "an agent_id key present must derive FromSubagent true regardless of its value")
+			})
+		}
+	})
+
+	t.Run("unmarked turn-activity events derive FromSubagent false", func(t *testing.T) {
+		for _, event := range []string{"UserPromptSubmit", "PreToolUse", "PostToolUse"} {
+			t.Run(event, func(t *testing.T) {
+				payload := []byte(`{"hook_event_name":"` + event + `","session_id":"c1","prompt_id":"p1","permission_mode":"plan"}`)
+
+				in := Interpret(event, payload)
+
+				assert.False(t, in.FromSubagent, "no agent_id key at all (main-agent hooks never carry it — canary-fields.md) must derive false")
+			})
+		}
+	})
+
+	t.Run("an explicit agent_id:null (never observed on the wire, but a defensive case) derives FromSubagent false, matching absence", func(t *testing.T) {
+		payload := []byte(`{"hook_event_name":"PreToolUse","session_id":"c1","prompt_id":"p1","permission_mode":"default","agent_id":null}`)
+
+		in := Interpret("PreToolUse", payload)
+
+		assert.False(t, in.FromSubagent)
+	})
+
+	t.Run("marked PermissionRequest derives FromSubagent true", func(t *testing.T) {
+		payload := []byte(`{"hook_event_name":"PermissionRequest","session_id":"c1","prompt_id":"p1","permission_mode":"default","agent_id":"agent-1","agent_type":"general-purpose","tool_name":"Write"}`)
+
+		in := Interpret("PermissionRequest", payload)
+
+		assert.Equal(t, KindNeedsInputPermission, in.Kind)
+		assert.True(t, in.FromSubagent)
+	})
+
+	t.Run("unmarked PermissionRequest derives FromSubagent false", func(t *testing.T) {
+		body := claudecodetest.RawPermissionRequest("c1", "p1")
+
+		in := Interpret("PermissionRequest", []byte(body))
+
+		assert.Equal(t, KindNeedsInputPermission, in.Kind)
+		assert.False(t, in.FromSubagent)
+	})
+
+	t.Run("Notification never carries the marker on either observed type, so FromSubagent is always false", func(t *testing.T) {
+		for _, notificationType := range []string{"permission_prompt", "idle_prompt"} {
+			t.Run(notificationType, func(t *testing.T) {
+				body := claudecodetest.RawNotification("c1", "p1", notificationType)
+
+				in := Interpret("Notification", []byte(body))
+
+				assert.False(t, in.FromSubagent, "canary-fields.md: a subagent's own Notification permission_prompt carries no agent_id — only its PermissionRequest does")
+			})
+		}
+	})
+
+	t.Run("event kinds outside REQ-1's scope leave FromSubagent false via the zero value even though they're never expected to carry the marker", func(t *testing.T) {
+		stopBody := claudecodetest.RawStop("c1", claudecodetest.StopOpts{})
+		in := Interpret("Stop", []byte(stopBody))
+		assert.False(t, in.FromSubagent)
+
+		failBody := claudecodetest.RawStopFailure("c1", claudecodetest.StopFailureOpts{})
+		in = Interpret("StopFailure", []byte(failBody))
+		assert.False(t, in.FromSubagent)
+	})
+}
+
 // innerPayload extracts the "payload" field from an enveloped body — the shape
 // Interpret actually receives (the ingest worker unwraps the envelope before calling
 // it), mirroring what claudecode.ParseIngestBody hands the caller.
