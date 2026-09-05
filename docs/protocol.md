@@ -75,11 +75,13 @@ message (additive fields don't bump it).
 | `POST /api/issue/captures` | Pre-v1 (`issue-capture`) | Take an allowlisted state snapshot and hold it (§3.12) |
 | `POST /api/issues` | Pre-v1 (`issue-capture`) | File a held capture as a GitHub issue (§3.13) |
 | `POST /api/sessions/{id}/locate` | Pre-v1 (`file-drop-fix`) | Resolve a dropped file's bytes to its original on-disk path (§3.14) |
+| `POST /api/sessions/{id}/shell` | Pre-v1 (`plain-terminal-session`) | Ensure a plain shell is running for a session, spawning it if absent (§3.16) |
 
 Design rule: **commands travel over HTTP; the WS pushes state one way (server→client)**.
 Rationale: idempotency and errors are natural in request/response, the E2E harness can
 drive every action without a socket, and the WS stays a pure ordered event stream. The
-only client→server WS traffic in v1 is terminal input/resize on the terminal sockets (§6).
+only client→server WS traffic in v1 is terminal input/resize on the terminal sockets (§6,
+§6.1).
 
 ### 3.1 `POST /api/sessions` (M1)
 
@@ -233,6 +235,10 @@ touched. Recoverable: the daemon still holds `claudeSessionId`, so §3.5 can res
 No body. If the session is alive, the §3.7 End path runs first (its upsert is broadcast);
 then the row is deleted and `sessionRemoved` (§5.5) is broadcast. `event` rows keep their
 `session_id` (audit trail). A removed session can no longer be resumed from Muster.
+
+Since `plain-terminal-session` (2026-09-05) this also kills the session's shell tmux
+session, `muster-<id>-shell`, if one is running (§3.16). §3.7 End deliberately does **not** —
+a shell outlives its parent session ending and dies only on Remove (or reconcile).
 
 `204`. Errors: `404 unknown_session`; `500 end_failed` (alive and the kill failed — the
 row is **not** deleted).
@@ -435,6 +441,48 @@ title still reaches Claude Code as `--name` and is *not* an override.
   `{ "error": { "code": "invalid_request", "message": "title must be null or 1-100 characters after trimming" } }`
 - `404 unknown_session` — no session with that id.
   `{ "error": { "code": "unknown_session", "message": "unknown session id" } }`
+
+### 3.16 `POST /api/sessions/{id}/shell` (Pre-v1 — `plain-terminal-session`, 2026-09-05)
+
+**Auth**: UI cookie (401 `unauthorized`). No body. Ensures session `{id}` has a plain shell
+running in its own tmux session, `muster-<id>-shell`, spawning it if absent — the lazy-spawn
+step behind the dashboard's `claude | shell` surface switch (#21). Idempotent: a session whose
+shell is already running is a `200` with `created: false`.
+
+The shell runs the user's `$SHELL` interactively (fallback `/bin/zsh`) with the session's
+`directory` as cwd, and is spawned with **no `MUSTER_SESSION`** in its environment — so a
+`claude` run inside it produces an envelope with no `musterSession`, falls through
+§4.2's binding rules to an unbound `session_id`, and persists unrouted with a NULL
+`event.session_id`. That isolation is structural, not incidental: it is what stops a nested
+`claude` driving the parent session's state machine. Muster writes no
+`.claude/settings.local.json` on a shell's behalf.
+
+`alive` is **not** consulted, in either direction: a shell may be started on a dead session
+and survives its parent session ending. A shell has no representation in SQLite and none on
+the state stream — the §5.3 Session object is unchanged, and no `sessionUpsert` is broadcast.
+
+**Response 200:**
+
+```json
+{ "target": "muster-7-shell", "created": true }
+```
+
+- `target` — string, the shell's tmux session name; always `muster-<id>-shell`.
+- `created` — boolean, `true` iff this call spawned it.
+
+**Errors** (envelope per §2):
+
+- `404 unknown_session` — no session with that id.
+  `{ "error": { "code": "unknown_session", "message": "unknown session id" } }`
+- `409 directory_missing` — the session's recorded directory no longer exists or is not a
+  directory; checked before the spawn so this is a clean 409, never a tmux error.
+  `{ "error": { "code": "directory_missing", "message": "/Users/d/gone no longer exists" } }`
+- `500 shell_spawn_failed` — tmux refused the spawn; `message` carries the tmux error.
+  `{ "error": { "code": "shell_spawn_failed", "message": "tmux new-session: ..." } }`
+
+Shells are deliberately **not** persistent: they outlive musterd only because tmux sessions
+do, and reconcile (§7.5) kills every `muster-<n>-shell` on the socket at startup rather than
+adopting it.
 
 ## 4. HTTP endpoints — ingest (Claude Code → daemon)
 
@@ -757,6 +805,34 @@ before the new attach starts. Geometry ownership moves with the socket, which is
 the resize mechanics view-switching needs (ux-flows §3.8): the newly-owning surface sends
 its `resize` on connect, and sessions whose live surface didn't change are never touched.
 
+### 6.1 WebSocket `/ws/shell/{id}` — the shell PTY bridge (Pre-v1 — `plain-terminal-session`, 2026-09-05)
+
+One socket per live **shell** surface, bridged to a daemon-owned PTY running `tmux attach`
+against `muster-<id>-shell` (§3.16). **Attach only** — this route never spawns; `POST
+/api/sessions/{id}/shell` is the only thing that creates a shell.
+
+**Auth**: UI cookie on the upgrade + the §2 Origin check. Pre-upgrade errors (plain HTTP):
+401 `unauthorized`, 404 `not_found` (unknown session id), 409 `no_shell` (the session exists
+but has no running shell). `alive` is not consulted (§3.16). Note that a browser cannot read a
+pre-upgrade status — the WebSocket API hides it — which is why the spawn is a separate POST
+whose error body the dashboard can actually render.
+
+**Frames**: byte-for-byte identical to §6 — raw PTY output binary server→client, raw input
+binary client→server, and `{"type":"resize","cols":N,"rows":N}` as the only client→server text
+frame, with the same [20, 500] × [5, 300] clamps and the same `pty.Setsize` **then** `tmux
+resize-window` order (FINDINGS §7(d)). An unparseable or unknown text frame is ignored and
+logged, never fatal.
+
+**Close codes**: `4000` `superseded`, `4001` `pane_ended` (the shell exited — `exit`, or an
+external kill), normal close (1001) on daemon shutdown. Unlike §6's `4001`, this one does
+**not** nudge the liveness poll: a shell's death is not its session's death, and a live session
+must never take a liveness flap because a shell under it exited.
+
+**One-live-client law**: enforced per **attach target**, not per session. `muster-<id>` and
+`muster-<id>-shell` are distinct targets, so a session's Claude socket and its shell socket are
+independent — opening one never supersedes the other. Two clients on the *same* target still
+supersede each other exactly as §6 describes.
+
 ## 7. The state machine (M1; specified now because everything above serves it)
 
 Runs inside the daemon per session, fed exclusively by ingested events (in `seq` order),
@@ -865,6 +941,12 @@ answer, over every persisted row:
   the resume chance survives; swept on the *following* startup.
 - A `muster-<n>` tmux session with no row → logged at warn, never adopted (Muster only
   manages what it started).
+- A `muster-<n>-shell` tmux session (§3.16) → **killed**, unconditionally, whatever its
+  `<n>`, and never reported as an unknown session. Shells are deliberately non-persistent;
+  since tmux sessions outlive musterd, "the daemon forgets them" has to mean this sweep
+  actively kills them, or a restart leaks a live shell with nothing pointing at it.
+  Adopting one instead would be persistence by the back door (plan
+  `plain-terminal-session`, 2026-09-05).
 
 **Daemon shutdown leaves sessions running** by default — they are meant to outlive a
 restart. `musterd -on-exit=ask|leave|kill` (default `ask`): with a TTY on stdin and ≥1
@@ -889,6 +971,17 @@ exit — so the next startup sweeps it.
   (§7.3) — plan `m4-reconcile`; canary unskip — plan `m4-canary`.
 
 ## 9. Changelog
+
+- **2026-09-05 — §3.16 `POST /api/sessions/{id}/shell`; §6.1 `/ws/shell/{id}`; §3.8 also kills
+  the shell** (plan `plain-terminal-session`, Pre-v1, closes #21). A plain `$SHELL` tabbed to an
+  existing session, in its directory, in a sibling tmux session `muster-<id>-shell`. Spawned
+  lazily over HTTP (so its failure has a body the dashboard can render — a browser cannot read a
+  pre-upgrade WS status), attached over a second terminal socket. The one-live-client law becomes
+  per **attach target**, so a session's Claude and shell sockets are independent. Deliberately
+  invisible to the data model: no SQLite row, no `kind` on the wire, **§5.3 Session unchanged**,
+  no `sessionUpsert`; reconcile kills orphaned shells at startup rather than adopting them. The
+  shell pane carries no `MUSTER_SESSION`, so a nested `claude` cannot bind to its parent. Additive
+  (two new routes, no existing shape changed); no version bump.
 
 - **2026-09-03 — §3.15 `PUT /api/sessions/{id}/title`; §5.3 `title` becomes the display title
   and gains `titleOverride`** (plan `ui-text-and-focus`, Pre-v1, closes #10 with #16/#18/#19).

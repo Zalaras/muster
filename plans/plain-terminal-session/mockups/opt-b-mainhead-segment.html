@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script>(function(){try{var t=localStorage.getItem('muster-mockup-theme');if(t)document.documentElement.dataset.theme=t;
+var f=localStorage.getItem('muster-mockup-family');if(f)document.documentElement.dataset.claudeFamily=f;}catch(e){}})();</script>
+<title>B — segmented surface switch in the mainhead</title>
+<link rel="stylesheet" href="mockup.css">
+</head>
+<body class="show-claude">
+
+<header class="mast">
+  <div class="brand"><h1>MUSTER</h1><span class="sub">option B · mainhead segment</span></div>
+  <div class="views">
+    <span class="on" title="⌘\">Focus</span><a href="tiles.html" title="⌘\">Tiles</a><span class="kb">⌘\</span>
+  </div>
+  <div class="gauges">
+    <div class="gauge"><span class="lbl">5h</span><span class="bar warn"><i style="width:61%"></i></span><span class="num">61%</span><span class="resets">· resets 14:20</span></div>
+    <div class="gauge"><span class="lbl">7d</span><span class="bar"><i style="width:23%"></i></span><span class="num">23%</span><span class="resets">· resets Fri</span></div>
+    <span class="model">opus</span>
+    <div class="health"><span class="dot"></span><span class="lbl-ok">daemon ok</span></div>
+  </div>
+</header>
+
+<div class="split">
+
+  <aside class="rail">
+    <div class="railhead"><span>sorted by who needs you</span><span class="n">4</span></div>
+    <div class="cards">
+      <div class="card s-blocked on demo-dead">
+        <span class="stripe"></span>
+        <div class="card-in">
+          <div class="r1"><span class="name">flaky-e2e-hunt</span><span class="state">needs you</span><span class="timer">11:48</span></div>
+          <div class="r2">muster<span class="sep">/</span>feat-e2e</div>
+          <div class="r3"><span class="ctx hot"><i style="width:42%"></i></span><span class="tok">42%</span></div>
+        </div>
+      </div>
+      <div class="card s-work">
+        <span class="stripe"></span>
+        <div class="card-in">
+          <div class="r1"><span class="name">auth-jwt-rotation</span><span class="state">working</span><span class="timer">02:11</span></div>
+          <div class="r2">gateway<span class="sep">/</span>main</div>
+          <div class="r3"><span class="ctx"><i style="width:18%"></i></span><span class="tok">18%</span></div>
+        </div>
+      </div>
+      <div class="card s-idle">
+        <span class="stripe"></span>
+        <div class="card-in">
+          <div class="r1"><span class="name">docs-sweep</span><span class="state">idle</span><span class="timer">31:04</span></div>
+          <div class="r2">muster<span class="sep">/</span>main</div>
+          <div class="r3"><span class="unk">context unknown</span></div>
+        </div>
+      </div>
+      <div class="card s-plan">
+        <span class="stripe"></span>
+        <div class="card-in">
+          <div class="r1"><span class="name">infra-terraform</span><span class="state">planning</span><span class="timer">07:52</span></div>
+          <div class="r2">infra<span class="sep">/</span>tf-upgrade</div>
+          <div class="r3"><span class="ctx"><i style="width:63%"></i></span><span class="tok">63%</span></div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="mainhead">
+      <h2 class="name" style="margin:0;font-family:var(--disp);font-weight:700;font-size:15px">flaky-e2e-hunt</h2>
+      <span class="meta">muster<span class="sep">/</span>feat-e2e<span class="sep">·</span>opus</span>
+      <div class="surfseg sw" role="group" aria-label="Surface" style="margin-left:auto">
+        <button data-surf="claude" aria-pressed="true">claude</button>
+        <button data-surf="shell" aria-pressed="false"><span class="pip"></span>shell</button>
+      </div>
+      <div class="acts" style="margin-left:12px">
+        <button class="btn">End</button>
+        <button class="btn" disabled>Resume</button>
+        <button class="btn danger">Remove</button>
+      </div>
+    </div>
+    <div class="term pane-claude"><span class="u">> the e2e suite is flaky on CI — find out why</span>
+
+<span class="a">I've read the last 40 CI runs. Three specs fail non-deterministically and all
+three share the retry wrapper added in <span class="tool">a1f3c2</span>. My plan:</span>
+
+<span class="tool">  ⏵ Read(web/playwright.config.ts)</span>          <span class="ok">✓ 61 lines</span>
+<span class="tool">  ⏵ Grep(test.retry, web/e2e/)</span>              <span class="ok">✓ 9 matches</span>
+
+<span class="box">╭──────────────────────────────────────────────────────────────╮
+│  Ready to code?                                              │
+│                                                              │
+│   1. Rewrite playwright.config.ts — per-run ports, no reuse  │
+│   2. Drop the retry wrapper; wait on a readiness signal       │
+│                                                              │
+│  ❯ 1. Yes, and auto-accept edits                             │
+│    2. Yes, and manually approve edits                        │
+│    3. No, keep planning                                      │
+╰──────────────────────────────────────────────────────────────╯</span>
+
+<span class="warn">  ⏸ waiting on you — 11:48</span> <span class="cursor"> </span></div>
+
+    <div class="deadwrap">
+      <div class="endbar">ended 6m ago<span>·</span>last state: needs you<span>·</span>muster / feat-e2e</div>
+      <div class="termwrap" style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column">
+        <pre class="snapshot">  ⏵ Grep(test.retry, web/e2e/)              ✓ 9 matches
+
+  ⏸ waiting on you — 11:48</pre>
+        <div class="endcap"><div class="pill"><b>session ended</b>6m ago · last state: needs you
+          <div class="acts-row" style="justify-content:center;margin-top:10px"><button class="btn">Resume</button></div></div></div>
+      </div>
+    </div>
+
+    <div class="shellbody pane-shell"><span class="p">~/code/muster</span> <span class="dim">(feat-e2e)</span> $ git log --oneline -5
+<span class="dim">a70a659 docs(open-sourcing): SECURITY.md via private reporting
+1905fa9 docs(open-sourcing): no plans/ skim; README install rewrite
+dfe5ff2 docs(open-sourcing): add CONTRIBUTING.md, delete junk root files
+d3d5c2d fix(issue): dialog states the issue is public
+394e558 docs(open-sourcing): PR template, README issues policy</span>
+
+<span class="p">~/code/muster</span> <span class="dim">(feat-e2e)</span> $ rg -c "test.retry" web/e2e/
+<span class="dim">web/e2e/resilience.spec.ts:3
+web/e2e/reconcile.spec.ts:6</span>
+
+<span class="p">~/code/muster</span> <span class="dim">(feat-e2e)</span> $ <span class="cursor"> </span></div>
+    <div class="sizenote"><span>210×52</span><span>one live client · geometry owned by this pane</span></div>
+  </main>
+</div>
+
+<div class="nav"><a href="index.html">← all options</a></div>
+<div class="demo">
+  <span class="lbl">showing</span>
+  <button class="btn on" id="dClaude">claude</button>
+  <button class="btn" id="dShell">shell</button>
+  <span class="lbl" style="margin-left:10px">session</span>
+  <button class="btn on" id="dLive">live</button>
+  <button class="btn" id="dEnded">ended</button>
+</div>
+<script>
+const b=document.body;
+function surf(s){b.classList.toggle('show-shell',s==='shell');b.classList.toggle('show-claude',s!=='shell');
+  dClaude.classList.toggle('on',s!=='shell');dShell.classList.toggle('on',s==='shell');
+  document.querySelectorAll('[data-surf]').forEach(el=>{
+    const mine=el.dataset.surf===s;
+    if(el.hasAttribute('aria-pressed'))el.setAttribute('aria-pressed',String(mine));
+    if(el.hasAttribute('aria-selected'))el.setAttribute('aria-selected',String(mine));});}
+function dead(v){b.classList.toggle('is-dead',v);dLive.classList.toggle('on',!v);dEnded.classList.toggle('on',v);}
+dClaude.onclick=()=>surf('claude'); dShell.onclick=()=>surf('shell');
+dLive.onclick=()=>dead(false); dEnded.onclick=()=>dead(true);
+document.querySelectorAll('[data-surf]').forEach(el=>el.onclick=()=>surf(el.dataset.surf));
+</script>
+</body>
+</html>

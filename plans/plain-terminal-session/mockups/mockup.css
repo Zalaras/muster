@@ -1,0 +1,474 @@
+/* ── theme architecture (plan new-ui-design-colors, 2026-09-02) ──────────────────
+   Layer 1 — semantic tokens: every component below references ONLY these names.
+   Layer 2 — one self-contained palette block per theme, selected by
+   <html data-theme="…">. Adding a theme = adding one block; no component edit.
+   The terminal pair (--term/--term-fg) is chosen by <html data-claude-family="…">,
+   independent of the Muster theme, because Claude Code draws its own TUI colours
+   for ITS theme and Muster only matches the ground (design-system §7.5). */
+:root{
+  /* type — system stacks only; nothing vendored, nothing fetched (decided 2026-08-16) */
+  --mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,'Segoe UI',sans-serif;
+  --disp:system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+/* Instrument — the default (direction A, 2026-08-16; contrast-fixed 2026-09-02) */
+:root,
+:root[data-theme="instrument"]{
+  --bg:#12141c;
+  --bg-raised:#171a24;
+  --bg-hover:#1c2029;
+  --well:#0d0f16;
+  --line:#282d3b;
+  --line-control:#343a4a;
+  --edge:#6a7286;
+  --fg:#e8e6e1;
+  --fg-muted:#b2b6c3;
+  --fg-dim:#a6abbc;
+  --amber:#f2a33c;
+  --rose:#e77f7f;
+  --violet:#9e91f1;
+  --teal:#56c5d0;
+  --idle:#989db1;
+  --amber-line:#5c4526;
+  --rose-line:#5c2e2e;
+  --violet-line:#3e3663;
+  --teal-line:#215058;
+  --amber-note:#f5cc93;
+  --rose-note:#f1b0b0;
+  --amber-fg:#12141c;
+  --banner-bg:#3a1e1e;
+  --banner-line:#5a2c2c;
+  --banner-fg:#f3b7b7;
+  --danger:#c24646;
+  --danger-line:#7a3535;
+  --danger-fg:#ffffff;
+  --disabled-fg:#5a6070;
+  --disabled-line:#2c3140;
+  --disabled-bg:#22262f;
+  --term-dark-bg:#0d0f16;
+  --term-dark-fg:#e8e6e1;
+  --term-light-bg:#fbfaf7;
+  --term-light-fg:#1c1e26;
+  --scrim:rgba(8,9,13,.72); --bg-raised-95:rgba(23,26,36,.95); --green:#7BC47F;
+}
+/* Dark — conventional web-style dark (neutral greys, editor/GitHub sense) */
+:root[data-theme="dark"]{
+  --bg:#181a1f;
+  --bg-raised:#1f2228;
+  --bg-hover:#282c34;
+  --well:#121418;
+  --line:#2c3038;
+  --line-control:#3a3f49;
+  --edge:#737a87;
+  --fg:#e8e9eb;
+  --fg-muted:#c1c5cc;
+  --fg-dim:#b4b8c0;
+  --amber:#e6a642;
+  --rose:#f28e95;
+  --violet:#ada1f5;
+  --teal:#4fcbc6;
+  --idle:#a4abb7;
+  --amber-line:#5a4422;
+  --rose-line:#5d2d31;
+  --violet-line:#3f3a66;
+  --teal-line:#1f5352;
+  --amber-note:#f2cf95;
+  --rose-note:#f5b7bb;
+  --amber-fg:#181a1f;
+  --banner-bg:#3b2020;
+  --banner-line:#5c2f2f;
+  --banner-fg:#f4b9b9;
+  --danger:#c24646;
+  --danger-line:#7a3535;
+  --danger-fg:#ffffff;
+  --disabled-fg:#5e646e;
+  --disabled-line:#2f343c;
+  --disabled-bg:#252930;
+  --term-dark-bg:#121418;
+  --term-dark-fg:#e8e9eb;
+  --term-light-bg:#fafafa;
+  --term-light-fg:#1f2228;
+  --scrim:rgba(10,11,14,.72); --bg-raised-95:rgba(31,34,40,.95); --green:#6cc07a;
+}
+/* Light — standard light */
+:root[data-theme="light"]{
+  --bg:#f3f2ee;
+  --bg-raised:#fbfaf7;
+  --bg-hover:#edece7;
+  --well:#ffffff;
+  --line:#e0ded8;
+  --line-control:#cbc9c2;
+  --edge:#8a8983;
+  --fg:#1c1e26;
+  --fg-muted:#41454f;
+  --fg-dim:#494d5c;
+  --amber:#844800;
+  --rose:#a22a33;
+  --violet:#583ad1;
+  --teal:#0a6167;
+  --idle:#535764;
+  --amber-line:#efd6ac;
+  --rose-line:#f2c3c5;
+  --violet-line:#d8d1f4;
+  --teal-line:#b8e1e3;
+  --amber-note:#754100;
+  --rose-note:#8e2a31;
+  --amber-fg:#ffffff;
+  --banner-bg:#fbe8e8;
+  --banner-line:#e5b6b6;
+  --banner-fg:#7a1f1f;
+  --danger:#b23838;
+  --danger-line:#8c2b2b;
+  --danger-fg:#ffffff;
+  --disabled-fg:#a6aab3;
+  --disabled-line:#dddbd5;
+  --disabled-bg:#ecebe6;
+  --term-dark-bg:#14161c;
+  --term-dark-fg:#e8e6e1;
+  --term-light-bg:#ffffff;
+  --term-light-fg:#1c1e26;
+  --scrim:rgba(28,30,38,.45); --bg-raised-95:rgba(251,250,247,.95); --green:#1f7a3a;
+}
+/* terminal ground follows Claude Code's theme family, never the Muster theme */
+:root{ --term:var(--term-dark-bg); --term-fg:var(--term-dark-fg); }
+:root[data-claude-family="light"]{ --term:var(--term-light-bg); --term-fg:var(--term-light-fg); }
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);
+  font-size:14px;-webkit-font-smoothing:antialiased;
+  display:flex;flex-direction:column;overflow:hidden;
+}
+
+/* ── masthead ─────────────────────────────────────── */
+.mast{
+  display:flex;align-items:center;gap:26px;padding:11px 18px;
+  border-bottom:1px solid var(--line);background:var(--bg-raised);flex:none;
+}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand h1{font-family:var(--disp);font-weight:800;font-size:19px;letter-spacing:-.03em;margin:0}
+.brand .sub{font-family:var(--mono);font-size:10px;color:var(--fg-dim);letter-spacing:.1em;text-transform:uppercase}
+.views{display:flex;margin-left:26px;font-family:var(--mono);font-size:10.5px}
+.views span,.views a{padding:4px 13px;border:1px solid var(--line-control);border-right-width:0;
+  color:var(--fg-dim);text-decoration:none;cursor:pointer}
+.views :last-child{border-right-width:1px}
+.views .on{color:var(--fg);background:var(--bg-hover)}
+.views a:hover{color:var(--fg)}
+.views .kb{border:0;color:var(--fg-dim);padding-left:9px}
+.gauges{display:flex;align-items:center;gap:22px;margin-left:auto;font-family:var(--mono);font-size:11px}
+.gauge{display:flex;align-items:center;gap:8px;color:var(--fg-muted)}
+.gauge .lbl{color:var(--fg-dim);letter-spacing:.08em;text-transform:uppercase;font-size:10px}
+.bar{width:96px;height:5px;background:var(--line);position:relative;overflow:hidden}
+.bar i{position:absolute;inset:0 auto 0 0;background:var(--teal)}
+.bar.warn i{background:var(--amber)}
+.num{font-variant-numeric:tabular-nums;color:var(--fg)}
+.resets{color:var(--fg-dim)}
+.model{font-family:var(--mono);font-size:11px;color:var(--fg);
+  border:1px solid var(--line-control);padding:3px 9px}
+.health{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;
+  color:var(--fg-dim);letter-spacing:.08em;text-transform:uppercase}
+.health .dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+
+/* ── daemon-down banner ───────────────────────────── */
+.down{display:none;padding:9px 18px;background:var(--banner-bg);border-bottom:1px solid var(--banner-line);
+  font-family:var(--mono);font-size:11.5px;color:var(--banner-fg);flex:none}
+.down b{color:var(--banner-fg);font-weight:800}
+body.is-down .down{display:block}
+body.is-down .health .dot{background:var(--rose)}
+body.is-down .health{color:var(--rose)}
+.lbl-down{display:none}
+body.is-down .lbl-ok{display:none}
+body.is-down .lbl-down{display:inline}
+
+/* ── body split ───────────────────────────────────── */
+.split{display:flex;flex:1;min-height:0}
+
+/* ── attention ribbon + rail ──────────────────────── */
+.rail{width:290px;flex:none;border-right:1px solid var(--line);background:var(--bg-raised);
+  display:flex;flex-direction:column;min-height:0}
+/* attention ribbon — DEFERRED post-v1 (decided 2026-08-16); design kept, slot dark */
+.ribbon{display:none;padding:11px 13px 13px;border-bottom:1px solid var(--line);flex:none}
+body.show-ribbon .ribbon{display:block}
+.ribbon-title{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--fg-dim);margin-bottom:9px}
+.lane{display:grid;grid-template-columns:1fr;height:7px;margin-bottom:3px;
+  background:var(--line);position:relative;overflow:hidden}
+.lane span{position:absolute;top:0;bottom:0}
+.ribbon-key{display:flex;gap:11px;margin-top:9px;font-family:var(--mono);
+  font-size:9.5px;color:var(--fg-dim)}
+.ribbon-key i{display:inline-block;width:7px;height:7px;margin-right:4px;vertical-align:-1px}
+
+.railhead{display:flex;align-items:center;padding:9px 13px;flex:none;
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--fg-dim);border-bottom:1px solid var(--line)}
+.railhead .n{margin-left:auto;color:var(--fg-muted)}
+.cards{overflow-y:auto;flex:1;min-height:0}
+
+.card{display:flex;gap:0;border-bottom:1px solid var(--line);cursor:pointer;position:relative}
+.card:hover{background:var(--bg-hover)}
+.card .stripe{width:3px;flex:none;background:var(--idle)}
+.card-in{padding:10px 12px 11px;flex:1;min-width:0}
+.r1{display:flex;align-items:baseline;gap:8px}
+.card .name{font-family:var(--disp);font-weight:700;font-size:13.5px;letter-spacing:-.01em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .timer{margin-left:auto;font-family:var(--mono);font-size:11.5px;
+  font-variant-numeric:tabular-nums;color:var(--fg-dim);flex:none}
+.card .state{font-family:var(--mono);font-size:9px;letter-spacing:.11em;
+  text-transform:uppercase;padding:2px 5px;border:1px solid;flex:none}
+.r2{font-family:var(--mono);font-size:10.5px;color:var(--fg-dim);margin-top:5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r2 .sep{color:var(--fg-dim);margin:0 5px}
+.r3{display:flex;align-items:center;gap:7px;margin-top:7px;
+  font-family:var(--mono);font-size:10px;color:var(--fg-muted)}
+.ctx{width:52px;height:3px;background:var(--line);position:relative;flex:none}
+.ctx i{position:absolute;inset:0 auto 0 0;background:var(--fg-muted)}
+.ctx.hot i{background:var(--amber)}
+.tok{font-variant-numeric:tabular-nums}
+.compact{margin-left:auto;color:var(--fg-dim)}
+/* unknown context: no track at all — an empty gauge would read as 0% */
+.unk{color:var(--fg-dim);font-style:italic}
+.note{margin-top:7px;font-family:var(--mono);font-size:10px;line-height:1.5;
+  color:var(--amber-note);border-left:2px solid var(--amber);padding-left:8px}
+.note.fail{color:var(--rose-note);border-color:var(--rose)}
+.snap{margin-top:8px;font-family:var(--mono);font-size:9px;line-height:1.35;
+  color:var(--fg-dim);background:var(--well);border:1px solid var(--line);padding:6px 7px;
+  white-space:pre;overflow:hidden;max-height:42px}
+
+/* state colours */
+.s-blocked .stripe{background:var(--amber)}
+.s-blocked .state{color:var(--amber);border-color:var(--amber-line)}
+.s-failed  .stripe{background:var(--rose)}
+.s-failed  .state{color:var(--rose);border-color:var(--rose-line)}
+.s-plan    .stripe{background:var(--violet)}
+.s-plan    .state{color:var(--violet);border-color:var(--violet-line)}
+.s-work    .stripe{background:var(--teal)}
+.s-work    .state{color:var(--teal);border-color:var(--teal-line)}
+.s-start   .stripe{background:var(--fg-muted)}
+.s-start   .state{color:var(--fg-muted);border-color:var(--line-control)}
+.s-idle    .stripe{background:var(--idle)}
+.s-idle    .state{color:var(--idle);border-color:var(--line-control)}
+.card.on{background:var(--bg-hover)}
+.card.on::after{content:'';position:absolute;right:0;top:0;bottom:0;width:1px;background:var(--bg-hover)}
+
+/* ── main / terminal ──────────────────────────────── */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+.mainhead{display:flex;align-items:center;gap:12px;padding:10px 16px;
+  border-bottom:1px solid var(--line);background:var(--bg-raised);flex:none}
+.mainhead .name{font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:-.015em}
+.mainhead .meta{font-family:var(--mono);font-size:11px;color:var(--fg-dim)}
+.mainhead .meta .sep{color:var(--fg-dim);margin:0 6px}
+.acts{margin-left:auto;display:flex;gap:7px}
+.btn{font-family:var(--mono);font-size:10.5px;padding:5px 11px;background:transparent;
+  border:1px solid var(--line-control);color:var(--fg-muted);cursor:pointer}
+.btn:hover{color:var(--fg);border-color:var(--fg-muted)}
+.btn.key{color:var(--amber-fg);background:var(--amber);border-color:var(--amber);font-weight:600}
+.btn:disabled,.btn.key:disabled{color:var(--disabled-fg);background:var(--disabled-bg);border-color:var(--disabled-line);cursor:not-allowed;font-weight:400}
+.term{flex:1;min-height:0;overflow:auto;background:var(--term);padding:14px 16px;
+  font-family:var(--mono);font-size:12.5px;line-height:1.65;color:var(--term-fg);white-space:pre-wrap}
+.term .u{color:var(--fg-muted)}
+.term .a{color:var(--term-fg)}
+.term .tool{color:var(--teal)}
+.term .ok{color:var(--green)}
+.term .warn{color:var(--amber)}
+.term .box{color:var(--amber)}
+.term .cursor{background:var(--term-fg);color:var(--term)}
+.sizenote{flex:none;padding:6px 16px;border-top:1px solid var(--line);background:var(--bg-raised);
+  font-family:var(--mono);font-size:10px;color:var(--fg-dim);display:flex;gap:16px}
+
+
+/* ── the grid ─────────────────────────────────────── */
+.grid{flex:1;min-height:0;display:grid;gap:1px;background:var(--line);
+  grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;padding:1px}
+body.g32 .grid{grid-template-columns:1fr 1fr 1fr}
+/* 3×2 promotes two snapshot sessions into live tiles — and narrows every tile */
+.tile.extra{display:none}
+body.g32 .tile.extra{display:flex}
+body.g32 .scard.promoted{display:none}
+.geo32{display:none}
+body.g32 .geo22{display:none}
+body.g32 .geo32{display:inline}
+
+.tile{background:var(--bg);display:flex;flex-direction:column;min-width:0;min-height:0;
+  position:relative;border:1px solid transparent}
+.tile.on{border-color:var(--line-control)}
+.tile.blocked{border-color:var(--amber-line)}
+.tile.failed{border-color:var(--rose-line)}
+
+.thead{flex:none;display:flex;align-items:center;gap:9px;padding:7px 11px;
+  background:var(--bg-raised);border-bottom:1px solid var(--line);min-width:0}
+.thead .sdot{width:7px;height:7px;flex:none;background:var(--idle)}
+.tile.blocked .sdot{background:var(--amber)}
+.tile.failed  .sdot{background:var(--rose)}
+.tile.working .sdot{background:var(--teal)}
+.tile.planning .sdot{background:var(--violet)}
+.thead .nm{font-family:var(--disp);font-weight:700;font-size:12.5px;letter-spacing:-.01em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.thead .wh{font-family:var(--mono);font-size:10px;color:var(--fg-dim);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;min-width:0}
+.thead .ctx{width:34px;height:3px;background:var(--line);position:relative;flex:none;margin-left:auto}
+.thead .ctx i{position:absolute;inset:0 auto 0 0;background:var(--fg-muted)}
+.thead .ctx.hot i{background:var(--amber)}
+.thead .pct{font-family:var(--mono);font-size:10px;color:var(--fg-muted);flex:none;
+  font-variant-numeric:tabular-nums}
+.thead .tm{font-family:var(--mono);font-size:11px;color:var(--fg-dim);flex:none;
+  font-variant-numeric:tabular-nums}
+.tile.blocked .tm{color:var(--amber)}
+
+.tbody{flex:1;min-height:0;overflow:auto;background:var(--term);padding:9px 11px;
+  font-family:var(--mono);font-size:11px;line-height:1.55;color:var(--term-fg);white-space:pre}
+.tbody .u{color:var(--fg-muted)}
+.tbody .tool{color:var(--teal)}
+.tbody .ok{color:var(--green)}
+.tbody .box{color:var(--amber)}
+.tbody .warn{color:var(--amber)}
+.tbody .err{color:var(--rose)}
+.cursor{background:var(--term-fg);color:var(--term)}
+
+.tfoot{flex:none;display:flex;gap:10px;padding:4px 11px;background:var(--bg-raised);
+  border-top:1px solid var(--line);font-family:var(--mono);font-size:9.5px;color:var(--fg-dim)}
+.tfoot .live{color:var(--teal)}
+.tfoot .snap{color:var(--fg-dim)}
+.tfoot .sp{margin-left:auto}
+
+/* ── snapshot strip: sessions beyond the live grid ── */
+.strip{flex:none;display:flex;gap:1px;background:var(--line);border-top:1px solid var(--line)}
+
+/* ══ plain-terminal-session: what these mockups ADD ═══════════════════════════════
+   Everything below this line is new chrome proposed by this plan. Everything above
+   is extracted verbatim from docs/design/mockups/a-instrument.html (frame) and
+   d-tiled.html (grid), so any squeeze a new control causes is a real squeeze. */
+
+/* marks the added control on every page, so what is new is unambiguous */
+.sw{outline:2px dashed var(--amber);outline-offset:2px}
+
+/* ── A: a lone toggle button in an existing action row ───────────────────────── */
+.btn.surf{letter-spacing:.06em}
+.btn.surf.lit{color:var(--teal);border-color:var(--teal-line)}
+.btn.surf .pip{display:none}
+.btn.surf.lit .pip{display:inline-block;width:5px;height:5px;border-radius:50%;
+  background:var(--teal);margin-right:6px;vertical-align:1px}
+
+/* ── B: a segmented surface switch (the Settings dialog's own .seg-track idiom) ── */
+.surfseg{display:inline-flex;border:1px solid var(--line-control);overflow:hidden;flex:none}
+.surfseg button{font-family:var(--mono);font-size:10.5px;padding:4px 11px;
+  background:transparent;border:0;border-right:1px solid var(--line-control);
+  color:var(--fg-dim);cursor:pointer;display:flex;align-items:center;gap:6px}
+.surfseg button:last-child{border-right:0}
+.surfseg button:hover{color:var(--fg)}
+.surfseg button[aria-pressed="true"]{background:var(--bg-hover);color:var(--fg)}
+.surfseg .pip{width:5px;height:5px;border-radius:50%;background:var(--teal);flex:none}
+.surfseg .pip.off{background:transparent;border:1px solid var(--line-control)}
+
+/* ── C: a tab strip banding the pane area ───────────────────────────────────── */
+.tabstrip{flex:none;display:flex;align-items:center;gap:0;padding:0 14px;
+  background:var(--bg-raised);border-bottom:1px solid var(--line)}
+.tabstrip button{font-family:var(--mono);font-size:11px;padding:7px 14px;
+  background:transparent;border:0;border-bottom:2px solid transparent;
+  color:var(--fg-dim);cursor:pointer;display:flex;align-items:center;gap:7px}
+.tabstrip button:hover{color:var(--fg)}
+.tabstrip button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--amber)}
+.tabstrip .pip{width:5px;height:5px;border-radius:50%;background:var(--teal);flex:none}
+.tabstrip .hint{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--fg-dim)}
+
+/* ── the tile-header control (same in every option — the spec settles Tiles) ──── */
+.thead .surf{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;
+  padding:2px 6px;background:transparent;border:1px solid var(--line-control);
+  color:var(--fg-dim);cursor:pointer;flex:none;display:flex;align-items:center;gap:5px}
+.thead .surf:hover{color:var(--fg)}
+.thead .surf.lit{color:var(--teal);border-color:var(--teal-line)}
+.thead .surf .pip{width:4px;height:4px;border-radius:50%;background:var(--teal);flex:none}
+
+/* ── the shell body (what replaces the Claude pane once toggled) ─────────────── */
+.shellbody{flex:1;min-height:0;overflow:auto;background:var(--term);padding:14px 16px;
+  font-family:var(--mono);font-size:12.5px;line-height:1.65;color:var(--term-fg);white-space:pre-wrap}
+.shellbody .p{color:var(--teal)}
+.shellbody .dim{color:var(--fg-dim)}
+.tbody.shell{background:var(--term)}
+
+/* which body shows — driven by a body class so the demo bar can flip states */
+.pane-claude,.pane-shell{display:none}
+body.show-claude .pane-claude{display:flex}
+body.show-shell  .pane-shell {display:flex}
+.term.pane-claude,.shellbody.pane-shell{display:none}
+body.show-claude .term.pane-claude{display:block}
+body.show-shell  .shellbody.pane-shell{display:block}
+
+/* dead-session variants: the ended surface is what `claude` shows once alive:false */
+.deadwrap{flex:1;min-height:0;position:relative;display:none;flex-direction:column}
+body.is-dead.show-claude .deadwrap{display:flex}
+body.is-dead.show-claude .term.pane-claude{display:none}
+.endbar{flex:none;display:flex;align-items:center;gap:10px;padding:6px 16px;
+  background:var(--bg-hover);border-bottom:1px solid var(--line-control);
+  font-family:var(--mono);font-size:10px;color:var(--fg-muted)}
+.snapshot{flex:1;min-height:0;margin:0;overflow:auto;background:var(--well);
+  padding:14px 16px;font-family:var(--mono);font-size:12.5px;line-height:1.65;
+  color:var(--fg-muted);white-space:pre-wrap;filter:saturate(.35) brightness(.72)}
+.endcap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  pointer-events:none}
+.endcap .pill{pointer-events:auto;background:var(--bg-raised-95);border:1px solid var(--line-control);
+  padding:13px 18px;font-family:var(--mono);font-size:11.5px;color:var(--fg-muted);
+  text-align:center;line-height:1.7}
+.endcap .pill b{display:block;color:var(--fg);letter-spacing:.14em;text-transform:uppercase;font-size:10px}
+body.is-dead .card.demo-dead .stripe{background:var(--fg-dim)}
+body.is-dead .mainhead .name{opacity:.6}
+
+/* ── the demo bar every page carries ─────────────────────────────────────────── */
+.demo{position:fixed;right:14px;bottom:12px;display:flex;gap:7px;z-index:30;align-items:center}
+.demo .btn{background:var(--bg-raised);border-color:var(--line-control)}
+.demo .btn.on{color:var(--fg);border-color:var(--fg-muted)}
+.demo .lbl{font-family:var(--mono);font-size:9.5px;color:var(--fg-dim);
+  letter-spacing:.1em;text-transform:uppercase;margin-right:2px}
+.nav{position:fixed;left:14px;bottom:12px;z-index:30;font-family:var(--mono);font-size:10.5px}
+.nav a{color:var(--teal);text-decoration:none;border:1px solid var(--line-control);
+  padding:5px 11px;background:var(--bg-raised);display:inline-block}
+
+/* single-toggle label swap (option A): the control names the surface it switches TO */
+body.show-claude .lbl-shell{display:none}
+body.show-shell  .lbl-claude{display:none}
+
+/* ── tile markup as SHIPPED (web/index.html #tile-template + style.css), not as the
+   d-tiled reference render: `.ctxinfo` replaced `.ctx`+`.pct`, `.tbody-slot` replaced
+   `.tbody`, and `.tfoot` gained `.geo`/`.marker`/`.acts`. The Testable UI Elements table
+   must transcribe from what ships, so these mockups use the shipped names. */
+.thead .ctxinfo{display:flex;align-items:center;gap:4px;margin-left:auto;
+  font-family:var(--mono);font-size:10px;color:var(--fg-muted);flex:none;
+  font-variant-numeric:tabular-nums}
+.thead .ctxinfo.unk{color:var(--fg-dim);font-style:italic}
+.thead .ctxinfo .ctx{width:34px;height:3px;background:var(--line);position:relative;flex:none;margin:0}
+.thead .ctxinfo .ctx i{position:absolute;inset:0 auto 0 0;background:var(--fg-muted)}
+.thead .ctxinfo.hot .ctx i{background:var(--amber)}
+.tbody-slot{flex:1;min-width:0;min-height:0;display:flex;background:var(--term);position:relative}
+.tbody-slot>.tbody,.tbody-slot>.shellbody{flex:1;min-width:0;min-height:0;overflow:auto;
+  font-size:11px;line-height:1.55;padding:9px 11px;white-space:pre}
+.tfoot .marker.live{color:var(--teal)}
+.tfoot .acts{margin-left:auto;display:flex;gap:6px}
+.tfoot .btn{font-size:9px;padding:2px 7px}
+.tile.ended .thead,.tile.ended .tfoot{opacity:.55}
+/* per-tile surface switching (each tile carries its own state, unlike the Focus demo) */
+.tile[data-showing="claude"] .pane-shell{display:none}
+.tile[data-showing="shell"] .pane-claude{display:none}
+.tile .tbody-slot .deadwrap{display:none}
+.tile.ended[data-showing="claude"] .tbody-slot .deadwrap{display:flex}
+.tile.ended[data-showing="claude"] .tbody-slot .pane-claude{display:none}
+.tile .snapshot{font-size:11px;padding:9px 11px;line-height:1.55}
+.tile .endcap .pill{font-size:10px;padding:9px 13px}
+.tile .endcap .pill b{font-size:9px}
+
+/* placement comparison (tiles.html): header vs footer, switched by a body class */
+body.place-head .tfoot .surf{display:none}
+body.place-foot .thead .surf{display:none}
+.tfoot .surf{font-family:var(--mono);font-size:9px;padding:2px 7px;background:transparent;
+  border:1px solid var(--line-control);color:var(--fg-dim);cursor:pointer;
+  display:flex;align-items:center;gap:5px}
+.tfoot .surf:hover{color:var(--fg)}
+.tfoot .surf.lit{color:var(--teal);border-color:var(--teal-line)}
+.tfoot .surf .pip{width:4px;height:4px;border-radius:50%;background:var(--teal);flex:none}
+
+/* ── DECIDED (2026-09-05): the segmented surface switch, in both views ──────────────
+   Focus  → `.mainhead .surfseg`  (option B)
+   Tiles  → `.tfoot .surfseg`     (option B's component, footer placement — the header
+                                   placement was measured to truncate 6/6 titles AND
+                                   6/6 repo/branch readouts at 3x2 on a 1152px window) */
+.tfoot .surfseg{border:1px solid var(--line-control);margin-right:2px}
+.tfoot .surfseg button{font-size:9px;padding:1px 7px;gap:4px}
+.tfoot .surfseg .pip{width:4px;height:4px}

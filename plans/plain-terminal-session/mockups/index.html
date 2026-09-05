@@ -1,0 +1,118 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>plain-terminal-session — placement mockups</title>
+<style>
+:root{--ink:#12141C;--panel:#171A24;--line:#282D3B;--line2:#343A4A;--paper:#E8E6E1;--muted:#8A90A3;
+--dim:#565C6D;--amber:#F2A33C;--teal:#56C5D0;--rose:#E36A6A;--green:#7BC47F;
+--mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;--sans:system-ui,-apple-system,'Segoe UI',sans-serif}
+body{margin:0;background:var(--ink);color:var(--paper);font-family:var(--sans);font-size:14px;
+padding:32px 40px 60px;max-width:1000px;line-height:1.55}
+h1{font-size:22px;letter-spacing:-.02em;margin:0 0 4px}
+.sub{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin-bottom:26px}
+h2{font-size:15px;margin:32px 0 8px;color:var(--amber)}
+a{color:var(--teal)}
+.opts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.opt{background:var(--panel);border:1px solid var(--line2);padding:14px 16px}
+.opt h3{margin:0 0 6px;font-size:14px}
+.opt p{margin:0 0 6px;color:var(--muted);font-size:12.5px}
+.pro{color:var(--green)}.con{color:var(--rose)}
+ul{color:var(--muted);font-size:13px;padding-left:20px}
+li b{color:var(--paper);font-weight:600}
+code{font-family:var(--mono);font-size:11.5px;color:var(--teal)}
+table{border-collapse:collapse;width:100%;font-size:12.5px;margin:10px 0 4px}
+th,td{border:1px solid var(--line2);padding:7px 10px;text-align:left}
+th{background:var(--panel);color:var(--dim);font-family:var(--mono);font-size:10px;
+letter-spacing:.09em;text-transform:uppercase;font-weight:400}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.bad{color:var(--rose)}.good{color:var(--green)}
+.callout{background:var(--panel);border-left:3px solid var(--amber);padding:12px 16px;margin:14px 0;
+color:var(--muted);font-size:13px}
+.callout b{color:var(--paper)}
+.sw{display:inline-block;width:14px;height:9px;outline:2px dashed var(--amber);outline-offset:1px;
+margin:0 6px 0 2px;vertical-align:-1px}
+</style></head><body>
+
+<h1>plain-terminal-session — where the shell toggle lives</h1>
+<div class="sub">plan mockups · 2026-09-05 · direction A styling · <span class="sw"></span> marks what each page adds</div>
+
+<p>Every page below is built on the real design tokens and the <b>shipped</b> markup
+(<code>web/index.html</code>'s <code>#tile-template</code>, <code>style.css</code>'s
+<code>.thead</code>/<code>.mainhead</code>), not on the older reference renders — so a squeeze
+one of these controls causes is a squeeze the real dashboard would have. Each page has a demo bar
+(bottom right) that flips <b>showing claude / showing shell</b> and <b>session live / ended</b>.</p>
+
+<div class="callout" style="border-left-color:var(--green)">
+<b>DECIDED 2026-09-05 (Damian).</b> Focus → <b>option B</b>, the segmented <code>claude | shell</code>
+switch in the mainhead. Tiles → the <b>same segmented component</b>, in the tile <b>footer</b>
+(<code>.tfoot .acts</code>), not the header. The consolidated design authority both views are
+transcribed from is <a href="../mockup.html">../mockup.html</a>; the three option pages below are kept
+as the record of what was compared.
+</div>
+<h2>Focus — the options compared</h2>
+<div class="opts">
+  <div class="opt"><h3><a href="opt-a-mainhead-button.html">A — mainhead button</a></h3>
+    <p>One <code>.btn</code> in the existing <code>.mainhead .acts</code> row, left of End/Resume/Remove.
+    It names the surface it switches <i>to</i> ("shell", then "claude"), and goes teal with a pip while a shell is running.</p>
+    <p class="pro">+ zero new chrome; survives the session dying for free (mainhead always renders)</p>
+    <p class="pro">+ literally the spec's "one toggle control"</p>
+    <p class="con">− sits among lifecycle actions, but it is a view switch, not an action</p></div>
+
+  <div class="opt"><h3><a href="opt-b-mainhead-segment.html">B — mainhead segment</a></h3>
+    <p>A two-segment <code>claude | shell</code> switch in the mainhead, reusing the Settings dialog's
+    own <code>.seg-track</code> idiom. Both surfaces are named at all times; the pip sits on the shell segment.</p>
+    <p class="pro">+ reads unmistakably as "two surfaces of one session", not as an action</p>
+    <p class="pro">+ current surface is always legible without inferring it from the label</p>
+    <p class="con">− wider than A; a second control group in an already-busy header</p>
+    <p class="con">− two controls, where the spec asked for one</p></div>
+
+  <div class="opt"><h3><a href="opt-c-pane-tabstrip.html">C — pane tab strip</a></h3>
+    <p>A tab band between the mainhead and the terminal — the most literal reading of the spec's
+    "in the pane area". Room for the cwd on the right.</p>
+    <p class="pro">+ the only option that grows into the deferred follow-up (several shells, a real tab strip)</p>
+    <p class="con">− a whole new horizontal band; costs ~30px of terminal height in Focus</p>
+    <p class="con">− <b>no Tiles twin</b>: a tile cannot afford a third band, so Tiles would diverge</p></div>
+</div>
+
+<h2>Tiles — measured, and it changes the spec</h2>
+
+<p><a href="tiles.html">tiles.html</a> renders the 3×2 grid with the control in the tile
+<b>header</b> or the tile <b>footer</b> (demo bar switches). Spec §Scope says the tile control goes in
+<code>.thead</code> "without displacing any of them … only the title's existing ellipsis may absorb the
+width". Measured against the shipped header, that is not true at 3×2 on a smaller window:</p>
+
+<table>
+  <tr><th>1152px viewport · 383px tiles</th><th>titles truncated</th><th>repo/branch truncated</th></tr>
+  <tr><td>no control at all (today)</td><td class="num good">1 / 6</td><td class="num good">1 / 6</td></tr>
+  <tr><td>control in <code>.thead</code> (as specced)</td><td class="num bad">6 / 6</td><td class="num bad">6 / 6</td></tr>
+  <tr><td>control in <code>.tfoot .acts</code></td><td class="num good">1 / 6</td><td class="num good">1 / 6</td></tr>
+</table>
+<p style="color:var(--dim);font-size:12px;margin-top:2px">The single truncation in the good rows is
+<code>worktree-conflicts-spike</code>, a title long enough to truncate today with no control present.
+At a 1512px viewport (503px tiles) every arrangement fits, which is why this only shows up if you measure
+at a realistic smaller window.</p>
+
+<div class="callout">
+<b>What the measurement says.</b> <code>.thead</code>'s <code>.nm</code> and <code>.wh</code> share the
+same flex shrink, so anything added to that row is paid for by <i>both</i> the title and the repo/branch —
+the spec's "only the title absorbs it" isn't a rule the header's layout can honour. Shrinking the control
+to an icon (<code>&gt;_</code>, 27px instead of 45–61px) only gets it from 6/6 back to 4/6; it does not fix it.
+The footer is the fix: <code>.tfoot</code> is <code>geo · marker · acts</code>, carries no shrinking text,
+already holds the End button, and puts the header back to <b>exactly</b> its no-control baseline.
+</div>
+
+<h2>What was picked, and why</h2>
+<ul>
+<li><b>Focus → A</b>, unless you want the follow-up shape now. B costs header width for a legibility gain
+that the pip already mostly delivers; C is the nicest read but breaks Focus/Tiles symmetry and spends
+terminal height on a control you'll press rarely.</li>
+<li><b>Tiles → the footer</b>, on the measurement above. It also lands the tile control next to End,
+which pairs with A putting the Focus control next to End/Resume/Remove — the two views stay symmetric,
+which is the thing C would have cost us.</li>
+<li><b>Dead sessions need no rework.</b> In all three options the control sits above/outside the pane
+area, so it survives <code>alive:false</code> untouched: the <code>claude</code> surface becomes the
+existing ended-snapshot + cap, the <code>shell</code> surface stays a live shell. Flip <b>session → ended</b>
+on any page to see it. The only real change is that <code>#dead-surface</code> stops being "what the Focus
+pane shows when dead" and becomes "what the <i>claude surface</i> shows when dead" — a condition change in
+<code>renderFocusView</code>, not a redesign.</li>
+</ul>
+
+</body></html>

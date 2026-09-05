@@ -804,12 +804,31 @@ unless he re-ranks — don't re-sort this list.
   unchanged. Decide the card shape and whether a plain session is addressable by the shortcuts
   before implementing.
 
+  **Specced 2026-09-05** — `plans/plain-terminal-session/spec.md`. The session-kind framing
+  above was weighed and **deferred**: the first pass is a shell *tabbed to an existing Claude
+  session*, in that session's directory, with no session row, no rail card and nothing in
+  SQLite. One toggle control in the tile header and the Focus pane swaps the surface body;
+  the shell outlives the Claude session and dies on Remove. The full session kind, a global
+  untethered terminal and restore-across-restart moved to the M5+ terminal follow-up below.
+  Next: `/plan-work plain-terminal-session` (which must produce a mockup first).
+
 ## M5+ (v1.x, re-rank when reached)
 
 Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start-from-PR/issue
 (§4.3) → permissions UI (§4.4) → `code <worktree>` button (trivial, anytime).
 Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-09-01) is in
 `docs/design/worktree-conflicts.md` — read it before planning the worktree manager.
+
+- [ ] **Richer terminal functionality** (post-release) — the first pass
+  (`plans/plain-terminal-session/spec.md`, [#21](https://github.com/Zalaras/muster/issues/21))
+  deliberately ships the smallest useful shell: one per Claude session, tethered to its
+  directory, ephemeral. What a second pass could pick up, once there's real usage behind the
+  choices rather than guesses — these are examples, not a committed list: a true `kind:
+  "shell"` session row (own state, rail card, `⌥⌘1–9` addressability); a global terminal
+  untethered from any session, with its own directory picker; VS Code-style shell restore
+  across daemon restarts instead of reconcile killing orphans; more than one shell per
+  session, and a real tab strip rather than a single toggle; a rail-card marker so a shell
+  running in a session you aren't viewing is visible in Focus view.
 
 - [ ] **Text-size setting** — `prefs.textSize` enum (`small | medium | large`), a Settings-dialog
   segmented control beside Theme, `<html data-text-size>` driving `--fs-root`, and the first-paint

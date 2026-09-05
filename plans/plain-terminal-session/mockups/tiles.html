@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script>(function(){try{var t=localStorage.getItem('muster-mockup-theme');if(t)document.documentElement.dataset.theme=t;}catch(e){}})();</script>
+<title>Tiles — the shell toggle in a tile header</title>
+<link rel="stylesheet" href="mockup.css">
+<style>
+.tiles-main{flex:1;display:flex;flex-direction:column;min-height:0}
+.grid{padding:1px}
+body.g22 .grid{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+body.g22 .tile.extra{display:none}
+.widthnote{position:fixed;left:14px;top:64px;z-index:30;font-family:var(--mono);font-size:10px;
+  color:var(--fg-dim);background:var(--bg-raised);border:1px solid var(--line-control);padding:5px 9px}
+</style>
+</head>
+<body class="g32 place-head">
+
+<header class="mast">
+  <div class="brand"><h1>MUSTER</h1><span class="sub">tiles · header toggle</span></div>
+  <div class="views">
+    <a href="index.html" title="⌘\">Focus</a><span class="on" title="⌘\">Tiles</span><span class="kb">⌘\</span>
+  </div>
+  <div class="gauges">
+    <div class="gauge"><span class="lbl">5h</span><span class="bar warn"><i style="width:61%"></i></span><span class="num">61%</span></div>
+    <span class="model">opus</span>
+    <div class="health"><span class="dot"></span><span class="lbl-ok">daemon ok</span></div>
+  </div>
+</header>
+
+<div class="tiles-main">
+<div class="grid">
+  <article class="tile s-blocked" data-showing="claude">
+    <div class="thead" draggable="true">
+      <span class="sdot"></span>
+      <span class="nm">flaky-e2e-hunt</span>
+      <span class="wh">muster / feat-e2e</span>
+      <span class="ctxinfo hot"><span class="ctx"><i style="width:42%"></i></span>42%</span>
+      <span class="tm">11:48</span>
+      <button class="surf sw lit" type="button"><span class="pip"></span>shell</button>
+    </div>
+    <div class="tbody-slot">
+        <div class="tbody pane-claude"><span class="u">&gt; the e2e suite is flaky on CI</span>
+
+<span class="tool">  ⏵ Read(playwright.config.ts)</span>  <span class="ok">✓</span>
+<span class="tool">  ⏵ Grep(test.retry, web/e2e/)</span>  <span class="ok">✓ 9</span>
+
+<span class="warn">  ⏸ waiting on you</span> <span class="cursor"> </span></div>
+        <div class="shellbody pane-shell"><span class="p">~/code/muster</span> $ git status -sb
+<span class="dim">## feat-e2e...origin/feat-e2e
+ M web/e2e/reconcile.spec.ts</span>
+
+<span class="p">~/code/muster</span> $ <span class="cursor"> </span></div>
+        
+    </div>
+    <div class="tfoot"><span class="geo">48×26</span><span class="marker live">live</span><span class="acts"><button class="surf" type="button">shell</button><button class="btn">End</button></span></div>
+  </article>
+  <article class="tile s-work" data-showing="shell" data-lit="1">
+    <div class="thead" draggable="true">
+      <span class="sdot"></span>
+      <span class="nm">auth-jwt-rotation</span>
+      <span class="wh">gateway / main</span>
+      <span class="ctxinfo"><span class="ctx"><i style="width:18%"></i></span>18%</span>
+      <span class="tm">02:11</span>
+      <button class="surf sw lit" type="button"><span class="pip"></span>claude</button>
+    </div>
+    <div class="tbody-slot">
+        <div class="tbody pane-claude"><span class="u">&gt; the e2e suite is flaky on CI</span>
+
+<span class="tool">  ⏵ Read(playwright.config.ts)</span>  <span class="ok">✓</span>
+<span class="tool">  ⏵ Grep(test.retry, web/e2e/)</span>  <span class="ok">✓ 9</span>
+
+<span class="warn">  ⏸ waiting on you</span> <span class="cursor"> </span></div>
+        <div class="shellbody pane-shell"><span class="p">~/code/muster</span> $ git status -sb
+<span class="dim">## feat-e2e...origin/feat-e2e
+ M web/e2e/reconcile.spec.ts</span>
+
+<span class="p">~/code/muster</span> $ <span class="cursor"> </span></div>
+        
+    </div>
+    <div class="tfoot"><span class="geo">48×26</span><span class="marker live">live</span><span class="acts"><button class="surf" type="button">shell</button><button class="btn">End</button></span></div>
+  </article>
+  <article class="tile s-idle" data-showing="claude">
+    <div class="thead" draggable="true">
+      <span class="sdot"></span>
+      <span class="nm">docs-sweep</span>
+      <span class="wh">muster / main</span>
+      <span class="ctxinfo unk">context unknown</span>
+      <span class="tm">31:04</span>
+      <button class="surf sw" type="button">shell</button>
+    </div>
+    <div class="tbody-slot">
+        <div class="tbody pane-claude"><span class="u">&gt; the e2e suite is flaky on CI</span>
+
+<span class="tool">  ⏵ Read(playwright.config.ts)</span>  <span class="ok">✓</span>
+<span class="tool">  ⏵ Grep(test.retry, web/e2e/)</span>  <span class="ok">✓ 9</span>
+
+<span class="warn">  ⏸ waiting on you</span> <span class="cursor"> </span></div>
+        <div class="shellbody pane-shell"><span class="p">~/code/muster</span> $ git status -sb
+<span class="dim">## feat-e2e...origin/feat-e2e
+ M web/e2e/reconcile.spec.ts</span>
+
+<span class="p">~/code/muster</span> $ <span class="cursor"> </span></div>
+        
+    </div>
+    <div class="tfoot"><span class="geo">48×26</span><span class="marker live">live</span><span class="acts"><button class="surf" type="button">shell</button><button class="btn">End</button></span></div>
+  </article>
+  <article class="tile s-plan" data-showing="claude">
+    <div class="thead" draggable="true">
+      <span class="sdot"></span>
+      <span class="nm">infra-terraform</span>
+      <span class="wh">infra / tf-upgrade</span>
+      <span class="ctxinfo"><span class="ctx"><i style="width:63%"></i></span>63%</span>
+      <span class="tm">07:52</span>
+      <button class="surf sw" type="button">shell</button>
+    </div>
+    <div class="tbody-slot">
+        <div class="tbody pane-claude"><span class="u">&gt; the e2e suite is flaky on CI</span>
+
+<span class="tool">  ⏵ Read(playwright.config.ts)</span>  <span class="ok">✓</span>
+<span class="tool">  ⏵ Grep(test.retry, web/e2e/)</span>  <span class="ok">✓ 9</span>
+
+<span class="warn">  ⏸ waiting on you</span> <span class="cursor"> </span></div>
+        <div class="shellbody pane-shell"><span class="p">~/code/muster</span> $ git status -sb
+<span class="dim">## feat-e2e...origin/feat-e2e
+ M web/e2e/reconcile.spec.ts</span>
+
+<span class="p">~/code/muster</span> $ <span class="cursor"> </span></div>
+        
+    </div>
+    <div class="tfoot"><span class="geo">48×26</span><span class="marker live">live</span><span class="acts"><button class="surf" type="button">shell</button><button class="btn">End</button></span></div>
+  </article>
+  <article class="tile s-failed ended  extra" data-showing="claude">
+    <div class="thead" draggable="true">
+      <span class="sdot"></span>
+      <span class="nm">release-cut-0-1-0</span>
+      <span class="wh">muster / release</span>
+      <span class="ctxinfo"><span class="ctx"><i style="width:71%"></i></span>71%</span>
+      <span class="tm">00:41</span>
+      <button class="surf sw" type="button">shell</button>
+    </div>
+    <div class="tbody-slot">
+        <div class="tbody pane-claude"><span class="u">&gt; the e2e suite is flaky on CI</span>
+
+<span class="tool">  ⏵ Read(playwright.config.ts)</span>  <span class="ok">✓</span>
+<span class="tool">  ⏵ Grep(test.retry, web/e2e/)</span>  <span class="ok">✓ 9</span>
+
+<span class="warn">  ⏸ waiting on you</span> <span class="cursor"> </span></div>
+        <div class="shellbody pane-shell"><span class="p">~/code/muster</span> $ git status -sb
+<span class="dim">## feat-e2e...origin/feat-e2e
+ M web/e2e/reconcile.spec.ts</span>
+
+<span class="p">~/code/muster</span> $ <span class="cursor"> </span></div>
+        <div class="deadwrap">
+          <div class="endbar">ended 6m ago<span>·</span>last state: failed</div>
+          <div class="termwrap" style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column">
+            <pre class="snapshot">  ✗ goreleaser: exit 1
+  ⏸ ended</pre>
+            <div class="endcap"><div class="pill"><b>session ended</b>6m ago
+              <div class="acts-row" style="justify-content:center;margin-top:8px"><button class="btn sm" style="font-size:9px;padding:2px 7px">Resume</button></div></div></div>
+          </div>
+        </div>
+    </div>
+    <div class="tfoot"><span class="geo">48×26</span><span class="marker">stopped</span><span class="acts"><button class="surf" type="button">shell</button><span class="tage">✕ ended 6m ago</span><button class="btn">Resume</button><button class="btn danger">Remove</button></span></div>
+  </article>
+  <article class="tile s-idle ended  extra" data-showing="shell" data-lit="1">
+    <div class="thead" draggable="true">
+      <span class="sdot"></span>
+      <span class="nm">worktree-conflicts-spike</span>
+      <span class="wh">muster / spike-wt</span>
+      <span class="ctxinfo"><span class="ctx"><i style="width:9%"></i></span>9%</span>
+      <span class="tm">1:02:17</span>
+      <button class="surf sw lit" type="button"><span class="pip"></span>claude</button>
+    </div>
+    <div class="tbody-slot">
+        <div class="tbody pane-claude"><span class="u">&gt; the e2e suite is flaky on CI</span>
+
+<span class="tool">  ⏵ Read(playwright.config.ts)</span>  <span class="ok">✓</span>
+<span class="tool">  ⏵ Grep(test.retry, web/e2e/)</span>  <span class="ok">✓ 9</span>
+
+<span class="warn">  ⏸ waiting on you</span> <span class="cursor"> </span></div>
+        <div class="shellbody pane-shell"><span class="p">~/code/muster</span> $ git status -sb
+<span class="dim">## feat-e2e...origin/feat-e2e
+ M web/e2e/reconcile.spec.ts</span>
+
+<span class="p">~/code/muster</span> $ <span class="cursor"> </span></div>
+        <div class="deadwrap">
+          <div class="endbar">ended 6m ago<span>·</span>last state: failed</div>
+          <div class="termwrap" style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column">
+            <pre class="snapshot">  ✗ goreleaser: exit 1
+  ⏸ ended</pre>
+            <div class="endcap"><div class="pill"><b>session ended</b>6m ago
+              <div class="acts-row" style="justify-content:center;margin-top:8px"><button class="btn sm" style="font-size:9px;padding:2px 7px">Resume</button></div></div></div>
+          </div>
+        </div>
+    </div>
+    <div class="tfoot"><span class="geo">48×26</span><span class="marker">stopped</span><span class="acts"><button class="surf" type="button">shell</button><span class="tage">✕ ended 6m ago</span><button class="btn">Resume</button><button class="btn danger">Remove</button></span></div>
+  </article>
+</div>
+</div>
+
+<div class="widthnote" id="wn">tile width: —</div>
+<div class="nav"><a href="index.html">← all options</a></div>
+<div class="demo">
+  <span class="lbl">control in</span>
+  <button class="btn on" id="ph">header</button>
+  <button class="btn" id="pf">footer</button>
+  <span class="lbl" style="margin-left:10px">density</span>
+  <button class="btn on" id="d32">3×2</button>
+  <button class="btn" id="d22">2×2</button>
+</div>
+<script>
+const b=document.body;
+function dens(g){b.classList.toggle('g32',g==='32');b.classList.toggle('g22',g==='22');
+  d32.classList.toggle('on',g==='32');d22.classList.toggle('on',g==='22');measure();}
+d32.onclick=()=>dens('32'); d22.onclick=()=>dens('22');
+function place(p){b.classList.toggle('place-head',p==='head');b.classList.toggle('place-foot',p==='foot');
+  ph.classList.toggle('on',p==='head');pf.classList.toggle('on',p==='foot');measure();}
+ph.onclick=()=>place('head'); pf.onclick=()=>place('foot');
+document.querySelectorAll('.tile[data-lit] .tfoot .surf').forEach(x=>{x.classList.add('lit');
+  const p=document.createElement('span');p.className='pip';x.prepend(p);});
+document.querySelectorAll('.tfoot .surf').forEach(btn=>btn.onclick=()=>{
+  const tile=btn.closest('.tile');
+  tile.dataset.showing = tile.dataset.showing==='shell'?'claude':'shell';
+  btn.classList.add('lit');});
+document.querySelectorAll('.tile .surf').forEach(btn=>btn.onclick=e=>{
+  e.stopPropagation();
+  const tile=btn.closest('.tile');
+  const next=tile.dataset.showing==='shell'?'claude':'shell';
+  tile.dataset.showing=next;
+  btn.textContent='';
+  if(next==='shell'||btn.classList.contains('lit')){const p=document.createElement('span');p.className='pip';btn.appendChild(p);}
+  btn.classList.add('lit');
+  btn.appendChild(document.createTextNode(next==='shell'?'claude':'shell'));});
+function measure(){const t=document.querySelector('.tile');
+  let nmT=0,whT=0;
+  document.querySelectorAll('.tile').forEach(x=>{const nm=x.querySelector('.nm'),wh=x.querySelector('.wh');
+    if(nm.scrollWidth>nm.clientWidth+1)nmT++; if(wh.scrollWidth>wh.clientWidth+1)whT++;});
+  wn.innerHTML='viewport '+window.innerWidth+'px &middot; tile '+Math.round(t.getBoundingClientRect().width)+
+    'px<br>titles truncated: '+nmT+'/6 &middot; repo/branch truncated: '+whT+'/6';}
+addEventListener('resize',measure); measure();
+</script>
+</body>
+</html>
