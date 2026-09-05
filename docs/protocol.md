@@ -68,6 +68,8 @@ message (additive fields don't bump it).
 | `GET /api/browse` | M1 | Folder-browser directory listing (§3.6) |
 | `PUT /api/prefs` | M2 | Persist UI preferences (view + density + usageModel) |
 | `POST /api/usage/refresh` | Pre-v1 (`usage-model-bar`) | Force an immediate per-model usage fetch |
+| `PUT /api/sessions/{id}/pin` | Pre-v1 (`order-sidebar`) | Pin or unpin a session, renumbering `railPos` (§3.10) |
+| `PUT /api/sessions/order` | Pre-v1 (`order-sidebar`) | Reorder the rail and set the pinned block in one atomic call (§3.11) |
 | `GET /api/sessions/{id}/pane` | M4 | Last captured pane screen (§3.4) — display source only |
 | `POST /api/sessions/{id}/resume` | M4 | `claude --resume` a dead session in a fresh pane (§3.5) |
 | `POST /api/sessions/{id}/end` | M4 | Kill a live session's tmux session (§3.7) |
@@ -75,6 +77,7 @@ message (additive fields don't bump it).
 | `POST /api/issue/captures` | Pre-v1 (`issue-capture`) | Take an allowlisted state snapshot and hold it (§3.12) |
 | `POST /api/issues` | Pre-v1 (`issue-capture`) | File a held capture as a GitHub issue (§3.13) |
 | `POST /api/sessions/{id}/locate` | Pre-v1 (`file-drop-fix`) | Resolve a dropped file's bytes to its original on-disk path (§3.14) |
+| `PUT /api/sessions/{id}/title` | Pre-v1 (`ui-text-and-focus`) | Set or clear a session's title override (§3.15) |
 | `POST /api/sessions/{id}/shell` | Pre-v1 (`plain-terminal-session`) | Ensure a plain shell is running for a session, spawning it if absent (§3.16) |
 
 Design rule: **commands travel over HTTP; the WS pushes state one way (server→client)**.
