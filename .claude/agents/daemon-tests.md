@@ -43,6 +43,7 @@ Per `docs/conventions.md` and SPEC §8, unit tests target **specific logic** —
 Test **Muster's** behaviour, not the platform's:
 
 - Don't test what SQLite, tmux, or the stdlib guarantee (constraint enforcement, mux routing, WAL semantics).
+- Don't fork a process the assertion isn't about. Cross a subprocess boundary through the owning type's injectable run func (`internal/locate.SpotlightFinder`, `internal/tmux`'s preflighter, `claudecode`'s `execFunc`), never a `$PATH` shim; a real tmux server (per-test socket) only where the assertion is a tmux-observable effect — PTY stream, geometry, liveness, pane env, server options. A fork per test under `go test`'s package parallelism is what made `make test` load-sensitive (docs/design/test-strategy.md).
 - Don't write migration round-trip tests — migrations are forward-only and verified by running them at startup plus the feature's own tests reading the new schema.
 - Never assert on shared mutable state other tests depend on, and never rely on test execution order.
 - Never launch a real `claude` from a unit test — that is exclusively canary/probe territory (CLAUDE.md hard rule). Unit tests use captured payloads.

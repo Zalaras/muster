@@ -1375,3 +1375,49 @@ the Focus mainhead and in every tile footer swaps the surface body in place.
   pessimistic).
 - The richer shape — a real `kind: "shell"` session, a global untethered terminal, restore
   across restarts, several shells per session — stays in `TODO.md` M5+.
+
+### 2026-09-06 — test strategy settled: explicit E2E fixtures, one load policy, faked subprocess boundary (direct on `main`)
+
+Closes the open question raised 2026-09-03 (`docs/design/test-strategy.md`) after three measured
+load-sensitivity flakes. Settled in this session with Damian rather than through `/orchestrate`,
+since the pipeline's own rules were among the deliverables. The standing rule is
+`docs/conventions.md` §Testing; `.claude/agents/{e2e-specs,daemon-tests,review-work,web-impl}.md`,
+`/plan-work` and `plan-lint.sh` now carry it.
+
+- **"One daemon per file" is a per-file judgement, not a rule.** The audit of all 25 specs found
+  that most per-test files legitimately need a fresh daemon: they assert rail/grid order or
+  counts, prefs, usage, theme, recents, auto-focus on the only session, or restart/kill the
+  daemon. So the deliverable is an explicit, lintable choice: `web/e2e/helpers/fixtures.ts`
+  exports `daemon` (fresh per test, the default), `startDaemon` (spawn options computed in the
+  test) and `fileDaemon()` (title-scoped files only); a plan records the choice per spec in a
+  new **Fixture plan** header that `plan-lint.sh` requires.
+- **One load policy in `playwright.config.ts`**, not per-site timeouts: `workers: 4`,
+  `expect.timeout` 15 s, `timeout` 60 s. A spec may shorten a timeout with a comment, never
+  lengthen one; the only fixed hold is `settleFor()` for a stays-unchanged check. The config,
+  the fixtures module and the lint are web-impl's (gate integrity), never e2e-specs'.
+- **Mechanised, not re-worded** (`/retro`'s rule for a rule that was broken): `web/scripts/e2e-lint.sh`
+  runs before every `npm run e2e` and in `gates.sh`, failing a spec that calls
+  `startScratchDaemon`, imports `@playwright/test`, or sleeps.
+- **Go tests cross a process boundary through an injectable run func**, never a `$PATH` shim
+  (`internal/tmux`'s preflighter mirrors `internal/locate.SpotlightFinder`). `claude --version`
+  now honours `-claude-bin`, so no test daemon forks the real Claude Code; `internal/server`'s
+  locate tests use a walk-only Locator instead of `mdfind`. Real tmux stays where the assertion is
+  a tmux-observable effect. The larger `internal/server` creation/attach seam is a `TODO.md`
+  follow-up for a proper daemon plan.
+- **Measured.** `go test -count=1 ./...` 5/5 green at 26–28 s under default parallelism
+  (was intermittently red on the eight preflight tests). `make e2e` 3/3 green, 281/281, at
+  76 s with 4 workers against a 72–78 s baseline at 6 (1 red in 2 baseline runs: a non-retrying
+  `expect` right after `page.goto`, the fourth instance of that class, now converted); the
+  suite alone at 6 workers is 61 s against 71 s at HEAD. Two migrations surfaced real hidden
+  couplings, both fixed: `shell.spec.ts` asserted on the machine's *real* Claude Code version,
+  and INV-5's "never reopens a socket while dead" only holds when the ended session was the
+  daemon's only one.
+- **Found on the way: macOS taxes the first exec of every freshly written script (~270 ms,
+  serialised across processes).** The harness wrote a new stub `claude` per daemon and every
+  session launch paid it; routing the version check through the stub made the tax block daemon
+  startup too (0.8–2.3 s under load) and the suite ran 112–118 s regardless of worker count.
+  `helpers/daemon.ts` now writes one stub per run at a content-hashed path. The bisect and
+  measurements are in `docs/design/test-strategy.md` §Decision.
+- **Rejected again:** Playwright retries (they hide exactly the load sensitivity the gates exist
+  to see; there is also no CI to scope them to) and `go test -p 1` (doubles `make test` and treats
+  the load, not the fork).

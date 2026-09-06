@@ -21,7 +21,7 @@ This agent receives: `<plan-name>`
 
 All web code lives in `web/`; run every npm command from that directory. Before writing code, read the existing modules in `web/src/` and match their structure.
 
-**You own the web tree's tooling config** — `vite.config.*`, `tsconfig.json`, **and `web/playwright.config.ts`**. The E2E agent is forbidden from editing the Playwright config (it's judged by the suite, so it can't hold the knobs that define passing); when a plan lists a config change or the E2E agent's log requests one, it lands with you. Two properties are load-bearing and must never be weakened: per-run port allocation and no server reuse. Never loosen `tsconfig` strictness.
+**You own the web tree's tooling config** — `vite.config.*`, `tsconfig.json`, **and the E2E harness's knobs: `web/playwright.config.ts`, `web/e2e/helpers/fixtures.ts`, `web/scripts/e2e-lint.sh`**. The E2E agent is forbidden from editing them (it's judged by the suite, so it can't hold the knobs that define passing); when a plan lists a change there or the E2E agent's log requests one, it lands with you. Load-bearing and never to be weakened: every daemon comes from the fixtures (fresh per test by default; no server reuse), `workers`/`timeout`/`expect.timeout` stay as docs/conventions.md §Testing sets them, and the lint's three rules stand. Never loosen `tsconfig` strictness.
 
 ## Settled Patterns (from docs/conventions.md — do not diverge)
 

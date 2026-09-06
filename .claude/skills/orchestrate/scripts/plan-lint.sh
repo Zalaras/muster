@@ -14,7 +14,7 @@ section() { awk -v s="$1" '$0 ~ "^## "s{f=1;next} /^## /{f=0} f' "$P"; }
 checks_block() { awk '/^```checks[[:space:]]*$/{f=1;next} f&&/^```/{f=0} f' "$P" | grep -vE '^[[:space:]]*(#|$)'; }
 
 # 1. Required headers.
-for h in Status 'Work Type' 'E2E Scope'; do
+for h in Status 'Work Type' 'E2E Scope' 'Fixture plan'; do
   grep -qE "^\*\*$h\*\*: *[^[:space:]]" "$P" || note "missing header **$h**"
 done
 

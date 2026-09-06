@@ -136,6 +136,7 @@ Check:
 - Assertions are specific?
 - Edge cases from the plan are covered — for ingest code, including the measured absences (null context fields, missing `permission_mode`, unordered delivery)?
 - Nothing tests what the platform guarantees (SQLite constraints, tmux behaviour, stdlib routing)?
+- Each new spec's fixture shape (`daemon` / `startDaemon` / `fileDaemon`) matches the plan's **Fixture plan** header and docs/conventions.md §Testing (`fileDaemon` only when every test is title-scoped); new Go tests reach subprocesses through a run-func seam? `make e2e-lint` is mechanical — confirm it ran, don't re-derive it.
 
 ### 8. Issue Classification
 

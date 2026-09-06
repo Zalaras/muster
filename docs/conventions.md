@@ -62,10 +62,24 @@ first — never diverge silently in code.
 - E2E fakes Claude Code by default: synthesize hook / status-line POSTs from the real
   captured payloads in `spikes/` — fast, free, deterministic. A **real** `claude` may
   only appear in the canary suite and interface probes (haiku-only, per CLAUDE.md).
-- The E2E harness allocates a fresh port per run and never attaches to an existing
-  server (`reuseExistingServer: false` — the port is pinned via env because Playwright
-  re-evaluates its config per worker). Reusing a stale server silently tests the wrong
-  build; keep both properties when the harness evolves (M0 scratch daemon and beyond).
+- Every E2E spec drives a scratch `musterd` it gets from `web/e2e/helpers/fixtures.ts`,
+  never a shared or pre-existing server (a stale one silently tests the wrong build). The
+  spec declares its shape: `daemon` (fresh per test) whenever any test asserts
+  daemon-global state — rail/grid order or counts, prefs, usage, theme, recents,
+  auto-focus on "the only session" — or restarts/kills the daemon; `startDaemon(opts)`
+  when spawn options depend on a value computed in the test; `fileDaemon()` (one per file)
+  only when every test is title-scoped. A plan's **Fixture plan** header records the
+  choice per spec. `web/scripts/e2e-lint.sh` (run by `npm run e2e` and the gates) fails
+  any spec that calls `startScratchDaemon`, imports `@playwright/test`, or sleeps.
+- Waits inherit `playwright.config.ts`'s expect timeout (15 s) and test timeout (60 s);
+  `workers` caps the daemons alive at once. A spec may *shorten* a timeout, with a comment
+  saying why, never lengthen one; a fixed hold exists only as `settleFor()` for a
+  stays-unchanged check. Rationale and measurements: `docs/design/test-strategy.md`.
+- Go tests cross a process boundary through an injectable run func on the type that owns
+  it (`internal/locate.SpotlightFinder`, `internal/tmux`'s preflighter, `claudecode`'s
+  `execFunc`), never a `$PATH` shim — a fork per test is what made `make test`
+  load-sensitive. Real tmux (per-test socket) appears only where the assertion is about a
+  tmux-observable effect: PTY stream, geometry, liveness, pane env, server options.
 - Don't test what the platform guarantees (SQLite constraint enforcement, tmux's own
   behavior, stdlib routing). Test Muster's behavior.
 - The state machine, reconcile, and any JSON merge get exhaustive unit tests — they are

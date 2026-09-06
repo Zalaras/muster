@@ -30,7 +30,7 @@ All Playwright commands run from `web/`.
 
 ## Harness Rules (do not violate)
 
-- **Ports are per-run and never reused.** The config derives a fresh port each run and sets `reuseExistingServer: false` — deliberately, to avoid silently testing a stale server. Never change this, never hardcode a port in a test (use relative `page.goto('/…')`; baseURL is set).
+- **Daemons come only from `./helpers/fixtures`** (`daemon` fresh per test — the default, and mandatory for anything asserting daemon-global state or restarting; `startDaemon(opts)` for runtime-computed options; `fileDaemon()` only when every test is title-scoped), matching the plan's **Fixture plan** header. Import `test`/`expect`/types from there, never `@playwright/test`; never call `startScratchDaemon` or hardcode a port — navigate with `daemon.dashboardUrl`. `web/scripts/e2e-lint.sh` runs before every `npm run e2e` and fails on each of these.
 - Payload fixtures must be **synthesized from the measured captures** (`spikes/canary-fields.md` is the field-by-field authority), including the awkward truths: no timestamps or sequence numbers on hooks, `SessionStart` absent over plain HTTP, null context fields before a first API response, status-line posts arriving in close pairs. Deterministic values only — no randomness, no wall-clock dependence.
 - **Never invent a wire shape.** Every field's *shape* in a fixture must be traceable to a canary-fields entry for **that event** — a shape measured on the status line is not evidence for the same-named field on a hook. If the shape you need is unmeasured, do not guess: flag it in your log's Notes/handoff as needing an `/interface-probe` and use the shape the plan asserts (or omit the field if optional). m1-sessions lesson: an invented `{id, display_name}` object on `SessionStart` propagated into the daemon (which then quietly accepted *both* shapes), survived two pipeline stages, and cost an Opus review finding plus a mid-pipeline probe to unwind.
 - Any tmux involvement uses a per-test private socket — never `-L muster`, never the user's default server.
@@ -88,7 +88,7 @@ Then, from `web/`:
 npm run e2e -- e2e/<your-file>.spec.ts
 ```
 
-- The config starts everything itself (`webServer` and the scratch daemon via global setup). Do not start servers yourself.
+- The fixtures start (and tear down) every daemon. Do not start servers yourself.
 - If the UI you observe contradicts the implementation logs, suspect harness drift (a config change that reintroduced server reuse) — stop and report `blocked` rather than repairing locators against the wrong build.
 - One early failure in a serial file hides later ones; expect to iterate. Run the file at most **3 times** per invocation. If it still fails on your locators after 3 runs, your assumptions about the markup are wrong — not just your selectors. Report and stop.
 
@@ -110,7 +110,7 @@ npm run e2e -- e2e/<your-file>.spec.ts
 
 ### 3. What you may and may not change
 
-**May change:** your own spec file(s) under `web/e2e/` — locators, regexes, waits, timeouts, fixture payloads, helper functions, `serial`/parallel mode; shared fixture/helper modules additively.
+**May change:** your own spec file(s) under `web/e2e/` — locators, regexes, waits, fixture payloads, helper functions, a `serial` block for a genuine restart sequence; a timeout only to *shorten* it, with a comment (waits inherit the config's 15 s; `settleFor()` is the one sanctioned fixed hold); shared fixture/helper modules additively, except `helpers/fixtures.ts` (below).
 
 **May NOT change, ever — the meaning or strength of an assertion.** Specifically forbidden:
 - deleting an assertion, or replacing a value check with a weaker one (e.g. `toBeVisible()` on the container instead of asserting the value inside it)
@@ -165,7 +165,7 @@ Place new test files in `web/e2e/<feature-name>.spec.ts`. Follow the patterns in
 
 ## Constraints
 
-- Do NOT modify `web/playwright.config.ts` or global setup/teardown infrastructure. This is a gate-integrity boundary, not a convenience: the config holds the knobs that decide what "passing" means (`retries`, `timeout`, `testIgnore`, `reuseExistingServer`), and the agent judged by the suite must not hold that pen. **web-impl owns the config.** If your fixtures genuinely need a config change, state exactly what and why in your log's handoff/blocked section — the orchestrator routes it to web-impl.
+- Do NOT modify `web/playwright.config.ts`, `web/e2e/helpers/fixtures.ts` or `web/scripts/e2e-lint.sh`. This is a gate-integrity boundary, not a convenience: they hold the knobs that decide what "passing" means (`workers`, `timeout`, `expect.timeout`, `retries`, which fixture shapes exist, what the lint forbids), and the agent judged by the suite must not hold that pen. **web-impl owns them.** If your specs genuinely need a change there, state exactly what and why in your log's handoff/blocked section — the orchestrator routes it to web-impl.
 - Tests must be runnable with `npm run e2e` from `web/`
 - Never launch a real `claude` — synthesized payloads only
 - **Git.** Work on the `plan/<plan-name>` branch the orchestrator created. At the end of your step commit your own files — `git add` only files you changed, named individually (never `-A`/`-u`), including your `plans/<plan-name>/` log — as `test(<plan-name>): <imperative summary>` (fix mode: append ` (review cycle <N>)` with the cycle number your prompt states, or ` (pre-review fix)` when it says no review has run), one sentence plus the harness trailers. Commit even when your gate is red for a defect you may not fix, naming it in the body as `gate red: <what fails, whose defect>` — uncommitted work beside other agents' is the hazard, not a red commit. Never `git stash` (not even to look: use `git diff` / `git show HEAD:<path>`), `checkout -- <path>`, `reset`, `clean` or `rebase`. Never push; never commit on `main`.

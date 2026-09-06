@@ -66,6 +66,13 @@ Also settle the **E2E Scope** header explicitly — the orchestrator must not in
 - **harness-only**: no new spec, but an edit to `web/e2e/helpers/*` or fixtures is part of the deliverable (m4-hook-quoting's space-bearing scratch dir) — e2e-specs still runs, reporting `harness-only` then sweeping the full suite
 - **none**: nothing E2E-observable; Steps 1 and 5 are skipped
 
+And the **Fixture plan** header (docs/conventions.md §Testing) when E2E Scope is not `none`: per new
+spec, `daemon` (fresh per test — the default, and mandatory when any test asserts daemon-global state
+such as rail/grid order or counts, prefs, usage, theme, recents, auto-focus on the only session, or
+restarts/kills the daemon), `startDaemon` (spawn options computed in the test) or `fileDaemon` (every
+test title-scoped), with the one-line reason — e.g. `**Fixture plan**: drop.spec.ts daemon (auto-focus
+needs the sole session)`. Write `none` when E2E Scope is `none`.
+
 ### 3. Define Requirements
 
 Work with the user to create clear, testable requirements. Each requirement should be:
@@ -90,7 +97,7 @@ Based on the codebase structure, identify which files will likely need changes:
 
 **Every requirement's test coverage names exactly one owning test agent — no conditional routing.** A line like "a `launch.ts` unit test for REQ-6 if the render module's radio logic is unit-testable (web-tests' call; otherwise E4 covers it)" resolves to nobody: fix-auto-mode-select's web-tests declined it believing E4 covered it, e2e-specs had already logged that no E2E path existed, and a Should-Have shipped with zero coverage until review cycle 1 caught it. If you cannot tell at planning whether the logic is unit-testable, that is a finding about the implementation: require the impl agent to expose it as a pure function under Affected Files and route the test to the unit agent. Where a requirement is genuinely E2E-only, say so and name the `E*` criterion that carries it.
 
-**Tooling/config files belong to an impl track, never to a test agent.** In particular `web/playwright.config.ts` is owned by **web-impl** (e2e-specs is forbidden from editing it — the agent judged by the suite can't hold the knobs that define passing). When a plan needs a config change, list the file under the owning impl track's Affected Files explicitly; don't leave it in an E2E subsection where ownership is ambiguous (m0-skeleton did, and it resolved only by web-impl's generous reading).
+**Tooling/config files belong to an impl track, never to a test agent.** In particular `web/playwright.config.ts`, `web/e2e/helpers/fixtures.ts` and `web/scripts/e2e-lint.sh` are owned by **web-impl** (e2e-specs is forbidden from editing them — the agent judged by the suite can't hold the knobs that define passing). When a plan needs a config change, list the file under the owning impl track's Affected Files explicitly; don't leave it in an E2E subsection where ownership is ambiguous (m0-skeleton did, and it resolved only by web-impl's generous reading).
 
 ### 5. Define the Protocol Contract (Critical for Parallel Execution)
 
@@ -221,6 +228,7 @@ Write the plan to `plans/<plan-name>/plan.md` using this structure. The template
 **Status**: draft | approved | in-progress | completed
 **Work Type**: daemon | web | full-stack
 **E2E Scope**: new-specs | harness-only | none
+**Fixture plan**: <spec>.spec.ts daemon | startDaemon | fileDaemon (<why>) [; …] | none
 **Description**: <one-line summary>
 
 ## Overview

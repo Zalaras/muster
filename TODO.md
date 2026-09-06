@@ -487,23 +487,39 @@ These are some minor changes and cleanup needed before we can move into post v1.
   that deletes the flag and carries `feat!:` (`MUSTER_BREAKING=1`, human-set — the commit-msg
   hook gates it). Until then `!` on 0.x just bumps minor and records the breakage.
 
-- [ ] **Re-evaluate how tests are run across the codebase** (Go unit, Vitest, Playwright) — decide
-  the standing strategy for deterministic suites at acceptable runtime: mock the subprocess
-  boundary, reduce concurrency, raise marginal timeouts, share fixtures, or a combination.
-  Triggered 2026-09-03 by two measured load-sensitivity flakes from the `file-drop-fix` run:
-  `make test` intermittently red on `main` (eight tmux-preflight tests hit their 2 s subprocess
-  timeout under default `go test` parallelism, always green under `-p 1`) and `make e2e` ~50 % red
-  after one new spec file added 11 per-test scratch daemons (three unrelated 5 s waits tipped;
-  interim fix: `drop.spec.ts` runs serial). Measurements, options and constraints are in
-  `docs/design/test-strategy.md` — start there with `/spec`. Until it lands: a red `make test`
-  naming only `TestPreflight_*`/`TestRunTmuxPreflight_*` is load, confirm with
-  `go test -count=1 -p 1 ./...`.
-  Third measured instance 2026-09-03 (`fix-auto-mode-select` review cycle 1): `terminal.spec.ts`
-  REQ-7 and REQ-13 failed one full `make e2e` sweep on the tmux stub's `MUSTER-STUB-READY`
-  pane-content assertion; REQ-13 also fails on a clean `main` worktree, both pass 3/3 in isolation,
-  and two further full sweeps were 221/221 — the REQ-13 test's own comments name the race (a
-  liveness-poll snapshot capture landing empty). Whoever next touches the terminal specs owns it
-  (`plans/fix-auto-mode-select/review.md`, Notes 1).
+- [x] **Re-evaluate how tests are run across the codebase** — settled 2026-09-06 directly on
+  `main` (not via `/orchestrate`; the pipeline's own rules were among the files). The standing
+  rule is `docs/conventions.md` §Testing; measurements and reasoning in
+  `docs/design/test-strategy.md` (§Decision). In brief: E2E daemons come only from
+  `web/e2e/helpers/fixtures.ts` (`daemon` fresh per test by default, `startDaemon` for
+  runtime-computed options, `fileDaemon()` only for title-scoped files — the audit found most
+  per-test files legitimately need isolation, so "one daemon per file" is a per-file call
+  recorded in a plan's new **Fixture plan** header); `playwright.config.ts` carries the load
+  policy (`workers: 4`, `expect.timeout` 15 s, `timeout` 60 s); `web/scripts/e2e-lint.sh`
+  (run by `npm run e2e` and `gates.sh`) forbids `startScratchDaemon` in specs, `@playwright/test`
+  imports in specs, and fixed sleeps (`settleFor()` is the one sanctioned hold); Go tests cross
+  subprocess boundaries through an injectable run func (`internal/tmux` preflighter, the
+  `-claude-bin` pass-through for `claude --version`, a walk-only Locator in `internal/server`).
+  Verified: `go test -count=1 ./...` 5/5 green at 26–28 s (was intermittently red);
+  `make e2e` 3/3 green, 281/281, 76 s at 4 workers vs a 72–78 s baseline at 6 (baseline 1 red
+  in 2 runs on a non-retrying `expect` after `page.goto`). Also found and fixed: the harness
+  wrote a fresh stub `claude` per daemon and macOS charges ~270 ms (serialised) for the first
+  exec of a new script — one shared stub per run now (`ensureSharedStubClaude`). The history
+  that triggered it (three measured load flakes, 2026-09-03) is in the design note.
+- [ ] **`internal/server` handler tests still build a real tmux server per test** (~35 of the
+  `terminal_test.go`/`plainshell_test.go`/`shells_test.go`/`sessions_test.go` tests exercise
+  404/409/cookie/JSON plumbing that only needs a session row to look dead or alive). Audit
+  2026-09-06: `internal/session` already has consumer-side `PaneChecker`/`PaneSnapshotter`/`Killer`
+  interfaces with fakes; what is missing is a session-*creation* seam (`NewSession`/`NewNamedSession`)
+  and an attach seam over `termbridge.Attach` in `internal/server`. Keep real tmux for the PTY
+  stream, geometry, takeover/misroute and kill-scoping tests (docs/conventions.md §Testing). A
+  daemon plan through `/plan-work`: it changes production seams. `internal/server` is 25 s of the
+  27 s `make test` wall time today.
+- [ ] **Deduplicate the per-test tmux socket helper** — the same ~10-line `os.MkdirTemp` +
+  `t.Cleanup(kill-server)` idiom (with its 104-byte `sun_path` comment) is copy-pasted in
+  `internal/tmux/tmux_test.go:29`, `internal/termbridge/termbridge_test.go:29,44`,
+  `internal/server/{sessions,terminal,shells}_test.go`, `cmd/musterd/{open,onexit}_test.go`. One
+  `internal/testutil` (or `internal/tmux/tmuxtest`) helper; pair with the item above.
 
 ## Reported issues (pre-v1 release)
 
