@@ -13,6 +13,32 @@ import (
 // returns near-instantly — a timeout means the binary itself is broken, not busy.
 const preflightTimeout = 2 * time.Second
 
+// preflighter holds the two process boundaries Preflight crosses — resolving the binary
+// and running it — as function fields, the same seam shape as locate.SpotlightFinder
+// (lookPath/run) and claudecode's execFunc. Production uses the exec package via
+// newPreflighter; tests construct the struct directly with canned results so version
+// parsing and the fatal/non-fatal decision are exercised with no subprocess at all
+// (docs/conventions.md §Testing: Go tests reach subprocesses through an injectable run
+// func — a real fork under `go test`'s package parallelism is what made these tests
+// load-sensitive).
+type preflighter struct {
+	lookPath func(file string) (string, error)
+	run      func(ctx context.Context, path string, args ...string) ([]byte, error)
+	timeout  time.Duration
+}
+
+func newPreflighter() *preflighter {
+	return &preflighter{lookPath: exec.LookPath, run: runCommand, timeout: preflightTimeout}
+}
+
+// runCommand is the production run seam: `path args...` with stdout captured, bounded by
+// ctx. exec.CommandContext kills the process on ctx expiry and Output returns once the
+// stdout pipe closes — which is why a hung binary must be the process itself and not a
+// child it forked (a forked child keeps the pipe open past the kill).
+func runCommand(ctx context.Context, path string, args ...string) ([]byte, error) {
+	return exec.CommandContext(ctx, path, args...).Output()
+}
+
 // MinVersion is the oldest tmux Muster's own tmux usage can rely on (REQ-2). NewSession
 // in tmux.go uses "new-session -e" and applyServerOptions there uses "set-option -as
 // terminal-features", both introduced in tmux 3.2; below that they fail obscurely at
@@ -101,15 +127,19 @@ type PreflightResult struct {
 // never formats a report and never exits the process — cmd/musterd renders the result
 // and decides whether to gate startup on it.
 func Preflight(ctx context.Context) PreflightResult {
-	path, err := exec.LookPath("tmux")
+	return newPreflighter().preflight(ctx)
+}
+
+func (p *preflighter) preflight(ctx context.Context) PreflightResult {
+	path, err := p.lookPath("tmux")
 	if err != nil {
 		return PreflightResult{Status: StatusNotFound}
 	}
 
-	runCtx, cancel := context.WithTimeout(ctx, preflightTimeout)
+	runCtx, cancel := context.WithTimeout(ctx, p.timeout)
 	defer cancel()
 
-	out, err := exec.CommandContext(runCtx, path, "-V").Output()
+	out, err := p.run(runCtx, path, "-V")
 	if err != nil {
 		return PreflightResult{Found: true, Path: path, Status: StatusNotFound}
 	}

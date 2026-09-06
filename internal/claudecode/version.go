@@ -20,12 +20,15 @@ const PinnedVersion = "2.1.246"
 // versionRE matches the leading semver of `claude --version`, e.g. "2.1.233 (Claude Code)".
 var versionRE = regexp.MustCompile(`^(\d+\.\d+\.\d+)`)
 
-// InstalledVersion reports the version of the claude binary on PATH.
+// InstalledVersion reports the version of the claude binary at bin — the same
+// -claude-bin value the daemon launches sessions with (a bare "claude" resolves on
+// PATH), so a test daemon's stub answers `--version` and no test ever runs the real
+// binary (CLAUDE.md; docs/conventions.md §Testing).
 //
 // The caller supplies the context: this runs on the daemon's startup path, and a hung
 // claude binary must not stall it indefinitely.
-func InstalledVersion(ctx context.Context) (string, error) {
-	out, err := exec.CommandContext(ctx, "claude", "--version").Output()
+func InstalledVersion(ctx context.Context, bin string) (string, error) {
+	out, err := exec.CommandContext(ctx, bin, "--version").Output()
 	if err != nil {
 		return "", fmt.Errorf("running claude --version: %w", err)
 	}
@@ -56,8 +59,8 @@ func (e *VersionDriftError) Error() string {
 // disable Claude Code's auto-updater (that would freeze the user's everyday install), so it
 // detects drift instead and surfaces it as a warning. An unexpected auto-update should be
 // visible without stopping the user working.
-func CheckPin(ctx context.Context) error {
-	installed, err := InstalledVersion(ctx)
+func CheckPin(ctx context.Context, bin string) error {
+	installed, err := InstalledVersion(ctx, bin)
 	if err != nil {
 		return err
 	}

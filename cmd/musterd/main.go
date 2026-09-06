@@ -135,7 +135,7 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 	// point, and naming this one "err" would make every `if err := ...` below it (there
 	// are several, plus the shutdown select's `case err := <-serveErr`) a govet shadow
 	// warning against it — see plans/tmux-installation/daemon-tests.md fix attempt 1.
-	preflight, preflightErr := runTmuxPreflight(context.Background(), stderr)
+	preflight, preflightErr := runTmuxPreflight(context.Background(), stderr, tmux.Preflight)
 	if preflightErr != nil {
 		return preflightErr
 	}
@@ -164,7 +164,7 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 	}
 
 	versionCtx, versionCancel := context.WithTimeout(ctx, versionCheckTimeout)
-	installed, drift := checkClaudeCode(versionCtx, log)
+	installed, drift := checkClaudeCode(versionCtx, *claudeBin, log)
 	versionCancel()
 
 	var lc net.ListenConfig
@@ -399,9 +399,10 @@ func keychainUser() string {
 
 // checkClaudeCode reports the installed Claude Code version and whether it drifted from
 // the pin, without failing startup (docs/claude-code-pin.md). Both return values are nil
-// when the check itself failed (claude missing/hung) — REQ-8/Edge Case 12.
-func checkClaudeCode(ctx context.Context, log zerolog.Logger) (installed *string, drift *bool) {
-	err := claudecode.CheckPin(ctx)
+// when the check itself failed (claude missing/hung) — REQ-8/Edge Case 12. bin is the
+// -claude-bin value, so the check and the launches agree on which binary "claude" is.
+func checkClaudeCode(ctx context.Context, bin string, log zerolog.Logger) (installed *string, drift *bool) {
+	err := claudecode.CheckPin(ctx, bin)
 	if err == nil {
 		pinned := claudecode.PinnedVersion
 		noDrift := false

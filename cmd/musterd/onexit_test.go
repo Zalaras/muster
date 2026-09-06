@@ -30,6 +30,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Zalaras/muster/internal/claudecode"
+
 	"github.com/Zalaras/muster/internal/store"
 )
 
@@ -104,15 +106,21 @@ type spawnedDaemon struct {
 	stderr     *syncBuf
 }
 
-// newSleepStubClaude writes an executable standing in for `claude`: it ignores every
-// argument (BuildArgv's --model/--resume/etc. don't matter here) and just sleeps, so a
-// launched "session" has a real, live tmux pane to test against. CLAUDE.md forbids ever
-// launching the real `claude` from a unit test — this is the sanctioned substitute,
-// mirroring internal/server/sessions_test.go's newStubClaudeBin.
+// newSleepStubClaude writes an executable standing in for `claude`: it answers
+// `--version` with the pinned version (the daemon's startup drift check runs the
+// -claude-bin binary, so a stub that slept there would stall every spawned daemon for
+// the whole version-check timeout), otherwise ignores every argument (BuildArgv's
+// --model/--resume/etc. don't matter here) and just sleeps, so a launched "session" has
+// a real, live tmux pane to test against. CLAUDE.md forbids ever launching the real
+// `claude` from a unit test — this is the sanctioned substitute, mirroring
+// internal/server/sessions_test.go's newStubClaudeBin.
 func newSleepStubClaude(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "stub-claude.sh")
-	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\nsleep 60\n"), 0o755))
+	script := "#!/bin/sh\n" +
+		"if [ \"$1\" = \"--version\" ]; then echo \"" + claudecode.PinnedVersion + " (Claude Code)\"; exit 0; fi\n" +
+		"sleep 60\n"
+	require.NoError(t, os.WriteFile(path, []byte(script), 0o755))
 	return path
 }
 

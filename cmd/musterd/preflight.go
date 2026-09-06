@@ -14,9 +14,11 @@ import (
 // line, added by run itself), a warning row on an unrecognized version (REQ-3, startup
 // proceeds), or a fatal report plus a returned error naming the remedy (REQ-1/REQ-2/
 // REQ-17). It holds no tmux version knowledge of its own beyond calling internal/tmux —
-// MinVersion, parsing and the comparison all live there (REQ-4/R2).
-func runTmuxPreflight(ctx context.Context, stderr io.Writer) (tmux.PreflightResult, error) {
-	result := tmux.Preflight(ctx)
+// MinVersion, parsing and the comparison all live there (REQ-4/R2). preflight is
+// tmux.Preflight in production; tests pass a closure returning a canned result, since
+// this function's own job is only the rendering (docs/conventions.md §Testing).
+func runTmuxPreflight(ctx context.Context, stderr io.Writer, preflight func(context.Context) tmux.PreflightResult) (tmux.PreflightResult, error) {
+	result := preflight(ctx)
 
 	switch result.Status {
 	case tmux.StatusOK:

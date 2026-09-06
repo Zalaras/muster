@@ -76,6 +76,7 @@ func openTestDaemonArgs(t *testing.T, extra ...string) (args []string, dataDir s
 		"-data-dir", dataDir,
 		"-web-dist", webDist,
 		"-tmux-socket", tmuxSocket,
+		"-claude-bin", newSleepStubClaude(t), // the startup drift check runs -claude-bin; never the real claude from a test
 		"-usage-poll", "0",
 		"-usage-token-file", filepath.Join(dataDir, "usage-token-not-present"),
 	}

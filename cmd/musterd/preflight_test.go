@@ -16,28 +16,21 @@ import (
 	"github.com/Zalaras/muster/internal/tmux"
 )
 
-// writeFakeTmux mirrors internal/tmux/preflight_test.go's helper of the same shape: an
-// executable "tmux" in a fresh scratch directory that prints body's output for any
-// arguments, including "-V". Tests point $PATH at the returned directory so
-// runTmuxPreflight's call into internal/tmux.Preflight resolves to this stub instead of
-// whatever real tmux the test host has — never a tmux server or socket, `tmux -V` never
-// contacts one.
-func writeFakeTmux(t *testing.T, body string) string {
-	t.Helper()
-	dir := t.TempDir()
-	path := filepath.Join(dir, "tmux")
-	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\n"+body+"\n"), 0o755))
-	return dir
+// canned returns a preflight function yielding result without resolving or running any
+// tmux — runTmuxPreflight's own job is rendering, and internal/tmux/preflight_test.go
+// already proves the classification (docs/conventions.md §Testing). The pre-seam version
+// of these tests wrote a /bin/sh shim onto $PATH — a real fork per test that hit the 2 s
+// preflight timeout under `go test`'s default package parallelism.
+func canned(result tmux.PreflightResult) func(context.Context) tmux.PreflightResult {
+	return func(context.Context) tmux.PreflightResult { return result }
 }
 
 // TestRunTmuxPreflight_NotFoundReportsInstallRemedy covers D1: with tmux absent from
 // $PATH, the returned error names the install remedy, and the report block is printed
 // to stderr naming "not found in $PATH" (the UI spec's exact row).
 func TestRunTmuxPreflight_NotFoundReportsInstallRemedy(t *testing.T) {
-	t.Setenv("PATH", t.TempDir()) // empty: no tmux binary anywhere
-
 	var stderr bytes.Buffer
-	_, err := runTmuxPreflight(context.Background(), &stderr)
+	_, err := runTmuxPreflight(context.Background(), &stderr, canned(tmux.PreflightResult{Status: tmux.StatusNotFound}))
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "brew install tmux")
@@ -47,14 +40,25 @@ func TestRunTmuxPreflight_NotFoundReportsInstallRemedy(t *testing.T) {
 		"the UI spec separates the report from main's \"musterd: ...\" verdict line with a blank line")
 }
 
+// TestRunTmuxPreflight_FoundButDidNotRunNamesThePath covers Edge Case 2's rendering: a
+// tmux that resolved but failed to run is reported with its path, not as "not found".
+func TestRunTmuxPreflight_FoundButDidNotRunNamesThePath(t *testing.T) {
+	var stderr bytes.Buffer
+	_, err := runTmuxPreflight(context.Background(), &stderr,
+		canned(tmux.PreflightResult{Found: true, Path: "/opt/bin/tmux", Status: tmux.StatusNotFound}))
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "brew install tmux")
+	assert.Contains(t, stderr.String(), "found at /opt/bin/tmux but did not run")
+}
+
 // TestRunTmuxPreflight_TooOldNamesDetectedAndMinimum covers D2: a tmux below MinVersion
 // returns an error whose text names the upgrade remedy, and the report names both the
 // detected version and the 3.2 minimum.
 func TestRunTmuxPreflight_TooOldNamesDetectedAndMinimum(t *testing.T) {
-	t.Setenv("PATH", writeFakeTmux(t, "echo 'tmux 3.1a'"))
-
 	var stderr bytes.Buffer
-	result, err := runTmuxPreflight(context.Background(), &stderr)
+	result, err := runTmuxPreflight(context.Background(), &stderr,
+		canned(tmux.PreflightResult{Found: true, Path: "/opt/bin/tmux", Version: "3.1a", Status: tmux.StatusTooOld}))
 
 	require.Error(t, err)
 	assert.Equal(t, tmux.StatusTooOld, result.Status)
@@ -69,10 +73,9 @@ func TestRunTmuxPreflight_TooOldNamesDetectedAndMinimum(t *testing.T) {
 // output must not fail runTmuxPreflight — it prints a warning row and returns a nil
 // error so startup proceeds.
 func TestRunTmuxPreflight_UnrecognizedVersionIsNotFatal(t *testing.T) {
-	t.Setenv("PATH", writeFakeTmux(t, "echo 'tmux master'"))
-
 	var stderr bytes.Buffer
-	result, err := runTmuxPreflight(context.Background(), &stderr)
+	result, err := runTmuxPreflight(context.Background(), &stderr,
+		canned(tmux.PreflightResult{Found: true, Path: "/opt/bin/tmux", Version: "master", Status: tmux.StatusUnrecognized}))
 
 	require.NoError(t, err)
 	assert.Equal(t, tmux.StatusUnrecognized, result.Status)
@@ -86,10 +89,9 @@ func TestRunTmuxPreflight_UnrecognizedVersionIsNotFatal(t *testing.T) {
 // TestRunTmuxPreflight_OKPrintsNothing covers REQ-13: an all-clear preflight must not
 // print the report block at all — only failures and warnings get one.
 func TestRunTmuxPreflight_OKPrintsNothing(t *testing.T) {
-	t.Setenv("PATH", writeFakeTmux(t, "echo 'tmux 3.7b'"))
-
 	var stderr bytes.Buffer
-	result, err := runTmuxPreflight(context.Background(), &stderr)
+	result, err := runTmuxPreflight(context.Background(), &stderr,
+		canned(tmux.PreflightResult{Found: true, Path: "/opt/bin/tmux", Version: "3.7b", Status: tmux.StatusOK}))
 
 	require.NoError(t, err)
 	assert.Equal(t, tmux.StatusOK, result.Status)

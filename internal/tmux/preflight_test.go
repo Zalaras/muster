@@ -2,8 +2,7 @@ package tmux
 
 import (
 	"context"
-	"os"
-	"path/filepath"
+	"errors"
 	"testing"
 	"time"
 
@@ -78,27 +77,32 @@ func TestMinVersion(t *testing.T) {
 	assert.Equal(t, ParsedVersion{Major: 3, Minor: 2}, MinVersion)
 }
 
-// writeFakeTmux writes an executable "tmux" into a fresh scratch directory that prints
-// script's stdout when run with any arguments (including "-V") and returns that
-// directory plus the binary's resolved path. Tests point $PATH at the returned directory
-// (via t.Setenv, auto-restored) so internal/tmux.Preflight's own exec.LookPath("tmux")
-// resolves to this stub rather than whatever real tmux the test host has installed —
-// this never touches a tmux server or socket, `tmux -V` never contacts one.
-func writeFakeTmux(t *testing.T, body string) (dir, path string) {
-	t.Helper()
-	dir = t.TempDir()
-	path = filepath.Join(dir, "tmux")
-	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\n"+body+"\n"), 0o755))
-	return dir, path
+// fakePreflighter builds a preflighter whose two process boundaries are canned: lookPath
+// resolves "tmux" to fakeTmuxPath and run returns stdout/err without forking anything.
+// internal/tmux.Preflight's own logic (trim, parse, compare, classify) runs unchanged
+// through preflight(); only the exec seams are replaced (docs/conventions.md §Testing).
+// The pre-seam version of these tests wrote a /bin/sh shim onto $PATH — a real fork per
+// test that hit the 2 s timeout under `go test`'s default package parallelism.
+const fakeTmuxPath = "/fake/bin/tmux"
+
+func fakePreflighter(stdout string, runErr error) *preflighter {
+	return &preflighter{
+		lookPath: func(string) (string, error) { return fakeTmuxPath, nil },
+		run: func(context.Context, string, ...string) ([]byte, error) {
+			return []byte(stdout + "\n"), runErr
+		},
+		timeout: time.Second,
+	}
 }
 
 // TestPreflight_NotFoundOnPath covers D1's underlying unit and Edge Case 1's "absent"
 // shape: no tmux anywhere on $PATH resolves to StatusNotFound with Found=false and no
-// path to report.
+// path to report. lookPath fails exactly as exec.LookPath does for an empty $PATH.
 func TestPreflight_NotFoundOnPath(t *testing.T) {
-	t.Setenv("PATH", t.TempDir()) // an empty directory: no tmux binary at all
+	p := fakePreflighter("", nil)
+	p.lookPath = func(string) (string, error) { return "", errors.New("executable file not found in $PATH") }
 
-	got := Preflight(context.Background())
+	got := p.preflight(context.Background())
 
 	assert.Equal(t, StatusNotFound, got.Status)
 	assert.False(t, got.Found)
@@ -111,77 +115,66 @@ func TestPreflight_NotFoundOnPath(t *testing.T) {
 // from "not found" by setting Found=true and Path (REQ-14), even though both land on the
 // same fatal StatusNotFound classification (daemon-implementation.md's Decisions).
 func TestPreflight_FoundButFailsToRun(t *testing.T) {
-	dir, path := writeFakeTmux(t, "exit 1")
-	t.Setenv("PATH", dir)
+	p := fakePreflighter("", errors.New("exit status 1"))
 
-	got := Preflight(context.Background())
+	got := p.preflight(context.Background())
 
 	assert.Equal(t, StatusNotFound, got.Status)
 	assert.True(t, got.Found, "a binary that resolved but failed to run must still report Found=true")
-	assert.Equal(t, path, got.Path)
+	assert.Equal(t, fakeTmuxPath, got.Path)
 }
 
 // TestPreflight_HangingTmuxIsBoundedAndFatal covers Edge Case 1: `tmux -V` never
-// contacts a server and is instant, so a hang past preflightTimeout (2s) is a failure to
-// run tmux at all, not a slow tmux — Preflight must return well before the stub's own
-// sleep, and classify it as StatusNotFound like any other failure to run.
+// contacts a server and is instant, so a hang past the preflight timeout is a failure to
+// run tmux at all, not a slow tmux — preflight must return at its own timeout, not the
+// binary's, and classify it as StatusNotFound like any other failure to run. The run
+// seam blocks until the bounded context expires, exactly as exec.CommandContext's
+// Output() does once it has killed the process; the timeout is injected small so the
+// assertion is about the bound being applied, not about waiting 2 s.
 func TestPreflight_HangingTmuxIsBoundedAndFatal(t *testing.T) {
-	// "exec /bin/sleep 5", not "sleep 5" or "/bin/sleep 5" run as an ordinary command:
-	// an ordinary command forks a child that outlives a killed /bin/sh, orphaning it —
-	// exec.CommandContext then only kills the shell, and the orphaned sleep keeps the
-	// Output() pipe open until it exits on its own at 5s, which would make this test
-	// pass for the wrong reason (measuring the sleep's own duration, not the preflight
-	// timeout). The `exec` builtin replaces the shell process in place (verified via
-	// `ps`: same PID becomes /bin/sleep), so killing the single process actually closes
-	// the pipe at the 2s bound. Absolute path because $PATH below is deliberately
-	// restricted to this stub's own directory.
-	dir, path := writeFakeTmux(t, "exec /bin/sleep 5")
-	t.Setenv("PATH", dir)
+	p := fakePreflighter("", nil)
+	p.timeout = 50 * time.Millisecond
+	p.run = func(ctx context.Context, _ string, _ ...string) ([]byte, error) {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
 
 	start := time.Now()
-	got := Preflight(context.Background())
+	got := p.preflight(context.Background())
 	elapsed := time.Since(start)
 
 	assert.Equal(t, StatusNotFound, got.Status)
 	assert.True(t, got.Found)
-	assert.Equal(t, path, got.Path)
-	assert.Less(t, elapsed, 4*time.Second, "a hung tmux -V must be bounded near the 2s preflight timeout, not the stub's 5s sleep")
+	assert.Equal(t, fakeTmuxPath, got.Path)
+	assert.GreaterOrEqual(t, elapsed, 50*time.Millisecond, "the run must have been given the full preflight timeout")
+	assert.Less(t, elapsed, time.Second, "a hung tmux -V must be bounded by the preflight timeout, not the binary's own lifetime")
 }
 
 // TestPreflight_TooOld covers D2/REQ-2: a tmux below MinVersion classifies as
 // StatusTooOld and its detected version is reported (not just the pass/fail verdict).
 func TestPreflight_TooOld(t *testing.T) {
-	dir, path := writeFakeTmux(t, "echo 'tmux 3.1a'")
-	t.Setenv("PATH", dir)
-
-	got := Preflight(context.Background())
+	got := fakePreflighter("tmux 3.1a", nil).preflight(context.Background())
 
 	assert.Equal(t, StatusTooOld, got.Status)
 	assert.True(t, got.Found)
-	assert.Equal(t, path, got.Path)
+	assert.Equal(t, fakeTmuxPath, got.Path)
 	assert.Equal(t, "3.1a", got.Version, "the leading \"tmux\" program name must be trimmed from the stored Version")
 }
 
 // TestPreflight_ExactlyMinVersionIsOK covers the MinVersion boundary itself: 3.2 is
 // accepted, not rejected — Less must be strict, not <=.
 func TestPreflight_ExactlyMinVersionIsOK(t *testing.T) {
-	dir, _ := writeFakeTmux(t, "echo 'tmux 3.2'")
-	t.Setenv("PATH", dir)
-
-	got := Preflight(context.Background())
+	got := fakePreflighter("tmux 3.2", nil).preflight(context.Background())
 
 	assert.Equal(t, StatusOK, got.Status)
 	assert.Equal(t, "3.2", got.Version)
 }
 
-// TestPreflight_NewerDoubleDigitMinorIsOK is D6/D7 exercised through Preflight's own
-// exported surface end to end: 3.10 must be treated as newer than the 3.2 minimum, not
+// TestPreflight_NewerDoubleDigitMinorIsOK is D6/D7 exercised through preflight's own
+// classification end to end: 3.10 must be treated as newer than the 3.2 minimum, not
 // older by a lexical compare.
 func TestPreflight_NewerDoubleDigitMinorIsOK(t *testing.T) {
-	dir, _ := writeFakeTmux(t, "echo 'tmux 3.10'")
-	t.Setenv("PATH", dir)
-
-	got := Preflight(context.Background())
+	got := fakePreflighter("tmux 3.10", nil).preflight(context.Background())
 
 	assert.Equal(t, StatusOK, got.Status, "3.10 must not be rejected as older than 3.2")
 }
@@ -191,14 +184,11 @@ func TestPreflight_NewerDoubleDigitMinorIsOK(t *testing.T) {
 // StatusNotFound and not StatusTooOld. Muster cannot prove an unrecognized build is too
 // old.
 func TestPreflight_UnrecognizedVersionIsNotFatal(t *testing.T) {
-	dir, path := writeFakeTmux(t, "echo 'tmux master'")
-	t.Setenv("PATH", dir)
-
-	got := Preflight(context.Background())
+	got := fakePreflighter("tmux master", nil).preflight(context.Background())
 
 	assert.Equal(t, StatusUnrecognized, got.Status)
 	assert.True(t, got.Found)
-	assert.Equal(t, path, got.Path)
+	assert.Equal(t, fakeTmuxPath, got.Path)
 	assert.Equal(t, "master", got.Version)
 }
 
@@ -208,11 +198,20 @@ func TestPreflight_UnrecognizedVersionIsNotFatal(t *testing.T) {
 // "tmux" prefix, but ParseVersion's digit matching must still succeed regardless of
 // prefix casing, only the display trimming is affected.
 func TestPreflight_UppercaseProgramNamePrefixIsNotTrimmed(t *testing.T) {
-	dir, _ := writeFakeTmux(t, "echo 'TMUX 3.5'")
-	t.Setenv("PATH", dir)
-
-	got := Preflight(context.Background())
+	got := fakePreflighter("TMUX 3.5", nil).preflight(context.Background())
 
 	assert.Equal(t, StatusOK, got.Status, "version parsing must not depend on the program-name prefix's casing")
 	assert.Equal(t, "TMUX 3.5", got.Version)
+}
+
+// TestPreflight_ProductionSeamsAreTheExecPackage pins that the exported Preflight is
+// wired to real process boundaries — the fake-seam tests above prove the logic, this
+// proves the default construction points at exec (and at the 2 s bound REQ-1 names)
+// without running anything.
+func TestPreflight_ProductionSeamsAreTheExecPackage(t *testing.T) {
+	p := newPreflighter()
+
+	assert.NotNil(t, p.lookPath)
+	assert.NotNil(t, p.run)
+	assert.Equal(t, 2*time.Second, p.timeout)
 }

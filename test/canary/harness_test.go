@@ -130,7 +130,7 @@ func (f *fixture) build() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 
-	installed, err := claudecode.InstalledVersion(ctx)
+	installed, err := claudecode.InstalledVersion(ctx, "claude")
 	if err != nil {
 		return fmt.Errorf("claude must be on PATH: %w", err)
 	}

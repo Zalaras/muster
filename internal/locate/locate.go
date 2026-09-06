@@ -57,6 +57,18 @@ func New() *Locator {
 	}
 }
 
+// NewWithFinders builds a Locator over exactly the given Finders, in order. It is the
+// seam for callers that must not reach Spotlight — internal/server's handler tests use
+// NewWithFinders(NewWalkFinder(DefaultWalkCap)) so no unit test forks `mdfind`
+// (docs/conventions.md §Testing) — and for environments without it.
+func NewWithFinders(finders ...Finder) *Locator {
+	return &Locator{
+		finders:          finders,
+		walkCap:          DefaultWalkCap,
+		spotlightTimeout: DefaultSpotlightTimeout,
+	}
+}
+
 // ErrNotLocated means no file on disk matched the dropped file's name, size and bytes.
 var ErrNotLocated = errors.New("locate: no file matched")
 

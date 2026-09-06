@@ -34,7 +34,7 @@ const needsInteractiveDialog = "needs an interactive permission dialog driven vi
 
 // TestInstalledVersionMatchesPin needs nothing but the binary on PATH; it always runs.
 func TestInstalledVersionMatchesPin(t *testing.T) {
-	installed, err := claudecode.InstalledVersion(t.Context())
+	installed, err := claudecode.InstalledVersion(t.Context(), "claude")
 	require.NoError(t, err, "claude must be on PATH to run the canary")
 	assert.Equal(t, claudecode.PinnedVersion, installed,
 		"installed Claude Code differs from the pin; see docs/claude-code-pin.md")

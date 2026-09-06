@@ -280,14 +280,22 @@ func TestHandleLocateFile_TooLarge(t *testing.T) {
 	assert.Equal(t, "too_large", resp.Error.Code)
 }
 
+// walkOnlyLocator is the real Locator minus its Spotlight Finder: E2E's own
+// Implementation Notes record that scratch temp dirs are not Spotlight-indexed, so
+// against t.TempDir() the daemon's locate.New() would only ever fall through to the walk
+// anyway — this reaches the same outcome without forking `mdfind` once per call
+// (docs/conventions.md §Testing: no unit test runs a real subprocess it doesn't assert on).
+func walkOnlyLocator() *locate.Locator {
+	return locate.NewWithFinders(locate.NewWalkFinder(locate.DefaultWalkCap))
+}
+
 // TestHandleLocateFile_OutcomesMatchLocatorResult (D15) drives the handler with the
-// real locate.New() Locator (Spotlight + walk): E2E's own Implementation Notes record
-// that scratch temp dirs are not Spotlight-indexed, so this exercises the walk path
-// exactly as the real daemon would for a session directory under os.TempDir().
+// walk-only Locator, which for a session directory under os.TempDir() is exactly the
+// path the real daemon's Spotlight-then-walk Locator takes.
 func TestHandleLocateFile_OutcomesMatchLocatorResult(t *testing.T) {
 	t.Run("200: exactly one byte-identical file", func(t *testing.T) {
 		srv := newTestServer(t, ClaudeCodeInfo{})
-		srv.locator = locate.New()
+		srv.locator = walkOnlyLocator()
 		dir := t.TempDir()
 		content := []byte("D15 single match unique content")
 		target := filepath.Join(dir, "found.txt")
@@ -312,7 +320,7 @@ func TestHandleLocateFile_OutcomesMatchLocatorResult(t *testing.T) {
 
 	t.Run("404 not_located: no matching file on disk", func(t *testing.T) {
 		srv := newTestServer(t, ClaudeCodeInfo{})
-		srv.locator = locate.New()
+		srv.locator = walkOnlyLocator()
 		dir := t.TempDir()
 		id := newLocateTestSession(t, srv, dir)
 
@@ -332,7 +340,7 @@ func TestHandleLocateFile_OutcomesMatchLocatorResult(t *testing.T) {
 
 	t.Run("404 not_located: same name and size but different bytes", func(t *testing.T) {
 		srv := newTestServer(t, ClaudeCodeInfo{})
-		srv.locator = locate.New()
+		srv.locator = walkOnlyLocator()
 		dir := t.TempDir()
 		onDisk := []byte("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
 		upload := []byte("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")
@@ -356,7 +364,7 @@ func TestHandleLocateFile_OutcomesMatchLocatorResult(t *testing.T) {
 
 	t.Run("409 ambiguous: two identical files, paths listed", func(t *testing.T) {
 		srv := newTestServer(t, ClaudeCodeInfo{})
-		srv.locator = locate.New()
+		srv.locator = walkOnlyLocator()
 		dir := t.TempDir()
 		content := []byte("D15 ambiguous duplicated content")
 		pathA := filepath.Join(dir, "a", "dup.txt")
@@ -424,8 +432,8 @@ func TestHandleLocateFile_NeverWritesUploadToDisk(t *testing.T) {
 	assert.Equal(t, dataBefore, dataDirSnapshot(t, srv), "D16/INV-2: locate must not modify the data dir")
 }
 
-// TestHandleLocateFile_FinderErrorReturnsInternalError drives the handler with a real
-// locate.New() Locator against a session directory that is itself unreadable, so
+// TestHandleLocateFile_FinderErrorReturnsInternalError drives the handler with the
+// walk-only Locator against a session directory that is itself unreadable, so
 // WalkFinder.Find surfaces a genuine error (not "nothing found") and Locate wraps and
 // returns it rather than swallowing it — see internal/locate/walk_test.go's
 // TestWalkFinder_UnreadableRootIsARealError and internal/locate/locate_test.go's
@@ -436,7 +444,7 @@ func TestHandleLocateFile_FinderErrorReturnsInternalError(t *testing.T) {
 		t.Skip("root ignores directory permission bits")
 	}
 	srv := newTestServer(t, ClaudeCodeInfo{})
-	srv.locator = locate.New()
+	srv.locator = walkOnlyLocator()
 	dir := t.TempDir()
 	id := newLocateTestSession(t, srv, dir)
 
