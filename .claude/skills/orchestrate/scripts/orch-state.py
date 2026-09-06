@@ -141,6 +141,8 @@ def main():
             close_attempt(s, a.arg)
             s["current_step"] = a.next
         elif a.cmd == "retry":
+            if (s.get("step_attempts") or {}).get(a.arg, [{}])[-1].get("finish", 0) is None:
+                close_attempt(s, a.arg)  # a retry means the step just reported
             s["retry_counts"][a.arg] = s["retry_counts"].get(a.arg, 0) + 1
         elif a.cmd == "fail":
             s["failed_steps"].append({"step": a.arg, "at": now()})

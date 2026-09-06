@@ -115,9 +115,9 @@ When routing review issues back to fix agents:
 5. **Require path enumeration for Critical/Major fixes** — always include:
    ```
    For each Critical or Major issue, enumerate in your Fix Attempt section EVERY code
-   path that reaches the defect and state how each one is now closed. When an issue
-   names a category ("clear-rebind and plain re-bind"), the fix must close every door
-   in the category, not just the branch the reviewer's example used.
+   path that reaches the defect and paste the measurement that shows each one closed.
+   When an issue names a category ("clear-rebind and plain re-bind"), the fix must close
+   every door in the category, not just the branch the reviewer's example used.
    ```
    Learned from m1-sessions: a Critical naming two paths got a one-path fix, and the
    identical bug came back through the other path a full review cycle later.
@@ -386,10 +386,8 @@ python3 $S <plan> timings                           # Completion 5: per-step wal
 `start` stamps `step_started_at[<step>]` and `done` stamps `step_finished_at[<step>]`;
 `timings` reports finish − start per step. **Every `start` needs a matching `finish` or `done`**:
 a fix-mode re-spawn gets `start` at spawn and `finish` when it reports (it does not end the
-step, so `done` is wrong there) — fix-auto-mode-select stamped `start` for its web-impl fix
-wave and nothing after, and the timings row read `-41m21s`. Call `start` for every step you spawn, including
-each agent of a parallel pair and every fix-mode re-spawn (the stamp is overwritten, so the
-row reports the last attempt; retries are in their own column). Without the start stamp the
+step, so `done` is wrong there); `retry` closes a still-open attempt itself. Call `start` for
+every step you spawn, including each agent of a parallel pair and every fix-mode re-spawn. Without the start stamp the
 table falls back to the gap since the previous finish, which is wrong for parallel steps —
 file-drop-fix's table showed web-impl at 0 s and daemon-tests at 88 s when both ran ~15 min
 beside a sibling. Per-step wall-clock is the one number a retro cannot reconstruct

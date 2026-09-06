@@ -149,10 +149,10 @@ Bare `<details><summary>`, `<div>` and `<span>` carry **no** implicit ARIA role.
 
 #### Invariants (learned from m1-sessions)
 
-If the plan or the protocol states a rule that must hold **at all times** — an "iff", an
-"always", a "never" (e.g. "`attention` is non-null iff state is `needs_input`") — list it
-in the plan as a **named invariant**, not just inside a requirement's prose. Invariants
-get a different test shape than transitions: the test agent must assert them from **every
+If the plan or protocol states a rule that must hold **at all times** — an "iff", an
+"always", a "never", a failure that must *surface* (e.g. "`attention` is non-null iff state
+is `needs_input`"; plain-terminal-session's REQ-12) — list it as a **named invariant**, not
+just in a requirement's prose. Invariants get a different test shape: assert them from **every
 reachable source state**, not the convenient one. Before approval, walk every state-changing
 path Affected Files and Implementation Notes name against each named invariant: a path the plan
 calls "unchanged" or "untouched" that an invariant now reaches is a fix wave the tester will
