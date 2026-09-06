@@ -60,7 +60,7 @@ that owns it. Every entry this command writes must therefore carry the full link
 `#N` — the bare form is for cross-references only.
 
 Let `gh` auto-detect the repository from the `origin` remote. **Do not hardcode the repo slug** —
-it already lives in `go.mod` and `Makefile:73`, and a third copy is a third thing to change.
+it already lives in `go.mod:1` and `Makefile:82`, and a third copy is a third thing to change.
 
 Report the count before doing any work: `N open, M untriaged`.
 

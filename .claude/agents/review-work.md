@@ -21,21 +21,21 @@ From `plans/<plan-name>/`:
 - `web-implementation.md` — web change log
 - `web-tests.md` — web test results
 
-Plus the standing authorities: `CLAUDE.md` (hard rules), `docs/conventions.md` (settled patterns), `docs/protocol.md` (contract, once it exists), and — where the plan touches ingest — `spikes/canary-fields.md` (measured wire formats; measurements beat docs).
+Plus the standing authorities: `CLAUDE.md` (hard rules), `docs/conventions.md` (settled patterns), `docs/protocol.md` (contract), and — where the plan touches ingest — `spikes/canary-fields.md` (measured wire formats; measurements beat docs).
 
 Then read the **actual source files** listed in the implementation logs to review the code itself.
 
 ## Review Process
 
-### 1. Run the Full E2E Suite First (if tests exist)
+### 1. Run the Full E2E Suite First
 
-Before doing any code review, run the **whole** Playwright suite — not just this plan's spec file (from `web/`):
+Before doing any code review, run the **whole** Playwright suite — not just this plan's spec file — from the project root:
 
 ```bash
-npm run e2e
+make e2e
 ```
 
-The harness allocates its own per-run port and never reuses an existing server, so there is no manual setup.
+`make e2e` rebuilds the dashboard and the binary first (the harness serves prebuilt artifacts, so a bare `npm run e2e` tests whatever was last compiled) and allocates its own per-run port.
 
 This run is a **regression sweep**, deliberately not redundant with the pipeline's E2E Validate step (which runs only this plan's spec file). You are the first and only step before approval that runs every spec — so you are the one who catches this plan's implementation breaking somebody else's test.
 
@@ -69,6 +69,8 @@ Then run the plan's **authored acceptance checks** — `.claude/skills/orchestra
 If the plan has no ```checks block, note it under Minor (no routing tag; it is a plan defect) and verify the prose criteria by hand. Never substitute a partial parse of a compound prose criterion for the criterion itself.
 
 Also verify the plan's `### Reviewer-Verified` list explicitly, item by item — those items exist precisely because no command can check them.
+
+Doc upkeep (`TODO.md` tick, `SPEC.md` changelog, `docs/protocol.md`, `spikes/`) was done by the orchestrator before you were spawned: report it as one row of `## Acceptance Checks` (`DOC pass | FAIL — <what is missing>`), never as a Major. A *false* user-facing statement is still a Major under §8.\n
 
 ### 2a. Verify in the Browser (required once there is a UI)
 

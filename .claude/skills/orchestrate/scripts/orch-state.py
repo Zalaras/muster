@@ -8,8 +8,10 @@ Usage (run from the project root):
                                                      reports; leaves completed_steps/current_step alone
   orch-state.py <plan> done <step> --next STEP       mark <step> completed, move on
   orch-state.py <plan> retry <step>                  bump retry_counts[<step>]
-  orch-state.py <plan> fail <step>                   append to failed_steps
   orch-state.py <plan> status <in-progress|blocked|completed> [--step STEP]
+                                                     completed is refused unless review.md says **Verdict**: approved
+  orch-state.py <plan> archive <file>                rename plans/<plan>/<file> to <stem>.cycle<N><ext> before a
+                                                     re-spawn overwrites it (N = review cycles so far + 1)
   orch-state.py <plan> reopen <step>                 resume: status in-progress, retries kept (--reset-retries zeroes),
                                                      remove <step> from completed_steps
   orch-state.py <plan> closes [N ...]                set closes_issues (no N clears it)
@@ -87,6 +89,10 @@ def close_attempt(s, step):
     else:
         lst.append({"start": None, "finish": ts})
 
+def approved(plan_dir):
+    r = plan_dir / "review.md"
+    return r.exists() and "**Verdict**: approved" in r.read_text()
+
 def fmt(td):
     m, sec = divmod(int(td.total_seconds()), 60)
     return f"{m}m{sec:02d}s"
@@ -94,8 +100,8 @@ def fmt(td):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("plan")
-    ap.add_argument("cmd", choices=["init", "start", "finish", "done", "retry", "fail", "status", "reopen",
-                                   "show", "closes", "timings"])
+    ap.add_argument("cmd", choices=["init", "start", "finish", "done", "retry", "status", "reopen",
+                                   "show", "closes", "timings", "archive"])
     ap.add_argument("arg", nargs="?")
     ap.add_argument("rest", nargs="*", help="closes: any further issue numbers")
     ap.add_argument("--step")
@@ -111,7 +117,7 @@ def main():
         s = {"plan_name": a.plan, "status": "in-progress",
              "current_step": a.step or STEPS[0],
              "retry_counts": {k: 0 for k in STEPS},
-             "completed_steps": [], "failed_steps": [],
+             "completed_steps": [],
              "step_started_at": {}, "step_finished_at": {}, "step_attempts": {},
              "started_at": now(), "updated_at": now()}
     else:
@@ -122,10 +128,10 @@ def main():
             print(json.dumps(s, indent=2)); return
         if a.cmd == "timings":
             print_timings(s); return
-        need = a.cmd in ("start", "finish", "done", "retry", "fail", "reopen", "status")
+        need = a.cmd in ("start", "finish", "done", "retry", "reopen", "status", "archive")
         if need and not a.arg:
             sys.exit(f"{a.cmd} needs an argument")
-        if a.cmd in ("start", "finish", "done", "retry", "fail", "reopen") and a.arg not in STEPS:
+        if a.cmd in ("start", "finish", "done", "retry", "reopen") and a.arg not in STEPS:
             sys.exit(f"unknown step {a.arg!r}; one of {STEPS}")
         if a.cmd == "start":
             ts = now()
@@ -136,6 +142,8 @@ def main():
         elif a.cmd == "done":
             if not a.next:
                 sys.exit("done needs --next STEP (use 'completed' after review)")
+            if a.next == "completed" and not approved(path.parent):
+                sys.exit("review.md does not say '**Verdict**: approved' — the pipeline is not completed")
             if a.arg not in s["completed_steps"]:
                 s["completed_steps"].append(a.arg)
             close_attempt(s, a.arg)
@@ -144,11 +152,21 @@ def main():
             if (s.get("step_attempts") or {}).get(a.arg, [{}])[-1].get("finish", 0) is None:
                 close_attempt(s, a.arg)  # a retry means the step just reported
             s["retry_counts"][a.arg] = s["retry_counts"].get(a.arg, 0) + 1
-        elif a.cmd == "fail":
-            s["failed_steps"].append({"step": a.arg, "at": now()})
+        elif a.cmd == "archive":
+            src = path.parent / a.arg
+            if not src.exists():
+                sys.exit(f"{src} not found")
+            n = s["retry_counts"].get("review", 0) + 1
+            dst = src.with_name(f"{src.stem}.cycle{n}{src.suffix}")
+            if dst.exists():
+                sys.exit(f"{dst} already exists")
+            src.rename(dst)
+            print(f"archived {src.name} -> {dst.name}")
         elif a.cmd == "status":
             if a.arg not in ("in-progress", "blocked", "completed"):
                 sys.exit("status must be in-progress|blocked|completed")
+            if a.arg == "completed" and not approved(path.parent):
+                sys.exit("review.md does not say '**Verdict**: approved' — the pipeline is not completed")
             s["status"] = a.arg
             if a.step:
                 s["current_step"] = a.step

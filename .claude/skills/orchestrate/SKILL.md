@@ -2,12 +2,12 @@
 name: orchestrate
 description: "Runs the full multi-agent implementation pipeline for an approved plan. Spawns subagents for E2E authoring, implementation, testing, and review."
 argument-hint: "<plan-name>"
-allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Task
+allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Agent, AskUserQuestion
 ---
 
-Your job is to orchestrate the execution of a plan through the multi-agent development pipeline by spawning subagents (Task tool) for each step. You control the flow, handle retries, and ensure each agent's output feeds correctly into the next.
+Your job is to orchestrate the execution of a plan through the multi-agent development pipeline by spawning subagents (Agent tool) for each step. You control the flow, handle retries, and ensure each agent's output feeds correctly into the next.
 
-> **Maintainer note:** This orchestration logic lives in a **skill** (not an `.claude/agents/` definition) on purpose. The orchestrator must run in the main conversation context so it can spawn worker subagents via the Task tool — and a subagent cannot spawn other subagents in Claude Code. A skill is always loaded into the main session, so this constraint is satisfied structurally. **Do not** convert this into an agent definition.
+> **Maintainer note:** This orchestration logic lives in a **skill** (not an `.claude/agents/` definition) on purpose. The orchestrator must run in the main conversation context so it can spawn worker subagents via the Agent tool — and a subagent cannot spawn other subagents in Claude Code. A skill is always loaded into the main session, so this constraint is satisfied structurally. **Do not** convert this into an agent definition.
 
 ## Arguments
 
@@ -20,12 +20,12 @@ If no plan name was provided, list available plans from the `plans/` directory a
 Before starting:
 
 1. Read `plans/<plan-name>/plan.md`
-2. Verify the plan status is "approved" (not "draft"). If draft, tell the user to approve it first via `/plan-work`.
+2. Verify the plan status is "approved" (not "draft") and run `.claude/skills/orchestrate/scripts/plan-lint.sh <plan-name>`. A draft, or any `FAIL` line, goes back to `/plan-work` — spawn nobody.
 3. Check the **Work Type** field to determine which agents to run:
    - `daemon` → skip web agents; run the E2E steps only if the plan defines `E*` acceptance criteria (a daemon-only change can still be E2E-observable through the dashboard)
    - `web` → skip daemon agents
    - `full-stack` → run all agents
-3a. Check the **E2E Scope** field (plans before 2026-08-25 lack it — infer from the `E*` criteria and say so):
+3a. Check the **E2E Scope** field:
    - `new-specs` → Step 1 authors tests; expected verdict `authored`
    - `harness-only` → the plan's E2E deliverable is an edit to `web/e2e/helpers/*` or fixtures with no new spec (e.g. m4's space-bearing data dir); Step 1 still runs e2e-specs, expected verdict `harness-only`; Step 5 runs as the full-suite sweep
    - `none` → skip Steps 1 and 5
@@ -69,7 +69,7 @@ Before starting:
 ```
 
 **Parallel execution**: For `full-stack` plans, daemon and web tracks run in parallel:
-- Spawn daemon-impl and web-impl simultaneously using two Task tool calls in a single message
+- Spawn daemon-impl and web-impl simultaneously using two Agent tool calls in a single message
 - **Each track's test agent starts the moment its own impl agent reports** — do not hold the
   daemon tester for the web coder or vice versa. daemon-tests writes only Go test files and
   web-tests only `web/src/**/*.test.ts`, so a tester and the other track's coder never share a
@@ -84,7 +84,7 @@ For `daemon` or `web` only plans, run the relevant track sequentially. Skip Step
 
 ## Agent Invocation
 
-Spawn each step as a subagent using the Task tool with the step's own `subagent_type`:
+Spawn each step as a subagent using the Agent tool with the step's own `subagent_type`:
 
 | Step | `subagent_type` |
 |------|-----------------|
@@ -112,15 +112,7 @@ When routing review issues back to fix agents:
    Read plans/<plan-name>/review.md for the complete issue descriptions.
    The issues tagged [<agent-tag>] are yours to fix. Fix ALL of them.
    ```
-5. **Require path enumeration for Critical/Major fixes** — always include:
-   ```
-   For each Critical or Major issue, enumerate in your Fix Attempt section EVERY code
-   path that reaches the defect and paste the measurement that shows each one closed.
-   When an issue names a category ("clear-rebind and plain re-bind"), the fix must close
-   every door in the category, not just the branch the reviewer's example used.
-   ```
-   Learned from m1-sessions: a Critical naming two paths got a one-path fix, and the
-   identical bug came back through the other path a full review cycle later.
+5. **State that Fix Mode rules 5–7 of the agent's definition apply** (enumerate every path, measure blast radius, re-run the reviewer's repro) — one sentence; the rules themselves live in the agent file.
 
 6. **State the cycle label** — every fix-mode prompt names the current review cycle
    ("This is review cycle 2's fix wave"), or the pre-review context ("this is an
@@ -228,22 +220,9 @@ Spawn `subagent_type: "e2e-specs"`:
 ```
 Execute in VALIDATE MODE for plan: <plan-name>
 Project root: <project-root>
-
-Implementation and unit tests are complete. Run your spec file(s) live and repair your own
-locators. This is validate attempt <N> of 2.
-Spec file(s): <paths from the File column of test-specs.md's Tests table>
-Read plans/<plan-name>/daemon-implementation.md and
-plans/<plan-name>/web-implementation.md for what was built and where.
-Rebuild before running (make web-build build — in that order: the binary embeds
-internal/webui/assets, so a Go compile before the web build embeds a stale dashboard and you are
-testing the previous tree; the harness serves prebuilt binaries; note `make web-build` runs tsc
-over web/e2e/ too, so a type error in any spec — including a throwaway one — fails the build and
-leaves the assets stale), and
-once your own file passes, sweep the FULL suite (make e2e) per your Validate Mode step 5:
-pre-existing specs superseded by this plan's approved protocol delta are yours to update
-as sanctioned breakage; failures the delta does not explain are implementation-bugs.
-You may NOT change implementation code, and you may NOT weaken or delete an assertion to make
-a test green. If the only way to pass is to weaken the test, report implementation-bug.
+This is validate attempt <N> of 2. Spec file(s): <paths from the File column of test-specs.md's Tests table>.
+Your definition's Validate Mode applies in full: rebuild first, run your file live, repair only your
+own locators, then sweep the full suite; never weaken an assertion — report implementation-bug instead.
 ```
 
 Read `**Verdict**` in `plans/<plan-name>/test-specs.md`:
@@ -302,7 +281,6 @@ If all 3 review cycles are used and the final verdict is still `needs-changes`:
 3. Report to the user exactly what issues remain, referencing the review.md file
 4. Ask the user whether to: (a) continue with more review cycles, (b) fix manually, or (c) abort. (Decision items are never the reason to reach this point — they are settled by the `decide` skill in cycle 1a.)
 
-**CRITICAL**: The pipeline can ONLY be marked "completed" when the review verdict is "approved". Any other verdict means the pipeline is either "in-progress" or "blocked". Never override a review verdict.
 
 ## Fix Wave Ordering
 
@@ -344,7 +322,7 @@ Two concrete ways a flat fan-out goes wrong: an impl agent moves or renames a sy
   typecheck issue while `--tests=false` showed the 2 `govet` shadows that same commit introduced.
 
 - **Plan amendments mid-run** (learned from m2-terminal, where the plan's own REQ contradicted its acceptance criteria): a review issue may prove a plan requirement wrong. Protocol-contract changes always stop the pipeline (rule above). A **non-protocol** requirement may be amended by the orchestrator without stopping iff all of: the review demonstrates the defect **by measurement** (not argument), the amendment restores consistency with the plan's own acceptance criteria or a structural decision the user already approved, and the amendment is recorded in three places — an *Amended* note inline in the plan's requirement citing the review issue, a SPEC.md changelog entry, and the completion summary to the user. If the amendment would change scope or contradict a decision the user made, stop and ask instead.
-- **Every wave-3 prompt says "rebuild first (`make web-build build`, in that order — the binary embeds `internal/webui/assets`, so assets must land before the Go compile)"**; `make e2e` itself has `web-build build` as ordered prerequisites. The harness serves prebuilt binaries; a stale embed silently tests the previous tree (m4-reconcile review cycle 4 briefly measured a defect that was already fixed in source for exactly this reason — then via a stale `web/dist`, now the same trap via a binary compiled before the web build).
+- **Every wave-3 prompt says "rebuild first"** — the agent definitions carry the order (`make web-build build`) and why; the harness serves prebuilt binaries, so a stale embed silently tests the previous tree.
 - **`[e2e-specs]` always lands in wave 3**, even when its issue looks self-contained. A locator repaired against pre-fix markup is worthless, and its fix mode ends in a live run — which must happen against the post-fix tree.
 - **New user-facing behaviour added by a fix wave must get E2E coverage in the same cycle.** When a cycle's `[web-impl]`/`[daemon-impl]` fixes *add* user-visible behaviour (a new error display, marker, shortcut, field), the wave-3 e2e-specs prompt must include: "read this cycle's ## Fix Attempt sections in both implementation logs and assert any new user-facing behaviour they added" — and e2e-specs runs in wave 3 for this purpose **even with no tagged `[e2e-specs]` issue** (this is a concrete coverage task, so it doesn't violate the never-spawn-with-nothing-to-fix rule). Learned from m1-sessions: seven behaviours shipped untested because the unit-test agent correctly said "DOM is Playwright's job" while e2e-specs was only prompted with its one tagged issue — the gap lives *between* agents, and only the orchestrator sees all waves.
 - **This same wave order governs `implementation-bug` verdicts** from Step 4 and Step 5, not just review cycles. When Step 5 reports `implementation-bug`: run the routed impl agent (wave 1), gate, re-run that side's unit test agent (wave 2), gate, then re-spawn Step 5 (wave 3).
@@ -375,6 +353,7 @@ python3 $S <plan> finish <step>                     # a fix-mode re-spawn report
 python3 $S <plan> done <step> --next <next-step>    # after a step's verdict is read
 python3 $S <plan> done review --next completed      # the terminal step still needs --next
 python3 $S <plan> retry <step>                      # each fix/validate/review cycle
+python3 $S <plan> archive <file>                    # before a re-spawn overwrites a verdict file (review.md → review.cycle<N>.md)
 python3 $S <plan> closes 2 4                        # Completion 2c: issues /land will close
 python3 $S <plan> status blocked --step <step>      # on exhaustion
 python3 $S <plan> status completed                  # only after review = approved
@@ -397,30 +376,7 @@ duration** from its task notification when it carries a `<usage>` block; teammat
 notifications carry none, and then wall-clock is the only cost figure — say so in the summary
 rather than leaving the column blank.
 
-The file it maintains has this shape:
-
-```json
-{
-  "plan_name": "<plan-name>",
-  "status": "in-progress",
-  "current_step": "review",
-  "retry_counts": {
-    "e2e-specs": 0,
-    "daemon-impl": 0,
-    "web-impl": 0,
-    "daemon-tests": 0,
-    "web-tests": 0,
-    "e2e-validate": 0,
-    "review": 1
-  },
-  "completed_steps": ["e2e-specs", "daemon-impl", "web-impl", "daemon-tests", "web-tests", "e2e-validate"],
-  "failed_steps": [],
-  "step_started_at": {"e2e-specs": "<timestamp>", "daemon-impl": "<timestamp>", "...": "..."},
-  "step_finished_at": {"e2e-specs": "<timestamp>", "daemon-impl": "<timestamp>", "...": "..."},
-  "started_at": "<timestamp>",
-  "updated_at": "<timestamp>"
-}
-```
+The file's current shape is whatever `python3 $S <plan> show` prints — do not hand-edit it.
 
 ### Resume Logic
 
@@ -439,8 +395,8 @@ When `/orchestrate` is invoked for a plan that already has an `orchestration-sta
 
 **`"blocked"`** — The pipeline previously hit max retries or an unrecoverable error:
 - Report what failed (read `current_step` and the relevant output file)
-- Ask the user: resume from the failed step (reset its retry count), or abort?
-- If resuming: set `status` back to `"in-progress"`, reset the retry count for the blocked step to 0, and re-enter the pipeline at `current_step`
+- Ask the user: resume from the failed step, or abort?
+- If resuming: `python3 $S <plan> reopen <step>` (retry count kept; add `--reset-retries` only when the user grants a fresh budget) and re-enter the pipeline at `current_step`
 
 **`"completed"`** — The pipeline previously finished, but the user wants to re-run:
 - Ask the user which step to re-run from (typically `"review"`)
@@ -464,21 +420,7 @@ full output to a log dir it names in its summary, and exits non-zero on any fail
 nvm for the pinned Node and recreates the `rg` shim when no real `rg` is on PATH, so its
 subshells see what your interactive shell sees. Paste its summary into the completion report.
 
-For reference, the baseline it runs is:
-
-```bash
-# Daemon
-go build ./...          # Must exit 0
-make test               # Must show all tests passing, exit 0
-make lint               # Must exit 0
-
-# Web
-make web-build          # Must exit 0 (tsc + Vite)
-make web-test           # Must show all tests passing (Vitest)
-
-# E2E (whenever e2e-specs ran)
-make e2e                # Must show all tests passing
-```
+The baseline it runs is listed in the script header.
 
 Each line in the plan's ```checks block is `<ID> <single-line shell command>`, run from the
 project root exactly as written; it passes iff it exits 0. If you ever run a line by hand
@@ -497,12 +439,9 @@ Do NOT rely on cached test results or previous agent verdicts. Run the commands 
 
 CLAUDE.md's "Doc upkeep" section binds every session, this pipeline included. **You verify and amend — you are the backstop, not primarily the author.**
 
-Do this after Final Validation passes and before marking the pipeline completed. You may
-**draft** these edits earlier (during a review cycle, in your own `docs(<plan-name>)` commit —
-the file set is disjoint from every agent's) but **never write the verdict before it exists**:
-no "approved", no "review cycle N", no ✅ tick, until `review.md` on disk says `approved`. Leave
-those words out of the draft and add them at completion. ui-text-and-focus: "approved review
-cycle 1" written during cycle 1 became a Minor in both reviews and a five-place fix.
+Do this **while the Step 3 testers run** — the file set is disjoint from every agent's — commit it
+as `docs(<plan-name>): doc upkeep`, and re-verify it at Completion. Never write the verdict
+before it exists: no "approved", no "review cycle N", no ✅ tick until `review.md` says `approved`.
 
 1. Read the implementation logs (including `## Fix Attempt` sections) so you know what actually shipped. You don't need to re-read source.
 2. Check, and fix what's missing:
@@ -518,7 +457,7 @@ State what you found and changed in the completion summary.
 
 When all steps pass AND the review verdict is "approved":
 1. Verify the review.md file on disk contains `**Verdict**: approved` — do NOT rely on memory
-2. Run the Doc-Upkeep Backstop above
+2. Re-verify the Doc-Upkeep Backstop above (done before Step 6; fix anything the review cycles changed)
 2a. Resolve every `[orchestrator]`-tagged issue in review.md: do the doc edit, or record it as a TODO.md entry in the right milestone if it is genuinely follow-up work. List each one and its disposition in the completion summary. An approved review may carry these; a `completed` pipeline may not leave them unaddressed.
 2b. Every agent-tagged **Minor** still open in the approved review.md becomes a `TODO.md` follow-up line under the right milestone (quote the issue, cite `plans/<plan>/review.md`) — except one you already fixed directly under the plan-log exception in Review Retry Logic step 1, which is listed in the summary instead. Every `[note]` is listed in the completion summary verbatim — no TODO line, no agent.
 2c. **Record the issues this plan closes.** Record them with `python3 $S <plan> closes <N> ...` — never by hand-editing the JSON (the State Tracking rule binds here too; absent or `[]` means none) listing every issue the Doc-Upkeep Backstop judged **fully** resolved. Do this before 2d so the state edit is part of the same commit. `/land` reads this to compose the squash subject's `closes #N` references — a machine-readable handoff beats a later session re-deriving intent from prose. You never close an issue yourself: at this moment the fix exists only on a branch the user has not accepted, and `approved` is the reviewer's opinion, not acceptance. The close fires when `/land` pushes the squash commit to `main`.
@@ -529,15 +468,8 @@ When all steps pass AND the review verdict is "approved":
 5. Print a summary: what was done, files changed, retry count, any notable issues, the `[note]` items verbatim, **a per-step cost table** (`python3 $S <plan> timings` for wall-clock, plus each agent's tokens and duration from its task notification), and the branch name (`plan/<plan-name>`) with `git log --oneline main..`. Point at **`/land <plan-name>`** as the landing step and name the issues it will close (from 2c), plus any issue deliberately left open, and at **`/retro <plan-name>`** for the run's retro (this session, while the stumbles are still in context). The pipeline itself never merges or pushes
 6. **Decisions section** — for every debate run this pipeline (`plans/<plan>/decisions/*/decision.md`): the two options, the outcome, consensus-or-judged, the decisive argument in one or two sentences, and any dissent. The user may overrule with one line; if they do, `reopen` the affected wave and re-run it with the user's choice quoted.
 
-**NEVER mark the pipeline as completed if:**
-- The review.md verdict is anything other than "approved"
-- Any test suite has failing tests
-- Build failures exist in either the daemon or the web tree
-- `git status --short` on `plan/<plan-name>` shows anything beyond the untracked strays noted at pre-flight
+The state script refuses `status completed` unless `review.md` says `approved`; you additionally refuse it while any suite or build is red, or `git status --short` shows anything beyond the pre-flight strays.
 
 ## Error Handling
 
-- If any agent produces no output file, treat it as a failure and retry
-- If an agent times out, retry once before reporting to user
-- If max retries are exceeded at any step, stop the pipeline, update state to "blocked", and report which step failed and why
-- Always preserve output files from failed runs — append a `.failed.<N>` suffix before retrying
+- An agent that produces no output file or an unusable verdict is re-spawned once, after `python3 $S <plan> archive <file>` preserves what it wrote; budget exhaustion at any step sets `status blocked` and reports which step and why.

@@ -2,7 +2,7 @@
 name: decide
 description: "Settles a product/design decision by an honest two-agent Opus debate (advocates talk directly, a fresh judge breaks a tie). Used by /orchestrate for [orchestrator:decision] review issues; also usable standalone for a question with exactly two options."
 argument-hint: "<plan-name> <slug> | standalone question"
-allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Task, SendMessage
+allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Agent, SendMessage
 ---
 
 You run a decision debate. Two `debater` agents argue assigned sides of a two-option decision

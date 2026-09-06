@@ -23,7 +23,6 @@
       "Bash(git branch:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git stash:*)",
       "Bash(gh pr view:*)",
       "Bash(gh pr list:*)",
       "Bash(gh issue view:*)",
@@ -32,6 +31,9 @@
       "Bash(curl -s http://127.0.0.1:*)",
       "WebFetch(domain:code.claude.com)",
       "WebFetch(domain:docs.anthropic.com)"
+    ],
+    "deny": [
+      "Bash(git stash:*)"
     ]
   },
   "enableAllProjectMcpServers": true

@@ -24,7 +24,7 @@ In `validate` or `fix` mode, also read:
 Then read the existing E2E infrastructure **as it currently is** — it matures milestone by milestone, so never assume its shape:
 - `web/playwright.config.ts` — config, webServer, port strategy
 - `web/e2e/*.spec.ts` — existing test patterns
-- Any global setup/fixture files referenced by the config (the scratch-daemon harness arrives with M0)
+- The global setup/fixture files the config references (`web/e2e/helpers/*`)
 
 All Playwright commands run from `web/`.
 
@@ -33,7 +33,7 @@ All Playwright commands run from `web/`.
 - **Ports are per-run and never reused.** The config derives a fresh port each run and sets `reuseExistingServer: false` — deliberately, to avoid silently testing a stale server. Never change this, never hardcode a port in a test (use relative `page.goto('/…')`; baseURL is set).
 - Payload fixtures must be **synthesized from the measured captures** (`spikes/canary-fields.md` is the field-by-field authority), including the awkward truths: no timestamps or sequence numbers on hooks, `SessionStart` absent over plain HTTP, null context fields before a first API response, status-line posts arriving in close pairs. Deterministic values only — no randomness, no wall-clock dependence.
 - **Never invent a wire shape.** Every field's *shape* in a fixture must be traceable to a canary-fields entry for **that event** — a shape measured on the status line is not evidence for the same-named field on a hook. If the shape you need is unmeasured, do not guess: flag it in your log's Notes/handoff as needing an `/interface-probe` and use the shape the plan asserts (or omit the field if optional). m1-sessions lesson: an invented `{id, display_name}` object on `SessionStart` propagated into the daemon (which then quietly accepted *both* shapes), survived two pipeline stages, and cost an Opus review finding plus a mid-pipeline probe to unwind.
-- Any tmux involvement (once the harness drives real panes) uses a per-test private socket — never `-L muster`, never the user's default server.
+- Any tmux involvement uses a per-test private socket — never `-L muster`, never the user's default server.
 - Tests must be independent — no test depends on another test's side effects or on execution order.
 
 ## Modes
@@ -88,7 +88,7 @@ Then, from `web/`:
 npm run e2e -- e2e/<your-file>.spec.ts
 ```
 
-- The config starts everything itself (`webServer`, and from M0 the scratch daemon via global setup). Do not start servers yourself.
+- The config starts everything itself (`webServer` and the scratch daemon via global setup). Do not start servers yourself.
 - If the UI you observe contradicts the implementation logs, suspect harness drift (a config change that reintroduced server reuse) — stop and report `blocked` rather than repairing locators against the wrong build.
 - One early failure in a serial file hides later ones; expect to iterate. Run the file at most **3 times** per invocation. If it still fails on your locators after 3 runs, your assumptions about the markup are wrong — not just your selectors. Report and stop.
 
@@ -168,9 +168,7 @@ Place new test files in `web/e2e/<feature-name>.spec.ts`. Follow the patterns in
 - Do NOT modify `web/playwright.config.ts` or global setup/teardown infrastructure. This is a gate-integrity boundary, not a convenience: the config holds the knobs that decide what "passing" means (`retries`, `timeout`, `testIgnore`, `reuseExistingServer`), and the agent judged by the suite must not hold that pen. **web-impl owns the config.** If your fixtures genuinely need a config change, state exactly what and why in your log's handoff/blocked section — the orchestrator routes it to web-impl.
 - Tests must be runnable with `npm run e2e` from `web/`
 - Never launch a real `claude` — synthesized payloads only
-- **Git — commit your own work, never rewrite the tree.** The pipeline runs on the plan's `plan/<plan-name>` branch (the orchestrator created it). Commit your own files at the end of your step **whether or not your gate passed** (see the paragraph below); `git add` **only the files you changed** (name them — never `git add -A`/`-u`), including your `plans/<plan-name>/` log, and commit per `docs/conventions.md` §Commits — `test(<plan-name>): <imperative summary>` (fix mode: append ` (review cycle <N>)`, <N> being the cycle number your fix-mode prompt states — never the literal letter N — or ` (pre-review fix)` when the prompt says no review has run yet, i.e. a Step 4/5 implementation-bug fix; file-drop-fix shipped two `(review cycle 1)` commits before any review existed because this case had no name), one sentence, plus the harness's `Co-Authored-By`/`Claude-Session` trailers. Never run `git stash`, `git checkout -- <path>`, `git reset`, `git clean`, `git rebase` or anything else that rewrites the working tree — other agents' uncommitted work may be sitting beside yours (usage-model-bar lesson: a mid-fix `git stash` reverted the entire uncommitted feature; it was recovered, but only by luck). This includes stashing *just to look* — a stash-then-pop "to see the clean diff" is the exact gesture behind both incidents (file-drop-fix: daemon-impl stashed the shared tree mid-wave while web-impl's uncommitted work sat beside it; recovered by an immediate pop, by luck again). To compare against the previous state use `git diff`, `git show HEAD:<path>`, or copy the file aside. Never push, and never commit on `main`.
-
-- **Commit even when your verdict is `implementation-bug`, or your gate is red for a defect you may not fix.** A commit records work; it does not certify the tree, and the tree is exactly as broken either way. Leaving finished files uncommitted is the real hazard: the next agent then works in a tree full of files it must not touch, the orchestrator has to hand-write "do not stage, commit or revert these" into its prompt, and a single stray `git checkout`/`git stash` destroys the lot. Git is reversible — a wrong commit is answered by another commit on top of it. So when your own work is complete, commit it, and name the red gate honestly in the commit body (`gate red: <what fails, and whose defect it is>`) so `git log` never implies a green branch. tmux-installation lesson: five complete, correct test files sat uncommitted through an entire impl-fix cycle because the gate was red on someone else's `govet` finding.
+- **Git.** Work on the `plan/<plan-name>` branch the orchestrator created. At the end of your step commit your own files — `git add` only files you changed, named individually (never `-A`/`-u`), including your `plans/<plan-name>/` log — as `test(<plan-name>): <imperative summary>` (fix mode: append ` (review cycle <N>)` with the cycle number your prompt states, or ` (pre-review fix)` when it says no review has run), one sentence plus the harness trailers. Commit even when your gate is red for a defect you may not fix, naming it in the body as `gate red: <what fails, whose defect>` — uncommitted work beside other agents' is the hazard, not a red commit. Never `git stash` (not even to look: use `git diff` / `git show HEAD:<path>`), `checkout -- <path>`, `reset`, `clean` or `rebase`. Never push; never commit on `main`.
 
 ## Output
 

@@ -18,8 +18,8 @@ Plan: **$ARGUMENTS**
 
 ```bash
 S=.claude/skills/orchestrate/scripts/orch-state.py
-python3 $S <plan> timings && python3 $S <plan> show        # wall-clock, retries, failed_steps
-ls plans/<plan>/                                            # review cycles, *.failed.N, decisions/
+python3 $S <plan> timings && python3 $S <plan> show        # wall-clock, retries
+ls plans/<plan>/                                            # review cycles (review.cycle<N>.md), decisions/
 git log --format='%h %s' main..plan/<plan>                  # commit suffixes, who committed what
 ```
 
@@ -42,7 +42,7 @@ every session, so a line there is the most expensive line in the repo — it mus
 | Finding | Proposal |
 |---|---|
 | A rule exists and was followed; the cost was the pipeline working | No finding. Say so in one line if it looks like one. |
-| A rule exists and was **broken** | **Never add a sentence.** Sharpen the existing one in place (same line count), or make it mechanical: a `gates.sh`/`orch-state.py` check, a verbatim line in a spawn-prompt template, a verdict field the orchestrator must read. A rule broken twice is a script candidate — the state script and `gates.sh` both began as prose that kept failing. |
+| A rule exists and was **broken** | **Never add a sentence.** First count its edits: `git log --oneline -S'<a distinctive phrase of the rule>' -- <file>`. One commit → sharpen it in place (same line count). Two or more → rewording has already failed twice; the only proposals allowed are mechanical — a `plan-lint.sh`/`gates.sh`/`orch-state.py` check, a verdict field the orchestrator must read — or dropping the sentence (the invariants paragraph in `plan-work` was reworded three times and leaked each time). |
 | No rule exists | One sentence, in the file the actor actually reads (agent behaviour → its `agents/*.md`; orchestrator behaviour → `orchestrate/SKILL.md`; plan-shape defects → `plan-work`; a fact any session touching that code needs → `CLAUDE.md`, or a `<dir>/CLAUDE.md` when it only matters inside one directory — a rule scoped to `web/` costs daemon sessions nothing there, and creating one is fine). Anecdote is at most one clause: plan name and the measurement. Pair it with a cut in the same file — an anecdote whose rule has since been mechanised, or a paragraph that now says what a script enforces. |
 | One-off, environmental, or user preference | No proposal. List it under *Not proposing*. |
 

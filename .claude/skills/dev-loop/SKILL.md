@@ -53,18 +53,18 @@ pass a scratch `-data-dir` (that is exactly what the E2E harness does — prefer
 
 ## Stopping
 
-**Kill every Muster session from the dashboard first, then stop the daemon.** Daemon
-shutdown does not touch the tmux server: the `muster` socket and every `claude` it
-launched outlive musterd (observed 2026-08-25 — a haiku session ran on for minutes with
-nothing tracking it, burning subscription; TODO.md M4 carries the policy decision). After
-the daemon exits, verify:
+**Sessions survive daemon shutdown by policy** (`-on-exit`, default `ask` on a TTY — SPEC
+changelog 2026-08-27): the `muster` socket and every `claude` it launched outlive musterd
+unless you choose otherwise at the prompt, and reconcile re-adopts them on the next start. A
+`claude` left running with nothing tracking it burns subscription, so after the daemon exits
+verify:
 
 ```bash
 tmux -L muster ls   # must print "no server running" — anything listed is an orphan
 ```
 
 If something is listed, `tmux -L muster kill-session -t <name>` (or `kill-server` if it's
-all orphans). The DB row will still say `alive=1` until reconcile exists; that's expected.
+all orphans). Reconcile marks the row dead on the next start.
 
 Send SIGINT/SIGTERM (Ctrl-C in the foreground, `kill <pid>` otherwise) — shutdown is
 graceful: contexts cancelled, ingest queue drained, DB closed. Don't `kill -9` unless

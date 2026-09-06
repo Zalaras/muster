@@ -109,6 +109,7 @@ if (( RUN_BASELINE )); then
   run_one lint  "make lint"
   run_one web-build "make web-build"
   run_one web-test  "make web-test"
+  run_one e2e-honest "! rg -n 'test\\.(skip|fixme|only)\\(' web/e2e"   # a skipped/only spec is a vacuous pass (file-drop-fix E9 class)
   if (( RUN_E2E )); then
     run_one e2e "make e2e"
   else
