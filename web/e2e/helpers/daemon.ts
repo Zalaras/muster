@@ -2,15 +2,18 @@
 // Affected Files > E2E: "-claude-bin (a stub script the harness writes) and a per-run
 // -tmux-socket; kill that tmux server in teardown").
 //
-// Every test file that needs a real daemon calls startScratchDaemon() once (typically
-// from test.beforeAll) and gets a fresh port + fresh temp data dir + a freshly spawned
-// `bin/musterd` process, per docs/conventions.md's "never attach to an existing server"
-// rule. Nothing here talks to Vite — that harness retired with the pre-M0 scaffold.
+// Specs never call startScratchDaemon() themselves: helpers/fixtures.ts wraps it as the
+// `daemon` fixture (fresh per test), `startDaemon` (runtime-computed options) and
+// `fileDaemon()` (one per file), and web/scripts/e2e-lint.sh fails a spec that bypasses
+// them. Each start is a fresh port + fresh temp data dir + a freshly spawned `bin/musterd`
+// process, per docs/conventions.md's "never attach to an existing server" rule. Nothing
+// here talks to Vite — that harness retired with the pre-M0 scaffold.
 //
 // M1 addition: every scratch daemon also gets its own dedicated tmux socket (never
 // `-L muster`, never the user's default server — CLAUDE.md hard rule) and a stub
-// `claude` binary passed via `-claude-bin`, so `POST /api/sessions` really spawns a tmux
-// window without ever launching a real `claude` process. The stub never exits on its
+// `claude` binary passed via `-claude-bin` (one file shared by the whole run, see
+// ensureSharedStubClaude), so `POST /api/sessions` really spawns a tmux window without
+// ever launching a real `claude` process. The stub never exits on its
 // own — pane-liveness tests (E9/E12) control death explicitly via `tmux kill-window`.
 //
 // M2 addition (plan m2-terminal, REQ-5 — the queued M1 follow-up): the socket is now a
@@ -23,7 +26,9 @@
 // sleep-forever loop once its stdin hits EOF (pane death) — so M1's liveness specs, which
 // depend on the pane staying alive until explicitly killed, are unaffected.
 import { type ChildProcess, execFile, spawn } from "node:child_process";
-import { chmod, copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { constants as fsConstants } from "node:fs";
+import { access, chmod, copyFile, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { createServer as createHttpServer, type Server as HttpServer } from "node:http";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -54,6 +59,69 @@ interface TokensFile {
  * (no flag passed) rather than the string `"ask"` — that keeps the default-flag path
  * exercised by every pre-M4 spec unchanged. */
 export type OnExitPolicy = "ask" | "leave" | "kill";
+
+/**
+ * What the harness's stub `claude` answers to `--version` (see STUB_CLAUDE_SCRIPT). The
+ * daemon parses the leading semver ("2.0.0") for the masthead and its drift check; the
+ * suffix keeps it from ever being mistaken for a real Claude Code build.
+ */
+export const STUB_CLAUDE_VERSION = "2.0.0-e2e-stub";
+
+/**
+ * The fake `claude` musterd spawns (REQ-19's `-claude-bin` seam), upgraded by m2-terminal
+ * from a plain sleep loop to an echo loop so the terminal bridge (REQ-1) has something
+ * deterministic to stream both directions: it prints `MUSTER-STUB-READY` (E1's readback
+ * token) once at startup, then `stub-echo:<line>` for every line it reads from its
+ * controlling pty (E2's round trip), then — once stdin hits EOF, which only happens when
+ * the pane itself is torn down — falls into the old sleep-forever loop. Liveness tests
+ * still kill the tmux window explicitly (E9/E12) rather than relying on the stub to exit
+ * on its own. No real `claude` binary is ever invoked by this harness (CLAUDE.md hard rule).
+ */
+const STUB_CLAUDE_SCRIPT = [
+  "#!/bin/sh",
+  // The daemon's startup drift check runs `<-claude-bin> --version` (never the real
+  // claude from a test); answer it and exit, or the stub below would sit in its read
+  // loop for the daemon's whole version-check timeout on every start. The reply is
+  // shape-faithful to the real binary's "2.1.246 (Claude Code)" — the masthead shows the
+  // parsed major.minor.patch and shell.spec.ts asserts the "claude 2." prefix the way a
+  // real install renders it — but deterministic and unmistakably not a real version, so
+  // drift is reported exactly as on a machine whose Claude Code moved off the pin.
+  `if [ "$1" = "--version" ]; then echo "${STUB_CLAUDE_VERSION} (Claude Code)"; exit 0; fi`,
+  'echo "MUSTER-STUB-READY"',
+  "while IFS= read -r line; do",
+  '  echo "stub-echo:$line"',
+  "done",
+  "while true; do sleep 3600; done",
+  "",
+].join("\n");
+
+/**
+ * One stub file per run, shared by every scratch daemon, at a path keyed by the script's
+ * content hash — never one fresh file per daemon. Measured 2026-09-06 (test-strategy):
+ * macOS charges the FIRST exec of a newly written executable ~270 ms (a per-inode
+ * assessment) and serialises those assessments, so six daemons starting their version
+ * checks at once each waited 0.8–2.3 s where the real binary took 0.15 s; every session
+ * launch paid the same tax on its own stub. A shared file pays it once per run.
+ * The directory keeps the deliberate space of the data dir (see start()) so the
+ * `-claude-bin` argv path stays a space-bearing one. Written atomically (temp + rename)
+ * because Playwright workers race to create it.
+ */
+async function ensureSharedStubClaude(): Promise<string> {
+  const hash = createHash("sha256").update(STUB_CLAUDE_SCRIPT).digest("hex").slice(0, 16);
+  const dir = join(tmpdir(), `muster e2e-stub-${hash}`);
+  const path = join(dir, "claude");
+  try {
+    await access(path, fsConstants.X_OK);
+    return path;
+  } catch {
+    // fall through: not there yet (or not executable) — (re)create it
+  }
+  await mkdir(dir, { recursive: true });
+  const tmp = `${path}.${process.pid}.${Date.now()}.tmp`;
+  await writeFile(tmp, STUB_CLAUDE_SCRIPT, { mode: 0o755 });
+  await rename(tmp, path);
+  return path;
+}
 
 /**
  * Plan issue-capture REQ-17/REQ-14: `-issue-repo` value the harness passes
@@ -286,6 +354,7 @@ export class ScratchDaemon {
   private constructor(
     port: number,
     dataDir: string,
+    claudeBinPath: string,
     issueApiURL: string,
     onExit?: OnExitPolicy,
     usagePoll?: string,
@@ -301,7 +370,7 @@ export class ScratchDaemon {
     // `-S` vs `-L` branch and keeps the socket file inside the scratch dir teardown()
     // already deletes.
     this.tmuxSocket = join(dataDir, "tmux.sock");
-    this.claudeBinPath = join(dataDir, "stub-claude.sh");
+    this.claudeBinPath = claudeBinPath; // the run-shared stub, see ensureSharedStubClaude
     this.browseRoot = join(dataDir, "browse-root");
     this.usageTokenPath = join(dataDir, "usage-token.json");
     this.issueTokenPath = join(dataDir, "issue-token.txt");
@@ -336,6 +405,7 @@ export class ScratchDaemon {
     const daemon = new ScratchDaemon(
       port,
       dataDir,
+      await ensureSharedStubClaude(),
       issueApiURL,
       opts.onExit,
       opts.usagePoll,
@@ -345,7 +415,6 @@ export class ScratchDaemon {
     );
     daemon.denyStubServer = denyStubServer;
     await mkdir(daemon.browseRoot, { recursive: true });
-    await daemon.writeStubClaude();
     if (daemon.serveEmbedded) {
       // Plan embed-dashboard REQ-7: a COPY, not the shared musterdBin in place — the
       // fixture must prove a binary can be moved away from the checkout and still serve
@@ -371,30 +440,6 @@ export class ScratchDaemon {
    * for the fake usage token to prove it never appears in a log line). */
   get log(): string {
     return this.output;
-  }
-
-  /**
-   * Writes the fake `claude` binary musterd will spawn (REQ-19's `-claude-bin` seam),
-   * upgraded by m2-terminal from a plain sleep loop to an echo loop so the terminal
-   * bridge (REQ-1) has something deterministic to stream both directions: it prints
-   * `MUSTER-STUB-READY` (E1's readback token) once at startup, then `stub-echo:<line>`
-   * for every line it reads from its controlling pty (E2's round trip), then — once
-   * stdin hits EOF, which only happens when the pane itself is torn down — falls into
-   * the old sleep-forever loop. Liveness tests still kill the tmux window explicitly
-   * (E9/E12) rather than relying on the stub to exit on its own. No real `claude` binary
-   * is ever invoked by this harness (CLAUDE.md hard rule).
-   */
-  private async writeStubClaude(): Promise<void> {
-    const script = [
-      "#!/bin/sh",
-      'echo "MUSTER-STUB-READY"',
-      "while IFS= read -r line; do",
-      '  echo "stub-echo:$line"',
-      "done",
-      "while true; do sleep 3600; done",
-      "",
-    ].join("\n");
-    await writeFile(this.claudeBinPath, script, { mode: 0o755 });
   }
 
   private async spawnAndWait(): Promise<void> {

@@ -1,7 +1,6 @@
-import { expect, test } from "@playwright/test";
 import { access } from "node:fs/promises";
 import { join } from "node:path";
-import { type ScratchDaemon, startScratchDaemon } from "./helpers/daemon";
+import { expect, fileDaemon, test } from "./helpers/fixtures";
 
 // Plan embed-dashboard — REQ-1 through REQ-8, acceptance E1: the built dashboard is now
 // embedded into the musterd binary via `//go:embed all:assets` (internal/webui), and
@@ -16,31 +15,26 @@ import { type ScratchDaemon, startScratchDaemon } from "./helpers/daemon";
 // Specifications: "No dashboard views, flows, or DOM change"), so this file asserts only
 // the existing Testable UI Elements table against the embedded-serving daemon, plus the
 // R5 auth-gating parity the plan calls out as reviewer-verified-but-cheap-to-check here.
+//
+// One embedded-serving daemon per file via fileDaemon(): no test here creates a session
+// or mutates daemon state, so nothing one test does is visible to another.
 
-let daemon: ScratchDaemon;
-
-test.beforeAll(async () => {
-  daemon = await startScratchDaemon({ serveEmbedded: true });
-});
-
-test.afterAll(async () => {
-  await daemon.teardown();
-});
+const daemon = fileDaemon({ serveEmbedded: true });
 
 test("fixture sanity: the scratch dir has no web/ or internal/ tree next to the copied binary", async () => {
   // R7: the embedded-serving fixture must genuinely prove the binary is self-contained,
   // not merely that -web-dist was left off while a real checkout still sat next door.
-  // daemon.dataDir is an OS tmpdir this harness mkdtemp'd fresh for this run (see
+  // daemon().dataDir is an OS tmpdir this harness mkdtemp'd fresh for this run (see
   // helpers/daemon.ts start()), so asserting the absence of both trees here is what
   // makes that claim checkable rather than assumed.
-  await expect(access(join(daemon.dataDir, "web"))).rejects.toThrow();
-  await expect(access(join(daemon.dataDir, "internal"))).rejects.toThrow();
+  await expect(access(join(daemon().dataDir, "web"))).rejects.toThrow();
+  await expect(access(join(daemon().dataDir, "internal"))).rejects.toThrow();
 });
 
 test("serves the working dashboard from the embedded FS with no -web-dist flag: auth, masthead, WS connects", async ({
   page,
 }) => {
-  const res = await page.goto(daemon.dashboardUrl);
+  const res = await page.goto(daemon().dashboardUrl);
 
   // page.goto follows the /auth?token=... -> "/" redirect (auth.spec.ts's pattern); the
   // final response is the embedded shell itself, served over http.FileServer against
@@ -72,7 +66,7 @@ test("still gates the embedded static handler on the auth cookie (401 relaunch p
   // R5: requireCookie wraps the embedded http.FileServer branch identically to the disk
   // branch — a fresh, cookie-less context hitting "/" on the embedded-serving daemon
   // must see exactly the same 401 relaunch page auth.spec.ts asserts for the disk path.
-  const res = await page.goto(`${daemon.baseURL}/`);
+  const res = await page.goto(`${daemon().baseURL}/`);
   expect(res?.status()).toBe(401);
   await expect(page.getByText(/relaunch/i)).toBeVisible();
 });
@@ -80,7 +74,7 @@ test("still gates the embedded static handler on the auth cookie (401 relaunch p
 test("serves /healthz without authentication from the embedded-serving daemon", async ({ request }) => {
   // Sanity that the embedded fixture is a normally-functioning daemon in every other
   // respect, not just for the one route this plan touches.
-  const res = await request.get(`${daemon.baseURL}/healthz`);
+  const res = await request.get(`${daemon().baseURL}/healthz`);
   expect(res.status()).toBe(200);
   const body = (await res.json()) as { status: string };
   expect(body.status).toBe("ok");

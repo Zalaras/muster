@@ -1,21 +1,14 @@
-import { expect, test } from "@playwright/test";
-import { type ScratchDaemon, startScratchDaemon } from "./helpers/daemon";
+import { expect, test } from "./helpers/fixtures";
 
 // REQ-6, REQ-7, REQ-8, REQ-15, REQ-16 — the M0 shell: masthead, unknown usage, empty
 // sessions state, hello+snapshot, and GET /api/state sharing the snapshot shape.
-
-let daemon: ScratchDaemon;
-
-test.beforeAll(async () => {
-  daemon = await startScratchDaemon();
-});
-
-test.afterAll(async () => {
-  await daemon.teardown();
-});
+// Every test asserts daemon-global state (the empty sessions state, the exact /api/state
+// snapshot), so each takes the test-scoped `daemon` fixture: a fresh scratch daemon per
+// test, per docs/conventions.md §Testing.
 
 test("renders the masthead, connection status and empty sessions state after the WS handshake", async ({
   page,
+  daemon,
 }) => {
   await page.goto(daemon.dashboardUrl);
 
@@ -32,7 +25,7 @@ test("renders the masthead, connection status and empty sessions state after the
   await expect(page.getByText("No sessions yet", { exact: true })).toBeVisible();
 });
 
-test("renders both usage readouts as the word unknown, never an empty gauge", async ({ page }) => {
+test("renders both usage readouts as the word unknown, never an empty gauge", async ({ page, daemon }) => {
   await page.goto(daemon.dashboardUrl);
 
   // Testable UI Elements table's exact patterns for the M0 null-usage state.
@@ -44,12 +37,12 @@ test("renders both usage readouts as the word unknown, never an empty gauge", as
   // markup this spec hasn't seen yet.
 });
 
-test("shows the Claude Code version reported by hello", async ({ page }) => {
+test("shows the Claude Code version reported by hello", async ({ page, daemon }) => {
   await page.goto(daemon.dashboardUrl);
   await expect(page.getByText(/claude\s+2\./i)).toBeVisible();
 });
 
-test("GET /api/state returns exactly the M0 snapshot object once authenticated", async ({ page }) => {
+test("GET /api/state returns exactly the M0 snapshot object once authenticated", async ({ page, daemon }) => {
   await page.goto(daemon.dashboardUrl);
 
   const res = await page.request.get(`${daemon.baseURL}/api/state`);

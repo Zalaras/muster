@@ -1,5 +1,4 @@
-import { expect, test } from "@playwright/test";
-import { type ScratchDaemon, startScratchDaemon } from "./helpers/daemon";
+import { expect, settleFor, test } from "./helpers/fixtures";
 import { envelopedSessionStart, rawNotification, rawUserPromptSubmit } from "./helpers/payloads";
 import { pinButton, railCard, railOrderIds, railSortSelect } from "./helpers/railorder";
 import { getState, launchSession, scratchDirectory, stateBadge } from "./helpers/session";
@@ -21,30 +20,23 @@ import {
 // `-claude-bin` echo-loop stub (helpers/daemon.ts, upgraded for this plan) over a real
 // `/ws/terminal/{id}` socket. No real `claude` is ever launched.
 //
-// Every top-level test here gets its OWN scratch daemon (`beforeEach`/`afterEach`, not a
-// file-shared `beforeAll`/`afterAll`): unlike sessions.spec.ts's shared-daemon tests
-// (which only ever assert on a session scoped by its own title/card), most tests in this
-// file launch a session and depend on Focus's default "auto-focus top of the §3.4 sort
-// order" landing on THAT session — true only when it is the only session the daemon
-// knows about. A file-shared daemon (the authoring-mode original) breaks that the moment
-// two tests share one worker: later tests' newly launched session is no longer
-// necessarily "top of sort", so its live terminal region never mounts and
-// "MUSTER-STUB-READY" times out — reproduced directly (`--workers=1`, whole file
-// sequential: 3/8 tests failed on exactly this depends-on-execution-order symptom; each
-// test passed 5/5 in isolation). Per-test isolation removes the ordering dependency
-// instead of just hiding it behind lucky worker scheduling.
-let daemon: ScratchDaemon;
-
-test.beforeEach(async () => {
-  daemon = await startScratchDaemon();
-});
-
-test.afterEach(async () => {
-  await daemon.teardown();
-});
+// Every test here takes the `daemon` fixture (./helpers/fixtures — a fresh scratch daemon
+// per test), never a file-shared one: unlike sessions.spec.ts's shared-daemon tests (which
+// only ever assert on a session scoped by its own title/card), most tests in this file
+// launch a session and depend on Focus's default "auto-focus top of the §3.4 sort order"
+// landing on THAT session — true only when it is the only session the daemon knows about.
+// A file-shared daemon (the authoring-mode original) breaks that the moment two tests share
+// one worker: later tests' newly launched session is no longer necessarily "top of sort",
+// so its live terminal region never mounts and "MUSTER-STUB-READY" times out — reproduced
+// directly (`--workers=1`, whole file sequential: 3/8 tests failed on exactly this
+// depends-on-execution-order symptom; each test passed 5/5 in isolation). Per-test
+// isolation removes the ordering dependency instead of just hiding it behind lucky worker
+// scheduling. The E13 restart test below needs it for a second reason: it kills and
+// restarts its daemon, which no neighbour test could tolerate.
 
 test("focusing a launched session streams the stub's readback and echoes typed input (E1, E2)", async ({
   page,
+  daemon,
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
@@ -74,7 +66,7 @@ test("focusing a launched session streams the stub's readback and echoes typed i
   }
 });
 
-test("clicking a rail card swaps the live terminal to the newly focused session (REQ-7)", async ({ page }) => {
+test("clicking a rail card swaps the live terminal to the newly focused session (REQ-7)", async ({ page, daemon }) => {
   const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
     await page.goto(daemon.dashboardUrl);
@@ -100,6 +92,7 @@ test("clicking a rail card swaps the live terminal to the newly focused session 
 
 test("focusing the same session from a second browser context supersedes the first (E3, INV-1)", async ({
   page,
+  daemon,
   browser,
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
@@ -139,6 +132,7 @@ test("focusing the same session from a second browser context supersedes the fir
 
 test("supersede reclaims cleanly even when the older client was mid-keystroke (INV-1)", async ({
   page,
+  daemon,
   browser,
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
@@ -184,7 +178,7 @@ test("supersede reclaims cleanly even when the older client was mid-keystroke (I
   }
 });
 
-test("the tmux oracle's window geometry matches the terminal's own fitted size (E4)", async ({ page }) => {
+test("the tmux oracle's window geometry matches the terminal's own fitted size (E4)", async ({ page, daemon }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
@@ -238,7 +232,7 @@ test("the tmux oracle's window geometry matches the terminal's own fitted size (
   }
 });
 
-test("killing the stub's tmux session shows the ended placeholder on its live surface (E12)", async ({ page }) => {
+test("killing the stub's tmux session shows the ended placeholder on its live surface (E12)", async ({ page, daemon }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
@@ -273,6 +267,7 @@ test("killing the stub's tmux session shows the ended placeholder on its live su
 
 test("focusing a dead session shows the dead surface, never the terminal region, without ever attempting a socket (REQ-13)", async ({
   page,
+  daemon,
 }) => {
   // Sanctioned breakage (plan m4-reconcile, validate-mode step 5): this test originally
   // asserted a "session ended" overlay INSIDE the mounted terminal region
@@ -344,33 +339,26 @@ test("focusing a dead session shows the dead surface, never the terminal region,
   }
 });
 
-test.describe.serial("daemon down while a terminal is attached (E13)", () => {
-  let restartDaemon: ScratchDaemon;
-
-  test.beforeAll(async () => {
-    restartDaemon = await startScratchDaemon();
-  });
-
-  test.afterAll(async () => {
-    await restartDaemon.teardown();
-  });
-
+// A plain describe (not serial): it holds one test, which takes its own fresh `daemon`
+// like every other test here — the kill/restart below never touches a neighbour's daemon.
+test.describe("daemon down while a terminal is attached (E13)", () => {
   test("shows the disconnected overlay while the daemon is down, and streams again after restart", async ({
     page,
+    daemon,
   }) => {
     const { path: dir, cleanup } = await scratchDirectory();
     try {
-      await page.goto(restartDaemon.dashboardUrl);
-      await launchSession(page, restartDaemon, { directory: dir, title: "daemon-down-term" });
+      await page.goto(daemon.dashboardUrl);
+      await launchSession(page, daemon, { directory: dir, title: "daemon-down-term" });
       const region = terminalRegion(page, "daemon-down-term");
       // 15s, not the default 5s: attaching a real tmux/PTY bridge under this suite's fully
-    // parallel scratch-daemon load (each test spins up its own musterd + tmux server +
-    // Chromium) is occasionally slower than the default assertion timeout — observed
-    // directly (5/5 passes in isolation, transient timeouts only under full-suite
-    // parallelism) — never a case where the readback fails to arrive at all.
-    await expect(region).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
+      // parallel scratch-daemon load (each test spins up its own musterd + tmux server +
+      // Chromium) is occasionally slower than the default assertion timeout — observed
+      // directly (5/5 passes in isolation, transient timeouts only under full-suite
+      // parallelism) — never a case where the readback fails to arrive at all.
+      await expect(region).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
 
-      await restartDaemon.kill();
+      await daemon.kill();
 
       const banner = page.getByRole("alert");
       await expect(banner).toBeVisible({ timeout: 15_000 });
@@ -379,18 +367,18 @@ test.describe.serial("daemon down while a terminal is attached (E13)", () => {
       await expect(banner).toContainText(/musterd unreachable/);
       await expect(terminalOverlay(region)).toHaveText(/disconnected/i, { timeout: 15_000 });
 
-      await restartDaemon.restart();
+      await daemon.restart();
       await expect(banner).toBeHidden({ timeout: 15_000 });
 
       // REQ-13: on `hello` the client reattaches its current live surface; tmux itself
       // survived the daemon restart (a separate process), so the pane repaints intact.
       await expect(terminalOverlay(region)).toBeHidden({ timeout: 15_000 });
       // 15s, not the default 5s: attaching a real tmux/PTY bridge under this suite's fully
-    // parallel scratch-daemon load (each test spins up its own musterd + tmux server +
-    // Chromium) is occasionally slower than the default assertion timeout — observed
-    // directly (5/5 passes in isolation, transient timeouts only under full-suite
-    // parallelism) — never a case where the readback fails to arrive at all.
-    await expect(region).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
+      // parallel scratch-daemon load (each test spins up its own musterd + tmux server +
+      // Chromium) is occasionally slower than the default assertion timeout — observed
+      // directly (5/5 passes in isolation, transient timeouts only under full-suite
+      // parallelism) — never a case where the readback fails to arrive at all.
+      await expect(region).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
     } finally {
       await cleanup();
     }
@@ -410,6 +398,7 @@ test.describe.serial("daemon down while a terminal is attached (E13)", () => {
 
 test("clicking a rail card in Focus moves keyboard focus into its terminal with no second click, and the typed round trip proves it end to end (E1, E2, E9, REQ-1, REQ-4)", async ({
   page,
+  daemon,
 }) => {
   const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
@@ -449,6 +438,7 @@ test("clicking a rail card in Focus moves keyboard focus into its terminal with 
 
 test("re-clicking the already-focused session's card returns keyboard focus to its terminal after focus moved elsewhere (E3, REQ-2)", async ({
   page,
+  daemon,
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
@@ -478,6 +468,7 @@ test("re-clicking the already-focused session's card returns keyboard focus to i
 
 test("clicking a card's pin button pins the session, leaves the live pane unchanged, and never moves focus into a terminal (E4, REQ-5, INV-3)", async ({
   page,
+  daemon,
 }) => {
   const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
@@ -507,6 +498,7 @@ test("clicking a card's pin button pins the session, leaves the live pane unchan
 
 test("clicking a live card's End button opens the confirm dialog without selecting the session or moving focus into a terminal (REQ-5, INV-3)", async ({
   page,
+  daemon,
 }) => {
   const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
@@ -532,6 +524,7 @@ test("clicking a live card's End button opens the confirm dialog without selecti
 
 test("clicking Resume or Remove on an ended card never selects the session or moves focus into a terminal (REQ-5, INV-3)", async ({
   page,
+  daemon,
   request,
 }) => {
   const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
@@ -576,6 +569,7 @@ test("clicking Resume or Remove on an ended card never selects the session or mo
 
 test("clicking an ended session's card shows the dead surface and leaves keyboard focus on that card, never in a terminal (E5, REQ-6)", async ({
   page,
+  daemon,
   request,
 }) => {
   const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
@@ -611,6 +605,7 @@ test("clicking an ended session's card shows the dead surface and leaves keyboar
 
 test("dragging a rail card onto another in manual mode reorders the rail without changing focusedId or stealing focus from the terminal (E6, REQ-7, INV-4 source state (i): focus in the live terminal)", async ({
   page,
+  daemon,
 }) => {
   const dirs = await Promise.all([scratchDirectory(), scratchDirectory(), scratchDirectory()]);
   try {
@@ -641,6 +636,7 @@ test("dragging a rail card onto another in manual mode reorders the rail without
 
 test("dragging a rail card leaves focus untouched whether it started on an uninvolved card or the rail-sort select (INV-4 source states (ii), (iii))", async ({
   page,
+  daemon,
 }) => {
   const dirs = await Promise.all([scratchDirectory(), scratchDirectory(), scratchDirectory()]);
   try {
@@ -670,6 +666,7 @@ test("dragging a rail card leaves focus untouched whether it started on an uninv
 
 test("Enter on a keyboard-focused rail card selects the session but leaves focus on the card (E7, REQ-8)", async ({
   page,
+  daemon,
 }) => {
   const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
@@ -698,6 +695,7 @@ test("Enter on a keyboard-focused rail card selects the session but leaves focus
 
 test("a 1s render tick never moves focus into a terminal when it starts outside one, and never steals it once inside (E8, INV-1 source state (a))", async ({
   page,
+  daemon,
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
@@ -709,8 +707,9 @@ test("a 1s render tick never moves focus into a terminal when it starts outside 
     // On load the session is auto-focused (the live pane shows it) but keyboard focus is
     // deliberately NOT moved there — only a pointer click does that (REQ-1's scope).
     expect(await activeElementInsideTerminal(page, "focus-e8-solo")).toBe(false);
-    // 2.5s spans at least two of main.ts's 1s render ticks.
-    await page.waitForTimeout(2_500);
+    // 2.5s spans at least two of main.ts's 1s render ticks — a hold so the negative check
+    // below can prove focus STAYED outside the terminal, not a wait for anything to happen.
+    await settleFor(page, 2_500);
     expect(await activeElementInsideTerminal(page, "focus-e8-solo")).toBe(false);
 
     // Now click in — the tick must neither steal focus away nor need to "re-assert" it;
@@ -723,7 +722,8 @@ test("a 1s render tick never moves focus into a terminal when it starts outside 
       if (active) active.dataset.e2eFocusMarker = "terminal-focus-e8";
     });
 
-    await page.waitForTimeout(2_500);
+    // Same hold, other direction: two more ticks, then prove the focused node STAYED put.
+    await settleFor(page, 2_500);
 
     expect(await activeElementInsideTerminal(page, "focus-e8-solo")).toBe(true);
     const stillSameNode = await page.evaluate(
@@ -739,6 +739,7 @@ test("a 1s render tick never moves focus into a terminal when it starts outside 
 
 test("a sessionUpsert for the focused session doesn't move keyboard focus into its terminal (INV-1 source state (b))", async ({
   page,
+  daemon,
   request,
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
@@ -773,6 +774,7 @@ test("a sessionUpsert for the focused session doesn't move keyboard focus into i
 
 test("a rail reorder from a state change in attention mode doesn't move keyboard focus into a terminal (INV-1 source state (c))", async ({
   page,
+  daemon,
   request,
 }) => {
   const dirs = await Promise.all([scratchDirectory(), scratchDirectory(), scratchDirectory()]);

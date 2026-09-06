@@ -1,6 +1,5 @@
 import { join } from "node:path";
-import { expect, test } from "@playwright/test";
-import { type ScratchDaemon, startScratchDaemon } from "./helpers/daemon";
+import { expect, settleFor, test } from "./helpers/fixtures";
 import { expectedEscapedPath, uniqueContent, writeFixtureFile } from "./helpers/dropfiles";
 import { envelopedSessionStart, rawUserPromptSubmit, unboundSessionStart } from "./helpers/payloads";
 import { railCard } from "./helpers/railorder";
@@ -32,22 +31,15 @@ import { dropFiles, dropNotice, liveTile, liveTileById, terminalRegion } from ".
 // exactly what REQ-1 specifies must run. The Claude side of every session here still
 // only ever runs the harness's stub (no real `claude` process anywhere in this file).
 //
-// Every top-level test gets its OWN scratch daemon (`beforeEach`/`afterEach`), mirroring
+// Every test takes the per-test `daemon` fixture (helpers/fixtures.ts), mirroring
 // terminal.spec.ts's file header: Focus auto-focuses "top of sort", which is only THIS
-// test's lone session when no other test's daemon is shared.
-
-let daemon: ScratchDaemon;
-
-test.beforeEach(async () => {
-  daemon = await startScratchDaemon();
-});
-
-test.afterEach(async () => {
-  await daemon.teardown();
-});
+// test's lone session when no other test shares the daemon. Several tests also assert
+// the daemon-global tmux session list (`daemon.tmuxSessions()`), and E8 restarts its
+// daemon — both need a daemon nobody else is using.
 
 test("switching to shell in Focus shows a live shell whose prompt responds to typed input, and switching back to claude shows the Claude pane again (E1)", async ({
   page,
+  daemon,
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
@@ -100,7 +92,7 @@ test("switching to shell in Focus shows a live shell whose prompt responds to ty
   }
 });
 
-test("a session never switched to shell has no muster-<id>-shell tmux session (E2)", async ({ page }) => {
+test("a session never switched to shell has no muster-<id>-shell tmux session (E2)", async ({ page, daemon }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
@@ -113,7 +105,7 @@ test("a session never switched to shell has no muster-<id>-shell tmux session (E
   }
 });
 
-test("the shell runs in the session's own directory (E3)", async ({ page }) => {
+test("the shell runs in the session's own directory (E3)", async ({ page, daemon }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
@@ -132,7 +124,7 @@ test("the shell runs in the session's own directory (E3)", async ({ page }) => {
   }
 });
 
-test("a shell started in Focus is still running after switching to Tiles and back (REQ-6, E4)", async ({ page }) => {
+test("a shell started in Focus is still running after switching to Tiles and back (REQ-6, E4)", async ({ page, daemon }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
@@ -160,6 +152,7 @@ test("a shell started in Focus is still running after switching to Tiles and bac
 
 test("a shell can be started on a session whose alive is false, and the claude segment still shows the dead surface (E5, edge case 13)", async ({
   page,
+  daemon,
   request,
 }) => {
   const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
@@ -200,6 +193,7 @@ test("a shell can be started on a session whose alive is false, and the claude s
 
 test("typing exit closes the shell socket, swaps the visible surface back to Claude and clears the pip (E6, REQ-8)", async ({
   page,
+  daemon,
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
@@ -233,6 +227,7 @@ test("typing exit closes the shell socket, swaps the visible surface back to Cla
 
 test("running claude inside a shell leaves the parent session's state, stateSince, claudeSessionId and context untouched, and persists its events unrouted with a NULL session_id (E7, E15, INV-6, edge case 1)", async ({
   page,
+  daemon,
   request,
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
@@ -299,31 +294,27 @@ test("running claude inside a shell leaves the parent session's state, stateSinc
 
 test("after daemon.restart(), no muster-<n>-shell tmux session remains on the socket (E8, edge case 3)", async ({
   page,
+  daemon,
 }) => {
-  test.setTimeout(60_000);
-  const restartDaemon = await startScratchDaemon();
+  const { path: dir, cleanup } = await scratchDirectory();
   try {
-    const { path: dir, cleanup } = await scratchDirectory();
-    try {
-      await page.goto(restartDaemon.dashboardUrl);
-      const session = await launchSession(page, restartDaemon, { directory: dir, title: "plain-shell-e8" });
-      await mainheadSurfaceButton(page, "shell").click();
-      await expect(shellSurfaceRegion(page, "plain-shell-e8")).toBeVisible({ timeout: 15_000 });
-      expect(await restartDaemon.tmuxSessions()).toContain(shellTmuxTarget(session.id));
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, { directory: dir, title: "plain-shell-e8" });
+    await mainheadSurfaceButton(page, "shell").click();
+    await expect(shellSurfaceRegion(page, "plain-shell-e8")).toBeVisible({ timeout: 15_000 });
+    expect(await daemon.tmuxSessions()).toContain(shellTmuxTarget(session.id));
 
-      await restartDaemon.restart();
+    await daemon.restart();
 
-      expect(await restartDaemon.tmuxSessions()).not.toContain(shellTmuxTarget(session.id));
-    } finally {
-      await cleanup();
-    }
+    await expect.poll(() => daemon.tmuxSessions()).not.toContain(shellTmuxTarget(session.id));
   } finally {
-    await restartDaemon.teardown();
+    await cleanup();
   }
 });
 
 test("switching to shell with the directory removed shows the daemon's error in the surface's status notice and leaves the segment on claude (E9, REQ-12, edge case 4)", async ({
   page,
+  daemon,
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   let cleaned = false;
@@ -357,6 +348,7 @@ test("switching to shell with the directory removed shows the daemon's error in 
 
 test("switching to shell on a DEAD session with its directory removed shows the daemon's error in the dead surface's own notice, leaving the segment on claude (review Major 1, dead-session REQ-12 variant, edge cases 4+13)", async ({
   page,
+  daemon,
 }) => {
   // Review Major 1: E9 above only covers the live-session half of REQ-12 — a live
   // `TerminalSurface` is mounted for `claude`, so `handleSurfaceSelect`'s error routes
@@ -404,6 +396,7 @@ test("switching to shell on a DEAD session with its directory removed shows the 
 
 test("switching to shell on a DEAD tile with its directory removed shows the daemon's error in that tile's own dead-surface notice, and a neighbouring tile is unaffected (review Major 1, dead-session REQ-12 variant, tile path)", async ({
   page,
+  daemon,
 }) => {
   // Same Major 1 fix, exercised through the tile-cloned `.dead-surface`
   // (`#dead-surface-template`) rather than Focus's static one — `findDeadSurfaceRefs`
@@ -446,6 +439,7 @@ test("switching to shell on a DEAD tile with its directory removed shows the dae
 
 test("tmux kill-session on a live shell closes its socket and does not change the parent session's state or alive (E10, edge case 6)", async ({
   page,
+  daemon,
   request,
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
@@ -467,10 +461,10 @@ test("tmux kill-session on a live shell closes its socket and does not change th
 
     await expect.poll(() => tracker.liveCount, { message: "waiting for the shell socket to close" }).toBe(0);
 
-    // No liveness nudge on the parent (unlike the Claude pane's own 4001) — assert this
-    // repeatedly over a short window rather than once, since a false pass on the very
-    // first read would not catch a delayed, wrongly-fired nudge.
-    await page.waitForTimeout(1_000);
+    // No liveness nudge on the parent (unlike the Claude pane's own 4001) — hold for a
+    // short window before reading, since a pass on the very first read would not catch a
+    // delayed, wrongly-fired nudge. A stays-unchanged check, hence settleFor.
+    await settleFor(page, 1_000);
     const after = await getState(page, daemon);
     const parentAfter = findSession(after, session.id);
     expect(parentAfter.alive).toBe(parentBefore.alive);
@@ -482,6 +476,7 @@ test("tmux kill-session on a live shell closes its socket and does not change th
 
 test("resuming a dead session that has a live shell leaves the shell running (E11, edge case 8)", async ({
   page,
+  daemon,
   request,
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
@@ -519,6 +514,7 @@ test("resuming a dead session that has a live shell leaves the shell running (E1
 
 test("a second tab on the same session's shell supersedes the first, while a tab on that session's claude surface stays open (E12, INV-3)", async ({
   page,
+  daemon,
   browser,
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
@@ -572,6 +568,7 @@ test("a second tab on the same session's shell supersedes the first, while a tab
 
 test("removing one session kills only its own shell; a second session's shell keeps running (E13, INV-4)", async ({
   page,
+  daemon,
   request,
 }) => {
   const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
@@ -596,17 +593,17 @@ test("removing one session kills only its own shell; a second session's shell ke
     const removeRes = await page.request.delete(`${daemon.baseURL}/api/sessions/${sessionA.id}`);
     expect(removeRes.status()).toBe(204);
 
-    expect(await daemon.tmuxSessions()).not.toContain(shellTmuxTarget(sessionA.id));
+    await expect.poll(() => daemon.tmuxSessions()).not.toContain(shellTmuxTarget(sessionA.id));
     expect(await daemon.tmuxSessions()).toContain(shellTmuxTarget(sessionB.id));
     // Session A's own Claude tmux session is gone too (ordinary Remove behaviour).
-    expect(await daemon.tmuxPaneExists(sessionA.tmuxTarget)).toBe(false);
+    await expect.poll(() => daemon.tmuxPaneExists(sessionA.tmuxTarget)).toBe(false);
     expect(await daemon.tmuxPaneExists(sessionB.tmuxTarget)).toBe(true);
   } finally {
     await Promise.all([dirA.cleanup(), dirB.cleanup()]);
   }
 });
 
-test("a file dropped on a shell surface pastes its escaped path (E14, REQ-11)", async ({ page }) => {
+test("a file dropped on a shell surface pastes its escaped path (E14, REQ-11)", async ({ page, daemon }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     const content = uniqueContent();
@@ -629,7 +626,7 @@ test("a file dropped on a shell surface pastes its escaped path (E14, REQ-11)", 
   }
 });
 
-test("a shell surface's reported geometry matches its tmux window's geometry (E16, REQ-11)", async ({ page }) => {
+test("a shell surface's reported geometry matches its tmux window's geometry (E16, REQ-11)", async ({ page, daemon }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
@@ -662,7 +659,7 @@ test("a shell surface's reported geometry matches its tmux window's geometry (E1
   }
 });
 
-test("a tile footer renders the same segment as the mainhead, scoped per session (REQ-4)", async ({ page }) => {
+test("a tile footer renders the same segment as the mainhead, scoped per session (REQ-4)", async ({ page, daemon }) => {
   const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
     await page.goto(daemon.dashboardUrl);
@@ -691,6 +688,7 @@ test("a tile footer renders the same segment as the mainhead, scoped per session
 
 test("a running shell's pip resolves to the --shell-pip token, not --teal (review Major 3, decision shell-pip-hue)", async ({
   page,
+  daemon,
 }) => {
   // Settled by Damian as Option B (review.md Major 3): the pip gets its own token
   // instead of reusing `--teal`, which design-system §3 reserves for the Working state.

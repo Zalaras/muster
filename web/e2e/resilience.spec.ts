@@ -1,24 +1,14 @@
-import { expect, test } from "@playwright/test";
 import { countMigrations } from "./helpers/db";
-import { type ScratchDaemon, startScratchDaemon } from "./helpers/daemon";
+import { expect, test } from "./helpers/fixtures";
 
 // REQ-2, REQ-9, REQ-17, REQ-19, REQ-20 — daemon-down banner + reconnect, restart
-// behaviour (token/migration persistence). Serial: each test's setup deliberately builds
-// on the daemon being alive at the point the previous test left it, and each test's own
-// assertions never assume more than that.
-test.describe.serial("daemon resilience", () => {
-  let daemon: ScratchDaemon;
-
-  test.beforeAll(async () => {
-    daemon = await startScratchDaemon();
-  });
-
-  test.afterAll(async () => {
-    await daemon.teardown();
-  });
-
+// behaviour (token/migration persistence). Every test kills or restarts its daemon, so
+// each takes the test-scoped `daemon` fixture (a fresh scratch daemon per test); the
+// three are independent scenarios, so nothing here needs to run in sequence.
+test.describe("daemon resilience", () => {
   test("shows the daemon-down banner when the scratch daemon is killed, and clears it on restart", async ({
     page,
+    daemon,
   }) => {
     await page.goto(daemon.dashboardUrl);
     await expect(page.getByRole("status")).toHaveText(/connected/i);
@@ -37,7 +27,7 @@ test.describe.serial("daemon resilience", () => {
     await expect(page.getByRole("status")).toHaveText(/connected/i);
   });
 
-  test("keeps the same UI and ingest tokens across a restart on the same data dir", async ({ request }) => {
+  test("keeps the same UI and ingest tokens across a restart on the same data dir", async ({ request, daemon }) => {
     const uiTokenBefore = daemon.uiToken;
     const ingestTokenBefore = daemon.ingestToken;
 
@@ -50,7 +40,7 @@ test.describe.serial("daemon resilience", () => {
     expect(res.status()).toBe(200);
   });
 
-  test("does not re-apply migrations on a second startup against the same data dir", async () => {
+  test("does not re-apply migrations on a second startup against the same data dir", async ({ daemon }) => {
     const before = await countMigrations(daemon.dbPath);
     expect(before).toBeGreaterThan(0);
 

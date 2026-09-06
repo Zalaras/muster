@@ -50,8 +50,12 @@ contrast: ## Contrast/hue/literal gate over web/src/style.css (REQ-4, plan new-u
 # compiles them into the binary via go:embed, or the E2E-embedded spec (embedded.spec.ts)
 # runs against stale assets (plan embed-dashboard Edge Case 3/8 — this repo never runs
 # make -j, so make's serial default is what makes this ordering hold).
+.PHONY: e2e-lint
+e2e-lint: ## Mechanical checks on web/e2e (fixtures only from helpers/fixtures.ts, no fixed sleeps)
+	cd web && npm run -s e2e:lint
+
 .PHONY: e2e
-e2e: web-build build ## Playwright E2E suite
+e2e: web-build build ## Playwright E2E suite (runs e2e-lint first via npm run e2e)
 	cd web && npm run e2e
 
 .PHONY: run
@@ -63,7 +67,7 @@ canary: ## Drive the real claude (3 haiku turns + 1 zero-token) and assert every
 	go test -tags=canary -count=1 -v ./test/canary/...
 
 .PHONY: check
-check: lint test contrast ## Lint + test + contrast
+check: lint test contrast e2e-lint ## Lint + test + contrast + e2e-lint
 
 .PHONY: hooks
 hooks: ## Arm the commit-msg guard (.githooks/) for this clone — enforces docs/conventions.md § Commits

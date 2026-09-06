@@ -1,5 +1,4 @@
-import { expect, test } from "@playwright/test";
-import { type ScratchDaemon, startScratchDaemon } from "./helpers/daemon";
+import { expect, fileDaemon, settleFor, test } from "./helpers/fixtures";
 import {
   envelopedSessionStart,
   rawNotification,
@@ -17,6 +16,7 @@ import {
 } from "./helpers/session";
 import {
   dragTileOnto,
+  expectAllTileGeometrySettled,
   liveTile,
   stripCard,
   TerminalSocketTracker,
@@ -28,35 +28,19 @@ import { resolvedCssVar } from "./helpers/theme";
 // Plan m4-reconcile — REQ-5 through REQ-16 (End / Remove / Resume, dialogs, dead
 // surface, tiles). Plan acceptance: E5-E15 (E2-E4 live in reconcile.spec.ts).
 //
-// Focus-view tests below share one scratch daemon (sessions.spec.ts's pattern) — every
+// Daemon shape (docs/conventions.md §Testing): mixed. The Focus-view tests read the
+// file-shared `sharedDaemon()` (one scratch daemon per file via fileDaemon()) — every
 // assertion is scoped to its own session's title/card, and every test that mounts a
 // terminal explicitly clicks its own card first rather than relying on Focus's
 // auto-focus-top-of-sort (which is NOT this test's session once other tests in this file
 // have launched their own — terminal.spec.ts's file header documents exactly this trap).
-// Tests that depend on exact rail ORDER (E9's "focus moves to the top card") or on Tiles'
+// Tests that depend on exact rail ORDER (E9's "focus moves to the top card"), on Tiles'
 // grid density (E11/E12 — a function of the total session count, per views.spec.ts's file
-// header) get their own private daemon instead.
+// header), or that kill/restart the daemon (E14) destructure the `daemon` fixture instead
+// — a fresh daemon per test, torn down by the fixture. They stay in file order rather than
+// being grouped into a describe so no test is renamed or moved.
 
-let daemon: ScratchDaemon;
-
-test.beforeAll(async () => {
-  daemon = await startScratchDaemon();
-});
-
-test.afterAll(async () => {
-  await daemon.teardown();
-});
-
-async function withDaemon<T>(
-  fn: (daemon: ScratchDaemon) => Promise<T>,
-): Promise<T> {
-  const isolated = await startScratchDaemon();
-  try {
-    return await fn(isolated);
-  } finally {
-    await isolated.teardown();
-  }
-}
+const sharedDaemon = fileDaemon();
 
 test("End from the mainhead ends only the focused session; a live neighbour is unaffected (E5, INV-2)", async ({
   page,
@@ -67,21 +51,21 @@ test("End from the mainhead ends only the focused session; a live neighbour is u
     scratchDirectory(),
   ]);
   try {
-    await page.goto(daemon.dashboardUrl);
-    const sessionA = await launchSession(page, daemon, {
+    await page.goto(sharedDaemon().dashboardUrl);
+    const sessionA = await launchSession(page, sharedDaemon(), {
       directory: dirA.path,
       title: "end-mainhead-a",
     });
-    const sessionB = await launchSession(page, daemon, {
+    const sessionB = await launchSession(page, sharedDaemon(), {
       directory: dirB.path,
       title: "end-mainhead-b",
     });
-    await request.post(daemon.ingestURL("hook"), {
+    await request.post(sharedDaemon().ingestURL("hook"), {
       data: envelopedSessionStart("claude-end-a", {
         musterSession: sessionA.id,
       }),
     });
-    await request.post(daemon.ingestURL("hook"), {
+    await request.post(sharedDaemon().ingestURL("hook"), {
       data: envelopedSessionStart("claude-end-b", {
         musterSession: sessionB.id,
       }),
@@ -92,7 +76,7 @@ test("End from the mainhead ends only the focused session; a live neighbour is u
     const mainhead = page.locator("#mainhead");
     await expect(mainhead).toContainText("end-mainhead-a");
 
-    const bAttachedBefore = await daemon.tmuxDisplay(
+    const bAttachedBefore = await sharedDaemon().tmuxDisplay(
       sessionB.tmuxTarget,
       "#{session_attached}",
     );
@@ -112,13 +96,13 @@ test("End from the mainhead ends only the focused session; a live neighbour is u
     await expect(cardA.getByText(/^ended /)).toBeVisible();
 
     // B is untouched: still alive, tmux session/pane intact, no attach-client change.
-    expect(await daemon.tmuxPaneExists(sessionB.tmuxTarget)).toBe(true);
-    const bAttachedAfter = await daemon.tmuxDisplay(
+    expect(await sharedDaemon().tmuxPaneExists(sessionB.tmuxTarget)).toBe(true);
+    const bAttachedAfter = await sharedDaemon().tmuxDisplay(
       sessionB.tmuxTarget,
       "#{session_attached}",
     );
     expect(bAttachedAfter).toBe(bAttachedBefore);
-    const state = await getState(page, daemon);
+    const state = await getState(page, sharedDaemon());
     const foundB = findSession(state, sessionB.id);
     expect(foundB.alive).toBe(true);
     expect(foundB.state).toBe(sessionB.state);
@@ -156,7 +140,7 @@ test("ended sessions sort after every live session, most recently ended first (R
     Array.from({ length: 3 }, () => scratchDirectory()),
   );
   try {
-    await page.goto(daemon.dashboardUrl);
+    await page.goto(sharedDaemon().dashboardUrl);
     const titles = [
       "sort-req9-live",
       "sort-req9-ended-first",
@@ -165,7 +149,7 @@ test("ended sessions sort after every live session, most recently ended first (R
     const sessions: SessionObject[] = [];
     for (const [i, dir] of dirs.entries()) {
       sessions.push(
-        await launchSession(page, daemon, {
+        await launchSession(page, sharedDaemon(), {
           directory: dir.path,
           title: titles[i] ?? "",
         }),
@@ -175,14 +159,14 @@ test("ended sessions sort after every live session, most recently ended first (R
     if (!live || !endedFirst || !endedSecond)
       throw new Error("expected three sessions");
 
-    await request.post(daemon.ingestURL("hook"), {
+    await request.post(sharedDaemon().ingestURL("hook"), {
       data: envelopedSessionStart("claude-sort-req9-live", {
         musterSession: live.id,
       }),
     });
 
     const endRes1 = await page.request.post(
-      `${daemon.baseURL}/api/sessions/${endedFirst.id}/end`,
+      `${sharedDaemon().baseURL}/api/sessions/${endedFirst.id}/end`,
     );
     expect(endRes1.status()).toBe(200);
     await expect(sessionCard(page, "sort-req9-ended-first")).toHaveClass(
@@ -191,11 +175,12 @@ test("ended sessions sort after every live session, most recently ended first (R
     );
 
     // Force a real gap between the two `endedAt` timestamps regardless of the daemon's
-    // clock resolution, so "most recently ended first" has an unambiguous answer.
-    await page.waitForTimeout(1_100);
+    // clock resolution, so "most recently ended first" has an unambiguous answer — a
+    // deliberate hold (nothing to poll for: the second End has not happened yet).
+    await settleFor(page, 1_100);
 
     const endRes2 = await page.request.post(
-      `${daemon.baseURL}/api/sessions/${endedSecond.id}/end`,
+      `${sharedDaemon().baseURL}/api/sessions/${endedSecond.id}/end`,
     );
     expect(endRes2.status()).toBe(200);
     await expect(sessionCard(page, "sort-req9-ended-second")).toHaveClass(
@@ -246,12 +231,12 @@ test("Cancel and Escape close both End and Remove dialogs without sending any re
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, {
+    await page.goto(sharedDaemon().dashboardUrl);
+    const session = await launchSession(page, sharedDaemon(), {
       directory: dir,
       title: "cancel-escape-e10",
     });
-    await request.post(daemon.ingestURL("hook"), {
+    await request.post(sharedDaemon().ingestURL("hook"), {
       data: envelopedSessionStart("claude-cancel-escape-e10", {
         musterSession: session.id,
       }),
@@ -291,7 +276,7 @@ test("Cancel and Escape close both End and Remove dialogs without sending any re
     await page.keyboard.press("Escape");
     await expect(removeDialog).toBeHidden();
 
-    const state = await getState(page, daemon);
+    const state = await getState(page, sharedDaemon());
     expect(findSession(state, session.id).alive).toBe(true);
     expect(mutations).toBe(0);
   } finally {
@@ -305,12 +290,12 @@ test("a focused ended session shows the dead surface with its last snapshot and 
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, {
+    await page.goto(sharedDaemon().dashboardUrl);
+    const session = await launchSession(page, sharedDaemon(), {
       directory: dir,
       title: "dead-surface-e6",
     });
-    await request.post(daemon.ingestURL("hook"), {
+    await request.post(sharedDaemon().ingestURL("hook"), {
       data: envelopedSessionStart("claude-dead-surface-e6", {
         musterSession: session.id,
       }),
@@ -323,7 +308,7 @@ test("a focused ended session shows the dead surface with its last snapshot and 
     });
 
     const endRes = await page.request.post(
-      `${daemon.baseURL}/api/sessions/${session.id}/end`,
+      `${sharedDaemon().baseURL}/api/sessions/${session.id}/end`,
     );
     expect(endRes.status()).toBe(200);
 
@@ -360,9 +345,14 @@ test("a focused ended session shows the dead surface with its last snapshot and 
   }
 });
 
+// Fresh `daemon`, not the file's shared one: after End, Focus falls through to the next
+// live card and attaches a terminal to it — a legitimate second socket when a neighbour
+// test's session exists, which would falsify "never reopens" for the wrong reason. INV-5
+// is only observable when the ended session was the daemon's only one.
 test("Ending a focused session closes its terminal socket and never reopens one while dead (INV-5)", async ({
   page,
   request,
+  daemon,
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
@@ -399,8 +389,8 @@ test("Ending a focused session closes its terminal socket and never reopens one 
       timeout: 15_000,
     });
 
-    // Give any (incorrect) reattach attempt a moment, then confirm none ever happened.
-    await page.waitForTimeout(1_000);
+    // Hold, then confirm no (incorrect) reattach attempt ever happened in that window.
+    await settleFor(page, 1_000);
     expect(tracker.liveCount).toBe(0);
     expect(tracker.totalOpened).toBe(1);
   } finally {
@@ -414,13 +404,13 @@ test("clicking Resume in the ended cap relaunches the session with the same clau
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, {
+    await page.goto(sharedDaemon().dashboardUrl);
+    const session = await launchSession(page, sharedDaemon(), {
       directory: dir,
       title: "resume-e7",
     });
     const claudeId = "claude-resume-e7";
-    await request.post(daemon.ingestURL("hook"), {
+    await request.post(sharedDaemon().ingestURL("hook"), {
       data: envelopedSessionStart(claudeId, { musterSession: session.id }),
     });
     const card = sessionCard(page, "resume-e7");
@@ -431,7 +421,7 @@ test("clicking Resume in the ended cap relaunches the session with the same clau
     );
 
     const endRes = await page.request.post(
-      `${daemon.baseURL}/api/sessions/${session.id}/end`,
+      `${sharedDaemon().baseURL}/api/sessions/${session.id}/end`,
     );
     expect(endRes.status()).toBe(200);
     const cap = page.locator("#dead-surface .endcap");
@@ -449,12 +439,12 @@ test("clicking Resume in the ended cap relaunches the session with the same clau
       { timeout: 15_000 },
     );
 
-    const state = await getState(page, daemon);
+    const state = await getState(page, sharedDaemon());
     const resumed = findSession(state, session.id);
     expect(resumed.alive).toBe(true);
     expect(resumed.endedAt).toBeNull();
 
-    const paneCmd = await daemon.paneStartCommand(resumed.tmuxTarget);
+    const paneCmd = await sharedDaemon().paneStartCommand(resumed.tmuxTarget);
     expect(paneCmd).toContain("--resume");
     expect(paneCmd).toContain(claudeId);
   } finally {
@@ -468,19 +458,19 @@ test("the resume SessionStart lands the card in idle with no attention or failur
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, {
+    await page.goto(sharedDaemon().dashboardUrl);
+    const session = await launchSession(page, sharedDaemon(), {
       directory: dir,
       title: "resume-idle-e8",
     });
     const claudeId = "claude-resume-idle-e8";
-    await request.post(daemon.ingestURL("hook"), {
+    await request.post(sharedDaemon().ingestURL("hook"), {
       data: envelopedSessionStart(claudeId, { musterSession: session.id }),
     });
-    await request.post(daemon.ingestURL("hook"), {
+    await request.post(sharedDaemon().ingestURL("hook"), {
       data: rawUserPromptSubmit(claudeId),
     });
-    await request.post(daemon.ingestURL("hook"), {
+    await request.post(sharedDaemon().ingestURL("hook"), {
       data: rawNotification(claudeId, "p1", "permission_prompt"),
     });
     const card = sessionCard(page, "resume-idle-e8");
@@ -488,13 +478,13 @@ test("the resume SessionStart lands the card in idle with no attention or failur
     await expect(card.getByText(/needs your permission/i)).toBeVisible();
 
     const endRes = await page.request.post(
-      `${daemon.baseURL}/api/sessions/${session.id}/end`,
+      `${sharedDaemon().baseURL}/api/sessions/${session.id}/end`,
     );
     expect(endRes.status()).toBe(200);
     await expect(card).toHaveClass(/ended/, { timeout: 15_000 });
 
     const resumeRes = await page.request.post(
-      `${daemon.baseURL}/api/sessions/${session.id}/resume`,
+      `${sharedDaemon().baseURL}/api/sessions/${session.id}/resume`,
     );
     expect(resumeRes.status()).toBe(200);
     const resumedBody = (await resumeRes.json()) as SessionObject;
@@ -503,14 +493,14 @@ test("the resume SessionStart lands the card in idle with no attention or failur
     expect(resumedBody.state).toBe("needs_input");
     await expect(card).not.toHaveClass(/ended/, { timeout: 15_000 });
 
-    await request.post(daemon.ingestURL("hook"), {
+    await request.post(sharedDaemon().ingestURL("hook"), {
       data: sessionStartResume(claudeId, { musterSession: session.id }),
     });
     await expect(stateBadge(card)).toHaveText(/idle/i);
     // The attention note is gone from the card (E15) — not merely a different badge word.
     await expect(card.getByText(/needs your permission/i)).toHaveCount(0);
 
-    const state = await getState(page, daemon);
+    const state = await getState(page, sharedDaemon());
     const found = findSession(state, session.id);
     expect(found.attention).toBeNull();
     expect(found.failure).toBeNull();
@@ -524,8 +514,8 @@ test("a session with no captured snapshot shows 'no snapshot captured' under the
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, {
+    await page.goto(sharedDaemon().dashboardUrl);
+    const session = await launchSession(page, sharedDaemon(), {
       directory: dir,
       title: "no-snap-e13",
     });
@@ -533,7 +523,7 @@ test("a session with no captured snapshot shows 'no snapshot captured' under the
     // poll tick can land any capture in between (plan Edge Case 13's own framing: "killed
     // before the first tick"). Best-effort by construction; the daemon-side race is the
     // plan's, not this spec's, to resolve.
-    await daemon.killTmuxWindow(session.tmuxTarget);
+    await sharedDaemon().killTmuxWindow(session.tmuxTarget);
 
     await page.reload();
     await sessionCard(page, "no-snap-e13").click();
@@ -549,361 +539,365 @@ test("a session with no captured snapshot shows 'no snapshot captured' under the
 test("Removing a live session ends it first, warns in the dialog copy, and moves focus to the top card (E9)", async ({
   page,
   request,
+  daemon,
 }) => {
-  test.setTimeout(30_000);
-  await withDaemon(async (isolated) => {
-    const [dirA, dirB] = await Promise.all([
-      scratchDirectory(),
-      scratchDirectory(),
-    ]);
-    try {
-      await page.goto(isolated.dashboardUrl);
-      const sessionA = await launchSession(page, isolated, {
-        directory: dirA.path,
-        title: "remove-live-a",
-      });
-      const sessionB = await launchSession(page, isolated, {
-        directory: dirB.path,
-        title: "remove-live-b",
-      });
-      await request.post(isolated.ingestURL("hook"), {
-        data: envelopedSessionStart("claude-remove-live-a", {
-          musterSession: sessionA.id,
-        }),
-      });
-      await request.post(isolated.ingestURL("hook"), {
-        data: envelopedSessionStart("claude-remove-live-b", {
-          musterSession: sessionB.id,
-        }),
-      });
+  const [dirA, dirB] = await Promise.all([
+    scratchDirectory(),
+    scratchDirectory(),
+  ]);
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const sessionA = await launchSession(page, daemon, {
+      directory: dirA.path,
+      title: "remove-live-a",
+    });
+    const sessionB = await launchSession(page, daemon, {
+      directory: dirB.path,
+      title: "remove-live-b",
+    });
+    await request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart("claude-remove-live-a", {
+        musterSession: sessionA.id,
+      }),
+    });
+    await request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart("claude-remove-live-b", {
+        musterSession: sessionB.id,
+      }),
+    });
 
-      const cardA = sessionCard(page, "remove-live-a");
-      await cardA.click();
-      const mainhead = page.locator("#mainhead");
-      await expect(mainhead).toContainText("remove-live-a");
+    const cardA = sessionCard(page, "remove-live-a");
+    await cardA.click();
+    const mainhead = page.locator("#mainhead");
+    await expect(mainhead).toContainText("remove-live-a");
 
-      // Live cards carry only End (REQ-11) — Remove for a live session comes from the
-      // mainhead only (REQ-10's "always enabled").
-      await expect(cardA.getByRole("button", { name: "Remove" })).toHaveCount(
-        0,
-      );
+    // Live cards carry only End (REQ-11) — Remove for a live session comes from the
+    // mainhead only (REQ-10's "always enabled").
+    await expect(cardA.getByRole("button", { name: "Remove" })).toHaveCount(
+      0,
+    );
 
-      // exact: true — sanctioned repair (plan ui-text-and-focus, REQ-13/Testable UI
-      // Elements): the mainhead's rename trigger's accessible name is the display
-      // title, and this test's own fixture title ("remove-live-a") contains "remove"
-      // as a substring, so a non-exact match is ambiguous.
-      await mainhead.getByRole("button", { name: "Remove", exact: true }).click();
-      const dialog = page.getByRole("dialog", { name: "Remove session?" });
-      await expect(dialog).toBeVisible();
-      await expect(dialog).toContainText(/ends the session first/i);
+    // exact: true — sanctioned repair (plan ui-text-and-focus, REQ-13/Testable UI
+    // Elements): the mainhead's rename trigger's accessible name is the display
+    // title, and this test's own fixture title ("remove-live-a") contains "remove"
+    // as a substring, so a non-exact match is ambiguous.
+    await mainhead.getByRole("button", { name: "Remove", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Remove session?" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText(/ends the session first/i);
 
-      // review m4-reconcile Fix Attempt 3 (web-implementation.md): the confirm dialog's
-      // destructive buttons were repointed from `--rose` (reserved for the Failed state
-      // per design-system §3) to a dedicated `--danger` family fill. Assert the computed
-      // background against the live `--danger`/`--rose` tokens (not a hardcoded literal —
-      // plan new-ui-design-colors REQ-2 adjusted `--danger`'s Instrument shade for AA, so
-      // a hex literal here would silently drift out of sync with style.css) — explicitly
-      // not `--rose` either, so a same-family off-by-one token swap would still fail.
-      const removeConfirmBtn = dialog.getByRole("button", {
-        name: "Remove",
-        exact: true,
-      });
-      const dangerBg = await resolvedCssVar(page, "--danger", "background-color");
-      const roseBg = await resolvedCssVar(page, "--rose", "background-color");
-      await expect(removeConfirmBtn).toHaveCSS("background-color", dangerBg);
-      await expect(removeConfirmBtn).not.toHaveCSS("background-color", roseBg);
+    // review m4-reconcile Fix Attempt 3 (web-implementation.md): the confirm dialog's
+    // destructive buttons were repointed from `--rose` (reserved for the Failed state
+    // per design-system §3) to a dedicated `--danger` family fill. Assert the computed
+    // background against the live `--danger`/`--rose` tokens (not a hardcoded literal —
+    // plan new-ui-design-colors REQ-2 adjusted `--danger`'s Instrument shade for AA, so
+    // a hex literal here would silently drift out of sync with style.css) — explicitly
+    // not `--rose` either, so a same-family off-by-one token swap would still fail.
+    const removeConfirmBtn = dialog.getByRole("button", {
+      name: "Remove",
+      exact: true,
+    });
+    const dangerBg = await resolvedCssVar(page, "--danger", "background-color");
+    const roseBg = await resolvedCssVar(page, "--rose", "background-color");
+    await expect(removeConfirmBtn).toHaveCSS("background-color", dangerBg);
+    await expect(removeConfirmBtn).not.toHaveCSS("background-color", roseBg);
 
-      await removeConfirmBtn.click();
-      // review m4-reconcile fix-cycle-1: `<dialog>.close()` runs synchronously on click,
-      // strictly BEFORE `onConfirmRemove`'s async `DELETE` even starts (render/confirm.ts)
-      // — `toBeHidden()` here proves nothing about whether the server-side kill has
-      // completed. `cardA`'s removal, in contrast, only happens from `handleRemoved`,
-      // which `doRemove` calls only after the `DELETE` response resolves `ok` — so wait
-      // for that (already polling, `{ timeout: 15_000 }`) before treating the kill as
-      // done. This card-gone wait is the same the pre-existing assertion already used;
-      // reordering it first fixes a race that got tighter once Minor 1's fix added one
-      // more synchronous `PaneExists` check inside `End`, not a weaker assertion.
-      await expect(dialog).toBeHidden();
-      await expect(cardA).toHaveCount(0, { timeout: 15_000 });
-      expect(await isolated.tmuxPaneExists(sessionA.tmuxTarget)).toBe(false);
+    await removeConfirmBtn.click();
+    // review m4-reconcile fix-cycle-1: `<dialog>.close()` runs synchronously on click,
+    // strictly BEFORE `onConfirmRemove`'s async `DELETE` even starts (render/confirm.ts)
+    // — `toBeHidden()` here proves nothing about whether the server-side kill has
+    // completed. `cardA`'s removal, in contrast, only happens from `handleRemoved`,
+    // which `doRemove` calls only after the `DELETE` response resolves `ok` — so wait
+    // for that (already polling, `{ timeout: 15_000 }`) before treating the kill as
+    // done. This card-gone wait is the same the pre-existing assertion already used;
+    // reordering it first fixes a race that got tighter once Minor 1's fix added one
+    // more synchronous `PaneExists` check inside `End`, not a weaker assertion.
+    await expect(dialog).toBeHidden();
+    await expect(cardA).toHaveCount(0, { timeout: 15_000 });
+    expect(await daemon.tmuxPaneExists(sessionA.tmuxTarget)).toBe(false);
 
-      // Only A and B exist in this isolated daemon — focus must now be on B.
-      await expect(mainhead).toContainText("remove-live-b", {
-        timeout: 15_000,
-      });
-    } finally {
-      await Promise.all([dirA.cleanup(), dirB.cleanup()]);
-    }
-  });
+    // Only A and B exist in this isolated daemon — focus must now be on B.
+    await expect(mainhead).toContainText("remove-live-b", {
+      timeout: 15_000,
+    });
+  } finally {
+    await Promise.all([dirA.cleanup(), dirB.cleanup()]);
+  }
 });
 
 test("Tiles: End from a tile footer keeps the tile in its slot and leaves other tiles' geometry untouched (E11)", async ({
   page,
   request,
+  daemon,
 }) => {
-  test.setTimeout(60_000);
-  await withDaemon(async (isolated) => {
-    const dirs = await Promise.all(
-      Array.from({ length: 4 }, () => scratchDirectory()),
-    );
-    try {
-      await page.goto(isolated.dashboardUrl);
-      const titles = dirs.map((_, i) => `tile-end-${i}`);
-      const sessions: SessionObject[] = [];
-      for (const [i, dir] of dirs.entries()) {
-        const session = await launchSession(page, isolated, {
-          directory: dir.path,
-          title: titles[i] ?? "",
-        });
-        sessions.push(session);
-        await request.post(isolated.ingestURL("hook"), {
-          data: envelopedSessionStart(`claude-tile-end-${i}`, {
-            musterSession: session.id,
-          }),
-        });
-      }
-
-      await page.getByRole("button", { name: "Tiles" }).click();
-      await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute(
-        "aria-pressed",
-        "true",
-      );
-
-      const titleA = titles[0];
-      const neighbourTitle = titles[1];
-      const neighbourSession = sessions[1];
-      if (!titleA || !neighbourTitle || !neighbourSession)
-        throw new Error("expected at least two titles");
-
-      const tileA = liveTile(page, titleA);
-      await expect(tileA).toBeVisible();
-      const neighbourWidthBefore = await isolated.tmuxDisplay(
-        neighbourSession.tmuxTarget,
-        "#{window_width}",
-      );
-      const neighbourHeightBefore = await isolated.tmuxDisplay(
-        neighbourSession.tmuxTarget,
-        "#{window_height}",
-      );
-
-      await tileA
-        .locator(".tfoot")
-        .getByRole("button", { name: "End" })
-        .click();
-      const dialog = page.getByRole("dialog", { name: "End session?" });
-      await expect(dialog).toBeVisible();
-      await dialog.getByRole("button", { name: "End session" }).click();
-      await expect(dialog).toBeHidden();
-
-      // Sticky grid membership (m2): the tile stays in its slot, not removed.
-      await expect(tileA).toBeVisible({ timeout: 15_000 });
-      await expect(tileA.locator(".marker")).toHaveText("stopped", {
-        timeout: 15_000,
+  const dirs = await Promise.all(
+    Array.from({ length: 4 }, () => scratchDirectory()),
+  );
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const titles = dirs.map((_, i) => `tile-end-${i}`);
+    const sessions: SessionObject[] = [];
+    for (const [i, dir] of dirs.entries()) {
+      const session = await launchSession(page, daemon, {
+        directory: dir.path,
+        title: titles[i] ?? "",
       });
-      await expect(tileA.getByText(/^ended /)).toBeVisible();
-      await expect(
-        tileA.locator(".tfoot").getByRole("button", { name: "Resume" }),
-      ).toBeVisible();
-      await expect(
-        tileA.locator(".tfoot").getByRole("button", { name: "Remove" }),
-      ).toBeVisible();
-      await expect(tileA.locator(".endcap")).toContainText(/session ended/i);
+      sessions.push(session);
+      await request.post(daemon.ingestURL("hook"), {
+        data: envelopedSessionStart(`claude-tile-end-${i}`, {
+          musterSession: session.id,
+        }),
+      });
+    }
 
-      // review m4-reconcile cycle-3 Critical 1 / Minor 2: the second of the two
-      // dead-surface sites the Critical named — a dead tile's *cloned* `.dead-surface`
-      // (`#dead-surface-template`), distinct from Focus's static `#dead-surface`
-      // exercised by the E6 test. `toBeVisible()` alone would have stayed green through
-      // the opacity-0 defect here too, so read the computed style: both the cap's
-      // Resume button and its `.acts-row` must resolve to opacity 1.
-      const tileResumeBtn = tileA
-        .locator(".endcap")
-        .getByRole("button", { name: "Resume" });
-      await expect(tileResumeBtn).toBeVisible();
-      await expect(tileResumeBtn).toHaveCSS("opacity", "1");
-      await expect(tileA.locator(".endcap .acts-row")).toHaveCSS(
-        "opacity",
-        "1",
-      );
+    await page.getByRole("button", { name: "Tiles" }).click();
+    await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
-      const neighbourWidthAfter = await isolated.tmuxDisplay(
+    const titleA = titles[0];
+    const neighbourTitle = titles[1];
+    const neighbourSession = sessions[1];
+    if (!titleA || !neighbourTitle || !neighbourSession)
+      throw new Error("expected at least two titles");
+
+    const tileA = liveTile(page, titleA);
+    await expect(tileA).toBeVisible();
+
+    // The 2x2 grid settles as one shared reflow after the view switch, so a tmux read
+    // taken the instant tileA is visible can capture a mid-reflow size and then disagree
+    // with the settled one ("expected 80, received 84" under suite load). Wait until every
+    // tile's footer agrees with tmux in the same poll pass before taking the baseline.
+    await expectAllTileGeometrySettled(
+      page,
+      daemon,
+      sessions.map((session, i) => ({
+        title: titles[i] ?? "",
+        tmuxTarget: session.tmuxTarget,
+      })),
+    );
+    const neighbourGeometry = async (): Promise<string> => {
+      const width = await daemon.tmuxDisplay(
         neighbourSession.tmuxTarget,
         "#{window_width}",
       );
-      const neighbourHeightAfter = await isolated.tmuxDisplay(
+      const height = await daemon.tmuxDisplay(
         neighbourSession.tmuxTarget,
         "#{window_height}",
       );
-      expect(neighbourWidthAfter).toBe(neighbourWidthBefore);
-      expect(neighbourHeightAfter).toBe(neighbourHeightBefore);
-    } finally {
-      await Promise.all(dirs.map((d) => d.cleanup()));
-    }
-  });
+      return `${width}x${height}`;
+    };
+    const neighbourGeometryBefore = await neighbourGeometry();
+
+    await tileA
+      .locator(".tfoot")
+      .getByRole("button", { name: "End" })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "End session?" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "End session" }).click();
+    await expect(dialog).toBeHidden();
+
+    // Sticky grid membership (m2): the tile stays in its slot, not removed.
+    await expect(tileA).toBeVisible({ timeout: 15_000 });
+    await expect(tileA.locator(".marker")).toHaveText("stopped", {
+      timeout: 15_000,
+    });
+    await expect(tileA.getByText(/^ended /)).toBeVisible();
+    await expect(
+      tileA.locator(".tfoot").getByRole("button", { name: "Resume" }),
+    ).toBeVisible();
+    await expect(
+      tileA.locator(".tfoot").getByRole("button", { name: "Remove" }),
+    ).toBeVisible();
+    await expect(tileA.locator(".endcap")).toContainText(/session ended/i);
+
+    // review m4-reconcile cycle-3 Critical 1 / Minor 2: the second of the two
+    // dead-surface sites the Critical named — a dead tile's *cloned* `.dead-surface`
+    // (`#dead-surface-template`), distinct from Focus's static `#dead-surface`
+    // exercised by the E6 test. `toBeVisible()` alone would have stayed green through
+    // the opacity-0 defect here too, so read the computed style: both the cap's
+    // Resume button and its `.acts-row` must resolve to opacity 1.
+    const tileResumeBtn = tileA
+      .locator(".endcap")
+      .getByRole("button", { name: "Resume" });
+    await expect(tileResumeBtn).toBeVisible();
+    await expect(tileResumeBtn).toHaveCSS("opacity", "1");
+    await expect(tileA.locator(".endcap .acts-row")).toHaveCSS(
+      "opacity",
+      "1",
+    );
+
+    // The neighbour's tmux geometry is exactly what it was before the End (the intent is
+    // unchanged: End on A never resizes B). Polled rather than read once, so a tmux read
+    // that lands while the grid is still repainting the dead tile is retried; a real,
+    // persistent change to B's window still fails once the expect timeout runs out.
+    await expect.poll(neighbourGeometry).toBe(neighbourGeometryBefore);
+  } finally {
+    await Promise.all(dirs.map((d) => d.cleanup()));
+  }
 });
 
 test("Tiles: Removing a dead tile backfills its slot from the strip and broadcasts sessionRemoved (E12)", async ({
   page,
   request,
+  daemon,
 }) => {
-  test.setTimeout(60_000);
-  await withDaemon(async (isolated) => {
-    const dirs = await Promise.all(
-      Array.from({ length: 5 }, () => scratchDirectory()),
-    );
-    try {
-      // Observe the actual `sessionRemoved` WS frame (review m4-reconcile cycle-2 Minor
-      // 7 — previously this test only inferred the broadcast from its effect on a later
-      // GET /api/state). Transparently proxy the dashboard's one WebSocket and record
-      // every server-to-page text frame; must be registered before navigation
-      // (Playwright: "only WebSockets created after this method was called will be
-      // routed"). Setting `server.onMessage` disables the route's default forwarding, so
-      // each captured message is re-sent to the page manually to keep the connection
-      // transparent — same pattern the E14 test above uses for interception.
-      const wsFrames: string[] = [];
-      await page.routeWebSocket("**/ws", (ws) => {
-        const server = ws.connectToServer();
-        server.onMessage((message) => {
-          if (typeof message === "string") wsFrames.push(message);
-          ws.send(message);
-        });
+  const dirs = await Promise.all(
+    Array.from({ length: 5 }, () => scratchDirectory()),
+  );
+  try {
+    // Observe the actual `sessionRemoved` WS frame (review m4-reconcile cycle-2 Minor
+    // 7 — previously this test only inferred the broadcast from its effect on a later
+    // GET /api/state). Transparently proxy the dashboard's one WebSocket and record
+    // every server-to-page text frame; must be registered before navigation
+    // (Playwright: "only WebSockets created after this method was called will be
+    // routed"). Setting `server.onMessage` disables the route's default forwarding, so
+    // each captured message is re-sent to the page manually to keep the connection
+    // transparent — same pattern the E14 test above uses for interception.
+    const wsFrames: string[] = [];
+    await page.routeWebSocket("**/ws", (ws) => {
+      const server = ws.connectToServer();
+      server.onMessage((message) => {
+        if (typeof message === "string") wsFrames.push(message);
+        ws.send(message);
       });
+    });
 
-      await page.goto(isolated.dashboardUrl);
-      const titles = dirs.map((_, i) => `tile-remove-${i}`);
-      const sessions: SessionObject[] = [];
-      for (const [i, dir] of dirs.entries()) {
-        const session = await launchSession(page, isolated, {
-          directory: dir.path,
-          title: titles[i] ?? "",
-        });
-        sessions.push(session);
-        await request.post(isolated.ingestURL("hook"), {
-          data: envelopedSessionStart(`claude-tile-remove-${i}`, {
-            musterSession: session.id,
-          }),
-        });
-      }
-
-      await page.getByRole("button", { name: "Tiles" }).click();
-      await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute(
-        "aria-pressed",
-        "true",
-      );
-
-      // 5 sessions in a 2x2 grid: 4 live, 1 stripped.
-      let strippedTitle: string | undefined;
-      for (const t of titles) {
-        if ((await liveTile(page, t).count()) === 0) strippedTitle = t;
-      }
-      if (!strippedTitle)
-        throw new Error("expected exactly one stripped title");
-      const liveTitleToEnd = titles.find((t) => t !== strippedTitle);
-      if (!liveTitleToEnd) throw new Error("expected a live title to end");
-      const sessionToEnd = sessions[titles.indexOf(liveTitleToEnd)];
-      if (!sessionToEnd)
-        throw new Error("no session object for the title being ended");
-
-      const endRes = await page.request.post(
-        `${isolated.baseURL}/api/sessions/${sessionToEnd.id}/end`,
-      );
-      expect(endRes.status()).toBe(200);
-      const deadTile = liveTile(page, liveTitleToEnd);
-      await expect(deadTile.locator(".marker")).toHaveText("stopped", {
-        timeout: 15_000,
+    await page.goto(daemon.dashboardUrl);
+    const titles = dirs.map((_, i) => `tile-remove-${i}`);
+    const sessions: SessionObject[] = [];
+    for (const [i, dir] of dirs.entries()) {
+      const session = await launchSession(page, daemon, {
+        directory: dir.path,
+        title: titles[i] ?? "",
       });
-
-      await deadTile
-        .locator(".tfoot")
-        .getByRole("button", { name: "Remove" })
-        .click();
-      const dialog = page.getByRole("dialog", { name: "Remove session?" });
-      await expect(dialog).toBeVisible();
-      await dialog.getByRole("button", { name: "Remove", exact: true }).click();
-      await expect(dialog).toBeHidden();
-
-      // The removed session's tile is gone; the previously-stripped session backfills the
-      // slot (m2's "next by sort order" rule).
-      await expect(liveTile(page, liveTitleToEnd)).toHaveCount(0);
-      await expect(liveTile(page, strippedTitle)).toBeVisible({
-        timeout: 15_000,
+      sessions.push(session);
+      await request.post(daemon.ingestURL("hook"), {
+        data: envelopedSessionStart(`claude-tile-remove-${i}`, {
+          musterSession: session.id,
+        }),
       });
-      await expect(stripCard(page, strippedTitle)).toHaveCount(0);
-
-      const state = await getState(page, isolated);
-      expect(state.sessions.some((s) => s.id === sessionToEnd.id)).toBe(false);
-
-      // The WS broadcast itself, observed directly rather than inferred: exactly one
-      // `sessionRemoved` frame for this session's id, matching docs/protocol.md §5.5's
-      // shape (`{ "type": "sessionRemoved", "id": <number> }`).
-      const removedFrames = wsFrames
-        .map((raw) => {
-          try {
-            return JSON.parse(raw) as unknown;
-          } catch {
-            return null;
-          }
-        })
-        .filter(
-          (msg): msg is { type: string; id: number } =>
-            msg !== null &&
-            typeof msg === "object" &&
-            (msg as { type?: unknown }).type === "sessionRemoved",
-        );
-      expect(removedFrames).toHaveLength(1);
-      expect(removedFrames[0]).toEqual({
-        type: "sessionRemoved",
-        id: sessionToEnd.id,
-      });
-    } finally {
-      await Promise.all(dirs.map((d) => d.cleanup()));
     }
-  });
+
+    await page.getByRole("button", { name: "Tiles" }).click();
+    await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    // 5 sessions in a 2x2 grid: 4 live, 1 stripped.
+    let strippedTitle: string | undefined;
+    for (const t of titles) {
+      if ((await liveTile(page, t).count()) === 0) strippedTitle = t;
+    }
+    if (!strippedTitle)
+      throw new Error("expected exactly one stripped title");
+    const liveTitleToEnd = titles.find((t) => t !== strippedTitle);
+    if (!liveTitleToEnd) throw new Error("expected a live title to end");
+    const sessionToEnd = sessions[titles.indexOf(liveTitleToEnd)];
+    if (!sessionToEnd)
+      throw new Error("no session object for the title being ended");
+
+    const endRes = await page.request.post(
+      `${daemon.baseURL}/api/sessions/${sessionToEnd.id}/end`,
+    );
+    expect(endRes.status()).toBe(200);
+    const deadTile = liveTile(page, liveTitleToEnd);
+    await expect(deadTile.locator(".marker")).toHaveText("stopped", {
+      timeout: 15_000,
+    });
+
+    await deadTile
+      .locator(".tfoot")
+      .getByRole("button", { name: "Remove" })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Remove session?" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Remove", exact: true }).click();
+    await expect(dialog).toBeHidden();
+
+    // The removed session's tile is gone; the previously-stripped session backfills the
+    // slot (m2's "next by sort order" rule).
+    await expect(liveTile(page, liveTitleToEnd)).toHaveCount(0);
+    await expect(liveTile(page, strippedTitle)).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(stripCard(page, strippedTitle)).toHaveCount(0);
+
+    const state = await getState(page, daemon);
+    expect(state.sessions.some((s) => s.id === sessionToEnd.id)).toBe(false);
+
+    // The WS broadcast itself, observed directly rather than inferred: exactly one
+    // `sessionRemoved` frame for this session's id, matching docs/protocol.md §5.5's
+    // shape (`{ "type": "sessionRemoved", "id": <number> }`).
+    const removedFrames = wsFrames
+      .map((raw) => {
+        try {
+          return JSON.parse(raw) as unknown;
+        } catch {
+          return null;
+        }
+      })
+      .filter(
+        (msg): msg is { type: string; id: number } =>
+          msg !== null &&
+          typeof msg === "object" &&
+          (msg as { type?: unknown }).type === "sessionRemoved",
+      );
+    expect(removedFrames).toHaveLength(1);
+    expect(removedFrames[0]).toEqual({
+      type: "sessionRemoved",
+      id: sessionToEnd.id,
+    });
+  } finally {
+    await Promise.all(dirs.map((d) => d.cleanup()));
+  }
 });
 
 test("action buttons are disabled while the daemon connection is down (E14)", async ({
   page,
   request,
+  daemon,
 }) => {
-  test.setTimeout(60_000);
-  await withDaemon(async (isolated) => {
-    const { path: dir, cleanup } = await scratchDirectory();
-    try {
-      await page.goto(isolated.dashboardUrl);
-      const session = await launchSession(page, isolated, {
-        directory: dir,
-        title: "down-e14",
-      });
-      await request.post(isolated.ingestURL("hook"), {
-        data: envelopedSessionStart("claude-down-e14", {
-          musterSession: session.id,
-        }),
-      });
-      const card = sessionCard(page, "down-e14");
-      await card.click();
-      const mainhead = page.locator("#mainhead");
-      await expect(mainhead).toContainText("down-e14");
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "down-e14",
+    });
+    await request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart("claude-down-e14", {
+        musterSession: session.id,
+      }),
+    });
+    const card = sessionCard(page, "down-e14");
+    await card.click();
+    const mainhead = page.locator("#mainhead");
+    await expect(mainhead).toContainText("down-e14");
 
-      await isolated.kill();
-      const banner = page.getByRole("alert");
-      await expect(banner).toBeVisible({ timeout: 15_000 });
+    await daemon.kill();
+    const banner = page.getByRole("alert");
+    await expect(banner).toBeVisible({ timeout: 15_000 });
 
-      await expect(
-        mainhead.getByRole("button", { name: "End" }),
-      ).toBeDisabled();
-      await expect(
-        mainhead.getByRole("button", { name: "Resume" }),
-      ).toBeDisabled();
-      await expect(
-        mainhead.getByRole("button", { name: "Remove" }),
-      ).toBeDisabled();
-      await expect(card.getByRole("button", { name: "End" })).toBeDisabled();
+    await expect(
+      mainhead.getByRole("button", { name: "End" }),
+    ).toBeDisabled();
+    await expect(
+      mainhead.getByRole("button", { name: "Resume" }),
+    ).toBeDisabled();
+    await expect(
+      mainhead.getByRole("button", { name: "Remove" }),
+    ).toBeDisabled();
+    await expect(card.getByRole("button", { name: "End" })).toBeDisabled();
 
-      await isolated.restart();
-      await expect(banner).toBeHidden({ timeout: 15_000 });
-    } finally {
-      await cleanup();
-    }
-  });
+    await daemon.restart();
+    await expect(banner).toBeHidden({ timeout: 15_000 });
+  } finally {
+    await cleanup();
+  }
 });
 
 // review m4-reconcile fix-cycle-1 Major 4: E14 above only ever puts a LIVE focused
@@ -916,7 +910,6 @@ test("action buttons are disabled while the daemon connection is down for a dead
   page,
   request,
 }) => {
-  test.setTimeout(30_000);
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     // Route (transparently proxy) the dashboard's one WebSocket so the test can force a
@@ -932,12 +925,12 @@ test("action buttons are disabled while the daemon connection is down for a dead
       });
     });
 
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, {
+    await page.goto(sharedDaemon().dashboardUrl);
+    const session = await launchSession(page, sharedDaemon(), {
       directory: dir,
       title: "down-e14-dead",
     });
-    await request.post(daemon.ingestURL("hook"), {
+    await request.post(sharedDaemon().ingestURL("hook"), {
       data: envelopedSessionStart("claude-down-e14-dead", {
         musterSession: session.id,
       }),
@@ -948,7 +941,7 @@ test("action buttons are disabled while the daemon connection is down for a dead
     await expect(mainhead).toContainText("down-e14-dead");
 
     const endRes = await page.request.post(
-      `${daemon.baseURL}/api/sessions/${session.id}/end`,
+      `${sharedDaemon().baseURL}/api/sessions/${session.id}/end`,
     );
     expect(endRes.status()).toBe(200);
     const deadSurface = page.locator("#dead-surface");
@@ -1022,12 +1015,12 @@ test("a card's End button activates via keyboard Enter and Space, not just a mou
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, {
+    await page.goto(sharedDaemon().dashboardUrl);
+    const session = await launchSession(page, sharedDaemon(), {
       directory: dir,
       title: "kbd-card-end",
     });
-    await request.post(daemon.ingestURL("hook"), {
+    await request.post(sharedDaemon().ingestURL("hook"), {
       data: envelopedSessionStart("claude-kbd-card-end", {
         musterSession: session.id,
       }),
@@ -1055,7 +1048,7 @@ test("a card's End button activates via keyboard Enter and Space, not just a mou
     await expect(dialog).toBeHidden();
     await expect(card).toHaveClass(/ended/, { timeout: 15_000 });
 
-    const state = await getState(page, daemon);
+    const state = await getState(page, sharedDaemon());
     expect(findSession(state, session.id).alive).toBe(false);
   } finally {
     await cleanup();
@@ -1078,12 +1071,12 @@ test("a card's End button survives a render tick and still opens the End dialog 
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, {
+    await page.goto(sharedDaemon().dashboardUrl);
+    const session = await launchSession(page, sharedDaemon(), {
       directory: dir,
       title: "kbd-tick-card-end",
     });
-    await request.post(daemon.ingestURL("hook"), {
+    await request.post(sharedDaemon().ingestURL("hook"), {
       data: envelopedSessionStart("claude-kbd-tick-card-end", {
         musterSession: session.id,
       }),
@@ -1095,11 +1088,10 @@ test("a card's End button survives a render tick and still opens the End dialog 
     await endBtn.focus();
     await expect(endBtn).toBeFocused();
 
-    // Outlive at least one 1s render tick as a separate step from the focus above —
-    // `page.waitForTimeout` is otherwise disfavoured in this suite, but here the render
-    // tick itself (not a WS round-trip) is exactly what's under test, so there is no
-    // visible-outcome signal to poll for instead.
-    await page.waitForTimeout(1_400);
+    // Outlive at least one 1s render tick as a separate step from the focus above — a
+    // stays-unchanged hold (settleFor): the render tick itself (not a WS round-trip) is
+    // exactly what's under test, so there is no visible-outcome signal to poll for.
+    await settleFor(page, 1_400);
     // Re-resolves the locator against the live DOM: if the render tick had rebuilt the
     // button node (the pre-fix defect), the freshly-resolved element would not be
     // `document.activeElement` and this would fail regardless of node identity.
@@ -1122,49 +1114,48 @@ test("a card's End button survives a render tick and still opens the End dialog 
 test("a tile footer's End button survives a render tick and still opens the End dialog via a separate keyboard Enter (REQ-12, Major 1, Major 2)", async ({
   page,
   request,
+  daemon,
 }) => {
-  test.setTimeout(30_000);
-  await withDaemon(async (isolated) => {
-    const { path: dir, cleanup } = await scratchDirectory();
-    try {
-      await page.goto(isolated.dashboardUrl);
-      const session = await launchSession(page, isolated, {
-        directory: dir,
-        title: "kbd-tick-tile-end",
-      });
-      await request.post(isolated.ingestURL("hook"), {
-        data: envelopedSessionStart("claude-kbd-tick-tile-end", {
-          musterSession: session.id,
-        }),
-      });
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "kbd-tick-tile-end",
+    });
+    await request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart("claude-kbd-tick-tile-end", {
+        musterSession: session.id,
+      }),
+    });
 
-      await page.getByRole("button", { name: "Tiles" }).click();
-      await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute(
-        "aria-pressed",
-        "true",
-      );
+    await page.getByRole("button", { name: "Tiles" }).click();
+    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
-      const tile = liveTile(page, "kbd-tick-tile-end");
-      await expect(tile).toBeVisible();
-      const endBtn = tile
-        .locator(".tfoot")
-        .getByRole("button", { name: "End" });
-      const dialog = page.getByRole("dialog", { name: "End session?" });
+    const tile = liveTile(page, "kbd-tick-tile-end");
+    await expect(tile).toBeVisible();
+    const endBtn = tile
+      .locator(".tfoot")
+      .getByRole("button", { name: "End" });
+    const dialog = page.getByRole("dialog", { name: "End session?" });
 
-      await endBtn.focus();
-      await expect(endBtn).toBeFocused();
+    await endBtn.focus();
+    await expect(endBtn).toBeFocused();
 
-      await page.waitForTimeout(1_400);
-      await expect(endBtn).toBeFocused();
+    // Outlive a render tick, then prove focus STAYED (same hold as the card test above).
+    await settleFor(page, 1_400);
+    await expect(endBtn).toBeFocused();
 
-      await page.keyboard.press("Enter");
-      await expect(dialog).toBeVisible();
-      await dialog.getByRole("button", { name: "Cancel" }).click();
-      await expect(dialog).toBeHidden();
-    } finally {
-      await cleanup();
-    }
-  });
+    await page.keyboard.press("Enter");
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
+  } finally {
+    await cleanup();
+  }
 });
 
 // Plan move-tiles removes the auto-sort these two tests used to exercise together
@@ -1182,76 +1173,74 @@ test("a tile footer's End button survives a render tick and still opens the End 
 test("a priority change updates a live tile's chrome but never moves it in the Tiles grid (REQ-2, E5)", async ({
   page,
   request,
+  daemon,
 }) => {
-  test.setTimeout(30_000);
   // Isolated daemon: switching to Tiles persists the view pref, which would leak into the
   // next test sharing the suite daemon (its rail card is hidden in Tiles view).
-  await withDaemon(async (isolated) => {
-    const [dirA, dirB] = await Promise.all([
-      scratchDirectory(),
-      scratchDirectory(),
-    ]);
-    try {
-      await page.goto(isolated.dashboardUrl);
-      const sessionA = await launchSession(page, isolated, {
-        directory: dirA.path,
-        title: "tile-prio-a",
-      });
-      const sessionB = await launchSession(page, isolated, {
-        directory: dirB.path,
-        title: "tile-prio-b",
-      });
-      await request.post(isolated.ingestURL("hook"), {
-        data: envelopedSessionStart("claude-tile-prio-a", {
-          musterSession: sessionA.id,
-        }),
-      });
-      await request.post(isolated.ingestURL("hook"), {
-        data: envelopedSessionStart("claude-tile-prio-b", {
-          musterSession: sessionB.id,
-        }),
-      });
+  const [dirA, dirB] = await Promise.all([
+    scratchDirectory(),
+    scratchDirectory(),
+  ]);
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const sessionA = await launchSession(page, daemon, {
+      directory: dirA.path,
+      title: "tile-prio-a",
+    });
+    const sessionB = await launchSession(page, daemon, {
+      directory: dirB.path,
+      title: "tile-prio-b",
+    });
+    await request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart("claude-tile-prio-a", {
+        musterSession: sessionA.id,
+      }),
+    });
+    await request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart("claude-tile-prio-b", {
+        musterSession: sessionB.id,
+      }),
+    });
 
-      await page.getByRole("button", { name: "Tiles" }).click();
-      await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute(
-        "aria-pressed",
-        "true",
-      );
+    await page.getByRole("button", { name: "Tiles" }).click();
+    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
-      const tileA = liveTile(page, "tile-prio-a");
-      const tileB = liveTile(page, "tile-prio-b");
-      await expect(tileA).toBeVisible();
-      await expect(tileB).toBeVisible();
-      await expect(tileB).not.toHaveClass(/s-blocked/);
+    const tileA = liveTile(page, "tile-prio-a");
+    const tileB = liveTile(page, "tile-prio-b");
+    await expect(tileA).toBeVisible();
+    await expect(tileB).toBeVisible();
+    await expect(tileB).not.toHaveClass(/s-blocked/);
 
-      const orderBefore = await tilesGridOrder(page);
-      expect(orderBefore).toHaveLength(2);
-      expect(orderBefore).toContain("tile-prio-a");
-      expect(orderBefore).toContain("tile-prio-b");
+    const orderBefore = await tilesGridOrder(page);
+    expect(orderBefore).toHaveLength(2);
+    expect(orderBefore).toContain("tile-prio-a");
+    expect(orderBefore).toContain("tile-prio-b");
 
-      // A genuine priority change — `needs_input` sorts first under §3.4 — used to move
-      // tile B's node via a re-sorting `applyDensity`. This plan removes that re-sort.
-      await request.post(isolated.ingestURL("hook"), {
-        data: rawUserPromptSubmit("claude-tile-prio-b"),
-      });
-      await request.post(isolated.ingestURL("hook"), {
-        data: rawNotification(
-          "claude-tile-prio-b",
-          "p1",
-          "permission_prompt",
-        ),
-      });
+    // A genuine priority change — `needs_input` sorts first under §3.4 — used to move
+    // tile B's node via a re-sorting `applyDensity`. This plan removes that re-sort.
+    await request.post(daemon.ingestURL("hook"), {
+      data: rawUserPromptSubmit("claude-tile-prio-b"),
+    });
+    await request.post(daemon.ingestURL("hook"), {
+      data: rawNotification(
+        "claude-tile-prio-b",
+        "p1",
+        "permission_prompt",
+      ),
+    });
 
-      // Chrome DOES update — REQ-2's exact carve-out ("only chrome (dot/border/timer)
-      // updates") — the tile's state class flips to the needs-input token.
-      await expect(tileB).toHaveClass(/s-blocked/, { timeout: 15_000 });
+    // Chrome DOES update — REQ-2's exact carve-out ("only chrome (dot/border/timer)
+    // updates") — the tile's state class flips to the needs-input token.
+    await expect(tileB).toHaveClass(/s-blocked/, { timeout: 15_000 });
 
-      // ...but the DOM order is byte-for-byte the same: no `insertBefore`, no node move.
-      expect(await tilesGridOrder(page)).toEqual(orderBefore);
-    } finally {
-      await Promise.all([dirA.cleanup(), dirB.cleanup()]);
-    }
-  });
+    // ...but the DOM order is byte-for-byte the same: no `insertBefore`, no node move.
+    expect(await tilesGridOrder(page)).toEqual(orderBefore);
+  } finally {
+    await Promise.all([dirA.cleanup(), dirB.cleanup()]);
+  }
 });
 
 // review m4-reconcile cycle-4 Minor 2/3, retargeted by plan move-tiles REQ-10/E6: the only
@@ -1261,77 +1250,75 @@ test("a priority change updates a live tile's chrome but never moves it in the T
 test("a focused tile-footer action button survives a drag-drop reorder (REQ-10, E6)", async ({
   page,
   request,
+  daemon,
 }) => {
-  test.setTimeout(30_000);
-  await withDaemon(async (isolated) => {
-    const [dirA, dirB] = await Promise.all([
-      scratchDirectory(),
-      scratchDirectory(),
-    ]);
-    try {
-      await page.goto(isolated.dashboardUrl);
-      const sessionA = await launchSession(page, isolated, {
-        directory: dirA.path,
-        title: "tile-drag-focus-a",
-      });
-      const sessionB = await launchSession(page, isolated, {
-        directory: dirB.path,
-        title: "tile-drag-focus-b",
-      });
-      await request.post(isolated.ingestURL("hook"), {
-        data: envelopedSessionStart("claude-tile-drag-focus-a", {
-          musterSession: sessionA.id,
-        }),
-      });
-      await request.post(isolated.ingestURL("hook"), {
-        data: envelopedSessionStart("claude-tile-drag-focus-b", {
-          musterSession: sessionB.id,
-        }),
-      });
+  const [dirA, dirB] = await Promise.all([
+    scratchDirectory(),
+    scratchDirectory(),
+  ]);
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const sessionA = await launchSession(page, daemon, {
+      directory: dirA.path,
+      title: "tile-drag-focus-a",
+    });
+    const sessionB = await launchSession(page, daemon, {
+      directory: dirB.path,
+      title: "tile-drag-focus-b",
+    });
+    await request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart("claude-tile-drag-focus-a", {
+        musterSession: sessionA.id,
+      }),
+    });
+    await request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart("claude-tile-drag-focus-b", {
+        musterSession: sessionB.id,
+      }),
+    });
 
-      await page.getByRole("button", { name: "Tiles" }).click();
-      await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute(
-        "aria-pressed",
-        "true",
-      );
+    await page.getByRole("button", { name: "Tiles" }).click();
+    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
-      const tileA = liveTile(page, "tile-drag-focus-a");
-      const tileB = liveTile(page, "tile-drag-focus-b");
-      await expect(tileA).toBeVisible();
-      await expect(tileB).toBeVisible();
+    const tileA = liveTile(page, "tile-drag-focus-a");
+    const tileB = liveTile(page, "tile-drag-focus-b");
+    await expect(tileA).toBeVisible();
+    await expect(tileB).toBeVisible();
 
-      const orderBefore = await tilesGridOrder(page);
-      expect(orderBefore).toHaveLength(2);
+    const orderBefore = await tilesGridOrder(page);
+    expect(orderBefore).toHaveLength(2);
 
-      const endBtnB = tileB
-        .locator(".tfoot")
-        .getByRole("button", { name: "End" });
-      await endBtnB.focus();
-      await expect(endBtnB).toBeFocused();
+    const endBtnB = tileB
+      .locator(".tfoot")
+      .getByRole("button", { name: "End" });
+    await endBtnB.focus();
+    await expect(endBtnB).toBeFocused();
 
-      // Control: render ticks alone must not blur it (already covered by the tick test
-      // above, re-asserted here so the drop below is the only variable).
-      await page.waitForTimeout(1_400);
-      await expect(endBtnB).toBeFocused();
+    // Control: render ticks alone must not blur it (already covered by the tick test
+    // above, re-asserted here so the drop below is the only variable).
+    await settleFor(page, 1_400);
+    await expect(endBtnB).toBeFocused();
 
-      // Dragging A's header onto B moves A's node past B — B (and its focused button)
-      // shifts in the DOM, exercising the exact `insertBefore` path REQ-10 must survive.
-      await dragTileOnto(page, "tile-drag-focus-a", "tile-drag-focus-b");
-      await expect
-        .poll(() => tilesGridOrder(page), { timeout: 15_000 })
-        .toEqual(["tile-drag-focus-b", "tile-drag-focus-a"]);
+    // Dragging A's header onto B moves A's node past B — B (and its focused button)
+    // shifts in the DOM, exercising the exact `insertBefore` path REQ-10 must survive.
+    await dragTileOnto(page, "tile-drag-focus-a", "tile-drag-focus-b");
+    await expect
+      .poll(() => tilesGridOrder(page), { timeout: 15_000 })
+      .toEqual(["tile-drag-focus-b", "tile-drag-focus-a"]);
 
-      // Focus survived the reorder, and the button is still operable from the keyboard.
-      await expect(endBtnB).toBeFocused();
-      await page.keyboard.press("Enter");
-      const dialog = page.getByRole("dialog", { name: "End session?" });
-      await expect(dialog).toBeVisible();
-      await dialog.getByRole("button", { name: "Cancel" }).click();
-      await expect(dialog).toBeHidden();
-    } finally {
-      await Promise.all([dirA.cleanup(), dirB.cleanup()]);
-    }
-  });
+    // Focus survived the reorder, and the button is still operable from the keyboard.
+    await expect(endBtnB).toBeFocused();
+    await page.keyboard.press("Enter");
+    const dialog = page.getByRole("dialog", { name: "End session?" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
+  } finally {
+    await Promise.all([dirA.cleanup(), dirB.cleanup()]);
+  }
 });
 
 // review m4-reconcile fix-cycle-1 Major 6: `formatEndedAge`'s sub-minute bucket is the
@@ -1346,12 +1333,12 @@ test("ended copy reads 'ended now', never 'ended now ago', on the mainhead and d
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, {
+    await page.goto(sharedDaemon().dashboardUrl);
+    const session = await launchSession(page, sharedDaemon(), {
       directory: dir,
       title: "ended-now-copy",
     });
-    await request.post(daemon.ingestURL("hook"), {
+    await request.post(sharedDaemon().ingestURL("hook"), {
       data: envelopedSessionStart("claude-ended-now-copy", {
         musterSession: session.id,
       }),
@@ -1371,7 +1358,7 @@ test("ended copy reads 'ended now', never 'ended now ago', on the mainhead and d
     );
 
     const endRes = await page.request.post(
-      `${daemon.baseURL}/api/sessions/${session.id}/end`,
+      `${sharedDaemon().baseURL}/api/sessions/${session.id}/end`,
     );
     expect(endRes.status()).toBe(200);
     const deadSurface = page.locator("#dead-surface");
@@ -1405,12 +1392,12 @@ test("the dead surface shows a 'loading last screen…' interim state before the
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, {
+    await page.goto(sharedDaemon().dashboardUrl);
+    const session = await launchSession(page, sharedDaemon(), {
       directory: dir,
       title: "dead-loading-minor9",
     });
-    await request.post(daemon.ingestURL("hook"), {
+    await request.post(sharedDaemon().ingestURL("hook"), {
       data: envelopedSessionStart("claude-dead-loading-minor9", {
         musterSession: session.id,
       }),
@@ -1432,7 +1419,7 @@ test("the dead surface shows a 'loading last screen…' interim state before the
     });
 
     const endRes = await page.request.post(
-      `${daemon.baseURL}/api/sessions/${session.id}/end`,
+      `${sharedDaemon().baseURL}/api/sessions/${session.id}/end`,
     );
     expect(endRes.status()).toBe(200);
 
@@ -1469,13 +1456,13 @@ test("a late resume SessionStart hook after End does not revive the session or o
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     const tracker = new TerminalSocketTracker(page);
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, {
+    await page.goto(sharedDaemon().dashboardUrl);
+    const session = await launchSession(page, sharedDaemon(), {
       directory: dir,
       title: "inv1-stray-resume",
     });
     const claudeId = "claude-inv1-stray-resume";
-    await request.post(daemon.ingestURL("hook"), {
+    await request.post(sharedDaemon().ingestURL("hook"), {
       data: envelopedSessionStart(claudeId, { musterSession: session.id }),
     });
     const card = sessionCard(page, "inv1-stray-resume");
@@ -1487,7 +1474,7 @@ test("a late resume SessionStart hook after End does not revive the session or o
     await expect.poll(() => tracker.liveCount).toBe(1);
 
     const endRes = await page.request.post(
-      `${daemon.baseURL}/api/sessions/${session.id}/end`,
+      `${sharedDaemon().baseURL}/api/sessions/${session.id}/end`,
     );
     expect(endRes.status()).toBe(200);
     await expect
@@ -1500,15 +1487,15 @@ test("a late resume SessionStart hook after End does not revive the session or o
     });
 
     // The late/queued resume hook — no `/resume` endpoint call precedes it.
-    await request.post(daemon.ingestURL("hook"), {
+    await request.post(sharedDaemon().ingestURL("hook"), {
       data: sessionStartResume(claudeId, { musterSession: session.id }),
     });
 
     // Give ingest (asynchronous by design) a moment to apply the bind if the bug were
-    // still present, then confirm the session stayed dead.
-    await page.waitForTimeout(1_000);
+    // still present, then confirm the session STAYED dead — a hold, not a wait.
+    await settleFor(page, 1_000);
 
-    const state = await getState(page, daemon);
+    const state = await getState(page, sharedDaemon());
     const found = findSession(state, session.id);
     expect(found.alive).toBe(false);
     expect(found.endedAt).not.toBeNull();
@@ -1537,12 +1524,12 @@ test("a live rail card's action row sits at opacity 0 until hover or focus-withi
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
-    await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, {
+    await page.goto(sharedDaemon().dashboardUrl);
+    const session = await launchSession(page, sharedDaemon(), {
       directory: dir,
       title: "hover-reveal-acts-row",
     });
-    await request.post(daemon.ingestURL("hook"), {
+    await request.post(sharedDaemon().ingestURL("hook"), {
       data: envelopedSessionStart("claude-hover-reveal-acts-row", {
         musterSession: session.id,
       }),
@@ -1585,21 +1572,21 @@ test("a focused card action button survives a rail re-sort triggered by a real p
     scratchDirectory(),
   ]);
   try {
-    await page.goto(daemon.dashboardUrl);
-    const sessionA = await launchSession(page, daemon, {
+    await page.goto(sharedDaemon().dashboardUrl);
+    const sessionA = await launchSession(page, sharedDaemon(), {
       directory: dirA.path,
       title: "resort-focus-a",
     });
-    const sessionB = await launchSession(page, daemon, {
+    const sessionB = await launchSession(page, sharedDaemon(), {
       directory: dirB.path,
       title: "resort-focus-b",
     });
-    await request.post(daemon.ingestURL("hook"), {
+    await request.post(sharedDaemon().ingestURL("hook"), {
       data: envelopedSessionStart("claude-resort-focus-a", {
         musterSession: sessionA.id,
       }),
     });
-    await request.post(daemon.ingestURL("hook"), {
+    await request.post(sharedDaemon().ingestURL("hook"), {
       data: envelopedSessionStart("claude-resort-focus-b", {
         musterSession: sessionB.id,
       }),
@@ -1638,24 +1625,24 @@ test("a focused card action button survives a rail re-sort triggered by a real p
 
     // A genuine priority change (REQ-9's `needs_input` band sorts first), not a render
     // tick: this is what actually drives `insertBefore` to move B's card node.
-    await request.post(daemon.ingestURL("hook"), {
+    await request.post(sharedDaemon().ingestURL("hook"), {
       data: rawUserPromptSubmit("claude-resort-focus-b"),
     });
-    await request.post(daemon.ingestURL("hook"), {
+    await request.post(sharedDaemon().ingestURL("hook"), {
       data: rawNotification("claude-resort-focus-b", "p1", "permission_prompt"),
     });
     await expect(stateBadge(cardB)).toHaveText(/needs input/i, {
       timeout: 15_000,
     });
 
-    const titlesAfter = await page.getByTestId("session-card").allInnerTexts();
-    const idxAAfter = titlesAfter.findIndex((t) =>
-      t.includes("resort-focus-a"),
-    );
-    const idxBAfter = titlesAfter.findIndex((t) =>
-      t.includes("resort-focus-b"),
-    );
-    expect(idxBAfter).toBeLessThan(idxAAfter);
+    await expect
+      .poll(async () => {
+        const titlesAfter = await page.getByTestId("session-card").allInnerTexts();
+        const idxAAfter = titlesAfter.findIndex((t) => t.includes("resort-focus-a"));
+        const idxBAfter = titlesAfter.findIndex((t) => t.includes("resort-focus-b"));
+        return idxAAfter >= 0 && idxBAfter >= 0 && idxBAfter < idxAAfter;
+      })
+      .toBe(true);
 
     // Focus must have survived the reorder — Playwright's own focus assertion, not
     // just a dataset probe. Before the fix this measured `active=BODY`.

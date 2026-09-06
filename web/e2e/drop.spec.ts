@@ -1,6 +1,5 @@
 import { join } from "node:path";
-import { expect, test } from "@playwright/test";
-import { type ScratchDaemon, startScratchDaemon } from "./helpers/daemon";
+import { expect, test } from "./helpers/fixtures";
 import { MAX_DROP_BYTES, expectedEscapedPath, uniqueContent, writeFixtureFile } from "./helpers/dropfiles";
 import { getState, launchSession, scratchDirectory } from "./helpers/session";
 import {
@@ -33,38 +32,17 @@ import {
 // indexed, so every locate call in this suite exercises the daemon's directory-walk path,
 // never `mdfind`.
 //
-// Every test gets its own scratch daemon (`beforeEach`/`afterEach`), mirroring
+// Every test takes the per-test `daemon` fixture (helpers/fixtures.ts), mirroring
 // terminal.spec.ts: most tests here launch into Focus, where a newly launched session
 // only becomes the live pane when it is "top of sort" — true only when it is the sole (or
-// first) session the daemon knows about, which a shared daemon across parallel tests
-// cannot guarantee.
-//
-// review cycle 1, Critical 1: these 11 tests each spawn their own scratch `musterd` PLUS
-// a real tmux session, and `fullyParallel: true` at up to 6 workers let all of them spin
-// up at once — enough added peak load on a 12-core machine to tip marginal assertions in
-// OTHER spec files (terminal.spec.ts, theme.spec.ts, actions.spec.ts) into failure, 3
-// times in 6 measured full-suite runs, with 0 failures across 3 branch-minus-drop.spec.ts
-// runs and 5 main runs at the old 203-test load. None of those three files' assertions
-// are this plan's to fix (routed to TODO.md instead), so the fix that stays in scope here
-// is cutting drop.spec.ts's own contribution to that peak: serial mode makes these 11
-// tests run one at a time in a single worker instead of fanning out across up to 6, so
-// only one scratch daemon/tmux pair from this file is ever alive at once. Each test still
-// gets its own fully independent daemon via beforeEach/afterEach above — this only serializes
-// their wall-clock scheduling, it does not share state between them.
-test.describe.configure({ mode: "serial" });
-
-let daemon: ScratchDaemon;
-
-test.beforeEach(async () => {
-  daemon = await startScratchDaemon();
-});
-
-test.afterEach(async () => {
-  await daemon.teardown();
-});
+// first) session the daemon knows about, which a daemon shared with other tests cannot
+// guarantee. One test also kills its daemon outright (REQ-8's "socket not open" half).
+// The tests are independent of each other, so they run fully parallel; the suite's load
+// cap is playwright.config.ts's `workers`, not a per-file serial mode.
 
 test("dropping a file that exists in the session directory pastes its escaped path, echoes it after Enter, and moves focus into the pane (E1, E11, REQ-2, REQ-11)", async ({
   page,
+  daemon,
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
@@ -89,7 +67,7 @@ test("dropping a file that exists in the session directory pastes its escaped pa
     // REQ-6: the in-flight notice clears on success.
     await expect(dropNotice(region)).toBeHidden({ timeout: 15_000 });
     // REQ-11: focus follows a successful paste with no click on the region.
-    expect(await activeElementInsideTerminal(page, "drop-e1")).toBe(true);
+    await expect.poll(() => activeElementInsideTerminal(page, "drop-e1")).toBe(true);
 
     // E1: pressing Enter submits the pasted (trailing-space-terminated) line; the stub's
     // echo proves the bytes reached the pty, not just the DOM.
@@ -100,7 +78,7 @@ test("dropping a file that exists in the session directory pastes its escaped pa
   }
 });
 
-test("a dropped filename containing a space is pasted backslash-escaped (E2, REQ-4)", async ({ page }) => {
+test("a dropped filename containing a space is pasted backslash-escaped (E2, REQ-4)", async ({ page, daemon }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     const content = uniqueContent();
@@ -125,6 +103,7 @@ test("a dropped filename containing a space is pasted backslash-escaped (E2, REQ
 
 test("dropping a file with no match anywhere on disk shows the not-located notice and pastes nothing (E3)", async ({
   page,
+  daemon,
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
@@ -166,6 +145,7 @@ test("dropping a file with no match anywhere on disk shows the not-located notic
 
 test("dropping a file that matches two identical on-disk copies shows the ambiguous notice with the count (E4)", async ({
   page,
+  daemon,
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
@@ -194,6 +174,7 @@ test("dropping a file that matches two identical on-disk copies shows the ambigu
 
 test("shows a transient 'Locating …' notice while the locate request is in flight, then clears it on success (REQ-6)", async ({
   page,
+  daemon,
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
@@ -230,6 +211,7 @@ test("shows a transient 'Locating …' notice while the locate request is in fli
 
 test("dropping a file on the masthead never navigates away and leaves the rail visible (E5, REQ-1)", async ({
   page,
+  daemon,
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
@@ -251,7 +233,7 @@ test("dropping a file on the masthead never navigates away and leaves the rail v
   }
 });
 
-test("dropping text/plain with no files pastes the text verbatim (E6, REQ-10)", async ({ page }) => {
+test("dropping text/plain with no files pastes the text verbatim (E6, REQ-10)", async ({ page, daemon }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
@@ -269,7 +251,7 @@ test("dropping text/plain with no files pastes the text verbatim (E6, REQ-10)", 
   }
 });
 
-test("a file over 50 MiB shows the too-large notice and issues no locate request (E7)", async ({ page }) => {
+test("a file over 50 MiB shows the too-large notice and issues no locate request (E7)", async ({ page, daemon }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
@@ -297,6 +279,7 @@ test("a file over 50 MiB shows the too-large notice and issues no locate request
 
 test("in Tiles, a drop on one live tile pastes only into that tile, leaving the other tile's content unchanged (E8, INV-4)", async ({
   page,
+  daemon,
 }) => {
   const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
@@ -334,6 +317,7 @@ test("in Tiles, a drop on one live tile pastes only into that tile, leaving the 
 
 test("a drop on a dead session's surface is swallowed silently — no notice, no request, no navigation (E9, REQ-8)", async ({
   page,
+  daemon,
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
@@ -403,6 +387,7 @@ test("a drop on a dead session's surface is swallowed silently — no notice, no
 
 test("a drop on a live pane whose socket is not open shows the not-connected notice and issues no request (REQ-8)", async ({
   page,
+  daemon,
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {

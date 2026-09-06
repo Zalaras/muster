@@ -12,7 +12,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "e2e": "playwright test",
+    "e2e": "sh scripts/e2e-lint.sh && playwright test",
+    "e2e:lint": "sh scripts/e2e-lint.sh",
     "contrast": "node scripts/contrast.mjs"
   },
   "dependencies": {
