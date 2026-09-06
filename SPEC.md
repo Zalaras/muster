@@ -1341,3 +1341,37 @@ Settles the "license decided later" posture in §8. Recorded arguments are in
   flip waits on the remaining chores (README build/contributions lines, deleting `a.png` and
   `session-manager-mockup.html`, the `plans/` privacy skim) and on Damian checking the SPAN
   employment IP clause.
+
+### 2026-09-05 — a session may carry an ephemeral plain shell surface (plan `plain-terminal-session`, via `/orchestrate`, approved review cycle 2)
+
+Closes [#21](https://github.com/Zalaras/muster/issues/21) in its smallest useful shape,
+settled in `plans/plain-terminal-session/spec.md`. Muster can now show a second surface per
+session: the user's `$SHELL`, interactive, in the session's directory, in a sibling tmux
+session `muster-<id>-shell` on the `muster` socket. A segmented `claude | shell` control in
+the Focus mainhead and in every tile footer swaps the surface body in place.
+
+- **The shell is not a session.** No row, no rail card, no state, no SQLite presence, and
+  nothing on the `/ws` state stream — the `Session` object (protocol §5.3) is unchanged.
+  It is an ephemeral second attach target hanging off a session that already exists,
+  spawned lazily by `POST /api/sessions/{id}/shell` (protocol §3.16) and attached over
+  `GET /ws/shell/{id}` (§6.1). The daemon forgets it on restart: reconcile kills every
+  `muster-<n>-shell` unconditionally and never adopts one.
+- **Isolation is structural.** The shell pane carries no `MUSTER_SESSION` and Muster writes
+  no `.claude/settings.local.json` on its behalf, so a `claude` run inside the shell fires
+  hooks that persist unrouted (NULL `event.session_id`) and can never drive the parent's
+  state machine. The one-live-client law is enforced per attach target, so a session's
+  Claude socket and shell socket coexist.
+- **Lifetime.** A shell survives switching sessions, switching views and the parent ending
+  (it can even be started on a dead session); it dies on `exit`, Remove, or reconcile. End
+  leaves it running.
+- **Design-system §3 kept intact.** The plan and approved mockup specced a teal pip for
+  "a shell is running"; review cycle 1 raised that `--teal` is reserved for Working, and
+  Damian chose to give the pip its own `--shell-pip` token per theme rather than record an
+  exemption (`plans/plain-terminal-session/decisions/shell-pip-hue/`).
+- **Placement.** The tile control lives in `.tfoot .acts`, not the spec's original
+  `.thead`: measured against the shipped header, a control in the header truncated every
+  title and repo/branch at 3×2, the footer none. Footer overflow measured 0 at 1152px and
+  at 1024px in the shipped build (the plan's 6px 1024px floor came from the mockup and is
+  pessimistic).
+- The richer shape — a real `kind: "shell"` session, a global untethered terminal, restore
+  across restarts, several shells per session — stays in `TODO.md` M5+.

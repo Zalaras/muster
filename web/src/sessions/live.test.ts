@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Session, SessionState } from "../protocol";
-import { aliveOnly, applyDensity, densityCount, initialLive, moveTile, promote, surfaceDiff } from "./live";
+import { applyDensity, densityCount, initialLive, moveTile, promote } from "./live";
 
 // All sessions share the same state ("idle") with strictly increasing `stateSince`, so
 // sort.ts's tiebreak (stateSince ascending) makes the §3.4 sort order exactly the
@@ -256,52 +256,3 @@ describe("applyDensity — INV-7: a priority change alone, with membership uncha
   }
 });
 
-describe("aliveOnly (REQ-13/INV-5/W8, plan m4-reconcile): filters a desired-live id list to actually-alive sessions", () => {
-  it("passes through ids whose session is alive, unchanged and in order", () => {
-    expect(aliveOnly([1, 2, 3], sessions([1, 2, 3]))).toEqual([1, 2, 3]);
-  });
-
-  it("drops an id whose session is alive:false, without reshuffling the rest", () => {
-    const withOneDead = [makeSession(1), { ...makeSession(2), alive: false }, makeSession(3)];
-    expect(aliveOnly([1, 2, 3], withOneDead)).toEqual([1, 3]);
-  });
-
-  it("drops an id that isn't a known session at all (same as dead — no terminal socket either way)", () => {
-    expect(aliveOnly([1, 999, 2], sessions([1, 2]))).toEqual([1, 2]);
-  });
-
-  it("returns an empty array when every desired id is dead or unknown", () => {
-    const allDead = [{ ...makeSession(1), alive: false }, { ...makeSession(2), alive: false }];
-    expect(aliveOnly([1, 2], allDead)).toEqual([]);
-  });
-
-  it("returns an empty array for an empty input id list, regardless of session list", () => {
-    expect(aliveOnly([], sessions([1, 2, 3]))).toEqual([]);
-  });
-
-  it("never includes an id not present in the input list, even if other alive sessions exist", () => {
-    expect(aliveOnly([1], sessions([1, 2, 3]))).toEqual([1]);
-  });
-});
-
-describe("surfaceDiff — which live surfaces to open/close/keep (REQ-11/INV-3)", () => {
-  it("opens newly-live ids, closes no-longer-live ids, keeps the rest untouched", () => {
-    expect(surfaceDiff([1, 2, 3], [2, 3, 4])).toEqual({ toOpen: [4], toClose: [1], toKeep: [2, 3] });
-  });
-
-  it("opening from nothing: everything is toOpen", () => {
-    expect(surfaceDiff([], [1, 2])).toEqual({ toOpen: [1, 2], toClose: [], toKeep: [] });
-  });
-
-  it("closing everything: nothing after means everything is toClose", () => {
-    expect(surfaceDiff([1, 2], [])).toEqual({ toOpen: [], toClose: [1, 2], toKeep: [] });
-  });
-
-  it("an unchanged set is entirely toKeep — no session is ever needlessly resized", () => {
-    expect(surfaceDiff([1, 2], [1, 2])).toEqual({ toOpen: [], toClose: [], toKeep: [1, 2] });
-  });
-
-  it("a Focus->Focus refocus (single-element sets) closes the old id and opens the new one", () => {
-    expect(surfaceDiff([1], [2])).toEqual({ toOpen: [2], toClose: [1], toKeep: [] });
-  });
-});

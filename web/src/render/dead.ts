@@ -17,6 +17,17 @@ export interface DeadSurfaceRefs {
   snapshotEl: HTMLElement;
   capBodyEl: HTMLElement;
   resumeBtn: HTMLButtonElement;
+  /** Review plain-terminal-session Major 1: the dead surface's own `role="status"` notice
+   * (`.terminal-notice`, same class/CSS `terminal/pane.ts`'s `TerminalSurface` uses), for
+   * the one case that has no live surface to route a notice through — a spawn failure
+   * (REQ-12) on a session whose `claude` surface is currently this dead surface, not a
+   * live pane. Optional for the same pre-existing-fixture reason as
+   * `MainheadElements.surfaceSegment`/`TileRefs.surfaceSegment` (`render/mainhead.ts`,
+   * `render/tiles.ts`): `dead.test.ts`'s hand-built `fakeRefs()` (used only to test
+   * `renderDeadSurface`, which never touches `noticeEl`) predates this field. Every real
+   * instance — always built via `refsFromRoot` below — has one; only `refsFromRoot`
+   * and `showDeadSurfaceNotice` ever read it. */
+  noticeEl?: HTMLElement;
 }
 
 /** The three fetch outcomes render/dead.ts cares about — `capturedAt` is carried for
@@ -31,10 +42,11 @@ function refsFromRoot(root: HTMLElement): DeadSurfaceRefs {
   const snapshotEl = root.querySelector<HTMLElement>("pre.snapshot");
   const capBodyEl = root.querySelector<HTMLElement>(".endcap-text");
   const resumeBtn = root.querySelector<HTMLButtonElement>('.endcap button[data-action="resume"]');
-  if (!endbarEl || !snapshotEl || !capBodyEl || !resumeBtn) {
+  const noticeEl = root.querySelector<HTMLElement>(".terminal-notice");
+  if (!endbarEl || !snapshotEl || !capBodyEl || !resumeBtn || !noticeEl) {
     throw new Error("dead-surface markup is missing a required element");
   }
-  return { root, endbarEl, snapshotEl, capBodyEl, resumeBtn };
+  return { root, endbarEl, snapshotEl, capBodyEl, resumeBtn, noticeEl };
 }
 
 /** Reads refs off an already-mounted `.dead-surface` root (Focus's static `#dead-surface`,
@@ -105,4 +117,38 @@ export async function loadPane(id: number): Promise<PaneState> {
   const result = await fetchPane(id);
   if (result.ok) return { status: "ok", text: result.value.text, capturedAt: result.value.capturedAt };
   return { status: "missing" };
+}
+
+/** Per-notice-element auto-hide timers for `showDeadSurfaceNotice` below, keyed by the
+ * DOM node itself rather than a persisted refs object — `collectDeadSurfaceRefs` requeries
+ * fresh refs from the DOM on every call (this module keeps no other cross-call state), so
+ * a `WeakMap` on the element is the only place a pending timer can live between calls. */
+const noticeTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
+
+/** Review plain-terminal-session Major 1: shows (or, given `null`, clears) the dead
+ * surface's own `role="status"` notice — mirrors `TerminalSurface.showNotice`
+ * (`terminal/pane.ts`) exactly (same 5s auto-hide per REQ-6's existing convention, same
+ * "a new outcome replaces whatever text was there" behaviour), for the one case that has
+ * no live `TerminalSurface` to route a notice through: REQ-12's spawn-failure message when
+ * the session whose `shell` spawn failed is currently showing this dead surface for
+ * `claude`, not a live pane. */
+export function showDeadSurfaceNotice(refs: DeadSurfaceRefs, text: string | null): void {
+  const noticeEl = refs.noticeEl;
+  if (!noticeEl) return; // only unset for dead.test.ts's pre-existing fakeRefs() fixture
+  const pending = noticeTimers.get(noticeEl);
+  if (pending !== undefined) clearTimeout(pending);
+  noticeTimers.delete(noticeEl);
+  if (text === null) {
+    noticeEl.hidden = true;
+    noticeEl.textContent = "";
+    return;
+  }
+  noticeEl.textContent = text;
+  noticeEl.hidden = false;
+  const timer = setTimeout(() => {
+    noticeEl.hidden = true;
+    noticeEl.textContent = "";
+    noticeTimers.delete(noticeEl);
+  }, 5000);
+  noticeTimers.set(noticeEl, timer);
 }

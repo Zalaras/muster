@@ -102,15 +102,22 @@ var serverOptions = [][]string{
 // NewSession creates a new tmux session "muster-<id>" (one window, running command in
 // dir, with the given extra environment variables set in the pane — docs/protocol.md
 // §4.2: `tmux new-session -e`). Returns the window's target (e.g. "muster-7:@1") and
-// pane id (e.g. "%12"). If this is the first command to reach the socket's server (i.e.
-// no server was running yet), REQ-4's server/session-wide options are applied right
-// after, since tmux auto-starts the server on first command and there is no server to
-// configure before that.
+// pane id (e.g. "%12"). Delegates to NewNamedSession with the "muster-<id>" convention.
 func (c *Client) NewSession(ctx context.Context, id int64, dir string, env map[string]string, command []string) (target, pane string, err error) {
+	return c.NewNamedSession(ctx, "muster-"+strconv.FormatInt(id, 10), dir, env, command)
+}
+
+// NewNamedSession creates a new tmux session named name (one window, running command in
+// dir, with the given extra environment variables set in the pane — docs/protocol.md
+// §4.2: `tmux new-session -e`). Returns the window's target (e.g. "muster-7:@1", or
+// "muster-7-shell:@2" for a shell session) and pane id (e.g. "%12"). If this is the first
+// command to reach the socket's server (i.e. no server was running yet), REQ-4's
+// server/session-wide options are applied right after, since tmux auto-starts the server
+// on first command and there is no server to configure before that.
+func (c *Client) NewNamedSession(ctx context.Context, name, dir string, env map[string]string, command []string) (target, pane string, err error) {
 	freshServer := !c.serverRunning(ctx)
 
-	sessionName := "muster-" + strconv.FormatInt(id, 10)
-	args := []string{"new-session", "-d", "-s", sessionName, "-c", dir, "-P", "-F", "#{window_id} #{pane_id}"}
+	args := []string{"new-session", "-d", "-s", name, "-c", dir, "-P", "-F", "#{window_id} #{pane_id}"}
 	for k, v := range env {
 		args = append(args, "-e", k+"="+v)
 	}
@@ -125,7 +132,7 @@ func (c *Client) NewSession(ctx context.Context, id int64, dir string, env map[s
 	if len(fields) != 2 {
 		return "", "", fmt.Errorf("tmux new-session: unexpected output %q", out)
 	}
-	target = sessionName + ":" + fields[0]
+	target = name + ":" + fields[0]
 	pane = fields[1]
 
 	if freshServer {
@@ -134,6 +141,34 @@ func (c *Client) NewSession(ctx context.Context, id int64, dir string, env map[s
 		}
 	}
 	return target, pane, nil
+}
+
+// shellSessionSuffix marks a tmux session name as a plain-shell surface (docs/protocol.md
+// §3.16) rather than a Claude pane — the one place the "muster-<id>-shell" convention is
+// spelled out (plan plain-terminal-session, Affected Files).
+const shellSessionSuffix = "-shell"
+
+// ShellSessionName returns the tmux session name for session id's plain-shell surface:
+// always "muster-<id>-shell".
+func ShellSessionName(id int64) string {
+	return "muster-" + strconv.FormatInt(id, 10) + shellSessionSuffix
+}
+
+// IsShellSessionName reports whether name is a shell session name ("muster-<id>-shell")
+// and, if so, the session id it belongs to. Reconcile uses this to kill every orphaned
+// shell on the socket unconditionally (docs/protocol.md §7.5) without duplicating the
+// naming convention.
+func IsShellSessionName(name string) (id int64, ok bool) {
+	const prefix = "muster-"
+	if !strings.HasPrefix(name, prefix) || !strings.HasSuffix(name, shellSessionSuffix) {
+		return 0, false
+	}
+	middle := name[len(prefix) : len(name)-len(shellSessionSuffix)]
+	n, err := strconv.ParseInt(middle, 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return n, true
 }
 
 // serverRunning reports whether this socket already has a tmux server (checked before

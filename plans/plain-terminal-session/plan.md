@@ -1,7 +1,7 @@
 # Plan: Plain terminal session
 
 **Created**: 2026-09-05
-**Status**: approved
+**Status**: completed
 **Work Type**: full-stack
 **E2E Scope**: new-specs
 **Description**: A plain `$SHELL` tabbed to an existing Claude session, in that session's directory, switched by a segmented control in the Focus mainhead and every tile footer.
@@ -47,8 +47,11 @@ orphans, and one segmented control rendered in two places.
       operation — no session row, no event row, no repo upsert.
 - [ ] **REQ-4**: A segmented `claude | shell` control swaps the surface body in place. It
       renders in the Focus mainhead (`.mainhead .surfseg`) and in every tile's footer
-      (`.tfoot .acts .surfseg`) — the same component in both. A teal pip on the `shell`
-      segment is the only indicator that a shell is running.
+      (`.tfoot .acts .surfseg`) — the same component in both. A pip on the `shell`
+      segment is the only indicator that a shell is running. *Amended 2026-09-05 (review
+      cycle 1, Major 3; `decisions/shell-pip-hue/`)*: the pip was specced teal; it now
+      carries its own `--shell-pip` token per theme so `--teal` keeps its single
+      design-system §3 meaning (Working).
 - [ ] **REQ-5**: Switching disposes the hidden surface's socket and reconnects on switch
       back — the behaviour session-switching already has. tmux repaints the whole screen
       on attach, so nothing is lost, and 3×2 density never holds twelve attach PTYs.

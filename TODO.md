@@ -790,7 +790,7 @@ unless he re-ranks — don't re-sort this list.
   factor alongside `theme`, which the Settings dialog already has a home for), or do we simply
   move the ramp up. Pairs with #18.
 
-- [ ] **Offer a plain shell session, not only a Claude Code one** ([#21](https://github.com/Zalaras/muster/issues/21))
+- [x] **Offer a plain shell session, not only a Claude Code one** ([#21](https://github.com/Zalaras/muster/issues/21))
   — "I find myself sometimes swapping to terminal to run git commands or something I don't
   want to use ! with claude. I think we should offer a 'plain' terminal session. So select a
   file and it will start with that as the pwd." A session kind that runs the user's shell in a
@@ -810,7 +810,21 @@ unless he re-ranks — don't re-sort this list.
   SQLite. One toggle control in the tile header and the Focus pane swaps the surface body;
   the shell outlives the Claude session and dies on Remove. The full session kind, a global
   untethered terminal and restore-across-restart moved to the M5+ terminal follow-up below.
-  Next: `/plan-work plain-terminal-session` (which must produce a mockup first).
+  **Shipped 2026-09-05** via `/orchestrate plain-terminal-session` (branch
+  `plan/plain-terminal-session`): the tabbed shell as specced, with the tile control in the
+  footer rather than the header (measured — see the plan's Implementation Notes) and a
+  `--shell-pip` token instead of teal (`plans/plain-terminal-session/decisions/shell-pip-hue/`).
+  Footer overflow measured 0 at both 1152px and 1024px in the shipped build, so the plan's
+  documented 6px 1024px floor is pessimistic. The richer shape stays in M5+ below.
+  Follow-ups from the review (`plans/plain-terminal-session/review.md` cycle 2, both Minor,
+  left open at an approved review): (1) `[daemon-impl]`: `shellRegistry.spawned`
+  (`internal/server/shells.go`) is write-only state — written in `Ensure`, deleted in `Kill`,
+  read nowhere; `PaneExists` is the source of truth and `mu` makes `Ensure` safe, so the map
+  can be deleted with `Ensure`/`Kill` behaving identically. (2) `[e2e-specs]`: the "DEAD tile
+  with its directory removed" test in `web/e2e/plain-shell.spec.ts` leaks its scratch
+  directory if an assertion throws before its mid-test `dirA.cleanup()`; the Focus variant
+  above it uses a `cleaned` guard plus `if (!cleaned) await cleanup()` in `finally` — use
+  the same shape.
 
 ## M5+ (v1.x, re-rank when reached)
 

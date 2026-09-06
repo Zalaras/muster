@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   browse,
   captureIssueSnapshot,
+  createShell,
   endSession,
   fetchPane,
   fetchRepos,
@@ -571,6 +572,78 @@ describe("api — removeSession (DELETE /api/sessions/{id}, docs/protocol.md §3
   });
 });
 
+describe("api — createShell (POST /api/sessions/{id}/shell, docs/protocol.md §3.16, plan plain-terminal-session REQ-1)", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("posts to the id-scoped shell endpoint with no body and decodes created:true on first spawn (D1)", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { target: "muster-1-shell", created: true }));
+    const result = await createShell(1);
+    expect(result).toEqual({ ok: true, value: { target: "muster-1-shell", created: true } });
+    expect(fetchMock).toHaveBeenCalledWith("/api/sessions/1/shell", { method: "POST", credentials: "same-origin" });
+  });
+
+  it("decodes created:false when the shell already exists (D2 — idempotent, same wire shape)", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { target: "muster-1-shell", created: false }));
+    const result = await createShell(1);
+    expect(result).toEqual({ ok: true, value: { target: "muster-1-shell", created: false } });
+  });
+
+  it("decodes a 404 unknown_session error envelope", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "unknown_session", message: "no such session" } }));
+    const result = await createShell(999);
+    expect(result).toEqual({ ok: false, error: { code: "unknown_session", message: "no such session" } });
+  });
+
+  it("decodes a 409 directory_missing error envelope (REQ-12/E9 — the session's directory no longer exists)", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "directory_missing", message: "/Users/d/gone no longer exists" } }));
+    const result = await createShell(1);
+    expect(result).toEqual({ ok: false, error: { code: "directory_missing", message: "/Users/d/gone no longer exists" } });
+  });
+
+  it("decodes a 500 shell_spawn_failed error envelope, message carrying the tmux error verbatim (REQ-12)", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "shell_spawn_failed", message: "tmux: duplicate session" } }));
+    const result = await createShell(1);
+    expect(result).toEqual({ ok: false, error: { code: "shell_spawn_failed", message: "tmux: duplicate session" } });
+  });
+
+  it("falls back to a generic error when the success body is missing target", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { created: true }));
+    const result = await createShell(1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+
+  it("falls back to a generic error when the success body is missing created", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { target: "muster-1-shell" }));
+    const result = await createShell(1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+
+  it("falls back to a generic error when created is not a boolean (e.g. a stray string)", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { target: "muster-1-shell", created: "true" }));
+    const result = await createShell(1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+
+  it("never throws when a non-200 response body isn't valid JSON at all", async () => {
+    fetchMock.mockResolvedValue(fakeResponseThatThrows());
+    const result = await createShell(1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+});
+
 describe("api — fetchPane (GET /api/sessions/{id}/pane, docs/protocol.md §3.4)", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
@@ -981,6 +1054,7 @@ describe("api — network_error short-circuit on a rejected fetch (REQ-13, plan 
     ["endSession", () => endSession(1)],
     ["resumeSession", () => resumeSession(1)],
     ["removeSession", () => removeSession(1)],
+    ["createShell", () => createShell(1)],
     ["fetchPane", () => fetchPane(1)],
     ["pinSession", () => pinSession(1, true)],
     ["putSessionOrder", () => putSessionOrder([1, 2, 3], 1)],

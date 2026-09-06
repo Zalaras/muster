@@ -12,6 +12,7 @@ import (
 	"github.com/coder/websocket"
 
 	"github.com/Zalaras/muster/internal/termbridge"
+	"github.com/Zalaras/muster/internal/tmux"
 )
 
 // Close codes the daemon initiates on a terminal socket (docs/protocol.md §6).
@@ -40,19 +41,37 @@ type terminalConn struct {
 	bridge *termbridge.Bridge
 }
 
-// terminalRegistry enforces the one-live-client law (INV-1, protocol §6): at most one
-// open terminal socket per session. A new connection supersedes (close code 4000) and
-// tears down the old PTY before its own attach begins.
+// terminalSurface distinguishes a session's Claude pane from its plain-shell surface
+// (docs/protocol.md §3.16/§6.1, plan plain-terminal-session): the two are different
+// attach targets ("muster-<id>" vs "muster-<id>-shell"), so the one-live-client law
+// (INV-3) is enforced per (session, surface), not per session alone.
+type terminalSurface int
+
+const (
+	surfaceClaude terminalSurface = iota
+	surfaceShell
+)
+
+// terminalKey identifies one attach target's slot in terminalRegistry.
+type terminalKey struct {
+	sessionID int64
+	surface   terminalSurface
+}
+
+// terminalRegistry enforces the one-live-client law (INV-1/INV-3, protocol §6/§6.1): at
+// most one open terminal socket per (session, surface). A new connection supersedes
+// (close code 4000) and tears down the old PTY before its own attach begins; a session's
+// Claude socket and its shell socket are independent keys and never supersede each other.
 type terminalRegistry struct {
 	mu    sync.Mutex
-	conns map[int64]*terminalConn
+	conns map[terminalKey]*terminalConn
 }
 
 func newTerminalRegistry() *terminalRegistry {
-	return &terminalRegistry{conns: make(map[int64]*terminalConn)}
+	return &terminalRegistry{conns: make(map[terminalKey]*terminalConn)}
 }
 
-// takeover evicts whatever connection is currently registered for sessionID — closing
+// takeover evicts whatever connection is currently registered for key — closing
 // its socket (4000 superseded) and tearing down its PTY — and, still holding the
 // registry lock, calls attach to build the replacement and installs it. Holding the lock
 // across both steps (not just around the map swap) is what actually delivers REQ-2's
@@ -60,14 +79,14 @@ func newTerminalRegistry() *terminalRegistry {
 // installed atomically but ran the new termbridge.Attach *after* releasing the lock and
 // after already being installed, so a slow attach let two PTYs/tmux clients coexist on
 // the session for its duration (review.md Major 1). It also serializes two concurrent
-// connects for the same sessionID, so a second evict can never race a first attach that
+// connects for the same key, so a second evict can never race a first attach that
 // hasn't registered yet.
-func (r *terminalRegistry) takeover(ctx context.Context, sessionID int64, attach func(context.Context) (*terminalConn, error)) (*terminalConn, error) {
+func (r *terminalRegistry) takeover(ctx context.Context, key terminalKey, attach func(context.Context) (*terminalConn, error)) (*terminalConn, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if old := r.conns[sessionID]; old != nil {
-		delete(r.conns, sessionID)
+	if old := r.conns[key]; old != nil {
+		delete(r.conns, key)
 		_ = old.ws.Close(closeSuperseded, "superseded")
 		_ = old.bridge.Close()
 	}
@@ -76,29 +95,27 @@ func (r *terminalRegistry) takeover(ctx context.Context, sessionID int64, attach
 	if err != nil {
 		return nil, err
 	}
-	r.conns[sessionID] = conn
+	r.conns[key] = conn
 	return conn, nil
 }
 
 // release removes conn from the registry iff it is still the registered connection for
-// sessionID (a later takeover may already have replaced it).
-func (r *terminalRegistry) release(sessionID int64, conn *terminalConn) {
+// key (a later takeover may already have replaced it).
+func (r *terminalRegistry) release(key terminalKey, conn *terminalConn) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.conns[sessionID] == conn {
-		delete(r.conns, sessionID)
+	if r.conns[key] == conn {
+		delete(r.conns, key)
 	}
 }
 
-// closeSession closes sessionID's live terminal socket, if any, with 4001 pane_ended —
-// End's pre-kill step (m4-reconcile REQ-5, Implementation Notes: closing here first
-// means the UI's dead-surface overlay arrives ahead of the alive:false sessionUpsert).
-// A no-op when no socket is open for sessionID.
-func (r *terminalRegistry) closeSession(sessionID int64) {
+// closeSurface closes key's live terminal socket, if any, with 4001 pane_ended. A no-op
+// when no socket is open for key.
+func (r *terminalRegistry) closeSurface(key terminalKey) {
 	r.mu.Lock()
-	conn := r.conns[sessionID]
+	conn := r.conns[key]
 	if conn != nil {
-		delete(r.conns, sessionID)
+		delete(r.conns, key)
 	}
 	r.mu.Unlock()
 	if conn == nil {
@@ -108,13 +125,29 @@ func (r *terminalRegistry) closeSession(sessionID int64) {
 	_ = conn.bridge.Close()
 }
 
+// closeSession closes sessionID's live Claude terminal socket, if any, with 4001
+// pane_ended — End's pre-kill step (m4-reconcile REQ-5, Implementation Notes: closing
+// here first means the UI's dead-surface overlay arrives ahead of the alive:false
+// sessionUpsert). Deliberately leaves the shell socket alone (REQ-9: ending a session
+// does not touch its shell).
+func (r *terminalRegistry) closeSession(sessionID int64) {
+	r.closeSurface(terminalKey{sessionID: sessionID, surface: surfaceClaude})
+}
+
+// closeSessionAndShell closes both sessionID's Claude and shell terminal sockets — the
+// Remove path (REQ-9: removing a session kills its shell alongside the Claude one).
+func (r *terminalRegistry) closeSessionAndShell(sessionID int64) {
+	r.closeSurface(terminalKey{sessionID: sessionID, surface: surfaceClaude})
+	r.closeSurface(terminalKey{sessionID: sessionID, surface: surfaceShell})
+}
+
 // closeAll closes every live terminal socket (daemon shutdown — normal close 1001,
 // protocol §6) and clears the map, so a takeover racing shutdown can't re-close an
 // already-closed conn it still thinks is live (review.md Minor 3).
 func (r *terminalRegistry) closeAll() {
 	r.mu.Lock()
 	conns := r.conns
-	r.conns = make(map[int64]*terminalConn)
+	r.conns = make(map[terminalKey]*terminalConn)
 	r.mu.Unlock()
 
 	for _, c := range conns {
@@ -166,10 +199,11 @@ func (s *Server) handleTerminal(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() { _ = c.CloseNow() }()
 
-	// takeover evicts any prior connection for this session (closing its socket and PTY)
-	// before attach runs, so the old PTY is gone before the new attach starts (REQ-2,
-	// Major 1) — see terminalRegistry.takeover's doc comment.
-	conn, err := s.terminals.takeover(r.Context(), id, func(attachCtx context.Context) (*terminalConn, error) {
+	// takeover evicts any prior connection for this session's Claude surface (closing its
+	// socket and PTY) before attach runs, so the old PTY is gone before the new attach
+	// starts (REQ-2, Major 1) — see terminalRegistry.takeover's doc comment.
+	key := terminalKey{sessionID: id, surface: surfaceClaude}
+	conn, err := s.terminals.takeover(r.Context(), key, func(attachCtx context.Context) (*terminalConn, error) {
 		bridge, aerr := termbridge.Attach(attachCtx, s.tmuxClient, sess.TmuxTarget)
 		if aerr != nil {
 			return nil, aerr
@@ -183,7 +217,7 @@ func (s *Server) handleTerminal(w http.ResponseWriter, r *http.Request) {
 	}
 	bridge := conn.bridge
 	defer func() { _ = bridge.Close() }()
-	defer s.terminals.release(id, conn)
+	defer s.terminals.release(key, conn)
 
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
@@ -192,7 +226,9 @@ func (s *Server) handleTerminal(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		defer close(ptyDone)
 		defer cancel()
-		s.pumpPTYToSocket(ctx, c, bridge, id)
+		// nudgeOnEOF: a Claude pane's death is its session's death (REQ-6) — a clean PTY
+		// EOF here nudges the liveness poll rather than waiting out the ~5s interval.
+		s.pumpPTYToSocket(ctx, c, bridge, id, true)
 	}()
 
 	s.pumpSocketToPTY(ctx, c, bridge)
@@ -211,10 +247,84 @@ func (s *Server) handleTerminal(w http.ResponseWriter, r *http.Request) {
 	<-ptyDone
 }
 
-// pumpPTYToSocket streams raw PTY output to the client verbatim (protocol §6) until EOF
-// or the socket dies. A clean EOF (tmux pane gone) closes with 4001 and nudges the
-// liveness poll (REQ-6) rather than waiting out the ~5s interval.
-func (s *Server) pumpPTYToSocket(ctx context.Context, c *websocket.Conn, bridge *termbridge.Bridge, sessionID int64) {
+// handleShellTerminal is GET /ws/shell/{id} (docs/protocol.md §6.1): pre-upgrade auth
+// (the requireCookie wrapper) and Origin check, 404/409 validation, takeover, and the two
+// byte pumps. Attach only — POST /api/sessions/{id}/shell (handleCreateShell) is the only
+// thing that spawns a shell; alive is not consulted, in either direction (REQ-7).
+func (s *Server) handleShellTerminal(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeJSONError(w, http.StatusNotFound, "not_found", "unknown session id")
+		return
+	}
+	if !s.manager.Exists(id) {
+		writeJSONError(w, http.StatusNotFound, "not_found", "unknown session id")
+		return
+	}
+	shellTarget := tmux.ShellSessionName(id)
+	exists, perr := s.tmuxClient.PaneExists(r.Context(), shellTarget)
+	if perr != nil {
+		s.log.Error().Err(perr).Int64("session_id", id).Msg("checking shell pane failed")
+		writeJSONError(w, http.StatusInternalServerError, "internal_error", perr.Error())
+		return
+	}
+	if !exists {
+		writeJSONError(w, http.StatusConflict, "no_shell", "session has no running shell")
+		return
+	}
+
+	c, err := websocket.Accept(w, r, nil)
+	if err != nil {
+		s.log.Info().Err(err).Msg("shell terminal ws upgrade rejected")
+		return
+	}
+	defer func() { _ = c.CloseNow() }()
+
+	// takeover evicts any prior connection for this session's shell surface only — the
+	// Claude surface's key is untouched (INV-3), so opening the shell socket never
+	// supersedes a live Claude socket for the same session, and vice versa.
+	key := terminalKey{sessionID: id, surface: surfaceShell}
+	conn, err := s.terminals.takeover(r.Context(), key, func(attachCtx context.Context) (*terminalConn, error) {
+		bridge, aerr := termbridge.Attach(attachCtx, s.tmuxClient, shellTarget)
+		if aerr != nil {
+			return nil, aerr
+		}
+		return &terminalConn{ws: c, bridge: bridge}, nil
+	})
+	if err != nil {
+		s.log.Error().Err(err).Int64("session_id", id).Str("tmux_target", shellTarget).Msg("attaching shell bridge failed")
+		_ = c.Close(websocket.StatusInternalError, "attach failed")
+		return
+	}
+	bridge := conn.bridge
+	defer func() { _ = bridge.Close() }()
+	defer s.terminals.release(key, conn)
+
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+
+	ptyDone := make(chan struct{})
+	go func() {
+		defer close(ptyDone)
+		defer cancel()
+		// nudgeOnEOF is false: a shell's death is not its session's death (§6.1) — a
+		// live session must never take a liveness flap because a shell under it exited.
+		s.pumpPTYToSocket(ctx, c, bridge, id, false)
+	}()
+
+	s.pumpSocketToPTY(ctx, c, bridge)
+	// Same teardown ordering as handleTerminal — see its comment for why.
+	cancel()
+	_ = bridge.Close()
+	<-ptyDone
+}
+
+// pumpPTYToSocket streams raw PTY output to the client verbatim (protocol §6/§6.1) until
+// EOF or the socket dies. A clean EOF (tmux pane gone) always closes with 4001; it nudges
+// the liveness poll only when nudgeOnEOF is true (the Claude surface, REQ-6) — a shell
+// surface's EOF (§6.1) must never nudge its session's liveness (INV-6-adjacent: a shell's
+// death is not its session's death).
+func (s *Server) pumpPTYToSocket(ctx context.Context, c *websocket.Conn, bridge *termbridge.Bridge, sessionID int64, nudgeOnEOF bool) {
 	buf := make([]byte, terminalReadBufSize)
 	for {
 		n, err := bridge.Read(buf)
@@ -237,12 +347,14 @@ func (s *Server) pumpPTYToSocket(ctx context.Context, c *websocket.Conn, bridge 
 			}
 			if errors.Is(err, io.EOF) {
 				_ = c.Close(closePaneEnded, "pane_ended")
-				// context.WithoutCancel: closing the socket here unblocks the sibling
-				// pumpSocketToPTY goroutine's blocked Read, which returns and cancels
-				// the shared ctx almost immediately — racing (and normally beating) this
-				// Nudge's in-flight tmux list-panes call. The nudge must outlive that
-				// teardown race, same pattern as sessions.go's rollback.
-				s.manager.Nudge(context.WithoutCancel(ctx), sessionID)
+				if nudgeOnEOF {
+					// context.WithoutCancel: closing the socket here unblocks the sibling
+					// pumpSocketToPTY goroutine's blocked Read, which returns and cancels
+					// the shared ctx almost immediately — racing (and normally beating)
+					// this Nudge's in-flight tmux list-panes call. The nudge must outlive
+					// that teardown race, same pattern as sessions.go's rollback.
+					s.manager.Nudge(context.WithoutCancel(ctx), sessionID)
+				}
 			} else {
 				s.log.Debug().Err(err).Int64("session_id", sessionID).Msg("terminal pty read ended")
 			}

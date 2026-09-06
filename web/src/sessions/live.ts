@@ -122,31 +122,3 @@ export function moveTile(live: readonly number[], draggedId: number, targetId: n
   return result;
 }
 
-/** REQ-13/INV-5/W8 (plan m4-reconcile): filters a desired-live id list down to sessions
- * that are actually alive. The Focus/Tiles membership functions above have no notion of
- * aliveness — a session can be "in the grid" (sticky tile membership, m2) while dead — so
- * this is the one place that decides which of those ids may ever open a terminal socket.
- * Applied as the last step before `surfaceDiff`, never inside it. */
-export function aliveOnly(ids: readonly number[], sessions: readonly Session[]): number[] {
-  const aliveIds = new Set(sessions.filter((s) => s.alive).map((s) => s.id));
-  return ids.filter((id) => aliveIds.has(id));
-}
-
-export interface SurfaceDiff {
-  toOpen: number[];
-  toClose: number[];
-  toKeep: number[];
-}
-
-/** Which session ids need a new terminal socket opened, closed, or left alone, given the
- * previously-live and newly-desired live sets (REQ-11/INV-3: only actually-changed live
- * surfaces are ever touched). */
-export function surfaceDiff(before: readonly number[], after: readonly number[]): SurfaceDiff {
-  const beforeSet = new Set(before);
-  const afterSet = new Set(after);
-  return {
-    toOpen: after.filter((id) => !beforeSet.has(id)),
-    toClose: before.filter((id) => !afterSet.has(id)),
-    toKeep: after.filter((id) => beforeSet.has(id)),
-  };
-}

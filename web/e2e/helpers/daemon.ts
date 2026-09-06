@@ -625,6 +625,35 @@ export class ScratchDaemon {
   }
 
   /**
+   * Plan plain-terminal-session INV-1's environment oracle: `tmux show-environment -t
+   * <target> <NAME>` reports a pane/session's tmux-level environment — never a state
+   * source (CLAUDE.md hard rule still applies: this reads what the daemon already set at
+   * spawn time, it never drives anything). Returns the variable's value when present
+   * (`NAME=value` on stdout), or `null` when the variable is absent entirely OR was
+   * explicitly unset (tmux prints `-NAME` for that case) — D3/E7's assertion only ever
+   * needs "is MUSTER_SESSION set at all", so both absent shapes collapse to the same
+   * `null`. Also returns `null` if the target itself doesn't exist, rather than throwing,
+   * mirroring `tmuxPaneExists`'s "missing is a valid answer, not an error" convention.
+   */
+  async tmuxShowEnv(target: string, name: string): Promise<string | null> {
+    try {
+      const { stdout } = await execFileAsync("tmux", [
+        "-S",
+        this.tmuxSocket,
+        "show-environment",
+        "-t",
+        target,
+        name,
+      ]);
+      const trimmed = stdout.trim();
+      if (trimmed.startsWith(`${name}=`)) return trimmed.slice(name.length + 1);
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Tmux geometry oracle for E4/INV-3 (plan m2-terminal): `display-message -p` evaluates
    * a tmux format string against `target` (a window or session, e.g. `#{window_width}` /
    * `#{window_height}`) and returns the trimmed result — never a state source (CLAUDE.md

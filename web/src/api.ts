@@ -345,6 +345,33 @@ export async function putTitle(id: number, title: string | null): Promise<ApiRes
   return { ok: false, error: error ?? genericError };
 }
 
+/** The `200` body of `POST /api/sessions/{id}/shell` (docs/protocol.md §3.16). */
+export interface CreateShellResult {
+  target: string;
+  created: boolean;
+}
+
+function parseCreateShellResult(value: unknown): CreateShellResult | null {
+  if (!isRecord(value)) return null;
+  const target = value["target"];
+  const created = value["created"];
+  if (typeof target !== "string") return null;
+  if (typeof created !== "boolean") return null;
+  return { target, created };
+}
+
+/** `POST /api/sessions/{id}/shell` (docs/protocol.md §3.16, plan plain-terminal-session
+ * REQ-1). Idempotent — ensures the session's plain shell is running, spawning it if
+ * absent; a session whose shell already runs still succeeds with `created: false`.
+ * `alive` is never consulted (REQ-7). Errors: `404 unknown_session` /
+ * `409 directory_missing` / `500 shell_spawn_failed` (`message` carries the tmux error —
+ * REQ-12 shows it verbatim in the surface's `role="status"` notice). */
+export async function createShell(id: number): Promise<ApiResult<CreateShellResult>> {
+  const res = await safeFetch(`/api/sessions/${id}/shell`, { method: "POST", credentials: "same-origin" });
+  if (!res) return { ok: false, error: networkError };
+  return decodeJson(res, parseCreateShellResult);
+}
+
 /** `GET /api/sessions/{id}/pane` (docs/protocol.md §3.4). Errors `404 unknown_session` /
  * `404 no_snapshot` (no capture has succeeded yet — render/dead.ts's "no snapshot
  * captured" honesty case, not a fetch failure). */

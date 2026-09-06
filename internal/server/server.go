@@ -157,6 +157,7 @@ type Server struct {
 	launcher    *sessionLauncher
 	tmuxClient  *tmux.Client
 	terminals   *terminalRegistry
+	shells      *shellRegistry
 	locator     *locate.Locator
 
 	issueRepo     string
@@ -192,6 +193,7 @@ func New(cfg Config) *Server {
 
 	tmuxClient := tmux.New(cfg.TmuxSocket)
 	s.tmuxClient = tmuxClient
+	s.shells = newShellRegistry(tmuxClient, cfg.Logger)
 	s.manager = session.NewManager(session.Config{
 		Store:           cfg.Store,
 		Logger:          cfg.Logger,
@@ -377,6 +379,8 @@ func (s *Server) routes() {
 	mux.Handle("PUT /api/prefs", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handlePutPrefs)))
 	mux.Handle("POST /api/usage/refresh", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleUsageRefresh)))
 	mux.Handle("GET /ws/terminal/{id}", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleTerminal)))
+	mux.Handle("POST /api/sessions/{id}/shell", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleCreateShell)))
+	mux.Handle("GET /ws/shell/{id}", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleShellTerminal)))
 	mux.Handle("GET /api/sessions/{id}/pane", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handlePaneSnapshot)))
 	mux.Handle("POST /api/sessions/{id}/locate", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleLocateFile)))
 	mux.Handle("POST /api/sessions/{id}/end", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleEndSession)))

@@ -46,6 +46,12 @@
   --violet: #9e91f1;
   --teal: #56c5d0;
   --idle: #989db1;
+  /* Review plain-terminal-session Major 3 / decision shell-pip-hue (2026-09-05, Option
+   * B): the `shell` segment's pip — never `--teal`, so §3's "a state colour may only mean
+   * that state" stays unbroken. Hue 215° (blue), outside all four state-hue bands
+   * (amber 25-45, rose 345-15, violet 235-270, teal 165-195) and outside --idle's
+   * saturation ceiling. */
+  --shell-pip: #6c9ee5;
   --amber-line: #5c4526;
   --rose-line: #5c2e2e;
   --violet-line: #3e3663;
@@ -91,6 +97,9 @@
   --violet: #ada1f5;
   --teal: #4fcbc6;
   --idle: #a4abb7;
+  /* See instrument block above for the shell-pip decision — same hue (215°), tuned for
+   * this theme's palette. */
+  --shell-pip: #87b0e8;
   --amber-line: #5a4422;
   --rose-line: #5d2d31;
   --violet-line: #3f3a66;
@@ -132,6 +141,9 @@
   --violet: #583ad1;
   --teal: #0a6167;
   --idle: #535764;
+  /* See instrument block above for the shell-pip decision — same hue (215°), tuned dark
+   * enough for this theme's light ground. */
+  --shell-pip: #134b9a;
   --amber-line: #efd6ac;
   --rose-line: #f2c3c5;
   --violet-line: #d8d1f4;
@@ -562,6 +574,77 @@ body {
   margin-left: auto;
   display: flex;
   gap: 7px;
+}
+
+/* ── plan plain-terminal-session: the `claude | shell` segmented surface switch (REQ-4) ──
+ * One component, two placements — `.mainhead .surfseg` (built between `.meta` and `.acts`)
+ * and `.tfoot .acts .surfseg` (built as `.acts`'s first child) — decided design (mockup.css
+ * "DECIDED (2026-09-05)"), transcribed here onto this stylesheet's own tokens. */
+.surfseg {
+  display: inline-flex;
+  border: 1px solid var(--line-control);
+  overflow: hidden;
+  flex: none;
+}
+
+.surfseg button {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  padding: 4px 11px;
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--line-control);
+  color: var(--fg-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.surfseg button:last-child {
+  border-right: 0;
+}
+
+.surfseg button:hover:not(:disabled) {
+  color: var(--fg);
+}
+
+.surfseg button:disabled {
+  cursor: default;
+}
+
+/* The active segment takes --bg-hover/--fg (design-system §4.1) — never a state colour,
+ * same rule the view-switch buttons already follow. */
+.surfseg button[aria-pressed="true"] {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+/* Review plain-terminal-session Major 3 / decision shell-pip-hue: its own `--shell-pip`
+ * token, not `--teal` — §3's four state hues (amber/rose/violet/teal) keep their single
+ * meanings untouched, and a running shell gets a fifth, dedicated hue instead of
+ * borrowing Working's. The pip's mere presence, not its hue, is still the signal
+ * (design-system §6: colour is never the sole carrier of state). */
+.surfseg .pip {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--shell-pip);
+  flex: none;
+}
+
+/* REQ-13: shrunk to fit a tile footer (mockup.css's own tile-placement measurement —
+ * plan Implementation Notes > Tile footer width) — smaller font/padding/pip than the
+ * mainhead's; `.surfseg`'s own border/spacing above already apply here unchanged. */
+.tfoot .surfseg button {
+  font-size: 9px;
+  padding: 1px 7px;
+  gap: 4px;
+}
+
+.tfoot .surfseg .pip {
+  width: 4px;
+  height: 4px;
 }
 
 /* ── card/tile/strip action rows (REQ-11/REQ-12, m4-reconcile) ──────────────────────── */

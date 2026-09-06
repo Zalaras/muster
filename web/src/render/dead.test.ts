@@ -3,10 +3,10 @@
 // buildDeadSurfaceFromTemplate) constructs/queries real DOM and has no jsdom configured
 // (docs/conventions.md defers DOM construction to Playwright; see web/e2e/actions.spec.ts
 // for REQ-13's dead-surface coverage). Mocking ../api keeps this a pure logic test.
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApiResult, PaneSnapshot } from "../api";
 import type { Session } from "../protocol";
-import { loadPane, renderDeadSurface, type DeadSurfaceRefs, type PaneState } from "./dead";
+import { loadPane, renderDeadSurface, showDeadSurfaceNotice, type DeadSurfaceRefs, type PaneState } from "./dead";
 
 vi.mock("../api", () => ({
   fetchPane: vi.fn(),
@@ -177,5 +177,103 @@ describe("renderDeadSurface — REQ-19's '· captured <age>' clause", () => {
     renderDeadSurface(refs, session, okPane("2026-08-26T23:57:00Z"), NOW, true);
 
     expect(refs.endbarEl.textContent).toBe("ended 10m ago · last state idle · last captured screen, not a live client · captured 13m ago");
+  });
+});
+
+// review plain-terminal-session cycle-1 Major 1 (Fix Attempt 1): showDeadSurfaceNotice is,
+// like renderDeadSurface above, pure enough to test against plain stub refs — it only
+// assigns `.textContent`/`.hidden` and schedules/clears a setTimeout keyed on the notice
+// element's own identity (module-level WeakMap in dead.ts). No querySelector/cloneNode
+// involved, so this stays inside the file's existing no-jsdom convention.
+describe("showDeadSurfaceNotice (review Major 1): the dead surface's own role=status notice, mirroring TerminalSurface.showNotice's contract exactly", () => {
+  function fakeNoticeEl(): HTMLElement {
+    return { hidden: true, textContent: "" } as unknown as HTMLElement;
+  }
+
+  function fakeRefsWithNotice(noticeEl: HTMLElement): DeadSurfaceRefs {
+    return {
+      root: {} as HTMLElement,
+      endbarEl: { textContent: "" } as unknown as HTMLElement,
+      snapshotEl: { textContent: "" } as unknown as HTMLElement,
+      capBodyEl: { textContent: "" } as unknown as HTMLElement,
+      resumeBtn: { dataset: {}, disabled: false } as unknown as HTMLButtonElement,
+      noticeEl,
+    };
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("shows the given text and un-hides the notice", () => {
+    const noticeEl = fakeNoticeEl();
+    showDeadSurfaceNotice(fakeRefsWithNotice(noticeEl), "spawn failed: directory no longer exists");
+
+    expect(noticeEl.hidden).toBe(false);
+    expect(noticeEl.textContent).toBe("spawn failed: directory no longer exists");
+  });
+
+  it("auto-hides after 5s, same as TerminalSurface.showNotice's own timeout", () => {
+    const noticeEl = fakeNoticeEl();
+    showDeadSurfaceNotice(fakeRefsWithNotice(noticeEl), "spawn failed");
+
+    vi.advanceTimersByTime(4999);
+    expect(noticeEl.hidden).toBe(false);
+
+    vi.advanceTimersByTime(1);
+    expect(noticeEl.hidden).toBe(true);
+    expect(noticeEl.textContent).toBe("");
+  });
+
+  it("passing null clears an already-shown notice immediately, without waiting for the timer", () => {
+    const noticeEl = fakeNoticeEl();
+    const refs = fakeRefsWithNotice(noticeEl);
+    showDeadSurfaceNotice(refs, "spawn failed");
+    showDeadSurfaceNotice(refs, null);
+
+    expect(noticeEl.hidden).toBe(true);
+    expect(noticeEl.textContent).toBe("");
+  });
+
+  it("a new outcome replaces whatever text was there and resets the auto-hide timer (the stale first timer must not fire)", () => {
+    const noticeEl = fakeNoticeEl();
+    const refs = fakeRefsWithNotice(noticeEl);
+    showDeadSurfaceNotice(refs, "first failure");
+
+    vi.advanceTimersByTime(4000); // first call's timer would fire 1000ms from here
+    showDeadSurfaceNotice(refs, "second failure");
+
+    vi.advanceTimersByTime(1000); // if the first timer weren't cleared, this would hide it
+    expect(noticeEl.hidden).toBe(false);
+    expect(noticeEl.textContent).toBe("second failure");
+
+    vi.advanceTimersByTime(4000); // 5000ms after the SECOND call
+    expect(noticeEl.hidden).toBe(true);
+    expect(noticeEl.textContent).toBe("");
+  });
+
+  it("calling with null when nothing was ever shown is a safe no-op (no pending timer to clear)", () => {
+    const noticeEl = fakeNoticeEl();
+    showDeadSurfaceNotice(fakeRefsWithNotice(noticeEl), null);
+
+    expect(noticeEl.hidden).toBe(true);
+    expect(noticeEl.textContent).toBe("");
+  });
+
+  it("is a safe no-op when refs.noticeEl is undefined — dead.test.ts's own pre-existing fakeRefs() fixture (renderDeadSurface's describe block above) predates this field", () => {
+    const refsWithoutNotice: DeadSurfaceRefs = {
+      root: {} as HTMLElement,
+      endbarEl: { textContent: "" } as unknown as HTMLElement,
+      snapshotEl: { textContent: "" } as unknown as HTMLElement,
+      capBodyEl: { textContent: "" } as unknown as HTMLElement,
+      resumeBtn: { dataset: {}, disabled: false } as unknown as HTMLButtonElement,
+    };
+
+    expect(() => showDeadSurfaceNotice(refsWithoutNotice, "text")).not.toThrow();
+    expect(() => showDeadSurfaceNotice(refsWithoutNotice, null)).not.toThrow();
   });
 });

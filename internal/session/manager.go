@@ -13,6 +13,7 @@ import (
 
 	"github.com/Zalaras/muster/internal/claudecode"
 	"github.com/Zalaras/muster/internal/store"
+	"github.com/Zalaras/muster/internal/tmux"
 )
 
 // PaneChecker reports whether a tmux pane still exists — the liveness poll's only
@@ -258,6 +259,10 @@ type ReconcileReport struct {
 	MarkedEnded     int
 	Swept           int
 	UnknownSessions []string // muster-<n> tmux sessions on the socket with no row (REQ-2)
+	// ShellsKilled counts "muster-<n>-shell" tmux sessions killed unconditionally
+	// (docs/protocol.md §7.5, plan plain-terminal-session REQ-10) — never adopted, and
+	// never listed in UnknownSessions.
+	ShellsKilled int
 }
 
 // Reconcile runs once at daemon startup, synchronously, before the first snapshot is
@@ -337,6 +342,18 @@ func (m *Manager) Reconcile(ctx context.Context) (ReconcileReport, error) {
 			}
 			m.mu.Unlock()
 			for _, name := range names {
+				// Shell sessions (docs/protocol.md §3.16/§7.5, REQ-10) are killed
+				// unconditionally, whatever their <n>, and never reported as unknown —
+				// they are deliberately non-persistent, and since tmux sessions outlive
+				// musterd this sweep is what "the daemon forgets them" actually means.
+				if shellID, ok := tmux.IsShellSessionName(name); ok {
+					if err := m.sessionKiller.KillSession(ctx, name); err != nil {
+						m.log.Warn().Err(err).Str("tmux_session", name).Int64("session_id", shellID).Msg("reconcile: killing orphaned shell session failed")
+					} else {
+						report.ShellsKilled++
+					}
+					continue
+				}
 				if !strings.HasPrefix(name, "muster-") || known[name] {
 					continue
 				}
@@ -350,6 +367,7 @@ func (m *Manager) Reconcile(ctx context.Context) (ReconcileReport, error) {
 		Int("kept_alive", report.KeptAlive).
 		Int("marked_ended", report.MarkedEnded).
 		Int("swept", report.Swept).
+		Int("shells_killed", report.ShellsKilled).
 		Msg("reconciled sessions")
 
 	return report, nil

@@ -42,14 +42,21 @@ import { initIssueDialog, renderIssueButton, type IssueDialogController, type Is
 import { renderMainhead, type MainheadElements } from "./render/mainhead";
 import { attachRenameEditor } from "./render/rename";
 import { captureFocusedControl, type FocusedControl, restoreFocusedControl } from "./render/focus";
-import { collectDeadSurfaceRefs, loadPane, renderDeadSurface, type DeadSurfaceRefs, type PaneState } from "./render/dead";
+import {
+  collectDeadSurfaceRefs,
+  loadPane,
+  renderDeadSurface,
+  showDeadSurfaceNotice,
+  type DeadSurfaceRefs,
+  type PaneState,
+} from "./render/dead";
 import { initSettingsDialog, type SettingsDialogController, type SettingsDialogElements } from "./render/settings";
 import { installTileDrag } from "./render/tiledrag";
 import { installDragReorder } from "./render/dragreorder";
 import { installDropGuard } from "./render/dropguard";
-import { endSession, pinSession, putPrefs, putSessionOrder, putTitle, refreshUsage, removeSession, resumeSession, type ApiResult } from "./api";
+import { createShell, endSession, pinSession, putPrefs, putSessionOrder, putTitle, refreshUsage, removeSession, resumeSession, type ApiResult } from "./api";
 import { type ClaudeFamily, type Density, type Prefs, type RailSort, type Session, type Usage, UNKNOWN_USAGE } from "./protocol";
-import { aliveOnly, applyDensity, densityCount, initialLive, moveTile, promote, surfaceDiff } from "./sessions/live";
+import { applyDensity, densityCount, initialLive, moveTile, promote } from "./sessions/live";
 import { moveCard } from "./sessions/railorder";
 import { type TitleCommand } from "./sessions/rename";
 import { SessionStore } from "./sessions/store";
@@ -57,6 +64,21 @@ import { orderRail, pickNeediest } from "./sessions/sort";
 import { matchShortcut } from "./shortcuts";
 import { resolveTheme, writeThemeHint, type ThemeChoice } from "./theme";
 import { TerminalSurface } from "./terminal/pane";
+import {
+  buildSurfaceSegment,
+  DEFAULT_SURFACE_STATE,
+  forgetSession,
+  getSurfaceState,
+  isSurfaceAttachable,
+  parseSurfaceKey,
+  selectSurface,
+  setShellRunning,
+  shellEnded,
+  surfaceKey,
+  updateSurfaceSegment,
+  type SurfaceKind,
+  type SurfaceSwitchState,
+} from "./terminal/surfaceswitch";
 import { WsClient } from "./ws";
 
 function requireElement<T extends HTMLElement>(selector: string): T {
@@ -101,6 +123,18 @@ const tilesGridEl = requireElement<HTMLElement>("#tiles-grid");
 const tilesStripEl = requireElement<HTMLElement>("#tiles-strip");
 
 // ── m4-reconcile: mainhead / dead surface / confirm dialogs ────────────────────────────
+// Plan plain-terminal-session REQ-4: the mainhead's `claude | shell` segment, built once
+// here and inserted between `.meta` and `.acts` (UI Specifications: "the mainhead gains
+// the segmented control between .meta and .acts"). `handleSurfaceSelect` is a function
+// declaration (hoisted) defined further down, alongside the other dispatchers — this
+// closure only ever runs on a later click, well after the whole module has finished
+// evaluating, so referencing it (and `focusedId`, declared below too) here is safe, same
+// pattern `mainheadRename`'s callback below already uses for `focusedId`.
+const mainheadSurfaceSegment = buildSurfaceSegment((kind) => {
+  if (focusedId !== null) handleSurfaceSelect(focusedId, kind);
+});
+requireElement<HTMLElement>("#mainhead .acts").before(mainheadSurfaceSegment.root);
+
 const mainheadElements: MainheadElements = {
   root: requireElement<HTMLElement>("#mainhead"),
   nameEl: requireElement<HTMLElement>("#mainhead .name"),
@@ -109,6 +143,7 @@ const mainheadElements: MainheadElements = {
   resumeBtn: requireElement<HTMLButtonElement>('#mainhead button[data-action="resume"]'),
   removeBtn: requireElement<HTMLButtonElement>('#mainhead button[data-action="remove"]'),
   renameBtn: requireElement<HTMLButtonElement>("#mainhead button.rename"),
+  surfaceSegment: mainheadSurfaceSegment,
 };
 const deadSurfaceEl = requireElement<HTMLElement>("#dead-surface");
 const deadSurfaceRefs: DeadSurfaceRefs = collectDeadSurfaceRefs(deadSurfaceEl);
@@ -202,7 +237,16 @@ let pendingRailFocus: FocusedControl | null = null;
 // `usage` broadcast (docs/protocol.md §5.4) — re-rendered every pass (like the rest of
 // `render()`) so REQ-14's reset-time formatting stays current against the wall clock.
 let currentUsage: Usage = UNKNOWN_USAGE;
-const surfaces = new Map<number, TerminalSurface>();
+// Plan plain-terminal-session: per-session "which surface is selected, is a shell
+// running" state (surfaceswitch.ts's pure Map) — same "client-only, per-window, not a
+// prefs field" shape as `focusedId`/`tilesLive` above; a shell has no wire representation
+// (protocol §3.16), so this is the only place it's tracked at all.
+let surfaceSwitchState: SurfaceSwitchState = new Map();
+// Keyed by `surfaceKey(id, kind)` (surfaceswitch.ts), not by session id alone — a
+// session's Claude pane and its shell are independent attach targets (INV-3), and only
+// the currently-selected kind ever has a live entry (REQ-5 disposes the hidden one on
+// every switch).
+const surfaces = new Map<string, TerminalSurface>();
 // Tiles' mounted chrome per live session id — kept across render passes so the 1s tick
 // (and every other render trigger) updates existing tiles in place instead of rebuilding
 // the grid, which used to re-parent a mounted TerminalSurface root and blur its xterm
@@ -460,6 +504,99 @@ function dispatchAction(action: SessionAction, id: number): void {
   }
 }
 
+/** Review plain-terminal-session Major 1 (review cycle 1 fix attempt 2, closing the
+ * reopened Major): locates the dead surface currently displayed for `id`'s `claude`
+ * segment, if any — Focus's static `#dead-surface` when `id` is the focused session AND
+ * Focus is the active view, else the matching tile's cloned instance in `tileElements`. A
+ * dead session's `claude` surface has no live `TerminalSurface` mounted (the dead surface
+ * replaces it, REQ-7), so `handleSurfaceSelect` below falls back to this when routing a
+ * spawn-failure notice (REQ-12) to whatever is actually on screen. Returns null when
+ * neither is showing (e.g. the tile has since left the grid).
+ *
+ * Fix attempt 1 checked `!deadSurfaceEl.hidden` instead of the active `view` — that flag
+ * is written only by `renderFocusView`, which `render()` calls only `if (view ===
+ * "focus")`. After a session died while Focus was showing it and the user switched to
+ * Tiles, the flag stayed stuck at `false` (last write: Focus made it visible), so a click
+ * on that session's OWN tile matched this branch and wrote the notice into the
+ * now-invisible Focus dead surface instead of the tile's. Checking the real `view` state
+ * variable instead of a flag owned by (and only kept fresh by) the other view's render
+ * path closes this for both directions:
+ *  - Tiles view, the focused session's own tile: `view === "focus"` is false, so this
+ *    falls straight through to the tile branch below — no chance to read a stale Focus
+ *    flag at all.
+ *  - Tiles view, a non-focused tile: unaffected either way — `focusedId === id` was
+ *    already false, so this branch was never reachable for it.
+ *  - Focus view, the focused session: `view === "focus" && focusedId === id` is true,
+ *    same outcome as before (and `deadSurfaceEl.hidden` is also correct here, since
+ *    `render()` calls `renderFocusView` on every pass while `view === "focus"`).
+ *  - Focus view, reached by switching FROM Tiles after the session died there (the
+ *    mirror-image staleness): `view` only ever changes inside `applyPrefsFromSnapshot`
+ *    (the daemon's `prefs` echo), and every path that calls it is immediately followed,
+ *    in the same synchronous turn, by the `render()` that flips `viewFocusEl.hidden` and
+ *    (since `view` is now `"focus"`) calls `renderFocusView` to recompute
+ *    `deadSurfaceEl.hidden` from the session's current `alive`/`selected` state — before
+ *    the mainhead is even visible for a click to land on. So `deadSurfaceEl.hidden` can't
+ *    actually go stale in this direction today; checking `view` directly removes the
+ *    dependency on that ordering coincidence rather than trusting it going forward. */
+function findDeadSurfaceRefs(id: number): DeadSurfaceRefs | null {
+  if (view === "focus" && focusedId === id) return deadSurfaceRefs;
+  const tileDeadEl = tileElements.get(id)?.bodySlot.querySelector<HTMLElement>(".dead-surface");
+  return tileDeadEl ? collectDeadSurfaceRefs(tileDeadEl) : null;
+}
+
+/** Plan plain-terminal-session REQ-4/REQ-5/REQ-8/REQ-12: the one dispatcher every
+ * `claude`/`shell` segment (mainhead + every tile) routes through — same "one shared
+ * dispatcher" shape as `dispatchAction`. A click on the already-selected surface is a
+ * no-op (mirrors the Focus/Tiles view-switch buttons' own "already there" guard, further
+ * down). Switching to `claude` is purely local (REQ-5: dispose the shell surface, remount
+ * Claude — no request). Switching to `shell` always POSTs first (protocol §3.16's
+ * idempotent ensure — User Flow 3: switching to `shell` from `claude` when the shell is
+ * already running still POSTs, since selection state doesn't already say `shell`, and gets
+ * `created: false` back) and only selects the surface on a `200`; a failure shows the
+ * daemon's error message on whatever surface is currently displayed (still `claude`, since
+ * selection never changes before success) — the mounted `TerminalSurface`'s own notice when
+ * one exists (a live session), or, when `id`'s `claude` surface is currently the
+ * dead-surface with no live pane to route through (review Major 1), that surface's own
+ * fallback notice instead — REQ-12's "no half-created shell tab left behind". */
+function handleSurfaceSelect(id: number, kind: SurfaceKind): void {
+  const current = getSurfaceState(surfaceSwitchState, id);
+  if (current.selected === kind) return;
+
+  if (kind === "claude") {
+    surfaceSwitchState = selectSurface(surfaceSwitchState, id, "claude");
+    render();
+    return;
+  }
+
+  void createShell(id).then((result) => {
+    if (!result.ok) {
+      console.error(`POST /api/sessions/${id}/shell failed: ${result.error.code} ${result.error.message}`);
+      const liveSurface = surfaces.get(surfaceKey(id, "claude"));
+      if (liveSurface) {
+        liveSurface.showNotice(result.error.message);
+      } else {
+        const deadRefs = findDeadSurfaceRefs(id);
+        if (deadRefs) showDeadSurfaceNotice(deadRefs, result.error.message);
+      }
+      return;
+    }
+    surfaceSwitchState = setShellRunning(surfaceSwitchState, id, true);
+    surfaceSwitchState = selectSurface(surfaceSwitchState, id, "shell");
+    render();
+  });
+}
+
+/** REQ-8: a shell surface's own `onShellEnded` callback (`terminal/pane.ts`), fired only
+ * when its socket closes with `4001` (`exit`, or an external kill) — reverts the
+ * selection to `claude` and clears the pip in one state change (surfaceswitch.ts's
+ * `shellEnded`), then re-renders; `render()`'s own surface diff (below) is what actually
+ * disposes the now-defunct shell `TerminalSurface` and mounts the Claude one, the same
+ * path any other surface-membership change already takes. */
+function handleShellEnded(id: number): void {
+  surfaceSwitchState = shellEnded(surfaceSwitchState, id);
+  render();
+}
+
 /** REQ-3/REQ-15: fire-and-forget, no optimistic state — the resulting `sessionUpsert`s
  * (or nothing, on a failed request) drive the redraw, same "round-trip only" rule as
  * `putSessionOrder` below (Implementation Notes: "no optimistic reorder"). */
@@ -495,8 +632,15 @@ async function doResume(id: number): Promise<void> {
  * `render()`'s existing "top of the sorted list" default. */
 function handleRemoved(id: number): void {
   store.remove(id);
-  surfaces.get(id)?.dispose();
-  surfaces.delete(id);
+  // REQ-9: Remove kills both tmux sessions server-side; the client mirrors that by
+  // dropping whichever of the two composite-keyed surfaces exists (usually just one — see
+  // `surfaces`'s own doc comment — but never assume which).
+  for (const kind of ["claude", "shell"] as const) {
+    const key = surfaceKey(id, kind);
+    surfaces.get(key)?.dispose();
+    surfaces.delete(key);
+  }
+  surfaceSwitchState = forgetSession(surfaceSwitchState, id);
   const tileRefs = tileElements.get(id);
   if (tileRefs) {
     // REQ-15/edge case 18: cancel (no request) and detach the editor's own listener
@@ -630,12 +774,16 @@ function applyPrefsFromSnapshot(prefs: Prefs): void {
 
 /** After the daemon connection is restored (`hello`), every currently-mounted surface
  * gets a chance to reattach — a no-op unless it's showing the "disconnected" overlay for
- * a still-alive session (REQ-13). */
+ * a still-attachable target (REQ-13). Plan plain-terminal-session, edge case 14: a shell
+ * surface's "attachable" is `shellRunning`, never `session.alive` (REQ-7, either
+ * direction). */
 function reattachDisconnectedSurfaces(): void {
   const sessions = store.values();
-  for (const [id, surface] of surfaces) {
+  for (const [key, surface] of surfaces) {
+    const { id, kind } = parseSurfaceKey(key);
     const session = sessions.find((s) => s.id === id);
-    surface.reattachIfDisconnected(session?.alive ?? false);
+    const attachable = kind === "shell" ? getSurfaceState(surfaceSwitchState, id).shellRunning : (session?.alive ?? false);
+    surface.reattachIfDisconnected(attachable);
   }
 }
 
@@ -643,7 +791,8 @@ function renderFocusView(sessions: readonly Session[], now: Date, connected: boo
   const hasSessions = sessions.length > 0;
   renderFocusMain({ emptyEl: mainEmptyEl, slotEl: mainSlotEl }, hasSessions);
   const session = sessions.find((s) => s.id === focusedId) ?? null;
-  renderMainhead(mainheadElements, session, now, connected);
+  const surfaceState = session ? getSurfaceState(surfaceSwitchState, session.id) : DEFAULT_SURFACE_STATE;
+  renderMainhead(mainheadElements, session, now, connected, surfaceState);
 
   if (!session) {
     mainSlotEl.hidden = true;
@@ -653,9 +802,12 @@ function renderFocusView(sessions: readonly Session[], now: Date, connected: boo
     return;
   }
 
-  if (!session.alive) {
-    // REQ-13/W8: never a live terminal for a dead session — the dead surface replaces
-    // the terminal slot entirely, fetching (and caching) the last pane snapshot.
+  // Plan plain-terminal-session: the dead surface replaces the terminal slot only when
+  // `claude` is the selected surface (REQ-13/W8 for that case unchanged) — edge case 5's
+  // "the claude segment shows the dead surface; the shell segment still shows a live
+  // shell" means a dead session with `shell` selected falls through to the live-surface
+  // branch below instead.
+  if (!session.alive && surfaceState.selected === "claude") {
     mainSlotEl.hidden = true;
     mainSlotEl.replaceChildren();
     deadSurfaceEl.hidden = false;
@@ -666,7 +818,7 @@ function renderFocusView(sessions: readonly Session[], now: Date, connected: boo
   }
 
   deadSurfaceEl.hidden = true;
-  const surface = surfaces.get(session.id);
+  const surface = surfaces.get(surfaceKey(session.id, surfaceState.selected));
   if (!surface) {
     mainSlotEl.replaceChildren();
     renderSizenote(sizenoteEl, null);
@@ -740,7 +892,7 @@ function reconcileTilesGrid(liveSessions: readonly Session[], now: Date, connect
     let refs = tileElements.get(session.id);
     const isNewTile = !refs;
     if (!refs) {
-      refs = buildTile(session, now, tileRenameHandlers);
+      refs = buildTile(session, now, tileRenameHandlers, handleSurfaceSelect);
       tileElements.set(session.id, refs);
     } else {
       updateTile(refs, session, now);
@@ -759,21 +911,30 @@ function reconcileTilesGrid(liveSessions: readonly Session[], now: Date, connect
     }
     previousRoot = refs.root;
 
-    if (session.alive) {
+    const surfaceState = getSurfaceState(surfaceSwitchState, session.id);
+    // Plan plain-terminal-session, edge case 5: the dead-surface branch only applies when
+    // `claude` is the selected surface — a dead session with `shell` selected still shows
+    // its live shell surface (REQ-6/REQ-7).
+    const showDead = !session.alive && surfaceState.selected === "claude";
+
+    if (!showDead) {
       // Insert into the grid FIRST, then mount/refit — a detached container's fit() is a
       // silent no-op (Critical 1).
-      const surface = surfaces.get(session.id);
+      const surface = surfaces.get(surfaceKey(session.id, surfaceState.selected));
       if (surface) {
         if (isNewTile || refs.bodySlot.firstElementChild !== surface.root) {
           refs.bodySlot.replaceChildren(surface.root);
         }
         surface.refit();
       }
-      renderTileGeometry(refs, true, surface?.geometry ?? null);
+      // The live/stopped marker always follows the session's own `alive` (mockup
+      // tiles.html: a dead session showing its shell still reads "stopped") — only the
+      // geometry readout follows whichever surface is actually mounted.
+      renderTileGeometry(refs, session.alive, surface?.geometry ?? null);
     } else {
-      // REQ-12/REQ-13/W8: a dead tile never gets a live surface — its body slot mounts
-      // the shared dead-surface component instead, fetching the pane snapshot exactly
-      // like Focus's does.
+      // REQ-12/REQ-13/W8: a dead tile showing `claude` never gets a live surface — its
+      // body slot mounts the shared dead-surface component instead, fetching the pane
+      // snapshot exactly like Focus's does.
       ensurePaneFetch(session.id);
       mountTileDeadSurface(
         refs.bodySlot,
@@ -788,6 +949,7 @@ function reconcileTilesGrid(liveSessions: readonly Session[], now: Date, connect
     }
 
     if (refs.actsEl) renderTileFooterActions(refs.actsEl, session, now, connected, dispatchAction);
+    if (refs.surfaceSegment) updateSurfaceSegment(refs.surfaceSegment, surfaceState, connected);
     // States: "the rename button is disabled while the WS is disconnected" — same
     // connected gate as the footer's own End/Resume/Remove, applied every render pass.
     refs.rename?.setEnabled(connected);
@@ -848,19 +1010,42 @@ function render(): void {
     setFocusedId(orderRail(sessions, railSort)[0]?.id ?? null);
   }
 
-  // REQ-13/INV-5/W8: only alive sessions may ever open a terminal socket — Tiles' sticky
-  // grid membership (`tilesLive`) can include a dead id (REQ-12), so the filter is
-  // applied here, the last step before diffing against currently-open surfaces.
-  const desired = aliveOnly(view === "focus" ? (focusedId !== null ? [focusedId] : []) : tilesLive, sessions);
-  const diff = surfaceDiff(Array.from(surfaces.keys()), desired);
-
-  for (const id of diff.toClose) {
-    surfaces.get(id)?.dispose();
-    surfaces.delete(id);
-  }
-  for (const id of diff.toOpen) {
+  // Plan plain-terminal-session: the surface manager keys by (session id, selected kind)
+  // rather than id alone — a session's Claude pane and its shell are independent attach
+  // targets (INV-3), so which one (if either) should be live now depends on which surface
+  // is selected, not just `alive` (REQ-13/INV-5/W8's "only an attachable target may ever
+  // open a socket" generalizes to `isSurfaceAttachable`: `claude` follows `alive`, `shell`
+  // follows `shellRunning`, never the other way around — REQ-7). Tiles' sticky grid
+  // membership (`tilesLive`) can include a dead id (REQ-12); the filter is applied here,
+  // the last step before diffing against currently-open surfaces. This replaces
+  // `sessions/live.ts`'s old `aliveOnly`/`surfaceDiff` (review cycle 1 Minor 1: deleted —
+  // this was their only call site, and a composite (id, kind) key isn't a shape they were
+  // designed for), inlined here as a plain Set-based open/close diff over composite keys.
+  const visibleIds = view === "focus" ? (focusedId !== null ? [focusedId] : []) : tilesLive;
+  const desiredEntries: Array<{ id: number; kind: SurfaceKind }> = [];
+  for (const id of visibleIds) {
     const session = sessions.find((s) => s.id === id);
-    if (session) surfaces.set(id, new TerminalSurface(session));
+    if (!session) continue;
+    const surfaceState = getSurfaceState(surfaceSwitchState, id);
+    if (isSurfaceAttachable(surfaceSwitchState, id, session.alive)) {
+      desiredEntries.push({ id, kind: surfaceState.selected });
+    }
+  }
+  const desiredKeys = new Set(desiredEntries.map((entry) => surfaceKey(entry.id, entry.kind)));
+
+  for (const [key, surface] of surfaces) {
+    if (!desiredKeys.has(key)) {
+      surface.dispose();
+      surfaces.delete(key);
+    }
+  }
+  for (const entry of desiredEntries) {
+    const key = surfaceKey(entry.id, entry.kind);
+    if (surfaces.has(key)) continue;
+    const session = sessions.find((s) => s.id === entry.id);
+    if (!session) continue;
+    const onShellEnded = entry.kind === "shell" ? () => handleShellEnded(entry.id) : undefined;
+    surfaces.set(key, new TerminalSurface(session, entry.kind, onShellEnded));
   }
 
   renderSessions(
@@ -875,8 +1060,9 @@ function render(): void {
       // Enter/Space on a card, and the Tiles strip's promote click leave focus where it
       // was (Scope decision 1). `render()` above is synchronous and has already mounted
       // the surface, so its root is in the DOM by the time `focus()` runs.
-      // `surfaces.get(id)` is `undefined` for a dead session, which is REQ-6 for free.
-      if (source === "pointer") surfaces.get(id)?.focus();
+      // `surfaces.get(...)` is `undefined` for a dead session showing `claude`, which is
+      // REQ-6 for free.
+      if (source === "pointer") surfaces.get(surfaceKey(id, getSurfaceState(surfaceSwitchState, id).selected))?.focus();
     },
     dispatchAction,
     connected,

@@ -10,6 +10,7 @@ import { renderContextRow } from "./context";
 import { buildActionButton, reconcileCards, type SessionAction } from "./sessions";
 import { attachRenameEditor, type RenameEditorController } from "./rename";
 import type { TitleCommand } from "../sessions/rename";
+import { buildSurfaceSegment, type SurfaceKind, type SurfaceSegmentRefs } from "../terminal/surfaceswitch";
 
 function requireTemplate(id: string): HTMLTemplateElement {
   const el = document.getElementById(id);
@@ -34,6 +35,11 @@ export interface TileRefs {
    * `buildTile` always has one. `main.ts` calls `cancel()`/`dispose()` on demotion
    * (before the tile leaves the grid) and `setEnabled()` on every connection change. */
   rename?: RenameEditorController;
+  /** Plan plain-terminal-session REQ-4: this tile's `claude | shell` segment, built once
+   * in `buildTile` and prepended into `.tfoot .acts` — optional for the same pre-plan-
+   * fixture reason as `actsEl`/`rename` above; every real tile built via `buildTile`
+   * always has one. `main.ts` calls `updateSurfaceSegment` on it every render pass. */
+  surfaceSegment?: SurfaceSegmentRefs;
 }
 
 /** `main.ts` supplies one pair of callbacks, shared by every tile — `getSession` is
@@ -93,7 +99,12 @@ function updateTileChrome(root: HTMLElement, session: Session, now: Date): void 
  * template's root is a bare `<article>`, which is the one plain element that carries an
  * implicit ARIA role (`article`) without any attribute, and its header (`.nm`) carries
  * the session title text the table also requires. */
-export function buildTile(session: Session, now: Date, renameHandlers: TileRenameHandlers): TileRefs {
+export function buildTile(
+  session: Session,
+  now: Date,
+  renameHandlers: TileRenameHandlers,
+  onSurfaceSelect: (id: number, kind: SurfaceKind) => void,
+): TileRefs {
   const template = requireTemplate("tile-template");
   const fragment = template.content.cloneNode(true) as DocumentFragment;
   const root = fragment.querySelector<HTMLElement>(".tile");
@@ -107,6 +118,13 @@ export function buildTile(session: Session, now: Date, renameHandlers: TileRenam
   if (!bodySlot || !geoEl || !markerEl || !actsEl || !nameEl) throw new Error("tile-template is missing a required element");
 
   root.dataset["sessionId"] = String(session.id);
+
+  // REQ-4/REQ-13: built once, prepended as `.acts`'s permanent first child —
+  // `renderTileFooterActions` below never touches it, only the End/Resume/Remove/age
+  // nodes that follow it (Testable UI Elements: "scope through
+  // article.tile[data-session-id]").
+  const surfaceSegment = buildSurfaceSegment((kind) => onSurfaceSelect(session.id, kind));
+  actsEl.append(surfaceSegment.root);
 
   // REQ-13(b): `.nm` wraps the same rename trigger the mainhead uses — built once, here,
   // so `updateTileChrome`'s later passes only ever write its text, never rebuild it (the
@@ -126,7 +144,7 @@ export function buildTile(session: Session, now: Date, renameHandlers: TileRenam
 
   updateTileChrome(root, session, now);
 
-  return { root, bodySlot, geoEl, markerEl, actsEl, rename };
+  return { root, bodySlot, geoEl, markerEl, actsEl, rename, surfaceSegment };
 }
 
 /** Refreshes an existing tile's chrome for the current render pass — never rebuilds or
@@ -201,14 +219,23 @@ export function renderTileFooterActions(
   connected: boolean,
   onAction?: (action: SessionAction, id: number) => void,
 ): void {
+  // REQ-4/REQ-13: `.surfseg` (built once in `buildTile`, prepended into `.acts`) is a
+  // permanent fixture of this row, never part of the shape checks or rebuilds below —
+  // only the children AFTER it (End, or age+Resume+Remove) are ever touched. Falls back
+  // to treating every child as "tail" when there's no surfseg present (pre-plan hand-
+  // built fixtures, none of which exist for this function today, but matching the same
+  // defensive shape as `TileRefs`'s other optional fields).
+  const surfaceSegment = actsEl.querySelector<HTMLElement>(":scope > .surfseg");
+  const tail = Array.from(actsEl.children).filter((el) => el !== surfaceSegment);
+
   if (session.alive) {
-    const existingEnd =
-      actsEl.children.length === 1 ? actsEl.firstElementChild : null;
+    const existingEnd = tail.length === 1 ? tail[0] : null;
     if (existingEnd instanceof HTMLButtonElement && existingEnd.dataset["action"] === "end") {
       existingEnd.disabled = !connected;
       return;
     }
-    actsEl.replaceChildren(buildActionButton("End", session.id, connected, onAction));
+    for (const el of tail) el.remove();
+    actsEl.append(buildActionButton("End", session.id, connected, onAction));
     return;
   }
   // Leads with "✕" rather than "ended" (mockups/tiles-dead.html's `.tfoot .snap`: "✕
@@ -217,9 +244,9 @@ export function renderTileFooterActions(
   const ageText = session.endedAt ? `✕ ended ${formatEndedAgo(session.endedAt, now)}` : "✕ ended";
   const resumeEnabled = connected && session.claudeSessionId !== null;
 
-  const [ageEl, resumeEl, removeEl] = Array.from(actsEl.children);
+  const [ageEl, resumeEl, removeEl] = tail;
   const sameShape =
-    actsEl.children.length === 3 &&
+    tail.length === 3 &&
     ageEl instanceof HTMLElement &&
     ageEl.className === "tage" &&
     resumeEl instanceof HTMLButtonElement &&
@@ -237,7 +264,8 @@ export function renderTileFooterActions(
   const age = document.createElement("span");
   age.className = "tage";
   age.textContent = ageText;
-  actsEl.replaceChildren(
+  for (const el of tail) el.remove();
+  actsEl.append(
     age,
     buildActionButton("Resume", session.id, resumeEnabled, onAction),
     buildActionButton("Remove", session.id, connected, onAction),

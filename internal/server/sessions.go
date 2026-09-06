@@ -303,6 +303,43 @@ func (s *Server) handleCreateSession(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(toWireSession(sess))
 }
 
+// createShellResponse is POST /api/sessions/{id}/shell's response body (docs/protocol.md
+// §3.16, plan plain-terminal-session).
+type createShellResponse struct {
+	Target  string `json:"target"`
+	Created bool   `json:"created"`
+}
+
+// handleCreateShell is POST /api/sessions/{id}/shell (plan plain-terminal-session REQ-1,
+// docs/protocol.md §3.16). Deliberately not gated on alive (REQ-7) — a shell may be
+// started on a dead session and never consults the manager's liveness field.
+func (s *Server) handleCreateShell(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseSessionID(w, r)
+	if !ok {
+		return
+	}
+	sess, exists := s.manager.Get(id)
+	if !exists {
+		writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
+		return
+	}
+	if info, err := os.Stat(sess.Directory); err != nil || !info.IsDir() {
+		writeJSONError(w, http.StatusConflict, "directory_missing", fmt.Sprintf("%s no longer exists", sess.Directory))
+		return
+	}
+
+	target, created, err := s.shells.Ensure(context.WithoutCancel(r.Context()), id, sess.Directory)
+	if err != nil {
+		s.log.Error().Err(err).Int64("session_id", id).Msg("spawning shell failed")
+		writeJSONError(w, http.StatusInternalServerError, "shell_spawn_failed", err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(createShellResponse{Target: target, Created: created})
+}
+
 // parseSessionID reads the {id} path value, writing a 404 unknown_session itself on a
 // malformed value (an unparseable id is indistinguishable from an unknown one to the
 // caller — same response either way).
@@ -345,7 +382,9 @@ func (s *Server) handleEndSession(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(toWireSession(sess))
 }
 
-// handleRemoveSession is DELETE /api/sessions/{id} (REQ-6, docs/protocol.md §3.8).
+// handleRemoveSession is DELETE /api/sessions/{id} (REQ-6, docs/protocol.md §3.8). Since
+// plain-terminal-session (§3.16/REQ-9) this also kills the session's shell tmux session,
+// unlike End which deliberately leaves a shell running.
 func (s *Server) handleRemoveSession(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
 	if !ok {
@@ -353,8 +392,10 @@ func (s *Server) handleRemoveSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If id is alive, Remove runs the End path first — close any terminal socket ahead
-	// of that too (same rationale as handleEndSession).
-	s.terminals.closeSession(id)
+	// of that too (same rationale as handleEndSession). Close and kill the shell surface
+	// too (REQ-9): Remove is the only path that touches a session's shell tmux session.
+	s.terminals.closeSessionAndShell(id)
+	s.shells.Kill(context.WithoutCancel(r.Context()), id)
 
 	if remErr := s.manager.Remove(context.WithoutCancel(r.Context()), id); remErr != nil {
 		switch {

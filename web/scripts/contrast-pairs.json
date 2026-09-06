@@ -51,13 +51,15 @@
     { "item": "--amber-line / --rose-line / --violet-line / --teal-line", "reason": "redundant state carriers — the badge word and position already carry state (design-system §3)" },
     { "item": "gauge tracks (--line under a fill)", "reason": "the fill carries the value" },
     { "item": "disabled controls", "reason": "WCAG's inactive-component exemption" },
-    { "item": "--scrim / --bg-raised-95", "reason": "translucent overlays, never a text ground on their own" }
+    { "item": "--scrim / --bg-raised-95", "reason": "translucent overlays, never a text ground on their own" },
+    { "item": "--shell-pip (plan plain-terminal-session, decision shell-pip-hue)", "reason": "a decorative 4-5px dot fill with no text of its own (`.surfseg .pip`) — same category as gauge tracks; its hueBand entry below is what actually enforces it stays a distinct hue from the four state colours, not a contrast pair" }
   ],
   "hueBands": {
     "--amber": { "min": 25, "max": 45 },
     "--rose": { "min": 345, "max": 15, "wraps": true },
     "--violet": { "min": 235, "max": 270 },
-    "--teal": { "min": 165, "max": 195 }
+    "--teal": { "min": 165, "max": 195 },
+    "--shell-pip": { "min": 196, "max": 234 }
   },
   "saturationCeilings": {
     "--idle": 20

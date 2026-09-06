@@ -12,6 +12,7 @@ import type { Session } from "../protocol";
 import { DRAG_MIME } from "../render/dragreorder";
 import { classifyApiFailure, classifyDrop, escapePath, locatingText, MAX_DROP_BYTES, noticeForFailure } from "./drop";
 import { overlayForCloseCode, overlayText, type OverlayKind } from "./overlay";
+import type { SurfaceKind } from "./surfaceswitch";
 
 // Debounce window for resize frames after the initial one (protocol §6 / design-system
 // §4.2/§7.2).
@@ -31,19 +32,35 @@ function cssVar(name: string, fallback: string): string {
 }
 
 /**
- * One live terminal surface. Constructing it for an already-dead session (`alive:
- * false`) never opens a socket (REQ-13: "no attach attempt for a session Muster already
- * knows is dead") — it renders the "session ended" overlay directly and stops there.
+ * One live terminal surface — the Claude pane (`/ws/terminal/{id}`, protocol §6) or,
+ * since plan plain-terminal-session, a session's plain shell (`/ws/shell/{id}`, protocol
+ * §6.1). `kind` picks the WS path and the aria-label prefix; every other behaviour —
+ * drop handling, resize, overlays, theming — is shared unchanged (plan Affected Files).
+ * Constructing a `"claude"` surface for an already-dead session (`alive: false`) never
+ * opens a socket (REQ-13: "no attach attempt for a session Muster already knows is
+ * dead") — it renders the "session ended" overlay directly and stops there. A `"shell"`
+ * surface is never constructed for a session with no running shell (main.ts only mounts
+ * one after `POST .../shell` succeeds), so it has no equivalent dead-on-arrival check —
+ * REQ-7's "the shell route never consults `alive`" applies here too.
  */
 export class TerminalSurface {
   /** The aria-labelled container the Testable UI Elements table pins
-   * (`Terminal: <title>`) — callers mount this wherever the live surface belongs
-   * (Focus's slot, or a Tiles tile's body slot) and never reach into its internals. */
+   * (`Terminal: <title>` / `Shell: <title>`) — callers mount this wherever the live
+   * surface belongs (Focus's slot, or a Tiles tile's body slot) and never reach into its
+   * internals. */
   readonly root: HTMLElement;
   private readonly bodyEl: HTMLElement;
   private readonly overlayEl: HTMLElement;
   private readonly noticeEl: HTMLElement;
   private readonly sessionId: number;
+  private readonly kind: SurfaceKind;
+  /** REQ-8: fired only for a `"shell"` surface whose socket closes with `4001
+   * pane_ended` (the shell exited or was killed externally) — main.ts's hook to revert
+   * the surface-switch state (`shellEnded`) and re-render, which is what actually swaps
+   * the visible surface back to Claude and disposes this one. Never fired for `"claude"`
+   * (the liveness poll already covers that pane's own 4001) or for `4000 superseded`
+   * (nothing auto-reconnects/reverts on that code — design-system §7 / protocol §6). */
+  private readonly onShellEnded: (() => void) | undefined;
   private term: Terminal | null = null;
   private fitAddon: FitAddon | null = null;
   private socket: WebSocket | null = null;
@@ -54,12 +71,14 @@ export class TerminalSurface {
   private overlayKind: OverlayKind | null = null;
   private disposed = false;
 
-  constructor(session: Session) {
+  constructor(session: Session, kind: SurfaceKind = "claude", onShellEnded?: () => void) {
     this.sessionId = session.id;
+    this.kind = kind;
+    this.onShellEnded = onShellEnded;
 
     this.root = document.createElement("div");
     this.root.className = "terminal-surface";
-    this.root.setAttribute("aria-label", `Terminal: ${session.title ?? "untitled"}`);
+    this.root.setAttribute("aria-label", `${kind === "shell" ? "Shell" : "Terminal"}: ${session.title ?? "untitled"}`);
 
     this.bodyEl = document.createElement("div");
     this.bodyEl.className = "terminal-body";
@@ -83,7 +102,7 @@ export class TerminalSurface {
     this.root.append(this.bodyEl, this.overlayEl, this.noticeEl);
     this.installDropHandlers();
 
-    if (!session.alive) {
+    if (kind === "claude" && !session.alive) {
       this.setOverlay("ended");
       return;
     }
@@ -127,7 +146,8 @@ export class TerminalSurface {
   private attach(): void {
     if (this.disposed) return;
     const wsProtocol = location.protocol === "https:" ? "wss:" : "ws:";
-    const socket = new WebSocket(`${wsProtocol}//${location.host}/ws/terminal/${this.sessionId}`);
+    const path = this.kind === "shell" ? "shell" : "terminal";
+    const socket = new WebSocket(`${wsProtocol}//${location.host}/ws/${path}/${this.sessionId}`);
     socket.binaryType = "arraybuffer";
     this.socket = socket;
     this.lastSentCols = 0;
@@ -148,6 +168,10 @@ export class TerminalSurface {
       this.socket = null;
       if (this.disposed) return;
       this.setOverlay(overlayForCloseCode(event.code));
+      // REQ-8: PTY EOF on a shell surface (`exit`, or an external kill) — never fired for
+      // `4000 superseded` (E12: a superseded shell tab stays on `shell`, showing the
+      // overlay, since the shell itself is still running elsewhere).
+      if (this.kind === "shell" && event.code === 4001) this.onShellEnded?.();
     });
     socket.addEventListener("error", () => socket.close());
   }

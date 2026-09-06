@@ -23,6 +23,36 @@ function envelope(payload: Record<string, unknown>, opts: EnvelopeOpts = {}): Re
   return env;
 }
 
+/**
+ * Enveloped `SessionStart` with NO `musterSession`/`tmuxPane` at all — the shape a
+ * `claude` process posts when its wrapper's environment carries no `MUSTER_SESSION`
+ * (plan plain-terminal-session, Implementation Notes "Isolation is structural"; edge
+ * case 1: a `claude` run started from inside a plain shell pane). Distinct from
+ * `envelopedSessionStart(id, {})`, whose `EnvelopeOpts` DEFAULT `musterSession: 1,
+ * tmuxPane: "%12"` fill in before `envelope()` ever sees them, reproducing the bound
+ * M0 fixture — not the unbound shape this scenario measures. This builder skips those
+ * defaults entirely so `envelope()`'s own `!== undefined` guard omits both fields,
+ * leaving `resolveSessionID` (`internal/server/ingest.go`) nothing to route on but the
+ * (never-bound) `session_id` fallback.
+ */
+export function unboundSessionStart(
+  sessionId: string,
+  opts: Pick<SessionStartOpts, "source" | "model"> = {},
+): Record<string, unknown> {
+  const { source = "startup", model } = opts;
+  const payload: Record<string, unknown> = {
+    hook_event_name: "SessionStart",
+    session_id: sessionId,
+    transcript_path: "/tmp/t.jsonl",
+    cwd: "/tmp",
+    source,
+  };
+  if (model !== null) {
+    payload.model = model ?? "claude-haiku-4-5-20251001";
+  }
+  return envelope(payload, {});
+}
+
 interface SessionStartOpts extends EnvelopeOpts {
   /** All three observed (canary-fields.md "Values worth asserting"). Default "startup". */
   source?: "startup" | "resume" | "clear";

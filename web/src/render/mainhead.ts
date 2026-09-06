@@ -8,6 +8,7 @@
 import type { Session } from "../protocol";
 import { buildCardViewModel } from "../sessions/card";
 import { formatEndedAgo } from "../sessions/format";
+import { DEFAULT_SURFACE_STATE, updateSurfaceSegment, type SessionSurfaceState, type SurfaceSegmentRefs } from "../terminal/surfaceswitch";
 
 export interface MainheadElements {
   root: HTMLElement;
@@ -20,6 +21,13 @@ export interface MainheadElements {
   // written here on every non-editing pass; `main.ts` attaches the actual editor
   // (render/rename.ts) to `nameEl` once at startup, this module never opens/closes it.
   renameBtn: HTMLButtonElement;
+  // Plan plain-terminal-session REQ-4: the `claude | shell` segment, built once by
+  // main.ts at startup and inserted between `.meta` and `.acts` — this module only ever
+  // updates its attributes (below), never rebuilds it. Optional for the same reason
+  // render/tiles.ts's `actsEl`/`rename` are (mainhead.test.ts's pre-existing hand-built
+  // `MainheadElements` fixtures, built before this plan, have no such field) — every real
+  // caller (main.ts) always supplies one.
+  surfaceSegment?: SurfaceSegmentRefs;
 }
 
 /** REQ-10's meta line: "repo/branch · model · `ended <age>` when dead" — reuses
@@ -38,8 +46,21 @@ function mainheadMeta(session: Session, now: Date): string {
  * the WS is down"), on top of each button's own enablement rule:
  * - End: enabled iff `alive`.
  * - Resume: enabled iff `!alive && claudeSessionId`.
- * - Remove: never disabled by session state (only by `connected`). */
-export function renderMainhead(elements: MainheadElements, session: Session | null, now: Date, connected: boolean): void {
+ * - Remove: never disabled by session state (only by `connected`).
+ *
+ * `surfaceState` (plan plain-terminal-session) is the currently-focused session's
+ * surface-switch state (main.ts's `surfaceSwitchState`, or the default when there is no
+ * focused session) — updated every pass regardless of the `!session` branch below, since
+ * `updateSurfaceSegment` only ever writes attributes and is harmless while `root` is
+ * hidden. Defaults to the "no shell yet" state so a caller with no `surfaceSegment`
+ * element (mainhead.test.ts's pre-plan fixtures) never needs to pass it. */
+export function renderMainhead(
+  elements: MainheadElements,
+  session: Session | null,
+  now: Date,
+  connected: boolean,
+  surfaceState: SessionSurfaceState = DEFAULT_SURFACE_STATE,
+): void {
   if (!session) {
     elements.root.hidden = true;
     // Pre-review fix (ui-text-and-focus): this branch used to run
@@ -54,6 +75,7 @@ export function renderMainhead(elements: MainheadElements, session: Session | nu
     // hidden in this state, so the button (and any stale text on it) is not visible;
     // only `metaEl` needs clearing here.
     elements.metaEl.textContent = "";
+    if (elements.surfaceSegment) updateSurfaceSegment(elements.surfaceSegment, surfaceState, connected);
     return;
   }
   elements.root.hidden = false;
@@ -73,4 +95,5 @@ export function renderMainhead(elements: MainheadElements, session: Session | nu
   elements.endBtn.disabled = !connected || !session.alive;
   elements.resumeBtn.disabled = !connected || session.alive || session.claudeSessionId === null;
   elements.removeBtn.disabled = !connected;
+  if (elements.surfaceSegment) updateSurfaceSegment(elements.surfaceSegment, surfaceState, connected);
 }
