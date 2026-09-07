@@ -12,6 +12,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"os"
@@ -140,7 +141,7 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		return preflightErr
 	}
 
-	if err := checkWebDist(*webDist, log); err != nil {
+	if err := checkWebDist(*webDist, webui.FS(), log); err != nil {
 		return err
 	}
 
@@ -299,7 +300,13 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 // embedded — a binary built before any `make web-build` — is fatal: it replaces today's
 // silent 404-everything failure with an actionable error naming both remedies, before
 // the daemon ever starts listening.
-func checkWebDist(webDist string, log zerolog.Logger) error {
+//
+// dashboard is the embedded dashboard fs.FS (plan v1-cleanup REQ-9): run passes the real
+// webui.FS(), and taking it as a parameter rather than calling webui.FS() directly makes
+// the "nothing on disk, nothing embedded" fatal branch deterministically testable with a
+// fake, empty fs.FS instead of depending on this binary's own build having embedded a
+// dashboard.
+func checkWebDist(webDist string, dashboard fs.FS, log zerolog.Logger) error {
 	if webDist != "" {
 		if _, err := os.Stat(filepath.Join(webDist, "index.html")); err != nil {
 			log.Warn().Str("web_dist", webDist).
@@ -307,7 +314,7 @@ func checkWebDist(webDist string, log zerolog.Logger) error {
 		}
 		return nil
 	}
-	if !webui.HasDashboard(webui.FS()) {
+	if !webui.HasDashboard(dashboard) {
 		return fmt.Errorf("no dashboard embedded in this binary: run `make web-build` before building musterd, or pass -web-dist pointing at a built dashboard directory")
 	}
 	return nil

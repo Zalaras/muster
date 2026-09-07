@@ -63,6 +63,15 @@ func (s *Server) handleLocateFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// REQ-6/D6: a misconfigured server (Config.Locator left nil) answers 500 instead of
+	// nil-dereferencing here. Placed after readFilePart succeeds so it guards only the
+	// call it exists to protect — every 400/413 body-validation branch above must stay
+	// reachable and unaffected regardless of whether a Locator is configured.
+	if s.locator == nil {
+		writeJSONError(w, http.StatusInternalServerError, "internal_error", "locating file")
+		return
+	}
+
 	path, err := s.locator.Locate(r.Context(), sess.Directory, name, upload)
 	if err != nil {
 		var ambiguous *locate.ErrAmbiguous

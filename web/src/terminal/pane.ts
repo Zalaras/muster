@@ -11,6 +11,7 @@ import { locateDroppedFile } from "../api";
 import type { Session } from "../protocol";
 import { DRAG_MIME } from "../render/dragreorder";
 import { classifyApiFailure, classifyDrop, escapePath, locatingText, MAX_DROP_BYTES, noticeForFailure } from "./drop";
+import { showNotice as showNoticeOn } from "./notice";
 import { overlayForCloseCode, overlayText, type OverlayKind } from "./overlay";
 import type { SurfaceKind } from "./surfaceswitch";
 
@@ -65,7 +66,6 @@ export class TerminalSurface {
   private fitAddon: FitAddon | null = null;
   private socket: WebSocket | null = null;
   private resizeTimer: ReturnType<typeof setTimeout> | undefined;
-  private noticeTimer: ReturnType<typeof setTimeout> | undefined;
   private lastSentCols = 0;
   private lastSentRows = 0;
   private overlayKind: OverlayKind | null = null;
@@ -272,7 +272,9 @@ export class TerminalSurface {
       this.showNotice(noticeForFailure(file.name, { kind: "too_large" }));
       return;
     }
-    this.showNotice(locatingText(file.name));
+    // REQ-13: in-flight, not an outcome — stays visible for as long as the request
+    // takes, however long that is, instead of vanishing at 5s while it's still running.
+    this.showNotice(locatingText(file.name), "inflight");
     const result = await locateDroppedFile(this.sessionId, file);
     if (!result.ok) {
       this.showNotice(noticeForFailure(file.name, classifyApiFailure(result.error)));
@@ -304,24 +306,14 @@ export class TerminalSurface {
 
   /** Shows (or, given `null`, clears) the one `role="status"` notice this surface owns —
    * a new outcome always replaces whatever text was there (edge case 19), cancelling any
-   * pending auto-hide timer first. A non-null text auto-hides after ~5s (REQ-6); `null`
-   * hides immediately with no timer. */
-  showNotice(text: string | null): void {
+   * pending auto-hide timer first. Delegates to `terminal/notice.ts` (plan v1-cleanup
+   * REQ-12): an `"outcome"` text (the default — every caller but the in-flight locate
+   * text in `locateAndPasteOne` above) auto-hides after ~5s (REQ-6); an `"inflight"` text
+   * stays up until something else replaces it (REQ-13); `null` hides immediately with no
+   * timer either way. */
+  showNotice(text: string | null, kind: "outcome" | "inflight" = "outcome"): void {
     if (this.disposed) return;
-    clearTimeout(this.noticeTimer);
-    this.noticeTimer = undefined;
-    if (text === null) {
-      this.noticeEl.hidden = true;
-      this.noticeEl.textContent = "";
-      return;
-    }
-    this.noticeEl.textContent = text;
-    this.noticeEl.hidden = false;
-    this.noticeTimer = setTimeout(() => {
-      this.noticeEl.hidden = true;
-      this.noticeEl.textContent = "";
-      this.noticeTimer = undefined;
-    }, 5000);
+    showNoticeOn(this.noticeEl, text, kind);
   }
 
   /**
@@ -396,7 +388,9 @@ export class TerminalSurface {
   dispose(): void {
     this.disposed = true;
     clearTimeout(this.resizeTimer);
-    clearTimeout(this.noticeTimer);
+    // Cancels any pending auto-hide timer notice.ts holds against this.noticeEl — this
+    // surface is going away, so nothing should fire against it later.
+    showNoticeOn(this.noticeEl, null);
     const socket = this.socket;
     this.socket = null;
     socket?.close();

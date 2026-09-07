@@ -113,7 +113,12 @@ SPEC changelog entry of the same date summarises. What the audit changed about t
 - **Option 1 landed for the actual `make test` flake** (`internal/tmux` preflighter run-func seam;
   `cmd/musterd`'s preflight takes the function; `claude --version` honours `-claude-bin`; a
   walk-only Locator in `internal/server`'s locate tests). The `internal/server` creation/attach
-  seam and a shared socket-helper are `TODO.md` follow-ups.
+  seam and a shared socket-helper were left as `TODO.md` follow-ups; **both closed 2026-09-06 by
+  plan `v1-cleanup`** — `internal/server` now declares consumer-side `paneSpawner` and
+  `paneConn`/`attachFunc` interfaces with nil-defaulting `Config.TmuxClient`/`Config.Attach`
+  overrides, and `internal/tmux/tmuxtest` replaces the socket idiom at its eight sites. The 25
+  tests whose assertions are genuinely tmux-observable keep a real server, by a keep-real list
+  fixed in the plan rather than left to agent judgement. Measured below.
 - **Option 3 became one config number** rather than per-site edits: 106 of 129 `expect.poll`s
   and 3 `MUSTER-STUB-READY` waits had been on the 5 s default; they now inherit 15 s.
 - **Option 2 (fewer workers)** taken as 4; **option 5 (retries)** rejected again.
@@ -125,6 +130,26 @@ Measured on this machine (12 cores), fresh runs, default invocation:
 | `go test -count=1 ./...` | 26–29 s, intermittently red (8 preflight tests at 2.00 s) | 26–28 s, 5/5 green |
 | `make e2e` (281 tests) | 72–78 s at 6 workers, 1 red in 2 runs (`theme.spec.ts:83`, non-retrying `expect` after `goto`) | 76 s at 4 workers, 3/3 green |
 | `npx playwright test --workers=6` (suite only, no build) | 71 s | 61.5 s |
+
+### `internal/server` test seams (plan `v1-cleanup`, 2026-09-06)
+
+REQ-19 of `plans/v1-cleanup/plan.md`, closing the two follow-ups the Decision above left open.
+Same machine (12 cores), fresh runs, default invocation; baseline column is this file's
+2026-09-06 numbers.
+
+| Invocation | Baseline | After the seams |
+|---|---|---|
+| `go test -count=1 ./internal/server/...` (package alone) | 26.9 s (421 tests) | 18.6 s (3 runs: 18.58 / 18.61 / 18.67 s) |
+| `internal/server` inside `go test -count=1 ./...` (packages parallel) | — | 20.3–22.8 s (3 runs) |
+| `cmd/musterd` inside the same full run | 15.0 s | 11.1–11.7 s |
+| `internal/tmux` inside the same full run | 10.2 s | 7.5–8.6 s |
+
+The standalone number beats the plan's own honest ~22 s estimate; the full-suite number varies
+run to run with contention from the other packages, as the plan predicted ("the wall is set by
+the slowest package"). **The wall-clock is not the point** — the win is ~20 fewer process forks
+per run in the package this note identified as load-sensitive, which is what made `make test`
+intermittently red. No timing threshold is gated on: a timing gate on a shared machine is a
+flake generator.
 
 **The worker cap costs nothing at this suite size** — and the migration found a tax the
 baseline had been paying all along. The first full runs after the migration took 112–118 s

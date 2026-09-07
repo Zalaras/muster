@@ -19,7 +19,6 @@ import (
 	"github.com/Zalaras/muster/internal/gitutil"
 	"github.com/Zalaras/muster/internal/session"
 	"github.com/Zalaras/muster/internal/store"
-	"github.com/Zalaras/muster/internal/tmux"
 )
 
 // createSessionRequest is POST /api/sessions' request body (docs/protocol.md §3.1).
@@ -69,7 +68,7 @@ func directoryMissing(message string) *launchError {
 type sessionLauncher struct {
 	store   *store.Store
 	manager *session.Manager
-	tmux    *tmux.Client
+	tmux    paneSpawner
 	log     zerolog.Logger
 
 	claudeBin string
@@ -475,7 +474,7 @@ func (s *Server) handlePinSession(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
 		default:
 			s.log.Error().Err(err).Int64("session_id", id).Msg("pinning session failed")
-			writeJSONError(w, http.StatusInternalServerError, "internal_error", err.Error())
+			writeJSONError(w, http.StatusInternalServerError, "internal_error", "pinning session")
 		}
 		return
 	}
@@ -505,7 +504,7 @@ func (s *Server) handleSetOrder(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, http.StatusBadRequest, "invalid_request", "ids must be a duplicate-free list of known session ids, and pinnedCount must be in [0, len(ids)]")
 		default:
 			s.log.Error().Err(err).Msg("setting rail order failed")
-			writeJSONError(w, http.StatusInternalServerError, "internal_error", err.Error())
+			writeJSONError(w, http.StatusInternalServerError, "internal_error", "setting rail order")
 		}
 		return
 	}

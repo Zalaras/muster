@@ -460,3 +460,65 @@ func TestHandleLocateFile_FinderErrorReturnsInternalError(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 	assert.Equal(t, "internal_error", resp.Error.Code)
 }
+
+// TestHandleLocateFile_NilLocatorIs500NotAPanic covers REQ-6/D6: a misconfigured server
+// (Config.Locator left nil, as every newTestServer in this package's other tests already
+// does by not setting it) answers 500 internal_error instead of nil-dereferencing
+// s.locator.Locate — and, critically, the server must still be alive to answer that 500
+// at all, which a panic reaching net/http's handler goroutine would not guarantee.
+// newTestServer never sets Config.Locator, so this needs no explicit srv.locator = nil.
+func TestHandleLocateFile_NilLocatorIs500NotAPanic(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	require.Nil(t, srv.locator, "this test's premise: no Locator configured")
+	id := newLocateTestSession(t, srv, t.TempDir())
+
+	req := buildLocateRequest(t, id, "x.txt", []byte("hello"), true)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	var resp errorResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	assert.Equal(t, "internal_error", resp.Error.Code)
+
+	// D6's "the server stays serving" half: a second, ordinary request must still be
+	// answered normally, not by a crashed handler goroutine.
+	rec2 := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec2, buildLocateRequest(t, id, "x.txt", []byte("hello"), true))
+	assert.Equal(t, http.StatusInternalServerError, rec2.Code, "the server must still be serving requests after the nil-Locator 500")
+}
+
+// TestHandleLocateFile_NilLocatorStillValidatesBodyFirst pins Fix Attempt 1's regression
+// directly: with Config.Locator nil (newTestServer's default), a request whose *body* is
+// invalid must still answer with the body-validation branch's own status/code — 400
+// invalid_request for a missing file part, 413 too_large for an oversize upload — never
+// the nil-Locator guard's 500. Before the fix, the guard ran ahead of readFilePart and
+// every one of these cases answered 500 instead (see daemon-implementation.md's "Fix
+// Attempt 1" and this file's TestHandleLocateFile_MissingFilePart/_TooLarge, which this
+// test complements by asserting the same outcomes hold with no Locator configured at
+// all, rather than relying on newTestServer's default happening to be nil elsewhere).
+func TestHandleLocateFile_NilLocatorStillValidatesBodyFirst(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	require.Nil(t, srv.locator, "this test's premise: no Locator configured")
+	id := newLocateTestSession(t, srv, t.TempDir())
+
+	t.Run("missing_file_part", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(rec, buildLocateRequestNoFilePart(t, id))
+
+		require.Equal(t, http.StatusBadRequest, rec.Code, "body validation must win over the nil-Locator guard")
+		var resp errorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		assert.Equal(t, "invalid_request", resp.Error.Code)
+	})
+
+	t.Run("too_large", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(rec, buildOversizeLocateRequest(t, id))
+
+		require.Equal(t, http.StatusRequestEntityTooLarge, rec.Code, "body validation must win over the nil-Locator guard")
+		var resp errorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		assert.Equal(t, "too_large", resp.Error.Code)
+	})
+}

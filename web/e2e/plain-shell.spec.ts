@@ -404,6 +404,7 @@ test("switching to shell on a DEAD tile with its directory removed shows the dae
   // above. A live neighbour session proves the notice is scoped to the one tile whose
   // spawn failed, not broadcast to every dead-surface instance on screen.
   const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
+  let dirACleaned = false;
   try {
     await page.goto(daemon.dashboardUrl);
     const deadSession = await launchSession(page, daemon, { directory: dirA.path, title: "plain-shell-tile-dead" });
@@ -419,6 +420,7 @@ test("switching to shell on a DEAD tile with its directory removed shows the dae
     await expect(deadTileSurface).toBeVisible({ timeout: 15_000 });
 
     await dirA.cleanup();
+    dirACleaned = true;
 
     await tileSurfaceButton(page, deadSession.id, "shell").click();
 
@@ -433,7 +435,7 @@ test("switching to shell on a DEAD tile with its directory removed shows the dae
     await expect(tileSurfaceButton(page, liveSession.id, "claude")).toHaveAttribute("aria-pressed", "true");
     await expect(liveTile.locator(".dead-surface")).toHaveCount(0);
   } finally {
-    await Promise.all([dirB.cleanup()]);
+    await Promise.all([dirACleaned ? Promise.resolve() : dirA.cleanup(), dirB.cleanup()]);
   }
 });
 

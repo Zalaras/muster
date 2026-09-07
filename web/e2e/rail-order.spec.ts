@@ -534,9 +534,9 @@ test("the rail sort select keeps focus and node identity across a render tick", 
 });
 
 // Decision `plans/order-sidebar/decisions/cmd-n-ordering/decision.md` (Option A, review
-// cycle 2): ⌘1-9 (`focusNth`) now indexes into `orderRail(store.values(), railSort)` —
+// cycle 2): ⌥⌘1–9 (`focusNth`) now indexes into `orderRail(store.values(), railSort)` —
 // the exact order the rail currently displays — rather than a fixed attention-priority
-// sort. Before this fix, ⌘1 could disagree with what card 1 visually is; these three
+// sort. Before this fix, ⌥⌘1 could disagree with what card 1 visually is; these three
 // tests are the reviewer's measured repro (Major 1) plus the drag/pin and attention-mode
 // cases the decision's "one order across both views" reasoning implies.
 

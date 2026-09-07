@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -20,19 +19,18 @@ import (
 
 	"github.com/Zalaras/muster/internal/session"
 	"github.com/Zalaras/muster/internal/store"
+	"github.com/Zalaras/muster/internal/tmux"
+	"github.com/Zalaras/muster/internal/tmux/tmuxtest"
 )
 
-// newTerminalTestServer builds a Server wired to a real, per-test tmux socket — never
-// "-L muster" and never the user's default server (CLAUDE.md hard rule). The terminal
-// bridge has no seam between internal/server and internal/termbridge/internal/tmux by
-// design (daemon-implementation.md Decisions: "kept concrete per YAGNI"), so its own
-// acceptance tests (D1-D7) exercise a real tmux server — the hard rule only forbids
-// deriving *state* from captured/attached bytes, not exercising tmux for real in tests.
-//
-// Deliberately not t.TempDir() for the socket itself: appending "/tmux.sock" to a
-// t.TempDir() path (rooted under the test's full name) can overflow AF_UNIX's
-// ~104-byte sun_path limit on macOS ("File name too long" from tmux itself) — see
-// internal/tmux/tmux_test.go's newTestSocket for the same fix.
+// newTerminalTestServer builds a Server wired to a real, per-test tmux socket (via
+// tmuxtest.Socket, plan v1-cleanup REQ-4) — never "-L muster" and never the user's
+// default server (CLAUDE.md hard rule). Used only by this file's keep-real tests (plan
+// v1-cleanup REQ-3's Implementation Notes list), whose assertion is itself a
+// tmux-observable effect — PTY stream, geometry, liveness, real client attachment — the
+// hard rule only forbids deriving *state* from captured/attached bytes, not exercising
+// tmux for real in tests. Everything else in this file uses newFakeTerminalTestServer
+// (fakes_test.go's fakeTmux, REQ-1/REQ-2's seams), which starts no tmux server at all.
 func newTerminalTestServer(t *testing.T) *testServer {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "muster.db")
@@ -40,11 +38,7 @@ func newTerminalTestServer(t *testing.T) *testServer {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 
-	scratch, err := os.MkdirTemp("", "muster-terminal-test-")
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = os.RemoveAll(scratch) })
-	socket := filepath.Join(scratch, "tmux.sock")
-	t.Cleanup(func() { _ = exec.Command("tmux", "-S", socket, "kill-server").Run() })
+	socket := tmuxtest.Socket(t)
 
 	logBuf := &syncBuffer{}
 	srv := New(Config{
@@ -194,9 +188,11 @@ func tmuxListClientSessions(t *testing.T, socket string) []string {
 }
 
 // TestHandleTerminal_UnknownSessionIs404 covers the Protocol Contract's pre-upgrade
-// 404 not_found.
+// 404 not_found. Uses newFakeTmuxTestServer (REQ-3: the assertion is about handler
+// routing, not a tmux-observable effect — no session exists at all, so no tmux call is
+// ever reachable regardless).
 func TestHandleTerminal_UnknownSessionIs404(t *testing.T) {
-	srv := newTerminalTestServer(t)
+	srv, _ := newFakeTmuxTestServer(t)
 	httpSrv := httptest.NewServer(srv.Handler())
 	t.Cleanup(httpSrv.Close)
 
@@ -211,7 +207,7 @@ func TestHandleTerminal_UnknownSessionIs404(t *testing.T) {
 // TestHandleTerminal_NonNumericIDIs404 covers the id-parse failure branch alongside the
 // unknown-id branch (both map to the same 404 not_found per the Protocol Contract).
 func TestHandleTerminal_NonNumericIDIs404(t *testing.T) {
-	srv := newTerminalTestServer(t)
+	srv, _ := newFakeTmuxTestServer(t)
 	httpSrv := httptest.NewServer(srv.Handler())
 	t.Cleanup(httpSrv.Close)
 
@@ -226,18 +222,17 @@ func TestHandleTerminal_NonNumericIDIs404(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
-// TestHandleTerminal_DeadSessionIs409 covers D7: a session whose Alive flag is false
-// (here flipped for real via the liveness poll after killing its tmux session, never
-// hand-set) is rejected pre-upgrade with 409 not_attachable — no attach attempt at all.
+// TestHandleTerminal_DeadSessionIs409 covers D7: a session whose Alive flag is false is
+// rejected pre-upgrade with 409 not_attachable — no attach attempt at all. Uses
+// markSessionDead (a direct store flip + reload) rather than killing a real tmux window
+// and nudging liveness: the manager's own liveness path always talks to a real,
+// unconditionally-constructed tmux client (fakes_test.go's newFakeTmuxTestServer doc
+// comment), which this fakes-based test must never reach (REQ-3).
 func TestHandleTerminal_DeadSessionIs409(t *testing.T) {
-	srv := newTerminalTestServer(t)
+	srv, fake := newFakeTmuxTestServer(t)
 	sess := launchRealSession(t, srv, sleepForeverCommand())
-	require.NoError(t, srv.tmuxClient.KillWindow(context.Background(), sess.TmuxTarget))
-	srv.manager.Nudge(context.Background(), sess.ID)
-	require.Eventually(t, func() bool {
-		got, ok := srv.manager.Get(sess.ID)
-		return ok && !got.Alive
-	}, 3*time.Second, 20*time.Millisecond)
+	markSessionDead(t, srv, sess.ID)
+	assert.True(t, fake.panes[sess.TmuxTarget], "this test's premise is Alive:false, not a gone pane — the fake's own bookkeeping must be untouched")
 
 	httpSrv := httptest.NewServer(srv.Handler())
 	t.Cleanup(httpSrv.Close)
@@ -253,7 +248,7 @@ func TestHandleTerminal_DeadSessionIs409(t *testing.T) {
 // TestHandleTerminal_RequiresCookie covers the same auth wiring every other UI route
 // gets (requireCookie), specifically for the new route.
 func TestHandleTerminal_RequiresCookie(t *testing.T) {
-	srv := newTerminalTestServer(t)
+	srv, _ := newFakeTmuxTestServer(t)
 	sess := launchRealSession(t, srv, sleepForeverCommand())
 	httpSrv := httptest.NewServer(srv.Handler())
 	t.Cleanup(httpSrv.Close)
@@ -294,6 +289,11 @@ func TestHandleTerminal_ResizeFrameAppliesRealGeometry(t *testing.T) {
 	sess := launchRealSession(t, srv, sleepForeverCommand())
 	httpSrv := httptest.NewServer(srv.Handler())
 	t.Cleanup(httpSrv.Close)
+	// srv.tmuxClient is the paneSpawner interface (REQ-1/REQ-2), which has no DisplayVar
+	// — this test's own oracle query against real geometry needs the concrete client
+	// directly, built from the same real per-test socket (daemon-implementation.md
+	// Handoff).
+	dc := tmux.New(srv.tmuxSocket)
 
 	c := dialTerminalOK(t, httpSrv, sess.ID)
 	defer func() { _ = c.CloseNow() }()
@@ -301,10 +301,10 @@ func TestHandleTerminal_ResizeFrameAppliesRealGeometry(t *testing.T) {
 	require.NoError(t, c.Write(context.Background(), websocket.MessageText, []byte(`{"type":"resize","cols":150,"rows":45}`)))
 
 	require.Eventually(t, func() bool {
-		w, dErr := srv.tmuxClient.DisplayVar(context.Background(), sess.TmuxTarget, "#{window_width}")
+		w, dErr := dc.DisplayVar(context.Background(), sess.TmuxTarget, "#{window_width}")
 		return dErr == nil && w == "150"
 	}, 3*time.Second, 50*time.Millisecond)
-	h, hErr := srv.tmuxClient.DisplayVar(context.Background(), sess.TmuxTarget, "#{window_height}")
+	h, hErr := dc.DisplayVar(context.Background(), sess.TmuxTarget, "#{window_height}")
 	require.NoError(t, hErr)
 	assert.Equal(t, "45", h)
 }
@@ -317,6 +317,7 @@ func TestHandleTerminal_ResizeFrameIsClampedToTheProtocolBounds(t *testing.T) {
 	sess := launchRealSession(t, srv, sleepForeverCommand())
 	httpSrv := httptest.NewServer(srv.Handler())
 	t.Cleanup(httpSrv.Close)
+	dc := tmux.New(srv.tmuxSocket) // see ResizeFrameAppliesRealGeometry's comment
 
 	c := dialTerminalOK(t, httpSrv, sess.ID)
 	defer func() { _ = c.CloseNow() }()
@@ -324,10 +325,10 @@ func TestHandleTerminal_ResizeFrameIsClampedToTheProtocolBounds(t *testing.T) {
 	require.NoError(t, c.Write(context.Background(), websocket.MessageText, []byte(`{"type":"resize","cols":99999,"rows":1}`)))
 
 	require.Eventually(t, func() bool {
-		w, dErr := srv.tmuxClient.DisplayVar(context.Background(), sess.TmuxTarget, "#{window_width}")
+		w, dErr := dc.DisplayVar(context.Background(), sess.TmuxTarget, "#{window_width}")
 		return dErr == nil && w == "500"
 	}, 3*time.Second, 50*time.Millisecond)
-	h, hErr := srv.tmuxClient.DisplayVar(context.Background(), sess.TmuxTarget, "#{window_height}")
+	h, hErr := dc.DisplayVar(context.Background(), sess.TmuxTarget, "#{window_height}")
 	require.NoError(t, hErr)
 	assert.Equal(t, "5", h)
 }

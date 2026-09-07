@@ -392,7 +392,7 @@ test.describe("daemon down while a terminal is attached (E13)", () => {
 // brief is exactly this: assert every listed source state, not the convenient one.
 //
 // Not covered here, on purpose (Scope decisions, plan terminal-focus): the Tiles strip's
-// promote click, ⌘1-9 (`focusNth`), and any keyboard-activation path other than Enter on
+// promote click, ⌥⌘1–9 (`focusNth`), and any keyboard-activation path other than Enter on
 // a card — none of them move focus into a terminal, and none of them are in scope for
 // this plan to change.
 

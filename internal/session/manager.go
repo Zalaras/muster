@@ -783,8 +783,8 @@ func (m *Manager) RecordResume(ctx context.Context, id int64, tmuxTarget, tmuxPa
 	return snapshot, nil
 }
 
-// maxRailPosLocked returns 1 + the largest RailPos among known sessions, or 0 when
-// there are none — CreateSession's "opened order = bottom of the unpinned block"
+// maxRailPosLocked returns the largest RailPos among known sessions, or -1 when there
+// are none — CreateSession adds 1 to get "opened order = bottom of the unpinned block"
 // (REQ-1). Must be called with m.mu held.
 func (m *Manager) maxRailPosLocked() int64 {
 	highest := int64(-1)

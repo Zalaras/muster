@@ -10,6 +10,7 @@ import { fetchPane } from "../api";
 import type { Session } from "../protocol";
 import { stateBadgeText } from "../sessions/card";
 import { formatEndedAgo } from "../sessions/format";
+import { showNotice } from "../terminal/notice";
 
 export interface DeadSurfaceRefs {
   root: HTMLElement;
@@ -119,36 +120,19 @@ export async function loadPane(id: number): Promise<PaneState> {
   return { status: "missing" };
 }
 
-/** Per-notice-element auto-hide timers for `showDeadSurfaceNotice` below, keyed by the
- * DOM node itself rather than a persisted refs object — `collectDeadSurfaceRefs` requeries
- * fresh refs from the DOM on every call (this module keeps no other cross-call state), so
- * a `WeakMap` on the element is the only place a pending timer can live between calls. */
-const noticeTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
-
 /** Review plain-terminal-session Major 1: shows (or, given `null`, clears) the dead
  * surface's own `role="status"` notice — mirrors `TerminalSurface.showNotice`
  * (`terminal/pane.ts`) exactly (same 5s auto-hide per REQ-6's existing convention, same
  * "a new outcome replaces whatever text was there" behaviour), for the one case that has
  * no live `TerminalSurface` to route a notice through: REQ-12's spawn-failure message when
  * the session whose `shell` spawn failed is currently showing this dead surface for
- * `claude`, not a live pane. */
+ * `claude`, not a live pane. Delegates to `terminal/notice.ts` (plan v1-cleanup REQ-12,
+ * extracting what the review above found duplicated) — every caller here is a failure
+ * outcome (plan Implementation Notes), so this never passes `"inflight"` and keeps the
+ * always-5s-auto-hide contract `dead.test.ts` already asserts unchanged (REQ-13 changes
+ * only `terminal/pane.ts`). */
 export function showDeadSurfaceNotice(refs: DeadSurfaceRefs, text: string | null): void {
   const noticeEl = refs.noticeEl;
   if (!noticeEl) return; // only unset for dead.test.ts's pre-existing fakeRefs() fixture
-  const pending = noticeTimers.get(noticeEl);
-  if (pending !== undefined) clearTimeout(pending);
-  noticeTimers.delete(noticeEl);
-  if (text === null) {
-    noticeEl.hidden = true;
-    noticeEl.textContent = "";
-    return;
-  }
-  noticeEl.textContent = text;
-  noticeEl.hidden = false;
-  const timer = setTimeout(() => {
-    noticeEl.hidden = true;
-    noticeEl.textContent = "";
-    noticeTimers.delete(noticeEl);
-  }, 5000);
-  noticeTimers.set(noticeEl, timer);
+  showNotice(noticeEl, text);
 }

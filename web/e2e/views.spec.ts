@@ -95,7 +95,7 @@ test("Cmd+\\ toggles the view and Opt+Cmd+1 focuses the top-priority session reg
 
     await page.keyboard.press("Alt+Meta+Digit1");
     await expect(terminalRegion(page, "prio-a")).toBeVisible();
-    // The old surface must be unmounted, not merely covered — ⌘1 moves focus the same
+    // The old surface must be unmounted, not merely covered — ⌥⌘1 moves focus the same
     // way a rail-card click does (one live surface at a time, INV-2).
     await expect(terminalRegion(page, "prio-b")).toHaveCount(0);
   } finally {

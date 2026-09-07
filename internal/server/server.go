@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"os/exec"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/Zalaras/muster/internal/locate"
 	"github.com/Zalaras/muster/internal/session"
 	"github.com/Zalaras/muster/internal/store"
+	"github.com/Zalaras/muster/internal/termbridge"
 	"github.com/Zalaras/muster/internal/tmux"
 	"github.com/Zalaras/muster/internal/usage"
 	"github.com/Zalaras/muster/internal/webui"
@@ -29,6 +31,34 @@ type ClaudeCodeInfo struct {
 	Installed *string
 	Drift     *bool
 }
+
+// paneSpawner is the tmux operations internal/server's own code (sessionLauncher,
+// shellRegistry) makes directly — session creation and teardown. Defined here because
+// internal/server is the consumer, in the shape internal/session's PaneChecker already
+// sets (docs/design/test-strategy.md §Decision "Option 1"); *tmux.Client satisfies it
+// without knowing.
+type paneSpawner interface {
+	NewSession(ctx context.Context, id int64, dir string, env map[string]string, command []string) (target, pane string, err error)
+	NewNamedSession(ctx context.Context, name, dir string, env map[string]string, command []string) (target, pane string, err error)
+	PaneExists(ctx context.Context, target string) (bool, error)
+	KillWindow(ctx context.Context, target string) error
+	KillSession(ctx context.Context, name string) error
+}
+
+// paneConn is the consumer-side view of a live terminal bridge — exactly the set
+// terminal.go calls on one (Read, Write, Resize, Close). *termbridge.Bridge satisfies it
+// without knowing; a test fakes it directly instead of holding a live PTY.
+type paneConn interface {
+	io.ReadWriter
+	Resize(ctx context.Context, cols, rows int) error
+	Close() error
+}
+
+// attachFunc opens a paneConn onto a tmux target. The seam exists because
+// termbridge.Attach takes *tmux.Client concretely and returns *termbridge.Bridge, which
+// a test cannot fabricate (it holds a live PTY) — attachFunc returns the paneConn
+// interface instead. internal/termbridge itself is unchanged.
+type attachFunc func(ctx context.Context, target string) (paneConn, error)
 
 // Config wires everything a Server needs. Built entirely in main — no init() magic, no
 // package-level state.
@@ -129,6 +159,16 @@ type Config struct {
 	// (plan file-drop-fix, docs/protocol.md §3.14). main always constructs locate.New();
 	// tests that never exercise the endpoint may leave this nil.
 	Locator *locate.Locator
+
+	// TmuxClient overrides the paneSpawner sessionLauncher and shellRegistry use (plan
+	// v1-cleanup REQ-1). Nil constructs the real tmux.New(cfg.TmuxSocket) exactly as
+	// before this plan — every production call site, main included, leaves this nil.
+	TmuxClient paneSpawner
+	// Attach overrides how a terminal socket attaches to a tmux target (plan v1-cleanup
+	// REQ-2). Nil goes through termbridge.Attach against the server's own tmux client
+	// exactly as before this plan — every production call site, main included, leaves
+	// this nil.
+	Attach attachFunc
 }
 
 // Server holds musterd's HTTP mux and the long-lived pieces (ingest queue, WS registry,
@@ -155,7 +195,8 @@ type Server struct {
 	usagePoller *usagePoller // nil when UsagePoll <= 0 (Edge Case 14)
 	themePoller *themePoller // nil when ClaudeThemePoll <= 0
 	launcher    *sessionLauncher
-	tmuxClient  *tmux.Client
+	tmuxClient  paneSpawner
+	attach      attachFunc
 	terminals   *terminalRegistry
 	shells      *shellRegistry
 	locator     *locate.Locator
@@ -191,9 +232,31 @@ func New(cfg Config) *Server {
 		locator:       cfg.Locator,
 	}
 
+	// tmuxClient is always constructed from TmuxSocket, independent of TmuxClient/Attach
+	// overrides (D1/D2): it is cheap (no process spawn — tmux.New just holds a socket
+	// name) and the default attachFunc closes over this concrete client, since
+	// termbridge.Attach needs one concretely and cannot take the paneSpawner interface.
 	tmuxClient := tmux.New(cfg.TmuxSocket)
-	s.tmuxClient = tmuxClient
-	s.shells = newShellRegistry(tmuxClient, cfg.Logger)
+
+	var spawner paneSpawner = tmuxClient
+	if cfg.TmuxClient != nil {
+		spawner = cfg.TmuxClient
+	}
+	s.tmuxClient = spawner
+
+	attach := cfg.Attach
+	if attach == nil {
+		attach = func(ctx context.Context, target string) (paneConn, error) {
+			bridge, err := termbridge.Attach(ctx, tmuxClient, target)
+			if err != nil {
+				return nil, err
+			}
+			return bridge, nil
+		}
+	}
+	s.attach = attach
+
+	s.shells = newShellRegistry(spawner, cfg.Logger)
 	s.manager = session.NewManager(session.Config{
 		Store:           cfg.Store,
 		Logger:          cfg.Logger,
@@ -260,7 +323,7 @@ func New(cfg Config) *Server {
 	s.launcher = &sessionLauncher{
 		store:            cfg.Store,
 		manager:          s.manager,
-		tmux:             tmuxClient,
+		tmux:             spawner,
 		log:              cfg.Logger,
 		claudeBin:        claudeBin,
 		hookScript:       cfg.HookScript,

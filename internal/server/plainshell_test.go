@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -107,25 +108,20 @@ func countAllRows(t *testing.T, dbPath string) int {
 }
 
 // TestHandleCreateShell_NoShellYetSpawnsOneAndReturnsCreatedTrue covers D1 at the HTTP
-// layer.
+// layer. Uses newFakeTmuxTestServer (REQ-3): the assertion is that the handler calls
+// through to Ensure and reports its result faithfully, not that a real interactive
+// shell actually runs — that is StreamsPTYOutputAndAcceptsInput's job, on the keep-real
+// list.
 func TestHandleCreateShell_NoShellYetSpawnsOneAndReturnsCreatedTrue(t *testing.T) {
-	srv := newTerminalTestServer(t)
-	// interactiveShellArgv() (shells.go) reads os.Getenv("SHELL"); pointing it at a
-	// plain, fast shell keeps these tests deterministic and independent of whatever
-	// $SHELL happens to be configured on the machine running them (a heavy zshrc with
-	// nvm/oh-my-zsh etc. can take multiple seconds to become interactive) — proving the
-	// daemon spawns *some* real interactive shell and behaves correctly around it, which
-	// is this suite's job; the E2E suite's own REQ-1 note already covers "the user's
-	// actual $SHELL really works".
-	t.Setenv("SHELL", "/bin/sh")
+	srv, fake := newFakeTmuxTestServer(t)
 	sess := launchRealSession(t, srv, sleepForeverCommand())
-	t.Cleanup(func() { _ = srv.tmuxClient.KillSession(context.Background(), tmux.ShellSessionName(sess.ID)) })
 
 	rec, target, created := postShellRequest(t, srv, sess.ID)
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	assert.True(t, created)
 	assert.Equal(t, tmux.ShellSessionName(sess.ID), target)
+	assert.Equal(t, 1, fake.newNamedSessionCalls)
 
 	exists, err := srv.tmuxClient.PaneExists(context.Background(), target)
 	require.NoError(t, err)
@@ -134,17 +130,8 @@ func TestHandleCreateShell_NoShellYetSpawnsOneAndReturnsCreatedTrue(t *testing.T
 
 // TestHandleCreateShell_RepeatCallReturnsCreatedFalse covers D2 at the HTTP layer.
 func TestHandleCreateShell_RepeatCallReturnsCreatedFalse(t *testing.T) {
-	srv := newTerminalTestServer(t)
-	// interactiveShellArgv() (shells.go) reads os.Getenv("SHELL"); pointing it at a
-	// plain, fast shell keeps these tests deterministic and independent of whatever
-	// $SHELL happens to be configured on the machine running them (a heavy zshrc with
-	// nvm/oh-my-zsh etc. can take multiple seconds to become interactive) — proving the
-	// daemon spawns *some* real interactive shell and behaves correctly around it, which
-	// is this suite's job; the E2E suite's own REQ-1 note already covers "the user's
-	// actual $SHELL really works".
-	t.Setenv("SHELL", "/bin/sh")
+	srv, fake := newFakeTmuxTestServer(t)
 	sess := launchRealSession(t, srv, sleepForeverCommand())
-	t.Cleanup(func() { _ = srv.tmuxClient.KillSession(context.Background(), tmux.ShellSessionName(sess.ID)) })
 
 	_, _, created1 := postShellRequest(t, srv, sess.ID)
 	require.True(t, created1)
@@ -154,20 +141,13 @@ func TestHandleCreateShell_RepeatCallReturnsCreatedFalse(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec2.Code)
 	assert.False(t, created2)
 	assert.Equal(t, tmux.ShellSessionName(sess.ID), target2)
+	assert.Equal(t, 1, fake.newNamedSessionCalls, "a repeat call must never spawn a second tmux session")
 }
 
 // TestHandleCreateShell_UnknownSessionIs404 covers the Protocol Contract's 404
 // unknown_session.
 func TestHandleCreateShell_UnknownSessionIs404(t *testing.T) {
-	srv := newTerminalTestServer(t)
-	// interactiveShellArgv() (shells.go) reads os.Getenv("SHELL"); pointing it at a
-	// plain, fast shell keeps these tests deterministic and independent of whatever
-	// $SHELL happens to be configured on the machine running them (a heavy zshrc with
-	// nvm/oh-my-zsh etc. can take multiple seconds to become interactive) — proving the
-	// daemon spawns *some* real interactive shell and behaves correctly around it, which
-	// is this suite's job; the E2E suite's own REQ-1 note already covers "the user's
-	// actual $SHELL really works".
-	t.Setenv("SHELL", "/bin/sh")
+	srv, _ := newFakeTmuxTestServer(t)
 
 	rec, _, _ := postShellRequest(t, srv, 999999)
 
@@ -179,15 +159,7 @@ func TestHandleCreateShell_UnknownSessionIs404(t *testing.T) {
 // directory no longer exists on disk, checked before the spawn so no tmux session is
 // ever created.
 func TestHandleCreateShell_DirectoryMissingIs409(t *testing.T) {
-	srv := newTerminalTestServer(t)
-	// interactiveShellArgv() (shells.go) reads os.Getenv("SHELL"); pointing it at a
-	// plain, fast shell keeps these tests deterministic and independent of whatever
-	// $SHELL happens to be configured on the machine running them (a heavy zshrc with
-	// nvm/oh-my-zsh etc. can take multiple seconds to become interactive) — proving the
-	// daemon spawns *some* real interactive shell and behaves correctly around it, which
-	// is this suite's job; the E2E suite's own REQ-1 note already covers "the user's
-	// actual $SHELL really works".
-	t.Setenv("SHELL", "/bin/sh")
+	srv, fake := newFakeTmuxTestServer(t)
 	sess := launchRealSession(t, srv, sleepForeverCommand())
 	require.NoError(t, os.RemoveAll(sess.Directory))
 
@@ -195,32 +167,16 @@ func TestHandleCreateShell_DirectoryMissingIs409(t *testing.T) {
 
 	assert.Equal(t, http.StatusConflict, rec.Code)
 	assert.Equal(t, "directory_missing", decodeErrorCode(t, rec))
-
-	exists, err := srv.tmuxClient.PaneExists(context.Background(), tmux.ShellSessionName(sess.ID))
-	require.NoError(t, err)
-	assert.False(t, exists, "a 409 must leave no tmux session behind")
+	assert.Equal(t, 0, fake.newNamedSessionCalls, "a 409 must leave no tmux session behind")
 }
 
 // TestHandleCreateShell_DeadSessionSucceeds covers D5/REQ-7: a shell can be started on a
-// session whose alive is false — the route never consults it.
+// session whose alive is false — the route never consults it. markSessionDead (a direct
+// store flip) stands in for a real kill+liveness-nudge cycle (see its doc comment).
 func TestHandleCreateShell_DeadSessionSucceeds(t *testing.T) {
-	srv := newTerminalTestServer(t)
-	// interactiveShellArgv() (shells.go) reads os.Getenv("SHELL"); pointing it at a
-	// plain, fast shell keeps these tests deterministic and independent of whatever
-	// $SHELL happens to be configured on the machine running them (a heavy zshrc with
-	// nvm/oh-my-zsh etc. can take multiple seconds to become interactive) — proving the
-	// daemon spawns *some* real interactive shell and behaves correctly around it, which
-	// is this suite's job; the E2E suite's own REQ-1 note already covers "the user's
-	// actual $SHELL really works".
-	t.Setenv("SHELL", "/bin/sh")
+	srv, _ := newFakeTmuxTestServer(t)
 	sess := launchRealSession(t, srv, sleepForeverCommand())
-	require.NoError(t, srv.tmuxClient.KillWindow(context.Background(), sess.TmuxTarget))
-	srv.manager.Nudge(context.Background(), sess.ID)
-	require.Eventually(t, func() bool {
-		got, ok := srv.manager.Get(sess.ID)
-		return ok && !got.Alive
-	}, 3*time.Second, 20*time.Millisecond)
-	t.Cleanup(func() { _ = srv.tmuxClient.KillSession(context.Background(), tmux.ShellSessionName(sess.ID)) })
+	markSessionDead(t, srv, sess.ID)
 
 	rec, target, created := postShellRequest(t, srv, sess.ID)
 
@@ -231,17 +187,25 @@ func TestHandleCreateShell_DeadSessionSucceeds(t *testing.T) {
 	assert.True(t, exists, "D5: a shell must actually spawn for a dead session")
 }
 
+// TestHandleCreateShell_SpawnFailureIs500ShellSpawnFailed covers Edge Case 3/D9: a
+// spawner error propagates as 500 shell_spawn_failed — the seam this plan adds must not
+// change which error surfaces. Not exercisable against a real tmux server (sessions_test.go's
+// closing note: tmux new-session has no environment-independent way to be made to fail
+// synchronously), so this is new coverage the fake makes possible.
+func TestHandleCreateShell_SpawnFailureIs500ShellSpawnFailed(t *testing.T) {
+	srv, fake := newFakeTmuxTestServer(t)
+	sess := launchRealSession(t, srv, sleepForeverCommand())
+	fake.newNamedSessionErr = fmt.Errorf("boom: tmux new-session failed")
+
+	rec, _, _ := postShellRequest(t, srv, sess.ID)
+
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Equal(t, "shell_spawn_failed", decodeErrorCode(t, rec))
+}
+
 // TestHandleCreateShell_RequiresCookie covers the auth wiring for the new endpoint.
 func TestHandleCreateShell_RequiresCookie(t *testing.T) {
-	srv := newTerminalTestServer(t)
-	// interactiveShellArgv() (shells.go) reads os.Getenv("SHELL"); pointing it at a
-	// plain, fast shell keeps these tests deterministic and independent of whatever
-	// $SHELL happens to be configured on the machine running them (a heavy zshrc with
-	// nvm/oh-my-zsh etc. can take multiple seconds to become interactive) — proving the
-	// daemon spawns *some* real interactive shell and behaves correctly around it, which
-	// is this suite's job; the E2E suite's own REQ-1 note already covers "the user's
-	// actual $SHELL really works".
-	t.Setenv("SHELL", "/bin/sh")
+	srv, _ := newFakeTmuxTestServer(t)
 	sess := launchRealSession(t, srv, sleepForeverCommand())
 
 	req := httptest.NewRequest(http.MethodPost, "/api/sessions/"+strconv.FormatInt(sess.ID, 10)+"/shell", nil)
@@ -264,21 +228,18 @@ func TestHandleCreateShell_RequiresCookie(t *testing.T) {
 // the correct oracle is "byte- and mtime-identical across the shell POST", never
 // "absent" — exactly the caveat the fix-mode task named.
 func TestHandleCreateShell_LeavesSettingsLocalJSONUnchanged(t *testing.T) {
-	srv := newTerminalTestServer(t)
-	t.Setenv("SHELL", "/bin/sh")
+	srv, _ := newFakeTmuxTestServer(t)
 
 	dir := t.TempDir()
 	l := &sessionLauncher{
 		store: srv.store, manager: srv.manager, tmux: srv.tmuxClient, log: zerolog.Nop(),
-		claudeBin:  newStubClaudeBin(t, filepath.Join(t.TempDir(), "env-output.txt")),
+		claudeBin:  "irrelevant-never-reached",
 		hookScript: "/bin/true", statusLineScript: "/bin/true",
 	}
 	sess, lerr := l.Launch(context.Background(), createSessionRequest{
 		Directory: dir, Model: "sonnet", PermissionMode: "default",
 	})
 	require.Nil(t, lerr)
-	t.Cleanup(func() { _ = srv.tmuxClient.KillWindow(context.Background(), sess.TmuxTarget) })
-	t.Cleanup(func() { _ = srv.tmuxClient.KillSession(context.Background(), tmux.ShellSessionName(sess.ID)) })
 
 	settingsPath := filepath.Join(dir, ".claude", "settings.local.json")
 	beforeContent, err := os.ReadFile(settingsPath)
@@ -302,15 +263,7 @@ func TestHandleCreateShell_LeavesSettingsLocalJSONUnchanged(t *testing.T) {
 // TestHandleShellTerminal_NoShellIs409NoShell covers D8: attaching before any POST
 // .../shell has ever created one is refused pre-upgrade.
 func TestHandleShellTerminal_NoShellIs409NoShell(t *testing.T) {
-	srv := newTerminalTestServer(t)
-	// interactiveShellArgv() (shells.go) reads os.Getenv("SHELL"); pointing it at a
-	// plain, fast shell keeps these tests deterministic and independent of whatever
-	// $SHELL happens to be configured on the machine running them (a heavy zshrc with
-	// nvm/oh-my-zsh etc. can take multiple seconds to become interactive) — proving the
-	// daemon spawns *some* real interactive shell and behaves correctly around it, which
-	// is this suite's job; the E2E suite's own REQ-1 note already covers "the user's
-	// actual $SHELL really works".
-	t.Setenv("SHELL", "/bin/sh")
+	srv, _ := newFakeTmuxTestServer(t)
 	sess := launchRealSession(t, srv, sleepForeverCommand())
 	httpSrv := httptest.NewServer(srv.Handler())
 	t.Cleanup(httpSrv.Close)
@@ -326,15 +279,7 @@ func TestHandleShellTerminal_NoShellIs409NoShell(t *testing.T) {
 // TestHandleShellTerminal_UnknownSessionIs404 covers the Protocol Contract's pre-upgrade
 // 404 not_found for an id with no session at all.
 func TestHandleShellTerminal_UnknownSessionIs404(t *testing.T) {
-	srv := newTerminalTestServer(t)
-	// interactiveShellArgv() (shells.go) reads os.Getenv("SHELL"); pointing it at a
-	// plain, fast shell keeps these tests deterministic and independent of whatever
-	// $SHELL happens to be configured on the machine running them (a heavy zshrc with
-	// nvm/oh-my-zsh etc. can take multiple seconds to become interactive) — proving the
-	// daemon spawns *some* real interactive shell and behaves correctly around it, which
-	// is this suite's job; the E2E suite's own REQ-1 note already covers "the user's
-	// actual $SHELL really works".
-	t.Setenv("SHELL", "/bin/sh")
+	srv, _ := newFakeTmuxTestServer(t)
 	httpSrv := httptest.NewServer(srv.Handler())
 	t.Cleanup(httpSrv.Close)
 
@@ -353,15 +298,7 @@ func TestHandleShellTerminal_UnknownSessionIs404(t *testing.T) {
 // spawn side effect by checking no shell session appears on the socket after the failed
 // dial from TestHandleShellTerminal_NoShellIs409NoShell-style rejection.
 func TestHandleShellTerminal_AttachOnlyNeverSpawns(t *testing.T) {
-	srv := newTerminalTestServer(t)
-	// interactiveShellArgv() (shells.go) reads os.Getenv("SHELL"); pointing it at a
-	// plain, fast shell keeps these tests deterministic and independent of whatever
-	// $SHELL happens to be configured on the machine running them (a heavy zshrc with
-	// nvm/oh-my-zsh etc. can take multiple seconds to become interactive) — proving the
-	// daemon spawns *some* real interactive shell and behaves correctly around it, which
-	// is this suite's job; the E2E suite's own REQ-1 note already covers "the user's
-	// actual $SHELL really works".
-	t.Setenv("SHELL", "/bin/sh")
+	srv, fake := newFakeTmuxTestServer(t)
 	sess := launchRealSession(t, srv, sleepForeverCommand())
 	httpSrv := httptest.NewServer(srv.Handler())
 	t.Cleanup(httpSrv.Close)
@@ -373,6 +310,7 @@ func TestHandleShellTerminal_AttachOnlyNeverSpawns(t *testing.T) {
 	exists, perr := srv.tmuxClient.PaneExists(context.Background(), tmux.ShellSessionName(sess.ID))
 	require.NoError(t, perr)
 	assert.False(t, exists, "a rejected/attempted WS dial must never itself spawn a shell")
+	assert.Equal(t, 0, fake.newNamedSessionCalls, "a rejected/attempted WS dial must never itself spawn a shell")
 }
 
 // TestHandleShellTerminal_StreamsPTYOutputAndAcceptsInput is the shell surface's D1/D2
@@ -664,43 +602,42 @@ func TestHandleEndSession_LeavesShellRunning(t *testing.T) {
 // total row count across session/repo/event — the tables INV-2 names. The one session
 // row that legitimately exists throughout is created *before* the count baseline is
 // taken, so only the shell operations themselves are under test.
+// TestShellLifecycle_NeverWritesAnySQLiteRow uses newFakeTmuxTestServer (REQ-3): its own
+// assertion is the row count, not that the byte stream or geometry genuinely work (which
+// StreamsPTYOutputAndAcceptsInput and terminal_test.go's keep-real geometry tests already
+// cover for real) — so attach/resize/exit only need to reach the fake without error, and
+// "exit" is simulated by fakePaneConn's own "exit"-triggers-Close behaviour rather than a
+// real interactive shell.
 func TestShellLifecycle_NeverWritesAnySQLiteRow(t *testing.T) {
-	srv := newTerminalTestServer(t)
-	// interactiveShellArgv() (shells.go) reads os.Getenv("SHELL"); pointing it at a
-	// plain, fast shell keeps these tests deterministic and independent of whatever
-	// $SHELL happens to be configured on the machine running them (a heavy zshrc with
-	// nvm/oh-my-zsh etc. can take multiple seconds to become interactive) — proving the
-	// daemon spawns *some* real interactive shell and behaves correctly around it, which
-	// is this suite's job; the E2E suite's own REQ-1 note already covers "the user's
-	// actual $SHELL really works".
-	t.Setenv("SHELL", "/bin/sh")
+	srv, fake := newFakeTmuxTestServer(t)
 	sess := launchRealSession(t, srv, sleepForeverCommand())
 	httpSrv := httptest.NewServer(srv.Handler())
 	t.Cleanup(httpSrv.Close)
-	t.Cleanup(func() { _ = srv.tmuxClient.KillSession(context.Background(), tmux.ShellSessionName(sess.ID)) })
 
 	before := countAllRows(t, srv.dbPath)
 
 	// Spawn.
-	_, target, created := postShellRequest(t, srv, sess.ID)
+	_, _, created := postShellRequest(t, srv, sess.ID)
 	require.True(t, created)
 
 	// Attach, type input, resize.
 	c := dialShellOK(t, httpSrv, sess.ID)
-	require.NoError(t, c.Write(context.Background(), websocket.MessageBinary, []byte("echo ROW_COUNT_MARKER\n")))
-	_ = readUntilContains(t, c, "ROW_COUNT_MARKER", 5*time.Second)
+	require.NoError(t, c.Write(context.Background(), websocket.MessageBinary, []byte("ROW_COUNT_MARKER\n")))
 	require.NoError(t, c.Write(context.Background(), websocket.MessageText, []byte(`{"type":"resize","cols":100,"rows":30}`)))
 	require.Eventually(t, func() bool {
-		w, dErr := srv.tmuxClient.DisplayVar(context.Background(), target, "#{window_width}")
-		return dErr == nil && w == "100"
-	}, 3*time.Second, 50*time.Millisecond)
+		conn := fake.lastPaneConn()
+		if conn == nil {
+			return false
+		}
+		cols, _ := conn.resize()
+		return cols == 100
+	}, 3*time.Second, 20*time.Millisecond)
 
-	// Exit (PTY EOF), then respawn (D7) and kill again for good measure.
+	// Exit (simulated PTY EOF), then respawn (D7).
 	require.NoError(t, c.Write(context.Background(), websocket.MessageBinary, []byte("exit\n")))
 	_ = readUntilError(t, c, 5*time.Second)
 	_, _, created2 := postShellRequest(t, srv, sess.ID)
 	require.True(t, created2, "the exit above must have left no pane behind, so this respawns")
-	require.NoError(t, srv.tmuxClient.KillSession(context.Background(), tmux.ShellSessionName(sess.ID)))
 
 	after := countAllRows(t, srv.dbPath)
 	assert.Equal(t, before, after, "INV-2: no shell operation may write any session, repo or event row")

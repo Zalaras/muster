@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -15,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Zalaras/muster/internal/tmux"
+	"github.com/Zalaras/muster/internal/tmux/tmuxtest"
 )
 
 // newStubShellBin writes an executable script standing in for the user's interactive
@@ -55,16 +55,12 @@ func readLogLines(t *testing.T, logFile string, want int) []string {
 // newTestShellRegistry builds a shellRegistry against a real, per-test tmux socket
 // (never "-L muster", never the user's default server — CLAUDE.md hard rule) and points
 // the test process's own $SHELL at a stub binary that logs each invocation to logFile,
-// so interactiveShellArgv() (which reads os.Getenv("SHELL")) picks it up.
+// so interactiveShellArgv() (which reads os.Getenv("SHELL")) picks it up. Used only by
+// this file's keep-real tests (plan v1-cleanup REQ-3's Implementation Notes list); the
+// three that move to fakes use newFakeShellRegistry below instead.
 func newTestShellRegistry(t *testing.T) (reg *shellRegistry, tmuxClient *tmux.Client, socket, logFile string) {
 	t.Helper()
-	dir, err := os.MkdirTemp("", "muster-shells-test-")
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = os.RemoveAll(dir) })
-	socket = filepath.Join(dir, "tmux.sock")
-	t.Cleanup(func() {
-		_ = exec.Command("tmux", "-S", socket, "kill-server").Run()
-	})
+	socket = tmuxtest.Socket(t)
 	tmuxClient = tmux.New(socket)
 
 	logFile = filepath.Join(t.TempDir(), "shell-invocations.log")
@@ -72,6 +68,15 @@ func newTestShellRegistry(t *testing.T) (reg *shellRegistry, tmuxClient *tmux.Cl
 
 	reg = newShellRegistry(tmuxClient, zerolog.Nop())
 	return reg, tmuxClient, socket, logFile
+}
+
+// newFakeShellRegistry builds a shellRegistry against a fakeTmux (REQ-3): no real tmux
+// server is ever started. Used only by tests whose assertion is a call count or an
+// error's propagation, never a tmux-observable effect (the log-file/real-process
+// assertions above stay on newTestShellRegistry's real socket).
+func newFakeShellRegistry() (*shellRegistry, *fakeTmux) {
+	fake := newFakeTmux()
+	return newShellRegistry(fake, zerolog.Nop()), fake
 }
 
 // TestShellRegistry_EnsureSpawnsATmuxSessionNamedMusterIDShell covers D1: Ensure on an
@@ -94,12 +99,12 @@ func TestShellRegistry_EnsureSpawnsATmuxSessionNamedMusterIDShell(t *testing.T) 
 }
 
 // TestShellRegistry_EnsureIsIdempotentNoSecondSpawn covers D2: a repeat Ensure call for
-// the same id returns created:false and never re-invokes the shell command (proven by
-// the stub binary's invocation log having exactly one line, not by tmux session naming
-// alone — tmux would refuse a literal duplicate session name outright, which would prove
-// only that a collision was avoided, not that no second spawn was even attempted).
+// the same id returns created:false and never re-invokes the shell command — proven
+// directly by the fake's own spawn count (REQ-3's "strengthening": the fake states this
+// as a call count rather than inferring it from tmux session naming, which would only
+// prove a collision was avoided, not that no second spawn was even attempted).
 func TestShellRegistry_EnsureIsIdempotentNoSecondSpawn(t *testing.T) {
-	reg, _, _, logFile := newTestShellRegistry(t)
+	reg, fake := newFakeShellRegistry()
 	id := int64(102)
 	dir := t.TempDir()
 
@@ -112,9 +117,7 @@ func TestShellRegistry_EnsureIsIdempotentNoSecondSpawn(t *testing.T) {
 
 	assert.False(t, created2, "D2: a repeat call must report created:false")
 	assert.Equal(t, target1, target2)
-
-	lines := readLogLines(t, logFile, 1)
-	assert.Len(t, lines, 1, "D2: the shell command must be invoked exactly once across both calls")
+	assert.Equal(t, 1, fake.newNamedSessionCalls, "D2: the shell command must be invoked exactly once across both calls")
 }
 
 // TestShellRegistry_EnsurePaneEnvironmentNeverCarriesMusterSession covers D3/INV-1 from
@@ -169,9 +172,9 @@ func TestShellRegistry_RespawnsAfterExternalKillWithNoMusterSession(t *testing.T
 // Decisions note: Ensure holds its mutex across the whole check-then-spawn tmux round
 // trip specifically so two concurrent POSTs for the same session can't both observe "no
 // pane" and both attempt tmux new-session. Fired as 10 concurrent calls; exactly one
-// must report created:true and the stub binary must be invoked exactly once.
+// must report created:true and the fake's spawn count must be exactly one.
 func TestShellRegistry_ConcurrentEnsureOnlySpawnsOnce(t *testing.T) {
-	reg, _, _, logFile := newTestShellRegistry(t)
+	reg, fake := newFakeShellRegistry()
 	id := int64(105)
 	dir := t.TempDir()
 
@@ -198,23 +201,21 @@ func TestShellRegistry_ConcurrentEnsureOnlySpawnsOnce(t *testing.T) {
 		}
 	}
 	assert.Equal(t, 1, createdCount, "exactly one of the concurrent Ensure calls must have spawned the shell")
-
-	lines := readLogLines(t, logFile, 1)
-	assert.Len(t, lines, 1, "the shell command must be invoked exactly once across all concurrent callers")
+	assert.Equal(t, 1, fake.newNamedSessionCalls, "the shell command must be invoked exactly once across all concurrent callers")
 }
 
 // TestShellRegistry_KillIsANoOpWhenNoShellExists covers Kill's documented "no-op, not an
 // error surfaced to the caller" behaviour when nothing was ever spawned for id — Remove
 // must succeed whether or not a shell was ever started (REQ-9).
 func TestShellRegistry_KillIsANoOpWhenNoShellExists(t *testing.T) {
-	reg, tmuxClient, _, _ := newTestShellRegistry(t)
+	reg, fake := newFakeShellRegistry()
 	id := int64(106)
 
 	assert.NotPanics(t, func() {
 		reg.Kill(context.Background(), id)
 	})
 
-	exists, err := tmuxClient.PaneExists(context.Background(), tmux.ShellSessionName(id))
+	exists, err := fake.PaneExists(context.Background(), tmux.ShellSessionName(id))
 	require.NoError(t, err)
 	assert.False(t, exists)
 }

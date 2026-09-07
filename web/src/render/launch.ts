@@ -98,10 +98,11 @@ export function initLaunchModal(elements: LaunchModalElements, handlers: LaunchM
     updateCustomModelVisibility();
   }
 
-  // REQ-6: a stored value the dialog has no radio for (a future Claude Code mode, or
-  // `null` coerced to the empty string by callers) falls back to `manual` (`default`) —
-  // decided by the pure, unit-tested `permissionModeToCheck` (api.ts), so the radio is
-  // guaranteed to match on the first pass — no uncheck-then-recheck.
+  // REQ-6: a stored value the dialog has no radio for (a future Claude Code mode, `null`,
+  // or the empty string) falls back to `manual` (`default`) — decided by the pure,
+  // unit-tested `permissionModeToCheck` (api.ts), which takes `null` directly (no
+  // caller-side coercion to `""`). `setPermissionMode` here and `selectedPermissionMode`
+  // just below are this file's two callers.
   function setPermissionMode(value: string | null): void {
     checkRadio(elements.permissionModeRadios, permissionModeToCheck(value));
   }

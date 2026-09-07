@@ -23,6 +23,8 @@ import (
 	"github.com/creack/pty"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Zalaras/muster/internal/tmux/tmuxtest"
 )
 
 // newRecordingStub writes an executable standing in for -open-cmd's program: it appends
@@ -65,11 +67,11 @@ func openTestDaemonArgs(t *testing.T, extra ...string) (args []string, dataDir s
 	dataDir = t.TempDir()
 	webDist := t.TempDir()
 
-	sockDir, err := os.MkdirTemp("", "musterd-open-sock-")
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = os.RemoveAll(sockDir) })
-	tmuxSocket := filepath.Join(sockDir, "tmux.sock")
-	t.Cleanup(func() { _ = exec.Command("tmux", "-S", tmuxSocket, "kill-server").Run() })
+	// tmuxSocket (plan v1-cleanup REQ-4): tmuxtest.Socket replaces this file's own copy
+	// of the shared os.MkdirTemp + kill-server idiom — never a bare -L name in tmux's
+	// shared socket directory and never the user's default server (CLAUDE.md hard rule),
+	// even though nothing here ever creates a tmux session on it.
+	tmuxSocket := tmuxtest.Socket(t)
 
 	args = []string{
 		"-addr", "127.0.0.1:0",

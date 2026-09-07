@@ -101,5 +101,6 @@ release-check: ## Validate .goreleaser.yaml and build a local snapshot release i
 
 .PHONY: clean
 clean: ## Remove build output (preserves internal/webui/assets/.gitkeep so a post-clean build still embeds)
+	# Historic: web/dist is pre-embed-dashboard's Vite output dir; stale checkouts may still have one.
 	rm -rf bin web/dist dist
 	find internal/webui/assets -mindepth 1 ! -name .gitkeep -delete

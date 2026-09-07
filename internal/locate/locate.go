@@ -39,9 +39,7 @@ const DefaultSpotlightTimeout = 2 * time.Second
 // puts Spotlight ahead of the directory walk — and stopping at the first Finder that
 // yields any verified (byte-identical) candidate.
 type Locator struct {
-	finders          []Finder
-	walkCap          int
-	spotlightTimeout time.Duration
+	finders []Finder
 }
 
 // New builds the daemon's real Locator: Spotlight first, then a directory walk over the
@@ -52,8 +50,6 @@ func New() *Locator {
 			NewSpotlightFinder(DefaultSpotlightTimeout),
 			NewWalkFinder(DefaultWalkCap),
 		},
-		walkCap:          DefaultWalkCap,
-		spotlightTimeout: DefaultSpotlightTimeout,
 	}
 }
 
@@ -63,9 +59,7 @@ func New() *Locator {
 // (docs/conventions.md §Testing) — and for environments without it.
 func NewWithFinders(finders ...Finder) *Locator {
 	return &Locator{
-		finders:          finders,
-		walkCap:          DefaultWalkCap,
-		spotlightTimeout: DefaultSpotlightTimeout,
+		finders: finders,
 	}
 }
 

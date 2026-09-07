@@ -173,7 +173,7 @@ test("a failed turn's note is cleared once the next turn starts, not carried int
     await expect(stateBadge(card)).toHaveText(/failed/i);
     const failed = findSession(await getState(page, daemon()), session.id);
     expect(failed.failure?.error).toBe("server_error");
-    const lastActivityBefore = failed.stateSince;
+    const stateSinceBefore = failed.stateSince;
 
     // stateSince is wire-formatted RFC3339 (whole-second resolution — see
     // waitForNextClockSecond's doc comment in helpers/session.ts); posting p2 in the
@@ -187,9 +187,10 @@ test("a failed turn's note is cleared once the next turn starts, not carried int
 
     const resumed = findSession(await getState(page, daemon()), session.id);
     expect(resumed.failure).toBeNull();
-    // stateSince moved (a real transition happened), lastActivity concern is the
-    // daemon-tests' to pin precisely — here only the user-visible failure note is ours.
-    expect(resumed.stateSince).not.toBe(lastActivityBefore);
+    // stateSince moved from stateSinceBefore (a real transition happened) — the separate
+    // lastActivity field is the daemon-tests' to pin precisely; here only the
+    // user-visible failure note is ours.
+    expect(resumed.stateSince).not.toBe(stateSinceBefore);
   } finally {
     await cleanup();
   }

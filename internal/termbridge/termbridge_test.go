@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -16,24 +14,16 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Zalaras/muster/internal/tmux"
+	"github.com/Zalaras/muster/internal/tmux/tmuxtest"
 )
 
-// newTestTmuxClient returns a tmux.Client bound to a private, per-test socket *path* in
-// its own scratch directory — never a bare -L name in tmux's shared socket directory
-// (D12) and never the user's default server (CLAUDE.md hard rule).
-//
-// Deliberately not t.TempDir() directly: appending "/tmux.sock" to a t.TempDir() path
-// (which is rooted under this test's full name) can overflow AF_UNIX's ~104-byte
-// sun_path limit on macOS ("File name too long" from tmux itself) — see
-// internal/tmux/tmux_test.go's newTestSocket for the same fix.
+// newTestTmuxClient returns a tmux.Client bound to a private, per-test socket (plan
+// v1-cleanup REQ-4: tmuxtest.Socket replaces this file's own copy of the shared
+// os.MkdirTemp + kill-server idiom — never a bare -L name in tmux's shared socket
+// directory (D12) and never the user's default server, CLAUDE.md hard rule).
 func newTestTmuxClient(t *testing.T) *tmux.Client {
 	t.Helper()
-	dir, err := os.MkdirTemp("", "muster-termbridge-")
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = os.RemoveAll(dir) })
-	socket := filepath.Join(dir, "tmux.sock")
-	t.Cleanup(func() { _ = exec.Command("tmux", "-S", socket, "kill-server").Run() })
-	return tmux.New(socket)
+	return tmux.New(tmuxtest.Socket(t))
 }
 
 // newTestTmuxClientWithSocket is newTestTmuxClient but also returns the underlying
@@ -43,11 +33,7 @@ func newTestTmuxClient(t *testing.T) *tmux.Client {
 // attach are display + oracle only, never a state source).
 func newTestTmuxClientWithSocket(t *testing.T) (*tmux.Client, string) {
 	t.Helper()
-	dir, err := os.MkdirTemp("", "muster-termbridge-")
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = os.RemoveAll(dir) })
-	socket := filepath.Join(dir, "tmux.sock")
-	t.Cleanup(func() { _ = exec.Command("tmux", "-S", socket, "kill-server").Run() })
+	socket := tmuxtest.Socket(t)
 	return tmux.New(socket), socket
 }
 

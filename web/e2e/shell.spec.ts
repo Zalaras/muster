@@ -18,7 +18,7 @@ test("renders the masthead, connection status and empty sessions state after the
   await expect(page.getByRole("status")).toHaveText(/connected/i);
 
   // Exact match: M2 (plan m2-terminal) added two more empty-state placeholders that
-  // contain this string as a substring ("No sessions yet — ⌘N to launch", in the Focus
+  // contain this string as a substring ("No sessions yet — ⌥⌘N to launch", in the Focus
   // main area and the Tiles view) — a non-exact getByText now resolves to 3 elements.
   // The rail's own bare-text empty state (`#sessions`, M1, unchanged) is the one this
   // test asserts on; exact:true disambiguates without weakening the assertion.

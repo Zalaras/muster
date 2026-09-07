@@ -393,7 +393,7 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
 
 ## Pre-v1 Cleanup
 These are some minor changes and cleanup needed before we can move into post v1.
-- [x] Change how the left sidebar works. Sessions should be pinned in the order they are opened but allow the user to update the order by dragging and also allow "pinnng" (using pin icon) sessions (automatically go to the top in order of pinned). — **Done 2026-08-30 (plan `order-sidebar`)**: daemon-owned `pinned`/`railPos`, whole-card drag (insert-and-shift), pin control, rail-head Manual/Attention toggle (`prefs.railSort`, default manual), strip follows the rail order. Follow-ups from the review (`plans/order-sidebar/review.md`): (1) decision `cmd-n-ordering` dissent — ⌘1–9 now follows the rail, so there is no keyboard path to "jump to the neediest session"; consider a dedicated shortcut. **Done 2026-09-04 (plan `shortcut-fixes`): ⌥⌘0 jumps to the neediest session, ignoring the rail's sort mode and the pinned block; decision `cmd-n-ordering` Option A stands unchanged. Dissent discharged.** (2) Minor `[daemon-impl]`: `maxRailPosLocked`'s doc comment says "returns 1 + the largest" but the function returns the largest or `-1`. (3) Minor `[daemon-impl]`: `handlePinSession`/`handleSetOrder` put `err.Error()` in the 500 body where every other handler in the package sends a fixed string. (4) ~~Minor `[web-impl]` (review cycle 2): `focusNth`'s doc comment says "the same order the rail/strip currently display" but the strip renders that order minus live tiles, so in Tiles ⌘3 is not the strip's third card — comment accuracy only.~~ **Fixed 2026-09-04 in passing by plan `shortcut-fixes`** (`web/src/main.ts:414-419`). (5) `[note]`: the pinned-block separator (`.pinned-last`, `#343a4a` 1px) reads weakly against ordinary dividers — as REQ-9 specified, but worth a look.
+- [x] Change how the left sidebar works. Sessions should be pinned in the order they are opened but allow the user to update the order by dragging and also allow "pinnng" (using pin icon) sessions (automatically go to the top in order of pinned). — **Done 2026-08-30 (plan `order-sidebar`)**: daemon-owned `pinned`/`railPos`, whole-card drag (insert-and-shift), pin control, rail-head Manual/Attention toggle (`prefs.railSort`, default manual), strip follows the rail order. Follow-ups from the review (`plans/order-sidebar/review.md`): (1) decision `cmd-n-ordering` dissent — ⌘1–9 now follows the rail, so there is no keyboard path to "jump to the neediest session"; consider a dedicated shortcut. **Done 2026-09-04 (plan `shortcut-fixes`): ⌥⌘0 jumps to the neediest session, ignoring the rail's sort mode and the pinned block; decision `cmd-n-ordering` Option A stands unchanged. Dissent discharged.** (2) ~~Minor `[daemon-impl]`: `maxRailPosLocked`'s doc comment says "returns 1 + the largest" but the function returns the largest or `-1`.~~ **Fixed 2026-09-06 (plan `v1-cleanup`, REQ-10).** (3) ~~Minor `[daemon-impl]`: `handlePinSession`/`handleSetOrder` put `err.Error()` in the 500 body where every other handler in the package sends a fixed string.~~ **Fixed 2026-09-06 (plan `v1-cleanup`, REQ-8).** (4) ~~Minor `[web-impl]` (review cycle 2): `focusNth`'s doc comment says "the same order the rail/strip currently display" but the strip renders that order minus live tiles, so in Tiles ⌘3 is not the strip's third card — comment accuracy only.~~ **Fixed 2026-09-04 in passing by plan `shortcut-fixes`** (`web/src/main.ts:414-419`). (5) ~~`[note]`: the pinned-block separator (`.pinned-last`, `#343a4a` 1px) reads weakly against ordinary dividers — as REQ-9 specified, but worth a look.~~ **Addressed 2026-09-06 (plan `v1-cleanup`, REQ-15)**: `.card.pinned-last` moves from `--line-control` to `--edge`, the token whose documented role is boundaries at ≥ 3:1. Thickness stays 1px.
 - [x] User should be able to move the grids around in the grid view so they can order them as they please. This would be done by dragging the title bar. I'm also wondering if we want status icons (dot - green, orange/yellow and red) in the title to quickly show if running, idle or error. — **Done 2026-08-29 (plan `move-tiles`)**: header drag, insert-and-shift, grid never auto-sorts. The status dot was already shipped (state-coloured per design-system §3); the green/orange/red palette was deliberately not adopted (§3 forbids reusing state colours), a hover `title` with the state word was added instead. Deferred: keyboard reorder, persisting order across reloads.
 - [x] Look to see if we can also put in Fable as a model in the options (create new session) and update the usage indicator to include the weekly Fable limit. — **Third bar shipped 2026-08-30 (plan `usage-model-bar`, decision (b))**: musterd polls `GET /api/oauth/usage` with the read-only Keychain OAuth token (5-min poll + ↻ refresh), `#usage-model-week` readout with a model `<select>` persisted as `prefs.usageModel`. The "add Fable to the launch model select" half shipped 2026-08-30 with plan `new-session-dialog` (segmented Model control gains a `fable` preset). This might need to be dynamic for new models in the future? Might be worth investigating that 3rd bar (specific model not the 5h or weekly usage). This is also displayed in the `/usage` command that Claude Code has
   - **Probed 2026-08-30 (static, against installed 2.1.251):** the third bar is **not in the
@@ -416,13 +416,13 @@ These are some minor changes and cleanup needed before we can move into post v1.
   plugin keeps the tree clean), `-web-dist` default flips to `""` (embedded) and becomes a dev
   override, an assetless binary fails fast at startup naming both remedies, `make e2e` orders
   `web-build build`. Follow-ups from the review (`plans/embed-dashboard/review.md`, both Minor
-  `[daemon-impl]`): (1) "`Makefile:66` — `clean`'s `rm -rf bin web/dist` is the last live
+  `[daemon-impl]`): (1) ~~"`Makefile:66` — `clean`'s `rm -rf bin web/dist` is the last live
   mention of the retired path, and unlike `.gitignore:11-12` it carries no `# Historic:`
-  comment saying why" — add the same one-line historic comment. (2) REQ-3's fatal branch has no
+  comment saying why" — add the same one-line historic comment.~~ (2) ~~REQ-3's fatal branch has no
   automated regression guard (only the cycle-1 hands-on D5 check): add the reviewer's one-line
   seam — `checkWebDist(webDist string, embedded fs.FS, log zerolog.Logger)` with `run()` still
   passing the real `webui.FS()` — so daemon-tests can assert the fatal error and its two-remedy
-  wording deterministically.
+  wording deterministically.~~ **Both fixed 2026-09-06 (plan `v1-cleanup`, REQ-11 and REQ-9).**
 
 - [x] Add CI that builds and publishes a shippable binary, with automatic semantic versioning
   — **Done 2026-08-31**: `.github/workflows/release.yml` runs on push to `main` (plus
@@ -506,7 +506,7 @@ These are some minor changes and cleanup needed before we can move into post v1.
   wrote a fresh stub `claude` per daemon and macOS charges ~270 ms (serialised) for the first
   exec of a new script — one shared stub per run now (`ensureSharedStubClaude`). The history
   that triggered it (three measured load flakes, 2026-09-03) is in the design note.
-- [ ] **`internal/server` handler tests still build a real tmux server per test** (~35 of the
+- [x] **`internal/server` handler tests still build a real tmux server per test** (~35 of the
   `terminal_test.go`/`plainshell_test.go`/`shells_test.go`/`sessions_test.go` tests exercise
   404/409/cookie/JSON plumbing that only needs a session row to look dead or alive). Audit
   2026-09-06: `internal/session` already has consumer-side `PaneChecker`/`PaneSnapshotter`/`Killer`
@@ -514,12 +514,20 @@ These are some minor changes and cleanup needed before we can move into post v1.
   and an attach seam over `termbridge.Attach` in `internal/server`. Keep real tmux for the PTY
   stream, geometry, takeover/misroute and kill-scoping tests (docs/conventions.md §Testing). A
   daemon plan through `/plan-work`: it changes production seams. `internal/server` is 25 s of the
-  27 s `make test` wall time today.
-- [ ] **Deduplicate the per-test tmux socket helper** — the same ~10-line `os.MkdirTemp` +
+  27 s `make test` wall time today. — **Done 2026-09-06 (plan `v1-cleanup`)**: `internal/server` declares
+  consumer-side `paneSpawner` and `paneConn`/`attachFunc` interfaces (REQ-1, REQ-2) with
+  nil-defaulting `Config.TmuxClient`/`Config.Attach` overrides, and the 20 tests named on the
+  plan's keep-real list's complement now run against fakes. The 25 tests whose assertions are
+  genuinely tmux-observable keep a real server, by the plan's list rather than agent judgement.
+  Measurement recorded in `docs/design/test-strategy.md`.
+- [x] **Deduplicate the per-test tmux socket helper** — the same ~10-line `os.MkdirTemp` +
   `t.Cleanup(kill-server)` idiom (with its 104-byte `sun_path` comment) is copy-pasted in
   `internal/tmux/tmux_test.go:29`, `internal/termbridge/termbridge_test.go:29,44`,
   `internal/server/{sessions,terminal,shells}_test.go`, `cmd/musterd/{open,onexit}_test.go`. One
-  `internal/testutil` (or `internal/tmux/tmuxtest`) helper; pair with the item above.
+  `internal/testutil` (or `internal/tmux/tmuxtest`) helper; pair with the item above. — **Done 2026-09-06 (plan `v1-cleanup`)**
+  (REQ-4): `internal/tmux/tmuxtest` — a separate package, not a `_test.go` file, because
+  `internal/server`, `internal/termbridge` and `cmd/musterd` all need it and Go test files are
+  not importable. The ~104-byte `sun_path` rationale lives on the helper.
 
 ## Reported issues (pre-v1 release)
 
@@ -578,12 +586,17 @@ unless he re-ranks — don't re-sort this list.
   drops paste verbatim; per-surface `role="status"` notices for every outcome. Follow-ups from the
   approved review (`plans/file-drop-fix/review.md`, cycle 2 Minors, none routed — agents tagged only
   with Minors are not spawned):
-  - `[web-impl]` The in-flight `Locating <name>…` notice auto-hides after 5 s while the request is
+  - ~~`[web-impl]` The in-flight `Locating <name>…` notice auto-hides after 5 s while the request is
     still running — `showNotice` in `web/src/terminal/pane.ts` arms the 5 s timer for every non-null
-    text; REQ-6 ties the hide to the failure text only. Arm the timer only for the failure branch.
-  - `[daemon-impl]` `Locator.walkCap` and `Locator.spotlightTimeout` (`internal/locate/locate.go`) are
+    text; REQ-6 ties the hide to the failure text only. Arm the timer only for the failure branch.~~
+    **Fixed 2026-09-06 (plan `v1-cleanup`, REQ-12/REQ-13)**: the show/clear/auto-hide logic is now one
+    module (`web/src/terminal/notice.ts`) that both `terminal/pane.ts` and `render/dead.ts` delegate
+    to, and only outcome notices arm the 5 s timer.
+  - ~~`[daemon-impl]` `Locator.walkCap` and `Locator.spotlightTimeout` (`internal/locate/locate.go`) are
     set by `New()` and never read — the acting values are baked into `SpotlightFinder`/`WalkFinder`.
-    Drop the fields, or have `Locate` use them.
+    Drop the fields, or have `Locate` use them.~~ **Fixed 2026-09-06 (plan `v1-cleanup`, REQ-7)**: the
+    two fields are deleted; `DefaultWalkCap`/`DefaultSpotlightTimeout` stay where the finders consume
+    them.
   - `[daemon-impl]` A nil `Locator` panics the handler (`internal/server/locate.go` dereferences
     `s.locator` unguarded while `Config.Locator`'s comment invites tests to leave it nil). A two-line
     guard returning `500 internal_error` turns the panic into a diagnosable error.
@@ -608,7 +621,7 @@ unless he re-ranks — don't re-sort this list.
   request it: `bypassPermissions` appears nowhere in the tree. Decide the fix: rename the
   radio so it can't be read as Claude's `auto`, or add a fourth option that really asks for
   it. The second wants the guardrails the §4.4 permissions UI (M5+) implies.
-  - [ ] Follow-up (review Minor, `plans/fix-auto-mode-select/review.md` cycle 2 Minor 1, `[web-impl]`):
+  - [x] Follow-up (review Minor, `plans/fix-auto-mode-select/review.md` cycle 2 Minor 1, `[web-impl]`) — **Done 2026-09-06 (plan `v1-cleanup`)** (REQ-14):
     "Two comments on the new REQ-6 code describe a world the fix removed — `web/src/api.ts:52-57`
     and `web/src/render/launch.ts:99-103`. `api.ts` says '`setPermissionMode` is the only caller',
     but `selectedPermissionMode` is a second caller … `launch.ts` says the fallback handles
@@ -718,14 +731,14 @@ unless he re-ranks — don't re-sort this list.
   middle-click on the switcher from cancelling an edit. Add an E2E pin beside the four
   view-switch cancel tests in `web/e2e/rename.spec.ts`.
 
-- [ ] **E7 spec variable misnamed** — follow-up from `claude-status-fixes` (review cycle 1
+- [x] **E7 spec variable misnamed** — follow-up from `claude-status-fixes` (review cycle 1
   Minor 1, `plans/claude-status-fixes/review.md`): in `web/e2e/subagent-status.spec.ts`'s E7
   test "the variable holding `failed.stateSince` is named `lastActivityBefore` … compared
   against `resumed.stateSince` two lines later, and the comment beside it talks about
   `lastActivity`, so a maintainer reads the assertion as being about a field it never
-  touches. Rename to `stateSinceBefore`." Cosmetic; fold into the next E2E touch.
+  touches. Rename to `stateSinceBefore`." Cosmetic; fold into the next E2E touch. — **Done 2026-09-06 (plan `v1-cleanup`)** (REQ-16).
 
-- [ ] **Six E2E comments still name the pre-plan chords** — follow-up from `shortcut-fixes`
+- [x] **Six E2E comments still name the pre-plan chords** — follow-up from `shortcut-fixes`
   (review cycle 1 Minor 1, `plans/shortcut-fixes/review.md`): "Six internal comments across
   the suite still name the pre-plan chords, after the same pass renamed comments in the five
   files it did touch. Each is a comment a maintainer reads while deciding what a test covers,
@@ -735,7 +748,9 @@ unless he re-ranks — don't re-sort this list.
   `web/e2e/rail-order.spec.ts:582,584`, `web/e2e/terminal.spec.ts:407`. Wrong-but-inert —
   every assertion beside them is correct, which is why the suite is green. Note for the
   fixer: `rail-order.spec.ts:582-586` describes a *past* decision, so `⌥⌘1–9` is the right
-  replacement there rather than a rewording. Cosmetic; fold into the next E2E touch.
+  replacement there rather than a rewording. Cosmetic; fold into the next E2E touch. — **Done 2026-09-06 (plan `v1-cleanup`)**
+  (REQ-17). The plan's cited line numbers were stale against the tree; the six sites were matched
+  by content.
 
 - [x] **A session reads Idle in the rail while it is still working** ([#14](https://github.com/Zalaras/muster/issues/14)) ✅ done 2026-09-03 (plan `claude-status-fixes`, via `/orchestrate`, approved review cycle 1; lands with `/land claude-status-fixes`, which closes #14, #15 and #20).
   — "Had this session go IDLE in the UI on the sidebar while it's still working and editing
@@ -833,7 +848,8 @@ unless he re-ranks — don't re-sort this list.
   Footer overflow measured 0 at both 1152px and 1024px in the shipped build, so the plan's
   documented 6px 1024px floor is pessimistic. The richer shape stays in M5+ below.
   Follow-ups from the review (`plans/plain-terminal-session/review.md` cycle 2, both Minor,
-  left open at an approved review): (1) `[daemon-impl]`: `shellRegistry.spawned`
+  left open at an approved review; **both fixed 2026-09-06 (plan `v1-cleanup`, REQ-5 and REQ-18)**):
+  (1) `[daemon-impl]`: `shellRegistry.spawned`
   (`internal/server/shells.go`) is write-only state — written in `Ensure`, deleted in `Kill`,
   read nowhere; `PaneExists` is the source of truth and `mu` makes `Ensure` safe, so the map
   can be deleted with `Ensure`/`Kill` behaving identically. (2) `[e2e-specs]`: the "DEAD tile
@@ -848,6 +864,36 @@ Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start
 (§4.3) → permissions UI (§4.4) → `code <worktree>` button (trivial, anytime).
 Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-09-01) is in
 `docs/design/worktree-conflicts.md` — read it before planning the worktree manager.
+
+- [ ] **`views.spec.ts` E7 is load-flaky (1 failure in 5 full-suite runs, 2026-09-07)** — observed
+  during plan `v1-cleanup`'s final gate sweep: "Cmd+\ toggles the view and Opt+Cmd+1 focuses the
+  top-priority session regardless of launch order (E7)" failed with
+  `expect(locator('[aria-label="Terminal: prio-a"]')).toBeVisible()` timing out at the full 15 s
+  after `page.keyboard.press("Alt+Meta+Digit1")` — element never appeared, so the chord did not
+  take effect. **Not caused by that plan**: its only change to the file is one comment character
+  (`⌘1`→`⌥⌘1`), and it touches neither `web/src/shortcuts.ts` nor `web/src/main.ts`, so the whole
+  ⌥⌘1/`focusNth` path is unchanged. Measured: 8/8 green running `views.spec.ts` alone, 4/5 green
+  in full-suite runs — it only misses under cross-file load, the same family as the
+  `theme.spec.ts:83` baseline flake in `docs/design/test-strategy.md`. Likely the keypress landing
+  before the keydown listener is attached or before the session list settles; a pre-press
+  readiness wait is the probable fix. Worth pinning down before it costs a real debugging session.
+
+- [ ] **`internal/server` test-helper hygiene** — three Minors left open at plan `v1-cleanup`'s
+  approved review (`plans/v1-cleanup/review.md` cycle 1, all `[daemon-tests]`; an agent tagged
+  only with Minors is not re-spawned). All cosmetic, all in one file pair:
+  - "`internal/server/terminal_test.go:32` — `newTerminalTestServer`'s doc comment says
+    'Everything else in this file uses `newFakeTerminalTestServer`', but no such constructor
+    exists; it is `newFakeTmuxTestServer` (`fakes_test.go`). A maintainer grepping the named
+    symbol finds nothing. One-word fix."
+  - "`internal/server/terminal_test.go:51-54` — `launchRealSession`'s doc comment still promises
+    'a real Muster session row **and a real backing tmux session running argv**'. That is now
+    false for its eighteen fakes-server callers in `plainshell_test.go` … This is precisely the
+    trap D3 exists to guard against — a helper whose name and comment both say 'real' while doing
+    nothing real — so it is worth a sentence saying the realness follows the server it is handed."
+  - "`internal/server/fakes_test.go` — `containsExit` hand-rolls a substring scan that
+    `bytes.Contains(p, []byte("exit"))` does in one line, with no behavioural difference. Delete
+    the helper and inline the stdlib call."
+
 
 - [ ] **Richer terminal functionality** (post-release) — the first pass
   (`plans/plain-terminal-session/spec.md`, [#21](https://github.com/Zalaras/muster/issues/21))

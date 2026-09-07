@@ -1433,16 +1433,19 @@ body {
 
 /* REQ-9: a neutral (never state-coloured) rule separating the pinned block from the
  * unpinned cards below it — the last pinned card in display order carries this class,
- * cleared everywhere else (render/sessions.ts's `reconcileCards`). */
+ * cleared everywhere else (render/sessions.ts's `reconcileCards`). Plan v1-cleanup
+ * REQ-15: `--edge` (design-system §1: "boundaries that must be seen on their own, ≥
+ * 3:1"), not `--line-control` — this rule must read as a boundary, not another hairline
+ * between two ordinary cards. */
 .card.pinned-last {
-  border-bottom: 1px solid var(--line-control);
+  border-bottom: 1px solid var(--edge);
 }
 
 /* The strip lays cards side by side (`.strip .card` above sets `border-bottom: 0`) — the
  * pinned-block boundary reads as a vertical rule there instead. */
 .strip .card.pinned-last {
   border-bottom: 0;
-  border-right: 1px solid var(--line-control);
+  border-right: 1px solid var(--edge);
 }
 
 /* ── drag-to-reorder feedback (plan order-sidebar REQ-10, generalising plan move-tiles'

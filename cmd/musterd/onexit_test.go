@@ -33,6 +33,7 @@ import (
 	"github.com/Zalaras/muster/internal/claudecode"
 
 	"github.com/Zalaras/muster/internal/store"
+	"github.com/Zalaras/muster/internal/tmux/tmuxtest"
 )
 
 // musterdBinary is built once (TestMain below) and shared by every test in this file —
@@ -132,16 +133,11 @@ func spawnDaemon(t *testing.T, onExit string, stdin *os.File) *spawnedDaemon {
 	dataDir := t.TempDir()
 	webDist := t.TempDir()
 
-	// A private per-test tmux socket *path* in its own scratch dir, never a bare -L name
-	// in tmux's shared socket directory (D12-style discipline, mirrors
-	// internal/tmux/tmux_test.go's newTestSocket) and never the user's default server
-	// (CLAUDE.md hard rule). Deliberately not t.TempDir() directly: appending "/tmux.sock"
-	// to a name-rooted temp dir can overflow AF_UNIX's ~104-byte sun_path limit on macOS.
-	sockDir, err := os.MkdirTemp("", "musterd-onexit-sock-")
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = os.RemoveAll(sockDir) })
-	tmuxSocket := filepath.Join(sockDir, "tmux.sock")
-	t.Cleanup(func() { _ = exec.Command("tmux", "-S", tmuxSocket, "kill-server").Run() })
+	// tmuxSocket (plan v1-cleanup REQ-4): tmuxtest.Socket replaces this file's own copy
+	// of the shared os.MkdirTemp + kill-server idiom (D12-style discipline) — never a
+	// bare -L name in tmux's shared socket directory and never the user's default server
+	// (CLAUDE.md hard rule).
+	tmuxSocket := tmuxtest.Socket(t)
 
 	args := []string{
 		"-addr", "127.0.0.1:0",

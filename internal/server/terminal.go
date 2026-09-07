@@ -11,7 +11,6 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/Zalaras/muster/internal/termbridge"
 	"github.com/Zalaras/muster/internal/tmux"
 )
 
@@ -38,7 +37,7 @@ const terminalReadBufSize = 32 * 1024
 // attach starts (REQ-2).
 type terminalConn struct {
 	ws     *websocket.Conn
-	bridge *termbridge.Bridge
+	bridge paneConn
 }
 
 // terminalSurface distinguishes a session's Claude pane from its plain-shell surface
@@ -204,7 +203,7 @@ func (s *Server) handleTerminal(w http.ResponseWriter, r *http.Request) {
 	// starts (REQ-2, Major 1) — see terminalRegistry.takeover's doc comment.
 	key := terminalKey{sessionID: id, surface: surfaceClaude}
 	conn, err := s.terminals.takeover(r.Context(), key, func(attachCtx context.Context) (*terminalConn, error) {
-		bridge, aerr := termbridge.Attach(attachCtx, s.tmuxClient, sess.TmuxTarget)
+		bridge, aerr := s.attach(attachCtx, sess.TmuxTarget)
 		if aerr != nil {
 			return nil, aerr
 		}
@@ -285,7 +284,7 @@ func (s *Server) handleShellTerminal(w http.ResponseWriter, r *http.Request) {
 	// supersedes a live Claude socket for the same session, and vice versa.
 	key := terminalKey{sessionID: id, surface: surfaceShell}
 	conn, err := s.terminals.takeover(r.Context(), key, func(attachCtx context.Context) (*terminalConn, error) {
-		bridge, aerr := termbridge.Attach(attachCtx, s.tmuxClient, shellTarget)
+		bridge, aerr := s.attach(attachCtx, shellTarget)
 		if aerr != nil {
 			return nil, aerr
 		}
@@ -324,7 +323,7 @@ func (s *Server) handleShellTerminal(w http.ResponseWriter, r *http.Request) {
 // the liveness poll only when nudgeOnEOF is true (the Claude surface, REQ-6) — a shell
 // surface's EOF (§6.1) must never nudge its session's liveness (INV-6-adjacent: a shell's
 // death is not its session's death).
-func (s *Server) pumpPTYToSocket(ctx context.Context, c *websocket.Conn, bridge *termbridge.Bridge, sessionID int64, nudgeOnEOF bool) {
+func (s *Server) pumpPTYToSocket(ctx context.Context, c *websocket.Conn, bridge paneConn, sessionID int64, nudgeOnEOF bool) {
 	buf := make([]byte, terminalReadBufSize)
 	for {
 		n, err := bridge.Read(buf)
@@ -366,7 +365,7 @@ func (s *Server) pumpPTYToSocket(ctx context.Context, c *websocket.Conn, bridge 
 // pumpSocketToPTY reads client frames until the socket closes: binary frames are raw
 // input bytes, text frames are resize control frames; anything unparseable/unknown is
 // ignored and logged, never fatal (Edge Case 9).
-func (s *Server) pumpSocketToPTY(ctx context.Context, c *websocket.Conn, bridge *termbridge.Bridge) {
+func (s *Server) pumpSocketToPTY(ctx context.Context, c *websocket.Conn, bridge paneConn) {
 	for {
 		msgType, data, err := c.Read(ctx)
 		if err != nil {
@@ -394,7 +393,7 @@ const maxLoggedFrameLen = 200
 // applyResizeFrame parses and clamps one resize control frame, applying it via
 // Bridge.Resize (pty.Setsize then tmux resize-window — FINDINGS §7(d)). An unparseable
 // or unknown text frame is ignored and logged, never fatal (Edge Case 9).
-func (s *Server) applyResizeFrame(ctx context.Context, bridge *termbridge.Bridge, data []byte) {
+func (s *Server) applyResizeFrame(ctx context.Context, bridge paneConn, data []byte) {
 	var frame resizeFrame
 	if err := json.Unmarshal(data, &frame); err != nil || frame.Type != "resize" {
 		logged := data

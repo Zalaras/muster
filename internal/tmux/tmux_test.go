@@ -13,30 +13,18 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Zalaras/muster/internal/tmux/tmuxtest"
 )
 
-// newTestSocket returns a private, per-test tmux socket *path* in its own scratch
-// directory that gets deleted on cleanup (D12: every tmux.New in tests receives a
-// scratch-dir path, never a bare -L name in tmux's shared socket directory) and never
-// the user's default server (CLAUDE.md hard rule). This also exercises the -S code path
-// (REQ-5) on every test that uses it.
-//
-// Deliberately NOT t.TempDir(): that path is rooted under the test's full name (e.g.
-// ".../TestNewSession_AppliesServerOptionsOnlyOnceOnAnAlreadyRunningServer/001/"), and
-// with "/tmux.sock" appended it overflows AF_UNIX's ~104-byte sun_path limit on macOS
-// ("File name too long" from tmux itself) — a real portability trap, not a style
-// choice. os.MkdirTemp with a short, fixed prefix keeps the whole path well under that
-// limit regardless of the test's name length.
+// newTestSocket returns a private, per-test tmux socket *path* (plan v1-cleanup REQ-4:
+// the shared helper every one of this file's tests now uses instead of its own copy of
+// the same os.MkdirTemp + kill-server idiom — see tmuxtest.Socket's own doc comment for
+// the sun_path rationale). This also exercises the -S code path (REQ-5) on every test
+// that uses it.
 func newTestSocket(t *testing.T) string {
 	t.Helper()
-	dir, err := os.MkdirTemp("", "muster-tmux-")
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = os.RemoveAll(dir) })
-	socket := filepath.Join(dir, "tmux.sock")
-	t.Cleanup(func() {
-		_ = exec.Command("tmux", "-S", socket, "kill-server").Run()
-	})
-	return socket
+	return tmuxtest.Socket(t)
 }
 
 // nextID returns a small unique-enough int64 per test so concurrently running tests

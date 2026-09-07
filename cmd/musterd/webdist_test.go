@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"testing/fstest"
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
@@ -13,7 +14,8 @@ import (
 
 // TestCheckWebDist_DiskOverridePresent covers the -web-dist-set branch when the
 // directory genuinely has a built dashboard: no error, no warning (REQ-2's disk
-// override behaves exactly as before this plan).
+// override behaves exactly as before this plan). dashboard is an empty fstest.MapFS —
+// the disk branch returns before ever consulting it (D7's precedence).
 func TestCheckWebDist_DiskOverridePresent(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "index.html"), []byte("<!doctype html>"), 0o644))
@@ -21,7 +23,7 @@ func TestCheckWebDist_DiskOverridePresent(t *testing.T) {
 	var buf bytes.Buffer
 	log := zerolog.New(&buf)
 
-	err := checkWebDist(dir, log)
+	err := checkWebDist(dir, fstest.MapFS{}, log)
 
 	assert.NoError(t, err)
 	assert.Empty(t, buf.String(), "a present index.html must not log any warning")
@@ -38,7 +40,7 @@ func TestCheckWebDist_DiskOverrideEmptyDirWarnsButDoesNotFail(t *testing.T) {
 	var buf bytes.Buffer
 	log := zerolog.New(&buf)
 
-	err := checkWebDist(dir, log)
+	err := checkWebDist(dir, fstest.MapFS{}, log)
 
 	require.NoError(t, err, "an empty -web-dist directory must not fail startup (permissive dev override)")
 	out := buf.String()
@@ -55,26 +57,57 @@ func TestCheckWebDist_DiskOverridePointsAtMissingDirectoryWarnsButDoesNotFail(t 
 	var buf bytes.Buffer
 	log := zerolog.New(&buf)
 
-	err := checkWebDist(missing, log)
+	err := checkWebDist(missing, fstest.MapFS{}, log)
 
 	require.NoError(t, err)
 	assert.Contains(t, buf.String(), "no index.html")
 }
 
-// The fatal branch of checkWebDist (webDist unset, nothing embedded — REQ-3/D5) is
-// deliberately NOT exercised here: checkWebDist calls webui.HasDashboard(webui.FS())
-// directly rather than taking an injected fs.FS, and webui.FS() is backed by a
-// package-level //go:embed var fixed at compile time to whatever is on disk under
-// internal/webui/assets/ when this test binary was built. `make test` has no
-// web-build prerequisite (Makefile), so that directory's contents — and therefore
-// checkWebDist("", ...)'s outcome — vary with build state across machines/CI in a way
-// a unit test must not depend on (a fresh clone has only .gitkeep and would report the
-// fatal error; this checkout currently has a real prior web build and would not).
-// This is exactly the limitation the plan's Implementation Notes name explicitly ("the
-// real embed var can't exercise this branch after a web build") and the reason
-// webui.HasDashboard was factored to take a caller-supplied fs.FS in the first place —
-// see internal/webui/webui_test.go's TestHasDashboard, which covers the branch
-// condition itself (empty tree -> false, tree with index.html -> true) exhaustively
-// against injected fstest.MapFS trees. The fatal message's wording (both remedies named)
-// was confirmed by reading cmd/musterd/main.go's checkWebDist directly; it is otherwise
-// the plan's R2 reviewer-verified item.
+// TestCheckWebDist_DiskOverridePrecedenceOverNonEmptyDashboard covers D7/D10's other
+// half of the precedence clause: even when the embedded dashboard genuinely has a
+// dashboard, an explicit -web-dist still wins (returns before webui.HasDashboard is ever
+// consulted) — proven by an embedded fs.FS that actually has an index.html, which would
+// make the fatal branch's own predicate report true, yet the disk directory (also empty
+// here) is still accepted with only the permissive warning, never the fatal error.
+func TestCheckWebDist_DiskOverridePrecedenceOverNonEmptyDashboard(t *testing.T) {
+	dir := t.TempDir() // empty: proves the disk branch alone decided the outcome
+
+	var buf bytes.Buffer
+	log := zerolog.New(&buf)
+
+	err := checkWebDist(dir, fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}}, log)
+
+	require.NoError(t, err, "D7: -web-dist must take precedence over the embedded dashboard even when one is embedded")
+	assert.Contains(t, buf.String(), "no index.html")
+}
+
+// TestCheckWebDist_NothingOnDiskNothingEmbeddedIsFatal covers REQ-3/REQ-9's fatal branch
+// (D5/D8): webDist unset and an empty embedded fs.FS — a binary built before any
+// `make web-build` — refuses to start, naming both remedies. Passing dashboard as a
+// parameter (REQ-9) is what makes this deterministically testable: the real webui.FS()
+// embed var varies with this checkout's own build state (a fresh clone has only
+// .gitkeep; a checkout with a prior `make web-build` does not), which is exactly why
+// checkWebDist takes an injected fs.FS instead of calling webui.FS() itself.
+func TestCheckWebDist_NothingOnDiskNothingEmbeddedIsFatal(t *testing.T) {
+	var buf bytes.Buffer
+	log := zerolog.New(&buf)
+
+	err := checkWebDist("", fstest.MapFS{}, log)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "make web-build", "D8: the fatal message must name the make web-build remedy")
+	assert.Contains(t, err.Error(), "-web-dist", "D8: the fatal message must name the -web-dist remedy")
+}
+
+// TestCheckWebDist_EmbeddedDashboardPresentIsFine covers the non-fatal half of the
+// webDist-unset branch: an embedded fs.FS that does have a dashboard starts cleanly, no
+// error and no warning (warnings are the disk-override branch's own concern only).
+func TestCheckWebDist_EmbeddedDashboardPresentIsFine(t *testing.T) {
+	var buf bytes.Buffer
+	log := zerolog.New(&buf)
+
+	err := checkWebDist("", fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}}, log)
+
+	assert.NoError(t, err)
+	assert.Empty(t, buf.String())
+}

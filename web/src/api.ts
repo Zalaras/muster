@@ -50,11 +50,11 @@ export type PermissionMode = (typeof PERMISSION_MODES)[number];
 
 // Plan fix-auto-mode-select REQ-6: the single decision point for "which radio should be
 // checked for this stored value" — a stored mode this dialog has no radio for (a future
-// Claude Code mode, or `null`/the empty string) falls back to `manual` (`default`). Pure
+// Claude Code mode, `null`, or the empty string) falls back to `manual` (`default`). Pure
 // and exported so it's unit-testable without a fake DOM; render/launch.ts's
-// `setPermissionMode` is the only caller and just feeds the result straight to
-// `checkRadio`, so the radio is guaranteed to match on the first pass (no
-// uncheck-then-recheck).
+// `setPermissionMode` and `selectedPermissionMode` are its only two callers, both passing
+// a `string | null` straight through — the function takes `null` directly, no caller-side
+// coercion to `""` needed.
 export function permissionModeToCheck(stored: string | null): PermissionMode {
   return (PERMISSION_MODES as readonly string[]).includes(stored ?? "") ? (stored as PermissionMode) : "default";
 }

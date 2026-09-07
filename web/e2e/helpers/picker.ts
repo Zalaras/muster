@@ -8,7 +8,7 @@
 import type { Locator, Page } from "@playwright/test";
 
 /** The launch dialog itself — `aria-labelledby` gives it the accessible name "New
- * session" (the `⌘N` kbd beside the heading text is `aria-hidden`, so it never joins the
+ * session" (the `⌥⌘N` kbd beside the heading text is `aria-hidden`, so it never joins the
  * accessible name). */
 export function launchDialog(page: Page): Locator {
   return page.getByRole("dialog", { name: "New session" });

@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -22,6 +21,7 @@ import (
 	"github.com/Zalaras/muster/internal/session"
 	"github.com/Zalaras/muster/internal/store"
 	"github.com/Zalaras/muster/internal/tmux"
+	"github.com/Zalaras/muster/internal/tmux/tmuxtest"
 )
 
 func postSessionsRequest(t *testing.T, srv *testServer, body string) *httptest.ResponseRecorder {
@@ -214,25 +214,16 @@ func newStubClaudeBin(t *testing.T, envOutFile string) string {
 	return path
 }
 
-// newTestTmuxClient returns a tmux.Client bound to a private, per-test socket *path* —
-// never a bare -L name in tmux's shared socket directory (D12) and never the user's
-// default server (CLAUDE.md hard rule).
-//
-// Deliberately not t.TempDir() directly: that path is rooted under this test's full
-// name, and with "/tmux.sock" appended it can overflow AF_UNIX's ~104-byte sun_path
-// limit on macOS ("File name too long" from tmux itself) — see internal/tmux/tmux_test.go's
-// newTestSocket for the same fix. os.MkdirTemp with a short, fixed prefix keeps the
-// whole path well under that limit regardless of the test's name length.
+// newTestTmuxClient returns a tmux.Client bound to a private, per-test socket (plan
+// v1-cleanup REQ-4: tmuxtest.Socket replaces this file's own copy of the shared
+// os.MkdirTemp + kill-server idiom) — never a bare -L name in tmux's shared socket
+// directory (D12) and never the user's default server (CLAUDE.md hard rule). Used only
+// by TestLauncher_SuccessfulLaunchEndToEnd (this file's keep-real test, per REQ-3's
+// Implementation Notes list); TestLauncher_AutoPermissionModeSeedsLatchAndRepoDefault
+// uses a fakeTmux instead.
 func newTestTmuxClient(t *testing.T) *tmux.Client {
 	t.Helper()
-	dir, err := os.MkdirTemp("", "muster-server-test-")
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = os.RemoveAll(dir) })
-	socket := filepath.Join(dir, "tmux.sock")
-	t.Cleanup(func() {
-		_ = exec.Command("tmux", "-S", socket, "kill-server").Run()
-	})
-	return tmux.New(socket)
+	return tmux.New(tmuxtest.Socket(t))
 }
 
 // TestLauncher_SuccessfulLaunchEndToEnd covers D4/D5/D6/D7/REQ-1/REQ-2 at the
@@ -313,15 +304,16 @@ func TestLauncher_SuccessfulLaunchEndToEnd(t *testing.T) {
 
 // TestLauncher_AutoPermissionModeSeedsLatchAndRepoDefault covers D3 (a launch with
 // "auto" seeds the session's permission latch with {"auto", "seed"}) and D7 (the
-// directory's per-directory default records "auto" as the raw requested value).
+// directory's per-directory default records "auto" as the raw requested value). Uses a
+// fakeTmux (REQ-3): every assertion is about the returned Session/repo row, never a
+// tmux-observable effect, so no real tmux server is needed.
 func TestLauncher_AutoPermissionModeSeedsLatchAndRepoDefault(t *testing.T) {
 	st := openLauncherTestStore(t)
 	mgr := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop()})
-	tmuxClient := newTestTmuxClient(t)
 	dir := t.TempDir()
 
 	l := &sessionLauncher{
-		store: st, manager: mgr, tmux: tmuxClient, log: zerolog.Nop(), claudeBin: newStubClaudeBin(t, filepath.Join(t.TempDir(), "env-output.txt")),
+		store: st, manager: mgr, tmux: newFakeTmux(), log: zerolog.Nop(), claudeBin: "irrelevant-never-reached",
 		hookScript: "/bin/true", statusLineScript: "/bin/true",
 	}
 
@@ -329,7 +321,6 @@ func TestLauncher_AutoPermissionModeSeedsLatchAndRepoDefault(t *testing.T) {
 		Directory: dir, Model: "sonnet", PermissionMode: "auto",
 	})
 	require.Nil(t, lerr)
-	t.Cleanup(func() { _ = tmuxClient.KillWindow(context.Background(), sess.TmuxTarget) })
 
 	// D3: the returned session's permission latch is seeded auto/seed.
 	assert.Equal(t, session.PermissionAuto, sess.PermissionMode)

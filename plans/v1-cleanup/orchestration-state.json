@@ -1,0 +1,100 @@
+{
+  "plan_name": "v1-cleanup",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 1,
+    "web-impl": 0,
+    "daemon-tests": 1,
+    "web-tests": 0,
+    "e2e-validate": 1,
+    "review": 0
+  },
+  "completed_steps": [
+    "e2e-specs",
+    "web-impl",
+    "web-tests",
+    "daemon-impl",
+    "daemon-tests",
+    "e2e-validate",
+    "review"
+  ],
+  "step_started_at": {
+    "e2e-specs": "2026-09-06T20:38:30Z",
+    "daemon-impl": "2026-09-06T21:17:38Z",
+    "web-impl": "2026-09-06T20:42:48Z",
+    "web-tests": "2026-09-06T20:49:12Z",
+    "daemon-tests": "2026-09-06T21:19:53Z",
+    "e2e-validate": "2026-09-07T01:27:35Z",
+    "review": "2026-09-07T01:30:55Z"
+  },
+  "step_finished_at": {
+    "e2e-specs": "2026-09-06T20:42:48Z",
+    "web-impl": "2026-09-06T20:49:11Z",
+    "web-tests": "2026-09-06T20:51:06Z",
+    "daemon-impl": "2026-09-06T21:19:53Z",
+    "daemon-tests": "2026-09-06T21:23:19Z",
+    "e2e-validate": "2026-09-07T01:30:55Z",
+    "review": "2026-09-07T01:54:30Z"
+  },
+  "step_attempts": {
+    "e2e-specs": [
+      {
+        "start": "2026-09-06T20:38:30Z",
+        "finish": "2026-09-06T20:42:48Z"
+      }
+    ],
+    "daemon-impl": [
+      {
+        "start": "2026-09-06T20:42:48Z",
+        "finish": "2026-09-06T20:51:47Z"
+      },
+      {
+        "start": "2026-09-06T21:17:38Z",
+        "finish": "2026-09-06T21:19:53Z"
+      }
+    ],
+    "web-impl": [
+      {
+        "start": "2026-09-06T20:42:48Z",
+        "finish": "2026-09-06T20:49:11Z"
+      }
+    ],
+    "web-tests": [
+      {
+        "start": "2026-09-06T20:49:12Z",
+        "finish": "2026-09-06T20:51:06Z"
+      }
+    ],
+    "daemon-tests": [
+      {
+        "start": "2026-09-06T20:51:47Z",
+        "finish": "2026-09-06T21:17:38Z"
+      },
+      {
+        "start": "2026-09-06T21:19:53Z",
+        "finish": "2026-09-06T21:23:19Z"
+      }
+    ],
+    "e2e-validate": [
+      {
+        "start": "2026-09-06T21:23:19Z",
+        "finish": "2026-09-07T01:27:35Z"
+      },
+      {
+        "start": "2026-09-07T01:27:35Z",
+        "finish": "2026-09-07T01:30:55Z"
+      }
+    ],
+    "review": [
+      {
+        "start": "2026-09-07T01:30:55Z",
+        "finish": "2026-09-07T01:54:30Z"
+      }
+    ]
+  },
+  "started_at": "2026-09-06T20:38:30Z",
+  "updated_at": "2026-09-07T01:54:39Z",
+  "closes_issues": []
+}
