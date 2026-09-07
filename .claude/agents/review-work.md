@@ -66,7 +66,7 @@ If any fail, tag as Critical and continue with the review to catch additional is
 
 Then run the plan's **authored acceptance checks** — `.claude/skills/orchestrate/scripts/gates.sh <plan-name> --checks-only` runs the whole ```checks block from the repo root, one `PASS`/`FAIL` line per ID, with the `rg` shim and pinned Node handled for you (find the block by hand with `grep -n '^```checks' plans/<plan-name>/plan.md` only if you need to read it). Each line is `<ID> <single-line shell command>`; it passes iff it exits 0. Report every result by ID in the `## Acceptance Checks` table. A failing check is a **Critical** issue, tagged with the agent that owns the file the check names. Do not treat a check as satisfied because a related command passed — run the exact line.
 
-If the plan has no ```checks block, note it under Minor (no routing tag; it is a plan defect) and verify the prose criteria by hand. Never substitute a partial parse of a compound prose criterion for the criterion itself.
+If the plan has no ```checks block, note it under Minor tagged `[orchestrator]` (a plan defect — only *agent-tagged* Minors block approval) and verify the prose criteria by hand. Never substitute a partial parse of a compound prose criterion for the criterion itself.
 
 Also verify the plan's `### Reviewer-Verified` list explicitly, item by item — those items exist precisely because no command can check them.
 
@@ -144,8 +144,12 @@ Check:
 **Major** — must fix within the pipeline when a pipeline agent owns it: missing error handling, missing test coverage, convention violations that aren't hard rules. A Major tagged `[daemon-impl]`/`[web-impl]`/`[daemon-tests]`/`[web-tests]`/`[e2e-specs]` blocks `approved` — those agents exist precisely to fix such issues, and "approved with a Major" just hands the orchestrator a TODO line to write (m4-hook-quoting: D5's missing regression test shipped as a backlog entry instead of a five-minute wave-2 fix). A Major nobody in the pipeline can fix (doc upkeep, plan defect) is tagged `[orchestrator]` and does **not** block approval.
 
   **Also Major: a statement in a user-facing document (`README.md`, `docs/`) that is false about behaviour this plan shipped, or that contradicts one of the plan's own acceptance criteria.** That is not a style nit — it ships to the reader, and the plan's criteria are the very thing under review, so a doc asserting the opposite of a criterion you just verified is a defect in the deliverable. Tag it to the agent that owns the file so it rides along in a fix wave (tmux-installation cycle 1: `README.md` said the tmux preflight "only runs once musterd actually starts serving", the exact opposite of D4 — which the same review had verified by measurement — and it shipped as a `TODO.md` line because the rubric below called it a comment nit).
-**Minor** — a real, small change you want made: style inconsistencies, naming, a misleading *internal* comment (one a maintainer reads, not one a user does — see the Major rule above), a cosmetic rendering defect. Tag it with the owning agent. Minors never block `approved`; the orchestrator routes an agent's Minors **in the same wave** as that agent's Critical/Major fixes, and turns any left over on an `approved` review into `TODO.md` follow-ups.
+**Minor** — a real, small change you want made: style inconsistencies, naming, a misleading *internal* comment (one a maintainer reads, not one a user does — see the Major rule above), a cosmetic rendering defect. Tag it with the owning agent. **An agent-tagged Minor blocks `approved` exactly like a Major** — the orchestrator routes it in the owning agent's wave, and the cycle that follows a Minors-only wave is a Delta re-review (below), not a full re-read. A Minor is never deferred to `TODO.md`: v1-cleanup approved with three cosmetic `[daemon-tests]` Minors open (a one-word doc-comment fix among them) and they became a backlog item instead of a two-minute wave. Because a Minor now costs a fix wave and a re-review, keep the line to Note sharp: if you want no change made, it is a `[note]`.
 **Note** — an observation with **no change requested** (a risk to remember, an accepted trade-off, "not a defect but worth knowing"). Tag it `[note]`, never with an agent tag — an agent tag is a request for work, and the orchestrator must not have to read the prose to learn there is none (usage-model-bar: a `[daemon-impl]` Minor that said "purely a note" needed an orchestrator judgement call and a re-review to bless). List notes under their own `### Notes` heading.
+
+### 9. Delta Re-review
+
+Applies **only** when the orchestrator's prompt says the previous cycle's only open agent-tagged issues were Minors. §1 (the full `make e2e` sweep) and §2 (builds, unit tests, lint, `gates.sh --checks-only`) still run in full — they are the regression net. For the rest, read the previous review (`plans/<plan-name>/review.cycle<N-1>.md`, archived by the orchestrator before you were spawned) and verify each Minor against `git diff <that review's commit>..HEAD`: the fix is present, does what the Minor asked, and the diff changes nothing beyond what the fix needed. Skip §2a and the §3–§7 re-read **unless** the diff touches non-test files under `web/src/`, `internal/` or `cmd/` beyond a Minor's stated scope — then review the touched area normally. Record every prior Minor in the `## Delta` table. Verdict rules are unchanged: a Minor whose fix is missing or wrong is re-listed under `### Minor` and the verdict is `needs-changes`.
 
 ## Output
 
@@ -196,6 +200,12 @@ Lint: pass/fail
 <what you drove in the browser and what you confirmed by hand — or an explicit statement
 of why it could not be done>
 
+## Delta (delta re-review only)
+
+| Prior Minor | Fix commit | Verified how |
+|-------------|------------|--------------|
+| cycle 1 Minor 1 `[daemon-tests]` <one-line quote> | `abc1234` | diff read; comment now names `newFakeTmuxTestServer` |
+
 ## Issues
 
 ### Critical
@@ -226,8 +236,8 @@ Tag every issue with the responsible agent so the orchestrator knows where to ro
 
 ## Verdict Rules
 
-- **approved**: Zero Critical issues, **zero Major issues tagged to a pipeline agent** (`[orchestrator]`-tagged Majors are permitted and must be listed so the backstop can act on them), all tests pass, every authored acceptance check passes, hard-rule checklist clean, browser verification done and recorded (when there is UI), all must-have requirements verified
-- **needs-changes**: Any Critical issue, any agent-tagged Major, test failures, or missing must-have requirements
+- **approved**: Zero Critical issues, **zero issues of any severity tagged to a pipeline agent** — Minors included (`[orchestrator]`-tagged issues and `[note]`s are permitted and must be listed so the backstop can act on them), all tests pass, every authored acceptance check passes, hard-rule checklist clean, browser verification done and recorded (when there is UI, and not waived by §9), all must-have requirements verified
+- **needs-changes**: Any Critical issue, any agent-tagged Major **or Minor**, test failures, or missing must-have requirements
 
 ## Git
 
