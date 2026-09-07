@@ -115,6 +115,9 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
       Candidates: a scheduled canary run that auto-bumps the pin on green; pinning a
       *floor* + canary-on-drift instead of an exact version; or accepting drift and
       making the canary the nightly authority.
+      *Update 2026-09-07:* folded into the pre-v1 **"Version the Claude Code interface"**
+      item (Pre-v1 Cleanup) — a declared supported range decides the pin's role, so settle
+      that first rather than picking a pin strategy on its own.
 - [x] Browse E2E off the real `$HOME` — done 2026-08-22 (review cycle-1 Minor 13, second
       half): `musterd -browse-root` (empty = home) is now `GET /api/browse`'s no-param
       default and the Up ceiling (protocol §3.6 updated); the E2E harness passes a
@@ -558,6 +561,57 @@ These are some minor changes and cleanup needed before we can move into post v1.
   the current `web/e2e/helpers/fixtures.ts`/`daemon.ts` pair kills the spawned process and
   removes the tmpdir when `spawnAndWait` throws, and add the guard if not.
 
+- [ ] **Version the Claude Code interface — support a range of versions, not just the pin**
+  (asked 2026-09-07): Muster assumes exactly one Claude Code wire format today — the shapes
+  measured against the pin (`docs/claude-code-pin.md`, currently 2.1.246). Drift is a startup
+  warning and the stated posture is "fix Muster that week" (SPEC §8). That is not enough for a
+  shipped v1: the user's `claude` auto-updates and may sit anywhere, so an older or newer binary
+  has to keep working. **Every interfacing point with Claude Code must become explicitly
+  versioned** — the shape Muster expects, and the version range that shape is known to hold for.
+
+  The surface to version (all of it stays inside `internal/claudecode/` — hard rule unchanged):
+  - hook payload shapes and delivery semantics — which events exist and which fields each
+    carries (`ingest.go`, `interpret.go`, inventory in `spikes/canary-fields.md`)
+  - status-line JSON, both shapes (`status.go`)
+  - launch CLI flags and `--resume` behaviour (`launch.go`)
+  - the hook config Muster writes into a project `.claude/settings.json` (`settings.go`)
+  - transcript paths, theme (`theme.go`), Keychain credentials (`credentials.go`) and the
+    `GET /api/oauth/usage` response (`usageapi.go`)
+
+  Shape of the work — for `/spec` to settle, not decided here:
+  - a **declared supported range**: a floor version, and what musterd does below it (refuse with
+    a named remedy vs. degrade), open-ended above with best-effort + the drift warning
+  - **per-field version applicability** recorded in `spikes/canary-fields.md` (each field gains
+    a "since"/"until"), so the inventory can answer "does this still hold on 2.1.x?"
+  - **version-gated adapters** where shapes actually diverge — resolved once from the detected
+    version at startup, never per payload, and never by sniffing terminal output (hard rule)
+  - how the supported range is *established* — see the notes below; the canary keeps running
+    against one version only (the installed one)
+  - user-facing wording: this subsumes
+    [#6](https://github.com/Zalaras/muster/issues/6) (drift warning is developer-facing) — a
+    declared supported range is what makes that warning sayable in user terms.
+
+  Notes on the intended mechanism (Damian, 2026-09-07 — not yet a design, capture only):
+  - The canary still runs against **the currently installed version only**. There is no
+    multi-version canary rig; nothing about the "install several `claude` builds" shape is wanted.
+  - The supported range accretes from green canary runs: **from wherever we started, up to the
+    last version the canary passed on.** A green run changes nothing — it just extends the top of
+    the range. So the range is a record of what has been observed, not a claim made in advance.
+  - When a run goes **red**, that version is a real interface change: add the new shape behind the
+    version gate and **keep the old code** so the older versions stay supported. Update the canary
+    (and `spikes/canary-fields.md`) for the new shape at the same time. Each red run becomes a
+    known **change point**; the adapters are the intervals between change points.
+  - The wrinkle is knowing **where old code stops being useful** — i.e. which side of a change
+    point an *unseen* version falls on, since nothing was ever run against the versions in between.
+    Candidate answer: a **small in-built canary** — a cheap probe musterd can run at startup on an
+    unknown version, enough to tell which of the two adjacent known shapes it matches, and pick
+    that adapter. Keep it minimal (it runs on real launches, unlike `make canary`) and it must not
+    burn subscription — the `interface-probe` rig (`test/rig/`) is the model for what it asks.
+
+  Interactions: the post-v1 **"rethink the pin strategy itself"** item (M1 follow-ups, above)
+  folds into this — with a range, the pin is the *tested* version rather than the only supported
+  one. Landing this changes SPEC §8's dependency posture and needs a SPEC §11 changelog entry.
+
 ## Reported issues (pre-v1 release)
 
 Issues filed from the dashboard's masthead `Issue` button land on
@@ -956,6 +1010,9 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
   read as a support warning (this Claude Code version isn't verified yet; things past the
   pin may misbehave): a warning icon with a hover explanation and a dismiss. Post-v1 — the
   drift banner is correct today, just written for the person who wrote it.
+  *2026-09-07:* the wording depends on the pre-v1 **"Version the Claude Code interface"** item
+  (Pre-v1 Cleanup) — a declared supported range is what the warning would state; fix it there or
+  right after.
 
 - [ ] **Usage gauges are dead on API-key auth** ([#9](https://github.com/Zalaras/muster/issues/9))
   — the ask is "support API usage billing as well". On a subscription the gauges come from the
