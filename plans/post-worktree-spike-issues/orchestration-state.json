@@ -1,0 +1,94 @@
+{
+  "plan_name": "post-worktree-spike-issues",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 0,
+    "web-impl": 0,
+    "daemon-tests": 0,
+    "web-tests": 0,
+    "e2e-validate": 0,
+    "review": 1
+  },
+  "completed_steps": [
+    "e2e-specs",
+    "daemon-impl",
+    "web-impl",
+    "daemon-tests",
+    "web-tests",
+    "e2e-validate",
+    "review"
+  ],
+  "step_started_at": {
+    "e2e-specs": "2026-09-07T18:56:25Z",
+    "daemon-impl": "2026-09-07T19:40:49Z",
+    "web-impl": "2026-09-07T18:59:47Z",
+    "daemon-tests": "2026-09-07T19:04:59Z",
+    "e2e-validate": "2026-09-07T19:24:22Z",
+    "review": "2026-09-07T19:48:55Z"
+  },
+  "step_finished_at": {
+    "e2e-specs": "2026-09-07T18:59:47Z",
+    "daemon-impl": "2026-09-07T19:43:07Z",
+    "web-impl": "2026-09-07T19:18:13Z",
+    "daemon-tests": "2026-09-07T19:24:22Z",
+    "web-tests": "2026-09-07T19:24:22Z",
+    "e2e-validate": "2026-09-07T19:30:48Z",
+    "review": "2026-09-07T20:02:11Z"
+  },
+  "step_attempts": {
+    "e2e-specs": [
+      {
+        "start": "2026-09-07T18:56:25Z",
+        "finish": "2026-09-07T18:59:47Z"
+      }
+    ],
+    "daemon-impl": [
+      {
+        "start": "2026-09-07T18:59:47Z",
+        "finish": "2026-09-07T19:04:59Z"
+      },
+      {
+        "start": "2026-09-07T19:40:49Z",
+        "finish": "2026-09-07T19:43:07Z"
+      }
+    ],
+    "web-impl": [
+      {
+        "start": "2026-09-07T18:59:47Z",
+        "finish": "2026-09-07T19:18:13Z"
+      }
+    ],
+    "daemon-tests": [
+      {
+        "start": "2026-09-07T19:04:59Z",
+        "finish": "2026-09-07T19:24:22Z"
+      }
+    ],
+    "web-tests": [
+      {
+        "start": null,
+        "finish": "2026-09-07T19:24:22Z"
+      }
+    ],
+    "e2e-validate": [
+      {
+        "start": "2026-09-07T19:24:22Z",
+        "finish": "2026-09-07T19:30:48Z"
+      }
+    ],
+    "review": [
+      {
+        "start": "2026-09-07T19:30:48Z",
+        "finish": "2026-09-07T19:40:49Z"
+      },
+      {
+        "start": "2026-09-07T19:48:55Z",
+        "finish": "2026-09-07T20:02:11Z"
+      }
+    ]
+  },
+  "started_at": "2026-09-07T18:56:25Z",
+  "updated_at": "2026-09-07T20:02:11Z"
+}

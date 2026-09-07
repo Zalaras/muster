@@ -28,6 +28,13 @@ first — never diverge silently in code.
   where a caller genuinely branches on them.
 - `context.Context` is the first parameter of anything that blocks, does I/O, or should
   die on shutdown. The daemon must shut down gracefully — nothing ignores ctx.
+- Any `exec.CommandContext` that reads the child's stdout/stderr through a pipe (`Output()`,
+  `CombinedOutput()`, or a `Stdout`/`Stderr` buffer plus `Run()`) must set `cmd.WaitDelay`
+  before the call that drains the pipe. Without it, a grandchild still holding the pipe
+  open — or a child that ignores its kill signal — makes the read block forever. `WaitDelay`
+  bounds that wait: the timer starts when the context is done or when `Wait` sees the child
+  exit, whichever comes first, and then force-closes the pipes. The grandchild case does not
+  need the context to fire at all. One line, next to the command's own timeout.
 - No `init()` magic, no package-level mutable state. Wiring happens in `main`.
 - Middleware (auth token check) is a plain `func(http.Handler) http.Handler`.
 - Tests: table-driven, `t.Run` subtests. Never rely on test execution order and never

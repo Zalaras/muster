@@ -172,3 +172,54 @@ the next live card, which legitimately opens a socket; `terminal.spec.ts` alloca
 for its nested restart test; 17 fixed sleeps existed (the review found 9), all now `settleFor`
 holds for stays-unchanged checks or converted to polls; 29 per-test `test.setTimeout` lines were
 redundant; several "collection-only / expected to fail" headers were stale.
+
+### Wait bounds and the stub tax in `cmd/musterd` (plan `post-worktree-spike-issues`, 2026-09-07)
+
+Two lessons from fixing the load-flaky tests the worktree spikes' history census surfaced
+(`spikes/worktree/S5-census.md`; the validation that split its four findings in half is
+`plans/post-worktree-spike-issues/validation.md`).
+
+**A wait bound must clear the path's own legitimate worst case, with the arithmetic written
+down.** `cmd/musterd`'s "daemon wrote `tokens.json`" waits were bounded at 10 s on a startup path
+that contains two *bounded-but-blocking* subprocess steps before the write: the tmux preflight
+(2 s) and the `claude --version` check (5 s). 7 s of sanctioned blocking under a 10 s assertion is
+not a margin, it is a threshold the suite will keep crossing — measured once as
+`TestOnExit_Leave_LiveSessionSurvivesShutdown` failing 1 of 3 full runs at **10.02 s**, which reads
+like a shutdown bug and is not one. The bound is now one named constant
+(`tokensFileWriteBound`, `cmd/musterd/onexit_test.go`) whose comment names the two timeouts it
+clears, and whose failure message repeats the derivation so the next reader can tell a slow
+machine from a regression. This is the *one* place this plan raised a number, and it is a bound
+derived from the path's worst case rather than a bumped magic number — the standing rule that a
+timing gate on a shared machine is a flake generator is otherwise unchanged, and every other fix
+in that plan removed a timing dependence instead of widening one.
+
+**The first-exec stub tax is not only an E2E problem.** The note above measured macOS charging
+~270 ms, serialised across processes, for the first exec of a freshly written executable, and
+fixed it in the E2E harness with `ensureSharedStubClaude`. `cmd/musterd`'s tests were paying the
+same tax package-side, writing a fresh stub `claude` per `spawnDaemon`/`openTestDaemonArgs` call
+(~7 per run). The stub is now written once per package run in `TestMain` and shared; the package's
+tests run sequentially, so one stub is sufficient. After both fixes,
+`go test -count=1 ./cmd/musterd` and `go test -count=1 ./internal/server` are each **5/5 green**
+across consecutive runs (D10/D11), against 1 red in 3 before.
+
+**Also fixed, and worth the pattern rather than the detail:** the `internal/server` takeover test
+wrote its marker into a tmux attach that was still setting its terminal up, and now reads tmux's
+initial repaint first as a precondition (the marker assertion is unchanged — the repaint read did
+not become the assertion). `views.spec.ts` E7 synchronised on a `<select>`'s own DOM value rather
+than on the state the code under test actually reads, and now waits on the rail's DOM order. Both
+are the same shape: **synchronise on the thing the production code reads, not on a proxy that
+changes earlier.**
+
+### Operator hazard: a concurrent build invalidates a running `make e2e` (2026-09-07)
+
+`make e2e` serves the **prebuilt** bundle in `internal/webui/assets/`. A concurrent
+`npm run build` or `make web-build` rewrites those assets underneath a sweep that is already
+running, and the result is `element(s) not found` failures that look exactly like a real UI
+regression. Observed during plan `post-worktree-spike-issues`' review: a first sweep reported
+279 passed / 2 failed in `rail-order.spec.ts` with a build running alongside it; a clean re-run
+with nothing else going was 281/281, and the plan's E1 gate passed independently twice more.
+
+This is an operator hazard, not a suite defect, and it is worth writing down precisely because
+everything else in this file is about real flakes: a red of this shape should be re-run clean
+before it is believed. `gates.sh` runs its checks sequentially, so the pipeline itself is safe —
+the exposure is a human or an agent running a sweep beside a build.

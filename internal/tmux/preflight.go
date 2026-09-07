@@ -32,11 +32,16 @@ func newPreflighter() *preflighter {
 }
 
 // runCommand is the production run seam: `path args...` with stdout captured, bounded by
-// ctx. exec.CommandContext kills the process on ctx expiry and Output returns once the
-// stdout pipe closes — which is why a hung binary must be the process itself and not a
-// child it forked (a forked child keeps the pipe open past the kill).
+// ctx. exec.CommandContext kills the process on ctx expiry, but Output's Wait still
+// blocks on the stdout pipe closing — which a descendant that inherited it can hold open
+// even after `tmux -V` itself has exited. WaitDelay bounds that wait: the timer starts
+// when ctx is done or when Wait sees the process exit, whichever comes first, so a hung
+// `tmux -V` (or a forked descendant holding its pipe) cannot stall this indefinitely even
+// if ctx never fires (docs/conventions.md §Go; post-worktree-spike-issues REQ-1/REQ-3).
 func runCommand(ctx context.Context, path string, args ...string) ([]byte, error) {
-	return exec.CommandContext(ctx, path, args...).Output()
+	cmd := exec.CommandContext(ctx, path, args...)
+	cmd.WaitDelay = 2 * time.Second
+	return cmd.Output()
 }
 
 // MinVersion is the oldest tmux Muster's own tmux usage can rely on (REQ-2). NewSession

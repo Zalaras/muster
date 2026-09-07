@@ -33,6 +33,12 @@ func RunCommand(ctx context.Context, name string, args ...string) ([]byte, error
 	cmd := exec.CommandContext(ctx, name, args...)
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
+	// WaitDelay bounds the wait for a descendant that inherited this stdout pipe
+	// to close it. The timer starts when ctx is done or when Wait sees the
+	// process exit, whichever comes first — without it, Run's Wait can block on
+	// that descendant forever even with ctx never firing (docs/conventions.md
+	// §Go).
+	cmd.WaitDelay = 2 * time.Second
 	if err := cmd.Run(); err != nil {
 		return nil, err
 	}

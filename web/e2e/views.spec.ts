@@ -1,5 +1,6 @@
 import { expect, settleFor, test } from "./helpers/fixtures";
 import { envelopedSessionStart, rawNotification, rawUserPromptSubmit } from "./helpers/payloads";
+import { railOrderIds } from "./helpers/railorder";
 import { launchSession, scratchDirectory, type SessionObject, sessionCard, stateBadge } from "./helpers/session";
 import {
   dragTileOnto,
@@ -62,7 +63,7 @@ test("Cmd+\\ toggles the view and Opt+Cmd+1 focuses the top-priority session reg
     await page.goto(daemon.dashboardUrl);
     // Launch B first, A second — but only A gets a permission prompt, so it must sort
     // to the top (M1's needs-input-first rule) regardless of launch order.
-    await launchSession(page, daemon, { directory: dirB.path, title: "prio-b" });
+    const sessionB = await launchSession(page, daemon, { directory: dirB.path, title: "prio-b" });
     const sessionA = await launchSession(page, daemon, { directory: dirA.path, title: "prio-a" });
 
     const claudeA = "claude-prio-a";
@@ -92,6 +93,16 @@ test("Cmd+\\ toggles the view and Opt+Cmd+1 focuses the top-priority session reg
     // assertion preserved verbatim).
     await page.locator("#rail-sort").selectOption("attention");
     await expect(page.locator("#rail-sort")).toHaveValue("attention");
+    // REQ-6: the readiness gate for the chord below is the rail's OWN DOM order
+    // (`railOrderIds`), not the <select>'s value above. `railSort` only changes locally
+    // via the `prefs` broadcast round-trip (INV-6, web/src/main.ts:395,
+    // `requestRailSort`'s doc comment) — the <select>'s value flips on `selectOption`
+    // immediately, regardless of whether that broadcast has landed yet, so gating on it
+    // races `focusNth`'s read of the still-manual order (this plan's diagnosed E7 flake:
+    // manual order here is [B, A] since B launched first, so a race lands on B). Attention
+    // order (needs-input first) is [A, B] — genuinely different from manual, so this wait
+    // cannot pass vacuously on launch order alone.
+    await expect.poll(() => railOrderIds(page)).toEqual([sessionA.id, sessionB.id]);
 
     await page.keyboard.press("Alt+Meta+Digit1");
     await expect(terminalRegion(page, "prio-a")).toBeVisible();

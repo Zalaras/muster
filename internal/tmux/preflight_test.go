@@ -3,6 +3,9 @@ package tmux
 import (
 	"context"
 	"errors"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -202,6 +205,61 @@ func TestPreflight_UppercaseProgramNamePrefixIsNotTrimmed(t *testing.T) {
 
 	assert.Equal(t, StatusOK, got.Status, "version parsing must not depend on the program-name prefix's casing")
 	assert.Equal(t, "TMUX 3.5", got.Version)
+}
+
+// writeTmuxLeakStub writes a real executable standing in for `tmux -V`: it prints a
+// version line and exits successfully while a *descendant* it forked keeps the inherited
+// stdout pipe open for a long time — the same shape that hung musterd's startup at
+// e0319f8, just at this package's other startup-path site (REQ-3). A stub that merely
+// slept *before* exiting would only exercise the ordinary bounded-context kill path, not
+// this one: here the direct child (what exec.CommandContext tracks) exits promptly, so
+// the hang comes entirely from os/exec's Wait blocking on the stdout pipe's EOF, which
+// requires every fd holder — including a backgrounded grandchild the shell never waits
+// for — to close it.
+func writeTmuxLeakStub(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "tmux")
+	script := "#!/bin/sh\n" +
+		"echo 'tmux 3.5'\n" +
+		"sleep 60 &\n" +
+		"exit 0\n"
+	require.NoError(t, os.WriteFile(path, []byte(script), 0o755))
+	return path
+}
+
+// TestRunCommand_DescendantHoldingStdoutDoesNotHang exercises the real production run
+// seam (runCommand, not fakePreflighter's canned func) against a real subprocess, per the
+// plan's "through the run-func seam's real runCommand" (D3/REQ-3): a stub that exits
+// leaving a descendant holding stdout must not stall this call past its WaitDelay bound.
+// Run in a goroutine with the test's own bounded select so a regression (WaitDelay
+// reverted) fails this test with a clear diagnostic instead of hanging the whole `go
+// test` run for the stub's full sleep.
+func TestRunCommand_DescendantHoldingStdoutDoesNotHang(t *testing.T) {
+	path := writeTmuxLeakStub(t)
+
+	type result struct {
+		out []byte
+		err error
+	}
+	done := make(chan result, 1)
+	start := time.Now()
+	go func() {
+		out, err := runCommand(context.Background(), path, "-V")
+		done <- result{out, err}
+	}()
+
+	select {
+	case res := <-done:
+		elapsed := time.Since(start)
+		assert.Less(t, elapsed, 15*time.Second, "must return within the 2s WaitDelay bound plus slack, not wait out the descendant's own sleep")
+		// The pipe is force-closed mid-read once WaitDelay elapses, which os/exec
+		// reports as an error even though the direct process itself exited 0.
+		assert.Error(t, res.err)
+		assert.ErrorIs(t, res.err, exec.ErrWaitDelay)
+	case <-time.After(15 * time.Second):
+		t.Fatal("runCommand did not return within 15s of a descendant holding stdout open — this is the startup hang REQ-3 fixes (revert cmd.WaitDelay in preflight.go's runCommand to reproduce)")
+	}
 }
 
 // TestPreflight_ProductionSeamsAreTheExecPackage pins that the exported Preflight is

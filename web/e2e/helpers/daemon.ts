@@ -228,6 +228,16 @@ export interface ScratchDaemonOptions {
    * case 1), distinct from a present-but-keyless file (edge case 2, pass `"{}"`).
    */
   claudeConfigContent?: string;
+  /**
+   * Plan post-worktree-spike-issues REQ-12 test seam: the binary to spawn instead of the
+   * module-relative `bin/musterd` every other caller resolves. Harness-self-test-only —
+   * it exists so `web/scripts/e2e-fixture-leak-check.mjs` can induce an unhealthy daemon
+   * (a stub that never answers `/healthz`) without mutating `bin/musterd` itself, which
+   * every concurrent build and E2E run (4 Playwright workers) also reads. Omit to keep
+   * today's resolution byte-identical for every existing caller (`daemon`, `startDaemon`,
+   * `fileDaemon()`) — see W7: no spec file may pass this.
+   */
+  musterdBinOverride?: string;
 }
 
 async function freePort(): Promise<number> {
@@ -350,12 +360,18 @@ export class ScratchDaemon {
   /** `-claude-theme-poll` value for this run, or `undefined` to omit the flag — the
    * daemon's own 10s default (plan new-ui-design-colors REQ-18). */
   private readonly claudeThemePoll: string | undefined;
+  /** Plan post-worktree-spike-issues REQ-12: the binary this run's non-embedded spawns
+   * invoke — `opts.musterdBinOverride` if the caller passed one, else the module's own
+   * `musterdBin` constant. Resolved once at construction, mirroring every other per-run
+   * option field here. */
+  private readonly resolvedMusterdBin: string;
 
   private constructor(
     port: number,
     dataDir: string,
     claudeBinPath: string,
     issueApiURL: string,
+    resolvedMusterdBin: string,
     onExit?: OnExitPolicy,
     usagePoll?: string,
     usageApiURL?: string,
@@ -382,6 +398,7 @@ export class ScratchDaemon {
     this.usageApiURL = usageApiURL;
     this.serveEmbedded = serveEmbedded;
     this.claudeThemePoll = claudeThemePoll;
+    this.resolvedMusterdBin = resolvedMusterdBin;
   }
 
   static async start(opts: ScratchDaemonOptions = {}): Promise<ScratchDaemon> {
@@ -396,44 +413,71 @@ export class ScratchDaemon {
     // Plan issue-capture REQ-17: resolve the deny stub BEFORE constructing, since the
     // constructor wants a concrete `issueApiURL` string, never `undefined`.
     let denyStubServer: HttpServer | null = null;
-    let issueApiURL = opts.issueApiURL;
-    if (issueApiURL === undefined) {
-      const stub = await startIssueDenyStub();
-      denyStubServer = stub.server;
-      issueApiURL = stub.url;
+    let daemon: ScratchDaemon | undefined;
+    try {
+      let issueApiURL = opts.issueApiURL;
+      if (issueApiURL === undefined) {
+        const stub = await startIssueDenyStub();
+        denyStubServer = stub.server;
+        issueApiURL = stub.url;
+      }
+      daemon = new ScratchDaemon(
+        port,
+        dataDir,
+        await ensureSharedStubClaude(),
+        issueApiURL,
+        opts.musterdBinOverride ?? musterdBin,
+        opts.onExit,
+        opts.usagePoll,
+        opts.usageApiURL,
+        opts.serveEmbedded,
+        opts.claudeThemePoll,
+      );
+      daemon.denyStubServer = denyStubServer;
+      await mkdir(daemon.browseRoot, { recursive: true });
+      if (daemon.serveEmbedded) {
+        // Plan embed-dashboard REQ-7: a COPY, not the shared musterdBin in place — the
+        // fixture must prove a binary can be moved away from the checkout and still serve
+        // its own dashboard. copyFile doesn't preserve the executable bit on all
+        // platforms, so chmod it explicitly.
+        await copyFile(musterdBin, daemon.embeddedBinPath);
+        await chmod(daemon.embeddedBinPath, 0o755);
+      }
+      if (opts.usageTokenContent !== undefined) {
+        await writeFile(daemon.usageTokenPath, opts.usageTokenContent, "utf-8");
+      }
+      if (opts.issueTokenContent !== undefined) {
+        await writeFile(daemon.issueTokenPath, opts.issueTokenContent, "utf-8");
+      }
+      if (opts.claudeConfigContent !== undefined) {
+        await writeFile(daemon.claudeConfigPath, opts.claudeConfigContent, "utf-8");
+      }
+      await daemon.spawnAndWait();
+      return daemon;
+    } catch (err) {
+      // REQ-4/REQ-5: a failed start() must leave nothing behind (spawned process
+      // signalled + reaped, private tmux server killed, the deny-stub listener closed,
+      // the tmpdir removed) but must never replace the original diagnostic — the
+      // unhealthy-daemon message plus captured musterd output — with a teardown error
+      // (edge cases 5/6/7). `daemon.teardown()` already tolerates every partially- or
+      // fully-constructed shape (kill() no-ops on a dead/never-spawned proc, the tmux
+      // kill-server catches "no such socket", rm is force:true), so route through it
+      // whenever a daemon object exists; when construction itself failed before the
+      // object did (e.g. ensureSharedStubClaude()'s write/rename), clean up the two
+      // pieces that can exist without one.
+      if (daemon) {
+        await daemon.teardown().catch(() => {
+          // A teardown failure must not shadow the original rejection below.
+        });
+      } else {
+        if (denyStubServer) {
+          const server = denyStubServer;
+          await new Promise<void>((resolveClose) => server.close(() => resolveClose()));
+        }
+        await rm(dataDir, { recursive: true, force: true }).catch(() => {});
+      }
+      throw err;
     }
-    const daemon = new ScratchDaemon(
-      port,
-      dataDir,
-      await ensureSharedStubClaude(),
-      issueApiURL,
-      opts.onExit,
-      opts.usagePoll,
-      opts.usageApiURL,
-      opts.serveEmbedded,
-      opts.claudeThemePoll,
-    );
-    daemon.denyStubServer = denyStubServer;
-    await mkdir(daemon.browseRoot, { recursive: true });
-    if (daemon.serveEmbedded) {
-      // Plan embed-dashboard REQ-7: a COPY, not the shared musterdBin in place — the
-      // fixture must prove a binary can be moved away from the checkout and still serve
-      // its own dashboard. copyFile doesn't preserve the executable bit on all
-      // platforms, so chmod it explicitly.
-      await copyFile(musterdBin, daemon.embeddedBinPath);
-      await chmod(daemon.embeddedBinPath, 0o755);
-    }
-    if (opts.usageTokenContent !== undefined) {
-      await writeFile(daemon.usageTokenPath, opts.usageTokenContent, "utf-8");
-    }
-    if (opts.issueTokenContent !== undefined) {
-      await writeFile(daemon.issueTokenPath, opts.issueTokenContent, "utf-8");
-    }
-    if (opts.claudeConfigContent !== undefined) {
-      await writeFile(daemon.claudeConfigPath, opts.claudeConfigContent, "utf-8");
-    }
-    await daemon.spawnAndWait();
-    return daemon;
   }
 
   /** Tail of this run's captured stdout+stderr (plan usage-model-bar E7/INV-4: grepped
@@ -503,7 +547,7 @@ export class ScratchDaemon {
     if (this.claudeThemePoll !== undefined) {
       args.push("-claude-theme-poll", this.claudeThemePoll);
     }
-    const proc = spawn(this.serveEmbedded ? this.embeddedBinPath : musterdBin, args, {
+    const proc = spawn(this.serveEmbedded ? this.embeddedBinPath : this.resolvedMusterdBin, args, {
       // Plan embed-dashboard REQ-7: the embedded fixture runs from the scratch data dir
       // itself (an OS tmpdir containing no web/ or internal/ tree) rather than the repo
       // root every other run inherits as its cwd — proving the binary doesn't need a

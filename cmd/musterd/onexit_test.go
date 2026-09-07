@@ -41,6 +41,21 @@ import (
 // tmux socket, so nothing about the binary itself needs to vary per test.
 var musterdBinary string
 
+// sharedStubClaude is the -claude-bin stub every test in this package (onexit_test.go and
+// open_test.go — both package main) shares, built once by runTestMain before any test
+// runs (REQ-9/D9). Before this, newSleepStubClaude wrote a fresh executable per
+// spawnDaemon/openTestDaemonArgs call — ~7 fresh scripts per `go test` run of this
+// package. macOS charges the first exec of a newly written executable a real, serialized
+// cost (measured 2026-09-06, docs/design/test-strategy.md: ~270ms per inode on first
+// exec), which this package's tests pay repeatedly for no reason, since every daemon in
+// this file wants the exact same stub content. Mirrors
+// web/e2e/helpers/daemon.ts's ensureSharedStubClaude, minus that harness's hash-keyed
+// path and atomic write+rename: those exist there because concurrent Playwright workers
+// race to create the file, and nothing here does — this package's tests run sequentially
+// (no t.Parallel()), and the shared stub is written once, before m.Run(), with no
+// concurrent writer to race.
+var sharedStubClaude string
+
 func TestMain(m *testing.M) {
 	os.Exit(runTestMain(m))
 }
@@ -60,6 +75,15 @@ func runTestMain(m *testing.M) int {
 	cmd := exec.Command("go", "build", "-o", musterdBinary, ".")
 	if out, buildErr := cmd.CombinedOutput(); buildErr != nil {
 		fmt.Fprintf(os.Stderr, "musterd on-exit test setup: go build musterd: %v: %s\n", buildErr, out)
+		return 1
+	}
+
+	sharedStubClaude = filepath.Join(dir, "stub-claude.sh")
+	stubScript := "#!/bin/sh\n" +
+		"if [ \"$1\" = \"--version\" ]; then echo \"" + claudecode.PinnedVersion + " (Claude Code)\"; exit 0; fi\n" +
+		"sleep 60\n"
+	if writeErr := os.WriteFile(sharedStubClaude, []byte(stubScript), 0o755); writeErr != nil {
+		fmt.Fprintln(os.Stderr, "musterd on-exit test setup: write shared stub claude:", writeErr)
 		return 1
 	}
 
@@ -107,23 +131,38 @@ type spawnedDaemon struct {
 	stderr     *syncBuf
 }
 
-// newSleepStubClaude writes an executable standing in for `claude`: it answers
-// `--version` with the pinned version (the daemon's startup drift check runs the
+// newSleepStubClaude returns the run-shared stub standing in for `claude` (REQ-9/D9): it
+// answers `--version` with the pinned version (the daemon's startup drift check runs the
 // -claude-bin binary, so a stub that slept there would stall every spawned daemon for
 // the whole version-check timeout), otherwise ignores every argument (BuildArgv's
 // --model/--resume/etc. don't matter here) and just sleeps, so a launched "session" has
 // a real, live tmux pane to test against. CLAUDE.md forbids ever launching the real
 // `claude` from a unit test — this is the sanctioned substitute, mirroring
-// internal/server/sessions_test.go's newStubClaudeBin.
+// internal/server/sessions_test.go's newStubClaudeBin. One stub per package run
+// (runTestMain writes it before any test starts), not one per call — see
+// sharedStubClaude's doc comment.
 func newSleepStubClaude(t *testing.T) string {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "stub-claude.sh")
-	script := "#!/bin/sh\n" +
-		"if [ \"$1\" = \"--version\" ]; then echo \"" + claudecode.PinnedVersion + " (Claude Code)\"; exit 0; fi\n" +
-		"sleep 60\n"
-	require.NoError(t, os.WriteFile(path, []byte(script), 0o755))
-	return path
+	require.NotEmpty(t, sharedStubClaude, "TestMain must have built the shared stub claude before any test runs")
+	return sharedStubClaude
 }
+
+// tokensFileWriteBound bounds every wait in this package for musterd to write
+// tokens.json, or for an effect that only happens once it has (REQ-8, D8, D10). Two
+// legitimate, bounded-but-blocking steps precede that write on the startup path
+// (main.go's run(), roughly lines 139-185: tmux preflight -> checkWebDist -> mkdir ->
+// store.Open's migrations -> bootstrapTokens -> claude --version -> listen ->
+// writeTokensFile): tmux.Preflight's own preflightTimeout (internal/tmux/preflight.go,
+// 2s) and this package's own versionCheckTimeout for the claude --version drift check
+// (main.go, 5s) - 7s of legitimate worst case before a single log line. The previous 10s
+// bound left only ~3s of margin over that 7s for everything else on the path (fork/exec
+// latency, mkdir, the migrations themselves) and measured one real flake at 10.02s under
+// load (plans/post-worktree-spike-issues/validation.md) - a threshold the suite kept
+// crossing, not a hang. 20s clears the 7s legitimate worst case with real headroom
+// instead. This is the one bound this plan raises rather than removing the timing
+// dependence entirely (docs/design/test-strategy.md's standing rule), because it is
+// derived from the path's own worst case, not a bumped magic number.
+const tokensFileWriteBound = 20 * time.Second
 
 // spawnDaemon starts musterd-under-test against a fresh scratch dataDir and tmux socket.
 // stdin, if non-nil, becomes the subprocess's stdin (D21 passes a pipe's read end so
@@ -188,7 +227,7 @@ func spawnDaemon(t *testing.T, onExit string, stdin *os.File) *spawnedDaemon {
 			return false
 		}
 		return json.Unmarshal(b, &tf) == nil && tf.DashboardURL != ""
-	}, 10*time.Second, 20*time.Millisecond, "musterd must write tokens.json shortly after starting; stderr so far: %s", stderr)
+	}, tokensFileWriteBound, 20*time.Millisecond, "musterd must write tokens.json within tokensFileWriteBound's derived 7s+margin bound; stderr so far: %s", stderr)
 
 	u, err := url.Parse(tf.DashboardURL)
 	require.NoError(t, err)

@@ -9,6 +9,7 @@ import (
 	"context"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // IsRepo reports whether dir is inside a git working tree.
@@ -48,6 +49,12 @@ func IsWorktree(ctx context.Context, dir string) bool {
 func runGit(ctx context.Context, dir string, args ...string) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
+	// WaitDelay bounds the wait for a descendant that inherited the stdout pipe
+	// to close it. The timer starts when ctx is done or when Wait sees git
+	// exit, whichever comes first — without it, Output's Wait can block on
+	// that descendant forever even with ctx never firing (docs/conventions.md
+	// §Go).
+	cmd.WaitDelay = 2 * time.Second
 	out, err := cmd.Output()
 	return string(out), err
 }

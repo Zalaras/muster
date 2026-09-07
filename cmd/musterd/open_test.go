@@ -87,7 +87,9 @@ func openTestDaemonArgs(t *testing.T, extra ...string) (args []string, dataDir s
 
 // waitForTokensFile blocks until dataDir/tokens.json exists and carries a populated
 // dashboardUrl — proof the daemon reached its serving state (D10's "still reaches
-// serving state").
+// serving state"). Bounded by tokensFileWriteBound (onexit_test.go, REQ-8/D8): the same
+// 7s-legitimate-blocking-steps-plus-margin derivation applies here — this file spawns
+// musterd-under-test exactly the way onexit_test.go's spawnDaemon does.
 func waitForTokensFile(t *testing.T, dataDir string) tokensFileShape {
 	t.Helper()
 	var tf tokensFileShape
@@ -97,7 +99,7 @@ func waitForTokensFile(t *testing.T, dataDir string) tokensFileShape {
 			return false
 		}
 		return json.Unmarshal(b, &tf) == nil && tf.DashboardURL != ""
-	}, 10*time.Second, 20*time.Millisecond, "musterd must write tokens.json shortly after starting")
+	}, tokensFileWriteBound, 20*time.Millisecond, "musterd must write tokens.json within tokensFileWriteBound's derived 7s+margin bound")
 	return tf
 }
 
@@ -137,10 +139,14 @@ func TestOpen_DefaultOpenWithTerminalStdinRunsStubOnce(t *testing.T) {
 
 	tf := waitForTokensFile(t, dataDir)
 
+	// Bounded by tokensFileWriteBound (onexit_test.go): this wait starts only after
+	// waitForTokensFile already succeeded, so it inherits the same startup-load
+	// conditions that bound derives against, kept at the same value for one shared,
+	// documented derivation rather than a second bespoke number (REQ-8).
 	require.Eventually(t, func() bool {
 		b, err := os.ReadFile(recordFile)
 		return err == nil && len(b) > 0
-	}, 10*time.Second, 50*time.Millisecond, "the stub must be invoked; stderr so far: %s", &stderr)
+	}, tokensFileWriteBound, 50*time.Millisecond, "the stub must be invoked; stderr so far: %s", &stderr)
 
 	// A late second invocation would be a real defect (REQ-8 promises a single run) —
 	// give one long enough for a bug to show up before reading the final content.
@@ -215,9 +221,11 @@ func TestOpen_NonexistentOpenCmdStillReachesServingState(t *testing.T) {
 	_ = resp.Body.Close()
 
 	const warningMsg = "could not auto-open the dashboard"
+	// Bounded by tokensFileWriteBound (onexit_test.go) — same shared derivation as
+	// waitForTokensFile above, see REQ-8's comment there.
 	require.Eventually(t, func() bool {
 		return strings.Contains(stderr.String(), warningMsg)
-	}, 10*time.Second, 50*time.Millisecond, "stderr so far: %s", &stderr)
+	}, tokensFileWriteBound, 50*time.Millisecond, "stderr so far: %s", &stderr)
 
 	// R4 only constrains the auto-open warning line itself — the token and dashboard URL
 	// are expected (and already documented) elsewhere in stderr, on the "musterd

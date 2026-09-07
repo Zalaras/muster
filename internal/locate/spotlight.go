@@ -33,6 +33,12 @@ func runMdfind(ctx context.Context, name string, args ...string) ([]byte, error)
 	cmd := exec.CommandContext(ctx, name, args...)
 	var out bytes.Buffer
 	cmd.Stdout = &out
+	// WaitDelay bounds the wait for a descendant that inherited this stdout
+	// pipe to close it. The timer starts when ctx is done or when Wait sees
+	// mdfind exit, whichever comes first — without it, Run's Wait can block
+	// on that descendant forever even with ctx never firing
+	// (docs/conventions.md §Go).
+	cmd.WaitDelay = 2 * time.Second
 	err := cmd.Run()
 	return out.Bytes(), err
 }

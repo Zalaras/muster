@@ -532,7 +532,7 @@ These are some minor changes and cleanup needed before we can move into post v1.
   `internal/server`, `internal/termbridge` and `cmd/musterd` all need it and Go test files are
   not importable. The ~104-byte `sun_path` rationale lives on the helper.
 
-- [ ] **Startup can hang forever on `claude --version`** (found 2026-09-07 by the worktree
+- [x] **Startup can hang forever on `claude --version`** (found 2026-09-07 by the worktree
   spikes' history census, branch `spike/worktree-conflicts`, `spikes/worktree/S5-census.md`
   finding 4): `internal/claudecode/version.go:31` is `exec.CommandContext(ctx, bin,
   "--version").Output()` with no `cmd.WaitDelay`, so the 5 s `versionCheckTimeout` kills the
@@ -543,7 +543,10 @@ These are some minor changes and cleanup needed before we can move into post v1.
   than fixing it. Fix: set `WaitDelay` (≈1 s) on the command; add a unit test with a stub that
   spawns `sleep` and exits. Note `e0319f8` went straight to `main` with the suite red — the
   land queue's verify gate (post-v1, `docs/design/worktree-conflicts.md`) is the process fix.
-- [ ] **Three load-flaky tests, measured across 25 × (check + e2e) census runs 2026-09-07**
+  Fixed by REQ-1/REQ-2/REQ-3: `cmd.WaitDelay` on all seven pipe-owning `exec.CommandContext`
+  sites, with discriminating tests in `internal/claudecode` and `internal/tmux` (a stub that exits
+  while a backgrounded `sleep` still holds stdout). `docs/conventions.md` now carries the rule. — **Done 2026-09-07 (plan `post-worktree-spike-issues`, via `/orchestrate`, approved review cycle 2)**
+- [x] **Three load-flaky tests, measured across 25 × (check + e2e) census runs 2026-09-07**
   (same census; details and per-run logs in `S5-census.md` findings 1–3): (1)
   `TestHandleTerminal_TakeoverNeverLeavesTwoClientsAttachedAtOnce` failed 11 times, always at
   ~5.2 s with an empty capture, on trees where identical code passes; 1.4 s green alone at
@@ -553,13 +556,33 @@ These are some minor changes and cleanup needed before we can move into post v1.
   pair-0…17 stretch and still flaked on later green trees. 16 of 25 merges had a spurious red
   from these three alone; together with the `views.spec.ts` E7 entry under M5+ they make any
   automated gate (queue or CI) cry wolf on roughly one land in three until fixed or retried.
-- [ ] **E2E fixture leaks the scratch daemon when `start()` fails** (same census, finding 5):
+  **Corrected 2026-09-07** (plan `post-worktree-spike-issues`; measured against `main` @ `2aea5ee`
+  in `plans/post-worktree-spike-issues/validation.md`): findings (2) and (3) were **already fixed
+  before this plan** and are not open work — the census only saw them because its pair index
+  increases with recency and every tree at index ≤ 25 predates both fixes. (2)
+  `TestPreflight_TooOld` was fixed by `e0319f8`: the census failures ran a real `tmux -V`
+  subprocess out to `preflightTimeout` (2.00 s), while HEAD's test is `fakePreflighter(...)` with
+  no subprocess at all. (3) `actions.spec.ts:640` was fixed by `feec502`, which replaced the
+  one-shot `expect(neighbourWidthAfter).toBe(...)` with `expect.poll(neighbourGeometry)` plus
+  `expectAllTileGeometrySettled`; all 15 failures are on trees ≤ 17 and every tree containing
+  `feec502` ran 281/281, so the census's "still flaked on pairs 21, 24, 27, 28" is a grep artefact
+  that matched the test's name in the ✓ *pass* list. The same commit fixed the `theme.spec.ts`
+  flake this file's baseline notes. Only (1), the takeover test, is live work. **The headline
+  above therefore does not hold for today's tree** — the worktree/land-queue design
+  (`docs/design/worktree-conflicts.md`) should not be planned against "one land in three".
+  (1) the takeover test now reads tmux's initial repaint before writing its marker (REQ-7);
+  (2) and (3) were already fixed before this plan — see the correction above.
+  `./cmd/musterd` and `./internal/server` are each 5/5 green (D10/D11). — **Done 2026-09-07 (plan `post-worktree-spike-issues`, via `/orchestrate`, approved review cycle 2)**
+- [x] **E2E fixture leaks the scratch daemon when `start()` fails** (same census, finding 5):
   when the daemon never became healthy, the helper's teardown threw `Cannot read properties
   of undefined (reading 'teardown')` and neither the daemon nor its `stub-claude.sh` was
   killed — ~730 hung `musterd` processes and 893 `muster e2e-*` tmpdirs accumulated from two
   runs before they were noticed and killed. Measured against the `e0319f8`-era helper; verify
   the current `web/e2e/helpers/fixtures.ts`/`daemon.ts` pair kills the spawned process and
   removes the tmpdir when `spawnAndWait` throws, and add the guard if not.
+  Fixed by REQ-4/REQ-5/REQ-12: a failed `ScratchDaemon.start()` routes through `teardown()` and
+  rethrows the original diagnostic; `make e2e-fixture-leak-check` gates it and was proven to
+  discriminate (exit 0 with the guard, exit 1 without). — **Done 2026-09-07 (plan `post-worktree-spike-issues`, via `/orchestrate`, approved review cycle 2)**
 
 - [ ] **Version the Claude Code interface — support a range of versions, not just the pin**
   (asked 2026-09-07): Muster assumes exactly one Claude Code wire format today — the shapes
@@ -948,7 +971,7 @@ Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start
 Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-09-01) is in
 `docs/design/worktree-conflicts.md` — read it before planning the worktree manager.
 
-- [ ] **`views.spec.ts` E7 is load-flaky (1 failure in 5 full-suite runs, 2026-09-07)** — observed
+- [x] **`views.spec.ts` E7 is load-flaky (1 failure in 5 full-suite runs, 2026-09-07)** — observed
   during plan `v1-cleanup`'s final gate sweep: "Cmd+\ toggles the view and Opt+Cmd+1 focuses the
   top-priority session regardless of launch order (E7)" failed with
   `expect(locator('[aria-label="Terminal: prio-a"]')).toBeVisible()` timing out at the full 15 s
@@ -957,9 +980,19 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
   (`⌘1`→`⌥⌘1`), and it touches neither `web/src/shortcuts.ts` nor `web/src/main.ts`, so the whole
   ⌥⌘1/`focusNth` path is unchanged. Measured: 8/8 green running `views.spec.ts` alone, 4/5 green
   in full-suite runs — it only misses under cross-file load, the same family as the
-  `theme.spec.ts:83` baseline flake in `docs/design/test-strategy.md`. Likely the keypress landing
-  before the keydown listener is attached or before the session list settles; a pre-press
-  readiness wait is the probable fix. Worth pinning down before it costs a real debugging session.
+  `theme.spec.ts:83` baseline flake in `docs/design/test-strategy.md`.
+  **Mechanism found 2026-09-07** (plan `post-worktree-spike-issues`, REQ-6; read from source in
+  `plans/post-worktree-spike-issues/validation.md`): the hypothesis first recorded here — "the
+  keypress landing before the keydown listener is attached" — is **wrong**, and was not
+  implemented against. `focusNth` (`web/src/main.ts:465`) reads `orderRail(store.values(),
+  railSort)`, and `requestRailSort` (line 395) changes `railSort` only on the resulting `prefs`
+  broadcast (INV-6), never optimistically. The test synchronised on
+  `expect(page.locator("#rail-sort")).toHaveValue("attention")` — the `<select>`'s own DOM value,
+  which flips on `selectOption` regardless of the round trip — so ⌥⌘1 could index into the still-
+  manual order and focus `prio-b`. The fix waits on the rail's own DOM order (`railOrderIds`)
+  instead. `main.ts`'s broadcast-only `railSort` is correct and was not made optimistic.
+  Fixed by REQ-6: E7 now waits on the rail's own DOM order (`railOrderIds`) before ⌥⌘1, not on
+  `#rail-sort`'s `<select>` value. 5/5 green (E2). — **Done 2026-09-07 (plan `post-worktree-spike-issues`, via `/orchestrate`, approved review cycle 2)**
 
 - [ ] **`internal/server` test-helper hygiene** — three Minors left open at plan `v1-cleanup`'s
   approved review (`plans/v1-cleanup/review.md` cycle 1, all `[daemon-tests]`; an agent tagged

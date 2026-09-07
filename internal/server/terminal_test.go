@@ -572,6 +572,17 @@ func TestHandleTerminal_TakeoverNeverLeavesTwoClientsAttachedAtOnce(t *testing.T
 
 	c2 := dialTerminalOK(t, httpSrv, sess.ID)
 	defer func() { _ = c2.CloseNow() }()
+	// Prove the new attach is actually live — by observing tmux's own initial repaint
+	// on c2 — before writing into it (REQ-7, Edge Case 11): writing immediately races
+	// tmux's client-startup tcsetattr, which can discard pending input and produce an
+	// empty capture with nothing to do with takeover ordering at all. This read is a
+	// precondition, not a substitute for the marker assertion below: a repaint with no
+	// marker echo (Edge Case 10, a real regression) must still fail this test.
+	repaintCtx, repaintCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	_, _, repaintErr := c2.Read(repaintCtx)
+	repaintCancel()
+	require.NoError(t, repaintErr, "must observe tmux's initial repaint on the new attach before writing the marker")
+
 	require.NoError(t, c2.Write(context.Background(), websocket.MessageBinary, []byte("echo TAKEOVER_ORDER_MARKER\n")))
 	out := readUntilContains(t, c2, "TAKEOVER_ORDER_MARKER", 5*time.Second)
 	require.Contains(t, out, "TAKEOVER_ORDER_MARKER")

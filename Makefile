@@ -58,6 +58,10 @@ e2e-lint: ## Mechanical checks on web/e2e (fixtures only from helpers/fixtures.t
 e2e: web-build build ## Playwright E2E suite (runs e2e-lint first via npm run e2e)
 	cd web && npm run e2e
 
+.PHONY: e2e-fixture-leak-check
+e2e-fixture-leak-check: ## Self-test: a failed ScratchDaemon.start() leaves no process, tmux server or tmpdir behind (REQ-4/W1/W3, plan post-worktree-spike-issues)
+	cd web && npm run -s e2e:fixture-leak-check
+
 .PHONY: run
 run: build web-build ## Run musterd against the real data dir, serving the disk override so the frontend dev loop needs no Go relink
 	./$(BIN) -web-dist internal/webui/assets

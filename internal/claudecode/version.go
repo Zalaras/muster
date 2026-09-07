@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // PinnedVersion is the only Claude Code version Muster is validated against.
@@ -28,7 +29,15 @@ var versionRE = regexp.MustCompile(`^(\d+\.\d+\.\d+)`)
 // The caller supplies the context: this runs on the daemon's startup path, and a hung
 // claude binary must not stall it indefinitely.
 func InstalledVersion(ctx context.Context, bin string) (string, error) {
-	out, err := exec.CommandContext(ctx, bin, "--version").Output()
+	cmd := exec.CommandContext(ctx, bin, "--version")
+	// WaitDelay bounds the wait for a descendant that inherited the --version
+	// stdout pipe to close it. The timer starts when ctx is done or when Wait
+	// sees the process exit, whichever comes first — without it, Output's Wait
+	// can block on that descendant forever even with ctx never firing
+	// (docs/conventions.md §Go; this held musterd's startup hostage before its
+	// first log line).
+	cmd.WaitDelay = 2 * time.Second
+	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("running claude --version: %w", err)
 	}

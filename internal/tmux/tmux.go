@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Client issues tmux commands against one dedicated socket.
@@ -297,6 +298,12 @@ func trimTrailingBlankLines(s string) string {
 func (c *Client) run(ctx context.Context, args ...string) (string, error) {
 	full := append(c.socketFlag(), args...)
 	cmd := exec.CommandContext(ctx, "tmux", full...)
+	// WaitDelay bounds the wait for a descendant that inherited the
+	// stdout/stderr pipe to close it. The timer starts when ctx is done or
+	// when Wait sees tmux exit, whichever comes first — without it,
+	// CombinedOutput's Wait can block on that descendant forever even with
+	// ctx never firing (docs/conventions.md §Go).
+	cmd.WaitDelay = 2 * time.Second
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return string(out), fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
@@ -315,6 +322,11 @@ func (c *Client) runCapture(ctx context.Context, args ...string) (string, error)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+	// WaitDelay bounds the wait for a descendant that inherited these pipes to
+	// close them. The timer starts when ctx is done or when Wait sees tmux
+	// exit, whichever comes first — without it, Run's Wait can block on that
+	// descendant forever even with ctx never firing (docs/conventions.md §Go).
+	cmd.WaitDelay = 2 * time.Second
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
 	}
