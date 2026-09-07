@@ -89,6 +89,21 @@ def close_attempt(s, step):
     else:
         lst.append({"start": None, "finish": ts})
 
+def stamp_plan_status(plan_dir, value):
+    """Set plan.md's **Status** line. The orchestrator used to do this by hand at pre-flight
+    and completion and forgot it on v1-cleanup (found five steps in, by /work-status)."""
+    f = plan_dir / "plan.md"
+    if not f.exists():
+        return
+    out, hit = [], False
+    for line in f.read_text().splitlines(True):
+        if not hit and line.startswith("**Status**:"):
+            line, hit = f"**Status**: {value}\n", True
+        out.append(line)
+    if hit:
+        f.write_text("".join(out))
+
+
 def approved(plan_dir):
     r = plan_dir / "review.md"
     return r.exists() and "**Verdict**: approved" in r.read_text()
@@ -120,6 +135,7 @@ def main():
              "completed_steps": [],
              "step_started_at": {}, "step_finished_at": {}, "step_attempts": {},
              "started_at": now(), "updated_at": now()}
+        stamp_plan_status(path.parent, "in-progress")
     else:
         if not path.exists():
             sys.exit(f"{path} not found — run init first")
@@ -172,6 +188,7 @@ def main():
                 s["current_step"] = a.step
             if a.arg == "completed":
                 s["current_step"] = "completed"
+            stamp_plan_status(path.parent, a.arg)
         elif a.cmd == "closes":
             nums = ([a.arg] if a.arg else []) + list(a.rest)
             issues = []

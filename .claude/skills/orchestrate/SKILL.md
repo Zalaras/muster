@@ -31,7 +31,6 @@ Before starting:
    - `none` → skip Steps 1 and 5
 4. Determine the project root (the directory containing `.claude/`)
 4a. **Branch.** The pipeline never commits on `main`. If `plan/<plan-name>` exists, `git checkout` it — then check it is not stale: an existing branch means resume only if it has commits `main` lacks (`git log --oneline main..plan/<plan-name>`); zero unique commits means planning landed elsewhere, so `git merge --ff-only main` before spawning anyone (shortcut-fixes' branch sat 20 commits behind). Otherwise inspect `git status --short`: if every dirty file is the plan's own directory or a planning-session doc edit (`docs/*`, `SPEC.md`, `TODO.md`, `CLAUDE.md`, `README.md`, `spikes/*`, `next-steps.md`, `.claude/skills/*`, `.claude/agents/*`), commit them on a new branch — `git checkout -b plan/<plan-name>` then `git add <those files>` and `git commit -m "docs(<plan-name>): approved plan and planning-session edits"`. If any **tracked** file outside that set is dirty, stop and ask the user what to do with it — never `git add -A`, never stash. Offer these three dispositions rather than an open-ended question: **(a)** the user commits them on `main` themselves, and the pipeline then branches from a clean tree; **(b)** the pipeline commits them onto `plan/<plan-name>` as part of this plan's changeset; **(c)** they stay dirty and every agent is told to leave them alone. **Flag (c) as unsafe whenever a dirty tracked file also appears in the plan's Affected Files** — the agent that owns that file will fold the user's uncommitted change into its own commit, silently attributing it to the plan (tmux-installation: `README.md` was dirty at pre-flight *and* was daemon-impl's REQ-12 deliverable; the user chose (a)). An **untracked** file outside the plan's directory that nothing in the plan or docs references (a stray screenshot, a scratch note) does not block the pipeline: leave it untracked, tell every agent to leave it alone, never `git add` it, and list it in the completion summary (learned from order-sidebar: `masthead.png`). Every agent then commits its own files at the end of its step (their definitions say how); you commit **your** edits (state file, doc-upkeep, decisions) per `docs/conventions.md` §Commits as `docs(<plan-name>): <summary>` (or `chore(...)` for the state file alone) and never commit an agent's files for it. If an agent finishes with its files uncommitted, that is a Handoff defect — tell it to commit before its gate is read. Never push.
-5. Update plan status to "in-progress"
 
 ## Pipeline Execution Order
 
@@ -114,7 +113,7 @@ When routing review issues back to fix agents:
    ```
 5. **State that Fix Mode rules 5–7 of the agent's definition apply** (enumerate every path, measure blast radius, re-run the reviewer's repro) — one sentence; the rules themselves live in the agent file.
 
-6. **State the cycle label** — every fix-mode prompt names the current review cycle
+6. **State the cycle label** — every fix-mode prompt **and every re-spawn** names the current review cycle
    ("This is review cycle 2's fix wave"), or the pre-review context ("this is an
    e2e-validate fix, no review has run") when routing a Step 4/5 implementation-bug;
    agents copy that label into their commit-message suffix — `(review cycle <N>)` or
@@ -347,7 +346,7 @@ stale `cd`). Run from the project root:
 
 ```bash
 S=.claude/skills/orchestrate/scripts/orch-state.py
-python3 $S <plan> init                              # pre-flight, fresh plan
+python3 $S <plan> init                              # pre-flight, fresh plan (also stamps plan.md Status)
 python3 $S <plan> start <step>                      # the moment you spawn the step's agent(s) — fix re-spawns too
 python3 $S <plan> finish <step>                     # a fix-mode re-spawn reported: stamp only, no step-state change
 python3 $S <plan> done <step> --next <next-step>    # after a step's verdict is read
@@ -463,7 +462,6 @@ When all steps pass AND the review verdict is "approved":
 2c. **Record the issues this plan closes.** Record them with `python3 $S <plan> closes <N> ...` — never by hand-editing the JSON (the State Tracking rule binds here too; absent or `[]` means none) listing every issue the Doc-Upkeep Backstop judged **fully** resolved. Do this before 2d so the state edit is part of the same commit. `/land` reads this to compose the squash subject's `closes #N` references — a machine-readable handoff beats a later session re-deriving intent from prose. You never close an issue yourself: at this moment the fix exists only on a branch the user has not accepted, and `approved` is the reviewer's opinion, not acceptance. The close fires when `/land` pushes the squash commit to `main`.
 
 2d. **End with everything committed.** Commit your doc-upkeep and state edits (`docs(<plan-name>): doc upkeep and pipeline completion`) and confirm `git status --short` on `plan/<plan-name>` shows nothing beyond the untracked strays noted at pre-flight — the branch is the review artifact: the user reviews with `git diff main...plan/<plan-name>` and lands it with `/land <plan-name>`. An agent's uncommitted files here are that agent's defect — have it commit them; if it cannot, commit them yourself as `chore(<plan-name>): commit <agent>'s uncommitted work (orchestrator)` so nothing is left dangling. The pipeline is not `completed` while the tree is dirty (pre-flight-noted untracked strays excepted).
-3. Update plan status to "completed"
 4. Update orchestration state status to "completed"
 5. Print a summary: what was done, files changed, retry count, any notable issues, the `[note]` items verbatim, **a per-step cost table** (`python3 $S <plan> timings` for wall-clock, plus each agent's tokens and duration from its task notification), and the branch name (`plan/<plan-name>`) with `git log --oneline main..`. Point at **`/land <plan-name>`** as the landing step and name the issues it will close (from 2c), plus any issue deliberately left open, and at **`/retro <plan-name>`** for the run's retro (this session, while the stumbles are still in context). The pipeline itself never merges or pushes
 6. **Decisions section** — for every debate run this pipeline (`plans/<plan>/decisions/*/decision.md`): the two options, the outcome, consensus-or-judged, the decisive argument in one or two sentences, and any dissent. The user may overrule with one line; if they do, `reopen` the affected wave and re-run it with the user's choice quoted.
