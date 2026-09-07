@@ -529,6 +529,35 @@ These are some minor changes and cleanup needed before we can move into post v1.
   `internal/server`, `internal/termbridge` and `cmd/musterd` all need it and Go test files are
   not importable. The ~104-byte `sun_path` rationale lives on the helper.
 
+- [ ] **Startup can hang forever on `claude --version`** (found 2026-09-07 by the worktree
+  spikes' history census, branch `spike/worktree-conflicts`, `spikes/worktree/S5-census.md`
+  finding 4): `internal/claudecode/version.go:31` is `exec.CommandContext(ctx, bin,
+  "--version").Output()` with no `cmd.WaitDelay`, so the 5 s `versionCheckTimeout` kills the
+  binary but `Output()` still waits for stdout EOF — any child the binary leaves holding the
+  pipe hangs `musterd` before its first log line. Reproduced against `e0319f8` with the e2e
+  stub of the time (a sleep loop): 244/244 e2e red, and a leaked scratch daemon still answered
+  nothing on `/healthz` 23 min later; `feec502`'s stub answering `--version` masked it rather
+  than fixing it. Fix: set `WaitDelay` (≈1 s) on the command; add a unit test with a stub that
+  spawns `sleep` and exits. Note `e0319f8` went straight to `main` with the suite red — the
+  land queue's verify gate (post-v1, `docs/design/worktree-conflicts.md`) is the process fix.
+- [ ] **Three load-flaky tests, measured across 25 × (check + e2e) census runs 2026-09-07**
+  (same census; details and per-run logs in `S5-census.md` findings 1–3): (1)
+  `TestHandleTerminal_TakeoverNeverLeavesTwoClientsAttachedAtOnce` failed 11 times, always at
+  ~5.2 s with an empty capture, on trees where identical code passes; 1.4 s green alone at
+  HEAD — fails even under `nice -n 5` with nothing else running. (2) `TestPreflight_TooOld`
+  failed twice at exactly 2.00 s — a timeout-shaped assertion. (3) `actions.spec.ts:640`
+  "Tiles: End from a tile footer keeps the tile in its slot…" was red on 33 trees in the
+  pair-0…17 stretch and still flaked on later green trees. 16 of 25 merges had a spurious red
+  from these three alone; together with the `views.spec.ts` E7 entry under M5+ they make any
+  automated gate (queue or CI) cry wolf on roughly one land in three until fixed or retried.
+- [ ] **E2E fixture leaks the scratch daemon when `start()` fails** (same census, finding 5):
+  when the daemon never became healthy, the helper's teardown threw `Cannot read properties
+  of undefined (reading 'teardown')` and neither the daemon nor its `stub-claude.sh` was
+  killed — ~730 hung `musterd` processes and 893 `muster e2e-*` tmpdirs accumulated from two
+  runs before they were noticed and killed. Measured against the `e0319f8`-era helper; verify
+  the current `web/e2e/helpers/fixtures.ts`/`daemon.ts` pair kills the spawned process and
+  removes the tmpdir when `spawnAndWait` throws, and add the guard if not.
+
 ## Reported issues (pre-v1 release)
 
 Issues filed from the dashboard's masthead `Issue` button land on
