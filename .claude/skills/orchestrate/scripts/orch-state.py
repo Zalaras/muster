@@ -11,7 +11,7 @@ Usage (run from the project root):
   orch-state.py <plan> status <in-progress|blocked|completed> [--step STEP]
                                                      completed is refused unless review.md says **Verdict**: approved
   orch-state.py <plan> archive <file>                rename plans/<plan>/<file> to <stem>.cycle<N><ext> before a
-                                                     re-spawn overwrites it (N = review cycles so far + 1)
+                                                     re-spawn overwrites it (N = existing archives + 1)
   orch-state.py <plan> reopen <step>                 resume: status in-progress, retries kept (--reset-retries zeroes),
                                                      remove <step> from completed_steps
   orch-state.py <plan> closes [N ...]                set closes_issues (no N clears it)
@@ -172,7 +172,7 @@ def main():
             src = path.parent / a.arg
             if not src.exists():
                 sys.exit(f"{src} not found")
-            n = s["retry_counts"].get("review", 0) + 1
+            n = 1 + len(list(path.parent.glob(f"{src.stem}.cycle*{src.suffix}")))
             dst = src.with_name(f"{src.stem}.cycle{n}{src.suffix}")
             if dst.exists():
                 sys.exit(f"{dst} already exists")

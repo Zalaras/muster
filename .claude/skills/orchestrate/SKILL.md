@@ -350,8 +350,7 @@ Two concrete ways a flat fan-out goes wrong: an impl agent moves or renames a sy
 ## State Tracking
 
 After each agent completes, update `plans/<plan-name>/orchestration-state.json` **via the
-bundled script** — never by hand-editing or ad-hoc Python (the m4 run lost a step to a
-stale `cd`). Run from the project root:
+bundled script** — never by hand-editing or ad-hoc Python. Run from the project root:
 
 ```bash
 S=.claude/skills/orchestrate/scripts/orch-state.py
@@ -371,15 +370,12 @@ python3 $S <plan> timings                           # Completion 5: per-step wal
 ```
 
 `start` stamps `step_started_at[<step>]` and `done` stamps `step_finished_at[<step>]`;
-`timings` reports finish − start per step. **Every `start` needs a matching `finish` or `done`**:
-a fix-mode re-spawn gets `start` at spawn and `finish` when it reports (it does not end the
-step, so `done` is wrong there); `retry` closes a still-open attempt itself. Call `start` for
-every step you spawn, including each agent of a parallel pair and every fix-mode re-spawn. Without the start stamp the
-table falls back to the gap since the previous finish, which is wrong for parallel steps —
-file-drop-fix's table showed web-impl at 0 s and daemon-tests at 88 s when both ran ~15 min
-beside a sibling. Per-step wall-clock is the one number a retro cannot reconstruct
-afterwards — `started_at`/`updated_at` alone told the terminal-focus retro nothing about why
-authoring took 32 of the run's 51 minutes. Also keep each agent's **token count and
+`timings` reports finish − start per step, and flags any row it had to estimate. **Every
+`start` needs a matching `finish` or `done`**: a fix-mode re-spawn gets `start` at spawn and
+`finish` when it reports (it does not end the step, so `done` is wrong there); `retry` closes a
+still-open attempt itself. Call `start` for every step you spawn, including each agent of a
+parallel pair and every fix-mode re-spawn — per-step wall-clock is the one number a retro
+cannot reconstruct afterwards. Also keep each agent's **token count and
 duration** from its task notification when it carries a `<usage>` block; teammate-style
 notifications carry none, and then wall-clock is the only cost figure — say so in the summary
 rather than leaving the column blank.
@@ -413,8 +409,7 @@ When `/orchestrate` is invoked for a plan that already has an `orchestration-sta
 ## Final Validation
 
 Before marking the pipeline as completed, run the baseline gates and the plan's authored
-checks fresh **via the bundled runner** — never a hand-rolled loop (the new-ui-design-colors
-run lost a turn to zsh word-splitting inside an ad-hoc `for c in …; do $c; done`):
+checks fresh **via the bundled runner** — never a hand-rolled loop:
 
 ```bash
 .claude/skills/orchestrate/scripts/gates.sh <plan-name>            # baseline + ```checks block
@@ -450,6 +445,8 @@ CLAUDE.md's "Doc upkeep" section binds every session, this pipeline included. **
 Do this **while the Step 3 testers run** — the file set is disjoint from every agent's — commit it
 as `docs(<plan-name>): doc upkeep`, and re-verify it at Completion. Never write the verdict
 before it exists: no "approved", no "review cycle N", no ✅ tick until `review.md` says `approved`.
+Before dispatching, check the plan's Implementation Notes for work it assigns to *you*: a requirement
+whose file Affected Files gives no owner is yours, not an agent's (post-worktree-spike-issues REQ-10).
 
 1. Read the implementation logs (including `## Fix Attempt` sections) so you know what actually shipped. You don't need to re-read source.
 2. Check, and fix what's missing:
@@ -473,7 +470,10 @@ When all steps pass AND the review verdict is "approved":
 2d. **End with everything committed.** Commit your doc-upkeep and state edits (`docs(<plan-name>): doc upkeep and pipeline completion`) and confirm `git status --short` on `plan/<plan-name>` shows nothing beyond the untracked strays noted at pre-flight — the branch is the review artifact: the user reviews with `git diff main...plan/<plan-name>` and lands it with `/land <plan-name>`. An agent's uncommitted files here are that agent's defect — have it commit them; if it cannot, commit them yourself as `chore(<plan-name>): commit <agent>'s uncommitted work (orchestrator)` so nothing is left dangling. The pipeline is not `completed` while the tree is dirty (pre-flight-noted untracked strays excepted).
 4. Update orchestration state status to "completed"
 5. Print a summary: what was done, files changed, retry count, any notable issues, the `[note]` items verbatim, **a per-step cost table** (`python3 $S <plan> timings` for wall-clock, plus each agent's tokens and duration from its task notification), and the branch name (`plan/<plan-name>`) with `git log --oneline main..`. Point at **`/land <plan-name>`** as the landing step and name the issues it will close (from 2c), plus any issue deliberately left open, and at **`/retro <plan-name>`** for the run's retro (this session, while the stumbles are still in context). The pipeline itself never merges or pushes
-6. **Decisions section** — for every debate run this pipeline (`plans/<plan>/decisions/*/decision.md`): the two options, the outcome, consensus-or-judged, the decisive argument in one or two sentences, and any dissent. The user may overrule with one line; if they do, `reopen` the affected wave and re-run it with the user's choice quoted.
+6. **Tear down what the run started** — `ListAgents`, then `TaskStop` every teammate this pipeline
+   spawned (they survive `/clear`; 51 had accumulated across four runs), then `scripts/orch-cleanup.sh
+   --yes` for orphaned processes, stale `tmux -L` sockets and `$TMPDIR` debris. Report both counts.
+7. **Decisions section** — for every debate run this pipeline (`plans/<plan>/decisions/*/decision.md`): the two options, the outcome, consensus-or-judged, the decisive argument in one or two sentences, and any dissent. The user may overrule with one line; if they do, `reopen` the affected wave and re-run it with the user's choice quoted.
 
 The state script refuses `status completed` unless `review.md` says `approved`; you additionally refuse it while any suite or build is red, or `git status --short` shows anything beyond the pre-flight strays.
 
