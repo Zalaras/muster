@@ -584,6 +584,44 @@ These are some minor changes and cleanup needed before we can move into post v1.
   rethrows the original diagnostic; `make e2e-fixture-leak-check` gates it and was proven to
   discriminate (exit 0 with the guard, exit 1 without). — **Done 2026-09-07 (plan `post-worktree-spike-issues`, via `/orchestrate`, approved review cycle 2)**
 
+- [ ] **Bring `make canary` up to full interface coverage** (split out 2026-09-09 from the
+  versioning item below, which it **blocks**): the canary is the inventory-of-record for what
+  Muster depends on, but it asserts roughly two-thirds of the surface — so a declared version
+  range could only be honest about the asserted part. Close the gaps first.
+
+  **Asserted today** (`test/canary/canary_test.go`, four real runs A–D, ~40 s, ~3 haiku turns):
+  pin == installed, and the status line's own `version` agreeing with `claude --version`; hook
+  transport (command wrapper + envelope on every event; an unmanaged session posts nothing); the
+  per-event field inventory for `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`,
+  `Stop`, `StopFailure`, `SessionEnd`, plus the `permission_mode` always/never split and
+  `SessionStart.model` as a bare string; `StopFailure` replacing `Stop` with
+  `error: authentication_failed`; status-line `rate_limits`, the `seven_day` key, epoch-int
+  `resets_at`, float `used_percentage`; unknown-vs-zero; command-hook path quoting under a
+  space-bearing data dir; and `settings.go`'s written hook config implicitly, since the chain is
+  production `WriteWrapperScripts` + `MergeSettings`.
+
+  **Not asserted — the work:**
+  - `CLAUDE_CODE_SCROLL_SPEED` — already owed as a pre-v1 sub-item under
+    [#13](https://github.com/Zalaras/muster/issues/13) above; fold it in here rather than doing it
+    twice. Unsupported interface, so an upstream rename degrades silently.
+  - launch flags beyond what runs A/D happen to use: `--model`, `--name`, and
+    `--permission-mode`'s four values — a rename on an unexercised one fails nothing
+  - `--resume`, and the End → Resume same-`session_id` check (still manual, M4)
+  - `theme.go`'s `~/.claude.json` top-level `theme` key
+  - `credentials.go`'s Keychain item shape
+  - `usageapi.go`'s `GET /api/oauth/usage` response — its own comment says "re-checked on every
+    Claude Code pin bump", i.e. by hand
+  - the four `needsInteractiveDialog` rows: the plan-mode sequence, `PermissionRequest`,
+    `Notification`, `SubagentStop`. Deliberately skipped 2026-08-29 (a send-keys-driven permission
+    dialog is too fragile for a gate) — decide per row whether that still stands, whether it is now
+    automatable, or whether it stays an `/interface-probe` ritual named in `docs/claude-code-pin.md`.
+  - **not** a surface: transcript paths. Nothing in the tree reads a transcript — `transcript_path`
+    arrives on every hook and is unused — so there is nothing to assert or version there.
+
+  Constraints: every added run burns real subscription (haiku only, trivial prompts, kill the
+  session — CLAUDE.md), so prefer folding assertions into the existing four runs over adding runs.
+  `MUSTER_CANARY_OFFLINE=1` must stay a zero-token path.
+
 - [ ] **Version the Claude Code interface — support a range of versions, not just the pin**
   (asked 2026-09-07): Muster assumes exactly one Claude Code wire format today — the shapes
   measured against the pin (`docs/claude-code-pin.md`, currently 2.1.246). Drift is a startup
@@ -634,6 +672,19 @@ These are some minor changes and cleanup needed before we can move into post v1.
   Interactions: the post-v1 **"rethink the pin strategy itself"** item (M1 follow-ups, above)
   folds into this — with a range, the pin is the *tested* version rather than the only supported
   one. Landing this changes SPEC §8's dependency posture and needs a SPEC §11 changelog entry.
+
+  *Parked 2026-09-09 — spec started, not finished.* `/spec version-claude-interface` was run and
+  stopped at the goal question; no `plans/version-claude-interface/` was written. What it
+  established, so the next run does not re-derive it: there are **zero observed change points**
+  today — every shape in `spikes/canary-fields.md` has held from 2.1.233 through 2.1.259, and the
+  recorded deltas are *additions* (the subagent fields), not divergences — so the version gates
+  have nothing to gate yet and the in-built startup probe has nothing to disambiguate. And a
+  declared range can only honestly claim what the canary asserts, which is why the **canary
+  coverage** item above was split out to land first. The open goal question is whether this item is
+  a truthful *declaration* (a floor, defined behaviour below it, honest wording for
+  [#6](https://github.com/Zalaras/muster/issues/6), per-shape applicability in `canary-fields.md`,
+  gate structure established but empty) or the full mechanism built against a hypothetical change
+  point. Resume with `/spec version-claude-interface` once coverage lands.
 
 ## Reported issues (pre-v1 release)
 
@@ -757,6 +808,8 @@ unless he re-ranks — don't re-sort this list.
     (absent from `claude --help`, found by reading strings out of the binary), so an upstream
     rename degrades silently back to ~1 line/notch rather than failing. Measured on **2.1.259**
     while the pin is **2.1.246** — re-confirm against the pinned build (`docs/claude-code-pin.md`).
+    *2026-09-09:* folded into the pre-v1 **canary coverage** item (Pre-v1 Cleanup) — do it there
+    with the rest of the uncovered surface, not on its own.
 
   The other, **terminal bandwidth (`tmux -CC`)**, was moved to post-v1 on 2026-09-09 (Damian) —
   it is a separate plan of its own, not a loose end of this fix. See the M5+ entry.
@@ -992,7 +1045,7 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
   Fixed by REQ-6: E7 now waits on the rail's own DOM order (`railOrderIds`) before ⌥⌘1, not on
   `#rail-sort`'s `<select>` value. 5/5 green (E2). — **Done 2026-09-07 (plan `post-worktree-spike-issues`, via `/orchestrate`, approved review cycle 2)**
 
-- [ ] **`internal/server` test-helper hygiene** — three Minors left open at plan `v1-cleanup`'s
+- [x] **`internal/server` test-helper hygiene** — three Minors left open at plan `v1-cleanup`'s
   approved review (`plans/v1-cleanup/review.md` cycle 1, all `[daemon-tests]`; an agent tagged
   only with Minors is not re-spawned). All cosmetic, all in one file pair:
   - "`internal/server/terminal_test.go:32` — `newTerminalTestServer`'s doc comment says
@@ -1007,6 +1060,22 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
   - "`internal/server/fakes_test.go` — `containsExit` hand-rolls a substring scan that
     `bytes.Contains(p, []byte("exit"))` does in one line, with no behavioural difference. Delete
     the helper and inline the stdlib call."
+
+  **Done 2026-09-09** (direct fix, no pipeline — CLAUDE.md's trivial-fix carve-out; all three are
+  test-file comments plus one helper deletion, no assertion changed). Two of the three quoted
+  findings were understated and the fix went past what they asked for:
+  - The first is **not** a one-word fix. Renaming the symbol is right, but the sentence carrying
+    it — "Everything else in this file uses …" — is false in the opposite direction: measured,
+    `terminal_test.go` uses the real constructor **12** times and the fake **4**. The quantifier
+    was dropped for the actual selection criterion (call shape/counts/error propagation → fake),
+    so the comment can't go stale again when a test is added.
+  - The second's counts are wrong: **not** "eighteen fakes-server callers in `plainshell_test.go`".
+    Walking each call site against the constructor above it gives **9 fake / 8 real** in
+    `plainshell_test.go` and **2 fake / 14 real** in `terminal_test.go` — eleven package-wide, and
+    `plainshell_test.go` is a genuine mix, not a fakes-only file. Don't re-cite the 18. The comment
+    now says the realness follows the server and the *name* applies to the session row; the helper
+    was deliberately **not** renamed (33 call sites, no behavioural gain).
+  - The third was accurate as written; `containsExit` is gone, `bytes.Contains` inlined.
 
 
 - [ ] **Richer terminal functionality** (post-release) — the first pass
