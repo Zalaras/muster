@@ -752,16 +752,14 @@ unless he re-ranks — don't re-sort this list.
   would open onto an **empty buffer**: with Claude Code in the alt screen, `capture-pane -S
   -2000` returns exactly the visible screen (30 of 30 lines, against 76 with the alt screen
   disabled — controlled A/B, S6 §2). That design pass would have shipped nothing.
-  Two follow-ups are owed and are **not** covered by this fix:
+  Two follow-ups are owed and are **not** covered by this fix. One is pre-v1:
   - [ ] `make canary` must assert `CLAUDE_CODE_SCROLL_SPEED`. It is an unsupported interface
     (absent from `claude --help`, found by reading strings out of the binary), so an upstream
     rename degrades silently back to ~1 line/notch rather than failing. Measured on **2.1.259**
     while the pin is **2.1.246** — re-confirm against the pinned build (`docs/claude-code-pin.md`).
-  - [ ] Bandwidth is untouched: today's `tmux attach` path costs **19.4×** the bytes of a bare
-    PTY for the same repaint, and 1,759 bytes/sec while idle against zero (S6 §3). `tmux -CC`
-    control mode measured **2.1×** and would keep tmux, identity, reconcile and the tests
-    intact (S6 §4). Worth planning separately; `SCROLL_SPEED` cuts the *number* of repaints,
-    `-CC` would cut the cost of each.
+
+  The other, **terminal bandwidth (`tmux -CC`)**, was moved to post-v1 on 2026-09-09 (Damian) —
+  it is a separate plan of its own, not a loose end of this fix. See the M5+ entry.
 
 - [x] **README's install command doesn't work on Apple Silicon** ([#7](https://github.com/Zalaras/muster/issues/7))
   ✅ done 2026-09-02 (direct fix, no pipeline — doc + Makefile only). The README's by-hand
@@ -1022,6 +1020,14 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
   session, and a real tab strip rather than a single toggle; a rail-card marker so a shell
   running in a session you aren't viewing is visible in Focus view.
 
+- [ ] **Terminal bandwidth — `tmux -CC` control mode** — moved here from the #13 scroll-fix
+  follow-ups on 2026-09-09 (Damian): post-v1, and a plan of its own rather than a loose end of
+  that fix. Today's `tmux attach` path costs **19.4×** the bytes of a bare PTY for the same
+  repaint, and 1,759 bytes/sec while idle against zero (S6 §3). `tmux -CC` control mode measured
+  **2.1×** and would keep tmux, session identity, reconcile and the existing tests intact
+  (S6 §4). Complementary to the `CLAUDE_CODE_SCROLL_SPEED` fix that shipped for #13:
+  `SCROLL_SPEED` cuts the *number* of repaints, `-CC` would cut the cost of each.
+
 - [ ] **Text-size setting** — `prefs.textSize` enum (`small | medium | large`), a Settings-dialog
   segmented control beside Theme, `<html data-text-size>` driving `--fs-root`, and the first-paint
   hint extended so a reload doesn't flash. Deferred from `ui-text-and-focus` (Damian, 2026-09-03):
@@ -1037,6 +1043,26 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
   unblocks it, and it unblocks the deferred Homebrew tap in the same move (see the CI item
   above), so the two should be planned together rather than separately. Until then `make
   install` is the supported path and the README carries the by-hand fences.
+
+- [ ] **Post-open-source: revisit the install instructions, and add auto-update** (asked
+  2026-09-09) — two things that only become possible once `Zalaras/muster` is public
+  (`docs/go-public.md`), to be picked up after the flip:
+  - **Install instructions.** The README's install section is written for a private repo:
+    the by-hand fences go through `gh release download` (auth required) and `make install`
+    carries the same `gh` dependency. Once releases are anonymously fetchable, rewrite it
+    around whatever the real front door becomes — this is the same move as the `curl | sh`
+    installer and the deferred Homebrew tap above, so plan all three together, not
+    separately. Re-verify every command end to end (the #7 lesson: the old block was wrong
+    three ways because nobody ran it).
+  - **Auto-update for `musterd`.** Muster ships as a GitHub Release binary with no update
+    path at all — a user who installs once never learns a newer version exists. Wants a
+    `/spec` pass, not a decision here; the questions are at minimum: check-only (a
+    dashboard "update available" cue reading the releases API) vs. self-replacing binary;
+    where the check runs and how often; opt-out; how it interacts with a daemon that has
+    live tmux sessions attached (a restart must not orphan them — reconcile already exists,
+    M4); and signing/verification of the downloaded archive. Note the deliberate contrast
+    with Claude Code's own auto-updater, which Muster leaves on and does not manage
+    (`docs/claude-code-pin.md`).
 
 - [ ] **Version-pin warning is developer-facing** ([#6](https://github.com/Zalaras/muster/issues/6))
   — "drift from pinned 2.1.246" means nothing to someone who didn't set the pin. It should
