@@ -29,8 +29,9 @@ import (
 // v1-cleanup REQ-3's Implementation Notes list), whose assertion is itself a
 // tmux-observable effect — PTY stream, geometry, liveness, real client attachment — the
 // hard rule only forbids deriving *state* from captured/attached bytes, not exercising
-// tmux for real in tests. Everything else in this file uses newFakeTerminalTestServer
-// (fakes_test.go's fakeTmux, REQ-1/REQ-2's seams), which starts no tmux server at all.
+// tmux for real in tests. Tests whose assertion is instead about call shape, counts or
+// error propagation use newFakeTmuxTestServer (fakes_test.go's fakeTmux, REQ-1/REQ-2's
+// seams), which starts no tmux server at all.
 func newTerminalTestServer(t *testing.T) *testServer {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "muster.db")
@@ -48,10 +49,17 @@ func newTerminalTestServer(t *testing.T) *testServer {
 	return &testServer{Server: srv, dbPath: dbPath, logs: logBuf, store: st, tmuxSocket: socket}
 }
 
-// launchRealSession creates a real Muster session row and a real backing tmux session
-// running argv (never the real `claude` binary — CLAUDE.md hard rule — a plain shell
-// stands in), bypassing the HTTP launch path entirely so no `claude` process is ever
-// spawned from a unit test.
+// launchRealSession creates a real Muster session row and calls NewSession on whichever
+// tmux client srv carries, bypassing the HTTP launch path entirely so no `claude` process
+// is ever spawned from a unit test.
+//
+// How real the *backing session* is follows the server it is handed, so read the name as
+// applying to the session row, which is always real: under newTerminalTestServer argv runs
+// in a real tmux session on a real per-test socket (never the real `claude` binary —
+// CLAUDE.md hard rule — a plain shell stands in); under newFakeTmuxTestServer it becomes a
+// fakeTmux table entry and argv is recorded, never executed. Both callers exist in both of
+// this package's terminal test files — check the constructor above the call before assuming
+// a test exercises tmux.
 func launchRealSession(t *testing.T, srv *testServer, argv []string) *session.Session {
 	t.Helper()
 	dir := t.TempDir()

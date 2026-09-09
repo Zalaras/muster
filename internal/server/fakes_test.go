@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -157,7 +158,7 @@ func (c *fakePaneConn) Write(p []byte) (int, error) {
 	buf := make([]byte, len(p))
 	copy(buf, p)
 	c.writes = append(c.writes, buf)
-	shouldClose := containsExit(p)
+	shouldClose := bytes.Contains(p, []byte("exit"))
 	c.mu.Unlock()
 
 	if shouldClose {
@@ -168,19 +169,6 @@ func (c *fakePaneConn) Write(p []byte) (int, error) {
 		go func() { _ = c.Close() }()
 	}
 	return len(p), nil
-}
-
-func containsExit(p []byte) bool {
-	const exit = "exit"
-	if len(p) < len(exit) {
-		return false
-	}
-	for i := 0; i+len(exit) <= len(p); i++ {
-		if string(p[i:i+len(exit)]) == exit {
-			return true
-		}
-	}
-	return false
 }
 
 func (c *fakePaneConn) Resize(_ context.Context, cols, rows int) error {
