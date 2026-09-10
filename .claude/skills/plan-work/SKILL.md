@@ -178,10 +178,10 @@ hosting view as a state the round-trip is asserted from.
 
 #### Carried-over measurements (learned from m2-terminal)
 
-A measured value is evidence **for the configuration it was measured in**. When the plan
-makes a structural decision (a topology change, a lifecycle change, a new ownership
-model), every spike/FINDINGS value the plan carries forward must be re-examined against
-that decision before it becomes a requirement — in writing, per value, in the plan
+A measured value is evidence **for the configuration it was measured in**. When a
+requirement applies a value under a different tool, permission mode, auth state, version or
+topology than it was measured in, that spike/FINDINGS value must be re-examined against
+that change before it becomes a requirement — in writing, per value, in the plan
 ("re-checked against decision N: still valid because …"). m2-terminal carried the spike's
 `detach-on-destroy off` (measured under M1's shared-session topology) into the same plan
 that replaced that topology; under the new one it misrouted keystrokes into the wrong

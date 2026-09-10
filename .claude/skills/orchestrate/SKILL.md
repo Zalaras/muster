@@ -471,8 +471,8 @@ When all steps pass AND the review verdict is "approved":
 4. Update orchestration state status to "completed"
 5. Print a summary: what was done, files changed, retry count, any notable issues, the `[note]` items verbatim, **a per-step cost table** (`python3 $S <plan> timings` for wall-clock, plus each agent's tokens and duration from its task notification), and the branch name (`plan/<plan-name>`) with `git log --oneline main..`. Point at **`/land <plan-name>`** as the landing step and name the issues it will close (from 2c), plus any issue deliberately left open, and at **`/retro <plan-name>`** for the run's retro (this session, while the stumbles are still in context). The pipeline itself never merges or pushes
 6. **Tear down what the run started** — `ListAgents`, then `TaskStop` every teammate this pipeline
-   spawned (they survive `/clear`; 51 had accumulated across four runs), then `scripts/orch-cleanup.sh
-   --yes` for orphaned processes, stale `tmux -L` sockets and `$TMPDIR` debris. Report both counts.
+   spawned (they survive `/clear`; 51 had accumulated across four runs), then
+   `.claude/skills/orchestrate/scripts/orch-cleanup.sh --yes` for orphaned processes, stale `tmux -L` sockets and `$TMPDIR` debris. Report both counts.
 7. **Decisions section** — for every debate run this pipeline (`plans/<plan>/decisions/*/decision.md`): the two options, the outcome, consensus-or-judged, the decisive argument in one or two sentences, and any dissent. The user may overrule with one line; if they do, `reopen` the affected wave and re-run it with the user's choice quoted.
 
 The state script refuses `status completed` unless `review.md` says `approved`; you additionally refuse it while any suite or build is red, or `git status --short` shows anything beyond the pre-flight strays.
