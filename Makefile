@@ -82,7 +82,7 @@ check-versions: ## Fail if any Claude Code version-range fragment is stale (run 
 check: lint test contrast e2e-lint check-versions ## Lint + test + contrast + e2e-lint + check-versions
 
 .PHONY: hooks
-hooks: ## Arm the commit-msg guard (.githooks/) for this clone — enforces docs/conventions.md § Commits
+hooks: ## Arm the commit-msg + pre-commit guards (.githooks/) for this clone — docs/conventions.md § Commits
 	git config core.hooksPath .githooks
 
 # gh (unlike a browser) does not set the com.apple.quarantine xattr, so the unsigned binary

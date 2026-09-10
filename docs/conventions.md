@@ -152,6 +152,11 @@ on every branch: known type (plus `review` off-`main` only), the 72-char cap on 
 published types (enforced on `main` only — plan-branch subjects are squashed away and
 never publish), the phrase ban, and the `MUSTER_BREAKING=1` gate on `!`.
 
+`.githooks/pre-commit` (same arming) guards **identity**: it refuses to commit while
+`.git/config` carries a `[user]` override, so only the global `~/.gitconfig` identity can
+author here. Worktrees share `.git/config` — a scratch identity set inside one poisons the
+real repo (CLAUDE.md § Hard rules).
+
 **Closing issues.** Issues on `Zalaras/muster` (filed from the dashboard's masthead `Issue`
 button) are triaged by hand into `TODO.md`; the commit that fixes one closes it with a
 trailing `closes #N` in the summary line — e.g. `fix(launch): preflight tmux and name the

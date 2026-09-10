@@ -78,6 +78,11 @@ anything with acceptance criteria.
   always pass `--model claude-haiku-4-5-20251001`, keep prompts trivial ("say hi"), and
   kill the session when done — an orphan keeps burning.
 - Never log hook payloads (they contain prompt text) anywhere world-readable.
+- Never `git config user.*` in this repo **or any worktree of it** — worktrees share
+  `.git/config`, so a scratch identity lands on the real repo (2026-09-10: two commits
+  reached `main` as `test <test@example.invalid>`). Scratch repos are `git init` in a temp
+  dir, or pass `-c user.name=… -c user.email=…` per command. `.githooks/pre-commit`
+  refuses to commit while a repo-local override exists.
 
 ## Testing bar
 
