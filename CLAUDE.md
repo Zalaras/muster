@@ -46,11 +46,11 @@ Boundaries the pipeline enforces (also binding outside it): impl agents never ed
 tests; test agents never edit implementation; nobody changes the daemon↔UI protocol
 (`docs/protocol.md` / a plan's Protocol Contract) unilaterally; every agent leaves the
 tree compiling; claims need evidence (paste the failing output, don't assert) — and
-claimed *effects* need measurement (a "the file is now private / the row is now hidden"
-claim requires the `ls -l` or the observed DOM, not just the diff).
-Never `sleep`/poll to wait on a subagent or a background task: the harness re-invokes the **main
-session** when one finishes, but a subagent is never woken — so agents run their gates in the
-foreground (canary-full-coverage: a backgrounded `make e2e` idled review cycle 2 for 60 min).
+claimed *effects* need measurement (a "the file is now private / the row is now hidden" claim
+requires the `ls -l` or the observed DOM, not just the diff). A `blocked`/`implementation-bug`
+verdict naming a real obstacle is a good outcome; the failure is a green verdict hiding one.
+Never `sleep`/poll to wait on a subagent: the harness re-invokes the **main session** when one
+finishes, but a subagent is never woken — so agents run gates in the foreground (canary-full-coverage: 60 min lost).
 
 Trivial fixes and doc work don't need the pipeline — judgement call, default to it for
 anything with acceptance criteria.

@@ -43,7 +43,7 @@ Per `docs/conventions.md` and SPEC §8, unit tests target **specific logic** —
 Test **Muster's** behaviour, not the platform's:
 
 - Don't test what SQLite, tmux, or the stdlib guarantee (constraint enforcement, mux routing, WAL semantics).
-- Don't fork a process the assertion isn't about. Cross a subprocess boundary through the owning type's injectable run func (`internal/locate.SpotlightFinder`, `internal/tmux`'s preflighter, `claudecode`'s `execFunc`), never a `$PATH` shim; a real tmux server (per-test socket) only where the assertion is a tmux-observable effect — PTY stream, geometry, liveness, pane env, server options. A fork per test under `go test`'s package parallelism is what made `make test` load-sensitive (docs/design/test-strategy.md).
+- Don't fork a process the assertion isn't about. Cross a subprocess boundary through the owning type's injectable run func (`internal/locate.SpotlightFinder`, `internal/tmux`'s preflighter, `claudecode`'s `execFunc`), never a `$PATH` shim — a boundary with no seam is an `implementation-bug` verdict, not a test-side workaround; a real tmux server (per-test socket) only where the assertion is a tmux-observable effect — PTY stream, geometry, liveness, pane env, server options. A fork per test under `go test`'s package parallelism is what made `make test` load-sensitive (docs/design/test-strategy.md).
 - Don't write migration round-trip tests — migrations are forward-only and verified by running them at startup plus the feature's own tests reading the new schema.
 - Never assert on shared mutable state other tests depend on, and never rely on test execution order.
 - Never launch a real `claude` from a unit test — that is exclusively canary/probe territory (CLAUDE.md hard rule). Unit tests use captured payloads.
@@ -76,7 +76,7 @@ If tests fail:
 - You CAN create new test files and test helpers
 - All tests must be in `*_test.go` files in the appropriate package
 - Per-test tmux (if a test genuinely needs it) uses its own private socket, never `-L muster` and never the user's default server
-- **Git.** Work on the `plan/<plan-name>` branch the orchestrator created. At the end of your step commit your own files — `git add` only files you changed, named individually (never `-A`/`-u`), including your `plans/<plan-name>/` log — as `test(<plan-name>): <imperative summary>` (fix mode: append ` (review cycle <N>)` with the cycle number your prompt states, or ` (pre-review fix)` when it says no review has run), one sentence plus the harness trailers. Commit even when your gate is red for a defect you may not fix, naming it in the body as `gate red: <what fails, whose defect>` — uncommitted work beside other agents' is the hazard, not a red commit. Never `git stash` (not even to look: use `git diff` / `git show HEAD:<path>`), `checkout -- <path>`, `reset`, `clean` or `rebase`. Never push; never commit on `main`.
+- **Git.** Work on the `plan/<plan-name>` branch the orchestrator created. At the end of your step commit your own files — `git add` only files you changed, named individually (never `-A`/`-u`) and committed by pathspec (`git commit -- <files>`, because the index is shared and a peer's `git mv` is already staged), including your `plans/<plan-name>/` log — as `test(<plan-name>): <imperative summary>` (fix mode: append ` (review cycle <N>)` with the cycle number your prompt states, or ` (pre-review fix)` when it says no review has run), one sentence plus the harness trailers. Commit even when your gate is red for a defect you may not fix, naming it in the body as `gate red: <what fails, whose defect>` — uncommitted work beside other agents' is the hazard, not a red commit. Never `git stash` (not even to look: use `git diff` / `git show HEAD:<path>`), `checkout -- <path>`, `reset`, `clean` or `rebase`. Never push; never commit on `main`.
 
 ## Output
 
@@ -113,5 +113,5 @@ Tests created: <count> | Passing: <count> | Failing: <count>
 
 The **Verdict** field is what the orchestrator reads to decide next steps:
 - `pass` — all tests pass, move on
-- `implementation-bug` — tests are correct but implementation doesn't match the plan; orchestrator routes back to daemon-impl
+- `implementation-bug` — tests are correct but the implementation doesn't match the plan, or cannot be tested properly as built (the plan may be the thing that is wrong); orchestrator routes back to daemon-impl
 - `blocked` — cannot proceed (e.g., missing dependency, broken build); orchestrator stops and reports

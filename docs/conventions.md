@@ -82,9 +82,9 @@ first — never diverge silently in code.
   `workers` caps the daemons alive at once. A spec may *shorten* a timeout, with a comment
   saying why, never lengthen one; a fixed hold exists only as `settleFor()` for a
   stays-unchanged check. Rationale and measurements: `docs/design/test-strategy.md`.
-- Go tests cross a process boundary through an injectable run func on the type that owns
-  it (`internal/locate.SpotlightFinder`, `internal/tmux`'s preflighter, `claudecode`'s
-  `execFunc`), never a `$PATH` shim — a fork per test is what made `make test`
+- Every subprocess call gets an injectable run func on the type that owns it; the implementer
+  adds it and tests cross the boundary through it (`internal/locate.SpotlightFinder`, `tmux`'s
+  preflighter, `claudecode`'s `execFunc`), never a `$PATH` shim — a fork per test is what made `make test`
   load-sensitive. Real tmux (per-test socket) appears only where the assertion is about a
   tmux-observable effect: PTY stream, geometry, liveness, pane env, server options.
 - Don't test what the platform guarantees (SQLite constraint enforcement, tmux's own

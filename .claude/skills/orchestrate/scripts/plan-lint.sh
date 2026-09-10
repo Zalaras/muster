@@ -44,7 +44,7 @@ fi
 # 5. A prose criterion of the form "no X survives/remains in <dir>" is a negative grep and belongs in the block (shortcut-fixes).
 while IFS= read -r l; do
   [[ -n "$l" ]] && note "negative-grep criterion written as prose, move it into \`\`\`checks: ${l:0:100}"
-done < <(awk '/^## Acceptance Criteria/{f=1} /^```checks/{f=0} f' "$P" | grep -E '^- \*\*[A-Z]+[0-9]+\*\*' | grep -iE '\bno\b.*\b(survives?|remains?|is left|appears?) (in|under|anywhere)\b')
+done < <(awk '/^## Acceptance Criteria/{f=1} /^```checks/{f=0} f' "$P" | grep -E '^- \*\*[A-Z]+[0-9]+\*\*' | grep -iE '(\bno\b.*\b(survives?|remains?|is left|appears?) (in|under|anywhere)\b|\b(references?|mentions?|pointers?) to the (old|removed|deleted|renamed)\b)')
 
 # 6. Protocol error examples carry the {"error": {...}} envelope (file-drop-fix Major 4).
 while IFS= read -r l; do

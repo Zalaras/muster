@@ -68,7 +68,7 @@ If tests fail:
 - You CAN create new test files and test utilities
 - You CAN modify `web/vitest.config.ts` if genuinely needed (e.g. a setup file) — never to exclude a failing test
 - All test files use the `.test.ts` extension
-- **Git.** Work on the `plan/<plan-name>` branch the orchestrator created. At the end of your step commit your own files — `git add` only files you changed, named individually (never `-A`/`-u`), including your `plans/<plan-name>/` log — as `test(<plan-name>): <imperative summary>` (fix mode: append ` (review cycle <N>)` with the cycle number your prompt states, or ` (pre-review fix)` when it says no review has run), one sentence plus the harness trailers. Commit even when your gate is red for a defect you may not fix, naming it in the body as `gate red: <what fails, whose defect>` — uncommitted work beside other agents' is the hazard, not a red commit. Never `git stash` (not even to look: use `git diff` / `git show HEAD:<path>`), `checkout -- <path>`, `reset`, `clean` or `rebase`. Never push; never commit on `main`.
+- **Git.** Work on the `plan/<plan-name>` branch the orchestrator created. At the end of your step commit your own files — `git add` only files you changed, named individually (never `-A`/`-u`) and committed by pathspec (`git commit -- <files>`, because the index is shared and a peer's `git mv` is already staged), including your `plans/<plan-name>/` log — as `test(<plan-name>): <imperative summary>` (fix mode: append ` (review cycle <N>)` with the cycle number your prompt states, or ` (pre-review fix)` when it says no review has run), one sentence plus the harness trailers. Commit even when your gate is red for a defect you may not fix, naming it in the body as `gate red: <what fails, whose defect>` — uncommitted work beside other agents' is the hazard, not a red commit. Never `git stash` (not even to look: use `git diff` / `git show HEAD:<path>`), `checkout -- <path>`, `reset`, `clean` or `rebase`. Never push; never commit on `main`.
 
 ## Output
 
@@ -105,5 +105,5 @@ Tests created: <count> | Passing: <count> | Failing: <count>
 
 The **Verdict** field is what the orchestrator reads to decide next steps:
 - `pass` — all tests pass, move on
-- `implementation-bug` — tests are correct but implementation doesn't match the plan; orchestrator routes back to web-impl
+- `implementation-bug` — tests are correct but the implementation doesn't match the plan, or cannot be tested properly as built (the plan may be the thing that is wrong); orchestrator routes back to web-impl
 - `blocked` — cannot proceed; orchestrator stops and reports
