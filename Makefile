@@ -67,7 +67,7 @@ run: build web-build ## Run musterd against the real data dir, serving the disk 
 	./$(BIN) -web-dist internal/webui/assets
 
 .PHONY: canary
-canary: ## Drive the real claude (3 haiku turns + 1 zero-token) and assert every field Muster depends on; MUSTER_CANARY_OFFLINE=1 = compile + pin check only
+canary: ## Drive the real claude (4 haiku turns + zero-token unauth/resume/live checks) and assert every field Muster depends on; MUSTER_CANARY_OFFLINE=1 = compile + pin + static binary check only
 	go test -tags=canary -count=1 -v ./test/canary/...
 
 .PHONY: check

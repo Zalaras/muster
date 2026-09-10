@@ -8,7 +8,12 @@ Claude Code version, and treat any missing field as a blocker.
 No auto-update drift occurred during the spike run. **Re-validated by the automated canary
 (`make canary`, `test/canary/harness_test.go`) against `2.1.246` on 2026-08-29** — every
 row below marked binding in `test/canary/canary_test.go` held; deltas are noted inline as
-"(2.1.246 canary)". Pin bumped to 2.1.246 the same day.
+"(2.1.246 canary)". Pin bumped to 2.1.246 the same day. **Re-validated by the full-coverage
+canary (plan `canary-full-coverage`) against the installed `2.1.267` on 2026-09-10** — runs
+A / B / C×4 / D (plan mode, `--name`, idle wait) / E (`--resume`, unanswered `ExitPlanMode`)
+plus the static-binary and live tiers; deltas noted inline as "(2.1.267 canary)". The pin
+stayed 2.1.246 in that plan (`TestInstalledVersionMatchesPin` red by design); the bump is the
+`docs/claude-code-pin.md` step-2 ritual after landing.
 
 Raw evidence: `ccc-spike/captures/capture-1.jsonl`, `capture-3.jsonl`; H2 probe additions
 (2026-08-16) in `test/rig/captures/capture-1.jsonl` (gitignored, regenerable via
@@ -46,12 +51,23 @@ Common to every hook: `cwd`, `hook_event_name`, `session_id`, `transcript_path`.
 | `Stop` | `last_assistant_message`, `stop_hook_active`, `background_tasks`, `session_crons` | present |
 | `StopFailure` | `error`, `last_assistant_message` | **absent** |
 | `SubagentStop` | `agent_id`, `agent_type`, `agent_transcript_path`, `stop_hook_active`, `background_tasks`, `session_crons` | present |
+| ↳ *not asserted by `make canary` since 2026-09-10:* `interpret.go` treats `SubagentStop` as `KindInert` and Muster reads nothing from it; Muster's only subagent dependency is `agent_id` on tool hooks / `PermissionRequest`, an `/interface-probe` ritual. | | |
 | `SessionEnd` | `reason` | **absent** |
 | `Notification` | `notification_type`, `message` | **absent** |
-| `PermissionRequest` | `tool_name`, `tool_input`, `permission_suggestions` | present |
+| `PermissionRequest` | `tool_name`, `tool_input`, `permission_suggestions`² | present |
 
 ¹ `session_title` is present **only when the session was launched with `--name`**; absent
-otherwise.
+otherwise. (2.1.267 canary: with `--name "Muster Canary"`, `SessionStart.session_title` and
+the status line's `session_name` both equal the flag value — asserted by `TestLaunchFlags` /
+`TestStatusLineFields`.)
+
+² `permission_suggestions` is **optional**. Present on a `Write` request in `default` mode
+(2.1.233 FINDINGS; 2.1.259 `capture-6.jsonl`, subagent) as `[{type:"setMode",
+mode:"acceptEdits", destination:"session"}]`; **absent on the `ExitPlanMode` request in `plan`
+mode** (2.1.267 canary run E, 1/1 — keys were exactly `cwd, scratchpad_dir, prompt_id,
+permission_mode, session_id, transcript_path, hook_event_name, tool_name, tool_input`). No
+production code reads it, so `make canary` shape-checks it only when present and logs
+presence. `scratchpad_dir` (new common key on 2.1.259) was on every 2.1.267 hook seen.
 
 ### Subagent and background-task fields (2.1.259 probe, 2026-09-03, issue #14)
 
@@ -116,6 +132,12 @@ and interactive) — so a seeded `auto` must be allowed to be corrected to `defa
 first `UserPromptSubmit`. Auto was available on the `sonnet`, `opus` and `fable` presets
 (footer check, zero tokens via the fail-proxy). Headless `-p` mode honours the flag
 (`acceptEdits` → `"acceptEdits"`, 1/1), so the haiku fallback is the model gate, not `-p`.
+**Unauthenticated path (2.1.267 canary, run C×4, asserted every run):** the flag is reflected
+on `UserPromptSubmit.permission_mode` *before* the auth failure — no flag → `"default"`,
+`plan` → `"plan"`, `acceptEdits` → `"acceptEdits"`, and `auto` on haiku → `"default"` (the
+model gate is evaluated before authentication; 1/1 each), cross-checked by the authenticated
+run D reporting `"plan"`. The `auto mode unavailable for this model` banner still prints on
+2.1.267 for haiku.
 
 ### Values worth asserting
 
@@ -134,7 +156,13 @@ first `UserPromptSubmit`. Auto was available on the `sonnet`, `opus` and `fable`
   the pinned binary (R2, burns subscription — TODO M4). A divergence would land the resumed
   session in `started` instead of `idle` (clear-rebind path), not break it. **Closed
   2026-08-30:** R2 run manually by Damian on the pinned 2.1.246 — interactive dashboard
-  End → Resume carried the same `session_id` and the badge read `idle`. On `/clear` (2.1.237,
+  End → Resume carried the same `session_id` and the badge read `idle`. **Automated
+2026-09-10 (2.1.267 canary, run E):** a fresh tmux session launched through the production
+`claudecode.BuildArgv` (`--resume <id> --model … --permission-mode plan`, byte-for-byte
+`internal/server`'s Resume line) delivered `SessionStart{source:"resume"}` with the same
+`session_id` and `transcript_path` as run D (1/1, asserted). The resumed session's status line
+carried `session_name: "Muster Canary"` although run E passed no `--name` — the title
+persists across resume (1/1, logged not asserted). On `/clear` (2.1.237,
   2026-08-20 probe): the old session_id gets `SessionEnd` with `reason: "clear"`, then
   `SessionStart` fires with `source: "clear"` and a **new** session_id in the same pane —
   so `/clear` is directly detectable, and a `SessionEnd` with `reason: "clear"` must NOT
@@ -144,6 +172,11 @@ first `UserPromptSubmit`. Auto was available on the `sonnet`, `opus` and `fable`
 - **`StopFailure` replaces `Stop`** — never both for the same turn. Assert this: a canary
   that expects `Stop` on every turn end would break the `Failed` state. (H2 probe: verified
   for startup, first-API-call and mid-turn failures; successes emit `Stop` only.)
+- **Workspace-trust prompt preselection flipped:** 2.1.233 preselected "Yes" (bare Enter
+  accepted); 2.1.259 and **2.1.267 preselect `❯ No, exit`** with "Yes, I trust this folder"
+  on the second row (zero-token probe 2026-09-10) — a bare Enter exits the session. The canary
+  harness now reads the marker row and moves it before Enter (`answerTrustPrompt`); Muster
+  itself never answers the prompt (SPEC §2.5).
 - **Plan-mode sequence to assert** (SPEC §4.1 depends on it):
   `PreToolUse{tool_name:"ExitPlanMode", permission_mode:"plan"}` →
   `PermissionRequest{tool_name:"ExitPlanMode"}` →
@@ -156,7 +189,11 @@ first `UserPromptSubmit`. Auto was available on the `sonnet`, `opus` and `fable`
   `"unknown"`, not `"invalid_request"`.
 - `Notification.notification_type`: `"idle_prompt"` (message `"Claude is waiting for your
   input"`) and `"permission_prompt"` (message `"Claude needs your permission"`) both
-  observed. Others in the binary: `auth_success`, `agent_needs_input`, `agent_completed`,
+  observed. Both asserted by `make canary` since 2026-09-10 (2.1.267): `idle_prompt` follows
+  run D's `Stop` at **60.04 s** on 2.1.267 (bounded at 90 s, never asserted on timing;
+  60.03 s on 2.1.259); `permission_prompt` follows `PreToolUse{ExitPlanMode, plan}` →
+  `PermissionRequest{ExitPlanMode}` and shares its `prompt_id` (1/1). `Notification` carries
+  `prompt_id`, `notification_type`, `message`, no `permission_mode`. Others in the binary: `auth_success`, `agent_needs_input`, `agent_completed`,
   `elicitation_dialog`.
 - `SessionEnd.reason`: `"other"` and `"clear"` observed (`"clear"` on 2.1.237). `"other"`
   covers both a killed pane and ordinary termination; only `"clear"` is distinguishable.
@@ -178,7 +215,9 @@ first `UserPromptSubmit`. Auto was available on the `sonnet`, `opus` and `fable`
 
 Top-level keys: `context_window`, `cost`, `cwd`, `exceeds_200k_tokens`, `fast_mode`,
 `model`, `output_style`, `prompt_id`, `rate_limits`, `session_id`, `session_name`,
-`thinking`, `transcript_path`, `version`, `workspace`.
+`thinking`, `transcript_path`, `version`, `workspace`; plus `scratchpad_dir` (2.1.259+) and
+**`prompt_cache` (new, first seen 2.1.267 canary 2026-09-10 — contents not yet inspected;
+superset, nothing reads it)**.
 
 **`permission_mode` is NOT in the status line** — confirmed absent across every capture.
 Read it from hooks instead.
@@ -232,7 +271,13 @@ headers `Authorization: Bearer <claudeAiOauth.accessToken>` (Keychain item
 scope: null | {model:{id:null, display_name:"Fable"}, surface:null}, is_active}`. The
 Fable row was `weekly_scoped`/61%. Many other top-level keys are feature-flag noise
 (`amber_ladder`, `cinder_cove`, …) — ignore unknown keys. Undocumented endpoint: re-check on
-every pin bump alongside the status-line builder.
+every pin bump alongside the status-line builder. **Asserted by `make canary`'s live tier since
+2026-09-10** (`TestKeychainCredentialShape` → production `KeychainTokenReader`;
+`TestUsageAPIResponseShape` → production `FetchUsage` plus one raw GET checking `five_hour`,
+`seven_day`, `limits[]{kind,percent,resets_at}`, a `weekly_scoped` row with
+`scope.model.display_name`, RFC3339Nano `resets_at`; HTTP 200 on 2026-09-10). The static tier
+asserts the path `/api/oauth/usage`, the header value `oauth-2025-04-20`, the JSON key
+`claudeAiOauth` and `find-generic-password` as byte strings in the installed bundle.
 
 ### `context_window` — SPEC §2.2's gauge
 
@@ -373,6 +418,14 @@ recycled PID. Use `pgrep -f` on the exact command line.
   `["dark","light","light-daltonized","dark-daltonized","light-ansi","dark-ansi"]`, its
   own family test is `startsWith("light")`, and the default when the key is absent is
   `dark` (`resolveSetting("theme","dark")`). Damian's live file has no `theme` key. Basis
-  for `ReadThemeFamily`'s prefix mapping (plan `new-ui-design-colors`, REQ-13). Not asserted
-  by `make canary`; re-verify by static inspection on any pin bump. Note the installed
-  bundle (2.1.258) is ahead of the pin (2.1.246) — see `docs/claude-code-pin.md`.
+  for `ReadThemeFamily`'s prefix mapping (plan `new-ui-design-colors`, REQ-13). Since
+  2026-09-10 `make canary` asserts the four non-default enum members as byte strings in the
+  installed bundle (static tier) and that `ReadThemeFamily(DefaultConfigPath())` parses
+  Damian's real file (live tier); string presence ≠ semantics, so still glance at the
+  `resolveSetting("theme", …)` site on a pin bump. Note the installed bundle (2.1.258) was
+  ahead of the pin (2.1.246) — see `docs/claude-code-pin.md`.
+- **`CLAUDE_CODE_SCROLL_SPEED` is present in the installed bundle** (2.1.267, 2026-09-10) —
+  asserted by `make canary`'s static tier, which iterates every key of the production
+  `claudecode.LaunchEnv()` rather than spelling the name (issue #13 follow-up). Presence
+  catches a rename or removal only; the 5-lines/notch effect stays measured in
+  `spikes/S6-scroll-bandwidth.md`.

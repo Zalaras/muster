@@ -1,0 +1,75 @@
+{
+  "plan_name": "canary-full-coverage",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 0,
+    "web-impl": 0,
+    "daemon-tests": 2,
+    "web-tests": 0,
+    "e2e-validate": 0,
+    "review": 1
+  },
+  "completed_steps": [
+    "e2e-specs",
+    "daemon-impl",
+    "daemon-tests",
+    "review"
+  ],
+  "step_started_at": {
+    "daemon-impl": "2026-09-10T07:54:08Z",
+    "daemon-tests": "2026-09-10T07:38:43Z",
+    "review": "2026-09-10T07:57:57Z"
+  },
+  "step_finished_at": {
+    "e2e-specs": "2026-09-10T07:07:37Z",
+    "daemon-impl": "2026-09-10T07:55:29Z",
+    "daemon-tests": "2026-09-10T07:42:23Z",
+    "review": "2026-09-10T09:05:41Z"
+  },
+  "step_attempts": {
+    "e2e-specs": [
+      {
+        "start": null,
+        "finish": "2026-09-10T07:07:37Z"
+      }
+    ],
+    "daemon-impl": [
+      {
+        "start": "2026-09-10T07:07:37Z",
+        "finish": "2026-09-10T07:10:10Z"
+      },
+      {
+        "start": "2026-09-10T07:54:08Z",
+        "finish": "2026-09-10T07:55:29Z"
+      }
+    ],
+    "daemon-tests": [
+      {
+        "start": "2026-09-10T07:10:10Z",
+        "finish": "2026-09-10T07:24:28Z"
+      },
+      {
+        "start": "2026-09-10T07:29:24Z",
+        "finish": "2026-09-10T07:33:58Z"
+      },
+      {
+        "start": "2026-09-10T07:38:43Z",
+        "finish": "2026-09-10T07:42:23Z"
+      }
+    ],
+    "review": [
+      {
+        "start": "2026-09-10T07:46:34Z",
+        "finish": "2026-09-10T07:54:08Z"
+      },
+      {
+        "start": "2026-09-10T07:57:57Z",
+        "finish": "2026-09-10T09:05:41Z"
+      }
+    ]
+  },
+  "started_at": "2026-09-10T07:07:04Z",
+  "updated_at": "2026-09-10T09:08:18Z"
+}

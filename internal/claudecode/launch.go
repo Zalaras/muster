@@ -52,10 +52,11 @@ func BuildArgv(binary string, p LaunchParams) []string {
 // UNSUPPORTED INTERFACE: the variable is absent from `claude --help` and was found by
 // reading strings out of the binary; it carries no compatibility promise. Measured on
 // 2.1.259, which is *ahead* of the 2.1.246 pin in docs/claude-code-pin.md, so these
-// numbers want re-confirming against the pinned build. It is not yet asserted by
-// `make canary` — until it is, an upstream rename or removal is expected to degrade
-// silently to today's one-line-per-notch behaviour (unknown env vars being ignored)
-// rather than fail loudly, which is precisely why the canary assertion is owed.
+// numbers want re-confirming against the pinned build. Since 2026-09-10, `make canary`'s
+// static tier asserts this variable's presence (by name, read from LaunchEnv()) in the
+// installed binary, which catches an upstream rename or removal; it does not catch a
+// change in the variable's effect on scroll rate — that stays a manual re-measurement
+// against spikes/S6-scroll-bandwidth.md.
 const ScrollSpeed = "5"
 
 // LaunchEnv returns the Claude-Code-specific environment shared by a launch and a resume.

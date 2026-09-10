@@ -3,22 +3,31 @@
 // Package canary asserts that the installed Claude Code still emits every field and
 // behaviour Muster depends on. Run it before adopting any new Claude Code version:
 //
-//	make canary                         # four real runs (3 haiku turns + 1 zero-token)
-//	MUSTER_CANARY_OFFLINE=1 make canary # compile + version check only, no tokens
+//	make canary                         # 4 haiku turns + zero-token unauth/resume/live checks
+//	MUSTER_CANARY_OFFLINE=1 make canary # compile + pin + static binary check only, no tokens
 //
-// It is behind a build tag because it drives a real `claude` install and is therefore
-// neither hermetic nor fast. The harness (harness_test.go) runs the production
-// settings→sh→wrapper→POST chain against a real binary exactly once per process; the
-// tests below are views over those captures. The inventory they assert is
+// It is behind a build tag because it drives a real `claude` install — and, in the live
+// tier, the real macOS Keychain and usage API — and is therefore neither hermetic nor
+// fast. The harness (harness_test.go) runs the production settings→sh→wrapper→POST chain
+// against a real binary exactly once per process (runs A-E); the tests in this file are
+// views over those captures. static_test.go scans the installed binary for interface
+// strings Muster cannot drive through a canary run; live_test.go exercises the real
+// Keychain, usage API and theme config. The inventory they all assert is
 // spikes/canary-fields.md.
 //
-// Deliberately NOT automated (need an interactive permission dialog driven by
-// send-keys — too fragile for a gate; decided 2026-08-29): the plan-mode sequence,
-// PermissionRequest, Notification, SubagentStop. Those stay as skipped inventory rows.
+// Deliberately still NOT automated (decided 2026-09-10 — each needs the dialog answered,
+// or costs a subagent turn no assertion here needs): plan-mode step 3
+// (PostToolUse{ExitPlanMode, permission_mode:"acceptEdits"}, which needs the
+// ExitPlanMode permission dialog actually answered — steps 1-2 are asserted, unanswered,
+// by TestPlanModeSequence and TestNotifications), agent_id on subagent-originated hooks
+// (a subagent costs >= 2 turns; SubagentStop itself is not a residual — interpret.go
+// treats it as KindInert and Muster reads nothing from it), and the `fable` alias
+// (verified by static inspection). All three stay /interface-probe rituals.
 package canary
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -27,10 +36,6 @@ import (
 
 	"github.com/Zalaras/muster/internal/claudecode"
 )
-
-// needsInteractiveDialog marks inventory rows the harness does not drive.
-const needsInteractiveDialog = "needs an interactive permission dialog driven via tmux send-keys; " +
-	"kept as inventory so it cannot drift from spikes/canary-fields.md (verify with /interface-probe)"
 
 // TestInstalledVersionMatchesPin needs nothing but the binary on PATH; it always runs.
 func TestInstalledVersionMatchesPin(t *testing.T) {
@@ -77,9 +82,15 @@ func TestHookTransport(t *testing.T) {
 func TestHookFields(t *testing.T) {
 	f := harness(t)
 
+	// SubagentStop is deliberately absent from this table (REQ-6/REQ-9): interpret.go
+	// treats it as KindInert and Muster reads nothing from it — its only Muster
+	// dependency is agent_id on tool hooks and PermissionRequest, which stays a
+	// /interface-probe ritual (a subagent costs >= 2 turns). Notification and
+	// PermissionRequest are now both harness-driven: Notification by run D's idle_prompt,
+	// PermissionRequest by run E's unanswered ExitPlanMode dialog.
 	tests := []struct {
 		event          string
-		session        int64 // which run produces it; 0 = not driven by the harness
+		session        int64
 		fields         []string
 		permissionMode bool
 	}{
@@ -90,15 +101,16 @@ func TestHookFields(t *testing.T) {
 		{"Stop", sessionManaged, []string{"last_assistant_message", "stop_hook_active", "background_tasks", "session_crons"}, true},
 		{"StopFailure", sessionUnauth, []string{"error", "last_assistant_message"}, false},
 		{"SessionEnd", sessionManaged, []string{"reason"}, false},
-		{"SubagentStop", 0, []string{"agent_id", "agent_type", "agent_transcript_path", "stop_hook_active"}, true},
-		{"Notification", 0, []string{"notification_type", "message"}, false},
-		{"PermissionRequest", 0, []string{"tool_name", "tool_input", "permission_suggestions"}, true},
+		{"Notification", sessionInteract, []string{"notification_type", "message"}, false},
+		// permission_suggestions is deliberately absent from this row (REQ-5/REQ-9
+		// amendment, 2026-09-10): measured absent on the ExitPlanMode PermissionRequest on
+		// 2.1.267 (canary-run.log), the shape the plan originally quoted was measured on a
+		// Write request in default mode instead, and no production code reads the key. It
+		// is optional and shape-checked only when present (TestNotifications).
+		{"PermissionRequest", sessionResume, []string{"tool_name", "tool_input"}, true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.event, func(t *testing.T) {
-			if tc.session == 0 {
-				t.Skip(needsInteractiveDialog)
-			}
 			c := f.firstHook(tc.session, tc.event)
 			require.NotNilf(t, c, "%s never arrived; session %d saw %v", tc.event, tc.session, f.hookTypes(tc.session))
 
@@ -130,8 +142,8 @@ func TestHookFields(t *testing.T) {
 
 // TestStopFailureReplacesStop guards the Failed state: StopFailure fires *instead of*
 // Stop, never alongside it (H2 probe 2026-08-16 settled SPEC §9.3). A success turn emits
-// Stop only; the unauthenticated run emits StopFailure only, with error
-// "authentication_failed".
+// Stop only; every unauthenticated run (all four permission modes, REQ-1) emits
+// StopFailure only, with error "authentication_failed".
 func TestStopFailureReplacesStop(t *testing.T) {
 	f := harness(t)
 
@@ -139,34 +151,169 @@ func TestStopFailureReplacesStop(t *testing.T) {
 	assert.Contains(t, ok, "Stop")
 	assert.NotContains(t, ok, "StopFailure", "success turn must not emit StopFailure")
 
-	failed := f.hookTypes(sessionUnauth)
-	assert.Contains(t, failed, "StopFailure", "unauthenticated run emitted %v", failed)
-	assert.NotContains(t, failed, "Stop", "StopFailure must replace Stop, not accompany it")
-	assert.Contains(t, failed, "UserPromptSubmit")
-	if c := f.firstHook(sessionUnauth, "StopFailure"); c != nil {
-		assert.Equal(t, "authentication_failed", c.payload["error"])
-	}
-	// SessionEnd is NOT asserted on this path. Measured 2026-08-29 (2.1.246): on the
-	// auth-failure exit claude does not await its hooks — a `cat >>` hook records
-	// SessionEnd, but the same hook behind `sleep 0.05` loses both StopFailure and
-	// SessionEnd, and Muster's ~48 ms curl wrapper landed StopFailure 2/2 runs and
-	// SessionEnd 0/2. Best-effort delivery (CLAUDE.md); reconcile keys on pane liveness.
-	if !contains(failed, "SessionEnd") {
-		t.Logf("SessionEnd not delivered on the auth-failure exit (expected: hooks are not awaited there); got %v", failed)
+	for _, run := range unauthRuns {
+		t.Run(fmt.Sprintf("mode=%q", run.mode), func(t *testing.T) {
+			failed := f.hookTypes(run.session)
+			assert.Contains(t, failed, "StopFailure", "unauthenticated run emitted %v", failed)
+			assert.NotContains(t, failed, "Stop", "StopFailure must replace Stop, not accompany it")
+			assert.Contains(t, failed, "UserPromptSubmit")
+			if c := f.firstHook(run.session, "StopFailure"); c != nil {
+				assert.Equal(t, "authentication_failed", c.payload["error"])
+			}
+			// SessionEnd is NOT asserted on this path. Measured 2026-08-29 (2.1.246): on
+			// the auth-failure exit claude does not await its hooks — a `cat >>` hook
+			// records SessionEnd, but the same hook behind `sleep 0.05` loses both
+			// StopFailure and SessionEnd, and Muster's ~48 ms curl wrapper landed
+			// StopFailure 2/2 runs and SessionEnd 0/2. Best-effort delivery (CLAUDE.md);
+			// reconcile keys on pane liveness.
+			if !contains(failed, "SessionEnd") {
+				t.Logf("SessionEnd not delivered on the auth-failure exit (expected: hooks are not awaited there); got %v", failed)
+			}
+		})
 	}
 }
 
 // TestPlanModeSequence guards SPEC §4.1's plan flow, which depends on this exact
-// ordering. Not driven by the harness (needs the ExitPlanMode permission dialog).
+// ordering. Driven by run E (REQ-6): steps 1-2 (PreToolUse then PermissionRequest) are
+// asserted for real; step 3 needs the dialog answered and is not — logged as the
+// /interface-probe residual, not skipped.
 func TestPlanModeSequence(t *testing.T) {
-	t.Skip(needsInteractiveDialog)
+	f := harness(t)
 
-	want := []string{
-		`PreToolUse{tool_name:"ExitPlanMode", permission_mode:"plan"}`,
-		`PermissionRequest{tool_name:"ExitPlanMode"}`,
-		`PostToolUse{tool_name:"ExitPlanMode", permission_mode:"acceptEdits"}`,
+	events := f.hookEvents(sessionResume)
+	preIdx, reqIdx := -1, -1
+	for i, c := range events {
+		tn, _ := c.payload["tool_name"].(string)
+		if tn != "ExitPlanMode" {
+			continue
+		}
+		switch c.ev.Type {
+		case "PreToolUse":
+			if preIdx == -1 {
+				preIdx = i
+			}
+		case "PermissionRequest":
+			if reqIdx == -1 {
+				reqIdx = i
+			}
+		}
 	}
-	_ = want
+	require.NotEqualf(t, -1, preIdx, "PreToolUse{ExitPlanMode} never arrived on run E; got %v", f.hookTypes(sessionResume))
+	require.NotEqualf(t, -1, reqIdx, "PermissionRequest{ExitPlanMode} never arrived on run E; got %v", f.hookTypes(sessionResume))
+	assert.Lessf(t, preIdx, reqIdx, "PreToolUse{ExitPlanMode} (index %d) must arrive before PermissionRequest{ExitPlanMode} (index %d)", preIdx, reqIdx)
+	assert.Equal(t, "plan", events[preIdx].payload["permission_mode"], "PreToolUse{ExitPlanMode} must fire in plan mode")
+
+	t.Log("step 3 (PostToolUse{ExitPlanMode, permission_mode:\"acceptEdits\"}) is not asserted here: " +
+		"it needs the permission dialog actually answered, which this harness deliberately never does " +
+		"(REQ-5). Verify with /interface-probe.")
+}
+
+// TestLaunchFlags asserts REQ-1/2/4: the --permission-mode flag reaches
+// UserPromptSubmit.permission_mode on both the unauthenticated sweep and the
+// authenticated interactive run, --name reaches SessionStart.session_title, and a
+// --resume relaunch carries run D's session_id and transcript_path forward.
+func TestLaunchFlags(t *testing.T) {
+	f := harness(t)
+
+	t.Run("permission_mode reflects --permission-mode", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			session int64
+			want    []string // acceptable observed values
+		}{
+			{"unauth, no flag", sessionUnauth, []string{"default"}},
+			{"unauth, plan", sessionUnauthPlan, []string{"plan"}},
+			{"unauth, acceptEdits", sessionUnauthAccept, []string{"acceptEdits"}},
+			// auto is model-gated to default on haiku (canary-fields "permission-mode
+			// probe"); whether the gate applies before auth is unmeasured, so both
+			// values are accepted and the observed one is logged (Edge Case 5).
+			{"unauth, auto", sessionUnauthAuto, []string{"auto", "default"}},
+			// Authenticated cross-check (REQ-2): the flag->wire mapping was measured
+			// authenticated only, so this run disambiguates "unauth path unsuitable"
+			// from "flag renamed" if the unauth assertions above ever fail.
+			{"interactive, plan (authenticated cross-check)", sessionInteract, []string{"plan"}},
+		}
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				c := f.firstHook(tc.session, "UserPromptSubmit")
+				require.NotNilf(t, c, "UserPromptSubmit never arrived for %s; session %d saw %v", tc.name, tc.session, f.hookTypes(tc.session))
+				got, _ := c.payload["permission_mode"].(string)
+				assert.Containsf(t, tc.want, got, "%s: permission_mode = %q, want one of %v", tc.name, got, tc.want)
+				if len(tc.want) > 1 {
+					t.Logf("%s: observed permission_mode = %q", tc.name, got)
+				}
+			})
+		}
+	})
+
+	t.Run("SessionStart.session_title equals --name (REQ-2)", func(t *testing.T) {
+		c := f.firstHook(sessionInteract, "SessionStart")
+		require.NotNil(t, c, "run D SessionStart missing")
+		assert.Equal(t, "Muster Canary", c.payload["session_title"], "SessionStart.session_title must equal the launched --name")
+	})
+
+	t.Run("resume carries the same session identity (REQ-4, INV-3)", func(t *testing.T) {
+		d := f.firstHook(sessionInteract, "SessionStart")
+		e := f.firstHook(sessionResume, "SessionStart")
+		require.NotNil(t, d, "run D SessionStart missing")
+		require.NotNil(t, e, "run E SessionStart missing")
+		assert.Equal(t, "startup", d.payload["source"])
+		assert.Equal(t, "resume", e.payload["source"])
+		assert.Equal(t, d.ev.SessionID, e.ev.SessionID, "resume must carry the same claude session_id")
+		assert.NotEmpty(t, d.ev.SessionID, "run D's session_id must not be empty for this comparison to mean anything")
+		assert.Equal(t, d.payload["transcript_path"], e.payload["transcript_path"], "resume must carry the same transcript_path")
+	})
+}
+
+// TestNotifications asserts REQ-3/REQ-5: the idle_prompt Notification after run D's Stop,
+// and the permission_prompt Notification sharing run E's PermissionRequest prompt_id.
+// The two events' own field inventories are TestHookFields' job; this test checks the
+// values and the cross-references between them.
+func TestNotifications(t *testing.T) {
+	f := harness(t)
+
+	t.Run("idle_prompt arrives after Stop (REQ-3)", func(t *testing.T) {
+		stop := f.firstHook(sessionInteract, "Stop")
+		require.NotNil(t, stop, "run D never emitted Stop")
+		idle := f.firstNotification(sessionInteract, "idle_prompt")
+		require.NotNilf(t, idle, "no idle_prompt Notification on run D; got %v", f.hookTypes(sessionInteract))
+		assert.Truef(t, idle.at.After(stop.at), "idle_prompt Notification must arrive after Stop (stop=%s, idle=%s)", stop.at, idle.at)
+		// Logged, never asserted (REQ-3, plan Implementation Notes "For the orchestrator"):
+		// a timing assertion on a shared machine is a flake generator, but the gap is a
+		// fact spikes/canary-fields.md wants for the next pin bump.
+		t.Logf("idle_prompt arrived %.2fs after Stop", idle.at.Sub(stop.at).Seconds())
+	})
+
+	t.Run("permission_prompt shares PermissionRequest's prompt_id (REQ-5)", func(t *testing.T) {
+		req := f.firstHook(sessionResume, "PermissionRequest")
+		require.NotNilf(t, req, "no PermissionRequest on run E; got %v", f.hookTypes(sessionResume))
+		notif := f.firstNotification(sessionResume, "permission_prompt")
+		require.NotNilf(t, notif, "no permission_prompt Notification on run E; got %v", f.hookTypes(sessionResume))
+
+		reqPromptID, _ := req.payload["prompt_id"].(string)
+		notifPromptID, _ := notif.payload["prompt_id"].(string)
+		require.NotEmpty(t, reqPromptID, "PermissionRequest missing prompt_id")
+		assert.Equal(t, reqPromptID, notifPromptID, "permission_prompt Notification must share PermissionRequest's prompt_id")
+
+		// permission_suggestions is optional on the ExitPlanMode PermissionRequest (REQ-5
+		// amendment, 2026-09-10): measured absent on 2.1.267. Presence is logged, never
+		// required; when present its shape is still checked. Only scalars are logged
+		// (INV-2) — never the payload map or tool_input.
+		toolName, _ := req.payload["tool_name"].(string)
+		permMode, _ := req.payload["permission_mode"].(string)
+		raw, present := req.payload["permission_suggestions"]
+		t.Logf("permission_suggestions present=%v (tool_name=%q, permission_mode=%q)", present, toolName, permMode)
+		if present {
+			suggestions, ok := raw.([]any)
+			require.Truef(t, ok, "permission_suggestions must be an array; got %T", raw)
+			require.NotEmpty(t, suggestions, "permission_suggestions must be non-empty")
+			first, ok := suggestions[0].(map[string]any)
+			require.True(t, ok, "permission_suggestions[0] must be an object")
+			for _, k := range []string{"type", "mode", "destination"} {
+				assert.Containsf(t, keys(first), k, "permission_suggestions[0] missing %q; has %v", k, keys(first))
+			}
+		}
+	})
 }
 
 // TestStatusLineFields asserts the status-line payload Muster's gauges read, on the last
@@ -189,12 +336,9 @@ func TestStatusLineFields(t *testing.T) {
 	for _, k := range topLevel {
 		assert.Containsf(t, keys(last), k, "status line missing %q; has %v", k, keys(last))
 	}
-	// session_name is the title source but is absent until Claude Code has derived a
-	// title (canary-fields "session_name"); a one-turn "say hi" session may never get one
-	// (2026-08-29 harness run: absent on all posts). Optional, so log rather than assert.
-	if _, ok := last["session_name"]; !ok {
-		t.Log("status line has no session_name yet (optional: appears only once a title is derived)")
-	}
+	// Run D now launches with --name "Muster Canary" (REQ-2), so session_name is no
+	// longer the optional, may-never-derive value it was before; assert it directly.
+	assert.Equal(t, "Muster Canary", last["session_name"], "status-line session_name must equal the launched --name")
 	if extra := difference(keys(last), append(topLevel, "session_name")); len(extra) > 0 {
 		t.Logf("status line carries keys not in the inventory (superset is fine; record in canary-fields): %v", extra)
 	}
@@ -227,6 +371,17 @@ func TestStatusLineFields(t *testing.T) {
 	// The adapter must read all of the above the same way.
 	upd := claudecode.InterpretStatus(posts[len(posts)-1].ev.Payload)
 	assert.Equal(t, haikuModel, upd.Model.ID)
+
+	// REQ-15: run E (the resume) was launched without --name, so whether session_name
+	// still persists across a resume is a fact the next pin bump should learn — logged,
+	// never asserted, and only if the resumed session got a status-line post at all in
+	// its short unanswered-dialog lifetime.
+	if resumePosts := f.statusPosts(sessionResume); len(resumePosts) > 0 {
+		t.Logf("resumed session (run E, launched without --name) last status-line session_name = %v",
+			resumePosts[len(resumePosts)-1].payload["session_name"])
+	} else {
+		t.Log("no status-line post captured on the resumed session (run E) to log session_name from")
+	}
 }
 
 // TestUnknownVersusZero guards SPEC §9 risk 9. Before a session's first API response the

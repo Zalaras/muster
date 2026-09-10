@@ -32,14 +32,20 @@ import (
 //	  → an in-test capture server, parsed with claudecode.ParseIngestBody.
 //
 // No fake claude, no synthesized POSTs. Every real run burns Damian's subscription, so the
-// harness performs exactly four runs, once per `go test` process, and every test is a
+// harness performs a fixed set of runs, once per `go test` process, and every test is a
 // cheap view over them (CLAUDE.md: haiku only, trivial prompts, kill on exit):
 //
 //	A  headless, managed   ($MUSTER_SESSION=42) — one Bash tool call        (1 haiku turn)
 //	B  headless, unmanaged (no $MUSTER_SESSION) — must produce zero posts    (1 haiku turn)
-//	C  headless, unauthenticated CLAUDE_CONFIG_DIR ($MUSTER_SESSION=43)      (0 tokens)
-//	D  interactive in tmux on a scratch socket ($MUSTER_SESSION=44), "say hi" — the status
-//	   line never runs headless, so this is the only source of status-line posts (1 haiku turn)
+//	C  headless, unauthenticated CLAUDE_CONFIG_DIR, once per launch permission mode
+//	   ($MUSTER_SESSION=43/45/46/47: no flag, plan, acceptEdits, auto)        (0 tokens)
+//	D  interactive in tmux on a scratch socket ($MUSTER_SESSION=44), launched with
+//	   Title:"Muster Canary", PermissionMode:"plan", "say hi" — then a wait for the
+//	   idle_prompt Notification before the pane is killed                    (1 haiku turn)
+//	E  a resume relaunch of D's claude session_id in a second tmux session on the same
+//	   socket ($MUSTER_SESSION=48), through the exact BuildArgv+ResumeSessionID chain
+//	   internal/server's Resume uses; one turn asking Claude to call ExitPlanMode, left
+//	   unanswered by design — the dialog is never driven                    (1 haiku turn)
 //
 // Isolation: the scratch repo lives under os.MkdirTemp (/var/folders, outside ~/Documents
 // so no parent CLAUDE.md leaks into the session); ~/.claude/settings.json is never read or
@@ -50,13 +56,36 @@ const (
 	haikuModel = "claude-haiku-4-5-20251001"
 	testToken  = "canary-token"
 
-	sessionManaged    int64 = 42
-	sessionUnauth     int64 = 43
-	sessionInteract   int64 = 44
-	headlessPrompt          = "Run exactly this shell command and nothing else, then stop: echo hi"
-	interactivePrompt       = "say hi"
-	interactiveTmuxID int64 = 99 // tmux session "muster-99" on the scratch socket
+	sessionManaged      int64 = 42
+	sessionUnauth       int64 = 43 // unauthenticated, no --permission-mode flag
+	sessionInteract     int64 = 44
+	sessionUnauthPlan   int64 = 45 // unauthenticated, --permission-mode plan
+	sessionUnauthAccept int64 = 46 // unauthenticated, --permission-mode acceptEdits
+	sessionUnauthAuto   int64 = 47 // unauthenticated, --permission-mode auto (haiku model-gated to default)
+	sessionResume       int64 = 48 // run E: resume of sessionInteract's claude session_id
+
+	headlessPrompt    = "Run exactly this shell command and nothing else, then stop: echo hi"
+	interactivePrompt = "say hi"
+	// exitPlanPrompt drives run E's PermissionRequest without ever answering it (REQ-5): the
+	// harness sends this once, waits for PermissionRequest then the permission_prompt
+	// Notification, and kills the pane without answering the dialog.
+	exitPlanPrompt = "Call the ExitPlanMode tool now with a one-line plan; do nothing else."
+
+	interactiveTmuxID       int64 = 99 // tmux session "muster-99" on the scratch socket: run D
+	interactiveResumeTmuxID int64 = 98 // tmux session "muster-98" on the scratch socket: run E
 )
+
+// unauthRuns is REQ-1's four-way permission-mode sweep on the zero-token unauthenticated
+// path: one run per launch permission mode, "" meaning no --permission-mode flag at all.
+var unauthRuns = []struct {
+	session int64
+	mode    string
+}{
+	{sessionUnauth, ""},
+	{sessionUnauthPlan, "plan"},
+	{sessionUnauthAccept, "acceptEdits"},
+	{sessionUnauthAuto, "auto"},
+}
 
 // offlineEnv, when set, skips every test that needs a real run — lets the canary package be
 // compiled and vetted without spending tokens (`MUSTER_CANARY_OFFLINE=1 make canary`).
@@ -86,15 +115,17 @@ type fixture struct {
 	// Per-run bookkeeping.
 	runAOutput  string // headless JSON output of run A (no payload text beyond claude's reply)
 	runBPosts   int    // posts captured during run B (must be 0)
-	runCOutput  string
+	runCOutput  string // last unauthenticated run's output (build-error messages only)
 	interactive struct {
 		trustPromptSeen bool
 		sessionStartAt  time.Time
 		stopAt          time.Time
+		idlePromptAt    time.Time // run D: when the idle_prompt Notification arrived (REQ-3)
+		claudeSessionID string    // run D's SessionStart.session_id, for run E's --resume
+		transcriptPath  string    // run D's SessionStart.transcript_path, cross-checked against E
 	}
 
 	tmuxClient *tmux.Client
-	tmuxTarget string
 }
 
 var (
@@ -190,6 +221,9 @@ func (f *fixture) build() error {
 	if err := f.runD(ctx); err != nil {
 		return fmt.Errorf("run D (interactive status line): %w", err)
 	}
+	if err := f.runE(ctx); err != nil {
+		return fmt.Errorf("run E (resume + plan mode): %w", err)
+	}
 	return nil
 }
 
@@ -276,15 +310,22 @@ func baseEnv() []string {
 	return env
 }
 
-func (f *fixture) headless(ctx context.Context, extraEnv ...string) (string, error) {
+// headless runs one headless turn. permissionMode, when non-empty, is passed as
+// --permission-mode (REQ-1's unauthenticated sweep); empty omits the flag entirely, as
+// every run before REQ-1 did.
+func (f *fixture) headless(ctx context.Context, permissionMode string, extraEnv ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "claude",
+	args := []string{
 		"-p", headlessPrompt,
 		"--model", haikuModel,
 		"--allowedTools", "Bash",
 		"--output-format", "json",
-	)
+	}
+	if permissionMode != "" {
+		args = append(args, "--permission-mode", permissionMode)
+	}
+	cmd := exec.CommandContext(ctx, "claude", args...)
 	cmd.Dir = f.repo
 	cmd.Env = append(baseEnv(), extraEnv...)
 	out, err := cmd.CombinedOutput()
@@ -303,7 +344,7 @@ func (f *fixture) headless(ctx context.Context, extraEnv ...string) (string, err
 }
 
 func (f *fixture) runA(ctx context.Context) error {
-	out, err := f.headless(ctx, fmt.Sprintf("MUSTER_SESSION=%d", sessionManaged))
+	out, err := f.headless(ctx, "", fmt.Sprintf("MUSTER_SESSION=%d", sessionManaged))
 	f.runAOutput = out
 	if err != nil {
 		return err
@@ -316,7 +357,7 @@ func (f *fixture) runA(ctx context.Context) error {
 
 func (f *fixture) runB(ctx context.Context) error {
 	before := f.count()
-	if _, err := f.headless(ctx); err != nil {
+	if _, err := f.headless(ctx, ""); err != nil {
 		return err
 	}
 	f.settle(2 * time.Second)
@@ -324,6 +365,8 @@ func (f *fixture) runB(ctx context.Context) error {
 	return nil
 }
 
+// runC performs REQ-1's four zero-token unauthenticated headless runs, one per launch
+// permission mode (unauthRuns), all against the same unauth config dir.
 func (f *fixture) runC(ctx context.Context) error {
 	configDir := filepath.Join(f.root, "unauth-config")
 	if err := os.MkdirAll(configDir, 0o700); err != nil {
@@ -335,16 +378,18 @@ func (f *fixture) runC(ctx context.Context) error {
 	if err := os.WriteFile(filepath.Join(configDir, "settings.json"), f.settings, 0o600); err != nil {
 		return err
 	}
-	out, err := f.headless(ctx,
-		fmt.Sprintf("MUSTER_SESSION=%d", sessionUnauth),
-		"CLAUDE_CONFIG_DIR="+configDir,
-	)
-	f.runCOutput = out
-	if err != nil {
-		return err
-	}
-	if len(f.hookEvents(sessionUnauth)) == 0 {
-		return fmt.Errorf("no hook post reached the capture server (claude output tail: %s)", tail(out))
+	for _, run := range unauthRuns {
+		out, err := f.headless(ctx, run.mode,
+			fmt.Sprintf("MUSTER_SESSION=%d", run.session),
+			"CLAUDE_CONFIG_DIR="+configDir,
+		)
+		f.runCOutput = out
+		if err != nil {
+			return fmt.Errorf("mode %q: %w", run.mode, err)
+		}
+		if len(f.hookEvents(run.session)) == 0 {
+			return fmt.Errorf("mode %q: no hook post reached the capture server (claude output tail: %s)", run.mode, tail(out))
+		}
 	}
 	return nil
 }
@@ -356,7 +401,14 @@ func (f *fixture) runD(ctx context.Context) error {
 	}
 	f.tmuxClient = tmux.New(socket)
 
-	argv := claudecode.BuildArgv("claude", claudecode.LaunchParams{Model: haikuModel})
+	// Title + PermissionMode:"plan" (REQ-2): the cross-check that the unauthenticated
+	// sweep in runC reflects the flag, since the flag→wire mapping was measured
+	// authenticated only (plan Carried-over measurements).
+	argv := claudecode.BuildArgv("claude", claudecode.LaunchParams{
+		Model:          haikuModel,
+		Title:          "Muster Canary",
+		PermissionMode: "plan",
+	})
 	env := map[string]string{
 		"MUSTER_SESSION": fmt.Sprint(sessionInteract),
 		"LANG":           "en_US.UTF-8",
@@ -366,7 +418,6 @@ func (f *fixture) runD(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	f.tmuxTarget = target
 	if err := f.tmuxClient.ResizeWindow(ctx, target, 200, 50); err != nil {
 		return err
 	}
@@ -374,19 +425,23 @@ func (f *fixture) runD(ctx context.Context) error {
 	// Startup blocks on the workspace-trust prompt in a never-seen directory (FINDINGS §9);
 	// no hooks fire until it is answered. capture-pane is the wait oracle only.
 	deadline := time.Now().Add(90 * time.Second)
-	lastEnter := time.Time{}
+	lastAction := time.Time{}
 	for time.Now().Before(deadline) {
 		if c := f.firstHook(sessionInteract, "SessionStart"); c != nil {
 			f.interactive.sessionStartAt = c.at
+			f.interactive.claudeSessionID = c.ev.SessionID
+			if tp, ok := c.payload["transcript_path"].(string); ok {
+				f.interactive.transcriptPath = tp
+			}
 			break
 		}
 		pane, _ := f.tmuxClient.CapturePane(ctx, target)
-		if looksLikeTrustPrompt(pane) && time.Since(lastEnter) > 3*time.Second {
+		if looksLikeTrustPrompt(pane) && time.Since(lastAction) > 3*time.Second {
 			f.interactive.trustPromptSeen = true
-			if err := f.sendKeys(ctx, "Enter"); err != nil {
+			if err := f.answerTrustPrompt(ctx, target, pane); err != nil {
 				return err
 			}
-			lastEnter = time.Now()
+			lastAction = time.Now()
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
@@ -396,11 +451,11 @@ func (f *fixture) runD(ctx context.Context) error {
 
 	// Type and submit separately (probe skill: one combined call swallows the newline).
 	time.Sleep(2 * time.Second)
-	if err := f.sendKeys(ctx, interactivePrompt); err != nil {
+	if err := f.sendKeys(ctx, target, interactivePrompt); err != nil {
 		return err
 	}
 	time.Sleep(1 * time.Second)
-	if err := f.sendKeys(ctx, "Enter"); err != nil {
+	if err := f.sendKeys(ctx, target, "Enter"); err != nil {
 		return err
 	}
 
@@ -420,7 +475,88 @@ func (f *fixture) runD(ctx context.Context) error {
 		return false
 	})
 
+	// REQ-3: wait for the idle_prompt Notification (measured 60.03s after Stop on
+	// 2.1.259) before killing the pane, bounded at 90s per the plan's decision that a
+	// timing assertion on a shared machine is a flake generator — only the arrival, not
+	// the gap, is asserted.
+	if !f.waitFor(90*time.Second, func() bool { return f.firstNotification(sessionInteract, "idle_prompt") != nil }) {
+		return fmt.Errorf("no idle_prompt Notification within 90s of Stop; hooks seen: %v", f.hookTypes(sessionInteract))
+	}
+	f.interactive.idlePromptAt = f.firstNotification(sessionInteract, "idle_prompt").at
+
 	if err := f.tmuxClient.KillSession(ctx, fmt.Sprintf("muster-%d", interactiveTmuxID)); err != nil {
+		return err
+	}
+	f.settle(2 * time.Second)
+	return nil
+}
+
+// runE relaunches run D's claude session_id through the exact production
+// BuildArgv+ResumeSessionID chain internal/server's Resume uses (REQ-4), in a second
+// tmux session on the same socket, then drives the ExitPlanMode sequence to
+// PermissionRequest and the permission_prompt Notification WITHOUT answering the dialog
+// (REQ-5) — never send Enter, Down or Escape after the prompt.
+func (f *fixture) runE(ctx context.Context) error {
+	if f.interactive.claudeSessionID == "" {
+		return fmt.Errorf("run D produced no claude session_id to resume")
+	}
+
+	argv := claudecode.BuildArgv("claude", claudecode.LaunchParams{
+		Model:           haikuModel,
+		PermissionMode:  "plan",
+		ResumeSessionID: f.interactive.claudeSessionID,
+	})
+	env := map[string]string{
+		"MUSTER_SESSION": fmt.Sprint(sessionResume),
+		"LANG":           "en_US.UTF-8",
+		"TERM":           "xterm-256color",
+	}
+	target, _, err := f.tmuxClient.NewSession(ctx, interactiveResumeTmuxID, f.repo, env, argv)
+	if err != nil {
+		return err
+	}
+	if err := f.tmuxClient.ResizeWindow(ctx, target, 200, 50); err != nil {
+		return err
+	}
+
+	// Same trust-prompt loop as run D (Edge Case 3): a resume launch can re-trigger it.
+	deadline := time.Now().Add(90 * time.Second)
+	lastAction := time.Time{}
+	for time.Now().Before(deadline) {
+		if f.firstHook(sessionResume, "SessionStart") != nil {
+			break
+		}
+		pane, _ := f.tmuxClient.CapturePane(ctx, target)
+		if looksLikeTrustPrompt(pane) && time.Since(lastAction) > 3*time.Second {
+			if err := f.answerTrustPrompt(ctx, target, pane); err != nil {
+				return err
+			}
+			lastAction = time.Now()
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	if f.firstHook(sessionResume, "SessionStart") == nil {
+		return fmt.Errorf("no SessionStart within 90s on the resume relaunch (run E)")
+	}
+
+	time.Sleep(2 * time.Second)
+	if err := f.sendKeys(ctx, target, exitPlanPrompt); err != nil {
+		return err
+	}
+	time.Sleep(1 * time.Second)
+	if err := f.sendKeys(ctx, target, "Enter"); err != nil {
+		return err
+	}
+
+	if !f.waitFor(90*time.Second, func() bool { return f.firstHook(sessionResume, "PermissionRequest") != nil }) {
+		return fmt.Errorf("no PermissionRequest within 90s of submitting the ExitPlanMode prompt; hooks seen: %v", f.hookTypes(sessionResume))
+	}
+	if !f.waitFor(30*time.Second, func() bool { return f.firstNotification(sessionResume, "permission_prompt") != nil }) {
+		return fmt.Errorf("no permission_prompt Notification within 30s of PermissionRequest; hooks seen: %v", f.hookTypes(sessionResume))
+	}
+
+	// Kill without ever answering the dialog (REQ-5) — no Enter/Down/Escape past this point.
+	if err := f.tmuxClient.KillSession(ctx, fmt.Sprintf("muster-%d", interactiveResumeTmuxID)); err != nil {
 		return err
 	}
 	f.settle(2 * time.Second)
@@ -433,16 +569,62 @@ func looksLikeTrustPrompt(pane string) bool {
 		strings.Contains(l, "trust this folder")
 }
 
+// trustPromptYesRow is the exact row text of the option that grants trust; trustPromptMarker
+// is the selection cursor Claude Code renders on whichever row is currently selected. Which
+// row is preselected changed between Claude Code versions (2.1.233: "Yes" first and
+// preselected; 2.1.259+: "No, exit" first and preselected, FINDINGS §9 / canary-fields.md,
+// plan Edge Case 15) — so the harness must read the marker's row rather than assume it.
+const (
+	trustPromptYesRow = "Yes, I trust this folder"
+	trustPromptMarker = "❯"
+)
+
+// answerTrustPrompt drives one step toward accepting the workspace-trust prompt: it moves the
+// selection marker onto the "Yes, I trust this folder" row before ever pressing Enter, never
+// a blind Enter — on 2.1.259+ the prompt preselects "No, exit", and a blind Enter there exits
+// the session instead of reaching the REPL (plan Edge Case 15). pane is the just-captured
+// frame the caller already has; capture-pane stays a wait/answer oracle only (CLAUDE.md),
+// never a state source — this only decides how to answer a dialog that is already on screen,
+// it is not used to infer session state.
+//
+// Only two rows exist today, so a single step always moves between them; if the marker's row
+// can't be resolved this frame (e.g. mid-render), it nudges Down and lets the caller's
+// pacing retry on the next capture rather than risk answering blind.
+func (f *fixture) answerTrustPrompt(ctx context.Context, target, pane string) error {
+	lines := strings.Split(pane, "\n")
+	yesLine, markerLine := -1, -1
+	for i, l := range lines {
+		if markerLine == -1 && strings.Contains(l, trustPromptMarker) {
+			markerLine = i
+		}
+		if yesLine == -1 && strings.Contains(l, trustPromptYesRow) {
+			yesLine = i
+		}
+	}
+	switch {
+	case yesLine == -1:
+		// The Yes row itself isn't visible this frame; nothing safe to press yet.
+		return nil
+	case markerLine == yesLine:
+		return f.sendKeys(ctx, target, "Enter")
+	case markerLine == -1, markerLine < yesLine:
+		return f.sendKeys(ctx, target, "Down")
+	default:
+		return f.sendKeys(ctx, target, "Up")
+	}
+}
+
 // sendKeys is the one tmux primitive internal/tmux deliberately lacks (production never
-// types into a pane); the canary needs it to answer the trust prompt and submit a prompt.
-func (f *fixture) sendKeys(ctx context.Context, key string) error {
+// types into a pane); the canary needs it to answer the trust prompt and submit a prompt,
+// on either run D's or run E's pane (target).
+func (f *fixture) sendKeys(ctx context.Context, target, key string) error {
 	var socketArgs []string
 	if strings.Contains(f.socket(), "/") {
 		socketArgs = []string{"-S", f.socket()}
 	} else {
 		socketArgs = []string{"-L", f.socket()}
 	}
-	socketArgs = append(socketArgs, "send-keys", "-t", f.tmuxTarget, key)
+	socketArgs = append(socketArgs, "send-keys", "-t", target, key)
 	if out, err := exec.CommandContext(ctx, "tmux", socketArgs...).CombinedOutput(); err != nil {
 		return fmt.Errorf("tmux send-keys: %w: %s", err, out)
 	}
@@ -488,6 +670,23 @@ func (f *fixture) statusPosts(session int64) []capture {
 func (f *fixture) firstHook(session int64, event string) *capture {
 	for _, c := range f.hookEvents(session) {
 		if c.ev.Type == event {
+			c := c
+			return &c
+		}
+	}
+	return nil
+}
+
+// firstNotification returns the first "Notification" hook on session whose
+// notification_type matches notifType — Notification fires more than once per session
+// (idle_prompt, permission_prompt, …), so firstHook's plain event-name match isn't
+// enough to distinguish them (REQ-3/REQ-5).
+func (f *fixture) firstNotification(session int64, notifType string) *capture {
+	for _, c := range f.hookEvents(session) {
+		if c.ev.Type != "Notification" {
+			continue
+		}
+		if nt, _ := c.payload["notification_type"].(string); nt == notifType {
 			c := c
 			return &c
 		}
@@ -548,7 +747,12 @@ func (f *fixture) teardown() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if f.tmuxClient != nil {
+		// REQ-12: both tmux sessions (D and E) before the scratch socket's server itself.
+		// Each KillSession is a no-op error if that session already exited (e.g. the build
+		// failed before runE ever created muster-98) — ignored the same way run D's kill
+		// always was.
 		_ = f.tmuxClient.KillSession(ctx, fmt.Sprintf("muster-%d", interactiveTmuxID))
+		_ = f.tmuxClient.KillSession(ctx, fmt.Sprintf("muster-%d", interactiveResumeTmuxID))
 		args := []string{"kill-server"}
 		if strings.Contains(f.socket(), "/") {
 			args = append([]string{"-S", f.socket()}, args...)

@@ -1421,3 +1421,37 @@ since the pipeline's own rules were among the deliverables. The standing rule is
 - **Rejected again:** Playwright retries (they hide exactly the load sensitivity the gates exist
   to see; there is also no CI to scope them to) and `go test -p 1` (doubles `make test` and treats
   the load, not the fork).
+
+### 2026-09-10 — `make canary` covers the whole Claude Code surface Muster depends on (plan `canary-full-coverage`, via `/orchestrate`)
+
+`test/canary/` is now the inventory-of-record it was meant to be, so the pre-v1 "version the
+Claude Code interface" item can declare a supported range honestly. Decisions settled or
+changed on the way:
+
+- **Coverage.** Run C is a four-way `--permission-mode` sweep on the zero-token
+  unauthenticated path, cross-checked by the authenticated run D; run D launches through the
+  production `BuildArgv` with `--name` and plan mode and waits for `Notification{idle_prompt}`;
+  a new run E resumes D through the production argv (the manual R2 resume check is retired) and
+  drives one `ExitPlanMode` turn whose dialog is deliberately never answered. A static tier
+  asserts the interface strings Muster cannot drive (`CLAUDE_CODE_SCROLL_SPEED` via
+  `LaunchEnv()`, theme enum, usage path/header, credential key, Keychain mechanism, flag name)
+  in the installed bundle; a live tier runs the production Keychain reader, `FetchUsage` and
+  `ReadThemeFamily` against Damian's real machine and **fails** — never skips — when a
+  credential is missing, since a skip passes silently on the one machine the gate exists for.
+  Cost: 4 haiku turns, 4 zero-token unauth runs, one zero-token resume, one HTTPS GET,
+  ~2.3 min wall (was 3 turns / ~40 s). `MUSTER_CANARY_OFFLINE=1` stays zero-token.
+- **`SubagentStop` is not a surface.** `interpret.go` treats it as `KindInert` and nothing reads
+  it; its inventory row is dropped from the canary. Muster's only subagent dependency is
+  `agent_id` on tool hooks / `PermissionRequest`, which stays an `/interface-probe` ritual.
+- **One interactive residual.** Plan-mode step 3 (`PostToolUse{ExitPlanMode, acceptEdits}`)
+  needs the permission dialog answered and stays a named probe ritual; steps 1–2 are asserted
+  without answering it.
+- **Measured mid-run, plan amended twice (non-protocol):** 2.1.267 preselects "No, exit" on the
+  workspace-trust prompt, so the canary harness reads the selection marker instead of sending a
+  blind Enter (Muster itself still never answers the prompt, §2.5); and the `ExitPlanMode`
+  `PermissionRequest` carries no `permission_suggestions` — the quoted shape came from a `Write`
+  request in default mode — so the key is optional and shape-checked only when present (no
+  production code reads it). `spikes/canary-fields.md` records both.
+- **Pin unchanged here.** Installed 2.1.267 vs pin 2.1.246 is expected drift;
+  `TestInstalledVersionMatchesPin` red is by design and the bump is the pin-doc ritual after
+  landing, not part of this plan.

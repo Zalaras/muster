@@ -442,6 +442,8 @@ These are some minor changes and cleanup needed before we can move into post v1.
   `HOMEBREW_GITHUB_API_TOKEN`. **No test/lint job yet** — Damian's call pending possible
   open-sourcing; the release build is the de facto compile gate, and adding `make check` as
   a step is a one-liner when wanted. Trigger table lives in `docs/conventions.md` § Commits.
+  *2026-09-10:* open-sourcing moved into this section (see the flip item below), so all three
+  parked calls here — Homebrew tap, test/lint job, macOS-runner cost — become live there.
 
 - [x] File a GitHub issue from the dashboard (dogfooding capture) — entry added
   retroactively; the review found no pre-existing TODO item to tick
@@ -584,8 +586,22 @@ These are some minor changes and cleanup needed before we can move into post v1.
   rethrows the original diagnostic; `make e2e-fixture-leak-check` gates it and was proven to
   discriminate (exit 0 with the guard, exit 1 without). — **Done 2026-09-07 (plan `post-worktree-spike-issues`, via `/orchestrate`, approved review cycle 2)**
 
-- [ ] **Bring `make canary` up to full interface coverage** (split out 2026-09-09 from the
-  versioning item below, which it **blocks**): the canary is the inventory-of-record for what
+- [x] **Bring `make canary` up to full interface coverage** (split out 2026-09-09 from the
+  versioning item below, which it **blocks**) — ✅ done 2026-09-10 (plan `canary-full-coverage`,
+  via `/orchestrate`). Shipped: run C is a four-way `--permission-mode` sweep on the
+  zero-token unauth path; run D launches through `BuildArgv` with `--name` + plan mode and
+  waits for `Notification{idle_prompt}`; new run E resumes D through the production argv
+  (closes the manual R2 check) and drives an unanswered `ExitPlanMode` for `PermissionRequest`
+  + `permission_prompt`; a static tier asserts the interface strings in the installed bundle
+  (`CLAUDE_CODE_SCROLL_SPEED` from `LaunchEnv()`, theme enum, usage path/header,
+  `claudeAiOauth`, `find-generic-password`, `permission-mode`); a live tier runs the production
+  Keychain reader, `FetchUsage` + a raw shape check, and `ReadThemeFamily` (fail, never skip).
+  Residual rituals named in `docs/claude-code-pin.md`: plan-mode step 3, `agent_id` on
+  subagent-originated hooks, the `fable` alias. Two measured facts changed the plan mid-run:
+  2.1.267 preselects "No, exit" on the trust prompt (harness now reads the marker), and the
+  `ExitPlanMode` `PermissionRequest` carries no `permission_suggestions` (optional now; nothing
+  in production reads it). Pin bump 2.1.246 → installed is the step-2 ritual after `/land`.
+  Original entry kept below for the record. The canary is the inventory-of-record for what
   Muster depends on, but it asserts roughly two-thirds of the surface — so a declared version
   range could only be honest about the asserted part. Close the gaps first.
 
@@ -685,6 +701,50 @@ These are some minor changes and cleanup needed before we can move into post v1.
   [#6](https://github.com/Zalaras/muster/issues/6), per-shape applicability in `canary-fields.md`,
   gate structure established but empty) or the full mechanism built against a hypothetical change
   point. Resume with `/spec version-claude-interface` once coverage lands.
+
+- [ ] **Open-source the repo — flip `Zalaras/muster` to public** (moved into pre-v1 on
+  2026-09-10, Damian's call; the two install items below depend on it and came with it).
+  Nothing left to decide: the procedure is `docs/go-public.md` (§1 pre-flip is done bar its two
+  mechanical last checks), the reasoning is `docs/design/open-sourcing.md`, licence is MIT
+  (SPEC changelog 2026-09-04) and the contribution policy is issues yes, PRs no.
+  `scripts/go-public.sh` applies the **[script]** steps — dry-run by default, has never been
+  run, and **must not be run unasked**. Three things the flip turns into live calls rather than
+  hypotheticals, all noted in the release-workflow item above: the **test/lint CI job** held
+  "pending possible open-sourcing" (`make check` as a step is a one-liner), the deferred
+  **Homebrew tap** (a public repo needs no private-tap token — plan it with the two items
+  below), and macOS runners, which stop costing 10x once the repo is public.
+
+- [ ] **A real `curl | sh` installer** — the second half of
+  [#7](https://github.com/Zalaras/muster/issues/7) (the first half, the broken README command,
+  shipped 2026-09-02). **Moved from post-v1 into pre-v1 on 2026-09-10** (Damian), together with
+  the open-source flip it waits on; the dependency is structural, not priority: while the repo
+  is **private** neither the script fetch nor the asset download can be anonymous — the
+  one-liner every non-brew tool ships (`curl -fsSL … | sh`) cannot exist here at all, and any
+  version of it would still be `gh`-gated, i.e. the same dependency `make install` already has.
+  The flip unblocks it and unblocks the deferred Homebrew tap in the same move, so plan those
+  together rather than separately. Until it lands `make install` is the supported path and the
+  README carries the by-hand fences.
+
+- [ ] **Post-open-source: revisit the install instructions, and add auto-update** (asked
+  2026-09-09; **moved from post-v1 into pre-v1 on 2026-09-10**, Damian) — two things that only
+  become possible once `Zalaras/muster` is public (`docs/go-public.md`), to be picked up
+  straight after the flip:
+  - **Install instructions.** The README's install section is written for a private repo:
+    the by-hand fences go through `gh release download` (auth required) and `make install`
+    carries the same `gh` dependency. Once releases are anonymously fetchable, rewrite it
+    around whatever the real front door becomes — this is the same move as the `curl | sh`
+    installer and the deferred Homebrew tap above, so plan all three together, not
+    separately. Re-verify every command end to end (the #7 lesson: the old block was wrong
+    three ways because nobody ran it).
+  - **Auto-update for `musterd`.** Muster ships as a GitHub Release binary with no update
+    path at all — a user who installs once never learns a newer version exists. Wants a
+    `/spec` pass, not a decision here; the questions are at minimum: check-only (a
+    dashboard "update available" cue reading the releases API) vs. self-replacing binary;
+    where the check runs and how often; opt-out; how it interacts with a daemon that has
+    live tmux sessions attached (a restart must not orphan them — reconcile already exists,
+    M4); and signing/verification of the downloaded archive. Note the deliberate contrast
+    with Claude Code's own auto-updater, which Muster leaves on and does not manage
+    (`docs/claude-code-pin.md`).
 
 ## Reported issues (pre-v1 release)
 
@@ -804,7 +864,10 @@ unless he re-ranks — don't re-sort this list.
   -2000` returns exactly the visible screen (30 of 30 lines, against 76 with the alt screen
   disabled — controlled A/B, S6 §2). That design pass would have shipped nothing.
   Two follow-ups are owed and are **not** covered by this fix. One is pre-v1:
-  - [ ] `make canary` must assert `CLAUDE_CODE_SCROLL_SPEED`. It is an unsupported interface
+  - [x] `make canary` must assert `CLAUDE_CODE_SCROLL_SPEED`. ✅ done 2026-09-10 in plan
+    `canary-full-coverage`: the static tier asserts every `LaunchEnv()` key as a byte string in
+    the installed bundle (rename/removal detection only; the effect stays measured in S6). Was:
+    It is an unsupported interface
     (absent from `claude --help`, found by reading strings out of the binary), so an upstream
     rename degrades silently back to ~1 line/notch rather than failing. Measured on **2.1.259**
     while the pin is **2.1.246** — re-confirm against the pinned build (`docs/claude-code-pin.md`).
@@ -833,8 +896,9 @@ unless he re-ranks — don't re-sort this list.
   same wording as the README), and — pre-existing, worse — its recipe chained with `;` and no
   `set -e`, so a failed `gh release download` still printed `installed …` and **exited 0**
   (measured: rc=0 on a broken-auth run; now `make: *** [install] Error 4`, rc=2).
-  **Deliberately not done: the `curl | sh` installer the issue also asks for** — deferred to
-  post-v1 open-sourcing, see the M5+ entry. Was: the block at `README.md:76-79` failed three
+  **Deliberately not done: the `curl | sh` installer the issue also asks for** — it waits on
+  open-sourcing, which moved into Pre-v1 Cleanup on 2026-09-10; see the entry there (it was
+  post-v1/M5+ until then). Was: the block at `README.md:76-79` failed three
   separate ways, all reproduced by the reporter:
   `tar -xzf musterd_*.tar.gz musterd` passes the glob *and* a member name, so tar sees five
   arguments (`tar: accepts at most 1 arg(s), received 5`); a second `gh release download`
@@ -1101,37 +1165,6 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
   segmented control beside Theme, `<html data-text-size>` driving `--fs-root`, and the first-paint
   hint extended so a reload doesn't flash. Deferred from `ui-text-and-focus` (Damian, 2026-09-03):
   tokens first, control later — the `--fs-*` ramp shipped there is the thing this control turns.
-
-- [ ] **A real `curl | sh` installer** — the second half of
-  [#7](https://github.com/Zalaras/muster/issues/7) (the first half, the broken README command,
-  shipped 2026-09-02). **Deferred to post-v1 as part of open-sourcing** (Damian, 2026-09-02),
-  and the reason is structural, not priority: the repo is **private**, so neither the script
-  fetch nor the asset download can be anonymous — the one-liner every non-brew tool ships
-  (`curl -fsSL … | sh`) cannot exist here at all, and any version of it today would still be
-  `gh`-gated, i.e. the same dependency `make install` already has. Open-sourcing is what
-  unblocks it, and it unblocks the deferred Homebrew tap in the same move (see the CI item
-  above), so the two should be planned together rather than separately. Until then `make
-  install` is the supported path and the README carries the by-hand fences.
-
-- [ ] **Post-open-source: revisit the install instructions, and add auto-update** (asked
-  2026-09-09) — two things that only become possible once `Zalaras/muster` is public
-  (`docs/go-public.md`), to be picked up after the flip:
-  - **Install instructions.** The README's install section is written for a private repo:
-    the by-hand fences go through `gh release download` (auth required) and `make install`
-    carries the same `gh` dependency. Once releases are anonymously fetchable, rewrite it
-    around whatever the real front door becomes — this is the same move as the `curl | sh`
-    installer and the deferred Homebrew tap above, so plan all three together, not
-    separately. Re-verify every command end to end (the #7 lesson: the old block was wrong
-    three ways because nobody ran it).
-  - **Auto-update for `musterd`.** Muster ships as a GitHub Release binary with no update
-    path at all — a user who installs once never learns a newer version exists. Wants a
-    `/spec` pass, not a decision here; the questions are at minimum: check-only (a
-    dashboard "update available" cue reading the releases API) vs. self-replacing binary;
-    where the check runs and how often; opt-out; how it interacts with a daemon that has
-    live tmux sessions attached (a restart must not orphan them — reconcile already exists,
-    M4); and signing/verification of the downloaded archive. Note the deliberate contrast
-    with Claude Code's own auto-updater, which Muster leaves on and does not manage
-    (`docs/claude-code-pin.md`).
 
 - [ ] **Version-pin warning is developer-facing** ([#6](https://github.com/Zalaras/muster/issues/6))
   — "drift from pinned 2.1.246" means nothing to someone who didn't set the pin. It should
