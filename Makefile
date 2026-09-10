@@ -85,26 +85,12 @@ check: lint test contrast e2e-lint check-versions ## Lint + test + contrast + e2
 hooks: ## Arm the commit-msg + pre-commit guards (.githooks/) for this clone — docs/conventions.md § Commits
 	git config core.hooksPath .githooks
 
-# gh (unlike a browser) does not set the com.apple.quarantine xattr, so the unsigned binary
-# runs without a Gatekeeper prompt. Arch is resolved here because releases ship one archive
-# per arch rather than a universal binary.
+# Wraps scripts/install.sh, which is also the curl | sh front door (README.md § Install),
+# so the arch resolution, temp dir, tar member-select, SHA-256 check and shadow warning
+# exist in exactly one place. MUSTER_BIN_DIR and MUSTER_VERSION pass through to it.
 .PHONY: install
-install: ## Install the latest released musterd into ~/.local/bin
-	@set -e; \
-	arch=$$(uname -m | sed 's/^x86_64$$/amd64/; s/^aarch64$$/arm64/'); \
-	tmp=$$(mktemp -d); \
-	trap 'rm -rf "$$tmp"' EXIT; \
-	echo "fetching latest musterd_*_darwin_$$arch.tar.gz"; \
-	gh release download --repo Zalaras/muster \
-		--pattern "musterd_*_darwin_$$arch.tar.gz" --dir "$$tmp"; \
-	mkdir -p $(HOME)/.local/bin; \
-	tar -xzf "$$tmp"/*.tar.gz -C $(HOME)/.local/bin musterd; \
-	echo "installed $(HOME)/.local/bin/musterd ($$($(HOME)/.local/bin/musterd -version))"; \
-	resolved=$$(command -v musterd || true); \
-	if [ -n "$$resolved" ] && [ "$$resolved" != "$(HOME)/.local/bin/musterd" ]; then \
-		echo "warning: 'musterd' on your PATH resolves to $$resolved, not the copy just installed"; \
-		echo "         that older binary shadows this one - remove it, or install over it instead"; \
-	fi
+install: ## Install the latest released musterd into ~/.local/bin (MUSTER_BIN_DIR overrides)
+	@sh scripts/install.sh
 
 .PHONY: release-check
 release-check: ## Validate .goreleaser.yaml and build a local snapshot release into ./dist
