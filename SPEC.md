@@ -975,7 +975,8 @@ there is a way to get one. Decisions:
   latest darwin archive into `~/.local/bin`. **Homebrew is deferred to any open-sourcing**:
   a private tap works, but only via `GitHubPrivateRepositoryReleaseDownloadStrategy` plus a
   permanent `HOMEBREW_GITHUB_API_TOKEN` — not worth the standing setup for a single user.
-  Once the repo is public, a GoReleaser `brews:` block makes it near-free; revisit then.
+  Once the repo is public that download-side cost disappears — but not the publish-side one;
+  see the 2026-09-10 scoping entry in the changelog (`homebrew_casks:`, and a PAT for the tap).
 - **Versioning is automatic and commit-driven.** `svu` reads the conventional commits since
   the last tag on every push to `main`: `feat` → minor, `fix` → patch, `!` → major,
   everything else no release. This makes `docs/conventions.md` § Commits load-bearing rather
@@ -1533,3 +1534,29 @@ Supersedes the 2026-08-31 "Distribution settled" entry's front door (`make insta
   are in; the `Issue`-button detail moved to `CONTRIBUTING.md`, which had been pointing back
   at the README for it. Two README strings stay load-bearing and test-guarded: the preflight's
   two `brew` remedies and the `versions:range` fragment.
+
+### 2026-09-10 — Homebrew tap scoped: `homebrew_casks`, a tap PAT, and Gatekeeper
+
+Corrects two claims carried by the 2026-08-31 "Distribution settled" entry and repeated in
+the 2026-09-10 entry below ("no longer *blocked* — the public repo removed the private-tap
+token cost … only unscheduled"). Scoped against GoReleaser's own docs and this repo's
+`.goreleaser.yaml` / `release.yml`; no work done, the item stays open in `TODO.md`, which
+now carries the full shape.
+
+- **`brews:` is fully deprecated as of GoReleaser v2.16**; prebuilt binaries publish through
+  **`homebrew_casks:`**. `release.yml` floats on `version: "~> v2"`, so the old spelling would
+  break on its own schedule.
+- **The public flip removed the download-side token cost, not the publish-side one.** Users no
+  longer need `HOMEBREW_GITHUB_API_TOKEN` or the custom download strategy — but
+  `secrets.GITHUB_TOKEN` is scoped to `Zalaras/muster`, so committing a cask into a second
+  repo still needs a fine-grained PAT (`contents: write`, tap repo only) wired through the
+  cask block's `repository.token`. Brew is therefore *cheaper* than 2026-08-31 assumed, not
+  free.
+- **`musterd` is unsigned and unnotarized, and casks are quarantined** — a post-install
+  `xattr -dr com.apple.quarantine` hook is required or the binary dies on first run. Recorded
+  as a workaround, not a signing decision; signing stays unaddressed.
+- **Two install paths will coexist and can shadow each other** (`~/.local/bin` vs Homebrew's
+  prefix). This is a live constraint on the auto-update work: a self-replacing binary must not
+  overwrite a brew-managed install.
+
+

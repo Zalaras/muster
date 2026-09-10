@@ -768,9 +768,59 @@ These are some minor changes and cleanup needed before we can move into post v1.
 - [ ] **A Homebrew tap** — **split out of the installer item above on 2026-09-10** (Damian:
   "we'll skip brew for now"). Deferred originally because a *private* tap needs
   `GitHubPrivateRepositoryReleaseDownloadStrategy` plus a permanent
-  `HOMEBREW_GITHUB_API_TOKEN` (SPEC 2026-08-31); the repo going public removed that cost, so
-  this is now a GoReleaser `brews:` block and a tap repo, nothing more. No longer blocked by
-  anything — it is a priority call, not a dependency.
+  `HOMEBREW_GITHUB_API_TOKEN` (SPEC 2026-08-31). Not blocked by anything — a priority call,
+  not a dependency. **Scoped 2026-09-10** (GoReleaser docs via context7, against this repo's
+  `.goreleaser.yaml` and `release.yml`); this supersedes the "a `brews:` block and a tap repo,
+  nothing more" reading, which was wrong on two counts:
+
+  - **`homebrew_casks:`, not `brews:`.** `brews` is *fully deprecated* as of GoReleaser v2.16
+    — prebuilt binaries are casks now. `release.yml` pins `version: "~> v2"`, which floats, so
+    writing `brews:` earns a deprecation warning today and a hard failure whenever it goes.
+  - **A publish token is still needed.** Going public removed the *download*-side cost the
+    2026-08-31 entry named (the custom download strategy, and a `HOMEBREW_GITHUB_API_TOKEN` on
+    every installing machine) — it did **not** remove the CI cost. `release.yml` passes
+    `secrets.GITHUB_TOKEN`, which GitHub scopes to `Zalaras/muster` alone; writing a cask into
+    a second repo fails with "resource not accessible by integration". Needs a fine-grained PAT
+    with `contents: write` on the tap repo only, as a repo secret, referenced from the cask
+    block's `repository.token` — *not* swapped in for `GITHUB_TOKEN` wholesale, which would
+    widen what the PAT can reach to the release itself.
+
+  By hand (Damian): create **`Zalaras/homebrew-muster`**, public, empty — the `homebrew-`
+  prefix is what makes `brew install zalaras/muster/<name>` resolve; GoReleaser commits the
+  cask file into it. And mint the PAT above.
+
+  In-repo: a `homebrew_casks:` block (`repository` owner/name/token, `name`, `desc`,
+  `homepage`, `license: MIT`, and `url.verified: github.com/Zalaras/muster` so `brew audit`
+  tolerates homepage ≠ download domain), plus the workflow env var.
+
+  **Gatekeeper is the one that bites.** `musterd` is unsigned and unnotarized (no signing
+  anywhere in `.goreleaser.yaml`) and Homebrew *quarantines* cask artifacts, unlike a plain
+  download — so without a post-install hook the binary is killed on first run:
+
+  ```yaml
+  hooks:
+    post:
+      install: |
+        if OS.mac?
+          system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/musterd"]
+        end
+  ```
+
+  That is a workaround for not notarizing, not a fix.
+
+  Open decision: the **cask name is what users type** — `brew install zalaras/muster/muster`
+  vs `.../musterd`. Recommendation: cask `muster`, installing the `musterd` binary.
+
+  Interaction to document, and a constraint on the auto-update item above: `install.sh` puts
+  `musterd` in `~/.local/bin`, a cask puts it in Homebrew's prefix. Someone who uses both ends
+  up with two binaries and whichever leads `$PATH` wins — a stale one silently shadows a fresh
+  one. Needs a README line, and **a self-replacing updater must not overwrite a brew-managed
+  install**. Any README edit is guarded by `TestReadmeTmuxRemedyMatchesPreflight`.
+
+  Verification ritual: `goreleaser release --snapshot --clean` locally to inspect the generated
+  cask without publishing; then, after the first real release, `brew tap` → install →
+  `musterd -version` → `brew audit --cask --strict --online`. Note the cask is only pushed on a
+  tagged release, so the first true end-to-end test costs a version bump.
 
 - [ ] **Auto-update for `musterd`** — **split out of the install-instructions item on
   2026-09-10**; the install-instructions half shipped with the installer above. Muster ships
