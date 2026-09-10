@@ -17,6 +17,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/Zalaras/muster/internal/claudecode"
 	"github.com/Zalaras/muster/internal/ghissue"
 	"github.com/Zalaras/muster/internal/session"
 )
@@ -42,9 +43,10 @@ type issueSnapshotMusterd struct {
 }
 
 type issueSnapshotClaudeCode struct {
-	Pinned    string  `json:"pinned"`
 	Installed *string `json:"installed"`
-	Drift     *bool   `json:"drift"`
+	Floor     string  `json:"floor"`
+	Verified  string  `json:"verified"`
+	Status    string  `json:"status"`
 }
 
 type issueSnapshotHost struct {
@@ -131,9 +133,10 @@ func (s *Server) buildIssueSnapshot(ctx context.Context, now time.Time, sess *se
 		Scope:      "dashboard",
 	}
 	snap.Musterd.Version = s.daemonVersion
-	snap.ClaudeCode.Pinned = s.claudeCode.Pinned
 	snap.ClaudeCode.Installed = s.claudeCode.Installed
-	snap.ClaudeCode.Drift = s.claudeCode.Drift
+	snap.ClaudeCode.Floor = s.claudeCode.Floor
+	snap.ClaudeCode.Verified = s.claudeCode.Verified
+	snap.ClaudeCode.Status = s.claudeCode.Status
 	snap.Host.OS = runtime.GOOS
 	snap.Host.Arch = runtime.GOARCH
 	snap.Dashboard.SessionsTotal = len(sessions)
@@ -274,15 +277,16 @@ func escapeCell(v string) string {
 	return v
 }
 
+// claudeCodeCell renders the issue snapshot's Claude Code row (docs/protocol.md §3.12):
+// "<installed> installed · verified <floor>–<verified> · <status>", or
+// "installed unknown · verified <floor>–<verified>" when status is unknown — exactly the
+// hello semantics, never a drift/pin word.
 func claudeCodeCell(cc issueSnapshotClaudeCode) string {
+	rangeStr := claudecode.FormatRange(cc.Floor, cc.Verified)
 	if cc.Installed == nil {
-		return fmt.Sprintf("%s pinned · installed unknown", cc.Pinned)
+		return fmt.Sprintf("installed unknown · verified %s", rangeStr)
 	}
-	s := fmt.Sprintf("%s installed · %s pinned", *cc.Installed, cc.Pinned)
-	if cc.Drift != nil && *cc.Drift {
-		s += " · drift"
-	}
-	return s
+	return fmt.Sprintf("%s installed · verified %s · %s", *cc.Installed, rangeStr, cc.Status)
 }
 
 func dashboardCell(d issueSnapshotDashboard) string {

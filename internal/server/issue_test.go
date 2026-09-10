@@ -345,7 +345,7 @@ func TestComposeIssueBody_NoteThenSnapshotMarkdown_NoTrailingNewline(t *testing.
 func minimalDashboardSnapshot() issueSnapshot {
 	snap := issueSnapshot{CapturedAt: "2026-08-31T09:15:00Z", Scope: "dashboard"}
 	snap.Musterd.Version = "0.3.1"
-	snap.ClaudeCode = issueSnapshotClaudeCode{Pinned: "2.1.246"}
+	snap.ClaudeCode = issueSnapshotClaudeCode{Installed: p("2.1.267"), Floor: "2.1.246", Verified: "2.1.267", Status: "verified"}
 	snap.Host = issueSnapshotHost{OS: "darwin", Arch: "arm64"}
 	snap.Dashboard = issueSnapshotDashboard{SessionsTotal: 4, SessionsAlive: 3, View: "tiles", Density: "3x2", RailSort: "manual"}
 	return snap
@@ -376,10 +376,11 @@ func TestRenderSnapshotMarkdown_JSONFenceIsFourBackticks(t *testing.T) {
 func sessionSnapshotFixture() issueSnapshot {
 	snap := minimalDashboardSnapshot()
 	snap.Scope = "session"
-	installed := "2.1.251"
-	drift := true
+	// The protocol's own worked example (docs/protocol.md §3.12): installed past the
+	// verified ceiling.
+	installed := "2.1.270"
 	snap.ClaudeCode.Installed = &installed
-	snap.ClaudeCode.Drift = &drift
+	snap.ClaudeCode.Status = "above"
 	firstSeq, lastSeq := int64(1), int64(4)
 	lastReceivedAt := "2026-08-31T09:14:58Z"
 	snap.Session = &issueSnapshotSession{
@@ -411,7 +412,7 @@ func TestRenderSnapshotMarkdown_SessionScope_RowOrderAndAllConditionalRowsPresen
 
 	wantOrder := []string{
 		"| musterd | 0.3.1 |",
-		"| Claude Code | 2.1.251 installed · 2.1.246 pinned · drift |",
+		"| Claude Code | 2.1.270 installed · verified 2.1.246–2.1.267 · above |",
 		"| host | darwin/arm64 |",
 		"| dashboard | 4 sessions, 3 alive · view tiles 3x2 · rail manual |",
 		"| state | working since 2026-08-31T09:11:02Z |",
@@ -488,17 +489,15 @@ func TestRenderSnapshotMarkdown_UnknownRendering(t *testing.T) {
 		assert.Contains(t, got, "| model | unknown |")
 	})
 
-	t.Run("claudeCode installed nil, no drift suffix even when drift is non-nil", func(t *testing.T) {
+	t.Run("claudeCode installed nil renders installed unknown regardless of status", func(t *testing.T) {
 		snap := sessionSnapshotFixture()
 		snap.ClaudeCode.Installed = nil
-		// Drift is left non-nil-true from the fixture; the rule is that the suffix is
-		// never guessed when Installed is unknown, regardless of Drift's own value.
+		// Status is left "above" from the fixture; the rule is that claudeCodeCell
+		// branches solely on Installed == nil, so the status word must never leak
+		// into this cell once installed is unknown (INV-1's daemon-side counterpart).
 		got := renderSnapshotMarkdown(snap)
-		// The exact row is asserted, not a blanket "no 'drift' anywhere" check — the
-		// <details> JSON block legitimately carries the raw "drift": true field
-		// regardless of what the table row displays.
-		assert.Contains(t, got, "| Claude Code | 2.1.246 pinned · installed unknown |")
-		assert.NotContains(t, got, "| Claude Code | 2.1.246 pinned · installed unknown · drift |")
+		assert.Contains(t, got, "| Claude Code | installed unknown · verified 2.1.246–2.1.267 |")
+		assert.NotContains(t, got, "| Claude Code | installed unknown · verified 2.1.246–2.1.267 · above |")
 	})
 
 	t.Run("events count zero: none routed, none recent", func(t *testing.T) {
@@ -510,17 +509,50 @@ func TestRenderSnapshotMarkdown_UnknownRendering(t *testing.T) {
 	})
 }
 
-func TestRenderSnapshotMarkdown_ClaudeCodeDriftFalse_NeverGuessesNoDrift(t *testing.T) {
-	snap := sessionSnapshotFixture()
-	*snap.ClaudeCode.Drift = false
-	got := renderSnapshotMarkdown(snap)
-	assert.Contains(t, got, "| Claude Code | 2.1.251 installed · 2.1.246 pinned |")
-	assert.NotContains(t, got, "no drift", "a false Drift must produce no suffix at all, never a guessed 'no drift'")
-}
-
-func TestRenderSnapshotMarkdown_ClaudeCodeDriftTrue_SuffixPresent(t *testing.T) {
-	got := renderSnapshotMarkdown(sessionSnapshotFixture())
-	assert.Contains(t, got, "| Claude Code | 2.1.251 installed · 2.1.246 pinned · drift |")
+// TestClaudeCodeCell is D14's direct unit coverage of the cell text (docs/protocol.md
+// §3.12), independent of the full markdown row-order fixture above.
+func TestClaudeCodeCell(t *testing.T) {
+	tests := []struct {
+		name string
+		cc   issueSnapshotClaudeCode
+		want string
+	}{
+		{
+			name: "verified",
+			cc:   issueSnapshotClaudeCode{Installed: p("2.1.250"), Floor: "2.1.246", Verified: "2.1.267", Status: "verified"},
+			want: "2.1.250 installed · verified 2.1.246–2.1.267 · verified",
+		},
+		{
+			name: "above",
+			cc:   issueSnapshotClaudeCode{Installed: p("2.1.270"), Floor: "2.1.246", Verified: "2.1.267", Status: "above"},
+			want: "2.1.270 installed · verified 2.1.246–2.1.267 · above",
+		},
+		{
+			name: "below",
+			cc:   issueSnapshotClaudeCode{Installed: p("2.0.0"), Floor: "2.1.246", Verified: "2.1.267", Status: "below"},
+			want: "2.0.0 installed · verified 2.1.246–2.1.267 · below",
+		},
+		{
+			name: "installed nil (unknown) ignores whatever status is set",
+			cc:   issueSnapshotClaudeCode{Installed: nil, Floor: "2.1.246", Verified: "2.1.267", Status: "unknown"},
+			want: "installed unknown · verified 2.1.246–2.1.267",
+		},
+		{
+			name: "single-version range renders as one version, both branches",
+			cc:   issueSnapshotClaudeCode{Installed: p("2.1.267"), Floor: "2.1.267", Verified: "2.1.267", Status: "verified"},
+			want: "2.1.267 installed · verified 2.1.267 · verified",
+		},
+		{
+			name: "single-version range, installed nil",
+			cc:   issueSnapshotClaudeCode{Installed: nil, Floor: "2.1.267", Verified: "2.1.267", Status: "unknown"},
+			want: "installed unknown · verified 2.1.267",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, claudeCodeCell(tt.cc))
+		})
+	}
 }
 
 // TestRenderSnapshotMarkdown_EscapesPipeAndNewlineInValueCells covers Edge Case 11: a
@@ -763,7 +795,7 @@ func TestBuildIssueSnapshot_LastReceivedAtIsPlainRFC3339NoFraction(t *testing.T)
 // TestBuildIssueSnapshot_DashboardScope_KeySetExactly covers D4 for scope == "dashboard":
 // exactly the 13 always-present keys, and no "session" key at all.
 func TestBuildIssueSnapshot_DashboardScope_KeySetExactly(t *testing.T) {
-	srv := newTestServer(t, ClaudeCodeInfo{Pinned: "2.1.246"})
+	srv := newTestServer(t, ClaudeCodeInfo{Floor: "2.1.246", Verified: "2.1.267", Status: "verified"})
 
 	snap := srv.buildIssueSnapshot(context.Background(), time.Now(), nil)
 	raw, err := json.Marshal(snap)
@@ -772,7 +804,7 @@ func TestBuildIssueSnapshot_DashboardScope_KeySetExactly(t *testing.T) {
 	want := []string{
 		"capturedAt", "scope",
 		"musterd.version",
-		"claudeCode.pinned", "claudeCode.installed", "claudeCode.drift",
+		"claudeCode.installed", "claudeCode.floor", "claudeCode.verified", "claudeCode.status",
 		"host.os", "host.arch",
 		"dashboard.sessionsTotal", "dashboard.sessionsAlive", "dashboard.view", "dashboard.density", "dashboard.railSort",
 	}
@@ -786,7 +818,7 @@ func TestBuildIssueSnapshot_DashboardScope_KeySetExactly(t *testing.T) {
 // must marshal to exactly the key set pinned in the plan's "The allowlist" — nothing
 // more, nothing less, at every level.
 func TestBuildIssueSnapshot_SessionScope_KeySetMatchesAllowlistExactly(t *testing.T) {
-	srv := newTestServer(t, ClaudeCodeInfo{Pinned: "2.1.246", Installed: p("2.1.251"), Drift: p(true)})
+	srv := newTestServer(t, ClaudeCodeInfo{Installed: p("2.1.270"), Floor: "2.1.246", Verified: "2.1.267", Status: "above"})
 	insertEvents(t, srv, 1, []string{"PreToolUse", "PostToolUse", "PreToolUse", "Stop"})
 	sess := fullyPopulatedSession(1)
 
@@ -797,7 +829,7 @@ func TestBuildIssueSnapshot_SessionScope_KeySetMatchesAllowlistExactly(t *testin
 	want := []string{
 		"capturedAt", "scope",
 		"musterd.version",
-		"claudeCode.pinned", "claudeCode.installed", "claudeCode.drift",
+		"claudeCode.installed", "claudeCode.floor", "claudeCode.verified", "claudeCode.status",
 		"host.os", "host.arch",
 		"dashboard.sessionsTotal", "dashboard.sessionsAlive", "dashboard.view", "dashboard.density", "dashboard.railSort",
 		"session.state", "session.stateSince", "session.alive", "session.endedAt",
@@ -871,7 +903,7 @@ func collectJSONPaths(t *testing.T, raw []byte) []string {
 // so the test exercises row order/content/escaping/fencing precisely without re-deriving
 // its own expectations from the code under test.
 func TestRenderSnapshotMarkdown_SessionScope_FullyPopulated_MatchesExpectedFormat(t *testing.T) {
-	srv := newTestServer(t, ClaudeCodeInfo{Pinned: "2.1.246", Installed: p("2.1.251"), Drift: p(true)})
+	srv := newTestServer(t, ClaudeCodeInfo{Installed: p("2.1.270"), Floor: "2.1.246", Verified: "2.1.267", Status: "above"})
 	sess := &session.Session{
 		ID:                   7,
 		TmuxTarget:           "muster-7:@4",
@@ -906,7 +938,7 @@ func TestRenderSnapshotMarkdown_SessionScope_FullyPopulated_MatchesExpectedForma
 		"| field | value |",
 		"| --- | --- |",
 		"| musterd | test-version |",
-		"| Claude Code | 2.1.251 installed · 2.1.246 pinned · drift |",
+		"| Claude Code | 2.1.270 installed · verified 2.1.246–2.1.267 · above |",
 		fmt.Sprintf("| host | %s/%s |", runtime.GOOS, runtime.GOARCH),
 		"| dashboard | 0 sessions, 0 alive · view focus 2x2 · rail manual |",
 		"| state | working since 2026-08-31T09:11:02Z |",

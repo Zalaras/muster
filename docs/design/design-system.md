@@ -176,6 +176,13 @@ This is the one rule that makes two views safe, and it is the same law as §7.1:
 7-day bar, model-week (selectable), refresh, model, daemon health. Always visible in both views; account-level truth is never
 behind a tab.
 
+**Claude Code version readout** (`#claude-version`, plan `version-claude-interface`) —
+`claude <installed>`, or `Claude installation unknown` when the check failed or hasn't
+completed. When the installed version falls outside the canary-verified range, a warning
+glyph follows the version text; it carries **no state colour** (§3) — it inherits the
+readout's own muted text colour — and its hover/`aria-label` text names whether Claude Code
+needs updating or is simply newer than anything verified yet.
+
 **Rail card** — 3px state stripe, then title + badge + timer, `repo / branch`, then the
 context row (gauge, %, absolute tokens, compaction count), then either a **note** (amber
 left-border, for the reason it needs you) or a **snapshot** (mono, `--well` ground, clipped).

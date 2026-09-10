@@ -4,9 +4,9 @@ import { backoffDelay, type SocketLike, WsClient, type WsClientHandlers } from "
 
 const hello: Hello = {
   type: "hello",
-  protocolVersion: 1,
+  protocolVersion: 2,
   daemon: { version: "0.1.0" },
-  claudeCode: { pinned: "2.1.233", installed: "2.1.233", drift: false },
+  claudeCode: { installed: "2.1.267", floor: "2.1.246", verified: "2.1.267", status: "verified" },
 };
 
 const snapshot: Snapshot = {
@@ -133,9 +133,9 @@ describe("WsClient.dispatch — pure message application, no socket involved", (
   it("routes a hello with an unsupported protocolVersion to onProtocolMismatch, not onHello", () => {
     const handlers = makeHandlers();
     const client = new WsClient("ws://x", handlers);
-    const badHello: Hello = { ...hello, protocolVersion: 2 };
+    const badHello: Hello = { ...hello, protocolVersion: 3 };
     client.dispatch(badHello);
-    expect(handlers.onProtocolMismatch).toHaveBeenCalledWith(2);
+    expect(handlers.onProtocolMismatch).toHaveBeenCalledWith(3);
     expect(handlers.onHello).not.toHaveBeenCalled();
   });
 

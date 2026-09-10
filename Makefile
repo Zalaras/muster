@@ -67,11 +67,19 @@ run: build web-build ## Run musterd against the real data dir, serving the disk 
 	./$(BIN) -web-dist internal/webui/assets
 
 .PHONY: canary
-canary: ## Drive the real claude (4 haiku turns + zero-token unauth/resume/live checks) and assert every field Muster depends on; MUSTER_CANARY_OFFLINE=1 = compile + pin + static binary check only
-	go test -tags=canary -count=1 -v ./test/canary/...
+canary: ## Drive the real claude (4 haiku turns + zero-token unauth/resume/live checks), assert every field Muster depends on, then extend the verified range on a green run outside it; MUSTER_CANARY_OFFLINE=1 = compile + classify + static binary check only
+	go test -tags=canary -count=1 -v ./test/canary/... && go run ./tools/versions bump
+
+.PHONY: gen-versions
+gen-versions: ## Regenerate the Claude Code version-range fragments in README.md, spikes/canary-fields.md and docs/claude-code-versions.md
+	go run ./tools/versions gen
+
+.PHONY: check-versions
+check-versions: ## Fail if any Claude Code version-range fragment is stale (run by make check)
+	go run ./tools/versions check
 
 .PHONY: check
-check: lint test contrast e2e-lint ## Lint + test + contrast + e2e-lint
+check: lint test contrast e2e-lint check-versions ## Lint + test + contrast + e2e-lint + check-versions
 
 .PHONY: hooks
 hooks: ## Arm the commit-msg guard (.githooks/) for this clone — enforces docs/conventions.md § Commits

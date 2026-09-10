@@ -396,10 +396,16 @@ restarts/reconcile; WebSocket fanout pushes deltas to the UI.
   session in a scratch repo), unit tests for specific logic (state machine, JSON merge,
   reconcile). A **canary E2E** asserts Claude Code's hook/status-line payloads still
   carry the fields Muster needs — run before adopting any new Claude Code version.
-- **Dependency posture**: pin the Claude Code version (disable auto-update); upgrade
-  deliberately, gated on the canary. All Claude-Code-format knowledge lives in
+- **Dependency posture** (rewritten 2026-09-10, plan `version-claude-interface`; was "pin
+  the version, disable auto-update"): detect and classify the installed Claude Code against
+  the canary-verified range (`internal/claudecode/observed_versions.txt`, floor = min,
+  ceiling = max); warn on both sides (`below` names the remedy, `above` says untested),
+  never refuse to start, never disable auto-update; a green `make canary` on a version
+  outside the range extends it automatically. Versions strictly inside the range are
+  inferred, not individually run. All Claude-Code-format knowledge lives in
   `internal/claudecode/` so breakage is a one-package fix. Accepted: interfaces are
-  unstable and undocumented; when they break, the answer is "fix Muster that week."
+  unstable and undocumented; when they break, the answer is "fix Muster that week" — the
+  red-canary ritual in `docs/claude-code-versions.md`.
 - **Licensing/repo**: **MIT** (`LICENSE`, decided 2026-09-04). Repo stays private until the
   open-sourcing chores in `docs/design/open-sourcing.md` are done.
 
@@ -446,8 +452,8 @@ restarts/reconcile; WebSocket fanout pushes deltas to the UI.
    a neutral `Sample` type + one aggregator (`internal/usage`); no Go interface type
    until a second source exists. A second source landed 2026-08-30 (`usage-model-bar`) as a
    second concrete holder (`ModelScoped`), still no interface — see changelog. Wire seam (`usage.source`) settled 2026-08-20.
-7. **Risk: Claude Code interface churn** — mitigated (pin/canary/adapter) but not
-   removable; standing tax on the project.
+7. **Risk: Claude Code interface churn** — mitigated (verified range/canary/one-package
+   boundary) but not removable; standing tax on the project.
 8. **Risk: hook delivery gaps** — hooks can be missed (daemon down at event time);
    reconcile must tolerate stale state, and `Started`/`Idle` inference needs to be
    self-healing rather than assuming a perfect event stream.
@@ -1455,3 +1461,27 @@ changed on the way:
 - **Pin unchanged here.** Installed 2.1.267 vs pin 2.1.246 is expected drift;
   `TestInstalledVersionMatchesPin` red is by design and the bump is the pin-doc ritual after
   landing, not part of this plan.
+
+### 2026-09-10 — the Claude Code pin becomes an observed, canary-extended verified range (plan `version-claude-interface`, via `/orchestrate`, closes #6)
+
+- **Declaration, not mechanism.** Zero observed change points (every shape in
+  `spikes/canary-fields.md` held 2.1.233 → 2.1.267, every delta an addition), so no
+  version-gated adapters, no change-point table, no startup probe. The seam they would hang
+  off — a parsed, comparable installed version inside `internal/claudecode` — is built.
+- **Single source of truth** is the embedded record `internal/claudecode/observed_versions.txt`
+  (one row per green canary version); `Floor()`/`Verified()` are its semver min/max. The pinned
+  constant, the drift error and the equality check are gone; no other version literal lives
+  outside the record and tests.
+- **Classification** `unknown | below | verified | above`; startup logs one line per outcome and
+  serves identically in all four (never refuses). `musterd -version` prints the range.
+- **Protocol 2** (first bump): `hello.claudeCode` is `{installed, floor, verified, status}`,
+  `installed` null iff `status` is `unknown`; the issue-capture snapshot follows. The masthead
+  renders four states — a ⚠ glyph with hover text for `above`/`below`, in user terms (#6);
+  no dismiss, nothing persisted.
+- **Canary closes the loop.** Installed == ceiling and `MUSTER_CANARY_FORCE` unset → harness
+  and live tiers skip (zero tokens); `go run ./tools/versions bump` after a green run outside
+  the range appends the version and regenerates the doc fragments (`gen`/`check`, `check` in
+  `make check`), leaving the tree uncommitted. `MUSTER_CANARY_OFFLINE` always wins.
+- `docs/claude-code-pin.md` → `docs/claude-code-versions.md` (green ritual, red ritual, force
+  convention, inferred-intermediates note). §8 dependency posture rewritten above; the post-v1
+  "rethink the pin strategy" TODO item is folded in and closed.

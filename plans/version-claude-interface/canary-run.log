@@ -1,0 +1,112 @@
+go test -tags=canary -count=1 -v ./test/canary/... && go run ./tools/versions bump
+=== RUN   TestInstalledVersionClassifies
+    canary_test.go:54: installed 2.1.267, verified range 2.1.246–2.1.267, classified verified
+--- PASS: TestInstalledVersionClassifies (0.02s)
+=== RUN   TestStatusLineVersionMatchesInstalled
+    canary_test.go:66: interactive run: trust prompt seen=true, 3 status posts, 5 hook posts; headless managed 6 hook posts
+--- PASS: TestStatusLineVersionMatchesInstalled (138.56s)
+=== RUN   TestHookTransport
+--- PASS: TestHookTransport (0.00s)
+=== RUN   TestHookFields
+=== RUN   TestHookFields/SessionStart
+=== RUN   TestHookFields/UserPromptSubmit
+=== RUN   TestHookFields/PreToolUse
+=== RUN   TestHookFields/PostToolUse
+=== RUN   TestHookFields/Stop
+=== RUN   TestHookFields/StopFailure
+=== RUN   TestHookFields/SessionEnd
+=== RUN   TestHookFields/Notification
+=== RUN   TestHookFields/PermissionRequest
+=== RUN   TestHookFields/SessionStart.model_is_a_bare_string_when_present
+    canary_test.go:147: SessionStart.model absent on this headless startup (optional per canary-fields)
+--- PASS: TestHookFields (0.00s)
+    --- PASS: TestHookFields/SessionStart (0.00s)
+    --- PASS: TestHookFields/UserPromptSubmit (0.00s)
+    --- PASS: TestHookFields/PreToolUse (0.00s)
+    --- PASS: TestHookFields/PostToolUse (0.00s)
+    --- PASS: TestHookFields/Stop (0.00s)
+    --- PASS: TestHookFields/StopFailure (0.00s)
+    --- PASS: TestHookFields/SessionEnd (0.00s)
+    --- PASS: TestHookFields/Notification (0.00s)
+    --- PASS: TestHookFields/PermissionRequest (0.00s)
+    --- PASS: TestHookFields/SessionStart.model_is_a_bare_string_when_present (0.00s)
+=== RUN   TestStopFailureReplacesStop
+=== RUN   TestStopFailureReplacesStop/mode=""
+=== RUN   TestStopFailureReplacesStop/mode="plan"
+=== RUN   TestStopFailureReplacesStop/mode="acceptEdits"
+=== RUN   TestStopFailureReplacesStop/mode="auto"
+--- PASS: TestStopFailureReplacesStop (0.00s)
+    --- PASS: TestStopFailureReplacesStop/mode="" (0.00s)
+    --- PASS: TestStopFailureReplacesStop/mode="plan" (0.00s)
+    --- PASS: TestStopFailureReplacesStop/mode="acceptEdits" (0.00s)
+    --- PASS: TestStopFailureReplacesStop/mode="auto" (0.00s)
+=== RUN   TestPlanModeSequence
+    canary_test.go:216: step 3 (PostToolUse{ExitPlanMode, permission_mode:"acceptEdits"}) is not asserted here: it needs the permission dialog actually answered, which this harness deliberately never does (REQ-5). Verify with /interface-probe.
+--- PASS: TestPlanModeSequence (0.00s)
+=== RUN   TestLaunchFlags
+=== RUN   TestLaunchFlags/permission_mode_reflects_--permission-mode
+=== RUN   TestLaunchFlags/permission_mode_reflects_--permission-mode/unauth,_no_flag
+=== RUN   TestLaunchFlags/permission_mode_reflects_--permission-mode/unauth,_plan
+=== RUN   TestLaunchFlags/permission_mode_reflects_--permission-mode/unauth,_acceptEdits
+=== RUN   TestLaunchFlags/permission_mode_reflects_--permission-mode/unauth,_auto
+    canary_test.go:253: unauth, auto: observed permission_mode = "default"
+=== RUN   TestLaunchFlags/permission_mode_reflects_--permission-mode/interactive,_plan_(authenticated_cross-check)
+=== RUN   TestLaunchFlags/SessionStart.session_title_equals_--name_(REQ-2)
+=== RUN   TestLaunchFlags/resume_carries_the_same_session_identity_(REQ-4,_INV-3)
+--- PASS: TestLaunchFlags (0.00s)
+    --- PASS: TestLaunchFlags/permission_mode_reflects_--permission-mode (0.00s)
+        --- PASS: TestLaunchFlags/permission_mode_reflects_--permission-mode/unauth,_no_flag (0.00s)
+        --- PASS: TestLaunchFlags/permission_mode_reflects_--permission-mode/unauth,_plan (0.00s)
+        --- PASS: TestLaunchFlags/permission_mode_reflects_--permission-mode/unauth,_acceptEdits (0.00s)
+        --- PASS: TestLaunchFlags/permission_mode_reflects_--permission-mode/unauth,_auto (0.00s)
+        --- PASS: TestLaunchFlags/permission_mode_reflects_--permission-mode/interactive,_plan_(authenticated_cross-check) (0.00s)
+    --- PASS: TestLaunchFlags/SessionStart.session_title_equals_--name_(REQ-2) (0.00s)
+    --- PASS: TestLaunchFlags/resume_carries_the_same_session_identity_(REQ-4,_INV-3) (0.00s)
+=== RUN   TestNotifications
+=== RUN   TestNotifications/idle_prompt_arrives_after_Stop_(REQ-3)
+    canary_test.go:294: idle_prompt arrived 60.04s after Stop
+=== RUN   TestNotifications/permission_prompt_shares_PermissionRequest's_prompt_id_(REQ-5)
+    canary_test.go:315: permission_suggestions present=false (tool_name="ExitPlanMode", permission_mode="plan")
+--- PASS: TestNotifications (0.00s)
+    --- PASS: TestNotifications/idle_prompt_arrives_after_Stop_(REQ-3) (0.00s)
+    --- PASS: TestNotifications/permission_prompt_shares_PermissionRequest's_prompt_id_(REQ-5) (0.00s)
+=== RUN   TestStatusLineFields
+    canary_test.go:353: status line carries keys not in the inventory (superset is fine; record in canary-fields): [scratchpad_dir prompt_cache]
+    canary_test.go:390: resumed session (run E, launched without --name) last status-line session_name = Muster Canary
+--- PASS: TestStatusLineFields (0.00s)
+=== RUN   TestUnknownVersusZero
+    canary_test.go:424: 1 pre-response post(s) checked
+--- PASS: TestUnknownVersusZero (0.00s)
+=== RUN   TestCommandHookPathQuoting
+--- PASS: TestCommandHookPathQuoting (0.00s)
+=== RUN   TestCommandHooksCarryEnvelopeOnEveryEvent
+--- PASS: TestCommandHooksCarryEnvelopeOnEveryEvent (0.00s)
+=== RUN   TestKeychainCredentialShape
+--- PASS: TestKeychainCredentialShape (0.03s)
+=== RUN   TestUsageAPIResponseShape
+--- PASS: TestUsageAPIResponseShape (1.12s)
+=== RUN   TestThemeConfigParses
+--- PASS: TestThemeConfigParses (0.00s)
+=== RUN   TestSkipDecision
+=== RUN   TestSkipDecision/equal,_force_and_offline_both_unset:_skip
+=== RUN   TestSkipDecision/equal,_force_set:_runs_(does_not_skip)
+=== RUN   TestSkipDecision/equal,_offline_set:_runs_(offline_always_wins,_INV-4)
+=== RUN   TestSkipDecision/equal,_both_force_and_offline_set:_runs
+=== RUN   TestSkipDecision/installed_below_verified:_never_skips
+=== RUN   TestSkipDecision/installed_above_verified:_never_skips
+=== RUN   TestSkipDecision/installed_above_verified,_force_set:_still_never_skips
+--- PASS: TestSkipDecision (0.00s)
+    --- PASS: TestSkipDecision/equal,_force_and_offline_both_unset:_skip (0.00s)
+    --- PASS: TestSkipDecision/equal,_force_set:_runs_(does_not_skip) (0.00s)
+    --- PASS: TestSkipDecision/equal,_offline_set:_runs_(offline_always_wins,_INV-4) (0.00s)
+    --- PASS: TestSkipDecision/equal,_both_force_and_offline_set:_runs (0.00s)
+    --- PASS: TestSkipDecision/installed_below_verified:_never_skips (0.00s)
+    --- PASS: TestSkipDecision/installed_above_verified:_never_skips (0.00s)
+    --- PASS: TestSkipDecision/installed_above_verified,_force_set:_still_never_skips (0.00s)
+=== RUN   TestSkipDecision_ReasonNamesTheForceEnvVar
+--- PASS: TestSkipDecision_ReasonNamesTheForceEnvVar (0.00s)
+=== RUN   TestInstalledBinaryCarriesInterfaceStrings
+--- PASS: TestInstalledBinaryCarriesInterfaceStrings (0.16s)
+PASS
+ok  	github.com/Zalaras/muster/test/canary	140.428s
+versions: 2.1.267 is inside the verified range (2.1.246–2.1.267); nothing to record

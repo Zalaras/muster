@@ -37,8 +37,8 @@ import (
 // version is set at build time via -ldflags (see the Makefile).
 var version = "dev"
 
-// versionCheckTimeout bounds the startup drift check; a hung claude binary must not stall
-// daemon startup.
+// versionCheckTimeout bounds the startup Claude Code version check; a hung claude binary
+// must not stall daemon startup.
 const versionCheckTimeout = 5 * time.Second
 
 // shutdownTimeout bounds graceful shutdown: HTTP connections closing, WS sockets
@@ -113,7 +113,7 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 	}
 
 	if *showVersion {
-		fmt.Fprintf(stdout, "musterd %s (pinned to Claude Code %s)\n", version, claudecode.PinnedVersion)
+		fmt.Fprintf(stdout, "musterd %s (Claude Code verified %s)\n", version, claudecode.FormatRange(claudecode.Floor(), claudecode.Verified()))
 		return nil
 	}
 
@@ -165,7 +165,7 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 	}
 
 	versionCtx, versionCancel := context.WithTimeout(ctx, versionCheckTimeout)
-	installed, drift := checkClaudeCode(versionCtx, *claudeBin, log)
+	claudeCodeInfo := checkClaudeCode(versionCtx, *claudeBin, log)
 	versionCancel()
 
 	var lc net.ListenConfig
@@ -194,17 +194,13 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		Msg("wrote hook wrapper scripts")
 
 	srv := server.New(server.Config{
-		Store:         st,
-		Logger:        log,
-		UIToken:       uiToken,
-		IngestToken:   ingestToken,
-		WebDist:       *webDist,
-		DaemonVersion: version,
-		ClaudeCode: server.ClaudeCodeInfo{
-			Pinned:    claudecode.PinnedVersion,
-			Installed: installed,
-			Drift:     drift,
-		},
+		Store:            st,
+		Logger:           log,
+		UIToken:          uiToken,
+		IngestToken:      ingestToken,
+		WebDist:          *webDist,
+		DaemonVersion:    version,
+		ClaudeCode:       claudeCodeInfo,
 		ClaudeBin:        *claudeBin,
 		TmuxSocket:       *tmuxSocket,
 		BrowseRoot:       *browseRoot,
@@ -404,31 +400,42 @@ func keychainUser() string {
 	return u.Username
 }
 
-// checkClaudeCode reports the installed Claude Code version and whether it drifted from
-// the pin, without failing startup (docs/claude-code-pin.md). Both return values are nil
-// when the check itself failed (claude missing/hung) — REQ-8/Edge Case 12. bin is the
-// -claude-bin value, so the check and the launches agree on which binary "claude" is.
-func checkClaudeCode(ctx context.Context, bin string, log zerolog.Logger) (installed *string, drift *bool) {
-	err := claudecode.CheckPin(ctx, bin)
-	if err == nil {
-		pinned := claudecode.PinnedVersion
-		noDrift := false
-		return &pinned, &noDrift
-	}
+// checkClaudeCode reports the installed Claude Code version against the canary-verified
+// range (docs/claude-code-versions.md), without ever failing startup: no outcome here
+// makes musterd exit non-zero or skip serving (INV-3). bin is the -claude-bin value, so
+// the check and session launches agree on which binary "claude" is.
+func checkClaudeCode(ctx context.Context, bin string, log zerolog.Logger) server.ClaudeCodeInfo {
+	report := claudecode.CheckVersion(ctx, bin)
 
-	var driftErr *claudecode.VersionDriftError
-	if errors.As(err, &driftErr) {
-		log.Warn().
-			Str("installed", driftErr.Installed).
-			Str("pinned", driftErr.Pinned).
-			Msg("claude code version drift; run `make canary` before trusting Muster against this version")
-		got := driftErr.Installed
-		yesDrift := true
-		return &got, &yesDrift
+	event := log.Info()
+	msg := "claude code version is within the verified range"
+	switch report.Status {
+	case claudecode.StatusAbove:
+		event = log.Warn()
+		msg = "claude code version is newer than any version Muster has been tested with; behaviour past the verified range is best-effort (run make canary to verify it)"
+	case claudecode.StatusBelow:
+		event = log.Warn()
+		msg = "claude code version is older than any version Muster has been tested with; behaviour is best-effort — update Claude Code"
+	case claudecode.StatusUnknown:
+		event = log.Warn()
+		msg = "could not determine claude code version"
 	}
+	event = event.
+		Str("floor", report.Floor).
+		Str("verified", report.Verified).
+		Str("status", string(report.Status)).
+		Err(report.Err)
+	if report.Installed != nil {
+		event = event.Str("installed", *report.Installed)
+	}
+	event.Msg(msg)
 
-	log.Warn().Err(err).Msg("could not determine claude code version")
-	return nil, nil
+	return server.ClaudeCodeInfo{
+		Installed: report.Installed,
+		Floor:     report.Floor,
+		Verified:  report.Verified,
+		Status:    string(report.Status),
+	}
 }
 
 // onExitDecision is -on-exit's final, already-resolved leave/kill decision (REQ-3):

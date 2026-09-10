@@ -83,7 +83,7 @@ anything with acceptance criteria.
 
 Functional E2E always (real daemon, scratch repo); unit tests for specific logic (state
 machine, reconcile, JSON merge). `make canary` gates any Claude Code version bump — the
-ritual is `docs/claude-code-pin.md`.
+ritual is `docs/claude-code-versions.md`.
 
 ## Doc upkeep (end of every session)
 

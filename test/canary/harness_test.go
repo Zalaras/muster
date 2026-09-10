@@ -91,6 +91,34 @@ var unauthRuns = []struct {
 // compiled and vetted without spending tokens (`MUSTER_CANARY_OFFLINE=1 make canary`).
 const offlineEnv = "MUSTER_CANARY_OFFLINE"
 
+// forceEnv, when set, runs the harness and live tiers even when the installed version
+// equals the verified ceiling — the plan-review convention (docs/claude-code-versions.md
+// "Skipping on an unchanged install").
+const forceEnv = "MUSTER_CANARY_FORCE"
+
+// skipReason is non-empty when harness(t)/live(t) should skip the real-run tiers because
+// the installed version hasn't changed since the last green canary. Computed once in
+// TestMain, before m.Run(), so every test observes the same decision.
+var skipReason string
+
+// skipDecision is the pure decision skipReason is computed from (test/canary/skip_test.go,
+// D17): the harness/live tiers skip iff installed equals verified and neither force nor
+// offline is set. offline always wins (INV-4) — harness(t)/live(t) already check it
+// themselves before ever consulting skipReason, but skipDecision itself honours it too so
+// a caller that skips that check first still gets the right answer.
+func skipDecision(installed, verified string, force, offline bool) (skip bool, reason string) {
+	if offline || force {
+		return false, ""
+	}
+	if installed != verified {
+		return false, ""
+	}
+	return true, fmt.Sprintf(
+		"canary: installed %s equals the verified ceiling; skipping the harness and live tiers (set %s=1 to run them)",
+		installed, forceEnv,
+	)
+}
+
 // capture is one POST exactly as musterd's ingest handler would see it.
 type capture struct {
 	kind    claudecode.Kind
@@ -134,11 +162,16 @@ var (
 )
 
 // harness builds the fixture once per process and returns it; a build failure fails the
-// calling test with the underlying error. It skips under MUSTER_CANARY_OFFLINE.
+// calling test with the underlying error. It skips under MUSTER_CANARY_OFFLINE, and again
+// (with skipReason, computed in TestMain) when the installed version equals the verified
+// ceiling and MUSTER_CANARY_FORCE is unset.
 func harness(t *testing.T) *fixture {
 	t.Helper()
 	if os.Getenv(offlineEnv) != "" {
 		t.Skipf("%s is set: not driving a real claude", offlineEnv)
+	}
+	if skipReason != "" {
+		t.Skip(skipReason)
 	}
 	fxOnce.Do(func() { fx.err = fx.build() })
 	if fx.err != nil {
@@ -147,8 +180,20 @@ func harness(t *testing.T) *fixture {
 	return &fx
 }
 
-// TestMain exists only to tear the fixture down after every test has read it.
+// TestMain computes skipReason (non-offline only) before running any test, then tears the
+// fixture down after every test has read it. An InstalledVersion error here is not fatal:
+// harness(t)'s own build() calls it again, so the "claude must be on PATH" failure surfaces
+// there with its existing message instead of a second one here.
 func TestMain(m *testing.M) {
+	if os.Getenv(offlineEnv) == "" {
+		force := os.Getenv(forceEnv) != ""
+		if installed, err := claudecode.InstalledVersion(context.Background(), "claude"); err == nil {
+			if skip, reason := skipDecision(installed, claudecode.Verified(), force, false); skip {
+				skipReason = reason
+				fmt.Println(reason)
+			}
+		}
+	}
 	code := m.Run()
 	fx.teardown()
 	os.Exit(code)

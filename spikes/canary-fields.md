@@ -1,19 +1,23 @@
-# Canary field inventory — Claude Code 2.1.233 → 2.1.246
+# Canary field inventory
 
 Derived from real captured payloads during the step-1 spikes (2026-08-16). This is the
 assertion list for the canary E2E described in `SPEC.md` §8: run it before adopting any new
 Claude Code version, and treat any missing field as a blocker.
 
-**Validated against:** Claude Code `2.1.233` (native install), macOS Darwin 25.6.
-No auto-update drift occurred during the spike run. **Re-validated by the automated canary
-(`make canary`, `test/canary/harness_test.go`) against `2.1.246` on 2026-08-29** — every
-row below marked binding in `test/canary/canary_test.go` held; deltas are noted inline as
-"(2.1.246 canary)". Pin bumped to 2.1.246 the same day. **Re-validated by the full-coverage
-canary (plan `canary-full-coverage`) against the installed `2.1.267` on 2026-09-10** — runs
-A / B / C×4 / D (plan mode, `--name`, idle wait) / E (`--resume`, unanswered `ExitPlanMode`)
-plus the static-binary and live tiers; deltas noted inline as "(2.1.267 canary)". The pin
-stayed 2.1.246 in that plan (`TestInstalledVersionMatchesPin` red by design); the bump is the
-`docs/claude-code-pin.md` step-2 ritual after landing.
+**Versions this inventory has been validated against** (native install, macOS Darwin
+25.6; the automated canary is `make canary` / `test/canary/harness_test.go`, extending the
+range in `internal/claudecode/observed_versions.txt` on every green run outside it —
+docs/claude-code-versions.md):
+
+<!-- versions:table -->
+| version | verified on | run |
+| --- | --- | --- |
+| 2.1.246 | 2026-08-29 | m4-canary |
+| 2.1.267 | 2026-09-10 | canary-full-coverage |
+<!-- /versions:table -->
+
+Every row below not annotated with `since`/`until` has held across the whole range above —
+first measured against 2.1.233 during the step-1 spikes, before the canary itself existed.
 
 Raw evidence: `ccc-spike/captures/capture-1.jsonl`, `capture-3.jsonl`; H2 probe additions
 (2026-08-16) in `test/rig/captures/capture-1.jsonl` (gitignored, regenerable via
@@ -44,30 +48,41 @@ Common to every hook: `cwd`, `hook_event_name`, `session_id`, `transcript_path`.
 
 | Event | Fields beyond the common set | `permission_mode`? |
 |---|---|---|
-| `SessionStart` | `model`, `source`, `session_title`¹ | **absent** |
+| `SessionStart` | `model`, `source`, `session_title`¹ (since 2.1.267 asserted) | **absent** |
 | `UserPromptSubmit` | `prompt` | present |
 | `PreToolUse` | `tool_name`, `tool_input`, `tool_use_id` | present |
 | `PostToolUse` | `tool_name`, `tool_input`, `tool_use_id`, `tool_response`, `duration_ms` | present |
-| `Stop` | `last_assistant_message`, `stop_hook_active`, `background_tasks`, `session_crons` | present |
+| `Stop` | `last_assistant_message`, `stop_hook_active`, `background_tasks`³, `session_crons` | present |
 | `StopFailure` | `error`, `last_assistant_message` | **absent** |
-| `SubagentStop` | `agent_id`, `agent_type`, `agent_transcript_path`, `stop_hook_active`, `background_tasks`, `session_crons` | present |
+| `SubagentStop` | `agent_id`, `agent_type`, `agent_transcript_path`, `stop_hook_active`, `background_tasks`³, `session_crons` | present |
 | ↳ *not asserted by `make canary` since 2026-09-10:* `interpret.go` treats `SubagentStop` as `KindInert` and Muster reads nothing from it; Muster's only subagent dependency is `agent_id` on tool hooks / `PermissionRequest`, an `/interface-probe` ritual. | | |
 | `SessionEnd` | `reason` | **absent** |
 | `Notification` | `notification_type`, `message` | **absent** |
 | `PermissionRequest` | `tool_name`, `tool_input`, `permission_suggestions`² | present |
 
 ¹ `session_title` is present **only when the session was launched with `--name`**; absent
-otherwise. (2.1.267 canary: with `--name "Muster Canary"`, `SessionStart.session_title` and
-the status line's `session_name` both equal the flag value — asserted by `TestLaunchFlags` /
-`TestStatusLineFields`.)
+otherwise (since 2.1.267 asserted: earlier versions were never launched with `--name` by
+the harness, so the flag→field mapping itself is only directly verified from 2.1.267
+onward — versions below that are covered by inference like any other row in the verified
+range, docs/claude-code-versions.md). (2.1.267 canary: with `--name "Muster Canary"`,
+`SessionStart.session_title` and the status line's `session_name` both equal the flag
+value — asserted by `TestLaunchFlags` / `TestStatusLineFields`.)
 
 ² `permission_suggestions` is **optional**. Present on a `Write` request in `default` mode
 (2.1.233 FINDINGS; 2.1.259 `capture-6.jsonl`, subagent) as `[{type:"setMode",
 mode:"acceptEdits", destination:"session"}]`; **absent on the `ExitPlanMode` request in `plan`
-mode** (2.1.267 canary run E, 1/1 — keys were exactly `cwd, scratchpad_dir, prompt_id,
-permission_mode, session_id, transcript_path, hook_event_name, tool_name, tool_input`). No
-production code reads it, so `make canary` shape-checks it only when present and logs
-presence. `scratchpad_dir` (new common key on 2.1.259) was on every 2.1.267 hook seen.
+mode** (observed absent on 2.1.267, canary run E, 1/1 — keys were exactly `cwd,
+scratchpad_dir, prompt_id, permission_mode, session_id, transcript_path, hook_event_name,
+tool_name, tool_input`). No production code reads it, so `make canary` shape-checks it only
+when present and logs presence. `scratchpad_dir` (new common key on 2.1.259) was on every
+2.1.267 hook seen.
+
+³ `background_tasks` (and the whole subagent/background-task field set: `agent_id`,
+`agent_type`, `agent_transcript_path` on `SubagentStop`; `session_crons`) is annotated
+`since 2.1.259` — first captured in `test/rig/captures/capture-6.jsonl` (2026-08-30
+probe); not separately re-verified against 2.1.233, so treat it as covered by inference
+below 2.1.259 the same way an unrun in-range version is (docs/claude-code-versions.md
+"Inferred versions are honest, not verified").
 
 ### Subagent and background-task fields (2.1.259 probe, 2026-09-03, issue #14)
 
@@ -422,8 +437,8 @@ recycled PID. Use `pgrep -f` on the exact command line.
   2026-09-10 `make canary` asserts the four non-default enum members as byte strings in the
   installed bundle (static tier) and that `ReadThemeFamily(DefaultConfigPath())` parses
   Damian's real file (live tier); string presence ≠ semantics, so still glance at the
-  `resolveSetting("theme", …)` site on a pin bump. Note the installed bundle (2.1.258) was
-  ahead of the pin (2.1.246) — see `docs/claude-code-pin.md`.
+  `resolveSetting("theme", …)` site on a canary run. Note the installed bundle (2.1.258)
+  was ahead of the then-verified ceiling (2.1.246) — see `docs/claude-code-versions.md`.
 - **`CLAUDE_CODE_SCROLL_SPEED` is present in the installed bundle** (2.1.267, 2026-09-10) —
   asserted by `make canary`'s static tier, which iterates every key of the production
   `claudecode.LaunchEnv()` rather than spelling the name (issue #13 follow-up). Presence

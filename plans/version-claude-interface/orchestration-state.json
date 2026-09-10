@@ -1,0 +1,102 @@
+{
+  "plan_name": "version-claude-interface",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 0,
+    "web-impl": 0,
+    "daemon-tests": 0,
+    "web-tests": 0,
+    "e2e-validate": 0,
+    "review": 1
+  },
+  "completed_steps": [
+    "e2e-specs",
+    "web-impl",
+    "web-tests",
+    "daemon-impl",
+    "daemon-tests",
+    "e2e-validate",
+    "review"
+  ],
+  "step_started_at": {
+    "e2e-specs": "2026-09-10T10:52:17Z",
+    "daemon-impl": "2026-09-10T11:55:57Z",
+    "web-impl": "2026-09-10T11:01:22Z",
+    "web-tests": "2026-09-10T11:06:45Z",
+    "daemon-tests": "2026-09-10T12:00:14Z",
+    "e2e-validate": "2026-09-10T11:35:56Z",
+    "review": "2026-09-10T12:05:47Z"
+  },
+  "step_finished_at": {
+    "e2e-specs": "2026-09-10T11:01:22Z",
+    "web-impl": "2026-09-10T11:06:45Z",
+    "web-tests": "2026-09-10T11:11:41Z",
+    "daemon-impl": "2026-09-10T12:00:14Z",
+    "daemon-tests": "2026-09-10T12:03:33Z",
+    "e2e-validate": "2026-09-10T11:39:09Z",
+    "review": "2026-09-10T12:24:44Z"
+  },
+  "step_attempts": {
+    "e2e-specs": [
+      {
+        "start": "2026-09-10T10:52:17Z",
+        "finish": "2026-09-10T11:01:22Z"
+      }
+    ],
+    "daemon-impl": [
+      {
+        "start": "2026-09-10T11:01:22Z",
+        "finish": "2026-09-10T11:18:44Z"
+      },
+      {
+        "start": "2026-09-10T11:55:57Z",
+        "finish": "2026-09-10T12:00:14Z"
+      }
+    ],
+    "web-impl": [
+      {
+        "start": "2026-09-10T11:01:22Z",
+        "finish": "2026-09-10T11:06:45Z"
+      }
+    ],
+    "web-tests": [
+      {
+        "start": "2026-09-10T11:06:45Z",
+        "finish": "2026-09-10T11:11:41Z"
+      }
+    ],
+    "daemon-tests": [
+      {
+        "start": "2026-09-10T11:18:44Z",
+        "finish": "2026-09-10T11:35:56Z"
+      },
+      {
+        "start": "2026-09-10T12:00:14Z",
+        "finish": "2026-09-10T12:03:33Z"
+      }
+    ],
+    "e2e-validate": [
+      {
+        "start": "2026-09-10T11:35:56Z",
+        "finish": "2026-09-10T11:39:09Z"
+      }
+    ],
+    "review": [
+      {
+        "start": "2026-09-10T11:39:09Z",
+        "finish": "2026-09-10T11:55:57Z"
+      },
+      {
+        "start": "2026-09-10T12:05:47Z",
+        "finish": "2026-09-10T12:24:44Z"
+      }
+    ]
+  },
+  "started_at": "2026-09-10T10:52:17Z",
+  "updated_at": "2026-09-10T12:24:44Z",
+  "closes_issues": [
+    6
+  ]
+}

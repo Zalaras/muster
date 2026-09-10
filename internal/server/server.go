@@ -23,13 +23,17 @@ import (
 	"github.com/Zalaras/muster/internal/webui"
 )
 
-// ClaudeCodeInfo is the daemon's startup snapshot of the installed Claude Code, used to
-// build the WS `hello` message (docs/protocol.md §5.1). Installed/Drift are nil when the
-// startup version check failed or never ran.
+// ClaudeCodeInfo is the daemon's startup snapshot of the installed Claude Code against the
+// canary-verified range, used to build the WS `hello` message (docs/protocol.md §5.1) and
+// the issue-capture snapshot. Installed is nil iff Status is "unknown" (the startup version
+// check failed, hung past its timeout, or was unparseable); Floor/Verified are always
+// populated. internal/server carries Status only as a plain string — the status-word type
+// itself lives in internal/claudecode (docs/conventions.md "Boundary").
 type ClaudeCodeInfo struct {
-	Pinned    string
 	Installed *string
-	Drift     *bool
+	Floor     string
+	Verified  string
+	Status    string
 }
 
 // paneSpawner is the tmux operations internal/server's own code (sessionLauncher,

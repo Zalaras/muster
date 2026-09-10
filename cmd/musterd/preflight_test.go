@@ -145,6 +145,7 @@ func TestRun_VersionFlagSucceedsWithTmuxAbsent(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "musterd")
+	assert.Contains(t, stdout.String(), "Claude Code verified ", "D6/D10: -version must name the verified range")
 }
 
 // TestReadmeTmuxRemedyMatchesPreflight covers D13/R1: README.md's Prerequisites section

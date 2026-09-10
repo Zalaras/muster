@@ -1,16 +1,23 @@
-// Message types and parser for the daemon->UI WebSocket protocol (docs/protocol.md v1).
+// Message types and parser for the daemon->UI WebSocket protocol (docs/protocol.md, protocol
+// version 2 as of plan version-claude-interface, 2026-09-10).
 //
 // M0 only ever sends `hello` and `snapshot` (docs/protocol.md §8). Unknown message
 // types and unknown fields are ignored per protocol §1's "additive evolution" rule —
 // parsing here only ever reads the fields it knows about, so future additions never
 // need a change here to keep working.
 
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
+
+// Plan version-claude-interface (docs/protocol.md §5.1, protocol 2): the daemon's startup
+// classification of the installed Claude Code against the canary-verified range —
+// replaces the M0-era {pinned, installed, drift} pin/drift shape.
+export type ClaudeCodeStatus = "unknown" | "below" | "verified" | "above";
 
 export interface ClaudeCodeInfo {
-  pinned: string;
   installed: string | null;
-  drift: boolean | null;
+  floor: string;
+  verified: string;
+  status: ClaudeCodeStatus;
 }
 
 export interface Hello {
@@ -224,15 +231,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isClaudeCodeStatus(value: unknown): value is ClaudeCodeStatus {
+  return value === "unknown" || value === "below" || value === "verified" || value === "above";
+}
+
 function parseClaudeCode(value: unknown): ClaudeCodeInfo | null {
   if (!isRecord(value)) return null;
-  const pinned = value["pinned"];
   const installed = value["installed"];
-  const drift = value["drift"];
-  if (typeof pinned !== "string") return null;
+  const floor = value["floor"];
+  const verified = value["verified"];
+  const status = value["status"];
   if (installed !== null && typeof installed !== "string") return null;
-  if (drift !== null && typeof drift !== "boolean") return null;
-  return { pinned, installed, drift };
+  if (typeof floor !== "string") return null;
+  if (typeof verified !== "string") return null;
+  if (!isClaudeCodeStatus(status)) return null;
+  return { installed, floor, verified, status };
 }
 
 function parseHello(rec: Record<string, unknown>): Hello | null {

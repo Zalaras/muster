@@ -2,13 +2,19 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/creack/pty"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Zalaras/muster/internal/claudecode"
 )
 
 // TestResolveOnExit_ExplicitLeaveAndKillNeverConsultStdin covers REQ-3: the two explicit
@@ -150,4 +156,101 @@ func TestRun_InvalidOnExitValueIsRejected(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "-on-exit")
+}
+
+// ---------------------------------------------------------------------------------------
+// checkClaudeCode (D11/D12)
+
+// writeCheckClaudeCodeStub writes a real executable claude stub that echoes output and
+// exits 0 for --version — a path argument, never a $PATH shim (docs/conventions.md
+// §Testing).
+func writeCheckClaudeCodeStub(t *testing.T, output string) string {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "claude")
+	script := fmt.Sprintf("#!/bin/sh\necho %q\nexit 0\n", output)
+	require.NoError(t, os.WriteFile(path, []byte(script), 0o755))
+	return path
+}
+
+// TestCheckClaudeCode_MapsEachStatusAndLogsAtTheRightLevel covers D11: every one of the
+// four statuses maps onto the ClaudeCodeInfo fields correctly, logs at the documented
+// level (info for verified, warn otherwise), and the below line names the remedy.
+func TestCheckClaudeCode_MapsEachStatusAndLogsAtTheRightLevel(t *testing.T) {
+	tests := []struct {
+		name          string
+		bin           func(t *testing.T) string
+		wantStatus    string
+		wantInstalled string
+		wantLevel     string
+		wantMsgSubstr string
+	}{
+		{
+			name:          "below the floor warns and names the remedy",
+			bin:           func(t *testing.T) string { return writeCheckClaudeCodeStub(t, "1.0.0 (Claude Code)") },
+			wantStatus:    "below",
+			wantInstalled: "1.0.0",
+			wantLevel:     "warn",
+			wantMsgSubstr: "update Claude Code",
+		},
+		{
+			name:          "inside the verified range logs info",
+			bin:           func(t *testing.T) string { return writeCheckClaudeCodeStub(t, claudecode.Floor()+" (Claude Code)") },
+			wantStatus:    "verified",
+			wantInstalled: claudecode.Floor(),
+			wantLevel:     "info",
+		},
+		{
+			name:          "above the ceiling warns",
+			bin:           func(t *testing.T) string { return writeCheckClaudeCodeStub(t, "99.0.0 (Claude Code)") },
+			wantStatus:    "above",
+			wantInstalled: "99.0.0",
+			wantLevel:     "warn",
+			wantMsgSubstr: "newer than any version Muster has been tested with",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			log := zerolog.New(&buf)
+
+			info := checkClaudeCode(context.Background(), tt.bin(t), log)
+
+			assert.Equal(t, tt.wantStatus, info.Status)
+			require.NotNil(t, info.Installed)
+			assert.Equal(t, tt.wantInstalled, *info.Installed)
+			assert.Equal(t, claudecode.Floor(), info.Floor)
+			assert.Equal(t, claudecode.Verified(), info.Verified)
+
+			logged := buf.String()
+			assert.Contains(t, logged, fmt.Sprintf(`"level":"%s"`, tt.wantLevel))
+			if tt.wantMsgSubstr != "" {
+				assert.Contains(t, logged, tt.wantMsgSubstr)
+			}
+			assert.Contains(t, logged, `"status":"`+tt.wantStatus+`"`)
+			assert.Contains(t, logged, `"installed":"`+tt.wantInstalled+`"`)
+		})
+	}
+}
+
+// TestCheckClaudeCode_UnknownOutcomeNeverFailsStartup covers D12/INV-3: a missing binary
+// yields a serving-compatible ClaudeCodeInfo (nil Installed, populated Floor/Verified,
+// status unknown) — checkClaudeCode itself has no error return, so "no error surfaces"
+// means the daemon's startup path simply proceeds with this value.
+func TestCheckClaudeCode_UnknownOutcomeNeverFailsStartup(t *testing.T) {
+	var buf bytes.Buffer
+	log := zerolog.New(&buf)
+	missingBin := filepath.Join(t.TempDir(), "no-such-claude")
+
+	info := checkClaudeCode(context.Background(), missingBin, log)
+
+	assert.Nil(t, info.Installed)
+	assert.Equal(t, claudecode.Floor(), info.Floor)
+	assert.Equal(t, claudecode.Verified(), info.Verified)
+	assert.Equal(t, "unknown", info.Status)
+
+	logged := buf.String()
+	assert.Contains(t, logged, `"level":"warn"`)
+	assert.Contains(t, logged, "could not determine claude code version")
+	assert.NotContains(t, logged, `"installed"`, "installed must be omitted from the log, never a bogus empty string")
 }

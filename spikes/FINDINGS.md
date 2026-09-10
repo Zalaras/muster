@@ -580,8 +580,8 @@ M4's reconcile — were settled by the H2 probe on 2026-08-16.
 
 Run to close the three open questions `docs/protocol.md` v1 raised (evidence:
 `test/rig/captures/capture-3.jsonl`; note the installed binary had auto-updated to
-**2.1.237**, past the 2.1.233 pin — the designed drift; adopt via `docs/claude-code-pin.md`
-when convenient):
+**2.1.237**, past the then-current 2.1.233 pin — the designed drift; the pin has since become
+the verified range in `docs/claude-code-versions.md`):
 
 1. **Command hooks see the pane environment — CONFIRMED.** Inside a window created with
    `tmux new-window -e MUSTER_SESSION=probe-ms-7`, the command-wrapped `SessionStart` and

@@ -8,8 +8,9 @@ import (
 	"github.com/coder/websocket/wsjson"
 )
 
-// helloMessage is the WS `hello` (docs/protocol.md §5.1). Installed/Drift are nil when
-// the startup version check failed — the client renders that as "unknown", never drift.
+// helloMessage is the WS `hello` (docs/protocol.md §5.1, protocol 2). ClaudeCode.Installed
+// is null iff Status is "unknown" — the client renders that as "Claude installation
+// unknown".
 type helloMessage struct {
 	Type            string         `json:"type"`
 	ProtocolVersion int            `json:"protocolVersion"`
@@ -22,9 +23,10 @@ type daemonInfo struct {
 }
 
 type claudeCodeWire struct {
-	Pinned    string  `json:"pinned"`
 	Installed *string `json:"installed"`
-	Drift     *bool   `json:"drift"`
+	Floor     string  `json:"floor"`
+	Verified  string  `json:"verified"`
+	Status    string  `json:"status"`
 }
 
 // snapshotMessage is Snapshot with the WS "type" envelope added (§5.2). Snapshot is
@@ -34,7 +36,11 @@ type snapshotMessage struct {
 	Snapshot
 }
 
-const protocolVersion = 1
+// protocolVersion bumps only on a breaking change to an existing message — additive
+// fields don't bump it (docs/protocol.md header). 2: hello.claudeCode replaced
+// {pinned, installed, drift} with {installed, floor, verified, status} (plan
+// version-claude-interface, closes #6).
+const protocolVersion = 2
 
 // outboxSize bounds each client's broadcast backlog. A slow/stuck client is dropped
 // (messages skipped) rather than allowed to block the broadcaster (m1-sessions "The
@@ -114,9 +120,10 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		ProtocolVersion: protocolVersion,
 		Daemon:          daemonInfo{Version: s.daemonVersion},
 		ClaudeCode: claudeCodeWire{
-			Pinned:    s.claudeCode.Pinned,
 			Installed: s.claudeCode.Installed,
-			Drift:     s.claudeCode.Drift,
+			Floor:     s.claudeCode.Floor,
+			Verified:  s.claudeCode.Verified,
+			Status:    s.claudeCode.Status,
 		},
 	}
 	if err := wsjson.Write(ctx, c, hello); err != nil {

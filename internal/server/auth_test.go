@@ -116,7 +116,7 @@ func TestWriteHTMLUnauthorized(t *testing.T) {
 }
 
 func TestHandleHealthz(t *testing.T) {
-	srv := newTestServer(t, ClaudeCodeInfo{Pinned: "2.1.233"})
+	srv := newTestServer(t, ClaudeCodeInfo{})
 
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ClaudeCodeInfo, Density, ModelWindow, SessionModelInfo, Usage } from "../protocol";
 import { formatResets } from "../sessions/format";
 import {
+  describeClaudeVersion,
   renderClaudeVersion,
   renderConnectionStatus,
   renderDensityControl,
@@ -225,32 +226,178 @@ describe("renderUsage + renderUsageTrack — element order matches the reference
   });
 });
 
-describe("renderClaudeVersion", () => {
-  it("renders 'claude unknown' when no hello has arrived yet (info is null)", () => {
-    const el = fakeElement();
-    renderClaudeVersion(el, null);
+// Plan version-claude-interface, UI Specifications > DOM: the six-row table
+// `describeClaudeVersion` implements. Exercised directly (pure function, no DOM) so every
+// row is pinned independently of how `renderClaudeVersion` happens to build markup.
+const VERSION_NOT_TESTED = "This Claude Code version has not been tested with Muster";
+const VERSION_NOT_TESTED_UPDATE = `${VERSION_NOT_TESTED} — please update Claude Code`;
+
+describe("describeClaudeVersion — UI Specifications > DOM six-row table", () => {
+  it("row 1: null (pre-hello) -> 'claude unknown', no warning", () => {
+    expect(describeClaudeVersion(null)).toEqual({ text: "claude unknown", warning: null });
+  });
+
+  it("row 2: status 'unknown' (with a populated installed, which the daemon never actually sends alongside unknown) -> 'Claude installation unknown', no warning", () => {
+    const info: ClaudeCodeInfo = { installed: "2.1.267", floor: "2.1.246", verified: "2.1.267", status: "unknown" };
+    expect(describeClaudeVersion(info)).toEqual({ text: "Claude installation unknown", warning: null });
+  });
+
+  it("row 2 (installed genuinely null): status 'unknown' with installed null -> 'Claude installation unknown', no warning", () => {
+    const info: ClaudeCodeInfo = { installed: null, floor: "2.1.246", verified: "2.1.267", status: "unknown" };
+    expect(describeClaudeVersion(info)).toEqual({ text: "Claude installation unknown", warning: null });
+  });
+
+  it("row 3: status 'verified' -> 'claude <installed>', no warning", () => {
+    const info: ClaudeCodeInfo = { installed: "2.1.267", floor: "2.1.246", verified: "2.1.267", status: "verified" };
+    expect(describeClaudeVersion(info)).toEqual({ text: "claude 2.1.267", warning: null });
+  });
+
+  it("row 4: status 'above' -> 'claude <installed>' + the not-tested warning (no update wording)", () => {
+    const info: ClaudeCodeInfo = { installed: "2.1.270", floor: "2.1.246", verified: "2.1.267", status: "above" };
+    expect(describeClaudeVersion(info)).toEqual({ text: "claude 2.1.270", warning: VERSION_NOT_TESTED });
+  });
+
+  it("row 5: status 'below' -> 'claude <installed>' + the not-tested-please-update warning (em dash U+2014)", () => {
+    const info: ClaudeCodeInfo = { installed: "2.1.200", floor: "2.1.246", verified: "2.1.267", status: "below" };
+    const result = describeClaudeVersion(info);
+    expect(result).toEqual({ text: "claude 2.1.200", warning: VERSION_NOT_TESTED_UPDATE });
+    expect(result.warning).toContain("—"); // em dash, not a hyphen
+  });
+
+  it("row 6 (defensive): a non-'unknown' status with installed null -> 'Claude installation unknown', no warning (the daemon never sends this — INV-1 — but the parser only type-checks, so the renderer must not template 'claude null')", () => {
+    for (const status of ["verified", "above", "below"] as const) {
+      const info: ClaudeCodeInfo = { installed: null, floor: "2.1.246", verified: "2.1.267", status };
+      expect(describeClaudeVersion(info)).toEqual({ text: "Claude installation unknown", warning: null });
+    }
+  });
+});
+
+/** Minimal DOM stand-in for `renderClaudeVersion`'s `replaceChildren`-based rebuild: text
+ * nodes (`document.createTextNode`) and the warning `<span>` (`document.createElement`),
+ * enough to assert child count/order/content and the span's `role`/`aria-label`/`title`
+ * without jsdom (docs/conventions.md: DOM construction is Playwright's job in general, but
+ * "which nodes, in which order, with which attributes" is pure logic worth pinning here,
+ * same rationale as the FakeDomNode family above). */
+class FakeVersionNode {
+  className = "";
+  title = "";
+  private attrs = new Map<string, string>();
+  private ownText: string;
+
+  constructor(text: string) {
+    this.ownText = text;
+  }
+
+  get textContent(): string {
+    return this.ownText;
+  }
+
+  set textContent(value: string) {
+    this.ownText = value;
+  }
+
+  setAttribute(name: string, value: string): void {
+    this.attrs.set(name, value);
+  }
+
+  getAttribute(name: string): string | null {
+    return this.attrs.get(name) ?? null;
+  }
+}
+
+class FakeVersionElement {
+  private children: FakeVersionNode[] = [];
+
+  replaceChildren(...nodes: FakeVersionNode[]): void {
+    this.children = nodes;
+  }
+
+  get textContent(): string {
+    return this.children.map((c) => c.textContent).join("");
+  }
+
+  nodes(): FakeVersionNode[] {
+    return this.children;
+  }
+}
+
+describe("renderClaudeVersion — rebuilds #claude-version via replaceChildren (no innerHTML)", () => {
+  beforeEach(() => {
+    vi.stubGlobal("document", {
+      createTextNode: (text: string) => new FakeVersionNode(text),
+      createElement: () => new FakeVersionNode(""),
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function element(): FakeVersionElement {
+    return new FakeVersionElement();
+  }
+
+  it("no warning: a lone text node, no glyph", () => {
+    const el = element();
+    const info: ClaudeCodeInfo = { installed: "2.1.267", floor: "2.1.246", verified: "2.1.267", status: "verified" };
+    renderClaudeVersion(el as unknown as HTMLElement, info);
+    expect(el.nodes()).toHaveLength(1);
+    expect(el.textContent).toBe("claude 2.1.267");
+  });
+
+  it("pre-hello (null info): a lone 'claude unknown' text node", () => {
+    const el = element();
+    renderClaudeVersion(el as unknown as HTMLElement, null);
+    expect(el.nodes()).toHaveLength(1);
     expect(el.textContent).toBe("claude unknown");
   });
 
-  it("renders installed-unknown when installed is null, regardless of drift (protocol §5.1: null renders as unknown, never drift)", () => {
-    const el = fakeElement();
-    const info: ClaudeCodeInfo = { pinned: "2.1.233", installed: null, drift: null };
-    renderClaudeVersion(el, info);
-    expect(el.textContent).toBe("claude 2.1.233 (installed unknown)");
+  it("warning present: trailing-space text node followed by a role=img glyph whose aria-label and title both carry the warning sentence", () => {
+    const el = element();
+    const info: ClaudeCodeInfo = { installed: "2.1.270", floor: "2.1.246", verified: "2.1.267", status: "above" };
+    renderClaudeVersion(el as unknown as HTMLElement, info);
+
+    const [textNode, glyph] = el.nodes();
+    expect(el.nodes()).toHaveLength(2);
+    expect(textNode!.textContent).toBe("claude 2.1.270 ");
+    expect(glyph!.textContent).toBe("⚠");
+    expect(glyph!.className).toBe("version-warn");
+    expect(glyph!.getAttribute("role")).toBe("img");
+    expect(glyph!.getAttribute("aria-label")).toBe(VERSION_NOT_TESTED);
+    expect(glyph!.title).toBe(VERSION_NOT_TESTED);
+    // Resulting textContent per UI Specifications > DOM: "claude 2.1.270 ⚠".
+    expect(el.textContent).toBe("claude 2.1.270 ⚠");
   });
 
-  it("renders drift text when drift is true", () => {
-    const el = fakeElement();
-    const info: ClaudeCodeInfo = { pinned: "2.1.233", installed: "2.1.240", drift: true };
-    renderClaudeVersion(el, info);
-    expect(el.textContent).toBe("claude 2.1.240 (drift from pinned 2.1.233)");
+  it("below-range warning uses the update wording, still matching aria-label to title", () => {
+    const el = element();
+    const info: ClaudeCodeInfo = { installed: "2.1.200", floor: "2.1.246", verified: "2.1.267", status: "below" };
+    renderClaudeVersion(el as unknown as HTMLElement, info);
+
+    const [, glyph] = el.nodes();
+    expect(glyph!.getAttribute("aria-label")).toBe(VERSION_NOT_TESTED_UPDATE);
+    expect(glyph!.title).toBe(VERSION_NOT_TESTED_UPDATE);
+    expect(glyph!.getAttribute("aria-label")).toBe(glyph!.title);
   });
 
-  it("renders the plain installed version when drift is false", () => {
-    const el = fakeElement();
-    const info: ClaudeCodeInfo = { pinned: "2.1.233", installed: "2.1.233", drift: false };
-    renderClaudeVersion(el, info);
-    expect(el.textContent).toBe("claude 2.1.233");
+  it("re-renders cleanly across a warning -> no-warning transition (self-healing: no stale glyph left behind)", () => {
+    const el = element();
+    renderClaudeVersion(el as unknown as HTMLElement, {
+      installed: "2.1.270",
+      floor: "2.1.246",
+      verified: "2.1.267",
+      status: "above",
+    });
+    expect(el.nodes()).toHaveLength(2);
+
+    renderClaudeVersion(el as unknown as HTMLElement, {
+      installed: "2.1.267",
+      floor: "2.1.246",
+      verified: "2.1.267",
+      status: "verified",
+    });
+    expect(el.nodes()).toHaveLength(1);
+    expect(el.textContent).toBe("claude 2.1.267");
   });
 });
 

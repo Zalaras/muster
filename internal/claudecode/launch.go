@@ -20,7 +20,7 @@ type LaunchParams struct {
 // 2.1.259 (`--permission-mode auto`, spikes/canary-fields.md § Hook payloads); "default"
 // needs no flag — it's Claude Code's own default and carries no CLI flag of its own, and
 // remains the safer spelling since `default` is unlisted in the CLI's own choices while
-// `manual` may not exist on the 2.1.246 pin.
+// `manual` may not exist across the verified range (docs/claude-code-versions.md).
 func BuildArgv(binary string, p LaunchParams) []string {
 	args := []string{binary, "--model", p.Model}
 	if p.ResumeSessionID != "" {
@@ -51,8 +51,9 @@ func BuildArgv(binary string, p LaunchParams) []string {
 //
 // UNSUPPORTED INTERFACE: the variable is absent from `claude --help` and was found by
 // reading strings out of the binary; it carries no compatibility promise. Measured on
-// 2.1.259, which is *ahead* of the 2.1.246 pin in docs/claude-code-pin.md, so these
-// numbers want re-confirming against the pinned build. Since 2026-09-10, `make canary`'s
+// 2.1.259, inside the verified range declared in docs/claude-code-versions.md; these
+// numbers want re-confirming if a future canary run pushes the verified ceiling past that
+// build. Since 2026-09-10, `make canary`'s
 // static tier asserts this variable's presence (by name, read from LaunchEnv()) in the
 // installed binary, which catches an upstream rename or removal; it does not catch a
 // change in the variable's effect on scroll rate — that stays a manual re-measurement

@@ -1,0 +1,7 @@
+# Claude Code versions `make canary` has gone green on, one per line:
+#   <major.minor.patch> <YYYY-MM-DD> <note>
+# Floor and ceiling are this file's min and max. Appended by `go run ./tools/versions bump`
+# after a green run outside the range (docs/claude-code-versions.md). Never edit a version
+# elsewhere.
+2.1.246 2026-08-29 m4-canary
+2.1.267 2026-09-10 canary-full-coverage

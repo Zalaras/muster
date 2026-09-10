@@ -107,7 +107,7 @@ Design constraints already settled by the spikes — do not re-derive:
 
 Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22):
 
-- [ ] **Claude Code pin — deferred to post-v1** (decided 2026-08-22): the drift stands
+- [x] **Claude Code pin — deferred to post-v1** (decided 2026-08-22): the drift stands
       (pin 2.1.233, installed 2.1.240, measurements against three versions) until v1
       ships. *Update 2026-08-29:* pin bumped to 2.1.246 on the first green full canary
       (the ritual, not a strategy change); the rethink below still stands. Then **rethink the pin strategy itself**, not just bump it: Claude Code
@@ -118,6 +118,8 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
       *Update 2026-09-07:* folded into the pre-v1 **"Version the Claude Code interface"**
       item (Pre-v1 Cleanup) — a declared supported range decides the pin's role, so settle
       that first rather than picking a pin strategy on its own.
+      **Done 2026-09-10 (plan `version-claude-interface`)**: the pin is gone; the range is an
+      observed record extended automatically by a green `make canary` (SPEC §8, §11).
 - [x] Browse E2E off the real `$HOME` — done 2026-08-22 (review cycle-1 Minor 13, second
       half): `musterd -browse-root` (empty = home) is now `GET /api/browse`'s no-param
       default and the Up ceiling (protocol §3.6 updated); the E2E harness passes a
@@ -638,7 +640,7 @@ These are some minor changes and cleanup needed before we can move into post v1.
   session — CLAUDE.md), so prefer folding assertions into the existing four runs over adding runs.
   `MUSTER_CANARY_OFFLINE=1` must stay a zero-token path.
 
-- [ ] **Version the Claude Code interface — support a range of versions, not just the pin**
+- [x] **Version the Claude Code interface — support a range of versions, not just the pin**
   (asked 2026-09-07): Muster assumes exactly one Claude Code wire format today — the shapes
   measured against the pin (`docs/claude-code-pin.md`, currently 2.1.246). Drift is a startup
   warning and the stated posture is "fix Muster that week" (SPEC §8). That is not enough for a
@@ -689,8 +691,13 @@ These are some minor changes and cleanup needed before we can move into post v1.
   folds into this — with a range, the pin is the *tested* version rather than the only supported
   one. Landing this changes SPEC §8's dependency posture and needs a SPEC §11 changelog entry.
 
-  *Parked 2026-09-09 — spec started, not finished.* `/spec version-claude-interface` was run and
-  stopped at the goal question; no `plans/version-claude-interface/` was written. What it
+  *Spec written 2026-09-10 — `plans/version-claude-interface/spec.md`; next is `/plan-work`.* The
+  declaration shape was chosen: observed-versions record as single source of truth (floor/ceiling
+  derived), classification `unknown|below|verified|above` with warn + best-effort on both sides,
+  protocol 2 hello, masthead icon + hover text (#6), canary skips on the verified version and
+  appends the version + regenerates docs on a green run outside the range; version-gated adapters
+  and the startup probe are **out** (zero change points). Earlier parking note kept for the record:
+  the 2026-09-09 `/spec` run stopped at the goal question; no plan dir was written. What it
   established, so the next run does not re-derive it: there are **zero observed change points**
   today — every shape in `spikes/canary-fields.md` has held from 2.1.233 through 2.1.259, and the
   recorded deltas are *additions* (the subagent fields), not divergences — so the version gates
@@ -701,6 +708,13 @@ These are some minor changes and cleanup needed before we can move into post v1.
   [#6](https://github.com/Zalaras/muster/issues/6), per-shape applicability in `canary-fields.md`,
   gate structure established but empty) or the full mechanism built against a hypothetical change
   point. Resume with `/spec version-claude-interface` once coverage lands.
+  **Done 2026-09-10 (plan `version-claude-interface`, via `/orchestrate`)** as the *declaration*:
+  `internal/claudecode/observed_versions.txt` record → `Floor()`/`Verified()`, `Classify`
+  `unknown|below|verified|above`, protocol 2 `hello.claudeCode {installed,floor,verified,status}`,
+  masthead ⚠ + hover text (#6), `musterd -version` range, canary skip-on-ceiling +
+  `tools/versions bump|gen|check`, `docs/claude-code-versions.md`. Version-gated adapters and the
+  startup probe are deliberately not built (zero change points) — the red-canary ritual in the
+  new doc is where the first gate gets added.
 
 - [ ] **Open-source the repo — flip `Zalaras/muster` to public** (moved into pre-v1 on
   2026-09-10, Damian's call; the two install items below depend on it and came with it).
@@ -1166,14 +1180,17 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
   hint extended so a reload doesn't flash. Deferred from `ui-text-and-focus` (Damian, 2026-09-03):
   tokens first, control later — the `--fs-*` ramp shipped there is the thing this control turns.
 
-- [ ] **Version-pin warning is developer-facing** ([#6](https://github.com/Zalaras/muster/issues/6))
+- [x] **Version-pin warning is developer-facing** ([#6](https://github.com/Zalaras/muster/issues/6))
   — "drift from pinned 2.1.246" means nothing to someone who didn't set the pin. It should
   read as a support warning (this Claude Code version isn't verified yet; things past the
   pin may misbehave): a warning icon with a hover explanation and a dismiss. Post-v1 — the
   drift banner is correct today, just written for the person who wrote it.
   *2026-09-07:* the wording depends on the pre-v1 **"Version the Claude Code interface"** item
   (Pre-v1 Cleanup) — a declared supported range is what the warning would state; fix it there or
-  right after.
+  right after. **Done 2026-09-10 (plan `version-claude-interface`)**: the readout says
+  `claude <installed>` plus a ⚠ glyph whose hover text is "This Claude Code version has not been
+  tested with Muster" (`above`) or "… — please update Claude Code" (`below`); no dismiss (dropped
+  in the spec interview — the icon + hover text is the whole UI).
 
 - [ ] **Usage gauges are dead on API-key auth** ([#9](https://github.com/Zalaras/muster/issues/9))
   — the ask is "support API usage billing as well". On a subscription the gauges come from the

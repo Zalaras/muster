@@ -61,9 +61,13 @@ interface TokensFile {
 export type OnExitPolicy = "ask" | "leave" | "kill";
 
 /**
- * What the harness's stub `claude` answers to `--version` (see STUB_CLAUDE_SCRIPT). The
- * daemon parses the leading semver ("2.0.0") for the masthead and its drift check; the
- * suffix keeps it from ever being mistaken for a real Claude Code build.
+ * What the harness's stub `claude` answers to `--version` by default (see
+ * STUB_CLAUDE_SCRIPT). The daemon parses the leading semver ("2.0.0") for the masthead
+ * and its version classification; the suffix keeps it from ever being mistaken for a
+ * real Claude Code build. Plan version-claude-interface REQ-13: a per-run
+ * `stubClaudeVersion` option overrides this via the environment (see below) without
+ * changing this constant, which several existing specs (e.g. shell.spec.ts's
+ * `/claude\s+2\./i` assertion) still rely on as the unset-knob default.
  */
 export const STUB_CLAUDE_VERSION = "2.0.0-e2e-stub";
 
@@ -76,17 +80,31 @@ export const STUB_CLAUDE_VERSION = "2.0.0-e2e-stub";
  * the pane itself is torn down — falls into the old sleep-forever loop. Liveness tests
  * still kill the tmux window explicitly (E9/E12) rather than relying on the stub to exit
  * on its own. No real `claude` binary is ever invoked by this harness (CLAUDE.md hard rule).
+ *
+ * Plan version-claude-interface REQ-13: the `--version` branch now reads two environment
+ * variables at RUN time rather than answering a value baked into the script's own bytes
+ * — `ensureSharedStubClaude` keys the on-disk file by the script's content hash, so one
+ * shared file must be able to answer differently per scratch daemon. `-claude-bin`'s
+ * argv is otherwise identical for every daemon; only the environment `spawnAndWait`
+ * passes differs.
  */
 const STUB_CLAUDE_SCRIPT = [
   "#!/bin/sh",
-  // The daemon's startup drift check runs `<-claude-bin> --version` (never the real
+  // The daemon's startup version check runs `<-claude-bin> --version` (never the real
   // claude from a test); answer it and exit, or the stub below would sit in its read
-  // loop for the daemon's whole version-check timeout on every start. The reply is
-  // shape-faithful to the real binary's "2.1.246 (Claude Code)" — the masthead shows the
-  // parsed major.minor.patch and shell.spec.ts asserts the "claude 2." prefix the way a
-  // real install renders it — but deterministic and unmistakably not a real version, so
-  // drift is reported exactly as on a machine whose Claude Code moved off the pin.
-  `if [ "$1" = "--version" ]; then echo "${STUB_CLAUDE_VERSION} (Claude Code)"; exit 0; fi`,
+  // loop for the daemon's whole version-check timeout on every start.
+  `if [ "$1" = "--version" ]; then`,
+  // MUSTER_E2E_STUB_VERSION_FAIL set (to anything) means "answer like a broken
+  // install": exit non-zero, print nothing — REQ-13's `stubClaudeVersionFails`/E4.
+  `  if [ -n "\${MUSTER_E2E_STUB_VERSION_FAIL:-}" ]; then exit 1; fi`,
+  // Otherwise reply shape-faithful to a real install's "2.1.246 (Claude Code)" — the
+  // masthead and the daemon's classification both parse only the leading
+  // major.minor.patch, ignoring the "-e2e-stub" suffix — using
+  // MUSTER_E2E_STUB_VERSION when the caller set one (REQ-13's `stubClaudeVersion`),
+  // else the shared default above.
+  `  echo "\${MUSTER_E2E_STUB_VERSION:-${STUB_CLAUDE_VERSION}} (Claude Code)"`,
+  "  exit 0",
+  "fi",
   'echo "MUSTER-STUB-READY"',
   "while IFS= read -r line; do",
   '  echo "stub-echo:$line"',
@@ -238,6 +256,24 @@ export interface ScratchDaemonOptions {
    * `fileDaemon()`) — see W7: no spec file may pass this.
    */
   musterdBinOverride?: string;
+  /**
+   * Plan version-claude-interface REQ-13 test seam: the leading version the shared stub
+   * `claude` echoes to `--version` for this run only (env var `MUSTER_E2E_STUB_VERSION`
+   * — see STUB_CLAUDE_SCRIPT). Omit to leave the stub answering `STUB_CLAUDE_VERSION`
+   * (today's unconditional default, still asserted verbatim by shell.spec.ts) —
+   * `claude-version.spec.ts` computes a value from `observedVersionRange()` (the
+   * verified ceiling, or the ceiling with its patch incremented) rather than hardcoding
+   * either boundary here.
+   */
+  stubClaudeVersion?: string;
+  /**
+   * Plan version-claude-interface REQ-13/E4 test seam: when true, the stub's
+   * `--version` branch exits 1 and prints nothing — a broken/missing-binary reply —
+   * regardless of `stubClaudeVersion` (mutually exclusive in practice; the stub checks
+   * this one first). Omit (default false/absent) for every other test's normal
+   * version-answering stub.
+   */
+  stubClaudeVersionFails?: boolean;
 }
 
 async function freePort(): Promise<number> {
@@ -365,6 +401,12 @@ export class ScratchDaemon {
    * `musterdBin` constant. Resolved once at construction, mirroring every other per-run
    * option field here. */
   private readonly resolvedMusterdBin: string;
+  /** Plan version-claude-interface REQ-13: this run's `MUSTER_E2E_STUB_VERSION` value,
+   * or `undefined` to leave the stub answering `STUB_CLAUDE_VERSION`. */
+  private readonly stubClaudeVersion: string | undefined;
+  /** Plan version-claude-interface REQ-13: true iff this run's stub answers
+   * `--version` with a failure instead of a version string. */
+  private readonly stubClaudeVersionFails: boolean;
 
   private constructor(
     port: number,
@@ -377,6 +419,8 @@ export class ScratchDaemon {
     usageApiURL?: string,
     serveEmbedded = false,
     claudeThemePoll?: string,
+    stubClaudeVersion?: string,
+    stubClaudeVersionFails = false,
   ) {
     this.port = port;
     this.baseURL = `http://127.0.0.1:${port}`;
@@ -399,6 +443,8 @@ export class ScratchDaemon {
     this.serveEmbedded = serveEmbedded;
     this.claudeThemePoll = claudeThemePoll;
     this.resolvedMusterdBin = resolvedMusterdBin;
+    this.stubClaudeVersion = stubClaudeVersion;
+    this.stubClaudeVersionFails = stubClaudeVersionFails;
   }
 
   static async start(opts: ScratchDaemonOptions = {}): Promise<ScratchDaemon> {
@@ -432,6 +478,8 @@ export class ScratchDaemon {
         opts.usageApiURL,
         opts.serveEmbedded,
         opts.claudeThemePoll,
+        opts.stubClaudeVersion,
+        opts.stubClaudeVersionFails,
       );
       daemon.denyStubServer = denyStubServer;
       await mkdir(daemon.browseRoot, { recursive: true });
@@ -547,6 +595,19 @@ export class ScratchDaemon {
     if (this.claudeThemePoll !== undefined) {
       args.push("-claude-theme-poll", this.claudeThemePoll);
     }
+    // Plan version-claude-interface REQ-13: the shared stub file's bytes never change
+    // (ensureSharedStubClaude keys it by content hash), so the two `--version` knobs
+    // travel as environment variables set only on THIS run's spawn — every other
+    // scratch daemon spawns with no `env` override at all, inheriting `process.env`
+    // exactly as before this plan.
+    const env =
+      this.stubClaudeVersion !== undefined || this.stubClaudeVersionFails
+        ? {
+            ...process.env,
+            ...(this.stubClaudeVersion !== undefined ? { MUSTER_E2E_STUB_VERSION: this.stubClaudeVersion } : {}),
+            ...(this.stubClaudeVersionFails ? { MUSTER_E2E_STUB_VERSION_FAIL: "1" } : {}),
+          }
+        : undefined;
     const proc = spawn(this.serveEmbedded ? this.embeddedBinPath : this.resolvedMusterdBin, args, {
       // Plan embed-dashboard REQ-7: the embedded fixture runs from the scratch data dir
       // itself (an OS tmpdir containing no web/ or internal/ tree) rather than the repo
@@ -559,6 +620,7 @@ export class ScratchDaemon {
       // path, not the interactive prompt (which E2E cannot drive: the daemon-side
       // `-on-exit=ask` TTY-prompt path is D21/a Go test's job).
       stdio: ["ignore", "pipe", "pipe"],
+      env,
     });
     // Drain stdio: an unread pipe discards a crashed daemon's diagnostics and can stall
     // a chatty process once the pipe buffer fills. Keep only a bounded tail.
@@ -794,4 +856,48 @@ export class ScratchDaemon {
 
 export async function startScratchDaemon(opts: ScratchDaemonOptions = {}): Promise<ScratchDaemon> {
   return await ScratchDaemon.start(opts);
+}
+
+/**
+ * Plan version-claude-interface REQ-13: reads REQ-1's own record
+ * (`internal/claudecode/observed_versions.txt`) directly off the repo checkout — never
+ * through a running daemon, since a daemon reads its own embedded copy — and returns its
+ * floor/ceiling the same way `Floor()`/`Verified()` derive them in
+ * `internal/claudecode/version.go`: the semver min and max over every
+ * `<major.minor.patch> <date> <note…>` row, ignoring `#` comments and blank lines. Rows
+ * need not be sorted (plan Implementation Notes: "append-only"). Used by
+ * claude-version.spec.ts so the verified-ceiling and above-the-ceiling fixtures track
+ * whatever `go run ./tools/versions bump` has recorded, rather than a boundary
+ * hardcoded into the spec.
+ */
+export async function observedVersionRange(): Promise<{ floor: string; verified: string }> {
+  const recordPath = join(repoRoot, "internal", "claudecode", "observed_versions.txt");
+  const raw = await readFile(recordPath, "utf-8");
+  const versions = raw
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("#"))
+    .map((line) => line.split(/\s+/)[0])
+    .filter((v): v is string => v !== undefined && v.length > 0);
+  if (versions.length === 0) {
+    throw new Error(`observedVersionRange(): no version rows found in ${recordPath}`);
+  }
+  const parseTriple = (v: string): [number, number, number] => {
+    const m = /^(\d+)\.(\d+)\.(\d+)/.exec(v);
+    if (!m) {
+      throw new Error(`observedVersionRange(): unparseable version row ${JSON.stringify(v)} in ${recordPath}`);
+    }
+    return [Number(m[1]), Number(m[2]), Number(m[3])];
+  };
+  const compare = (a: string, b: string): number => {
+    const pa = parseTriple(a);
+    const pb = parseTriple(b);
+    // Literal tuple indices (not a variable) so noUncheckedIndexedAccess doesn't widen
+    // these to `number | undefined` — a 3-element tuple indexed at 0/1/2 is always safe.
+    if (pa[0] !== pb[0]) return pa[0] - pb[0];
+    if (pa[1] !== pb[1]) return pa[1] - pb[1];
+    return pa[2] - pb[2];
+  };
+  const sorted = [...versions].sort(compare);
+  return { floor: sorted[0] as string, verified: sorted[sorted.length - 1] as string };
 }

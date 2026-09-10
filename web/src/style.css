@@ -295,6 +295,13 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Plan version-claude-interface: the above/below-range warning glyph inside
+ * #claude-version. No colour rule (design-system §3: a state colour may only mean its
+ * state — this glyph inherits the readout's text colour, --fg-muted). */
+.version-warn {
+  margin-left: 4px;
+}
+
 /* M3 masthead gauges (design-system §5 "Gauge thresholds"; mockups/a-instrument.html
  * lines 199-202): `renderUsageTrack` appends the track-fill and reset-time suffix as
  * children of the same `.usage-readout` element `renderUsage`'s M2-era text lives in

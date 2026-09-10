@@ -11,8 +11,9 @@ allowed-tools: Bash, Read, Write, Edit, Grep, Glob
 > the rig itself lives in `test/rig/` and is shared with the M4 canary/E2E harness.
 > The automated counterpart is `make canary` (`test/canary/harness_test.go`), which
 > drives the same production chain but cannot answer *new* questions — that is this
-> skill's job. Gotchas here were measured on Claude Code 2.1.233–2.1.259 (the pin is in
-> `docs/claude-code-pin.md`); on a version bump, re-verify per that doc before trusting them.
+> skill's job. Gotchas here were measured on Claude Code 2.1.233–2.1.259 (the verified range
+> is in `docs/claude-code-versions.md`); when the range moves, re-verify per that doc before
+> trusting them.
 
 You are running an interface probe: a controlled experiment against the **real**
 Claude Code binary to settle a question the docs can't be trusted to answer

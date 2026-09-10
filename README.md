@@ -27,7 +27,7 @@ triaged pre-v1 issues in [`TODO.md`](TODO.md).
 | [`spikes/FINDINGS.md`](spikes/FINDINGS.md) | Validated interface facts, measured against Claude Code 2.1.233 (addenda through 2.1.246) |
 | [`spikes/canary-fields.md`](spikes/canary-fields.md) | Field inventory the canary asserts before any version bump |
 | [`interview-notes.md`](interview-notes.md) | Rationale and rejected options |
-| [`docs/claude-code-pin.md`](docs/claude-code-pin.md) | The version pin and the upgrade ritual |
+| [`docs/claude-code-versions.md`](docs/claude-code-versions.md) | The verified version range and the upgrade rituals |
 
 `claude-session-manager-handoff.md` is prior research, treated as input only — SPEC.md
 supersedes it wherever they disagree.
@@ -80,7 +80,7 @@ the SQLite store.
   brew upgrade tmux    # older than 3.2
   ```
 - **macOS.** Muster is single-user, macOS-only tooling — see [`SPEC.md`](SPEC.md).
-- **Claude Code.** Auto-update stays on; see Version pinning below.
+- **Claude Code.** Auto-update stays on; see Claude Code versions below.
 
 ## Install
 
@@ -142,7 +142,7 @@ Confirm it worked — **both lines**, not just the second:
 
 ```sh
 command -v musterd   # must print the path you just installed to
-musterd -version     # prints the musterd version and the Claude Code version it's pinned to
+musterd -version     # prints the musterd version and the Claude Code verified range
 ```
 
 If `command -v` prints some *other* path, an older copy earlier in your `$PATH`
@@ -160,16 +160,20 @@ when musterd actually starts.
 | Go | 1.26.6 | |
 | Node | 24.19.0 | pinned in `.nvmrc`; `nvm use` in the repo root |
 | tmux | 3.7b | Dev machine's version; `musterd` preflights 3.2+ at startup (see Prerequisites) |
-| Claude Code | 2.1.246 | The pin. Auto-update is deliberately **left on** — see below |
+| Claude Code | <!-- versions:range -->2.1.246–2.1.267<!-- /versions:range --> | The verified range. Auto-update is deliberately **left on** — see below |
 
 Frontend toolchain: Vite 8, TypeScript 7, Playwright 1.62.
 
-## Version pinning
+## Claude Code versions
 
 Muster does not disable Claude Code's auto-updater — that would freeze your everyday
-install. It **detects drift instead**: `musterd` compares the installed version against
-`claudecode.PinnedVersion` at startup and logs a warning if they differ. The full ritual is
-in [`docs/claude-code-pin.md`](docs/claude-code-pin.md).
+install. It **detects and classifies instead**: `musterd` compares the installed version
+against the canary-verified range
+(<!-- versions:range -->2.1.246–2.1.267<!-- /versions:range --> as of this build) and logs
+a warning on either side of it — older than the floor means "update Claude Code", newer
+than the ceiling means Muster hasn't been tested against it yet — without ever refusing to
+start. A green, non-offline `make canary` run extends the range automatically. The full
+rituals are in [`docs/claude-code-versions.md`](docs/claude-code-versions.md).
 
 ## Development
 

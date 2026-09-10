@@ -14,8 +14,9 @@ here — they live in `spikes/canary-fields.md` (measured) and are consumed only
 derivation rule needs one.
 
 Each endpoint/message is tagged with the milestone that implements it. Everything is
-protocol **version 1**; the version only bumps on a breaking change to an existing
-message (additive fields don't bump it).
+protocol **version 2** (bumped 2026-09-10, plan `version-claude-interface`, for the
+`hello.claudeCode` shape — the first bump); the version only bumps on a breaking change to
+an existing message (additive fields don't bump it).
 
 ---
 
@@ -307,7 +308,11 @@ dashboard's file-an-issue button and holds it server-side. **Request** (body opt
 The snapshot is a **strict allowlist**, assembled by explicit field copy, never by
 subtracting keys from a whole-object shape:
 
-- always — `capturedAt`, `scope`, `musterd.version`, `claudeCode.{pinned,installed,drift}`,
+- always — `capturedAt`, `scope`, `musterd.version`, `claudeCode.{installed,floor,verified,status}`
+  (the §5.1 `hello` semantics — `installed` null iff `status` is `unknown`; the rendered
+  `snapshotMarkdown` cell is `<installed> installed · verified <floor>–<verified> · <status>`, or
+  `installed unknown · verified <floor>–<verified>` when unknown; a single-version range renders as
+  the one version — plan `version-claude-interface`),
   `host.{os,arch}`, `dashboard.{sessionsTotal,sessionsAlive,view,density,railSort}`;
 - session scope only — `session.{state,stateSince,alive,endedAt}`,
   `session.attention.{reason,since}`, `session.failure.error` (**the raw token only**),
@@ -589,18 +594,32 @@ is the production path, not an edge case.
 
 Every message: `{"type": "<name>", …}`. Unknown types are ignored.
 
-### 5.1 `hello`
+### 5.1 `hello` (protocol 2 — plan `version-claude-interface`, 2026-09-10)
 
 ```jsonc
-{ "type": "hello", "protocolVersion": 1,
-  "daemon": { "version": "0.1.0" },
-  "claudeCode": { "pinned": "2.1.233", "installed": "2.1.233", "drift": false } }
+{ "type": "hello", "protocolVersion": 2,
+  "daemon": { "version": "0.7.0" },
+  "claudeCode": { "installed": "2.1.267", "floor": "2.1.246", "verified": "2.1.267", "status": "verified" } }
 ```
 
-`drift` mirrors startup drift detection (`docs/claude-code-pin.md`); the masthead shows it.
-`claudeCode.installed` is `null` when `claude --version` failed at startup, and `drift`
-is `null` iff `installed` is — the client renders that as *unknown* (§1), never as drift.
-A `protocolVersion` the client doesn't know → client shows "reload the dashboard".
+`claudeCode` is the daemon's startup classification of the installed Claude Code against the
+canary-verified range (`docs/claude-code-versions.md`):
+
+- `installed` — `string|null`: the leading `major.minor.patch` of `claude --version` at daemon
+  startup. `null` **iff** `status` is `"unknown"` (the check failed, hung past its timeout or was
+  unparseable).
+- `floor` — `string`, always present: the lowest version `make canary` has gone green on.
+- `verified` — `string`, always present: the highest such version (the ceiling). `floor ≤ verified`
+  always; equal when only one version has been observed.
+- `status` — `"unknown" | "below" | "verified" | "above"`: `below` is `installed < floor`,
+  `verified` is `floor ≤ installed ≤ verified` (versions strictly inside the range are inferred, not
+  individually run), `above` is `installed > verified`.
+
+The masthead renders the four states (`unknown` as the words "Claude installation unknown", §1;
+`below`/`above` with a warning glyph and hover text). Protocol 1 carried `{pinned, installed,
+drift}` — removed. A `protocolVersion` the client doesn't know → client shows "reload the
+dashboard"; the dashboard is embedded in the binary, so the only skewed client is a tab left open
+across a `musterd` upgrade.
 
 ### 5.2 `snapshot`
 
@@ -975,6 +994,11 @@ exit — so the next startup sweeps it.
 
 ## 9. Changelog
 
+- **2026-09-10 — protocol 2: `hello.claudeCode` is a verified range** (plan
+  `version-claude-interface`, closes #6). `{pinned, installed, drift}` → `{installed, floor,
+  verified, status}`; `installed` null iff `status` is `unknown`; `floor`/`verified` always present.
+  §3.12's snapshot allowlist follows. First version bump; the embedded dashboard ships with the
+  daemon, so the only skewed client is an open tab, which gets "reload the dashboard".
 - **2026-09-05 — §3.16 `POST /api/sessions/{id}/shell`; §6.1 `/ws/shell/{id}`; §3.8 also kills
   the shell** (plan `plain-terminal-session`, Pre-v1, closes #21). A plain `$SHELL` tabbed to an
   existing session, in its directory, in a sibling tmux session `muster-<id>-shell`. Spawned

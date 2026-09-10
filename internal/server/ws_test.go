@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -49,9 +50,10 @@ type helloWire struct {
 		Version string `json:"version"`
 	} `json:"daemon"`
 	ClaudeCode struct {
-		Pinned    string  `json:"pinned"`
 		Installed *string `json:"installed"`
-		Drift     *bool   `json:"drift"`
+		Floor     string  `json:"floor"`
+		Verified  string  `json:"verified"`
+		Status    string  `json:"status"`
 	} `json:"claudeCode"`
 }
 
@@ -70,9 +72,8 @@ type snapshotWire struct {
 }
 
 func TestHandleWS_SendsHelloThenSnapshot(t *testing.T) {
-	installed := "2.1.239"
-	drift := true
-	srv := newTestServer(t, ClaudeCodeInfo{Pinned: "2.1.233", Installed: &installed, Drift: &drift})
+	installed := "2.1.270"
+	srv := newTestServer(t, ClaudeCodeInfo{Installed: &installed, Floor: "2.1.246", Verified: "2.1.267", Status: "above"})
 	httpSrv := httptest.NewServer(srv.Handler())
 	t.Cleanup(httpSrv.Close)
 
@@ -83,13 +84,13 @@ func TestHandleWS_SendsHelloThenSnapshot(t *testing.T) {
 
 	hello := readJSON[helloWire](t, c)
 	assert.Equal(t, "hello", hello.Type)
-	assert.Equal(t, 1, hello.ProtocolVersion)
+	assert.Equal(t, 2, hello.ProtocolVersion)
 	assert.Equal(t, "test-version", hello.Daemon.Version)
-	assert.Equal(t, "2.1.233", hello.ClaudeCode.Pinned)
 	require.NotNil(t, hello.ClaudeCode.Installed)
-	assert.Equal(t, "2.1.239", *hello.ClaudeCode.Installed)
-	require.NotNil(t, hello.ClaudeCode.Drift)
-	assert.True(t, *hello.ClaudeCode.Drift)
+	assert.Equal(t, "2.1.270", *hello.ClaudeCode.Installed)
+	assert.Equal(t, "2.1.246", hello.ClaudeCode.Floor)
+	assert.Equal(t, "2.1.267", hello.ClaudeCode.Verified)
+	assert.Equal(t, "above", hello.ClaudeCode.Status)
 
 	snap := readJSON[snapshotWire](t, c)
 	assert.Equal(t, "snapshot", snap.Type)
@@ -101,10 +102,10 @@ func TestHandleWS_SendsHelloThenSnapshot(t *testing.T) {
 	assert.Equal(t, "focus", snap.Prefs.View)
 }
 
-func TestHandleWS_ClaudeCodeInstalledAndDriftNullWhenVersionCheckFailed(t *testing.T) {
-	// REQ-8/Edge Case 12: installed/drift are null (not false/empty) when the startup
-	// `claude --version` check failed — never rendered as drift.
-	srv := newTestServer(t, ClaudeCodeInfo{Pinned: "2.1.233", Installed: nil, Drift: nil})
+func TestHandleWS_ClaudeCodeInstalledNullWhenVersionCheckFailed(t *testing.T) {
+	// INV-1/Edge Case 1: installed is null (never "", never a guessed value) when the
+	// startup `claude --version` check failed; floor/verified stay populated (INV-2).
+	srv := newTestServer(t, ClaudeCodeInfo{Installed: nil, Floor: "2.1.246", Verified: "2.1.267", Status: "unknown"})
 	httpSrv := httptest.NewServer(srv.Handler())
 	t.Cleanup(httpSrv.Close)
 
@@ -115,7 +116,67 @@ func TestHandleWS_ClaudeCodeInstalledAndDriftNullWhenVersionCheckFailed(t *testi
 
 	hello := readJSON[helloWire](t, c)
 	assert.Nil(t, hello.ClaudeCode.Installed)
-	assert.Nil(t, hello.ClaudeCode.Drift)
+	assert.Equal(t, "2.1.246", hello.ClaudeCode.Floor)
+	assert.Equal(t, "2.1.267", hello.ClaudeCode.Verified)
+	assert.Equal(t, "unknown", hello.ClaudeCode.Status)
+}
+
+// TestHandleWS_ClaudeCodeKeySetExactAndInstalledNullIffUnknown is D13: across every
+// reachable status, the hello's claudeCode object carries exactly the four keys, and
+// installed is null iff status is "unknown" (INV-1) — checked against the raw wire bytes,
+// not just the typed helloWire struct, so an accidental extra/missing key would be caught.
+func TestHandleWS_ClaudeCodeKeySetExactAndInstalledNullIffUnknown(t *testing.T) {
+	installed2270 := "2.2.70"
+	tests := []struct {
+		name string
+		cc   ClaudeCodeInfo
+	}{
+		{"unknown", ClaudeCodeInfo{Installed: nil, Floor: "2.1.246", Verified: "2.1.267", Status: "unknown"}},
+		{"below", ClaudeCodeInfo{Installed: p("2.0.0"), Floor: "2.1.246", Verified: "2.1.267", Status: "below"}},
+		{"verified", ClaudeCodeInfo{Installed: p("2.1.250"), Floor: "2.1.246", Verified: "2.1.267", Status: "verified"}},
+		{"above", ClaudeCodeInfo{Installed: &installed2270, Floor: "2.1.246", Verified: "2.1.267", Status: "above"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := newTestServer(t, tt.cc)
+			httpSrv := httptest.NewServer(srv.Handler())
+			t.Cleanup(httpSrv.Close)
+
+			wsURL := "ws" + httpSrv.URL[len("http"):] + "/ws"
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			header := http.Header{"Cookie": {cookieName + "=" + testUIToken}}
+			c, _, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: header}) //nolint:bodyclose
+			require.NoError(t, err)
+			defer func() { _ = c.CloseNow() }()
+
+			_, raw, err := c.Read(ctx)
+			require.NoError(t, err)
+
+			var msg map[string]any
+			require.NoError(t, json.Unmarshal(raw, &msg))
+			assert.Equal(t, float64(2), msg["protocolVersion"])
+
+			cc, ok := msg["claudeCode"].(map[string]any)
+			require.True(t, ok, "claudeCode must be a JSON object")
+
+			keys := make([]string, 0, len(cc))
+			for k := range cc {
+				keys = append(keys, k)
+			}
+			assert.ElementsMatch(t, []string{"installed", "floor", "verified", "status"}, keys)
+
+			if tt.cc.Status == "unknown" {
+				assert.Nil(t, cc["installed"], "INV-1: installed must be null when status is unknown")
+			} else {
+				require.NotNil(t, cc["installed"], "INV-1: installed must be non-null when status is %q", tt.cc.Status)
+				assert.Equal(t, *tt.cc.Installed, cc["installed"])
+			}
+			assert.Equal(t, tt.cc.Floor, cc["floor"])
+			assert.Equal(t, tt.cc.Verified, cc["verified"])
+			assert.Equal(t, tt.cc.Status, cc["status"])
+		})
+	}
 }
 
 func TestHandleWS_RequiresCookie(t *testing.T) {

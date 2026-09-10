@@ -3,8 +3,14 @@
 // Package canary asserts that the installed Claude Code still emits every field and
 // behaviour Muster depends on. Run it before adopting any new Claude Code version:
 //
-//	make canary                         # 4 haiku turns + zero-token unauth/resume/live checks
-//	MUSTER_CANARY_OFFLINE=1 make canary # compile + pin + static binary check only, no tokens
+//	make canary                          # 4 haiku turns + zero-token unauth/resume/live
+//	                                      # checks, then extends the verified range on a
+//	                                      # green run outside it (go run ./tools/versions
+//	                                      # bump) — unless installed equals the verified
+//	                                      # ceiling, which skips the harness and live tiers
+//	                                      # (MUSTER_CANARY_FORCE=1 runs them anyway)
+//	MUSTER_CANARY_OFFLINE=1 make canary  # compile + classify + static binary check only,
+//	                                      # no tokens; always wins over MUSTER_CANARY_FORCE
 //
 // It is behind a build tag because it drives a real `claude` install — and, in the live
 // tier, the real macOS Keychain and usage API — and is therefore neither hermetic nor
@@ -13,7 +19,7 @@
 // views over those captures. static_test.go scans the installed binary for interface
 // strings Muster cannot drive through a canary run; live_test.go exercises the real
 // Keychain, usage API and theme config. The inventory they all assert is
-// spikes/canary-fields.md.
+// spikes/canary-fields.md; the range doc is docs/claude-code-versions.md.
 //
 // Deliberately still NOT automated (decided 2026-09-10 — each needs the dialog answered,
 // or costs a subagent turn no assertion here needs): plan-mode step 3
@@ -37,12 +43,16 @@ import (
 	"github.com/Zalaras/muster/internal/claudecode"
 )
 
-// TestInstalledVersionMatchesPin needs nothing but the binary on PATH; it always runs.
-func TestInstalledVersionMatchesPin(t *testing.T) {
+// TestInstalledVersionClassifies needs nothing but the binary on PATH; it always runs,
+// independent of the harness/live skip, and never fails on classification alone — it logs
+// the installed version against the observed range on every canary invocation, including a
+// skipped one, so the run's own output always states what it did (or didn't) check against.
+func TestInstalledVersionClassifies(t *testing.T) {
 	installed, err := claudecode.InstalledVersion(t.Context(), "claude")
 	require.NoError(t, err, "claude must be on PATH to run the canary")
-	assert.Equal(t, claudecode.PinnedVersion, installed,
-		"installed Claude Code differs from the pin; see docs/claude-code-pin.md")
+	status := claudecode.Classify(installed)
+	t.Logf("installed %s, verified range %s, classified %s",
+		installed, claudecode.FormatRange(claudecode.Floor(), claudecode.Verified()), status)
 }
 
 // TestStatusLineVersionMatchesInstalled: the status-line payload's own version field must

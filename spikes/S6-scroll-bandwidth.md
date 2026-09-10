@@ -17,10 +17,11 @@ to be wrong. It is not tmux that takes scrollback away — it is Claude Code.
 | Go | go1.26.6 darwin/amd64 |
 | macOS | 26.6.1 |
 
-> **Version drift — read before citing these numbers.** `docs/claude-code-pin.md` pins
-> **2.1.246**; the installed binary had auto-updated to **2.1.259**. Every measurement here is
-> against 2.1.259 and must be re-confirmed against the pinned build before being treated as
-> binding. This is the designed, accepted drift described in `canary-fields.md`.
+> **Version drift — read before citing these numbers.** At the time of measurement the pin
+> (since replaced by the verified range in `docs/claude-code-versions.md`) was **2.1.246**;
+> the installed binary had auto-updated to **2.1.259**. Every measurement here is against
+> 2.1.259 and must be re-confirmed against a version inside the verified range before being
+> treated as binding. This is the designed, accepted drift described in `canary-fields.md`.
 
 **Method.** A throwaway Go probe (`creack/pty`) spawns a command under a PTY at a fixed
 80×24-style geometry, dumps every byte it emits to a file with per-read millisecond

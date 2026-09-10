@@ -25,6 +25,9 @@ func live(t *testing.T) {
 	if os.Getenv(offlineEnv) != "" {
 		t.Skipf("%s is set: not reading the Keychain or the network", offlineEnv)
 	}
+	if skipReason != "" {
+		t.Skip(skipReason)
+	}
 }
 
 // liveToken resolves the production Keychain token the same way cmd/musterd/main.go's
