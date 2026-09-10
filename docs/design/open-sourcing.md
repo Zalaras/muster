@@ -1,11 +1,10 @@
 # Open-sourcing muster — audit & licence options
 
-Research/discussion session 2026-09-02/03. The repo is currently **private**
-(`gh repo view` → `PRIVATE`). Damian wants to publish it. **Decided 2026-09-04: MIT** —
-`LICENSE` is added (canonical text, © 2026 Damian Hunter) and the reasoning is in the
-`SPEC.md` changelog entry of that date. Everything else below is still open; the repo stays
-private until the chores are done. This note records the pre-flight audit and the licence
-analysis so the next session doesn't re-derive them.
+Research/discussion session 2026-09-02/03. **The repo has been public since 2026-09-10**
+(`scripts/go-public.sh --yes`, run-through and outcome in `docs/go-public.md`). **Decided
+2026-09-04: MIT** — `LICENSE` is added (canonical text, © 2026 Damian Hunter) and the
+reasoning is in the `SPEC.md` changelog entry of that date. This note records the pre-flight
+audit and the licence analysis so the next session doesn't re-derive them.
 
 ## Pre-flight audit (run 2026-09-02, `main` at c71a759)
 
@@ -29,13 +28,12 @@ Blockers and chores, in order (the live run-through is `docs/go-public.md`, with
 `scripts/go-public.sh` applying the GitHub-settings half — dry-run unless `--yes`):
 
 1. ~~**A `LICENSE` file is the only hard blocker**~~ — **done 2026-09-04 (MIT).**
-2. Flip visibility:
-   `gh repo edit --visibility public --accept-visibility-change-consequences`. Note this
-   makes Actions minutes free and makes existing releases public.
-3. `README.md` needs a build-from-source snippet (`nvm use && make build`) and a line on
-   whether issues/PRs are accepted — **decided 2026-09-04: issues yes, no PRs accepted at
-   this time.** It already sets expectations well otherwise ("Personal tool, macOS only,
-   single user. Not a product.").
+2. ~~Flip visibility~~ — **done 2026-09-10** via `scripts/go-public.sh --yes`
+   (`gh repo edit --visibility public --accept-visibility-change-consequences`, gh ≥ 2.65).
+   Actions minutes are now free and the existing releases (v0.7.x–v0.10.0) are public.
+3. ~~`README.md` needs a build-from-source snippet and a line on issues/PRs~~ — **done
+   2026-09-04**: snippet added, **issues yes, no PRs accepted at this time.** It already set
+   expectations well otherwise ("Personal tool, macOS only, single user. Not a product.").
 4. ~~Three stray root files to delete~~ — `a.png` and `session-manager-mockup.html`
    **deleted 2026-09-04**; `claude-session-manager-handoff.md` stays, still the referenced
    research source (see §5 there and this file).

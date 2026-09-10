@@ -33,41 +33,48 @@ exposure, but don't leave it open for a day.
       conduct (single-maintainer issue tracker; nothing to govern yet), issue templates (the
       dashboard's Issue button already attaches the structure a template would ask for),
       social preview image (cosmetic). Revisit only if a community actually forms.
-- [ ] Be aware: the existing releases (v0.7.x, v0.8.0 and later) become public at the
+- [x] Be aware: the existing releases (v0.7.x, v0.8.0 and later) become public at the
       flip, binaries included. The audit found nothing in them; nothing to do, just know it.
-- [ ] Tree clean, on `main`, pushed — the script refuses otherwise.
+- [x] Tree clean, on `main`, pushed — the script refuses otherwise.
 
 ## 2. The flip — `scripts/go-public.sh --yes`
 
-Run the script once, read its output, then tick these off against what it printed:
+**Run 2026-09-10 (gh 2.100.0).** Two attempts: the first aborted at step 1 because gh 2.52.0
+lacked `--accept-visibility-change-consequences` (nothing changed — upgrade gh, re-run);
+the second flipped visibility and then hit `Repository has been locked` (HTTP 403) on the
+ruleset POST — GitHub's brief post-flip lock. A third run seconds later went straight through
+(step 1 is a no-op on a public repo). All ticked against the printed output:
 
-- [ ] **[script]** `gh repo edit --visibility public --accept-visibility-change-consequences`
-- [ ] **[script]** Ruleset `protect-main` on the default branch: block deletion and
+- [x] **[script]** `gh repo edit --visibility public --accept-visibility-change-consequences`
+- [x] **[script]** Ruleset `protect-main` on the default branch: block deletion and
       force-push. **Nothing else** — no required PRs, no required checks — because `/land`
       pushes squashes straight to `main` and `svu` cuts releases from that push.
-- [ ] **[script]** Actions: allowed actions restricted to GitHub-owned + verified creators
+- [x] **[script]** Actions: allowed actions restricted to GitHub-owned + verified creators
       (GoReleaser's action is verified); default workflow token stays read-only; fork-PR
       workflow runs require approval for first-time contributors (belt-and-braces — the
       only workflow triggers on push to `main`, which a fork PR cannot do).
-- [ ] **[script]** Private vulnerability reporting on (what `SECURITY.md`'s "Report a
+- [x] **[script]** Private vulnerability reporting on (what `SECURITY.md`'s "Report a
       vulnerability" button needs); Dependabot alerts on; secret scanning + push protection
       on. **Not** Dependabot version-update PRs — no PRs accepted, and the pins are deliberate.
-- [ ] **[script]** Repo features: projects off, wiki off, discussions off,
+- [x] **[script]** Repo features: projects off, wiki off, discussions off,
       delete-branch-on-merge on.
-- [ ] **[script]** Topics set (`claude-code`, `tmux`, `go`, `macos`, `session-manager`,
+- [x] **[script]** Topics set (`claude-code`, `tmux`, `go`, `macos`, `session-manager`,
       `developer-tools`).
-- [ ] **[script]** Prints the resulting settings for the record.
+- [x] **[script]** Prints the resulting settings for the record.
 
 ## 3. After the flip — by hand
 
-- [ ] Open the repo logged out (or in a private window) and confirm: LICENSE shows in the
-      sidebar, the Security tab offers "Report a vulnerability", the PR template appears on a test PR from a fork you then close, the Issue
-      button in a running `musterd` still files (the token path is unchanged, but check).
-- [ ] README § Install: rewrite for a public repo — drop "The repo is private, so downloads
-      go through `gh`", add the new install instructions (plain download / `curl | sh` /
-      Homebrew as they land below). Deliberately deferred to here so it is written once.
-- [ ] `docs/design/open-sourcing.md`: mark the visibility flip done; `SPEC.md` § 8
-      posture line: "Repo public since <date>"; changelog entry.
+- [x] Anonymous checks (2026-09-10, unauthenticated `curl`): repo API → `visibility: public`,
+      `license: MIT`; `/security/policy` → 200; `releases/latest` → 200 and the v0.10.0 arm64
+      archive downloads with no auth (5.0 MB). Dependabot alerts → 204 (on), fork-PR approval
+      → `first_time_contributors`, selected actions → GitHub-owned + verified.
+- [ ] By hand, Damian: the PR template appears on a test PR from a fork you then close; the
+      Issue button in a running `musterd` still files (the token path is unchanged, but check).
+- [ ] README § Install: full rewrite lands with the `curl | sh` + Homebrew plan (TODO.md
+      § Pre-v1 Cleanup) so it is written once. 2026-09-10: only the now-false "repo is
+      private" sentence was corrected; the `gh` fences still work and stay until then.
+- [x] `docs/design/open-sourcing.md` marked done; `SPEC.md` § 8 posture line → public since
+      2026-09-10; changelog entry (2026-09-10).
 - [ ] Now unblocked, plan together (TODO.md M5+): the Homebrew tap (GoReleaser `brews:`
       block) and the `curl | sh` installer from #7 — both needed the repo public.
 - [ ] Optional: add `make check` as a CI job now that Actions minutes are free

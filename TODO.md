@@ -716,8 +716,12 @@ These are some minor changes and cleanup needed before we can move into post v1.
   startup probe are deliberately not built (zero change points) — the red-canary ritual in the
   new doc is where the first gate gets added.
 
-- [ ] **Open-source the repo — flip `Zalaras/muster` to public** (moved into pre-v1 on
-  2026-09-10, Damian's call; the two install items below depend on it and came with it).
+- [x] **Open-source the repo — flip `Zalaras/muster` to public** — **done 2026-09-10**
+  (`scripts/go-public.sh --yes`, three runs: gh too old, post-flip lock, then clean; every §2
+  setting verified against the printed output and anonymously — `docs/go-public.md`, SPEC
+  changelog 2026-09-10). Left for Damian by hand: fork-PR template check, Issue button from a
+  running `musterd`. The three unblocked items are the next entries below. Was (moved into
+  pre-v1 on 2026-09-10, Damian's call; the two install items below depend on it and came with it).
   Nothing left to decide: the procedure is `docs/go-public.md` (§1 pre-flip is done bar its two
   mechanical last checks), the reasoning is `docs/design/open-sourcing.md`, licence is MIT
   (SPEC changelog 2026-09-04) and the contribution policy is issues yes, PRs no.

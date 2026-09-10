@@ -406,8 +406,8 @@ restarts/reconcile; WebSocket fanout pushes deltas to the UI.
   `internal/claudecode/` so breakage is a one-package fix. Accepted: interfaces are
   unstable and undocumented; when they break, the answer is "fix Muster that week" — the
   red-canary ritual in `docs/claude-code-versions.md`.
-- **Licensing/repo**: **MIT** (`LICENSE`, decided 2026-09-04). Repo stays private until the
-  open-sourcing chores in `docs/design/open-sourcing.md` are done.
+- **Licensing/repo**: **MIT** (`LICENSE`, decided 2026-09-04). **Repo public since
+  2026-09-10** (`docs/go-public.md`); issues accepted, PRs not (`CONTRIBUTING.md`).
 
 ---
 
@@ -1485,3 +1485,21 @@ changed on the way:
 - `docs/claude-code-pin.md` → `docs/claude-code-versions.md` (green ritual, red ritual, force
   convention, inferred-intermediates note). §8 dependency posture rewritten above; the post-v1
   "rethink the pin strategy" TODO item is folded in and closed.
+
+### 2026-09-10 — repo public (`Zalaras/muster`, via `scripts/go-public.sh --yes`)
+
+Closes the §8 "repo stays private" posture. The flip and the GitHub settings that go with
+it were applied by the script and verified anonymously (`docs/go-public.md` §2–§3):
+`protect-main` ruleset (block deletion + force-push, nothing else — `/land` still pushes
+squashes straight to `main`); Actions restricted to GitHub-owned + verified creators,
+read-only default token, first-time-contributor approval for fork runs; private
+vulnerability reporting, Dependabot alerts, secret scanning + push protection on
+(no Dependabot version PRs — no PRs accepted, pins are deliberate); projects/wiki/
+discussions off, delete-branch-on-merge on; six topics. Existing releases became public
+with the flip, binaries included (audit found nothing). Consequences now live in
+`TODO.md` § Pre-v1 Cleanup: anonymous asset downloads work, so the `curl | sh` installer,
+the Homebrew tap and the README install rewrite are unblocked (plan them together);
+Actions minutes are free, so `make check` as a CI job and macOS runners are live calls.
+Two operational lessons recorded in `docs/go-public.md`: the visibility flag needs
+gh ≥ 2.65, and GitHub locks the repo for a few seconds after the flip (a 403 on the next
+call — re-run, the script is idempotent).

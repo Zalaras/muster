@@ -88,7 +88,7 @@ Releases are published to GitHub whenever a `feat` or `fix` lands on `main` (see
 [`docs/conventions.md`](docs/conventions.md) § Commits). Each release publishes two darwin
 archives — `musterd_*_darwin_amd64.tar.gz` (Intel) and `musterd_*_darwin_arm64.tar.gz` (Apple
 Silicon); take the one matching your Mac (`uname -m`: `x86_64` → amd64, `arm64` → arm64). The
-repo is private, so downloads go through `gh`:
+commands below go through `gh`; a plain `curl | sh` installer and a Homebrew tap are coming:
 
 ```sh
 make install     # latest release -> ~/.local/bin/musterd
