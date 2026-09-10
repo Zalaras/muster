@@ -732,37 +732,57 @@ These are some minor changes and cleanup needed before we can move into post v1.
   **Homebrew tap** (a public repo needs no private-tap token — plan it with the two items
   below), and macOS runners, which stop costing 10x once the repo is public.
 
-- [ ] **A real `curl | sh` installer** — the second half of
+- [x] **A real `curl | sh` installer** — the second half of
   [#7](https://github.com/Zalaras/muster/issues/7) (the first half, the broken README command,
-  shipped 2026-09-02). **Moved from post-v1 into pre-v1 on 2026-09-10** (Damian), together with
-  the open-source flip it waits on; the dependency is structural, not priority: while the repo
-  is **private** neither the script fetch nor the asset download can be anonymous — the
-  one-liner every non-brew tool ships (`curl -fsSL … | sh`) cannot exist here at all, and any
-  version of it would still be `gh`-gated, i.e. the same dependency `make install` already has.
-  The flip unblocks it and unblocks the deferred Homebrew tap in the same move, so plan those
-  together rather than separately. Until it lands `make install` is the supported path and the
-  README carries the by-hand fences.
+  shipped 2026-09-02). ✅ **done 2026-09-10** (`scripts/install.sh`, direct fix, no pipeline —
+  shell + Makefile + docs only; #7 was already closed by `c71a759`, so nothing to close).
+  Homebrew was **split out** on Damian's call and is its own item below. What it does:
+  resolves "latest" through the `/releases/latest` **redirect** rather than the API
+  (unauthenticated `api.github.com` is 60 req/hr per IP; the redirect is unmetered),
+  downloads the arch archive plus `checksums.txt`, **verifies the SHA-256** — the thing
+  starship's much-copied installer does not do, and the standard criticism of this install
+  shape — then `tar`-selects the `musterd` member into `~/.local/bin`. POSIX `sh` (macOS
+  `/bin/sh` is bash 3.2 in POSIX mode); no sudo, no confirmation prompt (piped, stdin *is*
+  the script). `--version`/`--bin-dir`/`--arch`/`--base-url`/`--help`, each with a
+  `MUSTER_*` env equivalent; the last two exist so the arm64 and failure paths can be run
+  on an Intel Mac. `make install` is now a one-line wrapper around it, so the arch/temp-dir/
+  tar/shadow logic exists once and `gh` has left the install path entirely. Two bugs were
+  found by running it, per the #7 lesson: piped `--help` printed nothing (self-parsing `$0`,
+  which is not the script when piped), and an unwritable `--bin-dir` was only discovered
+  *after* a 5 MB download.
 
-- [ ] **Post-open-source: revisit the install instructions, and add auto-update** (asked
-  2026-09-09; **moved from post-v1 into pre-v1 on 2026-09-10**, Damian) — two things that only
-  become possible once `Zalaras/muster` is public (`docs/go-public.md`), to be picked up
-  straight after the flip:
-  - **Install instructions.** The README's install section is written for a private repo:
-    the by-hand fences go through `gh release download` (auth required) and `make install`
-    carries the same `gh` dependency. Once releases are anonymously fetchable, rewrite it
-    around whatever the real front door becomes — this is the same move as the `curl | sh`
-    installer and the deferred Homebrew tap above, so plan all three together, not
-    separately. Re-verify every command end to end (the #7 lesson: the old block was wrong
-    three ways because nobody ran it).
-  - **Auto-update for `musterd`.** Muster ships as a GitHub Release binary with no update
-    path at all — a user who installs once never learns a newer version exists. Wants a
-    `/spec` pass, not a decision here; the questions are at minimum: check-only (a
-    dashboard "update available" cue reading the releases API) vs. self-replacing binary;
-    where the check runs and how often; opt-out; how it interacts with a daemon that has
-    live tmux sessions attached (a restart must not orphan them — reconcile already exists,
-    M4); and signing/verification of the downloaded archive. Note the deliberate contrast
-    with Claude Code's own auto-updater, which Muster leaves on and does not manage
-    (`docs/claude-code-pin.md`).
+- [x] **Post-open-source: revisit the install instructions** (asked 2026-09-09; **moved from
+  post-v1 into pre-v1 on 2026-09-10**, Damian) ✅ **done 2026-09-10** — the README was written
+  for a private repo (every path through `gh release download`, `make install` carrying the
+  same `gh` dependency). Rewritten around the new installer, and on Damian's follow-up
+  instruction the review covered the **whole file, not just § Install**: 194 → 115 lines.
+  Cut the "Why Muster" naming blockquote, the `claude-session-manager-handoff.md` note, the
+  `## Layout` tree (whose closing line still said "M0 adds the HTTP/WS server"), `## Status`'s
+  milestone prose, all four `gh` fences with ~30 lines of rationale behind them, and the
+  `## Prerequisites`/`## Requirements` duplication. Added a dashboard **screenshot** and a
+  licence section; the `Issue`-button detail moved into `CONTRIBUTING.md`, which had been
+  pointing *back* at the README for it. The two load-bearing strings survive by test:
+  `TestReadmeTmuxRemedyMatchesPreflight`'s two `brew` remedies and the `versions:range`
+  fragment. Auto-update, the other half of this item, is split out below.
+
+- [ ] **A Homebrew tap** — **split out of the installer item above on 2026-09-10** (Damian:
+  "we'll skip brew for now"). Deferred originally because a *private* tap needs
+  `GitHubPrivateRepositoryReleaseDownloadStrategy` plus a permanent
+  `HOMEBREW_GITHUB_API_TOKEN` (SPEC 2026-08-31); the repo going public removed that cost, so
+  this is now a GoReleaser `brews:` block and a tap repo, nothing more. No longer blocked by
+  anything — it is a priority call, not a dependency.
+
+- [ ] **Auto-update for `musterd`** — **split out of the install-instructions item on
+  2026-09-10**; the install-instructions half shipped with the installer above. Muster ships
+  as a GitHub Release binary with no update path at all — a user who installs once never
+  learns a newer version exists. Wants a `/spec` pass, not a decision here; the questions
+  are at minimum: check-only (a dashboard "update available" cue reading the releases API)
+  vs. self-replacing binary; where the check runs and how often; opt-out; how it interacts
+  with a daemon that has live tmux sessions attached (a restart must not orphan them —
+  reconcile already exists, M4); and signing/verification of the downloaded archive. Note
+  the deliberate contrast with Claude Code's own auto-updater, which Muster leaves on and
+  does not manage (`docs/claude-code-pin.md`). The installer now verifies a SHA-256, which
+  is a precedent for the "signing/verification" question rather than an answer to it.
 
 ## Reported issues (pre-v1 release)
 

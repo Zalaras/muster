@@ -1486,6 +1486,7 @@ changed on the way:
   convention, inferred-intermediates note). §8 dependency posture rewritten above; the post-v1
   "rethink the pin strategy" TODO item is folded in and closed.
 
+
 ### 2026-09-10 — repo public (`Zalaras/muster`, via `scripts/go-public.sh --yes`)
 
 Closes the §8 "repo stays private" posture. The flip and the GitHub settings that go with
@@ -1503,3 +1504,32 @@ Actions minutes are free, so `make check` as a CI job and macOS runners are live
 Two operational lessons recorded in `docs/go-public.md`: the visibility flag needs
 gh ≥ 2.65, and GitHub locks the repo for a few seconds after the flip (a 403 on the next
 call — re-run, the script is idempotent).
+
+### 2026-09-10 — The install front door is `curl | sh`, verified; brew and auto-update split
+
+Supersedes the 2026-08-31 "Distribution settled" entry's front door (`make install` /
+`gh release download`), which the flip above made obsolete rather than merely inconvenient.
+
+- **`scripts/install.sh` is the install path**, and it needs no `gh` and no GitHub account.
+  "Latest" resolves through the `/releases/latest` **redirect**, not the API: unauthenticated
+  `api.github.com` allows 60 requests/hour per IP, the redirect is unmetered. The archive's
+  **SHA-256 is checked against the release's own `checksums.txt`** before anything is
+  installed — GoReleaser already publishes it, so this costs one small download, and an
+  unverified `curl | sh` is the standard criticism of the shape. POSIX `sh` throughout,
+  because macOS `/bin/sh` is bash 3.2 in POSIX mode.
+- **No sudo and no confirmation prompt.** Default bin dir is `~/.local/bin`, always
+  writable; an unwritable one fails naming the remedy instead of escalating. Piped to `sh`,
+  stdin *is* the script, so a prompt would have to read `/dev/tty` for no benefit.
+- **`make install` is a one-line wrapper** around the same script, so arch resolution, the
+  fresh temp dir, the `tar` member-select and the shadow warning exist in exactly one place.
+- **Homebrew is split out** of this work (Damian, 2026-09-10) and is its own `TODO.md` item.
+  It is no longer *blocked* — the public repo removed the private-tap token cost the
+  2026-08-31 entry named — only unscheduled.
+- **Auto-update is likewise split out**, still wanting a `/spec` pass. The SHA-256 check
+  here is a precedent for its verification question, not an answer to it.
+- **The README is the front door too, and was cut 194 → 115 lines** on Damian's instruction
+  to review the whole file, not just § Install: the naming blockquote, the layout tree, the
+  milestone prose and the `gh` fences are gone; a dashboard screenshot and a licence section
+  are in; the `Issue`-button detail moved to `CONTRIBUTING.md`, which had been pointing back
+  at the README for it. Two README strings stay load-bearing and test-guarded: the preflight's
+  two `brew` remedies and the `versions:range` fragment.
