@@ -81,7 +81,7 @@ canary: ## Drive the real claude (4 haiku turns + zero-token unauth/resume/live 
 	go test -tags=canary -count=1 -v ./test/canary/... && go run ./tools/versions bump
 
 .PHONY: gen-versions
-gen-versions: ## Regenerate the Claude Code version-range fragments in README.md, spikes/canary-fields.md and docs/claude-code-versions.md
+gen-versions: ## Regenerate the Claude Code version-range fragments in README.md and docs/claude-code-versions.md
 	go run ./tools/versions gen
 
 .PHONY: check-versions

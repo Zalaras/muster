@@ -1,6 +1,6 @@
 // Command versions keeps internal/claudecode/observed_versions.txt and the generated
-// fragments in README.md, spikes/canary-fields.md and docs/claude-code-versions.md in
-// sync (docs/claude-code-versions.md "The green ritual").
+// fragments in README.md and docs/claude-code-versions.md in sync
+// (docs/claude-code-versions.md "The green ritual").
 //
 //	go run ./tools/versions gen    # rewrite every fragment from the on-disk record
 //	go run ./tools/versions check  # fail naming any stale or markerless file (make check)
@@ -33,7 +33,6 @@ const recordPath = "internal/claudecode/observed_versions.txt"
 // fragmentFiles are the docs gen/check rewrite/validate, relative to the repo root.
 var fragmentFiles = []string{
 	"README.md",
-	"spikes/canary-fields.md",
 	"docs/claude-code-versions.md",
 }
 

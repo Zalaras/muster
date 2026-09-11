@@ -4,20 +4,14 @@ Derived from real captured payloads during the step-1 spikes (2026-08-16). This 
 assertion list for the canary E2E described in `SPEC.md` §8: run it before adopting any new
 Claude Code version, and treat any missing field as a blocker.
 
-**Versions this inventory has been validated against** (native install, macOS Darwin
-25.6; the automated canary is `make canary` / `test/canary/harness_test.go`, extending the
-range in `internal/claudecode/observed_versions.txt` on every green run outside it —
-docs/claude-code-versions.md):
+**Versions this inventory has been validated against**: the table in
+`docs/claude-code-versions.md` (native install, macOS Darwin 25.6; the automated canary is
+`make canary` / `test/canary/harness_test.go`, extending the range in
+`internal/claudecode/observed_versions.txt` on every green run outside it).
 
-<!-- versions:table -->
-| version | verified on | run |
-| --- | --- | --- |
-| 2.1.246 | 2026-08-29 | m4-canary |
-| 2.1.267 | 2026-09-10 | canary-full-coverage |
-<!-- /versions:table -->
-
-Every row below not annotated with `since`/`until` has held across the whole range above —
-first measured against 2.1.233 during the step-1 spikes, before the canary itself existed.
+Every row below not annotated with `since`/`until` has held across the whole range in that
+table — first measured against 2.1.233 during the step-1 spikes, before the canary itself
+existed.
 
 Raw evidence: `ccc-spike/captures/capture-1.jsonl`, `capture-3.jsonl`; H2 probe additions
 (2026-08-16) in `test/rig/captures/capture-1.jsonl` (gitignored, regenerable via

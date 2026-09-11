@@ -34,9 +34,9 @@ func mustReadFile(t *testing.T, path string) string {
 }
 
 // newFixtureRoot builds a temp tree with the record and the three fragment-bearing docs
-// (README.md, spikes/canary-fields.md, docs/claude-code-versions.md), each carrying one
-// stale fragment of a different kind — inline range, a floor/verified pair, and the
-// on-its-own-lines table — mirroring the plan's real layout closely enough to exercise
+// (README.md, docs/claude-code-versions.md), each carrying stale fragments of different
+// kinds — README the inline range; the versions doc a floor/verified pair and the
+// on-its-own-lines table — mirroring the real layout closely enough to exercise
 // applyFragments' non-greedy, name-matched scanning across distinct fragment shapes.
 func newFixtureRoot(t *testing.T, record string) string {
 	t.Helper()
@@ -44,11 +44,10 @@ func newFixtureRoot(t *testing.T, record string) string {
 	mustWriteFile(t, filepath.Join(root, recordPath), record)
 	mustWriteFile(t, filepath.Join(root, "README.md"),
 		"# README\n\n| Claude Code | <!-- versions:range -->STALE<!-- /versions:range --> |\n")
-	mustWriteFile(t, filepath.Join(root, "spikes/canary-fields.md"),
-		"# Canary fields\n\n<!-- versions:table -->\nSTALE TABLE\n<!-- /versions:table -->\n\nmore text\n")
 	mustWriteFile(t, filepath.Join(root, "docs/claude-code-versions.md"),
 		"# Claude Code versions\n\nFloor <!-- versions:floor -->STALE<!-- /versions:floor -->, "+
-			"verified <!-- versions:verified -->STALE<!-- /versions:verified -->.\n")
+			"verified <!-- versions:verified -->STALE<!-- /versions:verified -->.\n\n"+
+			"<!-- versions:table -->\nSTALE TABLE\n<!-- /versions:table -->\n\nmore text\n")
 	return root
 }
 
@@ -91,15 +90,13 @@ func TestCmdGen_FillsEveryFragmentInEveryListedFile(t *testing.T) {
 	readme := mustReadFile(t, filepath.Join(root, "README.md"))
 	assert.Contains(t, readme, "<!-- versions:range -->2.1.246–2.1.267<!-- /versions:range -->")
 
-	fields := mustReadFile(t, filepath.Join(root, "spikes/canary-fields.md"))
-	assert.Contains(t, fields, "| 2.1.246 | 2026-08-29 | m4-canary |")
-	assert.Contains(t, fields, "| 2.1.267 | 2026-09-10 | canary-full-coverage |")
-	assert.Contains(t, fields, "more text", "content outside the fragment must survive untouched")
-	assert.Less(t, strings.Index(fields, "2.1.246"), strings.Index(fields, "2.1.267"), "table must render ascending")
-
 	doc := mustReadFile(t, filepath.Join(root, "docs/claude-code-versions.md"))
 	assert.Contains(t, doc, "<!-- versions:floor -->2.1.246<!-- /versions:floor -->")
 	assert.Contains(t, doc, "<!-- versions:verified -->2.1.267<!-- /versions:verified -->")
+	assert.Contains(t, doc, "| 2.1.246 | 2026-08-29 | m4-canary |")
+	assert.Contains(t, doc, "| 2.1.267 | 2026-09-10 | canary-full-coverage |")
+	assert.Contains(t, doc, "more text", "content outside the fragment must survive untouched")
+	assert.Less(t, strings.Index(doc, "| 2.1.246 |"), strings.Index(doc, "| 2.1.267 |"), "table must render ascending")
 
 	// A file that is already fresh must now pass check too.
 	buf.Reset()
@@ -115,8 +112,8 @@ func TestCmdGen_TableSortedAscendingRegardlessOfRecordOrder(t *testing.T) {
 
 	require.NoError(t, cmdGen(root, io.Discard))
 
-	fields := mustReadFile(t, filepath.Join(root, "spikes/canary-fields.md"))
-	assert.Less(t, strings.Index(fields, "2.1.246"), strings.Index(fields, "2.1.267"))
+	doc := mustReadFile(t, filepath.Join(root, "docs/claude-code-versions.md"))
+	assert.Less(t, strings.Index(doc, "| 2.1.246 |"), strings.Index(doc, "| 2.1.267 |"))
 }
 
 // TestCmdCheck_ExitsNonZeroNamingOnlyTheStaleFile covers D15/Edge Case 7: a hand-edit to a
@@ -136,7 +133,6 @@ func TestCmdCheck_ExitsNonZeroNamingOnlyTheStaleFile(t *testing.T) {
 	err := cmdCheck(root, io.Discard)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "README.md")
-	assert.NotContains(t, err.Error(), "canary-fields.md", "must name only the stale file")
 	assert.NotContains(t, err.Error(), "claude-code-versions.md", "must name only the stale file")
 }
 
