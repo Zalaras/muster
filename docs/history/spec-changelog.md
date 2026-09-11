@@ -6,6 +6,7 @@ file is how it got there. Moved out of `SPEC.md` §11 on 2026-09-11 so the spec 
 the size of the decisions, not of their history.
 
 ### 2026-08-16 — design session (next-steps item 4)
+<!-- kb: adr/launch-hybrid-mru-directory-memory, adr/launch-form-seeds-model-and-permission-mode, adr/launch-trust-prompt-never-auto-answered, adr/focus-rail-plus-one-live-pane, adr/surfaces-one-live-client-per-session, adr/rail-attention-sort-order, adr/usage-unknown-renders-word-not-track, adr/theme-instrument-visual-direction, adr/stack-system-font-stacks-only, adr/nongoal-attention-ribbon-post-v1, adr/views-focus-and-tiles-peers, adr/tiles-live-top-n-snapshot-rest -->
 
 UX flows settled before M1/M2 UI work. Authority for interface behaviour is now
 `docs/design/ux-flows.md`; three visual directions to choose between are in
@@ -51,6 +52,7 @@ UX flows settled before M1/M2 UI work. Authority for interface behaviour is now
   debounce it, and touch only sessions whose live surface changed).
 
 ### 2026-08-16 — stack pattern decisions (AI-harness session)
+<!-- kb: adr/stack-http-stdlib-net-http, adr/stack-websocket-coder, adr/stack-logging-zerolog, adr/stack-db-database-sql-hand-sql, adr/process-web-unit-tests-vitest -->
 
 Chosen with Damian so the build agents inherit settled patterns rather than inventing them
 mid-pipeline (details in `docs/conventions.md`):
@@ -61,6 +63,7 @@ mid-pipeline (details in `docs/conventions.md`):
 - Web unit tests: **Vitest** to be added alongside Playwright (harness session H1).
 
 ### 2026-08-16 — step-1 spike corrections (validated against Claude Code 2.1.233)
+<!-- kb: adr/ingest-sessionstart-command-wrapper, adr/rename-title-from-status-line-session-name, adr/surfaces-shared-attach-single-pty, adr/launch-project-scoped-settings-not-config-dir, adr/ingest-seq-assigned-at-ingest, adr/lifecycle-session-identity-is-tmux-target, adr/lifecycle-liveness-from-pane-existence, adr/usage-context-gauge-shows-tokens-and-compactions, adr/surfaces-one-window-per-session -->
 
 Applied from `spikes/FINDINGS.md`; raw evidence in `../ccc-spike/captures/`. Overall verdict
 was **GO** — every load-bearing assumption held. Confirmed corrections applied to this spec:
@@ -114,6 +117,7 @@ settled before the work they gate: whether `Stop` fires alongside `StopFailure` 
 state machine), and the multi-client sizing matrix (before M2).
 
 ### 2026-08-16 — H2 interface-probe session (validated against Claude Code 2.1.233)
+<!-- kb: adr/lifecycle-resume-rebinds-existing-session, adr/process-interface-probe-rig-in-repo -->
 
 The spike rig was ported into this repo (`test/rig/`: `newprobe.sh`, `capture/`,
 `failproxy/`) and encoded as the `/interface-probe` skill; `spikes/RIG.md` is now
@@ -142,6 +146,7 @@ historical. Acceptance probe results, evidence in `test/rig/captures/capture-1.j
   probes need no tmux at all.
 
 ### 2026-08-20 — daemon↔UI protocol v1 (M0 kickoff)
+<!-- kb: adr/connection-commands-http-ws-push-only, adr/ingest-separate-token-in-url-path, adr/ingest-envelope-binds-never-cwd, adr/lifecycle-alive-flag-not-a-state, adr/lifecycle-prompt-ordering-guards, adr/connection-whole-object-session-upserts -->
 
 `docs/protocol.md` written before any daemon code — it is now the wire contract the build
 pipeline holds agents to (CLAUDE.md already names it). Decisions taken there, beyond what
@@ -171,6 +176,7 @@ token inside a committed `.claude/settings.json` would leak into a repo, and
 `allowedHttpHookUrls` at `settings.local.json` scope is unmeasured. Probe before M1.
 
 ### 2026-08-20 — protocol-binding probe (against 2.1.237)
+<!-- kb: adr/launch-settings-local-json-not-settings-json -->
 
 `/interface-probe` closed the three questions `docs/protocol.md` v1 raised (evidence
 `test/rig/captures/capture-3.jsonl`; note the installed binary has auto-updated to
@@ -188,6 +194,7 @@ token inside a committed `.claude/settings.json` would leak into a repo, and
   Protocol §7.3 updated accordingly.
 
 ### 2026-08-22 — M0 skeleton shipped (plan `m0-skeleton`, via `/orchestrate`)
+<!-- kb: adr/lifecycle-migrations-add-tables-when-written, adr/connection-banner-only-after-first-hello, adr/connection-static-assets-from-disk, adr/connection-ui-token-reusable-not-one-time, adr/ingest-wire-shaped-fixtures-via-claudecodetest, adr/theme-banner-tokens-not-rose -->
 
 First vertical slice complete and reviewed (`plans/m0-skeleton/review.md`, approved on
 the first cycle). H1's pipeline acceptance is thereby passed. Decisions amended or
@@ -216,6 +223,7 @@ D4, so the check stands unchanged — and the daemon-down banner grounds on dedi
 new wire-format facts — M0 never touches a real Claude Code.
 
 ### 2026-08-23 — M2 terminal panes shipped (plan `m2-terminal`, via `/orchestrate`)
+<!-- kb: adr/surfaces-one-tmux-session-per-session, adr/surfaces-detach-on-destroy-on, adr/tiles-sticky-live-membership -->
 
 Live terminals land: `/ws/terminal/{id}` (PTY↔WS bridge over `creack/pty`), the Tiles
 view, the view switcher with persisted prefs (`view` + `density`), and both queued M1
@@ -243,6 +251,7 @@ No new Claude-Code wire-format facts — M2 never touches a real claude (echo st
 the new measured facts are tmux-side (FINDINGS §7 amendment).
 
 ### 2026-08-23 — m3-gauges planning session (plan approved)
+<!-- kb: adr/usage-no-source-interface, adr/usage-no-hydration-across-restart, adr/usage-masthead-model-from-freshest-sample, adr/usage-history-persisted-not-rendered, adr/usage-sample-dedup-by-value -->
 
 M3's plan (`plans/m3-gauges/plan.md`) approved; protocol delta merged the same day
 (protocol §9 changelog). Decisions settled with Damian:
@@ -270,6 +279,7 @@ No new wire-format facts; all carried-over status-line measurements re-validated
 M3's design in the plan (no topology or lifecycle change touches them).
 
 ### 2026-08-25 — command-path quoting probe (against 2.1.245)
+<!-- kb: fact/hook-commands-are-shell-lines, fact/refresh-interval-seconds -->
 
 `/interface-probe` for the M4 shell-quoting defect (`spikes/FINDINGS.md` 2026-08-25
 addendum). Two facts settled, no decision reopened:
@@ -284,6 +294,7 @@ addendum). Two facts settled, no decision reopened:
   step-1 spikes about status-line cadence.
 
 ### 2026-08-27 — M4 reconcile / shutdown policy / End · Remove · Resume shipped (plan `m4-reconcile`, via `/orchestrate`)
+<!-- kb: adr/lifecycle-shutdown-leaves-sessions-running, adr/lifecycle-reconcile-before-first-snapshot, adr/lifecycle-ended-rows-swept-next-start, adr/actions-pane-snapshot-display-only, adr/actions-placement-mainhead-and-card-rows, adr/actions-remove-allowed-on-live-session, adr/theme-danger-tokens-not-rose -->
 
 Settled as implemented (decisions taken with Damian 2026-08-26 in planning, plus two during
 the run):
@@ -312,6 +323,7 @@ the run):
   End → Resume) is still owed — see TODO.
 
 ### 2026-08-25 — M4 command-path quoting shipped (plan `m4-hook-quoting`, via `/orchestrate`)
+<!-- kb: adr/ingest-shell-quote-at-write-boundary, adr/process-tests-run-space-bearing-data-dir -->
 
 Closes the live bug behind M3's gauges never having rendered real data. Settled as
 implemented:
@@ -334,6 +346,7 @@ implemented:
   the real default data dir with a real haiku session is still to be filled in by Damian.
 
 ### 2026-08-27 — M4 hook lifetime shipped (plan `m4-hook-lifetime`, via `/orchestrate`)
+<!-- kb: adr/ingest-all-hooks-command-wrappers, adr/ingest-monotonic-rebind, adr/ingest-hook-entries-permanent, adr/ingest-envelope-authoritative-binding -->
 
 Closes the three open M4 items sharing one root (per-directory hooks instrumenting every
 Claude Code session, Muster never removing its own hook entries, "daemon down" surfaced
