@@ -88,8 +88,12 @@ gen-versions: ## Regenerate the Claude Code version-range fragments in README.md
 check-versions: ## Fail if any Claude Code version-range fragment is stale (run by make check)
 	go run ./tools/versions check
 
+.PHONY: refs
+refs: ## Every repo path, make target and musterd flag cited in docs or comments must exist (run by make check)
+	python3 .claude/skills/orchestrate/scripts/dead-refs.py --all
+
 .PHONY: check
-check: lint test contrast e2e-lint check-versions ## Lint + test + contrast + e2e-lint + check-versions
+check: lint test contrast e2e-lint check-versions refs ## Lint + test + contrast + e2e-lint + check-versions + refs
 
 .PHONY: hooks
 hooks: ## Arm the commit-msg + pre-commit guards (.githooks/) for this clone — docs/conventions.md § Commits

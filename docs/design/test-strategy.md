@@ -176,7 +176,7 @@ redundant; several "collection-only / expected to fail" headers were stale.
 ### Wait bounds and the stub tax in `cmd/musterd` (plan `post-worktree-spike-issues`, 2026-09-07)
 
 Two lessons from fixing the load-flaky tests the worktree spikes' history census surfaced
-(`spikes/worktree/S5-census.md`; the validation that split its four findings in half is
+(`spike/worktree-conflicts:spikes/worktree/S5-census.md` — on that branch, not on `main`; the validation that split its four findings in half is
 `plans/post-worktree-spike-issues/validation.md`).
 
 **A wait bound must clear the path's own legitimate worst case, with the arithmetic written

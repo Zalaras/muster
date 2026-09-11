@@ -111,6 +111,7 @@ if (( RUN_BASELINE )); then
   run_one web-build "make web-build"
   run_one web-test  "make web-test"
   run_one e2e-honest "! rg -n 'test\\.(skip|fixme|only)\\(' web/e2e"   # a skipped/only spec is a vacuous pass (file-drop-fix E9 class)
+  run_one dead-refs "python3 .claude/skills/orchestrate/scripts/dead-refs.py"   # cited paths / make targets / musterd flags exist (two second review cycles were dead references, 2026-09-10)
   run_one e2e-lint  "make e2e-lint"   # fixtures only via helpers/fixtures.ts, no fixed sleeps (test-strategy)
   if (( RUN_E2E )); then
     run_one e2e "make e2e"
