@@ -170,7 +170,25 @@ These are some minor changes and cleanup needed before we can move into post v1.
   `web/e2e/`; 42 `kb:anchor` ids in `docs/protocol.md`, numbers stripped, `sessionUpsert`/`prefs`/
   `sessionRemoved` split; 525 `kb:anchor/` citations replace every numbered protocol reference;
   generated `.claude/rules/`, per-feature `INDEX.md` + `contract.md`, `docs/INDEX.md`)
-  ☐ facts ☐ ADRs ☐ specs ☐ lessons+rewiring ☐ nested CLAUDE.md ☐ freeze.
+  ☑ facts (2026-09-12: 43 records in `docs/facts/`, 23 guarded by a named canary test with
+  `verified: <lo>..canary`, 20 `guard: none`; the canary field inventory frozen from `spikes/` to
+  `docs/history/spikes/canary-fields.md` with a marker per row, `scripts/kb-conserve.py` 0 failures)
+  ☐ ADRs ☐ specs ☐ lessons+rewiring ☐ nested CLAUDE.md ☐ freeze.
+
+- [ ] **Canary: assert the unguarded facts** (from Track 3 phase 3, 2026-09-12; `go run ./tools/kb
+  ls --type fact --guard none` lists them). Automatable inside the existing harness runs, no extra
+  turn: `clear-mints-new-session-id` (type `/clear` into run D before killing it),
+  `sessionend-reason-ambiguous` (assert `reason == "other"` on the managed run's SessionEnd),
+  `refresh-interval-seconds` (run D already idles ~60 s — set the key and count ticks),
+  `local-settings-honoured`, `config-dir-breaks-oauth`, `headless-fires-full-hook-sequence` (all
+  already proven by runs A–C, only lacking a named assertion); `status-session-name-source` needs
+  one extra interactive turn without `--name`. Ritual-only (subagent turn, killed session, static
+  inspection, or a race — stay `/interface-probe` checks): `permission-mode-auto-model-gated`,
+  `status-line-has-no-model-bucket`, `fable-model-alias`, `trust-prompt-preselects-exit`,
+  `stopfailure-error-taxonomy`, `hooks-not-awaited-on-failure-exit`, `subagent-hooks-carry-agent-id`,
+  `background-tasks-field`, `background-completion-new-prompt-id`, `subagent-permission-request-marked`,
+  `status-posts-arrive-in-pairs`, `hook-delivery-best-effort`. Each guard added flips the record's
+  `guard:` and its `verified` ceiling to `canary`.
 
 ## Reported issues (pre-v1 release)
 
