@@ -88,12 +88,20 @@ gen-versions: ## Regenerate the Claude Code version-range fragments in README.md
 check-versions: ## Fail if any Claude Code version-range fragment is stale (run by make check)
 	go run ./tools/versions check
 
+.PHONY: gen-kb
+gen-kb: ## Regenerate the knowledge-base index files, per-feature contract slices, .claude/rules/*.md and CLAUDE.md kb fragments from record frontmatter
+	go run ./tools/kb gen
+
+.PHONY: check-kb
+check-kb: ## Fail on a malformed record, an unresolved kb: citation, an unregistered feature, a stale or hand-edited generated kb file, or a budget breach (run by make check)
+	go run ./tools/kb check
+
 .PHONY: refs
 refs: ## Every repo path, make target and musterd flag cited in docs or comments must exist (run by make check)
 	python3 .claude/skills/orchestrate/scripts/dead-refs.py --all
 
 .PHONY: check
-check: lint test contrast e2e-lint check-versions refs ## Lint + test + contrast + e2e-lint + check-versions + refs
+check: lint test contrast e2e-lint check-versions check-kb refs ## Lint + test + contrast + e2e-lint + check-versions + check-kb + refs
 
 .PHONY: hooks
 hooks: ## Arm the commit-msg + pre-commit guards (.githooks/) for this clone — docs/conventions.md § Commits

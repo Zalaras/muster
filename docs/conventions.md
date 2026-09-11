@@ -20,6 +20,7 @@ first — never diverge silently in code.
 | Git/GitHub | `os/exec` + `git` / `gh` CLIs — never go-git |
 | Self-update signatures | `aead.dev/minisign` — verifies the release's `checksums.txt.minisig` against the key embedded in `internal/selfupdate` (plan `auto-update`, 2026-09-10). Import path corrected from the plan's `github.com/aead/minisign`: `go get github.com/aead/minisign@v0.3.0` fails ("module declares its path as: aead.dev/minisign but was required as: github.com/aead/minisign") — the module renamed its own path in `go.mod` while keeping the GitHub repo name; `go.sum` pins the real path |
 | Frontend | Vite + TypeScript, **no framework**; xterm.js 6.0.0 / addon-fit 0.11.0 (pinned) |
+| Record frontmatter | hand-rolled strict flat scanner in `internal/kb` (scalars, inline and block lists; no YAML library — the schema is fixed and strictness is the point) |
 | Web unit tests | Vitest (logic only); Playwright for E2E |
 
 ## Go
@@ -190,3 +191,33 @@ happens to run the merge; `/triage --audit` reports any issue still open whose e
 Default to none. Add one only when the *why* is non-obvious (hidden constraint, subtle
 invariant, workaround for measured Claude Code behavior — cite `spikes/FINDINGS.md`
 sections). Don't explain what well-named code already says; don't narrate history.
+
+## Knowledge records
+
+Project knowledge is typed Markdown records with strict frontmatter, read through
+`go run ./tools/kb` (`make gen-kb` regenerates, `make check-kb` gates). Layout:
+
+```
+docs/adr/<slug>.md              decision — accepted | proposed | superseded | rejected; supersedes: []
+docs/facts/<slug>.md            fact — verified: <lo>..<hi|canary>; guard: <Test name> | none
+docs/lessons/<slug>.md          lesson — roles: [pipeline roles that pay next time]
+docs/runbooks/<slug>.md         runbook
+docs/references/<slug>.md       reference (large generated or looked-up tables)
+docs/features/<name>/spec.md    spec — its go/web/e2e/protocol frontmatter IS the feature registry
+docs/features/<name>/{INDEX,contract}.md, docs/INDEX.md, .claude/rules/<name>.md   GENERATED
+```
+
+- A record answers one question: one decision per ADR, one measured shape or behaviour per
+  fact, one cost-with-a-cause per lesson. Under 300 words (specs 800, runbooks 600); a longer
+  one is two records.
+- Frontmatter is the contract `make check-kb` enforces (`id` == filename slug, `type`, `status`,
+  `date`, `summary`, `features`, `tags` from the closed list, `files`, `tests`, `refs`); the
+  body is prose. No tables of other records — the generated INDEX is the table.
+- Cite as a token, `kb:<adr|fact|lesson|rule|spec|runbook|ref|anchor>/<slug>`, never by path,
+  date or plan name; the token is valid in Go and TS comments, `describe()` strings and prose.
+  Provenance goes in `refs` (`plan:<name>`, a capture path, a log file), not in the body.
+- Never edit an accepted ADR's decision — write a superseding one. Never edit a generated file;
+  `kb check` tells a stale file from a hand-edited one and names the remedy.
+- `make gen-kb` after any record change, `make check-kb` before committing; generated files
+  ride the same commit as the record. In a pipeline run only the orchestrator regenerates, and
+  only between waves.

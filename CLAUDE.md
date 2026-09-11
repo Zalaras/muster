@@ -19,8 +19,8 @@ Claude Code sessions running in tmux. Personal tool for Damian, macOS only, sing
 
 ## Commands
 
-- `make help` lists everything: `build`, `check` (lint + unit + `refs`), `web-test`, `e2e`,
-  `canary`, `web`.
+- `make help` lists everything: `build`, `check` (lint + unit + `refs` + `check-kb`), `web-test`,
+  `e2e`, `canary`, `web`.
 - Frontend: `nvm use` in the repo root first (Node pinned 24.21.0); then work in `web/`.
 
 ## Workflow — the build pipeline
@@ -47,7 +47,8 @@ Feature work goes through the multi-agent pipeline, not ad-hoc editing:
 
 Boundaries the pipeline enforces (also binding outside it): impl agents never edit
 tests; test agents never edit implementation; nobody changes the daemon↔UI protocol
-(`docs/protocol.md` / a plan's Protocol Contract) unilaterally; every agent leaves the
+(`docs/protocol.md` / a plan's Protocol Contract; `docs/features/*/contract.md` is generated
+from it by `make gen-kb`, never edited) unilaterally; every agent leaves the
 tree compiling; claims need evidence (paste the failing output, don't assert) — and
 claimed *effects* need measurement (a "the file is now private / the row is now hidden" claim
 requires the `ls -l` or the observed DOM, not just the diff). A `blocked`/`implementation-bug`

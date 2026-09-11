@@ -14,7 +14,7 @@ section() { awk -v s="$1" '$0 ~ "^## "s{f=1;next} /^## /{f=0} f' "$P"; }
 checks_block() { awk '/^```checks[[:space:]]*$/{f=1;next} f&&/^```/{f=0} f' "$P" | grep -vE '^[[:space:]]*(#|$)'; }
 
 # 1. Required headers.
-for h in Status 'Work Type' 'E2E Scope' 'Fixture plan'; do
+for h in Status 'Work Type' 'E2E Scope' 'Fixture plan' Features; do
   grep -qE "^\*\*$h\*\*: *[^[:space:]]" "$P" || note "missing header **$h**"
 done
 
@@ -66,6 +66,11 @@ while IFS= read -r l; do
     echo "$hits" | cut -d: -f1 | sort -u | sed 's/^/        /'
   fi
 done < <(checks_block)
+
+# 8. Every **Features** name is a registered feature (a spec.md under the docs features tree) — `kb pack --plan` keys on it.
+for f in $(grep -E '^\*\*Features\*\*:' "$P" | head -1 | sed -E 's/^\*\*Features\*\*:[[:space:]]*//; s/,/ /g'); do
+  [[ -f "docs/features/$f/spec.md" ]] || note "**Features** names '$f' but docs/features/$f/spec.md does not exist"
+done
 
 if (( FAILS )); then echo "plan-lint: $FAILS failure(s) in $P"; exit 1; fi
 echo "plan-lint: $P clean"
