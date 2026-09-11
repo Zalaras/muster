@@ -232,9 +232,15 @@ test("the tmux oracle's window geometry matches the terminal's own fitted size (
   }
 });
 
-test("killing the stub's tmux session shows the ended placeholder on its live surface (E12)", async ({ page, daemon }) => {
+test("killing the stub's tmux session ends its live surface: socket closed, dead surface shown, region unmounted (E12)", async ({
+  page,
+  daemon,
+}) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
+    // Constructed before anything can open a terminal socket (helpers/terminal.ts: the
+    // `websocket` event only fires for connections made after the listener is attached).
+    const tracker = new TerminalSocketTracker(page);
     await page.goto(daemon.dashboardUrl);
     const session = await launchSession(page, daemon, { directory: dir, title: "pane-ended-e12" });
     const region = terminalRegion(page, "pane-ended-e12");
@@ -247,7 +253,25 @@ test("killing the stub's tmux session shows the ended placeholder on its live su
 
     await daemon.killTmuxWindow(session.tmuxTarget);
 
-    await expect(terminalOverlay(region)).toHaveText(/session ended/i, { timeout: 15_000 });
+    // Durable oracles only. This test used to assert the pane's `4001` "session ended"
+    // overlay, which is a ~25 ms transient: the same PTY-EOF branch that closes the socket
+    // with 4001 (`internal/server/terminal.go` pumpPTYToSocket) then nudges the liveness
+    // poll, and the resulting `alive:false` upsert makes `render()` dispose the
+    // TerminalSurface and show `#dead-surface` instead. Measured 2026-09-11 (timed probe):
+    // overlay 5–9 ms after kill-window, dead surface ~30 ms after, and 1 of 15 kills never
+    // rendered the overlay at all because the browser handled the state upsert before the
+    // terminal socket's `close` event — a failure no timeout can fix. The close *code* is
+    // unit-covered by TestHandleTerminal_KillingTheTmuxSessionCloses4001AndNudgesLiveness;
+    // here we assert the socket actually closed and the UI settled where the product means
+    // it to (same shape as the REQ-13 test below and actions.spec.ts's End tests).
+    await expect
+      .poll(() => tracker.liveCount, { message: "waiting for the terminal socket to close (4001) after kill-window" })
+      .toBe(0);
+    const deadSurface = page.locator("#dead-surface");
+    await expect(deadSurface).toBeVisible();
+    await expect(deadSurface.locator(".endbar")).toHaveText(/^ended /);
+    await expect(deadSurface.locator(".endcap")).toContainText(/session ended/i);
+    await expect(terminalRegion(page, "pane-ended-e12")).toHaveCount(0);
 
     // REQ-6: PTY EOF also nudges the liveness poll, so `alive` eventually flips too —
     // corroborating evidence that this is the EOF path, not a hung/broken bridge.

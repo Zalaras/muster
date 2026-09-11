@@ -58,6 +58,16 @@ e2e-lint: ## Mechanical checks on web/e2e (fixtures only from helpers/fixtures.t
 e2e: web-build build ## Playwright E2E suite (runs e2e-lint first via npm run e2e)
 	cd web && npm run e2e
 
+# Proof for a flake fix, not a retry: every repetition must be green (retries stay 0 in
+# playwright.config.ts). --repeat-each makes each repetition its own test entry, so copies
+# of the same test run concurrently across the 4 workers — the load that widens races —
+# each on its own scratch daemon. Usage: make e2e-soak SPEC=terminal.spec.ts N=20
+N ?= 10
+.PHONY: e2e-soak
+e2e-soak: web-build build ## Repeat one spec file N times in parallel to prove a flake fix (SPEC=<file>.spec.ts, N=10)
+	@test -n "$(SPEC)" || { echo "usage: make e2e-soak SPEC=<file>.spec.ts [N=10]"; exit 2; }
+	cd web && npm run e2e -- $(SPEC) --repeat-each=$(N)
+
 .PHONY: e2e-fixture-leak-check
 e2e-fixture-leak-check: ## Self-test: a failed ScratchDaemon.start() leaves no process, tmux server or tmpdir behind (REQ-4/W1/W3, plan post-worktree-spike-issues)
 	cd web && npm run -s e2e:fixture-leak-check

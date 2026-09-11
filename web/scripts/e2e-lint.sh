@@ -11,6 +11,9 @@
 #      the base `test` has no daemon fixtures, so importing it silently bypasses check 1.
 #   3. No fixed sleeps in specs — waits are web-first expects that inherit the global timeout;
 #      the one legitimate fixed hold ("it STAYED unchanged") is helpers/fixtures.ts settleFor.
+#   4. No spec asserts the terminal pane's "session ended" overlay — a ~25 ms transient the
+#      alive:false render pass replaces with the dead surface (terminal.spec.ts E12 flaked on
+#      it for weeks); assert #dead-surface / .dead-surface .endcap and the socket tracker.
 # Comment-only lines are skipped (a leading // or *), helpers/ is exempt by construction.
 set -u
 cd "$(dirname "$0")/.." || exit 2
@@ -35,6 +38,11 @@ report "spec imports \"@playwright/test\" — import test/expect/types from ./he
 # `(^|[^.[:alnum:]_])` keeps test.setTimeout(...) (a per-test budget, not a sleep) out of it.
 hits=$(for f in e2e/*.spec.ts; do code_lines '(waitForTimeout\(|(^|[^.[:alnum:]_])setTimeout\()' "$f"; done)
 report "fixed sleep in a spec — use a web-first expect/expect.poll, or settleFor() for a stays-unchanged check" "$hits"
+
+# `[^[:alnum:]]ended` (not \b — BSD grep) catches /session ended/, /ended/ and "ended" after
+# terminalOverlay(; the second alternative catches a raw getByText on the same text.
+hits=$(for f in e2e/*.spec.ts; do code_lines '(terminalOverlay\(.*[^[:alnum:]]ended|getByText\(/[^/]*session ended)' "$f"; done)
+report "asserting the transient \"session ended\" overlay — assert the durable dead surface instead: #dead-surface (Focus) / .dead-surface .endcap (tile), terminalRegion(...).toHaveCount(0), TerminalSocketTracker for the socket" "$hits"
 
 if [ "$fails" -gt 0 ]; then
   echo "e2e-lint: $fails rule(s) violated"

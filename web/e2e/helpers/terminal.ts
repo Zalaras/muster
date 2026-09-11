@@ -47,11 +47,25 @@ export async function activeElementInsideAnyTerminal(page: Page): Promise<boolea
 }
 
 /**
- * The one state-overlay element inside a live surface (down/superseded/ended), per the
- * Testable UI Elements row `/disconnected|another window|session ended/`.
+ * The state-overlay element inside a live surface, for the two states that are durable:
+ * "disconnected" (the daemon is down — nothing can re-render the surface) and "another
+ * window" (4000 superseded — the session stays alive, so the surface is never disposed).
+ *
+ * Deliberately NOT the third state, `4001` "session ended". That overlay is a ~25 ms
+ * transient: the same PTY-EOF branch that closes the socket with 4001 nudges the liveness
+ * poll, and the resulting `alive:false` render pass disposes the TerminalSurface (overlay
+ * included) and shows the dead surface. Measured 2026-09-11: overlay 5–9 ms after
+ * kill-window, dead surface ~30 ms after, and 1 in 15 kills never rendered the overlay
+ * because the state upsert beat the socket's `close` event. Asserting it made
+ * terminal.spec.ts E12 flaky for weeks (docs/design/test-strategy.md). For an ended pane,
+ * assert the durable end state instead: `#dead-surface` (Focus) or
+ * `liveTile(...).locator(".dead-surface")`/`.endcap` (Tiles), plus
+ * `terminalRegion(...).toHaveCount(0)` and, for the socket itself, `TerminalSocketTracker`
+ * — see terminal.spec.ts E12/REQ-13 and actions.spec.ts's End tests for the shape.
+ * e2e-lint rule 4 rejects the overlay oracle.
  */
 export function terminalOverlay(region: Locator): Locator {
-  return region.getByText(/disconnected|another window|session ended/i);
+  return region.getByText(/disconnected|another window/i);
 }
 
 /**

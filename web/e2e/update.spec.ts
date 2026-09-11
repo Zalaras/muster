@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { buildVersionedMusterd, stageBinary } from "./helpers/daemon";
+import { buildVersionedMusterd, type StagedBinary, stageBinary } from "./helpers/daemon";
 import { expect, settleFor, test } from "./helpers/fixtures";
 import { FakeReleaseServer, type TamperKind } from "./helpers/releases";
 import { launchSession, scratchDirectory, sessionCard } from "./helpers/session";
@@ -83,7 +83,7 @@ async function startReleaseServer(): Promise<ReleaseServerFixture> {
 
 /** Builds an "installer"-classified binary at `version` — `stageBinary`'s own fresh
  * `mkdtemp` outside the repo, no `.git` ancestor below `$HOME`, writable (REQ-21). */
-async function stageInstaller(version: string): Promise<string> {
+async function stageInstaller(version: string): Promise<StagedBinary> {
   const binary = await buildVersionedMusterd(version);
   return await stageBinary(binary);
 }
@@ -93,13 +93,14 @@ test("a strictly newer release badges Settings and shows Running/Available in th
   startDaemon,
 }) => {
   const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
+  let staged: StagedBinary | undefined;
   try {
-    const staged = await stageInstaller(OLD_VERSION);
+    staged = await stageInstaller(OLD_VERSION);
     const newBinary = await buildVersionedMusterd(NEW_VERSION);
     await fakeServer.publish({ tag: NEW_TAG, binaryPath: newBinary });
     fakeServer.setLatest(NEW_TAG);
     const daemon = await startDaemon({
-      binary: staged,
+      binary: staged.path,
       updateBaseURL: fakeServer.baseURL,
       updatePublicKeyFile: pubKeyPath,
     });
@@ -116,6 +117,7 @@ test("a strictly newer release badges Settings and shows Running/Available in th
     await expect(updateApplyButton(dialog)).toBeEnabled();
     await expect(updateRestartButton(dialog)).toBeEnabled();
   } finally {
+    if (staged) await staged.cleanup();
     await cleanup();
   }
 });
@@ -125,10 +127,11 @@ test("pref persisted off across a daemon restart: two check intervals pass with 
   startDaemon,
 }) => {
   const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
+  let staged: StagedBinary | undefined;
   try {
-    const staged = await stageInstaller(OLD_VERSION);
+    staged = await stageInstaller(OLD_VERSION);
     const daemon = await startDaemon({
-      binary: staged,
+      binary: staged.path,
       updateBaseURL: fakeServer.baseURL,
       updatePublicKeyFile: pubKeyPath,
       updateCheckInterval: "1s",
@@ -153,6 +156,7 @@ test("pref persisted off across a daemon restart: two check intervals pass with 
     await page.goto(daemon.dashboardUrl);
     await expect(settingsBadgeDot(page)).toBeHidden();
   } finally {
+    if (staged) await staged.cleanup();
     await cleanup();
   }
 });
@@ -162,13 +166,14 @@ test("unchecking the toggle clears the badge and shows checking disabled; rechec
   startDaemon,
 }) => {
   const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
+  let staged: StagedBinary | undefined;
   try {
-    const staged = await stageInstaller(OLD_VERSION);
+    staged = await stageInstaller(OLD_VERSION);
     const newBinary = await buildVersionedMusterd(NEW_VERSION);
     await fakeServer.publish({ tag: NEW_TAG, binaryPath: newBinary });
     fakeServer.setLatest(NEW_TAG);
     const daemon = await startDaemon({
-      binary: staged,
+      binary: staged.path,
       updateBaseURL: fakeServer.baseURL,
       updatePublicKeyFile: pubKeyPath,
     });
@@ -188,6 +193,7 @@ test("unchecking the toggle clears the badge and shows checking disabled; rechec
     await expect(settingsBadgeDot(page)).toBeVisible();
     await expect(updateAvailableReadout(dialog)).toHaveText(`v${NEW_VERSION}`);
   } finally {
+    if (staged) await staged.cleanup();
     await cleanup();
   }
 });
@@ -197,14 +203,15 @@ test("clicking Update swaps the on-disk binary and reports Updated without resta
   startDaemon,
 }) => {
   const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
+  let staged: StagedBinary | undefined;
   try {
     const oldBinary = await buildVersionedMusterd(OLD_VERSION);
-    const staged = await stageBinary(oldBinary);
+    staged = await stageBinary(oldBinary);
     const newBinary = await buildVersionedMusterd(NEW_VERSION);
     const { assetName } = await fakeServer.publish({ tag: NEW_TAG, binaryPath: newBinary });
     fakeServer.setLatest(NEW_TAG);
     const daemon = await startDaemon({
-      binary: staged,
+      binary: staged.path,
       updateBaseURL: fakeServer.baseURL,
       updatePublicKeyFile: pubKeyPath,
     });
@@ -213,7 +220,7 @@ test("clicking Update swaps the on-disk binary and reports Updated without resta
     await expect(settingsBadgeDot(page)).toBeVisible();
     const dialog = await openSettingsDialog(page);
 
-    const shaBefore = await sha256File(staged);
+    const shaBefore = await sha256File(staged.path);
     expect(shaBefore).toBe(await sha256File(oldBinary));
 
     // Holds the WHOLE fake server (not just the archive), so the apply pipeline sits
@@ -232,15 +239,16 @@ test("clicking Update swaps the on-disk binary and reports Updated without resta
     // `hello.daemon.version`, protocol §5.7 — one object, one source) still reads OLD.
     await expect(updateRunningReadout(dialog)).toHaveText(`v${OLD_VERSION}`);
 
-    const shaAfter = await sha256File(staged);
+    const shaAfter = await sha256File(staged.path);
     expect(shaAfter).toBe(await sha256File(newBinary));
     expect(shaAfter).not.toBe(shaBefore);
 
-    const { stdout } = await execFileAsync(staged, ["-version"]);
+    const { stdout } = await execFileAsync(staged.path, ["-version"]);
     expect(stdout).toContain(NEW_VERSION);
 
     expect(fakeServer.requestCount(`/download/${NEW_TAG}/${assetName}`)).toBe(1);
   } finally {
+    if (staged) await staged.cleanup();
     await cleanup();
   }
 });
@@ -251,13 +259,14 @@ test("Update and restart brings back the same Claude session, its terminal, and 
 }) => {
   const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
   const { path: dir, cleanup: cleanupDir } = await scratchDirectory();
+  let staged: StagedBinary | undefined;
   try {
-    const staged = await stageInstaller(OLD_VERSION);
+    staged = await stageInstaller(OLD_VERSION);
     const newBinary = await buildVersionedMusterd(NEW_VERSION);
     await fakeServer.publish({ tag: NEW_TAG, binaryPath: newBinary });
     fakeServer.setLatest(NEW_TAG);
     const daemon = await startDaemon({
-      binary: staged,
+      binary: staged.path,
       updateBaseURL: fakeServer.baseURL,
       updatePublicKeyFile: pubKeyPath,
     });
@@ -298,6 +307,7 @@ test("Update and restart brings back the same Claude session, its terminal, and 
     const region = terminalRegion(page, "restart-e5");
     await expect(region).toContainText("MUSTER-STUB-READY");
   } finally {
+    if (staged) await staged.cleanup();
     await cleanupDir();
     await cleanup();
   }
@@ -310,13 +320,14 @@ test("Update and restart with two Claude sessions and a plain shell names the sh
   const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
   const dirA = await scratchDirectory();
   const dirB = await scratchDirectory();
+  let staged: StagedBinary | undefined;
   try {
-    const staged = await stageInstaller(OLD_VERSION);
+    staged = await stageInstaller(OLD_VERSION);
     const newBinary = await buildVersionedMusterd(NEW_VERSION);
     await fakeServer.publish({ tag: NEW_TAG, binaryPath: newBinary });
     fakeServer.setLatest(NEW_TAG);
     const daemon = await startDaemon({
-      binary: staged,
+      binary: staged.path,
       updateBaseURL: fakeServer.baseURL,
       updatePublicKeyFile: pubKeyPath,
     });
@@ -365,6 +376,7 @@ test("Update and restart with two Claude sessions and a plain shell names the sh
     dialog = await openSettingsDialog(page);
     await expect(updateRunningReadout(dialog)).toHaveText(`v${NEW_VERSION}`);
   } finally {
+    if (staged) await staged.cleanup();
     await dirA.cleanup();
     await dirB.cleanup();
     await cleanup();
@@ -378,14 +390,15 @@ test("each verification refusal reports Update failed and leaves the on-disk bin
   const kinds: TamperKind[] = ["checksums", "missing-minisig", "foreign-key", "sha-mismatch"];
   for (const kind of kinds) {
     const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
+    let staged: StagedBinary | undefined;
     try {
-      const staged = await stageInstaller(OLD_VERSION);
+      staged = await stageInstaller(OLD_VERSION);
       const newBinary = await buildVersionedMusterd(NEW_VERSION);
       await fakeServer.publish({ tag: NEW_TAG, binaryPath: newBinary });
       fakeServer.tamper(NEW_TAG, kind);
       fakeServer.setLatest(NEW_TAG);
       const daemon = await startDaemon({
-        binary: staged,
+        binary: staged.path,
         updateBaseURL: fakeServer.baseURL,
         updatePublicKeyFile: pubKeyPath,
       });
@@ -393,15 +406,16 @@ test("each verification refusal reports Update failed and leaves the on-disk bin
       await page.goto(daemon.dashboardUrl);
       await expect(settingsBadgeDot(page)).toBeVisible();
       const dialog = await openSettingsDialog(page);
-      const shaBefore = await sha256File(staged);
+      const shaBefore = await sha256File(staged.path);
 
       await updateApplyButton(dialog).click();
       await expect(updateStatusLine(dialog)).toHaveText(/^Update failed: /);
 
-      const shaAfter = await sha256File(staged);
+      const shaAfter = await sha256File(staged.path);
       expect(shaAfter, `binary hash changed after a refused apply (tamper kind: ${kind})`).toBe(shaBefore);
       await expect(updateApplyButton(dialog)).toBeEnabled();
     } finally {
+      if (staged) await staged.cleanup();
       await cleanup();
     }
   }
@@ -446,6 +460,7 @@ test("a binary staged under $HOMEBREW_PREFIX badges but disables both buttons wi
 }) => {
   const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
   let scratchRoot: string | undefined;
+  let staged: StagedBinary | undefined;
   try {
     const oldBinary = await buildVersionedMusterd(OLD_VERSION);
     const newBinary = await buildVersionedMusterd(NEW_VERSION);
@@ -468,10 +483,10 @@ test("a binary staged under $HOMEBREW_PREFIX badges but disables both buttons wi
     const brewPrefix = join(await realpath(scratchRoot), "brew");
     const brewBinDir = join(brewPrefix, "bin");
     await mkdir(brewBinDir, { recursive: true });
-    const staged = await stageBinary(oldBinary, brewBinDir);
+    staged = await stageBinary(oldBinary, brewBinDir);
 
     const daemon = await startDaemon({
-      binary: staged,
+      binary: staged.path,
       env: { HOMEBREW_PREFIX: brewPrefix },
       updateBaseURL: fakeServer.baseURL,
       updatePublicKeyFile: pubKeyPath,
@@ -485,6 +500,7 @@ test("a binary staged under $HOMEBREW_PREFIX badges but disables both buttons wi
     await expect(updateRestartButton(dialog)).toBeDisabled();
     await expect(updateStatusLine(dialog)).toContainText("brew upgrade musterd");
   } finally {
+    if (staged) await staged.cleanup();
     await cleanup();
     if (scratchRoot) await rm(scratchRoot, { recursive: true, force: true });
   }
@@ -495,14 +511,15 @@ test("fake latest equal to running, then older: Available reads up to date and n
   startDaemon,
 }) => {
   const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
+  let staged: StagedBinary | undefined;
   try {
     const oldBinary = await buildVersionedMusterd(OLD_VERSION);
-    const staged = await stageBinary(oldBinary);
+    staged = await stageBinary(oldBinary);
     const equalTag = `v${OLD_VERSION}`;
     await fakeServer.publish({ tag: equalTag, binaryPath: oldBinary });
     fakeServer.setLatest(equalTag);
     const daemon = await startDaemon({
-      binary: staged,
+      binary: staged.path,
       updateBaseURL: fakeServer.baseURL,
       updatePublicKeyFile: pubKeyPath,
       updateCheckInterval: "1s",
@@ -523,6 +540,7 @@ test("fake latest equal to running, then older: Available reads up to date and n
     await expect(updateAvailableReadout(dialog)).toHaveText("up to date");
     await expect(settingsBadgeDot(page)).toBeHidden();
   } finally {
+    if (staged) await staged.cleanup();
     await cleanup();
   }
 });
@@ -534,13 +552,14 @@ test("two pages clicking Update while the archive is held: exactly one download,
   const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
   let page2Closed = false;
   const page2 = await page.context().newPage();
+  let staged: StagedBinary | undefined;
   try {
-    const staged = await stageInstaller(OLD_VERSION);
+    staged = await stageInstaller(OLD_VERSION);
     const newBinary = await buildVersionedMusterd(NEW_VERSION);
     const { assetName } = await fakeServer.publish({ tag: NEW_TAG, binaryPath: newBinary });
     fakeServer.setLatest(NEW_TAG);
     const daemon = await startDaemon({
-      binary: staged,
+      binary: staged.path,
       updateBaseURL: fakeServer.baseURL,
       updatePublicKeyFile: pubKeyPath,
     });
@@ -588,6 +607,7 @@ test("two pages clicking Update while the archive is held: exactly one download,
     await page2.close();
     page2Closed = true;
   } finally {
+    if (staged) await staged.cleanup();
     if (!page2Closed) await page2.close();
     await cleanup();
   }
@@ -598,8 +618,9 @@ test("Update and restart returns the dashboard on the same port and data dir (E1
   startDaemon,
 }) => {
   const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
+  let staged: StagedBinary | undefined;
   try {
-    const staged = await stageInstaller(OLD_VERSION);
+    staged = await stageInstaller(OLD_VERSION);
     const newBinary = await buildVersionedMusterd(NEW_VERSION);
     await fakeServer.publish({ tag: NEW_TAG, binaryPath: newBinary });
     fakeServer.setLatest(NEW_TAG);
@@ -609,7 +630,7 @@ test("Update and restart returns the dashboard on the same port and data dir (E1
     // proof is that all three survive the re-exec verbatim, observed here as "the same
     // origin and tokens answer after the restart", not a fresh instance's.
     const daemon = await startDaemon({
-      binary: staged,
+      binary: staged.path,
       updateBaseURL: fakeServer.baseURL,
       updatePublicKeyFile: pubKeyPath,
     });
@@ -634,6 +655,7 @@ test("Update and restart returns the dashboard on the same port and data dir (E1
     const res = await page.request.get(`${daemon.baseURL}/healthz`);
     expect(res.status()).toBe(200);
   } finally {
+    if (staged) await staged.cleanup();
     await cleanup();
   }
 });
@@ -644,6 +666,7 @@ test("a binary staged inside a scratch git tree badges but disables both buttons
 }) => {
   const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
   let scratchRoot: string | undefined;
+  let staged: StagedBinary | undefined;
   try {
     const oldBinary = await buildVersionedMusterd(OLD_VERSION);
     const newBinary = await buildVersionedMusterd(NEW_VERSION);
@@ -654,11 +677,11 @@ test("a binary staged inside a scratch git tree badges but disables both buttons
     // staging dir (never `git config user.*` here — CLAUDE.md hard rule — a bare
     // `git init` with no commit is enough for the classifier's ".git ancestor" check).
     scratchRoot = await mkdtemp(join(tmpdir(), "muster-e2e-unmanaged-"));
-    const staged = await stageBinary(oldBinary, scratchRoot);
+    staged = await stageBinary(oldBinary, scratchRoot);
     await execFileAsync("git", ["init"], { cwd: scratchRoot });
 
     const daemon = await startDaemon({
-      binary: staged,
+      binary: staged.path,
       updateBaseURL: fakeServer.baseURL,
       updatePublicKeyFile: pubKeyPath,
     });
@@ -674,6 +697,7 @@ test("a binary staged inside a scratch git tree badges but disables both buttons
     // a validate-mode repair target if daemon-impl's actual string differs.
     await expect(updateStatusLine(dialog)).toHaveText(/install\.sh|curl/i);
   } finally {
+    if (staged) await staged.cleanup();
     await cleanup();
     if (scratchRoot) await rm(scratchRoot, { recursive: true, force: true });
   }
@@ -684,13 +708,14 @@ test("`musterd -update` while the daemon runs is detected within one tick, showi
   startDaemon,
 }) => {
   const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
+  let staged: StagedBinary | undefined;
   try {
-    const staged = await stageInstaller(OLD_VERSION);
+    staged = await stageInstaller(OLD_VERSION);
     const newBinary = await buildVersionedMusterd(NEW_VERSION);
     await fakeServer.publish({ tag: NEW_TAG, binaryPath: newBinary });
     fakeServer.setLatest(NEW_TAG);
     const daemon = await startDaemon({
-      binary: staged,
+      binary: staged.path,
       updateBaseURL: fakeServer.baseURL,
       updatePublicKeyFile: pubKeyPath,
       updateCheckInterval: "2s",
@@ -703,7 +728,7 @@ test("`musterd -update` while the daemon runs is detected within one tick, showi
     // A second, one-shot process swaps the SAME on-disk file the running daemon was
     // launched from, entirely out of band from the daemon's own apply pipeline (edge
     // case 23) — REQ-22's `-update` CLI path.
-    const { stdout } = await execFileAsync(staged, [
+    const { stdout } = await execFileAsync(staged.path, [
       "-update",
       "-update-base-url",
       fakeServer.baseURL,
@@ -716,6 +741,7 @@ test("`musterd -update` while the daemon runs is detected within one tick, showi
     await expect(updateStatusLine(dialog)).toHaveText(`Updated to v${NEW_VERSION}. Restart musterd to finish.`);
     await expect(updateRestartButton(dialog)).toHaveText("Restart now");
   } finally {
+    if (staged) await staged.cleanup();
     await cleanup();
   }
 });
@@ -725,13 +751,14 @@ test("Restart now after a plain Update shows the confirm and completes with no s
   startDaemon,
 }) => {
   const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
+  let staged: StagedBinary | undefined;
   try {
-    const staged = await stageInstaller(OLD_VERSION);
+    staged = await stageInstaller(OLD_VERSION);
     const newBinary = await buildVersionedMusterd(NEW_VERSION);
     const { assetName } = await fakeServer.publish({ tag: NEW_TAG, binaryPath: newBinary });
     fakeServer.setLatest(NEW_TAG);
     const daemon = await startDaemon({
-      binary: staged,
+      binary: staged.path,
       updateBaseURL: fakeServer.baseURL,
       updatePublicKeyFile: pubKeyPath,
     });
@@ -761,6 +788,7 @@ test("Restart now after a plain Update shows the confirm and completes with no s
     // so the restart-only apply skips the download entirely — no second archive fetch.
     expect(fakeServer.requestCount(archivePath)).toBe(countBeforeRestart);
   } finally {
+    if (staged) await staged.cleanup();
     await cleanup();
   }
 });

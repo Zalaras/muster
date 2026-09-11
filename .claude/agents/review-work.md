@@ -37,6 +37,8 @@ make e2e
 
 `make e2e` rebuilds the dashboard and the binary first (the harness serves prebuilt artifacts, so a bare `npm run e2e` tests whatever was last compiled) and allocates its own per-run port — which is also why nothing else may build while it runs: a concurrent `npm run build` or `make web-build` swaps the bundle mid-sweep and fails specs with "element(s) not found", exactly like a real regression, so §2's builds run after §1 finishes, never beside it.
 
+If the diff repairs a flaky spec (a Repairs row or a `TODO.md`/plan entry names a flake), also run `make e2e-soak SPEC=<file> N=10` — one green `make e2e` does not distinguish a fix from a lucky roll.
+
 This run is a **regression sweep**, deliberately not redundant with the pipeline's E2E Validate step (which runs only this plan's spec file). You are the first and only step before approval that runs every spec — so you are the one who catches this plan's implementation breaking somebody else's test.
 
 Tag failures by cause, not by convenience:

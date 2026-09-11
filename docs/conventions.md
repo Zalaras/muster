@@ -83,6 +83,10 @@ first — never diverge silently in code.
   `workers` caps the daemons alive at once. A spec may *shorten* a timeout, with a comment
   saying why, never lengthen one; a fixed hold exists only as `settleFor()` for a
   stays-unchanged check. Rationale and measurements: `docs/design/test-strategy.md`.
+- Assert the state the UI *settles* in, never a display a later render pass replaces — the
+  `4001` "session ended" overlay lasts ~25 ms before the dead surface (e2e-lint rule 4). A
+  change that fixes or touches a flaky spec is proven with `make e2e-soak SPEC=<file> N=10`
+  (concurrent repeats of one file, retries still 0) — never with a widened timeout or a retry.
 - Every subprocess call gets an injectable run func on the type that owns it; the implementer
   adds it and tests cross the boundary through it (`internal/locate.SpotlightFinder`, `tmux`'s
   preflighter, `claudecode`'s `execFunc`), never a `$PATH` shim — a fork per test is what made `make test`

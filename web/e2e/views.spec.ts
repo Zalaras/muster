@@ -9,7 +9,6 @@ import {
   liveTile,
   stripCard,
   TerminalSocketTracker,
-  terminalOverlay,
   terminalRegion,
   tileDragHandle,
   tileStateDot,
@@ -386,6 +385,9 @@ test("killing one of several live tiles ends only that tile without misrouting k
 }) => {
   const dirs = await Promise.all(Array.from({ length: 2 }, () => scratchDirectory()));
   try {
+    // Before anything can open a terminal socket (helpers/terminal.ts: the `websocket`
+    // event only fires for connections made after the listener is attached).
+    const tracker = new TerminalSocketTracker(page);
     await page.goto(daemon.dashboardUrl);
     const titles = dirs.map((_, i) => `kill-${i}`);
     const sessions = [];
@@ -404,6 +406,8 @@ test("killing one of several live tiles ends only that tile without misrouting k
     const regionB = terminalRegion(page, titleB);
     await expect(regionA).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
     await expect(regionB).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
+    // Precondition for the post-kill count below: both tiles hold a live terminal socket.
+    await expect.poll(() => tracker.liveCount, { message: "waiting for both tiles' terminal sockets" }).toBe(2);
 
     await daemon.killTmuxWindow(sessionA.tmuxTarget);
 
@@ -411,11 +415,18 @@ test("killing one of several live tiles ends only that tile without misrouting k
     // killing A's tmux session never sent A's PTY an EOF — its attach client hopped
     // onto B's tmux session instead, so no 4001 ever arrived and keystrokes typed into
     // A's tile landed in B's pane. `detach-on-destroy on` makes the client exit, so A's
-    // tile must now show the real ended state...
-    await expect(terminalOverlay(regionA)).toHaveText(/session ended/i, { timeout: 15_000 });
+    // socket must close (4001) while B's stays open, and A's tile must settle on the
+    // dead surface. Not the "session ended" overlay: that is a ~25 ms transient the
+    // `alive:false` render pass replaces (it disposes A's surface and mounts the cloned
+    // `.dead-surface` in A's tile body) — see terminal.spec.ts E12 for the measurements.
+    await expect
+      .poll(() => tracker.liveCount, { message: "waiting for A's terminal socket to close (4001); B's stays open" })
+      .toBe(1);
+    await expect(liveTile(page, titleA).locator(".endcap")).toContainText(/session ended/i);
+    await expect(regionA).toHaveCount(0);
     // ...and web-impl's Critical 5 fix: the footer marker is alive-driven, not
     // geometry-driven, so it flips to "stopped" the same pass the ended state lands.
-    await expect(liveTile(page, titleA).locator(".marker")).toHaveText("stopped", { timeout: 15_000 });
+    await expect(liveTile(page, titleA).locator(".marker")).toHaveText("stopped");
 
     // ...and, the actual misrouting bug: B must still have exactly ONE attach client
     // (never two from A's client hopping over), and typing into B's own tile must

@@ -848,13 +848,33 @@ These are some minor changes and cleanup needed before we can move into post v1.
   every later self-update trusts the compiled-in key. Cheap once the key exists (`minisign -V`
   when the binary is on PATH, otherwise a warning naming it); out of scope for `auto-update`.
 
-- [ ] **Fix the `terminal.spec.ts` E12 parallelism flake before v1** — `web/e2e/terminal.spec.ts:235`
+- [x] **Fix the `terminal.spec.ts` E12 parallelism flake before v1** — `web/e2e/terminal.spec.ts:235`
   ("killing the stub's tmux session shows the ended placeholder") failed the first full `make e2e`
   of `auto-update`'s review cycle 2 and passed the immediate re-run; the reviewer measured roughly
   1 run in 2 that day (`plans/auto-update/review.md` note 1). The spec's own comment at `:243`
   already admits "transient timeouts only under full-suite parallelism" and only widened the
   timeout to 15 s. Find the actual cause in the terminal-attach path under load (or the fixture),
   don't widen the timeout again. Damian, 2026-09-11: must be fixed before v1.
+  **Cause found 2026-09-11** (timed probe, 15 kills, 1 reproduced): not the attach path and not
+  load. The `4001` overlay E12 asserts on is a ~25 ms transient — the probe measured the overlay
+  appearing 5–9 ms after `kill-window` and `#dead-surface` replacing the whole terminal region
+  ~30 ms after, every time, because `pumpPTYToSocket` closes the socket with `4001` and then
+  immediately `Nudge`s the liveness poll, whose `alive:false` upsert makes `render()` dispose the
+  `TerminalSurface` (`pane.ts` then ignores the late `close` event via `disposed`). Whenever the
+  browser handles the state-WS upsert before the terminal-WS `close` event, the overlay never
+  renders and the region is gone — the assertion cannot pass within 15 s or 15 min. E12 predates
+  m4-reconcile's dead surface (m2, 2026-08-23); the REQ-13 test in the same file was repointed at
+  `#dead-surface` then, E12 was not. Fix: assert the durable end state (dead surface visible,
+  region unmounted, `alive:false`) and leave the `4001` close code to
+  `TestHandleTerminal_KillingTheTmuxSessionCloses4001AndNudgesLiveness`, which already covers it.
+  **Fixed 2026-09-11** (branch `fix/e12-durable-oracle`, direct, no pipeline): E12 and
+  `views.spec.ts`'s tile-kill test (the same oracle, inside a tile) now assert the socket closed
+  (`TerminalSocketTracker`), the dead surface's `.endcap`, and the region unmounted;
+  `terminalOverlay` no longer matches "session ended"; e2e-lint rule 4 rejects the oracle;
+  `make e2e-soak SPEC=<file> N=<n>` added for proving flake fixes. Evidence:
+  `make e2e-soak SPEC=terminal.spec.ts N=20` → 400 passed; `SPEC=views.spec.ts N=20` → 340
+  passed; full `make e2e` ×3 green (see commit). Rule recorded in `docs/conventions.md` §Testing
+  and `docs/design/test-strategy.md` "Transient displays are not oracles".
 
 ## Reported issues (pre-v1 release)
 

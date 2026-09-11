@@ -210,6 +210,37 @@ than on the state the code under test actually reads, and now waits on the rail'
 are the same shape: **synchronise on the thing the production code reads, not on a proxy that
 changes earlier.**
 
+### Transient displays are not oracles (`terminal.spec.ts` E12, 2026-09-11)
+
+E12 ("killing the stub's tmux session shows the ended placeholder") was the last flaky spec on
+`main`, and the one whose in-file comment blamed "attaching a real tmux/PTY bridge under
+parallel load" and widened its timeout to 15 s. A timed probe (15 kills, each issued at a
+chosen phase of the liveness tick) showed the attach path was innocent. After `kill-window`
+the daemon's PTY read hits EOF, closes the terminal socket with `4001`, and the browser
+painted the "session ended" overlay **5–9 ms** later; the same EOF branch then nudges the
+liveness poll, whose `alive:false` upsert made `render()` dispose the `TerminalSurface` and
+show `#dead-surface` **~30 ms** after the kill, every trial. The two travel on different
+WebSockets; in 1 of 15 kills the browser handled the state upsert first, `dispose()` had run,
+the late `close` event was dropped, and the overlay never existed — a failure no timeout can
+reach. `views.spec.ts`'s tile-kill test carried the same oracle, and its next assertion (the
+footer marker flipping to "stopped") was alive-driven, i.e. true only on the render pass that
+destroys the overlay it had just asserted.
+
+E12 predates the dead surface (m2, 2026-08-23). m4-reconcile added `#dead-surface` three days
+later and repointed the neighbouring REQ-13 test at it, with a comment saying so; E12 kept the
+old oracle for three weeks. Both tests now assert the durable end state — the socket closed
+(`TerminalSocketTracker`), the dead surface's `.endcap`, the region unmounted — and leave the
+`4001` close *code* to `TestHandleTerminal_KillingTheTmuxSessionCloses4001AndNudgesLiveness`.
+`terminalOverlay` no longer matches "session ended" and e2e-lint rule 4 rejects the oracle.
+
+Two rules fall out. **Assert the state the UI settles in**; a display that a later render pass
+destroys is unit-test territory (`overlay.test.ts` covers the 4001→"ended" mapping). And **a
+flake fix is proven, not believed**: `make e2e-soak SPEC=<file> N=10` runs one file's tests N
+times *concurrently* (each repetition its own test entry on its own scratch daemon, so the
+copies supply the load that widens races); every repetition must be green, `retries` stays 0.
+One green `make e2e` cannot tell a fix from a lucky roll — E12 passed 304/304 the same morning
+the probe reproduced it.
+
 ### Operator hazard: a concurrent build invalidates a running `make e2e` (2026-09-07)
 
 `make e2e` serves the **prebuilt** bundle in `internal/webui/assets/`. A concurrent

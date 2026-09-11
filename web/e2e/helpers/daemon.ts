@@ -1038,11 +1038,27 @@ export async function buildVersionedMusterd(version: string): Promise<string> {
  * ancestor); a caller that wants a different classification (homebrew, unmanaged) passes
  * its own pre-built `dir` (e.g. a `$HOMEBREW_PREFIX/bin`, or a directory it then runs
  * `git init` in) instead of letting this create one.
+ *
+ * Returns `{ path, cleanup }` like `scratchDirectory()`: `cleanup` removes the directory
+ * this call created (a no-op when the caller passed its own `dir` — that caller owns it).
+ * Every staged copy is a ~30 MB `musterd`; before this returned a bare path, one full
+ * `make e2e` left 12 orphaned `muster-e2e-staged-*` dirs behind (≈4 GB after a week).
  */
-export async function stageBinary(src: string, dir?: string): Promise<string> {
+export interface StagedBinary {
+  path: string;
+  cleanup: () => Promise<void>;
+}
+
+export async function stageBinary(src: string, dir?: string): Promise<StagedBinary> {
+  const owned = dir === undefined;
   const targetDir = dir ?? (await mkdtemp(join(tmpdir(), "muster-e2e-staged-")));
   const dest = join(targetDir, "musterd");
   await copyFile(src, dest);
   await chmod(dest, 0o755);
-  return dest;
+  return {
+    path: dest,
+    cleanup: async () => {
+      if (owned) await rm(targetDir, { recursive: true, force: true });
+    },
+  };
 }
