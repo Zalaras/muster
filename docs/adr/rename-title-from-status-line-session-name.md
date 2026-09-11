@@ -1,7 +1,7 @@
 ---
 id: rename-title-from-status-line-session-name
 type: decision
-status: accepted
+status: superseded
 date: 2026-08-16
 summary: A session's displayed title is read from the status line's session_name, which reflects --name, /rename and the auto-generated title alike.
 features: [rename, usage]

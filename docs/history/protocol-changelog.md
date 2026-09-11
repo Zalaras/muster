@@ -34,7 +34,7 @@ on 2026-09-11.
   verified, status}`; `installed` null iff `status` is `unknown`; `floor`/`verified` always present.
   §3.12's snapshot allowlist follows. First version bump; the embedded dashboard ships with the
   daemon, so the only skewed client is an open tab, which gets "reload the dashboard".
-- **2026-09-05 — §3.16 `POST /api/sessions/{id}/shell`; §6.1 `/ws/shell/{id}`; §3.8 also kills
+- **2026-09-05 — §3.16 `POST /api/sessions/{id}/shell`; §6.1 `/ws/shell/{id}`; §3.8 also kills <!-- kb: adr/surfaces-shell-is-attach-target-not-session, adr/surfaces-shell-spawn-http-then-attach-ws, adr/surfaces-one-live-client-per-attach-target, adr/surfaces-shell-pane-carries-no-session-env -->
   the shell** (plan `plain-terminal-session`, Pre-v1, closes #21). A plain `$SHELL` tabbed to an
   existing session, in its directory, in a sibling tmux session `muster-<id>-shell`. Spawned
   lazily over HTTP (so its failure has a body the dashboard can render — a browser cannot read a
@@ -45,22 +45,22 @@ on 2026-09-11.
   shell pane carries no `MUSTER_SESSION`, so a nested `claude` cannot bind to its parent. Additive
   (two new routes, no existing shape changed); no version bump.
 
-- **2026-09-03 — §3.15 `PUT /api/sessions/{id}/title`; §5.3 `title` becomes the display title
+- **2026-09-03 — §3.15 `PUT /api/sessions/{id}/title`; §5.3 `title` becomes the display title <!-- kb: adr/rename-muster-owned-title-override-wins -->
   and gains `titleOverride`** (plan `ui-text-and-focus`, Pre-v1, closes #10 with #16/#18/#19).
   A daemon-owned, nullable title override that wins over the status line's `session_name`;
   status posts never touch it; a hidden Claude-name change persists without a broadcast.
   Additive on the wire (one new nullable field, one new endpoint); no version bump.
-- **2026-09-03 — §3.1/§3.2/§5.3/§7.2: `permissionMode` gains `"auto"`** (plan
+- **2026-09-03 — §3.1/§3.2/§5.3/§7.2: `permissionMode` gains `"auto"`** (plan <!-- kb: adr/launch-permission-modes-offered-four-tabbed -->
   `fix-auto-mode-select`, closes #12). Claude Code 2.1.259 has a distinct `auto` mode
   (`--permission-mode auto`, hooks report `"auto"`); the launcher's "auto-accept" radio was
   accept-edits (`acceptEdits`) mis-labelled. `"default"` stays the wire value for what Claude
   Code now calls manual (measured identical on the wire). The 400 message names all four.
-- **2026-09-02 — §3.14 `POST /api/sessions/{id}/locate`** (plan `file-drop-fix`, Pre-v1,
+- **2026-09-02 — §3.14 `POST /api/sessions/{id}/locate`** (plan `file-drop-fix`, Pre-v1, <!-- kb: adr/drop-daemon-locates-original-never-stages -->
   closes #8). New endpoint resolving a dropped file's uploaded bytes to its original
   on-disk path via Spotlight then a session-directory walk, byte-compared; `404
   not_located` / `409 ambiguous` (with `paths`) / `413 too_large`. The daemon never stages
   a copy. No WS change; additive, no version bump.
-- **2026-09-02 — §3.3/§5.2/§5.5/§5.6: theme pref and Claude theme family** (plan
+- **2026-09-02 — §3.3/§5.2/§5.5/§5.6: theme pref and Claude theme family** (plan <!-- kb: adr/theme-pref-enum-follow-not-nullable, adr/theme-claude-theme-read-only-poll -->
   `new-ui-design-colors`, Pre-v1 Cleanup, closes #3). `PUT /api/prefs` gains `theme`
   (pattern-validated, otherwise opaque to the daemon; default `"follow"`); `snapshot` and
   `GET /api/state` gain `claudeTheme.family` (`light`/`dark`/`unknown`, always present); the
@@ -185,7 +185,7 @@ on 2026-09-11.
   outside it remain browsable. Motivation: the E2E harness had to create scratch
   directories under the real `$HOME` to drive the Browse… flow. Additive; no version
   bump.
-- **2026-09-03 — §7.2/§7.3/§7.4: subagent-marked events are never stragglers; turn activity
+- **2026-09-03 — §7.2/§7.3/§7.4: subagent-marked events are never stragglers; turn activity <!-- kb: adr/lifecycle-subagent-marked-events-not-stragglers -->
   clears `attention` and `failure`** (plan `claude-status-fixes`, closes #14, #15, #20).
   Measured on 2.1.259: a background subagent's `PreToolUse`/`PostToolUse`/`PermissionRequest`
   carry the parent turn's `prompt_id` plus an agent marker and arrive after the parent's

@@ -8,7 +8,7 @@ features: [launch, lifecycle]
 tags: [ux, state-machine, claude-code-format]
 files: [internal/claudecode/launch.go, internal/session/machine.go, web/src/features/launch.ts]
 tests: [TestLatchPermissionMode_SeedThenHookInvariant, TestLauncher_AutoPermissionModeSeedsLatchAndRepoDefault, web/e2e/permission-mode.spec.ts]
-refs: [docs/history/spec-changelog.md, kb:fact/permission-mode-presence-split, kb:fact/permission-mode-flag-on-wire, kb:anchor/sessions.create, kb:anchor/state.transitions]
+refs: [docs/history/spec-changelog.md, kb:fact/permission-mode-presence-split, kb:fact/permission-mode-flag-on-wire, kb:anchor/sessions.create, kb:anchor/state.transitions, kb:adr/launch-permission-modes-offered-four-tabbed]
 supersedes: []
 ---
 **Context.** The Planning state derives from the permission mode, but the mode reaches Muster only on some hook payloads and never on the status line, and a manual mode change in the terminal fires nothing. Between launch and the first prompt Muster had no honest value to show.

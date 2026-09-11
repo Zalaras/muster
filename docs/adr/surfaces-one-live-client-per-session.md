@@ -1,7 +1,7 @@
 ---
 id: surfaces-one-live-client-per-session
 type: decision
-status: accepted
+status: superseded
 date: 2026-08-16
 summary: A session is live on exactly one surface at one geometry at a time; every other rendering of it is a static snapshot.
 features: [surfaces, tiles, rail]

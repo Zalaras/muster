@@ -1,7 +1,7 @@
 ---
 id: release-versioning-automatic-from-conventional-commits
 type: decision
-status: accepted
+status: superseded
 date: 2026-08-31
 summary: Versions are computed from conventional commits since the last tag on every push to main; Muster stays on 0.x, so the breaking marker is not used.
 features: [release]

@@ -8,7 +8,7 @@ features: [shortcuts, rail]
 tags: [ux, consensus]
 files: [web/src/features/shortcuts.ts, web/src/features/focus.ts, web/src/sessions/sort.ts]
 tests: [web/e2e/shortcuts.spec.ts, web/e2e/views.spec.ts]
-refs: [docs/history/spec-changelog.md, plan:order-sidebar, plans/order-sidebar/decisions/cmd-n-ordering/decision.md, kb:adr/rail-user-owned-manual-order-default, docs/design/ux-flows.md]
+refs: [docs/history/spec-changelog.md, plan:order-sidebar, plans/order-sidebar/decisions/cmd-n-ordering/decision.md, kb:adr/rail-user-owned-manual-order-default, docs/design/ux-flows.md, plan:shortcut-fixes, kb:adr/shortcuts-jump-to-neediest-option-command-zero]
 supersedes: []
 ---
 **Context.** Before manual order existed, the number chords indexed the attention sort and the rail showed the same thing, so the two could not disagree. Once the rail displayed a user-owned order, the chords had to pick a side.

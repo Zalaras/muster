@@ -613,6 +613,7 @@ Settled while implementing plan `tmux-installation` (issues #2 and #4).
   Code wire-format one, so it is recorded here and not in `spikes/`.
 
 ### 2026-09-01 — release policy unified (types, bumps, notes, breaking, guard)
+<!-- kb: adr/process-release-commitlint-eleven-types, adr/process-release-bump-map-widened-perf-refactor, adr/process-release-notes-derived-from-bumping-types, adr/process-release-breaking-marker-bang-gated, adr/process-release-v0-clamp-v1-deliberate -->
 
 The release policy lived in five places that had drifted (conventions, the goreleaser
 filters, `release.yml`, `/land`, the agents' hardcoded types). Settled with Damian after
@@ -649,6 +650,7 @@ measurements are in `docs/conventions.md` § Commits.
   1,900 as `112c36c` recorded.
 
 ### 2026-09-02 — theme tokens, light/dark pair, contrast pass (spec, plan `new-ui-design-colors`)
+<!-- kb: adr/theme-two-layer-tokens-not-white-label, adr/theme-three-builtin-themes-instrument-default, adr/theme-aa-contrast-gated-in-check, adr/theme-state-hues-fixed-across-themes, adr/theme-pref-follows-claude-until-picked, adr/theme-claude-theme-read-only-poll, adr/theme-terminal-ground-follows-claude-family -->
 
 Spec interview for issue #3; settled with Damian, not yet built. Full text in
 `plans/new-ui-design-colors/spec.md`.
@@ -688,6 +690,7 @@ Spec interview for issue #3; settled with Damian, not yet built. Full text in
   direction was chosen by.
 
 ### 2026-09-02 — theme tokens shipped (plan `new-ui-design-colors`, via `/orchestrate`, approved review cycle 1)
+<!-- kb: adr/theme-contrast-exemptions-button-borders-state-tints, adr/theme-role-named-surface-tokens-hue-named-state, adr/theme-pref-enum-follow-not-nullable, adr/theme-term-split-from-well -->
 
 Built on branch `plan/new-ui-design-colors`; lands with `/land`. Four decisions the plan
 took where the spec above left room, plus one split the spec did not foresee:
@@ -715,6 +718,7 @@ pairs per theme, 0 failures), Settings dialog, `claudeTheme` poll and broadcast,
 file (mtime unchanged over ~480 ticks) and logs nothing per tick.
 
 ### 2026-09-02 — rail click puts the cursor in the terminal (plan `terminal-focus`, via `/orchestrate`, approved review cycle 1)
+<!-- kb: adr/focus-rail-click-focuses-terminal -->
 
 Issue #11. Built on branch `plan/terminal-focus`; lands with `/land`. Web-only, no protocol
 or schema delta.
@@ -732,6 +736,7 @@ or schema delta.
   pane's stub echo with no click on the pane.
 
 ### 2026-09-03 — file drop pastes the original path (plan `file-drop-fix`, via `/orchestrate`, approved review cycle 2)
+<!-- kb: adr/drop-daemon-locates-original-never-stages, adr/drop-reorder-drag-mime-custom-type -->
 
 Issue #8. Built on branch `plan/file-drop-fix`; lands with `/land`. Additive protocol delta
 (`POST /api/sessions/{id}/locate`, `docs/protocol.md` §3.14), no schema or WS change.
@@ -763,6 +768,7 @@ Issue #8. Built on branch `plan/file-drop-fix`; lands with `/land`. Additive pro
   parallelism (`TODO.md`, Pre-v1 Cleanup).
 
 ### 2026-09-03 — focus marker, lifted dim-text floors, 15px type ramp, inline rename (plan `ui-text-and-focus`, via `/orchestrate`, approved review cycle 2)
+<!-- kb: adr/rail-current-marker-means-shown-in-focus, adr/theme-contrast-floors-above-aa, adr/theme-type-scale-tokens-15px-root, adr/rename-muster-owned-title-override-wins -->
 
 Four dashboard issues in one pass — #16, #18, #19, #10.
 
@@ -789,6 +795,7 @@ Four dashboard issues in one pass — #16, #18, #19, #10.
   Code's name. The UI never writes the title locally — it shows the last broadcast.
 
 ### 2026-09-03 — launcher offers Claude Code's four tabbed permission modes (plan `fix-auto-mode-select`, via `/orchestrate`, approved review cycle 2)
+<!-- kb: adr/launch-permission-modes-offered-four-tabbed, adr/launch-bypass-and-dontask-unoffered -->
 
 - **"auto-accept" in §4.1 / §4.5 means Claude Code's *accept edits* mode (`acceptEdits`).**
   The shorthand was coined when it was the only auto-ish mode. Claude Code has since grown a
@@ -813,6 +820,7 @@ Four dashboard issues in one pass — #16, #18, #19, #10.
   `default / hook` by the first `UserPromptSubmit` — the ordinary honesty-rule path (ux-flows §1.2).
 
 ### 2026-09-03 — subagent activity keeps a session working; attention/failure clear on resume; active segment click commits a rename (plan `claude-status-fixes`, via `/orchestrate`, approved review cycle 1)
+<!-- kb: adr/lifecycle-subagent-marked-events-not-stragglers, adr/views-active-segment-click-commits-rename -->
 
 - **A background subagent's hooks are not stragglers** (#14). Measured on 2.1.259
   (`spikes/FINDINGS.md` "subagent / background-task probe"): a subagent's `PreToolUse`/
@@ -838,6 +846,7 @@ Four dashboard issues in one pass — #16, #18, #19, #10.
   either segment never cancels. Switching views still cancels, as before.
 
 ### 2026-09-04 — keyboard bindings moved off browser-reserved chords, jump-to-neediest added (plan `shortcut-fixes`, via `/orchestrate`, approved review cycle 2)
+<!-- kb: adr/shortcuts-option-command-family-off-reserved-chords, adr/shortcuts-jump-to-neediest-option-command-zero, adr/shortcuts-match-event-code-in-pure-module -->
 
 - **⌘N → ⌥⌘N, ⌘1–9 → ⌥⌘1–9, plus a new ⌥⌘0 jump-to-neediest** (#5). Safari handles ⌘N above
   the page as New Window, so `preventDefault()` never reaches it; Muster no longer intercepts
@@ -872,6 +881,7 @@ Four dashboard issues in one pass — #16, #18, #19, #10.
   is Reviewer-Verified against the probe file, and a green `make e2e` must never be cited for it.
 
 ### 2026-09-04 — licence chosen: MIT (`LICENSE` added; repo still private)
+<!-- kb: adr/process-licence-mit, adr/process-contributions-deferred-to-first-pr -->
 
 Settles the "license decided later" posture in §8. Recorded arguments are in
 `docs/design/open-sourcing.md`; the decision in brief:
@@ -892,6 +902,7 @@ Settles the "license decided later" posture in §8. Recorded arguments are in
   employment IP clause.
 
 ### 2026-09-05 — a session may carry an ephemeral plain shell surface (plan `plain-terminal-session`, via `/orchestrate`, approved review cycle 2)
+<!-- kb: adr/surfaces-shell-is-attach-target-not-session, adr/surfaces-shell-spawn-http-then-attach-ws, adr/surfaces-one-live-client-per-attach-target, adr/surfaces-shell-pane-carries-no-session-env, adr/surfaces-shell-lifetime-until-exit-remove-or-reconcile, adr/theme-shell-pip-own-token, adr/surfaces-shell-control-in-tile-footer -->
 
 Closes [#21](https://github.com/Zalaras/muster/issues/21) in its smallest useful shape,
 settled in `plans/plain-terminal-session/spec.md`. Muster can now show a second surface per
@@ -926,6 +937,7 @@ the Focus mainhead and in every tile footer swaps the surface body in place.
   across restarts, several shells per session — stays in `TODO.md` M5+.
 
 ### 2026-09-06 — test strategy settled: explicit E2E fixtures, one load policy, faked subprocess boundary (direct on `main`)
+<!-- kb: adr/process-e2e-explicit-fixtures, adr/process-e2e-one-load-policy, adr/process-e2e-lint-mechanises-fixture-rules, adr/process-faked-subprocess-boundary, adr/process-e2e-no-playwright-retries -->
 
 Closes the open question raised 2026-09-03 (`docs/design/test-strategy.md`) after three measured
 load-sensitivity flakes. Settled in this session with Damian rather than through `/orchestrate`,
