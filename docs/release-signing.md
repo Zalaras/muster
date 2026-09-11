@@ -11,7 +11,7 @@ there is no unsigned fallback (plan `auto-update`, 2026-09-10, REQ-15/REQ-24).
   key ID minisign prints, and the suffix of the public key file's own comment line):
 
   ```
-  647ADECB8044F4A2
+  7FA9D01D017D739A
   ```
 
 - **Private key + passphrase**: never committed, never handled by Claude (CLAUDE.md hard
@@ -58,6 +58,12 @@ A key rotation that skips step 2 (ships the new public key in a release signed w
 *new* key, not the old one) locks out every existing install: they'd need the new key to
 verify the very release that introduces it.
 
+The key change from `647ADECB8044F4A2` to `7FA9D01D017D739A` (2026-09-11) was **not** a
+rotation and owes no transitional release: the first key was a placeholder committed with
+the feature and was replaced before it ever signed anything. v0.12.0 embeds it but was
+signed with `7FA9D01D017D739A`, so no v0.12.0 install can self-update — reinstall rather
+than `-update` from it. Every release from v0.12.1 embeds the key that signs it.
+
 ## The M1 ritual
 
 **M1** (plan `auto-update` Acceptance Criteria, Manual): the first real release cut after
@@ -70,7 +76,7 @@ key. Concretely:
 2. Wait for (or trigger) a second release.
 3. Run the *first* release's `musterd -update` and confirm it downloads, verifies, and
    installs the second release's binary (`musterd -version` reports the new version
-   afterward).
+   afterward). Start from **v0.12.1**, not v0.12.0 — see the note under Rotation.
 
 **M2**: read `.goreleaser.yaml`'s `signs:` block and confirm it has no `ignore_errors` (or
 any other error-suppression key) — a missing secret must fail the release, never publish
