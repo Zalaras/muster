@@ -888,6 +888,16 @@ These are some minor changes and cleanup needed before we can move into post v1.
   placeholders not `$` variables, `sequential` unused, and the config sits in `web/` so the
   ancestor-lookup change is moot.
 
+- [x] **`/triage` hardened against prompt injection from public issues** ✅ done 2026-09-11 (direct on `main`, plan `triage-hardening`)
+  — the repo went public 2026-09-10, so an issue body is attacker-controlled text, and the
+  skill's `allowed-tools: … Bash …` was *granting* prompt-free Bash for the very turn that
+  ingested one (`allowed-tools` grants, it does not restrict). The real target was `TODO.md`,
+  which every later `/orchestrate` and `/plan-work` session reads with full tools. Now
+  `tools/triage` fetches, sanitises, routes, validates, splices and commits; a
+  `triage-proposer` subagent holding only `Read` summarises one artifact each; untrusted
+  issues render from enums plus one verbatim-checked quote, so no model-authored prose
+  reaches this file. Design and residual risks: `docs/design/triage-hardening.md`.
+
 ## Reported issues (pre-v1 release)
 
 Issues filed from the dashboard's masthead `Issue` button land on

@@ -66,4 +66,20 @@ case "$branch:$type" in
     ;;
 esac
 
+# A triage pass files backlog entries and nothing else. The staged set is checked here
+# rather than in pre-commit because only this hook sees the subject, and the rule is
+# subject-conditioned: ordinary commits touch TODO.md alongside code all the time.
+#
+# `go run ./tools/triage apply` verifies the same thing before it commits; this is the
+# half that still holds when something other than that tool wrote the commit.
+if printf '%s\n' "$subject" | grep -q '^docs(triage):'; then
+  staged=$(git diff --cached --name-only)
+  if [ "$staged" != "TODO.md" ]; then
+    fail "a docs(triage) commit may stage only TODO.md (staged: $(printf '%s' "$staged" | tr '\n' ' '))"
+  fi
+  if printf '%s\n' "$subject" | grep -qiE '\b(close[sd]?|fix(e[sd])?|resolve[sd]?) #[0-9]'; then
+    fail "a triage subject must never carry a closing keyword — it would close the issues it just filed"
+  fi
+fi
+
 exit 0

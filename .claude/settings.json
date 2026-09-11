@@ -25,15 +25,14 @@
       "Bash(git commit:*)",
       "Bash(gh pr view:*)",
       "Bash(gh pr list:*)",
-      "Bash(gh issue view:*)",
-      "Bash(gh issue list:*)",
       "Bash(tmux -L muster:*)",
       "Bash(curl -s http://127.0.0.1:*)",
       "WebFetch(domain:code.claude.com)",
       "WebFetch(domain:docs.anthropic.com)"
     ],
     "deny": [
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "mcp__*"
     ]
   },
   "enableAllProjectMcpServers": true

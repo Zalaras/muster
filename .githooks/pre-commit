@@ -1,14 +1,38 @@
 #!/bin/sh
-# Identity guard — refuses to commit while this repo carries a repo-local git identity
-# (`[user]` in .git/config). Only Damian's global ~/.gitconfig identity may author
-# commits here. Armed per clone by `make hooks`, same as commit-msg.
+# Two guards, armed per clone by `make hooks` (same as commit-msg).
 #
-# Why: 2026-09-10 a pipeline agent ran `git config user.email test@example.invalid`
+#   1. Identity — refuses to commit while this repo carries a repo-local git identity.
+#   2. TODO.md entry links — refuses an added backlog entry whose issue link is forged.
+#
+# Why (1): 2026-09-10 a pipeline agent ran `git config user.email test@example.invalid`
 # inside a scratch `git worktree` of this repo. Worktrees SHARE .git/config, so the
 # override landed on the real repo and two commits reached main (and a release) as
 # `test <test@example.invalid>`. Scratch repos are `git init` in a temp dir, or pass
 # `-c user.name=… -c user.email=…` per command — never `git config user.*` here.
+#
+# Why (2): the repo went public 2026-09-10, so an issue body is attacker-controlled text,
+# and TODO.md is read by every later /orchestrate and /plan-work session with full tools
+# (docs/design/triage-hardening.md). `tools/triage apply` renders entries from a fixed
+# template; this check is what makes that mechanical rather than a promise, because a
+# model holding Edit can write to TODO.md whatever the skill says.
+#
+# Deliberately narrow. It checks only the entry HEADER line — the one carrying the
+# issues/N link — for two things a legitimate entry never violates: the #N must equal the
+# N in its own URL, and the line must carry no angle brackets. It does NOT police
+# continuation lines: 321 lines of TODO.md carry em-dashes and entries legitimately end
+# in "✅ done <date> (plan …)", so anything stricter would block ordinary hand edits.
+# The narrow half is the half that holds against an adversary.
 
+fail() {
+  echo "pre-commit guard: $1" >&2
+  shift
+  for line in "$@"; do
+    echo "  $line" >&2
+  done
+  exit 1
+}
+
+# 1. Identity override.
 override=$(git config --local --get-regexp '^user\.(name|email)$' 2>/dev/null)
 if [ -n "$override" ]; then
   echo "pre-commit guard: repo-local git identity override present — refusing to commit" >&2
@@ -17,4 +41,28 @@ if [ -n "$override" ]; then
   echo "  (worktrees share .git/config — set scratch identities with -c, or git init a temp dir)" >&2
   exit 1
 fi
+
+# 2. TODO.md entry links. Only runs when TODO.md is staged.
+if git diff --cached --name-only | grep -qx 'TODO.md'; then
+  added=$(git diff --cached -U0 -- TODO.md | sed -n 's/^+//p' | grep 'issues/[0-9]')
+
+  # The #N and the URL's N must be the same number. A forged entry — one pointing a
+  # plausible title at somebody else's issue — cannot survive the backreference.
+  forged=$(printf '%s\n' "$added" | grep -v '^$' | \
+    grep -v '^- \[[ xX]\] \*\*[^*]\{1,\}\*\* (\[#\([0-9]\{1,\}\)\](https://github\.com/[A-Za-z0-9_.-]\{1,\}/[A-Za-z0-9_.-]\{1,\}/issues/\1))')
+  if [ -n "$forged" ]; then
+    fail "TODO.md entry does not match the house template, or its #N and URL disagree" \
+      "$forged" \
+      "want: - [ ] **title** ([#N](https://github.com/<owner>/<repo>/issues/N))" \
+      "entries are written by \`go run ./tools/triage apply\`, not by hand or by an agent"
+  fi
+
+  # No markup in an entry header. tools/triage escapes angle brackets everywhere; one
+  # surviving here means the entry did not come through the sanitiser.
+  markup=$(printf '%s\n' "$added" | grep '[<>]')
+  if [ -n "$markup" ]; then
+    fail "TODO.md entry contains an angle bracket — it did not come through tools/triage" "$markup"
+  fi
+fi
+
 exit 0

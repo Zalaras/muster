@@ -1597,3 +1597,41 @@ Interview in `plans/auto-update/spec.md`; decisions:
   format lives in `internal/claudecode`; the server owns the poller and the wire (`update`
   message, `POST /api/update/apply`, `GET /api/update/restart-impact` — protocol §3.17, §3.18,
   §5.7); `cmd/musterd` owns the flag, the classification and the re-exec.
+
+### 2026-09-11 — `/triage` reads public issues through a program, not a model (direct on `main`)
+
+The repo went public 2026-09-10, which made an issue body attacker-controlled text.
+`/triage` was reading one straight into the main session — and the skill's
+`allowed-tools: … Bash …` *granted* prompt-free Bash for exactly the turn that ingested it,
+because `allowed-tools` grants rather than restricts. Design and residual risks:
+`docs/design/triage-hardening.md`. Decisions, settled:
+
+- **`TODO.md` is the target, not the triage moment.** Every later `/orchestrate`,
+  `/plan-work` and `/triage --audit` session reads it with full tools, so a payload can lie
+  dormant and fire in a more capable session weeks later. That is what the facts-only path
+  exists to prevent, not the immediate turn.
+- **Nothing between GitHub and the `TODO.md` diff is a model with tools.**
+  `tools/triage` (new, dev-only — `.goreleaser.yaml` builds only `./cmd/musterd`) fetches,
+  sanitises, routes, validates, splices and commits. `triage-proposer` — the first agent in
+  this repo with a `tools:` field, which unlike a skill's `allowed-tools` genuinely
+  restricts — summarises one artifact per subagent and holds nothing but `Read`.
+- **Everything in the body is untrusted, including the snapshot JSON.** An author can edit
+  their own issue forever and nothing binds that JSON to anything `musterd` emitted. Owning
+  the schema buys a strict parser, never trust; the regenerated fact table is labelled
+  *reported, not verified*, and a version field never justifies closing a report.
+- **Drop-and-count, never reject.** The snapshot schema had already drifted — issue #9
+  carries `claudeCode.{pinned,drift}` against today's `{installed,floor,verified,status}` —
+  so `internal/triage/schema.go` is a union of every shape emitted, with retired rows kept
+  deliberately. `internal/server/issue_snapshot_drift_test.go` asserts one direction only.
+- **Never auto-close.** A tripwire hit *holds* an issue. Auto-closing would be an outward
+  write driven by attacker input, it contradicts the close policy settled 2026-08-31, and on
+  a public repo a false positive silently dismisses a real report. muster is a Claude Code
+  tool, so issues legitimately discuss prompt handling: those false positives are accepted
+  and cost a held issue, never a close.
+- **Rejected: sandboxing.** Containment is for execution and the proposer has none;
+  capability removal beats isolation for a job that only reads. Claude Code's Seatbelt
+  sandbox also cannot give a hard network boundary from project settings
+  (`sandbox.network.strictAllowlist` is user/managed scope only) and would add permission
+  prompts, i.e. involvement.
+- **Damian's involvement is unchanged** — pick a section, approve a duplicate-close,
+  approve a dirty `TODO.md` — plus a held list that is empty on a normal run.
