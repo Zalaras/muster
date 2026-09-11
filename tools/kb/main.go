@@ -1,7 +1,7 @@
-// Command kb indexes and gates the docs/ knowledge base: the record frontmatters under
-// docs/rules, docs/adr, docs/facts, docs/lessons, docs/runbooks, docs/references and
-// docs/features/<name>/spec.md, the kb:anchor comments in docs/protocol.md, and every
-// generated file rendered from them.
+// Command kb indexes and gates the docs/ knowledge base: the record frontmatters in the
+// seven record directories (rules, adr, facts, lessons, runbooks, references, and the
+// per-feature spec.md), the kb:anchor comments in docs/protocol.md, and every generated
+// file rendered from them.
 //
 //	go run ./tools/kb gen                       # regenerate; write only changed files
 //	go run ./tools/kb check                     # every invariant; exit 1 listing each finding

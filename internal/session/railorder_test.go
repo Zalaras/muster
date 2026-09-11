@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// assertInvariants is INV-1/INV-2's shared check (docs/protocol.md §5.3, plan
+// assertInvariants is INV-1/INV-2's shared check (kb:anchor/ws.session, plan
 // order-sidebar Invariants): every pinned entry's RailPos is smaller than every
 // unpinned entry's (INV-1), and no two entries share a RailPos (INV-2). Used after
 // every applyPin/applyOrder case in the table tests below (D13/D14) — asserted
@@ -211,8 +211,8 @@ func TestApplyPin_InvariantsHoldFromEveryStartingConfiguration(t *testing.T) {
 	}
 }
 
-// TestApplyPin_PinMovesToBottomOfPinnedBlock covers D6 precisely (docs/protocol.md
-// §3.10): pinning places id immediately after the current last pinned session (or at
+// TestApplyPin_PinMovesToBottomOfPinnedBlock covers D6 precisely
+// (kb:anchor/sessions.pin): pinning places id immediately after the current last pinned session (or at
 // the very top, when nothing was pinned before), never reordering the rest of the
 // pinned block.
 func TestApplyPin_PinMovesToBottomOfPinnedBlock(t *testing.T) {

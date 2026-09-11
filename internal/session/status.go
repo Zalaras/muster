@@ -2,7 +2,7 @@ package session
 
 import "github.com/Zalaras/muster/internal/claudecode"
 
-// applyStatusUpdate mutates sess per §5.3's M3 value semantics: title, model, and
+// applyStatusUpdate mutates sess per kb:anchor/ws.session's M3 value semantics: title, model, and
 // context refresh from a routed status-line post, each adopted only when update carried
 // it and only when it actually differs from the current value. Returns whether anything
 // changed, so the caller only persists+broadcasts on a real change (REQ-4, INV-5's

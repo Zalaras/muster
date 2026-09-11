@@ -16,7 +16,7 @@ import (
 )
 
 // Phase is one step of an Apply call, mirrored on the wire as `update.apply.phase`
-// (docs/protocol.md §5.7).
+// (kb:anchor/ws.update).
 type Phase string
 
 // The seven phases Apply/the update manager walk through, in order (D19): Idle is never

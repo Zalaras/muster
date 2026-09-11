@@ -1,14 +1,14 @@
 // Message types and parser for the daemon->UI WebSocket protocol (docs/protocol.md, protocol
 // version 2 as of plan version-claude-interface, 2026-09-10).
 //
-// M0 only ever sends `hello` and `snapshot` (docs/protocol.md §8). Unknown message
-// types and unknown fields are ignored per protocol §1's "additive evolution" rule —
+// M0 only ever sends `hello` and `snapshot` (docs/history/protocol-changelog.md). Unknown message
+// types and unknown fields are ignored per kb:anchor/conventions's "additive evolution" rule —
 // parsing here only ever reads the fields it knows about, so future additions never
 // need a change here to keep working.
 
 export const PROTOCOL_VERSION = 2;
 
-// Plan version-claude-interface (docs/protocol.md §5.1, protocol 2): the daemon's startup
+// Plan version-claude-interface (kb:anchor/ws.hello, protocol 2): the daemon's startup
 // classification of the installed Claude Code against the canary-verified range —
 // replaces the M0-era {pinned, installed, drift} pin/drift shape.
 export type ClaudeCodeStatus = "unknown" | "below" | "verified" | "above";
@@ -32,7 +32,7 @@ export interface UsageBucket {
   resetsAt: string;
 }
 
-/** Plan usage-model-bar (docs/protocol.md §5.4): one model-scoped weekly window, as
+/** Plan usage-model-bar (kb:anchor/ws.usage): one model-scoped weekly window, as
  * musterd's own `GET /api/oauth/usage` poller reports it — a second usage source,
  * independent of the status-line buckets above. */
 export interface ModelWindow {
@@ -48,14 +48,14 @@ export type ModelScopedError = "no-credentials" | "unauthorized" | "unreachable"
 export interface Usage {
   fiveHour: UsageBucket | null;
   sevenDay: UsageBucket | null;
-  // M3 addition (docs/protocol.md §5.4): the freshest sample's model, masthead-only.
+  // M3 addition (kb:anchor/ws.usage): the freshest sample's model, masthead-only.
   // Optional (not just nullable) so a pre-M3 wire payload that omits the key entirely
-  // round-trips unchanged (additive evolution, protocol §1) — present-and-null still
+  // round-trips unchanged (additive evolution, kb:anchor/conventions) — present-and-null still
   // means "no sample yet", same as the buckets.
   model?: SessionModelInfo | null;
   sampledAt: string | null;
   source: string;
-  // Plan usage-model-bar additions (docs/protocol.md §5.4) — optional wire fields, same
+  // Plan usage-model-bar additions (kb:anchor/ws.usage) — optional wire fields, same
   // "absent key round-trips as absent, not synthesized null" pattern as `model` above,
   // so a pre-plan daemon's payload (all four keys absent) round-trips unchanged. INV-1
   // (modelScopedAt null iff modelScoped null) is a daemon-side invariant only — a client
@@ -109,7 +109,7 @@ export interface SessionContext {
   compactions: number;
 }
 
-// Full shape per docs/protocol.md §5.3 (M1: the state machine now produces non-empty
+// Full shape per kb:anchor/ws.session (M1: the state machine now produces non-empty
 // arrays, so parseSession below validates every field rather than trusting the daemon).
 export interface Session {
   id: number;
@@ -128,18 +128,18 @@ export interface Session {
   lastActivity: string | null;
   claudeSessionId: string | null;
   tmuxTarget: string;
-  // M1 addition (protocol §5.3): true iff the launch created this directory's repo row —
+  // M1 addition (kb:anchor/ws.session): true iff the launch created this directory's repo row —
   // drives the trust-prompt vs. no-signal honesty note client-side (REQ-17).
   firstLaunchHere: boolean;
   createdAt: string;
-  // Plan order-sidebar (protocol §5.3): the rail's user-owned order. Required on every
+  // Plan order-sidebar (kb:anchor/ws.session): the rail's user-owned order. Required on every
   // wire Session (never null, both fields ship together) — unlike `model`/`usageModel`'s
   // "absent key defaults" pattern, there is no pre-plan daemon to tolerate here (the
   // daemon and client ship together for this plan), so parseSession below rejects a
   // session missing either field rather than defaulting it.
   pinned: boolean;
   railPos: number;
-  // Plan ui-text-and-focus (protocol §5.3): the user's rename via `PUT
+  // Plan ui-text-and-focus (kb:anchor/ws.session): the user's rename via `PUT
   // /api/sessions/{id}/title`; `null` means no override. `title` above is already the
   // daemon's precedence-resolved DISPLAY title (titleOverride when non-null, else
   // Claude's last-known name) — a client renders `title` and reads this field only to
@@ -149,12 +149,12 @@ export interface Session {
   titleOverride: string | null;
 }
 
-// Plan order-sidebar (protocol §3.3): the rail's sort mode pref.
+// Plan order-sidebar (kb:anchor/prefs.put): the rail's sort mode pref.
 export type RailSort = "manual" | "attention";
 
 export type Density = "2x2" | "3x2";
 
-// M2 (docs/protocol.md §3.3 refinement): density is always present alongside view — the
+// M2 (kb:anchor/prefs.put refinement): density is always present alongside view — the
 // daemon's default before any PUT is {"view":"focus","density":"2x2","usageModel":"Fable"}
 // — so all three fields are required here, matching every real `snapshot`/`prefs` payload
 // on the wire. `usageModel` was added by plan usage-model-bar; `parsePrefs` below defaults
@@ -163,24 +163,24 @@ export interface Prefs {
   view: "focus" | "tiles";
   density: Density;
   usageModel: string;
-  // Plan order-sidebar (docs/protocol.md §3.3): defaulted to "manual" client-side when
+  // Plan order-sidebar (kb:anchor/prefs.put): defaulted to "manual" client-side when
   // the key is absent (same "pre-plan daemon" tolerance as `usageModel`).
   railSort: RailSort;
-  // Plan new-ui-design-colors (docs/protocol.md §3.3, REQ-19): opaque to the daemon
+  // Plan new-ui-design-colors (kb:anchor/prefs.put, REQ-19): opaque to the daemon
   // beyond its pattern — the client owns the theme registry (theme.ts). Missing key
   // (pre-plan daemon) defaults to "follow", same tolerance as usageModel/railSort.
   theme: string;
-  // Plan auto-update (docs/protocol.md §3.3/§5.5): governs checking only - the binary
+  // Plan auto-update (kb:anchor/prefs.put / kb:anchor/ws.prefs): governs checking only - the binary
   // never changes without an explicit apply. Missing key (pre-plan daemon) defaults to
   // true (the daemon's own documented default), same tolerance as the other prefs above.
   updateCheck: boolean;
 }
 
-// Plan auto-update (docs/protocol.md §5.7): the daemon's startup classification of its own
+// Plan auto-update (kb:anchor/ws.update): the daemon's startup classification of its own
 // resolved executable path, constant for the daemon's life.
 export type UpdateInstallKind = "installer" | "dev" | "homebrew" | "unmanaged";
 
-// Plan auto-update (docs/protocol.md §5.7): apply progress, broadcast on every phase change.
+// Plan auto-update (kb:anchor/ws.update): apply progress, broadcast on every phase change.
 export type UpdateApplyPhase = "idle" | "downloading" | "verifying" | "installing" | "restarting" | "failed" | "done";
 
 export interface UpdateApply {
@@ -191,7 +191,7 @@ export interface UpdateApply {
   error: string | null;
 }
 
-// Plan auto-update (docs/protocol.md §5.7): the daemon's current view of its own update
+// Plan auto-update (kb:anchor/ws.update): the daemon's current view of its own update
 // state, always present on `snapshot` and re-sent on every field change as a bare `update`
 // message. `running` duplicates `hello.daemon.version` deliberately - render/update.ts's
 // buildUpdateViewModel renders the Settings dialog from this one object.
@@ -205,7 +205,7 @@ export interface UpdateInfo {
   apply: UpdateApply;
 }
 
-// Plan new-ui-design-colors (docs/protocol.md §5.2/§5.6): the daemon's latest read of
+// Plan new-ui-design-colors (kb:anchor/ws.snapshot / kb:anchor/ws.claude-theme): the daemon's latest read of
 // Claude Code's own theme setting, folded to a family. Always present on every
 // snapshot/GET /api/state — "unknown" while polling is disabled or nothing has been
 // read yet.
@@ -221,7 +221,7 @@ export interface Snapshot {
   usage: Usage;
   prefs: Prefs;
   claudeTheme: ClaudeThemeInfo;
-  // Plan auto-update (docs/protocol.md §5.2): always present on a post-plan daemon; a
+  // Plan auto-update (kb:anchor/ws.snapshot): always present on a post-plan daemon; a
   // pre-plan daemon's payload (no `update` key at all) parses this as null rather than
   // rejecting the snapshot (edge case 32) - same additive-evolution tolerance as
   // `claudeTheme` before it.
@@ -233,21 +233,21 @@ export interface SessionUpsert {
   session: Session;
 }
 
-// M2 (docs/protocol.md §5.5): full-object echo of every accepted `PUT /api/prefs`,
+// M2 (kb:anchor/ws.prefs): full-object echo of every accepted `PUT /api/prefs`,
 // broadcast to every connected UI socket (INV-4).
 export interface PrefsMessage {
   type: "prefs";
   prefs: Prefs;
 }
 
-// M3 (docs/protocol.md §5.4): broadcast whenever a routed status post's bucket values or
+// M3 (kb:anchor/ws.usage): broadcast whenever a routed status post's bucket values or
 // model changed — a bare `sampledAt` advance produces no broadcast (server-side dedup).
 export interface UsageMessage {
   type: "usage";
   usage: Usage;
 }
 
-// M4 (docs/protocol.md §5.5, plan m4-reconcile REQ-15): sent once per `DELETE
+// M4 (kb:anchor/ws.session-removed, plan m4-reconcile REQ-15): sent once per `DELETE
 // /api/sessions/{id}` — a client that has never seen `id` ignores it (features/actions.ts's
 // `handleRemoved` is a no-op on an unknown id, same tolerance as every other broadcast here).
 export interface SessionRemoved {
@@ -255,7 +255,7 @@ export interface SessionRemoved {
   id: number;
 }
 
-// Plan new-ui-design-colors (docs/protocol.md §5.6): sent only when the polled family
+// Plan new-ui-design-colors (kb:anchor/ws.claude-theme): sent only when the polled family
 // differs from the previously broadcast one — never per tick. Note the flat shape
 // (`family` a top-level key, not nested under `claudeTheme` like the snapshot field).
 export interface ClaudeThemeMessage {
@@ -263,7 +263,7 @@ export interface ClaudeThemeMessage {
   family: ClaudeFamily;
 }
 
-// Plan auto-update (docs/protocol.md §5.7): sent on every change to any `update` field
+// Plan auto-update (kb:anchor/ws.update): sent on every change to any `update` field
 // (check result, pref toggle, each apply phase, an out-of-band swap detection).
 export interface UpdateMessage {
   type: "update";
@@ -365,7 +365,7 @@ function parseUsage(value: unknown): Usage | null {
 
   const usage: Usage = { fiveHour, sevenDay, sampledAt, source };
   // `model` (M3) is read only when the key is actually present on the wire — an absent
-  // key stays absent on the parsed object (additive evolution, protocol §1), so an M0–M2
+  // key stays absent on the parsed object (additive evolution, kb:anchor/conventions), so an M0–M2
   // payload with no `model` key round-trips byte-for-byte rather than gaining a
   // synthesized `model: null`.
   if ("model" in value) {
@@ -374,7 +374,7 @@ function parseUsage(value: unknown): Usage | null {
     if (rawModel !== null && model === null) return null;
     usage.model = model;
   }
-  // Plan usage-model-bar (docs/protocol.md §5.4): same present-only pattern as `model`
+  // Plan usage-model-bar (kb:anchor/ws.usage): same present-only pattern as `model`
   // above — each of the four new fields is read only when its key is on the wire, and a
   // malformed value (wrong type, an unrecognized `modelScopedError` string, a malformed
   // `modelScoped` element) rejects the whole message rather than silently degrading to
@@ -410,23 +410,23 @@ function parsePrefs(value: unknown): Prefs | null {
   if (view !== "focus" && view !== "tiles") return null;
   if (density !== "2x2" && density !== "3x2") return null;
   // Plan usage-model-bar: missing key (pre-plan daemon) defaults to the daemon's own
-  // documented default, "Fable" (docs/protocol.md §5.5).
+  // documented default, "Fable" (kb:anchor/ws.prefs).
   const rawUsageModel = value["usageModel"];
   const usageModel = rawUsageModel === undefined ? "Fable" : rawUsageModel;
   if (typeof usageModel !== "string") return null;
   // Plan order-sidebar: missing key (pre-plan daemon) defaults to "manual" (docs/
-  // protocol.md §3.3's documented default).
+  // kb:anchor/prefs.put's documented default).
   const rawRailSort = value["railSort"];
   const railSort = rawRailSort === undefined ? "manual" : rawRailSort;
   if (railSort !== "manual" && railSort !== "attention") return null;
   // Plan new-ui-design-colors (REQ-19): missing key (pre-plan daemon) defaults to
-  // "follow" (docs/protocol.md §3.3's documented default) — the daemon treats the
+  // "follow" (kb:anchor/prefs.put's documented default) — the daemon treats the
   // string as opaque beyond its pattern, so no further validation happens client-side.
   const rawTheme = value["theme"];
   const theme = rawTheme === undefined ? "follow" : rawTheme;
   if (typeof theme !== "string") return null;
-  // Plan auto-update: missing key (pre-plan daemon) defaults to true (docs/protocol.md
-  // §3.3's documented default), same tolerance as usageModel/railSort/theme above.
+  // Plan auto-update: missing key (pre-plan daemon) defaults to true
+  // (kb:anchor/prefs.put's documented default), same tolerance as usageModel/railSort/theme above.
   const rawUpdateCheck = value["updateCheck"];
   const updateCheck = rawUpdateCheck === undefined ? true : rawUpdateCheck;
   if (typeof updateCheck !== "boolean") return null;
@@ -460,7 +460,7 @@ function parseUpdateApply(value: unknown): UpdateApply | null {
   return { phase, version, error };
 }
 
-/** Plan auto-update (docs/protocol.md §5.7). Every field is read-checked; a malformed
+/** Plan auto-update (kb:anchor/ws.update). Every field is read-checked; a malformed
  * value anywhere rejects the whole object rather than degrading it to a partial "unknown"
  * shape (same discipline as parseSession). */
 function parseUpdateInfo(value: unknown): UpdateInfo | null {
@@ -566,7 +566,7 @@ function parseContext(value: unknown): SessionContext | null {
   return { usedPct, totalInputTokens, windowSize, compactions };
 }
 
-/** Validates one Session object per docs/protocol.md §5.3. Every field is read-checked;
+/** Validates one Session object per kb:anchor/ws.session. Every field is read-checked;
  * an unrecognized field name or type anywhere in the object rejects the whole session
  * (the caller drops the snapshot/upsert rather than render a half-formed card). */
 export function parseSession(value: unknown): Session | null {
@@ -743,7 +743,7 @@ export function parseMessage(data: unknown): Message | null {
     case "update":
       return parseUpdateMessage(data);
     default:
-      return null; // unknown message types are ignored (protocol §1)
+      return null; // unknown message types are ignored (kb:anchor/conventions)
   }
 }
 

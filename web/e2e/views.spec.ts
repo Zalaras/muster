@@ -133,15 +133,15 @@ test("GET /api/state's prefs snapshot carries both view and density (M2 protocol
 
   const stateRes = await page.request.get(`${daemon.baseURL}/api/state`);
   expect(stateRes.status()).toBe(200);
-  // `usageModel` was added by plan usage-model-bar (protocol §3.3/§5.5 delta, merged
+  // `usageModel` was added by plan usage-model-bar (kb:anchor/prefs.put / kb:anchor/ws.prefs delta, merged
   // into docs/protocol.md on approval; default "Fable" before any PUT) — included
   // here so this M2 assertion tracks the merged protocol contract rather than going
   // stale the moment usage-model-bar ships, same rationale as density's own addition.
-  // `railSort` was added by plan order-sidebar (protocol §3.3 delta, merged into
+  // `railSort` was added by plan order-sidebar (kb:anchor/prefs.put delta, merged into
   // docs/protocol.md on approval; default "manual" before any PUT) — same rationale.
-  // `theme` was added by plan new-ui-design-colors (protocol §3.3 delta, merged into
+  // `theme` was added by plan new-ui-design-colors (kb:anchor/prefs.put delta, merged into
   // docs/protocol.md on approval; default "follow" before any PUT) — same rationale.
-  // `updateCheck` was added by plan auto-update (protocol §3.3/§5.5 delta, merged into
+  // `updateCheck` was added by plan auto-update (kb:anchor/prefs.put / kb:anchor/ws.prefs delta, merged into
   // docs/protocol.md on approval; default true before any PUT) — same rationale.
   const before = (await stateRes.json()) as {
     prefs: { view: string; density: string; usageModel: string; railSort: string; theme: string; updateCheck: boolean };

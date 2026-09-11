@@ -8,7 +8,7 @@ import (
 
 // SessionRow is the persisted shape of a session (m1-sessions Schema Changes). It is
 // the storage-level twin of internal/session.Session; internal/server converts between
-// the two so this package stays free of the §7 state machine's own vocabulary.
+// the two so this package stays free of the kb:anchor/state state machine's own vocabulary.
 type SessionRow struct {
 	ID                   int64
 	TmuxTarget           string
@@ -119,7 +119,7 @@ func (s *Store) DeleteSession(ctx context.Context, id int64) error {
 }
 
 // UpdateSession writes back the full row (whole-object, matching the whole-object
-// sessionUpsert design — docs/protocol.md §5.3) after any mutation.
+// sessionUpsert design — kb:anchor/ws.session) after any mutation.
 func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 	stateSince := row.StateSince.UTC().Format(time.RFC3339)
 	var attentionSince, endedAt *string
@@ -183,7 +183,7 @@ func (s *Store) GetSession(ctx context.Context, id int64) (SessionRow, error) {
 }
 
 // ListSessions returns every session row (order unspecified — the client sorts,
-// docs/protocol.md §5.2), for daemon startup reload (Edge Case 7).
+// kb:anchor/ws.snapshot), for daemon startup reload (Edge Case 7).
 func (s *Store) ListSessions(ctx context.Context) ([]SessionRow, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT `+sessionColumns+` FROM session`)
 	if err != nil {

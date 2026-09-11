@@ -450,7 +450,7 @@ test("a session with no context yet renders unknown in the preview, never 0% (E7
   try {
     await page.goto(daemon.dashboardUrl);
     const session = await launchSession(page, daemon, { directory: dir, title: "e7-unknown" });
-    // `POST /api/sessions` requires a non-empty `model` (docs/protocol.md §3.1), and
+    // `POST /api/sessions` requires a non-empty `model` (kb:anchor/sessions.create), and
     // `internal/session/machine.go`'s `applyBind` only ever overwrites `sess.Model`,
     // never nulls it — so `session.model` can never be null for a session reachable
     // through the real launch API. That state (REQ-12's "model" branch) is exercised

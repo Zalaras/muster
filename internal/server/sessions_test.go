@@ -334,7 +334,7 @@ func TestLauncher_AutoPermissionModeSeedsLatchAndRepoDefault(t *testing.T) {
 }
 
 // TestHandleEndSession_AlreadyDeadSessionIs409NotAlive covers D17's first clause
-// (docs/protocol.md §3.7): ending an already-ended session is a conflict, not a 404 or a
+// (kb:anchor/sessions.end): ending an already-ended session is a conflict, not a 404 or a
 // silent success.
 func TestHandleEndSession_AlreadyDeadSessionIs409NotAlive(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
@@ -360,7 +360,7 @@ func TestHandleEndSession_UnknownSessionIs404(t *testing.T) {
 }
 
 // TestHandleResumeSession_LiveSessionIs409NotResumable covers D17's second clause
-// (docs/protocol.md §3.5): resuming a still-alive session is a conflict.
+// (kb:anchor/sessions.resume): resuming a still-alive session is a conflict.
 func TestHandleResumeSession_LiveSessionIs409NotResumable(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 	id := seedSessionRow(t, srv, func(row *store.SessionRow) {
@@ -402,8 +402,8 @@ func TestHandleResumeSession_UnknownSessionIs404(t *testing.T) {
 	assert.Equal(t, "unknown_session", decodeErrorCode(t, rec))
 }
 
-// TestHandleRemoveSession_UnknownSessionIs404 covers D17's fourth clause (docs/protocol.md
-// §3.8): DELETE against an id nothing knows about is a 404, not a silent 204.
+// TestHandleRemoveSession_UnknownSessionIs404 covers D17's fourth clause
+// (kb:anchor/sessions.remove): DELETE against an id nothing knows about is a 404, not a silent 204.
 func TestHandleRemoveSession_UnknownSessionIs404(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 
@@ -431,8 +431,8 @@ func TestHandleRemoveSession_DeadSessionSucceeds(t *testing.T) {
 	assert.Error(t, err, "the row must actually be gone from the store")
 }
 
-// TestHandlePaneSnapshot_404BeforeCaptureThen200WithTextAfter covers D18 (docs/protocol.md
-// §3.4): no capture yet is 404 no_snapshot; once one lands, GET returns text+capturedAt.
+// TestHandlePaneSnapshot_404BeforeCaptureThen200WithTextAfter covers D18
+// (kb:anchor/sessions.pane): no capture yet is 404 no_snapshot; once one lands, GET returns text+capturedAt.
 func TestHandlePaneSnapshot_404BeforeCaptureThen200WithTextAfter(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 	id := seedSessionRow(t, srv, nil)
@@ -530,7 +530,7 @@ func TestHandlePinSession_RequiresCookie(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
-// TestHandlePinSession_InvalidBodyIs400 covers §3.10's 400 invalid_request clause: body
+// TestHandlePinSession_InvalidBodyIs400 covers kb:anchor/sessions.pin's 400 invalid_request clause: body
 // not JSON, or pinned missing/not a boolean.
 func TestHandlePinSession_InvalidBodyIs400(t *testing.T) {
 	tests := []struct {
@@ -646,7 +646,7 @@ func TestSessionOrderAndPinHandlers_RequireCookie(t *testing.T) {
 	}
 }
 
-// TestHandleSetOrder_InvalidBodyIs400 covers §3.11's 400 invalid_request clause: body
+// TestHandleSetOrder_InvalidBodyIs400 covers kb:anchor/sessions.order's 400 invalid_request clause: body
 // not JSON, ids/pinnedCount missing, a duplicate/unknown id, or pinnedCount out of
 // range — exercised through the real HTTP handler.
 func TestHandleSetOrder_InvalidBodyIs400(t *testing.T) {
@@ -695,7 +695,7 @@ func TestHandleSetOrder_SuccessIs204AndAppliesTheOrder(t *testing.T) {
 	assert.Less(t, rowB.RailPos, rowA.RailPos)
 }
 
-// TestHandleSetOrder_EmptyIDsIs204AndChangesNothing covers §3.11's explicit "empty ids
+// TestHandleSetOrder_EmptyIDsIs204AndChangesNothing covers kb:anchor/sessions.order's explicit "empty ids
 // is valid (a no-op ...)" clause through the real HTTP handler.
 func TestHandleSetOrder_EmptyIDsIs204AndChangesNothing(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})

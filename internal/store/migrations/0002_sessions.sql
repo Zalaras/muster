@@ -1,4 +1,4 @@
--- M1: repo (MRU picker + per-directory launch defaults), session (the §7 state
+-- M1: repo (MRU picker + per-directory launch defaults), session (the kb:anchor/state state
 -- machine's persisted row), and event.session_id (routing an ingested event to the
 -- Muster session it belongs to). See plans/m1-sessions/plan.md > Schema Changes.
 

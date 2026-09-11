@@ -2,7 +2,7 @@ package claudecode
 
 import "encoding/json"
 
-// InputKind is the neutral vocabulary the §7 state machine (internal/session) operates
+// InputKind is the neutral vocabulary the kb:anchor/state state machine (internal/session) operates
 // on. This is the whole interface between the two packages: internal/session never
 // reads a Claude Code payload key or event name (CLAUDE.md hard rule) — only these
 // values. (Named InputKind, not Kind, to avoid colliding with the ingest Kind type
@@ -25,7 +25,7 @@ const (
 )
 
 // StateInput is what Interpret derives from one persisted event's type + payload: the
-// §7.3 transition table's own vocabulary, plus the neutral fields the state machine
+// kb:anchor/state.transitions transition table's own vocabulary, plus the neutral fields the state machine
 // needs to carry forward. Nothing here is a Claude Code field name.
 type StateInput struct {
 	Kind InputKind
@@ -109,7 +109,7 @@ func Interpret(eventType string, payload []byte) StateInput {
 		return StateInput{Kind: KindInert}
 	default:
 		// Unknown hook_event_name: persist + log (done by the caller); inert here
-		// (forward compatibility, §7.3's last row).
+		// (forward compatibility, kb:anchor/state.transitions's last row).
 		return StateInput{Kind: KindInert}
 	}
 }

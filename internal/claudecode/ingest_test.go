@@ -26,7 +26,7 @@ func TestParseIngestBody_EnvelopedVsRaw(t *testing.T) {
 	}{
 		{
 			// Verbatim from the plan's Implementation Notes example (envelope binding,
-			// docs/protocol.md §4.2). SessionStart carries no prompt_id (canary-fields.md
+			// kb:anchor/ingest.envelope). SessionStart carries no prompt_id (canary-fields.md
 			// "common set").
 			name: "enveloped SessionStart with musterSession and tmuxPane",
 			body: `{"musterSession":1,"tmuxPane":"%12","payload":{"hook_event_name":"SessionStart","session_id":"e2e-s1","transcript_path":"/tmp/t.jsonl","cwd":"/tmp","source":"startup","model":{"id":"claude-haiku-4-5-20251001","display_name":"Haiku 4.5"}}}`,

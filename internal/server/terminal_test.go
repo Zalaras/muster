@@ -646,7 +646,7 @@ func TestHandleTerminal_ShutdownClosesOpenTerminalSocketsNormally(t *testing.T) 
 
 	// The client sees the WS upgrade (101) as soon as websocket.Accept returns, which
 	// is before the handler has attached the PTY and registered the connection in
-	// s.terminals (docs/protocol.md §6's handler order: accept, then attach, then
+	// s.terminals (kb:anchor/terminal.ws's handler order: accept, then attach, then
 	// register) — so Shutdown could otherwise race ahead of registration and find
 	// nothing to close. A real round trip through the pane proves attach+registration
 	// have actually completed before Shutdown is asked to tear it down.

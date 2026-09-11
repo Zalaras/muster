@@ -510,7 +510,7 @@ func TestPollLoop_RunsUntilStopped(t *testing.T) {
 }
 
 // TestGet_ReturnsCloneForAKnownSessionFalseForUnknown covers the terminal bridge's
-// pre-upgrade check (docs/protocol.md §6: 404 unknown id / 409 not_attachable).
+// pre-upgrade check (kb:anchor/terminal.ws: 404 unknown id / 409 not_attachable).
 func TestGet_ReturnsCloneForAKnownSessionFalseForUnknown(t *testing.T) {
 	st := openTestStore(t)
 	mgr := newTestManager(t, st, nil, nil)
@@ -1390,8 +1390,8 @@ func TestEnd_MarksEndedWhenPostKillPaneCheckErrors(t *testing.T) {
 	assert.True(t, otherPersisted.Alive, "the bystander's row must be untouched in the store too")
 }
 
-// TestEnd_UnknownAndAlreadyEndedSessions covers End's two error branches (docs/protocol.md
-// §3.7): an unknown id is ErrUnknownSession, and an already-ended session is
+// TestEnd_UnknownAndAlreadyEndedSessions covers End's two error branches
+// (kb:anchor/sessions.end): an unknown id is ErrUnknownSession, and an already-ended session is
 // ErrSessionNotAlive.
 func TestEnd_UnknownAndAlreadyEndedSessions(t *testing.T) {
 	st := openTestStore(t)
@@ -1785,8 +1785,8 @@ func TestApply_INV2_RebindResetsContextAndCompactionsBeforeItsOwnRowApplies(t *t
 
 // TestApply_MonotonicRebindGuard_ReorderedStragglerNeverRebindsBackwards is the
 // permanent regression test for review.md cycle 1 Critical 1 / Edge Case 6a, decided as
-// Option B in decisions/monotonic-rebind/decision.md and landed in docs/protocol.md
-// §4.2: an enveloped event naming a claude id this session has already left
+// Option B in decisions/monotonic-rebind/decision.md and landed in
+// kb:anchor/ingest.envelope: an enveloped event naming a claude id this session has already left
 // (byClaude[id] already points at this session, but it is not the current
 // ClaudeSessionID) is a reordered straggler, not a forward rebind. It must be routed
 // and applied, but must never move the binding backwards, reset the context gauge, or

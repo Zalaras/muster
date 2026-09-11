@@ -35,7 +35,7 @@ type IssueConfig struct {
 	// APIURL is the GitHub API's base URL. main always passes the flag's non-empty
 	// default, so this is the only place that URL is defined — no fallback constant
 	// duplicates it here. Empty disables both new endpoints entirely: they 404
-	// not_found (docs/protocol.md §3.12/§3.13).
+	// not_found (kb:anchor/issue.captures / kb:anchor/issue.create).
 	APIURL string
 	// TokenFile, when non-empty, reads the bearer token from this file's trimmed
 	// contents instead of running `gh auth token` — a test seam that makes it
@@ -298,7 +298,7 @@ func escapeCell(v string) string {
 	return v
 }
 
-// claudeCodeCell renders the issue snapshot's Claude Code row (docs/protocol.md §3.12):
+// claudeCodeCell renders the issue snapshot's Claude Code row (kb:anchor/issue.captures):
 // "<installed> installed · verified <floor>–<verified> · <status>", or
 // "installed unknown · verified <floor>–<verified>" when status is unknown — exactly the
 // hello semantics, never a drift/pin word.
@@ -474,8 +474,8 @@ func randomCaptureID() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// createCaptureRequest is POST /api/issue/captures' request body (docs/protocol.md
-// §3.12). The body itself is optional; an absent or null sessionId means dashboard
+// createCaptureRequest is POST /api/issue/captures' request body
+// (kb:anchor/issue.captures). The body itself is optional; an absent or null sessionId means dashboard
 // scope.
 type createCaptureRequest struct {
 	SessionID *int64 `json:"sessionId"`
@@ -489,7 +489,7 @@ type createCaptureResponse struct {
 }
 
 // issueCaptureDisabledMessage is the shared 404 body for both endpoints when
-// -issue-api-url is empty (Edge Case 14, mirrors §3.9's disabled-poller shape).
+// -issue-api-url is empty (Edge Case 14, mirrors kb:anchor/usage.refresh's disabled-poller shape).
 const issueCaptureDisabledMessage = "issue capture is disabled on this daemon"
 
 // issueFeature owns the file-an-issue button's two endpoints, its in-memory capture
@@ -542,7 +542,7 @@ func (s *Server) buildIssueSnapshot(ctx context.Context, now time.Time, sess *se
 	return s.issue.buildIssueSnapshot(ctx, now, sess)
 }
 
-// handleCreateCapture is POST /api/issue/captures (REQ-3, docs/protocol.md §3.12).
+// handleCreateCapture is POST /api/issue/captures (REQ-3, kb:anchor/issue.captures).
 func (f *issueFeature) handleCreateCapture(w http.ResponseWriter, r *http.Request) {
 	if f.apiURL == "" {
 		writeJSONError(w, http.StatusNotFound, "not_found", issueCaptureDisabledMessage)
@@ -587,7 +587,7 @@ func (f *issueFeature) handleCreateCapture(w http.ResponseWriter, r *http.Reques
 	})
 }
 
-// createIssueRequest is POST /api/issues' request body (docs/protocol.md §3.13).
+// createIssueRequest is POST /api/issues' request body (kb:anchor/issue.create).
 type createIssueRequest struct {
 	CaptureID string `json:"captureId"`
 	Title     string `json:"title"`
@@ -603,7 +603,7 @@ type createIssueResponse struct {
 const maxIssueTitleLen = 200
 const maxIssueNoteLen = 8000
 
-// handleCreateIssue is POST /api/issues (REQ-8/REQ-9/REQ-10, docs/protocol.md §3.13).
+// handleCreateIssue is POST /api/issues (REQ-8/REQ-9/REQ-10, kb:anchor/issue.create).
 func (f *issueFeature) handleCreateIssue(w http.ResponseWriter, r *http.Request) {
 	if f.apiURL == "" {
 		writeJSONError(w, http.StatusNotFound, "not_found", issueCaptureDisabledMessage)
@@ -621,7 +621,7 @@ func (f *issueFeature) handleCreateIssue(w http.ResponseWriter, r *http.Request)
 	}
 	title := strings.TrimSpace(req.Title)
 	// Counted in runes, not bytes: the client's maxlength counts UTF-16 code units and
-	// REQ-6/docs/protocol.md §3.13 both say "chars" — len() on a Go string is bytes, which
+	// REQ-6/kb:anchor/issue.create both say "chars" — len() on a Go string is bytes, which
 	// would reject a 200-character title containing multi-byte runes (em dashes, accents,
 	// emoji) that the client gate had already let through (review cycle 1 Minor 1).
 	if title == "" || utf8.RuneCountInString(title) > maxIssueTitleLen {

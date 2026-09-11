@@ -606,7 +606,7 @@ func TestHandleApplyUpdate_SecondRequestWhileInFlightReturns202WithoutASecondDow
 		return srv.update.um.Current().Apply.Phase == string(selfupdate.PhaseDone)
 	}, 5*time.Second, 20*time.Millisecond)
 	// The joined (second) request's restart:true must not have been silently dropped —
-	// docs/protocol.md §3.17 says the *first* request's own restart value wins, and the
+	// kb:anchor/update.apply says the *first* request's own restart value wins, and the
 	// first request here passed no restart at all (false).
 	select {
 	case <-srv.update.um.restartRequests:
@@ -811,7 +811,7 @@ func TestHandleRestartImpact_RequiresCookie(t *testing.T) {
 }
 
 // TestHandleRestartImpact_WorksEvenWhenUpdatesAreDisabled covers the daemon-implementation
-// Decision that §3.18 carries "no errors beyond auth", independent of whether an
+// Decision that kb:anchor/update.restart-impact carries "no errors beyond auth", independent of whether an
 // updateManager exists at all (UpdateBaseURL empty in newRestartImpactTestServer above).
 func TestHandleRestartImpact_WorksEvenWhenUpdatesAreDisabled(t *testing.T) {
 	srv := newRestartImpactTestServer(t)

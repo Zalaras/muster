@@ -144,7 +144,7 @@ type githubErrorBody struct {
 }
 
 // CreateIssue obtains a fresh bearer token via c.TokenReader, then POSTs
-// {c.BaseURL}/repos/{repo}/issues with title/body (docs/protocol.md §3.13's measured
+// {c.BaseURL}/repos/{repo}/issues with title/body (kb:anchor/issue.create's measured
 // headers), returning the created issue's number and html_url. The token travels only in
 // the Authorization header — never logged, never echoed into a returned error (INV-3);
 // this holds whether the failure happened obtaining the token (*ErrAuthFailed, returned

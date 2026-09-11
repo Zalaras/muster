@@ -10,7 +10,7 @@ import (
 	"github.com/Zalaras/muster/internal/claudecode"
 )
 
-// assertINV1Holds asserts docs/protocol.md §5.3 / plan ui-text-and-focus INV-1: whenever
+// assertINV1Holds asserts kb:anchor/ws.session / plan ui-text-and-focus INV-1: whenever
 // titleOverride is non-nil, the wire title (DisplayTitle()) equals it exactly.
 func assertINV1Holds(t *testing.T, sess *Session, wantOverride string) {
 	t.Helper()
@@ -328,7 +328,7 @@ func TestSetTitle_BroadcastsOnceOnARealChangeZeroOnEdgeCases3And4(t *testing.T) 
 // TestApplyStatus_OverrideSetAndClaudeNameChanges_PersistsButDoesNotBroadcast covers D10/
 // REQ-12: while an override is set, a status post that changes only Claude's last-known
 // name (the wire title is unaffected, since the override still wins) persists the row but
-// broadcasts nothing — the wire object is unchanged, so §5.3's no-no-op-upserts rule
+// broadcasts nothing — the wire object is unchanged, so kb:anchor/ws.session's no-no-op-upserts rule
 // stands.
 func TestApplyStatus_OverrideSetAndClaudeNameChanges_PersistsButDoesNotBroadcast(t *testing.T) {
 	st := openTestStore(t)

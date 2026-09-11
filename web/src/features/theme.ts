@@ -39,7 +39,7 @@ export function initTheme(app: App, deps: { surfaces: { applyTheme(): void } }):
     applyAttributes();
   });
 
-  // §5.6/INV-2: never touches `themeChoice` — only `claudeFamily`, so `data-theme` only
+  // kb:anchor/ws.claude-theme/INV-2: never touches `themeChoice` — only `claudeFamily`, so `data-theme` only
   // moves when `themeChoice` is currently "follow".
   app.on("claudeTheme", (family) => {
     claudeFamily = family;

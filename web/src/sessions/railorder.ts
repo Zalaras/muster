@@ -10,7 +10,7 @@
 // the target — the target's own block membership unchanged — merges the dragged entry
 // into the target's block. `pinnedCount` is therefore always the size of a genuine
 // prefix of the resulting `ids`, which is exactly the shape `PUT /api/sessions/order`
-// (docs/protocol.md §3.11) expects.
+// (kb:anchor/sessions.order) expects.
 export interface RailOrderItem {
   id: number;
   pinned: boolean;

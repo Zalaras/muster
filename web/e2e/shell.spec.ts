@@ -48,28 +48,28 @@ test("GET /api/state returns exactly the M0 snapshot object once authenticated",
   const res = await page.request.get(`${daemon.baseURL}/api/state`);
   expect(res.status()).toBe(200);
   const body = await res.json();
-  // `prefs.density` was added by plan m2-terminal (protocol §3.3 delta, default "2x2"
+  // `prefs.density` was added by plan m2-terminal (kb:anchor/prefs.put delta, default "2x2"
   // before any PUT /api/prefs) — updated here so this M0 assertion tracks the merged
   // protocol contract rather than going stale the moment m2-terminal ships.
-  // `usage.model` was added by plan m3-gauges (protocol §5.4 delta) — present as an
+  // `usage.model` was added by plan m3-gauges (kb:anchor/ws.usage delta) — present as an
   // explicit null until the first status post carries buckets + model together, same
   // as fiveHour/sevenDay/sampledAt — updated here for the same reason as density above.
   // `usage.modelScoped`/`modelScopedAt`/`modelScopedError`/`modelScopedSource` and
-  // `prefs.usageModel` were added by plan usage-model-bar (protocol §5.4/§5.5/§3.3
+  // `prefs.usageModel` were added by plan usage-model-bar (kb:anchor/ws.usage / kb:anchor/ws.prefs / kb:anchor/prefs.put
   // delta, merged into docs/protocol.md on approval) — this scratch daemon has no
   // usage-token-file content written, so its immediate on-Start fetch (REQ-1) fails
   // fast with "no-credentials" (the same shape a real machine with no Keychain item
   // would see), and `modelScoped`/`modelScopedAt` stay null (INV-1: null iff null).
-  // `prefs.railSort` was added by plan order-sidebar (protocol §3.3 delta, merged into
+  // `prefs.railSort` was added by plan order-sidebar (kb:anchor/prefs.put delta, merged into
   // docs/protocol.md on approval) — default "manual" before any PUT /api/prefs;
   // updated here for the same reason as density/usageModel above.
   // `prefs.theme` and top-level `claudeTheme` were added by plan new-ui-design-colors
-  // (protocol §3.3/§5.2 delta, merged into docs/protocol.md on approval) — default
+  // (kb:anchor/prefs.put / kb:anchor/ws.snapshot delta, merged into docs/protocol.md on approval) — default
   // theme "follow" before any PUT /api/prefs; `claudeTheme.family` is "unknown" because
   // this scratch daemon passes no `-claude-theme-poll` (REQ-15, REQ-19) — updated here
   // for the same reason as density/usageModel/railSort above.
-  // `prefs.updateCheck` and top-level `update` were added by plan auto-update (protocol
-  // §3.3/§5.2/§5.5/§5.7 delta, merged into docs/protocol.md on approval) —
+  // `prefs.updateCheck` and top-level `update` were added by plan auto-update
+  // (kb:anchor/prefs.put / kb:anchor/ws.snapshot / kb:anchor/ws.prefs / kb:anchor/ws.update delta, merged into docs/protocol.md on approval) —
   // `updateCheck` defaults true before any PUT /api/prefs; `update.install` is "dev"
   // because this scratch daemon runs `bin/musterd`, itself stamped by `git describe`
   // (REQ-8), so it never checks (`available`/`checkedAt`/`installed` stay null) and

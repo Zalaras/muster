@@ -49,13 +49,13 @@ type tmuxSessionLister interface {
 	ListSessions(ctx context.Context) ([]string, error)
 }
 
-// updateMessage is the WS `update` broadcast (docs/protocol.md §5.7).
+// updateMessage is the WS `update` broadcast (kb:anchor/ws.update).
 type updateMessage struct {
 	Type   string     `json:"type"`
 	Update UpdateInfo `json:"update"`
 }
 
-// UpdateApplyInfo is the `update.apply` object (docs/protocol.md §5.7). INV-4: Error is
+// UpdateApplyInfo is the `update.apply` object (kb:anchor/ws.update). INV-4: Error is
 // non-nil iff Phase is "failed"; Version is nil iff Phase is "idle".
 type UpdateApplyInfo struct {
 	Phase   string  `json:"phase"`
@@ -64,7 +64,7 @@ type UpdateApplyInfo struct {
 }
 
 // UpdateInfo is the `update` object, shared verbatim by the WS `update` broadcast and
-// snapshot.update (docs/protocol.md §5.7) — always present, even on a daemon with
+// snapshot.update (kb:anchor/ws.update) — always present, even on a daemon with
 // updates disabled entirely (-update-base-url "").
 type UpdateInfo struct {
 	Running   string          `json:"running"`
@@ -77,7 +77,7 @@ type UpdateInfo struct {
 }
 
 // Sentinel errors updateManager.RequestApply returns — handleApplyUpdate maps each to
-// its wire error code (docs/protocol.md §3.17).
+// its wire error code (kb:anchor/update.apply).
 var (
 	errUpdateUnsupported = errors.New("update unsupported for this install")
 	errNothingToApply    = errors.New("no newer release is known")
@@ -364,7 +364,7 @@ func (m *updateManager) Remedy() string {
 // RequestApply starts (or joins) one apply (REQ-20). A nil error means the apply is
 // under way — either just started, or already in flight; RequestApply's own restart
 // argument is ignored by a join (the first request's restart value wins, per
-// docs/protocol.md §3.17). ctx should already have its cancellation detached from the
+// kb:anchor/update.apply). ctx should already have its cancellation detached from the
 // HTTP request that triggered this (context.WithoutCancel) — the apply outlives the
 // request/response that started it.
 func (m *updateManager) RequestApply(ctx context.Context, restart bool) error {
@@ -387,7 +387,7 @@ func (m *updateManager) RequestApply(ctx context.Context, restart bool) error {
 		m.mu.Unlock()
 		return errNothingToApply
 	}
-	// docs/protocol.md §3.17: the download is skipped when installed already equals
+	// kb:anchor/update.apply: the download is skipped when installed already equals
 	// available (already on disk, nothing newer to fetch) or when available is null and
 	// installed is set (REQ-25's restart-only case).
 	skipDownload := (installed != nil && available != nil && *installed == *available) ||
@@ -575,7 +575,7 @@ func (f *updateFeature) SetCheckEnabled(enabled bool) {
 	}
 }
 
-// current returns the live `update` object (docs/protocol.md §5.7): the manager's own
+// current returns the live `update` object (kb:anchor/ws.update): the manager's own
 // state when updates are enabled, or a static shape reflecting the fixed install
 // classification when they are not — either way it always names the true install kind
 // (Edge Case 33).
@@ -609,13 +609,13 @@ func (f *updateFeature) restartRequestsChan() <-chan struct{} {
 	return f.um.restartRequests
 }
 
-// applyUpdateRequest is POST /api/update/apply's request body (docs/protocol.md §3.17).
+// applyUpdateRequest is POST /api/update/apply's request body (kb:anchor/update.apply).
 // The body itself is optional — an absent/empty body means restart:false.
 type applyUpdateRequest struct {
 	Restart bool `json:"restart"`
 }
 
-// handleApplyUpdate is POST /api/update/apply (docs/protocol.md §3.17).
+// handleApplyUpdate is POST /api/update/apply (kb:anchor/update.apply).
 func (f *updateFeature) handleApplyUpdate(w http.ResponseWriter, r *http.Request) {
 	if f.um == nil || f.um.installKind() == selfupdate.KindDev {
 		writeJSONError(w, http.StatusNotFound, "not_found", "updates are disabled for this daemon")
@@ -648,7 +648,7 @@ func (f *updateFeature) handleApplyUpdate(w http.ResponseWriter, r *http.Request
 }
 
 // restartImpactShell is one entry of GET /api/update/restart-impact's `shells` array
-// (docs/protocol.md §3.18).
+// (kb:anchor/update.restart-impact).
 type restartImpactShell struct {
 	SessionID int64   `json:"sessionId"`
 	Title     *string `json:"title"`
@@ -658,13 +658,13 @@ type restartImpactResponse struct {
 	Shells []restartImpactShell `json:"shells"`
 }
 
-// handleRestartImpact is GET /api/update/restart-impact (docs/protocol.md §3.18): every
+// handleRestartImpact is GET /api/update/restart-impact (kb:anchor/update.restart-impact): every
 // "muster-<n>-shell" tmux session currently alive on the daemon's socket, with the
 // owning session's title (null when that session is unknown). Computed fresh from tmux
 // on every request — shells have no wire representation elsewhere to cache. Independent
 // of whether updates are enabled at all (the confirm dialog that calls this only appears
 // when apply is possible, but the endpoint itself carries no such restriction —
-// docs/protocol.md §3.18 "Errors: none beyond auth").
+// kb:anchor/update.restart-impact "Errors: none beyond auth").
 func (f *updateFeature) handleRestartImpact(w http.ResponseWriter, r *http.Request) {
 	names, err := f.tmuxLister.ListSessions(r.Context())
 	if err != nil {

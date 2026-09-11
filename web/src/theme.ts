@@ -1,5 +1,5 @@
 // REQ-7 (plan new-ui-design-colors): the web theme registry. The daemon treats
-// `prefs.theme` as opaque (docs/protocol.md §3.3) — the client owns the list of known
+// `prefs.theme` as opaque (kb:anchor/prefs.put) — the client owns the list of known
 // theme names, so adding a theme never needs a daemon release, only a new
 // `[data-theme]` block in style.css plus a new entry in THEMES below.
 import type { ClaudeFamily } from "./protocol";

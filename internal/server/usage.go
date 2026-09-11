@@ -17,7 +17,7 @@ import (
 // api.anthropic.com or the Keychain (Edge Case 14, REQ-10).
 type UsageConfig struct {
 	// Poll is the poll interval. <= 0 disables polling entirely: POST /api/usage/refresh
-	// then 404s (docs/protocol.md §3.9).
+	// then 404s (kb:anchor/usage.refresh).
 	Poll time.Duration
 	// APIURL is the per-model usage endpoint's base URL. main always passes the flag's
 	// non-empty default, so this is the *only* place that URL is defined — there is
@@ -107,7 +107,7 @@ func (f *usageFeature) contribute(_ context.Context, snap *Snapshot) {
 	snap.Usage = toWireUsage(f.aggregator.Current(), f.modelScoped.Current())
 }
 
-// handleUsageRefresh is POST /api/usage/refresh (docs/protocol.md §3.9): wakes the
+// handleUsageRefresh is POST /api/usage/refresh (kb:anchor/usage.refresh): wakes the
 // per-model usage poller for an immediate fetch, coalesced server-side by usagePoller
 // itself. 404 not_found when polling is disabled (Poll <= 0 — the poller was never
 // constructed, Edge Case 14).

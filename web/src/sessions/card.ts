@@ -128,7 +128,7 @@ export function buildCardViewModel(session: Session, now: Date): CardViewModel {
   const ended = !session.alive;
   // REQ-9: an ended card's timer reads "ended <age>" from `endedAt`, not the running
   // state timer — `stateSince` stopped advancing the instant reconcile/End froze `state`.
-  // `session.endedAt` is only ever null while `alive:true` (protocol §7.5's paired
+  // `session.endedAt` is only ever null while `alive:true` (kb:anchor/state.liveness's paired
   // invariant), so the fallback below is defensive-only and never observed in practice.
   const timer = ended && session.endedAt ? `ended ${formatEndedAge(session.endedAt, now)}` : formatTimer(session.stateSince, now);
 

@@ -1,5 +1,5 @@
 // Plan claude-status-fixes — REQ-1 through REQ-5 (#14 subagent-idle-while-working, #15/
-// #20 stale attention/failure). Protocol delta §7.2/§7.3/§7.4: a subagent-marked
+// #20 stale attention/failure). kb:anchor/state.tracked / kb:anchor/state.transitions / kb:anchor/state.ordering: a subagent-marked
 // turn-activity or PermissionRequest event for an already-closed prompt is NOT a
 // straggler — it moves the session to ACTIVE / needs_input without reopening the closed
 // prompt — and every transition into ACTIVE clears both `attention` and `failure`

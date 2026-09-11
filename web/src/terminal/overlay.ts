@@ -1,4 +1,4 @@
-// Pure close-code -> overlay mapping for the terminal bridge (docs/protocol.md §6 close
+// Pure close-code -> overlay mapping for the terminal bridge (kb:anchor/terminal.ws close
 // codes; design-system §7 terminal rules). Kept separate from pane.ts's DOM/socket code
 // so it's Vitest-testable without a real WebSocket (docs/conventions.md).
 export type OverlayKind = "disconnected" | "superseded" | "ended";

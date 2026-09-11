@@ -34,7 +34,7 @@ type ingestQueue struct {
 	dropped atomic.Int64
 	wg      sync.WaitGroup
 
-	// manager routes an event to its bound Muster session and feeds the §7 state
+	// manager routes an event to its bound Muster session and feeds the kb:anchor/state state
 	// machine. Nil in tests that only exercise raw persistence.
 	manager *session.Manager
 
@@ -90,7 +90,7 @@ func (q *ingestQueue) Stop(ctx context.Context) {
 	}
 }
 
-// process parses, routes and persists one job, then feeds the routed event into the §7
+// process parses, routes and persists one job, then feeds the routed event into the kb:anchor/state
 // state machine ("parse → persist (with routing) → feed the manager, sequentially, so
 // seq order and apply order are the same thing by construction"). Never logs job.body —
 // hook/status payloads carry prompt text and must never reach a log.
@@ -135,7 +135,7 @@ func (q *ingestQueue) process(job ingestJob) {
 	}
 
 	input := claudecode.Interpret(ev.Type, ev.Payload)
-	// enveloped is authoritative for binding (docs/protocol.md §4.2): every event
+	// enveloped is authoritative for binding (kb:anchor/ingest.envelope): every event
 	// Muster's command wrapper posts carries the envelope, so ev.MusterSession != nil is
 	// exactly "this arrived through the wrapper, trust its session_id for binding" — a
 	// raw (non-enveloped) post, still accepted for the canary/legacy path, never binds.
@@ -201,7 +201,7 @@ func (q *ingestQueue) resolveSessionID(kind claudecode.Kind, ev claudecode.Event
 
 // ingestFeature owns the two token-path ingest endpoints (plan code-breakup REQ-6). Its
 // routes are mounted unguarded — the ingest token, not the UI cookie, is the auth
-// boundary here (docs/protocol.md §4).
+// boundary here (kb:anchor/ingest).
 type ingestFeature struct {
 	queue *ingestQueue
 	token string
@@ -242,7 +242,7 @@ func (f *ingestFeature) handleIngest(w http.ResponseWriter, r *http.Request, kin
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		// Nothing usable arrived; still ack per protocol §4 (never make Claude Code retry).
+		// Nothing usable arrived; still ack per kb:anchor/ingest (never make Claude Code retry).
 		w.WriteHeader(http.StatusOK)
 		return
 	}

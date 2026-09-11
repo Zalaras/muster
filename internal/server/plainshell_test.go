@@ -460,7 +460,7 @@ func TestHandleTerminal_OpeningClaudeSocketNeverSupersedesAnOpenShellSocket(t *t
 	assert.Contains(t, out, "SHELL_UNTOUCHED", "INV-3: opening the Claude socket must never supersede an open shell socket")
 }
 
-// TestHandleShellTerminal_ShellDeathNeverNudgesTheParentsLiveness covers §6.1's
+// TestHandleShellTerminal_ShellDeathNeverNudgesTheParentsLiveness covers kb:anchor/terminal.shell-ws's
 // nudgeOnEOF:false clause — the actual daemon-logic difference from the Claude surface —
 // using a parent whose Claude tmux target was never created at all (see
 // seedDeadSessionWithBogusClaudeTarget's doc comment): if the shell handler wrongly
@@ -499,7 +499,7 @@ func TestHandleShellTerminal_ShellDeathNeverNudgesTheParentsLiveness(t *testing.
 	time.Sleep(500 * time.Millisecond)
 	got, ok := srv.manager.Get(id)
 	require.True(t, ok)
-	assert.True(t, got.Alive, "§6.1: a shell's own death must never nudge (and so never flip) its parent session's liveness")
+	assert.True(t, got.Alive, "kb:anchor/terminal.shell-ws: a shell's own death must never nudge (and so never flip) its parent session's liveness")
 }
 
 // TestHandleShellTerminal_KilledExternallyClosesSocketWith4001 covers the external-kill

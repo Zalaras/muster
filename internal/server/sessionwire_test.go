@@ -152,7 +152,7 @@ func TestToWireSession_ContextGaugesPopulateAllThreeFieldsTogetherWhenPresent(t 
 }
 
 // TestToWireSession_PinnedAndRailPosAreNeverNull covers plan order-sidebar's Protocol
-// Contract delta (§5.3): pinned/railPos are plain, never-null fields on every Session
+// Contract delta (kb:anchor/ws.session): pinned/railPos are plain, never-null fields on every Session
 // object — carried through verbatim from the domain type, with no nil-check branch
 // (unlike Attention/Failure/Model etc., which are pointer fields precisely because they
 // *can* be absent).

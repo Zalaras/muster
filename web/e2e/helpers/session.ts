@@ -32,7 +32,7 @@ export async function scratchDirectory(
 
 /**
  * Creates a fresh scratch directory under the daemon's per-run browse root — where
- * `GET /api/browse`'s no-`path` default (protocol §3.6, `-browse-root`) lands, and so
+ * `GET /api/browse`'s no-`path` default (kb:anchor/browse.get, `-browse-root`) lands, and so
  * the only place the launch modal's folder browser can reach in one click. The plan's
  * E2 criterion ("launch via Browse… into a fresh directory") requires driving that
  * actual control. The root lives inside the daemon's scratch data dir, so nothing ever
@@ -69,12 +69,12 @@ export interface LaunchBody {
   directory: string;
   title?: string;
   model?: string;
-  /** Plan fix-auto-mode-select: `auto` is a fourth accepted request value (protocol
-   * §3.1) alongside the three already here. */
+  /** Plan fix-auto-mode-select: `auto` is a fourth accepted request value
+   * (kb:anchor/sessions.create) alongside the three already here. */
   permissionMode?: "default" | "plan" | "acceptEdits" | "auto";
 }
 
-/** The Session object shape per protocol §5.3, as returned by the launch/state endpoints. */
+/** The Session object shape per kb:anchor/ws.session, as returned by the launch/state endpoints. */
 export interface SessionObject {
   id: number;
   title: string | null;
@@ -99,12 +99,12 @@ export interface SessionObject {
   tmuxTarget: string;
   firstLaunchHere: boolean;
   createdAt: string;
-  /** Plan order-sidebar §5.3: user-owned rail order, never null on the wire. */
+  /** Plan order-sidebar kb:anchor/ws.session: user-owned rail order, never null on the wire. */
   pinned: boolean;
-  /** Plan order-sidebar §5.3: unique across all sessions; gaps allowed. */
+  /** Plan order-sidebar kb:anchor/ws.session: unique across all sessions; gaps allowed. */
   railPos: number;
   /**
-   * Plan ui-text-and-focus §5.3 (REQ-11): the user's rename via `PUT …/title`, or `null`
+   * Plan ui-text-and-focus kb:anchor/ws.session (REQ-11): the user's rename via `PUT …/title`, or `null`
    * when none is set. `title` above is already the *display* title (override when
    * non-null, else Claude's last-known name) — the daemon's precedence, never
    * recomputed here.
@@ -114,7 +114,7 @@ export interface SessionObject {
 
 /**
  * Launches a session via the real `POST /api/sessions`, using the page's already-authed
- * cookie (the endpoint requires the UI cookie per protocol §2/§3.1). Defaults to the
+ * cookie (the endpoint requires the UI cookie per kb:anchor/transport / kb:anchor/sessions.create). Defaults to the
  * haiku model and "default" permission mode when the caller doesn't care.
  */
 export async function launchSession(
@@ -245,7 +245,7 @@ export function tileRenameFieldById(page: Page, id: number): Locator {
 
 /**
  * Sets a session's title override directly via the real `PUT /api/sessions/{id}/title`
- * (protocol §3.15) — used to build a starting configuration (e.g. "an override already
+ * (kb:anchor/sessions.title) — used to build a starting configuration (e.g. "an override already
  * set before a daemon restart") without re-deriving it through the UI editor in every
  * test that needs one, mirroring `helpers/railorder.ts`'s `pinViaApi`. Throws on
  * anything but the documented 204.

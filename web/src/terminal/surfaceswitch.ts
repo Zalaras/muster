@@ -10,7 +10,7 @@
 // The per-session "which surface is selected, is a shell running" state is a small pure
 // Map held by features/surfaces.ts — this module never reads a Session or touches a
 // socket, so it's Vitest-testable without a DOM (Implementation Notes > Testability). A
-// session's shell has no representation in the Session wire object (protocol §3.16), so
+// session's shell has no representation in the Session wire object (kb:anchor/sessions.shell), so
 // this state exists nowhere else; features/surfaces.ts is the only owner and mutates it
 // only via the functions below.
 

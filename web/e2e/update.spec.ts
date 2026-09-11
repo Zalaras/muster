@@ -236,7 +236,7 @@ test("clicking Update swaps the on-disk binary and reports Updated without resta
     await expect(updateRestartButton(dialog)).toHaveText("Restart now");
     await expect(settingsBadgeDot(page)).toBeHidden();
     // The process itself hasn't restarted — its own Running readout (which duplicates
-    // `hello.daemon.version`, protocol §5.7 — one object, one source) still reads OLD.
+    // `hello.daemon.version`, kb:anchor/ws.update — one object, one source) still reads OLD.
     await expect(updateRunningReadout(dialog)).toHaveText(`v${OLD_VERSION}`);
 
     const shaAfter = await sha256File(staged.path);
@@ -367,8 +367,8 @@ test("Update and restart with two Claude sessions and a plain shell names the sh
 
     expect(await daemon.tmuxSessions()).not.toContain(shellTarget);
     // Both Claude sessions' panes — and the tmux server itself — are untouched by the
-    // re-exec; only the plain-terminal shell (killed by the reconcile sweep, protocol
-    // §3.16/§7.5, already covered by reconcile.spec.ts) is gone.
+    // re-exec; only the plain-terminal shell (killed by the reconcile sweep,
+    // kb:anchor/sessions.shell / kb:anchor/state.liveness, already covered by reconcile.spec.ts) is gone.
     expect(await daemon.tmuxDisplay(sessionA.tmuxTarget, "#{pane_pid}")).toBe(panePidA);
     expect(await daemon.tmuxDisplay(sessionB.tmuxTarget, "#{pane_pid}")).toBe(panePidB);
     expect(await daemon.tmuxDisplay(sessionA.tmuxTarget, "#{pid}")).toBe(serverPidBefore);
@@ -784,7 +784,7 @@ test("Restart now after a plain Update shows the confirm and completes with no s
     dialog = await openSettingsDialog(page);
     await expect(updateRunningReadout(dialog)).toHaveText(`v${NEW_VERSION}`);
     await expect(updateAvailableReadout(dialog)).toHaveText("up to date");
-    // Semantics per Protocol Contract §3.17: `installed` already equalled `available`,
+    // Semantics per kb:anchor/update.apply: `installed` already equalled `available`,
     // so the restart-only apply skips the download entirely — no second archive fetch.
     expect(fakeServer.requestCount(archivePath)).toBe(countBeforeRestart);
   } finally {

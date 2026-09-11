@@ -321,7 +321,7 @@ function fakeStatusResponse(status: number, body?: unknown): Response {
   } as unknown as Response;
 }
 
-describe("api — putPrefs (PUT /api/prefs, docs/protocol.md §3.3 / M2 REQ-10)", () => {
+describe("api — putPrefs (PUT /api/prefs, kb:anchor/prefs.put / M2 REQ-10)", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -409,7 +409,7 @@ describe("api — putPrefs (PUT /api/prefs, docs/protocol.md §3.3 / M2 REQ-10)"
   });
 });
 
-describe("api — refreshUsage (POST /api/usage/refresh, docs/protocol.md §3.9, plan usage-model-bar REQ-7)", () => {
+describe("api — refreshUsage (POST /api/usage/refresh, kb:anchor/usage.refresh, plan usage-model-bar REQ-7)", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -455,7 +455,7 @@ describe("api — refreshUsage (POST /api/usage/refresh, docs/protocol.md §3.9,
   });
 });
 
-describe("api — applyUpdate (POST /api/update/apply, docs/protocol.md §3.17, plan auto-update)", () => {
+describe("api — applyUpdate (POST /api/update/apply, kb:anchor/update.apply, plan auto-update)", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -547,7 +547,7 @@ describe("api — applyUpdate (POST /api/update/apply, docs/protocol.md §3.17, 
   });
 });
 
-describe("api — fetchRestartImpact (GET /api/update/restart-impact, docs/protocol.md §3.18, plan auto-update REQ-27)", () => {
+describe("api — fetchRestartImpact (GET /api/update/restart-impact, kb:anchor/update.restart-impact, plan auto-update REQ-27)", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -611,7 +611,7 @@ describe("api — fetchRestartImpact (GET /api/update/restart-impact, docs/proto
 
 const endedSession: Session = { ...validSession, alive: false, endedAt: "2026-08-22T00:05:00Z" };
 
-describe("api — endSession (POST /api/sessions/{id}/end, docs/protocol.md §3.7)", () => {
+describe("api — endSession (POST /api/sessions/{id}/end, kb:anchor/sessions.end)", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -650,7 +650,7 @@ describe("api — endSession (POST /api/sessions/{id}/end, docs/protocol.md §3.
   });
 });
 
-describe("api — resumeSession (POST /api/sessions/{id}/resume, docs/protocol.md §3.5)", () => {
+describe("api — resumeSession (POST /api/sessions/{id}/resume, kb:anchor/sessions.resume)", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -689,7 +689,7 @@ describe("api — resumeSession (POST /api/sessions/{id}/resume, docs/protocol.m
   });
 });
 
-describe("api — removeSession (DELETE /api/sessions/{id}, docs/protocol.md §3.8)", () => {
+describe("api — removeSession (DELETE /api/sessions/{id}, kb:anchor/sessions.remove)", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -728,7 +728,7 @@ describe("api — removeSession (DELETE /api/sessions/{id}, docs/protocol.md §3
   });
 });
 
-describe("api — createShell (POST /api/sessions/{id}/shell, docs/protocol.md §3.16, plan plain-terminal-session REQ-1)", () => {
+describe("api — createShell (POST /api/sessions/{id}/shell, kb:anchor/sessions.shell, plan plain-terminal-session REQ-1)", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -800,7 +800,7 @@ describe("api — createShell (POST /api/sessions/{id}/shell, docs/protocol.md �
   });
 });
 
-describe("api — fetchPane (GET /api/sessions/{id}/pane, docs/protocol.md §3.4)", () => {
+describe("api — fetchPane (GET /api/sessions/{id}/pane, kb:anchor/sessions.pane)", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -854,7 +854,7 @@ const validIssueCapture = {
   snapshotMarkdown: "## Snapshot\n\n| field | value |\n| --- | --- |\n| musterd | 0.3.1 |",
 };
 
-describe("api — captureIssueSnapshot (POST /api/issue/captures, docs/protocol.md §3.12, plan issue-capture)", () => {
+describe("api — captureIssueSnapshot (POST /api/issue/captures, kb:anchor/issue.captures, plan issue-capture)", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -962,7 +962,7 @@ describe("api — captureIssueSnapshot (POST /api/issue/captures, docs/protocol.
 
 const validFiledIssue = { number: 14, url: "https://github.com/Zalaras/muster/issues/14", repo: "Zalaras/muster" };
 
-describe("api — fileIssue (POST /api/issues, docs/protocol.md §3.13, plan issue-capture)", () => {
+describe("api — fileIssue (POST /api/issues, kb:anchor/issue.create, plan issue-capture)", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -1061,7 +1061,7 @@ describe("api — fileIssue (POST /api/issues, docs/protocol.md §3.13, plan iss
   });
 });
 
-describe("api — locateDroppedFile (POST /api/sessions/{id}/locate, docs/protocol.md §3.14, plan file-drop-fix)", () => {
+describe("api — locateDroppedFile (POST /api/sessions/{id}/locate, kb:anchor/sessions.locate, plan file-drop-fix)", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {

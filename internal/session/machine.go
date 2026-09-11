@@ -6,7 +6,7 @@ import (
 	"github.com/Zalaras/muster/internal/claudecode"
 )
 
-// applyInput mutates sess per protocol §7.3/§7.4, given the already-resolved
+// applyInput mutates sess per kb:anchor/state.transitions / kb:anchor/state.ordering, given the already-resolved
 // claudeSessionID and promptID (generic identifiers — not Claude Code payload
 // vocabulary) and the neutral StateInput the claudecode interpreter derived. Callers
 // hold the manager's lock.
@@ -29,7 +29,7 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 		if !closed && promptID != nil {
 			sess.currentPromptID = *promptID
 		}
-		// §5.3's attention-iff-needs_input / failure-iff-failed invariants (INV-A,
+		// kb:anchor/ws.session's attention-iff-needs_input / failure-iff-failed invariants (INV-A,
 		// INV-F) are unconditional: every transitioning path here — whether the prompt
 		// was open or a subagent-marked closed prompt — clears both, so a stale
 		// permission wait or failure note never survives into the next working state.
@@ -45,7 +45,7 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 		// background permission wait (measured 2.1.259) exactly like the open-prompt
 		// case — same transition, no prompt reopening.
 		sess.Attention = &Attention{Reason: "permission", Since: now}
-		// INV-F (§5.3, unconditional): failure is non-null iff state == failed. This
+		// INV-F (kb:anchor/ws.session, unconditional): failure is non-null iff state == failed. This
 		// branch always transitions to needs_input, so a failure note carried over
 		// from an earlier failed turn (e.g. StopFailure, then a subagent-marked
 		// PermissionRequest against that same now-closed prompt) must not survive.
@@ -105,7 +105,7 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 	}
 }
 
-// applyBind handles SessionStart's Bind/ClearRebind (protocol §7.3), escalating a
+// applyBind handles SessionStart's Bind/ClearRebind (kb:anchor/state.transitions), escalating a
 // plain Bind to a clear-rebind when the incoming claude session id differs from one
 // already bound on this pane without a clear source (Edge Case 5: loss tolerance).
 func applyBind(sess *Session, claudeSessionID string, input claudecode.StateInput, now time.Time) {
@@ -123,7 +123,7 @@ func applyBind(sess *Session, claudeSessionID string, input claudecode.StateInpu
 		}
 	}
 
-	// §5.3's attention-iff-needs_input / failure-iff-failed invariants are unconditional:
+	// kb:anchor/ws.session's attention-iff-needs_input / failure-iff-failed invariants are unconditional:
 	// no bind — clear-rebind or a plain re-bind with an unchanged claude session id (e.g.
 	// SessionStart(source:"resume"), which per spikes/canary-fields.md reuses the
 	// original session_id and so never reaches the escalation above) — may land on
@@ -137,7 +137,7 @@ func applyBind(sess *Session, claudeSessionID string, input claudecode.StateInpu
 		sess.Compactions = 0
 		sess.currentPromptID = ""
 		sess.closedPromptIDs = nil
-		// /clear starts a fresh conversation: LastActivity resets too — §5.3: "null until
+		// /clear starts a fresh conversation: LastActivity resets too — kb:anchor/ws.session: "null until
 		// a first Stop". This part is genuinely /clear-only semantics, unlike the
 		// attention/failure reset above.
 		sess.LastActivity = nil

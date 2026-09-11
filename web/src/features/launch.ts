@@ -1,5 +1,5 @@
 // The launch dialog: a Finder-style picker (recents sidebar + clickable breadcrumb + one
-// child listing) over a stacked segmented form (docs/protocol.md §3.1/§3.2/§3.6; plan
+// child listing) over a stacked segmented form (kb:anchor/sessions.create / kb:anchor/repos.list / kb:anchor/browse.get; plan
 // new-session-dialog UI Specifications; design authority
 // plans/new-session-dialog/mockup.html). DOM + wiring only — every daemon call goes
 // through ../api.ts, and the parsed Session comes back through `onLaunched` so this

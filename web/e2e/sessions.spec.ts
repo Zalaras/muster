@@ -13,7 +13,7 @@ import {
 } from "./helpers/payloads";
 import { getState, launchSession, scratchDirectory, sessionCard, stateBadge } from "./helpers/session";
 
-// REQ-7 through REQ-13, REQ-16, REQ-18 — the §7 state machine driven end-to-end through
+// REQ-7 through REQ-13, REQ-16, REQ-18 — the kb:anchor/state state machine driven end-to-end through
 // the real ingest endpoints, and the client-side sort. Plan acceptance: E3-E9, W6, W7,
 // W9-W11. One scratch daemon per file via fileDaemon(): every test is title-scoped (its
 // own session, its own card, only relative order asserted in the sort test). E10/W12
@@ -324,7 +324,7 @@ test("killing the scratch tmux window greys the card without changing its badge 
 
     await daemon().killTmuxWindow(session.tmuxTarget);
 
-    // Protocol §7.5: liveness is polled ~5s; allow up to the plan's ~10s ceiling.
+    // kb:anchor/state.liveness: liveness is polled ~5s; allow up to the plan's ~10s ceiling.
     await expect
       .poll(
         async () => {
@@ -335,7 +335,7 @@ test("killing the scratch tmux window greys the card without changing its badge 
       )
       .toBe(false);
 
-    // State is never changed by liveness (protocol §7.3) — the badge word must be
+    // State is never changed by liveness (kb:anchor/state.transitions) — the badge word must be
     // unchanged even though the session is now dead.
     await expect(stateBadge(card)).toHaveText(/working/i);
 
@@ -377,7 +377,7 @@ test("a status-line post persists, routes, and refreshes the title per M3 value 
       })
       .toBe(2);
 
-    // M3 supersedes the M1 rule (protocol §5.3): the status line's session_name now
+    // M3 supersedes the M1 rule (kb:anchor/ws.session): the status line's session_name now
     // refreshes `title` whenever present (REQ-4). This is sanctioned protocol-delta
     // breakage of the old M1-era expectation, not an implementation defect — routing
     // and event persistence (asserted above) are unaffected and still the point of

@@ -76,7 +76,7 @@ export function renderDeadSurface(refs: DeadSurfaceRefs, session: Session, pane:
   // review m4-reconcile Major 6 + Minor 7: `formatEndedAgo` avoids "ended now ago", and
   // — mirroring how card.ts/tiles.ts already treat this same defensive branch — a null
   // `endedAt` renders no age clause at all rather than the confident-but-wrong "just now"
-  // (`endedAt` and `alive:false` are a paired invariant per protocol §7.5, so this branch
+  // (`endedAt` and `alive:false` are a paired invariant per kb:anchor/state.liveness, so this branch
   // is defensive, not a real path, but it should stay honest if it's ever hit).
   const age = session.endedAt ? formatEndedAgo(session.endedAt, now) : null;
   const badge = stateBadgeText(session.state);

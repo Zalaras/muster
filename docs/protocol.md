@@ -15,10 +15,14 @@ derivation rule needs one.
 Everything is protocol **version 2**; the version bumps only on a breaking change to an
 existing message (additive fields don't bump it). This file carries no provenance — how each
 piece arrived is in `docs/history/protocol-changelog.md` and `git log -- docs/protocol.md`.
+Sections are addressed by stable `kb:anchor` ids, not numbers: an HTML comment naming the id
+sits on the line before each `##`/`###` heading, and code and docs cite a section as
+`kb:anchor/<id>` (resolved by `go run ./tools/kb`; the id table is `tools/kb/anchors.tsv`).
 
 ---
 
-## 1. Conventions
+<!-- kb:anchor conventions -->
+## Conventions
 
 - **JSON everywhere**, UTF-8. Field names are **camelCase** (Claude Code's snake_case
   stops at the adapter boundary).
@@ -33,7 +37,8 @@ piece arrived is in `docs/history/protocol-changelog.md` and `git log -- docs/pr
   the UI. Claude's `session_id` is a separate string attribute (`claudeSessionId`) and is
   **never** an identity key (SPEC §7 — `/clear` mints a new one in the same pane).
 
-## 2. Transport & auth
+<!-- kb:anchor transport -->
+## Transport & auth
 
 - Daemon binds `127.0.0.1` only, one port (default from config; E2E allocates per run).
 - Serves: static dashboard (`/`), UI API (`/api/…`), UI WebSocket (`/ws`), terminal
@@ -54,38 +59,40 @@ piece arrived is in `docs/history/protocol-changelog.md` and `git log -- docs/pr
   `launch_failed`, `capture_expired`, `issue_auth_failed`, `issue_post_failed`, …); the UI
   may switch on them.
 
-## 3. HTTP endpoints — UI
+<!-- kb:anchor http -->
+## HTTP endpoints — UI
 
 | Method & path | Purpose |
 |---|---|
 | `GET /healthz` | Liveness; **unauthenticated**. `200 {"status":"ok","version":"<daemon>"}` |
 | `GET /auth?token=…` | Exchange UI token for cookie; `303` → `/` |
 | `GET /` + assets | Dashboard (cookie required) |
-| `GET /api/state` | Full snapshot as JSON — same object as the WS `snapshot` payload (§5.2). E2E oracle and debugging; the UI itself uses the WS |
+| `GET /api/state` | Full snapshot as JSON — same object as the WS `snapshot` payload (`kb:anchor/ws.snapshot`). E2E oracle and debugging; the UI itself uses the WS |
 | `POST /api/sessions` | Launch a session |
 | `GET /api/repos` | Directory picker list |
-| `GET /api/browse` | Folder-browser directory listing (§3.6) |
+| `GET /api/browse` | Folder-browser directory listing (`kb:anchor/browse.get`) |
 | `PUT /api/prefs` | Persist UI preferences (view + density + usageModel) |
 | `POST /api/usage/refresh` | Force an immediate per-model usage fetch |
-| `PUT /api/sessions/{id}/pin` | Pin or unpin a session, renumbering `railPos` (§3.10) |
-| `PUT /api/sessions/order` | Reorder the rail and set the pinned block in one atomic call (§3.11) |
-| `GET /api/sessions/{id}/pane` | Last captured pane screen (§3.4) — display source only |
-| `POST /api/sessions/{id}/resume` | `claude --resume` a dead session in a fresh pane (§3.5) |
-| `POST /api/sessions/{id}/end` | Kill a live session's tmux session (§3.7) |
-| `DELETE /api/sessions/{id}` | Remove a session (ends it first if live); broadcasts `sessionRemoved` (§3.8) |
-| `POST /api/issue/captures` | Take an allowlisted state snapshot and hold it (§3.12) |
-| `POST /api/issues` | File a held capture as a GitHub issue (§3.13) |
-| `POST /api/sessions/{id}/locate` | Resolve a dropped file's bytes to its original on-disk path (§3.14) |
-| `PUT /api/sessions/{id}/title` | Set or clear a session's title override (§3.15) |
-| `POST /api/sessions/{id}/shell` | Ensure a plain shell is running for a session, spawning it if absent (§3.16) |
+| `PUT /api/sessions/{id}/pin` | Pin or unpin a session, renumbering `railPos` (`kb:anchor/sessions.pin`) |
+| `PUT /api/sessions/order` | Reorder the rail and set the pinned block in one atomic call (`kb:anchor/sessions.order`) |
+| `GET /api/sessions/{id}/pane` | Last captured pane screen (`kb:anchor/sessions.pane`) — display source only |
+| `POST /api/sessions/{id}/resume` | `claude --resume` a dead session in a fresh pane (`kb:anchor/sessions.resume`) |
+| `POST /api/sessions/{id}/end` | Kill a live session's tmux session (`kb:anchor/sessions.end`) |
+| `DELETE /api/sessions/{id}` | Remove a session (ends it first if live); broadcasts `sessionRemoved` (`kb:anchor/sessions.remove`) |
+| `POST /api/issue/captures` | Take an allowlisted state snapshot and hold it (`kb:anchor/issue.captures`) |
+| `POST /api/issues` | File a held capture as a GitHub issue (`kb:anchor/issue.create`) |
+| `POST /api/sessions/{id}/locate` | Resolve a dropped file's bytes to its original on-disk path (`kb:anchor/sessions.locate`) |
+| `PUT /api/sessions/{id}/title` | Set or clear a session's title override (`kb:anchor/sessions.title`) |
+| `POST /api/sessions/{id}/shell` | Ensure a plain shell is running for a session, spawning it if absent (`kb:anchor/sessions.shell`) |
 
 Design rule: **commands travel over HTTP; the WS pushes state one way (server→client)**.
 Rationale: idempotency and errors are natural in request/response, the E2E harness can
 drive every action without a socket, and the WS stays a pure ordered event stream. The
-only client→server WS traffic in v1 is terminal input/resize on the terminal sockets (§6,
-§6.1).
+only client→server WS traffic in v1 is terminal input/resize on the terminal sockets (`kb:anchor/terminal.ws`,
+`kb:anchor/terminal.shell-ws`).
 
-### 3.1 `POST /api/sessions`
+<!-- kb:anchor sessions.create -->
+### `POST /api/sessions`
 
 ```jsonc
 // request
@@ -93,17 +100,17 @@ only client→server WS traffic in v1 is terminal input/resize on the terminal s
   "directory": "/Users/damian/code/Projects/muster",  // required, absolute
   "title": "flaky-e2e-hunt",                          // optional → `claude --name`
   "model": "opus",                                     // required; passed to `--model` verbatim — any non-empty string (UI offers sonnet/opus/haiku/fable presets + free-text override)
-  "permissionMode": "acceptEdits"                      // required: "default" | "plan" | "acceptEdits" | "auto" — seeds the latch (§7.3).
+  "permissionMode": "acceptEdits"                      // required: "default" | "plan" | "acceptEdits" | "auto" — seeds the latch (kb:anchor/state.transitions).
                                                        // "default" is Claude Code's manual mode (UI label "manual"; measured 2.1.259: no-flag,
                                                        // `manual` and `default` all report permission_mode "default"). "auto" added by
                                                        // bypassPermissions/dontAsk deliberately not offered (SPEC §4.4).
 }
-// response: 201 + the Session object (§5.3), state "started"
+// response: 201 + the Session object (kb:anchor/ws.session), state "started"
 ```
 
 Side effects (ux-flows §1.3): upsert `repo` row; create the tmux window on the `muster`
-socket with `MUSTER_SESSION` set in the pane environment (§4.2); ensure the directory's
-`.claude/settings.local.json` (gitignored by Claude Code — measured, §4.2) registers
+socket with `MUSTER_SESSION` set in the pane environment (`kb:anchor/ingest.envelope`); ensure the directory's
+`.claude/settings.local.json` (gitignored by Claude Code — measured, `kb:anchor/ingest.envelope`) registers
 Muster's hooks/status-line/ingest URLs;
 insert the session row and broadcast `sessionUpsert` **immediately** — before any hook
 arrives, because the first hook may be a long way off (trust prompt, ux-flows §1.4).
@@ -114,7 +121,8 @@ empty `model`; directory that does not exist or is not a directory),
 `settings.local.json` that exists but is not valid JSON — Muster refuses to guess at
 merging into a corrupt file, and the error message names the file).
 
-### 3.2 `GET /api/repos`
+<!-- kb:anchor repos.list -->
+### `GET /api/repos`
 
 `200` → array ordered `pinned DESC, lastLaunchedAt DESC` (ux-flows §1.1):
 
@@ -129,11 +137,12 @@ merging into a corrupt file, and the error message names the file).
 `lastModel`/`lastPermissionMode` are the per-directory launch defaults (ux-flows §1.2
 "Model and Start in default to whatever was used last, per directory").
 
-Browse… navigates via `GET /api/browse` (§3.6). The earlier "native chooser" note here
+Browse… navigates via `GET /api/browse` (`kb:anchor/browse.get`). The earlier "native chooser" note here
 was wrong: browsers deliberately never reveal a picked folder's absolute path, so the
 dashboard browses via the daemon instead.
 
-### 3.3 `PUT /api/prefs`
+<!-- kb:anchor prefs.put -->
+### `PUT /api/prefs`
 
 **Auth**: UI cookie (401 `unauthorized` without it).
 **Request** (at least one field; unknown fields ignored):
@@ -156,22 +165,23 @@ value outside its enum, `usageModel` empty / longer than 32 chars, `theme` not
 matching its pattern, or `updateCheck` not a JSON boolean.
 
 `updateCheck`: governs **checking only** — the binary never changes
-without an explicit `POST /api/update/apply` (§3.17) or `musterd -update`. A change has side
+without an explicit `POST /api/update/apply` (`kb:anchor/update.apply`) or `musterd -update`. A change has side
 effects beyond the echo: `false` clears `update.available`/`update.checkedAt` and broadcasts
-`update` (§5.7); `true` triggers an immediate check. A persisted non-boolean loads as `true`.
+`update` (`kb:anchor/ws.update`); `true` triggers an immediate check. A persisted non-boolean loads as `true`.
 
 `theme`: **opaque to the daemon** beyond the pattern — the
 client owns the theme registry (`web/src/theme.ts`), so a new theme never needs a daemon
 release. `"follow"` means the dashboard resolves the theme from `claudeTheme.family`
-(§5.2): `light` → Light, `dark`/`unknown` → Instrument. A stored name the client no longer
+(`kb:anchor/ws.snapshot`): `light` → Light, `dark`/`unknown` → Instrument. A stored name the client no longer
 knows resolves the same way as `"follow"`. A persisted value failing the pattern loads as
 `"follow"` (same silent fallback as the other fields).
 
 `railSort`: `manual` shows the rail in the user-owned order
-(`pinned` block first, then `railPos` — §5.3); `attention` keeps the pinned block first
-and sorts the unpinned group by the §5.2 attention order. Client-side sort in both cases.
+(`pinned` block first, then `railPos` — `kb:anchor/ws.session`); `attention` keeps the pinned block first
+and sorts the unpinned group by the `kb:anchor/ws.snapshot` attention order. Client-side sort in both cases.
 
-### 3.4 `GET /api/sessions/{id}/pane`
+<!-- kb:anchor sessions.pane -->
+### `GET /api/sessions/{id}/pane`
 
 Serves the last screen the daemon captured for the session. The daemon runs
 `tmux capture-pane -p` on every liveness tick (~5 s) for each alive session and on End
@@ -187,21 +197,23 @@ prompt text).
 Errors: `404 unknown_session`; `404 no_snapshot` (no capture has succeeded yet). Served for
 live sessions too; the UI asks only for `alive:false` ones.
 
-### 3.5 `POST /api/sessions/{id}/resume`
+<!-- kb:anchor sessions.resume -->
+### `POST /api/sessions/{id}/resume`
 
-No body. Rewrites the directory's `.claude/settings.local.json` (§4.2), then spawns
+No body. Rewrites the directory's `.claude/settings.local.json` (`kb:anchor/ingest.envelope`), then spawns
 `claude --resume <claudeSessionId> --model <model.id> [--permission-mode <latched>]` in a
 new tmux session named `muster-<id>` (the dead one's name is free again) with the same
 pane environment as a launch. The row keeps its Muster `id`; `tmuxTarget`/`tmuxPane` are
 the new pane's, `alive:true`, `endedAt:null`, the snapshot is cleared, and a
 `sessionUpsert` is broadcast. `state` is **unchanged** until the enveloped
-`SessionStart(source:"resume", same session_id)` arrives and lands it in `idle` (§7.3).
+`SessionStart(source:"resume", same session_id)` arrives and lands it in `idle` (`kb:anchor/state.transitions`).
 
 `200` + Session object. Errors: `404 unknown_session`; `409 not_resumable` (still alive,
 or `claudeSessionId` null); `409 directory_missing` (the directory no longer exists);
 `500 launch_failed` (settings write or tmux spawn failed — row unchanged).
 
-### 3.6 `GET /api/browse`
+<!-- kb:anchor browse.get -->
+### `GET /api/browse`
 
 **Auth**: UI cookie (401 `unauthorized` without it).
 **Request:** query param `path` — absolute directory path; omitted → the daemon's
@@ -228,49 +240,54 @@ home).
 - 400 `invalid_request`: `path` present but not absolute.
 - 404 `not_found`: path doesn't exist or isn't a directory (or is unreadable).
 
-### 3.7 `POST /api/sessions/{id}/end`
+<!-- kb:anchor sessions.end -->
+### `POST /api/sessions/{id}/end`
 
 No body. Captures a final pane snapshot, then `tmux kill-session -t muster-<id>`, then
 nudges the liveness check. Open terminal sockets for the id close `4001 pane_ended`; a
 `sessionUpsert` with `alive:false` is broadcast before the response. No other session is
-touched. Recoverable: the daemon still holds `claudeSessionId`, so §3.5 can resume it.
+touched. Recoverable: the daemon still holds `claudeSessionId`, so `kb:anchor/sessions.resume` can resume it.
 
 `200` + Session object (`alive:false`, `endedAt` set). Errors: `404 unknown_session`;
 `409 not_alive`.
 
-### 3.8 `DELETE /api/sessions/{id}`
+<!-- kb:anchor sessions.remove -->
+### `DELETE /api/sessions/{id}`
 
-No body. If the session is alive, the §3.7 End path runs first (its upsert is broadcast);
-then the row is deleted and `sessionRemoved` (§5.5) is broadcast. `event` rows keep their
+No body. If the session is alive, the `kb:anchor/sessions.end` End path runs first (its upsert is broadcast);
+then the row is deleted and `sessionRemoved` (`kb:anchor/ws.session-removed`) is broadcast. `event` rows keep their
 `session_id` (audit trail). A removed session can no longer be resumed from Muster.
 
 This also kills the session's shell tmux
-session, `muster-<id>-shell`, if one is running (§3.16). §3.7 End deliberately does **not** —
+session, `muster-<id>-shell`, if one is running (`kb:anchor/sessions.shell`). `kb:anchor/sessions.end` End deliberately does **not** —
 a shell outlives its parent session ending and dies only on Remove (or reconcile).
 
 `204`. Errors: `404 unknown_session`; `500 end_failed` (alive and the kill failed — the
 row is **not** deleted).
 
-### 3.9 `POST /api/usage/refresh`
+<!-- kb:anchor usage.refresh -->
+### `POST /api/usage/refresh`
 
 **Auth**: UI cookie (401 `unauthorized`). No body. Wakes the per-model usage poller
-(§5.4 `modelScoped`) for an immediate fetch; concurrent requests coalesce into at most one
+(`kb:anchor/ws.usage` `modelScoped`) for an immediate fetch; concurrent requests coalesce into at most one
 in-flight fetch. → `202`, no body; the result arrives as a `usage` message. Errors:
 `404 not_found` — polling disabled (`musterd -usage-poll 0`).
 
-### 3.10 `PUT /api/sessions/{id}/pin`
+<!-- kb:anchor sessions.pin -->
+### `PUT /api/sessions/{id}/pin`
 
 **Auth**: UI cookie (401 `unauthorized`). **Request:** `{ "pinned": true }` (`pinned`
 required, boolean). → `204`, no body. `pinned:true` moves the session to the **bottom of
 the pinned block** (pinned in order of pinning); `pinned:false` moves it to the **top of
 the unpinned block** (immediately after the last pinned session). The daemon renumbers
-whatever `railPos` values are needed to keep §5.3's invariant (every pinned session's
+whatever `railPos` values are needed to keep `kb:anchor/ws.session`'s invariant (every pinned session's
 `railPos` below every unpinned one's; `railPos` unique). Already in the requested state →
 `204` and no broadcast. Otherwise every session whose `pinned` or `railPos` changed is
 broadcast as a `sessionUpsert` — and only those. Errors: `400 invalid_request` (body not
 JSON / `pinned` missing or not boolean), `404 unknown_session`.
 
-### 3.11 `PUT /api/sessions/order`
+<!-- kb:anchor sessions.order -->
+### `PUT /api/sessions/order`
 
 **Auth**: UI cookie (401 `unauthorized`). **Request:**
 
@@ -284,14 +301,15 @@ JSON / `pinned` missing or not boolean), `404 unknown_session`.
 pins/unpins in one atomic call). Sessions that exist but are not listed keep their
 `pinned` flag and follow the listed ones in their existing relative `railPos` order — an
 unlisted *pinned* session is still kept inside the pinned block (end of it), renumbering
-the unpinned listed ones, so the §5.3 invariant always holds. Every session whose `pinned`
+the unpinned listed ones, so the `kb:anchor/ws.session` invariant always holds. Every session whose `pinned`
 or `railPos` changed is broadcast as a `sessionUpsert`; none if nothing changed. Errors:
 `400 invalid_request` — body not JSON, `ids` missing / not an integer array / duplicate or
 unknown id, `pinnedCount` missing or outside `[0, len(ids)]`. Nothing changes on a 400.
 Route note: Go's mux prefers the literal `order` segment over `{id}`, so this coexists with
 `/api/sessions/{id}/…`.
 
-### 3.12 `POST /api/issue/captures`
+<!-- kb:anchor issue.captures -->
+### `POST /api/issue/captures`
 
 **Auth**: UI cookie (401 `unauthorized`). Takes a snapshot of muster's own state for the
 dashboard's file-an-issue button and holds it server-side. **Request** (body optional):
@@ -303,7 +321,7 @@ dashboard's file-an-issue button and holds it server-side. **Request** (body opt
 **Response 201:**
 
 ```jsonc
-{ "captureId": "9f3c…",                       // 32 hex chars, opaque; the handle §3.13 files
+{ "captureId": "9f3c…",                       // 32 hex chars, opaque; the handle kb:anchor/issue.create files
   "capturedAt": "2026-08-31T09:15:00Z",
   "snapshot": { /* the allowlisted object — see below */ },
   "snapshotMarkdown": "## Snapshot\n\n| field | value |\n…" }  // rendered; no trailing newline
@@ -313,7 +331,7 @@ The snapshot is a **strict allowlist**, assembled by explicit field copy, never 
 subtracting keys from a whole-object shape:
 
 - always — `capturedAt`, `scope`, `musterd.version`, `claudeCode.{installed,floor,verified,status}`
-  (the §5.1 `hello` semantics — `installed` null iff `status` is `unknown`; the rendered
+  (the `kb:anchor/ws.hello` `hello` semantics — `installed` null iff `status` is `unknown`; the rendered
   `snapshotMarkdown` cell is `<installed> installed · verified <floor>–<verified> · <status>`, or
   `installed unknown · verified <floor>–<verified>` when unknown; a single-version range renders as
   the one version),
@@ -327,10 +345,10 @@ subtracting keys from a whole-object shape:
 
 **Never** on the wire here: prompt text, hook payload bodies, raw status-line JSON, pane
 captures, `lastActivity`, `failure.message` (it *is* the last assistant message),
-`title` (it refreshes from the status line's auto-generated session name — §5.3),
+`title` (it refreshes from the status line's auto-generated session name — `kb:anchor/ws.session`),
 `directory`, `branch`, `isWorktree`, the repo name, the `claudeSessionId` value, and every
-account-usage field of §5.4. `Zalaras/muster` may be open-sourced; this list is the
-boundary. Unknown values render the word `unknown` in `snapshotMarkdown`, never `0` (§1).
+account-usage field of `kb:anchor/ws.usage`. `Zalaras/muster` may be open-sourced; this list is the
+boundary. Unknown values render the word `unknown` in `snapshotMarkdown`, never `0` (`kb:anchor/conventions`).
 
 No side effects on muster state; nothing is broadcast. At most 8 captures are held, each
 expiring 15 minutes after `capturedAt`; taking a 9th evicts the oldest. Captures live in
@@ -339,9 +357,10 @@ memory only — a daemon restart drops them.
 Errors: `400 invalid_request` (body present but not JSON; `sessionId` not an integer);
 `404 unknown_session`; `404 not_found` (issue capture disabled — `musterd -issue-api-url ""`).
 
-### 3.13 `POST /api/issues`
+<!-- kb:anchor issue.create -->
+### `POST /api/issues`
 
-**Auth**: UI cookie (401 `unauthorized`). Files a held §3.12 capture as a GitHub issue on
+**Auth**: UI cookie (401 `unauthorized`). Files a held `kb:anchor/issue.captures` capture as a GitHub issue on
 the daemon's configured repo (`-issue-repo`, default `Zalaras/muster`). The daemon obtains
 a token by running `gh auth token` **at time of use** — never stored, never logged, never
 in a response body — and POSTs to `{-issue-api-url}/repos/{owner}/{name}/issues`.
@@ -349,7 +368,7 @@ in a response body — and POSTs to `{-issue-api-url}/repos/{owner}/{name}/issue
 **Request:**
 
 ```jsonc
-{ "captureId": "9f3c…",              // required; from §3.12
+{ "captureId": "9f3c…",              // required; from kb:anchor/issue.captures
   "title": "Rail drag drops on the wrong index",  // required; 1–200 chars after trimming
   "note": "dragged card 3 above card 1…" }        // optional; ≤ 8000 chars, CRLF → LF
 ```
@@ -378,7 +397,8 @@ a transport failure, or a 2xx whose body would not parse — in that last case t
 says the issue may nonetheless have been created). `502` rather than `500` because this is
 the one endpoint whose failure is genuinely upstream, and the UI says so.
 
-### 3.14 `POST /api/sessions/{id}/locate`
+<!-- kb:anchor sessions.locate -->
+### `POST /api/sessions/{id}/locate`
 
 **Auth**: UI cookie (401 `unauthorized`). Backs drag-and-drop onto a terminal pane (#8).
 A browser hands a page a dropped file's **name and bytes, never its path**, and macOS keeps
@@ -429,7 +449,8 @@ in the order the files were dropped. The session's `alive` flag is not consulted
 is a filesystem question; the UI itself refuses to paste into a surface whose terminal
 socket is not open.
 
-### 3.15 `PUT /api/sessions/{id}/title`
+<!-- kb:anchor sessions.title -->
+### `PUT /api/sessions/{id}/title`
 
 **Auth**: UI cookie (401 `unauthorized`). Backs inline rename from the Focus mainhead and a
 tile header (#10). **Request:** `{ "title": "hunting flake" }` sets the session's **title
@@ -440,13 +461,13 @@ trimmed before validation and storage. → `204`, no body. Every UI socket recei
 they were is a `204` with no broadcast. The session's `alive` flag is not consulted (a dead
 session can be renamed — display-only field).
 
-Precedence (§5.3): the wire `title` is `titleOverride` when non-null, else Claude's last-known
+Precedence (`kb:anchor/ws.session`): the wire `title` is `titleOverride` when non-null, else Claude's last-known
 `session_name`, else `null`. Status posts keep refreshing Claude's name into the daemon's own
 column but never read or write the override; while an override is set, a post that changes only
 Claude's name persists and broadcasts nothing (the wire object is unchanged). The launch form's
 title still reaches Claude Code as `--name` and is *not* an override.
 
-**Errors** (envelope per §2):
+**Errors** (envelope per `kb:anchor/transport`):
 
 - `400 invalid_request` — body not JSON, `title` key missing, `title` neither string nor null,
   or the trimmed string empty / longer than 100 runes.
@@ -454,7 +475,8 @@ title still reaches Claude Code as `--name` and is *not* an override.
 - `404 unknown_session` — no session with that id.
   `{ "error": { "code": "unknown_session", "message": "unknown session id" } }`
 
-### 3.16 `POST /api/sessions/{id}/shell`
+<!-- kb:anchor sessions.shell -->
+### `POST /api/sessions/{id}/shell`
 
 **Auth**: UI cookie (401 `unauthorized`). No body. Ensures session `{id}` has a plain shell
 running in its own tmux session, `muster-<id>-shell`, spawning it if absent — the lazy-spawn
@@ -464,14 +486,14 @@ shell is already running is a `200` with `created: false`.
 The shell runs the user's `$SHELL` interactively (fallback `/bin/zsh`) with the session's
 `directory` as cwd, and is spawned with **no `MUSTER_SESSION`** in its environment — so a
 `claude` run inside it produces an envelope with no `musterSession`, falls through
-§4.2's binding rules to an unbound `session_id`, and persists unrouted with a NULL
+`kb:anchor/ingest.envelope`'s binding rules to an unbound `session_id`, and persists unrouted with a NULL
 `event.session_id`. That isolation is structural, not incidental: it is what stops a nested
 `claude` driving the parent session's state machine. Muster writes no
 `.claude/settings.local.json` on a shell's behalf.
 
 `alive` is **not** consulted, in either direction: a shell may be started on a dead session
 and survives its parent session ending. A shell has no representation in SQLite and none on
-the state stream — the §5.3 Session object is unchanged, and no `sessionUpsert` is broadcast.
+the state stream — the `kb:anchor/ws.session` Session object is unchanged, and no `sessionUpsert` is broadcast.
 
 **Response 200:**
 
@@ -482,7 +504,7 @@ the state stream — the §5.3 Session object is unchanged, and no `sessionUpser
 - `target` — string, the shell's tmux session name; always `muster-<id>-shell`.
 - `created` — boolean, `true` iff this call spawned it.
 
-**Errors** (envelope per §2):
+**Errors** (envelope per `kb:anchor/transport`):
 
 - `404 unknown_session` — no session with that id.
   `{ "error": { "code": "unknown_session", "message": "unknown session id" } }`
@@ -493,10 +515,11 @@ the state stream — the §5.3 Session object is unchanged, and no `sessionUpser
   `{ "error": { "code": "shell_spawn_failed", "message": "tmux new-session: ..." } }`
 
 Shells are deliberately **not** persistent: they outlive musterd only because tmux sessions
-do, and reconcile (§7.5) kills every `muster-<n>-shell` on the socket at startup rather than
+do, and reconcile (`kb:anchor/state.liveness`) kills every `muster-<n>-shell` on the socket at startup rather than
 adopting it.
 
-### 3.17 `POST /api/update/apply`
+<!-- kb:anchor update.apply -->
+### `POST /api/update/apply`
 
 **Auth**: UI cookie (401 `unauthorized`).
 **Request** (`restart` optional, default `false`):
@@ -505,7 +528,7 @@ adopting it.
 { "restart": false }
 ```
 
-→ `202`, no body — progress arrives as `update` messages (§5.7). Semantics: if
+→ `202`, no body — progress arrives as `update` messages (`kb:anchor/ws.update`). Semantics: if
 `update.installed` already equals `update.available` (or `available` is null and `installed`
 is set — the restart-only case after a plain Update) the download is skipped; otherwise the
 daemon downloads the `runtime.GOARCH` archive plus `checksums.txt` and `checksums.txt.minisig`
@@ -524,7 +547,8 @@ is ignored — the first request's wins. Any failure leaves the old binary untou
 - 409 `nothing_to_apply` — `available` and `installed` both null.
 - 409 `shutting_down` — the daemon is already shutting down.
 
-### 3.18 `GET /api/update/restart-impact`
+<!-- kb:anchor update.restart-impact -->
+### `GET /api/update/restart-impact`
 
 **Auth**: UI cookie (401 `unauthorized`). No body. → `200`:
 
@@ -533,15 +557,16 @@ is ignored — the first request's wins. Any failure leaves the old binary untou
 ```
 
 One entry per `muster-<n>-shell` tmux session alive on the daemon's socket — the set reconcile
-kills on restart (§3.16/§7.5), which is why the dashboard's Update-and-restart confirm names
+kills on restart (`kb:anchor/sessions.shell` / `kb:anchor/state.liveness`), which is why the dashboard's Update-and-restart confirm names
 them. Computed on request from tmux, never cached (shells have no wire representation
 elsewhere). No errors beyond auth.
 
-## 4. HTTP endpoints — ingest (Claude Code → daemon)
+<!-- kb:anchor ingest -->
+## HTTP endpoints — ingest (Claude Code → daemon)
 
 | Method & path | Body |
 |---|---|
-| `POST /ingest/{token}/hook` | One hook payload — **enveloped** (§4.2) from the command wrapper; raw still accepted (canary / legacy) |
+| `POST /ingest/{token}/hook` | One hook payload — **enveloped** (`kb:anchor/ingest.envelope`) from the command wrapper; raw still accepted (canary / legacy) |
 | `POST /ingest/{token}/status` | Enveloped status-line stdin JSON |
 
 - One hook URL for **all** events (`hook_event_name` is in every payload), reached only
@@ -553,11 +578,12 @@ elsewhere). No errors beyond auth.
   is no value in making Claude Code retry, and 4xx/5xx behaviour is not ours to lean on.
 - Bad token → `404` (no oracle for token guessing; it's logged).
 - At ingest the daemon assigns a **monotonic per-session `seq`**, persists the event
-  (append-only `event` table), then feeds the state machine (§7) in `seq` order. Hook
+  (append-only `event` table), then feeds the state machine (`kb:anchor/state`) in `seq` order. Hook
   payloads carry no timestamp or ordering of their own.
 - **Never log payload bodies** anywhere world-readable — they contain prompt text.
 
-### 4.1 Transport facts this design is built on (measured, 2.1.233)
+<!-- kb:anchor ingest.transport -->
+### Transport facts this design is built on (measured, 2.1.233)
 
 `SessionStart` is silently never delivered over `type:"http"`, which is one reason every
 hook — and the status line — is a `type:"command"` wrapper script that POSTs its stdin
@@ -566,14 +592,15 @@ hook — and the status line — is a `type:"command"` wrapper script that POSTs
 
 **All hooks are `type:"command"` wrappers.** Command hooks
 see the pane environment on every event (probe 2026-08-27 against 2.1.246: 15/15 events
-enveloped across 3 sessions), so every event carries the §4.2 envelope, and the wrapper
+enveloped across 3 sessions), so every event carries the `kb:anchor/ingest.envelope` envelope, and the wrapper
 exits 0 silently when `$MUSTER_SESSION` is unset or the daemon is unreachable — an
 unmanaged session posts nothing and a stopped daemon produces no inline hook errors. The
 entries reference the wrapper's *path*, so a port/token rotation rewrites only the scripts
 (done at every daemon start), never the settings file. Cost ~50 ms/event vs ~25 ms for
 http (measured).
 
-### 4.2 The envelope — how events bind to a Muster session
+<!-- kb:anchor ingest.envelope -->
+### The envelope — how events bind to a Muster session
 
 Raw hook payloads identify themselves only by `session_id` + `cwd`, which cannot
 distinguish two sessions launched into the same directory. The command-wrapped posts fix
@@ -597,10 +624,10 @@ this, because a command hook runs inside the session's environment:
   confirms/records the tmux target), but any enveloped non-status event whose
   `session_id` differs from the bound one is the "new `session_id` on a known pane" case
   below and is applied as a `/clear` rebind first; an enveloped event on a never-bound
-  session binds it without a transition. Rebinding is **monotonic**: an enveloped event whose `session_id` is one this session has *already left* — `byClaude[session_id]` already points at this session and it is not the current `claudeSessionId` — is a reordered straggler from the previous conversation (typically the `/clear` pair's own `SessionEnd(reason:"clear")`, since delivery is unordered). It is routed and applied but **never rebinds backwards**; the current binding, context gauge and compaction counter are untouched. Residuals (measured, accepted): if the pane genuinely returns to an earlier conversation via `--resume` and that `SessionStart(source:"resume")` is lost, `claudeSessionId` stays on the newer id until the next bind event — events still route and apply. And INV-1 (§7.3) holds for the *bound* session only: an enveloped event whose `musterSession` is A but whose `session_id` is bound to B rebinds A and moves `byClaude`, leaving B's `claudeSessionId` unattributed — pre-existing on the `KindResumeBind` path, reachable only by posting one conversation under two `MUSTER_SESSION` values.
+  session binds it without a transition. Rebinding is **monotonic**: an enveloped event whose `session_id` is one this session has *already left* — `byClaude[session_id]` already points at this session and it is not the current `claudeSessionId` — is a reordered straggler from the previous conversation (typically the `/clear` pair's own `SessionEnd(reason:"clear")`, since delivery is unordered). It is routed and applied but **never rebinds backwards**; the current binding, context gauge and compaction counter are untouched. Residuals (measured, accepted): if the pane genuinely returns to an earlier conversation via `--resume` and that `SessionStart(source:"resume")` is lost, `claudeSessionId` stays on the newer id until the next bind event — events still route and apply. And INV-1 (`kb:anchor/state.transitions`) holds for the *bound* session only: an enveloped event whose `musterSession` is A but whose `session_id` is bound to B rebinds A and moves `byClaude`, leaving B's `claudeSessionId` unattributed — pre-existing on the `KindResumeBind` path, reachable only by posting one conversation under two `MUSTER_SESSION` values.
   Raw (non-enveloped) posts route by `session_id`
   through the existing mapping, never bind, and persist unrouted when unknown — never
-  guessed at by `cwd`. Status-line posts never bind or rebind (§7.3, INV-1).
+  guessed at by `cwd`. Status-line posts never bind or rebind (`kb:anchor/state.transitions`, INV-1).
 - `/clear` is directly observable (probe 2026-08-20, 2.1.237): the old `session_id` gets
   `SessionEnd` with `reason:"clear"`, then `SessionStart` fires with `source:"clear"` and
   a **new** `session_id` in the same pane. On it: rebind `claudeSessionId`, reset the
@@ -608,7 +635,7 @@ this, because a command hook runs inside the session's environment:
   `tmuxTarget`, title history) is unchanged. A new `session_id` on a known pane without
   `source:"clear"` is treated the same way (loss tolerance).
 
-All of §4.2 is measured, not assumed (probe 2026-08-20, against 2.1.237): command hooks
+All of `kb:anchor/ingest.envelope` is measured, not assumed (probe 2026-08-20, against 2.1.237): command hooks
 and the status-line script see both `$TMUX_PANE` and `tmux new-window -e`-injected
 variables, headless and interactive. The per-directory config Muster writes is
 **`.claude/settings.local.json`** — verified to honor `hooks`, `statusLine` and
@@ -626,7 +653,8 @@ form when replacing them wholesale. Quoting a space-free path is harmless (measu
 default macOS data dir (`~/Library/Application Support/Muster`) contains a space, so this
 is the production path, not an edge case.
 
-## 5. WebSocket `/ws` — the state stream
+<!-- kb:anchor ws -->
+## WebSocket `/ws` — the state stream
 
 - Auth: cookie on the upgrade request. Ordered, server→client only. Client never sends
   application messages on this socket (pings are the library's business).
@@ -639,7 +667,8 @@ is the production path, not an edge case.
 
 Every message: `{"type": "<name>", …}`. Unknown types are ignored.
 
-### 5.1 `hello`
+<!-- kb:anchor ws.hello -->
+### `hello`
 
 ```jsonc
 { "type": "hello", "protocolVersion": 2,
@@ -660,21 +689,22 @@ canary-verified range (`docs/claude-code-versions.md`):
   `verified` is `floor ≤ installed ≤ verified` (versions strictly inside the range are inferred, not
   individually run), `above` is `installed > verified`.
 
-The masthead renders the four states (`unknown` as the words "Claude installation unknown", §1;
+The masthead renders the four states (`unknown` as the words "Claude installation unknown", `kb:anchor/conventions`;
 `below`/`above` with a warning glyph and hover text). Protocol 1 carried `{pinned, installed,
 drift}` — removed. A `protocolVersion` the client doesn't know → client shows "reload the
 dashboard"; the dashboard is embedded in the binary, so the only skewed client is a tab left open
 across a `musterd` upgrade.
 
-### 5.2 `snapshot`
+<!-- kb:anchor ws.snapshot -->
+### `snapshot`
 
 ```jsonc
 { "type": "snapshot",
-  "sessions": [ /* Session objects, §5.3 — order unspecified; the client sorts */ ],
-  "usage": { /* Usage object, §5.4 */ },
+  "sessions": [ /* Session objects, kb:anchor/ws.session — order unspecified; the client sorts */ ],
+  "usage": { /* Usage object, kb:anchor/ws.usage */ },
   "prefs": { "view": "focus", "density": "2x2", "usageModel": "Fable", "railSort": "manual", "theme": "follow", "updateCheck": true },
   "claudeTheme": { "family": "dark" },   // "light" | "dark" | "unknown" — always present
-  "update": { /* §5.7 — always present*/ } }
+  "update": { /* kb:anchor/ws.update — always present*/ } }
 ```
 
 `claudeTheme.family` is the daemon's latest read of Claude Code's own theme setting,
@@ -690,7 +720,8 @@ it is read is `internal/claudecode`'s business — not specified here.
 (needs-input longest-blocked first → failed most recent → planning → working → started →
 idle longest-idle first), unit-tested in Vitest. The daemon never orders for display.
 
-### 5.3 The Session object
+<!-- kb:anchor ws.session -->
+### The Session object
 
 Broadcast whole (`sessionUpsert`) on any change — at 3–6 sessions, field-level patching
 is complexity with no payoff, and whole-object replacement is naturally loss-tolerant.
@@ -700,12 +731,12 @@ is complexity with no payoff, and whole-object replacement is naturally loss-tol
   "id": 7,
   "title": "flaky-e2e-hunt",        // DISPLAY title: titleOverride when non-null, else the
                                     //   last-known status-line session_name (launch --name until then), else null
-  "titleOverride": null,            // string | null — the user's rename via PUT /api/sessions/{id}/title (§3.15); null = none.
+  "titleOverride": null,            // string | null — the user's rename via PUT /api/sessions/{id}/title (kb:anchor/sessions.title); null = none.
                                     //   Never touched by status posts, rebinds, resume or reconcile. INV: title == titleOverride
                                     //   whenever titleOverride is non-null.
   "state": "working",                // "started"|"planning"|"working"|"needs_input"|"failed"|"idle"
   "stateSince": "2026-08-20T09:15:00Z",
-  "alive": true,                     // liveness is ORTHOGONAL to state (§7.5); false = pane gone, card greys out, offers resume
+  "alive": true,                     // liveness is ORTHOGONAL to state (kb:anchor/state.liveness); false = pane gone, card greys out, offers resume
   "endedAt": null,
   "attention": { "reason": "permission", "since": "2026-08-20T09:15:00Z" }, // non-null iff state == "needs_input"; reason "permission"|"idle"
   "failure": { "error": "server_error", "message": "API error ended the turn" }, // non-null iff state == "failed"; error is the RAW token — display it, never switch on it (H2: taxonomy isn't 1:1)
@@ -731,7 +762,7 @@ is complexity with no payoff, and whole-object replacement is naturally loss-tol
                                     //   railPos = id (opened order). Display-only — never read or
                                     //   written by the state machine or the status path. The
                                     //   client sorts by it (prefs.railSort); the daemon never
-                                    //   orders for display (§5.2 unchanged). Changes arrive as
+                                    //   orders for display (kb:anchor/ws.snapshot unchanged). Changes arrive as
                                     //   ordinary sessionUpserts, one per changed session.
 }
 ```
@@ -746,7 +777,7 @@ Value semantics (within the nullability rules above):
 - `title`: the launch form's title, else `null`, until **Claude's name** arrives from the
   status line's session name — it refreshes whenever a post carries one (early posts carry
   none; the last-known value stands until then). The wire `title` reflects it only while
-  `titleOverride` is null (§3.15).
+  `titleOverride` is null (`kb:anchor/sessions.title`).
 - `model`: `{id, displayName}` carry the launch value verbatim until the SessionStart
   payload's optional model field (a plain model-ID string, sometimes absent — measured
   2026-08-20) replaces `id`; both then refresh from the status line's model object whenever
@@ -761,9 +792,10 @@ Value semantics (within the nullability rules above):
 - `alive`/`endedAt`: live from the liveness poll and the SessionEnd hint.
 - Status posts change **only** title/model/context, and only when a value actually changed
   (no no-op upserts) — never `state`/`stateSince`/`attention`/`failure`/`alive`/
-  `permissionMode`/`compactions` (INV-1; §7.3's "never a state source").
+  `permissionMode`/`compactions` (INV-1; `kb:anchor/state.transitions`'s "never a state source").
 
-### 5.4 The Usage object & `usage` message
+<!-- kb:anchor ws.usage -->
+### The Usage object & `usage` message
 
 ```jsonc
 { "type": "usage", "usage": {
@@ -771,7 +803,7 @@ Value semantics (within the nullability rules above):
     "sevenDay": { "usedPct": 23.0, "resetsAt": "2026-08-22T06:00:00Z" },  // wire name seven_day; null as above
     "model": { "id": "claude-opus-5", "displayName": "Opus 5" },  // freshest sample's model (masthead readout); null iff buckets null
     "sampledAt": "2026-08-20T09:15:31Z",   // null iff buckets null
-    "source": "subscription",              // the §9 Q6 seam: "api"/"otel" later
+    "source": "subscription",              // the SPEC §9 Q6 seam: "api"/"otel" later
     "modelScoped": [                        // per-model weekly windows from GET /api/oauth/usage; null until the first successful fetch, then the full list sorted by displayName ([] is a valid, distinct result)
       { "displayName": "Fable", "usedPct": 61.0, "resetsAt": "2026-09-01T13:59:59Z" } ],
     "modelScopedAt": "2026-08-30T10:00:00Z", // null iff modelScoped null — last successful fetch
@@ -791,29 +823,40 @@ nothing.
 
 **Two sources, one object**: the `fiveHour`/`sevenDay`/`model`
 half comes from routed status posts as above; the `modelScoped*` half comes from musterd's
-own poll of Claude Code's `/api/oauth/usage` endpoint (default every 5 min, plus §3.9),
+own poll of Claude Code's `/api/oauth/usage` endpoint (default every 5 min, plus `kb:anchor/usage.refresh`),
 because the status line filters the per-model window out (`spikes/FINDINGS.md`
 2026-08-30 addendum). Each half has its own change detection; a `usage` message is sent
 whenever **either** changes (or `modelScopedError` changes) and always carries the merged
 full object built at send time. Neither half hydrates across a daemon restart. The
-`usageModel` pref (§3.3) selects which `modelScoped` entry the masthead renders.
+`usageModel` pref (`kb:anchor/prefs.put`) selects which `modelScoped` entry the masthead renders.
 
-### 5.5 `sessionUpsert` and `prefs`
+<!-- kb:anchor ws.session-upsert -->
+### `sessionUpsert`
 
 ```jsonc
-{ "type": "sessionUpsert", "session": { /* §5.3 */ } }
+{ "type": "sessionUpsert", "session": { /* kb:anchor/ws.session */ } }
+```
+
+<!-- kb:anchor ws.prefs -->
+### `prefs`
+
+```jsonc
 { "type": "prefs", "prefs": { "view": "tiles", "density": "3x2", "usageModel": "Fable", "railSort": "manual", "theme": "dark", "updateCheck": true } }  // full-object echo of PUT /api/prefs
 ```
 
+<!-- kb:anchor ws.session-removed -->
+### `sessionRemoved`
+
 ```jsonc
-{ "type": "sessionRemoved", "id": 7 }   // sent once per DELETE /api/sessions/{id} (§3.8)
+{ "type": "sessionRemoved", "id": 7 }   // sent once per DELETE /api/sessions/{id} (kb:anchor/sessions.remove)
 ```
 
-A client that has never seen `id` ignores it. Startup sweeps (§7.5) send nothing — swept
+A client that has never seen `id` ignores it. Startup sweeps (`kb:anchor/state.liveness`) send nothing — swept
 rows are simply absent from the first `snapshot`. Dead sessions otherwise stay visible
 (sorted last, offering Resume/Remove) until removed or swept.
 
-### 5.6 `claudeTheme`
+<!-- kb:anchor ws.claude-theme -->
+### `claudeTheme`
 
 ```jsonc
 { "type": "claudeTheme", "family": "light" }   // "light" | "dark" | "unknown"
@@ -821,13 +864,14 @@ rows are simply absent from the first `snapshot`. Dead sessions otherwise stay v
 
 Sent **only when the polled family changed** since the last broadcast — never per tick,
 never with a timestamp (it is a current-state fact, not an event). The first value a client
-sees is `snapshot.claudeTheme` (§5.2), so a reconnect needs no replay. On receipt the
+sees is `snapshot.claudeTheme` (`kb:anchor/ws.snapshot`), so a reconnect needs no replay. On receipt the
 client always re-derives the terminal pair (`<html data-claude-family>`) and, only while
 `prefs.theme` is `"follow"`, re-derives the dashboard theme (`<html data-theme>`). A
 `prefs` message never changes the family; a `claudeTheme` message never changes the
 dashboard theme while an override is set.
 
-### 5.7 `update`
+<!-- kb:anchor ws.update -->
+### `update`
 
 ```jsonc
 { "type": "update", "update": {
@@ -853,12 +897,13 @@ daemon (once after listen, then every `-update-check-interval`, default 24 h) ag
 with `updateCheck` false the daemon makes no update-related request at all. Where the release
 lives and how it is verified is `internal/selfupdate`'s business — not specified here.
 
-## 6. WebSocket `/ws/terminal/{id}` — the PTY bridge
+<!-- kb:anchor terminal.ws -->
+## WebSocket `/ws/terminal/{id}` — the PTY bridge
 
 One socket per **live** surface, bridged to a daemon-owned PTY running `tmux attach`
-against that session's own tmux session (`muster-<id>` — see §5.3's tmuxTarget note).
+against that session's own tmux session (`muster-<id>` — see `kb:anchor/ws.session`'s tmuxTarget note).
 
-**Auth**: UI cookie on the upgrade + the §2 Origin check. Pre-upgrade errors (plain HTTP):
+**Auth**: UI cookie on the upgrade + the `kb:anchor/transport` Origin check. Pre-upgrade errors (plain HTTP):
 401 `unauthorized` (no/invalid cookie), 404 `not_found` (unknown session id),
 409 `not_attachable` (session exists but `alive` is false).
 
@@ -891,46 +936,50 @@ before the new attach starts. Geometry ownership moves with the socket, which is
 the resize mechanics view-switching needs (ux-flows §3.8): the newly-owning surface sends
 its `resize` on connect, and sessions whose live surface didn't change are never touched.
 
-### 6.1 WebSocket `/ws/shell/{id}` — the shell PTY bridge
+<!-- kb:anchor terminal.shell-ws -->
+### WebSocket `/ws/shell/{id}` — the shell PTY bridge
 
 One socket per live **shell** surface, bridged to a daemon-owned PTY running `tmux attach`
-against `muster-<id>-shell` (§3.16). **Attach only** — this route never spawns; `POST
+against `muster-<id>-shell` (`kb:anchor/sessions.shell`). **Attach only** — this route never spawns; `POST
 /api/sessions/{id}/shell` is the only thing that creates a shell.
 
-**Auth**: UI cookie on the upgrade + the §2 Origin check. Pre-upgrade errors (plain HTTP):
+**Auth**: UI cookie on the upgrade + the `kb:anchor/transport` Origin check. Pre-upgrade errors (plain HTTP):
 401 `unauthorized`, 404 `not_found` (unknown session id), 409 `no_shell` (the session exists
-but has no running shell). `alive` is not consulted (§3.16). Note that a browser cannot read a
+but has no running shell). `alive` is not consulted (`kb:anchor/sessions.shell`). Note that a browser cannot read a
 pre-upgrade status — the WebSocket API hides it — which is why the spawn is a separate POST
 whose error body the dashboard can actually render.
 
-**Frames**: byte-for-byte identical to §6 — raw PTY output binary server→client, raw input
+**Frames**: byte-for-byte identical to `kb:anchor/terminal.ws` — raw PTY output binary server→client, raw input
 binary client→server, and `{"type":"resize","cols":N,"rows":N}` as the only client→server text
 frame, with the same [20, 500] × [5, 300] clamps and the same `pty.Setsize` **then** `tmux
 resize-window` order (FINDINGS §7(d)). An unparseable or unknown text frame is ignored and
 logged, never fatal.
 
 **Close codes**: `4000` `superseded`, `4001` `pane_ended` (the shell exited — `exit`, or an
-external kill), normal close (1001) on daemon shutdown. Unlike §6's `4001`, this one does
+external kill), normal close (1001) on daemon shutdown. Unlike `kb:anchor/terminal.ws`'s `4001`, this one does
 **not** nudge the liveness poll: a shell's death is not its session's death, and a live session
 must never take a liveness flap because a shell under it exited.
 
 **One-live-client law**: enforced per **attach target**, not per session. `muster-<id>` and
 `muster-<id>-shell` are distinct targets, so a session's Claude socket and its shell socket are
 independent — opening one never supersedes the other. Two clients on the *same* target still
-supersede each other exactly as §6 describes.
+supersede each other exactly as `kb:anchor/terminal.ws` describes.
 
-## 7. The state machine
+<!-- kb:anchor state -->
+## The state machine
 
 Runs inside the daemon per session, fed exclusively by ingested events (in `seq` order),
 Muster's own actions (launch/resume), and pane-liveness checks. **Never terminal output.**
 
-### 7.1 Displayed states
+<!-- kb:anchor state.displayed -->
+### Displayed states
 
 `started · planning · working · needs_input · failed · idle` — exactly SPEC §2.1. There
 is no "done" (a turn ending is not a task completing) and no "dead" state — liveness is
-the orthogonal `alive` flag (§7.5).
+the orthogonal `alive` flag (`kb:anchor/state.liveness`).
 
-### 7.2 Per-session tracked variables
+<!-- kb:anchor state.tracked -->
+### Per-session tracked variables
 
 - `state`, `stateSince` — the displayed pair.
 - `modeLatch` — last known `permission_mode`, seeded by the launch flag
@@ -948,9 +997,10 @@ the orthogonal `alive` flag (§7.5).
   *parent turn's* `prompt_id` plus the marker; the `Notification` a subagent triggers does
   not. The state machine sees the marker only as a neutral flag derived in
   `internal/claudecode`.
-- `compactions`, `context`, `attention`, `failure`, `lastActivity` — as surfaced in §5.3.
+- `compactions`, `context`, `attention`, `failure`, `lastActivity` — as surfaced in `kb:anchor/ws.session`.
 
-### 7.3 Transitions
+<!-- kb:anchor state.transitions -->
+### Transitions
 
 "Turn-activity" events: `UserPromptSubmit`, `PreToolUse`, `PostToolUse` (all carry
 `prompt_id` and `permission_mode`). `ACTIVE` below means: `planning` if
@@ -965,21 +1015,21 @@ distinct, and the latch is what separates them.
 | Any enveloped non-status event whose `session_id` is a *previous* id of this session (already in `byClaude` → this session, not the current one) | Reordered straggler: route and apply the event's own row; **no** rebind, no reset (monotonic binding) |
 | Any enveloped non-status event on a never-bound session | Bind `claudeSessionId` (no transition), then apply the event's own row |
 | `SessionStart` (`source:"resume"`, same `session_id`) | Re-bind to new pane, `alive := true` → `idle` (history exists; it is waiting for input, not new) |
-| Turn-activity event (prompt not closed) | Adopt `prompt_id` as current (a new id is a new turn even if `UserPromptSubmit` was lost) → `ACTIVE`; update latch; **clear `attention` and `failure`** (§5.3's iff rules) |
+| Turn-activity event (prompt not closed) | Adopt `prompt_id` as current (a new id is a new turn even if `UserPromptSubmit` was lost) → `ACTIVE`; update latch; **clear `attention` and `failure`** (`kb:anchor/ws.session`'s iff rules) |
 | Turn-activity event (prompt already closed, **no subagent marker**) | Straggler from an unordered stream: persist, **no transition, no field change** (the latch still updates) |
 | Turn-activity event (prompt already closed, **subagent marker present**) | A background subagent still working past the parent's `Stop` (#14, measured 2.1.259): → `ACTIVE`, clear `attention` and `failure`; the closed prompt is neither reopened nor adopted as current — the next Stop-family event still lands `idle`/`failed` |
-| `Notification` `permission_prompt` (prompt not closed) | → `needs_input`, `attention.reason:"permission"`; **clears `failure`** (§5.3's iff rule) |
+| `Notification` `permission_prompt` (prompt not closed) | → `needs_input`, `attention.reason:"permission"`; **clears `failure`** (`kb:anchor/ws.session`'s iff rule) |
 | `Notification` `idle_prompt` (prompt not closed) | → `needs_input`, `attention.reason:"idle"`; **clears `failure`** (reachable from `failed` when the fresh prompt's `UserPromptSubmit` was lost) |
 | `Notification` — any other `notification_type` | Persist only, no transition (unobserved types stay inert) |
-| `PermissionRequest` (prompt not closed, **or closed with the subagent marker present**) | Corroborates → `needs_input`, reason `"permission"`; **clears `failure`** (§5.3) (v1 never answers it; the terminal prompt races and wins). A subagent's permission wait past the parent's `Stop` is identified by this event alone — its `Notification` carries no marker |
+| `PermissionRequest` (prompt not closed, **or closed with the subagent marker present**) | Corroborates → `needs_input`, reason `"permission"`; **clears `failure`** (`kb:anchor/ws.session`) (v1 never answers it; the terminal prompt races and wins). A subagent's permission wait past the parent's `Stop` is identified by this event alone — its `Notification` carries no marker |
 | `Notification` `permission_prompt` / `idle_prompt` (prompt already closed) | Straggler: persist, no transition (if the subagent's `PermissionRequest` was lost, the terminal itself still shows the prompt — the honest gap) |
 | `Stop` | Close `prompt_id` → `idle`; capture `lastActivity`. `background_tasks` is never read: a `Stop` with background work still running lands `idle`, and the first subagent-marked hook returns it to `ACTIVE` (~2 s later, measured) — holding `working` on `background_tasks` would pin a session for as long as a backgrounded shell lives |
 | `StopFailure` | Close `prompt_id` → `failed`; capture raw `error` (`Stop`/`StopFailure` are mutually exclusive per prompt — H2) |
 | `PreCompact` | `compactions++`, no transition |
 | `SubagentStop` | Persist only |
 | `SessionEnd` (`reason:"clear"`) | `/clear` in progress: **not** a death hint — no effect on `alive`; the successor `SessionStart(source:"clear")` follows |
-| `SessionEnd` (any other reason) | `alive := false`, `endedAt` set; **state unchanged** (it's a hint — §7.5 is the authority) |
-| Status-line post | Title / model / context refresh (§5.3 value semantics) + account usage (§5.4), applied outside the state machine; **never a state source** — no effect on any state-machine-owned field (INV-1) |
+| `SessionEnd` (any other reason) | `alive := false`, `endedAt` set; **state unchanged** (it's a hint — `kb:anchor/state.liveness` is the authority) |
+| Status-line post | Title / model / context refresh (`kb:anchor/ws.session` value semantics) + account usage (`kb:anchor/ws.usage`), applied outside the state machine; **never a state source** — no effect on any state-machine-owned field (INV-1) |
 | Unknown `hook_event_name` | Persist + log; inert (forward compatibility) |
 
 `needs_input` exits through the same table: the user answering in the terminal produces
@@ -987,7 +1037,8 @@ turn-activity (→ `ACTIVE`) or a Stop-family event (→ `idle`/`failed`). Nothi
 clears it — if Muster missed the resolving event, the stale timer *is* the honest signal
 (ux-flows §3.5).
 
-### 7.4 Ordering & loss tolerance
+<!-- kb:anchor state.ordering -->
+### Ordering & loss tolerance
 
 Hooks are best-effort, at-most-once, unordered, timestamp-free. Rules, in priority order:
 
@@ -1002,13 +1053,14 @@ Hooks are best-effort, at-most-once, unordered, timestamp-free. Rules, in priori
 3. Any turn-scoped event with an unseen `prompt_id` starts that turn — every transition
    into `ACTIVE` self-heals a lost predecessor.
 4. Not every turn closes: a killed session emits neither `Stop` nor `StopFailure`
-   (H2 probe) — which is why liveness is independent (§7.5), and why the state machine
+   (H2 probe) — which is why liveness is independent (`kb:anchor/state.liveness`), and why the state machine
    must never *wait* for an event to make progress.
 
 The state machine and these guards get exhaustive table-driven unit tests (conventions —
 "the logic the whole tool rests on").
 
-### 7.5 Liveness
+<!-- kb:anchor state.liveness -->
+### Liveness
 
 `alive` is decided by **tmux pane existence on the muster socket** — polled (~5 s) and
 event-nudged (`SessionEnd`, PTY EOF, End). `SessionEnd` is only a hint
@@ -1027,7 +1079,7 @@ answer, over every persisted row:
   the resume chance survives; swept on the *following* startup.
 - A `muster-<n>` tmux session with no row → logged at warn, never adopted (Muster only
   manages what it started).
-- A `muster-<n>-shell` tmux session (§3.16) → **killed**, unconditionally, whatever its
+- A `muster-<n>-shell` tmux session (`kb:anchor/sessions.shell`) → **killed**, unconditionally, whatever its
   `<n>`, and never reported as an unknown session. Shells are deliberately non-persistent;
   since tmux sessions outlive musterd, "the daemon forgets them" has to mean this sweep
   actively kills them, or a restart leaks a live shell with nothing pointing at it.
@@ -1040,7 +1092,7 @@ live session, `ask` prompts once ("N live sessions on tmux socket X — kill the
 final snapshot, kills each live session's tmux session and sets its row `alive=0` before
 exit — so the next startup sweeps it.
 
-## 8. History
+## History
 
 `docs/history/protocol-changelog.md` — the milestone map this contract was built against and
 the per-plan changelog, newest last. `git log -- docs/protocol.md` has the diffs.

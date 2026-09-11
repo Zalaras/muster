@@ -117,7 +117,7 @@ State this plan's **delta against `docs/protocol.md`**: every WS message and HTT
 - **WS messages**: direction (daemon→UI / UI→daemon), `type`, full JSON shape with types, which fields are optional/nullable and exactly when (e.g. null before a session's first API response), ordering/delivery caveats
 - **HTTP endpoints**: method and path, request body, response body, error responses with status
   codes, auth (localhost token per SPEC §2.6). Every example body is the **exact wire shape**: error
-  examples sit inside the `{"error": {"code", "message", …}}` envelope protocol §2 mandates, extra
+  examples sit inside the `{"error": {"code", "message", …}}` envelope `kb:anchor/transport` mandates, extra
   fields (a `paths` list, a `retryAfter`) inside that object — never a flat `{"code": …}` sketch.
   `plan-lint.sh` flags an unenveloped example.
 

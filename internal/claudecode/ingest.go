@@ -35,7 +35,7 @@ type Event struct {
 var ErrNoSessionID = errors.New("ingest body has no usable session_id")
 
 // envelope matches the wrapper the SessionStart and status-line command scripts POST
-// (docs/protocol.md §4.2): musterSession/tmuxPane from the pane environment, plus the
+// (kb:anchor/ingest.envelope): musterSession/tmuxPane from the pane environment, plus the
 // verbatim stdin payload. A raw plain-HTTP hook has none of these keys.
 type envelope struct {
 	MusterSession *int64          `json:"musterSession"`

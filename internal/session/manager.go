@@ -17,7 +17,7 @@ import (
 )
 
 // PaneChecker reports whether a tmux pane still exists — the liveness poll's only
-// signal (protocol §7.5; never terminal output, CLAUDE.md hard rule). Defined here
+// signal (kb:anchor/state.liveness; never terminal output, CLAUDE.md hard rule). Defined here
 // because internal/session is the consumer; internal/tmux.Client satisfies it.
 type PaneChecker interface {
 	PaneExists(ctx context.Context, target string) (bool, error)
@@ -39,14 +39,14 @@ type Killer interface {
 }
 
 // Sentinel errors the internal/server package branches on to pick an HTTP status
-// (docs/protocol.md §3.5/§3.7/§3.8) — the one place callers of End/Remove/RecordResume
+// (kb:anchor/sessions.resume / kb:anchor/sessions.end / kb:anchor/sessions.remove) — the one place callers of End/Remove/RecordResume
 // must inspect a specific error rather than treating every failure alike.
 var (
 	ErrUnknownSession  = errors.New("unknown session")
 	ErrSessionNotAlive = errors.New("session not alive")
 )
 
-// defaultPollInterval is protocol §7.5's "~5s" liveness poll.
+// defaultPollInterval is kb:anchor/state.liveness's "~5s" liveness poll.
 const defaultPollInterval = 5 * time.Second
 
 // Config wires a Manager. Built by internal/server; nothing here starts a goroutine
@@ -62,9 +62,9 @@ type Config struct {
 	PollInterval    time.Duration   // 0 uses defaultPollInterval
 }
 
-// Manager is the in-memory session registry and the §7 state machine's home. Every
+// Manager is the in-memory session registry and the kb:anchor/state state machine's home. Every
 // mutation persists the full row and (unless OnUpsert is nil) broadcasts the fresh
-// Session — the "whole-object sessionUpsert" design (docs/protocol.md §5.3).
+// Session — the "whole-object sessionUpsert" design (kb:anchor/ws.session).
 type Manager struct {
 	store           *store.Store
 	log             zerolog.Logger
@@ -260,13 +260,13 @@ type ReconcileReport struct {
 	Swept           int
 	UnknownSessions []string // muster-<n> tmux sessions on the socket with no row (REQ-2)
 	// ShellsKilled counts "muster-<n>-shell" tmux sessions killed unconditionally
-	// (docs/protocol.md §7.5, plan plain-terminal-session REQ-10) — never adopted, and
+	// (kb:anchor/state.liveness, plan plain-terminal-session REQ-10) — never adopted, and
 	// never listed in UnknownSessions.
 	ShellsKilled int
 }
 
 // Reconcile runs once at daemon startup, synchronously, before the first snapshot is
-// served (REQ-1/REQ-2/REQ-17, protocol §7.5). Call after LoadAll and before Start:
+// served (REQ-1/REQ-2/REQ-17, kb:anchor/state.liveness). Call after LoadAll and before Start:
 //   - rows already alive=false (ended in an earlier daemon lifetime — the user had their
 //     resume chance) are deleted; nothing is broadcast, they are simply absent from the
 //     first snapshot.
@@ -342,7 +342,7 @@ func (m *Manager) Reconcile(ctx context.Context) (ReconcileReport, error) {
 			}
 			m.mu.Unlock()
 			for _, name := range names {
-				// Shell sessions (docs/protocol.md §3.16/§7.5, REQ-10) are killed
+				// Shell sessions (kb:anchor/sessions.shell / kb:anchor/state.liveness, REQ-10) are killed
 				// unconditionally, whatever their <n>, and never reported as unknown —
 				// they are deliberately non-persistent, and since tmux sessions outlive
 				// musterd this sweep is what "the daemon forgets them" actually means.
@@ -374,7 +374,7 @@ func (m *Manager) Reconcile(ctx context.Context) (ReconcileReport, error) {
 }
 
 // Get returns session id's current snapshot, if known — used by the terminal bridge's
-// pre-upgrade checks (docs/protocol.md §6: 404 unknown id, 409 not_attachable when
+// pre-upgrade checks (kb:anchor/terminal.ws: 404 unknown id, 409 not_attachable when
 // Alive is false).
 func (m *Manager) Get(id int64) (*Session, bool) {
 	m.mu.Lock()
@@ -406,12 +406,12 @@ func (m *Manager) Resolve(claudeSessionID string) (int64, bool) {
 }
 
 // Apply feeds one already-routed, already-persisted event into the state machine
-// (protocol §7.3) and persists + broadcasts the result. claudeSessionID and promptID
+// (kb:anchor/state.transitions) and persists + broadcasts the result. claudeSessionID and promptID
 // are generic identifiers, not Claude Code payload vocabulary; input is the neutral
 // StateInput the claudecode interpreter derived.
 //
 // enveloped is m4-hook-lifetime's REQ-9 binding-authority signal: it is true iff the
-// ingest post carried the §4.2 envelope (i.e. arrived through Muster's own command
+// ingest post carried the kb:anchor/ingest.envelope envelope (i.e. arrived through Muster's own command
 // wrapper, never a raw/legacy post). For an enveloped event whose Kind is not itself a
 // binder (KindBind/KindClearRebind/KindResumeBind — those already carry their own bind
 // logic via applyInput/applyBind below), this session's *actual* claudeSessionID is
@@ -427,7 +427,7 @@ func (m *Manager) Resolve(claudeSessionID string) (int64, bool) {
 //     event is a reordered straggler from a conversation this session has moved on
 //     from (typically the `/clear` pair's own `SessionEnd(reason:"clear")`, since
 //     delivery is unordered per CLAUDE.md's hard rule). Rebinding is **monotonic**
-//     (docs/protocol.md §4.2, decided 2026-08-28, review of this plan, Critical 1): it
+//     (kb:anchor/ingest.envelope, decided 2026-08-28, review of this plan, Critical 1): it
 //     is routed and applied below, but it never rebinds *backwards* — the current
 //     binding, context gauge and compaction counter are left untouched (Edge Case 6a).
 //
@@ -453,7 +453,7 @@ func (m *Manager) Apply(ctx context.Context, musterSessionID int64, claudeSessio
 			sess.ClaudeSessionID = claudeSessionID
 			m.byClaude[claudeSessionID] = musterSessionID
 		case sess.ClaudeSessionID != claudeSessionID:
-			// Monotonic rebind guard (docs/protocol.md §4.2, decided 2026-08-28):
+			// Monotonic rebind guard (kb:anchor/ingest.envelope, decided 2026-08-28):
 			// byClaude never deletes an old claude id on rebind — only a full session
 			// removal does that, via removeFromMemory (DeleteSession, Reconcile's
 			// sweep, Remove), and Apply would already have failed the m.sessions
@@ -532,7 +532,7 @@ func (m *Manager) ApplyStatus(ctx context.Context, musterSessionID int64, update
 	// REQ-12: a status post that only refreshed Claude's name while an override is set
 	// persists the row (Title changed, above — applyStatusUpdate reported it) but must
 	// not broadcast — the wire object (DisplayTitle()/model/context) is unchanged, and
-	// §5.3's no-no-op-upserts rule stands.
+	// kb:anchor/ws.session's no-no-op-upserts rule stands.
 	broadcast := !stringPtrEqual(beforeDisplay, sess.DisplayTitle()) || beforeModel != sess.Model || beforeContext != sess.Context
 	m.mu.Unlock()
 
@@ -545,7 +545,7 @@ func (m *Manager) ApplyStatus(ctx context.Context, musterSessionID int64, update
 	return snapshot, nil
 }
 
-// SetTitle applies docs/protocol.md §3.15's PUT .../title mutation (REQ-10/REQ-11):
+// SetTitle applies kb:anchor/sessions.title's PUT .../title mutation (REQ-10/REQ-11):
 // sets or clears id's title override under the lock and persists+broadcasts iff the
 // wire title or the override itself changed — a no-op request (edge cases 3/4) neither
 // writes nor broadcasts. Returns ErrUnknownSession for a missing id (the server maps it
@@ -623,7 +623,7 @@ func (m *Manager) captureSnapshot(ctx context.Context, id int64, target string) 
 // storeSnapshot persists text for id iff it differs from what's already stored
 // (REQ-4/Schema Changes: "written only when the text changes"). Never logs text (may
 // hold prompt text) and never broadcasts — the snapshot isn't part of the Session wire
-// object (protocol §3.4's own GET endpoint serves it).
+// object (kb:anchor/sessions.pane's own GET endpoint serves it).
 func (m *Manager) storeSnapshot(ctx context.Context, id int64, text string) {
 	m.mu.Lock()
 	sess, ok := m.sessions[id]
@@ -647,7 +647,7 @@ func (m *Manager) storeSnapshot(ctx context.Context, id int64, text string) {
 	}
 }
 
-// End kills a live session's tmux session (REQ-5, docs/protocol.md §3.7): a final pane
+// End kills a live session's tmux session (REQ-5, kb:anchor/sessions.end): a final pane
 // snapshot is captured, then the tmux session is killed, then the existing liveness
 // nudge path (checkOneLiveness/markEnded) observes the now-missing pane and does the
 // alive:=false persist + broadcast — the same single code path every other death goes
@@ -724,7 +724,7 @@ func (m *Manager) EndAll(ctx context.Context) int {
 	return ended
 }
 
-// Remove deletes id's row (REQ-6, docs/protocol.md §3.8): if alive, the End path runs
+// Remove deletes id's row (REQ-6, kb:anchor/sessions.remove): if alive, the End path runs
 // first; a failing kill (End's own error) leaves the row untouched and propagates — never
 // a deleted row with a running pane (Edge Case 5). On success the in-memory entry and the
 // row are both gone and OnRemoved fires (the sessionRemoved broadcast).
@@ -755,7 +755,7 @@ func (m *Manager) Remove(ctx context.Context, id int64) error {
 }
 
 // RecordResume stamps the new tmux target/pane after a successful resume spawn (REQ-7,
-// docs/protocol.md §3.5): alive:=true, endedAt cleared, the stale snapshot cleared (a
+// kb:anchor/sessions.resume): alive:=true, endedAt cleared, the stale snapshot cleared (a
 // fresh pane has nothing captured yet), persisted and broadcast. state is left
 // untouched — it becomes idle only once the enveloped SessionStart(source:"resume")
 // arrives (REQ-8, via the ordinary Apply/KindResumeBind path).
@@ -839,7 +839,7 @@ func (m *Manager) persistAndBroadcastRail(ctx context.Context, snapshots []*Sess
 	return nil
 }
 
-// SetPinned applies docs/protocol.md §3.10's pin mutation to id: pins or unpins it,
+// SetPinned applies kb:anchor/sessions.pin's pin mutation to id: pins or unpins it,
 // renumbering whatever the invariant requires (railorder.go's applyPin), and persists +
 // broadcasts every session whose pinned or railPos changed — nothing when id was
 // already in the requested state (D8, INV-5). Returns ErrUnknownSession if id doesn't
@@ -857,7 +857,7 @@ func (m *Manager) SetPinned(ctx context.Context, id int64, pinned bool) error {
 	return m.persistAndBroadcastRail(ctx, snapshots)
 }
 
-// SetOrder applies docs/protocol.md §3.11's full rail-order mutation: the pure
+// SetOrder applies kb:anchor/sessions.order's full rail-order mutation: the pure
 // applyOrder computes the new (pinned, railPos) for every session, and this persists +
 // broadcasts only the ones that changed. Returns ErrInvalidOrder for a malformed
 // request (the server maps it to 400 invalid_request) — nothing changes on that path.
@@ -894,7 +894,7 @@ func (m *Manager) pollLoop(ctx context.Context) {
 }
 
 // checkLiveness polls every alive, fully-launched session's pane and flips it dead on
-// the first miss (protocol §7.5). State is never touched here.
+// the first miss (kb:anchor/state.liveness). State is never touched here.
 func (m *Manager) checkLiveness(ctx context.Context) {
 	if m.paneChecker == nil {
 		return
@@ -922,7 +922,7 @@ func (m *Manager) checkLiveness(ctx context.Context) {
 }
 
 // Nudge immediately re-checks one session's pane liveness rather than waiting for the
-// next poll tick (protocol §6: a PTY EOF should promptly flip alive:false — "the daemon
+// next poll tick (kb:anchor/terminal.ws: a PTY EOF should promptly flip alive:false — "the daemon
 // also nudges the liveness poll" — rather than lagging up to the ~5s interval).
 func (m *Manager) Nudge(ctx context.Context, sessionID int64) {
 	if m.paneChecker == nil {

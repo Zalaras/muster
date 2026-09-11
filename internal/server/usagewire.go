@@ -6,7 +6,7 @@ import (
 	"github.com/Zalaras/muster/internal/usage"
 )
 
-// usageMessage is the WS `usage` envelope (docs/protocol.md §5.4).
+// usageMessage is the WS `usage` envelope (kb:anchor/ws.usage).
 type usageMessage struct {
 	Type  string    `json:"type"`
 	Usage UsageInfo `json:"usage"`

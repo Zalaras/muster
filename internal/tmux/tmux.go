@@ -4,7 +4,7 @@
 // the topology — not m1-sessions' single shared "muster" session with one window per
 // launch. Tiles needs up to 6 concurrent live surfaces, and a tmux client attaches to a
 // session (showing one window), so multiple concurrent attaches need multiple sessions.
-// A window's target (docs/protocol.md §5.3 tmuxTarget, e.g. "muster-7:@1") is what
+// A window's target (kb:anchor/ws.session tmuxTarget, e.g. "muster-7:@1") is what
 // Muster's own session identity keys on.
 package tmux
 
@@ -101,16 +101,16 @@ var serverOptions = [][]string{
 }
 
 // NewSession creates a new tmux session "muster-<id>" (one window, running command in
-// dir, with the given extra environment variables set in the pane — docs/protocol.md
-// §4.2: `tmux new-session -e`). Returns the window's target (e.g. "muster-7:@1") and
+// dir, with the given extra environment variables set in the pane —
+// kb:anchor/ingest.envelope: `tmux new-session -e`). Returns the window's target (e.g. "muster-7:@1") and
 // pane id (e.g. "%12"). Delegates to NewNamedSession with the "muster-<id>" convention.
 func (c *Client) NewSession(ctx context.Context, id int64, dir string, env map[string]string, command []string) (target, pane string, err error) {
 	return c.NewNamedSession(ctx, "muster-"+strconv.FormatInt(id, 10), dir, env, command)
 }
 
 // NewNamedSession creates a new tmux session named name (one window, running command in
-// dir, with the given extra environment variables set in the pane — docs/protocol.md
-// §4.2: `tmux new-session -e`). Returns the window's target (e.g. "muster-7:@1", or
+// dir, with the given extra environment variables set in the pane —
+// kb:anchor/ingest.envelope: `tmux new-session -e`). Returns the window's target (e.g. "muster-7:@1", or
 // "muster-7-shell:@2" for a shell session) and pane id (e.g. "%12"). If this is the first
 // command to reach the socket's server (i.e. no server was running yet), REQ-4's
 // server/session-wide options are applied right after, since tmux auto-starts the server
@@ -144,8 +144,8 @@ func (c *Client) NewNamedSession(ctx context.Context, name, dir string, env map[
 	return target, pane, nil
 }
 
-// shellSessionSuffix marks a tmux session name as a plain-shell surface (docs/protocol.md
-// §3.16) rather than a Claude pane — the one place the "muster-<id>-shell" convention is
+// shellSessionSuffix marks a tmux session name as a plain-shell surface
+// (kb:anchor/sessions.shell) rather than a Claude pane — the one place the "muster-<id>-shell" convention is
 // spelled out (plan plain-terminal-session, Affected Files).
 const shellSessionSuffix = "-shell"
 
@@ -157,7 +157,7 @@ func ShellSessionName(id int64) string {
 
 // IsShellSessionName reports whether name is a shell session name ("muster-<id>-shell")
 // and, if so, the session id it belongs to. Reconcile uses this to kill every orphaned
-// shell on the socket unconditionally (docs/protocol.md §7.5) without duplicating the
+// shell on the socket unconditionally (kb:anchor/state.liveness) without duplicating the
 // naming convention.
 func IsShellSessionName(name string) (id int64, ok bool) {
 	const prefix = "muster-"

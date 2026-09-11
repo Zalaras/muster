@@ -166,7 +166,11 @@ These are some minor changes and cleanup needed before we can move into post v1.
   rewrite → facts → ADR batches ×5 → specs (SPEC.md shrinks to ~1.5k words) → lessons/runbooks +
   skill rewiring → nested CLAUDE.md ×2 → freeze history. ☑ tool (2026-09-11: `internal/kb` +
   `tools/kb`, 63 tests; `make check-kb` in `make check` and the gates baseline; empty store green)
-  ☐ anchors ☐ facts ☐ ADRs ☐ specs ☐ lessons+rewiring ☐ nested CLAUDE.md ☐ freeze.
+  ☑ anchors (2026-09-11: 22 feature registry stubs own every file under `internal/`, `web/src/`,
+  `web/e2e/`; 42 `kb:anchor` ids in `docs/protocol.md`, numbers stripped, `sessionUpsert`/`prefs`/
+  `sessionRemoved` split; 525 `kb:anchor/` citations replace every numbered protocol reference;
+  generated `.claude/rules/`, per-feature `INDEX.md` + `contract.md`, `docs/INDEX.md`)
+  ☐ facts ☐ ADRs ☐ specs ☐ lessons+rewiring ☐ nested CLAUDE.md ☐ freeze.
 
 ## Reported issues (pre-v1 release)
 

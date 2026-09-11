@@ -104,7 +104,7 @@ test("End from the mainhead ends only the focused session; a live neighbour is u
     expect(foundB.state).toBe(sessionB.state);
 
     // A sorts after B (REQ-9: every ended session after every live one) — plan
-    // order-sidebar's approved protocol delta (§3.3/§5.3) makes this an Attention-mode
+    // order-sidebar's approved protocol delta (kb:anchor/prefs.put / kb:anchor/ws.session) makes this an Attention-mode
     // guarantee only: REQ-5's default `railSort` is "manual", and REQ-7 says a state
     // change (ending A is one) never moves a card in manual mode. Switch to Attention,
     // then wait for the resulting resort before asserting the REQ-9 order.

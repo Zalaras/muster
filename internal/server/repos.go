@@ -11,7 +11,7 @@ import (
 	"github.com/Zalaras/muster/internal/store"
 )
 
-// repoWire is one GET /api/repos element (docs/protocol.md §3.2, additive REQ-5 fields).
+// repoWire is one GET /api/repos element (kb:anchor/repos.list, additive REQ-5 fields).
 type repoWire struct {
 	ID                 int64   `json:"id"`
 	Path               string  `json:"path"`

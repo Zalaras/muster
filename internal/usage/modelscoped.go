@@ -13,7 +13,7 @@ import (
 )
 
 // defaultModelScopedSource is the only source in v1 for the per-model weekly windows —
-// constant on the wire (docs/protocol.md §5.4 modelScopedSource).
+// constant on the wire (kb:anchor/ws.usage modelScopedSource).
 const defaultModelScopedSource = "subscription-api"
 
 // ModelScopedConfig wires a ModelScoped. OnChange broadcasts the merged `usage` WS

@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Repo is one row of the MRU directory picker (docs/protocol.md §3.2), also the home
+// Repo is one row of the MRU directory picker (kb:anchor/repos.list), also the home
 // of the per-directory launch defaults (m1-sessions REQ-5).
 type Repo struct {
 	ID                 int64
@@ -35,7 +35,7 @@ type UpsertRepoParams struct {
 // UpsertRepo creates the repo row for p.Path if absent (launch_count starts at 1) or
 // updates the launch defaults and increments launch_count if present. The bool return
 // is true iff the row was newly created — the source of the Session's firstLaunchHere
-// field (docs/protocol.md §5.3).
+// field (kb:anchor/ws.session).
 func (s *Store) UpsertRepo(ctx context.Context, p UpsertRepoParams) (Repo, bool, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
 
@@ -115,7 +115,7 @@ func (s *Store) GetRepo(ctx context.Context, id int64) (Repo, error) {
 }
 
 // ListRepos returns every repo row ordered `pinned DESC, last_launched_at DESC`
-// (docs/protocol.md §3.2 / REQ-5), for the launch modal's MRU list.
+// (kb:anchor/repos.list / REQ-5), for the launch modal's MRU list.
 func (s *Store) ListRepos(ctx context.Context) ([]Repo, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, path, name, is_git, pinned, last_launched_at, launch_count, last_model, last_permission_mode, created_at

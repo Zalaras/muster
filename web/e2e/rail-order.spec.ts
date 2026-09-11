@@ -45,7 +45,7 @@ async function launchTitled(
 }
 
 /** Drives a session to `needs_input` via the real ingest endpoints (SessionStart ->
- * UserPromptSubmit -> a permission Notification), exactly per protocol §7.3. */
+ * UserPromptSubmit -> a permission Notification), exactly per kb:anchor/state.transitions. */
 async function makeNeedsInput(
   request: APIRequestContext,
   daemon: ScratchDaemon,

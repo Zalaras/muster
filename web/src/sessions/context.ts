@@ -9,7 +9,7 @@ import { formatTokens, GAUGE_WARN_THRESHOLD } from "./format";
 
 export interface ContextRowViewModel {
   known: boolean;
-  /** Rounded, display-only (protocol §5.4: percentages are floats end-to-end). Null iff
+  /** Rounded, display-only (kb:anchor/ws.usage: percentages are floats end-to-end). Null iff
    * `!known`. */
   pct: number | null;
   /** `formatTokens(totalInputTokens)`. Null iff `!known`. */

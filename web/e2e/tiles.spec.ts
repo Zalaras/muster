@@ -233,7 +233,7 @@ test("Tiles: Removing a dead tile backfills its slot from the strip and broadcas
     expect(state.sessions.some((s) => s.id === sessionToEnd.id)).toBe(false);
 
     // The WS broadcast itself, observed directly rather than inferred: exactly one
-    // `sessionRemoved` frame for this session's id, matching docs/protocol.md §5.5's
+    // `sessionRemoved` frame for this session's id, matching kb:anchor/ws.session-removed's
     // shape (`{ "type": "sessionRemoved", "id": <number> }`).
     const removedFrames = wsFrames
       .map((raw) => {

@@ -108,7 +108,7 @@ func (o TurnActivityOpts) permissionMode() string {
 	return o.PermissionMode
 }
 
-// RawUserPromptSubmit returns a raw `UserPromptSubmit` — opens a turn (protocol §7.3).
+// RawUserPromptSubmit returns a raw `UserPromptSubmit` — opens a turn (kb:anchor/state.transitions).
 func RawUserPromptSubmit(sessionID string, opts TurnActivityOpts) string {
 	return marshal(map[string]any{
 		"hook_event_name": "UserPromptSubmit",
@@ -159,7 +159,7 @@ func RawNotification(sessionID, promptID, notificationType string) string {
 }
 
 // RawPermissionRequest returns a raw `PermissionRequest` — corroborates a
-// permission-prompt needs_input (protocol §7.3).
+// permission-prompt needs_input (kb:anchor/state.transitions).
 func RawPermissionRequest(sessionID, promptID string) string {
 	return marshal(map[string]any{
 		"hook_event_name":        "PermissionRequest",
@@ -260,7 +260,7 @@ func RawPreCompact(sessionID, promptID string) string {
 }
 
 // RawSessionEnd returns a raw `SessionEnd` — reason "clear" is not a death hint
-// (protocol §7.3); any other reason sets alive:false. Carries no permission_mode.
+// (kb:anchor/state.transitions); any other reason sets alive:false. Carries no permission_mode.
 func RawSessionEnd(sessionID, reason string) string {
 	if reason == "" {
 		reason = "other"

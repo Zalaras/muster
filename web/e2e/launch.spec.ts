@@ -146,7 +146,7 @@ test("opening the dialog with two prior launches lists both recents, marks the m
     await expect(newerRecent).toHaveAttribute("aria-pressed", "true");
     await expect(olderRecent).toHaveAttribute("aria-pressed", "false");
 
-    // protocol §3.2: served `pinned DESC, lastLaunchedAt DESC` — the newer launch is
+    // kb:anchor/repos.list: served `pinned DESC, lastLaunchedAt DESC` — the newer launch is
     // first in DOM order, not just present. Trim: the button's textContent carries the
     // template's own indentation whitespace before `.dir-name` (harmless in the
     // browser's accessible-name computation, which normalizes it, but not in raw
@@ -1033,7 +1033,7 @@ test("opening on a deep path scrolls the crumb bar to its right edge, keeping th
   }
 });
 
-test("GET /api/browse returns 400 for a relative path and 404 for a directory that doesn't exist (protocol §3.6, unchanged)", async ({
+test("GET /api/browse returns 400 for a relative path and 404 for a directory that doesn't exist (kb:anchor/browse.get, unchanged)", async ({
   page,
   daemon,
 }) => {

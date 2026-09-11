@@ -22,7 +22,7 @@ func NewWalkFinder(entryCap int) *WalkFinder {
 
 // Find walks dir looking for entries named name with the given size. A dir that cannot
 // be opened or read at its root is a real error (the session directory is unreadable —
-// protocol.md §3.14's 500 case); an unreadable subdirectory deeper in the tree is
+// kb:anchor/sessions.locate's 500 case); an unreadable subdirectory deeper in the tree is
 // skipped instead, since one bad subtree should not fail the whole search.
 func (w *WalkFinder) Find(ctx context.Context, dir, name string, size int64) ([]string, error) {
 	if dir == "" {

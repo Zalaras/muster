@@ -41,7 +41,7 @@ export function formatAge(sinceIso: string, now: Date): string {
 
 /** REQ-9/REQ-10/REQ-13 (plan m4-reconcile): the coarse age since a session ended, in the
  * same buckets as `formatAge` ("now", "2m", "1h", "2d") — `endedAt` is only ever non-null
- * together with `alive:false` (protocol §7.5's paired invariant), so callers never need to
+ * together with `alive:false` (kb:anchor/state.liveness's paired invariant), so callers never need to
  * special-case a null endedAt for a session they already know is dead. */
 export function formatEndedAge(endedAtIso: string, now: Date): string {
   return formatAge(endedAtIso, now);

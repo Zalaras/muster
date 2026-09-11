@@ -1,4 +1,4 @@
-// The Issue dialog (plan issue-capture; docs/protocol.md §3.12/§3.13). DOM + wiring
+// The Issue dialog (plan issue-capture; kb:anchor/issue.captures / kb:anchor/issue.create). DOM + wiring
 // only — every daemon call goes through ../api.ts. `initIssue` below owns the masthead
 // trigger button (`#issue-button`, disabled on daemon-down like every other masthead
 // control) and calls `open()` with the rail's own session order and `focusedId`; this module
@@ -62,7 +62,7 @@ export function composeNoteSection(note: string): string {
 
 /** The live preview text (User Flow 3/4): the composed note section followed by the
  * daemon's own `snapshotMarkdown` verbatim — `body = noteSection + snapshotMarkdown`,
- * exactly the daemon's own composition rule (docs/protocol.md §3.13), so INV-2 holds
+ * exactly the daemon's own composition rule (kb:anchor/issue.create), so INV-2 holds
  * without this module ever inspecting `snapshotMarkdown`'s contents. */
 function composePreview(note: string, snapshotMarkdown: string): string {
   return composeNoteSection(note) + snapshotMarkdown;

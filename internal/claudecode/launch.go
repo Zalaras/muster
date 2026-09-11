@@ -1,7 +1,7 @@
 package claudecode
 
 // LaunchParams are the neutral inputs to building the `claude` CLI invocation
-// (docs/protocol.md §3.1). Validation of these values (non-empty model, a known
+// (kb:anchor/sessions.create). Validation of these values (non-empty model, a known
 // permission mode) is the caller's job — BuildArgv only assembles argv.
 type LaunchParams struct {
 	Model          string
@@ -9,7 +9,7 @@ type LaunchParams struct {
 	PermissionMode string // "default" | "plan" | "acceptEdits" | "auto"
 
 	// ResumeSessionID is non-empty for a resume relaunch (m4-reconcile REQ-7 / docs/
-	// protocol.md §3.5): emits `--resume <id>` and omits `--name` (D13) — the only place
+	// kb:anchor/sessions.resume): emits `--resume <id>` and omits `--name` (D13) — the only place
 	// the `--resume` flag string may appear (D6).
 	ResumeSessionID string
 }

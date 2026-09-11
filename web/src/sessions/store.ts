@@ -1,4 +1,4 @@
-// In-memory session store: snapshot replace + upsert merge (docs/protocol.md §5.5 —
+// In-memory session store: snapshot replace + upsert merge (kb:anchor/ws.session-upsert —
 // "sessionUpsert ... broadcast whole ... naturally loss-tolerant"). Pure state holder,
 // no DOM; render/sessions.ts reads it out through features/rail.ts and features/tiles.ts,
 // via app.ts's render frame.

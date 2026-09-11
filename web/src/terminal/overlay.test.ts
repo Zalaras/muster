@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { overlayForCloseCode, overlayText } from "./overlay";
 
-// docs/protocol.md §6 close codes: 4000 superseded, 4001 pane_ended; everything else
+// kb:anchor/terminal.ws close codes: 4000 superseded, 4001 pane_ended; everything else
 // (1000/1001 shutdown, 1006 abnormal/daemon-down, or any other value) reads as
 // "disconnected" — the bridge is down, not the session (plan m2-terminal REQ-13).
 describe("overlayForCloseCode", () => {

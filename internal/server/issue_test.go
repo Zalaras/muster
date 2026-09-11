@@ -376,7 +376,7 @@ func TestRenderSnapshotMarkdown_JSONFenceIsFourBackticks(t *testing.T) {
 func sessionSnapshotFixture() issueSnapshot {
 	snap := minimalDashboardSnapshot()
 	snap.Scope = "session"
-	// The protocol's own worked example (docs/protocol.md §3.12): installed past the
+	// The protocol's own worked example (kb:anchor/issue.captures): installed past the
 	// verified ceiling.
 	installed := "2.1.270"
 	snap.ClaudeCode.Installed = &installed
@@ -509,8 +509,8 @@ func TestRenderSnapshotMarkdown_UnknownRendering(t *testing.T) {
 	})
 }
 
-// TestClaudeCodeCell is D14's direct unit coverage of the cell text (docs/protocol.md
-// §3.12), independent of the full markdown row-order fixture above.
+// TestClaudeCodeCell is D14's direct unit coverage of the cell text
+// (kb:anchor/issue.captures), independent of the full markdown row-order fixture above.
 func TestClaudeCodeCell(t *testing.T) {
 	tests := []struct {
 		name string

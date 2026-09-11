@@ -59,7 +59,7 @@ export function railSortSelect(page: Page): Locator {
 
 /**
  * Sets a session's pinned flag directly via the real `PUT /api/sessions/{id}/pin`
- * (protocol §3.10) — used to build a starting configuration (e.g. "two cards already
+ * (kb:anchor/sessions.pin) — used to build a starting configuration (e.g. "two cards already
  * pinned") without re-deriving it through a chain of UI clicks in every test that needs
  * one. Throws on anything but the documented 204.
  */

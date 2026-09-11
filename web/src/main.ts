@@ -1,4 +1,4 @@
-// Muster dashboard entrypoint (docs/protocol.md §8). The composition root only (plan
+// Muster dashboard entrypoint (docs/history/protocol-changelog.md). The composition root only (plan
 // code-breakup REQ-1): builds the app, initialises every feature controller in
 // dependency order, wires the one `WsClient` to `app`, starts the 1s tick, and installs
 // the document-level drop guard. No DOM lookup, no DOM listener, no module-level mutable

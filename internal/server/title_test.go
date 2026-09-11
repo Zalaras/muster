@@ -23,7 +23,7 @@ func putSessionTitleRequest(t *testing.T, srv *testServer, id int64, body string
 	return rec
 }
 
-// TestHandleSetTitle_RequiresCookie covers the auth wiring for §3.15's new endpoint.
+// TestHandleSetTitle_RequiresCookie covers the auth wiring for kb:anchor/sessions.title's new endpoint.
 func TestHandleSetTitle_RequiresCookie(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 
@@ -35,7 +35,7 @@ func TestHandleSetTitle_RequiresCookie(t *testing.T) {
 }
 
 // TestHandleSetTitle_AbsentKeyIs400ButExplicitNullIs204 covers D8's core distinction
-// (§3.15: "the title key is required (absent key != null)") through the real HTTP
+// (kb:anchor/sessions.title: "the title key is required (absent key != null)") through the real HTTP
 // handler: a body with no "title" key at all is a 400 invalid_request, while a body that
 // spells the key with a JSON null value is a 204 (it clears the override — a no-op here,
 // since none was ever set, but still success, not an error).
@@ -52,7 +52,7 @@ func TestHandleSetTitle_AbsentKeyIs400ButExplicitNullIs204(t *testing.T) {
 	assert.Empty(t, explicitNull.Body.Bytes())
 }
 
-// TestHandleSetTitle_InvalidBodyIs400 covers §3.15's 400 invalid_request clause for
+// TestHandleSetTitle_InvalidBodyIs400 covers kb:anchor/sessions.title's 400 invalid_request clause for
 // every other kind of bad input: malformed JSON, a non-string/non-null title, and a
 // trimmed string outside the 1-100 rune range (including a whitespace-only string, which
 // trims to empty).
@@ -107,7 +107,7 @@ func TestHandleSetTitle_Exactly100RunesIsValid(t *testing.T) {
 	assert.Equal(t, exactly100, *row.TitleOverride)
 }
 
-// TestHandleSetTitle_TrimsLeadingAndTrailingWhitespaceBeforeStorage covers §3.15's
+// TestHandleSetTitle_TrimsLeadingAndTrailingWhitespaceBeforeStorage covers kb:anchor/sessions.title's
 // "leading/trailing whitespace is trimmed before validation and storage" clause.
 func TestHandleSetTitle_TrimsLeadingAndTrailingWhitespaceBeforeStorage(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
@@ -122,7 +122,7 @@ func TestHandleSetTitle_TrimsLeadingAndTrailingWhitespaceBeforeStorage(t *testin
 	assert.Equal(t, "padded name", *row.TitleOverride)
 }
 
-// TestHandleSetTitle_UnknownSessionIs404 covers §3.15's 404 unknown_session clause.
+// TestHandleSetTitle_UnknownSessionIs404 covers kb:anchor/sessions.title's 404 unknown_session clause.
 func TestHandleSetTitle_UnknownSessionIs404(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 

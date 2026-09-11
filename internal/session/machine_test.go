@@ -29,7 +29,7 @@ var fixedNow = time.Date(2026, 8, 22, 12, 0, 0, 0, time.UTC)
 
 func laterNow() time.Time { return fixedNow.Add(time.Minute) }
 
-// TestApplyInput_Bind covers protocol §7.3's Bind row: a fresh session (no prior Claude
+// TestApplyInput_Bind covers kb:anchor/state.transitions's Bind row: a fresh session (no prior Claude
 // session id) transitions to started and binds the id.
 func TestApplyInput_Bind(t *testing.T) {
 	t.Run("binds a fresh session and sets started", func(t *testing.T) {
@@ -60,7 +60,7 @@ func TestApplyInput_Bind(t *testing.T) {
 		applyInput(sess, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindBind, Model: &newID}, fixedNow)
 
 		assert.Equal(t, newID, sess.Model.ID)
-		assert.Equal(t, "sonnet", sess.Model.DisplayName, "displayName stays the verbatim launch string until M3 (protocol §5.3 M1 value semantics)")
+		assert.Equal(t, "sonnet", sess.Model.DisplayName, "displayName stays the verbatim launch string until M3 (kb:anchor/ws.session M1 value semantics)")
 	})
 
 	t.Run("no model field present leaves Model nil", func(t *testing.T) {
@@ -110,7 +110,7 @@ func TestApplyInput_ClearRebind(t *testing.T) {
 
 	t.Run("a plain Bind escalates to clear-rebind when the claude session id changed without a clear source", func(t *testing.T) {
 		// Edge Case 5: a new claude session id on a known pane without an explicit
-		// source:"clear" is still treated as /clear (protocol §4.2 loss tolerance).
+		// source:"clear" is still treated as /clear (kb:anchor/ingest.envelope loss tolerance).
 		sess := newTestSession()
 		sess.ClaudeSessionID = "old-claude-id"
 		sess.Compactions = 5
@@ -171,7 +171,7 @@ func TestApplyInput_ClearRebind(t *testing.T) {
 		assert.Equal(t, 84.0, sess.Context.UsedPct)
 	})
 
-	// review Critical 1: protocol §5.3's invariants ("attention non-null iff
+	// review Critical 1: kb:anchor/ws.session's invariants ("attention non-null iff
 	// needs_input", "failure non-null iff failed") must hold across a clear-rebind.
 	// Before the fix, applyBind forced state=started without ever touching Attention/
 	// Failure, so a card blocked on a permission prompt (or showing a stale failure)
@@ -191,7 +191,7 @@ func TestApplyInput_ClearRebind(t *testing.T) {
 		assert.Equal(t, StateStarted, sess.State)
 		assert.Nil(t, sess.Attention, "a rebind must never leave a stale needs-input note on a started card")
 		assert.Nil(t, sess.Failure)
-		assert.Nil(t, sess.LastActivity, "/clear starts a fresh conversation; §5.3: null until a first Stop")
+		assert.Nil(t, sess.LastActivity, "/clear starts a fresh conversation; kb:anchor/ws.session: null until a first Stop")
 	})
 
 	t.Run("explicit clear-rebind from failed clears the stale failure and attention", func(t *testing.T) {
@@ -481,7 +481,7 @@ func TestApplyInput_NeedsInputPermission_ClosedPromptSubagentMarked(t *testing.T
 // hook is lost, then a Notification idle_prompt for p2 arrives. p2 is neither closed nor
 // current, so KindNeedsInputIdle's closed-prompt guard does not fire (promptID != nil &&
 // sess.promptClosed(*promptID) is false for an unseen id) and the branch transitions
-// failed -> needs_input. INV-F (failure non-null iff state == failed, protocol §5.3,
+// failed -> needs_input. INV-F (failure non-null iff state == failed, kb:anchor/ws.session,
 // unconditional) requires the stale failure note not survive that transition. This path
 // is distinct from TestApplyInput_CrossStateInvariants's
 // "closed_prompt_unmarked_notification_idle" row, which seeds p1 as CLOSED (a genuine
@@ -570,7 +570,7 @@ func TestApplyInput_TurnActivity_SubagentMarkedWhileParentPromptStillOpen(t *tes
 
 // TestApplyInput_TurnActivity_SubagentMarkedUnseenPromptSelfHeals covers Edge Case 8:
 // marked activity with an unseen prompt id (neither closed nor current) is the
-// ordinary §7.4 rule-3 self-heal — the marker is irrelevant when the prompt is open (in
+// ordinary kb:anchor/state.ordering rule-3 self-heal — the marker is irrelevant when the prompt is open (in
 // the sense of "not known closed"); it is simply adopted.
 func TestApplyInput_TurnActivity_SubagentMarkedUnseenPromptSelfHeals(t *testing.T) {
 	sess := newTestSession()
@@ -693,7 +693,7 @@ func TestApplyInput_CrossStateInvariants(t *testing.T) {
 					assert.Equal(t, "permission", sess.Attention.Reason)
 					assert.NotEqual(t, "p1", sess.currentPromptID, "INV-P: a permission corroboration for a closed prompt must never adopt it as current")
 					assert.True(t, sess.promptClosed("p1"), "INV-P: the closed prompt id must stay closed")
-					// INV-F (protocol §5.3, unconditional): failure non-null IFF state ==
+					// INV-F (kb:anchor/ws.session, unconditional): failure non-null IFF state ==
 					// failed. State has just moved to needs_input, so a stale failure
 					// left over from an earlier failed turn must not survive here.
 					assert.Nil(t, sess.Failure, "INV-F: failure must be nil once state has moved off failed to needs_input")
@@ -898,7 +898,7 @@ func TestApplyInput_DeathHint(t *testing.T) {
 	assert.Equal(t, StateWorking, sess.State, "a death hint must never change the displayed state")
 }
 
-// TestApplyInput_ClearDeathHintAndInert cover D15's other half and §7.3's forward-
+// TestApplyInput_ClearDeathHintAndInert cover D15's other half and kb:anchor/state.transitions's forward-
 // compatibility row: both are pure no-ops.
 func TestApplyInput_ClearDeathHintAndInert(t *testing.T) {
 	for _, kind := range []claudecode.InputKind{claudecode.KindClearDeathHint, claudecode.KindInert} {

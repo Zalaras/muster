@@ -34,7 +34,7 @@ func TestNew_RegistersLifecycleFeaturesInStartOrder(t *testing.T) {
 // TestNew_ZeroValueLaunchConfigDefaultsClaudeBin covers REQ-10 for LaunchConfig: a Config
 // built with a zero-value Launch sub-struct must default ClaudeBin to "claude" rather than
 // spawning an empty argv[0] — the one LaunchConfig field New itself interprets, as opposed
-// to sessionLauncher.Launch's own request-time defaults (docs/protocol.md §3.1's create
+// to sessionLauncher.Launch's own request-time defaults (kb:anchor/sessions.create's create
 // path is exercised elsewhere; this pins New's construction-time default in isolation).
 func TestNew_ZeroValueLaunchConfigDefaultsClaudeBin(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{}) // Config.Launch left at its zero value

@@ -58,7 +58,7 @@ func cmpInt(a, b int) int {
 }
 
 // String renders the bare MAJOR.MINOR.PATCH form, no leading "v" — GoReleaser's
-// {{.Version}} shape, matching docs/protocol.md §5.7's "running" for a release build.
+// {{.Version}} shape, matching kb:anchor/ws.update's "running" for a release build.
 // Callers that render the "v0.11.0" display form (plan Text rules) prepend "v" themselves.
 func (v Version) String() string {
 	return fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)

@@ -47,13 +47,13 @@ type LaunchConfig struct {
 	// LegacyScripts lists prior wrapper paths MergeSettings must still recognise and
 	// drop from an already-instrumented directory.
 	LegacyScripts []string
-	// BrowseRoot is the folder browser's root (protocol §3.6): GET /api/browse's
+	// BrowseRoot is the folder browser's root (kb:anchor/browse.get): GET /api/browse's
 	// no-param default and the "Up" ceiling. Empty means the daemon user's home
 	// directory.
 	BrowseRoot string
 }
 
-// createSessionRequest is POST /api/sessions' request body (docs/protocol.md §3.1).
+// createSessionRequest is POST /api/sessions' request body (kb:anchor/sessions.create).
 type createSessionRequest struct {
 	Directory      string `json:"directory"`
 	Title          string `json:"title"`
@@ -62,7 +62,7 @@ type createSessionRequest struct {
 }
 
 // launchError carries the HTTP status/error-envelope code a launch failure maps to
-// (docs/protocol.md §2's error envelope).
+// (kb:anchor/transport's error envelope).
 type launchError struct {
 	status  int
 	code    string
@@ -80,7 +80,7 @@ func launchFailed(message string) *launchError {
 }
 
 // notFound, notResumable and directoryMissing are Resume's own error codes
-// (m4-reconcile REQ-7, docs/protocol.md §3.5) — reusing launchError's shape rather than
+// (m4-reconcile REQ-7, kb:anchor/sessions.resume) — reusing launchError's shape rather than
 // a parallel type, since the server-side handling (writeJSONError(status, code,
 // message)) is identical.
 func notFound(message string) *launchError {
@@ -224,7 +224,7 @@ func (l *sessionLauncher) rollback(ctx context.Context, id int64) {
 	}
 }
 
-// Resume relaunches a dead, resumable session (REQ-7, docs/protocol.md §3.5): rewrites
+// Resume relaunches a dead, resumable session (REQ-7, kb:anchor/sessions.resume): rewrites
 // settings, spawns `claude --resume <claudeSessionId>` in a fresh muster-<id> tmux
 // session (the dead one's name is free again after End/reconcile), and records the new
 // pane. state is left untouched — it becomes idle only once the enveloped
@@ -279,7 +279,7 @@ func (l *sessionLauncher) Resume(ctx context.Context, id int64) (*session.Sessio
 
 // writeSettings ensures dir/.claude/settings.local.json registers Muster's hooks,
 // status-line and allowed-URL config. A corrupt existing file refuses the launch by name
-// (docs/protocol.md §3.1) rather than guessing.
+// (kb:anchor/sessions.create) rather than guessing.
 func (l *sessionLauncher) writeSettings(dir string) error {
 	path := filepath.Join(dir, ".claude", "settings.local.json")
 
@@ -373,7 +373,7 @@ func parseSessionID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	return id, true
 }
 
-// handleEndSession is POST /api/sessions/{id}/end (REQ-5, docs/protocol.md §3.7). Any
+// handleEndSession is POST /api/sessions/{id}/end (REQ-5, kb:anchor/sessions.end). Any
 // open terminal socket for id is closed (4001) before the kill, so the UI's dead-surface
 // overlay arrives ahead of the alive:false broadcast.
 func (f *sessionsFeature) handleEndSession(w http.ResponseWriter, r *http.Request) {
@@ -403,8 +403,8 @@ func (f *sessionsFeature) handleEndSession(w http.ResponseWriter, r *http.Reques
 	_ = json.NewEncoder(w).Encode(toWireSession(sess))
 }
 
-// handleRemoveSession is DELETE /api/sessions/{id} (REQ-6, docs/protocol.md §3.8). Since
-// plain-terminal-session (§3.16/REQ-9) this also kills the session's shell tmux session,
+// handleRemoveSession is DELETE /api/sessions/{id} (REQ-6, kb:anchor/sessions.remove). Since
+// plain-terminal-session (kb:anchor/sessions.shell/REQ-9) this also kills the session's shell tmux session,
 // unlike End which deliberately leaves a shell running.
 func (f *sessionsFeature) handleRemoveSession(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
@@ -432,7 +432,7 @@ func (f *sessionsFeature) handleRemoveSession(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// handleResumeSession is POST /api/sessions/{id}/resume (REQ-7, docs/protocol.md §3.5).
+// handleResumeSession is POST /api/sessions/{id}/resume (REQ-7, kb:anchor/sessions.resume).
 func (f *sessionsFeature) handleResumeSession(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
 	if !ok {
@@ -450,7 +450,7 @@ func (f *sessionsFeature) handleResumeSession(w http.ResponseWriter, r *http.Req
 	_ = json.NewEncoder(w).Encode(toWireSession(sess))
 }
 
-// handlePaneSnapshot is GET /api/sessions/{id}/pane (REQ-4, docs/protocol.md §3.4).
+// handlePaneSnapshot is GET /api/sessions/{id}/pane (REQ-4, kb:anchor/sessions.pane).
 // Served for live sessions too; the UI only asks for dead ones.
 func (f *sessionsFeature) handlePaneSnapshot(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
@@ -472,7 +472,7 @@ func (f *sessionsFeature) handlePaneSnapshot(w http.ResponseWriter, r *http.Requ
 	_ = json.NewEncoder(w).Encode(paneSnapshotWire{Text: text, CapturedAt: at.UTC().Format(time.RFC3339)})
 }
 
-// pinSessionRequest is PUT /api/sessions/{id}/pin's request body (docs/protocol.md §3.10).
+// pinSessionRequest is PUT /api/sessions/{id}/pin's request body (kb:anchor/sessions.pin).
 type pinSessionRequest struct {
 	Pinned *bool `json:"pinned"`
 }
@@ -504,7 +504,7 @@ func (f *sessionsFeature) handlePinSession(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// setOrderRequest is PUT /api/sessions/order's request body (docs/protocol.md §3.11).
+// setOrderRequest is PUT /api/sessions/order's request body (kb:anchor/sessions.order).
 type setOrderRequest struct {
 	IDs         []int64 `json:"ids"`
 	PinnedCount *int    `json:"pinnedCount"`
@@ -535,7 +535,7 @@ func (f *sessionsFeature) handleSetOrder(w http.ResponseWriter, r *http.Request)
 const maxSessionTitleLen = 100
 
 // setTitleRequest is PUT /api/sessions/{id}/title's request body (plan ui-text-and-focus
-// REQ-10, docs/protocol.md §3.15). Title is decoded as json.RawMessage rather than
+// REQ-10, kb:anchor/sessions.title). Title is decoded as json.RawMessage rather than
 // *string so an absent "title" key (400) is distinguishable from an explicit
 // `"title": null` (204, clears the override) — json.RawMessage.UnmarshalJSON copies the
 // literal bytes verbatim, including a bare `null`, while a missing key leaves the field
@@ -544,12 +544,12 @@ type setTitleRequest struct {
 	Title json.RawMessage `json:"title"`
 }
 
-// invalidTitleMessage is §3.15's single 400 message for every validation failure (body
+// invalidTitleMessage is kb:anchor/sessions.title's single 400 message for every validation failure (body
 // not JSON, title key missing, title neither string nor null, or trimmed-empty/too-long).
 const invalidTitleMessage = "title must be null or 1-100 characters after trimming"
 
 // handleSetTitle is PUT /api/sessions/{id}/title (plan ui-text-and-focus REQ-10,
-// docs/protocol.md §3.15).
+// kb:anchor/sessions.title).
 func (f *sessionsFeature) handleSetTitle(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
 	if !ok {
@@ -562,7 +562,7 @@ func (f *sessionsFeature) handleSetTitle(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if len(req.Title) == 0 {
-		// The key was absent — distinct from an explicit null (§3.15: "the title key is
+		// The key was absent — distinct from an explicit null (kb:anchor/sessions.title: "the title key is
 		// required (absent key != null)").
 		writeJSONError(w, http.StatusBadRequest, "invalid_request", invalidTitleMessage)
 		return
@@ -575,7 +575,7 @@ func (f *sessionsFeature) handleSetTitle(w http.ResponseWriter, r *http.Request)
 			writeJSONError(w, http.StatusBadRequest, "invalid_request", invalidTitleMessage)
 			return
 		}
-		// Trimmed before validation and storage (§3.15); counted in runes, not bytes,
+		// Trimmed before validation and storage (kb:anchor/sessions.title); counted in runes, not bytes,
 		// same rule handleCreateIssue's title uses (a multi-byte-rune title the client's
 		// maxlength already allowed must not be rejected by a byte-length check).
 		trimmed := strings.TrimSpace(raw)

@@ -16,8 +16,8 @@ import (
 // usagePoller polls Claude Code's per-model weekly usage endpoint
 // (internal/claudecode.FetchUsage) on an interval, mapping each successful fetch into
 // internal/usage.ModelScoped — the seam ingest.go's processStatus is for the
-// status-line half of the `usage` message. Refresh wakes it early (docs/protocol.md
-// §3.9), coalesced to at most one extra fetch.
+// status-line half of the `usage` message. Refresh wakes it early
+// (kb:anchor/usage.refresh), coalesced to at most one extra fetch.
 //
 // Pattern copied from internal/session.Manager's liveness poll (manager.go:126-151 for
 // Start/Stop, :715-726 for the ticker loop).
@@ -75,7 +75,7 @@ func (p *usagePoller) Stop(ctx context.Context) {
 	}
 }
 
-// Refresh wakes the poller for an immediate fetch (docs/protocol.md §3.9). Coalesced: a
+// Refresh wakes the poller for an immediate fetch (kb:anchor/usage.refresh). Coalesced: a
 // refresh already pending in the buffered channel makes this a silent no-op, so any
 // number of concurrent calls collapse into at most one extra fetch (Edge Case 7); a
 // refresh arriving while a fetch is already in flight is picked up as the very next tick
@@ -143,7 +143,7 @@ func (p *usagePoller) tick(ctx context.Context) {
 }
 
 // usageErrorKind maps a poll failure to the wire's modelScopedError vocabulary
-// (docs/protocol.md §5.4 / plan Implementation Notes): ErrNoCredentials ->
+// (kb:anchor/ws.usage / plan Implementation Notes): ErrNoCredentials ->
 // "no-credentials", ErrUnauthorized -> "unauthorized", anything else (timeout, DNS,
 // 5xx, decode error) -> "unreachable".
 func usageErrorKind(err error) string {

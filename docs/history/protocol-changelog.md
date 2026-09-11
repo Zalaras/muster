@@ -22,6 +22,13 @@ on 2026-09-11.
 
 ## Changelog
 
+- **2026-09-11 — sections re-addressed by stable `kb:anchor` ids.** Every `##`/`###` section of
+  `docs/protocol.md` now carries a `kb:anchor <id>` HTML comment on the line before its heading
+  (id table: `tools/kb/anchors.tsv`), the numbers are dropped from the headings, and every
+  citation in the tree reads `kb:anchor/<id>` instead of `§N.N` (validated by `go run ./tools/kb
+  check`). Old §5.5 (`sessionUpsert` and `prefs`) is split into three messages, one heading each:
+  `sessionUpsert`, `prefs`, `sessionRemoved`. The section numbers cited by the entries below refer
+  to the numbering as it stood at the time. No wire change; no version bump.
 - **2026-09-10 — protocol 2: `hello.claudeCode` is a verified range** (plan
   `version-claude-interface`, closes #6). `{pinned, installed, drift}` → `{installed, floor,
   verified, status}`; `installed` null iff `status` is `unknown`; `floor`/`verified` always present.

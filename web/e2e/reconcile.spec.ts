@@ -39,7 +39,7 @@ test("a session whose pane died while the daemon was down reconciles to ended an
     await expect(endedCard).toHaveClass(/ended/, { timeout: 15_000 });
     await expect(endedCard.getByText(/^ended /)).toBeVisible();
     // State (the last-known badge word) must survive reconcile untouched — alive is
-    // orthogonal to state (protocol §7.5).
+    // orthogonal to state (kb:anchor/state.liveness).
     await expect(stateBadge(endedCard)).toHaveText(/started/i);
 
     const state1 = await getState(page, daemon);

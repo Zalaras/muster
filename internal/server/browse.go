@@ -18,7 +18,7 @@ type browseDirWire struct {
 	IsGit bool   `json:"isGit"`
 }
 
-// browseResponse is GET /api/browse's 200 body (docs/protocol.md §3.6).
+// browseResponse is GET /api/browse's 200 body (kb:anchor/browse.get).
 type browseResponse struct {
 	Path   string          `json:"path"`
 	Parent *string         `json:"parent"`

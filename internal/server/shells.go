@@ -16,8 +16,8 @@ import (
 	"github.com/Zalaras/muster/internal/tmux"
 )
 
-// shellRegistry is the plain-shell surface's daemon-lifetime record (docs/protocol.md
-// §3.16): a shell has no persistent representation anywhere — no SQLite row, no
+// shellRegistry is the plain-shell surface's daemon-lifetime record
+// (kb:anchor/sessions.shell): a shell has no persistent representation anywhere — no SQLite row, no
 // Session-object field, no write-only bookkeeping map either; PaneExists is the sole
 // source of truth. A daemon restart forgets everything, which is safe because reconcile
 // kills every "muster-<n>-shell" tmux session on the socket at startup
@@ -90,8 +90,8 @@ func (r *shellRegistry) Kill(ctx context.Context, id int64) {
 	}
 }
 
-// createShellResponse is POST /api/sessions/{id}/shell's response body (docs/protocol.md
-// §3.16).
+// createShellResponse is POST /api/sessions/{id}/shell's response body
+// (kb:anchor/sessions.shell).
 type createShellResponse struct {
 	Target  string `json:"target"`
 	Created bool   `json:"created"`
@@ -119,7 +119,7 @@ func (f *shellFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.H
 }
 
 // handleCreateShell is POST /api/sessions/{id}/shell (plan plain-terminal-session REQ-1,
-// docs/protocol.md §3.16). Deliberately not gated on alive (REQ-7) — a shell may be
+// kb:anchor/sessions.shell). Deliberately not gated on alive (REQ-7) — a shell may be
 // started on a dead session and never consults the manager's liveness field.
 func (f *shellFeature) handleCreateShell(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
@@ -148,7 +148,7 @@ func (f *shellFeature) handleCreateShell(w http.ResponseWriter, r *http.Request)
 	_ = json.NewEncoder(w).Encode(createShellResponse{Target: target, Created: created})
 }
 
-// handleShellTerminal is GET /ws/shell/{id} (docs/protocol.md §6.1): pre-upgrade auth
+// handleShellTerminal is GET /ws/shell/{id} (kb:anchor/terminal.shell-ws): pre-upgrade auth
 // (the requireCookie wrapper) and Origin check, 404/409 validation, takeover, and the two
 // byte pumps. Attach only — POST /api/sessions/{id}/shell (handleCreateShell) is the only
 // thing that spawns a shell; alive is not consulted, in either direction (REQ-7).
@@ -208,7 +208,7 @@ func (f *shellFeature) handleShellTerminal(w http.ResponseWriter, r *http.Reques
 	go func() {
 		defer close(ptyDone)
 		defer cancel()
-		// nudgeOnEOF is false: a shell's death is not its session's death (§6.1) — a
+		// nudgeOnEOF is false: a shell's death is not its session's death (kb:anchor/terminal.shell-ws) — a
 		// live session must never take a liveness flap because a shell under it exited.
 		pumpPTYToSocket(ctx, f.log, c, bridge, id, false, nil)
 	}()

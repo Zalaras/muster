@@ -298,7 +298,7 @@ type prefsWire struct {
 	} `json:"prefs"`
 }
 
-// TestLoadPrefs_DefaultUsageModelIsFable covers §3.3's default-before-any-PUT clause for
+// TestLoadPrefs_DefaultUsageModelIsFable covers kb:anchor/prefs.put's default-before-any-PUT clause for
 // the new field.
 func TestLoadPrefs_DefaultUsageModelIsFable(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
@@ -308,7 +308,7 @@ func TestLoadPrefs_DefaultUsageModelIsFable(t *testing.T) {
 	assert.Equal(t, "Fable", got.UsageModel)
 }
 
-// TestHandlePutPrefs_UsageModelValidationErrors covers §3.3's 400 invalid_request
+// TestHandlePutPrefs_UsageModelValidationErrors covers kb:anchor/prefs.put's 400 invalid_request
 // clause for usageModel: present and empty, or present and over 32 chars after trim.
 func TestHandlePutPrefs_UsageModelValidationErrors(t *testing.T) {
 	tests := []struct {
@@ -331,7 +331,7 @@ func TestHandlePutPrefs_UsageModelValidationErrors(t *testing.T) {
 	}
 }
 
-// TestHandlePutPrefs_UsageModelExactly32CharsIsAccepted covers the boundary of §3.3's
+// TestHandlePutPrefs_UsageModelExactly32CharsIsAccepted covers the boundary of kb:anchor/prefs.put's
 // "1-32 chars after trim" range.
 func TestHandlePutPrefs_UsageModelExactly32CharsIsAccepted(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
@@ -359,7 +359,7 @@ func TestHandlePutPrefs_SetsUsageModelOnlyLeavesViewAndDensityUntouched(t *testi
 	assert.Equal(t, "Opus", got.UsageModel)
 }
 
-// TestHandlePutPrefs_UsageModelIsTrimmedBeforePersisting covers §3.3's "optional
+// TestHandlePutPrefs_UsageModelIsTrimmedBeforePersisting covers kb:anchor/prefs.put's "optional
 // string, 1-32 chars after trim" — the persisted/echoed value itself must be trimmed,
 // not just validated as if it were.
 func TestHandlePutPrefs_UsageModelIsTrimmedBeforePersisting(t *testing.T) {
@@ -460,7 +460,7 @@ func TestPrefs_UsageModelPersistsAcrossADaemonRestart(t *testing.T) {
 	assert.Equal(t, "Opus", srv2.loadPrefs(context.Background()).UsageModel)
 }
 
-// TestLoadPrefs_DefaultRailSortIsManual covers plan order-sidebar §3.3's
+// TestLoadPrefs_DefaultRailSortIsManual covers plan order-sidebar kb:anchor/prefs.put's
 // default-before-any-PUT clause for the new field.
 func TestLoadPrefs_DefaultRailSortIsManual(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
@@ -470,7 +470,7 @@ func TestLoadPrefs_DefaultRailSortIsManual(t *testing.T) {
 	assert.Equal(t, "manual", got.RailSort)
 }
 
-// TestHandlePutPrefs_RailSortValidationErrors covers §3.3's 400 invalid_request clause
+// TestHandlePutPrefs_RailSortValidationErrors covers kb:anchor/prefs.put's 400 invalid_request clause
 // for railSort: anything other than "manual" or "attention".
 func TestHandlePutPrefs_RailSortValidationErrors(t *testing.T) {
 	tests := []struct {
@@ -606,7 +606,7 @@ type prefsWireWithRailSort struct {
 	} `json:"prefs"`
 }
 
-// TestLoadPrefs_DefaultThemeIsFollow covers §3.3's default-before-any-PUT clause for the
+// TestLoadPrefs_DefaultThemeIsFollow covers kb:anchor/prefs.put's default-before-any-PUT clause for the
 // new field (plan new-ui-design-colors).
 func TestLoadPrefs_DefaultThemeIsFollow(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})

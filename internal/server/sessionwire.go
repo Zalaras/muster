@@ -7,7 +7,7 @@ import (
 	"github.com/Zalaras/muster/internal/session"
 )
 
-// sessionWire is the Session object's wire shape (docs/protocol.md §5.3). It is
+// sessionWire is the Session object's wire shape (kb:anchor/ws.session). It is
 // server-package-local: the only Claude-Code-format-free translation from
 // internal/session's domain type to what crosses the wire.
 type sessionWire struct {
@@ -60,7 +60,7 @@ type sessionWirePermissionMode struct {
 	Source string `json:"source"`
 }
 
-// sessionWireContext is the §5.3 M3 context gauge: the three numeric fields are always
+// sessionWireContext is the kb:anchor/ws.session M3 context gauge: the three numeric fields are always
 // all-null (unknown, INV-2) or all-non-null, populated only once a routed status-line
 // post has carried a non-null used-percentage (REQ-2); compactions is live since M1.
 type sessionWireContext struct {
@@ -70,28 +70,28 @@ type sessionWireContext struct {
 	Compactions      int      `json:"compactions"`
 }
 
-// sessionUpsertMessage is the WS `sessionUpsert` envelope (docs/protocol.md §5.5).
+// sessionUpsertMessage is the WS `sessionUpsert` envelope (kb:anchor/ws.session-upsert).
 type sessionUpsertMessage struct {
 	Type    string      `json:"type"`
 	Session sessionWire `json:"session"`
 }
 
 // sessionRemovedMessage is the WS `sessionRemoved` envelope (m4-reconcile REQ-6, docs/
-// protocol.md §5.5) — sent once per DELETE /api/sessions/{id}.
+// kb:anchor/ws.session-removed) — sent once per DELETE /api/sessions/{id}.
 type sessionRemovedMessage struct {
 	Type string `json:"type"`
 	ID   int64  `json:"id"`
 }
 
 // paneSnapshotWire is GET /api/sessions/{id}/pane's response shape (m4-reconcile REQ-4,
-// docs/protocol.md §3.4).
+// kb:anchor/sessions.pane).
 type paneSnapshotWire struct {
 	Text       string `json:"text"`
 	CapturedAt string `json:"capturedAt"`
 }
 
 // toWireSession converts a session.Session to its wire shape. repo is null "when
-// directory isn't a git checkout" (§5.3) — session.Branch is authoritatively nil in
+// directory isn't a git checkout" (kb:anchor/ws.session) — session.Branch is authoritatively nil in
 // exactly that case (Schema Changes: "branch ... null when not git"), so that's the
 // single source of truth here; no separate is-git flag is needed.
 func toWireSession(s *session.Session) sessionWire {

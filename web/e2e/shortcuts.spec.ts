@@ -25,7 +25,7 @@ import { activeElementInsideTerminal, liveTile, stripCard, terminalRegion, tileS
 // test's sessions would corrupt.
 
 /** Drives a session to `needs_input` via the real ingest endpoints (SessionStart ->
- * UserPromptSubmit -> a permission Notification), exactly per protocol §7.3 — copied
+ * UserPromptSubmit -> a permission Notification), exactly per kb:anchor/state.transitions — copied
  * from rail-order.spec.ts's local helper of the same name/shape (each spec file keeps
  * its own copy of this helper rather than sharing one, matching that file's pattern). */
 async function makeNeedsInput(

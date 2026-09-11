@@ -59,7 +59,7 @@ Muster's inputs.
 (the default); **Dark** — conventional web-style dark, neutral greys; **Light** — standard
 light. Chosen in the Settings dialog (§5): *Follow Claude Code · Instrument · Dark · Light*.
 *Follow* paints Light when Claude's family is light and Instrument otherwise, and keeps
-following. The choice is `prefs.theme` (`docs/protocol.md` §3.3). Custom themes are
+following. The choice is `prefs.theme` (`kb:anchor/prefs.put`). Custom themes are
 architecture only: a new block and a rebuild, not a loadable file.
 
 **Contrast bar — WCAG AA on every theme, machine-gated** (`make contrast`, part of

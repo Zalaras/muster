@@ -1,5 +1,5 @@
-// Cookie-authed HTTP wrappers for the M1 UI-facing endpoints (docs/protocol.md §3.1,
-// §3.2, §3.6). Decoding mirrors protocol.ts's style: pure parse functions validate the
+// Cookie-authed HTTP wrappers for the M1 UI-facing endpoints (kb:anchor/sessions.create,
+// kb:anchor/repos.list, kb:anchor/browse.get). Decoding mirrors protocol.ts's style: pure parse functions validate the
 // daemon's response shape before any caller (features/launch.ts) sees it. Errors never
 // throw — every call returns an ApiResult so the launch modal can render `error.message`
 // inline (REQ-14) instead of an uncaught rejection.
@@ -8,7 +8,7 @@ import { type Density, type RailSort, type Session, parseSession } from "./proto
 export interface ApiErrorBody {
   code: string;
   message: string;
-  // Plan file-drop-fix (docs/protocol.md §3.14): only the `409 ambiguous` locate error
+  // Plan file-drop-fix (kb:anchor/sessions.locate): only the `409 ambiguous` locate error
   // carries this — every verified match, so the caller can count them (REQ-3). Ignored
   // by every other error path.
   paths?: string[];
@@ -41,7 +41,7 @@ export interface BrowseResult {
   dirs: BrowseEntry[];
 }
 
-// Plan fix-auto-mode-select (docs/protocol.md §3.1): the accepted wire values for
+// Plan fix-auto-mode-select (kb:anchor/sessions.create): the accepted wire values for
 // permissionMode, in dialog/cycle order. `default` is Claude Code's manual mode (the UI
 // labels it "manual"); one source for both the request union and features/launch.ts's
 // radio guard, so they can't drift apart.
@@ -66,7 +66,7 @@ export interface LaunchRequest {
   permissionMode: PermissionMode;
 }
 
-// M2 (docs/protocol.md §3.3): at least one field, unknown fields ignored — all optional
+// M2 (kb:anchor/prefs.put): at least one field, unknown fields ignored — all optional
 // here since a caller only ever changes one of view/density/usageModel at a time.
 // `usageModel` added by plan usage-model-bar (REQ-8): 1-32 chars after trim, validated
 // daemon-side.
@@ -74,12 +74,12 @@ export interface PrefsRequest {
   view?: "focus" | "tiles";
   density?: Density;
   usageModel?: string;
-  // Plan order-sidebar (docs/protocol.md §3.3): the rail's sort mode.
+  // Plan order-sidebar (kb:anchor/prefs.put): the rail's sort mode.
   railSort?: RailSort;
-  // Plan new-ui-design-colors (docs/protocol.md §3.3): matches ^[a-z][a-z0-9-]{0,31}$;
+  // Plan new-ui-design-colors (kb:anchor/prefs.put): matches ^[a-z][a-z0-9-]{0,31}$;
   // opaque to the daemon. "follow" means no override.
   theme?: string;
-  // Plan auto-update (docs/protocol.md §3.3): whether the daemon checks GitHub Releases
+  // Plan auto-update (kb:anchor/prefs.put): whether the daemon checks GitHub Releases
   // for a newer musterd. Governs checking only (REQ-1/REQ-2).
   updateCheck?: boolean;
 }
@@ -203,7 +203,7 @@ async function decodeJson<T>(res: Response, parse: (value: unknown) => T | null)
   return { ok: false, error: error ?? genericError };
 }
 
-/** `POST /api/sessions` (docs/protocol.md §3.1). */
+/** `POST /api/sessions` (kb:anchor/sessions.create). */
 export async function launchSession(body: LaunchRequest): Promise<ApiResult<Session>> {
   const res = await safeFetch("/api/sessions", {
     method: "POST",
@@ -215,14 +215,14 @@ export async function launchSession(body: LaunchRequest): Promise<ApiResult<Sess
   return decodeJson(res, parseSession);
 }
 
-/** `GET /api/repos` (docs/protocol.md §3.2) — the MRU picker list. */
+/** `GET /api/repos` (kb:anchor/repos.list) — the MRU picker list. */
 export async function fetchRepos(): Promise<ApiResult<Repo[]>> {
   const res = await safeFetch("/api/repos", { credentials: "same-origin" });
   if (!res) return { ok: false, error: networkError };
   return decodeJson(res, parseRepos);
 }
 
-/** `GET /api/browse` (docs/protocol.md §3.6). Omitting `path` lists the daemon user's
+/** `GET /api/browse` (kb:anchor/browse.get). Omitting `path` lists the daemon user's
  * home directory. */
 export async function browse(path?: string): Promise<ApiResult<BrowseResult>> {
   const url = path ? `/api/browse?path=${encodeURIComponent(path)}` : "/api/browse";
@@ -231,7 +231,7 @@ export async function browse(path?: string): Promise<ApiResult<BrowseResult>> {
   return decodeJson(res, parseBrowseResult);
 }
 
-/** `PUT /api/prefs` (docs/protocol.md §3.3). Returns `204` with no body on success — the
+/** `PUT /api/prefs` (kb:anchor/prefs.put). Returns `204` with no body on success — the
  * actual new prefs value reaches every UI socket (this one included) via the `prefs` WS
  * broadcast (INV-4), so the caller here never needs to decode a response body. */
 export async function putPrefs(body: PrefsRequest): Promise<ApiResult<null>> {
@@ -253,7 +253,7 @@ export async function putPrefs(body: PrefsRequest): Promise<ApiResult<null>> {
   return { ok: false, error: error ?? genericError };
 }
 
-/** `POST /api/usage/refresh` (docs/protocol.md §3.9). `202` with no body on success — the
+/** `POST /api/usage/refresh` (kb:anchor/usage.refresh). `202` with no body on success — the
  * fetch itself runs asynchronously and its result reaches every UI socket via the next
  * `usage` broadcast, same "response carries no state, the socket does" shape as
  * `putPrefs`. Errors: `404 not_found` when the poller is disabled (`-usage-poll 0`). */
@@ -271,7 +271,7 @@ export async function refreshUsage(): Promise<ApiResult<null>> {
   return { ok: false, error: error ?? genericError };
 }
 
-/** `POST /api/sessions/{id}/end` (docs/protocol.md §3.7). `200` + the Session object
+/** `POST /api/sessions/{id}/end` (kb:anchor/sessions.end). `200` + the Session object
  * (`alive:false`, `endedAt` set); errors `404 unknown_session` / `409 not_alive`. */
 export async function endSession(id: number): Promise<ApiResult<Session>> {
   const res = await safeFetch(`/api/sessions/${id}/end`, { method: "POST", credentials: "same-origin" });
@@ -279,7 +279,7 @@ export async function endSession(id: number): Promise<ApiResult<Session>> {
   return decodeJson(res, parseSession);
 }
 
-/** `POST /api/sessions/{id}/resume` (docs/protocol.md §3.5). `200` + the Session object
+/** `POST /api/sessions/{id}/resume` (kb:anchor/sessions.resume). `200` + the Session object
  * (`state` unchanged until the enveloped `SessionStart(source:"resume")` arrives); errors
  * `404 unknown_session` / `409 not_resumable` / `409 directory_missing` /
  * `500 launch_failed`. */
@@ -289,7 +289,7 @@ export async function resumeSession(id: number): Promise<ApiResult<Session>> {
   return decodeJson(res, parseSession);
 }
 
-/** `DELETE /api/sessions/{id}` (docs/protocol.md §3.8). `204` with no body on success —
+/** `DELETE /api/sessions/{id}` (kb:anchor/sessions.remove). `204` with no body on success —
  * the removal itself reaches every UI socket via the `sessionRemoved` broadcast, same
  * "response carries no state, the socket does" shape as `putPrefs` above. Errors
  * `404 unknown_session` / `500 end_failed` (alive and the kill failed — row not deleted). */
@@ -307,7 +307,7 @@ export async function removeSession(id: number): Promise<ApiResult<null>> {
   return { ok: false, error: error ?? genericError };
 }
 
-/** REQ-4/§3.4: the last `capture-pane -p` text for a session, display source only. */
+/** REQ-4/kb:anchor/sessions.pane: the last `capture-pane -p` text for a session, display source only. */
 export interface PaneSnapshot {
   text: string;
   capturedAt: string;
@@ -321,7 +321,7 @@ function parsePaneSnapshot(value: unknown): PaneSnapshot | null {
   return { text, capturedAt };
 }
 
-/** `PUT /api/sessions/{id}/title` (docs/protocol.md §3.15, plan ui-text-and-focus
+/** `PUT /api/sessions/{id}/title` (kb:anchor/sessions.title, plan ui-text-and-focus
  * REQ-10). `title: null` clears the override; a non-null string sets it (1-100
  * characters after trimming, validated daemon-side — sessions/rename.ts's `titleCommand`
  * already avoids sending an out-of-range value from the UI's own editor, but a direct
@@ -348,7 +348,7 @@ export async function putTitle(id: number, title: string | null): Promise<ApiRes
   return { ok: false, error: error ?? genericError };
 }
 
-/** The `200` body of `POST /api/sessions/{id}/shell` (docs/protocol.md §3.16). */
+/** The `200` body of `POST /api/sessions/{id}/shell` (kb:anchor/sessions.shell). */
 export interface CreateShellResult {
   target: string;
   created: boolean;
@@ -363,7 +363,7 @@ function parseCreateShellResult(value: unknown): CreateShellResult | null {
   return { target, created };
 }
 
-/** `POST /api/sessions/{id}/shell` (docs/protocol.md §3.16, plan plain-terminal-session
+/** `POST /api/sessions/{id}/shell` (kb:anchor/sessions.shell, plan plain-terminal-session
  * REQ-1). Idempotent — ensures the session's plain shell is running, spawning it if
  * absent; a session whose shell already runs still succeeds with `created: false`.
  * `alive` is never consulted (REQ-7). Errors: `404 unknown_session` /
@@ -375,7 +375,7 @@ export async function createShell(id: number): Promise<ApiResult<CreateShellResu
   return decodeJson(res, parseCreateShellResult);
 }
 
-/** `GET /api/sessions/{id}/pane` (docs/protocol.md §3.4). Errors `404 unknown_session` /
+/** `GET /api/sessions/{id}/pane` (kb:anchor/sessions.pane). Errors `404 unknown_session` /
  * `404 no_snapshot` (no capture has succeeded yet — render/dead.ts's "no snapshot
  * captured" honesty case, not a fetch failure). */
 export async function fetchPane(id: number): Promise<ApiResult<PaneSnapshot>> {
@@ -384,7 +384,7 @@ export async function fetchPane(id: number): Promise<ApiResult<PaneSnapshot>> {
   return decodeJson(res, parsePaneSnapshot);
 }
 
-/** `PUT /api/sessions/{id}/pin` (docs/protocol.md §3.10, plan order-sidebar REQ-3). `204`
+/** `PUT /api/sessions/{id}/pin` (kb:anchor/sessions.pin, plan order-sidebar REQ-3). `204`
  * with no body on success — the resulting `pinned`/`railPos` changes reach every UI
  * socket (this one included) via `sessionUpsert` broadcasts (same "response carries no
  * state, the socket does" shape as `putPrefs`); features/actions.ts never applies an
@@ -409,7 +409,7 @@ export async function pinSession(id: number, pinned: boolean): Promise<ApiResult
   return { ok: false, error: error ?? genericError };
 }
 
-/** `PUT /api/sessions/order` (docs/protocol.md §3.11, plan order-sidebar REQ-4/REQ-11).
+/** `PUT /api/sessions/order` (kb:anchor/sessions.order, plan order-sidebar REQ-4/REQ-11).
  * Same no-optimistic-update shape as `pinSession` above — the rail redraws from the
  * resulting `sessionUpsert`s. Errors: `400 invalid_request` (unknown/duplicate id,
  * `pinnedCount` out of range) — nothing changes on a 400. */
@@ -432,7 +432,7 @@ export async function putSessionOrder(ids: readonly number[], pinnedCount: numbe
   return { ok: false, error: error ?? genericError };
 }
 
-/** Plan issue-capture (docs/protocol.md §3.12): the held server-side snapshot a capture
+/** Plan issue-capture (kb:anchor/issue.captures): the held server-side snapshot a capture
  * produces. `snapshot` is deliberately left as an opaque record here — features/issue.ts
  * (W3) never reads a field out of it; only `snapshotMarkdown` (the daemon's own rendered
  * string) ever reaches the preview. */
@@ -461,7 +461,7 @@ function parseIssueCapture(value: unknown): IssueCapture | null {
   return { captureId, takenAt, snapshot, snapshotMarkdown };
 }
 
-/** `POST /api/issue/captures` (docs/protocol.md §3.12). `sessionId` null or omitted is
+/** `POST /api/issue/captures` (kb:anchor/issue.captures). `sessionId` null or omitted is
  * dashboard scope; the daemon holds the resulting capture (at most 8, 15 min TTL) for a
  * later `POST /api/issues`. Errors: `400 invalid_request` / `404 unknown_session` /
  * `404 not_found` (feature disabled, `-issue-api-url` empty). */
@@ -499,7 +499,7 @@ function parseFiledIssue(value: unknown): FiledIssue | null {
   return { number, url, repo };
 }
 
-/** `POST /api/issues` (docs/protocol.md §3.13). Files a held capture — never a
+/** `POST /api/issues` (kb:anchor/issue.create). Files a held capture — never a
  * client-supplied payload (REQ-3). A successful file consumes the capture; a failure
  * does not, so a retry needs no re-capture. Errors: `400 invalid_request` /
  * `404 not_found` (disabled) / `409 capture_expired` / `502 issue_auth_failed` /
@@ -515,7 +515,7 @@ export async function fileIssue(body: FileIssueRequest): Promise<ApiResult<Filed
   return decodeJson(res, parseFiledIssue);
 }
 
-/** The `200` body of `POST /api/sessions/{id}/locate` (docs/protocol.md §3.14). */
+/** The `200` body of `POST /api/sessions/{id}/locate` (kb:anchor/sessions.locate). */
 export interface LocatedFile {
   path: string;
 }
@@ -527,7 +527,7 @@ function parseLocatedFile(value: unknown): LocatedFile | null {
   return { path };
 }
 
-/** `POST /api/sessions/{id}/locate` (docs/protocol.md §3.14, plan file-drop-fix
+/** `POST /api/sessions/{id}/locate` (kb:anchor/sessions.locate, plan file-drop-fix
  * REQ-2/REQ-3). Uploads one dropped file's bytes as a fingerprint — never a transfer, the
  * daemon never persists it (INV-2) — and gets back the single on-disk path whose
  * basename, size and bytes match, or an error the caller classifies via
@@ -546,7 +546,7 @@ export async function locateDroppedFile(sessionId: number, file: File): Promise<
   return decodeJson(res, parseLocatedFile);
 }
 
-/** `POST /api/update/apply` (docs/protocol.md §3.17, plan auto-update). `restart` optional,
+/** `POST /api/update/apply` (kb:anchor/update.apply, plan auto-update). `restart` optional,
  * default false. `202` with no body on success — progress arrives as `update` broadcasts
  * (same "response carries no state, the socket does" shape as `putPrefs`); a POST while an
  * apply is already in flight also returns 202 without starting a second one (REQ-20).
@@ -572,8 +572,8 @@ export async function applyUpdate(restart: boolean): Promise<ApiResult<null>> {
   return { ok: false, error: error ?? genericError };
 }
 
-/** One `muster-<n>-shell` tmux session alive on the daemon's socket (docs/protocol.md
- * §3.18) — `title` is the owning session's current title, or `null` when that session is
+/** One `muster-<n>-shell` tmux session alive on the daemon's socket
+ * (kb:anchor/update.restart-impact) — `title` is the owning session's current title, or `null` when that session is
  * unknown. */
 export interface RestartImpactShell {
   sessionId: number;
@@ -606,7 +606,7 @@ function parseRestartImpact(value: unknown): RestartImpact | null {
   return { shells };
 }
 
-/** `GET /api/update/restart-impact` (docs/protocol.md §3.18, plan auto-update REQ-27):
+/** `GET /api/update/restart-impact` (kb:anchor/update.restart-impact, plan auto-update REQ-27):
  * the plain-terminal shells the restart confirm names (REQ-11). Computed on request from
  * tmux, never cached. Errors: none beyond auth. */
 export async function fetchRestartImpact(): Promise<ApiResult<RestartImpact>> {

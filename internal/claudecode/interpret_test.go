@@ -130,7 +130,7 @@ func TestInterpret_Notification(t *testing.T) {
 	})
 }
 
-// TestInterpret_PermissionRequest covers protocol §7.3's permission-request
+// TestInterpret_PermissionRequest covers kb:anchor/state.transitions's permission-request
 // corroboration path; permission_mode is always present on this event.
 func TestInterpret_PermissionRequest(t *testing.T) {
 	body := claudecodetest.RawPermissionRequest("c1", "p1")
@@ -217,7 +217,7 @@ func TestInterpret_SessionEnd(t *testing.T) {
 	})
 }
 
-// TestInterpret_InertAndForwardCompatibility covers §7.3's last row: SubagentStop and
+// TestInterpret_InertAndForwardCompatibility covers kb:anchor/state.transitions's last row: SubagentStop and
 // the status-line event type are inert by design, and any wholly unrecognized
 // hook_event_name (forward compatibility with a future Claude Code version) is inert
 // rather than erroring.

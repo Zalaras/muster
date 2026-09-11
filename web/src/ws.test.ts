@@ -9,7 +9,7 @@ const hello: Hello = {
   claudeCode: { installed: "2.1.267", floor: "2.1.246", verified: "2.1.267", status: "verified" },
 };
 
-// Plan auto-update (docs/protocol.md §5.7): a fully-populated UpdateInfo, badge showing.
+// Plan auto-update (kb:anchor/ws.update): a fully-populated UpdateInfo, badge showing.
 const updateInfo: UpdateInfo = {
   running: "0.10.0",
   install: "installer",
@@ -186,7 +186,7 @@ describe("WsClient.dispatch — pure message application, no socket involved", (
     expect(handlers.onSnapshot).not.toHaveBeenCalled();
   });
 
-  it("routes a usage message to onUsage with the bare usage object, not onSnapshot (M3 protocol §5.4)", () => {
+  it("routes a usage message to onUsage with the bare usage object, not onSnapshot (M3 kb:anchor/ws.usage)", () => {
     const handlers = makeHandlers();
     const client = new WsClient("ws://x", handlers);
     client.dispatch(usageMessage);
@@ -194,7 +194,7 @@ describe("WsClient.dispatch — pure message application, no socket involved", (
     expect(handlers.onSnapshot).not.toHaveBeenCalled();
   });
 
-  it("routes a sessionRemoved message to onSessionRemoved with the bare id, not onSnapshot (M4 protocol §5.5, REQ-15)", () => {
+  it("routes a sessionRemoved message to onSessionRemoved with the bare id, not onSnapshot (M4 kb:anchor/ws.session-removed, REQ-15)", () => {
     const handlers = makeHandlers();
     const client = new WsClient("ws://x", handlers);
     client.dispatch({ type: "sessionRemoved", id: 7 });
@@ -202,7 +202,7 @@ describe("WsClient.dispatch — pure message application, no socket involved", (
     expect(handlers.onSnapshot).not.toHaveBeenCalled();
   });
 
-  it("routes a claudeTheme message to onClaudeTheme with the bare family, not onSnapshot (plan new-ui-design-colors §5.6)", () => {
+  it("routes a claudeTheme message to onClaudeTheme with the bare family, not onSnapshot (plan new-ui-design-colors kb:anchor/ws.claude-theme)", () => {
     const handlers = makeHandlers();
     const client = new WsClient("ws://x", handlers);
     client.dispatch(claudeThemeMessage);
@@ -217,7 +217,7 @@ describe("WsClient.dispatch — pure message application, no socket involved", (
     expect(handlers.onClaudeTheme).toHaveBeenCalledWith(family);
   });
 
-  it("routes an update message to onUpdate with the bare update object, not onSnapshot (plan auto-update §5.7)", () => {
+  it("routes an update message to onUpdate with the bare update object, not onSnapshot (plan auto-update kb:anchor/ws.update)", () => {
     const handlers = makeHandlers();
     const client = new WsClient("ws://x", handlers);
     client.dispatch(updateMessage);
@@ -303,7 +303,7 @@ describe("WsClient — full socket lifecycle via an injected fake socket", () =>
     expect(handlers.onClaudeTheme).toHaveBeenCalledWith("light");
   });
 
-  it("dispatches an update frame to onUpdate (plan auto-update §5.7)", () => {
+  it("dispatches an update frame to onUpdate (plan auto-update kb:anchor/ws.update)", () => {
     client.start();
     sockets[0]!.emitOpen();
     sockets[0]!.emitMessage(JSON.stringify(updateMessage));

@@ -39,7 +39,7 @@ type Config struct {
 	TmuxClient paneSpawner
 	// Attach overrides how a terminal socket attaches to a tmux target; nil uses termbridge.Attach.
 	Attach attachFunc
-	// Locator resolves a dropped file's path (docs/protocol.md §3.14); nil answers 500, never a panic.
+	// Locator resolves a dropped file's path (kb:anchor/sessions.locate); nil answers 500, never a panic.
 	Locator *locate.Locator
 	Launch  LaunchConfig
 	Usage   UsageConfig
@@ -265,8 +265,8 @@ func (s *Server) Shutdown(ctx context.Context) {
 	}
 }
 
-// RestartRequests reports each in-place re-exec an apply requests (docs/protocol.md
-// §3.17). A disabled update feature yields a nil channel, so a select never fires on it.
+// RestartRequests reports each in-place re-exec an apply requests
+// (kb:anchor/update.apply). A disabled update feature yields a nil channel, so a select never fires on it.
 func (s *Server) RestartRequests() <-chan struct{} {
 	return s.update.restartRequestsChan()
 }

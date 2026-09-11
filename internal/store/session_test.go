@@ -131,8 +131,8 @@ func TestGetSession_ReturnsErrorForUnknownID(t *testing.T) {
 }
 
 // TestUpdateSession_RoundTripsEveryField covers the whole-object update path the
-// manager relies on for its every-mutation persistence guarantee (docs/protocol.md
-// §5.3's "whole-object sessionUpsert" design).
+// manager relies on for its every-mutation persistence guarantee
+// (kb:anchor/ws.session's "whole-object sessionUpsert" design).
 func TestUpdateSession_RoundTripsEveryField(t *testing.T) {
 	st := openTestStore(t)
 	ctx := context.Background()

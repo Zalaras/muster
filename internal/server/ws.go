@@ -9,8 +9,8 @@ import (
 )
 
 // ClaudeCodeInfo is the daemon's startup snapshot of the installed Claude Code against
-// the canary-verified range, used to build the WS `hello` message (docs/protocol.md
-// §5.1) and the issue-capture snapshot. Installed is nil iff Status is "unknown" (the
+// the canary-verified range, used to build the WS `hello` message
+// (kb:anchor/ws.hello) and the issue-capture snapshot. Installed is nil iff Status is "unknown" (the
 // startup version check failed, hung past its timeout, or was unparseable); Floor/Verified
 // are always populated.
 type ClaudeCodeInfo struct {
@@ -20,7 +20,7 @@ type ClaudeCodeInfo struct {
 	Status    string
 }
 
-// helloMessage is the WS `hello` (docs/protocol.md §5.1, protocol 2). ClaudeCode.Installed
+// helloMessage is the WS `hello` (kb:anchor/ws.hello, protocol 2). ClaudeCode.Installed
 // is null iff Status is "unknown" — the client renders that as "Claude installation
 // unknown".
 type helloMessage struct {
@@ -41,7 +41,7 @@ type claudeCodeWire struct {
 	Status    string  `json:"status"`
 }
 
-// snapshotMessage is Snapshot with the WS "type" envelope added (§5.2). Snapshot is
+// snapshotMessage is Snapshot with the WS "type" envelope added (kb:anchor/ws.snapshot). Snapshot is
 // embedded anonymously so its fields marshal inline alongside Type.
 type snapshotMessage struct {
 	Type string `json:"type"`
@@ -123,7 +123,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	outbox := s.hub.add(c)
 	defer s.hub.remove(c)
 
-	// The client never sends application messages on this socket (protocol §5); CloseRead
+	// The client never sends application messages on this socket (kb:anchor/ws); CloseRead
 	// discards whatever control frames arrive and cancels its context on close.
 	ctx := c.CloseRead(r.Context())
 
@@ -148,7 +148,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Every subsequent message is a broadcast delta (sessionUpsert, …); there is no
-	// replay, only the snapshot above (protocol §5).
+	// replay, only the snapshot above (kb:anchor/ws).
 	for {
 		select {
 		case <-ctx.Done():

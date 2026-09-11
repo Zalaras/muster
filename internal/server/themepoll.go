@@ -59,7 +59,7 @@ func (f *themeFeature) contribute(_ context.Context, snap *Snapshot) {
 	}
 }
 
-// claudeThemeMessage is the WS `claudeTheme` envelope (docs/protocol.md §5.6) — flat,
+// claudeThemeMessage is the WS `claudeTheme` envelope (kb:anchor/ws.claude-theme) — flat,
 // unlike prefsMessage/usageMessage: no nested object, just the type tag and the family.
 // Sent only when the polled family changes (never per tick, never with a timestamp).
 type claudeThemeMessage struct {
@@ -81,7 +81,7 @@ const themeRetryDelay = 250 * time.Millisecond
 type themeReader func(path string) claudecode.ThemeFamily
 
 // themePoller polls Claude Code's own theme setting on an interval, broadcasting
-// `claudeTheme` only when the family changes (docs/protocol.md §5.6, REQ-14) — pattern
+// `claudeTheme` only when the family changes (kb:anchor/ws.claude-theme, REQ-14) — pattern
 // copied from usagePoller (usagepoll.go)'s Start/Stop/loop/tick shape.
 type themePoller struct {
 	path      string

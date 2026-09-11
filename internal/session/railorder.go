@@ -5,7 +5,7 @@ import (
 	"sort"
 )
 
-// ErrInvalidOrder is applyOrder's validation failure (docs/protocol.md §3.11): a
+// ErrInvalidOrder is applyOrder's validation failure (kb:anchor/sessions.order): a
 // duplicate or unknown id in the request, or a pinnedCount outside [0, len(ids)]. The
 // server package maps it to 400 invalid_request; nothing is computed on this path
 // (D10/D11). applyPin's unknown-id case reuses the existing ErrUnknownSession sentinel
@@ -24,7 +24,7 @@ type railEntry struct {
 }
 
 // applyPin computes the new (pinned, railPos) for every session affected by pinning or
-// unpinning id (docs/protocol.md §3.10): pinning moves id to the bottom of the pinned
+// unpinning id (kb:anchor/sessions.pin): pinning moves id to the bottom of the pinned
 // block, unpinning moves it to the top of the unpinned block, via the same rebuild rule
 // as applyOrder. Returns the entries whose Pinned or RailPos changed — empty when id was
 // already in the requested state (D8, INV-5) — or ErrUnknownSession if id isn't present.
@@ -35,7 +35,7 @@ type railEntry struct {
 // which renumbers every entry as a contiguous 0..n-1 index; if a bystander's railPos
 // already has a gap (the only way that happens in production: an earlier Remove, which
 // REQ-14 explicitly permits to leave), that renumbering closes the gap and diffChanged
-// reports the untouched bystander as "changed" — violating §3.10/REQ-3's "already in the
+// reports the untouched bystander as "changed" — violating kb:anchor/sessions.pin / REQ-3's "already in the
 // requested state → 204 and no broadcast" for a request that never named it.
 func applyPin(sessions []railEntry, id int64, pinned bool) ([]railEntry, error) {
 	var current railEntry
@@ -64,7 +64,7 @@ func applyPin(sessions []railEntry, id int64, pinned bool) ([]railEntry, error) 
 }
 
 // applyOrder computes the new (pinned, railPos) for a full rail-order request (docs/
-// protocol.md §3.11): the first pinnedCount listed ids become pinned in listed order,
+// kb:anchor/sessions.order): the first pinnedCount listed ids become pinned in listed order,
 // the rest unpinned in listed order; sessions that exist but weren't listed keep their
 // flag and follow the listed ones in their existing relative railPos order. The same
 // rebuild rule as applyPin then re-enforces the invariant, which is what pushes a

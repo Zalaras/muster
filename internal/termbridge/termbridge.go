@@ -1,5 +1,5 @@
 // Package termbridge owns the daemon-side PTY lifecycle for one terminal socket
-// (docs/protocol.md §6): spawning `tmux attach-session` under a `creack/pty`-managed
+// (kb:anchor/terminal.ws): spawning `tmux attach-session` under a `creack/pty`-managed
 // pseudo-terminal, streaming raw bytes both directions, and resizing per FINDINGS §7(d)
 // (pty.Setsize then tmux resize-window, never the pane-level primitive). This package
 // knows nothing about WebSockets or sessions — internal/server/terminal.go is the only
@@ -22,7 +22,7 @@ import (
 )
 
 // initialCols/initialRows is the attach PTY's starting geometry before the client's
-// first resize frame arrives (docs/protocol.md §6).
+// first resize frame arrives (kb:anchor/terminal.ws).
 const (
 	initialCols = 80
 	initialRows = 24

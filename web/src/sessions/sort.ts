@@ -1,4 +1,4 @@
-// The client-side rail sort (REQ-16, docs/protocol.md §5.2, ux-flows §3.4). The daemon
+// The client-side rail sort (REQ-16, kb:anchor/ws.snapshot, ux-flows §3.4). The daemon
 // never orders for display — this is the one place that priority table lives, kept pure
 // so Vitest can pin every state and tiebreak without a DOM.
 import type { RailSort, Session, SessionState } from "../protocol";

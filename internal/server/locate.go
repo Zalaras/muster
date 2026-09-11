@@ -13,12 +13,12 @@ import (
 	"github.com/Zalaras/muster/internal/session"
 )
 
-// maxLocateUploadBytes bounds POST /api/sessions/{id}/locate's body (docs/protocol.md
-// §3.14): 50 MiB of file content plus 64 KiB of multipart overhead. Anything over this
+// maxLocateUploadBytes bounds POST /api/sessions/{id}/locate's body
+// (kb:anchor/sessions.locate): 50 MiB of file content plus 64 KiB of multipart overhead. Anything over this
 // trips *http.MaxBytesError and answers 413 too_large.
 const maxLocateUploadBytes = 50<<20 + 64<<10
 
-// locateResponse is POST /api/sessions/{id}/locate's 200 body (docs/protocol.md §3.14).
+// locateResponse is POST /api/sessions/{id}/locate's 200 body (kb:anchor/sessions.locate).
 type locateResponse struct {
 	Path string `json:"path"`
 }
@@ -39,8 +39,8 @@ func (f *locateFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.
 	mux.Handle("POST /api/sessions/{id}/locate", guard(http.HandlerFunc(f.handleLocateFile)))
 }
 
-// handleLocateFile is POST /api/sessions/{id}/locate (plan file-drop-fix, docs/protocol.md
-// §3.14). It decodes the single multipart file part directly off the wire — never via
+// handleLocateFile is POST /api/sessions/{id}/locate (plan file-drop-fix,
+// kb:anchor/sessions.locate). It decodes the single multipart file part directly off the wire — never via
 // ParseMultipartForm's memory/temp-file split — so the upload can never touch disk
 // (INV-2), delegates to the Locator, and maps its outcome to the Protocol Contract's
 // error codes. Business logic (candidate discovery, byte comparison) lives entirely in
@@ -146,7 +146,7 @@ func readFilePart(mr *multipart.Reader) (string, []byte, error) {
 	}
 }
 
-// writeLocateAmbiguous writes 409 ambiguous (docs/protocol.md §3.14): the standard
+// writeLocateAmbiguous writes 409 ambiguous (kb:anchor/sessions.locate): the standard
 // error envelope with an extra paths field listing every verified match.
 func writeLocateAmbiguous(w http.ResponseWriter, name string, paths []string) {
 	var resp struct {

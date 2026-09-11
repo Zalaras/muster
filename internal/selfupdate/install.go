@@ -8,7 +8,7 @@ import (
 )
 
 // Kind is the daemon's startup install classification (REQ-21) — constant for the
-// daemon's life (docs/protocol.md §5.7 "install").
+// daemon's life (kb:anchor/ws.update "install").
 type Kind string
 
 const (
@@ -19,7 +19,7 @@ const (
 )
 
 // InstallerRemedy and HomebrewRemedy are the one-line remedies shown for unmanaged and
-// homebrew installs respectively (REQ-21; docs/protocol.md §5.7 "remedy"), and
+// homebrew installs respectively (REQ-21; kb:anchor/ws.update "remedy"), and
 // `musterd -update`'s stderr message for the same two kinds (REQ-22).
 const (
 	InstallerRemedy = "not installed by the muster installer — run: curl -fsSL https://raw.githubusercontent.com/Zalaras/muster/main/scripts/install.sh | sh"

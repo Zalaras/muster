@@ -1,5 +1,5 @@
 // Synthesized Claude Code hook / status-line payloads for the E2E suite (M0, extended
-// by m1-sessions for the §7 state machine's event set).
+// by m1-sessions for the kb:anchor/state state machine's event set).
 //
 // Shapes are copied from the plan's Implementation Notes and spikes/canary-fields.md's
 // measured captures against 2.1.233/2.1.237 — never invented. No real `claude` is ever
@@ -117,7 +117,7 @@ interface TurnActivityOpts {
   agentId?: string;
 }
 
-/** Raw `UserPromptSubmit` — opens a turn (turn-activity event, protocol §7.3). */
+/** Raw `UserPromptSubmit` — opens a turn (turn-activity event, kb:anchor/state.transitions). */
 export function rawUserPromptSubmit(sessionId: string, opts: TurnActivityOpts = {}): Record<string, unknown> {
   const { promptId = "p1", permissionMode = "default", agentId } = opts;
   const payload: Record<string, unknown> = {
@@ -183,8 +183,8 @@ export function rawNotification(
 }
 
 /**
- * Raw `PermissionRequest` — corroborates a permission-prompt `needs_input` (protocol
- * §7.3). `opts.agentId` adds the same measured subagent marker as `TurnActivityOpts`
+ * Raw `PermissionRequest` — corroborates a permission-prompt `needs_input`
+ * (kb:anchor/state.transitions). `opts.agentId` adds the same measured subagent marker as `TurnActivityOpts`
  * (canary-fields.md: a subagent's `PermissionRequest` carries `agent_id`/`agent_type`
  * under the parent's `prompt_id`, unlike the `Notification` that follows it).
  */
@@ -294,7 +294,7 @@ export function rawPreCompact(sessionId: string, promptId = "p1"): Record<string
 }
 
 /**
- * Raw `SessionEnd` — `reason:"clear"` is not a death hint (protocol §7.3); any other
+ * Raw `SessionEnd` — `reason:"clear"` is not a death hint (kb:anchor/state.transitions); any other
  * reason sets `alive:false`. Carries no `permission_mode` (never-present list).
  */
 export function rawSessionEnd(sessionId: string, reason: "clear" | "other" = "other"): Record<string, unknown> {

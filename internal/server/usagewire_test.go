@@ -27,7 +27,7 @@ func TestToWireUsage_ZeroSnapshotRendersEveryFieldNullExceptSource(t *testing.T)
 	assert.Equal(t, "subscription-api", got.ModelScopedSource)
 }
 
-// TestToWireUsage_PopulatedSnapshotFormatsEveryFieldPerTheProtocol covers §5.4: buckets
+// TestToWireUsage_PopulatedSnapshotFormatsEveryFieldPerTheProtocol covers kb:anchor/ws.usage: buckets
 // and sampledAt render as RFC3339 (not RFC3339Nano — the daemon's internal precision
 // isn't part of the wire contract here), and model carries both fields verbatim.
 func TestToWireUsage_PopulatedSnapshotFormatsEveryFieldPerTheProtocol(t *testing.T) {
@@ -66,7 +66,7 @@ func TestToWireUsage_ResetsAtConvertsToUTCEvenFromANonUTCTime(t *testing.T) {
 	assert.Equal(t, "2026-08-23T11:00:00Z", got.FiveHour.ResetsAt)
 }
 
-// TestToWireUsage_ModelScopedPopulatedListFormatsEveryField covers §5.4's second-source
+// TestToWireUsage_ModelScopedPopulatedListFormatsEveryField covers kb:anchor/ws.usage's second-source
 // half: a non-nil Windows list maps to the wire's ModelScoped array with UTC RFC3339
 // resetsAt, and At/Error/Source render alongside it.
 func TestToWireUsage_ModelScopedPopulatedListFormatsEveryField(t *testing.T) {

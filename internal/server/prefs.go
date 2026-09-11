@@ -11,7 +11,7 @@ import (
 )
 
 // prefsKVKey is the single kv key prefs are persisted under, as one JSON blob
-// (docs/protocol.md §3.3 — no schema change).
+// (kb:anchor/prefs.put — no schema change).
 const prefsKVKey = "prefs"
 
 // defaultUsageModel is prefs.usageModel's default — the masthead's per-model readout
@@ -27,12 +27,12 @@ const defaultRailSort = "manual"
 // validThemePattern.
 const defaultTheme = "follow"
 
-// validThemePattern is prefs.theme's wire pattern (docs/protocol.md §3.3): 1-32 chars,
+// validThemePattern is prefs.theme's wire pattern (kb:anchor/prefs.put): 1-32 chars,
 // a-z/0-9/-, starting with a letter. The daemon never interprets the value beyond this
 // — the client owns the theme registry.
 var validThemePattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
 
-// prefsRequest is PUT /api/prefs' request body (docs/protocol.md §3.3): at least one
+// prefsRequest is PUT /api/prefs' request body (kb:anchor/prefs.put): at least one
 // field required, unknown fields ignored. Pointers distinguish "absent" from "present".
 type prefsRequest struct {
 	View        *string `json:"view"`
@@ -48,13 +48,13 @@ func validDensity(v string) bool  { return v == "2x2" || v == "3x2" }
 func validRailSort(v string) bool { return v == "manual" || v == "attention" }
 func validTheme(v string) bool    { return validThemePattern.MatchString(v) }
 
-// validUsageModel reports whether v (after trimming) is 1–32 chars (protocol §3.3).
+// validUsageModel reports whether v (after trimming) is 1–32 chars (kb:anchor/prefs.put).
 func validUsageModel(v string) bool {
 	n := len(strings.TrimSpace(v))
 	return n >= 1 && n <= 32
 }
 
-// defaultPrefs is the shape before any PUT /api/prefs has ever landed (protocol §3.3).
+// defaultPrefs is the shape before any PUT /api/prefs has ever landed (kb:anchor/prefs.put).
 // UpdateCheck defaults true.
 func defaultPrefs() PrefsInfo {
 	return PrefsInfo{View: "focus", Density: "2x2", UsageModel: defaultUsageModel, RailSort: defaultRailSort, Theme: defaultTheme, UpdateCheck: true}
@@ -75,7 +75,7 @@ type storedPrefs struct {
 	UpdateCheck *bool  `json:"updateCheck"`
 }
 
-// prefsMessage is the WS `prefs` broadcast (docs/protocol.md §5.5): a full-object echo
+// prefsMessage is the WS `prefs` broadcast (kb:anchor/ws.prefs): a full-object echo
 // of the persisted prefs, sent to every connected UI socket on every accepted PUT
 // (INV-4).
 type prefsMessage struct {

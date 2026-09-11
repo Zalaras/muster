@@ -30,13 +30,13 @@ type paneConn interface {
 // interface instead.
 type attachFunc func(ctx context.Context, target string) (paneConn, error)
 
-// Close codes the daemon initiates on a terminal socket (docs/protocol.md §6).
+// Close codes the daemon initiates on a terminal socket (kb:anchor/terminal.ws).
 const (
 	closeSuperseded websocket.StatusCode = 4000
 	closePaneEnded  websocket.StatusCode = 4001
 )
 
-// Resize clamps (docs/protocol.md §6).
+// Resize clamps (kb:anchor/terminal.ws).
 const (
 	minResizeCols = 20
 	maxResizeCols = 500
@@ -57,7 +57,7 @@ type terminalConn struct {
 }
 
 // terminalSurface distinguishes a session's Claude pane from its plain-shell surface
-// (docs/protocol.md §3.16/§6.1): the two are different attach targets ("muster-<id>" vs
+// (kb:anchor/sessions.shell / kb:anchor/terminal.shell-ws): the two are different attach targets ("muster-<id>" vs
 // "muster-<id>-shell"), so the one-live-client law (INV-3) is enforced per (session,
 // surface), not per session alone.
 type terminalSurface int
@@ -73,7 +73,7 @@ type terminalKey struct {
 	surface   terminalSurface
 }
 
-// terminalRegistry enforces the one-live-client law (INV-1/INV-3, protocol §6/§6.1): at
+// terminalRegistry enforces the one-live-client law (INV-1/INV-3, kb:anchor/terminal.ws / kb:anchor/terminal.shell-ws): at
 // most one open terminal socket per (session, surface). A new connection supersedes
 // (close code 4000) and tears down the old PTY before its own attach begins; a session's
 // Claude socket and its shell socket are independent keys and never supersede each
@@ -159,7 +159,7 @@ func (r *terminalRegistry) closeSessionAndShell(sessionID int64) {
 }
 
 // closeAll closes every live terminal socket (daemon shutdown — normal close 1001,
-// protocol §6) and clears the map, so a takeover racing shutdown can't re-close an
+// kb:anchor/terminal.ws) and clears the map, so a takeover racing shutdown can't re-close an
 // already-closed conn it still thinks is live.
 func (r *terminalRegistry) closeAll() {
 	r.mu.Lock()
@@ -173,7 +173,7 @@ func (r *terminalRegistry) closeAll() {
 	}
 }
 
-// resizeFrame is the only client->server JSON on this socket (docs/protocol.md §6).
+// resizeFrame is the only client->server JSON on this socket (kb:anchor/terminal.ws).
 type resizeFrame struct {
 	Type string `json:"type"`
 	Cols int    `json:"cols"`
@@ -215,7 +215,7 @@ func (f *terminalFeature) closeAll() {
 	f.registry.closeAll()
 }
 
-// handleTerminal is GET /ws/terminal/{id} (docs/protocol.md §6): pre-upgrade auth (the
+// handleTerminal is GET /ws/terminal/{id} (kb:anchor/terminal.ws): pre-upgrade auth (the
 // requireCookie wrapper) and Origin check (websocket.Accept's own default), 404/409
 // validation, takeover, and the two byte pumps.
 func (f *terminalFeature) handleTerminal(w http.ResponseWriter, r *http.Request) {
@@ -289,10 +289,10 @@ func (f *terminalFeature) handleTerminal(w http.ResponseWriter, r *http.Request)
 	<-ptyDone
 }
 
-// pumpPTYToSocket streams raw PTY output to the client verbatim (protocol §6/§6.1) until
+// pumpPTYToSocket streams raw PTY output to the client verbatim (kb:anchor/terminal.ws / kb:anchor/terminal.shell-ws) until
 // EOF or the socket dies. A clean EOF (tmux pane gone) always closes with 4001; it calls
 // nudge only when nudgeOnEOF is true (the Claude surface, REQ-6) — a shell surface's EOF
-// (§6.1) must never nudge its session's liveness (a shell's death is not its session's
+// (kb:anchor/terminal.shell-ws) must never nudge its session's liveness (a shell's death is not its session's
 // death), so shellFeature passes nudgeOnEOF=false and a nil nudge.
 func pumpPTYToSocket(ctx context.Context, log zerolog.Logger, c *websocket.Conn, bridge paneConn, sessionID int64, nudgeOnEOF bool, nudge func(context.Context, int64)) {
 	buf := make([]byte, terminalReadBufSize)

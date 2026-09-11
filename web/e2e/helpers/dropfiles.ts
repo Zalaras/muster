@@ -1,6 +1,6 @@
 // File fixtures for the file-drop-fix E2E suite (plan file-drop-fix).
 //
-// The daemon's locate step (POST /api/sessions/{id}/locate, docs/protocol.md §3.14)
+// The daemon's locate step (POST /api/sessions/{id}/locate, kb:anchor/sessions.locate)
 // resolves a dropped file's bytes to an on-disk path by walking the session's directory
 // and byte-comparing candidates. Spotlight never sees these fixtures — the plan's
 // Implementation Notes are explicit: "the harness's scratch dirs live under
@@ -22,7 +22,7 @@ export function uniqueContent(size = 256): Buffer {
 /**
  * Writes `content` to `path` (creating parent directories as needed) and returns the
  * symlink-resolved absolute path — the exact form the daemon's `EvalSymlinks`-deduped
- * `Locate` returns (docs/protocol.md §3.14, plan REQ-5), so a test's "expected path"
+ * `Locate` returns (kb:anchor/sessions.locate, plan REQ-5), so a test's "expected path"
  * oracle matches regardless of whether the scratch tmp root itself sits behind a symlink
  * (e.g. macOS's `/tmp` -> `/private/tmp`).
  */

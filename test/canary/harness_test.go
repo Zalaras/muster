@@ -28,7 +28,7 @@ import (
 //	claudecode.WriteWrapperScripts + claudecode.MergeSettings
 //	  → <scratch repo>/.claude/settings.local.json (data dir path contains a SPACE)
 //	  → claude runs the `/bin/sh -c` command lines
-//	  → hook.sh / status-line.sh POST the §4.2 envelope
+//	  → hook.sh / status-line.sh POST the kb:anchor/ingest.envelope envelope
 //	  → an in-test capture server, parsed with claudecode.ParseIngestBody.
 //
 // No fake claude, no synthesized POSTs. Every real run burns Damian's subscription, so the

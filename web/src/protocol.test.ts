@@ -8,7 +8,7 @@ const validHello = {
   claudeCode: { installed: "2.1.267", floor: "2.1.246", verified: "2.1.267", status: "verified" },
 };
 
-// Plan auto-update (docs/protocol.md §5.7): a fully-populated UpdateInfo, badge showing
+// Plan auto-update (kb:anchor/ws.update): a fully-populated UpdateInfo, badge showing
 // (available set, installed null), no apply in flight. A real daemon always sends a full
 // object here (never an explicit `null` — only a pre-plan daemon omits the key entirely,
 // which `parseSnapshot` treats differently from an explicit `null`, see the "parseSnapshot
@@ -59,7 +59,7 @@ describe("parseMessage — hello (plan version-claude-interface, protocol 2: hel
     expect(parseMessage(hello)).toEqual(hello);
   });
 
-  it("ignores unknown top-level fields (additive evolution, protocol §1)", () => {
+  it("ignores unknown top-level fields (additive evolution, kb:anchor/conventions)", () => {
     const hello = { ...validHello, futureField: "surprise" };
     expect(parseMessage(hello)).toEqual(validHello);
   });
@@ -175,7 +175,7 @@ describe("parseMessage — snapshot", () => {
     expect(parseMessage(snapshot)).toBeNull();
   });
 
-  it("rejects a prefs.density outside the known enum (M2 §3.3 refinement)", () => {
+  it("rejects a prefs.density outside the known enum (M2 kb:anchor/prefs.put refinement)", () => {
     const snapshot = { ...validSnapshot, prefs: { view: "focus", density: "4x4" } };
     expect(parseMessage(snapshot)).toBeNull();
   });
@@ -220,7 +220,7 @@ describe("parseMessage — snapshot", () => {
   });
 });
 
-describe("parsePrefs — railSort (plan order-sidebar REQ-5/§3.3)", () => {
+describe("parsePrefs — railSort (plan order-sidebar REQ-5 / kb:anchor/prefs.put)", () => {
   it("defaults a missing railSort to 'manual' (pre-plan daemon payload)", () => {
     const snapshot = { ...validSnapshot, prefs: { view: "focus", density: "2x2", usageModel: "Fable" } };
     expect(parseMessage(snapshot)).toEqual({
@@ -285,7 +285,7 @@ describe("parsePrefs — theme (plan new-ui-design-colors REQ-19, W7)", () => {
     });
   });
 
-  it("parses an explicit opaque theme name unchanged (the daemon treats it as opaque, docs/protocol.md §3.3)", () => {
+  it("parses an explicit opaque theme name unchanged (the daemon treats it as opaque, kb:anchor/prefs.put)", () => {
     const snapshot = { ...validSnapshot, prefs: { ...validSnapshot.prefs, theme: "dark" } };
     expect(parseMessage(snapshot)).toEqual(snapshot);
   });
@@ -301,7 +301,7 @@ describe("parsePrefs — theme (plan new-ui-design-colors REQ-19, W7)", () => {
   });
 });
 
-describe("parsePrefs — updateCheck (plan auto-update REQ-1/§3.3, W6)", () => {
+describe("parsePrefs — updateCheck (plan auto-update REQ-1 / kb:anchor/prefs.put, W6)", () => {
   it("defaults a missing updateCheck key to true (pre-plan daemon payload, the daemon's own documented default)", () => {
     const { updateCheck, ...restPrefs } = validSnapshot.prefs;
     void updateCheck;
@@ -330,7 +330,7 @@ describe("parsePrefs — updateCheck (plan auto-update REQ-1/§3.3, W6)", () => 
   });
 });
 
-describe("parseSnapshot — update (plan auto-update §5.2/§5.7, W6, edge case 32)", () => {
+describe("parseSnapshot — update (plan auto-update kb:anchor/ws.snapshot / kb:anchor/ws.update, W6, edge case 32)", () => {
   it("defaults a missing update key to null (pre-plan daemon payload — no throw, no synthesized object)", () => {
     const { update, ...rest } = validSnapshot;
     void update;
@@ -411,7 +411,7 @@ describe("parseSnapshot — update (plan auto-update §5.2/§5.7, W6, edge case 
   });
 });
 
-describe("parseMessage — update (plan auto-update §5.7, W6): sent on every apply phase/check/toggle change", () => {
+describe("parseMessage — update (plan auto-update kb:anchor/ws.update, W6): sent on every apply phase/check/toggle change", () => {
   it("decodes a well-formed update message", () => {
     const message = { type: "update", update: validUpdateInfo };
     expect(parseMessage(message)).toEqual(message);
@@ -426,14 +426,14 @@ describe("parseMessage — update (plan auto-update §5.7, W6): sent on every ap
     expect(parseMessage(message)).toBeNull();
   });
 
-  it("ignores unknown top-level fields (additive evolution, protocol §1)", () => {
+  it("ignores unknown top-level fields (additive evolution, kb:anchor/conventions)", () => {
     const message = { type: "update", update: validUpdateInfo, futureField: "surprise" };
     expect(parseMessage(message)).toEqual({ type: "update", update: validUpdateInfo });
   });
 });
 
 describe("parseSnapshot — claudeTheme (plan new-ui-design-colors REQ-19, W8)", () => {
-  it("defaults a missing claudeTheme key to {family: 'unknown'} (pre-plan daemon payload — the 'no data yet' state, docs §5.2)", () => {
+  it("defaults a missing claudeTheme key to {family: 'unknown'} (pre-plan daemon payload — the 'no data yet' state, kb:anchor/ws.snapshot)", () => {
     const { claudeTheme, ...rest } = validSnapshot;
     void claudeTheme;
     expect(parseMessage(rest)).toEqual(validSnapshot);
@@ -462,7 +462,7 @@ describe("parseSnapshot — claudeTheme (plan new-ui-design-colors REQ-19, W8)",
   });
 });
 
-describe("parseMessage — claudeTheme (plan new-ui-design-colors §5.6, W9)", () => {
+describe("parseMessage — claudeTheme (plan new-ui-design-colors kb:anchor/ws.claude-theme, W9)", () => {
   it("decodes a well-formed claudeTheme message", () => {
     const message = { type: "claudeTheme", family: "light" };
     expect(parseMessage(message)).toEqual(message);
@@ -475,7 +475,7 @@ describe("parseMessage — claudeTheme (plan new-ui-design-colors §5.6, W9)", (
     }
   });
 
-  it("ignores unknown top-level fields (additive evolution, protocol §1)", () => {
+  it("ignores unknown top-level fields (additive evolution, kb:anchor/conventions)", () => {
     const message = { type: "claudeTheme", family: "dark", futureField: "surprise" };
     expect(parseMessage(message)).toEqual({ type: "claudeTheme", family: "dark" });
   });
@@ -493,7 +493,7 @@ describe("parseMessage — claudeTheme (plan new-ui-design-colors §5.6, W9)", (
   });
 });
 
-describe("parseMessage — usage (M3 REQ-5/protocol §5.4: broadcast on value/model change)", () => {
+describe("parseMessage — usage (M3 REQ-5/kb:anchor/ws.usage: broadcast on value/model change)", () => {
   const knownUsage = {
     type: "usage",
     usage: {
@@ -655,7 +655,7 @@ describe("parseMessage — usage.modelScoped (plan usage-model-bar REQ-4/REQ-14/
 });
 
 describe("parseMessage — unknown/malformed envelopes", () => {
-  it("ignores an unknown message type (forward compatibility, protocol §1)", () => {
+  it("ignores an unknown message type (forward compatibility, kb:anchor/conventions)", () => {
     expect(parseMessage({ type: "futureMessageType", payload: {} })).toBeNull();
   });
 
@@ -684,7 +684,7 @@ describe("UNKNOWN_USAGE", () => {
   });
 });
 
-// A fully-populated Session per docs/protocol.md §5.3, used as the baseline every
+// A fully-populated Session per kb:anchor/ws.session, used as the baseline every
 // parseSession/sessionUpsert test mutates a single field of.
 const validSession = {
   id: 1,
@@ -738,7 +738,7 @@ const freshLaunchSession = {
   titleOverride: null,
 };
 
-describe("parseSession — full §5.3 shape", () => {
+describe("parseSession — full kb:anchor/ws.session shape", () => {
   it("parses a fully-populated session", () => {
     expect(parseSession(validSession)).toEqual(validSession);
   });
@@ -872,7 +872,7 @@ describe("parseSession — full §5.3 shape", () => {
   });
 });
 
-describe("parseSession — pinned/railPos (plan order-sidebar §5.3: required on every wire Session, never defaulted)", () => {
+describe("parseSession — pinned/railPos (plan order-sidebar kb:anchor/ws.session: required on every wire Session, never defaulted)", () => {
   it("parses pinned:true with a positive railPos", () => {
     const session = { ...validSession, pinned: true, railPos: 0 };
     expect(parseSession(session)).toEqual(session);
@@ -905,7 +905,7 @@ describe("parseSession — pinned/railPos (plan order-sidebar §5.3: required on
   });
 });
 
-describe("parseSession — titleOverride (plan ui-text-and-focus §5.3/REQ-11/W7: required on every wire Session, never defaulted)", () => {
+describe("parseSession — titleOverride (plan ui-text-and-focus kb:anchor/ws.session / REQ-11 / W7: required on every wire Session, never defaulted)", () => {
   it("parses titleOverride: null (no override set)", () => {
     const session = { ...validSession, titleOverride: null };
     expect(parseSession(session)).toEqual(session);
@@ -971,13 +971,13 @@ describe("parseMessage — snapshot with sessions (M1: non-empty for the first t
   });
 });
 
-describe("parseMessage — sessionRemoved (W6, plan m4-reconcile REQ-15, docs/protocol.md §5.5)", () => {
+describe("parseMessage — sessionRemoved (W6, plan m4-reconcile REQ-15, kb:anchor/ws.session-removed)", () => {
   it("parses a well-formed sessionRemoved", () => {
     const message = { type: "sessionRemoved", id: 7 };
     expect(parseMessage(message)).toEqual(message);
   });
 
-  it("ignores unknown top-level fields (additive evolution, protocol §1)", () => {
+  it("ignores unknown top-level fields (additive evolution, kb:anchor/conventions)", () => {
     const message = { type: "sessionRemoved", id: 7, futureField: "surprise" };
     expect(parseMessage(message)).toEqual({ type: "sessionRemoved", id: 7 });
   });

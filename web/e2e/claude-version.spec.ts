@@ -4,7 +4,7 @@ import { issueButton } from "./helpers/issue";
 
 // Plan version-claude-interface — E1 through E6 (E7 is `make e2e` itself, covering this
 // file). The daemon's WS `hello.claudeCode` carries `{installed, floor, verified,
-// status}` (docs/protocol.md §5.1 delta, protocol 2); the masthead's `#claude-version`
+// status}` (kb:anchor/ws.hello delta, protocol 2); the masthead's `#claude-version`
 // readout (web/src/render/masthead.ts's `renderClaudeVersion`/`describeClaudeVersion`)
 // renders one of four states from it (plan UI Specifications > DOM table). Every daemon
 // here is the harness's own scratch musterd with the stub `claude` (helpers/daemon.ts)

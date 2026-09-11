@@ -1,4 +1,4 @@
-// xterm.js wrapper + the terminal-socket bridge (docs/protocol.md §6; design-system §7
+// xterm.js wrapper + the terminal-socket bridge (kb:anchor/terminal.ws; design-system §7
 // terminal rules). One TerminalSurface per live surface (Focus's pane, or one Tiles
 // tile): owns the xterm.js instance, the `/ws/terminal/{id}` socket, and the single
 // overlay element for the down/superseded/ended states. features/surfaces.ts's surface
@@ -15,7 +15,7 @@ import { showNotice as showNoticeOn } from "./notice";
 import { overlayForCloseCode, overlayText, type OverlayKind } from "./overlay";
 import type { SurfaceKind } from "./surfaceswitch";
 
-// Debounce window for resize frames after the initial one (protocol §6 / design-system
+// Debounce window for resize frames after the initial one (kb:anchor/terminal.ws / design-system
 // §4.2/§7.2).
 const RESIZE_DEBOUNCE_MS = 100;
 
@@ -33,9 +33,9 @@ function cssVar(name: string, fallback: string): string {
 }
 
 /**
- * One live terminal surface — the Claude pane (`/ws/terminal/{id}`, protocol §6) or,
- * since plan plain-terminal-session, a session's plain shell (`/ws/shell/{id}`, protocol
- * §6.1). `kind` picks the WS path and the aria-label prefix; every other behaviour —
+ * One live terminal surface — the Claude pane (`/ws/terminal/{id}`, kb:anchor/terminal.ws) or,
+ * since plan plain-terminal-session, a session's plain shell (`/ws/shell/{id}`,
+ * kb:anchor/terminal.shell-ws). `kind` picks the WS path and the aria-label prefix; every other behaviour —
  * drop handling, resize, overlays, theming — is shared unchanged (plan Affected Files).
  * Constructing a `"claude"` surface for an already-dead session (`alive: false`) never
  * opens a socket (REQ-13: "no attach attempt for a session Muster already knows is
@@ -60,7 +60,7 @@ export class TerminalSurface {
    * the surface-switch state (`shellEnded`) and re-render, which is what actually swaps
    * the visible surface back to Claude and disposes this one. Never fired for `"claude"`
    * (the liveness poll already covers that pane's own 4001) or for `4000 superseded`
-   * (nothing auto-reconnects/reverts on that code — design-system §7 / protocol §6). */
+   * (nothing auto-reconnects/reverts on that code — design-system §7 / kb:anchor/terminal.ws). */
   private readonly onShellEnded: (() => void) | undefined;
   private term: Terminal | null = null;
   private fitAddon: FitAddon | null = null;
@@ -108,7 +108,7 @@ export class TerminalSurface {
     }
 
     const term = new Terminal({
-      // design-system §7.4 / protocol §6: tmux owns scrollback, never xterm.
+      // design-system §7.4 / kb:anchor/terminal.ws: tmux owns scrollback, never xterm.
       scrollback: 0,
       // Type roles §2: terminal text is --mono at 12.5px/1.65 — read from the token so
       // nothing here hard-codes a font stack.
@@ -158,7 +158,7 @@ export class TerminalSurface {
       this.refit(true);
     });
     socket.addEventListener("message", (event: MessageEvent) => {
-      // Protocol §6: no server->client text frames in M2 — only binary PTY output.
+      // kb:anchor/terminal.ws: no server->client text frames in M2 — only binary PTY output.
       if (event.data instanceof ArrayBuffer) {
         this.term?.write(new Uint8Array(event.data));
       }
@@ -380,7 +380,7 @@ export class TerminalSurface {
   /** Called after the daemon connection is restored (`hello`): reattaches only if this
    * surface is currently showing the "disconnected" overlay for a still-alive session —
    * never for "ended" (still dead) or "superseded" (nothing auto-reconnects on 4000,
-   * design-system §7 / protocol §6 — only a user click reclaims). */
+   * design-system §7 / kb:anchor/terminal.ws — only a user click reclaims). */
   reattachIfDisconnected(alive: boolean): void {
     if (this.disposed || !this.term) return;
     if (!alive || this.overlayKind !== "disconnected") return;

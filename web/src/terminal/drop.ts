@@ -46,7 +46,7 @@ export function escapePath(path: string): string {
 
 /** REQ-7: a file at or under this size may be uploaded; anything larger is rejected
  * client-side, before any request, and the daemon independently rejects it server-side
- * (protocol §3.14's `413 too_large`). */
+ * (kb:anchor/sessions.locate's `413 too_large`). */
 export const MAX_DROP_BYTES = 50 * 1024 * 1024;
 
 export type DropKind = "files" | "text" | "none";
@@ -93,7 +93,7 @@ export function noticeForFailure(name: string, failure: LocateFailure): string {
   }
 }
 
-/** Maps a `POST /api/sessions/{id}/locate` failure (docs/protocol.md §3.14) to the
+/** Maps a `POST /api/sessions/{id}/locate` failure (kb:anchor/sessions.locate) to the
  * `LocateFailure` kind whose notice text `noticeForFailure` should show. `ambiguous`
  * carries the daemon's own `paths` count (REQ-3); every other non-2xx (`400`, `500`,
  * `network_error`, or any code this client doesn't recognise) is `"other"`. Moved here

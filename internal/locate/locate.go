@@ -67,7 +67,7 @@ func NewWithFinders(finders ...Finder) *Locator {
 var ErrNotLocated = errors.New("locate: no file matched")
 
 // ErrAmbiguous means two or more distinct on-disk files matched — Paths lists every
-// verified match, absolute and sorted (REQ-5, protocol.md §3.14).
+// verified match, absolute and sorted (REQ-5, kb:anchor/sessions.locate).
 type ErrAmbiguous struct {
 	Paths []string
 }

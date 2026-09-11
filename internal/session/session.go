@@ -1,4 +1,4 @@
-// Package session holds the §7 state machine (docs/protocol.md) and the in-memory
+// Package session holds the state machine (kb:anchor/state) and the in-memory
 // session registry that feeds it. It operates purely on claudecode.StateInput values
 // and its own neutral fields — no Claude Code payload key or event name appears here
 // (CLAUDE.md hard rule; plan m1-sessions "The state machine — implementation shape").
@@ -6,7 +6,7 @@ package session
 
 import "time"
 
-// State is one of the six displayed states (protocol §7.1).
+// State is one of the six displayed states (kb:anchor/state.displayed).
 type State string
 
 const (
@@ -18,7 +18,7 @@ const (
 	StateIdle       State = "idle"
 )
 
-// PermissionMode is the latched last-known permission mode (protocol §7.2).
+// PermissionMode is the latched last-known permission mode (kb:anchor/state.tracked).
 type PermissionMode string
 
 const (
@@ -45,13 +45,13 @@ type Failure struct {
 
 // Model is the session's model readout; both fields start at the launch value
 // verbatim (M1 value semantics). From M3 on, a routed status-line post refreshes both
-// fields whenever its model object is present (§5.3 M3 value semantics).
+// fields whenever its model object is present (kb:anchor/ws.session M3 value semantics).
 type Model struct {
 	ID          string
 	DisplayName string
 }
 
-// Context is the session's live context-window gauge (§5.3 M3 value semantics):
+// Context is the session's live context-window gauge (kb:anchor/ws.session M3 value semantics):
 // UsedPct/TotalInputTokens/WindowSize are always all present together — a nil *Context
 // means unknown (INV-2), never a zero value. Populated only by a routed status-line
 // post whose payload carries a non-null used-percentage (REQ-2); reset to nil by
@@ -62,7 +62,7 @@ type Context struct {
 	WindowSize       int64
 }
 
-// Session is one row of the §7 state machine, held in memory and persisted on every
+// Session is one row of the kb:anchor/state state machine, held in memory and persisted on every
 // mutation. Guard fields (currentPromptID/closedPromptIDs) are in-memory only — a
 // daemon restart resets them (accepted M1 edge, plan Schema Changes note).
 type Session struct {
@@ -124,7 +124,7 @@ func (s *Session) Clone() *Session {
 
 // DisplayTitle returns the wire "title" (plan ui-text-and-focus REQ-11): TitleOverride
 // when non-nil, else Claude's last-known name (Title), else nil. The daemon owns this
-// precedence; no client computes it (docs/protocol.md §5.3).
+// precedence; no client computes it (kb:anchor/ws.session).
 func (s *Session) DisplayTitle() *string {
 	if s.TitleOverride != nil {
 		return s.TitleOverride
@@ -165,7 +165,7 @@ func (s *Session) setState(next State, now time.Time) {
 }
 
 // activeState is "planning" if the permission-mode latch reads "plan", else "working"
-// (protocol §7.3's ACTIVE definition).
+// (kb:anchor/state.transitions's ACTIVE definition).
 func (s *Session) activeState() State {
 	if s.PermissionMode == PermissionPlan {
 		return StatePlanning
