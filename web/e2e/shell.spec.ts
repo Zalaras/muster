@@ -68,6 +68,14 @@ test("GET /api/state returns exactly the M0 snapshot object once authenticated",
   // theme "follow" before any PUT /api/prefs; `claudeTheme.family` is "unknown" because
   // this scratch daemon passes no `-claude-theme-poll` (REQ-15, REQ-19) — updated here
   // for the same reason as density/usageModel/railSort above.
+  // `prefs.updateCheck` and top-level `update` were added by plan auto-update (protocol
+  // §3.3/§5.2/§5.5/§5.7 delta, merged into docs/protocol.md on approval) —
+  // `updateCheck` defaults true before any PUT /api/prefs; `update.install` is "dev"
+  // because this scratch daemon runs `bin/musterd`, itself stamped by `git describe`
+  // (REQ-8), so it never checks (`available`/`checkedAt`/`installed` stay null) and
+  // carries no remedy; `update.running` is asserted structurally (`expect.any(String)`)
+  // since the dev version string changes with every commit — updated here for the same
+  // reason as density/usageModel/railSort/theme above.
   expect(body).toEqual({
     sessions: [],
     usage: {
@@ -81,7 +89,16 @@ test("GET /api/state returns exactly the M0 snapshot object once authenticated",
       modelScopedError: "no-credentials",
       modelScopedSource: "subscription-api",
     },
-    prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual", theme: "follow" },
+    prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual", theme: "follow", updateCheck: true },
     claudeTheme: { family: "unknown" },
+    update: {
+      running: expect.any(String),
+      install: "dev",
+      remedy: null,
+      available: null,
+      checkedAt: null,
+      installed: null,
+      apply: { phase: "idle", version: null, error: null },
+    },
   });
 });

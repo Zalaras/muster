@@ -306,6 +306,7 @@ after approval the run needs babysitting.
 | Logging | **zerolog** | Decided 2026-08-16. Damian's structured logger of habit; `slog` considered, familiarity won. |
 | Git ops | `os/exec` + git CLI (and `gh` for GitHub) | Matches Claude Code's own behavior; avoids go-git drift. |
 | Misc | `creack/pty`, `fsnotify` | PTY bridge; watch transcripts/settings. |
+| Self-update | `aead.dev/minisign` | Decided 2026-09-10 (plan `auto-update`). Offline verification of the release's minisign-signed `checksums.txt` against a compiled-in public key; pure Go, both signature modes. Hand-rolled Ed25519 + BLAKE2b considered — same dependency count, more code. |
 
 Layout (settled 2026-08-16): `cmd/musterd/` (daemon), `web/` (frontend),
 `internal/claudecode/` (adapter, §7), later `cmd/muster-desktop/` if Wails happens.
@@ -1559,4 +1560,40 @@ now carries the full shape.
   prefix). This is a live constraint on the auto-update work: a self-replacing binary must not
   overwrite a brew-managed install.
 
+### 2026-09-10 — auto-update: pref-gated check, explicit minisign-verified apply, in-place restart (plan `auto-update`, via `/orchestrate`)
 
+Resolves the "auto-update wants a `/spec` pass" note in the install-front-door entry above.
+Interview in `plans/auto-update/spec.md`; decisions:
+
+- **One boolean pref, `updateCheck`, default on, governs checking only.** Off means no request
+  to the release host at all — not at startup, not on a tick, and an in-flight result is
+  discarded. Apply is never automatic: an **Update** button (swap the file, then "restart
+  musterd to finish"), an **Update and restart** button (swap, confirm, in-place re-exec), or
+  `musterd -update` (swap only, never restarts).
+- **The check runs in the daemon**, once after listen and then every 24 h (`-update-check-interval`),
+  and resolves "latest" through the `/releases/latest` **redirect** exactly as the installer
+  does — the API's 60/h unauthenticated limit never applies. `-update-base-url ""` disables
+  checking and apply entirely (the `IssueAPIURL` shape); every E2E daemon runs that way, so no
+  test reaches github.com. Only a **strictly newer** `MAJOR.MINOR.PATCH` release badges.
+- **Trust root is minisign, not the checksum alone.** The release's `checksums.txt` must carry a
+  valid `.minisig` against a public key compiled into the binary (`internal/selfupdate/minisign.pub`,
+  Damian's; the private key and passphrase are CI secrets he holds), and the archive's SHA-256
+  must match that signed file. No unsigned fallback: a release without a `.minisig` is refused,
+  and GoReleaser's `signs:` block fails the release rather than publishing one. Verification is
+  `aead.dev/minisign` (§5 stack row), both signature modes.
+- **A restart is not a shutdown.** `restart:true` stops HTTP/WS/ingest/store gracefully, never
+  consults `-on-exit`, never kills a session, then `syscall.Exec`s the new binary in place with
+  the same PID, `os.Args` and environment plus `MUSTER_RESTARTED=1` (which suppresses `-open`).
+  Reconcile (§M4) re-adopts every Claude session; plain-terminal shells do not survive, so the
+  confirm step names them.
+- **Install kinds decide who may apply.** Classified once at startup from the resolved
+  executable path: a non-release version string is `dev` (never checks, no buttons); a path
+  under a Homebrew prefix is `homebrew` (badge, apply refused, remedy `brew upgrade musterd`);
+  a directory the installer would not have written — unwritable, or inside a git tree below
+  `$HOME` — is `unmanaged` (badge, apply refused, remedy names the installer); everything else
+  is `installer`. Applies are serialised in-process (a second POST joins the first) and across
+  processes by a non-blocking flock beside the binary.
+- **All GitHub-release knowledge lives in `internal/selfupdate`**, the way Claude Code's wire
+  format lives in `internal/claudecode`; the server owns the poller and the wire (`update`
+  message, `POST /api/update/apply`, `GET /api/update/restart-impact` — protocol §3.17, §3.18,
+  §5.7); `cmd/musterd` owns the flag, the classification and the re-exec.

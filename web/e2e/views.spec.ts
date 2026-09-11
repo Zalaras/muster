@@ -473,8 +473,10 @@ test("GET /api/state's prefs snapshot carries both view and density (M2 protocol
   // docs/protocol.md on approval; default "manual" before any PUT) — same rationale.
   // `theme` was added by plan new-ui-design-colors (protocol §3.3 delta, merged into
   // docs/protocol.md on approval; default "follow" before any PUT) — same rationale.
+  // `updateCheck` was added by plan auto-update (protocol §3.3/§5.5 delta, merged into
+  // docs/protocol.md on approval; default true before any PUT) — same rationale.
   const before = (await stateRes.json()) as {
-    prefs: { view: string; density: string; usageModel: string; railSort: string; theme: string };
+    prefs: { view: string; density: string; usageModel: string; railSort: string; theme: string; updateCheck: boolean };
   };
   expect(before.prefs).toEqual({
     view: "focus",
@@ -482,6 +484,7 @@ test("GET /api/state's prefs snapshot carries both view and density (M2 protocol
     usageModel: "Fable",
     railSort: "manual",
     theme: "follow",
+    updateCheck: true,
   });
 
   const putRes = await page.request.put(`${daemon.baseURL}/api/prefs`, { data: { density: "3x2" } });
@@ -489,7 +492,7 @@ test("GET /api/state's prefs snapshot carries both view and density (M2 protocol
 
   const afterRes = await page.request.get(`${daemon.baseURL}/api/state`);
   const after = (await afterRes.json()) as {
-    prefs: { view: string; density: string; usageModel: string; railSort: string; theme: string };
+    prefs: { view: string; density: string; usageModel: string; railSort: string; theme: string; updateCheck: boolean };
   };
   expect(after.prefs).toEqual({
     view: "focus",
@@ -497,6 +500,7 @@ test("GET /api/state's prefs snapshot carries both view and density (M2 protocol
     usageModel: "Fable",
     railSort: "manual",
     theme: "follow",
+    updateCheck: true,
   });
 });
 

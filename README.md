@@ -50,6 +50,20 @@ The binary is unsigned, but `curl` does not set the `com.apple.quarantine` xattr
 runs without a Gatekeeper prompt. A browser download does — clear it with
 `xattr -d com.apple.quarantine musterd`.
 
+## Updating
+
+`musterd` checks GitHub Releases once a day for a newer version (turn it off with the
+`Check for updates daily` box in Settings — off means no request at all). When one exists,
+the masthead **Settings** button gains a dot; the dialog's Updates section then offers
+**Update** (swaps the binary, then asks you to restart) and **Update and restart** (swaps and
+re-execs in place — every Claude session keeps running and is re-adopted; only plain-terminal
+shells close, and the confirm step names them). From a terminal, `musterd -update` does the
+swap without restarting anything. Every download is verified twice: the release's
+`checksums.txt` must carry a valid minisign signature against the public key compiled into
+the binary, and the archive's SHA-256 must match that signed file — nothing is installed
+otherwise. A `musterd` installed by Homebrew is updated with `brew upgrade musterd` once the
+tap exists, and the dialog says so instead of offering the buttons.
+
 ## Requirements
 
 - **macOS.** Muster is single-user, macOS-only tooling — see [`SPEC.md`](SPEC.md).

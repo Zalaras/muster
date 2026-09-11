@@ -15,6 +15,7 @@ import (
 	"github.com/Zalaras/muster/internal/claudecode"
 	"github.com/Zalaras/muster/internal/ghissue"
 	"github.com/Zalaras/muster/internal/locate"
+	"github.com/Zalaras/muster/internal/selfupdate"
 	"github.com/Zalaras/muster/internal/session"
 	"github.com/Zalaras/muster/internal/store"
 	"github.com/Zalaras/muster/internal/termbridge"
@@ -159,6 +160,33 @@ type Config struct {
 	// — makes it structurally impossible for a test using it to execute the real gh).
 	IssueTokenFile string
 
+	// The following wire up auto-update's checker/apply (plan auto-update, 2026-09-10).
+	// UpdateBaseURL empty disables checking and apply entirely — the IssueAPIURL shape
+	// (main always passes the flag's non-empty default; a zero-value Config must never
+	// reach github.com).
+
+	// UpdateBaseURL is the GitHub Releases base URL (-update-base-url); "" means no
+	// updateManager is constructed at all (mirrors usagePoller's nil-when-disabled shape,
+	// Edge Case 14).
+	UpdateBaseURL string
+	// UpdateCheckInterval is how often the daemon re-checks for a newer release
+	// (-update-check-interval, REQ-4).
+	UpdateCheckInterval time.Duration
+	// UpdatePublicKey is the minisign public key file's raw bytes verification trusts
+	// (-update-public-key-file overrides the embedded selfupdate.PublicKey() — a test
+	// seam; production always passes the embedded key).
+	UpdatePublicKey []byte
+	// Install is the startup install classification (selfupdate.Classify), computed once
+	// in cmd/musterd from the resolved executable path — constant for the daemon's life.
+	Install selfupdate.Install
+	// ExePath is the resolved (os.Executable + filepath.EvalSymlinks) real path of the
+	// running binary — where an apply installs the new one (REQ-17) and what REQ-26's
+	// swap detection stats.
+	ExePath string
+	// ExeRun runs `<exe> -version` for REQ-26's swap-detection probe — an injectable seam
+	// like ClaudeBin's execFunc (selfupdate.RunVersionProbe in production).
+	ExeRun func(ctx context.Context, name string, args ...string) (string, error)
+
 	// Locator resolves a dropped file's original path for POST /api/sessions/{id}/locate
 	// (plan file-drop-fix, docs/protocol.md §3.14). main always constructs locate.New();
 	// tests that never exercise the endpoint may leave this nil.
@@ -209,6 +237,12 @@ type Server struct {
 	issueAPIURL   string
 	issueCaptures *captureStore
 	issueClient   *ghissue.Client
+
+	install    selfupdate.Install
+	updates    *updateManager // nil when UpdateBaseURL == "" (Edge Case 14 shape)
+	tmuxLister interface {
+		ListSessions(ctx context.Context) ([]string, error)
+	}
 }
 
 const defaultIngestQueueSize = 1024
@@ -247,6 +281,7 @@ func New(cfg Config) *Server {
 		spawner = cfg.TmuxClient
 	}
 	s.tmuxClient = spawner
+	s.tmuxLister = tmuxClient // always the real client, independent of a TmuxClient override — REQ-27 lists real tmux state
 
 	attach := cfg.Attach
 	if attach == nil {
@@ -355,6 +390,33 @@ func New(cfg Config) *Server {
 	s.issueCaptures = newCaptureStore()
 	s.issueClient = &ghissue.Client{HTTPClient: issueHTTPClient, BaseURL: cfg.IssueAPIURL, TokenReader: issueTokenReader}
 
+	s.install = cfg.Install
+	if cfg.UpdateBaseURL != "" {
+		updateHTTPClient := cfg.HTTPClient
+		if updateHTTPClient == nil {
+			updateHTTPClient = http.DefaultClient
+		}
+		pubKey := cfg.UpdatePublicKey
+		if len(pubKey) == 0 {
+			pubKey = selfupdate.PublicKey()
+		}
+		s.updates = newUpdateManager(updateManagerConfig{
+			Client:       updateHTTPClient,
+			Base:         cfg.UpdateBaseURL,
+			Interval:     cfg.UpdateCheckInterval,
+			PubKey:       pubKey,
+			Install:      cfg.Install,
+			Running:      cfg.DaemonVersion,
+			ExePath:      cfg.ExePath,
+			ExeRun:       cfg.ExeRun,
+			CheckEnabled: s.loadPrefs(context.Background()).UpdateCheck,
+			Log:          cfg.Logger,
+			OnChange: func(u UpdateInfo) {
+				s.hub.broadcast(updateMessage{Type: "update", Update: u})
+			},
+		})
+	}
+
 	s.routes()
 	return s
 }
@@ -384,6 +446,9 @@ func (s *Server) Start() {
 	}
 	if s.themePoller != nil {
 		s.themePoller.Start()
+	}
+	if s.updates != nil {
+		s.updates.Start()
 	}
 }
 
@@ -430,6 +495,20 @@ func (s *Server) Shutdown(ctx context.Context) {
 	if s.themePoller != nil {
 		s.themePoller.Stop(ctx)
 	}
+	if s.updates != nil {
+		s.updates.Stop(ctx)
+	}
+}
+
+// RestartRequests reports each in-place re-exec an apply requests (REQ-19,
+// docs/protocol.md §3.17's restart:true): cmd/musterd's shutdown select reads from this
+// to run the graceful-stop-then-syscall.Exec path, never the -on-exit prompt. A disabled
+// update manager (nil) returns a nil channel, which a select simply never fires on.
+func (s *Server) RestartRequests() <-chan struct{} {
+	if s.updates == nil {
+		return nil
+	}
+	return s.updates.restartRequests
 }
 
 func (s *Server) routes() {
@@ -462,6 +541,8 @@ func (s *Server) routes() {
 	mux.Handle("PUT /api/sessions/{id}/title", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleSetTitle)))
 	mux.Handle("POST /api/issue/captures", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleCreateCapture)))
 	mux.Handle("POST /api/issues", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleCreateIssue)))
+	mux.Handle("POST /api/update/apply", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleApplyUpdate)))
+	mux.Handle("GET /api/update/restart-impact", requireCookie(s.uiToken, writeJSONUnauthorized, http.HandlerFunc(s.handleRestartImpact)))
 
 	mux.HandleFunc("POST /ingest/{token}/hook", s.handleIngestHook)
 	mux.HandleFunc("POST /ingest/{token}/status", s.handleIngestStatus)

@@ -39,6 +39,20 @@ archives:
 checksum:
   name_template: checksums.txt
 
+# Signs checksums.txt itself (which already carries every archive's SHA-256) rather than
+# each archive separately — one signature covers every platform's asset (plan
+# auto-update, 2026-09-10, D6/D15/REQ-15/REQ-23). No `ignore_errors` anywhere in this
+# block, deliberately (edge case 35/M2): a missing MINISIGN_KEY_FILE/MINISIGN_PASSWORD
+# secret must fail the release rather than publish an unsigned checksums.txt with no
+# unsigned-fallback path for internal/selfupdate to ever accept.
+signs:
+  - id: checksums
+    artifacts: checksum
+    cmd: minisign
+    args: ["-S", "-s", "{{ .Env.MINISIGN_KEY_FILE }}", "-m", "${artifact}", "-x", "${signature}", "-t", "muster {{ .Version }}"]
+    signature: "${artifact}.minisig"
+    stdin: "{{ .Env.MINISIGN_PASSWORD }}"
+
 changelog:
   use: github
   sort: asc

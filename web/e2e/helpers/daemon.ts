@@ -274,6 +274,51 @@ export interface ScratchDaemonOptions {
    * version-answering stub.
    */
   stubClaudeVersionFails?: boolean;
+  /**
+   * Plan auto-update test seam: `-update-base-url` base. Unlike every opt-in flag above,
+   * this one is passed UNCONDITIONALLY for every scratch daemon (Implementation Notes >
+   * E2E harness — "so the guarantee is structural, not incidental"): omitting the option
+   * passes an explicit empty string, which the daemon's own Config treats as "construct
+   * no update manager at all" (the `IssueAPIURL` shape) — never the real
+   * `github.com/Zalaras/muster` host, and never silently inherited from the daemon's own
+   * default. Point it at a `FakeReleaseServer` (helpers/releases.ts) base URL to exercise
+   * checking/apply at all.
+   */
+  updateBaseURL?: string;
+  /**
+   * Plan auto-update test seam: `-update-check-interval` duration string (e.g. `"1s"` for
+   * a fast-tick fixture). Omit to leave the daemon's own 24h default — most tests only
+   * need the immediate on-listen check (REQ-4), not a second timer-driven tick.
+   */
+  updateCheckInterval?: string;
+  /**
+   * Plan auto-update test seam: `-update-public-key-file` path — every test's daemon
+   * verifies against a `FakeReleaseServer`'s own generated minisign keypair
+   * (`writePublicKey`), never the real committed `internal/selfupdate/minisign.pub`
+   * (D5's production key). Omit to leave the daemon's own embedded key (irrelevant when
+   * `updateBaseURL` is also omitted/empty, since no manager is constructed at all).
+   */
+  updatePublicKeyFile?: string;
+  /**
+   * Plan auto-update test seam: run this executable instead of the module-relative
+   * `bin/musterd` every other caller resolves — unlike `musterdBinOverride` (harness-
+   * self-test-only, W7 of a different plan), this is the general-purpose seam a spec uses
+   * to run a `buildVersionedMusterd`/`stageBinary` fixture (a real, differently-versioned,
+   * installer/homebrew/unmanaged-classified binary) as the scratch daemon's own process.
+   * Takes precedence over `musterdBinOverride` when both are somehow given. Omit to keep
+   * every other spec's resolution unchanged.
+   */
+  binary?: string;
+  /**
+   * Plan auto-update test seam: extra environment variables merged over `process.env` for
+   * this run's spawn (e.g. `HOMEBREW_PREFIX`, simulating what `brew shellenv` exports) —
+   * merged UNDER the version-claude-interface stub-version overrides below, so those two
+   * env vars always win if a caller's `env` collides with them (it shouldn't in practice:
+   * different features, different keys). Omit to leave every other spec's env inheritance
+   * unchanged (`undefined` env, i.e. plain `process.env`, unless a stub-version override
+   * also applies).
+   */
+  env?: Record<string, string>;
 }
 
 async function freePort(): Promise<number> {
@@ -407,6 +452,18 @@ export class ScratchDaemon {
   /** Plan version-claude-interface REQ-13: true iff this run's stub answers
    * `--version` with a failure instead of a version string. */
   private readonly stubClaudeVersionFails: boolean;
+  /** Plan auto-update: `-update-base-url` value, always passed (never omitted) — `""` by
+   * default, structurally guaranteeing no scratch daemon ever reaches a real host. */
+  private readonly updateBaseURL: string;
+  /** Plan auto-update: `-update-check-interval` value, or `undefined` to omit the flag
+   * (the daemon's own 24h default). */
+  private readonly updateCheckInterval: string | undefined;
+  /** Plan auto-update: `-update-public-key-file` value, or `undefined` to omit the flag
+   * (the daemon's own embedded production key). */
+  private readonly updatePublicKeyFile: string | undefined;
+  /** Plan auto-update: extra environment variables merged over `process.env` for this
+   * run's spawn, or `undefined` for no override beyond the stub-version env below. */
+  private readonly extraEnv: Record<string, string> | undefined;
 
   private constructor(
     port: number,
@@ -421,6 +478,10 @@ export class ScratchDaemon {
     claudeThemePoll?: string,
     stubClaudeVersion?: string,
     stubClaudeVersionFails = false,
+    updateBaseURL = "",
+    updateCheckInterval?: string,
+    updatePublicKeyFile?: string,
+    extraEnv?: Record<string, string>,
   ) {
     this.port = port;
     this.baseURL = `http://127.0.0.1:${port}`;
@@ -445,6 +506,10 @@ export class ScratchDaemon {
     this.resolvedMusterdBin = resolvedMusterdBin;
     this.stubClaudeVersion = stubClaudeVersion;
     this.stubClaudeVersionFails = stubClaudeVersionFails;
+    this.updateBaseURL = updateBaseURL;
+    this.updateCheckInterval = updateCheckInterval;
+    this.updatePublicKeyFile = updatePublicKeyFile;
+    this.extraEnv = extraEnv;
   }
 
   static async start(opts: ScratchDaemonOptions = {}): Promise<ScratchDaemon> {
@@ -472,7 +537,10 @@ export class ScratchDaemon {
         dataDir,
         await ensureSharedStubClaude(),
         issueApiURL,
-        opts.musterdBinOverride ?? musterdBin,
+        // Plan auto-update: `binary` takes precedence — the general-purpose seam — over
+        // `musterdBinOverride` (harness-self-test-only), which in turn beats the shared
+        // `musterdBin` default.
+        opts.binary ?? opts.musterdBinOverride ?? musterdBin,
         opts.onExit,
         opts.usagePoll,
         opts.usageApiURL,
@@ -480,6 +548,10 @@ export class ScratchDaemon {
         opts.claudeThemePoll,
         opts.stubClaudeVersion,
         opts.stubClaudeVersionFails,
+        opts.updateBaseURL ?? "",
+        opts.updateCheckInterval,
+        opts.updatePublicKeyFile,
+        opts.env,
       );
       daemon.denyStubServer = denyStubServer;
       await mkdir(daemon.browseRoot, { recursive: true });
@@ -566,6 +638,13 @@ export class ScratchDaemon {
       // about the theme feature.
       "-claude-config-file",
       this.claudeConfigPath,
+      // Plan auto-update: unconditional on every scratch daemon (Implementation Notes >
+      // E2E harness) — `""` by default, which the daemon treats as "construct no update
+      // manager at all" (never the real github.com/Zalaras/muster host, and never the
+      // daemon's own default). A test that wants real checking/apply passes a
+      // `FakeReleaseServer` base URL instead.
+      "-update-base-url",
+      this.updateBaseURL,
       // Plan tmux-installation REQ-10: defence in depth over REQ-6's terminal condition
       // (stdio "ignore" below already makes fd 0 /dev/null, which is not a terminal) — no
       // scratch daemon this harness spawns may ever auto-open a real browser.
@@ -595,15 +674,28 @@ export class ScratchDaemon {
     if (this.claudeThemePoll !== undefined) {
       args.push("-claude-theme-poll", this.claudeThemePoll);
     }
+    // Plan auto-update: both opt-in per run, mirroring -usage-poll/-claude-theme-poll —
+    // omit to leave the daemon's own defaults (24h interval, embedded production key —
+    // the latter irrelevant whenever -update-base-url is empty, since no manager is
+    // constructed at all).
+    if (this.updateCheckInterval !== undefined) {
+      args.push("-update-check-interval", this.updateCheckInterval);
+    }
+    if (this.updatePublicKeyFile !== undefined) {
+      args.push("-update-public-key-file", this.updatePublicKeyFile);
+    }
     // Plan version-claude-interface REQ-13: the shared stub file's bytes never change
     // (ensureSharedStubClaude keys it by content hash), so the two `--version` knobs
-    // travel as environment variables set only on THIS run's spawn — every other
-    // scratch daemon spawns with no `env` override at all, inheriting `process.env`
-    // exactly as before this plan.
+    // travel as environment variables set only on THIS run's spawn. Plan auto-update adds
+    // `extraEnv` (e.g. HOMEBREW_PREFIX) to the same override, merged in first so the
+    // stub-version keys always win on a collision (they shouldn't collide in practice —
+    // different features, different keys). Every other scratch daemon spawns with no
+    // `env` override at all, inheriting `process.env` exactly as before this plan.
     const env =
-      this.stubClaudeVersion !== undefined || this.stubClaudeVersionFails
+      this.stubClaudeVersion !== undefined || this.stubClaudeVersionFails || this.extraEnv !== undefined
         ? {
             ...process.env,
+            ...(this.extraEnv ?? {}),
             ...(this.stubClaudeVersion !== undefined ? { MUSTER_E2E_STUB_VERSION: this.stubClaudeVersion } : {}),
             ...(this.stubClaudeVersionFails ? { MUSTER_E2E_STUB_VERSION_FAIL: "1" } : {}),
           }
@@ -900,4 +992,57 @@ export async function observedVersionRange(): Promise<{ floor: string; verified:
   };
   const sorted = [...versions].sort(compare);
   return { floor: sorted[0] as string, verified: sorted[sorted.length - 1] as string };
+}
+
+/** Plan auto-update: per-version build cache — a warm relink is ~1-2s, and every test in
+ * `update.spec.ts` that wants the "old" or "new" fixture binary asks for the same two
+ * version strings repeatedly across the file. Keyed by the exact version string passed to
+ * `buildVersionedMusterd`; a failed build evicts its own cache entry so a transient
+ * failure doesn't poison every later call for that version within the run. */
+const versionedMusterdCache = new Map<string, Promise<string>>();
+
+/**
+ * Builds a real `musterd` binary stamped with an exact release-shaped version string via
+ * `-ldflags "-X main.version=<v>"` — the same mechanism the Makefile's own `build` target
+ * uses, but pointed at an OS tmpdir rather than the repo's `bin/` (which every other
+ * spec's daemon reads unmodified). This is the fixture that makes REQ-8's dev-vs-release
+ * classification, and the whole download/verify/apply pipeline, exercisable against a
+ * genuinely different "old" and "new" binary rather than two copies of the same one.
+ * `bin/musterd` itself stays `git describe`-stamped (a `dev` build, Implementation Notes >
+ * E2E harness) — this never touches or rebuilds it.
+ */
+export async function buildVersionedMusterd(version: string): Promise<string> {
+  const cached = versionedMusterdCache.get(version);
+  if (cached) return cached;
+  const build = (async () => {
+    const dir = join(tmpdir(), "muster-e2e-versioned-musterd");
+    await mkdir(dir, { recursive: true });
+    const outPath = join(dir, `musterd-${version}`);
+    await execFileAsync("go", ["build", "-ldflags", `-X main.version=${version}`, "-o", outPath, "./cmd/musterd"], {
+      cwd: repoRoot,
+    });
+    return outPath;
+  })().catch((err: unknown) => {
+    versionedMusterdCache.delete(version);
+    throw err;
+  });
+  versionedMusterdCache.set(version, build);
+  return build;
+}
+
+/**
+ * Plan auto-update REQ-21: copies `src` (0755) to `<dir>/musterd`, staging it as an
+ * "installer"-classified binary — writable, no `.git` ancestor below `$HOME` — for tests
+ * that don't care which specific classification they get. `dir` defaults to a fresh
+ * `mkdtemp` OUTSIDE the repo (never inside the checkout, which itself has a `.git`
+ * ancestor); a caller that wants a different classification (homebrew, unmanaged) passes
+ * its own pre-built `dir` (e.g. a `$HOMEBREW_PREFIX/bin`, or a directory it then runs
+ * `git init` in) instead of letting this create one.
+ */
+export async function stageBinary(src: string, dir?: string): Promise<string> {
+  const targetDir = dir ?? (await mkdtemp(join(tmpdir(), "muster-e2e-staged-")));
+  const dest = join(targetDir, "musterd");
+  await copyFile(src, dest);
+  await chmod(dest, 0o755);
+  return dest;
 }

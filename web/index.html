@@ -42,7 +42,7 @@
           <button id="usage-refresh" class="btn sm" type="button" aria-label="Refresh usage" title="Refresh usage">↻</button>
           <span id="usage-model" class="model" hidden></span>
           <button id="issue-button" class="btn" type="button" aria-label="File an issue" title="File an issue">Issue</button>
-          <button id="settings-button" class="btn" type="button" title="Settings">Settings</button>
+          <button id="settings-button" class="btn" type="button" title="Settings">Settings<span class="update-dot" aria-hidden="true" hidden></span></button>
           <span id="claude-version" class="claude-version"></span>
           <span id="connection-status" role="status"></span>
         </div>
@@ -230,9 +230,38 @@
           Follow Claude Code paints Light when Claude Code's theme is light, Instrument otherwise. The terminal ground
           always follows Claude Code's theme, whichever Muster theme is chosen.
         </p>
+        <fieldset id="settings-update">
+          <legend>Updates</legend>
+          <dl class="update-versions">
+            <dt>Running</dt>
+            <dd id="update-running"></dd>
+            <dt>Available</dt>
+            <dd id="update-available"></dd>
+          </dl>
+          <label class="check"><input type="checkbox" id="update-check-toggle" name="updateCheck" /> Check for updates daily</label>
+          <p class="hint" id="update-status" role="status"></p>
+          <div class="update-actions">
+            <button type="button" id="update-apply-button" class="btn">Update</button>
+            <button type="button" id="update-restart-button" class="btn key">Update and restart</button>
+          </div>
+        </fieldset>
       </form>
       <div class="modal-foot">
         <button type="button" id="settings-close-button" class="btn">Close</button>
+      </div>
+    </dialog>
+
+    <dialog
+      id="update-restart-dialog"
+      class="modal confirm"
+      aria-labelledby="update-restart-dialog-title"
+      aria-describedby="update-restart-body"
+    >
+      <h2 id="update-restart-dialog-title">Restart musterd?</h2>
+      <p id="update-restart-body"></p>
+      <div class="modal-foot">
+        <button type="button" id="update-restart-cancel" class="btn">Cancel</button>
+        <button type="button" id="update-restart-confirm" class="btn key">Restart</button>
       </div>
     </dialog>
 

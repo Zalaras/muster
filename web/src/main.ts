@@ -51,11 +51,32 @@ import {
   type PaneState,
 } from "./render/dead";
 import { initSettingsDialog, type SettingsDialogController, type SettingsDialogElements } from "./render/settings";
+import {
+  buildUpdateViewModel,
+  initRestartConfirm,
+  renderSettingsBadge,
+  renderUpdateSection,
+  type RestartConfirmController,
+  type UpdateSectionElements,
+} from "./render/update";
 import { installTileDrag } from "./render/tiledrag";
 import { installDragReorder } from "./render/dragreorder";
 import { installDropGuard } from "./render/dropguard";
-import { createShell, endSession, pinSession, putPrefs, putSessionOrder, putTitle, refreshUsage, removeSession, resumeSession, type ApiResult } from "./api";
-import { type ClaudeFamily, type Density, type Prefs, type RailSort, type Session, type Usage, UNKNOWN_USAGE } from "./protocol";
+import {
+  applyUpdate,
+  createShell,
+  endSession,
+  fetchRestartImpact,
+  pinSession,
+  putPrefs,
+  putSessionOrder,
+  putTitle,
+  refreshUsage,
+  removeSession,
+  resumeSession,
+  type ApiResult,
+} from "./api";
+import { type ClaudeFamily, type Density, type Prefs, type RailSort, type Session, type Usage, type UpdateInfo, UNKNOWN_USAGE } from "./protocol";
 import { applyDensity, densityCount, initialLive, moveTile, promote } from "./sessions/live";
 import { moveCard } from "./sessions/railorder";
 import { type TitleCommand } from "./sessions/rename";
@@ -237,6 +258,15 @@ let pendingRailFocus: FocusedControl | null = null;
 // `usage` broadcast (docs/protocol.md §5.4) — re-rendered every pass (like the rest of
 // `render()`) so REQ-14's reset-time formatting stays current against the wall clock.
 let currentUsage: Usage = UNKNOWN_USAGE;
+// Plan auto-update: the daemon's current update state (docs/protocol.md §5.7), from the
+// initial `snapshot` and every subsequent `update` broadcast — same "persists across a
+// disconnect, re-derived on the next snapshot" shape as `currentUsage` (States: "the badge
+// keeps its last state until the next snapshot re-derives it"). `currentPrefs` mirrors the
+// daemon's full last-broadcast `Prefs` object (superset of the individual fields already
+// tracked above) purely so `buildUpdateViewModel`'s plan-mandated `Prefs | null` signature
+// has something to read `updateCheck` from.
+let currentUpdate: UpdateInfo | null = null;
+let currentPrefs: Prefs | null = null;
 // Plan plain-terminal-session: per-session "which surface is selected, is a shell
 // running" state (surfaceswitch.ts's pure Map) — same "client-only, per-window, not a
 // prefs field" shape as `focusedId`/`tilesLive` above; a shell has no wire representation
@@ -344,6 +374,9 @@ function setStatus(status: ConnectionStatus): void {
   // States (new-ui-design-colors): "Daemon down ... The Settings dialog closes with the
   // other dialogs ... since a PUT cannot land."
   if (status !== "connected") settingsDialog.close();
+  // Plan auto-update States: "the Settings dialog closes ... the confirm dialog closes
+  // too" — same "a request against a dead daemon can't be confirmed as done" reasoning.
+  if (status !== "connected") restartConfirm.close();
   // States (ui-text-and-focus): "an edit already open when the connection drops is
   // cancelled on the next render" — both surfaces, no request sent either way.
   if (status !== "connected") cancelOpenRenames();
@@ -710,16 +743,89 @@ issueButtonEl.addEventListener("click", () => {
   issueDialog.open(orderRail(store.values(), railSort), focusedId);
 });
 
-// REQ-9: the Settings button + `#settings-dialog` (the theme picker, v1's only content).
+// Plan auto-update: the Updates section's readouts/status line — DOM refs shared with
+// `settingsDialogElements` below for the toggle/apply/restart buttons (settings.ts wires
+// their click/change listeners; renderUpdateSection, called every render() pass, owns
+// their visible/disabled/label state and the readout text).
+const updateSectionElements: UpdateSectionElements = {
+  section: requireElement<HTMLElement>("#settings-update"),
+  runningEl: requireElement<HTMLElement>("#update-running"),
+  availableEl: requireElement<HTMLElement>("#update-available"),
+  toggle: requireElement<HTMLInputElement>("#update-check-toggle"),
+  statusEl: requireElement<HTMLElement>("#update-status"),
+  applyBtn: requireElement<HTMLButtonElement>("#update-apply-button"),
+  restartBtn: requireElement<HTMLButtonElement>("#update-restart-button"),
+};
+
+/** Plan auto-update User Flow 2: `POST /api/update/apply {}` — fire-and-forget, same
+ * shape as every other API dispatcher here; the resulting `update` broadcasts drive the
+ * status line, never a locally-set "downloading…" (W10). */
+function handleUpdateClick(): void {
+  void applyUpdate(false).then((result) => {
+    if (!result.ok) console.error(`POST /api/update/apply failed: ${result.error.code} ${result.error.message}`);
+  });
+}
+
+/** Plan auto-update User Flow 3: fetches the restart impact and opens the confirm dialog
+ * — the actual apply only happens if the user confirms (`handleRestartConfirmed`). */
+function handleUpdateAndRestart(): void {
+  void fetchRestartImpact().then((result) => {
+    if (!result.ok) {
+      console.error(`GET /api/update/restart-impact failed: ${result.error.code} ${result.error.message}`);
+      return;
+    }
+    restartConfirm.open(result.value.shells);
+  });
+}
+
+/** Plan auto-update User Flow 3's Restart button: `POST /api/update/apply {"restart":true}`. */
+function handleRestartConfirmed(): void {
+  void applyUpdate(true).then((result) => {
+    if (!result.ok) console.error(`POST /api/update/apply failed: ${result.error.code} ${result.error.message}`);
+  });
+}
+
+// REQ-9: the Settings button + `#settings-dialog` (the theme picker plus, since plan
+// auto-update, the Updates section).
 const settingsDialogElements: SettingsDialogElements = {
   dialog: requireElement<HTMLDialogElement>("#settings-dialog"),
   themeRadios: requireElements<HTMLInputElement>('#settings-dialog input[name="theme"]'),
   closeBtn: requireElement<HTMLButtonElement>("#settings-close-button"),
+  updateToggle: updateSectionElements.toggle,
+  applyBtn: updateSectionElements.applyBtn,
+  restartBtn: updateSectionElements.restartBtn,
 };
 const settingsDialog: SettingsDialogController = initSettingsDialog(settingsDialogElements, {
   onChooseTheme: requestTheme,
+  onToggleUpdateCheck: (checked) => {
+    void putPrefs({ updateCheck: checked }).then(reportPrefsFailure);
+  },
+  onUpdate: handleUpdateClick,
+  onUpdateAndRestart: handleUpdateAndRestart,
 });
 settingsButtonEl.addEventListener("click", () => settingsDialog.open());
+
+// Plan auto-update REQ-11: the restart confirm dialog, modelled on `confirmDialogs` above.
+const restartConfirm: RestartConfirmController = initRestartConfirm(
+  {
+    dialog: requireElement<HTMLDialogElement>("#update-restart-dialog"),
+    body: requireElement<HTMLElement>("#update-restart-body"),
+    confirmBtn: requireElement<HTMLButtonElement>("#update-restart-confirm"),
+    cancelBtn: requireElement<HTMLButtonElement>("#update-restart-cancel"),
+  },
+  { onConfirm: handleRestartConfirmed },
+);
+
+/** Called every render() pass (like renderUsageBlock) — re-derives the Updates section
+ * and the Settings-button badge from `currentUpdate`/`currentPrefs`. Never touches
+ * `updateToggle.checked` (settings.ts's `setChecked`, driven only from
+ * `applyPrefsFromSnapshot`, owns that — see render/update.ts's `UpdateViewModel.toggleChecked`
+ * doc comment). */
+function renderUpdateBlock(): void {
+  const vm = buildUpdateViewModel(currentUpdate, currentPrefs);
+  renderUpdateSection(updateSectionElements, vm);
+  renderSettingsBadge(settingsButtonEl, vm.badged);
+}
 
 mainheadElements.endBtn.addEventListener("click", () => {
   if (focusedId !== null) dispatchAction("end", focusedId);
@@ -742,6 +848,7 @@ deadSurfaceRefs.resumeBtn.addEventListener("click", () => {
  * changed, so an unrelated broadcast (or a reconnect echoing the same prefs) never
  * reshuffles a live grid the user already customized via promotion. */
 function applyPrefsFromSnapshot(prefs: Prefs): void {
+  currentPrefs = prefs;
   if (prefs.view !== view) {
     // review cycle 1 Critical 1: a view switch hides the other view's whole subtree
     // (`hidden`, not a detach) rather than routing through `reconcileTilesGrid`, so an
@@ -769,7 +876,7 @@ function applyPrefsFromSnapshot(prefs: Prefs): void {
   // INV-7: `themeChoice` (and the Settings dialog's checked radio) only ever changes
   // here, from the broadcast — never optimistically from the radio's own click handler.
   themeChoice = prefs.theme;
-  settingsDialog.setChecked(themeChoice);
+  settingsDialog.setChecked(themeChoice, prefs.updateCheck);
 }
 
 /** After the daemon connection is restored (`hello`), every currently-mounted surface
@@ -998,6 +1105,7 @@ function render(): void {
 
   updateDeadPaneTracking(sessions);
   renderUsageBlock(currentUsage, now);
+  renderUpdateBlock();
   renderIssueButton(issueButtonEl, connected);
 
   if (view === "tiles") {
@@ -1275,6 +1383,7 @@ const client = new WsClient(wsUrl, {
     claudeFamily = snapshot.claudeTheme.family;
     applyThemeAttributes();
     currentUsage = snapshot.usage;
+    currentUpdate = snapshot.update;
     reattachDisconnectedSurfaces();
     render();
   },
@@ -1300,6 +1409,12 @@ const client = new WsClient(wsUrl, {
   onClaudeTheme: (family) => {
     claudeFamily = family;
     applyThemeAttributes();
+  },
+  // Plan auto-update: every field change (check result, pref toggle, each apply phase,
+  // an out-of-band swap detection) arrives as a bare `update` message.
+  onUpdate: (update) => {
+    currentUpdate = update;
+    render();
   },
   onDisconnected: () => {
     setStatus(everConnected ? "reconnecting" : "connecting");

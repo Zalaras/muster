@@ -18,6 +18,7 @@ first — never diverge silently in code.
 | Assertions | `testify` (`require` for setup, `assert` for verdicts) |
 | PTY / files | `creack/pty`, `fsnotify` |
 | Git/GitHub | `os/exec` + `git` / `gh` CLIs — never go-git |
+| Self-update signatures | `aead.dev/minisign` — verifies the release's `checksums.txt.minisig` against the key embedded in `internal/selfupdate` (plan `auto-update`, 2026-09-10). Import path corrected from the plan's `github.com/aead/minisign`: `go get github.com/aead/minisign@v0.3.0` fails ("module declares its path as: aead.dev/minisign but was required as: github.com/aead/minisign") — the module renamed its own path in `go.mod` while keeping the GitHub repo name; `go.sum` pins the real path |
 | Frontend | Vite + TypeScript, **no framework**; xterm.js 6.0.0 / addon-fit 0.11.0 (pinned) |
 | Web unit tests | Vitest (logic only); Playwright for E2E |
 

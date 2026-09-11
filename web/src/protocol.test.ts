@@ -8,12 +8,28 @@ const validHello = {
   claudeCode: { installed: "2.1.267", floor: "2.1.246", verified: "2.1.267", status: "verified" },
 };
 
+// Plan auto-update (docs/protocol.md §5.7): a fully-populated UpdateInfo, badge showing
+// (available set, installed null), no apply in flight. A real daemon always sends a full
+// object here (never an explicit `null` — only a pre-plan daemon omits the key entirely,
+// which `parseSnapshot` treats differently from an explicit `null`, see the "parseSnapshot
+// — update" describe block below), so this — not `null` — is what belongs on validSnapshot.
+const validUpdateInfo = {
+  running: "0.10.0",
+  install: "installer",
+  remedy: null,
+  available: "0.11.0",
+  checkedAt: "2026-09-10T20:00:00Z",
+  installed: null,
+  apply: { phase: "idle", version: null, error: null },
+};
+
 const validSnapshot = {
   type: "snapshot",
   sessions: [],
   usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
-  prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual", theme: "follow" },
+  prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual", theme: "follow", updateCheck: true },
   claudeTheme: { family: "unknown" },
+  update: validUpdateInfo,
 };
 
 describe("parseMessage — hello (plan version-claude-interface, protocol 2: hello.claudeCode is a verified range)", () => {
@@ -170,7 +186,10 @@ describe("parseMessage — snapshot", () => {
   });
 
   it("parses prefs.density '3x2' alongside an explicit usageModel (plan usage-model-bar REQ-8)", () => {
-    const snapshot = { ...validSnapshot, prefs: { view: "tiles", density: "3x2", usageModel: "Opus", railSort: "manual", theme: "follow" } };
+    const snapshot = {
+      ...validSnapshot,
+      prefs: { view: "tiles", density: "3x2", usageModel: "Opus", railSort: "manual", theme: "follow", updateCheck: true },
+    };
     expect(parseMessage(snapshot)).toEqual(snapshot);
   });
 
@@ -178,7 +197,7 @@ describe("parseMessage — snapshot", () => {
     const snapshot = { ...validSnapshot, prefs: { view: "tiles", density: "3x2" } };
     expect(parseMessage(snapshot)).toEqual({
       ...snapshot,
-      prefs: { ...snapshot.prefs, usageModel: "Fable", railSort: "manual", theme: "follow" },
+      prefs: { ...snapshot.prefs, usageModel: "Fable", railSort: "manual", theme: "follow", updateCheck: true },
     });
   });
 
@@ -196,7 +215,7 @@ describe("parseMessage — snapshot", () => {
     const parsed = parseMessage(snapshot);
     expect(parsed).toEqual({
       ...validSnapshot,
-      prefs: { view: "tiles", density: "3x2", usageModel: "Fable", railSort: "manual", theme: "follow" },
+      prefs: { view: "tiles", density: "3x2", usageModel: "Fable", railSort: "manual", theme: "follow", updateCheck: true },
     });
   });
 });
@@ -204,7 +223,10 @@ describe("parseMessage — snapshot", () => {
 describe("parsePrefs — railSort (plan order-sidebar REQ-5/§3.3)", () => {
   it("defaults a missing railSort to 'manual' (pre-plan daemon payload)", () => {
     const snapshot = { ...validSnapshot, prefs: { view: "focus", density: "2x2", usageModel: "Fable" } };
-    expect(parseMessage(snapshot)).toEqual({ ...snapshot, prefs: { ...snapshot.prefs, railSort: "manual", theme: "follow" } });
+    expect(parseMessage(snapshot)).toEqual({
+      ...snapshot,
+      prefs: { ...snapshot.prefs, railSort: "manual", theme: "follow", updateCheck: true },
+    });
   });
 
   it("parses an explicit railSort of 'attention'", () => {
@@ -226,7 +248,7 @@ describe("parsePrefs — railSort (plan order-sidebar REQ-5/§3.3)", () => {
 describe("parseMessage — prefs (M2 REQ-10/INV-4: the PUT /api/prefs echo broadcast)", () => {
   const validPrefsMessage = {
     type: "prefs",
-    prefs: { view: "tiles", density: "3x2", usageModel: "Fable", railSort: "manual", theme: "follow" },
+    prefs: { view: "tiles", density: "3x2", usageModel: "Fable", railSort: "manual", theme: "follow", updateCheck: true },
   };
 
   it("parses a fully-populated prefs message", () => {
@@ -249,7 +271,7 @@ describe("parseMessage — prefs (M2 REQ-10/INV-4: the PUT /api/prefs echo broad
     const message = { type: "prefs", prefs: { view: "focus", density: "2x2", futureField: 1 } };
     expect(parseMessage(message)).toEqual({
       type: "prefs",
-      prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual", theme: "follow" },
+      prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual", theme: "follow", updateCheck: true },
     });
   });
 });
@@ -257,7 +279,10 @@ describe("parseMessage — prefs (M2 REQ-10/INV-4: the PUT /api/prefs echo broad
 describe("parsePrefs — theme (plan new-ui-design-colors REQ-19, W7)", () => {
   it("defaults a missing theme key to 'follow' (pre-plan daemon payload)", () => {
     const snapshot = { ...validSnapshot, prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual" } };
-    expect(parseMessage(snapshot)).toEqual({ ...snapshot, prefs: { ...snapshot.prefs, theme: "follow" } });
+    expect(parseMessage(snapshot)).toEqual({
+      ...snapshot,
+      prefs: { ...snapshot.prefs, theme: "follow", updateCheck: true },
+    });
   });
 
   it("parses an explicit opaque theme name unchanged (the daemon treats it as opaque, docs/protocol.md §3.3)", () => {
@@ -273,6 +298,137 @@ describe("parsePrefs — theme (plan new-ui-design-colors REQ-19, W7)", () => {
   it("rejects a null theme (the field is required and string, never nullable)", () => {
     const snapshot = { ...validSnapshot, prefs: { ...validSnapshot.prefs, theme: null } };
     expect(parseMessage(snapshot)).toBeNull();
+  });
+});
+
+describe("parsePrefs — updateCheck (plan auto-update REQ-1/§3.3, W6)", () => {
+  it("defaults a missing updateCheck key to true (pre-plan daemon payload, the daemon's own documented default)", () => {
+    const { updateCheck, ...restPrefs } = validSnapshot.prefs;
+    void updateCheck;
+    const snapshot = { ...validSnapshot, prefs: restPrefs };
+    expect(parseMessage(snapshot)).toEqual({ ...validSnapshot, prefs: { ...restPrefs, updateCheck: true } });
+  });
+
+  it("parses an explicit updateCheck: false", () => {
+    const snapshot = { ...validSnapshot, prefs: { ...validSnapshot.prefs, updateCheck: false } };
+    expect(parseMessage(snapshot)).toEqual(snapshot);
+  });
+
+  it("parses an explicit updateCheck: true unchanged", () => {
+    const snapshot = { ...validSnapshot, prefs: { ...validSnapshot.prefs, updateCheck: true } };
+    expect(parseMessage(snapshot)).toEqual(snapshot);
+  });
+
+  it("rejects a non-boolean updateCheck", () => {
+    const snapshot = { ...validSnapshot, prefs: { ...validSnapshot.prefs, updateCheck: "true" } };
+    expect(parseMessage(snapshot)).toBeNull();
+  });
+
+  it("rejects a null updateCheck (the field is required and boolean when present, never nullable)", () => {
+    const snapshot = { ...validSnapshot, prefs: { ...validSnapshot.prefs, updateCheck: null } };
+    expect(parseMessage(snapshot)).toBeNull();
+  });
+});
+
+describe("parseSnapshot — update (plan auto-update §5.2/§5.7, W6, edge case 32)", () => {
+  it("defaults a missing update key to null (pre-plan daemon payload — no throw, no synthesized object)", () => {
+    const { update, ...rest } = validSnapshot;
+    void update;
+    expect(parseMessage(rest)).toEqual({ ...validSnapshot, update: null });
+  });
+
+  it("parses a fully-populated update object with a badge showing (available set, installed null)", () => {
+    const snapshot = { ...validSnapshot, update: validUpdateInfo };
+    expect(parseMessage(snapshot)).toEqual(snapshot);
+  });
+
+  it("parses install kind 'dev' with available/remedy/installed all null", () => {
+    const snapshot = {
+      ...validSnapshot,
+      update: { running: "v0.10.0-4-ge5102b8", install: "dev", remedy: null, available: null, checkedAt: null, installed: null, apply: { phase: "idle", version: null, error: null } },
+    };
+    expect(parseMessage(snapshot)).toEqual(snapshot);
+  });
+
+  it.each(["homebrew", "unmanaged"] as const)("parses install kind %s carrying a remedy string", (install) => {
+    const snapshot = { ...validSnapshot, update: { ...validUpdateInfo, install, remedy: "run brew upgrade musterd" } };
+    expect(parseMessage(snapshot)).toEqual(snapshot);
+  });
+
+  it("parses installed non-null alongside available non-null (swap done, restart pending)", () => {
+    const snapshot = { ...validSnapshot, update: { ...validUpdateInfo, installed: "0.11.0" } };
+    expect(parseMessage(snapshot)).toEqual(snapshot);
+  });
+
+  it.each(["downloading", "verifying", "installing", "restarting", "done"] as const)(
+    "parses apply.phase %s with a non-null version",
+    (phase) => {
+      const snapshot = { ...validSnapshot, update: { ...validUpdateInfo, apply: { phase, version: "0.11.0", error: null } } };
+      expect(parseMessage(snapshot)).toEqual(snapshot);
+    },
+  );
+
+  it("parses apply.phase 'failed' with a non-null error", () => {
+    const snapshot = {
+      ...validSnapshot,
+      update: { ...validUpdateInfo, apply: { phase: "failed", version: "0.11.0", error: "signature on checksums.txt did not verify" } },
+    };
+    expect(parseMessage(snapshot)).toEqual(snapshot);
+  });
+
+  it("rejects the whole snapshot when update.install is outside the known enum", () => {
+    const snapshot = { ...validSnapshot, update: { ...validUpdateInfo, install: "manual" } };
+    expect(parseMessage(snapshot)).toBeNull();
+  });
+
+  it("rejects the whole snapshot when update.apply.phase is outside the known enum", () => {
+    const snapshot = { ...validSnapshot, update: { ...validUpdateInfo, apply: { phase: "checking", version: null, error: null } } };
+    expect(parseMessage(snapshot)).toBeNull();
+  });
+
+  it("rejects the whole snapshot when update.apply is missing", () => {
+    const { apply, ...restApply } = validUpdateInfo;
+    void apply;
+    const snapshot = { ...validSnapshot, update: restApply };
+    expect(parseMessage(snapshot)).toBeNull();
+  });
+
+  it("rejects the whole snapshot when update.running is missing", () => {
+    const { running, ...rest } = validUpdateInfo;
+    void running;
+    const snapshot = { ...validSnapshot, update: rest };
+    expect(parseMessage(snapshot)).toBeNull();
+  });
+
+  it("rejects the whole snapshot when update is present but not an object (e.g. a bare string)", () => {
+    const snapshot = { ...validSnapshot, update: "checking" };
+    expect(parseMessage(snapshot)).toBeNull();
+  });
+
+  it("ignores unknown fields inside update (additive evolution)", () => {
+    const snapshot = { ...validSnapshot, update: { ...validUpdateInfo, futureField: "surprise" } };
+    expect(parseMessage(snapshot)).toEqual({ ...validSnapshot, update: validUpdateInfo });
+  });
+});
+
+describe("parseMessage — update (plan auto-update §5.7, W6): sent on every apply phase/check/toggle change", () => {
+  it("decodes a well-formed update message", () => {
+    const message = { type: "update", update: validUpdateInfo };
+    expect(parseMessage(message)).toEqual(message);
+  });
+
+  it("rejects an update message missing the update field", () => {
+    expect(parseMessage({ type: "update" })).toBeNull();
+  });
+
+  it("rejects an update message whose update object is malformed (bad install kind)", () => {
+    const message = { type: "update", update: { ...validUpdateInfo, install: "brew" } };
+    expect(parseMessage(message)).toBeNull();
+  });
+
+  it("ignores unknown top-level fields (additive evolution, protocol §1)", () => {
+    const message = { type: "update", update: validUpdateInfo, futureField: "surprise" };
+    expect(parseMessage(message)).toEqual({ type: "update", update: validUpdateInfo });
   });
 });
 
@@ -797,8 +953,9 @@ describe("parseMessage — snapshot with sessions (M1: non-empty for the first t
       type: "snapshot",
       sessions: [validSession, freshLaunchSession],
       usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
-      prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual", theme: "follow" },
+      prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual", theme: "follow", updateCheck: true },
       claudeTheme: { family: "unknown" },
+      update: validUpdateInfo,
     };
     expect(parseMessage(snapshot)).toEqual(snapshot);
   });

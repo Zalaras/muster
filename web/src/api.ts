@@ -79,6 +79,9 @@ export interface PrefsRequest {
   // Plan new-ui-design-colors (docs/protocol.md §3.3): matches ^[a-z][a-z0-9-]{0,31}$;
   // opaque to the daemon. "follow" means no override.
   theme?: string;
+  // Plan auto-update (docs/protocol.md §3.3): whether the daemon checks GitHub Releases
+  // for a newer musterd. Governs checking only (REQ-1/REQ-2).
+  updateCheck?: boolean;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -541,4 +544,73 @@ export async function locateDroppedFile(sessionId: number, file: File): Promise<
   });
   if (!res) return { ok: false, error: networkError };
   return decodeJson(res, parseLocatedFile);
+}
+
+/** `POST /api/update/apply` (docs/protocol.md §3.17, plan auto-update). `restart` optional,
+ * default false. `202` with no body on success — progress arrives as `update` broadcasts
+ * (same "response carries no state, the socket does" shape as `putPrefs`); a POST while an
+ * apply is already in flight also returns 202 without starting a second one (REQ-20).
+ * Errors: `400 invalid_request` / `404 not_found` (updates disabled, or install `dev`) /
+ * `409 update_unsupported` (homebrew/unmanaged, `message` is the remedy) /
+ * `409 nothing_to_apply` / `409 shutting_down`. */
+export async function applyUpdate(restart: boolean): Promise<ApiResult<null>> {
+  const res = await safeFetch("/api/update/apply", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ restart }),
+  });
+  if (!res) return { ok: false, error: networkError };
+  if (res.status === 202) return { ok: true, value: null };
+  let errorBody: unknown;
+  try {
+    errorBody = await res.json();
+  } catch {
+    return { ok: false, error: genericError };
+  }
+  const error = parseApiError(errorBody);
+  return { ok: false, error: error ?? genericError };
+}
+
+/** One `muster-<n>-shell` tmux session alive on the daemon's socket (docs/protocol.md
+ * §3.18) — `title` is the owning session's current title, or `null` when that session is
+ * unknown. */
+export interface RestartImpactShell {
+  sessionId: number;
+  title: string | null;
+}
+
+export interface RestartImpact {
+  shells: RestartImpactShell[];
+}
+
+function parseRestartImpactShell(value: unknown): RestartImpactShell | null {
+  if (!isRecord(value)) return null;
+  const sessionId = value["sessionId"];
+  const title = value["title"];
+  if (typeof sessionId !== "number") return null;
+  if (title !== null && typeof title !== "string") return null;
+  return { sessionId, title };
+}
+
+function parseRestartImpact(value: unknown): RestartImpact | null {
+  if (!isRecord(value)) return null;
+  const rawShells = value["shells"];
+  if (!Array.isArray(rawShells)) return null;
+  const shells: RestartImpactShell[] = [];
+  for (const item of rawShells) {
+    const shell = parseRestartImpactShell(item);
+    if (!shell) return null;
+    shells.push(shell);
+  }
+  return { shells };
+}
+
+/** `GET /api/update/restart-impact` (docs/protocol.md §3.18, plan auto-update REQ-27):
+ * the plain-terminal shells the restart confirm names (REQ-11). Computed on request from
+ * tmux, never cached. Errors: none beyond auth. */
+export async function fetchRestartImpact(): Promise<ApiResult<RestartImpact>> {
+  const res = await safeFetch("/api/update/restart-impact", { credentials: "same-origin" });
+  if (!res) return { ok: false, error: networkError };
+  return decodeJson(res, parseRestartImpact);
 }

@@ -31,8 +31,12 @@ func TestBuildSnapshot_M0Shape(t *testing.T) {
 			"fiveHour": null, "sevenDay": null, "model": null, "sampledAt": null, "source": "subscription",
 			"modelScoped": null, "modelScopedAt": null, "modelScopedError": null, "modelScopedSource": "subscription-api"
 		},
-		"prefs": {"view": "focus", "density": "2x2", "usageModel": "Fable", "railSort": "manual", "theme": "follow"},
-		"claudeTheme": {"family": "unknown"}
+		"prefs": {"view": "focus", "density": "2x2", "usageModel": "Fable", "railSort": "manual", "theme": "follow", "updateCheck": true},
+		"claudeTheme": {"family": "unknown"},
+		"update": {
+			"running": "", "install": "", "remedy": null, "available": null, "checkedAt": null, "installed": null,
+			"apply": {"phase": "idle", "version": null, "error": null}
+		}
 	}`, string(got))
 }
 

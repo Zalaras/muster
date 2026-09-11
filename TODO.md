@@ -822,7 +822,7 @@ These are some minor changes and cleanup needed before we can move into post v1.
   `musterd -version` → `brew audit --cask --strict --online`. Note the cask is only pushed on a
   tagged release, so the first true end-to-end test costs a version bump.
 
-- [ ] **Auto-update for `musterd`** — **split out of the install-instructions item on
+- [x] **Auto-update for `musterd`** — **Done 2026-09-10 (plan `auto-update`, via `/orchestrate`, review approved cycle 2)**: `updateCheck` pref (default on, check-only), daemon-side daily check via the `/releases/latest` redirect, Settings badge + Updates section, minisign-verified **Update** / **Update and restart** (in-place re-exec, sessions re-adopted) and `musterd -update`; install kinds `dev`/`homebrew`/`unmanaged`/`installer`; GoReleaser `signs:` block and `docs/release-signing.md`. Landing needs the two CI secrets (`MINISIGN_SECRET_KEY`, `MINISIGN_PASSWORD`) or the next release fails at the sign step by design. Originally **split out of the install-instructions item on
   2026-09-10**; the install-instructions half shipped with the installer above. Muster ships
   as a GitHub Release binary with no update path at all — a user who installs once never
   learns a newer version exists. Wants a `/spec` pass, not a decision here; the questions
@@ -833,6 +833,20 @@ These are some minor changes and cleanup needed before we can move into post v1.
   the deliberate contrast with Claude Code's own auto-updater, which Muster leaves on and
   does not manage (`docs/claude-code-pin.md`). The installer now verifies a SHA-256, which
   is a precedent for the "signing/verification" question rather than an answer to it.
+  *Spec written 2026-09-10 — `plans/auto-update/spec.md`; plan approved 2026-09-10 — `plans/auto-update/plan.md`; orchestrated 2026-09-10 on `plan/auto-update` — review `plans/auto-update/review.md`.*
+  Settled in the interview: one on/off pref (default on) that governs **checking only** — off
+  means no network call at all; apply is always explicit via an **Update** button (swap, then
+  "restart musterd to finish") or **Update and restart** (swap + in-place re-exec, confirm step
+  names the plain-terminal shells that will close) or `musterd -update` (swap only); daemon-side
+  check at startup + every 24 h via the `/releases/latest` redirect; **minisign-signed
+  `checksums.txt`** with the public key compiled in (key + CI secret are Damian's to create);
+  `dev` builds show nothing, Homebrew/unexpected paths badge but disable apply with the remedy.
+
+- [ ] **Installer verifies `checksums.txt.minisig` too** — follow-up from plan `auto-update`
+  (2026-09-10): `scripts/install.sh` checks the archive's SHA-256 against `checksums.txt` but
+  does not verify the minisign signature on that file, so a first install trusts GitHub where
+  every later self-update trusts the compiled-in key. Cheap once the key exists (`minisign -V`
+  when the binary is on PATH, otherwise a warning naming it); out of scope for `auto-update`.
 
 - [ ] **Fix the `terminal.spec.ts` E12 parallelism flake before v1** — `web/e2e/terminal.spec.ts:235`
   ("killing the stub's tmux session shows the ended placeholder") failed the first full `make e2e`

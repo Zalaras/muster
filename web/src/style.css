@@ -289,6 +289,27 @@ body {
   color: var(--fg);
 }
 
+/* Plan auto-update REQ-9: the Settings button's badge dot — neutral token only (design-
+ * system §3: state colour is meaning, and an available update isn't one of the four
+ * session states), a 6px filled circle top-right of the button. */
+#settings-button {
+  position: relative;
+}
+
+.update-dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--fg-muted);
+}
+
+.update-dot[hidden] {
+  display: none;
+}
+
 .usage-readout,
 .claude-version,
 #connection-status {
@@ -1809,6 +1830,80 @@ dialog.confirm p {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--fg-dim);
+}
+
+/* Plan auto-update: the Updates fieldset extends the Settings modal below the theme
+ * picker (design-system §5 Modal). Its own block layout (not fieldset.seg's `display:
+ * contents`) — a `<dl>` + checkbox + buttons is a different shape from a segmented
+ * control — spanning both `#settings-form.fields` grid columns. */
+#settings-update {
+  grid-column: 1 / -1;
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 0;
+  padding: 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#settings-update legend {
+  padding: 0 0 2px;
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+
+.update-versions {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 4px 14px;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+}
+
+.update-versions dt {
+  align-self: center;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+
+.update-versions dd {
+  margin: 0;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.check input {
+  cursor: pointer;
+}
+
+.update-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* REQ-13: both apply buttons are absent (not just visually) for a dev build — `hidden`
+ * removes them from the accessibility tree, but `.btn` sets no `display` of its own, so
+ * this companion rule is what actually stops the layout from reserving their space. */
+#update-apply-button[hidden],
+#update-restart-button[hidden] {
+  display: none;
 }
 
 .fields input[type="text"] {

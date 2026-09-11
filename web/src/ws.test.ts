@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ClaudeThemeMessage, Hello, PrefsMessage, Session, Snapshot, Usage, UsageMessage } from "./protocol";
+import type { ClaudeThemeMessage, Hello, PrefsMessage, Session, Snapshot, UpdateInfo, UpdateMessage, Usage, UsageMessage } from "./protocol";
 import { backoffDelay, type SocketLike, WsClient, type WsClientHandlers } from "./ws";
 
 const hello: Hello = {
@@ -9,18 +9,32 @@ const hello: Hello = {
   claudeCode: { installed: "2.1.267", floor: "2.1.246", verified: "2.1.267", status: "verified" },
 };
 
+// Plan auto-update (docs/protocol.md §5.7): a fully-populated UpdateInfo, badge showing.
+const updateInfo: UpdateInfo = {
+  running: "0.10.0",
+  install: "installer",
+  remedy: null,
+  available: "0.11.0",
+  checkedAt: "2026-09-10T20:00:00Z",
+  installed: null,
+  apply: { phase: "idle", version: null, error: null },
+};
+
 const snapshot: Snapshot = {
   type: "snapshot",
   sessions: [],
   usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
-  prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual", theme: "follow" },
+  prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual", theme: "follow", updateCheck: true },
   claudeTheme: { family: "unknown" },
+  update: updateInfo,
 };
 
 const prefsMessage: PrefsMessage = {
   type: "prefs",
-  prefs: { view: "tiles", density: "3x2", usageModel: "Opus", railSort: "manual", theme: "dark" },
+  prefs: { view: "tiles", density: "3x2", usageModel: "Opus", railSort: "manual", theme: "dark", updateCheck: false },
 };
+
+const updateMessage: UpdateMessage = { type: "update", update: updateInfo };
 
 const usage: Usage = {
   fiveHour: { usedPct: 61.2, resetsAt: "2026-08-23T11:00:00Z" },
@@ -116,6 +130,7 @@ function makeHandlers(): WsClientHandlers & Record<string, ReturnType<typeof vi.
     onUsage: vi.fn(),
     onSessionRemoved: vi.fn(),
     onClaudeTheme: vi.fn(),
+    onUpdate: vi.fn(),
     onDisconnected: vi.fn(),
     onProtocolMismatch: vi.fn(),
   };
@@ -201,6 +216,14 @@ describe("WsClient.dispatch — pure message application, no socket involved", (
     client.dispatch({ type: "claudeTheme", family });
     expect(handlers.onClaudeTheme).toHaveBeenCalledWith(family);
   });
+
+  it("routes an update message to onUpdate with the bare update object, not onSnapshot (plan auto-update §5.7)", () => {
+    const handlers = makeHandlers();
+    const client = new WsClient("ws://x", handlers);
+    client.dispatch(updateMessage);
+    expect(handlers.onUpdate).toHaveBeenCalledWith(updateInfo);
+    expect(handlers.onSnapshot).not.toHaveBeenCalled();
+  });
 });
 
 describe("WsClient — full socket lifecycle via an injected fake socket", () => {
@@ -278,6 +301,13 @@ describe("WsClient — full socket lifecycle via an injected fake socket", () =>
     sockets[0]!.emitOpen();
     sockets[0]!.emitMessage(JSON.stringify(claudeThemeMessage));
     expect(handlers.onClaudeTheme).toHaveBeenCalledWith("light");
+  });
+
+  it("dispatches an update frame to onUpdate (plan auto-update §5.7)", () => {
+    client.start();
+    sockets[0]!.emitOpen();
+    sockets[0]!.emitMessage(JSON.stringify(updateMessage));
+    expect(handlers.onUpdate).toHaveBeenCalledWith(updateInfo);
   });
 
   it("ignores a binary (non-string) message frame", () => {

@@ -75,6 +75,21 @@ jobs:
           git tag "${{ steps.version.outputs.next }}"
           git push origin "${{ steps.version.outputs.next }}"
 
+      - name: Install minisign
+        if: steps.version.outputs.release == 'true'
+        run: sudo apt-get update && sudo apt-get install -y minisign
+
+      # Materialised to a runner-local temp file rather than passed as an env var
+      # directly: minisign's -s flag takes a file path (plan auto-update, 2026-09-10,
+      # Implementation Notes "Minisign"). $RUNNER_TEMP is wiped at the end of the job.
+      - name: Write minisign secret key
+        if: steps.version.outputs.release == 'true'
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "${{ secrets.MINISIGN_SECRET_KEY }}" > "$RUNNER_TEMP/minisign.key"
+          echo "MINISIGN_KEY_FILE=$RUNNER_TEMP/minisign.key" >> "$GITHUB_ENV"
+
       - uses: goreleaser/goreleaser-action@v7
         if: steps.version.outputs.release == 'true'
         with:
@@ -82,3 +97,5 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MINISIGN_KEY_FILE: ${{ env.MINISIGN_KEY_FILE }}
+          MINISIGN_PASSWORD: ${{ secrets.MINISIGN_PASSWORD }}

@@ -145,16 +145,22 @@ dashboard browses via the daemon instead.
   "density": "3x2",      // optional: "2x2" | "3x2" — the Tiles grid density
   "usageModel": "Fable",  // optional: 1–32 chars after trim — which per-model weekly window the masthead shows (usage-model-bar, 2026-08-30)
   "railSort": "manual",   // optional: "manual" | "attention" — the rail's sort mode (order-sidebar, 2026-08-30)
-  "theme": "dark" }       // optional: ^[a-z][a-z0-9-]{0,31}$ — the dashboard theme; "follow" = no override (new-ui-design-colors, 2026-09-02)
+  "theme": "dark",        // optional: ^[a-z][a-z0-9-]{0,31}$ — the dashboard theme; "follow" = no override (new-ui-design-colors, 2026-09-02)
+  "updateCheck": true }   // optional: boolean — whether the daemon checks GitHub Releases for a newer musterd (auto-update, 2026-09-10)
 ```
 
 → `204`, no body. Persisted in kv under one JSON key (survives daemon restarts —
 ux-flows §3.8) and re-broadcast to all UI sockets as a `prefs` message carrying the
 **full** prefs object, which is how a second window stays in sync. Defaults before any
-PUT: `{"view":"focus","density":"2x2","usageModel":"Fable","railSort":"manual","theme":"follow"}`.
+PUT: `{"view":"focus","density":"2x2","usageModel":"Fable","railSort":"manual","theme":"follow","updateCheck":true}`.
 **Errors:** 400 `invalid_request` — body not JSON, no known field present, a field
-value outside its enum, `usageModel` empty / longer than 32 chars, or `theme` not
-matching its pattern.
+value outside its enum, `usageModel` empty / longer than 32 chars, `theme` not
+matching its pattern, or `updateCheck` not a JSON boolean.
+
+`updateCheck` (plan `auto-update`): governs **checking only** — the binary never changes
+without an explicit `POST /api/update/apply` (§3.17) or `musterd -update`. A change has side
+effects beyond the echo: `false` clears `update.available`/`update.checkedAt` and broadcasts
+`update` (§5.7); `true` triggers an immediate check. A persisted non-boolean loads as `true`.
 
 `theme` (plan `new-ui-design-colors`): **opaque to the daemon** beyond the pattern — the
 client owns the theme registry (`web/src/theme.ts`), so a new theme never needs a daemon
@@ -492,6 +498,47 @@ Shells are deliberately **not** persistent: they outlive musterd only because tm
 do, and reconcile (§7.5) kills every `muster-<n>-shell` on the socket at startup rather than
 adopting it.
 
+### 3.17 `POST /api/update/apply` (Pre-v1 — `auto-update`, 2026-09-10)
+
+**Auth**: UI cookie (401 `unauthorized`).
+**Request** (`restart` optional, default `false`):
+
+```jsonc
+{ "restart": false }
+```
+
+→ `202`, no body — progress arrives as `update` messages (§5.7). Semantics: if
+`update.installed` already equals `update.available` (or `available` is null and `installed`
+is set — the restart-only case after a plain Update) the download is skipped; otherwise the
+daemon downloads the `runtime.GOARCH` archive plus `checksums.txt` and `checksums.txt.minisig`
+for `available`, verifies the minisign signature against its compiled-in public key, verifies
+the archive's SHA-256 against the signed file, extracts `musterd` beside the running binary and
+renames it over the resolved path — broadcasting phases `downloading` → `verifying` →
+`installing` → `done`. Then, iff `restart` is true, phase `restarting` is broadcast and the
+daemon re-execs itself in place (same PID, same arguments; sessions are never killed and
+`-on-exit` is never consulted). A POST while `apply.phase` is `downloading`/`verifying`/
+`installing`/`restarting` also returns 202 without starting a second apply; its `restart` value
+is ignored — the first request's wins. Any failure leaves the old binary untouched.
+**Errors:**
+- 400 `invalid_request` — body not JSON.
+- 404 `not_found` — updates disabled (`musterd -update-base-url ""`) or the install is `dev`.
+- 409 `update_unsupported` — install is `homebrew`/`unmanaged`; `message` is `update.remedy`.
+- 409 `nothing_to_apply` — `available` and `installed` both null.
+- 409 `shutting_down` — the daemon is already shutting down.
+
+### 3.18 `GET /api/update/restart-impact` (Pre-v1 — `auto-update`, 2026-09-10)
+
+**Auth**: UI cookie (401 `unauthorized`). No body. → `200`:
+
+```jsonc
+{ "shells": [ { "sessionId": 3, "title": "fix auth" } ] }   // [] when none; title null when the owning session is unknown
+```
+
+One entry per `muster-<n>-shell` tmux session alive on the daemon's socket — the set reconcile
+kills on restart (§3.16/§7.5), which is why the dashboard's Update-and-restart confirm names
+them. Computed on request from tmux, never cached (shells have no wire representation
+elsewhere). No errors beyond auth.
+
 ## 4. HTTP endpoints — ingest (Claude Code → daemon)
 
 | Method & path | Milestone | Body |
@@ -627,8 +674,9 @@ across a `musterd` upgrade.
 { "type": "snapshot",
   "sessions": [ /* Session objects, §5.3 — order unspecified; the client sorts */ ],
   "usage": { /* Usage object, §5.4 */ },
-  "prefs": { "view": "focus", "density": "2x2", "usageModel": "Fable", "railSort": "manual", "theme": "follow" },   // density added M2; theme added 2026-09-02
-  "claudeTheme": { "family": "dark" } }   // "light" | "dark" | "unknown" — always present (new-ui-design-colors, 2026-09-02)
+  "prefs": { "view": "focus", "density": "2x2", "usageModel": "Fable", "railSort": "manual", "theme": "follow", "updateCheck": true },   // density added M2; theme 2026-09-02; updateCheck 2026-09-10
+  "claudeTheme": { "family": "dark" },   // "light" | "dark" | "unknown" — always present (new-ui-design-colors, 2026-09-02)
+  "update": { /* §5.7 — always present (auto-update, 2026-09-10) */ } }
 ```
 
 `claudeTheme.family` is the daemon's latest read of Claude Code's own theme setting,
@@ -764,7 +812,7 @@ full object built at send time. Neither half hydrates across a daemon restart. T
 
 ```jsonc
 { "type": "sessionUpsert", "session": { /* §5.3 */ } }
-{ "type": "prefs", "prefs": { "view": "tiles", "density": "3x2", "usageModel": "Fable", "railSort": "manual", "theme": "dark" } }  // M2; full-object echo of PUT /api/prefs (usageModel added 2026-08-30, theme 2026-09-02)
+{ "type": "prefs", "prefs": { "view": "tiles", "density": "3x2", "usageModel": "Fable", "railSort": "manual", "theme": "dark", "updateCheck": true } }  // M2; full-object echo of PUT /api/prefs (usageModel added 2026-08-30, theme 2026-09-02, updateCheck 2026-09-10)
 ```
 
 ```jsonc
@@ -788,6 +836,32 @@ client always re-derives the terminal pair (`<html data-claude-family>`) and, on
 `prefs.theme` is `"follow"`, re-derives the dashboard theme (`<html data-theme>`). A
 `prefs` message never changes the family; a `claudeTheme` message never changes the
 dashboard theme while an override is set.
+
+### 5.7 `update` (Pre-v1 — `auto-update`, 2026-09-10)
+
+```jsonc
+{ "type": "update", "update": {
+    "running": "0.10.0",                  // string — the daemon's version as built; release builds are bare MAJOR.MINOR.PATCH (GoReleaser's {{.Version}}); dev builds are the raw string ("dev", "v0.10.0-4-ge5102b8")
+    "install": "installer",               // "installer" | "dev" | "homebrew" | "unmanaged" — startup classification from the resolved executable path, constant for the daemon's life
+    "remedy": null,                        // string iff install is "homebrew" | "unmanaged" (the one-line remedy to show); null otherwise
+    "available": "0.11.0",                // string|null — a strictly newer release from the last successful check; null when none, when prefs.updateCheck is false, when install is "dev", or when checking is disabled by flag
+    "checkedAt": "2026-09-10T20:00:00Z",  // RFC3339|null — the last successful check; null before one and after the pref is turned off
+    "installed": null,                     // string|null — a version swapped onto disk (by this daemon, or detected from a `musterd -update` run) that the running process has not yet restarted into
+    "apply": { "phase": "idle",           // "idle" | "downloading" | "verifying" | "installing" | "restarting" | "failed" | "done"
+               "version": null,           // string|null — the release being / last applied; null iff phase is "idle"
+               "error": null } } }         // string|null — message plus remedy sentence; non-null iff phase is "failed"
+```
+
+Sent on every change to any field (check result, pref toggle, each apply phase, detection of an
+external swap); `snapshot.update` carries the current object, so a reconnecting window needs no
+replay. `running` duplicates `hello.daemon.version` deliberately — the dialog renders from one
+object. `available` and `installed` may both be non-null (swap done, restart pending); the
+Settings-button badge rule is `available != null && installed == null`. After a restart the new
+daemon starts with `installed: null`, `apply.phase: "idle"`. The check itself runs in the
+daemon (once after listen, then every `-update-check-interval`, default 24 h) against the
+`/releases/latest` redirect of `-update-base-url` — never `api.github.com`, never the browser;
+with `updateCheck` false the daemon makes no update-related request at all. Where the release
+lives and how it is verified is `internal/selfupdate`'s business — not specified here.
 
 ## 6. WebSocket `/ws/terminal/{id}` — the PTY bridge (M2; refined by m2-terminal, 2026-08-23)
 
@@ -1159,3 +1233,9 @@ exit — so the next startup sweeps it.
   `Stop.background_tasks` is deliberately not a state input. Every transition into `ACTIVE`
   now enforces §5.3's "non-null iff" rules for `attention` and `failure`, which the
   turn-activity row previously left stale. Semantics only; no wire shape changes.
+- **2026-09-10 — §3.3 `updateCheck`; §3.17 `POST /api/update/apply`; §3.18
+  `GET /api/update/restart-impact`; §5.2 `snapshot.update`; §5.7 `update`** (plan
+  `auto-update`). One boolean pref, default on, governs checking only; apply is always explicit
+  (button or `musterd -update`) and verified by a minisign signature on `checksums.txt` plus the
+  archive's SHA-256; `restart:true` re-execs in place without touching a session. Additive; no
+  version bump.

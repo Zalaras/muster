@@ -13,6 +13,7 @@ import {
   type Session,
   type Snapshot,
   type Usage,
+  type UpdateInfo,
   isSupportedProtocolVersion,
   parseMessage,
 } from "./protocol";
@@ -35,6 +36,7 @@ export interface WsClientHandlers {
   onUsage?: (usage: Usage) => void;
   onSessionRemoved?: (id: number) => void;
   onClaudeTheme?: (family: ClaudeFamily) => void;
+  onUpdate?: (update: UpdateInfo) => void;
   onDisconnected?: () => void;
   onProtocolMismatch?: (protocolVersion: number) => void;
 }
@@ -147,6 +149,10 @@ export class WsClient {
     }
     if (message.type === "claudeTheme") {
       this.handlers.onClaudeTheme?.(message.family);
+      return;
+    }
+    if (message.type === "update") {
+      this.handlers.onUpdate?.(message.update);
       return;
     }
     this.handlers.onSnapshot?.(message);

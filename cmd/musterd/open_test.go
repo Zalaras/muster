@@ -199,6 +199,32 @@ func TestOpen_DefaultOpenWithDevNullStdinNeverRunsStub(t *testing.T) {
 	assert.True(t, os.IsNotExist(err), "D9b: a /dev/null stdin must never trigger auto-open regardless of the -open flag")
 }
 
+// TestOpen_MusterRestartedSuppressesAutoOpenEvenWithATerminalStdin covers D22: a startup
+// with MUSTER_RESTARTED set must skip auto-open even though every other condition that
+// would normally trigger it holds (-open defaulted true, a real terminal stdin) — a
+// restart must never pop a second browser tab. Mirrors
+// TestOpen_DefaultOpenWithTerminalStdinRunsStubOnce exactly, except for the added env var
+// and the inverted expectation.
+func TestOpen_MusterRestartedSuppressesAutoOpenEvenWithATerminalStdin(t *testing.T) {
+	recordFile := filepath.Join(t.TempDir(), "record.txt")
+	stub := newRecordingStub(t, recordFile)
+	args, dataDir := openTestDaemonArgs(t, "-open-cmd", stub) // -open left at its true default
+
+	cmd := exec.Command(musterdBinary, args...)
+	cmd.Stdin = newPTYStdin(t)
+	cmd.Env = append(os.Environ(), "MUSTER_RESTARTED=1")
+	var stderr syncBuf
+	cmd.Stderr = &stderr
+	require.NoError(t, cmd.Start())
+	t.Cleanup(func() { terminate(cmd) })
+
+	waitForTokensFile(t, dataDir)
+	time.Sleep(500 * time.Millisecond) // let a buggy auto-open goroutine have its chance to fire
+
+	_, err := os.ReadFile(recordFile)
+	assert.True(t, os.IsNotExist(err), "MUSTER_RESTARTED must suppress auto-open even with a terminal stdin; stderr: %s", &stderr)
+}
+
 // TestOpen_NonexistentOpenCmdStillReachesServingState covers D10/REQ-8: a -open-cmd
 // naming a program that does not exist must not block startup — the daemon still
 // reaches its serving state (tokens.json written, HTTP reachable) and only logs a

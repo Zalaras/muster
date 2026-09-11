@@ -219,10 +219,15 @@ text, because no dark palette can hold both "white on `--danger`" and "`--danger
 **Modal** — `--bg-raised` on the `--scrim` backdrop, 1px `--line-control` border, header
 rule, footer rule. The launch dialog is 720px wide (its picker panes scroll internally);
 confirm dialogs are 440px; the issue dialog is 560px, capped at 80vh (its preview scrolls
-internally); the **Settings** dialog is 440px and holds, in v1, only the theme picker (a
-segmented control of four radios — Follow Claude Code · Instrument · Dark · Light — applied
-on change, no Save) plus a one-line hint and a Close button. Reference: the Settings modal
-in `mockups/a-instrument.html`.
+internally); the **Settings** dialog is 440px and holds the theme picker (a segmented
+control of four radios — Follow Claude Code · Instrument · Dark · Light — applied on change,
+no Save) plus a one-line hint, and below it the **Updates** fieldset (running and available
+version, the `Check for updates daily` checkbox, a `role="status"` line, and the **Update** /
+**Update and restart** buttons — plan `auto-update`, 2026-09-10), then a Close button. While
+a newer release is known and not yet installed, the masthead **Settings** button carries a
+6px dot in `--fg-muted` and the name `Settings, update available`: the dot is a neutral cue,
+never `--amber` or `--rose`, because an available update is information, not a session state
+(§3). Reference: the Settings modal in `mockups/a-instrument.html`.
 
 **Form fields** — text inputs, selects and textareas sit on `--well` with a 1px `--edge`
 border (≥ 3:1 on the surface they sit on — nothing else marks a field's extent).

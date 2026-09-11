@@ -95,7 +95,9 @@ install: ## Install the latest released musterd into ~/.local/bin (MUSTER_BIN_DI
 .PHONY: release-check
 release-check: ## Validate .goreleaser.yaml and build a local snapshot release into ./dist
 	goreleaser check
-	goreleaser release --snapshot --clean
+	# --skip=sign: a local snapshot has no MINISIGN_KEY_FILE/MINISIGN_PASSWORD (those are
+	# CI secrets, plan auto-update, 2026-09-10) — signing only ever runs in release.yml.
+	goreleaser release --snapshot --clean --skip=sign
 
 .PHONY: clean
 clean: ## Remove build output (preserves internal/webui/assets/.gitkeep so a post-clean build still embeds)

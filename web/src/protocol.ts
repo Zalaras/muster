@@ -170,6 +170,39 @@ export interface Prefs {
   // beyond its pattern — the client owns the theme registry (theme.ts). Missing key
   // (pre-plan daemon) defaults to "follow", same tolerance as usageModel/railSort.
   theme: string;
+  // Plan auto-update (docs/protocol.md §3.3/§5.5): governs checking only - the binary
+  // never changes without an explicit apply. Missing key (pre-plan daemon) defaults to
+  // true (the daemon's own documented default), same tolerance as the other prefs above.
+  updateCheck: boolean;
+}
+
+// Plan auto-update (docs/protocol.md §5.7): the daemon's startup classification of its own
+// resolved executable path, constant for the daemon's life.
+export type UpdateInstallKind = "installer" | "dev" | "homebrew" | "unmanaged";
+
+// Plan auto-update (docs/protocol.md §5.7): apply progress, broadcast on every phase change.
+export type UpdateApplyPhase = "idle" | "downloading" | "verifying" | "installing" | "restarting" | "failed" | "done";
+
+export interface UpdateApply {
+  phase: UpdateApplyPhase;
+  // string|null - the release being/last applied; null iff phase is "idle" (INV-4).
+  version: string | null;
+  // string|null - message plus remedy sentence; non-null iff phase is "failed" (INV-4).
+  error: string | null;
+}
+
+// Plan auto-update (docs/protocol.md §5.7): the daemon's current view of its own update
+// state, always present on `snapshot` and re-sent on every field change as a bare `update`
+// message. `running` duplicates `hello.daemon.version` deliberately - render/update.ts's
+// buildUpdateViewModel renders the Settings dialog from this one object.
+export interface UpdateInfo {
+  running: string;
+  install: UpdateInstallKind;
+  remedy: string | null;
+  available: string | null;
+  checkedAt: string | null;
+  installed: string | null;
+  apply: UpdateApply;
 }
 
 // Plan new-ui-design-colors (docs/protocol.md §5.2/§5.6): the daemon's latest read of
@@ -188,6 +221,11 @@ export interface Snapshot {
   usage: Usage;
   prefs: Prefs;
   claudeTheme: ClaudeThemeInfo;
+  // Plan auto-update (docs/protocol.md §5.2): always present on a post-plan daemon; a
+  // pre-plan daemon's payload (no `update` key at all) parses this as null rather than
+  // rejecting the snapshot (edge case 32) - same additive-evolution tolerance as
+  // `claudeTheme` before it.
+  update: UpdateInfo | null;
 }
 
 export interface SessionUpsert {
@@ -225,7 +263,22 @@ export interface ClaudeThemeMessage {
   family: ClaudeFamily;
 }
 
-export type Message = Hello | Snapshot | SessionUpsert | PrefsMessage | UsageMessage | SessionRemoved | ClaudeThemeMessage;
+// Plan auto-update (docs/protocol.md §5.7): sent on every change to any `update` field
+// (check result, pref toggle, each apply phase, an out-of-band swap detection).
+export interface UpdateMessage {
+  type: "update";
+  update: UpdateInfo;
+}
+
+export type Message =
+  | Hello
+  | Snapshot
+  | SessionUpsert
+  | PrefsMessage
+  | UsageMessage
+  | SessionRemoved
+  | ClaudeThemeMessage
+  | UpdateMessage;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -372,7 +425,61 @@ function parsePrefs(value: unknown): Prefs | null {
   const rawTheme = value["theme"];
   const theme = rawTheme === undefined ? "follow" : rawTheme;
   if (typeof theme !== "string") return null;
-  return { view, density, usageModel, railSort, theme };
+  // Plan auto-update: missing key (pre-plan daemon) defaults to true (docs/protocol.md
+  // §3.3's documented default), same tolerance as usageModel/railSort/theme above.
+  const rawUpdateCheck = value["updateCheck"];
+  const updateCheck = rawUpdateCheck === undefined ? true : rawUpdateCheck;
+  if (typeof updateCheck !== "boolean") return null;
+  return { view, density, usageModel, railSort, theme, updateCheck };
+}
+
+function isUpdateInstallKind(value: unknown): value is UpdateInstallKind {
+  return value === "installer" || value === "dev" || value === "homebrew" || value === "unmanaged";
+}
+
+function isUpdateApplyPhase(value: unknown): value is UpdateApplyPhase {
+  return (
+    value === "idle" ||
+    value === "downloading" ||
+    value === "verifying" ||
+    value === "installing" ||
+    value === "restarting" ||
+    value === "failed" ||
+    value === "done"
+  );
+}
+
+function parseUpdateApply(value: unknown): UpdateApply | null {
+  if (!isRecord(value)) return null;
+  const phase = value["phase"];
+  const version = value["version"];
+  const error = value["error"];
+  if (!isUpdateApplyPhase(phase)) return null;
+  if (version !== null && typeof version !== "string") return null;
+  if (error !== null && typeof error !== "string") return null;
+  return { phase, version, error };
+}
+
+/** Plan auto-update (docs/protocol.md §5.7). Every field is read-checked; a malformed
+ * value anywhere rejects the whole object rather than degrading it to a partial "unknown"
+ * shape (same discipline as parseSession). */
+function parseUpdateInfo(value: unknown): UpdateInfo | null {
+  if (!isRecord(value)) return null;
+  const running = value["running"];
+  const install = value["install"];
+  const remedy = value["remedy"];
+  const available = value["available"];
+  const checkedAt = value["checkedAt"];
+  const installed = value["installed"];
+  if (typeof running !== "string") return null;
+  if (!isUpdateInstallKind(install)) return null;
+  if (remedy !== null && typeof remedy !== "string") return null;
+  if (available !== null && typeof available !== "string") return null;
+  if (checkedAt !== null && typeof checkedAt !== "string") return null;
+  if (installed !== null && typeof installed !== "string") return null;
+  const apply = parseUpdateApply(value["apply"]);
+  if (!apply) return null;
+  return { running, install, remedy, available, checkedAt, installed, apply };
 }
 
 function isClaudeFamily(value: unknown): value is ClaudeFamily {
@@ -567,7 +674,15 @@ function parseSnapshot(rec: Record<string, unknown>): Snapshot | null {
   const claudeTheme: ClaudeThemeInfo | null =
     rawClaudeTheme === undefined ? { family: "unknown" } : parseClaudeThemeInfo(rawClaudeTheme);
   if (!sessions || !usage || !prefs || !claudeTheme) return null;
-  return { type: "snapshot", sessions, usage, prefs, claudeTheme };
+  // Plan auto-update: missing key (pre-plan daemon) parses as null (edge case 32); a
+  // present-but-malformed value rejects the whole snapshot, same discipline as claudeTheme.
+  const rawUpdate = rec["update"];
+  let update: UpdateInfo | null = null;
+  if (rawUpdate !== undefined) {
+    update = parseUpdateInfo(rawUpdate);
+    if (!update) return null;
+  }
+  return { type: "snapshot", sessions, usage, prefs, claudeTheme, update };
 }
 
 function parseSessionUpsert(rec: Record<string, unknown>): SessionUpsert | null {
@@ -600,6 +715,12 @@ function parseClaudeThemeMessage(rec: Record<string, unknown>): ClaudeThemeMessa
   return { type: "claudeTheme", family };
 }
 
+function parseUpdateMessage(rec: Record<string, unknown>): UpdateMessage | null {
+  const update = parseUpdateInfo(rec["update"]);
+  if (!update) return null;
+  return { type: "update", update };
+}
+
 /** Parses one WS text frame's decoded JSON. Unknown/malformed messages yield `null`. */
 export function parseMessage(data: unknown): Message | null {
   if (!isRecord(data)) return null;
@@ -619,6 +740,8 @@ export function parseMessage(data: unknown): Message | null {
       return parseSessionRemoved(data);
     case "claudeTheme":
       return parseClaudeThemeMessage(data);
+    case "update":
+      return parseUpdateMessage(data);
     default:
       return null; // unknown message types are ignored (protocol §1)
   }

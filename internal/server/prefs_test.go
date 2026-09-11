@@ -132,7 +132,7 @@ func TestHandlePutPrefs_PersistsToKVUnderOneJSONKey(t *testing.T) {
 	raw, ok, err := srv.store.KVGet(context.Background(), "prefs")
 	require.NoError(t, err)
 	require.True(t, ok)
-	assert.JSONEq(t, `{"view":"tiles","density":"3x2","usageModel":"Fable","railSort":"manual","theme":"follow"}`, raw)
+	assert.JSONEq(t, `{"view":"tiles","density":"3x2","usageModel":"Fable","railSort":"manual","theme":"follow","updateCheck":true}`, raw)
 }
 
 func TestLoadPrefs_DefaultsBeforeAnyPUT(t *testing.T) {
@@ -393,7 +393,7 @@ func TestHandlePutPrefs_UsageModelPersistsToKVAlongsideViewAndDensity(t *testing
 	raw, ok, err := srv.store.KVGet(context.Background(), "prefs")
 	require.NoError(t, err)
 	require.True(t, ok)
-	assert.JSONEq(t, `{"view":"tiles","density":"3x2","usageModel":"Opus","railSort":"manual","theme":"follow"}`, raw)
+	assert.JSONEq(t, `{"view":"tiles","density":"3x2","usageModel":"Opus","railSort":"manual","theme":"follow","updateCheck":true}`, raw)
 }
 
 // TestHandlePutPrefs_BroadcastsUsageModelInPrefsMessage covers D10/INV-4's echo clause
@@ -672,7 +672,7 @@ func TestHandlePutPrefs_ThemePersistsToKV(t *testing.T) {
 	raw, ok, err := srv.store.KVGet(context.Background(), "prefs")
 	require.NoError(t, err)
 	require.True(t, ok)
-	assert.JSONEq(t, `{"view":"focus","density":"2x2","usageModel":"Fable","railSort":"manual","theme":"dark"}`, raw)
+	assert.JSONEq(t, `{"view":"focus","density":"2x2","usageModel":"Fable","railSort":"manual","theme":"dark","updateCheck":true}`, raw)
 }
 
 // TestHandlePutPrefs_ThemeFollowRoundTripsAfterAnOverride covers D14 from the "returning

@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/Zalaras/muster/internal/claudecode"
+	"github.com/Zalaras/muster/internal/selfupdate"
 )
 
 // Snapshot is the daemon's full state, shared verbatim (aside from the WS "type"
@@ -16,6 +17,9 @@ type Snapshot struct {
 	Usage       UsageInfo       `json:"usage"`
 	Prefs       PrefsInfo       `json:"prefs"`
 	ClaudeTheme ClaudeThemeInfo `json:"claudeTheme"`
+	// Update is new in the auto-update plan (2026-09-10, docs/protocol.md §5.7): always
+	// present, even on a daemon with updates disabled entirely.
+	Update UpdateInfo `json:"update"`
 }
 
 // ClaudeThemeInfo is the `claudeTheme` object inside a snapshot (docs/protocol.md
@@ -68,13 +72,16 @@ type UsageInfo struct {
 // the masthead's third readout shows, default "Fable". RailSort is new in the
 // order-sidebar plan (2026-08-30): the rail's sort mode, "manual" | "attention",
 // default "manual". Theme is new in new-ui-design-colors (2026-09-02): opaque to the
-// daemon beyond its pattern (docs/protocol.md §3.3), default "follow".
+// daemon beyond its pattern (docs/protocol.md §3.3), default "follow". UpdateCheck is
+// new in the auto-update plan (2026-09-10): whether the daemon checks GitHub Releases
+// for a newer musterd, default true.
 type PrefsInfo struct {
-	View       string `json:"view"`
-	Density    string `json:"density"`
-	UsageModel string `json:"usageModel"`
-	RailSort   string `json:"railSort"`
-	Theme      string `json:"theme"`
+	View        string `json:"view"`
+	Density     string `json:"density"`
+	UsageModel  string `json:"usageModel"`
+	RailSort    string `json:"railSort"`
+	Theme       string `json:"theme"`
+	UpdateCheck bool   `json:"updateCheck"`
 }
 
 // buildSnapshot returns the fixed parts of a snapshot: no sessions, unknown usage,
@@ -94,6 +101,7 @@ func buildSnapshot() Snapshot {
 		},
 		Prefs:       defaultPrefs(),
 		ClaudeTheme: ClaudeThemeInfo{Family: string(claudecode.ThemeUnknown)},
+		Update:      UpdateInfo{Apply: UpdateApplyInfo{Phase: string(selfupdate.PhaseIdle)}},
 	}
 }
 
@@ -114,7 +122,31 @@ func (s *Server) currentSnapshot(ctx context.Context) Snapshot {
 	if s.themePoller != nil {
 		snap.ClaudeTheme = ClaudeThemeInfo{Family: string(s.themePoller.Current())}
 	}
+	snap.Update = s.currentUpdate()
 	return snap
+}
+
+// currentUpdate returns the live `update` object (docs/protocol.md §5.7): the manager's
+// own state when updates are enabled, or a static shape reflecting the fixed install
+// classification when they are not (-update-base-url ""). Either way it always names the
+// true install kind — a daemon with checking disabled by flag still tells the dialog
+// "not checked yet" for a real installer/homebrew/unmanaged build, never a fabricated
+// "dev" (Edge Case 33).
+func (s *Server) currentUpdate() UpdateInfo {
+	if s.updates != nil {
+		return s.updates.Current()
+	}
+	var remedy *string
+	if s.install.Remedy != "" {
+		r := s.install.Remedy
+		remedy = &r
+	}
+	return UpdateInfo{
+		Running: s.daemonVersion,
+		Install: string(s.install.Kind),
+		Remedy:  remedy,
+		Apply:   UpdateApplyInfo{Phase: string(selfupdate.PhaseIdle)},
+	}
 }
 
 // handleState serves GET /api/state — the same snapshot object the WS handshake sends,

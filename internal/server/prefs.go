@@ -33,11 +33,12 @@ var validThemePattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
 // prefsRequest is PUT /api/prefs' request body (docs/protocol.md §3.3): at least one
 // field required, unknown fields ignored. Pointers distinguish "absent" from "present".
 type prefsRequest struct {
-	View       *string `json:"view"`
-	Density    *string `json:"density"`
-	UsageModel *string `json:"usageModel"`
-	RailSort   *string `json:"railSort"`
-	Theme      *string `json:"theme"`
+	View        *string `json:"view"`
+	Density     *string `json:"density"`
+	UsageModel  *string `json:"usageModel"`
+	RailSort    *string `json:"railSort"`
+	Theme       *string `json:"theme"`
+	UpdateCheck *bool   `json:"updateCheck"`
 }
 
 func validView(v string) bool     { return v == "focus" || v == "tiles" }
@@ -52,8 +53,25 @@ func validUsageModel(v string) bool {
 }
 
 // defaultPrefs is the shape before any PUT /api/prefs has ever landed (protocol §3.3).
+// UpdateCheck defaults true (auto-update plan, 2026-09-10).
 func defaultPrefs() PrefsInfo {
-	return PrefsInfo{View: "focus", Density: "2x2", UsageModel: defaultUsageModel, RailSort: defaultRailSort, Theme: defaultTheme}
+	return PrefsInfo{View: "focus", Density: "2x2", UsageModel: defaultUsageModel, RailSort: defaultRailSort, Theme: defaultTheme, UpdateCheck: true}
+}
+
+// storedPrefs is loadPrefs' unmarshal target: UpdateCheck is a pointer here (unlike
+// PrefsInfo's plain bool) so a persisted blob predating this plan — which has no
+// "updateCheck" key at all — is distinguishable from one that explicitly persisted
+// false. A missing key defaults to true (edge case 32); an explicit false stays false; a
+// non-boolean value fails the whole Unmarshal, which loadPrefs already treats as
+// "return defaultPrefs()" (so it too loads as true, protocol §3.3's "a persisted
+// non-boolean loads as true").
+type storedPrefs struct {
+	View        string `json:"view"`
+	Density     string `json:"density"`
+	UsageModel  string `json:"usageModel"`
+	RailSort    string `json:"railSort"`
+	Theme       string `json:"theme"`
+	UpdateCheck *bool  `json:"updateCheck"`
 }
 
 // prefsMessage is the WS `prefs` broadcast (docs/protocol.md §5.5): a full-object echo
@@ -71,9 +89,20 @@ func (s *Server) loadPrefs(ctx context.Context) PrefsInfo {
 	if err != nil || !ok {
 		return defaultPrefs()
 	}
-	var p PrefsInfo
-	if err := json.Unmarshal([]byte(raw), &p); err != nil {
+	var stored storedPrefs
+	if err := json.Unmarshal([]byte(raw), &stored); err != nil {
 		return defaultPrefs()
+	}
+	p := PrefsInfo{
+		View:        stored.View,
+		Density:     stored.Density,
+		UsageModel:  stored.UsageModel,
+		RailSort:    stored.RailSort,
+		Theme:       stored.Theme,
+		UpdateCheck: true,
+	}
+	if stored.UpdateCheck != nil {
+		p.UpdateCheck = *stored.UpdateCheck
 	}
 	if !validView(p.View) {
 		p.View = "focus"
@@ -101,8 +130,8 @@ func (s *Server) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "invalid_request", "invalid JSON body")
 		return
 	}
-	if req.View == nil && req.Density == nil && req.UsageModel == nil && req.RailSort == nil && req.Theme == nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid_request", "at least one of view, density, usageModel, railSort or theme is required")
+	if req.View == nil && req.Density == nil && req.UsageModel == nil && req.RailSort == nil && req.Theme == nil && req.UpdateCheck == nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid_request", "at least one of view, density, usageModel, railSort, theme or updateCheck is required")
 		return
 	}
 	if req.View != nil && !validView(*req.View) {
@@ -128,6 +157,7 @@ func (s *Server) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	prefs := s.loadPrefs(ctx)
+	updateCheckChanged := false
 	if req.View != nil {
 		prefs.View = *req.View
 	}
@@ -143,6 +173,10 @@ func (s *Server) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 	if req.Theme != nil {
 		prefs.Theme = *req.Theme
 	}
+	if req.UpdateCheck != nil && *req.UpdateCheck != prefs.UpdateCheck {
+		prefs.UpdateCheck = *req.UpdateCheck
+		updateCheckChanged = true
+	}
 
 	encoded, err := json.Marshal(prefs)
 	if err != nil {
@@ -155,6 +189,13 @@ func (s *Server) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.hub.broadcast(prefsMessage{Type: "prefs", Prefs: prefs})
+
+	// REQ-3: the check-enabled side effect fires only on an actual transition — a PUT
+	// that merely re-states the current value must not clear an in-flight check's result
+	// or force an extra immediate poll.
+	if updateCheckChanged && s.updates != nil {
+		s.updates.SetCheckEnabled(prefs.UpdateCheck)
+	}
 
 	w.WriteHeader(http.StatusNoContent)
 }

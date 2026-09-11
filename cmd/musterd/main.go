@@ -28,6 +28,7 @@ import (
 
 	"github.com/Zalaras/muster/internal/claudecode"
 	"github.com/Zalaras/muster/internal/locate"
+	"github.com/Zalaras/muster/internal/selfupdate"
 	"github.com/Zalaras/muster/internal/server"
 	"github.com/Zalaras/muster/internal/store"
 	"github.com/Zalaras/muster/internal/tmux"
@@ -56,8 +57,30 @@ const defaultUsagePoll = 5 * time.Minute
 // REQ-14).
 const defaultClaudeThemePoll = 10 * time.Second
 
+// defaultUpdateBaseURL is -update-base-url's default (plan auto-update REQ-5) — empty
+// disables checking and apply entirely, the IssueAPIURL shape; every E2E daemon passes
+// "" explicitly (web/e2e/helpers/daemon.ts), so this default is only ever live outside
+// tests.
+const defaultUpdateBaseURL = "https://github.com/Zalaras/muster/releases"
+
+// defaultUpdateCheckInterval is -update-check-interval's default (plan auto-update REQ-4).
+const defaultUpdateCheckInterval = 24 * time.Hour
+
 func main() {
-	if err := run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr); err != nil {
+	err := run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)
+
+	var restart *errRestart
+	if errors.As(err, &restart) {
+		// Only returns on failure (Implementation Notes "Re-exec") — everything needed
+		// for a clean shutdown already happened inside run() before it returned this.
+		if execErr := reexec(restart.exe); execErr != nil {
+			fmt.Fprintln(os.Stderr, "musterd: restarting:", execErr)
+			os.Exit(1)
+		}
+		return
+	}
+
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "musterd:", err)
 		os.Exit(1)
 	}
@@ -82,25 +105,29 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 	}
 
 	var (
-		showVersion      = fs.Bool("version", false, "print version and exit")
-		addr             = fs.String("addr", "127.0.0.1:8765", "listen address (localhost only by design)")
-		dataDir          = fs.String("data-dir", defaultDataDir, "directory for the database, tokens and other daemon-local state")
-		webDist          = fs.String("web-dist", "", "serve the dashboard from this directory instead of the embedded copy (dev override; empty uses the binary's embedded dashboard)")
-		debug            = fs.Bool("debug", false, "debug logging")
-		claudeBin        = fs.String("claude-bin", "claude", "the `claude` binary to spawn for a launched session (REQ-19: lets E2E launch a stub)")
-		tmuxSocket       = fs.String("tmux-socket", "muster", "dedicated tmux socket (REQ-19: never the user's default server); a value containing '/' is used as a filesystem path (-S), otherwise a named socket (-L) — m2-terminal REQ-5")
-		browseRoot       = fs.String("browse-root", "", "root of the launch modal's folder browser — GET /api/browse's no-param default and its Up ceiling (empty = the user's home directory; E2E passes its scratch dir)")
-		onExit           = fs.String("on-exit", "ask", "what to do with live sessions on shutdown: ask (default, prompts once if stdin is a TTY) | leave | kill")
-		usagePoll        = fs.Duration("usage-poll", defaultUsagePoll, "how often musterd polls Claude Code's per-model weekly usage endpoint; 0 disables polling (POST /api/usage/refresh then 404s)")
-		usageAPIURL      = fs.String("usage-api-url", "https://api.anthropic.com", "base URL for the per-model usage endpoint — a test seam like -claude-bin")
-		usageTokenFile   = fs.String("usage-token-file", "", "read the Claude Code OAuth token from this file instead of the macOS Keychain — a test seam like -claude-bin (empty = the daemon's usual Keychain lookup)")
-		issueRepo        = fs.String("issue-repo", "Zalaras/muster", "GitHub repo (owner/name) the Issue button files issues against")
-		issueAPIURL      = fs.String("issue-api-url", "https://api.github.com", "base URL for the GitHub API the Issue button posts to — a test seam like -usage-api-url; empty disables issue capture entirely (POST /api/issue/captures and POST /api/issues then 404)")
-		issueTokenFile   = fs.String("issue-token-file", "", "read the GitHub bearer token from this file's trimmed contents instead of running `gh auth token` — a test seam like -usage-token-file (empty = the daemon's usual `gh auth token`)")
-		openFlag         = fs.Bool("open", true, "auto-open the dashboard in the default browser at startup; fires only when stdin is also a real terminal (REQ-6)")
-		openCmd          = fs.String("open-cmd", "open", "the program run with the dashboard URL to auto-open it — a test seam like -claude-bin (REQ-7)")
-		claudeThemePoll  = fs.Duration("claude-theme-poll", defaultClaudeThemePoll, "how often musterd polls Claude Code's own theme setting for the terminal pane ground and the dashboard's Follow Claude Code preference; 0 disables polling (claudeTheme.family stays unknown)")
-		claudeConfigFile = fs.String("claude-config-file", defaultClaudeConfigFile, "path to Claude Code's global config file to poll for its theme setting — a test seam like -usage-token-file")
+		showVersion         = fs.Bool("version", false, "print version and exit")
+		addr                = fs.String("addr", "127.0.0.1:8765", "listen address (localhost only by design)")
+		dataDir             = fs.String("data-dir", defaultDataDir, "directory for the database, tokens and other daemon-local state")
+		webDist             = fs.String("web-dist", "", "serve the dashboard from this directory instead of the embedded copy (dev override; empty uses the binary's embedded dashboard)")
+		debug               = fs.Bool("debug", false, "debug logging")
+		claudeBin           = fs.String("claude-bin", "claude", "the `claude` binary to spawn for a launched session (REQ-19: lets E2E launch a stub)")
+		tmuxSocket          = fs.String("tmux-socket", "muster", "dedicated tmux socket (REQ-19: never the user's default server); a value containing '/' is used as a filesystem path (-S), otherwise a named socket (-L) — m2-terminal REQ-5")
+		browseRoot          = fs.String("browse-root", "", "root of the launch modal's folder browser — GET /api/browse's no-param default and its Up ceiling (empty = the user's home directory; E2E passes its scratch dir)")
+		onExit              = fs.String("on-exit", "ask", "what to do with live sessions on shutdown: ask (default, prompts once if stdin is a TTY) | leave | kill")
+		usagePoll           = fs.Duration("usage-poll", defaultUsagePoll, "how often musterd polls Claude Code's per-model weekly usage endpoint; 0 disables polling (POST /api/usage/refresh then 404s)")
+		usageAPIURL         = fs.String("usage-api-url", "https://api.anthropic.com", "base URL for the per-model usage endpoint — a test seam like -claude-bin")
+		usageTokenFile      = fs.String("usage-token-file", "", "read the Claude Code OAuth token from this file instead of the macOS Keychain — a test seam like -claude-bin (empty = the daemon's usual Keychain lookup)")
+		issueRepo           = fs.String("issue-repo", "Zalaras/muster", "GitHub repo (owner/name) the Issue button files issues against")
+		issueAPIURL         = fs.String("issue-api-url", "https://api.github.com", "base URL for the GitHub API the Issue button posts to — a test seam like -usage-api-url; empty disables issue capture entirely (POST /api/issue/captures and POST /api/issues then 404)")
+		issueTokenFile      = fs.String("issue-token-file", "", "read the GitHub bearer token from this file's trimmed contents instead of running `gh auth token` — a test seam like -usage-token-file (empty = the daemon's usual `gh auth token`)")
+		openFlag            = fs.Bool("open", true, "auto-open the dashboard in the default browser at startup; fires only when stdin is also a real terminal (REQ-6)")
+		openCmd             = fs.String("open-cmd", "open", "the program run with the dashboard URL to auto-open it — a test seam like -claude-bin (REQ-7)")
+		claudeThemePoll     = fs.Duration("claude-theme-poll", defaultClaudeThemePoll, "how often musterd polls Claude Code's own theme setting for the terminal pane ground and the dashboard's Follow Claude Code preference; 0 disables polling (claudeTheme.family stays unknown)")
+		claudeConfigFile    = fs.String("claude-config-file", defaultClaudeConfigFile, "path to Claude Code's global config file to poll for its theme setting — a test seam like -usage-token-file")
+		updateFlag          = fs.Bool("update", false, "check for and apply the latest release, then exit — never starts the daemon or restarts anything (REQ-22)")
+		updateBaseURL       = fs.String("update-base-url", defaultUpdateBaseURL, "base URL for GitHub Releases the auto-updater checks/downloads from — a test seam like -usage-api-url; empty disables update checking and applying entirely")
+		updateCheckInterval = fs.Duration("update-check-interval", defaultUpdateCheckInterval, "how often musterd checks for a newer release while update checking is enabled; must be > 0")
+		updatePublicKeyFile = fs.String("update-public-key-file", "", "verify releases against this minisign public key file instead of the one compiled into the binary — a test seam like -usage-token-file (empty = the embedded key)")
 	)
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -111,11 +138,47 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 	default:
 		return fmt.Errorf("invalid -on-exit value %q: must be ask, leave, or kill", *onExit)
 	}
+	if *updateCheckInterval <= 0 {
+		return fmt.Errorf("invalid -update-check-interval value %q: must be > 0", updateCheckInterval.String())
+	}
 
 	if *showVersion {
 		fmt.Fprintf(stdout, "musterd %s (Claude Code verified %s)\n", version, claudecode.FormatRange(claudecode.Floor(), claudecode.Verified()))
 		return nil
 	}
+
+	// Install classification (REQ-21) happens here — before tmux preflight, data dir
+	// creation or anything else below — because both -update and the normal server path
+	// need it, and -update needs nothing heavier than this to run. A failure resolving
+	// the executable path is not fatal: exePath just stays "", which Classify treats no
+	// differently than any other unwritable/unresolvable directory.
+	exePath, resolveErr := os.Executable()
+	if resolveErr == nil {
+		if resolved, err := filepath.EvalSymlinks(exePath); err == nil {
+			exePath = resolved
+		}
+	}
+	home, _ := os.UserHomeDir()
+	install := selfupdate.Classify(version, exePath, os.Getenv, home, selfupdate.WritableDir)
+
+	updatePublicKey := selfupdate.PublicKey()
+	if *updatePublicKeyFile != "" {
+		data, err := os.ReadFile(*updatePublicKeyFile)
+		if err != nil {
+			return fmt.Errorf("reading -update-public-key-file: %w", err)
+		}
+		updatePublicKey = data
+	}
+
+	if *updateFlag {
+		return runUpdate(context.Background(), stdout, stderr, *updateBaseURL, updatePublicKey, version, exePath, install)
+	}
+
+	// REQ-19: read once, then unset immediately — a restarted daemon must not leave the
+	// variable set for whatever it execs later (a shell alias, a future restart of its
+	// own), and openDashboard's guard below is the only thing that ever needs the value.
+	restarted := os.Getenv("MUSTER_RESTARTED") != ""
+	_ = os.Unsetenv("MUSTER_RESTARTED")
 
 	// Fail fast on a socket path tmux cannot bind (AF_UNIX sun_path limit) — otherwise
 	// the failure surfaces later as a bare "File name too long" from inside tmux.
@@ -217,6 +280,13 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		ClaudeThemePoll:  *claudeThemePoll,
 		ClaudeConfigFile: *claudeConfigFile,
 		Locator:          locate.New(),
+
+		UpdateBaseURL:       *updateBaseURL,
+		UpdateCheckInterval: *updateCheckInterval,
+		UpdatePublicKey:     updatePublicKey,
+		Install:             install,
+		ExePath:             exePath,
+		ExeRun:              selfupdate.RunVersionProbe,
 	})
 	srv.Start()
 
@@ -233,13 +303,22 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		Str("data_dir", *dataDir).
 		Str("dashboard_url", dashboardURL).
 		Str("tmux", preflight.Version).
+		Str("install", string(install.Kind)).
 		Msg("musterd starting")
+
+	// REQ-28: a Homebrew or unmanaged install never sees the Settings-dialog remedy
+	// unless they open it — name it in the startup log too.
+	if install.Remedy != "" {
+		log.Info().Str("install", string(install.Kind)).Msg(install.Remedy)
+	}
 
 	// REQ-6: fires only when both the flag and stdin's terminal-ness hold — the
 	// terminal condition is load-bearing (Implementation Notes): it is what guarantees
 	// no test run can open a browser, independent of any flag a test does or doesn't
 	// pass. Runs on its own goroutine (REQ-8) and never logs dashboardURL itself (R4).
-	if *openFlag && isTerminal(stdin) {
+	// A restarted daemon skips this too (auto-update REQ-19) — stdin is still the
+	// original TTY, so without the check a restart would pop a second browser tab.
+	if *openFlag && isTerminal(stdin) && !restarted {
 		openDashboard(ctx, *openCmd, dashboardURL, log)
 	}
 
@@ -254,6 +333,23 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 			return fmt.Errorf("serving http: %w", err)
 		}
 		return nil
+	case <-srv.RestartRequests():
+		// auto-update REQ-19: a restart is not a shutdown — it never reaches the
+		// -on-exit prompt below and never kills a session (reconcile re-adopts every
+		// Claude session on the way back up, SPEC §M4). The graceful stop happens here,
+		// synchronously, so the WAL is checkpointed and no ingest event is lost before
+		// main performs the actual syscall.Exec (Implementation Notes "Re-exec").
+		log.Info().Msg("restarting musterd to apply an update")
+		restartShutdownCtx, restartShutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer restartShutdownCancel()
+		if err := httpServer.Shutdown(restartShutdownCtx); err != nil {
+			log.Warn().Err(err).Msg("http server shutdown")
+		}
+		srv.Shutdown(restartShutdownCtx)
+		if err := st.Close(); err != nil {
+			log.Warn().Err(err).Msg("closing store before restart")
+		}
+		return &errRestart{exe: exePath}
 	}
 
 	// Resolved (and, for "ask", possibly prompted) before the shutdown timeout budget
