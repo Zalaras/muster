@@ -175,7 +175,7 @@ Per CLAUDE.md doc upkeep, before the session ends:
 
 - New wire-format fact → `spikes/canary-fields.md`; substantive → `spikes/FINDINGS.md`
   (update the "Still open" list; keep evidence counts, e.g. "n of m sessions").
-- A settled SPEC open question → `SPEC.md` §9 + changelog entry.
+- A settled SPEC open question → `SPEC.md` §9 + a `docs/history/spec-changelog.md` entry.
 - Tick anything this closes in `TODO.md`.
 - State the Claude Code version the evidence was captured against (from
   `SessionStart`/status-line payloads), and whether it matches the pin.

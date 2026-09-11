@@ -34,10 +34,10 @@ Milestone rule from the spec: **each milestone ends with something used day-to-d
       to keep parent CLAUDE.md files out of probe sessions), encoded as
       `.claude/skills/interface-probe/SKILL.md`; `spikes/RIG.md` marked historical.
       Acceptance passed: Stop-vs-StopFailure settled (mutually exclusive per prompt),
-      and `--resume` verified while the rig was warm. See SPEC §11 changelog (H2 entry).
+      and `--resume` verified while the rig was warm. See `docs/history/spec-changelog.md` (H2 entry).
 - [x] **UX flows** (next-steps.md item 4, first half; done 2026-08-16): new-session flow
       and the launch/worktree data layer settled — SPEC §9 Q2 resolved. Written up in
-      `docs/design/ux-flows.md`; SPEC §11 has the changelog entry.
+      `docs/design/ux-flows.md`; `docs/history/spec-changelog.md` has the entry.
 - [x] **Visual design** (item 4, second half; done 2026-08-16): **direction A "instrument"**
       chosen; `docs/design/design-system.md` written and wired into `review-work`'s
       checklist (the placeholder is gone). System font stacks only — nothing vendored,
@@ -119,7 +119,7 @@ Follow-ups from the M1 reviews (three cycles; final verdict approved 2026-08-22)
       item (Pre-v1 Cleanup) — a declared supported range decides the pin's role, so settle
       that first rather than picking a pin strategy on its own.
       **Done 2026-09-10 (plan `version-claude-interface`)**: the pin is gone; the range is an
-      observed record extended automatically by a green `make canary` (SPEC §8, §11).
+      observed record extended automatically by a green `make canary` (SPEC §8; spec-changelog 2026-09-10).
 - [x] Browse E2E off the real `$HOME` — done 2026-08-22 (review cycle-1 Minor 13, second
       half): `musterd -browse-root` (empty = home) is now `GET /api/browse`'s no-param
       default and the Up ceiling (protocol §3.6 updated); the E2E harness passes a
@@ -488,7 +488,7 @@ These are some minor changes and cleanup needed before we can move into post v1.
     "is never a character device" — precisely the falsehood REQ-9 exists to correct: `/dev/null`
     **is** a character device, it simply is not a terminal. Reword to "is never a *terminal*".
 
-- [ ] **Cutting v1.0.0 is the act of removing `--v0`** (settled 2026-09-01, SPEC changelog):
+- [ ] **Cutting v1.0.0 is the act of removing `--v0`** (settled 2026-09-01, `docs/history/spec-changelog.md`):
   `release.yml` passes `svu next --v0`, so while the flag exists a 1.0.0 cannot be cut, by
   accident or otherwise. When the pre-v1 sections here close, v1 ships as one deliberate commit
   that deletes the flag and carries `feat!:` (`MUSTER_BREAKING=1`, human-set — the commit-msg
@@ -689,7 +689,7 @@ These are some minor changes and cleanup needed before we can move into post v1.
 
   Interactions: the post-v1 **"rethink the pin strategy itself"** item (M1 follow-ups, above)
   folds into this — with a range, the pin is the *tested* version rather than the only supported
-  one. Landing this changes SPEC §8's dependency posture and needs a SPEC §11 changelog entry.
+  one. Landing this changes SPEC §8's dependency posture and needs a `docs/history/spec-changelog.md` entry.
 
   *Spec written 2026-09-10 — `plans/version-claude-interface/spec.md`; next is `/plan-work`.* The
   declaration shape was chosen: observed-versions record as single source of truth (floor/ceiling
@@ -724,7 +724,7 @@ These are some minor changes and cleanup needed before we can move into post v1.
   pre-v1 on 2026-09-10, Damian's call; the two install items below depend on it and came with it).
   Nothing left to decide: the procedure is `docs/go-public.md` (§1 pre-flip is done bar its two
   mechanical last checks), the reasoning is `docs/design/open-sourcing.md`, licence is MIT
-  (SPEC changelog 2026-09-04) and the contribution policy is issues yes, PRs no.
+  (`docs/history/spec-changelog.md` 2026-09-04) and the contribution policy is issues yes, PRs no.
   `scripts/go-public.sh` applies the **[script]** steps — dry-run by default, has never been
   run, and **must not be run unasked**. Three things the flip turns into live calls rather than
   hypotheticals, all noted in the release-workflow item above: the **test/lint CI job** held

@@ -2,7 +2,7 @@
 
 The ordered list to work through on the day `Zalaras/muster` flips from private to
 public. Background and the reasoning behind each choice: `docs/design/open-sourcing.md`
-and the `SPEC.md` changelog entry of 2026-09-04 (licence). This file is the *procedure*.
+and the `docs/history/spec-changelog.md` entry of 2026-09-04 (licence). This file is the *procedure*.
 
 Items tagged **[script]** are applied by `scripts/go-public.sh`; everything else is by
 hand. The script is dry-run by default — it prints every command and changes nothing
@@ -74,7 +74,7 @@ ruleset POST — GitHub's brief post-flip lock. A third run seconds later went s
       are gone, and on Damian's instruction the pass covered the whole README (194 → 115
       lines). Homebrew was split out of that work and is still open (below).
 - [x] `docs/design/open-sourcing.md` marked done; `SPEC.md` § 8 posture line → public since
-      2026-09-10; changelog entry (2026-09-10).
+      2026-09-10; spec-changelog entry (2026-09-10).
 - [x] The `curl | sh` installer from #7 shipped 2026-09-10 (`scripts/install.sh`): the
       anonymous asset download this flip enabled is exactly what it rests on, and it
       verifies the release's published SHA-256.

@@ -4,7 +4,7 @@ Design session 2026-08-16 (`next-steps.md` item 4). Settles SPEC §9 open questi
 (launch/worktree data layer) and fixes the dashboard's shape before M1/M2 UI work.
 
 `SPEC.md` stays authoritative for *what* Muster does; this file is authoritative for
-*how the interface behaves*. Where this file adds a decision, SPEC §11 gets a changelog
+*how the interface behaves*. Where this file adds a decision, `docs/history/spec-changelog.md` gets an
 entry. Visual language is deliberately **not** settled here — see "Visual direction" at
 the end.
 

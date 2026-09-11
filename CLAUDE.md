@@ -93,6 +93,6 @@ ritual is `docs/claude-code-versions.md`.
 ## Doc upkeep (end of every session)
 
 - Work item finished → tick it in `TODO.md`.
-- Decision changed or settled → `SPEC.md` changelog entry.
+- Decision changed or settled → an entry in `docs/history/spec-changelog.md` **and** the SPEC section it changes.
 - New wire-format fact learned → `spikes/canary-fields.md` (and `spikes/FINDINGS.md`
   if substantive).

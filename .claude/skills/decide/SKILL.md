@@ -113,7 +113,7 @@ Write `decision.md`:
 Then land it where it belongs — you are the only party allowed to edit these:
 
 - the plan: an *Amended* note inline on the affected REQ / UI row citing `decisions/<slug>`;
-- `SPEC.md` §11 changelog: one entry naming both options and the outcome;
+- `docs/history/spec-changelog.md`: one entry naming both options and the outcome;
 - `docs/design/design-system.md` or `ux-flows.md` when the decision is a design rule;
 - `TODO.md` when the dissent names follow-up work.
 

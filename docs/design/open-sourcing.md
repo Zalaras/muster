@@ -3,7 +3,7 @@
 Research/discussion session 2026-09-02/03. **The repo has been public since 2026-09-10**
 (`scripts/go-public.sh --yes`, run-through and outcome in `docs/go-public.md`). **Decided
 2026-09-04: MIT** — `LICENSE` is added (canonical text, © 2026 Damian Hunter) and the
-reasoning is in the `SPEC.md` changelog entry of that date. This note records the pre-flight
+reasoning is in the `docs/history/spec-changelog.md` entry of that date. This note records the pre-flight
 audit and the licence analysis so the next session doesn't re-derive them.
 
 ## Pre-flight audit (run 2026-09-02, `main` at c71a759)
