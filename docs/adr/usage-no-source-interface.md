@@ -8,7 +8,7 @@ features: [usage]
 tags: [user-decision]
 files: [internal/usage/**]
 tests: [TestAggregator_Record_FirstSamplePersistsAndBroadcasts]
-refs: [docs/history/spec-changelog.md, plan:m3-gauges, kb:anchor/ws.usage, kb:fact/rate-limits-wire-shape]
+refs: [docs/history/spec-changelog.md, plan:m3-gauges, plan:usage-model-bar, kb:anchor/ws.usage, kb:fact/rate-limits-wire-shape]
 supersedes: []
 ---
 **Context.** The spec asked for a small usage-source interface so API-key and telemetry sources could be added later. Only the subscription status line existed, and an interface designed against one implementation tends to describe that implementation.

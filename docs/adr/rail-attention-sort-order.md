@@ -1,7 +1,7 @@
 ---
 id: rail-attention-sort-order
 type: decision
-status: accepted
+status: superseded
 date: 2026-08-16
 summary: The rail sorts by attention: Needs-Input longest-blocked first, then Failed, Planning, Working, Started, Idle longest-idle first.
 features: [rail]

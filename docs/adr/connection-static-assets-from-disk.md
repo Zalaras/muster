@@ -1,7 +1,7 @@
 ---
 id: connection-static-assets-from-disk
 type: decision
-status: accepted
+status: superseded
 date: 2026-08-22
 summary: The dashboard's static assets are served from a directory given by a flag, not embedded, so the Go build never depends on the web build.
 features: [connection]

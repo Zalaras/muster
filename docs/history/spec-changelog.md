@@ -386,6 +386,7 @@ implemented:
   in `spikes/canary-fields.md` once run.
 
 ### 2026-08-29 — Tiles grid slot-stable + drag reorder (plan `move-tiles`, via `/orchestrate`)
+<!-- kb: adr/tiles-slot-stable-grid-never-self-sorts, adr/tiles-drag-reorder-header-handle-insert-shift, adr/tiles-order-ephemeral-per-window, adr/theme-no-traffic-light-state-palette -->
 
 - The Tiles grid no longer re-sorts itself by §3.4 attention priority: `promote` lands the
   promoted session in the demoted tile's slot, `applyDensity` keeps survivors' relative
@@ -403,6 +404,7 @@ implemented:
   `dragstart`, so focus is now captured on `mousedown` and handed to `reconcileTilesGrid`.
 
 ### 2026-08-29 — canary harness real; pin 2.1.233 → 2.1.246 (plan `m4-canary`, main-session build)
+<!-- kb: adr/canary-drives-installed-claude-through-production-chain, adr/canary-interactive-dialog-rows-accepted-residual, adr/canary-exact-pin-bumped-after-green-runs, fact/hooks-not-awaited-on-failure-exit -->
 
 - `make canary` now drives the installed `claude` through the production
   settings → `/bin/sh -c` → wrapper → enveloped POST chain (`test/canary/harness_test.go`):
@@ -417,6 +419,7 @@ implemented:
   liveness, so no design change. Details in `spikes/canary-fields.md`.
 
 ### 2026-08-30 — per-model weekly usage bar shipped (plan `usage-model-bar`, via `/orchestrate`)
+<!-- kb: adr/usage-model-window-polled-from-oauth-api, adr/usage-keychain-token-read-only, adr/usage-masthead-one-selectable-model-window, adr/usage-no-source-interface -->
 
 - TODO decision taken: **(b)** — musterd calls `GET /api/oauth/usage` itself rather than
   waiting for the status line to grow the per-model window (§2.3 amended). Poll every 5 min
@@ -434,6 +437,7 @@ implemented:
   daemon health (`docs/design/design-system.md` §4/§5).
 
 ### 2026-08-30 — New session from Tiles (TODO "Create new session from tile view", main-session build)
+<!-- kb: adr/tiles-new-session-button-in-toolbar, adr/tiles-launched-session-promoted-into-grid -->
 
 - Tiles gets its own **New session** button in the density toolbar — the rail's button is
   hidden with the rail, so Tiles previously had only ⌘N. Same `#launch-dialog`, same flow
@@ -445,6 +449,7 @@ implemented:
   fight the slot-stable reconcile, the drag delegation and the fixed 2×2/3×2 geometry).
 
 ### 2026-08-30 — Rail order is user-owned (plan `order-sidebar`)
+<!-- kb: adr/rail-user-owned-manual-order-default, adr/rail-order-daemon-owned-per-session-fields, adr/rail-whole-card-drag-drop-decides-pin, adr/shortcuts-cmd-n-follows-rail-order -->
 
 - §2.1's needs-input-first sort is no longer *the* rail order; it is the rail's **attention**
   mode. The default **manual** mode keeps a daemon-owned, per-session order: `pinned` +
@@ -464,6 +469,7 @@ implemented:
   Option A, which stands unchanged. See the 2026-09-04 entry.
 
 ### 2026-08-30 — Launch dialog rebuilt as a Finder-style picker (plan `new-session-dialog`)
+<!-- kb: adr/launch-picker-recent-sidebar-plus-browse-list, adr/launch-model-presets-passed-verbatim, fact/fable-model-alias -->
 
 - ux-flows §1.1–1.2 replaced: the MRU list + `Browse…` unfold + Up/"Use this folder" flow is
   gone. A persistent **Recent** sidebar sits beside a browse pane — clickable breadcrumb over
@@ -477,6 +483,7 @@ implemented:
   into existing dialog chrome (plan Overview records the comparison).
 
 ### 2026-08-31 — Dashboard embedded in the binary (plan `embed-dashboard`, via `/orchestrate`)
+<!-- kb: adr/connection-dashboard-embedded-in-binary, adr/connection-missing-web-build-fails-fast, adr/connection-built-assets-ignored-with-gitkeep -->
 
 - Amends the 2026-08-22 M0 decision "Static assets are served from disk (`-web-dist`), not
   `go:embed`". That decision's own text ends "Revisit only if a self-contained binary ever
@@ -498,6 +505,7 @@ implemented:
   stale-`web/dist` trap; pipeline lore docs updated accordingly).
 
 ### 2026-08-31 — Distribution settled: tagged GitHub Releases, automatic versioning
+<!-- kb: adr/release-distribution-github-release-not-brew, adr/release-versioning-automatic-from-conventional-commits, adr/release-builds-cross-compiled-on-linux, adr/release-two-arch-archives-not-universal, adr/release-drops-js-sourcemap, adr/release-no-ci-test-job-yet -->
 
 Follows the `embed-dashboard` entry above — a self-contained binary is only useful once
 there is a way to get one. Decisions:
@@ -527,6 +535,7 @@ there is a way to get one. Decisions:
   release build is the compile gate; adding `make check` is a one-line step when wanted.
 
 ### 2026-08-31 — Issue capture shipped (plan `issue-capture`, via `/orchestrate`)
+<!-- kb: adr/issue-payload-allowlist-never-dump, adr/issue-preview-is-the-leak-check, adr/issue-capture-then-file-server-held, adr/issue-auth-gh-token-at-time-of-use, adr/issue-daemon-creates-issues-only, adr/issue-disabled-button-affordance-deferred, adr/process-real-verification-post-run-by-pipeline -->
 
 A masthead `Issue` button files a GitHub issue on `Zalaras/muster` carrying a
 strict-allowlist snapshot of muster state, previewed in full before it posts. Post-spec,
@@ -553,6 +562,7 @@ lists it (it does not — the feature is additive to the MVP set):
   the app-wide `.btn:disabled` sweep is a TODO.md M5+ item.
 
 ### 2026-08-31 — Issue triage and landing policy (`/triage`, `/land`)
+<!-- kb: adr/triage-issue-closes-when-fix-lands, adr/triage-state-derived-from-todo, adr/process-land-skill-is-the-landing-ritual -->
 
 Settles what happens to a filed issue after creation. Extends the entry above rather than
 changing it: **the daemon is unchanged** and still only creates issues — both commands are
@@ -577,6 +587,7 @@ dev-workflow skills outside musterd, so the "scope ends at creation" boundary ho
   plan branch by content diff (`git branch --merged` is defeated by squash-merging).
 
 ### 2026-08-31 - tmux is a preflighted hard dependency; the dashboard auto-opens
+<!-- kb: adr/surfaces-tmux-preflight-at-startup, adr/surfaces-unrecognised-tmux-version-warns, adr/connection-dashboard-auto-opens-on-terminal -->
 
 Settled while implementing plan `tmux-installation` (issues #2 and #4).
 

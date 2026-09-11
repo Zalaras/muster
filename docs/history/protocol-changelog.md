@@ -7,16 +7,16 @@ on 2026-09-11.
 
 ## Milestone map (what each milestone must implement of this contract)
 
-- **M0**: §2 auth (both tokens), `/healthz`, `/auth`, static, `GET /api/state`, `/ws`
+- **M0**: §2 auth (both tokens), `/healthz`, `/auth`, static, `GET /api/state`, `/ws` <!-- kb:no-decision -->
   with `hello` + `snapshot` (empty sessions, null usage) + reconnect/banner behaviour,
   both ingest endpoints persisting enveloped/raw events with `seq` (no state machine —
   events land in the `event` table and are visible via `/api/state`'s future shape).
-- **M1**: `POST /api/sessions`, `GET /api/repos`, `GET /api/browse`, the state machine
+- **M1**: `POST /api/sessions`, `GET /api/repos`, `GET /api/browse`, the state machine <!-- kb:no-decision -->
   (§7), `sessionUpsert`, liveness polling, the envelope binding (§4.2).
-- **M2**: terminal sockets (§6), `PUT /api/prefs` + `prefs` (view + density).
-- **M3**: `usage` message + `usage_sample` persistence + context in `sessionUpsert` +
+- **M2**: terminal sockets (§6), `PUT /api/prefs` + `prefs` (view + density). <!-- kb:no-decision -->
+- **M3**: `usage` message + `usage_sample` persistence + context in `sessionUpsert` + <!-- kb:no-decision -->
   title/model refresh from the status line.
-- **M4**: `/resume` (§3.5), `/end` (§3.7), `DELETE` + `sessionRemoved` (§3.8, §5.5),
+- **M4**: `/resume` (§3.5), `/end` (§3.7), `DELETE` + `sessionRemoved` (§3.8, §5.5), <!-- kb:no-decision -->
   reconcile-on-start + shutdown policy (§7.5), pane snapshots (§3.4), resume → `idle`
   (§7.3) — plan `m4-reconcile`; canary unskip — plan `m4-canary`.
 
@@ -68,7 +68,7 @@ on 2026-09-11.
   daemon reads Claude Code's own theme setting on a poll (`-claude-theme-poll`, default 10 s;
   `-claude-config-file` test seam) — read-only, knowledge confined to `internal/claudecode`.
   Additive; no version bump.
-- **2026-08-31 — §2/§3.12/§3.13: issue capture** (plan `issue-capture`, Pre-v1 Cleanup).
+- **2026-08-31 — §2/§3.12/§3.13: issue capture** (plan `issue-capture`, Pre-v1 Cleanup). <!-- kb: adr/issue-payload-allowlist-never-dump, adr/issue-capture-then-file-server-held -->
   Two new UI endpoints let the dashboard file a GitHub issue carrying a strict-allowlist
   snapshot of muster's own state: `POST /api/issue/captures` takes and holds the snapshot,
   `POST /api/issues` files a held capture. §2 gains three error codes (`capture_expired`,
@@ -79,20 +79,20 @@ on 2026-09-11.
   `failure.message`, `directory`, `branch`, the repo name, the `claudeSessionId` value and
   all account usage are excluded, because the repo may be open-sourced.
 
-- **2026-08-30 — §3.1 request comment: `fable` preset** (plan `new-session-dialog`,
+- **2026-08-30 — §3.1 request comment: `fable` preset** (plan `new-session-dialog`, <!-- kb: adr/launch-model-presets-passed-verbatim, fact/fable-model-alias -->
   Pre-v1 Cleanup). The launch dialog's Model control gains a `fable` preset (a measured
   alias in the installed Claude Code 2.1.251, `spikes/canary-fields.md`) — doc-only:
   `model` was already any non-empty string passed to `--model` verbatim. No wire change;
   no version bump.
 
-- **2026-08-30 — §3.3/§3.10/§3.11/§5.3: user-owned rail order** (plan `order-sidebar`,
+- **2026-08-30 — §3.3/§3.10/§3.11/§5.3: user-owned rail order** (plan `order-sidebar`, <!-- kb: adr/rail-user-owned-manual-order-default, adr/rail-order-daemon-owned-per-session-fields -->
   Pre-v1 Cleanup). Session object gains `pinned` + `railPos` (invariant: pinned before
   unpinned, unique `railPos`; display-only columns). New `PUT /api/sessions/{id}/pin` and
   `PUT /api/sessions/order {ids, pinnedCount}`. `PUT /api/prefs` gains `railSort`
   (`manual` default | `attention`) — SPEC §2.1's needs-input-first order is now the rail's
   *attention* mode, the pinned block leads in both. Additive; no version bump.
 
-- **2026-08-30 — §3.3/§3.9/§5.4/§5.5: per-model weekly usage** (plan `usage-model-bar`,
+- **2026-08-30 — §3.3/§3.9/§5.4/§5.5: per-model weekly usage** (plan `usage-model-bar`, <!-- kb: adr/usage-model-window-polled-from-oauth-api, adr/usage-keychain-token-read-only, adr/usage-masthead-one-selectable-model-window, fact/status-line-has-no-model-bucket -->
   Pre-v1 Cleanup). The Usage object gains `modelScoped[]` (+ `modelScopedAt`,
   `modelScopedError`, `modelScopedSource`), fed by musterd polling
   `GET https://api.anthropic.com/api/oauth/usage` with the Claude Code OAuth token read
@@ -100,7 +100,7 @@ on 2026-09-11.
   (measured 2.1.251). `PUT /api/prefs` gains `usageModel` (default `"Fable"`); new
   `POST /api/usage/refresh`. Additive; no version bump.
 
-- **2026-08-28 — §4.2/§7.3: rebinding is monotonic** (plan `m4-hook-lifetime`, review cycle 1
+- **2026-08-28 — §4.2/§7.3: rebinding is monotonic** (plan `m4-hook-lifetime`, review cycle 1 <!-- kb: adr/ingest-monotonic-rebind -->
   Critical, Option B chosen by Damian; `plans/m4-hook-lifetime/decisions/monotonic-rebind/`).
   An enveloped event naming a claude id this session has already left (a reordered
   straggler, typically the `/clear` pair's own `SessionEnd(reason:"clear")`) is routed and
@@ -111,14 +111,14 @@ on 2026-09-11.
   bystander's `claudeSessionId` unattributed in the map — pre-existing on the
   `KindResumeBind` path, not introduced here. No wire change; no version bump.
 
-- **2026-08-27 — §4/§4.1/§4.2/§7.3: all hooks are command wrappers; envelope-authoritative
+- **2026-08-27 — §4/§4.1/§4.2/§7.3: all hooks are command wrappers; envelope-authoritative <!-- kb: adr/ingest-all-hooks-command-wrappers, adr/ingest-envelope-authoritative-binding -->
   binding** (plan `m4-hook-lifetime`). Muster writes one `type:"command"` entry per event
   pointing at `<dataDir>/hook.sh`, no `type:"http"` entries and no `allowedHttpHookUrls`;
   the wrapper exits 0 silently when `$MUSTER_SESSION` is unset or the daemon is down.
   Binding may occur on any enveloped event. Wire shapes on `/ingest/*` unchanged; no
   version bump.
 
-- **2026-08-26 — m4-reconcile plan approved, delta merged.** §3.4 pane snapshot un-deferred
+- **2026-08-26 — m4-reconcile plan approved, delta merged.** §3.4 pane snapshot un-deferred <!-- kb: adr/actions-pane-snapshot-display-only, adr/lifecycle-reconcile-before-first-snapshot, adr/lifecycle-ended-rows-swept-next-start, adr/lifecycle-shutdown-leaves-sessions-running, adr/actions-remove-allowed-on-live-session -->
   (capture on every liveness tick, display only); §3.5 resume refined (reuses
   `muster-<id>`, state unchanged until the resume SessionStart, new `directory_missing`);
   new §3.7 `POST …/end` and §3.8 `DELETE /api/sessions/{id}`; §5.5 `sessionRemoved` is
@@ -127,12 +127,12 @@ on 2026-09-11.
   `source:"resume"` → `idle` row was already the contract — the code lands in `started`
   today and the plan fixes it. All additive; no version bump.
 
-- **2026-08-25 — m4-hook-quoting plan approved, doc-only delta merged.** §4.2 records that
+- **2026-08-25 — m4-hook-quoting plan approved, doc-only delta merged.** §4.2 records that <!-- kb: adr/ingest-shell-quote-at-write-boundary, fact/hook-commands-are-shell-lines -->
   `hooks[].command` / `statusLine.command` are `/bin/sh -c` command lines and that Muster
   single-quotes the wrapper-script paths it writes (recognising quoted and legacy bare
   forms on replace). No wire-shape change; no version bump.
 
-- **2026-08-20 — v1 written** (M0 kickoff). Decisions made here, beyond what SPEC/ux-flows
+- **2026-08-20 — v1 written** (M0 kickoff). Decisions made here, beyond what SPEC/ux-flows <!-- kb: adr/connection-commands-http-ws-push-only, adr/ingest-separate-token-in-url-path, adr/ingest-envelope-binds-never-cwd, adr/connection-whole-object-session-upserts, adr/lifecycle-alive-flag-not-a-state, adr/lifecycle-prompt-ordering-guards, adr/surfaces-one-live-client-per-session -->
   already fixed: commands-over-HTTP / push-only state WS; two tokens (UI cookie exchange,
   ingest URL token); single hook ingest URL with the envelope + `MUSTER_SESSION`/`TMUX_PANE`
   binding; raw events route by `session_id`, never guessed by `cwd`; whole-object
@@ -141,16 +141,16 @@ on 2026-09-11.
   identity; prompt-close guards for unordered streams; terminal-socket takeover with close
   code 4000. Open verifications noted in §4.2 (wrapper env visibility; `/clear`'s
   `SessionStart.source`).
-- **2026-08-20 — §5.1 nullability clarified** (m0-skeleton plan approval): `hello`'s
+- **2026-08-20 — §5.1 nullability clarified** (m0-skeleton plan approval): `hello`'s <!-- kb:no-decision -->
   `claudeCode.installed`/`drift` are `null` when the startup version check fails —
   rendered as *unknown*, not drift. Additive; no version bump.
-- **2026-08-20 — §4.2 verified and corrected** (interface probe, against 2.1.237 — the
+- **2026-08-20 — §4.2 verified and corrected** (interface probe, against 2.1.237 — the <!-- kb: adr/launch-settings-local-json-not-settings-json, adr/lifecycle-alive-flag-not-a-state, fact/clear-mints-new-session-id -->
   installed binary had drifted past the 2.1.233 pin). Envelope env inheritance confirmed;
   config file settled as `.claude/settings.local.json`; `/clear` observed as
   `SessionEnd(reason:"clear")` → `SessionStart(source:"clear")` with a new `session_id`,
   so §7.3 gained a `source:"clear"` fast path and exempted `reason:"clear"` from the
   death-hint rule.
-- **2026-08-22 — m1-sessions plan approved, delta merged.** New `GET /api/browse` (§3.6)
+- **2026-08-22 — m1-sessions plan approved, delta merged.** New `GET /api/browse` (§3.6) <!-- kb: adr/launch-browse-via-daemon-not-native-chooser, adr/launch-model-presets-passed-verbatim, adr/launch-hybrid-mru-directory-memory -->
   replaces §3.2's "native chooser" note (wrong: browsers never reveal a picked folder's
   absolute path). `GET /api/repos` elements gain nullable `lastModel`/
   `lastPermissionMode` (per-directory launch defaults). `POST /api/sessions` error
@@ -160,7 +160,7 @@ on 2026-09-11.
   §7.3's status-line row is scoped to M3 (M1 persists and routes status posts, mutates
   nothing); §8's M1 row gains `/api/browse`, M3 gains the title/model refresh. All
   additive; no version bump.
-- **2026-08-23 — m2-terminal plan approved, delta merged.** §6 refined: upgrade auth +
+- **2026-08-23 — m2-terminal plan approved, delta merged.** §6 refined: upgrade auth + <!-- kb: adr/surfaces-one-tmux-session-per-session, adr/surfaces-one-live-client-per-session, adr/actions-pane-snapshot-display-only -->
   pre-upgrade errors (401/404/409 `not_attachable`), resize clamps and the
   initial-resize rule, close codes `4000 superseded` / `4001 pane_ended` (EOF also
   nudges liveness), no server→client text frames. §3.3 `PUT /api/prefs` gains `density`
@@ -170,7 +170,7 @@ on 2026-09-11.
   tmuxTarget format `muster-<id>:@<n>` — one tmux session per Muster session, because
   concurrent live tiles each need their own attach client. All additive; no version
   bump.
-- **2026-08-23 — m3-gauges plan approved, delta merged.** §5.4 Usage gains nullable
+- **2026-08-23 — m3-gauges plan approved, delta merged.** §5.4 Usage gains nullable <!-- kb: adr/usage-sample-dedup-by-value, adr/usage-no-hydration-across-restart, adr/usage-masthead-model-from-freshest-sample, adr/rename-title-from-status-line-session-name -->
   `model` (freshest sample's; masthead readout) and precise semantics: record/broadcast
   only on bucket-value or model change (collapses the ~435 ms pair posts), no hydration
   across daemon restart (buckets null until the next post), samples only from routed
@@ -179,7 +179,7 @@ on 2026-09-11.
   used-percentage is non-null, all-or-nothing, reset by `/clear`; status posts mutate
   nothing state-owned — INV-1). §7.3's status-line row resolved accordingly. All
   additive; no version bump.
-- **2026-08-22 — §3.6 gains the browse root** (M1 review follow-up, user-approved):
+- **2026-08-22 — §3.6 gains the browse root** (M1 review follow-up, user-approved): <!-- kb: adr/launch-browse-via-daemon-not-native-chooser -->
   `musterd -browse-root` (empty = the user's home directory) is `GET /api/browse`'s
   no-param default and the "Up" ceiling (`parent` null there); explicit absolute paths
   outside it remain browsable. Motivation: the E2E harness had to create scratch
