@@ -1,7 +1,8 @@
 // Generalised drag-to-reorder wiring (plan order-sidebar, generalising plan move-tiles'
 // tiledrag.ts). DOM-only: maps pointer/DnD events to session ids and calls back into the
-// caller (main.ts), which owns the reorder math (sessions/live.ts's `moveTile` for the
-// Tiles grid, sessions/railorder.ts's `moveCard` for the rail) — this module has no
+// caller (features/tiles.ts for the Tiles grid, features/rail.ts for the rail), which owns
+// the reorder math (sessions/live.ts's `moveTile` for the Tiles grid, sessions/railorder.ts's
+// `moveCard` for the rail respectively) — this module has no
 // Session or store knowledge at all (W11), exactly like tiledrag.ts's original
 // separation of chrome-DOM from view-model.
 //

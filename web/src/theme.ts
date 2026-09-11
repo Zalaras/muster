@@ -62,7 +62,7 @@ export function readThemeHint(storage: Pick<Storage, "getItem"> = localStorage):
   return { theme, family };
 }
 
-/** REQ-11/REQ-12: `main.ts` rewrites this every time it applies a theme or family.
+/** REQ-11/REQ-12: `features/theme.ts` rewrites this every time it applies a theme or family.
  * Swallows a throwing storage — the hint is a best-effort first-paint optimisation,
  * never a hard dependency of the render path that calls this. */
 export function writeThemeHint(hint: ThemeHint, storage: Pick<Storage, "setItem"> = localStorage): void {

@@ -8,6 +8,18 @@ import (
 	"github.com/coder/websocket/wsjson"
 )
 
+// ClaudeCodeInfo is the daemon's startup snapshot of the installed Claude Code against
+// the canary-verified range, used to build the WS `hello` message (docs/protocol.md
+// §5.1) and the issue-capture snapshot. Installed is nil iff Status is "unknown" (the
+// startup version check failed, hung past its timeout, or was unparseable); Floor/Verified
+// are always populated.
+type ClaudeCodeInfo struct {
+	Installed *string
+	Floor     string
+	Verified  string
+	Status    string
+}
+
 // helloMessage is the WS `hello` (docs/protocol.md §5.1, protocol 2). ClaudeCode.Installed
 // is null iff Status is "unknown" — the client renders that as "Claude installation
 // unknown".

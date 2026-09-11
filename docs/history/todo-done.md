@@ -415,6 +415,33 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
 
 ## Pre-v1 Cleanup
 
+- [x] **Dismantle the two composition-root hotspots so plans can run in parallel** — one plan,
+  `full-stack`, via `/orchestrate` (Damian, 2026-09-11: single plan for both sides, files not
+  sub-packages for now). Scaling check 2026-09-11: `web/src/main.ts` is 1,425 lines and has been
+  edited by 21 commits (40 element lookups, ~20 module-level `let` state variables, every
+  feature's event wiring); `internal/server` is already 45 files but every feature adds a field
+  to the 25-field `Server` struct, a twin field in `Config`, and a line in `routes()`, so any two
+  plans collide on the same three files. The cause is structural: plans list "`main.ts` — wire X"
+  under Affected Files, agents comply, and review judges against the plan, so nothing pushed back.
+  Scope: (1) `main.ts` and `server.go` become composition roots only — build dependencies, call
+  each feature's init/mount, a couple of hundred lines each. (2) Web: one controller module per
+  feature with an `init(deps)` entry, following the shape `render/launch.ts` (`initLaunchModal`),
+  `render/settings.ts` and `render/issue.ts` already use; the loose features (usage block, rail
+  sort/count, views + density, theme, update banner, connection status, shortcuts) move into
+  controllers, and their module-level state moves with them or into `SessionStore`. (3) Go: each
+  feature owns a small handler type with its own dependencies and a `Mount(mux, …)` (or
+  equivalent); `Server` keeps mux, auth, hub, lifecycle. Feature files stay inside
+  `internal/server` — the coupling to remove is the struct, not the directory. (4) E2E: one spec
+  file per feature named for the same seam as its web controller, helpers in
+  `web/e2e/helpers/<feature>.ts`; split the grab-bags `actions.spec.ts` (1,653 lines, 23 tests)
+  and `views.spec.ts` when the plan touches them. (5) Rules so it does not regrow:
+  `docs/conventions.md` names the two composition roots and the exemplar files ("a new feature
+  is a new module with an init, registered in one line in `main.ts`"); `plan-work` may list a
+  composition root under Affected Files only for a one-line registration; `review-work` flags
+  logic landing in a composition root. Behaviour is unchanged throughout — the full E2E suite is
+  the oracle, no new specs beyond the split.
+  ✅ done 2026-09-11 (plan `code-breakup`, via `/orchestrate`; approved review cycle 2): `web/src/main.ts` 1,425 → 127 lines, `internal/server/server.go` 564 → 300; 15 web controllers under `web/src/features/`, 12 Go feature types with `mount`; `actions.spec.ts`/`views.spec.ts` split into `tiles.spec.ts`/`rail-cards.spec.ts` (299 `test(` calls unchanged, 302/302 green); rule in `docs/conventions.md` § Composition roots.
+
 - [x] Change how the left sidebar works. Sessions should be pinned in the order they are opened but allow the user to update the order by dragging and also allow "pinnng" (using pin icon) sessions (automatically go to the top in order of pinned). — **Done 2026-08-30 (plan `order-sidebar`)**: daemon-owned `pinned`/`railPos`, whole-card drag (insert-and-shift), pin control, rail-head Manual/Attention toggle (`prefs.railSort`, default manual), strip follows the rail order. Follow-ups from the review (`plans/order-sidebar/review.md`): (1) decision `cmd-n-ordering` dissent — ⌘1–9 now follows the rail, so there is no keyboard path to "jump to the neediest session"; consider a dedicated shortcut. **Done 2026-09-04 (plan `shortcut-fixes`): ⌥⌘0 jumps to the neediest session, ignoring the rail's sort mode and the pinned block; decision `cmd-n-ordering` Option A stands unchanged. Dissent discharged.** (2) ~~Minor `[daemon-impl]`: `maxRailPosLocked`'s doc comment says "returns 1 + the largest" but the function returns the largest or `-1`.~~ **Fixed 2026-09-06 (plan `v1-cleanup`, REQ-10).** (3) ~~Minor `[daemon-impl]`: `handlePinSession`/`handleSetOrder` put `err.Error()` in the 500 body where every other handler in the package sends a fixed string.~~ **Fixed 2026-09-06 (plan `v1-cleanup`, REQ-8).** (4) ~~Minor `[web-impl]` (review cycle 2): `focusNth`'s doc comment says "the same order the rail/strip currently display" but the strip renders that order minus live tiles, so in Tiles ⌘3 is not the strip's third card — comment accuracy only.~~ **Fixed 2026-09-04 in passing by plan `shortcut-fixes`** (`web/src/main.ts:414-419`). (5) ~~`[note]`: the pinned-block separator (`.pinned-last`, `#343a4a` 1px) reads weakly against ordinary dividers — as REQ-9 specified, but worth a look.~~ **Addressed 2026-09-06 (plan `v1-cleanup`, REQ-15)**: `.card.pinned-last` moves from `--line-control` to `--edge`, the token whose documented role is boundaries at ≥ 3:1. Thickness stays 1px.
 
 - [x] User should be able to move the grids around in the grid view so they can order them as they please. This would be done by dragging the title bar. I'm also wondering if we want status icons (dot - green, orange/yellow and red) in the title to quickly show if running, idle or error. — **Done 2026-08-29 (plan `move-tiles`)**: header drag, insert-and-shift, grid never auto-sorts. The status dot was already shipped (state-coloured per design-system §3); the green/orange/red palette was deliberately not adopted (§3 forbids reusing state colours), a hover `title` with the state word was added instead. Deferred: keyboard reorder, persisting order across reloads.

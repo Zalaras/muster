@@ -21,6 +21,38 @@ import (
 	"github.com/Zalaras/muster/internal/store"
 )
 
+// paneSpawner is the tmux operations internal/server's own code (sessionLauncher,
+// shellRegistry) makes directly — session creation and teardown. *tmux.Client satisfies
+// it without knowing.
+type paneSpawner interface {
+	NewSession(ctx context.Context, id int64, dir string, env map[string]string, command []string) (target, pane string, err error)
+	NewNamedSession(ctx context.Context, name, dir string, env map[string]string, command []string) (target, pane string, err error)
+	PaneExists(ctx context.Context, target string) (bool, error)
+	KillWindow(ctx context.Context, target string) error
+	KillSession(ctx context.Context, name string) error
+}
+
+// LaunchConfig groups the launch path's config (plan code-breakup REQ-7): the claude
+// binary, the generated wrapper script paths, and the folder browser's root — every
+// field sessionLauncher/browseFeature need, declared here since sessions.go is the
+// launch feature's home file.
+type LaunchConfig struct {
+	// ClaudeBin is the `claude` binary to spawn (default "claude").
+	ClaudeBin string
+	// HookScript/StatusLineScript are the absolute paths to the generated command-hook
+	// wrapper scripts (internal/claudecode.WriteWrapperScripts) — every event, including
+	// SessionStart, is registered against HookScript.
+	HookScript       string
+	StatusLineScript string
+	// LegacyScripts lists prior wrapper paths MergeSettings must still recognise and
+	// drop from an already-instrumented directory.
+	LegacyScripts []string
+	// BrowseRoot is the folder browser's root (protocol §3.6): GET /api/browse's
+	// no-param default and the "Up" ceiling. Empty means the daemon user's home
+	// directory.
+	BrowseRoot string
+}
+
 // createSessionRequest is POST /api/sessions' request body (docs/protocol.md §3.1).
 type createSessionRequest struct {
 	Directory      string `json:"directory"`
@@ -63,8 +95,8 @@ func directoryMissing(message string) *launchError {
 	return &launchError{status: http.StatusConflict, code: "directory_missing", message: message}
 }
 
-// sessionLauncher composes store+tmux+claudecode+session.Manager to perform one launch
-// (plan Implementation Notes: "Launch sequence"). Handlers only decode/delegate/encode.
+// sessionLauncher composes store+tmux+claudecode+session.Manager to perform one launch.
+// Handlers only decode/delegate/encode.
 type sessionLauncher struct {
 	store   *store.Store
 	manager *session.Manager
@@ -79,7 +111,7 @@ type sessionLauncher struct {
 	hookScript       string
 	statusLineScript string
 	// legacyScripts lists prior wrapper paths MergeSettings must still recognise and
-	// drop from an already-instrumented directory (REQ-3/REQ-4).
+	// drop from an already-instrumented directory.
 	legacyScripts []string
 }
 
@@ -155,8 +187,8 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 	})
 	env := map[string]string{
 		"MUSTER_SESSION": strconv.FormatInt(sess.ID, 10),
-		// A Go-daemon child inherits no LANG/LC_ALL of its own (REQ-20) — cheap to set
-		// now; the failure otherwise presents as a broken terminal bridge in M2.
+		// A Go-daemon child inherits no LANG/LC_ALL of its own — cheap to set now; the
+		// failure otherwise presents as a broken terminal bridge in M2.
 		"LANG":   "en_US.UTF-8",
 		"LC_ALL": "en_US.UTF-8",
 	}
@@ -174,7 +206,7 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 		l.rollback(ctx, sess.ID)
 		// The tmux window was already spawned; without this the pane keeps running
 		// with no session row and no broadcast behind it — an invisible session the
-		// user can't see or reach (review Major 10).
+		// user can't see or reach.
 		if killErr := l.tmux.KillWindow(ctx, target); killErr != nil {
 			l.log.Error().Err(killErr).Str("tmux_target", target).Msg("failed to kill tmux window after RecordLaunch failure")
 		}
@@ -183,10 +215,9 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 	return final, nil
 }
 
-// rollback deletes a session row inserted earlier in Launch once a later step failed
-// (plan Implementation Notes: "on spawn failure: delete the row"). ctx is always
-// context.WithoutCancel of the request's context (review Minor 2): a client that
-// navigates away mid-launch must not also cancel the cleanup write.
+// rollback deletes a session row inserted earlier in Launch once a later step failed.
+// ctx is always context.WithoutCancel of the request's context: a client that navigates
+// away mid-launch must not also cancel the cleanup write.
 func (l *sessionLauncher) rollback(ctx context.Context, id int64) {
 	if err := l.manager.DeleteSession(ctx, id); err != nil {
 		l.log.Error().Err(err).Int64("session_id", id).Msg("failed to roll back session after launch failure")
@@ -197,7 +228,7 @@ func (l *sessionLauncher) rollback(ctx context.Context, id int64) {
 // settings, spawns `claude --resume <claudeSessionId>` in a fresh muster-<id> tmux
 // session (the dead one's name is free again after End/reconcile), and records the new
 // pane. state is left untouched — it becomes idle only once the enveloped
-// SessionStart(source:"resume") arrives (REQ-8).
+// SessionStart(source:"resume") arrives.
 func (l *sessionLauncher) Resume(ctx context.Context, id int64) (*session.Session, *launchError) {
 	sess, ok := l.manager.Get(id)
 	if !ok {
@@ -225,10 +256,8 @@ func (l *sessionLauncher) Resume(ctx context.Context, id int64) (*session.Sessio
 	})
 	env := map[string]string{
 		"MUSTER_SESSION": strconv.FormatInt(id, 10),
-		// Same rationale as Launch's own env (REQ-20): a Go-daemon child inherits no
-		// LANG/LC_ALL of its own.
-		"LANG":   "en_US.UTF-8",
-		"LC_ALL": "en_US.UTF-8",
+		"LANG":           "en_US.UTF-8",
+		"LC_ALL":         "en_US.UTF-8",
 	}
 	for k, v := range claudecode.LaunchEnv() {
 		env[k] = v
@@ -249,8 +278,8 @@ func (l *sessionLauncher) Resume(ctx context.Context, id int64) (*session.Sessio
 }
 
 // writeSettings ensures dir/.claude/settings.local.json registers Muster's hooks,
-// status-line and allowed-URL config (REQ-4). A corrupt existing file refuses the
-// launch by name (docs/protocol.md §3.1 / Edge Case 9) rather than guessing.
+// status-line and allowed-URL config. A corrupt existing file refuses the launch by name
+// (docs/protocol.md §3.1) rather than guessing.
 func (l *sessionLauncher) writeSettings(dir string) error {
 	path := filepath.Join(dir, ".claude", "settings.local.json")
 
@@ -279,8 +308,38 @@ func (l *sessionLauncher) writeSettings(dir string) error {
 	return nil
 }
 
+// sessionsFeature owns the session lifecycle endpoints: create, end, resume, remove,
+// pin, order, title and pane-snapshot (plan code-breakup REQ-6). shells/terminals are
+// the shared collaborators shellFeature/terminalFeature also hold — sessions needs them
+// only for End/Remove's socket-close and Remove's shell-kill side effects.
+type sessionsFeature struct {
+	manager   *session.Manager
+	launcher  *sessionLauncher
+	shells    *shellRegistry
+	terminals *terminalRegistry
+	log       zerolog.Logger
+}
+
+func newSessionsFeature(manager *session.Manager, launcher *sessionLauncher, shells *shellRegistry, terminals *terminalRegistry, log zerolog.Logger) *sessionsFeature {
+	return &sessionsFeature{manager: manager, launcher: launcher, shells: shells, terminals: terminals, log: log}
+}
+
+func (f *sessionsFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.Handler) {
+	mux.Handle("POST /api/sessions", guard(http.HandlerFunc(f.handleCreateSession)))
+	mux.Handle("GET /api/sessions/{id}/pane", guard(http.HandlerFunc(f.handlePaneSnapshot)))
+	mux.Handle("POST /api/sessions/{id}/end", guard(http.HandlerFunc(f.handleEndSession)))
+	mux.Handle("POST /api/sessions/{id}/resume", guard(http.HandlerFunc(f.handleResumeSession)))
+	mux.Handle("DELETE /api/sessions/{id}", guard(http.HandlerFunc(f.handleRemoveSession)))
+	// Registered ahead of PUT /api/sessions/{id}/pin: Go's Go 1.22 mux prefers a literal
+	// segment over a wildcard, so "order" is never parsed as {id} regardless of
+	// registration order, but the literal route is listed first here to read that way too.
+	mux.Handle("PUT /api/sessions/order", guard(http.HandlerFunc(f.handleSetOrder)))
+	mux.Handle("PUT /api/sessions/{id}/pin", guard(http.HandlerFunc(f.handlePinSession)))
+	mux.Handle("PUT /api/sessions/{id}/title", guard(http.HandlerFunc(f.handleSetTitle)))
+}
+
 // handleCreateSession is POST /api/sessions (REQ-1 through REQ-6, REQ-14, REQ-19..21).
-func (s *Server) handleCreateSession(w http.ResponseWriter, r *http.Request) {
+func (f *sessionsFeature) handleCreateSession(w http.ResponseWriter, r *http.Request) {
 	var req createSessionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid_request", "invalid JSON body")
@@ -290,8 +349,8 @@ func (s *Server) handleCreateSession(w http.ResponseWriter, r *http.Request) {
 	// context.WithoutCancel: a client that navigates away mid-launch must not cancel
 	// the tmux spawn or the rollback's own DB write — the launch has already committed
 	// side effects (a repo/session row, possibly a spawned pane) that must run to a
-	// consistent conclusion regardless of the HTTP request's lifetime (review Minor 2).
-	sess, lerr := s.launcher.Launch(context.WithoutCancel(r.Context()), req)
+	// consistent conclusion regardless of the HTTP request's lifetime.
+	sess, lerr := f.launcher.Launch(context.WithoutCancel(r.Context()), req)
 	if lerr != nil {
 		writeJSONError(w, lerr.status, lerr.code, lerr.message)
 		return
@@ -300,43 +359,6 @@ func (s *Server) handleCreateSession(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(toWireSession(sess))
-}
-
-// createShellResponse is POST /api/sessions/{id}/shell's response body (docs/protocol.md
-// §3.16, plan plain-terminal-session).
-type createShellResponse struct {
-	Target  string `json:"target"`
-	Created bool   `json:"created"`
-}
-
-// handleCreateShell is POST /api/sessions/{id}/shell (plan plain-terminal-session REQ-1,
-// docs/protocol.md §3.16). Deliberately not gated on alive (REQ-7) — a shell may be
-// started on a dead session and never consults the manager's liveness field.
-func (s *Server) handleCreateShell(w http.ResponseWriter, r *http.Request) {
-	id, ok := parseSessionID(w, r)
-	if !ok {
-		return
-	}
-	sess, exists := s.manager.Get(id)
-	if !exists {
-		writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
-		return
-	}
-	if info, err := os.Stat(sess.Directory); err != nil || !info.IsDir() {
-		writeJSONError(w, http.StatusConflict, "directory_missing", fmt.Sprintf("%s no longer exists", sess.Directory))
-		return
-	}
-
-	target, created, err := s.shells.Ensure(context.WithoutCancel(r.Context()), id, sess.Directory)
-	if err != nil {
-		s.log.Error().Err(err).Int64("session_id", id).Msg("spawning shell failed")
-		writeJSONError(w, http.StatusInternalServerError, "shell_spawn_failed", err.Error())
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(createShellResponse{Target: target, Created: created})
 }
 
 // parseSessionID reads the {id} path value, writing a 404 unknown_session itself on a
@@ -353,16 +375,16 @@ func parseSessionID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 
 // handleEndSession is POST /api/sessions/{id}/end (REQ-5, docs/protocol.md §3.7). Any
 // open terminal socket for id is closed (4001) before the kill, so the UI's dead-surface
-// overlay arrives ahead of the alive:false broadcast (Implementation Notes).
-func (s *Server) handleEndSession(w http.ResponseWriter, r *http.Request) {
+// overlay arrives ahead of the alive:false broadcast.
+func (f *sessionsFeature) handleEndSession(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
 	if !ok {
 		return
 	}
 
-	s.terminals.closeSession(id)
+	f.terminals.closeSession(id)
 
-	sess, endErr := s.manager.End(context.WithoutCancel(r.Context()), id)
+	sess, endErr := f.manager.End(context.WithoutCancel(r.Context()), id)
 	if endErr != nil {
 		switch {
 		case errors.Is(endErr, session.ErrUnknownSession):
@@ -370,7 +392,7 @@ func (s *Server) handleEndSession(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(endErr, session.ErrSessionNotAlive):
 			writeJSONError(w, http.StatusConflict, "not_alive", "session is already ended")
 		default:
-			s.log.Error().Err(endErr).Int64("session_id", id).Msg("ending session failed")
+			f.log.Error().Err(endErr).Int64("session_id", id).Msg("ending session failed")
 			writeJSONError(w, http.StatusInternalServerError, "end_failed", endErr.Error())
 		}
 		return
@@ -384,7 +406,7 @@ func (s *Server) handleEndSession(w http.ResponseWriter, r *http.Request) {
 // handleRemoveSession is DELETE /api/sessions/{id} (REQ-6, docs/protocol.md §3.8). Since
 // plain-terminal-session (§3.16/REQ-9) this also kills the session's shell tmux session,
 // unlike End which deliberately leaves a shell running.
-func (s *Server) handleRemoveSession(w http.ResponseWriter, r *http.Request) {
+func (f *sessionsFeature) handleRemoveSession(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
 	if !ok {
 		return
@@ -393,15 +415,15 @@ func (s *Server) handleRemoveSession(w http.ResponseWriter, r *http.Request) {
 	// If id is alive, Remove runs the End path first — close any terminal socket ahead
 	// of that too (same rationale as handleEndSession). Close and kill the shell surface
 	// too (REQ-9): Remove is the only path that touches a session's shell tmux session.
-	s.terminals.closeSessionAndShell(id)
-	s.shells.Kill(context.WithoutCancel(r.Context()), id)
+	f.terminals.closeSessionAndShell(id)
+	f.shells.Kill(context.WithoutCancel(r.Context()), id)
 
-	if remErr := s.manager.Remove(context.WithoutCancel(r.Context()), id); remErr != nil {
+	if remErr := f.manager.Remove(context.WithoutCancel(r.Context()), id); remErr != nil {
 		switch {
 		case errors.Is(remErr, session.ErrUnknownSession):
 			writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
 		default:
-			s.log.Error().Err(remErr).Int64("session_id", id).Msg("removing session failed")
+			f.log.Error().Err(remErr).Int64("session_id", id).Msg("removing session failed")
 			writeJSONError(w, http.StatusInternalServerError, "end_failed", remErr.Error())
 		}
 		return
@@ -411,13 +433,13 @@ func (s *Server) handleRemoveSession(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleResumeSession is POST /api/sessions/{id}/resume (REQ-7, docs/protocol.md §3.5).
-func (s *Server) handleResumeSession(w http.ResponseWriter, r *http.Request) {
+func (f *sessionsFeature) handleResumeSession(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
 	if !ok {
 		return
 	}
 
-	sess, lerr := s.launcher.Resume(context.WithoutCancel(r.Context()), id)
+	sess, lerr := f.launcher.Resume(context.WithoutCancel(r.Context()), id)
 	if lerr != nil {
 		writeJSONError(w, lerr.status, lerr.code, lerr.message)
 		return
@@ -428,18 +450,18 @@ func (s *Server) handleResumeSession(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(toWireSession(sess))
 }
 
-// handlePaneSnapshot is GET /api/sessions/{id}/pane (REQ-4, docs/protocol.md §3.4 —
-// closes the M2 deferral). Served for live sessions too; the UI only asks for dead ones.
-func (s *Server) handlePaneSnapshot(w http.ResponseWriter, r *http.Request) {
+// handlePaneSnapshot is GET /api/sessions/{id}/pane (REQ-4, docs/protocol.md §3.4).
+// Served for live sessions too; the UI only asks for dead ones.
+func (f *sessionsFeature) handlePaneSnapshot(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
 	if !ok {
 		return
 	}
-	if !s.manager.Exists(id) {
+	if !f.manager.Exists(id) {
 		writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
 		return
 	}
-	text, at, ok := s.manager.Snapshot(id)
+	text, at, ok := f.manager.Snapshot(id)
 	if !ok {
 		writeJSONError(w, http.StatusNotFound, "no_snapshot", "no pane capture yet for this session")
 		return
@@ -456,7 +478,7 @@ type pinSessionRequest struct {
 }
 
 // handlePinSession is PUT /api/sessions/{id}/pin (plan order-sidebar REQ-3).
-func (s *Server) handlePinSession(w http.ResponseWriter, r *http.Request) {
+func (f *sessionsFeature) handlePinSession(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
 	if !ok {
 		return
@@ -468,12 +490,12 @@ func (s *Server) handlePinSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.manager.SetPinned(context.WithoutCancel(r.Context()), id, *req.Pinned); err != nil {
+	if err := f.manager.SetPinned(context.WithoutCancel(r.Context()), id, *req.Pinned); err != nil {
 		switch {
 		case errors.Is(err, session.ErrUnknownSession):
 			writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
 		default:
-			s.log.Error().Err(err).Int64("session_id", id).Msg("pinning session failed")
+			f.log.Error().Err(err).Int64("session_id", id).Msg("pinning session failed")
 			writeJSONError(w, http.StatusInternalServerError, "internal_error", "pinning session")
 		}
 		return
@@ -488,22 +510,20 @@ type setOrderRequest struct {
 	PinnedCount *int    `json:"pinnedCount"`
 }
 
-// handleSetOrder is PUT /api/sessions/order (plan order-sidebar REQ-4). Registered
-// ahead of the /api/sessions/{id}/... wildcard routes so Go's mux (a literal segment
-// beats a wildcard) never parses "order" as a session id.
-func (s *Server) handleSetOrder(w http.ResponseWriter, r *http.Request) {
+// handleSetOrder is PUT /api/sessions/order (plan order-sidebar REQ-4).
+func (f *sessionsFeature) handleSetOrder(w http.ResponseWriter, r *http.Request) {
 	var req setOrderRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.IDs == nil || req.PinnedCount == nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid_request", "ids and pinnedCount are required")
 		return
 	}
 
-	if err := s.manager.SetOrder(context.WithoutCancel(r.Context()), req.IDs, *req.PinnedCount); err != nil {
+	if err := f.manager.SetOrder(context.WithoutCancel(r.Context()), req.IDs, *req.PinnedCount); err != nil {
 		switch {
 		case errors.Is(err, session.ErrInvalidOrder):
 			writeJSONError(w, http.StatusBadRequest, "invalid_request", "ids must be a duplicate-free list of known session ids, and pinnedCount must be in [0, len(ids)]")
 		default:
-			s.log.Error().Err(err).Msg("setting rail order failed")
+			f.log.Error().Err(err).Msg("setting rail order failed")
 			writeJSONError(w, http.StatusInternalServerError, "internal_error", "setting rail order")
 		}
 		return
@@ -530,7 +550,7 @@ const invalidTitleMessage = "title must be null or 1-100 characters after trimmi
 
 // handleSetTitle is PUT /api/sessions/{id}/title (plan ui-text-and-focus REQ-10,
 // docs/protocol.md §3.15).
-func (s *Server) handleSetTitle(w http.ResponseWriter, r *http.Request) {
+func (f *sessionsFeature) handleSetTitle(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
 	if !ok {
 		return
@@ -566,12 +586,12 @@ func (s *Server) handleSetTitle(w http.ResponseWriter, r *http.Request) {
 		title = &trimmed
 	}
 
-	if _, err := s.manager.SetTitle(context.WithoutCancel(r.Context()), id, title); err != nil {
+	if _, err := f.manager.SetTitle(context.WithoutCancel(r.Context()), id, title); err != nil {
 		switch {
 		case errors.Is(err, session.ErrUnknownSession):
 			writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
 		default:
-			s.log.Error().Err(err).Int64("session_id", id).Msg("setting session title failed")
+			f.log.Error().Err(err).Int64("session_id", id).Msg("setting session title failed")
 			writeJSONError(w, http.StatusInternalServerError, "internal_error", err.Error())
 		}
 		return

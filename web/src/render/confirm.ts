@@ -1,8 +1,8 @@
 // REQ-14 (plan m4-reconcile): the End/Remove confirm dialogs — two `<dialog>` elements
-// modelled on render/launch.ts's `#launch-dialog` (same `showModal()`/`close()` pattern,
+// modelled on features/launch.ts's `#launch-dialog` (same `showModal()`/`close()` pattern,
 // same reliance on the browser's native Escape-cancels-a-modal-dialog behaviour, which
 // needs no code here to satisfy). DOM + wiring only: the actual End/Remove HTTP calls are
-// main.ts's dispatcher's job (it owns the session store and decides what happens next).
+// features/actions.ts's dispatcher's job (it owns the session store and decides what happens next).
 import type { Session } from "../protocol";
 import { buildCardViewModel } from "../sessions/card";
 

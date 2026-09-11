@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/Zalaras/muster/internal/locate"
+	"github.com/Zalaras/muster/internal/session"
 )
 
 // maxLocateUploadBytes bounds POST /api/sessions/{id}/locate's body (docs/protocol.md
@@ -22,18 +23,34 @@ type locateResponse struct {
 	Path string `json:"path"`
 }
 
+// locateFeature owns POST /api/sessions/{id}/locate (plan code-breakup REQ-6). locator
+// is nilable: a misconfigured server (Config.Locator left nil) answers 500 rather than
+// nil-dereferencing (REQ-6/D6).
+type locateFeature struct {
+	manager *session.Manager
+	locator *locate.Locator
+}
+
+func newLocateFeature(manager *session.Manager, locator *locate.Locator) *locateFeature {
+	return &locateFeature{manager: manager, locator: locator}
+}
+
+func (f *locateFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.Handler) {
+	mux.Handle("POST /api/sessions/{id}/locate", guard(http.HandlerFunc(f.handleLocateFile)))
+}
+
 // handleLocateFile is POST /api/sessions/{id}/locate (plan file-drop-fix, docs/protocol.md
 // §3.14). It decodes the single multipart file part directly off the wire — never via
 // ParseMultipartForm's memory/temp-file split — so the upload can never touch disk
 // (INV-2), delegates to the Locator, and maps its outcome to the Protocol Contract's
 // error codes. Business logic (candidate discovery, byte comparison) lives entirely in
 // internal/locate; this handler only decodes, delegates and encodes.
-func (s *Server) handleLocateFile(w http.ResponseWriter, r *http.Request) {
+func (f *locateFeature) handleLocateFile(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
 	if !ok {
 		return
 	}
-	sess, ok := s.manager.Get(id)
+	sess, ok := f.manager.Get(id)
 	if !ok {
 		writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
 		return
@@ -67,12 +84,12 @@ func (s *Server) handleLocateFile(w http.ResponseWriter, r *http.Request) {
 	// nil-dereferencing here. Placed after readFilePart succeeds so it guards only the
 	// call it exists to protect — every 400/413 body-validation branch above must stay
 	// reachable and unaffected regardless of whether a Locator is configured.
-	if s.locator == nil {
+	if f.locator == nil {
 		writeJSONError(w, http.StatusInternalServerError, "internal_error", "locating file")
 		return
 	}
 
-	path, err := s.locator.Locate(r.Context(), sess.Directory, name, upload)
+	path, err := f.locator.Locate(r.Context(), sess.Directory, name, upload)
 	if err != nil {
 		var ambiguous *locate.ErrAmbiguous
 		switch {

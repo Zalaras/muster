@@ -1,7 +1,7 @@
 // The Issue dialog (plan issue-capture; docs/protocol.md §3.12/§3.13). DOM + wiring
-// only — every daemon call goes through ../api.ts. main.ts owns the masthead trigger
-// button (`#issue-button`, disabled on daemon-down like every other masthead control)
-// and calls `open()` with the rail's own session order and `focusedId`; this module
+// only — every daemon call goes through ../api.ts. `initIssue` below owns the masthead
+// trigger button (`#issue-button`, disabled on daemon-down like every other masthead
+// control) and calls `open()` with the rail's own session order and `focusedId`; this module
 // never reads the session store itself, so the frozen-option-list rule (REQ-2) holds by
 // construction — there is nothing here to re-read after the dialog opens.
 //
@@ -11,6 +11,9 @@
 // key out of `snapshot`. That is what makes the daemon the only place allowlisted data
 // becomes text (plan Implementation Notes).
 import { captureIssueSnapshot, fileIssue, type ApiErrorBody, type IssueCapture } from "../api";
+import type { App } from "../app";
+import { requireElement } from "../dom";
+import { orderRail } from "../sessions/sort";
 import type { Session } from "../protocol";
 
 export interface IssueDialogElements {
@@ -87,7 +90,7 @@ export function renderIssueButton(el: HTMLButtonElement, connected: boolean): vo
 export function initIssueDialog(elements: IssueDialogElements): IssueDialogController {
   // The one held capture (or its absence) this open/selection is showing. `requestId`
   // guards a session-select change (or a fresh open) racing a still-in-flight capture
-  // fetch — mirrors render/launch.ts's `browseRequestId`.
+  // fetch — mirrors features/launch.ts's `browseRequestId`.
   let capture: IssueCapture | null = null;
   let captureFailed = false;
   let captureRequestId = 0;
@@ -140,7 +143,7 @@ export function initIssueDialog(elements: IssueDialogElements): IssueDialogContr
 
     const result = await captureIssueSnapshot(sessionId);
     // A newer navigation (session-select change, or the dialog being reopened) landed
-    // first — drop this stale response (render/launch.ts's `navigate` guard, same shape).
+    // first — drop this stale response (features/launch.ts's `navigate` guard, same shape).
     if (requestId !== captureRequestId) return;
 
     if (result.ok) {
@@ -253,4 +256,40 @@ export function initIssueDialog(elements: IssueDialogElements): IssueDialogContr
       if (elements.dialog.open) elements.dialog.close();
     },
   };
+}
+
+/** REQ-2's controller entry: the masthead's Issue button + `#issue-dialog`. The frozen
+ * session list (REQ-2) is the rail's own current order plus `focusedId`, computed here at
+ * click time from `app.store`/`app.state` — this module owns no session-store access of
+ * its own. */
+export function initIssue(app: App): void {
+  const issueButtonEl = requireElement<HTMLButtonElement>("#issue-button");
+  const elements: IssueDialogElements = {
+    dialog: requireElement<HTMLDialogElement>("#issue-dialog"),
+    form: requireElement<HTMLFormElement>("#issue-form"),
+    sessionSelect: requireElement<HTMLSelectElement>("#issue-session-select"),
+    titleInput: requireElement<HTMLInputElement>("#issue-title-input"),
+    noteTextarea: requireElement<HTMLTextAreaElement>("#issue-note-input"),
+    bodyEl: requireElement<HTMLElement>("#issue-body"),
+    previewEl: requireElement<HTMLElement>("#issue-preview"),
+    captureTimeEl: requireElement<HTMLElement>("#issue-captured-at"),
+    successEl: requireElement<HTMLElement>("#issue-success"),
+    successLinkEl: requireElement<HTMLAnchorElement>("#issue-success-link"),
+    errorEl: requireElement<HTMLElement>("#issue-error"),
+    errorDetailEl: requireElement<HTMLElement>("#issue-error-detail"),
+    cancelBtn: requireElement<HTMLButtonElement>("#issue-cancel-button"),
+    submitBtn: requireElement<HTMLButtonElement>("#issue-submit-button"),
+    closeBtn: requireElement<HTMLButtonElement>("#issue-close-button"),
+  };
+  const dialog = initIssueDialog(elements);
+
+  issueButtonEl.addEventListener("click", () => {
+    dialog.open(orderRail(app.store.values(), app.state.railSort), app.state.focusedId);
+  });
+
+  // States: "Daemon down ... an open #issue-dialog closes."
+  app.on("status", () => dialog.closeAll());
+
+  // Render phase 4 (UI Specifications > Render phase order).
+  app.onRender((frame) => renderIssueButton(issueButtonEl, frame.connected));
 }

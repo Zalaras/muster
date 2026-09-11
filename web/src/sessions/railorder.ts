@@ -1,5 +1,5 @@
 // Pure drop math for manual rail reordering (plan order-sidebar REQ-11). No DOM, no
-// socket — render/dragreorder.ts's delegated listeners call this via main.ts, exactly
+// socket — render/dragreorder.ts's delegated listeners call this via features/rail.ts, exactly
 // like sessions/live.ts's `moveTile` for the Tiles grid (docs/conventions.md: keep
 // state-derivation logic in pure modules separate from DOM code).
 //

@@ -1,6 +1,6 @@
 // Cookie-authed HTTP wrappers for the M1 UI-facing endpoints (docs/protocol.md §3.1,
 // §3.2, §3.6). Decoding mirrors protocol.ts's style: pure parse functions validate the
-// daemon's response shape before any caller (render/launch.ts) sees it. Errors never
+// daemon's response shape before any caller (features/launch.ts) sees it. Errors never
 // throw — every call returns an ApiResult so the launch modal can render `error.message`
 // inline (REQ-14) instead of an uncaught rejection.
 import { type Density, type RailSort, type Session, parseSession } from "./protocol";
@@ -43,7 +43,7 @@ export interface BrowseResult {
 
 // Plan fix-auto-mode-select (docs/protocol.md §3.1): the accepted wire values for
 // permissionMode, in dialog/cycle order. `default` is Claude Code's manual mode (the UI
-// labels it "manual"); one source for both the request union and render/launch.ts's
+// labels it "manual"); one source for both the request union and features/launch.ts's
 // radio guard, so they can't drift apart.
 export const PERMISSION_MODES = ["default", "acceptEdits", "plan", "auto"] as const;
 export type PermissionMode = (typeof PERMISSION_MODES)[number];
@@ -51,7 +51,7 @@ export type PermissionMode = (typeof PERMISSION_MODES)[number];
 // Plan fix-auto-mode-select REQ-6: the single decision point for "which radio should be
 // checked for this stored value" — a stored mode this dialog has no radio for (a future
 // Claude Code mode, `null`, or the empty string) falls back to `manual` (`default`). Pure
-// and exported so it's unit-testable without a fake DOM; render/launch.ts's
+// and exported so it's unit-testable without a fake DOM; features/launch.ts's
 // `setPermissionMode` and `selectedPermissionMode` are its only two callers, both passing
 // a `string | null` straight through — the function takes `null` directly, no caller-side
 // coercion to `""` needed.
@@ -387,8 +387,8 @@ export async function fetchPane(id: number): Promise<ApiResult<PaneSnapshot>> {
 /** `PUT /api/sessions/{id}/pin` (docs/protocol.md §3.10, plan order-sidebar REQ-3). `204`
  * with no body on success — the resulting `pinned`/`railPos` changes reach every UI
  * socket (this one included) via `sessionUpsert` broadcasts (same "response carries no
- * state, the socket does" shape as `putPrefs`); main.ts never applies an optimistic
- * reorder (REQ-15/Implementation Notes), so a caller here doesn't need a decoded body.
+ * state, the socket does" shape as `putPrefs`); features/actions.ts never applies an
+ * optimistic reorder (REQ-15/Implementation Notes), so a caller here doesn't need a decoded body.
  * Errors: `400 invalid_request` / `404 unknown_session`. */
 export async function pinSession(id: number, pinned: boolean): Promise<ApiResult<null>> {
   const res = await safeFetch(`/api/sessions/${id}/pin`, {
@@ -433,14 +433,14 @@ export async function putSessionOrder(ids: readonly number[], pinnedCount: numbe
 }
 
 /** Plan issue-capture (docs/protocol.md §3.12): the held server-side snapshot a capture
- * produces. `snapshot` is deliberately left as an opaque record here — render/issue.ts
+ * produces. `snapshot` is deliberately left as an opaque record here — features/issue.ts
  * (W3) never reads a field out of it; only `snapshotMarkdown` (the daemon's own rendered
  * string) ever reaches the preview. */
 // `takenAt` deliberately renames the wire's `capturedAt` (W3 — the check that
-// render/issue.ts never spells out a snapshot/capture field name greps for the literal
+// features/issue.ts never spells out a snapshot/capture field name greps for the literal
 // string "capturedAt"; parsing it under a different TS-side name here, in api.ts, which
 // is out of that check's scope, is what lets REQ-20's timestamp reach the dialog without
-// render/issue.ts ever naming the wire field it came from).
+// features/issue.ts ever naming the wire field it came from).
 export interface IssueCapture {
   captureId: string;
   takenAt: string;

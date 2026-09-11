@@ -10,6 +10,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
@@ -17,10 +18,30 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/rs/zerolog"
+
 	"github.com/Zalaras/muster/internal/claudecode"
 	"github.com/Zalaras/muster/internal/ghissue"
 	"github.com/Zalaras/muster/internal/session"
+	"github.com/Zalaras/muster/internal/store"
 )
+
+// IssueConfig groups the file-an-issue button's config (plan code-breakup REQ-7). Empty
+// APIURL disables both endpoints entirely (mirrors UsageConfig.APIURL's shape): a
+// zero-value Config must never reach the real GitHub API host or execute `gh`.
+type IssueConfig struct {
+	// Repo is the GitHub repo issues are filed against.
+	Repo string
+	// APIURL is the GitHub API's base URL. main always passes the flag's non-empty
+	// default, so this is the only place that URL is defined — no fallback constant
+	// duplicates it here. Empty disables both new endpoints entirely: they 404
+	// not_found (docs/protocol.md §3.12/§3.13).
+	APIURL string
+	// TokenFile, when non-empty, reads the bearer token from this file's trimmed
+	// contents instead of running `gh auth token` — a test seam that makes it
+	// structurally impossible for a test using it to execute the real gh.
+	TokenFile string
+}
 
 // issueSnapshot is the strict allowlisted payload behind the file-an-issue button (plan
 // issue-capture §"The allowlist"). Every field here is copied explicitly from its
@@ -118,25 +139,25 @@ type issueSnapshotEvents struct {
 // buildIssueSnapshot assembles the allowlisted snapshot by explicit field copy. sess is
 // nil for dashboard scope. Named "sess" deliberately — the D6 automated check greps this
 // file for a handful of excluded field accesses by that receiver name.
-func (s *Server) buildIssueSnapshot(ctx context.Context, now time.Time, sess *session.Session) issueSnapshot {
-	sessions := s.manager.List()
+func (f *issueFeature) buildIssueSnapshot(ctx context.Context, now time.Time, sess *session.Session) issueSnapshot {
+	sessions := f.manager.List()
 	alive := 0
 	for _, one := range sessions {
 		if one.Alive {
 			alive++
 		}
 	}
-	prefs := s.loadPrefs(ctx)
+	prefs := loadPrefs(ctx, f.store)
 
 	snap := issueSnapshot{
 		CapturedAt: now.UTC().Format(time.RFC3339),
 		Scope:      "dashboard",
 	}
-	snap.Musterd.Version = s.daemonVersion
-	snap.ClaudeCode.Installed = s.claudeCode.Installed
-	snap.ClaudeCode.Floor = s.claudeCode.Floor
-	snap.ClaudeCode.Verified = s.claudeCode.Verified
-	snap.ClaudeCode.Status = s.claudeCode.Status
+	snap.Musterd.Version = f.daemonVersion
+	snap.ClaudeCode.Installed = f.claudeCode.Installed
+	snap.ClaudeCode.Floor = f.claudeCode.Floor
+	snap.ClaudeCode.Verified = f.claudeCode.Verified
+	snap.ClaudeCode.Status = f.claudeCode.Status
 	snap.Host.OS = runtime.GOOS
 	snap.Host.Arch = runtime.GOARCH
 	snap.Dashboard.SessionsTotal = len(sessions)
@@ -181,9 +202,9 @@ func (s *Server) buildIssueSnapshot(ctx context.Context, now time.Time, sess *se
 		}
 	}
 
-	summary, err := s.store.EventSummary(ctx, sess.ID)
+	summary, err := f.store.EventSummary(ctx, sess.ID)
 	if err != nil {
-		s.log.Warn().Err(err).Int64("session_id", sess.ID).Msg("reading event summary for issue capture failed")
+		f.log.Warn().Err(err).Int64("session_id", sess.ID).Msg("reading event summary for issue capture failed")
 	}
 	ss.Events = issueSnapshotEvents{
 		FirstSeq:    summary.FirstSeq,
@@ -342,7 +363,7 @@ func recentEventsCell(ev issueSnapshotEvents) string {
 
 // noteSection composes the `## What happened` section from a raw note — the daemon's
 // half of the "one composer, two callers" duplication (Implementation Notes); the
-// dashboard's render/issue.ts implements the identical rule for the live preview, and
+// dashboard's features/issue.ts implements the identical rule for the live preview, and
 // INV-2's E2E turns that duplication into a tested equality. CRLF is normalised to LF,
 // the whole string trimmed, and the empty case yields "".
 func noteSection(note string) string {
@@ -471,9 +492,59 @@ type createCaptureResponse struct {
 // -issue-api-url is empty (Edge Case 14, mirrors §3.9's disabled-poller shape).
 const issueCaptureDisabledMessage = "issue capture is disabled on this daemon"
 
+// issueFeature owns the file-an-issue button's two endpoints, its in-memory capture
+// store, and the GitHub client (plan code-breakup REQ-6).
+type issueFeature struct {
+	repo     string
+	apiURL   string
+	captures *captureStore
+	client   *ghissue.Client
+
+	manager       *session.Manager
+	store         *store.Store
+	daemonVersion string
+	claudeCode    ClaudeCodeInfo
+	log           zerolog.Logger
+}
+
+func newIssueFeature(cfg IssueConfig, httpClient *http.Client, manager *session.Manager, st *store.Store, daemonVersion string, claudeCode ClaudeCodeInfo, log zerolog.Logger) *issueFeature {
+	client := httpClient
+	if client == nil {
+		client = http.DefaultClient
+	}
+	var tokenReader ghissue.TokenReader
+	if cfg.TokenFile != "" {
+		tokenReader = ghissue.FileTokenReader(cfg.TokenFile)
+	} else {
+		tokenReader = ghissue.GhCLITokenReader(exec.LookPath, ghissue.RunCommand)
+	}
+	return &issueFeature{
+		repo:          cfg.Repo,
+		apiURL:        cfg.APIURL,
+		captures:      newCaptureStore(),
+		client:        &ghissue.Client{HTTPClient: client, BaseURL: cfg.APIURL, TokenReader: tokenReader},
+		manager:       manager,
+		store:         st,
+		daemonVersion: daemonVersion,
+		claudeCode:    claudeCode,
+		log:           log,
+	}
+}
+
+func (f *issueFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.Handler) {
+	mux.Handle("POST /api/issue/captures", guard(http.HandlerFunc(f.handleCreateCapture)))
+	mux.Handle("POST /api/issues", guard(http.HandlerFunc(f.handleCreateIssue)))
+}
+
+// buildIssueSnapshot is a thin test-facing delegator: issue_test.go calls
+// srv.buildIssueSnapshot(...) directly rather than through the HTTP endpoint.
+func (s *Server) buildIssueSnapshot(ctx context.Context, now time.Time, sess *session.Session) issueSnapshot {
+	return s.issue.buildIssueSnapshot(ctx, now, sess)
+}
+
 // handleCreateCapture is POST /api/issue/captures (REQ-3, docs/protocol.md §3.12).
-func (s *Server) handleCreateCapture(w http.ResponseWriter, r *http.Request) {
-	if s.issueAPIURL == "" {
+func (f *issueFeature) handleCreateCapture(w http.ResponseWriter, r *http.Request) {
+	if f.apiURL == "" {
 		writeJSONError(w, http.StatusNotFound, "not_found", issueCaptureDisabledMessage)
 		return
 	}
@@ -486,7 +557,7 @@ func (s *Server) handleCreateCapture(w http.ResponseWriter, r *http.Request) {
 
 	var sess *session.Session
 	if req.SessionID != nil {
-		got, ok := s.manager.Get(*req.SessionID)
+		got, ok := f.manager.Get(*req.SessionID)
 		if !ok {
 			writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
 			return
@@ -495,16 +566,16 @@ func (s *Server) handleCreateCapture(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now().UTC()
-	snapshot := s.buildIssueSnapshot(r.Context(), now, sess)
+	snapshot := f.buildIssueSnapshot(r.Context(), now, sess)
 	markdown := renderSnapshotMarkdown(snapshot)
 
 	id, err := randomCaptureID()
 	if err != nil {
-		s.log.Error().Err(err).Msg("generating issue capture id failed")
+		f.log.Error().Err(err).Msg("generating issue capture id failed")
 		writeJSONError(w, http.StatusInternalServerError, "internal_error", "generating capture id")
 		return
 	}
-	s.issueCaptures.put(&issueCapture{id: id, capturedAt: now, snapshot: snapshot, snapshotMarkdown: markdown})
+	f.captures.put(&issueCapture{id: id, capturedAt: now, snapshot: snapshot, snapshotMarkdown: markdown})
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -533,8 +604,8 @@ const maxIssueTitleLen = 200
 const maxIssueNoteLen = 8000
 
 // handleCreateIssue is POST /api/issues (REQ-8/REQ-9/REQ-10, docs/protocol.md §3.13).
-func (s *Server) handleCreateIssue(w http.ResponseWriter, r *http.Request) {
-	if s.issueAPIURL == "" {
+func (f *issueFeature) handleCreateIssue(w http.ResponseWriter, r *http.Request) {
+	if f.apiURL == "" {
 		writeJSONError(w, http.StatusNotFound, "not_found", issueCaptureDisabledMessage)
 		return
 	}
@@ -562,7 +633,7 @@ func (s *Server) handleCreateIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	capture := s.issueCaptures.reserve(req.CaptureID, time.Now().UTC())
+	capture := f.captures.reserve(req.CaptureID, time.Now().UTC())
 	if capture == nil {
 		// Edge Case 2's remedy sentence lives here: the pinned UI summary is always
 		// "Could not file the issue.", so this message is the only place the user sees
@@ -577,9 +648,9 @@ func (s *Server) handleCreateIssue(w http.ResponseWriter, r *http.Request) {
 	ctx := context.WithoutCancel(r.Context())
 	body := composeIssueBody(req.Note, capture.snapshotMarkdown)
 
-	number, htmlURL, err := s.issueClient.CreateIssue(ctx, s.issueRepo, title, body)
+	number, htmlURL, err := f.client.CreateIssue(ctx, f.repo, title, body)
 	if err != nil {
-		s.issueCaptures.release(req.CaptureID)
+		f.captures.release(req.CaptureID)
 
 		var authErr *ghissue.ErrAuthFailed
 		var postErr *ghissue.ErrPostFailed
@@ -591,25 +662,25 @@ func (s *Server) handleCreateIssue(w http.ResponseWriter, r *http.Request) {
 			// zerolog.MessageFieldName (the key Msg() itself writes), which silently
 			// drops this field under ConsoleWriter and duplicates the JSON key
 			// (review cycle 2 Critical 1).
-			s.log.Warn().Str("stage", "token").Str("upstream", authErr.Message).Msg("filing issue: obtaining github token failed")
+			f.log.Warn().Str("stage", "token").Str("upstream", authErr.Message).Msg("filing issue: obtaining github token failed")
 			writeJSONError(w, http.StatusBadGateway, "issue_auth_failed", authErr.Message)
 		case errors.As(err, &postErr):
 			// postErr.Message already carries GitHub's upstream status (e.g. "github
 			// returned 404: ...") and message where GitHub provided one — proven
 			// token-free by D9/INV-3. Field name "upstream", not "message" (review
 			// cycle 2 Critical 1 — see comment above).
-			s.log.Warn().Str("stage", "post").Bool("maybe_created", postErr.MaybeCreated).Str("upstream", postErr.Message).Msg("filing issue: posting to github failed")
+			f.log.Warn().Str("stage", "post").Bool("maybe_created", postErr.MaybeCreated).Str("upstream", postErr.Message).Msg("filing issue: posting to github failed")
 			writeJSONError(w, http.StatusBadGateway, "issue_post_failed", postErr.Message)
 		default:
-			s.log.Warn().Err(err).Str("stage", "post").Msg("filing issue: unexpected failure")
+			f.log.Warn().Err(err).Str("stage", "post").Msg("filing issue: unexpected failure")
 			writeJSONError(w, http.StatusBadGateway, "issue_post_failed", "filing the issue failed")
 		}
 		return
 	}
 
-	s.issueCaptures.consume(req.CaptureID)
+	f.captures.consume(req.CaptureID)
 
-	s.log.Info().
+	f.log.Info().
 		Int("number", number).
 		Str("url", htmlURL).
 		Str("scope", capture.snapshot.Scope).
@@ -619,5 +690,5 @@ func (s *Server) handleCreateIssue(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(createIssueResponse{Number: number, URL: htmlURL, Repo: s.issueRepo})
+	_ = json.NewEncoder(w).Encode(createIssueResponse{Number: number, URL: htmlURL, Repo: f.repo})
 }

@@ -31,7 +31,7 @@ by default, no server reuse), `workers`/`timeout`/`expect.timeout` stay as docs/
 
 ## Settled Patterns (from docs/conventions.md — do not diverge)
 
-- Strict TS, no `any`. Plain ES modules organized per feature.
+- Strict TS, no `any`. Plain ES modules organized per feature. A feature is a controller under `web/src/features/`; `main.ts` gets one registration line — `docs/conventions.md` § Composition roots.
 - **One WebSocket client module owns the daemon connection** (reconnect with backoff); everything else subscribes to it. Never open a second ad-hoc socket.
 - DOM: build via small render functions / `<template>` elements; **no innerHTML with interpolated data**.
 - Every view handles three states: no data yet (**render "unknown", never an empty gauge** — SPEC §2.3, review-Critical), data, and daemon-down.

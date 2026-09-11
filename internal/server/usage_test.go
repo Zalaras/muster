@@ -36,7 +36,8 @@ func newUsageRefreshTestServer(t *testing.T, fakeUsageAPI *httptest.Server) *Ser
 	srv := New(Config{
 		Store: st, Logger: zerolog.Nop(), UIToken: testUIToken, IngestToken: testIngestToken,
 		WebDist: t.TempDir(), DaemonVersion: "test-version",
-		UsagePoll: time.Hour, UsageAPIURL: fakeUsageAPI.URL, UsageTokenFile: tokenFile, HTTPClient: fakeUsageAPI.Client(),
+		Usage:      UsageConfig{Poll: time.Hour, APIURL: fakeUsageAPI.URL, TokenFile: tokenFile},
+		HTTPClient: fakeUsageAPI.Client(),
 	})
 	srv.Start()
 	t.Cleanup(func() { srv.Shutdown(context.Background()) })

@@ -20,9 +20,9 @@ function requireTemplate(id: string): HTMLTemplateElement {
 
 export interface TileRefs {
   root: HTMLElement;
-  /** Where the caller (main.ts's surface manager) moves a live TerminalSurface's root, OR
-   * (REQ-12) where a dead tile's dead-surface is mounted — this module never touches a
-   * socket or an xterm instance itself. */
+  /** Where the caller (features/tiles.ts, via features/surfaces.ts's surface manager)
+   * moves a live TerminalSurface's root, OR (REQ-12) where a dead tile's dead-surface is
+   * mounted — this module never touches a socket or an xterm instance itself. */
   bodySlot: HTMLElement;
   geoEl: HTMLElement;
   markerEl: HTMLElement;
@@ -32,17 +32,17 @@ export interface TileRefs {
   actsEl?: HTMLElement;
   /** REQ-13/REQ-15: this tile's rename editor, attached to `.thead .nm` — optional for
    * the same pre-plan-fixture reason as `actsEl` above; every real tile built via
-   * `buildTile` always has one. `main.ts` calls `cancel()`/`dispose()` on demotion
+   * `buildTile` always has one. `features/tiles.ts` calls `cancel()`/`dispose()` on demotion
    * (before the tile leaves the grid) and `setEnabled()` on every connection change. */
   rename?: RenameEditorController;
   /** Plan plain-terminal-session REQ-4: this tile's `claude | shell` segment, built once
    * in `buildTile` and prepended into `.tfoot .acts` — optional for the same pre-plan-
    * fixture reason as `actsEl`/`rename` above; every real tile built via `buildTile`
-   * always has one. `main.ts` calls `updateSurfaceSegment` on it every render pass. */
+   * always has one. `features/tiles.ts` calls `updateSurfaceSegment` on it every render pass. */
   surfaceSegment?: SurfaceSegmentRefs;
 }
 
-/** `main.ts` supplies one pair of callbacks, shared by every tile — `getSession` is
+/** `features/rename.ts` supplies one pair of callbacks, shared by every tile — `getSession` is
  * parameterized by id so `buildTile` can close over the one session this tile owns, and
  * `onCommit` is the single `putTitle` dispatcher both the mainhead and every tile route
  * through (REQ-13's "one shared editor module serves both"). */
@@ -53,7 +53,7 @@ export interface TileRenameHandlers {
 
 /** Updates one tile's header chrome (title/where/context/timer + state class) in place
  * from the shared view-model, without touching `bodySlot`'s mounted live surface — the
- * only two callers are `buildTile` (fresh chrome) and main.ts's tiles reconciler
+ * only two callers are `buildTile` (fresh chrome) and features/tiles.ts's tiles reconciler
  * (existing chrome, every render pass; review m2-terminal Critical 2: rebuilding a
  * live tile's chrome wholesale re-parents its mounted surface root and blurs xterm's
  * textarea, so updates must mutate the existing nodes instead). */

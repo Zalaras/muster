@@ -248,8 +248,8 @@ export interface UsageMessage {
 }
 
 // M4 (docs/protocol.md §5.5, plan m4-reconcile REQ-15): sent once per `DELETE
-// /api/sessions/{id}` — a client that has never seen `id` ignores it (main.ts's remove
-// handler is a no-op on an unknown id, same tolerance as every other broadcast here).
+// /api/sessions/{id}` — a client that has never seen `id` ignores it (features/actions.ts's
+// `handleRemoved` is a no-op on an unknown id, same tolerance as every other broadcast here).
 export interface SessionRemoved {
   type: "sessionRemoved";
   id: number;

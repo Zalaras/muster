@@ -1,6 +1,7 @@
 // In-memory session store: snapshot replace + upsert merge (docs/protocol.md §5.5 —
 // "sessionUpsert ... broadcast whole ... naturally loss-tolerant"). Pure state holder,
-// no DOM; render/sessions.ts reads it out through main.ts.
+// no DOM; render/sessions.ts reads it out through features/rail.ts and features/tiles.ts,
+// via app.ts's render frame.
 import type { Session } from "../protocol";
 
 export class SessionStore {

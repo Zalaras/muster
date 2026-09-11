@@ -1,5 +1,5 @@
 // Pure keyboard-shortcut matching (plan shortcut-fixes REQ-3/REQ-4). The whole bound
-// chord table lives here — main.ts and render/launch.ts dispatch from `matchShortcut`
+// chord table lives here — features/shortcuts.ts and features/launch.ts dispatch from `matchShortcut`
 // rather than matching keys themselves, so the binding set can't drift apart across
 // files again. `event.code` is physical-key based: immune to macOS's ⌥ dead-key
 // transform (⌥N delivers `key: "˜"`, ⌥1 delivers `key: "¡"`) and to keyboard layout,

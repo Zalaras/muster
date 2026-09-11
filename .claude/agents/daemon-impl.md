@@ -23,7 +23,7 @@ This agent receives: `<plan-name>`
 
 - `cmd/musterd/` — daemon entrypoint; wiring happens in `main`, no `init()` magic
 - `internal/claudecode/` — the **only** place Claude-Code-format knowledge may live (hook payloads, status-line JSON, CLI flags, transcript paths). CLAUDE.md hard rule; the review agent treats a leak as Critical. If your fix wants to leak a format detail outward, the boundary is being violated — restructure instead.
-- `internal/` — everything else, package per concern
+- `internal/` — everything else, package per concern. A server feature is its own handler type with a `mount`; `server.go` gets one registration line — `docs/conventions.md` § Composition roots.
 - Migrations: numbered `.sql` files, `//go:embed`-ed, applied at startup, forward-only
 
 Before writing code, read neighbouring files in the package you are changing and match their patterns.

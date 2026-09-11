@@ -101,10 +101,10 @@ func TestCurrentSnapshot_UsesThemePollerCurrentFamilyWhenPollingEnabled(t *testi
 	srv := New(Config{
 		Store: st, Logger: zerolog.Nop(), UIToken: testUIToken, IngestToken: testIngestToken,
 		WebDist: t.TempDir(), DaemonVersion: "test-version",
-		ClaudeThemePoll: time.Hour, ClaudeConfigFile: configPath,
+		Theme: ThemeConfig{Poll: time.Hour, ConfigFile: configPath},
 	})
-	require.NotNil(t, srv.themePoller)
-	srv.themePoller.tick(context.Background())
+	require.NotNil(t, srv.theme.poller)
+	srv.theme.poller.tick(context.Background())
 
 	snap := srv.currentSnapshot(context.Background())
 

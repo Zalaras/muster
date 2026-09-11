@@ -2,8 +2,9 @@
 // child listing) over a stacked segmented form (docs/protocol.md §3.1/§3.2/§3.6; plan
 // new-session-dialog UI Specifications; design authority
 // plans/new-session-dialog/mockup.html). DOM + wiring only — every daemon call goes
-// through ../api.ts, and the parsed Session comes back through `onLaunched` so main.ts
-// (which owns the session store) decides what happens next.
+// through ../api.ts, and the parsed Session comes back through `onLaunched` so this
+// module's `initLaunch` (which holds `app`, the session store's owner) decides what
+// happens next.
 //
 // The listed directory *is* the selection (REQ-3): there is a single `current:
 // BrowseResult | null`, and the readout, the crumbs and the submit body all derive from
@@ -20,10 +21,12 @@ import {
   type PermissionMode,
   type Repo,
 } from "../api";
+import type { App } from "../app";
+import { requireElement, requireElements } from "../dom";
 import type { Session } from "../protocol";
 import { formatAge } from "../sessions/format";
 import { matchShortcut } from "../shortcuts";
-import { renderCrumbs, splitCrumbs } from "./crumbs";
+import { renderCrumbs, splitCrumbs } from "../render/crumbs";
 
 const MODEL_PRESETS = ["sonnet", "opus", "haiku", "fable"] as const;
 
@@ -450,5 +453,48 @@ export function initLaunchModal(elements: LaunchModalElements, handlers: LaunchM
   elements.form.addEventListener("submit", (event) => {
     event.preventDefault();
     void submit();
+  });
+}
+
+/** REQ-2's controller entry: locates the launch dialog + its two open buttons, wires
+ * `onLaunched` to the store and (in Tiles) tile promotion (plan code-breakup vocabulary:
+ * "launch"). */
+// W6/INV-4: structural, not a sibling import of TilesHandle from the tiles module.
+export function initLaunch(app: App, deps: { tiles: { promote(id: number): void } }): void {
+  const elements: LaunchModalElements = {
+    dialog: requireElement<HTMLDialogElement>("#launch-dialog"),
+    openButtons: [
+      requireElement<HTMLButtonElement>("#new-session-button"),
+      requireElement<HTMLButtonElement>("#tiles-new-session-button"),
+    ],
+    recentsList: requireElement<HTMLElement>("#mru-list"),
+    recentEntryTemplate: requireElement<HTMLTemplateElement>("#mru-entry-template"),
+    crumbsNav: requireElement<HTMLElement>("#browse-crumbs"),
+    browseDirs: requireElement<HTMLElement>("#browse-dirs"),
+    entryTemplate: requireElement<HTMLTemplateElement>("#subdir-entry-template"),
+    titleInput: requireElement<HTMLInputElement>("#title-input"),
+    modelRadios: requireElements<HTMLInputElement>('input[name="model"]'),
+    customModelRow: requireElement<HTMLElement>("#custom-model-row"),
+    customModelInput: requireElement<HTMLInputElement>("#custom-model-input"),
+    permissionModeRadios: requireElements<HTMLInputElement>('input[name="permission-mode"]'),
+    launchError: requireElement<HTMLElement>("#launch-error"),
+    launchTargetPath: requireElement<HTMLElement>("#launch-target b"),
+    launchTargetBranch: requireElement<HTMLElement>("#launch-target .branch"),
+    cancelButton: requireElement<HTMLButtonElement>("#cancel-button"),
+    form: requireElement<HTMLFormElement>("#launch-form"),
+  };
+
+  initLaunchModal(elements, {
+    // REQ-2: the card must appear the instant the 201 comes back — before any hook can
+    // possibly arrive. The `sessionUpsert` the daemon also broadcasts for this same
+    // launch is a harmless duplicate upsert once the WS delivers it.
+    onLaunched: (session) => {
+      app.store.upsert(session);
+      // Launched from Tiles: the new session must become a live tile even when the grid
+      // is full — `promote` demotes exactly the lowest-priority live tile and renders; a
+      // no-op guard in Focus, so render there explicitly.
+      if (app.state.view === "tiles") deps.tiles.promote(session.id);
+      else app.render();
+    },
   });
 }

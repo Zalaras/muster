@@ -24,9 +24,9 @@ type ingestJob struct {
 	body []byte
 }
 
-// ingestQueue is the bounded, best-effort ingest pipeline (Implementation Notes: "Async
-// ingest shape"). A single worker goroutine processes jobs in arrival order, so seq
-// assignment (done inside Store.InsertEvent) never races with itself.
+// ingestQueue is the bounded, best-effort ingest pipeline. A single worker goroutine
+// processes jobs in arrival order, so seq assignment (done inside Store.InsertEvent)
+// never races with itself.
 type ingestQueue struct {
 	ch      chan ingestJob
 	store   *store.Store
@@ -35,11 +35,11 @@ type ingestQueue struct {
 	wg      sync.WaitGroup
 
 	// manager routes an event to its bound Muster session and feeds the §7 state
-	// machine (m1-sessions). Nil in tests that only exercise raw persistence.
+	// machine. Nil in tests that only exercise raw persistence.
 	manager *session.Manager
 
-	// usage receives a routed status post's account sample, when present (m3-gauges
-	// REQ-5/6). Nil in tests that only exercise raw persistence or the state machine.
+	// usage receives a routed status post's account sample, when present. Nil in tests
+	// that only exercise raw persistence or the state machine.
 	usage *usage.Aggregator
 }
 
@@ -72,10 +72,10 @@ func (q *ingestQueue) Start() {
 	}()
 }
 
-// Stop closes the queue and waits for the worker to drain it (REQ-20), giving up once
-// ctx is done. Draining itself always runs against a background context: a job that
-// made it into the channel deserves to be persisted even after the shutdown deadline
-// starts ticking.
+// Stop closes the queue and waits for the worker to drain it, giving up once ctx is
+// done. Draining itself always runs against a background context: a job that made it
+// into the channel deserves to be persisted even after the shutdown deadline starts
+// ticking.
 func (q *ingestQueue) Stop(ctx context.Context) {
 	close(q.ch)
 	done := make(chan struct{})
@@ -91,10 +91,9 @@ func (q *ingestQueue) Stop(ctx context.Context) {
 }
 
 // process parses, routes and persists one job, then feeds the routed event into the §7
-// state machine (m1-sessions: "parse → persist (with routing) → feed the manager,
-// sequentially, so seq order and apply order are the same thing by construction").
-// Never logs job.body — hook/status payloads carry prompt text and must never reach a
-// log (REQ-13, D11, D18).
+// state machine ("parse → persist (with routing) → feed the manager, sequentially, so
+// seq order and apply order are the same thing by construction"). Never logs job.body —
+// hook/status payloads carry prompt text and must never reach a log.
 func (q *ingestQueue) process(job ingestJob) {
 	ev, err := claudecode.ParseIngestBody(job.body, job.kind)
 	if err != nil {
@@ -128,20 +127,18 @@ func (q *ingestQueue) process(job ingestJob) {
 	}
 
 	// status_line never reaches Interpret/manager.Apply — it takes the ApplyStatus +
-	// aggregator.Record path instead (m3-gauges Implementation Notes: "the interpreter
-	// split"), so a status post's title/model/context refresh is broadcast only on real
-	// change (REQ-4/INV-5), never as a no-op sessionUpsert on every tool use.
+	// aggregator.Record path instead, so a status post's title/model/context refresh is
+	// broadcast only on real change, never as a no-op sessionUpsert on every tool use.
 	if ev.Type == "status_line" {
 		q.processStatus(ctx, *sessionID, ev.Payload)
 		return
 	}
 
 	input := claudecode.Interpret(ev.Type, ev.Payload)
-	// enveloped is authoritative for binding (REQ-9, docs/protocol.md §4.2): every event
+	// enveloped is authoritative for binding (docs/protocol.md §4.2): every event
 	// Muster's command wrapper posts carries the envelope, so ev.MusterSession != nil is
 	// exactly "this arrived through the wrapper, trust its session_id for binding" — a
-	// raw (non-enveloped) post, still accepted for the canary/legacy path, never binds
-	// (REQ-10).
+	// raw (non-enveloped) post, still accepted for the canary/legacy path, never binds.
 	enveloped := ev.MusterSession != nil
 	if _, err := q.manager.Apply(ctx, *sessionID, ev.SessionID, ev.PromptID, input, enveloped); err != nil {
 		q.log.Warn().Err(err).Str("kind", string(job.kind)).Msg("applying ingest event to session state failed")
@@ -151,8 +148,7 @@ func (q *ingestQueue) process(job ingestJob) {
 // processStatus applies one routed status-line post: title/model/context to the session
 // manager, then (only when the payload carried a complete account sample) the reading to
 // the usage aggregator — sequentially, on this single ingest worker goroutine, so seq
-// order and apply order stay the same thing by construction (R4, same guarantee as the
-// state machine's own Apply).
+// order and apply order stay the same thing by construction.
 func (q *ingestQueue) processStatus(ctx context.Context, sessionID int64, payload []byte) {
 	update := claudecode.InterpretStatus(payload)
 
@@ -164,8 +160,8 @@ func (q *ingestQueue) processStatus(ctx context.Context, sessionID int64, payloa
 		return
 	}
 	// The adapter's neutral StatusAccount maps into the aggregator's Sample here — this
-	// is the SPEC §9.6 seam, and keeping the conversion in server code keeps
-	// internal/claudecode dependency-free of internal/usage (and transitively the store).
+	// keeps internal/claudecode dependency-free of internal/usage (and transitively the
+	// store).
 	acct := update.Account
 	sample := usage.Sample{
 		FiveHour: usage.Bucket{UsedPct: acct.FiveHour.UsedPct, ResetsAt: acct.FiveHour.ResetsAt},
@@ -178,11 +174,11 @@ func (q *ingestQueue) processStatus(ctx context.Context, sessionID int64, payloa
 	}
 }
 
-// resolveSessionID determines which Muster session (if any) ev routes to (REQ-7).
-// An envelope's musterSession field is authoritative when present and known (Edge
-// Case 12: a stale/unknown value is never trusted); otherwise it falls back to the
-// existing claude-session-id binding. An unresolved event is logged (never the
-// payload) and persists with a NULL event.session_id (D9, Edge Case 11).
+// resolveSessionID determines which Muster session (if any) ev routes to. An envelope's
+// musterSession field is authoritative when present and known (a stale/unknown value is
+// never trusted); otherwise it falls back to the existing claude-session-id binding. An
+// unresolved event is logged (never the payload) and persists with a NULL
+// event.session_id.
 func (q *ingestQueue) resolveSessionID(kind claudecode.Kind, ev claudecode.Event) *int64 {
 	if q.manager == nil {
 		return nil
@@ -203,21 +199,43 @@ func (q *ingestQueue) resolveSessionID(kind claudecode.Kind, ev claudecode.Event
 	return nil
 }
 
-func (s *Server) handleIngestHook(w http.ResponseWriter, r *http.Request) {
-	s.handleIngest(w, r, claudecode.KindHook)
+// ingestFeature owns the two token-path ingest endpoints (plan code-breakup REQ-6). Its
+// routes are mounted unguarded — the ingest token, not the UI cookie, is the auth
+// boundary here (docs/protocol.md §4).
+type ingestFeature struct {
+	queue *ingestQueue
+	token string
+	log   zerolog.Logger
 }
 
-func (s *Server) handleIngestStatus(w http.ResponseWriter, r *http.Request) {
-	s.handleIngest(w, r, claudecode.KindStatus)
+func newIngestFeature(st *store.Store, log zerolog.Logger, size int, token string) *ingestFeature {
+	return &ingestFeature{queue: newIngestQueue(st, log, size), token: token, log: log}
+}
+
+func (f *ingestFeature) mount(mux *http.ServeMux, _ func(http.Handler) http.Handler) {
+	mux.HandleFunc("POST /ingest/{token}/hook", f.handleIngestHook)
+	mux.HandleFunc("POST /ingest/{token}/status", f.handleIngestStatus)
+}
+
+func (f *ingestFeature) Start() { f.queue.Start() }
+
+func (f *ingestFeature) Stop(ctx context.Context) { f.queue.Stop(ctx) }
+
+func (f *ingestFeature) handleIngestHook(w http.ResponseWriter, r *http.Request) {
+	f.handleIngest(w, r, claudecode.KindHook)
+}
+
+func (f *ingestFeature) handleIngestStatus(w http.ResponseWriter, r *http.Request) {
+	f.handleIngest(w, r, claudecode.KindStatus)
 }
 
 // handleIngest is shared by both ingest endpoints (REQ-10, REQ-11): check the token
-// (404 on mismatch — no oracle for guessing, REQ-13/Edge Case 8), enqueue the raw body,
-// return 200 immediately. No DB work happens on this path.
-func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request, kind claudecode.Kind) {
+// (404 on mismatch — no oracle for guessing), enqueue the raw body, return 200
+// immediately. No DB work happens on this path.
+func (f *ingestFeature) handleIngest(w http.ResponseWriter, r *http.Request, kind claudecode.Kind) {
 	token := r.PathValue("token")
-	if !tokensEqual(token, s.ingestToken) {
-		s.log.Info().Str("kind", string(kind)).Msg("rejecting ingest post with wrong token")
+	if !tokensEqual(token, f.token) {
+		f.log.Info().Str("kind", string(kind)).Msg("rejecting ingest post with wrong token")
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -229,6 +247,6 @@ func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request, kind claud
 		return
 	}
 
-	s.ingest.enqueue(ingestJob{kind: kind, body: body})
+	f.queue.enqueue(ingestJob{kind: kind, body: body})
 	w.WriteHeader(http.StatusOK)
 }

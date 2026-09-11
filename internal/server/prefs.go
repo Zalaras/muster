@@ -6,28 +6,30 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+
+	"github.com/Zalaras/muster/internal/store"
 )
 
 // prefsKVKey is the single kv key prefs are persisted under, as one JSON blob
-// (docs/protocol.md §3.3 — no schema change, plan's Schema Changes note).
+// (docs/protocol.md §3.3 — no schema change).
 const prefsKVKey = "prefs"
 
-// defaultUsageModel is prefs.usageModel's default (docs/protocol.md §3.3, plan
-// usage-model-bar) — the masthead's per-model readout before any PUT ever names one.
+// defaultUsageModel is prefs.usageModel's default — the masthead's per-model readout
+// before any PUT ever names one.
 const defaultUsageModel = "Fable"
 
-// defaultRailSort is prefs.railSort's default (docs/protocol.md §3.3, plan
-// order-sidebar) — the Focus rail's sort mode before any PUT ever names one.
+// defaultRailSort is prefs.railSort's default — the Focus rail's sort mode before any
+// PUT ever names one.
 const defaultRailSort = "manual"
 
-// defaultTheme is prefs.theme's default (docs/protocol.md §3.3, plan
-// new-ui-design-colors) — "follow" means the dashboard resolves its theme from
-// claudeTheme.family; the daemon treats the value as opaque beyond validThemePattern.
+// defaultTheme is prefs.theme's default — "follow" means the dashboard resolves its
+// theme from claudeTheme.family; the daemon treats the value as opaque beyond
+// validThemePattern.
 const defaultTheme = "follow"
 
 // validThemePattern is prefs.theme's wire pattern (docs/protocol.md §3.3): 1-32 chars,
 // a-z/0-9/-, starting with a letter. The daemon never interprets the value beyond this
-// — the client owns the theme registry (plan new-ui-design-colors, REQ-7).
+// — the client owns the theme registry.
 var validThemePattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
 
 // prefsRequest is PUT /api/prefs' request body (docs/protocol.md §3.3): at least one
@@ -53,18 +55,17 @@ func validUsageModel(v string) bool {
 }
 
 // defaultPrefs is the shape before any PUT /api/prefs has ever landed (protocol §3.3).
-// UpdateCheck defaults true (auto-update plan, 2026-09-10).
+// UpdateCheck defaults true.
 func defaultPrefs() PrefsInfo {
 	return PrefsInfo{View: "focus", Density: "2x2", UsageModel: defaultUsageModel, RailSort: defaultRailSort, Theme: defaultTheme, UpdateCheck: true}
 }
 
 // storedPrefs is loadPrefs' unmarshal target: UpdateCheck is a pointer here (unlike
-// PrefsInfo's plain bool) so a persisted blob predating this plan — which has no
+// PrefsInfo's plain bool) so a persisted blob predating auto-update — which has no
 // "updateCheck" key at all — is distinguishable from one that explicitly persisted
-// false. A missing key defaults to true (edge case 32); an explicit false stays false; a
-// non-boolean value fails the whole Unmarshal, which loadPrefs already treats as
-// "return defaultPrefs()" (so it too loads as true, protocol §3.3's "a persisted
-// non-boolean loads as true").
+// false. A missing key defaults to true; an explicit false stays false; a non-boolean
+// value fails the whole Unmarshal, which loadPrefs already treats as "return
+// defaultPrefs()" (so it too loads as true).
 type storedPrefs struct {
 	View        string `json:"view"`
 	Density     string `json:"density"`
@@ -84,8 +85,11 @@ type prefsMessage struct {
 
 // loadPrefs reads the persisted prefs object from kv, falling back to defaults for a
 // fresh daemon or an unreadable/corrupt value — a bad kv row must never fail a snapshot.
-func (s *Server) loadPrefs(ctx context.Context) PrefsInfo {
-	raw, ok, err := s.store.KVGet(ctx, prefsKVKey)
+// A free function, not a prefsFeature method, since issueFeature's snapshot also needs
+// it (dashboard scope's view/density/railSort row) without taking a dependency on the
+// whole prefs feature.
+func loadPrefs(ctx context.Context, st *store.Store) PrefsInfo {
+	raw, ok, err := st.KVGet(ctx, prefsKVKey)
 	if err != nil || !ok {
 		return defaultPrefs()
 	}
@@ -122,9 +126,44 @@ func (s *Server) loadPrefs(ctx context.Context) PrefsInfo {
 	return p
 }
 
-// handlePutPrefs is PUT /api/prefs (REQ-10): validates, persists the merged prefs object
-// to kv, and broadcasts the full object to every UI socket (INV-4).
-func (s *Server) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
+// checkEnabledSetter is prefsFeature's narrow view of the update feature (Edge Case 13's
+// construction-cycle break): prefs needs to notify update of a checkEnabled transition,
+// update needs prefs' persisted value at construction. Resolved by construction order in
+// New — prefs is built first with updateChecker left nil-safe until New wires it to the
+// update feature right after constructing it (documented in daemon-implementation.md).
+type checkEnabledSetter interface {
+	SetCheckEnabled(enabled bool)
+}
+
+// prefsFeature owns PUT /api/prefs and the snapshot's prefs object (plan code-breakup
+// REQ-6).
+type prefsFeature struct {
+	store         *store.Store
+	hub           *wsHub
+	updateChecker checkEnabledSetter
+}
+
+func newPrefsFeature(st *store.Store, hub *wsHub) *prefsFeature {
+	return &prefsFeature{store: st, hub: hub}
+}
+
+func (f *prefsFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.Handler) {
+	mux.Handle("PUT /api/prefs", guard(http.HandlerFunc(f.handlePutPrefs)))
+}
+
+func (f *prefsFeature) contribute(ctx context.Context, snap *Snapshot) {
+	snap.Prefs = loadPrefs(ctx, f.store)
+}
+
+// loadPrefs is a thin test-facing delegator: prefs_test.go calls srv.loadPrefs(ctx)
+// directly rather than going through the prefs feature or an HTTP round-trip.
+func (s *Server) loadPrefs(ctx context.Context) PrefsInfo {
+	return loadPrefs(ctx, s.store)
+}
+
+// handlePutPrefs is PUT /api/prefs: validates, persists the merged prefs object to kv,
+// and broadcasts the full object to every UI socket (INV-4).
+func (f *prefsFeature) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 	var req prefsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid_request", "invalid JSON body")
@@ -156,7 +195,7 @@ func (s *Server) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	prefs := s.loadPrefs(ctx)
+	prefs := loadPrefs(ctx, f.store)
 	updateCheckChanged := false
 	if req.View != nil {
 		prefs.View = *req.View
@@ -183,18 +222,18 @@ func (s *Server) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusInternalServerError, "internal_error", "encoding prefs")
 		return
 	}
-	if err := s.store.KVSet(ctx, prefsKVKey, string(encoded)); err != nil {
+	if err := f.store.KVSet(ctx, prefsKVKey, string(encoded)); err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "internal_error", "persisting prefs")
 		return
 	}
 
-	s.hub.broadcast(prefsMessage{Type: "prefs", Prefs: prefs})
+	f.hub.broadcast(prefsMessage{Type: "prefs", Prefs: prefs})
 
 	// REQ-3: the check-enabled side effect fires only on an actual transition — a PUT
 	// that merely re-states the current value must not clear an in-flight check's result
 	// or force an extra immediate poll.
-	if updateCheckChanged && s.updates != nil {
-		s.updates.SetCheckEnabled(prefs.UpdateCheck)
+	if updateCheckChanged && f.updateChecker != nil {
+		f.updateChecker.SetCheckEnabled(prefs.UpdateCheck)
 	}
 
 	w.WriteHeader(http.StatusNoContent)

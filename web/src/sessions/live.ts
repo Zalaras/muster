@@ -1,7 +1,7 @@
 // Tile membership + ordering logic for the Tiles view (plan m2-terminal, REQ-8/REQ-11 —
 // sticky live-tile membership over top-N-by-attention; plan move-tiles REQ-1/REQ-2/REQ-3
-// — the grid is slot-stable and user-orderable). Pure, no DOM and no socket — main.ts's
-// surface manager is the only caller (docs/conventions.md: keep state-derivation logic
+// — the grid is slot-stable and user-orderable). Pure, no DOM and no socket —
+// features/tiles.ts is the only caller (docs/conventions.md: keep state-derivation logic
 // in pure modules separate from DOM code).
 //
 // Sticky rule (plan "Two structural decisions ... 2"): the live set is recomputed to

@@ -1,0 +1,107 @@
+{
+  "plan_name": "code-breakup",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 1,
+    "web-impl": 0,
+    "daemon-tests": 1,
+    "web-tests": 0,
+    "e2e-validate": 0,
+    "review": 1
+  },
+  "completed_steps": [
+    "e2e-specs",
+    "daemon-impl",
+    "web-impl",
+    "web-tests",
+    "daemon-tests",
+    "e2e-validate",
+    "review"
+  ],
+  "step_started_at": {
+    "e2e-specs": "2026-09-11T15:27:40Z",
+    "daemon-impl": "2026-09-11T16:54:58Z",
+    "web-impl": "2026-09-11T16:54:59Z",
+    "daemon-tests": "2026-09-11T16:22:23Z",
+    "web-tests": "2026-09-11T16:11:59Z",
+    "e2e-validate": "2026-09-11T16:26:49Z",
+    "review": "2026-09-11T17:07:11Z"
+  },
+  "step_finished_at": {
+    "e2e-specs": "2026-09-11T15:38:47Z",
+    "daemon-impl": "2026-09-11T16:58:01Z",
+    "web-impl": "2026-09-11T17:04:15Z",
+    "web-tests": "2026-09-11T16:16:14Z",
+    "daemon-tests": "2026-09-11T16:26:49Z",
+    "e2e-validate": "2026-09-11T16:31:07Z",
+    "review": "2026-09-11T17:22:57Z"
+  },
+  "step_attempts": {
+    "e2e-specs": [
+      {
+        "start": "2026-09-11T15:27:40Z",
+        "finish": "2026-09-11T15:38:47Z"
+      }
+    ],
+    "daemon-impl": [
+      {
+        "start": "2026-09-11T15:38:47Z",
+        "finish": "2026-09-11T16:07:53Z"
+      },
+      {
+        "start": "2026-09-11T16:18:54Z",
+        "finish": "2026-09-11T16:22:23Z"
+      },
+      {
+        "start": "2026-09-11T16:54:58Z",
+        "finish": "2026-09-11T16:58:01Z"
+      }
+    ],
+    "web-impl": [
+      {
+        "start": "2026-09-11T15:38:47Z",
+        "finish": "2026-09-11T16:11:59Z"
+      },
+      {
+        "start": "2026-09-11T16:54:59Z",
+        "finish": "2026-09-11T17:04:15Z"
+      }
+    ],
+    "daemon-tests": [
+      {
+        "start": "2026-09-11T16:07:53Z",
+        "finish": "2026-09-11T16:18:53Z"
+      },
+      {
+        "start": "2026-09-11T16:22:23Z",
+        "finish": "2026-09-11T16:26:49Z"
+      }
+    ],
+    "web-tests": [
+      {
+        "start": "2026-09-11T16:11:59Z",
+        "finish": "2026-09-11T16:16:14Z"
+      }
+    ],
+    "e2e-validate": [
+      {
+        "start": "2026-09-11T16:26:49Z",
+        "finish": "2026-09-11T16:31:07Z"
+      }
+    ],
+    "review": [
+      {
+        "start": "2026-09-11T16:31:08Z",
+        "finish": "2026-09-11T16:54:58Z"
+      },
+      {
+        "start": "2026-09-11T17:07:11Z",
+        "finish": "2026-09-11T17:22:57Z"
+      }
+    ]
+  },
+  "started_at": "2026-09-11T15:27:40Z",
+  "updated_at": "2026-09-11T17:22:58Z"
+}

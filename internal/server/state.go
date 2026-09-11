@@ -106,9 +106,11 @@ func buildSnapshot() Snapshot {
 }
 
 // currentSnapshot is buildSnapshot's M1+ successor: the same fixed usage shape, with
-// Sessions filled from the live session registry (REQ-12), Prefs loaded from kv (M2
-// REQ-10 — survives daemon restarts), and ClaudeTheme filled from the theme poller (or
-// left "unknown" when polling is disabled, REQ-15 — s.themePoller is nil in that case).
+// Sessions filled from the live session registry (REQ-12, core — the session manager is
+// not itself a registered feature) and every other section filled by looping the
+// registered features' snapshotContributor (REQ-6): usage, prefs, claudeTheme and
+// update. Field independence means contribution order doesn't matter — each feature
+// writes only its own Snapshot field.
 func (s *Server) currentSnapshot(ctx context.Context) Snapshot {
 	snap := buildSnapshot()
 	sessions := s.manager.List()
@@ -117,36 +119,12 @@ func (s *Server) currentSnapshot(ctx context.Context) Snapshot {
 		wire = append(wire, toWireSession(sess))
 	}
 	snap.Sessions = wire
-	snap.Usage = toWireUsage(s.usage.Current(), s.modelScoped.Current())
-	snap.Prefs = s.loadPrefs(ctx)
-	if s.themePoller != nil {
-		snap.ClaudeTheme = ClaudeThemeInfo{Family: string(s.themePoller.Current())}
+	for _, f := range s.features {
+		if c, ok := f.(snapshotContributor); ok {
+			c.contribute(ctx, &snap)
+		}
 	}
-	snap.Update = s.currentUpdate()
 	return snap
-}
-
-// currentUpdate returns the live `update` object (docs/protocol.md §5.7): the manager's
-// own state when updates are enabled, or a static shape reflecting the fixed install
-// classification when they are not (-update-base-url ""). Either way it always names the
-// true install kind — a daemon with checking disabled by flag still tells the dialog
-// "not checked yet" for a real installer/homebrew/unmanaged build, never a fabricated
-// "dev" (Edge Case 33).
-func (s *Server) currentUpdate() UpdateInfo {
-	if s.updates != nil {
-		return s.updates.Current()
-	}
-	var remedy *string
-	if s.install.Remedy != "" {
-		r := s.install.Remedy
-		remedy = &r
-	}
-	return UpdateInfo{
-		Running: s.daemonVersion,
-		Install: string(s.install.Kind),
-		Remedy:  remedy,
-		Apply:   UpdateApplyInfo{Phase: string(selfupdate.PhaseIdle)},
-	}
 }
 
 // handleState serves GET /api/state — the same snapshot object the WS handshake sends,

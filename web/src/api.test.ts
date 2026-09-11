@@ -55,7 +55,7 @@ function fakeResponseThatThrows(): Response {
 }
 
 // Plan fix-auto-mode-select (Implementation Notes — "Web pattern"): PERMISSION_MODES is
-// the single source for both LaunchRequest's permissionMode union and render/launch.ts's
+// the single source for both LaunchRequest's permissionMode union and features/launch.ts's
 // radio guard, so REQ-1's four wire values and their dialog/cycle order live in exactly
 // one place. Pinning its content here catches an accidental reorder or a fifth value
 // (bypassPermissions/dontAsk, deliberately out per the plan) landing silently.
@@ -67,7 +67,7 @@ describe("api — PERMISSION_MODES", () => {
 
 // Plan fix-auto-mode-select REQ-6 (review cycle 1, Major 2): permissionModeToCheck is the
 // single decision point for "which radio should be checked for this stored value" —
-// render/launch.ts's setPermissionMode and selectedPermissionMode both go through it
+// features/launch.ts's setPermissionMode and selectedPermissionMode both go through it
 // (review.md Major 1's extraction). Each recognised PERMISSION_MODES value must round-trip
 // to itself; anything else — an unrecognised string, null, or "" — must fall back to
 // "default" (the "manual" radio), never leave every radio unchecked (the bug the reviewer

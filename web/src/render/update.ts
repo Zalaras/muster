@@ -20,7 +20,8 @@ export interface UpdateViewModel {
   /** Text rules > Toggle: `checked iff prefs.updateCheck` — kept here for W5's full
    * table-test contract, even though the DOM write of `.checked` happens through
    * settings.ts's `setChecked` (INV-7's "only ever from the prefs broadcast" discipline,
-   * same code path the theme radios already use — see main.ts's `applyPrefsFromSnapshot`).
+   * same code path the theme radios already use — see features/settings.ts's `prefs`
+   * subscription, which calls `setChecked`).
    * `renderUpdateSection` below never reads this field. */
   toggleChecked: boolean;
   toggleDisabled: boolean;
@@ -36,7 +37,8 @@ export interface UpdateViewModel {
 }
 
 /** UI Specifications > Text rules table. `update === null` covers both "before the first
- * snapshot" (the dialog can't be open then anyway - main.ts) and edge case 32's permanent
+ * snapshot" (the dialog can't be open then anyway — nothing in features/settings.ts opens
+ * it before a user click) and edge case 32's permanent
  * case, a pre-plan daemon that never sends `update` at all: renders the same
  * unknown-shaped, no-badge, no-buttons state `parseSnapshot` already tolerates rather than
  * throwing. */

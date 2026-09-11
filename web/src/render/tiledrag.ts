@@ -14,9 +14,10 @@ import type { FocusedControl } from "./focus";
 
 /** Installs delegated drag-to-reorder listeners on `gridEl` (plan move-tiles DOM spec).
  * `onMove` is called with (draggedId, targetId, focusedBeforeDrag) on a valid tile-on-tile
- * drop; the caller (main.ts) applies `moveTile` and re-renders. Safe to call exactly once
- * per grid element's lifetime — the grid element itself is never replaced (`#tiles-grid`
- * is a fixed container main.ts fills/empties, per `renderTilesView`). */
+ * drop; the caller (features/tiles.ts) applies `moveTile` and re-renders. Safe to call
+ * exactly once per grid element's lifetime — the grid element itself is never replaced
+ * (`#tiles-grid` is a fixed container `features/tiles.ts`'s `renderView`/`reconcileTilesGrid`
+ * fill/empty). */
 export function installTileDrag(
   gridEl: HTMLElement,
   onMove: (draggedId: number, targetId: number, focusedBeforeDrag: FocusedControl | null) => void,

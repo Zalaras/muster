@@ -132,7 +132,7 @@ export function renderUsageModel(el: HTMLElement, model: SessionModelInfo | null
  * element and always closes a native `<select>` popup — so preserving focus requires
  * never routing the select through `replaceChildren`/`insertBefore`/`appendChild` again
  * once it's in the tree, not just restoring focus afterwards (`pendingTileFocus` in
- * `main.ts` is that weaker restore-after-rebuild pattern; it doesn't apply here because
+ * `features/tiles.ts` is that weaker restore-after-rebuild pattern; it doesn't apply here because
  * the open dropdown itself doesn't survive a detach, only focus might). */
 interface ModelWeekState {
   select: HTMLSelectElement;

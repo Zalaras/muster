@@ -94,6 +94,7 @@ Based on the codebase structure, identify which files will likely need changes:
 - Protocol/message modules, state-derivation modules, per-feature render modules, the single WebSocket client module
 
 **`SPEC.md` and `TODO.md` are never listed under an impl track.** They are the orchestrator's (Doc-Upkeep Backstop / Completion), and the review rules forbid an impl agent from touching `SPEC.md`. Put the required upkeep under Implementation Notes → Doc upkeep, addressed to the orchestrator (m4-hook-lifetime: listed under Daemon, daemon-impl duly edited both).
+A composition root (`web/src/main.ts`, `internal/server/server.go`) may appear under Affected Files only for a one-line registration; anything more is a new feature module (`docs/conventions.md` § Composition roots).
 
 **Every requirement's test coverage names exactly one owning test agent — no conditional routing.**
 "A unit test if the logic is unit-testable, otherwise E4 covers it" resolves to nobody

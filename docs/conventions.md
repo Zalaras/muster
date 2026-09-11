@@ -65,6 +65,18 @@ first — never diverge silently in code.
 - Unit-test logic (protocol decoding, state derivation, formatting) with Vitest;
   interaction and rendering are Playwright's job.
 
+## Composition roots
+
+- `web/src/main.ts` and `internal/server/server.go` are the two composition roots: they build
+  dependencies and register each feature in one line — no DOM lookups, listeners, state or
+  handlers of their own.
+- A new feature is a new module with an init (`web/src/features/<name>.ts`, exemplar
+  `web/src/features/usage.ts`) or a new handler type with a `mount` (`internal/server/<name>.go`,
+  exemplar `internal/server/usage.go`), registered in one line in the root.
+- `web/src/render/` holds pure DOM builders; `web/src/features/` holds controllers;
+  `web/src/sessions/` and `web/src/terminal/` hold pure logic.
+- E2E spec files and `web/e2e/helpers/<feature>.ts` are named for the same feature seam.
+
 ## Testing (both sides)
 
 - E2E fakes Claude Code by default: synthesize hook / status-line POSTs from the real

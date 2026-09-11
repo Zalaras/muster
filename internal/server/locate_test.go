@@ -295,7 +295,7 @@ func walkOnlyLocator() *locate.Locator {
 func TestHandleLocateFile_OutcomesMatchLocatorResult(t *testing.T) {
 	t.Run("200: exactly one byte-identical file", func(t *testing.T) {
 		srv := newTestServer(t, ClaudeCodeInfo{})
-		srv.locator = walkOnlyLocator()
+		srv.locate.locator = walkOnlyLocator()
 		dir := t.TempDir()
 		content := []byte("D15 single match unique content")
 		target := filepath.Join(dir, "found.txt")
@@ -320,7 +320,7 @@ func TestHandleLocateFile_OutcomesMatchLocatorResult(t *testing.T) {
 
 	t.Run("404 not_located: no matching file on disk", func(t *testing.T) {
 		srv := newTestServer(t, ClaudeCodeInfo{})
-		srv.locator = walkOnlyLocator()
+		srv.locate.locator = walkOnlyLocator()
 		dir := t.TempDir()
 		id := newLocateTestSession(t, srv, dir)
 
@@ -340,7 +340,7 @@ func TestHandleLocateFile_OutcomesMatchLocatorResult(t *testing.T) {
 
 	t.Run("404 not_located: same name and size but different bytes", func(t *testing.T) {
 		srv := newTestServer(t, ClaudeCodeInfo{})
-		srv.locator = walkOnlyLocator()
+		srv.locate.locator = walkOnlyLocator()
 		dir := t.TempDir()
 		onDisk := []byte("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
 		upload := []byte("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")
@@ -364,7 +364,7 @@ func TestHandleLocateFile_OutcomesMatchLocatorResult(t *testing.T) {
 
 	t.Run("409 ambiguous: two identical files, paths listed", func(t *testing.T) {
 		srv := newTestServer(t, ClaudeCodeInfo{})
-		srv.locator = walkOnlyLocator()
+		srv.locate.locator = walkOnlyLocator()
 		dir := t.TempDir()
 		content := []byte("D15 ambiguous duplicated content")
 		pathA := filepath.Join(dir, "a", "dup.txt")
@@ -444,7 +444,7 @@ func TestHandleLocateFile_FinderErrorReturnsInternalError(t *testing.T) {
 		t.Skip("root ignores directory permission bits")
 	}
 	srv := newTestServer(t, ClaudeCodeInfo{})
-	srv.locator = walkOnlyLocator()
+	srv.locate.locator = walkOnlyLocator()
 	dir := t.TempDir()
 	id := newLocateTestSession(t, srv, dir)
 
@@ -466,10 +466,10 @@ func TestHandleLocateFile_FinderErrorReturnsInternalError(t *testing.T) {
 // does by not setting it) answers 500 internal_error instead of nil-dereferencing
 // s.locator.Locate — and, critically, the server must still be alive to answer that 500
 // at all, which a panic reaching net/http's handler goroutine would not guarantee.
-// newTestServer never sets Config.Locator, so this needs no explicit srv.locator = nil.
+// newTestServer never sets Config.Locator, so this needs no explicit srv.locate.locator = nil.
 func TestHandleLocateFile_NilLocatorIs500NotAPanic(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
-	require.Nil(t, srv.locator, "this test's premise: no Locator configured")
+	require.Nil(t, srv.locate.locator, "this test's premise: no Locator configured")
 	id := newLocateTestSession(t, srv, t.TempDir())
 
 	req := buildLocateRequest(t, id, "x.txt", []byte("hello"), true)
@@ -499,7 +499,7 @@ func TestHandleLocateFile_NilLocatorIs500NotAPanic(t *testing.T) {
 // all, rather than relying on newTestServer's default happening to be nil elsewhere).
 func TestHandleLocateFile_NilLocatorStillValidatesBodyFirst(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
-	require.Nil(t, srv.locator, "this test's premise: no Locator configured")
+	require.Nil(t, srv.locate.locator, "this test's premise: no Locator configured")
 	id := newLocateTestSession(t, srv, t.TempDir())
 
 	t.Run("missing_file_part", func(t *testing.T) {

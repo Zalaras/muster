@@ -124,6 +124,7 @@ For each file in `daemon-implementation.md`, read the actual file and check:
 - Error handling: `%w` wrapping, no silent failures?
 - Architecture: handlers decode/delegate/encode only; wiring in `main`; no `init()` magic or package-level mutable state; `context.Context` propagated; graceful shutdown respected?
 - Conventions: stack choices per `docs/conventions.md` (no substituted libraries), zerolog via the passed-down logger?
+- Logic landing in the composition root (`internal/server/server.go`) beyond a one-line registration is Major, tagged `[daemon-impl]` (`docs/conventions.md` § Composition roots).
 
 ### 6. Code Review — Web (TypeScript)
 
@@ -133,6 +134,7 @@ For each file in `web-implementation.md`, read the actual file and check:
 - Conventions: no framework or new dependency smuggled in; single WebSocket client module (no second socket); no `innerHTML` with interpolated data; logic in pure modules separate from DOM code?
 - UI states: all three handled — no data yet ("unknown"), data, daemon-down?
 - Accessibility: semantic elements, accessible names on interactive elements; Testable UI Elements table honoured exactly?
+- Logic landing in the composition root (`web/src/main.ts`) beyond a one-line registration is Major, tagged `[web-impl]` (`docs/conventions.md` § Composition roots).
 
 ### 6a. Design System Compliance
 

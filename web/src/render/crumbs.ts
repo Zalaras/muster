@@ -2,7 +2,7 @@
 // REQ-6). `splitCrumbs` is the pure half — unit-tested by web-tests — turning an absolute
 // path into its ordered ancestor chain, root first. `renderCrumbs` is the tiny DOM half
 // that draws it into the `<nav>` (mockup: plans/new-session-dialog/mockup.html), used only
-// by render/launch.ts.
+// by features/launch.ts.
 
 export interface Crumb {
   name: string;

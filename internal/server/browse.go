@@ -25,12 +25,28 @@ type browseResponse struct {
 	Dirs   []browseDirWire `json:"dirs"`
 }
 
+// browseFeature owns GET /api/browse (plan code-breakup REQ-6). root is a pointer to
+// Server's own browseRoot field rather than a copied string: tests mutate that field
+// directly after construction (browse_test.go), and this handler must observe the
+// live value, not a snapshot taken at New time.
+type browseFeature struct {
+	root *string
+}
+
+func newBrowseFeature(root *string) *browseFeature {
+	return &browseFeature{root: root}
+}
+
+func (f *browseFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.Handler) {
+	mux.Handle("GET /api/browse", guard(http.HandlerFunc(f.handleBrowse)))
+}
+
 // handleBrowse is GET /api/browse: lists a directory's subdirectories for the launch
 // modal's folder browser (REQ-6), since browsers never reveal a chosen folder's
 // absolute path. The browse root (-browse-root; empty = the user's home directory)
 // is the no-param default and the "Up" ceiling; explicit paths elsewhere stay allowed.
-func (s *Server) handleBrowse(w http.ResponseWriter, r *http.Request) {
-	root := s.browseRoot
+func (f *browseFeature) handleBrowse(w http.ResponseWriter, r *http.Request) {
+	root := *f.root
 	if root == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {

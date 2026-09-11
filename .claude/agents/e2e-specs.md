@@ -212,7 +212,7 @@ The deciding question is the same as always: does the *approved plan* pin the ne
 
 ## Writing Tests
 
-Place new test files in `web/e2e/<feature-name>.spec.ts`. Follow the patterns in the existing specs:
+Place new test files in `web/e2e/<feature-name>.spec.ts`, where `<feature-name>` is the web controller / Go feature the plan's vocabulary names; helpers go in `web/e2e/helpers/<feature-name>.ts`. Follow the patterns in the existing specs:
 
 - Use `page.goto('/relative-path')` — baseURL is set per-run in the config
 - Use Playwright locators: `getByRole`, `getByLabel`, `getByText`, `getByTestId`

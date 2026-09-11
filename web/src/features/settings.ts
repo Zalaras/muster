@@ -1,7 +1,10 @@
 // REQ-9 (plan new-ui-design-colors): the Settings dialog — DOM + wiring only, no store
-// access (main.ts owns the PUT and the "the prefs broadcast is the only source of the
-// checked radio" invariant, INV-7). Modelled on render/confirm.ts's controller shape:
+// access (this module owns the PUT and the "the prefs broadcast is the only source of
+// the checked radio" invariant, INV-7). Modelled on render/confirm.ts's controller shape:
 // elements in, handlers in, {open, close, setChecked} out.
+import type { App } from "../app";
+import { putPrefs } from "../api";
+import { requireElement, requireElements } from "../dom";
 import type { ThemeChoice } from "../theme";
 
 export interface SettingsDialogElements {
@@ -10,14 +13,14 @@ export interface SettingsDialogElements {
   closeBtn: HTMLButtonElement;
   // Plan auto-update: the Updates section's toggle and two apply buttons — wiring only
   // (change/click listeners); their visible/disabled/label state is render/update.ts's
-  // `renderUpdateSection`'s job, called separately by main.ts on every render pass.
+  // `renderUpdateSection`'s job, called separately by features/update.ts on every render pass.
   updateToggle: HTMLInputElement;
   applyBtn: HTMLButtonElement;
   restartBtn: HTMLButtonElement;
 }
 
 export interface SettingsDialogHandlers {
-  /** Fires immediately on change (REQ-9: "no Save") — main.ts turns this into a
+  /** Fires immediately on change (REQ-9: "no Save") — this module turns this into a
    * fire-and-forget `PUT /api/prefs`. Never updates the checked radio itself; that only
    * ever happens via `setChecked`, driven by the next `prefs`/`snapshot` broadcast. */
   onChooseTheme: (theme: ThemeChoice) => void;
@@ -26,8 +29,8 @@ export interface SettingsDialogHandlers {
   onToggleUpdateCheck: (checked: boolean) => void;
   /** Plan auto-update: `POST /api/update/apply {}` (User Flow 2). */
   onUpdate: () => void;
-  /** Plan auto-update: opens the restart-impact confirm (User Flow 3) — main.ts owns the
-   * `GET /api/update/restart-impact` round trip and the confirm dialog itself. */
+  /** Plan auto-update: opens the restart-impact confirm (User Flow 3) — features/update.ts
+   * owns the `GET /api/update/restart-impact` round trip and the confirm dialog itself. */
   onUpdateAndRestart: () => void;
 }
 
@@ -80,4 +83,54 @@ export function initSettingsDialog(
       elements.updateToggle.checked = updateCheck;
     },
   };
+}
+
+/** REQ-2's controller entry: locates the Settings button + dialog, wires it to
+ * `deps.update`'s shared elements/methods, and self-registers the `status`/`prefs`
+ * subscriptions the dialog needs (plan code-breakup vocabulary: "settings"). */
+// W6/INV-4: structural, not a sibling import of UpdateHandle from the update module.
+export function initSettings(
+  app: App,
+  deps: {
+    update: {
+      toggle: HTMLInputElement;
+      applyBtn: HTMLButtonElement;
+      restartBtn: HTMLButtonElement;
+      apply(): void;
+      applyAndRestart(): void;
+    };
+  },
+): SettingsDialogController {
+  const settingsButtonEl = requireElement<HTMLButtonElement>("#settings-button");
+  const elements: SettingsDialogElements = {
+    dialog: requireElement<HTMLDialogElement>("#settings-dialog"),
+    themeRadios: requireElements<HTMLInputElement>('#settings-dialog input[name="theme"]'),
+    closeBtn: requireElement<HTMLButtonElement>("#settings-close-button"),
+    updateToggle: deps.update.toggle,
+    applyBtn: deps.update.applyBtn,
+    restartBtn: deps.update.restartBtn,
+  };
+  const controller = initSettingsDialog(elements, {
+    onChooseTheme: (theme) => {
+      void putPrefs({ theme }).then((result) => {
+        if (!result.ok) console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);
+      });
+    },
+    onToggleUpdateCheck: (checked) => {
+      void putPrefs({ updateCheck: checked }).then((result) => {
+        if (!result.ok) console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);
+      });
+    },
+    onUpdate: () => deps.update.apply(),
+    onUpdateAndRestart: () => deps.update.applyAndRestart(),
+  });
+
+  settingsButtonEl.addEventListener("click", () => controller.open());
+
+  app.on("prefs", (prefs) => controller.setChecked(prefs.theme, prefs.updateCheck));
+  // States (new-ui-design-colors): "Daemon down ... The Settings dialog closes with the
+  // other dialogs ... since a PUT cannot land."
+  app.on("status", () => controller.close());
+
+  return controller;
 }

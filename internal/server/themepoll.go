@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"net/http"
 	"sync"
 	"time"
 
@@ -9,6 +10,54 @@ import (
 
 	"github.com/Zalaras/muster/internal/claudecode"
 )
+
+// ThemeConfig groups the Claude-theme poller's config (plan code-breakup REQ-7). Poll <=
+// 0 means the poller is never constructed at all (mirrors UsageConfig.Poll's shape) — a
+// zero-value Config never opens ConfigFile.
+type ThemeConfig struct {
+	// Poll is the poll interval. <= 0 disables polling entirely: snapshot.claudeTheme.family
+	// stays "unknown" forever.
+	Poll time.Duration
+	// ConfigFile is Claude Code's global config file to poll
+	// (claudecode.DefaultConfigPath() in production) — a test seam like UsageConfig.TokenFile.
+	ConfigFile string
+}
+
+// themeFeature owns the Claude-theme poller and the snapshot's claudeTheme object (plan
+// code-breakup REQ-6). It mounts no routes.
+type themeFeature struct {
+	poller *themePoller // nil when ThemeConfig.Poll <= 0
+}
+
+func newThemeFeature(cfg ThemeConfig, hub *wsHub, log zerolog.Logger) *themeFeature {
+	f := &themeFeature{}
+	if cfg.Poll > 0 {
+		f.poller = newThemePoller(cfg.ConfigFile, claudecode.ReadThemeFamily, cfg.Poll, func(family claudecode.ThemeFamily) {
+			hub.broadcast(claudeThemeMessage{Type: "claudeTheme", Family: string(family)})
+		}, log)
+	}
+	return f
+}
+
+func (f *themeFeature) mount(_ *http.ServeMux, _ func(http.Handler) http.Handler) {}
+
+func (f *themeFeature) Start() {
+	if f.poller != nil {
+		f.poller.Start()
+	}
+}
+
+func (f *themeFeature) Stop(ctx context.Context) {
+	if f.poller != nil {
+		f.poller.Stop(ctx)
+	}
+}
+
+func (f *themeFeature) contribute(_ context.Context, snap *Snapshot) {
+	if f.poller != nil {
+		snap.ClaudeTheme = ClaudeThemeInfo{Family: string(f.poller.Current())}
+	}
+}
 
 // claudeThemeMessage is the WS `claudeTheme` envelope (docs/protocol.md §5.6) — flat,
 // unlike prefsMessage/usageMessage: no nested object, just the type tag and the family.

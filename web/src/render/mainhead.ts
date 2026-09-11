@@ -3,8 +3,8 @@
 // DOM only; every displayed string is derived from the Session plus a shared helper
 // (card.ts's repoLine/stateBadgeText) so the mainhead never composes a second copy of
 // text the card already owns. Static markup (one instance in index.html, unlike the
-// per-session card/tile templates) — main.ts wires the three buttons' click listeners
-// once at startup and this module only ever toggles their `disabled` state.
+// per-session card/tile templates) — features/focus.ts wires the three buttons' click
+// listeners once at startup and this module only ever toggles their `disabled` state.
 import type { Session } from "../protocol";
 import { buildCardViewModel } from "../sessions/card";
 import { formatEndedAgo } from "../sessions/format";
@@ -18,15 +18,15 @@ export interface MainheadElements {
   resumeBtn: HTMLButtonElement;
   removeBtn: HTMLButtonElement;
   // Plan ui-text-and-focus REQ-13: the rename trigger inside `nameEl` — its text is
-  // written here on every non-editing pass; `main.ts` attaches the actual editor
-  // (render/rename.ts) to `nameEl` once at startup, this module never opens/closes it.
+  // written here on every non-editing pass; `features/rename.ts` attaches the actual
+  // editor (render/rename.ts) to `nameEl` once at startup, this module never opens/closes it.
   renameBtn: HTMLButtonElement;
   // Plan plain-terminal-session REQ-4: the `claude | shell` segment, built once by
-  // main.ts at startup and inserted between `.meta` and `.acts` — this module only ever
-  // updates its attributes (below), never rebuilds it. Optional for the same reason
-  // render/tiles.ts's `actsEl`/`rename` are (mainhead.test.ts's pre-existing hand-built
-  // `MainheadElements` fixtures, built before this plan, have no such field) — every real
-  // caller (main.ts) always supplies one.
+  // features/focus.ts at startup and inserted between `.meta` and `.acts` — this module
+  // only ever updates its attributes (below), never rebuilds it. Optional for the same
+  // reason render/tiles.ts's `actsEl`/`rename` are (mainhead.test.ts's pre-existing
+  // hand-built `MainheadElements` fixtures, built before this plan, have no such field) —
+  // every real caller (features/focus.ts) always supplies one.
   surfaceSegment?: SurfaceSegmentRefs;
 }
 
@@ -49,7 +49,7 @@ function mainheadMeta(session: Session, now: Date): string {
  * - Remove: never disabled by session state (only by `connected`).
  *
  * `surfaceState` (plan plain-terminal-session) is the currently-focused session's
- * surface-switch state (main.ts's `surfaceSwitchState`, or the default when there is no
+ * surface-switch state (features/surfaces.ts's `surfaceSwitchState`, or the default when there is no
  * focused session) — updated every pass regardless of the `!session` branch below, since
  * `updateSurfaceSegment` only ever writes attributes and is harmless while `root` is
  * hidden. Defaults to the "no shell yet" state so a caller with no `surfaceSegment`
@@ -67,7 +67,7 @@ export function renderMainhead(
     // `elements.nameEl.textContent = ""`, which permanently detached the
     // `button.rename` child `nameEl` must always keep (Testable UI Elements:
     // "Mainhead heading — heading — #mainhead h2.name" always contains the rename
-    // button; REQ-13(a)). `main.ts` captures that button once via `requireElement`
+    // button; REQ-13(a)). `features/focus.ts` captures that button once via `requireElement`
     // and `attachRenameEditor` finds it once at startup — there is no later rebuild
     // path — and the dashboard always runs one render() pass with zero sessions
     // before the first sessionUpsert, so this branch fired on every page load and
@@ -88,7 +88,7 @@ export function renderMainhead(
   }
   // Same "every render pass, regardless of the editing skip above" rule as its three
   // siblings below — disabling reflects `connected`, not the edit state (States: "the
-  // rename button is disabled while the WS is disconnected"; main.ts separately cancels
+  // rename button is disabled while the WS is disconnected"; features/rename.ts separately cancels
   // an open edit on disconnect).
   elements.renameBtn.disabled = !connected;
   elements.metaEl.textContent = mainheadMeta(session, now);

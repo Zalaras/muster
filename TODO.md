@@ -148,35 +148,9 @@ These are some minor changes and cleanup needed before we can move into post v1.
   placeholders not `$` variables, `sequential` unused, and the config sits in `web/` so the
   ancestor-lookup change is moot.
 
-- [ ] **Dismantle the two composition-root hotspots so plans can run in parallel** — one plan,
-  `full-stack`, via `/orchestrate` (Damian, 2026-09-11: single plan for both sides, files not
-  sub-packages for now). Scaling check 2026-09-11: `web/src/main.ts` is 1,425 lines and has been
-  edited by 21 commits (40 element lookups, ~20 module-level `let` state variables, every
-  feature's event wiring); `internal/server` is already 45 files but every feature adds a field
-  to the 25-field `Server` struct, a twin field in `Config`, and a line in `routes()`, so any two
-  plans collide on the same three files. The cause is structural: plans list "`main.ts` — wire X"
-  under Affected Files, agents comply, and review judges against the plan, so nothing pushed back.
-  Scope: (1) `main.ts` and `server.go` become composition roots only — build dependencies, call
-  each feature's init/mount, a couple of hundred lines each. (2) Web: one controller module per
-  feature with an `init(deps)` entry, following the shape `render/launch.ts` (`initLaunchModal`),
-  `render/settings.ts` and `render/issue.ts` already use; the loose features (usage block, rail
-  sort/count, views + density, theme, update banner, connection status, shortcuts) move into
-  controllers, and their module-level state moves with them or into `SessionStore`. (3) Go: each
-  feature owns a small handler type with its own dependencies and a `Mount(mux, …)` (or
-  equivalent); `Server` keeps mux, auth, hub, lifecycle. Feature files stay inside
-  `internal/server` — the coupling to remove is the struct, not the directory. (4) E2E: one spec
-  file per feature named for the same seam as its web controller, helpers in
-  `web/e2e/helpers/<feature>.ts`; split the grab-bags `actions.spec.ts` (1,653 lines, 23 tests)
-  and `views.spec.ts` when the plan touches them. (5) Rules so it does not regrow:
-  `docs/conventions.md` names the two composition roots and the exemplar files ("a new feature
-  is a new module with an init, registered in one line in `main.ts`"); `plan-work` may list a
-  composition root under Affected Files only for a one-line registration; `review-work` flags
-  logic landing in a composition root. Behaviour is unchanged throughout — the full E2E suite is
-  the oracle, no new specs beyond the split.
-
 - [ ] **Make the project knowledge searchable as it grows** (docs session, not a pipeline plan;
   Damian 2026-09-11) — after the pipeline-scaling cleanup of 2026-09-11 moved history out of
-  `SPEC.md`/`TODO.md`, and **after** the composition-root item above settles the feature names.
+  `SPEC.md`/`TODO.md`, and **after** the composition-root item (done 2026-09-11, plan `code-breakup`, now in `docs/history/todo-done.md`) settled the feature names.
   Mechanisms, in the order they pay off: (1) **stable IDs** — decisions numbered (`D-0042`) so a
   plan, comment, review or retro cites one exactly and `grep` finds every citation; today they are
   cited by date and plan name, which drift. (2) **Frontmatter** on decision records and spike
@@ -251,7 +225,7 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
   into SPEC §3's explicit v1 non-goal ("Cost/spend tracking"), which is a SPEC change, not a
   plan.
 
-- [ ] **`isThemeChoice` should derive from the theme registry** — `web/src/render/settings.ts`
+- [ ] **`isThemeChoice` should derive from the theme registry** — `web/src/features/settings.ts` (moved from `render/` by plan `code-breakup`)
   hard-codes the four radio values instead of reading `THEMES`, so adding a theme (REQ-1's
   "one block plus one registry entry") would silently leave its radio dead until this guard
   is also edited. Suggested: `value === "follow" || (THEMES as readonly string[]).includes(value)`.

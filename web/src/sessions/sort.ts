@@ -65,7 +65,7 @@ export function sortSessions(sessions: readonly Session[]): Session[] {
  * (INV-3: independent of `state`/`alive`/`attention`/`stateSince`), `attention` orders it
  * by `sortSessions`'s existing §3.4 priority (INV-4: the pinned block still precedes
  * every unpinned session in this mode). Never mutates its input — the rail, the Tiles
- * strip and `main.ts`'s default-focus pick all read display order through this one
+ * strip and `features/focus.ts`'s default-focus pick all read display order through this one
  * function rather than calling `sortSessions` directly. */
 export function orderRail(sessions: readonly Session[], mode: RailSort): Session[] {
   const pinned = sessions.filter((s) => s.pinned).sort((a, b) => a.railPos - b.railPos || a.id - b.id);

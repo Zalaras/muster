@@ -1,9 +1,9 @@
 // Shared inline rename editor (plan ui-text-and-focus REQ-13-16) — the Focus mainhead's
 // heading and every Tiles tile header attach one of these to their own container. DOM
-// and key handling only, modelled on render/settings.ts's controller shape (elements/
+// and key handling only, modelled on features/settings.ts's controller shape (elements/
 // handlers in, a small controller out); `titleCommand` (sessions/rename.ts) decides what
-// a commit actually sends, `main.ts` turns the result into a `putTitle` call — this
-// module never touches the network.
+// a commit actually sends, `features/rename.ts` turns the result into a `putTitle` call —
+// this module never touches the network.
 //
 // `container` must already hold, as its only child, the `<button type="button"
 // class="rename">` the caller built (mainhead.ts's static markup; tiles.ts's `buildTile`

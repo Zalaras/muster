@@ -6,10 +6,11 @@ import { renderContextRow } from "./context";
 import { captureFocusedControl, restoreFocusedControl, type FocusedControl } from "./focus";
 
 /** REQ-11's card/strip/tile action-row buttons all dispatch through this one shape —
- * `main.ts`'s dispatcher owns what each action actually does (open a confirm dialog, or
- * call Resume directly per User Flow 3). Plan order-sidebar REQ-8 adds `"pin"` — the
- * card's pin button dispatches through the same shape; `main.ts`'s dispatcher calls
- * `pinSession(id, !session.pinned)` directly, same as Resume (no confirm dialog). */
+ * `features/actions.ts`'s dispatcher owns what each action actually does (open a confirm
+ * dialog, or call Resume directly per User Flow 3). Plan order-sidebar REQ-8 adds
+ * `"pin"` — the card's pin button dispatches through the same shape; `features/actions.ts`'s
+ * dispatcher calls `pinSession(id, !session.pinned)` directly, same as Resume (no confirm
+ * dialog). */
 export type SessionAction = "end" | "resume" | "remove" | "pin";
 
 const ACTION_BY_LABEL: Record<CardAction, SessionAction> = {
@@ -200,7 +201,7 @@ function updateSessionCardContent(
  * a rail card moves focus" / REQ-8's "clicking a strip card promotes it"). The callback
  * now also learns its source — `"pointer"` for a mouse click, `"keyboard"` for Enter/Space
  * activation (plan terminal-focus REQ-8) — so a caller that only wants to move keyboard
- * focus into the terminal on a deliberate pointer selection (main.ts's rail callback) can
+ * focus into the terminal on a deliberate pointer selection (features/rail.ts's rail callback) can
  * tell the two apart without a second callback or a DOM flag. Listeners are wired up
  * exactly once here — `reconcileCards` never rebuilds an existing card, it calls
  * `updateSessionCardElement` on the same node instead (review m4-reconcile cycle-2
@@ -233,7 +234,7 @@ export function buildSessionCardElement(
     // REQ-7/REQ-8: cards become interactive in M2 — keyboard-reachable too, not just a
     // mouse target.
     card.tabIndex = 0;
-    // plan terminal-focus REQ-8: the pointer path is the only one main.ts's rail
+    // plan terminal-focus REQ-8: the pointer path is the only one features/rail.ts's rail
     // callback uses to move keyboard focus into the terminal (REQ-1/REQ-4) — the
     // keyboard-activation branch below reports itself as "keyboard" so that callback can
     // decline to do so and leave focus on the card.
@@ -278,7 +279,7 @@ export function updateSessionCardElement(
 }
 
 /** Reconciles `container`'s card children against `sessions`, matching existing DOM
- * nodes by session id — the same pattern `main.ts`'s `reconcileTilesGrid` already uses
+ * nodes by session id — the same pattern `features/tiles.ts`'s `reconcileTilesGrid` already uses
  * for tiles, for the identical reason (review m2-terminal Critical 2 / m4-reconcile
  * cycle-2 Major 1): replacing the container's children wholesale on every 1s render tick
  * destroys and rebuilds every action button (and the card itself, if it's the focused
@@ -302,7 +303,7 @@ export function reconcileCards(
   // control currently has focus before `dragstart`/`drop` ever runs (same mechanism as
   // `installTileDrag`'s `pendingTileFocus` — see render/dragreorder.ts's header
   // comment), so by the time this reconcile runs a *live* `captureFocusedControl` would
-  // find nothing. `main.ts` passes the pre-blur snapshot it stashed from
+  // find nothing. `features/rail.ts` passes the pre-blur snapshot it stashed from
   // `installDragReorder`'s `onMove` here instead; every other caller (a plain render
   // tick, a pin click, a strip reconcile) omits this and gets the live capture, same as
   // before this plan.
@@ -395,7 +396,7 @@ export function renderSessions(
   draggable = false,
   pendingFocus?: FocusedControl | null,
   // REQ-1/REQ-3: the id of the session the Focus pane is showing — passed straight
-  // through to `reconcileCards`. `main.ts` supplies `focusedId` here for the rail.
+  // through to `reconcileCards`. `features/rail.ts` supplies `focusedId` here for the rail.
   currentId: number | null = null,
 ): void {
   if (sessions.length === 0) {
@@ -414,8 +415,8 @@ export interface FocusMainElements {
 }
 
 /** Toggles Focus's main area between the honest empty state and the terminal slot — the
- * slot's contents (a TerminalSurface's root) are main.ts's surface manager's job, not
- * this module's (docs/conventions.md: DOM here, sockets/pane lifecycle in main.ts). */
+ * slot's contents (a TerminalSurface's root) are features/surfaces.ts's job, not
+ * this module's (docs/conventions.md: DOM here, sockets/pane lifecycle in features/surfaces.ts). */
 export function renderFocusMain(elements: FocusMainElements, hasSessions: boolean): void {
   elements.emptyEl.hidden = hasSessions;
   elements.slotEl.hidden = !hasSessions;

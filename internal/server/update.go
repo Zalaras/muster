@@ -14,8 +14,40 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/Zalaras/muster/internal/selfupdate"
+	"github.com/Zalaras/muster/internal/session"
 	"github.com/Zalaras/muster/internal/tmux"
 )
+
+// UpdateConfig groups auto-update's checker/apply config (plan code-breakup REQ-7).
+// BaseURL empty means no updateManager is constructed at all (mirrors UsageConfig's
+// nil-when-disabled shape) — a zero-value Config must never reach github.com.
+type UpdateConfig struct {
+	// BaseURL is the GitHub Releases base URL; "" disables checking and apply entirely.
+	BaseURL string
+	// CheckInterval is how often the daemon re-checks for a newer release.
+	CheckInterval time.Duration
+	// PublicKey is the minisign public key file's raw bytes verification trusts
+	// (overrides the embedded selfupdate.PublicKey() — a test seam; production always
+	// passes the embedded key).
+	PublicKey []byte
+	// Install is the startup install classification (selfupdate.Classify), computed
+	// once in cmd/musterd from the resolved executable path — constant for the
+	// daemon's life.
+	Install selfupdate.Install
+	// ExePath is the resolved (os.Executable + filepath.EvalSymlinks) real path of the
+	// running binary — where an apply installs the new one and what swap detection stats.
+	ExePath string
+	// ExeRun runs `<exe> -version` for the swap-detection probe — an injectable seam
+	// like ClaudeBin's execFunc (selfupdate.RunVersionProbe in production).
+	ExeRun updateExecFunc
+}
+
+// tmuxSessionLister is updateFeature's view of the daemon's real tmux client
+// (independent of any Config.TmuxClient test override — restart-impact always lists
+// real tmux state).
+type tmuxSessionLister interface {
+	ListSessions(ctx context.Context) ([]string, error)
+}
 
 // updateMessage is the WS `update` broadcast (docs/protocol.md §5.7).
 type updateMessage struct {
@@ -471,6 +503,112 @@ func (m *updateManager) emit() {
 	m.onChange(m.Current())
 }
 
+// updateFeature owns auto-update's two endpoints and the snapshot's update object (plan
+// code-breakup REQ-6). It is always registered, even when updates are disabled —
+// internally um is nil and every method answers exactly as a disabled daemon does today
+// (Edge Case 14's nil-when-disabled shape, applied at the feature boundary this time).
+type updateFeature struct {
+	install       selfupdate.Install
+	daemonVersion string
+	um            *updateManager // nil when UpdateConfig.BaseURL == ""
+	tmuxLister    tmuxSessionLister
+	sessions      *session.Manager
+	log           zerolog.Logger
+}
+
+// newUpdateFeature builds the feature. prefsUpdateCheck is the persisted
+// prefs.updateCheck value at daemon startup, read by New before constructing this
+// feature (Edge Case 13: prefs is built first, then update, then prefs is wired to
+// this feature's SetCheckEnabled — see prefs.go's checkEnabledSetter doc comment).
+func newUpdateFeature(cfg UpdateConfig, httpClient *http.Client, daemonVersion string, prefsUpdateCheck bool, tmuxLister tmuxSessionLister, sessions *session.Manager, hub *wsHub, log zerolog.Logger) *updateFeature {
+	f := &updateFeature{install: cfg.Install, daemonVersion: daemonVersion, tmuxLister: tmuxLister, sessions: sessions, log: log}
+	if cfg.BaseURL != "" {
+		client := httpClient
+		if client == nil {
+			client = http.DefaultClient
+		}
+		pubKey := cfg.PublicKey
+		if len(pubKey) == 0 {
+			pubKey = selfupdate.PublicKey()
+		}
+		f.um = newUpdateManager(updateManagerConfig{
+			Client:       client,
+			Base:         cfg.BaseURL,
+			Interval:     cfg.CheckInterval,
+			PubKey:       pubKey,
+			Install:      cfg.Install,
+			Running:      daemonVersion,
+			ExePath:      cfg.ExePath,
+			ExeRun:       cfg.ExeRun,
+			CheckEnabled: prefsUpdateCheck,
+			Log:          log,
+			OnChange: func(u UpdateInfo) {
+				hub.broadcast(updateMessage{Type: "update", Update: u})
+			},
+		})
+	}
+	return f
+}
+
+func (f *updateFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.Handler) {
+	mux.Handle("POST /api/update/apply", guard(http.HandlerFunc(f.handleApplyUpdate)))
+	mux.Handle("GET /api/update/restart-impact", guard(http.HandlerFunc(f.handleRestartImpact)))
+}
+
+func (f *updateFeature) Start() {
+	if f.um != nil {
+		f.um.Start()
+	}
+}
+
+func (f *updateFeature) Stop(ctx context.Context) {
+	if f.um != nil {
+		f.um.Stop(ctx)
+	}
+}
+
+// SetCheckEnabled satisfies prefsFeature's checkEnabledSetter (Edge Case 13). A no-op
+// when updates are disabled entirely.
+func (f *updateFeature) SetCheckEnabled(enabled bool) {
+	if f.um != nil {
+		f.um.SetCheckEnabled(enabled)
+	}
+}
+
+// current returns the live `update` object (docs/protocol.md §5.7): the manager's own
+// state when updates are enabled, or a static shape reflecting the fixed install
+// classification when they are not — either way it always names the true install kind
+// (Edge Case 33).
+func (f *updateFeature) current() UpdateInfo {
+	if f.um != nil {
+		return f.um.Current()
+	}
+	var remedy *string
+	if f.install.Remedy != "" {
+		r := f.install.Remedy
+		remedy = &r
+	}
+	return UpdateInfo{
+		Running: f.daemonVersion,
+		Install: string(f.install.Kind),
+		Remedy:  remedy,
+		Apply:   UpdateApplyInfo{Phase: string(selfupdate.PhaseIdle)},
+	}
+}
+
+func (f *updateFeature) contribute(_ context.Context, snap *Snapshot) {
+	snap.Update = f.current()
+}
+
+// restartRequestsChan backs Server.RestartRequests: a nil channel when updates are
+// disabled, which a select simply never fires on.
+func (f *updateFeature) restartRequestsChan() <-chan struct{} {
+	if f.um == nil {
+		return nil
+	}
+	return f.um.restartRequests
+}
+
 // applyUpdateRequest is POST /api/update/apply's request body (docs/protocol.md §3.17).
 // The body itself is optional — an absent/empty body means restart:false.
 type applyUpdateRequest struct {
@@ -478,8 +616,8 @@ type applyUpdateRequest struct {
 }
 
 // handleApplyUpdate is POST /api/update/apply (docs/protocol.md §3.17).
-func (s *Server) handleApplyUpdate(w http.ResponseWriter, r *http.Request) {
-	if s.updates == nil || s.updates.installKind() == selfupdate.KindDev {
+func (f *updateFeature) handleApplyUpdate(w http.ResponseWriter, r *http.Request) {
+	if f.um == nil || f.um.installKind() == selfupdate.KindDev {
 		writeJSONError(w, http.StatusNotFound, "not_found", "updates are disabled for this daemon")
 		return
 	}
@@ -494,17 +632,17 @@ func (s *Server) handleApplyUpdate(w http.ResponseWriter, r *http.Request) {
 	// Escape must not cancel an in-flight download/verify/install (mirrors
 	// handleCreateIssue's context.WithoutCancel for the same reason).
 	applyCtx := context.WithoutCancel(r.Context())
-	switch err := s.updates.RequestApply(applyCtx, req.Restart); {
+	switch err := f.um.RequestApply(applyCtx, req.Restart); {
 	case err == nil:
 		w.WriteHeader(http.StatusAccepted)
 	case errors.Is(err, errUpdateUnsupported):
-		writeJSONError(w, http.StatusConflict, "update_unsupported", s.updates.Remedy())
+		writeJSONError(w, http.StatusConflict, "update_unsupported", f.um.Remedy())
 	case errors.Is(err, errNothingToApply):
 		writeJSONError(w, http.StatusConflict, "nothing_to_apply", "no newer release is known")
 	case errors.Is(err, errShuttingDown):
 		writeJSONError(w, http.StatusConflict, "shutting_down", "musterd is shutting down")
 	default:
-		s.log.Warn().Err(err).Msg("starting update apply failed")
+		f.log.Warn().Err(err).Msg("starting update apply failed")
 		writeJSONError(w, http.StatusInternalServerError, "internal_error", "starting update apply failed")
 	}
 }
@@ -527,10 +665,10 @@ type restartImpactResponse struct {
 // of whether updates are enabled at all (the confirm dialog that calls this only appears
 // when apply is possible, but the endpoint itself carries no such restriction —
 // docs/protocol.md §3.18 "Errors: none beyond auth").
-func (s *Server) handleRestartImpact(w http.ResponseWriter, r *http.Request) {
-	names, err := s.tmuxLister.ListSessions(r.Context())
+func (f *updateFeature) handleRestartImpact(w http.ResponseWriter, r *http.Request) {
+	names, err := f.tmuxLister.ListSessions(r.Context())
 	if err != nil {
-		s.log.Warn().Err(err).Msg("listing tmux sessions for restart-impact failed")
+		f.log.Warn().Err(err).Msg("listing tmux sessions for restart-impact failed")
 		names = nil
 	}
 
@@ -541,7 +679,7 @@ func (s *Server) handleRestartImpact(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		var title *string
-		if sess, ok := s.manager.Get(id); ok {
+		if sess, ok := f.sessions.Get(id); ok {
 			title = sess.DisplayTitle()
 		}
 		shells = append(shells, restartImpactShell{SessionID: id, Title: title})

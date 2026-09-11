@@ -434,7 +434,7 @@ func newUpdateTestServer(t *testing.T, mutate func(*Config)) *testServer {
 	cfg := Config{
 		Store: st, Logger: zerolog.Nop(), UIToken: testUIToken, IngestToken: testIngestToken,
 		WebDist: t.TempDir(), DaemonVersion: "0.10.0",
-		UpdateCheckInterval: time.Hour,
+		Update: UpdateConfig{CheckInterval: time.Hour},
 	}
 	if mutate != nil {
 		mutate(&cfg)
@@ -465,7 +465,7 @@ func getRestartImpact(t *testing.T, srv *testServer) *httptest.ResponseRecorder 
 // request in flight" and success cases, covered by their own tests below).
 func TestHandleApplyUpdate_ErrorTable(t *testing.T) {
 	t.Run("bad JSON body is 400", func(t *testing.T) {
-		srv := newUpdateTestServer(t, func(c *Config) { c.UpdateBaseURL = "http://example.invalid" })
+		srv := newUpdateTestServer(t, func(c *Config) { c.Update.BaseURL = "http://example.invalid" })
 		rec := postApplyUpdate(t, srv, `not json`)
 		assert.Equal(t, http.StatusBadRequest, rec.Code)
 		assert.Equal(t, "invalid_request", decodeErrorCode(t, rec))
@@ -477,19 +477,19 @@ func TestHandleApplyUpdate_ErrorTable(t *testing.T) {
 		origin.setLatest("v0.11.0")
 		publishRelease(t, origin, key, "v0.11.0", []byte("new"))
 		srv := newUpdateTestServer(t, func(c *Config) {
-			c.UpdateBaseURL = origin.URL()
-			c.UpdatePublicKey = pubFile
-			c.Install = selfupdate.Install{Kind: selfupdate.KindInstaller}
-			c.ExePath = filepath.Join(t.TempDir(), "musterd")
+			c.Update.BaseURL = origin.URL()
+			c.Update.PublicKey = pubFile
+			c.Update.Install = selfupdate.Install{Kind: selfupdate.KindInstaller}
+			c.Update.ExePath = filepath.Join(t.TempDir(), "musterd")
 		})
-		require.NoError(t, os.WriteFile(srv.updates.exePath, []byte("old"), 0o755))
-		srv.updates.available = ptr("0.11.0")
+		require.NoError(t, os.WriteFile(srv.update.um.exePath, []byte("old"), 0o755))
+		srv.update.um.available = ptr("0.11.0")
 
 		rec := postApplyUpdate(t, srv, ``)
 		assert.Equal(t, http.StatusAccepted, rec.Code)
 
 		require.Eventually(t, func() bool {
-			return srv.updates.Current().Apply.Phase == string(selfupdate.PhaseDone)
+			return srv.update.um.Current().Apply.Phase == string(selfupdate.PhaseDone)
 		}, 2*time.Second, 10*time.Millisecond, "let the background apply finish before the test ends")
 	})
 
@@ -502,8 +502,8 @@ func TestHandleApplyUpdate_ErrorTable(t *testing.T) {
 
 	t.Run("dev install is 404 not_found", func(t *testing.T) {
 		srv := newUpdateTestServer(t, func(c *Config) {
-			c.UpdateBaseURL = "http://example.invalid"
-			c.Install = selfupdate.Install{Kind: selfupdate.KindDev}
+			c.Update.BaseURL = "http://example.invalid"
+			c.Update.Install = selfupdate.Install{Kind: selfupdate.KindDev}
 			c.DaemonVersion = "dev"
 		})
 		rec := postApplyUpdate(t, srv, `{}`)
@@ -515,8 +515,8 @@ func TestHandleApplyUpdate_ErrorTable(t *testing.T) {
 		t.Run(string(kind)+" install is 409 update_unsupported with message==remedy", func(t *testing.T) {
 			remedy := "some remedy sentence"
 			srv := newUpdateTestServer(t, func(c *Config) {
-				c.UpdateBaseURL = "http://example.invalid"
-				c.Install = selfupdate.Install{Kind: kind, Remedy: remedy}
+				c.Update.BaseURL = "http://example.invalid"
+				c.Update.Install = selfupdate.Install{Kind: kind, Remedy: remedy}
 			})
 			rec := postApplyUpdate(t, srv, `{}`)
 			assert.Equal(t, http.StatusConflict, rec.Code)
@@ -527,8 +527,8 @@ func TestHandleApplyUpdate_ErrorTable(t *testing.T) {
 
 	t.Run("nothing available and nothing installed is 409 nothing_to_apply", func(t *testing.T) {
 		srv := newUpdateTestServer(t, func(c *Config) {
-			c.UpdateBaseURL = "http://example.invalid"
-			c.Install = selfupdate.Install{Kind: selfupdate.KindInstaller}
+			c.Update.BaseURL = "http://example.invalid"
+			c.Update.Install = selfupdate.Install{Kind: selfupdate.KindInstaller}
 		})
 		rec := postApplyUpdate(t, srv, `{}`)
 		assert.Equal(t, http.StatusConflict, rec.Code)
@@ -537,11 +537,11 @@ func TestHandleApplyUpdate_ErrorTable(t *testing.T) {
 
 	t.Run("shutting down is 409 shutting_down", func(t *testing.T) {
 		srv := newUpdateTestServer(t, func(c *Config) {
-			c.UpdateBaseURL = "http://example.invalid"
-			c.Install = selfupdate.Install{Kind: selfupdate.KindInstaller}
+			c.Update.BaseURL = "http://example.invalid"
+			c.Update.Install = selfupdate.Install{Kind: selfupdate.KindInstaller}
 		})
-		srv.updates.available = ptr("0.11.0")
-		srv.updates.Stop(context.Background())
+		srv.update.um.available = ptr("0.11.0")
+		srv.update.um.Stop(context.Background())
 
 		rec := postApplyUpdate(t, srv, `{}`)
 		assert.Equal(t, http.StatusConflict, rec.Code)
@@ -549,7 +549,7 @@ func TestHandleApplyUpdate_ErrorTable(t *testing.T) {
 	})
 
 	t.Run("requires cookie", func(t *testing.T) {
-		srv := newUpdateTestServer(t, func(c *Config) { c.UpdateBaseURL = "http://example.invalid" })
+		srv := newUpdateTestServer(t, func(c *Config) { c.Update.BaseURL = "http://example.invalid" })
 		req := httptest.NewRequest(http.MethodPost, "/api/update/apply", strings.NewReader(`{}`))
 		rec := httptest.NewRecorder()
 		srv.Handler().ServeHTTP(rec, req)
@@ -579,13 +579,13 @@ func TestHandleApplyUpdate_SecondRequestWhileInFlightReturns202WithoutASecondDow
 	origin.setLatest("v0.11.0")
 	publishRelease(t, origin, key, "v0.11.0", []byte("new content"))
 	srv := newUpdateTestServer(t, func(c *Config) {
-		c.UpdateBaseURL = origin.URL()
-		c.UpdatePublicKey = pubFile
-		c.Install = selfupdate.Install{Kind: selfupdate.KindInstaller}
-		c.ExePath = filepath.Join(t.TempDir(), "musterd")
+		c.Update.BaseURL = origin.URL()
+		c.Update.PublicKey = pubFile
+		c.Update.Install = selfupdate.Install{Kind: selfupdate.KindInstaller}
+		c.Update.ExePath = filepath.Join(t.TempDir(), "musterd")
 	})
-	require.NoError(t, os.WriteFile(srv.updates.exePath, []byte("old"), 0o755))
-	srv.updates.available = ptr("0.11.0")
+	require.NoError(t, os.WriteFile(srv.update.um.exePath, []byte("old"), 0o755))
+	srv.update.um.available = ptr("0.11.0")
 
 	origin.hold() // block the archive/checksums download mid-flight
 	first := postApplyUpdate(t, srv, `{}`)
@@ -603,13 +603,13 @@ func TestHandleApplyUpdate_SecondRequestWhileInFlightReturns202WithoutASecondDow
 
 	origin.release()
 	require.Eventually(t, func() bool {
-		return srv.updates.Current().Apply.Phase == string(selfupdate.PhaseDone)
+		return srv.update.um.Current().Apply.Phase == string(selfupdate.PhaseDone)
 	}, 5*time.Second, 20*time.Millisecond)
 	// The joined (second) request's restart:true must not have been silently dropped —
 	// docs/protocol.md §3.17 says the *first* request's own restart value wins, and the
 	// first request here passed no restart at all (false).
 	select {
-	case <-srv.updates.restartRequests:
+	case <-srv.update.um.restartRequests:
 		t.Fatal("the first request's restart:false must win over the joined second request's restart:true")
 	case <-time.After(200 * time.Millisecond):
 	}
@@ -624,13 +624,13 @@ func TestHandleApplyUpdate_SuccessfulApplyBroadcastsPhasesInOrder(t *testing.T) 
 	origin.setLatest("v0.11.0")
 	publishRelease(t, origin, key, "v0.11.0", []byte("new content"))
 	srv := newUpdateTestServer(t, func(c *Config) {
-		c.UpdateBaseURL = origin.URL()
-		c.UpdatePublicKey = pubFile
-		c.Install = selfupdate.Install{Kind: selfupdate.KindInstaller}
-		c.ExePath = filepath.Join(t.TempDir(), "musterd")
+		c.Update.BaseURL = origin.URL()
+		c.Update.PublicKey = pubFile
+		c.Update.Install = selfupdate.Install{Kind: selfupdate.KindInstaller}
+		c.Update.ExePath = filepath.Join(t.TempDir(), "musterd")
 	})
-	require.NoError(t, os.WriteFile(srv.updates.exePath, []byte("old"), 0o755))
-	srv.updates.available = ptr("0.11.0")
+	require.NoError(t, os.WriteFile(srv.update.um.exePath, []byte("old"), 0o755))
+	srv.update.um.available = ptr("0.11.0")
 
 	httpSrv := httptest.NewServer(srv.Handler())
 	t.Cleanup(httpSrv.Close)
@@ -661,13 +661,13 @@ func TestHandleApplyUpdate_RestartTrueBroadcastsRestartingAndSignalsExactlyOnce(
 	origin.setLatest("v0.11.0")
 	publishRelease(t, origin, key, "v0.11.0", []byte("new content"))
 	srv := newUpdateTestServer(t, func(c *Config) {
-		c.UpdateBaseURL = origin.URL()
-		c.UpdatePublicKey = pubFile
-		c.Install = selfupdate.Install{Kind: selfupdate.KindInstaller}
-		c.ExePath = filepath.Join(t.TempDir(), "musterd")
+		c.Update.BaseURL = origin.URL()
+		c.Update.PublicKey = pubFile
+		c.Update.Install = selfupdate.Install{Kind: selfupdate.KindInstaller}
+		c.Update.ExePath = filepath.Join(t.TempDir(), "musterd")
 	})
-	require.NoError(t, os.WriteFile(srv.updates.exePath, []byte("old"), 0o755))
-	srv.updates.available = ptr("0.11.0")
+	require.NoError(t, os.WriteFile(srv.update.um.exePath, []byte("old"), 0o755))
+	srv.update.um.available = ptr("0.11.0")
 
 	httpSrv := httptest.NewServer(srv.Handler())
 	t.Cleanup(httpSrv.Close)
@@ -815,7 +815,7 @@ func TestHandleRestartImpact_RequiresCookie(t *testing.T) {
 // updateManager exists at all (UpdateBaseURL empty in newRestartImpactTestServer above).
 func TestHandleRestartImpact_WorksEvenWhenUpdatesAreDisabled(t *testing.T) {
 	srv := newRestartImpactTestServer(t)
-	require.Nil(t, srv.updates, "sanity: this server must have updates disabled")
+	require.Nil(t, srv.update.um, "sanity: this server must have updates disabled")
 
 	rec := getRestartImpact(t, srv)
 

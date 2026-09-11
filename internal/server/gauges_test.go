@@ -59,7 +59,7 @@ func TestIngestStatusLine_UpdatesSessionAndRecordsUsageSample(t *testing.T) {
 
 	require.Eventually(t, func() bool { return countUsageSampleRows(t, srv) == 1 }, 2*time.Second, 10*time.Millisecond)
 
-	snap := srv.usage.Current()
+	snap := srv.usage.aggregator.Current()
 	require.NotNil(t, snap.FiveHour)
 	assert.Equal(t, 61.0, snap.FiveHour.UsedPct)
 	require.NotNil(t, snap.SevenDay)
@@ -89,7 +89,7 @@ func TestIngestStatusLine_PreFirstResponsePostLeavesContextUnknownAndRecordsNoSa
 	assert.Nil(t, got.Context, "D7: null used_percentage + zero tokens must never surface as a context")
 
 	assert.Equal(t, 0, countUsageSampleRows(t, srv), "D8: rate_limits is absent pre-first-response, so no sample is ever recorded")
-	snap := srv.usage.Current()
+	snap := srv.usage.aggregator.Current()
 	assert.Nil(t, snap.FiveHour)
 }
 
@@ -116,7 +116,7 @@ func TestIngestStatusLine_IdenticalPairPostDedupsThenAThirdChangedPostAddsASecon
 	// the third, distinct post's own visible effect guarantees the first two already
 	// finished processing (or deduping), without a fixed sleep.
 	require.Eventually(t, func() bool {
-		snap := srv.usage.Current()
+		snap := srv.usage.aggregator.Current()
 		return snap.FiveHour != nil && snap.FiveHour.UsedPct == 65
 	}, 2*time.Second, 10*time.Millisecond)
 
@@ -206,7 +206,7 @@ func TestIngestStatusLine_RoutedToOneSessionLeavesTheOtherUnaffected(t *testing.
 	assert.Equal(t, beforeA.State, afterA.State)
 
 	// The account-global masthead still updates, regardless of which session drove it.
-	snap := srv.usage.Current()
+	snap := srv.usage.aggregator.Current()
 	require.NotNil(t, snap.FiveHour)
 	assert.Equal(t, 61.0, snap.FiveHour.UsedPct)
 }

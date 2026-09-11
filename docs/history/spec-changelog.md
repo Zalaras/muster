@@ -1152,3 +1152,13 @@ because `allowed-tools` grants rather than restricts. Design and residual risks:
   prompts, i.e. involvement.
 - **Damian's involvement is unchanged** — pick a section, approve a duplicate-close,
   approve a dirty `TODO.md` — plus a held list that is empty on a normal run.
+
+### 2026-09-11 — composition-root rule settled (plan `code-breakup`)
+
+No SPEC section changes (§5/§7 describe the stack, not the file layout). `web/src/main.ts` and
+`internal/server/server.go` are composition roots only; every feature is a controller
+(`web/src/features/<name>.ts`, `init<Feature>(app, deps)`) or a handler type
+(`internal/server/<name>.go`, `mount(mux, guard)`) registered in one line. E2E specs and
+`web/e2e/helpers/<feature>.ts` follow the same feature names. Rule lives in
+`docs/conventions.md` § Composition roots; `plan-work` and `review-work` enforce it. Files, not
+sub-packages, for now (Damian, 2026-09-11).

@@ -5,7 +5,7 @@
 // `mountTileDeadSurface`) — both share this module's pure builder/render functions so the
 // two surfaces never drift out of sync with each other. Pure builder + fetch trigger
 // (docs/conventions.md): DOM construction and the `GET .../pane` fetch live here; caching
-// *when* to fetch is main.ts's job (it owns the store and the render loop).
+// *when* to fetch is features/actions.ts's job (`ensurePaneFetch`/`paneState`).
 import { fetchPane } from "../api";
 import type { Session } from "../protocol";
 import { stateBadgeText } from "../sessions/card";

@@ -238,7 +238,7 @@ func TestThemePoller_StartStop_ImmediateFirstTickThenPromptStop(t *testing.T) {
 // all — nil field, so Start/Stop and currentSnapshot's poller read all skip it safely.
 func TestServer_ClaudeThemePollZeroConstructsNoPoller(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
-	assert.Nil(t, srv.themePoller, "a Config built with the zero-value ClaudeThemePoll must never construct a poller")
+	assert.Nil(t, srv.theme.poller, "a Config built with the zero-value ClaudeThemePoll must never construct a poller")
 }
 
 // TestServer_ClaudeThemePollPositiveConstructsAPoller covers the reverse of D17: a
@@ -253,8 +253,8 @@ func TestServer_ClaudeThemePollPositiveConstructsAPoller(t *testing.T) {
 	srv := New(Config{
 		Store: st, Logger: zerolog.Nop(), UIToken: testUIToken, IngestToken: testIngestToken,
 		WebDist: t.TempDir(), DaemonVersion: "test-version",
-		ClaudeThemePoll: time.Second, ClaudeConfigFile: filepath.Join(t.TempDir(), "claude-config.json"),
+		Theme: ThemeConfig{Poll: time.Second, ConfigFile: filepath.Join(t.TempDir(), "claude-config.json")},
 	})
 
-	assert.NotNil(t, srv.themePoller, "a positive ClaudeThemePoll must construct a poller")
+	assert.NotNil(t, srv.theme.poller, "a positive ClaudeThemePoll must construct a poller")
 }

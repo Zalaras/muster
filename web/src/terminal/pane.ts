@@ -1,8 +1,8 @@
 // xterm.js wrapper + the terminal-socket bridge (docs/protocol.md §6; design-system §7
 // terminal rules). One TerminalSurface per live surface (Focus's pane, or one Tiles
 // tile): owns the xterm.js instance, the `/ws/terminal/{id}` socket, and the single
-// overlay element for the down/superseded/ended states. main.ts's surface manager is the
-// only thing that constructs/disposes these — DOM+socket code stays out of the pure
+// overlay element for the down/superseded/ended states. features/surfaces.ts's surface
+// manager is the only thing that constructs/disposes these — DOM+socket code stays out of the pure
 // modules (sessions/live.ts's membership math has none of this, per conventions).
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
@@ -40,8 +40,8 @@ function cssVar(name: string, fallback: string): string {
  * Constructing a `"claude"` surface for an already-dead session (`alive: false`) never
  * opens a socket (REQ-13: "no attach attempt for a session Muster already knows is
  * dead") — it renders the "session ended" overlay directly and stops there. A `"shell"`
- * surface is never constructed for a session with no running shell (main.ts only mounts
- * one after `POST .../shell` succeeds), so it has no equivalent dead-on-arrival check —
+ * surface is never constructed for a session with no running shell (features/surfaces.ts
+ * only mounts one after `POST .../shell` succeeds), so it has no equivalent dead-on-arrival check —
  * REQ-7's "the shell route never consults `alive`" applies here too.
  */
 export class TerminalSurface {
@@ -56,7 +56,7 @@ export class TerminalSurface {
   private readonly sessionId: number;
   private readonly kind: SurfaceKind;
   /** REQ-8: fired only for a `"shell"` surface whose socket closes with `4001
-   * pane_ended` (the shell exited or was killed externally) — main.ts's hook to revert
+   * pane_ended` (the shell exited or was killed externally) — features/surfaces.ts's hook to revert
    * the surface-switch state (`shellEnded`) and re-render, which is what actually swaps
    * the visible surface back to Claude and disposes this one. Never fired for `"claude"`
    * (the liveness poll already covers that pane's own 4001) or for `4000 superseded`
@@ -354,9 +354,10 @@ export class TerminalSurface {
   }
 
   /** REQ-12: re-themes a live terminal in place — xterm.js 6's `term.options.theme`
-   * assignment restyles without recreating the `Terminal` instance. Called by main.ts on
-   * every live surface after a `snapshot`/`prefs`/`claudeTheme` message sets the theme
-   * attributes; never from the 1s render tick. A no-op for a dead session's surface
+   * assignment restyles without recreating the `Terminal` instance. Called on every live
+   * surface by `features/surfaces.ts`'s `applyTheme()`, itself invoked by `features/theme.ts`
+   * after a `snapshot`/`prefs`/`claudeTheme` message sets the theme attributes; never from
+   * the 1s render tick. A no-op for a dead session's surface
    * (`this.term` is null — it never had a terminal to restyle). */
   applyTheme(): void {
     if (!this.term) return;
@@ -366,7 +367,8 @@ export class TerminalSurface {
     };
   }
 
-  /** Moves DOM focus into xterm's input. Called by main.ts only on a pointer selection,
+  /** Moves DOM focus into xterm's input. Called by features/rail.ts (via
+   * features/surfaces.ts's `focusSelected`) only on a pointer selection,
    * never from a render pass (REQ-4/INV-1). A silent no-op for a dead session's surface
    * (`term` is null — never had a terminal to focus) and for a disposed surface. Never
    * opens, closes or otherwise touches the socket. */

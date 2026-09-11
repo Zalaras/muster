@@ -52,7 +52,7 @@ func newIssueTestServer(t *testing.T, ghURL, repo, token string) *testServer {
 	srv := New(Config{
 		Store: st, Logger: logger, UIToken: testUIToken, IngestToken: testIngestToken,
 		WebDist: t.TempDir(), DaemonVersion: "test-version",
-		IssueRepo: repo, IssueAPIURL: ghURL, IssueTokenFile: tokenFile,
+		Issue: IssueConfig{Repo: repo, APIURL: ghURL, TokenFile: tokenFile},
 	})
 	return &testServer{Server: srv, dbPath: dbPath, logs: logBuf, store: st}
 }
@@ -1277,9 +1277,9 @@ func TestHandleCreateIssue_ExpiredCaptureIs409CaptureExpired(t *testing.T) {
 	srv := newIssueTestServer(t, gh.server(t).URL, "acme/widgets", issueTestToken)
 	capID := decodeCaptureID(t, postCaptureRequest(t, srv, `{}`))
 
-	srv.issueCaptures.mu.Lock()
-	srv.issueCaptures.captures[capID].capturedAt = time.Now().UTC().Add(-captureTTL - time.Minute)
-	srv.issueCaptures.mu.Unlock()
+	srv.issue.captures.mu.Lock()
+	srv.issue.captures.captures[capID].capturedAt = time.Now().UTC().Add(-captureTTL - time.Minute)
+	srv.issue.captures.mu.Unlock()
 
 	rec := postIssueRequest(t, srv, fmt.Sprintf(`{"captureId":%q,"title":"t"}`, capID))
 
@@ -1479,9 +1479,9 @@ func TestHandleCreateIssue_AuthFailure_CaptureIsNotConsumed(t *testing.T) {
 	first := postIssueRequest(t, srv, fmt.Sprintf(`{"captureId":%q,"title":"t"}`, capID))
 	require.Equal(t, http.StatusBadGateway, first.Code)
 
-	srv.issueCaptures.mu.Lock()
-	consumed := srv.issueCaptures.captures[capID].consumed
-	srv.issueCaptures.mu.Unlock()
+	srv.issue.captures.mu.Lock()
+	consumed := srv.issue.captures.captures[capID].consumed
+	srv.issue.captures.mu.Unlock()
 	assert.False(t, consumed, "an auth failure must not consume the capture (REQ-10)")
 }
 
@@ -1572,9 +1572,9 @@ func TestHandleCreateIssue_PostFailure_2xxEmptyObjectBody_Returns502AndCaptureNo
 	assert.Contains(t, envelope.Error.Message, "may")
 	assert.Contains(t, envelope.Error.Message, "created")
 
-	srv.issueCaptures.mu.Lock()
-	consumed := srv.issueCaptures.captures[capID].consumed
-	srv.issueCaptures.mu.Unlock()
+	srv.issue.captures.mu.Lock()
+	consumed := srv.issue.captures.captures[capID].consumed
+	srv.issue.captures.mu.Unlock()
 	assert.False(t, consumed, "a post failure (including an unusable 2xx body) must not consume the capture (REQ-10)")
 }
 

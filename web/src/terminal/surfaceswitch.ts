@@ -1,17 +1,18 @@
 // The segmented `claude | shell` control (plan plain-terminal-session, REQ-4) — one
 // component rendered in two places: the Focus mainhead (`.mainhead .surfseg`) and every
-// tile's footer (`.tfoot .acts .surfseg`). Built once per host (main.ts at startup for
-// the mainhead; render/tiles.ts's buildTile for each tile) and only ever mutated
+// tile's footer (`.tfoot .acts .surfseg`). Built once per host (features/focus.ts at
+// startup for the mainhead; render/tiles.ts's buildTile for each tile) and only ever mutated
 // afterward — never rebuilt on a render tick, per docs/conventions.md's "Focusable
 // controls inside the render tick are reused, never rebuilt" rule (precedent:
 // render/tiles.ts's rename button, built once in buildTile and only ever text-updated by
 // updateTileChrome; the tile drag handle follows the same rule).
 //
 // The per-session "which surface is selected, is a shell running" state is a small pure
-// Map held by main.ts — this module never reads a Session or touches a socket, so it's
-// Vitest-testable without a DOM (Implementation Notes > Testability). A session's shell
-// has no representation in the Session wire object (protocol §3.16), so this state exists
-// nowhere else; main.ts is the only owner and mutates it only via the functions below.
+// Map held by features/surfaces.ts — this module never reads a Session or touches a
+// socket, so it's Vitest-testable without a DOM (Implementation Notes > Testability). A
+// session's shell has no representation in the Session wire object (protocol §3.16), so
+// this state exists nowhere else; features/surfaces.ts is the only owner and mutates it
+// only via the functions below.
 
 export type SurfaceKind = "claude" | "shell";
 
@@ -85,7 +86,7 @@ export function isSurfaceAttachable(state: SurfaceSwitchState, id: number, alive
 
 const SURFACE_KEY_SEPARATOR = ":";
 
-/** The composite key main.ts's surface manager keys its `TerminalSurface` map by (id,
+/** The composite key features/surfaces.ts's surface manager keys its `TerminalSurface` map by (id,
  * kind) — a session's Claude pane and its shell are independent attach targets (INV-3)
  * that may each need their own live surface, so a plain session id is not a unique key. */
 export function surfaceKey(id: number, kind: SurfaceKind): string {
@@ -115,7 +116,7 @@ export interface SurfaceSegmentRefs {
 /** Builds the segmented control once (Testable UI Elements: `role="group"
  * aria-label="Surface"`, native `<button>`s named exactly `claude`/`shell`). `onSelect`
  * fires on every click of either segment, including the currently-selected one — callers
- * short-circuit a same-surface click themselves (main.ts's `handleSurfaceSelect`), same
+ * short-circuit a same-surface click themselves (features/surfaces.ts's `select`), same
  * shape as the existing Focus/Tiles view-switch buttons. */
 export function buildSurfaceSegment(onSelect: (kind: SurfaceKind) => void): SurfaceSegmentRefs {
   const root = document.createElement("div");
