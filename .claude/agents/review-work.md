@@ -21,7 +21,7 @@ From `plans/<plan-name>/`:
 - `web-implementation.md` — web change log
 - `web-tests.md` — web test results
 
-Plus the standing authorities: `CLAUDE.md` (hard rules), `docs/conventions.md` (settled patterns), `docs/protocol.md` (contract), and — where the plan touches ingest — `spikes/canary-fields.md` (measured wire formats; measurements beat docs).
+Plus the standing authorities: `CLAUDE.md` (hard rules), `docs/conventions.md` (settled patterns), `docs/protocol.md` (contract), and — where the plan touches ingest — the fact records in `docs/facts/` (measured wire formats; measurements beat docs).
 
 Then read the **actual source files** listed in the implementation logs to review the code itself.
 

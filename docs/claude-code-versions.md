@@ -18,7 +18,7 @@ by `go run ./tools/versions bump`; this table is generated — edit the record, 
 Muster reads Claude Code's hook payloads and status-line JSON. Neither is a documented,
 stable interface: field names, delivery semantics and even *which transport works* have
 already been observed to differ from the documentation. The step-1 spikes measured all of
-it against 2.1.233 — see `spikes/FINDINGS.md` and `spikes/canary-fields.md` — and every one
+it against 2.1.233 — see `spikes/FINDINGS.md` and `docs/history/spikes/canary-fields.md` — and every one
 of those measurements is an assumption baked into the daemon.
 
 Earlier this was a single pinned version, equality-checked at startup. That produced a
@@ -32,7 +32,7 @@ The declaration now matches what Muster actually knows: a **floor** (the oldest 
 that range — including one nobody has literally run, sitting between two observed rows —
 is `verified` by inference, not by having been individually driven through the canary.
 Muster still builds no version-gated adapters and no change-point table: every shape in
-`spikes/canary-fields.md` has held from 2.1.233 through 2.1.267, and every recorded delta
+`docs/history/spikes/canary-fields.md` has held from 2.1.233 through 2.1.267, and every recorded delta
 has been an addition. The range exists to make the declaration honest, not to gate
 behaviour on it.
 
@@ -74,9 +74,8 @@ automatically after a green `go test`:
   that nothing needs recording, exits 0, edits nothing.
 - Installed version **outside** the range (`below` or `above`) — appends
   `<installed> <today> make canary` to `internal/claudecode/observed_versions.txt`, runs
-  `go run ./tools/versions gen` to regenerate every fragment in `README.md`,
-  `spikes/canary-fields.md` and this file, prints a `git diff --stat` summary and a commit
-  hint, and exits 0. **The tree is left uncommitted** — review the diff, then:
+  `go run ./tools/versions gen` to regenerate every fragment in `README.md` and this file,
+  prints a `git diff --stat` summary and a commit hint, and exits 0. **The tree is left uncommitted** — review the diff, then:
 
   ```sh
   git commit -am "fix(versions): record Claude Code <installed> as verified by make canary"
@@ -97,8 +96,8 @@ A red `make canary` is a real interface change. There is no version-gated adapte
 machinery to extend — because there has never yet been a change point to hang one off — so
 the first one is added by hand:
 
-1. **Diagnose.** Read the failing assertion in `spikes/canary-fields.md`'s inventory; it
-   names the field or behaviour that changed.
+1. **Diagnose.** Read the fact record the failing assertion guards (`go run ./tools/kb ls
+   --type fact`, `docs/facts/`); it names the field or behaviour that changed.
 2. **Branch the fix inside `internal/claudecode`.** Key the new behaviour off the
    classified installed version (`claudecode.Classify`/`CheckVersion`), keeping the old
    path for versions below the change point — the adapter boundary exists precisely so a
@@ -107,10 +106,10 @@ the first one is added by hand:
    boundary is being violated, not that the boundary is wrong.
 3. **Extend the canary** to assert both the old and the new shape, so a future regression
    in either direction is caught.
-4. **Record the change point** in `spikes/canary-fields.md`: add `since`/`until` to the
-   affected row(s) rather than silently overwriting what the inventory used to say — the
-   file's job is to describe reality across the whole verified range, not just the latest
-   version.
+4. **Record the change point** in `docs/facts/`: close the old fact's `verified` range and
+   retire it, and write the new shape as a new fact citing it, rather than silently
+   overwriting what the record used to say — the facts' job is to describe reality across
+   the whole verified range, not just the latest version.
 5. **Re-run `make canary`.** Green now bumps per "The green ritual" above.
 
 Rolling back instead (`claude update <version>`) to keep working at your own pace is always
@@ -137,7 +136,7 @@ A version strictly between two rows in `internal/claudecode/observed_versions.tx
 having been individually run through `make canary`. That is a deliberate inference, not an
 oversight: Claude Code's interface has shown no change points across the whole recorded
 range, so treating every in-between version as covered is the honest description of what
-Muster actually knows, and is stated as such in the masthead and in `spikes/canary-fields.md`
+Muster actually knows, and is stated as such in the masthead and in `docs/history/spikes/canary-fields.md`
 rather than implied silently.
 
 ## Current state of the canary

@@ -45,7 +45,7 @@ Per `docs/conventions.md` and SPEC §8, unit tests target **specific logic** —
   client count (`#{session_attached}`), its pane content, its socket. "Nothing else was harmed" is
   an assertion, not an assumption (m2-terminal: `detach-on-destroy off` misrouted keystrokes into
   another session's claude, invisible while every kill test ran one session).
-- **`internal/claudecode/` parsing/ingest**: feed it the real captured payload shapes from `spikes/canary-fields.md` / `spikes/FINDINGS.md`, not invented ones. Include the measured absences (e.g. fields that are null before a first API response, `permission_mode` missing from most events).
+- **`internal/claudecode/` parsing/ingest**: feed it the real captured payload shapes from the fact records in `docs/facts/` (`go run ./tools/kb ls --type fact`) / `spikes/FINDINGS.md`, not invented ones. Include the measured absences (e.g. fields that are null before a first API response, `permission_mode` missing from most events).
 - **Handlers**: decode/delegate/encode behaviour with `httptest`; mock the layer below via its consumer-side interface.
 - **A declined coverage item cites the specific existing test, after reading it.** When you leave a
   requirement or criterion uncovered because another suite covers it, name the file and test title

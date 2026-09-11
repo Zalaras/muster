@@ -19,7 +19,7 @@
 // views over those captures. static_test.go scans the installed binary for interface
 // strings Muster cannot drive through a canary run; live_test.go exercises the real
 // Keychain, usage API and theme config. The inventory they all assert is
-// spikes/canary-fields.md; the range doc is docs/claude-code-versions.md.
+// docs/history/spikes/canary-fields.md; the range doc is docs/claude-code-versions.md.
 //
 // Deliberately still NOT automated (decided 2026-09-10 — each needs the dialog answered,
 // or costs a subagent turn no assertion here needs): plan-mode step 3
@@ -84,7 +84,7 @@ func TestHookTransport(t *testing.T) {
 	assert.Empty(t, f.unexpectedPaths(), "posts reached a path other than the two ingest routes")
 }
 
-// TestHookFields asserts the per-event field inventory from spikes/canary-fields.md.
+// TestHookFields asserts the per-event field inventory from docs/history/spikes/canary-fields.md.
 // Every hook additionally carries cwd, hook_event_name, session_id and transcript_path;
 // prompt_id is on all but SessionStart. permission_mode is not universal: the split is
 // clean, every event either always or never carries it (docs claim it is common; it is
@@ -290,7 +290,7 @@ func TestNotifications(t *testing.T) {
 		assert.Truef(t, idle.at.After(stop.at), "idle_prompt Notification must arrive after Stop (stop=%s, idle=%s)", stop.at, idle.at)
 		// Logged, never asserted (REQ-3, plan Implementation Notes "For the orchestrator"):
 		// a timing assertion on a shared machine is a flake generator, but the gap is a
-		// fact spikes/canary-fields.md wants for the next pin bump.
+		// fact docs/history/spikes/canary-fields.md wants for the next pin bump.
 		t.Logf("idle_prompt arrived %.2fs after Stop", idle.at.Sub(stop.at).Seconds())
 	})
 

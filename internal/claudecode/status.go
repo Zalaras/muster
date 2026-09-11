@@ -6,7 +6,7 @@ import (
 )
 
 // statusPayload is the status-line payload's fields InterpretStatus reads
-// (spikes/canary-fields.md § "Status-line payload" is the field inventory this
+// (docs/history/spikes/canary-fields.md § "Status-line payload" is the field inventory this
 // implements against — this is the only function in Muster that reads them).
 type statusPayload struct {
 	SessionName   *string           `json:"session_name"`

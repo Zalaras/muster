@@ -173,8 +173,12 @@ md5 -q ~/.claude/settings.json           # matches your baseline
 
 Per CLAUDE.md doc upkeep, before the session ends:
 
-- New wire-format fact → `spikes/canary-fields.md`; substantive → `spikes/FINDINGS.md`
-  (update the "Still open" list; keep evidence counts, e.g. "n of m sessions").
+- New wire-format fact → a fact record in `docs/facts/` (`verified:` the version the payloads
+  report, `guard:` the canary or unit test that pins it, or `none`; `refs:` the capture path with
+  its count, e.g. "n of m sessions"); a fact proved wrong gets its ceiling pinned and `status:
+  retired`, and the new shape is a new record citing it — never a rewrite. Substantive →
+  also a `spikes/FINDINGS.md` addendum (update the "Still open" list). Then
+  `make gen-kb && make check-kb`.
 - A settled SPEC open question → `SPEC.md` §9 + a `docs/history/spec-changelog.md` entry.
 - Tick anything this closes in `TODO.md`.
 - State the Claude Code version the evidence was captured against (from

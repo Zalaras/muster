@@ -13,7 +13,7 @@
 // turn-activity for an already-closed prompt does not move the card off idle (E6)") and
 // is not duplicated here.
 //
-// Fixture shapes (`agentId`, `backgroundTasks`) come from spikes/canary-fields.md
+// Fixture shapes (`agentId`, `backgroundTasks`) come from docs/history/spikes/canary-fields.md
 // "Subagent and background-task fields" (2.1.259 probe, issue #14) via
 // helpers/payloads.ts's `TurnActivityOpts.agentId` / `rawPermissionRequest`'s `opts` /
 // `rawStop`'s `backgroundTasks`, added by this plan. `background_tasks` is fixture

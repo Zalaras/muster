@@ -228,7 +228,7 @@ func TestApplyInput_ClearRebind(t *testing.T) {
 	})
 
 	// review cycle 2 Critical 1 (second half): SessionStart(source:"resume") reuses the
-	// *original* claude_session_id (spikes/canary-fields.md), so it arrives as a plain
+	// *original* claude_session_id (docs/history/spikes/canary-fields.md), so it arrives as a plain
 	// KindBind — the id-change escalation above never fires, and there is no explicit
 	// source:"clear" either. Before this fix, applyBind only cleared Attention/Failure
 	// inside the KindClearRebind branch, so this exact path left a started card still
@@ -818,7 +818,7 @@ func TestApplyInput_TurnClosed(t *testing.T) {
 }
 
 // TestApplyInput_TurnFailed covers D13: StopFailure never carries permission_mode
-// (spikes/canary-fields.md), so the latch must never be touched by this input kind —
+// (docs/history/spikes/canary-fields.md), so the latch must never be touched by this input kind —
 // a session failing in plan mode stays planning-latched even though the displayed
 // state is failed.
 func TestApplyInput_TurnFailed(t *testing.T) {

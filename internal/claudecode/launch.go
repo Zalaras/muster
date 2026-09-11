@@ -17,7 +17,7 @@ type LaunchParams struct {
 // BuildArgv returns the full argv (binary included) for launching `claude` with p.
 // `--permission-mode` is confirmed by spike S2 (`--permission-mode plan`,
 // `--permission-mode acceptEdits`) and by the 2026-09-03 permission-mode probe against
-// 2.1.259 (`--permission-mode auto`, spikes/canary-fields.md § Hook payloads); "default"
+// 2.1.259 (`--permission-mode auto`, docs/history/spikes/canary-fields.md § Hook payloads); "default"
 // needs no flag — it's Claude Code's own default and carries no CLI flag of its own, and
 // remains the safer spelling since `default` is unlisted in the CLI's own choices while
 // `manual` may not exist across the verified range (docs/claude-code-versions.md).

@@ -1,5 +1,8 @@
 # Canary field inventory
 
+> **Frozen 2026-09-11.** The facts now live in `docs/facts/` (`go run ./tools/kb ls --type fact`) and a new
+> measurement amends a record there; the `<!-- kb: fact/… -->` marker on each row names the record it produced.
+
 Derived from real captured payloads during the step-1 spikes (2026-08-16). This is the
 assertion list for the canary E2E described in `SPEC.md` §8: run it before adopting any new
 Claude Code version, and treat any missing field as a blocker.
@@ -26,8 +29,8 @@ that cite 2.1.237 have not been re-verified on 2.1.233 and don't need to be).
 
 | Event | `type:"http"` works? |
 |---|---|
-| `SessionStart` | **NO — silently never delivered.** Must use `type:"command"` |
-| `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`, `StopFailure`, `SessionEnd`, `Notification`, `SubagentStop`, `PermissionRequest` | Yes |
+| `SessionStart` | **NO — silently never delivered.** Must use `type:"command"` | <!-- kb: fact/sessionstart-not-over-http -->
+| `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`, `StopFailure`, `SessionEnd`, `Notification`, `SubagentStop`, `PermissionRequest` | Yes | <!-- kb: fact/sessionstart-not-over-http -->
 
 The `SessionStart`-over-HTTP failure produces **no warning anywhere** — not in the TUI, not
 in logs. A canary that only checks "did fields arrive" would pass while the event never
@@ -42,17 +45,17 @@ Common to every hook: `cwd`, `hook_event_name`, `session_id`, `transcript_path`.
 
 | Event | Fields beyond the common set | `permission_mode`? |
 |---|---|---|
-| `SessionStart` | `model`, `source`, `session_title`¹ (since 2.1.267 asserted) | **absent** |
-| `UserPromptSubmit` | `prompt` | present |
-| `PreToolUse` | `tool_name`, `tool_input`, `tool_use_id` | present |
-| `PostToolUse` | `tool_name`, `tool_input`, `tool_use_id`, `tool_response`, `duration_ms` | present |
-| `Stop` | `last_assistant_message`, `stop_hook_active`, `background_tasks`³, `session_crons` | present |
-| `StopFailure` | `error`, `last_assistant_message` | **absent** |
-| `SubagentStop` | `agent_id`, `agent_type`, `agent_transcript_path`, `stop_hook_active`, `background_tasks`³, `session_crons` | present |
-| ↳ *not asserted by `make canary` since 2026-09-10:* `interpret.go` treats `SubagentStop` as `KindInert` and Muster reads nothing from it; Muster's only subagent dependency is `agent_id` on tool hooks / `PermissionRequest`, an `/interface-probe` ritual. | | |
-| `SessionEnd` | `reason` | **absent** |
-| `Notification` | `notification_type`, `message` | **absent** |
-| `PermissionRequest` | `tool_name`, `tool_input`, `permission_suggestions`² | present |
+| `SessionStart` | `model`, `source`, `session_title`¹ (since 2.1.267 asserted) | **absent** | <!-- kb: fact/hook-payload-fields, fact/sessionstart-model-optional-string, fact/name-flag-reaches-title -->
+| `UserPromptSubmit` | `prompt` | present | <!-- kb: fact/hook-payload-fields -->
+| `PreToolUse` | `tool_name`, `tool_input`, `tool_use_id` | present | <!-- kb: fact/hook-payload-fields -->
+| `PostToolUse` | `tool_name`, `tool_input`, `tool_use_id`, `tool_response`, `duration_ms` | present | <!-- kb: fact/hook-payload-fields -->
+| `Stop` | `last_assistant_message`, `stop_hook_active`, `background_tasks`³, `session_crons` | present | <!-- kb: fact/hook-payload-fields, fact/background-tasks-field -->
+| `StopFailure` | `error`, `last_assistant_message` | **absent** | <!-- kb: fact/hook-payload-fields -->
+| `SubagentStop` | `agent_id`, `agent_type`, `agent_transcript_path`, `stop_hook_active`, `background_tasks`³, `session_crons` | present | <!-- kb: fact/hook-payload-fields, fact/subagent-hooks-carry-agent-id, fact/background-tasks-field -->
+| ↳ *not asserted by `make canary` since 2026-09-10:* `interpret.go` treats `SubagentStop` as `KindInert` and Muster reads nothing from it; Muster's only subagent dependency is `agent_id` on tool hooks / `PermissionRequest`, an `/interface-probe` ritual. | | | <!-- kb:no-fact -->
+| `SessionEnd` | `reason` | **absent** | <!-- kb: fact/hook-payload-fields -->
+| `Notification` | `notification_type`, `message` | **absent** | <!-- kb: fact/hook-payload-fields -->
+| `PermissionRequest` | `tool_name`, `tool_input`, `permission_suggestions`² | present | <!-- kb: fact/hook-payload-fields, fact/permission-suggestions-optional -->
 
 ¹ `session_title` is present **only when the session was launched with `--name`**; absent
 otherwise (since 2.1.267 asserted: earlier versions were never launched with `--name` by
@@ -80,25 +83,25 @@ below 2.1.259 the same way an unrun in-range version is (docs/claude-code-versio
 
 ### Subagent and background-task fields (2.1.259 probe, 2026-09-03, issue #14)
 
-- **Tool hooks fired by a subagent carry the parent turn's `prompt_id`** plus `agent_id`
+- **Tool hooks fired by a subagent carry the parent turn's `prompt_id`** plus `agent_id` <!-- kb: fact/subagent-hooks-carry-agent-id -->
   and `agent_type` (`PreToolUse` keys observed: `agent_id, agent_type, cwd,
   hook_event_name, permission_mode, prompt_id, session_id, tool_input, tool_name,
   tool_use_id, transcript_path`). Main-agent tool hooks have no `agent_id`. 2/2 sessions,
   4/4 subagent tool hooks.
-- **They arrive after the parent's `Stop`** when the subagent runs in the background: TUI
+- **They arrive after the parent's `Stop`** when the subagent runs in the background: TUI <!-- kb: fact/subagent-hooks-carry-agent-id -->
   run had `Stop` at +0.0 s, the subagent's `PreToolUse`/`PostToolUse` at +2.1/+3.0 s,
   `SubagentStop` at +5.2 s, all under the same `prompt_id`. A prompt-id-closed-by-Stop
   guard therefore classifies legitimate subagent work as a straggler (root cause of #14).
-- **`Stop.background_tasks` is non-empty while background work is still running**:
+- **`Stop.background_tasks` is non-empty while background work is still running**: <!-- kb: fact/background-tasks-field -->
   `[{"type":"subagent","id","agent_type","description","status":"running"}]`, and shells
   the subagent backgrounded appear as `{"type":"shell","id","command","description",
   "status":"running"}`. `[]` when nothing is outstanding. Also present on `SubagentStop`.
   Headless `-p` ordering differed (main `Stop` after `SubagentStop`, `background_tasks:
   []`) — do not assume the main `Stop` precedes subagent activity.
-- **Background completion re-invokes the main agent as a `UserPromptSubmit` with a NEW
+- **Background completion re-invokes the main agent as a `UserPromptSubmit` with a NEW <!-- kb: fact/background-completion-new-prompt-id -->
   `prompt_id`** whose `prompt` begins `<task-notification>`; that turn is closed by its
   own `Stop`. 3/3 completions (one per finished background task, subagent or shell).
-- **A subagent's `PermissionRequest` carries the parent `prompt_id` plus `agent_id` and
+- **A subagent's `PermissionRequest` carries the parent `prompt_id` plus `agent_id` and <!-- kb: fact/subagent-permission-request-marked -->
   `agent_type`** (keys: `agent_id, agent_type, cwd, hook_event_name, permission_mode,
   permission_suggestions, prompt_id, scratchpad_dir, session_id, tool_input, tool_name,
   transcript_path`), and arrives after the parent's `Stop` (+1.6 s in the 2026-09-03 run).
@@ -107,10 +110,10 @@ below 2.1.259 the same way an unrun in-range version is (docs/claude-code-versio
   session_id, transcript_path`) — only the `PermissionRequest` identifies subagent-originated
   permission waits. 1/1 session. `scratchpad_dir` is a new common key on 2.1.259 (also seen
   on `Notification`); not yet checked on every event.
-- Extra `SubagentStop` events with `agent_id`s that never appear on any tool hook were
+- Extra `SubagentStop` events with `agent_id`s that never appear on any tool hook were <!-- kb: fact/subagent-hooks-carry-agent-id, fact/background-tasks-field -->
   observed (3 in the TUI run) — internal helper agents; don't count `SubagentStop`s to
   infer outstanding work, read `background_tasks`.
-- `SubagentStop` keys: `agent_id, agent_transcript_path, agent_type, background_tasks,
+- `SubagentStop` keys: `agent_id, agent_transcript_path, agent_type, background_tasks, <!-- kb: fact/hook-payload-fields, fact/subagent-hooks-carry-agent-id -->
   cwd, hook_event_name, last_assistant_message, permission_mode, prompt_id,
   session_crons, session_id, stop_hook_active, transcript_path`.
 
@@ -118,9 +121,9 @@ below 2.1.259 the same way an unrun in-range version is (docs/claude-code-versio
 hook inputs. Measured across 134 payloads, the split is clean — every event is either always
 or never:
 
-- **Always present:** `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`,
+- **Always present:** `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`, <!-- kb: fact/permission-mode-presence-split -->
   `SubagentStop`, `PermissionRequest`.
-- **Never present:** `SessionStart`, `SessionEnd`, `Notification`, `StopFailure`, `PreCompact`.
+- **Never present:** `SessionStart`, `SessionEnd`, `Notification`, `StopFailure`, `PreCompact`. <!-- kb: fact/permission-mode-presence-split -->
 
 Observed values: `"default"`, `"plan"`, `"acceptEdits"`, and (2.1.259 probe, 2026-09-03)
 `"auto"`. Latch the last known mode; note that `StopFailure` carries none, so a session failing
@@ -150,14 +153,14 @@ run D reporting `"plan"`. The `auto mode unavailable for this model` banner stil
 
 ### Values worth asserting
 
-- `SessionStart.model`: a **plain model-ID string** when present (e.g.
+- `SessionStart.model`: a **plain model-ID string** when present (e.g. <!-- kb: fact/sessionstart-model-optional-string -->
   `"claude-haiku-4-5-20251001"`), never an object — the `{id, display_name}` object shape
   belongs to the **status line only**. It is optional: present on 2 of 5 captured
   SessionStarts (both `source:"startup"`, 2026-08-20 probe against 2.1.237), absent on
   one startup (2.1.237), absent on `source:"clear"` (2.1.237), and absent on a fresh
   headless startup (2026-08-22 probe against 2.1.240). Replace a launch-seeded model only
   when the field is present, and expect a bare string.
-- `SessionStart.source`: `"startup"`, `"resume"` and `"clear"` all observed. On `--resume`,
+- `SessionStart.source`: `"startup"`, `"resume"` and `"clear"` all observed. On `--resume`, <!-- kb: fact/resume-keeps-session-identity, fact/clear-mints-new-session-id, fact/name-flag-reaches-title -->
   the `session_id` and `transcript_path` are **the same as the original session's** —
   load-bearing for SPEC §2.5 reconcile (re-bind by session id). **Caveat (2026-08-27):**
   that same-id fact was measured headless on 2.1.233; m4-reconcile's Resume is interactive
@@ -176,27 +179,27 @@ persists across resume (1/1, logged not asserted). On `/clear` (2.1.237,
   `SessionStart` fires with `source: "clear"` and a **new** session_id in the same pane —
   so `/clear` is directly detectable, and a `SessionEnd` with `reason: "clear"` must NOT
   be read as the pane dying.
-- `permission_mode` observed values: `"default"`, `"plan"`, `"acceptEdits"`, `"auto"` (2.1.259). The
+- `permission_mode` observed values: `"default"`, `"plan"`, `"acceptEdits"`, `"auto"` (2.1.259). The <!-- kb: fact/permission-mode-presence-split, fact/permission-mode-flag-on-wire -->
   CLI's `manual` choice is `"default"` on the wire.
-- **`StopFailure` replaces `Stop`** — never both for the same turn. Assert this: a canary
+- **`StopFailure` replaces `Stop`** — never both for the same turn. Assert this: a canary <!-- kb: fact/stopfailure-replaces-stop -->
   that expects `Stop` on every turn end would break the `Failed` state. (H2 probe: verified
   for startup, first-API-call and mid-turn failures; successes emit `Stop` only.)
-- **Workspace-trust prompt preselection flipped:** 2.1.233 preselected "Yes" (bare Enter
+- **Workspace-trust prompt preselection flipped:** 2.1.233 preselected "Yes" (bare Enter <!-- kb: fact/trust-prompt-preselects-exit, fact/trust-prompt-preselects-yes -->
   accepted); 2.1.259 and **2.1.267 preselect `❯ No, exit`** with "Yes, I trust this folder"
   on the second row (zero-token probe 2026-09-10) — a bare Enter exits the session. The canary
   harness now reads the marker row and moves it before Enter (`answerTrustPrompt`); Muster
   itself never answers the prompt (SPEC §2.5).
-- **Plan-mode sequence to assert** (SPEC §4.1 depends on it):
+- **Plan-mode sequence to assert** (SPEC §4.1 depends on it): <!-- kb: fact/plan-mode-hook-sequence -->
   `PreToolUse{tool_name:"ExitPlanMode", permission_mode:"plan"}` →
   `PermissionRequest{tool_name:"ExitPlanMode"}` →
   `PostToolUse{tool_name:"ExitPlanMode", permission_mode:"acceptEdits"}`.
-- `StopFailure.error`: `"authentication_failed"`, `"server_error"` and `"unknown"` observed.
+- `StopFailure.error`: `"authentication_failed"`, `"server_error"` and `"unknown"` observed. <!-- kb: fact/stopfailure-error-taxonomy -->
   Full taxonomy present in the binary: `rate_limit`, `overloaded`, `authentication_failed`,
   `oauth_org_not_allowed`, `billing_error`, `invalid_request`, `model_not_found`,
   `server_error`, `max_output_tokens`, `unknown`. The mapping is **not pass-through**: an
   injected HTTP 400 with an Anthropic-shaped `invalid_request_error` body surfaced as
   `"unknown"`, not `"invalid_request"`.
-- `Notification.notification_type`: `"idle_prompt"` (message `"Claude is waiting for your
+- `Notification.notification_type`: `"idle_prompt"` (message `"Claude is waiting for your <!-- kb: fact/notification-types-observed -->
   input"`) and `"permission_prompt"` (message `"Claude needs your permission"`) both
   observed. Both asserted by `make canary` since 2026-09-10 (2.1.267): `idle_prompt` follows
   run D's `Stop` at **60.04 s** on 2.1.267 (bounded at 90 s, never asserted on timing;
@@ -204,9 +207,9 @@ persists across resume (1/1, logged not asserted). On `/clear` (2.1.237,
   `PermissionRequest{ExitPlanMode}` and shares its `prompt_id` (1/1). `Notification` carries
   `prompt_id`, `notification_type`, `message`, no `permission_mode`. Others in the binary: `auth_success`, `agent_needs_input`, `agent_completed`,
   `elicitation_dialog`.
-- `SessionEnd.reason`: `"other"` and `"clear"` observed (`"clear"` on 2.1.237). `"other"`
+- `SessionEnd.reason`: `"other"` and `"clear"` observed (`"clear"` on 2.1.237). `"other"` <!-- kb: fact/sessionend-reason-ambiguous, fact/clear-mints-new-session-id -->
   covers both a killed pane and ordinary termination; only `"clear"` is distinguishable.
-- **Hooks are not awaited on the authentication-failure exit** (2.1.246 canary, 2026-08-29):
+- **Hooks are not awaited on the authentication-failure exit** (2.1.246 canary, 2026-08-29): <!-- kb: fact/hooks-not-awaited-on-failure-exit -->
   headless `-p` with an unauthenticated `CLAUDE_CONFIG_DIR` fires `SessionStart`,
   `UserPromptSubmit`, `StopFailure`, `SessionEnd` — a `cat >>` command hook records all
   four, but the same hook behind `sleep 0.05` records only the first two, and Muster's
@@ -214,7 +217,7 @@ persists across resume (1/1, logged not asserted). On `/clear` (2.1.237,
   exits ~100 ms after the failure (`duration_ms: 107`) without waiting for hook children.
   The success path (run A) delivers `SessionEnd` through the same wrapper every time. Do
   not assert `SessionEnd` on a failure path; treat `StopFailure` there as at-risk.
-- `PermissionRequest.permission_suggestions`: array of
+- `PermissionRequest.permission_suggestions`: array of <!-- kb: fact/permission-suggestions-optional -->
   `{type:"setMode", mode:"acceptEdits", destination:"session"}`. Directly useful for
   SPEC §4.1's plan-mode flow.
 
@@ -326,8 +329,8 @@ idle session emits nothing and usage figures go stale between turns.
 ### `session_name` — the title source
 
 Present in the status line. Two distinct behaviours observed:
-- With `--name "Spike Title Probe"`, it carries that name.
-- Without `--name`, Claude Code **auto-generates** one from session content (observed:
+- With `--name "Spike Title Probe"`, it carries that name. <!-- kb: fact/name-flag-reaches-title, fact/status-session-name-source -->
+- Without `--name`, Claude Code **auto-generates** one from session content (observed: <!-- kb: fact/status-session-name-source -->
   `"Run echo hello bash command"`).
 
 So Muster gets a usable title for free, from the status line, with no `sessionTitle` hook
@@ -337,34 +340,34 @@ the interactive run, 2/2 runs), so the canary treats it as optional.
 
 ### Other fields
 
-- `model`: `{id, display_name}` — e.g. `{"claude-haiku-4-5-20251001", "Haiku 4.5"}`.
-- `cost`: `total_cost_usd`, `total_duration_ms`, `total_api_duration_ms`,
+- `model`: `{id, display_name}` — e.g. `{"claude-haiku-4-5-20251001", "Haiku 4.5"}`. <!-- kb: fact/status-model-is-object -->
+- `cost`: `total_cost_usd`, `total_duration_ms`, `total_api_duration_ms`, <!-- kb: fact/status-line-keys -->
   `total_lines_added`, `total_lines_removed`. (Out of scope per SPEC §3, but present.)
-- `workspace`: `{current_dir, project_dir, added_dirs[]}` — useful for SPEC §2.1's repo column.
-- `version`: `"2.1.233"` — **the canary should assert this matches the pinned version.**
-- Undocumented extras: `exceeds_200k_tokens`, `fast_mode`, `output_style{name}`,
+- `workspace`: `{current_dir, project_dir, added_dirs[]}` — useful for SPEC §2.1's repo column. <!-- kb: fact/status-line-keys -->
+- `version`: `"2.1.233"` — **the canary should assert this matches the pinned version.** <!-- kb: fact/status-version-matches-installed -->
+- Undocumented extras: `exceeds_200k_tokens`, `fast_mode`, `output_style{name}`, <!-- kb: fact/status-line-keys -->
   `thinking{enabled}`, `context_window.context_window_size`.
 
 ---
 
 ## Delivery semantics the canary should not assume away
 
-- Hooks are **best-effort, at-most-once**: no retry, no replay, permanent drop on a dead
+- Hooks are **best-effort, at-most-once**: no retry, no replay, permanent drop on a dead <!-- kb: fact/hook-delivery-best-effort -->
   receiver, and `PreToolUse` fails open. A canary must not assume a complete event stream.
-- **No timestamps or sequence numbers exist on any hook payload.** Ordering must come from a
+- **No timestamps or sequence numbers exist on any hook payload.** Ordering must come from a <!-- kb: fact/hook-delivery-best-effort -->
   daemon-assigned `seq`; `prompt_id` and `tool_use_id` are the only correlation keys.
-- `SessionEnd` does not fire on `kill -9`, and its `reason` is `other` for both a killed pane
+- `SessionEnd` does not fire on `kill -9`, and its `reason` is `other` for both a killed pane <!-- kb: fact/sessionend-reason-ambiguous, fact/hook-delivery-best-effort -->
   and an ordinary termination.
-- A SIGTERM'd session (killed while retrying a failed API call) emits `SessionEnd` but
+- A SIGTERM'd session (killed while retrying a failed API call) emits `SessionEnd` but <!-- kb: fact/hook-delivery-best-effort -->
   **neither `Stop` nor `StopFailure`** — turn closure by a Stop-family event is not
   guaranteed. Related: HTTP 500s are retried with backoff (~4 attempts / 90 s observed)
   before any Stop-family event fires; induce test failures with a non-retryable 400.
-- Headless `claude -p` fires the full hook sequence, including command-wrapped
+- Headless `claude -p` fires the full hook sequence, including command-wrapped <!-- kb: fact/headless-fires-full-hook-sequence, fact/sessionstart-model-optional-string, fact/unknown-before-first-response -->
   `SessionStart` — probes and E2E cases that don't need the TUI need no tmux.
   (2.1.246 canary: `SessionStart.model` absent on headless startup, 2/2; the pre-response
   status-line post with `rate_limits` absent and null `used_percentage` was captured 1/1
   per interactive run, 2/2 runs, so the unknown-vs-zero shape is still live.)
-- `/clear` starts a **new `session_id`** in the same pane — assert that session identity is
+- `/clear` starts a **new `session_id`** in the same pane — assert that session identity is <!-- kb: fact/clear-mints-new-session-id -->
   keyed on the tmux target, not the Claude session id.
 
 ### E2E caveat, learned the hard way
@@ -380,23 +383,23 @@ recycled PID. Use `pgrep -f` on the exact command line.
 
 ## Configuration that must keep working
 
-- Project-scoped `<repo>/.claude/settings.json` honors `hooks`, `statusLine`, **and**
+- Project-scoped `<repo>/.claude/settings.json` honors `hooks`, `statusLine`, **and** <!-- kb: fact/local-settings-honoured -->
   `allowedHttpHookUrls` — `allowedHttpHookUrls` defined only at project scope successfully
   authorized the hook URLs. This is what lets Muster scope config per repo.
-- **`.claude/settings.local.json` alone honors all three too** (2.1.237, 2026-08-20 probe:
+- **`.claude/settings.local.json` alone honors all three too** (2.1.237, 2026-08-20 probe: <!-- kb: fact/local-settings-honoured -->
   settings.json removed entirely; command-wrapped `SessionStart`, http `UserPromptSubmit`/
   `Stop`, and the status line all delivered). Since Claude Code gitignores the local file,
   this is where Muster writes per-directory config — the ingest token never lands in a
   committable file.
-- **Hook command wrappers and the status-line script inherit the pane environment**
+- **Hook command wrappers and the status-line script inherit the pane environment** <!-- kb: fact/command-hooks-inherit-pane-env -->
   (2.1.237, 2026-08-20 probe): both `$TMUX_PANE` and a variable injected via
   `tmux new-window -e MUSTER_SESSION=…` were visible to the `SessionStart` wrapper and the
   status-line script, headless (`-p`) and interactive alike. This is what makes
   `docs/protocol.md` §4.2's envelope binding work.
-- `CLAUDE_CONFIG_DIR` isolates settings, hooks and transcripts but **breaks subscription
+- `CLAUDE_CONFIG_DIR` isolates settings, hooks and transcripts but **breaks subscription <!-- kb: fact/config-dir-breaks-oauth -->
   OAuth** ("Not logged in · Please run /login"). Not usable for managed sessions.
-- `statusLine.refreshInterval` is accepted at project scope (and honoured — see cadence).
-- **`type:"command"` hook `command` and `statusLine.command` are shell command lines,
+- `statusLine.refreshInterval` is accepted at project scope (and honoured — see cadence). <!-- kb: fact/refresh-interval-seconds -->
+- **`type:"command"` hook `command` and `statusLine.command` are shell command lines, <!-- kb: fact/hook-commands-are-shell-lines -->
   run via `/bin/sh -c` — NOT argv paths** (2.1.245, 2026-08-25 probe, captures 4 and 5).
   A bare script path containing a space is word-split: the `SessionStart` command hook
   surfaces `Failed with non-blocking status code: /bin/sh: /tmp/muster: No such file or
@@ -407,20 +410,20 @@ recycled PID. Use `pgrep -f` on the exact command line.
   Muster must single-quote the paths it writes into these fields (`docs/protocol.md` §4.2
   rule; TODO M4). Canary: assert `SessionStart` delivery *and* a status-line post from a
   data dir whose path contains a space.
-- **Command hooks see the pane env on every event, at ~50 ms/event** (2.1.246, 2026-08-27
+- **Command hooks see the pane env on every event, at ~50 ms/event** (2.1.246, 2026-08-27 <!-- kb: fact/command-hooks-inherit-pane-env -->
   probe, capture 3): `UserPromptSubmit`/`PreToolUse`/`PostToolUse`/`Stop`/`SessionEnd`
   wrapped in a sh+curl command hook all delivered the envelope with `$MUSTER_SESSION`
   (15/15 events, 3 sessions). Local overhead vs http hooks ≈ +25 ms/event; the
   `$MUSTER_SESSION`-unset early exit costs ~6 ms. Basis for m4-hook-lifetime's
   all-command-hooks design (`spikes/FINDINGS.md` 2026-08-27 addendum).
-- **`fable` is a valid `--model` alias** (2.1.251, 2026-08-30 — static inspection of the
+- **`fable` is a valid `--model` alias** (2.1.251, 2026-08-30 — static inspection of the <!-- kb: fact/fable-model-alias -->
   installed `~/.local/share/claude/versions/2.1.251` bundle, not a canary run): the
   model-alias switch contains `case"fable":case"mythos"` alongside haiku/sonnet/opus, and
   the resolver has a `case"fable"` branch. Muster passes the literal string `fable` to
   `--model` verbatim (§3.1) — nothing leaks into `internal/claudecode`. Not asserted by
   `make canary` (subscription rule: the canary launches haiku only); re-verify by static
   inspection on any pin bump.
-- **Claude Code's theme setting lives in its global config file under the key `theme`**
+- **Claude Code's theme setting lives in its global config file under the key `theme`** <!-- kb: fact/theme-config-key-and-enum -->
   (installed bundle `2.1.258`, 2026-09-02 — static inspection plus a read-only look at
   Damian's real file, not a canary run; the file's basename is deliberately recorded only
   in `internal/claudecode/theme.go`). The bundle's value enum is
@@ -433,7 +436,7 @@ recycled PID. Use `pgrep -f` on the exact command line.
   Damian's real file (live tier); string presence ≠ semantics, so still glance at the
   `resolveSetting("theme", …)` site on a canary run. Note the installed bundle (2.1.258)
   was ahead of the then-verified ceiling (2.1.246) — see `docs/claude-code-versions.md`.
-- **`CLAUDE_CODE_SCROLL_SPEED` is present in the installed bundle** (2.1.267, 2026-09-10) —
+- **`CLAUDE_CODE_SCROLL_SPEED` is present in the installed bundle** (2.1.267, 2026-09-10) — <!-- kb: fact/scroll-speed-env-present -->
   asserted by `make canary`'s static tier, which iterates every key of the production
   `claudecode.LaunchEnv()` rather than spelling the name (issue #13 follow-up). Presence
   catches a rename or removal only; the 5-lines/notch effect stays measured in

@@ -8,9 +8,10 @@ Claude Code sessions running in tmux. Personal tool for Damian, macOS only, sing
 1. `SPEC.md` — authoritative. Decisions there (and rejected options in
    `interview-notes.md`) are settled; don't re-litigate them, and don't reintroduce cut
    features (notifications, cost tracking, containers, resource gauges).
-2. `spikes/FINDINGS.md` + `spikes/canary-fields.md` — **measured** wire-format facts,
-   against Claude Code 2.1.233. Where they contradict Claude Code's official docs, the
-   measurements win — the docs have already been wrong (e.g. `SessionStart` over HTTP).
+2. The fact records in `docs/facts/` (`go run ./tools/kb ls --type fact`; narrative in
+   `spikes/FINDINGS.md`) — **measured** wire-format facts, each with the Claude Code range it
+   holds on and the canary test that guards it. Where they contradict Claude Code's official
+   docs, the measurements win — the docs have already been wrong (e.g. `SessionStart` over HTTP).
 3. `docs/conventions.md` — settled code patterns (HTTP/WS/logging/DB choices, Go and TS
    conventions, testing rules). Follow it; change it there first if it must change.
 4. `TODO.md` — execution backlog; finished items live in `docs/history/todo-done.md`.
@@ -98,5 +99,6 @@ ritual is `docs/claude-code-versions.md`.
 
 - Work item finished → tick it and move its block from `TODO.md` to `docs/history/todo-done.md` (same heading).
 - Decision changed or settled → an entry in `docs/history/spec-changelog.md` **and** the SPEC section it changes.
-- New wire-format fact learned → `spikes/canary-fields.md` (and `spikes/FINDINGS.md`
-  if substantive).
+- New wire-format fact learned → a fact record in `docs/facts/` (`verified:` the version
+  measured, `guard:` the test that pins it or `none`), and a `spikes/FINDINGS.md` addendum
+  if substantive; then `make gen-kb && make check-kb`.

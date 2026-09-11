@@ -1,7 +1,7 @@
 // Synthesized Claude Code hook / status-line payloads for the E2E suite (M0, extended
 // by m1-sessions for the kb:anchor/state state machine's event set).
 //
-// Shapes are copied from the plan's Implementation Notes and spikes/canary-fields.md's
+// Shapes are copied from the plan's Implementation Notes and docs/history/spikes/canary-fields.md's
 // measured captures against 2.1.233/2.1.237 — never invented. No real `claude` is ever
 // launched here (CLAUDE.md hard rule); this is the whole of how these tests fake Claude
 // Code.
@@ -59,7 +59,7 @@ interface SessionStartOpts extends EnvelopeOpts {
   /**
    * `SessionStart.model` is optional (measured: present on 2 of 5 startup captures,
    * absent on another startup, on `source:"clear"`, and on a fresh headless startup —
-   * 2026-08-22 probe, spikes/canary-fields.md "Values worth asserting"). When present it
+   * 2026-08-22 probe, docs/history/spikes/canary-fields.md "Values worth asserting"). When present it
    * is always a **plain model-id string** — never the `{id, display_name}` object, which
    * is the status line's shape only. Pass `null` to omit the field entirely; omit this
    * option to get the default present-model shape (M0 behaviour).
@@ -105,11 +105,11 @@ export function sessionStartResume(claudeSessionId: string, opts: SessionStartOp
 interface TurnActivityOpts {
   promptId?: string;
   /** Plan fix-auto-mode-select: `auto` is a fourth observed value (2.1.259 probe,
-   * spikes/canary-fields.md "Permission-mode probe") alongside the three already here. */
+   * docs/history/spikes/canary-fields.md "Permission-mode probe") alongside the three already here. */
   permissionMode?: "default" | "plan" | "acceptEdits" | "auto";
   /**
    * Plan claude-status-fixes REQ-1: when set, adds the measured subagent marker —
-   * `agent_id` plus `agent_type: "general-purpose"` (spikes/canary-fields.md "Subagent
+   * `agent_id` plus `agent_type: "general-purpose"` (docs/history/spikes/canary-fields.md "Subagent
    * and background-task fields", 2.1.259 probe) — to the payload, so `FromSubagent`
    * derivation and the straggler-guard bypass can be exercised end-to-end. Omitted by
    * default, matching every main-agent hook (no `agent_id` key at all, never `null`).
@@ -246,7 +246,7 @@ export function rawStop(sessionId: string, opts: StopOpts = {}): Record<string, 
 
 /**
  * A `background_tasks` entry: a subagent still running (measured shape,
- * spikes/canary-fields.md "Subagent and background-task fields" — `type, id,
+ * docs/history/spikes/canary-fields.md "Subagent and background-task fields" — `type, id,
  * agent_type, description, status`). Fixture realism only for `rawStop`'s
  * `backgroundTasks` option; the state machine never reads this list (decision 3).
  */

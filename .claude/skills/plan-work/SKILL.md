@@ -29,7 +29,7 @@ All plan artifacts live under `plans/<plan-name>/` in the project root. Create t
 Read before planning; never contradict them:
 
 1. `SPEC.md` — decisions there are settled; don't re-litigate or reintroduce cut features.
-2. `spikes/FINDINGS.md` + `spikes/canary-fields.md` — measured wire-format facts; they beat Claude Code's official docs.
+2. The fact records in `docs/facts/` (`go run ./tools/kb ls --type fact`) + `spikes/FINDINGS.md` — measured wire-format facts; they beat Claude Code's official docs.
 3. `docs/conventions.md` — the stack and code patterns are chosen; a plan never picks libraries.
 4. `docs/protocol.md` — the daemon↔UI protocol (born in M0 planning). Plans state **deltas** against it.
 5. `CLAUDE.md` hard rules — a plan that requires violating one is wrong by construction.

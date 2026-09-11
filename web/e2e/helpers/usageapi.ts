@@ -1,7 +1,7 @@
 // Fake `GET /api/oauth/usage` endpoint for the usage-model-bar plan (REQ-13's E2E test
 // seam): musterd's `-usage-api-url` points here instead of https://api.anthropic.com, so
 // no E2E run ever calls the real subscription endpoint. Response shapes synthesized here
-// must stay capture-faithful to spikes/canary-fields.md's "GET /api/oauth/usage measured
+// must stay capture-faithful to docs/history/spikes/canary-fields.md's "GET /api/oauth/usage measured
 // live 2026-08-30" entry — the only measurement of this wire, taken against Damian's own
 // token — never invented.
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
@@ -19,7 +19,7 @@ export interface FakeUsageWindow {
 
 /**
  * Builds a capture-faithful 200 body for `GET /api/oauth/usage`
- * (spikes/canary-fields.md): top-level `five_hour`/`seven_day` windows (present in the
+ * (docs/history/spikes/canary-fields.md): top-level `five_hour`/`seven_day` windows (present in the
  * real response but unused by musterd's decode — REQ-4 only reads `limits[]`), one
  * `weekly_scoped` `limits[]` entry per window with the full measured field set
  * (`kind`/`group`/`percent`/`severity`/`resets_at`/`scope`/`is_active`), and one

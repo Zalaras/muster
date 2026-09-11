@@ -710,7 +710,7 @@ const validSession = {
   titleOverride: null,
 };
 
-// The measured "no data yet" shape (spikes/canary-fields.md): a session that has just
+// The measured "no data yet" shape (docs/history/spikes/canary-fields.md): a session that has just
 // been launched — no Claude session id bound yet, no repo/model/attention/failure known,
 // context fully null. This must decode successfully (a view renders it as "unknown",
 // never rejected outright and never an empty gauge).

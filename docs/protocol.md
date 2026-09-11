@@ -8,7 +8,7 @@ the delta, and the change lands here when the plan is approved.
 Authority order: `SPEC.md` decides *what* Muster does; `docs/design/ux-flows.md` decides
 *how the interface behaves*; this file decides *what crosses the wire between the two
 processes and how state is derived*. Claude Code's own wire formats are **not** specified
-here — they live in `spikes/canary-fields.md` (measured) and are consumed only inside
+here — they live in `docs/history/spikes/canary-fields.md` (measured) and are consumed only inside
 `internal/claudecode/` (hard rule). This file references them by field name only where a
 derivation rule needs one.
 

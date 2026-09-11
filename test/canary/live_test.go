@@ -107,7 +107,7 @@ func TestUsageAPIResponseShape(t *testing.T) {
 }
 
 // rawUsageGET performs one GET against the real usage endpoint with the two measured
-// headers (spikes/canary-fields.md "GET /api/oauth/usage measured live") and decodes the
+// headers (docs/history/spikes/canary-fields.md "GET /api/oauth/usage measured live") and decodes the
 // body into a generic map — callers must read key names and scalars only (REQ-2/INV-2),
 // never log the map itself.
 func rawUsageGET(t *testing.T, client *http.Client, token string) map[string]any {

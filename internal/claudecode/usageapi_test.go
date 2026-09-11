@@ -14,7 +14,7 @@ import (
 )
 
 // measuredUsageBody is the real GET /api/oauth/usage response shape measured live
-// 2026-08-30 against Damian's own token (spikes/canary-fields.md "GET /api/oauth/usage
+// 2026-08-30 against Damian's own token (docs/history/spikes/canary-fields.md "GET /api/oauth/usage
 // measured live 2026-08-30"): limits[] carries "session"/"weekly_all"/"weekly_scoped"
 // kinds, resets_at is an RFC3339 string with microseconds and a "+00:00" offset (never
 // epoch on the wire in practice, though REQ-4 requires both forms decode), and many

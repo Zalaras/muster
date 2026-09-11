@@ -17,7 +17,7 @@ import (
 const hookTimeoutSeconds = 2
 
 // httpHookEvents was every event Claude Code delivered over plain HTTP before this plan
-// (spikes/canary-fields.md "Transport"). It is kept as the ten non-SessionStart event
+// (docs/history/spikes/canary-fields.md "Transport"). It is kept as the ten non-SessionStart event
 // names because allHookEvents below is built from it (plus SessionStart) and
 // settings_test.go iterates it — not because legacy-http-entry stripping treats these
 // ten differently from SessionStart: isMusterEntry strips a Muster http entry the same

@@ -14,7 +14,7 @@ import (
 // (401 or 403) — internal/server maps this to the wire's "unauthorized" error kind.
 var ErrUnauthorized = errors.New("usage api: unauthorized")
 
-// usageAPIPath is GET /api/oauth/usage (spikes/canary-fields.md "GET /api/oauth/usage
+// usageAPIPath is GET /api/oauth/usage (docs/history/spikes/canary-fields.md "GET /api/oauth/usage
 // measured live 2026-08-30") — undocumented, re-checked on every Claude Code pin bump.
 const usageAPIPath = "/api/oauth/usage"
 
@@ -64,7 +64,7 @@ type usageAPIScopeModel struct {
 }
 
 // FetchUsage calls GET <baseURL>/api/oauth/usage with the Claude Code OAuth token
-// (spikes/canary-fields.md's measured headers) and decodes the response. token is never
+// (docs/history/spikes/canary-fields.md's measured headers) and decodes the response. token is never
 // logged here or by any caller (REQ-2).
 func FetchUsage(ctx context.Context, client *http.Client, baseURL, token string) (UsageReport, error) {
 	ctx, cancel := context.WithTimeout(ctx, usageAPITimeout)

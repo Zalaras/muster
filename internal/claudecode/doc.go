@@ -8,7 +8,7 @@
 // daemon.
 //
 // Two measured facts shape everything here. Both come from the step-1 spikes against 2.1.233
-// and are recorded in spikes/canary-fields.md:
+// and are recorded in docs/history/spikes/canary-fields.md:
 //
 //   - Hook payloads carry no timestamp and no sequence number. Ordering must come from a
 //     monotonic per-session seq assigned at ingest; prompt_id and tool_use_id are the only

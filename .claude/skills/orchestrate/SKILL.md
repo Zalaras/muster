@@ -514,7 +514,7 @@ whose file Affected Files gives no owner is yours, not an agent's (post-worktree
      partial one is named in the completion summary as deliberately *not* closing, with what
      remains.
    - **`docs/history/spec-changelog.md`** — if the pipeline changed or settled a decision (a deviation recorded in an impl agent's `## Decisions`, a contract adjustment the user approved mid-run), add a changelog entry. Routine implementation of already-settled decisions needs no entry.
-   - **`spikes/canary-fields.md`** (and `spikes/FINDINGS.md` if substantive) — if the work exposed a new **measured** wire-format fact about Claude Code. Only measured facts, never assumptions.
+   - **`docs/facts/`** (and `spikes/FINDINGS.md` if substantive) — if the work exposed a new **measured** wire-format fact about Claude Code, write or amend a fact record (`verified:` the version measured, `guard:` the test that pins it or `none`; a fact proved wrong gets its ceiling pinned and `status: retired`, and the new shape is a new record citing it). Only measured facts, never assumptions. Then `make gen-kb && make check-kb`.
    - **`docs/protocol.md`** — must match what shipped. If plan-work merged the delta at approval and an approved mid-run adjustment changed it, reconcile the doc now.
 3. If nothing qualifies, say so in the completion summary rather than inventing entries.
 

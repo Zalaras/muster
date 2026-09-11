@@ -198,7 +198,7 @@ export interface ScratchDaemonOptions {
   /**
    * JSON content to write to the scratch `-usage-token-file` before spawning — the
    * `{"claudeAiOauth":{"accessToken":"…"}}` shape `internal/claudecode` reads
-   * (spikes/canary-fields.md; use helpers/usageapi.ts's `credentialsFileContent`). Omit
+   * (docs/history/spikes/canary-fields.md; use helpers/usageapi.ts's `credentialsFileContent`). Omit
    * to leave the file absent — the "no-credentials" fixture (REQ-6 edge case 1).
    */
   usageTokenContent?: string;
@@ -241,7 +241,7 @@ export interface ScratchDaemonOptions {
   /**
    * JSON content written to the scratch `-claude-config-file` before spawning — stands
    * in for Claude Code's own global config file that `internal/claudecode/theme.go`'s
-   * `ReadThemeFamily` reads (spikes/canary-fields.md shape, e.g. `{"theme":"light"}`).
+   * `ReadThemeFamily` reads (docs/history/spikes/canary-fields.md shape, e.g. `{"theme":"light"}`).
    * Omit to leave the file absent entirely — the "config file missing" fixture (edge
    * case 1), distinct from a present-but-keyless file (edge case 2, pass `"{}"`).
    */

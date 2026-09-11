@@ -125,7 +125,7 @@ func applyBind(sess *Session, claudeSessionID string, input claudecode.StateInpu
 
 	// kb:anchor/ws.session's attention-iff-needs_input / failure-iff-failed invariants are unconditional:
 	// no bind — clear-rebind or a plain re-bind with an unchanged claude session id (e.g.
-	// SessionStart(source:"resume"), which per spikes/canary-fields.md reuses the
+	// SessionStart(source:"resume"), which per docs/history/spikes/canary-fields.md reuses the
 	// original session_id and so never reaches the escalation above) — may land on
 	// `started` while still carrying a previous turn's blocked-or-failed note (review
 	// cycle 2 Critical 1: this was previously reset only inside the KindClearRebind

@@ -7,7 +7,7 @@ import (
 )
 
 // Kind selects which ingest endpoint received the body. The status-line payload carries
-// no hook_event_name of its own (spikes/canary-fields.md), so the caller must say which
+// no hook_event_name of its own (docs/history/spikes/canary-fields.md), so the caller must say which
 // endpoint it came in on.
 type Kind string
 

@@ -23,7 +23,7 @@ describe("buildContextRowViewModel — honesty rule 1 (INV-3): unknown never der
   });
 
   it("is unknown for the measured pre-first-response shape (null pct alongside a zero token count) — zero tokens is not a known-zero context", () => {
-    // spikes/canary-fields.md's status-line context gauge: pre-first-response, the
+    // docs/history/spikes/canary-fields.md's status-line context gauge: pre-first-response, the
     // percentage is null while the token count reads zero. Even if that zero ever
     // reached the wire (it shouldn't, per protocol INV-2), the derivation must still
     // call it unknown, not "0%".

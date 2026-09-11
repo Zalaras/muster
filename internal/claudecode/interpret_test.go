@@ -11,7 +11,7 @@ import (
 )
 
 // TestInterpret_SessionStart covers the three measured source values
-// (spikes/canary-fields.md "Values worth asserting": startup/resume/clear all
+// (docs/history/spikes/canary-fields.md "Values worth asserting": startup/resume/clear all
 // observed) and the optional model field, which has been measured both absent and
 // present — never assume it's there.
 func TestInterpret_SessionStart(t *testing.T) {
@@ -43,7 +43,7 @@ func TestInterpret_SessionStart(t *testing.T) {
 		assert.Equal(t, KindClearRebind, in.Kind)
 	})
 
-	t.Run("model present as a plain string extracts it (measured shape, spikes/canary-fields.md)", func(t *testing.T) {
+	t.Run("model present as a plain string extracts it (measured shape, docs/history/spikes/canary-fields.md)", func(t *testing.T) {
 		body := claudecodetest.EnvelopedSessionStart("claude-1", claudecodetest.SessionStartOpts{
 			Source: "startup", ModelID: "claude-haiku-4-5-20251001",
 		})

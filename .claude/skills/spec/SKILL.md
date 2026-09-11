@@ -31,7 +31,7 @@ Create the plan directory `plans/<plan-name>/` immediately if it doesn't exist. 
   what the spec answers, don't re-litigate settled decisions, and don't let an interview reintroduce
   cut features (notifications, cost tracking, containers, resource gauges). Where SPEC.md pins
   behaviour, the interview only fills in what it leaves open.
-- Where the work touches Claude Code's wire formats, `spikes/FINDINGS.md` and `spikes/canary-fields.md` are the measured truth — surface the relevant constraints to the user rather than asking them to remember.
+- Where the work touches Claude Code's wire formats, the fact records in `docs/facts/` (`go run ./tools/kb ls --type fact`) and `spikes/FINDINGS.md` are the measured truth — surface the relevant constraints to the user rather than asking them to remember.
 
 ## Behavior Rules
 

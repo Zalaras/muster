@@ -121,7 +121,7 @@ permits it.
 | [`docs/protocol.md`](docs/protocol.md) | The daemon↔dashboard protocol contract |
 | [`docs/claude-code-versions.md`](docs/claude-code-versions.md) | The verified version range and the upgrade rituals |
 | [`spikes/FINDINGS.md`](spikes/FINDINGS.md) | Measured Claude Code interface facts |
-| [`spikes/canary-fields.md`](spikes/canary-fields.md) | Field inventory the canary asserts before any version bump |
+| [`docs/history/spikes/canary-fields.md`](docs/history/spikes/canary-fields.md) | Field inventory the canary asserts before any version bump |
 | [`interview-notes.md`](interview-notes.md) | Rationale and rejected options |
 
 ## Licence

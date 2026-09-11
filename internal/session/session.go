@@ -26,7 +26,7 @@ const (
 	PermissionPlan        PermissionMode = "plan"
 	PermissionAcceptEdits PermissionMode = "acceptEdits"
 	// PermissionAuto is Claude Code's distinct "auto" mode, measured 2026-09-03 against
-	// 2.1.259 (spikes/canary-fields.md § Hook payloads, "Permission-mode probe"): reports
+	// 2.1.259 (docs/history/spikes/canary-fields.md § Hook payloads, "Permission-mode probe"): reports
 	// permission_mode "auto" on hooks; model-gated (falls back to "default" on haiku).
 	PermissionAuto PermissionMode = "auto"
 )

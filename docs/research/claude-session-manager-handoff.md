@@ -1,7 +1,7 @@
 # Claude Code Session Manager — Project Handoff
 
 > Pre-repo research (August 2026), kept for reference. Nothing here is a decision: `SPEC.md`
-> supersedes §8, §9 and §12, and `spikes/FINDINGS.md` / `spikes/canary-fields.md` win wherever a
+> supersedes §8, §9 and §12, and `spikes/FINDINGS.md` / `docs/history/spikes/canary-fields.md` win wherever a
 > measurement disagrees (see the FALSIFIED note in §11). Moved from the repo root on 2026-09-11.
 
 Context summary for starting a fresh session. Covers research findings, decisions made, and open questions.

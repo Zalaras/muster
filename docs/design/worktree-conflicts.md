@@ -243,7 +243,7 @@ flaws in the v1 stack:
    `git rebase --onto main <parent-tip> plan/<child>`, killing the spurious-conflict
    class squash-landing a parent otherwise creates.
 3. **Defuse hot files narrowly**: `merge=union` ONLY for genuinely append-only files
-   (e.g. `spikes/canary-fields.md`), never `TODO.md`. TODO.md: new backlog entries go
+   (e.g. `docs/history/spikes/canary-fields.md`), never `TODO.md`. TODO.md: new backlog entries go
    to `TODO.d/<plan>.md` fragments; the file stays plain 3-way (in-place ticks on
    different lines merge cleanly; same-line ticks *should* conflict for a human); the
    queue **refuses to auto-resolve TODO.md when base→ours is a permutation** — the only

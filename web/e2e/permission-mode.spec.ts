@@ -92,7 +92,7 @@ test("a synthesized UserPromptSubmit with permission_mode: default corrects an a
     await request.post(daemon.ingestURL("hook"), {
       data: envelopedSessionStart(claudeId, { musterSession: session.id }),
     });
-    // Measured (spikes/canary-fields.md, "Permission-mode probe" 2.1.259): on a model
+    // Measured (docs/history/spikes/canary-fields.md, "Permission-mode probe" 2.1.259): on a model
     // that can't run auto (haiku), Claude Code silently drops to manual and hooks
     // report "default" — this is the measured haiku-fallback shape, not an invented one.
     await request.post(daemon.ingestURL("hook"), {

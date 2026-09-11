@@ -76,7 +76,7 @@ func EnvelopedSessionStart(sessionID string, opts SessionStartOpts) string {
 			modelID = "claude-haiku-4-5-20251001"
 		}
 		// A plain model-id string, never an {id, display_name} object (settled by
-		// measurement — interface probe, 2026-08-22, spikes/canary-fields.md "Values
+		// measurement — interface probe, 2026-08-22, docs/history/spikes/canary-fields.md "Values
 		// worth asserting" → SessionStart.model; review Major 11).
 		payload["model"] = modelID
 	}
@@ -472,7 +472,7 @@ type UsageWindowOpt struct {
 }
 
 // UsageAPIBody returns a GET /api/oauth/usage-shaped response body (measured live
-// 2026-08-30, spikes/canary-fields.md "GET /api/oauth/usage measured live 2026-08-30")
+// 2026-08-30, docs/history/spikes/canary-fields.md "GET /api/oauth/usage measured live 2026-08-30")
 // carrying the given weekly-scoped windows plus the session/weekly_all noise the real
 // endpoint always returns alongside them. Tests outside internal/claudecode must never
 // spell out this endpoint's own wire vocabulary (the D3 boundary check on plan

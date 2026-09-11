@@ -140,7 +140,7 @@ func interpretSessionStart(payload []byte) StateInput {
 }
 
 // modelID extracts a model id from SessionStart's optional `model` field. Settled by
-// measurement (interface probe, 2026-08-22, spikes/canary-fields.md "Values worth
+// measurement (interface probe, 2026-08-22, docs/history/spikes/canary-fields.md "Values worth
 // asserting" → SessionStart.model): when present it is always a plain model-id string
 // (e.g. "claude-haiku-4-5-20251001") — never the {id, display_name} object shape the
 // status line uses. The object-shape branch this function used to also accept was

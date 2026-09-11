@@ -21,7 +21,7 @@ import { credentialsFileContent, FakeUsageAPI, weeklyScopedUsageResponse } from 
 // E7/INV-4's log grep has something unambiguous to look for.
 const FAKE_TOKEN = "MUSTER-E2E-FAKE-OAUTH-TOKEN-4f19bd2c";
 
-// The measured `resets_at` form (spikes/canary-fields.md: RFC3339 with micros and a
+// The measured `resets_at` form (docs/history/spikes/canary-fields.md: RFC3339 with micros and a
 // `+00:00` offset) — reused across fixtures so every test exercises the same shape the
 // real endpoint actually sends (REQ-4/edge case 12).
 const RESETS_AT = "2026-09-01T13:59:59.522599+00:00";
