@@ -19,7 +19,7 @@ Claude Code sessions running in tmux. Personal tool for Damian, macOS only, sing
 
 - `make help` lists everything: `build`, `check` (lint + unit), `web-test`, `e2e`,
   `canary`, `web`.
-- Frontend: `nvm use` in the repo root first (Node pinned 24.19.0); then work in `web/`.
+- Frontend: `nvm use` in the repo root first (Node pinned 24.21.0); then work in `web/`.
 
 ## Workflow — the build pipeline
 

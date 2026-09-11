@@ -102,8 +102,8 @@ make e2e       # Playwright suite (needs: npx playwright install chromium)
 make canary    # assert the installed Claude Code still emits what Muster needs
 ```
 
-Toolchain: Go 1.26.6, Node 24.19.0 (pinned in `.nvmrc`), Vite 8, TypeScript 7,
-Playwright 1.62. Claude-Code-specific knowledge is confined to `internal/claudecode/`.
+Toolchain: Go 1.27.1, Node 24.21.0 (pinned in `.nvmrc`), Vite 8, TypeScript 7,
+Playwright 1.63. Claude-Code-specific knowledge is confined to `internal/claudecode/`.
 
 ## Issues and contributions
 
