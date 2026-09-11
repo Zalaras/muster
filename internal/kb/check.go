@@ -139,13 +139,10 @@ func (c *checker) checkRecord(r *Record) {
 	if r.BodyWords > r.bodyBudget() {
 		c.fail(r.Path, 0, "body is %d words (budget %d for a %s)", r.BodyWords, r.bodyBudget(), r.Type)
 	}
-	if r.Type == TypeSpec {
-		if f := ix.Feature(r.ID); f != nil {
-			if n := rulesOverBudget(ix, f); n > 0 {
-				c.fail(r.Path, 0, "feature %q has %d live records; the rules file budget is %d lines — retire or merge", f.Name, n, RuleFileLines)
-			}
-		}
-	}
+	// A feature with more live records than its rules file can hold is not a source
+	// defect: gen truncates the file at RuleFileLines with a pointer at the feature INDEX,
+	// so the tier-1 context stays bounded by construction. Failing here would push authors
+	// to file records under the wrong feature to dodge the budget.
 }
 
 func (c *checker) checkTestEntry(r *Record, label, t string) {

@@ -269,7 +269,10 @@ func TestCheck_FailsCodeFilesOwnedByNoFeatureOnlyOnceAFeatureExists(t *testing.T
 	assert.NotContains(t, joined, "internal/sess/sess.go")
 }
 
-func TestCheck_FailsTheSourceSideWhenARulesFileNeedsTruncation(t *testing.T) {
+// A feature with more live records than its rules file holds is bounded by truncation,
+// never reported as a source defect: failing it would push authors to file records under
+// the wrong feature to dodge the budget (Track 3 batch 5 did exactly that once).
+func TestCheck_PassesWhenARulesFileIsTruncatedToBudget(t *testing.T) {
 	root := newKBRoot(t)
 	for i := 0; i < 60; i++ {
 		id := "r" + strings.Repeat("x", i%3) + string(rune('a'+i/3))
@@ -277,7 +280,7 @@ func TestCheck_FailsTheSourceSideWhenARulesFileNeedsTruncation(t *testing.T) {
 	}
 	runGen(t, root)
 	got := runCheck(t, root)
-	assert.Contains(t, got, `docs/features/sessions/spec.md: feature "sessions" has 62 live records; the rules file budget is 60 lines — retire or merge`)
+	assert.Empty(t, got)
 	rules := mustReadFile(t, root, ".claude/rules/sessions.md")
 	assert.LessOrEqual(t, strings.Count(rules, "\n"), RuleFileLines)
 	assert.Contains(t, rules, "more: see `docs/features/sessions/INDEX.md`")

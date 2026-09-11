@@ -270,19 +270,6 @@ func renderRules(ix *Index, f *Feature) string {
 	return b.String()
 }
 
-// rulesOverBudget reports how many live records a feature has when its rules file would
-// need truncation, else 0.
-func rulesOverBudget(ix *Index, f *Feature) int {
-	n := len(liveRecordsOf(ix, f.Name))
-	if n == 0 || len(f.Globs()) == 0 {
-		return 0
-	}
-	if strings.Contains(renderRules(ix, f), "more: see") {
-		return n
-	}
-	return 0
-}
-
 // underDir reports whether relpath sits under dir (empty dir means the whole tree).
 func underDir(dir, relpath string) bool {
 	return dir == "" || dir == "." || strings.HasPrefix(relpath, dir+"/")
