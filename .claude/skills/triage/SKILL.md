@@ -60,7 +60,7 @@ to look, never a reason to close.
 go run ./tools/triage fetch --out "$(mktemp -d)"
 ```
 
-This reads every open issue, computes the untriaged set from `TODO.md` itself, sanitises each
+This reads every open issue, computes the untriaged set from `TODO.md` and `docs/history/todo-done.md` (where ticked entries live), sanitises each
 body, and writes one artifact per issue. Report its summary line (`N open, M untriaged`) as-is.
 
 It prints three groups:
@@ -137,7 +137,7 @@ go run ./tools/triage audit
 reconciliation), splices, stages only `TODO.md`, and makes one commit. A rejected proposal
 holds its issue rather than falling back to a guess. You never run `Edit` on `TODO.md`.
 
-`audit` compares both lists and reports three conditions. The first is the important one: an
+`audit` compares the tracker against `TODO.md` plus `docs/history/todo-done.md` and reports three conditions. The first is the important one: an
 issue open while its owning entry is ticked means a `closes #N` was dropped from a squash
 subject, and this is the only thing that catches it. **Never auto-fix; report and suggest.**
 

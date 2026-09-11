@@ -89,11 +89,11 @@ func cmdFetch(ctx context.Context, args []string, stdout io.Writer, runCmd triag
 	if err != nil {
 		return err
 	}
-	todo, err := os.ReadFile(filepath.Join(root, triage.TodoFile))
+	_, tracked, err := triage.ReadTracked(root)
 	if err != nil {
-		return fmt.Errorf("reading %s: %w", triage.TodoFile, err)
+		return err
 	}
-	untriaged := triage.Untriaged(string(todo), issues)
+	untriaged := triage.Untriaged(tracked, issues)
 
 	arts := make([]triage.Artifact, 0, len(untriaged))
 	for _, iss := range untriaged {
@@ -227,7 +227,7 @@ func cmdApply(ctx context.Context, args []string, stdout io.Writer, runCmd triag
 	return nil
 }
 
-// cmdAudit compares TODO.md against the tracker in both directions. Pure text comparison,
+// cmdAudit compares TODO.md and the history file against the tracker in both directions. Pure text comparison,
 // so there is no reason a model with Bash should be doing it.
 func cmdAudit(ctx context.Context, stdout io.Writer, runCmd triage.RunFunc, root, module string) error {
 	repo, err := triage.ResolveRepo(ctx, runCmd, module)
@@ -238,15 +238,16 @@ func cmdAudit(ctx context.Context, stdout io.Writer, runCmd triage.RunFunc, root
 	if err != nil {
 		return err
 	}
-	b, err := os.ReadFile(filepath.Join(root, triage.TodoFile))
+	// Ticked entries live in the history file, so the audit reads both — the `dropped`
+	// verdict below only exists there.
+	_, tracked, err := triage.ReadTracked(root)
 	if err != nil {
-		return fmt.Errorf("reading %s: %w", triage.TodoFile, err)
+		return err
 	}
-	todo := string(b)
 
 	var dropped, reverse, untriaged []string
 	for _, iss := range issues {
-		checked, found := triage.EntryState(todo, iss.Number)
+		checked, found := triage.EntryState(tracked, iss.Number)
 		switch {
 		case iss.State == "open" && !found:
 			untriaged = append(untriaged, fmt.Sprintf("  #%d %s", iss.Number, triage.IssueURL(repo, iss.Number)))

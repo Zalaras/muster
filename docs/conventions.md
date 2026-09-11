@@ -170,8 +170,8 @@ remedy (closes #2)`; lowercase, and one `closes #N` per issue. The subject carri
 from the commit's own file list (decision 2026-09-01). That is the only issue automation Muster has: the daemon creates
 issues and never reads, labels, or syncs them (`SPEC.md` 2026-08-31 changelog). `/land`
 composes that subject from the plan's `closes_issues`, so the reference is not left to whoever
-happens to run the merge; `/triage --audit` reports any issue still open whose `TODO.md` item is
-ticked, which is how a dropped reference gets caught.
+happens to run the merge; `/triage --audit` reports any issue still open whose entry is ticked (ticked entries live in
+`docs/history/todo-done.md`), which is how a dropped reference gets caught.
 
 ## Comments
 

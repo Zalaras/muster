@@ -84,7 +84,7 @@ type(scope): imperative summary (closes #N, closes #M)
 
 Read `closes_issues` from `plans/<plan>/orchestration-state.json` — orchestrate writes it at
 completion for every issue the plan **fully** resolves. If the key is absent (an older plan),
-fall back to grepping the `TODO.md` items the plan ticked for issue links, and ask the user to
+fall back to grepping the items the plan ticked (now in `docs/history/todo-done.md`) for issue links, and ask the user to
 confirm rather than inferring silently.
 
 Append one reference per issue, lowercase: `... (closes #2, closes #4)`.

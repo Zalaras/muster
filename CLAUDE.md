@@ -33,8 +33,9 @@ Feature work goes through the multi-agent pipeline, not ad-hoc editing:
    `orchestration-state.json` resume. Only a review verdict of `approved` completes it.
 4. `/work-status [name]` — where things stand.
 5. `/triage [N|--all|--audit]` — pulls open GitHub issues into `TODO.md` and audits the
-   two lists. An issue is triaged iff its number appears in `TODO.md`; triage never
-   closes an issue, and commits its `TODO.md` edit (`docs(triage): …`, no push).
+   two lists. An issue is triaged iff its `issues/N` link appears in `TODO.md` or
+   `docs/history/todo-done.md` (ticked entries live there); triage never closes an issue, and
+   commits its `TODO.md` edit (`docs(triage): …`, no push).
 6. `/land <name>` — squash-merges the approved `plan/<name>` branch to `main` with a
    conventional subject carrying `closes #N`, pushes (which cuts a release), and deletes
    the branch. The push is what closes the issue.
@@ -92,7 +93,7 @@ ritual is `docs/claude-code-versions.md`.
 
 ## Doc upkeep (end of every session)
 
-- Work item finished → tick it in `TODO.md`.
+- Work item finished → tick it and move its block from `TODO.md` to `docs/history/todo-done.md` (same heading).
 - Decision changed or settled → an entry in `docs/history/spec-changelog.md` **and** the SPEC section it changes.
 - New wire-format fact learned → `spikes/canary-fields.md` (and `spikes/FINDINGS.md`
   if substantive).

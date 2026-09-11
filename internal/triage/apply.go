@@ -9,7 +9,8 @@ import (
 	"strings"
 )
 
-// TodoFile is the only file this package ever writes in the repository.
+// TodoFile is the only file this package ever writes in the repository. Ticked entries
+// leave it for HistoryFile, which is read alongside it (ReadTracked) and never written.
 const TodoFile = "TODO.md"
 
 // Decision pairs an issue with the section Damian chose for it. The section choice stays
@@ -44,11 +45,10 @@ func Apply(ctx context.Context, run RunFunc, root, repo string, decisions []Deci
 		return "", fmt.Errorf("%s already has uncommitted changes — commit or revert them first", TodoFile)
 	}
 
-	b, err := os.ReadFile(path)
+	todo, tracked, err := ReadTracked(root)
 	if err != nil {
-		return "", fmt.Errorf("reading %s: %w", TodoFile, err)
+		return "", err
 	}
-	todo := string(b)
 
 	sort.Slice(decisions, func(i, j int) bool { return decisions[i].Number < decisions[j].Number })
 	var filed []int
@@ -61,8 +61,8 @@ func Apply(ctx context.Context, run RunFunc, root, repo string, decisions []Deci
 		if !ok {
 			return "", fmt.Errorf("no validated proposal for issue %d", d.Number)
 		}
-		if HasIssue(todo, d.Number) {
-			continue // already triaged; never write a second entry
+		if HasIssue(tracked, d.Number) {
+			continue // already triaged (open in TODO.md or ticked in the history file); never write a second entry
 		}
 		next, serr := Splice(todo, d.Section, RenderEntry(a, p, repo))
 		if serr != nil {
