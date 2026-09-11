@@ -8,7 +8,7 @@ features: []
 tags: [testing, pipeline]
 files: [web/scripts/e2e-lint.sh, web/package.json, .claude/skills/orchestrate/scripts/gates.sh, .claude/agents/e2e-specs.md]
 tests: []
-refs: [docs/history/spec-changelog.md, docs/design/test-strategy.md, docs/conventions.md, kb:adr/process-e2e-explicit-fixtures, kb:adr/process-e2e-one-load-policy]
+refs: [docs/history/spec-changelog.md, docs/design/test-strategy.md, docs/conventions.md, kb:adr/process-e2e-explicit-fixtures, kb:adr/process-e2e-one-load-policy, kb:adr/process-transient-displays-not-oracles]
 supersedes: []
 ---
 **Context.** The rules the fixture decision introduced had been broken before in prose form: specs spawned daemons directly and slept. The retro rule for a rule that was broken is to mechanise it, not re-word it.

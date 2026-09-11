@@ -8,7 +8,7 @@ features: []
 tags: [user-decision, deferred]
 files: [README.md, docs/design/open-sourcing.md]
 tests: []
-refs: [docs/history/spec-changelog.md, docs/design/open-sourcing.md, kb:adr/process-licence-mit]
+refs: [docs/history/spec-changelog.md, docs/design/open-sourcing.md, kb:adr/process-licence-mit, kb:adr/process-repo-public]
 supersedes: []
 ---
 **Context.** Choosing a licence raised the neighbouring question of inbound contributions: whether to require a contributor agreement or a signed-off certificate before anyone sends code.

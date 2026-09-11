@@ -8,7 +8,7 @@ features: [triage]
 tags: [pipeline]
 files: [.claude/skills/triage/SKILL.md, TODO.md]
 tests: []
-refs: [docs/history/spec-changelog.md, kb:adr/triage-issue-closes-when-fix-lands]
+refs: [docs/history/spec-changelog.md, kb:adr/triage-issue-closes-when-fix-lands, kb:adr/triage-program-not-model-between-github-and-todo]
 supersedes: []
 ---
 **Context.** Once closing was ruled out as a triage signal, something still had to say which open issues had been looked at.

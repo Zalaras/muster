@@ -1,7 +1,7 @@
 ---
 id: release-distribution-github-release-not-brew
 type: decision
-status: accepted
+status: superseded
 date: 2026-08-31
 summary: Distribution is the tagged GitHub Release: an install target downloads the latest darwin archive; Homebrew is deferred to any open-sourcing.
 features: [release]

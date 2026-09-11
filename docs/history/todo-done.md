@@ -6,6 +6,7 @@ size of the open work. Same milestone headings, same order, entries verbatim (ea
 here — the triage program reads both, writes only `TODO.md`. Moved out of `TODO.md` on 2026-09-11.
 
 ## Setup ✅ done 2026-08-16
+<!-- kb: adr/canary-exact-pin-bumped-after-green-runs, adr/canary-claude-auto-updater-left-on -->
 
 - [x] Name settled (**Muster**); repo, module `github.com/Zalaras/muster`, binary `musterd`
 
@@ -22,6 +23,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
 - [x] Backlog (this file)
 
 ## Before M0
+<!-- kb: adr/process-web-unit-tests-vitest, adr/process-e2e-per-run-ports-and-sockets-no-reuse, adr/process-doc-upkeep-backstop-in-orchestrator, adr/process-interface-probe-rig-in-repo, adr/theme-instrument-visual-direction, adr/stack-system-font-stacks-only, adr/nongoal-attention-ribbon-post-v1, adr/launch-hybrid-mru-directory-memory -->
 
 - [x] **AI build harness — base** (next-steps.md item 3): `CLAUDE.md`, project
       `.claude/settings.json` allow-list, context7 MCP (`.mcp.json`), stack patterns
@@ -55,6 +57,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
       (`docs/design/mockups/d-tiled.html`) as an **M2+** surface.
 
 ## M0 — Skeleton
+<!-- kb: adr/lifecycle-migrations-add-tables-when-written, adr/ingest-wire-shaped-fixtures-via-claudecodetest, adr/theme-banner-tokens-not-rose, adr/process-e2e-per-run-ports-and-sockets-no-reuse, adr/connection-commands-http-ws-push-only -->
 
 - [x] Write down the daemon↔UI protocol before coding it: WS message contract, HTTP
       endpoints, and the state-machine transitions, precisely (next-steps.md item 5).
@@ -91,6 +94,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
       the never-became-healthy error.
 
 ## M1 — Sessions exist ✅ done 2026-08-22 (plan `m1-sessions`, via `/orchestrate`)
+<!-- kb: adr/launch-browse-via-daemon-not-native-chooser, adr/launch-form-seeds-model-and-permission-mode, adr/canary-exact-pin-bumped-after-green-runs, adr/canary-verified-range-observed-not-pinned, adr/process-e2e-per-run-ports-and-sockets-no-reuse, adr/rail-attention-sort-order, fact/stopfailure-replaces-stop -->
 
 - [x] Launch `claude` in tmux from the dashboard (directory picker + title).
       Done 2026-08-22 — plus `GET /api/browse` (daemon-backed folder browser; the
@@ -144,6 +148,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
       structural fix (sockets in the per-run scratch dir) is queued in M2 below.
 
 ## M2 — Terminal panes ✅ done 2026-08-23 (plan `m2-terminal`, via `/orchestrate`; approved review cycle 2)
+<!-- kb: adr/surfaces-one-tmux-session-per-session, adr/surfaces-detach-on-destroy-on, adr/surfaces-shared-attach-single-pty, adr/surfaces-one-live-client-per-session, adr/tiles-sticky-live-membership, adr/tiles-live-top-n-snapshot-rest, adr/process-e2e-per-run-ports-and-sockets-no-reuse -->
 
 - [x] PTY ↔ WebSocket bridge to tmux; xterm.js panes; click-to-focus; typing.
       Done 2026-08-23 — `internal/termbridge` (creack/pty) + `/ws/terminal/{id}`
@@ -179,6 +184,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
       all use per-run scratch-dir sockets (check D12); leftover shared-dir sockets swept
 
 ## M3 — Gauges (plan `m3-gauges` approved 2026-08-23; run via `/orchestrate m3-gauges`)
+<!-- kb: adr/usage-sample-dedup-by-value, adr/usage-context-gauge-shows-tokens-and-compactions, adr/usage-unknown-renders-word-not-track, adr/usage-history-persisted-not-rendered, adr/usage-masthead-model-from-freshest-sample -->
 
 - [x] Status-line POST ingestion, de-duplicated (posts arrive in close pairs ~435 ms apart).
       Done 2026-08-23 (m3-gauges, review-approved cycle 2): value-level dedup in
@@ -200,6 +206,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
       rows written only on value change; no history UI in v1 (per plan)
 
 ## M4 — Durability → v1 complete
+<!-- kb: adr/lifecycle-reconcile-before-first-snapshot, adr/lifecycle-liveness-from-pane-existence, adr/lifecycle-shutdown-leaves-sessions-running, adr/lifecycle-resume-rebinds-existing-session, adr/canary-drives-installed-claude-through-production-chain, adr/canary-interactive-dialog-rows-accepted-residual, adr/ingest-all-hooks-command-wrappers, adr/ingest-hook-entries-permanent, adr/ingest-shell-quote-at-write-boundary, adr/actions-remove-allowed-on-live-session, adr/process-tests-run-space-bearing-data-dir -->
 
 - [x] Reconcile on daemon start; tmux pane existence is the authority on liveness
       (`SessionEnd` never fires on `kill -9`) — shipped 2026-08-27 (plan `m4-reconcile`):
@@ -414,6 +421,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
       `idle`; record in `spikes/canary-fields.md` (placeholder note added there). Kill it after.
 
 ## Pre-v1 Cleanup
+<!-- kb: adr/process-composition-roots-registration-only, adr/process-one-name-per-feature, adr/rail-user-owned-manual-order-default, adr/tiles-slot-stable-grid-never-self-sorts, adr/theme-no-traffic-light-state-palette, adr/usage-model-window-polled-from-oauth-api, adr/launch-picker-recent-sidebar-plus-browse-list, adr/tiles-new-session-button-in-toolbar, adr/connection-dashboard-embedded-in-binary, adr/release-builds-cross-compiled-on-linux, adr/release-distribution-github-release-not-brew, adr/release-no-ci-test-job-yet, adr/issue-payload-allowlist-never-dump, adr/process-e2e-explicit-fixtures, adr/process-faked-subprocess-boundary, adr/process-exec-waitdelay-on-pipe-owning-commands, adr/canary-plan-mode-step-three-sole-residual, adr/canary-verified-range-observed-not-pinned, adr/process-repo-public, adr/release-install-front-door-curl-sh, adr/update-check-pref-governs-checking-only, adr/process-transient-displays-not-oracles, adr/triage-program-not-model-between-github-and-todo -->
 
 - [x] **Dismantle the two composition-root hotspots so plans can run in parallel** — one plan,
   `full-stack`, via `/orchestrate` (Damian, 2026-09-11: single plan for both sides, files not
@@ -870,6 +878,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
   reaches this file. Design and residual risks: `docs/design/triage-hardening.md`.
 
 ## Reported issues (pre-v1 release)
+<!-- kb: adr/surfaces-tmux-preflight-at-startup, adr/theme-two-layer-tokens-not-white-label, adr/drop-daemon-locates-original-never-stages, adr/focus-rail-click-focuses-terminal, adr/launch-permission-modes-offered-four-tabbed, adr/surfaces-scroll-speed-via-launch-env, adr/surfaces-scrollback-affordance-not-built, adr/shortcuts-option-command-family-off-reserved-chords, adr/rename-muster-owned-title-override-wins, adr/lifecycle-subagent-marked-events-not-stragglers, adr/rail-current-marker-means-shown-in-focus, adr/theme-contrast-floors-above-aa, adr/theme-type-scale-tokens-15px-root, adr/surfaces-shell-is-attach-target-not-session -->
 
 - [x] **tmux dependency is unhandled at first launch** ([#2](https://github.com/Zalaras/muster/issues/2))
   — on a machine without tmux the first launch dies with the raw exec error
@@ -1189,6 +1198,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
   the same shape.
 
 ## M5+ (v1.x, re-rank when reached)
+<!-- kb: adr/connection-installed-claude-classified-never-refused, adr/issue-disabled-button-affordance-deferred -->
 
 - [x] **`views.spec.ts` E7 is load-flaky (1 failure in 5 full-suite runs, 2026-09-07)** — observed
   during plan `v1-cleanup`'s final gate sweep: "Cmd+\ toggles the view and Opt+Cmd+1 focuses the
@@ -1267,6 +1277,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
   (spec 2026-09-02, #3 above)** — do not plan separately.
 
 ## Open questions carried forward
+<!-- kb: adr/usage-no-source-interface, adr/launch-settings-local-json-not-settings-json, fact/resume-keeps-session-identity, fact/stopfailure-replaces-stop, fact/refresh-interval-seconds, fact/command-hooks-inherit-pane-env, fact/clear-mints-new-session-id, fact/local-settings-honoured -->
 
 - [x] **`--resume` never exercised** — settled (H2 probe 2026-08-16): `SessionStart` fires
       with `source: "resume"` and the **same** `session_id`/`transcript_path`, so reconcile

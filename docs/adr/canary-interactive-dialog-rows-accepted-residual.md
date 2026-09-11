@@ -1,7 +1,7 @@
 ---
 id: canary-interactive-dialog-rows-accepted-residual
 type: decision
-status: accepted
+status: superseded
 date: 2026-08-29
 summary: Behaviours behind an interactive dialog (plan mode, PermissionRequest, Notification, SubagentStop) stay outside the canary and are verified by probe on demand.
 features: [canary]

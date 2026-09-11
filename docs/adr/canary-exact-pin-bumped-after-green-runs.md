@@ -1,7 +1,7 @@
 ---
 id: canary-exact-pin-bumped-after-green-runs
 type: decision
-status: accepted
+status: superseded
 date: 2026-08-29
 summary: Muster pins one exact Claude Code version, and the pin moves only after the canary has run green against the new version.
 features: [canary]

@@ -22,14 +22,14 @@ on 2026-09-11.
 
 ## Changelog
 
-- **2026-09-11 — sections re-addressed by stable `kb:anchor` ids.** Every `##`/`###` section of
+- **2026-09-11 — sections re-addressed by stable `kb:anchor` ids.** Every `##`/`###` section of <!-- kb: adr/knowledge-protocol-sections-addressed-by-anchor-ids -->
   `docs/protocol.md` now carries a `kb:anchor <id>` HTML comment on the line before its heading
   (id table: `tools/kb/anchors.tsv`), the numbers are dropped from the headings, and every
   citation in the tree reads `kb:anchor/<id>` instead of `§N.N` (validated by `go run ./tools/kb
   check`). Old §5.5 (`sessionUpsert` and `prefs`) is split into three messages, one heading each:
   `sessionUpsert`, `prefs`, `sessionRemoved`. The section numbers cited by the entries below refer
   to the numbering as it stood at the time. No wire change; no version bump.
-- **2026-09-10 — protocol 2: `hello.claudeCode` is a verified range** (plan
+- **2026-09-10 — protocol 2: `hello.claudeCode` is a verified range** (plan <!-- kb: adr/canary-verified-range-observed-not-pinned, adr/connection-installed-claude-classified-never-refused, adr/connection-protocol-bumps-only-on-shape-change -->
   `version-claude-interface`, closes #6). `{pinned, installed, drift}` → `{installed, floor,
   verified, status}`; `installed` null iff `status` is `unknown`; `floor`/`verified` always present.
   §3.12's snapshot allowlist follows. First version bump; the embedded dashboard ships with the
@@ -194,7 +194,7 @@ on 2026-09-11.
   `Stop.background_tasks` is deliberately not a state input. Every transition into `ACTIVE`
   now enforces §5.3's "non-null iff" rules for `attention` and `failure`, which the
   turn-activity row previously left stale. Semantics only; no wire shape changes.
-- **2026-09-10 — §3.3 `updateCheck`; §3.17 `POST /api/update/apply`; §3.18
+- **2026-09-10 — §3.3 `updateCheck`; §3.17 `POST /api/update/apply`; §3.18 <!-- kb: adr/update-check-pref-governs-checking-only, adr/update-check-runs-in-daemon-daily, adr/update-trust-root-minisign-signed-checksums, adr/update-restart-is-in-place-reexec-not-shutdown -->
   `GET /api/update/restart-impact`; §5.2 `snapshot.update`; §5.7 `update`** (plan
   `auto-update`). One boolean pref, default on, governs checking only; apply is always explicit
   (button or `musterd -update`) and verified by a minisign signature on `checksums.txt` plus the

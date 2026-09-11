@@ -8,7 +8,7 @@ features: [issue, triage]
 tags: [security, user-decision]
 files: [internal/ghissue/ghissue.go, internal/server/issue.go]
 tests: []
-refs: [docs/history/spec-changelog.md, plan:issue-capture, kb:adr/triage-issue-closes-when-fix-lands, kb:adr/triage-state-derived-from-todo]
+refs: [docs/history/spec-changelog.md, plan:issue-capture, kb:adr/triage-issue-closes-when-fix-lands, kb:adr/triage-state-derived-from-todo, kb:adr/triage-program-not-model-between-github-and-todo]
 supersedes: []
 ---
 **Context.** Once the dashboard could file issues it was tempting to let it show them, label them or reflect their state.

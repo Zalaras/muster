@@ -8,7 +8,7 @@ features: [release]
 tags: [pipeline, testing, revisit]
 files: [.github/workflows/release.yml, Makefile]
 tests: []
-refs: [docs/history/spec-changelog.md, docs/design/open-sourcing.md]
+refs: [docs/history/spec-changelog.md, docs/design/open-sourcing.md, kb:adr/process-repo-public]
 supersedes: []
 ---
 **Context.** With a release workflow in place, the obvious next step was a CI job running the unit tests and linters on every push.

@@ -984,6 +984,7 @@ since the pipeline's own rules were among the deliverables. The standing rule is
   the load, not the fork).
 
 ### 2026-09-10 — `make canary` covers the whole Claude Code surface Muster depends on (plan `canary-full-coverage`, via `/orchestrate`)
+<!-- kb: adr/canary-live-tier-fails-never-skips, adr/canary-static-tier-asserts-bundle-strings, adr/canary-permission-mode-sweep-on-unauthenticated-path, adr/canary-resume-run-through-production-argv, adr/canary-plan-mode-step-three-sole-residual, adr/canary-subagentstop-not-a-surface, fact/trust-prompt-preselects-exit, fact/permission-suggestions-optional -->
 
 `test/canary/` is now the inventory-of-record it was meant to be, so the pre-v1 "version the
 Claude Code interface" item can declare a supported range honestly. Decisions settled or
@@ -1018,6 +1019,7 @@ changed on the way:
   landing, not part of this plan.
 
 ### 2026-09-10 — the Claude Code pin becomes an observed, canary-extended verified range (plan `version-claude-interface`, via `/orchestrate`, closes #6)
+<!-- kb: adr/canary-verified-range-observed-not-pinned, adr/canary-version-gated-adapters-not-built, adr/canary-skips-on-ceiling-bump-extends-record, adr/connection-installed-claude-classified-never-refused, adr/connection-protocol-bumps-only-on-shape-change -->
 
 - **Declaration, not mechanism.** Zero observed change points (every shape in
   `spikes/canary-fields.md` held 2.1.233 → 2.1.267, every delta an addition), so no
@@ -1043,6 +1045,7 @@ changed on the way:
 
 
 ### 2026-09-10 — repo public (`Zalaras/muster`, via `scripts/go-public.sh --yes`)
+<!-- kb: adr/process-repo-public, adr/process-main-ruleset-blocks-deletion-and-force-push-only, adr/process-dependabot-version-prs-off -->
 
 Closes the §8 "repo stays private" posture. The flip and the GitHub settings that go with
 it were applied by the script and verified anonymously (`docs/go-public.md` §2–§3):
@@ -1061,6 +1064,7 @@ gh ≥ 2.65, and GitHub locks the repo for a few seconds after the flip (a 403 o
 call — re-run, the script is idempotent).
 
 ### 2026-09-10 — The install front door is `curl | sh`, verified; brew and auto-update split
+<!-- kb: adr/release-install-front-door-curl-sh, adr/release-installer-verifies-sha256-against-checksums, adr/release-latest-resolved-via-redirect-not-api, adr/release-installer-no-sudo-no-prompt -->
 
 Supersedes the 2026-08-31 "Distribution settled" entry's front door (`make install` /
 `gh release download`), which the flip above made obsolete rather than merely inconvenient.
@@ -1090,6 +1094,7 @@ Supersedes the 2026-08-31 "Distribution settled" entry's front door (`make insta
   two `brew` remedies and the `versions:range` fragment.
 
 ### 2026-09-10 — Homebrew tap scoped: `homebrew_casks`, a tap PAT, and Gatekeeper
+<!-- kb: adr/release-homebrew-tap-via-casks-and-tap-pat, adr/release-cask-quarantine-strip-not-signing -->
 
 Corrects two claims carried by the 2026-08-31 "Distribution settled" entry and repeated in
 the 2026-09-10 entry below ("no longer *blocked* — the public repo removed the private-tap
@@ -1114,6 +1119,7 @@ now carries the full shape.
   overwrite a brew-managed install.
 
 ### 2026-09-10 — auto-update: pref-gated check, explicit minisign-verified apply, in-place restart (plan `auto-update`, via `/orchestrate`)
+<!-- kb: adr/update-check-pref-governs-checking-only, adr/update-check-runs-in-daemon-daily, adr/update-trust-root-minisign-signed-checksums, adr/update-restart-is-in-place-reexec-not-shutdown, adr/update-install-kinds-decide-who-may-apply, adr/update-release-knowledge-in-selfupdate-package, adr/release-latest-resolved-via-redirect-not-api -->
 
 Resolves the "auto-update wants a `/spec` pass" note in the install-front-door entry above.
 Interview in `plans/auto-update/spec.md`; decisions:
@@ -1152,6 +1158,7 @@ Interview in `plans/auto-update/spec.md`; decisions:
   §5.7); `cmd/musterd` owns the flag, the classification and the re-exec.
 
 ### 2026-09-11 — `/triage` reads public issues through a program, not a model (direct on `main`)
+<!-- kb: adr/triage-program-not-model-between-github-and-todo, adr/triage-snapshot-untrusted-drop-and-count, adr/triage-auto-close-never, adr/triage-sandboxing-rejected-for-read-only-proposer -->
 
 The repo went public 2026-09-10, which made an issue body attacker-controlled text.
 `/triage` was reading one straight into the main session — and the skill's
@@ -1190,6 +1197,7 @@ because `allowed-tools` grants rather than restricts. Design and residual risks:
   approve a dirty `TODO.md` — plus a held list that is empty on a normal run.
 
 ### 2026-09-11 — composition-root rule settled (plan `code-breakup`)
+<!-- kb: adr/process-composition-roots-registration-only, adr/process-one-name-per-feature -->
 
 No SPEC section changes (§5/§7 describe the stack, not the file layout). `web/src/main.ts` and
 `internal/server/server.go` are composition roots only; every feature is a controller
