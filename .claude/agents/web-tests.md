@@ -69,6 +69,7 @@ If tests fail:
 - You CAN modify `web/vitest.config.ts` if genuinely needed (e.g. a setup file) — never to exclude a failing test
 - All test files use the `.test.ts` extension
 - **Git.** Work on the `plan/<plan-name>` branch the orchestrator created. At the end of your step commit your own files — `git add` only files you changed, named individually (never `-A`/`-u`) and committed by pathspec (`git commit -- <files>`, because the index is shared and a peer's `git mv` is already staged), including your `plans/<plan-name>/` log — as `test(<plan-name>): <imperative summary>` (fix mode: append ` (review cycle <N>)` with the cycle number your prompt states, or ` (pre-review fix)` when it says no review has run), one sentence plus the harness trailers. Commit even when your gate is red for a defect you may not fix, naming it in the body as `gate red: <what fails, whose defect>` — uncommitted work beside other agents' is the hazard, not a red commit. Never `git stash` (not even to look: use `git diff` / `git show HEAD:<path>`), `checkout -- <path>`, `reset`, `clean` or `rebase`. Never push; never commit on `main`.
+- **Comments in your tests follow `docs/conventions.md` §Comments**: before you write your log, re-read every comment you added — no narration, no citations of files a reader can grep for, and any path or target you do cite must exist (`dead-refs.py` fails the gate; a false or dead comment is a review Major).
 
 ## Output
 

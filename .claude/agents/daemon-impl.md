@@ -78,6 +78,8 @@ off), while `--tests=false` reported the 2 real `govet` shadow findings in `cmd/
 that the break was hiding. They were introduced by that same commit and cost a full impl-fix +
 test-rerun cycle to find one step later.
 
+**Comments are part of the gate.** Before you write your log, re-read every comment your diff adds or touches against `docs/conventions.md` §Comments: delete narration ("was", "previously", plan names, dates) and citations of files or docs a reader can grep for; keep only a non-obvious *why*. A path, `make` target or `musterd` flag a comment does cite must exist — `python3 .claude/skills/orchestrate/scripts/dead-refs.py` fails the gate otherwise, and the reviewer treats a false or dead comment as Major.
+
 ## Constraints
 
 - You may NOT edit test files, **with exactly one exception**: when your own refactor (moving, renaming or deleting a symbol) invalidates an `import` path in an existing test file, you may correct that import statement. Nothing else.
