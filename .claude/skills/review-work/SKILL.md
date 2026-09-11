@@ -3,6 +3,7 @@ name: review-work
 description: "Reviews all of a plan's implementation and test changes against the plan and Muster's hard rules."
 argument-hint: "<plan-name> [cycle N]"
 allowed-tools: Agent, Read
+disable-model-invocation: true
 ---
 
 Spawn the `review-work` agent — `Agent` tool, `subagent_type: "review-work"` — with the prompt:

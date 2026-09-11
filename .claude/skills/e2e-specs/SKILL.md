@@ -3,6 +3,7 @@ name: e2e-specs
 description: "Authors or validates Playwright E2E tests for a plan (Claude Code faked via synthesized payloads)."
 argument-hint: "<plan-name> [authoring|validate|fix]"
 allowed-tools: Agent, Read
+disable-model-invocation: true
 ---
 
 Spawn the `e2e-specs` agent — `Agent` tool, `subagent_type: "e2e-specs"` — with the prompt:

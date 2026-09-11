@@ -3,6 +3,7 @@ name: daemon-impl
 description: "Implements Go daemon changes from a plan: ingest, state machine, storage, tmux/PTY, HTTP/WS."
 argument-hint: "<plan-name> [fix]"
 allowed-tools: Agent, Read
+disable-model-invocation: true
 ---
 
 Spawn the `daemon-impl` agent — `Agent` tool, `subagent_type: "daemon-impl"` — with the prompt:

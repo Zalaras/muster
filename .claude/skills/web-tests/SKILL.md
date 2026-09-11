@@ -3,6 +3,7 @@ name: web-tests
 description: "Writes Vitest unit tests for a plan's dashboard logic."
 argument-hint: "<plan-name>"
 allowed-tools: Agent, Read
+disable-model-invocation: true
 ---
 
 Spawn the `web-tests` agent — `Agent` tool, `subagent_type: "web-tests"` — with the prompt:

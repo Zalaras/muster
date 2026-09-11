@@ -46,10 +46,29 @@ def scope_files(argv):
     elif argv:
         return argv
     else:
-        branch = git("rev-parse", "--abbrev-ref", "HEAD").strip()
-        rng = "HEAD~1" if branch == "main" else "main...HEAD"
-        out = git("diff", "--name-only", rng, "--", *pats)
+        out = git("diff", "--name-only", diff_range(), "--", *pats)
     return [f for f in out.split("\n") if f]
+
+
+def diff_range():
+    branch = git("rev-parse", "--abbrev-ref", "HEAD").strip()
+    return "HEAD~1" if branch == "main" else "main...HEAD"
+
+
+def moved_paths():
+    """(old path, new path or None, tail) for every file the range renamed or deleted; `tail` is the
+    old path's last two segments (`render/launch.ts`) — the shape a bare comment citation takes, which
+    BARE_RE cannot see because it has no top-dir prefix (code-breakup: three review-Major citations)."""
+    out = []
+    for row in git("diff", "--name-status", "--diff-filter=DR", diff_range()).split("\n"):
+        cols = row.split("\t")
+        if len(cols) < 2:
+            continue
+        old, new = cols[1], (cols[2] if len(cols) > 2 else None)
+        tail = "/".join(old.split("/")[-2:])
+        if "/" in tail and not os.path.exists(old) and (new is None or not new.endswith("/" + tail)):
+            out.append((old, new, tail))
+    return out
 
 
 def in_scope(f):
@@ -143,6 +162,18 @@ def main(argv):
                     continue
                 missing += 1
                 print(f"{f}:{ln}  {tok}  missing (path)")
+    moved = moved_paths()
+    if moved:  # a rename orphans citations in files the diff never touched — scan the whole tree
+        pats = ["*.md", "*.go", "*.ts", "*.sh", "Makefile", ".githooks/*"]
+        for f in [x for x in git("ls-files", "--", *pats).split("\n") if x and in_scope(x) and os.path.isfile(x)]:
+            with open(f, errors="replace") as fh:
+                text = fh.read()
+            for ln, line in candidate_lines(f, text):
+                for old, new, tail in moved:
+                    if re.search(r"(?<![A-Za-z0-9_./-])%s(?![A-Za-z0-9_-])" % re.escape(tail), line) and not (new and new in line):
+                        checked += 1
+                        missing += 1
+                        print(f"{f}:{ln}  {tail}  missing (moved: {old} -> {new or 'deleted'})")
     for w in WHITELIST:
         exists = (w.startswith("make ") and w[5:] in targets) or (not w.startswith("make ") and os.path.exists(w) and w not in ("web/dist",))
         if exists:

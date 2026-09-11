@@ -83,8 +83,8 @@ that the break was hiding. They were introduced by that same commit and cost a f
 test-rerun cycle to find one step later.
 
 **Comments are part of the gate.** Before you write your log, re-read every comment your diff adds
-or touches against `docs/conventions.md` §Comments: delete narration ("was", "previously", plan
-names, dates) and citations of files or docs a reader can grep for; keep only a non-obvious *why*. A
+or touches, and every comment tree-wide naming a file or function you moved, against
+`docs/conventions.md` §Comments: delete narration and greppable citations; keep only a non-obvious *why*. A
 path, `make` target or `musterd` flag a comment does cite must exist — `python3
 .claude/skills/orchestrate/scripts/dead-refs.py` fails the gate otherwise, and the reviewer treats a
 false or dead comment as Major.

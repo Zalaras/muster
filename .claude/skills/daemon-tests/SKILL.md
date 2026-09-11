@@ -3,6 +3,7 @@ name: daemon-tests
 description: "Writes Go unit tests for a plan's daemon implementation."
 argument-hint: "<plan-name>"
 allowed-tools: Agent, Read
+disable-model-invocation: true
 ---
 
 Spawn the `daemon-tests` agent — `Agent` tool, `subagent_type: "daemon-tests"` — with the prompt:

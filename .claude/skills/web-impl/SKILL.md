@@ -3,6 +3,7 @@ name: web-impl
 description: "Implements dashboard changes from a plan: TypeScript, Vite, no framework."
 argument-hint: "<plan-name> [fix]"
 allowed-tools: Agent, Read
+disable-model-invocation: true
 ---
 
 Spawn the `web-impl` agent — `Agent` tool, `subagent_type: "web-impl"` — with the prompt:
