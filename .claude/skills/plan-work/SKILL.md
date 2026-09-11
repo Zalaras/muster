@@ -93,11 +93,20 @@ Based on the codebase structure, identify which files will likely need changes:
 **Web (TypeScript, `web/src/`):**
 - Protocol/message modules, state-derivation modules, per-feature render modules, the single WebSocket client module
 
-**`SPEC.md` and `TODO.md` are never listed under an impl track.** They are the orchestrator's (Doc-Upkeep Backstop / Completion), and the review rules forbid an impl agent from touching `SPEC.md`. Describe the required upkeep under Implementation Notes → Doc upkeep addressed to the orchestrator instead (m4-hook-lifetime listed them under Daemon and daemon-impl duly edited both — content was fine, ownership was not).
+**`SPEC.md` and `TODO.md` are never listed under an impl track.** They are the orchestrator's (Doc-Upkeep Backstop / Completion), and the review rules forbid an impl agent from touching `SPEC.md`. Put the required upkeep under Implementation Notes → Doc upkeep, addressed to the orchestrator (m4-hook-lifetime: listed under Daemon, daemon-impl duly edited both).
 
-**Every requirement's test coverage names exactly one owning test agent — no conditional routing.** A line like "a `launch.ts` unit test for REQ-6 if the render module's radio logic is unit-testable (web-tests' call; otherwise E4 covers it)" resolves to nobody: fix-auto-mode-select's web-tests declined it believing E4 covered it, e2e-specs had already logged that no E2E path existed, and a Should-Have shipped with zero coverage until review cycle 1 caught it. If you cannot tell at planning whether the logic is unit-testable, that is a finding about the implementation: require the impl agent to expose it as a pure function under Affected Files and route the test to the unit agent. Where a requirement is genuinely E2E-only, say so and name the `E*` criterion that carries it.
+**Every requirement's test coverage names exactly one owning test agent — no conditional routing.**
+"A unit test if the logic is unit-testable, otherwise E4 covers it" resolves to nobody
+(fix-auto-mode-select: a Should-Have shipped with zero coverage until review). If you cannot tell at
+planning whether the logic is unit-testable, that is a finding about the implementation: require the
+impl agent to expose it as a pure function under Affected Files and route the test to the unit
+agent. A genuinely E2E-only requirement says so and names the `E*` criterion that carries it.
 
-**Tooling/config files belong to an impl track, never to a test agent.** In particular `web/playwright.config.ts`, `web/e2e/helpers/fixtures.ts` and `web/scripts/e2e-lint.sh` are owned by **web-impl** (e2e-specs is forbidden from editing them — the agent judged by the suite can't hold the knobs that define passing). When a plan needs a config change, list the file under the owning impl track's Affected Files explicitly; don't leave it in an E2E subsection where ownership is ambiguous (m0-skeleton did, and it resolved only by web-impl's generous reading).
+**Tooling/config files belong to an impl track, never to a test agent.** `web/playwright.config.ts`,
+`web/e2e/helpers/fixtures.ts` and `web/scripts/e2e-lint.sh` are **web-impl**'s (e2e-specs may not
+edit them — the agent judged by the suite cannot hold the knobs that define passing). List a needed
+config change under the owning impl track's Affected Files explicitly, never in an E2E subsection
+where ownership is ambiguous (m0-skeleton).
 
 ### 5. Define the Protocol Contract (Critical for Parallel Execution)
 
@@ -105,7 +114,11 @@ Based on the codebase structure, identify which files will likely need changes:
 
 State this plan's **delta against `docs/protocol.md`**: every WS message and HTTP endpoint added or changed, with full shapes. For each:
 - **WS messages**: direction (daemon→UI / UI→daemon), `type`, full JSON shape with types, which fields are optional/nullable and exactly when (e.g. null before a session's first API response), ordering/delivery caveats
-- **HTTP endpoints**: method and path, request body, response body, error responses with status codes, auth (localhost token per SPEC §2.6). Any example body is the **exact wire shape**: error examples sit inside the `{"error": {"code", "message", …}}` envelope protocol §2 mandates, with any extra field (a `paths` list, a `retryAfter`) inside that object — never a flat `{"code": …}` sketch. `plan-lint.sh` flags an unenveloped example.
+- **HTTP endpoints**: method and path, request body, response body, error responses with status
+  codes, auth (localhost token per SPEC §2.6). Every example body is the **exact wire shape**: error
+  examples sit inside the `{"error": {"code", "message", …}}` envelope protocol §2 mandates, extra
+  fields (a `paths` list, a `retryAfter`) inside that object — never a flat `{"code": …}` sketch.
+  `plan-lint.sh` flags an unenveloped example.
 
 Example of sufficient detail:
 
@@ -150,9 +163,18 @@ For each key interactive element that E2E tests will target, define its expected
 - a native element guarantees it (`<button>` → `button`, `<a href>` → `link`, `<input>` → `textbox`, `<select>` → `combobox`), **or**
 - you are explicitly mandating an attribute that creates it (`role="status"`, `aria-label="Usage"` on an `<aside>` → `complementary`)
 
-Bare `<details><summary>`, `<div>` and `<span>` carry **no** implicit ARIA role. When unsure what role a piece of markup exposes, put `—` in the Role column and describe the intent in Notes — `e2e-specs` verifies its locators against a real DOM and will pick a working one. Never resolve the uncertainty by requiring an extra `role=` attribute purely so a test can find the element — that trades away native semantics for test convenience.
+Bare `<details><summary>`, `<div>` and `<span>` carry **no** implicit ARIA role. When unsure what
+role a piece of markup exposes, put `—` in the Role column and describe the intent in Notes —
+`e2e-specs` verifies its locators against a real DOM and picks a working one. Never resolve the
+uncertainty by requiring an extra `role=` attribute so a test can find the element — that trades
+native semantics for test convenience.
 
-**Transcribe text patterns from the reference render, never compose them from memory.** When a mockup is the design authority, open it and derive each Name/Text Pattern from the markup it actually contains — separators, spacing, and element boundaries included. A composed pattern invents details the mockup doesn't have and the implementation (correctly following the mockup) won't ship (m3-gauges: the plan's context-row pattern included a ` · ` middot separator; the mockup had none, the shipped DOM had none, and the pattern survived as a false reference the review had to disclaim). Remember `textContent` concatenates adjacent elements with no whitespace — a pattern spanning sibling spans must not assume spaces between them.
+**Transcribe text patterns from the reference render, never compose them from memory.** When a
+mockup is the design authority, open it and derive each Name/Text Pattern from the markup it
+actually contains — separators, spacing, element boundaries. A composed pattern invents details the
+mockup lacks and the implementation (correctly following the mockup) won't ship (m3-gauges: a ` · `
+middot the mockup never had survived as a false reference). `textContent` concatenates adjacent
+elements with no whitespace — a pattern spanning sibling spans must not assume spaces.
 
 #### Invariants (learned from m1-sessions)
 
@@ -203,17 +225,31 @@ Define clear acceptance criteria that the review agent will check against. Write
 
 **Two rules:**
 
-1. **One clause per criterion.** Never mix a runnable command with a judgement call in the same item. "`make test` and `make lint` pass; no `any` types; the gauge shows unknown before first response" is four separate criteria — and a reader who watches the build go green marks the whole thing done, quietly discarding the constraints most likely to be violated. If you find yourself typing `;` or `and also`, start a new criterion.
+1. **One clause per criterion.** Never mix a runnable command with a judgement call in one item:
+   "`make test` and `make lint` pass; no `any` types; the gauge shows unknown before first response"
+   is four criteria — a reader who watches the build go green marks the whole thing done and
+   discards the constraints most likely to be violated. If you find yourself typing `;` or `and
+   also`, start a new criterion.
 2. **Number criteria uniquely across the whole section**, not per subsection. Prefix by area: `D1, D2…` (Daemon), `W1, W2…` (Web), `E1, E2…` (E2E). Restarting the count per subsection makes "criterion 12 passed" ambiguous in a review.
-3. **Every UI element a criterion asserts must be defined somewhere in the plan** — in a Requirement, the UI Specifications, or the Testable UI Elements table. Cross-check each `E*` criterion against those sections before approval: a criterion is a *test* of the plan's surface, not a place to introduce new surface (m3-gauges: E7 asserted "the card's model readout", an element no plan section defined — only a masthead readout existed — leaving the E2E agent to guess what to test and flag the ambiguity downstream).
+3. **Every UI element a criterion asserts must be defined somewhere in the plan** — a Requirement, the UI Specifications, or the Testable UI Elements table. Cross-check each `E*` criterion against those sections before approval: a criterion *tests* the plan's surface, it does not introduce new surface (m3-gauges: E7 asserted a card readout no section defined, and the E2E agent had to guess).
 
-Then, with the user, distil the criteria into an **Automated Checks** block: the subset where "satisfied" is exactly "this one shell command exits 0". You author this deliberately — you are the only one who knows which backticked things in your prose are commands and which are type names or identifiers, so this cannot be left to a parser. Anything needing a human read stays in prose and is listed under `### Reviewer-Verified`, so the non-runnable half of a split criterion is assigned rather than lost — but *no `<string>` survives in `<dir>`* is a negative grep and belongs in the block (`plan-lint.sh` flags it in prose).
+Then, with the user, distil the criteria into an **Automated Checks** block: the subset where
+"satisfied" is exactly "this one shell command exits 0". You author this deliberately — only you
+know which backticked things in your prose are commands and which are identifiers, so it cannot be
+left to a parser. Anything needing a human read stays in prose under `### Reviewer-Verified`, so the
+non-runnable half of a split criterion is assigned rather than lost — but *no `<string>` survives in
+`<dir>`* is a negative grep and belongs in the block (`plan-lint.sh` flags it in prose).
 
 The orchestrator and the review agent execute the block **verbatim**, so every line must run from the project root with no arguments, no environment setup and no interactive prompt. Prefer the Make entry points (`make test`, `make lint`, `make web-build`, `make web-test`, `make e2e`) over ad-hoc pipelines.
 
 **Negative grep checks (`! rg …`) need one authoring decision and two dry-runs** (the dry-runs are what `plan-lint.sh` check 7 runs; do them before approval so their output shapes Affected Files):
 
-1. **Decide test-file scope explicitly.** State in the check's prose twin (or a note beside the block) whether `_test.go` / `*.test.ts` / `e2e/` files are inside the grep's net, and why. Tests often legitimately need the banned strings (a boundary test POSTing a real wire body, for example) — if test files are in scope, the plan must also say how tests obtain those strings legally (typically a helper exported from the boundary package), or agents will contort around the check (m0-skeleton produced a split string literal, `"hook_event" + "_name"`, flagged as a review Major).
+1. **Decide test-file scope explicitly.** State in the check's prose twin (or a note beside the
+   block) whether `_test.go` / `*.test.ts` / `e2e/` files are inside the grep's net, and why. Tests
+   often legitimately need the banned strings (a boundary test POSTing a real wire body) — if test
+   files are in scope, the plan must say how tests obtain those strings legally (typically a helper
+   exported from the boundary package), or agents contort around the check (m0-skeleton: a split
+   string literal, `"hook_event" + "_name"`, flagged as a review Major).
 2. **The plan text itself must not contain the banned string** (agents copy plan snippets into code and then trip the gate) — `plan-lint.sh` fails on it; reword or re-scope.
 3. **Every pre-existing hit in the tree is a file some agent must edit** — `plan-lint.sh` lists them; put each under **Affected Files** against the agent that owns it (a comment in `web/e2e/*.spec.ts` is e2e-specs', not web-impl's) or re-scope the check.
 

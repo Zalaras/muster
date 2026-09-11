@@ -26,7 +26,11 @@ Create the plan directory `plans/<plan-name>/` immediately if it doesn't exist. 
 
 ## Ground Rules for This Project
 
-- **`SPEC.md` is authoritative and its decisions are settled.** Before interviewing, read the SPEC.md sections relevant to the work (and skim `interview-notes.md` for rationale). Don't re-ask what the spec already answers, don't re-litigate settled decisions, and don't let a spec interview reintroduce cut features (notifications, cost tracking, containers, resource gauges). Where SPEC.md pins behaviour, the interview's job is only to fill in what it leaves open.
+- **`SPEC.md` is authoritative and its decisions are settled.** Before interviewing, read the
+  SPEC.md sections relevant to the work (and skim `interview-notes.md` for rationale). Don't re-ask
+  what the spec answers, don't re-litigate settled decisions, and don't let an interview reintroduce
+  cut features (notifications, cost tracking, containers, resource gauges). Where SPEC.md pins
+  behaviour, the interview only fills in what it leaves open.
 - Where the work touches Claude Code's wire formats, `spikes/FINDINGS.md` and `spikes/canary-fields.md` are the measured truth — surface the relevant constraints to the user rather than asking them to remember.
 
 ## Behavior Rules

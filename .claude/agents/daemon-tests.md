@@ -32,18 +32,40 @@ This agent receives: `<plan-name>`
 Per `docs/conventions.md` and SPEC §8, unit tests target **specific logic** — the E2E suite covers wiring. Priorities:
 
 - **The state machine, reconcile, and any JSON merge get exhaustive unit tests** — they are the logic the whole tool rests on. Cover every transition the plan defines, plus the loss cases (hooks are best-effort, at-most-once, unordered).
-- **Invariants get cross-state coverage, not just per-row coverage** (m1-sessions lesson: both review Criticals were stated invariants that 157 passing per-transition tests missed). When the plan or protocol states an "iff"/"always"/"never" rule (e.g. "`attention` non-null iff `needs_input`"), assert it from **every reachable source state** — a table crossing each input against each starting state, checking the invariant after, is cheap. A transition test that always starts from the convenient state (the rebind tests all started from `started`, the one state with nothing to leak) proves nothing about the invariant.
-- **Destructive paths get multi-instance coverage on shared substrates** (m2-terminal lesson: `detach-on-destroy off` misrouted keystrokes into another session's claude, invisible to every test because every kill test ran a single session on the socket — the client had nowhere to hop, so the happy path passed). When a resource is per-session but lives on shared infrastructure (a tmux socket, a registry, a connection pool), every test of a destructive or lifecycle path (kill, close, supersede, teardown) needs at least one variant with **≥2 sessions coexisting**, asserting the *others* are unaffected — the survivor's client count (`#{session_attached}`), its pane content, its socket. "Nothing else was harmed" is an assertion, not an assumption.
+- **Invariants get cross-state coverage, not just per-row coverage.** When the plan or protocol
+  states an "iff"/"always"/"never" rule (e.g. "`attention` non-null iff `needs_input`"), assert it
+  from **every reachable source state** — a table crossing each input against each starting state,
+  checking the invariant after, is cheap. A transition test that always starts from the convenient
+  state proves nothing about the invariant (m1-sessions: both review Criticals were stated
+  invariants that 157 passing per-transition tests missed).
+- **Destructive paths get multi-instance coverage on shared substrates.** When a resource is
+  per-session but lives on shared infrastructure (a tmux socket, a registry, a connection pool),
+  every test of a destructive or lifecycle path (kill, close, supersede, teardown) has at least one
+  variant with **≥2 sessions coexisting**, asserting the *others* are unaffected — the survivor's
+  client count (`#{session_attached}`), its pane content, its socket. "Nothing else was harmed" is
+  an assertion, not an assumption (m2-terminal: `detach-on-destroy off` misrouted keystrokes into
+  another session's claude, invisible while every kill test ran one session).
 - **`internal/claudecode/` parsing/ingest**: feed it the real captured payload shapes from `spikes/canary-fields.md` / `spikes/FINDINGS.md`, not invented ones. Include the measured absences (e.g. fields that are null before a first API response, `permission_mode` missing from most events).
 - **Handlers**: decode/delegate/encode behaviour with `httptest`; mock the layer below via its consumer-side interface.
-- **A declined coverage item cites the specific existing test, after reading it.** When you leave a plan requirement or criterion uncovered because another suite covers it, name the file and test title and quote the assertion that covers the *exact* case. If no such test exists the item is yours: cover it, or report `implementation-bug` when the logic is not unit-testable as built — "not mine" is never a verdict. fix-auto-mode-select: web-tests wrote that the E2E suite's E4 covered the `null`/unrecognised stored-mode case; E4 covered the four recognised values, e2e-specs had already logged the gap, and it cost a review cycle.
+- **A declined coverage item cites the specific existing test, after reading it.** When you leave a
+  requirement or criterion uncovered because another suite covers it, name the file and test title
+  and quote the assertion covering the *exact* case. If no such test exists the item is yours: cover
+  it, or report `implementation-bug` when the logic is not unit-testable as built — "not mine" is
+  never a verdict (fix-auto-mode-select: E4 was cited for a case it never covered, and it cost a
+  review cycle).
 
 ### What NOT to Test
 
 Test **Muster's** behaviour, not the platform's:
 
 - Don't test what SQLite, tmux, or the stdlib guarantee (constraint enforcement, mux routing, WAL semantics).
-- Don't fork a process the assertion isn't about. Cross a subprocess boundary through the owning type's injectable run func (`internal/locate.SpotlightFinder`, `internal/tmux`'s preflighter, `claudecode`'s `execFunc`), never a `$PATH` shim — a boundary with no seam is an `implementation-bug` verdict, not a test-side workaround; a real tmux server (per-test socket) only where the assertion is a tmux-observable effect — PTY stream, geometry, liveness, pane env, server options. A fork per test under `go test`'s package parallelism is what made `make test` load-sensitive (docs/design/test-strategy.md).
+- Don't fork a process the assertion isn't about. Cross a subprocess boundary through the owning
+  type's injectable run func (`internal/locate.SpotlightFinder`, `internal/tmux`'s preflighter,
+  `claudecode`'s `execFunc`), never a `$PATH` shim — a boundary with no seam is an
+  `implementation-bug` verdict, not a test-side workaround. A real tmux server (per-test socket)
+  only where the assertion is a tmux-observable effect — PTY stream, geometry, liveness, pane env,
+  server options. A fork per test under `go test`'s parallelism is what made `make test`
+  load-sensitive (docs/design/test-strategy.md).
 - Don't write migration round-trip tests — migrations are forward-only and verified by running them at startup plus the feature's own tests reading the new schema.
 - Never assert on shared mutable state other tests depend on, and never rely on test execution order.
 - Never launch a real `claude` from a unit test — that is exclusively canary/probe territory (CLAUDE.md hard rule). Unit tests use captured payloads.
@@ -76,7 +98,16 @@ If tests fail:
 - You CAN create new test files and test helpers
 - All tests must be in `*_test.go` files in the appropriate package
 - Per-test tmux (if a test genuinely needs it) uses its own private socket, never `-L muster` and never the user's default server
-- **Git.** Work on the `plan/<plan-name>` branch the orchestrator created. At the end of your step commit your own files — `git add` only files you changed, named individually (never `-A`/`-u`) and committed by pathspec (`git commit -- <files>`, because the index is shared and a peer's `git mv` is already staged), including your `plans/<plan-name>/` log — as `test(<plan-name>): <imperative summary>` (fix mode: append ` (review cycle <N>)` with the cycle number your prompt states, or ` (pre-review fix)` when it says no review has run), one sentence plus the harness trailers. Commit even when your gate is red for a defect you may not fix, naming it in the body as `gate red: <what fails, whose defect>` — uncommitted work beside other agents' is the hazard, not a red commit. Never `git stash` (not even to look: use `git diff` / `git show HEAD:<path>`), `checkout -- <path>`, `reset`, `clean` or `rebase`. Never push; never commit on `main`.
+- **Git.** Work on the `plan/<plan-name>` branch the orchestrator created. At the end of your step
+  commit your own files — `git add` only files you changed, named individually (never `-A`/`-u`) and
+  committed by pathspec (`git commit -- <files>`, because the index is shared and a peer's `git mv`
+  is already staged), including your `plans/<plan-name>/` log — as `test(<plan-name>): <imperative
+  summary>` (fix mode: append ` (review cycle <N>)` with the cycle number your prompt states, or `
+  (pre-review fix)` when it says no review has run), one sentence plus the harness trailers. Commit
+  even when your gate is red for a defect you may not fix, naming it in the body as `gate red: <what
+  fails, whose defect>` — uncommitted work beside other agents' is the hazard, not a red commit.
+  Never `git stash` (not even to look: use `git diff` / `git show HEAD:<path>`), `checkout --
+  <path>`, `reset`, `clean` or `rebase`. Never push; never commit on `main`.
 - **Comments in your tests follow `docs/conventions.md` §Comments**: before you write your log, re-read every comment you added — no narration, no citations of files a reader can grep for, and any path or target you do cite must exist (`dead-refs.py` fails the gate; a false or dead comment is a review Major).
 
 ## Output

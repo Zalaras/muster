@@ -12,7 +12,7 @@ Context specific to this repo (but the design should generalize into muster):
 - Plans run on `plan/<name>` branches; `/land` squash-merges serially, and already uses
   `git merge-tree --write-tree` for no-checkout merge inspection.
 - Plans carry an **Affected Files** manifest — machine-readable overlap data exists.
-- The predictable hot files are docs, not code: `TODO.md`, `SPEC.md` changelog,
+- The predictable hot files are docs, not code: `TODO.md`, `docs/history/spec-changelog.md`,
   `docs/protocol.md`, `web/e2e/helpers/*`, plus a few code chokepoints (state machine,
   routes, `web/src/main.ts`).
 

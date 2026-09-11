@@ -34,7 +34,7 @@ Before writing code, read neighbouring files in the package you are changing and
 - Hook handling: return 200 immediately, process asynchronously; assign `seq` at ingest; design for loss (best-effort, at-most-once, unordered, no timestamps).
 - Session identity keys on the tmux target, never Claude's `session_id`.
 - tmux always via a dedicated socket (`tmux -L muster`, or per-test sockets) — never the user's default server. Sizing drives `pty.Setsize` **and** `resize-window`; never rely on `resize-pane`.
-- **Ad-hoc verification probes follow the same socket hygiene as tests**: any throwaway tmux server you start to verify behaviour uses a `-S <path>` socket inside a scratch directory you delete, and you `kill-server` it when done. m2-terminal lesson: a quick `prefix None` probe used `-L` names and left socket files in the shared `/private/tmp/tmux-*/` dir — the exact litter that milestone existed to eliminate.
+- **Ad-hoc verification probes follow the same socket hygiene as tests**: any throwaway tmux server you start uses a `-S <path>` socket inside a scratch directory you delete, and you `kill-server` it when done (m2-terminal: a quick probe with `-L` names left socket files in the shared `/private/tmp/tmux-*/` dir).
 - Never log hook payloads anywhere world-readable.
 - `context.Context` first parameter on anything that blocks or does I/O; the daemon shuts down gracefully.
 
@@ -61,7 +61,11 @@ Use zerolog via the logger passed down from `main` — no `fmt.Println`, no pack
 
 **`go build ./...` must exit 0 before you report done.** This is a gate, not a suggestion.
 
-You may **never** report a build failure as "expected", "pre-existing" or "the test agent's problem". If the tree does not compile, you are not finished. The one case where a build break is legitimately not yours to fix — a test file's assertions or mocks needing an update — is still yours to *escalate explicitly*: name the exact files and what needs changing in your output's `## Handoff` section, and say plainly in your final message that the tree does not build and why.
+You may **never** report a build failure as "expected", "pre-existing" or "the test agent's
+problem". If the tree does not compile, you are not finished. The one break legitimately not yours
+to fix — a test file's assertions or mocks needing an update — is still yours to *escalate
+explicitly*: name the files and what needs changing in `## Handoff`, and say plainly in your final
+message that the tree does not build and why.
 
 If your own refactor invalidated an import path in a test file, fix the import (see `## Constraints`) — don't hand off something you're allowed to repair.
 
@@ -78,7 +82,12 @@ off), while `--tests=false` reported the 2 real `govet` shadow findings in `cmd/
 that the break was hiding. They were introduced by that same commit and cost a full impl-fix +
 test-rerun cycle to find one step later.
 
-**Comments are part of the gate.** Before you write your log, re-read every comment your diff adds or touches against `docs/conventions.md` §Comments: delete narration ("was", "previously", plan names, dates) and citations of files or docs a reader can grep for; keep only a non-obvious *why*. A path, `make` target or `musterd` flag a comment does cite must exist — `python3 .claude/skills/orchestrate/scripts/dead-refs.py` fails the gate otherwise, and the reviewer treats a false or dead comment as Major.
+**Comments are part of the gate.** Before you write your log, re-read every comment your diff adds
+or touches against `docs/conventions.md` §Comments: delete narration ("was", "previously", plan
+names, dates) and citations of files or docs a reader can grep for; keep only a non-obvious *why*. A
+path, `make` target or `musterd` flag a comment does cite must exist — `python3
+.claude/skills/orchestrate/scripts/dead-refs.py` fails the gate otherwise, and the reviewer treats a
+false or dead comment as Major.
 
 ## Constraints
 
@@ -87,10 +96,32 @@ test-rerun cycle to find one step later.
   - **Forbidden**: assertions, test bodies, mocks, fixtures, setup/teardown, adding an import to support new functionality, deleting or renaming a test, changing a test's expected values, and any "while I'm here" tidy-up.
   - Anything beyond the import line escalates to the test agent. List the files and the reason in your output.
 - You may NOT change the protocol contract (the plan's **Protocol Contract** section / `docs/protocol.md`) unilaterally. The web agent codes against the same contract without seeing your code. If the contract as written cannot work, implement nothing that contradicts it, document the conflict in `## Decisions`, and report it prominently — the orchestrator stops and escalates to the user.
-- **Two shapes for one wire field is a conflict to escalate, never a case to handle.** If the plan/canary-fields say one shape and a fixture (E2E helpers, test-specs) uses another, do NOT write code accepting both — that accommodation makes every test green while hiding a contract disagreement (m1-sessions: it survived to the Opus review and needed an interface probe to settle). Implement the measured/plan shape only and flag the mismatch prominently in `## Decisions` — the orchestrator resolves it, usually with `/interface-probe`.
-- **A frozen test contradicted by the plan's approved contract is sanctioned breakage, never a reason to bend the wire.** When the plan's Protocol Contract adds or changes a field, implement the documented shape byte-for-byte (explicit-null keys stay explicit-null — no `omitempty` to dodge a pinned-JSON assertion, no key omission, no reordering) even though a frozen-shape test you may not edit will fail. Record that test in `## Handoff` as sanctioned breakage citing the delta section; the test agent updates it next step (m3-gauges lesson: `usage.model` shipped as `omitempty` to keep a frozen snapshot green, deviating from the approved §5.4 shape, and had to be reverted mid-wave). The tests-must-not-own-the-contract rule cuts both ways: you don't accommodate a wrong fixture, and you don't let a stale assertion redesign the wire.
+- **Two shapes for one wire field is a conflict to escalate, never a case to handle.** If the
+  plan/canary-fields say one shape and a fixture (E2E helpers, test-specs) uses another, do NOT
+  accept both — that makes every test green while hiding a contract disagreement (m1-sessions: it
+  survived to the Opus review and needed an interface probe). Implement the measured/plan shape only
+  and flag the mismatch prominently in `## Decisions` — the orchestrator resolves it, usually with
+  `/interface-probe`.
+- **A frozen test contradicted by the plan's approved contract is sanctioned breakage, never a
+  reason to bend the wire.** When the Protocol Contract adds or changes a field, implement the
+  documented shape byte-for-byte (explicit-null keys stay explicit-null — no `omitempty` to dodge a
+  pinned-JSON assertion, no key omission, no reordering) even though a frozen-shape test you may not
+  edit will fail. Record that test in `## Handoff` as sanctioned breakage citing the delta section;
+  the test agent updates it next step (m3-gauges: an `omitempty` added to keep a snapshot green had
+  to be reverted mid-wave). The rule cuts both ways: you don't accommodate a wrong fixture, and you
+  don't let a stale assertion redesign the wire.
 - If you need something not specified in the plan, document it and implement the minimal version.
-- **Git.** Work on the `plan/<plan-name>` branch the orchestrator created. At the end of your step commit your own files — `git add` only files you changed, named individually (never `-A`/`-u`) and committed by pathspec (`git commit -- <files>`, because the index is shared and a peer's `git mv` is already staged), including your `plans/<plan-name>/` log — as `feat(<plan-name>): <imperative summary>` (fix mode: `fix(<plan-name>): <summary> (review cycle <N>)` with the cycle number your prompt states, or `(pre-review fix)` when it says no review has run), one sentence plus the harness trailers. Commit even when your gate is red for a defect you may not fix, naming it in the body as `gate red: <what fails, whose defect>` — uncommitted work beside other agents' is the hazard, not a red commit. Never `git stash` (not even to look: use `git diff` / `git show HEAD:<path>`), `checkout -- <path>`, `reset`, `clean` or `rebase`. Never push; never commit on `main`.
+- **Git.** Work on the `plan/<plan-name>` branch the orchestrator created. At the end of your step
+  commit your own files — `git add` only files you changed, named individually (never `-A`/`-u`) and
+  committed by pathspec (`git commit -- <files>`, because the index is shared and a peer's `git mv`
+  is already staged), including your `plans/<plan-name>/` log — as `feat(<plan-name>): <imperative
+  summary>` (fix mode: `fix(<plan-name>): <summary> (review cycle <N>)` with the cycle number your
+  prompt states, or `(pre-review fix)` when it says no review has run), one sentence plus the
+  harness trailers. Commit even when your gate is red for a defect you may not fix, naming it in the
+  body as `gate red: <what fails, whose defect>` — uncommitted work beside other agents' is the
+  hazard, not a red commit. Never `git stash` (not even to look: use `git diff` / `git show
+  HEAD:<path>`), `checkout -- <path>`, `reset`, `clean` or `rebase`. Never push; never commit on
+  `main`.
 
 ## Fix Mode
 
@@ -137,6 +168,16 @@ Write (or append to) `plans/<plan-name>/daemon-implementation.md`:
 
 Keep this file brief. The file paths and action descriptions tell the story — another agent can read the actual code if they need details.
 
-**Evidence rule for `## Decisions`.** If you deviate from the plan, abandon an approach, or reverse a change, quote the actual command output that justified it — the `go vet` error, the failing build, the `rg` result and its count. Do not assert a blast radius you have not measured: "this would break dozens of call sites" is not a reason unless you ran the search and can paste what it returned. A confident, plausible, wrong justification is worse than no justification, because the reviewer may accept it.
+**Evidence rule for `## Decisions`.** If you deviate from the plan, abandon an approach, or reverse
+a change, quote the command output that justified it — the `go vet` error, the failing build, the
+`rg` result and its count. Never assert a blast radius you have not measured: "this would break
+dozens of call sites" is not a reason unless you ran the search and can paste it. A confident,
+plausible, wrong justification is worse than none, because the reviewer may accept it.
 
-**The evidence rule covers claimed *effects* and claimed *absences*, not just decisions.** Any claim about a runtime, filesystem, or security outcome ("the file is no longer world-readable", "the token can't leak", "the handler returns immediately") must be verified by measurement and the measurement pasted into the log — the `ls -l`, the curl, the query output — not inferred from the diff. A claim that a symbol, path or wording no longer exists anywhere needs the tree-wide grep pasted, not the diff (version-claude-interface: "remaining references updated" missed a Go comment; m1-sessions: a "closed" world-readable window left the WAL sidecar readable).
+**The evidence rule covers claimed *effects* and claimed *absences*, not just decisions.** Any claim
+about a runtime, filesystem or security outcome ("the file is no longer world-readable", "the token
+can't leak", "the handler returns immediately") is verified by measurement and the measurement
+pasted into the log — the `ls -l`, the curl, the query output — not inferred from the diff
+(m1-sessions: a "closed" world-readable window left the WAL sidecar readable). A claim that a
+symbol, path or wording no longer exists anywhere needs the tree-wide grep pasted
+(version-claude-interface: "remaining references updated" missed a Go comment).

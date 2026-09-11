@@ -35,7 +35,12 @@ All web code lives in `web/`; run every npm command from that directory.
 - **State derivation**: every input the plan defines, plus daemon-down and reconnect transitions.
 - **Formatting** (durations, percentages, token counts): boundary values, null/absent inputs.
 - Use `vi.fn()` / `vi.mock()` for module seams. If a piece of logic is untestable because it is tangled into DOM code, that is an `implementation-bug` (conventions require logic in pure modules) — report it, don't work around it with a DOM harness.
-- **A declined coverage item cites the specific existing test, after reading it.** When you leave a plan requirement or criterion uncovered because another suite covers it, name the file and test title and quote the assertion that covers the *exact* case. If no such test exists the item is yours: cover it, or report `implementation-bug` when the logic is not unit-testable as built — "not mine" is never a verdict. fix-auto-mode-select: web-tests wrote that the E2E suite's E4 covered the `null`/unrecognised stored-mode case; E4 covered the four recognised values, e2e-specs had already logged the gap, and it cost a review cycle.
+- **A declined coverage item cites the specific existing test, after reading it.** When you leave a
+  requirement or criterion uncovered because another suite covers it, name the file and test title
+  and quote the assertion covering the *exact* case. If no such test exists the item is yours: cover
+  it, or report `implementation-bug` when the logic is not unit-testable as built — "not mine" is
+  never a verdict (fix-auto-mode-select: E4 was cited for a case it never covered, and it cost a
+  review cycle).
 
 Test files sit alongside the module: `web/src/<feature>/<module>.ts` → `web/src/<feature>/<module>.test.ts` (the Vitest config includes `src/**/*.test.ts`).
 
@@ -68,7 +73,16 @@ If tests fail:
 - You CAN create new test files and test utilities
 - You CAN modify `web/vitest.config.ts` if genuinely needed (e.g. a setup file) — never to exclude a failing test
 - All test files use the `.test.ts` extension
-- **Git.** Work on the `plan/<plan-name>` branch the orchestrator created. At the end of your step commit your own files — `git add` only files you changed, named individually (never `-A`/`-u`) and committed by pathspec (`git commit -- <files>`, because the index is shared and a peer's `git mv` is already staged), including your `plans/<plan-name>/` log — as `test(<plan-name>): <imperative summary>` (fix mode: append ` (review cycle <N>)` with the cycle number your prompt states, or ` (pre-review fix)` when it says no review has run), one sentence plus the harness trailers. Commit even when your gate is red for a defect you may not fix, naming it in the body as `gate red: <what fails, whose defect>` — uncommitted work beside other agents' is the hazard, not a red commit. Never `git stash` (not even to look: use `git diff` / `git show HEAD:<path>`), `checkout -- <path>`, `reset`, `clean` or `rebase`. Never push; never commit on `main`.
+- **Git.** Work on the `plan/<plan-name>` branch the orchestrator created. At the end of your step
+  commit your own files — `git add` only files you changed, named individually (never `-A`/`-u`) and
+  committed by pathspec (`git commit -- <files>`, because the index is shared and a peer's `git mv`
+  is already staged), including your `plans/<plan-name>/` log — as `test(<plan-name>): <imperative
+  summary>` (fix mode: append ` (review cycle <N>)` with the cycle number your prompt states, or `
+  (pre-review fix)` when it says no review has run), one sentence plus the harness trailers. Commit
+  even when your gate is red for a defect you may not fix, naming it in the body as `gate red: <what
+  fails, whose defect>` — uncommitted work beside other agents' is the hazard, not a red commit.
+  Never `git stash` (not even to look: use `git diff` / `git show HEAD:<path>`), `checkout --
+  <path>`, `reset`, `clean` or `rebase`. Never push; never commit on `main`.
 - **Comments in your tests follow `docs/conventions.md` §Comments**: before you write your log, re-read every comment you added — no narration, no citations of files a reader can grep for, and any path or target you do cite must exist (`dead-refs.py` fails the gate; a false or dead comment is a review Major).
 
 ## Output
