@@ -1,7 +1,7 @@
 ---
 name: triage
 description: "Pulls open GitHub issues into TODO.md as backlog entries, and audits the two lists against each other."
-argument-hint: "[issue-number | --all | --audit] [--comment]"
+argument-hint: "[issue-number | --all | --audit] [--no-comment]"
 allowed-tools: Read, Write, Grep, Glob, Agent, AskUserQuestion, Bash(go run ./tools/triage:*)
 ---
 
@@ -36,7 +36,7 @@ Invoked with: **$ARGUMENTS**
 | `<N>` | Triage issue #N specifically, even if already triaged. |
 | `--all` | Re-examine every open issue, triaged or not. |
 | `--audit` | Run § 5 only — no triage, no writes. |
-| `--comment` | Also post a triage comment on each issue handled (off by default). |
+| `--no-comment` | Skip the triage comment on each issue handled (on by default since 2026-09-11). |
 
 ## The close policy — read this before doing anything
 
@@ -141,17 +141,17 @@ holds its issue rather than falling back to a guess. You never run `Edit` on `TO
 issue open while its owning entry is ticked means a `closes #N` was dropped from a squash
 subject, and this is the only thing that catches it. **Never auto-fix; report and suggest.**
 
-## 6. `--comment` (opt-in)
+## 6. The triage comment (default on; `--no-comment` skips it)
 
-With `--comment`, post on each triaged issue:
+Unless `--no-comment`, post on each triaged issue:
 
 ```
 Triaged → TODO.md § <section>. Will close when fixed.
 ```
 
 Show the exact text before posting. `gh issue comment` is not in `.claude/settings.json`'s
-allowlist, so it prompts — that is correct for an outward-facing write. Default is silent:
-`TODO.md` is the record, and the comment is for when other people are reading the tracker.
+allowlist, so it prompts — that is correct for an outward-facing write. `TODO.md` is the
+record; the comment is for the people reading a public tracker, which is why it is on by default.
 Never comment on a held issue: it would tell a probe that its payload was noticed.
 
 ## 7. The commit

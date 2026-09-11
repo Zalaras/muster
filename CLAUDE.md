@@ -14,10 +14,12 @@ Claude Code sessions running in tmux. Personal tool for Damian, macOS only, sing
 3. `docs/conventions.md` — settled code patterns (HTTP/WS/logging/DB choices, Go and TS
    conventions, testing rules). Follow it; change it there first if it must change.
 4. `TODO.md` — execution backlog; finished items live in `docs/history/todo-done.md`.
+5. `docs/history/` — SPEC and protocol changelogs, done TODO items: how things got here,
+   never current state. `docs/research/` — pre-repo research, superseded by the above.
 
 ## Commands
 
-- `make help` lists everything: `build`, `check` (lint + unit), `web-test`, `e2e`,
+- `make help` lists everything: `build`, `check` (lint + unit + `refs`), `web-test`, `e2e`,
   `canary`, `web`.
 - Frontend: `nvm use` in the repo root first (Node pinned 24.21.0); then work in `web/`.
 
