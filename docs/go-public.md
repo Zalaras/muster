@@ -25,7 +25,7 @@ exposure, but don't leave it open for a day.
       forms, which the PR template alone cannot reach.
 - [x] `plans/` publishes as-is — Damian's call (2026-09-04), no skim wanted.
 - [x] Delete the two junk root files, `a.png` and `session-manager-mockup.html` (done
-      2026-09-04). `claude-session-manager-handoff.md` **stays** — still referenced.
+      2026-09-04). `docs/research/claude-session-manager-handoff.md` **stays** — still referenced.
 - [x] **Community Standards (Insights → Community Standards) — decided 2026-09-04.**
       Description ✓, README ✓, licence ✓, contributing ✓, PR template ✓, **security policy ✓**
       (`SECURITY.md`, routes reports to GitHub private vulnerability reporting — the script

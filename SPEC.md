@@ -5,7 +5,7 @@ Chosen to be agent-CLI-agnostic: nothing in the name ties it to Claude, so suppo
 agent CLIs later costs no rename.
 Produced from the spec interview on 2026-08-16. Companion documents: `interview-notes.md`
 (everything discussed that isn't spec material), `docs/history/spec-changelog.md` (how every
-decision below was reached or changed, newest last) and `claude-session-manager-handoff.md`
+decision below was reached or changed, newest last) and `docs/research/claude-session-manager-handoff.md`
 (prior research; treated as input, not decisions — decisions below supersede it).
 
 ---

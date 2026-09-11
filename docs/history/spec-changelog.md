@@ -107,7 +107,7 @@ was **GO** — every load-bearing assumption held. Confirmed corrections applied
   not itself fire the status line.
 - **§9** — Q3, Q4, Q5 and risk 8 all resolved. Remaining gaps are listed in
   `spikes/FINDINGS.md`; none block M0. The same `resize-pane` falsification was also marked in
-  `claude-session-manager-handoff.md`, which carried the original error.
+  `docs/research/claude-session-manager-handoff.md`, which carried the original error.
 
 Items deliberately left open are listed at the end of `spikes/FINDINGS.md`. Two should be
 settled before the work they gate: whether `Stop` fires alongside `StopFailure` (before the

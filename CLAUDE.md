@@ -13,7 +13,7 @@ Claude Code sessions running in tmux. Personal tool for Damian, macOS only, sing
    measurements win — the docs have already been wrong (e.g. `SessionStart` over HTTP).
 3. `docs/conventions.md` — settled code patterns (HTTP/WS/logging/DB choices, Go and TS
    conventions, testing rules). Follow it; change it there first if it must change.
-4. `TODO.md` — execution backlog. `next-steps.md` — session-by-session plan.
+4. `TODO.md` — execution backlog; finished items live in `docs/history/todo-done.md`.
 
 ## Commands
 

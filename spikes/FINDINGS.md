@@ -547,7 +547,7 @@ can read, edit and execute in that folder.
 > no wording changed. The closing sentence used to read "Item 2 gates M2", referring to a
 > multi-client sizing item that no longer appears here. That work **was** completed — §7
 > records the full `shared`/`perclient` × `window-size` matrix — so the gap is closed, not
-> lost. `next-steps.md` still listed it as open and has been corrected.
+> lost. the session plan of the time still listed it as open and was corrected.
 
 1. ~~**`--resume` was never exercised.**~~ — **RESOLVED (2026-08-16, H2 probe).**
    `claude -p --resume <id>` fires `SessionStart` with `source: "resume"` and the **same**

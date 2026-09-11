@@ -5,9 +5,9 @@ authoritative — this file tracks execution, not decisions.
 
 Milestone rule from the spec: **each milestone ends with something used day-to-day.**
 
-## Setup — next-steps.md item 2 ✅ done 2026-08-16
+## Setup ✅ done 2026-08-16
 
-All items done — see `docs/history/todo-done.md` § "Setup — next-steps.md item 2".
+All items done — see `docs/history/todo-done.md` § "Setup".
 
 ## Before M0
 
@@ -299,6 +299,11 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
   that probe's micro-benchmark. Not built for m4-hook-lifetime (YAGNI — the shell version
   is measured-correct and ships one file, no build/distribution story); revisit if the
   per-event cost is ever felt on a tool-heavy turn.
+
+- [ ] **`/claude-code-upgrade` skill** — a thin wrapper over the version ritual in
+  `docs/claude-code-versions.md` (canary → extend the verified range → README → commit). Deferred
+  until upgrades are routine; the doc alone suffices. Carried from the retired session plan
+  (`next-steps.md` §6, deleted 2026-09-11).
 
 ## Open questions carried forward
 

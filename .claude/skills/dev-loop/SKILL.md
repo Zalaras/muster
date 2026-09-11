@@ -5,7 +5,7 @@ allowed-tools: Bash, Read
 ---
 
 > **Maintainer note:** Authored at m0-skeleton completion per the plan's Implementation
-> Notes (next-steps item 3's deferred dev-loop skill). Runs in the main session — it
+> Notes. Runs in the main session — it
 > starts a long-lived process the user interacts with.
 
 Run the Muster daemon locally for manual testing.

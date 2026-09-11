@@ -223,7 +223,7 @@ it. The meaningful result is that interactivity and catch-up held throughout.
    artifacts" — FALSIFIED.** `resize-pane` exits 0 and silently no-ops on a single-pane window.
    Replace with: *"the daemon must call `pty.Setsize` on the attach PTY **and**
    `tmux resize-window -t <session> -x C -y R`; both are required."*
-2. **`claude-session-manager-handoff.md` §11, "call `tmux resize-pane -x -y` to match your
+2. **`docs/research/claude-session-manager-handoff.md` §11, "call `tmux resize-pane -x -y` to match your
    grid" — same falsification, same fix.**
 3. **§9 open question 5 — RESOLVED.** One renderer size per session; the size is set by the
    dashboard's terminal pane and must be ≤ the smallest live view. See §4(c). The reason is

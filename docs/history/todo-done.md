@@ -5,7 +5,7 @@ size of the open work. Same milestone headings, same order, entries verbatim (ea
 ✅ date and plan). An issue counts as triaged iff its `issues/N` link appears in `TODO.md` **or**
 here — the triage program reads both, writes only `TODO.md`. Moved out of `TODO.md` on 2026-09-11.
 
-## Setup — next-steps.md item 2 ✅ done 2026-08-16
+## Setup ✅ done 2026-08-16
 
 - [x] Name settled (**Muster**); repo, module `github.com/Zalaras/muster`, binary `musterd`
 

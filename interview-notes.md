@@ -6,7 +6,7 @@ why, context behind decisions, and the disposition of the earlier research/mocku
 
 ## Status of the prior material
 
-- `claude-session-manager-handoff.md` — research from an earlier session. **Nothing in
+- `docs/research/claude-session-manager-handoff.md` — research from an earlier session. **Nothing in
   it was a decision**; it's a reference for Claude Code capabilities, competitor
   features, gotchas, and security findings. Its "Decisions made" section is superseded
   by SPEC.md (though most survived re-examination: Go, GUI, real CLI, manager-launched

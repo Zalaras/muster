@@ -1,6 +1,6 @@
 # Muster — UX flows
 
-Design session 2026-08-16 (`next-steps.md` item 4). Settles SPEC §9 open question 2
+Design session 2026-08-16. Settles SPEC §9 open question 2
 (launch/worktree data layer) and fixes the dashboard's shape before M1/M2 UI work.
 
 `SPEC.md` stays authoritative for *what* Muster does; this file is authoritative for

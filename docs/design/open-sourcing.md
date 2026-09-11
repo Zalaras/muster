@@ -35,7 +35,7 @@ Blockers and chores, in order (the live run-through is `docs/go-public.md`, with
    2026-09-04**: snippet added, **issues yes, no PRs accepted at this time.** It already set
    expectations well otherwise ("Personal tool, macOS only, single user. Not a product.").
 4. ~~Three stray root files to delete~~ — `a.png` and `session-manager-mockup.html`
-   **deleted 2026-09-04**; `claude-session-manager-handoff.md` stays, still the referenced
+   **deleted 2026-09-04**; `docs/research/claude-session-manager-handoff.md` stays, still the referenced
    research source (see §5 there and this file).
 5. ~~**Decide about `plans/`.**~~ **Decided 2026-09-04: publish it as-is.** 408 tracked
    files, much of it the internal process journal (specs, protocol contracts, review
@@ -48,7 +48,7 @@ The SPAN employment IP question raised on 2026-09-02 is **closed** — Damian co
 ## Licence landscape — what comparable tools chose
 
 Verified 2026-09-03 via the GitHub API and each repo's `LICENSE` file. This corrects
-four rows of `claude-session-manager-handoff.md` §5, which had `agent-deck` as
+four rows of `docs/research/claude-session-manager-handoff.md` §5, which had `agent-deck` as
 unspecified "OSS", Nimbalyst as "free for individuals", Superset as bare
 "source-available", and Vibe Kanban as "community-run".
 
