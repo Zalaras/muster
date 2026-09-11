@@ -5,9 +5,9 @@ Claude Code sessions running in tmux. Personal tool for Damian, macOS only, sing
 
 ## Documents — authority order
 
-1. `SPEC.md` — authoritative. Decisions there (and rejected options in
-   `interview-notes.md`) are settled; don't re-litigate them, and don't reintroduce cut
-   features (notifications, cost tracking, containers, resource gauges).
+1. `SPEC.md` — authoritative. Decisions there are settled, and rejected options are ADRs with
+   status rejected (`go run ./tools/kb ls --type adr`); don't re-litigate them, and don't
+   reintroduce cut features (notifications, cost tracking, containers, resource gauges).
 2. The fact records in `docs/facts/` (`go run ./tools/kb ls --type fact`; narrative in
    `spikes/FINDINGS.md`) — **measured** wire-format facts, each with the Claude Code range it
    holds on and the canary test that guards it. Where they contradict Claude Code's official

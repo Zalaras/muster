@@ -8,7 +8,7 @@ features: [launch]
 tags: [ux, store]
 files: [internal/store/repo.go, internal/server/repos.go, internal/gitutil/gitutil.go]
 tests: [TestListRepos_OrdersPinnedThenMostRecentlyLaunched, web/e2e/launch.spec.ts]
-refs: [docs/history/spec-changelog.md, docs/design/ux-flows.md, kb:anchor/repos.list, kb:anchor/sessions.create]
+refs: [docs/history/spec-changelog.md, docs/design/ux-flows.md, kb:anchor/repos.list, kb:anchor/sessions.create, SPEC.md]
 supersedes: []
 ---
 **Context.** The launch dialog needed a source of directories to offer, and the spec left open how much of a repo registry and worktree manager v1 should carry. The data layer had to serve a later worktree feature without a schema repaint.

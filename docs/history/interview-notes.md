@@ -1,5 +1,8 @@
 # Muster — interview notes & decision log (2026-08-16)
 
+Frozen on 2026-09-12: every decision below is a knowledge record (`go run ./tools/kb ls --type adr`);
+the `<!-- kb: … -->` markers name them. History only, moved out of the repo root, not maintained.
+
 Everything from the spec interview that didn't belong in `SPEC.md`: rejected options and
 why, context behind decisions, and the disposition of the earlier research/mockup. Read
 `SPEC.md` first; this file exists so no reasoning from the session is lost.
@@ -14,7 +17,7 @@ why, context behind decisions, and the disposition of the earlier research/mocku
 - `session-manager-mockup.html` (deleted 2026-09-04 ahead of open-sourcing; the notes below
   are the record) — a five-view mockup made under the working name **"Relay"**. That name is dead (Damian never chose it). Mockup disposition:
   - **Overview view** — closest to v1; but the "lead session" chat panel is cut, and the
-    attention-ribbon (60-min state timeline) is unrated — nice visual, decide during build.
+    attention-ribbon (60-min state timeline) is unrated — nice visual, decide during build. <!-- kb: adr/nongoal-attention-ribbon-post-v1, adr/nongoal-lead-orchestrator-session -->
   - **Session grid** — survives as the interactive panes (must-have).
   - **Usage view** — survives minus cost tracking, tokens-by-day/OTel, tool-call counts,
     and "you were the bottleneck" (all cut with cost/notifications).
@@ -42,36 +45,36 @@ why, context behind decisions, and the disposition of the earlier research/mocku
 
 | Option | Verdict | Why |
 |---|---|---|
-| Dashboard-beside-terminal only (derived state, jump to Terminal tab) | Rejected mid-interview | Originally chosen (option "b"), then upgraded: read-only → interactive panes is an architectural rework, so full terminal went in from the start. The dashboard became the primary workspace. |
-| TUI | Rejected | GUI preferred; TUI acceptable only with mouse support, and GUI won anyway. |
-| Rust | Rejected | Considered, but no time to learn something new; Go is the daily language. |
-| Native Go GUI (Gio + x/vt) | Rejected | A month of terminal-renderer work; a separate project in itself; closes off phone access. |
-| Fyne | Rejected | Widget/text model fights dense terminal grids (research finding). |
-| Electron | Rejected | Heavy, big dep tree (supply-chain surface), no upside over Wails given a web frontend. |
-| Wails now | Deferred | Browser app-window first; Wails is a thin cosmetic wrapper to add later if a dock icon matters. |
-| Agent SDK instead of real CLI | Rejected (inherited from research, unchallenged) | `terminalSequence` and the status line die in SDK/`-p` mode — kills notification and usage data sources. |
-| Go-side VT emulation + canvas renderer instead of xterm.js | Rejected for v1 | Full control but reimplements selection/scrollback/copy; xterm.js gives them free. Could revisit if xterm.js disappoints. |
-| macOS notifications | Cut by design | "The point is to be working in the dashboard." If the dashboard turns out not glanceable enough in practice, revisit. |
-| Cost/spend tracking | Cut | Not what he cares about; usage limits are the real constraint on a subscription. |
-| Lead orchestrator session in the dashboard | Cut | Native cross-session messaging (ListAgents/SendMessage) already covers it; can run a lead session in a normal pane. |
-| Ship flow (PR create/merge, CI status) | Cut-for-now | |
-| Session forking / pause-checkout | Cut-for-now | "You can kind of do that anyway" — worth *tracking* in the dashboard someday, not building. |
-| Browsable dead-session history | Future | Event log table already accommodates it. |
-| Containers as isolation | **Never** | Not everything runs cleanly in containers; resource hungry. |
-| Resource gauges (CPU/RAM) | **Never** | |
-| Second machine, one dashboard | **Never** | |
-| GitHub MCP for PR/issue integration | Rejected in favor of `gh` CLI | Damian would prefer MCP in principle but believes it lacks needed tools; expects `gh` in practice. |
-| Per-project permission scoping in the permissions UI | Cut | Basic version is user-level only: one set of rules for all projects. |
+| Dashboard-beside-terminal only (derived state, jump to Terminal tab) | Rejected mid-interview | Originally chosen (option "b"), then upgraded: read-only → interactive panes is an architectural rework, so full terminal went in from the start. The dashboard became the primary workspace. <!-- kb: adr/stack-frontend-web-app-served-by-daemon --> |
+| TUI | Rejected | GUI preferred; TUI acceptable only with mouse support, and GUI won anyway. <!-- kb: adr/stack-frontend-web-app-served-by-daemon --> |
+| Rust | Rejected | Considered, but no time to learn something new; Go is the daily language. <!-- kb: adr/stack-daemon-go --> |
+| Native Go GUI (Gio + x/vt) | Rejected | A month of terminal-renderer work; a separate project in itself; closes off phone access. <!-- kb: adr/stack-frontend-web-app-served-by-daemon --> |
+| Fyne | Rejected | Widget/text model fights dense terminal grids (research finding). <!-- kb: adr/stack-frontend-web-app-served-by-daemon --> |
+| Electron | Rejected | Heavy, big dep tree (supply-chain surface), no upside over Wails given a web frontend. <!-- kb: adr/stack-frontend-web-app-served-by-daemon --> |
+| Wails now | Deferred | Browser app-window first; Wails is a thin cosmetic wrapper to add later if a dock icon matters. <!-- kb: adr/stack-wails-desktop-shell-deferred --> |
+| Agent SDK instead of real CLI | Rejected (inherited from research, unchallenged) | `terminalSequence` and the status line die in SDK/`-p` mode — kills notification and usage data sources. <!-- kb: adr/stack-terminal-backing-tmux --> |
+| Go-side VT emulation + canvas renderer instead of xterm.js | Rejected for v1 | Full control but reimplements selection/scrollback/copy; xterm.js gives them free. Could revisit if xterm.js disappoints. <!-- kb: adr/stack-terminal-rendering-xterm-js --> |
+| macOS notifications | Cut by design | "The point is to be working in the dashboard." If the dashboard turns out not glanceable enough in practice, revisit. <!-- kb: adr/nongoal-macos-notifications --> |
+| Cost/spend tracking | Cut | Not what he cares about; usage limits are the real constraint on a subscription. <!-- kb: adr/nongoal-cost-tracking --> |
+| Lead orchestrator session in the dashboard | Cut | Native cross-session messaging (ListAgents/SendMessage) already covers it; can run a lead session in a normal pane. <!-- kb: adr/nongoal-lead-orchestrator-session --> |
+| Ship flow (PR create/merge, CI status) | Cut-for-now | <!-- kb: adr/nongoal-ship-flow --> |
+| Session forking / pause-checkout | Cut-for-now | "You can kind of do that anyway" — worth *tracking* in the dashboard someday, not building. <!-- kb: adr/nongoal-session-forking-pause-checkout --> |
+| Browsable dead-session history | Future | Event log table already accommodates it. <!-- kb: adr/nongoal-dead-session-history-browser --> |
+| Containers as isolation | **Never** | Not everything runs cleanly in containers; resource hungry. <!-- kb: adr/nongoal-containers-as-isolation --> |
+| Resource gauges (CPU/RAM) | **Never** | <!-- kb: adr/nongoal-resource-gauges --> |
+| Second machine, one dashboard | **Never** | <!-- kb: adr/nongoal-second-machine-one-dashboard --> |
+| GitHub MCP for PR/issue integration | Rejected in favor of `gh` CLI | Damian would prefer MCP in principle but believes it lacks needed tools; expects `gh` in practice. <!-- kb: adr/stack-git-and-gh-clis-not-go-git --> |
+| Per-project permission scoping in the permissions UI | Cut | Basic version is user-level only: one set of rules for all projects. <!-- kb: adr/nongoal-permissions-ui-basic-user-level-only --> |
 
 ## Ideas parked with architectural notes
 
-- **Shared MCP servers across sessions** — today e.g. a Grafana MCP spins up a Docker
+- **Shared MCP servers across sessions** <!-- kb: adr/nongoal-shared-mcp-servers --> — today e.g. a Grafana MCP spins up a Docker
   container *per session*. Wanted someday: one server instance shared by all sessions.
   This is an MCP proxy — a separate project. If it ever happens, Muster's daemon is the
   natural host. No v1 accommodation made.
-- **Phone/remote access** — the *only* reason the frontend is browser-served. Adding it
+- **Phone/remote access** <!-- kb: adr/stack-frontend-web-app-served-by-daemon, adr/nongoal-second-machine-one-dashboard --> — the *only* reason the frontend is browser-served. Adding it
   means real auth (or Tailscale) — nothing else was pre-built for it.
-- **Other agent CLIs** (maybe) — the only concession is the `internal/claudecode`
+- **Other agent CLIs** (maybe) <!-- kb: adr/nongoal-generic-agent-abstraction-layer --> — the only concession is the `internal/claudecode`
   adapter package boundary; explicitly *not* a generic multi-agent abstraction layer
   (dismissed as over-engineering for a personal tool).
 - **Auto-accept while planning** (SPEC §4.1) — worth remembering this was Damian's own
@@ -101,11 +104,11 @@ The handoff doc remains the reference; highlights that shaped decisions:
 
 ## Process agreements
 
-- **Before any build work**: a separate session creates the AI build harness — agents
+- **Before any build work** <!-- kb: adr/process-agent-harness-before-build-work -->: a separate session creates the AI build harness — agents
   and skills for developing Muster. Not part of the spec.
-- Testing bar (also in SPEC): functional E2E always; unit tests confirm specific logic.
-- Repo private for now; licence **MIT** (decided 2026-09-04, see `docs/history/spec-changelog.md`).
-- Naming: **settled on "Muster" 2026-08-16.** Earlier candidates "CCC (Claude Code Control)"
+- Testing bar (also in SPEC) <!-- kb: adr/process-testing-bar-e2e-always-unit-for-logic -->: functional E2E always; unit tests confirm specific logic.
+- Repo private for now; licence **MIT** <!-- kb: adr/process-licence-mit, adr/process-repo-public --> (decided 2026-09-04, see `docs/history/spec-changelog.md`).
+- Naming: **settled on "Muster" 2026-08-16.** <!-- kb: adr/process-naming-muster --> Earlier candidates "CCC (Claude Code Control)"
   and "Claude Control Plane" were dropped on two constraints Damian raised: the name must not
   collide with an existing product/trademark, and it must not contain "Claude"/"cc" because a
   potential future state supports other agent CLIs. Checked and rejected on those grounds:

@@ -122,7 +122,7 @@ permits it.
 | [`docs/claude-code-versions.md`](docs/claude-code-versions.md) | The verified version range and the upgrade rituals |
 | [`spikes/FINDINGS.md`](spikes/FINDINGS.md) | Measured Claude Code interface facts |
 | [`docs/history/spikes/canary-fields.md`](docs/history/spikes/canary-fields.md) | Field inventory the canary asserts before any version bump |
-| [`interview-notes.md`](interview-notes.md) | Rationale and rejected options |
+| [`docs/adr/`](docs/adr/) | Decision records, including rejected options and their rationale |
 
 ## Licence
 

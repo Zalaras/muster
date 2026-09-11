@@ -22,7 +22,7 @@ in the documents that own it. You do not argue and you do not decide — you bri
 
 **Never debated — stop and ask the user instead:** protocol-contract changes
 (`docs/protocol.md` / a plan's Protocol Contract), anything that widens or narrows plan scope,
-anything contradicting a decision already recorded in `SPEC.md` or `interview-notes.md`,
+anything contradicting a decision already recorded in `SPEC.md` or an accepted or rejected ADR,
 anything that spends money (real `claude` runs), and anything the review marked as a hard-rule
 question. A debate settles *taste and trade-off*, not authority.
 
@@ -45,7 +45,7 @@ Create `plans/<plan>/decisions/<slug>/` (standalone: `plans/decisions/<slug>/`) 
 - plans/<plan>/mockups/… (if a rendered reference exists)
 - docs/design/design-system.md §…
 - docs/design/ux-flows.md §…
-- SPEC.md §…, interview-notes.md (relevant rejected options)
+- SPEC.md §…, kb:adr/… (relevant accepted and rejected ADRs)
 - <existing measurements: the reviewer's numbers, screenshots, E2E results>
 
 ## The issue, verbatim

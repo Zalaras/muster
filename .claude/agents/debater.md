@@ -30,7 +30,7 @@ Your spawn prompt gives you:
 ## How to argue
 
 - **From the pinned docs and measurable consequences only.** `docs/design/design-system.md`,
-  `docs/design/ux-flows.md`, `SPEC.md`, `interview-notes.md` and the plan are the authorities;
+  `docs/design/ux-flows.md`, `SPEC.md`, the ADRs (`docs/adr/`) and the plan are the authorities;
   a decision already recorded there is a fact, not an opinion. Cite `file:line` or a
   measurement for every factual claim. Label judgement as judgement ("I think", "in my
   reading") — never dress it as fact.

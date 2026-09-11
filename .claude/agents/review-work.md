@@ -305,7 +305,7 @@ Tag every issue with the responsible agent so the orchestrator knows where to ro
   defects and manual-verification records stay bare `[orchestrator]`.
   If the decision touches the `decide` skill's never-debated list — the protocol contract
   (`docs/protocol.md` / the plan's Protocol Contract), plan scope, a decision recorded in
-  `SPEC.md`/`interview-notes.md`, or spending money — tag it `[orchestrator:user-decision]` instead:
+  `SPEC.md` or an ADR, or spending money — tag it `[orchestrator:user-decision]` instead:
   still two labelled options with measured trade-offs, but the orchestrator takes it straight to
   Damian rather than to a debate that would have to refuse it (m4-hook-lifetime cycle 1: a §4.2/§7.3
   change).

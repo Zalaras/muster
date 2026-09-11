@@ -3,7 +3,7 @@
 Name: **Muster** — settled 2026-08-16 (was working title "CCC"; daemon binary `musterd`).
 Chosen to be agent-CLI-agnostic: nothing in the name ties it to Claude, so supporting other
 agent CLIs later costs no rename.
-Produced from the spec interview on 2026-08-16. Companion documents: `interview-notes.md`
+Produced from the spec interview on 2026-08-16. Companion documents: `docs/history/interview-notes.md` (frozen; its rejected options are ADRs in `docs/adr/`)
 (everything discussed that isn't spec material), `docs/history/spec-changelog.md` (how every
 decision below was reached or changed, newest last) and `docs/research/claude-session-manager-handoff.md`
 (prior research; treated as input, not decisions — decisions below supersede it).
@@ -200,26 +200,26 @@ notifications by design — the point is to be working *in* the dashboard.
 
 ## 3. Out of scope for v1 (explicit non-goals)
 
-- **Notifications** (macOS banners etc.) — the dashboard is the alert surface.
-- **Cost/spend tracking.**
+- **Notifications** (macOS banners etc.) — the dashboard is the alert surface. (kb:adr/nongoal-macos-notifications)
+- **Cost/spend tracking.** (kb:adr/nongoal-cost-tracking)
 - **A "lead" orchestrator chat session** in the dashboard (Claude Code's native
-  cross-session messaging already exists for this).
+  cross-session messaging already exists for this). (kb:adr/nongoal-lead-orchestrator-session)
 - **Real diff review** (inline comments fed back to the agent). Placeholder instead: a
-  button that runs `code <worktree>` to review in VSCode. Explicitly a hack.
-- **Ship flow** (PR create/merge/archive buttons, CI status).
+  button that runs `code <worktree>` to review in VSCode. Explicitly a hack. (kb:adr/nongoal-diff-review-placeholder-button)
+- **Ship flow** (PR create/merge/archive buttons, CI status). (kb:adr/nongoal-ship-flow)
 - **Session forking / pause-checkout**, and **browsable history of dead sessions**
-  (future feature).
+  (future feature). (kb:adr/nongoal-session-forking-pause-checkout, kb:adr/nongoal-dead-session-history-browser)
 - **Shared MCP servers across sessions** (e.g. one Grafana-in-Docker MCP instead of one
-  per session) — real waste, but an MCP proxy is a project of its own. Captured as future.
+  per session) — real waste, but an MCP proxy is a project of its own. Captured as future. (kb:adr/nongoal-shared-mcp-servers)
 - **Containers as isolation** — never: not everything runs cleanly in them, and they eat
-  resources.
-- **Resource gauges (CPU/RAM)** — never.
-- **Second machine / distributed sessions** — never.
+  resources. (kb:adr/nongoal-containers-as-isolation)
+- **Resource gauges (CPU/RAM)** — never. (kb:adr/nongoal-resource-gauges)
+- **Second machine / distributed sessions** — never. (kb:adr/nongoal-second-machine-one-dashboard)
 - Accessibility, i18n, multi-user, non-macOS platforms. **One bounded exception (2026-09-02,
   plan `new-ui-design-colors`):** the dashboard's own chrome is held to a WCAG AA contrast
   bar (4.5:1 text, 3:1 non-text UI) across every built-in theme, because it fell out of the
   theme-token work for free once a script measured the pairs. Screen-reader, keyboard-audit
-  and i18n work stay non-goals.
+  and i18n work stay non-goals. (kb:adr/nongoal-accessibility-i18n-multiuser-other-platforms)
 
 ---
 
@@ -418,8 +418,8 @@ restarts/reconcile; WebSocket fanout pushes deltas to the UI.
 1. ~~**Naming**~~ — **RESOLVED (2026-08-16): Muster.** Chosen against two constraints: no
    collision with an existing product or trademark, and no "Claude"/"cc" in the name, since
    a possible future state manages other agent CLIs (§4.6). Rejected on those grounds:
-   `tower`, `wheelhouse`, `belfry`, `roost`, `pitwall`, `ccmux`. Rationale in
-   `interview-notes.md`. Daemon binary is `musterd`; module is `github.com/Zalaras/muster`.
+   `tower`, `wheelhouse`, `belfry`, `roost`, `pitwall`, `ccmux`. Rationale:
+   `kb:adr/process-naming-muster`. Daemon binary is `musterd`; module is `github.com/Zalaras/muster`.
 2. ~~**Launch/worktree data-layer design**~~ — **RESOLVED (2026-08-16)** by the design
    session; full flows in `docs/design/ux-flows.md`. **Hybrid MRU + promotion**: every
    launch auto-remembers its directory as a `repo` row, and a row becomes "promoted" only

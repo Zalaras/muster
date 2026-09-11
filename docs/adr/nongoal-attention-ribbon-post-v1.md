@@ -8,7 +8,7 @@ features: [rail]
 tags: [revisit, ux]
 files: []
 tests: []
-refs: [docs/history/spec-changelog.md, docs/design/ux-flows.md]
+refs: [docs/history/spec-changelog.md, docs/design/ux-flows.md, docs/history/interview-notes.md]
 supersedes: []
 ---
 **Context.** The design session sketched an attention ribbon: a horizontal timeline of when sessions needed input, failed and finished, sitting above or beside the rail. It would be the first history-rendering surface in the dashboard.

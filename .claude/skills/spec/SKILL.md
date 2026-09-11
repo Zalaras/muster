@@ -27,7 +27,7 @@ Create the plan directory `plans/<plan-name>/` immediately if it doesn't exist. 
 ## Ground Rules for This Project
 
 - **`SPEC.md` is authoritative and its decisions are settled.** Before interviewing, read the
-  SPEC.md sections relevant to the work (and skim `interview-notes.md` for rationale). Don't re-ask
+  SPEC.md sections relevant to the work (and skim the rejected ADRs, `go run ./tools/kb ls --type adr --status rejected`, for rationale). Don't re-ask
   what the spec answers, don't re-litigate settled decisions, and don't let an interview reintroduce
   cut features (notifications, cost tracking, containers, resource gauges). Where SPEC.md pins
   behaviour, the interview only fills in what it leaves open.

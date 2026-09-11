@@ -173,7 +173,11 @@ These are some minor changes and cleanup needed before we can move into post v1.
   ☑ facts (2026-09-12: 43 records in `docs/facts/`, 23 guarded by a named canary test with
   `verified: <lo>..canary`, 20 `guard: none`; the canary field inventory frozen from `spikes/` to
   `docs/history/spikes/canary-fields.md` with a marker per row, `scripts/kb-conserve.py` 0 failures)
-  ☐ ADRs ☐ specs ☐ lessons+rewiring ☐ nested CLAUDE.md ☐ freeze.
+  ☑ ADRs (2026-09-12: 212 records in `docs/adr/` from all 44 spec-changelog entries, 29
+  protocol-changelog bullets, 11 done-item headings, 5 plan decisions, the 20 interview rows and
+  SPEC §3/§5/§9 — one per question; 15 superseded, 24 rejected, 3 proposed; every history unit
+  carries a marker, `scripts/kb-conserve.py` 0 failures on all four files; `interview-notes.md`
+  frozen to `docs/history/`) ☐ specs ☐ lessons+rewiring ☐ nested CLAUDE.md ☐ freeze.
 
 - [ ] **Canary: assert the unguarded facts** (from Track 3 phase 3, 2026-09-12; `go run ./tools/kb
   ls --type fact --guard none` lists them). Automatable inside the existing harness runs, no extra

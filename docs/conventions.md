@@ -23,6 +23,8 @@ first — never diverge silently in code.
 | Record frontmatter | hand-rolled strict flat scanner in `internal/kb` (scalars, inline and block lists; no YAML library — the schema is fixed and strictness is the point) |
 | Web unit tests | Vitest (logic only); Playwright for E2E |
 
+Each row's rationale is an ADR: `go run ./tools/kb ls --type adr | grep '/stack-'`.
+
 ## Go
 
 - Accept interfaces, return structs. Interfaces live where they are *consumed*.
