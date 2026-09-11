@@ -120,8 +120,8 @@ Write (or append to) `plans/<plan-name>/web-implementation.md`:
 
 ## Decisions
 
-<any deviations from plan or trade-offs, one line each — including any Testable UI Elements row
-you could not implement as written, and why>
+<one line per deviation or trade-off, including any Testable UI Elements row you could not implement as written; every REQ the plan lists
+for your side appears in Changes or here as deliberately not done, with why — an unmentioned REQ is a review Minor at best (auto-update: REQ-28, 25 min)>
 
 ## Handoff
 

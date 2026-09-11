@@ -63,6 +63,7 @@ if [[ -s "${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]]; then
   . "${NVM_DIR:-$HOME/.nvm}/nvm.sh" >/dev/null 2>&1
   [[ -f .nvmrc ]] && nvm use >/dev/null 2>&1
 fi
+PATH="$(go env GOPATH 2>/dev/null || echo "$HOME/go")/bin:$PATH"   # goreleaser & co. live here, not on a login shell's PATH (auto-update D6)
 
 # --- runner --------------------------------------------------------------------------------
 # macOS ships bash 3.2 (no associative arrays): SEEN is a newline-separated list of

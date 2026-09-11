@@ -834,6 +834,14 @@ These are some minor changes and cleanup needed before we can move into post v1.
   does not manage (`docs/claude-code-pin.md`). The installer now verifies a SHA-256, which
   is a precedent for the "signing/verification" question rather than an answer to it.
 
+- [ ] **Fix the `terminal.spec.ts` E12 parallelism flake before v1** — `web/e2e/terminal.spec.ts:235`
+  ("killing the stub's tmux session shows the ended placeholder") failed the first full `make e2e`
+  of `auto-update`'s review cycle 2 and passed the immediate re-run; the reviewer measured roughly
+  1 run in 2 that day (`plans/auto-update/review.md` note 1). The spec's own comment at `:243`
+  already admits "transient timeouts only under full-suite parallelism" and only widened the
+  timeout to 15 s. Find the actual cause in the terminal-attach path under load (or the fixture),
+  don't widen the timeout again. Damian, 2026-09-11: must be fixed before v1.
+
 ## Reported issues (pre-v1 release)
 
 Issues filed from the dashboard's masthead `Issue` button land on
