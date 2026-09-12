@@ -201,7 +201,7 @@ func TestCheck_ReportsStaleAndHandEditedGeneratedFilesWithDifferentMessages(t *t
 	root := freshRoot(t)
 	edit(t, root, "docs/adr/pin-order.md", "summary: Pinned sessions keep their relative order.", "summary: Pinned sessions keep order.")
 	edit(t, root, "docs/features/sessions/contract.md", "Pin body line.", "Pin body line, edited by hand.")
-	edit(t, root, "internal/sess/CLAUDE.md", "keep their relative order", "hand edit")
+	edit(t, root, "internal/sess/CLAUDE.md", "records name files in this directory", "records were hand-edited here")
 	got := runCheck(t, root)
 	assert.Contains(t, got, "docs/INDEX.md: stale — regenerate with make gen-kb")
 	assert.Contains(t, got, "docs/features/sessions/INDEX.md: stale — regenerate with make gen-kb")
