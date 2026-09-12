@@ -175,7 +175,10 @@ func sessionAttachedCount(t *testing.T, socket, sessionName string) int {
 		return 0
 	}
 	n, convErr := strconv.Atoi(s)
-	require.NoError(t, convErr)
+	// assert, not require: TakeoverNeverLeavesTwoClientsAttachedAtOnce calls this from a
+	// polling goroutine, and require's FailNow is a runtime.Goexit that would kill that
+	// goroutine without ever failing the test.
+	assert.NoError(t, convErr)
 	return n
 }
 
