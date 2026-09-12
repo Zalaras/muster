@@ -75,14 +75,6 @@ v1.0.0 (last below) is the final step, done only once everything above it has la
   hint extended so a reload doesn't flash. Deferred from `ui-text-and-focus` (Damian, 2026-09-03):
   tokens first, control later — the `--fs-*` ramp shipped there is the thing this control turns.
 
-- [ ] **Terminal bandwidth — `tmux -CC` control mode** — moved here from the #13 scroll-fix
-  follow-ups on 2026-09-09 (Damian): a plan of its own rather than a loose end of that fix.
-  Today's `tmux attach` path costs **19.4×** the bytes of a bare PTY for the same repaint, and
-  1,759 bytes/sec while idle against zero (S6 §3). `tmux -CC` control mode measured **2.1×**
-  and would keep tmux, session identity, reconcile and the existing tests intact (S6 §4).
-  Complementary to the `CLAUDE_CODE_SCROLL_SPEED` fix that shipped for #13: `SCROLL_SPEED` cuts
-  the *number* of repaints, `-CC` would cut the cost of each.
-
 - [ ] **Usage gauges are dead on API-key auth** ([#9](https://github.com/Zalaras/muster/issues/9))
   — the ask is "support API usage billing as well". On a subscription the gauges come from the
   status line's `rate_limits`; under API-key auth that key is **absent entirely** (`kb:spec/usage`,
