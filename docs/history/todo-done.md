@@ -423,6 +423,25 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
 ## Pre-v1 Cleanup
 <!-- kb: adr/process-composition-roots-registration-only, adr/process-one-name-per-feature, adr/rail-user-owned-manual-order-default, adr/tiles-slot-stable-grid-never-self-sorts, adr/theme-no-traffic-light-state-palette, adr/usage-model-window-polled-from-oauth-api, adr/launch-picker-recent-sidebar-plus-browse-list, adr/tiles-new-session-button-in-toolbar, adr/connection-dashboard-embedded-in-binary, adr/release-builds-cross-compiled-on-linux, adr/release-distribution-github-release-not-brew, adr/release-no-ci-test-job-yet, adr/issue-payload-allowlist-never-dump, adr/process-e2e-explicit-fixtures, adr/process-faked-subprocess-boundary, adr/process-exec-waitdelay-on-pipe-owning-commands, adr/canary-plan-mode-step-three-sole-residual, adr/canary-verified-range-observed-not-pinned, adr/process-repo-public, adr/release-install-front-door-curl-sh, adr/update-check-pref-governs-checking-only, adr/process-transient-displays-not-oracles, adr/triage-program-not-model-between-github-and-todo -->
 
+- [x] **Installer verifies `checksums.txt.minisig` too** — ✅ **decided, not built** 2026-09-12
+  (direct on `main`: an ADR, a README section and this move; no code changed).
+  `kb:adr/release-installer-signature-check-not-built` records the refusal. A public key pasted
+  into a script fetched from `raw.githubusercontent.com` arrives from the same host, over the
+  same TLS, as the assets it would police, so it is no independent trust root the way the
+  `//go:embed`-ed key in `musterd` is — the gain is confined to release assets being tampered
+  with while repo contents are not. And macOS ships no Ed25519 verifier (measured 2026-09-12:
+  `/usr/bin/openssl` is LibreSSL 3.3.6 and `openssl list -public-key-algorithms` names none;
+  there is no `signify`), so any check means a Homebrew prerequisite on the one-line front
+  door. Projects that sign verify in the tool, not the bootstrap script — the shape
+  `internal/selfupdate` already has. `README.md` § "Verifying a first install yourself" now
+  says what the SHA-256 check does and does not cover and carries a `minisign -Vm` recipe, run
+  end-to-end against v0.12.2 before it was written in: the signature verifies with the
+  committed key (trusted comment `muster 0.12.2`), and a flipped byte in `checksums.txt` is
+  refused, exit 1. Build-provenance attestation (`actions/attest-build-provenance` plus `gh
+  attestation verify`), which *would* root trust outside the host, is the unbuilt alternative
+  and is deliberately **not** carried as an item — raise it if release integrity ever needs to
+  survive a GitHub account compromise.
+
 - [x] **Canary: assert the unguarded facts** ✅ done 2026-09-12 (branch `canary-unguarded-facts`,
   direct — not through `/orchestrate`: one test package plus records, whose only gate is an
   interactive `make canary` that has to run in the main session, kb:lesson/subagent-never-woken-by-harness).

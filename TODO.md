@@ -130,12 +130,6 @@ These are some minor changes and cleanup needed before we can move into post v1.
   `musterd -version` → `brew audit --cask --strict --online`. Note the cask is only pushed on a
   tagged release, so the first true end-to-end test costs a version bump.
 
-- [ ] **Installer verifies `checksums.txt.minisig` too** — follow-up from plan `auto-update`
-  (2026-09-10): `scripts/install.sh` checks the archive's SHA-256 against `checksums.txt` but
-  does not verify the minisign signature on that file, so a first install trusts GitHub where
-  every later self-update trusts the compiled-in key. Cheap once the key exists (`minisign -V`
-  when the binary is on PATH, otherwise a warning naming it); out of scope for `auto-update`.
-
 ## Reported issues (pre-v1 release)
 
 All items done — see `docs/history/todo-done.md` § "Reported issues".

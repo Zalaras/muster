@@ -50,6 +50,35 @@ The binary is unsigned, but `curl` does not set the `com.apple.quarantine` xattr
 runs without a Gatekeeper prompt. A browser download does — clear it with
 `xattr -d com.apple.quarantine musterd`.
 
+### Verifying a first install yourself
+
+The installer's SHA-256 check guards integrity, not authenticity: `checksums.txt` comes
+from the same host as the archive it vouches for. Releases *are*
+[minisign](https://jedisct1.github.io/minisign/)-signed — a separate matter from the
+Apple code signing above, and every `checksums.txt` since v0.12.1 ships a
+`checksums.txt.minisig` — but `install.sh` deliberately does not check it, because a
+public key it downloaded alongside the payload is no more trustworthy than the payload
+([ADR](docs/adr/release-installer-signature-check-not-built.md)). Signature checking
+begins the moment `musterd` is on disk, against the key compiled into it — see below.
+
+To check a release yourself first (`brew install minisign`):
+
+```sh
+tag=v0.12.2; arch=amd64   # uname -m: x86_64 -> amd64, arm64 -> arm64
+base=https://github.com/Zalaras/muster/releases/download/$tag
+curl -fsSLO $base/checksums.txt
+curl -fsSLO $base/checksums.txt.minisig
+curl -fsSLO $base/musterd_${tag#v}_darwin_$arch.tar.gz
+curl -fsSLO https://raw.githubusercontent.com/Zalaras/muster/main/internal/selfupdate/minisign.pub
+
+minisign -Vm checksums.txt -p minisign.pub                          # key 7FA9D01D017D739A
+grep " musterd_${tag#v}_darwin_$arch.tar.gz\$" checksums.txt | shasum -a 256 -c
+tar -xzf musterd_${tag#v}_darwin_$arch.tar.gz -C ~/.local/bin musterd
+```
+
+`minisign.pub` there is the same key `musterd` embeds, so `Signature and comment
+signature verified` means the release came from the project's own pipeline.
+
 ## Updating
 
 `musterd` checks GitHub Releases once a day for a newer version (turn it off with the

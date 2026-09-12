@@ -16,6 +16,13 @@
 #   - The archive's SHA-256 is checked against the release's own checksums.txt. GoReleaser
 #     publishes it already, so verifying costs one small download — and an unverified
 #     `curl | sh` is the standard criticism of this install shape.
+#   - The minisign signature *on* that checksums.txt is deliberately not checked here, even
+#     though musterd itself refuses any update whose signature fails: a key this script
+#     downloaded would share a host with the assets it polices, and macOS ships no Ed25519
+#     verifier, so checking costs a Homebrew prerequisite on the front door for a gain
+#     confined to tampered assets under an untampered repo. Authenticity starts once musterd
+#     is on disk - kb:adr/release-installer-signature-check-not-built, README.md's
+#     "Verifying a first install yourself" for the by-hand recipe.
 #   - Downloads land in a fresh `mktemp -d`, which is not cosmetic. Issue #7 was a README
 #     recipe that downloaded into the cwd: a re-run then needed --clobber, and last
 #     version's archive stayed behind, so `musterd_*.tar.gz` matched several files and tar
