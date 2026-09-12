@@ -82,7 +82,10 @@ automatically after a green `go test`:
   ```
 
   A `fix` commit cuts a patch release (docs/conventions.md §Commits), so anyone already on
-  `<installed>` stops seeing the warning as soon as the release ships.
+  `<installed>` stops seeing the warning as soon as the release ships. The record and the
+  fragments `gen` rewrites are the **only** files a bump touches: `internal/claudecode`'s unit
+  tests recompute the ceiling from the rows rather than restating it, so no test needs a hand
+  edit (it did until 2026-09-12, and the ritual never said so).
 - Record file already has **uncommitted changes** when `bump` runs — refuses, exits
   non-zero, naming the reason; nothing is edited (a green run never overwrites work in
   progress on the one file it writes to).

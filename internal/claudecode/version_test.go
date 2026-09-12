@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -192,16 +193,59 @@ func TestRangeOf_ComparesNumericallyNotLexically(t *testing.T) {
 }
 
 // TestFloorAndVerified_MatchEmbeddedRecord covers D6/INV-6 against the real, embedded
-// observed_versions.txt shipped with this plan (two rows: 2.1.246, 2.1.267).
+// observed_versions.txt. The floor is a literal because it never moves — `versions bump`
+// only ever appends a version above the ceiling — but the ceiling is recomputed here from
+// the rows rather than restated, so extending the range stays a one-file edit: restating it
+// made every green canary outside the range red `make check` until someone hand-edited this
+// test, which the ritual in docs/claude-code-versions.md never told them to do.
 func TestFloorAndVerified_MatchEmbeddedRecord(t *testing.T) {
-	assert.Equal(t, "2.1.246", Floor())
-	assert.Equal(t, "2.1.267", Verified())
+	rows := ObservedVersions()
+	require.NotEmpty(t, rows, "the embedded record must list at least one green version")
+
+	lowest, highest := rows[0].Version, rows[0].Version
+	for _, row := range rows[1:] {
+		if compareTo(t, row.Version, lowest) < 0 {
+			lowest = row.Version
+		}
+		if compareTo(t, row.Version, highest) > 0 {
+			highest = row.Version
+		}
+	}
+	assert.Equal(t, "2.1.246", lowest, "the floor moves only if a version below it is ever recorded")
+	assert.Equal(t, lowest, Floor())
+	assert.Equal(t, highest, Verified())
+}
+
+// compareTo orders two x.y.z strings, independently of parseSemver/compareSemver, so the
+// test above checks the production ordering rather than reusing it.
+func compareTo(t *testing.T, a, b string) int {
+	t.Helper()
+	pa, pb := strings.Split(a, "."), strings.Split(b, ".")
+	require.Len(t, pa, 3, "%q is not x.y.z", a)
+	require.Len(t, pb, 3, "%q is not x.y.z", b)
+	for i := range pa {
+		x, err := strconv.Atoi(pa[i])
+		require.NoError(t, err)
+		y, err := strconv.Atoi(pb[i])
+		require.NoError(t, err)
+		if x != y {
+			if x < y {
+				return -1
+			}
+			return 1
+		}
+	}
+	return 0
 }
 
 func TestObservedVersions_EmbeddedFileParsesWithoutPanicking(t *testing.T) {
 	require.NotPanics(t, func() {
 		rows := ObservedVersions()
-		assert.Len(t, rows, 2, "D6: the embedded record must contain exactly two rows")
+		assert.GreaterOrEqual(t, len(rows), 2, "D6: the embedded record must list every green canary version")
+		for _, row := range rows {
+			assert.Regexpf(t, `^\d+\.\d+\.\d+$`, row.Version, "row %+v has no x.y.z version", row)
+			assert.NotEmptyf(t, row.Date, "row %+v has no date", row)
+		}
 	})
 }
 
