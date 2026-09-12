@@ -73,6 +73,34 @@ These are some minor changes and cleanup needed before we can move into post v1.
   that deletes the flag and carries `feat!:` (`MUSTER_BREAKING=1`, human-set — the commit-msg
   hook gates it). Until then `!` on 0.x just bumps minor and records the breakage.
 
+- [ ] **Text-size setting** — `prefs.textSize` enum (`small | medium | large`), a Settings-dialog
+  segmented control beside Theme, `<html data-text-size>` driving `--fs-root`, and the first-paint
+  hint extended so a reload doesn't flash. Deferred from `ui-text-and-focus` (Damian, 2026-09-03):
+  tokens first, control later — the `--fs-*` ramp shipped there is the thing this control turns.
+
+- [ ] **Terminal bandwidth — `tmux -CC` control mode** — moved here from the #13 scroll-fix
+  follow-ups on 2026-09-09 (Damian): a plan of its own rather than a loose end of that fix.
+  Today's `tmux attach` path costs **19.4×** the bytes of a bare PTY for the same repaint, and
+  1,759 bytes/sec while idle against zero (S6 §3). `tmux -CC` control mode measured **2.1×**
+  and would keep tmux, session identity, reconcile and the existing tests intact (S6 §4).
+  Complementary to the `CLAUDE_CODE_SCROLL_SPEED` fix that shipped for #13: `SCROLL_SPEED` cuts
+  the *number* of repaints, `-CC` would cut the cost of each.
+
+- [ ] **Usage gauges are dead on API-key auth** ([#9](https://github.com/Zalaras/muster/issues/9))
+  — the ask is "support API usage billing as well". On a subscription the gauges come from the
+  status line's `rate_limits`; under API-key auth that key is **absent entirely** (`kb:spec/usage`,
+  measured), so the gauges honestly render "unknown" and never move. The seam is already named:
+  `usage.source` is `subscription` today with `api`/`otel` reserved
+  (`internal/usage/aggregator.go:14-15`). Scope decision comes first — an `api` source
+  reporting *tokens* fits the existing seam, but if what's wanted is spend in dollars it runs
+  into the explicit v1 non-goal (`kb:adr/nongoal-cost-tracking`), which is a superseding ADR, not a
+  plan.
+
+- [ ] **`/claude-code-upgrade` skill** — a thin wrapper over the version ritual in
+  `docs/claude-code-versions.md` (canary → extend the verified range → README → commit). Deferred
+  until upgrades are routine; the doc alone suffices. Carried from the retired session plan
+  (`next-steps.md` §6, deleted 2026-09-11).
+
 ## Reported issues (pre-v1 release)
 
 All items done — see `docs/history/todo-done.md` § "Reported issues".
@@ -93,6 +121,9 @@ unless he re-ranks — don't re-sort this list.
 
 ## M5+ (v1.x, re-rank when reached)
 
+- [ ] **Markdown viewing** — render a session's markdown files in the dashboard, including
+  whatever plan a Claude Code session is working from.
+
 Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start-from-PR/issue
 (§4.3) → permissions UI (§4.4) → `code <worktree>` button (trivial, anytime).
 Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-09-01) is in
@@ -109,34 +140,9 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
   session, and a real tab strip rather than a single toggle; a rail-card marker so a shell
   running in a session you aren't viewing is visible in Focus view.
 
-- [ ] **Terminal bandwidth — `tmux -CC` control mode** — moved here from the #13 scroll-fix
-  follow-ups on 2026-09-09 (Damian): post-v1, and a plan of its own rather than a loose end of
-  that fix. Today's `tmux attach` path costs **19.4×** the bytes of a bare PTY for the same
-  repaint, and 1,759 bytes/sec while idle against zero (S6 §3). `tmux -CC` control mode measured
-  **2.1×** and would keep tmux, session identity, reconcile and the existing tests intact
-  (S6 §4). Complementary to the `CLAUDE_CODE_SCROLL_SPEED` fix that shipped for #13:
-  `SCROLL_SPEED` cuts the *number* of repaints, `-CC` would cut the cost of each.
-
-- [ ] **Text-size setting** — `prefs.textSize` enum (`small | medium | large`), a Settings-dialog
-  segmented control beside Theme, `<html data-text-size>` driving `--fs-root`, and the first-paint
-  hint extended so a reload doesn't flash. Deferred from `ui-text-and-focus` (Damian, 2026-09-03):
-  tokens first, control later — the `--fs-*` ramp shipped there is the thing this control turns.
-
-- [ ] **Usage gauges are dead on API-key auth** ([#9](https://github.com/Zalaras/muster/issues/9))
-  — the ask is "support API usage billing as well". On a subscription the gauges come from the
-  status line's `rate_limits`; under API-key auth that key is **absent entirely** (`kb:spec/usage`,
-  measured), so the gauges honestly render "unknown" and never move. The seam is already named
-  and deliberately post-v1: `usage.source` is `subscription` today with `api`/`otel` reserved
-  (`internal/usage/aggregator.go:14-15`). Scope decision comes first — an `api` source
-  reporting *tokens* fits the existing seam, but if what's wanted is spend in dollars it runs
-  into the explicit v1 non-goal (`kb:adr/nongoal-cost-tracking`), which is a superseding ADR, not a
-  plan.
-
-- [ ] **`isThemeChoice` should derive from the theme registry** — `web/src/features/settings.ts` (moved from `render/` by plan `code-breakup`)
-  hard-codes the four radio values instead of reading `THEMES`, so adding a theme (REQ-1's
-  "one block plus one registry entry") would silently leave its radio dead until this guard
-  is also edited. Suggested: `value === "follow" || (THEMES as readonly string[]).includes(value)`.
-  Cite: `plans/new-ui-design-colors/review.md` (cycle 1, Minor 1, `[web-impl]`).
+- [ ] **Code diff viewing** — view a session's code diff directly in the dashboard. Revisits
+  `kb:adr/nongoal-diff-review-placeholder-button` (today's placeholder just opens the worktree
+  in an editor, an acknowledged hack); would need a superseding ADR before being planned.
 
 - [ ] **Rail cards should carry a session summary, not a truncated last reply** ([#17](https://github.com/Zalaras/muster/issues/17))
   — "it would be nicer to have a summary of what's going on in the chat. Just a short sentence
@@ -180,11 +186,6 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
   that probe's micro-benchmark. Not built for m4-hook-lifetime (YAGNI — the shell version
   is measured-correct and ships one file, no build/distribution story); revisit if the
   per-event cost is ever felt on a tool-heavy turn.
-
-- [ ] **`/claude-code-upgrade` skill** — a thin wrapper over the version ritual in
-  `docs/claude-code-versions.md` (canary → extend the verified range → README → commit). Deferred
-  until upgrades are routine; the doc alone suffices. Carried from the retired session plan
-  (`next-steps.md` §6, deleted 2026-09-11).
 
 - [ ] **A Homebrew tap** — **split out of the installer item above on 2026-09-10** (Damian:
   "we'll skip brew for now"). Deferred originally because a *private* tap needs
@@ -242,6 +243,12 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
   cask without publishing; then, after the first real release, `brew tap` → install →
   `musterd -version` → `brew audit --cask --strict --online`. Note the cask is only pushed on a
   tagged release, so the first true end-to-end test costs a version bump.
+
+- [ ] **`isThemeChoice` should derive from the theme registry** — `web/src/features/settings.ts` (moved from `render/` by plan `code-breakup`)
+  hard-codes the four radio values instead of reading `THEMES`, so adding a theme (REQ-1's
+  "one block plus one registry entry") would silently leave its radio dead until this guard
+  is also edited. Suggested: `value === "follow" || (THEMES as readonly string[]).includes(value)`.
+  Cite: `plans/new-ui-design-colors/review.md` (cycle 1, Minor 1, `[web-impl]`).
 
 ## Open questions carried forward
 
