@@ -20,9 +20,9 @@
 - Per-transition tests miss invariants; name each invariant and cross it from every source state (kb:lesson/invariant-missed-by-per-transition-tests).
 
 <!-- kb:trailer -->
-<!-- kb:hash ee8b973090ec49f0 -->
+<!-- kb:hash 2461eafd1b9426db -->
 - **lifecycle** — The session state machine, liveness, reconcile on start, shutdown policy, resume to idle. → `docs/features/lifecycle/INDEX.md`
 - **rail** — Rail cards, attention versus manual order, pin, drag reorder, session count. → `docs/features/rail/INDEX.md`
 - **rename** — Muster-owned session title override, inline rename in the mainhead and tiles. → `docs/features/rename/INDEX.md`
-- 34 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 35 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

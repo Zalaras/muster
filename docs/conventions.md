@@ -39,6 +39,14 @@ Each row's rationale is an ADR: `go run ./tools/kb ls --type adr | grep '/stack-
   bounds that wait: the timer starts when the context is done or when `Wait` sees the child
   exit, whichever comes first, and then force-closes the pipes. The grandchild case does not
   need the context to fire at all. One line, next to the command's own timeout.
+- **Cyclomatic complexity ceiling of 15**, enforced by `gocyclo`. A long `switch` is the
+  usual way past it — every `case` counts as a branch — so reach for table-driven dispatch
+  before splitting a function that reads well. Extracting a cohesive block into a named
+  helper is the other move. `applyInput` holds the only exemption
+  (kb:adr/process-go-lint-complexity-ceiling-fifteen); adding a second needs the same bar.
+- **Every `//nolint` names its linter and says why**, enforced by `nolintlint`, which also
+  fails a directive that is not suppressing anything. A suppression without a reason is a
+  suppression nobody can re-evaluate.
 - No `init()` magic, no package-level mutable state. Wiring happens in `main`.
 - Middleware (auth token check) is a plain `func(http.Handler) http.Handler`.
 - Tests: table-driven, `t.Run` subtests. Never rely on test execution order and never
