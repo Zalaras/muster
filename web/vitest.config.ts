@@ -5,7 +5,5 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["src/**/*.test.ts"],
-    // Kept from M0, when the gate went live before the first logic module existed.
-    passWithNoTests: true,
   },
 });
