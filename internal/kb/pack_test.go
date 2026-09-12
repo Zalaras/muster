@@ -139,3 +139,36 @@ func TestPack_RejectsAnUnknownRoleOrFeature(t *testing.T) {
 	_, err = Pack(ix, PackOptions{Plan: "p", Role: "review", Features: []string{"nope"}}, &bytes.Buffer{})
 	require.EqualError(t, err, `feature "nope" has no docs/features/nope/spec.md`)
 }
+
+func TestPack_RendersAcceptedDecisionsAsDecisionAndConsequencesOnly(t *testing.T) {
+	root, _ := packFixture(t)
+	mustWriteFile(t, root, "docs/adr/four-paragraphs.md", "---\nid: four-paragraphs\ntype: decision\nstatus: accepted\ndate: 2026-08-31\nsummary: s\nfeatures: [sessions]\n---\n**Context.** The situation.\n\n**Options.** (A) one. (B) two.\n\n**Decision.** B.\n\n**Consequences.** It follows.\n")
+	ix, _, err := Load(root)
+	require.NoError(t, err)
+	out, _ := runPack(t, ix, "daemon-impl", "sessions")
+	assert.Contains(t, out, "## decision four-paragraphs — s")
+	assert.Contains(t, out, "**Decision.** B.\n\n**Consequences.** It follows.\n_context and options: kb show four-paragraphs_")
+	assert.NotContains(t, out, "**Context.** The situation.")
+	assert.NotContains(t, out, "**Options.**")
+	assert.Contains(t, out, "## decision pin-order", "a body without the bold leads still renders whole")
+}
+
+func TestPack_IncludesOnlyTheConventionsSectionsForTheRole(t *testing.T) {
+	root, _ := packFixture(t)
+	mustWriteFile(t, root, "docs/conventions.md", "# Code conventions\n\nPreamble.\n\n## Go\n\nGo rule.\n\n## TypeScript / web\n\nTS rule.\n\n## Testing (both sides)\n\nTest rule.\n\n## Comments\n\nComment rule.\n")
+	ix, _, err := Load(root)
+	require.NoError(t, err)
+	daemon, _ := runPack(t, ix, "daemon-impl", "sessions")
+	assert.Contains(t, daemon, "Preamble.")
+	assert.Contains(t, daemon, "Go rule.")
+	assert.Contains(t, daemon, "Comment rule.")
+	assert.NotContains(t, daemon, "TS rule.")
+	assert.NotContains(t, daemon, "Test rule.")
+	tests, _ := runPack(t, ix, "web-tests", "sessions")
+	assert.Contains(t, tests, "Test rule.")
+	assert.NotContains(t, tests, "Go rule.")
+	planner, _ := runPack(t, ix, "planner", "sessions")
+	for _, s := range []string{"Go rule.", "TS rule.", "Test rule.", "Comment rule."} {
+		assert.Contains(t, planner, s)
+	}
+}

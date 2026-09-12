@@ -63,7 +63,7 @@ func Pack(ix *Index, opts PackOptions, w io.Writer) (int, error) {
 	conv, err := os.ReadFile(filepath.Join(ix.Root, "docs", "conventions.md"))
 	switch {
 	case err == nil:
-		b.WriteString("\n" + strings.TrimRight(string(conv), "\n") + "\n")
+		b.WriteString("\n" + strings.TrimRight(conventionsForRole(string(conv), opts.Role), "\n") + "\n")
 	case !errors.Is(err, fs.ErrNotExist):
 		return 0, fmt.Errorf("reading docs/conventions.md: %w", err)
 	}
@@ -98,7 +98,7 @@ func Pack(ix *Index, opts PackOptions, w io.Writer) (int, error) {
 		return decisions[i].ID < decisions[j].ID
 	})
 	for _, r := range decisions {
-		writeRecord(&b, ix, r)
+		writeDecisionForPack(&b, ix, r)
 	}
 	if opts.Role == "review" || opts.Role == "planner" {
 		b.WriteString("\n# Decisions (proposed for this plan)\n")
@@ -166,4 +166,64 @@ func RenderRecord(ix *Index, r *Record) string {
 		b.WriteString("\n" + body + "\n")
 	}
 	return b.String()
+}
+
+// writeDecisionForPack renders an accepted decision with only its Decision and
+// Consequences paragraphs: a pack tells an agent what binds it, and the context and the
+// options it weighed are one kb show away. A body without those bold leads renders whole.
+func writeDecisionForPack(b *strings.Builder, ix *Index, r *Record) {
+	full := RenderRecord(ix, r)
+	head, body, ok := strings.Cut(full, "\n\n")
+	if !ok {
+		b.WriteString("\n" + full)
+		return
+	}
+	var keep []string
+	for _, para := range strings.Split(strings.TrimSpace(body), "\n\n") {
+		if strings.HasPrefix(para, "**Decision.**") || strings.HasPrefix(para, "**Consequences.**") {
+			keep = append(keep, para)
+		}
+	}
+	if len(keep) == 0 {
+		b.WriteString("\n" + full)
+		return
+	}
+	fmt.Fprintf(b, "\n%s\n\n%s\n_context and options: kb show %s_\n", head, strings.Join(keep, "\n\n"), r.ID)
+}
+
+// conventionsByRole names the docs/conventions.md sections (by heading prefix) each role
+// reads in its pack; a role absent from the map reads the whole file.
+var conventionsByRole = map[string][]string{
+	"daemon-impl":  {"Stack", "Go", "Composition roots", "Comments", "Knowledge records"},
+	"web-impl":     {"Stack", "TypeScript", "Composition roots", "Comments", "Knowledge records"},
+	"daemon-tests": {"Testing", "Comments", "Knowledge records"},
+	"web-tests":    {"Testing", "Comments", "Knowledge records"},
+	"e2e-specs":    {"Testing", "Comments", "Knowledge records"},
+	"e2e-validate": {"Testing", "Comments", "Knowledge records"},
+}
+
+// conventionsForRole keeps the preamble and the level-two sections the role reads.
+func conventionsForRole(conv, role string) string {
+	wanted, ok := conventionsByRole[role]
+	if !ok {
+		return conv
+	}
+	var out []string
+	keep := true // the preamble before the first heading
+	for _, line := range strings.Split(conv, "\n") {
+		if strings.HasPrefix(line, "## ") {
+			title := strings.TrimSpace(strings.TrimPrefix(line, "## "))
+			keep = false
+			for _, w := range wanted {
+				if strings.HasPrefix(title, w) {
+					keep = true
+					break
+				}
+			}
+		}
+		if keep {
+			out = append(out, line)
+		}
+	}
+	return strings.Join(out, "\n")
 }
