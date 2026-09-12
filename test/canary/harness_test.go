@@ -520,7 +520,7 @@ func (f *fixture) runD(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := f.tmuxClient.ResizeWindow(ctx, target, 200, 50); err != nil {
+	if err = f.tmuxClient.ResizeWindow(ctx, target, 200, 50); err != nil {
 		return err
 	}
 
@@ -681,7 +681,7 @@ func (f *fixture) runE(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := f.tmuxClient.ResizeWindow(ctx, target, 200, 50); err != nil {
+	if err = f.tmuxClient.ResizeWindow(ctx, target, 200, 50); err != nil {
 		return err
 	}
 

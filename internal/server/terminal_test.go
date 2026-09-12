@@ -97,7 +97,7 @@ func dialTerminal(t *testing.T, httpSrv *httptest.Server, id int64) (*websocket.
 	header := http.Header{"Cookie": {cookieName + "=" + testUIToken}}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	return websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: header}) //nolint:bodyclose // coder/websocket Dial nils out resp.Body on success (dial.go); there is nothing to close
+	return websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: header})
 }
 
 // dialTerminalOK is dialTerminal for the success path: it intentionally discards the
@@ -226,7 +226,7 @@ func TestHandleTerminal_NonNumericIDIs404(t *testing.T) {
 	header := http.Header{"Cookie": {cookieName + "=" + testUIToken}}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_, resp, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: header}) //nolint:bodyclose // closed by the deferred closure below, which bodyclose cannot see through
+	_, resp, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: header})
 	require.Error(t, err)
 	require.NotNil(t, resp)
 	defer func() { _ = resp.Body.Close() }()

@@ -13,21 +13,39 @@ linters:
     - copyloopvar
     - durationcheck
     - errorlint
+    - exhaustive
     - gocritic
+    - gocyclo
+    - intrange
     - misspell
     - nilerr
     - noctx
+    - nolintlint
     - revive
     - sqlclosecheck
+    - testifylint
     - unconvert
     - wastedassign
 
   settings:
     errcheck:
       check-type-assertions: true
+    exhaustive:
+      # A switch carrying a sane default is exhaustive; without this every one is a finding.
+      default-signifies-exhaustive: true
+    gocyclo:
+      min-complexity: 15
     govet:
       enable:
         - shadow
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    testifylint:
+      disable:
+        # The float64s compared here are exact JSON literals; an invented epsilon per site
+        # would loosen assertions that are already correct.
+        - float-compare
 
   exclusions:
     presets:
@@ -38,6 +56,13 @@ linters:
         linters:
           - errcheck
           - noctx
+
+issues:
+  # Report every finding. The default caps identical issues at 3, which reported 28
+  # findings against this tree when the real number was 146 — a capped count cannot
+  # tell you the gate has nothing behind it.
+  max-same-issues: 0
+  max-issues-per-linter: 0
 
 formatters:
   enable:

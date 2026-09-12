@@ -374,7 +374,7 @@ func prepareServing(ctx context.Context, f *cliFlags, st *store.Store, log zerol
 
 	baseURL := fmt.Sprintf("http://127.0.0.1:%d", port)
 	dashboardURL := fmt.Sprintf("%s/auth?token=%s", baseURL, uiToken)
-	if err := writeTokensFile(f.dataDir, dashboardURL, uiToken, ingestToken); err != nil {
+	if err = writeTokensFile(f.dataDir, dashboardURL, uiToken, ingestToken); err != nil {
 		return nil, fmt.Errorf("writing tokens file: %w", err)
 	}
 
