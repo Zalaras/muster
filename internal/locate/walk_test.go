@@ -58,7 +58,7 @@ func TestWalkFinder_StopsAtEntryCapAndReportsNotFoundRatherThanErroring(t *testi
 	content := []byte("cap-test")
 	// The matching file is written last (alphabetically after the filler files) so a
 	// tiny cap guarantees the walk exhausts before ever reaching it.
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		writeFile(t, filepath.Join(dir, "filler", string(rune('a'+i))+".txt"), []byte("filler"))
 	}
 	writeFile(t, filepath.Join(dir, "zzz-target.txt"), content)
@@ -73,7 +73,7 @@ func TestWalkFinder_StopsAtEntryCapAndReportsNotFoundRatherThanErroring(t *testi
 func TestWalkFinder_RespectsContextCancellationWithoutErroring(t *testing.T) {
 	dir := t.TempDir()
 	content := []byte("cancel-test")
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		writeFile(t, filepath.Join(dir, "filler", string(rune('a'+i))+".txt"), []byte("filler"))
 	}
 	writeFile(t, filepath.Join(dir, "zzz-target.txt"), content)

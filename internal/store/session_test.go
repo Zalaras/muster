@@ -37,7 +37,7 @@ func TestInsertSession_SeedsStartedStateAndSeedSourceLatch(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "started", row.State)
-	assert.Equal(t, "", row.TmuxTarget, "tmux_target is a placeholder until RecordLaunch")
+	assert.Empty(t, row.TmuxTarget, "tmux_target is a placeholder until RecordLaunch")
 	assert.Equal(t, "default", row.PermissionMode)
 	assert.Equal(t, "seed", row.PermissionModeSource)
 	assert.True(t, row.Alive)

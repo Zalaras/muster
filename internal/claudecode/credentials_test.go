@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -201,5 +200,5 @@ func TestRunCommand_HarmlessSmokeTestNeverUsedByKeychainTests(t *testing.T) {
 	out, err := RunCommand(context.Background(), "echo", "hello")
 
 	require.NoError(t, err)
-	assert.True(t, strings.Contains(string(out), "hello"))
+	assert.Contains(t, string(out), "hello")
 }

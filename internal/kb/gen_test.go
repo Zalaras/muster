@@ -107,7 +107,7 @@ func TestOutputs_SkipsTheRulesFileForAFeatureWithNoGlobs(t *testing.T) {
 
 func TestOutputs_TruncatesAnOverBudgetRulesFileAndPointsAtTheFeatureIndex(t *testing.T) {
 	root := newKBRoot(t)
-	for i := 0; i < 70; i++ {
+	for i := range 70 {
 		id := "rule-" + string(rune('a'+i/10)) + string(rune('a'+i%10))
 		mustWriteFile(t, root, "docs/rules/"+id+".md", "---\nid: "+id+"\ntype: rule\nstatus: active\ndate: 2026-08-30\nsummary: s\nfeatures: [sessions]\n---\n")
 	}
@@ -115,7 +115,7 @@ func TestOutputs_TruncatesAnOverBudgetRulesFileAndPointsAtTheFeatureIndex(t *tes
 	lines := strings.Split(strings.TrimRight(rules, "\n"), "\n")
 	assert.LessOrEqual(t, len(lines), RuleFileLines)
 	last := lines[len(lines)-1]
-	assert.Regexp(t, regexp.MustCompile("^… [0-9]+ more: see `docs/features/sessions/INDEX.md`$"), last)
+	assert.Regexp(t, "^… [0-9]+ more: see `docs/features/sessions/INDEX.md`$", last)
 	m := regexp.MustCompile(`… (\d+) more`).FindStringSubmatch(last)
 	kept := strings.Count(rules, "- `kb:")
 	assert.Equal(t, 72-kept, atoi(t, m[1]))

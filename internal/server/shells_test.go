@@ -183,7 +183,7 @@ func TestShellRegistry_ConcurrentEnsureOnlySpawnsOnce(t *testing.T) {
 	errs := make([]error, n)
 	var wg sync.WaitGroup
 	wg.Add(n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		go func(i int) {
 			defer wg.Done()
 			_, created, err := reg.Ensure(context.Background(), id, dir)

@@ -116,7 +116,7 @@ func Splice(todo, section, entry string) (string, error) {
 
 	body := strings.TrimRight(entry, "\n")
 	out := make([]string, 0, len(lines)+3)
-	for i := 0; i < end; i++ {
+	for i := range end {
 		out = append(out, lines[i].text)
 	}
 	out = append(out, "", body)

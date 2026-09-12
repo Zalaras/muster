@@ -77,7 +77,7 @@ func TestLocate_ReturnsNotLocatedWhenSameNameSizeDifferentBytes(t *testing.T) {
 	dir := t.TempDir()
 	upload := []byte("AAAAAAAAAA")
 	onDisk := []byte("BBBBBBBBBB") // same length, different content
-	require.Equal(t, len(upload), len(onDisk))
+	require.Len(t, onDisk, len(upload))
 	path := writeFile(t, filepath.Join(dir, "same-size.txt"), onDisk)
 
 	loc := &Locator{finders: []Finder{&stubFinder{candidates: []string{path}}}}
@@ -98,7 +98,7 @@ func TestLocate_ReturnsAmbiguousWithSortedPaths(t *testing.T) {
 	_, err := loc.Locate(context.Background(), dir, "dup.txt", upload)
 
 	var ambiguous *ErrAmbiguous
-	require.True(t, errors.As(err, &ambiguous))
+	require.ErrorAs(t, err, &ambiguous)
 	require.Len(t, ambiguous.Paths, 2)
 	assert.True(t, sort.StringsAreSorted(ambiguous.Paths), "paths must be sorted: %v", ambiguous.Paths)
 
@@ -191,7 +191,7 @@ func TestLocate_StopsAtFirstFinderThatYieldsAnyVerifiedCandidateEvenIfAmbiguous(
 	_, err := loc.Locate(context.Background(), dir, "dup.txt", upload)
 
 	var ambiguous *ErrAmbiguous
-	require.True(t, errors.As(err, &ambiguous))
+	require.ErrorAs(t, err, &ambiguous)
 	assert.Len(t, ambiguous.Paths, 2, "the second finder's candidate must not be consulted once the first is ambiguous")
 	assert.True(t, first.called)
 	assert.False(t, second.called)
@@ -215,7 +215,7 @@ func TestLocate_WrapsAndReturnsARealFinderError(t *testing.T) {
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, boom)
-	assert.False(t, errors.Is(err, ErrNotLocated))
+	assert.NotErrorIs(t, err, ErrNotLocated)
 }
 
 func TestLocate_VerifyCandidatesDropsVanishedCandidateInsteadOfErroring(t *testing.T) {

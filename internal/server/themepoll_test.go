@@ -102,7 +102,7 @@ func TestThemePoller_Tick_BroadcastsExactlyOnceOnChangeZeroTimesOtherwise(t *tes
 	require.Equal(t, claudecode.ThemeDark, p.Current())
 	b.reset()
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		p.tick(context.Background())
 	}
 	assert.Equal(t, 0, b.count(), "three ticks reading the same family must not broadcast at all")
@@ -203,7 +203,7 @@ func TestThemePoller_NeverWritesTheConfigFile(t *testing.T) {
 	b := &recordingThemeBroadcaster{}
 	p := newThemePoller(path, claudecode.ReadThemeFamily, time.Hour, b.broadcast, zerolog.Nop())
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		p.tick(context.Background())
 	}
 

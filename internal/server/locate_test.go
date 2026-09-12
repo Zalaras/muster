@@ -93,7 +93,7 @@ func (z *zeroReader) Read(p []byte) (int, error) {
 	if n > z.remaining {
 		n = z.remaining
 	}
-	for i := int64(0); i < n; i++ {
+	for i := range n {
 		p[i] = 0
 	}
 	z.remaining -= n
@@ -344,7 +344,7 @@ func TestHandleLocateFile_OutcomesMatchLocatorResult(t *testing.T) {
 		dir := t.TempDir()
 		onDisk := []byte("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
 		upload := []byte("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB")
-		require.Equal(t, len(onDisk), len(upload))
+		require.Len(t, upload, len(onDisk))
 		require.NoError(t, os.WriteFile(filepath.Join(dir, "same-size.txt"), onDisk, 0o644))
 		id := newLocateTestSession(t, srv, dir)
 

@@ -2,10 +2,8 @@ package claudecode
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -217,7 +215,7 @@ func TestFetchUsage_5xxReturnsGenericErrorNotUnauthorized(t *testing.T) {
 	_, err := FetchUsage(context.Background(), srv.Client(), srv.URL, "tok")
 
 	require.Error(t, err)
-	assert.False(t, errors.Is(err, ErrUnauthorized), "a 500 must map to the generic 'unreachable' error kind upstream, not unauthorized")
+	assert.NotErrorIs(t, err, ErrUnauthorized, "a 500 must map to the generic 'unreachable' error kind upstream, not unauthorized")
 }
 
 func TestFetchUsage_ConnectionRefusedReturnsError(t *testing.T) {
@@ -255,5 +253,5 @@ func TestFetchUsage_ErrorMessagesNeverContainTheToken(t *testing.T) {
 	_, err := FetchUsage(context.Background(), srv.Client(), srv.URL, token)
 
 	require.Error(t, err)
-	assert.False(t, strings.Contains(err.Error(), token), "FetchUsage's error text must never contain the token")
+	assert.NotContains(t, err.Error(), token, "FetchUsage's error text must never contain the token")
 }

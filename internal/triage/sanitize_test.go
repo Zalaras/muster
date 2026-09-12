@@ -235,7 +235,7 @@ func TestSanitizeLeavesNoStrayAngleBrackets(t *testing.T) {
 		if strings.ContainsRune(got, '>') && !strings.ContainsRune(got, '<') {
 			t.Errorf("Sanitize(%q) = %q: stray '>'", in, got)
 		}
-		for i := 0; i < len(got); i++ {
+		for i := range len(got) {
 			if got[i] == '<' && !marker.MatchString(got[i:]) {
 				t.Errorf("Sanitize(%q) = %q: '<' at %d does not open a marker", in, got, i)
 			}

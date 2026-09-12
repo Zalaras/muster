@@ -939,7 +939,7 @@ func TestSetState_NoopWhenUnchanged(t *testing.T) {
 // unboundedly.
 func TestClosePrompt_BoundedRing(t *testing.T) {
 	sess := newTestSession()
-	for i := 0; i < 9; i++ {
+	for i := range 9 {
 		sess.closePrompt(promptIDFor(i))
 	}
 
@@ -1067,5 +1067,5 @@ func kindName(k claudecode.InputKind) string {
 func TestTruncate(t *testing.T) {
 	assert.Equal(t, "short", truncate("short", 200))
 	assert.Equal(t, "ab", truncate("abcdef", 2))
-	assert.Equal(t, "", truncate("", 5))
+	assert.Empty(t, truncate("", 5))
 }

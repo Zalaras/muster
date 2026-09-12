@@ -75,5 +75,5 @@ func TestVersion_CompareOnlyStrictlyGreaterIsAvailable(t *testing.T) {
 	running := Version{0, 10, 0}
 	assert.LessOrEqual(t, Version{0, 10, 0}.Compare(running), 0, "equal must not report greater")
 	assert.LessOrEqual(t, Version{0, 9, 0}.Compare(running), 0, "older must not report greater")
-	assert.Greater(t, Version{0, 11, 0}.Compare(running), 0, "strictly newer must report greater")
+	assert.Positive(t, Version{0, 11, 0}.Compare(running), "strictly newer must report greater")
 }

@@ -122,7 +122,7 @@ func Sanitize(s string, l Limits) (string, Counts, error) {
 	// 3. Images first: the '!' prefix would otherwise be left stranded by the link pass,
 	// and alt text is a hiding place precisely because it renders only when the image
 	// fails to load. Repeat to a fixed point so nested spans resolve from the inside out.
-	for i := 0; i < 8; i++ {
+	for range 8 {
 		before := s
 		s = replaceCounting(reImage, s, &c.LinksStripped)
 		s = replaceCounting(reLink, s, &c.LinksStripped)

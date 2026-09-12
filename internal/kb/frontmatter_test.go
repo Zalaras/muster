@@ -1,7 +1,6 @@
 package kb
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -51,7 +50,7 @@ func TestParseFrontmatter_RejectsEachMalformedShapeWithItsLineNumber(t *testing.
 			_, _, _, err := ParseFrontmatter([]byte(tc.src))
 			require.Error(t, err)
 			var se *SyntaxError
-			require.True(t, errors.As(err, &se), "want a *SyntaxError, got %T", err)
+			require.ErrorAs(t, err, &se, "want a *SyntaxError, got %T", err)
 			if tc.line > 0 {
 				assert.Equal(t, tc.line, se.Line)
 			}
@@ -78,7 +77,7 @@ func TestParseFrontmatter_FailsAFileThatDoesNotStartWithTheOpener(t *testing.T) 
 		t.Run(name, func(t *testing.T) {
 			_, _, _, err := ParseFrontmatter([]byte(src))
 			var se *SyntaxError
-			require.True(t, errors.As(err, &se))
+			require.ErrorAs(t, err, &se)
 			assert.Equal(t, 1, se.Line)
 			assert.Equal(t, "no frontmatter: file does not start with ---", se.Msg)
 		})

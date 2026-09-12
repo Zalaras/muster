@@ -138,7 +138,7 @@ func TestReadThemeFamily_NeverWritesThePath(t *testing.T) {
 	statBefore, err := os.Stat(path)
 	require.NoError(t, err)
 
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		assert.Equal(t, ThemeLight, ReadThemeFamily(path))
 	}
 

@@ -246,7 +246,7 @@ func TestSetTitle_BroadcastsOnceOnARealChangeZeroOnEdgeCases3And4(t *testing.T) 
 		require.NoError(t, err)
 
 		assert.False(t, changed)
-		assert.Equal(t, before, len(rec.all()))
+		assert.Len(t, rec.all(), before)
 	})
 
 	t.Run("edge case 4: set to the same string as the current override — zero broadcasts, changed=false", func(t *testing.T) {
@@ -263,7 +263,7 @@ func TestSetTitle_BroadcastsOnceOnARealChangeZeroOnEdgeCases3And4(t *testing.T) 
 		require.NoError(t, err)
 
 		assert.False(t, changed)
-		assert.Equal(t, before, len(rec.all()))
+		assert.Len(t, rec.all(), before)
 	})
 
 	t.Run("clearing an existing override: one broadcast, changed=true, falls back to Claude's name", func(t *testing.T) {
@@ -283,7 +283,7 @@ func TestSetTitle_BroadcastsOnceOnARealChangeZeroOnEdgeCases3And4(t *testing.T) 
 		require.NoError(t, err)
 
 		assert.True(t, changed)
-		assert.Equal(t, before+1, len(rec.all()))
+		assert.Len(t, rec.all(), before+1)
 		final, ok := mgr.Get(sess.ID)
 		require.True(t, ok)
 		assert.Nil(t, final.TitleOverride)
@@ -306,7 +306,7 @@ func TestSetTitle_BroadcastsOnceOnARealChangeZeroOnEdgeCases3And4(t *testing.T) 
 		require.NoError(t, err)
 
 		assert.True(t, changed, "titleOverride itself changed (nil -> non-nil) even though the wire title text did not")
-		assert.Equal(t, before+1, len(rec.all()))
+		assert.Len(t, rec.all(), before+1)
 		final, ok := mgr.Get(sess.ID)
 		require.True(t, ok)
 		require.NotNil(t, final.TitleOverride)
@@ -353,7 +353,7 @@ func TestApplyStatus_OverrideSetAndClaudeNameChanges_PersistsButDoesNotBroadcast
 	require.NotNil(t, final.DisplayTitle())
 	assert.Equal(t, "User's Override", *final.DisplayTitle(), "the override still wins on the wire")
 
-	assert.Equal(t, before, len(rec.all()), "REQ-12: a Claude-name-only change behind an override must not broadcast")
+	assert.Len(t, rec.all(), before, "REQ-12: a Claude-name-only change behind an override must not broadcast")
 
 	persisted, err := st.GetSession(ctx, sess.ID)
 	require.NoError(t, err)

@@ -207,7 +207,7 @@ func TestHandlePutPrefs_BroadcastsExactlyOnePrefsMessageToEveryConnectedUISocket
 	wsURL := "ws" + httpSrv.URL[len("http"):] + "/ws"
 
 	var conns []*websocket.Conn
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		c, err := dialWS(t, wsURL, nil)
 		require.NoError(t, err)
 		defer func() { _ = c.CloseNow() }()

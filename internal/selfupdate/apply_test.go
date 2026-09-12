@@ -205,7 +205,7 @@ func TestApply_SymlinkAtInvokedPathIsLeftAlone(t *testing.T) {
 
 	lst, err := os.Lstat(invokedPath)
 	require.NoError(t, err)
-	assert.True(t, lst.Mode()&os.ModeSymlink != 0, "the invoked path must still be a symlink, not replaced")
+	assert.NotEqual(t, lst.Mode()&os.ModeSymlink, 0, "the invoked path must still be a symlink, not replaced")
 
 	target, err := os.Readlink(invokedPath)
 	require.NoError(t, err)

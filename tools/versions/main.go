@@ -149,7 +149,7 @@ func renderTable(rows []claudecode.ObservedVersion) string {
 // suffices — no need to duplicate claudecode's unexported semver comparator here).
 func versionLess(a, b string) bool {
 	pa, pb := strings.Split(a, "."), strings.Split(b, ".")
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if pa[i] != pb[i] {
 			// Numeric compare by length-then-lexical avoids a strconv import for a
 			// three-field, already-validated split.

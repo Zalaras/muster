@@ -406,7 +406,7 @@ func TestCheckLiveness_LeavesAliveSessionsUntouchedWhenPaneExists(t *testing.T) 
 	before := rec.all()
 	mgr.checkLiveness(context.Background())
 
-	assert.Equal(t, len(before), len(rec.all()), "a live pane must not trigger a spurious broadcast")
+	assert.Len(t, rec.all(), len(before), "a live pane must not trigger a spurious broadcast")
 	list := mgr.List()
 	require.Len(t, list, 1)
 	assert.True(t, list[0].Alive)
@@ -435,7 +435,7 @@ func TestCheckLiveness_LeavesAliveUntouchedWhenPaneCheckErrors(t *testing.T) {
 	before := rec.all()
 	mgr.checkLiveness(context.Background())
 
-	assert.Equal(t, len(before), len(rec.all()), "a check error must not trigger a broadcast — the session is left as-is, not flipped")
+	assert.Len(t, rec.all(), len(before), "a check error must not trigger a broadcast — the session is left as-is, not flipped")
 	list := mgr.List()
 	require.Len(t, list, 1)
 	assert.True(t, list[0].Alive, "a transient check error is not a death signal for the periodic poll")
@@ -585,7 +585,7 @@ func TestNudge_PaneStillAliveDoesNotBroadcast(t *testing.T) {
 	before := len(rec.all())
 	mgr.Nudge(context.Background(), sess.ID)
 
-	assert.Equal(t, before, len(rec.all()))
+	assert.Len(t, rec.all(), before)
 	got, _ := mgr.Get(sess.ID)
 	assert.True(t, got.Alive)
 }
@@ -652,7 +652,7 @@ func TestNudge_AnAlreadyDeadSessionIsANoOp(t *testing.T) {
 
 	mgr.Nudge(context.Background(), sess.ID)
 
-	assert.Equal(t, firstCount, len(rec.all()), "a session already flipped dead must not broadcast again")
+	assert.Len(t, rec.all(), firstCount, "a session already flipped dead must not broadcast again")
 }
 
 // TestApplyStatus_PersistsAndBroadcastsOnAChange covers REQ-4's happy path: a status
@@ -720,7 +720,7 @@ func TestApplyStatus_NoChangeDoesNotBroadcast(t *testing.T) {
 	_, err = mgr.ApplyStatus(context.Background(), sess.ID, update)
 	require.NoError(t, err)
 
-	assert.Equal(t, afterFirst, len(rec.all()), "an identical status update must not re-broadcast")
+	assert.Len(t, rec.all(), afterFirst, "an identical status update must not re-broadcast")
 }
 
 func TestApplyStatus_UnknownSessionErrors(t *testing.T) {
@@ -2176,7 +2176,7 @@ func TestSetPinned_NoOpDoesNotPersistOrBroadcast(t *testing.T) {
 
 	require.NoError(t, mgr.SetPinned(context.Background(), a.ID, false)) // already false
 
-	assert.Equal(t, before, len(rec.all()), "D8: a pin call matching the current flag must not broadcast")
+	assert.Len(t, rec.all(), before, "D8: a pin call matching the current flag must not broadcast")
 	afterRow, err := st.GetSession(context.Background(), a.ID)
 	require.NoError(t, err)
 	assert.Equal(t, beforeRow, afterRow, "D8: a pin call matching the current flag must not persist a write")
@@ -2207,7 +2207,7 @@ func TestSetPinned_NoOpWithABystanderGapFromAnEarlierRemoveStillBroadcastsNothin
 
 	require.NoError(t, mgr.SetPinned(context.Background(), a.ID, false)) // a is already unpinned: a literal no-op
 
-	assert.Equal(t, before, len(rec.all()), "D8: a pin call matching the current flag must not broadcast, even with a bystander railPos gap from an earlier Remove")
+	assert.Len(t, rec.all(), before, "D8: a pin call matching the current flag must not broadcast, even with a bystander railPos gap from an earlier Remove")
 	aAfter, err := st.GetSession(context.Background(), a.ID)
 	require.NoError(t, err)
 	cAfter, err := st.GetSession(context.Background(), c.ID)
@@ -2241,7 +2241,7 @@ func TestSetPinned_PinNoOpWithABystanderGapFromAnEarlierRemoveStillBroadcastsNot
 
 	require.NoError(t, mgr.SetPinned(context.Background(), a.ID, true)) // a is already pinned: a literal no-op
 
-	assert.Equal(t, before, len(rec.all()), "D8: a pin call matching the current flag must not broadcast, even with a bystander railPos gap in the pinned block from an earlier Remove")
+	assert.Len(t, rec.all(), before, "D8: a pin call matching the current flag must not broadcast, even with a bystander railPos gap in the pinned block from an earlier Remove")
 	aAfter, err := st.GetSession(context.Background(), a.ID)
 	require.NoError(t, err)
 	cAfter, err := st.GetSession(context.Background(), c.ID)
@@ -2309,7 +2309,7 @@ func TestSetOrder_InvalidRequestReturnsErrInvalidOrderAndChangesNothing(t *testi
 	err = mgr.SetOrder(context.Background(), []int64{a.ID, 999999}, 0) // unknown id
 
 	assert.ErrorIs(t, err, ErrInvalidOrder)
-	assert.Equal(t, before, len(rec.all()))
+	assert.Len(t, rec.all(), before)
 	afterRow, err := st.GetSession(context.Background(), a.ID)
 	require.NoError(t, err)
 	assert.Equal(t, beforeRow, afterRow)

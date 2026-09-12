@@ -36,7 +36,7 @@ func TestParseAnchors_RecordsLevelParentAndExtentForEachAnchor(t *testing.T) {
 
 	sess := anchors["sessions"]
 	assert.Equal(t, 2, sess.Level)
-	assert.Equal(t, "", sess.Parent, "a level-two anchor has no parent")
+	assert.Empty(t, sess.Parent, "a level-two anchor has no parent")
 	assert.Equal(t, lineOf("## 3. HTTP"), sess.Start)
 	assert.Equal(t, lineOf("## 4. WebSocket")-1, sess.End, "a ## slice swallows its ### children")
 }

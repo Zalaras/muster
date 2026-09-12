@@ -274,7 +274,7 @@ func TestCheck_FailsCodeFilesOwnedByNoFeatureOnlyOnceAFeatureExists(t *testing.T
 // the wrong feature to dodge the budget (Track 3 batch 5 did exactly that once).
 func TestCheck_PassesWhenARulesFileIsTruncatedToBudget(t *testing.T) {
 	root := newKBRoot(t)
-	for i := 0; i < 60; i++ {
+	for i := range 60 {
 		id := "r" + strings.Repeat("x", i%3) + string(rune('a'+i/3))
 		mustWriteFile(t, root, "docs/rules/"+id+".md", "---\nid: "+id+"\ntype: rule\nstatus: active\ndate: 2026-08-30\nsummary: s\nfeatures: [sessions]\n---\n")
 	}

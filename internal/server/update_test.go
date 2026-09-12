@@ -645,7 +645,7 @@ func TestHandleApplyUpdate_SuccessfulApplyBroadcastsPhasesInOrder(t *testing.T) 
 	require.Equal(t, http.StatusAccepted, rec.Code)
 
 	var phases []string
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		msg := readJSON[updateWireForTest](t, c)
 		require.Equal(t, "update", msg.Type)
 		phases = append(phases, msg.Update.Apply.Phase)
@@ -682,7 +682,7 @@ func TestHandleApplyUpdate_RestartTrueBroadcastsRestartingAndSignalsExactlyOnce(
 	require.Equal(t, http.StatusAccepted, rec.Code)
 
 	var phases []string
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		msg := readJSON[updateWireForTest](t, c)
 		phases = append(phases, msg.Update.Apply.Phase)
 	}

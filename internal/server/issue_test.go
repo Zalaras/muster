@@ -281,7 +281,7 @@ func TestCaptureStore_Put_EvictsOldestByCapturedAtWhenOverCapacity(t *testing.T)
 	base := time.Now().UTC()
 
 	// Insert 8 captures with ids "0".."7", ages descending (id "0" is oldest).
-	for i := 0; i < maxCaptures; i++ {
+	for i := range maxCaptures {
 		cs.put(&issueCapture{id: fmt.Sprintf("%d", i), capturedAt: base.Add(time.Duration(i) * time.Minute)})
 	}
 	require.NotNil(t, cs.reserve("0", base), "sanity: the oldest is present before the 9th arrives")
@@ -313,7 +313,7 @@ func TestRandomCaptureID_Produces32HexCharsAndIsNotConstant(t *testing.T) {
 
 func TestNoteSection_EmptyAndWhitespaceOnlyReturnEmptyString(t *testing.T) {
 	for _, note := range []string{"", "   ", "\n\n\t  \n"} {
-		assert.Equal(t, "", noteSection(note))
+		assert.Empty(t, noteSection(note))
 	}
 }
 

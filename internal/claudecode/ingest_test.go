@@ -2,7 +2,6 @@ package claudecode
 
 import (
 	"encoding/json"
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -148,7 +147,7 @@ func TestParseIngestBody_Drops(t *testing.T) {
 	t.Run("malformed JSON body is an error, not ErrNoSessionID", func(t *testing.T) {
 		_, err := ParseIngestBody([]byte(`not json at all`), KindHook)
 		require.Error(t, err)
-		assert.False(t, errors.Is(err, ErrNoSessionID))
+		assert.NotErrorIs(t, err, ErrNoSessionID)
 	})
 
 	t.Run("empty body is an error", func(t *testing.T) {
@@ -166,13 +165,13 @@ func TestParseIngestBody_Drops(t *testing.T) {
 		// this is a deliberately atypical payload exercising the drop path.
 		_, err := ParseIngestBody([]byte(`{"hook_event_name":"Stop"}`), KindHook)
 		require.Error(t, err)
-		assert.True(t, errors.Is(err, ErrNoSessionID))
+		assert.ErrorIs(t, err, ErrNoSessionID)
 	})
 
 	t.Run("empty-string session_id is treated as no usable session_id", func(t *testing.T) {
 		_, err := ParseIngestBody([]byte(`{"hook_event_name":"Stop","session_id":""}`), KindHook)
 		require.Error(t, err)
-		assert.True(t, errors.Is(err, ErrNoSessionID))
+		assert.ErrorIs(t, err, ErrNoSessionID)
 	})
 
 	t.Run("hook body with no hook_event_name and no session_id override is an error", func(t *testing.T) {
@@ -180,7 +179,7 @@ func TestParseIngestBody_Drops(t *testing.T) {
 		// distinct code path from ErrNoSessionID (session_id is present here).
 		_, err := ParseIngestBody([]byte(`{"session_id":"e2e-s5"}`), KindHook)
 		require.Error(t, err)
-		assert.False(t, errors.Is(err, ErrNoSessionID))
+		assert.NotErrorIs(t, err, ErrNoSessionID)
 	})
 
 	t.Run("enveloped body whose inner payload is malformed is an error", func(t *testing.T) {

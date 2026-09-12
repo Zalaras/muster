@@ -209,7 +209,7 @@ func TestInsertEvent_NullableEnvelopeAndCorrelationFields(t *testing.T) {
 	assert.Nil(t, toolUseID)
 	assert.Nil(t, musterSession)
 	assert.Nil(t, tmuxPane)
-	assert.Equal(t, `{"source":"startup"}`, payload)
+	assert.JSONEq(t, `{"source":"startup"}`, payload)
 	assert.NotEmpty(t, receivedAt)
 }
 
