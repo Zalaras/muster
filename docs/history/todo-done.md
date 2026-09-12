@@ -423,6 +423,38 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
 ## Pre-v1 Cleanup
 <!-- kb: adr/process-composition-roots-registration-only, adr/process-one-name-per-feature, adr/rail-user-owned-manual-order-default, adr/tiles-slot-stable-grid-never-self-sorts, adr/theme-no-traffic-light-state-palette, adr/usage-model-window-polled-from-oauth-api, adr/launch-picker-recent-sidebar-plus-browse-list, adr/tiles-new-session-button-in-toolbar, adr/connection-dashboard-embedded-in-binary, adr/release-builds-cross-compiled-on-linux, adr/release-distribution-github-release-not-brew, adr/release-no-ci-test-job-yet, adr/issue-payload-allowlist-never-dump, adr/process-e2e-explicit-fixtures, adr/process-faked-subprocess-boundary, adr/process-exec-waitdelay-on-pipe-owning-commands, adr/canary-plan-mode-step-three-sole-residual, adr/canary-verified-range-observed-not-pinned, adr/process-repo-public, adr/release-install-front-door-curl-sh, adr/update-check-pref-governs-checking-only, adr/process-transient-displays-not-oracles, adr/triage-program-not-model-between-github-and-todo -->
 
+- [x] **Canary: assert the unguarded facts** ✅ done 2026-09-12 (branch `canary-unguarded-facts`,
+  direct — not through `/orchestrate`: one test package plus records, whose only gate is an
+  interactive `make canary` that has to run in the main session, kb:lesson/subagent-never-woken-by-harness).
+  Raised in Track 3 phase 3 when 22 of 46 fact records were left carrying `guard: none` — a
+  measured claim nobody re-checks, and invisible to `make check`, since `check-kb` only
+  validates a guard that *is* named (`internal/kb/record.go`, `check.go`). **Seven facts gained
+  a guard** and flipped to `verified: <lo>..canary`, at **no extra haiku turns** — the harness
+  still runs A–E: `headless-fires-full-hook-sequence` → `TestHookTransport` (the assertion
+  already existed, only the citation was missing); `local-settings-honoured` →
+  `TestLocalSettingsHonoured`; `config-dir-breaks-oauth` → `TestConfigDirBreaksOAuth` (the run
+  A/run C contrast, plus the isolation half); `sessionend-reason-ambiguous` →
+  `TestSessionEndReasonAmbiguous`; `clear-mints-new-session-id` → `TestClearMintsNewSessionID`;
+  `refresh-interval-seconds` → `TestRefreshIntervalIsSeconds`;
+  `shift-tab-mode-cycle-fires-no-hook` → `TestShiftTabFiresNoHook` (not in the original list —
+  it postdated it — but zero-token in the same window). Run D's ~60 s wait for `idle_prompt`
+  became a keystroke tier: `S-Tab`, then `/clear`, then the kill
+  (kb:adr/canary-run-d-holds-two-claude-sessions) — so one `$MUSTER_SESSION` now spans two
+  claude sessions and three existing status-line tests filter on `preClearClaudeID()`. The
+  canary also writes one settings key production omits, `statusLine.refreshInterval`
+  (kb:adr/canary-refresh-interval-key-canary-only): without it an idle managed session posts
+  nothing and the fact has nothing to observe. Measured on the verifying run (2.1.269,
+  first green, no reruns): 13 idle status posts over 60.19 s, mean gap 4.63 s, widest 5.021 s;
+  the same run extended the verified range to 2.1.269. **Deliberately still `guard: none`** (15
+  records, all rituals with a stated reason): `status-session-name-source` — reclassified from
+  the automatable list, because a one-turn session may never derive a name, so the assertion
+  would pass or fail on luck; `permission-request-races-terminal-prompt` (a race);
+  `trust-prompt-preselects-yes` (`status: retired`); and the 12 already named
+  (`permission-mode-auto-model-gated`, `status-line-has-no-model-bucket`, `fable-model-alias`,
+  `trust-prompt-preselects-exit`, `stopfailure-error-taxonomy`, `hooks-not-awaited-on-failure-exit`,
+  `subagent-hooks-carry-agent-id`, `background-tasks-field`, `background-completion-new-prompt-id`,
+  `subagent-permission-request-marked`, `status-posts-arrive-in-pairs`, `hook-delivery-best-effort`).
+
 - [x] **Make the project knowledge searchable as it grows** ✅ done 2026-09-12 (Track 3, direct on `main`, 32 commits b0545e7..HEAD) (Track 3; planned 2026-09-11, executing
   directly on `main` in ~13 sessions; plan and appendices in `~/.claude/plans/alright-i-ve-put-in-wild-sifakis*.md`).
   Knowledge becomes typed records with strict frontmatter — decisions as ADRs (one per question,
