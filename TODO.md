@@ -65,13 +65,10 @@ All items done — see `docs/history/todo-done.md` § "M4 — Durability → v1 
   `TestCommandHookPathQuoting`); the pin-bump gate. Burns real subscription per run.
 
 ## Pre-v1 Cleanup
-These are some minor changes and cleanup needed before we can move into post v1.
 
-- [ ] **Cutting v1.0.0 is the act of removing `--v0`** (settled 2026-09-01, `docs/history/spec-changelog.md`):
-  `release.yml` passes `svu next --v0`, so while the flag exists a 1.0.0 cannot be cut, by
-  accident or otherwise. When the pre-v1 sections here close, v1 ships as one deliberate commit
-  that deletes the flag and carries `feat!:` (`MUSTER_BREAKING=1`, human-set — the commit-msg
-  hook gates it). Until then `!` on 0.x just bumps minor and records the breakage.
+Everything below is now blocking a v1 release (Damian, 2026-09-12: no v1 until all of it is
+in) — a mix of small cleanup and full features that used to be filed as post-v1. **Cutting
+v1.0.0 (last below) is the final step, done only once everything above it has landed.**
 
 - [ ] **Text-size setting** — `prefs.textSize` enum (`small | medium | large`), a Settings-dialog
   segmented control beside Theme, `<html data-text-size>` driving `--fs-root`, and the first-paint
@@ -100,26 +97,6 @@ These are some minor changes and cleanup needed before we can move into post v1.
   `docs/claude-code-versions.md` (canary → extend the verified range → README → commit). Deferred
   until upgrades are routine; the doc alone suffices. Carried from the retired session plan
   (`next-steps.md` §6, deleted 2026-09-11).
-
-## Reported issues (pre-v1 release)
-
-All items done — see `docs/history/todo-done.md` § "Reported issues".
-
-Issues filed from the dashboard's masthead `Issue` button land on
-[`Zalaras/muster`](https://github.com/Zalaras/muster/issues) and are triaged into this file by
-**`/triage`**: muster creates issues and does nothing else with them — no reading, no labels, no
-status sync (`SPEC.md` 2026-08-31 changelog, `plans/issue-capture/plan.md` §Overview). An issue
-counts as triaged iff its `issues/N` link appears in this file or in `docs/history/todo-done.md`
-(ticked entries move there), so **every entry in either file must keep its full markdown link** — a bare `#N` is a cross-reference and does not mark an issue triaged.
-Closing happens when the fix lands: `/land` puts `closes #N` in the squash subject
-(`docs/conventions.md` § Commits), and `/triage --audit` reports any issue whose entry is ticked
-while the issue is still open.
-
-Open entries below are in **Damian's priority order** (set 2026-09-01), not issue-number or
-filing order: #3 → #8 → #11 → #12 → #13, then the rest. Keep new entries appended at the end
-unless he re-ranks — don't re-sort this list.
-
-## M5+ (v1.x, re-rank when reached)
 
 - [ ] **Markdown viewing** — render a session's markdown files in the dashboard, including
   whatever plan a Claude Code session is working from.
@@ -187,6 +164,12 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
   is measured-correct and ships one file, no build/distribution story); revisit if the
   per-event cost is ever felt on a tool-heavy turn.
 
+- [ ] **`isThemeChoice` should derive from the theme registry** — `web/src/features/settings.ts` (moved from `render/` by plan `code-breakup`)
+  hard-codes the four radio values instead of reading `THEMES`, so adding a theme (REQ-1's
+  "one block plus one registry entry") would silently leave its radio dead until this guard
+  is also edited. Suggested: `value === "follow" || (THEMES as readonly string[]).includes(value)`.
+  Cite: `plans/new-ui-design-colors/review.md` (cycle 1, Minor 1, `[web-impl]`).
+
 - [ ] **A Homebrew tap** — **split out of the installer item above on 2026-09-10** (Damian:
   "we'll skip brew for now"). Deferred originally because a *private* tap needs
   `GitHubPrivateRepositoryReleaseDownloadStrategy` plus a permanent
@@ -244,11 +227,34 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
   `musterd -version` → `brew audit --cask --strict --online`. Note the cask is only pushed on a
   tagged release, so the first true end-to-end test costs a version bump.
 
-- [ ] **`isThemeChoice` should derive from the theme registry** — `web/src/features/settings.ts` (moved from `render/` by plan `code-breakup`)
-  hard-codes the four radio values instead of reading `THEMES`, so adding a theme (REQ-1's
-  "one block plus one registry entry") would silently leave its radio dead until this guard
-  is also edited. Suggested: `value === "follow" || (THEMES as readonly string[]).includes(value)`.
-  Cite: `plans/new-ui-design-colors/review.md` (cycle 1, Minor 1, `[web-impl]`).
+- [ ] **Cutting v1.0.0 is the act of removing `--v0`** (settled 2026-09-01, `docs/history/spec-changelog.md`):
+  `release.yml` passes `svu next --v0`, so while the flag exists a 1.0.0 cannot be cut, by
+  accident or otherwise. When every item above closes, v1 ships as one deliberate commit
+  that deletes the flag and carries `feat!:` (`MUSTER_BREAKING=1`, human-set — the commit-msg
+  hook gates it). Until then `!` on 0.x just bumps minor and records the breakage.
+
+## Reported issues (pre-v1 release)
+
+All items done — see `docs/history/todo-done.md` § "Reported issues".
+
+Issues filed from the dashboard's masthead `Issue` button land on
+[`Zalaras/muster`](https://github.com/Zalaras/muster/issues) and are triaged into this file by
+**`/triage`**: muster creates issues and does nothing else with them — no reading, no labels, no
+status sync (`SPEC.md` 2026-08-31 changelog, `plans/issue-capture/plan.md` §Overview). An issue
+counts as triaged iff its `issues/N` link appears in this file or in `docs/history/todo-done.md`
+(ticked entries move there), so **every entry in either file must keep its full markdown link** — a bare `#N` is a cross-reference and does not mark an issue triaged.
+Closing happens when the fix lands: `/land` puts `closes #N` in the squash subject
+(`docs/conventions.md` § Commits), and `/triage --audit` reports any issue whose entry is ticked
+while the issue is still open.
+
+Open entries below are in **Damian's priority order** (set 2026-09-01), not issue-number or
+filing order: #3 → #8 → #11 → #12 → #13, then the rest. Keep new entries appended at the end
+unless he re-ranks — don't re-sort this list.
+
+## M5+ (v1.x, re-rank when reached)
+
+Empty as of 2026-09-12 — everything formerly here now blocks v1 (see Pre-v1 Cleanup above).
+New post-v1 ideas go here.
 
 ## Open questions carried forward
 
