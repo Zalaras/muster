@@ -136,18 +136,6 @@ These are some minor changes and cleanup needed before we can move into post v1.
   every later self-update trusts the compiled-in key. Cheap once the key exists (`minisign -V`
   when the binary is on PATH, otherwise a warning naming it); out of scope for `auto-update`.
 
-- [ ] Bump Vitest 4 → 5. Deliberately held out of the 2026-09-11 dependency pass (Damian:
-  handle the major in its own session). The tree is already on its floor (Node 24.21, Vite 8.3;
-  Vitest 5 needs Node ≥22.12 and Vite ≥6.4), so nothing blocks it. One breaking change bites:
-  **Vitest 5 clears mocks by default before each test** and `web/vitest.config.ts` sets no
-  `clearMocks`, so any mock configured outside `beforeEach` comes back cleared — six files use
-  `vi.fn`/`vi.mock` (`src/api.test.ts` and `src/render/masthead.test.ts` 32 uses each,
-  `src/ws.test.ts` 14, plus `render/tiledrag`, `render/update`, `render/dead`). Prefer fixing
-  the tests that relied on cross-test mock state over pinning `clearMocks: false`. The rest of
-  its breaking list misses this suite: no snapshots, no jsdom/happy-dom, `it.each` uses printf
-  placeholders not `$` variables, `sequential` unused, and the config sits in `web/` so the
-  ancestor-lookup change is moot.
-
 ## Reported issues (pre-v1 release)
 
 All items done — see `docs/history/todo-done.md` § "Reported issues".

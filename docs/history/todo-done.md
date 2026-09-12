@@ -948,6 +948,32 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
   issues render from enums plus one verbatim-checked quote, so no model-authored prose
   reaches this file. Design and residual risks: `docs/design/triage-hardening.md`.
 
+- [x] Bump Vitest 4 → 5 ✅ done 2026-09-12 (direct on `main`, no pipeline). Deliberately held
+  out of the 2026-09-11 dependency pass (Damian: handle the major in its own session). Vitest
+  5.0.0 needs Node ≥22.12 and Vite ≥6.4 and the tree was already past both (Node 24.21, Vite
+  8.3), so `vitest` was the only package that moved — there is no `@vitest/ui`, coverage or
+  browser package here. **No test needed changing.** The entry's stated risk did not hold:
+  Vitest 5's new `clearMocks: true` default clears mock *call history only* — `mockClear()`
+  resets `calls`/`contexts`/`instances`/`invocationCallOrder`/`results`/`settledResults` and
+  leaves implementations and the `…Once` queue to `mockReset()`, whose default is unchanged
+  (`@vitest/spy/dist/index.js:142` and `:151`; the migration guide says the same). The clear
+  also runs in `onBeforeTryTask`, *before* `beforeEach`, so anything a hook configures is safe
+  by construction. The one breaking pattern — call history accumulated in a `beforeAll` or an
+  earlier `it` — appears nowhere in `web/src`: zero `beforeAll`, zero `vi.spyOn`, no mock
+  implementation or return value configured outside a hook or a test body, and every
+  call-count assertion intra-test. The two longest-lived mocks already defend themselves —
+  `render/tiledrag.test.ts:108` calls `mockReset()` in `beforeEach` and `render/dead.test.ts:19`
+  calls `vi.resetAllMocks()` in `afterEach`, both stricter than the new default. (Eight files
+  touch `vi.*`, not six: this entry had missed `render/sessions.test.ts` and
+  `terminal/notice.test.ts`, both `vi.stubGlobal`/fake-timers only.) The rest of the v5
+  breaking list missed this suite as predicted — top-level-only `vi.mock`/`vi.hoisted`, no
+  unawaited `.resolves`/`.rejects`, no `expect.poll`, no `sequential`, no `bench`, no removed
+  entry points, config in `web/` so the dropped parent-dir search is moot. Also dropped
+  `passWithNoTests: true` from `web/vitest.config.ts` — vestigial since M0 and now able only to
+  hide an `include` glob that stops matching. Evidence: `make web-test` → 31 files / 1446 tests
+  passed on v5.0.0, `make check` green, `make e2e` → 302 passed, and no `clearMocks` pin in the
+  config.
+
 ## Reported issues (pre-v1 release)
 <!-- kb: adr/surfaces-tmux-preflight-at-startup, adr/theme-two-layer-tokens-not-white-label, adr/drop-daemon-locates-original-never-stages, adr/focus-rail-click-focuses-terminal, adr/launch-permission-modes-offered-four-tabbed, adr/surfaces-scroll-speed-via-launch-env, adr/surfaces-scrollback-affordance-not-built, adr/shortcuts-option-command-family-off-reserved-chords, adr/rename-muster-owned-title-override-wins, adr/lifecycle-subagent-marked-events-not-stragglers, adr/rail-current-marker-means-shown-in-focus, adr/theme-contrast-floors-above-aa, adr/theme-type-scale-tokens-15px-root, adr/surfaces-shell-is-attach-target-not-session -->
 
