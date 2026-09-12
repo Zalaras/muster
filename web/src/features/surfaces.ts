@@ -9,6 +9,7 @@
 // order — tiles needs `surfaces.get`/`select` at render time), so this closes over the
 // later `const` rather than taking a value now.
 import type { App, RenderFrame } from "../app";
+import type { Session } from "../protocol";
 import { createShell } from "../api";
 import { showDeadSurfaceNotice, type DeadSurfaceRefs } from "../render/dead";
 import { TerminalSurface } from "../terminal/pane";
@@ -83,34 +84,45 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
     });
   }
 
-  // Render phase 7 (UI Specifications > Render phase order): open/close diff over
-  // `(id, kind)` keys against the current view's visible ids.
-  app.onRender((frame: RenderFrame) => {
-    const { sessions } = frame;
-    const visibleIds =
-      app.state.view === "focus"
-        ? app.state.focusedId !== null
-          ? [app.state.focusedId]
-          : []
-        : deps.tilesLive();
-    const desiredEntries: Array<{ id: number; kind: SurfaceKind }> = [];
-    for (const id of visibleIds) {
+  /** The ids the current view can show a surface for: the focused one in focus view, every
+   * live tile otherwise. */
+  function visibleSessionIds(): readonly number[] {
+    if (app.state.view !== "focus") return deps.tilesLive();
+    return app.state.focusedId !== null ? [app.state.focusedId] : [];
+  }
+
+  /** The `(id, kind)` pairs that should have a mounted surface right now — a visible
+   * session that still exists and is attachable, at whichever surface it has selected. */
+  function desiredSurfaceEntries(
+    sessions: readonly Session[],
+  ): Array<{ id: number; kind: SurfaceKind }> {
+    const entries: Array<{ id: number; kind: SurfaceKind }> = [];
+    for (const id of visibleSessionIds()) {
       const session = sessions.find((s) => s.id === id);
       if (!session) continue;
-      const surfaceState = getSurfaceState(surfaceSwitchState, id);
-      if (isSurfaceAttachable(surfaceSwitchState, id, session.alive)) {
-        desiredEntries.push({ id, kind: surfaceState.selected });
-      }
+      if (!isSurfaceAttachable(surfaceSwitchState, id, session.alive)) continue;
+      entries.push({ id, kind: getSurfaceState(surfaceSwitchState, id).selected });
     }
-    const desiredKeys = new Set(desiredEntries.map((entry) => surfaceKey(entry.id, entry.kind)));
+    return entries;
+  }
 
+  /** Disposes every mounted surface the current frame no longer wants. */
+  function closeSurfacesNotIn(desiredKeys: ReadonlySet<string>): void {
     for (const [key, surface] of surfaces) {
       if (!desiredKeys.has(key)) {
         surface.dispose();
         surfaces.delete(key);
       }
     }
-    for (const entry of desiredEntries) {
+  }
+
+  /** Constructs a `TerminalSurface` for every wanted `(id, kind)` that has none yet — the
+   * only place in the app one is ever constructed. */
+  function openMissingSurfaces(
+    entries: ReadonlyArray<{ id: number; kind: SurfaceKind }>,
+    sessions: readonly Session[],
+  ): void {
+    for (const entry of entries) {
       const key = surfaceKey(entry.id, entry.kind);
       if (surfaces.has(key)) continue;
       const session = sessions.find((s) => s.id === entry.id);
@@ -118,6 +130,16 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
       const onShellEnded = entry.kind === "shell" ? () => handleShellEnded(entry.id) : undefined;
       surfaces.set(key, new TerminalSurface(session, entry.kind, onShellEnded));
     }
+  }
+
+  // Render phase 7 (UI Specifications > Render phase order): open/close diff over
+  // `(id, kind)` keys against the current view's visible ids.
+  app.onRender((frame: RenderFrame) => {
+    const { sessions } = frame;
+    const desiredEntries = desiredSurfaceEntries(sessions);
+    const desiredKeys = new Set(desiredEntries.map((entry) => surfaceKey(entry.id, entry.kind)));
+    closeSurfacesNotIn(desiredKeys);
+    openMissingSurfaces(desiredEntries, sessions);
   });
 
   app.on("sessionRemoved", (id) => {

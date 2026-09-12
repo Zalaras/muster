@@ -61,14 +61,19 @@ export function initActions(app: App, deps: ActionsDeps): ActionsHandle {
 
   /** Prunes the dead-pane tracking maps to the current session id set, then invalidates
    * any cache entry whose session just transitioned alive -> dead this pass. */
-  function updateDeadPaneTracking(sessions: readonly Session[]): void {
-    const ids = new Set(sessions.map((s) => s.id));
+  /** Drops both per-session maps' entries for sessions the store no longer carries, so a
+   * removed id cannot leak a stale liveness flag or a stale captured pane. */
+  function forgetSessionsNotIn(ids: ReadonlySet<number>): void {
     for (const id of previousAlive.keys()) {
       if (!ids.has(id)) previousAlive.delete(id);
     }
     for (const id of deadPaneCache.keys()) {
       if (!ids.has(id)) deadPaneCache.delete(id);
     }
+  }
+
+  function updateDeadPaneTracking(sessions: readonly Session[]): void {
+    forgetSessionsNotIn(new Set(sessions.map((s) => s.id)));
     for (const session of sessions) {
       const wasAlive = previousAlive.get(session.id);
       if (wasAlive === true && !session.alive) deadPaneCache.delete(session.id);

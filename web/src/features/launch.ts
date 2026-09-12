@@ -421,6 +421,38 @@ export function initLaunchModal(
   // descend (Enter already works for free — it's a <button>); ← is ⌘↑'s synonym, but only
   // when focus is inside the listing (the window-level handler above covers the ⌘↑ case
   // everywhere else, so this bows out whenever the meta key is held).
+  /** Roving-focus arrow handling for the browse list. Returns false for any key the list
+   * does not own, so the caller leaves that event entirely alone. */
+  function handleBrowseArrowKey(
+    key: string,
+    entries: readonly HTMLButtonElement[],
+    activeIndex: number,
+  ): boolean {
+    switch (key) {
+      case "ArrowDown":
+        entries[(activeIndex + 1 + entries.length) % entries.length]?.focus();
+        return true;
+      case "ArrowUp":
+        entries[(activeIndex - 1 + entries.length) % entries.length]?.focus();
+        return true;
+      case "ArrowRight": {
+        const dir = current?.dirs[activeIndex];
+        if (dir) void navigate(dir.path).then(() => focusFirstEntry());
+        return true;
+      }
+      case "ArrowLeft":
+        // `null` means there was no parent crumb — a genuine no-op — so focus stays put
+        // instead of re-anchoring to the (unchanged) first entry (review Minor: a no-op
+        // ascend must not jump focus).
+        void navigateUp().then((result) => {
+          if (result !== null) focusFirstEntry();
+        });
+        return true;
+      default:
+        return false;
+    }
+  }
+
   elements.browseDirs.addEventListener("keydown", (event) => {
     if (event.metaKey || event.altKey) return;
     const entries = Array.from(
@@ -428,25 +460,7 @@ export function initLaunchModal(
     );
     if (entries.length === 0) return;
     const activeIndex = entries.indexOf(document.activeElement as HTMLButtonElement);
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      entries[(activeIndex + 1 + entries.length) % entries.length]?.focus();
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      entries[(activeIndex - 1 + entries.length) % entries.length]?.focus();
-    } else if (event.key === "ArrowRight") {
-      event.preventDefault();
-      const dir = current?.dirs[activeIndex];
-      if (dir) void navigate(dir.path).then(() => focusFirstEntry());
-    } else if (event.key === "ArrowLeft") {
-      event.preventDefault();
-      // `null` means there was no parent crumb — a genuine no-op — so focus stays put
-      // instead of re-anchoring to the (unchanged) first entry (review Minor: a no-op
-      // ascend must not jump focus).
-      void navigateUp().then((result) => {
-        if (result !== null) focusFirstEntry();
-      });
-    }
+    if (handleBrowseArrowKey(event.key, entries, activeIndex)) event.preventDefault();
   });
 
   for (const radio of elements.modelRadios) {

@@ -357,6 +357,12 @@ function isModelScopedError(value: unknown): value is ModelScopedError {
   return value === "no-credentials" || value === "unauthorized" || value === "unreachable";
 }
 
+/** Scores 33 on cognitive complexity, all of it flat guards plus the one-level
+ * `if ("key" in value)` blocks that implement present-only additive evolution
+ * (kb:anchor/conventions). Each block carries the comment explaining why an absent key
+ * must stay absent rather than become `null`; splitting the function strands those
+ * comments away from the fields they govern. */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: flat guards plus present-only key blocks whose comments must stay with their fields
 function parseUsage(value: unknown): Usage | null {
   if (!isRecord(value)) return null;
   const rawFiveHour = value["fiveHour"];
@@ -576,7 +582,13 @@ function parseContext(value: unknown): SessionContext | null {
 
 /** Validates one Session object per kb:anchor/ws.session. Every field is read-checked;
  * an unrecognized field name or type anywhere in the object rejects the whole session
- * (the caller drops the snapshot/upsert rather than render a half-formed card). */
+ * (the caller drops the snapshot/upsert rather than render a half-formed card).
+ *
+ * Scores 35 on cognitive complexity, but every point is a flat `return null` guard at
+ * zero nesting — the score tracks the wire object's field count, not any tangle.
+ * Splitting it would scatter the "any bad field rejects the whole session" invariant
+ * across several functions, where no single reader or test sees it whole. */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: flat per-field guards; a split strands the all-or-nothing invariant
 export function parseSession(value: unknown): Session | null {
   if (!isRecord(value)) return null;
 

@@ -1,7 +1,7 @@
 // Rail cards (docs/protocol.md UI Specifications > Rail; design-system §5 card anatomy).
 // DOM only — every displayed string comes from ../sessions/card.ts's pure view-model.
 import type { Session } from "../protocol";
-import { buildCardViewModel, type CardAction } from "../sessions/card";
+import { buildCardViewModel, type CardAction, type CardViewModel } from "../sessions/card";
 import { renderContextRow } from "./context";
 import { captureFocusedControl, restoreFocusedControl, type FocusedControl } from "./focus";
 
@@ -98,6 +98,45 @@ function reconcileActsRow(
   );
 }
 
+/** Writes the card's per-render text into the slots the template already built. Each slot
+ * is optional because the two callers share one markup template but the honest-empty-state
+ * Vitest fixtures build only the subset they assert on. */
+function applyCardText(card: HTMLElement, vm: CardViewModel, session: Session): void {
+  const name = card.querySelector<HTMLElement>(".name");
+  if (name) name.textContent = vm.title;
+
+  const badge = card.querySelector<HTMLElement>(".badge");
+  if (badge) badge.textContent = vm.badge;
+
+  const timer = card.querySelector<HTMLElement>(".timer");
+  if (timer) timer.textContent = vm.timer;
+
+  const repoLine = card.querySelector<HTMLElement>(".r2");
+  if (repoLine) repoLine.textContent = vm.repoLine;
+
+  const contextRow = card.querySelector<HTMLElement>(".r3");
+  if (contextRow) renderContextRow(contextRow, session.context, "r3");
+
+  const activity = card.querySelector<HTMLElement>(".activity");
+  if (activity) {
+    activity.hidden = vm.activity === null;
+    activity.textContent = vm.activity ?? "";
+  }
+
+  const note = card.querySelector<HTMLElement>(".note");
+  if (note) {
+    note.hidden = vm.noteText === null;
+    note.textContent = vm.noteText ?? "";
+    // Only "failure" gets the rose-border visual treatment (design-system §5: the
+    // trust-prompt and no-signal notes are sanctioned to render as a plain amber note,
+    // same as "attention" — see review m1-sessions cycle-2 note on this). The full
+    // NoteKind (including "trust"/"no-signal") is still carried onto the DOM via
+    // data-note-kind below so the distinction isn't discarded outright (review Minor 3).
+    note.className = vm.noteKind === "failure" ? "note fail" : "note";
+    note.dataset.noteKind = vm.noteKind;
+  }
+}
+
 /** Refreshes an already-built card's mutable content in place from the shared
  * view-model — never touches the click/keydown listeners `buildSessionCardElement`
  * wires up once, and (via `reconcileActsRow`) never destroys an action button that
@@ -135,39 +174,7 @@ function updateSessionCardContent(
   if (isCurrent) card.setAttribute("aria-current", "true");
   else card.removeAttribute("aria-current");
 
-  const name = card.querySelector<HTMLElement>(".name");
-  if (name) name.textContent = vm.title;
-
-  const badge = card.querySelector<HTMLElement>(".badge");
-  if (badge) badge.textContent = vm.badge;
-
-  const timer = card.querySelector<HTMLElement>(".timer");
-  if (timer) timer.textContent = vm.timer;
-
-  const repoLine = card.querySelector<HTMLElement>(".r2");
-  if (repoLine) repoLine.textContent = vm.repoLine;
-
-  const contextRow = card.querySelector<HTMLElement>(".r3");
-  if (contextRow) renderContextRow(contextRow, session.context, "r3");
-
-  const activity = card.querySelector<HTMLElement>(".activity");
-  if (activity) {
-    activity.hidden = vm.activity === null;
-    activity.textContent = vm.activity ?? "";
-  }
-
-  const note = card.querySelector<HTMLElement>(".note");
-  if (note) {
-    note.hidden = vm.noteText === null;
-    note.textContent = vm.noteText ?? "";
-    // Only "failure" gets the rose-border visual treatment (design-system §5: the
-    // trust-prompt and no-signal notes are sanctioned to render as a plain amber note,
-    // same as "attention" — see review m1-sessions cycle-2 note on this). The full
-    // NoteKind (including "trust"/"no-signal") is still carried onto the DOM via
-    // data-note-kind below so the distinction isn't discarded outright (review Minor 3).
-    note.className = vm.noteKind === "failure" ? "note fail" : "note";
-    note.dataset.noteKind = vm.noteKind;
-  }
+  applyCardText(card, vm, session);
 
   // REQ-11: End on a live card, Resume+Remove on an ended one — `vm.actions` already
   // carries the exact label set and order (sessions/card.ts). Resume additionally needs
@@ -297,6 +304,33 @@ export function updateSessionCardElement(
   );
 }
 
+/** Clears stray non-element children (e.g. the honest-empty-state's lone text node, left
+ * behind when the session list goes from empty to non-empty) and indexes the surviving
+ * cards by the `data-session-id` reconciliation key. */
+function indexCardsBySessionId(container: HTMLElement): Map<number, HTMLElement> {
+  for (const node of Array.from(container.childNodes)) {
+    if (!(node instanceof HTMLElement)) node.remove();
+  }
+  const byId = new Map<number, HTMLElement>();
+  for (const child of Array.from(container.children)) {
+    if (!(child instanceof HTMLElement)) continue;
+    const id = Number(child.dataset["sessionId"]);
+    if (Number.isFinite(id)) byId.set(id, child);
+  }
+  return byId;
+}
+
+/** Plan order-sidebar REQ-9: the last pinned entry in display order, which decides which
+ * card carries `pinned-last`. Depends on the whole ordered list, so it is computed up
+ * front rather than folded into the render loop. */
+function lastPinnedSessionId(sessions: readonly Session[]): number | undefined {
+  let lastPinnedId: number | undefined;
+  for (const session of sessions) {
+    if (session.pinned) lastPinnedId = session.id;
+  }
+  return lastPinnedId;
+}
+
 /** Reconciles `container`'s card children against `sessions`, matching existing DOM
  * nodes by session id — the same pattern `features/tiles.ts`'s `reconcileTilesGrid` already uses
  * for tiles, for the identical reason (review m2-terminal Critical 2 / m4-reconcile
@@ -332,20 +366,7 @@ export function reconcileCards(
   // so a strip card is never current (INV-3).
   currentId: number | null = null,
 ): void {
-  // Drop any stray non-element children (e.g. the honest-empty-state's lone text node,
-  // left behind when the session list goes from empty to non-empty) before reconciling —
-  // `container.children` below only enumerates elements, so a leftover text node would
-  // otherwise survive untouched alongside the reconciled cards.
-  for (const node of Array.from(container.childNodes)) {
-    if (!(node instanceof HTMLElement)) node.remove();
-  }
-
-  const existingById = new Map<number, HTMLElement>();
-  for (const child of Array.from(container.children)) {
-    if (!(child instanceof HTMLElement)) continue;
-    const id = Number(child.dataset["sessionId"]);
-    if (Number.isFinite(id)) existingById.set(id, child);
-  }
+  const existingById = indexCardsBySessionId(container);
 
   // review m4-reconcile cycle-3 Minor 1: the reorder below can blur a focused card or
   // action button (see render/focus.ts for the measured mechanism). Snapshot the focused
@@ -363,10 +384,7 @@ export function reconcileCards(
   // in the one pass `updateSessionCardContent` already makes (no second DOM-touching
   // pass, and no dependency on `classList`, which the codebase never uses elsewhere here
   // — every other modifier on this element is folded into the same `className` string).
-  let lastPinnedId: number | undefined;
-  for (const session of sessions) {
-    if (session.pinned) lastPinnedId = session.id;
-  }
+  const lastPinnedId = lastPinnedSessionId(sessions);
 
   const seen = new Set<number>();
   let previous: HTMLElement | null = null;

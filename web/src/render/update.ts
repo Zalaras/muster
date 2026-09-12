@@ -41,6 +41,42 @@ export interface UpdateViewModel {
   busy: boolean;
 }
 
+/** The "Available" readout (UI Specifications > Text rules table). A development build and
+ * a disabled check each say so rather than showing a version, so the row never implies a
+ * check that did not happen. */
+function availableText(update: UpdateInfo, updateCheck: boolean, isDev: boolean): string {
+  if (isDev) return "not checked (development build)";
+  if (!updateCheck) return "checking disabled";
+  if (update.available !== null) return `v${update.available}`;
+  if (update.checkedAt === null) return "not checked yet";
+  return "up to date";
+}
+
+/** The status line under the buttons (UI Specifications > Text rules table). Apply-phase
+ * progress wins over the "installed, awaiting restart" line, which in turn wins over a
+ * standing remedy. */
+function statusText(update: UpdateInfo): string {
+  switch (update.apply.phase) {
+    case "downloading":
+      return `Downloading v${update.apply.version ?? ""}…`;
+    case "verifying":
+      return `Verifying v${update.apply.version ?? ""}…`;
+    case "installing":
+      return `Installing v${update.apply.version ?? ""}…`;
+    case "restarting":
+      return "Restarting musterd…";
+    case "failed":
+      return `Update failed: ${update.apply.error ?? ""}`;
+    case "done":
+      return `Updated to v${update.installed ?? ""}. Restart musterd to finish.`;
+    default:
+      if (update.installed !== null) {
+        return `Updated to v${update.installed ?? ""}. Restart musterd to finish.`;
+      }
+      return update.remedy ?? "";
+  }
+}
+
 /** UI Specifications > Text rules table. `update === null` covers both "before the first
  * snapshot" (the dialog can't be open then anyway — nothing in features/settings.ts opens
  * it before a user click) and edge case 32's permanent
@@ -72,18 +108,7 @@ export function buildUpdateViewModel(
   const isDev = update.install === "dev";
   const running = isDev ? `${update.running} (development build)` : `v${update.running}`;
 
-  let available: string;
-  if (isDev) {
-    available = "not checked (development build)";
-  } else if (!updateCheck) {
-    available = "checking disabled";
-  } else if (update.available !== null) {
-    available = `v${update.available}`;
-  } else if (update.checkedAt === null) {
-    available = "not checked yet";
-  } else {
-    available = "up to date";
-  }
+  const available = availableText(update, updateCheck, isDev);
 
   const phase = update.apply.phase;
   const inFlight = IN_FLIGHT_PHASES.has(phase);
@@ -94,24 +119,7 @@ export function buildUpdateViewModel(
   const updateEnabled = baseEnabled && update.installed === null;
   const restartLabel = update.installed !== null ? "Restart now" : "Update and restart";
 
-  let status: string;
-  if (phase === "downloading") {
-    status = `Downloading v${update.apply.version ?? ""}…`;
-  } else if (phase === "verifying") {
-    status = `Verifying v${update.apply.version ?? ""}…`;
-  } else if (phase === "installing") {
-    status = `Installing v${update.apply.version ?? ""}…`;
-  } else if (phase === "restarting") {
-    status = "Restarting musterd…";
-  } else if (phase === "failed") {
-    status = `Update failed: ${update.apply.error ?? ""}`;
-  } else if (phase === "done" || update.installed !== null) {
-    status = `Updated to v${update.installed ?? ""}. Restart musterd to finish.`;
-  } else if (update.remedy !== null) {
-    status = update.remedy;
-  } else {
-    status = "";
-  }
+  const status = statusText(update);
 
   return {
     running,

@@ -137,13 +137,9 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
     app.render();
   });
 
-  function reconcileTilesGrid(
-    liveSessions: readonly Session[],
-    now: Date,
-    connected: boolean,
-  ): void {
-    const desiredIds = new Set(liveSessions.map((s) => s.id));
-
+  /** Tears down every tile whose session is no longer live, cancelling an in-flight rename
+   * before the node leaves the document. */
+  function dropTilesNotIn(desiredIds: ReadonlySet<number>): void {
     for (const [id, refs] of tileElements) {
       if (!desiredIds.has(id)) {
         refs.rename?.cancel();
@@ -152,6 +148,50 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
         tileElements.delete(id);
       }
     }
+  }
+
+  /** Fills one tile's body slot: the selected surface, or the dead-pane surface when the
+   * session has exited and Claude is the selected surface. Owns the tile's geometry frame
+   * either way, so the two paths cannot disagree about what was rendered. */
+  function renderTileBody(
+    refs: TileRefs,
+    session: Session,
+    selected: SurfaceKind,
+    isNewTile: boolean,
+    now: Date,
+    connected: boolean,
+  ): void {
+    if (session.alive || selected !== "claude") {
+      const surface = deps.getSurfaces().get(session.id, selected);
+      if (surface) {
+        if (isNewTile || refs.bodySlot.firstElementChild !== surface.root) {
+          refs.bodySlot.replaceChildren(surface.root);
+        }
+        surface.refit();
+      }
+      renderTileGeometry(refs, session.alive, surface?.geometry ?? null);
+      return;
+    }
+
+    deps.actions.ensurePaneFetch(session.id);
+    mountTileDeadSurface(
+      refs.bodySlot,
+      session,
+      deps.actions.paneState(session.id),
+      now,
+      connected,
+      deadSurfaceTemplate,
+      deps.actions.dispatch,
+    );
+    renderTileGeometry(refs, false, null);
+  }
+
+  function reconcileTilesGrid(
+    liveSessions: readonly Session[],
+    now: Date,
+    connected: boolean,
+  ): void {
+    dropTilesNotIn(new Set(liveSessions.map((s) => s.id)));
 
     const focused = pendingTileFocus ?? captureFocusedControl(tilesGridEl);
     pendingTileFocus = null;
@@ -178,31 +218,7 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
       previousRoot = refs.root;
 
       const sessionSurfaceState = getSurfaceState(deps.getSurfaces().state(), session.id);
-      const selected = sessionSurfaceState.selected;
-      const showDead = !session.alive && selected === "claude";
-
-      if (!showDead) {
-        const surface = deps.getSurfaces().get(session.id, selected);
-        if (surface) {
-          if (isNewTile || refs.bodySlot.firstElementChild !== surface.root) {
-            refs.bodySlot.replaceChildren(surface.root);
-          }
-          surface.refit();
-        }
-        renderTileGeometry(refs, session.alive, surface?.geometry ?? null);
-      } else {
-        deps.actions.ensurePaneFetch(session.id);
-        mountTileDeadSurface(
-          refs.bodySlot,
-          session,
-          deps.actions.paneState(session.id),
-          now,
-          connected,
-          deadSurfaceTemplate,
-          deps.actions.dispatch,
-        );
-        renderTileGeometry(refs, false, null);
-      }
+      renderTileBody(refs, session, sessionSurfaceState.selected, isNewTile, now, connected);
 
       if (refs.actsEl)
         renderTileFooterActions(refs.actsEl, session, now, connected, deps.actions.dispatch);
