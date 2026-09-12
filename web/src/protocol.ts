@@ -181,7 +181,14 @@ export interface Prefs {
 export type UpdateInstallKind = "installer" | "dev" | "homebrew" | "unmanaged";
 
 // Plan auto-update (kb:anchor/ws.update): apply progress, broadcast on every phase change.
-export type UpdateApplyPhase = "idle" | "downloading" | "verifying" | "installing" | "restarting" | "failed" | "done";
+export type UpdateApplyPhase =
+  | "idle"
+  | "downloading"
+  | "verifying"
+  | "installing"
+  | "restarting"
+  | "failed"
+  | "done";
 
 export interface UpdateApply {
   phase: UpdateApplyPhase;
@@ -561,7 +568,8 @@ function parseContext(value: unknown): SessionContext | null {
   const totalInputTokens = parseNullableNumber(value["totalInputTokens"]);
   const windowSize = parseNullableNumber(value["windowSize"]);
   const compactions = value["compactions"];
-  if (usedPct === undefined || totalInputTokens === undefined || windowSize === undefined) return null;
+  if (usedPct === undefined || totalInputTokens === undefined || windowSize === undefined)
+    return null;
   if (typeof compactions !== "number") return null;
   return { usedPct, totalInputTokens, windowSize, compactions };
 }

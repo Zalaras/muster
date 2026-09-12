@@ -9,7 +9,12 @@
 // each test's daemon, port, and tmux socket are entirely its own.
 import { expect, test } from "./helpers/fixtures";
 import { railCard } from "./helpers/railorder";
-import { currentRailCard, currentStripCard, launchSession, scratchDirectory } from "./helpers/session";
+import {
+  currentRailCard,
+  currentStripCard,
+  launchSession,
+  scratchDirectory,
+} from "./helpers/session";
 import { resolvedCssVar } from "./helpers/theme";
 
 test("the top rail card is current by default, and clicking another card moves the marker (E1)", async ({
@@ -41,7 +46,10 @@ test("the top rail card is current by default, and clicking another card moves t
   }
 });
 
-test("clicking into the live terminal leaves the marker on the clicked-into session (E2)", async ({ page, daemon }) => {
+test("clicking into the live terminal leaves the marker on the clicked-into session (E2)", async ({
+  page,
+  daemon,
+}) => {
   const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
     await page.goto(daemon.dashboardUrl);
@@ -78,7 +86,10 @@ test("Tiles never shows a current strip card; switching back to Focus restores e
     await expect(currentRailCard(page)).toHaveCount(1);
 
     await page.getByRole("button", { name: "Tiles" }).click();
-    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
     // Both sessions fit the default 2x2 grid as live tiles, so #tiles-strip is empty —
     // but the assertion is on the STRIP's own current-marker locator regardless (REQ-1:
@@ -87,7 +98,10 @@ test("Tiles never shows a current strip card; switching back to Focus restores e
     await expect(currentStripCard(page)).toHaveCount(0);
 
     await page.getByRole("button", { name: "Focus" }).click();
-    await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     await expect(currentRailCard(page)).toHaveCount(1);
   } finally {
     await Promise.all([dirA.cleanup(), dirB.cleanup()]);
@@ -122,7 +136,10 @@ test("removing the focused session falls the marker through to the remaining ses
   const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
     await page.goto(daemon.dashboardUrl);
-    const sessionA = await launchSession(page, daemon, { directory: dirA.path, title: "marker-remove-a" });
+    const sessionA = await launchSession(page, daemon, {
+      directory: dirA.path,
+      title: "marker-remove-a",
+    });
     await launchSession(page, daemon, { directory: dirB.path, title: "marker-remove-b" });
 
     const cardA = railCard(page, "marker-remove-a");
@@ -181,7 +198,10 @@ test("a manual drag reorder follows the current session's id, never a stale DOM 
 
     await cardC.dragTo(cardA);
     await expect
-      .poll(async () => await page.locator("#sessions [data-testid='session-card']").first().textContent())
+      .poll(
+        async () =>
+          await page.locator("#sessions [data-testid='session-card']").first().textContent(),
+      )
       .toContain("marker-drag-c");
 
     await expect(cardC).toHaveAttribute("aria-current", "true");

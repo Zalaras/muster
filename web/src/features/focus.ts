@@ -10,7 +10,12 @@ import type { App, RenderFrame } from "../app";
 import { requireElement } from "../dom";
 import { renderFocusMain, renderSizenote, type SessionAction } from "../render/sessions";
 import { renderMainhead, type MainheadElements } from "../render/mainhead";
-import { collectDeadSurfaceRefs, renderDeadSurface, type DeadSurfaceRefs, type PaneState } from "../render/dead";
+import {
+  collectDeadSurfaceRefs,
+  renderDeadSurface,
+  type DeadSurfaceRefs,
+  type PaneState,
+} from "../render/dead";
 import {
   buildSurfaceSegment,
   DEFAULT_SURFACE_STATE,
@@ -132,7 +137,9 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
     const hasSessions = sessions.length > 0;
     renderFocusMain({ emptyEl: mainEmptyEl, slotEl: mainSlotEl }, hasSessions);
     const session = sessions.find((s) => s.id === app.state.focusedId) ?? null;
-    const surfaceState = session ? getSurfaceState(deps.getSurfaces().state(), session.id) : DEFAULT_SURFACE_STATE;
+    const surfaceState = session
+      ? getSurfaceState(deps.getSurfaces().state(), session.id)
+      : DEFAULT_SURFACE_STATE;
     renderMainhead(mainheadElements, session, now, connected, surfaceState);
 
     if (!session) {
@@ -150,7 +157,13 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
       mainSlotEl.replaceChildren();
       deadSurfaceEl.hidden = false;
       deps.actions.ensurePaneFetch(session.id);
-      renderDeadSurface(deadSurfaceRefs, session, deps.actions.paneState(session.id), now, connected);
+      renderDeadSurface(
+        deadSurfaceRefs,
+        session,
+        deps.actions.paneState(session.id),
+        now,
+        connected,
+      );
       renderSizenote(sizenoteEl, null);
       return;
     }

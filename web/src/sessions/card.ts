@@ -83,7 +83,8 @@ function repoLine(session: Session): string {
  * `needs_input`, while `attention.since` is the fact that matters here. */
 function attentionNote(session: Session, now: Date): string | null {
   if (!session.attention) return null;
-  const reason = session.attention.reason === "permission" ? "needs your permission" : "waiting for your input";
+  const reason =
+    session.attention.reason === "permission" ? "needs your permission" : "waiting for your input";
   return `${reason} — ${formatTimer(session.attention.since, now)}`;
 }
 
@@ -98,7 +99,10 @@ function failureNote(session: Session): string | null {
 function firstLaunchNote(session: Session, now: Date): { kind: NoteKind; text: string } | null {
   if (session.state !== "started" || session.claudeSessionId !== null) return null;
   if (session.firstLaunchHere) {
-    return { kind: "trust", text: "first launch here — likely waiting on Claude Code's trust prompt" };
+    return {
+      kind: "trust",
+      text: "first launch here — likely waiting on Claude Code's trust prompt",
+    };
   }
   if (elapsedSeconds(session.createdAt, now) >= NO_SIGNAL_THRESHOLD_SECONDS) {
     return { kind: "no-signal", text: "no signal yet" };
@@ -130,7 +134,10 @@ export function buildCardViewModel(session: Session, now: Date): CardViewModel {
   // state timer — `stateSince` stopped advancing the instant reconcile/End froze `state`.
   // `session.endedAt` is only ever null while `alive:true` (kb:anchor/state.liveness's paired
   // invariant), so the fallback below is defensive-only and never observed in practice.
-  const timer = ended && session.endedAt ? `ended ${formatEndedAge(session.endedAt, now)}` : formatTimer(session.stateSince, now);
+  const timer =
+    ended && session.endedAt
+      ? `ended ${formatEndedAge(session.endedAt, now)}`
+      : formatTimer(session.stateSince, now);
 
   return {
     id: session.id,

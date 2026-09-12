@@ -60,7 +60,9 @@ test("subagent permission after the parent Stop moves the card to needs input, a
     await request.post(daemon().ingestURL("hook"), {
       data: envelopedSessionStart(claudeId, { musterSession: session.id }),
     });
-    await request.post(daemon().ingestURL("hook"), { data: rawUserPromptSubmit(claudeId, { promptId: "p1" }) });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawUserPromptSubmit(claudeId, { promptId: "p1" }),
+    });
     await expect(stateBadge(card)).toHaveText(/working/i);
 
     // Parent Stop with background work still outstanding — decision 3: still lands idle.
@@ -116,7 +118,10 @@ test("#20's shape — attention latched under plan mode clears when activity arr
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon().dashboardUrl);
-    const session = await launchSession(page, daemon(), { directory: dir, title: "subagent-e4-plan-auto" });
+    const session = await launchSession(page, daemon(), {
+      directory: dir,
+      title: "subagent-e4-plan-auto",
+    });
     const card = sessionCard(page, "subagent-e4-plan-auto");
     const claudeId = "claude-e4-plan-auto";
 
@@ -157,14 +162,19 @@ test("a failed turn's note is cleared once the next turn starts, not carried int
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon().dashboardUrl);
-    const session = await launchSession(page, daemon(), { directory: dir, title: "subagent-e7-failure-clear" });
+    const session = await launchSession(page, daemon(), {
+      directory: dir,
+      title: "subagent-e7-failure-clear",
+    });
     const card = sessionCard(page, "subagent-e7-failure-clear");
     const claudeId = "claude-e7-failure-clear";
 
     await request.post(daemon().ingestURL("hook"), {
       data: envelopedSessionStart(claudeId, { musterSession: session.id }),
     });
-    await request.post(daemon().ingestURL("hook"), { data: rawUserPromptSubmit(claudeId, { promptId: "p1" }) });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawUserPromptSubmit(claudeId, { promptId: "p1" }),
+    });
     await expect(stateBadge(card)).toHaveText(/working/i);
 
     await request.post(daemon().ingestURL("hook"), {
@@ -181,7 +191,9 @@ test("a failed turn's note is cleared once the next turn starts, not carried int
     // though the transition genuinely happened, so force a real second boundary before
     // asserting the value moved.
     await waitForNextClockSecond();
-    await request.post(daemon().ingestURL("hook"), { data: rawUserPromptSubmit(claudeId, { promptId: "p2" }) });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawUserPromptSubmit(claudeId, { promptId: "p2" }),
+    });
     await expect(stateBadge(card)).toHaveText(/working/i);
     await expect(card.getByText(/server_error/)).toHaveCount(0);
 
@@ -203,14 +215,19 @@ test("subagent tool activity past the parent Stop keeps the card working, with s
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon().dashboardUrl);
-    const session = await launchSession(page, daemon(), { directory: dir, title: "subagent-e8-background" });
+    const session = await launchSession(page, daemon(), {
+      directory: dir,
+      title: "subagent-e8-background",
+    });
     const card = sessionCard(page, "subagent-e8-background");
     const claudeId = "claude-e8-background";
 
     await request.post(daemon().ingestURL("hook"), {
       data: envelopedSessionStart(claudeId, { musterSession: session.id }),
     });
-    await request.post(daemon().ingestURL("hook"), { data: rawUserPromptSubmit(claudeId, { promptId: "p1" }) });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawUserPromptSubmit(claudeId, { promptId: "p1" }),
+    });
     await expect(stateBadge(card)).toHaveText(/working/i);
 
     await request.post(daemon().ingestURL("hook"), {
@@ -237,7 +254,9 @@ test("subagent tool activity past the parent Stop keeps the card working, with s
     expect(workingSince).toBeGreaterThan(idleSince);
 
     // Resumption is ordinary from here: a fresh prompt, closed by its own Stop.
-    await request.post(daemon().ingestURL("hook"), { data: rawUserPromptSubmit(claudeId, { promptId: "p2" }) });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawUserPromptSubmit(claudeId, { promptId: "p2" }),
+    });
     await expect(stateBadge(card)).toHaveText(/working/i);
     await request.post(daemon().ingestURL("hook"), { data: rawStop(claudeId, { promptId: "p2" }) });
     await expect(stateBadge(card)).toHaveText(/idle/i);

@@ -63,8 +63,15 @@ export function railSortSelect(page: Page): Locator {
  * pinned") without re-deriving it through a chain of UI clicks in every test that needs
  * one. Throws on anything but the documented 204.
  */
-export async function pinViaApi(page: Page, daemonBaseURL: string, id: number, pinned: boolean): Promise<void> {
-  const res = await page.request.put(`${daemonBaseURL}/api/sessions/${id}/pin`, { data: { pinned } });
+export async function pinViaApi(
+  page: Page,
+  daemonBaseURL: string,
+  id: number,
+  pinned: boolean,
+): Promise<void> {
+  const res = await page.request.put(`${daemonBaseURL}/api/sessions/${id}/pin`, {
+    data: { pinned },
+  });
   if (res.status() !== 204) {
     throw new Error(`pin API call failed: ${res.status()} ${await res.text()}`);
   }

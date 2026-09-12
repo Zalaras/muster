@@ -56,7 +56,9 @@ export type PermissionMode = (typeof PERMISSION_MODES)[number];
 // a `string | null` straight through — the function takes `null` directly, no caller-side
 // coercion to `""` needed.
 export function permissionModeToCheck(stored: string | null): PermissionMode {
-  return (PERMISSION_MODES as readonly string[]).includes(stored ?? "") ? (stored as PermissionMode) : "default";
+  return (PERMISSION_MODES as readonly string[]).includes(stored ?? "")
+    ? (stored as PermissionMode)
+    : "default";
 }
 
 export interface LaunchRequest {
@@ -123,7 +125,18 @@ function parseRepo(value: unknown): Repo | null {
   if (typeof launchCount !== "number") return null;
   if (lastModel !== null && typeof lastModel !== "string") return null;
   if (lastPermissionMode !== null && typeof lastPermissionMode !== "string") return null;
-  return { id, path, name, isGit, branch, pinned, lastLaunchedAt, launchCount, lastModel, lastPermissionMode };
+  return {
+    id,
+    path,
+    name,
+    isGit,
+    branch,
+    pinned,
+    lastLaunchedAt,
+    launchCount,
+    lastModel,
+    lastPermissionMode,
+  };
 }
 
 function parseRepos(value: unknown): Repo[] | null {
@@ -187,7 +200,10 @@ async function safeFetch(input: string, init?: RequestInit): Promise<Response | 
   }
 }
 
-async function decodeJson<T>(res: Response, parse: (value: unknown) => T | null): Promise<ApiResult<T>> {
+async function decodeJson<T>(
+  res: Response,
+  parse: (value: unknown) => T | null,
+): Promise<ApiResult<T>> {
   let body: unknown;
   try {
     body = await res.json();
@@ -274,7 +290,10 @@ export async function refreshUsage(): Promise<ApiResult<null>> {
 /** `POST /api/sessions/{id}/end` (kb:anchor/sessions.end). `200` + the Session object
  * (`alive:false`, `endedAt` set); errors `404 unknown_session` / `409 not_alive`. */
 export async function endSession(id: number): Promise<ApiResult<Session>> {
-  const res = await safeFetch(`/api/sessions/${id}/end`, { method: "POST", credentials: "same-origin" });
+  const res = await safeFetch(`/api/sessions/${id}/end`, {
+    method: "POST",
+    credentials: "same-origin",
+  });
   if (!res) return { ok: false, error: networkError };
   return decodeJson(res, parseSession);
 }
@@ -284,7 +303,10 @@ export async function endSession(id: number): Promise<ApiResult<Session>> {
  * `404 unknown_session` / `409 not_resumable` / `409 directory_missing` /
  * `500 launch_failed`. */
 export async function resumeSession(id: number): Promise<ApiResult<Session>> {
-  const res = await safeFetch(`/api/sessions/${id}/resume`, { method: "POST", credentials: "same-origin" });
+  const res = await safeFetch(`/api/sessions/${id}/resume`, {
+    method: "POST",
+    credentials: "same-origin",
+  });
   if (!res) return { ok: false, error: networkError };
   return decodeJson(res, parseSession);
 }
@@ -294,7 +316,10 @@ export async function resumeSession(id: number): Promise<ApiResult<Session>> {
  * "response carries no state, the socket does" shape as `putPrefs` above. Errors
  * `404 unknown_session` / `500 end_failed` (alive and the kill failed — row not deleted). */
 export async function removeSession(id: number): Promise<ApiResult<null>> {
-  const res = await safeFetch(`/api/sessions/${id}`, { method: "DELETE", credentials: "same-origin" });
+  const res = await safeFetch(`/api/sessions/${id}`, {
+    method: "DELETE",
+    credentials: "same-origin",
+  });
   if (!res) return { ok: false, error: networkError };
   if (res.status === 204) return { ok: true, value: null };
   let errorBody: unknown;
@@ -370,7 +395,10 @@ function parseCreateShellResult(value: unknown): CreateShellResult | null {
  * `409 directory_missing` / `500 shell_spawn_failed` (`message` carries the tmux error —
  * REQ-12 shows it verbatim in the surface's `role="status"` notice). */
 export async function createShell(id: number): Promise<ApiResult<CreateShellResult>> {
-  const res = await safeFetch(`/api/sessions/${id}/shell`, { method: "POST", credentials: "same-origin" });
+  const res = await safeFetch(`/api/sessions/${id}/shell`, {
+    method: "POST",
+    credentials: "same-origin",
+  });
   if (!res) return { ok: false, error: networkError };
   return decodeJson(res, parseCreateShellResult);
 }
@@ -413,7 +441,10 @@ export async function pinSession(id: number, pinned: boolean): Promise<ApiResult
  * Same no-optimistic-update shape as `pinSession` above — the rail redraws from the
  * resulting `sessionUpsert`s. Errors: `400 invalid_request` (unknown/duplicate id,
  * `pinnedCount` out of range) — nothing changes on a 400. */
-export async function putSessionOrder(ids: readonly number[], pinnedCount: number): Promise<ApiResult<null>> {
+export async function putSessionOrder(
+  ids: readonly number[],
+  pinnedCount: number,
+): Promise<ApiResult<null>> {
   const res = await safeFetch("/api/sessions/order", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -465,7 +496,9 @@ function parseIssueCapture(value: unknown): IssueCapture | null {
  * dashboard scope; the daemon holds the resulting capture (at most 8, 15 min TTL) for a
  * later `POST /api/issues`. Errors: `400 invalid_request` / `404 unknown_session` /
  * `404 not_found` (feature disabled, `-issue-api-url` empty). */
-export async function captureIssueSnapshot(sessionId: number | null): Promise<ApiResult<IssueCapture>> {
+export async function captureIssueSnapshot(
+  sessionId: number | null,
+): Promise<ApiResult<IssueCapture>> {
   const res = await safeFetch("/api/issue/captures", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -534,7 +567,10 @@ function parseLocatedFile(value: unknown): LocatedFile | null {
  * `terminal/drop.ts`'s `noticeForFailure`. Errors: `400 invalid_request` /
  * `404 unknown_session` / `404 not_located` / `409 ambiguous` (carries `paths`) /
  * `413 too_large` / `500 internal_error`. */
-export async function locateDroppedFile(sessionId: number, file: File): Promise<ApiResult<LocatedFile>> {
+export async function locateDroppedFile(
+  sessionId: number,
+  file: File,
+): Promise<ApiResult<LocatedFile>> {
   const formData = new FormData();
   formData.append("file", file, file.name);
   const res = await safeFetch(`/api/sessions/${sessionId}/locate`, {

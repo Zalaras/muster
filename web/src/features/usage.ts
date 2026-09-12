@@ -4,7 +4,12 @@
 import type { App } from "../app";
 import { putPrefs, refreshUsage } from "../api";
 import { requireElement } from "../dom";
-import { renderModelWeek, renderUsage, renderUsageModel, renderUsageTrack } from "../render/masthead";
+import {
+  renderModelWeek,
+  renderUsage,
+  renderUsageModel,
+  renderUsageTrack,
+} from "../render/masthead";
 import { UNKNOWN_USAGE, type Usage } from "../protocol";
 
 export function initUsage(app: App): void {
@@ -36,7 +41,8 @@ export function initUsage(app: App): void {
    * `usageModel` only ever changes via the `prefs` echo, never optimistically here. */
   function requestUsageModel(newModel: string): void {
     void putPrefs({ usageModel: newModel }).then((result) => {
-      if (!result.ok) console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);
+      if (!result.ok)
+        console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);
     });
   }
 
@@ -60,7 +66,9 @@ export function initUsage(app: App): void {
     usageRefreshTimer = setTimeout(clearUsageRefreshBusy, 5000);
     void refreshUsage().then((result) => {
       if (!result.ok) {
-        console.error(`POST /api/usage/refresh failed: ${result.error.code} ${result.error.message}`);
+        console.error(
+          `POST /api/usage/refresh failed: ${result.error.code} ${result.error.message}`,
+        );
         clearUsageRefreshBusy();
       }
     });

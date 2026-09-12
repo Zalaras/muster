@@ -54,7 +54,13 @@ test("opens on the browse root with an empty sidebar when there are no recents, 
   await expect(dialog.getByRole("button", { name: "Browse…" })).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: "Up" })).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: "Use this folder" })).toHaveCount(0);
-  for (const removedId of ["#browse-button", "#browse-panel", "#browse-up", "#use-this-folder", "#selected-directory"]) {
+  for (const removedId of [
+    "#browse-button",
+    "#browse-panel",
+    "#browse-up",
+    "#use-this-folder",
+    "#selected-directory",
+  ]) {
     await expect(dialog.locator(removedId)).toHaveCount(0);
   }
 
@@ -107,15 +113,28 @@ test("opening the dialog with two prior launches lists both recents, marks the m
     // this fixture must genuinely have a branch to show one.
     await execFileAsync(
       "git",
-      ["-c", "user.email=e2e@muster.test", "-c", "user.name=muster-e2e", "commit", "--allow-empty", "-m", "init"],
+      [
+        "-c",
+        "user.email=e2e@muster.test",
+        "-c",
+        "user.name=muster-e2e",
+        "commit",
+        "--allow-empty",
+        "-m",
+        "init",
+      ],
       { cwd: newer.path },
     );
     // Independent oracle for REQ-17's exact value (review cycle 1 Major 2): the
     // fixture's own git checkout, not the daemon's rendering of it. A regex like
     // `/^ · \S+$/` would pass against an invented branch name just as happily.
-    const { stdout: branchOut } = await execFileAsync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
-      cwd: newer.path,
-    });
+    const { stdout: branchOut } = await execFileAsync(
+      "git",
+      ["rev-parse", "--abbrev-ref", "HEAD"],
+      {
+        cwd: newer.path,
+      },
+    );
     const branch = branchOut.trim();
 
     await page.goto(daemon.dashboardUrl);
@@ -241,7 +260,10 @@ test("clicking an ancestor crumb navigates up, and the previously-current direct
   }
 });
 
-test("Cmd+ArrowUp navigates to the parent, and is a no-op at the filesystem root (REQ-6, E5)", async ({ page, daemon }) => {
+test("Cmd+ArrowUp navigates to the parent, and is a no-op at the filesystem root (REQ-6, E5)", async ({
+  page,
+  daemon,
+}) => {
   const dir = await browseScratchDirectory(daemon);
   try {
     await page.goto(daemon.dashboardUrl);
@@ -273,7 +295,10 @@ test("Cmd+ArrowUp navigates to the parent, and is a no-op at the filesystem root
   }
 });
 
-test("clicking a second recent swaps the pressed mark and the model/mode radios (REQ-7, E6)", async ({ page, daemon }) => {
+test("clicking a second recent swaps the pressed mark and the model/mode radios (REQ-7, E6)", async ({
+  page,
+  daemon,
+}) => {
   const first = await browseScratchDirectory(daemon, "muster-e2e-first-");
   const second = await browseScratchDirectory(daemon, "muster-e2e-second-");
   try {
@@ -384,8 +409,13 @@ test("launching with no interaction after open relaunches the first recent's dir
     const state = await getState(page, daemon);
     // review cycle 1 Minor 5: `.find()` would miss a spurious extra launch — assert
     // the count, not just that at least one match exists.
-    const relaunchedMatches = state.sessions.filter((s) => s.directory === dir.path && s.id !== seed.id);
-    expect(relaunchedMatches, "exactly one relaunch in the same directory, no spurious extra").toHaveLength(1);
+    const relaunchedMatches = state.sessions.filter(
+      (s) => s.directory === dir.path && s.id !== seed.id,
+    );
+    expect(
+      relaunchedMatches,
+      "exactly one relaunch in the same directory, no spurious extra",
+    ).toHaveLength(1);
     const [relaunched] = relaunchedMatches;
     if (!relaunched) throw new Error("unreachable: toHaveLength(1) just passed");
     expect(relaunched.model?.id).toBe("opus");
@@ -429,7 +459,9 @@ test("launching into a fresh directory reached via crumbs and entries creates th
 
     // REQ-14: existing launch behaviour outside the dialog's internals is unchanged —
     // settings.local.json is still written before the 201 (D7, plan m1-sessions).
-    await expect(access(join(parent.path, childName, ".claude", "settings.local.json"))).resolves.toBeUndefined();
+    await expect(
+      access(join(parent.path, childName, ".claude", "settings.local.json")),
+    ).resolves.toBeUndefined();
   } finally {
     await parent.cleanup();
   }
@@ -639,7 +671,10 @@ test("the dialog's bounding height is unchanged after open, a child click, a cru
   }
 });
 
-test("a failed GET /api/repos shows the error and renders the sidebar empty-state (REQ-13)", async ({ page, daemon }) => {
+test("a failed GET /api/repos shows the error and renders the sidebar empty-state (REQ-13)", async ({
+  page,
+  daemon,
+}) => {
   await page.route("**/api/repos", (route) =>
     route.fulfill({
       status: 500,
@@ -750,7 +785,10 @@ test("a route.abort() on GET /api/browse during navigation shows the network err
   }
 });
 
-test("the child listing shows No subdirectories for an empty directory (REQ-16)", async ({ page, daemon }) => {
+test("the child listing shows No subdirectories for an empty directory (REQ-16)", async ({
+  page,
+  daemon,
+}) => {
   const dir = await browseScratchDirectory(daemon);
   try {
     await page.goto(daemon.dashboardUrl);
@@ -800,10 +838,16 @@ test("a card for a known (non-first-launch) directory still shows the no-signal 
     await page.goto(daemon.dashboardUrl);
 
     // First launch seeds the repo row so the SECOND launch below has firstLaunchHere:false.
-    const seed = await launchSession(page, daemon, { directory: dir.path, title: "no-signal-seed" });
+    const seed = await launchSession(page, daemon, {
+      directory: dir.path,
+      title: "no-signal-seed",
+    });
     expect(seed.firstLaunchHere).toBe(true);
 
-    const second = await launchSession(page, daemon, { directory: dir.path, title: "no-signal-second" });
+    const second = await launchSession(page, daemon, {
+      directory: dir.path,
+      title: "no-signal-second",
+    });
     expect(second.firstLaunchHere).toBe(false);
     expect(second.claudeSessionId).toBeNull();
 
@@ -833,7 +877,10 @@ test("a recent's title attribute is its full absolute path (REQ-18)", async ({ p
   }
 });
 
-test("keyboard traversal: Enter descends into a focused child entry (REQ-15)", async ({ page, daemon }) => {
+test("keyboard traversal: Enter descends into a focused child entry (REQ-15)", async ({
+  page,
+  daemon,
+}) => {
   const dir = await browseScratchDirectory(daemon);
   try {
     const childName = "kbd-child";

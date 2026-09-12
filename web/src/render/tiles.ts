@@ -3,14 +3,23 @@
 // ../sessions/card.ts's pure view-model, shared with the rail, since a strip card IS a
 // rail card per the plan's UI spec: "the M1 card content on its side".
 import type { Session } from "../protocol";
-import { buildDeadSurfaceFromTemplate, collectDeadSurfaceRefs, renderDeadSurface, type PaneState } from "./dead";
+import {
+  buildDeadSurfaceFromTemplate,
+  collectDeadSurfaceRefs,
+  renderDeadSurface,
+  type PaneState,
+} from "./dead";
 import { buildCardViewModel, stateBadgeText } from "../sessions/card";
 import { formatEndedAge, formatEndedAgo } from "../sessions/format";
 import { renderContextRow } from "./context";
 import { buildActionButton, reconcileCards, type SessionAction } from "./sessions";
 import { attachRenameEditor, type RenameEditorController } from "./rename";
 import type { TitleCommand } from "../sessions/rename";
-import { buildSurfaceSegment, type SurfaceKind, type SurfaceSegmentRefs } from "../terminal/surfaceswitch";
+import {
+  buildSurfaceSegment,
+  type SurfaceKind,
+  type SurfaceSegmentRefs,
+} from "../terminal/surfaceswitch";
 
 function requireTemplate(id: string): HTMLTemplateElement {
   const el = document.getElementById(id);
@@ -91,7 +100,12 @@ function updateTileChrome(root: HTMLElement, session: Session, now: Date): void 
   // `tile.getByText(/^ended /)` locator ambiguous (Playwright strict-mode violation) —
   // REQ-12's own footer age readout (`.tage`, see `renderTileFooterActions`) sidesteps
   // the same trap by leading with "✕" instead.
-  if (timer) timer.textContent = session.alive ? vm.timer : session.endedAt ? formatEndedAge(session.endedAt, now) : "";
+  if (timer)
+    timer.textContent = session.alive
+      ? vm.timer
+      : session.endedAt
+        ? formatEndedAge(session.endedAt, now)
+        : "";
 }
 
 /** Builds one tile's chrome (header + empty body slot + footer) from the shared
@@ -115,7 +129,8 @@ export function buildTile(
   const markerEl = root.querySelector<HTMLElement>(".marker");
   const actsEl = root.querySelector<HTMLElement>(".acts");
   const nameEl = root.querySelector<HTMLElement>(".nm");
-  if (!bodySlot || !geoEl || !markerEl || !actsEl || !nameEl) throw new Error("tile-template is missing a required element");
+  if (!bodySlot || !geoEl || !markerEl || !actsEl || !nameEl)
+    throw new Error("tile-template is missing a required element");
 
   root.dataset["sessionId"] = String(session.id);
 
@@ -195,7 +210,18 @@ export function renderStrip(
   // current sort mode — the strip is a promote surface, not a manual-order drop target.
   // REQ-1: `currentId` is always `null` here — a strip card is never "the session the
   // Focus pane is showing" (edge case 14), so it can never carry the marker.
-  reconcileCards(el, sessions, now, template, onPromote, onAction, connected, false, undefined, null);
+  reconcileCards(
+    el,
+    sessions,
+    now,
+    template,
+    onPromote,
+    onAction,
+    connected,
+    false,
+    undefined,
+    null,
+  );
 }
 
 /** REQ-12's tile footer action row: a live tile gets End; a dead tile gets the "ended
@@ -254,7 +280,12 @@ export function renderTileFooterActions(
     removeEl instanceof HTMLButtonElement &&
     removeEl.dataset["action"] === "remove";
 
-  if (sameShape && ageEl && resumeEl instanceof HTMLButtonElement && removeEl instanceof HTMLButtonElement) {
+  if (
+    sameShape &&
+    ageEl &&
+    resumeEl instanceof HTMLButtonElement &&
+    removeEl instanceof HTMLButtonElement
+  ) {
     ageEl.textContent = ageText;
     resumeEl.disabled = !resumeEnabled;
     removeEl.disabled = !connected;

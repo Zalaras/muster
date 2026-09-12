@@ -32,7 +32,14 @@ const baseUpdate: UpdateInfo = {
   apply: idleApply,
 };
 
-const onPrefs: Prefs = { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual", theme: "follow", updateCheck: true };
+const onPrefs: Prefs = {
+  view: "focus",
+  density: "2x2",
+  usageModel: "Fable",
+  railSort: "manual",
+  theme: "follow",
+  updateCheck: true,
+};
 const offPrefs: Prefs = { ...onPrefs, updateCheck: false };
 
 describe("buildUpdateViewModel — no data yet (update === null, edge case 32)", () => {
@@ -67,34 +74,55 @@ describe("buildUpdateViewModel — no data yet (update === null, edge case 32)",
 
 describe("buildUpdateViewModel — Running (Text rules)", () => {
   it("renders 'v<running>' for a non-dev install", () => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, running: "0.10.0", install: "installer" }, onPrefs);
+    const vm = buildUpdateViewModel(
+      { ...baseUpdate, running: "0.10.0", install: "installer" },
+      onPrefs,
+    );
     expect(vm.running).toBe("v0.10.0");
   });
 
-  it.each(["homebrew", "unmanaged"] as const)("renders 'v<running>' for install kind %s too", (install) => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, running: "0.10.0", install, remedy: "x" }, onPrefs);
-    expect(vm.running).toBe("v0.10.0");
-  });
+  it.each(["homebrew", "unmanaged"] as const)(
+    "renders 'v<running>' for install kind %s too",
+    (install) => {
+      const vm = buildUpdateViewModel(
+        { ...baseUpdate, running: "0.10.0", install, remedy: "x" },
+        onPrefs,
+      );
+      expect(vm.running).toBe("v0.10.0");
+    },
+  );
 
   it("renders '<running> (development build)' for a dev install, with the raw (unprefixed) version string", () => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, running: "v0.10.0-4-ge5102b8", install: "dev" }, onPrefs);
+    const vm = buildUpdateViewModel(
+      { ...baseUpdate, running: "v0.10.0-4-ge5102b8", install: "dev" },
+      onPrefs,
+    );
     expect(vm.running).toBe("v0.10.0-4-ge5102b8 (development build)");
   });
 });
 
 describe("buildUpdateViewModel — Available (Text rules)", () => {
   it("renders 'not checked (development build)' for install 'dev', regardless of the pref or available/checkedAt", () => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, install: "dev", available: "0.11.0", checkedAt: "2026-09-10T20:00:00Z" }, onPrefs);
+    const vm = buildUpdateViewModel(
+      { ...baseUpdate, install: "dev", available: "0.11.0", checkedAt: "2026-09-10T20:00:00Z" },
+      onPrefs,
+    );
     expect(vm.available).toBe("not checked (development build)");
   });
 
   it("renders 'checking disabled' when prefs.updateCheck is false, even with an available version cached", () => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, available: "0.11.0", checkedAt: "2026-09-10T20:00:00Z" }, offPrefs);
+    const vm = buildUpdateViewModel(
+      { ...baseUpdate, available: "0.11.0", checkedAt: "2026-09-10T20:00:00Z" },
+      offPrefs,
+    );
     expect(vm.available).toBe("checking disabled");
   });
 
   it("renders 'v<available>' when a strictly newer release is known and checking is on", () => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, available: "0.11.0", checkedAt: "2026-09-10T20:00:00Z" }, onPrefs);
+    const vm = buildUpdateViewModel(
+      { ...baseUpdate, available: "0.11.0", checkedAt: "2026-09-10T20:00:00Z" },
+      onPrefs,
+    );
     expect(vm.available).toBe("v0.11.0");
   });
 
@@ -104,21 +132,33 @@ describe("buildUpdateViewModel — Available (Text rules)", () => {
   });
 
   it("renders 'up to date' when available is null but checkedAt is set (checked, nothing newer)", () => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, available: null, checkedAt: "2026-09-10T20:00:00Z" }, onPrefs);
+    const vm = buildUpdateViewModel(
+      { ...baseUpdate, available: null, checkedAt: "2026-09-10T20:00:00Z" },
+      onPrefs,
+    );
     expect(vm.available).toBe("up to date");
   });
 
   it("treats a missing prefs (null) as updateCheck: true for this rule", () => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, available: "0.11.0", checkedAt: "2026-09-10T20:00:00Z" }, null);
+    const vm = buildUpdateViewModel(
+      { ...baseUpdate, available: "0.11.0", checkedAt: "2026-09-10T20:00:00Z" },
+      null,
+    );
     expect(vm.available).toBe("v0.11.0");
   });
 });
 
 describe("buildUpdateViewModel — Toggle (checked iff prefs.updateCheck; disabled only for install=dev)", () => {
-  it.each(["installer", "homebrew", "unmanaged"] as const)("enables the toggle for install kind %s", (install) => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, install, remedy: install === "installer" ? null : "x" }, onPrefs);
-    expect(vm.toggleDisabled).toBe(false);
-  });
+  it.each(["installer", "homebrew", "unmanaged"] as const)(
+    "enables the toggle for install kind %s",
+    (install) => {
+      const vm = buildUpdateViewModel(
+        { ...baseUpdate, install, remedy: install === "installer" ? null : "x" },
+        onPrefs,
+      );
+      expect(vm.toggleDisabled).toBe(false);
+    },
+  );
 
   it("disables the toggle for install 'dev' while still reflecting the pref's checked state", () => {
     const vm = buildUpdateViewModel({ ...baseUpdate, install: "dev" }, offPrefs);
@@ -133,10 +173,16 @@ describe("buildUpdateViewModel — Toggle (checked iff prefs.updateCheck; disabl
 });
 
 describe("buildUpdateViewModel — Buttons visible (iff install != dev)", () => {
-  it.each(["installer", "homebrew", "unmanaged"] as const)("shows buttons for install kind %s", (install) => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, install, remedy: install === "installer" ? null : "x" }, onPrefs);
-    expect(vm.buttonsVisible).toBe(true);
-  });
+  it.each(["installer", "homebrew", "unmanaged"] as const)(
+    "shows buttons for install kind %s",
+    (install) => {
+      const vm = buildUpdateViewModel(
+        { ...baseUpdate, install, remedy: install === "installer" ? null : "x" },
+        onPrefs,
+      );
+      expect(vm.buttonsVisible).toBe(true);
+    },
+  );
 
   it("hides buttons for install 'dev'", () => {
     const vm = buildUpdateViewModel({ ...baseUpdate, install: "dev" }, onPrefs);
@@ -146,25 +192,37 @@ describe("buildUpdateViewModel — Buttons visible (iff install != dev)", () => 
 
 describe("buildUpdateViewModel — Buttons enabled (install=installer, phase not in flight, available|installed set)", () => {
   it("disables both buttons when install is 'installer' but neither available nor installed is set", () => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, install: "installer", available: null, installed: null }, onPrefs);
+    const vm = buildUpdateViewModel(
+      { ...baseUpdate, install: "installer", available: null, installed: null },
+      onPrefs,
+    );
     expect(vm.updateEnabled).toBe(false);
     expect(vm.restartEnabled).toBe(false);
   });
 
   it("enables both buttons when available is set and installed is null", () => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, install: "installer", available: "0.11.0", installed: null }, onPrefs);
+    const vm = buildUpdateViewModel(
+      { ...baseUpdate, install: "installer", available: "0.11.0", installed: null },
+      onPrefs,
+    );
     expect(vm.updateEnabled).toBe(true);
     expect(vm.restartEnabled).toBe(true);
   });
 
   it("disables Update but keeps Restart enabled once installed is set (REQ-25's restart-only case)", () => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, install: "installer", available: null, installed: "0.11.0" }, onPrefs);
+    const vm = buildUpdateViewModel(
+      { ...baseUpdate, install: "installer", available: null, installed: "0.11.0" },
+      onPrefs,
+    );
     expect(vm.updateEnabled).toBe(false);
     expect(vm.restartEnabled).toBe(true);
   });
 
   it("keeps Update disabled even with available set, once installed is also set", () => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, install: "installer", available: "0.11.0", installed: "0.11.0" }, onPrefs);
+    const vm = buildUpdateViewModel(
+      { ...baseUpdate, install: "installer", available: "0.11.0", installed: "0.11.0" },
+      onPrefs,
+    );
     expect(vm.updateEnabled).toBe(false);
     expect(vm.restartEnabled).toBe(true);
   });
@@ -172,7 +230,10 @@ describe("buildUpdateViewModel — Buttons enabled (install=installer, phase not
   it.each(["homebrew", "unmanaged"] as const)(
     "disables both buttons for install kind %s even with available set (only 'installer' may apply)",
     (install) => {
-      const vm = buildUpdateViewModel({ ...baseUpdate, install, remedy: "x", available: "0.11.0" }, onPrefs);
+      const vm = buildUpdateViewModel(
+        { ...baseUpdate, install, remedy: "x", available: "0.11.0" },
+        onPrefs,
+      );
       expect(vm.updateEnabled).toBe(false);
       expect(vm.restartEnabled).toBe(false);
     },
@@ -182,7 +243,12 @@ describe("buildUpdateViewModel — Buttons enabled (install=installer, phase not
     "disables both buttons while phase %s is in flight, even with available set",
     (phase) => {
       const vm = buildUpdateViewModel(
-        { ...baseUpdate, install: "installer", available: "0.11.0", apply: { phase, version: "0.11.0", error: null } },
+        {
+          ...baseUpdate,
+          install: "installer",
+          available: "0.11.0",
+          apply: { phase, version: "0.11.0", error: null },
+        },
         onPrefs,
       );
       expect(vm.updateEnabled).toBe(false);
@@ -190,14 +256,26 @@ describe("buildUpdateViewModel — Buttons enabled (install=installer, phase not
     },
   );
 
-  it.each(["idle", "done", "failed"] as const)("re-enables buttons once phase is %s again (not in flight)", (phase) => {
-    const vm = buildUpdateViewModel(
-      { ...baseUpdate, install: "installer", available: "0.11.0", apply: { phase, version: phase === "idle" ? null : "0.11.0", error: phase === "failed" ? "boom" : null } },
-      onPrefs,
-    );
-    expect(vm.updateEnabled).toBe(true);
-    expect(vm.restartEnabled).toBe(true);
-  });
+  it.each(["idle", "done", "failed"] as const)(
+    "re-enables buttons once phase is %s again (not in flight)",
+    (phase) => {
+      const vm = buildUpdateViewModel(
+        {
+          ...baseUpdate,
+          install: "installer",
+          available: "0.11.0",
+          apply: {
+            phase,
+            version: phase === "idle" ? null : "0.11.0",
+            error: phase === "failed" ? "boom" : null,
+          },
+        },
+        onPrefs,
+      );
+      expect(vm.updateEnabled).toBe(true);
+      expect(vm.restartEnabled).toBe(true);
+    },
+  );
 });
 
 describe("buildUpdateViewModel — restartLabel (Restart now iff installed != null)", () => {
@@ -214,22 +292,34 @@ describe("buildUpdateViewModel — restartLabel (Restart now iff installed != nu
 
 describe("buildUpdateViewModel — Status line (every phase, plus the idle/remedy/empty fallbacks)", () => {
   it("renders 'Downloading v<version>…' during download", () => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, apply: { phase: "downloading", version: "0.11.0", error: null } }, onPrefs);
+    const vm = buildUpdateViewModel(
+      { ...baseUpdate, apply: { phase: "downloading", version: "0.11.0", error: null } },
+      onPrefs,
+    );
     expect(vm.status).toBe("Downloading v0.11.0…");
   });
 
   it("renders 'Verifying v<version>…' during verification", () => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, apply: { phase: "verifying", version: "0.11.0", error: null } }, onPrefs);
+    const vm = buildUpdateViewModel(
+      { ...baseUpdate, apply: { phase: "verifying", version: "0.11.0", error: null } },
+      onPrefs,
+    );
     expect(vm.status).toBe("Verifying v0.11.0…");
   });
 
   it("renders 'Installing v<version>…' during install", () => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, apply: { phase: "installing", version: "0.11.0", error: null } }, onPrefs);
+    const vm = buildUpdateViewModel(
+      { ...baseUpdate, apply: { phase: "installing", version: "0.11.0", error: null } },
+      onPrefs,
+    );
     expect(vm.status).toBe("Installing v0.11.0…");
   });
 
   it("renders 'Restarting musterd…' during restart, dropping the version entirely", () => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, apply: { phase: "restarting", version: "0.11.0", error: null } }, onPrefs);
+    const vm = buildUpdateViewModel(
+      { ...baseUpdate, apply: { phase: "restarting", version: "0.11.0", error: null } },
+      onPrefs,
+    );
     expect(vm.status).toBe("Restarting musterd…");
   });
 
@@ -240,7 +330,8 @@ describe("buildUpdateViewModel — Status line (every phase, plus the idle/remed
         apply: {
           phase: "failed",
           version: "0.11.0",
-          error: "signature on checksums.txt did not verify — the release may be tampered with; nothing was installed",
+          error:
+            "signature on checksums.txt did not verify — the release may be tampered with; nothing was installed",
         },
       },
       onPrefs,
@@ -251,17 +342,34 @@ describe("buildUpdateViewModel — Status line (every phase, plus the idle/remed
   });
 
   it("renders 'Updated to v<installed>. Restart musterd to finish.' on phase 'done'", () => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, installed: "0.11.0", apply: { phase: "done", version: "0.11.0", error: null } }, onPrefs);
+    const vm = buildUpdateViewModel(
+      {
+        ...baseUpdate,
+        installed: "0.11.0",
+        apply: { phase: "done", version: "0.11.0", error: null },
+      },
+      onPrefs,
+    );
     expect(vm.status).toBe("Updated to v0.11.0. Restart musterd to finish.");
   });
 
   it("renders the same 'Updated to...' line once phase returns to idle, as long as installed is still set (REQ-26/REQ-25 persistence)", () => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, installed: "0.11.0", apply: idleApply }, onPrefs);
+    const vm = buildUpdateViewModel(
+      { ...baseUpdate, installed: "0.11.0", apply: idleApply },
+      onPrefs,
+    );
     expect(vm.status).toBe("Updated to v0.11.0. Restart musterd to finish.");
   });
 
   it("renders the remedy sentence when phase is idle, installed is null, and a remedy is present (homebrew/unmanaged)", () => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, install: "homebrew", remedy: "installed by Homebrew — run brew upgrade musterd" }, onPrefs);
+    const vm = buildUpdateViewModel(
+      {
+        ...baseUpdate,
+        install: "homebrew",
+        remedy: "installed by Homebrew — run brew upgrade musterd",
+      },
+      onPrefs,
+    );
     expect(vm.status).toBe("installed by Homebrew — run brew upgrade musterd");
   });
 
@@ -271,14 +379,20 @@ describe("buildUpdateViewModel — Status line (every phase, plus the idle/remed
   });
 
   it("uses an empty version placeholder rather than 'vundefined'/'vnull' if apply.version is somehow null during an in-flight phase", () => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, apply: { phase: "downloading", version: null, error: null } }, onPrefs);
+    const vm = buildUpdateViewModel(
+      { ...baseUpdate, apply: { phase: "downloading", version: null, error: null } },
+      onPrefs,
+    );
     expect(vm.status).toBe("Downloading v…");
   });
 });
 
 describe("buildUpdateViewModel — Badge (available != null && installed == null, INV-6)", () => {
   it("is badged when available is set and installed is null", () => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, available: "0.11.0", installed: null }, onPrefs);
+    const vm = buildUpdateViewModel(
+      { ...baseUpdate, available: "0.11.0", installed: null },
+      onPrefs,
+    );
     expect(vm.badged).toBe(true);
   });
 
@@ -288,30 +402,52 @@ describe("buildUpdateViewModel — Badge (available != null && installed == null
   });
 
   it("is not badged once installed is set, even if available is still non-null", () => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, available: "0.11.0", installed: "0.11.0" }, onPrefs);
+    const vm = buildUpdateViewModel(
+      { ...baseUpdate, available: "0.11.0", installed: "0.11.0" },
+      onPrefs,
+    );
     expect(vm.badged).toBe(false);
   });
 
   it("is not badged when installed is set and available is null (swap done, restart pending)", () => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, available: null, installed: "0.11.0" }, onPrefs);
+    const vm = buildUpdateViewModel(
+      { ...baseUpdate, available: null, installed: "0.11.0" },
+      onPrefs,
+    );
     expect(vm.badged).toBe(false);
   });
 
   it("is never badged for a dev install even if available/installed were somehow both set (defensive — daemon never sends this per INV-2)", () => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, install: "dev", available: "0.11.0", installed: null }, onPrefs);
+    const vm = buildUpdateViewModel(
+      { ...baseUpdate, install: "dev", available: "0.11.0", installed: null },
+      onPrefs,
+    );
     expect(vm.badged).toBe(true); // badge rule reads only available/installed, matching REQ-9's literal definition
   });
 });
 
 describe("buildUpdateViewModel — busy (aria-busy iff an apply phase is in flight)", () => {
-  it.each(["downloading", "verifying", "installing", "restarting"] as const)("is busy during phase %s", (phase) => {
-    const vm = buildUpdateViewModel({ ...baseUpdate, apply: { phase, version: "0.11.0", error: null } }, onPrefs);
-    expect(vm.busy).toBe(true);
-  });
+  it.each(["downloading", "verifying", "installing", "restarting"] as const)(
+    "is busy during phase %s",
+    (phase) => {
+      const vm = buildUpdateViewModel(
+        { ...baseUpdate, apply: { phase, version: "0.11.0", error: null } },
+        onPrefs,
+      );
+      expect(vm.busy).toBe(true);
+    },
+  );
 
   it.each(["idle", "done", "failed"] as const)("is not busy during phase %s", (phase) => {
     const vm = buildUpdateViewModel(
-      { ...baseUpdate, apply: { phase, version: phase === "idle" ? null : "0.11.0", error: phase === "failed" ? "boom" : null } },
+      {
+        ...baseUpdate,
+        apply: {
+          phase,
+          version: phase === "idle" ? null : "0.11.0",
+          error: phase === "failed" ? "boom" : null,
+        },
+      },
       onPrefs,
     );
     expect(vm.busy).toBe(false);
@@ -326,7 +462,15 @@ describe("buildUpdateViewModel — busy (aria-busy iff an apply phase is in flig
 // with the rules already pinned above.
 describe("buildUpdateViewModel — full grid (no throw; badge/visibility/toggle stay internally consistent)", () => {
   const installs: UpdateInstallKind[] = ["installer", "dev", "homebrew", "unmanaged"];
-  const phases: UpdateApplyPhase[] = ["idle", "downloading", "verifying", "installing", "restarting", "failed", "done"];
+  const phases: UpdateApplyPhase[] = [
+    "idle",
+    "downloading",
+    "verifying",
+    "installing",
+    "restarting",
+    "failed",
+    "done",
+  ];
 
   for (const install of installs) {
     for (const updateCheck of [true, false]) {
@@ -341,7 +485,11 @@ describe("buildUpdateViewModel — full grid (no throw; badge/visibility/toggle 
                 available,
                 checkedAt: available !== null ? "2026-09-10T20:00:00Z" : null,
                 installed,
-                apply: { phase, version: phase === "idle" ? null : "0.11.0", error: phase === "failed" ? "boom" : null },
+                apply: {
+                  phase,
+                  version: phase === "idle" ? null : "0.11.0",
+                  error: phase === "failed" ? "boom" : null,
+                },
               };
               const prefs: Prefs = { ...onPrefs, updateCheck };
               const vm = buildUpdateViewModel(update, prefs);
@@ -421,7 +569,10 @@ describe("renderUpdateSection — applies a view model to the DOM refs", () => {
 
   it("sets aria-busy='true' on the section while an apply phase is in flight", () => {
     const els = fakeSectionElements();
-    const vm = buildUpdateViewModel({ ...baseUpdate, apply: { phase: "downloading", version: "0.11.0", error: null } }, onPrefs);
+    const vm = buildUpdateViewModel(
+      { ...baseUpdate, apply: { phase: "downloading", version: "0.11.0", error: null } },
+      onPrefs,
+    );
     renderUpdateSection(els, vm);
     expect(els.attrs.get("aria-busy")).toBe("true");
   });

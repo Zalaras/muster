@@ -137,7 +137,10 @@ export async function launchSession(
 }
 
 /** `GET /api/state`, using the page's already-authed cookie. */
-export async function getState(page: Page, daemon: ScratchDaemon): Promise<{ sessions: SessionObject[] }> {
+export async function getState(
+  page: Page,
+  daemon: ScratchDaemon,
+): Promise<{ sessions: SessionObject[] }> {
   const res = await page.request.get(`${daemon.baseURL}/api/state`);
   if (res.status() !== 200) {
     throw new Error(`GET /api/state failed: ${res.status()} ${await res.text()}`);
@@ -256,7 +259,9 @@ export async function putTitleViaApi(
   id: number,
   title: string | null,
 ): Promise<void> {
-  const res = await page.request.put(`${daemonBaseURL}/api/sessions/${id}/title`, { data: { title } });
+  const res = await page.request.put(`${daemonBaseURL}/api/sessions/${id}/title`, {
+    data: { title },
+  });
   if (res.status() !== 204) {
     throw new Error(`title PUT failed: ${res.status()} ${await res.text()}`);
   }

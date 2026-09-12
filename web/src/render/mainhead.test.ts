@@ -46,7 +46,7 @@ function fakeNameEl(renameBtn: HTMLButtonElement): HTMLElement & { attached: () 
       return attached ? (renameBtn.textContent as string) : "";
     },
     querySelector: <T extends Element>(selector: string): T | null =>
-      (attached && selector === "button.rename" ? (renameBtn as unknown as T) : null),
+      attached && selector === "button.rename" ? (renameBtn as unknown as T) : null,
     attached: () => attached,
   } as unknown as HTMLElement & { attached: () => boolean };
 }

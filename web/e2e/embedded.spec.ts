@@ -62,7 +62,9 @@ test("serves the working dashboard from the embedded FS with no -web-dist flag: 
   expect(authCookie?.sameSite).toBe("Strict");
 });
 
-test("still gates the embedded static handler on the auth cookie (401 relaunch page)", async ({ page }) => {
+test("still gates the embedded static handler on the auth cookie (401 relaunch page)", async ({
+  page,
+}) => {
   // R5: requireCookie wraps the embedded http.FileServer branch identically to the disk
   // branch — a fresh, cookie-less context hitting "/" on the embedded-serving daemon
   // must see exactly the same 401 relaunch page auth.spec.ts asserts for the disk path.
@@ -71,7 +73,9 @@ test("still gates the embedded static handler on the auth cookie (401 relaunch p
   await expect(page.getByText(/relaunch/i)).toBeVisible();
 });
 
-test("serves /healthz without authentication from the embedded-serving daemon", async ({ request }) => {
+test("serves /healthz without authentication from the embedded-serving daemon", async ({
+  request,
+}) => {
   // Sanity that the embedded fixture is a normally-functioning daemon in every other
   // respect, not just for the one route this plan touches.
   const res = await request.get(`${daemon().baseURL}/healthz`);

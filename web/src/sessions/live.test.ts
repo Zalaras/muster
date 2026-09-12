@@ -129,7 +129,9 @@ describe("applyDensity — grow", () => {
   });
 
   it("growing from empty behaves exactly like initialLive", () => {
-    expect(applyDensity([], 4, sessions([1, 2, 3, 4, 5]))).toEqual(initialLive(sessions([1, 2, 3, 4, 5]), 4));
+    expect(applyDensity([], 4, sessions([1, 2, 3, 4, 5]))).toEqual(
+      initialLive(sessions([1, 2, 3, 4, 5]), 4),
+    );
   });
 });
 
@@ -232,7 +234,14 @@ describe("applyDensity — INV-7: a priority change alone, with membership uncha
   // result is the input array's own order, filtered but not resorted. This table pins
   // that for every §3.4 state, transitioning at the first, middle, and last slot.
   const live = [1, 2, 3, 4];
-  const allStates: SessionState[] = ["needs_input", "failed", "planning", "working", "started", "idle"];
+  const allStates: SessionState[] = [
+    "needs_input",
+    "failed",
+    "planning",
+    "working",
+    "started",
+    "idle",
+  ];
   const slots: Array<{ label: string; id: number }> = [
     { label: "first", id: 1 },
     { label: "middle", id: 2 },
@@ -242,7 +251,12 @@ describe("applyDensity — INV-7: a priority change alone, with membership uncha
   function withState(id: number, state: SessionState): Session[] {
     return sessions([1, 2, 3, 4, 5, 6, 7, 8]).map((s) =>
       s.id === id
-        ? { ...s, state, attention: state === "needs_input" ? { reason: "idle" as const, since: s.stateSince } : null }
+        ? {
+            ...s,
+            state,
+            attention:
+              state === "needs_input" ? { reason: "idle" as const, since: s.stateSince } : null,
+          }
         : s,
     );
   }
@@ -255,4 +269,3 @@ describe("applyDensity — INV-7: a priority change alone, with membership uncha
     }
   }
 });
-

@@ -21,7 +21,14 @@ import {
   rawStop,
   rawUserPromptSubmit,
 } from "./helpers/payloads";
-import { findSession, getState, launchSession, scratchDirectory, sessionCard, stateBadge } from "./helpers/session";
+import {
+  findSession,
+  getState,
+  launchSession,
+  scratchDirectory,
+  sessionCard,
+  stateBadge,
+} from "./helpers/session";
 import { liveTile } from "./helpers/terminal";
 
 // Plan m3-gauges â€” REQ-1 through REQ-14 driven end-to-end: per-session title/model/
@@ -69,7 +76,10 @@ test("a pre-first-response status post leaves the unknown rendering unchanged â€
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, { directory: dir, title: "gauge-e2-prefirst" });
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "gauge-e2-prefirst",
+    });
     const card = sessionCard(page, "gauge-e2-prefirst");
     const claudeId = "claude-gauge-e2";
 
@@ -130,7 +140,11 @@ test("a full status post renders the Focus rail card's context row with track, r
   }
 });
 
-test("the same status data renders in the Tiles view's tile header (E4)", async ({ page, request, daemon }) => {
+test("the same status data renders in the Tiles view's tile header (E4)", async ({
+  page,
+  request,
+  daemon,
+}) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
@@ -175,7 +189,10 @@ test("a full status post fills both masthead gauge bars with rounded percentages
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, { directory: dir, title: "gauge-e5-masthead" });
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "gauge-e5-masthead",
+    });
     const claudeId = "claude-gauge-e5";
 
     await request.post(daemon.ingestURL("hook"), {
@@ -291,7 +308,10 @@ test("a status post sent while a session is needs_input leaves its state, stateS
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, { directory: dir, title: "gauge-e8-needsinput" });
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "gauge-e8-needsinput",
+    });
     const card = sessionCard(page, "gauge-e8-needsinput");
     const claudeId = "claude-gauge-e8";
 
@@ -299,7 +319,9 @@ test("a status post sent while a session is needs_input leaves its state, stateS
       data: envelopedSessionStart(claudeId, { musterSession: session.id }),
     });
     await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit(claudeId) });
-    await request.post(daemon.ingestURL("hook"), { data: rawNotification(claudeId, "p1", "permission_prompt") });
+    await request.post(daemon.ingestURL("hook"), {
+      data: rawNotification(claudeId, "p1", "permission_prompt"),
+    });
     await expect(stateBadge(card)).toHaveText(/needs input/i);
 
     const before = findSession(await getState(page, daemon), session.id);
@@ -332,8 +354,14 @@ test("with two live sessions, a status post routed to one leaves the other's car
   const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
     await page.goto(daemon.dashboardUrl);
-    const sessionA = await launchSession(page, daemon, { directory: dirA.path, title: "gauge-e9-a" });
-    const sessionB = await launchSession(page, daemon, { directory: dirB.path, title: "gauge-e9-b" });
+    const sessionA = await launchSession(page, daemon, {
+      directory: dirA.path,
+      title: "gauge-e9-a",
+    });
+    const sessionB = await launchSession(page, daemon, {
+      directory: dirB.path,
+      title: "gauge-e9-b",
+    });
     const cardA = sessionCard(page, "gauge-e9-a");
     const cardB = sessionCard(page, "gauge-e9-b");
     const claudeA = "claude-gauge-e9-a";
@@ -395,7 +423,9 @@ test("/clear returns the context row to ctx unknown and resets the compaction co
     // (source:"clear") rebinds this same card to a fresh claude_session_id.
     await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit(originalClaudeId) });
     await request.post(daemon.ingestURL("hook"), { data: rawStop(originalClaudeId) });
-    await request.post(daemon.ingestURL("hook"), { data: rawSessionEnd(originalClaudeId, "clear") });
+    await request.post(daemon.ingestURL("hook"), {
+      data: rawSessionEnd(originalClaudeId, "clear"),
+    });
 
     const newClaudeId = "claude-gauge-e10-new";
     await request.post(daemon.ingestURL("hook"), {
@@ -419,7 +449,10 @@ test("after a daemon restart the masthead reads unknown until a fresh post, whil
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, { directory: dir, title: "gauge-e11-restart" });
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "gauge-e11-restart",
+    });
     const card = sessionCard(page, "gauge-e11-restart");
     const claudeId = "claude-gauge-e11";
 

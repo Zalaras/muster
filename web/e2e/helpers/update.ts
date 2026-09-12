@@ -84,7 +84,10 @@ export function restartConfirmCancelButton(dialog: Locator): Locator {
 
 /** Clicks `updateRestartButton` and returns the now-open confirm dialog locator —
  * mirrors `helpers/theme.ts`'s `openSettingsDialog`. */
-export async function openUpdateRestartConfirm(page: Page, settingsDialogLocator: Locator): Promise<Locator> {
+export async function openUpdateRestartConfirm(
+  page: Page,
+  settingsDialogLocator: Locator,
+): Promise<Locator> {
   await updateRestartButton(settingsDialogLocator).click();
   return restartConfirmDialog(page);
 }

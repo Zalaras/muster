@@ -12,7 +12,13 @@ import type { Session } from "../protocol";
 import { renderStrip, renderTileGeometry, updateTile, type TileRefs } from "./tiles";
 
 function fakeElement(): HTMLElement {
-  return { textContent: "", className: "", hidden: false, dataset: {}, replaceChildren: () => {} } as unknown as HTMLElement;
+  return {
+    textContent: "",
+    className: "",
+    hidden: false,
+    dataset: {},
+    replaceChildren: () => {},
+  } as unknown as HTMLElement;
 }
 
 /** `.nm`'s real shape (plan ui-text-and-focus REQ-13(b)): a wrapper with no text of its
@@ -82,7 +88,13 @@ function fakeTileRoot(): HTMLElement & { className: string } {
   const ctx = fakeElement();
   const tm = fakeElement();
   const dot = { ...fakeElement(), title: "" } as HTMLElement & { title: string };
-  const byClass: Record<string, HTMLElement> = { ".nm": nm, ".wh": wh, ".ctxinfo": ctx, ".tm": tm, ".sdot": dot };
+  const byClass: Record<string, HTMLElement> = {
+    ".nm": nm,
+    ".wh": wh,
+    ".ctxinfo": ctx,
+    ".tm": tm,
+    ".sdot": dot,
+  };
   return {
     className: "",
     querySelector: (selector: string) => byClass[selector] ?? null,
@@ -126,7 +138,12 @@ describe("renderTileGeometry — REQ-15's tile footer: real geometry + live/stop
 describe("updateTile — refreshes existing chrome in place, never touches bodySlot (review m2-terminal Critical 2)", () => {
   it("writes the shared view-model's title/repoLine/contextText/timer/stateClass onto the existing chrome nodes", () => {
     const root = fakeTileRoot();
-    const refs: TileRefs = { root, bodySlot: fakeElement(), geoEl: fakeElement(), markerEl: fakeElement() };
+    const refs: TileRefs = {
+      root,
+      bodySlot: fakeElement(),
+      geoEl: fakeElement(),
+      markerEl: fakeElement(),
+    };
     const session = makeSession({ id: 1, title: "fix the thing", state: "working" });
 
     updateTile(refs, session, NOW);
@@ -139,7 +156,12 @@ describe("updateTile — refreshes existing chrome in place, never touches bodyS
 
   it("re-derives the view-model fresh on every call, so a stale title/state from a prior render is overwritten rather than left behind", () => {
     const root = fakeTileRoot();
-    const refs: TileRefs = { root, bodySlot: fakeElement(), geoEl: fakeElement(), markerEl: fakeElement() };
+    const refs: TileRefs = {
+      root,
+      bodySlot: fakeElement(),
+      geoEl: fakeElement(),
+      markerEl: fakeElement(),
+    };
 
     updateTile(refs, makeSession({ id: 1, title: "first", state: "idle" }), NOW);
     expect(root.querySelector(".nm")?.textContent).toBe("first");
@@ -178,28 +200,49 @@ describe("updateTile — REQ-9 (plan move-tiles): the state dot gets a title = t
   for (const { state, word } of cases) {
     it(`sets .sdot's title to "${word}" for state "${state}"`, () => {
       const root = fakeTileRoot();
-      const refs: TileRefs = { root, bodySlot: fakeElement(), geoEl: fakeElement(), markerEl: fakeElement() };
+      const refs: TileRefs = {
+        root,
+        bodySlot: fakeElement(),
+        geoEl: fakeElement(),
+        markerEl: fakeElement(),
+      };
 
       updateTile(refs, makeSession({ id: 1, state }), NOW);
 
-      expect((root.querySelector(".sdot") as (HTMLElement & { title: string }) | null)?.title).toBe(word);
+      expect((root.querySelector(".sdot") as (HTMLElement & { title: string }) | null)?.title).toBe(
+        word,
+      );
     });
   }
 
   it("updates the title on every pass, so a stale state's word doesn't linger after a transition", () => {
     const root = fakeTileRoot();
-    const refs: TileRefs = { root, bodySlot: fakeElement(), geoEl: fakeElement(), markerEl: fakeElement() };
+    const refs: TileRefs = {
+      root,
+      bodySlot: fakeElement(),
+      geoEl: fakeElement(),
+      markerEl: fakeElement(),
+    };
 
     updateTile(refs, makeSession({ id: 1, state: "working" }), NOW);
-    expect((root.querySelector(".sdot") as (HTMLElement & { title: string }) | null)?.title).toBe("working");
+    expect((root.querySelector(".sdot") as (HTMLElement & { title: string }) | null)?.title).toBe(
+      "working",
+    );
 
     updateTile(refs, makeSession({ id: 1, state: "needs_input" }), NOW);
-    expect((root.querySelector(".sdot") as (HTMLElement & { title: string }) | null)?.title).toBe("needs input");
+    expect((root.querySelector(".sdot") as (HTMLElement & { title: string }) | null)?.title).toBe(
+      "needs input",
+    );
   });
 
   it("does not touch the dot's size or colour — className carries the state class, not the dot's own attributes", () => {
     const root = fakeTileRoot();
-    const refs: TileRefs = { root, bodySlot: fakeElement(), geoEl: fakeElement(), markerEl: fakeElement() };
+    const refs: TileRefs = {
+      root,
+      bodySlot: fakeElement(),
+      geoEl: fakeElement(),
+      markerEl: fakeElement(),
+    };
 
     updateTile(refs, makeSession({ id: 1, state: "failed" }), NOW);
 
@@ -213,14 +256,21 @@ describe("updateTile — REQ-9 (plan move-tiles): the state dot gets a title = t
 // render/rename.ts's editor. `fakeNameEl()`'s `dataset` is a real mutable object (not a
 // getter), so this test can flip the flag directly, matching what the editor itself does
 // to the real node.
-describe("updateTile — REQ-15/INV-4: skips the title write while `.nm.dataset.editing` is \"true\" (W12)", () => {
+describe('updateTile — REQ-15/INV-4: skips the title write while `.nm.dataset.editing` is "true" (W12)', () => {
   it("leaves the rename button's text untouched while an edit is open, even though a new sessionUpsert carries a different title", () => {
     const root = fakeTileRoot();
-    const refs: TileRefs = { root, bodySlot: fakeElement(), geoEl: fakeElement(), markerEl: fakeElement() };
+    const refs: TileRefs = {
+      root,
+      bodySlot: fakeElement(),
+      geoEl: fakeElement(),
+      markerEl: fakeElement(),
+    };
     updateTile(refs, makeSession({ id: 1, title: "before" }), NOW);
     expect(root.querySelector(".nm")?.textContent).toBe("before");
 
-    const nameEl = root.querySelector(".nm") as unknown as { dataset: Record<string, string | undefined> };
+    const nameEl = root.querySelector(".nm") as unknown as {
+      dataset: Record<string, string | undefined>;
+    };
     nameEl.dataset["editing"] = "true";
 
     updateTile(refs, makeSession({ id: 1, title: "sneaking in mid-edit" }), NOW);
@@ -229,10 +279,17 @@ describe("updateTile — REQ-15/INV-4: skips the title write while `.nm.dataset.
 
   it("writes the title once the edit closes (dataset.editing cleared) — not stuck stale forever", () => {
     const root = fakeTileRoot();
-    const refs: TileRefs = { root, bodySlot: fakeElement(), geoEl: fakeElement(), markerEl: fakeElement() };
+    const refs: TileRefs = {
+      root,
+      bodySlot: fakeElement(),
+      geoEl: fakeElement(),
+      markerEl: fakeElement(),
+    };
     updateTile(refs, makeSession({ id: 1, title: "before" }), NOW);
 
-    const nameEl = root.querySelector(".nm") as unknown as { dataset: Record<string, string | undefined> };
+    const nameEl = root.querySelector(".nm") as unknown as {
+      dataset: Record<string, string | undefined>;
+    };
     nameEl.dataset["editing"] = "true";
     updateTile(refs, makeSession({ id: 1, title: "typed but not committed" }), NOW);
     expect(root.querySelector(".nm")?.textContent).toBe("before");
@@ -244,7 +301,12 @@ describe("updateTile — REQ-15/INV-4: skips the title write while `.nm.dataset.
 
   it("writes the title normally when dataset.editing is absent (the common, non-editing case)", () => {
     const root = fakeTileRoot();
-    const refs: TileRefs = { root, bodySlot: fakeElement(), geoEl: fakeElement(), markerEl: fakeElement() };
+    const refs: TileRefs = {
+      root,
+      bodySlot: fakeElement(),
+      geoEl: fakeElement(),
+      markerEl: fakeElement(),
+    };
 
     updateTile(refs, makeSession({ id: 1, title: "first" }), NOW);
     expect(root.querySelector(".nm")?.textContent).toBe("first");

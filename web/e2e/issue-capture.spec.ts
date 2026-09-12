@@ -99,8 +99,14 @@ test("sentinel title/directory/last-assistant-message never leak into the previe
 }) => {
   const gh = await FakeGitHubAPI.start();
   try {
-    gh.setResponse(201, { number: 42, html_url: `https://github.com/${ISSUE_REPO_FIXTURE}/issues/42` });
-    const daemon = await startDaemon({ issueApiURL: gh.baseURL, issueTokenContent: issueTokenFileContent() });
+    gh.setResponse(201, {
+      number: 42,
+      html_url: `https://github.com/${ISSUE_REPO_FIXTURE}/issues/42`,
+    });
+    const daemon = await startDaemon({
+      issueApiURL: gh.baseURL,
+      issueTokenContent: issueTokenFileContent(),
+    });
     const { path: dir, cleanup } = await scratchDirectory("SENTINEL-DIR-e1-");
     const { path: dirB, cleanup: cleanupB } = await scratchDirectory();
     const { path: dirC, cleanup: cleanupC } = await scratchDirectory();
@@ -110,10 +116,19 @@ test("sentinel title/directory/last-assistant-message never leak into the previe
       // Bystanders (INV-1's "with other sessions present" bullet): distinct
       // identifying data that must leave no trace in a capture scoped to a
       // different session.
-      const bystanderA = await launchSession(page, daemon, { directory: dirB, title: "BYSTANDER-A-9f2" });
-      const bystanderB = await launchSession(page, daemon, { directory: dirC, title: "BYSTANDER-B-9f2" });
+      const bystanderA = await launchSession(page, daemon, {
+        directory: dirB,
+        title: "BYSTANDER-A-9f2",
+      });
+      const bystanderB = await launchSession(page, daemon, {
+        directory: dirC,
+        title: "BYSTANDER-B-9f2",
+      });
 
-      const session = await launchSession(page, daemon, { directory: dir, title: "SENTINEL-TITLE-9f2" });
+      const session = await launchSession(page, daemon, {
+        directory: dir,
+        title: "SENTINEL-TITLE-9f2",
+      });
       const claudeId = "claude-e1-sentinel";
       await request.post(daemon.ingestURL("hook"), {
         data: envelopedSessionStart(claudeId, { musterSession: session.id }),
@@ -123,7 +138,10 @@ test("sentinel title/directory/last-assistant-message never leak into the previe
       // `last_assistant_message`, hard exclusion 5) — the sentinel that matters
       // most, since `Failure.Error` (a different string) IS allowlisted.
       await request.post(daemon.ingestURL("hook"), {
-        data: rawStopFailure(claudeId, { error: "server_error", lastAssistantMessage: "SENTINEL-ASSISTANT-MSG-9f2" }),
+        data: rawStopFailure(claudeId, {
+          error: "server_error",
+          lastAssistantMessage: "SENTINEL-ASSISTANT-MSG-9f2",
+        }),
       });
 
       await sessionCard(page, "SENTINEL-TITLE-9f2").click();
@@ -146,11 +164,17 @@ test("sentinel title/directory/last-assistant-message never leak into the previe
       const snapshotJson = JSON.stringify(capture.snapshot);
       const previewText = (await issuePreview(dialog).textContent()) ?? "";
       for (const needle of forbidden) {
-        expect(snapshotJson, `snapshot must not contain ${JSON.stringify(needle)}`).not.toContain(needle);
-        expect(capture.snapshotMarkdown, `snapshotMarkdown must not contain ${JSON.stringify(needle)}`).not.toContain(
+        expect(snapshotJson, `snapshot must not contain ${JSON.stringify(needle)}`).not.toContain(
           needle,
         );
-        expect(previewText, `#issue-preview must not contain ${JSON.stringify(needle)}`).not.toContain(needle);
+        expect(
+          capture.snapshotMarkdown,
+          `snapshotMarkdown must not contain ${JSON.stringify(needle)}`,
+        ).not.toContain(needle);
+        expect(
+          previewText,
+          `#issue-preview must not contain ${JSON.stringify(needle)}`,
+        ).not.toContain(needle);
       }
 
       // Positive controls: the allowlisted error TOKEN (distinct from the excluded
@@ -168,7 +192,9 @@ test("sentinel title/directory/last-assistant-message never leak into the previe
       expect(gh.requests.length).toBe(1);
       const postedBody = gh.lastRequest?.body?.body ?? "";
       for (const needle of forbidden) {
-        expect(postedBody, `posted body must not contain ${JSON.stringify(needle)}`).not.toContain(needle);
+        expect(postedBody, `posted body must not contain ${JSON.stringify(needle)}`).not.toContain(
+          needle,
+        );
       }
       expect(postedBody).toContain("server_error");
     } finally {
@@ -187,8 +213,14 @@ test("the preview text at submit time is byte-identical to the body the fake Git
 }) => {
   const gh = await FakeGitHubAPI.start();
   try {
-    gh.setResponse(201, { number: 7, html_url: `https://github.com/${ISSUE_REPO_FIXTURE}/issues/7` });
-    const daemon = await startDaemon({ issueApiURL: gh.baseURL, issueTokenContent: issueTokenFileContent() });
+    gh.setResponse(201, {
+      number: 7,
+      html_url: `https://github.com/${ISSUE_REPO_FIXTURE}/issues/7`,
+    });
+    const daemon = await startDaemon({
+      issueApiURL: gh.baseURL,
+      issueTokenContent: issueTokenFileContent(),
+    });
     await page.goto(daemon.dashboardUrl);
 
     // No sessions launched at all — Edge Case 15: the select holds only the
@@ -222,12 +254,21 @@ test("the preview text at submit time is byte-identical to the body the fake Git
 }) => {
   const gh = await FakeGitHubAPI.start();
   try {
-    gh.setResponse(201, { number: 8, html_url: `https://github.com/${ISSUE_REPO_FIXTURE}/issues/8` });
-    const daemon = await startDaemon({ issueApiURL: gh.baseURL, issueTokenContent: issueTokenFileContent() });
+    gh.setResponse(201, {
+      number: 8,
+      html_url: `https://github.com/${ISSUE_REPO_FIXTURE}/issues/8`,
+    });
+    const daemon = await startDaemon({
+      issueApiURL: gh.baseURL,
+      issueTokenContent: issueTokenFileContent(),
+    });
     const { path: dir, cleanup } = await scratchDirectory();
     try {
       await page.goto(daemon.dashboardUrl);
-      const session = await launchSession(page, daemon, { directory: dir, title: "e2-tricky-note" });
+      const session = await launchSession(page, daemon, {
+        directory: dir,
+        title: "e2-tricky-note",
+      });
       await request.post(daemon.ingestURL("hook"), {
         data: envelopedSessionStart("claude-e2-tricky", { musterSession: session.id }),
       });
@@ -274,7 +315,10 @@ test("filing succeeds against the fake GitHub server — Submit disables while t
 }) => {
   const gh = await FakeGitHubAPI.start();
   try {
-    const daemon = await startDaemon({ issueApiURL: gh.baseURL, issueTokenContent: issueTokenFileContent() });
+    const daemon = await startDaemon({
+      issueApiURL: gh.baseURL,
+      issueTokenContent: issueTokenFileContent(),
+    });
     const { path: dir, cleanup } = await scratchDirectory();
     try {
       await page.goto(daemon.dashboardUrl);
@@ -290,7 +334,10 @@ test("filing succeeds against the fake GitHub server — Submit disables while t
 
       // Hold-and-release (usage-model.spec.ts E4 pattern): observe the in-flight
       // disabled window deterministically instead of racing a fast fake response.
-      gh.setResponse(201, { number: 14, html_url: `https://github.com/${ISSUE_REPO_FIXTURE}/issues/14` });
+      gh.setResponse(201, {
+        number: 14,
+        html_url: `https://github.com/${ISSUE_REPO_FIXTURE}/issues/14`,
+      });
       gh.hold();
       await issueSubmitButton(dialog).click();
       await expect(issueSubmitButton(dialog)).toBeDisabled();
@@ -330,7 +377,10 @@ test("a fake GitHub 403 leaves the dialog open with the form intact, shows the a
 }) => {
   const gh = await FakeGitHubAPI.start();
   try {
-    const daemon = await startDaemon({ issueApiURL: gh.baseURL, issueTokenContent: issueTokenFileContent() });
+    const daemon = await startDaemon({
+      issueApiURL: gh.baseURL,
+      issueTokenContent: issueTokenFileContent(),
+    });
     const { path: dir, cleanup } = await scratchDirectory();
     try {
       await page.goto(daemon.dashboardUrl);
@@ -374,8 +424,14 @@ test("a dashboard-scope capture (— none (dashboard only) — selected) posts a
 }) => {
   const gh = await FakeGitHubAPI.start();
   try {
-    gh.setResponse(201, { number: 20, html_url: `https://github.com/${ISSUE_REPO_FIXTURE}/issues/20` });
-    const daemon = await startDaemon({ issueApiURL: gh.baseURL, issueTokenContent: issueTokenFileContent() });
+    gh.setResponse(201, {
+      number: 20,
+      html_url: `https://github.com/${ISSUE_REPO_FIXTURE}/issues/20`,
+    });
+    const daemon = await startDaemon({
+      issueApiURL: gh.baseURL,
+      issueTokenContent: issueTokenFileContent(),
+    });
     const { path: dir, cleanup } = await scratchDirectory();
     try {
       await page.goto(daemon.dashboardUrl);
@@ -523,12 +579,21 @@ test("a capture consumed by a concurrent filing shows the capture_expired remedy
 }) => {
   const gh = await FakeGitHubAPI.start();
   try {
-    gh.setResponse(201, { number: 30, html_url: `https://github.com/${ISSUE_REPO_FIXTURE}/issues/30` });
-    const daemon = await startDaemon({ issueApiURL: gh.baseURL, issueTokenContent: issueTokenFileContent() });
+    gh.setResponse(201, {
+      number: 30,
+      html_url: `https://github.com/${ISSUE_REPO_FIXTURE}/issues/30`,
+    });
+    const daemon = await startDaemon({
+      issueApiURL: gh.baseURL,
+      issueTokenContent: issueTokenFileContent(),
+    });
     const { path: dir, cleanup } = await scratchDirectory();
     try {
       await page.goto(daemon.dashboardUrl);
-      const session = await launchSession(page, daemon, { directory: dir, title: "expired-capture" });
+      const session = await launchSession(page, daemon, {
+        directory: dir,
+        title: "expired-capture",
+      });
       await request.post(daemon.ingestURL("hook"), {
         data: envelopedSessionStart("claude-expired", { musterSession: session.id }),
       });
@@ -588,7 +653,10 @@ test("a 2xx GitHub body with no issue number/URL shows the filing failure state,
 }) => {
   const gh = await FakeGitHubAPI.start();
   try {
-    const daemon = await startDaemon({ issueApiURL: gh.baseURL, issueTokenContent: issueTokenFileContent() });
+    const daemon = await startDaemon({
+      issueApiURL: gh.baseURL,
+      issueTokenContent: issueTokenFileContent(),
+    });
     const { path: dir, cleanup } = await scratchDirectory();
     try {
       await page.goto(daemon.dashboardUrl);
@@ -655,12 +723,21 @@ test("a 200-character title made of two-byte UTF-8 runes is accepted, proving th
     // rejected this with 400 invalid_request (len(title) > 200 was a byte count), even
     // though the browser itself only ever let the user type 200 characters.
     const title = "é".repeat(200);
-    gh.setResponse(201, { number: 40, html_url: `https://github.com/${ISSUE_REPO_FIXTURE}/issues/40` });
-    const daemon = await startDaemon({ issueApiURL: gh.baseURL, issueTokenContent: issueTokenFileContent() });
+    gh.setResponse(201, {
+      number: 40,
+      html_url: `https://github.com/${ISSUE_REPO_FIXTURE}/issues/40`,
+    });
+    const daemon = await startDaemon({
+      issueApiURL: gh.baseURL,
+      issueTokenContent: issueTokenFileContent(),
+    });
     const { path: dir, cleanup } = await scratchDirectory();
     try {
       await page.goto(daemon.dashboardUrl);
-      const session = await launchSession(page, daemon, { directory: dir, title: "multibyte-title" });
+      const session = await launchSession(page, daemon, {
+        directory: dir,
+        title: "multibyte-title",
+      });
       await request.post(daemon.ingestURL("hook"), {
         data: envelopedSessionStart("claude-multibyte", { musterSession: session.id }),
       });

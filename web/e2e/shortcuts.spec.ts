@@ -3,7 +3,13 @@ import { launchDialog, openLaunchDialog } from "./helpers/picker";
 import { envelopedSessionStart, rawNotification, rawUserPromptSubmit } from "./helpers/payloads";
 import { pinButton, railCard, railOrderIds, railSortSelect } from "./helpers/railorder";
 import { launchSession, scratchDirectory, type SessionObject, stateBadge } from "./helpers/session";
-import { activeElementInsideTerminal, liveTile, stripCard, terminalRegion, tileStateDot } from "./helpers/terminal";
+import {
+  activeElementInsideTerminal,
+  liveTile,
+  stripCard,
+  terminalRegion,
+  tileStateDot,
+} from "./helpers/terminal";
 
 // Plan shortcut-fixes — REQ-1 through REQ-9 (Must Have), the rebind of the whole session-
 // shortcut family onto ⌥⌘ chords Safari and Chrome both leave alone (spikes/S5-key-probe.md
@@ -38,7 +44,9 @@ async function makeNeedsInput(
     data: envelopedSessionStart(claudeId, { musterSession: session.id }),
   });
   await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit(claudeId) });
-  await request.post(daemon.ingestURL("hook"), { data: rawNotification(claudeId, "p1", "permission_prompt") });
+  await request.post(daemon.ingestURL("hook"), {
+    data: rawNotification(claudeId, "p1", "permission_prompt"),
+  });
 }
 
 test("pressing Opt+Cmd+N in Focus opens the launch dialog (E1)", async ({ page, daemon }) => {
@@ -47,7 +55,10 @@ test("pressing Opt+Cmd+N in Focus opens the launch dialog (E1)", async ({ page, 
   await expect(launchDialog(page)).toBeVisible();
 });
 
-test("pressing Opt+Cmd+N in Tiles opens the launch dialog (E2, INV-5)", async ({ page, daemon }) => {
+test("pressing Opt+Cmd+N in Tiles opens the launch dialog (E2, INV-5)", async ({
+  page,
+  daemon,
+}) => {
   await page.goto(daemon.dashboardUrl);
   await page.getByRole("button", { name: "Tiles" }).click();
   await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute("aria-pressed", "true");
@@ -132,10 +143,9 @@ test("pressing Opt+Cmd+1 in Tiles promotes the rail's first displayed session in
     // pinned block first) while it stays stripped from the grid — the case Opt+Cmd+1
     // must actually promote, not merely re-select an already-live tile.
     await pinButton(stripCard(page, strippedTitle)).click();
-    await expect(stripCard(page, strippedTitle).getByRole("button", { name: "Unpin" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    await expect(
+      stripCard(page, strippedTitle).getByRole("button", { name: "Unpin" }),
+    ).toHaveAttribute("aria-pressed", "true");
 
     await page.keyboard.press("Alt+Meta+Digit1");
 
@@ -185,14 +195,20 @@ test("pressing Opt+Cmd+0 focuses the longest-blocked needs-input session, ignori
   }
 });
 
-test("pressing Opt+Cmd+0 in Tiles promotes the neediest session into the grid (INV-5)", async ({ page, request, daemon }) => {
+test("pressing Opt+Cmd+0 in Tiles promotes the neediest session into the grid (INV-5)", async ({
+  page,
+  request,
+  daemon,
+}) => {
   const dirs = await Promise.all(Array.from({ length: 5 }, () => scratchDirectory()));
   try {
     await page.goto(daemon.dashboardUrl);
     const titles = dirs.map((_, i) => `e6b-${i}`);
     const sessions: SessionObject[] = [];
     for (const [i, dir] of dirs.entries()) {
-      sessions.push(await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" }));
+      sessions.push(
+        await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" }),
+      );
     }
 
     await page.getByRole("button", { name: "Tiles" }).click();
@@ -230,7 +246,9 @@ test("pressing Opt+Cmd+0 in Tiles does not demote another tile when the neediest
     const titles = dirs.map((_, i) => `edge6-${i}`);
     const sessions: SessionObject[] = [];
     for (const [i, dir] of dirs.entries()) {
-      sessions.push(await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" }));
+      sessions.push(
+        await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" }),
+      );
     }
 
     await page.getByRole("button", { name: "Tiles" }).click();
@@ -296,7 +314,10 @@ test("pressing Opt+Cmd+0 with sessions present but none alive stays on the expli
   }
 });
 
-test("pressing Opt+Cmd+0 with no sessions is a silent no-op (E7, edge case 3)", async ({ page, daemon }) => {
+test("pressing Opt+Cmd+0 with no sessions is a silent no-op (E7, edge case 3)", async ({
+  page,
+  daemon,
+}) => {
   const errors: string[] = [];
   page.on("pageerror", (err) => errors.push(String(err)));
   page.on("console", (msg) => {
@@ -364,12 +385,17 @@ test("pressing Opt+Cmd+1 with focus inside the launch dialog's Title field does 
   await expect(title).toHaveValue("no-leak");
 });
 
-test("the Focus and Tiles empty placeholders name the new Opt+Cmd+N chord (E9)", async ({ page, daemon }) => {
+test("the Focus and Tiles empty placeholders name the new Opt+Cmd+N chord (E9)", async ({
+  page,
+  daemon,
+}) => {
   await page.goto(daemon.dashboardUrl);
   await expect(page.locator("#main-empty")).toHaveText("No sessions yet — ⌥⌘N to launch");
 
   await page.getByRole("button", { name: "Tiles" }).click();
-  await expect(page.locator("#tiles-empty")).toHaveText("No sessions yet — New session or ⌥⌘N to launch");
+  await expect(page.locator("#tiles-empty")).toHaveText(
+    "No sessions yet — New session or ⌥⌘N to launch",
+  );
 });
 
 test("the launch dialog heading names ⌥⌘N via its kbd chip, excluded from the accessible name (E10)", async ({

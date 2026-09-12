@@ -65,7 +65,9 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
 
     void createShell(id).then((result) => {
       if (!result.ok) {
-        console.error(`POST /api/sessions/${id}/shell failed: ${result.error.code} ${result.error.message}`);
+        console.error(
+          `POST /api/sessions/${id}/shell failed: ${result.error.code} ${result.error.message}`,
+        );
         const liveSurface = surfaces.get(surfaceKey(id, "claude"));
         if (liveSurface) {
           liveSurface.showNotice(result.error.message);
@@ -85,7 +87,12 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
   // `(id, kind)` keys against the current view's visible ids.
   app.onRender((frame: RenderFrame) => {
     const { sessions } = frame;
-    const visibleIds = app.state.view === "focus" ? (app.state.focusedId !== null ? [app.state.focusedId] : []) : deps.tilesLive();
+    const visibleIds =
+      app.state.view === "focus"
+        ? app.state.focusedId !== null
+          ? [app.state.focusedId]
+          : []
+        : deps.tilesLive();
     const desiredEntries: Array<{ id: number; kind: SurfaceKind }> = [];
     for (const id of visibleIds) {
       const session = sessions.find((s) => s.id === id);
@@ -133,7 +140,10 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
     for (const [key, surface] of surfaces) {
       const { id, kind } = parseSurfaceKey(key);
       const session = sessions.find((s) => s.id === id);
-      const attachable = kind === "shell" ? getSurfaceState(surfaceSwitchState, id).shellRunning : (session?.alive ?? false);
+      const attachable =
+        kind === "shell"
+          ? getSurfaceState(surfaceSwitchState, id).shellRunning
+          : (session?.alive ?? false);
       surface.reattachIfDisconnected(attachable);
     }
   });

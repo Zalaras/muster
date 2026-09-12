@@ -28,7 +28,8 @@ export function initRail(app: App, deps: RailDeps): void {
 
   function requestRailSort(newSort: RailSort): void {
     void putPrefs({ railSort: newSort }).then((result) => {
-      if (!result.ok) console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);
+      if (!result.ok)
+        console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);
     });
   }
 
@@ -49,7 +50,10 @@ export function initRail(app: App, deps: RailDeps): void {
       if (!move) return;
       pendingRailFocus = focusedBeforeDrag;
       void putSessionOrder(move.ids, move.pinnedCount).then((result) => {
-        if (!result.ok) console.error(`PUT /api/sessions/order failed: ${result.error.code} ${result.error.message}`);
+        if (!result.ok)
+          console.error(
+            `PUT /api/sessions/order failed: ${result.error.code} ${result.error.message}`,
+          );
       });
     },
   });

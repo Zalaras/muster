@@ -42,10 +42,7 @@ test("End from the mainhead ends only the focused session; a live neighbour is u
   page,
   request,
 }) => {
-  const [dirA, dirB] = await Promise.all([
-    scratchDirectory(),
-    scratchDirectory(),
-  ]);
+  const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
     await page.goto(sharedDaemon().dashboardUrl);
     const sessionA = await launchSession(page, sharedDaemon(), {
@@ -235,14 +232,10 @@ test("a focused ended session shows the dead surface with its last snapshot and 
 
     // The stub's own startup line is in the pane's scrollback, so a real capture-pane
     // snapshot carries it — a stale/empty snapshot would not.
-    await expect(deadSurface.locator("pre.snapshot")).toContainText(
-      "MUSTER-STUB-READY",
-    );
+    await expect(deadSurface.locator("pre.snapshot")).toContainText("MUSTER-STUB-READY");
 
     // The dashboard never opens a terminal socket for a dead session (REQ-13/INV-5).
-    await expect(
-      page.locator('[aria-label="Terminal: dead-surface-e6"]'),
-    ).toHaveCount(0);
+    await expect(page.locator('[aria-label="Terminal: dead-surface-e6"]')).toHaveCount(0);
   } finally {
     await cleanup();
   }
@@ -278,9 +271,7 @@ test("Ending a focused session closes its terminal socket and never reopens one 
     });
     await expect.poll(() => tracker.liveCount).toBe(1);
 
-    const endRes = await page.request.post(
-      `${daemon.baseURL}/api/sessions/${session.id}/end`,
-    );
+    const endRes = await page.request.post(`${daemon.baseURL}/api/sessions/${session.id}/end`);
     expect(endRes.status()).toBe(200);
 
     await expect
@@ -318,10 +309,9 @@ test("clicking Resume in the ended cap relaunches the session with the same clau
     });
     const card = sessionCard(page, "resume-e7");
     await card.click();
-    await expect(terminalRegion(page, "resume-e7")).toContainText(
-      "MUSTER-STUB-READY",
-      { timeout: 15_000 },
-    );
+    await expect(terminalRegion(page, "resume-e7")).toContainText("MUSTER-STUB-READY", {
+      timeout: 15_000,
+    });
 
     const endRes = await page.request.post(
       `${sharedDaemon().baseURL}/api/sessions/${session.id}/end`,
@@ -337,10 +327,9 @@ test("clicking Resume in the ended cap relaunches the session with the same clau
     await expect(page.locator("#remove-dialog")).not.toBeVisible();
 
     await expect(card).not.toHaveClass(/ended/, { timeout: 15_000 });
-    await expect(terminalRegion(page, "resume-e7")).toContainText(
-      "MUSTER-STUB-READY",
-      { timeout: 15_000 },
-    );
+    await expect(terminalRegion(page, "resume-e7")).toContainText("MUSTER-STUB-READY", {
+      timeout: 15_000,
+    });
 
     const state = await getState(page, sharedDaemon());
     const resumed = findSession(state, session.id);
@@ -430,10 +419,9 @@ test("a session with no captured snapshot shows 'no snapshot captured' under the
 
     await page.reload();
     await sessionCard(page, "no-snap-e13").click();
-    await expect(page.locator("#dead-surface .endcap")).toContainText(
-      /no snapshot captured/i,
-      { timeout: 15_000 },
-    );
+    await expect(page.locator("#dead-surface .endcap")).toContainText(/no snapshot captured/i, {
+      timeout: 15_000,
+    });
   } finally {
     await cleanup();
   }
@@ -444,10 +432,7 @@ test("Removing a live session ends it first, warns in the dialog copy, and moves
   request,
   daemon,
 }) => {
-  const [dirA, dirB] = await Promise.all([
-    scratchDirectory(),
-    scratchDirectory(),
-  ]);
+  const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
     await page.goto(daemon.dashboardUrl);
     const sessionA = await launchSession(page, daemon, {
@@ -476,9 +461,7 @@ test("Removing a live session ends it first, warns in the dialog copy, and moves
 
     // Live cards carry only End (REQ-11) — Remove for a live session comes from the
     // mainhead only (REQ-10's "always enabled").
-    await expect(cardA.getByRole("button", { name: "Remove" })).toHaveCount(
-      0,
-    );
+    await expect(cardA.getByRole("button", { name: "Remove" })).toHaveCount(0);
 
     // exact: true — sanctioned repair (plan ui-text-and-focus, REQ-13/Testable UI
     // Elements): the mainhead's rename trigger's accessible name is the display
@@ -554,15 +537,9 @@ test("action buttons are disabled while the daemon connection is down (E14)", as
     const banner = page.getByRole("alert");
     await expect(banner).toBeVisible({ timeout: 15_000 });
 
-    await expect(
-      mainhead.getByRole("button", { name: "End" }),
-    ).toBeDisabled();
-    await expect(
-      mainhead.getByRole("button", { name: "Resume" }),
-    ).toBeDisabled();
-    await expect(
-      mainhead.getByRole("button", { name: "Remove" }),
-    ).toBeDisabled();
+    await expect(mainhead.getByRole("button", { name: "End" })).toBeDisabled();
+    await expect(mainhead.getByRole("button", { name: "Resume" })).toBeDisabled();
+    await expect(mainhead.getByRole("button", { name: "Remove" })).toBeDisabled();
     await expect(card.getByRole("button", { name: "End" })).toBeDisabled();
 
     await daemon.restart();
@@ -624,12 +601,8 @@ test("action buttons are disabled while the daemon connection is down for a dead
     // mainhead and Resume enabled in the cap (End stays disabled — the session just
     // isn't alive, unrelated to connection state).
     await expect(mainhead.getByRole("button", { name: "End" })).toBeDisabled();
-    await expect(
-      mainhead.getByRole("button", { name: "Resume" }),
-    ).toBeEnabled();
-    await expect(
-      mainhead.getByRole("button", { name: "Remove" }),
-    ).toBeEnabled();
+    await expect(mainhead.getByRole("button", { name: "Resume" })).toBeEnabled();
+    await expect(mainhead.getByRole("button", { name: "Remove" })).toBeEnabled();
     await expect(cap.getByRole("button", { name: "Resume" })).toBeEnabled();
 
     // Force-close the routed WebSocket rather than killing/restarting the daemon
@@ -640,8 +613,7 @@ test("action buttons are disabled while the daemon connection is down for a dead
     // WebSocket `close` event the same way a real outage would, without touching the
     // daemon or its store — `page.context().setOffline` was tried first and does not
     // reliably close an already-open Chromium WebSocket, only new connection attempts.
-    if (!wsRouteBox.close)
-      throw new Error("expected the dashboard's WebSocket route to be active");
+    if (!wsRouteBox.close) throw new Error("expected the dashboard's WebSocket route to be active");
     await wsRouteBox.close();
     const banner = page.getByRole("alert");
     await expect(banner).toBeVisible({ timeout: 15_000 });
@@ -650,12 +622,8 @@ test("action buttons are disabled while the daemon connection is down for a dead
     // so nothing incidentally re-renders them — only `setStatus`'s own `render()` call
     // can be responsible for these flipping to disabled.
     await expect(mainhead.getByRole("button", { name: "End" })).toBeDisabled();
-    await expect(
-      mainhead.getByRole("button", { name: "Resume" }),
-    ).toBeDisabled();
-    await expect(
-      mainhead.getByRole("button", { name: "Remove" }),
-    ).toBeDisabled();
+    await expect(mainhead.getByRole("button", { name: "Resume" })).toBeDisabled();
+    await expect(mainhead.getByRole("button", { name: "Remove" })).toBeDisabled();
     await expect(cap.getByRole("button", { name: "Resume" })).toBeDisabled();
 
     // No further action needed to "reconnect" — `wsRoute`'s own registration stays
@@ -663,12 +631,8 @@ test("action buttons are disabled while the daemon connection is down for a dead
     // (ws.ts, 500ms-8s) opens a fresh WebSocket that is routed and proxied to the same
     // real (never-killed) daemon.
     await expect(banner).toBeHidden({ timeout: 15_000 });
-    await expect(
-      mainhead.getByRole("button", { name: "Resume" }),
-    ).toBeEnabled();
-    await expect(
-      mainhead.getByRole("button", { name: "Remove" }),
-    ).toBeEnabled();
+    await expect(mainhead.getByRole("button", { name: "Resume" })).toBeEnabled();
+    await expect(mainhead.getByRole("button", { name: "Remove" })).toBeEnabled();
     await expect(cap.getByRole("button", { name: "Resume" })).toBeEnabled();
   } finally {
     await cleanup();
@@ -706,10 +670,9 @@ test("ended copy reads 'ended now', never 'ended now ago', on the mainhead and d
     // the documented Minor 2 scope-note edge case (`storeSnapshot`'s diff-check
     // short-circuits "" == "" so `LastSnapshotAt` never gets set) and serves 404
     // `no_snapshot` instead of 200 text — same precondition E6/E7/INV-5 already rely on.
-    await expect(terminalRegion(page, "ended-now-copy")).toContainText(
-      "MUSTER-STUB-READY",
-      { timeout: 15_000 },
-    );
+    await expect(terminalRegion(page, "ended-now-copy")).toContainText("MUSTER-STUB-READY", {
+      timeout: 15_000,
+    });
 
     const endRes = await page.request.post(
       `${sharedDaemon().baseURL}/api/sessions/${session.id}/end`,
@@ -758,10 +721,9 @@ test("the dead surface shows a 'loading last screen…' interim state before the
     });
     const card = sessionCard(page, "dead-loading-minor9");
     await card.click();
-    await expect(terminalRegion(page, "dead-loading-minor9")).toContainText(
-      "MUSTER-STUB-READY",
-      { timeout: 15_000 },
-    );
+    await expect(terminalRegion(page, "dead-loading-minor9")).toContainText("MUSTER-STUB-READY", {
+      timeout: 15_000,
+    });
 
     let releasePane: () => void = () => {};
     const gate = new Promise<void>((resolve) => {
@@ -785,10 +747,9 @@ test("the dead surface shows a 'loading last screen…' interim state before the
     await expect(deadSurface.locator("pre.snapshot")).toHaveText("");
 
     releasePane();
-    await expect(deadSurface.locator("pre.snapshot")).toContainText(
-      "MUSTER-STUB-READY",
-      { timeout: 15_000 },
-    );
+    await expect(deadSurface.locator("pre.snapshot")).toContainText("MUSTER-STUB-READY", {
+      timeout: 15_000,
+    });
     await expect(cap).not.toContainText(/loading last screen/i);
   } finally {
     await cleanup();
@@ -821,10 +782,9 @@ test("a late resume SessionStart hook after End does not revive the session or o
     });
     const card = sessionCard(page, "inv1-stray-resume");
     await card.click();
-    await expect(terminalRegion(page, "inv1-stray-resume")).toContainText(
-      "MUSTER-STUB-READY",
-      { timeout: 15_000 },
-    );
+    await expect(terminalRegion(page, "inv1-stray-resume")).toContainText("MUSTER-STUB-READY", {
+      timeout: 15_000,
+    });
     await expect.poll(() => tracker.liveCount).toBe(1);
 
     const endRes = await page.request.post(
@@ -855,9 +815,7 @@ test("a late resume SessionStart hook after End does not revive the session or o
     expect(found.endedAt).not.toBeNull();
 
     await expect(page.locator("#dead-surface")).toBeVisible();
-    await expect(
-      page.locator('[aria-label="Terminal: inv1-stray-resume"]'),
-    ).toHaveCount(0);
+    await expect(page.locator('[aria-label="Terminal: inv1-stray-resume"]')).toHaveCount(0);
     expect(tracker.liveCount).toBe(0);
     expect(tracker.totalOpened).toBe(1);
   } finally {

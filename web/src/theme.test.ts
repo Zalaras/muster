@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { readThemeHint, resolveTheme, THEMES, writeThemeHint, type ClaudeFamily, type ThemeHint } from "./theme";
+import {
+  readThemeHint,
+  resolveTheme,
+  THEMES,
+  writeThemeHint,
+  type ClaudeFamily,
+  type ThemeHint,
+} from "./theme";
 
 // REQ-7/INV-1: resolveTheme is pure — a known theme name always wins outright; "follow"
 // or any name the client doesn't recognise (edge case 6: a renamed/removed theme, or an
@@ -25,12 +32,15 @@ describe("resolveTheme (REQ-7, INV-1)", () => {
     expect(resolveTheme(choice, family)).toBe(expected);
   });
 
-  it.each(families)("an unrecognised pref name resolves the same as 'follow' when family is %s", (family) => {
-    const expected = family === "light" ? "light" : "instrument";
-    expect(resolveTheme("solarized", family)).toBe(expected);
-    expect(resolveTheme("", family)).toBe(expected);
-    expect(resolveTheme("Dark", family)).toBe(expected); // case-sensitive: not a known name
-  });
+  it.each(families)(
+    "an unrecognised pref name resolves the same as 'follow' when family is %s",
+    (family) => {
+      const expected = family === "light" ? "light" : "instrument";
+      expect(resolveTheme("solarized", family)).toBe(expected);
+      expect(resolveTheme("", family)).toBe(expected);
+      expect(resolveTheme("Dark", family)).toBe(expected); // case-sensitive: not a known name
+    },
+  );
 
   it("every registered theme name round-trips regardless of family (a known name always wins)", () => {
     for (const name of THEMES) {
@@ -73,7 +83,9 @@ describe("readThemeHint (REQ-11, W10)", () => {
   });
 
   it("returns the parsed hint when a valid one was written", () => {
-    const storage = fakeStorage({ "muster.theme-hint": JSON.stringify({ theme: "dark", family: "light" }) });
+    const storage = fakeStorage({
+      "muster.theme-hint": JSON.stringify({ theme: "dark", family: "light" }),
+    });
     expect(readThemeHint(storage)).toEqual({ theme: "dark", family: "light" });
   });
 
@@ -88,12 +100,16 @@ describe("readThemeHint (REQ-11, W10)", () => {
   });
 
   it("returns null for a theme name the client doesn't know (edge case 6)", () => {
-    const storage = fakeStorage({ "muster.theme-hint": JSON.stringify({ theme: "solarized", family: "dark" }) });
+    const storage = fakeStorage({
+      "muster.theme-hint": JSON.stringify({ theme: "solarized", family: "dark" }),
+    });
     expect(readThemeHint(storage)).toBeNull();
   });
 
   it("returns null for a family outside light|dark|unknown", () => {
-    const storage = fakeStorage({ "muster.theme-hint": JSON.stringify({ theme: "dark", family: "sepia" }) });
+    const storage = fakeStorage({
+      "muster.theme-hint": JSON.stringify({ theme: "dark", family: "sepia" }),
+    });
     expect(readThemeHint(storage)).toBeNull();
   });
 
@@ -101,7 +117,9 @@ describe("readThemeHint (REQ-11, W10)", () => {
     // The hint always carries a resolved ThemeName (index.html's head script paints
     // <html data-theme> with it directly) — "follow" is a pref choice, not a paintable
     // theme, so a hint carrying it is malformed.
-    const storage = fakeStorage({ "muster.theme-hint": JSON.stringify({ theme: "follow", family: "dark" }) });
+    const storage = fakeStorage({
+      "muster.theme-hint": JSON.stringify({ theme: "follow", family: "dark" }),
+    });
     expect(readThemeHint(storage)).toBeNull();
   });
 

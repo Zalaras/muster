@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { ApiErrorBody } from "../api";
-import { classifyApiFailure, classifyDrop, escapePath, locatingText, MAX_DROP_BYTES, noticeForFailure } from "./drop";
+import {
+  classifyApiFailure,
+  classifyDrop,
+  escapePath,
+  locatingText,
+  MAX_DROP_BYTES,
+  noticeForFailure,
+} from "./drop";
 
 // Plan file-drop-fix REQ-4: Terminal.app-style path escaping — a backslash before every
 // space and every character in the named set; everything else (including non-ASCII)
@@ -21,7 +28,9 @@ describe("escapePath (REQ-4)", () => {
 
   it("leaves path separators, dots, hyphens and underscores unchanged where not in the escape set", () => {
     // '/', '.', '-', '_' are explicitly called out by REQ-4 as passing through unchanged.
-    expect(escapePath("/Users/damian/my-file_v2.final.txt")).toBe("/Users/damian/my-file_v2.final.txt");
+    expect(escapePath("/Users/damian/my-file_v2.final.txt")).toBe(
+      "/Users/damian/my-file_v2.final.txt",
+    );
   });
 
   it("escapes '=' but leaves ':', '@' and '+' unescaped (REQ-4: only '=' of these four is in the escape set)", () => {
@@ -93,7 +102,9 @@ describe("classifyDrop (REQ-2/REQ-10, edge case 15)", () => {
 // REQ-6: the in-flight notice text, verbatim basename, trailing U+2026.
 describe("locatingText (REQ-6)", () => {
   it("builds the in-flight notice with the verbatim basename and a trailing ellipsis", () => {
-    expect(locatingText("Screenshot 2026-08-30 at 14.35.00.png")).toBe("Locating Screenshot 2026-08-30 at 14.35.00.png\u2026");
+    expect(locatingText("Screenshot 2026-08-30 at 14.35.00.png")).toBe(
+      "Locating Screenshot 2026-08-30 at 14.35.00.png\u2026",
+    );
   });
 
   it("uses the literal Unicode ellipsis character, not three ASCII dots", () => {
@@ -135,16 +146,24 @@ describe("noticeForFailure (REQ-6, Testable UI Elements)", () => {
   });
 
   it("renders the too_large notice naming the 50 MiB cap", () => {
-    expect(noticeForFailure("huge.mov", { kind: "too_large" })).toBe("huge.mov is over 50 MiB \u2014 paste its path instead");
+    expect(noticeForFailure("huge.mov", { kind: "too_large" })).toBe(
+      "huge.mov is over 50 MiB \u2014 paste its path instead",
+    );
   });
 
   it("renders the generic 'other' notice (network_error, 500, 400, unrecognised codes)", () => {
-    expect(noticeForFailure("x.txt", { kind: "other" })).toBe("Couldn't resolve x.txt \u2014 paste its path instead");
+    expect(noticeForFailure("x.txt", { kind: "other" })).toBe(
+      "Couldn't resolve x.txt \u2014 paste its path instead",
+    );
   });
 
   it("renders the not_connected notice without interpolating the name at all (REQ-8)", () => {
-    expect(noticeForFailure("ignored-name.txt", { kind: "not_connected" })).toBe("Pane isn't connected \u2014 nothing pasted");
-    expect(noticeForFailure("", { kind: "not_connected" })).toBe("Pane isn't connected \u2014 nothing pasted");
+    expect(noticeForFailure("ignored-name.txt", { kind: "not_connected" })).toBe(
+      "Pane isn't connected \u2014 nothing pasted",
+    );
+    expect(noticeForFailure("", { kind: "not_connected" })).toBe(
+      "Pane isn't connected \u2014 nothing pasted",
+    );
   });
 
   it("uses the literal em dash (U+2014) with surrounding spaces, not a hyphen", () => {
@@ -158,7 +177,9 @@ describe("noticeForFailure (REQ-6, Testable UI Elements)", () => {
 // terminal/pane.ts in web-impl's fix attempt 1 specifically so this mapping could be
 // pinned directly, without a DOM/xterm/socket harness around TerminalSurface.
 function apiError(code: string, paths?: string[]): ApiErrorBody {
-  return paths === undefined ? { code, message: "irrelevant" } : { code, message: "irrelevant", paths };
+  return paths === undefined
+    ? { code, message: "irrelevant" }
+    : { code, message: "irrelevant", paths };
 }
 
 describe("classifyApiFailure (docs/protocol.md \u00a73.14 wire code -> LocateFailure)", () => {

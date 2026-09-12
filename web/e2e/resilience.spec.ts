@@ -27,7 +27,10 @@ test.describe("daemon resilience", () => {
     await expect(page.getByRole("status")).toHaveText(/connected/i);
   });
 
-  test("keeps the same UI and ingest tokens across a restart on the same data dir", async ({ request, daemon }) => {
+  test("keeps the same UI and ingest tokens across a restart on the same data dir", async ({
+    request,
+    daemon,
+  }) => {
     const uiTokenBefore = daemon.uiToken;
     const ingestTokenBefore = daemon.ingestToken;
 
@@ -40,7 +43,9 @@ test.describe("daemon resilience", () => {
     expect(res.status()).toBe(200);
   });
 
-  test("does not re-apply migrations on a second startup against the same data dir", async ({ daemon }) => {
+  test("does not re-apply migrations on a second startup against the same data dir", async ({
+    daemon,
+  }) => {
     const before = await countMigrations(daemon.dbPath);
     expect(before).toBeGreaterThan(0);
 

@@ -8,7 +8,11 @@ import {
   mastheadModelWeekWarn,
   mastheadUsageRefreshButton,
 } from "./helpers/gauges";
-import { credentialsFileContent, FakeUsageAPI, weeklyScopedUsageResponse } from "./helpers/usageapi";
+import {
+  credentialsFileContent,
+  FakeUsageAPI,
+  weeklyScopedUsageResponse,
+} from "./helpers/usageapi";
 
 // Plan usage-model-bar — REQ-1 through REQ-14 driven end-to-end via a fake
 // `GET /api/oauth/usage` endpoint (helpers/usageapi.ts) that musterd's `-usage-api-url`
@@ -39,7 +43,10 @@ test("with the fake endpoint returning a Fable 61% window, the readout shows the
 }) => {
   const api = await FakeUsageAPI.start();
   try {
-    api.setResponse(200, weeklyScopedUsageResponse([{ displayName: "Fable", percent: 61, resetsAt: RESETS_AT }]));
+    api.setResponse(
+      200,
+      weeklyScopedUsageResponse([{ displayName: "Fable", percent: 61, resetsAt: RESETS_AT }]),
+    );
     const daemon = await startDaemon({
       usageApiURL: api.baseURL,
       usageTokenContent: credentialsFileContent(FAKE_TOKEN),
@@ -134,7 +141,10 @@ test("clicking Refresh usage causes a second request at the fake endpoint within
 }) => {
   const api = await FakeUsageAPI.start();
   try {
-    api.setResponse(200, weeklyScopedUsageResponse([{ displayName: "Fable", percent: 61, resetsAt: RESETS_AT }]));
+    api.setResponse(
+      200,
+      weeklyScopedUsageResponse([{ displayName: "Fable", percent: 61, resetsAt: RESETS_AT }]),
+    );
     const daemon = await startDaemon({
       usageApiURL: api.baseURL,
       usageTokenContent: credentialsFileContent(FAKE_TOKEN),
@@ -156,7 +166,10 @@ test("clicking Refresh usage causes a second request at the fake endpoint within
       })
       .toBeGreaterThan(countBeforeClick);
 
-    api.setResponse(200, weeklyScopedUsageResponse([{ displayName: "Fable", percent: 70, resetsAt: RESETS_AT }]));
+    api.setResponse(
+      200,
+      weeklyScopedUsageResponse([{ displayName: "Fable", percent: 70, resetsAt: RESETS_AT }]),
+    );
     api.release();
 
     await expect(mastheadModelWeekPercent(page)).toHaveText("70%");
@@ -172,7 +185,10 @@ test("the fake endpoint switched to 401 marks the readout stale while keeping th
 }) => {
   const api = await FakeUsageAPI.start();
   try {
-    api.setResponse(200, weeklyScopedUsageResponse([{ displayName: "Fable", percent: 61, resetsAt: RESETS_AT }]));
+    api.setResponse(
+      200,
+      weeklyScopedUsageResponse([{ displayName: "Fable", percent: 61, resetsAt: RESETS_AT }]),
+    );
     const daemon = await startDaemon({
       usageApiURL: api.baseURL,
       usageTokenContent: credentialsFileContent(FAKE_TOKEN),
@@ -191,7 +207,10 @@ test("the fake endpoint switched to 401 marks the readout stale while keeping th
     await expect(mastheadModelWeekPercent(page)).toHaveText("61%");
     await expect(mastheadModelWeekTrack(page)).toHaveCount(1);
 
-    api.setResponse(200, weeklyScopedUsageResponse([{ displayName: "Fable", percent: 61, resetsAt: RESETS_AT }]));
+    api.setResponse(
+      200,
+      weeklyScopedUsageResponse([{ displayName: "Fable", percent: 61, resetsAt: RESETS_AT }]),
+    );
     const refreshRes2 = await page.request.post(`${daemon.baseURL}/api/usage/refresh`);
     expect(refreshRes2.status()).toBe(202);
 
@@ -207,7 +226,10 @@ test("a daemon started with -usage-poll 0 shows unknown and 404s the refresh end
 }) => {
   const api = await FakeUsageAPI.start();
   try {
-    api.setResponse(200, weeklyScopedUsageResponse([{ displayName: "Fable", percent: 61, resetsAt: RESETS_AT }]));
+    api.setResponse(
+      200,
+      weeklyScopedUsageResponse([{ displayName: "Fable", percent: 61, resetsAt: RESETS_AT }]),
+    );
     const daemon = await startDaemon({
       usagePoll: "0",
       usageApiURL: api.baseURL,
@@ -235,7 +257,10 @@ test("the daemon's captured log output never contains the usage token string, ac
 }) => {
   const api = await FakeUsageAPI.start();
   try {
-    api.setResponse(200, weeklyScopedUsageResponse([{ displayName: "Fable", percent: 61, resetsAt: RESETS_AT }]));
+    api.setResponse(
+      200,
+      weeklyScopedUsageResponse([{ displayName: "Fable", percent: 61, resetsAt: RESETS_AT }]),
+    );
     const daemon = await startDaemon({
       usageApiURL: api.baseURL,
       usageTokenContent: credentialsFileContent(FAKE_TOKEN),
@@ -315,7 +340,10 @@ test("the model select keeps focus and the same node instance across a render ti
 }) => {
   const api = await FakeUsageAPI.start();
   try {
-    api.setResponse(200, weeklyScopedUsageResponse([{ displayName: "Fable", percent: 61, resetsAt: RESETS_AT }]));
+    api.setResponse(
+      200,
+      weeklyScopedUsageResponse([{ displayName: "Fable", percent: 61, resetsAt: RESETS_AT }]),
+    );
     const daemon = await startDaemon({
       usageApiURL: api.baseURL,
       usageTokenContent: credentialsFileContent(FAKE_TOKEN),
@@ -385,7 +413,9 @@ test("a usageModel pref naming a model absent from a non-null list shows a disab
     await expect(mastheadModelWeekPercent(page)).toHaveText("61%");
 
     // Point the pref at a model that is not in the (non-null) list returned above.
-    const putRes = await page.request.put(`${daemon.baseURL}/api/prefs`, { data: { usageModel: "Sonnet" } });
+    const putRes = await page.request.put(`${daemon.baseURL}/api/prefs`, {
+      data: { usageModel: "Sonnet" },
+    });
     expect(putRes.status()).toBe(204);
 
     // INV-2 still holds: the honest "unknown" reading with zero track markup, even
@@ -431,7 +461,10 @@ test("a model dropped from the list and later restored becomes selectable again 
   try {
     // Default pref is "Fable" (REQ-8); the fetched list starts without it, so the
     // control shows the disabled placeholder (Minor 3 / INV-2).
-    api.setResponse(200, weeklyScopedUsageResponse([{ displayName: "Opus", percent: 20, resetsAt: RESETS_AT }]));
+    api.setResponse(
+      200,
+      weeklyScopedUsageResponse([{ displayName: "Opus", percent: 20, resetsAt: RESETS_AT }]),
+    );
     const daemon = await startDaemon({
       usageApiURL: api.baseURL,
       usageTokenContent: credentialsFileContent(FAKE_TOKEN),

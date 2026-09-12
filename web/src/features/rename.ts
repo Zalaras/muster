@@ -24,7 +24,10 @@ export function initRename(app: App, deps: { focus: { nameEl: HTMLElement } }): 
   function handleRenameCommit(id: number, command: TitleCommand): void {
     const title = command.kind === "set" ? command.title : null;
     void putTitle(id, title).then((result) => {
-      if (!result.ok) console.error(`PUT /api/sessions/${id}/title failed: ${result.error.code} ${result.error.message}`);
+      if (!result.ok)
+        console.error(
+          `PUT /api/sessions/${id}/title failed: ${result.error.code} ${result.error.message}`,
+        );
     });
   }
 

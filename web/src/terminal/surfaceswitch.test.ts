@@ -262,7 +262,10 @@ function fakeSurfaceButton(): FakeSurfaceButton {
   return btn;
 }
 
-function fakeSurfaceSegmentRefs(): SurfaceSegmentRefs & { claudeBtn: FakeSurfaceButton; shellBtn: FakeSurfaceButton } {
+function fakeSurfaceSegmentRefs(): SurfaceSegmentRefs & {
+  claudeBtn: FakeSurfaceButton;
+  shellBtn: FakeSurfaceButton;
+} {
   const claudeBtn = fakeSurfaceButton();
   const shellBtn = fakeSurfaceButton();
   const pipEl: FakeSurfacePip = {

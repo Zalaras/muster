@@ -44,14 +44,19 @@ export function initUpdate(app: App): UpdateHandle {
 
   function apply(): void {
     void applyUpdate(false).then((result) => {
-      if (!result.ok) console.error(`POST /api/update/apply failed: ${result.error.code} ${result.error.message}`);
+      if (!result.ok)
+        console.error(
+          `POST /api/update/apply failed: ${result.error.code} ${result.error.message}`,
+        );
     });
   }
 
   function applyAndRestart(): void {
     void fetchRestartImpact().then((result) => {
       if (!result.ok) {
-        console.error(`GET /api/update/restart-impact failed: ${result.error.code} ${result.error.message}`);
+        console.error(
+          `GET /api/update/restart-impact failed: ${result.error.code} ${result.error.message}`,
+        );
         return;
       }
       restartConfirm.open(result.value.shells);
@@ -60,7 +65,10 @@ export function initUpdate(app: App): UpdateHandle {
 
   function handleRestartConfirmed(): void {
     void applyUpdate(true).then((result) => {
-      if (!result.ok) console.error(`POST /api/update/apply failed: ${result.error.code} ${result.error.message}`);
+      if (!result.ok)
+        console.error(
+          `POST /api/update/apply failed: ${result.error.code} ${result.error.message}`,
+        );
     });
   }
 

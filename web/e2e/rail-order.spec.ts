@@ -1,6 +1,19 @@
-import { type APIRequestContext, expect, type Page, type ScratchDaemon, settleFor, test } from "./helpers/fixtures";
+import {
+  type APIRequestContext,
+  expect,
+  type Page,
+  type ScratchDaemon,
+  settleFor,
+  test,
+} from "./helpers/fixtures";
 import { envelopedSessionStart, rawNotification, rawUserPromptSubmit } from "./helpers/payloads";
-import { getState, launchSession, scratchDirectory, type SessionObject, stateBadge } from "./helpers/session";
+import {
+  getState,
+  launchSession,
+  scratchDirectory,
+  type SessionObject,
+  stateBadge,
+} from "./helpers/session";
 import { liveTile, stripCard } from "./helpers/terminal";
 import {
   expectedManualOrder,
@@ -34,7 +47,9 @@ async function launchTitled(
   const dirs = await Promise.all(titles.map(() => scratchDirectory()));
   const sessions: SessionObject[] = [];
   for (const [i, dir] of dirs.entries()) {
-    sessions.push(await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" }));
+    sessions.push(
+      await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" }),
+    );
   }
   return {
     sessions,
@@ -56,12 +71,21 @@ async function makeNeedsInput(
     data: envelopedSessionStart(claudeId, { musterSession: session.id }),
   });
   await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit(claudeId) });
-  await request.post(daemon.ingestURL("hook"), { data: rawNotification(claudeId, "p1", "permission_prompt") });
+  await request.post(daemon.ingestURL("hook"), {
+    data: rawNotification(claudeId, "p1", "permission_prompt"),
+  });
 }
 
-test("three launched sessions appear in the rail in creation order with Manual selected (E2)", async ({ page, daemon }) => {
+test("three launched sessions appear in the rail in creation order with Manual selected (E2)", async ({
+  page,
+  daemon,
+}) => {
   await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["order-e2-a", "order-e2-b", "order-e2-c"]);
+  const { sessions, cleanup } = await launchTitled(page, daemon, [
+    "order-e2-a",
+    "order-e2-b",
+    "order-e2-c",
+  ]);
   try {
     await expect.poll(() => railOrderIds(page)).toEqual(sessions.map((s) => s.id));
     await expect(railSortSelect(page)).toHaveValue("manual");
@@ -72,7 +96,11 @@ test("three launched sessions appear in the rail in creation order with Manual s
 
 test("dragging the third card onto the first reorders the rail (E3)", async ({ page, daemon }) => {
   await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["order-e3-a", "order-e3-b", "order-e3-c"]);
+  const { sessions, cleanup } = await launchTitled(page, daemon, [
+    "order-e3-a",
+    "order-e3-b",
+    "order-e3-c",
+  ]);
   try {
     const [a, b, c] = sessions;
     if (!a || !b || !c) throw new Error("expected 3 sessions");
@@ -94,7 +122,11 @@ test("dragging the third card onto the first reorders the rail (E3)", async ({ p
 
 test("a dragged order persists after a reload (E4)", async ({ page, daemon }) => {
   await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["order-e4-a", "order-e4-b", "order-e4-c"]);
+  const { sessions, cleanup } = await launchTitled(page, daemon, [
+    "order-e4-a",
+    "order-e4-b",
+    "order-e4-c",
+  ]);
   try {
     const [a, b, c] = sessions;
     if (!a || !b || !c) throw new Error("expected 3 sessions");
@@ -111,7 +143,11 @@ test("a dragged order persists after a reload (E4)", async ({ page, daemon }) =>
 
 test("clicking Pin moves a card to the top of the pinned block (E5)", async ({ page, daemon }) => {
   await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["order-e5-a", "order-e5-b", "order-e5-c"]);
+  const { sessions, cleanup } = await launchTitled(page, daemon, [
+    "order-e5-a",
+    "order-e5-b",
+    "order-e5-c",
+  ]);
   try {
     const [a, b, c] = sessions;
     if (!a || !b || !c) throw new Error("expected 3 sessions");
@@ -120,22 +156,35 @@ test("clicking Pin moves a card to the top of the pinned block (E5)", async ({ p
     await pinButton(cardC).click();
 
     await expect.poll(() => railOrderIds(page)).toEqual([c.id, a.id, b.id]);
-    await expect(cardC.getByRole("button", { name: "Unpin" })).toHaveAttribute("aria-pressed", "true");
+    await expect(cardC.getByRole("button", { name: "Unpin" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     await expect(cardC.getByRole("button", { name: "Unpin" })).toHaveAttribute("title", "Unpin");
     await expect.poll(() => hasClass(cardC, "pinned")).toBe(true);
     await expect.poll(() => hasClass(cardC, "pinned-last")).toBe(true);
 
     const cardA = railCard(page, "order-e5-a");
-    await expect(cardA.getByRole("button", { name: "Pin" })).toHaveAttribute("aria-pressed", "false");
+    await expect(cardA.getByRole("button", { name: "Pin" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
     await expect.poll(() => hasClass(cardA, "pinned")).toBe(false);
   } finally {
     await cleanup();
   }
 });
 
-test("pinning a second card places it below the first pinned card (E6)", async ({ page, daemon }) => {
+test("pinning a second card places it below the first pinned card (E6)", async ({
+  page,
+  daemon,
+}) => {
   await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["order-e6-a", "order-e6-b", "order-e6-c"]);
+  const { sessions, cleanup } = await launchTitled(page, daemon, [
+    "order-e6-a",
+    "order-e6-b",
+    "order-e6-c",
+  ]);
   try {
     const [a, b, c] = sessions;
     if (!a || !b || !c) throw new Error("expected 3 sessions");
@@ -148,8 +197,14 @@ test("pinning a second card places it below the first pinned card (E6)", async (
 
     const cardC = railCard(page, "order-e6-c");
     const cardB = railCard(page, "order-e6-b");
-    await expect(cardC.getByRole("button", { name: "Unpin" })).toHaveAttribute("aria-pressed", "true");
-    await expect(cardB.getByRole("button", { name: "Unpin" })).toHaveAttribute("aria-pressed", "true");
+    await expect(cardC.getByRole("button", { name: "Unpin" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(cardB.getByRole("button", { name: "Unpin" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     // pinned-last moved from C to B — the newly-pinned bottom of the block.
     await expect.poll(() => hasClass(cardC, "pinned-last")).toBe(false);
     await expect.poll(() => hasClass(cardB, "pinned-last")).toBe(true);
@@ -158,9 +213,16 @@ test("pinning a second card places it below the first pinned card (E6)", async (
   }
 });
 
-test("unpinning the first pinned card places it after the remaining pinned card (E7)", async ({ page, daemon }) => {
+test("unpinning the first pinned card places it after the remaining pinned card (E7)", async ({
+  page,
+  daemon,
+}) => {
   await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["order-e7-a", "order-e7-b", "order-e7-c"]);
+  const { sessions, cleanup } = await launchTitled(page, daemon, [
+    "order-e7-a",
+    "order-e7-b",
+    "order-e7-c",
+  ]);
   try {
     const [a, b, c] = sessions;
     if (!a || !b || !c) throw new Error("expected 3 sessions");
@@ -176,19 +238,32 @@ test("unpinning the first pinned card places it after the remaining pinned card 
     await expect.poll(() => railOrderIds(page)).toEqual([b.id, c.id, a.id]);
     const cardC = railCard(page, "order-e7-c");
     const cardB = railCard(page, "order-e7-b");
-    await expect(cardC.getByRole("button", { name: "Pin" })).toHaveAttribute("aria-pressed", "false");
+    await expect(cardC.getByRole("button", { name: "Pin" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
     await expect.poll(() => hasClass(cardC, "pinned")).toBe(false);
     // B is now the only pinned session — it carries both pinned and pinned-last.
-    await expect(cardB.getByRole("button", { name: "Unpin" })).toHaveAttribute("aria-pressed", "true");
+    await expect(cardB.getByRole("button", { name: "Unpin" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     await expect.poll(() => hasClass(cardB, "pinned-last")).toBe(true);
   } finally {
     await cleanup();
   }
 });
 
-test("dragging an unpinned card onto a pinned card pins it at that position (E8)", async ({ page, daemon }) => {
+test("dragging an unpinned card onto a pinned card pins it at that position (E8)", async ({
+  page,
+  daemon,
+}) => {
   await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["order-e8-a", "order-e8-b", "order-e8-c"]);
+  const { sessions, cleanup } = await launchTitled(page, daemon, [
+    "order-e8-a",
+    "order-e8-b",
+    "order-e8-c",
+  ]);
   try {
     const [a, b, c] = sessions;
     if (!a || !b || !c) throw new Error("expected 3 sessions");
@@ -204,9 +279,18 @@ test("dragging an unpinned card onto a pinned card pins it at that position (E8)
     const cardB = railCard(page, "order-e8-b");
     const cardA = railCard(page, "order-e8-a");
     const cardC = railCard(page, "order-e8-c");
-    await expect(cardB.getByRole("button", { name: "Unpin" })).toHaveAttribute("aria-pressed", "true");
-    await expect(cardA.getByRole("button", { name: "Unpin" })).toHaveAttribute("aria-pressed", "true");
-    await expect(cardC.getByRole("button", { name: "Pin" })).toHaveAttribute("aria-pressed", "false");
+    await expect(cardB.getByRole("button", { name: "Unpin" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(cardA.getByRole("button", { name: "Unpin" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(cardC.getByRole("button", { name: "Pin" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
     // A is now last in the pinned block (index 1 of the pinned pair), so pinned-last
     // moved from A to... A: B (index 0) is not last, A (index 1) is.
     await expect.poll(() => hasClass(cardB, "pinned-last")).toBe(false);
@@ -219,9 +303,17 @@ test("dragging an unpinned card onto a pinned card pins it at that position (E8)
   }
 });
 
-test("a state change in manual mode leaves the rail order unchanged (E9, REQ-7)", async ({ page, request, daemon }) => {
+test("a state change in manual mode leaves the rail order unchanged (E9, REQ-7)", async ({
+  page,
+  request,
+  daemon,
+}) => {
   await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["order-e9-a", "order-e9-b", "order-e9-c"]);
+  const { sessions, cleanup } = await launchTitled(page, daemon, [
+    "order-e9-a",
+    "order-e9-b",
+    "order-e9-c",
+  ]);
   try {
     const [a, b, c] = sessions;
     if (!a || !b || !c) throw new Error("expected 3 sessions");
@@ -243,7 +335,11 @@ test("switching to Attention resorts unpinned cards by need while the pinned blo
   daemon,
 }) => {
   await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["order-e10-a", "order-e10-b", "order-e10-c"]);
+  const { sessions, cleanup } = await launchTitled(page, daemon, [
+    "order-e10-a",
+    "order-e10-b",
+    "order-e10-c",
+  ]);
   try {
     const [a, b, c] = sessions;
     if (!a || !b || !c) throw new Error("expected 3 sessions");
@@ -322,9 +418,17 @@ test("the Attention selection persists after a reload (E12)", async ({ page, dae
   }
 });
 
-test("a second window sees a pin and a reorder without reloading (E13)", async ({ page, browser, daemon }) => {
+test("a second window sees a pin and a reorder without reloading (E13)", async ({
+  page,
+  browser,
+  daemon,
+}) => {
   await page.goto(daemon.dashboardUrl);
-  const { sessions, cleanup } = await launchTitled(page, daemon, ["order-e13-a", "order-e13-b", "order-e13-c"]);
+  const { sessions, cleanup } = await launchTitled(page, daemon, [
+    "order-e13-a",
+    "order-e13-b",
+    "order-e13-c",
+  ]);
   try {
     const [a, b, c] = sessions;
     if (!a || !b || !c) throw new Error("expected 3 sessions");
@@ -337,18 +441,14 @@ test("a second window sees a pin and a reorder without reloading (E13)", async (
 
       // Window A pins C.
       await pinButton(railCard(page, "order-e13-c")).click();
-      await expect
-        .poll(() => railOrderIds(pageB), { timeout: 15_000 })
-        .toEqual([c.id, a.id, b.id]);
+      await expect.poll(() => railOrderIds(pageB), { timeout: 15_000 }).toEqual([c.id, a.id, b.id]);
       await expect(
         railCard(pageB, "order-e13-c").getByRole("button", { name: "Unpin" }),
       ).toHaveAttribute("aria-pressed", "true");
 
       // Window A drags B onto A (both unpinned) — window B sees the reorder too.
       await railCard(page, "order-e13-b").dragTo(railCard(page, "order-e13-a"));
-      await expect
-        .poll(() => railOrderIds(pageB), { timeout: 15_000 })
-        .toEqual([c.id, b.id, a.id]);
+      await expect.poll(() => railOrderIds(pageB), { timeout: 15_000 }).toEqual([c.id, b.id, a.id]);
     } finally {
       await contextB.close();
     }
@@ -357,7 +457,10 @@ test("a second window sees a pin and a reorder without reloading (E13)", async (
   }
 });
 
-test("the Tiles strip order matches the rail order minus live tiles (E14)", async ({ page, daemon }) => {
+test("the Tiles strip order matches the rail order minus live tiles (E14)", async ({
+  page,
+  daemon,
+}) => {
   await page.goto(daemon.dashboardUrl);
   const titles = Array.from({ length: 6 }, (_, i) => `order-e14-${i}`);
   const { sessions, cleanup } = await launchTitled(page, daemon, titles);
@@ -421,7 +524,10 @@ test("a Pin click while the daemon is down leaves the card unpinned and the orde
     await pinButton(cardA).click();
 
     // REQ-15: no optimistic state — the failed PUT changes nothing on screen.
-    await expect(cardA.getByRole("button", { name: "Pin" })).toHaveAttribute("aria-pressed", "false");
+    await expect(cardA.getByRole("button", { name: "Pin" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
     await expect.poll(() => hasClass(cardA, "pinned")).toBe(false);
     expect(await railOrderIds(page)).toEqual([a.id, b.id]);
   } finally {
@@ -429,7 +535,10 @@ test("a Pin click while the daemon is down leaves the card unpinned and the orde
   }
 });
 
-test("pinning from the Tiles strip pins the session the same as the rail (REQ-13)", async ({ page, daemon }) => {
+test("pinning from the Tiles strip pins the session the same as the rail (REQ-13)", async ({
+  page,
+  daemon,
+}) => {
   await page.goto(daemon.dashboardUrl);
   const titles = Array.from({ length: 5 }, (_, i) => `order-strip-pin-${i}`);
   const { sessions, cleanup } = await launchTitled(page, daemon, titles);
@@ -446,17 +555,24 @@ test("pinning from the Tiles strip pins the session the same as the rail (REQ-13
         strippedId = s.id;
       }
     }
-    if (!strippedTitle || strippedId === undefined) throw new Error("expected exactly one stripped title");
+    if (!strippedTitle || strippedId === undefined)
+      throw new Error("expected exactly one stripped title");
 
     const strip = stripCard(page, strippedTitle);
     await pinButton(strip).click();
-    await expect(strip.getByRole("button", { name: "Unpin" })).toHaveAttribute("aria-pressed", "true");
+    await expect(strip.getByRole("button", { name: "Unpin" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     await expect.poll(() => hasClass(strip, "pinned")).toBe(true);
 
     // The rail (still mounted, just hidden behind Tiles) reflects the same pin.
     await page.getByRole("button", { name: "Focus" }).click();
     const rail = railCard(page, strippedTitle);
-    await expect(rail.getByRole("button", { name: "Unpin" })).toHaveAttribute("aria-pressed", "true");
+    await expect(rail.getByRole("button", { name: "Unpin" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
     const state = await getState(page, daemon);
     const pinned = state.sessions.find((s) => s.id === strippedId);
@@ -490,7 +606,10 @@ test("the pin button is hidden until hover/focus reveals it, but always visible 
     await expect(pin).toHaveCSS("opacity", "1");
 
     await pin.click();
-    await expect(card.getByRole("button", { name: "Unpin" })).toHaveAttribute("aria-pressed", "true");
+    await expect(card.getByRole("button", { name: "Unpin" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
     // Once pinned, the button stays visible with no hover/focus at all: move the
     // pointer away and shift focus onto a plain, non-interactive masthead element.
@@ -508,7 +627,10 @@ test("the pin button is hidden until hover/focus reveals it, but always visible 
 // Focus rail on every pass, so `#rail-sort` is exercised by that same tick — this test
 // is the dedicated node-identity/focus regression check for it, independent of the
 // functional keyboard-driven test above.
-test("the rail sort select keeps focus and node identity across a render tick", async ({ page, daemon }) => {
+test("the rail sort select keeps focus and node identity across a render tick", async ({
+  page,
+  daemon,
+}) => {
   await page.goto(daemon.dashboardUrl);
   const { cleanup } = await launchTitled(page, daemon, ["order-tick-a"]);
   try {
@@ -524,7 +646,8 @@ test("the rail sort select keeps focus and node identity across a render tick", 
 
     await expect(select).toBeFocused();
     const stillTagged = await select.evaluate(
-      (node) => (node as HTMLSelectElement & { __e2eTag?: string }).__e2eTag === "original-rail-sort",
+      (node) =>
+        (node as HTMLSelectElement & { __e2eTag?: string }).__e2eTag === "original-rail-sort",
     );
     expect(stillTagged).toBe(true);
     await expect(select).toHaveValue("manual");

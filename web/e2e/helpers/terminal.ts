@@ -109,7 +109,10 @@ export function liveTileById(page: Page, id: number): Locator {
  * finds the strip's own copy.
  */
 export function stripCard(page: Page, titleOrUntitled: string): Locator {
-  return page.locator("#tiles-strip").getByTestId("session-card").filter({ hasText: titleOrUntitled });
+  return page
+    .locator("#tiles-strip")
+    .getByTestId("session-card")
+    .filter({ hasText: titleOrUntitled });
 }
 
 /**
@@ -276,7 +279,11 @@ export async function tilesGridOrder(page: Page): Promise<string[]> {
  * `locator.dragTo` drives real HTML5 DnD in Chromium (plan Implementation Notes) as long
  * as the source element itself is `draggable="true"`, which is exactly what `.thead` is.
  */
-export async function dragTileOnto(page: Page, draggedTitle: string, targetTitle: string): Promise<void> {
+export async function dragTileOnto(
+  page: Page,
+  draggedTitle: string,
+  targetTitle: string,
+): Promise<void> {
   await tileDragHandle(page, draggedTitle).dragTo(liveTile(page, targetTitle));
 }
 
@@ -362,7 +369,10 @@ export async function dropText(region: Locator, text: string): Promise<void> {
  * non-terminal part of the dashboard exercises the document-level drop guard's real
  * `dragover` listener, not just its `drop` handler.
  */
-export async function dragoverThenDropFiles(target: Locator, files: readonly DropFileSpec[]): Promise<void> {
+export async function dragoverThenDropFiles(
+  target: Locator,
+  files: readonly DropFileSpec[],
+): Promise<void> {
   const dataTransfer = await buildFileDataTransfer(target.page(), files);
   await target.dispatchEvent("dragover", { dataTransfer });
   await target.dispatchEvent("drop", { dataTransfer });

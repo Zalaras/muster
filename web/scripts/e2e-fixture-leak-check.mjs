@@ -101,18 +101,24 @@ async function main() {
       // carry the captured musterd output, not just "it failed" — see waitForHealthy()
       // and spawnAndWait()'s catch in helpers/daemon.ts.
       if (!message.includes("never became healthy")) {
-        console.error(`e2e-fixture-leak-check: rejection lost its "never became healthy" diagnostic: ${message}`);
+        console.error(
+          `e2e-fixture-leak-check: rejection lost its "never became healthy" diagnostic: ${message}`,
+        );
         failed = true;
       }
       if (!message.includes("scratch musterd output:")) {
-        console.error(`e2e-fixture-leak-check: rejection lost its captured musterd output: ${message}`);
+        console.error(
+          `e2e-fixture-leak-check: rejection lost its captured musterd output: ${message}`,
+        );
         failed = true;
       }
     }
 
     const pid = await readRecordedPid(pidFile);
     if (pid !== null && isAlive(pid)) {
-      console.error(`e2e-fixture-leak-check: fake-musterd (pid ${String(pid)}) survived start()'s rejection`);
+      console.error(
+        `e2e-fixture-leak-check: fake-musterd (pid ${String(pid)}) survived start()'s rejection`,
+      );
       failed = true;
       // Self-test hygiene, not part of the guard being tested: without REQ-4's guard the
       // leaked fake-musterd is a direct child of THIS Node process, so its still-open
@@ -133,7 +139,9 @@ async function main() {
     }
 
     if (!failed) {
-      console.log("e2e-fixture-leak-check: clean — start() rejected with its diagnostic intact, no surviving process, no leaked tmpdir");
+      console.log(
+        "e2e-fixture-leak-check: clean — start() rejected with its diagnostic intact, no surviving process, no leaked tmpdir",
+      );
     }
     return failed ? 1 : 0;
   } finally {

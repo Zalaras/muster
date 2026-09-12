@@ -22,7 +22,13 @@ import {
   tileRenameField,
   tileRenameFieldById,
 } from "./helpers/session";
-import { dragTileOnto, liveTile, stripCard, tileDragHandleById, tilesGridOrder } from "./helpers/terminal";
+import {
+  dragTileOnto,
+  liveTile,
+  stripCard,
+  tileDragHandleById,
+  tilesGridOrder,
+} from "./helpers/terminal";
 
 test("clicking the mainhead title opens a prefilled, selected field; Enter commits the new title everywhere (E4)", async ({
   page,
@@ -64,7 +70,11 @@ test("clicking the mainhead title opens a prefilled, selected field; Enter commi
   }
 });
 
-test("a status-line post's session_name never overrides an active title override (E5)", async ({ page, request, daemon }) => {
+test("a status-line post's session_name never overrides an active title override (E5)", async ({
+  page,
+  request,
+  daemon,
+}) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
@@ -80,7 +90,10 @@ test("a status-line post's session_name never overrides an active title override
       data: envelopedSessionStart(claudeId, { musterSession: session.id }),
     });
     await request.post(daemon.ingestURL("status"), {
-      data: envelopedStatusLineFull(claudeId, { musterSession: session.id, sessionName: "Run echo hello" }),
+      data: envelopedStatusLineFull(claudeId, {
+        musterSession: session.id,
+        sessionName: "Run echo hello",
+      }),
     });
 
     // Proof the posts were actually processed, not merely "nothing changed because
@@ -103,7 +116,11 @@ test("a status-line post's session_name never overrides an active title override
   }
 });
 
-test("clearing the field reverts the title to Claude's last-known name (E6)", async ({ page, request, daemon }) => {
+test("clearing the field reverts the title to Claude's last-known name (E6)", async ({
+  page,
+  request,
+  daemon,
+}) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
@@ -119,7 +136,10 @@ test("clearing the field reverts the title to Claude's last-known name (E6)", as
       data: envelopedSessionStart(claudeId, { musterSession: session.id }),
     });
     await request.post(daemon.ingestURL("status"), {
-      data: envelopedStatusLineFull(claudeId, { musterSession: session.id, sessionName: "claude's own name" }),
+      data: envelopedStatusLineFull(claudeId, {
+        musterSession: session.id,
+        sessionName: "claude's own name",
+      }),
     });
     await expect
       .poll(async () => (await queryEvents(daemon.dbPath, claudeId)).length, {
@@ -185,7 +205,9 @@ test("an override survives a daemon restart, on the mainhead/rail card, and in T
     const titles = dirs.map((_, i) => `restart-title-${i}`);
     const sessions = [];
     for (const [i, dir] of dirs.entries()) {
-      sessions.push(await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" }));
+      sessions.push(
+        await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" }),
+      );
     }
     const overriddenSession = sessions[4];
     if (!overriddenSession) throw new Error("expected 5 launched sessions");
@@ -205,7 +227,10 @@ test("an override survives a daemon restart, on the mainhead/rail card, and in T
     // is stripped by manual (creation) order; that must be the 5th/overridden one, so
     // its strip card is the first place the override title has to render correctly.
     await page.getByRole("button", { name: "Tiles" }).click();
-    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
     const live: string[] = [];
     const stripped: string[] = [];
@@ -236,14 +261,20 @@ test("renaming a live tile's header updates that tile, leaves a neighbour tile u
   const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
     await page.goto(daemon.dashboardUrl);
-    const sessionA = await launchSession(page, daemon, { directory: dirA.path, title: "rename-tile-a" });
+    const sessionA = await launchSession(page, daemon, {
+      directory: dirA.path,
+      title: "rename-tile-a",
+    });
     await launchSession(page, daemon, { directory: dirB.path, title: "rename-tile-b" });
     // A is launched (and therefore focused) first — switching views doesn't change
     // focusedId, so Focus's mainhead already tracks A once we switch back.
     await expect(page.locator("#mainhead .name")).toHaveText("rename-tile-a");
 
     await page.getByRole("button", { name: "Tiles" }).click();
-    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
     // Id-scoped (not title-scoped): this locator is asserted before, during, and
     // after the rename below, and the tile's title text changes across all three
@@ -274,7 +305,10 @@ test("renaming a live tile's header updates that tile, leaves a neighbour tile u
     await expect(tileRenameButton(page, "rename-tile-b")).toHaveText("rename-tile-b");
 
     await page.getByRole("button", { name: "Focus" }).click();
-    await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     await expect(page.locator("#mainhead .name")).toHaveText("renamed via tile");
     await expect(railCard(page, "renamed via tile")).toBeVisible();
     await expect(railCard(page, "rename-tile-b")).toBeVisible();
@@ -288,7 +322,10 @@ test("renaming a live tile's header updates that tile, leaves a neighbour tile u
   }
 });
 
-test("a header drag still reorders the Tiles grid and opens no rename textbox (E13)", async ({ page, daemon }) => {
+test("a header drag still reorders the Tiles grid and opens no rename textbox (E13)", async ({
+  page,
+  daemon,
+}) => {
   const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
     await page.goto(daemon.dashboardUrl);
@@ -296,12 +333,17 @@ test("a header drag still reorders the Tiles grid and opens no rename textbox (E
     await launchSession(page, daemon, { directory: dirB.path, title: "drag-tile-b" });
 
     await page.getByRole("button", { name: "Tiles" }).click();
-    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     await expect.poll(() => tilesGridOrder(page)).toEqual(["drag-tile-a", "drag-tile-b"]);
 
     await dragTileOnto(page, "drag-tile-a", "drag-tile-b");
 
-    await expect.poll(() => tilesGridOrder(page), { timeout: 15_000 }).toEqual(["drag-tile-b", "drag-tile-a"]);
+    await expect
+      .poll(() => tilesGridOrder(page), { timeout: 15_000 })
+      .toEqual(["drag-tile-b", "drag-tile-a"]);
     await expect(page.getByRole("textbox", { name: "Session title" })).toHaveCount(0);
   } finally {
     await Promise.all([dirA.cleanup(), dirB.cleanup()]);
@@ -369,10 +411,16 @@ test("switching to Focus via cmd-backslash while a tile rename is open sends no 
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, { directory: dir, title: "viewswitch-cmdbs" });
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "viewswitch-cmdbs",
+    });
 
     await page.getByRole("button", { name: "Tiles" }).click();
-    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
     let titlePuts = 0;
     page.on("request", (req) => {
@@ -389,7 +437,10 @@ test("switching to Focus via cmd-backslash while a tile rename is open sends no 
 
     // The view actually switched (proves the cmd-backslash handler ran, not just that nothing
     // happened) while the title was still left alone.
-    await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(titlePuts).toBe(0);
 
     const state = await getState(page, daemon);
@@ -408,10 +459,16 @@ test("clicking the masthead Focus button while a tile rename is open sends no PU
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, { directory: dir, title: "viewswitch-click" });
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "viewswitch-click",
+    });
 
     await page.getByRole("button", { name: "Tiles" }).click();
-    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
     let titlePuts = 0;
     page.on("request", (req) => {
@@ -428,7 +485,10 @@ test("clicking the masthead Focus button while a tile rename is open sends no PU
     // failing first (a `mousedown` default-action blur races ahead of `requestView`).
     await page.getByRole("button", { name: "Focus" }).click();
 
-    await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(titlePuts).toBe(0);
 
     const state = await getState(page, daemon);
@@ -447,7 +507,10 @@ test("switching to Tiles while the mainhead rename is open sends no PUT and leav
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, { directory: dir, title: "viewswitch-mainhead" });
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "viewswitch-mainhead",
+    });
 
     let titlePuts = 0;
     page.on("request", (req) => {
@@ -462,7 +525,10 @@ test("switching to Tiles while the mainhead rename is open sends no PUT and leav
     // one the review named explicitly ("the masthead in the mirror direction").
     await page.getByRole("button", { name: "Tiles" }).click();
 
-    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(titlePuts).toBe(0);
 
     const state = await getState(page, daemon);
@@ -473,7 +539,10 @@ test("switching to Tiles while the mainhead rename is open sends no PUT and leav
     // Back on Focus, the heading must still read the pre-edit title (no stray commit
     // reached it either).
     await page.getByRole("button", { name: "Focus" }).click();
-    await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     await expect(mainheadRenameButton(page)).toHaveText("viewswitch-mainhead");
   } finally {
     await cleanup();
@@ -505,8 +574,14 @@ test("clicking the pressed view segment while its own rename editor is open comm
   const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
     await page.goto(daemon.dashboardUrl);
-    const sessionA = await launchSession(page, daemon, { directory: dirA.path, title: "active-seg-mainhead" });
-    const sessionB = await launchSession(page, daemon, { directory: dirB.path, title: "active-seg-tile" });
+    const sessionA = await launchSession(page, daemon, {
+      directory: dirA.path,
+      title: "active-seg-mainhead",
+    });
+    const sessionB = await launchSession(page, daemon, {
+      directory: dirB.path,
+      title: "active-seg-tile",
+    });
 
     let titlePuts = 0;
     let prefsPuts = 0;
@@ -518,7 +593,10 @@ test("clicking the pressed view segment while its own rename editor is open comm
     });
 
     // Mainhead: default view is Focus, already pressed.
-    await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     await mainheadRenameButton(page).click();
     await mainheadRenameField(page).fill("active segment commit mainhead");
     await page.getByRole("button", { name: "Focus" }).click(); // the already-active segment
@@ -526,7 +604,10 @@ test("clicking the pressed view segment while its own rename editor is open comm
     await expect(mainheadRenameField(page)).toHaveCount(0);
     await expect(mainheadRenameButton(page)).toHaveText("active segment commit mainhead");
     await expect(railCard(page, "active segment commit mainhead")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(titlePuts).toBe(1);
     // REQ-6 ("no prefs request... for the view"): the already-active segment's click
     // guard now also skips `requestView`, so this commit-only click sends no
@@ -539,7 +620,10 @@ test("clicking the pressed view segment while its own rename editor is open comm
     // `PUT /api/prefs` — the assertion below isolates the active-segment click that
     // follows, not this genuine switch.
     await page.getByRole("button", { name: "Tiles" }).click();
-    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     const prefsPutsAfterRealSwitch = prefsPuts;
     expect(prefsPutsAfterRealSwitch).toBe(1);
 
@@ -551,7 +635,10 @@ test("clicking the pressed view segment while its own rename editor is open comm
 
     await expect(tileRenameFieldById(page, sessionB.id)).toHaveCount(0);
     await expect(tileRenameButton(page, "active segment commit tile")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(titlePuts).toBe(2);
     // The already-active Tiles click sends no further prefs PUT beyond the one real
     // switch above.
@@ -572,7 +659,10 @@ test("a right-click on the inactive Tiles segment while a mainhead rename is ope
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, { directory: dir, title: "right-click-guard" });
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "right-click-guard",
+    });
 
     let titlePuts = 0;
     page.on("request", (req) => {
@@ -592,7 +682,10 @@ test("a right-click on the inactive Tiles segment while a mainhead rename is ope
     await expect(mainheadRenameField(page)).toHaveCount(0);
     await expect(mainheadRenameButton(page)).toHaveText("right click should commit");
     await expect(railCard(page, "right click should commit")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(titlePuts).toBe(1);
 
     const state = await getState(page, daemon);

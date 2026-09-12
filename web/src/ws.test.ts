@@ -1,5 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ClaudeThemeMessage, Hello, PrefsMessage, Session, Snapshot, UpdateInfo, UpdateMessage, Usage, UsageMessage } from "./protocol";
+import type {
+  ClaudeThemeMessage,
+  Hello,
+  PrefsMessage,
+  Session,
+  Snapshot,
+  UpdateInfo,
+  UpdateMessage,
+  Usage,
+  UsageMessage,
+} from "./protocol";
 import { backoffDelay, type SocketLike, WsClient, type WsClientHandlers } from "./ws";
 
 const hello: Hello = {
@@ -24,14 +34,28 @@ const snapshot: Snapshot = {
   type: "snapshot",
   sessions: [],
   usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
-  prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual", theme: "follow", updateCheck: true },
+  prefs: {
+    view: "focus",
+    density: "2x2",
+    usageModel: "Fable",
+    railSort: "manual",
+    theme: "follow",
+    updateCheck: true,
+  },
   claudeTheme: { family: "unknown" },
   update: updateInfo,
 };
 
 const prefsMessage: PrefsMessage = {
   type: "prefs",
-  prefs: { view: "tiles", density: "3x2", usageModel: "Opus", railSort: "manual", theme: "dark", updateCheck: false },
+  prefs: {
+    view: "tiles",
+    density: "3x2",
+    usageModel: "Opus",
+    railSort: "manual",
+    theme: "dark",
+    updateCheck: false,
+  },
 };
 
 const updateMessage: UpdateMessage = { type: "update", update: updateInfo };
@@ -86,7 +110,12 @@ describe("backoffDelay", () => {
 
 /** A fake socket whose lifecycle events are triggered manually from the test. */
 class FakeSocket implements SocketLike {
-  listeners: { open: (() => void)[]; message: ((event: MessageEvent) => void)[]; close: (() => void)[]; error: (() => void)[] } = {
+  listeners: {
+    open: (() => void)[];
+    message: ((event: MessageEvent) => void)[];
+    close: (() => void)[];
+    error: (() => void)[];
+  } = {
     open: [],
     message: [],
     close: [],
@@ -94,8 +123,13 @@ class FakeSocket implements SocketLike {
   };
   closed = false;
 
-  addEventListener(type: "open" | "message" | "close" | "error", listener: (() => void) | ((event: MessageEvent) => void)): void {
-    (this.listeners[type] as ((...args: unknown[]) => void)[]).push(listener as (...args: unknown[]) => void);
+  addEventListener(
+    type: "open" | "message" | "close" | "error",
+    listener: (() => void) | ((event: MessageEvent) => void),
+  ): void {
+    (this.listeners[type] as ((...args: unknown[]) => void)[]).push(
+      listener as (...args: unknown[]) => void,
+    );
   }
 
   close(): void {
@@ -210,12 +244,15 @@ describe("WsClient.dispatch — pure message application, no socket involved", (
     expect(handlers.onSnapshot).not.toHaveBeenCalled();
   });
 
-  it.each(["light", "dark", "unknown"] as const)("routes each known claudeTheme family (%s) to onClaudeTheme", (family) => {
-    const handlers = makeHandlers();
-    const client = new WsClient("ws://x", handlers);
-    client.dispatch({ type: "claudeTheme", family });
-    expect(handlers.onClaudeTheme).toHaveBeenCalledWith(family);
-  });
+  it.each(["light", "dark", "unknown"] as const)(
+    "routes each known claudeTheme family (%s) to onClaudeTheme",
+    (family) => {
+      const handlers = makeHandlers();
+      const client = new WsClient("ws://x", handlers);
+      client.dispatch({ type: "claudeTheme", family });
+      expect(handlers.onClaudeTheme).toHaveBeenCalledWith(family);
+    },
+  );
 
   it("routes an update message to onUpdate with the bare update object, not onSnapshot (plan auto-update kb:anchor/ws.update)", () => {
     const handlers = makeHandlers();

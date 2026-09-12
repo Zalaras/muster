@@ -1,6 +1,17 @@
 import { expect, test } from "./helpers/fixtures";
-import { envelopedSessionStart, rawNotification, rawStopFailure, rawUserPromptSubmit } from "./helpers/payloads";
-import { getState, launchSession, scratchDirectory, sessionCard, stateBadge } from "./helpers/session";
+import {
+  envelopedSessionStart,
+  rawNotification,
+  rawStopFailure,
+  rawUserPromptSubmit,
+} from "./helpers/payloads";
+import {
+  getState,
+  launchSession,
+  scratchDirectory,
+  sessionCard,
+  stateBadge,
+} from "./helpers/session";
 import { terminalRegion } from "./helpers/terminal";
 import {
   claudeConfigJSON,
@@ -179,8 +190,14 @@ test("Tiles: choosing a theme re-themes both live tiles' grounds (E8, INV-3 Tile
   const dirs = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
     await page.goto(daemon.dashboardUrl);
-    const sessionA = await launchSession(page, daemon, { directory: dirs[0].path, title: "tiles-e8-a" });
-    const sessionB = await launchSession(page, daemon, { directory: dirs[1].path, title: "tiles-e8-b" });
+    const sessionA = await launchSession(page, daemon, {
+      directory: dirs[0].path,
+      title: "tiles-e8-a",
+    });
+    const sessionB = await launchSession(page, daemon, {
+      directory: dirs[1].path,
+      title: "tiles-e8-b",
+    });
     await request.post(daemon.ingestURL("hook"), {
       data: envelopedSessionStart("claude-e8-a", { musterSession: sessionA.id }),
     });
@@ -222,7 +239,10 @@ test("with a fast poll, flipping the Claude config from dark to light changes da
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
-    const daemon = await startDaemon({ claudeThemePoll: "200ms", claudeConfigContent: claudeConfigJSON("dark") });
+    const daemon = await startDaemon({
+      claudeThemePoll: "200ms",
+      claudeConfigContent: claudeConfigJSON("dark"),
+    });
     await page.goto(daemon.dashboardUrl);
     const session = await launchSession(page, daemon, { directory: dir, title: "poll-e9" });
     await request.post(daemon.ingestURL("hook"), {
@@ -263,7 +283,10 @@ test("with pref pinned to Dark, flipping the Claude config to light changes only
 }) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
-    const daemon = await startDaemon({ claudeThemePoll: "200ms", claudeConfigContent: claudeConfigJSON("dark") });
+    const daemon = await startDaemon({
+      claudeThemePoll: "200ms",
+      claudeConfigContent: claudeConfigJSON("dark"),
+    });
     await page.goto(daemon.dashboardUrl);
     const session = await launchSession(page, daemon, { directory: dir, title: "poll-e10" });
     await request.post(daemon.ingestURL("hook"), {
@@ -381,7 +404,9 @@ test("masthead Resume is disabled and its computed style differs from the enable
       const resumeCursor = await resumeBtn.evaluate((el) => getComputedStyle(el).cursor);
 
       expect(resumeColor, `${label}: Resume color must differ from enabled End`).not.toBe(endColor);
-      expect(resumeBorder, `${label}: Resume border-color must differ from enabled End`).not.toBe(endBorder);
+      expect(resumeBorder, `${label}: Resume border-color must differ from enabled End`).not.toBe(
+        endBorder,
+      );
       expect(resumeCursor, `${label}: disabled Resume must show not-allowed`).toBe("not-allowed");
     }
   } finally {
@@ -402,13 +427,19 @@ test("badge colors for Needs-Input, Failed, Planning and Working cards match the
       directory: dirs[0]?.path ?? "",
       title: "badge-needs-input",
     });
-    const failed = await launchSession(page, daemon, { directory: dirs[1]?.path ?? "", title: "badge-failed" });
+    const failed = await launchSession(page, daemon, {
+      directory: dirs[1]?.path ?? "",
+      title: "badge-failed",
+    });
     const planning = await launchSession(page, daemon, {
       directory: dirs[2]?.path ?? "",
       title: "badge-planning",
       permissionMode: "plan",
     });
-    const working = await launchSession(page, daemon, { directory: dirs[3]?.path ?? "", title: "badge-working" });
+    const working = await launchSession(page, daemon, {
+      directory: dirs[3]?.path ?? "",
+      title: "badge-working",
+    });
 
     await request.post(daemon.ingestURL("hook"), {
       data: envelopedSessionStart("claude-badge-ni", { musterSession: needsInput.id }),
@@ -459,16 +490,22 @@ test("badge colors for Needs-Input, Failed, Planning and Working cards match the
       const violet = await resolvedCssVar(page, "--violet");
       const teal = await resolvedCssVar(page, "--teal");
 
-      await expect(cardNI.locator(".badge"), `${label}: Needs-Input badge should be amber`).toHaveCSS(
+      await expect(
+        cardNI.locator(".badge"),
+        `${label}: Needs-Input badge should be amber`,
+      ).toHaveCSS("color", amber);
+      await expect(cardF.locator(".badge"), `${label}: Failed badge should be rose`).toHaveCSS(
         "color",
-        amber,
+        rose,
       );
-      await expect(cardF.locator(".badge"), `${label}: Failed badge should be rose`).toHaveCSS("color", rose);
       await expect(cardP.locator(".badge"), `${label}: Planning badge should be violet`).toHaveCSS(
         "color",
         violet,
       );
-      await expect(cardW.locator(".badge"), `${label}: Working badge should be teal`).toHaveCSS("color", teal);
+      await expect(cardW.locator(".badge"), `${label}: Working badge should be teal`).toHaveCSS(
+        "color",
+        teal,
+      );
     }
   } finally {
     await Promise.all(dirs.map((d) => d.cleanup()));
@@ -488,8 +525,14 @@ test("a scratch Claude config with malformed JSON yields data-claude-family=unkn
   expect(pageErrors).toEqual([]);
 });
 
-test("theme resolution walks follow×dark -> dark×dark -> follow×light -> light×dark (INV-1)", async ({ page, startDaemon }) => {
-  const daemon = await startDaemon({ claudeThemePoll: "200ms", claudeConfigContent: claudeConfigJSON("dark") });
+test("theme resolution walks follow×dark -> dark×dark -> follow×light -> light×dark (INV-1)", async ({
+  page,
+  startDaemon,
+}) => {
+  const daemon = await startDaemon({
+    claudeThemePoll: "200ms",
+    claudeConfigContent: claudeConfigJSON("dark"),
+  });
   await page.goto(daemon.dashboardUrl);
 
   // follow × dark -> instrument
@@ -567,7 +610,10 @@ test("a rejected PUT /api/prefs never persists or applies; the Settings dialog c
 // Sanity that getState (used elsewhere in this suite) still resolves against a
 // theme-carrying snapshot — REQ-10, guards against a `theme` field silently vanishing
 // from GET /api/state for a plain, no-session daemon.
-test("GET /api/state always carries prefs.theme and claudeTheme.family (REQ-10, REQ-15)", async ({ page, daemon }) => {
+test("GET /api/state always carries prefs.theme and claudeTheme.family (REQ-10, REQ-15)", async ({
+  page,
+  daemon,
+}) => {
   await page.goto(daemon.dashboardUrl);
   const state = (await getState(page, daemon)) as unknown as {
     prefs: { theme: string };

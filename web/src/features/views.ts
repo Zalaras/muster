@@ -34,13 +34,15 @@ export function initViews(app: App): ViewsHandle {
 
   function requestView(newView: "focus" | "tiles"): void {
     void putPrefs({ view: newView }).then((result) => {
-      if (!result.ok) console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);
+      if (!result.ok)
+        console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);
     });
   }
 
   function requestDensity(newDensity: Density): void {
     void putPrefs({ density: newDensity }).then((result) => {
-      if (!result.ok) console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);
+      if (!result.ok)
+        console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);
     });
   }
 
@@ -80,7 +82,11 @@ export function initViews(app: App): ViewsHandle {
   app.onRender(() => {
     renderViewSwitcher({ focusButton: viewFocusBtn, tilesButton: viewTilesBtn }, app.state.view);
     renderDensityControl(
-      { container: densityToolbarEl, twoByTwoButton: density2x2Btn, threeByTwoButton: density3x2Btn },
+      {
+        container: densityToolbarEl,
+        twoByTwoButton: density2x2Btn,
+        threeByTwoButton: density3x2Btn,
+      },
       app.state.view,
       app.state.density,
     );

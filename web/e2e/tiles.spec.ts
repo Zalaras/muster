@@ -33,9 +33,7 @@ test("Tiles: End from a tile footer keeps the tile in its slot and leaves other 
   request,
   daemon,
 }) => {
-  const dirs = await Promise.all(
-    Array.from({ length: 4 }, () => scratchDirectory()),
-  );
+  const dirs = await Promise.all(Array.from({ length: 4 }, () => scratchDirectory()));
   try {
     await page.goto(daemon.dashboardUrl);
     const titles = dirs.map((_, i) => `tile-end-${i}`);
@@ -54,10 +52,7 @@ test("Tiles: End from a tile footer keeps the tile in its slot and leaves other 
     }
 
     await page.getByRole("button", { name: "Tiles" }).click();
-    await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute("aria-pressed", "true");
 
     const titleA = titles[0];
     const neighbourTitle = titles[1];
@@ -81,22 +76,13 @@ test("Tiles: End from a tile footer keeps the tile in its slot and leaves other 
       })),
     );
     const neighbourGeometry = async (): Promise<string> => {
-      const width = await daemon.tmuxDisplay(
-        neighbourSession.tmuxTarget,
-        "#{window_width}",
-      );
-      const height = await daemon.tmuxDisplay(
-        neighbourSession.tmuxTarget,
-        "#{window_height}",
-      );
+      const width = await daemon.tmuxDisplay(neighbourSession.tmuxTarget, "#{window_width}");
+      const height = await daemon.tmuxDisplay(neighbourSession.tmuxTarget, "#{window_height}");
       return `${width}x${height}`;
     };
     const neighbourGeometryBefore = await neighbourGeometry();
 
-    await tileA
-      .locator(".tfoot")
-      .getByRole("button", { name: "End" })
-      .click();
+    await tileA.locator(".tfoot").getByRole("button", { name: "End" }).click();
     const dialog = page.getByRole("dialog", { name: "End session?" });
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "End session" }).click();
@@ -108,12 +94,8 @@ test("Tiles: End from a tile footer keeps the tile in its slot and leaves other 
       timeout: 15_000,
     });
     await expect(tileA.getByText(/^ended /)).toBeVisible();
-    await expect(
-      tileA.locator(".tfoot").getByRole("button", { name: "Resume" }),
-    ).toBeVisible();
-    await expect(
-      tileA.locator(".tfoot").getByRole("button", { name: "Remove" }),
-    ).toBeVisible();
+    await expect(tileA.locator(".tfoot").getByRole("button", { name: "Resume" })).toBeVisible();
+    await expect(tileA.locator(".tfoot").getByRole("button", { name: "Remove" })).toBeVisible();
     await expect(tileA.locator(".endcap")).toContainText(/session ended/i);
 
     // review m4-reconcile cycle-3 Critical 1 / Minor 2: the second of the two
@@ -122,15 +104,10 @@ test("Tiles: End from a tile footer keeps the tile in its slot and leaves other 
     // exercised by the E6 test. `toBeVisible()` alone would have stayed green through
     // the opacity-0 defect here too, so read the computed style: both the cap's
     // Resume button and its `.acts-row` must resolve to opacity 1.
-    const tileResumeBtn = tileA
-      .locator(".endcap")
-      .getByRole("button", { name: "Resume" });
+    const tileResumeBtn = tileA.locator(".endcap").getByRole("button", { name: "Resume" });
     await expect(tileResumeBtn).toBeVisible();
     await expect(tileResumeBtn).toHaveCSS("opacity", "1");
-    await expect(tileA.locator(".endcap .acts-row")).toHaveCSS(
-      "opacity",
-      "1",
-    );
+    await expect(tileA.locator(".endcap .acts-row")).toHaveCSS("opacity", "1");
 
     // The neighbour's tmux geometry is exactly what it was before the End (the intent is
     // unchanged: End on A never resizes B). Polled rather than read once, so a tmux read
@@ -147,9 +124,7 @@ test("Tiles: Removing a dead tile backfills its slot from the strip and broadcas
   request,
   daemon,
 }) => {
-  const dirs = await Promise.all(
-    Array.from({ length: 5 }, () => scratchDirectory()),
-  );
+  const dirs = await Promise.all(Array.from({ length: 5 }, () => scratchDirectory()));
   try {
     // Observe the actual `sessionRemoved` WS frame (review m4-reconcile cycle-2 Minor
     // 7 — previously this test only inferred the broadcast from its effect on a later
@@ -185,37 +160,27 @@ test("Tiles: Removing a dead tile backfills its slot from the strip and broadcas
     }
 
     await page.getByRole("button", { name: "Tiles" }).click();
-    await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute("aria-pressed", "true");
 
     // 5 sessions in a 2x2 grid: 4 live, 1 stripped.
     let strippedTitle: string | undefined;
     for (const t of titles) {
       if ((await liveTile(page, t).count()) === 0) strippedTitle = t;
     }
-    if (!strippedTitle)
-      throw new Error("expected exactly one stripped title");
+    if (!strippedTitle) throw new Error("expected exactly one stripped title");
     const liveTitleToEnd = titles.find((t) => t !== strippedTitle);
     if (!liveTitleToEnd) throw new Error("expected a live title to end");
     const sessionToEnd = sessions[titles.indexOf(liveTitleToEnd)];
-    if (!sessionToEnd)
-      throw new Error("no session object for the title being ended");
+    if (!sessionToEnd) throw new Error("no session object for the title being ended");
 
-    const endRes = await page.request.post(
-      `${daemon.baseURL}/api/sessions/${sessionToEnd.id}/end`,
-    );
+    const endRes = await page.request.post(`${daemon.baseURL}/api/sessions/${sessionToEnd.id}/end`);
     expect(endRes.status()).toBe(200);
     const deadTile = liveTile(page, liveTitleToEnd);
     await expect(deadTile.locator(".marker")).toHaveText("stopped", {
       timeout: 15_000,
     });
 
-    await deadTile
-      .locator(".tfoot")
-      .getByRole("button", { name: "Remove" })
-      .click();
+    await deadTile.locator(".tfoot").getByRole("button", { name: "Remove" }).click();
     const dialog = page.getByRole("dialog", { name: "Remove session?" });
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Remove", exact: true }).click();
@@ -290,9 +255,7 @@ test("a tile footer's End button survives a render tick and still opens the End 
 
     const tile = liveTile(page, "kbd-tick-tile-end");
     await expect(tile).toBeVisible();
-    const endBtn = tile
-      .locator(".tfoot")
-      .getByRole("button", { name: "End" });
+    const endBtn = tile.locator(".tfoot").getByRole("button", { name: "End" });
     const dialog = page.getByRole("dialog", { name: "End session?" });
 
     await endBtn.focus();
@@ -330,10 +293,7 @@ test("a priority change updates a live tile's chrome but never moves it in the T
 }) => {
   // Isolated daemon: switching to Tiles persists the view pref, which would leak into the
   // next test sharing the suite daemon (its rail card is hidden in Tiles view).
-  const [dirA, dirB] = await Promise.all([
-    scratchDirectory(),
-    scratchDirectory(),
-  ]);
+  const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
     await page.goto(daemon.dashboardUrl);
     const sessionA = await launchSession(page, daemon, {
@@ -378,11 +338,7 @@ test("a priority change updates a live tile's chrome but never moves it in the T
       data: rawUserPromptSubmit("claude-tile-prio-b"),
     });
     await request.post(daemon.ingestURL("hook"), {
-      data: rawNotification(
-        "claude-tile-prio-b",
-        "p1",
-        "permission_prompt",
-      ),
+      data: rawNotification("claude-tile-prio-b", "p1", "permission_prompt"),
     });
 
     // Chrome DOES update — REQ-2's exact carve-out ("only chrome (dot/border/timer)
@@ -405,10 +361,7 @@ test("a focused tile-footer action button survives a drag-drop reorder (REQ-10, 
   request,
   daemon,
 }) => {
-  const [dirA, dirB] = await Promise.all([
-    scratchDirectory(),
-    scratchDirectory(),
-  ]);
+  const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
     await page.goto(daemon.dashboardUrl);
     const sessionA = await launchSession(page, daemon, {
@@ -444,9 +397,7 @@ test("a focused tile-footer action button survives a drag-drop reorder (REQ-10, 
     const orderBefore = await tilesGridOrder(page);
     expect(orderBefore).toHaveLength(2);
 
-    const endBtnB = tileB
-      .locator(".tfoot")
-      .getByRole("button", { name: "End" });
+    const endBtnB = tileB.locator(".tfoot").getByRole("button", { name: "End" });
     await endBtnB.focus();
     await expect(endBtnB).toBeFocused();
 
@@ -474,14 +425,19 @@ test("a focused tile-footer action button survives a drag-drop reorder (REQ-10, 
   }
 });
 
-test("switching density 2x2 to 3x2 promotes the next session by sort order into the grid (E8)", async ({ page, daemon }) => {
+test("switching density 2x2 to 3x2 promotes the next session by sort order into the grid (E8)", async ({
+  page,
+  daemon,
+}) => {
   const dirs = await Promise.all(Array.from({ length: 5 }, () => scratchDirectory()));
   try {
     await page.goto(daemon.dashboardUrl);
     const titles = dirs.map((_, i) => `density-${i}`);
     const sessions = [];
     for (const [i, dir] of dirs.entries()) {
-      sessions.push(await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" }));
+      sessions.push(
+        await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" }),
+      );
     }
 
     await page.getByRole("button", { name: "Tiles" }).click();
@@ -530,14 +486,19 @@ test("switching density 2x2 to 3x2 promotes the next session by sort order into 
   }
 });
 
-test("clicking a strip card promotes it and demotes exactly the lowest-priority live tile (E9)", async ({ page, daemon }) => {
+test("clicking a strip card promotes it and demotes exactly the lowest-priority live tile (E9)", async ({
+  page,
+  daemon,
+}) => {
   const dirs = await Promise.all(Array.from({ length: 5 }, () => scratchDirectory()));
   try {
     await page.goto(daemon.dashboardUrl);
     const titles = dirs.map((_, i) => `promote-${i}`);
     const sessions = [];
     for (const [i, dir] of dirs.entries()) {
-      sessions.push(await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" }));
+      sessions.push(
+        await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" }),
+      );
     }
 
     await page.getByRole("button", { name: "Tiles" }).click();
@@ -585,7 +546,10 @@ test("clicking a strip card promotes it and demotes exactly the lowest-priority 
   }
 });
 
-test("a density change leaves a still-stripped session's tmux geometry untouched (E10, INV-3)", async ({ page, daemon }) => {
+test("a density change leaves a still-stripped session's tmux geometry untouched (E10, INV-3)", async ({
+  page,
+  daemon,
+}) => {
   test.setTimeout(90_000);
   const dirs = await Promise.all(Array.from({ length: 7 }, () => scratchDirectory()));
   try {
@@ -593,7 +557,9 @@ test("a density change leaves a still-stripped session's tmux geometry untouched
     const titles = dirs.map((_, i) => `geo-${i}`);
     const sessions = [];
     for (const [i, dir] of dirs.entries()) {
-      sessions.push(await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" }));
+      sessions.push(
+        await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" }),
+      );
     }
 
     await page.getByRole("button", { name: "Tiles" }).click();
@@ -619,11 +585,15 @@ test("a density change leaves a still-stripped session's tmux geometry untouched
     // fitted width changes), not merely re-render a stale footer string. Pick a live
     // (non-stripped) title and capture its pre-change baseline the same way.
     const continuingLive = titles.find((t) => !strippedBefore.includes(t));
-    if (!continuingLive) throw new Error("expected at least one live title before the density change");
+    if (!continuingLive)
+      throw new Error("expected at least one live title before the density change");
     const continuingIdx = titles.indexOf(continuingLive);
     const continuingSession = sessions[continuingIdx];
     if (!continuingSession) throw new Error(`no session object for ${continuingLive}`);
-    const continuingBaselineWidth = await daemon.tmuxDisplay(continuingSession.tmuxTarget, "#{window_width}");
+    const continuingBaselineWidth = await daemon.tmuxDisplay(
+      continuingSession.tmuxTarget,
+      "#{window_width}",
+    );
 
     await page.getByRole("button", { name: "3×2" }).click();
     await expect(page.getByRole("button", { name: "3×2" })).toHaveAttribute("aria-pressed", "true");
@@ -633,7 +603,10 @@ test("a density change leaves a still-stripped session's tmux geometry untouched
     // reading must differ from the pre-change baseline (proving it moved at all, not
     // just that footer and tmux happen to still agree on an untouched value).
     await expectTileGeometryMatchesTmux(page, daemon, continuingLive, continuingSession.tmuxTarget);
-    const continuingAfterWidth = await daemon.tmuxDisplay(continuingSession.tmuxTarget, "#{window_width}");
+    const continuingAfterWidth = await daemon.tmuxDisplay(
+      continuingSession.tmuxTarget,
+      "#{window_width}",
+    );
     expect(continuingAfterWidth).not.toBe(continuingBaselineWidth);
 
     const strippedAfter: string[] = [];
@@ -694,7 +667,8 @@ test("open terminal-socket count equals the live-surface count in Focus, Tiles, 
     for (const t of titles) {
       if ((await liveTile(page, t).count()) === 0) strippedTitle = t;
     }
-    if (!strippedTitle) throw new Error("expected exactly one stripped title at 3x2 with 7 sessions");
+    if (!strippedTitle)
+      throw new Error("expected exactly one stripped title at 3x2 with 7 sessions");
     await stripCard(page, strippedTitle).click();
     await expect(liveTile(page, strippedTitle)).toBeVisible();
     await expect.poll(() => tracker.liveCount).toBe(6);
@@ -708,7 +682,10 @@ test("open terminal-socket count equals the live-surface count in Focus, Tiles, 
 // waves (daemon-implementation.md Fix Attempt 2, web-implementation.md Fix Attempt 1),
 // per the pipeline rule that e2e-specs asserts a fix wave's new DOM/protocol-visible
 // behaviour even without a review issue naming it directly.
-test("a live tile stays typable across the 1s render tick (REQ-8, Critical 2 regression)", async ({ page, daemon }) => {
+test("a live tile stays typable across the 1s render tick (REQ-8, Critical 2 regression)", async ({
+  page,
+  daemon,
+}) => {
   const dirs = await Promise.all(Array.from({ length: 2 }, () => scratchDirectory()));
   try {
     await page.goto(daemon.dashboardUrl);
@@ -752,7 +729,9 @@ test("killing one of several live tiles ends only that tile without misrouting k
     const titles = dirs.map((_, i) => `kill-${i}`);
     const sessions = [];
     for (const [i, dir] of dirs.entries()) {
-      sessions.push(await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" }));
+      sessions.push(
+        await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" }),
+      );
     }
 
     await page.getByRole("button", { name: "Tiles" }).click();
@@ -760,14 +739,17 @@ test("killing one of several live tiles ends only that tile without misrouting k
 
     const [titleA, titleB] = titles;
     const [sessionA, sessionB] = sessions;
-    if (!titleA || !titleB || !sessionA || !sessionB) throw new Error("expected two launched sessions");
+    if (!titleA || !titleB || !sessionA || !sessionB)
+      throw new Error("expected two launched sessions");
 
     const regionA = terminalRegion(page, titleA);
     const regionB = terminalRegion(page, titleB);
     await expect(regionA).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
     await expect(regionB).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
     // Precondition for the post-kill count below: both tiles hold a live terminal socket.
-    await expect.poll(() => tracker.liveCount, { message: "waiting for both tiles' terminal sockets" }).toBe(2);
+    await expect
+      .poll(() => tracker.liveCount, { message: "waiting for both tiles' terminal sockets" })
+      .toBe(2);
 
     await daemon.killTmuxWindow(sessionA.tmuxTarget);
 
@@ -780,7 +762,9 @@ test("killing one of several live tiles ends only that tile without misrouting k
     // `alive:false` render pass replaces (it disposes A's surface and mounts the cloned
     // `.dead-surface` in A's tile body) — see terminal.spec.ts E12 for the measurements.
     await expect
-      .poll(() => tracker.liveCount, { message: "waiting for A's terminal socket to close (4001); B's stays open" })
+      .poll(() => tracker.liveCount, {
+        message: "waiting for A's terminal socket to close (4001); B's stays open",
+      })
       .toBe(1);
     await expect(liveTile(page, titleA).locator(".endcap")).toContainText(/session ended/i);
     await expect(regionA).toHaveCount(0);
@@ -823,7 +807,9 @@ test("dragging a tile's header onto another tile reorders forward, preserves tmu
     const titles = dirs.map((_, i) => `mv-fwd-${i}`);
     const sessions: SessionObject[] = [];
     for (const [i, dir] of dirs.entries()) {
-      sessions.push(await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" }));
+      sessions.push(
+        await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" }),
+      );
     }
 
     await page.getByRole("button", { name: "Tiles" }).click();
@@ -874,7 +860,9 @@ test("dragging a tile's header onto another tile reorders forward, preserves tmu
     // Edge Case 2 forward case: [A,B,C,D], drop A on C -> [B,C,A,D].
     await dragTileOnto(page, slot1, slot3);
 
-    await expect.poll(() => tilesGridOrder(page), { timeout: 15_000 }).toEqual([slot2, slot3, slot1, slot4]);
+    await expect
+      .poll(() => tilesGridOrder(page), { timeout: 15_000 })
+      .toEqual([slot2, slot3, slot1, slot4]);
 
     // E4: both drag-feedback classes are cleared once the drop completes.
     await expect(page.locator("article.tile.dragging")).toHaveCount(0);
@@ -895,7 +883,10 @@ test("dragging a tile's header onto another tile reorders forward, preserves tmu
   }
 });
 
-test("dragging a tile's header onto an earlier tile reorders backward (E2)", async ({ page, daemon }) => {
+test("dragging a tile's header onto an earlier tile reorders backward (E2)", async ({
+  page,
+  daemon,
+}) => {
   const dirs = await Promise.all(Array.from({ length: 4 }, () => scratchDirectory()));
   try {
     await page.goto(daemon.dashboardUrl);
@@ -918,7 +909,9 @@ test("dragging a tile's header onto an earlier tile reorders backward (E2)", asy
     // Edge Case 2 backward case: [A,B,C,D], drop D on B -> [A,D,B,C].
     await dragTileOnto(page, slot4, slot2);
 
-    await expect.poll(() => tilesGridOrder(page), { timeout: 15_000 }).toEqual([slot1, slot4, slot2, slot3]);
+    await expect
+      .poll(() => tilesGridOrder(page), { timeout: 15_000 })
+      .toEqual([slot1, slot4, slot2, slot3]);
   } finally {
     await Promise.all(dirs.map((d) => d.cleanup()));
   }
@@ -943,7 +936,8 @@ test("clicking a strip card at capacity places the promoted tile into the demote
     for (const t of titles) {
       if ((await liveTile(page, t).count()) === 0) strippedTitle = t;
     }
-    if (!strippedTitle) throw new Error("expected exactly one stripped title at 2x2 with 5 sessions");
+    if (!strippedTitle)
+      throw new Error("expected exactly one stripped title at 2x2 with 5 sessions");
 
     const orderBefore = await tilesGridOrder(page);
     expect(orderBefore).toHaveLength(4);
@@ -967,7 +961,10 @@ test("clicking a strip card at capacity places the promoted tile into the demote
   }
 });
 
-test("a drag released over the strip leaves the tile order unchanged (E8)", async ({ page, daemon }) => {
+test("a drag released over the strip leaves the tile order unchanged (E8)", async ({
+  page,
+  daemon,
+}) => {
   const dirs = await Promise.all(Array.from({ length: 5 }, () => scratchDirectory()));
   try {
     await page.goto(daemon.dashboardUrl);
@@ -983,7 +980,8 @@ test("a drag released over the strip leaves the tile order unchanged (E8)", asyn
     for (const t of titles) {
       if ((await liveTile(page, t).count()) === 0) strippedTitle = t;
     }
-    if (!strippedTitle) throw new Error("expected exactly one stripped title at 2x2 with 5 sessions");
+    if (!strippedTitle)
+      throw new Error("expected exactly one stripped title at 2x2 with 5 sessions");
 
     const orderBefore = await tilesGridOrder(page);
     expect(orderBefore).toHaveLength(4);
@@ -1005,7 +1003,10 @@ test("a drag released over the strip leaves the tile order unchanged (E8)", asyn
   }
 });
 
-test("a drag still reorders the grid while the daemon is down (E9, REQ-8)", async ({ page, daemon }) => {
+test("a drag still reorders the grid while the daemon is down (E9, REQ-8)", async ({
+  page,
+  daemon,
+}) => {
   const dirs = await Promise.all(Array.from({ length: 4 }, () => scratchDirectory()));
   try {
     await page.goto(daemon.dashboardUrl);
@@ -1032,7 +1033,9 @@ test("a drag still reorders the grid while the daemon is down (E9, REQ-8)", asyn
     // REQ-8: ordering is client-only state — a drag while the banner shows still
     // reorders the grid, exactly per Edge Case 2's forward case.
     await dragTileOnto(page, slot1, slot3);
-    await expect.poll(() => tilesGridOrder(page), { timeout: 15_000 }).toEqual([slot2, slot3, slot1, slot4]);
+    await expect
+      .poll(() => tilesGridOrder(page), { timeout: 15_000 })
+      .toEqual([slot2, slot3, slot1, slot4]);
   } finally {
     await Promise.all(dirs.map((d) => d.cleanup()));
   }

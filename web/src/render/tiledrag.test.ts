@@ -76,7 +76,11 @@ function makeTile(id: number): { tile: FakeElement; thead: FakeElement; body: Fa
   return { tile, thead, body };
 }
 
-function fakeDataTransfer(): { setData: ReturnType<typeof vi.fn>; effectAllowed?: string; dropEffect?: string } {
+function fakeDataTransfer(): {
+  setData: ReturnType<typeof vi.fn>;
+  effectAllowed?: string;
+  dropEffect?: string;
+} {
   return { setData: vi.fn() };
 }
 

@@ -3,7 +3,16 @@
 // phases, and render() itself. Pure enough to unit-test (no DOM) — every feature module
 // builds on top of this rather than main.ts wiring them together directly.
 import type { ConnectionStatus } from "./render/masthead";
-import type { ClaudeFamily, Density, Prefs, RailSort, Session, Snapshot, Usage, UpdateInfo } from "./protocol";
+import type {
+  ClaudeFamily,
+  Density,
+  Prefs,
+  RailSort,
+  Session,
+  Snapshot,
+  Usage,
+  UpdateInfo,
+} from "./protocol";
 import { SessionStore } from "./sessions/store";
 
 export type View = "focus" | "tiles";

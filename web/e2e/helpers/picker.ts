@@ -29,7 +29,9 @@ export function recentsSidebar(dialog: Locator): Locator {
  * textContent is `<name><branch-or—><age>` with no separators (Testable UI Elements),
  * so an exact match would break on the first real MRU entry with a branch or age. */
 export function recentButton(dialog: Locator, name: string): Locator {
-  return recentsSidebar(dialog).getByRole("button", { name: new RegExp(`^${escapeForRegExp(name)}`) });
+  return recentsSidebar(dialog).getByRole("button", {
+    name: new RegExp(`^${escapeForRegExp(name)}`),
+  });
 }
 
 /** `<nav id="browse-crumbs" aria-label="Path">`. */
@@ -53,7 +55,9 @@ export function currentCrumb(dialog: Locator): Locator {
  * `.chev` glyph is `aria-hidden`, so it never joins the accessible name; the optional
  * `(git)` suffix is additive. */
 export function childEntry(dialog: Locator, name: string): Locator {
-  return dialog.locator("#browse-dirs").getByRole("button", { name: new RegExp(`^${escapeForRegExp(name)}( \\(git\\))?$`) });
+  return dialog
+    .locator("#browse-dirs")
+    .getByRole("button", { name: new RegExp(`^${escapeForRegExp(name)}( \\(git\\))?$`) });
 }
 
 /** `#launch-target`'s `<b>` — the selection readout (INV-1: always equals the listed

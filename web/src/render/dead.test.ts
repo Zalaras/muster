@@ -6,7 +6,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApiResult, PaneSnapshot } from "../api";
 import type { Session } from "../protocol";
-import { loadPane, renderDeadSurface, showDeadSurfaceNotice, type DeadSurfaceRefs, type PaneState } from "./dead";
+import {
+  loadPane,
+  renderDeadSurface,
+  showDeadSurfaceNotice,
+  type DeadSurfaceRefs,
+  type PaneState,
+} from "./dead";
 
 vi.mock("../api", () => ({
   fetchPane: vi.fn(),
@@ -116,7 +122,9 @@ describe("renderDeadSurface — REQ-19's '· captured <age>' clause", () => {
     const session = makeSession({ id: 1, state: "idle", endedAt: "2026-08-27T00:05:00Z" });
     renderDeadSurface(refs, session, okPane("2026-08-27T00:04:00Z"), NOW, true);
 
-    expect(refs.endbarEl.textContent).toBe("ended 5m ago · last state idle · last captured screen, not a live client · captured 6m ago");
+    expect(refs.endbarEl.textContent).toBe(
+      "ended 5m ago · last state idle · last captured screen, not a live client · captured 6m ago",
+    );
   });
 
   it("never renders 'captured now ago' — sub-minute capture age reads 'captured now' (mirrors the endbar age's own honesty rule)", () => {
@@ -135,7 +143,13 @@ describe("renderDeadSurface — REQ-19's '· captured <age>' clause", () => {
     expect(justUnder.endbarEl.textContent).toMatch(/· captured now$/);
 
     const atBoundary = fakeRefs();
-    renderDeadSurface(atBoundary, makeSession({ id: 1 }), okPane("2026-08-27T00:09:00Z"), NOW, true); // 60s elapsed
+    renderDeadSurface(
+      atBoundary,
+      makeSession({ id: 1 }),
+      okPane("2026-08-27T00:09:00Z"),
+      NOW,
+      true,
+    ); // 60s elapsed
     expect(atBoundary.endbarEl.textContent).toMatch(/· captured 1m ago$/);
   });
 
@@ -150,7 +164,9 @@ describe("renderDeadSurface — REQ-19's '· captured <age>' clause", () => {
     const refs = fakeRefs();
     renderDeadSurface(refs, makeSession({ id: 1 }), { status: "missing" }, NOW, true);
 
-    expect(refs.endbarEl.textContent).toBe("ended 10m ago · last state idle · last captured screen, not a live client");
+    expect(refs.endbarEl.textContent).toBe(
+      "ended 10m ago · last state idle · last captured screen, not a live client",
+    );
     expect(refs.capBodyEl.textContent).toBe("no snapshot captured");
   });
 
@@ -158,7 +174,9 @@ describe("renderDeadSurface — REQ-19's '· captured <age>' clause", () => {
     const refs = fakeRefs();
     renderDeadSurface(refs, makeSession({ id: 1 }), { status: "loading" }, NOW, true);
 
-    expect(refs.endbarEl.textContent).toBe("ended 10m ago · last state idle · last captured screen, not a live client");
+    expect(refs.endbarEl.textContent).toBe(
+      "ended 10m ago · last state idle · last captured screen, not a live client",
+    );
     expect(refs.capBodyEl.textContent).toBe("loading last screen…");
   });
 
@@ -167,7 +185,9 @@ describe("renderDeadSurface — REQ-19's '· captured <age>' clause", () => {
     const session = makeSession({ id: 1, endedAt: null });
     renderDeadSurface(refs, session, okPane("2026-08-27T00:09:00Z"), NOW, true);
 
-    expect(refs.endbarEl.textContent).toBe("ended · last state idle · last captured screen, not a live client · captured 1m ago");
+    expect(refs.endbarEl.textContent).toBe(
+      "ended · last state idle · last captured screen, not a live client · captured 1m ago",
+    );
   });
 
   it("the captured age can differ from the endbar's own ended age — snapshot capture and End don't share a clock (design-system §6.8)", () => {
@@ -176,7 +196,9 @@ describe("renderDeadSurface — REQ-19's '· captured <age>' clause", () => {
     const session = makeSession({ id: 1, endedAt: "2026-08-27T00:00:00Z" });
     renderDeadSurface(refs, session, okPane("2026-08-26T23:57:00Z"), NOW, true);
 
-    expect(refs.endbarEl.textContent).toBe("ended 10m ago · last state idle · last captured screen, not a live client · captured 13m ago");
+    expect(refs.endbarEl.textContent).toBe(
+      "ended 10m ago · last state idle · last captured screen, not a live client · captured 13m ago",
+    );
   });
 });
 

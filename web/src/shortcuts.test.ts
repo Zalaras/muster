@@ -27,7 +27,9 @@ function keyEvent(init: FakeKeyInit): KeyboardEvent {
 
 describe("matchShortcut — bound chords (W1/W2/W3)", () => {
   it("returns new-session for Opt+Cmd+N (W1)", () => {
-    expect(matchShortcut(keyEvent({ code: "KeyN", metaKey: true, altKey: true, key: "n" }))).toEqual({
+    expect(
+      matchShortcut(keyEvent({ code: "KeyN", metaKey: true, altKey: true, key: "n" })),
+    ).toEqual({
       type: "new-session",
     });
   });
@@ -39,7 +41,9 @@ describe("matchShortcut — bound chords (W1/W2/W3)", () => {
   });
 
   it("returns focus-neediest for Opt+Cmd+0 (W3)", () => {
-    expect(matchShortcut(keyEvent({ code: "Digit0", metaKey: true, altKey: true, key: "0" }))).toEqual({
+    expect(
+      matchShortcut(keyEvent({ code: "Digit0", metaKey: true, altKey: true, key: "0" })),
+    ).toEqual({
       type: "focus-neediest",
     });
   });
@@ -63,7 +67,9 @@ describe("matchShortcut — bare Cmd chords no longer match (W4/W5, REQ-2)", () 
   });
 
   it.each([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])("returns null for bare Cmd+%i, no Opt held (W5)", (n) => {
-    expect(matchShortcut(keyEvent({ code: `Digit${n}`, metaKey: true, key: String(n) }))).toBeNull();
+    expect(
+      matchShortcut(keyEvent({ code: `Digit${n}`, metaKey: true, key: String(n) })),
+    ).toBeNull();
   });
 });
 
@@ -104,10 +110,38 @@ const BOUND_CHORDS: ReadonlyArray<{
   readonly ctrl: boolean;
   readonly action: ShortcutAction;
 }> = [
-  { code: "KeyN", meta: true, alt: true, shift: false, ctrl: false, action: { type: "new-session" } },
-  { code: "Backslash", meta: true, alt: false, shift: false, ctrl: false, action: { type: "toggle-view" } },
-  { code: "ArrowUp", meta: true, alt: false, shift: false, ctrl: false, action: { type: "launch-parent-dir" } },
-  { code: "Digit0", meta: true, alt: true, shift: false, ctrl: false, action: { type: "focus-neediest" } },
+  {
+    code: "KeyN",
+    meta: true,
+    alt: true,
+    shift: false,
+    ctrl: false,
+    action: { type: "new-session" },
+  },
+  {
+    code: "Backslash",
+    meta: true,
+    alt: false,
+    shift: false,
+    ctrl: false,
+    action: { type: "toggle-view" },
+  },
+  {
+    code: "ArrowUp",
+    meta: true,
+    alt: false,
+    shift: false,
+    ctrl: false,
+    action: { type: "launch-parent-dir" },
+  },
+  {
+    code: "Digit0",
+    meta: true,
+    alt: true,
+    shift: false,
+    ctrl: false,
+    action: { type: "focus-neediest" },
+  },
   ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ({
     code: `Digit${n}`,
     meta: true,
@@ -128,11 +162,16 @@ describe("matchShortcut — INV-2 exact modifier match (W6)", () => {
           for (const shiftKey of BOOLS) {
             for (const ctrlKey of BOOLS) {
               const isExact =
-                metaKey === bound.meta && altKey === bound.alt && shiftKey === bound.shift && ctrlKey === bound.ctrl;
+                metaKey === bound.meta &&
+                altKey === bound.alt &&
+                shiftKey === bound.shift &&
+                ctrlKey === bound.ctrl;
               it(`meta=${metaKey} alt=${altKey} shift=${shiftKey} ctrl=${ctrlKey} -> ${
                 isExact ? "matches" : "null"
               }`, () => {
-                const result = matchShortcut(keyEvent({ code: bound.code, metaKey, altKey, shiftKey, ctrlKey }));
+                const result = matchShortcut(
+                  keyEvent({ code: bound.code, metaKey, altKey, shiftKey, ctrlKey }),
+                );
                 if (isExact) {
                   expect(result).toEqual(bound.action);
                 } else {
@@ -154,28 +193,36 @@ describe("matchShortcut — INV-2 exact modifier match (W6)", () => {
 // because tests always send a plausible `key`. W16.
 describe("matchShortcut — macOS Opt dead-key proof (W16)", () => {
   it("matches Opt+Cmd+N when `key` carries the dead-key glyph '˜' instead of 'n'", () => {
-    expect(matchShortcut(keyEvent({ code: "KeyN", metaKey: true, altKey: true, key: "˜" }))).toEqual({
+    expect(
+      matchShortcut(keyEvent({ code: "KeyN", metaKey: true, altKey: true, key: "˜" })),
+    ).toEqual({
       type: "new-session",
     });
   });
 
   it("matches Opt+Cmd+1 when `key` carries the dead-key glyph '¡' instead of '1'", () => {
-    expect(matchShortcut(keyEvent({ code: "Digit1", metaKey: true, altKey: true, key: "¡" }))).toEqual({
+    expect(
+      matchShortcut(keyEvent({ code: "Digit1", metaKey: true, altKey: true, key: "¡" })),
+    ).toEqual({
       type: "focus-nth",
       n: 1,
     });
   });
 
   it("matches Opt+Cmd+0 when `key` carries the dead-key glyph 'º' instead of '0'", () => {
-    expect(matchShortcut(keyEvent({ code: "Digit0", metaKey: true, altKey: true, key: "º" }))).toEqual({
+    expect(
+      matchShortcut(keyEvent({ code: "Digit0", metaKey: true, altKey: true, key: "º" })),
+    ).toEqual({
       type: "focus-neediest",
     });
   });
 
   it("matches even when `key` is empty (some synthetic/older events never populate it)", () => {
-    expect(matchShortcut(keyEvent({ code: "KeyN", metaKey: true, altKey: true, key: "" }))).toEqual({
-      type: "new-session",
-    });
+    expect(matchShortcut(keyEvent({ code: "KeyN", metaKey: true, altKey: true, key: "" }))).toEqual(
+      {
+        type: "new-session",
+      },
+    );
   });
 });
 

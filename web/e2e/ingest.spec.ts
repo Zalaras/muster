@@ -60,9 +60,7 @@ test("persists a status-line POST as an event with type status_line", async ({ r
   });
   expect(res.status()).toBe(200);
 
-  await expect
-    .poll(async () => (await queryEvents(daemon().dbPath, sessionId)).length)
-    .toBe(1);
+  await expect.poll(async () => (await queryEvents(daemon().dbPath, sessionId)).length).toBe(1);
 
   const rows = await queryEvents(daemon().dbPath, sessionId);
   const [row] = rows;
@@ -83,7 +81,10 @@ test("rejects a wrong ingest token with 404 and persists nothing", async ({ page
   expect(await queryEvents(daemon().dbPath, sessionId)).toHaveLength(0);
 });
 
-test("returns 200 for a malformed JSON hook body and persists nothing", async ({ page, request }) => {
+test("returns 200 for a malformed JSON hook body and persists nothing", async ({
+  page,
+  request,
+}) => {
   const before = await countAllEvents(daemon().dbPath);
 
   const res = await request.post(daemon().ingestURL("hook"), {
@@ -97,7 +98,10 @@ test("returns 200 for a malformed JSON hook body and persists nothing", async ({
   expect(await countAllEvents(daemon().dbPath)).toBe(before);
 });
 
-test("returns 200 for valid JSON with no usable session_id and persists nothing", async ({ page, request }) => {
+test("returns 200 for valid JSON with no usable session_id and persists nothing", async ({
+  page,
+  request,
+}) => {
   const before = await countAllEvents(daemon().dbPath);
 
   const res = await request.post(daemon().ingestURL("hook"), {

@@ -75,7 +75,11 @@ function sessionIdOf(item: HTMLElement | null): number | null {
   return Number.isFinite(id) ? id : null;
 }
 
-function isFromHandle(target: EventTarget | null, itemSelector: string, handleSelector: string | undefined): boolean {
+function isFromHandle(
+  target: EventTarget | null,
+  itemSelector: string,
+  handleSelector: string | undefined,
+): boolean {
   if (!(target instanceof Element)) return false;
   return target.closest(handleSelector ?? itemSelector) !== null;
 }
@@ -155,7 +159,10 @@ export function installDragReorder(container: HTMLElement, options: DragReorderO
     // Only clear when actually leaving the current drop-target item (not just moving
     // between its descendants), and only if the pointer isn't moving into a descendant.
     const related = event.relatedTarget;
-    if (dropTarget.contains(event.target as Node) && !(related instanceof Node && dropTarget.contains(related))) {
+    if (
+      dropTarget.contains(event.target as Node) &&
+      !(related instanceof Node && dropTarget.contains(related))
+    ) {
       clearDropTarget();
     }
   });

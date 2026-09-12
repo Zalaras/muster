@@ -10,7 +10,10 @@ export type TitleCommand = { kind: "noop" } | { kind: "set"; title: string } | {
  * and `titleOverride` (used only to decide what "empty" means). Trims first, then: equal
  * to the current display title -> no request; empty -> a clear iff an override is
  * currently set, else no request; anything else -> a set of the trimmed string. */
-export function titleCommand(input: string, session: Pick<Session, "title" | "titleOverride">): TitleCommand {
+export function titleCommand(
+  input: string,
+  session: Pick<Session, "title" | "titleOverride">,
+): TitleCommand {
   const trimmed = input.trim();
   if (trimmed === (session.title ?? "")) return { kind: "noop" };
   if (trimmed === "") return session.titleOverride !== null ? { kind: "clear" } : { kind: "noop" };

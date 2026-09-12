@@ -37,7 +37,10 @@ function fakeDragOverEvent(defaultPrevented: boolean): {
   return event;
 }
 
-function fakeDropEvent(defaultPrevented: boolean): { defaultPrevented: boolean; preventDefault: () => void } {
+function fakeDropEvent(defaultPrevented: boolean): {
+  defaultPrevented: boolean;
+  preventDefault: () => void;
+} {
   const event = {
     defaultPrevented,
     preventDefault: () => {

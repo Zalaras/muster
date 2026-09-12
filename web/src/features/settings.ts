@@ -113,12 +113,14 @@ export function initSettings(
   const controller = initSettingsDialog(elements, {
     onChooseTheme: (theme) => {
       void putPrefs({ theme }).then((result) => {
-        if (!result.ok) console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);
+        if (!result.ok)
+          console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);
       });
     },
     onToggleUpdateCheck: (checked) => {
       void putPrefs({ updateCheck: checked }).then((result) => {
-        if (!result.ok) console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);
+        if (!result.ok)
+          console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);
       });
     },
     onUpdate: () => deps.update.apply(),

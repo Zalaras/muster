@@ -1,7 +1,13 @@
 import { expect, test } from "./helpers/fixtures";
 import { basename } from "node:path";
 import { envelopedSessionStart, rawUserPromptSubmit } from "./helpers/payloads";
-import { childEntry, launchDialog, launchTargetPath, openLaunchDialog, recentButton } from "./helpers/picker";
+import {
+  childEntry,
+  launchDialog,
+  launchTargetPath,
+  openLaunchDialog,
+  recentButton,
+} from "./helpers/picker";
 import {
   browseScratchDirectory,
   findSession,
@@ -65,7 +71,10 @@ test("picking auto and launching sends permissionMode: auto and seeds the sessio
     await page.keyboard.press("Alt+Meta+KeyN");
     const reopened = launchDialog(page);
     await expect(reopened).toBeVisible();
-    await expect(recentButton(reopened, basename(dir.path))).toHaveAttribute("aria-pressed", "true");
+    await expect(recentButton(reopened, basename(dir.path))).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     await expect(reopened.getByRole("radio", { name: "auto" })).toBeChecked();
   } finally {
     await dir.cleanup();
@@ -119,7 +128,10 @@ test("a synthesized UserPromptSubmit with permission_mode: default corrects an a
 // matching radio on reopen. The `plan` case is the plan's one row unaffected by the
 // REQ-1 rename (both the stored value and the radio's label are unchanged) and was the
 // regression pin at authoring; the other three exercise the renamed labels/new value.
-const storedModeCases: Array<{ stored: "default" | "plan" | "acceptEdits" | "auto"; radioName: string }> = [
+const storedModeCases: Array<{
+  stored: "default" | "plan" | "acceptEdits" | "auto";
+  radioName: string;
+}> = [
   { stored: "default", radioName: "manual" },
   { stored: "plan", radioName: "plan" },
   { stored: "acceptEdits", radioName: "accept edits" },

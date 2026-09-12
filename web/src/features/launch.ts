@@ -69,7 +69,10 @@ function checkedValue(radios: readonly HTMLInputElement[]): string | null {
   return radios.find((radio) => radio.checked)?.value ?? null;
 }
 
-export function initLaunchModal(elements: LaunchModalElements, handlers: LaunchModalHandlers): void {
+export function initLaunchModal(
+  elements: LaunchModalElements,
+  handlers: LaunchModalHandlers,
+): void {
   // The picker's whole state: what GET /api/browse most recently returned (null before
   // the first successful browse of this open), the served MRU list, whether that list has
   // resolved at all yet, and a monotonic counter guarding against a stale response landing
@@ -93,7 +96,9 @@ export function initLaunchModal(elements: LaunchModalElements, handlers: LaunchM
   }
 
   function setModel(value: string): void {
-    const matched = MODEL_PRESETS.includes(value as (typeof MODEL_PRESETS)[number]) && checkRadio(elements.modelRadios, value);
+    const matched =
+      MODEL_PRESETS.includes(value as (typeof MODEL_PRESETS)[number]) &&
+      checkRadio(elements.modelRadios, value);
     if (!matched) {
       checkRadio(elements.modelRadios, "other");
       elements.customModelInput.value = value;
@@ -418,7 +423,9 @@ export function initLaunchModal(elements: LaunchModalElements, handlers: LaunchM
   // everywhere else, so this bows out whenever the meta key is held).
   elements.browseDirs.addEventListener("keydown", (event) => {
     if (event.metaKey || event.altKey) return;
-    const entries = Array.from(elements.browseDirs.querySelectorAll<HTMLButtonElement>("button.entry"));
+    const entries = Array.from(
+      elements.browseDirs.querySelectorAll<HTMLButtonElement>("button.entry"),
+    );
     if (entries.length === 0) return;
     const activeIndex = entries.indexOf(document.activeElement as HTMLButtonElement);
     if (event.key === "ArrowDown") {

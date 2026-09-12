@@ -86,7 +86,8 @@ export class FakeGitHubAPI {
       const raw = Buffer.concat(chunks).toString("utf-8");
       let parsed: { title?: string; body?: string } | undefined;
       try {
-        parsed = raw.length > 0 ? (JSON.parse(raw) as { title?: string; body?: string }) : undefined;
+        parsed =
+          raw.length > 0 ? (JSON.parse(raw) as { title?: string; body?: string }) : undefined;
       } catch {
         parsed = undefined;
       }

@@ -13,7 +13,11 @@ import { buildContextRowViewModel } from "../sessions/context";
  * a track element at all — a 0%-filled track would read as "0% used". Known context
  * replaces `el`'s children with track + rounded percent + compact tokens + (when
  * positive) the compaction counter. */
-export function renderContextRow(el: HTMLElement, context: SessionContext, baseClass: string): void {
+export function renderContextRow(
+  el: HTMLElement,
+  context: SessionContext,
+  baseClass: string,
+): void {
   const vm = buildContextRowViewModel(context);
   const suffix = vm.compactions > 0 ? ` ⟳${vm.compactions}` : "";
 

@@ -65,7 +65,11 @@ export class WsClient {
   private attempt = 0;
   private stopped = false;
 
-  constructor(url: string, handlers: WsClientHandlers, socketFactory: SocketFactory = defaultSocketFactory) {
+  constructor(
+    url: string,
+    handlers: WsClientHandlers,
+    socketFactory: SocketFactory = defaultSocketFactory,
+  ) {
     this.url = url;
     this.handlers = handlers;
     this.socketFactory = socketFactory;

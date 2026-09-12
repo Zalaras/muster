@@ -54,7 +54,9 @@ const NEW_TAG = `v${NEW_VERSION}`;
 const execFileAsync = promisify(execFile);
 
 async function sha256File(path: string): Promise<string> {
-  return createHash("sha256").update(await readFile(path)).digest("hex");
+  return createHash("sha256")
+    .update(await readFile(path))
+    .digest("hex");
 }
 
 interface ReleaseServerFixture {
@@ -231,7 +233,9 @@ test("clicking Update swaps the on-disk binary and reports Updated without resta
     await expect(updateStatusLine(dialog)).toHaveText(`Downloading v${NEW_VERSION}…`);
     fakeServer.release();
 
-    await expect(updateStatusLine(dialog)).toHaveText(`Updated to v${NEW_VERSION}. Restart musterd to finish.`);
+    await expect(updateStatusLine(dialog)).toHaveText(
+      `Updated to v${NEW_VERSION}. Restart musterd to finish.`,
+    );
     await expect(updateApplyButton(dialog)).toBeDisabled();
     await expect(updateRestartButton(dialog)).toHaveText("Restart now");
     await expect(settingsBadgeDot(page)).toBeHidden();
@@ -333,8 +337,14 @@ test("Update and restart with two Claude sessions and a plain shell names the sh
     });
 
     await page.goto(daemon.dashboardUrl);
-    const sessionA = await launchSession(page, daemon, { directory: dirA.path, title: "restart-e6-a" });
-    const sessionB = await launchSession(page, daemon, { directory: dirB.path, title: "restart-e6-b" });
+    const sessionA = await launchSession(page, daemon, {
+      directory: dirA.path,
+      title: "restart-e6-a",
+    });
+    const sessionB = await launchSession(page, daemon, {
+      directory: dirB.path,
+      title: "restart-e6-b",
+    });
 
     await expect(settingsBadgeDot(page)).toBeVisible();
     let dialog = await openSettingsDialog(page);
@@ -358,7 +368,9 @@ test("Update and restart with two Claude sessions and a plain shell names the sh
     const serverPidBefore = await daemon.tmuxDisplay(sessionA.tmuxTarget, "#{pid}");
 
     confirm = await openUpdateRestartConfirm(page, dialog);
-    await expect(restartConfirmBody(confirm)).toHaveText(/^1 plain-terminal shell will close: restart-e6-a/);
+    await expect(restartConfirmBody(confirm)).toHaveText(
+      /^1 plain-terminal shell will close: restart-e6-a/,
+    );
     await restartConfirmButton(confirm).click();
 
     const banner = page.getByRole("alert");
@@ -412,7 +424,9 @@ test("each verification refusal reports Update failed and leaves the on-disk bin
       await expect(updateStatusLine(dialog)).toHaveText(/^Update failed: /);
 
       const shaAfter = await sha256File(staged.path);
-      expect(shaAfter, `binary hash changed after a refused apply (tamper kind: ${kind})`).toBe(shaBefore);
+      expect(shaAfter, `binary hash changed after a refused apply (tamper kind: ${kind})`).toBe(
+        shaBefore,
+      );
       await expect(updateApplyButton(dialog)).toBeEnabled();
     } finally {
       if (staged) await staged.cleanup();
@@ -433,7 +447,10 @@ test("a dev build never checks or badges, and the dialog shows no Update buttons
     // No `binary` override — the harness's own bin/musterd, stamped by `git describe`
     // (e.g. "v0.10.0-4-ge5102b8"), is a dev build by construction (REQ-8,
     // Implementation Notes > E2E harness).
-    const daemon = await startDaemon({ updateBaseURL: fakeServer.baseURL, updatePublicKeyFile: pubKeyPath });
+    const daemon = await startDaemon({
+      updateBaseURL: fakeServer.baseURL,
+      updatePublicKeyFile: pubKeyPath,
+    });
 
     await page.goto(daemon.dashboardUrl);
     const dialog = await openSettingsDialog(page);
@@ -601,8 +618,12 @@ test("two pages clicking Update while the archive is held: exactly one download,
     await expect(updateStatusLine(dialog1)).toHaveText(`Downloading v${NEW_VERSION}…`);
     fakeServer.release();
 
-    await expect(updateStatusLine(dialog1)).toHaveText(`Updated to v${NEW_VERSION}. Restart musterd to finish.`);
-    await expect(updateStatusLine(dialog2)).toHaveText(`Updated to v${NEW_VERSION}. Restart musterd to finish.`);
+    await expect(updateStatusLine(dialog1)).toHaveText(
+      `Updated to v${NEW_VERSION}. Restart musterd to finish.`,
+    );
+    await expect(updateStatusLine(dialog2)).toHaveText(
+      `Updated to v${NEW_VERSION}. Restart musterd to finish.`,
+    );
     expect(fakeServer.requestCount(`/download/${NEW_TAG}/${assetName}`)).toBe(1);
     await page2.close();
     page2Closed = true;
@@ -738,7 +759,9 @@ test("`musterd -update` while the daemon runs is detected within one tick, showi
     expect(stdout).toContain(NEW_VERSION);
 
     // No click anywhere above — REQ-26's periodic stat+probe alone must set `installed`.
-    await expect(updateStatusLine(dialog)).toHaveText(`Updated to v${NEW_VERSION}. Restart musterd to finish.`);
+    await expect(updateStatusLine(dialog)).toHaveText(
+      `Updated to v${NEW_VERSION}. Restart musterd to finish.`,
+    );
     await expect(updateRestartButton(dialog)).toHaveText("Restart now");
   } finally {
     if (staged) await staged.cleanup();
@@ -767,7 +790,9 @@ test("Restart now after a plain Update shows the confirm and completes with no s
     await expect(settingsBadgeDot(page)).toBeVisible();
     let dialog = await openSettingsDialog(page);
     await updateApplyButton(dialog).click();
-    await expect(updateStatusLine(dialog)).toHaveText(`Updated to v${NEW_VERSION}. Restart musterd to finish.`);
+    await expect(updateStatusLine(dialog)).toHaveText(
+      `Updated to v${NEW_VERSION}. Restart musterd to finish.`,
+    );
     await expect(updateRestartButton(dialog)).toHaveText("Restart now");
 
     const archivePath = `/download/${NEW_TAG}/${assetName}`;

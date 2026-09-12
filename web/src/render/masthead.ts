@@ -4,13 +4,25 @@
 //
 // Honesty rules (design-system §6.1): a null usage bucket renders the word "unknown"
 // and no track/gauge markup at all — never a 0%-filled bar.
-import type { ClaudeCodeInfo, Density, ModelWindow, SessionModelInfo, Usage, UsageBucket } from "../protocol";
+import type {
+  ClaudeCodeInfo,
+  Density,
+  ModelWindow,
+  SessionModelInfo,
+  Usage,
+  UsageBucket,
+} from "../protocol";
 import { formatResets, GAUGE_WARN_THRESHOLD } from "../sessions/format";
 
 export type ConnectionStatus = "connecting" | "connected" | "reconnecting";
 
 export function renderConnectionStatus(el: HTMLElement, status: ConnectionStatus): void {
-  const text = status === "connected" ? "connected" : status === "reconnecting" ? "reconnecting…" : "connecting…";
+  const text =
+    status === "connected"
+      ? "connected"
+      : status === "reconnecting"
+        ? "reconnecting…"
+        : "connecting…";
   el.textContent = text;
 }
 
@@ -63,7 +75,11 @@ export interface DensityControlElements {
 
 /** The density control renders only in Tiles (design-system §4/UI Specifications:
  * "Masthead ... the density control renders only in Tiles"). */
-export function renderDensityControl(elements: DensityControlElements, view: "focus" | "tiles", density: Density): void {
+export function renderDensityControl(
+  elements: DensityControlElements,
+  view: "focus" | "tiles",
+  density: Density,
+): void {
   elements.container.hidden = view !== "tiles";
   elements.twoByTwoButton.setAttribute("aria-pressed", String(density === "2x2"));
   elements.threeByTwoButton.setAttribute("aria-pressed", String(density === "3x2"));
@@ -109,7 +125,10 @@ export function renderUsageTrack(el: HTMLElement, bucket: UsageBucket | null, no
  * after a daemon restart until the next status post). Accepts `undefined` too since
  * `Usage.model` is an optional wire field (protocol.ts) — a pre-M3-shaped payload that
  * omits it entirely reads the same as an explicit null. */
-export function renderUsageModel(el: HTMLElement, model: SessionModelInfo | null | undefined): void {
+export function renderUsageModel(
+  el: HTMLElement,
+  model: SessionModelInfo | null | undefined,
+): void {
   if (!model) {
     el.hidden = true;
     el.textContent = "";
@@ -214,7 +233,12 @@ function buildModelWeek(
  * Honesty rule (design-system §6.1): a null bucket removes any existing bar/resets
  * (self-healing on a known -> unknown transition) and leaves zero track markup behind —
  * `state.bar`/`state.resets` only ever exist while a bucket is being shown. */
-function applyModelTrack(el: HTMLElement, state: ModelWeekState, bucket: ModelWindow | null, now: Date): void {
+function applyModelTrack(
+  el: HTMLElement,
+  state: ModelWeekState,
+  bucket: ModelWindow | null,
+  now: Date,
+): void {
   state.num.textContent = bucket ? `${Math.round(bucket.usedPct)}%` : "unknown";
 
   if (!bucket) {
@@ -296,7 +320,9 @@ export function renderModelWeek(
 
   const cached = modelWeekCache.get(el);
   const reuse =
-    cached !== undefined && namesEqual(cached.names, names) && cached.placeholderNeeded === placeholderNeeded;
+    cached !== undefined &&
+    namesEqual(cached.names, names) &&
+    cached.placeholderNeeded === placeholderNeeded;
 
   let state: ModelWeekState;
   if (reuse) {

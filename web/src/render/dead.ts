@@ -72,7 +72,13 @@ export function buildDeadSurfaceFromTemplate(template: HTMLTemplateElement): Dea
  * 404 `no_snapshot` case swaps the cap's body for the "unknown, not empty" honesty text
  * rather than a blank one. `connected` gates the Resume button the same way the mainhead
  * and card action rows do (States: "action buttons are disabled while the WS is down"). */
-export function renderDeadSurface(refs: DeadSurfaceRefs, session: Session, pane: PaneState, now: Date, connected: boolean): void {
+export function renderDeadSurface(
+  refs: DeadSurfaceRefs,
+  session: Session,
+  pane: PaneState,
+  now: Date,
+  connected: boolean,
+): void {
   // review m4-reconcile Major 6 + Minor 7: `formatEndedAgo` avoids "ended now ago", and
   // — mirroring how card.ts/tiles.ts already treat this same defensive branch — a null
   // `endedAt` renders no age clause at all rather than the confident-but-wrong "just now"
@@ -116,7 +122,8 @@ export function renderDeadSurface(refs: DeadSurfaceRefs, session: Session, pane:
  * just shows the honest "no snapshot captured" text either way (edge case 13). */
 export async function loadPane(id: number): Promise<PaneState> {
   const result = await fetchPane(id);
-  if (result.ok) return { status: "ok", text: result.value.text, capturedAt: result.value.capturedAt };
+  if (result.ok)
+    return { status: "ok", text: result.value.text, capturedAt: result.value.capturedAt };
   return { status: "missing" };
 }
 

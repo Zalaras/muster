@@ -11,7 +11,13 @@ import {
   rawStopFailure,
   rawUserPromptSubmit,
 } from "./helpers/payloads";
-import { getState, launchSession, scratchDirectory, sessionCard, stateBadge } from "./helpers/session";
+import {
+  getState,
+  launchSession,
+  scratchDirectory,
+  sessionCard,
+  stateBadge,
+} from "./helpers/session";
 
 // REQ-7 through REQ-13, REQ-16, REQ-18 — the kb:anchor/state state machine driven end-to-end through
 // the real ingest endpoints, and the client-side sort. Plan acceptance: E3-E9, W6, W7,
@@ -28,7 +34,9 @@ import { getState, launchSession, scratchDirectory, sessionCard, stateBadge } fr
 
 const daemon = fileDaemon();
 
-test("a fresh session renders 'untitled' and its context row as ctx unknown (W7)", async ({ page }) => {
+test("a fresh session renders 'untitled' and its context row as ctx unknown (W7)", async ({
+  page,
+}) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon().dashboardUrl);
@@ -62,7 +70,9 @@ test("walks started -> working -> idle via SessionStart, turn-activity, then Sto
     expect(startRes.status()).toBe(200);
     await expect(stateBadge(card)).toHaveText(/started/i);
 
-    const promptRes = await request.post(daemon().ingestURL("hook"), { data: rawUserPromptSubmit(claudeId) });
+    const promptRes = await request.post(daemon().ingestURL("hook"), {
+      data: rawUserPromptSubmit(claudeId),
+    });
     expect(promptRes.status()).toBe(200);
     await expect(stateBadge(card)).toHaveText(/working/i);
 
@@ -107,7 +117,10 @@ test("a permission notification moves the card to needs input; a later Stop retu
   }
 });
 
-test("a StopFailure moves the card to failed showing the raw error token (E5)", async ({ page, request }) => {
+test("a StopFailure moves the card to failed showing the raw error token (E5)", async ({
+  page,
+  request,
+}) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon().dashboardUrl);
@@ -184,7 +197,9 @@ test("a straggler turn-activity for an already-closed prompt does not move the c
     // be persisted (not just POSTed) before asserting nothing moved, so a slow ingest
     // worker can't make this pass vacuously. Four events precede this point for this
     // claude session id: SessionStart, UserPromptSubmit, Stop, then this straggler.
-    await request.post(daemon().ingestURL("hook"), { data: rawPostToolUse(claudeId, { promptId: "p1" }) });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawPostToolUse(claudeId, { promptId: "p1" }),
+    });
     await expect
       .poll(async () => (await queryEvents(daemon().dbPath, claudeId)).length, {
         message: "waiting for the straggler PostToolUse to be persisted",
@@ -197,7 +212,10 @@ test("a straggler turn-activity for an already-closed prompt does not move the c
   }
 });
 
-test("the /clear sequence rebinds the session to one card in started (E7)", async ({ page, request }) => {
+test("the /clear sequence rebinds the session to one card in started (E7)", async ({
+  page,
+  request,
+}) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon().dashboardUrl);
@@ -213,7 +231,9 @@ test("the /clear sequence rebinds the session to one card in started (E7)", asyn
     await expect(stateBadge(card)).toHaveText(/idle/i);
 
     // SessionEnd(reason:"clear") is NOT a death hint — the card must not grey/change.
-    await request.post(daemon().ingestURL("hook"), { data: rawSessionEnd(originalClaudeId, "clear") });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawSessionEnd(originalClaudeId, "clear"),
+    });
     await expect(stateBadge(card)).toHaveText(/idle/i);
 
     const newClaudeId = "claude-e7-new";
@@ -260,10 +280,19 @@ test("cards sort needs-input first, then failed, then the active/started/idle gr
       directory: dirNeedsInput.path,
       title: titles.needsInput,
     });
-    const failed = await launchSession(page, daemon(), { directory: dirFailed.path, title: titles.failed });
-    const working = await launchSession(page, daemon(), { directory: dirWorking.path, title: titles.working });
+    const failed = await launchSession(page, daemon(), {
+      directory: dirFailed.path,
+      title: titles.failed,
+    });
+    const working = await launchSession(page, daemon(), {
+      directory: dirWorking.path,
+      title: titles.working,
+    });
     await launchSession(page, daemon(), { directory: dirStarted.path, title: titles.started });
-    const idle = await launchSession(page, daemon(), { directory: dirIdle.path, title: titles.idle });
+    const idle = await launchSession(page, daemon(), {
+      directory: dirIdle.path,
+      title: titles.idle,
+    });
 
     async function bind(claudeId: string, sessionId: number): Promise<void> {
       await request.post(daemon().ingestURL("hook"), {
@@ -272,20 +301,28 @@ test("cards sort needs-input first, then failed, then the active/started/idle gr
     }
 
     await bind("claude-sort-needsinput", needsInput.id);
-    await request.post(daemon().ingestURL("hook"), { data: rawUserPromptSubmit("claude-sort-needsinput") });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawUserPromptSubmit("claude-sort-needsinput"),
+    });
     await request.post(daemon().ingestURL("hook"), {
       data: rawNotification("claude-sort-needsinput", "p1", "permission_prompt"),
     });
 
     await bind("claude-sort-failed", failed.id);
-    await request.post(daemon().ingestURL("hook"), { data: rawUserPromptSubmit("claude-sort-failed") });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawUserPromptSubmit("claude-sort-failed"),
+    });
     await request.post(daemon().ingestURL("hook"), { data: rawStopFailure("claude-sort-failed") });
 
     await bind("claude-sort-working", working.id);
-    await request.post(daemon().ingestURL("hook"), { data: rawUserPromptSubmit("claude-sort-working") });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawUserPromptSubmit("claude-sort-working"),
+    });
 
     await bind("claude-sort-idle", idle.id);
-    await request.post(daemon().ingestURL("hook"), { data: rawUserPromptSubmit("claude-sort-idle") });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawUserPromptSubmit("claude-sort-idle"),
+    });
     await request.post(daemon().ingestURL("hook"), { data: rawStop("claude-sort-idle") });
 
     // Wait for every card to reach its target state before reading DOM order.
@@ -297,7 +334,13 @@ test("cards sort needs-input first, then failed, then the active/started/idle gr
 
     const cardTexts = await page.getByTestId("session-card").allInnerTexts();
     const indexOf = (label: string): number => cardTexts.findIndex((t) => t.includes(label));
-    const order = [titles.needsInput, titles.failed, titles.working, titles.started, titles.idle].map(indexOf);
+    const order = [
+      titles.needsInput,
+      titles.failed,
+      titles.working,
+      titles.started,
+      titles.idle,
+    ].map(indexOf);
 
     for (const idx of order) expect(idx).toBeGreaterThanOrEqual(0);
     // Only the relative order of OUR five cards matters here — other sessions from
@@ -308,7 +351,10 @@ test("cards sort needs-input first, then failed, then the active/started/idle gr
   }
 });
 
-test("killing the scratch tmux window greys the card without changing its badge (E9)", async ({ page, request }) => {
+test("killing the scratch tmux window greys the card without changing its badge (E9)", async ({
+  page,
+  request,
+}) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon().dashboardUrl);
@@ -357,7 +403,10 @@ test("a status-line post persists, routes, and refreshes the title per M3 value 
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon().dashboardUrl);
-    const session = await launchSession(page, daemon(), { directory: dir, title: "walk-status-line" });
+    const session = await launchSession(page, daemon(), {
+      directory: dir,
+      title: "walk-status-line",
+    });
     const claudeId = "claude-status-1";
 
     await request.post(daemon().ingestURL("hook"), {
@@ -402,7 +451,10 @@ test("two synthesized PreCompact hooks bump the rail card's compaction counter t
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon().dashboardUrl);
-    const session = await launchSession(page, daemon(), { directory: dir, title: "walk-e14-compact" });
+    const session = await launchSession(page, daemon(), {
+      directory: dir,
+      title: "walk-e14-compact",
+    });
     const card = sessionCard(page, "walk-e14-compact");
     const claudeId = "claude-e14-1";
 
@@ -432,7 +484,10 @@ test.describe("daemon restart and disconnect (E10, W12)", () => {
     const { path: dir, cleanup } = await scratchDirectory();
     try {
       await page.goto(daemon.dashboardUrl);
-      const session = await launchSession(page, daemon, { directory: dir, title: "walk-e10-restart" });
+      const session = await launchSession(page, daemon, {
+        directory: dir,
+        title: "walk-e10-restart",
+      });
       const claudeId = "claude-e10-1";
 
       await request.post(daemon.ingestURL("hook"), {

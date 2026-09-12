@@ -25,7 +25,10 @@ test("renders the masthead, connection status and empty sessions state after the
   await expect(page.getByText("No sessions yet", { exact: true })).toBeVisible();
 });
 
-test("renders both usage readouts as the word unknown, never an empty gauge", async ({ page, daemon }) => {
+test("renders both usage readouts as the word unknown, never an empty gauge", async ({
+  page,
+  daemon,
+}) => {
   await page.goto(daemon.dashboardUrl);
 
   // Testable UI Elements table's exact patterns for the M0 null-usage state.
@@ -42,7 +45,10 @@ test("shows the Claude Code version reported by hello", async ({ page, daemon })
   await expect(page.getByText(/claude\s+2\./i)).toBeVisible();
 });
 
-test("GET /api/state returns exactly the M0 snapshot object once authenticated", async ({ page, daemon }) => {
+test("GET /api/state returns exactly the M0 snapshot object once authenticated", async ({
+  page,
+  daemon,
+}) => {
   await page.goto(daemon.dashboardUrl);
 
   const res = await page.request.get(`${daemon.baseURL}/api/state`);
@@ -89,7 +95,14 @@ test("GET /api/state returns exactly the M0 snapshot object once authenticated",
       modelScopedError: "no-credentials",
       modelScopedSource: "subscription-api",
     },
-    prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual", theme: "follow", updateCheck: true },
+    prefs: {
+      view: "focus",
+      density: "2x2",
+      usageModel: "Fable",
+      railSort: "manual",
+      theme: "follow",
+      updateCheck: true,
+    },
     claudeTheme: { family: "unknown" },
     update: {
       running: expect.any(String),

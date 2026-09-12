@@ -79,13 +79,19 @@ function parseColor(value) {
   const hex = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.exec(value.trim());
   if (hex) {
     let h = hex[1];
-    if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+    if (h.length === 3)
+      h = h
+        .split("")
+        .map((c) => c + c)
+        .join("");
     const r = parseInt(h.slice(0, 2), 16);
     const g = parseInt(h.slice(2, 4), 16);
     const b = parseInt(h.slice(4, 6), 16);
     return { r, g, b };
   }
-  const rgba = /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*[\d.]+\s*)?\)$/.exec(value.trim());
+  const rgba = /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*[\d.]+\s*)?\)$/.exec(
+    value.trim(),
+  );
   if (rgba) {
     return { r: Number(rgba[1]), g: Number(rgba[2]), b: Number(rgba[3]) };
   }
@@ -150,14 +156,18 @@ for (const themeName of themeNames) {
     const fgRaw = resolveToken(themeName, pair.fg);
     const bgRaw = resolveToken(themeName, pair.bg);
     if (fgRaw === null || bgRaw === null) {
-      console.error(`${themeName} ${pair.fg} on ${pair.bg}: token not declared in this theme block`);
+      console.error(
+        `${themeName} ${pair.fg} on ${pair.bg}: token not declared in this theme block`,
+      );
       failures++;
       continue;
     }
     const fgColor = parseColor(fgRaw);
     const bgColor = parseColor(bgRaw);
     if (!fgColor || !bgColor) {
-      console.error(`${themeName} ${pair.fg} on ${pair.bg}: could not parse "${fgRaw}" / "${bgRaw}"`);
+      console.error(
+        `${themeName} ${pair.fg} on ${pair.bg}: could not parse "${fgRaw}" / "${bgRaw}"`,
+      );
       failures++;
       continue;
     }
@@ -179,7 +189,9 @@ for (const themeName of themeNames) {
     }
     const { h } = rgbToHsl(color);
     if (!hueInBand(h, band)) {
-      console.error(`${themeName} ${token} hue ${h.toFixed(1)}deg outside band [${band.min}, ${band.max}]`);
+      console.error(
+        `${themeName} ${token} hue ${h.toFixed(1)}deg outside band [${band.min}, ${band.max}]`,
+      );
       failures++;
     }
   }
@@ -194,7 +206,9 @@ for (const themeName of themeNames) {
     }
     const { s } = rgbToHsl(color);
     if (s > ceiling) {
-      console.error(`${themeName} ${token} saturation ${s.toFixed(1)}% exceeds ceiling ${ceiling}%`);
+      console.error(
+        `${themeName} ${token} saturation ${s.toFixed(1)}% exceeds ceiling ${ceiling}%`,
+      );
       failures++;
     }
   }
@@ -227,30 +241,154 @@ rest = rest.replace(/var\([^)]*\)/g, "");
 rest = rest.replace(/white-space/g, "");
 
 const NAMED_COLORS = [
-  "aliceblue", "antiquewhite", "aqua", "aquamarine", "azure", "beige", "bisque", "black",
-  "blanchedalmond", "blue", "blueviolet", "brown", "burlywood", "cadetblue", "chartreuse",
-  "chocolate", "coral", "cornflowerblue", "cornsilk", "crimson", "cyan", "darkblue",
-  "darkcyan", "darkgoldenrod", "darkgray", "darkgreen", "darkgrey", "darkkhaki",
-  "darkmagenta", "darkolivegreen", "darkorange", "darkorchid", "darkred", "darksalmon",
-  "darkseagreen", "darkslateblue", "darkslategray", "darkslategrey", "darkturquoise",
-  "darkviolet", "deeppink", "deepskyblue", "dimgray", "dimgrey", "dodgerblue",
-  "firebrick", "floralwhite", "forestgreen", "fuchsia", "gainsboro", "ghostwhite",
-  "gold", "goldenrod", "gray", "green", "greenyellow", "grey", "honeydew", "hotpink",
-  "indianred", "indigo", "ivory", "khaki", "lavender", "lavenderblush", "lawngreen",
-  "lemonchiffon", "lightblue", "lightcoral", "lightcyan", "lightgoldenrodyellow",
-  "lightgray", "lightgreen", "lightgrey", "lightpink", "lightsalmon", "lightseagreen",
-  "lightskyblue", "lightslategray", "lightslategrey", "lightsteelblue", "lightyellow",
-  "lime", "limegreen", "linen", "magenta", "maroon", "mediumaquamarine", "mediumblue",
-  "mediumorchid", "mediumpurple", "mediumseagreen", "mediumslateblue",
-  "mediumspringgreen", "mediumturquoise", "mediumvioletred", "midnightblue",
-  "mintcream", "mistyrose", "moccasin", "navajowhite", "navy", "oldlace", "olive",
-  "olivedrab", "orange", "orangered", "orchid", "palegoldenrod", "palegreen",
-  "paleturquoise", "palevioletred", "papayawhip", "peachpuff", "peru", "pink", "plum",
-  "powderblue", "purple", "rebeccapurple", "red", "rosybrown", "royalblue",
-  "saddlebrown", "salmon", "sandybrown", "seagreen", "seashell", "sienna", "silver",
-  "skyblue", "slateblue", "slategray", "slategrey", "snow", "springgreen", "steelblue",
-  "tan", "teal", "thistle", "tomato", "turquoise", "violet", "wheat", "white",
-  "whitesmoke", "yellow", "yellowgreen",
+  "aliceblue",
+  "antiquewhite",
+  "aqua",
+  "aquamarine",
+  "azure",
+  "beige",
+  "bisque",
+  "black",
+  "blanchedalmond",
+  "blue",
+  "blueviolet",
+  "brown",
+  "burlywood",
+  "cadetblue",
+  "chartreuse",
+  "chocolate",
+  "coral",
+  "cornflowerblue",
+  "cornsilk",
+  "crimson",
+  "cyan",
+  "darkblue",
+  "darkcyan",
+  "darkgoldenrod",
+  "darkgray",
+  "darkgreen",
+  "darkgrey",
+  "darkkhaki",
+  "darkmagenta",
+  "darkolivegreen",
+  "darkorange",
+  "darkorchid",
+  "darkred",
+  "darksalmon",
+  "darkseagreen",
+  "darkslateblue",
+  "darkslategray",
+  "darkslategrey",
+  "darkturquoise",
+  "darkviolet",
+  "deeppink",
+  "deepskyblue",
+  "dimgray",
+  "dimgrey",
+  "dodgerblue",
+  "firebrick",
+  "floralwhite",
+  "forestgreen",
+  "fuchsia",
+  "gainsboro",
+  "ghostwhite",
+  "gold",
+  "goldenrod",
+  "gray",
+  "green",
+  "greenyellow",
+  "grey",
+  "honeydew",
+  "hotpink",
+  "indianred",
+  "indigo",
+  "ivory",
+  "khaki",
+  "lavender",
+  "lavenderblush",
+  "lawngreen",
+  "lemonchiffon",
+  "lightblue",
+  "lightcoral",
+  "lightcyan",
+  "lightgoldenrodyellow",
+  "lightgray",
+  "lightgreen",
+  "lightgrey",
+  "lightpink",
+  "lightsalmon",
+  "lightseagreen",
+  "lightskyblue",
+  "lightslategray",
+  "lightslategrey",
+  "lightsteelblue",
+  "lightyellow",
+  "lime",
+  "limegreen",
+  "linen",
+  "magenta",
+  "maroon",
+  "mediumaquamarine",
+  "mediumblue",
+  "mediumorchid",
+  "mediumpurple",
+  "mediumseagreen",
+  "mediumslateblue",
+  "mediumspringgreen",
+  "mediumturquoise",
+  "mediumvioletred",
+  "midnightblue",
+  "mintcream",
+  "mistyrose",
+  "moccasin",
+  "navajowhite",
+  "navy",
+  "oldlace",
+  "olive",
+  "olivedrab",
+  "orange",
+  "orangered",
+  "orchid",
+  "palegoldenrod",
+  "palegreen",
+  "paleturquoise",
+  "palevioletred",
+  "papayawhip",
+  "peachpuff",
+  "peru",
+  "pink",
+  "plum",
+  "powderblue",
+  "purple",
+  "rebeccapurple",
+  "red",
+  "rosybrown",
+  "royalblue",
+  "saddlebrown",
+  "salmon",
+  "sandybrown",
+  "seagreen",
+  "seashell",
+  "sienna",
+  "silver",
+  "skyblue",
+  "slateblue",
+  "slategray",
+  "slategrey",
+  "snow",
+  "springgreen",
+  "steelblue",
+  "tan",
+  "teal",
+  "thistle",
+  "tomato",
+  "turquoise",
+  "violet",
+  "wheat",
+  "white",
+  "whitesmoke",
+  "yellow",
+  "yellowgreen",
 ];
 const namedColorRe = new RegExp(`\\b(${NAMED_COLORS.join("|")})\\b`, "gi");
 

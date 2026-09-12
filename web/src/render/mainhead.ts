@@ -8,7 +8,12 @@
 import type { Session } from "../protocol";
 import { buildCardViewModel } from "../sessions/card";
 import { formatEndedAgo } from "../sessions/format";
-import { DEFAULT_SURFACE_STATE, updateSurfaceSegment, type SessionSurfaceState, type SurfaceSegmentRefs } from "../terminal/surfaceswitch";
+import {
+  DEFAULT_SURFACE_STATE,
+  updateSurfaceSegment,
+  type SessionSurfaceState,
+  type SurfaceSegmentRefs,
+} from "../terminal/surfaceswitch";
 
 export interface MainheadElements {
   root: HTMLElement;
@@ -36,7 +41,8 @@ export interface MainheadElements {
 function mainheadMeta(session: Session, now: Date): string {
   const parts: string[] = [buildCardViewModel(session, now).repoLine];
   if (session.model) parts.push(session.model.displayName);
-  if (!session.alive && session.endedAt) parts.push(`ended ${formatEndedAgo(session.endedAt, now)}`);
+  if (!session.alive && session.endedAt)
+    parts.push(`ended ${formatEndedAgo(session.endedAt, now)}`);
   return parts.join(" · ");
 }
 
@@ -75,7 +81,8 @@ export function renderMainhead(
     // hidden in this state, so the button (and any stale text on it) is not visible;
     // only `metaEl` needs clearing here.
     elements.metaEl.textContent = "";
-    if (elements.surfaceSegment) updateSurfaceSegment(elements.surfaceSegment, surfaceState, connected);
+    if (elements.surfaceSegment)
+      updateSurfaceSegment(elements.surfaceSegment, surfaceState, connected);
     return;
   }
   elements.root.hidden = false;
@@ -95,5 +102,6 @@ export function renderMainhead(
   elements.endBtn.disabled = !connected || !session.alive;
   elements.resumeBtn.disabled = !connected || session.alive || session.claudeSessionId === null;
   elements.removeBtn.disabled = !connected;
-  if (elements.surfaceSegment) updateSurfaceSegment(elements.surfaceSegment, surfaceState, connected);
+  if (elements.surfaceSegment)
+    updateSurfaceSegment(elements.surfaceSegment, surfaceState, connected);
 }

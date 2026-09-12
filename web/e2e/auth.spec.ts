@@ -23,9 +23,9 @@ test("shows the relaunch page for an unauthenticated visit to /", async ({ page 
 });
 
 test("shows the relaunch page for a stale cookie", async ({ page }) => {
-  await page.context().addCookies([
-    { name: "muster_auth", value: "not-a-real-token", url: daemon().baseURL },
-  ]);
+  await page
+    .context()
+    .addCookies([{ name: "muster_auth", value: "not-a-real-token", url: daemon().baseURL }]);
   const res = await page.goto(`${daemon().baseURL}/`);
   expect(res?.status()).toBe(401);
   await expect(page.getByText(/relaunch/i)).toBeVisible();
@@ -39,7 +39,9 @@ test("rejects GET /api/state without the auth cookie with a JSON 401", async ({ 
   expect(typeof body.error.message).toBe("string");
 });
 
-test("exchanges the UI token for a session cookie and lands on the rendered shell", async ({ page }) => {
+test("exchanges the UI token for a session cookie and lands on the rendered shell", async ({
+  page,
+}) => {
   const res = await page.goto(daemon().dashboardUrl);
 
   // page.goto follows the 303 -> "/" redirect; the final response is the shell itself.

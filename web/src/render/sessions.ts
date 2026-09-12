@@ -78,7 +78,8 @@ function reconcileActsRow(
     (child): child is HTMLButtonElement => child instanceof HTMLButtonElement,
   );
   const sameShape =
-    existing.length === actions.length && existing.every((btn, i) => btn.textContent === actions[i]);
+    existing.length === actions.length &&
+    existing.every((btn, i) => btn.textContent === actions[i]);
 
   if (sameShape) {
     existing.forEach((btn, i) => {
@@ -220,7 +221,16 @@ export function buildSessionCardElement(
   const fragment = template.content.cloneNode(true) as DocumentFragment;
   const card = fragment.querySelector<HTMLElement>(".card");
   if (!card) throw new Error("session-card-template is missing its .card root");
-  updateSessionCardContent(card, session, now, connected, onAction, draggable, pinnedLast, currentId);
+  updateSessionCardContent(
+    card,
+    session,
+    now,
+    connected,
+    onAction,
+    draggable,
+    pinnedLast,
+    currentId,
+  );
 
   // REQ-8: wired once, like the click/keydown listeners below — reconcileCards never
   // rebuilds an existing card, so this never double-attaches on a later render tick.
@@ -275,7 +285,16 @@ export function updateSessionCardElement(
   pinnedLast = false,
   currentId: number | null = null,
 ): void {
-  updateSessionCardContent(card, session, now, connected, onAction, draggable, pinnedLast, currentId);
+  updateSessionCardContent(
+    card,
+    session,
+    now,
+    connected,
+    onAction,
+    draggable,
+    pinnedLast,
+    currentId,
+  );
 }
 
 /** Reconciles `container`'s card children against `sessions`, matching existing DOM
@@ -356,9 +375,28 @@ export function reconcileCards(
     const pinnedLast = session.id === lastPinnedId;
     let card = existingById.get(session.id);
     if (card) {
-      updateSessionCardElement(card, session, now, connected, onAction, draggable, pinnedLast, currentId);
+      updateSessionCardElement(
+        card,
+        session,
+        now,
+        connected,
+        onAction,
+        draggable,
+        pinnedLast,
+        currentId,
+      );
     } else {
-      card = buildSessionCardElement(session, now, template, onClick, onAction, connected, draggable, pinnedLast, currentId);
+      card = buildSessionCardElement(
+        session,
+        now,
+        template,
+        onClick,
+        onAction,
+        connected,
+        draggable,
+        pinnedLast,
+        currentId,
+      );
     }
 
     // Moving an already-mounted node via insertBefore repositions it in place rather
@@ -366,7 +404,9 @@ export function reconcileCards(
     // (see comment above), which is enough for Chrome to blur a focused descendant.
     // Skipped entirely when the card is already in the right slot, so a steady rail
     // touches no DOM at all here.
-    const desiredNext: Element | null = previous ? previous.nextElementSibling : container.firstElementChild;
+    const desiredNext: Element | null = previous
+      ? previous.nextElementSibling
+      : container.firstElementChild;
     if (desiredNext !== card) container.insertBefore(card, desiredNext);
     previous = card;
   }
@@ -377,7 +417,8 @@ export function reconcileCards(
 
   restoreFocusedControl(
     focused,
-    (id) => existingById.get(id) ?? container.querySelector<HTMLElement>(`[data-session-id="${id}"]`),
+    (id) =>
+      existingById.get(id) ?? container.querySelector<HTMLElement>(`[data-session-id="${id}"]`),
   );
 }
 
@@ -406,7 +447,18 @@ export function renderSessions(
     return;
   }
   const template = requireTemplate("session-card-template");
-  reconcileCards(el, sessions, now, template, onClick, onAction, connected, draggable, pendingFocus, currentId);
+  reconcileCards(
+    el,
+    sessions,
+    now,
+    template,
+    onClick,
+    onAction,
+    connected,
+    draggable,
+    pendingFocus,
+    currentId,
+  );
 }
 
 export interface FocusMainElements {
@@ -425,7 +477,10 @@ export function renderFocusMain(elements: FocusMainElements, hasSessions: boolea
 /** REQ-15's sizenote line: `<cols>×<rows> · one live client · geometry owned by this
  * pane`. `null` geometry (no focused session, or one not yet laid out) hides the line
  * entirely rather than rendering a half-formed one. */
-export function renderSizenote(el: HTMLElement, geometry: { cols: number; rows: number } | null): void {
+export function renderSizenote(
+  el: HTMLElement,
+  geometry: { cols: number; rows: number } | null,
+): void {
   if (!geometry) {
     el.hidden = true;
     el.textContent = "";

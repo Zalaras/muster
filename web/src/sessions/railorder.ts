@@ -37,7 +37,11 @@ export interface MoveCardResult {
  * as contiguous: the dragged entry either extends the target's block by one at the exact
  * seam it was inserted, never straddling it.
  */
-export function moveCard(ordered: readonly RailOrderItem[], draggedId: number, targetId: number): MoveCardResult | null {
+export function moveCard(
+  ordered: readonly RailOrderItem[],
+  draggedId: number,
+  targetId: number,
+): MoveCardResult | null {
   if (draggedId === targetId) return null;
   const dragged = ordered.find((s) => s.id === draggedId);
   const target = ordered.find((s) => s.id === targetId);

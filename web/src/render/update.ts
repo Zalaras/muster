@@ -12,7 +12,12 @@ import type { Prefs, UpdateInfo } from "../protocol";
 
 /** Every apply phase during which a request is genuinely in flight — REQ-10's
  * `aria-busy="true"` and the "phase not in flight" clause of the Buttons-enabled rule. */
-const IN_FLIGHT_PHASES: ReadonlySet<string> = new Set(["downloading", "verifying", "installing", "restarting"]);
+const IN_FLIGHT_PHASES: ReadonlySet<string> = new Set([
+  "downloading",
+  "verifying",
+  "installing",
+  "restarting",
+]);
 
 export interface UpdateViewModel {
   running: string;
@@ -42,7 +47,10 @@ export interface UpdateViewModel {
  * case, a pre-plan daemon that never sends `update` at all: renders the same
  * unknown-shaped, no-badge, no-buttons state `parseSnapshot` already tolerates rather than
  * throwing. */
-export function buildUpdateViewModel(update: UpdateInfo | null, prefs: Prefs | null): UpdateViewModel {
+export function buildUpdateViewModel(
+  update: UpdateInfo | null,
+  prefs: Prefs | null,
+): UpdateViewModel {
   const updateCheck = prefs?.updateCheck ?? true;
 
   if (!update) {
@@ -79,7 +87,10 @@ export function buildUpdateViewModel(update: UpdateInfo | null, prefs: Prefs | n
 
   const phase = update.apply.phase;
   const inFlight = IN_FLIGHT_PHASES.has(phase);
-  const baseEnabled = update.install === "installer" && !inFlight && (update.available !== null || update.installed !== null);
+  const baseEnabled =
+    update.install === "installer" &&
+    !inFlight &&
+    (update.available !== null || update.installed !== null);
   const updateEnabled = baseEnabled && update.installed === null;
   const restartLabel = update.installed !== null ? "Restart now" : "Update and restart";
 
@@ -166,7 +177,8 @@ export function renderSettingsBadge(button: HTMLButtonElement, badged: boolean):
  * (or saying none are open) — Claude sessions always keep running (INV-5). */
 export function renderRestartImpact(el: HTMLElement, shells: readonly RestartImpactShell[]): void {
   if (shells.length === 0) {
-    el.textContent = "No plain-terminal shells are open. Claude sessions keep running and are re-adopted after the restart.";
+    el.textContent =
+      "No plain-terminal shells are open. Claude sessions keep running and are re-adopted after the restart.";
     return;
   }
   const noun = shells.length === 1 ? "shell" : "shells";

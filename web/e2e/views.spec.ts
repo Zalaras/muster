@@ -18,7 +18,10 @@ import { terminalRegion } from "./helpers/terminal";
 // test sharing a daemon with a neighbour would leak its own `PUT /api/prefs` into that
 // neighbour's expected initial view. Two tests also restart or kill their daemon.
 
-test("the masthead switcher persists the chosen view across a reload (E5)", async ({ page, daemon }) => {
+test("the masthead switcher persists the chosen view across a reload (E5)", async ({
+  page,
+  daemon,
+}) => {
   await page.goto(daemon.dashboardUrl);
   await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "true");
 
@@ -27,7 +30,10 @@ test("the masthead switcher persists the chosen view across a reload (E5)", asyn
 
   await page.reload();
   await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
 });
 
 test("the chosen view survives a daemon restart (E6)", async ({ page, daemon }) => {
@@ -61,14 +67,25 @@ test("Cmd+\\ toggles the view and Opt+Cmd+1 focuses the top-priority session reg
       data: envelopedSessionStart(claudeA, { musterSession: sessionA.id }),
     });
     await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit(claudeA) });
-    await request.post(daemon.ingestURL("hook"), { data: rawNotification(claudeA, "p1", "permission_prompt") });
+    await request.post(daemon.ingestURL("hook"), {
+      data: rawNotification(claudeA, "p1", "permission_prompt"),
+    });
     await expect(stateBadge(sessionCard(page, "prio-a"))).toHaveText(/needs input/i);
 
-    await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     await page.keyboard.press("Meta+Backslash");
-    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     await page.keyboard.press("Meta+Backslash");
-    await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Focus" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
     // Explicitly focus B first, so Opt+Cmd+1 has to move focus rather than merely leave it.
     await sessionCard(page, "prio-b").click();
@@ -114,21 +131,36 @@ test("every accepted PUT /api/prefs re-broadcasts the full object to every other
   try {
     const pageB = await contextB.newPage();
     await pageB.goto(daemon.dashboardUrl);
-    await expect(pageB.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "true");
+    await expect(pageB.getByRole("button", { name: "Focus" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
     await page.getByRole("button", { name: "Tiles" }).click();
-    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Tiles" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
     // Window B never clicked anything — its switcher must flip purely from the `prefs`
     // WS broadcast (INV-4), not from any action of its own.
-    await expect(pageB.getByRole("button", { name: "Tiles" })).toHaveAttribute("aria-pressed", "true");
-    await expect(pageB.getByRole("button", { name: "Focus" })).toHaveAttribute("aria-pressed", "false");
+    await expect(pageB.getByRole("button", { name: "Tiles" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(pageB.getByRole("button", { name: "Focus" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
   } finally {
     await contextB.close();
   }
 });
 
-test("GET /api/state's prefs snapshot carries both view and density (M2 protocol delta)", async ({ page, daemon }) => {
+test("GET /api/state's prefs snapshot carries both view and density (M2 protocol delta)", async ({
+  page,
+  daemon,
+}) => {
   await page.goto(daemon.dashboardUrl);
 
   const stateRes = await page.request.get(`${daemon.baseURL}/api/state`);
@@ -144,7 +176,14 @@ test("GET /api/state's prefs snapshot carries both view and density (M2 protocol
   // `updateCheck` was added by plan auto-update (kb:anchor/prefs.put / kb:anchor/ws.prefs delta, merged into
   // docs/protocol.md on approval; default true before any PUT) — same rationale.
   const before = (await stateRes.json()) as {
-    prefs: { view: string; density: string; usageModel: string; railSort: string; theme: string; updateCheck: boolean };
+    prefs: {
+      view: string;
+      density: string;
+      usageModel: string;
+      railSort: string;
+      theme: string;
+      updateCheck: boolean;
+    };
   };
   expect(before.prefs).toEqual({
     view: "focus",
@@ -155,12 +194,21 @@ test("GET /api/state's prefs snapshot carries both view and density (M2 protocol
     updateCheck: true,
   });
 
-  const putRes = await page.request.put(`${daemon.baseURL}/api/prefs`, { data: { density: "3x2" } });
+  const putRes = await page.request.put(`${daemon.baseURL}/api/prefs`, {
+    data: { density: "3x2" },
+  });
   expect(putRes.status()).toBe(204);
 
   const afterRes = await page.request.get(`${daemon.baseURL}/api/state`);
   const after = (await afterRes.json()) as {
-    prefs: { view: string; density: string; usageModel: string; railSort: string; theme: string; updateCheck: boolean };
+    prefs: {
+      view: string;
+      density: string;
+      usageModel: string;
+      railSort: string;
+      theme: string;
+      updateCheck: boolean;
+    };
   };
   expect(after.prefs).toEqual({
     view: "focus",

@@ -1,7 +1,11 @@
 import { join } from "node:path";
 import { expect, settleFor, test } from "./helpers/fixtures";
 import { expectedEscapedPath, uniqueContent, writeFixtureFile } from "./helpers/dropfiles";
-import { envelopedSessionStart, rawUserPromptSubmit, unboundSessionStart } from "./helpers/payloads";
+import {
+  envelopedSessionStart,
+  rawUserPromptSubmit,
+  unboundSessionStart,
+} from "./helpers/payloads";
 import { railCard } from "./helpers/railorder";
 import { findSession, getState, launchSession, scratchDirectory } from "./helpers/session";
 import {
@@ -60,7 +64,9 @@ test("switching to shell in Focus shows a live shell whose prompt responds to ty
 
     // Flow 1: click shell -> lazy POST -> mount -> pip lights.
     const shellPost = page.waitForResponse(
-      (res) => res.request().method() === "POST" && /^\/api\/sessions\/\d+\/shell$/.test(new URL(res.url()).pathname),
+      (res) =>
+        res.request().method() === "POST" &&
+        /^\/api\/sessions\/\d+\/shell$/.test(new URL(res.url()).pathname),
     );
     await shellBtn.click();
     const res = await shellPost;
@@ -92,12 +98,17 @@ test("switching to shell in Focus shows a live shell whose prompt responds to ty
   }
 });
 
-test("a session never switched to shell has no muster-<id>-shell tmux session (E2)", async ({ page, daemon }) => {
+test("a session never switched to shell has no muster-<id>-shell tmux session (E2)", async ({
+  page,
+  daemon,
+}) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
     const session = await launchSession(page, daemon, { directory: dir, title: "plain-shell-e2" });
-    await expect(terminalRegion(page, "plain-shell-e2")).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
+    await expect(terminalRegion(page, "plain-shell-e2")).toContainText("MUSTER-STUB-READY", {
+      timeout: 15_000,
+    });
 
     expect(await daemon.tmuxSessions()).not.toContain(shellTmuxTarget(session.id));
   } finally {
@@ -124,7 +135,10 @@ test("the shell runs in the session's own directory (E3)", async ({ page, daemon
   }
 });
 
-test("a shell started in Focus is still running after switching to Tiles and back (REQ-6, E4)", async ({ page, daemon }) => {
+test("a shell started in Focus is still running after switching to Tiles and back (REQ-6, E4)", async ({
+  page,
+  daemon,
+}) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
@@ -159,7 +173,10 @@ test("a shell can be started on a session whose alive is false, and the claude s
   try {
     await page.goto(daemon.dashboardUrl);
     await launchSession(page, daemon, { directory: dirA.path, title: "plain-shell-e5-a" });
-    const sessionB = await launchSession(page, daemon, { directory: dirB.path, title: "plain-shell-e5-b" });
+    const sessionB = await launchSession(page, daemon, {
+      directory: dirB.path,
+      title: "plain-shell-e5-b",
+    });
     await expect(terminalRegion(page, "plain-shell-e5-a")).toBeVisible();
 
     await request.post(daemon.ingestURL("hook"), {
@@ -210,7 +227,9 @@ test("typing exit closes the shell socket, swaps the visible surface back to Cla
     await page.keyboard.type("exit");
     await page.keyboard.press("Enter");
 
-    await expect.poll(() => tracker.liveCount, { message: "waiting for the shell socket to close (4001)" }).toBe(0);
+    await expect
+      .poll(() => tracker.liveCount, { message: "waiting for the shell socket to close (4001)" })
+      .toBe(0);
     await expect(terminalRegion(page, "plain-shell-e6")).toBeVisible({ timeout: 15_000 });
     await expect(shellSurfaceRegion(page, "plain-shell-e6")).toHaveCount(0);
     await expect(mainheadSurfaceButton(page, "claude")).toHaveAttribute("aria-pressed", "true");
@@ -362,7 +381,10 @@ test("switching to shell on a DEAD session with its directory removed shows the 
   let cleaned = false;
   try {
     await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, { directory: dir, title: "plain-shell-e9-dead" });
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "plain-shell-e9-dead",
+    });
 
     const endRes = await page.request.post(`${daemon.baseURL}/api/sessions/${session.id}/end`);
     expect(endRes.status()).toBe(200);
@@ -407,8 +429,14 @@ test("switching to shell on a DEAD tile with its directory removed shows the dae
   let dirACleaned = false;
   try {
     await page.goto(daemon.dashboardUrl);
-    const deadSession = await launchSession(page, daemon, { directory: dirA.path, title: "plain-shell-tile-dead" });
-    const liveSession = await launchSession(page, daemon, { directory: dirB.path, title: "plain-shell-tile-live" });
+    const deadSession = await launchSession(page, daemon, {
+      directory: dirA.path,
+      title: "plain-shell-tile-dead",
+    });
+    const liveSession = await launchSession(page, daemon, {
+      directory: dirB.path,
+      title: "plain-shell-tile-live",
+    });
 
     const endRes = await page.request.post(`${daemon.baseURL}/api/sessions/${deadSession.id}/end`);
     expect(endRes.status()).toBe(200);
@@ -424,15 +452,24 @@ test("switching to shell on a DEAD tile with its directory removed shows the dae
 
     await tileSurfaceButton(page, deadSession.id, "shell").click();
 
-    await expect(tileSurfaceButton(page, deadSession.id, "claude")).toHaveAttribute("aria-pressed", "true");
-    await expect(tileSurfaceButton(page, deadSession.id, "shell")).toHaveAttribute("aria-pressed", "false");
+    await expect(tileSurfaceButton(page, deadSession.id, "claude")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(tileSurfaceButton(page, deadSession.id, "shell")).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
     await expect(deadTileSurface).toBeVisible();
     await expect(deadSurfaceNotice(deadTileSurface)).toBeVisible({ timeout: 15_000 });
     await expect(deadSurfaceNotice(deadTileSurface)).toContainText(dirA.path);
 
     // The neighbour's own segment and dead-surface state (it's alive, so it has none)
     // are untouched — the notice did not leak onto a different tile.
-    await expect(tileSurfaceButton(page, liveSession.id, "claude")).toHaveAttribute("aria-pressed", "true");
+    await expect(tileSurfaceButton(page, liveSession.id, "claude")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     await expect(liveTile.locator(".dead-surface")).toHaveCount(0);
   } finally {
     await Promise.all([dirACleaned ? Promise.resolve() : dirA.cleanup(), dirB.cleanup()]);
@@ -461,7 +498,9 @@ test("tmux kill-session on a live shell closes its socket and does not change th
 
     await daemon.killTmuxWindow(shellTmuxTarget(session.id));
 
-    await expect.poll(() => tracker.liveCount, { message: "waiting for the shell socket to close" }).toBe(0);
+    await expect
+      .poll(() => tracker.liveCount, { message: "waiting for the shell socket to close" })
+      .toBe(0);
 
     // No liveness nudge on the parent (unlike the Claude pane's own 4001) — hold for a
     // short window before reading, since a pass on the very first read would not catch a
@@ -576,8 +615,14 @@ test("removing one session kills only its own shell; a second session's shell ke
   const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
     await page.goto(daemon.dashboardUrl);
-    const sessionA = await launchSession(page, daemon, { directory: dirA.path, title: "plain-shell-e13-a" });
-    const sessionB = await launchSession(page, daemon, { directory: dirB.path, title: "plain-shell-e13-b" });
+    const sessionA = await launchSession(page, daemon, {
+      directory: dirA.path,
+      title: "plain-shell-e13-a",
+    });
+    const sessionB = await launchSession(page, daemon, {
+      directory: dirB.path,
+      title: "plain-shell-e13-b",
+    });
     await request.post(daemon.ingestURL("hook"), {
       data: envelopedSessionStart("claude-plain-shell-e13-a", { musterSession: sessionA.id }),
     });
@@ -605,7 +650,10 @@ test("removing one session kills only its own shell; a second session's shell ke
   }
 });
 
-test("a file dropped on a shell surface pastes its escaped path (E14, REQ-11)", async ({ page, daemon }) => {
+test("a file dropped on a shell surface pastes its escaped path (E14, REQ-11)", async ({
+  page,
+  daemon,
+}) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     const content = uniqueContent();
@@ -628,7 +676,10 @@ test("a file dropped on a shell surface pastes its escaped path (E14, REQ-11)", 
   }
 });
 
-test("a shell surface's reported geometry matches its tmux window's geometry (E16, REQ-11)", async ({ page, daemon }) => {
+test("a shell surface's reported geometry matches its tmux window's geometry (E16, REQ-11)", async ({
+  page,
+  daemon,
+}) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
@@ -653,7 +704,10 @@ test("a shell surface's reported geometry matches its tmux window's geometry (E1
           const height = await daemon.tmuxDisplay(shellTarget, "#{window_height}");
           return cols === width && rows === height;
         },
-        { message: "waiting for the shell sizenote and tmux's #{window_width}/#{window_height} to converge" },
+        {
+          message:
+            "waiting for the shell sizenote and tmux's #{window_width}/#{window_height} to converge",
+        },
       )
       .toBe(true);
   } finally {
@@ -661,12 +715,21 @@ test("a shell surface's reported geometry matches its tmux window's geometry (E1
   }
 });
 
-test("a tile footer renders the same segment as the mainhead, scoped per session (REQ-4)", async ({ page, daemon }) => {
+test("a tile footer renders the same segment as the mainhead, scoped per session (REQ-4)", async ({
+  page,
+  daemon,
+}) => {
   const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
     await page.goto(daemon.dashboardUrl);
-    const sessionA = await launchSession(page, daemon, { directory: dirA.path, title: "plain-shell-tile-a" });
-    const sessionB = await launchSession(page, daemon, { directory: dirB.path, title: "plain-shell-tile-b" });
+    const sessionA = await launchSession(page, daemon, {
+      directory: dirA.path,
+      title: "plain-shell-tile-a",
+    });
+    const sessionB = await launchSession(page, daemon, {
+      directory: dirB.path,
+      title: "plain-shell-tile-b",
+    });
 
     await page.keyboard.press("Meta+Backslash");
     await expect(liveTileById(page, sessionA.id)).toBeVisible();
@@ -674,15 +737,33 @@ test("a tile footer renders the same segment as the mainhead, scoped per session
 
     // Six tiles carry identically-named claude/shell buttons — scoping by
     // data-session-id must disambiguate correctly for BOTH tiles.
-    await expect(tileSurfaceButton(page, sessionA.id, "claude")).toHaveAttribute("aria-pressed", "true");
-    await expect(tileSurfaceButton(page, sessionA.id, "shell")).toHaveAttribute("aria-pressed", "false");
-    await expect(tileSurfaceButton(page, sessionB.id, "claude")).toHaveAttribute("aria-pressed", "true");
+    await expect(tileSurfaceButton(page, sessionA.id, "claude")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(tileSurfaceButton(page, sessionA.id, "shell")).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    await expect(tileSurfaceButton(page, sessionB.id, "claude")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
     await tileSurfaceButton(page, sessionB.id, "shell").click();
     // Only B's segment flips; A's is untouched.
-    await expect(tileSurfaceButton(page, sessionB.id, "shell")).toHaveAttribute("aria-pressed", "true");
-    await expect(tileSurfaceButton(page, sessionA.id, "claude")).toHaveAttribute("aria-pressed", "true");
-    await expect(tileSurfaceButton(page, sessionA.id, "shell")).toHaveAttribute("aria-pressed", "false");
+    await expect(tileSurfaceButton(page, sessionB.id, "shell")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(tileSurfaceButton(page, sessionA.id, "claude")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(tileSurfaceButton(page, sessionA.id, "shell")).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
   } finally {
     await Promise.all([dirA.cleanup(), dirB.cleanup()]);
   }
@@ -704,7 +785,9 @@ test("a running shell's pip resolves to the --shell-pip token, not --teal (revie
 
     const shellBtn = mainheadSurfaceButton(page, "shell");
     await shellBtn.click();
-    await expect(shellSurfaceRegion(page, "plain-shell-pip-color")).toBeVisible({ timeout: 15_000 });
+    await expect(shellSurfaceRegion(page, "plain-shell-pip-color")).toBeVisible({
+      timeout: 15_000,
+    });
 
     const pip = shellPip(shellBtn);
     await expect(pip).toHaveCount(1);

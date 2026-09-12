@@ -1,6 +1,11 @@
 import { join } from "node:path";
 import { expect, test } from "./helpers/fixtures";
-import { MAX_DROP_BYTES, expectedEscapedPath, uniqueContent, writeFixtureFile } from "./helpers/dropfiles";
+import {
+  MAX_DROP_BYTES,
+  expectedEscapedPath,
+  uniqueContent,
+  writeFixtureFile,
+} from "./helpers/dropfiles";
 import { getState, launchSession, scratchDirectory } from "./helpers/session";
 import {
   activeElementInsideTerminal,
@@ -78,7 +83,10 @@ test("dropping a file that exists in the session directory pastes its escaped pa
   }
 });
 
-test("a dropped filename containing a space is pasted backslash-escaped (E2, REQ-4)", async ({ page, daemon }) => {
+test("a dropped filename containing a space is pasted backslash-escaped (E2, REQ-4)", async ({
+  page,
+  daemon,
+}) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     const content = uniqueContent();
@@ -118,9 +126,12 @@ test("dropping a file with no match anywhere on disk shows the not-located notic
 
     await dropFiles(region, [{ name: "ghost.png", bytes: content }]);
 
-    await expect(dropNotice(region)).toHaveText("Can't locate ghost.png on disk — paste its path instead", {
-      timeout: 15_000,
-    });
+    await expect(dropNotice(region)).toHaveText(
+      "Can't locate ghost.png on disk — paste its path instead",
+      {
+        timeout: 15_000,
+      },
+    );
     // REQ-11 only fires on a successful paste — a failed locate must not move focus.
     expect(await activeElementInsideTerminal(page, "drop-e3")).toBe(false);
 
@@ -163,9 +174,12 @@ test("dropping a file that matches two identical on-disk copies shows the ambigu
 
     await dropFiles(region, [{ name: "dup.png", bytes: content }]);
 
-    await expect(dropNotice(region)).toHaveText("dup.png matches 2 identical files — paste the path of the one you mean", {
-      timeout: 15_000,
-    });
+    await expect(dropNotice(region)).toHaveText(
+      "dup.png matches 2 identical files — paste the path of the one you mean",
+      {
+        timeout: 15_000,
+      },
+    );
     expect(await activeElementInsideTerminal(page, "drop-e4")).toBe(false);
   } finally {
     await cleanup();
@@ -233,7 +247,10 @@ test("dropping a file on the masthead never navigates away and leaves the rail v
   }
 });
 
-test("dropping text/plain with no files pastes the text verbatim (E6, REQ-10)", async ({ page, daemon }) => {
+test("dropping text/plain with no files pastes the text verbatim (E6, REQ-10)", async ({
+  page,
+  daemon,
+}) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
@@ -251,7 +268,10 @@ test("dropping text/plain with no files pastes the text verbatim (E6, REQ-10)", 
   }
 });
 
-test("a file over 50 MiB shows the too-large notice and issues no locate request (E7)", async ({ page, daemon }) => {
+test("a file over 50 MiB shows the too-large notice and issues no locate request (E7)", async ({
+  page,
+  daemon,
+}) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
@@ -268,9 +288,12 @@ test("a file over 50 MiB shows the too-large notice and issues no locate request
     // upload, so the actual content is irrelevant and never needs to cross the CDP wire.
     await dropFiles(region, [{ name: "huge.bin", size: MAX_DROP_BYTES + 1 }]);
 
-    await expect(dropNotice(region)).toHaveText("huge.bin is over 50 MiB — paste its path instead", {
-      timeout: 15_000,
-    });
+    await expect(dropNotice(region)).toHaveText(
+      "huge.bin is over 50 MiB — paste its path instead",
+      {
+        timeout: 15_000,
+      },
+    );
     expect(locateRequests).toBe(0);
   } finally {
     await cleanup();
@@ -330,9 +353,13 @@ test("a drop on a dead session's surface is swallowed silently — no notice, no
     // terminal.spec.ts's dead-surface test: killing before the first liveness-poll tick
     // can otherwise race an empty snapshot).
     await expect
-      .poll(async () => (await page.request.get(`${daemon.baseURL}/api/sessions/${session.id}/pane`)).status(), {
-        timeout: 15_000,
-      })
+      .poll(
+        async () =>
+          (await page.request.get(`${daemon.baseURL}/api/sessions/${session.id}/pane`)).status(),
+        {
+          timeout: 15_000,
+        },
+      )
       .toBe(200);
 
     await daemon.killTmuxWindow(session.tmuxTarget);
@@ -377,7 +404,9 @@ test("a drop on a dead session's surface is swallowed silently — no notice, no
       // "session ended" label (web/index.html, plan m4-reconcile) — only the phrases
       // file-drop-fix's own notices actually use (REQ-6's exact strings elsewhere in
       // this file), so a real leak of any of them is what fails this loop.
-      expect(text).not.toMatch(/locating|can't locate|matches \d+ identical|over 50 mib|isn't connected/i);
+      expect(text).not.toMatch(
+        /locating|can't locate|matches \d+ identical|over 50 mib|isn't connected/i,
+      );
     }
     expect(locateRequests).toBe(0);
   } finally {
@@ -410,7 +439,9 @@ test("a drop on a live pane whose socket is not open shows the not-connected not
 
     await dropFiles(region, [{ name: "whatever.png", size: 16 }]);
 
-    await expect(dropNotice(region)).toHaveText("Pane isn't connected — nothing pasted", { timeout: 15_000 });
+    await expect(dropNotice(region)).toHaveText("Pane isn't connected — nothing pasted", {
+      timeout: 15_000,
+    });
     expect(locateRequests).toBe(0);
   } finally {
     await cleanup();

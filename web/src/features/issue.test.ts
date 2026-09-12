@@ -24,15 +24,21 @@ describe("composeNoteSection (W4, plan issue-capture Implementation Notes)", () 
   });
 
   it("trims leading and trailing whitespace from the note before composing", () => {
-    expect(composeNoteSection("  Something broke  ")).toBe("## What happened\n\nSomething broke\n\n");
+    expect(composeNoteSection("  Something broke  ")).toBe(
+      "## What happened\n\nSomething broke\n\n",
+    );
   });
 
   it("preserves internal newlines in a multi-line note", () => {
-    expect(composeNoteSection("Line one\nLine two\nLine three")).toBe("## What happened\n\nLine one\nLine two\nLine three\n\n");
+    expect(composeNoteSection("Line one\nLine two\nLine three")).toBe(
+      "## What happened\n\nLine one\nLine two\nLine three\n\n",
+    );
   });
 
   it("normalises CRLF to LF throughout the note", () => {
-    expect(composeNoteSection("Line one\r\nLine two\r\nLine three")).toBe("## What happened\n\nLine one\nLine two\nLine three\n\n");
+    expect(composeNoteSection("Line one\r\nLine two\r\nLine three")).toBe(
+      "## What happened\n\nLine one\nLine two\nLine three\n\n",
+    );
   });
 
   it("normalises a lone CRLF at the note's own end distinctly from the trim (both apply)", () => {
@@ -40,7 +46,9 @@ describe("composeNoteSection (W4, plan issue-capture Implementation Notes)", () 
   });
 
   it("normalises mixed CRLF and bare LF line endings in the same note", () => {
-    expect(composeNoteSection("Line one\r\nLine two\nLine three")).toBe("## What happened\n\nLine one\nLine two\nLine three\n\n");
+    expect(composeNoteSection("Line one\r\nLine two\nLine three")).toBe(
+      "## What happened\n\nLine one\nLine two\nLine three\n\n",
+    );
   });
 
   it("passes through backticks, a triple-backtick fence, a pipe and a </details> string verbatim (Edge Case 10/11)", () => {

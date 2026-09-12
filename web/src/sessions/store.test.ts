@@ -37,7 +37,12 @@ describe("SessionStore", () => {
   it("replaceAll populates the store from a snapshot", () => {
     const store = new SessionStore();
     store.replaceAll([makeSession({ id: 1 }), makeSession({ id: 2 })]);
-    expect(store.values().map((s) => s.id).sort()).toEqual([1, 2]);
+    expect(
+      store
+        .values()
+        .map((s) => s.id)
+        .sort(),
+    ).toEqual([1, 2]);
   });
 
   it("replaceAll wholly discards whatever was there before (no partial merge)", () => {
@@ -66,7 +71,10 @@ describe("SessionStore", () => {
 
   it("upsert after replaceAll only touches the one session id", () => {
     const store = new SessionStore();
-    store.replaceAll([makeSession({ id: 1, state: "idle" }), makeSession({ id: 2, state: "idle" })]);
+    store.replaceAll([
+      makeSession({ id: 1, state: "idle" }),
+      makeSession({ id: 2, state: "idle" }),
+    ]);
     store.upsert(makeSession({ id: 2, state: "failed" }));
     const byId = new Map(store.values().map((s) => [s.id, s]));
     expect(byId.get(1)?.state).toBe("idle");
@@ -86,7 +94,12 @@ describe("SessionStore.remove (REQ-15, applies a sessionRemoved)", () => {
     const store = new SessionStore();
     store.replaceAll([makeSession({ id: 1 }), makeSession({ id: 2 })]);
     expect(() => store.remove(999)).not.toThrow();
-    expect(store.values().map((s) => s.id).sort()).toEqual([1, 2]);
+    expect(
+      store
+        .values()
+        .map((s) => s.id)
+        .sort(),
+    ).toEqual([1, 2]);
   });
 
   it("is a no-op on an empty store", () => {
@@ -97,7 +110,11 @@ describe("SessionStore.remove (REQ-15, applies a sessionRemoved)", () => {
 
   it("only removes the targeted id, leaving every other session untouched (INV-2 at the store layer)", () => {
     const store = new SessionStore();
-    store.replaceAll([makeSession({ id: 1, state: "working" }), makeSession({ id: 2, state: "idle" }), makeSession({ id: 3, state: "failed" })]);
+    store.replaceAll([
+      makeSession({ id: 1, state: "working" }),
+      makeSession({ id: 2, state: "idle" }),
+      makeSession({ id: 3, state: "failed" }),
+    ]);
     store.remove(2);
     const byId = new Map(store.values().map((s) => [s.id, s]));
     expect(byId.has(2)).toBe(false);

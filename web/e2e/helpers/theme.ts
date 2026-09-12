@@ -104,7 +104,9 @@ export function claudeConfigJSON(theme?: string): string {
 
 /** `localStorage["muster.theme-hint"]`, parsed — REQ-11's hint the head script reads
  * before first paint. `null` when absent or unparseable. */
-export async function readThemeHintStorage(page: Page): Promise<{ theme?: string; family?: string } | null> {
+export async function readThemeHintStorage(
+  page: Page,
+): Promise<{ theme?: string; family?: string } | null> {
   return await page.evaluate(() => {
     try {
       const raw = window.localStorage.getItem("muster.theme-hint");

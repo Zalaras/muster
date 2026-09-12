@@ -37,8 +37,22 @@ const DIGIT_CODES = [
 // `NumpadN` is deliberately unbound (edge case 11), and every chord requires an exact
 // modifier signature (INV-2): a held ⌃ or ⇧ alongside a bound chord does not match.
 const BINDINGS: readonly Binding[] = [
-  { code: "KeyN", metaKey: true, altKey: true, shiftKey: false, ctrlKey: false, action: { type: "new-session" } },
-  { code: "Backslash", metaKey: true, altKey: false, shiftKey: false, ctrlKey: false, action: { type: "toggle-view" } },
+  {
+    code: "KeyN",
+    metaKey: true,
+    altKey: true,
+    shiftKey: false,
+    ctrlKey: false,
+    action: { type: "new-session" },
+  },
+  {
+    code: "Backslash",
+    metaKey: true,
+    altKey: false,
+    shiftKey: false,
+    ctrlKey: false,
+    action: { type: "toggle-view" },
+  },
   {
     code: "ArrowUp",
     metaKey: true,

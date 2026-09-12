@@ -72,7 +72,10 @@ describe("buildCardViewModel — repo / branch line", () => {
   });
 
   it("renders an em-dash for a repo with no branch (git repo, detached or unreadable)", () => {
-    const vm = buildCardViewModel(makeSession({ id: 1, repo: { name: "muster", branch: null, isWorktree: false } }), NOW);
+    const vm = buildCardViewModel(
+      makeSession({ id: 1, repo: { name: "muster", branch: null, isWorktree: false } }),
+      NOW,
+    );
     expect(vm.repoLine).toBe("muster / —");
   });
 
@@ -85,12 +88,18 @@ describe("buildCardViewModel — repo / branch line", () => {
   });
 
   it("falls back to the directory basename when repo is null (REQ-15)", () => {
-    const vm = buildCardViewModel(makeSession({ id: 1, repo: null, directory: "/Users/damian/code/muster" }), NOW);
+    const vm = buildCardViewModel(
+      makeSession({ id: 1, repo: null, directory: "/Users/damian/code/muster" }),
+      NOW,
+    );
     expect(vm.repoLine).toBe("muster");
   });
 
   it("handles a directory with a trailing slash when falling back to basename", () => {
-    const vm = buildCardViewModel(makeSession({ id: 1, repo: null, directory: "/Users/damian/code/muster/" }), NOW);
+    const vm = buildCardViewModel(
+      makeSession({ id: 1, repo: null, directory: "/Users/damian/code/muster/" }),
+      NOW,
+    );
     expect(vm.repoLine).toBe("muster");
   });
 });
@@ -281,7 +290,10 @@ describe("buildCardViewModel — actions (REQ-11: live -> End; ended -> Resume, 
   });
 
   it("offers Resume then Remove, in that order, for an ended session", () => {
-    const vm = buildCardViewModel(makeSession({ id: 1, alive: false, endedAt: "2026-08-22T00:00:00Z" }), NOW);
+    const vm = buildCardViewModel(
+      makeSession({ id: 1, alive: false, endedAt: "2026-08-22T00:00:00Z" }),
+      NOW,
+    );
     expect(vm.actions).toEqual(["Resume", "Remove"]);
   });
 });
@@ -311,7 +323,10 @@ describe("buildCardViewModel — ended timer (REQ-9): 'ended <age>' from endedAt
   });
 
   it("does not use the 'ended' prefix for a live session's timer", () => {
-    const vm = buildCardViewModel(makeSession({ id: 1, alive: true, stateSince: "2026-08-22T00:00:00Z" }), NOW);
+    const vm = buildCardViewModel(
+      makeSession({ id: 1, alive: true, stateSince: "2026-08-22T00:00:00Z" }),
+      NOW,
+    );
     expect(vm.timer).not.toMatch(/^ended /);
     expect(vm.timer).toBe("00:10");
   });

@@ -31,7 +31,8 @@ export function captureFocusedControl(container: Element): FocusedControl | null
 
   if (active.dataset["action"] !== undefined && active.dataset["id"] !== undefined) {
     const sessionId = Number(active.dataset["id"]);
-    if (Number.isFinite(sessionId)) return { sessionId, action: active.dataset["action"], element: active };
+    if (Number.isFinite(sessionId))
+      return { sessionId, action: active.dataset["action"], element: active };
   }
   if (active.dataset["sessionId"] !== undefined) {
     const sessionId = Number(active.dataset["sessionId"]);

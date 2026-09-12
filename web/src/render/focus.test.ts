@@ -58,13 +58,21 @@ describe("captureFocusedControl / restoreFocusedControl", () => {
   it("captures an action button by data-action + data-id", () => {
     const { container, end } = tree();
     doc.activeElement = end;
-    expect(captureFocusedControl(container as unknown as Element)).toEqual({ sessionId: 7, action: "end", element: end });
+    expect(captureFocusedControl(container as unknown as Element)).toEqual({
+      sessionId: 7,
+      action: "end",
+      element: end,
+    });
   });
 
   it("captures a session root by data-session-id when the root itself has focus", () => {
     const { container, card } = tree();
     doc.activeElement = card;
-    expect(captureFocusedControl(container as unknown as Element)).toEqual({ sessionId: 7, action: undefined, element: card });
+    expect(captureFocusedControl(container as unknown as Element)).toEqual({
+      sessionId: 7,
+      action: undefined,
+      element: card,
+    });
   });
 
   it("returns null when focus is outside the container, or on a non-control inside it", () => {

@@ -43,7 +43,9 @@ export function goArch(): string {
     case "x64":
       return "amd64";
     default:
-      throw new Error(`goArch(): unmapped Node process.arch ${process.arch} — add a case before running here`);
+      throw new Error(
+        `goArch(): unmapped Node process.arch ${process.arch} — add a case before running here`,
+      );
   }
 }
 
@@ -62,10 +64,13 @@ interface MinisignKeypair {
 function generateMinisignKeypair(): MinisignKeypair {
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
   const jwk = publicKey.export({ format: "jwk" }) as { x?: string };
-  if (jwk.x === undefined) throw new Error("generateMinisignKeypair(): could not export a raw Ed25519 public key");
+  if (jwk.x === undefined)
+    throw new Error("generateMinisignKeypair(): could not export a raw Ed25519 public key");
   const publicKeyBytes = Buffer.from(jwk.x, "base64url");
   if (publicKeyBytes.length !== 32) {
-    throw new Error(`generateMinisignKeypair(): unexpected public key length ${publicKeyBytes.length}`);
+    throw new Error(
+      `generateMinisignKeypair(): unexpected public key length ${publicKeyBytes.length}`,
+    );
   }
   return { privateKey, keyId: randomBytes(8), publicKeyBytes };
 }
@@ -92,7 +97,11 @@ function minisignPublicKeyFile(kp: MinisignKeypair): string {
 function minisignSign(kp: MinisignKeypair, data: Buffer, trustedComment: string): string {
   const sig = ed25519Sign(null, data, kp.privateKey);
   const sigRaw = Buffer.concat([Buffer.from("Ed"), kp.keyId, sig]);
-  const globalSig = ed25519Sign(null, Buffer.concat([sig, Buffer.from(trustedComment, "utf-8")]), kp.privateKey);
+  const globalSig = ed25519Sign(
+    null,
+    Buffer.concat([sig, Buffer.from(trustedComment, "utf-8")]),
+    kp.privateKey,
+  );
   return (
     `untrusted comment: signature from minisign secret key\n${sigRaw.toString("base64")}\n` +
     `trusted comment: ${trustedComment}\n${globalSig.toString("base64")}\n`
@@ -307,7 +316,10 @@ export class FakeReleaseServer {
     const archiveSha256 = createHash("sha256").update(archiveBytes).digest("hex");
     const checksumsBytes = Buffer.from(`${archiveSha256}  ${assetName}\n`, "utf-8");
     const trustedComment = `muster ${version}`;
-    const minisigBytes = Buffer.from(minisignSign(this.keypair, checksumsBytes, trustedComment), "utf-8");
+    const minisigBytes = Buffer.from(
+      minisignSign(this.keypair, checksumsBytes, trustedComment),
+      "utf-8",
+    );
     this.releases.set(opts.tag, {
       version,
       assetName,
@@ -350,7 +362,10 @@ export class FakeReleaseServer {
       case "foreign-key": {
         const foreign = generateMinisignKeypair();
         const trustedComment = `muster ${release.version}`;
-        release.minisigBytes = Buffer.from(minisignSign(foreign, release.checksumsBytes, trustedComment), "utf-8");
+        release.minisigBytes = Buffer.from(
+          minisignSign(foreign, release.checksumsBytes, trustedComment),
+          "utf-8",
+        );
         return;
       }
       case "sha-mismatch": {

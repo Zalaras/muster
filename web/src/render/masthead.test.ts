@@ -43,7 +43,9 @@ class FakeDomNode {
   }
 
   get textContent(): string {
-    return this.children.length > 0 ? this.children.map((c) => c.textContent).join("") : this.ownText;
+    return this.children.length > 0
+      ? this.children.map((c) => c.textContent).join("")
+      : this.ownText;
   }
 
   set textContent(value: string) {
@@ -89,7 +91,10 @@ function fakeDomElement(): HTMLElement {
  * itself, i.e. `renderUsageTrack`'s known-bucket branch, is Playwright's job per
  * docs/conventions.md; see web/e2e/gauges.spec.ts). Enough to prove the honesty-rule
  * early return: a null bucket must touch the element exactly zero times. */
-function fakeAppendableElement(): HTMLElement & { appendChild: ReturnType<typeof vi.fn>; hidden: boolean } {
+function fakeAppendableElement(): HTMLElement & {
+  appendChild: ReturnType<typeof vi.fn>;
+  hidden: boolean;
+} {
   return { textContent: "", hidden: false, appendChild: vi.fn() } as unknown as HTMLElement & {
     appendChild: ReturnType<typeof vi.fn>;
     hidden: boolean;
@@ -120,7 +125,12 @@ describe("renderConnectionStatus", () => {
 });
 
 describe("renderUsage — honesty rule: null renders 'unknown', never a gauge/percentage", () => {
-  const unknown: Usage = { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" };
+  const unknown: Usage = {
+    fiveHour: null,
+    sevenDay: null,
+    sampledAt: null,
+    source: "subscription",
+  };
 
   function elements(): UsageElements {
     return { fiveHour: fakeDomElement(), sevenDay: fakeDomElement() };
@@ -144,16 +154,22 @@ describe("renderUsage — honesty rule: null renders 'unknown', never a gauge/pe
     const els = elements();
     renderUsage(els, unknown);
     expect((els.fiveHour as unknown as FakeDomNode).querySelector(".lbl")?.textContent).toBe("5h");
-    expect((els.fiveHour as unknown as FakeDomNode).querySelector(".num")?.textContent).toBe("unknown");
+    expect((els.fiveHour as unknown as FakeDomNode).querySelector(".num")?.textContent).toBe(
+      "unknown",
+    );
     expect((els.sevenDay as unknown as FakeDomNode).querySelector(".lbl")?.textContent).toBe("7d");
-    expect((els.sevenDay as unknown as FakeDomNode).querySelector(".num")?.textContent).toBe("unknown");
+    expect((els.sevenDay as unknown as FakeDomNode).querySelector(".num")?.textContent).toBe(
+      "unknown",
+    );
   });
 
   it("renders a rounded percentage when a bucket is present", () => {
     const els = elements();
     renderUsage(els, { ...unknown, fiveHour: { usedPct: 61.2, resetsAt: "2026-08-20T11:00:00Z" } });
     expect((els.fiveHour as unknown as FakeDomNode).querySelector(".num")?.textContent).toBe("61%");
-    expect((els.sevenDay as unknown as FakeDomNode).querySelector(".num")?.textContent).toBe("unknown");
+    expect((els.sevenDay as unknown as FakeDomNode).querySelector(".num")?.textContent).toBe(
+      "unknown",
+    );
   });
 
   it("rounds the boundary values 0 and 99.6 correctly (0% and 100%, never blank)", () => {
@@ -164,13 +180,17 @@ describe("renderUsage — honesty rule: null renders 'unknown', never a gauge/pe
       sevenDay: { usedPct: 99.6, resetsAt: "2026-08-20T11:00:00Z" },
     });
     expect((els.fiveHour as unknown as FakeDomNode).querySelector(".num")?.textContent).toBe("0%");
-    expect((els.sevenDay as unknown as FakeDomNode).querySelector(".num")?.textContent).toBe("100%");
+    expect((els.sevenDay as unknown as FakeDomNode).querySelector(".num")?.textContent).toBe(
+      "100%",
+    );
   });
 
   it("only one bucket null renders independently ('unknown' for that bucket only)", () => {
     const els = elements();
     renderUsage(els, { ...unknown, sevenDay: { usedPct: 23, resetsAt: "2026-08-22T06:00:00Z" } });
-    expect((els.fiveHour as unknown as FakeDomNode).querySelector(".num")?.textContent).toBe("unknown");
+    expect((els.fiveHour as unknown as FakeDomNode).querySelector(".num")?.textContent).toBe(
+      "unknown",
+    );
     expect((els.sevenDay as unknown as FakeDomNode).querySelector(".num")?.textContent).toBe("23%");
   });
 });
@@ -194,7 +214,12 @@ describe("renderUsage + renderUsageTrack — element order matches the reference
   it("orders children lbl, bar, num, resets for a known bucket — bar reads before the number", () => {
     const el = new FakeDomNode("div");
     const bucket = { usedPct: 61.2, resetsAt: "2026-08-20T11:00:00Z" };
-    const usage: Usage = { fiveHour: bucket, sevenDay: null, sampledAt: "2026-08-23T08:59:00Z", source: "subscription" };
+    const usage: Usage = {
+      fiveHour: bucket,
+      sevenDay: null,
+      sampledAt: "2026-08-23T08:59:00Z",
+      source: "subscription",
+    };
 
     renderUsage({ fiveHour: el as unknown as HTMLElement, sevenDay: fakeDomElement() }, usage);
     renderUsageTrack(el as unknown as HTMLElement, bucket, now);
@@ -202,7 +227,9 @@ describe("renderUsage + renderUsageTrack — element order matches the reference
     expect(el.childClasses()).toEqual(["lbl", "bar warn", "num", "resets"]);
     expect(el.querySelector(".lbl")?.textContent).toBe("5h");
     expect(el.querySelector(".num")?.textContent).toBe("61%");
-    expect(el.querySelector(".resets")?.textContent).toBe(`· ${formatResets(bucket.resetsAt, now)}`);
+    expect(el.querySelector(".resets")?.textContent).toBe(
+      `· ${formatResets(bucket.resetsAt, now)}`,
+    );
   });
 
   it("applies the 'warn' modifier at or above the 60% threshold and omits it below", () => {
@@ -238,27 +265,61 @@ describe("describeClaudeVersion — UI Specifications > DOM six-row table", () =
   });
 
   it("row 2: status 'unknown' (with a populated installed, which the daemon never actually sends alongside unknown) -> 'Claude installation unknown', no warning", () => {
-    const info: ClaudeCodeInfo = { installed: "2.1.267", floor: "2.1.246", verified: "2.1.267", status: "unknown" };
-    expect(describeClaudeVersion(info)).toEqual({ text: "Claude installation unknown", warning: null });
+    const info: ClaudeCodeInfo = {
+      installed: "2.1.267",
+      floor: "2.1.246",
+      verified: "2.1.267",
+      status: "unknown",
+    };
+    expect(describeClaudeVersion(info)).toEqual({
+      text: "Claude installation unknown",
+      warning: null,
+    });
   });
 
   it("row 2 (installed genuinely null): status 'unknown' with installed null -> 'Claude installation unknown', no warning", () => {
-    const info: ClaudeCodeInfo = { installed: null, floor: "2.1.246", verified: "2.1.267", status: "unknown" };
-    expect(describeClaudeVersion(info)).toEqual({ text: "Claude installation unknown", warning: null });
+    const info: ClaudeCodeInfo = {
+      installed: null,
+      floor: "2.1.246",
+      verified: "2.1.267",
+      status: "unknown",
+    };
+    expect(describeClaudeVersion(info)).toEqual({
+      text: "Claude installation unknown",
+      warning: null,
+    });
   });
 
   it("row 3: status 'verified' -> 'claude <installed>', no warning", () => {
-    const info: ClaudeCodeInfo = { installed: "2.1.267", floor: "2.1.246", verified: "2.1.267", status: "verified" };
+    const info: ClaudeCodeInfo = {
+      installed: "2.1.267",
+      floor: "2.1.246",
+      verified: "2.1.267",
+      status: "verified",
+    };
     expect(describeClaudeVersion(info)).toEqual({ text: "claude 2.1.267", warning: null });
   });
 
   it("row 4: status 'above' -> 'claude <installed>' + the not-tested warning (no update wording)", () => {
-    const info: ClaudeCodeInfo = { installed: "2.1.270", floor: "2.1.246", verified: "2.1.267", status: "above" };
-    expect(describeClaudeVersion(info)).toEqual({ text: "claude 2.1.270", warning: VERSION_NOT_TESTED });
+    const info: ClaudeCodeInfo = {
+      installed: "2.1.270",
+      floor: "2.1.246",
+      verified: "2.1.267",
+      status: "above",
+    };
+    expect(describeClaudeVersion(info)).toEqual({
+      text: "claude 2.1.270",
+      warning: VERSION_NOT_TESTED,
+    });
   });
 
   it("row 5: status 'below' -> 'claude <installed>' + the not-tested-please-update warning (em dash U+2014)", () => {
-    const info: ClaudeCodeInfo = { installed: "2.1.200", floor: "2.1.246", verified: "2.1.267", status: "below" };
+    const info: ClaudeCodeInfo = {
+      installed: "2.1.200",
+      floor: "2.1.246",
+      verified: "2.1.267",
+      status: "below",
+    };
     const result = describeClaudeVersion(info);
     expect(result).toEqual({ text: "claude 2.1.200", warning: VERSION_NOT_TESTED_UPDATE });
     expect(result.warning).toContain("—"); // em dash, not a hyphen
@@ -266,8 +327,16 @@ describe("describeClaudeVersion — UI Specifications > DOM six-row table", () =
 
   it("row 6 (defensive): a non-'unknown' status with installed null -> 'Claude installation unknown', no warning (the daemon never sends this — INV-1 — but the parser only type-checks, so the renderer must not template 'claude null')", () => {
     for (const status of ["verified", "above", "below"] as const) {
-      const info: ClaudeCodeInfo = { installed: null, floor: "2.1.246", verified: "2.1.267", status };
-      expect(describeClaudeVersion(info)).toEqual({ text: "Claude installation unknown", warning: null });
+      const info: ClaudeCodeInfo = {
+        installed: null,
+        floor: "2.1.246",
+        verified: "2.1.267",
+        status,
+      };
+      expect(describeClaudeVersion(info)).toEqual({
+        text: "Claude installation unknown",
+        warning: null,
+      });
     }
   });
 });
@@ -339,7 +408,12 @@ describe("renderClaudeVersion — rebuilds #claude-version via replaceChildren (
 
   it("no warning: a lone text node, no glyph", () => {
     const el = element();
-    const info: ClaudeCodeInfo = { installed: "2.1.267", floor: "2.1.246", verified: "2.1.267", status: "verified" };
+    const info: ClaudeCodeInfo = {
+      installed: "2.1.267",
+      floor: "2.1.246",
+      verified: "2.1.267",
+      status: "verified",
+    };
     renderClaudeVersion(el as unknown as HTMLElement, info);
     expect(el.nodes()).toHaveLength(1);
     expect(el.textContent).toBe("claude 2.1.267");
@@ -354,7 +428,12 @@ describe("renderClaudeVersion — rebuilds #claude-version via replaceChildren (
 
   it("warning present: trailing-space text node followed by a role=img glyph whose aria-label and title both carry the warning sentence", () => {
     const el = element();
-    const info: ClaudeCodeInfo = { installed: "2.1.270", floor: "2.1.246", verified: "2.1.267", status: "above" };
+    const info: ClaudeCodeInfo = {
+      installed: "2.1.270",
+      floor: "2.1.246",
+      verified: "2.1.267",
+      status: "above",
+    };
     renderClaudeVersion(el as unknown as HTMLElement, info);
 
     const [textNode, glyph] = el.nodes();
@@ -371,7 +450,12 @@ describe("renderClaudeVersion — rebuilds #claude-version via replaceChildren (
 
   it("below-range warning uses the update wording, still matching aria-label to title", () => {
     const el = element();
-    const info: ClaudeCodeInfo = { installed: "2.1.200", floor: "2.1.246", verified: "2.1.267", status: "below" };
+    const info: ClaudeCodeInfo = {
+      installed: "2.1.200",
+      floor: "2.1.246",
+      verified: "2.1.267",
+      status: "below",
+    };
     renderClaudeVersion(el as unknown as HTMLElement, info);
 
     const [, glyph] = el.nodes();
@@ -423,7 +507,11 @@ describe("renderViewSwitcher — Testable UI Elements: aria-pressed reflects sel
 
 describe("renderDensityControl — renders only in Tiles; aria-pressed reflects density", () => {
   function elements(): DensityControlElements {
-    return { container: fakeElement(), twoByTwoButton: fakeButton(), threeByTwoButton: fakeButton() };
+    return {
+      container: fakeElement(),
+      twoByTwoButton: fakeButton(),
+      threeByTwoButton: fakeButton(),
+    };
   }
 
   it("hides the container in Focus regardless of density", () => {
@@ -452,12 +540,15 @@ describe("renderDensityControl — renders only in Tiles; aria-pressed reflects 
     expect(els.threeByTwoButton.getAttribute("aria-pressed")).toBe("true");
   });
 
-  it.each(["2x2", "3x2"] as Density[])("still sets aria-pressed correctly even while hidden in Focus (density %s)", (density) => {
-    const els = elements();
-    renderDensityControl(els, "focus", density);
-    expect(els.twoByTwoButton.getAttribute("aria-pressed")).toBe(String(density === "2x2"));
-    expect(els.threeByTwoButton.getAttribute("aria-pressed")).toBe(String(density === "3x2"));
-  });
+  it.each(["2x2", "3x2"] as Density[])(
+    "still sets aria-pressed correctly even while hidden in Focus (density %s)",
+    (density) => {
+      const els = elements();
+      renderDensityControl(els, "focus", density);
+      expect(els.twoByTwoButton.getAttribute("aria-pressed")).toBe(String(density === "2x2"));
+      expect(els.threeByTwoButton.getAttribute("aria-pressed")).toBe(String(density === "3x2"));
+    },
+  );
 });
 
 // M3 (plan m3-gauges REQ-11/W7): renderUsageTrack's known-bucket branch builds real DOM
@@ -542,7 +633,9 @@ class FakeDomNodeRich {
   }
 
   get textContent(): string {
-    return this.children.length > 0 ? this.children.map((c) => c.textContent).join("") : this.ownText;
+    return this.children.length > 0
+      ? this.children.map((c) => c.textContent).join("")
+      : this.ownText;
   }
 
   set textContent(value: string) {
@@ -550,7 +643,10 @@ class FakeDomNodeRich {
     this.children = [];
   }
 
-  get classList(): { toggle: (name: string, force?: boolean) => void; contains: (name: string) => boolean } {
+  get classList(): {
+    toggle: (name: string, force?: boolean) => void;
+    contains: (name: string) => boolean;
+  } {
     return {
       toggle: (name: string, force?: boolean) => {
         const classes = new Set(this.className.split(" ").filter(Boolean));
@@ -622,9 +718,22 @@ class FakeDomNodeRich {
 
 describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-2/INV-3)", () => {
   const now = new Date("2026-08-30T10:00:00Z");
-  const fable: ModelWindow = { displayName: "Fable", usedPct: 61.0, resetsAt: "2026-09-01T13:59:59Z" };
-  const opus: ModelWindow = { displayName: "Opus", usedPct: 20.0, resetsAt: "2026-09-01T13:59:59Z" };
-  const baseUsage: Usage = { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" };
+  const fable: ModelWindow = {
+    displayName: "Fable",
+    usedPct: 61.0,
+    resetsAt: "2026-09-01T13:59:59Z",
+  };
+  const opus: ModelWindow = {
+    displayName: "Opus",
+    usedPct: 20.0,
+    resetsAt: "2026-09-01T13:59:59Z",
+  };
+  const baseUsage: Usage = {
+    fiveHour: null,
+    sevenDay: null,
+    sampledAt: null,
+    source: "subscription",
+  };
 
   beforeEach(() => {
     vi.stubGlobal("document", { createElement: (tag: string) => new FakeDomNodeRich(tag) });
@@ -640,7 +749,12 @@ describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-
 
   it("renders unknown with a disabled single-option select when modelScoped is null (no data yet)", () => {
     const el = container();
-    const usage: Usage = { ...baseUsage, modelScoped: null, modelScopedAt: null, modelScopedError: null };
+    const usage: Usage = {
+      ...baseUsage,
+      modelScoped: null,
+      modelScopedAt: null,
+      modelScopedError: null,
+    };
     renderModelWeek(el as unknown as HTMLElement, usage, "Fable", now, vi.fn());
 
     expect(el.childClasses()).toEqual(["lbl usage-model-select", "num"]);
@@ -664,7 +778,12 @@ describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-
 
   it("renders unknown with a disabled select when modelScoped is an empty list (successful fetch, no scoped windows)", () => {
     const el = container();
-    const usage: Usage = { ...baseUsage, modelScoped: [], modelScopedAt: "2026-08-30T09:59:00Z", modelScopedError: null };
+    const usage: Usage = {
+      ...baseUsage,
+      modelScoped: [],
+      modelScopedAt: "2026-08-30T09:59:00Z",
+      modelScopedError: null,
+    };
     renderModelWeek(el as unknown as HTMLElement, usage, "Fable", now, vi.fn());
 
     const [select, num] = el.nodes();
@@ -675,7 +794,12 @@ describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-
 
   it("renders the selected model's bar/percent/resets when it is present in a non-null list (REQ-9)", () => {
     const el = container();
-    const usage: Usage = { ...baseUsage, modelScoped: [fable, opus], modelScopedAt: "2026-08-30T09:59:00Z", modelScopedError: null };
+    const usage: Usage = {
+      ...baseUsage,
+      modelScoped: [fable, opus],
+      modelScopedAt: "2026-08-30T09:59:00Z",
+      modelScopedError: null,
+    };
     renderModelWeek(el as unknown as HTMLElement, usage, "Fable", now, vi.fn());
 
     expect(el.childClasses()).toEqual(["lbl usage-model-select", "bar warn", "num", "resets"]);
@@ -701,7 +825,13 @@ describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-
 
     const atWarn: ModelWindow = { ...fable, usedPct: 60 };
     const elAt = container();
-    renderModelWeek(elAt as unknown as HTMLElement, { ...baseUsage, modelScoped: [atWarn], modelScopedError: null }, "Fable", now, vi.fn());
+    renderModelWeek(
+      elAt as unknown as HTMLElement,
+      { ...baseUsage, modelScoped: [atWarn], modelScopedError: null },
+      "Fable",
+      now,
+      vi.fn(),
+    );
     expect(elAt.querySelector(".bar")?.className).toBe("bar warn");
   });
 
@@ -748,22 +878,31 @@ describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-
     );
     expect(el.classList.contains("stale")).toBe(true);
 
-    renderModelWeek(el as unknown as HTMLElement, { ...baseUsage, modelScoped: [fable], modelScopedError: null }, "Fable", now, vi.fn());
-    expect(el.classList.contains("stale")).toBe(false);
-    expect(el.title).toBe("");
-  });
-
-  it.each(["no-credentials", "unauthorized", "unreachable"] as const)("uses %s verbatim as the title", (errorKind) => {
-    const el = container();
     renderModelWeek(
       el as unknown as HTMLElement,
-      { ...baseUsage, modelScoped: null, modelScopedError: errorKind },
+      { ...baseUsage, modelScoped: [fable], modelScopedError: null },
       "Fable",
       now,
       vi.fn(),
     );
-    expect(el.title).toBe(errorKind);
+    expect(el.classList.contains("stale")).toBe(false);
+    expect(el.title).toBe("");
   });
+
+  it.each(["no-credentials", "unauthorized", "unreachable"] as const)(
+    "uses %s verbatim as the title",
+    (errorKind) => {
+      const el = container();
+      renderModelWeek(
+        el as unknown as HTMLElement,
+        { ...baseUsage, modelScoped: null, modelScopedError: errorKind },
+        "Fable",
+        now,
+        vi.fn(),
+      );
+      expect(el.title).toBe(errorKind);
+    },
+  );
 
   it("invokes the onSelectModel callback with the new value on a select change event (REQ-12)", () => {
     const el = container();
@@ -779,7 +918,13 @@ describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-
 
   it("rebuilds when the option list changes — a known -> unknown transition leaves no stale bar/resets behind (self-healing)", () => {
     const el = container();
-    renderModelWeek(el as unknown as HTMLElement, { ...baseUsage, modelScoped: [fable], modelScopedError: null }, "Fable", now, vi.fn());
+    renderModelWeek(
+      el as unknown as HTMLElement,
+      { ...baseUsage, modelScoped: [fable], modelScopedError: null },
+      "Fable",
+      now,
+      vi.fn(),
+    );
     expect(el.childClasses()).toContain("bar warn");
 
     // Selected model removed from the next list (["Fable"] -> ["Fable", "Opus"], since the
@@ -787,7 +932,13 @@ describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-
     // honesty transition, and a genuine option-list change, so this is one of the cases
     // that legitimately still rebuilds (see the node-reuse describe block below for the
     // steady-state case that must NOT rebuild).
-    renderModelWeek(el as unknown as HTMLElement, { ...baseUsage, modelScoped: [opus], modelScopedError: null }, "Fable", now, vi.fn());
+    renderModelWeek(
+      el as unknown as HTMLElement,
+      { ...baseUsage, modelScoped: [opus], modelScopedError: null },
+      "Fable",
+      now,
+      vi.fn(),
+    );
     expect(el.childClasses()).toEqual(["lbl usage-model-select", "num"]);
     expect(el.querySelector(".num")?.textContent).toBe("unknown");
   });
@@ -802,9 +953,22 @@ describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-
 // sequence is unchanged, and only a genuine option-list change is allowed to replace it.
 describe("renderModelWeek — node reuse across render passes (review cycle 1, Critical 1)", () => {
   const now = new Date("2026-08-30T10:00:00Z");
-  const fable: ModelWindow = { displayName: "Fable", usedPct: 61.0, resetsAt: "2026-09-01T13:59:59Z" };
-  const opus: ModelWindow = { displayName: "Opus", usedPct: 20.0, resetsAt: "2026-09-01T13:59:59Z" };
-  const baseUsage: Usage = { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" };
+  const fable: ModelWindow = {
+    displayName: "Fable",
+    usedPct: 61.0,
+    resetsAt: "2026-09-01T13:59:59Z",
+  };
+  const opus: ModelWindow = {
+    displayName: "Opus",
+    usedPct: 20.0,
+    resetsAt: "2026-09-01T13:59:59Z",
+  };
+  const baseUsage: Usage = {
+    fiveHour: null,
+    sevenDay: null,
+    sampledAt: null,
+    source: "subscription",
+  };
 
   beforeEach(() => {
     vi.stubGlobal("document", { createElement: (tag: string) => new FakeDomNodeRich(tag) });
@@ -844,7 +1008,13 @@ describe("renderModelWeek — node reuse across render passes (review cycle 1, C
   it("toggles select.disabled in place (true -> false) across the loading -> loaded transition when the option list is unchanged", () => {
     const el = container();
     // "No data yet": modelScoped null, so the single-option list is just the pref name.
-    renderModelWeek(el as unknown as HTMLElement, { ...baseUsage, modelScoped: null, modelScopedError: null }, "Fable", now, vi.fn());
+    renderModelWeek(
+      el as unknown as HTMLElement,
+      { ...baseUsage, modelScoped: null, modelScopedError: null },
+      "Fable",
+      now,
+      vi.fn(),
+    );
     const [select1, num1] = el.nodes();
     expect(select1!.disabled).toBe(true);
     expect(select1!.optionTexts()).toEqual(["Fable"]);
@@ -853,7 +1023,13 @@ describe("renderModelWeek — node reuse across render passes (review cycle 1, C
     // Data arrives, and it happens to be the same single-name list ["Fable"] — names are
     // unchanged, so this must reuse the same select/num nodes rather than rebuilding, while
     // still picking up disabled=false and the newly-available bar/resets.
-    renderModelWeek(el as unknown as HTMLElement, { ...baseUsage, modelScoped: [fable], modelScopedError: null }, "Fable", now, vi.fn());
+    renderModelWeek(
+      el as unknown as HTMLElement,
+      { ...baseUsage, modelScoped: [fable], modelScopedError: null },
+      "Fable",
+      now,
+      vi.fn(),
+    );
     const [select2, , num2] = el.nodes();
     expect(select2).toBe(select1);
     expect(num2).toBe(num1);
@@ -882,13 +1058,25 @@ describe("renderModelWeek — node reuse across render passes (review cycle 1, C
 
   it("rebuilds a brand-new <select> node when the option list actually changes", () => {
     const el = container();
-    renderModelWeek(el as unknown as HTMLElement, { ...baseUsage, modelScoped: [fable], modelScopedError: null }, "Fable", now, vi.fn());
+    renderModelWeek(
+      el as unknown as HTMLElement,
+      { ...baseUsage, modelScoped: [fable], modelScopedError: null },
+      "Fable",
+      now,
+      vi.fn(),
+    );
     const [select1] = el.nodes();
     expect(select1!.optionTexts()).toEqual(["Fable"]);
 
     // Option set genuinely grows from ["Fable"] to ["Fable", "Opus"] — a real change of
     // choices, which is the one path still allowed to replace the node.
-    renderModelWeek(el as unknown as HTMLElement, { ...baseUsage, modelScoped: [fable, opus], modelScopedError: null }, "Fable", now, vi.fn());
+    renderModelWeek(
+      el as unknown as HTMLElement,
+      { ...baseUsage, modelScoped: [fable, opus], modelScopedError: null },
+      "Fable",
+      now,
+      vi.fn(),
+    );
     const [select2] = el.nodes();
     expect(select2).not.toBe(select1);
     expect(select2!.optionTexts()).toEqual(["Fable", "Opus"]);
@@ -897,7 +1085,13 @@ describe("renderModelWeek — node reuse across render passes (review cycle 1, C
   it("re-wires the change listener onto the rebuilt node so onSelectModel still fires after an option-list rebuild", () => {
     const el = container();
     const onSelectFirst = vi.fn();
-    renderModelWeek(el as unknown as HTMLElement, { ...baseUsage, modelScoped: [fable], modelScopedError: null }, "Fable", now, onSelectFirst);
+    renderModelWeek(
+      el as unknown as HTMLElement,
+      { ...baseUsage, modelScoped: [fable], modelScopedError: null },
+      "Fable",
+      now,
+      onSelectFirst,
+    );
 
     const onSelectSecond = vi.fn();
     renderModelWeek(
@@ -924,7 +1118,13 @@ describe("renderModelWeek — node reuse across render passes (review cycle 1, C
   // flip in it forces the rebuild path even when `names` itself is unchanged.
   it("rebuilds the select — not just reuse — when a placeholder flip leaves the name sequence unchanged (list gains the pref model)", () => {
     const el = container();
-    renderModelWeek(el as unknown as HTMLElement, { ...baseUsage, modelScoped: [opus], modelScopedError: null }, "Fable", now, vi.fn());
+    renderModelWeek(
+      el as unknown as HTMLElement,
+      { ...baseUsage, modelScoped: [opus], modelScopedError: null },
+      "Fable",
+      now,
+      vi.fn(),
+    );
     const [select1] = el.nodes();
     expect(select1!.optionTexts()).toEqual(["Fable", "Opus"]);
     const [placeholder1] = select1!.nodes();
@@ -964,7 +1164,13 @@ describe("renderModelWeek — node reuse across render passes (review cycle 1, C
     // The endpoint drops "Fable": placeholderNeeded flips false -> true, but the name
     // sequence is still exactly ["Fable", "Opus"] (the synthesized placeholder reuses the
     // pref name as names[0]).
-    renderModelWeek(el as unknown as HTMLElement, { ...baseUsage, modelScoped: [opus], modelScopedError: null }, "Fable", now, vi.fn());
+    renderModelWeek(
+      el as unknown as HTMLElement,
+      { ...baseUsage, modelScoped: [opus], modelScopedError: null },
+      "Fable",
+      now,
+      vi.fn(),
+    );
     const [select2] = el.nodes();
     expect(select2).not.toBe(select1); // identity change: the placeholder flip forced a rebuild
     expect(select2!.optionTexts()).toEqual(["Fable", "Opus"]);

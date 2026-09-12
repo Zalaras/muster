@@ -28,7 +28,17 @@
 import { type ChildProcess, execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
-import { access, chmod, copyFile, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import {
+  access,
+  chmod,
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rename,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { createServer as createHttpServer, type Server as HttpServer } from "node:http";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -692,11 +702,15 @@ export class ScratchDaemon {
     // different features, different keys). Every other scratch daemon spawns with no
     // `env` override at all, inheriting `process.env` exactly as before this plan.
     const env =
-      this.stubClaudeVersion !== undefined || this.stubClaudeVersionFails || this.extraEnv !== undefined
+      this.stubClaudeVersion !== undefined ||
+      this.stubClaudeVersionFails ||
+      this.extraEnv !== undefined
         ? {
             ...process.env,
             ...(this.extraEnv ?? {}),
-            ...(this.stubClaudeVersion !== undefined ? { MUSTER_E2E_STUB_VERSION: this.stubClaudeVersion } : {}),
+            ...(this.stubClaudeVersion !== undefined
+              ? { MUSTER_E2E_STUB_VERSION: this.stubClaudeVersion }
+              : {}),
             ...(this.stubClaudeVersionFails ? { MUSTER_E2E_STUB_VERSION_FAIL: "1" } : {}),
           }
         : undefined;
@@ -977,7 +991,9 @@ export async function observedVersionRange(): Promise<{ floor: string; verified:
   const parseTriple = (v: string): [number, number, number] => {
     const m = /^(\d+)\.(\d+)\.(\d+)/.exec(v);
     if (!m) {
-      throw new Error(`observedVersionRange(): unparseable version row ${JSON.stringify(v)} in ${recordPath}`);
+      throw new Error(
+        `observedVersionRange(): unparseable version row ${JSON.stringify(v)} in ${recordPath}`,
+      );
     }
     return [Number(m[1]), Number(m[2]), Number(m[3])];
   };
@@ -1018,9 +1034,13 @@ export async function buildVersionedMusterd(version: string): Promise<string> {
     const dir = join(tmpdir(), "muster-e2e-versioned-musterd");
     await mkdir(dir, { recursive: true });
     const outPath = join(dir, `musterd-${version}`);
-    await execFileAsync("go", ["build", "-ldflags", `-X main.version=${version}`, "-o", outPath, "./cmd/musterd"], {
-      cwd: repoRoot,
-    });
+    await execFileAsync(
+      "go",
+      ["build", "-ldflags", `-X main.version=${version}`, "-o", outPath, "./cmd/musterd"],
+      {
+        cwd: repoRoot,
+      },
+    );
     return outPath;
   })().catch((err: unknown) => {
     versionedMusterdCache.delete(version);

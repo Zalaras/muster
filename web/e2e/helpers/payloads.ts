@@ -16,7 +16,10 @@ interface EnvelopeOpts {
   tmuxPane?: string;
 }
 
-function envelope(payload: Record<string, unknown>, opts: EnvelopeOpts = {}): Record<string, unknown> {
+function envelope(
+  payload: Record<string, unknown>,
+  opts: EnvelopeOpts = {},
+): Record<string, unknown> {
   const env: Record<string, unknown> = { payload };
   if (opts.musterSession !== undefined) env.musterSession = opts.musterSession;
   if (opts.tmuxPane !== undefined) env.tmuxPane = opts.tmuxPane;
@@ -73,7 +76,10 @@ interface SessionStartOpts extends EnvelopeOpts {
  * Defaults (`musterSession: 1`, `tmuxPane: "%12"`, `source: "startup"`, present model)
  * reproduce M0's fixture exactly; m1-sessions tests pass a real launched session's id.
  */
-export function envelopedSessionStart(sessionId: string, opts: SessionStartOpts = {}): Record<string, unknown> {
+export function envelopedSessionStart(
+  sessionId: string,
+  opts: SessionStartOpts = {},
+): Record<string, unknown> {
   const { musterSession = 1, tmuxPane = "%12", source = "startup", model } = opts;
   const payload: Record<string, unknown> = {
     hook_event_name: "SessionStart",
@@ -98,7 +104,10 @@ export function envelopedSessionStart(sessionId: string, opts: SessionStartOpts 
  * `envelopedSessionStart` — the resume shape is not a distinct wire format, just a
  * different `source` value on the same hook.
  */
-export function sessionStartResume(claudeSessionId: string, opts: SessionStartOpts = {}): Record<string, unknown> {
+export function sessionStartResume(
+  claudeSessionId: string,
+  opts: SessionStartOpts = {},
+): Record<string, unknown> {
   return envelopedSessionStart(claudeSessionId, { ...opts, source: "resume" });
 }
 
@@ -118,7 +127,10 @@ interface TurnActivityOpts {
 }
 
 /** Raw `UserPromptSubmit` — opens a turn (turn-activity event, kb:anchor/state.transitions). */
-export function rawUserPromptSubmit(sessionId: string, opts: TurnActivityOpts = {}): Record<string, unknown> {
+export function rawUserPromptSubmit(
+  sessionId: string,
+  opts: TurnActivityOpts = {},
+): Record<string, unknown> {
   const { promptId = "p1", permissionMode = "default", agentId } = opts;
   const payload: Record<string, unknown> = {
     hook_event_name: "UserPromptSubmit",
@@ -137,7 +149,10 @@ export function rawUserPromptSubmit(sessionId: string, opts: TurnActivityOpts = 
 }
 
 /** Raw `PostToolUse` — also a turn-activity event; used for straggler-past-Stop cases. */
-export function rawPostToolUse(sessionId: string, opts: TurnActivityOpts = {}): Record<string, unknown> {
+export function rawPostToolUse(
+  sessionId: string,
+  opts: TurnActivityOpts = {},
+): Record<string, unknown> {
   const { promptId = "p1", permissionMode = "default", agentId } = opts;
   const payload: Record<string, unknown> = {
     hook_event_name: "PostToolUse",
@@ -229,7 +244,12 @@ interface StopOpts extends TurnActivityOpts {
  * `background_tasks`) reproduce M0's fixture.
  */
 export function rawStop(sessionId: string, opts: StopOpts = {}): Record<string, unknown> {
-  const { promptId = "p1", permissionMode = "default", lastAssistantMessage = "hi", backgroundTasks = [] } = opts;
+  const {
+    promptId = "p1",
+    permissionMode = "default",
+    lastAssistantMessage = "hi",
+    backgroundTasks = [],
+  } = opts;
   return {
     hook_event_name: "Stop",
     session_id: sessionId,
@@ -251,7 +271,13 @@ export function rawStop(sessionId: string, opts: StopOpts = {}): Record<string, 
  * `backgroundTasks` option; the state machine never reads this list (decision 3).
  */
 export function runningSubagentTask(id = "agent-1"): Record<string, unknown> {
-  return { type: "subagent", id, agent_type: "general-purpose", description: "background work", status: "running" };
+  return {
+    type: "subagent",
+    id,
+    agent_type: "general-purpose",
+    description: "background work",
+    status: "running",
+  };
 }
 
 /**
@@ -259,7 +285,13 @@ export function runningSubagentTask(id = "agent-1"): Record<string, unknown> {
  * source as `runningSubagentTask`). Fixture realism only.
  */
 export function runningShellTask(id = "shell-1"): Record<string, unknown> {
-  return { type: "shell", id, command: "sleep 20 && echo hi", description: "background work", status: "running" };
+  return {
+    type: "shell",
+    id,
+    command: "sleep 20 && echo hi",
+    description: "background work",
+    status: "running",
+  };
 }
 
 /**
@@ -270,7 +302,11 @@ export function rawStopFailure(
   sessionId: string,
   opts: { promptId?: string; error?: string; lastAssistantMessage?: string } = {},
 ): Record<string, unknown> {
-  const { promptId = "p1", error = "server_error", lastAssistantMessage = "API error ended the turn" } = opts;
+  const {
+    promptId = "p1",
+    error = "server_error",
+    lastAssistantMessage = "API error ended the turn",
+  } = opts;
   return {
     hook_event_name: "StopFailure",
     session_id: sessionId,
@@ -297,7 +333,10 @@ export function rawPreCompact(sessionId: string, promptId = "p1"): Record<string
  * Raw `SessionEnd` — `reason:"clear"` is not a death hint (kb:anchor/state.transitions); any other
  * reason sets `alive:false`. Carries no `permission_mode` (never-present list).
  */
-export function rawSessionEnd(sessionId: string, reason: "clear" | "other" = "other"): Record<string, unknown> {
+export function rawSessionEnd(
+  sessionId: string,
+  reason: "clear" | "other" = "other",
+): Record<string, unknown> {
   return {
     hook_event_name: "SessionEnd",
     session_id: sessionId,
@@ -383,7 +422,10 @@ interface StatusLineFullOpts extends EnvelopeOpts {
  * payloads — required by E6/INV-5's exact-dedup assertion (two calls with the same
  * options must be indistinguishable to the aggregator).
  */
-export function envelopedStatusLineFull(sessionId: string, opts: StatusLineFullOpts = {}): Record<string, unknown> {
+export function envelopedStatusLineFull(
+  sessionId: string,
+  opts: StatusLineFullOpts = {},
+): Record<string, unknown> {
   const {
     musterSession = 1,
     tmuxPane = "%12",

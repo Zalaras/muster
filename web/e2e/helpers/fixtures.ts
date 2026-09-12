@@ -86,7 +86,9 @@ export function fileDaemon(opts: ScratchDaemonOptions = {}): () => ScratchDaemon
 
   return () => {
     if (!daemon) {
-      throw new Error("fileDaemon(): no daemon running — read the accessor inside a test or hook of this file, not at module load");
+      throw new Error(
+        "fileDaemon(): no daemon running — read the accessor inside a test or hook of this file, not at module load",
+      );
     }
     return daemon;
   };

@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { elapsedSeconds, formatAge, formatEndedAge, formatResets, formatTimer, formatTokens, GAUGE_WARN_THRESHOLD } from "./format";
+import {
+  elapsedSeconds,
+  formatAge,
+  formatEndedAge,
+  formatResets,
+  formatTimer,
+  formatTokens,
+  GAUGE_WARN_THRESHOLD,
+} from "./format";
 
 describe("elapsedSeconds", () => {
   it("computes whole elapsed seconds", () => {

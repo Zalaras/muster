@@ -35,7 +35,10 @@ export function mastheadBucketTrack(page: Page, bucket: Bucket): Locator {
  * descendant, or the bucket container itself, whichever web-impl actually applies it to. */
 export function mastheadBucketWarn(page: Page, bucket: Bucket): Locator {
   const b = mastheadBucket(page, bucket);
-  return b.locator(".bar.warn").or(b.locator(".warn")).or(page.locator(`#usage-${bucket}.warn`));
+  return b
+    .locator(".bar.warn")
+    .or(b.locator(".warn"))
+    .or(page.locator(`#usage-${bucket}.warn`));
 }
 
 /** The masthead's model readout (REQ-12) — new in M3, no id exists yet in index.html.

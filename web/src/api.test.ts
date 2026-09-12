@@ -104,7 +104,11 @@ describe("api — launchSession (POST /api/sessions)", () => {
 
   it("posts the launch request and decodes a 201 Session response (REQ-1/REQ-2)", async () => {
     fetchMock.mockResolvedValue(fakeResponse(true, validSession));
-    const result = await launchSession({ directory: "/Users/damian/code/muster", model: "sonnet", permissionMode: "default" });
+    const result = await launchSession({
+      directory: "/Users/damian/code/muster",
+      model: "sonnet",
+      permissionMode: "default",
+    });
     expect(result).toEqual({ ok: true, value: validSession });
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/sessions",
@@ -112,42 +116,74 @@ describe("api — launchSession (POST /api/sessions)", () => {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ directory: "/Users/damian/code/muster", model: "sonnet", permissionMode: "default" }),
+        body: JSON.stringify({
+          directory: "/Users/damian/code/muster",
+          model: "sonnet",
+          permissionMode: "default",
+        }),
       }),
     );
   });
 
   it("decodes a 400 invalid_request error envelope (Protocol Contract)", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "invalid_request", message: "model must not be empty" } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, {
+        error: { code: "invalid_request", message: "model must not be empty" },
+      }),
+    );
     const result = await launchSession({ directory: "/tmp", model: "", permissionMode: "default" });
-    expect(result).toEqual({ ok: false, error: { code: "invalid_request", message: "model must not be empty" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "invalid_request", message: "model must not be empty" },
+    });
   });
 
   it("decodes a 500 launch_failed error envelope naming the settings file (Protocol Contract)", async () => {
     fetchMock.mockResolvedValue(
-      fakeResponse(false, { error: { code: "launch_failed", message: "settings.local.json is not valid JSON" } }),
+      fakeResponse(false, {
+        error: { code: "launch_failed", message: "settings.local.json is not valid JSON" },
+      }),
     );
-    const result = await launchSession({ directory: "/tmp", model: "sonnet", permissionMode: "default" });
-    expect(result).toEqual({ ok: false, error: { code: "launch_failed", message: "settings.local.json is not valid JSON" } });
+    const result = await launchSession({
+      directory: "/tmp",
+      model: "sonnet",
+      permissionMode: "default",
+    });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "launch_failed", message: "settings.local.json is not valid JSON" },
+    });
   });
 
   it("falls back to a generic error when the success body is not a valid Session", async () => {
     fetchMock.mockResolvedValue(fakeResponse(true, { not: "a session" }));
-    const result = await launchSession({ directory: "/tmp", model: "sonnet", permissionMode: "default" });
+    const result = await launchSession({
+      directory: "/tmp",
+      model: "sonnet",
+      permissionMode: "default",
+    });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("unknown_error");
   });
 
   it("falls back to a generic error when the error body doesn't match the error envelope shape", async () => {
     fetchMock.mockResolvedValue(fakeResponse(false, { oops: "no error field" }));
-    const result = await launchSession({ directory: "/tmp", model: "sonnet", permissionMode: "default" });
+    const result = await launchSession({
+      directory: "/tmp",
+      model: "sonnet",
+      permissionMode: "default",
+    });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("unknown_error");
   });
 
   it("never throws when the response body isn't valid JSON at all", async () => {
     fetchMock.mockResolvedValue(fakeResponseThatThrows());
-    const result = await launchSession({ directory: "/tmp", model: "sonnet", permissionMode: "default" });
+    const result = await launchSession({
+      directory: "/tmp",
+      model: "sonnet",
+      permissionMode: "default",
+    });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("unknown_error");
   });
@@ -156,7 +192,11 @@ describe("api — launchSession (POST /api/sessions)", () => {
     fetchMock.mockResolvedValue(fakeResponse(true, validSession));
     await launchSession({ directory: "/tmp", model: "sonnet", permissionMode: "plan" });
     const call = fetchMock.mock.calls[0] as [string, { body: string }];
-    expect(JSON.parse(call[1].body)).toEqual({ directory: "/tmp", model: "sonnet", permissionMode: "plan" });
+    expect(JSON.parse(call[1].body)).toEqual({
+      directory: "/tmp",
+      model: "sonnet",
+      permissionMode: "plan",
+    });
   });
 
   // Plan fix-auto-mode-select REQ-2/D3: "auto" is the new fourth permissionMode value —
@@ -166,24 +206,47 @@ describe("api — launchSession (POST /api/sessions)", () => {
     fetchMock.mockResolvedValue(fakeResponse(true, validSession));
     await launchSession({ directory: "/tmp", model: "sonnet", permissionMode: "auto" });
     const call = fetchMock.mock.calls[0] as [string, { body: string }];
-    expect(JSON.parse(call[1].body)).toEqual({ directory: "/tmp", model: "sonnet", permissionMode: "auto" });
+    expect(JSON.parse(call[1].body)).toEqual({
+      directory: "/tmp",
+      model: "sonnet",
+      permissionMode: "auto",
+    });
   });
 
   it("decodes a 201 Session whose permissionMode was seeded 'auto' (REQ-2/D3)", async () => {
-    const autoSeeded: Session = { ...validSession, permissionMode: { value: "auto", source: "seed" } };
+    const autoSeeded: Session = {
+      ...validSession,
+      permissionMode: { value: "auto", source: "seed" },
+    };
     fetchMock.mockResolvedValue(fakeResponse(true, autoSeeded));
-    const result = await launchSession({ directory: "/tmp", model: "sonnet", permissionMode: "auto" });
+    const result = await launchSession({
+      directory: "/tmp",
+      model: "sonnet",
+      permissionMode: "auto",
+    });
     expect(result).toEqual({ ok: true, value: autoSeeded });
   });
 
   it("decodes the 400 invalid_request naming all four accepted values for an unknown permissionMode (D4)", async () => {
     fetchMock.mockResolvedValue(
-      fakeResponse(false, { error: { code: "invalid_request", message: "permissionMode must be one of default, plan, acceptEdits, auto" } }),
+      fakeResponse(false, {
+        error: {
+          code: "invalid_request",
+          message: "permissionMode must be one of default, plan, acceptEdits, auto",
+        },
+      }),
     );
-    const result = await launchSession({ directory: "/tmp", model: "sonnet", permissionMode: "bypassPermissions" as never });
+    const result = await launchSession({
+      directory: "/tmp",
+      model: "sonnet",
+      permissionMode: "bypassPermissions" as never,
+    });
     expect(result).toEqual({
       ok: false,
-      error: { code: "invalid_request", message: "permissionMode must be one of default, plan, acceptEdits, auto" },
+      error: {
+        code: "invalid_request",
+        message: "permissionMode must be one of default, plan, acceptEdits, auto",
+      },
     });
   });
 });
@@ -240,7 +303,20 @@ describe("api — fetchRepos (GET /api/repos)", () => {
 
   it("rejects the whole list when one repo entry is malformed", async () => {
     fetchMock.mockResolvedValue(
-      fakeResponse(true, [{ id: 1, path: "/x", name: "x", isGit: true, branch: null, pinned: false, lastLaunchedAt: "t", launchCount: "oops", lastModel: null, lastPermissionMode: null }]),
+      fakeResponse(true, [
+        {
+          id: 1,
+          path: "/x",
+          name: "x",
+          isGit: true,
+          branch: null,
+          pinned: false,
+          lastLaunchedAt: "t",
+          launchCount: "oops",
+          lastModel: null,
+          lastPermissionMode: null,
+        },
+      ]),
     );
     const result = await fetchRepos();
     expect(result.ok).toBe(false);
@@ -283,34 +359,54 @@ describe("api — browse (GET /api/browse)", () => {
   });
 
   it("requests the bare endpoint when no path is given (daemon defaults to the home directory)", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(true, { path: "/Users/damian", parent: "/Users", dirs: [] }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(true, { path: "/Users/damian", parent: "/Users", dirs: [] }),
+    );
     await browse();
     expect(fetchMock).toHaveBeenCalledWith("/api/browse", { credentials: "same-origin" });
   });
 
   it("URL-encodes the path query parameter", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(true, { path: "/Users/damian/my code", parent: "/Users/damian", dirs: [] }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(true, { path: "/Users/damian/my code", parent: "/Users/damian", dirs: [] }),
+    );
     await browse("/Users/damian/my code");
-    expect(fetchMock).toHaveBeenCalledWith("/api/browse?path=%2FUsers%2Fdamian%2Fmy%20code", { credentials: "same-origin" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/browse?path=%2FUsers%2Fdamian%2Fmy%20code", {
+      credentials: "same-origin",
+    });
   });
 
   it("decodes dirs with isGit markers and a null parent at filesystem root", async () => {
-    const result0 = { path: "/", parent: null, dirs: [{ name: "Users", path: "/Users", isGit: false }] };
+    const result0 = {
+      path: "/",
+      parent: null,
+      dirs: [{ name: "Users", path: "/Users", isGit: false }],
+    };
     fetchMock.mockResolvedValue(fakeResponse(true, result0));
     const result = await browse("/");
     expect(result).toEqual({ ok: true, value: result0 });
   });
 
   it("decodes a 400 invalid_request for a relative path", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "invalid_request", message: "path must be absolute" } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, { error: { code: "invalid_request", message: "path must be absolute" } }),
+    );
     const result = await browse("relative/path");
-    expect(result).toEqual({ ok: false, error: { code: "invalid_request", message: "path must be absolute" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "invalid_request", message: "path must be absolute" },
+    });
   });
 
   it("decodes a 404 not_found for a missing/unreadable directory", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "not_found", message: "no such directory" } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, { error: { code: "not_found", message: "no such directory" } }),
+    );
     const result = await browse("/does/not/exist");
-    expect(result).toEqual({ ok: false, error: { code: "not_found", message: "no such directory" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "not_found", message: "no such directory" },
+    });
   });
 });
 
@@ -361,15 +457,29 @@ describe("api — putPrefs (PUT /api/prefs, kb:anchor/prefs.put / M2 REQ-10)", (
   });
 
   it("decodes a 400 invalid_request error envelope (unknown/out-of-enum field)", async () => {
-    fetchMock.mockResolvedValue(fakeStatusResponse(400, { error: { code: "invalid_request", message: "density must be 2x2 or 3x2" } }));
+    fetchMock.mockResolvedValue(
+      fakeStatusResponse(400, {
+        error: { code: "invalid_request", message: "density must be 2x2 or 3x2" },
+      }),
+    );
     const result = await putPrefs({ density: "4x4" as never });
-    expect(result).toEqual({ ok: false, error: { code: "invalid_request", message: "density must be 2x2 or 3x2" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "invalid_request", message: "density must be 2x2 or 3x2" },
+    });
   });
 
   it("decodes a 401 unauthorized error envelope (no/invalid cookie)", async () => {
-    fetchMock.mockResolvedValue(fakeStatusResponse(401, { error: { code: "unauthorized", message: "missing session cookie" } }));
+    fetchMock.mockResolvedValue(
+      fakeStatusResponse(401, {
+        error: { code: "unauthorized", message: "missing session cookie" },
+      }),
+    );
     const result = await putPrefs({ view: "tiles" });
-    expect(result).toEqual({ ok: false, error: { code: "unauthorized", message: "missing session cookie" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "unauthorized", message: "missing session cookie" },
+    });
   });
 
   it("falls back to a generic error when a non-204 error body doesn't match the error envelope shape", async () => {
@@ -399,13 +509,24 @@ describe("api — putPrefs (PUT /api/prefs, kb:anchor/prefs.put / M2 REQ-10)", (
     fetchMock.mockResolvedValue(fakeStatusResponse(204));
     await putPrefs({ view: "tiles", density: "3x2", usageModel: "Fable" });
     const call = fetchMock.mock.calls[0] as [string, { body: string }];
-    expect(JSON.parse(call[1].body)).toEqual({ view: "tiles", density: "3x2", usageModel: "Fable" });
+    expect(JSON.parse(call[1].body)).toEqual({
+      view: "tiles",
+      density: "3x2",
+      usageModel: "Fable",
+    });
   });
 
   it("decodes a 400 invalid_request error envelope for an out-of-range usageModel (empty or >32 chars)", async () => {
-    fetchMock.mockResolvedValue(fakeStatusResponse(400, { error: { code: "invalid_request", message: "usageModel must be 1-32 characters" } }));
+    fetchMock.mockResolvedValue(
+      fakeStatusResponse(400, {
+        error: { code: "invalid_request", message: "usageModel must be 1-32 characters" },
+      }),
+    );
     const result = await putPrefs({ usageModel: "" });
-    expect(result).toEqual({ ok: false, error: { code: "invalid_request", message: "usageModel must be 1-32 characters" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "invalid_request", message: "usageModel must be 1-32 characters" },
+    });
   });
 });
 
@@ -425,19 +546,36 @@ describe("api — refreshUsage (POST /api/usage/refresh, kb:anchor/usage.refresh
     fetchMock.mockResolvedValue(fakeStatusResponse(202));
     const result = await refreshUsage();
     expect(result).toEqual({ ok: true, value: null });
-    expect(fetchMock).toHaveBeenCalledWith("/api/usage/refresh", { method: "POST", credentials: "same-origin" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/usage/refresh", {
+      method: "POST",
+      credentials: "same-origin",
+    });
   });
 
   it("decodes a 404 not_found error envelope when polling is disabled (-usage-poll 0, edge case 14)", async () => {
-    fetchMock.mockResolvedValue(fakeStatusResponse(404, { error: { code: "not_found", message: "usage polling is disabled" } }));
+    fetchMock.mockResolvedValue(
+      fakeStatusResponse(404, {
+        error: { code: "not_found", message: "usage polling is disabled" },
+      }),
+    );
     const result = await refreshUsage();
-    expect(result).toEqual({ ok: false, error: { code: "not_found", message: "usage polling is disabled" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "not_found", message: "usage polling is disabled" },
+    });
   });
 
   it("decodes a 401 unauthorized error envelope (no/invalid cookie)", async () => {
-    fetchMock.mockResolvedValue(fakeStatusResponse(401, { error: { code: "unauthorized", message: "missing session cookie" } }));
+    fetchMock.mockResolvedValue(
+      fakeStatusResponse(401, {
+        error: { code: "unauthorized", message: "missing session cookie" },
+      }),
+    );
     const result = await refreshUsage();
-    expect(result).toEqual({ ok: false, error: { code: "unauthorized", message: "missing session cookie" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "unauthorized", message: "missing session cookie" },
+    });
   });
 
   it("falls back to a generic error when a non-202 error body doesn't match the error envelope shape", async () => {
@@ -501,35 +639,74 @@ describe("api — applyUpdate (POST /api/update/apply, kb:anchor/update.apply, p
   });
 
   it("decodes a 404 not_found error envelope (updates disabled, or install 'dev')", async () => {
-    fetchMock.mockResolvedValue(fakeStatusResponse(404, { error: { code: "not_found", message: "updates are disabled for this daemon" } }));
+    fetchMock.mockResolvedValue(
+      fakeStatusResponse(404, {
+        error: { code: "not_found", message: "updates are disabled for this daemon" },
+      }),
+    );
     const result = await applyUpdate(false);
-    expect(result).toEqual({ ok: false, error: { code: "not_found", message: "updates are disabled for this daemon" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "not_found", message: "updates are disabled for this daemon" },
+    });
   });
 
   it("decodes a 409 update_unsupported error envelope, message carrying the remedy (homebrew/unmanaged)", async () => {
     fetchMock.mockResolvedValue(
-      fakeStatusResponse(409, { error: { code: "update_unsupported", message: "installed by Homebrew — run brew upgrade musterd" } }),
+      fakeStatusResponse(409, {
+        error: {
+          code: "update_unsupported",
+          message: "installed by Homebrew — run brew upgrade musterd",
+        },
+      }),
     );
     const result = await applyUpdate(false);
-    expect(result).toEqual({ ok: false, error: { code: "update_unsupported", message: "installed by Homebrew — run brew upgrade musterd" } });
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        code: "update_unsupported",
+        message: "installed by Homebrew — run brew upgrade musterd",
+      },
+    });
   });
 
   it("decodes a 409 nothing_to_apply error envelope (available and installed both null)", async () => {
-    fetchMock.mockResolvedValue(fakeStatusResponse(409, { error: { code: "nothing_to_apply", message: "no newer release is known" } }));
+    fetchMock.mockResolvedValue(
+      fakeStatusResponse(409, {
+        error: { code: "nothing_to_apply", message: "no newer release is known" },
+      }),
+    );
     const result = await applyUpdate(false);
-    expect(result).toEqual({ ok: false, error: { code: "nothing_to_apply", message: "no newer release is known" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "nothing_to_apply", message: "no newer release is known" },
+    });
   });
 
   it("decodes a 409 shutting_down error envelope", async () => {
-    fetchMock.mockResolvedValue(fakeStatusResponse(409, { error: { code: "shutting_down", message: "musterd is shutting down" } }));
+    fetchMock.mockResolvedValue(
+      fakeStatusResponse(409, {
+        error: { code: "shutting_down", message: "musterd is shutting down" },
+      }),
+    );
     const result = await applyUpdate(false);
-    expect(result).toEqual({ ok: false, error: { code: "shutting_down", message: "musterd is shutting down" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "shutting_down", message: "musterd is shutting down" },
+    });
   });
 
   it("decodes a 401 unauthorized error envelope (no/invalid cookie)", async () => {
-    fetchMock.mockResolvedValue(fakeStatusResponse(401, { error: { code: "unauthorized", message: "missing session cookie" } }));
+    fetchMock.mockResolvedValue(
+      fakeStatusResponse(401, {
+        error: { code: "unauthorized", message: "missing session cookie" },
+      }),
+    );
     const result = await applyUpdate(false);
-    expect(result).toEqual({ ok: false, error: { code: "unauthorized", message: "missing session cookie" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "unauthorized", message: "missing session cookie" },
+    });
   });
 
   it("falls back to a generic error when a non-202 error body doesn't match the error envelope shape", async () => {
@@ -564,7 +741,9 @@ describe("api — fetchRestartImpact (GET /api/update/restart-impact, kb:anchor/
     fetchMock.mockResolvedValue(fakeResponse(true, body));
     const result = await fetchRestartImpact();
     expect(result).toEqual({ ok: true, value: body });
-    expect(fetchMock).toHaveBeenCalledWith("/api/update/restart-impact", { credentials: "same-origin" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/update/restart-impact", {
+      credentials: "same-origin",
+    });
   });
 
   it("decodes a 200 with an empty shells array (no plain-terminal shells open)", async () => {
@@ -582,7 +761,12 @@ describe("api — fetchRestartImpact (GET /api/update/restart-impact, kb:anchor/
   });
 
   it("decodes multiple shells in order", async () => {
-    const body = { shells: [{ sessionId: 1, title: "fix auth" }, { sessionId: 2, title: "spike" }] };
+    const body = {
+      shells: [
+        { sessionId: 1, title: "fix auth" },
+        { sessionId: 2, title: "spike" },
+      ],
+    };
     fetchMock.mockResolvedValue(fakeResponse(true, body));
     const result = await fetchRestartImpact();
     expect(result).toEqual({ ok: true, value: body });
@@ -596,16 +780,23 @@ describe("api — fetchRestartImpact (GET /api/update/restart-impact, kb:anchor/
   });
 
   it("rejects a shell entry with a non-numeric sessionId", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(true, { shells: [{ sessionId: "3", title: "fix auth" }] }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(true, { shells: [{ sessionId: "3", title: "fix auth" }] }),
+    );
     const result = await fetchRestartImpact();
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("unknown_error");
   });
 
   it("decodes a 401 unauthorized error envelope (no/invalid cookie)", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "unauthorized", message: "missing session cookie" } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, { error: { code: "unauthorized", message: "missing session cookie" } }),
+    );
     const result = await fetchRestartImpact();
-    expect(result).toEqual({ ok: false, error: { code: "unauthorized", message: "missing session cookie" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "unauthorized", message: "missing session cookie" },
+    });
   });
 });
 
@@ -627,19 +818,32 @@ describe("api — endSession (POST /api/sessions/{id}/end, kb:anchor/sessions.en
     fetchMock.mockResolvedValue(fakeResponse(true, endedSession));
     const result = await endSession(1);
     expect(result).toEqual({ ok: true, value: endedSession });
-    expect(fetchMock).toHaveBeenCalledWith("/api/sessions/1/end", { method: "POST", credentials: "same-origin" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/sessions/1/end", {
+      method: "POST",
+      credentials: "same-origin",
+    });
   });
 
   it("decodes a 404 unknown_session error envelope", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "unknown_session", message: "no such session" } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, { error: { code: "unknown_session", message: "no such session" } }),
+    );
     const result = await endSession(999);
-    expect(result).toEqual({ ok: false, error: { code: "unknown_session", message: "no such session" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "unknown_session", message: "no such session" },
+    });
   });
 
   it("decodes a 409 not_alive error envelope (already ended)", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "not_alive", message: "session already ended" } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, { error: { code: "not_alive", message: "session already ended" } }),
+    );
     const result = await endSession(1);
-    expect(result).toEqual({ ok: false, error: { code: "not_alive", message: "session already ended" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "not_alive", message: "session already ended" },
+    });
   });
 
   it("falls back to a generic error when the success body is not a valid Session", async () => {
@@ -663,29 +867,54 @@ describe("api — resumeSession (POST /api/sessions/{id}/resume, kb:anchor/sessi
   });
 
   it("posts to the id-scoped resume endpoint and decodes the 200 Session response (state unchanged until SessionStart)", async () => {
-    const resumedSession: Session = { ...validSession, alive: true, endedAt: null, state: "started" };
+    const resumedSession: Session = {
+      ...validSession,
+      alive: true,
+      endedAt: null,
+      state: "started",
+    };
     fetchMock.mockResolvedValue(fakeResponse(true, resumedSession));
     const result = await resumeSession(1);
     expect(result).toEqual({ ok: true, value: resumedSession });
-    expect(fetchMock).toHaveBeenCalledWith("/api/sessions/1/resume", { method: "POST", credentials: "same-origin" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/sessions/1/resume", {
+      method: "POST",
+      credentials: "same-origin",
+    });
   });
 
   it("decodes a 409 not_resumable error envelope (alive, or claudeSessionId is null)", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "not_resumable", message: "session is still alive" } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, { error: { code: "not_resumable", message: "session is still alive" } }),
+    );
     const result = await resumeSession(1);
-    expect(result).toEqual({ ok: false, error: { code: "not_resumable", message: "session is still alive" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "not_resumable", message: "session is still alive" },
+    });
   });
 
   it("decodes a 409 directory_missing error envelope", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "directory_missing", message: "directory no longer exists" } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, {
+        error: { code: "directory_missing", message: "directory no longer exists" },
+      }),
+    );
     const result = await resumeSession(1);
-    expect(result).toEqual({ ok: false, error: { code: "directory_missing", message: "directory no longer exists" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "directory_missing", message: "directory no longer exists" },
+    });
   });
 
   it("decodes a 500 launch_failed error envelope", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "launch_failed", message: "spawn failed" } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, { error: { code: "launch_failed", message: "spawn failed" } }),
+    );
     const result = await resumeSession(1);
-    expect(result).toEqual({ ok: false, error: { code: "launch_failed", message: "spawn failed" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "launch_failed", message: "spawn failed" },
+    });
   });
 });
 
@@ -705,19 +934,32 @@ describe("api — removeSession (DELETE /api/sessions/{id}, kb:anchor/sessions.r
     fetchMock.mockResolvedValue(fakeStatusResponse(204));
     const result = await removeSession(1);
     expect(result).toEqual({ ok: true, value: null });
-    expect(fetchMock).toHaveBeenCalledWith("/api/sessions/1", { method: "DELETE", credentials: "same-origin" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/sessions/1", {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
   });
 
   it("decodes a 404 unknown_session error envelope", async () => {
-    fetchMock.mockResolvedValue(fakeStatusResponse(404, { error: { code: "unknown_session", message: "no such session" } }));
+    fetchMock.mockResolvedValue(
+      fakeStatusResponse(404, { error: { code: "unknown_session", message: "no such session" } }),
+    );
     const result = await removeSession(999);
-    expect(result).toEqual({ ok: false, error: { code: "unknown_session", message: "no such session" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "unknown_session", message: "no such session" },
+    });
   });
 
   it("decodes a 500 end_failed error envelope (alive, kill failed — row not deleted)", async () => {
-    fetchMock.mockResolvedValue(fakeStatusResponse(500, { error: { code: "end_failed", message: "kill-session failed" } }));
+    fetchMock.mockResolvedValue(
+      fakeStatusResponse(500, { error: { code: "end_failed", message: "kill-session failed" } }),
+    );
     const result = await removeSession(1);
-    expect(result).toEqual({ ok: false, error: { code: "end_failed", message: "kill-session failed" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "end_failed", message: "kill-session failed" },
+    });
   });
 
   it("never throws when a non-204 response body isn't valid JSON at all", async () => {
@@ -744,7 +986,10 @@ describe("api — createShell (POST /api/sessions/{id}/shell, kb:anchor/sessions
     fetchMock.mockResolvedValue(fakeResponse(true, { target: "muster-1-shell", created: true }));
     const result = await createShell(1);
     expect(result).toEqual({ ok: true, value: { target: "muster-1-shell", created: true } });
-    expect(fetchMock).toHaveBeenCalledWith("/api/sessions/1/shell", { method: "POST", credentials: "same-origin" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/sessions/1/shell", {
+      method: "POST",
+      credentials: "same-origin",
+    });
   });
 
   it("decodes created:false when the shell already exists (D2 — idempotent, same wire shape)", async () => {
@@ -754,21 +999,40 @@ describe("api — createShell (POST /api/sessions/{id}/shell, kb:anchor/sessions
   });
 
   it("decodes a 404 unknown_session error envelope", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "unknown_session", message: "no such session" } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, { error: { code: "unknown_session", message: "no such session" } }),
+    );
     const result = await createShell(999);
-    expect(result).toEqual({ ok: false, error: { code: "unknown_session", message: "no such session" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "unknown_session", message: "no such session" },
+    });
   });
 
   it("decodes a 409 directory_missing error envelope (REQ-12/E9 — the session's directory no longer exists)", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "directory_missing", message: "/Users/d/gone no longer exists" } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, {
+        error: { code: "directory_missing", message: "/Users/d/gone no longer exists" },
+      }),
+    );
     const result = await createShell(1);
-    expect(result).toEqual({ ok: false, error: { code: "directory_missing", message: "/Users/d/gone no longer exists" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "directory_missing", message: "/Users/d/gone no longer exists" },
+    });
   });
 
   it("decodes a 500 shell_spawn_failed error envelope, message carrying the tmux error verbatim (REQ-12)", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "shell_spawn_failed", message: "tmux: duplicate session" } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, {
+        error: { code: "shell_spawn_failed", message: "tmux: duplicate session" },
+      }),
+    );
     const result = await createShell(1);
-    expect(result).toEqual({ ok: false, error: { code: "shell_spawn_failed", message: "tmux: duplicate session" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "shell_spawn_failed", message: "tmux: duplicate session" },
+    });
   });
 
   it("falls back to a generic error when the success body is missing target", async () => {
@@ -821,15 +1085,25 @@ describe("api — fetchPane (GET /api/sessions/{id}/pane, kb:anchor/sessions.pan
   });
 
   it("decodes a 404 unknown_session error envelope", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "unknown_session", message: "no such session" } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, { error: { code: "unknown_session", message: "no such session" } }),
+    );
     const result = await fetchPane(999);
-    expect(result).toEqual({ ok: false, error: { code: "unknown_session", message: "no such session" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "unknown_session", message: "no such session" },
+    });
   });
 
   it("decodes a 404 no_snapshot error envelope — the 'no capture has succeeded yet' honesty case, distinct from unknown_session", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "no_snapshot", message: "no capture yet" } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, { error: { code: "no_snapshot", message: "no capture yet" } }),
+    );
     const result = await fetchPane(1);
-    expect(result).toEqual({ ok: false, error: { code: "no_snapshot", message: "no capture yet" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "no_snapshot", message: "no capture yet" },
+    });
   });
 
   it("preserves an empty-string pane text verbatim rather than treating it as missing", async () => {
@@ -897,29 +1171,51 @@ describe("api — captureIssueSnapshot (POST /api/issue/captures, kb:anchor/issu
   });
 
   it("decodes a 400 invalid_request error envelope (sessionId present and not an integer)", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "invalid_request", message: "sessionId must be an integer" } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, {
+        error: { code: "invalid_request", message: "sessionId must be an integer" },
+      }),
+    );
     const result = await captureIssueSnapshot(7);
-    expect(result).toEqual({ ok: false, error: { code: "invalid_request", message: "sessionId must be an integer" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "invalid_request", message: "sessionId must be an integer" },
+    });
   });
 
   it("decodes a 404 unknown_session error envelope", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "unknown_session", message: "no such session" } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, { error: { code: "unknown_session", message: "no such session" } }),
+    );
     const result = await captureIssueSnapshot(999);
-    expect(result).toEqual({ ok: false, error: { code: "unknown_session", message: "no such session" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "unknown_session", message: "no such session" },
+    });
   });
 
   it("decodes a 404 not_found error envelope (feature disabled, -issue-api-url empty, Edge Case 14)", async () => {
     fetchMock.mockResolvedValue(
-      fakeResponse(false, { error: { code: "not_found", message: "issue capture is disabled on this daemon" } }),
+      fakeResponse(false, {
+        error: { code: "not_found", message: "issue capture is disabled on this daemon" },
+      }),
     );
     const result = await captureIssueSnapshot(null);
-    expect(result).toEqual({ ok: false, error: { code: "not_found", message: "issue capture is disabled on this daemon" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "not_found", message: "issue capture is disabled on this daemon" },
+    });
   });
 
   it("decodes a 401 unauthorized error envelope (no/invalid cookie)", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "unauthorized", message: "missing session cookie" } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, { error: { code: "unauthorized", message: "missing session cookie" } }),
+    );
     const result = await captureIssueSnapshot(null);
-    expect(result).toEqual({ ok: false, error: { code: "unauthorized", message: "missing session cookie" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "unauthorized", message: "missing session cookie" },
+    });
   });
 
   it("falls back to a generic error when the success body is missing captureId", async () => {
@@ -953,14 +1249,20 @@ describe("api — captureIssueSnapshot (POST /api/issue/captures, kb:anchor/issu
       scope: "session",
       session: { state: "working", context: null, model: null },
     };
-    fetchMock.mockResolvedValue(fakeResponse(true, { ...validIssueCapture, snapshot: richSnapshot }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(true, { ...validIssueCapture, snapshot: richSnapshot }),
+    );
     const result = await captureIssueSnapshot(1);
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.value.snapshot).toEqual(richSnapshot);
   });
 });
 
-const validFiledIssue = { number: 14, url: "https://github.com/Zalaras/muster/issues/14", repo: "Zalaras/muster" };
+const validFiledIssue = {
+  number: 14,
+  url: "https://github.com/Zalaras/muster/issues/14",
+  repo: "Zalaras/muster",
+};
 
 describe("api — fileIssue (POST /api/issues, kb:anchor/issue.create, plan issue-capture)", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -976,7 +1278,11 @@ describe("api — fileIssue (POST /api/issues, kb:anchor/issue.create, plan issu
 
   it("posts captureId/title/note and decodes a 201 FiledIssue response (REQ-3, REQ-9)", async () => {
     fetchMock.mockResolvedValue(fakeResponse(true, validFiledIssue));
-    const result = await fileIssue({ captureId: "abc123", title: "Something broke", note: "It happened while I was typing." });
+    const result = await fileIssue({
+      captureId: "abc123",
+      title: "Something broke",
+      note: "It happened while I was typing.",
+    });
     expect(result).toEqual({ ok: true, value: validFiledIssue });
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/issues",
@@ -984,7 +1290,11 @@ describe("api — fileIssue (POST /api/issues, kb:anchor/issue.create, plan issu
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ captureId: "abc123", title: "Something broke", note: "It happened while I was typing." }),
+        body: JSON.stringify({
+          captureId: "abc123",
+          title: "Something broke",
+          note: "It happened while I was typing.",
+        }),
       }),
     );
   });
@@ -998,56 +1308,93 @@ describe("api — fileIssue (POST /api/issues, kb:anchor/issue.create, plan issu
 
   it("decodes a 400 invalid_request error envelope (missing/empty/overlong title, or overlong note)", async () => {
     fetchMock.mockResolvedValue(
-      fakeResponse(false, { error: { code: "invalid_request", message: "title must be 1-200 characters after trimming" } }),
+      fakeResponse(false, {
+        error: {
+          code: "invalid_request",
+          message: "title must be 1-200 characters after trimming",
+        },
+      }),
     );
     const result = await fileIssue({ captureId: "abc123", title: "", note: "" });
-    expect(result).toEqual({ ok: false, error: { code: "invalid_request", message: "title must be 1-200 characters after trimming" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "invalid_request", message: "title must be 1-200 characters after trimming" },
+    });
   });
 
   it("decodes a 404 not_found error envelope (feature disabled)", async () => {
     fetchMock.mockResolvedValue(
-      fakeResponse(false, { error: { code: "not_found", message: "issue capture is disabled on this daemon" } }),
-    );
-    const result = await fileIssue({ captureId: "abc123", title: "T", note: "" });
-    expect(result).toEqual({ ok: false, error: { code: "not_found", message: "issue capture is disabled on this daemon" } });
-  });
-
-  it("decodes a 409 capture_expired error envelope (unknown, expired, or already-consumed captureId — REQ-15, D10)", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "capture_expired", message: "this snapshot has expired" } }));
-    const result = await fileIssue({ captureId: "stale", title: "T", note: "" });
-    expect(result).toEqual({ ok: false, error: { code: "capture_expired", message: "this snapshot has expired" } });
-  });
-
-  it("decodes a 502 issue_auth_failed error envelope (gh missing/non-zero/empty token — REQ-8, Edge Cases 4/5)", async () => {
-    fetchMock.mockResolvedValue(
-      fakeResponse(false, { error: { code: "issue_auth_failed", message: "gh auth token: not logged in. run gh auth login." } }),
+      fakeResponse(false, {
+        error: { code: "not_found", message: "issue capture is disabled on this daemon" },
+      }),
     );
     const result = await fileIssue({ captureId: "abc123", title: "T", note: "" });
     expect(result).toEqual({
       ok: false,
-      error: { code: "issue_auth_failed", message: "gh auth token: not logged in. run gh auth login." },
+      error: { code: "not_found", message: "issue capture is disabled on this daemon" },
+    });
+  });
+
+  it("decodes a 409 capture_expired error envelope (unknown, expired, or already-consumed captureId — REQ-15, D10)", async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, {
+        error: { code: "capture_expired", message: "this snapshot has expired" },
+      }),
+    );
+    const result = await fileIssue({ captureId: "stale", title: "T", note: "" });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "capture_expired", message: "this snapshot has expired" },
+    });
+  });
+
+  it("decodes a 502 issue_auth_failed error envelope (gh missing/non-zero/empty token — REQ-8, Edge Cases 4/5)", async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, {
+        error: {
+          code: "issue_auth_failed",
+          message: "gh auth token: not logged in. run gh auth login.",
+        },
+      }),
+    );
+    const result = await fileIssue({ captureId: "abc123", title: "T", note: "" });
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        code: "issue_auth_failed",
+        message: "gh auth token: not logged in. run gh auth login.",
+      },
     });
   });
 
   it("decodes a 502 issue_post_failed error envelope (GitHub non-2xx/transport failure/unparseable 2xx — Edge Cases 6-9)", async () => {
     fetchMock.mockResolvedValue(
-      fakeResponse(false, { error: { code: "issue_post_failed", message: "GitHub returned 403: rate limit exceeded" } }),
+      fakeResponse(false, {
+        error: { code: "issue_post_failed", message: "GitHub returned 403: rate limit exceeded" },
+      }),
     );
     const result = await fileIssue({ captureId: "abc123", title: "T", note: "" });
-    expect(result).toEqual({ ok: false, error: { code: "issue_post_failed", message: "GitHub returned 403: rate limit exceeded" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "issue_post_failed", message: "GitHub returned 403: rate limit exceeded" },
+    });
   });
 
   it("never surfaces a bearer token in a decoded error message (INV-3's UI-side half — the token itself never reaches this module)", async () => {
     // INV-3 is a daemon-side invariant (D9); this only proves the client-side decode path
     // does nothing that could reintroduce a token if one somehow appeared server-side.
     const msg = "gh auth token: not logged in. run gh auth login.";
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "issue_auth_failed", message: msg } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, { error: { code: "issue_auth_failed", message: msg } }),
+    );
     const result = await fileIssue({ captureId: "abc123", title: "T", note: "" });
     if (!result.ok) expect(result.error.message).not.toMatch(/gh[oa]_[A-Za-z0-9]{20,}/);
   });
 
   it("falls back to a generic error when the success body is not a valid FiledIssue (missing/wrong-typed field)", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(true, { number: "14", url: validFiledIssue.url, repo: validFiledIssue.repo }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(true, { number: "14", url: validFiledIssue.url, repo: validFiledIssue.repo }),
+    );
     const result = await fileIssue({ captureId: "abc123", title: "T", note: "" });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("unknown_error");
@@ -1078,10 +1425,15 @@ describe("api — locateDroppedFile (POST /api/sessions/{id}/locate, kb:anchor/s
   }
 
   it("uploads the file as multipart/form-data under the 'file' part and decodes the 200 path (REQ-2/REQ-3)", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(true, { path: "/Users/damian/Desktop/Screenshot 2026-08-30 at 14.35.00.png" }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(true, { path: "/Users/damian/Desktop/Screenshot 2026-08-30 at 14.35.00.png" }),
+    );
     const file = makeFile("Screenshot 2026-08-30 at 14.35.00.png");
     const result = await locateDroppedFile(7, file);
-    expect(result).toEqual({ ok: true, value: { path: "/Users/damian/Desktop/Screenshot 2026-08-30 at 14.35.00.png" } });
+    expect(result).toEqual({
+      ok: true,
+      value: { path: "/Users/damian/Desktop/Screenshot 2026-08-30 at 14.35.00.png" },
+    });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const call = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -1104,19 +1456,29 @@ describe("api — locateDroppedFile (POST /api/sessions/{id}/locate, kb:anchor/s
 
   it("decodes a 404 not_located error envelope (REQ-3, zero verified candidates)", async () => {
     fetchMock.mockResolvedValue(
-      fakeResponse(false, { error: { code: "not_located", message: "no file named x.png with identical contents was found" } }),
+      fakeResponse(false, {
+        error: {
+          code: "not_located",
+          message: "no file named x.png with identical contents was found",
+        },
+      }),
     );
     const result = await locateDroppedFile(1, makeFile("x.png"));
     expect(result).toEqual({
       ok: false,
-      error: { code: "not_located", message: "no file named x.png with identical contents was found" },
+      error: {
+        code: "not_located",
+        message: "no file named x.png with identical contents was found",
+      },
     });
   });
 
   it("decodes a 409 ambiguous error envelope, carrying the paths array (REQ-3, two+ verified candidates)", async () => {
     const paths = ["/Users/damian/a/dup.png", "/Users/damian/b/dup.png"];
     fetchMock.mockResolvedValue(
-      fakeResponse(false, { error: { code: "ambiguous", message: "2 identical files named dup.png", paths } }),
+      fakeResponse(false, {
+        error: { code: "ambiguous", message: "2 identical files named dup.png", paths },
+      }),
     );
     const result = await locateDroppedFile(1, makeFile("dup.png"));
     expect(result).toEqual({
@@ -1126,27 +1488,53 @@ describe("api — locateDroppedFile (POST /api/sessions/{id}/locate, kb:anchor/s
   });
 
   it("decodes a 413 too_large error envelope", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "too_large", message: "file exceeds the 50 MiB limit" } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, {
+        error: { code: "too_large", message: "file exceeds the 50 MiB limit" },
+      }),
+    );
     const result = await locateDroppedFile(1, makeFile("huge.mov"));
-    expect(result).toEqual({ ok: false, error: { code: "too_large", message: "file exceeds the 50 MiB limit" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "too_large", message: "file exceeds the 50 MiB limit" },
+    });
   });
 
   it("decodes a 400 invalid_request error envelope (empty filename or path separator)", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "invalid_request", message: "filename must not contain a path separator" } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, {
+        error: { code: "invalid_request", message: "filename must not contain a path separator" },
+      }),
+    );
     const result = await locateDroppedFile(1, makeFile("a/b"));
-    expect(result).toEqual({ ok: false, error: { code: "invalid_request", message: "filename must not contain a path separator" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "invalid_request", message: "filename must not contain a path separator" },
+    });
   });
 
   it("decodes a 404 unknown_session error envelope", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "unknown_session", message: "no such session" } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, { error: { code: "unknown_session", message: "no such session" } }),
+    );
     const result = await locateDroppedFile(999, makeFile("x"));
-    expect(result).toEqual({ ok: false, error: { code: "unknown_session", message: "no such session" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "unknown_session", message: "no such session" },
+    });
   });
 
   it("decodes a 500 internal_error error envelope", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "internal_error", message: "session directory is unreadable" } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, {
+        error: { code: "internal_error", message: "session directory is unreadable" },
+      }),
+    );
     const result = await locateDroppedFile(1, makeFile("x"));
-    expect(result).toEqual({ ok: false, error: { code: "internal_error", message: "session directory is unreadable" } });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "internal_error", message: "session directory is unreadable" },
+    });
   });
 
   it("falls back to a generic error when the success body is missing path", async () => {
@@ -1157,13 +1545,17 @@ describe("api — locateDroppedFile (POST /api/sessions/{id}/locate, kb:anchor/s
   });
 
   it("ignores a non-array paths field on a non-ambiguous error, still decoding code/message", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "not_located", message: "m", paths: "not-an-array" } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, { error: { code: "not_located", message: "m", paths: "not-an-array" } }),
+    );
     const result = await locateDroppedFile(1, makeFile("x"));
     expect(result).toEqual({ ok: false, error: { code: "not_located", message: "m" } });
   });
 
   it("ignores a paths array containing a non-string element, dropping paths but keeping code/message", async () => {
-    fetchMock.mockResolvedValue(fakeResponse(false, { error: { code: "ambiguous", message: "m", paths: ["/a", 42] } }));
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, { error: { code: "ambiguous", message: "m", paths: ["/a", 42] } }),
+    );
     const result = await locateDroppedFile(1, makeFile("x"));
     expect(result).toEqual({ ok: false, error: { code: "ambiguous", message: "m" } });
   });
@@ -1201,7 +1593,10 @@ describe("api — network_error short-circuit on a rejected fetch (REQ-13, plan 
   const networkError = { code: "network_error", message: "Could not reach musterd." };
 
   const cases: Array<[string, () => Promise<{ ok: boolean; error?: unknown }>]> = [
-    ["launchSession", () => launchSession({ directory: "/tmp", model: "sonnet", permissionMode: "default" })],
+    [
+      "launchSession",
+      () => launchSession({ directory: "/tmp", model: "sonnet", permissionMode: "default" }),
+    ],
     ["fetchRepos", () => fetchRepos()],
     ["browse (no path)", () => browse()],
     ["browse (with path)", () => browse("/tmp")],

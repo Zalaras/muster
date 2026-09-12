@@ -5,7 +5,11 @@
 import type { App } from "../app";
 import { requireElement } from "../dom";
 import { renderBanner } from "../render/banner";
-import { renderClaudeVersion, renderConnectionStatus, type ConnectionStatus } from "../render/masthead";
+import {
+  renderClaudeVersion,
+  renderConnectionStatus,
+  type ConnectionStatus,
+} from "../render/masthead";
 import type { ClaudeCodeInfo } from "../protocol";
 
 export interface ConnectionHandle {

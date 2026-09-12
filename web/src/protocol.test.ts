@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { isSupportedProtocolVersion, parseMessage, parseSession, PROTOCOL_VERSION, UNKNOWN_USAGE } from "./protocol";
+import {
+  isSupportedProtocolVersion,
+  parseMessage,
+  parseSession,
+  PROTOCOL_VERSION,
+  UNKNOWN_USAGE,
+} from "./protocol";
 
 const validHello = {
   type: "hello",
@@ -27,7 +33,14 @@ const validSnapshot = {
   type: "snapshot",
   sessions: [],
   usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
-  prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual", theme: "follow", updateCheck: true },
+  prefs: {
+    view: "focus",
+    density: "2x2",
+    usageModel: "Fable",
+    railSort: "manual",
+    theme: "follow",
+    updateCheck: true,
+  },
   claudeTheme: { family: "unknown" },
   update: validUpdateInfo,
 };
@@ -44,18 +57,27 @@ describe("parseMessage — hello (plan version-claude-interface, protocol 2: hel
   it.each(["below", "verified", "above"] as const)(
     "parses claudeCode.status %s with a populated installed version",
     (status) => {
-      const hello = { ...validHello, claudeCode: { ...validHello.claudeCode, status, installed: "2.1.250" } };
+      const hello = {
+        ...validHello,
+        claudeCode: { ...validHello.claudeCode, status, installed: "2.1.250" },
+      };
       expect(parseMessage(hello)).toEqual(hello);
     },
   );
 
   it("parses claudeCode.status 'unknown' with installed null (INV-1: installed is null iff status is unknown)", () => {
-    const hello = { ...validHello, claudeCode: { installed: null, floor: "2.1.246", verified: "2.1.267", status: "unknown" } };
+    const hello = {
+      ...validHello,
+      claudeCode: { installed: null, floor: "2.1.246", verified: "2.1.267", status: "unknown" },
+    };
     expect(parseMessage(hello)).toEqual(hello);
   });
 
   it("structurally accepts (does not reject) a non-unknown status paired with a null installed — a daemon bug INV-1 rules out on the wire, but the parser only type-checks; the renderer (masthead.ts describeClaudeVersion) is what treats this defensively", () => {
-    const hello = { ...validHello, claudeCode: { ...validHello.claudeCode, status: "verified", installed: null } };
+    const hello = {
+      ...validHello,
+      claudeCode: { ...validHello.claudeCode, status: "verified", installed: null },
+    };
     expect(parseMessage(hello)).toEqual(hello);
   });
 
@@ -160,13 +182,21 @@ describe("parseMessage — snapshot", () => {
   it("rejects a usage bucket with a non-numeric usedPct", () => {
     const snapshot = {
       ...validSnapshot,
-      usage: { fiveHour: { usedPct: "61", resetsAt: "2026-08-20T11:00:00Z" }, sevenDay: null, sampledAt: null, source: "subscription" },
+      usage: {
+        fiveHour: { usedPct: "61", resetsAt: "2026-08-20T11:00:00Z" },
+        sevenDay: null,
+        sampledAt: null,
+        source: "subscription",
+      },
     };
     expect(parseMessage(snapshot)).toBeNull();
   });
 
   it("rejects a usage object whose source is not a string", () => {
-    const snapshot = { ...validSnapshot, usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: null } };
+    const snapshot = {
+      ...validSnapshot,
+      usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: null },
+    };
     expect(parseMessage(snapshot)).toBeNull();
   });
 
@@ -188,7 +218,14 @@ describe("parseMessage — snapshot", () => {
   it("parses prefs.density '3x2' alongside an explicit usageModel (plan usage-model-bar REQ-8)", () => {
     const snapshot = {
       ...validSnapshot,
-      prefs: { view: "tiles", density: "3x2", usageModel: "Opus", railSort: "manual", theme: "follow", updateCheck: true },
+      prefs: {
+        view: "tiles",
+        density: "3x2",
+        usageModel: "Opus",
+        railSort: "manual",
+        theme: "follow",
+        updateCheck: true,
+      },
     };
     expect(parseMessage(snapshot)).toEqual(snapshot);
   });
@@ -197,7 +234,13 @@ describe("parseMessage — snapshot", () => {
     const snapshot = { ...validSnapshot, prefs: { view: "tiles", density: "3x2" } };
     expect(parseMessage(snapshot)).toEqual({
       ...snapshot,
-      prefs: { ...snapshot.prefs, usageModel: "Fable", railSort: "manual", theme: "follow", updateCheck: true },
+      prefs: {
+        ...snapshot.prefs,
+        usageModel: "Fable",
+        railSort: "manual",
+        theme: "follow",
+        updateCheck: true,
+      },
     });
   });
 
@@ -215,14 +258,24 @@ describe("parseMessage — snapshot", () => {
     const parsed = parseMessage(snapshot);
     expect(parsed).toEqual({
       ...validSnapshot,
-      prefs: { view: "tiles", density: "3x2", usageModel: "Fable", railSort: "manual", theme: "follow", updateCheck: true },
+      prefs: {
+        view: "tiles",
+        density: "3x2",
+        usageModel: "Fable",
+        railSort: "manual",
+        theme: "follow",
+        updateCheck: true,
+      },
     });
   });
 });
 
 describe("parsePrefs — railSort (plan order-sidebar REQ-5 / kb:anchor/prefs.put)", () => {
   it("defaults a missing railSort to 'manual' (pre-plan daemon payload)", () => {
-    const snapshot = { ...validSnapshot, prefs: { view: "focus", density: "2x2", usageModel: "Fable" } };
+    const snapshot = {
+      ...validSnapshot,
+      prefs: { view: "focus", density: "2x2", usageModel: "Fable" },
+    };
     expect(parseMessage(snapshot)).toEqual({
       ...snapshot,
       prefs: { ...snapshot.prefs, railSort: "manual", theme: "follow", updateCheck: true },
@@ -248,7 +301,14 @@ describe("parsePrefs — railSort (plan order-sidebar REQ-5 / kb:anchor/prefs.pu
 describe("parseMessage — prefs (M2 REQ-10/INV-4: the PUT /api/prefs echo broadcast)", () => {
   const validPrefsMessage = {
     type: "prefs",
-    prefs: { view: "tiles", density: "3x2", usageModel: "Fable", railSort: "manual", theme: "follow", updateCheck: true },
+    prefs: {
+      view: "tiles",
+      density: "3x2",
+      usageModel: "Fable",
+      railSort: "manual",
+      theme: "follow",
+      updateCheck: true,
+    },
   };
 
   it("parses a fully-populated prefs message", () => {
@@ -271,14 +331,24 @@ describe("parseMessage — prefs (M2 REQ-10/INV-4: the PUT /api/prefs echo broad
     const message = { type: "prefs", prefs: { view: "focus", density: "2x2", futureField: 1 } };
     expect(parseMessage(message)).toEqual({
       type: "prefs",
-      prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual", theme: "follow", updateCheck: true },
+      prefs: {
+        view: "focus",
+        density: "2x2",
+        usageModel: "Fable",
+        railSort: "manual",
+        theme: "follow",
+        updateCheck: true,
+      },
     });
   });
 });
 
 describe("parsePrefs — theme (plan new-ui-design-colors REQ-19, W7)", () => {
   it("defaults a missing theme key to 'follow' (pre-plan daemon payload)", () => {
-    const snapshot = { ...validSnapshot, prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual" } };
+    const snapshot = {
+      ...validSnapshot,
+      prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual" },
+    };
     expect(parseMessage(snapshot)).toEqual({
       ...snapshot,
       prefs: { ...snapshot.prefs, theme: "follow", updateCheck: true },
@@ -306,7 +376,10 @@ describe("parsePrefs — updateCheck (plan auto-update REQ-1 / kb:anchor/prefs.p
     const { updateCheck, ...restPrefs } = validSnapshot.prefs;
     void updateCheck;
     const snapshot = { ...validSnapshot, prefs: restPrefs };
-    expect(parseMessage(snapshot)).toEqual({ ...validSnapshot, prefs: { ...restPrefs, updateCheck: true } });
+    expect(parseMessage(snapshot)).toEqual({
+      ...validSnapshot,
+      prefs: { ...restPrefs, updateCheck: true },
+    });
   });
 
   it("parses an explicit updateCheck: false", () => {
@@ -345,15 +418,29 @@ describe("parseSnapshot — update (plan auto-update kb:anchor/ws.snapshot / kb:
   it("parses install kind 'dev' with available/remedy/installed all null", () => {
     const snapshot = {
       ...validSnapshot,
-      update: { running: "v0.10.0-4-ge5102b8", install: "dev", remedy: null, available: null, checkedAt: null, installed: null, apply: { phase: "idle", version: null, error: null } },
+      update: {
+        running: "v0.10.0-4-ge5102b8",
+        install: "dev",
+        remedy: null,
+        available: null,
+        checkedAt: null,
+        installed: null,
+        apply: { phase: "idle", version: null, error: null },
+      },
     };
     expect(parseMessage(snapshot)).toEqual(snapshot);
   });
 
-  it.each(["homebrew", "unmanaged"] as const)("parses install kind %s carrying a remedy string", (install) => {
-    const snapshot = { ...validSnapshot, update: { ...validUpdateInfo, install, remedy: "run brew upgrade musterd" } };
-    expect(parseMessage(snapshot)).toEqual(snapshot);
-  });
+  it.each(["homebrew", "unmanaged"] as const)(
+    "parses install kind %s carrying a remedy string",
+    (install) => {
+      const snapshot = {
+        ...validSnapshot,
+        update: { ...validUpdateInfo, install, remedy: "run brew upgrade musterd" },
+      };
+      expect(parseMessage(snapshot)).toEqual(snapshot);
+    },
+  );
 
   it("parses installed non-null alongside available non-null (swap done, restart pending)", () => {
     const snapshot = { ...validSnapshot, update: { ...validUpdateInfo, installed: "0.11.0" } };
@@ -363,7 +450,10 @@ describe("parseSnapshot — update (plan auto-update kb:anchor/ws.snapshot / kb:
   it.each(["downloading", "verifying", "installing", "restarting", "done"] as const)(
     "parses apply.phase %s with a non-null version",
     (phase) => {
-      const snapshot = { ...validSnapshot, update: { ...validUpdateInfo, apply: { phase, version: "0.11.0", error: null } } };
+      const snapshot = {
+        ...validSnapshot,
+        update: { ...validUpdateInfo, apply: { phase, version: "0.11.0", error: null } },
+      };
       expect(parseMessage(snapshot)).toEqual(snapshot);
     },
   );
@@ -371,7 +461,14 @@ describe("parseSnapshot — update (plan auto-update kb:anchor/ws.snapshot / kb:
   it("parses apply.phase 'failed' with a non-null error", () => {
     const snapshot = {
       ...validSnapshot,
-      update: { ...validUpdateInfo, apply: { phase: "failed", version: "0.11.0", error: "signature on checksums.txt did not verify" } },
+      update: {
+        ...validUpdateInfo,
+        apply: {
+          phase: "failed",
+          version: "0.11.0",
+          error: "signature on checksums.txt did not verify",
+        },
+      },
     };
     expect(parseMessage(snapshot)).toEqual(snapshot);
   });
@@ -382,7 +479,10 @@ describe("parseSnapshot — update (plan auto-update kb:anchor/ws.snapshot / kb:
   });
 
   it("rejects the whole snapshot when update.apply.phase is outside the known enum", () => {
-    const snapshot = { ...validSnapshot, update: { ...validUpdateInfo, apply: { phase: "checking", version: null, error: null } } };
+    const snapshot = {
+      ...validSnapshot,
+      update: { ...validUpdateInfo, apply: { phase: "checking", version: null, error: null } },
+    };
     expect(parseMessage(snapshot)).toBeNull();
   });
 
@@ -527,7 +627,10 @@ describe("parseMessage — usage (M3 REQ-5/kb:anchor/ws.usage: broadcast on valu
   });
 
   it("rejects a usage.model missing displayName", () => {
-    const message = { ...knownUsage, usage: { ...knownUsage.usage, model: { id: "claude-opus-5" } } };
+    const message = {
+      ...knownUsage,
+      usage: { ...knownUsage.usage, model: { id: "claude-opus-5" } },
+    };
     expect(parseMessage(message)).toBeNull();
   });
 
@@ -541,7 +644,10 @@ describe("parseMessage — usage (M3 REQ-5/kb:anchor/ws.usage: broadcast on valu
   });
 
   it("rejects a usage message whose bucket has a non-numeric usedPct", () => {
-    const message = { ...knownUsage, usage: { ...knownUsage.usage, fiveHour: { usedPct: "61", resetsAt: "2026-08-23T11:00:00Z" } } };
+    const message = {
+      ...knownUsage,
+      usage: { ...knownUsage.usage, fiveHour: { usedPct: "61", resetsAt: "2026-08-23T11:00:00Z" } },
+    };
     expect(parseMessage(message)).toBeNull();
   });
 
@@ -574,7 +680,8 @@ describe("parseMessage — usage.modelScoped (plan usage-model-bar REQ-4/REQ-14/
     const message = { type: "usage", usage: baseUsage };
     const parsed = parseMessage(message);
     expect(parsed).toEqual(message);
-    const usage = parsed && "usage" in parsed ? (parsed.usage as unknown as Record<string, unknown>) : {};
+    const usage =
+      parsed && "usage" in parsed ? (parsed.usage as unknown as Record<string, unknown>) : {};
     expect("modelScoped" in usage).toBe(false);
     expect("modelScopedAt" in usage).toBe(false);
     expect("modelScopedError" in usage).toBe(false);
@@ -587,7 +694,13 @@ describe("parseMessage — usage.modelScoped (plan usage-model-bar REQ-4/REQ-14/
   it("parses explicit nulls for all four fields the same as the boot/no-hydration state (INV-1 shape)", () => {
     const message = {
       type: "usage",
-      usage: { ...baseUsage, modelScoped: null, modelScopedAt: null, modelScopedError: null, modelScopedSource: "subscription-api" },
+      usage: {
+        ...baseUsage,
+        modelScoped: null,
+        modelScopedAt: null,
+        modelScopedError: null,
+        modelScopedSource: "subscription-api",
+      },
     };
     expect(parseMessage(message)).toEqual(message);
   });
@@ -595,11 +708,19 @@ describe("parseMessage — usage.modelScoped (plan usage-model-bar REQ-4/REQ-14/
   it("parses an empty modelScoped list as distinct from null (a successful fetch with no scoped windows)", () => {
     const message = {
       type: "usage",
-      usage: { ...baseUsage, modelScoped: [], modelScopedAt: "2026-08-30T10:00:00Z", modelScopedError: null, modelScopedSource: "subscription-api" },
+      usage: {
+        ...baseUsage,
+        modelScoped: [],
+        modelScopedAt: "2026-08-30T10:00:00Z",
+        modelScopedError: null,
+        modelScopedSource: "subscription-api",
+      },
     };
     const parsed = parseMessage(message);
     expect(parsed).toEqual(message);
-    expect(Array.isArray((parsed as { usage: { modelScoped: unknown } }).usage.modelScoped)).toBe(true);
+    expect(Array.isArray((parsed as { usage: { modelScoped: unknown } }).usage.modelScoped)).toBe(
+      true,
+    );
   });
 
   it.each(["no-credentials", "unauthorized", "unreachable"] as const)(
@@ -607,29 +728,47 @@ describe("parseMessage — usage.modelScoped (plan usage-model-bar REQ-4/REQ-14/
     (errorKind) => {
       const message = {
         type: "usage",
-        usage: { ...baseUsage, modelScoped: [window1], modelScopedAt: "2026-08-30T10:00:00Z", modelScopedError: errorKind, modelScopedSource: "subscription-api" },
+        usage: {
+          ...baseUsage,
+          modelScoped: [window1],
+          modelScopedAt: "2026-08-30T10:00:00Z",
+          modelScopedError: errorKind,
+          modelScopedSource: "subscription-api",
+        },
       };
       expect(parseMessage(message)).toEqual(message);
     },
   );
 
   it("rejects an unrecognized modelScopedError string", () => {
-    const message = { type: "usage", usage: { ...baseUsage, modelScoped: null, modelScopedAt: null, modelScopedError: "offline" } };
+    const message = {
+      type: "usage",
+      usage: { ...baseUsage, modelScoped: null, modelScopedAt: null, modelScopedError: "offline" },
+    };
     expect(parseMessage(message)).toBeNull();
   });
 
   it("rejects the whole message when one modelScoped element is missing displayName", () => {
-    const message = { type: "usage", usage: { ...baseUsage, modelScoped: [{ usedPct: 61, resetsAt: "2026-09-01T13:59:59Z" }] } };
+    const message = {
+      type: "usage",
+      usage: { ...baseUsage, modelScoped: [{ usedPct: 61, resetsAt: "2026-09-01T13:59:59Z" }] },
+    };
     expect(parseMessage(message)).toBeNull();
   });
 
   it("rejects the whole message when one modelScoped element has a non-numeric usedPct", () => {
-    const message = { type: "usage", usage: { ...baseUsage, modelScoped: [{ ...window1, usedPct: "61" }] } };
+    const message = {
+      type: "usage",
+      usage: { ...baseUsage, modelScoped: [{ ...window1, usedPct: "61" }] },
+    };
     expect(parseMessage(message)).toBeNull();
   });
 
   it("rejects the whole message when one modelScoped element has a non-string resetsAt", () => {
-    const message = { type: "usage", usage: { ...baseUsage, modelScoped: [{ ...window1, resetsAt: 123 }] } };
+    const message = {
+      type: "usage",
+      usage: { ...baseUsage, modelScoped: [{ ...window1, resetsAt: 123 }] },
+    };
     expect(parseMessage(message)).toBeNull();
   });
 
@@ -639,18 +778,30 @@ describe("parseMessage — usage.modelScoped (plan usage-model-bar REQ-4/REQ-14/
   });
 
   it("rejects a non-string modelScopedAt (e.g. epoch number instead of RFC3339)", () => {
-    const message = { type: "usage", usage: { ...baseUsage, modelScoped: null, modelScopedAt: 1735689600 } };
+    const message = {
+      type: "usage",
+      usage: { ...baseUsage, modelScoped: null, modelScopedAt: 1735689600 },
+    };
     expect(parseMessage(message)).toBeNull();
   });
 
   it("rejects a non-string modelScopedSource", () => {
-    const message = { type: "usage", usage: { ...baseUsage, modelScoped: [], modelScopedSource: 1 } };
+    const message = {
+      type: "usage",
+      usage: { ...baseUsage, modelScoped: [], modelScopedSource: 1 },
+    };
     expect(parseMessage(message)).toBeNull();
   });
 
   it("ignores unknown fields inside one modelScoped element (additive evolution)", () => {
-    const message = { type: "usage", usage: { ...baseUsage, modelScoped: [{ ...window1, futureField: "x" }] } };
-    expect(parseMessage(message)).toEqual({ type: "usage", usage: { ...baseUsage, modelScoped: [window1] } });
+    const message = {
+      type: "usage",
+      usage: { ...baseUsage, modelScoped: [{ ...window1, futureField: "x" }] },
+    };
+    expect(parseMessage(message)).toEqual({
+      type: "usage",
+      usage: { ...baseUsage, modelScoped: [window1] },
+    });
   });
 });
 
@@ -663,9 +814,12 @@ describe("parseMessage — unknown/malformed envelopes", () => {
     expect(parseMessage({ daemon: { version: "0.1.0" } })).toBeNull();
   });
 
-  it.each([null, undefined, "hello", 42, true, ["hello"]])("rejects non-object top-level data: %p", (value) => {
-    expect(parseMessage(value)).toBeNull();
-  });
+  it.each([null, undefined, "hello", 42, true, ["hello"]])(
+    "rejects non-object top-level data: %p",
+    (value) => {
+      expect(parseMessage(value)).toBeNull();
+    },
+  );
 });
 
 describe("isSupportedProtocolVersion", () => {
@@ -680,7 +834,12 @@ describe("isSupportedProtocolVersion", () => {
 
 describe("UNKNOWN_USAGE", () => {
   it("is the fully-null pre-hello usage state, never zero/empty-gauge shaped", () => {
-    expect(UNKNOWN_USAGE).toEqual({ fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" });
+    expect(UNKNOWN_USAGE).toEqual({
+      fiveHour: null,
+      sevenDay: null,
+      sampledAt: null,
+      source: "subscription",
+    });
   });
 });
 
@@ -767,12 +926,19 @@ describe("parseSession — full kb:anchor/ws.session shape", () => {
   });
 
   it("rejects an attention object with an unrecognized reason", () => {
-    const session = { ...validSession, attention: { reason: "confused", since: "2026-08-22T00:01:00Z" } };
+    const session = {
+      ...validSession,
+      attention: { reason: "confused", since: "2026-08-22T00:01:00Z" },
+    };
     expect(parseSession(session)).toBeNull();
   });
 
   it("parses a failed session with the raw error token and message", () => {
-    const session = { ...validSession, state: "failed", failure: { error: "ETOOLERROR", message: "Something broke." } };
+    const session = {
+      ...validSession,
+      state: "failed",
+      failure: { error: "ETOOLERROR", message: "Something broke." },
+    };
     expect(parseSession(session)).toEqual(session);
   });
 
@@ -822,17 +988,26 @@ describe("parseSession — full kb:anchor/ws.session shape", () => {
   });
 
   it("parses a context with all-null numeric fields and a positive compaction count (REQ-21)", () => {
-    const session = { ...validSession, context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 3 } };
+    const session = {
+      ...validSession,
+      context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 3 },
+    };
     expect(parseSession(session)).toEqual(session);
   });
 
   it("parses a context with populated numeric fields (post-M3, forward-compatible)", () => {
-    const session = { ...validSession, context: { usedPct: 42.5, totalInputTokens: 1000, windowSize: 200000, compactions: 0 } };
+    const session = {
+      ...validSession,
+      context: { usedPct: 42.5, totalInputTokens: 1000, windowSize: 200000, compactions: 0 },
+    };
     expect(parseSession(session)).toEqual(session);
   });
 
   it("rejects a context missing compactions", () => {
-    const session = { ...validSession, context: { usedPct: null, totalInputTokens: null, windowSize: null } };
+    const session = {
+      ...validSession,
+      context: { usedPct: null, totalInputTokens: null, windowSize: null },
+    };
     expect(parseSession(session)).toBeNull();
   });
 
@@ -953,7 +1128,14 @@ describe("parseMessage — snapshot with sessions (M1: non-empty for the first t
       type: "snapshot",
       sessions: [validSession, freshLaunchSession],
       usage: { fiveHour: null, sevenDay: null, sampledAt: null, source: "subscription" },
-      prefs: { view: "focus", density: "2x2", usageModel: "Fable", railSort: "manual", theme: "follow", updateCheck: true },
+      prefs: {
+        view: "focus",
+        density: "2x2",
+        usageModel: "Fable",
+        railSort: "manual",
+        theme: "follow",
+        updateCheck: true,
+      },
       claudeTheme: { family: "unknown" },
       update: validUpdateInfo,
     };
@@ -986,11 +1168,17 @@ describe("parseMessage — sessionRemoved (W6, plan m4-reconcile REQ-15, kb:anch
     expect(parseMessage({ type: "sessionRemoved" })).toBeNull();
   });
 
-  it.each(["7", null, undefined, {}, [7], true])("rejects a sessionRemoved whose id is not a number: %p", (id) => {
-    expect(parseMessage({ type: "sessionRemoved", id })).toBeNull();
-  });
+  it.each(["7", null, undefined, {}, [7], true])(
+    "rejects a sessionRemoved whose id is not a number: %p",
+    (id) => {
+      expect(parseMessage({ type: "sessionRemoved", id })).toBeNull();
+    },
+  );
 
   it("accepts id 0 (a valid session id, not a falsy 'missing' sentinel)", () => {
-    expect(parseMessage({ type: "sessionRemoved", id: 0 })).toEqual({ type: "sessionRemoved", id: 0 });
+    expect(parseMessage({ type: "sessionRemoved", id: 0 })).toEqual({
+      type: "sessionRemoved",
+      id: 0,
+    });
   });
 });

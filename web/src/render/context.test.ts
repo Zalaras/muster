@@ -58,7 +58,11 @@ describe("renderContextRow — honesty rule 1 (INV-3): unknown context sets plai
 
   it("treats a mixed null/non-null context (defensive, protocol INV-2) as unknown — never half-renders", () => {
     const el = fakeElement();
-    renderContextRow(el, { usedPct: null, totalInputTokens: 1000, windowSize: 200000, compactions: 0 }, "r3");
+    renderContextRow(
+      el,
+      { usedPct: null, totalInputTokens: 1000, windowSize: 200000, compactions: 0 },
+      "r3",
+    );
     expect(el.className).toBe("r3 unk");
     expect(el.textContent).toBe("ctx unknown");
   });

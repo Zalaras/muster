@@ -68,7 +68,9 @@ export function sortSessions(sessions: readonly Session[]): Session[] {
  * strip and `features/focus.ts`'s default-focus pick all read display order through this one
  * function rather than calling `sortSessions` directly. */
 export function orderRail(sessions: readonly Session[], mode: RailSort): Session[] {
-  const pinned = sessions.filter((s) => s.pinned).sort((a, b) => a.railPos - b.railPos || a.id - b.id);
+  const pinned = sessions
+    .filter((s) => s.pinned)
+    .sort((a, b) => a.railPos - b.railPos || a.id - b.id);
   const unpinned = sessions.filter((s) => !s.pinned);
   if (mode === "manual") {
     return [...pinned, ...unpinned.sort((a, b) => a.railPos - b.railPos || a.id - b.id)];

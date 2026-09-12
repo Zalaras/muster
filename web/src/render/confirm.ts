@@ -51,7 +51,10 @@ export function renderRemoveDialogBody(el: HTMLElement, session: Session, now: D
     "can no longer be resumed from here.";
 }
 
-export function initConfirmDialogs(elements: ConfirmDialogElements, handlers: ConfirmDialogHandlers): ConfirmDialogs {
+export function initConfirmDialogs(
+  elements: ConfirmDialogElements,
+  handlers: ConfirmDialogHandlers,
+): ConfirmDialogs {
   let endTargetId: number | null = null;
   let removeTargetId: number | null = null;
 

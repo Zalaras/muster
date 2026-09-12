@@ -35,7 +35,11 @@ const timers = new WeakMap<NoticeTarget, ReturnType<typeof setTimeout>>();
  * replacing an in-flight one, or a second outcome replacing a first) or an explicit
  * clear must never leave a stale timer armed that later fires against unrelated,
  * newer content. */
-export function showNotice(target: NoticeTarget, text: string | null, kind: NoticeKind = "outcome"): void {
+export function showNotice(
+  target: NoticeTarget,
+  text: string | null,
+  kind: NoticeKind = "outcome",
+): void {
   const pending = timers.get(target);
   if (pending !== undefined) clearTimeout(pending);
   timers.delete(target);

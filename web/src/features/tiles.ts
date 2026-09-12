@@ -32,7 +32,12 @@ import { captureFocusedControl, restoreFocusedControl, type FocusedControl } fro
 import { installTileDrag } from "../render/tiledrag";
 import { applyDensity, densityCount, initialLive, moveTile, promote } from "../sessions/live";
 import { orderRail } from "../sessions/sort";
-import { getSurfaceState, updateSurfaceSegment, type SurfaceKind, type SurfaceSwitchState } from "../terminal/surfaceswitch";
+import {
+  getSurfaceState,
+  updateSurfaceSegment,
+  type SurfaceKind,
+  type SurfaceSwitchState,
+} from "../terminal/surfaceswitch";
 import type { TerminalSurface } from "../terminal/pane";
 import type { DeadSurfaceRefs, PaneState } from "../render/dead";
 import type { Session } from "../protocol";
@@ -95,11 +100,13 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
   app.on("prefs", (prefs) => {
     if (prefs.view !== lastView) {
       lastView = prefs.view;
-      if (prefs.view === "tiles") tilesLive = initialLive(app.store.values(), densityCount(prefs.density));
+      if (prefs.view === "tiles")
+        tilesLive = initialLive(app.store.values(), densityCount(prefs.density));
     }
     if (prefs.density !== lastDensity) {
       lastDensity = prefs.density;
-      if (prefs.view === "tiles") tilesLive = applyDensity(tilesLive, densityCount(prefs.density), app.store.values());
+      if (prefs.view === "tiles")
+        tilesLive = applyDensity(tilesLive, densityCount(prefs.density), app.store.values());
     }
   });
 
@@ -130,7 +137,11 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
     app.render();
   });
 
-  function reconcileTilesGrid(liveSessions: readonly Session[], now: Date, connected: boolean): void {
+  function reconcileTilesGrid(
+    liveSessions: readonly Session[],
+    now: Date,
+    connected: boolean,
+  ): void {
     const desiredIds = new Set(liveSessions.map((s) => s.id));
 
     for (const [id, refs] of tileElements) {
@@ -158,7 +169,9 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
         updateTile(refs, session, now);
       }
 
-      const desiredNext: Element | null = previousRoot ? previousRoot.nextElementSibling : tilesGridEl.firstElementChild;
+      const desiredNext: Element | null = previousRoot
+        ? previousRoot.nextElementSibling
+        : tilesGridEl.firstElementChild;
       if (desiredNext !== refs.root) {
         tilesGridEl.insertBefore(refs.root, desiredNext);
       }
@@ -191,8 +204,10 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
         renderTileGeometry(refs, false, null);
       }
 
-      if (refs.actsEl) renderTileFooterActions(refs.actsEl, session, now, connected, deps.actions.dispatch);
-      if (refs.surfaceSegment) updateSurfaceSegment(refs.surfaceSegment, sessionSurfaceState, connected);
+      if (refs.actsEl)
+        renderTileFooterActions(refs.actsEl, session, now, connected, deps.actions.dispatch);
+      if (refs.surfaceSegment)
+        updateSurfaceSegment(refs.surfaceSegment, sessionSurfaceState, connected);
       refs.rename?.setEnabled(connected);
     }
 
@@ -213,7 +228,9 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
 
     tilesGridEl.dataset["density"] = app.state.density;
 
-    const liveSessions = tilesLive.map((id) => sessions.find((s) => s.id === id)).filter((s): s is Session => s !== undefined);
+    const liveSessions = tilesLive
+      .map((id) => sessions.find((s) => s.id === id))
+      .filter((s): s is Session => s !== undefined);
     const liveIds = new Set(tilesLive);
     const stripSessions = orderRail(
       sessions.filter((s) => !liveIds.has(s.id)),

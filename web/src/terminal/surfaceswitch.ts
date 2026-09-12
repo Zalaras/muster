@@ -25,7 +25,10 @@ export type SurfaceSwitchState = ReadonlyMap<number, SessionSurfaceState>;
 
 /** States: "before the first switch: claude selected, shell unselected, no pip" — the
  * value every session starts at and returns to once a shell ends (REQ-8). */
-export const DEFAULT_SURFACE_STATE: SessionSurfaceState = { selected: "claude", shellRunning: false };
+export const DEFAULT_SURFACE_STATE: SessionSurfaceState = {
+  selected: "claude",
+  shellRunning: false,
+};
 
 export function getSurfaceState(state: SurfaceSwitchState, id: number): SessionSurfaceState {
   return state.get(id) ?? DEFAULT_SURFACE_STATE;
@@ -36,7 +39,11 @@ export function getSurfaceState(state: SurfaceSwitchState, id: number): SessionS
  * keep it in step with what the daemon actually reports (POST success/failure, PTY EOF).
  * Identity (same map) when `kind` is already selected, so a caller can call this
  * unconditionally without a redundant re-render. */
-export function selectSurface(state: SurfaceSwitchState, id: number, kind: SurfaceKind): SurfaceSwitchState {
+export function selectSurface(
+  state: SurfaceSwitchState,
+  id: number,
+  kind: SurfaceKind,
+): SurfaceSwitchState {
   const current = getSurfaceState(state, id);
   if (current.selected === kind) return state;
   const next = new Map(state);
@@ -47,7 +54,11 @@ export function selectSurface(state: SurfaceSwitchState, id: number, kind: Surfa
 /** REQ-1/REQ-8: records whether `id`'s shell tmux session is known to be running — set
  * `true` on a successful `POST .../shell` (created or not), `false` by `shellEnded` below.
  * Identity when already at `running`. */
-export function setShellRunning(state: SurfaceSwitchState, id: number, running: boolean): SurfaceSwitchState {
+export function setShellRunning(
+  state: SurfaceSwitchState,
+  id: number,
+  running: boolean,
+): SurfaceSwitchState {
   const current = getSurfaceState(state, id);
   if (current.shellRunning === running) return state;
   const next = new Map(state);
@@ -79,7 +90,11 @@ export function forgetSession(state: SurfaceSwitchState, id: number): SurfaceSwi
 /** Whether the currently-selected surface for `id` should have a live `TerminalSurface`
  * mounted: `claude` follows the session's own `alive`; `shell` follows `shellRunning`
  * (REQ-7 — never `alive`, in either direction). */
-export function isSurfaceAttachable(state: SurfaceSwitchState, id: number, alive: boolean): boolean {
+export function isSurfaceAttachable(
+  state: SurfaceSwitchState,
+  id: number,
+  alive: boolean,
+): boolean {
   const current = getSurfaceState(state, id);
   return current.selected === "shell" ? current.shellRunning : alive;
 }
@@ -151,7 +166,11 @@ export function buildSurfaceSegment(onSelect: (kind: SurfaceKind) => void): Surf
  * `disabled` on both while the WS is down (States: "the segment buttons are disabled
  * while the WS is down" — the same gate every other action control uses; never gated on
  * `alive`, since `shell` must stay clickable on a dead session — REQ-7). */
-export function updateSurfaceSegment(refs: SurfaceSegmentRefs, state: SessionSurfaceState, connected: boolean): void {
+export function updateSurfaceSegment(
+  refs: SurfaceSegmentRefs,
+  state: SessionSurfaceState,
+  connected: boolean,
+): void {
   refs.claudeBtn.setAttribute("aria-pressed", String(state.selected === "claude"));
   refs.shellBtn.setAttribute("aria-pressed", String(state.selected === "shell"));
   refs.claudeBtn.disabled = !connected;

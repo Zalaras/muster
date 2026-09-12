@@ -31,7 +31,11 @@ export function splitCrumbs(path: string): Crumb[] {
  * separated by an `aria-hidden` `›`, the last as the non-clickable `<span
  * aria-current="location">`, followed by the decorative `⌘↑` kbd (UI Specifications: the
  * mockup's `#browse-crumbs` structure). `onNavigate` fires on an ancestor click. */
-export function renderCrumbs(nav: HTMLElement, crumbs: readonly Crumb[], onNavigate: (path: string) => void): void {
+export function renderCrumbs(
+  nav: HTMLElement,
+  crumbs: readonly Crumb[],
+  onNavigate: (path: string) => void,
+): void {
   const nodes: HTMLElement[] = [];
   crumbs.forEach((crumb, index) => {
     if (index === crumbs.length - 1) {

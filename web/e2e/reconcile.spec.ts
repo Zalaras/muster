@@ -1,6 +1,13 @@
 import { expect, test } from "./helpers/fixtures";
 import { envelopedSessionStart, rawUserPromptSubmit } from "./helpers/payloads";
-import { findSession, getState, launchSession, scratchDirectory, sessionCard, stateBadge } from "./helpers/session";
+import {
+  findSession,
+  getState,
+  launchSession,
+  scratchDirectory,
+  sessionCard,
+  stateBadge,
+} from "./helpers/session";
 import { terminalRegion } from "./helpers/terminal";
 
 // Plan m4-reconcile — REQ-1 (reconcile on start), REQ-2 (unknown panes reported, never

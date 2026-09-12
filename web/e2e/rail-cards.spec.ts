@@ -30,16 +30,10 @@ test("ended sessions sort after every live session, most recently ended first (R
   page,
   request,
 }) => {
-  const dirs = await Promise.all(
-    Array.from({ length: 3 }, () => scratchDirectory()),
-  );
+  const dirs = await Promise.all(Array.from({ length: 3 }, () => scratchDirectory()));
   try {
     await page.goto(sharedDaemon().dashboardUrl);
-    const titles = [
-      "sort-req9-live",
-      "sort-req9-ended-first",
-      "sort-req9-ended-second",
-    ];
+    const titles = ["sort-req9-live", "sort-req9-ended-first", "sort-req9-ended-second"];
     const sessions: SessionObject[] = [];
     for (const [i, dir] of dirs.entries()) {
       sessions.push(
@@ -50,8 +44,7 @@ test("ended sessions sort after every live session, most recently ended first (R
       );
     }
     const [live, endedFirst, endedSecond] = sessions;
-    if (!live || !endedFirst || !endedSecond)
-      throw new Error("expected three sessions");
+    if (!live || !endedFirst || !endedSecond) throw new Error("expected three sessions");
 
     await request.post(sharedDaemon().ingestURL("hook"), {
       data: envelopedSessionStart("claude-sort-req9-live", {
@@ -63,10 +56,9 @@ test("ended sessions sort after every live session, most recently ended first (R
       `${sharedDaemon().baseURL}/api/sessions/${endedFirst.id}/end`,
     );
     expect(endRes1.status()).toBe(200);
-    await expect(sessionCard(page, "sort-req9-ended-first")).toHaveClass(
-      /ended/,
-      { timeout: 15_000 },
-    );
+    await expect(sessionCard(page, "sort-req9-ended-first")).toHaveClass(/ended/, {
+      timeout: 15_000,
+    });
 
     // Force a real gap between the two `endedAt` timestamps regardless of the daemon's
     // clock resolution, so "most recently ended first" has an unambiguous answer — a
@@ -77,10 +69,9 @@ test("ended sessions sort after every live session, most recently ended first (R
       `${sharedDaemon().baseURL}/api/sessions/${endedSecond.id}/end`,
     );
     expect(endRes2.status()).toBe(200);
-    await expect(sessionCard(page, "sort-req9-ended-second")).toHaveClass(
-      /ended/,
-      { timeout: 15_000 },
-    );
+    await expect(sessionCard(page, "sort-req9-ended-second")).toHaveClass(/ended/, {
+      timeout: 15_000,
+    });
 
     // These orderings are an Attention-mode guarantee under plan order-sidebar's
     // approved protocol delta (REQ-5 default `railSort` is "manual"; REQ-7: a state
@@ -105,8 +96,7 @@ test("ended sessions sort after every live session, most recently ended first (R
       })
       .toBe(true);
     const cardTexts = await page.getByTestId("session-card").allInnerTexts();
-    const indexOf = (label: string): number =>
-      cardTexts.findIndex((t) => t.includes(label));
+    const indexOf = (label: string): number => cardTexts.findIndex((t) => t.includes(label));
     const liveIdx = indexOf("sort-req9-live");
     const firstEndedIdx = indexOf("sort-req9-ended-first");
     const secondEndedIdx = indexOf("sort-req9-ended-second");
@@ -278,10 +268,7 @@ test("a focused card action button survives a rail re-sort triggered by a real p
   page,
   request,
 }) => {
-  const [dirA, dirB] = await Promise.all([
-    scratchDirectory(),
-    scratchDirectory(),
-  ]);
+  const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
     await page.goto(sharedDaemon().dashboardUrl);
     const sessionA = await launchSession(page, sharedDaemon(), {
@@ -320,12 +307,8 @@ test("a focused card action button survives a rail re-sort triggered by a real p
     // Both sessions land in the same live priority band with no state change yet, so
     // they sort by launch order: A before B.
     const titlesBefore = await page.getByTestId("session-card").allInnerTexts();
-    const idxABefore = titlesBefore.findIndex((t) =>
-      t.includes("resort-focus-a"),
-    );
-    const idxBBefore = titlesBefore.findIndex((t) =>
-      t.includes("resort-focus-b"),
-    );
+    const idxABefore = titlesBefore.findIndex((t) => t.includes("resort-focus-a"));
+    const idxBBefore = titlesBefore.findIndex((t) => t.includes("resort-focus-b"));
     expect(idxABefore).toBeGreaterThanOrEqual(0);
     expect(idxBBefore).toBeGreaterThanOrEqual(0);
     expect(idxABefore).toBeLessThan(idxBBefore);

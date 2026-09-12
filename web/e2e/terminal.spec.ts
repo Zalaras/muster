@@ -66,7 +66,10 @@ test("focusing a launched session streams the stub's readback and echoes typed i
   }
 });
 
-test("clicking a rail card swaps the live terminal to the newly focused session (REQ-7)", async ({ page, daemon }) => {
+test("clicking a rail card swaps the live terminal to the newly focused session (REQ-7)", async ({
+  page,
+  daemon,
+}) => {
   const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
     await page.goto(daemon.dashboardUrl);
@@ -178,7 +181,10 @@ test("supersede reclaims cleanly even when the older client was mid-keystroke (I
   }
 });
 
-test("the tmux oracle's window geometry matches the terminal's own fitted size (E4)", async ({ page, daemon }) => {
+test("the tmux oracle's window geometry matches the terminal's own fitted size (E4)", async ({
+  page,
+  daemon,
+}) => {
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
@@ -214,7 +220,9 @@ test("the tmux oracle's window geometry matches the terminal's own fitted size (
           const width = await daemon.tmuxDisplay(session.tmuxTarget, "#{window_width}");
           return width === cols;
         },
-        { message: "waiting for the sizenote's fitted cols and tmux's #{window_width} to converge" },
+        {
+          message: "waiting for the sizenote's fitted cols and tmux's #{window_width} to converge",
+        },
       )
       .toBe(true);
     await expect
@@ -224,7 +232,9 @@ test("the tmux oracle's window geometry matches the terminal's own fitted size (
           const height = await daemon.tmuxDisplay(session.tmuxTarget, "#{window_height}");
           return height === rows;
         },
-        { message: "waiting for the sizenote's fitted rows and tmux's #{window_height} to converge" },
+        {
+          message: "waiting for the sizenote's fitted rows and tmux's #{window_height} to converge",
+        },
       )
       .toBe(true);
   } finally {
@@ -265,7 +275,9 @@ test("killing the stub's tmux session ends its live surface: socket closed, dead
     // here we assert the socket actually closed and the UI settled where the product means
     // it to (same shape as the REQ-13 test below and actions.spec.ts's End tests).
     await expect
-      .poll(() => tracker.liveCount, { message: "waiting for the terminal socket to close (4001) after kill-window" })
+      .poll(() => tracker.liveCount, {
+        message: "waiting for the terminal socket to close (4001) after kill-window",
+      })
       .toBe(0);
     const deadSurface = page.locator("#dead-surface");
     await expect(deadSurface).toBeVisible();
@@ -323,8 +335,12 @@ test("focusing a dead session shows the dead surface, never the terminal region,
     // itself (rather than a fixed sleep) is exact regardless of the poll's real interval.
     await expect
       .poll(
-        async () => (await page.request.get(`${daemon.baseURL}/api/sessions/${session.id}/pane`)).status(),
-        { message: "waiting for the first pane snapshot to be captured while the pane is alive", timeout: 15_000 },
+        async () =>
+          (await page.request.get(`${daemon.baseURL}/api/sessions/${session.id}/pane`)).status(),
+        {
+          message: "waiting for the first pane snapshot to be captured while the pane is alive",
+          timeout: 15_000,
+        },
       )
       .toBe(200);
 
@@ -512,7 +528,10 @@ test("clicking a card's pin button pins the session, leaves the live pane unchan
     // role/name locator already proves that), so the state flip is asserted the same way
     // rail-order.spec.ts does: `aria-pressed` plus the accessible-name change surfaced via
     // `getByRole`'s name filter finding the button at all.
-    await expect(cardB.getByRole("button", { name: "Unpin" })).toHaveAttribute("aria-pressed", "true");
+    await expect(cardB.getByRole("button", { name: "Unpin" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     await expect(page.locator("#mainhead .name")).toHaveText("focus-e4-a");
     expect(await activeElementInsideAnyTerminal(page)).toBe(false);
   } finally {
@@ -555,7 +574,10 @@ test("clicking Resume or Remove on an ended card never selects the session or mo
   try {
     await page.goto(daemon.dashboardUrl);
     await launchSession(page, daemon, { directory: dirA.path, title: "focus-inv3-dead-a" });
-    const sessionB = await launchSession(page, daemon, { directory: dirB.path, title: "focus-inv3-dead-b" });
+    const sessionB = await launchSession(page, daemon, {
+      directory: dirB.path,
+      title: "focus-inv3-dead-b",
+    });
     await expect(terminalRegion(page, "focus-inv3-dead-a")).toBeVisible();
 
     // Give B a claudeSessionId (via a real SessionStart) so its Resume button is enabled
@@ -600,7 +622,10 @@ test("clicking an ended session's card shows the dead surface and leaves keyboar
   try {
     await page.goto(daemon.dashboardUrl);
     await launchSession(page, daemon, { directory: dirA.path, title: "focus-e5-a" });
-    const sessionB = await launchSession(page, daemon, { directory: dirB.path, title: "focus-e5-b" });
+    const sessionB = await launchSession(page, daemon, {
+      directory: dirB.path,
+      title: "focus-e5-b",
+    });
     await expect(terminalRegion(page, "focus-e5-a")).toBeVisible();
 
     await request.post(daemon.ingestURL("hook"), {
@@ -634,9 +659,18 @@ test("dragging a rail card onto another in manual mode reorders the rail without
   const dirs = await Promise.all([scratchDirectory(), scratchDirectory(), scratchDirectory()]);
   try {
     await page.goto(daemon.dashboardUrl);
-    const a = await launchSession(page, daemon, { directory: dirs[0]?.path ?? "", title: "focus-e6-a" });
-    const b = await launchSession(page, daemon, { directory: dirs[1]?.path ?? "", title: "focus-e6-b" });
-    const c = await launchSession(page, daemon, { directory: dirs[2]?.path ?? "", title: "focus-e6-c" });
+    const a = await launchSession(page, daemon, {
+      directory: dirs[0]?.path ?? "",
+      title: "focus-e6-a",
+    });
+    const b = await launchSession(page, daemon, {
+      directory: dirs[1]?.path ?? "",
+      title: "focus-e6-b",
+    });
+    const c = await launchSession(page, daemon, {
+      directory: dirs[2]?.path ?? "",
+      title: "focus-e6-c",
+    });
     await expect.poll(() => railOrderIds(page)).toEqual([a.id, b.id, c.id]);
     await expect(railSortSelect(page)).toHaveValue("manual");
 
@@ -665,9 +699,18 @@ test("dragging a rail card leaves focus untouched whether it started on an uninv
   const dirs = await Promise.all([scratchDirectory(), scratchDirectory(), scratchDirectory()]);
   try {
     await page.goto(daemon.dashboardUrl);
-    const a = await launchSession(page, daemon, { directory: dirs[0]?.path ?? "", title: "focus-inv4-a" });
-    const b = await launchSession(page, daemon, { directory: dirs[1]?.path ?? "", title: "focus-inv4-b" });
-    const c = await launchSession(page, daemon, { directory: dirs[2]?.path ?? "", title: "focus-inv4-c" });
+    const a = await launchSession(page, daemon, {
+      directory: dirs[0]?.path ?? "",
+      title: "focus-inv4-a",
+    });
+    const b = await launchSession(page, daemon, {
+      directory: dirs[1]?.path ?? "",
+      title: "focus-inv4-b",
+    });
+    const c = await launchSession(page, daemon, {
+      directory: dirs[2]?.path ?? "",
+      title: "focus-inv4-c",
+    });
     await expect.poll(() => railOrderIds(page)).toEqual([a.id, b.id, c.id]);
 
     // (ii) focus starts on a card not involved in the drag.
@@ -752,8 +795,8 @@ test("a 1s render tick never moves focus into a terminal when it starts outside 
     expect(await activeElementInsideTerminal(page, "focus-e8-solo")).toBe(true);
     const stillSameNode = await page.evaluate(
       () =>
-        (document.activeElement as (HTMLElement & { dataset: DOMStringMap }) | null)?.dataset.e2eFocusMarker ===
-        "terminal-focus-e8",
+        (document.activeElement as (HTMLElement & { dataset: DOMStringMap }) | null)?.dataset
+          .e2eFocusMarker === "terminal-focus-e8",
     );
     expect(stillSameNode).toBe(true);
   } finally {
@@ -769,7 +812,10 @@ test("a sessionUpsert for the focused session doesn't move keyboard focus into i
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon.dashboardUrl);
-    const session = await launchSession(page, daemon, { directory: dir, title: "focus-inv1b-solo" });
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "focus-inv1b-solo",
+    });
     await expect(terminalRegion(page, "focus-inv1b-solo")).toBeVisible();
 
     const initialBadge = await stateBadge(railCard(page, "focus-inv1b-solo")).textContent();
@@ -784,9 +830,13 @@ test("a sessionUpsert for the focused session doesn't move keyboard focus into i
     await request.post(daemon.ingestURL("hook"), {
       data: envelopedSessionStart("claude-inv1b-solo", { musterSession: session.id }),
     });
-    await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit("claude-inv1b-solo") });
+    await request.post(daemon.ingestURL("hook"), {
+      data: rawUserPromptSubmit("claude-inv1b-solo"),
+    });
 
-    await expect.poll(() => stateBadge(railCard(page, "focus-inv1b-solo")).textContent()).not.toBe(initialBadge);
+    await expect
+      .poll(() => stateBadge(railCard(page, "focus-inv1b-solo")).textContent())
+      .not.toBe(initialBadge);
 
     // The render pass this state change caused must not have moved focus.
     await expect(railSortSelect(page)).toBeFocused();
@@ -804,9 +854,18 @@ test("a rail reorder from a state change in attention mode doesn't move keyboard
   const dirs = await Promise.all([scratchDirectory(), scratchDirectory(), scratchDirectory()]);
   try {
     await page.goto(daemon.dashboardUrl);
-    const a = await launchSession(page, daemon, { directory: dirs[0]?.path ?? "", title: "focus-inv1c-a" });
-    const b = await launchSession(page, daemon, { directory: dirs[1]?.path ?? "", title: "focus-inv1c-b" });
-    const c = await launchSession(page, daemon, { directory: dirs[2]?.path ?? "", title: "focus-inv1c-c" });
+    const a = await launchSession(page, daemon, {
+      directory: dirs[0]?.path ?? "",
+      title: "focus-inv1c-a",
+    });
+    const b = await launchSession(page, daemon, {
+      directory: dirs[1]?.path ?? "",
+      title: "focus-inv1c-b",
+    });
+    const c = await launchSession(page, daemon, {
+      directory: dirs[2]?.path ?? "",
+      title: "focus-inv1c-c",
+    });
     await expect(terminalRegion(page, "focus-inv1c-a")).toBeVisible();
 
     await page.locator("#rail-sort").selectOption("attention");

@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { vi } from "vitest";
 import type { Session } from "../protocol";
-import { reconcileCards, renderFocusMain, renderSessions, renderSizenote, type FocusMainElements } from "./sessions";
+import {
+  reconcileCards,
+  renderFocusMain,
+  renderSessions,
+  renderSizenote,
+  type FocusMainElements,
+} from "./sessions";
 
 function fakeElement(): HTMLElement {
   return { textContent: "", hidden: false } as unknown as HTMLElement;
@@ -90,12 +96,18 @@ class FakeTextNode {
 
 type FakeChild = FakeDomNode | FakeTextNode;
 
-function parseSimpleSelector(selector: string): { tag: string | null; classes: string[]; attrs: Array<{ key: string; value: string }> } {
+function parseSimpleSelector(selector: string): {
+  tag: string | null;
+  classes: string[];
+  attrs: Array<{ key: string; value: string }>;
+} {
   const tagMatch = /^[a-zA-Z0-9-]+/.exec(selector);
   const tag = tagMatch ? tagMatch[0] : null;
   const classes = Array.from(selector.matchAll(/\.([a-zA-Z0-9_-]+)/g)).map((m) => m[1] as string);
   const attrs = Array.from(selector.matchAll(/\[([a-zA-Z0-9-]+)(?:="([^"]*)")?\]/g)).map((m) => ({
-    key: (m[1] as string).replace(/^data-/, "").replace(/-([a-z])/g, (_, c: string) => c.toUpperCase()),
+    key: (m[1] as string)
+      .replace(/^data-/, "")
+      .replace(/-([a-z])/g, (_, c: string) => c.toUpperCase()),
     value: (m[2] as string) ?? "",
   }));
   return { tag, classes, attrs };
@@ -149,7 +161,9 @@ class FakeDomNode {
   }
 
   get textContent(): string {
-    return this.nodeChildren.length > 0 ? this.nodeChildren.map((c) => (c instanceof FakeDomNode ? c.textContent : "")).join("") : this.ownText;
+    return this.nodeChildren.length > 0
+      ? this.nodeChildren.map((c) => (c instanceof FakeDomNode ? c.textContent : "")).join("")
+      : this.ownText;
   }
 
   set textContent(value: string) {
@@ -187,7 +201,8 @@ class FakeDomNode {
     // capture/restore tests below exercise the restore branch for real (cycle-4 Minor 1
     // found two of them vacuous: with no blur on detach, the branch never ran and a
     // no-op `focus()` still passed).
-    const doc = (globalThis as unknown as { document: { activeElement: FakeDomNode | null } }).document;
+    const doc = (globalThis as unknown as { document: { activeElement: FakeDomNode | null } })
+      .document;
     if (doc.activeElement && (doc.activeElement === this || this.contains(doc.activeElement))) {
       doc.activeElement = null;
     }
@@ -263,7 +278,9 @@ class FakeDomNode {
   }
 
   focus(): void {
-    (globalThis as unknown as { document: { activeElement: FakeDomNode | null } }).document.activeElement = this;
+    (
+      globalThis as unknown as { document: { activeElement: FakeDomNode | null } }
+    ).document.activeElement = this;
   }
 
   clone(deep: boolean): FakeDomNode {
@@ -378,7 +395,10 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
 }
 
 describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
-  let fakeDocument: { activeElement: FakeDomNode | null; createElement: (tag: string) => FakeDomNode };
+  let fakeDocument: {
+    activeElement: FakeDomNode | null;
+    createElement: (tag: string) => FakeDomNode;
+  };
 
   beforeEach(() => {
     fakeDocument = { activeElement: null, createElement: (tag: string) => new FakeDomNode(tag) };
@@ -398,18 +418,46 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
   it("builds one card per session, in the given order, on first reconcile (insert case)", () => {
     const el = container();
     const sessions = [makeSession({ id: 1 }), makeSession({ id: 2 }), makeSession({ id: 3 })];
-    reconcileCards(el as unknown as HTMLElement, sessions, NOW, fakeTemplate(), undefined, undefined, true);
+    reconcileCards(
+      el as unknown as HTMLElement,
+      sessions,
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+    );
 
     expect(el.children.map((c) => c.dataset["sessionId"])).toEqual(["1", "2", "3"]);
-    expect(el.children.map((c) => c.querySelector(".name")?.textContent)).toEqual(["session-1", "session-2", "session-3"]);
+    expect(el.children.map((c) => c.querySelector(".name")?.textContent)).toEqual([
+      "session-1",
+      "session-2",
+      "session-3",
+    ]);
   });
 
   it("reuses the same DOM node for a session that survives a reconcile, only updating its content (update-in-place, not rebuild)", () => {
     const el = container();
-    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1, title: "first" })], NOW, fakeTemplate(), undefined, undefined, true);
+    reconcileCards(
+      el as unknown as HTMLElement,
+      [makeSession({ id: 1, title: "first" })],
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+    );
     const before = el.children[0];
 
-    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1, title: "second" })], NOW, fakeTemplate(), undefined, undefined, true);
+    reconcileCards(
+      el as unknown as HTMLElement,
+      [makeSession({ id: 1, title: "second" })],
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+    );
     const after = el.children[0];
 
     expect(after).toBe(before);
@@ -459,7 +507,15 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
     const survivor1 = el.children[0];
     const survivor3 = el.children[2];
 
-    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1 }), makeSession({ id: 3 })], NOW, fakeTemplate(), undefined, undefined, true);
+    reconcileCards(
+      el as unknown as HTMLElement,
+      [makeSession({ id: 1 }), makeSession({ id: 3 })],
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+    );
 
     expect(el.children.map((c) => c.dataset["sessionId"])).toEqual(["1", "3"]);
     expect(el.children[0]).toBe(survivor1);
@@ -469,7 +525,15 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
   it("drops a stray non-element child (the honest-empty-state's text node) before reconciling", () => {
     const el = container();
     el.appendChild(new FakeTextNode());
-    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1 })], NOW, fakeTemplate(), undefined, undefined, true);
+    reconcileCards(
+      el as unknown as HTMLElement,
+      [makeSession({ id: 1 })],
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+    );
 
     expect(el.childNodes).toHaveLength(1);
     expect(el.children).toHaveLength(1);
@@ -483,7 +547,15 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
   describe("focus capture/restore across a reorder (Fix Attempt 3)", () => {
     it("shim contract: detaching a node that contains the focused element blurs it (the Chrome behaviour under test)", () => {
       const el = container();
-      reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1 }), makeSession({ id: 2 })], NOW, fakeTemplate(), undefined, undefined, true);
+      reconcileCards(
+        el as unknown as HTMLElement,
+        [makeSession({ id: 1 }), makeSession({ id: 2 })],
+        NOW,
+        fakeTemplate(),
+        undefined,
+        undefined,
+        true,
+      );
       const endBtn = el.children[1]?.querySelector('[data-action="end"]');
       endBtn?.focus();
       expect(fakeDocument.activeElement).toBe(endBtn);
@@ -494,12 +566,28 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
 
     it("the restore branch does the work: with focus() stubbed to a no-op, a reorder leaves focus lost", () => {
       const el = container();
-      reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1 }), makeSession({ id: 2 })], NOW, fakeTemplate(), undefined, undefined, true);
+      reconcileCards(
+        el as unknown as HTMLElement,
+        [makeSession({ id: 1 }), makeSession({ id: 2 })],
+        NOW,
+        fakeTemplate(),
+        undefined,
+        undefined,
+        true,
+      );
       const endBtn = el.children[1]?.querySelector('[data-action="end"]') as FakeDomNode;
       endBtn.focus();
       const realFocus = endBtn.focus.bind(endBtn);
       endBtn.focus = () => {};
-      reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 2 }), makeSession({ id: 1 })], NOW, fakeTemplate(), undefined, undefined, true);
+      reconcileCards(
+        el as unknown as HTMLElement,
+        [makeSession({ id: 2 }), makeSession({ id: 1 })],
+        NOW,
+        fakeTemplate(),
+        undefined,
+        undefined,
+        true,
+      );
       expect(fakeDocument.activeElement).toBeNull();
       endBtn.focus = realFocus;
     });
@@ -508,7 +596,10 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
       const el = container();
       reconcileCards(
         el as unknown as HTMLElement,
-        [makeSession({ id: 1, alive: false, endedAt: "2026-08-27T00:00:00Z" }), makeSession({ id: 2 })],
+        [
+          makeSession({ id: 1, alive: false, endedAt: "2026-08-27T00:00:00Z" }),
+          makeSession({ id: 2 }),
+        ],
         NOW,
         fakeTemplate(),
         undefined,
@@ -523,7 +614,10 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
       // Session 2 moves ahead of session 1 — a real reorder, not just a content update.
       reconcileCards(
         el as unknown as HTMLElement,
-        [makeSession({ id: 2 }), makeSession({ id: 1, alive: false, endedAt: "2026-08-27T00:00:00Z" })],
+        [
+          makeSession({ id: 2 }),
+          makeSession({ id: 1, alive: false, endedAt: "2026-08-27T00:00:00Z" }),
+        ],
         NOW,
         fakeTemplate(),
         undefined,
@@ -631,7 +725,10 @@ describe("reconcileCards — pin button attributes (plan order-sidebar REQ-8/REQ
   beforeEach(() => {
     vi.stubGlobal("HTMLElement", FakeDomNode);
     vi.stubGlobal("HTMLButtonElement", FakeDomNode);
-    vi.stubGlobal("document", { activeElement: null, createElement: (tag: string) => new FakeDomNode(tag) });
+    vi.stubGlobal("document", {
+      activeElement: null,
+      createElement: (tag: string) => new FakeDomNode(tag),
+    });
   });
 
   afterEach(() => {
@@ -644,7 +741,15 @@ describe("reconcileCards — pin button attributes (plan order-sidebar REQ-8/REQ
 
   it("sets aria-label 'Pin', aria-pressed 'false' and title 'Pin to top' on an unpinned card's first build", () => {
     const el = container();
-    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1, pinned: false })], NOW, fakeTemplate(), undefined, undefined, true);
+    reconcileCards(
+      el as unknown as HTMLElement,
+      [makeSession({ id: 1, pinned: false })],
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+    );
     const pin = el.children[0]?.querySelector(".pin");
     expect(pin?.getAttribute("aria-label")).toBe("Pin");
     expect(pin?.getAttribute("aria-pressed")).toBe("false");
@@ -653,7 +758,15 @@ describe("reconcileCards — pin button attributes (plan order-sidebar REQ-8/REQ
 
   it("sets aria-label 'Unpin', aria-pressed 'true' and title 'Unpin' on a pinned card's first build", () => {
     const el = container();
-    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1, pinned: true })], NOW, fakeTemplate(), undefined, undefined, true);
+    reconcileCards(
+      el as unknown as HTMLElement,
+      [makeSession({ id: 1, pinned: true })],
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+    );
     const pin = el.children[0]?.querySelector(".pin");
     expect(pin?.getAttribute("aria-label")).toBe("Unpin");
     expect(pin?.getAttribute("aria-pressed")).toBe("true");
@@ -662,10 +775,26 @@ describe("reconcileCards — pin button attributes (plan order-sidebar REQ-8/REQ
 
   it("updates the pin button's attributes in place (same node) when pinned flips false -> true on an existing card", () => {
     const el = container();
-    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1, pinned: false })], NOW, fakeTemplate(), undefined, undefined, true);
+    reconcileCards(
+      el as unknown as HTMLElement,
+      [makeSession({ id: 1, pinned: false })],
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+    );
     const pinBefore = el.children[0]?.querySelector(".pin");
 
-    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1, pinned: true })], NOW, fakeTemplate(), undefined, undefined, true);
+    reconcileCards(
+      el as unknown as HTMLElement,
+      [makeSession({ id: 1, pinned: true })],
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+    );
     const pinAfter = el.children[0]?.querySelector(".pin");
 
     expect(pinAfter).toBe(pinBefore);
@@ -676,8 +805,24 @@ describe("reconcileCards — pin button attributes (plan order-sidebar REQ-8/REQ
 
   it("updates the pin button's attributes in place when pinned flips true -> false on an existing card", () => {
     const el = container();
-    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1, pinned: true })], NOW, fakeTemplate(), undefined, undefined, true);
-    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1, pinned: false })], NOW, fakeTemplate(), undefined, undefined, true);
+    reconcileCards(
+      el as unknown as HTMLElement,
+      [makeSession({ id: 1, pinned: true })],
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+    );
+    reconcileCards(
+      el as unknown as HTMLElement,
+      [makeSession({ id: 1, pinned: false })],
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+    );
     const pin = el.children[0]?.querySelector(".pin");
     expect(pin?.getAttribute("aria-label")).toBe("Pin");
     expect(pin?.getAttribute("aria-pressed")).toBe("false");
@@ -686,7 +831,15 @@ describe("reconcileCards — pin button attributes (plan order-sidebar REQ-8/REQ
 
   it("carries the pin button's data-action/data-id for the focus-capture contract, same convention as an .acts-row button", () => {
     const el = container();
-    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 7, pinned: false })], NOW, fakeTemplate(), undefined, undefined, true);
+    reconcileCards(
+      el as unknown as HTMLElement,
+      [makeSession({ id: 7, pinned: false })],
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+    );
     const pin = el.children[0]?.querySelector(".pin");
     expect(pin?.dataset["action"]).toBe("pin");
     expect(pin?.dataset["id"]).toBe("7");
@@ -697,7 +850,10 @@ describe("reconcileCards — pinned block visual: `pinned`/`pinned-last` classes
   beforeEach(() => {
     vi.stubGlobal("HTMLElement", FakeDomNode);
     vi.stubGlobal("HTMLButtonElement", FakeDomNode);
-    vi.stubGlobal("document", { activeElement: null, createElement: (tag: string) => new FakeDomNode(tag) });
+    vi.stubGlobal("document", {
+      activeElement: null,
+      createElement: (tag: string) => new FakeDomNode(tag),
+    });
   });
 
   afterEach(() => {
@@ -714,7 +870,11 @@ describe("reconcileCards — pinned block visual: `pinned`/`pinned-last` classes
     // reconciler has no notion of sort mode, only display order + each session's own flag.
     reconcileCards(
       el as unknown as HTMLElement,
-      [makeSession({ id: 1, pinned: true }), makeSession({ id: 2, pinned: true }), makeSession({ id: 3, pinned: false })],
+      [
+        makeSession({ id: 1, pinned: true }),
+        makeSession({ id: 2, pinned: true }),
+        makeSession({ id: 3, pinned: false }),
+      ],
       NOW,
       fakeTemplate(),
       undefined,
@@ -730,7 +890,11 @@ describe("reconcileCards — pinned block visual: `pinned`/`pinned-last` classes
     const el = container();
     reconcileCards(
       el as unknown as HTMLElement,
-      [makeSession({ id: 1, pinned: true }), makeSession({ id: 2, pinned: true }), makeSession({ id: 3, pinned: false })],
+      [
+        makeSession({ id: 1, pinned: true }),
+        makeSession({ id: 2, pinned: true }),
+        makeSession({ id: 3, pinned: false }),
+      ],
       NOW,
       fakeTemplate(),
       undefined,
@@ -762,7 +926,11 @@ describe("reconcileCards — pinned block visual: `pinned`/`pinned-last` classes
     const el = container();
     reconcileCards(
       el as unknown as HTMLElement,
-      [makeSession({ id: 1, pinned: true }), makeSession({ id: 2, pinned: true }), makeSession({ id: 3, pinned: false })],
+      [
+        makeSession({ id: 1, pinned: true }),
+        makeSession({ id: 2, pinned: true }),
+        makeSession({ id: 3, pinned: false }),
+      ],
       NOW,
       fakeTemplate(),
       undefined,
@@ -773,7 +941,11 @@ describe("reconcileCards — pinned block visual: `pinned`/`pinned-last` classes
     // (pinned block first) — id 1 is now the sole pinned session.
     reconcileCards(
       el as unknown as HTMLElement,
-      [makeSession({ id: 1, pinned: true }), makeSession({ id: 2, pinned: false }), makeSession({ id: 3, pinned: false })],
+      [
+        makeSession({ id: 1, pinned: true }),
+        makeSession({ id: 2, pinned: false }),
+        makeSession({ id: 3, pinned: false }),
+      ],
       NOW,
       fakeTemplate(),
       undefined,
@@ -794,7 +966,10 @@ describe("reconcileCards — INV-3 marker: aria-current follows currentId (W6)",
   beforeEach(() => {
     vi.stubGlobal("HTMLElement", FakeDomNode);
     vi.stubGlobal("HTMLButtonElement", FakeDomNode);
-    vi.stubGlobal("document", { activeElement: null, createElement: (tag: string) => new FakeDomNode(tag) });
+    vi.stubGlobal("document", {
+      activeElement: null,
+      createElement: (tag: string) => new FakeDomNode(tag),
+    });
   });
 
   afterEach(() => {
@@ -805,10 +980,21 @@ describe("reconcileCards — INV-3 marker: aria-current follows currentId (W6)",
     return new FakeDomNode("div");
   }
 
-  it("with three sessions, only the currentId card has aria-current=\"true\"; the other two carry no such attribute at all", () => {
+  it('with three sessions, only the currentId card has aria-current="true"; the other two carry no such attribute at all', () => {
     const el = container();
     const sessions = [makeSession({ id: 1 }), makeSession({ id: 2 }), makeSession({ id: 3 })];
-    reconcileCards(el as unknown as HTMLElement, sessions, NOW, fakeTemplate(), undefined, undefined, true, false, undefined, 2);
+    reconcileCards(
+      el as unknown as HTMLElement,
+      sessions,
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+      false,
+      undefined,
+      2,
+    );
 
     const [c1, c2, c3] = el.children;
     expect(c1?.hasAttribute("aria-current")).toBe(false);
@@ -822,7 +1008,18 @@ describe("reconcileCards — INV-3 marker: aria-current follows currentId (W6)",
   it("with currentId: null, no card carries aria-current", () => {
     const el = container();
     const sessions = [makeSession({ id: 1 }), makeSession({ id: 2 })];
-    reconcileCards(el as unknown as HTMLElement, sessions, NOW, fakeTemplate(), undefined, undefined, true, false, undefined, null);
+    reconcileCards(
+      el as unknown as HTMLElement,
+      sessions,
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+      false,
+      undefined,
+      null,
+    );
 
     for (const card of el.children) {
       expect(card.hasAttribute("aria-current")).toBe(false);
@@ -833,11 +1030,33 @@ describe("reconcileCards — INV-3 marker: aria-current follows currentId (W6)",
   it("moves the marker to the new currentId on a later reconcile, removing it from the previous card (same nodes, updated in place)", () => {
     const el = container();
     const sessions = [makeSession({ id: 1 }), makeSession({ id: 2 })];
-    reconcileCards(el as unknown as HTMLElement, sessions, NOW, fakeTemplate(), undefined, undefined, true, false, undefined, 1);
+    reconcileCards(
+      el as unknown as HTMLElement,
+      sessions,
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+      false,
+      undefined,
+      1,
+    );
     expect(el.children[0]?.getAttribute("aria-current")).toBe("true");
     expect(el.children[1]?.hasAttribute("aria-current")).toBe(false);
 
-    reconcileCards(el as unknown as HTMLElement, sessions, NOW, fakeTemplate(), undefined, undefined, true, false, undefined, 2);
+    reconcileCards(
+      el as unknown as HTMLElement,
+      sessions,
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+      false,
+      undefined,
+      2,
+    );
     expect(el.children[0]?.hasAttribute("aria-current")).toBe(false);
     expect(el.children[1]?.getAttribute("aria-current")).toBe("true");
   });
@@ -885,7 +1104,10 @@ describe("reconcileCards — draggable attribute (plan order-sidebar REQ-10/W15/
   beforeEach(() => {
     vi.stubGlobal("HTMLElement", FakeDomNode);
     vi.stubGlobal("HTMLButtonElement", FakeDomNode);
-    vi.stubGlobal("document", { activeElement: null, createElement: (tag: string) => new FakeDomNode(tag) });
+    vi.stubGlobal("document", {
+      activeElement: null,
+      createElement: (tag: string) => new FakeDomNode(tag),
+    });
   });
 
   afterEach(() => {
@@ -896,31 +1118,75 @@ describe("reconcileCards — draggable attribute (plan order-sidebar REQ-10/W15/
     return new FakeDomNode("div");
   }
 
-  it("defaults every card to draggable=\"false\" when the caller omits the parameter", () => {
+  it('defaults every card to draggable="false" when the caller omits the parameter', () => {
     const el = container();
-    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1 })], NOW, fakeTemplate(), undefined, undefined, true);
+    reconcileCards(
+      el as unknown as HTMLElement,
+      [makeSession({ id: 1 })],
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+    );
     expect(el.children[0]?.getAttribute("draggable")).toBe("false");
   });
 
-  it("sets draggable=\"true\" on every card when the caller passes draggable:true (manual-mode rail)", () => {
+  it('sets draggable="true" on every card when the caller passes draggable:true (manual-mode rail)', () => {
     const el = container();
-    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1 }), makeSession({ id: 2 })], NOW, fakeTemplate(), undefined, undefined, true, true);
+    reconcileCards(
+      el as unknown as HTMLElement,
+      [makeSession({ id: 1 }), makeSession({ id: 2 })],
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+      true,
+    );
     expect(el.children[0]?.getAttribute("draggable")).toBe("true");
     expect(el.children[1]?.getAttribute("draggable")).toBe("true");
   });
 
-  it("explicitly sets draggable=\"false\" (not just an absent attribute) when the caller passes draggable:false (attention-mode rail / strip)", () => {
+  it('explicitly sets draggable="false" (not just an absent attribute) when the caller passes draggable:false (attention-mode rail / strip)', () => {
     const el = container();
-    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1 })], NOW, fakeTemplate(), undefined, undefined, true, false);
+    reconcileCards(
+      el as unknown as HTMLElement,
+      [makeSession({ id: 1 })],
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+      false,
+    );
     expect(el.children[0]?.getAttribute("draggable")).toBe("false");
   });
 
   it("flips an existing card's draggable attribute in place when the caller's mode changes between renders", () => {
     const el = container();
-    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1 })], NOW, fakeTemplate(), undefined, undefined, true, true);
+    reconcileCards(
+      el as unknown as HTMLElement,
+      [makeSession({ id: 1 })],
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+      true,
+    );
     expect(el.children[0]?.getAttribute("draggable")).toBe("true");
 
-    reconcileCards(el as unknown as HTMLElement, [makeSession({ id: 1 })], NOW, fakeTemplate(), undefined, undefined, true, false);
+    reconcileCards(
+      el as unknown as HTMLElement,
+      [makeSession({ id: 1 })],
+      NOW,
+      fakeTemplate(),
+      undefined,
+      undefined,
+      true,
+      false,
+    );
     expect(el.children[0]?.getAttribute("draggable")).toBe("false");
   });
 });

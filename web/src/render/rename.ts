@@ -36,7 +36,10 @@ export interface RenameEditorController {
   dispose: () => void;
 }
 
-export function attachRenameEditor(container: HTMLElement, handlers: RenameEditorHandlers): RenameEditorController {
+export function attachRenameEditor(
+  container: HTMLElement,
+  handlers: RenameEditorHandlers,
+): RenameEditorController {
   // Re-typed to a definite `HTMLButtonElement` (not narrowed from the nullable
   // querySelector result) — a `const` narrowed only by an `if` guard does NOT stay
   // narrowed inside the nested closures below (TS doesn't carry control-flow narrowing

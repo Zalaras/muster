@@ -10,7 +10,14 @@ import "@xterm/xterm/css/xterm.css";
 import { locateDroppedFile } from "../api";
 import type { Session } from "../protocol";
 import { DRAG_MIME } from "../render/dragreorder";
-import { classifyApiFailure, classifyDrop, escapePath, locatingText, MAX_DROP_BYTES, noticeForFailure } from "./drop";
+import {
+  classifyApiFailure,
+  classifyDrop,
+  escapePath,
+  locatingText,
+  MAX_DROP_BYTES,
+  noticeForFailure,
+} from "./drop";
 import { showNotice as showNoticeOn } from "./notice";
 import { overlayForCloseCode, overlayText, type OverlayKind } from "./overlay";
 import type { SurfaceKind } from "./surfaceswitch";
@@ -78,7 +85,10 @@ export class TerminalSurface {
 
     this.root = document.createElement("div");
     this.root.className = "terminal-surface";
-    this.root.setAttribute("aria-label", `${kind === "shell" ? "Shell" : "Terminal"}: ${session.title ?? "untitled"}`);
+    this.root.setAttribute(
+      "aria-label",
+      `${kind === "shell" ? "Shell" : "Terminal"}: ${session.title ?? "untitled"}`,
+    );
 
     this.bodyEl = document.createElement("div");
     this.bodyEl.className = "terminal-body";

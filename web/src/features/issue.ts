@@ -114,7 +114,10 @@ export function initIssueDialog(elements: IssueDialogElements): IssueDialogContr
    * region owns the detail), "data" (the live composed preview). */
   function renderPreview(): void {
     if (capture) {
-      elements.previewEl.textContent = composePreview(elements.noteTextarea.value, capture.snapshotMarkdown);
+      elements.previewEl.textContent = composePreview(
+        elements.noteTextarea.value,
+        capture.snapshotMarkdown,
+      );
       elements.captureTimeEl.textContent = formatCaptureTime(capture.takenAt);
       return;
     }
@@ -130,7 +133,8 @@ export function initIssueDialog(elements: IssueDialogElements): IssueDialogContr
   /** REQ-6: empty title (after trim), no landed capture, or an in-flight capture/POST all
    * disable Submit. */
   function updateSubmitEnabled(): void {
-    elements.submitBtn.disabled = submitting || capture === null || elements.titleInput.value.trim() === "";
+    elements.submitBtn.disabled =
+      submitting || capture === null || elements.titleInput.value.trim() === "";
   }
 
   async function takeCapture(sessionId: number | null): Promise<void> {
@@ -169,7 +173,10 @@ export function initIssueDialog(elements: IssueDialogElements): IssueDialogContr
     });
 
     elements.sessionSelect.replaceChildren(dashboardOption, ...sessionOptions);
-    const preselect = focusedId !== null && sessions.some((s) => s.id === focusedId) ? String(focusedId) : DASHBOARD_SCOPE_VALUE;
+    const preselect =
+      focusedId !== null && sessions.some((s) => s.id === focusedId)
+        ? String(focusedId)
+        : DASHBOARD_SCOPE_VALUE;
     elements.sessionSelect.value = preselect;
   }
 
@@ -188,7 +195,11 @@ export function initIssueDialog(elements: IssueDialogElements): IssueDialogContr
     updateSubmitEnabled();
     clearError();
 
-    const result = await fileIssue({ captureId: activeCapture.captureId, title, note: elements.noteTextarea.value });
+    const result = await fileIssue({
+      captureId: activeCapture.captureId,
+      title,
+      note: elements.noteTextarea.value,
+    });
     submitting = false;
 
     if (!result.ok) {

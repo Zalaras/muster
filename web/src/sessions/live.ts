@@ -40,7 +40,11 @@ export function initialLive(sessions: readonly Session[], n: number): number[] {
  * other member keeps its index. No-op (identical array) if `id` is already live or isn't
  * a known session. The live set's size never changes and the result is never re-sorted.
  */
-export function promote(live: readonly number[], id: number, sessions: readonly Session[]): number[] {
+export function promote(
+  live: readonly number[],
+  id: number,
+  sessions: readonly Session[],
+): number[] {
   const order = sortedIds(sessions);
 
   if (live.includes(id) || !order.includes(id)) {
@@ -77,7 +81,11 @@ export function promote(live: readonly number[], id: number, sessions: readonly 
  * mechanism that lets a newly-launched session fill a free slot — calling this on every
  * session-list change is a no-op once already at capacity with only valid members.
  */
-export function applyDensity(live: readonly number[], n: number, sessions: readonly Session[]): number[] {
+export function applyDensity(
+  live: readonly number[],
+  n: number,
+  sessions: readonly Session[],
+): number[] {
   const order = sortedIds(sessions);
   const known = new Set(order);
   const byOrder = (a: number, b: number): number => order.indexOf(a) - order.indexOf(b);
@@ -121,4 +129,3 @@ export function moveTile(live: readonly number[], draggedId: number, targetId: n
   result.splice(targetIndex, 0, draggedId);
   return result;
 }
-

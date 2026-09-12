@@ -25,7 +25,8 @@ import { issueButton } from "./helpers/issue";
  * this file tracks the harness's own default if it ever changes. */
 function leadingVersion(v: string): string {
   const leading = /^(\d+\.\d+\.\d+)/.exec(v)?.[1];
-  if (leading === undefined) throw new Error(`leadingVersion(): unparseable version ${JSON.stringify(v)}`);
+  if (leading === undefined)
+    throw new Error(`leadingVersion(): unparseable version ${JSON.stringify(v)}`);
   return leading;
 }
 
@@ -61,7 +62,9 @@ test("default stub answers below the verified floor: readout reads claude 2.0.0 
   await waitForHello(page);
 
   const readout = claudeVersionReadout(page);
-  await expect(readout).toHaveText(new RegExp(`^claude ${DEFAULT_STUB_INSTALLED.replace(/\./g, "\\.")}(\\s|$)`));
+  await expect(readout).toHaveText(
+    new RegExp(`^claude ${DEFAULT_STUB_INSTALLED.replace(/\./g, "\\.")}(\\s|$)`),
+  );
 
   const glyph = readout.getByRole("img", {
     name: "This Claude Code version has not been tested with Muster — please update Claude Code",
@@ -98,11 +101,18 @@ test("stub answering one patch above the verified ceiling: the not-tested glyph 
   await waitForHello(page);
 
   const readout = claudeVersionReadout(page);
-  await expect(readout).toHaveText(new RegExp(`^claude ${aboveCeiling.replace(/\./g, "\\.")}(\\s|$)`));
+  await expect(readout).toHaveText(
+    new RegExp(`^claude ${aboveCeiling.replace(/\./g, "\\.")}(\\s|$)`),
+  );
 
-  const glyph = readout.getByRole("img", { name: "This Claude Code version has not been tested with Muster" });
+  const glyph = readout.getByRole("img", {
+    name: "This Claude Code version has not been tested with Muster",
+  });
   await expect(glyph).toBeVisible();
-  await expect(glyph).toHaveAttribute("title", "This Claude Code version has not been tested with Muster");
+  await expect(glyph).toHaveAttribute(
+    "title",
+    "This Claude Code version has not been tested with Muster",
+  );
   const glyphName = (await glyph.getAttribute("aria-label")) ?? "";
   expect(glyphName).not.toContain("update");
 });
@@ -160,5 +170,7 @@ test("the readout holds no button or link, and clicking the glyph leaves it visi
   await expect(glyph).toBeVisible();
   await glyph.click();
   await expect(glyph).toBeVisible();
-  await expect(readout).toHaveText(new RegExp(`^claude ${DEFAULT_STUB_INSTALLED.replace(/\./g, "\\.")}(\\s|$)`));
+  await expect(readout).toHaveText(
+    new RegExp(`^claude ${DEFAULT_STUB_INSTALLED.replace(/\./g, "\\.")}(\\s|$)`),
+  );
 });
