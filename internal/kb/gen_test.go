@@ -140,8 +140,9 @@ func TestOutputs_RendersOnlyCLAUDEmdFilesThatCarryAKBFragment(t *testing.T) {
 	assert.Contains(t, outs["CLAUDE.md"], "| sessions | Session list, pinning and ordering. | `docs/features/sessions/INDEX.md` |")
 	sess := outs["internal/sess/CLAUDE.md"]
 	assert.Contains(t, sess, "- **sessions** — Session list, pinning and ordering. → `docs/features/sessions/INDEX.md`")
-	assert.Contains(t, sess, "- `kb:fact/statusline-cadence` —")
-	assert.NotContains(t, sess, "kb:lesson/resize-twice", "a record with no files entry touching the dir is not listed")
+	assert.Regexp(t, "- [0-9]+ records name files in this directory: `go run ./tools/kb for <path>` lists them for one file\\.", sess)
+	assert.NotContains(t, sess, "- `kb:fact/statusline-cadence` —", "records are counted, not listed — the rules files already carry them")
+	assert.NotContains(t, sess, "kb:lesson/resize-twice")
 	assert.Regexp(t, `<!-- kb:trailer -->\n<!-- kb:hash [0-9a-f]{16} -->\n- `, sess)
 }
 

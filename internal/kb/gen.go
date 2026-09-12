@@ -302,21 +302,22 @@ func claudeFragments(ix *Index, dir string) map[string]string {
 			}
 		}
 	}
-	var rs []*Record
+	// Records are counted, not listed: the feature rules files above already deliver
+	// them when a matching file is opened, and a nested CLAUDE.md loads on top of those.
+	n := 0
 	for _, r := range ix.Records {
 		if !r.Live() {
 			continue
 		}
 		for _, g := range r.Files {
 			if globTouchesDir(ix, dir, g) {
-				rs = append(rs, r)
+				n++
 				break
 			}
 		}
 	}
-	sortRecords(rs)
-	for _, r := range rs {
-		lines = append(lines, row(ix, r))
+	if n > 0 {
+		lines = append(lines, fmt.Sprintf("- %d records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.", n))
 	}
 	trailer := "_No feature or record covers this directory yet._"
 	if len(lines) > 0 {
