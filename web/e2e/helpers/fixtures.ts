@@ -56,6 +56,10 @@ export const test = base.extend<DaemonFixtures>({
     await daemon.teardown();
   },
 
+  // Playwright reads the destructuring pattern to infer a fixture's dependencies, so a
+  // fixture that depends on none must still destructure: `async (_, use)` would change
+  // what Playwright infers, not just the spelling.
+  // biome-ignore lint/correctness/noEmptyPattern: Playwright infers fixture deps from this pattern
   startDaemon: async ({}, use) => {
     const started: ScratchDaemon[] = [];
     await use(async (opts: ScratchDaemonOptions = {}) => {

@@ -137,19 +137,19 @@ class FakeSocket implements SocketLike {
   }
 
   emitOpen(): void {
-    this.listeners.open.forEach((l) => l());
+    for (const l of this.listeners.open) l();
   }
 
   emitMessage(data: unknown): void {
-    this.listeners.message.forEach((l) => l({ data } as MessageEvent));
+    for (const l of this.listeners.message) l({ data } as MessageEvent);
   }
 
   emitClose(): void {
-    this.listeners.close.forEach((l) => l());
+    for (const l of this.listeners.close) l();
   }
 
   emitError(): void {
-    this.listeners.error.forEach((l) => l());
+    for (const l of this.listeners.error) l();
   }
 }
 

@@ -679,7 +679,7 @@ class FakeDomNodeRich {
   }
 
   dispatch(type: string): void {
-    (this.listeners.get(type) ?? []).forEach((l) => l());
+    for (const l of this.listeners.get(type) ?? []) l();
   }
 
   appendChild(child: FakeDomNodeRich): FakeDomNodeRich {

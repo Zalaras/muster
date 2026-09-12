@@ -37,8 +37,7 @@ const ruleRe = /([^{}]+)\{([^{}]*)\}/g;
 const themes = { instrument: {}, dark: {}, light: {} };
 const rootBlockSpans = [];
 
-let match;
-while ((match = ruleRe.exec(css)) !== null) {
+for (const match of css.matchAll(ruleRe)) {
   const selectorList = match[1];
   const body = match[2];
   const selectors = selectorList

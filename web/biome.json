@@ -6,11 +6,11 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": false,
-      "correctness": { "recommended": true },
-      "suspicious": { "recommended": true },
+      "preset": "none",
+      "correctness": { "preset": "recommended" },
+      "suspicious": { "preset": "recommended" },
       "complexity": {
-        "recommended": true,
+        "preset": "recommended",
         "useLiteralKeys": "off",
         "noExcessiveCognitiveComplexity": {
           "level": "error",
