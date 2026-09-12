@@ -53,8 +53,8 @@ pass a scratch `-data-dir` (that is exactly what the E2E harness does — prefer
 
 ## Stopping
 
-**Sessions survive daemon shutdown by policy** (`-on-exit`, default `ask` on a TTY — SPEC
-changelog 2026-08-27): the `muster` socket and every `claude` it launched outlive musterd
+**Sessions survive daemon shutdown by policy** (`-on-exit`, default `ask` on a TTY —
+`kb:adr/lifecycle-shutdown-leaves-sessions-running`): the `muster` socket and every `claude` it launched outlive musterd
 unless you choose otherwise at the prompt, and reconcile re-adopts them on the next start. A
 `claude` left running with nothing tracking it burns subscription, so after the daemon exits
 verify:

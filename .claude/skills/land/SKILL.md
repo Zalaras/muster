@@ -45,6 +45,10 @@ Check all of these before touching anything. If any fails, stop and say exactly 
 
    Equal means merging would change nothing — already landed, so say "nothing to land" and stop.
    A squash of an empty range produces an empty commit, the worst outcome available here.
+6. For each name in the plan's `**Features**`, `go run ./tools/kb ls --feature <f> --status
+   proposed` lists no record with `refs: plan:<plan>`, and `make check-kb` exits 0 on the
+   branch. A `proposed` ADR here means orchestrate's Completion 2e was skipped — send it back
+   rather than flipping it yourself; this command edits nothing.
 
 A plan that never went through `/orchestrate` (no state file, no review) is not landable by this
 command. Say so and let the user commit it themselves.
@@ -83,8 +87,8 @@ type(scope): imperative summary (closes #N, closes #M)
 
 Read `closes_issues` from `plans/<plan>/orchestration-state.json` — orchestrate writes it at
 completion for every issue the plan **fully** resolves. If the key is absent (an older plan),
-fall back to grepping the items the plan ticked (now in `docs/history/todo-done.md`) for issue links, and ask the user to
-confirm rather than inferring silently.
+grep the plan's ticked items in `docs/history/todo-done.md` for issue links and ask the user to
+confirm.
 
 Append one reference per issue, lowercase: `... (closes #2, closes #4)`.
 

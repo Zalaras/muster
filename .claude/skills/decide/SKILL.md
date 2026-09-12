@@ -22,7 +22,7 @@ in the documents that own it. You do not argue and you do not decide — you bri
 
 **Never debated — stop and ask the user instead:** protocol-contract changes
 (`docs/protocol.md` / a plan's Protocol Contract), anything that widens or narrows plan scope,
-anything contradicting a decision already recorded in `SPEC.md` or an accepted or rejected ADR,
+anything contradicting an accepted or rejected ADR,
 anything that spends money (real `claude` runs), and anything the review marked as a hard-rule
 question. A debate settles *taste and trade-off*, not authority.
 
@@ -45,7 +45,7 @@ Create `plans/<plan>/decisions/<slug>/` (standalone: `plans/decisions/<slug>/`) 
 - plans/<plan>/mockups/… (if a rendered reference exists)
 - docs/design/design-system.md §…
 - docs/design/ux-flows.md §…
-- SPEC.md §…, kb:adr/… (relevant accepted and rejected ADRs)
+- the ADRs `kb pack --plan <plan> --role planner` lists for the features in play (accepted ones bind; `rejected` ones are why an option is already off the table)
 - <existing measurements: the reviewer's numbers, screenshots, E2E results>
 
 ## The issue, verbatim
@@ -113,9 +113,14 @@ Write `decision.md`:
 Then land it where it belongs — you are the only party allowed to edit these:
 
 - the plan: an *Amended* note inline on the affected REQ / UI row citing `decisions/<slug>`;
-- `docs/history/spec-changelog.md`: one entry naming both options and the outcome;
+- `docs/adr/<slug>.md`, the citable record: `status: proposed` with `refs: [plan:<plan>,
+  plans/<plan>/decisions/<slug>/decision.md]` inside a pipeline (orchestrate Completion 2e
+  accepts it), `accepted` standalone with the user present; `tags: [consensus]` or `[judged]`.
+  The debate artefacts stay in `decisions/<slug>/`; the ADR is what plans, comments and reviews
+  cite.
 - `docs/design/design-system.md` or `ux-flows.md` when the decision is a design rule;
 - `TODO.md` when the dissent names follow-up work.
+- `make gen-kb && make check-kb`, generated files in the same commit.
 
 Return the outcome to the caller (the orchestrator quotes it in the next fix-wave prompt).
 

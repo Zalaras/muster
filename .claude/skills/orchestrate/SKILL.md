@@ -20,7 +20,7 @@ If no plan name was provided, list available plans from the `plans/` directory a
 Before starting:
 
 1. Read `plans/<plan-name>/plan.md`
-2. Verify the plan status is "approved" (not "draft") and run `.claude/skills/orchestrate/scripts/plan-lint.sh <plan-name>`. A draft, or any `FAIL` line, goes back to `/plan-work` — spawn nobody.
+2. Verify the plan status is "approved" (not "draft") and run `.claude/skills/orchestrate/scripts/plan-lint.sh <plan-name>`. A draft, or any `FAIL` line, goes back to `/plan-work` — spawn nobody. Then `go run ./tools/kb pack --plan <plan-name> --role orchestrator` — the lessons earlier runs paid for; read them now, not after the stumble.
 3. Check the **Work Type** field to determine which agents to run:
    - `daemon` → skip web agents; run the E2E steps only if the plan defines `E*` acceptance criteria (a daemon-only change can still be E2E-observable through the dashboard)
    - `web` → skip daemon agents
@@ -45,7 +45,7 @@ Before starting:
      its own commit (kb:lesson/tree-not-clean-at-pipeline-start).
    - An **untracked** file outside the plan's directory that nothing references (a stray screenshot, a scratch note) does not block: leave it, tell every agent to leave it alone, never `git add` it, list it in the completion summary (kb:lesson/tree-not-clean-at-pipeline-start).
    - Every agent commits its own files at the end of its step (their definitions say how). You
-     commit **your** edits (state file, doc-upkeep, decisions) per `docs/conventions.md` §Commits as
+     commit **your** edits (state file, doc-upkeep, ADRs and the files `make gen-kb` regenerates) per `docs/conventions.md` §Commits as
      `docs(<plan-name>): <summary>` (`chore(...)` for the state file alone), never an agent's files
      for it. An agent finishing with uncommitted files is a Handoff defect — have it commit before
      its gate is read. Never push.
@@ -287,16 +287,17 @@ suite, then a delta-focused re-review — counting one review cycle
 **Review Retry Logic**: If the review verdict is `needs-changes`:
 
 1. Read `review.md` and bucket every tagged issue: `[daemon-impl]`, `[web-impl]`, `[daemon-tests]`, `[web-tests]`, `[e2e-specs]`.
-   - `[orchestrator]` issues are yours — never spawn an agent for them; handle them in Doc-Upkeep / Completion. A doc-only one may be fixed while a fix wave runs iff its file set (`docs/`, `TODO.md`, `SPEC.md`, `spikes/`) is disjoint from every file the wave's agents may write and each wave prompt says to leave those files alone (kb:lesson/orchestrator-work-spawned-as-agent).
+   - `[orchestrator]` issues are yours — never spawn an agent for them; handle them in Doc-Upkeep / Completion. A doc-only one may be fixed while a fix wave runs iff its file set (`docs/`, `TODO.md`, `SPEC.md`) is disjoint from every file the wave's agents may write and each wave prompt says to leave those files alone — and `make gen-kb` runs only between waves, because it rewrites `.claude/rules/*.md` and the trailer in `internal/<pkg>/CLAUDE.md`, files a wave-1 agent may hold (kb:lesson/orchestrator-work-spawned-as-agent).
    - **Every severity routes.** An agent with any tagged issue — Critical, Major or Minor — is spawned in its wave with all of them; Minors are never deferred to `TODO.md` (kb:lesson/finding-severity-misrouted). The cycle after a Minors-only wave is a cheap delta re-review (Step 6).
    - **Exception — plan-log and doc-label Minors:** a Minor whose whole fix is wording or a label inside `plans/<plan>/*.md`, `docs/` or `TODO.md` (no code, test or assertion) is yours to make while the wave runs, in your own `docs(<plan-name>)` commit, cited in the completion summary; the delta re-review verifies it (kb:lesson/orchestrator-work-spawned-as-agent).
    - `[note]` items are never routed; list them in the completion summary.
 1a. **Decision items first.**
-   - `[orchestrator:user-decision]` (protocol contract, scope, a recorded SPEC decision, money) →
+   - `[orchestrator:user-decision]` (protocol contract, scope, an accepted ADR, money) →
      straight to the user via `AskUserQuestion` with the reviewer's two options quoted verbatim, no
      debate. Record the outcome in `plans/<plan>/decisions/<slug>/decision.md` with `Reached by:
-     user decision`, land the protocol/plan/SPEC edits yourself (only you may edit the contract),
-     then quote the outcome in the fix-wave prompt.
+     user decision` **and** a `proposed` ADR (`tags: [user-decision]`, `refs: [plan:<plan>]`), land
+     the protocol/plan edits yourself (only you may edit the contract), then quote the outcome in
+     the fix-wave prompt.
    - `[orchestrator:decision]` → run the `decide` skill (`.claude/skills/decide/SKILL.md`) **before** any fix wave: two `debater` agents argue the options to each other, a fresh `judge` breaks a tie, `decisions/<slug>/decision.md` records it. Quote the outcome verbatim in the implementing agent's fix-wave prompt.
    - Max 2 debates per run. A third decision item, or any item on the skill's never-debated list, stops the pipeline and asks the user (kb:lesson/decision-made-inside-a-fix-wave).
 2. **Do not fan all five out at once — they are not independent.** Group the non-empty buckets into waves per `## Fix Wave Ordering` below, and run the waves strictly in order. Within a wave, spawn its agents in parallel (multiple Task calls in one message); between waves, wait for completion, stamp `finish <step>` for each agent that reported, and run the wave's gate.
@@ -369,8 +370,8 @@ Two concrete ways a flat fan-out goes wrong: an impl agent moves or renames a sy
   (above). A **non-protocol** requirement may be amended without stopping iff: the review
   demonstrates the defect **by measurement**, the amendment restores consistency with the plan's
   acceptance criteria or a decision the user already approved, and it is recorded in three places —
-  an *Amended* note inline on the requirement citing the review issue, a
-  `docs/history/spec-changelog.md` entry, and the completion summary. A scope change, or
+  an *Amended* note inline on the requirement citing the review issue, a `proposed` ADR for the
+  plan, and the completion summary. A scope change, or
   contradicting a user decision → stop and ask.
 - **Every wave-3 prompt says "rebuild first"** — the agent definitions carry the order (`make web-build build`) and why; the harness serves prebuilt binaries, so a stale embed silently tests the previous tree.
 - **`[e2e-specs]` always lands in wave 3**, even when its issue looks self-contained. A locator repaired against pre-fix markup is worthless, and its fix mode ends in a live run — which must happen against the post-fix tree.
@@ -505,9 +506,17 @@ whose file Affected Files gives no owner is yours, not an agent's (kb:lesson/pla
      design-token issue may span two plans). Only a fully-resolved issue is a close candidate; a
      partial one is named in the completion summary as deliberately *not* closing, with what
      remains.
-   - **`docs/history/spec-changelog.md`** — if the pipeline changed or settled a decision (a deviation recorded in an impl agent's `## Decisions`, a contract adjustment the user approved mid-run), add a changelog entry. Routine implementation of already-settled decisions needs no entry.
-   - **`docs/facts/`** (and `spikes/FINDINGS.md` if substantive) — if the work exposed a new **measured** wire-format fact about Claude Code, write or amend a fact record (`verified:` the version measured, `guard:` the test that pins it or `none`; a fact proved wrong gets its ceiling pinned and `status: retired`, and the new shape is a new record citing it). Only measured facts, never assumptions. Then `make gen-kb && make check-kb`.
-   - **`docs/protocol.md`** — must match what shipped. If plan-work merged the delta at approval and an approved mid-run adjustment changed it, reconcile the doc now.
+   - **`docs/adr/`** — every `deviation:` line in an implementation log's `## Decisions`, and every
+     `decisions/<slug>/decision.md` this run produced, has an ADR: write it (`status: proposed`,
+     `refs: [plan:<plan-name>, <the log or decision file>]`, one decision per record), append
+     `→ kb:adr/<slug>` to the log line, and name it in the completion summary. Routine
+     implementation of an accepted ADR needs nothing. A deviation that contradicts an *accepted*
+     ADR is not yours to record — it is an `[orchestrator:user-decision]` (Step 6 1a).
+   - **`docs/facts/`** — a new **measured** Claude Code fact (never an assumption) becomes a fact
+     record with `verified:` the version measured and `guard:` the test that pins it; a fact
+     proved wrong gets its ceiling pinned and a new record linked by `refs`, never a rewrite.
+   - **`docs/protocol.md`** — must match what shipped. If plan-work merged the delta at approval and an approved mid-run adjustment changed it, reconcile the doc now. Then `make gen-kb` so `contract.md` follows.
+   - Finish with `make gen-kb && make check-kb` (between waves only — Step 6 1) and commit the regenerated files with the records.
 3. If nothing qualifies, say so in the completion summary rather than inventing entries.
 
 State what you found and changed in the completion summary.
@@ -533,9 +542,15 @@ When all steps pass AND the review verdict is "approved":
     defect: have it commit; if it cannot, commit them yourself as `chore(<plan-name>): commit
     <agent>'s uncommitted work (orchestrator)`. The pipeline is not `completed` while the tree is
     dirty (pre-flight strays excepted).
+2e. **Accept this plan's ADRs.** For every name in the plan's `**Features**`, `go run ./tools/kb
+    ls --feature <f> --status proposed` — for each record whose `refs` carry `plan:<plan>`, Edit
+    `status: accepted` and `date:` today. The ADR and the code it describes land in one squash,
+    so acceptance is atomic with the merge and a rejected branch takes both with it. Then
+    `make gen-kb && make check-kb`; a `FAIL` is a doc-upkeep defect — fix it before 2d. `/land`
+    refuses a branch that still carries one of this plan's `proposed` ADRs.
 4. Update orchestration state status to "completed"
 5. Print a summary: what was done, files changed, retry count, notable issues, the `[note]` items
-   verbatim, **a per-step cost table** (`python3 $S <plan> timings`, plus each agent's tokens and
+   verbatim, the ADR ids accepted in 2e, **a per-step cost table** (`python3 $S <plan> timings`, plus each agent's tokens and
    duration from its task notification), and the branch (`plan/<plan-name>`, `git log --oneline
    main..`). Point at **`/land <plan-name>`** (naming the issues it closes from 2c and any
    deliberately left open) and at **`/retro`** for this run — this session, while the stumbles are

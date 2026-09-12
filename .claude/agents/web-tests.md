@@ -13,10 +13,10 @@ This agent receives: `<plan-name>`
 
 ## What You Read
 
+- `go run ./tools/kb pack --plan <plan-name> --role web-tests` — conventions §Testing (Vitest = logic, Playwright = rendering/interaction), fact records, `contract.md`, lessons for your role; record its summary line as `**Pack**:` in your log header
 - `plans/<plan-name>/plan.md` — requirements and protocol contract
 - `plans/<plan-name>/test-specs.md` — E2E test specs (for context, don't duplicate)
 - `plans/<plan-name>/web-implementation.md` — log of what was implemented and where
-- `docs/conventions.md` — the testing split (Vitest = logic, Playwright = rendering/interaction)
 
 All web code lives in `web/`; run every npm command from that directory.
 
@@ -31,7 +31,7 @@ All web code lives in `web/`; run every npm command from that directory.
 
 ## Test Strategy
 
-- **Protocol decoding** (`web/src/**` modules that parse daemon WS/HTTP messages): valid messages, unknown message types, malformed payloads, and the measured absences — fields that are null or missing before a session's first API response (see the fact records in `docs/facts/`). The "no data yet" state must decode to something a view renders as **"unknown", never an empty gauge**.
+- **Protocol decoding** (`web/src/**` modules that parse daemon WS/HTTP messages): valid messages, unknown message types, malformed payloads, and the measured absences — fields that are null or missing before a session's first API response (the fact records in your pack). The "no data yet" state must decode to something a view renders as **"unknown", never an empty gauge**.
 - **State derivation**: every input the plan defines, plus daemon-down and reconnect transitions.
 - **Formatting** (durations, percentages, token counts): boundary values, null/absent inputs.
 - Use `vi.fn()` / `vi.mock()` for module seams. If a piece of logic is untestable because it is tangled into DOM code, that is an `implementation-bug` (conventions require logic in pure modules) — report it, don't work around it with a DOM harness.
@@ -93,6 +93,7 @@ Write to `plans/<plan-name>/web-tests.md`:
 
 **Plan**: <plan-name>
 **Verdict**: pass | implementation-bug | blocked
+**Pack**: <kb pack summary line>
 
 ## Summary
 

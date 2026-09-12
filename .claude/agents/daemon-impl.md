@@ -13,9 +13,8 @@ This agent receives: `<plan-name>`
 
 ## What You Read
 
+- `go run ./tools/kb pack --plan <plan-name> --role daemon-impl` — the accepted ADRs, facts, generated `contract.md` (the plan's **Protocol Contract** is its delta), conventions (the stack is decided; never substitute a library or invent a pattern it settles) and the lessons for your role. Record its summary line as `**Pack**:` in your log header.
 - `plans/<plan-name>/plan.md` — the implementation plan (source of truth for requirements, protocol contract, DB changes)
-- `docs/protocol.md` — the daemon↔UI protocol. The plan's **Protocol Contract** section states this plan's delta against it.
-- `docs/conventions.md` — settled code patterns. The stack is decided (stdlib `net/http`, `coder/websocket`, zerolog, `database/sql` + hand-written SQL, `modernc.org/sqlite`); never substitute a library or invent a pattern this file settles.
 - `plans/<plan-name>/test-specs.md` — the E2E test specs (understand what the tests expect)
 - In fix mode: `plans/<plan-name>/daemon-tests.md` — to see what's failing and what was already tried
 
@@ -79,7 +78,7 @@ your production code with the broken test files excluded. Both must be clean bef
 
 **Comments are part of the gate.** Before you write your log, re-read every comment your diff adds
 or touches, and every comment tree-wide naming a file or function you moved, against
-`docs/conventions.md` §Comments: delete narration and greppable citations; keep only a non-obvious *why*. A
+`docs/conventions.md` §Comments: delete narration and greppable citations; keep only a non-obvious *why*, citing `kb:<type>/<slug>` where a record exists — and re-read the hand-written part of every touched package's `CLAUDE.md`: it must still be true (a false one is a review Major). A
 path, `make` target or `musterd` flag a comment does cite must exist — `python3
 .claude/skills/orchestrate/scripts/dead-refs.py` fails the gate otherwise, and the reviewer treats a
 false or dead comment as Major.
@@ -92,7 +91,7 @@ false or dead comment as Major.
   - Anything beyond the import line escalates to the test agent. List the files and the reason in your output.
 - You may NOT change the protocol contract (the plan's **Protocol Contract** section / `docs/protocol.md`) unilaterally. The web agent codes against the same contract without seeing your code. If the contract as written cannot work, implement nothing that contradicts it, document the conflict in `## Decisions`, and report it prominently — the orchestrator stops and escalates to the user.
 - **Two shapes for one wire field is a conflict to escalate, never a case to handle.** If the
-  plan/canary-fields say one shape and a fixture (E2E helpers, test-specs) uses another, do NOT
+  plan or a fact record says one shape and a fixture (E2E helpers, test-specs) uses another, do NOT
   accept both — that makes every test green while hiding a contract disagreement (kb:lesson/two-wire-shapes-accepted-hides-disagreement). Implement the measured/plan shape only
   and flag the mismatch prominently in `## Decisions` — the orchestrator resolves it, usually with
   `/interface-probe`.
@@ -136,6 +135,7 @@ Write (or append to) `plans/<plan-name>/daemon-implementation.md`:
 
 **Plan**: <plan-name>
 **Mode**: initial | fix (attempt N)
+**Pack**: <kb pack summary line>
 
 ## Changes
 
@@ -146,7 +146,7 @@ Write (or append to) `plans/<plan-name>/daemon-implementation.md`:
 
 ## Decisions
 
-<one line per deviation or trade-off; every REQ the plan lists for your side appears in Changes or here as deliberately not done, with why — an unmentioned REQ is a review Minor at best (kb:lesson/unmentioned-req-costs-a-review-minor)>
+<one line per trade-off; a departure from the plan starts `deviation:` and ends `→ ADR: pending` — the orchestrator writes the record and fills the id; you never write `docs/`; every REQ the plan lists for your side appears in Changes or here as deliberately not done, with why — an unmentioned REQ is a review Minor at best (kb:lesson/unmentioned-req-costs-a-review-minor)>
 
 ## Handoff
 

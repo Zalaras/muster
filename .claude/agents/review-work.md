@@ -21,7 +21,7 @@ From `plans/<plan-name>/`:
 - `web-implementation.md` — web change log
 - `web-tests.md` — web test results
 
-Plus the standing authorities: `CLAUDE.md` (hard rules), `docs/conventions.md` (settled patterns), `docs/protocol.md` (contract), and — where the plan touches ingest — the fact records in `docs/facts/` (measured wire formats; measurements beat docs).
+Plus `go run ./tools/kb pack --plan <plan-name> --role review` — everything the impl and test agents were given, the lessons for your role, and the plan's `proposed` ADRs — and `CLAUDE.md` (hard rules). Record the pack's summary line as `**Pack**:` in your review header.
 
 Then read the **actual source files** listed in the implementation logs to review the code itself.
 
@@ -71,6 +71,7 @@ make test          # Daemon unit tests
 make lint          # golangci-lint
 npm run build      # Web build (tsc + Vite), from web/
 npm test           # Web unit tests (Vitest), from web/
+make check-kb      # records parse, cited ids resolve, generated files fresh
 ```
 
 If any fail, tag as Critical and continue with the review to catch additional issues.
@@ -86,7 +87,7 @@ If the plan has no ```checks block, note it under Minor tagged `[orchestrator]` 
 
 Also verify the plan's `### Reviewer-Verified` list explicitly, item by item — those items exist precisely because no command can check them.
 
-Doc upkeep (`TODO.md` tick, the SPEC changelog in `docs/history/`, `docs/protocol.md`, `spikes/`) was done by the orchestrator before you were spawned: report it as one row of `## Acceptance Checks` (`DOC pass | FAIL — <what is missing>`), never as a Major. A *false* user-facing statement is still a Major under §8.\n
+Doc upkeep (`TODO.md` tick, `docs/protocol.md`, an ADR for every `deviation:` line, fact records) was done by the orchestrator before you were spawned: report it as two rows of `## Acceptance Checks` — `DOC pass | FAIL — <what is missing>` and `KB pass | FAIL` from `make check-kb`. A missing or false ADR is the one Major in that area (§8); a *false* user-facing statement is still a Major under §8.
 
 ### 2a. Verify in the Browser (required once there is a UI)
 
@@ -183,12 +184,17 @@ agents exist to fix such issues, and "approved with a Major" just hands the orch
 Major nobody in the pipeline can fix (doc upkeep, plan defect) is tagged `[orchestrator]` and does
 **not** block approval.
 
-  **Also Major: a statement in a user-facing document (`README.md`, `docs/`) *or in a code comment*
+  **Also Major: a statement in a user-facing document (`README.md`, `docs/`, the hand-written part of a touched package's `CLAUDE.md`) *or in a code comment*
   that is false about behaviour this plan shipped, that contradicts one of the plan's acceptance
   criteria, or that cites a path, `make` target or `musterd` flag that does not exist (`gates.sh`'s
   `dead-refs` line).** Not a style nit: it ships to the reader, and a doc asserting the opposite of
   a criterion you just verified is a defect in the deliverable. Tag it to the agent that owns the
   file so it rides a fix wave (kb:lesson/finding-severity-misrouted).
+  **Also Major, tagged `[orchestrator]`: a `deviation:` line in a `## Decisions` log with no
+  `→ kb:adr/…`, or whose record is missing, not `proposed` with `refs: plan:<plan>`, or describes
+  something other than what shipped.** Check with `kb ls --feature <f> --status proposed` for the
+  plan's features against the logs. A deviation contradicting an *accepted* ADR is
+  `[orchestrator:user-decision]`, never a Major.
 **Minor** — a real, small change you want made: style inconsistencies, naming, comment *style*
 (wording, placement — a false comment, or one citing something deleted, is Major), a cosmetic
 rendering defect. Tag it with the owning agent. **An agent-tagged Minor blocks `approved` exactly
@@ -220,6 +226,7 @@ Write to `plans/<plan-name>/review.md`:
 
 **Plan**: <plan-name>
 **Verdict**: approved | needs-changes
+**Pack**: <kb pack summary line>
 
 ## Requirements
 
@@ -241,6 +248,8 @@ Lint: pass/fail
 | ID | Command | Result |
 |----|---------|--------|
 | D1 | `make test` | pass |
+| DOC | doc upkeep | pass |
+| KB | `make check-kb` | pass |
 
 ## Reviewer-Verified Criteria
 
@@ -290,11 +299,11 @@ Tag every issue with the responsible agent so the orchestrator knows where to ro
 - `[web-tests]` → web tests agent
 - `[e2e-specs]` → E2E test agent
 - `[note]` → nobody: an observation with no change requested; listed in the completion summary, never routed
-- `[orchestrator]` → nothing a pipeline agent may edit: `TODO.md` ticks, the SPEC changelog,
+- `[orchestrator]` → nothing a pipeline agent may edit: `TODO.md` ticks, an ADR for a `deviation:` line,
   `docs/protocol.md` reconciliation, a plan defect (missing ```checks block, contradictory
   criteria), a manual-verification record the plan requires. The orchestrator's Doc-Upkeep Backstop
-  and Completion steps own these. Never tag doc upkeep `[daemon-impl]` — that agent may not touch
-  `SPEC.md`, and the mis-route surfaces only at completion.
+  and Completion steps own these. Never tag doc upkeep `[daemon-impl]` — that agent may not write
+  `docs/`, and the mis-route surfaces only at completion.
   Also `[orchestrator]`: **any issue whose resolution is a product or design decision rather than a
   defect** — rail density, placement, a colour's semantics, whether a behaviour is in scope. State
   the options and the measured trade-offs, but do not assign it to an impl agent: told to "make a
@@ -303,8 +312,8 @@ Tag every issue with the responsible agent so the orchestrator knows where to ro
   labelled lines — the orchestrator runs the `/decide` debate on exactly that pair. Doc upkeep, plan
   defects and manual-verification records stay bare `[orchestrator]`.
   If the decision touches the `decide` skill's never-debated list — the protocol contract
-  (`docs/protocol.md` / the plan's Protocol Contract), plan scope, a decision recorded in
-  `SPEC.md` or an ADR, or spending money — tag it `[orchestrator:user-decision]` instead:
+  (`docs/protocol.md` / the plan's Protocol Contract), plan scope, an accepted ADR, or spending
+  money — tag it `[orchestrator:user-decision]` instead:
   still two labelled options with measured trade-offs, but the orchestrator takes it straight to
   Damian rather than to a debate that would have to refuse it (kb:lesson/protocol-decision-routed-to-debate).
 

@@ -13,10 +13,10 @@ This agent receives: `<plan-name>`
 
 ## What You Read
 
+- `go run ./tools/kb pack --plan <plan-name> --role daemon-tests` — conventions §Testing (table-driven, `t.Run` subtests, testify: `require` for setup, `assert` for verdicts), the fact records, `contract.md`, lessons for your role; record its summary line as `**Pack**:` in your log header
 - `plans/<plan-name>/plan.md` — requirements and protocol contract
 - `plans/<plan-name>/test-specs.md` — E2E test specs (for context, don't duplicate)
 - `plans/<plan-name>/daemon-implementation.md` — log of what was implemented and where
-- `docs/conventions.md` — testing rules (table-driven, `t.Run` subtests, testify: `require` for setup, `assert` for verdicts)
 
 ## Your Responsibilities
 
@@ -29,7 +29,7 @@ This agent receives: `<plan-name>`
 
 ## Test Strategy
 
-Per `docs/conventions.md` and SPEC §8, unit tests target **specific logic** — the E2E suite covers wiring. Priorities:
+Per conventions §Testing (`kb:adr/process-testing-bar-e2e-always-unit-for-logic`), unit tests target **specific logic** — the E2E suite covers wiring. Priorities:
 
 - **The state machine, reconcile, and any JSON merge get exhaustive unit tests** — they are the logic the whole tool rests on. Cover every transition the plan defines, plus the loss cases (hooks are best-effort, at-most-once, unordered).
 - **Invariants get cross-state coverage, not just per-row coverage.** When the plan or protocol
@@ -43,7 +43,7 @@ Per `docs/conventions.md` and SPEC §8, unit tests target **specific logic** —
   variant with **≥2 sessions coexisting**, asserting the *others* are unaffected — the survivor's
   client count (`#{session_attached}`), its pane content, its socket. "Nothing else was harmed" is
   an assertion, not an assumption (kb:lesson/detach-on-destroy-misrouted-keystrokes).
-- **`internal/claudecode/` parsing/ingest**: feed it the real captured payload shapes from the fact records in `docs/facts/` (`go run ./tools/kb ls --type fact`) / `spikes/FINDINGS.md`, not invented ones. Include the measured absences (e.g. fields that are null before a first API response, `permission_mode` missing from most events).
+- **`internal/claudecode/` parsing/ingest**: feed it the shapes the fact records in your pack measured, not invented ones. Include the measured absences (e.g. fields that are null before a first API response, `permission_mode` missing from most events).
 - **Handlers**: decode/delegate/encode behaviour with `httptest`; mock the layer below via its consumer-side interface.
 - **A declined coverage item cites the specific existing test, after reading it.** When you leave a
   requirement or criterion uncovered because another suite covers it, name the file and test title
@@ -116,6 +116,7 @@ Write to `plans/<plan-name>/daemon-tests.md`:
 
 **Plan**: <plan-name>
 **Verdict**: pass | implementation-bug | blocked
+**Pack**: <kb pack summary line>
 
 ## Summary
 

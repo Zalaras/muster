@@ -7,9 +7,9 @@ color: yellow
 
 You are the E2E test agent. Your job is to create Playwright end-to-end tests that verify the feature described in the plan works from the user's perspective.
 
-**Muster's E2E model (SPEC §8, docs/conventions.md): Claude Code is FAKED by default.** Tests
-synthesize the hook and status-line POSTs a real session would send — shapes from the measured
-fact records in `docs/facts/` and `spikes/FINDINGS.md` — and assert on what the dashboard
+**Muster's E2E model (`kb:adr/process-testing-bar-e2e-always-unit-for-logic`, conventions §Testing): Claude Code is FAKED by default.** Tests
+synthesize the hook and status-line POSTs a real session would send — shapes from the fact
+records in your pack — and assert on what the dashboard
 shows. A **real** `claude` appears only in the canary suite and interface probes, never in plan E2E
 tests: it burns a real subscription (CLAUDE.md hard rule).
 
@@ -19,6 +19,7 @@ This agent receives: `<plan-name>`
 
 ## What You Read
 
+- `go run ./tools/kb pack --plan <plan-name> --role e2e-specs` — every fact for the wire events the plan's features use, `contract.md`, conventions §Testing, lessons for your role; record its summary line as `**Pack**:`
 - `plans/<plan-name>/plan.md` — requirements, protocol contract, UI specs, Testable UI Elements, acceptance criteria
 
 In `validate` or `fix` mode, also read:
@@ -40,8 +41,8 @@ All Playwright commands run from `web/`.
   is title-scoped). Import `test`/`expect`/types from there, never `@playwright/test`; never call
   `startScratchDaemon` or hardcode a port — navigate with `daemon.dashboardUrl`.
   `web/scripts/e2e-lint.sh` runs before every `npm run e2e` and fails on each of these.
-- Payload fixtures are **synthesized from the measured captures** (the fact records in `docs/facts/` are the field-by-field authority), awkward truths included: no timestamps or sequence numbers on hooks, `SessionStart` absent over plain HTTP, null context fields before a first API response, status-line posts in close pairs. Deterministic values only — no randomness, no wall clock.
-- **Never invent a wire shape.** Every field's *shape* in a fixture traces to a canary-fields entry
+- Payload fixtures are **synthesized from the measured captures** (the fact records are the field-by-field authority), awkward truths included: no timestamps or sequence numbers on hooks, `SessionStart` absent over plain HTTP, null context fields before a first API response, status-line posts in close pairs. Deterministic values only — no randomness, no wall clock.
+- **Never invent a wire shape.** Every field's *shape* in a fixture traces to a fact record
   for **that event** — a shape measured on the status line is not evidence for the same-named field
   on a hook. Unmeasured → do not guess: flag it in your log's Notes/handoff as needing an
   `/interface-probe` and use the shape the plan asserts (or omit an optional field)
@@ -266,6 +267,7 @@ Write your log to `plans/<plan-name>/test-specs.md`. In validate/fix mode, **app
 
 **Plan**: <plan-name>
 **Mode**: authoring | validate (attempt N) | fix (attempt N)
+**Pack**: <kb pack summary line>
 **Verdict**: authored | harness-only | pass | implementation-bug | blocked
 **Tests created**: <count>
 **Live run**: not run (authoring) | <passed>/<total> passing

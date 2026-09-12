@@ -1,19 +1,18 @@
 ---
 name: interface-probe
-description: "Runs a controlled probe against the real pinned Claude Code binary to answer a wire-format question (hook payloads, status-line JSON, CLI behaviour), using the isolated rig in test/rig/. Findings land in spikes/."
+description: "Runs a controlled probe against the real pinned Claude Code binary to answer a wire-format question (hook payloads, status-line JSON, CLI behaviour), using the isolated rig in test/rig/. Findings land as fact records in docs/facts/."
 argument-hint: "<question to settle>"
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob
 ---
 
 > **Maintainer note:** This skill runs in the main session — it drives tmux
 > interactively and holds a conversation about ambiguous captures, which a subagent
-> can't. It is the live version of the historical spike recipe (`spikes/RIG.md`);
-> the rig itself lives in `test/rig/` and is shared with the M4 canary/E2E harness.
+> can't. The rig lives in `test/rig/`, shared with the canary/E2E harness (history:
+> `spikes/RIG.md`).
 > The automated counterpart is `make canary` (`test/canary/harness_test.go`), which
 > drives the same production chain but cannot answer *new* questions — that is this
-> skill's job. Gotchas here were measured on Claude Code 2.1.233–2.1.259 (the verified range
-> is in `docs/claude-code-versions.md`); when the range moves, re-verify per that doc before
-> trusting them.
+> skill's job. Gotchas here are fact records; `go run ./tools/kb show kb:fact/<slug>` tells you
+> which versions each holds on.
 
 You are running an interface probe: a controlled experiment against the **real**
 Claude Code binary to settle a question the docs can't be trusted to answer
@@ -149,7 +148,7 @@ jq 'select(.path=="/statusline") | .body' "$PROBE_CAPTURE" | tail -40
 
 Each line: `{received_at, path, method, event, headers, body_raw, body, body_is_json}`.
 
-Analysis traps (each produced a wrong conclusion once — see `spikes/FINDINGS.md`):
+Analysis traps (each produced a wrong conclusion once):
 
 - **Group by `session_id` before aggregating.** Any field that latches on
   mid-session looks intermittent when pooled across short-lived sessions.
@@ -173,13 +172,12 @@ md5 -q ~/.claude/settings.json           # matches your baseline
 
 Per CLAUDE.md doc upkeep, before the session ends:
 
-- New wire-format fact → a fact record in `docs/facts/` (`verified:` the version the payloads
-  report, `guard:` the canary or unit test that pins it, or `none`; `refs:` the capture path with
-  its count, e.g. "n of m sessions"); a fact proved wrong gets its ceiling pinned and `status:
-  retired`, and the new shape is a new record citing it — never a rewrite. Substantive →
-  also a `spikes/FINDINGS.md` addendum (update the "Still open" list). Then
-  `make gen-kb && make check-kb`.
-- A settled SPEC open question → `SPEC.md` §9 + a `docs/history/spec-changelog.md` entry.
+- New wire-format fact → a record in `docs/facts/` with `verified:` the version the payloads
+  report, `refs:` the capture path with its count ("n of m sessions"), and `guard:` the canary or
+  unit test that pins it (`none` is allowed and becomes a `TODO.md` line). A fact proved wrong
+  gets its ceiling pinned and a new record linked by `refs`, never a rewrite.
+- A settled open question → an `accepted` ADR (probes run on `main` with the user present).
 - Tick anything this closes in `TODO.md`.
+- `make gen-kb && make check-kb`, generated files in the same commit.
 - State the Claude Code version the evidence was captured against (from
   `SessionStart`/status-line payloads), and whether it matches the pin.

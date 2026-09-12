@@ -3,7 +3,7 @@ id: process-interface-probe-rig-in-repo
 type: decision
 status: accepted
 date: 2026-08-16
-summary: Wire-format questions are answered by the in-repo probe rig through the interface-probe skill, against the real pinned binary, with findings in spikes/.
+summary: Wire-format questions are answered by the in-repo probe rig through the interface-probe skill, against the real binary; findings land as fact records.
 features: [canary]
 tags: [claude-code-format, testing, pipeline]
 files: [test/rig/newprobe.sh, .claude/skills/interface-probe/SKILL.md, spikes/FINDINGS.md]

@@ -1,9 +1,11 @@
 # Muster — SPEC changelog
 
-Append-only history of `SPEC.md`: every settled or changed decision gets an entry here, newest
-last, **and** the edit to the SPEC section it changes. `SPEC.md` §1–10 is the current state; this
-file is how it got there. Moved out of `SPEC.md` §11 on 2026-09-11 so the spec agents read stays
-the size of the decisions, not of their history.
+> **Frozen 2026-09-12.** Every entry below is migrated: the `<!-- kb: adr/… -->` marker under each heading names the decision records it produced (`go run ./tools/kb ls --type adr`), and a new decision is a new ADR, not a new entry here. `scripts/kb-conserve.py` proves the mapping.
+
+History of `SPEC.md` from the spec interview to 2026-09-11: each entry recorded a settled or
+changed decision together with the edit to the SPEC section it changed. Moved out of `SPEC.md`
+§11 on 2026-09-11 so the spec agents read stays the size of the decisions, not of their history;
+frozen on 2026-09-12 when every decision became an ADR under `docs/adr/`.
 
 ### 2026-08-16 — design session (next-steps item 4)
 <!-- kb: adr/launch-hybrid-mru-directory-memory, adr/launch-form-seeds-model-and-permission-mode, adr/launch-trust-prompt-never-auto-answered, adr/focus-rail-plus-one-live-pane, adr/surfaces-one-live-client-per-session, adr/rail-attention-sort-order, adr/usage-unknown-renders-word-not-track, adr/theme-instrument-visual-direction, adr/stack-system-font-stacks-only, adr/nongoal-attention-ribbon-post-v1, adr/views-focus-and-tiles-peers, adr/tiles-live-top-n-snapshot-rest -->

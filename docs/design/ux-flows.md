@@ -1,7 +1,7 @@
 # Muster — UX flows
 
-Design session 2026-08-16. Settles SPEC §9 open question 2
-(launch/worktree data layer) and fixes the dashboard's shape before M1/M2 UI work.
+Design session 2026-08-16. Settles the launch/worktree data-layer open question
+(`kb:adr/launch-hybrid-mru-directory-memory`) and fixes the dashboard's shape before M1/M2 UI work.
 
 `SPEC.md` stays authoritative for *what* Muster does; this file is authoritative for
 *how the interface behaves*. Where this file adds a decision, `docs/history/spec-changelog.md` gets an
@@ -128,7 +128,7 @@ such knowledge lives in `internal/claudecode/`.
 
 ---
 
-## 2. Launch/worktree data layer (resolves SPEC §9 Q2)
+## 2. Launch/worktree data layer (resolves the open question behind `kb:adr/launch-hybrid-mru-directory-memory`)
 
 What the flow remembers, and nothing more:
 
@@ -137,13 +137,13 @@ What the flow remembers, and nothing more:
 `last_launched_at`, `launch_count`, `pinned`, `created_at`. §4.2 later adds
 `setup_script` and `env_globs`; a row with either is what "promoted" means.
 
-**`worktree`** — exists per SPEC §7, **not written by the launch flow in v1**.
+**`worktree`** — exists in the schema sketch (`kb:adr/lifecycle-migrations-add-tables-when-written`), **not written by the launch flow in v1**.
 One thing v1 *does* do: **recognize** a worktree it was pointed at. If
 `git rev-parse --git-common-dir` differs from `--git-dir`, the directory is a linked
 worktree; record it so the rail can show `repo / branch` correctly. Damian already uses
 worktrees by hand — v1 must display them truthfully even though it can't create them.
 
-**`session`** — as SPEC §7, with `worktree_id` populated only by the recognition above,
+**`session`** — as the schema sketch, with `worktree_id` populated only by the recognition above,
 otherwise NULL.
 
 Consequence: when §4.2 lands, the launch form grows one field

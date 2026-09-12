@@ -29,13 +29,13 @@ sits on the line before each `##`/`###` heading, and code and docs cite a sectio
 - **Timestamps are RFC3339 UTC strings** (`"2026-08-20T09:15:00Z"`). The adapter converts
   Claude Code's epoch integers (`resets_at`) before they reach this protocol.
 - **`null` means unknown, and renders as the word "unknown"** — never as 0, never as an
-  empty gauge (SPEC §2.2/§2.3). Absent optional fields mean "not applicable", not unknown.
+  empty gauge (`kb:adr/usage-unknown-renders-word-not-track`). Absent optional fields mean "not applicable", not unknown.
 - **Additive evolution**: clients ignore unknown message types and unknown fields; the
   daemon ignores unknown fields in requests. This is what lets later plans extend the protocol
   without version bumps.
 - IDs: `session.id` and `repo.id` are daemon-assigned integers (SQLite rowids), opaque to
   the UI. Claude's `session_id` is a separate string attribute (`claudeSessionId`) and is
-  **never** an identity key (SPEC §7 — `/clear` mints a new one in the same pane).
+  **never** an identity key (`kb:fact/clear-mints-new-session-id` — `/clear` mints a new one in the same pane).
 
 <!-- kb:anchor transport -->
 ## Transport & auth
@@ -51,7 +51,7 @@ sits on the line before each `##`/`###` heading, and code and docs cite a sectio
   - **Ingest token** — embedded in the ingest URL path that Muster writes into each
     directory's project-scoped Claude Code settings. Keeps a random webpage (or a stray
     local process) from POSTing forged events; it grants nothing else. Same-user malware
-    reading it is SPEC §2.6's accepted residual risk.
+    reading it is the accepted residual risk (`kb:spec/connection`).
 - **WS hardening**: the daemon rejects WebSocket upgrades whose `Origin` header is
   present and not the daemon's own origin. Belt to the SameSite braces.
 - Errors (HTTP, non-2xx): `{"error": {"code": "<machine_token>", "message": "<human>"}}`.
@@ -103,7 +103,7 @@ only client→server WS traffic in v1 is terminal input/resize on the terminal s
   "permissionMode": "acceptEdits"                      // required: "default" | "plan" | "acceptEdits" | "auto" — seeds the latch (kb:anchor/state.transitions).
                                                        // "default" is Claude Code's manual mode (UI label "manual"; measured 2.1.259: no-flag,
                                                        // `manual` and `default` all report permission_mode "default"). "auto" added by
-                                                       // bypassPermissions/dontAsk deliberately not offered (SPEC §4.4).
+                                                       // bypassPermissions/dontAsk deliberately not offered (kb:adr/launch-bypass-and-dontask-unoffered).
 }
 // response: 201 + the Session object (kb:anchor/ws.session), state "started"
 ```
@@ -573,7 +573,7 @@ elsewhere). No errors beyond auth.
   from the generated wrapper script — Muster writes **no** `allowedHttpHookUrls` and no
   `type:"http"` entries.
 - **Return `200` with empty body immediately; process asynchronously.** A slow receiver
-  taxes every turn by its timeout, additively per hook (SPEC §6). Hook timeouts Muster
+  taxes every turn by its timeout, additively per hook (`kb:spec/ingest`). Hook timeouts Muster
   configures are 1–2 s, never 5. Malformed JSON is still `200` (logged, dropped) — there
   is no value in making Claude Code retry, and 4xx/5xx behaviour is not ours to lean on.
 - Bad token → `404` (no oracle for token guessing; it's logged).
@@ -588,7 +588,7 @@ elsewhere). No errors beyond auth.
 `SessionStart` is silently never delivered over `type:"http"`, which is one reason every
 hook — and the status line — is a `type:"command"` wrapper script that POSTs its stdin
 (the others are below). Delivery is best-effort, at-most-once, unordered; design for loss
-(SPEC §6).
+(`kb:adr/ingest-seq-assigned-at-ingest`).
 
 **All hooks are `type:"command"` wrappers.** Command hooks
 see the pane environment on every event (probe 2026-08-27 against 2.1.246: 15/15 events
@@ -743,7 +743,7 @@ is complexity with no payoff, and whole-object replacement is naturally loss-tol
   "directory": "/Users/damian/code/Projects/muster",
   "repo": { "name": "muster", "branch": "feat-e2e", "isWorktree": false },  // null when directory isn't a git checkout
   "model": { "id": "claude-opus-5", "displayName": "Opus 5" },  // launch value until the status line confirms; null if unknown
-  "permissionMode": { "value": "plan", "source": "hook" },       // source "seed" (launch flag) | "hook" (a payload carried it); ALWAYS last-known, never authoritative (SPEC §4.5). value is an open string; observed "default" | "plan" | "acceptEdits" | "auto" (2.1.259)
+  "permissionMode": { "value": "plan", "source": "hook" },       // source "seed" (launch flag) | "hook" (a payload carried it); ALWAYS last-known, never authoritative (kb:adr/launch-form-seeds-model-and-permission-mode). value is an open string; observed "default" | "plan" | "acceptEdits" | "auto" (2.1.259)
   "context": { "usedPct": 42, "totalInputTokens": 84211,
                "windowSize": 200000, "compactions": 2 },          // usedPct/totalInputTokens/windowSize null before first API response → "ctx — unknown"
   "lastActivity": "Fixed the flaky retry; running the suite…",   // truncated last_assistant_message from the closing Stop; null until first Stop
@@ -803,7 +803,7 @@ Value semantics (within the nullability rules above):
     "sevenDay": { "usedPct": 23.0, "resetsAt": "2026-08-22T06:00:00Z" },  // wire name seven_day; null as above
     "model": { "id": "claude-opus-5", "displayName": "Opus 5" },  // freshest sample's model (masthead readout); null iff buckets null
     "sampledAt": "2026-08-20T09:15:31Z",   // null iff buckets null
-    "source": "subscription",              // the SPEC §9 Q6 seam: "api"/"otel" later
+    "source": "subscription",              // the kb:adr/usage-no-source-interface seam: "api"/"otel" later
     "modelScoped": [                        // per-model weekly windows from GET /api/oauth/usage; null until the first successful fetch, then the full list sorted by displayName ([] is a valid, distinct result)
       { "displayName": "Fable", "usedPct": 61.0, "resetsAt": "2026-09-01T13:59:59Z" } ],
     "modelScopedAt": "2026-08-30T10:00:00Z", // null iff modelScoped null — last successful fetch
@@ -929,7 +929,7 @@ Frames:
   the liveness poll, so a `sessionUpsert` with `alive:false` follows shortly.
 - Normal close (1001) on daemon shutdown.
 
-**One-live-client law, enforced server-side** (SPEC §9 Q5): at most one terminal socket
+**One-live-client law, enforced server-side** (`kb:adr/surfaces-one-live-client-per-attach-target`): at most one terminal socket
 per session; a new connection for the same session **takes over** — the daemon closes the
 previous socket with close code `4000` (reason `superseded`) and tears down its PTY
 before the new attach starts. Geometry ownership moves with the socket, which is exactly
@@ -974,7 +974,7 @@ Muster's own actions (launch/resume), and pane-liveness checks. **Never terminal
 <!-- kb:anchor state.displayed -->
 ### Displayed states
 
-`started · planning · working · needs_input · failed · idle` — exactly SPEC §2.1. There
+`started · planning · working · needs_input · failed · idle` — exactly `kb:spec/lifecycle`. There
 is no "done" (a turn ending is not a task completing) and no "dead" state — liveness is
 the orthogonal `alive` flag (`kb:anchor/state.liveness`).
 

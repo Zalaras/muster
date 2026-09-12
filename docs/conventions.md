@@ -2,7 +2,7 @@
 
 Patterns the build agents (and any session writing code) follow. Chosen 2026-08-16 with
 Damian, deliberately *before* the first line of daemon code, so the multi-agent pipeline
-never invents patterns mid-run. Library decisions are recorded in SPEC §5; this file is
+never invents patterns mid-run. Library decisions are the `stack-` ADRs (`go run ./tools/kb ls --type adr`); this file is
 the how-we-write-code companion. If a convention here needs to change, change it here
 first — never diverge silently in code.
 
@@ -64,7 +64,7 @@ Each row's rationale is an ADR: `go run ./tools/kb ls --type adr | grep '/stack-
 - DOM: build via small render functions / `<template>` elements; no innerHTML with
   interpolated data.
 - Handle the three states every view has: no data yet (**render "unknown", never an
-  empty gauge** — SPEC §2.3), data, and daemon-down.
+  empty gauge** — `kb:adr/usage-unknown-renders-word-not-track`), data, and daemon-down.
 - Unit-test logic (protocol decoding, state derivation, formatting) with Vitest;
   interaction and rendering are Playwright's job.
 
@@ -82,8 +82,8 @@ Each row's rationale is an ADR: `go run ./tools/kb ls --type adr | grep '/stack-
 
 ## Testing (both sides)
 
-- E2E fakes Claude Code by default: synthesize hook / status-line POSTs from the real
-  captured payloads in `spikes/` — fast, free, deterministic. A **real** `claude` may
+- E2E fakes Claude Code by default: synthesize hook / status-line POSTs from the shapes
+  the fact records measured — fast, free, deterministic. A **real** `claude` may
   only appear in the canary suite and interface probes (haiku-only, per CLAUDE.md).
 - Every E2E spec drives a scratch `musterd` it gets from `web/e2e/helpers/fixtures.ts`,
   never a shared or pre-existing server (a stale one silently tests the wrong build). The
@@ -183,7 +183,7 @@ trailing `closes #N` in the summary line — e.g. `fix(launch): preflight tmux a
 remedy (closes #2)`; lowercase, and one `closes #N` per issue. The subject carries no
 `(plan <name>)` marker — the squash includes `plans/<name>/`, so the plan is recoverable
 from the commit's own file list (decision 2026-09-01). That is the only issue automation Muster has: the daemon creates
-issues and never reads, labels, or syncs them (`SPEC.md` 2026-08-31 changelog). `/land`
+issues and never reads, labels, or syncs them (`kb:adr/issue-daemon-creates-issues-only`). `/land`
 composes that subject from the plan's `closes_issues`, so the reference is not left to whoever
 happens to run the merge; `/triage --audit` reports any issue still open whose entry is ticked (ticked entries live in
 `docs/history/todo-done.md`), which is how a dropped reference gets caught.
@@ -191,8 +191,8 @@ happens to run the merge; `/triage --audit` reports any issue still open whose e
 ## Comments
 
 Default to none. Add one only when the *why* is non-obvious (hidden constraint, subtle
-invariant, workaround for measured Claude Code behavior — cite `spikes/FINDINGS.md`
-sections). Don't explain what well-named code already says; don't narrate history.
+invariant, workaround for measured Claude Code behavior — cite `kb:fact/<slug>`; a choice,
+`kb:adr/<slug>`). Don't explain what well-named code already says; don't narrate history.
 
 ## Knowledge records
 

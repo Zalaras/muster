@@ -74,7 +74,7 @@ on the surfaces it bounds, the amber focus ring, state dots and stripes on `--bg
 script also enforces the hue bands and "no literal outside a theme block". **Exempt
 list** (each with its reason in the JSON): `--line` hairlines, `--line-control` button
 borders, the four `--*-line` state tints, gauge tracks under a fill, disabled controls,
-`--scrim`/`--bg-raised-95`. This is SPEC §3's one bounded accessibility exception;
+`--scrim`/`--bg-raised-95`. This is the one bounded accessibility exception (`kb:adr/nongoal-accessibility-i18n-multiuser-other-platforms`);
 nothing else in that non-goal moves.
 
 **No web fonts, no CDN links, no vendored font binaries.** The dashboard is localhost-only
@@ -257,7 +257,7 @@ makes the UI assert something Muster does not know.
 4. **Never switch on `StopFailure.error` as an enum.** It is not pass-through from the API —
    an injected 400 surfaced as `"unknown"`. Show the raw value plus a human sentence.
 5. **Never show "Done".** A turn ended; the task may not have. `Idle` plus last activity.
-6. **Never show cost or spend.** Cut by design (SPEC §3).
+6. **Never show cost or spend.** Cut by design (`kb:adr/nongoal-cost-tracking`).
 7. **Surface daemon-down loudly.** While it is down every managed pane fills with hook-error
    lines; the UI must explain that noise or it reads as sessions failing. The banner grounds
    on the dedicated `--banner-*` tokens (§1), never on `--rose` — per §3 a state colour may

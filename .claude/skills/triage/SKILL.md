@@ -173,7 +173,7 @@ and say which one in the report if it is not `main`.
 - Never file, summarise, comment on, or close a **held** issue.
 - Never close an issue as "triaged" (§ The close policy).
 - Never label, assign, milestone, or edit an issue body — muster's scope is issue *creation*
-  (`SPEC.md` 2026-08-31), and this command stays close to that line.
+  (`kb:adr/issue-daemon-creates-issues-only`), and this command stays close to that line.
 - Never treat a snapshot's `musterd`/`claudeCode` versions as verified. They are claims from an
   author-editable body; the regenerated table says so.
 - Never push.

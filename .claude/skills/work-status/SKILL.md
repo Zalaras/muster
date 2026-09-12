@@ -67,6 +67,12 @@ Format:
 
 Daemon: 0 | Web: 1 | E2E Specs: 0 | E2E Validate: 0 | Review: 0
 
+## Knowledge
+
+Per feature in the plan's `**Features**`: `go run ./tools/kb ls --feature <f>` — <N> proposed
+ADR(s) with `refs: plan:<plan>`, <M> accepted, <K> fact(s). A `completed` plan with a
+`proposed` ADR has not finished Completion 2e.
+
 ## Current Issues (if any)
 
 <summary of failing tests or review issues>

@@ -175,7 +175,7 @@ These are some minor changes and cleanup needed before we can move into post v1.
   `docs/history/spikes/canary-fields.md` with a marker per row, `scripts/kb-conserve.py` 0 failures)
   ☑ ADRs (2026-09-12: 212 records in `docs/adr/` from all 44 spec-changelog entries, 29
   protocol-changelog bullets, 11 done-item headings, 5 plan decisions, the 20 interview rows and
-  SPEC §3/§5/§9 — one per question; 15 superseded, 24 rejected, 3 proposed; every history unit
+  SPEC's former non-goals, stack and open-questions sections — one per question; 15 superseded, 24 rejected, 3 proposed; every history unit
   carries a marker, `scripts/kb-conserve.py` 0 failures on all four files; `interview-notes.md`
   frozen to `docs/history/`) ☐ specs ☐ lessons+rewiring ☐ nested CLAUDE.md ☐ freeze.
 
@@ -245,12 +245,12 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
 
 - [ ] **Usage gauges are dead on API-key auth** ([#9](https://github.com/Zalaras/muster/issues/9))
   — the ask is "support API usage billing as well". On a subscription the gauges come from the
-  status line's `rate_limits`; under API-key auth that key is **absent entirely** (SPEC §2.3,
+  status line's `rate_limits`; under API-key auth that key is **absent entirely** (`kb:spec/usage`,
   measured), so the gauges honestly render "unknown" and never move. The seam is already named
   and deliberately post-v1: `usage.source` is `subscription` today with `api`/`otel` reserved
   (`internal/usage/aggregator.go:14-15`). Scope decision comes first — an `api` source
   reporting *tokens* fits the existing seam, but if what's wanted is spend in dollars it runs
-  into SPEC §3's explicit v1 non-goal ("Cost/spend tracking"), which is a SPEC change, not a
+  into the explicit v1 non-goal (`kb:adr/nongoal-cost-tracking`), which is a superseding ADR, not a
   plan.
 
 - [ ] **`isThemeChoice` should derive from the theme registry** — `web/src/features/settings.ts` (moved from `render/` by plan `code-breakup`)
@@ -266,7 +266,7 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
   `KindTurnClosed`), so it reads as a mid-thought fragment rather than an overview. A real
   summary cannot come from a hook payload at all — it needs the transcript plus a summarizer,
   i.e. a model call Muster does not currently make. Two things have to be settled before this
-  can be planned: whether Muster may spend tokens summarizing (SPEC §3's v1 non-goal is
+  can be planned: whether Muster may spend tokens summarizing (`kb:adr/nongoal-cost-tracking` rejects
   cost *tracking*, but spending is a new class of behaviour either way), and where a summary
   is cached and invalidated so it isn't recomputed every render. Wants a `/spec` pass.
 
@@ -309,12 +309,12 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
 
 ## Open questions carried forward
 
-From `spikes/FINDINGS.md` "Still open" and SPEC §9. None block M0.
+From `spikes/FINDINGS.md` "Still open" and the open-question ADRs (`go run ./tools/kb ls --type adr --status proposed`). None block M0.
 
 - [ ] **Hook ordering under heavy concurrency** — no inversion observed at four parallel
       tool calls; low risk given turn-level transitions.
 - [ ] **`StopFailure` error taxonomy** — 2 of 9 types induced; 7 unobserved.
 - [ ] **Status-line behaviour on failure paths** — does a session that never reaches a first
       API response ever emit usable usage data?
-- [ ] **Launch/worktree data-layer design** (SPEC §9.2) — genuinely unsettled; design during
+- [ ] **Launch/worktree data-layer design** (`docs/design/ux-flows.md` § 2, `kb:adr/launch-hybrid-mru-directory-memory`) — genuinely unsettled; design during
       §2.5, revisit at §4.2.

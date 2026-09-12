@@ -26,12 +26,13 @@ Create the plan directory `plans/<plan-name>/` immediately if it doesn't exist. 
 
 ## Ground Rules for This Project
 
-- **`SPEC.md` is authoritative and its decisions are settled.** Before interviewing, read the
-  SPEC.md sections relevant to the work (and skim the rejected ADRs, `go run ./tools/kb ls --type adr --status rejected`, for rationale). Don't re-ask
-  what the spec answers, don't re-litigate settled decisions, and don't let an interview reintroduce
-  cut features (notifications, cost tracking, containers, resource gauges). Where SPEC.md pins
-  behaviour, the interview only fills in what it leaves open.
-- Where the work touches Claude Code's wire formats, the fact records in `docs/facts/` (`go run ./tools/kb ls --type fact`) and `spikes/FINDINGS.md` are the measured truth — surface the relevant constraints to the user rather than asking them to remember.
+- **Decisions are records.** Before interviewing, run `go run ./tools/kb find <words>` for the
+  feature's vocabulary (or `kb pack --features a,b --role planner` when the features are known)
+  and read what comes back: accepted ADRs are settled — don't re-ask, don't re-litigate, and
+  don't let the interview reintroduce a `rejected` one (the cut features live there). `SPEC.md`
+  pins product behaviour; the interview fills only what it leaves open.
+- Where the work touches Claude Code's wire formats, the fact records are the measured truth —
+  surface them to the user rather than asking them to remember.
 
 ## Behavior Rules
 
@@ -40,7 +41,7 @@ Create the plan directory `plans/<plan-name>/` immediately if it doesn't exist. 
 - If an answer is vague or incomplete, **probe further** before moving on.
 - If the user is unsure about something, help them think it through — suggest possibilities, but do not decide for them.
 - Do not move to the next section until the current section feels sufficiently answered.
-- **Read relevant existing code** to inform your questions. Use Grep and Glob to find related files and patterns. This helps you ask better questions and suggest realistic possibilities.
+- **Read relevant existing code** to inform your questions. Use Grep and Glob to find related files and patterns.
 - Once all sections are complete, **summarize the full spec** and ask the user to confirm before writing the file.
 
 ## Interview Flow
@@ -56,7 +57,7 @@ Work through each section below in order. Use the guiding questions as a startin
 ### 2. Background & Context
 > What does the implementer need to know going in?
 
-- Which SPEC.md sections and spike findings bear on this?
+- Which ADRs, facts and SPEC.md sections bear on this?
 - Does this depend on or relate to anything else in the codebase?
 
 ### 3. Scope
@@ -91,7 +92,7 @@ Frame each criterion as a testable statement. Suggest drafts based on what the u
 ### 7. References _(optional)_
 > Are there any supporting materials?
 
-SPEC.md sections, spike findings, mockups (`docs/design/mockups/`), related TODO.md items. If none, skip this section.
+ADR and fact ids, SPEC.md sections, mockups (`docs/design/mockups/`), related TODO.md items. If none, skip this section.
 
 ## Output
 
@@ -108,7 +109,7 @@ Once the user confirms the spec is complete, write it to `plans/<plan-name>/spec
 <content>
 
 ## Background & Context
-<content, citing SPEC.md sections and spike findings by name>
+<content, citing records as kb:<type>/<slug> and SPEC.md sections by name>
 
 ## Scope
 **In Scope:**

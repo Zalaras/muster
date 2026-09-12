@@ -13,9 +13,8 @@ This agent receives: `<plan-name>`
 
 ## What You Read
 
+- `go run ./tools/kb pack --plan <plan-name> --role web-impl` — the accepted ADRs, facts, generated `contract.md` (the plan's **Protocol Contract** is its delta; you code against the contract, never against daemon code), conventions (settled patterns — never invent alternatives) and the lessons for your role. Record its summary line as `**Pack**:` in your log header. The design-system and ux-flows anchors for the plan's features are in the pack; the files stay binding in full.
 - `plans/<plan-name>/plan.md` — the implementation plan (source of truth for requirements, protocol contract, UI specs). Read its **Testable UI Elements** table carefully — it is a contract you must implement exactly; see below.
-- `docs/protocol.md` — the daemon↔UI protocol. The plan's **Protocol Contract** section states this plan's delta. You code against the contract, NOT against the daemon's code — you do not need to read daemon implementation files.
-- `docs/conventions.md` — settled patterns. Follow them; never invent alternatives.
 - `plans/<plan-name>/test-specs.md` — E2E test specs (understand what tests expect)
 - In fix mode: `plans/<plan-name>/web-tests.md` — to see what's failing and what was already tried
 
@@ -34,7 +33,7 @@ by default, no server reuse), `workers`/`timeout`/`expect.timeout` stay as docs/
 - Strict TS, no `any`. Plain ES modules organized per feature. A feature is a controller under `web/src/features/`; `main.ts` gets one registration line — `docs/conventions.md` § Composition roots.
 - **One WebSocket client module owns the daemon connection** (reconnect with backoff); everything else subscribes to it. Never open a second ad-hoc socket.
 - DOM: build via small render functions / `<template>` elements; **no innerHTML with interpolated data**.
-- Every view handles three states: no data yet (**render "unknown", never an empty gauge** — SPEC §2.3, review-Critical), data, and daemon-down.
+- Every view handles three states: no data yet (**render "unknown", never an empty gauge** — `kb:adr/usage-unknown-renders-word-not-track`, review-Critical), data, and daemon-down.
 - xterm.js 6.0.0 / addon-fit 0.11.0 are pinned — never bump them.
 - Keep logic (protocol decoding, state derivation, formatting) in pure modules separate from DOM code, so the test agent can unit-test it with Vitest.
 - **Focusable controls inside the render tick are reused, never rebuilt.** `main.ts` re-renders
@@ -118,7 +117,7 @@ and never report `pass`/`fail` for them as a verdict — this is your smoke chec
 
 **Comments are part of the gate.** Before you write your log, re-read every comment your diff adds
 or touches, and every comment tree-wide naming a file or function you moved, against
-`docs/conventions.md` §Comments: delete narration and greppable citations; keep only a non-obvious *why*. A
+`docs/conventions.md` §Comments: delete narration and greppable citations; keep only a non-obvious *why*, citing `kb:<type>/<slug>` where a record exists — and re-read the hand-written part of every touched package's `CLAUDE.md`: it must still be true (a false one is a review Major). A
 path, `make` target or `musterd` flag a comment does cite must exist — `python3
 .claude/skills/orchestrate/scripts/dead-refs.py` fails the gate otherwise, and the reviewer treats a
 false or dead comment as Major.
@@ -176,6 +175,7 @@ Write (or append to) `plans/<plan-name>/web-implementation.md`:
 
 **Plan**: <plan-name>
 **Mode**: initial | fix (attempt N)
+**Pack**: <kb pack summary line>
 
 ## Changes
 
@@ -186,7 +186,7 @@ Write (or append to) `plans/<plan-name>/web-implementation.md`:
 
 ## Decisions
 
-<one line per deviation or trade-off, including any Testable UI Elements row you could not implement as written; every REQ the plan lists
+<one line per trade-off, including any Testable UI Elements row you could not implement as written; a departure from the plan starts `deviation:` and ends `→ ADR: pending` — the orchestrator writes the record; you never write `docs/`; every REQ the plan lists
 for your side appears in Changes or here as deliberately not done, with why — an unmentioned REQ is a review Minor at best (kb:lesson/unmentioned-req-costs-a-review-minor)>
 
 ## Handoff

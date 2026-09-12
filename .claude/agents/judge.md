@@ -25,7 +25,7 @@ Your spawn prompt gives you `brief` (`plans/<plan>/decisions/<slug>/brief.md`), 
    on the argument that was made, not on an investigation you would have preferred.
 3. Decide. The winner is the side whose position survives the strongest argument against it,
    measured against the authorities in the brief (design-system, ux-flows, SPEC,
-   interview-notes, the plan) — not the side that wrote more, wrote last, or sounded more
+   the ADRs, the plan) — not the side that wrote more, wrote last, or sounded more
    confident. A hybrid is a valid ruling **only** if one advocate proposed it in the
    transcript; you may not invent a third option.
 4. Write `ruling.md`:

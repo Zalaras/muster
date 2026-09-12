@@ -26,13 +26,12 @@ All plan artifacts live under `plans/<plan-name>/` in the project root. Create t
 
 ## Standing Authorities
 
-Read before planning; never contradict them:
-
-1. `SPEC.md` — decisions there are settled; don't re-litigate or reintroduce cut features.
-2. The fact records in `docs/facts/` (`go run ./tools/kb ls --type fact`) + `spikes/FINDINGS.md` — measured wire-format facts; they beat Claude Code's official docs.
-3. `docs/conventions.md` — the stack and code patterns are chosen; a plan never picks libraries.
-4. `docs/protocol.md` — the daemon↔UI protocol (born in M0 planning). Plans state **deltas** against it.
-5. `CLAUDE.md` hard rules — a plan that requires violating one is wrong by construction.
+Settle the plan's `**Features**` (names with a `docs/features/<name>/spec.md`) in §1, then run
+`go run ./tools/kb pack --plan <plan-name> --role planner` (`--features a,b` before the header
+exists) and read it before planning; never contradict it: accepted ADRs are settled, `rejected`
+ones are why a cut feature stays cut, facts beat Claude Code's docs, `contract.md` is the
+protocol you state deltas against, conventions choose the stack (a plan never picks
+libraries). `CLAUDE.md` hard rules — a plan that requires violating one is wrong by construction.
 
 ## Interactive Planning Process
 
@@ -50,7 +49,7 @@ If no spec exists, proceed normally — the spec step is optional.
 
 ### 1. Understand the Scope
 
-Ask the user to elaborate on what this adds or fixes and which milestone it serves. Read relevant existing code (Grep/Glob) and the relevant SPEC.md sections to understand current patterns.
+Ask the user to elaborate on what this adds or fixes and which milestone it serves. Read relevant existing code (Grep/Glob) and the pack's feature `spec.md` and ADRs to understand current patterns.
 
 ### 2. Determine Work Type
 
@@ -93,7 +92,7 @@ Based on the codebase structure, identify which files will likely need changes:
 **Web (TypeScript, `web/src/`):**
 - Protocol/message modules, state-derivation modules, per-feature render modules, the single WebSocket client module
 
-**`SPEC.md` and `TODO.md` are never listed under an impl track.** They are the orchestrator's (Doc-Upkeep Backstop / Completion), and the review rules forbid an impl agent from touching `SPEC.md`. Put the required upkeep under Implementation Notes → Doc upkeep, addressed to the orchestrator (kb:lesson/plan-gave-no-single-owner).
+**`TODO.md`, `docs/adr/`, `SPEC.md` and generated kb files are never listed under an impl track** (the hand-written part of a touched package's `CLAUDE.md` is the exception and belongs to that impl track). They are the orchestrator's (Doc-Upkeep Backstop / Completion), and the review rules forbid an impl agent from touching `SPEC.md`. Put the required upkeep under Implementation Notes → Doc upkeep, addressed to the orchestrator (kb:lesson/plan-gave-no-single-owner).
 A composition root (`web/src/main.ts`, `internal/server/server.go`) may appear under Affected Files only for a one-line registration; anything more is a new feature module (`docs/conventions.md` § Composition roots).
 
 **Every requirement's test coverage names exactly one owning test agent — no conditional routing.**
@@ -116,7 +115,7 @@ where ownership is ambiguous (kb:lesson/plan-gave-no-single-owner).
 State this plan's **delta against `docs/protocol.md`**: every WS message and HTTP endpoint added or changed, with full shapes. For each:
 - **WS messages**: direction (daemon→UI / UI→daemon), `type`, full JSON shape with types, which fields are optional/nullable and exactly when (e.g. null before a session's first API response), ordering/delivery caveats
 - **HTTP endpoints**: method and path, request body, response body, error responses with status
-  codes, auth (localhost token per SPEC §2.6). Every example body is the **exact wire shape**: error
+  codes, auth (localhost token per `kb:spec/connection`). Every example body is the **exact wire shape**: error
   examples sit inside the `{"error": {"code", "message", …}}` envelope `kb:anchor/transport` mandates, extra
   fields (a `paths` list, a `retryAfter`) inside that object — never a flat `{"code": …}` sketch.
   `plan-lint.sh` flags an unenveloped example.
@@ -130,12 +129,12 @@ WS daemon→UI  session_state
 Sent on every state transition. `target` is the tmux target — the session key.
 ```
 
-**On approval, merge the delta into `docs/protocol.md`** (create the file if this is the first plan to need it), so both agents code against the canonical doc. No agent may change the contract unilaterally mid-pipeline — a contract problem stops the pipeline and comes back to the user.
+**On approval, merge the delta into `docs/protocol.md`** under the anchors of the plan's `**Features**`, then `make gen-kb` so `docs/features/<f>/contract.md` follows — both agents code against the generated contract. No agent may change the contract unilaterally mid-pipeline — a contract problem stops the pipeline and comes back to the user.
 
 ### 6. Schema Changes
 
 If SQLite schema changes are needed:
-- New tables or columns with exact types and constraints (schema direction per SPEC §7)
+- New tables or columns with exact types and constraints (schema direction per `kb:adr/lifecycle-migrations-add-tables-when-written`)
 - A numbered, forward-only migration (no down migrations)
 - Note: don't plan tests for what SQLite guarantees — constraint enforcement is the platform's job
 
@@ -145,7 +144,7 @@ Define the user-facing behavior clearly enough that the web agent can work witho
 - Which views/screens are added or modified
 - What the DOM structure is at feature level (render functions / `<template>` elements — no framework)
 - User interaction flows
-- **The three mandatory states for every view**: no data yet (**render "unknown", never an empty gauge** — SPEC §2.3), data, and daemon-down
+- **The three mandatory states for every view**: no data yet (**render "unknown", never an empty gauge** — `kb:adr/usage-unknown-renders-word-not-track`), data, and daemon-down
 - Any specific patterns from the existing codebase to follow
 
 **Design system**: `docs/design/design-system.md` and `docs/design/ux-flows.md` are binding; cite the sections and the mockup that govern every surface this plan touches.
@@ -201,7 +200,7 @@ hosting view as a state the round-trip is asserted from.
 
 A measured value is evidence **for the configuration it was measured in**. When a
 requirement applies a value under a different tool, permission mode, auth state, version or
-topology than it was measured in, that spike/FINDINGS value must be re-examined against
+topology than it was measured in, that fact record's value must be re-examined against
 that change before it becomes a requirement — in writing, per value, in the plan
 ("re-checked against decision N: still valid because …"). The measurement was real; its
 applicability had expired.
@@ -261,6 +260,7 @@ Write the plan to `plans/<plan-name>/plan.md` using this structure. The template
 **Work Type**: daemon | web | full-stack
 **E2E Scope**: new-specs | harness-only | none
 **Fixture plan**: <spec>.spec.ts daemon | startDaemon | fileDaemon (<why>) [; …] | none
+**Features**: <name>[, <name>] — each has a docs/features/<name>/spec.md
 **Description**: <one-line summary>
 
 ## Overview
@@ -280,7 +280,7 @@ Write the plan to `plans/<plan-name>/plan.md` using this structure. The template
 
 ## Protocol Contract
 
-Delta against `docs/protocol.md` (merged there on approval). "No protocol changes" if none.
+Delta against `docs/protocol.md` (merged there on approval; `docs/features/<f>/contract.md` regenerates). "No protocol changes" if none.
 
 ### WS: <direction> `<type>`
 ```json
@@ -378,8 +378,9 @@ criterion goes, so it is assigned rather than dropped.
 
 ## Implementation Notes
 
-<any additional context, patterns to follow, gotchas — cite spikes/FINDINGS.md sections where
-the behaviour being handled is a measured Claude Code quirk>
+<any additional context, patterns to follow, gotchas — cite `kb:fact/<slug>` for every measured
+Claude Code quirk handled and `kb:adr/<slug>` for every decision this plan makes — a decision with
+no ADR is not yet a decision>
 ````
 
 ## Important Behaviors
@@ -390,5 +391,5 @@ the behaviour being handled is a measured Claude Code quirk>
 - Keep the plan practical and implementable — avoid over-engineering.
 - Reference actual file paths from the codebase, not hypothetical ones.
 - Save the plan file after each major section so progress isn't lost.
-- Mark the plan status as "draft" until the user explicitly approves it. At approval: run `.claude/skills/orchestrate/scripts/plan-lint.sh <plan-name>` and fix every `FAIL` first, mark it "approved", and merge the Protocol Contract delta into `docs/protocol.md`.
+- Mark the plan status as "draft" until the user explicitly approves it. At approval: run `.claude/skills/orchestrate/scripts/plan-lint.sh <plan-name>` and fix every `FAIL` first, mark it "approved", merge the Protocol Contract delta into `docs/protocol.md`, write each decision the plan makes as a `status: proposed` ADR in `docs/adr/` (`refs: [plan:<plan-name>]`, one decision each), then `make gen-kb && make check-kb`. Orchestrate pre-flight commits these onto the plan branch.
 - **The protocol contract and UI specs must be detailed enough that the daemon and web agents can work in parallel without needing to see each other's code.**

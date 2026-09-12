@@ -1,5 +1,7 @@
 # Muster — protocol changelog
 
+> **Frozen 2026-09-12.** Every bullet below is migrated: the `<!-- kb: … -->` marker at its end names the records it produced. Protocol changes now land as ADRs plus the edit to `docs/protocol.md` (`docs/features/<name>/contract.md` regenerates); nothing new is appended here.
+
 History of `docs/protocol.md`: the milestone map the contract was first built against and the
 per-plan changelog, newest last. `docs/protocol.md` itself is the current wire contract with no
 provenance in it; `git log -- docs/protocol.md` has the diffs. Moved out of the protocol document

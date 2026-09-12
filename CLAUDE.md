@@ -3,20 +3,22 @@
 Go daemon (`musterd`) + web dashboard (Vite + TypeScript, **no framework**) that manages
 Claude Code sessions running in tmux. Personal tool for Damian, macOS only, single user.
 
-## Documents — authority order
+## Knowledge — records, read through `kb`
 
-1. `SPEC.md` — authoritative. Decisions there are settled, and rejected options are ADRs with
-   status rejected (`go run ./tools/kb ls --type adr`); don't re-litigate them, and don't
-   reintroduce cut features (notifications, cost tracking, containers, resource gauges).
-2. The fact records in `docs/facts/` (`go run ./tools/kb ls --type fact`; narrative in
-   `spikes/FINDINGS.md`) — **measured** wire-format facts, each with the Claude Code range it
-   holds on and the canary test that guards it. Where they contradict Claude Code's official
-   docs, the measurements win — the docs have already been wrong (e.g. `SessionStart` over HTTP).
-3. `docs/conventions.md` — settled code patterns (HTTP/WS/logging/DB choices, Go and TS
-   conventions, testing rules). Follow it; change it there first if it must change.
-4. `TODO.md` — execution backlog; finished items live in `docs/history/todo-done.md`.
-5. `docs/history/` — SPEC and protocol changelogs, done TODO items: how things got here,
-   never current state. `docs/research/` — pre-repo research, superseded by the above.
+Project truth is typed records under `docs/`, found with `go run ./tools/kb` — never by
+browsing: `docs/adr/` (decisions; `accepted` binds, `proposed` is a plan's not-yet-landed
+choice, `superseded`/`rejected` are history — don't re-litigate them or reintroduce cut
+features), `docs/facts/` (**measured** Claude Code facts with the versions they hold on; they
+beat Claude Code's official docs, which have been wrong), `docs/lessons/` (retro learnings,
+per role), `docs/runbooks/`, `docs/features/<name>/` (one folder per feature; its `spec.md`
+frontmatter is the registry), `docs/protocol.md` (the daemon↔UI contract, stable anchors) and
+`docs/conventions.md` (settled code patterns — change it there first). `SPEC.md` is the
+product spec; where an accepted ADR and SPEC prose disagree, the ADR is newer and wins. Every
+`INDEX.md`, `contract.md`, `.claude/rules/*.md` and CLAUDE.md trailer marked GENERATED comes
+from `make gen-kb` — never edit one. Start with `kb for <path>` (what governs a file) or
+`kb pack --plan <name> --role <role>` (what a pipeline role needs); cite records as
+`kb:<type>/<slug>`. `TODO.md` is the backlog; `docs/history/` is how things got here, never
+current state.
 
 ## Commands
 
@@ -36,12 +38,12 @@ Feature work goes through the multi-agent pipeline, not ad-hoc editing:
    `orchestration-state.json` resume. Only a review verdict of `approved` completes it.
 4. `/work-status [name]` — where things stand.
 5. `/triage [N|--all|--audit]` — pulls open GitHub issues into `TODO.md` and audits the
-   two lists. An issue is triaged iff its `issues/N` link appears in `TODO.md` or
-   `docs/history/todo-done.md` (ticked entries live there); triage never closes an issue, and
-   commits its `TODO.md` edit (`docs(triage): …`, no push).
+   two lists. An issue is triaged iff its `issues/N` link is in `TODO.md` or
+   `docs/history/todo-done.md`; triage never closes an issue, and commits its `TODO.md` edit
+   (`docs(triage): …`, no push).
 6. `/land <name>` — squash-merges the approved `plan/<name>` branch to `main` with a
-   conventional subject carrying `closes #N`, pushes (which cuts a release), and deletes
-   the branch. The push is what closes the issue.
+   conventional subject carrying `closes #N`, pushes (cutting a release, which closes the
+   issues), and deletes the branch.
 7. `/retro <name>` — run in the session that ran `/orchestrate`, once it completes: names
    what the run cost and proposes the smallest pipeline-doc change (net ≤ 0 lines) that
    would have prevented it, or says nothing needs changing. Commits on `main` (`docs(retro)`).
@@ -51,11 +53,10 @@ tests; test agents never edit implementation; nobody changes the daemon↔UI pro
 (`docs/protocol.md` / a plan's Protocol Contract; `docs/features/*/contract.md` is generated
 from it by `make gen-kb`, never edited) unilaterally; every agent leaves the
 tree compiling; claims need evidence (paste the failing output, don't assert) — and
-claimed *effects* need measurement (a "the file is now private / the row is now hidden" claim
-requires the `ls -l` or the observed DOM, not just the diff). A `blocked`/`implementation-bug`
-verdict naming a real obstacle is a good outcome; the failure is a green verdict hiding one.
-Never `sleep`/poll to wait on a subagent: the harness re-invokes the **main session** when one
-finishes, but a subagent is never woken — so agents run gates in the foreground (kb:lesson/subagent-never-woken-by-harness).
+claimed *effects* need measurement (the `ls -l` or the observed DOM, not the diff). A
+`blocked`/`implementation-bug` verdict naming a real obstacle is a good outcome; the failure is
+a green verdict hiding one. Never `sleep`/poll to wait on a subagent — the harness wakes only
+the **main session**, so agents run gates in the foreground (kb:lesson/subagent-never-woken-by-harness).
 
 Trivial fixes and doc work don't need the pipeline — judgement call, default to it for
 anything with acceptance criteria.
@@ -97,7 +98,11 @@ ritual is `docs/claude-code-versions.md`.
 ## Doc upkeep (end of every session)
 
 - Work item finished → tick it and move its block from `TODO.md` to `docs/history/todo-done.md` (same heading).
-- Decision changed or settled → an entry in `docs/history/spec-changelog.md` **and** the SPEC section it changes.
-- New wire-format fact learned → a fact record in `docs/facts/` (`verified:` the version
-  measured, `guard:` the test that pins it or `none`), and a `spikes/FINDINGS.md` addendum
-  if substantive; then `make gen-kb && make check-kb`.
+- Decision made or changed → an ADR in `docs/adr/` (one decision each; `accepted` on `main`,
+  `proposed` on a plan branch — `/orchestrate` flips it at Completion). Superseding one sets
+  `supersedes`; never edit an accepted ADR's decision.
+- Measured Claude Code fact learned → a fact record in `docs/facts/` with the version it was
+  measured on (`verified`) and the test that guards it (`guard`).
+- Lesson learned (a cost with a cause) → a lesson record in `docs/lessons/` via `/retro`, never
+  a sentence in an agent file.
+- Then `make gen-kb && make check-kb`; generated files ride the same commit as the record.
