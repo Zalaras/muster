@@ -161,6 +161,56 @@ func (s *Server) loadPrefs(ctx context.Context) PrefsInfo {
 	return loadPrefs(ctx, s.store)
 }
 
+// prefsField is one validated string-ish pref in handlePutPrefs's table. present says the
+// request carried the field at all; valid and apply are only ever called when it did, so
+// both may dereference the request pointer unguarded.
+type prefsField struct {
+	present bool
+	valid   func() bool
+	msg     string
+	apply   func(*PrefsInfo)
+}
+
+// prefsFields is handlePutPrefs's validate-then-apply table. Slice order is load-bearing:
+// it decides which single error a request that is invalid in several fields at once
+// reports, so entries must stay in the order view, density, usageModel, railSort, theme.
+// UpdateCheck is deliberately absent — it is a bool with a changed-tracking side effect,
+// handled on its own in handlePutPrefs.
+func prefsFields(req *prefsRequest) []prefsField {
+	return []prefsField{
+		{
+			present: req.View != nil,
+			valid:   func() bool { return validView(*req.View) },
+			msg:     "view must be one of focus, tiles",
+			apply:   func(p *PrefsInfo) { p.View = *req.View },
+		},
+		{
+			present: req.Density != nil,
+			valid:   func() bool { return validDensity(*req.Density) },
+			msg:     "density must be one of 2x2, 3x2",
+			apply:   func(p *PrefsInfo) { p.Density = *req.Density },
+		},
+		{
+			present: req.UsageModel != nil,
+			valid:   func() bool { return validUsageModel(*req.UsageModel) },
+			msg:     "usageModel must be 1-32 characters after trim",
+			apply:   func(p *PrefsInfo) { p.UsageModel = strings.TrimSpace(*req.UsageModel) },
+		},
+		{
+			present: req.RailSort != nil,
+			valid:   func() bool { return validRailSort(*req.RailSort) },
+			msg:     "railSort must be one of manual, attention",
+			apply:   func(p *PrefsInfo) { p.RailSort = *req.RailSort },
+		},
+		{
+			present: req.Theme != nil,
+			valid:   func() bool { return validTheme(*req.Theme) },
+			msg:     "theme must be 1-32 chars of a-z, 0-9 or -, starting with a letter",
+			apply:   func(p *PrefsInfo) { p.Theme = *req.Theme },
+		},
+	}
+}
+
 // handlePutPrefs is PUT /api/prefs: validates, persists the merged prefs object to kv,
 // and broadcasts the full object to every UI socket (INV-4).
 func (f *prefsFeature) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
@@ -169,48 +219,34 @@ func (f *prefsFeature) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "invalid_request", "invalid JSON body")
 		return
 	}
-	if req.View == nil && req.Density == nil && req.UsageModel == nil && req.RailSort == nil && req.Theme == nil && req.UpdateCheck == nil {
+
+	// One pass, because a field that is absent can never be invalid: the nothing-supplied
+	// error below is therefore still unreachable whenever any field-level error fires,
+	// exactly as it was when the two checks were written out separately.
+	fields := prefsFields(&req)
+	supplied := req.UpdateCheck != nil
+	for _, field := range fields {
+		if !field.present {
+			continue
+		}
+		supplied = true
+		if !field.valid() {
+			writeJSONError(w, http.StatusBadRequest, "invalid_request", field.msg)
+			return
+		}
+	}
+	if !supplied {
 		writeJSONError(w, http.StatusBadRequest, "invalid_request", "at least one of view, density, usageModel, railSort, theme or updateCheck is required")
-		return
-	}
-	if req.View != nil && !validView(*req.View) {
-		writeJSONError(w, http.StatusBadRequest, "invalid_request", "view must be one of focus, tiles")
-		return
-	}
-	if req.Density != nil && !validDensity(*req.Density) {
-		writeJSONError(w, http.StatusBadRequest, "invalid_request", "density must be one of 2x2, 3x2")
-		return
-	}
-	if req.UsageModel != nil && !validUsageModel(*req.UsageModel) {
-		writeJSONError(w, http.StatusBadRequest, "invalid_request", "usageModel must be 1-32 characters after trim")
-		return
-	}
-	if req.RailSort != nil && !validRailSort(*req.RailSort) {
-		writeJSONError(w, http.StatusBadRequest, "invalid_request", "railSort must be one of manual, attention")
-		return
-	}
-	if req.Theme != nil && !validTheme(*req.Theme) {
-		writeJSONError(w, http.StatusBadRequest, "invalid_request", "theme must be 1-32 chars of a-z, 0-9 or -, starting with a letter")
 		return
 	}
 
 	ctx := r.Context()
 	prefs := loadPrefs(ctx, f.store)
 	updateCheckChanged := false
-	if req.View != nil {
-		prefs.View = *req.View
-	}
-	if req.Density != nil {
-		prefs.Density = *req.Density
-	}
-	if req.UsageModel != nil {
-		prefs.UsageModel = strings.TrimSpace(*req.UsageModel)
-	}
-	if req.RailSort != nil {
-		prefs.RailSort = *req.RailSort
-	}
-	if req.Theme != nil {
-		prefs.Theme = *req.Theme
+	for _, field := range fields {
+		if field.present {
+			field.apply(&prefs)
+		}
 	}
 	if req.UpdateCheck != nil && *req.UpdateCheck != prefs.UpdateCheck {
 		prefs.UpdateCheck = *req.UpdateCheck

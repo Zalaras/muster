@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/creack/pty"
 	"github.com/rs/zerolog"
@@ -15,6 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Zalaras/muster/internal/claudecode"
+	"github.com/Zalaras/muster/internal/selfupdate"
+	"github.com/Zalaras/muster/internal/server"
 )
 
 // TestResolveOnExit_ExplicitLeaveAndKillNeverConsultStdin covers REQ-3: the two explicit
@@ -253,4 +256,99 @@ func TestCheckClaudeCode_UnknownOutcomeNeverFailsStartup(t *testing.T) {
 	assert.Contains(t, logged, `"level":"warn"`)
 	assert.Contains(t, logged, "could not determine claude code version")
 	assert.NotContains(t, logged, `"installed"`, "installed must be omitted from the log, never a bogus empty string")
+}
+
+// TestBuildServerConfig_MapsEveryFlagOntoTheServerConfig pins the wiring buildServerConfig
+// does. It branches on nothing, so a field wired to the wrong source — or left at its zero
+// value when a flag was meant to reach it — cannot fail a build or a unit test anywhere
+// else; it surfaces only as a feature quietly not working in E2E, or not at all. Every
+// value below is deliberately distinct so a crossed pair cannot pass.
+func TestBuildServerConfig_MapsEveryFlagOntoTheServerConfig(t *testing.T) {
+	f := &cliFlags{
+		webDist:             "/web/dist",
+		claudeBin:           "/bin/claude-stub",
+		tmuxSocket:          "sock-under-test",
+		browseRoot:          "/browse/root",
+		usagePoll:           7 * time.Minute,
+		usageAPIURL:         "https://usage.example",
+		usageTokenFile:      "/usage/token",
+		issueRepo:           "owner/repo",
+		issueAPIURL:         "https://issues.example",
+		issueTokenFile:      "/issue/token",
+		claudeThemePoll:     11 * time.Second,
+		claudeConfigFile:    "/claude/config.json",
+		updateBaseURL:       "https://releases.example",
+		updateCheckInterval: 13 * time.Hour,
+	}
+	installed := "2.1.269"
+	serving := &servingEnv{
+		uiToken:          "ui-token",
+		ingestToken:      "ingest-token",
+		port:             4321,
+		dashboardURL:     "http://127.0.0.1:4321/auth?token=ui-token",
+		claudeCodeInfo:   server.ClaudeCodeInfo{Installed: &installed, Floor: "2.1.233", Verified: "2.1.269", Status: "verified"},
+		hookScript:       "/data/hook.sh",
+		statusLineScript: "/data/statusline.sh",
+		legacyScript:     "/data/legacy.sh",
+	}
+	install := selfupdate.Install{Kind: selfupdate.KindHomebrew, Remedy: selfupdate.HomebrewRemedy}
+	pubKey := []byte("minisign-public-key")
+
+	cfg := buildServerConfig(f, nil, zerolog.Nop(), serving, install, "/usr/local/bin/musterd", pubKey)
+
+	assert.Equal(t, "ui-token", cfg.UIToken)
+	assert.Equal(t, "ingest-token", cfg.IngestToken)
+	assert.Equal(t, "/web/dist", cfg.WebDist)
+	assert.Equal(t, version, cfg.DaemonVersion)
+	assert.Equal(t, serving.claudeCodeInfo, cfg.ClaudeCode)
+	assert.Equal(t, "sock-under-test", cfg.TmuxSocket)
+	assert.NotNil(t, cfg.Locator, "the launch picker is unusable without a locator")
+
+	assert.Equal(t, "/bin/claude-stub", cfg.Launch.ClaudeBin)
+	assert.Equal(t, "/browse/root", cfg.Launch.BrowseRoot)
+	assert.Equal(t, "/data/hook.sh", cfg.Launch.HookScript)
+	assert.Equal(t, "/data/statusline.sh", cfg.Launch.StatusLineScript)
+	assert.Equal(t, []string{"/data/legacy.sh"}, cfg.Launch.LegacyScripts)
+
+	assert.Equal(t, 7*time.Minute, cfg.Usage.Poll)
+	assert.Equal(t, "https://usage.example", cfg.Usage.APIURL)
+	assert.Equal(t, "/usage/token", cfg.Usage.TokenFile)
+
+	assert.Equal(t, "owner/repo", cfg.Issue.Repo)
+	assert.Equal(t, "https://issues.example", cfg.Issue.APIURL)
+	assert.Equal(t, "/issue/token", cfg.Issue.TokenFile)
+
+	assert.Equal(t, 11*time.Second, cfg.Theme.Poll)
+	assert.Equal(t, "/claude/config.json", cfg.Theme.ConfigFile)
+
+	assert.Equal(t, "https://releases.example", cfg.Update.BaseURL)
+	assert.Equal(t, 13*time.Hour, cfg.Update.CheckInterval)
+	assert.Equal(t, pubKey, cfg.Update.PublicKey)
+	assert.Equal(t, install, cfg.Update.Install)
+	assert.Equal(t, "/usr/local/bin/musterd", cfg.Update.ExePath)
+	assert.NotNil(t, cfg.Update.ExeRun, "apply cannot verify the replacement binary without a version probe")
+}
+
+// TestParseFlags_RejectsInvalidValues covers the two post-parse validations parseFlags
+// owns; the defaults themselves are covered by the E2E daemon that runs with none set.
+func TestParseFlags_RejectsInvalidValues(t *testing.T) {
+	t.Run("on-exit must be one of the three policies", func(t *testing.T) {
+		_, err := parseFlags([]string{"-on-exit=maybe"}, io.Discard)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "must be ask, leave, or kill")
+	})
+
+	t.Run("update-check-interval must be positive", func(t *testing.T) {
+		_, err := parseFlags([]string{"-update-check-interval=0"}, io.Discard)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "must be > 0")
+	})
+
+	t.Run("defaults parse", func(t *testing.T) {
+		f, err := parseFlags(nil, io.Discard)
+		require.NoError(t, err)
+		assert.Equal(t, "ask", f.onExit)
+		assert.Equal(t, defaultUpdateCheckInterval, f.updateCheckInterval)
+		assert.Equal(t, defaultUpdateBaseURL, f.updateBaseURL)
+	})
 }

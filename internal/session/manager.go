@@ -277,6 +277,49 @@ type ReconcileReport struct {
 //     the *following* startup sweeps them.
 //   - tmux sessions on the socket with no row are logged at warn and never adopted.
 func (m *Manager) Reconcile(ctx context.Context) (ReconcileReport, error) {
+	var report ReconcileReport
+
+	// Phase 1, classify. Deliberately separate from, and complete before, the acting
+	// phase below: PaneExists is tmux I/O and must run with m.mu released, and folding
+	// the two phases into one loop would also make the toEnd-then-toSweep order below an
+	// accident of map iteration rather than a stated guarantee.
+	toEnd, toSweep := m.classifySessions(ctx, &report)
+
+	// Phase 2, act — toEnd fully, then toSweep.
+	for _, id := range toEnd {
+		if _, err := m.markEnded(ctx, id); err != nil {
+			return report, fmt.Errorf("reconcile: marking session %d ended: %w", id, err)
+		}
+		report.MarkedEnded++
+	}
+	for _, id := range toSweep {
+		m.removeFromMemory(id)
+		if err := m.store.DeleteSession(ctx, id); err != nil {
+			return report, fmt.Errorf("reconcile: sweeping session %d: %w", id, err)
+		}
+		report.Swept++
+	}
+
+	m.sweepUnknownTmuxSessions(ctx, &report)
+
+	m.log.Info().
+		Int("kept_alive", report.KeptAlive).
+		Int("marked_ended", report.MarkedEnded).
+		Int("swept", report.Swept).
+		Int("shells_killed", report.ShellsKilled).
+		Msg("reconciled sessions")
+
+	return report, nil
+}
+
+// classifySessions is Reconcile's first phase: it snapshots the registry under m.mu,
+// releases the lock, and only then asks tmux which panes still exist, returning the ids
+// to mark ended and the ids to sweep. It writes only report.KeptAlive; the caller owns
+// every mutation that follows.
+//
+// The lock is taken for the snapshot alone and released before the PaneExists calls —
+// those are tmux I/O and must never run under m.mu.
+func (m *Manager) classifySessions(ctx context.Context, report *ReconcileReport) (toEnd, toSweep []int64) {
 	type row struct {
 		id     int64
 		alive  bool
@@ -290,8 +333,6 @@ func (m *Manager) Reconcile(ctx context.Context) (ReconcileReport, error) {
 	}
 	m.mu.Unlock()
 
-	var report ReconcileReport
-	var toEnd, toSweep []int64
 	for _, r := range rows {
 		if !r.alive {
 			toSweep = append(toSweep, r.id)
@@ -313,64 +354,51 @@ func (m *Manager) Reconcile(ctx context.Context) (ReconcileReport, error) {
 			toEnd = append(toEnd, r.id)
 		}
 	}
+	return toEnd, toSweep
+}
 
-	for _, id := range toEnd {
-		if _, err := m.markEnded(ctx, id); err != nil {
-			return report, fmt.Errorf("reconcile: marking session %d ended: %w", id, err)
-		}
-		report.MarkedEnded++
+// sweepUnknownTmuxSessions kills every orphaned shell session on the socket and logs any
+// Muster-shaped tmux session with no row behind it. Nothing here is ever adopted
+// (kb:adr/lifecycle-reconcile-before-first-snapshot); a listing failure is a warning, not
+// an error, because an unreadable tmux must not fail startup.
+func (m *Manager) sweepUnknownTmuxSessions(ctx context.Context, report *ReconcileReport) {
+	if m.sessionKiller == nil {
+		return
 	}
-	for _, id := range toSweep {
-		m.removeFromMemory(id)
-		if err := m.store.DeleteSession(ctx, id); err != nil {
-			return report, fmt.Errorf("reconcile: sweeping session %d: %w", id, err)
-		}
-		report.Swept++
+	names, err := m.sessionKiller.ListSessions(ctx)
+	if err != nil {
+		m.log.Warn().Err(err).Msg("reconcile: listing tmux sessions failed")
+		return
 	}
 
-	if m.sessionKiller != nil {
-		names, err := m.sessionKiller.ListSessions(ctx)
-		if err != nil {
-			m.log.Warn().Err(err).Msg("reconcile: listing tmux sessions failed")
-		} else {
-			m.mu.Lock()
-			known := make(map[string]bool, len(m.sessions))
-			for _, sess := range m.sessions {
-				if sess.TmuxTarget != "" {
-					known[sessionTmuxName(sess.ID)] = true
-				}
+	m.mu.Lock()
+	known := make(map[string]bool, len(m.sessions))
+	for _, sess := range m.sessions {
+		if sess.TmuxTarget != "" {
+			known[sessionTmuxName(sess.ID)] = true
+		}
+	}
+	m.mu.Unlock()
+
+	for _, name := range names {
+		// Shell sessions (kb:anchor/sessions.shell / kb:anchor/state.liveness, REQ-10) are killed
+		// unconditionally, whatever their <n>, and never reported as unknown —
+		// they are deliberately non-persistent, and since tmux sessions outlive
+		// musterd this sweep is what "the daemon forgets them" actually means.
+		if shellID, ok := tmux.IsShellSessionName(name); ok {
+			if err := m.sessionKiller.KillSession(ctx, name); err != nil {
+				m.log.Warn().Err(err).Str("tmux_session", name).Int64("session_id", shellID).Msg("reconcile: killing orphaned shell session failed")
+			} else {
+				report.ShellsKilled++
 			}
-			m.mu.Unlock()
-			for _, name := range names {
-				// Shell sessions (kb:anchor/sessions.shell / kb:anchor/state.liveness, REQ-10) are killed
-				// unconditionally, whatever their <n>, and never reported as unknown —
-				// they are deliberately non-persistent, and since tmux sessions outlive
-				// musterd this sweep is what "the daemon forgets them" actually means.
-				if shellID, ok := tmux.IsShellSessionName(name); ok {
-					if err := m.sessionKiller.KillSession(ctx, name); err != nil {
-						m.log.Warn().Err(err).Str("tmux_session", name).Int64("session_id", shellID).Msg("reconcile: killing orphaned shell session failed")
-					} else {
-						report.ShellsKilled++
-					}
-					continue
-				}
-				if !strings.HasPrefix(name, "muster-") || known[name] {
-					continue
-				}
-				report.UnknownSessions = append(report.UnknownSessions, name)
-				m.log.Warn().Str("tmux_session", name).Msg("unknown muster tmux session on socket; not adopted")
-			}
+			continue
 		}
+		if !strings.HasPrefix(name, "muster-") || known[name] {
+			continue
+		}
+		report.UnknownSessions = append(report.UnknownSessions, name)
+		m.log.Warn().Str("tmux_session", name).Msg("unknown muster tmux session on socket; not adopted")
 	}
-
-	m.log.Info().
-		Int("kept_alive", report.KeptAlive).
-		Int("marked_ended", report.MarkedEnded).
-		Int("swept", report.Swept).
-		Int("shells_killed", report.ShellsKilled).
-		Msg("reconciled sessions")
-
-	return report, nil
 }
 
 // Get returns session id's current snapshot, if known — used by the terminal bridge's

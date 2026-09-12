@@ -10,6 +10,15 @@ import (
 // claudeSessionID and promptID (generic identifiers — not Claude Code payload
 // vocabulary) and the neutral StateInput the claudecode interpreter derived. Callers
 // hold the manager's lock.
+//
+// Deliberately exceeds the complexity ceiling. Every arm is one Kind of the wire
+// vocabulary, so the count is the domain's, not this function's, and the INV-A/INV-F/INV-P
+// comments cross-reference between adjacent arms ("also reachable from failed") — splitting
+// the switch would strand an invariant's halves in different functions, which no test can
+// catch. See kb:adr/lifecycle-prompt-ordering-guards, kb:adr/ingest-monotonic-rebind and
+// kb:adr/lifecycle-subagent-marked-events-not-stragglers.
+//
+//nolint:gocyclo // one arm per wire Kind; splitting strands the cross-referencing INV-A/INV-F/INV-P comments
 func applyInput(sess *Session, claudeSessionID string, promptID *string, input claudecode.StateInput, now time.Time) {
 	switch input.Kind {
 	case claudecode.KindBind, claudecode.KindClearRebind, claudecode.KindResumeBind:

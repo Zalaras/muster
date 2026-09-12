@@ -86,9 +86,39 @@ func main() {
 	}
 }
 
-func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
-	fs := flag.NewFlagSet("musterd", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+// cliFlags is every -flag musterd accepts, already parsed and validated by parseFlags.
+type cliFlags struct {
+	showVersion         bool
+	addr                string
+	dataDir             string
+	webDist             string
+	debug               bool
+	claudeBin           string
+	tmuxSocket          string
+	browseRoot          string
+	onExit              string
+	usagePoll           time.Duration
+	usageAPIURL         string
+	usageTokenFile      string
+	issueRepo           string
+	issueAPIURL         string
+	issueTokenFile      string
+	openFlag            bool
+	openCmd             string
+	claudeThemePoll     time.Duration
+	claudeConfigFile    string
+	updateFlag          bool
+	updateBaseURL       string
+	updateCheckInterval time.Duration
+	updatePublicKeyFile string
+}
+
+// parseFlags declares, parses and validates musterd's command line. Flag defaults that
+// depend on the environment (the data dir under the user's home, Claude Code's own config
+// path) are resolved here too; both degrade to a usable value rather than failing.
+func parseFlags(args []string, stderr io.Writer) (*cliFlags, error) {
+	fset := flag.NewFlagSet("musterd", flag.ContinueOnError)
+	fset.SetOutput(stderr)
 
 	defaultDataDir := "muster-data"
 	if home, err := os.UserHomeDir(); err == nil {
@@ -104,54 +134,51 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		defaultClaudeConfigFile = p
 	}
 
-	var (
-		showVersion         = fs.Bool("version", false, "print version and exit")
-		addr                = fs.String("addr", "127.0.0.1:8765", "listen address (localhost only by design)")
-		dataDir             = fs.String("data-dir", defaultDataDir, "directory for the database, tokens and other daemon-local state")
-		webDist             = fs.String("web-dist", "", "serve the dashboard from this directory instead of the embedded copy (dev override; empty uses the binary's embedded dashboard)")
-		debug               = fs.Bool("debug", false, "debug logging")
-		claudeBin           = fs.String("claude-bin", "claude", "the `claude` binary to spawn for a launched session (REQ-19: lets E2E launch a stub)")
-		tmuxSocket          = fs.String("tmux-socket", "muster", "dedicated tmux socket (REQ-19: never the user's default server); a value containing '/' is used as a filesystem path (-S), otherwise a named socket (-L) — m2-terminal REQ-5")
-		browseRoot          = fs.String("browse-root", "", "root of the launch modal's folder browser — GET /api/browse's no-param default and its Up ceiling (empty = the user's home directory; E2E passes its scratch dir)")
-		onExit              = fs.String("on-exit", "ask", "what to do with live sessions on shutdown: ask (default, prompts once if stdin is a TTY) | leave | kill")
-		usagePoll           = fs.Duration("usage-poll", defaultUsagePoll, "how often musterd polls Claude Code's per-model weekly usage endpoint; 0 disables polling (POST /api/usage/refresh then 404s)")
-		usageAPIURL         = fs.String("usage-api-url", "https://api.anthropic.com", "base URL for the per-model usage endpoint — a test seam like -claude-bin")
-		usageTokenFile      = fs.String("usage-token-file", "", "read the Claude Code OAuth token from this file instead of the macOS Keychain — a test seam like -claude-bin (empty = the daemon's usual Keychain lookup)")
-		issueRepo           = fs.String("issue-repo", "Zalaras/muster", "GitHub repo (owner/name) the Issue button files issues against")
-		issueAPIURL         = fs.String("issue-api-url", "https://api.github.com", "base URL for the GitHub API the Issue button posts to — a test seam like -usage-api-url; empty disables issue capture entirely (POST /api/issue/captures and POST /api/issues then 404)")
-		issueTokenFile      = fs.String("issue-token-file", "", "read the GitHub bearer token from this file's trimmed contents instead of running `gh auth token` — a test seam like -usage-token-file (empty = the daemon's usual `gh auth token`)")
-		openFlag            = fs.Bool("open", true, "auto-open the dashboard in the default browser at startup; fires only when stdin is also a real terminal (REQ-6)")
-		openCmd             = fs.String("open-cmd", "open", "the program run with the dashboard URL to auto-open it — a test seam like -claude-bin (REQ-7)")
-		claudeThemePoll     = fs.Duration("claude-theme-poll", defaultClaudeThemePoll, "how often musterd polls Claude Code's own theme setting for the terminal pane ground and the dashboard's Follow Claude Code preference; 0 disables polling (claudeTheme.family stays unknown)")
-		claudeConfigFile    = fs.String("claude-config-file", defaultClaudeConfigFile, "path to Claude Code's global config file to poll for its theme setting — a test seam like -usage-token-file")
-		updateFlag          = fs.Bool("update", false, "check for and apply the latest release, then exit — never starts the daemon or restarts anything (REQ-22)")
-		updateBaseURL       = fs.String("update-base-url", defaultUpdateBaseURL, "base URL for GitHub Releases the auto-updater checks/downloads from — a test seam like -usage-api-url; empty disables update checking and applying entirely")
-		updateCheckInterval = fs.Duration("update-check-interval", defaultUpdateCheckInterval, "how often musterd checks for a newer release while update checking is enabled; must be > 0")
-		updatePublicKeyFile = fs.String("update-public-key-file", "", "verify releases against this minisign public key file instead of the one compiled into the binary — a test seam like -usage-token-file (empty = the embedded key)")
-	)
-	if err := fs.Parse(args); err != nil {
-		return err
+	var f cliFlags
+	fset.BoolVar(&f.showVersion, "version", false, "print version and exit")
+	fset.StringVar(&f.addr, "addr", "127.0.0.1:8765", "listen address (localhost only by design)")
+	fset.StringVar(&f.dataDir, "data-dir", defaultDataDir, "directory for the database, tokens and other daemon-local state")
+	fset.StringVar(&f.webDist, "web-dist", "", "serve the dashboard from this directory instead of the embedded copy (dev override; empty uses the binary's embedded dashboard)")
+	fset.BoolVar(&f.debug, "debug", false, "debug logging")
+	fset.StringVar(&f.claudeBin, "claude-bin", "claude", "the `claude` binary to spawn for a launched session (REQ-19: lets E2E launch a stub)")
+	fset.StringVar(&f.tmuxSocket, "tmux-socket", "muster", "dedicated tmux socket (REQ-19: never the user's default server); a value containing '/' is used as a filesystem path (-S), otherwise a named socket (-L) — m2-terminal REQ-5")
+	fset.StringVar(&f.browseRoot, "browse-root", "", "root of the launch modal's folder browser — GET /api/browse's no-param default and its Up ceiling (empty = the user's home directory; E2E passes its scratch dir)")
+	fset.StringVar(&f.onExit, "on-exit", "ask", "what to do with live sessions on shutdown: ask (default, prompts once if stdin is a TTY) | leave | kill")
+	fset.DurationVar(&f.usagePoll, "usage-poll", defaultUsagePoll, "how often musterd polls Claude Code's per-model weekly usage endpoint; 0 disables polling (POST /api/usage/refresh then 404s)")
+	fset.StringVar(&f.usageAPIURL, "usage-api-url", "https://api.anthropic.com", "base URL for the per-model usage endpoint — a test seam like -claude-bin")
+	fset.StringVar(&f.usageTokenFile, "usage-token-file", "", "read the Claude Code OAuth token from this file instead of the macOS Keychain — a test seam like -claude-bin (empty = the daemon's usual Keychain lookup)")
+	fset.StringVar(&f.issueRepo, "issue-repo", "Zalaras/muster", "GitHub repo (owner/name) the Issue button files issues against")
+	fset.StringVar(&f.issueAPIURL, "issue-api-url", "https://api.github.com", "base URL for the GitHub API the Issue button posts to — a test seam like -usage-api-url; empty disables issue capture entirely (POST /api/issue/captures and POST /api/issues then 404)")
+	fset.StringVar(&f.issueTokenFile, "issue-token-file", "", "read the GitHub bearer token from this file's trimmed contents instead of running `gh auth token` — a test seam like -usage-token-file (empty = the daemon's usual `gh auth token`)")
+	fset.BoolVar(&f.openFlag, "open", true, "auto-open the dashboard in the default browser at startup; fires only when stdin is also a real terminal (REQ-6)")
+	fset.StringVar(&f.openCmd, "open-cmd", "open", "the program run with the dashboard URL to auto-open it — a test seam like -claude-bin (REQ-7)")
+	fset.DurationVar(&f.claudeThemePoll, "claude-theme-poll", defaultClaudeThemePoll, "how often musterd polls Claude Code's own theme setting for the terminal pane ground and the dashboard's Follow Claude Code preference; 0 disables polling (claudeTheme.family stays unknown)")
+	fset.StringVar(&f.claudeConfigFile, "claude-config-file", defaultClaudeConfigFile, "path to Claude Code's global config file to poll for its theme setting — a test seam like -usage-token-file")
+	fset.BoolVar(&f.updateFlag, "update", false, "check for and apply the latest release, then exit — never starts the daemon or restarts anything (REQ-22)")
+	fset.StringVar(&f.updateBaseURL, "update-base-url", defaultUpdateBaseURL, "base URL for GitHub Releases the auto-updater checks/downloads from — a test seam like -usage-api-url; empty disables update checking and applying entirely")
+	fset.DurationVar(&f.updateCheckInterval, "update-check-interval", defaultUpdateCheckInterval, "how often musterd checks for a newer release while update checking is enabled; must be > 0")
+	fset.StringVar(&f.updatePublicKeyFile, "update-public-key-file", "", "verify releases against this minisign public key file instead of the one compiled into the binary — a test seam like -usage-token-file (empty = the embedded key)")
+
+	if err := fset.Parse(args); err != nil {
+		return nil, err
 	}
 
-	switch *onExit {
+	switch f.onExit {
 	case "ask", "leave", "kill":
 	default:
-		return fmt.Errorf("invalid -on-exit value %q: must be ask, leave, or kill", *onExit)
+		return nil, fmt.Errorf("invalid -on-exit value %q: must be ask, leave, or kill", f.onExit)
 	}
-	if *updateCheckInterval <= 0 {
-		return fmt.Errorf("invalid -update-check-interval value %q: must be > 0", updateCheckInterval.String())
+	if f.updateCheckInterval <= 0 {
+		return nil, fmt.Errorf("invalid -update-check-interval value %q: must be > 0", f.updateCheckInterval.String())
 	}
+	return &f, nil
+}
 
-	if *showVersion {
-		fmt.Fprintf(stdout, "musterd %s (Claude Code verified %s)\n", version, claudecode.FormatRange(claudecode.Floor(), claudecode.Verified()))
-		return nil
-	}
-
-	// Install classification (REQ-21) happens here — before tmux preflight, data dir
-	// creation or anything else below — because both -update and the normal server path
-	// need it, and -update needs nothing heavier than this to run. A failure resolving
-	// the executable path is not fatal: exePath just stays "", which Classify treats no
-	// differently than any other unwritable/unresolvable directory.
+// resolveInstall classifies how musterd was installed (REQ-21) and picks the minisign
+// public key releases are verified against. A failure resolving the executable path is not
+// fatal: exePath stays "", which Classify treats no differently than any other
+// unwritable/unresolvable directory.
+func resolveInstall(updatePublicKeyFile string) (string, selfupdate.Install, []byte, error) {
 	exePath, resolveErr := os.Executable()
 	if resolveErr == nil {
 		if resolved, err := filepath.EvalSymlinks(exePath); err == nil {
@@ -162,16 +189,37 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 	install := selfupdate.Classify(version, exePath, os.Getenv, home, selfupdate.WritableDir)
 
 	updatePublicKey := selfupdate.PublicKey()
-	if *updatePublicKeyFile != "" {
-		data, err := os.ReadFile(*updatePublicKeyFile)
+	if updatePublicKeyFile != "" {
+		data, err := os.ReadFile(updatePublicKeyFile)
 		if err != nil {
-			return fmt.Errorf("reading -update-public-key-file: %w", err)
+			return "", install, nil, fmt.Errorf("reading -update-public-key-file: %w", err)
 		}
 		updatePublicKey = data
 	}
+	return exePath, install, updatePublicKey, nil
+}
 
-	if *updateFlag {
-		return runUpdate(context.Background(), stdout, stderr, *updateBaseURL, updatePublicKey, version, exePath, install)
+func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
+	f, err := parseFlags(args, stderr)
+	if err != nil {
+		return err
+	}
+
+	if f.showVersion {
+		fmt.Fprintf(stdout, "musterd %s (Claude Code verified %s)\n", version, claudecode.FormatRange(claudecode.Floor(), claudecode.Verified()))
+		return nil
+	}
+
+	// Install classification (REQ-21) happens here — before tmux preflight, data dir
+	// creation or anything else below — because both -update and the normal server path
+	// need it, and -update needs nothing heavier than this to run.
+	exePath, install, updatePublicKey, err := resolveInstall(f.updatePublicKeyFile)
+	if err != nil {
+		return err
+	}
+
+	if f.updateFlag {
+		return runUpdate(context.Background(), stdout, stderr, f.updateBaseURL, updatePublicKey, version, exePath, install)
 	}
 
 	// REQ-19: read once, then unset immediately — a restarted daemon must not leave the
@@ -180,147 +228,39 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 	restarted := os.Getenv("MUSTER_RESTARTED") != ""
 	_ = os.Unsetenv("MUSTER_RESTARTED")
 
-	// Fail fast on a socket path tmux cannot bind (AF_UNIX sun_path limit) — otherwise
-	// the failure surfaces later as a bare "File name too long" from inside tmux.
-	if err := tmux.ValidateSocket(*tmuxSocket); err != nil {
+	log := newLogger(f.debug, stderr)
+
+	preflight, err := prepareStartup(f, stderr, log)
+	if err != nil {
 		return err
-	}
-
-	level := zerolog.InfoLevel
-	if *debug {
-		level = zerolog.DebugLevel
-	}
-	log := zerolog.New(zerolog.ConsoleWriter{Out: stderr}).Level(level).With().Timestamp().Logger()
-
-	// Startup ordering (plan tmux-installation, Affected Files): the tmux preflight runs
-	// here — after -version's early return and after tmux.ValidateSocket above, but
-	// before anything below (data dir, store, listener) has any side effect (D4).
-	// Its own error variable (never "err"): run() has no outer-scope err yet at this
-	// point, and naming this one "err" would make every `if err := ...` below it (there
-	// are several, plus the shutdown select's `case err := <-serveErr`) a govet shadow
-	// warning against it — see plans/tmux-installation/daemon-tests.md fix attempt 1.
-	preflight, preflightErr := runTmuxPreflight(context.Background(), stderr, tmux.Preflight)
-	if preflightErr != nil {
-		return preflightErr
-	}
-
-	if err := checkWebDist(*webDist, webui.FS(), log); err != nil {
-		return err
-	}
-
-	if err := os.MkdirAll(*dataDir, 0o700); err != nil {
-		return fmt.Errorf("creating data dir %q: %w", *dataDir, err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	dbPath := filepath.Join(*dataDir, "muster.db")
+	dbPath := filepath.Join(f.dataDir, "muster.db")
 	st, err := store.Open(ctx, dbPath)
 	if err != nil {
 		return fmt.Errorf("opening store: %w", err)
 	}
 	defer func() { _ = st.Close() }()
 
-	uiToken, ingestToken, err := bootstrapTokens(ctx, st)
+	serving, err := prepareServing(ctx, f, st, log)
 	if err != nil {
-		return fmt.Errorf("bootstrapping tokens: %w", err)
+		return err
 	}
 
-	versionCtx, versionCancel := context.WithTimeout(ctx, versionCheckTimeout)
-	claudeCodeInfo := checkClaudeCode(versionCtx, *claudeBin, log)
-	versionCancel()
-
-	var lc net.ListenConfig
-	ln, err := lc.Listen(ctx, "tcp", *addr)
-	if err != nil {
-		return fmt.Errorf("listening on %s: %w", *addr, err)
-	}
-
-	port := 0
-	if tcpAddr, ok := ln.Addr().(*net.TCPAddr); ok {
-		port = tcpAddr.Port
-	}
-
-	baseURL := fmt.Sprintf("http://127.0.0.1:%d", port)
-	dashboardURL := fmt.Sprintf("%s/auth?token=%s", baseURL, uiToken)
-	if err = writeTokensFile(*dataDir, dashboardURL, uiToken, ingestToken); err != nil {
-		return fmt.Errorf("writing tokens file: %w", err)
-	}
-
-	hookScript, statusLineScript, legacyScript, err := claudecode.WriteWrapperScripts(*dataDir, baseURL, ingestToken)
-	if err != nil {
-		return fmt.Errorf("writing hook wrapper scripts: %w", err)
-	}
-	// REQ-16: paths only, never the token or URL either script embeds.
-	log.Info().Str("hook_script", hookScript).Str("status_line_script", statusLineScript).
-		Msg("wrote hook wrapper scripts")
-
-	srv := server.New(server.Config{
-		Store:         st,
-		Logger:        log,
-		UIToken:       uiToken,
-		IngestToken:   ingestToken,
-		WebDist:       *webDist,
-		DaemonVersion: version,
-		ClaudeCode:    claudeCodeInfo,
-		TmuxSocket:    *tmuxSocket,
-		Locator:       locate.New(),
-
-		Launch: server.LaunchConfig{
-			ClaudeBin:        *claudeBin,
-			BrowseRoot:       *browseRoot,
-			HookScript:       hookScript,
-			StatusLineScript: statusLineScript,
-			LegacyScripts:    []string{legacyScript},
-		},
-		Usage: server.UsageConfig{
-			Poll:         *usagePoll,
-			APIURL:       *usageAPIURL,
-			TokenFile:    *usageTokenFile,
-			KeychainUser: keychainUser(),
-		},
-		Issue: server.IssueConfig{
-			Repo:      *issueRepo,
-			APIURL:    *issueAPIURL,
-			TokenFile: *issueTokenFile,
-		},
-		Theme: server.ThemeConfig{
-			Poll:       *claudeThemePoll,
-			ConfigFile: *claudeConfigFile,
-		},
-		Update: server.UpdateConfig{
-			BaseURL:       *updateBaseURL,
-			CheckInterval: *updateCheckInterval,
-			PublicKey:     updatePublicKey,
-			Install:       install,
-			ExePath:       exePath,
-			ExeRun:        selfupdate.RunVersionProbe,
-		},
-	})
+	srv := server.New(buildServerConfig(f, st, log, serving, install, exePath, updatePublicKey))
 	srv.Start()
 
 	httpServer := &http.Server{Handler: srv.Handler()}
 
 	serveErr := make(chan error, 1)
 	go func() {
-		serveErr <- httpServer.Serve(ln)
+		serveErr <- httpServer.Serve(serving.listener)
 	}()
 
-	log.Info().
-		Str("version", version).
-		Int("port", port).
-		Str("data_dir", *dataDir).
-		Str("dashboard_url", dashboardURL).
-		Str("tmux", preflight.Version).
-		Str("install", string(install.Kind)).
-		Msg("musterd starting")
-
-	// REQ-28: a Homebrew or unmanaged install never sees the Settings-dialog remedy
-	// unless they open it — name it in the startup log too.
-	if install.Remedy != "" {
-		log.Info().Str("install", string(install.Kind)).Msg(install.Remedy)
-	}
+	logStartup(log, f, serving, preflight, install)
 
 	// REQ-6: fires only when both the flag and stdin's terminal-ness hold — the
 	// terminal condition is load-bearing (Implementation Notes): it is what guarantees
@@ -328,9 +268,7 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 	// pass. Runs on its own goroutine (REQ-8) and never logs dashboardURL itself (R4).
 	// A restarted daemon skips this too (auto-update REQ-19) — stdin is still the
 	// original TTY, so without the check a restart would pop a second browser tab.
-	if *openFlag && isTerminal(stdin) && !restarted {
-		openDashboard(ctx, *openCmd, dashboardURL, log)
-	}
+	maybeOpenDashboard(ctx, f, stdin, restarted, serving.dashboardURL, log)
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -350,25 +288,215 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		// synchronously, so the WAL is checkpointed and no ingest event is lost before
 		// main performs the actual syscall.Exec (Implementation Notes "Re-exec").
 		log.Info().Msg("restarting musterd to apply an update")
-		restartShutdownCtx, restartShutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout)
-		defer restartShutdownCancel()
-		if err := httpServer.Shutdown(restartShutdownCtx); err != nil {
-			log.Warn().Err(err).Msg("http server shutdown")
-		}
-		srv.Shutdown(restartShutdownCtx)
-		if err := st.Close(); err != nil {
-			log.Warn().Err(err).Msg("closing store before restart")
-		}
+		stopForRestart(httpServer, srv, st, log)
 		return &errRestart{exe: exePath}
 	}
 
-	// Resolved (and, for "ask", possibly prompted) before the shutdown timeout budget
-	// starts — the REQ-3 prompt has its own 10s timeout, separate from shutdownTimeout's
-	// budget for the rest of teardown. Zero live sessions: neither branch below prints
-	// anything (REQ-3).
+	shutdownGracefully(f, srv, httpServer, stdin, stderr, log)
+	return nil
+}
+
+// newLogger builds the daemon's root logger, writing human-readable output to stderr.
+func newLogger(debug bool, stderr io.Writer) zerolog.Logger {
+	level := zerolog.InfoLevel
+	if debug {
+		level = zerolog.DebugLevel
+	}
+	return zerolog.New(zerolog.ConsoleWriter{Out: stderr}).Level(level).With().Timestamp().Logger()
+}
+
+// prepareStartup runs every check that must pass before the daemon has any side effect,
+// in order (plan tmux-installation D4): the socket path tmux has to be able to bind, the
+// tmux preflight itself, the dashboard-serving precedence, and finally the data dir —
+// the first step here that actually writes anything.
+//
+// Fail fast on a socket path tmux cannot bind (AF_UNIX sun_path limit) — otherwise the
+// failure surfaces later as a bare "File name too long" from inside tmux.
+func prepareStartup(f *cliFlags, stderr io.Writer, log zerolog.Logger) (tmux.PreflightResult, error) {
+	var zero tmux.PreflightResult
+	if err := tmux.ValidateSocket(f.tmuxSocket); err != nil {
+		return zero, err
+	}
+
+	preflight, preflightErr := runTmuxPreflight(context.Background(), stderr, tmux.Preflight)
+	if preflightErr != nil {
+		return zero, preflightErr
+	}
+
+	if err := checkWebDist(f.webDist, webui.FS(), log); err != nil {
+		return zero, err
+	}
+
+	if err := os.MkdirAll(f.dataDir, 0o700); err != nil {
+		return zero, fmt.Errorf("creating data dir %q: %w", f.dataDir, err)
+	}
+	return preflight, nil
+}
+
+// servingEnv is everything prepareServing brings up between opening the store and
+// constructing the server: the tokens, the bound listener and the URLs and wrapper-script
+// paths derived from them.
+type servingEnv struct {
+	uiToken          string
+	ingestToken      string
+	listener         net.Listener
+	port             int
+	dashboardURL     string
+	claudeCodeInfo   server.ClaudeCodeInfo
+	hookScript       string
+	statusLineScript string
+	legacyScript     string
+}
+
+// prepareServing bootstraps the tokens, classifies the installed Claude Code, binds the
+// listener and writes the tokens file and hook wrapper scripts — in that order, since each
+// step's output feeds the next.
+func prepareServing(ctx context.Context, f *cliFlags, st *store.Store, log zerolog.Logger) (*servingEnv, error) {
+	uiToken, ingestToken, err := bootstrapTokens(ctx, st)
+	if err != nil {
+		return nil, fmt.Errorf("bootstrapping tokens: %w", err)
+	}
+
+	versionCtx, versionCancel := context.WithTimeout(ctx, versionCheckTimeout)
+	claudeCodeInfo := checkClaudeCode(versionCtx, f.claudeBin, log)
+	versionCancel()
+
+	var lc net.ListenConfig
+	ln, err := lc.Listen(ctx, "tcp", f.addr)
+	if err != nil {
+		return nil, fmt.Errorf("listening on %s: %w", f.addr, err)
+	}
+
+	port := 0
+	if tcpAddr, ok := ln.Addr().(*net.TCPAddr); ok {
+		port = tcpAddr.Port
+	}
+
+	baseURL := fmt.Sprintf("http://127.0.0.1:%d", port)
+	dashboardURL := fmt.Sprintf("%s/auth?token=%s", baseURL, uiToken)
+	if err := writeTokensFile(f.dataDir, dashboardURL, uiToken, ingestToken); err != nil {
+		return nil, fmt.Errorf("writing tokens file: %w", err)
+	}
+
+	hookScript, statusLineScript, legacyScript, err := claudecode.WriteWrapperScripts(f.dataDir, baseURL, ingestToken)
+	if err != nil {
+		return nil, fmt.Errorf("writing hook wrapper scripts: %w", err)
+	}
+	// REQ-16: paths only, never the token or URL either script embeds.
+	log.Info().Str("hook_script", hookScript).Str("status_line_script", statusLineScript).
+		Msg("wrote hook wrapper scripts")
+
+	return &servingEnv{
+		uiToken:          uiToken,
+		ingestToken:      ingestToken,
+		listener:         ln,
+		port:             port,
+		dashboardURL:     dashboardURL,
+		claudeCodeInfo:   claudeCodeInfo,
+		hookScript:       hookScript,
+		statusLineScript: statusLineScript,
+		legacyScript:     legacyScript,
+	}, nil
+}
+
+// buildServerConfig assembles the server's configuration from the parsed flags and the
+// already-bootstrapped runtime. Pure data assembly: it branches on nothing, so a wiring
+// mistake here is a silent one — main_test.go pins its output field by field.
+func buildServerConfig(f *cliFlags, st *store.Store, log zerolog.Logger, serving *servingEnv, install selfupdate.Install, exePath string, updatePublicKey []byte) server.Config {
+	return server.Config{
+		Store:         st,
+		Logger:        log,
+		UIToken:       serving.uiToken,
+		IngestToken:   serving.ingestToken,
+		WebDist:       f.webDist,
+		DaemonVersion: version,
+		ClaudeCode:    serving.claudeCodeInfo,
+		TmuxSocket:    f.tmuxSocket,
+		Locator:       locate.New(),
+
+		Launch: server.LaunchConfig{
+			ClaudeBin:        f.claudeBin,
+			BrowseRoot:       f.browseRoot,
+			HookScript:       serving.hookScript,
+			StatusLineScript: serving.statusLineScript,
+			LegacyScripts:    []string{serving.legacyScript},
+		},
+		Usage: server.UsageConfig{
+			Poll:         f.usagePoll,
+			APIURL:       f.usageAPIURL,
+			TokenFile:    f.usageTokenFile,
+			KeychainUser: keychainUser(),
+		},
+		Issue: server.IssueConfig{
+			Repo:      f.issueRepo,
+			APIURL:    f.issueAPIURL,
+			TokenFile: f.issueTokenFile,
+		},
+		Theme: server.ThemeConfig{
+			Poll:       f.claudeThemePoll,
+			ConfigFile: f.claudeConfigFile,
+		},
+		Update: server.UpdateConfig{
+			BaseURL:       f.updateBaseURL,
+			CheckInterval: f.updateCheckInterval,
+			PublicKey:     updatePublicKey,
+			Install:       install,
+			ExePath:       exePath,
+			ExeRun:        selfupdate.RunVersionProbe,
+		},
+	}
+}
+
+// logStartup writes the one-line startup record, plus the install remedy when there is
+// one: REQ-28, a Homebrew or unmanaged install never sees the Settings-dialog remedy
+// unless they open it, so name it here too.
+func logStartup(log zerolog.Logger, f *cliFlags, serving *servingEnv, preflight tmux.PreflightResult, install selfupdate.Install) {
+	log.Info().
+		Str("version", version).
+		Int("port", serving.port).
+		Str("data_dir", f.dataDir).
+		Str("dashboard_url", serving.dashboardURL).
+		Str("tmux", preflight.Version).
+		Str("install", string(install.Kind)).
+		Msg("musterd starting")
+
+	if install.Remedy != "" {
+		log.Info().Str("install", string(install.Kind)).Msg(install.Remedy)
+	}
+}
+
+// maybeOpenDashboard applies REQ-6's guard. The terminal condition is load-bearing: it,
+// not the flag, is what guarantees no test run can ever open a browser.
+func maybeOpenDashboard(ctx context.Context, f *cliFlags, stdin *os.File, restarted bool, dashboardURL string, log zerolog.Logger) {
+	if f.openFlag && isTerminal(stdin) && !restarted {
+		openDashboard(ctx, f.openCmd, dashboardURL, log)
+	}
+}
+
+// stopForRestart is the restart branch's teardown: it stops serving and closes the store
+// synchronously, so the WAL is checkpointed and no ingest event is lost before main
+// performs the actual syscall.Exec. Sessions are deliberately left running.
+func stopForRestart(httpServer *http.Server, srv *server.Server, st *store.Store, log zerolog.Logger) {
+	restartShutdownCtx, restartShutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer restartShutdownCancel()
+	if err := httpServer.Shutdown(restartShutdownCtx); err != nil {
+		log.Warn().Err(err).Msg("http server shutdown")
+	}
+	srv.Shutdown(restartShutdownCtx)
+	if err := st.Close(); err != nil {
+		log.Warn().Err(err).Msg("closing store before restart")
+	}
+}
+
+// shutdownGracefully resolves the -on-exit policy and then tears the daemon down.
+//
+// The policy is resolved (and, for "ask", possibly prompted) before the shutdown timeout
+// budget starts — the REQ-3 prompt has its own 10s timeout, separate from shutdownTimeout's
+// budget for the rest of teardown. With zero live sessions neither branch prints anything.
+func shutdownGracefully(f *cliFlags, srv *server.Server, httpServer *http.Server, stdin *os.File, stderr io.Writer, log zerolog.Logger) {
 	live := srv.LiveSessionCount()
 	if live > 0 {
-		switch resolveOnExit(*onExit, stdin, stderr, live, srv.TmuxSocket()) {
+		switch resolveOnExit(f.onExit, stdin, stderr, live, srv.TmuxSocket()) {
 		case onExitKill:
 			// Bounded (review cycle 1 Minor 3): context.Background() had no deadline at
 			// all, so a wedged tmux kill-session could hang shutdown indefinitely,
@@ -389,8 +517,6 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		log.Warn().Err(err).Msg("http server shutdown")
 	}
 	srv.Shutdown(shutdownCtx)
-
-	return nil
 }
 
 // checkWebDist validates the -web-dist / embedded-dashboard serving precedence at

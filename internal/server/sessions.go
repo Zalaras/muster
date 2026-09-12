@@ -119,23 +119,50 @@ type sessionLauncher struct {
 // settings.local.json, spawns the tmux window, and records/broadcasts the finished
 // session — in that order (order matters: the session needs an id before the tmux
 // spawn that puts it in the pane environment).
-func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) (*session.Session, *launchError) {
-	dir := req.Directory
-	if dir == "" || !filepath.IsAbs(dir) {
-		return nil, invalidRequest("directory must be an absolute path")
+// validateLaunchRequest is Launch's pure prefix: it reads req alone, touches no launcher
+// state and runs before anything has been written, so a rejection here needs no rollback.
+// Check order is load-bearing — it decides which single error a request invalid in
+// several fields at once reports — so keep it as directory, model, permissionMode.
+func validateLaunchRequest(req createSessionRequest) *launchError {
+	if req.Directory == "" || !filepath.IsAbs(req.Directory) {
+		return invalidRequest("directory must be an absolute path")
 	}
-	info, err := os.Stat(dir)
-	if err != nil || !info.IsDir() {
-		return nil, invalidRequest("directory does not exist or is not a directory")
+	if info, err := os.Stat(req.Directory); err != nil || !info.IsDir() {
+		return invalidRequest("directory does not exist or is not a directory")
 	}
 	if req.Model == "" {
-		return nil, invalidRequest("model must not be empty")
+		return invalidRequest("model must not be empty")
 	}
 	switch req.PermissionMode {
 	case "default", "plan", "acceptEdits", "auto":
 	default:
-		return nil, invalidRequest("permissionMode must be one of default, plan, acceptEdits, auto")
+		return invalidRequest("permissionMode must be one of default, plan, acceptEdits, auto")
 	}
+	return nil
+}
+
+// buildLaunchEnv is the pane environment shared by a launch and a resume: the session id
+// the wrapper scripts envelope every event with, a locale a Go-daemon child does not
+// inherit on its own, and whatever Claude Code's own launch environment adds.
+func buildLaunchEnv(sessionID int64) map[string]string {
+	env := map[string]string{
+		"MUSTER_SESSION": strconv.FormatInt(sessionID, 10),
+		// A Go-daemon child inherits no LANG/LC_ALL of its own — cheap to set now; the
+		// failure otherwise presents as a broken terminal bridge in M2.
+		"LANG":   "en_US.UTF-8",
+		"LC_ALL": "en_US.UTF-8",
+	}
+	for k, v := range claudecode.LaunchEnv() {
+		env[k] = v
+	}
+	return env
+}
+
+func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) (*session.Session, *launchError) {
+	if lerr := validateLaunchRequest(req); lerr != nil {
+		return nil, lerr
+	}
+	dir := req.Directory
 
 	isGit := gitutil.IsRepo(ctx, dir)
 	var branch *string
@@ -185,17 +212,7 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 		Title:          req.Title,
 		PermissionMode: req.PermissionMode,
 	})
-	env := map[string]string{
-		"MUSTER_SESSION": strconv.FormatInt(sess.ID, 10),
-		// A Go-daemon child inherits no LANG/LC_ALL of its own — cheap to set now; the
-		// failure otherwise presents as a broken terminal bridge in M2.
-		"LANG":   "en_US.UTF-8",
-		"LC_ALL": "en_US.UTF-8",
-	}
-	for k, v := range claudecode.LaunchEnv() {
-		env[k] = v
-	}
-	target, pane, err := l.tmux.NewSession(ctx, sess.ID, dir, env, argv)
+	target, pane, err := l.tmux.NewSession(ctx, sess.ID, dir, buildLaunchEnv(sess.ID), argv)
 	if err != nil {
 		l.rollback(ctx, sess.ID)
 		return nil, launchFailed(fmt.Sprintf("spawning tmux session: %v", err))
@@ -254,15 +271,7 @@ func (l *sessionLauncher) Resume(ctx context.Context, id int64) (*session.Sessio
 		PermissionMode:  string(sess.PermissionMode),
 		ResumeSessionID: sess.ClaudeSessionID,
 	})
-	env := map[string]string{
-		"MUSTER_SESSION": strconv.FormatInt(id, 10),
-		"LANG":           "en_US.UTF-8",
-		"LC_ALL":         "en_US.UTF-8",
-	}
-	for k, v := range claudecode.LaunchEnv() {
-		env[k] = v
-	}
-	target, pane, err := l.tmux.NewSession(ctx, id, sess.Directory, env, argv)
+	target, pane, err := l.tmux.NewSession(ctx, id, sess.Directory, buildLaunchEnv(id), argv)
 	if err != nil {
 		return nil, launchFailed(fmt.Sprintf("spawning tmux session: %v", err))
 	}
