@@ -1,0 +1,9 @@
+# Revisions to skip when running `git blame`. Formatting-only commits go here so
+# blame keeps pointing at whoever last changed the code, not the reformat.
+#
+# Arm it for this clone with:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+# `make hooks` does this alongside core.hooksPath.
+
+# style(web): apply Biome formatting across web/src, web/e2e and web/scripts
+5c40ecde2675b57501a065157b15df8875ca0f76

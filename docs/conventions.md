@@ -75,6 +75,19 @@ Each row's rationale is an ADR: `go run ./tools/kb ls --type adr | grep '/stack-
   empty gauge** — `kb:adr/usage-unknown-renders-word-not-track`), data, and daemon-down.
 - Unit-test logic (protocol decoding, state derivation, formatting) with Vitest;
   interaction and rendering are Playwright's job.
+- **Biome is the lint + format gate** (`make web-lint`, write half `make web-fmt`;
+  `kb:adr/process-web-lint-format-biome`). Formatting is not a matter of taste here —
+  width 100, double quotes, semicolons, trailing commas, and the formatter decides. Lint
+  is the `correctness`, `suspicious` and `complexity` recommended sets only; React and
+  a11y packs stay off, since there is no framework and no JSX.
+- **Cognitive complexity ceiling 15**, the same number as Go's gocyclo ceiling. Come in
+  under it by extracting a *named* helper, never by widening the ceiling and never by
+  deleting a test case. Biome charges a nested function literal for the depth it sits at,
+  so a matrix test comes down by hoisting the per-cell body to module scope. A
+  `biome-ignore` needs its reason on the same line, and must sit immediately above the
+  node — an intervening comment silently detaches it, which `suppressions/unused` then
+  reports. The only two live suppressions are `protocol.ts`'s wire validators.
+- `web/src/style.css` belongs to the `contrast` gate alone; Biome does not format it.
 
 ## Composition roots
 

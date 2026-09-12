@@ -42,6 +42,14 @@ web-build: ## Build the frontend into internal/webui/assets (embedded into the b
 web-test: ## Frontend unit tests (Vitest)
 	cd web && npm test
 
+.PHONY: web-lint
+web-lint: ## Biome lint + format check over web/src, web/e2e and web/scripts
+	cd web && npm run -s lint
+
+.PHONY: web-fmt
+web-fmt: ## Apply Biome's formatting and safe fixes to web/ (the write half of web-lint)
+	cd web && npm run -s lint:fix
+
 .PHONY: contrast
 contrast: ## Contrast/hue/literal gate over web/src/style.css (REQ-4, plan new-ui-design-colors)
 	cd web && npm run contrast
@@ -101,11 +109,12 @@ refs: ## Every repo path, make target and musterd flag cited in docs or comments
 	python3 .claude/skills/orchestrate/scripts/dead-refs.py --all
 
 .PHONY: check
-check: lint test contrast e2e-lint check-versions check-kb refs ## Lint + test + contrast + e2e-lint + check-versions + check-kb + refs
+check: lint test web-lint web-test contrast e2e-lint check-versions check-kb refs ## Lint + test + web-lint + web-test + contrast + e2e-lint + check-versions + check-kb + refs
 
 .PHONY: hooks
-hooks: ## Arm the commit-msg + pre-commit guards (.githooks/) for this clone — docs/conventions.md § Commits
+hooks: ## Arm the commit-msg + pre-commit guards (.githooks/) and the blame-ignore list for this clone — docs/conventions.md § Commits
 	git config core.hooksPath .githooks
+	git config blame.ignoreRevsFile .git-blame-ignore-revs
 
 # Wraps scripts/install.sh, which is also the curl | sh front door (README.md § Install),
 # so the arch resolution, temp dir, tar member-select, SHA-256 check and shadow warning
