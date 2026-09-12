@@ -102,14 +102,29 @@ func HasBidi(s string) bool {
 func Sanitize(s string, l Limits) (string, Counts, error) {
 	var c Counts
 
-	// 1. Bidi is a rejection, not a repair.
+	if err := rejectBidi(s); err != nil {
+		return "", c, err
+	}
+	s = truncateInput(s, l, &c)
+	s = stripLinks(s, &c)
+	s = defangURLs(s, &c)
+	s = escapeHTML(s, &c)
+	out := escapeNonASCII(s, &c)
+	return applyOutputCap(out, l, &c), c, nil
+}
+
+// 1. Bidi is a rejection, not a repair.
+func rejectBidi(s string) error {
 	for _, r := range s {
 		if isBidi(r) {
-			return "", c, ErrBidi
+			return ErrBidi
 		}
 	}
+	return nil
+}
 
-	// 2. Truncate before doing work, so the cost of the passes below is bounded.
+// 2. Truncate before doing work, so the cost of the passes below is bounded.
+func truncateInput(s string, l Limits, c *Counts) string {
 	if l.MaxInputBytes > 0 && len(s) > l.MaxInputBytes {
 		cut := l.MaxInputBytes
 		for cut > 0 && !utf8.RuneStart(s[cut]) {
@@ -118,10 +133,13 @@ func Sanitize(s string, l Limits) (string, Counts, error) {
 		s = s[:cut]
 		c.Truncated = true
 	}
+	return s
+}
 
-	// 3. Images first: the '!' prefix would otherwise be left stranded by the link pass,
-	// and alt text is a hiding place precisely because it renders only when the image
-	// fails to load. Repeat to a fixed point so nested spans resolve from the inside out.
+// 3. Images first: the '!' prefix would otherwise be left stranded by the link pass,
+// and alt text is a hiding place precisely because it renders only when the image
+// fails to load. Repeat to a fixed point so nested spans resolve from the inside out.
+func stripLinks(s string, c *Counts) string {
 	for range 8 {
 		before := s
 		s = replaceCounting(reImage, s, &c.LinksStripped)
@@ -132,33 +150,40 @@ func Sanitize(s string, l Limits) (string, Counts, error) {
 		}
 	}
 	// A reference definition is a whole line whose only content is a target.
-	s = reRefDef.ReplaceAllStringFunc(s, func(string) string {
+	return reRefDef.ReplaceAllStringFunc(s, func(string) string {
 		c.LinksStripped++
 		return ""
 	})
+}
 
-	// 4. Defang what is left. A bare URL is still a target a model could act on, so the
-	// scheme separator is broken while the text stays readable.
+// 4. Defang what is left. A bare URL is still a target a model could act on, so the
+// scheme separator is broken while the text stays readable.
+func defangURLs(s string, c *Counts) string {
 	s = reScheme.ReplaceAllStringFunc(s, func(m string) string {
 		c.URLsDefanged++
 		return m[:len(m)-1] + "[:]"
 	})
-	s = reWWW.ReplaceAllStringFunc(s, func(m string) string {
+	return reWWW.ReplaceAllStringFunc(s, func(m string) string {
 		c.URLsDefanged++
 		return m[:len(m)-1] + "[.]"
 	})
+}
 
-	// 5. Ampersand FIRST. Reversing these two lines turns the literal text "&lt;script&gt;"
-	// back into a live tag — see the package doc.
+// 5. Ampersand FIRST. Reversing these two lines turns the literal text "&lt;script&gt;"
+// back into a live tag — see the package doc.
+func escapeHTML(s string, c *Counts) string {
 	s, n := countingReplace(s, "&", "&amp;")
 	c.HTMLEscaped += n
 	s, n = countingReplace(s, "<", "&lt;")
 	c.HTMLEscaped += n
 	s, n = countingReplace(s, ">", "&gt;")
 	c.HTMLEscaped += n
+	return s
+}
 
-	// 6. Everything not printable ASCII becomes a visible marker. Escaped, never deleted:
-	// deletion would hide that anything was there, which is the attacker's goal.
+// 6. Everything not printable ASCII becomes a visible marker. Escaped, never deleted:
+// deletion would hide that anything was there, which is the attacker's goal.
+func escapeNonASCII(s string, c *Counts) string {
 	var b strings.Builder
 	b.Grow(len(s))
 	for i, r := range s {
@@ -179,9 +204,11 @@ func Sanitize(s string, l Limits) (string, Counts, error) {
 			writeEscape(&b, r)
 		}
 	}
-	out := b.String()
+	return b.String()
+}
 
-	// The output cap runs last, because only now is the final size known.
+// applyOutputCap runs last, because only now is the final size known.
+func applyOutputCap(out string, l Limits, c *Counts) string {
 	if l.MaxOutputBytes > 0 && len(out) > l.MaxOutputBytes {
 		out = cutBeforeMarker(out, l.MaxOutputBytes)
 		c.Truncated = true
@@ -189,7 +216,7 @@ func Sanitize(s string, l Limits) (string, Counts, error) {
 	if c.Truncated {
 		out += TruncationMarker
 	}
-	return out, c, nil
+	return out
 }
 
 // SanitizeTitle is Sanitize with newlines folded to spaces. A title is rendered on one

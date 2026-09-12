@@ -145,20 +145,9 @@ func printRoute(stdout io.Writer, repo string, arts []triage.Artifact, p triage.
 // cmdApply validates each proposer reply against the artifact it was given, then splices
 // and commits. A model never runs Edit on TODO.md.
 func cmdApply(ctx context.Context, args []string, stdout io.Writer, runCmd triage.RunFunc, root, module string) error {
-	artDir, err := flagValue(args, "--artifacts")
+	artDir, propDir, decFile, err := applyFlags(args)
 	if err != nil {
 		return err
-	}
-	propDir, err := flagValue(args, "--proposals")
-	if err != nil {
-		return err
-	}
-	decFile, err := flagValue(args, "--decisions")
-	if err != nil {
-		return err
-	}
-	if artDir == "" || propDir == "" || decFile == "" {
-		return fmt.Errorf("usage: triage apply --artifacts DIR --proposals DIR --decisions FILE")
 	}
 	repo, err := triage.ResolveRepo(ctx, runCmd, module)
 	if err != nil {
@@ -174,42 +163,14 @@ func cmdApply(ctx context.Context, args []string, stdout io.Writer, runCmd triag
 		arts[a.Number] = a
 	}
 
-	decRaw, err := os.ReadFile(decFile)
+	decMap, err := readDecisions(decFile)
 	if err != nil {
-		return fmt.Errorf("reading decisions: %w", err)
-	}
-	var decMap map[string]string
-	if derr := json.Unmarshal(decRaw, &decMap); derr != nil {
-		return fmt.Errorf("decoding decisions: %w", derr)
+		return err
 	}
 
-	props := map[int]triage.Proposal{}
-	var decisions []triage.Decision
-	var held []string
-	for numStr, section := range decMap {
-		n, nerr := strconv.Atoi(numStr)
-		if nerr != nil {
-			return fmt.Errorf("decisions key %q is not an issue number", numStr)
-		}
-		a, ok := arts[n]
-		if !ok {
-			return fmt.Errorf("no artifact for issue %d", n)
-		}
-		if a.Route == triage.PathHeld {
-			return fmt.Errorf("issue %d is held and must not be filed", n)
-		}
-		raw, rerr := os.ReadFile(filepath.Join(propDir, fmt.Sprintf("%d.json", n)))
-		if rerr != nil {
-			return fmt.Errorf("reading proposal for issue %d: %w", n, rerr)
-		}
-		p, verr := triage.ValidateProposal(raw, a)
-		if verr != nil {
-			// A failed proposal holds its issue; it never falls back to a guess.
-			held = append(held, fmt.Sprintf("  #%d held — %v", n, verr))
-			continue
-		}
-		props[n] = p
-		decisions = append(decisions, triage.Decision{Number: n, Section: section})
+	decisions, props, held, err := resolveDecisions(decMap, arts, propDir)
+	if err != nil {
+		return err
 	}
 
 	subject, err := triage.Apply(ctx, runCmd, root, repo, decisions, arts, props)
@@ -225,6 +186,71 @@ func cmdApply(ctx context.Context, args []string, stdout io.Writer, runCmd triag
 		fmt.Fprintf(stdout, "\n%d proposal(s) rejected:\n%s\n", len(held), strings.Join(held, "\n"))
 	}
 	return nil
+}
+
+// applyFlags reads apply's three required directory/file flags, all of which must be present.
+func applyFlags(args []string) (artDir, propDir, decFile string, err error) {
+	if artDir, err = flagValue(args, "--artifacts"); err != nil {
+		return "", "", "", err
+	}
+	if propDir, err = flagValue(args, "--proposals"); err != nil {
+		return "", "", "", err
+	}
+	if decFile, err = flagValue(args, "--decisions"); err != nil {
+		return "", "", "", err
+	}
+	if artDir == "" || propDir == "" || decFile == "" {
+		return "", "", "", fmt.Errorf("usage: triage apply --artifacts DIR --proposals DIR --decisions FILE")
+	}
+	return artDir, propDir, decFile, nil
+}
+
+// readDecisions loads the issue-number-to-section map Damian chose.
+func readDecisions(decFile string) (map[string]string, error) {
+	decRaw, err := os.ReadFile(decFile)
+	if err != nil {
+		return nil, fmt.Errorf("reading decisions: %w", err)
+	}
+	var decMap map[string]string
+	if derr := json.Unmarshal(decRaw, &decMap); derr != nil {
+		return nil, fmt.Errorf("decoding decisions: %w", derr)
+	}
+	return decMap, nil
+}
+
+// resolveDecisions pairs each decided issue number with its validated proposal. A bad key,
+// an unknown artifact or a held issue aborts the whole pass; a proposal that fails the
+// schema only holds its own issue, and is returned in held rather than guessed at.
+func resolveDecisions(decMap map[string]string, arts map[int]triage.Artifact, propDir string) ([]triage.Decision, map[int]triage.Proposal, []string, error) {
+	props := map[int]triage.Proposal{}
+	var decisions []triage.Decision
+	var held []string
+	for numStr, section := range decMap {
+		n, nerr := strconv.Atoi(numStr)
+		if nerr != nil {
+			return nil, nil, nil, fmt.Errorf("decisions key %q is not an issue number", numStr)
+		}
+		a, ok := arts[n]
+		if !ok {
+			return nil, nil, nil, fmt.Errorf("no artifact for issue %d", n)
+		}
+		if a.Route == triage.PathHeld {
+			return nil, nil, nil, fmt.Errorf("issue %d is held and must not be filed", n)
+		}
+		raw, rerr := os.ReadFile(filepath.Join(propDir, fmt.Sprintf("%d.json", n)))
+		if rerr != nil {
+			return nil, nil, nil, fmt.Errorf("reading proposal for issue %d: %w", n, rerr)
+		}
+		p, verr := triage.ValidateProposal(raw, a)
+		if verr != nil {
+			// A failed proposal holds its issue; it never falls back to a guess.
+			held = append(held, fmt.Sprintf("  #%d held — %v", n, verr))
+			continue
+		}
+		props[n] = p
+		decisions = append(decisions, triage.Decision{Number: n, Section: section})
+	}
+	return decisions, props, held, nil
 }
 
 // cmdAudit compares TODO.md and the history file against the tracker in both directions. Pure text comparison,

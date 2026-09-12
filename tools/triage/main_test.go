@@ -135,7 +135,19 @@ func TestFetchThenApply(t *testing.T) {
 
 	artDir := filepath.Join(root, "arts")
 	var out strings.Builder
-	if err := run([]string{"fetch", "--out", artDir}, &out, gh.run); err != nil {
+	// The apply phase reads nonce56/body56 out of the index the fetch phase built.
+	// Subtests run sequentially, so this hand-off needs no synchronisation.
+	var index []indexRow
+
+	t.Run("fetch", func(t *testing.T) { index = assertFetchPhase(t, artDir, gh, &out) })
+	t.Run("apply", func(t *testing.T) { assertApplyPhase(t, root, artDir, gh, &out, index) })
+}
+
+// assertFetchPhase runs `fetch` and checks the summary, the routing and the artifact
+// framing, returning the index the apply phase needs.
+func assertFetchPhase(t *testing.T, artDir string, gh *stubGH, out *strings.Builder) []indexRow {
+	t.Helper()
+	if err := run([]string{"fetch", "--out", artDir}, out, gh.run); err != nil {
 		t.Fatalf("fetch: %v", err)
 	}
 	summary := out.String()
@@ -164,7 +176,14 @@ func TestFetchThenApply(t *testing.T) {
 		t.Errorf("routes = %v, want 9:normal 55:held 56:facts-only", routes)
 	}
 
-	// The artifact the proposer would read carries the nonce framing and no raw markup.
+	assertArtifactFraming(t, artDir)
+	return index
+}
+
+// assertArtifactFraming checks the artifact the proposer would read carries the nonce
+// framing and no raw markup, and is readable only by its owner.
+func assertArtifactFraming(t *testing.T, artDir string) {
+	t.Helper()
 	art, artErr := os.ReadFile(filepath.Join(artDir, "56.md"))
 	if artErr != nil {
 		t.Fatal(artErr)
@@ -175,8 +194,12 @@ func TestFetchThenApply(t *testing.T) {
 	if fi, err := os.Stat(filepath.Join(artDir, "56.md")); err == nil && fi.Mode().Perm() != 0o600 {
 		t.Errorf("artifact mode is %v, want 0600 — bodies are quoted prompt text", fi.Mode().Perm())
 	}
+}
 
-	// Apply a valid proposal for the facts-only issue.
+// assertApplyPhase files a valid proposal for the facts-only issue and checks the commit
+// and the rendered TODO.md entry.
+func assertApplyPhase(t *testing.T, root, artDir string, gh *stubGH, out *strings.Builder, index []indexRow) {
+	t.Helper()
 	propDir := filepath.Join(root, "props")
 	if err := os.MkdirAll(propDir, 0o700); err != nil {
 		t.Fatal(err)
@@ -199,7 +222,7 @@ func TestFetchThenApply(t *testing.T) {
 	write(t, decFile, `{"56":"Reported issues (pre-v1 release)"}`)
 
 	out.Reset()
-	if err := run([]string{"apply", "--artifacts", artDir, "--proposals", propDir, "--decisions", decFile}, &out, gh.run); err != nil {
+	if err := run([]string{"apply", "--artifacts", artDir, "--proposals", propDir, "--decisions", decFile}, out, gh.run); err != nil {
 		t.Fatalf("apply: %v", err)
 	}
 	if len(gh.commits) != 1 || gh.commits[0] != "docs(triage): file #56 into the backlog" {

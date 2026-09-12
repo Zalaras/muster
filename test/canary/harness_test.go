@@ -277,20 +277,20 @@ func (f *fixture) build() error {
 		return err
 	}
 
-	if err := f.runA(ctx); err != nil {
-		return fmt.Errorf("run A (headless managed): %w", err)
+	runs := []struct {
+		name string
+		fn   func(context.Context) error
+	}{
+		{"run A (headless managed)", f.runA},
+		{"run B (headless unmanaged)", f.runB},
+		{"run C (unauthenticated StopFailure)", f.runC},
+		{"run D (interactive status line)", f.runD},
+		{"run E (resume + plan mode)", f.runE},
 	}
-	if err := f.runB(ctx); err != nil {
-		return fmt.Errorf("run B (headless unmanaged): %w", err)
-	}
-	if err := f.runC(ctx); err != nil {
-		return fmt.Errorf("run C (unauthenticated StopFailure): %w", err)
-	}
-	if err := f.runD(ctx); err != nil {
-		return fmt.Errorf("run D (interactive status line): %w", err)
-	}
-	if err := f.runE(ctx); err != nil {
-		return fmt.Errorf("run E (resume + plan mode): %w", err)
+	for _, r := range runs {
+		if err := r.fn(ctx); err != nil {
+			return fmt.Errorf("%s: %w", r.name, err)
+		}
 	}
 	return nil
 }
@@ -524,31 +524,18 @@ func (f *fixture) runD(ctx context.Context) error {
 		return err
 	}
 
-	// Startup blocks on the workspace-trust prompt in a never-seen directory (FINDINGS §9);
-	// no hooks fire until it is answered. capture-pane is the wait oracle only.
-	deadline := time.Now().Add(90 * time.Second)
-	lastAction := time.Time{}
-	for time.Now().Before(deadline) {
-		if c := f.firstHook(sessionInteract, "SessionStart"); c != nil {
-			f.interactive.sessionStartAt = c.at
-			f.interactive.claudeSessionID = c.ev.SessionID
-			if tp, ok := c.payload["transcript_path"].(string); ok {
-				f.interactive.transcriptPath = tp
-			}
-			break
-		}
-		pane, _ := f.tmuxClient.CapturePane(ctx, target)
-		if looksLikeTrustPrompt(pane) && time.Since(lastAction) > 3*time.Second {
-			f.interactive.trustPromptSeen = true
-			if err := f.answerTrustPrompt(ctx, target, pane); err != nil {
-				return err
-			}
-			lastAction = time.Now()
-		}
-		time.Sleep(500 * time.Millisecond)
+	c, trustPromptSeen, err := f.waitForSessionStart(ctx, target, sessionInteract, 90*time.Second)
+	f.interactive.trustPromptSeen = trustPromptSeen
+	if err != nil {
+		return err
 	}
-	if f.interactive.sessionStartAt.IsZero() {
+	if c == nil {
 		return fmt.Errorf("no SessionStart within 90s (trust prompt seen: %t)", f.interactive.trustPromptSeen)
+	}
+	f.interactive.sessionStartAt = c.at
+	f.interactive.claudeSessionID = c.ev.SessionID
+	if tp, ok := c.payload["transcript_path"].(string); ok {
+		f.interactive.transcriptPath = tp
 	}
 
 	// Type and submit separately (probe skill: one combined call swallows the newline).
@@ -599,6 +586,34 @@ func (f *fixture) runD(ctx context.Context) error {
 	}
 	f.settle(2 * time.Second)
 	return nil
+}
+
+// waitForSessionStart polls for session's SessionStart hook, answering the workspace-trust
+// prompt whenever it appears: startup blocks on that prompt in a never-seen directory
+// (FINDINGS §9) and no hooks fire until it is answered. capture-pane is the wait oracle only.
+//
+// Shared by run D and run E, whose resume launch can re-trigger the same prompt (Edge Case 3).
+// Returns a nil capture on timeout rather than an error, so each caller keeps its own message;
+// the bool reports whether the trust prompt was ever seen, which run D asserts on.
+func (f *fixture) waitForSessionStart(ctx context.Context, target string, session int64, limit time.Duration) (*capture, bool, error) {
+	deadline := time.Now().Add(limit)
+	lastAction := time.Time{}
+	trustPromptSeen := false
+	for time.Now().Before(deadline) {
+		if c := f.firstHook(session, "SessionStart"); c != nil {
+			return c, trustPromptSeen, nil
+		}
+		pane, _ := f.tmuxClient.CapturePane(ctx, target)
+		if looksLikeTrustPrompt(pane) && time.Since(lastAction) > 3*time.Second {
+			trustPromptSeen = true
+			if err := f.answerTrustPrompt(ctx, target, pane); err != nil {
+				return nil, trustPromptSeen, err
+			}
+			lastAction = time.Now()
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	return nil, trustPromptSeen, nil
 }
 
 // shiftTabStep cycles the permission mode with Shift+Tab and then waits two refresh periods,
@@ -671,22 +686,11 @@ func (f *fixture) runE(ctx context.Context) error {
 	}
 
 	// Same trust-prompt loop as run D (Edge Case 3): a resume launch can re-trigger it.
-	deadline := time.Now().Add(90 * time.Second)
-	lastAction := time.Time{}
-	for time.Now().Before(deadline) {
-		if f.firstHook(sessionResume, "SessionStart") != nil {
-			break
-		}
-		pane, _ := f.tmuxClient.CapturePane(ctx, target)
-		if looksLikeTrustPrompt(pane) && time.Since(lastAction) > 3*time.Second {
-			if err := f.answerTrustPrompt(ctx, target, pane); err != nil {
-				return err
-			}
-			lastAction = time.Now()
-		}
-		time.Sleep(500 * time.Millisecond)
+	started, _, err := f.waitForSessionStart(ctx, target, sessionResume, 90*time.Second)
+	if err != nil {
+		return err
 	}
-	if f.firstHook(sessionResume, "SessionStart") == nil {
+	if started == nil {
 		return fmt.Errorf("no SessionStart within 90s on the resume relaunch (run E)")
 	}
 

@@ -51,30 +51,44 @@ func Apply(ctx context.Context, run RunFunc, root, repo string, decisions []Deci
 	}
 
 	sort.Slice(decisions, func(i, j int) bool { return decisions[i].Number < decisions[j].Number })
+	todo, filed, err := spliceDecisions(todo, tracked, repo, decisions, arts, props)
+	if err != nil {
+		return "", err
+	}
+	if len(filed) == 0 {
+		return "", nil
+	}
+	return commitTodo(ctx, run, root, path, todo, filed)
+}
+
+// spliceDecisions renders every not-yet-tracked decision into todo, returning the updated
+// text and the issue numbers actually filed.
+func spliceDecisions(todo, tracked, repo string, decisions []Decision, arts map[int]Artifact, props map[int]Proposal) (string, []int, error) {
 	var filed []int
 	for _, d := range decisions {
 		a, ok := arts[d.Number]
 		if !ok {
-			return "", fmt.Errorf("no artifact for issue %d", d.Number)
+			return "", nil, fmt.Errorf("no artifact for issue %d", d.Number)
 		}
 		p, ok := props[d.Number]
 		if !ok {
-			return "", fmt.Errorf("no validated proposal for issue %d", d.Number)
+			return "", nil, fmt.Errorf("no validated proposal for issue %d", d.Number)
 		}
 		if HasIssue(tracked, d.Number) {
 			continue // already triaged (open in TODO.md or ticked in the history file); never write a second entry
 		}
 		next, serr := Splice(todo, d.Section, RenderEntry(a, p, repo))
 		if serr != nil {
-			return "", fmt.Errorf("issue %d: %w", d.Number, serr)
+			return "", nil, fmt.Errorf("issue %d: %w", d.Number, serr)
 		}
 		todo = next
 		filed = append(filed, d.Number)
 	}
-	if len(filed) == 0 {
-		return "", nil
-	}
+	return todo, filed, nil
+}
 
+// commitTodo writes the spliced file, stages it alone and makes the one commit.
+func commitTodo(ctx context.Context, run RunFunc, root, path, todo string, filed []int) (string, error) {
 	if werr := os.WriteFile(path, []byte(todo), 0o644); werr != nil {
 		return "", fmt.Errorf("writing %s: %w", TodoFile, werr)
 	}
