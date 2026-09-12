@@ -92,3 +92,8 @@ key. Concretely:
 **M2**: read `.goreleaser.yaml`'s `signs:` block and confirm it has no `ignore_errors` (or
 any other error-suppression key) — a missing secret must fail the release, never publish
 an unsigned `checksums.txt` (edge case 35).
+
+**Both run 2026-09-12**, v0.12.1 → v0.12.2 via the dashboard: v0.12.1 badged Settings,
+offered `v0.12.2`, `Update` swapped the binary to the release archive's own hash while the
+process still reported `v0.12.1`, `Restart now` re-exec'd in place (same PID) onto
+`v0.12.2`. `signs:` clean.
