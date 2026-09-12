@@ -199,19 +199,13 @@ func openLauncherTestStore(t *testing.T) *store.Store {
 	return st
 }
 
-// newStubClaudeBin writes an executable script that stands in for `claude`: it writes
-// its MUSTER_SESSION pane environment variable to envOutFile (the only reliable way to
-// observe what a tmux `new-window -e` actually handed the spawned process — tmux's own
-// `show-environment` reflects a separate update-environment table, not the process env
-// passed at spawn, confirmed by manual probe), then sleeps so a liveness check would
-// see it alive. CLAUDE.md forbids ever launching the real `claude` from a unit test —
-// this stub is the sanctioned substitute, mirroring the E2E harness's own stub.
-func newStubClaudeBin(t *testing.T, envOutFile string) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "stub-claude.sh")
-	script := "#!/bin/sh\necho \"$MUSTER_SESSION\" > " + envOutFile + "\nsleep 60\n"
-	require.NoError(t, os.WriteFile(path, []byte(script), 0o755))
-	return path
+// stubSessionOutFile is where sharedStubClaude (main_test.go) records the MUSTER_SESSION
+// it was handed for sessionID. Reading that back is the only reliable way to observe what
+// a tmux `new-window -e` actually passed the spawned process: tmux's own `show-environment`
+// reflects a separate update-environment table, not the process env passed at spawn,
+// confirmed by manual probe.
+func stubSessionOutFile(sessionID int64) string {
+	return filepath.Join(stubOutDir, "session-"+strconv.FormatInt(sessionID, 10))
 }
 
 // newTestTmuxClient returns a tmux.Client bound to a private, per-test socket (plan
@@ -243,10 +237,9 @@ func TestLauncher_SuccessfulLaunchEndToEnd(t *testing.T) {
 	})
 	tmuxClient := newTestTmuxClient(t)
 	dir := t.TempDir()
-	envOutFile := filepath.Join(t.TempDir(), "env-output.txt")
 
 	l := &sessionLauncher{
-		store: st, manager: mgr, tmux: tmuxClient, log: zerolog.Nop(), claudeBin: newStubClaudeBin(t, envOutFile),
+		store: st, manager: mgr, tmux: tmuxClient, log: zerolog.Nop(), claudeBin: sharedStubClaude,
 		hookScript: "/bin/true", statusLineScript: "/bin/true",
 	}
 
@@ -266,6 +259,7 @@ func TestLauncher_SuccessfulLaunchEndToEnd(t *testing.T) {
 	// D4: the pane environment carries MUSTER_SESSION=<id> — proven by the stub binary
 	// itself observing it (see newStubClaudeBin's doc comment for why show-environment
 	// can't be used here).
+	envOutFile := stubSessionOutFile(sess.ID)
 	require.Eventually(t, func() bool {
 		b, err := os.ReadFile(envOutFile)
 		return err == nil && len(b) > 0
