@@ -52,16 +52,38 @@ if printf '%s\n' "$subject" | grep -qE '^[a-z]+(\([^)]*\))?!:' && [ "${MUSTER_BR
   fail "'!' marks a breaking change and requires MUSTER_BREAKING=1 set by a human"
 fi
 
-# The four release-worthy types are published verbatim as release-note bullets;
-# their summary (after 'type(scope): ', before any '(closes #N)' tail) caps at 72.
-# Only main publishes — plan-branch subjects (e.g. fix(<plan>): … (review cycle N))
-# are squashed away, so the cap does not bind there.
+# Paths that ship nothing: tests, E2E, dev tooling not in the binary (`go list -deps
+# ./cmd/musterd` carries neither internal/kb nor internal/triage), docs, pipeline files
+# and build/lint config. Anything else counts as shipped, so this list can only ever
+# miss a case — never block an honest release.
+unshipped='(_test\.go|\.test\.ts)$|^(web/e2e|web/scripts|test|tools|internal/kb|internal/triage|docs|plans|\.claude|\.github|\.githooks)/|(\.md|\.json|\.ya?ml)$|^Makefile$|\.config\.(ts|js|mjs)$'
+
+# The four release-worthy types cut a version and publish their subject verbatim as a
+# release-note bullet. Only main publishes — plan-branch subjects (e.g. fix(<plan>): …
+# (review cycle N)) are squashed away — so all three rules below bind on main only.
 case "$branch:$type" in
   main:feat|main:fix|main:perf|main:refactor)
+    # The summary (after 'type(scope): ', before any '(closes #N)' tail) caps at 72.
     summary=${subject#*: }
     summary=$(printf '%s' "$summary" | sed -E 's/ \(closes #[0-9]+(, closes #[0-9]+)*\)$//')
     if [ "${#summary}" -gt 72 ]; then
       fail "a $type summary is a published release note and caps at 72 chars before the (closes …) tail (got ${#summary})"
+    fi
+
+    # A releasing type whose scope is 'test' contradicts itself: the scope names the
+    # thing changed, and a change to the tests is a `test` commit.
+    if printf '%s\n' "$subject" | grep -qE '^[a-z]+\(test\)!?:'; then
+      fail "'$type(test)' contradicts itself — a change to the tests is a 'test' commit, which releases nothing"
+    fi
+
+    # A release is for the shipped artifact: the musterd binary and the embedded
+    # dashboard. A lint pass typed `refactor`/`fix(test)` published seven notes for
+    # test- and tooling-only commits across v0.12.4 and v0.12.5; this is the guard.
+    # MUSTER_RELEASE=1 is the human override for the rare unshipped file that does
+    # change what users receive (release packaging, the install path).
+    if [ "${MUSTER_RELEASE:-}" != 1 ] &&
+      ! git diff --cached --name-only | grep -qvE "$unshipped"; then
+      fail "a $type cuts a release, but no staged file changes the shipped artifact (musterd or web/src) — use test, chore, build or docs; MUSTER_RELEASE=1 overrides"
     fi
     ;;
 esac

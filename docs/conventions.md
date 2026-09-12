@@ -157,6 +157,31 @@ pinned v3.4.1; its config has no type→bump mapping), so `release.yml` carries 
 shim: when `svu next --v0` reports no bump but a `perf`/`refactor` commit exists since
 the last tag, it forces `svu patch`.
 
+**A releasing type needs a shipped change.** `feat`, `fix`, `perf` and `refactor` are
+reserved for commits that change the **shipped artifact**: the `musterd` binary (any
+package `go list -deps ./cmd/musterd` reaches, minus its `_test.go` files) and the
+embedded dashboard (`web/src`, minus its `*.test.ts`). Everything else releases nothing,
+however much it improved the repo:
+
+| What the commit changes | Type |
+|---|---|
+| tests, E2E specs and helpers, `test/` | `test` |
+| `tools/`, `internal/kb`, `internal/triage` — real code, but not in the binary | `chore` |
+| `.golangci.yml`, `web/biome.json`, `Makefile`, dependencies | `build` |
+| docs, `plans/`, `.claude/` | `docs` |
+
+This is the qualifier the bump map always implied — it widened to `perf`/`refactor` so
+that "a refactor that *ships changed behaviour*" would reach users — and the lint pass of
+2026-09-12 is what happens without it stated: of the ten bullets published across v0.12.4
+and v0.12.5, seven described test-only or tooling-only commits (`refactor: apply
+mechanical lint autofix for intrange and testifylint`, `fix(test): assert, never require,
+inside the attach-count poller`, `refactor(kb): bring the six record-tooling functions
+under the complexity ceiling`, …). Two corollaries: a releasing type scoped `test` —
+`fix(test)`, `refactor(test)` — contradicts itself, because the scope names the thing
+changed; and on a commit that touches both sides, the shipped change picks the type and
+the summary must describe **that**, since that is the half which publishes — prefer
+splitting it in two.
+
 **Keep a `feat`, `fix`, `perf` or `refactor` summary to 72 characters** (before any
 `(closes #N)` tail). The cap binds exactly those four because such a subject is not only
 for `git log` — **it is published verbatim as the release note.** `.goreleaser.yaml`
@@ -189,9 +214,16 @@ the notes — but the one-sentence, no-body rule still binds every type.
 
 **All of this is machine-enforced** by `.githooks/commit-msg` — armed per clone with
 `make hooks` (`git config core.hooksPath .githooks`), binding humans and pipeline agents
-on every branch: known type (plus `review` off-`main` only), the 72-char cap on the four
-published types (enforced on `main` only — plan-branch subjects are squashed away and
-never publish), the phrase ban, and the `MUSTER_BREAKING=1` gate on `!`.
+on every branch: known type (plus `review` off-`main` only), the phrase ban, and the
+`MUSTER_BREAKING=1` gate on `!`. Three rules bind on `main` only, because only `main`
+publishes and plan-branch subjects are squashed away: the 72-char cap, the `(test)` scope
+contradiction, and the shipped-change requirement. That last one reads the staged paths
+against a list of the ones that ship nothing; anything unrecognised counts as shipped, so
+it can only ever miss a case, never block an honest release. `MUSTER_RELEASE=1` — same
+shape as `MUSTER_BREAKING=1`, and equally a human's decision — overrides it for the rare
+unshipped file that does change what users receive, such as release packaging or the
+install path. Replayed over every releasing commit in this repo's history, the check
+refuses exactly the seven test- and tooling-only ones and nothing else.
 
 `.githooks/pre-commit` (same arming) guards **identity**: it refuses to commit while
 `.git/config` carries a `[user]` override, so only the global `~/.gitconfig` identity can
