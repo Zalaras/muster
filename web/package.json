@@ -12,6 +12,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
     "e2e": "sh scripts/e2e-lint.sh && playwright test",
     "e2e:lint": "sh scripts/e2e-lint.sh",
     "e2e:fixture-leak-check": "node scripts/e2e-fixture-leak-check.mjs",
@@ -22,6 +24,7 @@
     "@xterm/xterm": "6.0.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.13",
     "@playwright/test": "^1.63.0",
     "@types/node": "^26.5.1",
     "typescript": "^7.0.2",
