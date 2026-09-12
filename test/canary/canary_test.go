@@ -34,8 +34,11 @@ package canary
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -59,7 +62,7 @@ func TestInstalledVersionClassifies(t *testing.T) {
 // agree with `claude --version` — it is what a future drift detector could read live.
 func TestStatusLineVersionMatchesInstalled(t *testing.T) {
 	f := harness(t)
-	posts := f.statusPosts(sessionInteract)
+	posts := f.statusPostsFor(sessionInteract, f.preClearClaudeID())
 	require.NotEmpty(t, posts, "no status-line post captured from the interactive session")
 	last := posts[len(posts)-1].payload
 	assert.Equal(t, f.installed, last["version"], "status-line version != claude --version")
@@ -71,7 +74,10 @@ func TestStatusLineVersionMatchesInstalled(t *testing.T) {
 // command-wrapped, enveloped POST. History: SessionStart over type:"http" was silently
 // never delivered (2.1.233) — since m4-hook-lifetime Muster writes no http hooks at all,
 // so the transport assertion is simply "the command wrapper delivered it, with the
-// envelope".
+// envelope" (kb:fact/sessionstart-not-over-http).
+//
+// It is also the guard for kb:fact/headless-fires-full-hook-sequence: run A is headless
+// `claude -p`, with no tmux anywhere, and the six events below are the full sequence.
 func TestHookTransport(t *testing.T) {
 	f := harness(t)
 	got := f.hookTypes(sessionManaged)
@@ -334,7 +340,10 @@ func TestNotifications(t *testing.T) {
 // RFC3339), and used_percentage is a float (not an int).
 func TestStatusLineFields(t *testing.T) {
 	f := harness(t)
-	posts := f.statusPosts(sessionInteract)
+	// The pre-/clear session only: /clear mints a second claude session in the same pane whose
+	// posts are all pre-first-response, and it would otherwise supply "the last post" here
+	// (kb:adr/canary-run-d-holds-two-claude-sessions).
+	posts := f.statusPostsFor(sessionInteract, f.preClearClaudeID())
 	require.NotEmpty(t, posts, "no status-line post from the interactive session")
 	last := posts[len(posts)-1].payload
 
@@ -400,7 +409,7 @@ func TestStatusLineFields(t *testing.T) {
 // Only judgeable if the harness captured a pre-response post — otherwise skip honestly.
 func TestUnknownVersusZero(t *testing.T) {
 	f := harness(t)
-	posts := f.statusPosts(sessionInteract)
+	posts := f.statusPostsFor(sessionInteract, f.preClearClaudeID())
 	var pre []capture
 	for _, c := range posts {
 		if _, ok := c.payload["rate_limits"]; ok {
@@ -471,6 +480,192 @@ func TestCommandHooksCarryEnvelopeOnEveryEvent(t *testing.T) {
 	}
 
 	assert.Equal(t, 0, f.runBPosts, "an unmanaged claude (no $MUSTER_SESSION) in the instrumented directory must post nothing")
+}
+
+// TestLocalSettingsHonoured guards kb:fact/local-settings-honoured: a project-scoped
+// .claude/settings.local.json, with no .claude/settings.json beside it, is enough on its own
+// for Claude Code to honour both `hooks` and `statusLine`. The harness has always relied on
+// this — it writes only the local file — but nothing named it, so a change in scope precedence
+// would have surfaced as an unrelated failure somewhere else.
+func TestLocalSettingsHonoured(t *testing.T) {
+	f := harness(t)
+
+	_, err := os.Stat(filepath.Join(f.repo, ".claude", "settings.json"))
+	assert.Truef(t, os.IsNotExist(err), "the scratch repo must have no .claude/settings.json for this test to mean anything (stat err: %v)", err)
+	local, err := os.Stat(filepath.Join(f.repo, ".claude", "settings.local.json"))
+	require.NoError(t, err, "the harness must have written .claude/settings.local.json")
+	assert.NotZero(t, local.Size())
+
+	assert.NotNil(t, f.firstHook(sessionManaged, "SessionStart"),
+		"hooks declared only in settings.local.json did not run")
+	assert.NotEmpty(t, f.statusPostsFor(sessionInteract, f.preClearClaudeID()),
+		"statusLine declared only in settings.local.json did not post")
+}
+
+// TestConfigDirBreaksOAuth guards kb:fact/config-dir-breaks-oauth, the fact the whole
+// zero-token tier rests on: CLAUDE_CONFIG_DIR isolates settings and hooks but breaks
+// subscription OAuth. The proof is the contrast between run A and run C on the same binary
+// and the same machine, minutes apart — A authenticates and reaches Stop, every C run fails
+// authentication — plus the isolation half, that hooks declared only inside the config dir
+// still ran.
+func TestConfigDirBreaksOAuth(t *testing.T) {
+	f := harness(t)
+
+	assert.Contains(t, f.hookTypes(sessionManaged), "Stop",
+		"run A (no CLAUDE_CONFIG_DIR) must complete a turn, or the contrast below proves nothing")
+
+	for _, run := range unauthRuns {
+		t.Run(fmt.Sprintf("mode=%q", run.mode), func(t *testing.T) {
+			got := f.hookTypes(run.session)
+			// Isolation: these hooks are declared only in the config dir's own settings.json.
+			require.NotEmptyf(t, got, "no hook arrived from the isolated config dir")
+			c := f.firstHook(run.session, "StopFailure")
+			require.NotNilf(t, c, "no StopFailure under CLAUDE_CONFIG_DIR; got %v", got)
+			assert.Equal(t, "authentication_failed", c.payload["error"],
+				"CLAUDE_CONFIG_DIR must break subscription OAuth, not some other failure")
+			assert.NotContains(t, got, "Stop", "an unauthenticated run must never complete a turn")
+		})
+	}
+}
+
+// TestSessionEndReasonAmbiguous guards kb:fact/sessionend-reason-ambiguous: "clear" is the only
+// SessionEnd.reason that carries information — an ordinary exit and a killed pane both report
+// "other", which is why reconcile keys on pane liveness rather than on this field.
+func TestSessionEndReasonAmbiguous(t *testing.T) {
+	f := harness(t)
+
+	end := f.firstHook(sessionManaged, "SessionEnd")
+	require.NotNilf(t, end, "run A never emitted SessionEnd; got %v", f.hookTypes(sessionManaged))
+	assert.Equal(t, "other", end.payload["reason"], "an ordinary headless exit must report reason \"other\"")
+
+	if f.interactive.clearErr == nil {
+		cleared := f.firstHookWhere(sessionInteract, "SessionEnd", func(p map[string]any) bool {
+			r, _ := p["reason"].(string)
+			return r == "clear"
+		})
+		assert.NotNilf(t, cleared, "/clear must emit SessionEnd{reason:\"clear\"}; run D saw %v", f.hookTypes(sessionInteract))
+	} else {
+		t.Logf("run D's /clear step did not complete (%v); the \"clear\" reason is TestClearMintsNewSessionID's failure to report", f.interactive.clearErr)
+	}
+
+	// The killed-pane half. Delivery on a SIGHUP exit is best-effort
+	// (kb:fact/hook-delivery-best-effort), so absence is logged and only a delivered event is
+	// judged — asserting arrival here would make the canary flaky about something Muster
+	// already designs for.
+	killed := f.firstHookWhere(sessionInteract, "SessionEnd", func(p map[string]any) bool {
+		r, _ := p["reason"].(string)
+		return r != "clear"
+	})
+	if killed == nil {
+		t.Log("no non-clear SessionEnd delivered from the killed pane (best-effort delivery); the killed-pane reason was not observable this run")
+		return
+	}
+	assert.Equal(t, "other", killed.payload["reason"], "a killed pane must be indistinguishable from an ordinary exit")
+}
+
+// TestClearMintsNewSessionID guards kb:fact/clear-mints-new-session-id, the reason session
+// identity keys on the tmux target and never on Claude's session_id (internal/session/machine.go):
+// /clear ends the old session and mints a new id in the same pane, so a SessionEnd there is not
+// the pane dying. Driven by run D's idle window at no token cost.
+func TestClearMintsNewSessionID(t *testing.T) {
+	f := harness(t)
+	require.NoError(t, f.interactive.clearErr, "run D's /clear step did not complete")
+
+	ended := f.firstHookWhere(sessionInteract, "SessionEnd", func(p map[string]any) bool {
+		r, _ := p["reason"].(string)
+		return r == "clear"
+	})
+	require.NotNilf(t, ended, "no SessionEnd{reason:\"clear\"}; run D saw %v", f.hookTypes(sessionInteract))
+	started := f.sessionStartAfterClear()
+	require.NotNilf(t, started, "no SessionStart{source:\"clear\"}; run D saw %v", f.hookTypes(sessionInteract))
+
+	assert.Equal(t, f.preClearClaudeID(), ended.ev.SessionID, "SessionEnd{clear} must carry the OLD session_id")
+	assert.NotEmpty(t, started.ev.SessionID)
+	assert.NotEqual(t, f.preClearClaudeID(), started.ev.SessionID, "/clear must mint a NEW session_id")
+	assert.Falsef(t, started.at.Before(ended.at), "SessionEnd{clear} must arrive before SessionStart{clear} (end=%s, start=%s)", ended.at, started.at)
+
+	// Same pane: the envelope, not the payload, is what Muster binds on.
+	first := f.firstHook(sessionInteract, "SessionStart")
+	require.NotNil(t, first)
+	require.NotNil(t, first.ev.TmuxPane, "run D's first SessionStart carries no tmuxPane")
+	require.NotNil(t, started.ev.TmuxPane, "the /clear SessionStart carries no tmuxPane")
+	assert.Equal(t, *first.ev.TmuxPane, *started.ev.TmuxPane, "/clear must mint the new session in the SAME pane")
+	require.NotNil(t, started.ev.MusterSession)
+	assert.Equal(t, sessionInteract, *started.ev.MusterSession)
+}
+
+// TestRefreshIntervalIsSeconds guards kb:fact/refresh-interval-seconds: statusLine.refreshInterval
+// is in seconds, and it ticks while the session sits idle. The window is run D's wait for the
+// idle_prompt Notification — about 60 s of no keystrokes and no tool activity — so at 5 s the
+// status line should post roughly a dozen times. Were the unit milliseconds, 5 would mean 5 ms
+// (a flood) and the historical 1000 meant ~16.7 minutes (nothing at all); the assertions below
+// separate "ticks on a seconds cadence" from "does not tick" without pinning a gap, which on a
+// shared machine would be a flake generator (the same stance TestNotifications takes on the
+// idle_prompt gap).
+//
+// The key itself is written by the harness, not by production — see
+// kb:adr/canary-refresh-interval-key-canary-only.
+func TestRefreshIntervalIsSeconds(t *testing.T) {
+	f := harness(t)
+	from, to := f.interactive.stopAt, f.interactive.shiftTabAt
+	require.Falsef(t, from.IsZero() || to.IsZero(), "run D recorded no idle window (stop=%s, shiftTab=%s)", from, to)
+	window := to.Sub(from)
+	require.Greaterf(t, window, 30*time.Second, "idle window was only %s — too short to judge the cadence", window)
+
+	var idle []capture
+	for _, c := range f.statusPostsFor(sessionInteract, f.preClearClaudeID()) {
+		if !c.at.Before(from) && c.at.Before(to) {
+			idle = append(idle, c)
+		}
+	}
+	// A seconds cadence over a ~60 s window is ~12 posts; require half that, so a slow machine
+	// or a couple of dropped posts is not a failure but silence still is.
+	require.GreaterOrEqualf(t, len(idle), 6,
+		"only %d status-line post(s) in %s of idle — refreshInterval %d is not being honoured in seconds",
+		len(idle), window, refreshIntervalSeconds)
+
+	widest := time.Duration(0)
+	for i := 1; i < len(idle); i++ {
+		if gap := idle[i].at.Sub(idle[i-1].at); gap > widest {
+			widest = gap
+		}
+	}
+	assert.Lessf(t, widest, 30*time.Second, "widest idle gap %s — the cadence is not a %ds tick", widest, refreshIntervalSeconds)
+	t.Logf("%d idle status posts over %s (mean gap %s, widest %s) at refreshInterval %d",
+		len(idle), window.Round(time.Millisecond), (window / time.Duration(len(idle))).Round(time.Millisecond), widest.Round(time.Millisecond), refreshIntervalSeconds)
+}
+
+// TestShiftTabFiresNoHook guards kb:fact/shift-tab-mode-cycle-fires-no-hook: cycling the
+// permission mode with Shift+Tab emits no hook and adds no status-line field, so Muster cannot
+// observe a manual mode change at all — the launch flag is the only mode it ever knows
+// (kb:fact/permission-mode-flag-on-wire). This is an absence assertion by necessity; it is run
+// after the idle_prompt Notification has already arrived, so the window holds nothing the
+// keypress did not cause.
+func TestShiftTabFiresNoHook(t *testing.T) {
+	f := harness(t)
+	require.NoError(t, f.interactive.shiftTabErr, "run D's Shift+Tab step did not complete")
+	from, to := f.interactive.shiftTabAt, f.interactive.clearAt
+	require.Falsef(t, from.IsZero() || to.IsZero(), "run D recorded no Shift+Tab window (shiftTab=%s, clear=%s)", from, to)
+	require.Truef(t, to.After(from), "Shift+Tab window is empty (shiftTab=%s, clear=%s)", from, to)
+
+	assert.Emptyf(t, f.hooksBetween(sessionInteract, f.preClearClaudeID(), from, to),
+		"cycling the permission mode must fire no hook; %s window saw them", to.Sub(from))
+
+	var before, after *capture
+	for _, c := range f.statusPostsFor(sessionInteract, f.preClearClaudeID()) {
+		switch {
+		case c.at.Before(from):
+			before = &c
+		case after == nil:
+			after = &c
+		}
+	}
+	require.NotNil(t, before, "no status-line post before Shift+Tab to compare against")
+	require.NotNil(t, after, "no status-line post after Shift+Tab (refreshInterval should have ticked within the wait)")
+	assert.ElementsMatch(t, keys(before.payload), keys(after.payload),
+		"cycling the permission mode must add no status-line field")
+	assert.NotContains(t, keys(after.payload), "permission_mode",
+		"the status line still carries no permission_mode after a manual mode change")
 }
 
 // ---------------------------------------------------------------------------------------

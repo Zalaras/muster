@@ -18,10 +18,12 @@
 - The trust prompt preselects "No, exit" on 2.1.259+; the harness moves the marker before Enter (kb:fact/trust-prompt-preselects-exit).
 - Probe instances live in `/tmp/muster-probe`; a scratch repo under `~/Documents` inherits every parent `CLAUDE.md`.
 - `MUSTER_CANARY_OFFLINE=1` always wins over `MUSTER_CANARY_FORCE=1`.
+- The canary's settings are production plus exactly one key: `statusLine.refreshInterval`, which `MergeSettings` never writes (kb:adr/canary-refresh-interval-key-canary-only).
+- Run D holds **two** claude sessions — `/clear` mints a second in the same pane — so status-line views filter on `preClearClaudeID()` (kb:adr/canary-run-d-holds-two-claude-sessions).
 - `failproxy` never logs request headers; they carry a live OAuth token.
 
 <!-- kb:trailer -->
-<!-- kb:hash 6569b8b8a93cf871 -->
+<!-- kb:hash 4435c7a5d6a75bed -->
 - **canary** — The verified Claude Code version range, canary tiers, and the fragments tools/versions regenerates. → `docs/features/canary/INDEX.md`
-- 14 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 16 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

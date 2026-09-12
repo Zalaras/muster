@@ -152,14 +152,20 @@ coverage on 2026-09-10 (plan `canary-full-coverage`), and extended to the verifi
 `MergeSettings` into a scratch repo's `.claude/settings.local.json`, from a data dir whose
 path contains a space — and captures the wrapper's enveloped POSTs on an in-test server.
 Three tiers: a harness that launches real sessions, a static tier that scans the installed
-binary, and a live tier that calls the real Keychain and usage API. ~2.5–3 min wall time:
+binary, and a live tier that calls the real Keychain and usage API. ~2.5–3 min wall time.
+
+One key in those settings is **not** production's: the harness adds
+`statusLine.refreshInterval` after `MergeSettings` returns, because production omits it and an
+idle managed session therefore posts nothing at all to observe
+(kb:adr/canary-refresh-interval-key-canary-only). Everything else is the production chain
+verbatim.
 
 | run | shape | cost | proves |
 |---|---|---|---|
 | A | headless `-p`, `$MUSTER_SESSION` set, one `echo hi` tool call | 1 haiku turn | SessionStart transport, hook field inventory, envelope on every event, quoting |
 | B | same, no `$MUSTER_SESSION` | 1 haiku turn | an unmanaged session posts **nothing** |
 | C ×4 | headless with an unauthenticated `CLAUDE_CONFIG_DIR`, one run per launch permission mode (no flag, `plan`, `acceptEdits`, `auto`) | 0 tokens | `StopFailure{authentication_failed}` replaces `Stop`; `UserPromptSubmit.permission_mode` reflects each launch flag (`auto` on haiku may report `auto` or `default` — both accepted, logged) |
-| D | interactive in tmux on a scratch socket, launched via `BuildArgv` with `Title: "Muster Canary"` and plan-mode permission, "say hi", then a bounded wait for the post-`Stop` `Notification{idle_prompt}` | 1 haiku turn | status-line fields, unknown-vs-zero (pre-response post), `version`, `session_title`/`session_name` flowing through the flag, the idle-prompt Notification field inventory |
+| D | interactive in tmux on a scratch socket, launched via `BuildArgv` with `Title: "Muster Canary"` and plan-mode permission, "say hi", then a bounded wait for the post-`Stop` `Notification{idle_prompt}`; then two keystroke checks in that idle window — `S-Tab`, and `/clear` — before the pane is killed | 1 haiku turn | status-line fields, unknown-vs-zero (pre-response post), `version`, `session_title`/`session_name` flowing through the flag, the idle-prompt Notification field inventory; the `refreshInterval` tick cadence across the ~60 s idle wait; Shift+Tab firing no hook; `/clear` minting a new `session_id` in the same pane and `SessionEnd.reason` values |
 | E | a second tmux session on the same scratch socket, resuming run D's session via `BuildArgv` with `ResumeSessionID` (byte-for-byte what `internal/server`'s Resume builds), then a prompt that calls `ExitPlanMode`, waited on through `PermissionRequest` and the following `Notification{permission_prompt}`, killed **without answering the dialog** | 1 haiku turn | `SessionStart.source == "resume"` with `session_id`/`transcript_path` matching D (closes the R2 check); `PreToolUse → PermissionRequest` ordering and field inventory; the `permission_prompt` Notification sharing `PermissionRequest`'s `prompt_id` |
 
 **Static tier** (`test/canary/static_test.go`, `TestInstalledBinaryCarriesInterfaceStrings`):
@@ -192,9 +198,15 @@ server down in `TestMain`.
 plan-mode sequence, `PostToolUse{ExitPlanMode, permission_mode: "acceptEdits"}` — it needs
 the permission dialog actually answered via `send-keys`, too fragile for a gate; `agent_id`
 on subagent-originated hooks — a subagent costs ≥ 2 turns and Muster's only dependency on it
-is that field; and the `fable` model alias — verified by static inspection by hand.
-`SubagentStop` itself is not a residual: `interpret.go` treats it as `KindInert` and Muster
-reads nothing from it.
+is that field; the `fable` model alias — verified by static inspection by hand; and
+`session_name`'s auto-generated source (kb:fact/status-session-name-source) — it needs a
+second interactive run without `--name`, and a one-turn session may never derive a name at
+all, so the assertion would pass or fail on luck. `SubagentStop` itself is not a residual:
+`interpret.go` treats it as `KindInert` and Muster reads nothing from it.
+
+The fact records are the index of what is and isn't gated:
+`go run ./tools/kb ls --type fact --guard none` lists every measured fact still carrying no
+canary assertion.
 
 If run E's `PermissionRequest` wait times out (haiku answered the `ExitPlanMode` prompt with
 text instead of calling the tool) or the live tier's usage call returns a 5xx, treat it as

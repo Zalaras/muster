@@ -19,6 +19,11 @@ earliest posts, before a title has been derived, and a one-turn "say hi" session
 derive one: on the 2.1.246 canary it was absent on every post of the interactive run, 2/2
 runs. Treat it as optional.
 
-Evidence: 2.1.233 spikes (FINDINGS §6) and the 2.1.246 canary. The auto-generated case is not
-asserted (run D now passes `--name`); automatable only at the cost of a second interactive
-turn without `--name`.
+Evidence: 2.1.233 spikes (FINDINGS §6) and the 2.1.246 canary. A resume inherits the name:
+run E is launched without `--name` and its last status post still read `"Muster Canary"`
+(2.1.269, 2026-09-12).
+
+Stays a `/interface-probe` ritual, deliberately (2026-09-12). The `--name` half is asserted by
+`TestStatusLineFields`; the auto-generated half would need a second interactive run without
+`--name`, and by this record's own measurement a one-turn "say hi" session may never derive a
+name at all — so the assertion would pass or fail on luck, which is worse than no gate.

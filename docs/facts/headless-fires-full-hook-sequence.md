@@ -9,12 +9,11 @@ tags: [claude-code-format, testing]
 files: [test/canary/harness_test.go]
 tests: []
 refs: [spikes/FINDINGS.md]
-verified: 2.1.233..2.1.267
-guard: none
+verified: 2.1.233..canary
+guard: TestHookTransport
 ---
 Headless `claude -p` fires the full hook sequence, including the command-wrapped
 `SessionStart`. Probes and tests that do not need the TUI need no tmux.
 
-Evidence: 2.1.233 spikes; canary runs A–C are headless and their hook sequences are asserted
-by `TestHookTransport` and `TestStopFailureReplacesStop`, which is why this carries no guard
-of its own.
+Evidence: 2.1.233 spikes; guarded since 2026-09-12 by `TestHookTransport`, which asserts the
+full six-event sequence on run A — headless `claude -p`, no tmux anywhere in the process.

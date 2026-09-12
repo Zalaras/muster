@@ -9,8 +9,8 @@ tags: [claude-code-format, security]
 files: [internal/claudecode/settings.go]
 tests: [TestMergeSettings_FreshFileRegistersCommandEntryOnAllElevenEvents]
 refs: [spikes/FINDINGS.md]
-verified: 2.1.237..2.1.267
-guard: none
+verified: 2.1.237..canary
+guard: TestLocalSettingsHonoured
 ---
 A project-scoped `<repo>/.claude/settings.json` honours `hooks`, `statusLine` and
 `allowedHttpHookUrls`; `allowedHttpHookUrls` defined only at project scope authorised the hook
@@ -18,6 +18,7 @@ URLs (2.1.233). `.claude/settings.local.json` alone honours all three too: with 
 removed entirely, the command-wrapped `SessionStart`, http `UserPromptSubmit`/`Stop` and the
 status line all delivered (2.1.237, 2026-08-20). Claude Code gitignores the local file.
 
-Evidence: 2.1.233 spikes (FINDINGS §8) and the 2.1.237 probe. Automatable in part — the
-harness already writes only `settings.local.json`, so every green run exercises it without
-asserting it by name.
+Evidence: 2.1.233 spikes (FINDINGS §8) and the 2.1.237 probe. Guarded since 2026-09-12 by
+`TestLocalSettingsHonoured`: the canary's scratch repo has no `.claude/settings.json` at all,
+and both the command-wrapped hooks and the status line declared only in `settings.local.json`
+deliver on every run.

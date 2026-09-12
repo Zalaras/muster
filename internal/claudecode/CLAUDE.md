@@ -20,11 +20,11 @@
 - A measured shape beats the official docs; record a new one as a fact before coding against it.
 
 <!-- kb:trailer -->
-<!-- kb:hash 34a1522daa09c736 -->
+<!-- kb:hash 0e0b1f74a3b8bca7 -->
 - **canary** — The verified Claude Code version range, canary tiers, and the fragments tools/versions regenerates. → `docs/features/canary/INDEX.md`
 - **ingest** — Hook and status-line ingest endpoints, the envelope that binds an event to a Muster session, seq assigned at ingest. → `docs/features/ingest/INDEX.md`
 - **launch** — Launch dialog, repo browse and picker, trust prompt, project-scoped settings write, the claude argv. → `docs/features/launch/INDEX.md`
 - **theme** — Muster theme preference and the Claude theme family poll. → `docs/features/theme/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
-- 55 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 56 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

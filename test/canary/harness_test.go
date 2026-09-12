@@ -73,6 +73,13 @@ const (
 
 	interactiveTmuxID       int64 = 99 // tmux session "muster-99" on the scratch socket: run D
 	interactiveResumeTmuxID int64 = 98 // tmux session "muster-98" on the scratch socket: run E
+
+	// refreshIntervalSeconds is the one settings key the canary writes that production never
+	// does (kb:adr/canary-refresh-interval-key-canary-only): MergeSettings emits statusLine
+	// with type and command only, so without this the idle-tick half of
+	// kb:fact/refresh-interval-seconds has nothing to observe. 5 s over run D's ~60 s idle
+	// wait gives ~12 ticks; TestRefreshIntervalIsSeconds asserts far fewer than that.
+	refreshIntervalSeconds = 5
 )
 
 // unauthRuns is REQ-1's four-way permission-mode sweep on the zero-token unauthenticated
@@ -151,6 +158,16 @@ type fixture struct {
 		idlePromptAt    time.Time // run D: when the idle_prompt Notification arrived (REQ-3)
 		claudeSessionID string    // run D's SessionStart.session_id, for run E's --resume
 		transcriptPath  string    // run D's SessionStart.transcript_path, cross-checked against E
+
+		// The two zero-token in-pane checks driven in run D's idle window
+		// (kb:adr/canary-run-d-holds-two-claude-sessions). Each step records its own error
+		// instead of failing the build, so a typing hiccup in one of them fails its own test
+		// rather than every test in the package.
+		shiftTabAt        time.Time // when S-Tab was sent
+		shiftTabErr       error
+		clearAt           time.Time // when /clear was typed
+		clearErr          error
+		postClearClaudeID string // the session_id /clear minted in the same pane
 	}
 
 	tmuxClient *tmux.Client
@@ -249,6 +266,12 @@ func (f *fixture) build() error {
 	if err != nil {
 		return err
 	}
+	f.settings, err = withRefreshInterval(f.settings, refreshIntervalSeconds)
+	if err != nil {
+		return err
+	}
+	// Only settings.local.json is ever written — no .claude/settings.json is created, which
+	// is what TestLocalSettingsHonoured reads as evidence for kb:fact/local-settings-honoured.
 	settingsPath := filepath.Join(f.repo, ".claude", "settings.local.json")
 	if err := os.WriteFile(settingsPath, f.settings, 0o600); err != nil {
 		return err
@@ -293,6 +316,40 @@ func initScratchRepo(ctx context.Context, repo string) error {
 		return fmt.Errorf("git commit: %w: %s", err, out)
 	}
 	return nil
+}
+
+// withRefreshInterval adds statusLine.refreshInterval to settings MergeSettings has already
+// produced, preserving every other key and the shell quoting of the command itself. This is a
+// deliberate, canary-only departure from "the production chain, verbatim": production omits the
+// key (internal/claudecode/settings.go), so an idle managed session posts nothing and the
+// seconds-not-milliseconds half of kb:fact/refresh-interval-seconds cannot be observed at all.
+// Setting it here — after the merge, on the bytes actually written — leaves every other
+// assertion reading exactly what production would produce
+// (kb:adr/canary-refresh-interval-key-canary-only).
+func withRefreshInterval(merged []byte, seconds int) ([]byte, error) {
+	doc := map[string]json.RawMessage{}
+	if err := json.Unmarshal(merged, &doc); err != nil {
+		return nil, fmt.Errorf("parsing merged settings: %w", err)
+	}
+	raw, ok := doc["statusLine"]
+	if !ok {
+		return nil, fmt.Errorf("merged settings carry no statusLine entry")
+	}
+	line := map[string]any{}
+	if err := json.Unmarshal(raw, &line); err != nil {
+		return nil, fmt.Errorf("parsing merged statusLine: %w", err)
+	}
+	line["refreshInterval"] = seconds
+	encoded, err := json.Marshal(line)
+	if err != nil {
+		return nil, err
+	}
+	doc["statusLine"] = encoded
+	out, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append(out, '\n'), nil
 }
 
 // handle is the capture server. Paths are the exact ones the wrapper scripts post to.
@@ -529,11 +586,60 @@ func (f *fixture) runD(ctx context.Context) error {
 	}
 	f.interactive.idlePromptAt = f.firstNotification(sessionInteract, "idle_prompt").at
 
+	// Two zero-token checks in the window that is already being paid for, in this order: the
+	// mode cycle must fire nothing, then /clear ends this claude session and mints another in
+	// the same pane. Neither can run before idle_prompt (a keypress cancels the idle timer),
+	// and /clear must come last because every status-line view above is written against the
+	// pre-clear session.
+	f.shiftTabStep(ctx, target)
+	f.clearStep(ctx, target)
+
 	if err := f.tmuxClient.KillSession(ctx, fmt.Sprintf("muster-%d", interactiveTmuxID)); err != nil {
 		return err
 	}
 	f.settle(2 * time.Second)
 	return nil
+}
+
+// shiftTabStep cycles the permission mode with Shift+Tab and then waits two refresh periods,
+// so a tick lands after the keypress and TestShiftTabFiresNoHook can judge both halves of
+// kb:fact/shift-tab-mode-cycle-fires-no-hook: no hook fires, and the status line gains no
+// field. shiftTabAt is stamped before the key is sent, so anything the keypress provokes falls
+// inside the window the test examines.
+func (f *fixture) shiftTabStep(ctx context.Context, target string) {
+	f.interactive.shiftTabAt = time.Now()
+	if err := f.sendKeys(ctx, target, "S-Tab"); err != nil {
+		f.interactive.shiftTabErr = err
+		return
+	}
+	time.Sleep(2 * refreshIntervalSeconds * time.Second)
+}
+
+// clearStep types /clear into run D's pane and waits for the SessionStart it mints
+// (kb:fact/clear-mints-new-session-id). It costs no tokens — /clear is handled locally — and
+// it is the last thing done to the pane before the kill. Run E is unaffected: it resumes the
+// session_id captured at run D's first SessionStart, whose transcript survives the clear.
+func (f *fixture) clearStep(ctx context.Context, target string) {
+	f.interactive.clearAt = time.Now()
+	// Type and submit separately, as everywhere else in this harness: one combined send-keys
+	// swallows the newline.
+	if err := f.sendKeys(ctx, target, "/clear"); err != nil {
+		f.interactive.clearErr = err
+		return
+	}
+	time.Sleep(1 * time.Second)
+	if err := f.sendKeys(ctx, target, "Enter"); err != nil {
+		f.interactive.clearErr = err
+		return
+	}
+	if !f.waitFor(30*time.Second, func() bool { return f.sessionStartAfterClear() != nil }) {
+		f.interactive.clearErr = fmt.Errorf(
+			"no SessionStart{source:\"clear\"} within 30s of typing /clear; hooks seen: %v",
+			f.hookTypes(sessionInteract))
+		return
+	}
+	f.interactive.postClearClaudeID = f.sessionStartAfterClear().ev.SessionID
+	f.settle(2 * time.Second)
 }
 
 // runE relaunches run D's claude session_id through the exact production
@@ -712,6 +818,23 @@ func (f *fixture) statusPosts(session int64) []capture {
 	return out
 }
 
+// preClearClaudeID is run D's original claude session_id. /clear mints a second one in the
+// same pane (kb:fact/clear-mints-new-session-id), so one $MUSTER_SESSION now spans two claude
+// sessions and every status-line view has to say which it means
+// (kb:adr/canary-run-d-holds-two-claude-sessions).
+func (f *fixture) preClearClaudeID() string { return f.interactive.claudeSessionID }
+
+// statusPostsFor narrows statusPosts to one claude session_id.
+func (f *fixture) statusPostsFor(session int64, claudeID string) []capture {
+	var out []capture
+	for _, c := range f.statusPosts(session) {
+		if c.ev.SessionID == claudeID {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
 func (f *fixture) firstHook(session int64, event string) *capture {
 	for _, c := range f.hookEvents(session) {
 		if c.ev.Type == event {
@@ -737,6 +860,38 @@ func (f *fixture) firstNotification(session int64, notifType string) *capture {
 		}
 	}
 	return nil
+}
+
+// firstHookWhere returns the first hook of the named event whose decoded payload satisfies ok
+// — firstHook's plain event-name match is not enough once a session emits two SessionStarts
+// (startup and clear) or two SessionEnds (clear and the killed pane).
+func (f *fixture) firstHookWhere(session int64, event string, ok func(map[string]any) bool) *capture {
+	for _, c := range f.hookEvents(session) {
+		if c.ev.Type == event && ok(c.payload) {
+			c := c
+			return &c
+		}
+	}
+	return nil
+}
+
+// sessionStartAfterClear is the SessionStart /clear minted in run D's pane.
+func (f *fixture) sessionStartAfterClear() *capture {
+	return f.firstHookWhere(sessionInteract, "SessionStart", func(p map[string]any) bool {
+		src, _ := p["source"].(string)
+		return src == "clear"
+	})
+}
+
+// hooksBetween lists the hook events on one claude session_id that arrived in [from, to).
+func (f *fixture) hooksBetween(session int64, claudeID string, from, to time.Time) []string {
+	var out []string
+	for _, c := range f.hookEvents(session) {
+		if c.ev.SessionID == claudeID && !c.at.Before(from) && c.at.Before(to) {
+			out = append(out, c.ev.Type)
+		}
+	}
+	return out
 }
 
 func (f *fixture) hookTypes(session int64) []string {

@@ -36,6 +36,9 @@ kb:adr/canary-resume-run-through-production-argv); a live tier that runs the pro
 Keychain, usage and theme readers and fails rather than skips when a credential is missing
 (kb:adr/canary-live-tier-fails-never-skips); and a static tier that scans the installed
 bundle for interface strings Muster cannot drive (kb:adr/canary-static-tier-asserts-bundle-strings).
+The interactive run's idle wait doubles as a zero-token keystroke tier — the status line's
+tick cadence, Shift+Tab firing no hook, and `/clear` minting a new session id in the same pane
+(kb:adr/canary-run-d-holds-two-claude-sessions, kb:adr/canary-refresh-interval-key-canary-only).
 An offline mode compiles, classifies and runs the static tier only. The status-line
 version is asserted equal to the installed one (kb:fact/status-version-matches-installed).
 
