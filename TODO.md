@@ -148,37 +148,6 @@ These are some minor changes and cleanup needed before we can move into post v1.
   placeholders not `$` variables, `sequential` unused, and the config sits in `web/` so the
   ancestor-lookup change is moot.
 
-- [ ] **Make the project knowledge searchable as it grows** (Track 3; planned 2026-09-11, executing
-  directly on `main` in ~13 sessions; plan and appendices in `~/.claude/plans/alright-i-ve-put-in-wild-sifakis*.md`).
-  Knowledge becomes typed records with strict frontmatter — decisions as ADRs (one per question,
-  slug ids, `accepted|proposed|superseded|rejected`), measured Claude Code facts bound to the canary
-  test that guards them and the version range they hold on, lessons tagged by pipeline role,
-  runbooks, references, and one `spec.md` per feature whose frontmatter is the feature registry
-  (the 17 `code-breakup` names + lifecycle, canary, triage, release). `tools/kb` (Go, in
-  `internal/kb`) generates the indexes, per-feature protocol slices and `.claude/rules/<feature>.md`
-  path-scoped rules, checks every invariant (`make check-kb`, in `make check` and the gates
-  baseline), and answers `kb pack --plan --role` / `kb for <path>` / `kb show <id>` so agents read
-  what their job needs instead of the whole estate. Citations are `kb:<type>/<slug>` tokens;
-  `docs/protocol.md` stays the single contract source with stable `kb:anchor` ids per heading.
-  Hand-written nested CLAUDE.md in 17 directories (no rationale, tokens only). Settled: slugs not
-  sequence numbers; one ADR per decision (~145 from the history files); no search index, no
-  embeddings, no LLM at query time. Phases: tool + wiring → registry stubs + anchors + citation
-  rewrite → facts → ADR batches ×5 → specs (SPEC.md shrinks to ~1.5k words) → lessons/runbooks +
-  skill rewiring → nested CLAUDE.md ×2 → freeze history. ☑ tool (2026-09-11: `internal/kb` +
-  `tools/kb`, 63 tests; `make check-kb` in `make check` and the gates baseline; empty store green)
-  ☑ anchors (2026-09-11: 22 feature registry stubs own every file under `internal/`, `web/src/`,
-  `web/e2e/`; 42 `kb:anchor` ids in `docs/protocol.md`, numbers stripped, `sessionUpsert`/`prefs`/
-  `sessionRemoved` split; 525 `kb:anchor/` citations replace every numbered protocol reference;
-  generated `.claude/rules/`, per-feature `INDEX.md` + `contract.md`, `docs/INDEX.md`)
-  ☑ facts (2026-09-12: 43 records in `docs/facts/`, 23 guarded by a named canary test with
-  `verified: <lo>..canary`, 20 `guard: none`; the canary field inventory frozen from `spikes/` to
-  `docs/history/spikes/canary-fields.md` with a marker per row, `scripts/kb-conserve.py` 0 failures)
-  ☑ ADRs (2026-09-12: 212 records in `docs/adr/` from all 44 spec-changelog entries, 29
-  protocol-changelog bullets, 11 done-item headings, 5 plan decisions, the 20 interview rows and
-  SPEC's former non-goals, stack and open-questions sections — one per question; 15 superseded, 24 rejected, 3 proposed; every history unit
-  carries a marker, `scripts/kb-conserve.py` 0 failures on all four files; `interview-notes.md`
-  frozen to `docs/history/`) ☐ specs ☐ lessons+rewiring ☐ nested CLAUDE.md ☐ freeze.
-
 - [ ] **Canary: assert the unguarded facts** (from Track 3 phase 3, 2026-09-12; `go run ./tools/kb
   ls --type fact --guard none` lists them). Automatable inside the existing harness runs, no extra
   turn: `clear-mints-new-session-id` (type `/clear` into run D before killing it),

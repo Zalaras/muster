@@ -423,6 +423,45 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
 ## Pre-v1 Cleanup
 <!-- kb: adr/process-composition-roots-registration-only, adr/process-one-name-per-feature, adr/rail-user-owned-manual-order-default, adr/tiles-slot-stable-grid-never-self-sorts, adr/theme-no-traffic-light-state-palette, adr/usage-model-window-polled-from-oauth-api, adr/launch-picker-recent-sidebar-plus-browse-list, adr/tiles-new-session-button-in-toolbar, adr/connection-dashboard-embedded-in-binary, adr/release-builds-cross-compiled-on-linux, adr/release-distribution-github-release-not-brew, adr/release-no-ci-test-job-yet, adr/issue-payload-allowlist-never-dump, adr/process-e2e-explicit-fixtures, adr/process-faked-subprocess-boundary, adr/process-exec-waitdelay-on-pipe-owning-commands, adr/canary-plan-mode-step-three-sole-residual, adr/canary-verified-range-observed-not-pinned, adr/process-repo-public, adr/release-install-front-door-curl-sh, adr/update-check-pref-governs-checking-only, adr/process-transient-displays-not-oracles, adr/triage-program-not-model-between-github-and-todo -->
 
+- [x] **Make the project knowledge searchable as it grows** ✅ done 2026-09-12 (Track 3, direct on `main`, 32 commits b0545e7..HEAD) (Track 3; planned 2026-09-11, executing
+  directly on `main` in ~13 sessions; plan and appendices in `~/.claude/plans/alright-i-ve-put-in-wild-sifakis*.md`).
+  Knowledge becomes typed records with strict frontmatter — decisions as ADRs (one per question,
+  slug ids, `accepted|proposed|superseded|rejected`), measured Claude Code facts bound to the canary
+  test that guards them and the version range they hold on, lessons tagged by pipeline role,
+  runbooks, references, and one `spec.md` per feature whose frontmatter is the feature registry
+  (the 17 `code-breakup` names + lifecycle, canary, triage, release). `tools/kb` (Go, in
+  `internal/kb`) generates the indexes, per-feature protocol slices and `.claude/rules/<feature>.md`
+  path-scoped rules, checks every invariant (`make check-kb`, in `make check` and the gates
+  baseline), and answers `kb pack --plan --role` / `kb for <path>` / `kb show <id>` so agents read
+  what their job needs instead of the whole estate. Citations are `kb:<type>/<slug>` tokens;
+  `docs/protocol.md` stays the single contract source with stable `kb:anchor` ids per heading.
+  Hand-written nested CLAUDE.md in 17 directories (no rationale, tokens only). Settled: slugs not
+  sequence numbers; one ADR per decision (~145 from the history files); no search index, no
+  embeddings, no LLM at query time. Phases: tool + wiring → registry stubs + anchors + citation
+  rewrite → facts → ADR batches ×5 → specs (SPEC.md shrinks to ~1.5k words) → lessons/runbooks +
+  skill rewiring → nested CLAUDE.md ×2 → freeze history. ☑ tool (2026-09-11: `internal/kb` +
+  `tools/kb`, 63 tests; `make check-kb` in `make check` and the gates baseline; empty store green)
+  ☑ anchors (2026-09-11: 22 feature registry stubs own every file under `internal/`, `web/src/`,
+  `web/e2e/`; 42 `kb:anchor` ids in `docs/protocol.md`, numbers stripped, `sessionUpsert`/`prefs`/
+  `sessionRemoved` split; 525 `kb:anchor/` citations replace every numbered protocol reference;
+  generated `.claude/rules/`, per-feature `INDEX.md` + `contract.md`, `docs/INDEX.md`)
+  ☑ facts (2026-09-12: 43 records in `docs/facts/`, 23 guarded by a named canary test with
+  `verified: <lo>..canary`, 20 `guard: none`; the canary field inventory frozen from `spikes/` to
+  `docs/history/spikes/canary-fields.md` with a marker per row, `scripts/kb-conserve.py` 0 failures)
+  ☑ ADRs (2026-09-12: 212 records in `docs/adr/` from all 44 spec-changelog entries, 29
+  protocol-changelog bullets, 11 done-item headings, 5 plan decisions, the 20 interview rows and
+  SPEC's former non-goals, stack and open-questions sections — one per question; 15 superseded, 24 rejected, 3 proposed; every history unit
+  carries a marker, `scripts/kb-conserve.py` 0 failures on all four files; `interview-notes.md`
+  frozen to `docs/history/`) ☑ specs (2026-09-12: 22 feature `spec.md` bodies, `SPEC.md` 1,324 words, `docs/references/data-model.md`, build order frozen)
+  ☑ lessons+rewiring (2026-09-12: 41 lessons, `release-signing` runbook, design narratives frozen to `docs/history/design/`; every
+  agent reads `kb pack --plan --role`, plan-work writes proposed ADRs, orchestrate flips them at Completion, land refuses a
+  leftover proposed ADR, review-work carries the KB row and the deviation Major, retro writes lesson records)
+  ☑ nested CLAUDE.md (2026-09-12: 17 directories, 150–250 hand-written words each, generated trailer names the covering features)
+  ☑ freeze (2026-09-12: spec and protocol changelogs, interview notes, canary inventory and design narratives frozen;
+  `scripts/kb-conserve.py` 0 failures on every history file; 323 records; `make check` green). Follow-ups worth knowing:
+  a two-feature `daemon-impl` pack is ~17k words (single features 4.7–8.4k; the 8,000 WARN is informational), the ADR count
+  came out at 213 not ~145 (one per question), and `orchestrate/SKILL.md` remains over its 5,000-word warn threshold.
+
 - [x] **Dismantle the two composition-root hotspots so plans can run in parallel** — one plan,
   `full-stack`, via `/orchestrate` (Damian, 2026-09-11: single plan for both sides, files not
   sub-packages for now). Scaling check 2026-09-11: `web/src/main.ts` is 1,425 lines and has been
