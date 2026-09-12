@@ -5,3 +5,4 @@
 # elsewhere.
 2.1.246 2026-08-29 m4-canary
 2.1.267 2026-09-10 canary-full-coverage
+2.1.269 2026-09-12 make canary
