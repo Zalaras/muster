@@ -8,7 +8,7 @@ features: [triage, issue]
 tags: [security, claude-code-format]
 files: [internal/triage/schema.go, internal/triage/snapshot.go, internal/server/issue_snapshot_drift_test.go]
 tests: [TestValidateSnapshotDrops, TestValidateSnapshotAcceptsRetiredSchema, TestSchemaKeepsRetiredRows, TestIssueSnapshotSchemaDrift]
-refs: [docs/history/spec-changelog.md, docs/design/triage-hardening.md, kb:adr/triage-program-not-model-between-github-and-todo, kb:adr/issue-payload-allowlist-never-dump, kb:anchor/issue.captures, "#9"]
+refs: [docs/history/spec-changelog.md, docs/history/design/triage-hardening.md, kb:adr/triage-program-not-model-between-github-and-todo, kb:adr/issue-payload-allowlist-never-dump, kb:anchor/issue.captures, "#9"]
 supersedes: []
 ---
 **Context.** Issues filed from the dashboard carry a JSON snapshot the daemon emitted. It is tempting to treat it as trustworthy because Muster owns the schema. But an author can edit their own issue forever and nothing binds the JSON to anything the daemon produced. The schema had also already drifted: an early issue carries the pinned-and-drift shape while the daemon now emits the range shape, so a validator written against the current struct would drop fields from a genuine self-filed report.

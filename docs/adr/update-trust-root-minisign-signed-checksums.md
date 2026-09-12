@@ -6,9 +6,9 @@ date: 2026-09-10
 summary: A release applies only if its checksums file carries a valid minisign signature against a compiled-in key and the archive's SHA-256 matches; no unsigned.
 features: [update, release]
 tags: [security, deps, user-decision]
-files: [internal/selfupdate/verify.go, internal/selfupdate/minisign.pub, internal/selfupdate/pubkey.go, .goreleaser.yaml, .github/workflows/release.yml, docs/release-signing.md]
+files: [internal/selfupdate/verify.go, internal/selfupdate/minisign.pub, internal/selfupdate/pubkey.go, .goreleaser.yaml, .github/workflows/release.yml, docs/runbooks/release-signing.md]
 tests: [TestVerifyChecksums_AcceptsBothSignatureModes, TestVerifyChecksums_Refusals, TestRunUpdate_BadSignatureRefusesAndLeavesBinaryUnchanged, TestApply_RefusalsLeaveTheBinaryByteIdentical]
-refs: [docs/history/spec-changelog.md, plan:auto-update, docs/release-signing.md, kb:adr/release-installer-verifies-sha256-against-checksums, kb:adr/update-check-pref-governs-checking-only]
+refs: [docs/history/spec-changelog.md, plan:auto-update, docs/runbooks/release-signing.md, kb:adr/release-installer-verifies-sha256-against-checksums, kb:adr/update-check-pref-governs-checking-only]
 supersedes: []
 ---
 **Context.** A self-replacing binary that trusts whatever the release host serves turns a compromised host or account into code execution on every user's machine. The installer's checksum check was a precedent for verification but not a trust root, since the checksums file comes from the same host as the archive.

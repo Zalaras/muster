@@ -6,9 +6,9 @@ date: 2026-09-04
 summary: The licence is MIT, over Apache-2.0 and AGPL-3.0; copyright is retained, so relicensing or sale stays open.
 features: []
 tags: [user-decision]
-files: [LICENSE, docs/design/open-sourcing.md, README.md]
+files: [LICENSE, docs/history/design/open-sourcing.md, README.md]
 tests: []
-refs: [docs/history/spec-changelog.md, docs/design/open-sourcing.md, kb:adr/process-contributions-deferred-to-first-pr, kb:adr/release-distribution-github-release-not-brew, kb:adr/process-repo-public, docs/history/interview-notes.md]
+refs: [docs/history/spec-changelog.md, docs/history/design/open-sourcing.md, kb:adr/process-contributions-deferred-to-first-pr, kb:adr/release-distribution-github-release-not-brew, kb:adr/process-repo-public, docs/history/interview-notes.md]
 supersedes: []
 ---
 **Context.** The spec had left the licence to be decided later, and a licence file was the one hard blocker to making the repository public. The open-sourcing note recorded the candidates and what comparable individual-maintainer tools chose.

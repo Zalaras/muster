@@ -25,7 +25,6 @@ WHITELIST = {
     "web/dist": "build output, gitignored",
     "test/expect/types": "a @playwright/test import path, not a repo dir",
     "cmd/muster-desktop/": "SPEC §5's future Wails wrapper, deliberately not built",
-    "make doc-check": "proposed in docs/design/worktree-conflicts.md, not built yet",
 }
 TOP_DIRS = ("docs", "internal", "web", "cmd", "spikes", "scripts", "tools", "test", ".claude", ".githooks", ".github")
 PATH_RE = re.compile(r"^(?:%s)/[A-Za-z0-9_./@-]+$|^[A-Za-z0-9_-][A-Za-z0-9_.-]*\.(?:md|go|ts|sh|yaml|yml|json|sql|py)$|^Makefile$" % "|".join(re.escape(d) for d in TOP_DIRS))

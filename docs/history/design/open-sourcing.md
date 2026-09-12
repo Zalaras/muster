@@ -1,3 +1,6 @@
+> Frozen 2026-09-12; the decisions are ADRs: `go run ./tools/kb ls --type adr | grep -E 'licence|repo-public|contributions|no-ci-test'`.
+> Narrative kept for provenance; nothing here is current guidance.
+
 # Open-sourcing muster — audit & licence options
 
 Research/discussion session 2026-09-02/03. **The repo has been public since 2026-09-10**

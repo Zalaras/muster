@@ -6,7 +6,7 @@ import { defineConfig, devices } from "@playwright/test";
 // block and no shared `use.baseURL` here.
 //
 // The three numbers below are the suite's load policy (docs/conventions.md §Testing;
-// docs/design/test-strategy.md has the measurements). Each scratch daemon is a musterd
+// docs/history/design/test-strategy.md has the measurements). Each scratch daemon is a musterd
 // process plus a tmux server plus a stub shell, so `workers` caps how many coexist; the
 // expect timeout is what every daemon- or tmux-side wait inherits — a spec shortens it
 // with a comment, never lengthens it; the test timeout allows a few such waits back to

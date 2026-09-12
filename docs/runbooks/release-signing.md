@@ -1,8 +1,19 @@
-# Release signing (minisign)
+---
+id: release-signing
+type: runbook
+status: active
+date: 2026-09-11
+summary: How checksums.txt is minisign-signed in CI, why local snapshots skip signing, how to rotate the key without locking out installs, and the M1 ritual.
+features: [release, update]
+tags: [security, pipeline]
+files: [internal/selfupdate/minisign.pub, .goreleaser.yaml, .github/workflows/release.yml, Makefile]
+tests: []
+refs: [plan:auto-update, kb:adr/update-trust-root-minisign-signed-checksums, kb:adr/release-installer-verifies-sha256-against-checksums]
+---
 
 Every release's `checksums.txt` is signed with [minisign](https://jedisct1.github.io/minisign/)
 so `internal/selfupdate` (and `musterd -update`) can verify a release before ever installing it —
-there is no unsigned fallback (plan `auto-update`, 2026-09-10, REQ-15/REQ-24).
+there is no unsigned fallback.
 
 ## The keypair
 
@@ -66,12 +77,12 @@ than `-update` from it. Every release from v0.12.1 embeds the key that signs it.
 
 ## The M1 ritual
 
-**M1** (plan `auto-update` Acceptance Criteria, Manual): the first real release cut after
-this plan lands must carry `checksums.txt.minisig`, and a release binary run with
+**M1** (the plan's manual acceptance item): the first real release cut after
+the feature landed must carry `checksums.txt.minisig`, and a release binary run with
 `-update` against a *following* release must verify it successfully with the compiled-in
 key. Concretely:
 
-1. Land this plan; confirm the resulting release's assets include
+1. Confirm the first release's assets include
    `checksums.txt.minisig` (GitHub Releases page or `gh release view --json assets`).
 2. Wait for (or trigger) a second release.
 3. Run the *first* release's `musterd -update` and confirm it downloads, verifies, and

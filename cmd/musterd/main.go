@@ -346,7 +346,7 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 	case <-srv.RestartRequests():
 		// auto-update REQ-19: a restart is not a shutdown — it never reaches the
 		// -on-exit prompt below and never kills a session (reconcile re-adopts every
-		// Claude session on the way back up, SPEC §M4). The graceful stop happens here,
+		// Claude session on the way back up, kb:anchor/state.liveness). The graceful stop happens here,
 		// synchronously, so the WAL is checkpointed and no ingest event is lost before
 		// main performs the actual syscall.Exec (Implementation Notes "Re-exec").
 		log.Info().Msg("restarting musterd to apply an update")

@@ -8,7 +8,7 @@ features: []
 tags: [testing, pipeline, user-decision]
 files: [web/e2e/helpers/fixtures.ts, web/e2e/helpers/daemon.ts, docs/conventions.md, .claude/skills/plan-work/SKILL.md]
 tests: []
-refs: [docs/history/spec-changelog.md, docs/design/test-strategy.md, docs/conventions.md, kb:adr/process-e2e-one-load-policy, kb:adr/process-e2e-lint-mechanises-fixture-rules, kb:adr/process-tests-run-space-bearing-data-dir]
+refs: [docs/history/spec-changelog.md, docs/history/design/test-strategy.md, docs/conventions.md, kb:adr/process-e2e-one-load-policy, kb:adr/process-e2e-lint-mechanises-fixture-rules, kb:adr/process-tests-run-space-bearing-data-dir]
 supersedes: []
 ---
 **Context.** Every E2E test started its own scratch daemon and tmux server, so a handful of workers meant a handful of daemons being created and torn down at any moment, and the suite had begun to flake under that load. The obvious cure, one daemon per spec file, was audited against every spec.

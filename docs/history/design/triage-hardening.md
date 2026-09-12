@@ -1,3 +1,6 @@
+> Frozen 2026-09-12; the decisions are ADRs: `go run ./tools/kb ls --type adr | grep -E 'triage|todo-link'`.
+> Narrative kept for provenance; nothing here is current guidance.
+
 # Triage hardening
 
 How `/triage` reads attacker-controlled text without giving it anywhere to land.

@@ -151,7 +151,7 @@ func TestHookFields(t *testing.T) {
 }
 
 // TestStopFailureReplacesStop guards the Failed state: StopFailure fires *instead of*
-// Stop, never alongside it (H2 probe 2026-08-16 settled SPEC §9.3). A success turn emits
+// Stop, never alongside it (kb:fact/stopfailure-replaces-stop). A success turn emits
 // Stop only; every unauthenticated run (all four permission modes, REQ-1) emits
 // StopFailure only, with error "authentication_failed".
 func TestStopFailureReplacesStop(t *testing.T) {
@@ -183,7 +183,7 @@ func TestStopFailureReplacesStop(t *testing.T) {
 	}
 }
 
-// TestPlanModeSequence guards SPEC §4.1's plan flow, which depends on this exact
+// TestPlanModeSequence guards the plan-mode roadmap flow (the roadmap section of SPEC.md; kb:fact/plan-mode-hook-sequence), which depends on this exact
 // ordering. Driven by run E (REQ-6): steps 1-2 (PreToolUse then PermissionRequest) are
 // asserted for real; step 3 needs the dialog answered and is not — logged as the
 // /interface-probe residual, not skipped.
@@ -394,7 +394,7 @@ func TestStatusLineFields(t *testing.T) {
 	}
 }
 
-// TestUnknownVersusZero guards SPEC §9 risk 9. Before a session's first API response the
+// TestUnknownVersusZero guards kb:fact/unknown-before-first-response. Before a session's first API response the
 // whole rate_limits key is absent (not empty, not null), and the context percentages are
 // null with total_input_tokens 0. A null is not "0% used": the UI must render "unknown".
 // Only judgeable if the harness captured a pre-response post — otherwise skip honestly.

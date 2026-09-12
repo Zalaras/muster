@@ -7,7 +7,7 @@
 //	go run ./tools/triage audit             # compare TODO.md against the tracker
 //
 // It is a dev tool, not part of the product: .goreleaser.yaml builds only ./cmd/musterd,
-// so nothing here ships in a release. See docs/design/triage-hardening.md.
+// so nothing here ships in a release. See docs/history/design/triage-hardening.md.
 package main
 
 import (

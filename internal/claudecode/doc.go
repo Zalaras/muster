@@ -1,7 +1,7 @@
 // Package claudecode is the adapter boundary for everything Claude-Code-specific:
 // hook payloads, the status-line payload, CLI invocation and version pinning.
 //
-// The boundary rule (SPEC.md §8, "Dependency posture"): no package above this one may know
+// The boundary rule (kb:spec/canary, kb:adr/process-testing-bar-e2e-always-unit-for-logic): no package above this one may know
 // that the managed agent is Claude Code. They deal in Muster's own domain types — sessions,
 // states, usage samples — so that a Claude Code interface change is a one-package fix, and
 // supporting another agent CLI later means adding a sibling adapter rather than editing the

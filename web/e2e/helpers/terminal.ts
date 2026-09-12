@@ -57,7 +57,7 @@ export async function activeElementInsideAnyTerminal(page: Page): Promise<boolea
  * included) and shows the dead surface. Measured 2026-09-11: overlay 5–9 ms after
  * kill-window, dead surface ~30 ms after, and 1 in 15 kills never rendered the overlay
  * because the state upsert beat the socket's `close` event. Asserting it made
- * terminal.spec.ts E12 flaky for weeks (docs/design/test-strategy.md). For an ended pane,
+ * terminal.spec.ts E12 flaky for weeks (docs/history/design/test-strategy.md). For an ended pane,
  * assert the durable end state instead: `#dead-surface` (Focus) or
  * `liveTile(...).locator(".dead-surface")`/`.endcap` (Tiles), plus
  * `terminalRegion(...).toHaveCount(0)` and, for the socket itself, `TerminalSocketTracker`

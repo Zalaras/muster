@@ -153,7 +153,7 @@ Check:
 - **No web fonts** — no CDN link, no `@import`, no vendored font binary. System stacks only.
 - **State colour is meaning** — `--amber` only ever means Needs-Input, `--rose` only Failed, `--violet` only Planning, `--teal` only Working. Colour is never the sole carrier: the state word and the sort position must also be present. At most one filled amber primary action per surface.
 - **Tabular numerics** — every value that changes over time (timers, percentages, token counts, resets) sets `font-variant-numeric: tabular-nums`.
-- **`[hidden]` companions** — every element JS toggles via the `hidden` attribute has a compensating `[hidden] { display: none; }` rule wherever an author `display` declaration also applies (an author rule overrides the UA default regardless of specificity). Sweep: each `.hidden =` site in `web/src` maps to a covered element (m1-sessions: the one validate failure was this class).
+- **`[hidden]` companions** — every element JS toggles via the `hidden` attribute has a compensating `[hidden] { display: none; }` rule wherever an author `display` declaration also applies (an author rule overrides the UA default regardless of specificity). Sweep: each `.hidden =` site in `web/src` maps to a covered element (kb:lesson/display-rule-overrides-hidden-attribute).
 
 **Honesty rules (§6 of the design system) — each violation is Critical, because it makes the UI
 assert something the daemon does not know:** an empty/0% track drawn for unknown data instead of the
@@ -179,7 +179,7 @@ prominently; possibly-stale state shown without its age.
 missing test coverage, convention violations that aren't hard rules. A Major tagged
 `[daemon-impl]`/`[web-impl]`/`[daemon-tests]`/`[web-tests]`/`[e2e-specs]` blocks `approved` — those
 agents exist to fix such issues, and "approved with a Major" just hands the orchestrator a TODO line
-(m4-hook-quoting: a missing regression test shipped as backlog instead of a five-minute wave). A
+(kb:lesson/finding-severity-misrouted). A
 Major nobody in the pipeline can fix (doc upkeep, plan defect) is tagged `[orchestrator]` and does
 **not** block approval.
 
@@ -188,17 +188,16 @@ Major nobody in the pipeline can fix (doc upkeep, plan defect) is tagged `[orche
   criteria, or that cites a path, `make` target or `musterd` flag that does not exist (`gates.sh`'s
   `dead-refs` line).** Not a style nit: it ships to the reader, and a doc asserting the opposite of
   a criterion you just verified is a defect in the deliverable. Tag it to the agent that owns the
-  file so it rides a fix wave (tmux-installation cycle 1: `README.md` stated the exact opposite of
-  D4 and shipped as a `TODO.md` line because the rubric called it a comment nit).
+  file so it rides a fix wave (kb:lesson/finding-severity-misrouted).
 **Minor** — a real, small change you want made: style inconsistencies, naming, comment *style*
 (wording, placement — a false comment, or one citing something deleted, is Major), a cosmetic
 rendering defect. Tag it with the owning agent. **An agent-tagged Minor blocks `approved` exactly
 like a Major** — the orchestrator routes it in the owning agent's wave, and the cycle after a
 Minors-only wave is a Delta re-review (below), not a full re-read. A Minor is never deferred to
-`TODO.md` (v1-cleanup: three cosmetic Minors became a backlog item instead of a two-minute wave).
+`TODO.md` (kb:lesson/finding-severity-misrouted).
 Because a Minor costs a fix wave and a re-review, keep the line to Note sharp: no change wanted →
 `[note]`.
-**Note** — an observation with **no change requested** (a risk to remember, an accepted trade-off). Tag it `[note]`, never with an agent tag — an agent tag is a request for work, and the orchestrator must not read prose to learn there is none (usage-model-bar: a `[daemon-impl]` Minor that said "purely a note" cost a judgement call and a re-review). List notes under their own `### Notes` heading.
+**Note** — an observation with **no change requested** (a risk to remember, an accepted trade-off). Tag it `[note]`, never with an agent tag — an agent tag is a request for work, and the orchestrator must not read prose to learn there is none (kb:lesson/finding-severity-misrouted). List notes under their own `### Notes` heading.
 
 ### 9. Delta Re-review
 
@@ -300,15 +299,14 @@ Tag every issue with the responsible agent so the orchestrator knows where to ro
   defect** — rail density, placement, a colour's semantics, whether a behaviour is in scope. State
   the options and the measured trade-offs, but do not assign it to an impl agent: told to "make a
   decision", it decides inside a fix cycle with no authority, and the choice is re-litigated
-  (m4-reconcile cycles 2→3). Tag these `[orchestrator:decision]` and write the two options as two
+  (kb:lesson/decision-made-inside-a-fix-wave). Tag these `[orchestrator:decision]` and write the two options as two
   labelled lines — the orchestrator runs the `/decide` debate on exactly that pair. Doc upkeep, plan
   defects and manual-verification records stay bare `[orchestrator]`.
   If the decision touches the `decide` skill's never-debated list — the protocol contract
   (`docs/protocol.md` / the plan's Protocol Contract), plan scope, a decision recorded in
   `SPEC.md` or an ADR, or spending money — tag it `[orchestrator:user-decision]` instead:
   still two labelled options with measured trade-offs, but the orchestrator takes it straight to
-  Damian rather than to a debate that would have to refuse it (m4-hook-lifetime cycle 1: a §4.2/§7.3
-  change).
+  Damian rather than to a debate that would have to refuse it (kb:lesson/protocol-decision-routed-to-debate).
 
 ## Verdict Rules
 
@@ -328,5 +326,4 @@ Tag every issue with the responsible agent so the orchestrator knows where to ro
   `Co-Authored-By`/`Claude-Session` trailers. Never `git add -A`/`-u`, never `git stash` /
   `checkout --` / `reset` / `clean` / `rebase`, never push, never commit on `main`.
   An uncommitted review.md is a handoff defect the orchestrator has to mop up
-  (new-session-dialog cycle 1: review.md was left untracked and the orchestrator had to
-  commit it as a chore before the gate could be read).
+  (kb:lesson/handoff-commit-defects).

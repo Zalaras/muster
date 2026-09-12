@@ -4,7 +4,7 @@
 # `npm run e2e` (so an agent running a single spec meets it too) and as `make e2e-lint` by
 # the pipeline gates. Exit 0 iff clean; every hit is printed as file:line.
 #
-# Each check exists because its absence cost a real red run (docs/design/test-strategy.md):
+# Each check exists because its absence cost a real red run (docs/history/design/test-strategy.md):
 #   1. Specs get daemons only from helpers/fixtures.ts — a hand-rolled startScratchDaemon is
 #      how per-test daemons (and their load) crept back in unnoticed.
 #   2. Specs import test/expect/types from ./helpers/fixtures, never "@playwright/test" —

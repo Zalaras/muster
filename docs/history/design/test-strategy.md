@@ -1,3 +1,6 @@
+> Frozen 2026-09-12; the decisions are ADRs: `go run ./tools/kb ls --type adr | grep -E 'e2e|faked-subprocess|transient-displays|space-bearing'`.
+> Narrative kept for provenance; nothing here is current guidance.
+
 # Test strategy re-evaluation — groundwork
 
 **Status:** decided 2026-09-06 (see "Decision" at the end). The standing rule lives in

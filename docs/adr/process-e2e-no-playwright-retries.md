@@ -6,9 +6,9 @@ date: 2026-09-06
 summary: Playwright retries are not enabled, on CI or locally; a retry hides exactly the load sensitivity the gates exist to see, and there is no CI to scope one to.
 features: []
 tags: [testing, pipeline, never]
-files: [web/playwright.config.ts, docs/design/test-strategy.md]
+files: [web/playwright.config.ts, docs/history/design/test-strategy.md]
 tests: []
-refs: [docs/history/spec-changelog.md, docs/design/test-strategy.md, kb:adr/process-e2e-one-load-policy, kb:adr/release-no-ci-test-job-yet]
+refs: [docs/history/spec-changelog.md, docs/history/design/test-strategy.md, kb:adr/process-e2e-one-load-policy, kb:adr/release-no-ci-test-job-yet]
 supersedes: []
 ---
 **Context.** Each time the E2E suite flaked under load, a single retry was on the table as the cheap fix, and it was declined each time. The strategy settlement recorded the refusal so it is not re-argued at the next flake.

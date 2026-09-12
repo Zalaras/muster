@@ -9,7 +9,7 @@ import (
 const cookieName = "muster_auth"
 
 // cookieMaxAge is 30 days (Implementation Notes: the UI token is reusable at /auth, not
-// single-shot; "one-time" in SPEC §2.6 describes the launcher flow, not token burning).
+// single-shot; kb:adr/connection-ui-token-reusable-not-one-time — "one-time" describes the launcher flow, not token burning).
 const cookieMaxAge = 30 * 24 * 60 * 60
 
 // tokensEqual is a constant-time token comparison (REQ-5). hmac.Equal checks lengths

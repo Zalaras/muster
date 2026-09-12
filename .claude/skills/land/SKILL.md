@@ -36,9 +36,8 @@ Check all of these before touching anything. If any fails, stop and say exactly 
    (e.g. a stray screenshot). Never `git add -A`, never stash.
 4. `git rev-parse --verify plan/<plan>` succeeds.
 5. The branch has something to land. **Do not use `git log main..plan/<plan>` for this** —
-   measured 2026-08-31: the already-landed `plan/issue-capture` still showed 27 commits ahead,
-   because a squash-merge creates a new commit rather than adding the branch's commits to
-   `main`'s ancestry, so that range never empties. Use the tree test instead:
+   a squash-merge never empties that range (kb:lesson/squash-merge-never-empties-log-range).
+   Use the tree test instead:
 
    ```bash
    test "$(git merge-tree --write-tree main plan/<plan> | head -1)" = "$(git rev-parse main^{tree})"

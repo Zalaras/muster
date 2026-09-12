@@ -11,7 +11,7 @@ import (
 	"github.com/Zalaras/muster/internal/store"
 )
 
-// defaultSource is the only source in v1 (the SPEC §9.6 seam: "api"/"otel" later).
+// defaultSource is the only source in v1 (the kb:adr/usage-no-source-interface seam: "api"/"otel" later).
 const defaultSource = "subscription"
 
 // Config wires an Aggregator. OnChange broadcasts the `usage` WS message; nil in tests.

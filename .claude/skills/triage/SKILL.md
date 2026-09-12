@@ -9,7 +9,7 @@ allowed-tools: Read, Write, Grep, Glob, Agent, AskUserQuestion, Bash(go run ./to
 > session model. It is interactive by design — step 4 asks the user which section an issue
 > belongs in, which a subagent could not do. Authored 2026-08-31 alongside `/land`; rewritten
 > 2026-09-11 after the repo went public, when reading an issue body into this session stopped
-> being safe (`docs/design/triage-hardening.md`).
+> being safe (`docs/history/design/triage-hardening.md`).
 
 You are the triage agent. muster's masthead `Issue` button files issues; this command brings
 them into `TODO.md` and keeps the two lists honest. **You never close an issue as "triaged"** —

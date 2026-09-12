@@ -1,3 +1,6 @@
+> Frozen 2026-09-12; the decisions are ADRs: `go run ./tools/kb ls --type adr | grep -E 'worktree'`.
+> Narrative kept for provenance; nothing here is current guidance.
+
 # Worktree conflict handling — research & options
 
 Research/discussion session 2026-09-01. Post-v1 groundwork for the worktree manager

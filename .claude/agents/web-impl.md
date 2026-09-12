@@ -42,9 +42,7 @@ by default, no server reuse), `workers`/`timeout`/`expect.timeout` stay as docs/
   browser-only state — focus, an open popup, a caret, a scroll position — keeps its node across
   passes and is rebuilt only when its option set genuinely changes. A reuse/memo cache's key covers
   **every input that shapes the built node's attributes** (per-option `disabled`, placeholder state,
-  labels), not just visible text — list those inputs in `## Decisions` (usage-model-bar: a per-tick
-  `<select>` rebuild was a Critical; its name-only cache key then left an option permanently
-  disabled, the next Major).
+  labels), not just visible text — list those inputs in `## Decisions` (kb:lesson/select-rebuilt-every-tick-passed-selectoption).
 - **Precedent check for cross-cutting UI concerns.** Before solving focus retention, live updates,
   keyboard handling, reorder, or stale/degraded display, `grep` for how the repo already handles it
   (`pendingTileFocus`, `reconcileCards`, the `views.spec.ts` render-tick regression tests,
@@ -64,7 +62,7 @@ The design system is `docs/design/design-system.md` (direction A, "instrument").
 - **Every element JS hides via the `hidden` attribute needs a compensating CSS rule**
   (`.thing[hidden] { display: none; }`). An author-origin `display` declaration overrides the UA's
   `[hidden]` default regardless of specificity, so the attribute toggles and nothing disappears
-  (m1-sessions: six elements had the rule, the seventh was the only validate failure). Add the
+  (kb:lesson/display-rule-overrides-hidden-attribute). Add the
   `[hidden]` companion in the same edit as any `display` rule on a conditionally hidden element,
   then sweep: every element `.hidden =` touches in TS has one.
 
@@ -116,7 +114,7 @@ Tests table names the files. After your build gate: `make web-build build` from 
 locator defect in the spec (wrong role, wrong name, an element the table never promised) is not
 yours to edit — name the test and the mismatch in `## Handoff` for validate mode. Never edit a spec,
 and never report `pass`/`fail` for them as a verdict — this is your smoke check, not the E2E gate
-(ui-text-and-focus: 8 of 10 rename specs failed on a bug nobody ran them against until validate).
+(kb:lesson/authored-tests-never-run-before-validate).
 
 **Comments are part of the gate.** Before you write your log, re-read every comment your diff adds
 or touches, and every comment tree-wide naming a file or function you moved, against
@@ -135,8 +133,7 @@ false or dead comment as Major.
 - **A test double's limitations never dictate shipped markup.** When the plan's reference render
   mandates a DOM structure and an existing unit test's fake element cannot host it (no
   `createElement`, `textContent`-only stubs), ship the mandated structure and hand the fixture
-  upgrade to web-tests in `## Handoff` as sanctioned breakage (m3-gauges: a gauge bar shipped after
-  the number because a fake only supported `textContent` — a review Major). Same for frozen
+  upgrade to web-tests in `## Handoff` as sanctioned breakage (kb:lesson/stale-fixture-reshaped-the-wire). Same for frozen
   expected-value tests contradicted by the plan's approved delta: implement the contract, record the
   test as sanctioned breakage, never bend the output shape to keep a stale assertion green.
 - No new runtime dependencies without the plan explicitly listing them.
@@ -164,13 +161,11 @@ When invoked in fix mode:
    exported function usually has more consumers than the surface you are fixing. Before editing,
    `rg` every consumer (`rg -n '\.acts-row' web/src web/index.html`) and paste the list; after
    editing, re-measure **each** consumer surface in a real browser, not just the one the issue named
-   (m4-reconcile cycles 2→3: one shared-class CSS line hid the dead-surface Resume button and cost a
-   full Opus cycle).
+   (kb:lesson/shared-class-css-hid-resume-button).
 7. **Re-run the reviewer's repro, not your theory.** When an issue carries a measured reproduction
    (a computed-style chain, an `activeElement` read, a screenshot), your Fix Attempt re-runs **that
    exact repro** and pastes the after-numbers. Fixing the cause you identified is not evidence the
-   symptom is gone (m4-reconcile cycles 1→2: the right fix for one cause of "Enter does nothing"
-   left a second cause unmeasured).
+   symptom is gone (kb:lesson/fix-closed-one-cause-of-two).
 
 ## Output
 
@@ -192,7 +187,7 @@ Write (or append to) `plans/<plan-name>/web-implementation.md`:
 ## Decisions
 
 <one line per deviation or trade-off, including any Testable UI Elements row you could not implement as written; every REQ the plan lists
-for your side appears in Changes or here as deliberately not done, with why — an unmentioned REQ is a review Minor at best (auto-update: REQ-28, 25 min)>
+for your side appears in Changes or here as deliberately not done, with why — an unmentioned REQ is a review Minor at best (kb:lesson/unmentioned-req-costs-a-review-minor)>
 
 ## Handoff
 
@@ -212,5 +207,5 @@ Keep this file brief. File paths and descriptions tell the story.
 **The evidence rule covers claimed *effects* and claimed *absences*, not just decisions.** Any claim
 about a rendered or runtime outcome ("the row is hidden", "the error is announced", "nothing shifts
 on update") is verified by observation and the observation noted in the log — not inferred from the
-diff (m1-sessions: a CSS rule overrode a correctly toggled `hidden`). A claim that a symbol,
+diff (kb:lesson/effect-claimed-from-the-diff). A claim that a symbol,
 selector or wording no longer exists anywhere needs the tree-wide grep pasted.

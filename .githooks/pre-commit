@@ -12,7 +12,7 @@
 #
 # Why (2): the repo went public 2026-09-10, so an issue body is attacker-controlled text,
 # and TODO.md is read by every later /orchestrate and /plan-work session with full tools
-# (docs/design/triage-hardening.md). `tools/triage apply` renders entries from a fixed
+# (docs/history/design/triage-hardening.md). `tools/triage apply` renders entries from a fixed
 # template; this check is what makes that mechanical rather than a promise, because a
 # model holding Edit can write to TODO.md whatever the skill says.
 #

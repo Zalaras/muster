@@ -70,7 +70,7 @@ Context summary for starting a fresh session. Covers research findings, decision
 | ccusage / ccstatusline | n/a | Free, MIT (both) | The only tools doing usage properly; complement any manager |
 
 Licence column re-verified 2026-09-03 against the GitHub API and each repo's `LICENSE`
-file (see `docs/design/open-sourcing.md` for the tally and what it implies for muster's
+file (see `docs/history/design/open-sourcing.md` for the tally and what it implies for muster's
 own licence). Both Pane repos (`dcouple/Pane`, `Dcouple-Inc/Pane`) are the same
 repository and report `NOASSERTION` on the API while the `LICENSE` file is plainly
 AGPL-3.0 — don't trust the API field alone. Conductor, Sculptor, Pane (pane.works) and

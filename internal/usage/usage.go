@@ -1,5 +1,5 @@
 // Package usage holds the account-level usage aggregator (m3-gauges): a neutral Sample
-// shape plus one in-memory Aggregator, the SPEC §9.6 seam for a second usage source down
+// shape plus one in-memory Aggregator, the kb:adr/usage-no-source-interface seam for a second usage source down
 // the line. Nothing here is Claude-Code-format vocabulary — internal/claudecode reads
 // the status-line payload keys into its own neutral StatusAccount, and internal/server
 // maps that into a Sample at the seam (so this package and the adapter stay mutually

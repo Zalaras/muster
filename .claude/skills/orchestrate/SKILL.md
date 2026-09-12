@@ -31,19 +31,19 @@ Before starting:
      spec. Step 1 still runs e2e-specs (expected verdict `harness-only`). **Step 5 is yours, not an
      agent's**: run `make e2e` yourself, read the plan's E criteria against the diff, record it in
      `completed_steps` — both harness-only runs lost a step to a validate agent with nothing to
-     validate (v1-cleanup: 244 min).
+     validate (kb:lesson/orchestrator-work-spawned-as-agent).
    - `none` → skip Steps 1 and 5
 4. Determine the project root (the directory containing `.claude/`)
 4a. **Branch.** The pipeline never commits on `main`.
-   - `plan/<plan-name>` exists → `git checkout` it. Resume only if it has commits `main` lacks (`git log --oneline main..plan/<plan-name>`); zero unique commits means planning landed elsewhere — `git merge --ff-only main` before spawning anyone (shortcut-fixes: 20 commits behind).
+   - `plan/<plan-name>` exists → `git checkout` it. Resume only if it has commits `main` lacks (`git log --oneline main..plan/<plan-name>`); zero unique commits means planning landed elsewhere — `git merge --ff-only main` before spawning anyone (kb:lesson/tree-not-clean-at-pipeline-start).
    - Otherwise read `git status --short`. If every dirty file is the plan's own directory or a planning-session doc edit (`docs/*`, `SPEC.md`, `TODO.md`, `CLAUDE.md`, `README.md`, `spikes/*`, `.claude/skills/*`, `.claude/agents/*`): `git checkout -b plan/<plan-name>`, `git add <those files>`, `git commit -m "docs(<plan-name>): approved plan and planning-session edits"`.
    - Any other **tracked** file dirty → stop and offer exactly three dispositions (never `git add
      -A`, never stash): **(a)** the user commits it on `main` and the pipeline branches from a clean
      tree; **(b)** the pipeline commits it onto `plan/<plan-name>` as part of this changeset;
      **(c)** it stays dirty and every agent is told to leave it alone. Flag (c) as unsafe when the
      file is also in the plan's Affected Files — its owning agent would fold the user's change into
-     its own commit (tmux-installation: `README.md`; the user chose (a)).
-   - An **untracked** file outside the plan's directory that nothing references (a stray screenshot, a scratch note) does not block: leave it, tell every agent to leave it alone, never `git add` it, list it in the completion summary (order-sidebar: `masthead.png`).
+     its own commit (kb:lesson/tree-not-clean-at-pipeline-start).
+   - An **untracked** file outside the plan's directory that nothing references (a stray screenshot, a scratch note) does not block: leave it, tell every agent to leave it alone, never `git add` it, list it in the completion summary (kb:lesson/tree-not-clean-at-pipeline-start).
    - Every agent commits its own files at the end of its step (their definitions say how). You
      commit **your** edits (state file, doc-upkeep, decisions) per `docs/conventions.md` §Commits as
      `docs(<plan-name>): <summary>` (`chore(...)` for the state file alone), never an agent's files
@@ -135,10 +135,8 @@ When routing review issues back to fix agents:
    ("This is review cycle 2's fix wave"), or the pre-review context ("this is an
    e2e-validate fix, no review has run") when routing a Step 4/5 implementation-bug;
    agents copy that label into their commit-message suffix — `(review cycle <N>)` or
-   `(pre-review fix)`, the only two forms their definitions know. Learned from
-   new-session-dialog: two commits shipped with the literal suffix `(review cycle N)`
-   and two more guessed the wrong number; and from file-drop-fix: two pre-review fix
-   commits shipped as `(review cycle 1)` because the pre-review case had no suffix.
+   `(pre-review fix)`, the only two forms their definitions know
+   (kb:lesson/handoff-commit-defects).
 
 ### Step 1: E2E Specs Agent
 
@@ -168,8 +166,7 @@ authored` (`harness-only` for a harness-only plan). A `pass` verdict means the a
 mode — the feature cannot exist yet. Check the Tests table: each row is `ran-green-at-authoring` or
 `collection-only`, and at least the regression-pin rows carry the former with a pasted run summary.
 All `collection-only` on a plan whose REQs include "unchanged" behaviour means the agent skipped the
-live run — send it back once (terminal-focus: seven of eleven tests pinned existing behaviour, none
-ran, and the run's only locator defect hid in one until validate). Step 5 proves the new-behaviour
+live run — send it back once (kb:lesson/authored-tests-never-run-before-validate). Step 5 proves the new-behaviour
 tests run.
 
 ### Step 2: Implementation Agents
@@ -284,16 +281,15 @@ Tracking) is what creates it, so run it before spawning, not after.
 but they block completion. Settle each per step 1a below before anything else. If the settled
 outcome changes no code, the approval stands — continue to Completion. If it changes code,
 implement it through the ordinary fix waves (Fix Wave Ordering) with gates, re-run the full
-suite, then a delta-focused re-review — counting one review cycle. Learned from order-sidebar:
-cycle 1 approved with one decision item; Option A won and changed `focusNth`, so a cycle 2
-(wave 1 web-impl → wave 3 e2e-specs → re-review) had to be improvised.
+suite, then a delta-focused re-review — counting one review cycle
+(kb:lesson/decision-made-inside-a-fix-wave).
 
 **Review Retry Logic**: If the review verdict is `needs-changes`:
 
 1. Read `review.md` and bucket every tagged issue: `[daemon-impl]`, `[web-impl]`, `[daemon-tests]`, `[web-tests]`, `[e2e-specs]`.
-   - `[orchestrator]` issues are yours — never spawn an agent for them; handle them in Doc-Upkeep / Completion. A doc-only one may be fixed while a fix wave runs iff its file set (`docs/`, `TODO.md`, `SPEC.md`, `spikes/`) is disjoint from every file the wave's agents may write and each wave prompt says to leave those files alone (new-session-dialog: saved a full wave).
-   - **Every severity routes.** An agent with any tagged issue — Critical, Major or Minor — is spawned in its wave with all of them; Minors are never deferred to `TODO.md` (v1-cleanup: three cosmetic Minors became a backlog item). The cycle after a Minors-only wave is a cheap delta re-review (Step 6).
-   - **Exception — plan-log and doc-label Minors:** a Minor whose whole fix is wording or a label inside `plans/<plan>/*.md`, `docs/` or `TODO.md` (no code, test or assertion) is yours to make while the wave runs, in your own `docs(<plan-name>)` commit, cited in the completion summary; the delta re-review verifies it (fix-auto-mode-select cycle 1 Minor 1).
+   - `[orchestrator]` issues are yours — never spawn an agent for them; handle them in Doc-Upkeep / Completion. A doc-only one may be fixed while a fix wave runs iff its file set (`docs/`, `TODO.md`, `SPEC.md`, `spikes/`) is disjoint from every file the wave's agents may write and each wave prompt says to leave those files alone (kb:lesson/orchestrator-work-spawned-as-agent).
+   - **Every severity routes.** An agent with any tagged issue — Critical, Major or Minor — is spawned in its wave with all of them; Minors are never deferred to `TODO.md` (kb:lesson/finding-severity-misrouted). The cycle after a Minors-only wave is a cheap delta re-review (Step 6).
+   - **Exception — plan-log and doc-label Minors:** a Minor whose whole fix is wording or a label inside `plans/<plan>/*.md`, `docs/` or `TODO.md` (no code, test or assertion) is yours to make while the wave runs, in your own `docs(<plan-name>)` commit, cited in the completion summary; the delta re-review verifies it (kb:lesson/orchestrator-work-spawned-as-agent).
    - `[note]` items are never routed; list them in the completion summary.
 1a. **Decision items first.**
    - `[orchestrator:user-decision]` (protocol contract, scope, a recorded SPEC decision, money) →
@@ -302,7 +298,7 @@ cycle 1 approved with one decision item; Option A won and changed `focusNth`, so
      user decision`, land the protocol/plan/SPEC edits yourself (only you may edit the contract),
      then quote the outcome in the fix-wave prompt.
    - `[orchestrator:decision]` → run the `decide` skill (`.claude/skills/decide/SKILL.md`) **before** any fix wave: two `debater` agents argue the options to each other, a fresh `judge` breaks a tie, `decisions/<slug>/decision.md` records it. Quote the outcome verbatim in the implementing agent's fix-wave prompt.
-   - Max 2 debates per run. A third decision item, or any item on the skill's never-debated list, stops the pipeline and asks the user (m4-reconcile: two decision items rode three cycles; one was then decided inside a fix wave and produced the next Critical).
+   - Max 2 debates per run. A third decision item, or any item on the skill's never-debated list, stops the pipeline and asks the user (kb:lesson/decision-made-inside-a-fix-wave).
 2. **Do not fan all five out at once — they are not independent.** Group the non-empty buckets into waves per `## Fix Wave Ordering` below, and run the waves strictly in order. Within a wave, spawn its agents in parallel (multiple Task calls in one message); between waves, wait for completion, stamp `finish <step>` for each agent that reported, and run the wave's gate.
 3. If a wave's gate fails, that wave's fix was incomplete. End the cycle there — count it against the review budget and report — rather than starting the next wave on a broken tree.
 4. **MANDATORY**: after the last wave completes and its gate passes, re-run the full suite fresh:
@@ -359,20 +355,17 @@ Two concrete ways a flat fan-out goes wrong: an impl agent moves or renames a sy
   agent's Handoff names for the wave-2 update; (b) `tsc --noEmit` with those files excluded exits 0;
   (c) a standalone `vite build` exits 0 — the impl agent pastes (b) and (c) as evidence. Any failure
   outside the named files is real. The wave-2 gate (`make web-test`, then full `make web-build`
-  before review) proves the handoff was honoured (m2-terminal).
-- **Wave-1 daemon gate vs test-file compilation** (learned from tmux-installation, the exact Go
-  counterpart of the web rule above): `go build ./...` excludes test files, and `golangci-lint`
+  before review) proves the handoff was honoured (kb:lesson/sanctioned-test-break-blinds-lint).
+- **Wave-1 daemon gate vs test-file compilation** (the Go counterpart of the web rule above): `go build ./...` excludes test files, and `golangci-lint`
   stops at the first `typecheck` failure and reports nothing else in the repo. So a *sanctioned*
   wave-1 change that breaks a test file leaves `make lint` reporting one typecheck error and
   hiding every real finding in production code. Whenever daemon-impl's Handoff names a test file
   as sanctioned breakage, the wave-1 gate is `go build ./...` **and**
   `golangci-lint run --tests=false ./...` — both must exit 0, and the impl agent must paste the
   second as evidence. The wave-2 gate (`make test` plus the full `make lint`) then proves the
-  handoff was honoured. Measured: at tmux-installation's `7da8297`, `make lint` showed 1
-  typecheck issue while `--tests=false` showed the 2 `govet` shadows that same commit introduced.
+  handoff was honoured (kb:lesson/sanctioned-test-break-blinds-lint).
 
-- **Plan amendments mid-run**: a review issue may prove a plan requirement wrong (m2-terminal: a REQ
-  contradicted its own acceptance criteria). Protocol-contract changes always stop the pipeline
+- **Plan amendments mid-run**: a review issue may prove a plan requirement wrong (kb:lesson/tiles-never-refit-behind-pattern-match). Protocol-contract changes always stop the pipeline
   (above). A **non-protocol** requirement may be amended without stopping iff: the review
   demonstrates the defect **by measurement**, the amendment restores consistency with the plan's
   acceptance criteria or a decision the user already approved, and it is recorded in three places —
@@ -386,8 +379,7 @@ Two concrete ways a flat fan-out goes wrong: an impl agent moves or renames a sy
   wave-3 e2e-specs prompt includes: "read this cycle's ## Fix Attempt sections in both
   implementation logs and assert any new user-facing behaviour they added" — and e2e-specs runs in
   wave 3 for this **even with no tagged `[e2e-specs]` issue** (a concrete coverage task, not a spawn
-  with nothing to fix). The gap lives *between* agents and only you see all waves (m1-sessions:
-  seven behaviours shipped untested).
+  with nothing to fix). The gap lives *between* agents and only you see all waves (kb:lesson/dom-behaviour-gap-between-test-agents).
 - **This same wave order governs `implementation-bug` verdicts** from Step 4 and Step 5, not just review cycles. When Step 5 reports `implementation-bug`: run the routed impl agent (wave 1), gate, re-run that side's unit test agent (wave 2), gate, then re-spawn Step 5 (wave 3).
 - **A review cycle's wave 3 can itself report `implementation-bug`** — a fix wave building
   better fixtures can uncover a new product defect, exactly as Step 5 does
@@ -484,7 +476,7 @@ Each line in the plan's ```checks block is `<ID> <single-line shell command>`, r
 project root exactly as written; it passes iff it exits 0. If you ever run a line by hand
 instead of through the runner, run it in your interactive shell, not via `bash -c`/`sh -c` —
 `rg` is Claude Code's shell-function shim over the `claude` binary, not a binary on PATH, so a
-bare subshell cannot see it and the check fails spuriously (m4-hook-lifetime D25). Report
+bare subshell cannot see it and the check fails spuriously (kb:lesson/rg-shim-invisible-to-bare-subshell). Report
 results by ID; a command that appears under several IDs runs once and is reported under each.
 
 **Every baseline gate and every authored check must pass.** If any fail, the pipeline is NOT complete — investigate and fix before proceeding.
@@ -501,7 +493,7 @@ Do this **while the Step 3 testers run** — the file set is disjoint from every
 as `docs(<plan-name>): doc upkeep`, and re-verify it at Completion. Never write the verdict
 before it exists: no "approved", no "review cycle N", no ✅ tick until `review.md` says `approved`.
 Before dispatching, check the plan's Implementation Notes for work it assigns to *you*: a requirement
-whose file Affected Files gives no owner is yours, not an agent's (post-worktree-spike-issues REQ-10).
+whose file Affected Files gives no owner is yours, not an agent's (kb:lesson/plan-gave-no-single-owner).
 
 1. Read the implementation logs (including `## Fix Attempt` sections) so you know what actually shipped. You don't need to re-read source.
 2. Check, and fix what's missing:
@@ -523,7 +515,7 @@ State what you found and changed in the completion summary.
 ## Completion
 
 When all steps pass AND the review verdict is "approved":
-1. Verify the review.md file on disk contains `**Verdict**: approved` — do NOT rely on memory
+1. Verify `review.md` on disk says `**Verdict**: approved` (kb:lesson/completion-claimed-before-approved-verdict)
 2. Re-verify the Doc-Upkeep Backstop above (done before Step 6; fix anything the review cycles changed)
 2a. Resolve every `[orchestrator]`-tagged issue in review.md: do the doc edit, or record it as a TODO.md entry in the right milestone if it is genuinely follow-up work. List each one and its disposition in the completion summary. An approved review may carry these; a `completed` pipeline may not leave them unaddressed.
 2b. An approved review.md has no agent-tagged issue open at any severity (Verdict Rules) — if you find one, the verdict is wrong; stop and re-spawn the reviewer rather than writing a `TODO.md` line for it. Every `[note]` is listed in the completion summary verbatim — no TODO line, no agent.

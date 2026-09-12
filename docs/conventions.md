@@ -97,7 +97,7 @@ Each row's rationale is an ADR: `go run ./tools/kb ls --type adr | grep '/stack-
 - Waits inherit `playwright.config.ts`'s expect timeout (15 s) and test timeout (60 s);
   `workers` caps the daemons alive at once. A spec may *shorten* a timeout, with a comment
   saying why, never lengthen one; a fixed hold exists only as `settleFor()` for a
-  stays-unchanged check. Rationale and measurements: `docs/design/test-strategy.md`.
+  stays-unchanged check. Rationale and measurements: `docs/history/design/test-strategy.md`.
 - Assert the state the UI *settles* in, never a display a later render pass replaces — the
   `4001` "session ended" overlay lasts ~25 ms before the dead surface (e2e-lint rule 4). A
   change that fixes or touches a flaky spec is proven with `make e2e-soak SPEC=<file> N=10`

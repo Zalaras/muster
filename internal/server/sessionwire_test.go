@@ -27,7 +27,7 @@ func minimalSession() *session.Session {
 
 // TestToWireSession_MinimalShapeRendersEveryNullableFieldNull covers the "no data yet"
 // wire shape: a freshly-launched, non-git, no-title, no-model session must render every
-// optional field null rather than an empty object/string — SPEC §2.3's honesty rule
+// optional field null rather than an empty object/string — kb:adr/usage-unknown-renders-word-not-track's honesty rule
 // depends on the client being able to tell "absent" from "zero value".
 func TestToWireSession_MinimalShapeRendersEveryNullableFieldNull(t *testing.T) {
 	w := toWireSession(minimalSession())

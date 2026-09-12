@@ -44,9 +44,8 @@ All Playwright commands run from `web/`.
 - **Never invent a wire shape.** Every field's *shape* in a fixture traces to a canary-fields entry
   for **that event** — a shape measured on the status line is not evidence for the same-named field
   on a hook. Unmeasured → do not guess: flag it in your log's Notes/handoff as needing an
-  `/interface-probe` and use the shape the plan asserts (or omit an optional field). m1-sessions: an
-  invented `{id, display_name}` object survived two pipeline stages and cost an Opus finding plus a
-  mid-pipeline probe.
+  `/interface-probe` and use the shape the plan asserts (or omit an optional field)
+  (kb:lesson/two-wire-shapes-accepted-hides-disagreement).
 - Any tmux involvement uses a per-test private socket — never `-L muster`, never the user's default server.
 - Tests must be independent — no test depends on another test's side effects or on execution order.
 
@@ -69,8 +68,7 @@ Do **not** try to make tests pass in this mode, and do **not** weaken an asserti
 **Rewriting an existing spec file is a coverage event, not a blank page.** Inventory every test the
 rewrite deletes in your log. A deleted test covering behaviour *outside* the plan's delta — above
 all one a prior review demanded — is adapted to the new UI, never dropped; if you believe one is
-obsolete, list it with the reason so the orchestrator and reviewer can veto (new-session-dialog: two
-silently dropped tests came back as review Majors).
+obsolete, list it with the reason so the orchestrator and reviewer can veto (kb:lesson/validate-repair-weakened-the-assertion).
 
 **Harness-only plans.** When the plan's `E2E Scope` is `harness-only` (or the orchestrator's prompt
 says so), your deliverable is the helper/fixture edit the plan names under Affected Files — not a
@@ -89,8 +87,7 @@ order — the binary embeds the dashboard), then only those tests: `npx playwrig
 "<title>"` from `web/`. A red pin is a locator defect in *your* spec (the product has not changed
 yet); fix it before writing your log. Tests asserting *new* behaviour stay collection-only — do not
 run them. Mark each Tests-table row `ran-green-at-authoring` or `collection-only` and paste the
-filtered run's summary line; the verdict stays `authored` (terminal-focus: seven of eleven tests
-were pins, none ran, one hid a locator defect until validate).
+filtered run's summary line; the verdict stays `authored` (kb:lesson/authored-tests-never-run-before-validate).
 
 ### `validate` — implementation and unit tests are complete
 
@@ -103,8 +100,7 @@ Read `plans/<plan-name>/review.md`, fix every one of them, then finish exactly a
 In any fix-cycle invocation, also read the latest `## Fix Attempt` sections of both implementation
 logs. If this cycle's impl fixes **added** user-visible behaviour (an error display, marker,
 shortcut, field), assert each — that coverage is yours even with no tagged issue, because the
-unit-test agents correctly treat DOM behaviour as Playwright's job (m1-sessions: seven behaviours
-shipped untested through that gap).
+unit-test agents correctly treat DOM behaviour as Playwright's job (kb:lesson/dom-behaviour-gap-between-test-agents).
 
 ## Validate Mode
 
@@ -118,8 +114,7 @@ make web-build build
 
 The harness serves the prebuilt `bin/musterd` and the prebuilt `internal/webui/assets` (the disk
 override) and never rebuilds either, so a bare `npm run e2e` tests whatever was last compiled — in a
-pipeline, usually a binary older than the implementation you are validating (m3-gauges: 10/12 failed
-against a stale daemon and looked exactly like implementation bugs). Order is load-bearing: the
+pipeline, usually a binary older than the implementation you are validating (kb:lesson/validate-red-blamed-on-implementation). Order is load-bearing: the
 binary **embeds** `internal/webui/assets`, so `web-build` runs before `build`. `make e2e` has both
 as ordered prerequisites; a targeted `npm run e2e -- <file>` does not, hence the explicit rebuild
 above.
@@ -165,14 +160,12 @@ npm run e2e -- e2e/<your-file>.spec.ts
 `locator.press()` bundling focus and key so a focus-drop between them is invisible, a
 `waitForTimeout` tuned to land inside a window, re-fetching state the UI should already show — has
 found an implementation-bug, not a flaky test. Report it in the **E2E Implementation Bugs** table
-and leave the honest test failing; never hide it in a passing one (m4-reconcile cycle 1: a logged
-`locator.press()` workaround surfaced as a Major one Opus review later).
+and leave the honest test failing; never hide it in a passing one (kb:lesson/fix-closed-one-cause-of-two).
 
 **Visibility of an interactive element is asserted by computed style, not `toBeVisible()` alone.**
 Playwright treats `opacity: 0` as visible. For any control a requirement says the user must see,
 pair `toBeVisible()` with `toHaveCSS("opacity", "1")` (for a hover/focus reveal, assert `0` at rest
-and `1` on hover / `:focus-within`) — m4-reconcile cycle 3: a Resume button at `opacity: 0` passed
-`toBeVisible()` over a Critical.
+and `1` on hover / `:focus-within`) (kb:lesson/shared-class-css-hid-resume-button).
 
 If the only way to make a test green is to weaken it, that is an `implementation-bug`, not a repair. **Every repair must be declared** in the `## Repairs` table with the requirement its assertion still covers.
 
@@ -181,8 +174,7 @@ not there" assertion — `toHaveCount(0)`, `not.toContainText`, `not.toBeVisible
 narrowing the locator can leave a check true by construction. Before logging: break the product
 deliberately (comment out the guard, force the branch), run the test, confirm the repaired assertion
 is what goes red, restore the tree (`git diff --stat` shows only your spec files). Record the
-breakage in the Repairs row's last column (file-drop-fix: a narrowed E9 locator pointed into a
-subtree where the element is never created — green, asserting nothing, a review Major).
+breakage in the Repairs row's last column (kb:lesson/validate-repair-weakened-the-assertion).
 
 ### 4. Re-verify collection suite-wide
 
@@ -198,8 +190,7 @@ Once your own spec file passes, run the **full** suite (`make e2e` from the proj
 reporting `pass`. If a repair touched a wait, locator or oracle in a test that had failed
 intermittently, also run `make e2e-soak SPEC=<file> N=10` and paste its summary line in the Repairs
 row. The plan's approved protocol delta changes wire shapes and value semantics that *pre-existing*
-specs may assert the old way, and those specs are also yours (m3-gauges: both review Criticals were
-mechanical M1-era expectation updates that burned an Opus cycle). Triage each non-plan failure:
+specs may assert the old way, and those specs are also yours (kb:lesson/validate-red-blamed-on-implementation). Triage each non-plan failure:
 
 - **The plan's approved delta (its Protocol Contract section / the merged `docs/protocol.md`)
   directly contradicts the old expectation** → sanctioned breakage. Update the expectation to the
@@ -221,11 +212,10 @@ Place new test files in `web/e2e/<feature-name>.spec.ts`, where `<feature-name>`
 - **A pre-existing control already has a locator somewhere in `web/e2e/`. Find it and copy its
   shape** — `grep -rn "Unpin" web/e2e/` takes a second. An existing assertion encodes what the
   markup can carry (icon-only buttons have no text content; disclosure widgets are `summary`, not
-  `button`); a fresh guess does not (terminal-focus: `toHaveText("Pin")` on an `aria-pressed` button
-  failed at validate).
+  `button`); a fresh guess does not (kb:lesson/authored-tests-never-run-before-validate).
 - To simulate Claude Code activity, POST synthesized hook / status-line payloads to the daemon the same way the real binary would, using the capture-faithful shapes. Put reusable payload builders in a shared helper module so fixtures stay consistent across specs.
 - Every must-have requirement from the plan should have at least one E2E test.
-- **Destructive per-session paths need a multi-session variant.** When a test kills, closes or supersedes a per-session resource on shared infrastructure, at least one test does it with ≥2 sessions live and asserts the others are unaffected (m2-terminal: a kill hijacked a neighbour's terminal while every kill test ran one session).
+- **Destructive per-session paths need a multi-session variant.** When a test kills, closes or supersedes a per-session resource on shared infrastructure, at least one test does it with ≥2 sessions live and asserts the others are unaffected (kb:lesson/detach-on-destroy-misrouted-keystrokes).
 - **A live interactive surface gets an input round-trip in every view that hosts it**, spanning at
   least one render tick — rendering in a view is not evidence it works there. **The round-trip uses
   a path a real user has: focus plus keyboard or pointer.** `selectOption`, `fill`, `check`,
@@ -233,19 +223,14 @@ Place new test files in `web/e2e/<feature-name>.spec.ts`, where `<feature-name>`
   popup. For any focusable control inside the per-tick render path, at least one test focuses it,
   waits past a tick (> 1 s), asserts `document.activeElement` **and node identity** (tag the node,
   check the tag survives) are unchanged, then drives it with real keys. Native `<select>` typeahead
-  concatenates keys within ~1 s — wait between distinct keystrokes. (m2-terminal: tiles lost focus
-  within 1 s of the tick; usage-model-bar: a `<select>` rebuilt every second stayed green through
-  E1–E7 because every spec used `selectOption` — two Opus cycles.)
+  concatenates keys within ~1 s — wait between distinct keystrokes. (kb:lesson/tiles-never-refit-behind-pattern-match, kb:lesson/select-rebuilt-every-tick-passed-selectoption)
 - **Displayed values with an independent oracle are cross-checked, never pattern-matched.**
   `/\d+×\d+/` passes on stale or fabricated data; when the daemon or tmux can be asked for the true
   value (`DisplayVar`, an API read), assert equality, re-reading **both** sides inside the retry so
-  a stale display times out instead of passing (m2-terminal: tile footers pattern-matched while no
-  tile ever resized).
+  a stale display times out instead of passing (kb:lesson/tiles-never-refit-behind-pattern-match).
 - **When a requirement names failure modes, cover each named mode distinctly.** A fulfilled 500/404
   and a connection-level failure (`route.abort()`, a killed daemon) exercise different code paths —
-  `network` in a requirement means an aborted request, not an error status (new-session-dialog:
-  REQ-13 named `network`, only routed HTTP errors were covered, and an unguarded-`fetch` Critical
-  surfaced two cycles later).
+  `network` in a requirement means an aborted request, not an error status (kb:lesson/network-mode-covered-by-http-errors-only).
 - **Two wire timestamps written in the same wall-clock second tie** (every one — `last_launched_at`, `stateSince`, `attention.since` — is whole-second RFC3339). When ordering matters, wait for the clock to tick between the two events: `waitForNextClockSecond()` in `helpers/session.ts` waits only the remainder of the second; never a fixed sleep.
 - Every test title must be unique within its file (Playwright rejects duplicates at collection time and aborts the entire suite). When copy-pasting a test as a starting point, change both the title and the body.
 - Test user-visible behavior, not implementation details.

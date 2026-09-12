@@ -55,7 +55,7 @@ claimed *effects* need measurement (a "the file is now private / the row is now 
 requires the `ls -l` or the observed DOM, not just the diff). A `blocked`/`implementation-bug`
 verdict naming a real obstacle is a good outcome; the failure is a green verdict hiding one.
 Never `sleep`/poll to wait on a subagent: the harness re-invokes the **main session** when one
-finishes, but a subagent is never woken — so agents run gates in the foreground (canary-full-coverage: 60 min lost).
+finishes, but a subagent is never woken — so agents run gates in the foreground (kb:lesson/subagent-never-woken-by-harness).
 
 Trivial fixes and doc work don't need the pipeline — judgement call, default to it for
 anything with acceptance criteria.
@@ -74,7 +74,7 @@ anything with acceptance criteria.
   a new one in the same pane).
 - tmux ALWAYS via a dedicated socket (`tmux -L muster`, or a per-test socket) — never
   the user's default server. Sizing: `pty.Setsize` **and** `resize-window`;
-  `resize-pane` exits 0 and silently no-ops on single-pane windows.
+  `resize-pane` exits 0 and silently no-ops on single-pane windows (kb:lesson/resize-pane-silent-noop).
 - NEVER read or modify `~/.claude/settings.json` / `settings.local.json` — Damian's
   live sessions depend on them. Isolation is always a project-scoped
   `.claude/settings.json` in a scratch repo. `CLAUDE_CONFIG_DIR` breaks subscription
@@ -84,10 +84,9 @@ anything with acceptance criteria.
   kill the session when done — an orphan keeps burning.
 - Never log hook payloads (they contain prompt text) anywhere world-readable.
 - Never `git config user.*` in this repo **or any worktree of it** — worktrees share
-  `.git/config`, so a scratch identity lands on the real repo (2026-09-10: two commits
-  reached `main` as `test <test@example.invalid>`). Scratch repos are `git init` in a temp
-  dir, or pass `-c user.name=… -c user.email=…` per command. `.githooks/pre-commit`
-  refuses to commit while a repo-local override exists.
+  `.git/config` (kb:lesson/worktree-shares-git-config). Scratch repos are `git init` in a
+  temp dir, or pass `-c user.name=… -c user.email=…` per command; `.githooks/pre-commit`
+  refuses a repo-local override.
 
 ## Testing bar
 

@@ -6,9 +6,9 @@ date: 2026-09-11
 summary: Sandboxing the issue-reading step is not used; capability removal beats isolation for a read-only job, and the platform sandbox has no hard network boundary.
 features: [triage]
 tags: [security, never]
-files: [.claude/agents/triage-proposer.md, docs/design/triage-hardening.md]
+files: [.claude/agents/triage-proposer.md, docs/history/design/triage-hardening.md]
 tests: []
-refs: [docs/history/spec-changelog.md, docs/design/triage-hardening.md, kb:adr/triage-program-not-model-between-github-and-todo]
+refs: [docs/history/spec-changelog.md, docs/history/design/triage-hardening.md, kb:adr/triage-program-not-model-between-github-and-todo]
 supersedes: []
 ---
 **Context.** The natural hardening reflex for a process that reads hostile text is to isolate it: a container, or Claude Code's own sandbox around the subagent that summarises an issue.

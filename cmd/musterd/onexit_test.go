@@ -46,7 +46,7 @@ var musterdBinary string
 // runs (REQ-9/D9). Before this, newSleepStubClaude wrote a fresh executable per
 // spawnDaemon/openTestDaemonArgs call — ~7 fresh scripts per `go test` run of this
 // package. macOS charges the first exec of a newly written executable a real, serialized
-// cost (measured 2026-09-06, docs/design/test-strategy.md: ~270ms per inode on first
+// cost (measured 2026-09-06, docs/history/design/test-strategy.md: ~270ms per inode on first
 // exec), which this package's tests pay repeatedly for no reason, since every daemon in
 // this file wants the exact same stub content. Mirrors
 // web/e2e/helpers/daemon.ts's ensureSharedStubClaude, minus that harness's hash-keyed
@@ -160,7 +160,7 @@ func newSleepStubClaude(t *testing.T) string {
 // load (plans/post-worktree-spike-issues/validation.md) - a threshold the suite kept
 // crossing, not a hang. 20s clears the 7s legitimate worst case with real headroom
 // instead. This is the one bound this plan raises rather than removing the timing
-// dependence entirely (docs/design/test-strategy.md's standing rule), because it is
+// dependence entirely (docs/history/design/test-strategy.md's standing rule), because it is
 // derived from the path's own worst case, not a bumped magic number.
 const tokensFileWriteBound = 20 * time.Second
 

@@ -8,7 +8,7 @@ features: [triage]
 tags: [security, never, user-decision]
 files: [internal/triage/checks.go, internal/triage/route.go, internal/triage/apply.go]
 tests: [TestTripwire, TestTripwireAcceptedFalsePositive, TestApplyRefusesHeldIssue]
-refs: [docs/history/spec-changelog.md, docs/design/triage-hardening.md, kb:adr/triage-issue-closes-when-fix-lands, kb:adr/triage-program-not-model-between-github-and-todo]
+refs: [docs/history/spec-changelog.md, docs/history/design/triage-hardening.md, kb:adr/triage-issue-closes-when-fix-lands, kb:adr/triage-program-not-model-between-github-and-todo]
 supersedes: []
 ---
 **Context.** The hardened triage pipeline carries a small high-precision phrase tripwire. When it fires, something has to happen to the issue. Closing it as spam is the obvious reflex.

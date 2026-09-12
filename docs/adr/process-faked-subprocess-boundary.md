@@ -8,7 +8,7 @@ features: []
 tags: [testing, tmux, user-decision]
 files: [internal/tmux/preflight.go, internal/locate/spotlight.go, internal/claudecode/version.go, docs/conventions.md]
 tests: [TestPreflight_ProductionSeamsAreTheExecPackage, TestPreflight_TooOld, TestRunTmuxPreflight_TooOldNamesDetectedAndMinimum, TestLocate_ReturnsPathForSingleVerifiedCandidate]
-refs: [docs/history/spec-changelog.md, docs/design/test-strategy.md, docs/conventions.md, TODO.md, kb:adr/usage-keychain-token-read-only, kb:adr/process-tests-run-space-bearing-data-dir, kb:adr/process-e2e-explicit-fixtures, plan:v1-cleanup]
+refs: [docs/history/spec-changelog.md, docs/history/design/test-strategy.md, docs/conventions.md, TODO.md, kb:adr/usage-keychain-token-read-only, kb:adr/process-tests-run-space-bearing-data-dir, kb:adr/process-e2e-explicit-fixtures, plan:v1-cleanup]
 supersedes: []
 ---
 **Context.** The Go suite was intermittently red on the default branch. Eight preflight tests forked a real tmux to read its version and bounded it with the production timeout; under package-level parallelism they hit the bound exactly. The tests exercised version parsing and a fatal-or-not decision, neither of which needs a real fork. Other packages forked the real Claude Code for a version check and Spotlight for a locate.

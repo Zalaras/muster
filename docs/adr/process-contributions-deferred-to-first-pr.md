@@ -6,9 +6,9 @@ date: 2026-09-04
 summary: No CLA or DCO pre-emptively; inbound contributions are decided at the first real pull request, and the README says issues yes, pull requests not yet.
 features: []
 tags: [user-decision, deferred]
-files: [README.md, docs/design/open-sourcing.md]
+files: [README.md, docs/history/design/open-sourcing.md]
 tests: []
-refs: [docs/history/spec-changelog.md, docs/design/open-sourcing.md, kb:adr/process-licence-mit, kb:adr/process-repo-public]
+refs: [docs/history/spec-changelog.md, docs/history/design/open-sourcing.md, kb:adr/process-licence-mit, kb:adr/process-repo-public]
 supersedes: []
 ---
 **Context.** Choosing a licence raised the neighbouring question of inbound contributions: whether to require a contributor agreement or a signed-off certificate before anyone sends code.

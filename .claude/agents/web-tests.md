@@ -39,8 +39,7 @@ All web code lives in `web/`; run every npm command from that directory.
   requirement or criterion uncovered because another suite covers it, name the file and test title
   and quote the assertion covering the *exact* case. If no such test exists the item is yours: cover
   it, or report `implementation-bug` when the logic is not unit-testable as built — "not mine" is
-  never a verdict (fix-auto-mode-select: E4 was cited for a case it never covered, and it cost a
-  review cycle).
+  never a verdict (kb:lesson/conditional-test-routing-resolves-to-nobody).
 
 Test files sit alongside the module: `web/src/<feature>/<module>.ts` → `web/src/<feature>/<module>.test.ts` (the Vitest config includes `src/**/*.test.ts`).
 

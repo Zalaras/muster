@@ -40,5 +40,5 @@
 // (pre-v1 release)". Spliced into TODO.md that would forge a section heading. Containing
 // it is [RenderEntry]'s job, not this file's.
 //
-// See docs/design/triage-hardening.md for the threat model and the residual risks.
+// See docs/history/design/triage-hardening.md for the threat model and the residual risks.
 package triage

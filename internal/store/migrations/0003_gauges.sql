@@ -11,7 +11,7 @@ CREATE TABLE usage_sample (
   five_hour_resets_at  TEXT    NOT NULL,  -- RFC3339 UTC (converted from wire epoch)
   seven_day_pct        REAL    NOT NULL,
   seven_day_resets_at  TEXT    NOT NULL,
-  source               TEXT    NOT NULL   -- "subscription" in v1 (the SPEC §9.6 seam)
+  source               TEXT    NOT NULL   -- "subscription" in v1 (the kb:adr/usage-no-source-interface seam)
 ) STRICT;
 
 ALTER TABLE session ADD COLUMN context_used_pct REAL;             -- NULL = unknown

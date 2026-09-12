@@ -8,7 +8,7 @@ features: [triage]
 tags: [security, pipeline, user-decision]
 files: [tools/triage/main.go, internal/triage/fetch.go, internal/triage/sanitize.go, internal/triage/route.go, internal/triage/splice.go, internal/triage/apply.go, .claude/agents/triage-proposer.md, .claude/skills/triage/SKILL.md]
 tests: [TestFetchThenApply, TestBuildAdversarial, TestSanitizeMarkersAreUnforgeable, TestValidateProposalRejects, TestSpliceIsPureInsertion]
-refs: [docs/history/spec-changelog.md, docs/design/triage-hardening.md, kb:adr/triage-state-derived-from-todo, kb:adr/issue-daemon-creates-issues-only, kb:adr/process-repo-public, kb:adr/triage-snapshot-untrusted-drop-and-count, kb:adr/triage-auto-close-never, kb:adr/triage-sandboxing-rejected-for-read-only-proposer]
+refs: [docs/history/spec-changelog.md, docs/history/design/triage-hardening.md, kb:adr/triage-state-derived-from-todo, kb:adr/issue-daemon-creates-issues-only, kb:adr/process-repo-public, kb:adr/triage-snapshot-untrusted-drop-and-count, kb:adr/triage-auto-close-never, kb:adr/triage-sandboxing-rejected-for-read-only-proposer]
 supersedes: []
 ---
 **Context.** Once the repository was public an issue body became attacker-controlled text. The triage skill read one straight into the main session, and its allowed-tools list, which grants rather than restricts, pre-approved prompt-free shell for that very turn. The real target was the backlog file: every later planning and orchestration session reads it with full tools, so a payload can lie dormant and fire weeks later in a more capable session.
