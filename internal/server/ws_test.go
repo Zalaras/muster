@@ -30,7 +30,7 @@ func dialWS(t *testing.T, wsURL string, extraHeaders http.Header) (*websocket.Co
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	c, _, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: header}) //nolint:bodyclose
+	c, _, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: header}) //nolint:bodyclose // coder/websocket Dial nils out resp.Body on success (dial.go); there is nothing to close
 	return c, err
 }
 
@@ -146,7 +146,7 @@ func TestHandleWS_ClaudeCodeKeySetExactAndInstalledNullIffUnknown(t *testing.T) 
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			header := http.Header{"Cookie": {cookieName + "=" + testUIToken}}
-			c, _, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: header}) //nolint:bodyclose
+			c, _, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: header}) //nolint:bodyclose // coder/websocket Dial nils out resp.Body on success (dial.go); there is nothing to close
 			require.NoError(t, err)
 			defer func() { _ = c.CloseNow() }()
 
@@ -296,7 +296,7 @@ func TestServerShutdown_ClosesOpenWSConnections(t *testing.T) {
 
 	select {
 	case err := <-readErr:
-		assert.Error(t, err, "client read must fail once the server closes the connection on Shutdown")
+		require.Error(t, err, "client read must fail once the server closes the connection on Shutdown")
 	case <-time.After(5 * time.Second):
 		t.Fatal("client connection was not closed by Shutdown")
 	}

@@ -55,7 +55,7 @@ func walkSnapshotType(t *testing.T, rt reflect.Type, prefix string, out map[stri
 	if rt.Kind() != reflect.Struct {
 		t.Fatalf("%s: expected a struct, got %v", prefix, rt.Kind())
 	}
-	for i := 0; i < rt.NumField(); i++ {
+	for i := range rt.NumField() {
 		f := rt.Field(i)
 		tag := f.Tag.Get("json")
 		if tag == "-" {

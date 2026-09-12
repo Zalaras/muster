@@ -788,7 +788,7 @@ func TestBuildIssueSnapshot_LastReceivedAtIsPlainRFC3339NoFraction(t *testing.T)
 
 	require.NotNil(t, snap.Session.Events.LastReceivedAt)
 	_, err := time.Parse(time.RFC3339, *snap.Session.Events.LastReceivedAt)
-	assert.NoError(t, err, "lastReceivedAt must parse as plain RFC3339")
+	require.NoError(t, err, "lastReceivedAt must parse as plain RFC3339")
 	assert.NotContains(t, *snap.Session.Events.LastReceivedAt, ".", "no fractional-second component")
 }
 

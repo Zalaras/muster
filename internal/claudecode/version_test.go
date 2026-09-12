@@ -89,8 +89,8 @@ func TestInstalledVersion_DescendantHoldingStdoutDoesNotHangStartup(t *testing.T
 		// version is unavailable this time, but the call still returned promptly
 		// rather than hanging (the happy-path parse is covered by the existing
 		// subprocess-free TestVersionRE table, D1/Edge Case 3).
-		assert.Error(t, res.err)
-		assert.ErrorIs(t, res.err, exec.ErrWaitDelay)
+		require.Error(t, res.err)
+		require.ErrorIs(t, res.err, exec.ErrWaitDelay)
 		assert.Empty(t, res.version)
 	case <-time.After(15 * time.Second):
 		t.Fatal("InstalledVersion did not return within 15s of a descendant holding stdout open — this is the startup hang REQ-2 fixes (revert cmd.WaitDelay in version.go to reproduce)")

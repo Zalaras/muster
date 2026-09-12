@@ -697,6 +697,10 @@ func TestApplyInput_CrossStateInvariants(t *testing.T) {
 					// failed. State has just moved to needs_input, so a stale failure
 					// left over from an earlier failed turn must not survive here.
 					assert.Nil(t, sess.Failure, "INV-F: failure must be nil once state has moved off failed to needs_input")
+				default:
+					// The steps table drives only the two kinds above through a
+					// transition; every other Kind is unreachable here, so there are no
+					// kind-specific invariants left to assert.
 				}
 			})
 		}

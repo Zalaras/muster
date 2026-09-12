@@ -6,6 +6,7 @@ import (
 	"testing/fstest"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestHasDashboard covers the fail-fast predicate (plan embed-dashboard REQ-3/D5/R2)
@@ -71,7 +72,7 @@ func TestFS_RootedAtAssets(t *testing.T) {
 	sub := FS()
 
 	_, err := fs.Stat(sub, ".gitkeep")
-	assert.NoError(t, err, "FS() must be rooted at assets/ so .gitkeep is visible at its root")
+	require.NoError(t, err, "FS() must be rooted at assets/ so .gitkeep is visible at its root")
 
 	_, err = fs.Stat(sub, "assets/.gitkeep")
 	assert.Error(t, err, "FS() must not still expose the assets/ prefix itself")

@@ -239,7 +239,7 @@ func TestInsertEvent_ReceivedAtIsRFC3339NanoAndDiffersAcrossImmediateInserts(t *
 
 	for _, v := range receivedAts {
 		_, err := time.Parse(time.RFC3339Nano, v)
-		assert.NoError(t, err, "received_at must parse as RFC3339Nano")
+		require.NoError(t, err, "received_at must parse as RFC3339Nano")
 	}
 	assert.NotEqual(t, receivedAts[0], receivedAts[1], "two immediate inserts must not collapse to the same timestamp")
 }

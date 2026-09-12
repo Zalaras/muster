@@ -273,7 +273,7 @@ func TestBridge_Close_IsIdempotent(t *testing.T) {
 	err1 := b.Close()
 	err2 := b.Close()
 
-	assert.NoError(t, err1)
+	require.NoError(t, err1)
 	assert.Equal(t, err1, err2, "a second Close must return the same result as the first, never panic or re-run teardown")
 }
 

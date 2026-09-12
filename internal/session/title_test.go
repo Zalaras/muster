@@ -320,7 +320,7 @@ func TestSetTitle_BroadcastsOnceOnARealChangeZeroOnEdgeCases3And4(t *testing.T) 
 
 		_, err := mgr.SetTitle(context.Background(), 999999, strPtr("X"))
 
-		assert.ErrorIs(t, err, ErrUnknownSession)
+		require.ErrorIs(t, err, ErrUnknownSession)
 		assert.Empty(t, rec.all())
 	})
 }

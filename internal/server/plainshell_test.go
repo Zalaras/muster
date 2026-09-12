@@ -50,14 +50,14 @@ func dialShell(t *testing.T, httpSrv *httptest.Server, id int64) (*websocket.Con
 	header := http.Header{"Cookie": {cookieName + "=" + testUIToken}}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	return websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: header}) //nolint:bodyclose
+	return websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: header}) //nolint:bodyclose // coder/websocket Dial nils out resp.Body on success (dial.go); there is nothing to close
 }
 
 // dialShellOK is dialShell for the success path (see terminal_test.go's dialTerminalOK
 // for why the handshake *http.Response needs no explicit close here).
 func dialShellOK(t *testing.T, httpSrv *httptest.Server, id int64) *websocket.Conn {
 	t.Helper()
-	c, _, err := dialShell(t, httpSrv, id) //nolint:bodyclose
+	c, _, err := dialShell(t, httpSrv, id) //nolint:bodyclose // coder/websocket Dial nils out resp.Body on success (dial.go); there is nothing to close
 	require.NoError(t, err)
 	return c
 }

@@ -396,7 +396,7 @@ func TestKillSession_RemovesTheWholeSessionErrorsForAnUnknownName(t *testing.T) 
 	require.NoError(t, c.KillSession(context.Background(), name))
 
 	out, listErr := exec.Command("tmux", "-S", socket, "list-sessions", "-F", "#{session_name}").CombinedOutput()
-	assert.Error(t, listErr, "the server has no sessions left at all: %s", out)
+	require.Error(t, listErr, "the server has no sessions left at all: %s", out)
 
 	err = c.KillSession(context.Background(), "muster-does-not-exist")
 	assert.Error(t, err, "killing an unknown session name must error")

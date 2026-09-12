@@ -47,7 +47,7 @@ func TestMigrate_AppliesInitSchema(t *testing.T) {
 
 	// The tables the migration creates are usable.
 	_, err := db.ExecContext(ctx, `INSERT INTO kv (key, value) VALUES ('k', 'v')`)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	_, err = db.ExecContext(ctx, `INSERT INTO event (claude_session_id, seq, type, payload, received_at) VALUES ('s1', 1, 'Stop', '{}', '2026-01-01T00:00:00Z')`)
 	assert.NoError(t, err)
 }

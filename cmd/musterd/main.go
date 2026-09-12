@@ -516,6 +516,8 @@ func checkClaudeCode(ctx context.Context, bin string, log zerolog.Logger) server
 	event := log.Info()
 	msg := "claude code version is within the verified range"
 	switch report.Status {
+	case claudecode.StatusVerified:
+		// The Info event and message set above are already this case.
 	case claudecode.StatusAbove:
 		event = log.Warn()
 		msg = "claude code version is newer than any version Muster has been tested with; behaviour past the verified range is best-effort (run make canary to verify it)"

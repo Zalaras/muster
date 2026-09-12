@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestBuildArgv covers the CLI argv construction confirmed by spike S2: default needs
@@ -100,7 +101,7 @@ func TestLaunchEnv(t *testing.T) {
 	assert.True(t, ok, "CLAUDE_CODE_SCROLL_SPEED must be set — it is the only lever on wheel scroll distance")
 
 	n, err := strconv.Atoi(v)
-	assert.NoError(t, err, "Claude Code parses this as an integer and rejects anything else")
+	require.NoError(t, err, "Claude Code parses this as an integer and rejects anything else")
 	assert.Greater(t, n, 1, "must beat Claude Code's own ~1 line per notch default to be worth setting")
 }
 

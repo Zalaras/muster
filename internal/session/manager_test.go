@@ -866,7 +866,7 @@ func TestReconcile_DeletesEndedRowsMarksDeadPanesEndedLeavesLivePanesByteIdentic
 	// The already-ended row is gone from both memory and the store.
 	assert.False(t, mgr.Exists(endedSess.ID))
 	_, err = st.GetSession(ctx, endedSess.ID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// The dead-pane row is marked ended and kept (the resume chance is not lost).
 	got, ok := mgr.Get(deadPaneSess.ID)
@@ -1398,7 +1398,7 @@ func TestEnd_UnknownAndAlreadyEndedSessions(t *testing.T) {
 	mgr := newTestManager(t, st, nil, nil)
 
 	_, err := mgr.End(context.Background(), 999)
-	assert.ErrorIs(t, err, ErrUnknownSession)
+	require.ErrorIs(t, err, ErrUnknownSession)
 
 	dir := t.TempDir()
 	params := createParams(dir)
@@ -1459,7 +1459,7 @@ func TestRemove_EndsAnAliveSessionFirstAndLeavesTheRowOnAFailingKill(t *testing.
 		_, ok := mgr.Resolve("claude-remove-1")
 		assert.False(t, ok, "the claude-session-id binding must not survive a remove")
 		_, err = st.GetSession(ctx, target.ID)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Equal(t, []string{"muster-" + strconv.FormatInt(target.ID, 10)}, killer.killedNames())
 		assert.Equal(t, []int64{target.ID}, removedIDs)
 
@@ -1486,10 +1486,10 @@ func TestRemove_EndsAnAliveSessionFirstAndLeavesTheRowOnAFailingKill(t *testing.
 
 		err = mgr.Remove(ctx, sess.ID)
 
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.True(t, mgr.Exists(sess.ID), "the row must survive a failed kill")
 		_, getErr := st.GetSession(ctx, sess.ID)
-		assert.NoError(t, getErr, "the row must still be in the store")
+		require.NoError(t, getErr, "the row must still be in the store")
 		assert.Empty(t, removedIDs, "OnRemoved must never fire when the kill failed")
 	})
 }
@@ -2308,7 +2308,7 @@ func TestSetOrder_InvalidRequestReturnsErrInvalidOrderAndChangesNothing(t *testi
 
 	err = mgr.SetOrder(context.Background(), []int64{a.ID, 999999}, 0) // unknown id
 
-	assert.ErrorIs(t, err, ErrInvalidOrder)
+	require.ErrorIs(t, err, ErrInvalidOrder)
 	assert.Len(t, rec.all(), before)
 	afterRow, err := st.GetSession(context.Background(), a.ID)
 	require.NoError(t, err)

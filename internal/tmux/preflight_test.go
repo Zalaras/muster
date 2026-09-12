@@ -255,8 +255,8 @@ func TestRunCommand_DescendantHoldingStdoutDoesNotHang(t *testing.T) {
 		assert.Less(t, elapsed, 15*time.Second, "must return within the 2s WaitDelay bound plus slack, not wait out the descendant's own sleep")
 		// The pipe is force-closed mid-read once WaitDelay elapses, which os/exec
 		// reports as an error even though the direct process itself exited 0.
-		assert.Error(t, res.err)
-		assert.ErrorIs(t, res.err, exec.ErrWaitDelay)
+		require.Error(t, res.err)
+		require.ErrorIs(t, res.err, exec.ErrWaitDelay)
 	case <-time.After(15 * time.Second):
 		t.Fatal("runCommand did not return within 15s of a descendant holding stdout open — this is the startup hang REQ-3 fixes (revert cmd.WaitDelay in preflight.go's runCommand to reproduce)")
 	}

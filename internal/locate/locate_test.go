@@ -214,7 +214,7 @@ func TestLocate_WrapsAndReturnsARealFinderError(t *testing.T) {
 	_, err := loc.Locate(context.Background(), dir, "x.txt", []byte("y"))
 
 	require.Error(t, err)
-	assert.ErrorIs(t, err, boom)
+	require.ErrorIs(t, err, boom)
 	assert.NotErrorIs(t, err, ErrNotLocated)
 }
 

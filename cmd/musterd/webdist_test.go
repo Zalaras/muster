@@ -25,7 +25,7 @@ func TestCheckWebDist_DiskOverridePresent(t *testing.T) {
 
 	err := checkWebDist(dir, fstest.MapFS{}, log)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Empty(t, buf.String(), "a present index.html must not log any warning")
 }
 
@@ -108,6 +108,6 @@ func TestCheckWebDist_EmbeddedDashboardPresentIsFine(t *testing.T) {
 
 	err := checkWebDist("", fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}}, log)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Empty(t, buf.String())
 }

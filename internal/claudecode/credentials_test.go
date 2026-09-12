@@ -103,7 +103,7 @@ func TestKeychainTokenReader_RespectsParentContextCancellation(t *testing.T) {
 
 	_, err := KeychainTokenReader("damian", run)(ctx)
 
-	assert.ErrorIs(t, err, ErrNoCredentials)
+	require.ErrorIs(t, err, ErrNoCredentials)
 	assert.True(t, sawCanceled, "the parent's cancellation must be visible to the exec seam")
 }
 

@@ -156,7 +156,7 @@ func TestOutputs_CitesOnlyPathsThatExistOnDisk(t *testing.T) {
 		for _, m := range pathRE.FindAllStringSubmatch(content, -1) {
 			n++
 			_, err := os.Stat(filepath.Join(root, filepath.FromSlash(m[1])))
-			assert.NoError(t, err, "%s cites %s", out, m[1])
+			require.NoError(t, err, "%s cites %s", out, m[1])
 		}
 	}
 	assert.Greater(t, n, 5)
