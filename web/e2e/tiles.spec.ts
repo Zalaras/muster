@@ -1,4 +1,4 @@
-import { expect, settleFor, test } from "./helpers/fixtures";
+import { expect, type Page, settleFor, test } from "./helpers/fixtures";
 import { envelopedSessionStart, rawNotification, rawUserPromptSubmit } from "./helpers/payloads";
 import { getState, launchSession, scratchDirectory, type SessionObject } from "./helpers/session";
 import {
@@ -13,6 +13,22 @@ import {
   tileStateDot,
   tilesGridOrder,
 } from "./helpers/terminal";
+
+/** Splits `titles` by whether each currently has a live tile in the grid, in one pass.
+ * The two promotion/density tests both need the partition rather than a bare count, so
+ * that a "how many" assertion and a "which one" lookup cannot disagree. */
+async function partitionByLiveTile(
+  page: Page,
+  titles: readonly string[],
+): Promise<{ live: string[]; stripped: string[] }> {
+  const live: string[] = [];
+  const stripped: string[] = [];
+  for (const t of titles) {
+    if ((await liveTile(page, t).count()) > 0) live.push(t);
+    else stripped.push(t);
+  }
+  return { live, stripped };
+}
 
 // Plan code-breakup's E2E split (plan.md UI Specifications → E2E split) merges the
 // Tiles-view tests that used to live in actions.spec.ts (End/Remove from a tile footer,
@@ -504,13 +520,10 @@ test("clicking a strip card promotes it and demotes exactly the lowest-priority 
     await page.getByRole("button", { name: "Tiles" }).click();
     await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute("aria-pressed", "true");
 
-    const liveTitlesBefore: string[] = [];
-    let strippedTitle: string | undefined;
-    for (const t of titles) {
-      if ((await liveTile(page, t).count()) > 0) liveTitlesBefore.push(t);
-      else strippedTitle = t;
-    }
+    const before = await partitionByLiveTile(page, titles);
+    const liveTitlesBefore = before.live;
     expect(liveTitlesBefore).toHaveLength(4);
+    const strippedTitle = before.stripped[0];
     if (!strippedTitle) throw new Error("expected exactly one stripped title");
 
     await stripCard(page, strippedTitle).click();
@@ -527,20 +540,13 @@ test("clicking a strip card promotes it and demotes exactly the lowest-priority 
     await expectTileGeometryMatchesTmux(page, daemon, strippedTitle, promotedSession.tmuxTarget);
 
     // Exactly one previously-live title is demoted — grid size stays fixed at N.
-    const demoted: string[] = [];
-    for (const t of liveTitlesBefore) {
-      if ((await liveTile(page, t).count()) === 0) demoted.push(t);
-    }
+    const demoted = (await partitionByLiveTile(page, liveTitlesBefore)).stripped;
     expect(demoted).toHaveLength(1);
     const demotedTitle = demoted[0];
     if (!demotedTitle) throw new Error("expected exactly one demoted title");
     await expect(stripCard(page, demotedTitle)).toBeVisible();
 
-    let liveCount = 0;
-    for (const t of titles) {
-      if ((await liveTile(page, t).count()) > 0) liveCount++;
-    }
-    expect(liveCount).toBe(4);
+    expect((await partitionByLiveTile(page, titles)).live).toHaveLength(4);
   } finally {
     await Promise.all(dirs.map((d) => d.cleanup()));
   }
@@ -565,10 +571,7 @@ test("a density change leaves a still-stripped session's tmux geometry untouched
     await page.getByRole("button", { name: "Tiles" }).click();
     await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute("aria-pressed", "true");
 
-    const strippedBefore: string[] = [];
-    for (const t of titles) {
-      if ((await liveTile(page, t).count()) === 0) strippedBefore.push(t);
-    }
+    const strippedBefore = (await partitionByLiveTile(page, titles)).stripped;
     expect(strippedBefore).toHaveLength(3);
 
     const baselineWidth = new Map<string, string>();
@@ -609,10 +612,7 @@ test("a density change leaves a still-stripped session's tmux geometry untouched
     );
     expect(continuingAfterWidth).not.toBe(continuingBaselineWidth);
 
-    const strippedAfter: string[] = [];
-    for (const t of strippedBefore) {
-      if ((await liveTile(page, t).count()) === 0) strippedAfter.push(t);
-    }
+    const strippedAfter = (await partitionByLiveTile(page, strippedBefore)).stripped;
     expect(strippedAfter).toHaveLength(1);
     const stillStripped = strippedAfter[0];
     if (!stillStripped) throw new Error("expected exactly one still-stripped title");

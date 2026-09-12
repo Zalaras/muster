@@ -616,8 +616,10 @@ export class ScratchDaemon {
     return this.output;
   }
 
-  private async spawnAndWait(): Promise<void> {
-    this.output = "";
+  /** Assembles musterd's argv for this scratch daemon: the unconditional isolation flags
+   * every run gets, then the per-run opt-in seams. Split out of `spawnAndWait` so the
+   * flag list reads as one thing and the spawn/await logic as another. */
+  private buildArgs(): string[] {
     const args = [
       "-addr",
       `127.0.0.1:${this.port}`,
@@ -701,6 +703,12 @@ export class ScratchDaemon {
     // stub-version keys always win on a collision (they shouldn't collide in practice —
     // different features, different keys). Every other scratch daemon spawns with no
     // `env` override at all, inheriting `process.env` exactly as before this plan.
+    return args;
+  }
+
+  /** The spawn environment, or `undefined` to inherit `process.env` unchanged — which is
+   * what every run that sets none of the three override seams gets. */
+  private buildEnv(): NodeJS.ProcessEnv | undefined {
     const env =
       this.stubClaudeVersion !== undefined ||
       this.stubClaudeVersionFails ||
@@ -714,6 +722,13 @@ export class ScratchDaemon {
             ...(this.stubClaudeVersionFails ? { MUSTER_E2E_STUB_VERSION_FAIL: "1" } : {}),
           }
         : undefined;
+    return env;
+  }
+
+  private async spawnAndWait(): Promise<void> {
+    this.output = "";
+    const args = this.buildArgs();
+    const env = this.buildEnv();
     const proc = spawn(this.serveEmbedded ? this.embeddedBinPath : this.resolvedMusterdBin, args, {
       // Plan embed-dashboard REQ-7: the embedded fixture runs from the scratch data dir
       // itself (an OS tmpdir containing no web/ or internal/ tree) rather than the repo

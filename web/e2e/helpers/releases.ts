@@ -258,36 +258,40 @@ export class FakeReleaseServer {
     }
     const m = /^\/download\/([^/]+)\/(.+)$/.exec(path);
     if (m) {
-      const tag = m[1];
-      const asset = m[2];
-      const release = tag !== undefined ? this.releases.get(tag) : undefined;
-      if (!release || asset === undefined) {
-        res.writeHead(404);
-        res.end();
-        return;
-      }
-      if (asset === release.assetName) {
-        res.writeHead(200, { "Content-Type": "application/gzip" });
-        res.end(release.archiveBytes);
-        return;
-      }
-      if (asset === "checksums.txt") {
-        res.writeHead(200, { "Content-Type": "text/plain" });
-        res.end(release.checksumsBytes);
-        return;
-      }
-      if (asset === "checksums.txt.minisig") {
-        if (release.minisigMissing) {
-          res.writeHead(404);
-          res.end();
-          return;
-        }
-        res.writeHead(200, { "Content-Type": "text/plain" });
-        res.end(release.minisigBytes);
-        return;
-      }
+      this.routeDownload(m[1], m[2], res);
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  }
+
+  /** Serves one release asset: the archive, its checksums, or the minisig — 404 for an
+   * unknown tag or asset, and for the minisig when this fixture is deliberately missing
+   * one (REQ-15's unsigned-release case). */
+  private routeDownload(
+    tag: string | undefined,
+    asset: string | undefined,
+    res: ServerResponse,
+  ): void {
+    const release = tag !== undefined ? this.releases.get(tag) : undefined;
+    if (!release || asset === undefined) {
       res.writeHead(404);
       res.end();
+      return;
+    }
+    if (asset === release.assetName) {
+      res.writeHead(200, { "Content-Type": "application/gzip" });
+      res.end(release.archiveBytes);
+      return;
+    }
+    if (asset === "checksums.txt") {
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end(release.checksumsBytes);
+      return;
+    }
+    if (asset === "checksums.txt.minisig" && !release.minisigMissing) {
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end(release.minisigBytes);
       return;
     }
     res.writeHead(404);

@@ -460,6 +460,42 @@ describe("buildUpdateViewModel — busy (aria-busy iff an apply phase is in flig
 // catch any interaction the column-by-column tests above could miss, asserting only that
 // it never throws and that badged/buttonsVisible/toggleChecked stay internally consistent
 // with the rules already pinned above.
+/** One cell of the full grid below. Lives at module scope, not inside the five nested
+ * loops, so the assertions read at zero nesting — and so the body is one unit of
+ * complexity rather than inheriting the loops' depth. */
+function expectGridRowConsistent(
+  install: UpdateInstallKind,
+  updateCheck: boolean,
+  available: string | null,
+  installed: string | null,
+  phase: UpdateApplyPhase,
+): void {
+  const update: UpdateInfo = {
+    ...baseUpdate,
+    install,
+    remedy: install === "homebrew" || install === "unmanaged" ? "remedy text" : null,
+    available,
+    checkedAt: available !== null ? "2026-09-10T20:00:00Z" : null,
+    installed,
+    apply: {
+      phase,
+      version: phase === "idle" ? null : "0.11.0",
+      error: phase === "failed" ? "boom" : null,
+    },
+  };
+  const prefs: Prefs = { ...onPrefs, updateCheck };
+  const vm = buildUpdateViewModel(update, prefs);
+
+  expect(vm.badged).toBe(available !== null && installed === null);
+  expect(vm.buttonsVisible).toBe(install !== "dev");
+  expect(vm.toggleChecked).toBe(updateCheck);
+  expect(vm.toggleDisabled).toBe(install === "dev");
+  if (install !== "installer") {
+    expect(vm.updateEnabled).toBe(false);
+    expect(vm.restartEnabled).toBe(false);
+  }
+}
+
 describe("buildUpdateViewModel — full grid (no throw; badge/visibility/toggle stay internally consistent)", () => {
   const installs: UpdateInstallKind[] = ["installer", "dev", "homebrew", "unmanaged"];
   const phases: UpdateApplyPhase[] = [
@@ -478,30 +514,7 @@ describe("buildUpdateViewModel — full grid (no throw; badge/visibility/toggle 
         for (const installed of [null, "0.11.0"] as const) {
           for (const phase of phases) {
             it(`install=${install} updateCheck=${updateCheck} available=${available} installed=${installed} phase=${phase}`, () => {
-              const update: UpdateInfo = {
-                ...baseUpdate,
-                install,
-                remedy: install === "homebrew" || install === "unmanaged" ? "remedy text" : null,
-                available,
-                checkedAt: available !== null ? "2026-09-10T20:00:00Z" : null,
-                installed,
-                apply: {
-                  phase,
-                  version: phase === "idle" ? null : "0.11.0",
-                  error: phase === "failed" ? "boom" : null,
-                },
-              };
-              const prefs: Prefs = { ...onPrefs, updateCheck };
-              const vm = buildUpdateViewModel(update, prefs);
-
-              expect(vm.badged).toBe(available !== null && installed === null);
-              expect(vm.buttonsVisible).toBe(install !== "dev");
-              expect(vm.toggleChecked).toBe(updateCheck);
-              expect(vm.toggleDisabled).toBe(install === "dev");
-              if (install !== "installer") {
-                expect(vm.updateEnabled).toBe(false);
-                expect(vm.restartEnabled).toBe(false);
-              }
+              expectGridRowConsistent(install, updateCheck, available, installed, phase);
             });
           }
         }

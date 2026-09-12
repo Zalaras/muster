@@ -3,6 +3,9 @@
   "files": {
     "includes": ["src/**/*.ts", "e2e/**/*.ts", "scripts/**/*.mjs", "*.ts"]
   },
+  "assist": {
+    "enabled": false
+  },
   "linter": {
     "enabled": true,
     "rules": {

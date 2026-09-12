@@ -154,33 +154,44 @@ const BOUND_CHORDS: ReadonlyArray<{
 
 const BOOLS = [true, false] as const;
 
+/** All sixteen on/off combinations of the four modifiers, in meta-alt-shift-ctrl order —
+ * the same order the four nested loops used to walk, flattened so the grid is one list
+ * rather than a four-deep nest. */
+const MODIFIER_COMBOS = BOOLS.flatMap((metaKey) =>
+  BOOLS.flatMap((altKey) =>
+    BOOLS.flatMap((shiftKey) => BOOLS.map((ctrlKey) => ({ metaKey, altKey, shiftKey, ctrlKey }))),
+  ),
+);
+
+/** One cell of the modifier grid below: the chord matches iff every one of the four
+ * modifiers matches the binding exactly (INV-2). Lives at module scope, not inside the
+ * five nested loops, so the assertion reads at zero nesting. */
+function expectExactModifierMatch(
+  bound: (typeof BOUND_CHORDS)[number],
+  mods: { metaKey: boolean; altKey: boolean; shiftKey: boolean; ctrlKey: boolean },
+  isExact: boolean,
+): void {
+  const result = matchShortcut(keyEvent({ code: bound.code, ...mods }));
+  if (isExact) {
+    expect(result).toEqual(bound.action);
+  } else {
+    expect(result).toBeNull();
+  }
+}
+
 describe("matchShortcut — INV-2 exact modifier match (W6)", () => {
   for (const bound of BOUND_CHORDS) {
     describe(`${bound.code} bound at meta=${bound.meta} alt=${bound.alt} shift=${bound.shift} ctrl=${bound.ctrl}`, () => {
-      for (const metaKey of BOOLS) {
-        for (const altKey of BOOLS) {
-          for (const shiftKey of BOOLS) {
-            for (const ctrlKey of BOOLS) {
-              const isExact =
-                metaKey === bound.meta &&
-                altKey === bound.alt &&
-                shiftKey === bound.shift &&
-                ctrlKey === bound.ctrl;
-              it(`meta=${metaKey} alt=${altKey} shift=${shiftKey} ctrl=${ctrlKey} -> ${
-                isExact ? "matches" : "null"
-              }`, () => {
-                const result = matchShortcut(
-                  keyEvent({ code: bound.code, metaKey, altKey, shiftKey, ctrlKey }),
-                );
-                if (isExact) {
-                  expect(result).toEqual(bound.action);
-                } else {
-                  expect(result).toBeNull();
-                }
-              });
-            }
-          }
-        }
+      for (const mods of MODIFIER_COMBOS) {
+        const isExact =
+          mods.metaKey === bound.meta &&
+          mods.altKey === bound.alt &&
+          mods.shiftKey === bound.shift &&
+          mods.ctrlKey === bound.ctrl;
+        const outcome = isExact ? "matches" : "null";
+        it(`meta=${mods.metaKey} alt=${mods.altKey} shift=${mods.shiftKey} ctrl=${mods.ctrlKey} -> ${outcome}`, () => {
+          expectExactModifierMatch(bound, mods, isExact);
+        });
       }
     });
   }
