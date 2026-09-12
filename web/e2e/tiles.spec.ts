@@ -556,7 +556,6 @@ test("a density change leaves a still-stripped session's tmux geometry untouched
   page,
   daemon,
 }) => {
-  test.setTimeout(90_000);
   const dirs = await Promise.all(Array.from({ length: 7 }, () => scratchDirectory()));
   try {
     await page.goto(daemon.dashboardUrl);
@@ -632,7 +631,6 @@ test("open terminal-socket count equals the live-surface count in Focus, Tiles, 
   page,
   daemon,
 }) => {
-  test.setTimeout(90_000);
   const tracker = new TerminalSocketTracker(page);
   const dirs = await Promise.all(Array.from({ length: 7 }, () => scratchDirectory()));
   try {

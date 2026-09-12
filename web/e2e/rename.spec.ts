@@ -198,7 +198,6 @@ test("an override survives a daemon restart, on the mainhead/rail card, and in T
   page,
   daemon,
 }) => {
-  test.setTimeout(90_000);
   const dirs = await Promise.all(Array.from({ length: 5 }, () => scratchDirectory()));
   try {
     await page.goto(daemon.dashboardUrl);
