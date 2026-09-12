@@ -230,7 +230,48 @@ func RecordFromFields(relpath string, f Fields, body string, bodyLine int) (*Rec
 		}
 	}
 
-	scalar := func(fld Field) string { return fld.Values[0] }
+	assignFields(r, f, fail)
+
+	validateRequiredFields(r, fail)
+	validateID(r, expectedID, fail)
+	validateStatus(r, fail)
+	validateDate(r, fail)
+	validateSummary(r, fail)
+	validateTags(r, fail)
+	validateRoles(r, fail)
+	validateFeatures(r, expectedID, fail)
+	validateGuard(r, fail)
+	return r, out
+}
+
+// failFunc records one field-level finding against the record being built.
+type failFunc func(line int, format string, args ...any)
+
+// fieldAssign maps a frontmatter key to the Record field it fills. Two keys are absent
+// deliberately and handled in assignFields: "type" is already consumed by pass one, and
+// "verified" parses rather than assigns.
+var fieldAssign = map[string]func(*Record, Field){
+	"id":         func(r *Record, f Field) { r.ID = f.Values[0] },
+	"status":     func(r *Record, f Field) { r.Status = f.Values[0] },
+	"date":       func(r *Record, f Field) { r.Date = f.Values[0] },
+	"summary":    func(r *Record, f Field) { r.Summary = f.Values[0] },
+	"guard":      func(r *Record, f Field) { r.Guard = f.Values[0] },
+	"features":   func(r *Record, f Field) { r.Features = f.Values },
+	"tags":       func(r *Record, f Field) { r.Tags = f.Values },
+	"files":      func(r *Record, f Field) { r.Files = f.Values },
+	"tests":      func(r *Record, f Field) { r.Tests = f.Values },
+	"refs":       func(r *Record, f Field) { r.Refs = f.Values },
+	"supersedes": func(r *Record, f Field) { r.Supersedes = f.Values },
+	"roles":      func(r *Record, f Field) { r.Roles = f.Values },
+	"go":         func(r *Record, f Field) { r.Go = f.Values },
+	"web":        func(r *Record, f Field) { r.Web = f.Values },
+	"e2e":        func(r *Record, f Field) { r.E2E = f.Values },
+	"protocol":   func(r *Record, f Field) { r.Protocol = f.Values },
+}
+
+// assignFields fills r from the frontmatter in file order, rejecting fields that are
+// unknown, scoped to another type, or written in the wrong shape.
+func assignFields(r *Record, f Fields, fail failFunc) {
 	for _, fld := range f {
 		if only, scoped := typeFields[fld.Key]; scoped && only != r.Type {
 			fail(fld.Line, "field %q is only valid on %s records", fld.Key, only)
@@ -250,49 +291,26 @@ func RecordFromFields(relpath string, f Fields, body string, bodyLine int) (*Rec
 			continue
 		}
 		switch fld.Key {
-		case "id":
-			r.ID = scalar(fld)
 		case "type":
-		case "status":
-			r.Status = scalar(fld)
-		case "date":
-			r.Date = scalar(fld)
-		case "summary":
-			r.Summary = scalar(fld)
-		case "features":
-			r.Features = fld.Values
-		case "tags":
-			r.Tags = fld.Values
-		case "files":
-			r.Files = fld.Values
-		case "tests":
-			r.Tests = fld.Values
-		case "refs":
-			r.Refs = fld.Values
-		case "supersedes":
-			r.Supersedes = fld.Values
+			// Consumed by pass one, which needed the type before any other field.
 		case "verified":
-			vr, err := ParseVersionRange(scalar(fld))
+			vr, err := ParseVersionRange(fld.Values[0])
 			if err != nil {
 				fail(fld.Line, "%s", err.Error())
 			} else {
 				r.Verified = &vr
 			}
-		case "guard":
-			r.Guard = scalar(fld)
-		case "roles":
-			r.Roles = fld.Values
-		case "go":
-			r.Go = fld.Values
-		case "web":
-			r.Web = fld.Values
-		case "e2e":
-			r.E2E = fld.Values
-		case "protocol":
-			r.Protocol = fld.Values
+		default:
+			if assign, ok := fieldAssign[fld.Key]; ok {
+				assign(r, fld)
+			}
 		}
 	}
+}
 
+// validateRequiredFields reports the fields every record needs, plus the two that only
+// one type needs.
+func validateRequiredFields(r *Record, fail failFunc) {
 	for _, key := range []string{"id", "type", "status", "date", "summary"} {
 		if _, ok := r.FieldLine[key]; !ok {
 			fail(0, "missing required field %q", key)
@@ -306,7 +324,11 @@ func RecordFromFields(relpath string, f Fields, body string, bodyLine int) (*Rec
 	if r.Type == TypeLesson && len(r.Roles) == 0 {
 		fail(0, "missing required field %q (lesson records must name at least one role)", "roles")
 	}
+}
 
+// validateID checks the declared id against the one the path implies, and that the path's
+// own slug is well formed.
+func validateID(r *Record, expectedID string, fail failFunc) {
 	if line, ok := r.FieldLine["id"]; ok && r.ID != expectedID {
 		if r.Type == TypeSpec {
 			fail(line, "id %q does not match the feature directory %q", r.ID, expectedID)
@@ -317,23 +339,39 @@ func RecordFromFields(relpath string, f Fields, body string, bodyLine int) (*Rec
 	if !slugRE.MatchString(expectedID) || len(expectedID) > 64 {
 		fail(0, "%q is not a slug (want ^[a-z0-9][a-z0-9-]*$, at most 64 chars)", expectedID)
 	}
-	if line, ok := r.FieldLine["status"]; ok {
-		valid := liveStatuses
-		if r.Type == TypeDecision {
-			valid = decisionStatuses
-		}
-		if !contains(valid, r.Status) {
-			fail(line, "status %q is not valid for a %s (want %s)", r.Status, r.Type, joinOr(valid))
-		}
+}
+
+// validateStatus checks status against the set its type allows; only decisions carry the
+// proposed, superseded and rejected states.
+func validateStatus(r *Record, fail failFunc) {
+	line, ok := r.FieldLine["status"]
+	if !ok {
+		return
 	}
+	valid := liveStatuses
+	if r.Type == TypeDecision {
+		valid = decisionStatuses
+	}
+	if !contains(valid, r.Status) {
+		fail(line, "status %q is not valid for a %s (want %s)", r.Status, r.Type, joinOr(valid))
+	}
+}
+
+func validateDate(r *Record, fail failFunc) {
 	if line, ok := r.FieldLine["date"]; ok {
 		if _, err := time.Parse("2006-01-02", r.Date); err != nil {
 			fail(line, "date %q is not YYYY-MM-DD", r.Date)
 		}
 	}
+}
+
+func validateSummary(r *Record, fail failFunc) {
 	if line, ok := r.FieldLine["summary"]; ok && len(r.Summary) > SummaryChars {
 		fail(line, "summary is %d chars (budget %d)", len(r.Summary), SummaryChars)
 	}
+}
+
+func validateTags(r *Record, fail failFunc) {
 	if line, ok := r.FieldLine["tags"]; ok {
 		for _, tag := range r.Tags {
 			if !contains(Tags, tag) {
@@ -341,6 +379,9 @@ func RecordFromFields(relpath string, f Fields, body string, bodyLine int) (*Rec
 			}
 		}
 	}
+}
+
+func validateRoles(r *Record, fail failFunc) {
 	if line, ok := r.FieldLine["roles"]; ok {
 		for _, role := range r.Roles {
 			if !contains(Roles, role) {
@@ -348,20 +389,29 @@ func RecordFromFields(relpath string, f Fields, body string, bodyLine int) (*Rec
 			}
 		}
 	}
-	if line, ok := r.FieldLine["features"]; ok {
-		for _, name := range r.Features {
-			if !slugRE.MatchString(name) {
-				fail(line, "feature %q is not a slug", name)
-			}
-		}
-		if r.Type == TypeSpec && (len(r.Features) != 1 || r.Features[0] != expectedID) {
-			fail(0, "a spec record's features must be exactly [%s]", expectedID)
+}
+
+// validateFeatures checks each named feature is a slug, and that a spec record names
+// exactly its own feature.
+func validateFeatures(r *Record, expectedID string, fail failFunc) {
+	line, ok := r.FieldLine["features"]
+	if !ok {
+		return
+	}
+	for _, name := range r.Features {
+		if !slugRE.MatchString(name) {
+			fail(line, "feature %q is not a slug", name)
 		}
 	}
+	if r.Type == TypeSpec && (len(r.Features) != 1 || r.Features[0] != expectedID) {
+		fail(0, "a spec record's features must be exactly [%s]", expectedID)
+	}
+}
+
+func validateGuard(r *Record, fail failFunc) {
 	if line, ok := r.FieldLine["guard"]; ok && r.HasGuard() && !testRE.MatchString(r.Guard) {
 		fail(line, "guard %q is not a Go test name (or the word none)", r.Guard)
 	}
-	return r, out
 }
 
 func contains(list []string, v string) bool {

@@ -59,31 +59,61 @@ func Pack(ix *Index, opts PackOptions, w io.Writer) (int, error) {
 	var b strings.Builder
 	fmt.Fprintf(&b, "<!-- kb:pack plan=%s role=%s features=%s -->\n", opts.Plan, opts.Role, strings.Join(opts.Features, ","))
 
+	if err := writeRules(&b, ix, opts); err != nil {
+		return 0, err
+	}
+	writeFeatureSections(&b, ix, opts)
+	writeDecisions(&b, ix, opts)
+	writeProposedDecisions(&b, ix, opts)
+	writeFacts(&b, ix, opts)
+	writeLessons(&b, ix, opts)
+	writeRunbooks(&b, ix, opts)
+
+	words := len(strings.Fields(b.String()))
+	fmt.Fprintf(&b, "\nkb: pack %d words\n", words)
+	if words > PackWords {
+		fmt.Fprintf(&b, "kb: WARN pack exceeds budget of %d words\n", PackWords)
+	}
+	_, err := io.WriteString(w, b.String())
+	return words, err
+}
+
+// writeRules writes the conventions slice for the role, then the active rule records:
+// the feature-less ones first, then those naming one of the pack's features.
+func writeRules(b *strings.Builder, ix *Index, opts PackOptions) error {
 	b.WriteString("\n# Rules\n")
 	conv, err := os.ReadFile(filepath.Join(ix.Root, "docs", "conventions.md"))
 	switch {
 	case err == nil:
 		b.WriteString("\n" + strings.TrimRight(conventionsForRole(string(conv), opts.Role), "\n") + "\n")
 	case !errors.Is(err, fs.ErrNotExist):
-		return 0, fmt.Errorf("reading docs/conventions.md: %w", err)
+		return fmt.Errorf("reading docs/conventions.md: %w", err)
 	}
 	for _, r := range ix.RecordsOfType(TypeRule) {
 		if r.Status == "active" && len(r.Features) == 0 {
-			writeRecord(&b, ix, r)
+			writeRecord(b, ix, r)
 		}
 	}
 	for _, r := range ix.RecordsOfType(TypeRule) {
 		if r.Status == "active" && intersects(r.Features, opts.Features) {
-			writeRecord(&b, ix, r)
+			writeRecord(b, ix, r)
 		}
 	}
+	return nil
+}
 
+// writeFeatureSections writes each feature's spec body followed by its contract slice.
+func writeFeatureSections(b *strings.Builder, ix *Index, opts PackOptions) {
 	for _, name := range opts.Features {
 		f := ix.Feature(name)
-		fmt.Fprintf(&b, "\n# Feature: %s\n\n%s\n", name, strings.TrimSpace(f.Spec.Body))
+		fmt.Fprintf(b, "\n# Feature: %s\n\n%s\n", name, strings.TrimSpace(f.Spec.Body))
 		b.WriteString("\n" + strings.TrimSpace(renderContract(ix, f)) + "\n")
 	}
+}
 
+// writeDecisions writes the accepted decisions naming one of the pack's features, oldest
+// first, each trimmed to its Decision and Consequences paragraphs.
+func writeDecisions(b *strings.Builder, ix *Index, opts PackOptions) {
 	b.WriteString("\n# Decisions\n")
 	var decisions []*Record
 	for _, r := range ix.RecordsOfType(TypeDecision) {
@@ -98,43 +128,53 @@ func Pack(ix *Index, opts PackOptions, w io.Writer) (int, error) {
 		return decisions[i].ID < decisions[j].ID
 	})
 	for _, r := range decisions {
-		writeDecisionForPack(&b, ix, r)
+		writeDecisionForPack(b, ix, r)
 	}
-	if opts.Role == "review" || opts.Role == "planner" {
-		b.WriteString("\n# Decisions (proposed for this plan)\n")
-		for _, r := range ix.RecordsOfType(TypeDecision) {
-			if r.Status == "proposed" && contains(r.Refs, "plan:"+opts.Plan) {
-				writeRecord(&b, ix, r)
-			}
+}
+
+// writeProposedDecisions writes this plan's not-yet-accepted decisions, for the two roles
+// that rule on them.
+func writeProposedDecisions(b *strings.Builder, ix *Index, opts PackOptions) {
+	if opts.Role != "review" && opts.Role != "planner" {
+		return
+	}
+	b.WriteString("\n# Decisions (proposed for this plan)\n")
+	for _, r := range ix.RecordsOfType(TypeDecision) {
+		if r.Status == "proposed" && contains(r.Refs, "plan:"+opts.Plan) {
+			writeRecord(b, ix, r)
 		}
 	}
+}
 
+// writeFacts writes the active facts naming one of the pack's features.
+func writeFacts(b *strings.Builder, ix *Index, opts PackOptions) {
 	b.WriteString("\n# Facts\n")
 	for _, r := range ix.RecordsOfType(TypeFact) {
 		if r.Status == "active" && intersects(r.Features, opts.Features) {
-			writeRecord(&b, ix, r)
+			writeRecord(b, ix, r)
 		}
 	}
+}
+
+// writeLessons writes the active lessons for the role: a lesson naming no feature is
+// carried by every pack the role reads.
+func writeLessons(b *strings.Builder, ix *Index, opts PackOptions) {
 	b.WriteString("\n# Lessons\n")
 	for _, r := range ix.RecordsOfType(TypeLesson) {
 		if r.Status == "active" && contains(r.Roles, opts.Role) && (len(r.Features) == 0 || intersects(r.Features, opts.Features)) {
-			writeRecord(&b, ix, r)
+			writeRecord(b, ix, r)
 		}
 	}
+}
+
+// writeRunbooks writes the active runbooks naming one of the pack's features.
+func writeRunbooks(b *strings.Builder, ix *Index, opts PackOptions) {
 	b.WriteString("\n# Runbooks\n")
 	for _, r := range ix.RecordsOfType(TypeRunbook) {
 		if r.Status == "active" && intersects(r.Features, opts.Features) {
-			writeRecord(&b, ix, r)
+			writeRecord(b, ix, r)
 		}
 	}
-
-	words := len(strings.Fields(b.String()))
-	fmt.Fprintf(&b, "\nkb: pack %d words\n", words)
-	if words > PackWords {
-		fmt.Fprintf(&b, "kb: WARN pack exceeds budget of %d words\n", PackWords)
-	}
-	_, err = io.WriteString(w, b.String())
-	return words, err
 }
 
 // writeRecord renders one record as it appears in a pack or in kb show.

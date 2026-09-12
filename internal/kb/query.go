@@ -158,39 +158,55 @@ type ListFilter struct {
 	Guard   string
 }
 
+// resolveTypeFilter resolves --type to a Type by prefix or full name.
+func resolveTypeFilter(s string) (Type, error) {
+	if t, ok := typeForPrefix(s); ok {
+		return t, nil
+	}
+	if _, ok := dirOfType[Type(s)]; ok {
+		return Type(s), nil
+	}
+	return "", fmt.Errorf("unknown type %q (want %s)", s, joinOr(typeNames()))
+}
+
+// matchesFilter reports whether r satisfies every set field of f.
+func matchesFilter(r *Record, want Type, f ListFilter) bool {
+	if want != "" && r.Type != want {
+		return false
+	}
+	if f.Feature != "" && !contains(r.Features, f.Feature) {
+		return false
+	}
+	if f.Status != "" && r.Status != f.Status {
+		return false
+	}
+	if f.Role != "" && !contains(r.Roles, f.Role) {
+		return false
+	}
+	if f.Guard == "none" && (r.Type != TypeFact || r.HasGuard()) {
+		return false
+	}
+	return true
+}
+
 // List prints records matching every set filter, by type then id.
 func List(ix *Index, f ListFilter, w io.Writer) error {
 	var want Type
 	if f.Type != "" {
-		if t, ok := typeForPrefix(f.Type); ok {
-			want = t
-		} else if _, ok := dirOfType[Type(f.Type)]; ok {
-			want = Type(f.Type)
-		} else {
-			return fmt.Errorf("unknown type %q (want %s)", f.Type, joinOr(typeNames()))
+		t, err := resolveTypeFilter(f.Type)
+		if err != nil {
+			return err
 		}
+		want = t
 	}
 	if f.Guard != "" && f.Guard != "none" {
 		return fmt.Errorf("--guard accepts only none")
 	}
 	var hits []*Record
 	for _, r := range ix.Records {
-		if want != "" && r.Type != want {
-			continue
+		if matchesFilter(r, want, f) {
+			hits = append(hits, r)
 		}
-		if f.Feature != "" && !contains(r.Features, f.Feature) {
-			continue
-		}
-		if f.Status != "" && r.Status != f.Status {
-			continue
-		}
-		if f.Role != "" && !contains(r.Roles, f.Role) {
-			continue
-		}
-		if f.Guard == "none" && (r.Type != TypeFact || r.HasGuard()) {
-			continue
-		}
-		hits = append(hits, r)
 	}
 	sortRecords(hits)
 	var b strings.Builder

@@ -54,11 +54,8 @@ var (
 // line and bodyLine its 1-based first line. Any violation is a *SyntaxError.
 func ParseFrontmatter(src []byte) (fields Fields, body string, bodyLine int, err error) {
 	text := string(src)
-	if strings.HasPrefix(text, "---\r\n") {
-		return nil, "", 0, &SyntaxError{Line: 1, Msg: "CRLF line ending — the file must be LF"}
-	}
-	if !strings.HasPrefix(text, "---\n") && text != "---" {
-		return nil, "", 0, &SyntaxError{Line: 1, Msg: "no frontmatter: file does not start with ---"}
+	if err := checkOpening(text); err != nil {
+		return nil, "", 0, err
 	}
 	lines := strings.Split(text, "\n")
 	seen := map[string]int{}
@@ -72,11 +69,8 @@ func ParseFrontmatter(src []byte) (fields Fields, body string, bodyLine int, err
 			i++
 			break
 		}
-		if strings.ContainsRune(raw, '\r') {
-			return nil, "", 0, &SyntaxError{Line: lineNo, Msg: "CRLF line ending — the file must be LF"}
-		}
-		if strings.ContainsRune(raw, '\t') {
-			return nil, "", 0, &SyntaxError{Line: lineNo, Msg: "tab character in frontmatter"}
+		if err := checkLineChars(raw, lineNo); err != nil {
+			return nil, "", 0, err
 		}
 		if strings.TrimSpace(raw) == "" || strings.HasPrefix(raw, "#") {
 			i++
@@ -97,44 +91,20 @@ func ParseFrontmatter(src []byte) (fields Fields, body string, bodyLine int, err
 		case rest == "":
 			// Block list: consume the item lines that follow.
 			f.IsList = true
-			j := i + 1
-			for j < len(lines) {
-				im := blockItemRE.FindStringSubmatch(lines[j])
-				if im == nil {
-					break
-				}
-				item, perr := parseItem(im[1], j+1, false)
-				if perr != nil {
-					return nil, "", 0, perr
-				}
-				f.Values = append(f.Values, item)
-				j++
+			values, next, perr := parseBlockList(lines, i, key, lineNo)
+			if perr != nil {
+				return nil, "", 0, perr
 			}
-			if len(f.Values) == 0 {
-				return nil, "", 0, &SyntaxError{Line: lineNo, Msg: fmt.Sprintf("block list under %q has no items (write %s: [] for none)", key, key)}
-			}
-			i = j
+			f.Values = values
+			i = next
 		case !strings.HasPrefix(rest, " "):
 			return nil, "", 0, &SyntaxError{Line: lineNo, Msg: fmt.Sprintf("field %q needs a space after the colon", key)}
 		default:
-			val := rest[1:]
-			if strings.TrimSpace(val) == "" {
-				return nil, "", 0, &SyntaxError{Line: lineNo, Msg: fmt.Sprintf("field %q needs a value", key)}
+			values, isList, perr := parseScalarOrInlineList(rest[1:], key, lineNo)
+			if perr != nil {
+				return nil, "", 0, perr
 			}
-			if strings.HasPrefix(val, "[") {
-				items, perr := parseInlineList(val, lineNo)
-				if perr != nil {
-					return nil, "", 0, perr
-				}
-				f.IsList = true
-				f.Values = items
-			} else {
-				v, perr := parseItem(val, lineNo, true)
-				if perr != nil {
-					return nil, "", 0, perr
-				}
-				f.Values = []string{v}
-			}
+			f.Values, f.IsList = values, isList
 			i++
 		}
 		fields = append(fields, f)
@@ -144,6 +114,72 @@ func ParseFrontmatter(src []byte) (fields Fields, body string, bodyLine int, err
 	}
 	body = strings.Join(lines[i:], "\n")
 	return fields, body, i + 1, nil
+}
+
+// checkOpening rejects a file that does not open with an LF three-dash line.
+func checkOpening(text string) error {
+	if strings.HasPrefix(text, "---\r\n") {
+		return &SyntaxError{Line: 1, Msg: "CRLF line ending — the file must be LF"}
+	}
+	if !strings.HasPrefix(text, "---\n") && text != "---" {
+		return &SyntaxError{Line: 1, Msg: "no frontmatter: file does not start with ---"}
+	}
+	return nil
+}
+
+// checkLineChars rejects the two byte-level violations a frontmatter line can carry.
+func checkLineChars(raw string, lineNo int) error {
+	if strings.ContainsRune(raw, '\r') {
+		return &SyntaxError{Line: lineNo, Msg: "CRLF line ending — the file must be LF"}
+	}
+	if strings.ContainsRune(raw, '\t') {
+		return &SyntaxError{Line: lineNo, Msg: "tab character in frontmatter"}
+	}
+	return nil
+}
+
+// parseBlockList consumes the "  - item" lines following the bare "key:" at lines[i],
+// returning the items and the index of the first line past them. keyLine is the key's own
+// 1-based line, which carries the no-items error. A block list with no items is an error:
+// the empty list is written key: [].
+func parseBlockList(lines []string, i int, key string, keyLine int) (values []string, next int, err error) {
+	j := i + 1
+	for j < len(lines) {
+		im := blockItemRE.FindStringSubmatch(lines[j])
+		if im == nil {
+			break
+		}
+		item, perr := parseItem(im[1], j+1, false)
+		if perr != nil {
+			return nil, 0, perr
+		}
+		values = append(values, item)
+		j++
+	}
+	if len(values) == 0 {
+		return nil, 0, &SyntaxError{Line: keyLine, Msg: fmt.Sprintf("block list under %q has no items (write %s: [] for none)", key, key)}
+	}
+	return values, j, nil
+}
+
+// parseScalarOrInlineList reads the value after "key: " — a bracketed inline list, or a
+// single scalar.
+func parseScalarOrInlineList(val, key string, lineNo int) (values []string, isList bool, err error) {
+	if strings.TrimSpace(val) == "" {
+		return nil, false, &SyntaxError{Line: lineNo, Msg: fmt.Sprintf("field %q needs a value", key)}
+	}
+	if strings.HasPrefix(val, "[") {
+		items, perr := parseInlineList(val, lineNo)
+		if perr != nil {
+			return nil, false, perr
+		}
+		return items, true, nil
+	}
+	v, perr := parseItem(val, lineNo, true)
+	if perr != nil {
+		return nil, false, perr
+	}
+	return []string{v}, false, nil
 }
 
 // parseItem reads one scalar value or list item: a quoted string with backslash escapes

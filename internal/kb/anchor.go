@@ -27,6 +27,52 @@ type Anchor struct {
 	End     int
 }
 
+// heading is one prose heading of docs/protocol.md: its 1-based line, its level and its
+// text.
+type heading struct {
+	line, level int
+	text        string
+}
+
+// collectHeadings lists the prose headings of lines, in line order.
+func collectHeadings(lines []string, prose map[int]bool) []heading {
+	var headings []heading
+	for i, t := range lines {
+		if !prose[i+1] {
+			continue
+		}
+		if m := headingRE.FindStringSubmatch(t); m != nil {
+			headings = append(headings, heading{line: i + 1, level: len(m[1]), text: m[2]})
+		}
+	}
+	return headings
+}
+
+// findHeadingAt returns the heading sitting on line, or nil.
+func findHeadingAt(headings []heading, line int) *heading {
+	for k := range headings {
+		if headings[k].line == line {
+			return &headings[k]
+		}
+	}
+	return nil
+}
+
+// computeParentAndEnd finds next's nearest preceding level-two heading and the last line
+// before the following heading at or above next's level. end comes in as the document's
+// last line and is narrowed. Both depend on headings being in line order.
+func computeParentAndEnd(headings []heading, next *heading, end int) (parent string, _ int) {
+	for _, h := range headings {
+		if next.level == 3 && h.line < next.line && h.level == 2 {
+			parent = h.text
+		}
+		if h.line > next.line && h.level <= next.level && h.line-1 < end {
+			end = h.line - 1
+		}
+	}
+	return parent, end
+}
+
 // ParseAnchors reads every kb:anchor comment in protocol (design §7): each must sit on
 // the line immediately before a level-two or level-three heading outside a code fence,
 // and ids must be unique. order lists ids by line.
@@ -37,19 +83,7 @@ func ParseAnchors(protocol string) (anchors map[string]Anchor, order []string, f
 	for _, ln := range proseLines(protocol) {
 		prose[ln.N] = true
 	}
-	type heading struct {
-		line, level int
-		text        string
-	}
-	var headings []heading
-	for i, t := range lines {
-		if !prose[i+1] {
-			continue
-		}
-		if m := headingRE.FindStringSubmatch(t); m != nil {
-			headings = append(headings, heading{line: i + 1, level: len(m[1]), text: m[2]})
-		}
-	}
+	headings := collectHeadings(lines, prose)
 	firstLine := map[string]int{}
 	for i, t := range lines {
 		if !prose[i+1] {
@@ -60,13 +94,7 @@ func ParseAnchors(protocol string) (anchors map[string]Anchor, order []string, f
 			continue
 		}
 		id, lineNo := m[1], i+1
-		var next *heading
-		for k := range headings {
-			if headings[k].line == lineNo+1 {
-				next = &headings[k]
-				break
-			}
-		}
+		next := findHeadingAt(headings, lineNo+1)
 		if next == nil || next.level < 2 || next.level > 3 {
 			findings = append(findings, Finding{Path: protocolPath, Line: lineNo,
 				Msg: fmt.Sprintf("kb:anchor %q is not immediately followed by a ## or ### heading", id)})
@@ -79,14 +107,7 @@ func ParseAnchors(protocol string) (anchors map[string]Anchor, order []string, f
 		}
 		firstLine[id] = lineNo
 		a := Anchor{ID: id, Line: lineNo, Level: next.level, Heading: next.text, Start: next.line, End: len(lines)}
-		for _, h := range headings {
-			if next.level == 3 && h.line < next.line && h.level == 2 {
-				a.Parent = h.text
-			}
-			if h.line > next.line && h.level <= next.level && h.line-1 < a.End {
-				a.End = h.line - 1
-			}
-		}
+		a.Parent, a.End = computeParentAndEnd(headings, next, a.End)
 		anchors[id] = a
 		order = append(order, id)
 	}

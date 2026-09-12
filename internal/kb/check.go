@@ -84,14 +84,36 @@ func (c *checker) loadTestFuncs() error {
 }
 
 func (c *checker) checkRecord(r *Record) {
-	ix := c.ix
+	c.checkFeatureRefs(r)
+	c.checkFileGlobs(r)
+	for _, t := range r.Tests {
+		c.checkTestEntry(r, "tests entry", t)
+	}
+	for _, ref := range r.Refs {
+		c.checkRef(r, ref)
+	}
+	c.checkGuardEntry(r)
+	c.checkVerifiedRange(r)
+	c.checkSupersedesRefs(r)
+	c.checkProtocolRefs(r)
+	c.checkBodyBudget(r)
+	// A feature with more live records than its rules file can hold is not a source
+	// defect: gen truncates the file at RuleFileLines with a pointer at the feature INDEX,
+	// so the tier-1 context stays bounded by construction. Failing here would push authors
+	// to file records under the wrong feature to dodge the budget.
+}
+
+func (c *checker) checkFeatureRefs(r *Record) {
 	for _, name := range r.Features {
-		if ix.Feature(name) == nil {
+		if c.ix.Feature(name) == nil {
 			c.fail(r.Path, 0, "feature %q has no docs/features/%s/spec.md", name, name)
 		}
 	}
+}
+
+func (c *checker) checkFileGlobs(r *Record) {
 	for _, g := range r.Files {
-		if len(Expand(ix.Tree, g)) == 0 {
+		if len(Expand(c.ix.Tree, g)) == 0 {
 			c.fail(r.Path, 0, "files entry %q matches no file", g)
 		}
 	}
@@ -100,30 +122,34 @@ func (c *checker) checkRecord(r *Record) {
 		v []string
 	}{{"go", r.Go}, {"web", r.Web}, {"e2e", r.E2E}} {
 		for _, g := range kv.v {
-			if len(Expand(ix.Tree, g)) == 0 {
+			if len(Expand(c.ix.Tree, g)) == 0 {
 				c.fail(r.Path, 0, "%s entry %q matches no file", kv.k, g)
 			}
 		}
 	}
-	for _, t := range r.Tests {
-		c.checkTestEntry(r, "tests entry", t)
-	}
-	for _, ref := range r.Refs {
-		c.checkRef(r, ref)
-	}
+}
+
+func (c *checker) checkGuardEntry(r *Record) {
 	if r.HasGuard() && !c.testFuncs[r.Guard] {
 		c.fail(r.Path, 0, "guard %q — no func %s( in any *_test.go", r.Guard, r.Guard)
 	}
-	if r.Verified != nil && !r.Verified.HiCanary && ix.Verified != "" {
-		switch {
-		case compareVersion(r.Verified.Hi, ix.Verified) > 0:
-			c.fail(r.Path, 0, "verified upper bound %s exceeds the observed ceiling %s (%s)", r.Verified.Hi, ix.Verified, observedVersionsPath)
-		case compareVersion(r.Verified.Hi, ix.Floor) < 0:
-			c.fail(r.Path, 0, "verified upper bound %s is below the observed floor %s — re-verify and raise it, or set status: retired", r.Verified.Hi, ix.Floor)
-		}
+}
+
+func (c *checker) checkVerifiedRange(r *Record) {
+	if r.Verified == nil || r.Verified.HiCanary || c.ix.Verified == "" {
+		return
 	}
+	switch {
+	case compareVersion(r.Verified.Hi, c.ix.Verified) > 0:
+		c.fail(r.Path, 0, "verified upper bound %s exceeds the observed ceiling %s (%s)", r.Verified.Hi, c.ix.Verified, observedVersionsPath)
+	case compareVersion(r.Verified.Hi, c.ix.Floor) < 0:
+		c.fail(r.Path, 0, "verified upper bound %s is below the observed floor %s — re-verify and raise it, or set status: retired", r.Verified.Hi, c.ix.Floor)
+	}
+}
+
+func (c *checker) checkSupersedesRefs(r *Record) {
 	for _, id := range r.Supersedes {
-		old, ok := ix.ByID[id]
+		old, ok := c.ix.ByID[id]
 		switch {
 		case !ok || old.Type != TypeDecision:
 			c.fail(r.Path, 0, "supersedes %q — no such decision", id)
@@ -131,18 +157,20 @@ func (c *checker) checkRecord(r *Record) {
 			c.fail(r.Path, 0, "supersedes %q but %s has status %s (want superseded)", id, old.Path, old.Status)
 		}
 	}
+}
+
+func (c *checker) checkProtocolRefs(r *Record) {
 	for _, id := range r.Protocol {
-		if _, ok := ix.Anchors[id]; !ok {
+		if _, ok := c.ix.Anchors[id]; !ok {
 			c.fail(r.Path, 0, "protocol entry %q — no kb:anchor with that id in %s", id, protocolPath)
 		}
 	}
+}
+
+func (c *checker) checkBodyBudget(r *Record) {
 	if r.BodyWords > r.bodyBudget() {
 		c.fail(r.Path, 0, "body is %d words (budget %d for a %s)", r.BodyWords, r.bodyBudget(), r.Type)
 	}
-	// A feature with more live records than its rules file can hold is not a source
-	// defect: gen truncates the file at RuleFileLines with a pointer at the feature INDEX,
-	// so the tier-1 context stays bounded by construction. Failing here would push authors
-	// to file records under the wrong feature to dodge the budget.
 }
 
 func (c *checker) checkTestEntry(r *Record, label, t string) {
