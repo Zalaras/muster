@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isThemeChoice,
   readThemeHint,
   resolveTheme,
   THEMES,
@@ -48,6 +49,27 @@ describe("resolveTheme (REQ-7, INV-1)", () => {
         expect(resolveTheme(name, family)).toBe(name);
       }
     }
+  });
+});
+
+// REQ-9: the Settings radios' guard. The daemon stores `prefs.theme` opaquely
+// (kb:adr/theme-pref-enum-follow-not-nullable), so this is the only validation between a
+// radio click and the PUT — a value it rejects drops the click silently, leaving the radio
+// dead. The registry loop below is the point of the whole test: it fails if the guard is
+// ever hand-listed again and a THEMES entry is added without it.
+describe("isThemeChoice (REQ-9)", () => {
+  it("accepts every registered theme name (derived from THEMES, not hand-listed)", () => {
+    for (const name of THEMES) {
+      expect(isThemeChoice(name)).toBe(true);
+    }
+  });
+
+  it("accepts 'follow', which is a choice rather than a registry member", () => {
+    expect(isThemeChoice("follow")).toBe(true);
+  });
+
+  it.each(["solarized", "", "Dark", "instrument "])("rejects %o", (value) => {
+    expect(isThemeChoice(value)).toBe(false);
   });
 });
 
