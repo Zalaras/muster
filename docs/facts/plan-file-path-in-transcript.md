@@ -35,4 +35,5 @@ mode, written by every version from 2.1.233 to 2.1.270, and all 39 resolve a pat
 `plan_mode`, 34 `plan_mode_exit`, 1 `plan_mode_reentry` lines; 28 files exist), whole corpus in
 268 ms. The range stops at 2.1.269 only because that is the canary's observed ceiling; 2.1.270
 was measured too and holds.
-Prototype locator: `internal/claudecode/plan.go` on branch `spike/markdown-viewing`.
+Prototype locator: the `LocatePlanFile` scan on branch `spike/markdown-viewing` (worktree
+`../muster-spike-markdown`), not on `main`.
