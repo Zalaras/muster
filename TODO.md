@@ -83,7 +83,18 @@ the mobile/responsive pass rem-ifies the pixel layer.
   (`next-steps.md` §6, deleted 2026-09-11).
 
 - [ ] **Markdown viewing** — render a session's markdown files in the dashboard, including
-  whatever plan a Claude Code session is working from.
+  whatever plan a Claude Code session is working from. **Spiked 2026-09-13** on branch
+  `spike/markdown-viewing` (worktree `../muster-spike-markdown`, prototype only, not for
+  landing); findings, numbers and the proposed shape are in
+  `docs/history/design/markdown-viewing.md` — **read it before planning**. The wire fact it
+  rests on is `kb:fact/plan-file-path-in-transcript`. Short version: the plan's path is
+  derivable from the `transcript_path` every hook carries (39 of 39 plan-mode sessions on
+  this machine resolve; the whole 176 MB corpus scans in under half a second), a `PostToolUse`
+  `Write` on that path is the change signal already on the wire, and rendering costs about
+  24 kB gzip in the browser (marked + DOMPurify) or 150 kB in the binary (goldmark +
+  bluemonday). Decisions left for `/plan-work`: renderer side (browser recommended), where
+  the viewer sits (third surface segment vs a drawer), what counts as "a session's markdown
+  files", and whether a mtime poll backs the hook signal — plus an ADR for the pinned deps.
 
 Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start-from-PR/issue
 (§4.3) → permissions UI (§4.4) → `code <worktree>` button (trivial, anytime).
