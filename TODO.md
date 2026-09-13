@@ -75,16 +75,6 @@ v1.0.0 (last below) is the final step, done only once everything above it has la
   hint extended so a reload doesn't flash. Deferred from `ui-text-and-focus` (Damian, 2026-09-03):
   tokens first, control later — the `--fs-*` ramp shipped there is the thing this control turns.
 
-- [ ] **Usage gauges are dead on API-key auth** ([#9](https://github.com/Zalaras/muster/issues/9))
-  — the ask is "support API usage billing as well". On a subscription the gauges come from the
-  status line's `rate_limits`; under API-key auth that key is **absent entirely** (`kb:spec/usage`,
-  measured), so the gauges honestly render "unknown" and never move. The seam is already named:
-  `usage.source` is `subscription` today with `api`/`otel` reserved
-  (`internal/usage/aggregator.go:14-15`). Scope decision comes first — an `api` source
-  reporting *tokens* fits the existing seam, but if what's wanted is spend in dollars it runs
-  into the explicit v1 non-goal (`kb:adr/nongoal-cost-tracking`), which is a superseding ADR, not a
-  plan.
-
 - [ ] **`/claude-code-upgrade` skill** — a thin wrapper over the version ritual in
   `docs/claude-code-versions.md` (canary → extend the verified range → README → commit). Deferred
   until upgrades are routine; the doc alone suffices. Carried from the retired session plan
@@ -245,8 +235,29 @@ unless he re-ranks — don't re-sort this list.
 
 ## M5+ (v1.x, re-rank when reached)
 
-Empty as of 2026-09-12 — everything formerly here now blocks v1 (see Pre-v1 Cleanup above).
 New post-v1 ideas go here.
+
+- [ ] **Usage under API-key auth** ([#9](https://github.com/Zalaras/muster/issues/9)) — the ask
+  is "support API usage billing as well". **Moved out of Pre-v1 Cleanup on 2026-09-13** (Damian:
+  park it post-v1) after a spike answered whether it's even possible. Findings, traps and the
+  proposed shape are in `docs/history/design/api-key-usage.md` — **read it before planning**;
+  the wire facts it rests on are `kb:fact/otel-usage-metrics-shape` and
+  `kb:fact/status-line-cost-is-local-estimate`. The short version:
+
+  - **The gauge cannot be repaired.** Under API-key auth `rate_limits` is absent because both
+    windows come from subscription-only response headers, and an API key has per-minute
+    throughput limits rather than a budget window — there is no quantity a bar could show.
+    The fix is a different surface, not a fixed gauge.
+  - **Tokens and dollars are both reachable**, from two sources that agree exactly: the status
+    line's `cost.total_cost_usd` (already in every post Muster ingests, no auth gate, no new
+    infrastructure) and Claude Code's OTel export (`claude_code.cost.usage` /
+    `claude_code.token.usage` — the only source of *cumulative tokens*).
+  - **The dollars are an estimate, not an invoice** — computed locally from a list-price
+    table. The authoritative billed figure needs an Admin API key, which the docs say is
+    "unavailable for individual accounts", i.e. out of reach for the reporter of #9.
+  - Gate: `kb:adr/nongoal-cost-tracking` (rejected) still binds and needs a superseding ADR
+    before this can be planned — not a plan. `docs/features/usage/spec.md` § Does not moves
+    with it.
 
 - [ ] **Remote access (mobile app / website)** — connect to Muster from outside the local
   network, not just the LAN dashboard. Needs a design pass: today sessions/tmux/hooks are
