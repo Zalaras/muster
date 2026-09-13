@@ -194,15 +194,19 @@ transcript assertion would attach.
 4. **Change signal** — `Write` hook only (measured), or also a bounded mtime poll while the
    viewer is open, for edits made outside Claude.
 
-## 10. Leads outside this spike
+## 10. Lead checked and closed: no inter-process plan approval
 
-The same bundle read turned up an inter-session **peer protocol** (`peerProtocol: 1`,
-`messagingSocketPath: /tmp/cc-socks/<pid>.sock` in `~/.claude/sessions/<pid>.json`) with
-typed messages `plan_approval_request {from, timestamp, planFilePath, planContent, requestId}`
-and `plan_approval_response {requestId, approved, feedback?, permissionMode?}`. Unverified
-beyond the schema, but it is a direct lead for SPEC § 3.1 "plan approval from the
-dashboard" that does not need the `PermissionRequest` race
-(`kb:fact/permission-request-races-terminal-prompt`). Worth its own `/interface-probe`.
+The bundle read turned up typed `plan_approval_request` / `plan_approval_response` messages and an
+inter-session peer socket (`/tmp/cc-socks/<pid>.sock`, `messagingSocketPath` in
+`~/.claude/sessions/<pid>.json`), which looked like a route to SPEC § 3.1 "plan approval from the
+dashboard" without the `PermissionRequest` race. Probed statically the same day
+(`kb:fact/plan-approval-request-teammate-only`): the request is built only when `ExitPlanMode`
+runs inside a **teammate agent spawned with plan mode required**, and it goes into the team
+lead's file inbox (`~/.claude/teams/<team>/inboxes/<agent>.json`) for another Claude session to
+answer. A top-level session takes the local dialog branch, so nothing crosses a process
+boundary for Muster to catch. On disk: 15 inbox files, none with a plan approval; 51
+`ExitPlanMode` calls, all top-level. Dashboard plan approval still rests on
+`kb:fact/permission-request-races-terminal-prompt`.
 
 ## Limitations
 
