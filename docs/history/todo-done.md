@@ -993,6 +993,38 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
   passed on v5.0.0, `make check` green, `make e2e` → 302 passed, and no `clearMocks` pin in the
   config.
 
+- [x] **`isThemeChoice` should derive from the theme registry** ✅ done 2026-09-13 (direct on
+  `main` — two files and a test, no pipeline). `web/src/features/settings.ts` hard-coded the four
+  radio values as a second copy of the theme list. Since the daemon stores `prefs.theme` opaquely
+  behind a slug pattern (`kb:adr/theme-pref-enum-follow-not-nullable` — "the client owns the
+  registry"), that guard was the *only* validation between a radio click and the PUT, so a THEMES
+  entry it didn't know left its radio looking fine and doing nothing: the `change` listener just
+  dropped the click. Nothing would have caught it — `settings.ts` has no unit test by design
+  (`plans/new-ui-design-colors/web-tests.md:58-64` names this guard as "not worth a seam of its
+  own"; Vitest runs in Node with no jsdom) and the E2E only exercises the three themes that ship.
+  Fixed by moving the guard to `web/src/theme.ts`, the registry module, as
+  `value === "follow" || isThemeName(value)` — reusing the private `isThemeName` that already had
+  the `readonly string[]` idiom, rather than duplicating it one module away from the list it
+  reads. `"follow"` stays a literal: it is a choice, not a registry member. `settings.ts`'s
+  type-only import of `ThemeChoice` became a mixed value+type import; no new module edge
+  (`theme.ts` → `protocol.ts` → nothing, and `features/theme.ts` already imported it as a value).
+  Evidence the derivation is real, not just tidier: with a fourth entry `"nord"` temporarily added
+  to `THEMES` and nothing else touched, `web/src/theme.test.ts` stayed green (33 passed); pasting
+  the old hand-listed body back under the same registry failed the new test —
+  `× accepts every registered theme name (derived from THEMES, not hand-listed)`,
+  `AssertionError: expected false to be true`. Registry restored to the three shipped themes;
+  `make check` green (1452 Vitest, all Go packages ok, contrast 0 failures, kb 333 records
+  0 problems, dead-refs 0 missing) and `npx playwright test theme.spec.ts` → 17 passed, including
+  E4 (picking Dark reaches `GET /api/state` as `prefs.theme === "dark"`) and INV-7. **Deliberately
+  left alone:** `web/index.html` hard-codes the four radios and `web/e2e/helpers/theme.ts`'s
+  `ThemeRadioLabel` plus E2's `toHaveCount(4)` hard-code the four labels, so
+  `docs/features/theme/spec.md`'s "a source block in the stylesheet plus an entry in the client
+  registry" is still only partly true. Those three are a deliberate pin on the shipped UI — a test
+  asserting four radios *should* fail when a fifth theme is added, which is loud. The guard was
+  the only one of the four that failed silently. Generating the radios from `THEMES` would mean
+  reshaping the registry from a string tuple into entry records carrying display labels, which
+  wants its own ADR. Cite: `plans/new-ui-design-colors/review.md` (cycle 1, Minor 1, `[web-impl]`).
+
 ## Reported issues (pre-v1 release)
 <!-- kb: adr/surfaces-tmux-preflight-at-startup, adr/theme-two-layer-tokens-not-white-label, adr/drop-daemon-locates-original-never-stages, adr/focus-rail-click-focuses-terminal, adr/launch-permission-modes-offered-four-tabbed, adr/surfaces-scroll-speed-via-launch-env, adr/surfaces-scrollback-affordance-not-built, adr/shortcuts-option-command-family-off-reserved-chords, adr/rename-muster-owned-title-override-wins, adr/lifecycle-subagent-marked-events-not-stragglers, adr/rail-current-marker-means-shown-in-focus, adr/theme-contrast-floors-above-aa, adr/theme-type-scale-tokens-15px-root, adr/surfaces-shell-is-attach-target-not-session -->
 

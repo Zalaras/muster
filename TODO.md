@@ -148,12 +148,6 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
   is measured-correct and ships one file, no build/distribution story); revisit if the
   per-event cost is ever felt on a tool-heavy turn.
 
-- [ ] **`isThemeChoice` should derive from the theme registry** — `web/src/features/settings.ts` (moved from `render/` by plan `code-breakup`)
-  hard-codes the four radio values instead of reading `THEMES`, so adding a theme (REQ-1's
-  "one block plus one registry entry") would silently leave its radio dead until this guard
-  is also edited. Suggested: `value === "follow" || (THEMES as readonly string[]).includes(value)`.
-  Cite: `plans/new-ui-design-colors/review.md` (cycle 1, Minor 1, `[web-impl]`).
-
 - [ ] **A Homebrew tap** — **split out of the installer item above on 2026-09-10** (Damian:
   "we'll skip brew for now"), then folded into this section on 2026-09-12, so it blocks v1
   like everything else here; it sits last by priority, not because anything blocks it. Its
