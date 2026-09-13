@@ -70,10 +70,12 @@ Everything below is now blocking a v1 release (Damian, 2026-09-12: no v1 until a
 in) — a mix of small cleanup and full features that used to be filed as post-v1. **Cutting
 v1.0.0 (last below) is the final step, done only once everything above it has landed.**
 
-- [ ] **Text-size setting** — `prefs.textSize` enum (`small | medium | large`), a Settings-dialog
-  segmented control beside Theme, `<html data-text-size>` driving `--fs-root`, and the first-paint
-  hint extended so a reload doesn't flash. Deferred from `ui-text-and-focus` (Damian, 2026-09-03):
-  tokens first, control later — the `--fs-*` ramp shipped there is the thing this control turns.
+~~**Text-size setting**~~ — **dropped 2026-09-13**, `kb:adr/nongoal-ui-scaling-delegated-to-browser-zoom`.
+A `/spec` pass established the want was *UI* size, not text size; every spacing dimension in
+`web/src/style.css` is a pixel literal, so a `--fs-root` pref would grow type inside chrome that
+doesn't move. Browser zoom scales the pixel layer and the terminal together and persists per origin
+(the daemon's address is a fixed default), so it is the control. Don't re-derive; revisit only if
+the mobile/responsive pass rem-ifies the pixel layer.
 
 - [ ] **`/claude-code-upgrade` skill** — a thin wrapper over the version ritual in
   `docs/claude-code-versions.md` (canary → extend the verified range → README → commit). Deferred
