@@ -423,6 +423,23 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
 ## Pre-v1 Cleanup
 <!-- kb: adr/process-composition-roots-registration-only, adr/process-one-name-per-feature, adr/rail-user-owned-manual-order-default, adr/tiles-slot-stable-grid-never-self-sorts, adr/theme-no-traffic-light-state-palette, adr/usage-model-window-polled-from-oauth-api, adr/launch-picker-recent-sidebar-plus-browse-list, adr/tiles-new-session-button-in-toolbar, adr/connection-dashboard-embedded-in-binary, adr/release-builds-cross-compiled-on-linux, adr/release-distribution-github-release-not-brew, adr/release-no-ci-test-job-yet, adr/issue-payload-allowlist-never-dump, adr/process-e2e-explicit-fixtures, adr/process-faked-subprocess-boundary, adr/process-exec-waitdelay-on-pipe-owning-commands, adr/canary-plan-mode-step-three-sole-residual, adr/canary-verified-range-observed-not-pinned, adr/process-repo-public, adr/release-install-front-door-curl-sh, adr/update-check-pref-governs-checking-only, adr/process-transient-displays-not-oracles, adr/triage-program-not-model-between-github-and-todo -->
 
+- [x] **`/claude-code-upgrade` skill** — ✅ done 2026-09-13 (direct on `main`: the skill, a
+  correction to the ritual doc, a `CLAUDE.md` pointer and this move). Filed as "a thin wrapper
+  over the version ritual in `docs/claude-code-versions.md` (canary → extend the verified range →
+  README → commit)", deferred on the grounds that the doc alone sufficed. Both halves of that
+  turned out wrong. Two of the four steps were already automated — `make canary` ends with
+  `go run ./tools/versions bump`, which appends the row and rewrites the version fragments, so
+  nobody hand-edits a range. And the doc was wrong where it mattered: it claimed the record and
+  those fragments were the **only** files a bump touches. Facts guarded by the canary carry the
+  symbolic ceiling `verified: <floor>..canary`, which `internal/kb` resolves when it renders, so
+  ~21 generated files (`docs/INDEX.md`, the per-feature `INDEX.md` files, `.claude/rules/*.md`)
+  embed the literal ceiling and go stale on a bump. Commit `30c4cf8` proved it by committing
+  three files and leaving `make check-kb` red until an unrelated commit repaired it by accident.
+  The skill exists for the judgement the doc omitted: run `make gen-kb`, commit the regenerated
+  files with the record, never `git commit -am` (which `bump` itself prints), and never touch a
+  fact record on a green run. Carried from the retired session plan (`next-steps.md` §6, deleted
+  2026-09-11).
+
 - [x] **Installer verifies `checksums.txt.minisig` too** — ✅ **decided, not built** 2026-09-12
   (direct on `main`: an ADR, a README section and this move; no code changed).
   `kb:adr/release-installer-signature-check-not-built` records the refusal. A public key pasted

@@ -67,6 +67,9 @@ The only mechanism is the environment variable, set in the `env` block of
 
 ## The green ritual
 
+**`/claude-code-upgrade` drives this ritual end to end** (`.claude/skills/claude-code-upgrade/SKILL.md`);
+this section is the reference it follows, and stays the source of truth for why.
+
 `make canary` (non-offline) ends with `go run ./tools/versions bump`, which runs
 automatically after a green `go test`:
 
@@ -83,10 +86,23 @@ automatically after a green `go test`:
   ```
 
   A `fix` commit cuts a patch release (docs/conventions.md §Commits), so anyone already on
-  `<installed>` stops seeing the warning as soon as the release ships. The record and the
-  fragments `gen` rewrites are the **only** files a bump touches: `internal/claudecode`'s unit
-  tests recompute the ceiling from the rows rather than restating it, so no test needs a hand
-  edit (it did until 2026-09-12, and the ritual never said so).
+  `<installed>` stops seeing the warning as soon as the release ships. No **test** needs a hand
+  edit: `internal/claudecode`'s unit tests recompute the ceiling from the rows rather than
+  restating it (they did until 2026-09-12, and the ritual never said so).
+
+  **A bump is not finished until `make gen-kb` has run.** The record and the fragments `gen`
+  rewrites are not the only files that move, though this section claimed so until 2026-09-13.
+  Facts guarded by the canary carry the symbolic ceiling `verified: <floor>..canary`, which
+  `internal/kb` resolves against the record when it renders, so every generated file listing one
+  embeds the literal ceiling — `docs/INDEX.md`, the per-feature `INDEX.md` files and
+  `.claude/rules/*.md`, ~21 files. A ceiling bump makes all of them stale and `make check-kb`
+  fails them. Commit `30c4cf8` is the proof: it committed the record and the two fragments alone
+  and left the tree red until an unrelated commit repaired it by accident. Run `make gen-kb`,
+  then `make check`, and commit the regenerated files with the record.
+
+  Fact records themselves are **not** edited by a green bump: `..canary` ceilings follow the
+  record automatically, and the literal ceilings on `guard: none` facts are deliberately frozen
+  at what was measured. Those move in the red ritual only.
 - Record file already has **uncommitted changes** when `bump` runs — refuses, exits
   non-zero, naming the reason; nothing is edited (a green run never overwrites work in
   progress on the one file it writes to).

@@ -77,11 +77,6 @@ doesn't move. Browser zoom scales the pixel layer and the terminal together and 
 (the daemon's address is a fixed default), so it is the control. Don't re-derive; revisit only if
 the mobile/responsive pass rem-ifies the pixel layer.
 
-- [ ] **`/claude-code-upgrade` skill** — a thin wrapper over the version ritual in
-  `docs/claude-code-versions.md` (canary → extend the verified range → README → commit). Deferred
-  until upgrades are routine; the doc alone suffices. Carried from the retired session plan
-  (`next-steps.md` §6, deleted 2026-09-11).
-
 - [ ] **Markdown viewing** — render a session's markdown files in the dashboard, including
   whatever plan a Claude Code session is working from. **Spiked 2026-09-13** on branch
   `spike/markdown-viewing` (worktree `../muster-spike-markdown`, prototype only, not for

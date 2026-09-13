@@ -92,8 +92,8 @@ anything with acceptance criteria.
 ## Testing bar
 
 Functional E2E always (real daemon, scratch repo); unit tests for specific logic (state
-machine, reconcile, JSON merge). `make canary` gates any Claude Code version bump — the
-ritual is `docs/claude-code-versions.md`.
+machine, reconcile, JSON merge). `make canary` gates any Claude Code version bump — run it
+through `/claude-code-upgrade`; the ritual it follows is `docs/claude-code-versions.md`.
 
 ## Doc upkeep (end of every session)
 
