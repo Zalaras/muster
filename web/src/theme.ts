@@ -13,6 +13,16 @@ function isThemeName(value: string): value is ThemeName {
   return (THEMES as readonly string[]).includes(value);
 }
 
+/** REQ-9's Settings-radio guard: every registry name, plus `"follow"`. Derived from THEMES
+ * so a new theme stays "a `[data-theme]` block plus a THEMES entry" — a hand-listed copy
+ * silently leaves the new radio dead, since the daemon stores the value opaquely
+ * (kb:adr/theme-pref-enum-follow-not-nullable) and this is the only validation there is
+ * (`plans/new-ui-design-colors/review.md` cycle 1, Minor 1). `"follow"` stays a literal:
+ * it is a choice, not a registry member. */
+export function isThemeChoice(value: string): value is ThemeChoice {
+  return value === "follow" || isThemeName(value);
+}
+
 /** REQ-7's resolver: a known theme name wins outright; `"follow"` or any unrecognised
  * string (a renamed/removed theme, edge case 6) resolves by Claude's family —
  * `"light"` -> `"light"`, `"dark"`/`"unknown"` -> `"instrument"`. Pure; INV-1 covers

@@ -5,7 +5,7 @@
 import type { App } from "../app";
 import { putPrefs } from "../api";
 import { requireElement, requireElements } from "../dom";
-import type { ThemeChoice } from "../theme";
+import { isThemeChoice, type ThemeChoice } from "../theme";
 
 export interface SettingsDialogElements {
   dialog: HTMLDialogElement;
@@ -44,10 +44,6 @@ export interface SettingsDialogController {
    * toggle's own `prefs.updateCheck`-only source of truth — same INV-7 discipline, one
    * more field on the same broadcast-driven call. */
   setChecked: (theme: string, updateCheck: boolean) => void;
-}
-
-function isThemeChoice(value: string): value is ThemeChoice {
-  return value === "follow" || value === "instrument" || value === "dark" || value === "light";
 }
 
 export function initSettingsDialog(
