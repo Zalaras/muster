@@ -88,7 +88,7 @@ Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start
 Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-09-01) is in
 `docs/history/design/worktree-conflicts.md` — read it before planning the worktree manager.
 
-- [ ] **Richer terminal functionality** (post-release) — the first pass
+- [ ] **Richer terminal functionality** — a second pass over the shell. The first pass
   (`plans/plain-terminal-session/spec.md`, #21 — cross-reference; the owning entry is in the history file)
   deliberately ships the smallest useful shell: one per Claude session, tethered to its
   directory, ephemeral. What a second pass could pick up, once there's real usage behind the
@@ -153,10 +153,12 @@ Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-
   Cite: `plans/new-ui-design-colors/review.md` (cycle 1, Minor 1, `[web-impl]`).
 
 - [ ] **A Homebrew tap** — **split out of the installer item above on 2026-09-10** (Damian:
-  "we'll skip brew for now"). Deferred originally because a *private* tap needs
-  `GitHubPrivateRepositoryReleaseDownloadStrategy` plus a permanent
-  `HOMEBREW_GITHUB_API_TOKEN` (SPEC 2026-08-31). Not blocked by anything — a priority call,
-  not a dependency. **Scoped 2026-09-10** (GoReleaser docs via context7, against this repo's
+  "we'll skip brew for now"), then folded into this section on 2026-09-12, so it blocks v1
+  like everything else here; it sits last by priority, not because anything blocks it. Its
+  original deferral reason is gone — that was the *private*-tap cost
+  (`GitHubPrivateRepositoryReleaseDownloadStrategy` plus a permanent
+  `HOMEBREW_GITHUB_API_TOKEN`, SPEC 2026-08-31), and the repo is public now.
+  **Scoped 2026-09-10** (GoReleaser docs via context7, against this repo's
   `.goreleaser.yaml` and `release.yml`); this supersedes the "a `brews:` block and a tap repo,
   nothing more" reading, which was wrong on two counts:
 
