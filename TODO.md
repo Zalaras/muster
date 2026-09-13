@@ -248,6 +248,12 @@ unless he re-ranks — don't re-sort this list.
 Empty as of 2026-09-12 — everything formerly here now blocks v1 (see Pre-v1 Cleanup above).
 New post-v1 ideas go here.
 
+- [ ] **Remote access (mobile app / website)** — connect to Muster from outside the local
+  network, not just the LAN dashboard. Needs a design pass: today sessions/tmux/hooks are
+  all localhost-only (single-user, macOS, no auth beyond LAN trust per `CLAUDE.md`), so this
+  implies at minimum an auth story and either a tunnel/relay or a public-facing listener —
+  genuinely unsettled, wants a `/spec` pass before planning.
+
 ## Open questions carried forward
 
 From `spikes/FINDINGS.md` "Still open" and the open-question ADRs (`go run ./tools/kb ls --type adr --status proposed`). None block M0.
