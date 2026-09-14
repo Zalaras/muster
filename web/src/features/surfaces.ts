@@ -58,8 +58,10 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
     const current = getSurfaceState(surfaceSwitchState, id);
     if (current.selected === kind) return;
 
-    if (kind === "claude") {
-      surfaceSwitchState = selectSurface(surfaceSwitchState, id, "claude");
+    // Plan markdown-viewing REQ-1/Affected Files: `docs` is a pure selection, same as
+    // `claude` — no daemon round trip, unlike `shell`'s lazy spawn below.
+    if (kind === "claude" || kind === "docs") {
+      surfaceSwitchState = selectSurface(surfaceSwitchState, id, kind);
       app.render();
       return;
     }
@@ -100,8 +102,18 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
     for (const id of visibleSessionIds()) {
       const session = sessions.find((s) => s.id === id);
       if (!session) continue;
-      if (!isSurfaceAttachable(surfaceSwitchState, id, session.alive)) continue;
-      entries.push({ id, kind: getSurfaceState(surfaceSwitchState, id).selected });
+      const state = getSurfaceState(surfaceSwitchState, id);
+      if (isSurfaceAttachable(surfaceSwitchState, id, session.alive)) {
+        entries.push({ id, kind: state.selected });
+      }
+      // Plan markdown-viewing INV-1: `docs` never has a `TerminalSurface` of its own,
+      // but a shell still running underneath it must stay attached in the background
+      // (never mounted — focus.ts/tiles.ts only ever ask for the *selected* kind) so its
+      // `onShellEnded` still fires and clears the pip/reverts state even while it isn't
+      // the displayed surface.
+      if (state.selected === "docs" && state.shellRunning) {
+        entries.push({ id, kind: "shell" });
+      }
     }
     return entries;
   }
@@ -144,8 +156,9 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
 
   app.on("sessionRemoved", (id) => {
     // REQ-9: Remove kills both tmux sessions server-side; the client mirrors that by
-    // dropping whichever of the two composite-keyed surfaces exists.
-    for (const kind of ["claude", "shell"] as const) {
+    // dropping whichever of the composite-keyed surfaces exists. `docs` never has a
+    // mounted `TerminalSurface` (INV-1) — included for symmetry, always a no-op `.get`.
+    for (const kind of ["claude", "shell", "docs"] as const) {
       const key = surfaceKey(id, kind);
       surfaces.get(key)?.dispose();
       surfaces.delete(key);

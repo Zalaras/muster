@@ -56,6 +56,9 @@ export interface TilesDeps {
     select(id: number, kind: SurfaceKind, findDeadRefs: () => DeadSurfaceRefs | null): void;
   };
   getRenameHandlers(): TileRenameHandlers;
+  /** Plan markdown-viewing: `reader` is constructed after `tiles` (main.ts's init
+   * order), so this is a thunk like `getSurfaces` above — invoked only from `renderView`. */
+  getReader(): { rootFor(id: number): HTMLElement | null };
 }
 
 export interface TilesHandle {
@@ -153,6 +156,20 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
   /** Fills one tile's body slot: the selected surface, or the dead-pane surface when the
    * session has exited and Claude is the selected surface. Owns the tile's geometry frame
    * either way, so the two paths cannot disagree about what was rendered. */
+  /** Plan markdown-viewing REQ-15: the reader replaces the tile body for `docs`,
+   * regardless of `alive` — no `TerminalSurface` ever exists for it (INV-1). Split out
+   * of `renderTileBody` purely to keep that function's cognitive complexity under the
+   * project ceiling. */
+  function renderReaderTileBody(refs: TileRefs, session: Session, isNewTile: boolean): void {
+    const readerRoot = deps.getReader().rootFor(session.id);
+    if (readerRoot && (isNewTile || refs.bodySlot.firstElementChild !== readerRoot)) {
+      refs.bodySlot.replaceChildren(readerRoot);
+    } else if (!readerRoot) {
+      refs.bodySlot.replaceChildren();
+    }
+    renderTileGeometry(refs, session.alive, null);
+  }
+
   function renderTileBody(
     refs: TileRefs,
     session: Session,
@@ -161,6 +178,14 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
     now: Date,
     connected: boolean,
   ): void {
+    // This must be checked before the generic surface branch below, which would
+    // otherwise find nothing (docs never has a `TerminalSurface`) and leave the tile
+    // body empty.
+    if (selected === "docs") {
+      renderReaderTileBody(refs, session, isNewTile);
+      return;
+    }
+
     if (session.alive || selected !== "claude") {
       const surface = deps.getSurfaces().get(session.id, selected);
       if (surface) {

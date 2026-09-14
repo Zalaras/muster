@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isSupportedProtocolVersion,
+  parseDocChanged,
   parseMessage,
   parseSession,
   PROTOCOL_VERSION,
@@ -867,6 +868,7 @@ const validSession = {
   pinned: false,
   railPos: 5,
   titleOverride: null,
+  plan: null,
 };
 
 // The measured "no data yet" shape (docs/history/spikes/canary-fields.md): a session that has just
@@ -895,6 +897,7 @@ const freshLaunchSession = {
   pinned: false,
   railPos: 6,
   titleOverride: null,
+  plan: null,
 };
 
 describe("parseSession — full kb:anchor/ws.session shape", () => {
@@ -1098,6 +1101,93 @@ describe("parseSession — titleOverride (plan ui-text-and-focus kb:anchor/ws.se
 
   it("rejects a non-string, non-null titleOverride (e.g. numeric)", () => {
     expect(parseSession({ ...validSession, titleOverride: 42 })).toBeNull();
+  });
+});
+
+describe("parseSession — plan (plan markdown-viewing kb:anchor/ws.session REQ-17, W10: required on every wire Session, never defaulted)", () => {
+  it("parses plan: null (the transcript names no plan at all — never entered plan mode, or /clear minted a fresh planless transcript)", () => {
+    const session = { ...validSession, plan: null };
+    expect(parseSession(session)).toEqual(session);
+  });
+
+  it("parses a populated plan object (exists: true)", () => {
+    const session = {
+      ...validSession,
+      plan: { path: "/Users/damian/.claude/plans/say-hi-golden-finch.md", exists: true },
+    };
+    expect(parseSession(session)).toEqual(session);
+  });
+
+  it("parses a plan object with exists: false (plan mode entered, nothing written yet)", () => {
+    const session = {
+      ...validSession,
+      plan: { path: "/Users/damian/.claude/plans/say-hi-golden-finch.md", exists: false },
+    };
+    expect(parseSession(session)).toEqual(session);
+  });
+
+  it("rejects a session missing plan entirely (no pre-plan-daemon tolerance for this field)", () => {
+    const { plan, ...rest } = validSession;
+    expect(parseSession(rest)).toBeNull();
+  });
+
+  it("rejects a plan object missing path", () => {
+    expect(parseSession({ ...validSession, plan: { exists: true } })).toBeNull();
+  });
+
+  it("rejects a plan object missing exists", () => {
+    expect(
+      parseSession({ ...validSession, plan: { path: "/Users/damian/.claude/plans/x.md" } }),
+    ).toBeNull();
+  });
+
+  it("rejects a non-object, non-null plan (e.g. a bare string)", () => {
+    expect(parseSession({ ...validSession, plan: "no plan yet" })).toBeNull();
+  });
+});
+
+describe("parseDocChanged (plan markdown-viewing kb:anchor/ws.doc-changed, W10)", () => {
+  const validDocChanged = {
+    type: "docChanged",
+    id: 7,
+    path: "/Users/damian/code/Projects/muster/TODO.md",
+    at: "2026-09-13T09:15:00Z",
+  };
+
+  it("parses a well-formed docChanged message", () => {
+    expect(parseDocChanged(validDocChanged)).toEqual(validDocChanged);
+  });
+
+  it("rejects a docChanged missing path", () => {
+    const { path, ...rest } = validDocChanged;
+    expect(parseDocChanged(rest)).toBeNull();
+  });
+
+  it("rejects a docChanged missing id", () => {
+    const { id, ...rest } = validDocChanged;
+    expect(parseDocChanged(rest)).toBeNull();
+  });
+
+  it("rejects a docChanged missing at", () => {
+    const { at, ...rest } = validDocChanged;
+    expect(parseDocChanged(rest)).toBeNull();
+  });
+
+  it("rejects a non-numeric id", () => {
+    expect(parseDocChanged({ ...validDocChanged, id: "7" })).toBeNull();
+  });
+
+  it("rejects a non-string path", () => {
+    expect(parseDocChanged({ ...validDocChanged, path: 42 })).toBeNull();
+  });
+
+  it("routes through parseMessage the same way (dispatch parity with every other message type)", () => {
+    expect(parseMessage(validDocChanged)).toEqual(validDocChanged);
+  });
+
+  it("parseMessage rejects a docChanged with a missing field, same as calling parseDocChanged directly", () => {
+    const { path, ...rest } = validDocChanged;
+    expect(parseMessage(rest)).toBeNull();
   });
 });
 

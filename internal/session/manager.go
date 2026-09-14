@@ -606,6 +606,63 @@ func (m *Manager) SetTitle(ctx context.Context, id int64, title *string) (bool, 
 	return true, nil
 }
 
+// SetTranscript records id's latest known transcript path (REQ-16), persisting only
+// when it actually changed and never broadcasting (D15 — every hook carries the same
+// field, and a no-op write per hook would double the ingest worker's SQLite traffic).
+// Refused (no persist, changed=false) when claudeSessionID no longer names id's current
+// binding — REQ-26/INV-8: a straggler from before a `/clear` must never move the
+// transcript backwards. Returns ErrUnknownSession for an unknown id.
+func (m *Manager) SetTranscript(ctx context.Context, id int64, claudeSessionID, path string) (bool, error) {
+	m.mu.Lock()
+	sess, ok := m.sessions[id]
+	if !ok {
+		m.mu.Unlock()
+		return false, ErrUnknownSession
+	}
+	if sess.ClaudeSessionID != claudeSessionID || sess.TranscriptPath == path {
+		m.mu.Unlock()
+		return false, nil
+	}
+	sess.TranscriptPath = path
+	row := sessionToRow(sess)
+	m.mu.Unlock()
+
+	if err := m.store.UpdateSession(ctx, row); err != nil {
+		return false, fmt.Errorf("persisting transcript path for session %d: %w", id, err)
+	}
+	return true, nil
+}
+
+// SetPlan records id's derived plan file (REQ-16/REQ-17/REQ-18), persisting and
+// broadcasting a sessionUpsert only when path or exists actually changed. Refused (no
+// persist, changed=false, the session's current snapshot returned) when
+// claudeSessionID no longer names id's current binding (REQ-26/INV-8) — a straggler's
+// scan or write must never move the plan. path == "" is the wire plan:null.
+func (m *Manager) SetPlan(ctx context.Context, id int64, claudeSessionID, path string, exists bool) (*Session, bool, error) {
+	m.mu.Lock()
+	sess, ok := m.sessions[id]
+	if !ok {
+		m.mu.Unlock()
+		return nil, false, ErrUnknownSession
+	}
+	if sess.ClaudeSessionID != claudeSessionID || (sess.PlanPath == path && sess.PlanExists == exists) {
+		snapshot := sess.Clone()
+		m.mu.Unlock()
+		return snapshot, false, nil
+	}
+	sess.PlanPath = path
+	sess.PlanExists = exists
+	row := sessionToRow(sess)
+	snapshot := sess.Clone()
+	m.mu.Unlock()
+
+	if err := m.store.UpdateSession(ctx, row); err != nil {
+		return nil, false, fmt.Errorf("persisting plan for session %d: %w", id, err)
+	}
+	m.broadcast(snapshot)
+	return snapshot, true, nil
+}
+
 // List returns every known session (order unspecified — the client sorts).
 func (m *Manager) List() []*Session {
 	m.mu.Lock()
@@ -1024,6 +1081,18 @@ func (m *Manager) markEnded(ctx context.Context, id int64) (*Session, error) {
 	return snapshot, nil
 }
 
+// applyReaderRowFields copies the reader's optional TranscriptPath/PlanPath columns onto
+// s — split out of rowToSession to keep it under the gocyclo ceiling (docs/conventions.md
+// § Go): two more inline ifs there would have pushed it over 15.
+func applyReaderRowFields(s *Session, row store.SessionRow) {
+	if row.TranscriptPath != nil {
+		s.TranscriptPath = *row.TranscriptPath
+	}
+	if row.PlanPath != nil {
+		s.PlanPath = *row.PlanPath
+	}
+}
+
 func rowToSession(row store.SessionRow) *Session {
 	s := &Session{
 		ID:                   row.ID,
@@ -1046,7 +1115,9 @@ func rowToSession(row store.SessionRow) *Session {
 		Pinned:               row.Pinned,
 		RailPos:              row.RailPos,
 		TitleOverride:        row.TitleOverride,
+		PlanExists:           row.PlanExists,
 	}
+	applyReaderRowFields(s, row)
 	if row.TmuxPane != nil {
 		s.TmuxPane = *row.TmuxPane
 	}
@@ -1117,6 +1188,15 @@ func sessionToRow(s *Session) store.SessionRow {
 		Pinned:               s.Pinned,
 		RailPos:              s.RailPos,
 		TitleOverride:        s.TitleOverride,
+		PlanExists:           s.PlanExists,
+	}
+	if s.TranscriptPath != "" {
+		transcriptPath := s.TranscriptPath
+		row.TranscriptPath = &transcriptPath
+	}
+	if s.PlanPath != "" {
+		planPath := s.PlanPath
+		row.PlanPath = &planPath
 	}
 	if s.TmuxPane != "" {
 		pane := s.TmuxPane

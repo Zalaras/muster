@@ -423,6 +423,22 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
 ## Pre-v1 Cleanup
 <!-- kb: adr/process-composition-roots-registration-only, adr/process-one-name-per-feature, adr/rail-user-owned-manual-order-default, adr/tiles-slot-stable-grid-never-self-sorts, adr/theme-no-traffic-light-state-palette, adr/usage-model-window-polled-from-oauth-api, adr/launch-picker-recent-sidebar-plus-browse-list, adr/tiles-new-session-button-in-toolbar, adr/connection-dashboard-embedded-in-binary, adr/release-builds-cross-compiled-on-linux, adr/release-distribution-github-release-not-brew, adr/release-no-ci-test-job-yet, adr/issue-payload-allowlist-never-dump, adr/process-e2e-explicit-fixtures, adr/process-faked-subprocess-boundary, adr/process-exec-waitdelay-on-pipe-owning-commands, adr/canary-plan-mode-step-three-sole-residual, adr/canary-verified-range-observed-not-pinned, adr/process-repo-public, adr/release-install-front-door-curl-sh, adr/update-check-pref-governs-checking-only, adr/process-transient-displays-not-oracles, adr/triage-program-not-model-between-github-and-todo -->
 
+- [x] **Markdown viewing** — ✅ done 2026-09-14 (plan `markdown-viewing`, via `/orchestrate`;
+  approved review cycle 6). Shipped as the `docs` third surface: the reader, its file nav and
+  outline, the pop-out at `/doc.html`, the transcript-scan plan locator and `docChanged`. Render a session's markdown files in the dashboard, including
+  whatever plan a Claude Code session is working from. **Spiked 2026-09-13** on branch
+  `spike/markdown-viewing` (worktree `../muster-spike-markdown`, prototype only, not for
+  landing); findings, numbers and the proposed shape are in
+  `docs/history/design/markdown-viewing.md` — **read it before planning**. The wire fact it
+  rests on is `kb:fact/plan-file-path-in-transcript`. Short version: the plan's path is
+  derivable from the `transcript_path` every hook carries (39 of 39 plan-mode sessions on
+  this machine resolve; the whole 176 MB corpus scans in under half a second), a `PostToolUse`
+  `Write` on that path is the change signal already on the wire, and rendering costs about
+  24 kB gzip in the browser (marked + DOMPurify) or 150 kB in the binary (goldmark +
+  bluemonday). Decisions left for `/plan-work`: renderer side (browser recommended), where
+  the viewer sits (third surface segment vs a drawer), what counts as "a session's markdown
+  files", and whether a mtime poll backs the hook signal — plus an ADR for the pinned deps.
+
 - [x] **`/claude-code-upgrade` skill** — ✅ done 2026-09-13 (direct on `main`: the skill, a
   correction to the ritual doc, a `CLAUDE.md` pointer and this move). Filed as "a thin wrapper
   over the version ritual in `docs/claude-code-versions.md` (canary → extend the verified range →

@@ -21,6 +21,7 @@ import { initIssue } from "./features/issue";
 import { initTiles } from "./features/tiles";
 import { initFocus } from "./features/focus";
 import { initSurfaces } from "./features/surfaces";
+import { initReader } from "./features/reader";
 import { initRail } from "./features/rail";
 import { initViews } from "./features/views";
 import { initRename } from "./features/rename";
@@ -45,13 +46,16 @@ const tiles = initTiles(app, {
   actions,
   getSurfaces: () => surfaces,
   getRenameHandlers: () => rename.tileRenameHandlers,
+  getReader: () => reader,
 });
 const focus = initFocus(app, {
   actions,
   getSurfaces: () => surfaces,
   promoteTile: tiles.promote,
+  getReader: () => reader,
 });
 const surfaces = initSurfaces(app, { tilesLive: () => tiles.liveIds() });
+const reader = initReader(app, { tilesLive: () => tiles.liveIds(), getSurfaces: () => surfaces });
 initRail(app, { actions, surfaces });
 const views = initViews(app);
 // Render phase order (UI Specifications > Render phase order — behaviour-bearing):
@@ -62,9 +66,10 @@ const views = initViews(app);
 //  5. tiles    — membership: tilesLive tracks density (initTiles)
 //  6. focus    — default focusedId (initFocus)
 //  7. surfaces — open/close diff over (id, kind) keys (initSurfaces)
-//  8. rail     — renderSessions, count, sort select (initRail)
-//  9. views    — switcher, density control, view containers' hidden (initViews)
-// 10. focus (view) in Focus, else tiles (view) in Tiles — the one phase inherently split
+//  8. reader   — mount/dispose diff over docs-selected sessions (initReader)
+//  9. rail     — renderSessions, count, sort select (initRail)
+// 10. views    — switcher, density control, view containers' hidden (initViews)
+// 11. focus (view) in Focus, else tiles (view) in Tiles — the one phase inherently split
 //     across two controllers by shared state, so it is registered here rather than
 //     inside either controller's own init.
 app.onRender((frame) => {
@@ -116,6 +121,10 @@ const client = new WsClient(wsUrl, {
     app.render();
   },
   onClaudeTheme: (family) => app.emit("claudeTheme", family),
+  onDocChanged: (msg) => {
+    app.emit("docChanged", msg);
+    app.render();
+  },
   onUpdate: (updateInfo) => {
     app.emit("update", updateInfo);
     app.render();

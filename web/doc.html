@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Muster — document</title>
+    <!-- Same no-wrong-theme-first-frame script as index.html (REQ-11) — deliberately
+         duplicated, not imported; see index.html's copy for why. -->
+    <script>
+      (function () {
+        try {
+          var raw = localStorage.getItem("muster.theme-hint");
+          if (!raw) return;
+          var hint = JSON.parse(raw);
+          if (hint && typeof hint.theme === "string") document.documentElement.dataset.theme = hint.theme;
+          if (hint && typeof hint.family === "string") document.documentElement.dataset.claudeFamily = hint.family;
+        } catch (e) {
+          // swallowed — see comment above.
+        }
+      })();
+    </script>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="reader-host" class="reader-host"></div>
+
+    <template id="reader-template">
+      <section class="reader">
+        <div class="docbar">
+          <span class="badge">plan</span>
+          <span class="fname"></span>
+          <span class="path"></span>
+          <span class="chg"><i aria-hidden="true"></i><span class="chgtext"></span></span>
+          <a class="ib" target="_blank" rel="noopener">pop out ↗</a>
+          <button type="button" class="arr" data-role="arr-collapsed" aria-label="Show files">‹</button>
+        </div>
+        <div class="reader-notice" role="status" hidden></div>
+        <article class="md"></article>
+        <nav class="rnav" aria-label="Documents">
+          <div class="hd" data-role="plan-header">
+            <span class="plan-label">plan</span>
+            <button type="button" class="arr" data-role="arr-open" aria-label="Hide files">›</button>
+          </div>
+          <div class="plan-slot" data-role="plan-slot"></div>
+          <div class="sep"></div>
+          <button type="button" class="hd toggle" data-role="files-toggle" aria-expanded="true" aria-label="Files">
+            <span class="dir"></span>
+          </button>
+          <input type="search" class="filter" placeholder="filter files…" aria-label="Filter files" />
+          <div class="tree" data-role="tree"></div>
+          <div class="sep"></div>
+          <button type="button" class="hd toggle" data-role="outline-toggle" aria-expanded="true" aria-label="Outline">outline</button>
+          <div class="outline" data-role="outline"></div>
+        </nav>
+      </section>
+    </template>
+
+    <script type="module" src="/src/doc.ts"></script>
+  </body>
+</html>

@@ -139,6 +139,149 @@ func RawPostToolUse(sessionID string, opts TurnActivityOpts) string {
 	})
 }
 
+// ToolFileOpts customizes RawPostToolUseFile/RawPreToolUseTool beyond their defaults
+// (plan markdown-viewing: REQ-13/REQ-16/REQ-18/REQ-26 fixtures).
+type ToolFileOpts struct {
+	PromptID       string // default "p1"
+	PermissionMode string // default "default" (RawPreToolUseTool defaults to "plan" instead)
+	// TranscriptPath overrides the hook's transcript_path (default "/tmp/t.jsonl") —
+	// the only place a session's plan slug lives (kb:fact/plan-file-path-in-transcript).
+	TranscriptPath string
+	// AgentID, when non-empty, marks the hook as subagent-fired (kb:fact/subagent-hooks-carry-agent-id):
+	// agent_id/agent_type are added, matching RawPostToolUse's existing marker shape.
+	AgentID string
+}
+
+func (o ToolFileOpts) promptID() string {
+	if o.PromptID == "" {
+		return "p1"
+	}
+	return o.PromptID
+}
+
+func (o ToolFileOpts) transcriptPath() string {
+	if o.TranscriptPath == "" {
+		return "/tmp/t.jsonl"
+	}
+	return o.TranscriptPath
+}
+
+// RawPostToolUseFile returns a raw `PostToolUse` naming toolName/filePath in
+// tool_name/tool_input.file_path — the docChanged/plan-scan fixture (REQ-13, REQ-18):
+// a chosen tool, transcript path and optional subagent marker, so server tests never
+// spell the wire keys themselves.
+func RawPostToolUseFile(sessionID, toolName, filePath string, opts ToolFileOpts) string {
+	permissionMode := opts.PermissionMode
+	if permissionMode == "" {
+		permissionMode = "default"
+	}
+	body := map[string]any{
+		"hook_event_name": "PostToolUse",
+		"session_id":      sessionID,
+		"transcript_path": opts.transcriptPath(),
+		"cwd":             "/tmp",
+		"prompt_id":       opts.promptID(),
+		"permission_mode": permissionMode,
+		"tool_name":       toolName,
+		"tool_input":      map[string]any{"file_path": filePath},
+		"tool_use_id":     "tu1",
+		"tool_response":   map[string]any{"ok": true},
+		"duration_ms":     42,
+	}
+	if opts.AgentID != "" {
+		body["agent_id"] = opts.AgentID
+		body["agent_type"] = "general-purpose"
+	}
+	return marshal(body)
+}
+
+// RawPreToolUseTool returns a raw `PreToolUse` for toolName — REQ-16's `ExitPlanMode`
+// scan trigger (kb:fact/plan-mode-hook-sequence: step 1 of leaving plan mode is
+// `PreToolUse{tool_name:"ExitPlanMode", permission_mode:"plan"}`), generalized to any
+// tool name for the "other PreToolUse tools must not scan" side of D6.
+func RawPreToolUseTool(sessionID, toolName string, opts ToolFileOpts) string {
+	permissionMode := opts.PermissionMode
+	if permissionMode == "" {
+		permissionMode = "plan"
+	}
+	body := map[string]any{
+		"hook_event_name": "PreToolUse",
+		"session_id":      sessionID,
+		"transcript_path": opts.transcriptPath(),
+		"cwd":             "/tmp",
+		"prompt_id":       opts.promptID(),
+		"permission_mode": permissionMode,
+		"tool_name":       toolName,
+		"tool_input":      map[string]any{},
+		"tool_use_id":     "tu0",
+	}
+	if opts.AgentID != "" {
+		body["agent_id"] = opts.AgentID
+		body["agent_type"] = "general-purpose"
+	}
+	return marshal(body)
+}
+
+// EnvelopedSessionStartTranscript returns an enveloped `SessionStart` naming
+// transcriptPath — REQ-16's first scan trigger, kept separate from
+// EnvelopedSessionStart/SessionStartOpts (m1-sessions territory) so this plan's own
+// fixture need is additive, not a reshape of an existing one.
+func EnvelopedSessionStartTranscript(sessionID, transcriptPath string, opts SessionStartOpts) string {
+	musterSession := opts.MusterSession
+	if musterSession == 0 {
+		musterSession = 1
+	}
+	tmuxPane := opts.TmuxPane
+	if tmuxPane == "" {
+		tmuxPane = "%12"
+	}
+	source := opts.Source
+	if source == "" {
+		source = "startup"
+	}
+	payload := map[string]any{
+		"hook_event_name": "SessionStart",
+		"session_id":      sessionID,
+		"transcript_path": transcriptPath,
+		"cwd":             "/tmp",
+		"source":          source,
+	}
+	if !opts.OmitModel {
+		modelID := opts.ModelID
+		if modelID == "" {
+			modelID = "claude-haiku-4-5-20251001"
+		}
+		payload["model"] = modelID
+	}
+	return marshal(map[string]any{
+		"musterSession": musterSession,
+		"tmuxPane":      tmuxPane,
+		"payload":       payload,
+	})
+}
+
+// PlanAttachmentLine returns one transcript JSONL line naming planFilePath via a
+// plan_mode*/planFilePath attachment (kb:fact/plan-file-path-in-transcript).
+// attachmentType is one of "plan_mode", "plan_mode_exit" or "plan_mode_reentry" — every
+// attachment type the fact record says LocatePlanFile must accept.
+func PlanAttachmentLine(attachmentType, planFilePath string, planExists bool) string {
+	return marshal(map[string]any{
+		"type": "attachment",
+		"attachment": map[string]any{
+			"type":         attachmentType,
+			"planFilePath": planFilePath,
+			"planExists":   planExists,
+		},
+	})
+}
+
+// SlugLine returns one transcript JSONL line carrying only a top-level slug — the
+// fallback shape LocatePlanFile resolves to "<home>/.claude/plans/<slug>.md" when no
+// planFilePath-carrying line exists yet.
+func SlugLine(slug string) string {
+	return marshal(map[string]any{"type": "user", "slug": slug})
+}
+
 // RawNotification returns a raw `Notification` — the two observed types that drive
 // needs_input (canary-fields.md "Values worth asserting"); permission_mode is never
 // present on this event.

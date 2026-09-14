@@ -25,6 +25,40 @@ export interface ConnectionHandle {
   showProtocolMismatch(): void;
 }
 
+/** The DOM-free half of connection tracking: writes `app.state.connection` and holds
+ * `everConnected` (true only once a `hello` has ever arrived, so a socket that hasn't
+ * connected yet reads "connecting" rather than flashing "reconnecting"/unreachable on
+ * first load). `initConnection` below wraps this with the dashboard's masthead/banner
+ * rendering; `doc.ts` (review cycle 5 Critical 1 — the pop-out had no writer for
+ * `app.state.connection` at all, so its reader stayed permanently "unreachable") uses it
+ * directly, since `/doc.html` has none of the elements `initConnection` requires. */
+export interface ConnectionState {
+  connected(): void;
+  disconnected(): void;
+}
+
+export function createConnectionState(
+  app: App,
+  onChange?: (status: ConnectionStatus) => void,
+): ConnectionState {
+  let everConnected = false;
+
+  function set(status: ConnectionStatus): void {
+    if (status === "connected") everConnected = true;
+    app.state.connection = status;
+    onChange?.(status);
+  }
+
+  return {
+    connected() {
+      set("connected");
+    },
+    disconnected() {
+      set(everConnected ? "reconnecting" : "connecting");
+    },
+  };
+}
+
 export function initConnection(app: App): ConnectionHandle {
   const connectionStatusEl = requireElement<HTMLElement>("#connection-status");
   const bannerEl = requireElement<HTMLElement>("#banner");
@@ -32,16 +66,16 @@ export function initConnection(app: App): ConnectionHandle {
   const shellEl = requireElement<HTMLElement>("#app");
   const mismatchEl = requireElement<HTMLElement>("#protocol-mismatch");
 
-  let everConnected = false;
   // No hello has arrived yet — same "unknown, not empty" honesty rule as any other
   // no-data-yet readout (design-system §6).
   renderClaudeVersion(claudeVersionEl, null);
 
-  function set(status: ConnectionStatus): void {
-    if (status === "connected") everConnected = true;
-    app.state.connection = status;
+  const state = createConnectionState(app, (status) => {
     renderConnectionStatus(connectionStatusEl, status);
-    renderBanner(bannerEl, everConnected && status !== "connected");
+    // Equivalent to the original `everConnected && status !== "connected"`: `disconnected()`
+    // can only produce "reconnecting" when a hello has ever arrived, and only "connecting"
+    // when it hasn't, so the banner condition collapses to this one comparison.
+    renderBanner(bannerEl, status === "reconnecting");
     // States (m4-reconcile): "Daemon down ... Dialogs, if open, close" — every dialog
     // controller subscribes to this event itself rather than being reached from here.
     if (status !== "connected") app.emit("status", status);
@@ -49,15 +83,15 @@ export function initConnection(app: App): ConnectionHandle {
     // into its last render call — re-render on every transition (down and back up) so
     // button-disabled state never goes stale.
     app.render();
-  }
+  });
 
   return {
     connected(claudeCode) {
-      set("connected");
+      state.connected();
       renderClaudeVersion(claudeVersionEl, claudeCode);
     },
     disconnected() {
-      set(everConnected ? "reconnecting" : "connecting");
+      state.disconnected();
     },
     showProtocolMismatch() {
       shellEl.hidden = true;

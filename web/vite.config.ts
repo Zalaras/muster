@@ -39,6 +39,15 @@ export default defineConfig({
     // path — `make web-build`, `make e2e` — keeps maps so a failing spec still yields an
     // original-source stack trace.
     sourcemap: process.env.MUSTER_RELEASE !== "1",
+    // Plan markdown-viewing (kb:adr/reader-popout-is-a-second-page): `doc.html` is a
+    // second, independent entry — its own composition root (`src/doc.ts`), not a route
+    // inside `index.html`'s bundle.
+    rollupOptions: {
+      input: {
+        index: fileURLToPath(new URL("./index.html", import.meta.url)),
+        doc: fileURLToPath(new URL("./doc.html", import.meta.url)),
+      },
+    },
   },
   plugins: [keepGitkeep],
 });

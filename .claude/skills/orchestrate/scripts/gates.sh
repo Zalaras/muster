@@ -2,11 +2,16 @@
 # Run the pipeline's baseline gates plus a plan's authored ```checks block, fresh.
 #
 # Usage (from anywhere; the script cds to the project root):
-#   gates.sh <plan> [--no-e2e] [--checks-only] [--baseline-only]
+#   gates.sh <plan> [--no-e2e] [--checks-only] [--baseline-only] [--wave 1|2|3]
 #
 #   --no-e2e         omit `make e2e` from the baseline (a daemon plan whose Step 1 was skipped)
 #   --checks-only    run only the plan's ```checks block
 #   --baseline-only  run only the baseline gates
+#   --wave N         the gate for one fix wave: that wave's build/test/e2e commands for the
+#                    side(s) the branch touched, plus every authored check the wave can reach
+#                    (wave 1 skips the test and e2e suites, wave 2 skips e2e, wave 3 runs all).
+#                    A wave gate that named only build/test/e2e let a wave pass while the plan's
+#                    own `make web-lint` check was red (markdown-viewing retro, 2026-09-14).
 #
 # Every command runs once — a checks line whose command string equals a baseline gate is
 # reported under its ID without a second run. Exit status is 0 iff every gate and every check
@@ -28,15 +33,19 @@ cd "$ROOT" || exit 2
 PLAN="${1:-}"
 [[ -n "$PLAN" ]] || { echo "usage: gates.sh <plan> [--no-e2e] [--checks-only] [--baseline-only]" >&2; exit 2; }
 shift
-RUN_E2E=1; RUN_BASELINE=1; RUN_CHECKS=1
-for a in "$@"; do
-  case "$a" in
+RUN_E2E=1; RUN_BASELINE=1; RUN_CHECKS=1; WAVE=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
     --no-e2e) RUN_E2E=0 ;;
     --checks-only) RUN_BASELINE=0 ;;
     --baseline-only) RUN_CHECKS=0 ;;
-    *) echo "unknown flag: $a" >&2; exit 2 ;;
+    --wave) shift; WAVE="${1:-}" ;;
+    --wave=*) WAVE="${1#*=}" ;;
+    *) echo "unknown flag: $1" >&2; exit 2 ;;
   esac
+  shift
 done
+case "$WAVE" in ''|1|2|3) ;; *) echo "--wave takes 1, 2 or 3 (got: $WAVE)" >&2; exit 2 ;; esac
 
 PLAN_FILE="plans/$PLAN/plan.md"
 [[ -f "$PLAN_FILE" ]] || { echo "no such plan: $PLAN_FILE" >&2; exit 2; }
@@ -103,6 +112,39 @@ $status	$cmd"
   fi
 }
 
+# --- wave gate ------------------------------------------------------------------------------
+# Which side did this branch touch? Committed range plus the working tree; when neither can be
+# determined (no merge-base, detached tree) both run, so a wave gate never under-runs.
+if [[ -n "$WAVE" ]]; then
+  DAEMON_TOUCHED=0; WEB_TOUCHED=0
+  _base="$(git merge-base main HEAD 2>/dev/null || true)"
+  _changed="$( { [[ -n "$_base" ]] && git diff --name-only "$_base" HEAD; git status --porcelain | cut -c4-; } 2>/dev/null )"
+  if [[ -z "${_changed// }" ]]; then
+    DAEMON_TOUCHED=1; WEB_TOUCHED=1
+  else
+    printf '%s\n' "$_changed" | grep -qE '^(cmd|internal)/' && DAEMON_TOUCHED=1
+    printf '%s\n' "$_changed" | grep -qE '^web/'            && WEB_TOUCHED=1
+    (( DAEMON_TOUCHED || WEB_TOUCHED )) || { DAEMON_TOUCHED=1; WEB_TOUCHED=1; }
+  fi
+
+  echo "== wave $WAVE gate (plan $PLAN; daemon=$DAEMON_TOUCHED web=$WEB_TOUCHED)"
+  case "$WAVE" in
+    1) (( DAEMON_TOUCHED )) && run_one build "go build ./..."
+       (( WEB_TOUCHED ))    && run_one web-build "make web-build" ;;
+    2) (( DAEMON_TOUCHED )) && run_one test "make test"
+       (( WEB_TOUCHED ))    && run_one web-test "make web-test" ;;
+    3) run_one e2e "make e2e" ;;
+  esac
+  # A wave runs every authored check except the suites a later wave owns — this is what makes
+  # `make web-lint` (and any other static check the plan authored) part of every wave gate.
+  case "$WAVE" in
+    1) WAVE_SKIP='^(make test|make web-test|make e2e)$' ;;
+    2) WAVE_SKIP='^(make e2e)$' ;;
+    3) WAVE_SKIP='^$' ;;
+  esac
+  RUN_BASELINE=0
+fi
+
 if (( RUN_BASELINE )); then
   echo "== baseline gates (plan $PLAN)"
   run_one build "go build ./..."
@@ -127,7 +169,7 @@ SKIP	make e2e"
 fi
 
 if (( RUN_CHECKS )); then
-  echo "== authored checks from $PLAN_FILE"
+  [[ -n "$WAVE" ]] && echo "== authored checks reachable in wave $WAVE" || echo "== authored checks from $PLAN_FILE"
   # Lines between the ```checks fence and the next ``` fence; skip blanks and # comments.
   block="$(awk '/^```checks[[:space:]]*$/{f=1;next} f&&/^```/{f=0} f' "$PLAN_FILE")"
   if [[ -z "$block" ]]; then
@@ -138,6 +180,9 @@ if (( RUN_CHECKS )); then
       id="${line%% *}"; cmd="${line#* }"
       if [[ "$id" == "$line" ]]; then
         echo "FAIL  ??   malformed checks line (no command): $line"; FAILS=$((FAILS+1)); continue
+      fi
+      if [[ -n "$WAVE" ]] && printf '%s' "$cmd" | grep -qE "${WAVE_SKIP}"; then
+        echo "SKIP  $id   $cmd  (a later wave owns this suite)"; continue
       fi
       run_one "$id" "$cmd"
     done <<<"$block"

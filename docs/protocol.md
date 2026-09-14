@@ -84,6 +84,8 @@ sits on the line before each `##`/`###` heading, and code and docs cite a sectio
 | `POST /api/sessions/{id}/locate` | Resolve a dropped file's bytes to its original on-disk path (`kb:anchor/sessions.locate`) |
 | `PUT /api/sessions/{id}/title` | Set or clear a session's title override (`kb:anchor/sessions.title`) |
 | `POST /api/sessions/{id}/shell` | Ensure a plain shell is running for a session, spawning it if absent (`kb:anchor/sessions.shell`) |
+| `GET /api/sessions/{id}/reader` | List a session's readable markdown and its plan slot; runs the plan scan (`kb:anchor/sessions.reader`) |
+| `GET /api/sessions/{id}/reader/file` | Serve one confined markdown file as `text/markdown` (`kb:anchor/sessions.reader-file`) |
 
 Design rule: **commands travel over HTTP; the WS pushes state one way (server→client)**.
 Rationale: idempotency and errors are natural in request/response, the E2E harness can
@@ -518,6 +520,71 @@ Shells are deliberately **not** persistent: they outlive musterd only because tm
 do, and reconcile (`kb:anchor/state.liveness`) kills every `muster-<n>-shell` on the socket at startup rather than
 adopting it.
 
+<!-- kb:anchor sessions.reader -->
+### `GET /api/sessions/{id}/reader`
+
+**Auth**: UI cookie (401 `unauthorized`). No body, no query. Lists the session's readable
+markdown for the dashboard's `docs` surface and, as a side effect, runs the transcript scan
+that derives the plan (`kb:anchor/ws.session`'s `plan`) when the session has a known transcript
+path — a changed plan is persisted and broadcast as a `sessionUpsert` **before** this response
+is written. `alive` is not consulted: the reader works on a dead session.
+
+**Response 200:**
+
+```jsonc
+{
+  "directory": "/Users/damian/code/Projects/muster",   // the session's directory, absolute, cleaned
+  "plan": { "path": "/Users/damian/.claude/plans/say-hi-golden-finch.md",
+            "exists": true,
+            "writtenAt": "2026-09-13T09:15:00Z" },     // session.plan plus writtenAt: RFC3339 | null —
+                                                       //   the last routed write seen this daemon lifetime.
+                                                       // null when session.plan is null
+  "files": [                                           // every *.md (case-insensitive) under directory,
+    { "path": "TODO.md",       "writtenAt": null },     //   relative, forward slashes, sorted by path;
+    { "path": "docs/adr/x.md", "writtenAt": "2026-09-13T09:14:58Z" } ], // the plan appears only if it
+                                                       //   physically sits under directory
+  "listing": "git",                                    // "git" (ls-files -co --exclude-standard, filtered to .md)
+                                                       //   | "walk" (not a checkout, or git failed — logged)
+  "truncated": false                                   // true only for "walk" when the 20,000-file cap was hit
+}
+```
+
+`writtenAt` values come from an in-memory write log fed by routed Write/Edit/MultiEdit hooks
+(`kb:anchor/ws.doc-changed`), forgotten on daemon restart.
+
+**Errors** (envelope per `kb:anchor/transport`):
+
+- `404 unknown_session` — `{ "error": { "code": "unknown_session", "message": "unknown session id" } }`
+- `409 directory_missing` — the session's directory no longer exists or is not a directory.
+  `{ "error": { "code": "directory_missing", "message": "/Users/d/gone no longer exists" } }`
+
+<!-- kb:anchor sessions.reader-file -->
+### `GET /api/sessions/{id}/reader/file`
+
+**Auth**: UI cookie (401 `unauthorized`).
+**Request:** query `path` — the absolute path of the file to read: the listing's `plan.path`, or
+`directory` joined with a `files[i].path`.
+
+**Response 200:** `Content-Type: text/markdown; charset=utf-8`, `Cache-Control: no-store`, body =
+the file's bytes verbatim. The daemon never parses or transforms what it serves; sanitization is
+the dashboard's job, in the DOM.
+
+**Confinement.** A path is served only if, after symlink resolution of both it and the session's
+directory, it sits under the directory and ends in `.md` (case-insensitive), **or** equals the
+resolved plan path. Anything else is `404 not_found`, deliberately indistinguishable from a
+missing file — `GET /api/browse`'s any-directory looseness is not copied for file contents.
+There is no `POST`/`PUT`/`DELETE` under `/reader`: the reader is read-only by construction.
+
+**Errors** (envelope per `kb:anchor/transport`; JSON even though success is `text/markdown`):
+
+- `400 invalid_request` — `path` missing or not absolute.
+  `{ "error": { "code": "invalid_request", "message": "path must be an absolute file path" } }`
+- `404 unknown_session` — as above.
+- `404 not_found` — outside confinement, missing, or a directory.
+  `{ "error": { "code": "not_found", "message": "no such document" } }`
+- `413 too_large` — the file exceeds 10 MiB (10,485,760 bytes).
+  `{ "error": { "code": "too_large", "message": "/Users/d/big.md is 12.4 MB; the reader serves files up to 10 MB" } }`
+
 <!-- kb:anchor update.apply -->
 ### `POST /api/update/apply`
 
@@ -764,6 +831,15 @@ is complexity with no payoff, and whole-object replacement is naturally loss-tol
                                     //   client sorts by it (prefs.railSort); the daemon never
                                     //   orders for display (kb:anchor/ws.snapshot unchanged). Changes arrive as
                                     //   ordinary sessionUpserts, one per changed session.
+  "plan": { "path": "/Users/damian/.claude/plans/say-hi-golden-finch.md",  // absolute, as the transcript resolved it
+            "exists": true }        // false = plan mode entered, nothing written yet.
+                                    //   null when the session's latest known transcript names no plan
+                                    //   (never entered plan mode, or /clear minted a fresh transcript).
+                                    //   Refreshed by the transcript scan (SessionStart, leaving plan mode,
+                                    //   a write under the plans directory, GET /api/sessions/{id}/reader)
+                                    //   and flipped to exists:true by a routed write naming the path.
+                                    //   Required key. Renders "no plan yet" when null or exists is false.
+                                    //   Display-only — never read by the state machine.
 }
 ```
 
@@ -854,6 +930,26 @@ full object built at send time. Neither half hydrates across a daemon restart. T
 A client that has never seen `id` ignores it. Startup sweeps (`kb:anchor/state.liveness`) send nothing — swept
 rows are simply absent from the first `snapshot`. Dead sessions otherwise stay visible
 (sorted last, offering Resume/Remove) until removed or swept.
+
+<!-- kb:anchor ws.doc-changed -->
+### `docChanged`
+
+```jsonc
+{ "type": "docChanged",
+  "id": 7,                                              // Muster session id
+  "path": "/Users/damian/code/Projects/muster/TODO.md",  // absolute, cleaned; the plan path or a .md under directory
+  "at": "2026-09-13T09:15:00Z" }                         // when the daemon processed the hook (hooks carry no timestamp)
+```
+
+Sent once per routed `PostToolUse` whose tool is Write, Edit or MultiEdit and whose file path,
+after cleaning, sits lexically under the session's `directory` and ends in `.md`
+(case-insensitive) **or** equals `session.plan.path`. Subagent-marked hooks count. Not sent for
+unrouted events, other tools or other paths. When the write names the plan path and
+`plan.exists` was false, the `sessionUpsert` carrying `exists: true` precedes the `docChanged`.
+Best-effort like the hooks it mirrors (`kb:fact/hook-delivery-best-effort`): the dashboard
+re-fetches the open file on it and lights a changed dot on others, and must never depend on
+receiving it — a missed one leaves the file stale and labelled by its freshness cue. A client
+that does not know `id` ignores it. Nothing is replayed on reconnect.
 
 <!-- kb:anchor ws.claude-theme -->
 ### `claudeTheme`

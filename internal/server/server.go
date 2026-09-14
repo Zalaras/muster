@@ -104,6 +104,7 @@ type Server struct {
 	locate   *locateFeature
 	browse   *browseFeature
 	repos    *reposFeature
+	reader   *readerFeature
 }
 
 const defaultIngestQueueSize = 1024
@@ -178,6 +179,8 @@ func New(cfg Config) *Server {
 		legacyScripts:    cfg.Launch.LegacyScripts,
 	}
 	s.sessions = register(s, newSessionsFeature(s.manager, launcher, shells, terminals, cfg.Logger))
+	s.reader = register(s, newReaderFeature(s.manager, s.hub, cfg.Logger))
+	s.sessions.reader = s.reader
 	s.terminal = register(s, newTerminalFeature(terminals, s.manager, attach, cfg.Logger))
 	s.shell = register(s, newShellFeature(shells, terminals, s.manager, attach, cfg.Logger))
 	s.locate = register(s, newLocateFeature(s.manager, cfg.Locator))
@@ -194,6 +197,7 @@ func New(cfg Config) *Server {
 	// teardown would only suggest a dependency that doesn't exist.
 	s.ingest = register(s, newIngestFeature(cfg.Store, cfg.Logger, size, cfg.IngestToken))
 	s.ingest.queue.manager = s.manager
+	s.ingest.queue.files = s.reader
 	s.usage = register(s, newUsageFeature(cfg.Usage, cfg.HTTPClient, cfg.Store, s.hub, cfg.Logger))
 	s.ingest.queue.usage = s.usage.aggregator
 	s.theme = register(s, newThemeFeature(cfg.Theme, s.hub, cfg.Logger))

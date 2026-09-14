@@ -77,19 +77,28 @@ doesn't move. Browser zoom scales the pixel layer and the terminal together and 
 (the daemon's address is a fixed default), so it is the control. Don't re-derive; revisit only if
 the mobile/responsive pass rem-ifies the pixel layer.
 
-- [ ] **Markdown viewing** — render a session's markdown files in the dashboard, including
-  whatever plan a Claude Code session is working from. **Spiked 2026-09-13** on branch
-  `spike/markdown-viewing` (worktree `../muster-spike-markdown`, prototype only, not for
-  landing); findings, numbers and the proposed shape are in
-  `docs/history/design/markdown-viewing.md` — **read it before planning**. The wire fact it
-  rests on is `kb:fact/plan-file-path-in-transcript`. Short version: the plan's path is
-  derivable from the `transcript_path` every hook carries (39 of 39 plan-mode sessions on
-  this machine resolve; the whole 176 MB corpus scans in under half a second), a `PostToolUse`
-  `Write` on that path is the change signal already on the wire, and rendering costs about
-  24 kB gzip in the browser (marked + DOMPurify) or 150 kB in the binary (goldmark +
-  bluemonday). Decisions left for `/plan-work`: renderer side (browser recommended), where
-  the viewer sits (third surface segment vs a drawer), what counts as "a session's markdown
-  files", and whether a mtime poll backs the hook signal — plus an ADR for the pinned deps.
+- [ ] **Restore focus when an action button goes `disabled` on a daemon drop** — app-wide, not
+  reader-specific. Every action button (`mainhead` End/Resume/Remove, dead-surface Resume, tile
+  actions, and the `claude | shell | docs` segment) sets `disabled = !connected`; if one holds
+  keyboard focus when the socket drops, focus falls to `<body>` and the user must Tab back from the
+  top. Predates the reader (`ac2b62c`); surfaced by the `markdown-viewing` review (cycle 4), where
+  fixing only the reader's instance was deliberately declined as inconsistent. Fix once, for all of
+  them.
+- [ ] **Pop-out paints "musterd unreachable" for 1-2 frames on load** — `/doc.html` shows the
+  unreachable notice for an 11-14 ms window before its socket's first `hello` (measured twice:
+  94→105 ms and 116→130 ms, over the placeholder body, which itself first paints at 139/172 ms).
+  `RenderFrame.connected` collapses `"connecting"` and `"reconnecting"` to one input
+  (`app.ts:99`), so `ReaderInstance.render` maps both to the unreachable text. The fix means
+  teaching that render a third connection input — live code shared by four hosts — which the
+  `markdown-viewing` reviewer judged not worth doing inside that plan (cycle 6, note 1). Sub-
+  perceptual today; do it with the next change to that render path.
+- [ ] **An open pop-out doesn't follow a live theme change** — it keeps the theme it loaded with
+  until reloaded (measured: dashboard `instrument`→`light`, pop-out stays dark; reload fixes it).
+  `initTheme` runs only in `main.ts`, so `/doc.html`'s theme comes entirely from its first-paint
+  hint script, which reads `localStorage` once. Nothing false is asserted and the plan required
+  only the hint script (W19), but two windows side by side in opposite themes is user-visible.
+  From the `markdown-viewing` review, cycle 6 note 2.
+
 
 Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start-from-PR/issue
 (§4.3) → permissions UI (§4.4) → `code <worktree>` button (trivial, anytime).

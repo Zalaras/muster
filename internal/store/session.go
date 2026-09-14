@@ -57,6 +57,14 @@ type SessionRow struct {
 	// .../title. Display-only, nullable, never touched by the status path (INV-2) —
 	// wins over Title in the wire "title" (internal/session.Session.DisplayTitle()).
 	TitleOverride *string
+
+	// TranscriptPath/PlanPath/PlanExists (plan markdown-viewing Schema Changes): the
+	// latest transcript path a routed hook named and the plan derived from it.
+	// Display-only, never read by the state machine. TranscriptPath/PlanPath are NULL
+	// until a hook/scan sets them; PlanExists defaults to 0.
+	TranscriptPath *string
+	PlanPath       *string
+	PlanExists     bool
 }
 
 // InsertSessionParams seeds a new session row (REQ-1/REQ-2): state "started", the
@@ -146,7 +154,8 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 			attention_reason = ?, attention_since = ?, failure_error = ?, failure_message = ?,
 			last_activity = ?, alive = ?, ended_at = ?, first_launch_here = ?,
 			context_used_pct = ?, context_total_input_tokens = ?, context_window_size = ?,
-			last_snapshot = ?, last_snapshot_at = ?, pinned = ?, rail_pos = ?, title_override = ?
+			last_snapshot = ?, last_snapshot_at = ?, pinned = ?, rail_pos = ?, title_override = ?,
+			transcript_file = ?, plan_path = ?, plan_exists = ?
 		WHERE id = ?
 	`,
 		row.TmuxTarget, row.TmuxPane, row.ClaudeSessionID, row.Directory, row.Branch,
@@ -156,6 +165,7 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 		row.LastActivity, boolToInt(row.Alive), endedAt, boolToInt(row.FirstLaunchHere),
 		row.ContextUsedPct, row.ContextTotalInputTokens, row.ContextWindowSize,
 		row.LastSnapshot, lastSnapshotAt, boolToInt(row.Pinned), row.RailPos, row.TitleOverride,
+		row.TranscriptPath, row.PlanPath, boolToInt(row.PlanExists),
 		row.ID,
 	)
 	if err != nil {
@@ -170,7 +180,8 @@ const sessionColumns = `
 	model_display_name, compactions, attention_reason, attention_since, failure_error,
 	failure_message, last_activity, alive, ended_at, first_launch_here, created_at,
 	context_used_pct, context_total_input_tokens, context_window_size,
-	last_snapshot, last_snapshot_at, pinned, rail_pos, title_override
+	last_snapshot, last_snapshot_at, pinned, rail_pos, title_override,
+	transcript_file, plan_path, plan_exists
 `
 
 func (s *Store) GetSession(ctx context.Context, id int64) (SessionRow, error) {
@@ -210,6 +221,7 @@ func scanSession(row rowScanner) (SessionRow, error) {
 		r                            SessionRow
 		isWorktree, alive, firstHere int
 		pinned                       int
+		planExists                   int
 		stateSince, createdAt        string
 		attentionSince, endedAt      *string
 		lastSnapshotAt               *string
@@ -221,6 +233,7 @@ func scanSession(row rowScanner) (SessionRow, error) {
 		&r.FailureMessage, &r.LastActivity, &alive, &endedAt, &firstHere, &createdAt,
 		&r.ContextUsedPct, &r.ContextTotalInputTokens, &r.ContextWindowSize,
 		&r.LastSnapshot, &lastSnapshotAt, &pinned, &r.RailPos, &r.TitleOverride,
+		&r.TranscriptPath, &r.PlanPath, &planExists,
 	); err != nil {
 		return SessionRow{}, err
 	}
@@ -228,6 +241,7 @@ func scanSession(row rowScanner) (SessionRow, error) {
 	r.Alive = alive != 0
 	r.FirstLaunchHere = firstHere != 0
 	r.Pinned = pinned != 0
+	r.PlanExists = planExists != 0
 	r.StateSince, _ = time.Parse(time.RFC3339, stateSince)
 	r.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
 	if attentionSince != nil {

@@ -11,7 +11,12 @@ import { expect } from "@playwright/test";
 import type { Locator, Page, WebSocket } from "@playwright/test";
 import { liveTileById } from "./terminal";
 
-export type SurfaceKind = "claude" | "shell";
+// Plan markdown-viewing REQ-1: the segment gains a third `docs` kind (`claude | shell |
+// docs`) rendered by the same component in both hosts — `mainheadSurfaceButton` and
+// `tileSurfaceButton` below already take `kind: SurfaceKind` generically (a plain
+// `getByRole("button", { name: kind, exact: true })`), so widening this union is the
+// only change this file needs to make "docs" locatable through the same helpers.
+export type SurfaceKind = "claude" | "shell" | "docs";
 
 /** The Focus mainhead's segmented group (Testable UI Elements: `role="group"
  * aria-label="Surface"`, `.mainhead .surfseg`). */

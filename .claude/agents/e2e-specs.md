@@ -221,9 +221,9 @@ Place new test files in `web/e2e/<feature-name>.spec.ts`, where `<feature-name>`
   least one render tick — rendering in a view is not evidence it works there. **The round-trip uses
   a path a real user has: focus plus keyboard or pointer.** `selectOption`, `fill`, `check`,
   `setInputFiles` and `evaluate`-set values are *setup*, not evidence — they never touch focus or a
-  popup. For any focusable control inside the per-tick render path, at least one test focuses it,
-  waits past a tick (> 1 s), asserts `document.activeElement` **and node identity** (tag the node,
-  check the tag survives) are unchanged, then drives it with real keys. Native `<select>` typeahead
+  popup. For every focusable control in the plan's Testable UI Elements table, at least one test focuses
+  it, asserts `document.activeElement` **and node identity** (tag the node) survive **activating
+  it with a real key**, then survive a tick (> 1 s). Native `<select>` typeahead
   concatenates keys within ~1 s — wait between distinct keystrokes. (kb:lesson/tiles-never-refit-behind-pattern-match, kb:lesson/select-rebuilt-every-tick-passed-selectoption)
 - **Displayed values with an independent oracle are cross-checked, never pattern-matched.**
   `/\d+×\d+/` passes on stale or fabricated data; when the daemon or tmux can be asked for the true

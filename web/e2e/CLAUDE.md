@@ -1,6 +1,6 @@
 # web/e2e — Playwright specs, faked Claude
 
-**Owns**: one `<feature>.spec.ts` per feature plus `helpers/<feature>.ts` locators and oracles. Claude Code is faked by hook and status-line POSTs from `helpers/payloads.ts`; a real `claude` runs only in `test/canary`. `helpers/fixtures.ts` and `web/playwright.config.ts` are web-impl's, never e2e-specs'. **Features**: actions, connection, drop, focus, ingest, issue, launch, lifecycle, rail, rename, shortcuts, surfaces, theme, tiles, update, usage, views.
+**Owns**: one `<feature>.spec.ts` per feature plus `helpers/<feature>.ts` locators and oracles. Claude Code is faked by hook and status-line POSTs from `helpers/payloads.ts`; a real `claude` runs only in `test/canary`. `helpers/fixtures.ts` and `web/playwright.config.ts` are web-impl's, never e2e-specs'. **Features**: actions, connection, drop, focus, ingest, issue, launch, lifecycle, rail, reader, rename, shortcuts, surfaces, theme, tiles, update, usage, views.
 
 **Invariants** (review-Critical; `web/scripts/e2e-lint.sh` fails the run):
 - Daemons come only from `helpers/fixtures.ts`: `daemon` per test by default, `startDaemon(opts)` for computed options, `fileDaemon()` only when every test is title-scoped (kb:adr/process-e2e-explicit-fixtures).
@@ -20,7 +20,7 @@
 - Rail card and strip card share one template; scope locators to the host.
 
 <!-- kb:trailer -->
-<!-- kb:hash 7f4603a6964ac64b -->
+<!-- kb:hash 80e4d24d208804e0 -->
 - **actions** — End, Resume and Remove a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
 - **drop** — File drop pastes the original on-disk path into the pane. → `docs/features/drop/INDEX.md`
@@ -30,6 +30,7 @@
 - **launch** — Launch dialog, repo browse and picker, trust prompt, project-scoped settings write, the claude argv. → `docs/features/launch/INDEX.md`
 - **lifecycle** — The session state machine, liveness, reconcile on start, shutdown policy, resume to idle. → `docs/features/lifecycle/INDEX.md`
 - **rail** — Rail cards, attention versus manual order, pin, drag reorder, session count. → `docs/features/rail/INDEX.md`
+- **reader** — The docs surface — a sanitized markdown reader for a session's plan and the .md files under its directory, with a file nav, outline and pop-out. → `docs/features/reader/INDEX.md`
 - **rename** — Muster-owned session title override, inline rename in the mainhead and tiles. → `docs/features/rename/INDEX.md`
 - **shortcuts** — Keyboard chords routed to views, focus and tiles. → `docs/features/shortcuts/INDEX.md`
 - **surfaces** — PTY bridge, xterm pane, the ephemeral shell surface, sizing, one live client per target. → `docs/features/surfaces/INDEX.md`

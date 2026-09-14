@@ -11,6 +11,7 @@ function makeSession(id: number): Session {
     id,
     title: null,
     titleOverride: null,
+    plan: null,
     state: "idle",
     stateSince: `2026-08-22T00:00:${String(id).padStart(2, "0")}Z`,
     alive: true,

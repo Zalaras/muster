@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   ClaudeThemeMessage,
+  DocChanged,
   Hello,
   PrefsMessage,
   Session,
@@ -72,10 +73,19 @@ const usageMessage: UsageMessage = { type: "usage", usage };
 
 const claudeThemeMessage: ClaudeThemeMessage = { type: "claudeTheme", family: "light" };
 
+// Plan markdown-viewing (kb:anchor/ws.doc-changed).
+const docChangedMessage: DocChanged = {
+  type: "docChanged",
+  id: 7,
+  path: "/Users/damian/code/Projects/muster/TODO.md",
+  at: "2026-09-13T09:15:00Z",
+};
+
 const session: Session = {
   id: 1,
   title: "fix the thing",
   titleOverride: null,
+  plan: null,
   state: "working",
   stateSince: "2026-08-22T00:00:00Z",
   alive: true,
@@ -165,6 +175,7 @@ function makeHandlers(): WsClientHandlers & Record<string, ReturnType<typeof vi.
     onSessionRemoved: vi.fn(),
     onClaudeTheme: vi.fn(),
     onUpdate: vi.fn(),
+    onDocChanged: vi.fn(),
     onDisconnected: vi.fn(),
     onProtocolMismatch: vi.fn(),
   };
@@ -261,6 +272,14 @@ describe("WsClient.dispatch — pure message application, no socket involved", (
     expect(handlers.onUpdate).toHaveBeenCalledWith(updateInfo);
     expect(handlers.onSnapshot).not.toHaveBeenCalled();
   });
+
+  it("routes a docChanged message to onDocChanged with the bare message, not onSnapshot (plan markdown-viewing kb:anchor/ws.doc-changed)", () => {
+    const handlers = makeHandlers();
+    const client = new WsClient("ws://x", handlers);
+    client.dispatch(docChangedMessage);
+    expect(handlers.onDocChanged).toHaveBeenCalledWith(docChangedMessage);
+    expect(handlers.onSnapshot).not.toHaveBeenCalled();
+  });
 });
 
 describe("WsClient — full socket lifecycle via an injected fake socket", () => {
@@ -345,6 +364,13 @@ describe("WsClient — full socket lifecycle via an injected fake socket", () =>
     sockets[0]!.emitOpen();
     sockets[0]!.emitMessage(JSON.stringify(updateMessage));
     expect(handlers.onUpdate).toHaveBeenCalledWith(updateInfo);
+  });
+
+  it("dispatches a docChanged frame to onDocChanged (plan markdown-viewing kb:anchor/ws.doc-changed)", () => {
+    client.start();
+    sockets[0]!.emitOpen();
+    sockets[0]!.emitMessage(JSON.stringify(docChangedMessage));
+    expect(handlers.onDocChanged).toHaveBeenCalledWith(docChangedMessage);
   });
 
   it("ignores a binary (non-string) message frame", () => {

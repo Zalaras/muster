@@ -84,6 +84,12 @@ describe("surfaceswitch — selectSurface (user flows 2/3: switching which surfa
     const next = selectSurface(state, 1, "shell");
     expect(getSurfaceState(next, 2)).toEqual({ selected: "shell", shellRunning: true });
   });
+
+  it("selects docs (plan markdown-viewing REQ-1, W4) without touching shellRunning", () => {
+    const state: SurfaceSwitchState = new Map([[1, { selected: "shell", shellRunning: true }]]);
+    const next = selectSurface(state, 1, "docs");
+    expect(getSurfaceState(next, 1)).toEqual({ selected: "docs", shellRunning: true });
+  });
 });
 
 describe("surfaceswitch — setShellRunning (REQ-1/REQ-8: tracks whether the daemon reports a live shell)", () => {
@@ -121,6 +127,12 @@ describe("surfaceswitch — shellEnded (REQ-8: exit/kill reverts to claude and c
     const state: SurfaceSwitchState = new Map([[1, { selected: "claude", shellRunning: true }]]);
     const next = shellEnded(state, 1);
     expect(getSurfaceState(next, 1)).toEqual({ selected: "claude", shellRunning: false });
+  });
+
+  it("leaves a docs selection untouched, only clearing shellRunning (plan markdown-viewing edge case 20/INV-1, W4)", () => {
+    const state: SurfaceSwitchState = new Map([[1, { selected: "docs", shellRunning: true }]]);
+    const next = shellEnded(state, 1);
+    expect(getSurfaceState(next, 1)).toEqual({ selected: "docs", shellRunning: false });
   });
 
   it("is idempotent / identity when the session is already at the default state", () => {
@@ -197,12 +209,38 @@ describe("surfaceswitch — isSurfaceAttachable (REQ-7: shell never consults ali
     expect(isSurfaceAttachable(state, 1, true)).toBe(true);
     expect(isSurfaceAttachable(state, 1, false)).toBe(false);
   });
+
+  // Plan markdown-viewing INV-1, W4: docs never has a TerminalSurface, across every
+  // alive x shellRunning combination.
+  it("docs selected, shellRunning=false: never attachable regardless of alive=true", () => {
+    const state: SurfaceSwitchState = new Map([[1, { selected: "docs", shellRunning: false }]]);
+    expect(isSurfaceAttachable(state, 1, true)).toBe(false);
+  });
+
+  it("docs selected, shellRunning=false: never attachable regardless of alive=false", () => {
+    const state: SurfaceSwitchState = new Map([[1, { selected: "docs", shellRunning: false }]]);
+    expect(isSurfaceAttachable(state, 1, false)).toBe(false);
+  });
+
+  it("docs selected, shellRunning=true: never attachable regardless of alive=true", () => {
+    const state: SurfaceSwitchState = new Map([[1, { selected: "docs", shellRunning: true }]]);
+    expect(isSurfaceAttachable(state, 1, true)).toBe(false);
+  });
+
+  it("docs selected, shellRunning=true: never attachable regardless of alive=false", () => {
+    const state: SurfaceSwitchState = new Map([[1, { selected: "docs", shellRunning: true }]]);
+    expect(isSurfaceAttachable(state, 1, false)).toBe(false);
+  });
 });
 
 describe("surfaceswitch — surfaceKey / parseSurfaceKey (the composite key main.ts's surface manager keys on)", () => {
   it("round-trips both kinds", () => {
     expect(parseSurfaceKey(surfaceKey(1, "claude"))).toEqual({ id: 1, kind: "claude" });
     expect(parseSurfaceKey(surfaceKey(1, "shell"))).toEqual({ id: 1, kind: "shell" });
+  });
+
+  it("round-trips docs (plan markdown-viewing INV-1, W4)", () => {
+    expect(parseSurfaceKey(surfaceKey(1, "docs"))).toEqual({ id: 1, kind: "docs" });
   });
 
   it("produces distinct keys for the two kinds of the same session id (INV-3: independent attach targets)", () => {
@@ -265,9 +303,11 @@ function fakeSurfaceButton(): FakeSurfaceButton {
 function fakeSurfaceSegmentRefs(): SurfaceSegmentRefs & {
   claudeBtn: FakeSurfaceButton;
   shellBtn: FakeSurfaceButton;
+  docsBtn: FakeSurfaceButton;
 } {
   const claudeBtn = fakeSurfaceButton();
   const shellBtn = fakeSurfaceButton();
+  const docsBtn = fakeSurfaceButton();
   const pipEl: FakeSurfacePip = {
     remove() {
       const i = shellBtn.children.indexOf(pipEl);
@@ -278,8 +318,13 @@ function fakeSurfaceSegmentRefs(): SurfaceSegmentRefs & {
     root: {} as unknown as HTMLElement,
     claudeBtn: claudeBtn as unknown as HTMLButtonElement & FakeSurfaceButton,
     shellBtn: shellBtn as unknown as HTMLButtonElement & FakeSurfaceButton,
+    docsBtn: docsBtn as unknown as HTMLButtonElement & FakeSurfaceButton,
     pipEl: pipEl as unknown as HTMLElement,
-  } as SurfaceSegmentRefs & { claudeBtn: FakeSurfaceButton; shellBtn: FakeSurfaceButton };
+  } as SurfaceSegmentRefs & {
+    claudeBtn: FakeSurfaceButton;
+    shellBtn: FakeSurfaceButton;
+    docsBtn: FakeSurfaceButton;
+  };
 }
 
 function hasPip(refs: ReturnType<typeof fakeSurfaceSegmentRefs>): boolean {
@@ -292,7 +337,17 @@ describe("updateSurfaceSegment — States: 'no data yet' has no pip; a running s
     updateSurfaceSegment(refs, DEFAULT_SURFACE_STATE, true);
     expect(refs.claudeBtn.attrs["aria-pressed"]).toBe("true");
     expect(refs.shellBtn.attrs["aria-pressed"]).toBe("false");
+    expect(refs.docsBtn.attrs["aria-pressed"]).toBe("false");
     expect(hasPip(refs)).toBe(false);
+  });
+
+  it("docs selected: docs pressed, neither claude nor shell pressed (plan markdown-viewing REQ-1, W4)", () => {
+    const refs = fakeSurfaceSegmentRefs();
+    const state: SessionSurfaceState = { selected: "docs", shellRunning: false };
+    updateSurfaceSegment(refs, state, true);
+    expect(refs.claudeBtn.attrs["aria-pressed"]).toBe("false");
+    expect(refs.shellBtn.attrs["aria-pressed"]).toBe("false");
+    expect(refs.docsBtn.attrs["aria-pressed"]).toBe("true");
   });
 
   it("a running, visible shell: shell pressed, pip attached", () => {
@@ -336,6 +391,7 @@ describe("updateSurfaceSegment — States: 'daemon down' disables both segments,
     updateSurfaceSegment(refs, { selected: "shell", shellRunning: true }, false);
     expect(refs.claudeBtn.disabled).toBe(true);
     expect(refs.shellBtn.disabled).toBe(true);
+    expect(refs.docsBtn.disabled).toBe(true);
   });
 
   it("re-enables both buttons once connected=true again", () => {

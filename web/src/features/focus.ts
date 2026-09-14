@@ -20,6 +20,7 @@ import {
   buildSurfaceSegment,
   DEFAULT_SURFACE_STATE,
   getSurfaceState,
+  type SessionSurfaceState,
   type SurfaceKind,
   type SurfaceSwitchState,
 } from "../terminal/surfaceswitch";
@@ -43,6 +44,9 @@ export interface FocusDeps {
    * focusing when the current view is Tiles (`focusSession`'s shared tail). Tiles is
    * constructed before focus (main.ts's init order), so this is a real value. */
   promoteTile(id: number): void;
+  /** Plan markdown-viewing: `reader` is constructed after `focus` (main.ts's init
+   * order), so this is a thunk like `getSurfaces` above — invoked only from `renderView`. */
+  getReader(): { rootFor(id: number): HTMLElement | null };
 }
 
 export interface FocusHandle {
@@ -132,6 +136,47 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
     if (app.state.focusedId === id) app.focus(null);
   });
 
+  /** Plan markdown-viewing REQ-2: mounts the reader into the main slot for `docs` —
+   * split out of `renderView` purely to keep that function's cognitive complexity under
+   * the project ceiling. */
+  function mountReader(session: Session): void {
+    const readerRoot = deps.getReader().rootFor(session.id);
+    mainSlotEl.hidden = readerRoot === null;
+    if (readerRoot && mainSlotEl.firstElementChild !== readerRoot) {
+      mainSlotEl.replaceChildren(readerRoot);
+    } else if (!readerRoot) {
+      mainSlotEl.replaceChildren();
+    }
+    renderSizenote(sizenoteEl, null);
+  }
+
+  /** Mounts/refits the `claude`/`shell` terminal surface into the main slot — split out
+   * of `renderView` purely to keep that function's cognitive complexity under the
+   * project ceiling. */
+  function mountTerminalSurface(session: Session, surfaceState: SessionSurfaceState): void {
+    const surface = deps.getSurfaces().get(session.id, surfaceState.selected as SurfaceKind);
+    if (!surface) {
+      mainSlotEl.replaceChildren();
+      renderSizenote(sizenoteEl, null);
+      return;
+    }
+    mainSlotEl.hidden = false;
+    if (mainSlotEl.firstElementChild !== surface.root) {
+      mainSlotEl.replaceChildren(surface.root);
+    }
+    // Reserve the sizenote line's layout space BEFORE fitting (review m2-terminal Minor
+    // 1) — a non-breaking space keeps the reserved line the same height real geometry
+    // text would, so even the very first attach reserves the right amount of space. Must
+    // stay a literal NBSP (U+00A0), not an ASCII space: `.sizenote` is flex, and a flex
+    // item holding only collapsible whitespace renders at zero height.
+    if (sizenoteEl.hidden) {
+      sizenoteEl.hidden = false;
+      sizenoteEl.textContent = " ";
+    }
+    surface.refit();
+    renderSizenote(sizenoteEl, surface.geometry);
+  }
+
   function renderView(frame: RenderFrame): void {
     const { sessions, now, connected } = frame;
     const hasSessions = sessions.length > 0;
@@ -169,27 +214,16 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
     }
 
     deadSurfaceEl.hidden = true;
-    const surface = deps.getSurfaces().get(session.id, surfaceState.selected as SurfaceKind);
-    if (!surface) {
-      mainSlotEl.replaceChildren();
-      renderSizenote(sizenoteEl, null);
+
+    // Plan markdown-viewing REQ-2: the reader replaces the pane for `docs`, regardless
+    // of `alive` (REQ-3) — the earlier dead-surface branch above only ever fires for
+    // `claude`, so a dead session with `docs` selected falls through to here.
+    if (surfaceState.selected === "docs") {
+      mountReader(session);
       return;
     }
-    mainSlotEl.hidden = false;
-    if (mainSlotEl.firstElementChild !== surface.root) {
-      mainSlotEl.replaceChildren(surface.root);
-    }
-    // Reserve the sizenote line's layout space BEFORE fitting (review m2-terminal Minor
-    // 1) — a non-breaking space keeps the reserved line the same height real geometry
-    // text would, so even the very first attach reserves the right amount of space. Must
-    // stay a literal NBSP (U+00A0), not an ASCII space: `.sizenote` is flex, and a flex
-    // item holding only collapsible whitespace renders at zero height.
-    if (sizenoteEl.hidden) {
-      sizenoteEl.hidden = false;
-      sizenoteEl.textContent = " ";
-    }
-    surface.refit();
-    renderSizenote(sizenoteEl, surface.geometry);
+
+    mountTerminalSurface(session, surfaceState);
   }
 
   return {

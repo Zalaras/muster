@@ -327,6 +327,18 @@ type sessionsFeature struct {
 	shells    *shellRegistry
 	terminals *terminalRegistry
 	log       zerolog.Logger
+
+	// reader drops a removed session's write log (plan markdown-viewing edge case 28).
+	// Set post-construction (server.go, mirroring ingest's queue.manager wiring) since
+	// readerFeature needs the manager sessionsFeature is itself built from; nil is a
+	// valid no-op for tests that don't exercise the reader.
+	reader writeLogForgetter
+}
+
+// writeLogForgetter is sessionsFeature's view of *readerFeature — narrowed to the one
+// method Remove calls.
+type writeLogForgetter interface {
+	forgetSession(id int64)
 }
 
 func newSessionsFeature(manager *session.Manager, launcher *sessionLauncher, shells *shellRegistry, terminals *terminalRegistry, log zerolog.Logger) *sessionsFeature {
@@ -436,6 +448,9 @@ func (f *sessionsFeature) handleRemoveSession(w http.ResponseWriter, r *http.Req
 			writeJSONError(w, http.StatusInternalServerError, "end_failed", remErr.Error())
 		}
 		return
+	}
+	if f.reader != nil {
+		f.reader.forgetSession(id)
 	}
 
 	w.WriteHeader(http.StatusNoContent)

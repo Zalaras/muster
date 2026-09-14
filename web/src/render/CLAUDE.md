@@ -1,6 +1,6 @@
 # web/src/render — pure DOM builders, no state
 
-**Owns**: the DOM half of every view: rail cards, tiles and strip, mainhead, masthead, dead surface, confirm dialogs, inline rename editor, drag wiring, drop guard. No state, fetch or socket here; derivation lives in `web/src/sessions/`, wiring in `web/src/features/`. **Features**: actions, connection, drop, focus, launch, rail, rename, tiles, update, usage.
+**Owns**: the DOM half of every view: rail cards, tiles and strip, mainhead, masthead, dead surface, confirm dialogs, inline rename editor, drag wiring, drop guard, the reader (bar, nav tree, outline). No state, fetch or socket here; derivation lives in `web/src/sessions/`/`web/src/reader/`, wiring in `web/src/features/`. **Features**: actions, connection, drop, focus, launch, rail, reader, rename, tiles, update, usage.
 
 **Invariants** (violations are review-Critical):
 - Every displayed string comes from a pure view-model (`sessions.ts` reads `../sessions/card.ts`); a builder never composes a second copy of text a card already owns.
@@ -16,15 +16,17 @@
 - A `[hidden]` element with an author `display` rule stays visible (kb:lesson/display-rule-overrides-hidden-attribute).
 - A shared class carries its CSS along: `.acts-row` hover-opacity hid the dead surface's Resume (kb:lesson/shared-class-css-hid-resume-button).
 - `dead.ts` renders in two hosts, Focus's `#dead-surface` and every tile clone; change the builder, never one host.
+- `reader.ts`'s tree/outline rebuild only when their flattened content's signature (stashed on the container's `dataset`) actually changes, so the once-a-second tick never steals focus from a tree button or the filter box.
 
 <!-- kb:trailer -->
-<!-- kb:hash 3ac32e7c9f63511d -->
+<!-- kb:hash a95ff7d367ccdbf0 -->
 - **actions** — End, Resume and Remove a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
 - **drop** — File drop pastes the original on-disk path into the pane. → `docs/features/drop/INDEX.md`
 - **focus** — Focus view: mainhead, main slot, dead surface, default focus, focus marker. → `docs/features/focus/INDEX.md`
 - **launch** — Launch dialog, repo browse and picker, trust prompt, project-scoped settings write, the claude argv. → `docs/features/launch/INDEX.md`
 - **rail** — Rail cards, attention versus manual order, pin, drag reorder, session count. → `docs/features/rail/INDEX.md`
+- **reader** — The docs surface — a sanitized markdown reader for a session's plan and the .md files under its directory, with a file nav, outline and pop-out. → `docs/features/reader/INDEX.md`
 - **rename** — Muster-owned session title override, inline rename in the mainhead and tiles. → `docs/features/rename/INDEX.md`
 - **tiles** — Tiles view: slot-stable grid, strip, tile drag, density, snapshot-not-live rule. → `docs/features/tiles/INDEX.md`
 - **update** — Release check, minisign-verified apply, in-place restart with sessions re-adopted. → `docs/features/update/INDEX.md`

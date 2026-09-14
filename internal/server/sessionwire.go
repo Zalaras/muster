@@ -32,6 +32,10 @@ type sessionWire struct {
 	CreatedAt       string                    `json:"createdAt"`
 	Pinned          bool                      `json:"pinned"`
 	RailPos         int64                     `json:"railPos"`
+	// Plan (plan markdown-viewing REQ-17, kb:anchor/ws.session): the session's derived
+	// plan file, null when the latest known transcript names none. Required key on
+	// every Session object.
+	Plan *sessionWirePlan `json:"plan"`
 }
 
 type sessionWireAttention struct {
@@ -111,6 +115,7 @@ func toWireSession(s *session.Session) sessionWire {
 		CreatedAt:       s.CreatedAt.UTC().Format(time.RFC3339),
 		Pinned:          s.Pinned,
 		RailPos:         s.RailPos,
+		Plan:            toWireSessionPlan(s),
 	}
 
 	if s.EndedAt != nil {

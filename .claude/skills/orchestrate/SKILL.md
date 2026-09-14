@@ -329,9 +329,9 @@ Fix agents are **not** independent, and a naive fan-out of all five tags at once
 
 | Wave | Tags | Gate before the next wave starts |
 |------|------|----------------------------------|
-| 1 | `[daemon-impl]`, `[web-impl]` | `go build ./...` (if daemon was touched) and `make web-build` (if web was touched) — each must exit 0 |
-| 2 | `[daemon-tests]`, `[web-tests]` | `make test` (if daemon) and `make web-test` (if web) — each must exit 0 |
-| 3 | `[e2e-specs]` | `make e2e` — must pass |
+| 1 | `[daemon-impl]`, `[web-impl]` | `gates.sh <plan> --wave 1` — must exit 0 |
+| 2 | `[daemon-tests]`, `[web-tests]` | `gates.sh <plan> --wave 2` — must exit 0 |
+| 3 | `[e2e-specs]` | `gates.sh <plan> --wave 3` — must exit 0 |
 
 **Why this order.** The dependency is "who reads whose output". `daemon-tests` and `web-tests` read the implementation log and the implementation files, and are forbidden from modifying them — so a test agent run before the impl fix lands fixes the wrong thing. `e2e-specs` asserts against the rendered product, so it is downstream of both.
 
@@ -361,9 +361,9 @@ Two concrete ways a flat fan-out goes wrong: an impl agent moves or renames a sy
   stops at the first `typecheck` failure and reports nothing else in the repo. So a *sanctioned*
   wave-1 change that breaks a test file leaves `make lint` reporting one typecheck error and
   hiding every real finding in production code. Whenever daemon-impl's Handoff names a test file
-  as sanctioned breakage, the wave-1 gate is `go build ./...` **and**
-  `golangci-lint run --tests=false ./...` — both must exit 0, and the impl agent must paste the
-  second as evidence. The wave-2 gate (`make test` plus the full `make lint`) then proves the
+  as sanctioned breakage, wave 1 additionally requires
+  `golangci-lint run --tests=false ./...` — it must exit 0, and the impl agent pastes it as
+  evidence. The wave-2 gate (`make test` plus the full `make lint`) then proves the
   handoff was honoured (kb:lesson/sanctioned-test-break-blinds-lint).
 
 - **Plan amendments mid-run**: a review issue may prove a plan requirement wrong (kb:lesson/tiles-never-refit-behind-pattern-match). Protocol-contract changes always stop the pipeline

@@ -40,13 +40,13 @@ function envelope(
  */
 export function unboundSessionStart(
   sessionId: string,
-  opts: Pick<SessionStartOpts, "source" | "model"> = {},
+  opts: Pick<SessionStartOpts, "source" | "model" | "transcriptPath"> = {},
 ): Record<string, unknown> {
-  const { source = "startup", model } = opts;
+  const { source = "startup", model, transcriptPath = "/tmp/t.jsonl" } = opts;
   const payload: Record<string, unknown> = {
     hook_event_name: "SessionStart",
     session_id: sessionId,
-    transcript_path: "/tmp/t.jsonl",
+    transcript_path: transcriptPath,
     cwd: "/tmp",
     source,
   };
@@ -68,6 +68,14 @@ interface SessionStartOpts extends EnvelopeOpts {
    * option to get the default present-model shape (M0 behaviour).
    */
   model?: string | null;
+  /**
+   * Plan markdown-viewing: the transcript path this hook carries — every hook's common
+   * field (kb:fact/hook-payload-fields), and the only place the reader's plan slug lives
+   * (kb:fact/plan-file-path-in-transcript). Default unchanged (`/tmp/t.jsonl`, a path
+   * that never exists — `LocatePlanFile`'s "no plan" answer). Reader tests point this at
+   * a fake transcript built by `helpers/reader.ts`'s `writeFakeTranscript`.
+   */
+  transcriptPath?: string;
 }
 
 /**
@@ -80,11 +88,17 @@ export function envelopedSessionStart(
   sessionId: string,
   opts: SessionStartOpts = {},
 ): Record<string, unknown> {
-  const { musterSession = 1, tmuxPane = "%12", source = "startup", model } = opts;
+  const {
+    musterSession = 1,
+    tmuxPane = "%12",
+    source = "startup",
+    model,
+    transcriptPath = "/tmp/t.jsonl",
+  } = opts;
   const payload: Record<string, unknown> = {
     hook_event_name: "SessionStart",
     session_id: sessionId,
-    transcript_path: "/tmp/t.jsonl",
+    transcript_path: transcriptPath,
     cwd: "/tmp",
     source,
   };
@@ -124,6 +138,8 @@ interface TurnActivityOpts {
    * default, matching every main-agent hook (no `agent_id` key at all, never `null`).
    */
   agentId?: string;
+  /** Plan markdown-viewing: see `SessionStartOpts.transcriptPath`. Default unchanged. */
+  transcriptPath?: string;
 }
 
 /** Raw `UserPromptSubmit` — opens a turn (turn-activity event, kb:anchor/state.transitions). */
@@ -131,11 +147,16 @@ export function rawUserPromptSubmit(
   sessionId: string,
   opts: TurnActivityOpts = {},
 ): Record<string, unknown> {
-  const { promptId = "p1", permissionMode = "default", agentId } = opts;
+  const {
+    promptId = "p1",
+    permissionMode = "default",
+    agentId,
+    transcriptPath = "/tmp/t.jsonl",
+  } = opts;
   const payload: Record<string, unknown> = {
     hook_event_name: "UserPromptSubmit",
     session_id: sessionId,
-    transcript_path: "/tmp/t.jsonl",
+    transcript_path: transcriptPath,
     cwd: "/tmp",
     prompt_id: promptId,
     permission_mode: permissionMode,
@@ -148,24 +169,76 @@ export function rawUserPromptSubmit(
   return payload;
 }
 
-/** Raw `PostToolUse` — also a turn-activity event; used for straggler-past-Stop cases. */
-export function rawPostToolUse(
-  sessionId: string,
-  opts: TurnActivityOpts = {},
-): Record<string, unknown> {
-  const { promptId = "p1", permissionMode = "default", agentId } = opts;
+interface ToolUseOpts extends TurnActivityOpts {
+  /** Plan markdown-viewing REQ-13/REQ-18: the tool a Pre/PostToolUse hook names. Default
+   * "Write", matching every pre-existing caller's fixture. Reader tests pass "Edit" /
+   * "MultiEdit" (also a `docChanged` source, REQ-18) or "ExitPlanMode" (the plan-scan
+   * trigger, kb:fact/plan-mode-hook-sequence) or an arbitrary other tool name (must NOT
+   * fire `docChanged` / a plan scan). */
+  toolName?: string;
+  /** The `tool_input.file_path` a Write/Edit/MultiEdit hook names. Default unchanged
+   * (`/tmp/x.txt`, outside every session directory these tests build). */
+  filePath?: string;
+}
+
+/** Raw `PostToolUse` — also a turn-activity event; used for straggler-past-Stop cases,
+ * and (plan markdown-viewing) the `docChanged` source when `toolName` is Write/Edit/
+ * MultiEdit and `filePath` names a `.md` under the session directory or the plan path. */
+export function rawPostToolUse(sessionId: string, opts: ToolUseOpts = {}): Record<string, unknown> {
+  const {
+    promptId = "p1",
+    permissionMode = "default",
+    agentId,
+    transcriptPath = "/tmp/t.jsonl",
+    toolName = "Write",
+    filePath = "/tmp/x.txt",
+  } = opts;
   const payload: Record<string, unknown> = {
     hook_event_name: "PostToolUse",
     session_id: sessionId,
-    transcript_path: "/tmp/t.jsonl",
+    transcript_path: transcriptPath,
     cwd: "/tmp",
     prompt_id: promptId,
     permission_mode: permissionMode,
-    tool_name: "Write",
-    tool_input: { file_path: "/tmp/x.txt" },
+    tool_name: toolName,
+    tool_input: { file_path: filePath },
     tool_use_id: "tu1",
     tool_response: { ok: true },
     duration_ms: 42,
+  };
+  if (agentId !== undefined) {
+    payload.agent_id = agentId;
+    payload.agent_type = "general-purpose";
+  }
+  return payload;
+}
+
+/**
+ * Raw `PreToolUse` — plan markdown-viewing's `ExitPlanMode` scan trigger
+ * (kb:fact/plan-mode-hook-sequence: `PreToolUse{tool_name:"ExitPlanMode",
+ * permission_mode:"plan"}` is step 1 of leaving plan mode). `toolName` defaults to
+ * `"ExitPlanMode"` since that is the only `PreToolUse` this suite's reader tests care
+ * about; `permissionMode` defaults to `"plan"` per the measured sequence.
+ */
+export function rawPreToolUse(sessionId: string, opts: ToolUseOpts = {}): Record<string, unknown> {
+  const {
+    promptId = "p1",
+    permissionMode = "plan",
+    agentId,
+    transcriptPath = "/tmp/t.jsonl",
+    toolName = "ExitPlanMode",
+    filePath = "/tmp/x.txt",
+  } = opts;
+  const payload: Record<string, unknown> = {
+    hook_event_name: "PreToolUse",
+    session_id: sessionId,
+    transcript_path: transcriptPath,
+    cwd: "/tmp",
+    prompt_id: promptId,
+    permission_mode: permissionMode,
+    tool_name: toolName,
+    tool_input: toolName === "ExitPlanMode" ? {} : { file_path: filePath },
+    tool_use_id: "tu0",
   };
   if (agentId !== undefined) {
     payload.agent_id = agentId;

@@ -374,3 +374,58 @@ func TestUpdateSession_TitleOverrideRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, cleared.TitleOverride, "clearing the override must persist a NULL, not survive as a stale value")
 }
+
+// TestInsertSession_ReaderFieldsDefaultNilAndFalse covers plan markdown-viewing's Schema
+// Changes note: InsertSession is untouched by the new columns — transcript_file/plan_path
+// default NULL and plan_exists defaults 0, until a scan or hook sets them.
+func TestInsertSession_ReaderFieldsDefaultNilAndFalse(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	repoID := seedTestRepo(t, st)
+
+	row, err := st.InsertSession(ctx, InsertSessionParams{RepoID: repoID, Directory: "/tmp/proj", PermissionMode: "default"})
+	require.NoError(t, err)
+
+	assert.Nil(t, row.TranscriptPath)
+	assert.Nil(t, row.PlanPath)
+	assert.False(t, row.PlanExists)
+}
+
+// TestUpdateSession_ReaderFieldsRoundTrip covers D14: transcript_file, plan_path and
+// plan_exists survive UpdateSession -> GetSession (a restart keeps the plan), in both
+// directions — setting them, and clearing plan_path back to nil (session.Manager's wire
+// "plan: null").
+func TestUpdateSession_ReaderFieldsRoundTrip(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	repoID := seedTestRepo(t, st)
+
+	row, err := st.InsertSession(ctx, InsertSessionParams{RepoID: repoID, Directory: "/tmp/proj", PermissionMode: "default"})
+	require.NoError(t, err)
+
+	transcript := "/Users/d/.claude/projects/x/transcript.jsonl"
+	planPath := "/Users/d/.claude/plans/happy-otter.md"
+	row.TranscriptPath = &transcript
+	row.PlanPath = &planPath
+	row.PlanExists = true
+	require.NoError(t, st.UpdateSession(ctx, row))
+
+	got, err := st.GetSession(ctx, row.ID)
+	require.NoError(t, err)
+	require.NotNil(t, got.TranscriptPath)
+	assert.Equal(t, transcript, *got.TranscriptPath)
+	require.NotNil(t, got.PlanPath)
+	assert.Equal(t, planPath, *got.PlanPath)
+	assert.True(t, got.PlanExists)
+
+	got.PlanPath = nil
+	got.PlanExists = false
+	require.NoError(t, st.UpdateSession(ctx, got))
+
+	cleared, err := st.GetSession(ctx, row.ID)
+	require.NoError(t, err)
+	assert.Nil(t, cleared.PlanPath, "clearing plan_path must persist a NULL, not survive as a stale value")
+	assert.False(t, cleared.PlanExists)
+	require.NotNil(t, cleared.TranscriptPath, "clearing the plan must not touch the unrelated transcript column")
+	assert.Equal(t, transcript, *cleared.TranscriptPath)
+}

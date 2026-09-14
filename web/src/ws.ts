@@ -7,6 +7,7 @@
 // module just wires the socket lifecycle to them.
 import {
   type ClaudeFamily,
+  type DocChanged,
   type Hello,
   type Message,
   type Prefs,
@@ -37,6 +38,7 @@ export interface WsClientHandlers {
   onSessionRemoved?: (id: number) => void;
   onClaudeTheme?: (family: ClaudeFamily) => void;
   onUpdate?: (update: UpdateInfo) => void;
+  onDocChanged?: (docChanged: DocChanged) => void;
   onDisconnected?: () => void;
   onProtocolMismatch?: (protocolVersion: number) => void;
 }
@@ -157,6 +159,10 @@ export class WsClient {
     }
     if (message.type === "update") {
       this.handlers.onUpdate?.(message.update);
+      return;
+    }
+    if (message.type === "docChanged") {
+      this.handlers.onDocChanged?.(message);
       return;
     }
     this.handlers.onSnapshot?.(message);

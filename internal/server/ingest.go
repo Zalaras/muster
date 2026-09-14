@@ -41,6 +41,17 @@ type ingestQueue struct {
 	// usage receives a routed status post's account sample, when present. Nil in tests
 	// that only exercise raw persistence or the state machine.
 	usage *usage.Aggregator
+
+	// files receives every routed hook event's neutral claudecode.FileSignal (plan
+	// markdown-viewing REQ-16/REQ-18) — never called for status posts. Nil in tests
+	// that don't exercise the reader.
+	files filesObserver
+}
+
+// filesObserver is ingestQueue's view of *readerFeature — narrowed to the one method
+// this file calls, so tests can fake it without the whole feature.
+type filesObserver interface {
+	Observe(ctx context.Context, sessionID int64, claudeSessionID string, sig claudecode.FileSignal)
 }
 
 func newIngestQueue(st *store.Store, log zerolog.Logger, size int) *ingestQueue {
@@ -142,6 +153,12 @@ func (q *ingestQueue) process(job ingestJob) {
 	enveloped := ev.MusterSession != nil
 	if _, err := q.manager.Apply(ctx, *sessionID, ev.SessionID, ev.PromptID, input, enveloped); err != nil {
 		q.log.Warn().Err(err).Str("kind", string(job.kind)).Msg("applying ingest event to session state failed")
+	}
+
+	// Runs after Apply, on this same single worker, so Observe's claudeSessionID
+	// comparison sees the post-rebind binding (REQ-26/INV-8, reader.go's own doc comment).
+	if q.files != nil {
+		q.files.Observe(ctx, *sessionID, ev.SessionID, claudecode.InterpretFiles(ev.Type, ev.Payload))
 	}
 }
 

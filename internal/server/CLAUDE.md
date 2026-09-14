@@ -1,6 +1,6 @@
 # internal/server — HTTP/WS handlers, one feature type per file
 
-**Owns**: cookie-authed UI endpoints, `/ws` fanout, the ingest routes and the wire mapping from domain types to protocol JSON. Composition root is `server.go`: `New` builds each feature with `register(s, newXFeature(...))` and `routes()` mounts them; logic never lands there. **Features**: actions, connection, drop, ingest, issue, launch, lifecycle, rail, rename, settings, surfaces, theme, update, usage, views.
+**Owns**: cookie-authed UI endpoints, `/ws` fanout, the ingest routes and the wire mapping from domain types to protocol JSON. Composition root is `server.go`: `New` builds each feature with `register(s, newXFeature(...))` and `routes()` mounts them; logic never lands there. **Features**: actions, connection, drop, ingest, issue, launch, lifecycle, rail, reader, rename, settings, surfaces, theme, update, usage, views.
 
 **Invariants** (violations are review-Critical):
 - A handler is a method on its feature type, mounted via `mount(mux, guard)`, never on `*Server` (kb:adr/process-composition-roots-registration-only).
@@ -19,7 +19,7 @@
 - A fixture reshaped to stay green changes the wire (kb:lesson/stale-fixture-reshaped-the-wire).
 
 <!-- kb:trailer -->
-<!-- kb:hash 5c6714c08238eac2 -->
+<!-- kb:hash a40bf0e7bd71ba79 -->
 - **actions** — End, Resume and Remove a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
 - **drop** — File drop pastes the original on-disk path into the pane. → `docs/features/drop/INDEX.md`
@@ -28,6 +28,7 @@
 - **launch** — Launch dialog, repo browse and picker, trust prompt, project-scoped settings write, the claude argv. → `docs/features/launch/INDEX.md`
 - **lifecycle** — The session state machine, liveness, reconcile on start, shutdown policy, resume to idle. → `docs/features/lifecycle/INDEX.md`
 - **rail** — Rail cards, attention versus manual order, pin, drag reorder, session count. → `docs/features/rail/INDEX.md`
+- **reader** — The docs surface — a sanitized markdown reader for a session's plan and the .md files under its directory, with a file nav, outline and pop-out. → `docs/features/reader/INDEX.md`
 - **rename** — Muster-owned session title override, inline rename in the mainhead and tiles. → `docs/features/rename/INDEX.md`
 - **settings** — Settings dialog and the prefs it edits. → `docs/features/settings/INDEX.md`
 - **surfaces** — PTY bridge, xterm pane, the ephemeral shell surface, sizing, one live client per target. → `docs/features/surfaces/INDEX.md`

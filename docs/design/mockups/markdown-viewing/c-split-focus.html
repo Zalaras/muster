@@ -1,0 +1,212 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+</head>
+<body>
+
+<style>
+:root{--mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;--sans:system-ui,-apple-system,"Segoe UI",sans-serif;--disp:system-ui,-apple-system,"Segoe UI",sans-serif;
+--fs-root:15px;--fs-2xs:.68rem;--fs-xs:.75rem;--fs-sm:.82rem;--fs-md:.89rem;--fs-base:1rem;--fs-lg:1.07rem;--fs-xl:1.14rem;
+--bg:#12141c;--bg-raised:#171a24;--bg-hover:#1c2029;--well:#0d0f16;--line:#282d3b;--line-control:#343a4a;--edge:#6a7286;
+--fg:#e8e6e1;--fg-muted:#b2b6c3;--fg-dim:#a6abbc;--amber:#f2a33c;--rose:#e77f7f;--violet:#9e91f1;--teal:#56c5d0;--idle:#989db1;--shell-pip:#6c9ee5;
+--amber-line:#5c4526;--violet-line:#3e3663;--teal-line:#215058;--amber-fg:#12141c;--term:#0d0f16;--term-fg:#e8e6e1;--scrim:rgba(8,9,13,.72);}
+html{font-size:15px}body{margin:0;background:#0a0b10;color:var(--fg);font-family:var(--sans);font-size:var(--fs-base)}
+a{color:var(--fg-muted)}a:hover{color:var(--fg)}
+.app{width:1440px;height:900px;display:flex;flex-direction:column;background:var(--bg);overflow:hidden;position:relative}
+.masthead{display:flex;align-items:center;gap:20px;padding:10px 16px;background:var(--bg-raised);border-bottom:1px solid var(--line);flex:none}
+.brand{font-family:var(--disp);font-size:var(--fs-xl);font-weight:800;letter-spacing:-.02em}
+.view-switcher{display:flex;flex:none}
+.seg-btn{font-family:var(--mono);font-size:var(--fs-xs);padding:4px 13px;background:transparent;border:1px solid var(--line-control);border-right-width:0;color:var(--fg-dim)}
+.seg-btn:last-child{border-right-width:1px}.seg-btn.on{color:var(--fg);background:var(--bg-hover)}
+.mright{display:flex;align-items:center;gap:16px;margin-left:auto;font-family:var(--mono);font-size:var(--fs-sm);color:var(--fg-muted)}
+.mright .st{color:var(--fg)}
+.btn{font-family:var(--mono);font-size:var(--fs-xs);padding:5px 11px;background:transparent;border:1px solid var(--line-control);color:var(--fg-muted);white-space:nowrap}
+.btn.on{color:var(--fg);background:var(--bg-hover)}.btn.sm{font-size:var(--fs-2xs);padding:3px 8px}
+.split{display:flex;flex:1;min-height:0}
+.rail{width:300px;flex:none;border-right:1px solid var(--line);background:var(--bg-raised);display:flex;flex-direction:column}
+.railhead{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--line)}
+.railhead .n{margin-left:auto;font-family:var(--mono);font-size:var(--fs-xs);color:var(--fg-dim)}
+.railhead .sel{font-family:var(--mono);font-size:var(--fs-xs);color:var(--fg-dim);border:1px solid var(--edge);border-radius:3px;padding:2px 4px}
+.card{display:flex;border-bottom:1px solid var(--line);position:relative}
+.card.current{background:var(--bg-hover);outline:1px solid var(--edge);outline-offset:-1px}
+.card .stripe{width:3px;flex:none;background:var(--fg-dim)}
+.card.s-plan .stripe{background:var(--violet)}.card.s-work .stripe{background:var(--teal)}.card.s-blocked .stripe{background:var(--amber)}.card.s-idle .stripe{background:var(--idle)}
+.card-in{padding:9px 11px 10px;flex:1;min-width:0}
+.r1{display:flex;align-items:baseline;gap:8px}
+.card .name{font-family:var(--disp);font-weight:700;font-size:var(--fs-base);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge{font-family:var(--mono);font-size:var(--fs-2xs);letter-spacing:.11em;text-transform:uppercase;padding:2px 5px;border:1px solid var(--line-control);color:var(--fg-muted);flex:none}
+.card.s-plan .badge{color:var(--violet);border-color:var(--violet-line)}.card.s-work .badge{color:var(--teal);border-color:var(--teal-line)}.card.s-blocked .badge{color:var(--amber);border-color:var(--amber-line)}
+.card .timer{margin-left:auto;font-family:var(--mono);font-size:var(--fs-sm);color:var(--fg-dim)}
+.card.s-blocked .timer{color:var(--amber)}
+.r2{font-family:var(--mono);font-size:var(--fs-xs);color:var(--fg-dim);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r3{display:flex;align-items:center;gap:7px;margin-top:7px;font-family:var(--mono);font-size:var(--fs-xs);color:var(--fg-muted)}
+.ctx{height:3px;background:var(--line);width:90px;position:relative}.ctx i{position:absolute;left:0;top:0;bottom:0;background:var(--fg-muted)}
+.main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;position:relative}
+.mainhead{display:flex;align-items:center;gap:12px;padding:9px 14px;border-bottom:1px solid var(--line);background:var(--bg-raised);flex:none}
+.mainhead .nm{font-family:var(--disp);font-weight:700;font-size:var(--fs-lg);letter-spacing:-.015em}
+.mainhead .meta{font-family:var(--mono);font-size:var(--fs-xs);color:var(--fg-dim)}
+.acts{margin-left:auto;display:flex;align-items:center;gap:6px}
+.surfseg{display:inline-flex;border:1px solid var(--line-control);flex:none}
+.surfseg span{font-family:var(--mono);font-size:10.5px;padding:4px 11px;border-right:1px solid var(--line-control);color:var(--fg-dim);display:flex;align-items:center;gap:6px}
+.surfseg span:last-child{border-right:0}.surfseg span.on{background:var(--bg-hover);color:var(--fg)}
+.pip{width:5px;height:5px;border-radius:50%;background:var(--shell-pip)}
+.tfoot .surfseg span{padding:2px 8px;font-size:9.5px}
+.term{flex:1;background:var(--term);color:var(--term-fg);font-family:var(--mono);font-size:12.5px;line-height:1.65;padding:8px 12px;white-space:pre;overflow:hidden;min-height:0}
+.term .d{color:var(--fg-dim)}.term .v{color:var(--violet)}.term .t{color:var(--teal)}
+.tools{display:flex;align-items:center;gap:14px;padding:7px 18px;border-bottom:1px solid var(--line);background:var(--bg-raised);font-family:var(--mono);font-size:var(--fs-xs);letter-spacing:.1em;text-transform:uppercase;color:var(--fg-dim)}
+.tools .btn{margin-left:auto;text-transform:none;letter-spacing:normal}
+.grid{flex:1;min-height:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);padding:1px}
+.tile{background:var(--bg);display:flex;flex-direction:column;min-width:0;min-height:0;border:1px solid transparent}
+.thead{display:flex;align-items:center;gap:9px;padding:7px 11px;background:var(--bg-raised);border-bottom:1px solid var(--line)}
+.sdot{width:7px;height:7px;border-radius:50%;background:var(--idle);flex:none}
+.tile.s-plan .sdot{background:var(--violet)}.tile.s-work .sdot{background:var(--teal)}.tile.s-blocked .sdot{background:var(--amber)}
+.thead .tn{font-family:var(--disp);font-weight:700;font-size:var(--fs-md);letter-spacing:-.01em;white-space:nowrap}
+.thead .wh{font-family:var(--mono);font-size:var(--fs-xs);color:var(--fg-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.thead .tm{margin-left:auto;font-family:var(--mono);font-size:var(--fs-sm);color:var(--fg-dim);flex:none}
+.tile.s-blocked .tm{color:var(--amber)}
+.tbody{flex:1;min-height:0;display:flex;background:var(--term)}
+.tfoot{display:flex;gap:10px;align-items:center;padding:4px 11px;background:var(--bg-raised);border-top:1px solid var(--line);font-family:var(--mono);font-size:var(--fs-2xs);color:var(--fg-dim)}
+.tfoot .live{color:var(--teal)}.tfoot .acts .btn{font-size:var(--fs-2xs);padding:2px 8px}
+/* ── right-hand file nav (docs-site "section nav" pattern) ── */
+.rnav{width:236px;flex:none;border-left:1px solid var(--line);background:var(--bg-raised);display:flex;flex-direction:column;font-family:var(--mono);font-size:var(--fs-xs);min-height:0;overflow:hidden}
+.rnav .hd{padding:9px 12px 5px;font-size:var(--fs-2xs);letter-spacing:.12em;text-transform:uppercase;color:var(--fg-dim);display:flex;align-items:center;gap:8px}
+.rnav .hd .n{margin-left:auto;letter-spacing:0;text-transform:none}
+.rnav .filter{margin:4px 10px 6px;border:1px solid var(--edge);border-radius:3px;padding:3px 7px;color:var(--fg-dim);font-style:italic;font-size:var(--fs-2xs)}
+.rnav .f{padding:3px 12px;color:var(--fg-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:6px;align-items:center}
+.rnav .f.on{background:var(--bg-hover);color:var(--fg)}
+.rnav .f .car{color:var(--fg-dim);width:9px;flex:none}
+.rnav .f .cnt{margin-left:auto;color:var(--fg-dim);font-size:var(--fs-2xs)}
+.rnav .f .dot{width:5px;height:5px;border-radius:50%;background:var(--fg-muted);margin-left:auto;flex:none}
+.rnav .d1{padding-left:24px}.rnav .d2{padding-left:36px}.rnav .d3{padding-left:48px}
+.rnav .sep{border-top:1px solid var(--line);margin:6px 0}
+.rnav .ol{padding:3px 12px;color:var(--fg-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--sans);font-size:var(--fs-sm)}
+.rnav .ol.h1{color:var(--fg)}.rnav .ol.h2{padding-left:24px}.rnav .ol.on{color:var(--fg);border-left:2px solid var(--fg-muted);margin-left:-2px}
+.rnav.compact{width:190px}.rnav.compact .hd .n{display:none}.rnav.compact .f{padding-top:2px;padding-bottom:2px;font-size:10px}
+.arr{font-family:var(--mono);font-size:14px;line-height:1;color:var(--fg-dim);padding:0 6px;border:1px solid var(--line-control);flex:none}
+.docbar .ib{border:1px solid var(--line-control);padding:3px 7px;color:var(--fg-muted);font-size:var(--fs-2xs);white-space:nowrap}
+.docbar .ib.on{background:var(--bg-hover);color:var(--fg)}
+/* ── the reader (shared by every option) ── */
+.reader{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--well)}
+.docbar{display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--line);background:var(--bg-raised);flex:none;font-family:var(--mono);font-size:var(--fs-xs);color:var(--fg-dim)}
+.pick{display:flex;align-items:center;gap:8px;border:1px solid var(--edge);border-radius:3px;padding:3px 8px;color:var(--fg);font-family:var(--mono);font-size:var(--fs-xs)}
+.pick span{white-space:nowrap}.pick .badge{padding:1px 4px}.pick .car{color:var(--fg-dim)}
+.docbar .path{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.docbar .chg{margin-left:auto;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.docbar .chg i{width:5px;height:5px;border-radius:50%;background:var(--fg-muted);display:inline-block}
+.md{flex:1;overflow:hidden;padding:22px 32px;font-family:var(--sans);font-size:var(--fs-base);line-height:1.55;color:var(--fg);min-height:0}
+.md h1{font-family:var(--disp);font-size:1.5rem;font-weight:800;letter-spacing:-.02em;margin:0 0 10px}
+.md h2{font-family:var(--disp);font-size:1.14rem;font-weight:700;letter-spacing:-.015em;margin:20px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--line)}
+.md p{margin:0 0 10px;color:var(--fg-muted)}.md strong{color:var(--fg)}
+.md code{font-family:var(--mono);font-size:.85em;background:var(--bg-hover);padding:1px 5px;border:1px solid var(--line)}
+.md ul{margin:0 0 10px;padding-left:22px;color:var(--fg-muted)}.md li{margin:3px 0}
+.md .cb{display:inline-block;width:11px;height:11px;border:1px solid var(--edge);vertical-align:-1px;margin-right:6px;margin-left:-20px}
+.md .cb.x{background:var(--fg-dim);box-shadow:inset 0 0 0 2px var(--well)}
+.md table{border-collapse:collapse;font-size:var(--fs-sm);margin:6px 0 10px}.md th,.md td{border:1px solid var(--line);padding:4px 9px;text-align:left}.md th{color:var(--fg);font-family:var(--mono);font-size:var(--fs-xs);letter-spacing:.06em;text-transform:uppercase;background:var(--bg-raised)}.md td{color:var(--fg-muted)}
+.md.compact{padding:10px 14px;font-size:var(--fs-sm);line-height:1.45}.md.compact h1{font-size:1.07rem;margin-bottom:6px}.md.compact h2{font-size:.89rem;margin:10px 0 4px}.md.compact p{margin-bottom:6px}
+.filelist{width:220px;flex:none;border-right:1px solid var(--line);background:var(--bg-raised);display:flex;flex-direction:column;font-family:var(--mono);font-size:var(--fs-xs)}
+.filelist .hd{padding:8px 12px 5px;font-size:var(--fs-2xs);letter-spacing:.12em;text-transform:uppercase;color:var(--fg-dim)}
+.filelist .f{padding:5px 12px;color:var(--fg-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:8px;align-items:center}
+.filelist .f.on{background:var(--bg-hover);color:var(--fg)}.filelist .f .badge{padding:0 4px;font-size:9px}
+.filelist .f .dot{width:5px;height:5px;border-radius:50%;background:var(--fg-muted);margin-left:auto;flex:none}
+.filelist .sep{border-top:1px solid var(--line);margin:6px 0}
+</style>
+<div class="app">
+<div class="masthead">
+  <div class="brand">Muster</div>
+  <div class="view-switcher" style="display:flex"><span class="seg-btn on">Focus</span><span class="seg-btn ">Tiles</span></div>
+  <div class="mright" style="display:flex;gap:16px;align-items:center">
+    <span>5h 42%</span><span>7d 18%</span><span>opus 31%</span><span class="btn sm">↻</span>
+    <span class="btn">Issue</span><span class="btn">Settings</span><span>2.1.270</span><span class="st">connected</span>
+  </div>
+</div><div class="split" style="display:flex;flex:1;min-height:0">
+<div class="rail">
+  <div class="railhead" style="display:flex;gap:10px;align-items:center"><span class="btn">New session</span><span class="n">4</span><span class="sel">Manual ▾</span></div>
+  <div class="cards">
+<div class="card s-plan current">
+  <div class="stripe"></div>
+  <div class="card-in">
+    <div class="r1" style="display:flex;gap:8px;align-items:baseline"><span class="name">markdown-viewing</span><span class="badge">Planning</span><span class="timer">04:12</span></div>
+    <div class="r2">~/code/Projects/muster · plan/markdown-viewing</div>
+    <div class="r3" style="display:flex;gap:7px;align-items:center"><span class="ctx"><i style="width:34%"></i></span><span>34%</span><span>68k tok</span></div>
+  </div>
+</div>
+<div class="card s-work ">
+  <div class="stripe"></div>
+  <div class="card-in">
+    <div class="r1" style="display:flex;gap:8px;align-items:baseline"><span class="name">api-key-usage</span><span class="badge">Working</span><span class="timer">00:48</span></div>
+    <div class="r2">~/code/Projects/muster-spike · spike/api-key</div>
+    <div class="r3" style="display:flex;gap:7px;align-items:center"><span class="ctx"><i style="width:61%"></i></span><span>61%</span><span>122k tok</span></div>
+  </div>
+</div>
+<div class="card s-blocked ">
+  <div class="stripe"></div>
+  <div class="card-in">
+    <div class="r1" style="display:flex;gap:8px;align-items:baseline"><span class="name">gardening notes</span><span class="badge">Needs input</span><span class="timer">12:05</span></div>
+    <div class="r2">~/Documents/gardening</div>
+    <div class="r3" style="display:flex;gap:7px;align-items:center"><span class="ctx"><i style="width:12%"></i></span><span>12%</span><span>24k tok</span></div>
+  </div>
+</div>
+<div class="card s-idle ">
+  <div class="stripe"></div>
+  <div class="card-in">
+    <div class="r1" style="display:flex;gap:8px;align-items:baseline"><span class="name">mdr-server</span><span class="badge">Idle</span><span class="timer">1h 03m</span></div>
+    <div class="r2">~/Documents/code/PycharmProjects/MDRostering</div>
+    <div class="r3" style="display:flex;gap:7px;align-items:center"><span class="ctx"><i style="width:78%"></i></span><span>78%</span><span>156k tok</span></div>
+  </div>
+</div></div>
+</div><div class="main">
+<div class="mainhead" style="display:flex;gap:12px;align-items:center">
+  <span class="nm">markdown-viewing</span>
+  <span class="meta">~/code/Projects/muster · plan/markdown-viewing · opus · plan mode</span>
+  <span class="surfseg" style="display:inline-flex"><span class="on">claude</span><span class=""><span class="pip"></span>shell</span></span>
+  <div class="acts" style="display:flex;gap:6px;align-items:center;margin-left:auto"><span class="btn on">Docs</span><span class="btn">End</span><span class="btn">Resume</span><span class="btn">Remove</span></div>
+</div>
+<div style="display:flex;flex:1;min-height:0">
+  <div class="term" style="flex:0 0 560px"><span class="v">plan mode</span><span class="d"> · opus · ~/code/Projects/muster</span>
+
+<span class="d">&gt;</span> look at the todo item and spike for markdown viewing @TODO.md
+
+<span class="t">⏺</span> Read(TODO.md)
+  <span class="d">⎿  Read 282 lines</span>
+
+<span class="t">⏺</span> Read(docs/history/design/markdown-viewing.md)
+  <span class="d">⎿  Read 214 lines</span>
+
+<span class="t">⏺</span> Write(~/.claude/plans/bring-over-retro-land.md)
+  <span class="d">⎿  Wrote 96 lines</span>
+
+<span class="t">⏺</span> I've drafted the plan. Two decisions are still open — renderer side and
+  where the viewer lives — see the plan file for the trade-offs.
+
+<span class="d">──────────────────────────────────────────────────────────────────</span>
+<span class="d">&gt;</span> <span class="d">█</span>
+<span class="d">  ⏸ plan mode on (shift+tab to cycle)</span></div>
+  <div style="width:1px;background:var(--edge);flex:none"></div>
+  <div class="reader">
+<div class="docbar" style="display:flex;gap:10px;align-items:center">
+  <span class="pick" style="display:flex;gap:8px;align-items:center"><span class="badge">plan</span><span>bring-over-retro-land.md</span><span class="car">▾</span></span>
+  <span class="path">~/.claude/plans/bring-over-retro-land.md</span>
+  <span class="chg" style="display:flex;gap:6px;align-items:center"><i></i>changed 12 s ago</span>
+  
+</div>
+<div class="md ">
+  <h1>Plan: Markdown viewing</h1>
+  <p>Render a session's plan and any markdown under its directory in the dashboard. The plan path comes from the transcript (<code>planFilePath</code>); a <strong>PostToolUse Write</strong> on that path is the change signal.</p>
+  <h2>Requirements</h2>
+  <ul>
+    <li><span class="cb x"></span>Locate the plan from <code>transcript_path</code></li>
+    <li><span class="cb x"></span>List <code>*.md</code> under the session directory</li>
+    <li><span class="cb"></span>Confine served paths to the directory or the plan path</li>
+    <li><span class="cb"></span>Refresh the view when the file is written</li>
+  </ul>
+  <h2>Renderer</h2>
+  <table><tr><th>side</th><th>cost</th><th>task lists</th></tr>
+  <tr><td>browser · marked + DOMPurify</td><td>+23.6 kB gzip</td><td>kept</td></tr>
+  <tr><td>daemon · goldmark + bluemonday</td><td>+153 kB binary</td><td>stripped</td></tr></table>
+  <p>Recommendation: browser. The daemon stays Claude-format-only and hands raw markdown, as the issue preview already does.</p>
+</div></div>
+</div></div></div></div>
+
+</body>
+</html>

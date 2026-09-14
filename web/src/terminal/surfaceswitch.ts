@@ -1,4 +1,5 @@
-// The segmented `claude | shell` control (plan plain-terminal-session, REQ-4) — one
+// The segmented `claude | shell | docs` control (plan plain-terminal-session, REQ-4;
+// `docs` added by plan markdown-viewing, REQ-1) — one
 // component rendered in two places: the Focus mainhead (`.mainhead .surfseg`) and every
 // tile's footer (`.tfoot .acts .surfseg`). Built once per host (features/focus.ts at
 // startup for the mainhead; render/tiles.ts's buildTile for each tile) and only ever mutated
@@ -14,7 +15,10 @@
 // this state exists nowhere else; features/surfaces.ts is the only owner and mutates it
 // only via the functions below.
 
-export type SurfaceKind = "claude" | "shell";
+// Plan markdown-viewing REQ-1: `docs` joins the segment as a third kind — a reader,
+// never a `TerminalSurface` (INV-1). It carries no shell-like "is it running" flag of
+// its own; `isSurfaceAttachable` below always answers `false` for it.
+export type SurfaceKind = "claude" | "shell" | "docs";
 
 export interface SessionSurfaceState {
   selected: SurfaceKind;
@@ -69,12 +73,15 @@ export function setShellRunning(
 /** REQ-8: the shell ended (`exit`, an external kill, or any other PTY EOF on the shell
  * socket) — clears `shellRunning` and, in the same step, reverts `selected` to `claude`
  * if `shell` was showing (the swap-back and the pip clearing are one atomic state
- * change, never two renders). Identity if the session was already at the default state. */
+ * change, never two renders). Plan markdown-viewing edge case 20/INV-1: a `docs`
+ * selection is left untouched — only the pip clears — since `docs` was never the shell
+ * surface to begin with. Identity if the session was already at the default state. */
 export function shellEnded(state: SurfaceSwitchState, id: number): SurfaceSwitchState {
   const current = getSurfaceState(state, id);
-  if (!current.shellRunning && current.selected === "claude") return state;
+  const selected = current.selected === "shell" ? "claude" : current.selected;
+  if (!current.shellRunning && selected === current.selected) return state;
   const next = new Map(state);
-  next.set(id, { selected: "claude", shellRunning: false });
+  next.set(id, { selected, shellRunning: false });
   return next;
 }
 
@@ -89,13 +96,15 @@ export function forgetSession(state: SurfaceSwitchState, id: number): SurfaceSwi
 
 /** Whether the currently-selected surface for `id` should have a live `TerminalSurface`
  * mounted: `claude` follows the session's own `alive`; `shell` follows `shellRunning`
- * (REQ-7 — never `alive`, in either direction). */
+ * (REQ-7 — never `alive`, in either direction); `docs` is never attachable — the reader
+ * replaces the pane, it never has a `TerminalSurface` (plan markdown-viewing INV-1). */
 export function isSurfaceAttachable(
   state: SurfaceSwitchState,
   id: number,
   alive: boolean,
 ): boolean {
   const current = getSurfaceState(state, id);
+  if (current.selected === "docs") return false;
   return current.selected === "shell" ? current.shellRunning : alive;
 }
 
@@ -108,9 +117,15 @@ export function surfaceKey(id: number, kind: SurfaceKind): string {
   return `${id}${SURFACE_KEY_SEPARATOR}${kind}`;
 }
 
+function toSurfaceKind(kindPart: string | undefined): SurfaceKind {
+  if (kindPart === "shell") return "shell";
+  if (kindPart === "docs") return "docs";
+  return "claude";
+}
+
 export function parseSurfaceKey(key: string): { id: number; kind: SurfaceKind } {
   const [idPart, kindPart] = key.split(SURFACE_KEY_SEPARATOR);
-  return { id: Number(idPart), kind: kindPart === "shell" ? "shell" : "claude" };
+  return { id: Number(idPart), kind: toSurfaceKind(kindPart) };
 }
 
 // ── DOM: the segmented control itself ──────────────────────────────────────────────────
@@ -119,6 +134,9 @@ export interface SurfaceSegmentRefs {
   root: HTMLElement;
   claudeBtn: HTMLButtonElement;
   shellBtn: HTMLButtonElement;
+  /** Plan markdown-viewing REQ-1: the third `docs` segment, a native `<button>` exactly
+   * like its siblings — no pip, no `shellRunning`-style flag of its own. */
+  docsBtn: HTMLButtonElement;
   /** The pip `<span>` (Testable UI Elements: "the pip inside the shell button is an
    * empty `<span>`, so the button's accessible name is exactly shell") — kept detached
    * from `shellBtn` (via `.remove()`) until `updateSurfaceSegment` re-attaches it, rather
@@ -154,12 +172,18 @@ export function buildSurfaceSegment(onSelect: (kind: SurfaceKind) => void): Surf
   // it once a shell is known to be running.
   pipEl.remove();
 
-  root.append(claudeBtn, shellBtn);
+  const docsBtn = document.createElement("button");
+  docsBtn.type = "button";
+  docsBtn.dataset["surf"] = "docs";
+  docsBtn.textContent = "docs";
+
+  root.append(claudeBtn, shellBtn, docsBtn);
 
   claudeBtn.addEventListener("click", () => onSelect("claude"));
   shellBtn.addEventListener("click", () => onSelect("shell"));
+  docsBtn.addEventListener("click", () => onSelect("docs"));
 
-  return { root, claudeBtn, shellBtn, pipEl };
+  return { root, claudeBtn, shellBtn, docsBtn, pipEl };
 }
 
 /** Every render pass: `aria-pressed` on both segments, the pip's presence in the DOM, and
@@ -173,8 +197,10 @@ export function updateSurfaceSegment(
 ): void {
   refs.claudeBtn.setAttribute("aria-pressed", String(state.selected === "claude"));
   refs.shellBtn.setAttribute("aria-pressed", String(state.selected === "shell"));
+  refs.docsBtn.setAttribute("aria-pressed", String(state.selected === "docs"));
   refs.claudeBtn.disabled = !connected;
   refs.shellBtn.disabled = !connected;
+  refs.docsBtn.disabled = !connected;
   const hasPip = refs.shellBtn.contains(refs.pipEl);
   if (state.shellRunning && !hasPip) refs.shellBtn.prepend(refs.pipEl);
   else if (!state.shellRunning && hasPip) refs.pipEl.remove();

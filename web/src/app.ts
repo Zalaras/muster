@@ -6,6 +6,7 @@ import type { ConnectionStatus } from "./render/masthead";
 import type {
   ClaudeFamily,
   Density,
+  DocChanged,
   Prefs,
   RailSort,
   Session,
@@ -43,6 +44,7 @@ export interface AppEvents {
   sessionRemoved: (id: number) => void; // WS sessionRemoved, and a successful DELETE
   focusChanged: (id: number | null) => void; // before the render that follows app.focus
   cancelRenames: () => void; // any trigger that must not let a blur-commit through
+  docChanged: (docChanged: DocChanged) => void; // plan markdown-viewing: WS docChanged
 }
 
 export interface App {

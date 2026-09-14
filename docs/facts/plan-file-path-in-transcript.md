@@ -6,11 +6,11 @@ date: 2026-09-13
 summary: A session's plan is <plansDir>/<slug>.md; only the transcript names it, via slug lines and planFilePath on plan_mode* attachment lines.
 features: [lifecycle]
 tags: [claude-code-format]
-files: []
-tests: []
+files: [internal/claudecode/plan.go]
+tests: [TestLocatePlanFile]
 refs: [docs/history/design/markdown-viewing.md, kb:fact/plan-mode-hook-sequence, kb:fact/hook-payload-fields]
 verified: 2.1.233..2.1.269
-guard: none
+guard: TestLocatePlanFile
 ---
 Claude Code writes a session's plan-mode plan to `<plansDir>/<slug>.md` — `plansDir` is
 `settings.plansDirectory` resolved under the project root (it must stay inside it, else Claude

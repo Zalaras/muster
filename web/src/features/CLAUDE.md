@@ -1,6 +1,6 @@
 # web/src/features — controllers, one per feature
 
-**Owns**: one controller per feature. Each `init<Name>(app, deps)` looks up its elements, attaches listeners, subscribes via `app.on`, registers a render phase via `app.onRender`, returns a small handle. `web/src/main.ts` registers each in one line; `web/src/app.ts` is the shared seam (store, `AppState`, event bus, render frame). Pure logic lives in `sessions/` or `terminal/`, DOM building in `render/`. **Features**: actions, connection, focus, issue, launch, rail, rename, settings, shortcuts, surfaces, theme, tiles, update, usage, views.
+**Owns**: one controller per feature. Each `init<Name>(app, deps)` looks up its elements, attaches listeners, subscribes via `app.on`, registers a render phase via `app.onRender`, returns a small handle. `web/src/main.ts` registers each in one line; `web/src/app.ts` is the shared seam (store, `AppState`, event bus, render frame). Pure logic lives in `sessions/` or `terminal/`, DOM building in `render/`. **Features**: actions, connection, focus, issue, launch, rail, reader, rename, settings, shortcuts, surfaces, theme, tiles, update, usage, views.
 
 **Invariants** (violations are review-Critical):
 - `main.ts` holds no DOM lookup, listener, or module-level mutable state (kb:adr/process-composition-roots-registration-only).
@@ -19,13 +19,14 @@
 - `connection.ts` shows "connecting…" until the first `hello`; the banner appears only after that (kb:adr/connection-banner-only-after-first-hello).
 
 <!-- kb:trailer -->
-<!-- kb:hash c0adc07440e4d425 -->
+<!-- kb:hash 2a9c95b64d176dc6 -->
 - **actions** — End, Resume and Remove a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
 - **focus** — Focus view: mainhead, main slot, dead surface, default focus, focus marker. → `docs/features/focus/INDEX.md`
 - **issue** — Issue capture and GitHub issue creation from the dashboard. → `docs/features/issue/INDEX.md`
 - **launch** — Launch dialog, repo browse and picker, trust prompt, project-scoped settings write, the claude argv. → `docs/features/launch/INDEX.md`
 - **rail** — Rail cards, attention versus manual order, pin, drag reorder, session count. → `docs/features/rail/INDEX.md`
+- **reader** — The docs surface — a sanitized markdown reader for a session's plan and the .md files under its directory, with a file nav, outline and pop-out. → `docs/features/reader/INDEX.md`
 - **rename** — Muster-owned session title override, inline rename in the mainhead and tiles. → `docs/features/rename/INDEX.md`
 - **settings** — Settings dialog and the prefs it edits. → `docs/features/settings/INDEX.md`
 - **shortcuts** — Keyboard chords routed to views, focus and tiles. → `docs/features/shortcuts/INDEX.md`

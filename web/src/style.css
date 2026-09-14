@@ -663,16 +663,523 @@ body {
 
 /* REQ-13: shrunk to fit a tile footer (mockup.css's own tile-placement measurement —
  * plan Implementation Notes > Tile footer width) — smaller font/padding/pip than the
- * mainhead's; `.surfseg`'s own border/spacing above already apply here unchanged. */
+ * mainhead's; `.surfseg`'s own border/spacing above already apply here unchanged.
+ * Padding trimmed one notch further by plan markdown-viewing's third `docs` button,
+ * which widens the segment by roughly a third (reviewer: check visually at 3×2 density —
+ * no automated width oracle exists for this). */
 .tfoot .surfseg button {
   font-size: 9px;
-  padding: 1px 7px;
+  padding: 1px 6px;
   gap: 4px;
 }
 
 .tfoot .surfseg .pip {
   width: 4px;
   height: 4px;
+}
+
+/* ── plan markdown-viewing: the reader (docs/design/mockups/markdown-viewing/) ──────── */
+
+/* review markdown-viewing cycle-3 Critical 1: `doc.html`'s standalone page has no `#app`
+ * (that's index.html's composition root) — `#reader-host` was the intended equivalent
+ * host but carried no rule at all, so it sized to its content instead of the viewport and
+ * `.reader`'s `flex: 1` (below) had no flex parent to act in. Mirrors `#app`'s own
+ * `height: 100vh` (html/body are already `height: 100%`, see `#app`'s own rule above);
+ * a single flex item stretches to fill both axes by default, so no `flex-direction` is
+ * needed for the one `.reader` child this host ever holds. With this, `.reader`'s
+ * `grid-template-rows: auto auto 1fr` resolves against a definite height and `.md`'s
+ * `overflow: auto` (below) engages, restoring REQ-14's scroll-spy and click-to-scroll on
+ * the pop-out. */
+.reader-host {
+  display: flex;
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* review markdown-viewing cycle-1 Critical 1: the mockups (gen.mjs's `readerNav`) lay
+ * `.rnav` out as `.reader`'s sibling inside a row wrapper — plan.md's own DOM sketch
+ * nests it inside `.reader` instead, which under this component's original
+ * `flex-direction: column` stacked the 236px-wide nav under the body instead of beside
+ * it. Grid keeps the DOM exactly as plan.md/the E2E locators expect (`.docbar` and
+ * `.reader-notice` span both columns; `.md` and `.rnav` are the two row-3 tracks) while
+ * matching the mockups' placement — a wrapper element would have needed both templates
+ * and every reader-locator changed instead. `.rnav`'s own `width`/`.reader.compact .rnav`
+ * rules still size column 2 unchanged; column 2 collapses to 0 when `.rnav[hidden]`
+ * removes its only row-3 content, same as the nav-collapsed case already relied on. */
+.reader {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto 1fr;
+  min-width: 0;
+  min-height: 0;
+  background: var(--well);
+}
+
+.docbar {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-raised);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--fg-dim);
+}
+
+.docbar .badge,
+.rnav .badge {
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  padding: 2px 5px;
+  border: 1px solid var(--line-control);
+  color: var(--fg-muted);
+  flex: none;
+}
+
+.docbar .fname {
+  color: var(--fg);
+  white-space: nowrap;
+}
+
+.docbar .path {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.reader.compact .docbar .path {
+  display: none;
+}
+
+.docbar .chg {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.docbar .chg i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--fg-muted);
+  display: inline-block;
+}
+
+.docbar .ib {
+  border: 1px solid var(--line-control);
+  padding: 3px 7px;
+  color: var(--fg-muted);
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.docbar .ib:hover {
+  color: var(--fg);
+}
+
+.docbar .ib[hidden] {
+  display: none;
+}
+
+.arr {
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1;
+  color: var(--fg-dim);
+  padding: 0 6px;
+  border: 1px solid var(--line-control);
+  background: transparent;
+  flex: none;
+  cursor: pointer;
+}
+
+.arr:hover {
+  color: var(--fg);
+}
+
+.arr[hidden] {
+  display: none;
+}
+
+.reader-notice {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--fg-dim);
+}
+
+.reader-notice[hidden] {
+  display: none;
+}
+
+.md {
+  grid-column: 1;
+  grid-row: 3;
+  overflow: auto;
+  padding: 22px 32px;
+  font-family: var(--sans);
+  font-size: var(--fs-base);
+  line-height: 1.55;
+  color: var(--fg);
+  min-width: 0;
+  min-height: 0;
+}
+
+.md h1,
+.md h2,
+.md h3,
+.md h4,
+.md h5,
+.md h6 {
+  font-family: var(--disp);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  margin: 20px 0 6px;
+  color: var(--fg);
+}
+
+.md h1 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-top: 0;
+}
+
+.md h2 {
+  font-size: 1.14rem;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.md p {
+  margin: 0 0 10px;
+  color: var(--fg-muted);
+}
+
+.md strong {
+  color: var(--fg);
+}
+
+.md a {
+  color: var(--fg-muted);
+}
+
+.md a:hover {
+  color: var(--fg);
+}
+
+.md code {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  background: var(--bg-hover);
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+}
+
+.md pre {
+  background: var(--bg-hover);
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  overflow: auto;
+  margin: 0 0 10px;
+}
+
+.md pre code {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.md ul,
+.md ol {
+  margin: 0 0 10px;
+  padding-left: 22px;
+  color: var(--fg-muted);
+}
+
+.md li {
+  margin: 3px 0;
+}
+
+.md input[type="checkbox"] {
+  margin-right: 6px;
+  margin-left: -20px;
+  accent-color: var(--fg-dim);
+}
+
+.md table {
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+  margin: 6px 0 10px;
+}
+
+.md th,
+.md td {
+  border: 1px solid var(--line);
+  padding: 4px 9px;
+  text-align: left;
+}
+
+.md th {
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--bg-raised);
+}
+
+.md td {
+  color: var(--fg-muted);
+}
+
+.md .placeholder {
+  color: var(--fg-dim);
+  font-style: italic;
+}
+
+.reader.compact .md {
+  padding: 10px 14px;
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+
+.reader.compact .md h1 {
+  font-size: 1.07rem;
+  margin-bottom: 6px;
+}
+
+.reader.compact .md h2 {
+  font-size: 0.89rem;
+  margin: 10px 0 4px;
+}
+
+.reader.compact .md p {
+  margin-bottom: 6px;
+}
+
+.rnav {
+  grid-column: 2;
+  grid-row: 3;
+  width: 236px;
+  border-left: 1px solid var(--line);
+  background: var(--bg-raised);
+  display: flex;
+  flex-direction: column;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  min-height: 0;
+  overflow: hidden auto;
+}
+
+.rnav[hidden] {
+  display: none;
+}
+
+.reader.compact .rnav {
+  width: 190px;
+}
+
+.rnav .hd {
+  padding: 9px 12px 5px;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.rnav .hd.toggle {
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  color: var(--fg-dim);
+}
+
+.rnav .hd.toggle:hover {
+  color: var(--fg);
+}
+
+.rnav .hd .n {
+  margin-left: auto;
+  letter-spacing: 0;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.reader.compact .rnav .hd .n {
+  display: none;
+}
+
+.rnav .plan-label[hidden] {
+  display: none;
+}
+
+.rnav .plan-slot[hidden] {
+  display: none;
+}
+
+.rnav .f.none {
+  font-style: italic;
+}
+
+.rnav .filter {
+  margin: 4px 10px 6px;
+  border: 1px solid var(--edge);
+  border-radius: 3px;
+  padding: 3px 7px;
+  background: var(--well);
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  flex: none;
+}
+
+.rnav .filter::placeholder {
+  color: var(--fg-dim);
+  font-style: italic;
+}
+
+.rnav .filter[hidden] {
+  display: none;
+}
+
+.rnav .f,
+.rnav .ol {
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  padding: 3px 12px;
+  color: var(--fg-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  cursor: pointer;
+  flex: none;
+}
+
+.rnav .f[aria-current="true"],
+.rnav .ol[aria-current="true"] {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.rnav .ol[aria-current="true"] {
+  border-left: 2px solid var(--fg-muted);
+  margin-left: -2px;
+}
+
+.rnav .f .car,
+.rnav .f .cnt {
+  color: var(--fg-dim);
+  flex: none;
+}
+
+.rnav .f .cnt {
+  margin-left: auto;
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.rnav .f .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--fg-muted);
+  margin-left: auto;
+  flex: none;
+}
+
+.rnav .f.d0 {
+  padding-left: 12px;
+}
+.rnav .f.d1 {
+  padding-left: 24px;
+}
+.rnav .f.d2 {
+  padding-left: 36px;
+}
+.rnav .f.d3 {
+  padding-left: 48px;
+}
+.rnav .f.d4 {
+  padding-left: 60px;
+}
+.rnav .f.d5 {
+  padding-left: 72px;
+}
+
+.reader.compact .rnav .f {
+  padding-top: 2px;
+  padding-bottom: 2px;
+  font-size: 10px;
+}
+
+.rnav .ol {
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+}
+
+.rnav .ol.h1 {
+  color: var(--fg);
+}
+.rnav .ol.h2 {
+  padding-left: 24px;
+}
+.rnav .ol.h3 {
+  padding-left: 36px;
+}
+.rnav .ol.h4,
+.rnav .ol.h5,
+.rnav .ol.h6 {
+  padding-left: 48px;
+}
+
+.rnav .sep {
+  border-top: 1px solid var(--line);
+  margin: 6px 0;
+  flex: none;
+}
+
+/* review cycle-2 Critical 1: `.tree`/`.outline` are unconstrained-height flex items in
+ * `.rnav`'s column, so once bounded (`.rnav`'s own `overflow: hidden auto`, cycle-1
+ * Critical 1) they take the automatic flex minimum size of 0 and shrink to whatever
+ * column space is left, clipping the remainder — `.rnav`'s own scrollbar never engages
+ * because nothing overflows *it*, only its children. Each section scrolls independently
+ * inside its own shrunken box instead. */
+.rnav .tree,
+.rnav .outline {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.rnav .tree[hidden],
+.rnav .outline[hidden] {
+  display: none;
 }
 
 /* ── card/tile/strip action rows (REQ-11/REQ-12, m4-reconcile) ──────────────────────── */

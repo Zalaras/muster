@@ -321,6 +321,37 @@
       </div>
     </template>
 
+    <template id="reader-template">
+      <section class="reader">
+        <div class="docbar">
+          <span class="badge">plan</span>
+          <span class="fname"></span>
+          <span class="path"></span>
+          <span class="chg"><i aria-hidden="true"></i><span class="chgtext"></span></span>
+          <a class="ib" target="_blank" rel="noopener">pop out ↗</a>
+          <button type="button" class="arr" data-role="arr-collapsed" aria-label="Show files">‹</button>
+        </div>
+        <div class="reader-notice" role="status" hidden></div>
+        <article class="md"></article>
+        <nav class="rnav" aria-label="Documents">
+          <div class="hd" data-role="plan-header">
+            <span class="plan-label">plan</span>
+            <button type="button" class="arr" data-role="arr-open" aria-label="Hide files">›</button>
+          </div>
+          <div class="plan-slot" data-role="plan-slot"></div>
+          <div class="sep"></div>
+          <button type="button" class="hd toggle" data-role="files-toggle" aria-expanded="true" aria-label="Files">
+            <span class="dir"></span>
+          </button>
+          <input type="search" class="filter" placeholder="filter files…" aria-label="Filter files" />
+          <div class="tree" data-role="tree"></div>
+          <div class="sep"></div>
+          <button type="button" class="hd toggle" data-role="outline-toggle" aria-expanded="true" aria-label="Outline">outline</button>
+          <div class="outline" data-role="outline"></div>
+        </nav>
+      </section>
+    </template>
+
     <template id="mru-entry-template">
       <button type="button" class="dir" aria-pressed="false">
         <span class="dir-name"></span>

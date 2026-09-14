@@ -1,6 +1,6 @@
 # internal/session — state machine and session registry
 
-**Owns**: the six displayed states, transitions from neutral `claudecode.StateInput`, the in-memory registry (`Manager`), liveness polling, reconcile on start, rail order and titles. Persistence goes through `internal/store`; tmux through the `PaneChecker`, `Killer` and `PaneSnapshotter` interfaces defined here. **Features**: lifecycle, rail, rename.
+**Owns**: the six displayed states, transitions from neutral `claudecode.StateInput`, the in-memory registry (`Manager`), liveness polling, reconcile on start, rail order and titles. Persistence goes through `internal/store`; tmux through the `PaneChecker`, `Killer` and `PaneSnapshotter` interfaces defined here. **Features**: lifecycle, rail, reader, rename.
 
 **Invariants** (violations are review-Critical):
 - A session is identified by its tmux target; the Claude session_id is a mutable attribute (kb:adr/lifecycle-session-identity-is-tmux-target, kb:fact/clear-mints-new-session-id).
@@ -20,9 +20,10 @@
 - Per-transition tests miss invariants; name each invariant and cross it from every source state (kb:lesson/invariant-missed-by-per-transition-tests).
 
 <!-- kb:trailer -->
-<!-- kb:hash 2461eafd1b9426db -->
+<!-- kb:hash d1b9e2cb6fc1eaa9 -->
 - **lifecycle** — The session state machine, liveness, reconcile on start, shutdown policy, resume to idle. → `docs/features/lifecycle/INDEX.md`
 - **rail** — Rail cards, attention versus manual order, pin, drag reorder, session count. → `docs/features/rail/INDEX.md`
+- **reader** — The docs surface — a sanitized markdown reader for a session's plan and the .md files under its directory, with a file nav, outline and pop-out. → `docs/features/reader/INDEX.md`
 - **rename** — Muster-owned session title override, inline rename in the mainhead and tiles. → `docs/features/rename/INDEX.md`
 - 35 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

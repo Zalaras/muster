@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  agoSuffix,
   elapsedSeconds,
   formatAge,
   formatEndedAge,
+  formatEndedAgo,
   formatResets,
   formatTimer,
   formatTokens,
@@ -115,6 +117,30 @@ describe("formatEndedAge (REQ-9/REQ-10/REQ-13, plan m4-reconcile): same coarse b
   it("returns 'now' for an unparsable endedAt rather than throwing", () => {
     expect(() => formatEndedAge("not-a-date", new Date())).not.toThrow();
     expect(formatEndedAge("not-a-date", new Date("2026-08-22T00:00:00Z"))).toBe("now");
+  });
+});
+
+describe("agoSuffix (review markdown-viewing cycle-1 Major 2): the shared '<age> ago' composer", () => {
+  it("leaves the 'now' bucket bare instead of appending ' ago'", () => {
+    expect(agoSuffix("now")).toBe("now");
+  });
+
+  it.each(["1m", "59m", "1h", "23h", "1d"])("appends ' ago' to every other bucket (%s)", (age) => {
+    expect(agoSuffix(age)).toBe(`${age} ago`);
+  });
+});
+
+describe("formatEndedAgo: agoSuffix applied to formatEndedAge", () => {
+  it("reads 'now', never 'now ago', for a sub-minute endedAt", () => {
+    const endedAt = "2026-08-22T00:00:00Z";
+    const now = new Date("2026-08-22T00:00:05Z");
+    expect(formatEndedAgo(endedAt, now)).toBe("now");
+  });
+
+  it("reads '<age> ago' once a minute has elapsed", () => {
+    const endedAt = "2026-08-22T00:00:00Z";
+    const now = new Date("2026-08-22T00:02:00Z");
+    expect(formatEndedAgo(endedAt, now)).toBe("2m ago");
   });
 });
 

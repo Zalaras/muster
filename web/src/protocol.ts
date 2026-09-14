@@ -109,6 +109,15 @@ export interface SessionContext {
   compactions: number;
 }
 
+// Plan markdown-viewing (kb:anchor/ws.session): the plan the transcript scan derived, or
+// `null` when the session's latest known transcript names no plan at all (never entered
+// plan mode, or `/clear` minted a fresh planless transcript). `exists: false` means plan
+// mode was entered but nothing has been written yet.
+export interface SessionPlan {
+  path: string;
+  exists: boolean;
+}
+
 // Full shape per kb:anchor/ws.session (M1: the state machine now produces non-empty
 // arrays, so parseSession below validates every field rather than trusting the daemon).
 export interface Session {
@@ -147,6 +156,12 @@ export interface Session {
   // Required on every wire Session, same "no pre-plan daemon to tolerate" reasoning as
   // pinned/railPos above (ship together).
   titleOverride: string | null;
+  // Plan markdown-viewing REQ-17 (kb:anchor/ws.session): additive, no protocol bump
+  // (kb:adr/connection-protocol-bumps-only-on-shape-change) — but required on every wire
+  // Session all the same, same "daemon and client ship together" reasoning as
+  // pinned/railPos/titleOverride above, since there is no pre-plan daemon this build
+  // needs to keep parsing.
+  plan: SessionPlan | null;
 }
 
 // Plan order-sidebar (kb:anchor/prefs.put): the rail's sort mode pref.
@@ -277,6 +292,17 @@ export interface UpdateMessage {
   update: UpdateInfo;
 }
 
+// Plan markdown-viewing (kb:anchor/ws.doc-changed): sent once per routed PostToolUse
+// Write/Edit/MultiEdit naming a `.md` under the session's directory or its plan path
+// (REQ-18). Best-effort like the hooks it mirrors — a client never depends on receiving
+// one; a missed write just leaves the file labelled stale by its freshness cue instead.
+export interface DocChanged {
+  type: "docChanged";
+  id: number;
+  path: string;
+  at: string;
+}
+
 export type Message =
   | Hello
   | Snapshot
@@ -285,6 +311,7 @@ export type Message =
   | UsageMessage
   | SessionRemoved
   | ClaudeThemeMessage
+  | DocChanged
   | UpdateMessage;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -580,6 +607,15 @@ function parseContext(value: unknown): SessionContext | null {
   return { usedPct, totalInputTokens, windowSize, compactions };
 }
 
+function parseSessionPlan(value: unknown): SessionPlan | null {
+  if (!isRecord(value)) return null;
+  const path = value["path"];
+  const exists = value["exists"];
+  if (typeof path !== "string") return null;
+  if (typeof exists !== "boolean") return null;
+  return { path, exists };
+}
+
 /** Validates one Session object per kb:anchor/ws.session. Every field is read-checked;
  * an unrecognized field name or type anywhere in the object rejects the whole session
  * (the caller drops the snapshot/upsert rather than render a half-formed card).
@@ -611,6 +647,7 @@ export function parseSession(value: unknown): Session | null {
   const pinned = value["pinned"];
   const railPos = value["railPos"];
   const titleOverride = value["titleOverride"];
+  const rawPlan = value["plan"];
 
   if (typeof id !== "number") return null;
   if (title !== null && typeof title !== "string") return null;
@@ -648,6 +685,9 @@ export function parseSession(value: unknown): Session | null {
   if (typeof railPos !== "number") return null;
   if (titleOverride !== null && typeof titleOverride !== "string") return null;
 
+  const plan = rawPlan === null ? null : parseSessionPlan(rawPlan);
+  if (rawPlan !== null && plan === null) return null;
+
   return {
     id,
     title,
@@ -670,6 +710,7 @@ export function parseSession(value: unknown): Session | null {
     pinned,
     railPos,
     titleOverride,
+    plan,
   };
 }
 
@@ -741,6 +782,17 @@ function parseUpdateMessage(rec: Record<string, unknown>): UpdateMessage | null 
   return { type: "update", update };
 }
 
+/** Plan markdown-viewing (kb:anchor/ws.doc-changed). */
+export function parseDocChanged(rec: Record<string, unknown>): DocChanged | null {
+  const id = rec["id"];
+  const path = rec["path"];
+  const at = rec["at"];
+  if (typeof id !== "number") return null;
+  if (typeof path !== "string") return null;
+  if (typeof at !== "string") return null;
+  return { type: "docChanged", id, path, at };
+}
+
 /** Parses one WS text frame's decoded JSON. Unknown/malformed messages yield `null`. */
 export function parseMessage(data: unknown): Message | null {
   if (!isRecord(data)) return null;
@@ -762,6 +814,8 @@ export function parseMessage(data: unknown): Message | null {
       return parseClaudeThemeMessage(data);
     case "update":
       return parseUpdateMessage(data);
+    case "docChanged":
+      return parseDocChanged(data);
     default:
       return null; // unknown message types are ignored (kb:anchor/conventions)
   }

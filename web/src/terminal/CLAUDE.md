@@ -1,6 +1,6 @@
 # web/src/terminal — xterm pane and bridge
 
-**Owns**: the `TerminalSurface` in `pane.ts` (xterm.js instance, `/ws/terminal/{id}` socket, one overlay element) plus pure halves: close-code to overlay mapping, drop classification and path escaping, the shared `role="status"` notice, the `claude | shell` control. Which surfaces exist is `web/src/features/surfaces.ts`'s decision. **Features**: drop, surfaces.
+**Owns**: the `TerminalSurface` in `pane.ts` (xterm.js instance, `/ws/terminal/{id}` socket, one overlay element) plus pure halves: close-code to overlay mapping, drop classification and path escaping, the shared `role="status"` notice, the `claude | shell | docs` control. Which surfaces exist is `web/src/features/surfaces.ts`'s decision. **Features**: drop, reader, surfaces.
 
 **Invariants** (violations are review-Critical):
 - Only the surface manager constructs or disposes a `TerminalSurface`; no render path opens a socket, never for an `alive:false` session.
@@ -17,10 +17,11 @@
 - `surfaceswitch.ts` is built once per host and mutated afterwards, never rebuilt on a render tick (kb:lesson/select-rebuilt-every-tick-passed-selectoption).
 - Fit is observed, never pattern-matched from footer geometry (kb:lesson/tiles-never-refit-behind-pattern-match).
 - Dropped paths escape Terminal.app-style: backslash before every space and metacharacter, non-ASCII untouched (`drop.ts`).
+- `docs` never has a `TerminalSurface` (INV-1) — `isSurfaceAttachable` always answers `false` for it; the reader itself lives in `web/src/features/reader.ts`/`web/src/render/reader.ts`, not here.
 
 <!-- kb:trailer -->
-<!-- kb:hash 74d4e13ee2d16612 -->
+<!-- kb:hash 4f452aabd3c4c9e5 -->
 - **drop** — File drop pastes the original on-disk path into the pane. → `docs/features/drop/INDEX.md`
 - **surfaces** — PTY bridge, xterm pane, the ephemeral shell surface, sizing, one live client per target. → `docs/features/surfaces/INDEX.md`
-- 6 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 7 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

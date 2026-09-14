@@ -99,7 +99,9 @@ approval the run needs babysitting.
   a `PermissionRequest` hook auto-allows research prompts (web fetches, read-only bash) so
   the plan arrives uninterrupted. This does not exist in Claude Code today.
 - **Plan approval from the dashboard**: the plan surfaces in Muster; approve or reject
-  there. The hook sequence that makes this possible is kb:fact/plan-mode-hook-sequence.
+  there. The surfacing half now exists — a session's `docs` surface renders the plan it wrote
+  in plan mode (kb:spec/reader); the approval controls are the follow-on this bullet
+  describes. The hook sequence that makes this possible is kb:fact/plan-mode-hook-sequence.
   A `PermissionRequest` hook races the terminal prompt rather than blocking it: whoever
   answers first wins, and a timeout, error or empty reply degrades to stock behaviour —
   Muster must handle losing the race (kb:fact/permission-request-races-terminal-prompt).

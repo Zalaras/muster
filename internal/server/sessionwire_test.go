@@ -45,6 +45,27 @@ func TestToWireSession_MinimalShapeRendersEveryNullableFieldNull(t *testing.T) {
 	assert.Nil(t, w.Context.UsedPct)
 	assert.Nil(t, w.Context.TotalInputTokens)
 	assert.Nil(t, w.Context.WindowSize)
+	assert.Nil(t, w.Plan, "plan is null when the session's latest known transcript names none")
+}
+
+// TestToWireSessionPlan covers kb:anchor/ws.session's plan field (plan
+// markdown-viewing REQ-17): null when unresolved (PlanPath == ""), otherwise the path
+// and exists flag verbatim.
+func TestToWireSessionPlan(t *testing.T) {
+	s := minimalSession()
+	assert.Nil(t, toWireSessionPlan(s), "no plan resolved yet")
+
+	s.PlanPath = "/Users/d/.claude/plans/happy-otter.md"
+	s.PlanExists = true
+	got := toWireSessionPlan(s)
+	require.NotNil(t, got)
+	assert.Equal(t, "/Users/d/.claude/plans/happy-otter.md", got.Path)
+	assert.True(t, got.Exists)
+
+	s.PlanExists = false
+	got = toWireSessionPlan(s)
+	require.NotNil(t, got)
+	assert.False(t, got.Exists, "a resolved path with nothing written yet is exists:false, not null")
 }
 
 func TestToWireSession_RepoIsPopulatedOnlyWhenBranchIsSet(t *testing.T) {

@@ -1,6 +1,6 @@
 # internal/claudecode — the Claude Code adapter boundary
 
-**Owns**: every Claude-Code-format fact: hook payload keys, status-line JSON, `settings.local.json` entries, CLI argv, version pinning, the theme config file, the Keychain token and the OAuth usage API. Output is neutral domain values (`StateInput`, `StatusUpdate`, `LaunchParams`). No session state, HTTP or tmux here. **Features**: ingest, canary, launch, theme, usage.
+**Owns**: every Claude-Code-format fact: hook payload keys, status-line JSON, `settings.local.json` entries, CLI argv, version pinning, the theme config file, the Keychain token and the OAuth usage API. Output is neutral domain values (`StateInput`, `StatusUpdate`, `LaunchParams`). No session state, HTTP or tmux here. **Features**: ingest, canary, launch, reader, theme, usage.
 
 **Invariants** (violations are review-Critical):
 - A Claude Code payload key or event name appears in this package and nowhere else; other packages' tests build wire bodies through `claudecodetest` (kb:adr/ingest-wire-shaped-fixtures-via-claudecodetest).
@@ -20,11 +20,12 @@
 - A measured shape beats the official docs; record a new one as a fact before coding against it.
 
 <!-- kb:trailer -->
-<!-- kb:hash d7430d5f5426994e -->
+<!-- kb:hash 1711b232d42c15a9 -->
 - **canary** — The verified Claude Code version range, canary tiers, and the fragments tools/versions regenerates. → `docs/features/canary/INDEX.md`
 - **ingest** — Hook and status-line ingest endpoints, the envelope that binds an event to a Muster session, seq assigned at ingest. → `docs/features/ingest/INDEX.md`
 - **launch** — Launch dialog, repo browse and picker, trust prompt, project-scoped settings write, the claude argv. → `docs/features/launch/INDEX.md`
+- **reader** — The docs surface — a sanitized markdown reader for a session's plan and the .md files under its directory, with a file nav, outline and pop-out. → `docs/features/reader/INDEX.md`
 - **theme** — Muster theme preference and the Claude theme family poll. → `docs/features/theme/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
-- 57 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 58 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

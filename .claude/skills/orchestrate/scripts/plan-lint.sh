@@ -57,7 +57,8 @@ while IFS= read -r l; do
   id="${l%% *}"; cmd="${l#* }"
   [[ "$cmd" =~ ^!\ *rg ]] || continue
   pat="$(echo "$cmd" | grep -oE -- "(-e )?(\"[^\"]+\"|'[^']+')" | head -1 | sed -E "s/^-e //; s/^[\"']//; s/[\"']$//")"
-  if [[ -n "$pat" ]] && grep -qE -- "$pat" "$P"; then
+  # The checks block itself necessarily spells the pattern; grep the plan without it (markdown-viewing, 2026-09-13).
+  if [[ -n "$pat" ]] && awk '/^```checks[[:space:]]*$/{f=1;next} f&&/^```/{f=0;next} !f' "$P" | grep -qE -- "$pat"; then
     note "$id: the plan text itself contains the banned pattern '$pat' — agents copying it will trip the check"
   fi
   positive="${cmd#!}"

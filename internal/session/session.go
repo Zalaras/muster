@@ -108,6 +108,15 @@ type Session struct {
 	// Manager.SetTitle.
 	TitleOverride *string
 
+	// TranscriptPath/PlanPath/PlanExists (plan markdown-viewing REQ-16/REQ-17): the
+	// latest transcript path a routed hook named and the plan derived from it via
+	// claudecode.LocatePlanFile. Display-only, never read by machine.go; "" means
+	// "none yet" (PlanPath "" is the wire plan:null). Mutated only by
+	// Manager.SetTranscript/SetPlan.
+	TranscriptPath string
+	PlanPath       string
+	PlanExists     bool
+
 	currentPromptID string
 	closedPromptIDs []string // bounded ring, most recent last, capped at maxClosedPrompts
 }

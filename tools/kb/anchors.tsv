@@ -19,6 +19,8 @@
 3.16	sessions.shell
 3.17	update.apply
 3.18	update.restart-impact
+3.19	sessions.reader
+3.20	sessions.reader-file
 4	ingest
 4.1	ingest.transport
 4.2	ingest.envelope
@@ -30,6 +32,7 @@
 5.5	ws.session-upsert
 5.6	ws.claude-theme
 5.7	ws.update
+5.8	ws.doc-changed
 6	terminal.ws
 6.1	terminal.shell-ws
 7	state

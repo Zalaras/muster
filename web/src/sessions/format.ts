@@ -47,16 +47,23 @@ export function formatEndedAge(endedAtIso: string, now: Date): string {
   return formatAge(endedAtIso, now);
 }
 
-/** review m4-reconcile Major 6: every caller that composes "<age> ago" copy around
- * `formatEndedAge` must go through this instead of appending " ago" directly —
- * `formatEndedAge`'s sub-minute bucket is the literal string "now" (format.test.ts:104
- * asserts this deliberately), and "ended now ago" is ungrammatical on the plan's most
- * common path (looking at a session immediately after ending it). Mainhead, `.endbar`/
- * `.endcap` and the tile footer age readout all render this instead of composing their
- * own "${formatEndedAge(...)} ago" string. */
-export function formatEndedAgo(endedAtIso: string, now: Date): string {
-  const age = formatEndedAge(endedAtIso, now);
+/** review m4-reconcile Major 6 / markdown-viewing cycle-1 Major 2: every caller that
+ * composes "<age> ago" copy around a relative-age bucket must go through this instead of
+ * appending " ago" directly — the sub-minute bucket is the literal string "now"
+ * (format.test.ts:104 asserts this deliberately for `formatEndedAge`), and "now ago" is
+ * ungrammatical on the plan's most common path (looking at a session, or a file, right
+ * after the event). Originally written only for `formatEndedAgo`'s callers; the reader's
+ * `changedText` (reader/freshness.ts) repeated the same "<age> ago" composition and hit
+ * the same bug, so the fix now lives in one place a third caller can reuse instead of
+ * re-deriving. */
+export function agoSuffix(age: string): string {
   return age === "now" ? "now" : `${age} ago`;
+}
+
+/** Mainhead, `.endbar`/`.endcap` and the tile footer age readout all render this instead
+ * of composing their own "${formatEndedAge(...)} ago" string. */
+export function formatEndedAgo(endedAtIso: string, now: Date): string {
+  return agoSuffix(formatEndedAge(endedAtIso, now));
 }
 
 // M3 (plan m3-gauges): the single ≥60%-used threshold shared by every gauge surface —
