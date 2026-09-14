@@ -12,6 +12,13 @@
 #                    (wave 1 skips the test and e2e suites, wave 2 skips e2e, wave 3 runs all).
 #                    A wave gate that named only build/test/e2e let a wave pass while the plan's
 #                    own `make web-lint` check was red (markdown-viewing retro, 2026-09-14).
+#                    Wave 1 runs `make lint` and `make web-build` tolerating only compile errors
+#                    confined to test files (_test.go typecheck, *.test.ts tsc), printing those
+#                    files as a NOTE for the orchestrator to match against the impl agent's
+#                    Handoff; wave 2 runs both strictly, which is what proves a sanctioned wave-1
+#                    test-file break was repaired (kb:lesson/sanctioned-test-break-blinds-lint).
+#                    (`golangci-lint --tests=false` was tried and rejected: it reports test-only
+#                    helpers as unused on a clean tree.)
 #
 # Every command runs once — a checks line whose command string equals a baseline gate is
 # reported under its ID without a second run. Exit status is 0 iff every gate and every check
@@ -112,6 +119,44 @@ $status	$cmd"
   fi
 }
 
+# --- wave-1 compile gates tolerant of sanctioned test-file breakage -----------------------------
+# A sanctioned wave-1 signature change can break a test file only wave 2 may edit
+# (kb:lesson/sanctioned-test-break-blinds-lint). `make web-build` is `tsc --noEmit && vite build`
+# and tsc type-checks test files too; golangci-lint stops at the first typecheck failure, so a
+# broken _test.go hides every real finding. Each gate below passes strictly, or passes when every
+# reported error sits in a test file — printing those files on fd 3 (the script's stdout, past
+# run_one's log redirection) as a NOTE for the orchestrator to match against the impl Handoff. Any
+# error outside a test file is a real failure. Wave 2 runs the strict commands.
+exec 3>&1
+lint_src() {
+  local out issues bad
+  if out="$(make lint 2>&1)"; then printf '%s\n' "$out"; return 0; fi
+  printf '%s\n' "$out"
+  issues="$(printf '%s\n' "$out" | grep -E '^[^ :]+\.go:[0-9]+:[0-9]+: ' || true)"
+  if [[ -z "$issues" ]]; then echo "make lint failed without issue lines"; return 1; fi
+  bad="$(printf '%s\n' "$issues" | grep -vE '^[^ :]+_test\.go:[0-9]+:[0-9]+: .*\(typecheck\)$' || true)"
+  if [[ -n "$bad" ]]; then echo "lint issues outside test-file typecheck:"; printf '%s\n' "$bad"; return 1; fi
+  local files; files="$(printf '%s\n' "$issues" | cut -d: -f1 | sort -u)"
+  printf 'NOTE  lint-src: typecheck errors only in %s — sanctioned wave-1 breakage iff the impl Handoff names each file\n' "$(printf '%s' "$files" | tr '\n' ' ')" >&3
+  return 0
+}
+web_build_src() {
+  if make web-build; then return 0; fi
+  local out files bad
+  out="$(cd web && npx tsc --noEmit 2>&1)" || true
+  files="$(printf '%s\n' "$out" | sed -n 's/^\([^ (]*\.tsx\{0,1\}\)([0-9]*,[0-9]*): error .*/\1/p' | sort -u)"
+  if [[ -z "$files" ]]; then
+    echo "make web-build failed with no tsc errors — the failure is in vite build"; return 1
+  fi
+  bad="$(printf '%s\n' "$files" | grep -v '\.test\.ts$' || true)"
+  if [[ -n "$bad" ]]; then
+    echo "tsc errors outside test files:"; printf '%s\n' "$bad"; return 1
+  fi
+  echo "tsc errors confined to test files:"; printf '%s\n' "$files"
+  printf 'NOTE  web-build-src: tsc errors only in %s — sanctioned wave-1 breakage iff the impl Handoff names each file\n' "$(printf '%s' "$files" | tr '\n' ' ')" >&3
+  (cd web && npx vite build)
+}
+
 # --- wave gate ------------------------------------------------------------------------------
 # Which side did this branch touch? Committed range plus the working tree; when neither can be
 # determined (no merge-base, detached tree) both run, so a wave gate never under-runs.
@@ -129,16 +174,17 @@ if [[ -n "$WAVE" ]]; then
 
   echo "== wave $WAVE gate (plan $PLAN; daemon=$DAEMON_TOUCHED web=$WEB_TOUCHED)"
   case "$WAVE" in
-    1) (( DAEMON_TOUCHED )) && run_one build "go build ./..."
-       (( WEB_TOUCHED ))    && run_one web-build "make web-build" ;;
-    2) (( DAEMON_TOUCHED )) && run_one test "make test"
-       (( WEB_TOUCHED ))    && run_one web-test "make web-test" ;;
+    1) (( DAEMON_TOUCHED )) && { run_one build "go build ./..."; run_one lint-src "lint_src"; }
+       (( WEB_TOUCHED ))    && run_one web-build-src "web_build_src" ;;
+    2) (( DAEMON_TOUCHED )) && { run_one test "make test"; run_one lint "make lint"; }
+       (( WEB_TOUCHED ))    && { run_one web-test "make web-test"; run_one web-build "make web-build"; } ;;
     3) run_one e2e "make e2e" ;;
   esac
   # A wave runs every authored check except the suites a later wave owns — this is what makes
   # `make web-lint` (and any other static check the plan authored) part of every wave gate.
+  # Wave 1 also leaves the full lint and web-build to wave 2 (sanctioned test-file breakage above).
   case "$WAVE" in
-    1) WAVE_SKIP='^(make test|make web-test|make e2e)$' ;;
+    1) WAVE_SKIP='^(make test|make web-test|make e2e|make lint|make web-build)$' ;;
     2) WAVE_SKIP='^(make e2e)$' ;;
     3) WAVE_SKIP='^$' ;;
   esac
