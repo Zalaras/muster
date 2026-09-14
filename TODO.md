@@ -115,6 +115,11 @@ Plan-mode flow (§4.1) → worktree manager with setup scripts (§4.2) → start
 (§4.3) → permissions UI (§4.4) → `code <worktree>` button (trivial, anytime).
 Conflict-handling groundwork for §4.2 (option analysis + external survey, 2026-09-01) is in
 `docs/history/design/worktree-conflicts.md` — read it before planning the worktree manager.
+§4.2's first half is now specced: `plans/worktree-lifecycle/spec.md` (2026-09-14), resting on
+`kb:adr/worktree-muster-owned-sibling-path` and the two facts a probe measured that day. Both
+facts carry `guard: none` — `kb:fact/worktree-flag-defaults` and
+`kb:fact/worktree-create-hook-owns-path` want canary or unit coverage when the feature is built,
+and the second is the one to re-measure if a Claude Code bump touches worktrees.
 
 - [ ] **Richer terminal functionality** — a second pass over the shell. The first pass
   (`plans/plain-terminal-session/spec.md`, #21 — cross-reference; the owning entry is in the history file)
