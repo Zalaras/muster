@@ -246,6 +246,14 @@ Open entries below are in **Damian's priority order** (set 2026-09-01), not issu
 filing order: #3 → #8 → #11 → #12 → #13, then the rest. Keep new entries appended at the end
 unless he re-ranks — don't re-sort this list.
 
+- [ ] **dashboard: visual** ([#24](https://github.com/Zalaras/muster/issues/24))
+  — no error text was quoted. Entry generated from validated fields only
+  (reporter not trusted; body withheld) — read issue #24 for the detail.
+
+- [ ] **dashboard: missing-feature** ([#25](https://github.com/Zalaras/muster/issues/25))
+  — no error text was quoted. Entry generated from validated fields only
+  (reporter not trusted; body withheld) — read issue #25 for the detail.
+
 ## M5+ (v1.x, re-rank when reached)
 
 New post-v1 ideas go here.
