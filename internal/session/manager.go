@@ -49,6 +49,13 @@ var (
 // defaultPollInterval is kb:anchor/state.liveness's "~5s" liveness poll.
 const defaultPollInterval = 5 * time.Second
 
+// endRemoveTmuxTimeout bounds every tmux invocation endLocked/removeLocked/
+// RepairOwnedSession make (review cycle 1 Major 3 and cycle 2 Minor, REQ-12): all three
+// run under a per-session-id lock acquired by End/Remove/Resume, so a wedged tmux there
+// no longer just hangs one request — it wedges every later End/Resume/Remove for that
+// same id, permanently. Mirrors shellTmuxTimeout's value (internal/server/shells.go).
+const endRemoveTmuxTimeout = 5 * time.Second
+
 // Config wires a Manager. Built by internal/server; nothing here starts a goroutine
 // until Start is called.
 type Config struct {
@@ -79,8 +86,35 @@ type Manager struct {
 	sessions map[int64]*Session
 	byClaude map[string]int64 // claude session id -> muster session id
 
+	// idLocks is session-lifecycle REQ-11's per-session-id lock, guarded by mu itself
+	// (map access only — never held across tmux I/O). LockSession serialises one id's
+	// Launch/Resume/End/Remove check-then-act without blocking a different id's; Remove
+	// reclaims an id's entry once its row is gone (the id is never reissued, so nothing
+	// after that could ever contend on it again).
+	idLocks map[int64]*sync.Mutex
+
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
+}
+
+// LockSession acquires id's per-session lock (REQ-11) and returns the func that releases
+// it. Held across a whole logical action — including its tmux I/O — never across mu
+// itself; internal/server's sessionLauncher uses this directly to serialise Launch and
+// Resume the same way End/Remove do internally.
+func (m *Manager) LockSession(id int64) (unlock func()) {
+	m.mu.Lock()
+	if m.idLocks == nil {
+		m.idLocks = make(map[int64]*sync.Mutex)
+	}
+	l, ok := m.idLocks[id]
+	if !ok {
+		l = &sync.Mutex{}
+		m.idLocks[id] = l
+	}
+	m.mu.Unlock()
+
+	l.Lock()
+	return l.Unlock
 }
 
 // NewManager builds a Manager. Call LoadAll then Start once the caller is ready.
@@ -161,6 +195,11 @@ type CreateParams struct {
 	PermissionMode  PermissionMode
 	Model           string
 	FirstLaunchHere bool
+
+	// MinID floors the allocated id above this value (0 = no floor) — session-lifecycle
+	// REQ-1/REQ-7: the launcher's MaxSessionID probe of the tmux socket, passed straight
+	// through to store.InsertSessionParams.MinID.
+	MinID int64
 }
 
 // CreateSession inserts the session row (tmuxTarget still a placeholder — the launcher
@@ -188,6 +227,7 @@ func (m *Manager) CreateSession(ctx context.Context, p CreateParams) (*Session, 
 		Model:           &model,
 		FirstLaunchHere: p.FirstLaunchHere,
 		RailPos:         railPos,
+		MinID:           p.MinID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("creating session: %w", err)
@@ -202,8 +242,27 @@ func (m *Manager) CreateSession(ctx context.Context, p CreateParams) (*Session, 
 	return sess.Clone(), nil
 }
 
+// rollbackOnPersistFailure is session-lifecycle REQ-14's shared tail: when persistErr is
+// non-nil, it re-locks and applies restore to sess — but only if id still maps to the
+// very same *Session (it may have been removed entirely in the meantime) — so a failed
+// UpdateSession never leaves memory disagreeing with the DB. Returns persistErr wrapped
+// with id and verb, or nil.
+func (m *Manager) rollbackOnPersistFailure(id int64, sess *Session, persistErr error, verb string, restore func(*Session)) error {
+	if persistErr == nil {
+		return nil
+	}
+	m.mu.Lock()
+	if cur, ok := m.sessions[id]; ok && cur == sess {
+		restore(cur)
+	}
+	m.mu.Unlock()
+	return fmt.Errorf("%s session %d: %w", verb, id, persistErr)
+}
+
 // RecordLaunch stamps the real tmux target/pane once the window has been spawned, and
-// broadcasts the session for the first time (REQ-2).
+// broadcasts the session for the first time (REQ-2). REQ-14: a persist failure rolls the
+// tmux target/pane back to what they were, so memory never claims a target the DB never
+// recorded.
 func (m *Manager) RecordLaunch(ctx context.Context, id int64, tmuxTarget, tmuxPane string) (*Session, error) {
 	m.mu.Lock()
 	sess, ok := m.sessions[id]
@@ -211,6 +270,7 @@ func (m *Manager) RecordLaunch(ctx context.Context, id int64, tmuxTarget, tmuxPa
 		m.mu.Unlock()
 		return nil, fmt.Errorf("recording launch: unknown session %d", id)
 	}
+	prevTarget, prevPane := sess.TmuxTarget, sess.TmuxPane
 	sess.TmuxTarget = tmuxTarget
 	sess.TmuxPane = tmuxPane
 	row := sessionToRow(sess)
@@ -218,7 +278,9 @@ func (m *Manager) RecordLaunch(ctx context.Context, id int64, tmuxTarget, tmuxPa
 	m.mu.Unlock()
 
 	if err := m.store.UpdateSession(ctx, row); err != nil {
-		return nil, fmt.Errorf("persisting launch for session %d: %w", id, err)
+		return nil, m.rollbackOnPersistFailure(id, sess, err, "persisting launch for", func(cur *Session) {
+			cur.TmuxTarget, cur.TmuxPane = prevTarget, prevPane
+		})
 	}
 	m.broadcast(snapshot)
 	return snapshot, nil
@@ -265,51 +327,310 @@ type ReconcileReport struct {
 	ShellsKilled int
 }
 
+// targetResolver is session-lifecycle REQ-9's repair primitive: given a live
+// "muster-<id>" tmux session name, resolve its actual window/pane target. It is
+// deliberately not part of the Killer interface — Killer test doubles (fakeKiller) never
+// implement it, so Manager discovers the capability with an optional type-assertion on
+// sessionKiller; a real *tmux.Client satisfies it and enables repair, a fake safely
+// leaves it disabled.
+type targetResolver interface {
+	ResolveSessionTarget(ctx context.Context, name string) (target, pane string, err error)
+}
+
 // Reconcile runs once at daemon startup, synchronously, before the first snapshot is
-// served (REQ-1/REQ-2/REQ-17, kb:anchor/state.liveness). Call after LoadAll and before Start:
-//   - rows already alive=false (ended in an earlier daemon lifetime — the user had their
-//     resume chance) are deleted; nothing is broadcast, they are simply absent from the
-//     first snapshot.
-//   - rows alive=true whose pane still exists are left untouched.
-//   - rows alive=true whose pane is gone (died while the daemon was down, or a reboot)
-//     are marked ended (alive:false, endedAt = now, the startup time — the true death
-//     time is unknown and is not guessed) and kept, so the resume chance is not lost;
-//     the *following* startup sweeps them.
-//   - tmux sessions on the socket with no row are logged at warn and never adopted.
+// served (REQ-1/REQ-2/REQ-17, kb:anchor/state.liveness). Call after LoadAll and before
+// Start. session-lifecycle REQ-9 rewrote this to classify every known row from **one**
+// ListSessions snapshot, by tmux name ownership, rather than trusting the stored
+// alive/target — R3's investigation found that reading was never actually cross-checked
+// against tmux, only ever produced for a shell-kill/report side effect:
+//   - "muster-<id>" present on the socket → the row owns it: re-derive
+//     tmux_target/tmux_pane from tmux, keep alive:=true, persist+broadcast only on an
+//     actual change (reviveOwnedSession). This is what stops a live pane from ever being
+//     deleted, whatever the stored alive said (Edge Cases 5/6/7/8).
+//   - "muster-<id>" absent, row alive=true → marked ended and kept (the resume chance
+//     is not lost; the *following* startup's absent case sweeps it).
+//   - "muster-<id>" absent, row alive=false → swept (deleted; already had its resume
+//     chance in an earlier daemon lifetime).
+//   - "muster-<n>" with no matching row → reported in UnknownSessions and warn-logged;
+//     never adopted, never killed (kb:adr/lifecycle-reconcile-before-first-snapshot) —
+//     its id still raises the watermark so it can never be handed to a new row.
+//   - "muster-<n>-shell" → killed unconditionally, whatever its <n>; never adopted or
+//     reported unknown; its id also raises the watermark.
+//
+// A handful of tests predating REQ-9 construct a Manager with no SessionKiller at all —
+// there is then no way to ever enumerate the socket, so classifySessions (the pre-REQ-9
+// alive+PaneExists logic, unchanged) is the only option and remains the fallback for that
+// case.
+//
+// D26/review cycle 2 Major: a ListSessions call that itself fails is a different case and
+// must NOT fall back to classifySessions — its `!r.alive { sweep }` branch has no pane
+// check at all, so on a socket that briefly can't be reached it would delete every
+// not-alive row while their panes are still running, which is the exact orphan class this
+// plan exists to close, reached from a new direction. Instead Reconcile acts on nothing
+// this cycle and leaves every row untouched; the next successful poll reconciles once the
+// socket is reachable again.
+//
+// REQ-10: unlike before, a markEnded/DeleteSession failure during the act phase is
+// logged and does not stop the rest — in particular the shell sweep, which now runs
+// before the act phase, always happens regardless.
 func (m *Manager) Reconcile(ctx context.Context) (ReconcileReport, error) {
 	var report ReconcileReport
 
-	// Phase 1, classify. Deliberately separate from, and complete before, the acting
-	// phase below: PaneExists is tmux I/O and must run with m.mu released, and folding
-	// the two phases into one loop would also make the toEnd-then-toSweep order below an
-	// accident of map iteration rather than a stated guarantee.
-	toEnd, toSweep := m.classifySessions(ctx, &report)
-
-	// Phase 2, act — toEnd fully, then toSweep.
-	for _, id := range toEnd {
-		if _, err := m.markEnded(ctx, id); err != nil {
-			return report, fmt.Errorf("reconcile: marking session %d ended: %w", id, err)
-		}
-		report.MarkedEnded++
-	}
-	for _, id := range toSweep {
-		m.removeFromMemory(id)
-		if err := m.store.DeleteSession(ctx, id); err != nil {
-			return report, fmt.Errorf("reconcile: sweeping session %d: %w", id, err)
-		}
-		report.Swept++
+	if m.sessionKiller == nil {
+		toEnd, toSweep := m.classifySessions(ctx, &report)
+		m.actOnReconcile(ctx, &report, toEnd, toSweep)
+		m.logReconcile(report)
+		return report, nil
 	}
 
-	m.sweepUnknownTmuxSessions(ctx, &report)
+	names, err := m.sessionKiller.ListSessions(ctx)
+	if err != nil {
+		m.log.Warn().Err(err).Msg("reconcile: listing tmux sessions failed; taking no action this cycle")
+		m.logReconcile(report)
+		return report, nil
+	}
 
+	toEnd, toSweep := m.classifySessionsByOwnership(ctx, names, &report)
+	m.actOnReconcile(ctx, &report, toEnd, toSweep)
+	m.logReconcile(report)
+	return report, nil
+}
+
+func (m *Manager) logReconcile(report ReconcileReport) {
 	m.log.Info().
 		Int("kept_alive", report.KeptAlive).
 		Int("marked_ended", report.MarkedEnded).
 		Int("swept", report.Swept).
 		Int("shells_killed", report.ShellsKilled).
 		Msg("reconciled sessions")
+}
 
-	return report, nil
+// actOnReconcile is Reconcile's act phase, shared by every classification path: mark
+// every toEnd id ended, then delete every toSweep id. REQ-10: a single id's failure is
+// logged and does not stop the rest.
+func (m *Manager) actOnReconcile(ctx context.Context, report *ReconcileReport, toEnd, toSweep []int64) {
+	for _, id := range toEnd {
+		if _, err := m.markEnded(ctx, id); err != nil {
+			m.log.Error().Err(err).Int64("session_id", id).Msg("reconcile: marking session ended failed")
+			continue
+		}
+		report.MarkedEnded++
+	}
+	for _, id := range toSweep {
+		m.removeFromMemory(id)
+		if err := m.store.DeleteSession(ctx, id); err != nil {
+			m.log.Error().Err(err).Int64("session_id", id).Msg("reconcile: sweeping session failed")
+			continue
+		}
+		report.Swept++
+	}
+}
+
+// classifySessionsByOwnership is REQ-9's classification: names is one ListSessions
+// snapshot. Every known row present in it is revived/repaired in place (KeptAlive);
+// every known row absent from it follows the old alive-based rule exactly (returned via
+// toEnd/toSweep for actOnReconcile). Unknown muster-<n> names are reported+logged and
+// muster-<n>-shell names are killed unconditionally — both raise the id watermark.
+func (m *Manager) classifySessionsByOwnership(ctx context.Context, names []string, report *ReconcileReport) (toEnd, toSweep []int64) {
+	m.mu.Lock()
+	rows := make([]reconcileRow, 0, len(m.sessions))
+	knownIDs := make(map[int64]bool, len(m.sessions))
+	for id, sess := range m.sessions {
+		rows = append(rows, reconcileRow{id: id, alive: sess.Alive})
+		knownIDs[id] = true
+	}
+	m.mu.Unlock()
+
+	classified := classifyTmuxNames(names, knownIDs)
+
+	resolver, canResolve := m.sessionKiller.(targetResolver)
+	for _, r := range rows {
+		name, present := classified.live[r.id]
+		if present {
+			m.reviveOwnedSession(ctx, r.id, name, resolver, canResolve)
+			report.KeptAlive++
+			continue
+		}
+		if r.alive {
+			toEnd = append(toEnd, r.id)
+		} else {
+			toSweep = append(toSweep, r.id)
+		}
+	}
+
+	m.reportAndSweepUnknown(ctx, classified, report)
+	return toEnd, toSweep
+}
+
+// reconcileRow is a value-copy snapshot of one in-memory session's id/alive, taken under
+// m.mu — the shape classifySessionsByOwnership's row-by-row classification operates on
+// once the lock is released.
+type reconcileRow struct {
+	id    int64
+	alive bool
+}
+
+// classifiedTmuxNames is classifyTmuxNames' pure result: names split into the live
+// muster-<id> claude-pane names found (known or not — the caller decides), the
+// muster-<id>-shell ids to kill unconditionally, the unknown names to report, and the
+// highest id seen across every shape (REQ-9's watermark-raise floor).
+type classifiedTmuxNames struct {
+	live         map[int64]string
+	shellIDs     []int64
+	unknownNames []string
+	maxSeen      int64
+}
+
+// classifyTmuxNames is REQ-9's pure name-parsing step, split out of
+// classifySessionsByOwnership to keep it under the gocyclo ceiling
+// (docs/conventions.md § Go): no tmux I/O, no lock, just tmux.ParseSessionName/
+// IsShellSessionName against knownIDs (every id classifySessionsByOwnership's own row
+// snapshot already owns a row for).
+func classifyTmuxNames(names []string, knownIDs map[int64]bool) classifiedTmuxNames {
+	out := classifiedTmuxNames{live: make(map[int64]string)}
+	for _, name := range names {
+		if shellID, ok := tmux.IsShellSessionName(name); ok {
+			out.shellIDs = append(out.shellIDs, shellID)
+			if shellID > out.maxSeen {
+				out.maxSeen = shellID
+			}
+			continue
+		}
+		id, ok := tmux.ParseSessionName(name)
+		if !ok {
+			// REQ-9/D22: a muster-prefixed name matching neither known shape is still
+			// reported+logged as unknown, same as main did before this plan (Edge
+			// Case 22) — only a name with no muster- prefix at all is an unrelated
+			// tmux session ignored entirely. It contributes no id, so it never raises
+			// the watermark.
+			if strings.HasPrefix(name, "muster-") {
+				out.unknownNames = append(out.unknownNames, name)
+			}
+			continue
+		}
+		out.live[id] = name
+		if id > out.maxSeen {
+			out.maxSeen = id
+		}
+		if !knownIDs[id] {
+			out.unknownNames = append(out.unknownNames, name)
+		}
+	}
+	return out
+}
+
+// reportAndSweepUnknown is classifySessionsByOwnership's tail: report+log every unknown
+// muster-<n> (never adopted, never killed), kill every muster-<n>-shell unconditionally,
+// and raise the id watermark above every id seen either way (REQ-9).
+func (m *Manager) reportAndSweepUnknown(ctx context.Context, classified classifiedTmuxNames, report *ReconcileReport) {
+	for _, name := range classified.unknownNames {
+		report.UnknownSessions = append(report.UnknownSessions, name)
+		m.log.Warn().Str("tmux_session", name).Msg("unknown muster tmux session on socket; not adopted")
+	}
+	for _, shellID := range classified.shellIDs {
+		name := tmux.ShellSessionName(shellID)
+		if err := m.sessionKiller.KillSession(ctx, name); err != nil {
+			m.log.Warn().Err(err).Str("tmux_session", name).Int64("session_id", shellID).Msg("reconcile: killing orphaned shell session failed")
+			continue
+		}
+		report.ShellsKilled++
+	}
+
+	if classified.maxSeen > 0 {
+		if err := m.store.BumpIDWatermark(ctx, classified.maxSeen); err != nil {
+			m.log.Warn().Err(err).Msg("reconcile: raising session id watermark failed")
+		}
+	}
+}
+
+// RepairOwnedSession re-derives id's tmux_target/tmux_pane from a muster-<id> tmux
+// session that is live even though the row does not currently believe it owns it —
+// REQ-8's resume repair: when sessionLauncher.Resume's own spawn collides with
+// ErrSessionExists, a live muster-<id> under a not-alive row *is* that row's own pane
+// (Edge Case 6: a SIGKILL landed between an earlier resume's spawn and its persist, or a
+// race with Reconcile). Returns ErrUnknownSession for an unknown id, or an error naming
+// what went wrong if no live pane can actually be confirmed (no target resolver wired, or
+// the tmux session named by id turns out not to exist after all) — the caller turns
+// that into 500 launch_failed without ever quoting raw tmux stderr.
+func (m *Manager) RepairOwnedSession(ctx context.Context, id int64) (*Session, error) {
+	resolver, canResolve := m.sessionKiller.(targetResolver)
+	if !canResolve {
+		return nil, fmt.Errorf("repairing session %d: no tmux target resolver available", id)
+	}
+	resolveCtx, cancel := context.WithTimeout(ctx, endRemoveTmuxTimeout)
+	target, pane, err := resolver.ResolveSessionTarget(resolveCtx, sessionTmuxName(id))
+	cancel()
+	if err != nil {
+		return nil, fmt.Errorf("repairing session %d: %w", id, err)
+	}
+
+	m.mu.Lock()
+	sess, ok := m.sessions[id]
+	if !ok {
+		m.mu.Unlock()
+		return nil, ErrUnknownSession
+	}
+	sess.Alive = true
+	sess.EndedAt = nil
+	sess.TmuxTarget = target
+	sess.TmuxPane = pane
+	row := sessionToRow(sess)
+	snapshot := sess.Clone()
+	m.mu.Unlock()
+
+	if err := m.store.UpdateSession(ctx, row); err != nil {
+		return nil, fmt.Errorf("persisting repaired session %d: %w", id, err)
+	}
+	m.broadcast(snapshot)
+	return snapshot, nil
+}
+
+// reviveOwnedSession is REQ-9's repair step for a row whose muster-<id> tmux session is
+// present on the socket: it is kept alive (reviving an alive=false row rather than
+// leaving it swept, D9) and, when canResolve, has its tmux_target/tmux_pane re-derived
+// from tmux and persisted+broadcast only if either actually changed (D8/D10). A resolve
+// failure (tmux raced the ListSessions snapshot) is warn-logged and leaves the stored
+// target as-is rather than blocking the alive revival.
+func (m *Manager) reviveOwnedSession(ctx context.Context, id int64, tmuxName string, resolver targetResolver, canResolve bool) {
+	var target, pane string
+	if canResolve {
+		var err error
+		target, pane, err = resolver.ResolveSessionTarget(ctx, tmuxName)
+		if err != nil {
+			m.log.Warn().Err(err).Str("tmux_session", tmuxName).Int64("session_id", id).Msg("reconcile: resolving live session's target failed")
+		}
+	}
+
+	m.mu.Lock()
+	sess, ok := m.sessions[id]
+	if !ok {
+		m.mu.Unlock()
+		return
+	}
+	changed := false
+	if !sess.Alive {
+		sess.Alive = true
+		sess.EndedAt = nil
+		changed = true
+	}
+	if target != "" && (sess.TmuxTarget != target || sess.TmuxPane != pane) {
+		sess.TmuxTarget = target
+		sess.TmuxPane = pane
+		changed = true
+	}
+	if !changed {
+		m.mu.Unlock()
+		return
+	}
+	row := sessionToRow(sess)
+	snapshot := sess.Clone()
+	m.mu.Unlock()
+
+	if err := m.store.UpdateSession(ctx, row); err != nil {
+		m.log.Warn().Err(err).Int64("session_id", id).Msg("reconcile: persisting repaired session failed")
+		return
+	}
+	m.broadcast(snapshot)
 }
 
 // classifySessions is Reconcile's first phase: it snapshots the registry under m.mu,
@@ -355,50 +676,6 @@ func (m *Manager) classifySessions(ctx context.Context, report *ReconcileReport)
 		}
 	}
 	return toEnd, toSweep
-}
-
-// sweepUnknownTmuxSessions kills every orphaned shell session on the socket and logs any
-// Muster-shaped tmux session with no row behind it. Nothing here is ever adopted
-// (kb:adr/lifecycle-reconcile-before-first-snapshot); a listing failure is a warning, not
-// an error, because an unreadable tmux must not fail startup.
-func (m *Manager) sweepUnknownTmuxSessions(ctx context.Context, report *ReconcileReport) {
-	if m.sessionKiller == nil {
-		return
-	}
-	names, err := m.sessionKiller.ListSessions(ctx)
-	if err != nil {
-		m.log.Warn().Err(err).Msg("reconcile: listing tmux sessions failed")
-		return
-	}
-
-	m.mu.Lock()
-	known := make(map[string]bool, len(m.sessions))
-	for _, sess := range m.sessions {
-		if sess.TmuxTarget != "" {
-			known[sessionTmuxName(sess.ID)] = true
-		}
-	}
-	m.mu.Unlock()
-
-	for _, name := range names {
-		// Shell sessions (kb:anchor/sessions.shell / kb:anchor/state.liveness, REQ-10) are killed
-		// unconditionally, whatever their <n>, and never reported as unknown —
-		// they are deliberately non-persistent, and since tmux sessions outlive
-		// musterd this sweep is what "the daemon forgets them" actually means.
-		if shellID, ok := tmux.IsShellSessionName(name); ok {
-			if err := m.sessionKiller.KillSession(ctx, name); err != nil {
-				m.log.Warn().Err(err).Str("tmux_session", name).Int64("session_id", shellID).Msg("reconcile: killing orphaned shell session failed")
-			} else {
-				report.ShellsKilled++
-			}
-			continue
-		}
-		if !strings.HasPrefix(name, "muster-") || known[name] {
-			continue
-		}
-		report.UnknownSessions = append(report.UnknownSessions, name)
-		m.log.Warn().Str("tmux_session", name).Msg("unknown muster tmux session on socket; not adopted")
-	}
 }
 
 // Get returns session id's current snapshot, if known — used by the terminal bridge's
@@ -738,7 +1015,18 @@ func (m *Manager) storeSnapshot(ctx context.Context, id int64, text string) {
 // alive:=false persist + broadcast — the same single code path every other death goes
 // through (INV-1). Returns ErrUnknownSession (404) or ErrSessionNotAlive (409
 // not_alive, already ended).
+//
+// REQ-11: id's per-session lock is held for the whole check-then-act, so two concurrent
+// Ends can never both pass the alive gate. endLocked is split out because Remove also
+// needs to run this same body while already holding the lock itself (End's own
+// LockSession call would otherwise deadlock against Remove's).
 func (m *Manager) End(ctx context.Context, id int64) (*Session, error) {
+	unlock := m.LockSession(id)
+	defer unlock()
+	return m.endLocked(ctx, id)
+}
+
+func (m *Manager) endLocked(ctx context.Context, id int64) (*Session, error) {
 	m.mu.Lock()
 	sess, ok := m.sessions[id]
 	if !ok {
@@ -753,7 +1041,10 @@ func (m *Manager) End(ctx context.Context, id int64) (*Session, error) {
 	m.mu.Unlock()
 
 	if m.paneSnapshotter != nil {
-		if text, err := m.paneSnapshotter.CapturePane(ctx, target); err != nil {
+		snapCtx, cancel := context.WithTimeout(ctx, endRemoveTmuxTimeout)
+		text, err := m.paneSnapshotter.CapturePane(snapCtx, target)
+		cancel()
+		if err != nil {
 			m.log.Debug().Err(err).Int64("session_id", id).Msg("final pane snapshot capture failed")
 		} else {
 			m.storeSnapshot(ctx, id, text)
@@ -761,7 +1052,10 @@ func (m *Manager) End(ctx context.Context, id int64) (*Session, error) {
 	}
 
 	if m.sessionKiller != nil {
-		if err := m.sessionKiller.KillSession(ctx, sessionTmuxName(id)); err != nil {
+		killCtx, cancel := context.WithTimeout(ctx, endRemoveTmuxTimeout)
+		err := m.sessionKiller.KillSession(killCtx, sessionTmuxName(id))
+		cancel()
+		if err != nil {
 			return nil, fmt.Errorf("ending session %d: %w", id, err)
 		}
 	}
@@ -772,7 +1066,9 @@ func (m *Manager) End(ctx context.Context, id int64) (*Session, error) {
 		// ordinary transient hiccup to shrug off until the next poll — End must not
 		// return alive:true after a kill it just performed. The periodic poll/nudge
 		// callers below keep the conservative default (leave as-is on a check error).
-		m.checkOneLiveness(ctx, id, target, true)
+		checkCtx, cancel := context.WithTimeout(ctx, endRemoveTmuxTimeout)
+		m.checkOneLiveness(checkCtx, id, target, true)
+		cancel()
 	} else if _, err := m.markEnded(ctx, id); err != nil {
 		return nil, err
 	}
@@ -813,7 +1109,27 @@ func (m *Manager) EndAll(ctx context.Context) int {
 // first; a failing kill (End's own error) leaves the row untouched and propagates — never
 // a deleted row with a running pane (Edge Case 5). On success the in-memory entry and the
 // row are both gone and OnRemoved fires (the sessionRemoved broadcast).
+//
+// REQ-11: id's per-session lock is held for the whole check-then-act, so a Remove can
+// never race a concurrent End/Resume for the same id. It calls endLocked directly (not
+// End) — End would try to reacquire the same lock and deadlock.
 func (m *Manager) Remove(ctx context.Context, id int64) error {
+	unlock := m.LockSession(id)
+	defer unlock()
+
+	if err := m.removeLocked(ctx, id); err != nil {
+		return err
+	}
+
+	// The id is never reissued (REQ-2), so nothing can ever contend on this lock again —
+	// reclaim it rather than growing the map for the life of the daemon.
+	m.mu.Lock()
+	delete(m.idLocks, id)
+	m.mu.Unlock()
+	return nil
+}
+
+func (m *Manager) removeLocked(ctx context.Context, id int64) error {
 	m.mu.Lock()
 	sess, ok := m.sessions[id]
 	if !ok {
@@ -823,16 +1139,30 @@ func (m *Manager) Remove(ctx context.Context, id int64) error {
 	alive := sess.Alive
 	m.mu.Unlock()
 
-	if alive {
-		if _, err := m.End(ctx, id); err != nil {
+	switch {
+	case alive:
+		if _, err := m.endLocked(ctx, id); err != nil {
+			return fmt.Errorf("removing session %d: %w", id, err)
+		}
+	case m.sessionKiller != nil:
+		// REQ-15: a not-alive row's muster-<id> tmux session may still be running (an
+		// earlier kill silently failed, or a repair raced in) — kill it idempotently
+		// (REQ-6 makes "already gone" a success) so Remove can never leave an orphan.
+		killCtx, cancel := context.WithTimeout(ctx, endRemoveTmuxTimeout)
+		err := m.sessionKiller.KillSession(killCtx, sessionTmuxName(id))
+		cancel()
+		if err != nil {
 			return fmt.Errorf("removing session %d: %w", id, err)
 		}
 	}
 
-	m.removeFromMemory(id)
+	// REQ-14: the row is deleted before the in-memory entry is dropped, and OnRemoved
+	// fires only once both have actually succeeded — a failed delete must never look like
+	// a completed remove.
 	if err := m.store.DeleteSession(ctx, id); err != nil {
 		return fmt.Errorf("removing session %d: %w", id, err)
 	}
+	m.removeFromMemory(id)
 	if m.onRemoved != nil {
 		m.onRemoved(id)
 	}
@@ -851,6 +1181,12 @@ func (m *Manager) RecordResume(ctx context.Context, id int64, tmuxTarget, tmuxPa
 		m.mu.Unlock()
 		return nil, ErrUnknownSession
 	}
+	prevTarget, prevPane := sess.TmuxTarget, sess.TmuxPane
+	prevAlive := sess.Alive
+	prevEndedAt := sess.EndedAt
+	prevSnapshot := sess.LastSnapshot
+	prevSnapshotAt := sess.LastSnapshotAt
+
 	sess.TmuxTarget = tmuxTarget
 	sess.TmuxPane = tmuxPane
 	sess.Alive = true
@@ -861,8 +1197,16 @@ func (m *Manager) RecordResume(ctx context.Context, id int64, tmuxTarget, tmuxPa
 	snapshot := sess.Clone()
 	m.mu.Unlock()
 
+	// REQ-14: a persist failure rolls every field back — a half-resumed session must
+	// never look alive in memory while the DB still has it dead.
 	if err := m.store.UpdateSession(ctx, row); err != nil {
-		return nil, fmt.Errorf("persisting resume for session %d: %w", id, err)
+		return nil, m.rollbackOnPersistFailure(id, sess, err, "persisting resume for", func(cur *Session) {
+			cur.TmuxTarget, cur.TmuxPane = prevTarget, prevPane
+			cur.Alive = prevAlive
+			cur.EndedAt = prevEndedAt
+			cur.LastSnapshot = prevSnapshot
+			cur.LastSnapshotAt = prevSnapshotAt
+		})
 	}
 	m.broadcast(snapshot)
 	return snapshot, nil
@@ -985,6 +1329,17 @@ func (m *Manager) checkLiveness(ctx context.Context) {
 		return
 	}
 
+	// REQ-16/D17: one ListSessions call confirms the tmux server itself is reachable
+	// before any pane is believed gone — a server-level failure (tmux unreachable) is
+	// transient and must leave every session as-is for the next tick, never read as N
+	// simultaneous deaths. Deliberately once per sweep, not once per session.
+	if m.sessionKiller != nil {
+		if _, err := m.sessionKiller.ListSessions(ctx); err != nil {
+			m.log.Warn().Err(err).Msg("liveness sweep: tmux server unreachable; leaving sessions as-is")
+			return
+		}
+	}
+
 	// Collect value copies, not *Session pointers, under the lock (review Major 8):
 	// holding a live pointer and reading its field after Unlock races with any writer
 	// (e.g. RecordLaunch) mutating the same field concurrently.
@@ -1054,7 +1409,9 @@ func (m *Manager) checkOneLiveness(ctx context.Context, id int64, target string,
 // and broadcasts. Idempotent (already-ended is a no-op, no double broadcast). Shared by
 // checkOneLiveness (the ordinary poll/nudge path), Reconcile's mark-ended rows, and End
 // (via its own liveness nudge — Implementation Notes: "final snapshot → kill-session →
-// liveness nudge").
+// liveness nudge"). REQ-14/D16: a persist failure rolls the alive/endedAt flip back, so
+// the next poll tick re-checks the session instead of the daemon silently believing it
+// dead while the DB still says alive.
 func (m *Manager) markEnded(ctx context.Context, id int64) (*Session, error) {
 	m.mu.Lock()
 	sess, ok := m.sessions[id]
@@ -1067,6 +1424,7 @@ func (m *Manager) markEnded(ctx context.Context, id int64) (*Session, error) {
 		m.mu.Unlock()
 		return snapshot, nil
 	}
+	prevEndedAt := sess.EndedAt
 	sess.Alive = false
 	endedAt := time.Now().UTC()
 	sess.EndedAt = &endedAt
@@ -1075,7 +1433,10 @@ func (m *Manager) markEnded(ctx context.Context, id int64) (*Session, error) {
 	m.mu.Unlock()
 
 	if err := m.store.UpdateSession(ctx, row); err != nil {
-		return nil, fmt.Errorf("persisting ended session %d: %w", id, err)
+		return nil, m.rollbackOnPersistFailure(id, sess, err, "persisting ended", func(cur *Session) {
+			cur.Alive = true
+			cur.EndedAt = prevEndedAt
+		})
 	}
 	m.broadcast(snapshot)
 	return snapshot, nil

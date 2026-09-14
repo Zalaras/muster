@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -325,6 +327,403 @@ func TestLauncher_AutoPermissionModeSeedsLatchAndRepoDefault(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, repo.LastPermissionMode)
 	assert.Equal(t, "auto", *repo.LastPermissionMode)
+}
+
+// --- plan session-lifecycle: red tests, written and run against the unmodified tree
+// (Implementation Notes § Red-first). Each covers one D* acceptance criterion; the
+// package will not build until tmux.ErrSessionExists exists (D4/D5 below), which is the
+// correct red state.
+
+// TestLauncher_Resume_NotResumableMessageNamesWhichCauseApplies covers plan
+// session-lifecycle D21/review Critical 2: Resume's 409 not_resumable covers two causes
+// (still alive; dead but never bound a claudeSessionId) and REQ-17/docs/protocol.md both
+// promise "the message names which, since only one of the two is ever recoverable" — but
+// sessions.go's notResumable call is one byte-identical string for both causes today. This
+// doesn't pin exact prose (the impl keeps freedom of wording): it asserts the two messages
+// differ, and that only the alive-cause one mentions "alive" — today both causes return
+// the identical shared string, so both assertions fail together.
+func TestLauncher_Resume_NotResumableMessageNamesWhichCauseApplies(t *testing.T) {
+	st := openLauncherTestStore(t)
+	mgr := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop()})
+	dir := t.TempDir()
+	repo, _, err := st.UpsertRepo(context.Background(), store.UpsertRepoParams{
+		Path: dir, Name: "proj", Model: "sonnet", PermissionMode: "default",
+	})
+	require.NoError(t, err)
+
+	l := &sessionLauncher{
+		store: st, manager: mgr, tmux: newFakeTmux(), log: zerolog.Nop(), claudeBin: "irrelevant-never-reached",
+		hookScript: "/bin/true", statusLineScript: "/bin/true",
+	}
+
+	// Cause 1: still alive.
+	aliveSess, err := mgr.CreateSession(context.Background(), session.CreateParams{
+		RepoID: repo.ID, Directory: dir, PermissionMode: session.PermissionDefault, Model: "sonnet", FirstLaunchHere: true,
+	})
+	require.NoError(t, err)
+	_, err = mgr.RecordLaunch(context.Background(), aliveSess.ID, fmt.Sprintf("muster-%d:@1", aliveSess.ID), "%1")
+	require.NoError(t, err)
+
+	_, aliveErr := l.Resume(context.Background(), aliveSess.ID)
+	require.NotNil(t, aliveErr)
+	require.Equal(t, "not_resumable", aliveErr.code)
+
+	// Cause 2: dead, and never bound a claudeSessionId (End with no SessionKiller/
+	// PaneChecker configured on this mgr goes straight to the direct markEnded path, no
+	// tmux needed).
+	deadSess, err := mgr.CreateSession(context.Background(), session.CreateParams{
+		RepoID: repo.ID, Directory: dir, PermissionMode: session.PermissionDefault, Model: "sonnet", FirstLaunchHere: false,
+	})
+	require.NoError(t, err)
+	_, err = mgr.RecordLaunch(context.Background(), deadSess.ID, fmt.Sprintf("muster-%d:@1", deadSess.ID), "%1")
+	require.NoError(t, err)
+	_, err = mgr.End(context.Background(), deadSess.ID)
+	require.NoError(t, err)
+
+	_, noIDErr := l.Resume(context.Background(), deadSess.ID)
+	require.NotNil(t, noIDErr)
+	require.Equal(t, "not_resumable", noIDErr.code)
+
+	assert.NotEqual(t, aliveErr.message, noIDErr.message,
+		"D21/Critical 2: the two not_resumable causes must produce different messages")
+	assert.Contains(t, strings.ToLower(aliveErr.message), "alive", "the alive-session message must name that cause")
+	assert.NotContains(t, strings.ToLower(noIDErr.message), "alive", "the no-claudeSessionId message must not also claim the session is alive")
+}
+
+// TestHandleCreateSession_OrphanedTmuxSessionDoesNotBlockLaunch is the #26 reproducer
+// (plan session-lifecycle D3): an orphaned muster-1 tmux session with an otherwise-empty
+// store must not wedge every future launch. Today, the very first CreateSession in a
+// fresh store allocates id 1, so `tmux new-session -s muster-1` collides with the
+// pre-existing orphan and Launch rolls the row back and returns 500 launch_failed —
+// permanently, since the rollback frees id 1 again for the next attempt.
+func TestHandleCreateSession_OrphanedTmuxSessionDoesNotBlockLaunch(t *testing.T) {
+	socket := tmuxtest.Socket(t)
+	client := tmux.New(socket)
+	dir := t.TempDir()
+	// Pre-create the orphan issue #26 describes: muster-1 exists on the socket, but the
+	// store has never heard of it (e.g. a prior daemon crashed after spawning it).
+	_, _, err := client.NewSession(context.Background(), 1, dir, nil, sleepForeverCommand())
+	require.NoError(t, err)
+
+	dbPath := filepath.Join(t.TempDir(), "muster.db")
+	st, err := store.Open(context.Background(), dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = st.Close() })
+	logBuf := &syncBuffer{}
+	srv := New(Config{
+		Store: st, Logger: zerolog.New(logBuf), UIToken: testUIToken, IngestToken: testIngestToken,
+		WebDist: t.TempDir(), DaemonVersion: "test-version", TmuxSocket: socket,
+		Launch: LaunchConfig{ClaudeBin: sharedStubClaude, HookScript: "/bin/true", StatusLineScript: "/bin/true"},
+	})
+	testSrv := &testServer{Server: srv, dbPath: dbPath, logs: logBuf, store: st}
+	testSrv.Start() // runs the ordinary startup Reconcile — must not adopt or kill muster-1
+	t.Cleanup(func() { testSrv.Shutdown(context.Background()) })
+
+	rec := postSessionsRequest(t, testSrv, `{"directory":"`+dir+`","model":"sonnet","permissionMode":"default"}`)
+
+	require.Equal(t, http.StatusCreated, rec.Code, "D3/#26: an orphaned muster-1 must never wedge every future launch")
+	var wire struct {
+		ID int64 `json:"id"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &wire))
+	assert.GreaterOrEqual(t, wire.ID, int64(2), "the new session's id must not collide with the orphan's")
+	t.Cleanup(func() { _ = client.KillSession(context.Background(), fmt.Sprintf("muster-%d", wire.ID)) })
+
+	names, err := client.ListSessions(context.Background())
+	require.NoError(t, err)
+	assert.Contains(t, names, "muster-1", "the orphan must be left untouched — never adopted, never killed")
+}
+
+// TestLauncher_ProbesMaxSessionIDAndDegradesToFloorZeroOnError covers plan
+// session-lifecycle D2's launcher half: a MaxSessionID probe failure must be tolerated,
+// never fail the launch (REQ-7: "degrades to floor 0 — it never fails a launch"). Today
+// Launch never calls MaxSessionID at all, so the probe count stays at zero.
+func TestLauncher_ProbesMaxSessionIDAndDegradesToFloorZeroOnError(t *testing.T) {
+	st := openLauncherTestStore(t)
+	mgr := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop()})
+	dir := t.TempDir()
+	fake := newFakeTmux()
+	fake.maxSessionIDErr = errors.New("boom: tmux unreadable")
+
+	l := &sessionLauncher{
+		store: st, manager: mgr, tmux: fake, log: zerolog.Nop(), claudeBin: "irrelevant-never-reached",
+		hookScript: "/bin/true", statusLineScript: "/bin/true",
+	}
+
+	_, lerr := l.Launch(context.Background(), createSessionRequest{
+		Directory: dir, Model: "sonnet", PermissionMode: "default",
+	})
+
+	require.Nil(t, lerr, "REQ-7: a MaxSessionID probe failure must never fail the launch")
+	assert.GreaterOrEqual(t, fake.maxSessionIDCalls, 1, "REQ-7: Launch must probe MaxSessionID (and tolerate its failure) before CreateSession")
+}
+
+// TestLauncher_RetriesOnceOnASingleErrSessionExistsThenSucceedsWithAHigherID covers plan
+// session-lifecycle D4: a single tmux.ErrSessionExists on the first NewSession attempt
+// must be retried transparently, with a strictly higher session id on the retry, and the
+// retry must succeed.
+func TestLauncher_RetriesOnceOnASingleErrSessionExistsThenSucceedsWithAHigherID(t *testing.T) {
+	st := openLauncherTestStore(t)
+	mgr := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop()})
+	dir := t.TempDir()
+	fake := newFakeTmux()
+	fake.queueNewSessionErrs(tmux.ErrSessionExists)
+
+	l := &sessionLauncher{
+		store: st, manager: mgr, tmux: fake, log: zerolog.Nop(), claudeBin: "irrelevant-never-reached",
+		hookScript: "/bin/true", statusLineScript: "/bin/true",
+	}
+
+	sess, lerr := l.Launch(context.Background(), createSessionRequest{
+		Directory: dir, Model: "sonnet", PermissionMode: "default",
+	})
+
+	require.Nil(t, lerr, "REQ-7: a single collision must be retried transparently, never surfaced to the caller")
+	assert.Equal(t, 2, fake.newSessionCalls, "D4: exactly one retry (two attempts total)")
+	ids := fake.newSessionIDsSeen()
+	require.Len(t, ids, 2)
+	assert.Greater(t, ids[1], ids[0], "D4: the retry's session id must be strictly greater than the first attempt's")
+	assert.NotEmpty(t, sess.TmuxTarget)
+}
+
+// TestLauncher_ExhaustsThreeAttemptsOnRepeatedErrSessionExists covers plan
+// session-lifecycle D5: a launcher that keeps colliding gives up after 3 attempts with a
+// 500 launch_failed naming the tmux session, rather than retrying forever or leaking a row
+// per attempt.
+func TestLauncher_ExhaustsThreeAttemptsOnRepeatedErrSessionExists(t *testing.T) {
+	st := openLauncherTestStore(t)
+	mgr := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop()})
+	dir := t.TempDir()
+	fake := newFakeTmux()
+	fake.newSessionErr = tmux.ErrSessionExists
+
+	l := &sessionLauncher{
+		store: st, manager: mgr, tmux: fake, log: zerolog.Nop(), claudeBin: "irrelevant-never-reached",
+		hookScript: "/bin/true", statusLineScript: "/bin/true",
+	}
+
+	_, lerr := l.Launch(context.Background(), createSessionRequest{
+		Directory: dir, Model: "sonnet", PermissionMode: "default",
+	})
+
+	require.NotNil(t, lerr)
+	assert.Equal(t, http.StatusInternalServerError, lerr.status)
+	assert.Equal(t, "launch_failed", lerr.code)
+	assert.Contains(t, lerr.message, "muster-", "D5: the failure message must name the colliding tmux session")
+	assert.Equal(t, 3, fake.newSessionCalls, "D5: exactly three attempts before giving up")
+
+	rows, err := st.ListSessions(context.Background())
+	require.NoError(t, err)
+	assert.Empty(t, rows, "every attempt's row must be rolled back, never leaked")
+}
+
+// errKiller is a session.Killer double whose KillSession always fails with a fixed,
+// non-nil error — used to force a *genuine* kill failure for D15. Phase 1 shipped REQ-6
+// (internal/tmux.Client.KillSession treats an already-gone tmux session as a successful
+// kill), so a fabricated/never-spawned tmux target no longer reproduces this scenario; a
+// Killer double is the only way left to get a kill that must still fail. ListSessions is
+// never exercised by the Remove path this test drives.
+type errKiller struct {
+	killErr error
+}
+
+func (k *errKiller) KillSession(_ context.Context, _ string) error {
+	return k.killErr
+}
+
+func (k *errKiller) ListSessions(_ context.Context) ([]string, error) {
+	return nil, nil
+}
+
+// TestHandleRemoveSession_FailingEndLeavesTheShellRunningAndTheRowPresent covers plan
+// session-lifecycle D15/REQ-13: a Remove whose End fails (a genuine tmux kill failure —
+// here, errKiller standing in for "tmux unreachable") must not have already destroyed the
+// shell tmux session, and the row must still be there afterward. Today handleRemoveSession
+// kills the shell and closes terminal sockets *before* calling manager.Remove, so both are
+// already gone by the time Remove fails.
+func TestHandleRemoveSession_FailingEndLeavesTheShellRunningAndTheRowPresent(t *testing.T) {
+	socket := tmuxtest.Socket(t)
+	client := tmux.New(socket) // real tmux — backs only the shell registry below
+	st := openLauncherTestStore(t)
+	killer := &errKiller{killErr: errors.New("boom: tmux unreachable")}
+	manager := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop(), SessionKiller: killer})
+	shells := newShellRegistry(client, zerolog.Nop())
+	terminals := newTerminalRegistry()
+	launcher := &sessionLauncher{store: st, manager: manager, tmux: client, log: zerolog.Nop()}
+	f := newSessionsFeature(manager, launcher, shells, terminals, zerolog.Nop())
+
+	dir := t.TempDir()
+	repo, _, err := st.UpsertRepo(context.Background(), store.UpsertRepoParams{
+		Path: dir, Name: "proj", Model: "sonnet", PermissionMode: "default",
+	})
+	require.NoError(t, err)
+	sess, err := manager.CreateSession(context.Background(), session.CreateParams{
+		RepoID: repo.ID, Directory: dir, PermissionMode: session.PermissionDefault, Model: "sonnet", FirstLaunchHere: true,
+	})
+	require.NoError(t, err)
+	// The tmux target itself no longer matters here — errKiller fails regardless of what
+	// (if anything) actually exists on the socket.
+	_, err = manager.RecordLaunch(context.Background(), sess.ID, fmt.Sprintf("muster-%d:@1", sess.ID), "%1")
+	require.NoError(t, err)
+
+	_, _, err = shells.Ensure(context.Background(), sess.ID, dir)
+	require.NoError(t, err)
+	shellName := tmux.ShellSessionName(sess.ID)
+	existsBefore, err := client.PaneExists(context.Background(), shellName)
+	require.NoError(t, err)
+	require.True(t, existsBefore, "sanity: the shell must actually be running before Remove is attempted")
+
+	req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/api/sessions/%d", sess.ID), nil)
+	req.SetPathValue("id", strconv.FormatInt(sess.ID, 10))
+	rec := httptest.NewRecorder()
+	f.handleRemoveSession(rec, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rec.Code, "errKiller forces a genuine kill failure, so Remove must fail")
+	assert.True(t, manager.Exists(sess.ID), "D15: a failed Remove must leave the row present")
+
+	stillExists, err := client.PaneExists(context.Background(), shellName)
+	require.NoError(t, err)
+	assert.True(t, stillExists, "D15/REQ-13: a failed Remove must leave the shell tmux session running")
+}
+
+// terminalConnFor reads back the *terminalConn currently registered for id's Claude
+// surface, directly from the registry's own map (in-package access) — a deterministic,
+// non-network way to assert "the terminal socket was (or wasn't) touched" that doesn't
+// depend on a bounded-wait read against the live websocket.
+func terminalConnFor(terminals *terminalRegistry, id int64) *terminalConn {
+	terminals.mu.Lock()
+	defer terminals.mu.Unlock()
+	return terminals.conns[terminalKey{sessionID: id, surface: surfaceClaude}]
+}
+
+// TestHandleEndSession_FailingKillLeavesTheTerminalSocketOpen covers plan session-lifecycle
+// D23/review Major 2: REQ-13 says "a failed End or Remove leaves terminal sockets and the
+// shell as they were", but handleEndSession's default (genuine-failure) branch still calls
+// f.terminals.closeSession(id) before writing the 500 — recreating the dead-surface-over-
+// a-live-session defect the plan's own Overview names. Uses the same errKiller double as
+// D15 to force a genuine (non-idempotent-tolerated) kill failure; the terminal WS is a
+// real coder/websocket connection (registered via a fake attach, since no real tmux target
+// exists here) so "still registered, same connection object" is a genuine assertion about
+// terminalRegistry's own state, not a guess from a bounded-wait read.
+func TestHandleEndSession_FailingKillLeavesTheTerminalSocketOpen(t *testing.T) {
+	st := openLauncherTestStore(t)
+	killer := &errKiller{killErr: errors.New("boom: tmux unreachable")}
+	manager := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop(), SessionKiller: killer})
+	terminals := newTerminalRegistry()
+	fake := newFakeTmux()
+	terminalFeat := newTerminalFeature(terminals, manager, fake.attach, zerolog.Nop())
+	shells := newShellRegistry(fake, zerolog.Nop())
+	launcher := &sessionLauncher{store: st, manager: manager, tmux: fake, log: zerolog.Nop()}
+	sessionsFeat := newSessionsFeature(manager, launcher, shells, terminals, zerolog.Nop())
+
+	dir := t.TempDir()
+	repo, _, err := st.UpsertRepo(context.Background(), store.UpsertRepoParams{
+		Path: dir, Name: "proj", Model: "sonnet", PermissionMode: "default",
+	})
+	require.NoError(t, err)
+	sess, err := manager.CreateSession(context.Background(), session.CreateParams{
+		RepoID: repo.ID, Directory: dir, PermissionMode: session.PermissionDefault, Model: "sonnet", FirstLaunchHere: true,
+	})
+	require.NoError(t, err)
+	_, err = manager.RecordLaunch(context.Background(), sess.ID, fmt.Sprintf("muster-%d:@1", sess.ID), "%1")
+	require.NoError(t, err)
+
+	noGuard := func(h http.Handler) http.Handler { return h }
+	mux := http.NewServeMux()
+	sessionsFeat.mount(mux, noGuard)
+	terminalFeat.mount(mux, noGuard)
+	httpSrv := httptest.NewServer(mux)
+	t.Cleanup(httpSrv.Close)
+
+	c := dialTerminalOK(t, httpSrv, sess.ID)
+	defer func() { _ = c.CloseNow() }()
+
+	// Drain frames on the client side throughout: a graceful websocket.Conn.Close() (which
+	// closeSession calls) waits for the peer's own close-frame acknowledgement, and a
+	// client that never reads would otherwise make this test pay that wait's full grace
+	// period for no reason relevant to the assertion below.
+	go func() {
+		for {
+			if _, _, err := c.Read(context.Background()); err != nil {
+				return
+			}
+		}
+	}()
+
+	var before *terminalConn
+	require.Eventually(t, func() bool {
+		before = terminalConnFor(terminals, sess.ID)
+		return before != nil
+	}, 3*time.Second, 10*time.Millisecond, "sanity: the terminal connection must actually register before End is attempted")
+
+	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/sessions/%d/end", sess.ID), nil)
+	req.SetPathValue("id", strconv.FormatInt(sess.ID, 10))
+	rec := httptest.NewRecorder()
+	sessionsFeat.handleEndSession(rec, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rec.Code, "errKiller forces a genuine kill failure, so End must fail")
+
+	after := terminalConnFor(terminals, sess.ID)
+	assert.Same(t, before, after, "D23/REQ-13: a failed End must leave the terminal socket exactly as it was, never closed")
+}
+
+// TestLauncher_ConcurrentResumesSpawnExactlyOnce covers plan session-lifecycle D19/REQ-11:
+// Resume's check-then-act (read sess.Alive == false, only flip it much later in
+// RecordResume) is not serialised per session id, so two concurrent Resume calls for the
+// same dead-but-resumable session can both pass the alive gate and both call NewSession.
+// Post-Phase-1 this is invisible in either caller's status code — the loser hits
+// tmux.ErrSessionExists and REQ-8's repair path hands it back a plain 200 — so the spawn
+// count is the only place the bug still shows. A per-test WaitGroup gated on a shared
+// `ready` channel (no artificial delay or fake-side barrier needed) reproduced the race
+// 20/20 under `-count=20` and 20/20 under `-race` with no data race reported, both while
+// iterating on this test before committing it — real disk I/O inside writeSettings
+// (os.ReadFile/os.WriteFile against a real temp dir) between the alive-check and the
+// tmux call is enough to reliably widen the window.
+func TestLauncher_ConcurrentResumesSpawnExactlyOnce(t *testing.T) {
+	st := openLauncherTestStore(t)
+	mgr := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop()})
+	dir := t.TempDir()
+	repo, _, err := st.UpsertRepo(context.Background(), store.UpsertRepoParams{
+		Path: dir, Name: "proj", Model: "sonnet", PermissionMode: "default",
+	})
+	require.NoError(t, err)
+	sess, err := mgr.CreateSession(context.Background(), session.CreateParams{
+		RepoID: repo.ID, Directory: dir, PermissionMode: session.PermissionDefault, Model: "sonnet", FirstLaunchHere: true,
+	})
+	require.NoError(t, err)
+
+	// Make it dead-but-resumable: alive=false with a bound claudeSessionId — the ordinary
+	// "died, has a resumable conversation" shape Resume expects, reloaded into the
+	// manager the same way a daemon restart would.
+	row, err := st.GetSession(context.Background(), sess.ID)
+	require.NoError(t, err)
+	row.Alive = false
+	claudeID := "claude-resume-race"
+	row.ClaudeSessionID = &claudeID
+	require.NoError(t, st.UpdateSession(context.Background(), row))
+	require.NoError(t, mgr.LoadAll(context.Background()))
+
+	fake := newFakeTmux()
+	l := &sessionLauncher{
+		store: st, manager: mgr, tmux: fake, log: zerolog.Nop(), claudeBin: "irrelevant-never-reached",
+		hookScript: "/bin/true", statusLineScript: "/bin/true",
+	}
+
+	const attempts = 2
+	ready := make(chan struct{})
+	var wg sync.WaitGroup
+	for range attempts {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-ready
+			_, _ = l.Resume(context.Background(), sess.ID)
+		}()
+	}
+	close(ready)
+	wg.Wait()
+
+	assert.Equal(t, 1, fake.newSessionCalls, "D19/REQ-11: two concurrent Resumes for one session must spawn exactly once")
 }
 
 // TestHandleEndSession_AlreadyDeadSessionIs409NotAlive covers D17's first clause

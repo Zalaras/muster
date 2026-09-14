@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/creack/pty"
 
@@ -27,6 +28,14 @@ const (
 	initialCols = 80
 	initialRows = 24
 )
+
+// resizeTmuxTimeout bounds Resize's tmux resize-window call (review cycle 1 Major 3,
+// REQ-12) — the WS read loop calls Resize synchronously per resize frame, and a wedged
+// tmux there must not hang the whole connection's frame loop forever. Attach's own tmux
+// invocation is deliberately left tied to the caller's ctx instead: attach-session is
+// meant to run for the connection's entire lifetime, not return quickly, so it is bounded
+// by the connection closing (which cancels ctx), not by a fixed deadline.
+const resizeTmuxTimeout = 5 * time.Second
 
 // Bridge is one daemon-owned PTY attached to a tmux session.
 type Bridge struct {
@@ -81,7 +90,9 @@ func (b *Bridge) Resize(ctx context.Context, cols, rows int) error {
 	if err := pty.Setsize(b.pty, &pty.Winsize{Cols: uint16(cols), Rows: uint16(rows)}); err != nil {
 		return fmt.Errorf("pty.Setsize: %w", err)
 	}
-	if err := b.tmux.ResizeWindow(ctx, b.target, cols, rows); err != nil {
+	resizeCtx, cancel := context.WithTimeout(ctx, resizeTmuxTimeout)
+	defer cancel()
+	if err := b.tmux.ResizeWindow(resizeCtx, b.target, cols, rows); err != nil {
 		return fmt.Errorf("tmux resize-window: %w", err)
 	}
 	return nil

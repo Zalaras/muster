@@ -122,6 +122,51 @@ func TestUpdateSession_PinnedAndRailPosRoundTrip(t *testing.T) {
 	assert.Equal(t, int64(0), got2.RailPos)
 }
 
+// TestInsertSession_AllocatesAboveHighestExistingIDAndWritesWatermark covers D1: a store
+// seeded with ids 1..7 allocates 8 for the next InsertSession and persists the watermark
+// (kv['session.id_watermark']) so a later delete can never let that id come back.
+func TestInsertSession_AllocatesAboveHighestExistingIDAndWritesWatermark(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	repoID := seedTestRepo(t, st)
+
+	for range 7 {
+		_, err := st.InsertSession(ctx, InsertSessionParams{RepoID: repoID, Directory: "/tmp/proj", PermissionMode: "default"})
+		require.NoError(t, err)
+	}
+
+	row, err := st.InsertSession(ctx, InsertSessionParams{RepoID: repoID, Directory: "/tmp/proj", PermissionMode: "default"})
+	require.NoError(t, err)
+	assert.Equal(t, int64(8), row.ID)
+
+	watermark, ok, err := st.KVGet(ctx, "session.id_watermark")
+	require.NoError(t, err)
+	require.True(t, ok, "REQ-1: InsertSession must persist the id watermark")
+	assert.Equal(t, "8", watermark)
+}
+
+// TestInsertSession_MinIDFloorsAllocationEvenAboveTheExistingMax covers REQ-1's MinID
+// semantics directly at the store level: the caller-supplied floor (from REQ-7's
+// MaxSessionID probe) can exceed every row already in the table, and the new row's id
+// must land strictly above it, not just above the table's own max(id).
+func TestInsertSession_MinIDFloorsAllocationEvenAboveTheExistingMax(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	repoID := seedTestRepo(t, st)
+
+	_, err := st.InsertSession(ctx, InsertSessionParams{RepoID: repoID, Directory: "/tmp/proj", PermissionMode: "default"})
+	require.NoError(t, err)
+
+	row, err := st.InsertSession(ctx, InsertSessionParams{RepoID: repoID, Directory: "/tmp/proj", PermissionMode: "default", MinID: 50})
+	require.NoError(t, err)
+	assert.Equal(t, int64(51), row.ID)
+
+	watermark, ok, err := st.KVGet(ctx, "session.id_watermark")
+	require.NoError(t, err)
+	require.True(t, ok)
+	assert.Equal(t, "51", watermark)
+}
+
 func TestGetSession_ReturnsErrorForUnknownID(t *testing.T) {
 	st := openTestStore(t)
 

@@ -3,11 +3,13 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/coder/websocket"
 	"github.com/rs/zerolog"
@@ -15,6 +17,12 @@ import (
 	"github.com/Zalaras/muster/internal/session"
 	"github.com/Zalaras/muster/internal/tmux"
 )
+
+// shellTmuxTimeout bounds every tmux invocation the shell surface makes (session-lifecycle
+// REQ-12): unlike a Claude pane's tmux calls (which run under the HTTP request's own
+// context), Ensure/Kill run with context.WithoutCancel and would otherwise wait on a
+// wedged tmux forever — hanging End/Remove, which call Kill, right along with it.
+const shellTmuxTimeout = 5 * time.Second
 
 // shellRegistry is the plain-shell surface's daemon-lifetime record
 // (kb:anchor/sessions.shell): a shell has no persistent representation anywhere — no SQLite row, no
@@ -26,16 +34,34 @@ type shellRegistry struct {
 	tmux paneSpawner
 	log  zerolog.Logger
 
-	// mu guards the whole check-then-spawn sequence in Ensure: two concurrent POSTs for
-	// the same session id must never both observe "no pane" and both attempt `tmux
-	// new-session -s <name>` (the second would fail with a tmux "duplicate session"
-	// error instead of returning created:false cleanly).
-	mu sync.Mutex
+	// mu guards idLocks only (session-lifecycle REQ-12: the registry's single global
+	// mutex became per-id, so two sessions' Ensure/Kill calls never block each other);
+	// the check-then-spawn/kill sequence itself is serialised by each id's own lock.
+	mu      sync.Mutex
+	idLocks map[int64]*sync.Mutex
 }
 
 // newShellRegistry builds a shellRegistry bound to tmuxClient.
 func newShellRegistry(tmuxClient paneSpawner, log zerolog.Logger) *shellRegistry {
 	return &shellRegistry{tmux: tmuxClient, log: log}
+}
+
+// lockID acquires id's per-session lock (REQ-12), creating it on first use, and returns
+// the func that releases it.
+func (r *shellRegistry) lockID(id int64) (unlock func()) {
+	r.mu.Lock()
+	if r.idLocks == nil {
+		r.idLocks = make(map[int64]*sync.Mutex)
+	}
+	l, ok := r.idLocks[id]
+	if !ok {
+		l = &sync.Mutex{}
+		r.idLocks[id] = l
+	}
+	r.mu.Unlock()
+
+	l.Lock()
+	return l.Unlock
 }
 
 // interactiveShellArgv returns the argv for the user's interactive shell: $SHELL if set
@@ -58,12 +84,14 @@ func interactiveShellArgv() []string {
 // environment (isolation from the ingest path is structural, not incidental) and no
 // .claude/settings.local.json write.
 func (r *shellRegistry) Ensure(ctx context.Context, id int64, dir string) (target string, created bool, err error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	unlock := r.lockID(id)
+	defer unlock()
 
 	name := tmux.ShellSessionName(id)
 
-	exists, err := r.tmux.PaneExists(ctx, name)
+	checkCtx, cancel := context.WithTimeout(ctx, shellTmuxTimeout)
+	exists, err := r.tmux.PaneExists(checkCtx, name)
+	cancel()
 	if err != nil {
 		return "", false, fmt.Errorf("checking shell pane: %w", err)
 	}
@@ -71,23 +99,43 @@ func (r *shellRegistry) Ensure(ctx context.Context, id int64, dir string) (targe
 		return name, false, nil
 	}
 
-	if _, _, err := r.tmux.NewNamedSession(ctx, name, dir, nil, interactiveShellArgv()); err != nil {
-		return "", false, fmt.Errorf("spawning shell: %w", err)
+	spawnCtx, cancel := context.WithTimeout(ctx, shellTmuxTimeout)
+	_, _, spawnErr := r.tmux.NewNamedSession(spawnCtx, name, dir, nil, interactiveShellArgv())
+	cancel()
+	if spawnErr != nil {
+		if errors.Is(spawnErr, tmux.ErrSessionExists) {
+			// REQ-12: a concurrent spawn elsewhere on the socket (or a stale check) beat
+			// this one to it — re-check rather than failing with shell_spawn_failed.
+			recheckCtx, cancel := context.WithTimeout(ctx, shellTmuxTimeout)
+			nowExists, recheckErr := r.tmux.PaneExists(recheckCtx, name)
+			cancel()
+			if recheckErr == nil && nowExists {
+				return name, false, nil
+			}
+		}
+		return "", false, fmt.Errorf("spawning shell: %w", spawnErr)
 	}
 	return name, true, nil
 }
 
 // Kill kills session id's shell tmux session, if any (Remove's path). A no-op, not an
 // error surfaced to the caller, when no shell exists — Remove must succeed whether or
-// not a shell was ever started.
+// not a shell was ever started. The lock entry is reclaimed afterward: Remove is the only
+// caller and a session id is never reissued (REQ-2), so nothing can contend on it again.
 func (r *shellRegistry) Kill(ctx context.Context, id int64) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	unlock := r.lockID(id)
 
 	name := tmux.ShellSessionName(id)
-	if err := r.tmux.KillSession(ctx, name); err != nil {
+	killCtx, cancel := context.WithTimeout(ctx, shellTmuxTimeout)
+	if err := r.tmux.KillSession(killCtx, name); err != nil {
 		r.log.Debug().Err(err).Str("tmux_session", name).Int64("session_id", id).Msg("killing shell session failed (already gone?)")
 	}
+	cancel()
+	unlock()
+
+	r.mu.Lock()
+	delete(r.idLocks, id)
+	r.mu.Unlock()
 }
 
 // createShellResponse is POST /api/sessions/{id}/shell's response body

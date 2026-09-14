@@ -4,6 +4,7 @@
 // isDirty/withOpened are keyed by writtenAt rather than a live event history.
 import { describe, expect, it } from "vitest";
 import {
+  forget,
   isDirty,
   loadMemory,
   saveMemory,
@@ -12,27 +13,41 @@ import {
   type StorageLike,
 } from "./memory";
 
-function fakeStorage(initial: Record<string, string> = {}): StorageLike & {
+// `forget` (REQ-17/W4) needs to remove a key. `StorageLike` (memory.ts) has no
+// `removeItem` yet — that's part of the red state below — so these fixtures declare it
+// themselves via `StorageLikeWithRemove` rather than widening the imported type; additive,
+// so every describe block above the `forget` one is unaffected.
+interface StorageLikeWithRemove extends StorageLike {
+  removeItem(key: string): void;
+}
+
+function fakeStorage(initial: Record<string, string> = {}): StorageLikeWithRemove & {
   data: Record<string, string>;
 } {
   const data = { ...initial };
   return {
     data,
-    getItem(key) {
+    getItem(key: string) {
       return key in data ? data[key]! : null;
     },
-    setItem(key, value) {
+    setItem(key: string, value: string) {
       data[key] = value;
+    },
+    removeItem(key: string) {
+      delete data[key];
     },
   };
 }
 
-function throwingStorage(): StorageLike {
+function throwingStorage(): StorageLikeWithRemove {
   return {
     getItem() {
       throw new Error("storage disabled");
     },
     setItem() {
+      throw new Error("storage disabled");
+    },
+    removeItem() {
       throw new Error("storage disabled");
     },
   };
@@ -153,5 +168,44 @@ describe("withOpened (REQ-7/REQ-13: opening a file remembers it and acknowledges
     const memory: ReaderMemory = { openPath: "a.md", clearedAt: { "a.md": "t1" } };
     const next = withOpened(memory, "b.md", "t2");
     expect(next.clearedAt).toEqual({ "a.md": "t1", "b.md": "t2" });
+  });
+});
+
+// REQ-17/W4 (plan session-lifecycle): `handleRemoved` (features/actions.ts:139) clears
+// `muster.reader.<id>` on `sessionRemoved` through this helper, which does not exist yet —
+// red until it's added. Same "every access is try/caught" contract as loadMemory/saveMemory
+// above (memory.ts's header comment), for the same reason: a private window or blocked
+// site data must not turn removing a session into a thrown error.
+describe("forget (REQ-17/W4: clears muster.reader.<id> on sessionRemoved)", () => {
+  it("removes the stored entry for this session id", () => {
+    const storage = fakeStorage({
+      "muster.reader.1": JSON.stringify({ openPath: "TODO.md", clearedAt: {} }),
+    });
+
+    forget(storage, 1);
+
+    expect(loadMemory(storage, 1)).toEqual({ openPath: null, clearedAt: {} });
+  });
+
+  it("leaves other sessions' entries untouched", () => {
+    const storage = fakeStorage({
+      "muster.reader.1": JSON.stringify({ openPath: "a.md", clearedAt: {} }),
+      "muster.reader.2": JSON.stringify({ openPath: "b.md", clearedAt: {} }),
+    });
+
+    forget(storage, 1);
+
+    expect(loadMemory(storage, 2)).toEqual({ openPath: "b.md", clearedAt: {} });
+  });
+
+  it("is a no-op when nothing was ever stored for this session id", () => {
+    const storage = fakeStorage();
+
+    expect(() => forget(storage, 1)).not.toThrow();
+    expect(loadMemory(storage, 1)).toEqual({ openPath: null, clearedAt: {} });
+  });
+
+  it("does not throw when the storage accessor throws (private window / blocked site data — W4's specific case)", () => {
+    expect(() => forget(throwingStorage(), 1)).not.toThrow();
   });
 });

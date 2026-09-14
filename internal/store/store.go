@@ -68,10 +68,20 @@ func (s *Store) Close() error {
 	return s.db.Close()
 }
 
-// KVGet reads a key from the kv table. The bool return reports whether the key existed.
-func (s *Store) KVGet(ctx context.Context, key string) (string, bool, error) {
+// dbTx is satisfied by both *sql.DB and *sql.Tx — narrow enough to let the kv
+// read/write logic run either outside a transaction (KVGet/KVSet) or inside one
+// (session-lifecycle REQ-1: InsertSession reads and bumps the id watermark as part of
+// the same transaction that allocates the row's id) without duplicating the SQL.
+type dbTx interface {
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
+// kvGet reads a key from the kv table via q (either *Store.db or an open *sql.Tx). The
+// bool return reports whether the key existed.
+func kvGet(ctx context.Context, q dbTx, key string) (string, bool, error) {
 	var value string
-	err := s.db.QueryRowContext(ctx, `SELECT value FROM kv WHERE key = ?`, key).Scan(&value)
+	err := q.QueryRowContext(ctx, `SELECT value FROM kv WHERE key = ?`, key).Scan(&value)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", false, nil
 	}
@@ -81,9 +91,9 @@ func (s *Store) KVGet(ctx context.Context, key string) (string, bool, error) {
 	return value, true, nil
 }
 
-// KVSet upserts a key in the kv table.
-func (s *Store) KVSet(ctx context.Context, key, value string) error {
-	_, err := s.db.ExecContext(ctx,
+// kvSet upserts a key in the kv table via q (either *Store.db or an open *sql.Tx).
+func kvSet(ctx context.Context, q dbTx, key, value string) error {
+	_, err := q.ExecContext(ctx,
 		`INSERT INTO kv (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
 		key, value,
 	)
@@ -91,6 +101,16 @@ func (s *Store) KVSet(ctx context.Context, key, value string) error {
 		return fmt.Errorf("setting kv %q: %w", key, err)
 	}
 	return nil
+}
+
+// KVGet reads a key from the kv table. The bool return reports whether the key existed.
+func (s *Store) KVGet(ctx context.Context, key string) (string, bool, error) {
+	return kvGet(ctx, s.db, key)
+}
+
+// KVSet upserts a key in the kv table.
+func (s *Store) KVSet(ctx context.Context, key, value string) error {
+	return kvSet(ctx, s.db, key, value)
 }
 
 // Event is a fully-parsed, storage-ready ingest event. Callers (internal/server) are

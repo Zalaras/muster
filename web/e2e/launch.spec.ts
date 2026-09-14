@@ -1098,3 +1098,48 @@ test("GET /api/browse returns 400 for a relative path and 404 for a directory th
   const missingBody = (await missing.json()) as { error: { code: string } };
   expect(missingBody.error.code).toBe("not_found");
 });
+
+// Plan session-lifecycle — REQ-7 (floor probe + bounded retry loop). This is the E2E-level
+// proof of issue #26's own reproducer (daemon-level: D3,
+// TestHandleCreateSession_OrphanedTmuxSessionDoesNotBlockLaunch): before the fix, ANY
+// launch 500'd forever once an orphaned `muster-1` sat on the socket with an empty
+// database, because the next allocated id was always 1 and `tmux new-session` refused
+// the duplicate name. Fresh per-test `daemon` (not fileDaemon()) — this test plants a
+// tmux session directly on the daemon's own socket, which would corrupt any
+// concurrently-running test sharing that process.
+test("an orphaned muster-1 on the socket does not block launching from the dashboard, and is left running untouched (E1, issue #26)", async ({
+  page,
+  daemon,
+}) => {
+  await daemon.createForeignTmuxSession("muster-1");
+  expect(await daemon.tmuxSessions()).toContain("muster-1");
+
+  await page.goto(daemon.dashboardUrl);
+  const dialog = await openLaunchDialog(page);
+  await dialog.getByLabel("Title").fill("orphan-e1");
+  await dialog.getByRole("button", { name: "Launch" }).click();
+  await expect(dialog).toBeHidden();
+
+  // REQ-13's error surface (`#action-error`) is a different region than the dialog's
+  // own `#launch-error` — this asserts the dialog's own alert, which the old bug never
+  // even got this far to show (the dialog stayed open on a 500).
+  await expect(launchError(dialog)).toBeHidden();
+
+  const card = sessionCard(page, "orphan-e1");
+  await expect(card).toBeVisible();
+
+  const state = await getState(page, daemon);
+  const launchedMatches = state.sessions.filter((s) => s.title === "orphan-e1");
+  expect(launchedMatches, "exactly one session launched, no spurious retry duplicate").toHaveLength(
+    1,
+  );
+  const [launched] = launchedMatches;
+  if (!launched) throw new Error("unreachable: toHaveLength(1) just passed");
+  // REQ-1/REQ-7: the floor probe saw muster-1 on the socket and allocated strictly
+  // above it — never the id-1 collision issue #26 reported.
+  expect(launched.id).toBeGreaterThan(1);
+
+  // REQ-9/REQ-2's never-adopt, never-kill policy: the orphan itself is untouched by the
+  // launch that worked around it.
+  expect(await daemon.tmuxSessions()).toContain("muster-1");
+});

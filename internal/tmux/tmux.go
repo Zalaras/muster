@@ -108,6 +108,18 @@ func (c *Client) NewSession(ctx context.Context, id int64, dir string, env map[s
 	return c.NewNamedSession(ctx, "muster-"+strconv.FormatInt(id, 10), dir, env, command)
 }
 
+// ErrSessionExists is wrapped into the error NewNamedSession returns when tmux refuses to
+// create a session because the name is already taken (session-lifecycle plan REQ-4).
+// Callers branch on this with errors.Is rather than matching tmux's own stderr text
+// themselves — the "duplicate session:" match lives only here, beside
+// shellSessionSuffix, which is the one place this file already spells out a naming/stderr
+// convention (CLAUDE.md's internal/claudecode boundary discipline applies the same way).
+var ErrSessionExists = errors.New("tmux session already exists")
+
+// duplicateSessionStderr is the tmux stderr fragment that means "a session by this name
+// already exists" (e.g. "duplicate session: muster-1"). Matched only here.
+const duplicateSessionStderr = "duplicate session:"
+
 // NewNamedSession creates a new tmux session named name (one window, running command in
 // dir, with the given extra environment variables set in the pane —
 // kb:anchor/ingest.envelope: `tmux new-session -e`). Returns the window's target (e.g. "muster-7:@1", or
@@ -115,6 +127,10 @@ func (c *Client) NewSession(ctx context.Context, id int64, dir string, env map[s
 // command to reach the socket's server (i.e. no server was running yet), REQ-4's
 // server/session-wide options are applied right after, since tmux auto-starts the server
 // on first command and there is no server to configure before that.
+//
+// session-lifecycle REQ-5: neither failure branch below leaks the session `new-session`
+// just created — each kills it by name before returning, so a caller that rolls back on
+// error never has to reconcile against an orphaned tmux session.
 func (c *Client) NewNamedSession(ctx context.Context, name, dir string, env map[string]string, command []string) (target, pane string, err error) {
 	freshServer := !c.serverRunning(ctx)
 
@@ -127,10 +143,15 @@ func (c *Client) NewNamedSession(ctx context.Context, name, dir string, env map[
 
 	out, err := c.run(ctx, args...)
 	if err != nil {
-		return "", "", fmt.Errorf("tmux new-session: %w", err)
+		wrapped := fmt.Errorf("tmux new-session: %w", err)
+		if strings.Contains(err.Error(), duplicateSessionStderr) {
+			return "", "", fmt.Errorf("%w: %w", wrapped, ErrSessionExists)
+		}
+		return "", "", wrapped
 	}
 	fields := strings.Fields(strings.TrimSpace(out))
 	if len(fields) != 2 {
+		c.killLeakedSession(ctx, name)
 		return "", "", fmt.Errorf("tmux new-session: unexpected output %q", out)
 	}
 	target = name + ":" + fields[0]
@@ -138,10 +159,21 @@ func (c *Client) NewNamedSession(ctx context.Context, name, dir string, env map[
 
 	if freshServer {
 		if err := c.applyServerOptions(ctx); err != nil {
+			c.killLeakedSession(ctx, name)
 			return "", "", err
 		}
 	}
 	return target, pane, nil
+}
+
+// killLeakedSession is called by NewNamedSession's post-create failure branches to clean
+// up the session it just created (REQ-5). A kill failure here is not returned — the
+// caller's original error takes priority — but this at-most-best-effort cleanup can still
+// leave a genuine orphan if tmux itself is wedged; there is no logger threaded into
+// internal/tmux to record that, so the caller (which does have one) is the one place a
+// leak would ever be surfaced.
+func (c *Client) killLeakedSession(ctx context.Context, name string) {
+	_ = c.KillSession(ctx, name)
 }
 
 // shellSessionSuffix marks a tmux session name as a plain-shell surface
@@ -153,6 +185,14 @@ const shellSessionSuffix = "-shell"
 // always "muster-<id>-shell".
 func ShellSessionName(id int64) string {
 	return "muster-" + strconv.FormatInt(id, 10) + shellSessionSuffix
+}
+
+// SessionName returns the tmux session name for session id's Claude pane: always
+// "muster-<id>". The bare-name mirror of ShellSessionName (review cycle 1 Minor 2): the
+// "muster-" naming convention is spelled in this one package rather than hand-rolled at
+// each call site.
+func SessionName(id int64) string {
+	return "muster-" + strconv.FormatInt(id, 10)
 }
 
 // IsShellSessionName reports whether name is a shell session name ("muster-<id>-shell")
@@ -170,6 +210,43 @@ func IsShellSessionName(name string) (id int64, ok bool) {
 		return 0, false
 	}
 	return n, true
+}
+
+// ParseSessionName reports whether name is a bare Claude-pane session name
+// ("muster-<N>") and, if so, its id — the mirror of IsShellSessionName for the
+// non-shell shape (session-lifecycle plan REQ-3). Never matches a shell name.
+func ParseSessionName(name string) (id int64, ok bool) {
+	const prefix = "muster-"
+	if !strings.HasPrefix(name, prefix) || strings.HasSuffix(name, shellSessionSuffix) {
+		return 0, false
+	}
+	n, err := strconv.ParseInt(name[len(prefix):], 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return n, true
+}
+
+// MaxSessionID returns the highest session id present on this socket across both naming
+// conventions ("muster-<id>" and "muster-<id>-shell") — session-lifecycle plan REQ-3, the
+// floor a launch probes before allocating a new id so it never collides with an orphaned
+// tmux session. Mirrors ListSessions' own shape: no tmux server running yet is (0, nil),
+// never an error.
+func (c *Client) MaxSessionID(ctx context.Context) (int64, error) {
+	names, err := c.ListSessions(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("finding max session id: %w", err)
+	}
+	var highest int64
+	for _, name := range names {
+		if id, ok := ParseSessionName(name); ok && id > highest {
+			highest = id
+		}
+		if id, ok := IsShellSessionName(name); ok && id > highest {
+			highest = id
+		}
+	}
+	return highest, nil
 }
 
 // serverRunning reports whether this socket already has a tmux server (checked before
@@ -218,8 +295,34 @@ func (c *Client) DisplayVar(ctx context.Context, target, format string) (string,
 	return strings.TrimRight(out, "\n"), nil
 }
 
+// ResolveSessionTarget returns the window/pane target for a live tmux session named
+// name's single window (the one-window-per-session topology, package doc comment) —
+// session-lifecycle REQ-9's repair primitive: Reconcile uses it to re-derive
+// tmux_target/tmux_pane for a row it has decided still owns a live "muster-<id>",
+// whether the stored value is the InsertSession placeholder or a stale window id.
+// Returns an error if the session (or its window) doesn't exist.
+func (c *Client) ResolveSessionTarget(ctx context.Context, name string) (target, pane string, err error) {
+	out, err := c.run(ctx, "list-panes", "-t", name, "-F", "#{window_id} #{pane_id}")
+	if err != nil {
+		return "", "", fmt.Errorf("resolving target for %q: %w", name, err)
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	fields := strings.Fields(lines[0])
+	if len(fields) != 2 {
+		return "", "", fmt.Errorf("resolving target for %q: unexpected output %q", name, out)
+	}
+	return name + ":" + fields[0], fields[1], nil
+}
+
 // PaneExists reports whether target still has a live pane (the liveness poll's only
-// signal — never terminal output, CLAUDE.md hard rule).
+// signal — never terminal output, CLAUDE.md hard rule). An *exec.ExitError ordinarily
+// means "tmux answered and the target isn't there", but review cycle 1 Critical 1 found
+// that tmux exits non-zero the same way when it cannot even reach the socket (a
+// permission error, or the socket file gone) — collapsing that into "not there" let
+// KillSession, and everything downstream of it, read an unreachable server as a
+// successful kill of a session that was still running. isConnectionFailure singles out
+// that one stable shape (stderr's "error connecting to <path> …") so it surfaces as an
+// error — "I could not ask" — instead of being folded into "not there".
 func (c *Client) PaneExists(ctx context.Context, target string) (bool, error) {
 	if target == "" {
 		return false, nil
@@ -230,9 +333,54 @@ func (c *Client) PaneExists(ctx context.Context, target string) (bool, error) {
 	}
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) {
+		if isConnectionFailure(err) {
+			return false, fmt.Errorf("checking pane %q: %w", target, err)
+		}
 		return false, nil // tmux exits non-zero when the target doesn't exist
 	}
 	return false, fmt.Errorf("checking pane %q: %w", target, err)
+}
+
+// isConnectionFailure reports whether err's message carries tmux's own "error connecting
+// to <socket> (Permission denied)" diagnostic (D20/review Critical 1's own measured
+// repro) — a socket that exists and could hold a live server, but this process lacks
+// permission to reach it, as opposed to tmux reaching the socket and reporting the
+// target absent. run folds CombinedOutput's stderr into the returned error (tmux.go's
+// run doc comment), so the fragment is available on err.Error() without a second
+// command.
+//
+// D24/review cycle 2 Critical: EACCES and EPERM are distinct errnos with distinct
+// strerror wording — "Permission denied" is EACCES; a sandboxed denial (sandbox-exec, an
+// MDM profile, the app sandbox) can instead deny with EPERM, which tmux reports as
+// "Operation not permitted". Measured by the reviewer under sandbox-exec with the tmux
+// server alive throughout: cycle 1's whole defect was reachable unchanged through that
+// second errno. Both wordings are matched; nothing else.
+//
+// Deliberately narrow — matches only the two reasons actually measured, not every
+// "error connecting to" shape tmux can produce. "No such file or directory" (no tmux
+// server has ever bound this socket, or one exited cleanly and removed its own socket
+// file) is the ordinary, load-bearing "no server yet" reading ListSessions' own doc
+// comment already names, and every check-before-first-spawn in this codebase depends on
+// it; "Socket operation on non-socket" (a plain file at the socket path) is a fixture
+// defect, not tmux-server absence; "no server running on <path>" (a real socket, server
+// already exited) is likewise not a live server. None of these three may newly read as
+// "the session might still be alive" — a scratch-copy experiment that widened this match
+// to bare "error connecting to" broke seven then-green tests on exactly these three
+// shapes. Widening further is real future work (a crashed server's stale socket refusing
+// connections is the same "couldn't ask" shape in principle) but needs its own measured
+// repro and its own test, not a guess bundled into this fix.
+//
+// Never matches tmux's target-not-found wording (which does vary and would make this
+// fail-unsafe in the wrong direction — REQ-6 forbids depending on that instability): if
+// tmux's own wording for "permission denied"/"operation not permitted" ever changes, this
+// degrades to the pre-fix behaviour (an unreachable socket reads as "gone") rather than to
+// a false positive that would treat a live, reachable session as unreachable.
+func isConnectionFailure(err error) bool {
+	msg := err.Error()
+	if !strings.Contains(msg, "error connecting to") {
+		return false
+	}
+	return strings.Contains(msg, "Permission denied") || strings.Contains(msg, "Operation not permitted")
 }
 
 // KillWindow kills one window by target — used by tests to simulate a dead pane without
@@ -247,9 +395,31 @@ func (c *Client) KillWindow(ctx context.Context, target string) error {
 
 // KillSession kills a whole tmux session by name (m4-reconcile REQ-5's End path — named
 // for clarity over KillWindow; under the one-window-per-session topology the two are
-// equivalent, plan Implementation Notes).
+// equivalent, plan Implementation Notes). session-lifecycle REQ-6: a session that is
+// already gone is treated as a successful kill — only a genuine failure (tmux missing,
+// socket unreadable, context deadline) still returns an error. An *exec.ExitError alone
+// is not proof of that: kill-session can also exit non-zero for a reason unrelated to the
+// session existing (e.g. a socket tmux can't reach), and treating every ExitError as
+// success would let Remove delete a row whose pane is still running — so an ExitError is
+// verified against PaneExists (the same check the rest of this package already trusts)
+// rather than assumed. PaneExists itself now distinguishes "confirmed gone" from
+// "couldn't ask" (isConnectionFailure, review cycle 1 Critical 1), so that verification
+// is no longer defeated by an unreachable socket; KillSession still never matches
+// stderr's target-not-found wording, which isn't stable across versions.
 func (c *Client) KillSession(ctx context.Context, name string) error {
-	if _, err := c.run(ctx, "kill-session", "-t", name); err != nil {
+	_, err := c.run(ctx, "kill-session", "-t", name)
+	if err == nil {
+		return nil
+	}
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		return fmt.Errorf("tmux kill-session %q: %w", name, err)
+	}
+
+	stillThere, checkErr := c.PaneExists(ctx, name)
+	if checkErr != nil || stillThere {
+		// Still there, or the check itself couldn't confirm gone — either way the
+		// original kill-session error is the honest report; unprovable is not proven.
 		return fmt.Errorf("tmux kill-session %q: %w", name, err)
 	}
 	return nil
@@ -259,11 +429,20 @@ func (c *Client) KillSession(ctx context.Context, name string) error {
 // REQ-2's "unknown panes are reported, never adopted" check). An empty, non-error result
 // means no server is running yet on this socket — list-sessions exits non-zero in that
 // case, the same shape PaneExists already treats as "not there" rather than a real error.
+//
+// D25/review cycle 2 Major: that collapse used to swallow isConnectionFailure's case too
+// (a socket that exists and could hold a live server, but this process cannot reach it),
+// which is the worst call site for it — Reconcile treats this result as ground truth for
+// which rows are still alive, so an unreachable socket used to read as "no sessions at
+// all" rather than "I couldn't find out". Mirrors PaneExists' own distinction.
 func (c *Client) ListSessions(ctx context.Context) ([]string, error) {
 	out, err := c.run(ctx, "list-sessions", "-F", "#{session_name}")
 	if err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
+			if isConnectionFailure(err) {
+				return nil, fmt.Errorf("listing tmux sessions: %w", err)
+			}
 			return nil, nil
 		}
 		return nil, fmt.Errorf("listing tmux sessions: %w", err)

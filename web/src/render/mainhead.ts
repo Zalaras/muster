@@ -6,7 +6,7 @@
 // per-session card/tile templates) — features/focus.ts wires the three buttons' click
 // listeners once at startup and this module only ever toggles their `disabled` state.
 import type { Session } from "../protocol";
-import { buildCardViewModel } from "../sessions/card";
+import { buildCardViewModel, resumeDisabledReason } from "../sessions/card";
 import { formatEndedAgo } from "../sessions/format";
 import {
   DEFAULT_SURFACE_STATE,
@@ -101,6 +101,8 @@ export function renderMainhead(
   elements.metaEl.textContent = mainheadMeta(session, now);
   elements.endBtn.disabled = !connected || !session.alive;
   elements.resumeBtn.disabled = !connected || session.alive || session.claudeSessionId === null;
+  // REQ-17/W3: a disabled-for-no-claudeSessionId Resume says why, not just sits greyed.
+  elements.resumeBtn.title = resumeDisabledReason(session) ?? "";
   elements.removeBtn.disabled = !connected;
   if (elements.surfaceSegment)
     updateSurfaceSegment(elements.surfaceSegment, surfaceState, connected);

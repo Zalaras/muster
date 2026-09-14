@@ -2,9 +2,17 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"strconv"
 	"time"
 )
+
+// sessionIDWatermarkKey is the kv-table key REQ-1 uses to persist the highest session id
+// ever allocated, so a later delete (rollback, Remove, reconcile's sweep) can never let
+// that id come back — the id doubles as the tmux session name and the ingest bearer
+// credential MUSTER_SESSION, so reuse is a correctness bug (plan session-lifecycle REQ-1/REQ-2).
+const sessionIDWatermarkKey = "session.id_watermark"
 
 // SessionRow is the persisted shape of a session (m1-sessions Schema Changes). It is
 // the storage-level twin of internal/session.Session; internal/server converts between
@@ -87,34 +95,109 @@ type InsertSessionParams struct {
 	// max(existing)+1 so the newest session lands at the bottom of the unpinned
 	// block. Pinned always starts false.
 	RailPos int64
+
+	// MinID floors the allocated id above this value (0 = no floor) — session-lifecycle
+	// REQ-1/REQ-7: the launcher passes its MaxSessionID probe of the tmux socket here, so
+	// a new row never lands on an id an orphaned "muster-<N>" tmux session already owns.
+	MinID int64
 }
 
+// InsertSession allocates the new row's id as
+// max(COALESCE(MAX(id) from session, 0), the persisted watermark, p.MinID) + 1, inserted
+// with that id explicit, and persists the new watermark — all in one transaction
+// (session-lifecycle REQ-1/REQ-2). This is what makes an id un-reissuable: SQLite's
+// ROWID (no AUTOINCREMENT on this table) would otherwise reuse max(rowid)+1 the moment
+// the highest row is deleted (launch rollback, Remove, reconcile's sweep), and that id
+// doubles as both the tmux session name and the ingest bearer credential
+// MUSTER_SESSION=<id>.
 func (s *Store) InsertSession(ctx context.Context, p InsertSessionParams) (SessionRow, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
-	res, err := s.db.ExecContext(ctx, `
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return SessionRow{}, fmt.Errorf("beginning session insert transaction for %q: %w", p.Directory, err)
+	}
+	defer func() { _ = tx.Rollback() }() // no-op once Commit has succeeded
+
+	var maxExisting sql.NullInt64
+	if scanErr := tx.QueryRowContext(ctx, `SELECT MAX(id) FROM session`).Scan(&maxExisting); scanErr != nil {
+		return SessionRow{}, fmt.Errorf("reading max session id: %w", scanErr)
+	}
+
+	watermarkStr, ok, err := kvGet(ctx, tx, sessionIDWatermarkKey)
+	if err != nil {
+		return SessionRow{}, fmt.Errorf("reading session id watermark: %w", err)
+	}
+	var watermark int64
+	if ok {
+		watermark, err = strconv.ParseInt(watermarkStr, 10, 64)
+		if err != nil {
+			return SessionRow{}, fmt.Errorf("parsing session id watermark %q: %w", watermarkStr, err)
+		}
+	}
+
+	id := maxExisting.Int64
+	if watermark > id {
+		id = watermark
+	}
+	if p.MinID > id {
+		id = p.MinID
+	}
+	id++
+
+	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO session (
-			tmux_target, tmux_pane, claude_session_id, repo_id, directory, branch, is_worktree,
+			id, tmux_target, tmux_pane, claude_session_id, repo_id, directory, branch, is_worktree,
 			title, state, state_since, permission_mode, permission_mode_source, model,
 			compactions, attention_reason, attention_since, failure_error, failure_message,
 			last_activity, alive, ended_at, first_launch_here, created_at, pinned, rail_pos
 		) VALUES (
-			'', NULL, NULL, ?, ?, ?, ?,
+			?, '', NULL, NULL, ?, ?, ?, ?,
 			?, 'started', ?, ?, 'seed', ?,
 			0, NULL, NULL, NULL, NULL,
 			NULL, 1, NULL, ?, ?, 0, ?
 		)
-	`, p.RepoID, p.Directory, p.Branch, boolToInt(p.IsWorktree),
+	`, id, p.RepoID, p.Directory, p.Branch, boolToInt(p.IsWorktree),
 		p.Title, now, p.PermissionMode, p.Model,
 		boolToInt(p.FirstLaunchHere), now, p.RailPos,
-	)
-	if err != nil {
+	); err != nil {
 		return SessionRow{}, fmt.Errorf("inserting session for %q: %w", p.Directory, err)
 	}
-	id, err := res.LastInsertId()
-	if err != nil {
-		return SessionRow{}, fmt.Errorf("reading new session id for %q: %w", p.Directory, err)
+
+	if err := kvSet(ctx, tx, sessionIDWatermarkKey, strconv.FormatInt(id, 10)); err != nil {
+		return SessionRow{}, fmt.Errorf("persisting session id watermark: %w", err)
 	}
+
+	if err := tx.Commit(); err != nil {
+		return SessionRow{}, fmt.Errorf("committing session insert for %q: %w", p.Directory, err)
+	}
+
 	return s.GetSession(ctx, id)
+}
+
+// BumpIDWatermark raises the persisted session id watermark to at least minID, leaving it
+// untouched if it's already higher (session-lifecycle REQ-9: an unknown "muster-<N>" or
+// "muster-<N>-shell" tmux session found on the socket during reconcile must still block
+// id N from ever being allocated to a new row, even though no row names it).
+func (s *Store) BumpIDWatermark(ctx context.Context, minID int64) error {
+	current, ok, err := s.KVGet(ctx, sessionIDWatermarkKey)
+	if err != nil {
+		return fmt.Errorf("reading session id watermark: %w", err)
+	}
+	var currentVal int64
+	if ok {
+		currentVal, err = strconv.ParseInt(current, 10, 64)
+		if err != nil {
+			return fmt.Errorf("parsing session id watermark %q: %w", current, err)
+		}
+	}
+	if minID <= currentVal {
+		return nil
+	}
+	if err := s.KVSet(ctx, sessionIDWatermarkKey, strconv.FormatInt(minID, 10)); err != nil {
+		return fmt.Errorf("persisting session id watermark: %w", err)
+	}
+	return nil
 }
 
 // DeleteSession removes a session row — the launch-failure rollback path (plan

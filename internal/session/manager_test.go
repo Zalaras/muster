@@ -16,9 +16,18 @@ import (
 
 	"github.com/Zalaras/muster/internal/claudecode"
 	"github.com/Zalaras/muster/internal/store"
+	"github.com/Zalaras/muster/internal/tmux"
+	"github.com/Zalaras/muster/internal/tmux/tmuxtest"
 
 	_ "modernc.org/sqlite"
 )
+
+// sleepCommand is the long-running dummy command plan session-lifecycle's real-tmux
+// Reconcile/End tests spawn — mirrors internal/tmux/tmux_test.go's own helper of the same
+// name (unexported there, so it can't be imported directly).
+func sleepCommand() []string {
+	return []string{"/bin/sh", "-c", "sleep 60"}
+}
 
 func openTestStore(t *testing.T) *store.Store {
 	t.Helper()
@@ -94,6 +103,10 @@ type fakeKiller struct {
 	sessions []string
 	killErr  map[string]error
 	killed   []string
+	// listErr, when set, makes every ListSessions call fail (plan session-lifecycle
+	// D17: a tmux-server-level listing failure must be treated as transient, never as
+	// grounds to believe every pane is gone).
+	listErr error
 }
 
 func newFakeKiller(sessions ...string) *fakeKiller {
@@ -103,9 +116,18 @@ func newFakeKiller(sessions ...string) *fakeKiller {
 func (f *fakeKiller) ListSessions(_ context.Context) ([]string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.listErr != nil {
+		return nil, f.listErr
+	}
 	out := make([]string, len(f.sessions))
 	copy(out, f.sessions)
 	return out, nil
+}
+
+func (f *fakeKiller) setListErr(err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.listErr = err
 }
 
 func (f *fakeKiller) KillSession(_ context.Context, name string) error {
@@ -930,6 +952,99 @@ func TestReconcile_ReportsUnknownMusterSessionsWithoutCreatingRows(t *testing.T)
 		"D10 requires an unknown muster-prefixed tmux session to be logged, not just reported")
 	assert.Contains(t, logs, `"tmux_session":"muster-999999"`,
 		"the warn line must name the specific unknown session")
+}
+
+// TestReconcile_ReportsAndLogsAMusterPrefixedNameMatchingNeitherShapeAsUnknown covers plan
+// session-lifecycle D22/review Major 1 (Edge Case 22): a tmux session whose name is
+// muster-prefixed but matches neither the bare "muster-<id>" shape nor the
+// "muster-<id>-shell" shape (e.g. "muster-99999-foreign") must still be reported in
+// UnknownSessions and warn-logged, exactly as any other unknown muster session — REQ-9's
+// own words ("reported ... and warn-logged exactly as today") and
+// kb:adr/lifecycle-reconcile-converges-with-the-socket both promise this. classifyTmuxNames
+// today does `id, ok := tmux.ParseSessionName(name); if !ok { continue }` — silently
+// dropping any muster-prefixed name that isn't a bare integer suffix, never reaching the
+// unknown-names report at all.
+func TestReconcile_ReportsAndLogsAMusterPrefixedNameMatchingNeitherShapeAsUnknown(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+
+	killer := newFakeKiller("muster-99999-foreign")
+	var logBuf bytes.Buffer
+	mgr := NewManager(Config{Store: st, Logger: zerolog.New(&logBuf), SessionKiller: killer})
+	require.NoError(t, mgr.LoadAll(ctx))
+
+	report, err := mgr.Reconcile(ctx)
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"muster-99999-foreign"}, report.UnknownSessions,
+		"D22: a muster-prefixed name matching neither shape must still be reported unknown")
+
+	logs := logBuf.String()
+	assert.Contains(t, logs, "unknown muster tmux session on socket; not adopted",
+		"D22: it must be warn-logged, not just silently ignored")
+	assert.Contains(t, logs, `"tmux_session":"muster-99999-foreign"`,
+		"the warn line must name the specific unknown session")
+
+	rows, err := st.ListSessions(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, rows, "never adopted — no row created for it")
+}
+
+// TestReconcile_ListSessionsFailureActsOnNothing covers plan session-lifecycle D26/review
+// cycle 2 Major (the consequence of D25): when Reconcile cannot enumerate the socket at
+// all, it must act on nothing — never mark an alive row ended, never delete a not-alive
+// one. Reconcile's own fallback on a ListSessions error is the trap: it warn-logs and
+// falls through to classifySessions, the pre-REQ-9 function, whose `if !r.alive {
+// toSweep = append(...); continue }` sweeps every not-alive row completely
+// unconditionally — no pane check, no tmux call, nothing — which is the original bug this
+// whole plan exists to close, now reachable again through the fallback path. The alive
+// row survives today already (classifySessions's own alive branch does consult
+// PaneChecker and leaves a row as-is on a check error) — asserted anyway, per the
+// invariant-crossed-from-every-state lesson, alongside the not-alive row that does not.
+func TestReconcile_ListSessionsFailureActsOnNothing(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+	repoID := seedRepo(t, st, dir)
+	params := createParams(dir)
+	params.RepoID = repoID
+
+	seed := newTestManager(t, st, nil, nil)
+	aliveSess, err := seed.CreateSession(ctx, params)
+	require.NoError(t, err)
+	aliveTarget := "muster-" + strconv.FormatInt(aliveSess.ID, 10) + ":@1"
+	_, err = seed.RecordLaunch(ctx, aliveSess.ID, aliveTarget, "%1")
+	require.NoError(t, err)
+
+	deadSess, err := seed.CreateSession(ctx, params)
+	require.NoError(t, err)
+	deadTarget := "muster-" + strconv.FormatInt(deadSess.ID, 10) + ":@1"
+	_, err = seed.RecordLaunch(ctx, deadSess.ID, deadTarget, "%1")
+	require.NoError(t, err)
+	_, err = seed.End(ctx, deadSess.ID) // seed has no SessionKiller/PaneChecker: routes straight to markEnded
+	require.NoError(t, err)
+
+	killer := newFakeKiller()
+	killer.setListErr(errors.New("tmux server unreachable"))
+	pc := newFakePaneChecker()
+	pc.setErr(aliveTarget, errors.New("tmux server unreachable")) // the same socket, entirely unreachable
+	mgr := NewManager(Config{Store: st, Logger: zerolog.Nop(), PaneChecker: pc, SessionKiller: killer})
+	require.NoError(t, mgr.LoadAll(ctx))
+
+	_, err = mgr.Reconcile(ctx)
+	require.NoError(t, err)
+
+	aliveAfter, ok := mgr.Get(aliveSess.ID)
+	require.True(t, ok)
+	assert.True(t, aliveAfter.Alive, "D26: an alive row must not be marked ended when the socket cannot be enumerated")
+
+	deadAfter, ok := mgr.Get(deadSess.ID)
+	require.True(t, ok, "D26: a not-alive row must not be deleted when the socket cannot be enumerated")
+	assert.False(t, deadAfter.Alive)
+
+	persisted, err := st.GetSession(ctx, deadSess.ID)
+	require.NoError(t, err, "the row must still be in the store too, not just in memory")
+	assert.False(t, persisted.Alive)
 }
 
 // TestRecordResume_UpdatesTargetClearsSnapshotLeavesStateUntouched covers REQ-7: a
@@ -2409,4 +2524,338 @@ func TestApplyStatus_NeverTouchesPinnedOrRailPos(t *testing.T) {
 	require.True(t, ok)
 	assert.True(t, final.Pinned)
 	assert.Equal(t, wantRailPos, final.RailPos)
+}
+
+// --- plan session-lifecycle: identity, reconcile-convergence, atomicity red tests ---
+//
+// Every test below is written and run against the unmodified tree (Implementation Notes
+// § Red-first): each documents, in its own comment, the current (buggy) behaviour it
+// observes, not the fixed one it will observe once daemon-impl lands.
+
+// realTmuxManager builds a Manager whose PaneChecker and SessionKiller are both a real
+// tmux.Client on a private per-test socket — needed wherever a test's assertion depends
+// on Reconcile/End actually deriving a target/pane from tmux, which no fake can fabricate
+// realistically (Testing conventions: real tmux only for a tmux-observable effect).
+func realTmuxManager(t *testing.T, st *store.Store, onUpsert func(*Session)) (*Manager, *tmux.Client) {
+	t.Helper()
+	client := tmux.New(tmuxtest.Socket(t))
+	mgr := NewManager(Config{Store: st, Logger: zerolog.Nop(), PaneChecker: client, SessionKiller: client, OnUpsert: onUpsert})
+	return mgr, client
+}
+
+// TestCreateSession_AfterRemovingTheHighestIDTheNextIDIsStrictlyGreater covers D7/REQ-2:
+// a session id must never be reissued, including right after the highest row is deleted
+// by Remove/DeleteSession. session.id is currently an ordinary SQLite ROWID column with
+// no AUTOINCREMENT and no watermark (REQ-1's gap) — deleting the highest row lets the very
+// next insert compute the same max(rowid)+1 and reuse it.
+func TestCreateSession_AfterRemovingTheHighestIDTheNextIDIsStrictlyGreater(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+	repoID := seedRepo(t, st, dir)
+	params := createParams(dir)
+	params.RepoID = repoID
+
+	mgr := newTestManager(t, st, nil, nil)
+	first, err := mgr.CreateSession(ctx, params)
+	require.NoError(t, err)
+	second, err := mgr.CreateSession(ctx, params)
+	require.NoError(t, err)
+	require.Greater(t, second.ID, first.ID)
+
+	require.NoError(t, mgr.DeleteSession(ctx, second.ID)) // remove the highest id
+
+	third, err := mgr.CreateSession(ctx, params)
+	require.NoError(t, err)
+	assert.Greater(t, third.ID, second.ID, "D7/REQ-2: a session id must never be reissued, even right after the highest row is deleted")
+}
+
+// TestReconcile_LiveMusterSessionUnderAPlaceholderTargetIsRepairedAndKeptAlive covers D8
+// (Edge Case 5, SIGKILL between NewSession and RecordLaunch): a row whose tmux_target is
+// still the InsertSession placeholder ("") but whose muster-<id> tmux session is actually
+// live must be repaired and kept alive, not swept. classifySessions today reads
+// PaneExists("") as false unconditionally (tmux.go's own empty-target short-circuit) and
+// never consults ListSessions/ownership by name, so this row is marked ended instead.
+func TestReconcile_LiveMusterSessionUnderAPlaceholderTargetIsRepairedAndKeptAlive(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+	repoID := seedRepo(t, st, dir)
+	params := createParams(dir)
+	params.RepoID = repoID
+
+	seed := newTestManager(t, st, nil, nil)
+	sess, err := seed.CreateSession(ctx, params) // tmux_target left "" — never RecordLaunch'd
+	require.NoError(t, err)
+
+	mgr, client := realTmuxManager(t, st, nil)
+	realTarget, _, err := client.NewSession(ctx, sess.ID, dir, nil, sleepCommand())
+	require.NoError(t, err)
+
+	require.NoError(t, mgr.LoadAll(ctx))
+	_, err = mgr.Reconcile(ctx)
+	require.NoError(t, err)
+
+	got, ok := mgr.Get(sess.ID)
+	require.True(t, ok, "D8: the row must survive Reconcile")
+	assert.True(t, got.Alive, "D8: a live muster-<id> under a placeholder target must be kept alive, not swept")
+	assert.Equal(t, realTarget, got.TmuxTarget, "the placeholder target must be repaired from tmux")
+
+	persisted, err := st.GetSession(ctx, sess.ID)
+	require.NoError(t, err)
+	assert.Equal(t, realTarget, persisted.TmuxTarget, "the repair must be persisted, not just in memory")
+	assert.True(t, persisted.Alive)
+}
+
+// TestReconcile_AliveFalseRowWithALiveMusterSessionIsRevivedNotSwept covers D9 (Edge Cases
+// 6/7): a row already marked alive=false — e.g. a SIGKILL landed between a resume's spawn
+// and its persist, or an earlier KillSession silently failed — whose muster-<id> tmux
+// session is nonetheless still live must be revived, not deleted.
+// classifySessions today short-circuits on `!r.alive` straight to sweep, before any pane
+// check at all.
+func TestReconcile_AliveFalseRowWithALiveMusterSessionIsRevivedNotSwept(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+	repoID := seedRepo(t, st, dir)
+	params := createParams(dir)
+	params.RepoID = repoID
+
+	seed := newTestManager(t, st, nil, nil)
+	sess, err := seed.CreateSession(ctx, params)
+	require.NoError(t, err)
+
+	mgr, client := realTmuxManager(t, st, nil)
+	target, pane, err := client.NewSession(ctx, sess.ID, dir, nil, sleepCommand())
+	require.NoError(t, err)
+	_, err = seed.RecordLaunch(ctx, sess.ID, target, pane)
+	require.NoError(t, err)
+
+	// Simulate the SIGKILL-between-kill-and-persist scenario directly: the row believes
+	// it is dead while its pane is, in fact, still running.
+	row, err := st.GetSession(ctx, sess.ID)
+	require.NoError(t, err)
+	row.Alive = false
+	endedAt := time.Now().UTC()
+	row.EndedAt = &endedAt
+	require.NoError(t, st.UpdateSession(ctx, row))
+
+	require.NoError(t, mgr.LoadAll(ctx))
+	_, err = mgr.Reconcile(ctx)
+	require.NoError(t, err)
+
+	got, ok := mgr.Get(sess.ID)
+	require.True(t, ok, "D9: the row must not be deleted while its pane is live")
+	assert.True(t, got.Alive, "D9: a live muster-<id> must revive an alive=false row, not leave it swept")
+	assert.Nil(t, got.EndedAt)
+}
+
+// TestReconcile_AliveRowWithAStaleWindowTargetIsRepairedNotMarkedEnded covers D10 (Edge
+// Case 8): an alive=true row whose stored tmux_target names a window that no longer
+// exists, while its owning muster-<id> tmux session is genuinely still live (under a
+// different window id), must have its target repaired rather than being marked ended —
+// today's PaneExists(staleTarget) check reports false and marks it ended.
+func TestReconcile_AliveRowWithAStaleWindowTargetIsRepairedNotMarkedEnded(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+	repoID := seedRepo(t, st, dir)
+	params := createParams(dir)
+	params.RepoID = repoID
+
+	seed := newTestManager(t, st, nil, nil)
+	sess, err := seed.CreateSession(ctx, params)
+	require.NoError(t, err)
+
+	mgr, client := realTmuxManager(t, st, nil)
+	realTarget, pane, err := client.NewSession(ctx, sess.ID, dir, nil, sleepCommand())
+	require.NoError(t, err)
+	_, err = seed.RecordLaunch(ctx, sess.ID, realTarget, pane)
+	require.NoError(t, err)
+
+	// Corrupt the stored target to name a window that was never actually created, while
+	// the owning tmux session itself is still very much alive.
+	tmuxName := "muster-" + strconv.FormatInt(sess.ID, 10)
+	staleTarget := tmuxName + ":@999999"
+	row, err := st.GetSession(ctx, sess.ID)
+	require.NoError(t, err)
+	row.TmuxTarget = staleTarget
+	require.NoError(t, st.UpdateSession(ctx, row))
+
+	require.NoError(t, mgr.LoadAll(ctx))
+	_, err = mgr.Reconcile(ctx)
+	require.NoError(t, err)
+
+	got, ok := mgr.Get(sess.ID)
+	require.True(t, ok)
+	assert.True(t, got.Alive, "D10: a live owning tmux session must not be marked ended over a stale window id")
+	assert.Nil(t, got.EndedAt)
+	assert.Equal(t, realTarget, got.TmuxTarget, "the stale window target must be repaired to the real one")
+}
+
+// TestEnd_AlreadyGoneTmuxSessionIsSuccessNotError covers D12/REQ-6 (Edge Case 9): a pane
+// that died moments before End runs must be treated as an already-successful kill —
+// KillSession today has no "already gone" tolerance (unlike PaneExists/ListSessions) and
+// returns a genuine error for a "no such session" tmux exit, which End propagates as a 500.
+func TestEnd_AlreadyGoneTmuxSessionIsSuccessNotError(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+	repoID := seedRepo(t, st, dir)
+	params := createParams(dir)
+	params.RepoID = repoID
+
+	mgr, client := realTmuxManager(t, st, nil)
+	sess, err := mgr.CreateSession(ctx, params)
+	require.NoError(t, err)
+	target, pane, err := client.NewSession(ctx, sess.ID, dir, nil, sleepCommand())
+	require.NoError(t, err)
+	_, err = mgr.RecordLaunch(ctx, sess.ID, target, pane)
+	require.NoError(t, err)
+
+	// The pane dies (here: is killed out-of-band) moments before End runs.
+	tmuxName := "muster-" + strconv.FormatInt(sess.ID, 10)
+	require.NoError(t, client.KillSession(ctx, tmuxName))
+
+	got, err := mgr.End(ctx, sess.ID)
+
+	require.NoError(t, err, "D12/REQ-6: an already-gone tmux session must be treated as a successful kill, never an error")
+	assert.False(t, got.Alive)
+	require.NotNil(t, got.EndedAt)
+}
+
+// TestEnd_ConcurrentEndsProduceExactlyOneMarkEndedAndNeverAKillError covers D14/REQ-11:
+// two concurrent End calls on the same session must serialise the check-then-act so at
+// most one observes ErrSessionNotAlive, exactly one persists+broadcasts the alive:false
+// flip, and neither ever surfaces a raw kill error. End has no per-session lock today, so
+// both goroutines can pass the initial "is it alive" gate before either flips state, and
+// whichever loses the race against the real tmux kill-session gets a genuine "no such
+// session" error back (REQ-6 not yet in effect either) instead of ErrSessionNotAlive.
+func TestEnd_ConcurrentEndsProduceExactlyOneMarkEndedAndNeverAKillError(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+	repoID := seedRepo(t, st, dir)
+	params := createParams(dir)
+	params.RepoID = repoID
+
+	rec := &upsertsRecorder{}
+	mgr, client := realTmuxManager(t, st, rec.record)
+	sess, err := mgr.CreateSession(ctx, params)
+	require.NoError(t, err)
+	target, pane, err := client.NewSession(ctx, sess.ID, dir, nil, sleepCommand())
+	require.NoError(t, err)
+	_, err = mgr.RecordLaunch(ctx, sess.ID, target, pane)
+	require.NoError(t, err)
+
+	const attempts = 2
+	ready := make(chan struct{})
+	var wg sync.WaitGroup
+	results := make([]error, attempts)
+	for i := range attempts {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-ready
+			_, err := mgr.End(ctx, sess.ID)
+			results[i] = err
+		}(i)
+	}
+	close(ready)
+	wg.Wait()
+
+	notAlive, killErrs, oks := 0, 0, 0
+	for _, err := range results {
+		switch {
+		case err == nil:
+			oks++
+		case errors.Is(err, ErrSessionNotAlive):
+			notAlive++
+		default:
+			killErrs++
+		}
+	}
+	assert.LessOrEqual(t, notAlive, 1, "D14: at most one concurrent End may observe not-alive")
+	assert.Equal(t, 0, killErrs, "D14/REQ-11+REQ-6: neither concurrent End call may surface a raw kill error")
+
+	endedBroadcasts := 0
+	for _, s := range rec.all() {
+		if s.ID == sess.ID && !s.Alive {
+			endedBroadcasts++
+		}
+	}
+	assert.Equal(t, 1, endedBroadcasts, "D14: exactly one alive:false broadcast, never zero or two")
+}
+
+// TestHandleRemoveSession... (D15) lives in internal/server/sessions_test.go: it needs
+// the shell registry and HTTP handler, which this package doesn't have.
+
+// TestMarkEnded_APersistFailureLeavesTheInMemorySessionAliveMatchingTheDB covers D16: when
+// UpdateSession fails inside markEnded, the in-memory alive:=false mutation must roll back
+// so memory never disagrees with the DB — today's markEnded flips sess.Alive before the
+// persist and never rolls it back on a persist error.
+func TestMarkEnded_APersistFailureLeavesTheInMemorySessionAliveMatchingTheDB(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+	repoID := seedRepo(t, st, dir)
+	params := createParams(dir)
+	params.RepoID = repoID
+
+	pc := newFakePaneChecker()
+	mgr := newTestManager(t, st, pc, nil)
+	sess, err := mgr.CreateSession(ctx, params)
+	require.NoError(t, err)
+	target := "muster-" + strconv.FormatInt(sess.ID, 10) + ":@1"
+	_, err = mgr.RecordLaunch(ctx, sess.ID, target, "%1")
+	require.NoError(t, err)
+
+	pc.setExists(target, false) // the pane is gone
+
+	require.NoError(t, st.Close()) // forces the next UpdateSession to fail
+
+	mgr.checkLiveness(ctx) // drives checkOneLiveness -> markEnded, whose persist must now fail
+
+	got, ok := mgr.Get(sess.ID)
+	require.True(t, ok)
+	assert.True(t, got.Alive, "D16: a failed persist must roll the in-memory flip back so memory and the DB never disagree")
+	assert.Nil(t, got.EndedAt)
+}
+
+// TestCheckLiveness_ListSessionsFailureLeavesSessionsAsIsDespitePaneExistsFalse covers
+// D17/REQ-16: before believing a pane is gone, checkOneLiveness must confirm the tmux
+// server is reachable at all (a successful ListSessions) — a server-level failure (tmux
+// unreachable) must be treated as transient and leave sessions untouched, never as N
+// simultaneous deaths. checkOneLiveness today consults only PaneExists.
+func TestCheckLiveness_ListSessionsFailureLeavesSessionsAsIsDespitePaneExistsFalse(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+	repoID := seedRepo(t, st, dir)
+	params := createParams(dir)
+	params.RepoID = repoID
+
+	pc := newFakePaneChecker()
+	killer := newFakeKiller()
+	killer.setListErr(errors.New("tmux server unreachable"))
+	rec := &upsertsRecorder{}
+	mgr := NewManager(Config{
+		Store: st, Logger: zerolog.Nop(), PaneChecker: pc, SessionKiller: killer, OnUpsert: rec.record,
+		PollInterval: 10 * time.Millisecond,
+	})
+
+	sess, err := mgr.CreateSession(ctx, params)
+	require.NoError(t, err)
+	target := "muster-" + strconv.FormatInt(sess.ID, 10) + ":@1"
+	_, err = mgr.RecordLaunch(ctx, sess.ID, target, "%1")
+	require.NoError(t, err)
+
+	pc.setExists(target, false) // the pane check alone says "gone"
+
+	mgr.checkLiveness(ctx)
+
+	got, ok := mgr.Get(sess.ID)
+	require.True(t, ok)
+	assert.True(t, got.Alive, "D17/REQ-16: a server-level ListSessions failure must be treated as transient, never as grounds to mark the session dead")
+	assert.Nil(t, got.EndedAt)
 }

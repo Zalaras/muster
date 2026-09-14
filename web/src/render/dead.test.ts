@@ -300,3 +300,90 @@ describe("showDeadSurfaceNotice (review Major 1): the dead surface's own role=st
     expect(() => showDeadSurfaceNotice(refsWithoutNotice, null)).not.toThrow();
   });
 });
+
+// REQ-17/W3 (plan session-lifecycle): a session that never bound a Claude session id is
+// refused Resume forever (409 not_resumable) — the dead surface's own Resume button (the
+// one on a live tile/Focus's `#dead-surface`, mainhead.test.ts covers the mainhead's own
+// button) must say why. Own fixtures, matching this file's per-describe-block convention
+// (see showDeadSurfaceNotice above).
+describe("renderDeadSurface — Resume disabled reason (REQ-17/W3)", () => {
+  const NOW = new Date("2026-08-27T00:10:00Z");
+
+  function fakeRefs(): DeadSurfaceRefs {
+    const attrs: Record<string, string> = {};
+    return {
+      root: {} as HTMLElement,
+      endbarEl: { textContent: "" } as unknown as HTMLElement,
+      snapshotEl: { textContent: "" } as unknown as HTMLElement,
+      capBodyEl: { textContent: "" } as unknown as HTMLElement,
+      resumeBtn: {
+        dataset: {},
+        disabled: false,
+        title: "",
+        setAttribute(name: string, value: string) {
+          attrs[name] = value;
+        },
+        getAttribute(name: string) {
+          return attrs[name] ?? null;
+        },
+      } as unknown as HTMLButtonElement,
+    };
+  }
+
+  // See mainhead.test.ts's identical helper for why both mechanisms are accepted.
+  function resumeDisabledReason(btn: HTMLButtonElement): string {
+    return (
+      (btn as unknown as { title?: string }).title ||
+      btn.getAttribute("aria-description") ||
+      btn.getAttribute("title") ||
+      ""
+    );
+  }
+
+  function makeSession(overrides: Partial<Session> & { id: number }): Session {
+    return {
+      title: "some-session",
+      titleOverride: null,
+      plan: null,
+      state: "idle",
+      stateSince: "2026-08-27T00:00:00Z",
+      alive: false,
+      endedAt: "2026-08-27T00:00:00Z",
+      attention: null,
+      failure: null,
+      directory: "/Users/damian/code/muster",
+      repo: null,
+      model: null,
+      permissionMode: { value: "default", source: "seed" },
+      context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
+      lastActivity: null,
+      claudeSessionId: "claude-sess",
+      tmuxTarget: "muster:@1",
+      firstLaunchHere: false,
+      createdAt: "2026-08-26T23:00:00Z",
+      pinned: false,
+      railPos: overrides.id,
+      ...overrides,
+    };
+  }
+
+  it("disables Resume with a non-empty reason when the session never bound a Claude session id", () => {
+    const refs = fakeRefs();
+    const session = makeSession({ id: 1, claudeSessionId: null });
+
+    renderDeadSurface(refs, session, { status: "missing" }, NOW, true);
+
+    expect(refs.resumeBtn.disabled).toBe(true);
+    expect(resumeDisabledReason(refs.resumeBtn)).not.toBe("");
+  });
+
+  it("enables Resume with no disabling reason once a Claude session id is bound", () => {
+    const refs = fakeRefs();
+    const session = makeSession({ id: 1, claudeSessionId: "claude-sess" });
+
+    renderDeadSurface(refs, session, { status: "missing" }, NOW, true);
+
+    expect(refs.resumeBtn.disabled).toBe(false);
+    expect(resumeDisabledReason(refs.resumeBtn)).toBe("");
+  });
+});

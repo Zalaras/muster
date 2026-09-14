@@ -147,6 +147,51 @@ test("stopping the daemon with -on-exit=kill kills the tmux session and the next
   }
 });
 
+// Plan session-lifecycle — REQ-9 (reconcile classifies ownership from tmux, repairing
+// tmux_target/tmux_pane every time, not just when the row was placeholder/stale). The
+// daemon-level repair branches (row was '', row was stale, row was alive=0) are D8-D10 in
+// internal/session/manager_test.go — this is the E2E-observable outcome across an
+// ordinary restart: the row comes back alive, its target still resolves to a real pane
+// (not a stale value carried over unexamined), and the dashboard can still attach to it.
+test("a session whose daemon is restarted while its pane stays alive comes back alive and attachable, with its target reconciled from tmux (E3)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, { directory: dir, title: "repair-e3" });
+    const claudeId = "claude-repair-e3";
+    await request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+    });
+    const card = sessionCard(page, "repair-e3");
+    await expect(stateBadge(card)).toHaveText(/started/i);
+    expect(await daemon.tmuxPaneExists(session.tmuxTarget)).toBe(true);
+
+    await daemon.restart();
+
+    const state = await getState(page, daemon);
+    const found = findSession(state, session.id);
+    expect(found.alive).toBe(true);
+    expect(found.endedAt).toBeNull();
+    expect(found.tmuxTarget.length).toBeGreaterThan(0);
+    // The reconciled target genuinely resolves to a live pane on THIS lifetime's
+    // socket, not a stale value from before the restart carried over unexamined.
+    expect(await daemon.tmuxPaneExists(found.tmuxTarget)).toBe(true);
+
+    await page.reload();
+    const cardAfter = sessionCard(page, "repair-e3");
+    await expect(cardAfter).not.toHaveClass(/ended/);
+    await cardAfter.click();
+    const region = terminalRegion(page, "repair-e3");
+    await expect(region).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
+  } finally {
+    await cleanup();
+  }
+});
+
 test("reconcile reports an unknown tmux session on the socket without creating a row for it (REQ-2)", async ({
   page,
   daemon,

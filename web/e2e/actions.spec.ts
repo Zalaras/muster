@@ -822,3 +822,114 @@ test("a late resume SessionStart hook after End does not revive the session or o
     await cleanup();
   }
 });
+
+// Plan session-lifecycle — REQ-6 (kill-session on an already-gone tmux session is
+// success, not the undocumented 500 `end_failed` this plan closes). Fresh per-test
+// `daemon`: this kills a tmux window directly on the daemon's own socket, which would
+// corrupt any concurrently-running test sharing that process.
+//
+// A decoy session (A) is launched first and left as Focus's default
+// auto-focus-top-of-sort target, so the session under test (B) never gets an attached
+// terminal of its own. Measured directly (not assumed): an attached terminal's own PTY
+// bridge notices a killed window's EOF within ~60ms, well inside this test's own setup
+// time — a different (and already-covered, INV-5) path, not the "UI still believes
+// alive, the kill happens inside End itself" race this test targets. With no terminal
+// attached to B, it stays alive in the UI for multiple seconds after the kill (measured:
+// still alive past 3s), giving comfortable, non-racy room to click End on B's own rail
+// card before the ~5s poll would ever reach it.
+test("killing the pane then clicking End before the ~5s liveness poll notices shows no error and the card goes dead (E5)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const sessionA = await launchSession(page, daemon, {
+      directory: dirA.path,
+      title: "decoy-focused-a5",
+    });
+    const sessionB = await launchSession(page, daemon, {
+      directory: dirB.path,
+      title: "end-race-e5",
+    });
+    await request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart("claude-end-race-e5-decoy", { musterSession: sessionA.id }),
+    });
+
+    const cardB = sessionCard(page, "end-race-e5");
+    await expect(cardB).toBeVisible();
+
+    // Kill B's pane out from under the row, then click End immediately — well inside
+    // the ~5s liveness poll window, so it's End's OWN kill (not the poll) that
+    // discovers the pane is gone. Before REQ-6 this raced an undocumented 500
+    // `end_failed`; now KillSession treats "already gone" as success.
+    await daemon.killTmuxWindow(sessionB.tmuxTarget);
+
+    await cardB.getByRole("button", { name: "End" }).click();
+    const dialog = page.getByRole("dialog", { name: "End session?" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "End session" }).click();
+    await expect(dialog).toBeHidden();
+
+    // REQ-17/W2: no failure surface — the action succeeded, it just found the pane
+    // already gone.
+    await expect(page.locator("#action-error")).toBeHidden();
+    await expect(cardB).toHaveClass(/ended/, { timeout: 15_000 });
+    await expect(cardB.getByText(/^ended /)).toBeVisible();
+
+    const state = await getState(page, daemon);
+    const found = findSession(state, sessionB.id);
+    expect(found.alive).toBe(false);
+    expect(found.endedAt).not.toBeNull();
+
+    // The decoy (A) is unaffected by B's End.
+    expect(await daemon.tmuxPaneExists(sessionA.tmuxTarget)).toBe(true);
+  } finally {
+    await Promise.all([dirA.cleanup(), dirB.cleanup()]);
+  }
+});
+
+// Plan session-lifecycle — REQ-17/W3 (a disabled Resume states why, not just sits
+// greyed). The fixture — kill the window before any hook ever lands — is the same
+// never-bound-a-claude-id shape the pre-existing no-snap-e13 test above (actions.spec.ts)
+// uses, but that test only asserts the snapshot text; this asserts the Resume control's
+// disabled state AND its stated reason, on both surfaces that render it (mainhead,
+// dead-surface cap — sessions/card.ts's resumeDisabledReason is their one shared source).
+test("a session with no bound Claude id shows a disabled Resume control with a stated reason, on the mainhead and the dead cap (E7, W3)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "no-claude-id-e7",
+    });
+    // Kill the window before any hook ever arrives — claudeSessionId stays null for
+    // good (it only ever gets bound by an enveloped SessionStart).
+    await daemon.killTmuxWindow(session.tmuxTarget);
+
+    await page.reload();
+    const card = sessionCard(page, "no-claude-id-e7");
+    await card.click();
+
+    const reason = "Can't resume — this session never started a Claude conversation.";
+    const mainhead = page.locator("#mainhead");
+    const mainheadResume = mainhead.getByRole("button", { name: "Resume" });
+    await expect(mainheadResume).toBeDisabled({ timeout: 15_000 });
+    await expect(mainheadResume).toHaveAttribute("title", reason);
+
+    const cap = page.locator("#dead-surface .endcap");
+    const capResume = cap.getByRole("button", { name: "Resume" });
+    await expect(capResume).toBeVisible();
+    await expect(capResume).toBeDisabled();
+    await expect(capResume).toHaveAttribute("title", reason);
+
+    const state = await getState(page, daemon);
+    expect(findSession(state, session.id).claudeSessionId).toBeNull();
+  } finally {
+    await cleanup();
+  }
+});

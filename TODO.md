@@ -257,6 +257,71 @@ Open entries below are in **Damian's priority order** (set 2026-09-01), not issu
 filing order: #3 → #8 → #11 → #12 → #13, then the rest. Keep new entries appended at the end
 unless he re-ranks — don't re-sort this list.
 
+- [ ] **Ingest: corroborate an envelope against the pane it came from** — `resolveSessionID`
+  (`internal/server/ingest.go`) trusts an envelope's `musterSession` on bare map membership
+  (`Manager.Exists`): no pane check, no `created_at`, no generation. `session.tmux_pane` has been
+  labelled "envelope corroboration" since `0002_sessions.sql:24` and is compared nowhere, and
+  `event.tmux_pane` is persisted and never read. Deferred from plan `session-lifecycle`, which
+  closed the severe case a different way — ids are now monotonic
+  (`kb:adr/lifecycle-session-ids-monotonic-never-reused`), so a stale pane can no longer bind to a
+  *different* session that reused its id. The residual window is a straggler from before a resume,
+  on the same row, which is benign. Worth its own plan because the e2e fixtures hardcode
+  `musterSession: 1` (`web/e2e/helpers/payloads.ts:84-108`), so the blast radius is wide — and
+  `plans/plain-terminal-session/test-specs.md:196` records this repo already being bitten once by a
+  fixture that silently enveloped to session 1.
+
+- [ ] **`-on-exit=kill` does not kill shells, and the prompt does not say so** — `EndAll` and
+  `Server.Shutdown` never touch `shellRegistry`, so after a "kill" shutdown every
+  `muster-<n>-shell` is still on the socket, reaped only by the *next* daemon start's reconcile.
+  If the user never restarts, they run indefinitely — including a nested `claude` firing unrouted
+  hooks (`kb:adr/surfaces-shell-pane-carries-no-session-env`). The `ask` prompt says "N live
+  sessions … kill them?" and does not mention the shells it will leave. Either kill them too or say
+  so; `kb:adr/surfaces-shell-lifetime-until-exit-remove-or-reconcile` currently lists exit, Remove
+  and reconcile — not shutdown — so changing it is a decision, not a bug fix.
+
+- [ ] **Raw tmux stderr is echoed into HTTP error bodies** — `sessions.go`'s `end_failed` and
+  `launch_failed` paths and `shells.go`'s `shell_spawn_failed` put `err.Error()` straight into the
+  response the dashboard renders. Plan `session-lifecycle` removed the worst instance (a name
+  collision no longer surfaces raw stderr), but the general pattern remains: tmux vocabulary
+  reaching the user, and paths leaking into a browser.
+
+- [ ] **`make check` cannot pass in a git worktree** — the `refs` gate resolves
+  `.claude/settings.local.json` and `test/rig/captures/*`, both gitignored, so they exist in the
+  main checkout and never in a fresh worktree. Measured 2026-09-14 on `plan/session-lifecycle`:
+  18 missing refs there, **0 on `main`**, and creating the files in the worktree takes it to 0.
+  This matters because code work is supposed to happen in a worktree, so the pipeline's own gate
+  cannot pass where the pipeline runs. Either teach `dead-refs.py` to skip gitignored targets or
+  have it resolve them against the main checkout.
+
+- [ ] **`TestIngestRouting_StragglerFromBeforeAClearNeverMovesTranscriptOrPlan` fails under
+  `-race`, and flakes under load** — a fixed 2 s `require.Eventually` that cannot absorb either.
+  Verified 2026-09-14: 3/3 failures under `-race` on untouched `main`, passes without it. Then
+  observed again 2026-09-15 **without** `-race`, during a full `make check` on a loaded machine,
+  passing on an immediate re-run of the package — so "`-race` only" was too narrow: the detector
+  is just one way to push it past its own deadline. `make check` does not pass `-race`, so the
+  gate sees this only as an occasional flake. Not a product bug and not caused by plan
+  `session-lifecycle` (which touches neither ingest routing nor the reader path), but the next
+  person to hit it will reasonably assume they broke something. Give it a deadline proportional
+  to the work, or drive it off a signal instead of a timer.
+
+- [ ] **REQ-12 of `session-lifecycle` shipped on inspection** — the per-id shell lock,
+  `ErrSessionExists` tolerance and bounded tmux contexts in `internal/server/shells.go` have no
+  failing test behind them, and neither do `KillSession`'s still-there / check-failed branches or
+  REQ-11's lock as used by Launch (D19 drives only Resume). Disclosed to review rather than
+  implied as covered. If a deterministic test for any of them becomes cheap, add it.
+
+- [ ] **A context timeout reaches Go as an `ExitError`, not `context.DeadlineExceeded`** — found by
+  review cycle 3 while checking whether `session-lifecycle`'s new bounded contexts opened a second
+  door into the connection-failure collapse. `exec` surfaces a deadline kill as
+  `*exec.ExitError("signal: killed")`, so a hung tmux killed at its deadline reads as a normal
+  non-zero exit — i.e. as "gone". It is **not** a live defect today, and the reviewer traced every
+  bounded call site to confirm that: `KillSession`'s verification runs on the same already-expired
+  context and `exec` returns `ctx.Err()` before starting a process, the liveness poll's context is
+  the unbounded daemon context, and `endLocked`'s post-kill check only runs after a kill that
+  already succeeded. But that safety rests on two incidental facts. Give `KillSession`'s verify its
+  own fresh context, or bound the liveness poll, and it becomes a real defect with no test in the
+  way. Worth a guard or at least a comment at each of those two sites.
+
 - [ ] **Edge case 5 of `markdown-render-fixes` is unpinned** — "a `docChanged` for the previously
   open file arrives while a *different* file's open is in flight" cites `→ E10`, but E10 asserts a
   routed write for the **open** file and a window `focus` event; neither drives the else branch the
@@ -264,32 +329,6 @@ unless he re-ranks — don't re-sort this list.
   duplicate-criterion sweep, not by a failure — the behaviour may well be correct, it is just
   untested. Either add the assertion to `web/e2e/reader.spec.ts` or re-mark the case
   `→ untested: <reason>`.
-
-- [ ] **tmux: wrong-output** ([#26](https://github.com/Zalaras/muster/issues/26))
-  — reported error: "tmux new-session: exit status 1: duplicate session: muster-1". Entry generated from validated fields only
-  (reporter not trusted; body withheld) — read issue #26 for the detail.
-
-  **Body read and vouched for by Damian, 2026-09-14** — the detail below is his reading of it, not
-  the sanitiser's: *every* attempt to create a session fails with that error, and changing the
-  title or picking different params doesn't help. The snapshot reports **0 sessions, 0 alive**
-  while tmux insists `muster-1` already exists. Claimed musterd 0.11.0 on darwin/arm64 — an
-  author-editable field, not verified.
-
-  Code reading, not yet reproduced — a lead for whoever plans this, not a diagnosis:
-  - The tmux name is `muster-` + the session **id** (`internal/session/manager.go:252`,
-    `internal/tmux/tmux.go:108`), never the title, so renaming cannot dodge the collision.
-  - `session.id` is `INTEGER PRIMARY KEY` *without* `AUTOINCREMENT`
-    (`internal/store/migrations/0002_sessions.sql:19`), so SQLite reuses the rowid once the
-    highest row is gone — with no rows left, the next id is `1` again.
-  - Reconcile only **warns** about an unknown `muster-N` on the socket; it neither adopts nor
-    kills it (`internal/session/manager.go:396`), and tmux sessions outlive musterd — so an
-    orphaned `muster-1` is still there to collide with the reissued id.
-  - The launch path deletes the row on spawn failure (`internal/server/sessions.go:239`), which
-    frees id `1` for the next attempt to reuse. That would make this permanent rather than flaky,
-    which matches the report.
-
-  Candidate fixes (undecided): stop reusing ids, adopt-or-kill an unknown `muster-N` at reconcile,
-  or retry the spawn on the next free name.
 
 ## M5+ (v1.x, re-rank when reached)
 

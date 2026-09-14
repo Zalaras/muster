@@ -27,8 +27,35 @@ function fakeElement(): HTMLElement {
   return { textContent: "", hidden: false } as unknown as HTMLElement;
 }
 
+// `title`/`setAttribute`/`getAttribute` are here for REQ-17/W3's disabled-Resume-reason
+// tests below — additive, harmless to the endBtn/removeBtn/rename-regression tests above
+// that never read them.
 function fakeButton(): HTMLButtonElement {
-  return { disabled: false, textContent: "" } as unknown as HTMLButtonElement;
+  const attrs: Record<string, string> = {};
+  return {
+    disabled: false,
+    textContent: "",
+    title: "",
+    setAttribute(name: string, value: string) {
+      attrs[name] = value;
+    },
+    getAttribute(name: string) {
+      return attrs[name] ?? null;
+    },
+  } as unknown as HTMLButtonElement;
+}
+
+/** REQ-17/W3's UI Specifications say the reason lives in "its title/aria-description"
+ * without picking one — accept either a native `.title` write or a `setAttribute`
+ * ("aria-description" or "title") so this test doesn't fail a correct implementation for
+ * choosing the mechanism the plan left open (flagged in web-tests.md). */
+function resumeDisabledReason(btn: HTMLButtonElement): string {
+  return (
+    (btn as unknown as { title?: string }).title ||
+    btn.getAttribute("aria-description") ||
+    btn.getAttribute("title") ||
+    ""
+  );
 }
 
 /** Models `#mainhead h2.name`: starts holding `renameBtn` as its one child (index.html's
@@ -126,5 +153,30 @@ describe("renderMainhead — no-session branch must not detach the rename button
     expect(elements.attached()).toBe(true);
     expect(elements.nameEl.querySelector("button.rename")).toBe(elements.renameBtn);
     expect(elements.renameBtn.textContent).toBe("fix the thing");
+  });
+});
+
+// REQ-17/W3 (plan session-lifecycle): a session that never bound a Claude session id is
+// refused Resume forever (409 not_resumable) — the button must say why, not just sit
+// disabled next to a live session's disabled-for-being-alive Resume button.
+describe("renderMainhead — Resume disabled reason (REQ-17/W3)", () => {
+  it("disables Resume with a non-empty reason when the session has no bound Claude session id", () => {
+    const elements = fakeMainheadElements();
+    const session = makeSession({ id: 1, alive: false, claudeSessionId: null });
+
+    renderMainhead(elements, session, NOW, true);
+
+    expect(elements.resumeBtn.disabled).toBe(true);
+    expect(resumeDisabledReason(elements.resumeBtn)).not.toBe("");
+  });
+
+  it("enables Resume with no disabling reason for a dead session with a bound Claude session id", () => {
+    const elements = fakeMainheadElements();
+    const session = makeSession({ id: 1, alive: false, claudeSessionId: "claude-sess" });
+
+    renderMainhead(elements, session, NOW, true);
+
+    expect(elements.resumeBtn.disabled).toBe(false);
+    expect(resumeDisabledReason(elements.resumeBtn)).toBe("");
   });
 });

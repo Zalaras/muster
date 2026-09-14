@@ -8,7 +8,7 @@
 // *when* to fetch is features/actions.ts's job (`ensurePaneFetch`/`paneState`).
 import { fetchPane } from "../api";
 import type { Session } from "../protocol";
-import { stateBadgeText } from "../sessions/card";
+import { resumeDisabledReason, stateBadgeText } from "../sessions/card";
 import { formatEndedAgo } from "../sessions/format";
 import { showNotice } from "../terminal/notice";
 
@@ -114,6 +114,8 @@ export function renderDeadSurface(
   refs.resumeBtn.dataset["action"] = "resume";
   refs.resumeBtn.dataset["id"] = String(session.id);
   refs.resumeBtn.disabled = !connected || session.claudeSessionId === null;
+  // REQ-17/W3: a disabled-for-no-claudeSessionId Resume says why, not just sits greyed.
+  refs.resumeBtn.title = resumeDisabledReason(session) ?? "";
 }
 
 /** The fetch trigger: wraps `GET /api/sessions/{id}/pane` into the three-state `PaneState`

@@ -1059,6 +1059,23 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
   wants its own ADR. Cite: `plans/new-ui-design-colors/review.md` (cycle 1, Minor 1, `[web-impl]`).
 
 ## Reported issues (pre-v1 release)
+
+- [x] **tmux: wrong-output** ([#26](https://github.com/Zalaras/muster/issues/26)) — fixed
+  2026-09-15 by plan `session-lifecycle`. The reported error was a symptom: session ids were
+  recyclable SQLite rowids that also served as the tmux session name *and* the ingest bearer
+  credential `MUSTER_SESSION`, so an orphaned `muster-1` plus a freed id 1 wedged every launch
+  permanently — and, worse and unreported, let a stale pane's hooks bind to a new session that
+  reused its id. Ids are now monotonic and floored above the socket
+  (`kb:adr/lifecycle-session-ids-monotonic-never-reused`); reconcile converges rows with tmux
+  instead of the database (`kb:adr/lifecycle-reconcile-converges-with-the-socket`); kill is
+  idempotent but verified (`kb:adr/actions-kill-is-idempotent`); actions serialise per session
+  (`kb:adr/actions-serialized-per-session`). Proven at both levels: D3 at the daemon boundary
+  and E1 through the real launch dialog, both authored red before the fix existed.
+
+  Damian's original code-reading lead was correct on every point, and all three of his
+  candidate fixes were considered: ids no longer reuse, the spawn retries at a higher id, and
+  adopt-or-kill was deliberately **rejected** — it would have destroyed a running pane because
+  the database forgot it. An orphan is made harmless instead, never killed.
 <!-- kb: adr/surfaces-tmux-preflight-at-startup, adr/theme-two-layer-tokens-not-white-label, adr/drop-daemon-locates-original-never-stages, adr/focus-rail-click-focuses-terminal, adr/launch-permission-modes-offered-four-tabbed, adr/surfaces-scroll-speed-via-launch-env, adr/surfaces-scrollback-affordance-not-built, adr/shortcuts-option-command-family-off-reserved-chords, adr/rename-muster-owned-title-override-wins, adr/lifecycle-subagent-marked-events-not-stragglers, adr/rail-current-marker-means-shown-in-focus, adr/theme-contrast-floors-above-aa, adr/theme-type-scale-tokens-15px-root, adr/surfaces-shell-is-attach-target-not-session -->
 
 - [x] **tmux dependency is unhandled at first launch** ([#2](https://github.com/Zalaras/muster/issues/2))

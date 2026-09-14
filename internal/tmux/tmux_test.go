@@ -3,6 +3,7 @@ package tmux
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -368,6 +369,148 @@ func TestNewSession_AppliesServerOptionsOnlyOnceOnAnAlreadyRunningServer(t *test
 	assert.Equal(t, "window-size manual\n", string(out))
 }
 
+// TestNewNamedSession_ApplyServerOptionsFailureLeavesNoSessionAndReturnsTheOriginalError
+// covers D6/REQ-5/Edge Case 4: `tmux new-session` succeeds, then applyServerOptions fails
+// on the fresh server — the session it just created must be killed before NewNamedSession
+// returns, and the returned error must still be the original applyServerOptions failure,
+// not a kill failure masking it. serverOptions is swapped for a deliberately invalid tmux
+// option for the duration of the test (restored via t.Cleanup) rather than requiring a new
+// injectable seam — this file is inside package tmux, so it already has access to the
+// unexported var.
+func TestNewNamedSession_ApplyServerOptionsFailureLeavesNoSessionAndReturnsTheOriginalError(t *testing.T) {
+	socket := newTestSocket(t)
+	c := New(socket)
+	dir := t.TempDir()
+	name := "muster-" + strconv.FormatInt(nextID(t), 10)
+
+	orig := serverOptions
+	serverOptions = [][]string{{"set-option", "-g", "not-a-real-tmux-option", "nonsense"}}
+	t.Cleanup(func() { serverOptions = orig })
+
+	_, _, err := c.NewNamedSession(context.Background(), name, dir, nil, sleepCommand())
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "applying tmux option", "the original applyServerOptions failure must survive, not a kill failure")
+
+	names, listErr := c.ListSessions(context.Background())
+	require.NoError(t, listErr)
+	assert.NotContains(t, names, name, "D6/REQ-5: a session created just before a fatal applyServerOptions failure must not be leaked")
+}
+
+// TestKillLeakedSession_RemovesAnExistingSessionAndIsANoOpForAnUnknownName covers REQ-5's
+// shared cleanup helper (tmux.go's killLeakedSession) directly: it removes a session that
+// actually exists, and is a silent no-op — never a panic, never a hang — for a name
+// nothing ever created. This is what closes the len(fields)!=2 post-create branch's
+// coverage gap (previously documented in daemon-tests.md as covered-by-inspection only,
+// since that branch's own trigger — a malformed `new-session -F` output shape — has no
+// deterministic oracle): both post-create failure branches share this one helper, so
+// testing it directly covers what calling it from either branch would exercise, without
+// needing to force the branch itself.
+func TestKillLeakedSession_RemovesAnExistingSessionAndIsANoOpForAnUnknownName(t *testing.T) {
+	socket := newTestSocket(t)
+	c := New(socket)
+	dir := t.TempDir()
+	id := nextID(t)
+	name := "muster-" + strconv.FormatInt(id, 10)
+
+	_, _, err := c.NewSession(context.Background(), id, dir, nil, sleepCommand())
+	require.NoError(t, err)
+
+	c.killLeakedSession(context.Background(), name)
+
+	names, err := c.ListSessions(context.Background())
+	require.NoError(t, err)
+	assert.NotContains(t, names, name, "killLeakedSession must actually remove an existing session")
+
+	// A name nothing ever created: reaching this line at all (no panic) plus the test
+	// finishing well within its default timeout (no hang) is the assertion.
+	c.killLeakedSession(context.Background(), "muster-does-not-exist-at-all")
+}
+
+// TestMaxSessionID_NoServerReturnsZero covers D2: a socket with no tmux server at all
+// (mirroring ListSessions' own "no server yet" shape) floors at 0, never erroring.
+func TestMaxSessionID_NoServerReturnsZero(t *testing.T) {
+	c := New(newTestSocket(t))
+
+	id, err := c.MaxSessionID(context.Background())
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), id)
+}
+
+// TestMaxSessionID_ReturnsTheHighestIDAcrossBothClaudeAndShellSessionNames covers REQ-3:
+// the floor is the max over one ListSessions of both "muster-<id>" and
+// "muster-<id>-shell" — a shell session's id must count too, since REQ-9's watermark-raise
+// on a killed shell depends on the same primitive.
+func TestMaxSessionID_ReturnsTheHighestIDAcrossBothClaudeAndShellSessionNames(t *testing.T) {
+	socket := newTestSocket(t)
+	c := New(socket)
+	dir := t.TempDir()
+
+	_, _, err := c.NewSession(context.Background(), 3, dir, nil, sleepCommand())
+	require.NoError(t, err)
+	_, _, err = c.NewNamedSession(context.Background(), ShellSessionName(9), dir, nil, sleepCommand())
+	require.NoError(t, err)
+	_, _, err = c.NewSession(context.Background(), 5, dir, nil, sleepCommand())
+	require.NoError(t, err)
+
+	got, err := c.MaxSessionID(context.Background())
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(9), got, "the shell session's id must count toward the floor too")
+}
+
+// TestMaxSessionID_IgnoresNonMusterSessions covers REQ-3's other half: a tmux session on
+// the socket that doesn't match either naming convention at all must never move the floor.
+func TestMaxSessionID_IgnoresNonMusterSessions(t *testing.T) {
+	socket := newTestSocket(t)
+	c := New(socket)
+	dir := t.TempDir()
+
+	_, _, err := c.NewNamedSession(context.Background(), "not-a-muster-session-at-all", dir, nil, sleepCommand())
+	require.NoError(t, err)
+
+	got, err := c.MaxSessionID(context.Background())
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), got)
+}
+
+// TestParseSessionName covers REQ-3's bare "muster-<N>" mirror of IsShellSessionName:
+// only the plain Claude-pane shape parses, never the shell suffix or an unrelated name.
+func TestParseSessionName(t *testing.T) {
+	id, ok := ParseSessionName("muster-42")
+	require.True(t, ok)
+	assert.Equal(t, int64(42), id)
+
+	_, ok = ParseSessionName("muster-42-shell")
+	assert.False(t, ok, "shell names are IsShellSessionName's territory, not ParseSessionName's")
+
+	_, ok = ParseSessionName("not-a-muster-session")
+	assert.False(t, ok)
+
+	_, ok = ParseSessionName("muster-not-a-number")
+	assert.False(t, ok)
+}
+
+// TestNewNamedSession_DuplicateNameWrapsErrSessionExists covers REQ-4: a tmux
+// "duplicate session" failure on new-session is wrapped so callers can branch on it with
+// errors.Is, never by matching tmux's own stderr text themselves.
+func TestNewNamedSession_DuplicateNameWrapsErrSessionExists(t *testing.T) {
+	socket := newTestSocket(t)
+	c := New(socket)
+	dir := t.TempDir()
+	name := "muster-" + strconv.FormatInt(nextID(t), 10)
+
+	_, _, err := c.NewNamedSession(context.Background(), name, dir, nil, sleepCommand())
+	require.NoError(t, err)
+
+	_, _, err = c.NewNamedSession(context.Background(), name, dir, nil, sleepCommand())
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrSessionExists, "REQ-4: a duplicate-session tmux failure must be wrapped as ErrSessionExists")
+}
+
 // TestNewClient_UsesAPerTestSocketNeverTheSharedDefault is a documentation-style
 // regression guard for the CLAUDE.md hard rule and D12: this package's own New must
 // never be called with the literal default socket name in a test. It doesn't call tmux
@@ -378,12 +521,15 @@ func TestNewClient_UsesAPerTestSocketNeverTheSharedDefault(t *testing.T) {
 	assert.NotEqual(t, "muster", c.socket)
 }
 
-// TestKillSession_RemovesTheWholeSessionErrorsForAnUnknownName covers m4-reconcile
-// REQ-5's End path: kill-session by name actually removes the session (not just one
-// window — under the one-window-per-session topology the two are equivalent per the
-// plan's Implementation Notes), and an unknown session name errors rather than
-// silently no-op'ing.
-func TestKillSession_RemovesTheWholeSessionErrorsForAnUnknownName(t *testing.T) {
+// TestKillSession_RemovesTheWholeSessionIdempotentForAnUnknownName covers m4-reconcile
+// REQ-5's End path (kill-session by name actually removes the session — not just one
+// window; under the one-window-per-session topology the two are equivalent per the
+// plan's Implementation Notes) and plan session-lifecycle REQ-6: killing an already-gone
+// session name is success, not an error — the same "no such session" exit PaneExists and
+// ListSessions already treat as "not there" rather than a real failure. This replaces the
+// pre-session-lifecycle assertion that an unknown name must error; REQ-6 changes that
+// contract deliberately (kb:adr/actions-kill-is-idempotent).
+func TestKillSession_RemovesTheWholeSessionIdempotentForAnUnknownName(t *testing.T) {
 	socket := newTestSocket(t)
 	c := New(socket)
 	dir := t.TempDir()
@@ -399,7 +545,165 @@ func TestKillSession_RemovesTheWholeSessionErrorsForAnUnknownName(t *testing.T) 
 	require.Error(t, listErr, "the server has no sessions left at all: %s", out)
 
 	err = c.KillSession(context.Background(), "muster-does-not-exist")
-	assert.Error(t, err, "killing an unknown session name must error")
+	assert.NoError(t, err, "REQ-6: killing an already-gone session name must be treated as a successful kill")
+}
+
+// TestKillSession_UnreachableSocketReturnsAnErrorWhileTheSessionIsStillAlive covers plan
+// session-lifecycle D20/review Critical 1: an unreachable socket must never read as "the
+// session is gone". PaneExists collapses every *exec.ExitError — including tmux's own
+// "error connecting to <path> (Permission denied)" for a chmod'd-unreadable socket — to
+// (false, nil), so KillSession's own ExitError-then-PaneExists-verify (tmux.go's
+// KillSession doc comment) sees stillThere=false, checkErr=nil and reports success even
+// though the session is provably still running underneath. Measured against the real
+// installed tmux binary (review.md Critical 1's own repro, reproduced by hand before
+// writing this test):
+//
+//	$ tmux -S <sock> new-session -d -s muster-N 'sleep 60'      # exit 0
+//	$ chmod 000 <sock>
+//	$ tmux -S <sock> kill-session -t muster-N
+//	error connecting to <sock> (Permission denied)               # exit 1
+//	$ chmod 700 <sock> && tmux -S <sock> list-sessions -F '#{session_name}'
+//	muster-N                                                      # still alive throughout
+//
+// Not built on tmuxtest.Socket(t): that helper's own kill-server cleanup would itself
+// fail against a still-chmod'd-000 socket and leak the tmux server process, so this test
+// manages its own socket directory and registers a chmod-back-then-kill-server cleanup
+// (LIFO: registered after the chmod 000, so it runs before the directory removal).
+func TestKillSession_UnreachableSocketReturnsAnErrorWhileTheSessionIsStillAlive(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("running as root can still read a chmod 000 socket, which would invert this test's assertions")
+	}
+
+	dir, err := os.MkdirTemp("", "muster-tmuxtest-unreachable-")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	socket := filepath.Join(dir, "tmux.sock")
+
+	c := New(socket)
+	spawnDir := t.TempDir()
+	id := nextID(t)
+	name := "muster-" + strconv.FormatInt(id, 10)
+
+	target, _, err := c.NewSession(context.Background(), id, spawnDir, nil, sleepCommand())
+	require.NoError(t, err)
+
+	require.NoError(t, os.Chmod(socket, 0o000))
+	t.Cleanup(func() {
+		_ = os.Chmod(socket, 0o700) // restore access before kill-server, or it would fail and leak the server
+		_ = exec.Command("tmux", "-S", socket, "kill-server").Run()
+	})
+
+	killErr := c.KillSession(context.Background(), name)
+	require.Error(t, killErr, "D20/Critical 1: an unreachable socket must not read as a successful kill")
+
+	_, existsErr := c.PaneExists(context.Background(), target)
+	require.Error(t, existsErr, "D20/Critical 1: PaneExists must surface a couldn't-ask failure as an error, not (false, nil)")
+
+	require.NoError(t, os.Chmod(socket, 0o700))
+	names, listErr := c.ListSessions(context.Background())
+	require.NoError(t, listErr)
+	assert.Contains(t, names, name, "sanity: the session was genuinely alive behind the unreachable socket the whole time")
+}
+
+// TestIsConnectionFailure covers plan session-lifecycle D24/review cycle 2 Critical:
+// isConnectionFailure matches only EACCES's wording ("Permission denied"), so EPERM's
+// distinct wording ("Operation not permitted" — measured by the reviewer under
+// sandbox-exec, not reproduced here per the lead's instruction: a sandbox-exec dependency
+// in a unit test would be fragile and environment-dependent) leaves cycle 1's whole
+// defect reachable unchanged through any sandboxing mechanism that denies socket access
+// with EPERM rather than EACCES (sandbox-exec, an MDM profile, the app sandbox).
+//
+// The three negative cases are measured directly against the real installed tmux binary
+// (not guessed), because they are exactly what a review cycle 2 finding says a naive fix
+// (matching bare "error connecting to") broke — seven then-green PaneExists-against-
+// no-server-yet tests, in the reviewer's own scratch-copy experiment:
+//
+//	$ tmux -S <nonexistent-path> list-sessions
+//	error connecting to <path> (No such file or directory)              # no socket file at all
+//	$ touch <path>; tmux -S <path> list-sessions
+//	error connecting to <path> (Socket operation on non-socket)         # a file, not a socket
+//	$ tmux -S <path> new-session -d ...; tmux -S <path> kill-server; tmux -S <path> list-sessions
+//	no server running on <path>                                        # a real socket, server exited
+func TestIsConnectionFailure(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			"EACCES wording matches (already guarded by D20)",
+			errors.New(`exit status 1: error connecting to /tmp/muster-x/tmux.sock (Permission denied)`),
+			true,
+		},
+		{
+			"EPERM wording must also match (D24: sandboxed denial, review cycle 2 Critical)",
+			errors.New(`exit status 1: error connecting to /tmp/muster-x/tmux.sock (Operation not permitted)`),
+			true,
+		},
+		{
+			"no socket file at all must not match — the ordinary no-server-yet reading",
+			errors.New(`exit status 1: error connecting to /tmp/muster-x/tmux.sock (No such file or directory)`),
+			false,
+		},
+		{
+			"a non-socket file at the path must not match — a fixture defect, not a live server",
+			errors.New(`exit status 1: error connecting to /tmp/muster-x/tmux.sock (Socket operation on non-socket)`),
+			false,
+		},
+		{
+			"a real socket whose server already exited must not match",
+			errors.New(`exit status 1: no server running on /tmp/muster-x/tmux.sock`),
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isConnectionFailure(tt.err))
+		})
+	}
+}
+
+// TestListSessions_UnreachableSocketReturnsAnErrorWhileASessionIsStillAlive covers plan
+// session-lifecycle D25/review cycle 2 Major: ListSessions still collapses every
+// *exec.ExitError to (nil, nil), so an unreachable socket reads as "no sessions at all"
+// rather than "I couldn't find out" — the worst call site for that collapse, since
+// Reconcile treats an empty ListSessions snapshot as ground truth (D26 covers the
+// consequence). Same shape as D20: a self-managed socket directory (not
+// tmuxtest.Socket(t), whose kill-server cleanup would itself fail against a still-
+// unreadable socket and leak the server), chmod 000, restore-then-kill-server registered
+// after the chmod so LIFO ordering runs it first, skipped under a root euid.
+func TestListSessions_UnreachableSocketReturnsAnErrorWhileASessionIsStillAlive(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("running as root can still read a chmod 000 socket, which would invert this test's assertion")
+	}
+
+	dir, err := os.MkdirTemp("", "muster-tmuxtest-unreachable-")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	socket := filepath.Join(dir, "tmux.sock")
+
+	c := New(socket)
+	spawnDir := t.TempDir()
+	id := nextID(t)
+	name := "muster-" + strconv.FormatInt(id, 10)
+
+	_, _, err = c.NewSession(context.Background(), id, spawnDir, nil, sleepCommand())
+	require.NoError(t, err)
+
+	require.NoError(t, os.Chmod(socket, 0o000))
+	t.Cleanup(func() {
+		_ = os.Chmod(socket, 0o700) // restore access before kill-server, or it would fail and leak the server
+		_ = exec.Command("tmux", "-S", socket, "kill-server").Run()
+	})
+
+	names, listErr := c.ListSessions(context.Background())
+	require.Error(t, listErr, "D25/Major: an unreachable socket must not read as an empty session list")
+	assert.Empty(t, names, "a couldn't-ask failure must not also claim a (misleadingly empty) list of names")
+
+	require.NoError(t, os.Chmod(socket, 0o700))
+	aliveNames, err := c.ListSessions(context.Background())
+	require.NoError(t, err)
+	assert.Contains(t, aliveNames, name, "sanity: the session was genuinely alive behind the unreachable socket the whole time")
 }
 
 // TestListSessions_ReturnsEveryNameNoServerIsAnEmptyResultNotAnError covers m4-reconcile

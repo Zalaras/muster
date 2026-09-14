@@ -11,6 +11,7 @@
 export interface StorageLike {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
+  removeItem(key: string): void;
 }
 
 export interface ReaderMemory {
@@ -52,6 +53,22 @@ export function saveMemory(storage: StorageLike, sessionId: number, memory: Read
     storage.setItem(keyFor(sessionId), JSON.stringify(memory));
   } catch {
     // Private mode / disabled storage / quota — memory just doesn't survive a reload.
+  }
+}
+
+/** REQ-17/W4: clears `muster.reader.<id>` on `sessionRemoved` (features/actions.ts's
+ * `handleRemoved`). Not about a future session inheriting this state — session ids are
+ * monotonic and never reused (kb:adr/lifecycle-session-ids-monotonic-never-reused), so
+ * no later session can ever carry this id. That is precisely why the key has to be
+ * dropped here: nothing else will ever collide with it and reclaim it, so without this
+ * every removed session leaves a key behind for good. Same try/catch contract as
+ * loadMemory/saveMemory above — a throwing accessor (private window, blocked site data)
+ * is a no-op, not an error the removal flow should ever see. */
+export function forget(storage: StorageLike, sessionId: number): void {
+  try {
+    storage.removeItem(keyFor(sessionId));
+  } catch {
+    // Private mode / disabled storage — nothing to clear, and nothing should throw.
   }
 }
 

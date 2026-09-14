@@ -11,12 +11,14 @@
 import type { App } from "../app";
 import { endSession, pinSession, removeSession, resumeSession } from "../api";
 import { requireElement } from "../dom";
+import { forget } from "../reader/memory";
 import {
   collectDeadSurfaceRefs,
   loadPane,
   type DeadSurfaceRefs,
   type PaneState,
 } from "../render/dead";
+import { renderActionError } from "../render/actionerror";
 import { initConfirmDialogs, type ConfirmDialogs } from "../render/confirm";
 import type { SessionAction } from "../render/sessions";
 import type { Session } from "../protocol";
@@ -45,6 +47,13 @@ export interface ActionsHandle {
 export function initActions(app: App, deps: ActionsDeps): ActionsHandle {
   const deadPaneCache = new Map<number, PaneState>();
   const previousAlive = new Map<number, boolean>();
+  const actionErrorEl = requireElement<HTMLElement>("#action-error");
+
+  /** REQ-17/W2: the one path that touches `#action-error` — a failed End/Resume/Remove
+   * writes its message, the next successful one of the three clears it. */
+  function showActionError(message: string | null): void {
+    renderActionError(actionErrorEl, message);
+  }
 
   function ensurePaneFetch(id: number): void {
     if (deadPaneCache.has(id)) return;
@@ -85,6 +94,7 @@ export function initActions(app: App, deps: ActionsDeps): ActionsHandle {
 
   function handleRemoved(id: number): void {
     app.store.remove(id);
+    forget(window.localStorage, id);
     app.emit("sessionRemoved", id);
     app.render();
   }
@@ -110,8 +120,10 @@ export function initActions(app: App, deps: ActionsDeps): ActionsHandle {
         console.error(
           `POST /api/sessions/${id}/end failed: ${result.error.code} ${result.error.message}`,
         );
+        showActionError(result.error.message);
         return;
       }
+      showActionError(null);
       app.store.upsert(result.value);
       app.render();
     });
@@ -123,8 +135,10 @@ export function initActions(app: App, deps: ActionsDeps): ActionsHandle {
       console.error(
         `POST /api/sessions/${id}/resume failed: ${result.error.code} ${result.error.message}`,
       );
+      showActionError(result.error.message);
       return;
     }
+    showActionError(null);
     app.store.upsert(result.value);
     app.render();
   }
@@ -135,8 +149,10 @@ export function initActions(app: App, deps: ActionsDeps): ActionsHandle {
         console.error(
           `DELETE /api/sessions/${id} failed: ${result.error.code} ${result.error.message}`,
         );
+        showActionError(result.error.message);
         return;
       }
+      showActionError(null);
       handleRemoved(id);
     });
   }

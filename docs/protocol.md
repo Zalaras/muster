@@ -123,6 +123,14 @@ empty `model`; directory that does not exist or is not a directory),
 `settings.local.json` that exists but is not valid JSON — Muster refuses to guess at
 merging into a corrupt file, and the error message names the file).
 
+Session ids are allocated monotonically and floored above every `muster-<n>` and
+`muster-<n>-shell` on the socket (kb:adr/lifecycle-session-ids-monotonic-never-reused), so an id
+is never reissued and a launch cannot collide with a leftover tmux session. Should one appear
+anyway — a race, or a second daemon on the socket — the spawn is retried at a higher id, up to
+three attempts; `launch_failed` is returned only once those are spent, and its message names the
+tmux session. Ids are therefore sparse after a failed launch or a Remove; they were always opaque
+to the UI.
+
 <!-- kb:anchor repos.list -->
 ### `GET /api/repos`
 
@@ -204,15 +212,23 @@ live sessions too; the UI asks only for `alive:false` ones.
 
 No body. Rewrites the directory's `.claude/settings.local.json` (`kb:anchor/ingest.envelope`), then spawns
 `claude --resume <claudeSessionId> --model <model.id> [--permission-mode <latched>]` in a
-new tmux session named `muster-<id>` (the dead one's name is free again) with the same
+new tmux session named `muster-<id>` with the same
 pane environment as a launch. The row keeps its Muster `id`; `tmuxTarget`/`tmuxPane` are
 the new pane's, `alive:true`, `endedAt:null`, the snapshot is cleared, and a
 `sessionUpsert` is broadcast. `state` is **unchanged** until the enveloped
 `SessionStart(source:"resume", same session_id)` arrives and lands it in `idle` (`kb:anchor/state.transitions`).
 
-`200` + Session object. Errors: `404 unknown_session`; `409 not_resumable` (still alive,
-or `claudeSessionId` null); `409 directory_missing` (the directory no longer exists);
-`500 launch_failed` (settings write or tmux spawn failed — row unchanged).
+A resume cannot renumber — the name is the row's. If `muster-<id>` is **already live** on the
+socket, that pane *is* this row's (a failed kill, or a crash between an earlier resume's spawn and
+its persist), so the row is repaired from tmux and returned `200` rather than refused: the session
+comes back instead of becoming unreachable. Resumes are serialised per session id
+(kb:adr/actions-serialized-per-session), so two concurrent resumes spawn exactly once and the
+loser sees `409 not_resumable`.
+
+`200` + Session object. Errors: `404 unknown_session`; `409 not_resumable` — still alive, or
+`claudeSessionId` null; the message names **which**, since only one of the two is ever
+recoverable; `409 directory_missing` (the directory no longer exists); `500 launch_failed`
+(settings write or tmux spawn failed — row unchanged; never raw tmux stderr for a name collision).
 
 <!-- kb:anchor browse.get -->
 ### `GET /api/browse`
@@ -246,12 +262,20 @@ home).
 ### `POST /api/sessions/{id}/end`
 
 No body. Captures a final pane snapshot, then `tmux kill-session -t muster-<id>`, then
-nudges the liveness check. Open terminal sockets for the id close `4001 pane_ended`; a
-`sessionUpsert` with `alive:false` is broadcast before the response. No other session is
-touched. Recoverable: the daemon still holds `claudeSessionId`, so `kb:anchor/sessions.resume` can resume it.
+nudges the liveness check. Open terminal sockets for the id close `4001 pane_ended` — but only
+once End has cleared its unknown/not-alive gates, so a refused End never tears down a live
+session's socket. A `sessionUpsert` with `alive:false` is broadcast before the response. No other
+session is touched. Recoverable: the daemon still holds `claudeSessionId`, so `kb:anchor/sessions.resume` can resume it.
+
+The kill is **idempotent** (kb:adr/actions-kill-is-idempotent): a tmux session that is already
+gone is a successful kill, so ending a session whose pane died inside the ~5 s liveness window
+returns `200` like any other End rather than failing. Calls are serialised per session id
+(kb:adr/actions-serialized-per-session), so concurrent Ends converge — the loser gets
+`409 not_alive`, never a kill error.
 
 `200` + Session object (`alive:false`, `endedAt` set). Errors: `404 unknown_session`;
-`409 not_alive`.
+`409 not_alive`; `500 end_failed` — a **genuine** kill failure only (tmux unreachable, socket
+unreadable, deadline), never an already-gone session.
 
 <!-- kb:anchor sessions.remove -->
 ### `DELETE /api/sessions/{id}`
@@ -264,7 +288,12 @@ This also kills the session's shell tmux
 session, `muster-<id>-shell`, if one is running (`kb:anchor/sessions.shell`). `kb:anchor/sessions.end` End deliberately does **not** —
 a shell outlives its parent session ending and dies only on Remove (or reconcile).
 
-`204`. Errors: `404 unknown_session`; `500 end_failed` (alive and the kill failed — the
+A not-alive row still gets an idempotent `kill-session` for `muster-<id>` before the delete, so
+Remove can never leave an orphaned pane behind. The shell is killed **after** the removal
+succeeds: a `500` leaves the shell running and both terminal sockets open, so Remove is
+retryable without collateral loss.
+
+`204`. Errors: `404 unknown_session`; `500 end_failed` (alive and the kill genuinely failed — the
 row is **not** deleted).
 
 <!-- kb:anchor usage.refresh -->
@@ -1159,22 +1188,34 @@ The state machine and these guards get exhaustive table-driven unit tests (conve
 ### Liveness
 
 `alive` is decided by **tmux pane existence on the muster socket** — polled (~5 s) and
-event-nudged (`SessionEnd`, PTY EOF, End). `SessionEnd` is only a hint
+event-nudged (`SessionEnd`, PTY EOF, End). A pane is believed gone only when the tmux server
+itself is reachable: a server-level failure is transient and leaves every session as it was,
+rather than reading as N simultaneous deaths. `SessionEnd` is only a hint
 (`kill -9` emits nothing; `reason` can't distinguish crash from clean exit). A dead
 session keeps its last `state`, greys out, sorts last, and offers Resume/Remove.
 
 **Reconcile at daemon start** runs synchronously, before `/ws` or `GET /api/state` can
-answer, over every persisted row:
+answer. It takes **one** `tmux list-sessions` snapshot and decides ownership by name — a row owns
+`muster-<id>` — rather than trusting the stored `alive` flag or `tmuxTarget`
+(kb:adr/lifecycle-reconcile-converges-with-the-socket):
 
-- `alive=0` (ended in an earlier daemon lifetime — the user had their resume chance) →
-  the row is **deleted** (count logged). Nothing is broadcast; it is absent from the
-  first `snapshot`.
-- `alive=1`, pane exists → unchanged; tracking resumes.
-- `alive=1`, pane gone (died while the daemon was down, or a reboot) → `alive:false`,
-  `endedAt` = the startup time (the true death time is unknown and not guessed). Kept, so
-  the resume chance survives; swept on the *following* startup.
-- A `muster-<n>` tmux session with no row → logged at warn, never adopted (Muster only
-  manages what it started).
+- `muster-<id>` **live on the socket** → the row owns it. `tmuxTarget` and `tmuxPane` are
+  re-derived from tmux and persisted if they changed, and the row is `alive:true` — whatever the
+  stored flag said. This repairs a row still holding the launch placeholder, a row whose window
+  id went stale, and a row wrongly marked ended (a kill that failed, or a crash between a
+  resume's spawn and its persist). **A row is never deleted while its pane is alive.**
+- `muster-<id>` absent, `alive=1` (died while the daemon was down, or a reboot) → `alive:false`,
+  `endedAt` = the startup time (the true death time is unknown and not guessed). Kept, so the
+  resume chance survives; swept on the *following* startup.
+- `muster-<id>` absent, `alive=0` (ended in an earlier daemon lifetime — the user had their
+  resume chance) → the row is **deleted** (count logged). Nothing is broadcast; it is absent
+  from the first `snapshot`.
+
+A row-level failure is logged and reconcile continues, so one failing write cannot skip the shell
+sweep below for a whole daemon lifetime.
+- A `muster-<n>` tmux session with no row → logged at warn, never adopted and never
+  killed (Muster only manages what it started). Its `<n>` does raise the session-id watermark, so
+  a leftover pane can never collide with a future launch even though nothing reclaims it.
 - A `muster-<n>-shell` tmux session (`kb:anchor/sessions.shell`) → **killed**, unconditionally, whatever its
   `<n>`, and never reported as an unknown session. Shells are deliberately non-persistent;
   since tmux sessions outlive musterd, "the daemon forgets them" has to mean this sweep

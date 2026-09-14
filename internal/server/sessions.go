@@ -19,6 +19,7 @@ import (
 	"github.com/Zalaras/muster/internal/gitutil"
 	"github.com/Zalaras/muster/internal/session"
 	"github.com/Zalaras/muster/internal/store"
+	"github.com/Zalaras/muster/internal/tmux"
 )
 
 // paneSpawner is the tmux operations internal/server's own code (sessionLauncher,
@@ -30,6 +31,9 @@ type paneSpawner interface {
 	PaneExists(ctx context.Context, target string) (bool, error)
 	KillWindow(ctx context.Context, target string) error
 	KillSession(ctx context.Context, name string) error
+	// MaxSessionID is REQ-7's floor probe: the launcher calls it before CreateSession so
+	// a new row never lands on an id an orphaned "muster-<N>" tmux session already owns.
+	MaxSessionID(ctx context.Context) (int64, error)
 }
 
 // LaunchConfig groups the launch path's config (plan code-breakup REQ-7): the claude
@@ -158,6 +162,18 @@ func buildLaunchEnv(sessionID int64) map[string]string {
 	return env
 }
 
+// maxLaunchAttempts is REQ-7's bounded retry: a launch that keeps colliding with an
+// orphaned tmux session gives up rather than retrying forever or leaking a row per
+// attempt (D5).
+const maxLaunchAttempts = 3
+
+// launchTmuxTimeout bounds every tmux invocation spawnAndRecordLaunch/Resume make
+// directly (REQ-12, review cycle 2 Minor): both run under id's per-session lock
+// (REQ-11), so a wedged tmux there no longer just hangs one request — it wedges every
+// later Launch/Resume/End/Remove for that same id, permanently. Mirrors
+// shellTmuxTimeout/endRemoveTmuxTimeout's value.
+const launchTmuxTimeout = 5 * time.Second
+
 func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) (*session.Session, *launchError) {
 	if lerr := validateLaunchRequest(req); lerr != nil {
 		return nil, lerr
@@ -188,23 +204,10 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 		title = &req.Title
 	}
 
-	sess, err := l.manager.CreateSession(ctx, session.CreateParams{
-		RepoID:          repo.ID,
-		Directory:       dir,
-		Branch:          branch,
-		IsWorktree:      isWorktree,
-		Title:           title,
-		PermissionMode:  session.PermissionMode(req.PermissionMode),
-		Model:           req.Model,
-		FirstLaunchHere: created,
-	})
-	if err != nil {
-		return nil, launchFailed(fmt.Sprintf("creating session: %v", err))
-	}
-
-	if err = l.writeSettings(dir); err != nil {
-		l.rollback(ctx, sess.ID)
-		return nil, launchFailed(err.Error())
+	// writeSettings runs before any row is created or tmux touched (Edge Case 9's other
+	// half: a corrupt settings.local.json is caught with nothing yet to roll back).
+	if settingsErr := l.writeSettings(dir); settingsErr != nil {
+		return nil, launchFailed(settingsErr.Error())
 	}
 
 	argv := claudecode.BuildArgv(l.claudeBin, claudecode.LaunchParams{
@@ -212,24 +215,91 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 		Title:          req.Title,
 		PermissionMode: req.PermissionMode,
 	})
-	target, pane, err := l.tmux.NewSession(ctx, sess.ID, dir, buildLaunchEnv(sess.ID), argv)
+
+	// REQ-7: probe the tmux socket's own highest id before allocating one, so a fresh
+	// store never lands on an id an orphaned "muster-<N>" already owns (the #26
+	// reproducer, D3). A probe failure degrades to floor 0 rather than failing the
+	// launch — the watermark alone (REQ-1/REQ-2) still prevents reuse.
+	floor, err := l.tmux.MaxSessionID(ctx)
 	if err != nil {
-		l.rollback(ctx, sess.ID)
-		return nil, launchFailed(fmt.Sprintf("spawning tmux session: %v", err))
+		l.log.Warn().Err(err).Msg("probing max tmux session id failed; launching with floor 0")
+		floor = 0
 	}
 
-	final, err := l.manager.RecordLaunch(ctx, sess.ID, target, pane)
+	for attempt := 1; attempt <= maxLaunchAttempts; attempt++ {
+		sess, err := l.manager.CreateSession(ctx, session.CreateParams{
+			RepoID:          repo.ID,
+			Directory:       dir,
+			Branch:          branch,
+			IsWorktree:      isWorktree,
+			Title:           title,
+			PermissionMode:  session.PermissionMode(req.PermissionMode),
+			Model:           req.Model,
+			FirstLaunchHere: created,
+			MinID:           floor,
+		})
+		if err != nil {
+			return nil, launchFailed(fmt.Sprintf("creating session: %v", err))
+		}
+
+		final, retry, lerr := l.spawnAndRecordLaunch(ctx, sess.ID, dir, argv, attempt)
+		if lerr != nil {
+			return nil, lerr
+		}
+		if !retry {
+			return final, nil
+		}
+		// A colliding orphan: raise the floor above it and retry (D4) — spawnAndRecordLaunch
+		// already rolled the row back.
+		floor = sess.ID
+	}
+	// Unreachable: the loop above always returns on both its last-attempt paths.
+	return nil, launchFailed("exhausted launch attempts")
+}
+
+// spawnAndRecordLaunch is Launch's per-attempt spawn+record step, held under sess id's
+// per-session lock (REQ-11) for the same reason End/Remove/Resume hold theirs — a
+// fresh id from CreateSession can't yet be contended by anything else, but the discipline
+// is uniform across every action that acts on one session id. retry reports an
+// ErrSessionExists collision the caller should retry with a raised floor (D4); lerr is
+// then nil unless attempts are exhausted (D5).
+func (l *sessionLauncher) spawnAndRecordLaunch(ctx context.Context, id int64, dir string, argv []string, attempt int) (final *session.Session, retry bool, lerr *launchError) {
+	unlock := l.manager.LockSession(id)
+	defer unlock()
+
+	spawnCtx, cancel := context.WithTimeout(ctx, launchTmuxTimeout)
+	target, pane, spawnErr := l.tmux.NewSession(spawnCtx, id, dir, buildLaunchEnv(id), argv)
+	cancel()
+	if spawnErr != nil {
+		l.rollback(ctx, id)
+		if !errors.Is(spawnErr, tmux.ErrSessionExists) {
+			return nil, false, launchFailed(fmt.Sprintf("spawning tmux session: %v", spawnErr))
+		}
+		name := tmux.SessionName(id)
+		if attempt == maxLaunchAttempts {
+			// Never surfacing raw tmux stderr to the caller (D5).
+			return nil, false, launchFailed(fmt.Sprintf(
+				"spawning tmux session %s: still colliding after %d attempts; a stale tmux session likely needs manual cleanup (tmux -L muster kill-session -t %s)",
+				name, maxLaunchAttempts, name))
+		}
+		return nil, true, nil
+	}
+
+	final, err := l.manager.RecordLaunch(ctx, id, target, pane)
 	if err != nil {
-		l.rollback(ctx, sess.ID)
+		l.rollback(ctx, id)
 		// The tmux window was already spawned; without this the pane keeps running
 		// with no session row and no broadcast behind it — an invisible session the
 		// user can't see or reach.
-		if killErr := l.tmux.KillWindow(ctx, target); killErr != nil {
+		killCtx, killCancel := context.WithTimeout(ctx, launchTmuxTimeout)
+		killErr := l.tmux.KillWindow(killCtx, target)
+		killCancel()
+		if killErr != nil {
 			l.log.Error().Err(killErr).Str("tmux_target", target).Msg("failed to kill tmux window after RecordLaunch failure")
 		}
-		return nil, launchFailed(fmt.Sprintf("recording launch: %v", err))
+		return nil, false, launchFailed(fmt.Sprintf("recording launch: %v", err))
 	}
-	return final, nil
+	return final, false, nil
 }
 
 // rollback deletes a session row inserted earlier in Launch once a later step failed.
@@ -247,12 +317,26 @@ func (l *sessionLauncher) rollback(ctx context.Context, id int64) {
 // pane. state is left untouched — it becomes idle only once the enveloped
 // SessionStart(source:"resume") arrives.
 func (l *sessionLauncher) Resume(ctx context.Context, id int64) (*session.Session, *launchError) {
+	// REQ-11/D19: id's per-session lock serialises the whole check-then-act. Resume reads
+	// sess.Alive == false and only RecordResume (much later) flips it — without this lock
+	// two concurrent Resumes for the same dead session both pass that gate and both spawn
+	// a tmux session; the loser must instead observe the now-alive row and be refused.
+	unlock := l.manager.LockSession(id)
+	defer unlock()
+
 	sess, ok := l.manager.Get(id)
 	if !ok {
 		return nil, notFound("unknown session id")
 	}
-	if sess.Alive || sess.ClaudeSessionID == "" {
-		return nil, notResumable("session is alive or has no resumable claude session id")
+	// REQ-17/D21: the two causes are named separately in the message — only one of them
+	// is ever recoverable (an alive session becomes resumable once it ends; a session
+	// that never bound a claudeSessionId never will) — so the UI can tell them apart from
+	// the 409 body alone. The code stays "not_resumable" either way.
+	if sess.Alive {
+		return nil, notResumable("session is still alive; resume is only for a dead session")
+	}
+	if sess.ClaudeSessionID == "" {
+		return nil, notResumable("session never started a claude conversation and has no resumable claude session id")
 	}
 	if info, err := os.Stat(sess.Directory); err != nil || !info.IsDir() {
 		return nil, directoryMissing("session directory no longer exists")
@@ -271,14 +355,34 @@ func (l *sessionLauncher) Resume(ctx context.Context, id int64) (*session.Sessio
 		PermissionMode:  string(sess.PermissionMode),
 		ResumeSessionID: sess.ClaudeSessionID,
 	})
-	target, pane, err := l.tmux.NewSession(ctx, id, sess.Directory, buildLaunchEnv(id), argv)
+	spawnCtx, cancel := context.WithTimeout(ctx, launchTmuxTimeout)
+	target, pane, err := l.tmux.NewSession(spawnCtx, id, sess.Directory, buildLaunchEnv(id), argv)
+	cancel()
 	if err != nil {
+		if errors.Is(err, tmux.ErrSessionExists) {
+			// REQ-8: Resume cannot renumber (the id is the row's) — a live muster-<id>
+			// under this not-alive row is that row's own pane (Edge Case 6), so repair
+			// and adopt it rather than failing.
+			repaired, repairErr := l.manager.RepairOwnedSession(ctx, id)
+			if repairErr != nil {
+				name := tmux.SessionName(id)
+				// Minor 1 (review cycle 1): log the repair failure itself — without
+				// this it was invisible, the caller only ever saw the generic
+				// launch_failed message below.
+				l.log.Warn().Err(repairErr).Int64("session_id", id).Str("tmux_session", name).Msg("resume: repairing owned session failed")
+				return nil, launchFailed(fmt.Sprintf("resuming session: tmux session %s already exists and no live pane could be confirmed", name))
+			}
+			return repaired, nil
+		}
 		return nil, launchFailed(fmt.Sprintf("spawning tmux session: %v", err))
 	}
 
 	final, err := l.manager.RecordResume(ctx, id, target, pane)
 	if err != nil {
-		if killErr := l.tmux.KillWindow(ctx, target); killErr != nil {
+		killCtx, killCancel := context.WithTimeout(ctx, launchTmuxTimeout)
+		killErr := l.tmux.KillWindow(killCtx, target)
+		killCancel()
+		if killErr != nil {
 			l.log.Error().Err(killErr).Str("tmux_target", target).Msg("failed to kill tmux window after RecordResume failure")
 		}
 		return nil, launchFailed(fmt.Sprintf("recording resume: %v", err))
@@ -308,11 +412,40 @@ func (l *sessionLauncher) writeSettings(dir string) error {
 		return fmt.Errorf("%s: %w", path, err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return fmt.Errorf("creating %s: %w", filepath.Dir(path), err)
+	settingsDir := filepath.Dir(path)
+	if err = os.MkdirAll(settingsDir, 0o700); err != nil {
+		return fmt.Errorf("creating %s: %w", settingsDir, err)
 	}
-	if err := os.WriteFile(path, merged, 0o600); err != nil {
-		return fmt.Errorf("writing %s: %w", path, err)
+	// review cycle 1 Major 4: write-then-rename, not a direct WriteFile. The per-id lock
+	// only serialises the same session id — two different sessions launching into the
+	// same directory (Edge Case: shared repo, two launches) still race on this same
+	// settings.local.json, and a torn write there refuses every future launch in the
+	// directory (kb:adr/actions-serialized-per-session's Consequences). The temp file is
+	// created in the same directory so the rename is atomic (same filesystem).
+	tmp, err := os.CreateTemp(settingsDir, ".settings.local.json.tmp-*")
+	if err != nil {
+		return fmt.Errorf("creating temp file in %s: %w", settingsDir, err)
+	}
+	tmpPath := tmp.Name()
+	defer func() { _ = os.Remove(tmpPath) }() // no-op once the rename below succeeds
+	if _, err := tmp.Write(merged); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("writing %s: %w", tmpPath, err)
+	}
+	// review cycle 2 Note: fsync before the rename, or a crash between them can still
+	// lose the write despite the rename itself being atomic (durable, not just atomic).
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("syncing %s: %w", tmpPath, err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("closing %s: %w", tmpPath, err)
+	}
+	if err := os.Chmod(tmpPath, 0o600); err != nil {
+		return fmt.Errorf("setting permissions on %s: %w", tmpPath, err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		return fmt.Errorf("renaming %s to %s: %w", tmpPath, path, err)
 	}
 	return nil
 }
@@ -394,50 +527,51 @@ func parseSessionID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	return id, true
 }
 
-// handleEndSession is POST /api/sessions/{id}/end (REQ-5, kb:anchor/sessions.end). Any
-// open terminal socket for id is closed (4001) before the kill, so the UI's dead-surface
-// overlay arrives ahead of the alive:false broadcast.
+// handleEndSession is POST /api/sessions/{id}/end (REQ-5, kb:anchor/sessions.end).
+// session-lifecycle REQ-13: the terminal socket is closed only once End has actually
+// succeeded — a 404/409, and a genuine end_failed kill failure alike, must never tear
+// down a socket for a session whose pane is still running (review cycle 1 Major 2: a
+// failed kill leaves the row alive and the pane up, so closing the socket here left the
+// user staring at a dead-surface overlay over a live session).
 func (f *sessionsFeature) handleEndSession(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
 	if !ok {
 		return
 	}
 
-	f.terminals.closeSession(id)
-
 	sess, endErr := f.manager.End(context.WithoutCancel(r.Context()), id)
 	if endErr != nil {
 		switch {
 		case errors.Is(endErr, session.ErrUnknownSession):
 			writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
+			return
 		case errors.Is(endErr, session.ErrSessionNotAlive):
 			writeJSONError(w, http.StatusConflict, "not_alive", "session is already ended")
+			return
 		default:
 			f.log.Error().Err(endErr).Int64("session_id", id).Msg("ending session failed")
 			writeJSONError(w, http.StatusInternalServerError, "end_failed", endErr.Error())
+			return
 		}
-		return
 	}
 
+	f.terminals.closeSession(id)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(toWireSession(sess))
 }
 
-// handleRemoveSession is DELETE /api/sessions/{id} (REQ-6, kb:anchor/sessions.remove). Since
-// plain-terminal-session (kb:anchor/sessions.shell/REQ-9) this also kills the session's shell tmux session,
-// unlike End which deliberately leaves a shell running.
+// handleRemoveSession is DELETE /api/sessions/{id} (REQ-6, kb:anchor/sessions.remove).
+// Since plain-terminal-session (kb:anchor/sessions.shell/REQ-9) this also kills the
+// session's shell tmux session, unlike End which deliberately leaves a shell running.
+// session-lifecycle REQ-13: the shell/terminal teardown runs only after manager.Remove has
+// actually succeeded — a failed Remove must leave both exactly as they were, retryable
+// without collateral loss (D15).
 func (f *sessionsFeature) handleRemoveSession(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
 	if !ok {
 		return
 	}
-
-	// If id is alive, Remove runs the End path first — close any terminal socket ahead
-	// of that too (same rationale as handleEndSession). Close and kill the shell surface
-	// too (REQ-9): Remove is the only path that touches a session's shell tmux session.
-	f.terminals.closeSessionAndShell(id)
-	f.shells.Kill(context.WithoutCancel(r.Context()), id)
 
 	if remErr := f.manager.Remove(context.WithoutCancel(r.Context()), id); remErr != nil {
 		switch {
@@ -449,6 +583,10 @@ func (f *sessionsFeature) handleRemoveSession(w http.ResponseWriter, r *http.Req
 		}
 		return
 	}
+
+	f.terminals.closeSessionAndShell(id)
+	f.shells.Kill(context.WithoutCancel(r.Context()), id)
+
 	if f.reader != nil {
 		f.reader.forgetSession(id)
 	}

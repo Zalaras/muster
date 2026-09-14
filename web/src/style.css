@@ -431,6 +431,25 @@ body {
   display: none;
 }
 
+/* REQ-17/W2: End/Resume/Remove failures — same banner/danger token family as `.banner`
+ * above (kb:adr/theme-danger-tokens-not-rose), never `--rose` (§3: reserved for session
+ * state). Global, not scoped to one surface, since actions dispatch from the mainhead,
+ * rail cards and tile footers alike. */
+.action-error {
+  width: 100%;
+  background: var(--banner-bg);
+  border-bottom: 1px solid var(--banner-line);
+  color: var(--banner-fg);
+  font-family: var(--mono);
+  font-size: var(--fs-md);
+  padding: 8px 16px;
+  flex: none;
+}
+
+.action-error[hidden] {
+  display: none;
+}
+
 /* ── body split: rail + main ─────────────────────────────────────────── */
 
 .split {

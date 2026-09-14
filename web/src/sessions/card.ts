@@ -55,6 +55,17 @@ export function stateBadgeText(state: Session["state"]): string {
   return BADGE_TEXT[state];
 }
 
+/** REQ-17/W3: why a Resume control is disabled, shared with render/mainhead.ts and
+ * render/dead.ts (their `title`/`aria-description`) so the two surfaces never drift into
+ * different wording for the same `409 not_resumable` cause. `null` when there is no
+ * reason to give (session is alive, or `claudeSessionId` is bound) — callers clear the
+ * attribute in that case rather than writing an empty string over it. */
+export function resumeDisabledReason(session: Session): string | null {
+  if (session.claudeSessionId === null)
+    return "Can't resume — this session never started a Claude conversation.";
+  return null;
+}
+
 // ux-flows §1.4: "a session that has emitted no SessionStart within ~10s shows
 // 'no signal yet'".
 const NO_SIGNAL_THRESHOLD_SECONDS = 10;

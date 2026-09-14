@@ -1,7 +1,7 @@
 ---
 id: lifecycle-ended-rows-swept-next-start
 type: decision
-status: accepted
+status: superseded
 date: 2026-08-27
 summary: On start, rows already ended are deleted and live rows whose pane is gone are marked ended and kept, so every death gets one resume chance.
 features: [lifecycle, actions]

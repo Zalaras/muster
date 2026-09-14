@@ -34,6 +34,19 @@ type fakeTmux struct {
 	newSessionErr      error
 	newNamedSessionErr error
 
+	// newSessionErrQueue, when non-empty, pops one error per NewSession call before
+	// newSessionErr is consulted (plan session-lifecycle D4/D5: the launcher's retry loop
+	// needs "fails N times then succeeds", which a single static error can't express).
+	newSessionErrQueue []error
+	// newSessionIDs records the id passed to every NewSession call, in order — D4's
+	// "the retry's id is strictly greater than the first attempt's" assertion.
+	newSessionIDs []int64
+
+	// maxSessionIDErr/maxSessionIDCalls back MaxSessionID (plan session-lifecycle D2's
+	// launcher-degrades-to-floor-0 case).
+	maxSessionIDErr   error
+	maxSessionIDCalls int
+
 	newSessionCalls      int
 	newNamedSessionCalls int
 	killWindowCalls      int
@@ -50,13 +63,52 @@ func (f *fakeTmux) NewSession(_ context.Context, id int64, _ string, _ map[strin
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.newSessionCalls++
-	if f.newSessionErr != nil {
+	f.newSessionIDs = append(f.newSessionIDs, id)
+	if len(f.newSessionErrQueue) > 0 {
+		next := f.newSessionErrQueue[0]
+		f.newSessionErrQueue = f.newSessionErrQueue[1:]
+		if next != nil {
+			return "", "", next
+		}
+	} else if f.newSessionErr != nil {
 		return "", "", f.newSessionErr
 	}
 	f.next++
 	target = fmt.Sprintf("muster-%d:@%d", id, f.next)
 	f.panes[target] = true
 	return target, fmt.Sprintf("%%%d", f.next), nil
+}
+
+// queueNewSessionErrs sets up NewSession to fail with each of errs in turn (one per
+// call), then succeed once the queue is empty (plan session-lifecycle D4/D5).
+func (f *fakeTmux) queueNewSessionErrs(errs ...error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.newSessionErrQueue = append(f.newSessionErrQueue, errs...)
+}
+
+// newSessionIDsSeen returns the id passed to every NewSession call so far, in order.
+func (f *fakeTmux) newSessionIDsSeen() []int64 {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]int64, len(f.newSessionIDs))
+	copy(out, f.newSessionIDs)
+	return out
+}
+
+// MaxSessionID is REQ-3's floor probe. This fake never inspects panes for it — tests set
+// maxSessionIDErr directly to simulate a probe failure (D2's launcher-degrades-to-floor-0
+// case). Defined so fakeTmux keeps satisfying paneSpawner once daemon-impl widens that
+// interface to require it (plan Affected Files: "a test-agent change, not an impl-agent
+// one").
+func (f *fakeTmux) MaxSessionID(_ context.Context) (int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.maxSessionIDCalls++
+	if f.maxSessionIDErr != nil {
+		return 0, f.maxSessionIDErr
+	}
+	return 0, nil
 }
 
 func (f *fakeTmux) NewNamedSession(_ context.Context, name, _ string, _ map[string]string, _ []string) (target, pane string, err error) {
