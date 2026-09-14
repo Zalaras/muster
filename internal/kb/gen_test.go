@@ -57,6 +57,18 @@ func TestOutputs_RendersContractSlicesInSpecOrderWithBreadcrumbs(t *testing.T) {
 	assert.NotContains(t, body, "## 4. WebSocket")
 }
 
+func TestOutputs_RendersANestedAnchorOnceInsideItsParentSlice(t *testing.T) {
+	root := newKBRoot(t)
+	edit(t, root, "docs/features/sessions/spec.md", "protocol: [sessions.pin, sessions.order]", "protocol: [sessions.pin, sessions, sessions.order]")
+	_, body, ok := SplitGenerated(outputsOf(t, root)["docs/features/sessions/contract.md"])
+	require.True(t, ok)
+	assert.Equal(t, 1, strings.Count(body, "Pin body line."), "the parent slice carries the child; the child is not emitted again")
+	assert.Equal(t, 1, strings.Count(body, "Order body line."))
+	assert.Equal(t, 1, strings.Count(body, "## 3. HTTP endpoints — UI"))
+	assert.Equal(t, 1, strings.Count(body, "_docs/protocol.md_"), "one breadcrumb: the parent's")
+	assert.NotContains(t, body, "## 4. WebSocket")
+}
+
 func TestOutputs_RendersAnEmptyContractForAFeatureWithNoProtocolSurface(t *testing.T) {
 	root := newKBRoot(t)
 	edit(t, root, "docs/features/sessions/spec.md", "protocol: [sessions.pin, sessions.order]\n", "")

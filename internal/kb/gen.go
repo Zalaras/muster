@@ -210,14 +210,34 @@ func renderContract(ix *Index, f *Feature) string {
 		b.WriteString("\nNo protocol surface.\n")
 		return b.String()
 	}
+	listed := map[string]Anchor{}
 	for _, id := range f.Protocol {
-		a, ok := ix.Anchors[id]
-		if !ok {
+		if a, ok := ix.Anchors[id]; ok {
+			listed[id] = a
+		}
+	}
+	for _, id := range f.Protocol {
+		a, ok := listed[id]
+		if !ok || nestedInAnother(a, listed) {
 			continue
 		}
 		b.WriteString("\n" + Slice(ix.Protocol, a) + "\n")
 	}
 	return b.String()
+}
+
+// nestedInAnother reports whether a's lines lie inside another listed anchor's slice. A spec
+// that names a level-two anchor and its level-three children (lifecycle: `state` plus five
+// `state.*`) would otherwise render each child twice — 2,877 duplicated words across four
+// contracts at the 2026-09-14 audit — so the parent's slice carries them and the child is
+// skipped.
+func nestedInAnother(a Anchor, listed map[string]Anchor) bool {
+	for _, b := range listed {
+		if b.ID != a.ID && b.Start <= a.Start && a.End <= b.End {
+			return true
+		}
+	}
+	return false
 }
 
 // liveRecordsOf returns a feature's live records, by type then id.
