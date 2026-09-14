@@ -508,7 +508,6 @@ State what you found and changed in the completion summary.
 ## Completion
 
 When all steps pass AND the review verdict is "approved":
-1. Verify `review.md` on disk says `**Verdict**: approved` (kb:lesson/completion-claimed-before-approved-verdict)
 2. Re-verify the Doc-Upkeep Backstop above (done before Step 6; fix anything the review cycles changed)
 2a. Resolve every `[orchestrator]`-tagged issue in review.md: do the doc edit, or record it as a TODO.md entry in the right milestone if it is genuinely follow-up work. List each one and its disposition in the completion summary. An approved review may carry these; a `completed` pipeline may not leave them unaddressed.
 2b. An approved review.md has no agent-tagged issue open at any severity (Verdict Rules) — if you find one, the verdict is wrong; stop and re-spawn the reviewer rather than writing a `TODO.md` line for it. Every `[note]` is listed in the completion summary verbatim — no TODO line, no agent.

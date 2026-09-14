@@ -30,7 +30,7 @@ reworked. So `/orchestrate` records the issue numbers and **you** put them in th
 Check all of these before touching anything. If any fails, stop and say exactly which:
 
 1. `plans/<plan>/review.md` exists and contains `**Verdict**: approved` — **read it from disk**,
-   never rely on the conversation (orchestrate's Completion step 1 makes the same point).
+   never rely on the conversation (orchestrate's state script refuses `completed` on the same test).
 2. `plans/<plan>/orchestration-state.json` has `"status": "completed"`.
 3. `git status --short` is clean, apart from untracked strays that are not part of the plan
    (e.g. a stray screenshot). Never `git add -A`, never stash.
