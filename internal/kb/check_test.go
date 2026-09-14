@@ -127,7 +127,33 @@ func runGenIfClean(t *testing.T, root string) {
 func TestCheck_FailsASupersededDecisionWithNoAcceptedSuccessor(t *testing.T) {
 	root := freshRoot(t)
 	edit(t, root, "docs/adr/pin-order.md", "supersedes: [old-pin]\n", "")
-	assert.Contains(t, runCheck(t, root), "docs/adr/old-pin.md: status superseded but no accepted decision lists it in supersedes")
+	assert.Contains(t, runCheck(t, root), "docs/adr/old-pin.md: status superseded but no accepted or proposed decision lists it in supersedes")
+}
+
+// A supersede is a pair — the successor goes accepted as the target goes superseded — and
+// both halves land in one commit. A plan branch holds its decisions as `proposed` until
+// Completion flips them, so the two pre-flip shapes below must both check clean, or a
+// branch cannot represent a supersede at all (the state that forced plan session-lifecycle
+// to defer its flip and nearly shipped it half-applied).
+func TestCheck_AllowsAProposedSuccessorBeforeTheCompletionFlip(t *testing.T) {
+	root := freshRoot(t)
+	// Pre-flip: successor still proposed, target still accepted.
+	edit(t, root, "docs/adr/pin-order.md", "status: accepted", "status: proposed")
+	edit(t, root, "docs/adr/old-pin.md", "status: superseded", "status: accepted")
+	assert.NotContains(t, runCheck(t, root), "supersedes")
+
+	// Mid-flip the other way: target already superseded, successor not yet accepted.
+	root2 := freshRoot(t)
+	edit(t, root2, "docs/adr/pin-order.md", "status: accepted", "status: proposed")
+	assert.NotContains(t, runCheck(t, root2), "supersedes")
+}
+
+// The strict half survives: once the successor is accepted, its target must be superseded,
+// which is what keeps a half-applied flip off main.
+func TestCheck_StillFailsAnAcceptedSuccessorWhoseTargetIsNotSuperseded(t *testing.T) {
+	root := freshRoot(t)
+	edit(t, root, "docs/adr/old-pin.md", "status: superseded", "status: accepted")
+	assert.Contains(t, runCheck(t, root), `docs/adr/pin-order.md: supersedes "old-pin" but docs/adr/old-pin.md has status accepted (want superseded)`)
 }
 
 func TestCheck_FailsSupersedesPointingAtANonSupersededOrMissingDecision(t *testing.T) {

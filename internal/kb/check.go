@@ -147,13 +147,25 @@ func (c *checker) checkVerifiedRange(r *Record) {
 	}
 }
 
+// checkSupersedesRefs checks what a decision's supersedes entries point at. A supersede
+// is a pair — the new record goes accepted and the old one goes superseded — and the two
+// halves have to land in one commit, because neither is valid alone. A plan branch
+// carries its decisions as `proposed` until Completion flips them (CLAUDE.md § Doc
+// upkeep), so a proposed record is allowed to name a target that is still accepted:
+// that is the pre-flip state, not a broken pair.
+// Once the superseding decision is accepted the target must be superseded, which is what
+// keeps a half-applied flip off main.
 func (c *checker) checkSupersedesRefs(r *Record) {
 	for _, id := range r.Supersedes {
 		old, ok := c.ix.ByID[id]
 		switch {
 		case !ok || old.Type != TypeDecision:
 			c.fail(r.Path, 0, "supersedes %q — no such decision", id)
-		case old.Status != "superseded":
+		case old.Status == "superseded":
+			// The flip is complete.
+		case r.Status == "proposed" && old.Status == "accepted":
+			// Pre-flip: this plan has not been completed yet.
+		default:
 			c.fail(r.Path, 0, "supersedes %q but %s has status %s (want superseded)", id, old.Path, old.Status)
 		}
 	}
@@ -220,7 +232,10 @@ func (c *checker) checkRef(r *Record, ref string) {
 	}
 }
 
-// checkSupersession fails a superseded decision no accepted decision points back at.
+// checkSupersession fails a superseded decision that no live decision points back at. A
+// proposed successor counts: on a plan branch the pair is flipped in one Completion
+// commit, and refusing the proposed half would make the branch unable to represent the
+// supersede at all (the other half of checkSupersedesRefs's note).
 func (c *checker) checkSupersession() {
 	for _, old := range c.ix.RecordsOfType(TypeDecision) {
 		if old.Status != "superseded" {
@@ -228,13 +243,13 @@ func (c *checker) checkSupersession() {
 		}
 		found := false
 		for _, r := range c.ix.RecordsOfType(TypeDecision) {
-			if r.Status == "accepted" && contains(r.Supersedes, old.ID) {
+			if (r.Status == "accepted" || r.Status == "proposed") && contains(r.Supersedes, old.ID) {
 				found = true
 				break
 			}
 		}
 		if !found {
-			c.fail(old.Path, 0, "status superseded but no accepted decision lists it in supersedes")
+			c.fail(old.Path, 0, "status superseded but no accepted or proposed decision lists it in supersedes")
 		}
 	}
 }
