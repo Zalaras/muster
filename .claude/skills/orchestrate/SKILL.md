@@ -91,8 +91,7 @@ Before starting:
   daemon tester for the web coder or vice versa. daemon-tests writes only Go test files and
   web-tests only `web/src/**/*.test.ts`, so a tester and the other track's coder never share a
   file (the concurrency test in Fix Wave Ordering is satisfied). Tell the tester the other coder
-  is still running and to leave its uncommitted files alone. ui-text-and-focus: daemon-impl
-  finished 23 minutes before web-impl; starting daemon-tests immediately saved 13 minutes.
+  is still running and to leave its uncommitted files alone.
 - Wait for both testers to complete
 - Then run E2E Validate & Repair (Step 5) — a single agent, not parallel
 - Then run review
@@ -497,26 +496,11 @@ Before dispatching, check the plan's Implementation Notes for work it assigns to
 whose file Affected Files gives no owner is yours, not an agent's (kb:lesson/plan-gave-no-single-owner).
 
 1. Read the implementation logs (including `## Fix Attempt` sections) so you know what actually shipped. You don't need to re-read source.
-2. Check, and fix what's missing:
-   - **`TODO.md`** — a finished backlog item (or sub-bullet): tick it, add its `✅ done <date> (plan
-     …)` line, move the block to `docs/history/todo-done.md` under the same heading (a sub-bullet
-     stays with its still-open parent). A new follow-up goes into the right milestone rather than
-     evaporating. **A ticked item with a GitHub issue link → record the issue number** for
-     Completion 2c, judging **full vs partial**: a plan can advance an issue without finishing it (a
-     design-token issue may span two plans). Only a fully-resolved issue is a close candidate; a
-     partial one is named in the completion summary as deliberately *not* closing, with what
-     remains.
-   - **`docs/adr/`** — every `deviation:` line in an implementation log's `## Decisions`, and every
-     `decisions/<slug>/decision.md` this run produced, has an ADR: write it (`status: proposed`,
-     `refs: [plan:<plan-name>, <the log or decision file>]`, one decision per record), append
-     `→ kb:adr/<slug>` to the log line, and name it in the completion summary. Routine
-     implementation of an accepted ADR needs nothing. A deviation that contradicts an *accepted*
-     ADR is not yours to record — it is an `[orchestrator:user-decision]` (Step 6 1a).
-   - **`docs/facts/`** — a new **measured** Claude Code fact (never an assumption) becomes a fact
-     record with `verified:` the version measured and `guard:` the test that pins it; a fact
-     proved wrong gets its ceiling pinned and a new record linked by `refs`, never a rewrite.
-   - **`docs/protocol.md`** — must match what shipped. If plan-work merged the delta at approval and an approved mid-run adjustment changed it, reconcile the doc now. Then `make gen-kb` so `contract.md` follows.
-   - Finish with `make gen-kb && make check-kb` (between waves only — Step 6 1) and commit the regenerated files with the records.
+2. Check, and fix what's missing, per `.claude/skills/orchestrate/doc-upkeep.md`: `TODO.md` ticks
+   (recording each fully-resolved issue number for Completion 2c), an ADR for every `deviation:`
+   line and every `decisions/<slug>/decision.md`, a fact record for every measured Claude Code
+   fact, and `docs/protocol.md` matching what shipped. Finish with `make gen-kb && make check-kb`
+   (between waves only — Step 6 1) and commit the regenerated files with the records.
 3. If nothing qualifies, say so in the completion summary rather than inventing entries.
 
 State what you found and changed in the completion summary.

@@ -117,7 +117,7 @@ State this plan's **delta against `docs/protocol.md`**: every WS message and HTT
 - **HTTP endpoints**: method and path, request body, response body, error responses with status
   codes, auth (localhost token per `kb:spec/connection`). Every example body is the **exact wire shape**: error
   examples sit inside the `{"error": {"code", "message", …}}` envelope `kb:anchor/transport` mandates, extra
-  fields (a `paths` list, a `retryAfter`) inside that object — never a flat `{"code": …}` sketch.
+  fields (a `paths` list, a `retryAfter`) inside that object.
   `plan-lint.sh` flags an unenveloped example.
 
 Example of sufficient detail:
@@ -238,15 +238,14 @@ non-runnable half of a split criterion is assigned rather than lost — but *no 
 
 The orchestrator and the review agent execute the block **verbatim**, so every line must run from the project root with no arguments, no environment setup and no interactive prompt. Prefer the Make entry points (`make test`, `make lint`, `make web-build`, `make web-test`, `make e2e`) over ad-hoc pipelines.
 
-**Negative grep checks (`! rg …`) need one authoring decision and two dry-runs** (the dry-runs are what `plan-lint.sh` check 7 runs; do them before approval so their output shapes Affected Files):
-
-1. **Decide test-file scope explicitly.** State in the check's prose twin (or a note beside the
-   block) whether `_test.go` / `*.test.ts` / `e2e/` files are inside the grep's net, and why. Tests
-   often legitimately need the banned strings (a boundary test POSTing a real wire body) — if test
-   files are in scope, the plan must say how tests obtain those strings legally (typically a helper
-   exported from the boundary package), or agents contort around the check (kb:lesson/banned-string-split-to-dodge-gate).
-2. **The plan text itself must not contain the banned string** (agents copy plan snippets into code and then trip the gate) — `plan-lint.sh` fails on it; reword or re-scope.
-3. **Every pre-existing hit in the tree is a file some agent must edit** — `plan-lint.sh` lists them; put each under **Affected Files** against the agent that owns it (a comment in `web/e2e/*.spec.ts` is e2e-specs', not web-impl's) or re-scope the check.
+**Negative grep checks (`! rg …`) need one authoring decision: test-file scope.** State in the
+check's prose twin (or a note beside the block) whether `_test.go` / `*.test.ts` / `e2e/` files are
+inside the grep's net, and why. Tests often legitimately need the banned strings (a boundary test
+POSTing a real wire body) — if test files are in scope, the plan must say how tests obtain those
+strings legally (typically a helper exported from the boundary package), or agents contort around
+the check (kb:lesson/banned-string-split-to-dodge-gate). `plan-lint.sh` runs the dry-runs against
+the plan text and the tree; put every hit it lists under **Affected Files** against the agent that
+owns it, or re-scope the check.
 
 ## Plan Document Format
 

@@ -55,8 +55,7 @@ Tag failures by cause, not by convenience:
 Also read `test-specs.md`'s `## Repairs` table and verify its last column: each repaired assertion
 still verifies its requirement. A repair that deleted, skipped or weakened an assertion is a
 Critical `[e2e-specs]` issue **even if the suite is green** — a vacuous pass is worse than a red
-test. Look for `test.skip` / `test.fixme` in the diff, assertions replaced by container-level
-`toBeVisible()`, and fixture payloads that drifted from the measured captures (a synthesized POST
+test. Look for assertions replaced by container-level `toBeVisible()`, and fixture payloads that drifted from the measured captures (a synthesized POST
 carrying a field Claude Code never sends is dishonest even when green).
 
 Set the verdict to `needs-changes` for any E2E failure. **Do not stop here** — continue with the full review below so that all issues surface in a single cycle.
