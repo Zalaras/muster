@@ -13,7 +13,7 @@ allowed-tools: Read, Grep, Glob, Bash, AskUserQuestion
 > item carried an issue link.
 
 You land an approved plan branch on `main`. `/orchestrate` deliberately never merges or pushes
-(`.claude/skills/orchestrate/SKILL.md` Completion step 5) — this is that missing step.
+(`.claude/skills/orchestrate/SKILL.md` Completion step 8) — this is that missing step.
 
 Plan name: **$ARGUMENTS**
 
@@ -47,7 +47,7 @@ Check all of these before touching anything. If any fails, stop and say exactly 
    A squash of an empty range produces an empty commit, the worst outcome available here.
 6. For each name in the plan's `**Features**`, `go run ./tools/kb ls --feature <f> --status
    proposed` lists no record with `refs: plan:<plan>`, and `make check-kb` exits 0 on the
-   branch. A `proposed` ADR here means orchestrate's Completion 2e was skipped — send it back
+   branch. A `proposed` ADR here means orchestrate's Completion step 4 was skipped — send it back
    rather than flipping it yourself; this command edits nothing.
 
 A plan that never went through `/orchestrate` (no state file, no review) is not landable by this

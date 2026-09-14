@@ -7,7 +7,7 @@ pipeline may have left stale and what a complete entry looks like.
   …)` line, move the block to `docs/history/todo-done.md` under the same heading (a sub-bullet
   stays with its still-open parent). A new follow-up goes into the right milestone rather than
   evaporating. **A ticked item with a GitHub issue link → record the issue number** for
-  Completion 2c, judging **full vs partial**: a plan can advance an issue without finishing it (a
+  Completion step 5, judging **full vs partial**: a plan can advance an issue without finishing it (a
   design-token issue may span two plans). Only a fully-resolved issue is a close candidate; a
   partial one is named in the completion summary as deliberately *not* closing, with what
   remains.
