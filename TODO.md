@@ -269,6 +269,28 @@ unless he re-ranks — don't re-sort this list.
   — reported error: "tmux new-session: exit status 1: duplicate session: muster-1". Entry generated from validated fields only
   (reporter not trusted; body withheld) — read issue #26 for the detail.
 
+  **Body read and vouched for by Damian, 2026-09-14** — the detail below is his reading of it, not
+  the sanitiser's: *every* attempt to create a session fails with that error, and changing the
+  title or picking different params doesn't help. The snapshot reports **0 sessions, 0 alive**
+  while tmux insists `muster-1` already exists. Claimed musterd 0.11.0 on darwin/arm64 — an
+  author-editable field, not verified.
+
+  Code reading, not yet reproduced — a lead for whoever plans this, not a diagnosis:
+  - The tmux name is `muster-` + the session **id** (`internal/session/manager.go:252`,
+    `internal/tmux/tmux.go:108`), never the title, so renaming cannot dodge the collision.
+  - `session.id` is `INTEGER PRIMARY KEY` *without* `AUTOINCREMENT`
+    (`internal/store/migrations/0002_sessions.sql:19`), so SQLite reuses the rowid once the
+    highest row is gone — with no rows left, the next id is `1` again.
+  - Reconcile only **warns** about an unknown `muster-N` on the socket; it neither adopts nor
+    kills it (`internal/session/manager.go:396`), and tmux sessions outlive musterd — so an
+    orphaned `muster-1` is still there to collide with the reissued id.
+  - The launch path deletes the row on spawn failure (`internal/server/sessions.go:239`), which
+    frees id `1` for the next attempt to reuse. That would make this permanent rather than flaky,
+    which matches the report.
+
+  Candidate fixes (undecided): stop reusing ids, adopt-or-kill an unknown `muster-N` at reconcile,
+  or retry the spawn on the next free name.
+
 ## M5+ (v1.x, re-rank when reached)
 
 New post-v1 ideas go here.
