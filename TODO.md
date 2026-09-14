@@ -265,6 +265,10 @@ unless he re-ranks — don't re-sort this list.
   untested. Either add the assertion to `web/e2e/reader.spec.ts` or re-mark the case
   `→ untested: <reason>`.
 
+- [ ] **tmux: wrong-output** ([#26](https://github.com/Zalaras/muster/issues/26))
+  — reported error: "tmux new-session: exit status 1: duplicate session: muster-1". Entry generated from validated fields only
+  (reporter not trusted; body withheld) — read issue #26 for the detail.
+
 ## M5+ (v1.x, re-rank when reached)
 
 New post-v1 ideas go here.
