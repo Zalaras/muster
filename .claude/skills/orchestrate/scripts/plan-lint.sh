@@ -32,6 +32,24 @@ for ref in $(echo "$items" | grep -oE '→ *\**(E|W|D)[0-9]+' | grep -oE '(E|W|D
   grep -qx "$ref" <<<"$ids" || note "edge case cites $ref but no such criterion exists"
 done
 
+# 3a. A criterion cited by two edge cases is often right — one table-driven test covers a family
+#     of related cases — but it is also how an unchecked case hides: markdown-render-fixes' edge
+#     case 2 cited E14, whose text checks edge case 3 only, and the unpinned row cost a review
+#     cycle. Measured across the plan corpus, most duplicates are legitimate, so this prints a
+#     NOTE and never fails: re-read the criterion against each case, and write
+#     `→ E<n> (shared with edge case <m>)` to say you did and silence the note.
+dups="$(while IFS= read -r l; do
+  [[ -z "$l" ]] && continue
+  ref="$(echo "$l" | grep -oE '→ *\**(E|W|D)[0-9]+' | grep -oE '(E|W|D)[0-9]+')"
+  [[ -z "$ref" ]] && continue
+  echo "$l" | grep -qE "→ *\**$ref\**.*\(shared with edge case [0-9]+\)" && continue
+  echo "$ref"
+done <<<"$items" | sort | uniq -d)"
+while IFS= read -r dup; do
+  [[ -z "$dup" ]] && continue
+  echo "NOTE  criterion $dup is cited by more than one edge case — re-read $dup's text against each, then write '(shared with edge case <m>)' on each citation past the first"
+done <<<"$dups"
+
 # 4. A ```checks block exists and every line is `<ID> <command>` (shortcut-fixes).
 if ! grep -q '^```checks' "$P"; then
   note 'no ```checks block'

@@ -80,15 +80,16 @@ runs the full-suite sweep itself, so you are never spawned in validate mode for 
 
 **Collection is not validation.** A spec that collects cleanly can still contain locators that could never match anything. The pipeline's E2E Validate step exists to catch those, and you will be re-invoked for it.
 
-**Regression pins run live at authoring.** A test asserting *unchanged* behaviour — a REQ phrased
-"still", "unaffected", "does not", "exactly as today"; an INV source state; a control the Testable
-UI Elements table marks *Existing* — must be green against the current tree **before** the feature
-exists, so run it now. After collection is clean: `make web-build build` from the project root (that
-order — the binary embeds the dashboard), then only those tests: `npx playwright test <file> -g
-"<title>"` from `web/`. A red pin is a locator defect in *your* spec (the product has not changed
-yet); fix it before writing your log. Tests asserting *new* behaviour stay collection-only — do not
+**Regression pins run live at authoring.** A pin is any test that would pass against the current
+tree — including one whose only new-behaviour assertions are *absences* (`not.toHaveAttribute`,
+`toHaveCount(0)`), true before the feature exists. If you cannot name the assertion that must fail
+today, it is a pin: decide by running, not by reading. After collection is clean: `make web-build
+build` (that order — the binary embeds the dashboard), then only those tests: `npx playwright test
+<file> -g "<title>"` from `web/`. A red pin is a locator defect in *your* spec (the product has not
+changed yet); fix it before your log. Tests asserting *new* behaviour stay collection-only — do not
 run them. Mark each Tests-table row `ran-green-at-authoring` or `collection-only` and paste the
-filtered run's summary line; the verdict stays `authored` (kb:lesson/authored-tests-never-run-before-validate).
+filtered run's summary line; the verdict stays `authored`
+(kb:lesson/authored-tests-never-run-before-validate).
 
 ### `validate` — implementation and unit tests are complete
 

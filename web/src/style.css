@@ -760,7 +760,6 @@ body {
 }
 
 .docbar .chg {
-  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -809,8 +808,11 @@ body {
   color: var(--fg);
 }
 
-.arr[hidden] {
-  display: none;
+/* markdown-render-fixes REQ-2/REQ-5: the single nav-toggle button is the docbar's one
+ * auto-margined element, always present, so it pins flush right regardless of which of
+ * `.badge`/`.path`/`.chg` are in the DOM this pass — it no longer moves. */
+.docbar .arr {
+  margin-left: auto;
 }
 
 .reader-notice {
@@ -838,6 +840,14 @@ body {
   color: var(--fg);
   min-width: 0;
   min-height: 0;
+  transition: opacity 120ms ease;
+}
+
+/* markdown-render-fixes REQ-14: dims the reading area for a user-initiated open in
+ * flight; never replaces or moves anything, so a failed open just un-dims the document
+ * that was already there (kb:adr/reader-loading-cue-never-clears-a-rendered-body). */
+.md.loading {
+  opacity: 0.4;
 }
 
 .md h1,
@@ -1007,6 +1017,13 @@ body {
   flex: none;
 }
 
+/* markdown-render-fixes REQ-6: the plan header row is hidden whole on a dead session
+ * (no plan slot) rather than just its label — an author `display` rule on `.hd` would
+ * otherwise survive the `hidden` attribute (kb:lesson/display-rule-overrides-hidden-attribute). */
+.rnav .hd[hidden] {
+  display: none;
+}
+
 .rnav .hd.toggle {
   background: transparent;
   border: none;
@@ -1031,15 +1048,12 @@ body {
   display: none;
 }
 
-.rnav .plan-label[hidden] {
-  display: none;
-}
-
 .rnav .plan-slot[hidden] {
   display: none;
 }
 
-.rnav .f.none {
+.rnav .f.none,
+.rnav .f.loading-row {
   font-style: italic;
 }
 

@@ -56,28 +56,15 @@ export function popOutLink(region: Locator): Locator {
   return docBar(region).getByRole("link", { name: "pop out ↗" });
 }
 
-/** The nav-collapse arrow while the nav is open (text `›`, inside `.rnav .hd`). */
-export function navArrowHide(region: Locator): Locator {
-  return readerNav(region).getByRole("button", { name: "Hide files" });
-}
-
-/** The nav-collapse arrow while the nav is collapsed (text `‹`, last child of `.docbar`). */
-export function navArrowShow(region: Locator): Locator {
-  return docBar(region).getByRole("button", { name: "Show files" });
-}
-
-/** The two nav-arrow buttons by their permanent `data-role` (`web/index.html`,
- * `web/doc.html`), regardless of which one is currently `hidden`. `navArrowHide`/
- * `navArrowShow` above use `getByRole`, which excludes a `hidden` element from the
- * accessibility tree — so a handle for the counterpart arrow must be captured through
- * these before the toggle that unhides it (review cycle 4 Major 2: the arrow whose
- * activation focuses the *other* arrow, which is still hidden at capture time). */
-export function navArrowOpenNode(region: Locator): Locator {
-  return region.locator('[data-role="arr-open"]');
-}
-
-export function navArrowCollapsedNode(region: Locator): Locator {
-  return region.locator('[data-role="arr-collapsed"]');
+/** The single nav-toggle button (plan markdown-render-fixes REQ-1..REQ-3): last child of
+ * `.docbar`, present and unhidden in every state, `aria-label="File explorer"` throughout
+ * — its glyph (`›`/`‹`) and `aria-expanded` track the nav's own open/collapsed state, so
+ * this one locator covers both; there is no longer a second, hidden counterpart to
+ * disambiguate against. Replaces `navArrowHide`/`navArrowShow`/`navArrowOpenNode`/
+ * `navArrowCollapsedNode` from the markdown-viewing suite, which assumed the two-button
+ * pair this plan deletes. */
+export function navToggle(region: Locator): Locator {
+  return docBar(region).getByRole("button", { name: "File explorer" });
 }
 
 /** The reader's own `role="status"` line — the only one inside `.reader` (States). */
@@ -87,6 +74,14 @@ export function readerStatusLine(region: Locator): Locator {
 
 export function readerNav(region: Locator): Locator {
   return region.getByRole("navigation", { name: "Documents" });
+}
+
+/** The nav's plan header row (`[data-role="plan-header"]`) — `renderPlanSlot` sets its
+ * `hidden` attribute (the codebase's existing `.hidden =` idiom, never removal) when the
+ * plan slot is absent (REQ-6, a dead session), so `.toBeHidden()` is the "no empty padded
+ * strip" oracle, not `.toHaveCount(0)`. */
+export function planHeaderRow(region: Locator): Locator {
+  return readerNav(region).locator('[data-role="plan-header"]');
 }
 
 export function planSlotEntry(region: Locator): Locator {
@@ -115,6 +110,13 @@ export function filterBox(region: Locator): Locator {
  * `scrollTop` are the reachability oracle for a fixture that exceeds the nav's height. */
 export function navTreeSection(region: Locator): Locator {
   return readerNav(region).locator(".tree");
+}
+
+/** The single `loading…` row shown inside the tree while the listing is in flight
+ * (REQ-10) — a `div`, not a button (Testable UI Elements: "not focusable"), styled like
+ * `.f.none`. */
+export function treeLoadingRow(region: Locator): Locator {
+  return navTreeSection(region).getByText("loading…");
 }
 
 /** The outline's own scroll container (`.rnav .outline`), mirroring `navTreeSection`. */
@@ -159,6 +161,14 @@ export function renderedBody(region: Locator): Locator {
 
 export function bodyPlaceholder(region: Locator): Locator {
   return renderedBody(region).getByText("nothing open — pick a file");
+}
+
+/** `article.md > p.placeholder` while nothing has rendered yet (mount, or a user-initiated
+ * open with `bodyRendered` still false) — plan markdown-render-fixes REQ-9. Neither
+ * `article.md` nor `p` carries an implicit role (Testable UI Elements), so this is a text
+ * locator like `bodyPlaceholder` above, never a role query. */
+export function bodyLoadingPlaceholder(region: Locator): Locator {
+  return renderedBody(region).getByText("loading…");
 }
 
 /** `/doc.html?session=<id>&path=<abs>` (REQ-8) — for asserting a pop-out tab's URL, or
@@ -323,6 +333,48 @@ export async function buildConfinementFixtures(
   await writeFile(workshopSiblingPath, "# workshop\n");
 
   return { outsideFilePath, symlinkInsidePath, agentSiblingPath, workshopSiblingPath };
+}
+
+// ── Held responses (plan markdown-render-fixes Implementation Notes: copy
+// actions.spec.ts:703-756's real-response-held-behind-a-promise-gate shape for the
+// otherwise sub-second loading-cue window) ─────────────────────────────────────────────
+
+export interface HeldRoute {
+  /** Lets the held response through; call after asserting the interim loading state. */
+  release: () => void;
+}
+
+/** Holds the real `GET /api/sessions/{id}/reader/file` response behind a promise gate —
+ * delays the genuine round trip, fabricates nothing. Scoped to one session id so two
+ * tiles' file fetches (E15/INV-CUES-PER-INSTANCE) can be held independently. Must be
+ * called before the action that triggers the fetch (`page.route` only affects requests
+ * made after it is registered). */
+export async function holdReaderFileResponse(page: Page, id: number): Promise<HeldRoute> {
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(new RegExp(`/api/sessions/${id}/reader/file\\?`), async (route) => {
+    await gate;
+    await route.continue();
+  });
+  return { release };
+}
+
+/** Holds the real `GET /api/sessions/{id}/reader` (listing) response behind a promise
+ * gate — same shape as `holdReaderFileResponse`, for REQ-10's tree `loading…` row and
+ * REQ-9's body placeholder. The endpoint takes no query (Protocol Contract), so the
+ * pattern anchors on end-of-string. */
+export async function holdReaderListingResponse(page: Page, id: number): Promise<HeldRoute> {
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(new RegExp(`/api/sessions/${id}/reader$`), async (route) => {
+    await gate;
+    await route.continue();
+  });
+  return { release };
 }
 
 // ── HTTP oracles ──────────────────────────────────────────────────────────────────────────

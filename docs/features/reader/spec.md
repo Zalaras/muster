@@ -10,7 +10,7 @@ go: [internal/claudecode/plan*.go, internal/claudecode/files*.go, internal/serve
 web: [web/src/reader/**, web/src/features/reader.ts, web/src/render/reader.ts, web/src/doc.ts, web/doc.html]
 e2e: [web/e2e/reader.spec.ts, web/e2e/helpers/reader.ts]
 protocol: [sessions.reader, sessions.reader-file, ws.doc-changed, ws.session]
-refs: [plan:markdown-viewing, kb:fact/plan-file-path-in-transcript, kb:fact/plan-mode-hook-sequence, kb:adr/issue-preview-is-the-leak-check, kb:adr/surfaces-shell-control-in-tile-footer, kb:spec/surfaces, docs/design/design-system.md]
+refs: [plan:markdown-viewing, plan:markdown-render-fixes, kb:fact/plan-file-path-in-transcript, kb:fact/plan-mode-hook-sequence, kb:adr/issue-preview-is-the-leak-check, kb:adr/surfaces-shell-control-in-tile-footer, kb:spec/surfaces, docs/design/design-system.md]
 ---
 A session's third surface. The `claude | shell` segment in the Focus mainhead and every tile
 footer gains `docs`; selecting it replaces the pane with a reader for the plan the session wrote
@@ -46,14 +46,21 @@ nothing it serves (kb:adr/issue-preview-is-the-leak-check).
 
 ## The reader
 
-Bar (plan badge, basename, absolute path, freshness cue, pop-out link, nav arrow), sanitized GFM
+Bar (plan badge, basename, absolute path, freshness cue, pop-out link, nav toggle), sanitized GFM
 body on the `--well` ground, and a right-hand nav: the plan slot pinned on top, a filterable tree
 of files with folders collapsed and counted, and an outline of the open file's headings with
-scroll-spy. Rendering is in the browser with marked and DOMPurify, pinned exactly; the sanitized
+scroll-spy. The nav toggle is one button, last in the bar and pinned to its right edge in every
+state (kb:adr/reader-nav-toggle-is-one-fixed-button); it is never hidden, reports the nav on
+`aria-expanded`, and is the bar's only auto margin, so nothing re-aligns when the freshness cue
+comes and goes. A user-initiated open greys the reading area out and names the file on the status
+line rather than replacing the body, so a failed open keeps the last render; the body placeholder
+carries `loading…` only while nothing has rendered, the tree carries a `loading…` row while the
+listing is in flight, and a re-fetch of the file you are already reading is silent
+(kb:adr/reader-loading-cue-never-clears-a-rendered-body). Rendering is in the browser with marked and DOMPurify, pinned exactly; the sanitized
 output enters the DOM as a fragment, never through `innerHTML`. Last open file and cleared dots
 are remembered per session in the browser; the pop-out (`/doc.html`) is a second page sharing the
 component, the socket client and that memory. Compact in a tile; nav collapsed at 3×2. Works on a
-dead session with the plan slot removed.
+dead session with the plan slot — and the nav's plan header row — removed.
 
 ## Does not
 

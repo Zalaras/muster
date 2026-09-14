@@ -1378,6 +1378,22 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
   above it uses a `cleaned` guard plus `if (!cleaned) await cleanup()` in `finally` — use
   the same shape.
 
+- [x] **Jumping file explorer arrow** ([#24](https://github.com/Zalaras/muster/issues/24))
+  — when minimizing the file explorer, the arrow jumps to next to the path instead of staying
+  on the right; jarring, and the arrow is lost. ✅ done 2026-09-14 (plan `markdown-render-fixes`,
+  via `/orchestrate`; approved review cycle 2). One never-hidden nav toggle, last in the docbar
+  and holding the bar's only auto margin, replaced the two-position arrow pair
+  (kb:adr/reader-nav-toggle-is-one-fixed-button); measured right edge identical open and
+  collapsed.
+
+- [x] **No loading state for markdown files** ([#25](https://github.com/Zalaras/muster/issues/25))
+  — slight delay loading a markdown file with no loading state; wants a loading spinner or
+  similar. ✅ done 2026-09-14 (plan `markdown-render-fixes`, via `/orchestrate`; approved review
+  cycle 2). A user-initiated open moves the bar synchronously, greys the reading area out
+  (`aria-busy`) and names the file on the status line, with a `loading…` body placeholder while
+  nothing has rendered and a `loading…` tree row while the listing is in flight; re-fetches of the
+  open file stay silent (kb:adr/reader-loading-cue-never-clears-a-rendered-body).
+
 ## M5+ (v1.x, re-rank when reached)
 <!-- kb: adr/connection-installed-claude-classified-never-refused, adr/issue-disabled-button-affordance-deferred -->
 

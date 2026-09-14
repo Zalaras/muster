@@ -80,13 +80,18 @@ def print_timings(s):
 
 def close_attempt(s, step):
     """Stamp step_finished_at[step] and close the step's open attempt (or record a finish-only
-    attempt when no `start` was called — the fallback the timings table marks `~`)."""
+    attempt when no `start` was called — the fallback the timings table marks `~`).
+
+    Idempotent: `finish` followed by `done` on the same attempt re-stamps the finish time and adds
+    no row. It used to append a second `{"start": None}` row, and markdown-render-fixes' cost table
+    carried four phantom ~0m00s attempts because of it — per-step wall-clock is the one number a
+    retro cannot reconstruct afterwards, so this must not invent rows."""
     ts = now()
     s.setdefault("step_finished_at", {})[step] = ts
     lst = s.setdefault("step_attempts", {}).setdefault(step, [])
     if lst and lst[-1].get("finish") is None:
         lst[-1]["finish"] = ts
-    else:
+    elif not lst:
         lst.append({"start": None, "finish": ts})
 
 def stamp_plan_status(plan_dir, value):

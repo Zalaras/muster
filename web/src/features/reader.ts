@@ -15,6 +15,7 @@ import type { DocChanged, Session } from "../protocol";
 import { changedText } from "../reader/freshness";
 import { renderMarkdown, type OutlineEntry } from "../reader/markdown";
 import { isDirty, loadMemory, saveMemory, withOpened, type ReaderMemory } from "../reader/memory";
+import { basename, loadingText } from "../reader/paths";
 import { buildTree, filterTree, flattenTree, type FlatTreeEntry } from "../reader/tree";
 import {
   attachScrollSpy,
@@ -45,15 +46,27 @@ export interface ReaderHandle {
   rootFor(id: number): HTMLElement | null;
 }
 
-function basename(path: string): string {
-  const parts = path.split("/");
-  return parts[parts.length - 1] || path;
-}
-
 const UNKNOWN_SESSION_TEXT = "unknown session";
 const FILE_GONE_PREFIX = "file no longer exists — ";
 const UNREACHABLE_TEXT = "musterd unreachable — showing last render";
 const PLACEHOLDER_TEXT = "nothing open — pick a file";
+
+/** Status-line text precedence — the one place it's decided (W9), so `render` and every
+ * fetch outcome in `ReaderInstance` never duplicate the ordering: daemon-down always wins
+ * (design-system §6.7, REQ-15); otherwise a user-initiated open in flight names itself
+ * (REQ-8) but only once something is actually on screen to grey out — while nothing has
+ * rendered yet the body's own `loading…` placeholder is the cue instead (REQ-9), so the
+ * status line stays whatever it already was; otherwise the last fetch's own outcome. */
+function deriveNotice(
+  connected: boolean,
+  loadingPath: string | null,
+  bodyRendered: boolean,
+  noticeText: string | null,
+): string | null {
+  if (!connected) return UNREACHABLE_TEXT;
+  if (loadingPath !== null && bodyRendered) return loadingText(loadingPath);
+  return noticeText;
+}
 
 class ReaderInstance {
   private readonly sessionId: number;
@@ -70,6 +83,12 @@ class ReaderInstance {
   private readonly requestRender: () => void;
   private memory: ReaderMemory;
   private listing: ReaderListing | null = null;
+  /** review markdown-render-fixes cycle-1 Major 2: whether the listing fetch itself is
+   * still outstanding — distinct from `listing === null`, which also stays true forever
+   * after a *failed* listing fetch (`listing` is never assigned on that path). Cleared on
+   * every exit from `loadListing` so the tree's `loading…` row (driven by this, not by
+   * `listing`) disappears once the request settles either way. */
+  private listingLoading = true;
   /** Absolute path -> the latest `writtenAt`/`docChanged.at` known for it. Seeded from the
    * listing fetch, then kept current by `docChanged` alone — REQ-19's "no polling": the
    * listing itself is never re-fetched after mount. */
@@ -83,6 +102,14 @@ class ReaderInstance {
   private outlineFolded = false;
   private currentHeadingId: string | null = null;
   private noticeText: string | null = null;
+  /** The absolute path of a user-initiated open in flight; `null` otherwise. Drives both
+   * the status-line text and the grey-out (`render`'s `bodyLoading`), so the two can never
+   * disagree about whether something is loading. */
+  private loadingPath: string | null = null;
+  /** Set `true` the first time a document's fragment enters the body; never reset — once
+   * something has rendered, a later failed open keeps it rather than falling back to the
+   * placeholder (REQ-12). */
+  private bodyRendered = false;
   private disposeScrollSpy: (() => void) | null = null;
   private fetchSeq = 0;
   private disposed = false;
@@ -117,7 +144,7 @@ class ReaderInstance {
     // reconcile paths — see `initReader`) sets the `compact` class from its own
     // parameter; nothing here needs to guess a value that will be overwritten before
     // the next paint.
-    setReaderBody(this.refs, { kind: "placeholder", text: PLACEHOLDER_TEXT });
+    setReaderBody(this.refs, { kind: "placeholder", text: loadingText(null) });
     this.disposeScrollSpy = attachScrollSpy(
       this.refs.body,
       () => Array.from(this.refs.body.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6")),
@@ -148,12 +175,17 @@ class ReaderInstance {
     const seq = ++this.fetchSeq;
     const result = await fetchReaderListing(this.sessionId);
     if (this.disposed || seq !== this.fetchSeq) return;
+    this.listingLoading = false;
     if (!result.ok) {
       if (result.error.code === "unknown_session") {
         this.noticeText = UNKNOWN_SESSION_TEXT;
       } else {
         this.noticeText = result.error.message;
       }
+      // REQ-9: the listing itself failed, so nothing will ever open — settle the body
+      // rather than leaving it at the constructor's `loading…` forever.
+      if (!this.bodyRendered)
+        setReaderBody(this.refs, { kind: "placeholder", text: PLACEHOLDER_TEXT });
       this.requestRender();
       return;
     }
@@ -170,27 +202,60 @@ class ReaderInstance {
 
   /** REQ-7/Views > Pop-out: memory wins when set; otherwise the plan opens iff it
    * resolves; otherwise nothing opens. The pop-out's own `?path=` query overrides both
-   * (Views: "for `?session=<id>&path=<abs>`"). */
+   * (Views: "for `?session=<id>&path=<abs>`"). REQ-9: when nothing opens, the body must
+   * settle on `PLACEHOLDER_TEXT` rather than staying at the constructor's `loading…`. */
   private decideInitialOpen(listing: ReaderListing): void {
     if (this.isStandalone) {
-      if (this.standalonePath) void this.openFile(this.standalonePath);
+      if (this.standalonePath) void this.openFile(this.standalonePath, { showLoading: true });
+      else setReaderBody(this.refs, { kind: "placeholder", text: PLACEHOLDER_TEXT });
       return;
     }
     if (this.memory.openPath) {
-      void this.openFile(this.memory.openPath);
+      void this.openFile(this.memory.openPath, { showLoading: true });
       return;
     }
-    if (listing.plan?.exists) void this.openFile(listing.plan.path);
+    if (listing.plan?.exists) {
+      void this.openFile(listing.plan.path, { showLoading: true });
+      return;
+    }
+    setReaderBody(this.refs, { kind: "placeholder", text: PLACEHOLDER_TEXT });
   }
 
-  private async openFile(absPath: string): Promise<void> {
+  /** `showLoading` distinguishes a user-initiated open (REQ-7/REQ-8/REQ-14: the bar and
+   * `aria-current` move synchronously, before the await, and the reading area greys out)
+   * from a silent re-fetch of the already-open file (REQ-11: `docChanged`, window focus,
+   * post-reconnect `snapshot` — no cue, ever). Every resolution path clears `loadingPath`
+   * behind the existing `disposed`/`fetchSeq`/`openPath` guard (REQ-12): a fetch superseded
+   * by a newer open never reaches that line, so it can't clear a newer load's cue (edge
+   * case 1). */
+  private async openFile(absPath: string, opts: { showLoading: boolean }): Promise<void> {
     const seq = ++this.fetchSeq;
     this.openPath = absPath;
+    if (opts.showLoading) {
+      this.loadingPath = absPath;
+      this.noticeText = null;
+      this.outline = [];
+      this.currentHeadingId = null;
+      // review markdown-render-fixes cycle-1 Major 1: nothing has rendered yet, so the
+      // status line's own cue is suppressed (deriveNotice) — the body must carry the
+      // loading cue itself instead of leaving the constructor/failed-open placeholder
+      // text on screen while a fetch the bar already names is in flight (plan § The
+      // loading cues table, row 2).
+      if (!this.bodyRendered)
+        setReaderBody(this.refs, { kind: "placeholder", text: loadingText(null) });
+      this.requestRender();
+    }
     const result = await fetchReaderFile(this.sessionId, absPath);
     if (this.disposed || seq !== this.fetchSeq || this.openPath !== absPath) return;
+    this.loadingPath = null;
     if (!result.ok) {
       this.noticeText =
         result.error.code === "not_found" ? `${FILE_GONE_PREFIX}${absPath}` : result.error.message;
+      // REQ-12: keep the last render on a failed open once something has rendered
+      // (E25/E26's existing contract); otherwise settle on the placeholder rather than
+      // leaving the body stuck at `loading…`.
+      if (!this.bodyRendered)
+        setReaderBody(this.refs, { kind: "placeholder", text: PLACEHOLDER_TEXT });
       this.requestRender();
       return;
     }
@@ -198,6 +263,7 @@ class ReaderInstance {
     const { fragment, outline } = renderMarkdown(result.value);
     this.outline = outline;
     this.currentHeadingId = outline[0]?.id ?? null;
+    this.bodyRendered = true;
     setReaderBody(this.refs, { kind: "fragment", fragment });
     const writtenAt = this.writtenAt.get(absPath) ?? null;
     this.memory = withOpened(this.memory, absPath, writtenAt);
@@ -207,13 +273,13 @@ class ReaderInstance {
 
   private selectRelative(relPath: string): void {
     if (!this.listing) return;
-    void this.openFile(`${this.listing.directory}/${relPath}`);
+    void this.openFile(`${this.listing.directory}/${relPath}`, { showLoading: true });
   }
 
   private selectPlan(): void {
     const plan = this.listing?.plan;
     if (!plan) return;
-    void this.openFile(plan.path);
+    void this.openFile(plan.path, { showLoading: true });
   }
 
   private toggleFolder(path: string): void {
@@ -250,26 +316,27 @@ class ReaderInstance {
     this.requestRender();
   }
 
-  /** REQ-18: a routed write for the open file re-fetches and re-renders it; any other
-   * in-scope path just updates the dot via the `writtenAt` overlay (no re-listing). */
+  /** REQ-18/REQ-11: a routed write for the open file re-fetches and re-renders it
+   * silently (`showLoading: false` — INV-REFETCH-NEVER-BLANKS); any other in-scope path
+   * just updates the dot via the `writtenAt` overlay (no re-listing). */
   handleDocChanged(msg: DocChanged): void {
     this.writtenAt.set(msg.path, msg.at);
-    if (msg.path === this.openPath) void this.openFile(msg.path);
+    if (msg.path === this.openPath) void this.openFile(msg.path, { showLoading: false });
     else this.requestRender();
   }
 
-  /** REQ-19: re-fetches the open file on a `snapshot` (post-reconnect) — `initReader`'s
-   * own `app.on("snapshot", ...)` below calls this for every mounted instance. Mount
-   * itself already fetches via `loadListing`+`decideInitialOpen`, so this only matters
-   * for a later reconnect while the same instance stays mounted. */
+  /** REQ-19/REQ-11: re-fetches the open file on a `snapshot` (post-reconnect), silently —
+   * `initReader`'s own `app.on("snapshot", ...)` below calls this for every mounted
+   * instance. Mount itself already fetches via `loadListing`+`decideInitialOpen`, so this
+   * only matters for a later reconnect while the same instance stays mounted. */
   refetchOpenFile(): void {
-    if (this.openPath) void this.openFile(this.openPath);
+    if (this.openPath) void this.openFile(this.openPath, { showLoading: false });
   }
 
-  /** REQ-19: window `focus` only re-fetches when the open file is the plan. */
+  /** REQ-19/REQ-11: window `focus` only re-fetches when the open file is the plan, silently. */
   handleWindowFocus(): void {
     if (this.openPath && this.listing?.plan?.path === this.openPath)
-      void this.openFile(this.openPath);
+      void this.openFile(this.openPath, { showLoading: false });
   }
 
   /** REQ-flow-4: a plan that appears after mount (ExitPlanMode's `sessionUpsert`) opens
@@ -282,7 +349,7 @@ class ReaderInstance {
   private maybeAutoOpenPlan(session: Session | null): void {
     if (this.isStandalone || this.listing === null || this.openPath !== null) return;
     const plan = session?.plan;
-    if (plan?.exists) void this.openFile(plan.path);
+    if (plan?.exists) void this.openFile(plan.path, { showLoading: true });
   }
 
   private buildPlanSlot(session: Session | null): PlanSlotVM {
@@ -347,7 +414,7 @@ class ReaderInstance {
     const listing = this.listing;
     // Design-system §6.7: daemon-down is loud and wins over whatever notice was showing —
     // the render underneath (last content, or the placeholder) is left exactly as-is.
-    const notice = !connected ? UNREACHABLE_TEXT : this.noticeText;
+    const notice = deriveNotice(connected, this.loadingPath, this.bodyRendered, this.noticeText);
 
     const vm: ReaderVM = {
       title: session?.title ?? null,
@@ -366,10 +433,12 @@ class ReaderInstance {
             : null,
       },
       tree: this.buildTreeVM(),
+      treeLoading: this.listingLoading,
       outline: this.outline.map((entry) => ({
         ...entry,
         current: entry.id === this.currentHeadingId,
       })),
+      bodyLoading: this.loadingPath !== null,
     };
 
     renderReader(this.refs, vm);

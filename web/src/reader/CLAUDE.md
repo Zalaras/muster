@@ -2,8 +2,9 @@
 
 **Owns**: everything the reader derives without touching the DOM — sanitized markdown
 rendering + outline extraction (`markdown.ts`), heading-id slugging (`slug.ts`), the nav
-tree (`tree.ts`), the freshness cue's text (`freshness.ts`), and the browser-side "last
-open file / which writes are acknowledged" memory (`memory.ts`). `render/reader.ts` draws
+tree (`tree.ts`), the freshness cue's text (`freshness.ts`), the browser-side "last
+open file / which writes are acknowledged" memory (`memory.ts`), and basename plus the
+loading-cue status text (`paths.ts`). `render/reader.ts` draws
 the results; `features/reader.ts` owns the socket, the fetches and which session gets a
 mounted instance. **Features**: reader.
 

@@ -1,0 +1,105 @@
+{
+  "plan_name": "markdown-render-fixes",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 1,
+    "daemon-impl": 0,
+    "web-impl": 0,
+    "daemon-tests": 0,
+    "web-tests": 0,
+    "e2e-validate": 0,
+    "review": 1
+  },
+  "completed_steps": [
+    "e2e-specs",
+    "web-impl",
+    "web-tests",
+    "e2e-validate",
+    "review"
+  ],
+  "step_started_at": {
+    "e2e-specs": "2026-09-14T13:41:20Z",
+    "web-impl": "2026-09-14T13:35:24Z",
+    "web-tests": "2026-09-14T13:18:40Z",
+    "e2e-validate": "2026-09-14T13:20:50Z",
+    "review": "2026-09-14T13:53:51Z"
+  },
+  "step_finished_at": {
+    "e2e-specs": "2026-09-14T13:50:26Z",
+    "web-impl": "2026-09-14T13:39:49Z",
+    "web-tests": "2026-09-14T13:20:44Z",
+    "e2e-validate": "2026-09-14T13:24:29Z",
+    "review": "2026-09-14T14:02:10Z"
+  },
+  "step_attempts": {
+    "e2e-specs": [
+      {
+        "start": "2026-09-14T12:41:08Z",
+        "finish": "2026-09-14T12:55:17Z"
+      },
+      {
+        "start": null,
+        "finish": "2026-09-14T12:59:53Z"
+      },
+      {
+        "start": "2026-09-14T13:41:20Z",
+        "finish": "2026-09-14T13:50:26Z"
+      }
+    ],
+    "web-impl": [
+      {
+        "start": "2026-09-14T12:59:54Z",
+        "finish": "2026-09-14T13:18:39Z"
+      },
+      {
+        "start": null,
+        "finish": "2026-09-14T13:18:39Z"
+      },
+      {
+        "start": "2026-09-14T13:35:24Z",
+        "finish": "2026-09-14T13:39:49Z"
+      }
+    ],
+    "web-tests": [
+      {
+        "start": "2026-09-14T13:18:40Z",
+        "finish": "2026-09-14T13:20:44Z"
+      },
+      {
+        "start": null,
+        "finish": "2026-09-14T13:20:44Z"
+      }
+    ],
+    "e2e-validate": [
+      {
+        "start": "2026-09-14T13:20:50Z",
+        "finish": "2026-09-14T13:24:29Z"
+      },
+      {
+        "start": null,
+        "finish": "2026-09-14T13:24:29Z"
+      }
+    ],
+    "review": [
+      {
+        "start": "2026-09-14T13:24:29Z",
+        "finish": "2026-09-14T13:35:24Z"
+      },
+      {
+        "start": "2026-09-14T13:53:51Z",
+        "finish": "2026-09-14T14:02:10Z"
+      },
+      {
+        "start": null,
+        "finish": "2026-09-14T14:02:10Z"
+      }
+    ]
+  },
+  "started_at": "2026-09-14T12:41:03Z",
+  "updated_at": "2026-09-14T14:03:20Z",
+  "closes_issues": [
+    24,
+    25
+  ]
+}

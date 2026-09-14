@@ -14,6 +14,7 @@
 // structurally required (an expand/collapse, a filter, or the file listing changing under
 // a focused button), focus is restored to the equivalent node by its stable key (`path` /
 // `headingId`) after the rebuild.
+import { loadingText } from "../reader/paths";
 import type { FlatTreeEntry } from "../reader/tree";
 
 export interface OutlineEntryVM {
@@ -53,7 +54,13 @@ export interface ReaderVM {
   /** `null` before the listing arrives — the count element is absent, never `0 .md`. */
   filesHeader: { dir: string; count: string | null };
   tree: readonly FlatTreeEntry[];
+  /** REQ-10: the listing fetch hasn't resolved yet — the tree shows one `loading…` row
+   * instead of `tree`'s (necessarily empty) entries. */
+  treeLoading: boolean;
   outline: readonly OutlineEntryVM[];
+  /** REQ-14: a user-initiated open is in flight — `article.md` dims and carries
+   * `aria-busy`. */
+  bodyLoading: boolean;
 }
 
 export type ReaderBody =
@@ -83,13 +90,13 @@ export interface ReaderRefs {
   chg: HTMLElement;
   chgText: HTMLElement;
   popOut: HTMLAnchorElement;
-  collapsedArrow: HTMLButtonElement;
+  /** The single nav-toggle button (markdown-render-fixes REQ-1..REQ-3) — last child of
+   * `.docbar`, never `hidden`; its glyph and `aria-expanded` track the nav's own state. */
+  navToggle: HTMLButtonElement;
   notice: HTMLElement;
   body: HTMLElement;
   nav: HTMLElement;
   planHeader: HTMLElement;
-  planLabel: HTMLElement;
-  openArrow: HTMLButtonElement;
   planSlot: HTMLElement;
   filesToggle: HTMLButtonElement;
   filesDir: HTMLElement;
@@ -122,13 +129,11 @@ export function buildReader(template: HTMLTemplateElement, callbacks: ReaderCall
     chg: requireEl(root, ".docbar > .chg"),
     chgText: requireEl(root, ".chgtext"),
     popOut: requireEl<HTMLAnchorElement>(root, ".docbar > .ib"),
-    collapsedArrow: requireEl<HTMLButtonElement>(root, '[data-role="arr-collapsed"]'),
+    navToggle: requireEl<HTMLButtonElement>(root, '[data-role="arr-nav"]'),
     notice: requireEl(root, ".reader-notice"),
     body: requireEl(root, "article.md"),
     nav: requireEl(root, "nav.rnav"),
     planHeader: requireEl(root, '[data-role="plan-header"]'),
-    planLabel: requireEl(root, ".plan-label"),
-    openArrow: requireEl<HTMLButtonElement>(root, '[data-role="arr-open"]'),
     planSlot: requireEl(root, '[data-role="plan-slot"]'),
     filesToggle: requireEl<HTMLButtonElement>(root, '[data-role="files-toggle"]'),
     filesDir: requireEl(root, '[data-role="files-toggle"] .dir'),
@@ -139,8 +144,7 @@ export function buildReader(template: HTMLTemplateElement, callbacks: ReaderCall
     callbacks,
   };
 
-  refs.collapsedArrow.addEventListener("click", callbacks.onToggleNav);
-  refs.openArrow.addEventListener("click", callbacks.onToggleNav);
+  refs.navToggle.addEventListener("click", callbacks.onToggleNav);
   refs.filesToggle.addEventListener("click", callbacks.onToggleFiles);
   refs.outlineToggle.addEventListener("click", callbacks.onToggleOutline);
   refs.filter.addEventListener("input", () => callbacks.onFilterInput(refs.filter.value));
@@ -203,10 +207,10 @@ function applyPlanAttrs(btn: HTMLButtonElement, vm: Extract<PlanSlotVM, { kind: 
  * or a `docChanged` toggling its dirty dot updates the existing button in place rather
  * than destroying and rebuilding it. */
 function renderPlanSlot(refs: ReaderRefs, vm: PlanSlotVM): void {
-  // REQ-3: a dead session drops the plan slot's content — its label and entry — but
-  // keeps `planHeader`'s arrow button visible (the nav's own collapse control, unrelated
-  // to plan liveness) so the nav can still be hidden/shown while dead.
-  refs.planLabel.hidden = vm.kind === "absent";
+  // REQ-6: a dead session drops the plan header row whole (`.hd` plus its label), not
+  // just the label — no empty padded strip at the top of the nav. The nav toggle now
+  // lives in the docbar, unaffected by plan liveness (REQ-1).
+  refs.planHeader.hidden = vm.kind === "absent";
   refs.planSlot.hidden = vm.kind === "absent";
 
   const structSig = vm.kind === "file" ? `file:${vm.basename}` : vm.kind;
@@ -333,13 +337,29 @@ function applyTreeAttrs(container: HTMLElement, entries: readonly FlatTreeEntry[
   });
 }
 
-function renderTree(refs: ReaderRefs, entries: readonly FlatTreeEntry[]): void {
-  const structSig = JSON.stringify(entries.map(treeStructOf));
+/** REQ-10: a single `loading…` row, shaped like `.f.none` (`renderPlanSlot`'s "no plan
+ * yet" placeholder) but its own class rather than a literal `.f.none` — the plan slot's
+ * "no plan yet" can render before the listing fetch resolves (it reads `session.plan`,
+ * not `this.listing`), so a `.rnav .f.none` locator would otherwise match both at once.
+ * Not a button (Testable UI Elements: not focusable). */
+function buildTreeLoadingRow(): HTMLDivElement {
+  const row = document.createElement("div");
+  row.className = "f loading-row";
+  row.textContent = loadingText(null);
+  return row;
+}
+
+function renderTree(refs: ReaderRefs, entries: readonly FlatTreeEntry[], loading: boolean): void {
+  const structSig = loading ? "loading" : JSON.stringify(entries.map(treeStructOf));
   if (refs.tree.dataset["structSig"] === structSig) {
-    applyTreeAttrs(refs.tree, entries);
+    if (!loading) applyTreeAttrs(refs.tree, entries);
     return;
   }
   refs.tree.dataset["structSig"] = structSig;
+  if (loading) {
+    refs.tree.replaceChildren(buildTreeLoadingRow());
+    return;
+  }
   const focusedPath = focusedKeyWithin(refs.tree, "path");
   refs.tree.replaceChildren(...entries.map((entry) => buildTreeButton(refs, entry)));
   restoreFocusByKey(refs.tree, "path", focusedPath);
@@ -384,30 +404,6 @@ function renderOutline(refs: ReaderRefs, entries: readonly OutlineEntryVM[]): vo
   restoreFocusByKey(refs.outline, "headingId", focusedId);
 }
 
-/** The nav arrow pair (review markdown-viewing cycle-4 Major 1) is one control that
- * changes position — `openArrow` inside `nav.rnav`, `collapsedArrow` in `.docbar` — and
- * exactly one is unhidden at a time. Toggling it hides whichever one is currently shown,
- * which drops focus to `BODY` when that's the element the user just pressed: the same
- * defect class as cycle-3 Major 1 (a control the user activates loses focus), reached by
- * hiding rather than rebuilding, which is why the "never rebuilt" sweep missed it.
- * `document.activeElement` must be read *before* either `hidden` flip runs (both branches
- * execute synchronously inside the same click/Enter handler — `app.render()` is
- * synchronous — so it is still whichever arrow the user just activated), and `.focus()` on
- * the counterpart must run *after* its `hidden` flip clears (focusing a still-hidden
- * element is a no-op) — so this returns a thunk `renderReader` calls once both flips are
- * applied, rather than doing the flips itself. Scoped to exactly this pair so an unrelated
- * render pass, or a toggle whose focus was never on an arrow, never focus-steals. */
-function prepareNavArrowFocusRestore(refs: ReaderRefs, navCollapsed: boolean): () => void {
-  const activeBeforeToggle = document.activeElement;
-  if (navCollapsed && activeBeforeToggle === refs.openArrow) {
-    return () => refs.collapsedArrow.focus();
-  }
-  if (!navCollapsed && activeBeforeToggle === refs.collapsedArrow) {
-    return () => refs.openArrow.focus();
-  }
-  return () => {};
-}
-
 /** Every render pass — cheap to call on the once-a-second tick too, since the tree and
  * outline sub-builders above are signature-memoized no-ops when nothing changed. Never
  * touches `refs.filter.value` (the user's own typing) or `refs.body` (a distinct fetch
@@ -419,10 +415,13 @@ export function renderReader(refs: ReaderRefs, vm: ReaderVM): void {
   refs.notice.hidden = vm.notice === null;
   refs.notice.textContent = vm.notice ?? "";
 
-  const restoreNavArrowFocus = prepareNavArrowFocusRestore(refs, vm.navCollapsed);
+  // REQ-1..REQ-3: one button, never hidden — `nav.rnav` itself is the only thing this
+  // toggle hides, so the button is never rebuilt or removed and keeps focus across a
+  // toggle with no restore dance needed (review markdown-viewing cycle-4 Major 1 is moot
+  // for a control that can never lose its node).
   refs.nav.hidden = vm.navCollapsed;
-  refs.collapsedArrow.hidden = !vm.navCollapsed;
-  restoreNavArrowFocus();
+  refs.navToggle.setAttribute("aria-expanded", String(!vm.navCollapsed));
+  refs.navToggle.textContent = vm.navCollapsed ? "‹" : "›";
 
   renderPlanSlot(refs, vm.planSlot);
 
@@ -439,11 +438,18 @@ export function renderReader(refs: ReaderRefs, vm: ReaderVM): void {
   }
   refs.filter.hidden = vm.filesFolded;
   refs.tree.hidden = vm.filesFolded;
-  renderTree(refs, vm.tree);
+  renderTree(refs, vm.tree, vm.treeLoading);
 
   refs.outlineToggle.setAttribute("aria-expanded", String(!vm.outlineFolded));
   refs.outline.hidden = vm.outlineFolded;
   renderOutline(refs, vm.outline);
+
+  // REQ-14: `aria-busy` is removed rather than set to `"false"` when clear, matching how
+  // `aria-current` is handled elsewhere in this module — the attribute's presence is the
+  // durable oracle, never a computed style mid-transition.
+  refs.body.classList.toggle("loading", vm.bodyLoading);
+  if (vm.bodyLoading) refs.body.setAttribute("aria-busy", "true");
+  else refs.body.removeAttribute("aria-busy");
 }
 
 /** Sets the reader body — only ever called when the open file's rendered content

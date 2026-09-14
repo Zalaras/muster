@@ -19,7 +19,7 @@
 - `reader.ts`'s tree/outline rebuild only when their flattened content's signature (stashed on the container's `dataset`) actually changes, so the once-a-second tick never steals focus from a tree button or the filter box.
 
 <!-- kb:trailer -->
-<!-- kb:hash a95ff7d367ccdbf0 -->
+<!-- kb:hash 68d7f3fbde374983 -->
 - **actions** — End, Resume and Remove a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
 - **drop** — File drop pastes the original on-disk path into the pane. → `docs/features/drop/INDEX.md`
@@ -31,5 +31,5 @@
 - **tiles** — Tiles view: slot-stable grid, strip, tile drag, density, snapshot-not-live rule. → `docs/features/tiles/INDEX.md`
 - **update** — Release check, minisign-verified apply, in-place restart with sessions re-adopted. → `docs/features/update/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
-- 22 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 24 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

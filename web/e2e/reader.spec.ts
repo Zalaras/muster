@@ -12,6 +12,8 @@ import {
   barFileName,
   barPath,
   barPlanBadge,
+  bodyLoadingPlaceholder,
+  bodyPlaceholder,
   buildConfinementFixtures,
   buildLargeMarkdownFixtureTree,
   buildMarkdownFixtureTree,
@@ -24,15 +26,15 @@ import {
   folderEntry,
   freshnessCue,
   getReaderFile,
-  navArrowCollapsedNode,
-  navArrowHide,
-  navArrowOpenNode,
-  navArrowShow,
+  holdReaderFileResponse,
+  holdReaderListingResponse,
   navOutlineSection,
+  navToggle,
   navTreeSection,
   noPlanText,
   outlineEntry,
   outlineHeaderToggle,
+  planHeaderRow,
   planSlotEntry,
   popOutLink,
   readerNav,
@@ -41,6 +43,7 @@ import {
   readerStatusLine,
   renderedBody,
   ReaderRequestTracker,
+  treeLoadingRow,
   writeFakeTranscript,
 } from "./helpers/reader";
 import { launchSession, scratchDirectory } from "./helpers/session";
@@ -65,6 +68,15 @@ import { liveTileById, TerminalSocketTracker, terminalRegion } from "./helpers/t
 // ever runs here (CLAUDE.md hard rule). The reader feature does not exist yet: every test
 // below is new-behaviour (no REQ/INV here pins pre-existing behaviour), so this file's
 // authoring-mode gate is collection only (`npx playwright test --list`), never a live run.
+//
+// Plan markdown-render-fixes (this plan's REQ-1..REQ-17, INV-ONE-ARROW..INV-CUES-PER-
+// INSTANCE, acceptance E1-E16, reusing markdown-viewing's fixture plan and `daemon`
+// fixture rationale above) replaces the two-arrow pair (`navArrowHide`/`navArrowShow`)
+// with the single never-hidden `navToggle` and adds the loading cues below — its own
+// tests are grouped together, appended after the markdown-viewing tests they don't
+// touch. Every test this plan added or edited is itself new-behaviour against the
+// single-button/loading-cue design that does not exist in the tree yet, so it carries the
+// same collection-only gate as the rest of this file; none is a regression pin.
 
 test("Focus mainhead gains a docs segment; selecting it shows the reader and hides the Claude terminal, and selecting claude restores it (E1, REQ-1, REQ-2)", async ({
   page,
@@ -630,7 +642,7 @@ test("a repeated heading gets deduplicated ids so each outline entry scrolls to 
   }
 });
 
-test("the Files and Outline header toggles fold independently, and the nav arrow hides and restores the whole nav (E18, REQ-14, REQ-4)", async ({
+test("the Files and Outline header toggles fold independently, and the nav toggle hides and restores the whole nav (E18, REQ-14, REQ-4; markdown-render-fixes REQ-1..REQ-3)", async ({
   page,
   daemon,
 }) => {
@@ -649,12 +661,22 @@ test("the Files and Outline header toggles fold independently, and the nav arrow
     await expect(fileEntry(region, "TODO.md")).toHaveCount(0);
     await expect(outlineHeaderToggle(region)).toHaveAttribute("aria-expanded", "true");
 
-    await navArrowHide(region).click();
+    // plan markdown-render-fixes REQ-1..REQ-3: one button, never hidden, whose glyph and
+    // aria-expanded track the nav's own state — replaces the markdown-viewing pair this
+    // test used to drive as navArrowHide/navArrowShow.
+    const toggle = navToggle(region);
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await expect(toggle).toHaveText("›");
+    await toggle.click();
     await expect(readerNav(region)).toHaveCount(0);
-    await expect(navArrowShow(region)).toBeVisible();
+    await expect(toggle).toBeVisible();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(toggle).toHaveText("‹");
 
-    await navArrowShow(region).click();
+    await toggle.click();
     await expect(readerNav(region)).toBeVisible();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await expect(toggle).toHaveText("›");
   } finally {
     await cleanup();
   }
@@ -764,7 +786,7 @@ test("the pop out link opens a second page with the reader for the same file, an
   }
 });
 
-test("on an ended session the plan block is absent and opening a tree file still renders it (E22, REQ-3)", async ({
+test("on an ended session the plan block and the nav's plan header row are absent, opening a tree file still renders it, and the nav toggle still hides/restores the nav (E22, REQ-3; markdown-render-fixes E5, REQ-6)", async ({
   page,
   daemon,
 }) => {
@@ -784,6 +806,17 @@ test("on an ended session the plan block is absent and opening a tree file still
     await expect(region).toBeVisible({ timeout: 15_000 });
     await expect(planSlotEntry(region)).toHaveCount(0);
     await expect(noPlanText(region)).toHaveCount(0);
+    // REQ-6: the plan header row is hidden with the slot it labels — no empty padded
+    // strip at the top of the nav on a dead session.
+    await expect(planHeaderRow(region)).toBeHidden();
+
+    // The nav toggle is unaffected by session liveness — still present and still works.
+    const toggle = navToggle(region);
+    await expect(toggle).toBeVisible();
+    await toggle.click();
+    await expect(readerNav(region)).toHaveCount(0);
+    await toggle.click();
+    await expect(readerNav(region)).toBeVisible();
 
     await fileEntry(region, "TODO.md").click();
     await expect(renderedBody(region)).toContainText("TODO", { timeout: 15_000 });
@@ -792,7 +825,7 @@ test("on an ended session the plan block is absent and opening a tree file still
   }
 });
 
-test("on an ended session whose directory was removed, the status line shows the directory_missing message (E23, edge case 12)", async ({
+test("on an ended session whose directory was removed, the status line shows the directory_missing message and the tree's loading row clears (E23, edge case 12; markdown-render-fixes edge case 2)", async ({
   page,
   daemon,
 }) => {
@@ -811,6 +844,12 @@ test("on an ended session whose directory was removed, the status line shows the
     await mainheadSurfaceButton(page, "docs").click();
     const region = readerRegion(page, "reader-e23");
     await expect(readerStatusLine(region)).toContainText(/no longer exists/i, { timeout: 15_000 });
+    // review markdown-render-fixes cycle-1 Major 2 / edge case 2: the listing fetch
+    // failed, so `loadListing` never assigns `this.listing` — the tree's `loading…` row
+    // must clear off `listingLoading` (cleared on every exit from `loadListing`) rather
+    // than staying stuck forever behind `listing === null`. A web-first expect already
+    // outlasts the reviewer's manual "re-read 1.5s after settle" repro.
+    await expect(treeLoadingRow(region)).toHaveCount(0, { timeout: 15_000 });
   } finally {
     if (!cleaned) await cleanup();
   }
@@ -880,7 +919,7 @@ test("deleting the open file and posting a Write hook for it shows file no longe
   }
 });
 
-test("opening a file over 10 MiB shows the too_large message and leaves the body unchanged (E26, REQ-6)", async ({
+test("opening a file over 10 MiB clears the loading cue and the grey-out, shows the too_large message, and leaves the body unchanged (E26, REQ-6; markdown-render-fixes E12, REQ-6/REQ-8/REQ-14)", async ({
   page,
   daemon,
 }) => {
@@ -889,15 +928,22 @@ test("opening a file over 10 MiB shows the too_large message and leaves the body
     await buildMarkdownFixtureTree(dir);
     await writeFile(join(dir, "big.md"), Buffer.alloc(10 * 1024 * 1024 + 1, "a"));
     await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "reader-e26" });
+    const session = await launchSession(page, daemon, { directory: dir, title: "reader-e26" });
 
     await mainheadSurfaceButton(page, "docs").click();
     const region = readerRegion(page, "reader-e26");
     await fileEntry(region, "TODO.md").click();
     await expect(renderedBody(region)).toContainText("TODO", { timeout: 15_000 });
 
+    const held = await holdReaderFileResponse(page, session.id);
     await fileEntry(region, "big.md").click();
+    await expect(readerStatusLine(region)).toContainText("loading big.md…", { timeout: 15_000 });
+    await expect(renderedBody(region)).toHaveAttribute("aria-busy", "true");
+    await expect(renderedBody(region)).toContainText("TODO");
+
+    held.release();
     await expect(readerStatusLine(region)).toContainText(/too large|10 MB/i, { timeout: 15_000 });
+    await expect(renderedBody(region)).not.toHaveAttribute("aria-busy", "true");
     await expect(renderedBody(region)).toContainText("TODO");
   } finally {
     await cleanup();
@@ -958,7 +1004,7 @@ test("the pop-out's own status line is hidden while healthy, shows file-gone on 
   }
 });
 
-test("in Tiles at 3x2 the reader nav starts collapsed and the bar has no path; at 2x2 it starts open (E27, REQ-15)", async ({
+test("in Tiles at 3x2 the reader nav starts collapsed and the bar has no path, with the nav toggle still present and flush right; at 2x2 it starts open (E27, REQ-15; markdown-render-fixes E1, REQ-1/REQ-2, INV-ONE-ARROW, edge case 8)", async ({
   page,
   daemon,
 }) => {
@@ -987,6 +1033,22 @@ test("in Tiles at 3x2 the reader nav starts collapsed and the bar has no path; a
     await expect(regionA).toBeVisible({ timeout: 15_000 });
     await expect(readerNav(regionA)).toHaveCount(0);
     await expect(barPath(regionA)).toHaveCount(0);
+
+    // edge case 8: the compact 3x2 tile renders neither `.path` nor the file count, but
+    // the nav toggle is unaffected — still exactly one, still visible, still flush right
+    // against the docbar's own padded edge.
+    const toggleA = navToggle(regionA);
+    await expect(toggleA).toBeVisible();
+    await expect(regionA.locator(".arr")).toHaveCount(1);
+    const [toggleABox, barABox] = await Promise.all([
+      toggleA.boundingBox(),
+      docBar(regionA).boundingBox(),
+    ]);
+    expect(toggleABox).not.toBeNull();
+    expect(barABox).not.toBeNull();
+    expect(
+      Math.abs(toggleABox!.x + toggleABox!.width - (barABox!.x + barABox!.width - 12)),
+    ).toBeLessThanOrEqual(1);
 
     // 2x2: a session opened at this density starts with the nav open.
     await page.getByRole("button", { name: "2×2" }).click();
@@ -1580,45 +1642,37 @@ test("expanding a tree folder rebuilds the section structurally and restores foc
   }
 });
 
-// review cycle 4 Major 2: the nav arrow pair (`Hide files` / `Show files`) is the reader's
-// fourth interactive control kind, and the only one whose own activation makes the
-// activated element disappear — `hidden`, not rebuilt (review cycle 4 Major 1, Fix Attempt
-// 5's `prepareNavArrowFocusRestore`) — so the cycle-3 sweep above (plan slot, tree file,
-// outline entry: all *reused* nodes) could not have seen it, and E18 drives both arrows
-// with `.click()`, which never reveals where focus lands. This drives both arrows with real
-// focus + `Enter`, both directions, on the Focus host and again on the pop-out, asserting
-// against an element handle for the *counterpart* arrow captured before the toggle that
-// unhides it — the counterpart is a permanent DOM node that already exists, just `hidden`,
-// so `navArrowCollapsedNode`/`navArrowOpenNode` (plain attribute locators, unlike
-// `navArrowHide`/`navArrowShow`'s `getByRole`, which excludes hidden elements) can take its
-// handle up front, the same identity-check shape the cycle-3 sweep uses throughout.
-async function assertArrowFocusSurvivesToggle(page: Page, region: Locator): Promise<void> {
-  // "Hide files" -> Enter collapses the nav; "Show files" (still hidden right now) must
-  // hold focus afterwards.
-  const collapsedHandle = await navArrowCollapsedNode(region).elementHandle();
-  if (!collapsedHandle) throw new Error("collapsed arrow node not found");
-  await navArrowHide(region).focus();
-  await expect(navArrowHide(region)).toBeFocused();
+// plan markdown-render-fixes deletes the two-arrow pair (`Hide files` / `Show files`,
+// hidden/rebuilt by review markdown-viewing cycle-4's `prepareNavArrowFocusRestore`) and
+// replaces it with a single button that is never hidden (REQ-1..REQ-4). REQ-4/E2's whole
+// point is now simpler than the pair it replaces: activating the one button that never
+// disappears leaves focus exactly where it was, with no counterpart to restore focus onto
+// and no `hidden` flip to race — `prepareNavArrowFocusRestore` itself is gone (Overview,
+// W6), so there is nothing left in the product for a focus-restore test to exercise. This
+// replaces the cycle-4 Major 2 test and its `assertArrowFocusSurvivesToggle` helper below,
+// which existed only to prove the now-deleted hide/rebuild dance didn't drop focus to
+// `<body>`; the "also assert the negative" case that followed it (toggling from anywhere
+// other than an arrow) is moot the same way — there is no second control left to steal
+// focus onto.
+async function assertNavToggleKeepsFocus(page: Page, region: Locator): Promise<void> {
+  const toggle = navToggle(region);
+  const handle = await toggle.elementHandle();
+  if (!handle) throw new Error("nav toggle node not found");
+
+  await toggle.focus();
+  await expect(toggle).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(readerNav(region)).toHaveCount(0);
-  await settleFor(page, 1100);
-  await expect(navArrowShow(region)).toBeFocused();
-  expect(await page.evaluate((n) => document.activeElement === n, collapsedHandle)).toBe(true);
+  await expect(toggle).toBeFocused();
+  expect(await page.evaluate((n) => document.activeElement === n, handle)).toBe(true);
 
-  // Reverse: "Show files" -> Enter reopens the nav; "Hide files" (still hidden right now)
-  // must hold focus afterwards.
-  const openHandle = await navArrowOpenNode(region).elementHandle();
-  if (!openHandle) throw new Error("open arrow node not found");
-  await navArrowShow(region).focus();
-  await expect(navArrowShow(region)).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(readerNav(region)).toBeVisible();
-  await settleFor(page, 1100);
-  await expect(navArrowHide(region)).toBeFocused();
-  expect(await page.evaluate((n) => document.activeElement === n, openHandle)).toBe(true);
+  await expect(toggle).toBeFocused();
+  expect(await page.evaluate((n) => document.activeElement === n, handle)).toBe(true);
 }
 
-test("keyboard-activating the nav arrow keeps focus on its counterpart, both directions, on the Focus host and on the pop-out (review cycle 4 Major 2)", async ({
+test("keyboard-activating the nav toggle leaves focus on it, in both directions, on the Focus host and on the pop-out (E2, REQ-4)", async ({
   page,
   daemon,
   context,
@@ -1631,36 +1685,441 @@ test("keyboard-activating the nav arrow keeps focus on its counterpart, both dir
 
     await mainheadSurfaceButton(page, "docs").click();
     const region = readerRegion(page, "reader-arrow-focus");
-    await expect(navArrowHide(region)).toBeVisible({ timeout: 15_000 });
-    await assertArrowFocusSurvivesToggle(page, region);
+    await expect(navToggle(region)).toBeVisible({ timeout: 15_000 });
+    await assertNavToggleKeepsFocus(page, region);
 
-    // A file must be open for `pop out ↗` to exist (REQ-4/REQ-8); the arrow toggles above
-    // leave the nav open (they end each direction back on `Hide files`), so the tree is
-    // reachable here.
+    // A file must be open for `pop out ↗` to exist (markdown-viewing REQ-4/REQ-8); the
+    // toggles above leave the nav open, so the tree is reachable here.
     await fileEntry(region, "TODO.md").click();
     await expect(renderedBody(region)).toContainText("TODO", { timeout: 15_000 });
 
-    // Pop out (REQ-8) and repeat both directions there — the same shared component and
-    // the same `prepareNavArrowFocusRestore`, a second composition root (REQ-27).
+    // Pop out (REQ-8) and repeat both directions there — the same shared component, a
+    // second composition root (REQ-27).
     const [popup] = await Promise.all([context.waitForEvent("page"), popOutLink(region).click()]);
     await popup.waitForLoadState();
     const popRegion = readerRegion(popup, "reader-arrow-focus");
-    await expect(navArrowHide(popRegion)).toBeVisible({ timeout: 15_000 });
-    await assertArrowFocusSurvivesToggle(popup, popRegion);
+    await expect(navToggle(popRegion)).toBeVisible({ timeout: 15_000 });
+    await assertNavToggleKeepsFocus(popup, popRegion);
   } finally {
     await cleanup();
   }
 });
 
-// review cycle 4 Major 2's "also assert the negative": toggling the nav from something
-// OTHER than the arrow itself must not focus-steal to an arrow. There is no such path at
-// runtime — `navCollapsed` (features/reader.ts) is set once at mount (the compact-3x2
-// default) and thereafter flipped only by `toggleNav()`, which only the two arrows'
-// `onToggleNav` click handler calls; no other control, shortcut or hook-driven re-render
-// ever changes it. The closest real analogue — an unrelated re-render firing
-// `prepareNavArrowFocusRestore` while focus sits on a non-arrow control — is already pinned
-// by the cycle-3 focus-survival test above (a routed `docChanged` write and an unrelated
-// `sessionUpsert` both re-render the reader while `treeEntry` is focused, and it asserts
-// focus stays exactly there, i.e. it was never stolen onto either arrow). No new test is
-// added here for the "toggled from elsewhere" case: inventing a non-arrow nav-toggle path
-// that does not exist in the product would not be an honest test.
+// ─── plan markdown-render-fixes: the remaining acceptance criteria (E1, E3-E4, E6-E11,
+// E13-E16) not already folded into an updated markdown-viewing test above. Every held-
+// response test below copies actions.spec.ts:703-756's shape (Implementation Notes): hold
+// the real `/reader` or `/reader/file` response behind a promise gate rather than
+// fabricating a payload, so the otherwise sub-second loading window is observable.
+
+test("the reader has exactly one nav-toggle button, never hidden, whose right edge is unchanged between the nav open and collapsed (E1, REQ-1, REQ-2, INV-ONE-ARROW, INV-ARROW-FIXED)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await buildMarkdownFixtureTree(dir);
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, { directory: dir, title: "reader-one-arrow" });
+
+    await mainheadSurfaceButton(page, "docs").click();
+    const region = readerRegion(page, "reader-one-arrow");
+    const toggle = navToggle(region);
+    await expect(toggle).toBeVisible({ timeout: 15_000 });
+    await expect(region.locator(".arr")).toHaveCount(1);
+
+    const openBox = await toggle.boundingBox();
+    expect(openBox).not.toBeNull();
+
+    await toggle.click();
+    await expect(readerNav(region)).toHaveCount(0);
+    await expect(region.locator(".arr")).toHaveCount(1);
+    const collapsedBox = await toggle.boundingBox();
+    expect(collapsedBox).not.toBeNull();
+
+    expect(
+      Math.abs(openBox!.x + openBox!.width - (collapsedBox!.x + collapsedBox!.width)),
+    ).toBeLessThanOrEqual(1);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("the nav toggle's right edge is unchanged after the first routed write makes the freshness cue appear (E4, REQ-5, INV-ARROW-FIXED)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    const fx = await buildMarkdownFixtureTree(dir);
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "reader-arrow-chg",
+    });
+    const claudeId = "claude-reader-arrow-chg";
+    await page.request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+    });
+
+    await mainheadSurfaceButton(page, "docs").click();
+    const region = readerRegion(page, "reader-arrow-chg");
+    await fileEntry(region, "TODO.md").click();
+    await expect(renderedBody(region)).toContainText("TODO", { timeout: 15_000 });
+    await expect(freshnessCue(region)).toHaveCount(0);
+
+    const toggle = navToggle(region);
+    const beforeBox = await toggle.boundingBox();
+    expect(beforeBox).not.toBeNull();
+
+    await writeFile(fx.todoPath, "# TODO\n\nUpdated.\n");
+    await page.request.post(daemon.ingestURL("hook"), {
+      data: rawPostToolUse(claudeId, { toolName: "Write", filePath: fx.todoPath }),
+    });
+    await expect(freshnessCue(region)).toBeVisible({ timeout: 15_000 });
+
+    const afterBox = await toggle.boundingBox();
+    expect(afterBox).not.toBeNull();
+    expect(
+      Math.abs(beforeBox!.x + beforeBox!.width - (afterBox!.x + afterBox!.width)),
+    ).toBeLessThanOrEqual(1);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("with the file response held, selecting a tree file moves aria-current and the bar filename immediately, shows the loading status and greys the body, and releasing renders the new content and clears both (E6, E7, E8, E16, REQ-7, REQ-8, REQ-14)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await buildMarkdownFixtureTree(dir);
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "reader-loading-file",
+    });
+
+    await mainheadSurfaceButton(page, "docs").click();
+    const region = readerRegion(page, "reader-loading-file");
+    await fileEntry(region, "TODO.md").click();
+    await expect(renderedBody(region)).toContainText("TODO", { timeout: 15_000 });
+
+    const held = await holdReaderFileResponse(page, session.id);
+    await folderEntry(region, "docs").click();
+    await folderEntry(region, "adr").click();
+    await fileEntry(region, "x.md").click();
+
+    // E6/REQ-7: the bar and aria-current move synchronously, before the fetch resolves.
+    await expect(barFileName(region)).toHaveText("x.md");
+    await expect(fileEntry(region, "x.md")).toHaveAttribute("aria-current", "true");
+
+    // E7/E16/REQ-8/REQ-14: the status line names the file in flight; the body stays put
+    // and greys out rather than being replaced or blanked.
+    await expect(readerStatusLine(region)).toHaveText("loading x.md…");
+    await expect(renderedBody(region)).toContainText("TODO");
+    await expect(renderedBody(region)).toHaveAttribute("aria-busy", "true");
+
+    held.release();
+
+    // E8: releasing clears the status line, renders the new document and lifts the grey-out.
+    await expect(renderedBody(region)).toContainText("ADR X", { timeout: 15_000 });
+    await expect(readerStatusLine(region)).toBeHidden();
+    await expect(renderedBody(region)).not.toHaveAttribute("aria-busy", "true");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("with the listing response held, the body reads loading… and the tree shows one loading… row (E9, REQ-9, REQ-10)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await buildMarkdownFixtureTree(dir);
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "reader-listing-loading",
+    });
+
+    const held = await holdReaderListingResponse(page, session.id);
+    await mainheadSurfaceButton(page, "docs").click();
+    const region = readerRegion(page, "reader-listing-loading");
+    await expect(region).toBeVisible({ timeout: 15_000 });
+    await expect(bodyLoadingPlaceholder(region)).toBeVisible();
+    await expect(treeLoadingRow(region)).toBeVisible();
+    // INV-ONE-ARROW's "listing pending" state: the toggle is unaffected.
+    await expect(navToggle(region)).toBeVisible();
+
+    held.release();
+    await expect(fileEntry(region, "TODO.md")).toBeVisible({ timeout: 15_000 });
+    await expect(treeLoadingRow(region)).toHaveCount(0);
+    await expect(bodyPlaceholder(region)).toBeVisible({ timeout: 15_000 });
+  } finally {
+    await cleanup();
+  }
+});
+
+test("a first open on a plan-less session, held, shows loading… in the body and never nothing open — pick a file (REQ-9; review markdown-render-fixes cycle 1 Major 1)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await buildMarkdownFixtureTree(dir);
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "reader-first-open-loading",
+    });
+
+    // No hook is posted, so the session has no plan and no remembered `openPath` —
+    // `decideInitialOpen` settles the body on the placeholder before anything is
+    // clicked, the exact starting state Major 1's bug needed (issue #25's report: the
+    // common case of a session's very first open, not a re-open over a rendered doc).
+    await mainheadSurfaceButton(page, "docs").click();
+    const region = readerRegion(page, "reader-first-open-loading");
+    await expect(bodyPlaceholder(region)).toBeVisible({ timeout: 15_000 });
+
+    const held = await holdReaderFileResponse(page, session.id);
+    await fileEntry(region, "TODO.md").click();
+
+    // review markdown-render-fixes cycle-1 Major 1: with nothing rendered yet
+    // (`bodyRendered === false`), `deriveNotice` deliberately suppresses the status-line
+    // cue (plan § The loading cues table, row 2), so the body's own `loading…`
+    // placeholder is the only cue — it must never leave "nothing open — pick a file" on
+    // screen (even dimmed) while the bar already names the file being fetched.
+    await expect(bodyLoadingPlaceholder(region)).toBeVisible();
+    await expect(bodyPlaceholder(region)).toHaveCount(0);
+    await expect(renderedBody(region)).toHaveAttribute("aria-busy", "true");
+    await expect(readerStatusLine(region)).toBeHidden();
+
+    held.release();
+    await expect(renderedBody(region)).toContainText("TODO", { timeout: 15_000 });
+    await expect(bodyLoadingPlaceholder(region)).toHaveCount(0);
+    await expect(renderedBody(region)).not.toHaveAttribute("aria-busy", "true");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("a window focus event on an open plan and a routed write for an open tree file each re-render silently, never showing a loading cue or article.md carrying aria-busy (E10, REQ-11)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    const fx = await buildMarkdownFixtureTree(dir);
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "reader-silent-refetch",
+    });
+    const claudeId = "claude-reader-silent-refetch";
+
+    // `handleWindowFocus` (markdown-viewing REQ-19, unchanged by this plan) only
+    // re-fetches when the OPEN file is the plan — a plain tree file never refetches on
+    // focus — so this half needs a plan, established before mount so it auto-opens
+    // (decideInitialOpen), same shape as the "opens it automatically" test above.
+    const planPath = join(daemon.dataDir, "plans", "reader-silent-refetch.md");
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(planPath, "# Plan\n\nOriginal.\n");
+    const transcriptPath = join(daemon.dataDir, "transcripts", "reader-silent-refetch.jsonl");
+    await writeFakeTranscript(transcriptPath, { planFilePath: planPath });
+    await page.request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart(claudeId, { musterSession: session.id, transcriptPath }),
+    });
+
+    await mainheadSurfaceButton(page, "docs").click();
+    const region = readerRegion(page, "reader-silent-refetch");
+    await expect(renderedBody(region)).toContainText("Original", { timeout: 15_000 });
+
+    // Window focus path: hold the re-fetch so the silent in-flight window is observable.
+    const held = await holdReaderFileResponse(page, session.id);
+    await writeFile(planPath, "# Plan\n\nFocus marker.\n");
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await settleFor(page, 500);
+    await expect(renderedBody(region)).not.toContainText("Focus marker");
+    await expect(readerStatusLine(region)).toBeHidden();
+    await expect(renderedBody(region)).not.toHaveAttribute("aria-busy", "true");
+    held.release();
+    await expect(renderedBody(region)).toContainText("Focus marker", { timeout: 15_000 });
+    await expect(readerStatusLine(region)).toBeHidden();
+    await expect(renderedBody(region)).not.toHaveAttribute("aria-busy", "true");
+
+    // docChanged path (REQ-18: any open file, not gated to the plan): switch to a plain
+    // tree file, then repeat with a routed write instead of a focus event.
+    await fileEntry(region, "TODO.md").click();
+    await expect(renderedBody(region)).toContainText("TODO", { timeout: 15_000 });
+
+    const held2 = await holdReaderFileResponse(page, session.id);
+    await writeFile(fx.todoPath, "# TODO\n\nDocChanged marker.\n");
+    await page.request.post(daemon.ingestURL("hook"), {
+      data: rawPostToolUse(claudeId, { toolName: "Write", filePath: fx.todoPath }),
+    });
+    await settleFor(page, 500);
+    await expect(renderedBody(region)).toContainText("TODO");
+    await expect(renderedBody(region)).not.toContainText("DocChanged marker");
+    await expect(readerStatusLine(region)).toBeHidden();
+    await expect(renderedBody(region)).not.toHaveAttribute("aria-busy", "true");
+    held2.release();
+    await expect(renderedBody(region)).toContainText("DocChanged marker", { timeout: 15_000 });
+    await expect(readerStatusLine(region)).toBeHidden();
+    await expect(renderedBody(region)).not.toHaveAttribute("aria-busy", "true");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("a pop-out opened with no path query settles its body on nothing open — pick a file (E11, REQ-9)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "reader-popout-nopath",
+    });
+
+    // No `pop out ↗` link exists to click — nothing is open, so `popOutHref` is null
+    // (helpers/reader.ts). This is the direct-navigation shape edge case 9 describes; the
+    // cookie is already set on this page/context from the dashboardUrl visit above, so no
+    // token is dropped by building the URL by hand here (unlike REQ-8's own pop-out link,
+    // which must be clicked for its own reasons — see the review cycle 3 note near the
+    // pop-out layout test above).
+    await page.goto(`${daemon.baseURL}/doc.html?session=${session.id}`);
+    const region = readerRegion(page, "reader-popout-nopath");
+    await expect(bodyPlaceholder(region)).toBeVisible({ timeout: 15_000 });
+    await expect(bodyLoadingPlaceholder(region)).toHaveCount(0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("a reader whose remembered open path was deleted before mount settles its body on nothing open — pick a file, never on loading… (E14, edge case 3)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await buildMarkdownFixtureTree(dir);
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, { directory: dir, title: "reader-e14" });
+
+    await mainheadSurfaceButton(page, "docs").click();
+    const region = readerRegion(page, "reader-e14");
+    await fileEntry(region, "TODO.md").click();
+    await expect(barFileName(region)).toHaveText("TODO.md");
+
+    await mainheadSurfaceButton(page, "claude").click();
+    await rm(join(dir, "TODO.md"));
+    await page.reload();
+    await mainheadSurfaceButton(page, "docs").click();
+
+    const region2 = readerRegion(page, "reader-e14");
+    await expect(bodyPlaceholder(region2)).toBeVisible({ timeout: 15_000 });
+    await expect(bodyLoadingPlaceholder(region2)).toHaveCount(0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("stopping the daemon mid-load shows the unreachable text and leaves no loading cue once it is restarted (E13, REQ-15)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await buildMarkdownFixtureTree(dir);
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "reader-daemon-down-load",
+    });
+
+    await mainheadSurfaceButton(page, "docs").click();
+    const region = readerRegion(page, "reader-daemon-down-load");
+    await fileEntry(region, "TODO.md").click();
+    await expect(renderedBody(region)).toContainText("TODO", { timeout: 15_000 });
+
+    const held = await holdReaderFileResponse(page, session.id);
+    await folderEntry(region, "docs").click();
+    await folderEntry(region, "adr").click();
+    await fileEntry(region, "x.md").click();
+    await expect(readerStatusLine(region)).toHaveText("loading x.md…");
+    await expect(renderedBody(region)).toHaveAttribute("aria-busy", "true");
+
+    await daemon.kill();
+    const banner = page.getByRole("alert");
+    await expect(banner).toBeVisible({ timeout: 15_000 });
+
+    // Releasing now lets the held request reach the dead daemon and reject with a network
+    // error — edge case 6: the rejected fetch clears loadingPath itself, ahead of any
+    // restart, while the unreachable text has already won the status line (REQ-15).
+    held.release();
+    await expect(readerStatusLine(region)).toContainText(/unreachable/i, { timeout: 15_000 });
+    await expect(renderedBody(region)).not.toHaveAttribute("aria-busy", "true");
+    await expect(renderedBody(region)).toContainText("TODO");
+
+    await daemon.restart();
+    await expect(banner).toBeHidden({ timeout: 15_000 });
+    await expect(readerStatusLine(region)).not.toContainText("loading", { timeout: 15_000 });
+    await expect(renderedBody(region)).not.toHaveAttribute("aria-busy", "true");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("with two tiles on docs, holding one tile's file response shows the loading cue in that tile only, leaving the other tile's status line hidden (E15, INV-CUES-PER-INSTANCE)", async ({
+  page,
+  daemon,
+}) => {
+  const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
+  try {
+    await buildMarkdownFixtureTree(dirA.path);
+    await buildMarkdownFixtureTree(dirB.path);
+    await page.goto(daemon.dashboardUrl);
+    const sessionA = await launchSession(page, daemon, {
+      directory: dirA.path,
+      title: "reader-e15-a",
+    });
+    const sessionB = await launchSession(page, daemon, {
+      directory: dirB.path,
+      title: "reader-e15-b",
+    });
+
+    await page.keyboard.press("Meta+Backslash");
+    await expect(page.locator("#view-tiles")).toBeVisible();
+    await tileSurfaceButton(page, sessionA.id, "docs").click();
+    await tileSurfaceButton(page, sessionB.id, "docs").click();
+    const regionA = readerRegionInTile(page, sessionA.id);
+    const regionB = readerRegionInTile(page, sessionB.id);
+    await expect(regionA).toBeVisible({ timeout: 15_000 });
+    await expect(regionB).toBeVisible({ timeout: 15_000 });
+
+    await fileEntry(regionA, "TODO.md").click();
+    await expect(renderedBody(regionA)).toContainText("TODO", { timeout: 15_000 });
+    await fileEntry(regionB, "TODO.md").click();
+    await expect(renderedBody(regionB)).toContainText("TODO", { timeout: 15_000 });
+
+    const held = await holdReaderFileResponse(page, sessionA.id);
+    await folderEntry(regionA, "docs").click();
+    await folderEntry(regionA, "adr").click();
+    await fileEntry(regionA, "x.md").click();
+
+    await expect(readerStatusLine(regionA)).toHaveText("loading x.md…");
+    await expect(readerStatusLine(regionB)).toBeHidden();
+    await expect(renderedBody(regionA)).toHaveAttribute("aria-busy", "true");
+    await expect(renderedBody(regionB)).not.toHaveAttribute("aria-busy", "true");
+
+    held.release();
+    await expect(renderedBody(regionA)).toContainText("ADR X", { timeout: 15_000 });
+    await expect(readerStatusLine(regionA)).toBeHidden();
+  } finally {
+    await Promise.all([dirA.cleanup(), dirB.cleanup()]);
+  }
+});

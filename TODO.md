@@ -77,6 +77,17 @@ doesn't move. Browser zoom scales the pixel layer and the terminal together and 
 (the daemon's address is a fixed default), so it is the control. Don't re-derive; revisit only if
 the mobile/responsive pass rem-ifies the pixel layer.
 
+- [ ] **`triage`'s `CheckVersion` regex rejects dev-build version strings** —
+  `internal/triage/checks.go`'s `reVersion` (`^[0-9]+(\.[0-9]+)*(-[A-Za-z0-9.]+)?$`) requires no
+  leading `v` and only one `-suffix` group. A local dev build's `musterd.version` comes from
+  `git describe --tags --always --dirty` (`Makefile:6`), e.g. `v0.12.6-9-gc6056aa` — leading `v`
+  plus a second dash in the commit-count/hash suffix, so it fails the regex on both counts. The
+  field gets silently dropped (`ValidateSnapshot`), which alone is enough to route an otherwise
+  clean, self-filed (`OWNER`/`MEMBER`) issue to the facts-only path (`Route`'s `Flags dominate
+  association` rule) — confirmed by pulling #24 and #25's raw snapshots and diffing keys against
+  `Schema`; both trip on exactly this field, nothing else. Fix: loosen `reVersion` to accept the
+  `git describe` shape (optional leading `v`, optional `-N-gHASH`, optional `-dirty`), or
+  normalize `musterd.version` before embedding it in the snapshot.
 - [ ] **Restore focus when an action button goes `disabled` on a daemon drop** — app-wide, not
   reader-specific. Every action button (`mainhead` End/Resume/Remove, dead-surface Resume, tile
   actions, and the `claude | shell | docs` segment) sets `disabled = !connected`; if one holds
@@ -246,13 +257,13 @@ Open entries below are in **Damian's priority order** (set 2026-09-01), not issu
 filing order: #3 → #8 → #11 → #12 → #13, then the rest. Keep new entries appended at the end
 unless he re-ranks — don't re-sort this list.
 
-- [ ] **dashboard: visual** ([#24](https://github.com/Zalaras/muster/issues/24))
-  — no error text was quoted. Entry generated from validated fields only
-  (reporter not trusted; body withheld) — read issue #24 for the detail.
-
-- [ ] **dashboard: missing-feature** ([#25](https://github.com/Zalaras/muster/issues/25))
-  — no error text was quoted. Entry generated from validated fields only
-  (reporter not trusted; body withheld) — read issue #25 for the detail.
+- [ ] **Edge case 5 of `markdown-render-fixes` is unpinned** — "a `docChanged` for the previously
+  open file arrives while a *different* file's open is in flight" cites `→ E10`, but E10 asserts a
+  routed write for the **open** file and a window `focus` event; neither drives the else branch the
+  case describes (`openPath` has already moved, so only dots refresh). Found by the retro's
+  duplicate-criterion sweep, not by a failure — the behaviour may well be correct, it is just
+  untested. Either add the assertion to `web/e2e/reader.spec.ts` or re-mark the case
+  `→ untested: <reason>`.
 
 ## M5+ (v1.x, re-rank when reached)
 
