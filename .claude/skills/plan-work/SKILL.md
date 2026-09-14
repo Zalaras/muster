@@ -384,7 +384,7 @@ no ADR is not yet a decision>
 
 ## Important Behaviors
 
-- Read existing code before proposing changes. Understand current patterns.
+- Open the code before asserting current behaviour or patterns.
 - Be opinionated but open to the user's preferences.
 - If the user's description is vague, ask pointed questions rather than guessing.
 - Keep the plan practical and implementable — avoid over-engineering.

@@ -74,6 +74,7 @@ After writing tests, run both from the repo root:
 ```bash
 go build ./...    # the tree must compile — this is a gate
 make test
+make lint         # your test files are linted too, and impl may not edit them
 ```
 
 If tests fail:
