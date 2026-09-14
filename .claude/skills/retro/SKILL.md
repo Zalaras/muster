@@ -100,8 +100,10 @@ Then stop. The user picks by number in prose; do not offer menus.
   record: `make gen-kb && make check-kb`; the regenerated files ride the same commit. Never `plans/`, never product
   or test code — a code defect the retro finds goes to `TODO.md` as a follow-up line, not into
   this commit.
-- Commit on **`main`**, as `docs(retro): <plan> — <what changed, one line>`. If HEAD is
-  `plan/<plan>` (completion left the tree clean), `git checkout main` first and say so. Stage
+- Commit on **the branch the run happened on**, as `docs(retro): <plan> — <what changed, one
+  line>`; it rides that plan's squash merge. Stay on `plan/<plan>` — a lesson may then cite
+  `plan:<plan>` and the run's own `review.cycle*.md`, which do not exist on `main` until `/land`.
+  Only when that branch is gone (the plan already landed) commit on `main`, and say so. Stage
   only the files you edited — never `git add -A`, never stash. Never push.
 - Report the commit sha and the measured delta: `wc -w` and `wc -l` of each edited file before
   and after, and whether any file is over its threshold.
