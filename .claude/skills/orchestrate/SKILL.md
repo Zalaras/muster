@@ -383,8 +383,7 @@ Two concrete ways a flat fan-out goes wrong: an impl agent moves or renames a sy
 - **This same wave order governs `implementation-bug` verdicts** from Step 4 and Step 5, not just review cycles. When Step 5 reports `implementation-bug`: run the routed impl agent (wave 1), gate, re-run that side's unit test agent (wave 2), gate, then re-spawn Step 5 (wave 3).
 - **A review cycle's wave 3 can itself report `implementation-bug`** — a fix wave building
   better fixtures can uncover a new product defect, exactly as Step 5 does
-  (new-session-dialog cycle 1: fixing an E13 Major required a 25-entry fixture, which
-  exposed a missing `min-height: 0` that let the listing paint over the form). That verdict
+  (kb:lesson/fix-wave-uncovers-product-defect). That verdict
   does not fail the wave and does not end the cycle — the wave's own tagged fixes are
   complete; fold the same cycle back on itself: route the new bug to the impl agent as a
   fresh wave 1 (that agent's still-open review issues ride along as usual), gate, wave 2,

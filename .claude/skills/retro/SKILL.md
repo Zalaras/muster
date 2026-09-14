@@ -61,7 +61,9 @@ A lesson record has no delta to state; it counts toward the pack-size table in �
 Words, not lines — lines were gamed by length. **Whenever a proposal touches a file, also
 read that file for sentences whose class a script now enforces** (`plan-lint.sh`, `gates.sh`,
 `dead-refs.py`, `e2e-lint.sh`, `orch-state.py`, `.githooks/*`) and list each as a *retire*
-proposal naming the covering check. Retirement is always a proposal; Damian vets.
+proposal naming the covering check — only where the check runs before the reader acts; a rule an
+author-agent reads before writing stays, or it learns from a red gate after a wasted run.
+Retirement is always a proposal; Damian vets.
 
 ### Size thresholds — warnings, never refusals
 
@@ -135,8 +137,8 @@ Report, in this order, each item numbered:
    clause) as *move to a lesson record* proposals (roles = the agent whose file holds it).
 5. **Review-cycle trend** — cycles per run in date order; if the last three runs each needed
    two or more, name the cycle-one Major class they share.
-6. **Pack size** — the table above; a pack over 5,000 words warns exactly like an agent file (it
-   is read on top of one) and names the record class that grew (`kb ls --role <r>`, by `date`); a
+6. **Pack size** — the table above; a pack over 8,000 words (`PackWords`, `internal/kb/budget.go`)
+   warns exactly like an agent file over its threshold (it is read on top of one) and names the record class that grew (`kb ls --role <r>`, by `date`); a
    lesson no plan has cited in the last five runs is a *retire* proposal.
 
 The previous audit is `plans/_audit/skills-agents-audit.md` (2026-09-06); write the new one
