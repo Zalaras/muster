@@ -172,3 +172,21 @@ func TestPack_IncludesOnlyTheConventionsSectionsForTheRole(t *testing.T) {
 		assert.Contains(t, planner, s)
 	}
 }
+
+func TestPack_CarriesFeatureDiagramsToEveryRoleAndSystemDiagramsToPlanningRolesOnly(t *testing.T) {
+	_, ix := packFixture(t)
+	impl, _ := runPack(t, ix, "daemon-impl", "sessions")
+	assert.Contains(t, impl, "\n# Diagrams\n")
+	assert.Contains(t, impl, "## diagram sessions-state — The session state machine.\n_active · 2026-09-15 · kind: state · features: sessions · files: internal/sess/** · cite: kb:diagram/sessions-state_")
+	assert.Contains(t, impl, "```mermaid\nstateDiagram-v2\n", "the fence rides along — the diagram is the point")
+	assert.NotContains(t, impl, "system-container", "an implementation pack skips the system-wide diagrams")
+	assert.Less(t, strings.Index(impl, "# Feature: sessions"), strings.Index(impl, "\n# Diagrams\n"))
+	assert.Less(t, strings.Index(impl, "\n# Diagrams\n"), strings.Index(impl, "\n# Decisions\n"))
+
+	for _, role := range []string{"planner", "review", "plan-work", "orchestrator"} {
+		out, _ := runPack(t, ix, role, "sessions")
+		assert.Contains(t, out, "## diagram system-container", role)
+	}
+	other, _ := runPack(t, ix, "web-impl", "other")
+	assert.NotContains(t, other, "# Diagrams", "no diagram, no heading")
+}

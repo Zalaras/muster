@@ -91,5 +91,11 @@ for f in $(grep -E '^\*\*Features\*\*:' "$P" | head -1 | sed -E 's/^\*\*Features
   [[ -f "docs/features/$f/spec.md" ]] || note "**Features** names '$f' but docs/features/$f/spec.md does not exist"
 done
 
+# 9. Every mermaid fence opens with an allowed diagram keyword — the rule check-kb applies to records,
+#    applied here because plans/ is outside the kb scan (kb:adr/knowledge-diagrams-are-mermaid-records).
+if grep -qE '^[[:space:]]*(```|~~~)mermaid' "$P"; then
+  go run ./tools/kb fences "$P" >/dev/null 2>&1 || note "a mermaid fence opens with a keyword outside the closed kind list (run: go run ./tools/kb fences $P)"
+fi
+
 if (( FAILS )); then echo "plan-lint: $FAILS failure(s) in $P"; exit 1; fi
 echo "plan-lint: $P clean"

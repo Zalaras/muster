@@ -1,7 +1,7 @@
 // Command kb indexes and gates the docs/ knowledge base: the record frontmatters in the
-// seven record directories (rules, adr, facts, lessons, runbooks, references, and the
-// per-feature spec.md), the kb:anchor comments in docs/protocol.md, and every generated
-// file rendered from them.
+// eight record directories (rules, adr, diagrams, facts, lessons, runbooks, references,
+// and the per-feature spec.md), the kb:anchor comments in docs/protocol.md, and every
+// generated file rendered from them.
 //
 //	go run ./tools/kb gen                       # regenerate; write only changed files
 //	go run ./tools/kb check                     # every invariant; exit 1 listing each finding
@@ -9,6 +9,7 @@
 //	go run ./tools/kb for PATH                  # features + records covering a repo path
 //	go run ./tools/kb why PATH                  # decisions + facts explaining a path
 //	go run ./tools/kb show ID | cite ID | find WORD... | ls [--type T] [--feature F] [--status S] [--role R] [--guard none]
+//	go run ./tools/kb fences FILE...           # every mermaid fence opens with an allowed keyword; exit 1 listing each that does not
 //
 // All logic lives in internal/kb; this file only dispatches. It is a dev tool, not part
 // of the product: .goreleaser.yaml builds only ./cmd/musterd.
@@ -31,11 +32,14 @@ func main() {
 	}
 }
 
-const usage = "usage: kb <gen|check|pack|for|why|show|cite|find|ls> [args]"
+const usage = "usage: kb <gen|check|pack|for|why|show|cite|find|ls|fences> [args]"
 
 func run(args []string, stdout io.Writer) error {
 	if len(args) == 0 {
 		return fmt.Errorf("%s", usage)
+	}
+	if args[0] == "fences" {
+		return cmdFences(args[1:], stdout)
 	}
 	root, err := repoRoot()
 	if err != nil {
@@ -67,8 +71,32 @@ func run(args []string, stdout io.Writer) error {
 	case "ls":
 		return cmdLs(ix, args[1:], stdout)
 	default:
-		return fmt.Errorf("unknown subcommand %q (want gen, check, pack, for, why, show, cite, find or ls)", args[0])
+		return fmt.Errorf("unknown subcommand %q (want gen, check, pack, for, why, show, cite, find, ls or fences)", args[0])
 	}
+}
+
+// cmdFences checks the mermaid fences of files outside the record tree (a plan, a scratch
+// draft) with the rule check-kb applies to records. It needs no index, so it runs anywhere.
+func cmdFences(paths []string, stdout io.Writer) error {
+	if len(paths) == 0 {
+		return fmt.Errorf("usage: kb fences <file> [file ...]")
+	}
+	n := 0
+	for _, p := range paths {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			return fmt.Errorf("reading %s: %w", p, err)
+		}
+		for _, f := range kb.CheckFences(p, string(data), 0) {
+			fmt.Fprintln(stdout, f)
+			n++
+		}
+	}
+	if n > 0 {
+		return fmt.Errorf("kb fences: %d problem(s)", n)
+	}
+	fmt.Fprintf(stdout, "kb: %d file(s), every mermaid fence opens with an allowed keyword\n", len(paths))
+	return nil
 }
 
 // repoRoot walks up from the working directory to the directory holding go.mod.

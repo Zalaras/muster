@@ -36,8 +36,8 @@ func TestRun_UsageAndUnknownSubcommandErrors(t *testing.T) {
 	root := newRepo(t)
 	t.Chdir(root)
 	var buf bytes.Buffer
-	require.EqualError(t, run(nil, &buf), "usage: kb <gen|check|pack|for|why|show|cite|find|ls> [args]")
-	require.EqualError(t, run([]string{"bogus"}, &buf), `unknown subcommand "bogus" (want gen, check, pack, for, why, show, cite, find or ls)`)
+	require.EqualError(t, run(nil, &buf), "usage: kb <gen|check|pack|for|why|show|cite|find|ls|fences> [args]")
+	require.EqualError(t, run([]string{"bogus"}, &buf), `unknown subcommand "bogus" (want gen, check, pack, for, why, show, cite, find, ls or fences)`)
 	require.EqualError(t, run([]string{"show"}, &buf), "usage: kb show <id>")
 	require.EqualError(t, run([]string{"show", "nope"}, &buf), `no record with id "nope" (try: kb find nope)`)
 }
@@ -129,4 +129,19 @@ func TestRun_PackRequiresPlanAndRoleAndRejectsAnUnknownRole(t *testing.T) {
 	require.NoError(t, run([]string{"pack", "--plan", "p", "--role", "daemon-impl"}, &buf))
 	assert.Contains(t, buf.String(), "# Feature: sessions")
 	assert.Contains(t, buf.String(), "## decision pin-order — Keep order.")
+}
+
+func TestRun_FencesChecksArbitraryFilesWithoutAnIndex(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "plans/p/plan.md", "# p\n\n```mermaid\nstateDiagram-v2\n  a --> b\n```\n")
+	write(t, root, "bad.md", "```mermaid\nmindmap\n```\n")
+	t.Chdir(root)
+	var buf bytes.Buffer
+	require.NoError(t, run([]string{"fences", "plans/p/plan.md"}, &buf))
+	assert.Equal(t, "kb: 1 file(s), every mermaid fence opens with an allowed keyword\n", buf.String())
+
+	buf.Reset()
+	require.EqualError(t, run([]string{"fences", "plans/p/plan.md", "bad.md"}, &buf), "kb fences: 1 problem(s)")
+	assert.Equal(t, "bad.md:1: mermaid fence opens with \"mindmap\" (want one of: C4Component, C4Container, C4Context, classDiagram, erDiagram, flowchart, sequenceDiagram, stateDiagram-v2)\n", buf.String())
+	require.EqualError(t, run([]string{"fences"}, &buf), "usage: kb fences <file> [file ...]")
 }

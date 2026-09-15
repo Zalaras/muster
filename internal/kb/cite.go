@@ -10,7 +10,7 @@ import (
 
 // citeRE matches a citation token anywhere on a line: a record prefix with a slug id, or
 // the anchor prefix with a dotted anchor id.
-var citeRE = regexp.MustCompile(`kb:(?:(rule|adr|spec|fact|lesson|runbook|ref)/([a-z0-9][a-z0-9-]*)|(anchor)/([a-z0-9-]+(?:\.[a-z0-9-]+)*))`)
+var citeRE = regexp.MustCompile(`kb:(?:(rule|adr|spec|diagram|fact|lesson|runbook|ref)/([a-z0-9][a-z0-9-]*)|(anchor)/([a-z0-9-]+(?:\.[a-z0-9-]+)*))`)
 
 // Citation is one kb token found in the tree.
 type Citation struct {

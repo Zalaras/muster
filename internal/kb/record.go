@@ -10,14 +10,15 @@ import (
 	"time"
 )
 
-// Type is a record type; the seven values map one-to-one onto record directories.
+// Type is a record type; the eight values map one-to-one onto record directories.
 type Type string
 
-// The seven record types.
+// The eight record types.
 const (
 	TypeRule      Type = "rule"
 	TypeDecision  Type = "decision"
 	TypeSpec      Type = "spec"
+	TypeDiagram   Type = "diagram"
 	TypeFact      Type = "fact"
 	TypeLesson    Type = "lesson"
 	TypeRunbook   Type = "runbook"
@@ -25,13 +26,14 @@ const (
 )
 
 // typeOrder is the fixed rendering order for indexes and listings.
-var typeOrder = []Type{TypeRule, TypeSpec, TypeDecision, TypeFact, TypeLesson, TypeRunbook, TypeReference}
+var typeOrder = []Type{TypeRule, TypeSpec, TypeDiagram, TypeDecision, TypeFact, TypeLesson, TypeRunbook, TypeReference}
 
 // dirOfType maps a type to its record directory (spec records live one level deeper).
 var dirOfType = map[Type]string{
 	TypeRule:      "docs/rules",
 	TypeDecision:  "docs/adr",
 	TypeSpec:      "docs/features",
+	TypeDiagram:   "docs/diagrams",
 	TypeFact:      "docs/facts",
 	TypeLesson:    "docs/lessons",
 	TypeRunbook:   "docs/runbooks",
@@ -43,6 +45,7 @@ var prefixOfType = map[Type]string{
 	TypeRule:      "rule",
 	TypeDecision:  "adr",
 	TypeSpec:      "spec",
+	TypeDiagram:   "diagram",
 	TypeFact:      "fact",
 	TypeLesson:    "lesson",
 	TypeRunbook:   "runbook",
@@ -76,6 +79,7 @@ var (
 		"web":        TypeSpec,
 		"e2e":        TypeSpec,
 		"protocol":   TypeSpec,
+		"kind":       TypeDiagram,
 	}
 	listFields = map[string]bool{"features": true, "tags": true, "files": true, "tests": true, "refs": true,
 		"supersedes": true, "roles": true, "go": true, "web": true, "e2e": true, "protocol": true}
@@ -142,6 +146,7 @@ type Record struct {
 	Go, Web    []string
 	E2E        []string
 	Protocol   []string
+	Kind       string
 
 	Body      string
 	BodyLine  int
@@ -199,7 +204,7 @@ func joinOr(items []string) string {
 
 func typeNames() []string {
 	out := make([]string, 0, len(typeOrder))
-	for _, t := range []Type{TypeRule, TypeDecision, TypeSpec, TypeFact, TypeLesson, TypeRunbook, TypeReference} {
+	for _, t := range typeOrder {
 		out = append(out, string(t))
 	}
 	return out
@@ -216,7 +221,7 @@ func RecordFromFields(relpath string, f Fields, body string, bodyLine int) (*Rec
 	}
 	dirType, expectedID, _ := expectedFor(relpath)
 	r := &Record{Path: relpath, Type: dirType, ID: expectedID, Body: body, BodyLine: bodyLine,
-		BodyWords: len(strings.Fields(body)), FieldLine: map[string]int{}}
+		BodyWords: wordsOutsideMermaid(body), FieldLine: map[string]int{}}
 
 	// Pass one: the declared type decides which fields are valid.
 	if tf, ok := f.Get("type"); ok {
@@ -267,6 +272,7 @@ var fieldAssign = map[string]func(*Record, Field){
 	"web":        func(r *Record, f Field) { r.Web = f.Values },
 	"e2e":        func(r *Record, f Field) { r.E2E = f.Values },
 	"protocol":   func(r *Record, f Field) { r.Protocol = f.Values },
+	"kind":       func(r *Record, f Field) { r.Kind = f.Values[0] },
 }
 
 // assignFields fills r from the frontmatter in file order, rejecting fields that are
@@ -308,7 +314,7 @@ func assignFields(r *Record, f Fields, fail failFunc) {
 	}
 }
 
-// validateRequiredFields reports the fields every record needs, plus the two that only
+// validateRequiredFields reports the fields every record needs, plus the three that only
 // one type needs.
 func validateRequiredFields(r *Record, fail failFunc) {
 	for _, key := range []string{"id", "type", "status", "date", "summary"} {
@@ -323,6 +329,13 @@ func validateRequiredFields(r *Record, fail failFunc) {
 	}
 	if r.Type == TypeLesson && len(r.Roles) == 0 {
 		fail(0, "missing required field %q (lesson records must name at least one role)", "roles")
+	}
+	if r.Type == TypeDiagram {
+		if line, ok := r.FieldLine["kind"]; !ok {
+			fail(0, "missing required field %q (diagram records must name one of: %s)", "kind", strings.Join(KindNames(), ", "))
+		} else if _, known := Kinds[r.Kind]; !known {
+			fail(line, "unknown kind %q (want one of: %s)", r.Kind, strings.Join(KindNames(), ", "))
+		}
 	}
 }
 

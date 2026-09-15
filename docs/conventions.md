@@ -256,6 +256,7 @@ Project knowledge is typed Markdown records with strict frontmatter, read throug
 docs/adr/<slug>.md              decision — accepted | proposed | superseded | rejected; supersedes: []
 docs/facts/<slug>.md            fact — verified: <lo>..<hi|canary>; guard: <Test name> | none
 docs/lessons/<slug>.md          lesson — roles: [pipeline roles that pay next time]
+docs/diagrams/<slug>.md         diagram — kind: <context|container|component|domain|state|sequence|er|flow>; one mermaid fence
 docs/runbooks/<slug>.md         runbook
 docs/references/<slug>.md       reference (large generated or looked-up tables)
 docs/features/<name>/spec.md    spec — its go/web/e2e/protocol frontmatter IS the feature registry
@@ -263,12 +264,18 @@ docs/features/<name>/{INDEX,contract}.md, docs/INDEX.md, .claude/rules/<name>.md
 ```
 
 - A record answers one question: one decision per ADR, one measured shape or behaviour per
-  fact, one cost-with-a-cause per lesson. Under 300 words (specs 800, runbooks 600); a longer
-  one is two records.
+  fact, one cost-with-a-cause per lesson, one diagram per diagram record. Under 300 words
+  (specs 800, runbooks 600), mermaid fence source excluded; a longer one is two records.
+- Diagrams are mermaid only (kb:adr/knowledge-diagrams-are-mermaid-records): a fence's first
+  keyword must be its kind's (`C4Context`, `C4Container`, `C4Component`, `classDiagram`,
+  `stateDiagram-v2`, `sequenceDiagram`, `erDiagram`, `flowchart`). System-wide diagrams are
+  records; a feature-scoped one sits inline in its `spec.md`. A diagram record's `files` globs
+  name the code it depicts, so `kb for <path>` surfaces it — keep it true in the same commit
+  that changes that code. `kb fences <file>` checks a plan or draft outside the record tree.
 - Frontmatter is the contract `make check-kb` enforces (`id` == filename slug, `type`, `status`,
   `date`, `summary`, `features`, `tags` from the closed list, `files`, `tests`, `refs`); the
   body is prose. No tables of other records — the generated INDEX is the table.
-- Cite as a token, `kb:<adr|fact|lesson|rule|spec|runbook|ref|anchor>/<slug>`, never by path,
+- Cite as a token, `kb:<adr|diagram|fact|lesson|rule|spec|runbook|ref|anchor>/<slug>`, never by path,
   date or plan name; the token is valid in Go and TS comments, `describe()` strings and prose.
   Provenance goes in `refs` (`plan:<name>`, a capture path, a log file), not in the body.
 - Never edit an accepted ADR's decision — write a superseding one. Never edit a generated file;

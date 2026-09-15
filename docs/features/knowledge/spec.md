@@ -16,14 +16,17 @@ Project knowledge is a store of typed Markdown records with strict frontmatter, 
 gated by `go run ./tools/kb` (docs/conventions.md "Knowledge records"). It exists so that
 pipeline agents load the records their feature needs instead of whole documents.
 
-**Records.** Seven types, each in its own directory: rules, decisions in `docs/adr`, facts in
-`docs/facts`, lessons in `docs/lessons`, runbooks, references, and one spec per feature at
-`docs/features/<name>/spec.md`. A record answers one question and stays inside a word
-budget: three hundred words, eight hundred for a spec, six hundred for a runbook. The common
-frontmatter is `id`, `type`, `status`, `date`, `summary`, `features`, `tags` from a closed
-list, `files`, `tests` and `refs`; a decision adds `supersedes`, a fact adds a `verified`
-version range and a `guard` test, a lesson adds `roles`, and a spec adds `go`, `web`, `e2e`
-and `protocol` globs, which are the feature registry. A record is cited as a token,
+**Records.** Eight types, each in its own directory: rules, decisions in `docs/adr`, diagrams
+in `docs/diagrams`, facts in `docs/facts`, lessons in `docs/lessons`, runbooks, references, and
+one spec per feature at `docs/features/<name>/spec.md`. A record answers one question and
+stays inside a word budget: three hundred words, eight hundred for a spec, six hundred for a
+runbook; the source inside a mermaid fence is not counted. The common frontmatter is `id`,
+`type`, `status`, `date`, `summary`, `features`, `tags` from a closed list, `files`, `tests`
+and `refs`; a decision adds `supersedes`, a fact adds a `verified` version range and a `guard`
+test, a lesson adds `roles`, a diagram adds `kind` from the closed list, and a spec adds `go`,
+`web`, `e2e` and `protocol` globs, which are the feature registry. A diagram record holds
+exactly one mermaid fence opening with its kind's keyword; a mermaid fence in any record
+must open with one of the eight keywords (kb:adr/knowledge-diagrams-are-mermaid-records). A record is cited as a token,
 `kb:<type>/<id>`, in prose and in Go and TypeScript comments; `refs` carry provenance as
 plan names, issue numbers, URLs or repo paths.
 

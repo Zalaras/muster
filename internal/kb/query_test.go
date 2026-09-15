@@ -104,9 +104,10 @@ func TestLs_FiltersByTypePrefixFeatureStatusRoleAndGuard(t *testing.T) {
 		filter ListFilter
 		want   []string
 	}{
-		{"all", ListFilter{}, []string{"kb:spec/sessions", "kb:adr/old-pin", "kb:adr/pin-order", "kb:fact/statusline-cadence", "kb:fact/unguarded", "kb:lesson/resize-twice"}},
+		{"all", ListFilter{}, []string{"kb:spec/sessions", "kb:diagram/sessions-state", "kb:diagram/system-container", "kb:adr/old-pin", "kb:adr/pin-order", "kb:fact/statusline-cadence", "kb:fact/unguarded", "kb:lesson/resize-twice"}},
 		{"type by prefix", ListFilter{Type: "adr"}, []string{"kb:adr/old-pin", "kb:adr/pin-order"}},
 		{"type by name", ListFilter{Type: "decision"}, []string{"kb:adr/old-pin", "kb:adr/pin-order"}},
+		{"diagrams", ListFilter{Type: "diagram"}, []string{"kb:diagram/sessions-state", "kb:diagram/system-container"}},
 		{"feature", ListFilter{Feature: "sessions", Type: "fact"}, []string{"kb:fact/statusline-cadence"}},
 		{"status", ListFilter{Status: "superseded"}, []string{"kb:adr/old-pin"}},
 		{"role", ListFilter{Role: "daemon-impl"}, []string{"kb:lesson/resize-twice"}},
@@ -127,7 +128,7 @@ func TestLs_FiltersByTypePrefixFeatureStatusRoleAndGuard(t *testing.T) {
 		})
 	}
 	var buf bytes.Buffer
-	require.EqualError(t, List(ix, ListFilter{Type: "note"}, &buf), `unknown type "note" (want rule, decision, spec, fact, lesson, runbook or reference)`)
+	require.EqualError(t, List(ix, ListFilter{Type: "note"}, &buf), `unknown type "note" (want rule, spec, diagram, decision, fact, lesson, runbook or reference)`)
 	require.Error(t, List(ix, ListFilter{Guard: "TestX"}, &buf))
 }
 

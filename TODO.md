@@ -77,6 +77,13 @@ doesn't move. Browser zoom scales the pixel layer and the terminal together and 
 (the daemon's address is a fixed default), so it is the control. Don't re-derive; revisit only if
 the mobile/responsive pass rem-ifies the pixel layer.
 
+- [ ] **Render mermaid diagrams in the docs reader** (added 2026-09-15) — the reader
+  (`kb:spec/reader`, `marked` in `web/src/render/reader.ts`) shows ```` ```mermaid ```` fences as
+  plain code. Render them as diagrams, client-side, inside the existing sanitizer boundary
+  (`kb:adr/issue-preview-is-the-leak-check` still holds — no remote fetch, no raw HTML/script
+  passthrough from the diagram source; a malformed diagram degrades to the fenced source, never
+  breaks the page). Motivation: the kb is about to gain C4/domain/state/sequence/ER diagrams in
+  mermaid for both agents and humans, and the reader is where a human reads them.
 - [ ] **`triage`'s `CheckVersion` regex rejects dev-build version strings** —
   `internal/triage/checks.go`'s `reVersion` (`^[0-9]+(\.[0-9]+)*(-[A-Za-z0-9.]+)?$`) requires no
   leading `v` and only one `-suffix` group. A local dev build's `musterd.version` comes from

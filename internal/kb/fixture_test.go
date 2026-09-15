@@ -134,8 +134,47 @@ roles: [daemon-impl]
 Call both, in that order.
 `
 
+const fixtureStateDiagram = `---
+id: sessions-state
+type: diagram
+status: active
+date: 2026-09-15
+summary: The session state machine.
+features: [sessions]
+files: [internal/sess/**]
+kind: state
+---
+Every session moves through these states.
+
+` + "```mermaid" + `
+stateDiagram-v2
+  [*] --> starting
+  starting --> running
+  running --> ended
+` + "```" + `
+`
+
+const fixtureContainerDiagram = `---
+id: system-container
+type: diagram
+status: active
+date: 2026-09-15
+summary: The daemon, the dashboard and tmux.
+kind: container
+---
+The three containers and their wires.
+
+` + "```mermaid" + `
+%% comment first
+C4Container
+  Person(u, "Damian")
+  Container(d, "musterd", "Go")
+` + "```" + `
+`
+
 // newKBRoot builds the design §12 fixture: one feature, two decisions, one fact, one
-// lesson, three protocol anchors, one code citation and two CLAUDE.md fragments.
+// lesson, two diagrams, three protocol anchors, one code citation and two CLAUDE.md
+// fragments.
 func newKBRoot(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
@@ -153,6 +192,8 @@ func newKBRoot(t *testing.T) string {
 	mustWriteFile(t, root, "docs/adr/old-pin.md", fixtureOldPin)
 	mustWriteFile(t, root, "docs/facts/statusline-cadence.md", fixtureFact)
 	mustWriteFile(t, root, "docs/lessons/resize-twice.md", fixtureLesson)
+	mustWriteFile(t, root, "docs/diagrams/sessions-state.md", fixtureStateDiagram)
+	mustWriteFile(t, root, "docs/diagrams/system-container.md", fixtureContainerDiagram)
 	mustWriteFile(t, root, "CLAUDE.md",
 		"# Fixture\n\nRules.\n\n<!-- kb:features -->\n<!-- /kb:features -->\n\nMore rules.\n")
 	mustWriteFile(t, root, "internal/sess/CLAUDE.md",

@@ -87,7 +87,7 @@ func TestRecordFromFields_ReportsTypeDirIdDateAndSummaryProblemsOnTheirLines(t *
 	}, got)
 
 	_, got = parseRecord(t, "docs/adr/x.md", "---\nid: x\ntype: note\nstatus: accepted\ndate: 2026-08-30\nsummary: s\n---\n")
-	assert.Equal(t, []string{`docs/adr/x.md:3: unknown type "note" (want rule, decision, spec, fact, lesson, runbook or reference)`}, got)
+	assert.Equal(t, []string{`docs/adr/x.md:3: unknown type "note" (want rule, spec, diagram, decision, fact, lesson, runbook or reference)`}, got)
 }
 
 func TestRecordFromFields_DerivesIDFromTheFeatureDirectoryForSpecRecords(t *testing.T) {
@@ -138,4 +138,27 @@ func TestParseVersionRange_AcceptsOrderedRangesAndRejectsTheRest(t *testing.T) {
 			assert.Equal(t, tc.want, got)
 		})
 	}
+}
+
+func TestRecordFromFields_DiagramsRequireAKnownKindAndKindIsScopedToThem(t *testing.T) {
+	head := "---\nid: x\ntype: diagram\nstatus: active\ndate: 2026-09-15\nsummary: s\n"
+	_, got := parseRecord(t, "docs/diagrams/x.md", head+"---\n")
+	assert.Equal(t, []string{`docs/diagrams/x.md: missing required field "kind" (diagram records must name one of: component, container, context, domain, er, flow, sequence, state)`}, got)
+
+	_, got = parseRecord(t, "docs/diagrams/x.md", head+"kind: mindmap\n---\n")
+	assert.Equal(t, []string{`docs/diagrams/x.md:7: unknown kind "mindmap" (want one of: component, container, context, domain, er, flow, sequence, state)`}, got)
+
+	r, got := parseRecord(t, "docs/diagrams/x.md", head+"kind: er\n---\n")
+	assert.Empty(t, got)
+	assert.Equal(t, "er", r.Kind)
+	assert.Equal(t, "kb:diagram/x", r.Token())
+
+	_, got = parseRecord(t, "docs/facts/f.md", "---\nid: f\ntype: fact\nstatus: active\ndate: 2026-09-15\nsummary: s\nverified: 2.1.246..canary\nkind: er\n---\n")
+	assert.Equal(t, []string{`docs/facts/f.md:8: field "kind" is only valid on diagram records`}, got)
+}
+
+func TestRecordFromFields_DoesNotBudgetMermaidFenceSource(t *testing.T) {
+	r, got := parseRecord(t, "docs/features/sessions/spec.md", "---\nid: sessions\ntype: spec\nstatus: active\ndate: 2026-09-15\nsummary: s\nfeatures: [sessions]\n---\none two\n\n```mermaid\nsequenceDiagram\n  A->>B: hello there friend\n```\n")
+	assert.Empty(t, got)
+	assert.Equal(t, 4, r.BodyWords, "prose and the two fence markers count; the diagram source does not")
 }

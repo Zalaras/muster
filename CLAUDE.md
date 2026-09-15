@@ -10,7 +10,8 @@ browsing: `docs/adr/` (decisions; `accepted` binds, `proposed` is a plan's not-y
 choice, `superseded`/`rejected` are history — don't re-litigate them or reintroduce cut
 features), `docs/facts/` (**measured** Claude Code facts with the versions they hold on; they
 beat Claude Code's official docs, which have been wrong), `docs/lessons/` (retro learnings,
-per role), `docs/runbooks/`, `docs/features/<name>/` (one folder per feature; its `spec.md`
+per role), `docs/diagrams/` (system-wide mermaid diagrams; feature ones sit inline in the
+feature spec), `docs/runbooks/`, `docs/features/<name>/` (one folder per feature; its `spec.md`
 frontmatter is the registry), `docs/protocol.md` (the daemon↔UI contract, stable anchors) and
 `docs/conventions.md` (settled code patterns — change it there first). `SPEC.md` is the
 product spec; where an accepted ADR and SPEC prose disagree, the ADR is newer and wins. Every
@@ -106,4 +107,6 @@ through `/claude-code-upgrade`; the ritual it follows is `docs/claude-code-versi
   measured on (`verified`) and the test that guards it (`guard`).
 - Lesson learned (a cost with a cause) → a lesson record in `docs/lessons/` via `/retro`, never
   a sentence in an agent file.
+- Code changed whose diagram `kb for <path>` names → the diagram (record or inline in the
+  spec) is updated in the same commit, or it is now wrong.
 - Then `make gen-kb && make check-kb`; generated files ride the same commit as the record.

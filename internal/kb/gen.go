@@ -95,6 +95,9 @@ func row(ix *Index, r *Record) string {
 	if r.Type == TypeFact && r.Verified != nil {
 		meta = append(meta, "verified "+ix.ResolvedVerified(r))
 	}
+	if r.Type == TypeDiagram && r.Kind != "" {
+		meta = append(meta, "kind: "+r.Kind)
+	}
 	if len(r.Features) > 0 {
 		meta = append(meta, "features: "+strings.Join(r.Features, ", "))
 	}
@@ -108,6 +111,8 @@ func sectionTitle(t Type) string {
 		return "Rules"
 	case TypeSpec:
 		return "Specs"
+	case TypeDiagram:
+		return "Diagrams"
 	case TypeDecision:
 		return "Decisions"
 	case TypeFact:

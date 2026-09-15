@@ -130,7 +130,7 @@ func TestOutputs_TruncatesAnOverBudgetRulesFileAndPointsAtTheFeatureIndex(t *tes
 	assert.Regexp(t, "^… [0-9]+ more: see `docs/features/sessions/INDEX.md`$", last)
 	m := regexp.MustCompile(`… (\d+) more`).FindStringSubmatch(last)
 	kept := strings.Count(rules, "- `kb:")
-	assert.Equal(t, 72-kept, atoi(t, m[1]))
+	assert.Equal(t, 73-kept, atoi(t, m[1]), "70 rules + spec + fact + the state diagram")
 }
 
 func atoi(t *testing.T, s string) int {
@@ -185,4 +185,15 @@ func TestApply_WritesOnlyChangedFilesAndReportsThem(t *testing.T) {
 
 	edit(t, root, "docs/lessons/resize-twice.md", "summary: Resize the pty", "summary: Always resize the pty")
 	assert.Equal(t, []string{"docs/INDEX.md"}, runGen(t, root), "a global lesson touches only the store index")
+}
+
+func TestOutputs_RendersADiagramsSectionWithEachRecordsKind(t *testing.T) {
+	index := outputsOf(t, newKBRoot(t))["docs/INDEX.md"]
+	specs, diagrams, decisions := strings.Index(index, "\n## Specs\n"), strings.Index(index, "\n## Diagrams\n"), strings.Index(index, "\n## Decisions\n")
+	require.NotEqual(t, -1, diagrams)
+	assert.Less(t, specs, diagrams)
+	assert.Less(t, diagrams, decisions)
+	assert.Contains(t, index, "- `kb:diagram/sessions-state` — The session state machine. (active, 2026-09-15; kind: state; features: sessions) → `docs/diagrams/sessions-state.md`")
+	assert.Contains(t, index, "- `kb:diagram/system-container` — The daemon, the dashboard and tmux. (active, 2026-09-15; kind: container) → `docs/diagrams/system-container.md`")
+	assert.Contains(t, outputsOf(t, newKBRoot(t))["docs/features/sessions/INDEX.md"], "kb:diagram/sessions-state")
 }

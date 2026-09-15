@@ -334,3 +334,39 @@ func indexOf(list []string, prefix string) int {
 	}
 	return -1
 }
+
+func TestCheck_HoldsADiagramToOneFenceWhoseKeywordMatchesItsKind(t *testing.T) {
+	root := freshRoot(t)
+	edit(t, root, "docs/diagrams/sessions-state.md", "stateDiagram-v2\n", "sequenceDiagram\n")
+	assert.Contains(t, runCheck(t, root), `docs/diagrams/sessions-state.md:13: kind "state" wants a stateDiagram-v2 fence, found "sequenceDiagram"`)
+
+	root = freshRoot(t)
+	edit(t, root, "docs/diagrams/sessions-state.md", "Every session moves through these states.\n", "Prose only.\n")
+	edit(t, root, "docs/diagrams/sessions-state.md", "```mermaid\nstateDiagram-v2\n  [*] --> starting\n  starting --> running\n  running --> ended\n```\n", "")
+	assert.Contains(t, runCheck(t, root), "docs/diagrams/sessions-state.md: a diagram record holds exactly one mermaid fence (found 0)")
+
+	root = freshRoot(t)
+	edit(t, root, "docs/diagrams/sessions-state.md", "Every session moves through these states.\n", "Two.\n\n```mermaid\nstateDiagram-v2\n  x --> y\n```\n")
+	assert.Contains(t, runCheck(t, root), "docs/diagrams/sessions-state.md: a diagram record holds exactly one mermaid fence (found 2)")
+}
+
+func TestCheck_ValidatesMermaidFencesInEveryRecordAgainstTheClosedKeywordList(t *testing.T) {
+	root := freshRoot(t)
+	edit(t, root, "docs/features/sessions/spec.md", "The sessions feature keeps the rail ordered.\n",
+		"The sessions feature keeps the rail ordered.\n\n```mermaid\nerDiagram\n  SESSION ||--o{ EVENT : logs\n```\n")
+	assert.Empty(t, runCheck(t, root), "an inline diagram of an allowed kind passes")
+
+	edit(t, root, "docs/features/sessions/spec.md", "erDiagram\n", "pie title Sessions\n")
+	got := runCheck(t, root)
+	assert.Contains(t, got, `docs/features/sessions/spec.md:16: mermaid fence opens with "pie" (want one of: C4Component, C4Container, C4Context, classDiagram, erDiagram, flowchart, sequenceDiagram, stateDiagram-v2)`)
+	assert.NotContains(t, strings.Join(got, "\n"), "exactly one mermaid fence", "the one-fence rule is for diagram records only")
+}
+
+func TestCheck_ResolvesDiagramCitationsAndNamesTheDiagramPrefixOnAMismatch(t *testing.T) {
+	root := freshRoot(t)
+	mustWriteFile(t, root, "internal/sess/state.go", "package sess\n\n// See kb:diagram/sessions-state and kb:adr/sessions-state and kb:diagram/nope.\n")
+	got := runCheck(t, root)
+	assert.Contains(t, got, "internal/sess/state.go:3: citation kb:adr/sessions-state names a diagram (want kb:diagram/sessions-state)")
+	assert.Contains(t, got, "internal/sess/state.go:3: citation kb:diagram/nope resolves to no record")
+	assert.NotContains(t, strings.Join(got, "\n"), "kb:diagram/sessions-state resolves")
+}

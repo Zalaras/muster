@@ -63,6 +63,7 @@ func Pack(ix *Index, opts PackOptions, w io.Writer) (int, error) {
 		return 0, err
 	}
 	writeFeatureSections(&b, ix, opts)
+	writeDiagrams(&b, ix, opts)
 	writeDecisions(&b, ix, opts)
 	writeProposedDecisions(&b, ix, opts)
 	writeFacts(&b, ix, opts)
@@ -108,6 +109,32 @@ func writeFeatureSections(b *strings.Builder, ix *Index, opts PackOptions) {
 		f := ix.Feature(name)
 		fmt.Fprintf(b, "\n# Feature: %s\n\n%s\n", name, strings.TrimSpace(f.Spec.Body))
 		b.WriteString("\n" + strings.TrimSpace(renderContract(ix, f)) + "\n")
+	}
+}
+
+// systemDiagramRoles are the roles that read the feature-less (system-wide) diagrams; an
+// implementation pack carries only the diagrams naming one of its features.
+var systemDiagramRoles = []string{"planner", "plan-work", "review", "orchestrator"}
+
+// writeDiagrams writes the active diagrams for the pack, fence included: those naming
+// one of the pack's features for every role, the system-wide ones for the roles that
+// plan and judge. The heading is written only when a diagram follows.
+func writeDiagrams(b *strings.Builder, ix *Index, opts PackOptions) {
+	var out []*Record
+	for _, r := range ix.RecordsOfType(TypeDiagram) {
+		if r.Status != "active" {
+			continue
+		}
+		if intersects(r.Features, opts.Features) || (len(r.Features) == 0 && contains(systemDiagramRoles, opts.Role)) {
+			out = append(out, r)
+		}
+	}
+	if len(out) == 0 {
+		return
+	}
+	b.WriteString("\n# Diagrams\n")
+	for _, r := range out {
+		writeRecord(b, ix, r)
 	}
 }
 
@@ -190,6 +217,9 @@ func RenderRecord(ix *Index, r *Record) string {
 	meta := []string{r.Status, r.Date}
 	if r.Type == TypeFact && r.Verified != nil {
 		meta = append(meta, "verified "+ix.ResolvedVerified(r))
+	}
+	if r.Type == TypeDiagram && r.Kind != "" {
+		meta = append(meta, "kind: "+r.Kind)
 	}
 	if len(r.Features) > 0 {
 		meta = append(meta, "features: "+strings.Join(r.Features, ", "))

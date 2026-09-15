@@ -97,6 +97,7 @@ func (c *checker) checkRecord(r *Record) {
 	c.checkSupersedesRefs(r)
 	c.checkProtocolRefs(r)
 	c.checkBodyBudget(r)
+	c.checkFences(r)
 	// A feature with more live records than its rules file can hold is not a source
 	// defect: gen truncates the file at RuleFileLines with a pointer at the feature INDEX,
 	// so the tier-1 context stays bounded by construction. Failing here would push authors
@@ -182,6 +183,28 @@ func (c *checker) checkProtocolRefs(r *Record) {
 func (c *checker) checkBodyBudget(r *Record) {
 	if r.BodyWords > r.bodyBudget() {
 		c.fail(r.Path, 0, "body is %d words (budget %d for a %s)", r.BodyWords, r.bodyBudget(), r.Type)
+	}
+}
+
+// checkFences validates every mermaid fence in the body against the closed keyword list,
+// and holds a diagram record to exactly one fence whose keyword is its kind's.
+func (c *checker) checkFences(r *Record) {
+	offset := r.BodyLine - 1
+	if offset < 0 {
+		offset = 0
+	}
+	c.findings = append(c.findings, CheckFences(r.Path, r.Body, offset)...)
+	if r.Type != TypeDiagram {
+		return
+	}
+	fences := mermaidFences(r.Body)
+	if len(fences) != 1 {
+		c.fail(r.Path, 0, "a diagram record holds exactly one mermaid fence (found %d)", len(fences))
+		return
+	}
+	want, ok := Kinds[r.Kind]
+	if got := fences[0].Keyword(); ok && got != want {
+		c.fail(r.Path, fences[0].Line+offset, "kind %q wants a %s fence, found %q", r.Kind, want, got)
 	}
 }
 

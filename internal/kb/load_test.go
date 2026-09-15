@@ -25,8 +25,8 @@ func TestLoad_BuildsFeaturesFromSpecRecordsAndIndexesRecordsByFeature(t *testing
 	for _, r := range ix.ByFeature["sessions"] {
 		ids = append(ids, r.ID)
 	}
-	assert.ElementsMatch(t, []string{"sessions", "pin-order", "old-pin", "statusline-cadence"}, ids)
-	assert.Len(t, ix.Records, 5)
+	assert.ElementsMatch(t, []string{"sessions", "pin-order", "old-pin", "statusline-cadence", "sessions-state"}, ids)
+	assert.Len(t, ix.Records, 7)
 	assert.Equal(t, "docs/adr/old-pin.md", ix.Records[0].Path, "records are sorted by path")
 	assert.Equal(t, []string{"sessions", "sessions.pin", "sessions.order"}, ix.AnchorOrder)
 	assert.True(t, ix.InTree("internal/sess/sess.go"))
@@ -47,7 +47,7 @@ func TestLoad_ReportsEveryBrokenRecordInsteadOfStoppingAtTheFirst(t *testing.T) 
 		`docs/rules/broken-two.md:4: status "bogus" is not valid for a rule (want active, draft or retired)`,
 		"docs/runbooks/broken-three.md: frontmatter never closed (no second --- line)",
 	}, msgs)
-	assert.Len(t, ix.Records, 8, "broken records still occupy the index so ids resolve")
+	assert.Len(t, ix.Records, 10, "broken records still occupy the index so ids resolve")
 	assert.Equal(t, TypeDecision, ix.ByID["broken-one"].Type)
 }
 
@@ -74,7 +74,7 @@ func TestLoad_IgnoresGeneratedBasenamesUnderFeaturesAndNonRecordDocs(t *testing.
 	mustWriteFile(t, root, "docs/adr/notes.txt", "not markdown\n")
 	ix, findings := loadFixture(t, root)
 	assert.Empty(t, findings)
-	assert.Len(t, ix.Records, 5)
+	assert.Len(t, ix.Records, 7)
 }
 
 func TestLoad_ReadsTheObservedVersionRangeFromDisk(t *testing.T) {
