@@ -102,6 +102,9 @@ Go through each requirement in the plan:
 - Is it implemented? (check the implementation logs for relevant files, then read those files)
 - Is it tested? (check test logs)
 - Does the implementation match the Protocol Contract on both sides?
+- Are the diagrams still true? For each changed file, `go run ./tools/kb for <path>` names the
+  `kb:diagram/` records depicting it; read each fence (and any plan `## Diagrams` delta) against
+  what shipped. A stale diagram is a Major (doc drift) — one `DIAG` row in the Requirements table.
 
 ### 4. Muster Hard-Rule Checklist (each violation is Critical)
 
@@ -232,6 +235,7 @@ Write to `plans/<plan-name>/review.md`:
 | Req | Implemented | Tested | Status |
 |-----|-------------|--------|--------|
 | REQ-1 | Yes | Yes | pass |
+| DIAG | <records checked, or none> | — | pass/fail |
 
 ## Build & Tests
 

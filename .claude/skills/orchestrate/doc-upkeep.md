@@ -21,3 +21,8 @@ pipeline may have left stale and what a complete entry looks like.
   record with `verified:` the version measured and `guard:` the test that pins it; a fact
   proved wrong gets its ceiling pinned and a new record linked by `refs`, never a rewrite.
 - **`docs/protocol.md`** — must match what shipped. If plan-work merged the delta at approval and an approved mid-run adjustment changed it, reconcile the doc now. Then `make gen-kb` so `contract.md` follows.
+- **Diagrams** (kb:adr/knowledge-diagrams-are-mermaid-records) — for every file the branch
+  changed, `go run ./tools/kb for <path>` names the `kb:diagram/` records depicting it; each is
+  still true of what shipped or you update its fence now. A plan `## Diagrams` entry marked
+  `delta of kb:diagram/<slug>` (or of a feature spec's inline diagram) is applied to that
+  record. Say "no diagram touched" in the completion summary when none applies.

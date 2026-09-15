@@ -92,7 +92,7 @@ Based on the codebase structure, identify which files will likely need changes:
 **Web (TypeScript, `web/src/`):**
 - Protocol/message modules, state-derivation modules, per-feature render modules, the single WebSocket client module
 
-**`TODO.md`, `docs/adr/`, `SPEC.md` and generated kb files are never listed under an impl track** (the hand-written part of a touched package's `CLAUDE.md` is the exception and belongs to that impl track). They are the orchestrator's (Doc-Upkeep Backstop / Completion), and the review rules forbid an impl agent from touching `SPEC.md`. Put the required upkeep under Implementation Notes → Doc upkeep, addressed to the orchestrator (kb:lesson/plan-gave-no-single-owner).
+**`TODO.md`, `docs/adr/`, `docs/diagrams/`, `SPEC.md` and generated kb files are never listed under an impl track** (the hand-written part of a touched package's `CLAUDE.md` is the exception and belongs to that impl track). They are the orchestrator's (Doc-Upkeep Backstop / Completion), and the review rules forbid an impl agent from touching `SPEC.md`. Put the required upkeep under Implementation Notes → Doc upkeep, addressed to the orchestrator (kb:lesson/plan-gave-no-single-owner).
 A composition root (`web/src/main.ts`, `internal/server/server.go`) may appear under Affected Files only for a one-line registration; anything more is a new feature module (`docs/conventions.md` § Composition roots).
 
 **Every requirement's test coverage names exactly one owning test agent — no conditional routing.**
@@ -137,6 +137,16 @@ If SQLite schema changes are needed:
 - New tables or columns with exact types and constraints (schema direction per `kb:adr/lifecycle-migrations-add-tables-when-written`)
 - A numbered, forward-only migration (no down migrations)
 - Note: don't plan tests for what SQLite guarantees — constraint enforcement is the platform's job
+
+### 6a. Diagrams (optional)
+
+Draw one only when the plan adds or changes a state machine, a hook/protocol sequence, a
+schema or a component boundary, or when a picture would measurably help implementation.
+Kinds and keywords are in `docs/conventions.md` § Knowledge records; a Code-level
+`classDiagram` is allowed in a plan, never in a record. Read the kb's diagrams for the area
+first (`kb ls --type diagram`, and the feature spec's inline fences) and mark a changed one
+`delta of kb:diagram/<slug>` so the orchestrator applies it. Unsure whether one helps? Ask
+Damian rather than decide. plan-lint fails a fence whose keyword is outside the closed list.
 
 ### 7. UI Specifications (for web or full-stack)
 
@@ -303,6 +313,10 @@ Delta against `docs/protocol.md` (merged there on approval; `docs/features/<f>/c
 ## Schema Changes
 
 <migration details or "No schema changes required">
+
+## Diagrams
+
+<omit the section, or one mermaid fence per diagram with a line saying what it is for and, when it changes a kb diagram, `delta of kb:diagram/<slug>`>
 
 ## UI Specifications
 

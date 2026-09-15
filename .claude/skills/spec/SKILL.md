@@ -58,6 +58,7 @@ Work through each section below in order. Use the guiding questions as a startin
 > What does the implementer need to know going in?
 
 - Which ADRs, facts and SPEC.md sections bear on this?
+- Which kb diagrams cover the area (`kb ls --type diagram`, the feature spec's inline fences)? Read and cite them. Propose a new one only for a state machine or sequence prose cannot carry — Damian decides.
 - Does this depend on or relate to anything else in the codebase?
 
 ### 3. Scope
