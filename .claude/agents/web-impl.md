@@ -116,7 +116,7 @@ and never report `pass`/`fail` for them as a verdict — this is your smoke chec
 (kb:lesson/authored-tests-never-run-before-validate).
 
 **Comments are part of the gate.** Before you write your log, re-read every comment your diff adds
-or touches, and every comment tree-wide naming a file or function you moved, against
+or touches, and every comment tree-wide naming anything you moved or changed, against
 `docs/conventions.md` §Comments: delete narration and greppable citations; keep only a non-obvious *why*, citing `kb:<type>/<slug>` where a record exists — and re-read the hand-written part of every touched package's `CLAUDE.md`: it must still be true (a false one is a review Major). A
 path, `make` target or `musterd` flag a comment does cite must exist — `python3
 .claude/skills/orchestrate/scripts/dead-refs.py` fails the gate otherwise, and the reviewer treats a

@@ -1,0 +1,116 @@
+{
+  "plan_name": "mermaid-support",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 1,
+    "daemon-impl": 0,
+    "web-impl": 0,
+    "daemon-tests": 0,
+    "web-tests": 0,
+    "e2e-validate": 0,
+    "review": 4,
+    "doc-reconcile": 0
+  },
+  "completed_steps": [
+    "e2e-specs",
+    "web-impl",
+    "web-tests",
+    "e2e-validate",
+    "review",
+    "doc-reconcile"
+  ],
+  "step_started_at": {
+    "e2e-specs": "2026-09-15T20:44:37Z",
+    "web-impl": "2026-09-15T20:22:12Z",
+    "web-tests": "2026-09-15T19:35:46Z",
+    "e2e-validate": "2026-09-15T18:55:57Z",
+    "review": "2026-09-15T21:27:42Z",
+    "doc-reconcile": "2026-09-15T21:48:26Z"
+  },
+  "step_finished_at": {
+    "e2e-specs": "2026-09-15T20:57:46Z",
+    "web-impl": "2026-09-15T20:24:14Z",
+    "web-tests": "2026-09-15T19:37:28Z",
+    "e2e-validate": "2026-09-15T19:04:23Z",
+    "review": "2026-09-15T21:48:26Z",
+    "doc-reconcile": "2026-09-15T21:53:04Z"
+  },
+  "step_attempts": {
+    "e2e-specs": [
+      {
+        "start": "2026-09-15T17:46:07Z",
+        "finish": "2026-09-15T17:59:05Z"
+      },
+      {
+        "start": "2026-09-15T19:37:41Z",
+        "finish": "2026-09-15T19:51:47Z"
+      },
+      {
+        "start": "2026-09-15T20:44:37Z",
+        "finish": "2026-09-15T20:57:46Z"
+      }
+    ],
+    "web-impl": [
+      {
+        "start": "2026-09-15T18:03:20Z",
+        "finish": "2026-09-15T18:52:19Z"
+      },
+      {
+        "start": "2026-09-15T19:26:48Z",
+        "finish": "2026-09-15T19:35:36Z"
+      },
+      {
+        "start": "2026-09-15T20:22:12Z",
+        "finish": "2026-09-15T20:24:14Z"
+      }
+    ],
+    "web-tests": [
+      {
+        "start": "2026-09-15T18:52:26Z",
+        "finish": "2026-09-15T18:55:51Z"
+      },
+      {
+        "start": "2026-09-15T19:35:46Z",
+        "finish": "2026-09-15T19:37:28Z"
+      }
+    ],
+    "e2e-validate": [
+      {
+        "start": "2026-09-15T18:55:57Z",
+        "finish": "2026-09-15T19:04:23Z"
+      }
+    ],
+    "review": [
+      {
+        "start": "2026-09-15T19:04:23Z",
+        "finish": "2026-09-15T19:56:18Z"
+      },
+      {
+        "start": "2026-09-15T19:56:26Z",
+        "finish": "2026-09-15T20:27:34Z"
+      },
+      {
+        "start": "2026-09-15T20:27:34Z",
+        "finish": "2026-09-15T20:57:46Z"
+      },
+      {
+        "start": "2026-09-15T20:57:46Z",
+        "finish": "2026-09-15T21:27:42Z"
+      },
+      {
+        "start": "2026-09-15T21:27:42Z",
+        "finish": "2026-09-15T21:48:26Z"
+      }
+    ],
+    "doc-reconcile": [
+      {
+        "start": "2026-09-15T21:48:26Z",
+        "finish": "2026-09-15T21:53:04Z"
+      }
+    ]
+  },
+  "started_at": "2026-09-15T17:46:02Z",
+  "updated_at": "2026-09-15T21:56:48Z",
+  "closes_issues": []
+}

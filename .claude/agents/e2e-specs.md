@@ -257,7 +257,7 @@ Place new test files in `web/e2e/<feature-name>.spec.ts`, where `<feature-name>`
   fails, whose defect>` — uncommitted work beside other agents' is the hazard, not a red commit.
   Never `git stash` (not even to look: use `git diff` / `git show HEAD:<path>`), `checkout --
   <path>`, `reset`, `clean` or `rebase`. Never push; never commit on `main`.
-- **Comments in your tests follow `docs/conventions.md` §Comments**: before you write your log, re-read every comment you added — no narration, no citations of files a reader can grep for, and any path or target you do cite must exist (`dead-refs.py` fails the gate; a false or dead comment is a review Major).
+- **Comments in your tests follow `docs/conventions.md` §Comments**: before you write your log, re-read every comment in your files — no narration, no citations of files a reader can grep for, and any path or target you do cite must exist (`dead-refs.py` fails the gate; a false or dead comment is a review Major).
 
 ## Output
 

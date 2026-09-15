@@ -77,13 +77,29 @@ doesn't move. Browser zoom scales the pixel layer and the terminal together and 
 (the daemon's address is a fixed default), so it is the control. Don't re-derive; revisit only if
 the mobile/responsive pass rem-ifies the pixel layer.
 
-- [ ] **Render mermaid diagrams in the docs reader** (added 2026-09-15) — the reader
-  (`kb:spec/reader`, `marked` in `web/src/render/reader.ts`) shows ```` ```mermaid ```` fences as
-  plain code. Render them as diagrams, client-side, inside the existing sanitizer boundary
-  (`kb:adr/issue-preview-is-the-leak-check` still holds — no remote fetch, no raw HTML/script
-  passthrough from the diagram source; a malformed diagram degrades to the fenced source, never
-  breaks the page). Motivation: the kb is about to gain C4/domain/state/sequence/ER diagrams in
-  mermaid for both agents and humans, and the reader is where a human reads them.
+- [ ] **Flaky: drop-paste E14 in `web/e2e/plain-shell.spec.ts`** (added 2026-09-15) — "a file
+  dropped on a shell surface pastes its escaped path (E14, REQ-11)" went red once in three full
+  `make e2e` runs on an unrelated tree, `Pane isn't connected — nothing pasted`
+  (`web/src/terminal/drop.ts:92`): the drop lands before the pane attaches, an attach race that
+  only fires under full-suite worker fan-out (6/6 green in isolation). Found by
+  `plan:mermaid-support`'s review cycle 5, which touches nothing that spec exercises. Costs a
+  ~4-minute sweep to rediscover, and will bite the next plan's reviewer the same way.
+- [ ] **Flaky: `TestInstalledVersion_DescendantHoldingStdoutDoesNotHangStartup`** (added
+  2026-09-15) — `internal/claudecode/version_test.go:96` asserts a 15 s wall-clock bound around a
+  subprocess with a 2 s `WaitDelay`, and fails on the first `make test` after a `make e2e` sweep
+  (green twice in isolation immediately after: `ok … 7.1s`, `ok … 6.8s`). A 15 s bound on a
+  contended machine is the flake. Named by `plan:mermaid-support`'s review cycle 5 after cycle 4
+  saw it as an anonymous red.
+- [ ] **`make refs` is red in any fresh clone or worktree** (added 2026-09-15) — `make refs`
+  (`dead-refs.py --all`, run by `make check`) reports ~28 missing references, every one resolving
+  to the local settings file gitignored at `.gitignore:42` (19 refs) or the probe-rig capture
+  directory gitignored at `.gitignore:32` (9 refs). Neither is spelled out here as a literal path,
+  because doing so adds a dead reference to the very count this item is about — which is itself a
+  small demonstration of the problem. Both are untracked by design, so the gate
+  passes only where those artifacts happen to exist locally and fails for anyone starting from a
+  clean checkout — including every pipeline run in a worktree. Either teach `dead-refs.py` that a
+  gitignored path is not a dead reference, or stop citing them as paths. Found by
+  `plan:mermaid-support`; not caused by it.
 - [ ] **`triage`'s `CheckVersion` regex rejects dev-build version strings** —
   `internal/triage/checks.go`'s `reVersion` (`^[0-9]+(\.[0-9]+)*(-[A-Za-z0-9.]+)?$`) requires no
   leading `v` and only one `-suffix` group. A local dev build's `musterd.version` comes from

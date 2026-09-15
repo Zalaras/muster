@@ -377,6 +377,335 @@ export async function holdReaderListingResponse(page: Page, id: number): Promise
   return { release };
 }
 
+// ── Diagrams (plan mermaid-support) ─────────────────────────────────────────────────────
+//
+// Locators transcribed from the plan's Testable UI Elements table and DOM sketch: a
+// diagram figure carries no implicit role, so it's a plain CSS locator; the enlarge
+// button, the dialog and its toolbar buttons all pin role + accessible name and use
+// `getByRole` accordingly.
+
+/** Every `figure.diagram` in the rendered body, document order — index with `.nth()` or
+ * scope further with `.filter()` (Testable UI Elements: `article.md figure.diagram`). */
+export function diagramFigures(region: Locator): Locator {
+  return renderedBody(region).locator("figure.diagram");
+}
+
+/** The `n`th rendered diagram (default the first). */
+export function diagramFigure(region: Locator, n = 0): Locator {
+  return diagramFigures(region).nth(n);
+}
+
+/** `figure.diagram > button.diagram-enlarge`, named "Enlarge diagram" (Testable UI
+ * Elements) — scope to one figure when a document has more than one diagram. */
+export function enlargeButton(figure: Locator): Locator {
+  return figure.getByRole("button", { name: "Enlarge diagram" });
+}
+
+/** `pre > code.language-mermaid` still present after a render pass — only for a fence
+ * that failed to parse/render (REQ-6); a succeeded fence leaves none. */
+export function keptMermaidSource(region: Locator): Locator {
+  return renderedBody(region).locator("pre > code.language-mermaid");
+}
+
+/** `p.diagram-error`, the failed fence's kept-source sibling — text matches
+ * `/^diagram not rendered: /` (Testable UI Elements). */
+export function diagramErrorLine(region: Locator): Locator {
+  return renderedBody(region).locator("p.diagram-error");
+}
+
+/** The one `dialog.modal.diagram-modal` per reader root, by its accessible name
+ * ("Diagram", Testable UI Elements) — matches only while `[open]`, since a closed
+ * `<dialog>` has no accessible role. Use `diagramDialogRaw` to count regardless of state
+ * (INV-3). */
+export function diagramDialog(region: Locator): Locator {
+  return region.getByRole("dialog", { name: "Diagram" });
+}
+
+/** Raw `dialog.diagram-modal` locator, open or closed — INV-3's "exactly one per root"
+ * oracle, which a role query can't answer once the dialog is closed. */
+export function diagramDialogRaw(region: Locator): Locator {
+  return region.locator("dialog.diagram-modal");
+}
+
+export function diagramStage(dialog: Locator): Locator {
+  return dialog.locator(".diagram-stage");
+}
+
+export function diagramCanvas(dialog: Locator): Locator {
+  return dialog.locator(".diagram-canvas");
+}
+
+export function diagramZoomIn(dialog: Locator): Locator {
+  return dialog.getByRole("button", { name: "Zoom in" });
+}
+
+export function diagramZoomOut(dialog: Locator): Locator {
+  return dialog.getByRole("button", { name: "Zoom out" });
+}
+
+export function diagramZoomReset(dialog: Locator): Locator {
+  return dialog.getByRole("button", { name: "Reset zoom" });
+}
+
+export function diagramClose(dialog: Locator): Locator {
+  return dialog.getByRole("button", { name: "Close" });
+}
+
+/** Parses the canvas's inline `transform: translate(<x>px, <y>px) scale(<s>)` (DOM sketch)
+ * into numbers — the pan/zoom oracle for E14, since Playwright has no numeric-CSS matcher. */
+export async function canvasTransform(
+  canvas: Locator,
+): Promise<{ x: number; y: number; scale: number }> {
+  const transform = await canvas.evaluate((el) => (el as HTMLElement).style.transform);
+  const match = transform.match(
+    /translate\(\s*(-?[\d.]+)px\s*,\s*(-?[\d.]+)px\s*\)\s*scale\(\s*([\d.]+)\s*\)/,
+  );
+  if (!match) throw new Error(`unexpected canvas transform: "${transform}"`);
+  return { x: Number(match[1]), y: Number(match[2]), scale: Number(match[3]) };
+}
+
+export interface MermaidFixtureTree {
+  /** One valid `flowchart TD` — E2. */
+  flowPath: string;
+  /** One fence missing an arrow target, one valid fence after it — E3. */
+  brokenPath: string;
+  /** Script/onerror/`javascript:` labels plus a `securityLevel: "loose"` init directive
+   * that must have no effect — E4. */
+  unsafePath: string;
+  /** One fence of each of the kb's eight diagram kinds, plus case, attribute, blockquote
+   * and duplicate-fence variants — E12. */
+  kindsPath: string;
+  /** A flowchart naming `layout: elk` in frontmatter, and one naming no layout — E15. */
+  elkPath: string;
+  /** A `flowchart LR` with 40 chained nodes, wider than the reader body — E11. */
+  widePath: string;
+  /** No mermaid fence at all — E5 (the engine chunk must never load for this file). */
+  plainPath: string;
+}
+
+/**
+ * Writes the mermaid fixture markdown files the plan's Implementation Notes name, under
+ * `dir`. Diagram sources are the smallest syntactically valid (or deliberately invalid,
+ * for `brokenPath`) mermaid text for each construct — never invented wire shapes, since
+ * these are inputs to the real bundled mermaid engine, not simulated daemon output.
+ */
+export async function writeMermaidFixture(dir: string): Promise<MermaidFixtureTree> {
+  const flowPath = join(dir, "flow.md");
+  await writeFile(flowPath, "# Flow\n\n```mermaid\nflowchart TD\n  A --> B\n```\n");
+
+  const brokenPath = join(dir, "broken.md");
+  await writeFile(
+    brokenPath,
+    [
+      "# Broken",
+      "",
+      "```mermaid",
+      "flowchart TD",
+      "  A -->",
+      "```",
+      "",
+      "```mermaid",
+      "flowchart TD",
+      "  C --> D",
+      "```",
+      "",
+    ].join("\n"),
+  );
+
+  const unsafePath = join(dir, "unsafe.md");
+  await writeFile(
+    unsafePath,
+    [
+      "# Unsafe",
+      "",
+      "```mermaid",
+      '%%{init: {"securityLevel": "loose", "flowchart": {"htmlLabels": true}}}%%',
+      "flowchart TD",
+      '  A["<script>window.__readerXss = true;</script>"]',
+      "  B[\"<img src=x onerror='window.__readerXss = true' />\"]",
+      "  A --> B",
+      '  click A "javascript:window.__readerXss=true" "click"',
+      "```",
+      "",
+    ].join("\n"),
+  );
+
+  const kindsPath = join(dir, "kinds.md");
+  await writeFile(
+    kindsPath,
+    [
+      "# Kinds",
+      "",
+      "```mermaid",
+      "C4Context",
+      '  Person(user, "User")',
+      '  System(sys, "System")',
+      '  Rel(user, sys, "Uses")',
+      "```",
+      "",
+      "```mermaid",
+      "C4Container",
+      '  Person(user, "User")',
+      '  Container(app, "App", "Go")',
+      '  Rel(user, app, "Uses")',
+      "```",
+      "",
+      "```mermaid",
+      "C4Component",
+      '  Person(user, "User")',
+      '  Component(comp, "Component")',
+      '  Rel(user, comp, "Uses")',
+      "```",
+      "",
+      "```mermaid",
+      "classDiagram",
+      "  class Animal",
+      "  Animal : +String name",
+      "```",
+      "",
+      "```mermaid",
+      "stateDiagram-v2",
+      "  [*] --> Idle",
+      "  Idle --> Done",
+      "```",
+      "",
+      "```mermaid",
+      "sequenceDiagram",
+      "  Alice->>Bob: Hello",
+      "```",
+      "",
+      "```mermaid",
+      "erDiagram",
+      "  CUSTOMER ||--o{ ORDER : places",
+      "```",
+      "",
+      "```mermaid",
+      "flowchart TD",
+      "  E --> F",
+      "```",
+      "",
+      "```Mermaid",
+      "flowchart TD",
+      "  G --> H",
+      "```",
+      "",
+      "```mermaid title=x",
+      "flowchart TD",
+      "  I --> J",
+      "```",
+      "",
+      "> ```mermaid",
+      "> flowchart TD",
+      "> K --> L",
+      "> ```",
+      "",
+      "```mermaid",
+      "flowchart TD",
+      "  M --> N",
+      "```",
+      "",
+      "```mermaid",
+      "flowchart TD",
+      "  M --> N",
+      "```",
+      "",
+    ].join("\n"),
+  );
+
+  const elkPath = join(dir, "elk.md");
+  await writeFile(
+    elkPath,
+    [
+      "# ELK",
+      "",
+      "```mermaid",
+      "---",
+      "config:",
+      "  layout: elk",
+      "---",
+      "flowchart TD",
+      "  A --> B --> C",
+      "```",
+      "",
+      "```mermaid",
+      "flowchart TD",
+      "  X --> Y",
+      "```",
+      "",
+    ].join("\n"),
+  );
+
+  const widePath = join(dir, "wide.md");
+  const chain = Array.from({ length: 40 }, (_, i) => `N${i}`).join(" --> ");
+  await writeFile(widePath, `# Wide\n\n\`\`\`mermaid\nflowchart LR\n  ${chain}\n\`\`\`\n`);
+
+  const plainPath = join(dir, "plain.md");
+  await writeFile(plainPath, "# Plain\n\nNo diagrams here.\n");
+
+  return { flowPath, brokenPath, unsafePath, kindsPath, elkPath, widePath, plainPath };
+}
+
+/**
+ * Records every request's URL for the lifetime of `page` — INV-2's "no request leaves the
+ * daemon's origin" oracle (mirrors `ReaderRequestTracker`'s shape, but unfiltered by path
+ * since a mermaid chunk's hashed name isn't known ahead of a build). `data:`/`blob:` URLs
+ * carry no origin and are excluded rather than treated as violations.
+ */
+export class OriginRequestTracker {
+  private readonly urls: string[] = [];
+  private readonly origin: string;
+
+  constructor(page: Page, baseURL: string) {
+    this.origin = new URL(baseURL).origin;
+    page.on("request", (req) => {
+      this.urls.push(req.url());
+    });
+  }
+
+  /** Every recorded request's origin equals the daemon's own; throws naming the first
+   * offender otherwise. */
+  assertAllSameOrigin(): void {
+    const offender = this.urls.find(
+      (u) => !u.startsWith("data:") && !u.startsWith("blob:") && !u.startsWith(this.origin),
+    );
+    if (offender) throw new Error(`request left the daemon's origin: ${offender}`);
+  }
+
+  /** Every `.js` request recorded so far whose URL contains `substr` (case-insensitive)
+   * — the "engine chunk loaded" oracle for E5, without hardcoding a Vite-hashed
+   * filename. Applies no origin filter of its own: pair it with `assertAllSameOrigin()`,
+   * as E5 does, when the point is that the chunk came from the daemon. */
+  scriptRequestsContaining(substr: string): string[] {
+    const needle = substr.toLowerCase();
+    return this.urls.filter((u) => u.endsWith(".js") && u.toLowerCase().includes(needle));
+  }
+
+  get count(): number {
+    return this.urls.length;
+  }
+}
+
+/** Like `holdReaderFileResponse`, but matches only a request whose `path` query names
+ * `fileBasename` — for the mermaid plan's REQ-10/edge case 5, where one file's fetch must
+ * stay pending while a different file's completes normally, so the test demonstrates
+ * genuine lateness rather than two held requests released in an arbitrary race. */
+export async function holdReaderFileResponseFor(
+  page: Page,
+  id: number,
+  fileBasename: string,
+): Promise<HeldRoute> {
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const escaped = fileBasename.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  await page.route(new RegExp(`/api/sessions/${id}/reader/file\\?.*${escaped}`), async (route) => {
+    await gate;
+    await route.continue();
+  });
+  return { release };
+}
+
 // ── HTTP oracles ──────────────────────────────────────────────────────────────────────────
 
 export interface ReaderListing {

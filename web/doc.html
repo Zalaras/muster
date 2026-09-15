@@ -35,7 +35,7 @@
           <button type="button" class="arr" data-role="arr-nav" aria-label="File explorer" aria-expanded="true">›</button>
         </div>
         <div class="reader-notice" role="status" hidden></div>
-        <article class="md"></article>
+        <article class="md" tabindex="-1"></article>
         <nav class="rnav" aria-label="Documents">
           <div class="hd" data-role="plan-header">
             <span class="plan-label">plan</span>
@@ -51,6 +51,17 @@
           <button type="button" class="hd toggle" data-role="outline-toggle" aria-expanded="true" aria-label="Outline">outline</button>
           <div class="outline" data-role="outline"></div>
         </nav>
+        <dialog class="modal diagram-modal" aria-label="Diagram">
+          <div class="diagram-stage" data-zoom="1.00" tabindex="0">
+            <div class="diagram-canvas"></div>
+          </div>
+          <div class="modal-foot diagram-toolbar">
+            <button type="button" class="btn diagram-zoom-in" aria-label="Zoom in">+</button>
+            <button type="button" class="btn diagram-zoom-out" aria-label="Zoom out">−</button>
+            <button type="button" class="btn diagram-zoom-reset" aria-label="Reset zoom">fit</button>
+            <button type="button" class="btn diagram-close">Close</button>
+          </div>
+        </dialog>
       </section>
     </template>
 

@@ -982,6 +982,35 @@ body {
   font-style: italic;
 }
 
+/* Plan mermaid-support — a rendered diagram grounds like `.md pre` does (no mockup draws
+ * one, UI Specifications). `overflow-x: auto` plus `render/mermaid.ts` stripping
+ * mermaid's own responsive width/max-width (REQ-11) is what lets a wide diagram scroll
+ * instead of shrinking to fit — the same contract `.md pre` already gives a wide code
+ * block. */
+.md figure.diagram {
+  background: var(--bg-hover);
+  border: 1px solid var(--line);
+  overflow-x: auto;
+  max-width: 100%;
+  margin: 0 0 10px;
+}
+
+.diagram-enlarge {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+}
+
+.diagram-error {
+  margin: 4px 0 10px;
+  color: var(--fg-muted);
+  font-size: 0.85em;
+  user-select: text;
+}
+
 .reader.compact .md {
   padding: 10px 14px;
   font-size: var(--fs-sm);
@@ -2126,6 +2155,38 @@ dialog.confirm p {
   font-size: var(--fs-sm);
   line-height: 1.65;
   color: var(--fg-muted);
+}
+
+/* ── diagram modal (plan mermaid-support, REQ-8) — one per reader root, modelled on the
+ * launch/confirm dialogs' shared `dialog.modal` chrome above but sized to the viewport
+ * (UI Specifications) rather than a fixed content width. `grid-template-rows: 1fr auto`
+ * means the stage and the toolbar (`.modal-foot`) together fill the box with no gap, so
+ * every click inside it lands on one of the two — only a genuine backdrop click ever
+ * reaches the `<dialog>` element itself (`render/diagramdialog.ts`'s close-on-backdrop
+ * check depends on this). Scoped to `[open]`: an unconditional `display` here would
+ * override the UA's own `dialog:not([open]) { display: none; }`, the same trap as an
+ * author `display` rule beating `[hidden]` (kb:lesson/display-rule-overrides-hidden-attribute)
+ * — measured live: every closed-dialog test hung, retrying a click for 60s because the
+ * stage kept intercepting pointer events. */
+dialog.diagram-modal[open] {
+  width: calc(100vw - 32px);
+  height: calc(100vh - 32px);
+  display: grid;
+  grid-template-rows: 1fr auto;
+}
+
+.diagram-stage {
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  background: var(--well);
+}
+
+.diagram-canvas {
+  position: absolute;
+  transform-origin: 0 0;
+  will-change: transform;
 }
 
 .btn.key-danger {

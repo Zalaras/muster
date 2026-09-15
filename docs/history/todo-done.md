@@ -421,7 +421,16 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
       `idle`; record in `spikes/canary-fields.md` (placeholder note added there). Kill it after.
 
 ## Pre-v1 Cleanup
+
 <!-- kb: adr/process-composition-roots-registration-only, adr/process-one-name-per-feature, adr/rail-user-owned-manual-order-default, adr/tiles-slot-stable-grid-never-self-sorts, adr/theme-no-traffic-light-state-palette, adr/usage-model-window-polled-from-oauth-api, adr/launch-picker-recent-sidebar-plus-browse-list, adr/tiles-new-session-button-in-toolbar, adr/connection-dashboard-embedded-in-binary, adr/release-builds-cross-compiled-on-linux, adr/release-distribution-github-release-not-brew, adr/release-no-ci-test-job-yet, adr/issue-payload-allowlist-never-dump, adr/process-e2e-explicit-fixtures, adr/process-faked-subprocess-boundary, adr/process-exec-waitdelay-on-pipe-owning-commands, adr/canary-plan-mode-step-three-sole-residual, adr/canary-verified-range-observed-not-pinned, adr/process-repo-public, adr/release-install-front-door-curl-sh, adr/update-check-pref-governs-checking-only, adr/process-transient-displays-not-oracles, adr/triage-program-not-model-between-github-and-todo -->
+
+- [x] **Render mermaid diagrams in the docs reader** ✅ done 2026-09-15 (plan `mermaid-support`, via `/orchestrate`; approved review cycle 5) (added 2026-09-15) — the reader
+  (`kb:spec/reader`, `marked` in `web/src/render/reader.ts`) shows ```` ```mermaid ```` fences as
+  plain code. Render them as diagrams, client-side, inside the existing sanitizer boundary
+  (`kb:adr/issue-preview-is-the-leak-check` still holds — no remote fetch, no raw HTML/script
+  passthrough from the diagram source; a malformed diagram degrades to the fenced source, never
+  breaks the page). Motivation: the kb is about to gain C4/domain/state/sequence/ER diagrams in
+  mermaid for both agents and humans, and the reader is where a human reads them.
 
 - [x] **Markdown viewing** — ✅ done 2026-09-14 (plan `markdown-viewing`, via `/orchestrate`;
   approved review cycle 6). Shipped as the `docs` third surface: the reader, its file nav and

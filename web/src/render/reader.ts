@@ -16,6 +16,7 @@
 // `headingId`) after the rebuild.
 import { loadingText } from "../reader/paths";
 import type { FlatTreeEntry } from "../reader/tree";
+import { wireDiagramDialog } from "./diagramdialog";
 
 export interface OutlineEntryVM {
   id: string;
@@ -104,6 +105,16 @@ export interface ReaderRefs {
   tree: HTMLElement;
   outlineToggle: HTMLButtonElement;
   outline: HTMLElement;
+  /** Plan mermaid-support (REQ-8) — one dialog per reader root (INV-3), wired once by
+   * `wireDiagramDialog` in `buildReader` below; never touched by `renderReader`'s own
+   * per-tick pass, since its visibility is driven entirely by open/close events. */
+  diagramDialog: HTMLDialogElement;
+  diagramStage: HTMLElement;
+  diagramCanvas: HTMLElement;
+  diagramZoomIn: HTMLButtonElement;
+  diagramZoomOut: HTMLButtonElement;
+  diagramZoomReset: HTMLButtonElement;
+  diagramClose: HTMLButtonElement;
   callbacks: ReaderCallbacks;
 }
 
@@ -141,6 +152,13 @@ export function buildReader(template: HTMLTemplateElement, callbacks: ReaderCall
     tree: requireEl(root, '[data-role="tree"]'),
     outlineToggle: requireEl<HTMLButtonElement>(root, '[data-role="outline-toggle"]'),
     outline: requireEl(root, '[data-role="outline"]'),
+    diagramDialog: requireEl<HTMLDialogElement>(root, "dialog.diagram-modal"),
+    diagramStage: requireEl(root, ".diagram-stage"),
+    diagramCanvas: requireEl(root, ".diagram-canvas"),
+    diagramZoomIn: requireEl<HTMLButtonElement>(root, ".diagram-zoom-in"),
+    diagramZoomOut: requireEl<HTMLButtonElement>(root, ".diagram-zoom-out"),
+    diagramZoomReset: requireEl<HTMLButtonElement>(root, ".diagram-zoom-reset"),
+    diagramClose: requireEl<HTMLButtonElement>(root, ".diagram-close"),
     callbacks,
   };
 
@@ -148,6 +166,7 @@ export function buildReader(template: HTMLTemplateElement, callbacks: ReaderCall
   refs.filesToggle.addEventListener("click", callbacks.onToggleFiles);
   refs.outlineToggle.addEventListener("click", callbacks.onToggleOutline);
   refs.filter.addEventListener("input", () => callbacks.onFilterInput(refs.filter.value));
+  wireDiagramDialog(refs);
 
   return refs;
 }

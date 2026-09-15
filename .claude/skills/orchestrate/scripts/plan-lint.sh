@@ -59,6 +59,24 @@ else
   done < <(checks_block)
 fi
 
+# 4b. A negated grep over a path that does not exist is a false green, not a check: rg exits 2 on a
+#     missing path argument and `! rg …` negates that error into a pass. mermaid-support's W6 was
+#     dry-run green at approval — three of its six paths were files the plan had not created yet —
+#     and stayed vacuous until the wave-1 gate.
+while IFS= read -r l; do
+  cmd=${l#* }
+  [[ "$cmd" == "!"*rg* ]] || continue
+  # Drop the quoted pattern(s) first: their contents are a regex, never paths.
+  bare=$(printf '%s' "$cmd" | sed -E "s/'[^']*'//g; s/\"[^\"]*\"//g")
+  for tok in $bare; do
+    case "$tok" in
+      !|rg|--|-*) continue ;;
+    esac
+    [[ "$tok" == */* || "$tok" == *.* ]] || continue
+    [[ -e "$tok" ]] || note "checks line ${l%% *}: negated grep names a path that does not exist ($tok) — rg exits 2 and \`! rg\` turns that into a pass"
+  done
+done < <(checks_block)
+
 # 5. A prose criterion of the form "no X survives/remains in <dir>" is a negative grep and belongs in the block (shortcut-fixes).
 while IFS= read -r l; do
   [[ -n "$l" ]] && note "negative-grep criterion written as prose, move it into \`\`\`checks: ${l:0:100}"

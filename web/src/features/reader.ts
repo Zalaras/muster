@@ -15,8 +15,10 @@ import type { DocChanged, Session } from "../protocol";
 import { changedText } from "../reader/freshness";
 import { renderMarkdown, type OutlineEntry } from "../reader/markdown";
 import { isDirty, loadMemory, saveMemory, withOpened, type ReaderMemory } from "../reader/memory";
+import { mermaidThemeFor } from "../reader/mermaid";
 import { basename, loadingText } from "../reader/paths";
 import { buildTree, filterTree, flattenTree, type FlatTreeEntry } from "../reader/tree";
+import { renderDiagrams, rerenderDiagrams } from "../render/diagrams";
 import {
   attachScrollSpy,
   buildReader,
@@ -50,6 +52,24 @@ const UNKNOWN_SESSION_TEXT = "unknown session";
 const FILE_GONE_PREFIX = "file no longer exists — ";
 const UNREACHABLE_TEXT = "musterd unreachable — showing last render";
 const PLACEHOLDER_TEXT = "nothing open — pick a file";
+
+/** Plan mermaid-support — a fresh value drawn on every diagram pass (W14: unique per
+ * reader instance *and* per pass), never reused across calls: two instances rendering
+ * the same fence (E9, the same file open in two tiles), or two passes of one instance
+ * (a fresh open racing a still in-flight one, or a later theme re-render), must mint
+ * distinct SVG ids, since a diagram's own `<style>` selects by `#id` and CSS id
+ * selectors aren't scoped to one subtree (`render/diagrams.ts`'s
+ * `DiagramPassOptions.instance`). review cycle 1 Major 1: reusing one value for an
+ * instance's whole lifetime let two concurrent passes (open file A, switch to B before
+ * A's render returns) mint the same id. */
+let nextDiagramInstanceId = 0;
+
+/** Reads the dashboard's current theme straight off the root — the one place both the
+ * initial diagram pass and the theme-change re-render read it from, so they can never
+ * disagree about which mermaid theme is current. */
+function currentMermaidTheme(): "dark" | "default" {
+  return mermaidThemeFor(document.documentElement.dataset["theme"] ?? null);
+}
 
 /** Status-line text precedence — the one place it's decided (W9), so `render` and every
  * fetch outcome in `ReaderInstance` never duplicate the ordering: daemon-down always wins
@@ -113,6 +133,15 @@ class ReaderInstance {
   private disposeScrollSpy: (() => void) | null = null;
   private fetchSeq = 0;
   private disposed = false;
+  /** Plan mermaid-support. `diagramPass` is always the most recently started diagram
+   * pass — the theme observer chains behind it (W19); a fresh document open simply
+   * replaces it, since a superseded pass's own `isCurrent` guard already keeps it from
+   * touching the new body regardless of ordering. Each pass (an open's `renderDiagrams`
+   * call, or a theme flip's `rerenderDiagrams` call) draws its own fresh id from
+   * `nextDiagramInstanceId` at the call site below — never a value fixed for this
+   * instance's lifetime (REQ-14/E9, W14). */
+  private diagramPass: Promise<void> = Promise.resolve();
+  private readonly themeObserver: MutationObserver;
 
   constructor(
     sessionId: number,
@@ -155,6 +184,14 @@ class ReaderInstance {
       },
     );
     this.loadListing();
+    // REQ-7: re-renders every diagram in the mapped theme whenever `data-theme` changes —
+    // attached once here, disconnected in `dispose`, so it never fires for an instance
+    // that's gone.
+    this.themeObserver = new MutationObserver(() => this.handleThemeChange());
+    this.themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
   }
 
   get root(): HTMLElement {
@@ -164,6 +201,7 @@ class ReaderInstance {
   dispose(): void {
     this.disposed = true;
     this.disposeScrollSpy?.();
+    this.themeObserver.disconnect();
     this.refs.root.remove();
   }
 
@@ -265,6 +303,16 @@ class ReaderInstance {
     this.currentHeadingId = outline[0]?.id ?? null;
     this.bodyRendered = true;
     setReaderBody(this.refs, { kind: "fragment", fragment });
+    // REQ-1/REQ-12: runs after the fragment is in the DOM and `renderMarkdown` has
+    // already assigned heading ids — a no-op for a document with no mermaid fence. Never
+    // awaited here: REQ-10 keeps the fenced source visible while it's in flight, and a
+    // superseded open is caught by its own `isCurrent` guard rather than by blocking this
+    // method on it.
+    this.diagramPass = renderDiagrams(this.refs.body, {
+      instance: nextDiagramInstanceId++,
+      isCurrent: () => !this.disposed && seq === this.fetchSeq,
+      theme: currentMermaidTheme(),
+    });
     const writtenAt = this.writtenAt.get(absPath) ?? null;
     this.memory = withOpened(this.memory, absPath, writtenAt);
     this.saveMemory();
@@ -337,6 +385,28 @@ class ReaderInstance {
   handleWindowFocus(): void {
     if (this.openPath && this.listing?.plan?.path === this.openPath)
       void this.openFile(this.openPath, { showLoading: false });
+  }
+
+  /** REQ-7: re-renders every already-rendered diagram from its retained source in the
+   * newly mapped theme — never re-fetching the file. W19: chains behind whatever diagram
+   * pass is already in flight (the initial `renderDiagrams` from the current open, or a
+   * previous theme flip) rather than racing it; `seq` pins this re-render to the file open
+   * that was current when the theme changed, so a document switched in the meantime
+   * discards it via the same `isCurrent` guard every other diagram write uses. */
+  private handleThemeChange(): void {
+    const theme = currentMermaidTheme();
+    const seq = this.fetchSeq;
+    const instance = nextDiagramInstanceId++;
+    this.diagramPass = this.diagramPass
+      .catch(() => {})
+      .then(() =>
+        rerenderDiagrams(
+          this.refs.body,
+          theme,
+          instance,
+          () => !this.disposed && seq === this.fetchSeq,
+        ),
+      );
   }
 
   /** REQ-flow-4: a plan that appears after mount (ExitPlanMode's `sessionUpsert`) opens
