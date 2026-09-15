@@ -51,38 +51,9 @@ If no plan name was provided, list available plans from the `plans/` directory a
 
 ## Pipeline Execution Order
 
-```
-┌─────────────────┐
-│    E2E Specs    │  Playwright E2E test AUTHORING (collection gate only —
-└────────┬────────┘  the feature doesn't exist yet, so tests can't pass)
-         │
-         ▼
-┌─────────────────┐     ┌──────────────────┐
-│   Daemon Impl   │     │     Web Impl     │
-└────────┬────────┘     └────────┬─────────┘
-         │                       │
-         ▼                       ▼
-┌─────────────────┐     ┌──────────────────┐
-│  Daemon Tests   │     │    Web Tests     │
-└────────┬────────┘     └────────┬─────────┘
-         │                       │
-         │  ◄── retry loops ────┘  (max 3 each)
-         │
-         ▼
-┌────────────────────────────┐
-│  E2E Validate & Repair     │  e2e-specs re-invoked in VALIDATE mode: runs its
-│   (e2e-specs, validate)    │  own spec file LIVE and repairs its own locators
-└────────┬───────────────────┘  (max 2 attempts)
-         │
-         ▼  implementation-bug → impl agent → that side's unit tests → back here
-         │
-┌─────────────────┐
-│     Review      │  FULL E2E suite (regression sweep) + code review
-└────────┬────────┘
-         │
-         ▼  (if issues, route back in dependency WAVES — see Fix Wave
-            Ordering, max 3 cycles)
-```
+The stage order, its parallel pairs and its retry loops are `kb:diagram/pipeline-execution-order`,
+delivered by the pre-flight pack. The Agent Invocation table below is the same order in spawn terms;
+Fix Wave Ordering is what happens when review sends work back.
 
 ## Agent Invocation
 
@@ -97,6 +68,7 @@ Spawn each step as a subagent using the Agent tool with the step's own `subagent
 | Web tests | `web-tests` |
 | E2E validate & repair | `e2e-specs` (validate mode) |
 | Review | `review-work` |
+| Doc reconcile | `doc-reconcile` |
 
 Each subagent already carries its full instructions (its agent definition is its system prompt), so the spawn prompt is the task, the mode, the plan name and the project root — **never pasted file contents** (the agent reads from disk) and never an explicit `model` (each definition pins its own: Sonnet workers, Opus review).
 
@@ -118,6 +90,9 @@ Every step ends with a `**Verdict**` in its output file. Read it from disk, then
 | 6 review | `needs-changes` | Review Retry Logic (Step 6). | 3 cycles; on exhaustion, Review Cycle Exhaustion |
 | any | `blocked` | `python3 $S <plan> status blocked --step <step>`, report to the user. | |
 | any | no output file, or an unusable verdict | `python3 $S <plan> archive <file>` to preserve what it wrote, re-spawn once; a second failure is `blocked`. | 1 |
+| 7 doc-reconcile | `reconciled` | Completion. | |
+| 7 doc-reconcile | `contradiction` | The code disagrees with a claim review approved. `python3 $S <plan> reopen review` and run a fix wave; it counts as a review cycle. | the review budget of 3 |
+| 7 doc-reconcile | `blocked` | A feature outside the plan's `**Features**`, or a spec that cannot hold its delta. `status blocked --step doc-reconcile`, report to the user — never widen the header yourself. | |
 | 6 review | any, with `[orchestrator:decision]` items | `decide` skill, before any fix wave (Step 6 item 1a). | 2 debates per run; a third stops and asks the user |
 
 ### Fix Prompt Rules
@@ -306,6 +281,22 @@ If all 3 review cycles are used and the final verdict is still `needs-changes`:
 3. Report to the user exactly what issues remain, referencing the review.md file
 4. Ask the user whether to (a) continue with more review cycles, (b) fix manually, or (c) abort. Decision items never bring you here — Step 6 item 1a settles them. A Minors-only cycle is normally followed by an approving delta re-review; if cycle 3 still ends Minors-only, this same path applies — never defer them to `TODO.md` silently.
 
+### Step 7: Doc Reconcile
+
+Runs **only after `review.md` says `approved`**, and before Completion. `python3 $S <plan> start
+doc-reconcile`, spawn `doc-reconcile` with the plan name and project root, then read its verdict.
+
+Before spawning, **amend `plans/<plan>/doc-delta.md`**: seed it from the plan's `## Doc Delta` if it
+does not exist yet, then fold in every `doc-delta:` line from the implementation logs, fix waves
+included. This is the one input the agent cannot recover for itself — it has no memory of the run —
+and an unamended delta promotes a claim the fix waves already invalidated. Editing this file is not a
+plan amendment: `plan.md` stays as approved.
+
+The agent owns `docs/features/*/spec.md` and `docs/protocol.md`; you keep `TODO.md`, ADRs, facts and
+`docs/diagrams/` records. On `contradiction`, `reopen review` and run a fix wave — the code, not the
+sentence, is what moves. On `blocked`, stop: a feature set wider than the plan's `**Features**` means
+every agent ran this plan with an incomplete pack, and that is the user's call, not a doc edit.
+
 ## Fix Wave Ordering
 
 Fix agents are **not** independent, and a naive fan-out of all five tags at once produces work
@@ -408,6 +399,8 @@ When `/orchestrate` is invoked for a plan that already has an `orchestration-sta
 - For the `current_step`, check if there's an existing output file with a verdict:
   - If the verdict is `needs-changes` or `implementation-bug`, enter the retry loop for that step (respecting existing `retry_counts`)
   - If no output file exists, run the step fresh
+- `doc-reconcile` is safe to re-run: its delta is assertions about files, so a second pass
+  verifies what a dead run already promoted instead of promoting it twice
 - `test-specs.md` is written by **both** Step 1 (`e2e-specs`) and Step 5 (validate). Read its `**Mode**` field, not just its existence: `Mode: authoring` with `Verdict: authored`/`harness-only` means Step 1 completed and Step 5 has not run. Never treat those verdicts as satisfying Step 5 — except on a harness-only plan, where Step 5 is your own sweep and `completed_steps` is its only record.
 - Continue the pipeline from there
 
@@ -421,39 +414,26 @@ When `/orchestrate` is invoked for a plan that already has an `orchestration-sta
 
 ## Final Validation
 
-Before marking the pipeline as completed, run the baseline gates and the plan's authored
-checks fresh **via the bundled runner** — never a hand-rolled loop:
+Before completion, run the baseline gates and the plan's authored checks **fresh, via the bundled
+runner** — never a hand-rolled loop, never a cached agent verdict:
 
 ```bash
 .claude/skills/orchestrate/scripts/gates.sh <plan-name>            # baseline + ```checks block
 .claude/skills/orchestrate/scripts/gates.sh <plan-name> --no-e2e   # daemon plan whose Step 1 was skipped
 ```
 
-It runs the baseline gates below, then every line of the plan's ```checks block, dedupes by
-exact command string (a check that names a baseline command is reported under its ID without a
-second run), prints `PASS`/`FAIL` per ID with the tail of every failure, writes each command's
-full output to a log dir it names in its summary, and exits non-zero on any failure. It sources
-nvm for the pinned Node and recreates the `rg` shim when no real `rg` is on PATH, so its
-subshells see what your interactive shell sees. Paste its summary into the completion report.
+The script header documents what it runs, how it dedupes, where it logs and how it handles the `rg`
+shim. Paste its summary into the completion report. **Every baseline gate and every authored check
+must pass** — otherwise the pipeline is not complete.
 
-The baseline it runs is listed in the script header.
-
-Each line in the plan's ```checks block is `<ID> <single-line shell command>`, run from the
-project root exactly as written; it passes iff it exits 0. If you ever run a line by hand
-instead of through the runner, run it in your interactive shell, not via `bash -c`/`sh -c` —
-`rg` is Claude Code's shell-function shim over the `claude` binary, not a binary on PATH, so a
-bare subshell cannot see it and the check fails spuriously (kb:lesson/rg-shim-invisible-to-bare-subshell). Report
-results by ID; a command that appears under several IDs runs once and is reported under each.
-
-**Every baseline gate and every authored check must pass.** If any fail, the pipeline is NOT complete — investigate and fix before proceeding.
-
-If the plan has no ```checks block, run the baseline gates and state in the completion summary that the plan predates the Automated Checks convention. Do NOT parse the prose criteria for backticked commands to substitute — a prose criterion routinely combines one runnable clause with several that are not, and running only the runnable clause reports a pass the plan never earned.
-
-Do NOT rely on cached test results or previous agent verdicts. Run the commands fresh. Agent verdict files may be stale if fixes were applied after the test agent last ran.
+If the plan has no ```checks block, run the baseline gates and say in the summary that the plan
+predates the Automated Checks convention. Do NOT parse prose criteria for backticked commands to
+substitute — a prose criterion routinely combines one runnable clause with several that are not, and
+running only the runnable clause reports a pass the plan never earned.
 
 ## Doc-Upkeep Backstop
 
-CLAUDE.md's "Doc upkeep" section binds every session, this pipeline included. **You verify and amend — you are the backstop, not primarily the author.**
+CLAUDE.md's "Doc upkeep" section binds every session, this pipeline included. **You verify and amend — you are the backstop, not primarily the author.** The split is: **records to you, present-tense docs to Step 7** (kb:adr/process-doc-reconcile-after-review).
 
 Do this **while the Step 3 testers run** — the file set is disjoint from every agent's — commit it
 as `docs(<plan-name>): doc upkeep`, and re-verify it at Completion. Never write the verdict
@@ -465,7 +445,8 @@ whose file Affected Files gives no owner is yours, not an agent's (kb:lesson/pla
 2. Check, and fix what's missing, per `.claude/skills/orchestrate/doc-upkeep.md`: `TODO.md` ticks
    (recording each fully-resolved issue number for Completion step 5), an ADR for every `deviation:`
    line and every `decisions/<slug>/decision.md`, a fact record for every measured Claude Code
-   fact, and `docs/protocol.md` matching what shipped. Finish with `make gen-kb && make check-kb`
+   fact. `docs/features/*/spec.md` and `docs/protocol.md` are **not yours** — Step 7 reconciles
+   both after review. Finish with `make gen-kb && make check-kb`
    (between waves only — Step 6 item 1) and commit the regenerated files with the records.
 3. If nothing qualifies, say so in the completion summary rather than inventing entries.
 
@@ -475,6 +456,8 @@ State what you found and changed in the completion summary.
 
 When all steps pass AND the review verdict is "approved", in this order:
 
+0. **Step 7 has run and returned `reconciled`.** Completion never precedes it — the feature specs
+   and `docs/protocol.md` describe the pre-plan world until it does.
 1. Re-verify the Doc-Upkeep Backstop above (done before Step 6; fix anything the review cycles changed).
 2. Resolve every `[orchestrator]`-tagged issue in review.md: do the doc edit, or record it as a TODO.md entry in the right milestone if it is genuinely follow-up work. List each one and its disposition in the completion summary. An approved review may carry these; a `completed` pipeline may not leave them unaddressed.
 3. An approved review.md has no agent-tagged issue open at any severity (Verdict Rules) — if you find one, the verdict is wrong; stop and re-spawn the reviewer rather than writing a `TODO.md` line for it. Every `[note]` is listed in the completion summary verbatim — no TODO line, no agent.

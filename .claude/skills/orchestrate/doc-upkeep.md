@@ -3,6 +3,11 @@
 Read from `orchestrate/SKILL.md` § Doc-Upkeep Backstop step 2. Each bullet names a file the
 pipeline may have left stale and what a complete entry looks like.
 
+**The split**: records are yours; the present-tense documents — `docs/features/*/spec.md` and
+`docs/protocol.md` — belong to Step 7's `doc-reconcile`, which runs after review approves
+(kb:adr/process-doc-reconcile-after-review). Amend `plans/<plan>/doc-delta.md` from the logs'
+`doc-delta:` lines before spawning it.
+
 - **`TODO.md`** — a finished backlog item (or sub-bullet): tick it, add its `✅ done <date> (plan
   …)` line, move the block to `docs/history/todo-done.md` under the same heading (a sub-bullet
   stays with its still-open parent). A new follow-up goes into the right milestone rather than
@@ -20,7 +25,6 @@ pipeline may have left stale and what a complete entry looks like.
 - **`docs/facts/`** — a new **measured** Claude Code fact (never an assumption) becomes a fact
   record with `verified:` the version measured and `guard:` the test that pins it; a fact
   proved wrong gets its ceiling pinned and a new record linked by `refs`, never a rewrite.
-- **`docs/protocol.md`** — must match what shipped. If plan-work merged the delta at approval and an approved mid-run adjustment changed it, reconcile the doc now. Then `make gen-kb` so `contract.md` follows.
 - **Diagrams** (kb:adr/knowledge-diagrams-are-mermaid-records) — for every file the branch
   changed, `go run ./tools/kb for <path>` names the `kb:diagram/` records depicting it; each is
   still true of what shipped or you update its fence now. A plan `## Diagrams` entry marked

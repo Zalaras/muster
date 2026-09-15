@@ -31,12 +31,14 @@ current state.
 
 Feature work goes through the multi-agent pipeline, not ad-hoc editing:
 
-1. `/spec <name> "<desc>"` — optional requirements interview → `plans/<name>/spec.md`.
+1. `/spec <name> "<desc>"` — optional interview naming the features it touches and stating
+   requirements as observable consequence → `plans/<name>/spec.md`, `Status: Approved`.
 2. `/plan-work <name>` — interactive plan with protocol-contract delta, Testable UI
-   Elements, and an Automated Checks block → `plans/<name>/plan.md`. User approves.
+   Elements, a Doc Delta and an Automated Checks block → `plans/<name>/plan.md`. User approves.
 3. `/orchestrate <name>` — runs e2e-specs (authoring) → daemon-impl ∥ web-impl →
-   daemon-tests ∥ web-tests → e2e-validate → review-work (Opus), with fix waves and
-   `orchestration-state.json` resume. Only a review verdict of `approved` completes it.
+   daemon-tests ∥ web-tests → e2e-validate → review-work (Opus) → doc-reconcile, with fix waves
+   and `orchestration-state.json` resume. Only a review verdict of `approved` reaches
+   doc-reconcile, and only its `reconciled` completes the run.
 4. `/work-status [name]` — where things stand.
 5. `/triage [N|--all|--audit]` — pulls open GitHub issues into `TODO.md` and audits the
    two lists. An issue is triaged iff its `issues/N` link is in `TODO.md` or
@@ -107,6 +109,9 @@ through `/claude-code-upgrade`; the ritual it follows is `docs/claude-code-versi
   measured on (`verified`) and the test that guards it (`guard`).
 - Lesson learned (a cost with a cause) → a lesson record in `docs/lessons/` via `/retro`, never
   a sentence in an agent file.
+- Behaviour changed that a feature spec describes → `docs/features/<name>/spec.md` and
+  `docs/protocol.md` say what is true **now**, via `/doc-reconcile` (the pipeline runs it as a
+  step). Edit the sentence, delete what stopped being true; never append history.
 - Code changed whose diagram `kb for <path>` names → the diagram (record or inline in the
   spec) is updated in the same commit, or it is now wrong.
 - Then `make gen-kb && make check-kb`; generated files ride the same commit as the record.

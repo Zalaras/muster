@@ -189,6 +189,8 @@ Write (or append to) `plans/<plan-name>/web-implementation.md`:
 <one line per trade-off, including any Testable UI Elements row you could not implement as written; a departure from the plan starts `deviation:` and ends `→ ADR: pending` — the orchestrator writes the record; you never write `docs/`; every REQ the plan lists
 for your side appears in Changes or here as deliberately not done, with why — an unmentioned REQ is a review Minor at best (kb:lesson/unmentioned-req-costs-a-review-minor)>
 
+<a line per doc claim this work changes, starting `doc-delta:` — when what shipped makes a sentence in the plan's `## Doc Delta` wrong, or adds one it lacks. The orchestrator amends the staged delta; you never write `docs/`. `doc-reconcile` reads these after review, so a change you do not report here lands with the docs still describing the old behaviour>
+
 ## Handoff
 
 **Build status**: `npx tsc --noEmit` and `npm run build` exit 0 | NOT BUILDING — <why, and what must change>
@@ -198,6 +200,7 @@ for your side appears in Changes or here as deliberately not done, with why — 
 
 **Failures addressed**: <list from test output>
 **Changes made**: <what was fixed and where>
+**Decisions**: <any new `deviation:` or `doc-delta:` line this fix introduced — same rules as the section above; a deviation made in a fix wave is invisible to everyone unless it is written here>
 ```
 
 Keep this file brief. File paths and descriptions tell the story.

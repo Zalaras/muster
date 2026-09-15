@@ -29,10 +29,10 @@ Format:
 ```
 | Plan | Status | Work Type | Steps Completed | Current Step |
 |------|--------|-----------|----------------|--------------|
-| session-list-ui | in-progress | full-stack | 3/7 | daemon-tests |
+| session-list-ui | in-progress | full-stack | 3/8 | daemon-tests |
 ```
 
-The pipeline has **7 steps**: e2e specs (authoring), daemon impl, web impl, daemon tests, web tests, e2e validate, review. Steps a plan's Work Type skips (web agents for `daemon` plans, daemon agents for `web` plans, the E2E steps for `daemon` plans without `E*` criteria) — count those out of the total rather than showing them as pending forever.
+The pipeline has **8 steps**: e2e specs (authoring), daemon impl, web impl, daemon tests, web tests, e2e validate, review, doc reconcile. Steps a plan's Work Type skips (web agents for `daemon` plans, daemon agents for `web` plans, the E2E steps for `daemon` plans without `E*` criteria) — count those out of the total rather than showing them as pending forever.
 
 ## Detailed Plan Status
 
@@ -62,10 +62,11 @@ Format:
 | Web Tests | in-progress | impl-bug | 8/10 passing, 2 impl bugs |
 | E2E Validate | pending | — | — |
 | Review | pending | — | — |
+| Doc Reconcile | pending | — | — |
 
 ## Retries
 
-Daemon: 0 | Web: 1 | E2E Specs: 0 | E2E Validate: 0 | Review: 0
+Daemon: 0 | Web: 1 | E2E Specs: 0 | E2E Validate: 0 | Review: 0 | Doc Reconcile: 0
 
 ## Knowledge
 

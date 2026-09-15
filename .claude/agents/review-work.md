@@ -86,7 +86,9 @@ If the plan has no ```checks block, note it under Minor tagged `[orchestrator]` 
 
 Also verify the plan's `### Reviewer-Verified` list explicitly, item by item — those items exist precisely because no command can check them.
 
-Doc upkeep (`TODO.md` tick, `docs/protocol.md`, an ADR for every `deviation:` line, fact records) was done by the orchestrator before you were spawned: report it as two rows of `## Acceptance Checks` — `DOC pass | FAIL — <what is missing>` and `KB pass | FAIL` from `make check-kb`. A missing or false ADR is the one Major in that area (§8); a *false* user-facing statement is still a Major under §8.
+Doc upkeep (`TODO.md` tick, an ADR for every `deviation:` line, fact records) was done by the orchestrator before you were spawned: report it as one `DOC pass | FAIL — <what is missing>` row of `## Acceptance Checks`. A missing or false ADR is the one Major in that area (§8); a *false* user-facing statement is still a Major under §8. (`make check-kb` needs no row of its own — §2's command list already runs it as a build gate.)
+
+**Also check the plan's `## Doc Delta` against what shipped.** Each line asserts something that is now true of a feature spec or `docs/protocol.md`; `doc-reconcile` promotes them verbatim after you approve, so you are the last adversarial reader of those claims. An assertion the code does not support is a Major, tagged to the agent that owns the code — not to the docs. You never edit the delta; `docs/features/*/spec.md` and `docs/protocol.md` are reconciled after this step, so their current contents are not yours to judge.
 
 ### 2a. Verify in the Browser (required once there is a UI)
 
@@ -197,6 +199,9 @@ Major nobody in the pipeline can fix (doc upkeep, plan defect) is tagged `[orche
   something other than what shipped.** Check with `kb ls --feature <f> --status proposed` for the
   plan's features against the logs. A deviation contradicting an *accepted* ADR is
   `[orchestrator:user-decision]`, never a Major.
+  **And Major, tagged `[orchestrator]`: a `doc-delta:` line in a log that the plan's `## Doc Delta`
+  does not reflect.** The delta is promoted verbatim after you approve, so an unamended one ships
+  docs describing behaviour that no longer exists.
 **Minor** — a real, small change you want made: style inconsistencies, naming, comment *style*
 (wording, placement — a false comment, or one citing something deleted, is Major), a cosmetic
 rendering defect. Tag it with the owning agent. **An agent-tagged Minor blocks `approved` exactly
@@ -251,8 +256,7 @@ Lint: pass/fail
 | ID | Command | Result |
 |----|---------|--------|
 | D1 | `make test` | pass |
-| DOC | doc upkeep | pass |
-| KB | `make check-kb` | pass |
+| DOC | doc upkeep + Doc Delta vs what shipped | pass |
 
 ## Reviewer-Verified Criteria
 
@@ -303,9 +307,10 @@ Tag every issue with the responsible agent so the orchestrator knows where to ro
 - `[e2e-specs]` → E2E test agent
 - `[note]` → nobody: an observation with no change requested; listed in the completion summary, never routed
 - `[orchestrator]` → nothing a pipeline agent may edit: `TODO.md` ticks, an ADR for a `deviation:` line,
-  `docs/protocol.md` reconciliation, a plan defect (missing ```checks block, contradictory
+  an unamended `doc-delta:` line, a plan defect (missing ```checks block, contradictory
   criteria), a manual-verification record the plan requires. The orchestrator's Doc-Upkeep Backstop
-  and Completion steps own these. Never tag doc upkeep `[daemon-impl]` — that agent may not write
+  and Completion steps own these. `docs/features/*/spec.md` and `docs/protocol.md` are neither yours
+  nor the orchestrator's — `doc-reconcile` runs after you and owns both. Never tag doc upkeep `[daemon-impl]` — that agent may not write
   `docs/`, and the mis-route surfaces only at completion.
   Also `[orchestrator]`: **any issue whose resolution is a product or design decision rather than a
   defect** — rail density, placement, a colour's semantics, whether a behaviour is in scope. State

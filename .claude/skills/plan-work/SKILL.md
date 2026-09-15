@@ -41,7 +41,12 @@ Work through these sections interactively with the user. Don't just dump a plan 
 
 Before starting, check if `plans/<plan-name>/spec.md` exists. If it does:
 - Read it thoroughly — it contains requirements gathered during a prior spec interview
+- **A spec whose `**Status**` is not `Approved` is not a starting point.** Stop and ask the user to
+  finish `/spec <plan-name>`, or to say explicitly that they are abandoning it — a `Draft` spec means
+  the interview never reached agreement, and planning on it silently adopts whatever it guessed.
 - Use it as the starting point. The Goal, Requirements, Scope, Edge Cases, and Acceptance Criteria sections are already defined.
+- Carry its `**Features**` header and its `## Feature Spec Delta` forward — the delta becomes this
+  plan's `## Doc Delta` (§10), amended for anything planning changes.
 - Skip questions the spec already answers clearly. Focus on the **implementation-specific details** it doesn't cover: the protocol contract delta, schema changes, UI specifications, affected files, technical approach.
 - If the spec is ambiguous or incomplete on any point, ask the user to clarify.
 
@@ -92,7 +97,7 @@ Based on the codebase structure, identify which files will likely need changes:
 **Web (TypeScript, `web/src/`):**
 - Protocol/message modules, state-derivation modules, per-feature render modules, the single WebSocket client module
 
-**`TODO.md`, `docs/adr/`, `docs/diagrams/`, `SPEC.md` and generated kb files are never listed under an impl track** (the hand-written part of a touched package's `CLAUDE.md` is the exception and belongs to that impl track). They are the orchestrator's (Doc-Upkeep Backstop / Completion), and the review rules forbid an impl agent from touching `SPEC.md`. Put the required upkeep under Implementation Notes → Doc upkeep, addressed to the orchestrator (kb:lesson/plan-gave-no-single-owner).
+**`TODO.md`, `docs/adr/`, `docs/diagrams/`, `SPEC.md`, `docs/features/*/spec.md` and generated kb files are never listed under an impl track** (the hand-written part of a touched package's `CLAUDE.md` is the exception and belongs to that impl track). They are the orchestrator's (Doc-Upkeep Backstop / Completion), and the review rules forbid an impl agent from touching `SPEC.md`. Put the required upkeep under Implementation Notes → Doc upkeep, addressed to the orchestrator (kb:lesson/plan-gave-no-single-owner).
 A composition root (`web/src/main.ts`, `internal/server/server.go`) may appear under Affected Files only for a one-line registration; anything more is a new feature module (`docs/conventions.md` § Composition roots).
 
 **Every requirement's test coverage names exactly one owning test agent — no conditional routing.**
@@ -257,6 +262,23 @@ the check (kb:lesson/banned-string-split-to-dodge-gate). `plan-lint.sh` runs the
 the plan text and the tree; put every hit it lists under **Affected Files** against the agent that
 owns it, or re-scope the check.
 
+### 10. Doc Delta (mandatory)
+
+Every plan states what its work does to the **present-tense documents** — `docs/features/*/spec.md`
+and `docs/protocol.md` — because after review approves the code, `doc-reconcile` promotes exactly
+these sentences and nothing else. Carry the spec's `## Feature Spec Delta` forward when there is one;
+author it here when there is not.
+
+Per feature: the sentences that **become true**, and the sentences that **stop being true**. Write
+each as an assertion about the target file, not an instruction, so it can be re-verified rather than
+merely re-run. The deletions half is not optional — a spec body is capped at 800 words and
+`check-kb` hard-fails past it, so a delta that only adds will eventually break the build at the very
+end of a run.
+
+A plan that changes no doc claim writes `No doc change.` — `plan-lint` fails on an absent or empty
+section, never on an honest one. The Protocol Contract (§5) stays where it is; this section covers
+the prose the contract does not generate.
+
 ## Plan Document Format
 
 Write the plan to `plans/<plan-name>/plan.md` using this structure. The template is wrapped in a four-backtick fence so the triple-backtick blocks inside it nest correctly — in the plan file itself they are ordinary triple-backtick fences.
@@ -388,6 +410,16 @@ criterion goes, so it is assigned rather than dropped.
 
 - **W3**: no `any` types in new web code
 - **W4**: <a rendering/state claim that needs a browser>
+
+## Doc Delta
+
+**<feature>** — becomes true:
+- <assertion about docs/features/<feature>/spec.md or docs/protocol.md>
+
+**<feature>** — stops being true:
+- <the sentence that must come out, or "nothing">
+
+<or "No doc change." when this plan changes no present-tense doc claim>
 
 ## Implementation Notes
 

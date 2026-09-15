@@ -1,7 +1,7 @@
 ---
 id: process-doc-upkeep-backstop-in-orchestrator
 type: decision
-status: accepted
+status: superseded
 date: 2026-08-16
 summary: Documentation upkeep after a plan is verified and amended by the orchestrator as a backstop step, replacing the inherited pipeline's mechanical changelog check.
 features: []

@@ -31,7 +31,7 @@ and the next `finish`/`done` closes it, so a re-spawned step keeps every attempt
 import argparse, datetime, json, pathlib, sys
 
 STEPS = ["e2e-specs", "daemon-impl", "web-impl", "daemon-tests", "web-tests",
-         "e2e-validate", "review"]
+         "e2e-validate", "review", "doc-reconcile"]
 
 def now():
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

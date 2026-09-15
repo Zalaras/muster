@@ -97,5 +97,11 @@ if grep -qE '^[[:space:]]*(```|~~~)mermaid' "$P"; then
   go run ./tools/kb fences "$P" >/dev/null 2>&1 || note "a mermaid fence opens with a keyword outside the closed kind list (run: go run ./tools/kb fences $P)"
 fi
 
+# 10. A non-empty `## Doc Delta` section — the staged claims doc-reconcile promotes after review.
+#     "No doc change" is a legal body; silence is not, because nobody notices a missing section.
+if [[ -z "$(section 'Doc Delta' | grep -vE '^[[:space:]]*$' | head -1)" ]]; then
+  note "missing or empty '## Doc Delta' section (write 'No doc change.' if this plan changes no doc claim)"
+fi
+
 if (( FAILS )); then echo "plan-lint: $FAILS failure(s) in $P"; exit 1; fi
 echo "plan-lint: $P clean"
