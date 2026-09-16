@@ -90,16 +90,6 @@ the mobile/responsive pass rem-ifies the pixel layer.
   (green twice in isolation immediately after: `ok … 7.1s`, `ok … 6.8s`). A 15 s bound on a
   contended machine is the flake. Named by `plan:mermaid-support`'s review cycle 5 after cycle 4
   saw it as an anonymous red.
-- [ ] **`make refs` is red in any fresh clone or worktree** (added 2026-09-15) — `make refs`
-  (`dead-refs.py --all`, run by `make check`) reports ~28 missing references, every one resolving
-  to the local settings file gitignored at `.gitignore:42` (19 refs) or the probe-rig capture
-  directory gitignored at `.gitignore:32` (9 refs). Neither is spelled out here as a literal path,
-  because doing so adds a dead reference to the very count this item is about — which is itself a
-  small demonstration of the problem. Both are untracked by design, so the gate
-  passes only where those artifacts happen to exist locally and fails for anyone starting from a
-  clean checkout — including every pipeline run in a worktree. Either teach `dead-refs.py` that a
-  gitignored path is not a dead reference, or stop citing them as paths. Found by
-  `plan:mermaid-support`; not caused by it.
 - [ ] **`triage`'s `CheckVersion` regex rejects dev-build version strings** —
   `internal/triage/checks.go`'s `reVersion` (`^[0-9]+(\.[0-9]+)*(-[A-Za-z0-9.]+)?$`) requires no
   leading `v` and only one `-suffix` group. A local dev build's `musterd.version` comes from
@@ -305,21 +295,17 @@ unless he re-ranks — don't re-sort this list.
   hooks (`kb:adr/surfaces-shell-pane-carries-no-session-env`). The `ask` prompt says "N live
   sessions … kill them?" and does not mention the shells it will leave. Either kill them too or say
   so; `kb:adr/surfaces-shell-lifetime-until-exit-remove-or-reconcile` currently lists exit, Remove
-  and reconcile — not shutdown — so changing it is a decision, not a bug fix.
+  and reconcile — not shutdown — so changing it is a decision, not a bug fix. **Decided 2026-09-16
+  (Damian): kill them too.** `kill` kills every shell alongside the sessions and the `ask` prompt
+  counts them ("N live sessions and M shells"); `leave` leaves shells running as it does sessions
+  (reconcile kills them at the next start regardless). The fixing plan carries a `proposed` ADR
+  superseding the record above, adding shutdown-with-kill to the shell's lifetime list.
 
 - [ ] **Raw tmux stderr is echoed into HTTP error bodies** — `sessions.go`'s `end_failed` and
   `launch_failed` paths and `shells.go`'s `shell_spawn_failed` put `err.Error()` straight into the
   response the dashboard renders. Plan `session-lifecycle` removed the worst instance (a name
   collision no longer surfaces raw stderr), but the general pattern remains: tmux vocabulary
   reaching the user, and paths leaking into a browser.
-
-- [ ] **`make check` cannot pass in a git worktree** — the `refs` gate resolves
-  `.claude/settings.local.json` and `test/rig/captures/*`, both gitignored, so they exist in the
-  main checkout and never in a fresh worktree. Measured 2026-09-14 on `plan/session-lifecycle`:
-  18 missing refs there, **0 on `main`**, and creating the files in the worktree takes it to 0.
-  This matters because code work is supposed to happen in a worktree, so the pipeline's own gate
-  cannot pass where the pipeline runs. Either teach `dead-refs.py` to skip gitignored targets or
-  have it resolve them against the main checkout.
 
 - [ ] **`TestIngestRouting_StragglerFromBeforeAClearNeverMovesTranscriptOrPlan` fails under
   `-race`, and flakes under load** — a fixed 2 s `require.Eventually` that cannot absorb either.

@@ -422,6 +422,8 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
 
 ## Pre-v1 Cleanup
 
+- ~~**`make refs` is red in any fresh clone or worktree** / **`make check` cannot pass in a git worktree**~~ — **dropped 2026-09-16** (Damian, during pre-v1 non-feature triage): both entries described the same gap (`dead-refs.py` resolving gitignored paths); removed from the backlog rather than fixed.
+
 <!-- kb: adr/process-composition-roots-registration-only, adr/process-one-name-per-feature, adr/rail-user-owned-manual-order-default, adr/tiles-slot-stable-grid-never-self-sorts, adr/theme-no-traffic-light-state-palette, adr/usage-model-window-polled-from-oauth-api, adr/launch-picker-recent-sidebar-plus-browse-list, adr/tiles-new-session-button-in-toolbar, adr/connection-dashboard-embedded-in-binary, adr/release-builds-cross-compiled-on-linux, adr/release-distribution-github-release-not-brew, adr/release-no-ci-test-job-yet, adr/issue-payload-allowlist-never-dump, adr/process-e2e-explicit-fixtures, adr/process-faked-subprocess-boundary, adr/process-exec-waitdelay-on-pipe-owning-commands, adr/canary-plan-mode-step-three-sole-residual, adr/canary-verified-range-observed-not-pinned, adr/process-repo-public, adr/release-install-front-door-curl-sh, adr/update-check-pref-governs-checking-only, adr/process-transient-displays-not-oracles, adr/triage-program-not-model-between-github-and-todo -->
 
 - [x] **Render mermaid diagrams in the docs reader** ✅ done 2026-09-15 (plan `mermaid-support`, via `/orchestrate`; approved review cycle 5) (added 2026-09-15) — the reader
