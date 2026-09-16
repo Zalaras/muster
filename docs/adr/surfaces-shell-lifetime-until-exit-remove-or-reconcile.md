@@ -1,7 +1,7 @@
 ---
 id: surfaces-shell-lifetime-until-exit-remove-or-reconcile
 type: decision
-status: accepted
+status: superseded
 date: 2026-09-05
 summary: A shell outlives End and view switches and can open on a dead session; it dies on exit, Remove or reconcile, which kills every shell rather than adopting.
 features: [surfaces, lifecycle, actions]

@@ -22,6 +22,15 @@ import (
 // Client issues tmux commands against one dedicated socket.
 type Client struct {
 	socket string
+	// exec spawns the tmux subprocess for run — the same injectable-seam shape as
+	// preflighter's run field, locate.SpotlightFinder's run field and claudecode's
+	// execFunc (docs/conventions.md §Testing). Production always execCombinedOutput;
+	// same-package tests may overwrite the field directly (the struct's zero-value
+	// construction path is New, same as preflighter's own tests build a struct
+	// literal) to simulate a tmux exit shape real tmux cannot be driven to
+	// deterministically — e.g. KillSession's post-kill PaneExists recheck reporting
+	// the session still there (D8/REQ-5(d)).
+	exec func(ctx context.Context, name string, args ...string) ([]byte, error)
 }
 
 // New returns a Client bound to the given socket (never the user's default tmux
@@ -29,7 +38,7 @@ type Client struct {
 // named socket in tmux's own socket directory (-L) — REQ-5, so the E2E harness and
 // per-test Go tests can point sockets at scratch dirs that already get deleted.
 func New(socket string) *Client {
-	return &Client{socket: socket}
+	return &Client{socket: socket, exec: execCombinedOutput}
 }
 
 // maxSocketPathLen is the longest -S socket path tmux can actually bind: AF_UNIX's
@@ -322,7 +331,10 @@ func (c *Client) ResolveSessionTarget(ctx context.Context, name string) (target,
 // KillSession, and everything downstream of it, read an unreachable server as a
 // successful kill of a session that was still running. isConnectionFailure singles out
 // that one stable shape (stderr's "error connecting to <path> …") so it surfaces as an
-// error — "I could not ask" — instead of being folded into "not there".
+// error — "I could not ask" — instead of being folded into "not there". An expired ctx is
+// the same story (REQ-11): run wraps ctx.Err() rather than returning a bare ExitError, so
+// errors.As(err, &exitErr) below misses and this returns (false, err) — never (false,
+// nil) — with errors.Is(err, context.DeadlineExceeded) holding on the returned error.
 func (c *Client) PaneExists(ctx context.Context, target string) (bool, error) {
 	if target == "" {
 		return false, nil
@@ -405,7 +417,10 @@ func (c *Client) KillWindow(ctx context.Context, target string) error {
 // rather than assumed. PaneExists itself now distinguishes "confirmed gone" from
 // "couldn't ask" (isConnectionFailure, review cycle 1 Critical 1), so that verification
 // is no longer defeated by an unreachable socket; KillSession still never matches
-// stderr's target-not-found wording, which isn't stable across versions.
+// stderr's target-not-found wording, which isn't stable across versions. REQ-11: an
+// expired ctx on the kill-session call itself is likewise never mistaken for "gone" — run
+// wraps ctx.Err() instead of a bare ExitError, so errors.As below misses and the original
+// (deadline) error is returned without a PaneExists verify.
 func (c *Client) KillSession(ctx context.Context, name string) error {
 	_, err := c.run(ctx, "kill-session", "-t", name)
 	if err == nil {
@@ -434,7 +449,8 @@ func (c *Client) KillSession(ctx context.Context, name string) error {
 // (a socket that exists and could hold a live server, but this process cannot reach it),
 // which is the worst call site for it — Reconcile treats this result as ground truth for
 // which rows are still alive, so an unreachable socket used to read as "no sessions at
-// all" rather than "I couldn't find out". Mirrors PaneExists' own distinction.
+// all" rather than "I couldn't find out". Mirrors PaneExists' own distinction, including
+// for an expired ctx (REQ-11): run's wrapped ctx.Err() misses errors.As below the same way.
 func (c *Client) ListSessions(ctx context.Context) ([]string, error) {
 	out, err := c.run(ctx, "list-sessions", "-F", "#{session_name}")
 	if err != nil {
@@ -476,18 +492,40 @@ func trimTrailingBlankLines(s string) string {
 
 func (c *Client) run(ctx context.Context, args ...string) (string, error) {
 	full := append(c.socketFlag(), args...)
-	cmd := exec.CommandContext(ctx, "tmux", full...)
+	out, err := c.exec(ctx, "tmux", full...)
+	if err != nil {
+		if ctx.Err() != nil {
+			// exec.CommandContext kills the subprocess on an expired context the same
+			// way a genuine tmux failure exits — a bare *exec.ExitError("signal:
+			// killed") — so a deadline used to read as "tmux answered and said gone"
+			// (REQ-11). Wrapping ctx.Err() here instead means every caller's
+			// errors.As(err, &exitErr) now correctly misses (the ExitError is not in
+			// this chain), and errors.Is(err, context.DeadlineExceeded) holds instead:
+			// PaneExists returns (false, err), never (false, nil), and KillSession's
+			// post-kill verify can't report a deadline-killed check as "gone".
+			//nolint:errorlint // err is deliberately %v, not %w: it must NOT join the
+			// chain, or errors.As(err, &exitErr) below would still match its
+			// *exec.ExitError and undo the whole point of this branch (REQ-11).
+			return string(out), fmt.Errorf("tmux %s: %w (%v)", args[0], ctx.Err(), err)
+		}
+		return string(out), fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return string(out), nil
+}
+
+// execCombinedOutput is run's production exec seam: spawns name with args, combined
+// stdout+stderr captured, bounded by a WaitDelay for a descendant that inherited the
+// pipe (docs/conventions.md §Go) — the same body run's own exec.Cmd construction used
+// inline before the exec field was split out.
+func execCombinedOutput(ctx context.Context, name string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, name, args...)
 	// WaitDelay bounds the wait for a descendant that inherited the
 	// stdout/stderr pipe to close it. The timer starts when ctx is done or
 	// when Wait sees tmux exit, whichever comes first — without it,
 	// CombinedOutput's Wait can block on that descendant forever even with
 	// ctx never firing (docs/conventions.md §Go).
 	cmd.WaitDelay = 2 * time.Second
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return string(out), fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
-	}
-	return string(out), nil
+	return cmd.CombinedOutput()
 }
 
 // runCapture is run's capture-pane-only variant (review cycle 1 Minor 4/R3): unlike

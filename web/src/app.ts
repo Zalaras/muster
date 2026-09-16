@@ -31,6 +31,10 @@ export interface AppState {
 export interface RenderFrame {
   sessions: readonly Session[];
   now: Date;
+  /** `state.connection` verbatim (REQ-8) — the reader needs the three-way status to tell
+   * "never connected" from "lost connection" (INV-POPOUT-CONNECTING); every other reader
+   * keeps using the derived `connected` below. */
+  connection: ConnectionStatus;
   connected: boolean;
 }
 
@@ -96,6 +100,7 @@ export function createApp(): App {
     const frame: RenderFrame = {
       sessions: store.values(),
       now: new Date(),
+      connection: state.connection,
       connected: state.connection === "connected",
     };
     for (const phase of phases) phase(frame);

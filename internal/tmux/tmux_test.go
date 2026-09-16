@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -229,6 +230,36 @@ func TestPaneExists_TrueForALiveWindowFalseAfterKill(t *testing.T) {
 	exists, err = c.PaneExists(context.Background(), target)
 	require.NoError(t, err)
 	assert.False(t, exists, "the liveness poll's only signal: a killed pane must report as gone")
+}
+
+// TestPaneExists_CancelledContextReturnsWrappedContextCanceled covers REQ-11/D8: an
+// already-cancelled context must never read as "tmux answered and said gone" — run wraps
+// ctx.Err() rather than returning a bare *exec.ExitError, so errors.As inside PaneExists
+// misses the ExitError branch and this returns (false, err) with errors.Is(err,
+// context.Canceled) holding, not (false, nil). The session stays genuinely alive
+// throughout (sanity check below) — a regression that reverted run's ctx.Err() wrap would
+// make this read (false, nil) instead, exactly the "deadline mistaken for not there" bug
+// REQ-11 exists to close.
+func TestPaneExists_CancelledContextReturnsWrappedContextCanceled(t *testing.T) {
+	c := New(newTestSocket(t))
+	dir := t.TempDir()
+	id := nextID(t)
+	target, _, err := c.NewSession(context.Background(), id, dir, nil, sleepCommand())
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	exists, existsErr := c.PaneExists(ctx, target)
+
+	require.Error(t, existsErr, "REQ-11/D8: a cancelled context must surface as an error, never (false, nil)")
+	assert.False(t, exists)
+	require.ErrorIs(t, existsErr, context.Canceled)
+
+	// Sanity: the session was never actually asked about — it must still be alive.
+	stillExists, err := c.PaneExists(context.Background(), target)
+	require.NoError(t, err)
+	assert.True(t, stillExists, "sanity: the cancelled call must not itself have killed anything")
 }
 
 func TestPaneExists_EmptyTargetIsFalseWithNoError(t *testing.T) {
@@ -603,6 +634,79 @@ func TestKillSession_UnreachableSocketReturnsAnErrorWhileTheSessionIsStillAlive(
 	names, listErr := c.ListSessions(context.Background())
 	require.NoError(t, listErr)
 	assert.Contains(t, names, name, "sanity: the session was genuinely alive behind the unreachable socket the whole time")
+}
+
+// TestKillSession_CancelledContextNeverReadsAsASuccessfulKill covers REQ-5(d)/D8's own
+// "checkErr != nil" clause via a cancelled context rather than the chmod-based repro
+// above (session-lifecycle D20's own scenario is unreachable-socket specific): run wraps
+// ctx.Err() rather than a bare *exec.ExitError (REQ-11), so KillSession's own
+// errors.As(err, &exitErr) misses and it returns the wrapped context error directly,
+// without ever reaching the post-kill PaneExists verify at all — the session is
+// genuinely alive throughout, proving this never silently reads as REQ-6's idempotent
+// "already gone" success.
+func TestKillSession_CancelledContextNeverReadsAsASuccessfulKill(t *testing.T) {
+	socket := newTestSocket(t)
+	c := New(socket)
+	dir := t.TempDir()
+	id := nextID(t)
+	name := "muster-" + strconv.FormatInt(id, 10)
+	_, _, err := c.NewSession(context.Background(), id, dir, nil, sleepCommand())
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	killErr := c.KillSession(ctx, name)
+
+	require.Error(t, killErr, "REQ-11/D8: a cancelled context must never be mistaken for a successful (idempotent) kill")
+	require.ErrorIs(t, killErr, context.Canceled)
+
+	names, listErr := c.ListSessions(context.Background())
+	require.NoError(t, listErr)
+	assert.Contains(t, names, name, "sanity: the cancelled call must not itself have killed anything")
+}
+
+// TestKillSession_PostKillRecheckStillThereReturnsTheOriginalKillError covers REQ-5(d)/D8's
+// "stillThere" clause: kill-session exits non-zero (an *exec.ExitError, the branch
+// KillSession treats as "maybe gone, maybe a real failure — go verify"), and the post-kill
+// PaneExists recheck itself reports the target is still there. KillSession's doc comment
+// says the honest report in that case is the *original* kill-session error, not a
+// synthesized "still there" error and not REQ-6's idempotent success. Real tmux gives no
+// deterministic way to make kill-session fail with an ExitError while the target
+// demonstrably survives (daemon-tests' own analysis, plans/general-cleanup/daemon-tests.md
+// implementation-bug row), so this drives it through Client.exec directly — the seam
+// daemon-impl added for exactly this case (tmux.go's exec field doc comment).
+func TestKillSession_PostKillRecheckStillThereReturnsTheOriginalKillError(t *testing.T) {
+	name := "muster-99"
+	const killStderrMarker = "fake-tmux-kill-session-failure-marker"
+
+	c := &Client{
+		socket: "irrelevant-fake-socket",
+		exec: func(ctx context.Context, _ string, args ...string) ([]byte, error) {
+			switch {
+			case slices.Contains(args, "kill-session"):
+				// A real *exec.ExitError (not a hand-built one) so KillSession's
+				// errors.As(err, &exitErr) matches exactly as it would against real
+				// tmux — only the exit status and captured output are faked.
+				return exec.CommandContext(ctx, "sh", "-c", "echo "+killStderrMarker+" >&2; exit 1").CombinedOutput()
+			case slices.Contains(args, "list-panes"):
+				// PaneExists' recheck: a nil error from run means "found it" (stillThere).
+				return []byte("ok"), nil
+			default:
+				t.Fatalf("unexpected tmux subcommand: %v", args)
+				return nil, nil
+			}
+		},
+	}
+
+	killErr := c.KillSession(context.Background(), name)
+
+	require.Error(t, killErr, "REQ-5(d)/D8: a still-there recheck must not read as REQ-6's idempotent success")
+	assert.Contains(t, killErr.Error(), killStderrMarker,
+		"the ORIGINAL kill-session error must be returned, not a synthesized still-there error")
+	assert.Contains(t, killErr.Error(), name)
+	var exitErr *exec.ExitError
+	assert.ErrorAs(t, killErr, &exitErr, "the original error's *exec.ExitError must still be in the chain")
 }
 
 // TestIsConnectionFailure covers plan session-lifecycle D24/review cycle 2 Critical:

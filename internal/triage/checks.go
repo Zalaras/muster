@@ -43,8 +43,13 @@ type CheckFunc func(Value) bool
 // "](" link fragment.
 var reToken = regexp.MustCompile(`^[A-Za-z0-9_.:@+/\[\]-]+$`)
 
-// A version is dotted digits with an optional pre-release tail.
-var reVersion = regexp.MustCompile(`^[0-9]+(\.[0-9]+)*(-[A-Za-z0-9.]+)?$`)
+// A version is anything `git describe --tags --always --dirty` can produce for
+// musterd.version: a tagged form (an optional leading "v", dotted digits, an optional
+// "-<pre>" pre-release tail, an optional "-<N>-g<hex>" commit-count/hash group appended
+// by --long-style describe past the tag, an optional "-dirty"), or, on an untagged
+// clone with no matching tag, the bare "--always" fallback of a short/long hex commit
+// hash with its own optional "-dirty".
+var reVersion = regexp.MustCompile(`^(v?[0-9]+(\.[0-9]+)*(-[A-Za-z0-9.]+)?(-[0-9]+-g[0-9a-f]+)?(-dirty)?|[0-9a-f]{7,40}(-dirty)?)$`)
 
 // CheckToken accepts a bounded token.
 func CheckToken(limit int) CheckFunc {

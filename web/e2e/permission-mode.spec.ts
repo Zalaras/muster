@@ -10,6 +10,7 @@ import {
 } from "./helpers/picker";
 import {
   browseScratchDirectory,
+  envelopeOpts,
   findSession,
   getState,
   launchSession,
@@ -99,7 +100,7 @@ test("a synthesized UserPromptSubmit with permission_mode: default corrects an a
 
     const claudeId = "claude-e3-auto-fallback";
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
     // Measured (docs/history/spikes/canary-fields.md, "Permission-mode probe" 2.1.259): on a model
     // that can't run auto (haiku), Claude Code silently drops to manual and hooks

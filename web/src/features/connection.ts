@@ -4,6 +4,7 @@
 // reads "connecting…" rather than flashing "musterd unreachable" on first load.
 import type { App } from "../app";
 import { requireElement } from "../dom";
+import { isRestorableControl, shouldRestoreFocus } from "../render/focusrestore";
 import { renderBanner } from "../render/banner";
 import {
   renderClaudeVersion,
@@ -70,6 +71,10 @@ export function initConnection(app: App): ConnectionHandle {
   // no-data-yet readout (design-system §6).
   renderClaudeVersion(claudeVersionEl, null);
 
+  // REQ-7: the one control the socket dropped focus off of, remembered by node identity
+  // across the disconnect->reconnect pair of renders — never per-site (R1).
+  let remembered: (HTMLButtonElement | HTMLSelectElement) | null = null;
+
   const state = createConnectionState(app, (status) => {
     renderConnectionStatus(connectionStatusEl, status);
     // Equivalent to the original `everConnected && status !== "connected"`: `disconnected()`
@@ -79,10 +84,32 @@ export function initConnection(app: App): ConnectionHandle {
     // States (m4-reconcile): "Daemon down ... Dialogs, if open, close" — every dialog
     // controller subscribes to this event itself rather than being reached from here.
     if (status !== "connected") app.emit("status", status);
+    if (status !== "connected") {
+      // Captured before the render below disables it — a disabled control loses focus
+      // to `body` the instant `.disabled` is set, so this is the last moment it's still
+      // `document.activeElement` (edge case 11: a second drop's `activeElement` is
+      // already `body`, so this is a no-op and the first remembered element survives).
+      const active = document.activeElement;
+      remembered = isRestorableControl(active)
+        ? (active as HTMLButtonElement | HTMLSelectElement)
+        : remembered;
+    }
     // review m4-reconcile Major 3: every already-drawn surface carries `connected` baked
     // into its last render call — re-render on every transition (down and back up) so
     // button-disabled state never goes stale.
     app.render();
+    if (status === "connected") {
+      if (
+        shouldRestoreFocus({
+          activeIsBody: document.activeElement === document.body,
+          stillInDocument: remembered?.isConnected ?? false,
+          disabled: remembered?.disabled ?? true,
+        })
+      ) {
+        remembered?.focus();
+      }
+      remembered = null; // once, by element identity — never chased on a later render
+    }
   });
 
   return {

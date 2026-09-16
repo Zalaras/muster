@@ -25,8 +25,8 @@ import (
 // passed here — a real *os.File would panic isCharDevice-adjacent code if it were
 // consulted, so a nil that's never touched proves the short-circuit).
 func TestResolveOnExit_ExplicitLeaveAndKillNeverConsultStdin(t *testing.T) {
-	assert.Equal(t, onExitLeave, resolveOnExit("leave", nil, io.Discard, 3, "muster"))
-	assert.Equal(t, onExitKill, resolveOnExit("kill", nil, io.Discard, 3, "muster"))
+	assert.Equal(t, onExitLeave, resolveOnExit("leave", nil, io.Discard, 3, 0, "muster"))
+	assert.Equal(t, onExitKill, resolveOnExit("kill", nil, io.Discard, 3, 0, "muster"))
 }
 
 // TestResolveOnExit_AskWithNonTTYStdinIsLeave covers D21's underlying unit: "ask" against
@@ -38,7 +38,7 @@ func TestResolveOnExit_AskWithNonTTYStdinIsLeave(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = r.Close(); _ = w.Close() })
 
-	got := resolveOnExit("ask", r, io.Discard, 2, "muster")
+	got := resolveOnExit("ask", r, io.Discard, 2, 0, "muster")
 
 	assert.Equal(t, onExitLeave, got)
 }
@@ -53,7 +53,7 @@ func TestResolveOnExit_InvalidFlagValueFallsThroughToTheAskPath(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = r.Close(); _ = w.Close() })
 
-	got := resolveOnExit("bogus", r, io.Discard, 1, "muster")
+	got := resolveOnExit("bogus", r, io.Discard, 1, 0, "muster")
 
 	assert.Equal(t, onExitLeave, got, "an unrecognized value must never silently resolve to kill")
 }
@@ -129,10 +129,10 @@ func TestAskKillPrompt(t *testing.T) {
 			require.NoError(t, w.Close())
 
 			var stderr bytes.Buffer
-			got := askKillPrompt(r, &stderr, 3, "muster")
+			got := askKillPrompt(r, &stderr, 3, 0, "muster")
 
 			assert.Equal(t, tt.want, got)
-			assert.Contains(t, stderr.String(), "3 live sessions on tmux socket muster")
+			assert.Contains(t, stderr.String(), "3 live sessions and 0 shells on tmux socket muster")
 		})
 	}
 }
@@ -146,7 +146,7 @@ func TestAskKillPrompt_EOFWithNoInputAnswersLeave(t *testing.T) {
 	t.Cleanup(func() { _ = r.Close() })
 	require.NoError(t, w.Close()) // EOF immediately, no bytes ever written
 
-	got := askKillPrompt(r, io.Discard, 1, "muster")
+	got := askKillPrompt(r, io.Discard, 1, 0, "muster")
 
 	assert.Equal(t, onExitLeave, got)
 }

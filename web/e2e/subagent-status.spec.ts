@@ -35,6 +35,7 @@ import {
   runningSubagentTask,
 } from "./helpers/payloads";
 import {
+  envelopeOpts,
   findSession,
   getState,
   launchSession,
@@ -58,7 +59,7 @@ test("subagent permission after the parent Stop moves the card to needs input, a
     const claudeId = "claude-e2-subagent";
 
     await request.post(daemon().ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon())),
     });
     await request.post(daemon().ingestURL("hook"), {
       data: rawUserPromptSubmit(claudeId, { promptId: "p1" }),
@@ -126,7 +127,7 @@ test("#20's shape — attention latched under plan mode clears when activity arr
     const claudeId = "claude-e4-plan-auto";
 
     await request.post(daemon().ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon())),
     });
     await request.post(daemon().ingestURL("hook"), {
       data: rawUserPromptSubmit(claudeId, { promptId: "p1", permissionMode: "plan" }),
@@ -170,7 +171,7 @@ test("a failed turn's note is cleared once the next turn starts, not carried int
     const claudeId = "claude-e7-failure-clear";
 
     await request.post(daemon().ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon())),
     });
     await request.post(daemon().ingestURL("hook"), {
       data: rawUserPromptSubmit(claudeId, { promptId: "p1" }),
@@ -223,7 +224,7 @@ test("subagent tool activity past the parent Stop keeps the card working, with s
     const claudeId = "claude-e8-background";
 
     await request.post(daemon().ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon())),
     });
     await request.post(daemon().ingestURL("hook"), {
       data: rawUserPromptSubmit(claudeId, { promptId: "p1" }),

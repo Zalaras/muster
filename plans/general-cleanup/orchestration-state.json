@@ -1,0 +1,118 @@
+{
+  "plan_name": "general-cleanup",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 0,
+    "web-impl": 0,
+    "daemon-tests": 2,
+    "web-tests": 0,
+    "e2e-validate": 1,
+    "review": 0,
+    "doc-reconcile": 0
+  },
+  "completed_steps": [
+    "e2e-specs",
+    "web-impl",
+    "web-tests",
+    "daemon-impl",
+    "daemon-tests",
+    "e2e-validate",
+    "review",
+    "doc-reconcile"
+  ],
+  "step_started_at": {
+    "e2e-specs": "2026-09-16T12:59:55Z",
+    "daemon-impl": "2026-09-16T15:25:12Z",
+    "web-impl": "2026-09-16T13:27:22Z",
+    "web-tests": "2026-09-16T13:36:57Z",
+    "daemon-tests": "2026-09-16T16:14:45Z",
+    "e2e-validate": "2026-09-16T16:21:20Z",
+    "review": "2026-09-16T16:26:20Z",
+    "doc-reconcile": "2026-09-16T16:55:51Z"
+  },
+  "step_finished_at": {
+    "e2e-specs": "2026-09-16T13:27:18Z",
+    "web-impl": "2026-09-16T13:36:57Z",
+    "web-tests": "2026-09-16T13:39:27Z",
+    "daemon-impl": "2026-09-16T16:13:11Z",
+    "daemon-tests": "2026-09-16T16:21:20Z",
+    "e2e-validate": "2026-09-16T16:26:20Z",
+    "review": "2026-09-16T16:55:51Z",
+    "doc-reconcile": "2026-09-16T17:03:26Z"
+  },
+  "step_attempts": {
+    "e2e-specs": [
+      {
+        "start": "2026-09-16T12:59:55Z",
+        "finish": "2026-09-16T13:27:18Z"
+      }
+    ],
+    "daemon-impl": [
+      {
+        "start": "2026-09-16T13:27:22Z",
+        "finish": "2026-09-16T13:46:01Z"
+      },
+      {
+        "start": "2026-09-16T14:28:11Z",
+        "finish": "2026-09-16T14:39:15Z"
+      },
+      {
+        "start": "2026-09-16T15:25:12Z",
+        "finish": "2026-09-16T16:13:11Z"
+      }
+    ],
+    "web-impl": [
+      {
+        "start": "2026-09-16T13:27:22Z",
+        "finish": "2026-09-16T13:36:57Z"
+      }
+    ],
+    "web-tests": [
+      {
+        "start": "2026-09-16T13:36:57Z",
+        "finish": "2026-09-16T13:39:27Z"
+      }
+    ],
+    "daemon-tests": [
+      {
+        "start": "2026-09-16T13:46:01Z",
+        "finish": "2026-09-16T14:28:11Z"
+      },
+      {
+        "start": "2026-09-16T14:39:15Z",
+        "finish": "2026-09-16T14:47:39Z"
+      },
+      {
+        "start": "2026-09-16T16:14:45Z",
+        "finish": "2026-09-16T16:21:20Z"
+      }
+    ],
+    "e2e-validate": [
+      {
+        "start": "2026-09-16T14:52:01Z",
+        "finish": "2026-09-16T15:25:12Z"
+      },
+      {
+        "start": "2026-09-16T16:21:20Z",
+        "finish": "2026-09-16T16:26:20Z"
+      }
+    ],
+    "review": [
+      {
+        "start": "2026-09-16T16:26:20Z",
+        "finish": "2026-09-16T16:55:51Z"
+      }
+    ],
+    "doc-reconcile": [
+      {
+        "start": "2026-09-16T16:55:51Z",
+        "finish": "2026-09-16T17:03:26Z"
+      }
+    ]
+  },
+  "started_at": "2026-09-16T12:59:50Z",
+  "updated_at": "2026-09-16T17:10:14Z",
+  "closes_issues": []
+}

@@ -1,6 +1,12 @@
 import { expect, type Page, settleFor, test } from "./helpers/fixtures";
 import { envelopedSessionStart, rawNotification, rawUserPromptSubmit } from "./helpers/payloads";
-import { getState, launchSession, scratchDirectory, type SessionObject } from "./helpers/session";
+import {
+  envelopeOpts,
+  getState,
+  launchSession,
+  scratchDirectory,
+  type SessionObject,
+} from "./helpers/session";
 import {
   dragTileOnto,
   expectAllTileGeometrySettled,
@@ -61,9 +67,7 @@ test("Tiles: End from a tile footer keeps the tile in its slot and leaves other 
       });
       sessions.push(session);
       await request.post(daemon.ingestURL("hook"), {
-        data: envelopedSessionStart(`claude-tile-end-${i}`, {
-          musterSession: session.id,
-        }),
+        data: envelopedSessionStart(`claude-tile-end-${i}`, await envelopeOpts(session, daemon)),
       });
     }
 
@@ -169,9 +173,7 @@ test("Tiles: Removing a dead tile backfills its slot from the strip and broadcas
       });
       sessions.push(session);
       await request.post(daemon.ingestURL("hook"), {
-        data: envelopedSessionStart(`claude-tile-remove-${i}`, {
-          musterSession: session.id,
-        }),
+        data: envelopedSessionStart(`claude-tile-remove-${i}`, await envelopeOpts(session, daemon)),
       });
     }
 
@@ -258,9 +260,7 @@ test("a tile footer's End button survives a render tick and still opens the End 
       title: "kbd-tick-tile-end",
     });
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-kbd-tick-tile-end", {
-        musterSession: session.id,
-      }),
+      data: envelopedSessionStart("claude-kbd-tick-tile-end", await envelopeOpts(session, daemon)),
     });
 
     await page.getByRole("button", { name: "Tiles" }).click();
@@ -321,14 +321,10 @@ test("a priority change updates a live tile's chrome but never moves it in the T
       title: "tile-prio-b",
     });
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-tile-prio-a", {
-        musterSession: sessionA.id,
-      }),
+      data: envelopedSessionStart("claude-tile-prio-a", await envelopeOpts(sessionA, daemon)),
     });
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-tile-prio-b", {
-        musterSession: sessionB.id,
-      }),
+      data: envelopedSessionStart("claude-tile-prio-b", await envelopeOpts(sessionB, daemon)),
     });
 
     await page.getByRole("button", { name: "Tiles" }).click();
@@ -389,14 +385,10 @@ test("a focused tile-footer action button survives a drag-drop reorder (REQ-10, 
       title: "tile-drag-focus-b",
     });
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-tile-drag-focus-a", {
-        musterSession: sessionA.id,
-      }),
+      data: envelopedSessionStart("claude-tile-drag-focus-a", await envelopeOpts(sessionA, daemon)),
     });
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-tile-drag-focus-b", {
-        musterSession: sessionB.id,
-      }),
+      data: envelopedSessionStart("claude-tile-drag-focus-b", await envelopeOpts(sessionB, daemon)),
     });
 
     await page.getByRole("button", { name: "Tiles" }).click();
@@ -1058,7 +1050,7 @@ test("a tile's state dot title tracks the state word, and updates on a real stat
 
     const claudeId = "claude-mv-dot";
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
     await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit(claudeId) });
     await request.post(daemon.ingestURL("hook"), {

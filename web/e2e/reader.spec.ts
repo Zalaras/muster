@@ -46,7 +46,7 @@ import {
   treeLoadingRow,
   writeFakeTranscript,
 } from "./helpers/reader";
-import { launchSession, scratchDirectory } from "./helpers/session";
+import { envelopeOpts, launchSession, scratchDirectory } from "./helpers/session";
 import {
   mainheadSurfaceButton,
   shellPip,
@@ -166,7 +166,7 @@ test("a session whose transcript names an existing plan file opens it automatica
 
     await page.request.post(daemon.ingestURL("hook"), {
       data: envelopedSessionStart("claude-reader-e3", {
-        musterSession: session.id,
+        ...(await envelopeOpts(session, daemon)),
         transcriptPath,
       }),
     });
@@ -220,7 +220,7 @@ test("after a /clear pair naming a planless transcript, the slot returns to no p
     const oldClaudeId = "claude-reader-e5-old";
     await page.request.post(daemon.ingestURL("hook"), {
       data: envelopedSessionStart(oldClaudeId, {
-        musterSession: session.id,
+        ...(await envelopeOpts(session, daemon)),
         transcriptPath: oldTranscript,
       }),
     });
@@ -236,7 +236,7 @@ test("after a /clear pair naming a planless transcript, the slot returns to no p
     });
     await page.request.post(daemon.ingestURL("hook"), {
       data: envelopedSessionStart("claude-reader-e5-new", {
-        musterSession: session.id,
+        ...(await envelopeOpts(session, daemon)),
         source: "clear",
         transcriptPath: newTranscript,
       }),
@@ -342,7 +342,7 @@ test("a routed Write hook for an unopened file lights its changed dot, cleared b
     const session = await launchSession(page, daemon, { directory: dir, title: "reader-e9" });
     const claudeId = "claude-reader-e9";
     await page.request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
 
     await mainheadSurfaceButton(page, "docs").click();
@@ -372,7 +372,7 @@ test("rewriting the open file on disk and posting a Write hook for it re-renders
     const session = await launchSession(page, daemon, { directory: dir, title: "reader-e10" });
     const claudeId = "claude-reader-e10";
     await page.request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
 
     await mainheadSurfaceButton(page, "docs").click();
@@ -427,7 +427,7 @@ test("rewriting the plan on disk and switching away and back to docs shows the n
     await writeFakeTranscript(transcriptPath, { planFilePath: planPath });
     await page.request.post(daemon.ingestURL("hook"), {
       data: envelopedSessionStart("claude-reader-e12", {
-        musterSession: session.id,
+        ...(await envelopeOpts(session, daemon)),
         transcriptPath,
       }),
     });
@@ -461,7 +461,7 @@ test("rewriting the plan on disk and dispatching a window focus event shows the 
     await writeFakeTranscript(transcriptPath, { planFilePath: planPath });
     await page.request.post(daemon.ingestURL("hook"), {
       data: envelopedSessionStart("claude-reader-e13", {
-        musterSession: session.id,
+        ...(await envelopeOpts(session, daemon)),
         transcriptPath,
       }),
     });
@@ -760,7 +760,7 @@ test("the pop out link opens a second page with the reader for the same file, an
     const session = await launchSession(page, daemon, { directory: dir, title: "reader-e21" });
     const claudeId = "claude-reader-e21";
     await page.request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
 
     await mainheadSurfaceButton(page, "docs").click();
@@ -897,7 +897,7 @@ test("deleting the open file and posting a Write hook for it shows file no longe
     const session = await launchSession(page, daemon, { directory: dir, title: "reader-e25" });
     const claudeId = "claude-reader-e25";
     await page.request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
 
     await mainheadSurfaceButton(page, "docs").click();
@@ -962,7 +962,7 @@ test("the pop-out's own status line is hidden while healthy, shows file-gone on 
     const session = await launchSession(page, daemon, { directory: dir, title: "reader-e30" });
     const claudeId = "claude-reader-e30";
     await page.request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
 
     await mainheadSurfaceButton(page, "docs").click();
@@ -1192,7 +1192,7 @@ test("compact follows the current host across a Focus/Tiles switch, not the moun
     });
     const claudeId = "claude-reader-live-compact";
     await page.request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
 
     // Mount in Focus — not compact. Open a file first: `.path` renders empty (zero-size,
@@ -1267,7 +1267,7 @@ test("after a daemon restart and reload, switching to docs shows the plan in the
     await writeFakeTranscript(transcriptPath, { planFilePath: planPath });
     await page.request.post(daemon.ingestURL("hook"), {
       data: envelopedSessionStart("claude-reader-e28", {
-        musterSession: session.id,
+        ...(await envelopeOpts(session, daemon)),
         transcriptPath,
       }),
     });
@@ -1303,7 +1303,7 @@ test("after a /clear pair, a straggler Write hook carrying the old claude id and
     const oldClaudeId = "claude-reader-e29-old";
     await page.request.post(daemon.ingestURL("hook"), {
       data: envelopedSessionStart(oldClaudeId, {
-        musterSession: session.id,
+        ...(await envelopeOpts(session, daemon)),
         transcriptPath: oldTranscript,
       }),
     });
@@ -1315,7 +1315,7 @@ test("after a /clear pair, a straggler Write hook carrying the old claude id and
     });
     await page.request.post(daemon.ingestURL("hook"), {
       data: envelopedSessionStart("claude-reader-e29-new", {
-        musterSession: session.id,
+        ...(await envelopeOpts(session, daemon)),
         source: "clear",
         transcriptPath: newTranscript,
       }),
@@ -1352,7 +1352,7 @@ test("leaving plan mode fires a scan that fills the plan slot (REQ-16, edge case
     const session = await launchSession(page, daemon, { directory: dir, title: "reader-req16" });
     const claudeId = "claude-reader-req16";
     await page.request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
 
     await mainheadSurfaceButton(page, "docs").click();
@@ -1519,7 +1519,10 @@ test("keyboard-activating the plan slot, a tree file and an outline entry keeps 
     const session = await launchSession(page, daemon, { directory: dir, title: "reader-kbd" });
     const claudeId = "claude-reader-kbd";
     await page.request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id, transcriptPath }),
+      data: envelopedSessionStart(claudeId, {
+        ...(await envelopeOpts(session, daemon)),
+        transcriptPath,
+      }),
     });
 
     await mainheadSurfaceButton(page, "docs").click();
@@ -1758,7 +1761,7 @@ test("the nav toggle's right edge is unchanged after the first routed write make
     });
     const claudeId = "claude-reader-arrow-chg";
     await page.request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
 
     await mainheadSurfaceButton(page, "docs").click();
@@ -1929,7 +1932,10 @@ test("a window focus event on an open plan and a routed write for an open tree f
     const transcriptPath = join(daemon.dataDir, "transcripts", "reader-silent-refetch.jsonl");
     await writeFakeTranscript(transcriptPath, { planFilePath: planPath });
     await page.request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id, transcriptPath }),
+      data: envelopedSessionStart(claudeId, {
+        ...(await envelopeOpts(session, daemon)),
+        transcriptPath,
+      }),
     });
 
     await mainheadSurfaceButton(page, "docs").click();

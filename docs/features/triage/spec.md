@@ -24,7 +24,9 @@ The `/triage` skill runs in the main session and never reads an issue body. `go 
 order (bidi rejection, truncation, link and image stripping, URL defanging, HTML escaping,
 non-ASCII escaping), parses the attached snapshot against a strict union schema that drops
 and counts unknown fields (kb:adr/triage-snapshot-untrusted-drop-and-count), and writes one
-artifact per issue. A proposer subagent holding only the Read tool summarises one artifact
+artifact per issue. The version field accepts every shape `git describe --tags --always
+--dirty` can produce for `musterd.version` — a tagged release, a `-<N>-g<hash>` dev-build
+tail, a `-dirty` suffix, or the bare hex fallback on an untagged clone. A proposer subagent holding only the Read tool summarises one artifact
 into a JSON proposal naming component, symptom and section; capability removal, not
 sandboxing, is the wall (kb:adr/triage-sandboxing-rejected-for-read-only-proposer). The
 session sees only numbers, URLs, flag names and validated enums, and makes the one judgement

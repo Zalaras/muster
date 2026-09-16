@@ -1,7 +1,13 @@
 import { expect, settleFor, test } from "./helpers/fixtures";
 import { envelopedSessionStart, rawNotification, rawUserPromptSubmit } from "./helpers/payloads";
 import { pinButton, railCard, railOrderIds, railSortSelect } from "./helpers/railorder";
-import { getState, launchSession, scratchDirectory, stateBadge } from "./helpers/session";
+import {
+  envelopeOpts,
+  getState,
+  launchSession,
+  scratchDirectory,
+  stateBadge,
+} from "./helpers/session";
 import {
   activeElementInsideAnyTerminal,
   activeElementInsideTerminal,
@@ -584,7 +590,7 @@ test("clicking Resume or Remove on an ended card never selects the session or mo
     // (sessions/card.ts: Resume is disabled while `claudeSessionId` is null), then end it
     // so the card's `.acts-row` switches to the ended pair (REQ-11: Resume + Remove).
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-inv3-dead-b", { musterSession: sessionB.id }),
+      data: envelopedSessionStart("claude-inv3-dead-b", await envelopeOpts(sessionB, daemon)),
     });
     const endRes = await page.request.post(`${daemon.baseURL}/api/sessions/${sessionB.id}/end`);
     expect(endRes.status()).toBe(200);
@@ -629,7 +635,7 @@ test("clicking an ended session's card shows the dead surface and leaves keyboar
     await expect(terminalRegion(page, "focus-e5-a")).toBeVisible();
 
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-e5-b", { musterSession: sessionB.id }),
+      data: envelopedSessionStart("claude-e5-b", await envelopeOpts(sessionB, daemon)),
     });
     const endRes = await page.request.post(`${daemon.baseURL}/api/sessions/${sessionB.id}/end`);
     expect(endRes.status()).toBe(200);
@@ -828,7 +834,7 @@ test("a sessionUpsert for the focused session doesn't move keyboard focus into i
     // sessionUpsert (state moves off its initial value) and a `render()` pass, with no
     // card click anywhere in this test.
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-inv1b-solo", { musterSession: session.id }),
+      data: envelopedSessionStart("claude-inv1b-solo", await envelopeOpts(session, daemon)),
     });
     await request.post(daemon.ingestURL("hook"), {
       data: rawUserPromptSubmit("claude-inv1b-solo"),
@@ -879,7 +885,7 @@ test("a rail reorder from a state change in attention mode doesn't move keyboard
     // Drive C to needs-input — attention mode's pinned-then-need-sorted order (order-
     // sidebar REQ-7) puts it first, reordering the rail with no click anywhere.
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-inv1c-c", { musterSession: c.id }),
+      data: envelopedSessionStart("claude-inv1c-c", await envelopeOpts(c, daemon)),
     });
     await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit("claude-inv1c-c") });
     await request.post(daemon.ingestURL("hook"), {

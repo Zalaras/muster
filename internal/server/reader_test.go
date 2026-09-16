@@ -670,7 +670,7 @@ func TestIngestRouting_SubagentMarkedWriteBroadcastsDocChanged(t *testing.T) {
 
 	const claudeID = "subagent-writer"
 	bindRec := postIngest(t, srv, "/ingest/"+testIngestToken+"/hook",
-		claudecodetest.EnvelopedSessionStart(claudeID, claudecodetest.SessionStartOpts{MusterSession: int(sess.ID)}))
+		claudecodetest.EnvelopedSessionStart(claudeID, claudecodetest.SessionStartOpts{MusterSession: int(sess.ID), TmuxPane: "%1"}))
 	require.Equal(t, 200, bindRec.Code)
 	_ = readJSON[sessionUpsertMessage](t, c) // the bind itself upserts
 
@@ -732,9 +732,13 @@ func TestIngestRouting_UnroutedWriteBroadcastsNothing(t *testing.T) {
 	rec := postIngest(t, srv, "/ingest/"+testIngestToken+"/hook", body)
 	require.Equal(t, 200, rec.Code)
 
-	require.Eventually(t, func() bool {
-		return countEventsForSession(t, srv, claudeID) == 1
-	}, 2*time.Second, 10*time.Millisecond, "the post must at least persist before we can conclude nothing else happened")
+	// REQ-3/REQ-14: Drain, not a fixed-duration Eventually — it returns once the post
+	// above has been fully processed (through Observe), so the persistence check below
+	// is a direct assertion, not a poll.
+	drainCtx, drainCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer drainCancel()
+	require.NoError(t, srv.ingest.queue.Drain(drainCtx), "the post must at least persist before we can conclude nothing else happened")
+	assert.Equal(t, 1, countEventsForSession(t, srv, claudeID))
 
 	assertNoSessionUpsertArrives(t, c)
 }
@@ -756,27 +760,40 @@ func TestIngestRouting_StragglerFromBeforeAClearNeverMovesTranscriptOrPlan(t *te
 	transcriptA := "/tmp/transcript-a.jsonl"
 	transcriptB := "/tmp/transcript-b.jsonl"
 
+	// REQ-3/REQ-14: every wait below on the ingest worker having processed a post is
+	// Drain, not a fixed-duration require.Eventually — it returns once every event
+	// enqueued before the call has been fully processed (through Observe, the reader's
+	// write record), so the assertions that follow are direct, not polled.
+	drain := func() {
+		t.Helper()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		require.NoError(t, srv.ingest.queue.Drain(ctx))
+	}
+
 	// Bind to A, then /clear-rebind to B: SessionEnd(A, reason:"clear") then
 	// SessionStart(B, source:"clear") — kb:fact/clear-mints-new-session-id's own
-	// sequence, both enveloped so Apply's rebind logic actually runs.
+	// sequence, both enveloped (with the seeded pane, REQ-12) so Apply's rebind logic
+	// actually runs.
 	bindA := postIngest(t, srv, "/ingest/"+testIngestToken+"/hook",
-		claudecodetest.EnvelopedSessionStartTranscript(claudeA, transcriptA, claudecodetest.SessionStartOpts{MusterSession: int(sess.ID)}))
+		claudecodetest.EnvelopedSessionStartTranscript(claudeA, transcriptA, claudecodetest.SessionStartOpts{MusterSession: int(sess.ID), TmuxPane: "%1"}))
 	require.Equal(t, 200, bindA.Code)
-	require.Eventually(t, func() bool {
-		got, ok := srv.manager.Get(sess.ID)
-		return ok && got.TranscriptPath == transcriptA
-	}, 2*time.Second, 10*time.Millisecond, "A's SessionStart must bind and record its transcript")
+	drain()
+	got, ok := srv.manager.Get(sess.ID)
+	require.True(t, ok)
+	require.Equal(t, transcriptA, got.TranscriptPath, "A's SessionStart must bind and record its transcript")
 
 	endA := postIngest(t, srv, "/ingest/"+testIngestToken+"/hook",
 		claudecodetest.EnvelopedHookBody(int(sess.ID), "%1", "SessionEnd", claudeA))
 	require.Equal(t, 200, endA.Code)
 	rebindB := postIngest(t, srv, "/ingest/"+testIngestToken+"/hook",
-		claudecodetest.EnvelopedSessionStartTranscript(claudeB, transcriptB, claudecodetest.SessionStartOpts{MusterSession: int(sess.ID), Source: "clear"}))
+		claudecodetest.EnvelopedSessionStartTranscript(claudeB, transcriptB, claudecodetest.SessionStartOpts{MusterSession: int(sess.ID), Source: "clear", TmuxPane: "%1"}))
 	require.Equal(t, 200, rebindB.Code)
-	require.Eventually(t, func() bool {
-		got, ok := srv.manager.Get(sess.ID)
-		return ok && got.TranscriptPath == transcriptB && got.ClaudeSessionID == claudeB
-	}, 2*time.Second, 10*time.Millisecond, "B's SessionStart(clear) must rebind and record its own transcript")
+	drain()
+	got, ok = srv.manager.Get(sess.ID)
+	require.True(t, ok)
+	require.Equal(t, transcriptB, got.TranscriptPath, "B's SessionStart(clear) must rebind and record its own transcript")
+	require.Equal(t, claudeB, got.ClaudeSessionID)
 
 	planB := filepath.Join(t.TempDir(), "plan-b.md")
 	_, _, err := srv.manager.SetPlan(context.Background(), sess.ID, claudeB, planB, true)
@@ -796,23 +813,25 @@ func TestIngestRouting_StragglerFromBeforeAClearNeverMovesTranscriptOrPlan(t *te
 		rec := postIngest(t, srv, "/ingest/"+testIngestToken+"/hook", body)
 		require.Equal(t, 200, rec.Code)
 	}
+	drain()
+	// 5, not 3: bindA and endA above also persist under claude_session_id=claudeA (event
+	// persistence happens regardless of routing), plus the 3 stragglers here. The
+	// original require.Eventually(..., 2*time.Second, ...) asserted ==3 and passed only
+	// because its polling occasionally caught a transient in-between count while the
+	// worker was still processing the stragglers one at a time — a race, not a proof;
+	// Drain's determinism is exactly what REQ-3 exists to replace that with.
+	assert.Equal(t, 5, countEventsForSession(t, srv, claudeA), "all events under claudeA must persist: bindA, endA and all three stragglers")
 
-	require.Eventually(t, func() bool {
-		return countEventsForSession(t, srv, claudeA) == 3
-	}, 2*time.Second, 10*time.Millisecond, "all three straggler events must at least persist")
-
-	got, ok := srv.manager.Get(sess.ID)
+	got, ok = srv.manager.Get(sess.ID)
 	require.True(t, ok)
 	assert.Equal(t, transcriptB, got.TranscriptPath, "a straggler naming A must never move the transcript back")
 	assert.Equal(t, planB, got.PlanPath, "a straggler's scan must never move the plan")
 	assert.True(t, got.PlanExists)
 
 	// REQ-26: the straggler's written path is still recorded as a write (a docChanged
-	// would have fired for it), even though it never touched transcript/plan. The event
-	// count above only proves persistence; Observe (which records the write) is a step
-	// further along the same single worker's pipeline, so this still needs its own wait.
-	require.Eventually(t, func() bool {
-		_, ok := srv.reader.writes.get(sess.ID, filepath.Clean(staleWrite))
-		return ok
-	}, 2*time.Second, 10*time.Millisecond, "the stale write must still be recorded — the write itself was real")
+	// would have fired for it), even though it never touched transcript/plan. drain()
+	// above already waited past Observe (which records the write) — the same single
+	// worker's pipeline Drain's own doc comment names — so this is a direct read.
+	_, ok = srv.reader.writes.get(sess.ID, filepath.Clean(staleWrite))
+	assert.True(t, ok, "the stale write must still be recorded — the write itself was real")
 }

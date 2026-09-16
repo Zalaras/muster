@@ -10,6 +10,7 @@ import { queryEvents } from "./helpers/db";
 import { envelopedSessionStart, envelopedStatusLineFull } from "./helpers/payloads";
 import { railCard } from "./helpers/railorder";
 import {
+  envelopeOpts,
   findSession,
   getState,
   launchSession,
@@ -87,11 +88,11 @@ test("a status-line post's session_name never overrides an active title override
     await expect(mainheadRenameButton(page)).toHaveText("hunting flake e5");
 
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
     await request.post(daemon.ingestURL("status"), {
       data: envelopedStatusLineFull(claudeId, {
-        musterSession: session.id,
+        ...(await envelopeOpts(session, daemon)),
         sessionName: "Run echo hello",
       }),
     });
@@ -133,11 +134,11 @@ test("clearing the field reverts the title to Claude's last-known name (E6)", as
     await expect(mainheadRenameButton(page)).toHaveText("hunting flake e6");
 
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
     await request.post(daemon.ingestURL("status"), {
       data: envelopedStatusLineFull(claudeId, {
-        musterSession: session.id,
+        ...(await envelopeOpts(session, daemon)),
         sessionName: "claude's own name",
       }),
     });
@@ -361,7 +362,7 @@ test("a status-line post arriving mid-edit leaves the open mainhead field's valu
     const claudeId = "claude-rename-inv4";
 
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
 
     await mainheadRenameButton(page).click();
@@ -374,7 +375,7 @@ test("a status-line post arriving mid-edit leaves the open mainhead field's valu
 
     await request.post(daemon.ingestURL("status"), {
       data: envelopedStatusLineFull(claudeId, {
-        musterSession: session.id,
+        ...(await envelopeOpts(session, daemon)),
         sessionName: "posted while editing",
         contextUsedPct: 77,
       }),

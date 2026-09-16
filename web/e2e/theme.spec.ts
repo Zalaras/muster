@@ -6,6 +6,7 @@ import {
   rawUserPromptSubmit,
 } from "./helpers/payloads";
 import {
+  envelopeOpts,
   getState,
   launchSession,
   scratchDirectory,
@@ -156,7 +157,7 @@ test("Focus: choosing Light re-themes the chrome and the live pane ground within
     await page.goto(daemon.dashboardUrl);
     const session = await launchSession(page, daemon, { directory: dir, title: "focus-e7" });
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-e7", { musterSession: session.id }),
+      data: envelopedSessionStart("claude-e7", await envelopeOpts(session, daemon)),
     });
 
     const region = terminalRegion(page, "focus-e7");
@@ -199,10 +200,10 @@ test("Tiles: choosing a theme re-themes both live tiles' grounds (E8, INV-3 Tile
       title: "tiles-e8-b",
     });
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-e8-a", { musterSession: sessionA.id }),
+      data: envelopedSessionStart("claude-e8-a", await envelopeOpts(sessionA, daemon)),
     });
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-e8-b", { musterSession: sessionB.id }),
+      data: envelopedSessionStart("claude-e8-b", await envelopeOpts(sessionB, daemon)),
     });
 
     // exact: true — sanctioned repair (plan ui-text-and-focus, REQ-13/Testable UI
@@ -246,7 +247,7 @@ test("with a fast poll, flipping the Claude config from dark to light changes da
     await page.goto(daemon.dashboardUrl);
     const session = await launchSession(page, daemon, { directory: dir, title: "poll-e9" });
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-e9", { musterSession: session.id }),
+      data: envelopedSessionStart("claude-e9", await envelopeOpts(session, daemon)),
     });
 
     // Branch 1: pin the pref away from "follow" first.
@@ -290,7 +291,7 @@ test("with pref pinned to Dark, flipping the Claude config to light changes only
     await page.goto(daemon.dashboardUrl);
     const session = await launchSession(page, daemon, { directory: dir, title: "poll-e10" });
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-e10", { musterSession: session.id }),
+      data: envelopedSessionStart("claude-e10", await envelopeOpts(session, daemon)),
     });
 
     const dialog = await openSettingsDialog(page);
@@ -378,7 +379,7 @@ test("masthead Resume is disabled and its computed style differs from the enable
     await page.goto(daemon.dashboardUrl);
     const session = await launchSession(page, daemon, { directory: dir, title: "disabled-e13" });
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-e13", { musterSession: session.id }),
+      data: envelopedSessionStart("claude-e13", await envelopeOpts(session, daemon)),
     });
     const mainhead = page.locator("#mainhead");
     await expect(mainhead).toContainText("disabled-e13");
@@ -442,7 +443,7 @@ test("badge colors for Needs-Input, Failed, Planning and Working cards match the
     });
 
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-badge-ni", { musterSession: needsInput.id }),
+      data: envelopedSessionStart("claude-badge-ni", await envelopeOpts(needsInput, daemon)),
     });
     await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit("claude-badge-ni") });
     await request.post(daemon.ingestURL("hook"), {
@@ -450,20 +451,20 @@ test("badge colors for Needs-Input, Failed, Planning and Working cards match the
     });
 
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-badge-f", { musterSession: failed.id }),
+      data: envelopedSessionStart("claude-badge-f", await envelopeOpts(failed, daemon)),
     });
     await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit("claude-badge-f") });
     await request.post(daemon.ingestURL("hook"), { data: rawStopFailure("claude-badge-f") });
 
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-badge-p", { musterSession: planning.id }),
+      data: envelopedSessionStart("claude-badge-p", await envelopeOpts(planning, daemon)),
     });
     await request.post(daemon.ingestURL("hook"), {
       data: rawUserPromptSubmit("claude-badge-p", { permissionMode: "plan" }),
     });
 
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-badge-w", { musterSession: working.id }),
+      data: envelopedSessionStart("claude-badge-w", await envelopeOpts(working, daemon)),
     });
     await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit("claude-badge-w") });
 

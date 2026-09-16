@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -95,6 +96,19 @@ type Manager struct {
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
+
+	// stopped is set by Stop and read only by checkOneLiveness's opportunistic callers
+	// (checkLiveness's poll tick, Nudge) — never by End's. terminal.go's PTY-EOF Nudge
+	// call is deliberately spawned with context.WithoutCancel(ctx) so a connection
+	// tearing down never truncates it mid-flight, which means it can still be
+	// mid-PaneExists when shutdownGracefully calls Stop as its first statement. Once
+	// Stop has run, shutdown itself is the sole authority on final alive state — the
+	// on-exit policy's leave/EndAllSessions, or the next boot's reconcile
+	// (kb:adr/lifecycle-reconcile-converges-with-the-socket) — so a nudge reaching its
+	// persist step after Stop must not also write one. End's own checkOneLiveness call
+	// (endOnCheckError=true) is unaffected: it is shutdown's own deliberate kill, not a
+	// race with it.
+	stopped atomic.Bool
 }
 
 // LockSession acquires id's per-session lock (REQ-11) and returns the func that releases
@@ -168,8 +182,12 @@ func (m *Manager) Start() {
 	}()
 }
 
-// Stop cancels the poll loop and waits for it to exit, giving up when ctx is done.
+// Stop cancels the poll loop and waits for it to exit, giving up when ctx is done. Also
+// flags checkOneLiveness's opportunistic callers (see the stopped field doc) to stop
+// persisting — set first, so it takes effect for a Nudge racing this call regardless of
+// how long the poll-loop wait below takes.
 func (m *Manager) Stop(ctx context.Context) {
+	m.stopped.Store(true)
 	if m.cancel != nil {
 		m.cancel()
 	}
@@ -710,6 +728,19 @@ func (m *Manager) Resolve(claudeSessionID string) (int64, bool) {
 	return id, ok
 }
 
+// PaneOf returns id's recorded tmux pane, if id is known — the ingest worker's
+// corroboration read (kb:adr/ingest-envelope-pane-must-corroborate): an empty pane with
+// ok true is the spawn-to-record window, not "unknown".
+func (m *Manager) PaneOf(id int64) (pane string, ok bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	sess, ok := m.sessions[id]
+	if !ok {
+		return "", false
+	}
+	return sess.TmuxPane, true
+}
+
 // Apply feeds one already-routed, already-persisted event into the state machine
 // (kb:anchor/state.transitions) and persists + broadcasts the result. claudeSessionID and promptID
 // are generic identifiers, not Claude Code payload vocabulary; input is the neutral
@@ -1105,6 +1136,61 @@ func (m *Manager) EndAll(ctx context.Context) int {
 	return ended
 }
 
+// shellNamesOnSocket lists every muster-<n>-shell tmux session name currently on the
+// socket — KillAllShells and ShellCount's shared read, matching the same
+// tmux.IsShellSessionName predicate reconcile's own unconditional shell-kill loop uses
+// (reportAndSweepUnknown above). A nil sessionKiller (tests that don't wire one) reads as
+// no shells, never an error.
+func (m *Manager) shellNamesOnSocket(ctx context.Context) ([]string, error) {
+	if m.sessionKiller == nil {
+		return nil, nil
+	}
+	names, err := m.sessionKiller.ListSessions(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing tmux sessions: %w", err)
+	}
+	var shells []string
+	for _, name := range names {
+		if _, ok := tmux.IsShellSessionName(name); ok {
+			shells = append(shells, name)
+		}
+	}
+	return shells, nil
+}
+
+// KillAllShells kills every muster-<n>-shell tmux session on the socket — the
+// `-on-exit=kill` shutdown path's shell companion to EndAll (REQ-13,
+// kb:adr/surfaces-shell-dies-at-kill-shutdown-too). An already-gone shell counts as
+// killed (KillSession's own idempotence, kb:adr/actions-kill-is-idempotent); one shell's
+// failure is logged and does not stop the rest. Returns how many were successfully
+// killed.
+func (m *Manager) KillAllShells(ctx context.Context) (int, error) {
+	shells, err := m.shellNamesOnSocket(ctx)
+	if err != nil {
+		return 0, err
+	}
+	killed := 0
+	for _, name := range shells {
+		if err := m.sessionKiller.KillSession(ctx, name); err != nil {
+			m.log.Warn().Err(err).Str("tmux_session", name).Msg("shutdown: killing shell session failed")
+			continue
+		}
+		killed++
+	}
+	return killed, nil
+}
+
+// ShellCount counts every muster-<n>-shell tmux session on the socket — the on-exit
+// prompt's shell count (REQ-13). A caller treats an error as zero shells and proceeds
+// with shutdown regardless (never a blocker).
+func (m *Manager) ShellCount(ctx context.Context) (int, error) {
+	shells, err := m.shellNamesOnSocket(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return len(shells), nil
+}
+
 // Remove deletes id's row (REQ-6, kb:anchor/sessions.remove): if alive, the End path runs
 // first; a failing kill (End's own error) leaves the row untouched and propagates — never
 // a deleted row with a running pane (Edge Case 5). On success the in-memory entry and the
@@ -1397,6 +1483,14 @@ func (m *Manager) checkOneLiveness(ctx context.Context, id int64, target string,
 		}
 	} else if exists {
 		m.captureSnapshot(ctx, id, target)
+		return
+	}
+
+	if !endOnCheckError && m.stopped.Load() {
+		// Shutdown's Stop has already run (stopped field doc): an opportunistic
+		// poll/nudge that was in flight before shutdown began must not persist a
+		// pane-gone result after it — shutdown's own on-exit policy or the next boot's
+		// reconcile owns the final word now.
 		return
 	}
 

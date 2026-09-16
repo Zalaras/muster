@@ -1,7 +1,13 @@
 import { expect, test } from "./helpers/fixtures";
 import { envelopedSessionStart, rawNotification, rawUserPromptSubmit } from "./helpers/payloads";
 import { railOrderIds } from "./helpers/railorder";
-import { launchSession, scratchDirectory, sessionCard, stateBadge } from "./helpers/session";
+import {
+  envelopeOpts,
+  launchSession,
+  scratchDirectory,
+  sessionCard,
+  stateBadge,
+} from "./helpers/session";
 import { terminalRegion } from "./helpers/terminal";
 
 // Plan m2-terminal — REQ-9 (view switcher/keyboard), REQ-10 (prefs), plus the INV-4
@@ -64,7 +70,7 @@ test("Cmd+\\ toggles the view and Opt+Cmd+1 focuses the top-priority session reg
 
     const claudeA = "claude-prio-a";
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeA, { musterSession: sessionA.id }),
+      data: envelopedSessionStart(claudeA, await envelopeOpts(sessionA, daemon)),
     });
     await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit(claudeA) });
     await request.post(daemon.ingestURL("hook"), {

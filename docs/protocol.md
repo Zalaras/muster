@@ -55,6 +55,8 @@ sits on the line before each `##`/`###` heading, and code and docs cite a sectio
 - **WS hardening**: the daemon rejects WebSocket upgrades whose `Origin` header is
   present and not the daemon's own origin. Belt to the SameSite braces.
 - Errors (HTTP, non-2xx): `{"error": {"code": "<machine_token>", "message": "<human>"}}`.
+  `message` is display text for the user — never a wrapped tool or OS error string; those go
+  to the daemon log.
   Codes are stable strings (`unauthorized`, `invalid_request`, `not_found`,
   `launch_failed`, `capture_expired`, `issue_auth_failed`, `issue_post_failed`, …); the UI
   may switch on them.
@@ -708,14 +710,18 @@ this, because a command hook runs inside the session's environment:
 
 ```jsonc
 { "musterSession": 7,            // from $MUSTER_SESSION; absent if unset
-  "tmuxPane": "%12",             // from $TMUX_PANE; absent outside tmux (headless probes)
+  "tmuxPane": "%12",             // from $TMUX_PANE; absent outside tmux (headless probes) — absent never routes to a managed session
   "payload": { /* verbatim stdin JSON — untouched */ } }
 ```
 
 - `/ingest/{token}/hook` accepts both shapes: enveloped (has a `payload` key) and raw.
 - **Binding rule** (envelope-authoritative): every
   event Muster's wrapper posts is enveloped, and the envelope's `musterSession` routes it
-  (a stale/unknown value is never trusted — persisted unrouted). The enveloped
+  (a stale/unknown value is never trusted — persisted unrouted; and the envelope's
+  `tmuxPane` must equal the session's recorded pane — an absent or different pane is
+  persisted unrouted too, except while the session's pane is not yet recorded, the
+  spawn-to-record window, when `musterSession` alone routes —
+  `kb:adr/ingest-envelope-pane-must-corroborate`). The enveloped
   `SessionStart` remains the *normal* binder of `claudeSessionId → session` (and
   confirms/records the tmux target), but any enveloped non-status event whose
   `session_id` differs from the bound one is the "new `session_id` on a known pane" case

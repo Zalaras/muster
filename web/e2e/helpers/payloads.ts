@@ -13,7 +13,10 @@
 
 interface EnvelopeOpts {
   musterSession?: number;
-  tmuxPane?: string;
+  /** No default (plan general-cleanup REQ-12) — declared `| undefined` so a caller's
+   * own destructured-with-no-default local (also `string | undefined`) can be passed
+   * straight through under `exactOptionalPropertyTypes`. */
+  tmuxPane?: string | undefined;
 }
 
 function envelope(
@@ -31,11 +34,11 @@ function envelope(
  * `claude` process posts when its wrapper's environment carries no `MUSTER_SESSION`
  * (plan plain-terminal-session, Implementation Notes "Isolation is structural"; edge
  * case 1: a `claude` run started from inside a plain shell pane). Distinct from
- * `envelopedSessionStart(id, {})`, whose `EnvelopeOpts` DEFAULT `musterSession: 1,
- * tmuxPane: "%12"` fill in before `envelope()` ever sees them, reproducing the bound
- * M0 fixture — not the unbound shape this scenario measures. This builder skips those
- * defaults entirely so `envelope()`'s own `!== undefined` guard omits both fields,
- * leaving `resolveSessionID` (`internal/server/ingest.go`) nothing to route on but the
+ * `envelopedSessionStart(id, {})`, whose `EnvelopeOpts` DEFAULTs `musterSession` to 1
+ * before `envelope()` ever sees it, reproducing the bound M0 fixture's binding half —
+ * not the unbound shape this scenario measures. This builder skips even that default
+ * so `envelope()`'s own `!== undefined` guard omits both fields, leaving
+ * `resolveSessionID` (`internal/server/ingest.go`) nothing to route on but the
  * (never-bound) `session_id` fallback.
  */
 export function unboundSessionStart(
@@ -81,8 +84,13 @@ interface SessionStartOpts extends EnvelopeOpts {
 /**
  * Enveloped `SessionStart` — the one hook that is silently never delivered over plain
  * HTTP (canary-fields.md "Transport"), so the real wrapper always posts it enveloped.
- * Defaults (`musterSession: 1`, `tmuxPane: "%12"`, `source: "startup"`, present model)
- * reproduce M0's fixture exactly; m1-sessions tests pass a real launched session's id.
+ * `musterSession` defaults to 1 (M0 behaviour); m1-sessions tests pass a real launched
+ * session's id. `tmuxPane` has NO default (plan general-cleanup REQ-12,
+ * kb:adr/ingest-envelope-pane-must-corroborate) — corroboration checks it against the
+ * session's stored pane, so every caller states it explicitly: the real pane
+ * (`daemon.tmuxPaneId(session.tmuxTarget)`) for a routing-sensitive test, or an
+ * explicit literal for a fixture that doesn't care whether it routes. Omitting it
+ * omits the field entirely, the headless/unbound shape.
  */
 export function envelopedSessionStart(
   sessionId: string,
@@ -90,7 +98,7 @@ export function envelopedSessionStart(
 ): Record<string, unknown> {
   const {
     musterSession = 1,
-    tmuxPane = "%12",
+    tmuxPane,
     source = "startup",
     model,
     transcriptPath = "/tmp/t.jsonl",
@@ -427,13 +435,15 @@ export function rawSessionEnd(
  * behaviour); m1-sessions tests pass a real launched session's id. `opts.sessionName`
  * adds the status line's `session_name` field (canary-fields.md "the title source") —
  * used by m1-sessions REQ-13 to prove a status post still mutates no session field in
- * M1 even though it carries a plausible title.
+ * M1 even though it carries a plausible title. `opts.tmuxPane` has no default (plan
+ * general-cleanup REQ-12, kb:adr/ingest-envelope-pane-must-corroborate) — every caller
+ * states it explicitly, same as `envelopedSessionStart`.
  */
 export function envelopedStatusLinePreFirstResponse(
   sessionId: string,
   opts: EnvelopeOpts & { sessionName?: string } = {},
 ): Record<string, unknown> {
-  const { musterSession = 1, tmuxPane = "%12", sessionName } = opts;
+  const { musterSession = 1, tmuxPane, sessionName } = opts;
   const payload: Record<string, unknown> = {
     session_id: sessionId,
     transcript_path: "/tmp/t.jsonl",
@@ -493,7 +503,9 @@ interface StatusLineFullOpts extends EnvelopeOpts {
  * canary-fields.md. Every value defaults to a fixed, deterministic figure (no randomness,
  * no wall-clock reads) so repeated calls with no overrides produce byte-identical
  * payloads — required by E6/INV-5's exact-dedup assertion (two calls with the same
- * options must be indistinguishable to the aggregator).
+ * options must be indistinguishable to the aggregator). `opts.tmuxPane` is the one
+ * exception to "every value defaults" — no default (plan general-cleanup REQ-12,
+ * kb:adr/ingest-envelope-pane-must-corroborate); every caller states it explicitly.
  */
 export function envelopedStatusLineFull(
   sessionId: string,
@@ -501,7 +513,7 @@ export function envelopedStatusLineFull(
 ): Record<string, unknown> {
   const {
     musterSession = 1,
-    tmuxPane = "%12",
+    tmuxPane,
     sessionName,
     model = { id: "claude-haiku-4-5-20251001", displayName: "Haiku 4.5" },
     contextUsedPct = 42,

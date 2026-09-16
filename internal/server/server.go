@@ -255,6 +255,34 @@ func (s *Server) EndAllSessions(ctx context.Context) int {
 	return s.manager.EndAll(ctx)
 }
 
+// KillAllShells kills every shell tmux session on the socket — REQ-13's `-on-exit=kill`
+// companion to EndAllSessions, run after it (sessions may hold the socket busy).
+func (s *Server) KillAllShells(ctx context.Context) (int, error) {
+	return s.manager.KillAllShells(ctx)
+}
+
+// ShellCount counts every shell tmux session on the socket — REQ-13's on-exit prompt.
+func (s *Server) ShellCount(ctx context.Context) (int, error) {
+	return s.manager.ShellCount(ctx)
+}
+
+// StopLivenessPoll stops the session manager's background liveness poll and waits for it
+// to exit, without touching any other feature. Call this first, before any other shutdown
+// step (ShellCount's tmux round trip, the on-exit prompt, EndAllSessions/KillAllShells):
+// those steps run for up to several seconds after the shutdown signal arrives, and the
+// poll's own 5s ticker is not otherwise paused during that window. A pane that dies right
+// then would otherwise race its own liveness tick against the fresh process's next-startup
+// Reconcile — the still-shutting-down process marking+persisting alive:false before the
+// row is ever handed to Reconcile makes Reconcile sweep it instead of keeping it ended
+// (kb:adr/lifecycle-reconcile-converges-with-the-socket only keeps a row that was still
+// alive:true at Reconcile time). Deliberately narrower than Shutdown, which also closes
+// WS/terminal connections and stops every other feature that EndAllSessions/KillAllShells
+// still need; Shutdown stops the poll again itself (idempotent) for callers, such as the
+// auto-update restart path, that go straight to it without this earlier call.
+func (s *Server) StopLivenessPoll(ctx context.Context) {
+	s.manager.Stop(ctx)
+}
+
 // Shutdown closes every open WS connection (unblocking hijacked-connection goroutines
 // http.Server.Shutdown cannot reach) and terminal socket, stops the liveness poll, then
 // stops every lifecycle feature in Start's registration order (REQ-11).

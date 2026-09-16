@@ -677,6 +677,123 @@ func TestNudge_AnAlreadyDeadSessionIsANoOp(t *testing.T) {
 	assert.Len(t, rec.all(), firstCount, "a session already flipped dead must not broadcast again")
 }
 
+// TestCheckOneLiveness_StoppedGuard_PeriodicPollAndNudgeSkipPersistAfterStop covers
+// Fix Attempt 3's `Manager.stopped` guard (kb:adr/lifecycle-reconcile-converges-with-the-socket's
+// invariant that shutdown, not an opportunistic real-time signal, owns the final alive
+// write once Stop has run): once Stop has run, checkLiveness's periodic-poll path and
+// Nudge (both endOnCheckError=false) must observe a missing pane without persisting
+// alive:false — leaving the row for shutdown's own on-exit policy or the next boot's
+// reconcile to decide. Stop is called without Start (idempotent, Manager.cancel is nil,
+// so it returns at once) — only the atomic flag matters here, not the poll goroutine's
+// own lifecycle, already covered by TestPollLoop_RunsUntilStopped.
+func TestCheckOneLiveness_StoppedGuard_PeriodicPollAndNudgeSkipPersistAfterStop(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		run  func(mgr *Manager, id int64)
+	}{
+		{"periodic poll", func(mgr *Manager, _ int64) { mgr.checkLiveness(context.Background()) }},
+		{"nudge", func(mgr *Manager, id int64) { mgr.Nudge(context.Background(), id) }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			st := openTestStore(t)
+			pc := newFakePaneChecker()
+			rec := &upsertsRecorder{}
+			mgr := newTestManager(t, st, pc, rec.record)
+			dir := t.TempDir()
+			params := createParams(dir)
+			params.RepoID = seedRepo(t, st, dir)
+			sess, err := mgr.CreateSession(context.Background(), params)
+			require.NoError(t, err)
+			_, err = mgr.RecordLaunch(context.Background(), sess.ID, "muster-stopped:@1", "%1")
+			require.NoError(t, err)
+			pc.setExists("muster-stopped:@1", true)
+
+			stopCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			mgr.Stop(stopCtx)
+
+			pc.setExists("muster-stopped:@1", false) // pane goes away only after Stop has run
+			before := len(rec.all())
+
+			tc.run(mgr, sess.ID)
+
+			got, ok := mgr.Get(sess.ID)
+			require.True(t, ok)
+			assert.True(t, got.Alive, "a post-Stop opportunistic check must not flip alive")
+			assert.Nil(t, got.EndedAt)
+			assert.Len(t, rec.all(), before, "no persist means no broadcast either")
+
+			persisted, err := st.GetSession(context.Background(), sess.ID)
+			require.NoError(t, err)
+			assert.True(t, persisted.Alive, "the store row must be untouched by a post-Stop opportunistic check")
+		})
+	}
+}
+
+// TestEnd_StillMarksEndedAfterStop covers the regression risk of Fix Attempt 3's guard
+// itself: `-on-exit=kill`'s EndAllSessions -> End -> endLocked -> checkOneLiveness(...,
+// true) chain must stay unaffected by Stop having already run, since Stop is now called
+// as shutdownGracefully's own first statement ahead of the kill branch. A bystander
+// session stays alive throughout and must be untouched (INV-2, matches
+// TestEnd_MarksEndedWhenPostKillPaneCheckErrors's shape).
+func TestEnd_StillMarksEndedAfterStop(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+	repoID := seedRepo(t, st, dir)
+	pc := newFakePaneChecker()
+	killer := newFakeKiller()
+	snapper := newFakePaneSnapshotter()
+	rec := &upsertsRecorder{}
+	mgr := NewManager(Config{
+		Store: st, Logger: zerolog.Nop(), PaneChecker: pc, SessionKiller: killer,
+		PaneSnapshotter: snapper, OnUpsert: rec.record,
+	})
+	params := createParams(dir)
+	params.RepoID = repoID
+
+	target, err := mgr.CreateSession(ctx, params)
+	require.NoError(t, err)
+	targetTmux := "muster-" + strconv.FormatInt(target.ID, 10) + ":@1"
+	_, err = mgr.RecordLaunch(ctx, target.ID, targetTmux, "%1")
+	require.NoError(t, err)
+
+	other, err := mgr.CreateSession(ctx, params)
+	require.NoError(t, err)
+	otherTmux := "muster-" + strconv.FormatInt(other.ID, 10) + ":@1"
+	_, err = mgr.RecordLaunch(ctx, other.ID, otherTmux, "%1")
+	require.NoError(t, err)
+
+	pc.setExists(targetTmux, true)
+	pc.setExists(otherTmux, true)
+
+	stopCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	mgr.Stop(stopCtx) // shutdownGracefully's own first statement, ahead of the kill branch
+
+	pc.setExists(targetTmux, false) // simulates the effect of End's own kill-session call
+
+	final, err := mgr.End(ctx, target.ID)
+	require.NoError(t, err)
+	assert.False(t, final.Alive, "End's own deliberate kill must still be persisted after Stop")
+	require.NotNil(t, final.EndedAt)
+
+	assert.Equal(t, []string{"muster-" + strconv.FormatInt(target.ID, 10)}, killer.killedNames())
+
+	targetPersisted, err := st.GetSession(ctx, target.ID)
+	require.NoError(t, err)
+	assert.False(t, targetPersisted.Alive, "the row must be persisted as ended even though Stop already ran")
+
+	otherAfter, ok := mgr.Get(other.ID)
+	require.True(t, ok)
+	assert.True(t, otherAfter.Alive, "the bystander session must be untouched by ending a different target")
+	assert.Nil(t, otherAfter.EndedAt)
+
+	otherPersisted, err := st.GetSession(ctx, other.ID)
+	require.NoError(t, err)
+	assert.True(t, otherPersisted.Alive, "the bystander's row must be untouched in the store too")
+}
+
 // TestApplyStatus_PersistsAndBroadcastsOnAChange covers REQ-4's happy path: a status
 // post carrying new title/model/context data persists the row and broadcasts once.
 func TestApplyStatus_PersistsAndBroadcastsOnAChange(t *testing.T) {
@@ -2858,4 +2975,140 @@ func TestCheckLiveness_ListSessionsFailureLeavesSessionsAsIsDespitePaneExistsFal
 	require.True(t, ok)
 	assert.True(t, got.Alive, "D17/REQ-16: a server-level ListSessions failure must be treated as transient, never as grounds to mark the session dead")
 	assert.Nil(t, got.EndedAt)
+}
+
+// ---------------------------------------------------------------------------------------
+// KillAllShells / ShellCount / PaneOf (general-cleanup REQ-13, D11/D12; REQ-12)
+
+// TestKillAllShells_KillsEveryShellAndNoClaudeSessions covers D11: KillAllShells kills
+// every muster-<n>-shell tmux session on the socket and none of the muster-<n> ones, and
+// counts an already-gone shell as killed (REQ-13/kb:adr/actions-kill-is-idempotent — the
+// fake's KillSession has no notion of "already gone" to fail on, mirroring
+// tmux.Client.KillSession's own idempotence).
+func TestKillAllShells_KillsEveryShellAndNoClaudeSessions(t *testing.T) {
+	st := openTestStore(t)
+	killer := newFakeKiller("muster-1", "muster-2-shell", "muster-3-shell", "other-unrelated")
+	mgr := NewManager(Config{Store: st, Logger: zerolog.Nop(), SessionKiller: killer})
+
+	killed, err := mgr.KillAllShells(context.Background())
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, killed)
+	assert.ElementsMatch(t, []string{"muster-2-shell", "muster-3-shell"}, killer.killedNames(),
+		"D11: only muster-<n>-shell names are killed, never a muster-<n> claude session or an unrelated tmux session")
+}
+
+// TestKillAllShells_OneShellAlreadyGoneStillCountsAsKilled covers D11's idempotence
+// clause directly: a shell whose KillSession happens to fail is logged and skipped, never
+// stopping the rest — mirroring reportAndSweepUnknown's own "one id's failure does not
+// stop the rest" discipline (REQ-10).
+func TestKillAllShells_OneShellFailingDoesNotStopTheRest(t *testing.T) {
+	st := openTestStore(t)
+	killer := newFakeKiller("muster-1-shell", "muster-2-shell")
+	killer.setKillErr("muster-1-shell", errors.New("kill-session failed"))
+	mgr := NewManager(Config{Store: st, Logger: zerolog.Nop(), SessionKiller: killer})
+
+	killed, err := mgr.KillAllShells(context.Background())
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, killed, "one shell's failure must not stop the other from being killed")
+	assert.Equal(t, []string{"muster-2-shell"}, killer.killedNames())
+}
+
+// TestKillAllShells_NoSessionKillerReadsAsNoShells covers D12's sibling case: a nil
+// SessionKiller (tests that don't wire one) must never panic — shellNamesOnSocket's own
+// early return.
+func TestKillAllShells_NoSessionKillerReadsAsNoShells(t *testing.T) {
+	st := openTestStore(t)
+	mgr := NewManager(Config{Store: st, Logger: zerolog.Nop()})
+
+	killed, err := mgr.KillAllShells(context.Background())
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, killed)
+}
+
+// TestKillAllShells_ListSessionsFailureIsReturnedAsAnError covers D12: a ShellCount/
+// KillAllShells error (the socket unreachable) is returned to the caller — cmd/musterd's
+// shutdown path is the one that logs it and treats it as zero, per REQ-13's Implementation
+// Notes ("ShellCount runs before resolveOnExit... error path logs at Warn and uses 0");
+// the manager method itself just reports the failure honestly.
+func TestKillAllShells_ListSessionsFailureIsReturnedAsAnError(t *testing.T) {
+	st := openTestStore(t)
+	killer := newFakeKiller()
+	killer.setListErr(errors.New("tmux server unreachable"))
+	mgr := NewManager(Config{Store: st, Logger: zerolog.Nop(), SessionKiller: killer})
+
+	_, err := mgr.KillAllShells(context.Background())
+
+	require.Error(t, err, "D12: a socket-unreachable failure must be reported, not swallowed as zero shells")
+}
+
+// TestShellCount_CountsOnlyShellNames covers D12's positive half: ShellCount counts every
+// muster-<n>-shell name and ignores muster-<n> and unrelated names, without killing
+// anything.
+func TestShellCount_CountsOnlyShellNames(t *testing.T) {
+	st := openTestStore(t)
+	killer := newFakeKiller("muster-1", "muster-2-shell", "muster-3-shell", "other-unrelated")
+	mgr := NewManager(Config{Store: st, Logger: zerolog.Nop(), SessionKiller: killer})
+
+	count, err := mgr.ShellCount(context.Background())
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, count)
+	assert.Empty(t, killer.killedNames(), "ShellCount must never kill anything")
+}
+
+// TestShellCount_ListSessionsFailureIsReturnedAsAnError covers D12's error-propagation
+// half, the ShellCount-specific twin of TestKillAllShells_ListSessionsFailureIsReturnedAsAnError.
+func TestShellCount_ListSessionsFailureIsReturnedAsAnError(t *testing.T) {
+	st := openTestStore(t)
+	killer := newFakeKiller()
+	killer.setListErr(errors.New("tmux server unreachable"))
+	mgr := NewManager(Config{Store: st, Logger: zerolog.Nop(), SessionKiller: killer})
+
+	_, err := mgr.ShellCount(context.Background())
+
+	require.Error(t, err)
+}
+
+// TestPaneOf_KnownSessionReturnsItsStoredPaneEmptyPaneIsOKTrue covers REQ-12's
+// corroboration read: PaneOf reports id's stored pane, with an empty pane and ok:true
+// distinguished from an unknown id (ok:false) — INV-EMPTY-PANE-ROUTES depends on that
+// distinction (an empty stored pane is "not yet recorded", not "unknown").
+func TestPaneOf_KnownSessionReturnsItsStoredPaneEmptyPaneIsOKTrue(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+	repoID := seedRepo(t, st, dir)
+	params := createParams(dir)
+	params.RepoID = repoID
+	mgr := newTestManager(t, st, nil, nil)
+
+	sess, err := mgr.CreateSession(ctx, params)
+	require.NoError(t, err)
+
+	pane, ok := mgr.PaneOf(sess.ID)
+	require.True(t, ok)
+	assert.Empty(t, pane, "the spawn-to-record window: a freshly created session has no pane yet")
+
+	_, err = mgr.RecordLaunch(ctx, sess.ID, "muster-"+strconv.FormatInt(sess.ID, 10)+":@1", "%7")
+	require.NoError(t, err)
+
+	pane, ok = mgr.PaneOf(sess.ID)
+	require.True(t, ok)
+	assert.Equal(t, "%7", pane)
+}
+
+// TestPaneOf_UnknownSessionIsNotOK covers PaneOf's negative case: an id the manager has
+// never heard of reports ok:false, distinct from a known session's empty (not-yet-recorded)
+// pane.
+func TestPaneOf_UnknownSessionIsNotOK(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+
+	pane, ok := mgr.PaneOf(999999)
+
+	assert.False(t, ok)
+	assert.Empty(t, pane)
 }

@@ -31,13 +31,20 @@ if [ -n "${stale// /}" ]; then
 else say "stale tmux sockets: none"; fi
 
 # 3. Scratch debris. Bounded to $TMPDIR at depth 1 and to names the harness owns.
-n=$(find "$T" -maxdepth 1 \( -name 'muster e2e-*' -o -name 'muster-e2e-repo-*' \
-      -o -name 'musterd-onexit-build-*' -o -name 'muster-gates-*' \) 2>/dev/null | wc -l | tr -d ' ')
+# A running gates.sh writes per-command logs to $TMPDIR/muster-gates-<plan>.XXXXXX, so sweeping
+# while one is alive deletes the log it is writing and every check reports "No such file or
+# directory" instead of its result — a green tree read as 14 failures (general-cleanup retro,
+# 2026-09-16). Found by pgrep, never a PID file (kb:lesson/pid-file-captures-subshell).
+NAMES="-name 'muster e2e-*' -o -name 'muster-e2e-repo-*' -o -name 'musterd-onexit-build-*'"
+if pgrep -f 'gates\.sh' >/dev/null 2>&1; then
+  say "gates.sh is running: leaving muster-gates-* alone"
+else
+  NAMES="$NAMES -o -name 'muster-gates-*'"
+fi
+n=$(eval "find \"$T\" -maxdepth 1 \\( $NAMES \\)" 2>/dev/null | wc -l | tr -d ' ')
 if [ "$n" != 0 ]; then
-  found=1; say "scratch dirs in \$TMPDIR: $n ($(du -ch $(find "$T" -maxdepth 1 \( -name 'muster e2e-*' \
-    -o -name 'muster-e2e-repo-*' -o -name 'musterd-onexit-build-*' -o -name 'muster-gates-*' \) \
-    -print0 2>/dev/null | xargs -0 echo) 2>/dev/null | tail -1 | cut -f1))"
-  act "find \"$T\" -maxdepth 1 \\( -name 'muster e2e-*' -o -name 'muster-e2e-repo-*' -o -name 'musterd-onexit-build-*' -o -name 'muster-gates-*' \\) -print0 | xargs -0 rm -rf"
+  found=1; say "scratch dirs in \$TMPDIR: $n ($(eval "find \"$T\" -maxdepth 1 \\( $NAMES \\) -print0" 2>/dev/null | xargs -0 du -ch 2>/dev/null | tail -1 | cut -f1))"
+  act "eval \"find \\\"$T\\\" -maxdepth 1 \\\\( $NAMES \\\\) -print0\" | xargs -0 rm -rf"
 else say "scratch dirs in \$TMPDIR: none"; fi
 
 [ "$found" = 0 ] && say "nothing to clean." || true

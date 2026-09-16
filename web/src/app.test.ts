@@ -194,6 +194,19 @@ describe("frame derivation (RenderFrame, REQ-3)", () => {
     app.render();
     expect(connected).toBe(false);
   });
+
+  it("carries connection verbatim from state.connection, with connected always the derived (connection === 'connected') (REQ-8, W1)", () => {
+    const app = createApp();
+    let frame: { connection: string; connected: boolean } | undefined;
+    app.onRender((f) => (frame = f));
+
+    for (const status of ["connecting", "connected", "reconnecting"] as const) {
+      app.state.connection = status;
+      app.render();
+      expect(frame?.connection).toBe(status);
+      expect(frame?.connected).toBe(status === "connected");
+    }
+  });
 });
 
 describe("focus() (REQ-3)", () => {

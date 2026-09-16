@@ -52,8 +52,9 @@ last-used values.
 creates the tmux session on the muster socket with the Muster session id in the pane
 environment, spawns `claude` with the assembled argv, and inserts the session row in
 `started`, broadcast immediately so the card appears before any hook arrives. A settings
-file that exists but is not valid JSON fails the launch and names the file. Muster never
-touches the user-level settings or `CLAUDE_CONFIG_DIR`
+file that exists but is not valid JSON fails the launch with a fixed-phrase `message`; the
+daemon log, never the response body, names the file and the raw error
+(kb:anchor/transport). Muster never touches the user-level settings or `CLAUDE_CONFIG_DIR`
 (kb:adr/launch-project-scoped-settings-not-config-dir, kb:fact/config-dir-breaks-oauth).
 A launch from Tiles promotes the new session into the grid
 (kb:adr/tiles-launched-session-promoted-into-grid).

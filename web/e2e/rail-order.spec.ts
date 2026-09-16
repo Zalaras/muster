@@ -8,6 +8,7 @@ import {
 } from "./helpers/fixtures";
 import { envelopedSessionStart, rawNotification, rawUserPromptSubmit } from "./helpers/payloads";
 import {
+  envelopeOpts,
   getState,
   launchSession,
   scratchDirectory,
@@ -68,7 +69,7 @@ async function makeNeedsInput(
   claudeId: string,
 ): Promise<void> {
   await request.post(daemon.ingestURL("hook"), {
-    data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+    data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
   });
   await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit(claudeId) });
   await request.post(daemon.ingestURL("hook"), {

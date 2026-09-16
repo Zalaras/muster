@@ -22,6 +22,11 @@ import (
 type ingestJob struct {
 	kind claudecode.Kind
 	body []byte
+
+	// drainAck, when non-nil, marks this job as a Drain marker (REQ-3) rather than a real
+	// post: the worker closes it in place of calling process, in FIFO order behind every
+	// job enqueued before Drain was called.
+	drainAck chan<- struct{}
 }
 
 // ingestQueue is the bounded, best-effort ingest pipeline. A single worker goroutine
@@ -78,9 +83,35 @@ func (q *ingestQueue) Start() {
 	go func() {
 		defer q.wg.Done()
 		for job := range q.ch {
+			if job.drainAck != nil {
+				close(job.drainAck)
+				continue
+			}
 			q.process(job)
 		}
 	}()
+}
+
+// Drain returns once every job enqueued before this call has been fully processed —
+// through Observe, the reader's write record (REQ-3) — by sending a marker job behind
+// them on the same channel and waiting for the single worker to reach it. It returns
+// ctx.Err() if that does not happen before ctx is done: nothing was queued (returns at
+// once), and the worker is not running (blocks until the deadline) both fall out of this
+// same wait, with no special-casing. Test-only: production code never waits on the
+// ingest queue's own backpressure.
+func (q *ingestQueue) Drain(ctx context.Context) error {
+	ack := make(chan struct{})
+	select {
+	case q.ch <- ingestJob{drainAck: ack}:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	select {
+	case <-ack:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // Stop closes the queue and waits for the worker to drain it, giving up once ctx is
@@ -192,21 +223,37 @@ func (q *ingestQueue) processStatus(ctx context.Context, sessionID int64, payloa
 }
 
 // resolveSessionID determines which Muster session (if any) ev routes to. An envelope's
-// musterSession field is authoritative when present and known (a stale/unknown value is
-// never trusted); otherwise it falls back to the existing claude-session-id binding. An
-// unresolved event is logged (never the payload) and persists with a NULL
-// event.session_id.
+// musterSession field is authoritative when present, known, and its tmuxPane
+// corroborates the session's recorded pane (kb:adr/ingest-envelope-pane-must-corroborate):
+// route iff the session exists && (stored pane == "" — the spawn-to-record window, "cannot
+// corroborate" — || (ev.TmuxPane present && *ev.TmuxPane == stored)). Otherwise it falls
+// back to the existing claude-session-id binding. An unresolved event is logged (never
+// the payload) and persists with a NULL event.session_id.
 func (q *ingestQueue) resolveSessionID(kind claudecode.Kind, ev claudecode.Event) *int64 {
 	if q.manager == nil {
 		return nil
 	}
 	if ev.MusterSession != nil {
-		if q.manager.Exists(*ev.MusterSession) {
-			id := *ev.MusterSession
+		id := *ev.MusterSession
+		stored, ok := q.manager.PaneOf(id)
+		if !ok {
+			q.log.Info().Str("kind", string(kind)).Int64("muster_session", id).
+				Msg("ingest envelope named an unknown muster session; persisting unrouted")
+			return nil
+		}
+		if stored == "" {
 			return &id
 		}
-		q.log.Info().Str("kind", string(kind)).Int64("muster_session", *ev.MusterSession).
-			Msg("ingest envelope named an unknown muster session; persisting unrouted")
+		envPane := ""
+		if ev.TmuxPane != nil {
+			envPane = *ev.TmuxPane
+		}
+		if envPane != "" && envPane == stored {
+			return &id
+		}
+		q.log.Info().Str("kind", string(kind)).Int64("muster_session", id).
+			Str("stored_pane", stored).Str("envelope_pane", envPane).
+			Msg("ingest envelope's pane did not corroborate the session's recorded pane; persisting unrouted")
 		return nil
 	}
 	if id, ok := q.manager.Resolve(ev.SessionID); ok {

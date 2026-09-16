@@ -245,6 +245,41 @@ func TestIngestQueue_OverflowDropsCountsAndLogs(t *testing.T) {
 	assert.Contains(t, logBuf.String(), "dropping event")
 }
 
+// TestIngestQueue_Drain_NothingQueuedReturnsImmediately covers D3/Edge Case 3's first
+// half: with the worker running and nothing else on the channel, Drain's own marker job
+// is reached at once — it must not wait out ctx's deadline.
+func TestIngestQueue_Drain_NothingQueuedReturnsImmediately(t *testing.T) {
+	q := newIngestQueue(nil, zerolog.Nop(), 4)
+	q.Start()
+	t.Cleanup(func() {
+		stopCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		q.Stop(stopCtx)
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	start := time.Now()
+	require.NoError(t, q.Drain(ctx))
+	assert.Less(t, time.Since(start), 500*time.Millisecond, "D3: nothing queued must return at once, not wait out ctx's deadline")
+}
+
+// TestIngestQueue_Drain_WorkerNotRunningBlocksToDeadline covers D3/Edge Case 3's second
+// half: with no worker ever draining q.ch, Drain's marker job is enqueued (the channel has
+// room) but never reached, so Drain blocks until ctx's own deadline and returns its error.
+func TestIngestQueue_Drain_WorkerNotRunningBlocksToDeadline(t *testing.T) {
+	q := newIngestQueue(nil, zerolog.Nop(), 4)
+	// Deliberately never Start()ed.
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	err := q.Drain(ctx)
+
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.GreaterOrEqual(t, time.Since(start), 100*time.Millisecond, "Drain must actually wait out the deadline, not return early")
+}
+
 func TestIngestQueue_EnqueueNeverBlocksWhenFull(t *testing.T) {
 	logger := zerolog.Nop()
 	q := newIngestQueue(nil, logger, 1)

@@ -63,9 +63,13 @@ func writeVersionLeakStub(t *testing.T) string {
 // TestInstalledVersion_DescendantHoldingStdoutDoesNotHangStartup covers D2/REQ-2 and Edge
 // Cases 1-2: a claude binary that exits 0 promptly but leaves a descendant holding stdout
 // must not stall InstalledVersion past the WaitDelay bound, since this runs on musterd's
-// startup path before any log line. The call is run in a goroutine with the test's own
-// bounded select so a regression (WaitDelay reverted/removed) fails this test with a clear
-// diagnostic instead of hanging the whole `go test` run for the stub's full sleep.
+// startup path before any log line. Its oracle is require.ErrorIs(err, exec.ErrWaitDelay)
+// — which can only hold if WaitDelay actually fired — not a wall-clock elapsed assertion
+// (general-cleanup REQ-2: a wall-clock bound is exactly the flaky-under-load shape this
+// plan exists to remove). The call still runs in a goroutine behind the test's own select,
+// bounded at 45s — comfortably under the stub's 60s sleep — whose only job is to fail with
+// a diagnostic instead of hanging the whole `go test` run if WaitDelay is ever reverted or
+// removed; it proves nothing on its own, ErrWaitDelay is what proves the fix held.
 func TestInstalledVersion_DescendantHoldingStdoutDoesNotHangStartup(t *testing.T) {
 	bin := writeVersionLeakStub(t)
 
@@ -74,7 +78,6 @@ func TestInstalledVersion_DescendantHoldingStdoutDoesNotHangStartup(t *testing.T
 		err     error
 	}
 	done := make(chan result, 1)
-	start := time.Now()
 	go func() {
 		v, err := InstalledVersion(context.Background(), bin)
 		done <- result{v, err}
@@ -82,8 +85,6 @@ func TestInstalledVersion_DescendantHoldingStdoutDoesNotHangStartup(t *testing.T
 
 	select {
 	case res := <-done:
-		elapsed := time.Since(start)
-		assert.Less(t, elapsed, 15*time.Second, "must return within the 2s WaitDelay bound plus slack, not wait out the descendant's own sleep")
 		// The pipe is force-closed mid-read once WaitDelay elapses, which os/exec
 		// reports as an error even though the direct process itself exited 0 — so the
 		// version is unavailable this time, but the call still returned promptly
@@ -92,8 +93,8 @@ func TestInstalledVersion_DescendantHoldingStdoutDoesNotHangStartup(t *testing.T
 		require.Error(t, res.err)
 		require.ErrorIs(t, res.err, exec.ErrWaitDelay)
 		assert.Empty(t, res.version)
-	case <-time.After(15 * time.Second):
-		t.Fatal("InstalledVersion did not return within 15s of a descendant holding stdout open — this is the startup hang REQ-2 fixes (revert cmd.WaitDelay in version.go to reproduce)")
+	case <-time.After(45 * time.Second):
+		t.Fatal("InstalledVersion did not return within 45s of a descendant holding stdout open — this is the startup hang REQ-2 fixes (revert cmd.WaitDelay in version.go to reproduce)")
 	}
 }
 

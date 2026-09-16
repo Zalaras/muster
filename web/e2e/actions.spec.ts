@@ -6,6 +6,7 @@ import {
   sessionStartResume,
 } from "./helpers/payloads";
 import {
+  envelopeOpts,
   findSession,
   getState,
   launchSession,
@@ -54,14 +55,10 @@ test("End from the mainhead ends only the focused session; a live neighbour is u
       title: "end-mainhead-b",
     });
     await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart("claude-end-a", {
-        musterSession: sessionA.id,
-      }),
+      data: envelopedSessionStart("claude-end-a", await envelopeOpts(sessionA, sharedDaemon())),
     });
     await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart("claude-end-b", {
-        musterSession: sessionB.id,
-      }),
+      data: envelopedSessionStart("claude-end-b", await envelopeOpts(sessionB, sharedDaemon())),
     });
 
     const cardA = sessionCard(page, "end-mainhead-a");
@@ -137,9 +134,10 @@ test("Cancel and Escape close both End and Remove dialogs without sending any re
       title: "cancel-escape-e10",
     });
     await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart("claude-cancel-escape-e10", {
-        musterSession: session.id,
-      }),
+      data: envelopedSessionStart(
+        "claude-cancel-escape-e10",
+        await envelopeOpts(session, sharedDaemon()),
+      ),
     });
     const card = sessionCard(page, "cancel-escape-e10");
     await card.click();
@@ -196,9 +194,10 @@ test("a focused ended session shows the dead surface with its last snapshot and 
       title: "dead-surface-e6",
     });
     await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart("claude-dead-surface-e6", {
-        musterSession: session.id,
-      }),
+      data: envelopedSessionStart(
+        "claude-dead-surface-e6",
+        await envelopeOpts(session, sharedDaemon()),
+      ),
     });
     const card = sessionCard(page, "dead-surface-e6");
     await card.click();
@@ -259,9 +258,7 @@ test("Ending a focused session closes its terminal socket and never reopens one 
       title: "inv5-socket",
     });
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-inv5-socket", {
-        musterSession: session.id,
-      }),
+      data: envelopedSessionStart("claude-inv5-socket", await envelopeOpts(session, daemon)),
     });
     const card = sessionCard(page, "inv5-socket");
     await card.click();
@@ -305,7 +302,7 @@ test("clicking Resume in the ended cap relaunches the session with the same clau
     });
     const claudeId = "claude-resume-e7";
     await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, sharedDaemon())),
     });
     const card = sessionCard(page, "resume-e7");
     await card.click();
@@ -357,7 +354,7 @@ test("the resume SessionStart lands the card in idle with no attention or failur
     });
     const claudeId = "claude-resume-idle-e8";
     await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, sharedDaemon())),
     });
     await request.post(sharedDaemon().ingestURL("hook"), {
       data: rawUserPromptSubmit(claudeId),
@@ -385,8 +382,18 @@ test("the resume SessionStart lands the card in idle with no attention or failur
     expect(resumedBody.state).toBe("needs_input");
     await expect(card).not.toHaveClass(/ended/, { timeout: 15_000 });
 
+    // /resume moves the session onto a NEW tmuxTarget (a fresh tmux window index under
+    // the dead one's freed muster-<id> name — resumedBody.tmuxTarget here is
+    // "muster-2:@2" where the pre-resume `session.tmuxTarget` was "muster-2:@1"), not
+    // merely a new pane under the same target. envelopeOpts(session, daemon) would
+    // query the now-dead PRE-resume target and hand REQ-12's corroboration a pane that
+    // can never match the daemon's newly-stored one — deriving the pane from
+    // resumedBody's own (current) target instead.
     await request.post(sharedDaemon().ingestURL("hook"), {
-      data: sessionStartResume(claudeId, { musterSession: session.id }),
+      data: sessionStartResume(claudeId, {
+        musterSession: session.id,
+        tmuxPane: await sharedDaemon().tmuxPaneId(resumedBody.tmuxTarget),
+      }),
     });
     await expect(stateBadge(card)).toHaveText(/idle/i);
     // The attention note is gone from the card (E15) — not merely a different badge word.
@@ -444,14 +451,10 @@ test("Removing a live session ends it first, warns in the dialog copy, and moves
       title: "remove-live-b",
     });
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-remove-live-a", {
-        musterSession: sessionA.id,
-      }),
+      data: envelopedSessionStart("claude-remove-live-a", await envelopeOpts(sessionA, daemon)),
     });
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-remove-live-b", {
-        musterSession: sessionB.id,
-      }),
+      data: envelopedSessionStart("claude-remove-live-b", await envelopeOpts(sessionB, daemon)),
     });
 
     const cardA = sessionCard(page, "remove-live-a");
@@ -524,9 +527,7 @@ test("action buttons are disabled while the daemon connection is down (E14)", as
       title: "down-e14",
     });
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-down-e14", {
-        musterSession: session.id,
-      }),
+      data: envelopedSessionStart("claude-down-e14", await envelopeOpts(session, daemon)),
     });
     const card = sessionCard(page, "down-e14");
     await card.click();
@@ -580,9 +581,10 @@ test("action buttons are disabled while the daemon connection is down for a dead
       title: "down-e14-dead",
     });
     await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart("claude-down-e14-dead", {
-        musterSession: session.id,
-      }),
+      data: envelopedSessionStart(
+        "claude-down-e14-dead",
+        await envelopeOpts(session, sharedDaemon()),
+      ),
     });
     const card = sessionCard(page, "down-e14-dead");
     await card.click();
@@ -657,9 +659,10 @@ test("ended copy reads 'ended now', never 'ended now ago', on the mainhead and d
       title: "ended-now-copy",
     });
     await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart("claude-ended-now-copy", {
-        musterSession: session.id,
-      }),
+      data: envelopedSessionStart(
+        "claude-ended-now-copy",
+        await envelopeOpts(session, sharedDaemon()),
+      ),
     });
     const card = sessionCard(page, "ended-now-copy");
     await card.click();
@@ -715,9 +718,10 @@ test("the dead surface shows a 'loading last screen…' interim state before the
       title: "dead-loading-minor9",
     });
     await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart("claude-dead-loading-minor9", {
-        musterSession: session.id,
-      }),
+      data: envelopedSessionStart(
+        "claude-dead-loading-minor9",
+        await envelopeOpts(session, sharedDaemon()),
+      ),
     });
     const card = sessionCard(page, "dead-loading-minor9");
     await card.click();
@@ -778,7 +782,7 @@ test("a late resume SessionStart hook after End does not revive the session or o
     });
     const claudeId = "claude-inv1-stray-resume";
     await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, sharedDaemon())),
     });
     const card = sessionCard(page, "inv1-stray-resume");
     await card.click();
@@ -802,7 +806,7 @@ test("a late resume SessionStart hook after End does not revive the session or o
 
     // The late/queued resume hook — no `/resume` endpoint call precedes it.
     await request.post(sharedDaemon().ingestURL("hook"), {
-      data: sessionStartResume(claudeId, { musterSession: session.id }),
+      data: sessionStartResume(claudeId, await envelopeOpts(session, sharedDaemon())),
     });
 
     // Give ingest (asynchronous by design) a moment to apply the bind if the bug were
@@ -854,7 +858,7 @@ test("killing the pane then clicking End before the ~5s liveness poll notices sh
       title: "end-race-e5",
     });
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-end-race-e5-decoy", { musterSession: sessionA.id }),
+      data: envelopedSessionStart("claude-end-race-e5-decoy", await envelopeOpts(sessionA, daemon)),
     });
 
     const cardB = sessionCard(page, "end-race-e5");

@@ -438,6 +438,10 @@ export class ScratchDaemon {
   /** Tail of the current process's stdout+stderr, kept for crash diagnostics and for
    * INV-4/E7's "the token never appears in a log line" grep. */
   private output = "";
+  /** Plan general-cleanup REQ-12: `tmuxPaneId`'s memo, keyed by tmux target — cleared on
+   * `restart()` since a respawned daemon's panes are re-created (a memoised pre-restart
+   * pane id would be stale). */
+  private readonly paneIdMemo: Map<string, string> = new Map();
   /** `-on-exit` policy this run's process is (re)spawned with — set once at construction
    * and reused by every `restart()` (plan m4-reconcile REQ-3). `undefined` omits the flag
    * entirely, exercising the daemon's own default (`ask`). */
@@ -803,6 +807,7 @@ export class ScratchDaemon {
   /** Kills then respawns on the SAME port and data dir (E12 — tokens/db must survive). */
   async restart(): Promise<void> {
     await this.kill();
+    this.paneIdMemo.clear();
     await this.spawnAndWait();
   }
 
@@ -884,6 +889,32 @@ export class ScratchDaemon {
    */
   async paneStartCommand(target: string): Promise<string> {
     return await this.tmuxDisplay(target, "#{pane_start_command}");
+  }
+
+  /**
+   * Plan general-cleanup REQ-12: the real `%<n>` pane id tmux assigned a launched
+   * session's window (`tmux list-panes -F '#{pane_id}'`), for the envelope's `tmuxPane`
+   * field — corroboration (`kb:adr/ingest-envelope-pane-must-corroborate`) checks this
+   * against the session's stored pane, so a fixture's hardcoded default can no longer
+   * stand in for it. Memoised per target for this run's life; `restart()` clears the
+   * memo since a respawned daemon's tmux server re-creates every pane.
+   */
+  async tmuxPaneId(tmuxTarget: string): Promise<string> {
+    const cached = this.paneIdMemo.get(tmuxTarget);
+    if (cached !== undefined) return cached;
+    const { stdout } = await execFileAsync("tmux", [
+      "-S",
+      this.tmuxSocket,
+      "list-panes",
+      "-t",
+      tmuxTarget,
+      "-F",
+      "#{pane_id}",
+    ]);
+    const paneId = stdout.trim().split("\n")[0]?.trim();
+    if (!paneId) throw new Error(`no pane id for tmux target ${tmuxTarget}`);
+    this.paneIdMemo.set(tmuxTarget, paneId);
+    return paneId;
   }
 
   /** True iff a pane still exists for the given `tmuxTarget` on this run's socket. */

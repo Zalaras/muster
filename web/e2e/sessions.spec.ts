@@ -12,10 +12,12 @@ import {
   rawUserPromptSubmit,
 } from "./helpers/payloads";
 import {
+  envelopeOpts,
   getState,
   launchSession,
   scratchDirectory,
   sessionCard,
+  type SessionObject,
   stateBadge,
 } from "./helpers/session";
 
@@ -65,7 +67,7 @@ test("walks started -> working -> idle via SessionStart, turn-activity, then Sto
 
     const claudeId = "claude-e3-1";
     const startRes = await request.post(daemon().ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon())),
     });
     expect(startRes.status()).toBe(200);
     await expect(stateBadge(card)).toHaveText(/started/i);
@@ -99,7 +101,7 @@ test("a permission notification moves the card to needs input; a later Stop retu
     const claudeId = "claude-e4-1";
 
     await request.post(daemon().ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon())),
     });
     await request.post(daemon().ingestURL("hook"), { data: rawUserPromptSubmit(claudeId) });
     await expect(stateBadge(card)).toHaveText(/working/i);
@@ -129,7 +131,7 @@ test("a StopFailure moves the card to failed showing the raw error token (E5)", 
     const claudeId = "claude-e5-1";
 
     await request.post(daemon().ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon())),
     });
     await request.post(daemon().ingestURL("hook"), { data: rawUserPromptSubmit(claudeId) });
     await expect(stateBadge(card)).toHaveText(/working/i);
@@ -161,7 +163,7 @@ test("a session seeded in plan mode shows planning on turn-activity instead of w
     const claudeId = "claude-e5-2";
 
     await request.post(daemon().ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon())),
     });
     // SessionStart never carries permission_mode — the latch must still read "plan" from
     // the launch seed (REQ-9), which is what makes this turn-activity land on "planning".
@@ -186,7 +188,7 @@ test("a straggler turn-activity for an already-closed prompt does not move the c
     const claudeId = "claude-e6-1";
 
     await request.post(daemon().ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon())),
     });
     await request.post(daemon().ingestURL("hook"), { data: rawUserPromptSubmit(claudeId) });
     await request.post(daemon().ingestURL("hook"), { data: rawStop(claudeId) });
@@ -224,7 +226,7 @@ test("the /clear sequence rebinds the session to one card in started (E7)", asyn
     const originalClaudeId = "claude-e7-orig";
 
     await request.post(daemon().ingestURL("hook"), {
-      data: envelopedSessionStart(originalClaudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(originalClaudeId, await envelopeOpts(session, daemon())),
     });
     await request.post(daemon().ingestURL("hook"), { data: rawUserPromptSubmit(originalClaudeId) });
     await request.post(daemon().ingestURL("hook"), { data: rawStop(originalClaudeId) });
@@ -238,7 +240,10 @@ test("the /clear sequence rebinds the session to one card in started (E7)", asyn
 
     const newClaudeId = "claude-e7-new";
     await request.post(daemon().ingestURL("hook"), {
-      data: envelopedSessionStart(newClaudeId, { musterSession: session.id, source: "clear" }),
+      data: envelopedSessionStart(newClaudeId, {
+        ...(await envelopeOpts(session, daemon())),
+        source: "clear",
+      }),
     });
     await expect(stateBadge(card)).toHaveText(/started/i);
 
@@ -294,13 +299,13 @@ test("cards sort needs-input first, then failed, then the active/started/idle gr
       title: titles.idle,
     });
 
-    async function bind(claudeId: string, sessionId: number): Promise<void> {
+    async function bind(claudeId: string, session: SessionObject): Promise<void> {
       await request.post(daemon().ingestURL("hook"), {
-        data: envelopedSessionStart(claudeId, { musterSession: sessionId }),
+        data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon())),
       });
     }
 
-    await bind("claude-sort-needsinput", needsInput.id);
+    await bind("claude-sort-needsinput", needsInput);
     await request.post(daemon().ingestURL("hook"), {
       data: rawUserPromptSubmit("claude-sort-needsinput"),
     });
@@ -308,18 +313,18 @@ test("cards sort needs-input first, then failed, then the active/started/idle gr
       data: rawNotification("claude-sort-needsinput", "p1", "permission_prompt"),
     });
 
-    await bind("claude-sort-failed", failed.id);
+    await bind("claude-sort-failed", failed);
     await request.post(daemon().ingestURL("hook"), {
       data: rawUserPromptSubmit("claude-sort-failed"),
     });
     await request.post(daemon().ingestURL("hook"), { data: rawStopFailure("claude-sort-failed") });
 
-    await bind("claude-sort-working", working.id);
+    await bind("claude-sort-working", working);
     await request.post(daemon().ingestURL("hook"), {
       data: rawUserPromptSubmit("claude-sort-working"),
     });
 
-    await bind("claude-sort-idle", idle.id);
+    await bind("claude-sort-idle", idle);
     await request.post(daemon().ingestURL("hook"), {
       data: rawUserPromptSubmit("claude-sort-idle"),
     });
@@ -363,7 +368,7 @@ test("killing the scratch tmux window greys the card without changing its badge 
     const claudeId = "claude-e9-1";
 
     await request.post(daemon().ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon())),
     });
     await request.post(daemon().ingestURL("hook"), { data: rawUserPromptSubmit(claudeId) });
     await expect(stateBadge(card)).toHaveText(/working/i);
@@ -410,11 +415,11 @@ test("a status-line post persists, routes, and refreshes the title per M3 value 
     const claudeId = "claude-status-1";
 
     await request.post(daemon().ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon())),
     });
     const statusRes = await request.post(daemon().ingestURL("status"), {
       data: envelopedStatusLinePreFirstResponse(claudeId, {
-        musterSession: session.id,
+        ...(await envelopeOpts(session, daemon())),
         sessionName: "a status-line-derived title",
       }),
     });
@@ -459,7 +464,7 @@ test("two synthesized PreCompact hooks bump the rail card's compaction counter t
     const claudeId = "claude-e14-1";
 
     await request.post(daemon().ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon())),
     });
     await expect(card.getByText(/ctx\s+unknown/i)).toBeVisible();
 
@@ -491,7 +496,7 @@ test.describe("daemon restart and disconnect (E10, W12)", () => {
       const claudeId = "claude-e10-1";
 
       await request.post(daemon.ingestURL("hook"), {
-        data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+        data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
       });
       await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit(claudeId) });
 

@@ -1,6 +1,7 @@
 import { expect, fileDaemon, settleFor, test } from "./helpers/fixtures";
 import { envelopedSessionStart, rawNotification, rawUserPromptSubmit } from "./helpers/payloads";
 import {
+  envelopeOpts,
   findSession,
   getState,
   launchSession,
@@ -47,9 +48,10 @@ test("ended sessions sort after every live session, most recently ended first (R
     if (!live || !endedFirst || !endedSecond) throw new Error("expected three sessions");
 
     await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart("claude-sort-req9-live", {
-        musterSession: live.id,
-      }),
+      data: envelopedSessionStart(
+        "claude-sort-req9-live",
+        await envelopeOpts(live, sharedDaemon()),
+      ),
     });
 
     const endRes1 = await page.request.post(
@@ -127,9 +129,10 @@ test("a card's End button activates via keyboard Enter and Space, not just a mou
       title: "kbd-card-end",
     });
     await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart("claude-kbd-card-end", {
-        musterSession: session.id,
-      }),
+      data: envelopedSessionStart(
+        "claude-kbd-card-end",
+        await envelopeOpts(session, sharedDaemon()),
+      ),
     });
     const card = sessionCard(page, "kbd-card-end");
     const dialog = page.getByRole("dialog", { name: "End session?" });
@@ -183,9 +186,10 @@ test("a card's End button survives a render tick and still opens the End dialog 
       title: "kbd-tick-card-end",
     });
     await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart("claude-kbd-tick-card-end", {
-        musterSession: session.id,
-      }),
+      data: envelopedSessionStart(
+        "claude-kbd-tick-card-end",
+        await envelopeOpts(session, sharedDaemon()),
+      ),
     });
     const card = sessionCard(page, "kbd-tick-card-end");
     const endBtn = card.getByRole("button", { name: "End" });
@@ -231,9 +235,10 @@ test("a live rail card's action row sits at opacity 0 until hover or focus-withi
       title: "hover-reveal-acts-row",
     });
     await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart("claude-hover-reveal-acts-row", {
-        musterSession: session.id,
-      }),
+      data: envelopedSessionStart(
+        "claude-hover-reveal-acts-row",
+        await envelopeOpts(session, sharedDaemon()),
+      ),
     });
     const card = sessionCard(page, "hover-reveal-acts-row");
     await expect(card).toBeVisible();
@@ -280,14 +285,16 @@ test("a focused card action button survives a rail re-sort triggered by a real p
       title: "resort-focus-b",
     });
     await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart("claude-resort-focus-a", {
-        musterSession: sessionA.id,
-      }),
+      data: envelopedSessionStart(
+        "claude-resort-focus-a",
+        await envelopeOpts(sessionA, sharedDaemon()),
+      ),
     });
     await request.post(sharedDaemon().ingestURL("hook"), {
-      data: envelopedSessionStart("claude-resort-focus-b", {
-        musterSession: sessionB.id,
-      }),
+      data: envelopedSessionStart(
+        "claude-resort-focus-b",
+        await envelopeOpts(sessionB, sharedDaemon()),
+      ),
     });
 
     const cardA = sessionCard(page, "resort-focus-a");

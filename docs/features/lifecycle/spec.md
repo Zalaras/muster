@@ -10,7 +10,7 @@ go: [internal/session/**, internal/server/sessionwire*.go, internal/store/sessio
 web: [web/src/sessions/store*.ts, web/src/sessions/live*.ts]
 e2e: [web/e2e/reconcile.spec.ts, web/e2e/helpers/session.ts]
 protocol: [state, state.displayed, state.tracked, state.transitions, state.ordering, state.liveness, ws.session, ws.session-upsert]
-refs: [kb:adr/lifecycle-session-identity-is-tmux-target, kb:adr/lifecycle-alive-flag-not-a-state, kb:adr/lifecycle-liveness-from-pane-existence, kb:adr/lifecycle-prompt-ordering-guards, kb:adr/lifecycle-subagent-marked-events-not-stragglers, kb:adr/lifecycle-reconcile-before-first-snapshot, kb:adr/lifecycle-ended-rows-swept-next-start, kb:adr/lifecycle-resume-rebinds-existing-session, kb:adr/lifecycle-shutdown-leaves-sessions-running, kb:adr/ingest-seq-assigned-at-ingest, kb:fact/hook-delivery-best-effort, kb:fact/stopfailure-replaces-stop, kb:fact/sessionend-reason-ambiguous, kb:fact/notification-types-observed, kb:fact/permission-mode-presence-split, kb:fact/subagent-hooks-carry-agent-id, kb:fact/resume-keeps-session-identity, kb:fact/clear-mints-new-session-id, kb:ref/data-model, docs/design/ux-flows.md]
+refs: [kb:adr/lifecycle-session-identity-is-tmux-target, kb:adr/lifecycle-alive-flag-not-a-state, kb:adr/lifecycle-liveness-from-pane-existence, kb:adr/lifecycle-liveness-writes-stop-at-shutdown, kb:adr/lifecycle-prompt-ordering-guards, kb:adr/lifecycle-subagent-marked-events-not-stragglers, kb:adr/lifecycle-reconcile-before-first-snapshot, kb:adr/lifecycle-ended-rows-swept-next-start, kb:adr/lifecycle-resume-rebinds-existing-session, kb:adr/lifecycle-shutdown-leaves-sessions-running, kb:adr/surfaces-shell-dies-at-kill-shutdown-too, kb:adr/ingest-seq-assigned-at-ingest, kb:fact/hook-delivery-best-effort, kb:fact/stopfailure-replaces-stop, kb:fact/sessionend-reason-ambiguous, kb:fact/notification-types-observed, kb:fact/permission-mode-presence-split, kb:fact/subagent-hooks-carry-agent-id, kb:fact/resume-keeps-session-identity, kb:fact/clear-mints-new-session-id, kb:ref/data-model, docs/design/ux-flows.md]
 ---
 A Muster session is one `claude` process the daemon launched into its own tmux session.
 Its identity is the tmux target; the Claude `session_id` is a mutable attribute that
@@ -120,16 +120,21 @@ never waits for an event to make progress (`kb:anchor/state.ordering`).
 
 `alive` is decided by pane existence on the muster socket, polled and nudged by
 `SessionEnd`, PTY EOF and End (kb:adr/lifecycle-liveness-from-pane-existence,
-`kb:anchor/state.liveness`). Reconcile at daemon start runs before the first snapshot is
-served: rows already ended are deleted, live rows whose pane is gone are marked ended at
-startup time and kept for one resume chance, unknown Muster-shaped tmux sessions are logged
-and never adopted, and every shell tmux session is killed
+`kb:anchor/state.liveness`). Once shutdown has begun, the periodic poll and the PTY-EOF
+nudge stop persisting `alive=false`; the on-exit policy, or else the next boot's reconcile,
+is the sole authority on a session's final `alive` state — End's own path is unaffected
+(kb:adr/lifecycle-liveness-writes-stop-at-shutdown). Reconcile at daemon start runs before
+the first snapshot is served: rows already ended are deleted, live rows whose pane is gone
+are marked ended at startup time and kept for one resume chance, unknown `muster-` names
+are logged, never adopted; shells are killed
 (kb:adr/lifecycle-reconcile-before-first-snapshot, kb:adr/lifecycle-ended-rows-swept-next-start).
 Resume relaunches a dead session with `--resume` into a fresh pane under the same Muster row
 and title; the resume `SessionStart` rebinds it and lands it in `idle`
 (kb:adr/lifecycle-resume-rebinds-existing-session, kb:fact/resume-keeps-session-identity).
-Shutdown leaves sessions running by default; the `-on-exit` flag offers ask, leave and kill
-(kb:adr/lifecycle-shutdown-leaves-sessions-running).
+Shutdown leaves sessions running by default; the `-on-exit` flag offers ask, leave and kill —
+kill also kills every shell and the prompt counts them, leave leaves shells as it leaves
+sessions (kb:adr/lifecycle-shutdown-leaves-sessions-running,
+kb:adr/surfaces-shell-dies-at-kill-shutdown-too).
 
 ## Wire
 

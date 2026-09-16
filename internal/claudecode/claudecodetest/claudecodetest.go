@@ -18,23 +18,32 @@ func RawHookBody(event, sessionID string) string {
 }
 
 // EnvelopedHookBody wraps a minimal hook payload for the given event and session id
-// in the musterSession/tmuxPane envelope produced by Muster's hook command wrapper.
+// in the musterSession/tmuxPane envelope produced by Muster's hook command wrapper. An
+// empty tmuxPane omits the field entirely (the headless shape, kb:adr/ingest-envelope-pane-must-corroborate)
+// rather than sending an empty string.
 func EnvelopedHookBody(musterSession int, tmuxPane, event, sessionID string) string {
-	return marshal(map[string]any{
+	env := map[string]any{
 		"musterSession": musterSession,
-		"tmuxPane":      tmuxPane,
 		"payload": map[string]any{
 			"hook_event_name": event,
 			"session_id":      sessionID,
 		},
-	})
+	}
+	if tmuxPane != "" {
+		env["tmuxPane"] = tmuxPane
+	}
+	return marshal(env)
 }
 
-// SessionStartOpts customizes EnvelopedSessionStart beyond its M0-compatible defaults
-// (musterSession 1, tmuxPane "%12", source "startup", a present model).
+// SessionStartOpts customizes EnvelopedSessionStart beyond its defaults (musterSession 1,
+// source "startup", a present model). TmuxPane has no default (REQ-12,
+// kb:adr/ingest-envelope-pane-must-corroborate): left empty, it omits the envelope's
+// tmuxPane field entirely — the headless shape — rather than filling in a pane the caller
+// never stated; every enveloped fixture site must state its own pane.
 type SessionStartOpts struct {
 	MusterSession int
-	TmuxPane      string
+	// TmuxPane, left empty, omits the envelope's tmuxPane field (the headless shape).
+	TmuxPane string
 	// Source is one of "startup" (default), "resume" or "clear" (canary-fields.md
 	// "Values worth asserting" — all three observed).
 	Source string
@@ -47,16 +56,13 @@ type SessionStartOpts struct {
 
 // EnvelopedSessionStart returns the enveloped `SessionStart` body — the one hook that
 // is silently never delivered over plain HTTP (canary-fields.md "Transport"), so the
-// real wrapper always posts it enveloped. Passing a zero-value SessionStartOpts
-// reproduces M0's fixture byte-for-byte.
+// real wrapper always posts it enveloped. A zero-value SessionStartOpts posts the
+// headless shape (no tmuxPane, REQ-12) — the caller states a pane explicitly wherever
+// routing is expected.
 func EnvelopedSessionStart(sessionID string, opts SessionStartOpts) string {
 	musterSession := opts.MusterSession
 	if musterSession == 0 {
 		musterSession = 1
-	}
-	tmuxPane := opts.TmuxPane
-	if tmuxPane == "" {
-		tmuxPane = "%12"
 	}
 	source := opts.Source
 	if source == "" {
@@ -81,11 +87,14 @@ func EnvelopedSessionStart(sessionID string, opts SessionStartOpts) string {
 		payload["model"] = modelID
 	}
 
-	return marshal(map[string]any{
+	env := map[string]any{
 		"musterSession": musterSession,
-		"tmuxPane":      tmuxPane,
 		"payload":       payload,
-	})
+	}
+	if opts.TmuxPane != "" {
+		env["tmuxPane"] = opts.TmuxPane
+	}
+	return marshal(env)
 }
 
 // TurnActivityOpts customizes the turn-activity builders below.
@@ -231,10 +240,6 @@ func EnvelopedSessionStartTranscript(sessionID, transcriptPath string, opts Sess
 	if musterSession == 0 {
 		musterSession = 1
 	}
-	tmuxPane := opts.TmuxPane
-	if tmuxPane == "" {
-		tmuxPane = "%12"
-	}
 	source := opts.Source
 	if source == "" {
 		source = "startup"
@@ -253,11 +258,14 @@ func EnvelopedSessionStartTranscript(sessionID, transcriptPath string, opts Sess
 		}
 		payload["model"] = modelID
 	}
-	return marshal(map[string]any{
+	env := map[string]any{
 		"musterSession": musterSession,
-		"tmuxPane":      tmuxPane,
 		"payload":       payload,
-	})
+	}
+	if opts.TmuxPane != "" {
+		env["tmuxPane"] = opts.TmuxPane
+	}
+	return marshal(env)
 }
 
 // PlanAttachmentLine returns one transcript JSONL line naming planFilePath via a
@@ -422,9 +430,6 @@ func RawSessionEnd(sessionID, reason string) string {
 // and rate_limits is entirely absent (canary-fields.md's measured pre-response state).
 // sessionName, when non-empty, adds the status line's session_name field.
 func EnvelopedStatusLinePreFirstResponse(sessionID string, musterSession int, tmuxPane, sessionName string) string {
-	if tmuxPane == "" {
-		tmuxPane = "%12"
-	}
 	payload := map[string]any{
 		"session_id":          sessionID,
 		"transcript_path":     "/tmp/t.jsonl",
@@ -459,14 +464,16 @@ func EnvelopedStatusLinePreFirstResponse(sessionID string, musterSession int, tm
 }
 
 // StatusLineFullOpts customizes EnvelopedStatusLineFull beyond its M3-baseline defaults
-// (musterSession 1, tmuxPane "%12", model "claude-haiku-4-5-20251001"/"Haiku 4.5", 42%
-// context used / 84000 input tokens / 200000 window, 61% five-hour / 23% seven-day
-// usage, both resetting at a fixed far-future epoch). Every default is fixed and
-// non-wall-clock-dependent so two zero-value calls are byte-identical (REQ-15's
-// dedup-testing requirement, m3-gauges INV-5/D9).
+// (musterSession 1, model "claude-haiku-4-5-20251001"/"Haiku 4.5", 42% context used /
+// 84000 input tokens / 200000 window, 61% five-hour / 23% seven-day usage, both resetting
+// at a fixed far-future epoch). TmuxPane has no default (REQ-12): left empty, it omits
+// the envelope's tmuxPane field (the headless shape) rather than filling one in. Every
+// default is fixed and non-wall-clock-dependent so two zero-value calls are byte-identical
+// (REQ-15's dedup-testing requirement, m3-gauges INV-5/D9).
 type StatusLineFullOpts struct {
 	MusterSession int
-	TmuxPane      string
+	// TmuxPane, left empty, omits the envelope's tmuxPane field (the headless shape).
+	TmuxPane string
 	// SessionName, when non-empty, adds the status line's session_name field (title
 	// refresh, REQ-4).
 	SessionName      string
@@ -505,9 +512,6 @@ func EnvelopedStatusLineFull(sessionID string, opts StatusLineFullOpts) string {
 		musterSession = 1
 	}
 	tmuxPane := opts.TmuxPane
-	if tmuxPane == "" {
-		tmuxPane = "%12"
-	}
 
 	env := map[string]any{"payload": payload}
 	if musterSession != 0 {

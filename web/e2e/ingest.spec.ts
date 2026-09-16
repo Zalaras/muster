@@ -20,8 +20,11 @@ test("persists an enveloped SessionStart then a raw Stop for the same session as
 }) => {
   const sessionId = "e2e-s1";
 
+  // No real session was launched for this seq-assignment test (session 1 doesn't
+  // exist), so REQ-12 corroboration never applies here — the literal pane just has to
+  // be stated (helpers/payloads.ts has no default) and match the assertion below.
   const startRes = await request.post(daemon().ingestURL("hook"), {
-    data: envelopedSessionStart(sessionId),
+    data: envelopedSessionStart(sessionId, { tmuxPane: "%12" }),
   });
   expect(startRes.status()).toBe(200);
 
@@ -56,7 +59,7 @@ test("persists a status-line POST as an event with type status_line", async ({ r
   const sessionId = "e2e-s2";
 
   const res = await request.post(daemon().ingestURL("status"), {
-    data: envelopedStatusLinePreFirstResponse(sessionId),
+    data: envelopedStatusLinePreFirstResponse(sessionId, { tmuxPane: "%12" }),
   });
   expect(res.status()).toBe(200);
 
@@ -72,7 +75,7 @@ test("rejects a wrong ingest token with 404 and persists nothing", async ({ page
   const sessionId = "e2e-s3";
 
   const res = await request.post(`${daemon().baseURL}/ingest/not-the-real-token/hook`, {
-    data: envelopedSessionStart(sessionId),
+    data: envelopedSessionStart(sessionId, { tmuxPane: "%12" }),
   });
   expect(res.status()).toBe(404);
 

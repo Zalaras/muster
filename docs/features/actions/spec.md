@@ -10,7 +10,7 @@ go: [internal/server/sessions*.go]
 web: [web/src/features/actions.ts, web/src/render/confirm.ts, web/src/render/dead*.ts, web/src/render/actionerror*.ts]
 e2e: [web/e2e/actions.spec.ts]
 protocol: [sessions.end, sessions.resume, sessions.remove, sessions.pane, ws.session-removed]
-refs: [kb:adr/actions-placement-mainhead-and-card-rows, kb:adr/actions-pane-snapshot-display-only, kb:adr/actions-remove-allowed-on-live-session, kb:adr/lifecycle-resume-rebinds-existing-session, kb:adr/lifecycle-ended-rows-swept-next-start, kb:adr/surfaces-shell-lifetime-until-exit-remove-or-reconcile, kb:adr/theme-danger-tokens-not-rose, kb:fact/resume-keeps-session-identity]
+refs: [kb:adr/actions-placement-mainhead-and-card-rows, kb:adr/actions-pane-snapshot-display-only, kb:adr/actions-remove-allowed-on-live-session, kb:adr/lifecycle-resume-rebinds-existing-session, kb:adr/lifecycle-ended-rows-swept-next-start, kb:adr/surfaces-shell-dies-at-kill-shutdown-too, kb:adr/theme-danger-tokens-not-rose, kb:fact/resume-keeps-session-identity]
 ---
 Three actions apply to a session: End, Resume and Remove. They live in the Focus mainhead
 above the terminal and in hover-revealed action rows on rail cards and tile footers, each
@@ -22,7 +22,9 @@ routes through one dispatcher in the actions controller.
 pane snapshot, kills the session's tmux session, closes its terminal sockets with the
 pane-ended code and broadcasts the session with `alive:false`. The row and its Claude
 session id survive, so the session can be resumed. End does not kill the session's shell
-surface (kb:adr/surfaces-shell-lifetime-until-exit-remove-or-reconcile).
+surface (kb:adr/surfaces-shell-dies-at-kill-shutdown-too). A failed End or Remove returns a
+fixed-phrase `message`; the raw tmux or OS error goes to the daemon log only
+(kb:anchor/transport).
 
 **Resume** (`kb:anchor/sessions.resume`) applies to a dead session with a bound Claude
 session id. The daemon rewrites the directory's project settings and relaunches `claude`

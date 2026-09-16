@@ -125,7 +125,7 @@ Each row's rationale is an ADR: `go run ./tools/kb ls --type adr | grep '/stack-
   (concurrent repeats of one file, retries still 0) — never with a widened timeout or a retry.
 - Every subprocess call gets an injectable run func on the type that owns it; the implementer
   adds it and tests cross the boundary through it (`internal/locate.SpotlightFinder`, `tmux`'s
-  preflighter, `claudecode`'s `execFunc`), never a `$PATH` shim — a fork per test is what made `make test`
+  preflighter and its `Client`, `claudecode`'s `execFunc`), never a `$PATH` shim — a fork per test is what made `make test`
   load-sensitive. Real tmux (per-test socket) appears only where the assertion is about a
   tmux-observable effect: PTY stream, geometry, liveness, pane env, server options.
 - Don't test what the platform guarantees (SQLite constraint enforcement, tmux's own

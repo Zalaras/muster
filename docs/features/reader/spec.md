@@ -8,9 +8,9 @@ features: [reader]
 tags: [ux, security, claude-code-format]
 go: [internal/claudecode/plan*.go, internal/claudecode/files*.go, internal/server/reader*.go, internal/session/reader_test.go, internal/store/migrations/0008_reader.sql]
 web: [web/src/reader/**, web/src/features/reader.ts, web/src/render/reader.ts, web/src/render/diagrams.ts, web/src/render/diagramdialog.ts, web/src/render/mermaid.ts, web/src/doc.ts, web/doc.html]
-e2e: [web/e2e/reader.spec.ts, web/e2e/reader-mermaid.spec.ts, web/e2e/helpers/reader.ts]
+e2e: [web/e2e/general-cleanup.spec.ts, web/e2e/reader.spec.ts, web/e2e/reader-mermaid.spec.ts, web/e2e/helpers/reader.ts]
 protocol: [sessions.reader, sessions.reader-file, ws.doc-changed, ws.session]
-refs: [plan:markdown-viewing, plan:markdown-render-fixes, plan:mermaid-support, kb:fact/plan-file-path-in-transcript, kb:fact/plan-mode-hook-sequence, kb:adr/issue-preview-is-the-leak-check, kb:adr/surfaces-shell-control-in-tile-footer, kb:spec/surfaces, docs/design/design-system.md]
+refs: [plan:markdown-viewing, plan:markdown-render-fixes, plan:mermaid-support, kb:fact/plan-file-path-in-transcript, kb:fact/plan-mode-hook-sequence, kb:adr/issue-preview-is-the-leak-check, kb:adr/surfaces-shell-control-in-tile-footer, kb:adr/connection-banner-only-after-first-hello, kb:spec/surfaces, docs/design/design-system.md]
 ---
 A session's third surface. The `claude | shell` segment in the Focus mainhead and every tile
 footer gains `docs`; selecting it replaces the pane with a reader for the plan the session wrote
@@ -63,8 +63,11 @@ does; one mermaid cannot parse keeps its fenced source with a labelled reason be
 follow the dashboard theme and re-render when it changes, and each enlarges into a modal with
 zoom and pan. The sanitized output enters the DOM as a fragment, never through `innerHTML`. Last open file and cleared dots
 are remembered per session in the browser; the pop-out (`/doc.html`) is a second page sharing the
-component, the socket client and that memory. Compact in a tile; nav collapsed at 3×2. Works on a
-dead session with the plan slot — and the nav's plan header row — removed.
+component, the socket client and that memory. The pop-out's status line shows `connecting…`
+until its first `hello`, the unreachable text after a lost connection, and its theme follows
+the dashboard's live broadcasts (kb:adr/connection-banner-only-after-first-hello). Compact in
+a tile; nav collapsed at 3×2. Works on a dead session with the plan slot — and the nav's plan
+header row — removed.
 
 ## Does not
 

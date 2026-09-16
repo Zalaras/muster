@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"syscall"
@@ -237,8 +238,9 @@ func spawnDaemon(t *testing.T, onExit string, stdin *os.File) *spawnedDaemon {
 }
 
 // launchSession POSTs a real launch request against the running daemon's HTTP API — the
-// only way this black-box test can put a live tmux session under it.
-func (d *spawnedDaemon) launchSession(t *testing.T, dir string) {
+// only way this black-box test can put a live tmux session under it. Returns the launched
+// session's id (REQ-13's D13-D15 need it to spawn a shell on that same session).
+func (d *spawnedDaemon) launchSession(t *testing.T, dir string) int64 {
 	t.Helper()
 	body := fmt.Sprintf(`{"directory":%q,"model":"sonnet","permissionMode":"default"}`, dir)
 	req, err := http.NewRequest(http.MethodPost, d.baseURL+"/api/sessions", strings.NewReader(body))
@@ -250,6 +252,27 @@ func (d *spawnedDaemon) launchSession(t *testing.T, dir string) {
 	require.NoError(t, err, "stderr so far: %s", d.stderr)
 	defer func() { _ = resp.Body.Close() }()
 	require.Equal(t, http.StatusCreated, resp.StatusCode, "launch failed; stderr so far: %s", d.stderr)
+
+	var wire struct {
+		ID int64 `json:"id"`
+	}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&wire))
+	return wire.ID
+}
+
+// spawnShell POSTs a real shell-spawn request for sessionID against the running daemon's
+// HTTP API — REQ-13's D13-D15 need a real "muster-<id>-shell" tmux session on the socket,
+// not a Claude pane, to prove KillAllShells/ShellCount actually reach it.
+func (d *spawnedDaemon) spawnShell(t *testing.T, sessionID int64) {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/sessions/%d/shell", d.baseURL, sessionID), nil)
+	require.NoError(t, err)
+	req.AddCookie(&http.Cookie{Name: "muster_auth", Value: d.uiToken})
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err, "stderr so far: %s", d.stderr)
+	defer func() { _ = resp.Body.Close() }()
+	require.Equal(t, http.StatusOK, resp.StatusCode, "shell spawn failed; stderr so far: %s", d.stderr)
 }
 
 // waitForLiveTmuxSession blocks until at least one muster-* session exists on d's socket
@@ -259,6 +282,16 @@ func (d *spawnedDaemon) waitForLiveTmuxSession(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return len(tmuxSessionNames(d.tmuxSocket)) > 0
 	}, 10*time.Second, 50*time.Millisecond, "expected a muster-* tmux session to appear on the scratch socket")
+}
+
+// waitForTmuxSessionCount blocks until exactly n tmux sessions exist on d's socket — D13-D15
+// need this to confirm a spawned shell actually reached tmux (waitForLiveTmuxSession alone
+// only proves "at least one", which the already-launched claude session already satisfies).
+func (d *spawnedDaemon) waitForTmuxSessionCount(t *testing.T, n int) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		return len(tmuxSessionNames(d.tmuxSocket)) == n
+	}, 10*time.Second, 50*time.Millisecond, "expected exactly %d tmux session(s) on the scratch socket, got %v", n, tmuxSessionNames(d.tmuxSocket))
 }
 
 // signalAndWaitExit sends sig to the subprocess and waits (with timeout) for it to exit,
@@ -286,6 +319,13 @@ func (d *spawnedDaemon) signalAndWaitExit(t *testing.T, sig os.Signal, timeout t
 	}
 	return -1
 }
+
+// ansiEscape matches zerolog.ConsoleWriter's colour codes — it colours the key and value
+// of every field separately (e.g. "\x1b[36mshells=\x1b[0m1"), so a literal Contains for
+// "shells=1" never matches; D13-D16's field assertions strip these first.
+var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+func stripANSI(s string) string { return ansiEscape.ReplaceAllString(s, "") }
 
 // tmuxSessionNames lists every session on socket, or nil if the server is gone/empty —
 // the same "no server running yet" shape internal/tmux.Client.ListSessions treats as
@@ -364,4 +404,90 @@ func TestOnExit_AskWithNonTTYStdinBehavesAsLeave(t *testing.T) {
 	assert.NotEmpty(t, tmuxSessionNames(d.tmuxSocket), "ask under non-TTY stdin must behave as leave, never a silent kill")
 	assert.Less(t, elapsed, 5*time.Second,
 		"D11: a non-TTY stdin must resolve immediately via isTerminal, well inside the 10s prompt timeout, not sit out the prompt")
+}
+
+// TestOnExit_Kill_LiveSessionAndShellAreBothKilled covers D13
+// (kb:adr/surfaces-shell-dies-at-kill-shutdown-too): `-on-exit=kill` with one live claude
+// session and one shell exits 0 with no tmux sessions left on the socket at all — the
+// shell dies right alongside the claude session, not just the claude session REQ-3
+// already covered (TestOnExit_Kill_LiveSessionIsKilledAndRowMarkedDead).
+func TestOnExit_Kill_LiveSessionAndShellAreBothKilled(t *testing.T) {
+	d := spawnDaemon(t, "kill", nil)
+	id := d.launchSession(t, t.TempDir())
+	d.waitForLiveTmuxSession(t)
+	d.spawnShell(t, id)
+	d.waitForTmuxSessionCount(t, 2)
+
+	exitCode := d.signalAndWaitExit(t, syscall.SIGTERM, 15*time.Second)
+
+	assert.Equal(t, 0, exitCode, "stderr: %s", d.stderr)
+	assert.Empty(t, tmuxSessionNames(d.tmuxSocket), "D13: -on-exit=kill must kill both the claude session and its shell")
+	assert.Contains(t, d.stderr.String(), "ended live sessions on shutdown", "REQ-13's kill log line, message text unchanged")
+	assert.Contains(t, stripANSI(d.stderr.String()), "shells=1", "REQ-13: the kill log line gains a shells field")
+}
+
+// TestOnExit_Leave_LiveSessionAndShellBothSurvive covers D14: `-on-exit=leave` with one
+// live claude session and one shell exits 0 with both still on the socket, and the leave
+// log line names shells=1 — leave leaves shells exactly as it leaves sessions
+// (kb:adr/lifecycle-shutdown-leaves-sessions-running, unchanged).
+func TestOnExit_Leave_LiveSessionAndShellBothSurvive(t *testing.T) {
+	d := spawnDaemon(t, "leave", nil)
+	id := d.launchSession(t, t.TempDir())
+	d.waitForLiveTmuxSession(t)
+	d.spawnShell(t, id)
+	d.waitForTmuxSessionCount(t, 2)
+
+	exitCode := d.signalAndWaitExit(t, syscall.SIGTERM, 15*time.Second)
+
+	assert.Equal(t, 0, exitCode, "stderr: %s", d.stderr)
+	assert.Len(t, tmuxSessionNames(d.tmuxSocket), 2, "D14: -on-exit=leave must leave both the claude session and its shell running")
+	assert.Contains(t, d.stderr.String(), "leaving live sessions running", "REQ-13's leave log line, message text unchanged")
+	assert.Contains(t, stripANSI(d.stderr.String()), "shells=1", "D14: the leave log line names the shell count")
+}
+
+// TestOnExit_Kill_ShellOnlyNoLiveSessionsStillKillsIt covers D15/Edge Case 24: with zero
+// live claude sessions and one shell, `-on-exit=kill` still runs the kill path (REQ-13's
+// `live > 0 || shells > 0` guard) and the shell is gone afterward.
+func TestOnExit_Kill_ShellOnlyNoLiveSessionsStillKillsIt(t *testing.T) {
+	d := spawnDaemon(t, "kill", nil)
+	id := d.launchSession(t, t.TempDir())
+	d.waitForLiveTmuxSession(t)
+	d.spawnShell(t, id)
+	d.waitForTmuxSessionCount(t, 2)
+
+	// End the claude session over the HTTP API first, leaving only the shell — D15 wants
+	// "zero live claude sessions and one shell", not "never launched one" (a shell can
+	// only be spawned against a known session id in the first place).
+	endReq, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/sessions/%d/end", d.baseURL, id), nil)
+	require.NoError(t, err)
+	endReq.AddCookie(&http.Cookie{Name: "muster_auth", Value: d.uiToken})
+	endResp, err := http.DefaultClient.Do(endReq)
+	require.NoError(t, err, "stderr so far: %s", d.stderr)
+	_ = endResp.Body.Close()
+	require.Equal(t, http.StatusOK, endResp.StatusCode, "ending the claude session failed; stderr so far: %s", d.stderr)
+	d.waitForTmuxSessionCount(t, 1)
+
+	exitCode := d.signalAndWaitExit(t, syscall.SIGTERM, 15*time.Second)
+
+	assert.Equal(t, 0, exitCode, "stderr: %s", d.stderr)
+	assert.Empty(t, tmuxSessionNames(d.tmuxSocket), "D15: -on-exit=kill with zero live sessions and one shell must still kill the shell")
+	assert.Contains(t, d.stderr.String(), "ended live sessions on shutdown", "REQ-13: the kill branch must still run and log when only shells remain")
+	assert.Contains(t, stripANSI(d.stderr.String()), "count=0", "D15: zero claude sessions were live")
+	assert.Contains(t, stripANSI(d.stderr.String()), "shells=1", "D15: exactly one shell was killed")
+}
+
+// TestAskKillPrompt_NamesBothCountsPluralFixed covers D16: the prompt text names both
+// counts, with the grammar deliberately plural-fixed ("1 shells") per Damian's
+// 2026-09-16 ruling (Implementation Notes "Shells at shutdown") — a single fixed format
+// string, not a branch on count.
+func TestAskKillPrompt_NamesBothCountsPluralFixed(t *testing.T) {
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = r.Close() })
+	require.NoError(t, w.Close()) // EOF immediately: this test only cares about the prompt text
+
+	var stderr bytes.Buffer
+	askKillPrompt(r, &stderr, 2, 1, "muster")
+
+	assert.Contains(t, stderr.String(), "2 live sessions and 1 shells on tmux socket muster — kill them? [y/N] ")
 }

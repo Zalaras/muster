@@ -16,9 +16,11 @@ import { changedText } from "../reader/freshness";
 import { renderMarkdown, type OutlineEntry } from "../reader/markdown";
 import { isDirty, loadMemory, saveMemory, withOpened, type ReaderMemory } from "../reader/memory";
 import { mermaidThemeFor } from "../reader/mermaid";
+import { classifyDocChanged, deriveNotice } from "../reader/notice";
 import { basename, loadingText } from "../reader/paths";
 import { buildTree, filterTree, flattenTree, type FlatTreeEntry } from "../reader/tree";
 import { renderDiagrams, rerenderDiagrams } from "../render/diagrams";
+import type { ConnectionStatus } from "../render/masthead";
 import {
   attachScrollSpy,
   buildReader,
@@ -50,7 +52,6 @@ export interface ReaderHandle {
 
 const UNKNOWN_SESSION_TEXT = "unknown session";
 const FILE_GONE_PREFIX = "file no longer exists — ";
-const UNREACHABLE_TEXT = "musterd unreachable — showing last render";
 const PLACEHOLDER_TEXT = "nothing open — pick a file";
 
 /** Plan mermaid-support — a fresh value drawn on every diagram pass (W14: unique per
@@ -69,23 +70,6 @@ let nextDiagramInstanceId = 0;
  * disagree about which mermaid theme is current. */
 function currentMermaidTheme(): "dark" | "default" {
   return mermaidThemeFor(document.documentElement.dataset["theme"] ?? null);
-}
-
-/** Status-line text precedence — the one place it's decided (W9), so `render` and every
- * fetch outcome in `ReaderInstance` never duplicate the ordering: daemon-down always wins
- * (design-system §6.7, REQ-15); otherwise a user-initiated open in flight names itself
- * (REQ-8) but only once something is actually on screen to grey out — while nothing has
- * rendered yet the body's own `loading…` placeholder is the cue instead (REQ-9), so the
- * status line stays whatever it already was; otherwise the last fetch's own outcome. */
-function deriveNotice(
-  connected: boolean,
-  loadingPath: string | null,
-  bodyRendered: boolean,
-  noticeText: string | null,
-): string | null {
-  if (!connected) return UNREACHABLE_TEXT;
-  if (loadingPath !== null && bodyRendered) return loadingText(loadingPath);
-  return noticeText;
 }
 
 class ReaderInstance {
@@ -366,10 +350,14 @@ class ReaderInstance {
 
   /** REQ-18/REQ-11: a routed write for the open file re-fetches and re-renders it
    * silently (`showLoading: false` — INV-REFETCH-NEVER-BLANKS); any other in-scope path
-   * just updates the dot via the `writtenAt` overlay (no re-listing). */
+   * just updates the dot via the `writtenAt` overlay (no re-listing). The classification
+   * itself is `classifyDocChanged` (REQ-6, markdown-render-fixes edge case 5: a `docChanged`
+   * for a path that isn't open never re-fetches, even mid-open-in-flight for a different
+   * path). */
   handleDocChanged(msg: DocChanged): void {
     this.writtenAt.set(msg.path, msg.at);
-    if (msg.path === this.openPath) void this.openFile(msg.path, { showLoading: false });
+    if (classifyDocChanged(this.openPath, msg.path) === "refetch")
+      void this.openFile(msg.path, { showLoading: false });
     else this.requestRender();
   }
 
@@ -477,14 +465,16 @@ class ReaderInstance {
     };
   }
 
-  render(session: Session | null, now: Date, connected: boolean, compact: boolean): void {
+  render(session: Session | null, now: Date, connection: ConnectionStatus, compact: boolean): void {
     this.compact = compact;
     this.refs.root.classList.toggle("compact", compact);
     this.maybeAutoOpenPlan(session);
     const listing = this.listing;
     // Design-system §6.7: daemon-down is loud and wins over whatever notice was showing —
     // the render underneath (last content, or the placeholder) is left exactly as-is.
-    const notice = deriveNotice(connected, this.loadingPath, this.bodyRendered, this.noticeText);
+    // REQ-8: a reader that has never connected reads "connecting…" instead
+    // (INV-POPOUT-CONNECTING) — `deriveNotice` is the one place that ordering is decided.
+    const notice = deriveNotice(connection, this.loadingPath, this.bodyRendered, this.noticeText);
 
     const vm: ReaderVM = {
       title: session?.title ?? null,
@@ -578,7 +568,7 @@ export function initReader(
         instance = newInstance(id);
         instances.set(id, instance);
       }
-      instance.render(session, frame.now, frame.connected, compact);
+      instance.render(session, frame.now, frame.connection, compact);
     }
   }
 
@@ -586,7 +576,7 @@ export function initReader(
     if (standalone) {
       const instance = instances.get(standalone.sessionId);
       const session = frame.sessions.find((s) => s.id === standalone.sessionId) ?? null;
-      instance?.render(session, frame.now, frame.connected, false);
+      instance?.render(session, frame.now, frame.connection, false);
       return;
     }
     reconcileInstances(frame);

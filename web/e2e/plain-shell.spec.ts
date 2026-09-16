@@ -7,7 +7,13 @@ import {
   unboundSessionStart,
 } from "./helpers/payloads";
 import { railCard } from "./helpers/railorder";
-import { findSession, getState, launchSession, scratchDirectory } from "./helpers/session";
+import {
+  envelopeOpts,
+  findSession,
+  getState,
+  launchSession,
+  scratchDirectory,
+} from "./helpers/session";
 import {
   createShellViaApi,
   deadSurfaceNotice,
@@ -180,7 +186,7 @@ test("a shell can be started on a session whose alive is false, and the claude s
     await expect(terminalRegion(page, "plain-shell-e5-a")).toBeVisible();
 
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-plain-shell-e5-b", { musterSession: sessionB.id }),
+      data: envelopedSessionStart("claude-plain-shell-e5-b", await envelopeOpts(sessionB, daemon)),
     });
     const endRes = await page.request.post(`${daemon.baseURL}/api/sessions/${sessionB.id}/end`);
     expect(endRes.status()).toBe(200);
@@ -255,9 +261,16 @@ test("running claude inside a shell leaves the parent session's state, stateSinc
     const session = await launchSession(page, daemon, { directory: dir, title: "plain-shell-e7" });
     const parentClaudeId = "claude-plain-shell-e7-parent";
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(parentClaudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(parentClaudeId, await envelopeOpts(session, daemon)),
     });
 
+    // Wait for the parent's own SessionStart to be processed (ingest is async — CLAUDE.md:
+    // "return 200 immediately and process asynchronously") before snapshotting `before`,
+    // so a slow tick can never race this into reading a not-yet-bound parent as the
+    // baseline the nested-claude assertions below compare against.
+    await expect
+      .poll(async () => findSession(await getState(page, daemon), session.id).claudeSessionId)
+      .toBe(parentClaudeId);
     const before = await getState(page, daemon);
     const parentBefore = findSession(before, session.id);
 
@@ -486,7 +499,7 @@ test("tmux kill-session on a live shell closes its socket and does not change th
     await page.goto(daemon.dashboardUrl);
     const session = await launchSession(page, daemon, { directory: dir, title: "plain-shell-e10" });
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-plain-shell-e10", { musterSession: session.id }),
+      data: envelopedSessionStart("claude-plain-shell-e10", await envelopeOpts(session, daemon)),
     });
     const before = await getState(page, daemon);
     const parentBefore = findSession(before, session.id);
@@ -525,7 +538,7 @@ test("resuming a dead session that has a live shell leaves the shell running (E1
     await page.goto(daemon.dashboardUrl);
     const session = await launchSession(page, daemon, { directory: dir, title: "plain-shell-e11" });
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-plain-shell-e11", { musterSession: session.id }),
+      data: envelopedSessionStart("claude-plain-shell-e11", await envelopeOpts(session, daemon)),
     });
 
     await mainheadSurfaceButton(page, "shell").click();
@@ -624,7 +637,7 @@ test("removing one session kills only its own shell; a second session's shell ke
       title: "plain-shell-e13-b",
     });
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-plain-shell-e13-a", { musterSession: sessionA.id }),
+      data: envelopedSessionStart("claude-plain-shell-e13-a", await envelopeOpts(sessionA, daemon)),
     });
     const endRes = await page.request.post(`${daemon.baseURL}/api/sessions/${sessionA.id}/end`);
     expect(endRes.status()).toBe(200);
@@ -666,6 +679,11 @@ test("a file dropped on a shell surface pastes its escaped path (E14, REQ-11)", 
     await mainheadSurfaceButton(page, "shell").click();
     const shellRegion = shellSurfaceRegion(page, "plain-shell-e14");
     await expect(shellRegion).toBeVisible({ timeout: 15_000 });
+
+    // REQ-4: wait for the pane to actually attach (E16's own oracle) before dropping —
+    // a drop that lands before attach still shows "Pane isn't connected — nothing
+    // pasted" (edge case 4, behaviour unchanged), which raced this test flaky.
+    await expect(page.getByText(/one live client/i)).toBeVisible({ timeout: 15_000 });
 
     await dropFiles(shellRegion, [{ name: "plain-shell-e14.png", bytes: content }]);
 

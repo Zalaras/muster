@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -174,8 +175,12 @@ func TestLauncher_CorruptSettingsFileRefusesAndRollsBackTheSessionRow(t *testing
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".claude"), 0o700))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".claude", "settings.local.json"), []byte(`{not valid json`), 0o600))
 
+	// REQ-10: the 500 body is now a fixed phrase, never the raw error — the offending
+	// path lives only in the adjacent log line, so that's what this test reads instead of
+	// the response body (daemon-implementation.md's Handoff on this exact test).
+	var logBuf bytes.Buffer
 	l := &sessionLauncher{
-		store: st, manager: mgr, log: zerolog.Nop(), claudeBin: "irrelevant-never-reached",
+		store: st, manager: mgr, log: zerolog.New(&logBuf), claudeBin: "irrelevant-never-reached",
 		hookScript: "/bin/true", statusLineScript: "/bin/true",
 	}
 
@@ -186,7 +191,8 @@ func TestLauncher_CorruptSettingsFileRefusesAndRollsBackTheSessionRow(t *testing
 	require.NotNil(t, lerr)
 	assert.Equal(t, http.StatusInternalServerError, lerr.status)
 	assert.Equal(t, "launch_failed", lerr.code)
-	assert.Contains(t, lerr.message, "settings.local.json", "the error must name the offending file (plan's 500 launch_failed clause)")
+	assert.Equal(t, msgLaunchFailed, lerr.message, "REQ-10: the response body carries only the fixed phrase")
+	assert.Contains(t, logBuf.String(), "settings.local.json", "REQ-10: the offending file's path lives in the daemon log, not the response body")
 
 	rows, err := st.ListSessions(context.Background())
 	require.NoError(t, err)
@@ -497,8 +503,12 @@ func TestLauncher_ExhaustsThreeAttemptsOnRepeatedErrSessionExists(t *testing.T) 
 	fake := newFakeTmux()
 	fake.newSessionErr = tmux.ErrSessionExists
 
+	// REQ-10: the 500 body is a fixed phrase now — the colliding tmux session's name
+	// lives only in the adjacent log line (daemon-implementation.md's Handoff on this
+	// exact test).
+	var logBuf bytes.Buffer
 	l := &sessionLauncher{
-		store: st, manager: mgr, tmux: fake, log: zerolog.Nop(), claudeBin: "irrelevant-never-reached",
+		store: st, manager: mgr, tmux: fake, log: zerolog.New(&logBuf), claudeBin: "irrelevant-never-reached",
 		hookScript: "/bin/true", statusLineScript: "/bin/true",
 	}
 
@@ -509,7 +519,8 @@ func TestLauncher_ExhaustsThreeAttemptsOnRepeatedErrSessionExists(t *testing.T) 
 	require.NotNil(t, lerr)
 	assert.Equal(t, http.StatusInternalServerError, lerr.status)
 	assert.Equal(t, "launch_failed", lerr.code)
-	assert.Contains(t, lerr.message, "muster-", "D5: the failure message must name the colliding tmux session")
+	assert.Equal(t, msgLaunchFailed, lerr.message, "REQ-10: the response body carries only the fixed phrase")
+	assert.Contains(t, logBuf.String(), "muster-", "D5/REQ-10: the colliding tmux session's name lives in the daemon log, not the response body")
 	assert.Equal(t, 3, fake.newSessionCalls, "D5: exactly three attempts before giving up")
 
 	rows, err := st.ListSessions(context.Background())
@@ -550,7 +561,10 @@ func TestHandleRemoveSession_FailingEndLeavesTheShellRunningAndTheRowPresent(t *
 	shells := newShellRegistry(client, zerolog.Nop())
 	terminals := newTerminalRegistry()
 	launcher := &sessionLauncher{store: st, manager: manager, tmux: client, log: zerolog.Nop()}
-	f := newSessionsFeature(manager, launcher, shells, terminals, zerolog.Nop())
+	// D7/REQ-10: a captured logger, not zerolog.Nop() — the raw error must reach the log
+	// even though the response body below only ever carries the fixed phrase.
+	var logBuf bytes.Buffer
+	f := newSessionsFeature(manager, launcher, shells, terminals, zerolog.New(&logBuf))
 
 	dir := t.TempDir()
 	repo, _, err := st.UpsertRepo(context.Background(), store.UpsertRepoParams{
@@ -579,6 +593,8 @@ func TestHandleRemoveSession_FailingEndLeavesTheShellRunningAndTheRowPresent(t *
 	f.handleRemoveSession(rec, req)
 
 	assert.Equal(t, http.StatusInternalServerError, rec.Code, "errKiller forces a genuine kill failure, so Remove must fail")
+	assert.Equal(t, msgRemoveFailed, decodeErrorMessage(t, rec), "D7/REQ-10: the body carries only the fixed phrase")
+	assert.Contains(t, logBuf.String(), "boom: tmux unreachable", "D7: the raw error must reach the daemon log")
 	assert.True(t, manager.Exists(sess.ID), "D15: a failed Remove must leave the row present")
 
 	stillExists, err := client.PaneExists(context.Background(), shellName)
@@ -614,7 +630,10 @@ func TestHandleEndSession_FailingKillLeavesTheTerminalSocketOpen(t *testing.T) {
 	terminalFeat := newTerminalFeature(terminals, manager, fake.attach, zerolog.Nop())
 	shells := newShellRegistry(fake, zerolog.Nop())
 	launcher := &sessionLauncher{store: st, manager: manager, tmux: fake, log: zerolog.Nop()}
-	sessionsFeat := newSessionsFeature(manager, launcher, shells, terminals, zerolog.Nop())
+	// D7/REQ-10: a captured logger, not zerolog.Nop() — the raw error must reach the log
+	// even though the response body below only ever carries the fixed phrase.
+	var logBuf bytes.Buffer
+	sessionsFeat := newSessionsFeature(manager, launcher, shells, terminals, zerolog.New(&logBuf))
 
 	dir := t.TempDir()
 	repo, _, err := st.UpsertRepo(context.Background(), store.UpsertRepoParams{
@@ -662,6 +681,8 @@ func TestHandleEndSession_FailingKillLeavesTheTerminalSocketOpen(t *testing.T) {
 	sessionsFeat.handleEndSession(rec, req)
 
 	assert.Equal(t, http.StatusInternalServerError, rec.Code, "errKiller forces a genuine kill failure, so End must fail")
+	assert.Equal(t, msgEndFailed, decodeErrorMessage(t, rec), "D7/REQ-10: the body carries only the fixed phrase")
+	assert.Contains(t, logBuf.String(), "boom: tmux unreachable", "D7: the raw error must reach the daemon log")
 
 	after := terminalConnFor(terminals, sess.ID)
 	assert.Same(t, before, after, "D23/REQ-13: a failed End must leave the terminal socket exactly as it was, never closed")
@@ -724,6 +745,223 @@ func TestLauncher_ConcurrentResumesSpawnExactlyOnce(t *testing.T) {
 	wg.Wait()
 
 	assert.Equal(t, 1, fake.newSessionCalls, "D19/REQ-11: two concurrent Resumes for one session must spawn exactly once")
+}
+
+// barrierTmux is REQ-5(e)/D4's paneSpawner double: NewSession blocks the first caller
+// until a second caller has also arrived, then releases both together — proving two
+// concurrent Launch calls actually overlap in tmux rather than being serialized behind
+// each other. A build that took the per-id lock *before* allocating an id (instead of
+// after, per Launch's own doc comment) would make the second Launch's NewSession never
+// arrive until the first's completes, and this fake times out instead of releasing.
+type barrierTmux struct {
+	mu        sync.Mutex
+	arrived   int
+	callOrder []int64
+	release   chan struct{}
+}
+
+func newBarrierTmux() *barrierTmux {
+	return &barrierTmux{release: make(chan struct{})}
+}
+
+func (b *barrierTmux) NewSession(ctx context.Context, id int64, _ string, _ map[string]string, _ []string) (target, pane string, err error) {
+	b.mu.Lock()
+	b.callOrder = append(b.callOrder, id)
+	b.arrived++
+	first := b.arrived == 1
+	b.mu.Unlock()
+
+	if first {
+		select {
+		case <-b.release:
+		case <-time.After(3 * time.Second):
+			return "", "", errors.New("barrierTmux: second concurrent NewSession never arrived — the Launch calls were serialized")
+		case <-ctx.Done():
+			return "", "", ctx.Err()
+		}
+	} else {
+		close(b.release)
+	}
+	return fmt.Sprintf("muster-%d:@1", id), "%1", nil
+}
+
+func (b *barrierTmux) NewNamedSession(_ context.Context, name, _ string, _ map[string]string, _ []string) (string, string, error) {
+	return name, "%1", nil
+}
+func (b *barrierTmux) PaneExists(_ context.Context, _ string) (bool, error) { return false, nil }
+func (b *barrierTmux) KillWindow(_ context.Context, _ string) error         { return nil }
+func (b *barrierTmux) KillSession(_ context.Context, _ string) error        { return nil }
+func (b *barrierTmux) MaxSessionID(_ context.Context) (int64, error)        { return 0, nil }
+
+func (b *barrierTmux) newSessionCalls() int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return len(b.callOrder)
+}
+
+// TestLauncher_ConcurrentLaunchesForTheSameDirectoryProduceTwoDistinctRows covers
+// REQ-5(e)/D4's first half: two concurrent Launch calls into the same directory both
+// succeed, produce two distinct session rows and two distinct tmux spawns — Launch takes
+// its per-id lock only after CreateSession has already allocated a fresh id, so different
+// ids' spawns never serialize behind one another.
+//
+// A captured logger (not zerolog.Nop()) is used deliberately: REQ-10 moved the raw error
+// out of the response body, so a failure here needs the log to say why.
+func TestLauncher_ConcurrentLaunchesForTheSameDirectoryProduceTwoDistinctRows(t *testing.T) {
+	st := openLauncherTestStore(t)
+	mgr := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop()})
+	dir := t.TempDir()
+	fake := newBarrierTmux()
+
+	var logBuf bytes.Buffer
+	l := &sessionLauncher{
+		store: st, manager: mgr, tmux: fake, log: zerolog.New(&logBuf), claudeBin: "irrelevant-never-reached",
+		hookScript: "/bin/true", statusLineScript: "/bin/true",
+	}
+
+	type launchResult struct {
+		sess *session.Session
+		lerr *launchError
+	}
+	results := make(chan launchResult, 2)
+	for range 2 {
+		go func() {
+			sess, lerr := l.Launch(context.Background(), createSessionRequest{
+				Directory: dir, Model: "sonnet", PermissionMode: "default",
+			})
+			results <- launchResult{sess, lerr}
+		}()
+	}
+
+	var sessions []*session.Session
+	for range 2 {
+		r := <-results
+		require.Nil(t, r.lerr, "REQ-5(e): both concurrent launches into the same directory must succeed: "+logBuf.String())
+		sessions = append(sessions, r.sess)
+	}
+
+	require.NotEqual(t, sessions[0].ID, sessions[1].ID, "two distinct session rows")
+	assert.Equal(t, 2, fake.newSessionCalls(), "two distinct tmux spawns")
+
+	rows, err := st.ListSessions(context.Background())
+	require.NoError(t, err)
+	assert.Len(t, rows, 2, "both rows persisted, never one rolled back for no reason")
+}
+
+// spawnerKiller is REQ-5(e)/D4's second fake: a paneSpawner (for the launcher) and a
+// session.Killer (for the manager's End) sharing one call log, so a test can observe
+// whether a Launch's spawn and an End's kill for the *same* id ever overlap. Production
+// wiring shares a single *tmux.Client across both roles the same way.
+type spawnerKiller struct {
+	mu          sync.Mutex
+	callOrder   []string
+	newSessRel  chan struct{}
+	newSessHold bool // when true, NewSession blocks on newSessRel before returning
+}
+
+func newSpawnerKiller() *spawnerKiller {
+	return &spawnerKiller{newSessRel: make(chan struct{})}
+}
+
+func (k *spawnerKiller) record(s string) {
+	k.mu.Lock()
+	k.callOrder = append(k.callOrder, s)
+	k.mu.Unlock()
+}
+
+func (k *spawnerKiller) NewSession(ctx context.Context, id int64, _ string, _ map[string]string, _ []string) (target, pane string, err error) {
+	k.record("NewSession-start")
+	if k.newSessHold {
+		select {
+		case <-k.newSessRel:
+		case <-ctx.Done():
+			return "", "", ctx.Err()
+		}
+	}
+	k.record("NewSession-end")
+	return fmt.Sprintf("muster-%d:@1", id), "%1", nil
+}
+func (k *spawnerKiller) NewNamedSession(_ context.Context, name, _ string, _ map[string]string, _ []string) (string, string, error) {
+	return name, "%1", nil
+}
+func (k *spawnerKiller) PaneExists(_ context.Context, _ string) (bool, error) { return true, nil }
+func (k *spawnerKiller) KillWindow(_ context.Context, _ string) error         { return nil }
+func (k *spawnerKiller) KillSession(_ context.Context, _ string) error {
+	k.record("KillSession")
+	return nil
+}
+func (k *spawnerKiller) MaxSessionID(_ context.Context) (int64, error) { return 0, nil }
+func (k *spawnerKiller) ListSessions(_ context.Context) ([]string, error) {
+	return nil, nil
+}
+
+func (k *spawnerKiller) calls() []string {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	out := make([]string, len(k.callOrder))
+	copy(out, k.callOrder)
+	return out
+}
+
+// TestLauncher_LaunchRacingEndOnTheSameIDCannotInterleave covers REQ-5(e)/D4's second
+// half: an End call for the id Launch just allocated, fired while Launch's own tmux spawn
+// for that same id is still in flight, must not run its kill until the spawn (and
+// RecordLaunch) has finished — the manager's per-id lock (REQ-11, shared by End and by
+// Launch's spawnAndRecordLaunch) serializes them. A build that dropped or narrowed that
+// lock would let End's KillSession fire while NewSession is still blocked below, which
+// this test would catch as a call-order violation.
+func TestLauncher_LaunchRacingEndOnTheSameIDCannotInterleave(t *testing.T) {
+	st := openLauncherTestStore(t)
+	dir := t.TempDir()
+	fake := newSpawnerKiller()
+	fake.newSessHold = true
+	mgr := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop(), SessionKiller: fake})
+
+	l := &sessionLauncher{
+		store: st, manager: mgr, tmux: fake, log: zerolog.Nop(), claudeBin: "irrelevant-never-reached",
+		hookScript: "/bin/true", statusLineScript: "/bin/true",
+	}
+
+	launchDone := make(chan *launchError, 1)
+	go func() {
+		_, lerr := l.Launch(context.Background(), createSessionRequest{
+			Directory: dir, Model: "sonnet", PermissionMode: "default",
+		})
+		launchDone <- lerr
+	}()
+
+	// Wait for Launch's spawn to actually be in flight (and, by construction, holding
+	// the id's per-id lock) before racing End against it.
+	require.Eventually(t, func() bool {
+		calls := fake.calls()
+		return len(calls) > 0 && calls[0] == "NewSession-start"
+	}, 3*time.Second, 10*time.Millisecond)
+
+	rows, err := st.ListSessions(context.Background())
+	require.NoError(t, err)
+	require.Len(t, rows, 1, "CreateSession must have already allocated the row Launch is spawning for")
+	id := rows[0].ID
+
+	endDone := make(chan error, 1)
+	go func() {
+		_, endErr := mgr.End(context.Background(), id)
+		endDone <- endErr
+	}()
+
+	// End must not have completed its kill yet — Launch's spawn (and RecordLaunch) is
+	// still holding id's per-id lock.
+	select {
+	case <-endDone:
+		t.Fatal("REQ-5(e)/D4: End completed while Launch's spawn for the same id was still blocked — the per-id lock did not serialize them")
+	case <-time.After(300 * time.Millisecond):
+	}
+
+	close(fake.newSessRel)
+	require.Nil(t, <-launchDone)
+	require.NoError(t, <-endDone)
+
+	assert.Equal(t, []string{"NewSession-start", "NewSession-end", "KillSession"}, fake.calls(),
+		"End's kill must land strictly after Launch's spawn finished, never interleaved with it")
 }
 
 // TestHandleEndSession_AlreadyDeadSessionIs409NotAlive covers D17's first clause

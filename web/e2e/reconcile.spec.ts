@@ -1,6 +1,7 @@
 import { expect, test } from "./helpers/fixtures";
 import { envelopedSessionStart, rawUserPromptSubmit } from "./helpers/payloads";
 import {
+  envelopeOpts,
   findSession,
   getState,
   launchSession,
@@ -30,7 +31,7 @@ test("a session whose pane died while the daemon was down reconciles to ended an
     const session = await launchSession(page, daemon, { directory: dir, title: "reconcile-e2" });
     const claudeId = "claude-reconcile-e2";
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
     const card = sessionCard(page, "reconcile-e2");
     await expect(stateBadge(card)).toHaveText(/started/i);
@@ -84,7 +85,7 @@ test("a live session survives the default ask-on-exit policy under this harness'
     const session = await launchSession(page, daemon, { directory: dir, title: "survive-e3" });
     const claudeId = "claude-survive-e3";
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
     await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit(claudeId) });
     const card = sessionCard(page, "survive-e3");
@@ -123,7 +124,7 @@ test("stopping the daemon with -on-exit=kill kills the tmux session and the next
     const session = await launchSession(page, daemon, { directory: dir, title: "kill-e4" });
     const claudeId = "claude-kill-e4";
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
     expect(await daemon.tmuxPaneExists(session.tmuxTarget)).toBe(true);
 
@@ -164,7 +165,7 @@ test("a session whose daemon is restarted while its pane stays alive comes back 
     const session = await launchSession(page, daemon, { directory: dir, title: "repair-e3" });
     const claudeId = "claude-repair-e3";
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
     const card = sessionCard(page, "repair-e3");
     await expect(stateBadge(card)).toHaveText(/started/i);

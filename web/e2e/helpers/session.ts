@@ -113,6 +113,21 @@ export interface SessionObject {
 }
 
 /**
+ * Plan general-cleanup REQ-12: `{ musterSession, tmuxPane }` for a launched session's
+ * real pane, the envelope opts every `envelopedSessionStart` / `sessionStartResume` /
+ * `envelopedStatusLine*` call site states explicitly now that `tmuxPane` has no fixture
+ * default (kb:adr/ingest-envelope-pane-must-corroborate — a stale/absent pane persists
+ * the event unrouted). Spread the result and override/add fields as needed, e.g.
+ * `{ ...(await envelopeOpts(session, daemon())), source: "clear" }`.
+ */
+export async function envelopeOpts(
+  session: SessionObject,
+  daemon: ScratchDaemon,
+): Promise<{ musterSession: number; tmuxPane: string }> {
+  return { musterSession: session.id, tmuxPane: await daemon.tmuxPaneId(session.tmuxTarget) };
+}
+
+/**
  * Launches a session via the real `POST /api/sessions`, using the page's already-authed
  * cookie (the endpoint requires the UI cookie per kb:anchor/transport / kb:anchor/sessions.create). Defaults to the
  * haiku model and "default" permission mode when the caller doesn't care.

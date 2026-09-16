@@ -22,6 +22,7 @@ import {
   rawUserPromptSubmit,
 } from "./helpers/payloads";
 import {
+  envelopeOpts,
   findSession,
   getState,
   launchSession,
@@ -84,10 +85,10 @@ test("a pre-first-response status post leaves the unknown rendering unchanged �
     const claudeId = "claude-gauge-e2";
 
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
     const statusRes = await request.post(daemon.ingestURL("status"), {
-      data: envelopedStatusLinePreFirstResponse(claudeId, { musterSession: session.id }),
+      data: envelopedStatusLinePreFirstResponse(claudeId, await envelopeOpts(session, daemon)),
     });
     expect(statusRes.status()).toBe(200);
 
@@ -121,11 +122,11 @@ test("a full status post renders the Focus rail card's context row with track, r
     const claudeId = "claude-gauge-e3";
 
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
     await request.post(daemon.ingestURL("status"), {
       data: envelopedStatusLineFull(claudeId, {
-        musterSession: session.id,
+        ...(await envelopeOpts(session, daemon)),
         contextUsedPct: 42,
         totalInputTokens: 84000,
       }),
@@ -152,11 +153,11 @@ test("the same status data renders in the Tiles view's tile header (E4)", async 
     const claudeId = "claude-gauge-e4";
 
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
     await request.post(daemon.ingestURL("status"), {
       data: envelopedStatusLineFull(claudeId, {
-        musterSession: session.id,
+        ...(await envelopeOpts(session, daemon)),
         contextUsedPct: 42,
         totalInputTokens: 84000,
       }),
@@ -196,11 +197,11 @@ test("a full status post fills both masthead gauge bars with rounded percentages
     const claudeId = "claude-gauge-e5";
 
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
     await request.post(daemon.ingestURL("status"), {
       data: envelopedStatusLineFull(claudeId, {
-        musterSession: session.id,
+        ...(await envelopeOpts(session, daemon)),
         fiveHourPct: 45,
         sevenDayPct: 10,
         model: { id: "claude-haiku-4-5-20251001", displayName: "Haiku 4.5" },
@@ -238,17 +239,17 @@ test("two identical rapid status posts persist exactly one usage_sample row; a c
     const claudeId = "claude-gauge-e6";
 
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
 
     // The measured ~435ms close-pair cadence (canary-fields.md "Invocation cadence") —
     // two byte-identical posts (no options overridden, so both calls build the exact
     // same payload) must collapse to one usage_sample row.
     await request.post(daemon.ingestURL("status"), {
-      data: envelopedStatusLineFull(claudeId, { musterSession: session.id }),
+      data: envelopedStatusLineFull(claudeId, await envelopeOpts(session, daemon)),
     });
     await request.post(daemon.ingestURL("status"), {
-      data: envelopedStatusLineFull(claudeId, { musterSession: session.id }),
+      data: envelopedStatusLineFull(claudeId, await envelopeOpts(session, daemon)),
     });
 
     // A third post with a genuinely different value. Wait for ITS distinct effect to
@@ -257,7 +258,10 @@ test("two identical rapid status posts persist exactly one usage_sample row; a c
     // posts before it are guaranteed to have already been recorded (or deduped) —
     // no fixed sleep needed to "wait out" the earlier posts.
     await request.post(daemon.ingestURL("status"), {
-      data: envelopedStatusLineFull(claudeId, { musterSession: session.id, fiveHourPct: 75 }),
+      data: envelopedStatusLineFull(claudeId, {
+        ...(await envelopeOpts(session, daemon)),
+        fiveHourPct: 75,
+      }),
     });
     await expect(mastheadBucket(page, "5h")).toContainText("75%");
 
@@ -281,13 +285,13 @@ test("a status post's session name updates the card title and its model updates 
     const claudeId = "claude-gauge-e7";
 
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
     await expect(sessionCard(page, "untitled")).toBeVisible();
 
     await request.post(daemon.ingestURL("status"), {
       data: envelopedStatusLineFull(claudeId, {
-        musterSession: session.id,
+        ...(await envelopeOpts(session, daemon)),
         sessionName: "gauge-e7-status-title",
         model: { id: "claude-opus-5", displayName: "Opus 5" },
       }),
@@ -316,7 +320,7 @@ test("a status post sent while a session is needs_input leaves its state, stateS
     const claudeId = "claude-gauge-e8";
 
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
     await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit(claudeId) });
     await request.post(daemon.ingestURL("hook"), {
@@ -329,7 +333,7 @@ test("a status post sent while a session is needs_input leaves its state, stateS
     expect(before.attention).not.toBeNull();
 
     await request.post(daemon.ingestURL("status"), {
-      data: envelopedStatusLineFull(claudeId, { musterSession: session.id }),
+      data: envelopedStatusLineFull(claudeId, await envelopeOpts(session, daemon)),
     });
     // Wait for the status post's own visible effect (the context row filling in)
     // before reading the state oracle, so ApplyStatus is guaranteed to have already run.
@@ -368,10 +372,10 @@ test("with two live sessions, a status post routed to one leaves the other's car
     const claudeB = "claude-gauge-e9-b";
 
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeA, { musterSession: sessionA.id }),
+      data: envelopedSessionStart(claudeA, await envelopeOpts(sessionA, daemon)),
     });
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeB, { musterSession: sessionB.id }),
+      data: envelopedSessionStart(claudeB, await envelopeOpts(sessionB, daemon)),
     });
     await expect(cardA.getByText(/ctx\s+unknown/i)).toBeVisible();
     await expect(cardB.getByText(/ctx\s+unknown/i)).toBeVisible();
@@ -379,7 +383,7 @@ test("with two live sessions, a status post routed to one leaves the other's car
     const beforeA = findSession(await getState(page, daemon), sessionA.id);
 
     await request.post(daemon.ingestURL("status"), {
-      data: envelopedStatusLineFull(claudeB, { musterSession: sessionB.id }),
+      data: envelopedStatusLineFull(claudeB, await envelopeOpts(sessionB, daemon)),
     });
 
     // Wait for B's own visible effect, and the (account-global) masthead's, before
@@ -408,10 +412,10 @@ test("/clear returns the context row to ctx unknown and resets the compaction co
     const originalClaudeId = "claude-gauge-e10-orig";
 
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(originalClaudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(originalClaudeId, await envelopeOpts(session, daemon)),
     });
     await request.post(daemon.ingestURL("status"), {
-      data: envelopedStatusLineFull(originalClaudeId, { musterSession: session.id }),
+      data: envelopedStatusLineFull(originalClaudeId, await envelopeOpts(session, daemon)),
     });
     await expect(cardContextRow(card)).toContainText("42%");
 
@@ -429,7 +433,10 @@ test("/clear returns the context row to ctx unknown and resets the compaction co
 
     const newClaudeId = "claude-gauge-e10-new";
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(newClaudeId, { musterSession: session.id, source: "clear" }),
+      data: envelopedSessionStart(newClaudeId, {
+        ...(await envelopeOpts(session, daemon)),
+        source: "clear",
+      }),
     });
 
     await expect(stateBadge(card)).toHaveText(/started/i);
@@ -457,10 +464,10 @@ test("after a daemon restart the masthead reads unknown until a fresh post, whil
     const claudeId = "claude-gauge-e11";
 
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
     await request.post(daemon.ingestURL("status"), {
-      data: envelopedStatusLineFull(claudeId, { musterSession: session.id }),
+      data: envelopedStatusLineFull(claudeId, await envelopeOpts(session, daemon)),
     });
     await expect(cardContextRow(card)).toContainText("42%");
     await expect(mastheadBucket(page, "5h")).toContainText("61%");
@@ -498,11 +505,11 @@ test("a status post at or above 60% renders the hot context track and the warn m
     const claudeId = "claude-gauge-e12";
 
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
     await request.post(daemon.ingestURL("status"), {
       data: envelopedStatusLineFull(claudeId, {
-        musterSession: session.id,
+        ...(await envelopeOpts(session, daemon)),
         contextUsedPct: 61,
         fiveHourPct: 61,
         sevenDayPct: 23,

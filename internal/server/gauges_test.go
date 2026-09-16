@@ -36,6 +36,7 @@ func TestIngestStatusLine_UpdatesSessionAndRecordsUsageSample(t *testing.T) {
 
 	body := claudecodetest.EnvelopedStatusLineFull("claude-status-1", claudecodetest.StatusLineFullOpts{
 		MusterSession: int(sess.ID),
+		TmuxPane:      "%1",
 		SessionName:   "From Status Line",
 	})
 	rec := postIngest(t, srv, "/ingest/"+testIngestToken+"/status", body)
@@ -76,7 +77,7 @@ func TestIngestStatusLine_PreFirstResponsePostLeavesContextUnknownAndRecordsNoSa
 	t.Cleanup(func() { srv.Shutdown(context.Background()) })
 	sess := seedLiveSession(t, srv)
 
-	body := claudecodetest.EnvelopedStatusLinePreFirstResponse("claude-status-2", int(sess.ID), "%12", "")
+	body := claudecodetest.EnvelopedStatusLinePreFirstResponse("claude-status-2", int(sess.ID), "%1", "")
 	rec := postIngest(t, srv, "/ingest/"+testIngestToken+"/status", body)
 	require.Equal(t, 200, rec.Code)
 
@@ -103,12 +104,12 @@ func TestIngestStatusLine_IdenticalPairPostDedupsThenAThirdChangedPostAddsASecon
 	t.Cleanup(func() { srv.Shutdown(context.Background()) })
 	sess := seedLiveSession(t, srv)
 
-	identical := claudecodetest.EnvelopedStatusLineFull("claude-status-3", claudecodetest.StatusLineFullOpts{MusterSession: int(sess.ID)})
+	identical := claudecodetest.EnvelopedStatusLineFull("claude-status-3", claudecodetest.StatusLineFullOpts{MusterSession: int(sess.ID), TmuxPane: "%1"})
 	require.Equal(t, 200, postIngest(t, srv, "/ingest/"+testIngestToken+"/status", identical).Code)
 	require.Equal(t, 200, postIngest(t, srv, "/ingest/"+testIngestToken+"/status", identical).Code)
 
 	changed := claudecodetest.EnvelopedStatusLineFull("claude-status-3", claudecodetest.StatusLineFullOpts{
-		MusterSession: int(sess.ID), FiveHourPct: 65,
+		MusterSession: int(sess.ID), TmuxPane: "%1", FiveHourPct: 65,
 	})
 	require.Equal(t, 200, postIngest(t, srv, "/ingest/"+testIngestToken+"/status", changed).Code)
 
@@ -134,7 +135,7 @@ func TestIngestStatusLine_NeverTouchesSessionStateWhileNeedsInput(t *testing.T) 
 
 	const claudeID = "claude-status-4"
 	require.Equal(t, 200, postIngest(t, srv, "/ingest/"+testIngestToken+"/hook",
-		claudecodetest.EnvelopedSessionStart(claudeID, claudecodetest.SessionStartOpts{MusterSession: int(sess.ID), Source: "startup"})).Code)
+		claudecodetest.EnvelopedSessionStart(claudeID, claudecodetest.SessionStartOpts{MusterSession: int(sess.ID), Source: "startup", TmuxPane: "%1"})).Code)
 	promptID := "p1"
 	require.Equal(t, 200, postIngest(t, srv, "/ingest/"+testIngestToken+"/hook",
 		claudecodetest.RawPermissionRequest(claudeID, promptID)).Code)
@@ -148,7 +149,7 @@ func TestIngestStatusLine_NeverTouchesSessionStateWhileNeedsInput(t *testing.T) 
 	require.NotNil(t, before.Attention)
 	beforeSince := before.Attention.Since
 
-	body := claudecodetest.EnvelopedStatusLineFull(claudeID, claudecodetest.StatusLineFullOpts{MusterSession: int(sess.ID)})
+	body := claudecodetest.EnvelopedStatusLineFull(claudeID, claudecodetest.StatusLineFullOpts{MusterSession: int(sess.ID), TmuxPane: "%1"})
 	require.Equal(t, 200, postIngest(t, srv, "/ingest/"+testIngestToken+"/status", body).Code)
 
 	require.Eventually(t, func() bool {
@@ -184,7 +185,7 @@ func TestIngestStatusLine_RoutedToOneSessionLeavesTheOtherUnaffected(t *testing.
 	require.Nil(t, beforeA.Context)
 
 	body := claudecodetest.EnvelopedStatusLineFull("claude-status-b", claudecodetest.StatusLineFullOpts{
-		MusterSession: int(sessB.ID), SessionName: "Session B",
+		MusterSession: int(sessB.ID), TmuxPane: "%1", SessionName: "Session B",
 	})
 	require.Equal(t, 200, postIngest(t, srv, "/ingest/"+testIngestToken+"/status", body).Code)
 

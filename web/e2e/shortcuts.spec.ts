@@ -2,7 +2,13 @@ import { type APIRequestContext, expect, type ScratchDaemon, test } from "./help
 import { launchDialog, openLaunchDialog } from "./helpers/picker";
 import { envelopedSessionStart, rawNotification, rawUserPromptSubmit } from "./helpers/payloads";
 import { pinButton, railCard, railOrderIds, railSortSelect } from "./helpers/railorder";
-import { launchSession, scratchDirectory, type SessionObject, stateBadge } from "./helpers/session";
+import {
+  envelopeOpts,
+  launchSession,
+  scratchDirectory,
+  type SessionObject,
+  stateBadge,
+} from "./helpers/session";
 import {
   activeElementInsideTerminal,
   liveTile,
@@ -41,7 +47,7 @@ async function makeNeedsInput(
   claudeId: string,
 ): Promise<void> {
   await request.post(daemon.ingestURL("hook"), {
-    data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+    data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
   });
   await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit(claudeId) });
   await request.post(daemon.ingestURL("hook"), {

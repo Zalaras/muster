@@ -11,17 +11,20 @@
 // page's own socket was live). Wired: `onConnecting`/`onHello`/`onDisconnected` (feed
 // `createConnectionState`, the only thing standing between "unreachable" being true or
 // false), `onSnapshot`/`onSessionUpsert`/`onDocChanged` (the reader reads the store and
-// this event directly). Deliberately not wired: `onSessionRemoved` — `initReader`'s own
-// `sessionRemoved` subscription is gated `if (!standalone)`, so it would be a dead wire
-// here regardless; `onPrefs`/`onUsage`/`onClaudeTheme`/`onUpdate` (`features/reader.ts`
-// calls `app.on` only for `"docChanged"`, `"snapshot"` and `"sessionRemoved"` — no
-// feature on this page reads any of the other four); and `onProtocolMismatch` (the
-// plan's States table has no mismatch row for `/doc.html`, and a full takeover needs the
-// shell/banner markup this page doesn't have).
+// this event directly), `onPrefs`/`onClaudeTheme` (plan general-cleanup REQ-9 — an open
+// pop-out follows a live theme change the same way the dashboard does; `initTheme` below
+// is the same controller `main.ts` registers, with a no-op `surfaces.applyTheme` since
+// this page has no terminal surfaces to re-theme). Deliberately not wired:
+// `onSessionRemoved` — `initReader`'s own `sessionRemoved` subscription is gated
+// `if (!standalone)`, so it would be a dead wire here regardless; `onUsage`/`onUpdate`
+// (no feature on this page reads either); and `onProtocolMismatch` (the plan's States
+// table has no mismatch row for `/doc.html`, and a full takeover needs the shell/banner
+// markup this page doesn't have).
 import { createApp } from "./app";
 import { requireElement } from "./dom";
 import { createConnectionState } from "./features/connection";
 import { initReader } from "./features/reader";
+import { initTheme } from "./features/theme";
 import { WsClient } from "./ws";
 
 function readQuery(): { sessionId: number | null; path: string | null } {
@@ -55,6 +58,11 @@ if (sessionId === null) {
   const root = reader.rootFor(sessionId);
   if (root) host.replaceChildren(root);
 
+  // REQ-9: same controller `main.ts` registers, with a no-op `surfaces.applyTheme` — this
+  // page has no terminal surfaces to re-theme. Registered before the socket starts, like
+  // `main.ts`'s own init order, so nothing it listens for can fire before it's wired.
+  initTheme(app, { surfaces: { applyTheme() {} } });
+
   setInterval(app.render, 1000);
   app.render();
 
@@ -68,6 +76,10 @@ if (sessionId === null) {
     onHello: () => connection.connected(),
     onSnapshot: (snapshot) => {
       app.store.replaceAll(snapshot.sessions);
+      // Mirrors `main.ts`'s own onSnapshot: the live `prefs` broadcast only fires on a
+      // change (`internal/server/prefs.go`), so the initial theme choice — like the
+      // dashboard's — comes from the snapshot itself, not just later broadcasts.
+      app.emit("prefs", snapshot.prefs);
       app.emit("snapshot", snapshot);
       app.render();
     },
@@ -75,6 +87,11 @@ if (sessionId === null) {
       app.store.upsert(session);
       app.render();
     },
+    onPrefs: (prefs) => {
+      app.emit("prefs", prefs);
+      app.render();
+    },
+    onClaudeTheme: (family) => app.emit("claudeTheme", family),
     onDocChanged: (msg) => {
       app.emit("docChanged", msg);
       app.render();

@@ -422,6 +422,57 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
 
 ## Pre-v1 Cleanup
 
+- [x] **Flaky: drop-paste E14 in `web/e2e/plain-shell.spec.ts`** ✅ done 2026-09-16 (plan `general-cleanup`, via `/orchestrate`; approved review cycle 1) (added 2026-09-15) — "a file
+  dropped on a shell surface pastes its escaped path (E14, REQ-11)" went red once in three full
+  `make e2e` runs on an unrelated tree, `Pane isn't connected — nothing pasted`
+  (`web/src/terminal/drop.ts:92`): the drop lands before the pane attaches, an attach race that
+  only fires under full-suite worker fan-out (6/6 green in isolation). Found by
+  `plan:mermaid-support`'s review cycle 5, which touches nothing that spec exercises. Costs a
+  ~4-minute sweep to rediscover, and will bite the next plan's reviewer the same way.
+
+- [x] **Flaky: `TestInstalledVersion_DescendantHoldingStdoutDoesNotHangStartup`** ✅ done 2026-09-16 (plan `general-cleanup`, via `/orchestrate`; approved review cycle 1) (added
+  2026-09-15) — `internal/claudecode/version_test.go:96` asserts a 15 s wall-clock bound around a
+  subprocess with a 2 s `WaitDelay`, and fails on the first `make test` after a `make e2e` sweep
+  (green twice in isolation immediately after: `ok … 7.1s`, `ok … 6.8s`). A 15 s bound on a
+  contended machine is the flake. Named by `plan:mermaid-support`'s review cycle 5 after cycle 4
+  saw it as an anonymous red.
+
+- [x] **`triage`'s `CheckVersion` regex rejects dev-build version strings** ✅ done 2026-09-16 (plan `general-cleanup`, via `/orchestrate`; approved review cycle 1) —
+  `internal/triage/checks.go`'s `reVersion` (`^[0-9]+(\.[0-9]+)*(-[A-Za-z0-9.]+)?$`) requires no
+  leading `v` and only one `-suffix` group. A local dev build's `musterd.version` comes from
+  `git describe --tags --always --dirty` (`Makefile:6`), e.g. `v0.12.6-9-gc6056aa` — leading `v`
+  plus a second dash in the commit-count/hash suffix, so it fails the regex on both counts. The
+  field gets silently dropped (`ValidateSnapshot`), which alone is enough to route an otherwise
+  clean, self-filed (`OWNER`/`MEMBER`) issue to the facts-only path (`Route`'s `Flags dominate
+  association` rule) — confirmed by pulling #24 and #25's raw snapshots and diffing keys against
+  `Schema`; both trip on exactly this field, nothing else. Fix: loosen `reVersion` to accept the
+  `git describe` shape (optional leading `v`, optional `-N-gHASH`, optional `-dirty`), or
+  normalize `musterd.version` before embedding it in the snapshot.
+
+- [x] **Restore focus when an action button goes `disabled` on a daemon drop** ✅ done 2026-09-16 (plan `general-cleanup`, via `/orchestrate`; approved review cycle 1) — app-wide, not
+  reader-specific. Every action button (`mainhead` End/Resume/Remove, dead-surface Resume, tile
+  actions, and the `claude | shell | docs` segment) sets `disabled = !connected`; if one holds
+  keyboard focus when the socket drops, focus falls to `<body>` and the user must Tab back from the
+  top. Predates the reader (`ac2b62c`); surfaced by the `markdown-viewing` review (cycle 4), where
+  fixing only the reader's instance was deliberately declined as inconsistent. Fix once, for all of
+  them.
+
+- [x] **Pop-out paints "musterd unreachable" for 1-2 frames on load** ✅ done 2026-09-16 (plan `general-cleanup`, via `/orchestrate`; approved review cycle 1) — `/doc.html` shows the
+  unreachable notice for an 11-14 ms window before its socket's first `hello` (measured twice:
+  94→105 ms and 116→130 ms, over the placeholder body, which itself first paints at 139/172 ms).
+  `RenderFrame.connected` collapses `"connecting"` and `"reconnecting"` to one input
+  (`app.ts:99`), so `ReaderInstance.render` maps both to the unreachable text. The fix means
+  teaching that render a third connection input — live code shared by four hosts — which the
+  `markdown-viewing` reviewer judged not worth doing inside that plan (cycle 6, note 1). Sub-
+  perceptual today; do it with the next change to that render path.
+
+- [x] **An open pop-out doesn't follow a live theme change** ✅ done 2026-09-16 (plan `general-cleanup`, via `/orchestrate`; approved review cycle 1) — it keeps the theme it loaded with
+  until reloaded (measured: dashboard `instrument`→`light`, pop-out stays dark; reload fixes it).
+  `initTheme` runs only in `main.ts`, so `/doc.html`'s theme comes entirely from its first-paint
+  hint script, which reads `localStorage` once. Nothing false is asserted and the plan required
+  only the hint script (W19), but two windows side by side in opposite themes is user-visible.
+  From the `markdown-viewing` review, cycle 6 note 2.
+
 - ~~**`make refs` is red in any fresh clone or worktree** / **`make check` cannot pass in a git worktree**~~ — **dropped 2026-09-16** (the developer, during pre-v1 non-feature triage): both entries described the same gap (`dead-refs.py` resolving gitignored paths); removed from the backlog rather than fixed.
 
 <!-- kb: adr/process-composition-roots-registration-only, adr/process-one-name-per-feature, adr/rail-user-owned-manual-order-default, adr/tiles-slot-stable-grid-never-self-sorts, adr/theme-no-traffic-light-state-palette, adr/usage-model-window-polled-from-oauth-api, adr/launch-picker-recent-sidebar-plus-browse-list, adr/tiles-new-session-button-in-toolbar, adr/connection-dashboard-embedded-in-binary, adr/release-builds-cross-compiled-on-linux, adr/release-distribution-github-release-not-brew, adr/release-no-ci-test-job-yet, adr/issue-payload-allowlist-never-dump, adr/process-e2e-explicit-fixtures, adr/process-faked-subprocess-boundary, adr/process-exec-waitdelay-on-pipe-owning-commands, adr/canary-plan-mode-step-three-sole-residual, adr/canary-verified-range-observed-not-pinned, adr/process-repo-public, adr/release-install-front-door-curl-sh, adr/update-check-pref-governs-checking-only, adr/process-transient-displays-not-oracles, adr/triage-program-not-model-between-github-and-todo -->
@@ -1070,6 +1121,75 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
   wants its own ADR. Cite: `plans/new-ui-design-colors/review.md` (cycle 1, Minor 1, `[web-impl]`).
 
 ## Reported issues (pre-v1 release)
+
+- [x] **Ingest: corroborate an envelope against the pane it came from** ✅ done 2026-09-16 (plan `general-cleanup`, via `/orchestrate`; approved review cycle 1) — `resolveSessionID`
+  (`internal/server/ingest.go`) trusts an envelope's `musterSession` on bare map membership
+  (`Manager.Exists`): no pane check, no `created_at`, no generation. `session.tmux_pane` has been
+  labelled "envelope corroboration" since `0002_sessions.sql:24` and is compared nowhere, and
+  `event.tmux_pane` is persisted and never read. Deferred from plan `session-lifecycle`, which
+  closed the severe case a different way — ids are now monotonic
+  (`kb:adr/lifecycle-session-ids-monotonic-never-reused`), so a stale pane can no longer bind to a
+  *different* session that reused its id. The residual window is a straggler from before a resume,
+  on the same row, which is benign. Worth its own plan because the e2e fixtures hardcode
+  `musterSession: 1` (`web/e2e/helpers/payloads.ts:84-108`), so the blast radius is wide — and
+  `plans/plain-terminal-session/test-specs.md:196` records this repo already being bitten once by a
+  fixture that silently enveloped to session 1.
+
+- [x] **`-on-exit=kill` does not kill shells, and the prompt does not say so** ✅ done 2026-09-16 (plan `general-cleanup`, via `/orchestrate`; approved review cycle 1) — `EndAll` and
+  `Server.Shutdown` never touch `shellRegistry`, so after a "kill" shutdown every
+  `muster-<n>-shell` is still on the socket, reaped only by the *next* daemon start's reconcile.
+  If the user never restarts, they run indefinitely — including a nested `claude` firing unrouted
+  hooks (`kb:adr/surfaces-shell-pane-carries-no-session-env`). The `ask` prompt says "N live
+  sessions … kill them?" and does not mention the shells it will leave. Either kill them too or say
+  so; `kb:adr/surfaces-shell-lifetime-until-exit-remove-or-reconcile` currently lists exit, Remove
+  and reconcile — not shutdown — so changing it is a decision, not a bug fix. **Decided 2026-09-16
+  (the developer): kill them too.** `kill` kills every shell alongside the sessions and the `ask` prompt
+  counts them ("N live sessions and M shells"); `leave` leaves shells running as it does sessions
+  (reconcile kills them at the next start regardless). The fixing plan carries a `proposed` ADR
+  superseding the record above, adding shutdown-with-kill to the shell's lifetime list.
+
+- [x] **Raw tmux stderr is echoed into HTTP error bodies** ✅ done 2026-09-16 (plan `general-cleanup`, via `/orchestrate`; approved review cycle 1) — `sessions.go`'s `end_failed` and
+  `launch_failed` paths and `shells.go`'s `shell_spawn_failed` put `err.Error()` straight into the
+  response the dashboard renders. Plan `session-lifecycle` removed the worst instance (a name
+  collision no longer surfaces raw stderr), but the general pattern remains: tmux vocabulary
+  reaching the user, and paths leaking into a browser.
+
+- [x] **`TestIngestRouting_StragglerFromBeforeAClearNeverMovesTranscriptOrPlan` fails under
+  `-race`, and flakes under load** ✅ done 2026-09-16 (plan `general-cleanup`, via `/orchestrate`; approved review cycle 1) — a fixed 2 s `require.Eventually` that cannot absorb either.
+  Verified 2026-09-14: 3/3 failures under `-race` on untouched `main`, passes without it. Then
+  observed again 2026-09-15 **without** `-race`, during a full `make check` on a loaded machine,
+  passing on an immediate re-run of the package — so "`-race` only" was too narrow: the detector
+  is just one way to push it past its own deadline. `make check` does not pass `-race`, so the
+  gate sees this only as an occasional flake. Not a product bug and not caused by plan
+  `session-lifecycle` (which touches neither ingest routing nor the reader path), but the next
+  person to hit it will reasonably assume they broke something. Give it a deadline proportional
+  to the work, or drive it off a signal instead of a timer.
+
+- [x] **REQ-12 of `session-lifecycle` shipped on inspection** ✅ done 2026-09-16 (plan `general-cleanup`, via `/orchestrate`; approved review cycle 1) — the per-id shell lock,
+  `ErrSessionExists` tolerance and bounded tmux contexts in `internal/server/shells.go` have no
+  failing test behind them, and neither do `KillSession`'s still-there / check-failed branches or
+  REQ-11's lock as used by Launch (D19 drives only Resume). Disclosed to review rather than
+  implied as covered. If a deterministic test for any of them becomes cheap, add it.
+
+- [x] **A context timeout reaches Go as an `ExitError`, not `context.DeadlineExceeded`** ✅ done 2026-09-16 (plan `general-cleanup`, via `/orchestrate`; approved review cycle 1) — found by
+  review cycle 3 while checking whether `session-lifecycle`'s new bounded contexts opened a second
+  door into the connection-failure collapse. `exec` surfaces a deadline kill as
+  `*exec.ExitError("signal: killed")`, so a hung tmux killed at its deadline reads as a normal
+  non-zero exit — i.e. as "gone". It is **not** a live defect today, and the reviewer traced every
+  bounded call site to confirm that: `KillSession`'s verification runs on the same already-expired
+  context and `exec` returns `ctx.Err()` before starting a process, the liveness poll's context is
+  the unbounded daemon context, and `endLocked`'s post-kill check only runs after a kill that
+  already succeeded. But that safety rests on two incidental facts. Give `KillSession`'s verify its
+  own fresh context, or bound the liveness poll, and it becomes a real defect with no test in the
+  way. Worth a guard or at least a comment at each of those two sites.
+
+- [x] **Edge case 5 of `markdown-render-fixes` is unpinned** ✅ done 2026-09-16 (plan `general-cleanup`, via `/orchestrate`; approved review cycle 1) — "a `docChanged` for the previously
+  open file arrives while a *different* file's open is in flight" cites `→ E10`, but E10 asserts a
+  routed write for the **open** file and a window `focus` event; neither drives the else branch the
+  case describes (`openPath` has already moved, so only dots refresh). Found by the retro's
+  duplicate-criterion sweep, not by a failure — the behaviour may well be correct, it is just
+  untested. Either add the assertion to `web/e2e/reader.spec.ts` or re-mark the case
+  `→ untested: <reason>`.
 
 - [x] **tmux: wrong-output** ([#26](https://github.com/Zalaras/muster/issues/26)) — fixed
   2026-09-15 by plan `session-lifecycle`. The reported error was a symptom: session ids were

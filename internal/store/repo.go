@@ -2,8 +2,6 @@ package store
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"time"
 )
@@ -36,68 +34,41 @@ type UpsertRepoParams struct {
 // updates the launch defaults and increments launch_count if present. The bool return
 // is true iff the row was newly created — the source of the Session's firstLaunchHere
 // field (kb:anchor/ws.session).
+//
+// A single `INSERT ... ON CONFLICT(path) DO UPDATE ... RETURNING` statement, not a
+// SELECT followed by an INSERT/UPDATE: the prior two-step check-then-insert let two
+// concurrent launches into the same never-before-seen directory both see "not found"
+// and both attempt an INSERT, so the loser hit `UNIQUE constraint failed: repo.path`
+// and sessionLauncher.Launch surfaced a plain 500 (daemon-tests,
+// TestLauncher_ConcurrentLaunchesForTheSameDirectoryProduceTwoDistinctRows). The store
+// already serializes all writes onto one connection (SetMaxOpenConns(1), this package's
+// CLAUDE.md), so a single statement is atomic with respect to every other caller; two
+// separate round trips through the connection pool were not. "Was this call's branch
+// the INSERT" is read off the returned launch_count rather than a follow-up existence
+// check (which would reopen the same race): every pre-existing row already has
+// launch_count >= 1 from its own first insert, so the UPDATE branch's `+ 1` can never
+// produce 1 — a returned launch_count of 1 is only reachable via the INSERT branch.
 func (s *Store) UpsertRepo(ctx context.Context, p UpsertRepoParams) (Repo, bool, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	existing, err := s.repoByPath(ctx, p.Path)
-	if errors.Is(err, sql.ErrNoRows) {
-		var res sql.Result
-		res, err = s.db.ExecContext(ctx, `
-			INSERT INTO repo (path, name, is_git, pinned, last_launched_at, launch_count, last_model, last_permission_mode, created_at)
-			VALUES (?, ?, ?, 0, ?, 1, ?, ?, ?)
-		`, p.Path, p.Name, boolToInt(p.IsGit), now, p.Model, p.PermissionMode, now)
-		if err != nil {
-			return Repo{}, false, fmt.Errorf("inserting repo %q: %w", p.Path, err)
-		}
-		var id int64
-		id, err = res.LastInsertId()
-		if err != nil {
-			return Repo{}, false, fmt.Errorf("reading new repo id for %q: %w", p.Path, err)
-		}
-		createdAt, _ := time.Parse(time.RFC3339, now)
-		lastLaunchedAt, _ := time.Parse(time.RFC3339, now)
-		return Repo{
-			ID:                 id,
-			Path:               p.Path,
-			Name:               p.Name,
-			IsGit:              p.IsGit,
-			LastLaunchedAt:     lastLaunchedAt,
-			LaunchCount:        1,
-			LastModel:          &p.Model,
-			LastPermissionMode: &p.PermissionMode,
-			CreatedAt:          createdAt,
-		}, true, nil
-	}
-	if err != nil {
-		return Repo{}, false, fmt.Errorf("looking up repo %q: %w", p.Path, err)
-	}
-
-	_, err = s.db.ExecContext(ctx, `
-		UPDATE repo SET name = ?, is_git = ?, last_launched_at = ?, launch_count = launch_count + 1,
-			last_model = ?, last_permission_mode = ?
-		WHERE id = ?
-	`, p.Name, boolToInt(p.IsGit), now, p.Model, p.PermissionMode, existing.ID)
-	if err != nil {
-		return Repo{}, false, fmt.Errorf("updating repo %q: %w", p.Path, err)
-	}
-
-	existing.Name = p.Name
-	existing.IsGit = p.IsGit
-	existing.LastLaunchedAt, _ = time.Parse(time.RFC3339, now)
-	existing.LaunchCount++
-	existing.LastModel = &p.Model
-	existing.LastPermissionMode = &p.PermissionMode
-	return existing, false, nil
-}
-
-// repoByPath looks up a repo row by its absolute directory path, returning
-// sql.ErrNoRows (wrapped by errors.Is) when absent.
-func (s *Store) repoByPath(ctx context.Context, path string) (Repo, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, path, name, is_git, pinned, last_launched_at, launch_count, last_model, last_permission_mode, created_at
-		FROM repo WHERE path = ?
-	`, path)
-	return scanRepo(row)
+		INSERT INTO repo (path, name, is_git, pinned, last_launched_at, launch_count, last_model, last_permission_mode, created_at)
+		VALUES (?, ?, ?, 0, ?, 1, ?, ?, ?)
+		ON CONFLICT(path) DO UPDATE SET
+			name = excluded.name,
+			is_git = excluded.is_git,
+			last_launched_at = excluded.last_launched_at,
+			launch_count = repo.launch_count + 1,
+			last_model = excluded.last_model,
+			last_permission_mode = excluded.last_permission_mode
+		RETURNING id, path, name, is_git, pinned, last_launched_at, launch_count, last_model, last_permission_mode, created_at
+	`, p.Path, p.Name, boolToInt(p.IsGit), now, p.Model, p.PermissionMode, now)
+
+	r, err := scanRepo(row)
+	if err != nil {
+		return Repo{}, false, fmt.Errorf("upserting repo %q: %w", p.Path, err)
+	}
+	return r, r.LaunchCount == 1, nil
 }
 
 // GetRepo looks up a repo row by id (used when building a Session's repo/branch wire

@@ -187,7 +187,7 @@ func (f *shellFeature) handleCreateShell(w http.ResponseWriter, r *http.Request)
 	target, created, err := f.registry.Ensure(context.WithoutCancel(r.Context()), id, sess.Directory)
 	if err != nil {
 		f.log.Error().Err(err).Int64("session_id", id).Msg("spawning shell failed")
-		writeJSONError(w, http.StatusInternalServerError, "shell_spawn_failed", err.Error())
+		writeJSONError(w, http.StatusInternalServerError, "shell_spawn_failed", msgShellSpawnFailed)
 		return
 	}
 
@@ -214,7 +214,7 @@ func (f *shellFeature) handleShellTerminal(w http.ResponseWriter, r *http.Reques
 	exists, perr := f.registry.tmux.PaneExists(r.Context(), shellTarget)
 	if perr != nil {
 		f.log.Error().Err(perr).Int64("session_id", id).Msg("checking shell pane failed")
-		writeJSONError(w, http.StatusInternalServerError, "internal_error", perr.Error())
+		writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
 		return
 	}
 	if !exists {

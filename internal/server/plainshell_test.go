@@ -201,6 +201,9 @@ func TestHandleCreateShell_SpawnFailureIs500ShellSpawnFailed(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 	assert.Equal(t, "shell_spawn_failed", decodeErrorCode(t, rec))
+	// D7/REQ-10: the body carries only the fixed phrase; the raw error lives in the log.
+	assert.Equal(t, msgShellSpawnFailed, decodeErrorMessage(t, rec))
+	assert.Contains(t, srv.logs.String(), "boom: tmux new-session failed", "D7: the raw error must reach the daemon log")
 }
 
 // TestHandleCreateShell_RequiresCookie covers the auth wiring for the new endpoint.

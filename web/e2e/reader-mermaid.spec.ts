@@ -28,7 +28,7 @@ import {
   renderedBody,
   writeMermaidFixture,
 } from "./helpers/reader";
-import { launchSession, scratchDirectory } from "./helpers/session";
+import { envelopeOpts, launchSession, scratchDirectory } from "./helpers/session";
 import { mainheadSurfaceButton, tileSurfaceButton } from "./helpers/shell";
 import { liveTileById } from "./helpers/terminal";
 import { openSettingsDialog, themeRadio } from "./helpers/theme";
@@ -62,7 +62,7 @@ async function openDiagramFile(
   await page.goto(daemon.dashboardUrl);
   const session = await launchSession(page, daemon, { directory: dir, title });
   await page.request.post(daemon.ingestURL("hook"), {
-    data: envelopedSessionStart(`claude-${title}`, { musterSession: session.id }),
+    data: envelopedSessionStart(`claude-${title}`, await envelopeOpts(session, daemon)),
   });
   await mainheadSurfaceButton(page, "docs").click();
   const region = readerRegion(page, title);
@@ -156,7 +156,7 @@ test("mermaid's chunk loads lazily only for a document with a fence, and every r
     await page.goto(daemon.dashboardUrl);
     const session = await launchSession(page, daemon, { directory: dir, title: "mmd-e5" });
     await page.request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-mmd-e5", { musterSession: session.id }),
+      data: envelopedSessionStart("claude-mmd-e5", await envelopeOpts(session, daemon)),
     });
     const tracker = new OriginRequestTracker(page, daemon.baseURL);
 
@@ -232,7 +232,7 @@ test("a routed Write hook for the open diagram file re-renders it with the chang
     const session = await launchSession(page, daemon, { directory: dir, title: "mmd-e7" });
     const claudeId = "claude-mmd-e7";
     await page.request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
     });
 
     await mainheadSurfaceButton(page, "docs").click();
@@ -489,7 +489,7 @@ test("heading ids and the outline are unchanged by a document that also carries 
     await page.goto(daemon.dashboardUrl);
     const session = await launchSession(page, daemon, { directory: dir, title: "mmd-req12" });
     await page.request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-mmd-req12", { musterSession: session.id }),
+      data: envelopedSessionStart("claude-mmd-req12", await envelopeOpts(session, daemon)),
     });
 
     await mainheadSurfaceButton(page, "docs").click();
@@ -642,7 +642,7 @@ test("switching to a plain file while a diagram file's fetch is still held disca
     await page.goto(daemon.dashboardUrl);
     const session = await launchSession(page, daemon, { directory: dir, title: "mmd-req10" });
     await page.request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-mmd-req10", { musterSession: session.id }),
+      data: envelopedSessionStart("claude-mmd-req10", await envelopeOpts(session, daemon)),
     });
 
     await mainheadSurfaceButton(page, "docs").click();

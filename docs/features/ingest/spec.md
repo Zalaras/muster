@@ -8,9 +8,9 @@ features: [ingest]
 tags: [envelope, claude-code-format]
 go: [internal/server/ingest*.go, internal/claudecode/ingest*.go, internal/claudecode/interpret*.go, internal/claudecode/settings*.go, internal/claudecode/doc.go, internal/claudecode/claudecodetest/**]
 web: []
-e2e: [web/e2e/ingest.spec.ts, web/e2e/subagent-status.spec.ts, web/e2e/helpers/payloads.ts]
+e2e: [web/e2e/general-cleanup.spec.ts, web/e2e/ingest.spec.ts, web/e2e/subagent-status.spec.ts, web/e2e/helpers/payloads.ts]
 protocol: [ingest, ingest.transport, ingest.envelope]
-refs: [kb:adr/ingest-all-hooks-command-wrappers, kb:adr/ingest-sessionstart-command-wrapper, kb:adr/ingest-envelope-binds-never-cwd, kb:adr/ingest-envelope-authoritative-binding, kb:adr/ingest-monotonic-rebind, kb:adr/ingest-seq-assigned-at-ingest, kb:adr/ingest-separate-token-in-url-path, kb:adr/ingest-hook-entries-permanent, kb:adr/ingest-shell-quote-at-write-boundary, kb:fact/sessionstart-not-over-http, kb:fact/command-hooks-inherit-pane-env, kb:fact/hook-commands-are-shell-lines, kb:fact/hook-delivery-best-effort, kb:fact/hook-payload-fields, kb:fact/status-line-keys, kb:fact/stopfailure-error-taxonomy, kb:fact/permission-mode-presence-split, kb:fact/local-settings-honoured]
+refs: [kb:adr/ingest-all-hooks-command-wrappers, kb:adr/ingest-sessionstart-command-wrapper, kb:adr/ingest-envelope-binds-never-cwd, kb:adr/ingest-envelope-pane-must-corroborate, kb:adr/ingest-envelope-authoritative-binding, kb:adr/ingest-monotonic-rebind, kb:adr/ingest-seq-assigned-at-ingest, kb:adr/ingest-separate-token-in-url-path, kb:adr/ingest-hook-entries-permanent, kb:adr/ingest-shell-quote-at-write-boundary, kb:fact/sessionstart-not-over-http, kb:fact/command-hooks-inherit-pane-env, kb:fact/hook-commands-are-shell-lines, kb:fact/hook-delivery-best-effort, kb:fact/hook-payload-fields, kb:fact/status-line-keys, kb:fact/stopfailure-error-taxonomy, kb:fact/permission-mode-presence-split, kb:fact/local-settings-honoured]
 ---
 Ingest is how Claude Code's hooks and status line reach the daemon. Two endpoints,
 `POST /ingest/{token}/hook` and `POST /ingest/{token}/status` (`kb:anchor/ingest`), receive
@@ -99,8 +99,11 @@ sequenceDiagram
 The daemon spawns every pane with `MUSTER_SESSION` in its environment, and command hooks
 inherit it (kb:fact/command-hooks-inherit-pane-env), so every post is enveloped as
 `{musterSession, tmuxPane, payload}` (`kb:anchor/ingest.envelope`). The envelope routes the
-event; a stale or unknown value is persisted unrouted, never guessed from `cwd`
-(kb:adr/ingest-envelope-binds-never-cwd). An enveloped `SessionStart` binds the Claude
+event, never guessed from `cwd` (kb:adr/ingest-envelope-binds-never-cwd), and routes only
+when its `tmuxPane` corroborates the session's recorded pane: it routes when the pane is
+present and equal to the stored one, or when the session's pane is not yet recorded (routes
+on `musterSession` alone); an absent or different pane is persisted unrouted
+(kb:adr/ingest-envelope-pane-must-corroborate). An enveloped `SessionStart` binds the Claude
 `session_id` to the Muster session; any enveloped non-status event with a different
 `session_id` is a `/clear`-style rebind, and one on a never-bound session binds it without a
 transition (kb:adr/ingest-envelope-authoritative-binding). Rebinding is monotonic: an event

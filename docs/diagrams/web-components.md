@@ -41,7 +41,7 @@ C4Component
             Component(doc, "doc.ts", "entry", "Pop-out reader composition root")
         }
         Boundary(rnd, "Render and seam") {
-            Component(render, "render/", "17 modules", "DOM only — view-model in, DOM out")
+            Component(render, "render/", "21 modules", "DOM only — view-model in, DOM out")
             Component(app, "app.ts", "seam", "Session store, shared state, typed event bus, render phases")
         }
         Boundary(leaves, "Leaves") {
@@ -50,7 +50,7 @@ C4Component
             Component(api, "api.ts", "fetch", "The only fetch to musterd; ApiResult, never throws")
             Component(terminal, "terminal/", "5 modules", "xterm.js surfaces and the per-terminal socket to musterd")
             Component(dom, "dom.ts", "helpers", "Element lookup")
-            Component(reader, "reader/", "6 modules", "Markdown render, nav tree, per-session memory in localStorage")
+            Component(reader, "reader/", "9 modules", "Markdown render, nav tree, per-session memory in localStorage")
             Component(sessions, "sessions/", "8 modules", "Pure derivation — view-models, sort, tile math, formatters")
             Component(theme, "theme.ts", "registry", "Theme choice; first-paint hint in localStorage")
             Component(shortcuts, "shortcuts.ts", "pure", "Keyboard chord table")
@@ -61,7 +61,7 @@ C4Component
     Rel(main, ws, "constructs")
     Rel(main, app, "creates")
     Rel(main, render, "drop guard")
-    Rel(doc, features, "reader, connection")
+    Rel(doc, features, "reader, connection, theme")
     Rel(doc, ws, "constructs")
     Rel(doc, dom, "mounts host")
     Rel(doc, app, "creates")

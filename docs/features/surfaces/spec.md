@@ -10,7 +10,7 @@ go: [internal/server/terminal*.go, internal/server/shells*.go, internal/server/p
 web: [web/src/features/surfaces.ts, web/src/terminal/**]
 e2e: [web/e2e/terminal.spec.ts, web/e2e/shell.spec.ts, web/e2e/plain-shell.spec.ts, web/e2e/helpers/terminal.ts, web/e2e/helpers/shell.ts]
 protocol: [terminal.ws, terminal.shell-ws, sessions.shell]
-refs: [kb:adr/surfaces-shared-attach-single-pty, kb:adr/surfaces-one-live-client-per-session, kb:adr/surfaces-one-live-client-per-attach-target, kb:adr/surfaces-one-tmux-session-per-session, kb:adr/surfaces-scrollback-affordance-not-built, kb:adr/surfaces-scroll-speed-via-launch-env, kb:adr/surfaces-shell-is-attach-target-not-session, kb:adr/surfaces-shell-spawn-http-then-attach-ws, kb:adr/surfaces-shell-lifetime-until-exit-remove-or-reconcile, kb:adr/surfaces-shell-pane-carries-no-session-env, kb:adr/surfaces-shell-control-in-tile-footer, kb:adr/surfaces-tmux-preflight-at-startup, kb:adr/surfaces-detach-on-destroy-on, kb:adr/theme-terminal-ground-follows-claude-family, kb:adr/stack-terminal-rendering-xterm-js, kb:fact/scroll-speed-env-present, docs/design/design-system.md]
+refs: [kb:adr/surfaces-shared-attach-single-pty, kb:adr/surfaces-one-live-client-per-session, kb:adr/surfaces-one-live-client-per-attach-target, kb:adr/surfaces-one-tmux-session-per-session, kb:adr/surfaces-scrollback-affordance-not-built, kb:adr/surfaces-scroll-speed-via-launch-env, kb:adr/surfaces-shell-is-attach-target-not-session, kb:adr/surfaces-shell-spawn-http-then-attach-ws, kb:adr/surfaces-shell-dies-at-kill-shutdown-too, kb:adr/surfaces-shell-pane-carries-no-session-env, kb:adr/surfaces-shell-control-in-tile-footer, kb:adr/surfaces-tmux-preflight-at-startup, kb:adr/surfaces-detach-on-destroy-on, kb:adr/theme-terminal-ground-follows-claude-family, kb:adr/stack-terminal-rendering-xterm-js, kb:fact/scroll-speed-env-present, docs/design/design-system.md]
 ---
 A surface is a live, interactive terminal embedded in the dashboard: view output, click,
 type and prompt. Sessions run inside tmux on a dedicated socket, one tmux session per
@@ -50,13 +50,14 @@ A session may carry a plain shell as a second attach target, switched by a `clau
 segment in the mainhead and in a tile's footer (kb:adr/surfaces-shell-control-in-tile-footer).
 The shell is spawned lazily by `kb:anchor/sessions.shell` and attached over
 `kb:anchor/terminal.shell-ws`, which never spawns, so a spawn failure has a body the
-dashboard can render (kb:adr/surfaces-shell-spawn-http-then-attach-ws). It runs the user's
+dashboard can render — a fixed-phrase message, with the raw tmux/OS error in the daemon
+log only (kb:adr/surfaces-shell-spawn-http-then-attach-ws). It runs the user's
 interactive shell in the session's directory with no Muster session environment, so a
 nested `claude` cannot drive the parent's state (kb:adr/surfaces-shell-pane-carries-no-session-env).
 A shell is not a session: no row, card, state or wire kind
 (kb:adr/surfaces-shell-is-attach-target-not-session). It outlives End and view switches, can
-open on a dead session, and dies on exit, Remove or reconcile
-(kb:adr/surfaces-shell-lifetime-until-exit-remove-or-reconcile). The Claude socket and the
+open on a dead session, and dies on exit, Remove, reconcile or a kill shutdown
+(kb:adr/surfaces-shell-dies-at-kill-shutdown-too). The Claude socket and the
 shell socket of one session never supersede each other
 (kb:adr/surfaces-one-live-client-per-attach-target). A shell's exit does not touch the
 session's liveness. A running shell shows a pip with its own token.

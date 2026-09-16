@@ -21,7 +21,7 @@ import {
   openIssueDialog,
 } from "./helpers/issue";
 import { envelopedSessionStart, rawStopFailure, rawUserPromptSubmit } from "./helpers/payloads";
-import { launchSession, scratchDirectory, sessionCard } from "./helpers/session";
+import { envelopeOpts, launchSession, scratchDirectory, sessionCard } from "./helpers/session";
 
 // Plan issue-capture — E1 through E8, plus REQ-1 (masthead button) and REQ-6/Edge Case
 // 20 (client-side Submit gating), which have no dedicated E-acceptance id but are
@@ -131,7 +131,7 @@ test("sentinel title/directory/last-assistant-message never leak into the previe
       });
       const claudeId = "claude-e1-sentinel";
       await request.post(daemon.ingestURL("hook"), {
-        data: envelopedSessionStart(claudeId, { musterSession: session.id }),
+        data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
       });
       await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit(claudeId) });
       // StopFailure is the only hook that sets `Failure.Message` (= the raw
@@ -270,7 +270,7 @@ test("the preview text at submit time is byte-identical to the body the fake Git
         title: "e2-tricky-note",
       });
       await request.post(daemon.ingestURL("hook"), {
-        data: envelopedSessionStart("claude-e2-tricky", { musterSession: session.id }),
+        data: envelopedSessionStart("claude-e2-tricky", await envelopeOpts(session, daemon)),
       });
       await sessionCard(page, "e2-tricky-note").click();
 
@@ -324,7 +324,7 @@ test("filing succeeds against the fake GitHub server — Submit disables while t
       await page.goto(daemon.dashboardUrl);
       const session = await launchSession(page, daemon, { directory: dir, title: "e3-file" });
       await request.post(daemon.ingestURL("hook"), {
-        data: envelopedSessionStart("claude-e3", { musterSession: session.id }),
+        data: envelopedSessionStart("claude-e3", await envelopeOpts(session, daemon)),
       });
       await sessionCard(page, "e3-file").click();
 
@@ -386,7 +386,7 @@ test("a fake GitHub 403 leaves the dialog open with the form intact, shows the a
       await page.goto(daemon.dashboardUrl);
       const session = await launchSession(page, daemon, { directory: dir, title: "e4-fail" });
       await request.post(daemon.ingestURL("hook"), {
-        data: envelopedSessionStart("claude-e4", { musterSession: session.id }),
+        data: envelopedSessionStart("claude-e4", await envelopeOpts(session, daemon)),
       });
       await sessionCard(page, "e4-fail").click();
 
@@ -437,7 +437,7 @@ test("a dashboard-scope capture (— none (dashboard only) — selected) posts a
       await page.goto(daemon.dashboardUrl);
       const session = await launchSession(page, daemon, { directory: dir, title: "e5-session" });
       await request.post(daemon.ingestURL("hook"), {
-        data: envelopedSessionStart("claude-e5", { musterSession: session.id }),
+        data: envelopedSessionStart("claude-e5", await envelopeOpts(session, daemon)),
       });
       await sessionCard(page, "e5-session").click();
 
@@ -515,7 +515,7 @@ test("a session with no context yet renders unknown in the preview, never 0% (E7
     // reachable half of Edge Case 16: `context` stays null until a status line
     // supplies one, which no hook in this test ever sends.
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-e7", { musterSession: session.id }),
+      data: envelopedSessionStart("claude-e7", await envelopeOpts(session, daemon)),
     });
     await sessionCard(page, "e7-unknown").click();
 
@@ -541,7 +541,7 @@ test("Submit stays disabled until a non-whitespace title is entered via real key
     await page.goto(daemon.dashboardUrl);
     const session = await launchSession(page, daemon, { directory: dir, title: "e-req6" });
     await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-req6", { musterSession: session.id }),
+      data: envelopedSessionStart("claude-req6", await envelopeOpts(session, daemon)),
     });
     await sessionCard(page, "e-req6").click();
 
@@ -595,7 +595,7 @@ test("a capture consumed by a concurrent filing shows the capture_expired remedy
         title: "expired-capture",
       });
       await request.post(daemon.ingestURL("hook"), {
-        data: envelopedSessionStart("claude-expired", { musterSession: session.id }),
+        data: envelopedSessionStart("claude-expired", await envelopeOpts(session, daemon)),
       });
       await sessionCard(page, "expired-capture").click();
 
@@ -662,7 +662,7 @@ test("a 2xx GitHub body with no issue number/URL shows the filing failure state,
       await page.goto(daemon.dashboardUrl);
       const session = await launchSession(page, daemon, { directory: dir, title: "maybe-created" });
       await request.post(daemon.ingestURL("hook"), {
-        data: envelopedSessionStart("claude-maybe-created", { musterSession: session.id }),
+        data: envelopedSessionStart("claude-maybe-created", await envelopeOpts(session, daemon)),
       });
       await sessionCard(page, "maybe-created").click();
 
@@ -739,7 +739,7 @@ test("a 200-character title made of two-byte UTF-8 runes is accepted, proving th
         title: "multibyte-title",
       });
       await request.post(daemon.ingestURL("hook"), {
-        data: envelopedSessionStart("claude-multibyte", { musterSession: session.id }),
+        data: envelopedSessionStart("claude-multibyte", await envelopeOpts(session, daemon)),
       });
       await sessionCard(page, "multibyte-title").click();
 

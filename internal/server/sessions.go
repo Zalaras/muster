@@ -75,12 +75,25 @@ type launchError struct {
 
 func (e *launchError) Error() string { return e.message }
 
+// Fixed 5xx `message` text (REQ-10, kb:anchor/transport): display text for the user, never
+// a wrapped tmux/OS error string — the raw error goes only to the adjacent log.Error()
+// line. 4xx messages are unaffected; they were already fixed phrases.
+const (
+	msgEndFailed        = "couldn't end the session — tmux reported an error; see the daemon log"
+	msgRemoveFailed     = "couldn't remove the session — tmux reported an error; see the daemon log"
+	msgLaunchFailed     = "couldn't launch — see the daemon log"
+	msgShellSpawnFailed = "couldn't open a shell — tmux reported an error; see the daemon log"
+	msgInternalError    = "something went wrong on the daemon — see the daemon log"
+)
+
 func invalidRequest(message string) *launchError {
 	return &launchError{status: http.StatusBadRequest, code: "invalid_request", message: message}
 }
 
-func launchFailed(message string) *launchError {
-	return &launchError{status: http.StatusInternalServerError, code: "launch_failed", message: message}
+// launchFailed is every launch/resume failure's 500 body (REQ-10): the fixed phrase only
+// — the caller logs the raw error itself at the site.
+func launchFailed() *launchError {
+	return &launchError{status: http.StatusInternalServerError, code: "launch_failed", message: msgLaunchFailed}
 }
 
 // notFound, notResumable and directoryMissing are Resume's own error codes
@@ -196,7 +209,8 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 		PermissionMode: req.PermissionMode,
 	})
 	if err != nil {
-		return nil, launchFailed(fmt.Sprintf("recording repo: %v", err))
+		l.log.Error().Err(err).Str("directory", dir).Msg("recording repo failed")
+		return nil, launchFailed()
 	}
 
 	var title *string
@@ -207,7 +221,8 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 	// writeSettings runs before any row is created or tmux touched (Edge Case 9's other
 	// half: a corrupt settings.local.json is caught with nothing yet to roll back).
 	if settingsErr := l.writeSettings(dir); settingsErr != nil {
-		return nil, launchFailed(settingsErr.Error())
+		l.log.Error().Err(settingsErr).Str("directory", dir).Msg("writing launch settings failed")
+		return nil, launchFailed()
 	}
 
 	argv := claudecode.BuildArgv(l.claudeBin, claudecode.LaunchParams{
@@ -239,7 +254,8 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 			MinID:           floor,
 		})
 		if err != nil {
-			return nil, launchFailed(fmt.Sprintf("creating session: %v", err))
+			l.log.Error().Err(err).Msg("creating session failed")
+			return nil, launchFailed()
 		}
 
 		final, retry, lerr := l.spawnAndRecordLaunch(ctx, sess.ID, dir, argv, attempt)
@@ -254,7 +270,7 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 		floor = sess.ID
 	}
 	// Unreachable: the loop above always returns on both its last-attempt paths.
-	return nil, launchFailed("exhausted launch attempts")
+	return nil, launchFailed()
 }
 
 // spawnAndRecordLaunch is Launch's per-attempt spawn+record step, held under sess id's
@@ -273,20 +289,23 @@ func (l *sessionLauncher) spawnAndRecordLaunch(ctx context.Context, id int64, di
 	if spawnErr != nil {
 		l.rollback(ctx, id)
 		if !errors.Is(spawnErr, tmux.ErrSessionExists) {
-			return nil, false, launchFailed(fmt.Sprintf("spawning tmux session: %v", spawnErr))
+			l.log.Error().Err(spawnErr).Int64("session_id", id).Msg("spawning tmux session failed")
+			return nil, false, launchFailed()
 		}
 		name := tmux.SessionName(id)
 		if attempt == maxLaunchAttempts {
-			// Never surfacing raw tmux stderr to the caller (D5).
-			return nil, false, launchFailed(fmt.Sprintf(
-				"spawning tmux session %s: still colliding after %d attempts; a stale tmux session likely needs manual cleanup (tmux -L muster kill-session -t %s)",
-				name, maxLaunchAttempts, name))
+			// Never surfacing raw tmux stderr to the caller (D5); the daemon log names the
+			// remedy (tmux -L muster kill-session -t <name>) for a human reading it.
+			l.log.Error().Int64("session_id", id).Str("tmux_session", name).Int("attempts", maxLaunchAttempts).
+				Msg("spawning tmux session still colliding after max attempts; a stale tmux session likely needs manual cleanup (tmux -L muster kill-session -t <name>)")
+			return nil, false, launchFailed()
 		}
 		return nil, true, nil
 	}
 
 	final, err := l.manager.RecordLaunch(ctx, id, target, pane)
 	if err != nil {
+		l.log.Error().Err(err).Int64("session_id", id).Msg("recording launch failed")
 		l.rollback(ctx, id)
 		// The tmux window was already spawned; without this the pane keeps running
 		// with no session row and no broadcast behind it — an invisible session the
@@ -297,7 +316,7 @@ func (l *sessionLauncher) spawnAndRecordLaunch(ctx context.Context, id int64, di
 		if killErr != nil {
 			l.log.Error().Err(killErr).Str("tmux_target", target).Msg("failed to kill tmux window after RecordLaunch failure")
 		}
-		return nil, false, launchFailed(fmt.Sprintf("recording launch: %v", err))
+		return nil, false, launchFailed()
 	}
 	return final, false, nil
 }
@@ -343,7 +362,8 @@ func (l *sessionLauncher) Resume(ctx context.Context, id int64) (*session.Sessio
 	}
 
 	if err := l.writeSettings(sess.Directory); err != nil {
-		return nil, launchFailed(err.Error())
+		l.log.Error().Err(err).Int64("session_id", id).Msg("writing resume settings failed")
+		return nil, launchFailed()
 	}
 
 	model := ""
@@ -370,22 +390,24 @@ func (l *sessionLauncher) Resume(ctx context.Context, id int64) (*session.Sessio
 				// this it was invisible, the caller only ever saw the generic
 				// launch_failed message below.
 				l.log.Warn().Err(repairErr).Int64("session_id", id).Str("tmux_session", name).Msg("resume: repairing owned session failed")
-				return nil, launchFailed(fmt.Sprintf("resuming session: tmux session %s already exists and no live pane could be confirmed", name))
+				return nil, launchFailed()
 			}
 			return repaired, nil
 		}
-		return nil, launchFailed(fmt.Sprintf("spawning tmux session: %v", err))
+		l.log.Error().Err(err).Int64("session_id", id).Msg("spawning tmux session for resume failed")
+		return nil, launchFailed()
 	}
 
 	final, err := l.manager.RecordResume(ctx, id, target, pane)
 	if err != nil {
+		l.log.Error().Err(err).Int64("session_id", id).Msg("recording resume failed")
 		killCtx, killCancel := context.WithTimeout(ctx, launchTmuxTimeout)
 		killErr := l.tmux.KillWindow(killCtx, target)
 		killCancel()
 		if killErr != nil {
 			l.log.Error().Err(killErr).Str("tmux_target", target).Msg("failed to kill tmux window after RecordResume failure")
 		}
-		return nil, launchFailed(fmt.Sprintf("recording resume: %v", err))
+		return nil, launchFailed()
 	}
 	return final, nil
 }
@@ -550,7 +572,7 @@ func (f *sessionsFeature) handleEndSession(w http.ResponseWriter, r *http.Reques
 			return
 		default:
 			f.log.Error().Err(endErr).Int64("session_id", id).Msg("ending session failed")
-			writeJSONError(w, http.StatusInternalServerError, "end_failed", endErr.Error())
+			writeJSONError(w, http.StatusInternalServerError, "end_failed", msgEndFailed)
 			return
 		}
 	}
@@ -579,7 +601,7 @@ func (f *sessionsFeature) handleRemoveSession(w http.ResponseWriter, r *http.Req
 			writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
 		default:
 			f.log.Error().Err(remErr).Int64("session_id", id).Msg("removing session failed")
-			writeJSONError(w, http.StatusInternalServerError, "end_failed", remErr.Error())
+			writeJSONError(w, http.StatusInternalServerError, "end_failed", msgRemoveFailed)
 		}
 		return
 	}
@@ -754,7 +776,7 @@ func (f *sessionsFeature) handleSetTitle(w http.ResponseWriter, r *http.Request)
 			writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
 		default:
 			f.log.Error().Err(err).Int64("session_id", id).Msg("setting session title failed")
-			writeJSONError(w, http.StatusInternalServerError, "internal_error", err.Error())
+			writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
 		}
 		return
 	}
