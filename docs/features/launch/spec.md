@@ -58,6 +58,46 @@ touches the user-level settings or `CLAUDE_CONFIG_DIR`
 A launch from Tiles promotes the new session into the grid
 (kb:adr/tiles-launched-session-promoted-into-grid).
 
+## One launch, end to end
+
+The order matters at both ends: the settings file is written before any row exists or tmux is
+touched, so a corrupt one fails with nothing to roll back; and the card is broadcast from the
+inserted row, before any hook has arrived.
+
+```mermaid
+sequenceDiagram
+    participant UI as dashboard
+    participant S as sessions handler
+    participant G as gitutil
+    participant DB as store
+    participant A as claudecode adapter
+    participant T as tmux
+    participant CC as claude
+    participant I as ingest
+
+    UI->>S: POST /api/sessions
+    S->>G: is this a repo, which branch, is it a worktree
+    S->>DB: UpsertRepo — MRU and per-directory defaults
+    S->>A: MergeSettings into .claude/settings.local.json
+    Note over S,A: before any row or tmux — invalid JSON fails the launch and names the file
+    S->>A: BuildArgv — model, --name, permission mode
+    S->>T: MaxSessionID, to floor the id above any orphan
+    S->>DB: CreateSession — inserts the row in started
+
+    S->>T: new-session on the muster socket, MUSTER_SESSION in the pane env
+    T->>CC: runs the argv in the pane
+    alt the tmux name already exists
+        T-->>S: ErrSessionExists
+        S->>DB: roll the row back, raise the floor, retry
+    end
+    S->>DB: RecordLaunch — tmux target and pane
+    S-->>UI: the session, broadcast as sessionUpsert before any hook
+
+    CC->>I: SessionStart through the wrapper, carrying the envelope
+    I-->>UI: bound and transitioned
+    Note over CC,I: on a first launch into an unseen directory the trust prompt<br/>blocks startup, so no hook arrives and Muster only surfaces it
+```
+
 ## The trust prompt
 
 On the first launch into a directory Claude Code has not seen, its workspace-trust prompt

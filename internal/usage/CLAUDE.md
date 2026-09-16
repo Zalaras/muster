@@ -18,7 +18,7 @@
 - Unknown renders as a word, not a zero-length track; keep nil pointers nil (kb:adr/usage-unknown-renders-word-not-track).
 
 <!-- kb:trailer -->
-<!-- kb:hash b4f9186f6b960093 -->
+<!-- kb:hash 9448c6269801c3bb -->
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
-- 4 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 5 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

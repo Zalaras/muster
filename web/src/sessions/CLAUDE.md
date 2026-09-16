@@ -18,10 +18,10 @@
 - `rename.ts` compares the trimmed input against the daemon's precedence-resolved `title`; `titleOverride` only decides what empty means (kb:adr/rename-muster-owned-title-override-wins).
 
 <!-- kb:trailer -->
-<!-- kb:hash 0d79a35b92a27ed7 -->
+<!-- kb:hash bc900143c84deb0d -->
 - **lifecycle** — The session state machine, liveness, reconcile on start, shutdown policy, resume to idle. → `docs/features/lifecycle/INDEX.md`
 - **rail** — Rail cards, attention versus manual order, pin, drag reorder, session count. → `docs/features/rail/INDEX.md`
 - **rename** — Muster-owned session title override, inline rename in the mainhead and tiles. → `docs/features/rename/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
-- 18 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 19 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

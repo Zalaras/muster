@@ -48,6 +48,52 @@ and bodies without a `session_id` are dropped with a log line and still answered
 Delivery is best-effort and unordered (kb:fact/hook-delivery-best-effort); nothing is
 replayed. Payload bodies are never logged.
 
+## One post, end to end
+
+Two things the shape guards: the handler does no database work before acknowledging, and a
+single worker does everything after, so `seq` order and apply order are the same thing by
+construction.
+
+```mermaid
+sequenceDiagram
+    participant CC as claude (hook or status line)
+    participant W as wrapper script
+    participant H as ingest handler
+    participant Q as ingest queue
+    participant A as claudecode adapter
+    participant DB as store
+    participant M as session manager
+    participant U as usage aggregator
+    participant HUB as ws hub
+    participant UI as dashboard
+
+    CC->>W: runs the command hook, payload on stdin
+    W->>H: POST /ingest/{token}/hook with the envelope
+    H->>H: compare token, 404 on mismatch
+    H->>Q: enqueue the raw body
+    H-->>W: 200, empty body
+    Note over H,Q: no parsing, no DB work on the request path,<br/>and a full queue drops and counts, never backpressures
+
+    Q->>A: ParseIngestBody
+    A-->>Q: Event, or a drop on bad JSON / no session_id
+    Q->>M: resolve the Muster session from the envelope
+    Q->>DB: InsertEvent — seq = MAX(seq)+1 for this claude_session_id
+    Note over Q,DB: single worker, so the per-session counter is safe here<br/>and unrouted events still persist with a NULL session_id
+
+    alt status_line
+        Q->>A: InterpretStatus
+        Q->>M: ApplyStatus — title, model, context only
+        Q->>U: Record the account sample, when the payload carries one
+    else hook event
+        Q->>A: Interpret to a neutral StateInput
+        Q->>M: Apply in seq order
+        Q->>M: Observe the file signal for the reader
+    end
+
+    M->>HUB: OnUpsert with the whole session
+    HUB->>UI: sessionUpsert, dropped for a client whose outbox is full
+```
+
 ## The envelope
 
 The daemon spawns every pane with `MUSTER_SESSION` in its environment, and command hooks

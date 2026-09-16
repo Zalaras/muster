@@ -46,6 +46,65 @@ mode is a last-known latch seeded by the launch form and overwritten by any even
 carries the field; events without it never reset it (kb:fact/permission-mode-presence-split).
 The full table is `kb:anchor/state.transitions`; tracked variables are `kb:anchor/state.tracked`.
 
+## The machine
+
+Every transition below is one `applyInput` arm in `internal/session/machine.go`, keyed on the
+neutral input kind the adapter derived. No arm guards on the source state, so every arrow is
+drawn from every state. The latch picks planning while the permission mode reads plan, else
+working. A bind or resume_bind carrying a different Claude session id escalates to clear_rebind
+and lands in started. compaction, death_hint, clear_death_hint and inert change no state. A
+turn_activity or needs_input_permission for a prompt a Stop already closed returns early and
+transitions nothing unless it is subagent-marked; a closed-prompt needs_input_idle always returns
+early. Liveness is not in the diagram: `alive` is orthogonal, so a dead session keeps whichever
+state it was last in.
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> started : launch inserts the row
+
+    state active {
+        working
+        planning
+    }
+
+    started --> active : turn_activity
+    idle --> active : turn_activity
+    needs_input --> active : turn_activity
+    failed --> active : turn_activity
+    active --> active : turn_activity
+
+    started --> needs_input : needs_input_permission / needs_input_idle
+    active --> needs_input : needs_input_permission / needs_input_idle
+    idle --> needs_input : needs_input_permission / needs_input_idle
+    failed --> needs_input : needs_input_permission / needs_input_idle
+    needs_input --> needs_input : needs_input_permission / needs_input_idle
+
+    started --> idle : turn_closed
+    active --> idle : turn_closed
+    needs_input --> idle : turn_closed
+    failed --> idle : turn_closed
+    idle --> idle : turn_closed
+
+    started --> failed : turn_failed
+    active --> failed : turn_failed
+    needs_input --> failed : turn_failed
+    idle --> failed : turn_failed
+    failed --> failed : turn_failed
+
+    started --> started : bind / clear_rebind
+    active --> started : bind / clear_rebind
+    idle --> started : bind / clear_rebind
+    needs_input --> started : bind / clear_rebind
+    failed --> started : bind / clear_rebind
+
+    started --> idle : resume_bind
+    active --> idle : resume_bind
+    idle --> idle : resume_bind
+    needs_input --> idle : resume_bind
+    failed --> idle : resume_bind
+```
+
 ## Ordering and loss
 
 Events apply in ingest `seq` order (kb:adr/ingest-seq-assigned-at-ingest). A Stop-family

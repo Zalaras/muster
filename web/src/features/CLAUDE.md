@@ -19,7 +19,7 @@
 - `connection.ts` shows "connecting…" until the first `hello`; the banner appears only after that (kb:adr/connection-banner-only-after-first-hello).
 
 <!-- kb:trailer -->
-<!-- kb:hash c45adb0510ac2c2e -->
+<!-- kb:hash eebc68237e03457b -->
 - **actions** — End, Resume and Remove a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
 - **focus** — Focus view: mainhead, main slot, dead surface, default focus, focus marker. → `docs/features/focus/INDEX.md`
@@ -36,5 +36,5 @@
 - **update** — Release check, minisign-verified apply, in-place restart with sessions re-adopted. → `docs/features/update/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
 - **views** — Focus and Tiles switch, density preference, view containers. → `docs/features/views/INDEX.md`
-- 39 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 40 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->
