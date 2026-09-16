@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Accept the window as a residual of unordered delivery. (B) Never rebind backwards: when the incoming id is one this session has already left, which the Claude-id map still records, route and apply the event without rebinding or resetting.
 
-**Decision.** B, Damian's decision from the review's critical finding; not debated, because it touches the protocol contract.
+**Decision.** B, the developer's decision from the review's critical finding; not debated, because it touches the protocol contract.
 
 **Consequences.** A genuinely re-used id after a clear is impossible by construction, so nothing is lost. The remaining residual is a lost resume start event, which leaves the binding on the newer id until the next bind while events still route. The guard costs a few lines and one protocol sentence.

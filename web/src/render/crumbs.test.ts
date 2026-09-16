@@ -41,12 +41,12 @@ describe("splitCrumbs", () => {
   });
 
   it("passes a path component with spaces through as a text node untouched (edge case 6)", () => {
-    expect(splitCrumbs("/Users/damian/my project/sub dir")).toEqual([
+    expect(splitCrumbs("/Users/bob/my project/sub dir")).toEqual([
       { name: "/", path: "/" },
       { name: "Users", path: "/Users" },
-      { name: "damian", path: "/Users/damian" },
-      { name: "my project", path: "/Users/damian/my project" },
-      { name: "sub dir", path: "/Users/damian/my project/sub dir" },
+      { name: "bob", path: "/Users/bob" },
+      { name: "my project", path: "/Users/bob/my project" },
+      { name: "sub dir", path: "/Users/bob/my project/sub dir" },
     ]);
   });
 

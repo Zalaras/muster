@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Instrument alone, contrast-fixed. (B) Instrument plus one conventional dark. (C) Instrument, a conventional dark and a standard light, all on the same layout and token set.
 
-**Decision.** C, settled with Damian. The rejected direction was a layout; a light palette on the accepted structure does not reopen it. Instrument stays the default.
+**Decision.** C, settled with the developer. The rejected direction was a layout; a light palette on the accepted structure does not reopen it. Instrument stays the default.
 
 **Consequences.** Mockups are re-rendered under all three palettes before a plan is approved, so approval means having seen every palette on both views. Each theme must pass the same contrast gate and keep the same state hue families. A fourth theme is a block and a run of the gate.

@@ -11,9 +11,9 @@ tests: []
 refs: [SPEC.md, docs/history/interview-notes.md, kb:adr/nongoal-generic-agent-abstraction-layer, kb:adr/surfaces-one-tmux-session-per-session]
 supersedes: []
 ---
-**Context.** The working titles were CCC, for Claude Code Control, and Claude Control Plane, and the mockup used Relay. Damian set two constraints: the name must not collide with an existing product or trademark, and it must not contain Claude or cc, because a possible future supports other agent CLIs.
+**Context.** The working titles were CCC, for Claude Code Control, and Claude Control Plane, and the mockup used Relay. The developer set two constraints: the name must not collide with an existing product or trademark, and it must not contain Claude or cc, because a possible future supports other agent CLIs.
 
-**Options.** Checked and rejected: tower, an existing Git client; wheelhouse, a registered trademark; belfry, an active company; roost and pitwall, crowded; ccmux, Claude-specific; Relay, a working name Damian never chose. Runners-up: reeve and drover. Muster: only two dormant Go libraries, no product, no trademark, and it describes the job of assembling a group and reviewing it.
+**Options.** Checked and rejected: tower, an existing Git client; wheelhouse, a registered trademark; belfry, an active company; roost and pitwall, crowded; ccmux, Claude-specific; Relay, a working name the developer never chose. Runners-up: reeve and drover. Muster: only two dormant Go libraries, no product, no trademark, and it describes the job of assembling a group and reviewing it.
 
 **Decision.** Muster. The daemon binary is musterd and the module path carries the name.
 

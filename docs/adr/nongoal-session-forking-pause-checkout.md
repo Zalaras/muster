@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Build fork and pause-checkout as dashboard actions. (B) Leave them to Claude Code and the terminal; at most, show in the dashboard that a session was forked.
 
-**Decision.** B, cut for now. In Damian's words, you can kind of do that anyway.
+**Decision.** B, cut for now. In the developer's words, you can kind of do that anyway.
 
 **Consequences.** Sessions have no parent link in the data model. A later tracking feature would add a column, not a flow. The dashboard's session actions stay at end, resume and remove.

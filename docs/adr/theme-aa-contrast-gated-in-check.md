@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Fix the failing pairs by hand and rely on review to catch regressions. (B) Adopt AA for text and for non-text UI in every theme, decorative hairlines exempt, and gate it with a script over the stylesheet that runs under the check target.
 
-**Decision.** B, settled with Damian, recorded as the one bounded exception to the accessibility non-goal. Contrast is the part of accessibility that a script can hold and that a dark dense UI most easily loses.
+**Decision.** B, settled with the developer, recorded as the one bounded exception to the accessibility non-goal. Contrast is the part of accessibility that a script can hold and that a dark dense UI most easily loses.
 
 **Consequences.** A palette change that fails a pair fails the build, so the reviewer asks which pair rather than squinting. The pairs file is the list of what is checked and what is exempt, each exemption with its reason. The floors were later raised above AA on every theme; the gate mechanism is the same.

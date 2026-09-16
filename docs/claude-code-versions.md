@@ -41,7 +41,7 @@ behaviour on it.
 ## Why auto-update is NOT disabled
 
 There is exactly one `claude` binary on this machine (`~/.local/bin/claude`), used for all
-of Damian's work, not just Muster's managed sessions. Freezing it would mean giving up
+of the developer's work, not just Muster's managed sessions. Freezing it would mean giving up
 Claude Code updates everywhere in exchange for Muster's convenience.
 
 So the decision (2026-08-16, reaffirmed 2026-09-10) is **detect and classify, don't

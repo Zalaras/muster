@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) One daemon per file as a rule. (B) Fresh daemon per test everywhere, as before. (C) An explicit, lintable choice per spec: a fresh daemon per test whenever any test asserts daemon-global state or restarts the daemon; a per-test daemon with options when spawn flags depend on a computed value; one per file only when every test is title-scoped.
 
-**Decision.** C, settled with Damian. The audit found that most per-test files legitimately need a fresh daemon because they assert rail or grid order, counts, prefs, usage, theme, recents or auto-focus on the only session, so the per-file rule would have been wrong for most of them.
+**Decision.** C, settled with the developer. The audit found that most per-test files legitimately need a fresh daemon because they assert rail or grid order, counts, prefs, usage, theme, recents or auto-focus on the only session, so the per-file rule would have been wrong for most of them.
 
 **Consequences.** The fixture module is the only way a spec gets a daemon; the plan template requires the Fixture plan header and the plan lint checks for it. Migrating surfaced real hidden couplings, a spec asserting on the machine's real Claude Code version and an invariant that only held with one session, both fixed. The harness writes one stub Claude Code per run at a content-hashed path, because the operating system taxes the first execution of every freshly written script.

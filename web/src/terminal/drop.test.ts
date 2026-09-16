@@ -28,9 +28,7 @@ describe("escapePath (REQ-4)", () => {
 
   it("leaves path separators, dots, hyphens and underscores unchanged where not in the escape set", () => {
     // '/', '.', '-', '_' are explicitly called out by REQ-4 as passing through unchanged.
-    expect(escapePath("/Users/damian/my-file_v2.final.txt")).toBe(
-      "/Users/damian/my-file_v2.final.txt",
-    );
+    expect(escapePath("/Users/bob/my-file_v2.final.txt")).toBe("/Users/bob/my-file_v2.final.txt");
   });
 
   it("escapes '=' but leaves ':', '@' and '+' unescaped (REQ-4: only '=' of these four is in the escape set)", () => {

@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Remove only dead sessions, forcing End first. (B) Allow Remove on a live session, run the End path first, and warn in the dialog copy.
 
-**Decision.** B, settled with Damian in planning.
+**Decision.** B, settled with the developer in planning.
 
 **Consequences.** If the kill fails the row is left in place rather than removed out from under a running session. End deliberately leaves a companion shell surface running; Remove kills both. The removal is broadcast as its own message, and event rows for the removed session are kept.

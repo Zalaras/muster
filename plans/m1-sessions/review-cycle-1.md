@@ -132,7 +132,7 @@ directly). Screenshots in the scratchpad. What I confirmed by hand:
 Zero console errors and zero page errors across all three sessions. Scratch daemon and
 tmux server torn down; all probe/verify files removed (`git status` clean of them).
 
-I could not verify: real `claude` behaviour (correctly out of scope — burns Damian's
+I could not verify: real `claude` behaviour (correctly out of scope — burns the developer's
 subscription), and M3-gated surfaces (context gauges, usage bars) which are `null` by
 design in M1.
 
@@ -188,10 +188,10 @@ One fixture **did** drift from the measured captures — see Major 11.
    *recognizable* … and are replaced wholesale"; recognizability is never used, so
    ownership is never distinguished. Proven with a probe against the real function: an
    existing
-   `"PostToolUse":[{"hooks":[{"type":"command","command":"/Users/damian/bin/my-formatter.sh","timeout":10}]}]`
+   `"PostToolUse":[{"hooks":[{"type":"command","command":"/Users/bob/bin/my-formatter.sh","timeout":10}]}]`
    came back as Muster's `type:"http"` entry alone — the formatter hook was gone.
    (`MyOwnEvent` and `someUserKey` did survive, so the outer-key preservation is fine.)
-   This runs on **every launch** into that directory and destroys config Damian may
+   This runs on **every launch** into that directory and destroys config the developer may
    depend on; the ten affected events include `PreToolUse`, `PostToolUse`,
    `UserPromptSubmit` and `Stop` — the most commonly user-hooked events there are.
    **Fix**: within each event's array, drop only entries recognizable as Muster's (their
@@ -234,7 +234,7 @@ One fixture **did** drift from the measured captures — see Major 11.
    `repo.name` (the basename) only. The plan's UI spec requires "one button per
    directory — name, **path**, branch or `—`, relative last-launch age", and ux-flows §1.1
    renders full paths. Consequence: a repo and its linked worktree — which ux-flows §2
-   says Damian already uses — are indistinguishable in the picker, so a launch can go
+   says the developer already uses — are indistinguishable in the picker, so a launch can go
    into the wrong checkout. `repo.path` is already in hand (used at `launch.ts:125`).
 6. **[web-impl]** Folder-browser subdirectories don't mark git checkouts —
    `web/src/render/launch.ts:142` sets `button.textContent = dir.name` and discards

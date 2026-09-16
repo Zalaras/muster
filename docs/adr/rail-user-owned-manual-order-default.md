@@ -11,7 +11,7 @@ tests: [TestLoadPrefs_DefaultRailSortIsManual, web/e2e/rail-order.spec.ts]
 refs: [docs/history/spec-changelog.md, docs/history/protocol-changelog.md, plan:order-sidebar, kb:anchor/prefs.put, kb:anchor/ws.snapshot, docs/design/ux-flows.md, kb:adr/rail-attention-sort-order]
 supersedes: [rail-attention-sort-order]
 ---
-**Context.** The rail re-sorted itself by attention on every render, so a session jumped to the top when it needed input and back down when answered. With a handful of long-lived sessions Damian wanted muscle memory: cards stay where he put them, and the ones he keeps returning to sit in a block at the top.
+**Context.** The rail re-sorted itself by attention on every render, so a session jumped to the top when it needed input and back down when answered. With a handful of long-lived sessions the developer wanted muscle memory: cards stay where they put them, and the ones they keep returning to sit in a block at the top.
 
 **Options.** (A) Keep attention as the only order. (B) Replace it with a manual order. (C) Keep both as modes, selectable from the rail head and persisted, with manual the default.
 

@@ -167,7 +167,7 @@ Reviewed in planning; **no code change required**:
 1. **Already-instrumented directory (the one most likely to be got wrong).** Existing
    `settings.local.json` has bare `command` entries from M1–M3. After the merge there is
    exactly one Muster command entry per event, quoted; the bare one is gone (REQ-3, D3).
-2. **Path containing a single quote** (e.g. a repo checkout under `~/Damian's stuff`).
+2. **Path containing a single quote** (e.g. a repo checkout under `~/the developer's stuff`).
    `shellQuote("/a'b")` → `'/a'\''b'`; `isMusterEntry` matches it; `MergeSettings` is
    idempotent on it (D2). Not the production path, but the escaping rule is only worth
    having if it is tested.
@@ -291,12 +291,12 @@ in that repo (both `command` fields single-quoted); observe; then **kill the ses
 
 | Surface | Expected | Observed | When |
 |---|---|---|---|
-| `settings.local.json` `statusLine.command` | `'/Users/damian/Library/Application Support/Muster/status-line.sh'` | `'/Users/damian/Library/Application Support/Muster/status-line.sh'` (SessionStart likewise quoted) | 2026-08-25 21:37 |
+| `settings.local.json` `statusLine.command` | `'/Users/bob/Library/Application Support/Muster/status-line.sh'` | `'/Users/bob/Library/Application Support/Muster/status-line.sh'` (SessionStart likewise quoted) | 2026-08-25 21:37 |
 | `sqlite3 muster.db "select count(*) from event where type='status_line' and session_id is not null"` | ≥ 1 | 3 (all bound to session 3; 1 bound `SessionStart` command-hook event too) | 2026-08-25 21:39 |
 | `sqlite3 muster.db "select count(*) from usage_sample"` | ≥ 1 | 1 — `claude-haiku-4-5-20251001` / `Haiku 4.5`, 5h 18% resets 2026-08-25T21:00Z, 7d 4% resets 2026-09-01T14:00Z | 2026-08-25 21:37 |
-| Masthead 5h bar | a % and reset time, not "unknown" | 18%, reset 21:00 (Damian, dashboard) | 2026-08-25 21:38 |
-| Masthead 7d bar | a % and reset time, not "unknown" | 4%, reset 1 Sep 14:00 (Damian, dashboard) | 2026-08-25 21:38 |
-| Masthead model readout | Haiku display name | Haiku 4.5 (Damian, dashboard; `usage_sample.model_display_name`) | 2026-08-25 21:38 |
+| Masthead 5h bar | a % and reset time, not "unknown" | 18%, reset 21:00 (the developer, dashboard) | 2026-08-25 21:38 |
+| Masthead 7d bar | a % and reset time, not "unknown" | 4%, reset 1 Sep 14:00 (the developer, dashboard) | 2026-08-25 21:38 |
+| Masthead model readout | Haiku display name | Haiku 4.5 (the developer, dashboard; `usage_sample.model_display_name`) | 2026-08-25 21:38 |
 | Session card context row | used % + tokens, not "unknown" | 20% / 40,529 of 200,000 tokens (`session.context_*` for id 3) | 2026-08-25 21:38 |
 | Session title | status-line `session_name` | no name — all 3 status posts carried `session_name: null` for this haiku session; title fell back (not a routing failure) | 2026-08-25 21:39 |
 | Session killed afterwards | yes | yes — `tmux -L muster kill-session -t muster-3` after the daemon was stopped; socket empty | 2026-08-25 21:45 |

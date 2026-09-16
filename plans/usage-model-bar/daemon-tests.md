@@ -20,7 +20,7 @@ Also fixed: 4 pre-existing test files broken by the approved Protocol Contract d
 
 ## Safety fix (orchestrator note 2)
 
-`cmd/musterd/onexit_test.go`'s `spawnDaemon` now passes `-usage-poll 0` and `-usage-token-file <dataDir>/usage-token-not-present` in every spawned real-`musterd` invocation. Before this fix, `-usage-poll`'s non-zero CLI default plus REQ-1's immediate-fetch-on-`Start` meant every D19–D21 test process would shell out to the real macOS Keychain and, on a machine where that lookup succeeds, call the real `https://api.anthropic.com` with Damian's real subscription token as an unannounced side effect of `make test` — exactly what CLAUDE.md forbids. Verified: `go test ./cmd/musterd/... -run TestOnExit -v` still passes (3/3, ~2s total).
+`cmd/musterd/onexit_test.go`'s `spawnDaemon` now passes `-usage-poll 0` and `-usage-token-file <dataDir>/usage-token-not-present` in every spawned real-`musterd` invocation. Before this fix, `-usage-poll`'s non-zero CLI default plus REQ-1's immediate-fetch-on-`Start` meant every D19–D21 test process would shell out to the real macOS Keychain and, on a machine where that lookup succeeds, call the real `https://api.anthropic.com` with the developer's real subscription token as an unannounced side effect of `make test` — exactly what CLAUDE.md forbids. Verified: `go test ./cmd/musterd/... -run TestOnExit -v` still passes (3/3, ~2s total).
 
 ## Tests
 

@@ -6,7 +6,7 @@
 # Instances live OUTSIDE the repo tree (default /tmp/muster-probe, override with
 # MUSTER_PROBE_HOME): Claude Code loads CLAUDE.md files from every parent
 # directory, so a scratch repo inside muster/ (or anywhere under ~/Documents)
-# silently pulls Muster's and Damian's instructions into the probe session —
+# silently pulls Muster's and the developer's instructions into the probe session —
 # observed on the first ported run ("ready to help with the Muster project").
 # Captures still land in test/rig/captures/ where analysis happens.
 #

@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Name every token by role, including state. (B) Keep the original colour-flavoured names everywhere. (C) Role names for surfaces and text; hue names for state, since the hue is fixed across themes and is the meaning.
 
-**Decision.** C, taken by Damian at planning.
+**Decision.** C, taken by the developer at planning.
 
 **Consequences.** Reading a component's stylesheet says what a surface is for, not what colour it once was. A state token's name tells the reviewer which state it may mean, which is the check the design system asks for. The rename touched every rule in the stylesheet once and is not expected to recur.

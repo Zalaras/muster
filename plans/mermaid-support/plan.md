@@ -20,7 +20,7 @@ three constraints this plan treats as binding: client-side, inside the sanitizer
 raw HTML or script passthrough from diagram source, and a malformed diagram degrades to the
 fenced source and never breaks the page.
 
-Rendering uses **mermaid 12.0.0**, pinned exactly like marked and DOMPurify. Damian requires ELK
+Rendering uses **mermaid 12.0.0**, pinned exactly like marked and DOMPurify. The developer requires ELK
 layout support; mermaid 12 bundles the ELK engine and makes it the default layout for flowchart,
 state, class and ER diagrams, so a diagram that names `layout: elk` — or names nothing — lays out
 with ELK and nothing extra is registered (mermaid 11 would need a second pinned add-on package for ELK,

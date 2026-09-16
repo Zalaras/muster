@@ -5,7 +5,7 @@
 **Cycle**: 2 (supersedes cycle 1, preserved verbatim in the appendix below)
 
 Cycle 1's single Critical — the reordered-hook window in the envelope-authoritative
-binding rule — was routed to Damian as a protocol decision, settled as Option B
+binding rule — was routed to the developer as a protocol decision, settled as Option B
 (monotonic rebind), amended in `docs/protocol.md` §4.2/§7.3, `plan.md` and `SPEC.md`, and
 implemented in `internal/session/manager.go`. I verified the guard three ways: it matches
 the amended protocol text clause for clause; its regression test genuinely fails when the
@@ -95,7 +95,7 @@ the fix.
 | D27 | SPEC.md §6 bullet + §11 changelog | pass | §6 daemon-down bullet rewritten; §11 entry records the monotonic decision with both options and why B won |
 | D28 | TODO.md ticks the three items + records the decision | pass | all three ticked; the cycle-1 Major 1 sentence is corrected to the measured behaviour ("**not** self-healing … accumulates one dead entry per event per abandoned data dir"), attributed to the review rig |
 | Minor 3 (cycle 1) | `httpHookEvents` comment states the real reason | pass | now says it survives because `allHookEvents` is built from it and `settings_test.go` iterates it, and explicitly that `isMusterEntry` strips http entries identically on all eleven events |
-| Manual (Damian) | real-haiku migration + silence check | **not done** — correctly reserved for Damian (burns subscription). My stub-based equivalent is below |
+| Manual (the developer) | real-haiku migration + silence check | **not done** — correctly reserved for the developer (burns subscription). My stub-based equivalent is below |
 
 ## Hard-Rule Checklist
 
@@ -182,7 +182,7 @@ cross-session collision case behind Minor 2 below.
 
 Cleanup: daemon killed, `tmux -L muster-rev2 kill-server` run and confirmed empty,
 `pgrep` for `musterd`/`stub-claude` empty, `tmux -L muster` confirmed to have no server at
-all. Damian's real data dir and default tmux server were never touched.
+all. The developer's real data dir and default tmux server were never touched.
 
 ## Issues
 
@@ -322,7 +322,7 @@ Every line of the plan's ```checks block, run verbatim from the repo root.
 | D28 | TODO.md ticks the three items + records the decision | pass | all three ticked with the measurement and the permanent-by-design decision; see Major 1 on one inaccurate sentence |
 | D29 | script never writes to stdout/stderr | pass | read `writeEnvelopeScript`: `--silent --output /dev/null`, no `echo`/`printf`, trailing `exit 0`; also asserted statically and observed live on three paths |
 | REQ-16 | startup log names paths only | pass | live log line carries `hook_script`/`status_line_script` only |
-| Manual (Damian) | real-haiku migration + silence check | **not done** — correctly reserved for Damian (burns subscription). My equivalent no-subscription verification is below |
+| Manual (the developer) | real-haiku migration + silence check | **not done** — correctly reserved for the developer (burns subscription). My equivalent no-subscription verification is below |
 
 ## Hard-Rule Checklist
 
@@ -383,7 +383,7 @@ Confirmed by hand:
 7. **Critical 1, live.** See the issue below — reproduced on this same daemon.
 
 Not verified by me, by design: the real-`claude` acceptance step in the plan's
-Reviewer-Verified list. It burns Damian's subscription and is explicitly his. Everything
+Reviewer-Verified list. It burns the developer's subscription and is explicitly theirs. Everything
 in it except "a real Claude Code session actually emits these hooks" is now covered by
 items 3–6 above with a stub.
 
@@ -474,7 +474,7 @@ dir were never touched.
    plus the new one) and Claude Code prints `sh: ... No such file` for each one, on every
    event, forever — not "until the next Muster launch there rewrites the entries".
 
-   Accepting the residual is fine and was Damian's call; the docs claiming it self-heals
+   Accepting the residual is fine and was the developer's call; the docs claiming it self-heals
    is what needs correcting, in `TODO.md`'s residual sentence and the plan's Edge Case 12.
    No code change implied. Not blocking (`[orchestrator]`-tagged), but it should not sit
    in `TODO.md` as a measured fact when it is measurably wrong.

@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Widen the timeout again or retry. (B) Assert the durable end state, socket closed, dead surface visible, region unmounted, and leave the close code to the Go test that already pins it; add the transient oracle to the E2E lint; prove the fix by running the file many times concurrently through a soak target with retries still zero.
 
-**Decision.** B, Damian's call that it be fixed before the first release. The retro rule for a broken rule is to mechanise it.
+**Decision.** B, the developer's call that it be fixed before the first release. The retro rule for a broken rule is to mechanise it.
 
 **Consequences.** A change that touches a flaky spec is proven with the soak target, never a widened timeout or a retry. The rule generalises: any display a later render pass replaces is not an oracle, and the lint is where the next one goes.

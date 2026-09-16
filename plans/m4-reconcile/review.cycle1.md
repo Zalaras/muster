@@ -144,8 +144,8 @@ button does nothing), Major 4 ("ended now ago").
 **Not verified — R2.** The plan asks the reviewer to run a real
 `claude --model claude-haiku-4-5-20251001`, End it from the dashboard, Resume it, confirm
 the enveloped `SessionStart` carries the same `session_id`, and record the outcome in
-`spikes/canary-fields.md`. I did not do this: it spends Damian's real subscription and he
-has not asked for it in this session, and I should not write to `spikes/canary-fields.md`
+`spikes/canary-fields.md`. I did not do this: it spends the developer's real subscription and they
+have not asked for it in this session, and I should not write to `spikes/canary-fields.md`
 on my own initiative. Everything R2 covers that *can* be checked without the real binary
 (the argv, the same-id resume path, the `idle` landing) I verified above with the stub.
 **R2 remains outstanding and must be done before this plan completes.**
@@ -293,7 +293,7 @@ failure.
     shipped surface, and a `failed` card (rose stripe, `style.css:753`) can sit on screen
     beside a rose Remove hover and a rose-filled confirm button, same colour, two meanings.
     Either amend §3 to record the exception or add a `--danger` family. No pipeline agent
-    may edit `docs/design/design-system.md`, hence the routing. Damian's call.
+    may edit `docs/design/design-system.md`, hence the routing. The developer's call.
 
 ### Minor
 

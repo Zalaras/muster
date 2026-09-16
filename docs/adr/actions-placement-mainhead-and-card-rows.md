@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Actions only in a mainhead above the focused terminal. (B) Actions only as rows on cards and tile footers. (C) Both: the mainhead for the focused session and rows on every card and tile footer.
 
-**Decision.** C, chosen from mockups. Rows on rail cards are revealed on hover or focus-within so the rail stays quiet, a call Damian made during the run. End and Remove open a confirm dialog; Escape and Cancel send nothing.
+**Decision.** C, chosen from mockups. Rows on rail cards are revealed on hover or focus-within so the rail stays quiet, a call the developer made during the run. End and Remove open a confirm dialog; Escape and Cancel send nothing.
 
 **Consequences.** A keyboard user reaches every action through focus-within. Tile footers already served as the tile's header bar and gain the same row. Buttons disable while the daemon connection is down.

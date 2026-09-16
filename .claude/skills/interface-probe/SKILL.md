@@ -22,7 +22,7 @@ settle: **$ARGUMENTS**
 ## Iron rules (violating any of these is a critical failure)
 
 1. **Never read or modify `~/.claude/settings.json` or `settings.local.json`.**
-   Damian has live sessions on them. Isolation comes from the project-scoped
+   The developer has live sessions on them. Isolation comes from the project-scoped
    `.claude/settings.json` the rig writes into each instance's scratch repo —
    nothing else. Record a baseline before the run and verify it after:
    `md5 -q ~/.claude/settings.json` (compare the two hashes; don't assume a value).
@@ -30,7 +30,7 @@ settle: **$ARGUMENTS**
    yields a config dir with no credentials and dies with `Not logged in`. Do not
    attempt to log in. (Its one legitimate use: zero-token `StopFailure` induction,
    below.)
-3. **Real sessions burn Damian's subscription.** Always `--model
+3. **Real sessions burn the developer's subscription.** Always `--model
    claude-haiku-4-5-20251001`, trivial prompts ("say hi"), and tear down when done —
    an orphan keeps burning. Prefer the zero-token inductions wherever they answer
    the question.
@@ -52,7 +52,7 @@ echo "${CLAUDE_CONFIG_DIR:-<unset>}"   # must print <unset>
 Instances deliberately live in `/tmp/muster-probe` (override: `MUSTER_PROBE_HOME`),
 **outside the repo tree**: Claude Code loads CLAUDE.md from every parent directory,
 so a scratch repo inside muster/ or ~/Documents contaminates the probe session with
-Muster's and Damian's instructions. Captures still land in `test/rig/captures/`.
+Muster's and the developer's instructions. Captures still land in `test/rig/captures/`.
 
 Idempotent — re-running rewrites settings/scripts, leaves the repo and captures
 alone. The generated settings register **every** hook event at the capture server
@@ -164,7 +164,7 @@ Analysis traps (each produced a wrong conclusion once):
 ```bash
 tmux -S "$PROBE_SOCKET" kill-server 2>/dev/null
 pkill -f "probe-capture -port $PROBE_PORT"; pkill -f probe-failproxy
-ps aux | grep '[c]laude'                 # none of YOURS survived (Damian's own sessions will be here — leave them)
+ps aux | grep '[c]laude'                 # none of YOURS survived (the developer's own sessions will be here — leave them)
 md5 -q ~/.claude/settings.json           # matches your baseline
 ```
 

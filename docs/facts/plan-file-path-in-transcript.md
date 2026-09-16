@@ -30,7 +30,7 @@ A locator must accept every attachment type carrying `planFilePath`: seven trans
 `plan_mode_exit` line and no `plan_mode` one.
 
 Evidence: naming and resolution read from the installed bundles — the strings are identical in
-2.1.268, 2.1.269 and 2.1.270; 281 transcripts on Damian's machine scanned — 39 entered plan
+2.1.268, 2.1.269 and 2.1.270; 281 transcripts on the developer's machine scanned — 39 entered plan
 mode, written by every version from 2.1.233 to 2.1.270, and all 39 resolve a path (36
 `plan_mode`, 34 `plan_mode_exit`, 1 `plan_mode_reentry` lines; 28 files exist), whole corpus in
 268 ms. The range stops at 2.1.269 only because that is the canary's observed ceiling; 2.1.270

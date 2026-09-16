@@ -28,13 +28,13 @@ artifact per issue. A proposer subagent holding only the Read tool summarises on
 into a JSON proposal naming component, symptom and section; capability removal, not
 sandboxing, is the wall (kb:adr/triage-sandboxing-rejected-for-read-only-proposer). The
 session sees only numbers, URLs, flag names and validated enums, and makes the one judgement
-that is Damian's: which section an entry belongs in. `apply` renders entries from a fixed
+that is the developer's: which section an entry belongs in. `apply` renders entries from a fixed
 template, splices them into `TODO.md` and commits that file alone; `audit` compares the
 backlog with the tracker.
 
 Triage state is derived, not stored: an issue is triaged iff its link appears in `TODO.md`
 or the done history (kb:adr/triage-state-derived-from-todo). Triage never closes an issue;
-a tripwire hit holds it for Damian (kb:adr/triage-auto-close-never). An issue closes when
+a tripwire hit holds it for the developer (kb:adr/triage-auto-close-never). An issue closes when
 its fix lands on `main` with a closing reference in the squash subject
 (kb:adr/triage-issue-closes-when-fix-lands, kb:spec/release).
 

@@ -31,7 +31,7 @@ red canary gives it a shape (see the red-run ritual below).
 
 - **SPEC §8 (Dependency posture)** still reads "pin the Claude Code version (disable
   auto-update)". That was reversed on 2026-08-16 (detect drift, don't freeze — there is one
-  `claude` binary on the machine and it serves all of Damian's work). Landing this rewrites §8
+  `claude` binary on the machine and it serves all of the developer's work). Landing this rewrites §8
   to the range posture and needs a §11 changelog entry.
 - **`docs/claude-code-pin.md`** is the current ritual: green canary → bump the constant, README
   table and `canary-fields.md` header by hand; red → fix `internal/claudecode/` then bump.
@@ -60,7 +60,7 @@ red canary gives it a shape (see the red-run ritual below).
   end-to-end), 2.1.259 (subagent-fields probe), 2.1.267 (full-coverage canary). The
   **floor is 2.1.246**, not 2.1.233: the chain that ships (command-wrapper hooks + envelope,
   `m4-hook-lifetime`) was never run on anything older, and the range is a record of
-  observation, not a claim made in advance (Damian, 2026-09-07 and 2026-09-10).
+  observation, not a claim made in advance (the developer, 2026-09-07 and 2026-09-10).
 
 ## Scope
 
@@ -96,7 +96,7 @@ red canary gives it a shape (see the red-run ritual below).
 - Disabling Claude Code's auto-updater, or any read/write of `~/.claude/settings.json`.
 - A dismiss control on the masthead warning (dropped 2026-09-10 — the icon + hover text is the
   whole UI).
-- Committing from the bump script. It edits and stops; Damian commits with the run referenced.
+- Committing from the bump script. It edits and stops; the developer commits with the run referenced.
 - Transcript paths: nothing in the tree reads a transcript, so there is nothing to version.
 
 ## Requirements

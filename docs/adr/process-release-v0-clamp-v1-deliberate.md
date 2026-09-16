@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Keep the convention and hope. (B) Have the workflow pass the tool's v0 clamp, under which a breaking marker bumps minor while the current version is below 1.0, and make the flag's removal the act that cuts 1.0.0.
 
-**Decision.** B, settled with Damian and measured on a scratch repository: a breaking feature on a 0.x tag advanced the minor, not the major.
+**Decision.** B, settled with the developer and measured on a scratch repository: a breaking feature on a 0.x tag advanced the minor, not the major.
 
 **Consequences.** While the flag exists, 1.0.0 is impossible, so a breaking marker on this line is safe to write when sanctioned. Cutting version 1 is a one-line workflow change made together with a breaking feature commit, listed in the backlog as the last pre-v1 step. Nothing else in the release chain has to know which line it is on.

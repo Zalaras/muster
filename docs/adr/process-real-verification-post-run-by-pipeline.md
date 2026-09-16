@@ -13,7 +13,7 @@ supersedes: []
 ---
 **Context.** Every test stubs GitHub, so the plan required one real post to the repository as verification. The review subagent tried to run it and the permission classifier denied the call.
 
-**Options.** (A) Damian runs the steps by hand after the pipeline finishes. (B) The orchestrator runs them from the main session after the fix waves and the delta re-review, where Damian approves the permission prompts live, and pastes the result into the review.
+**Options.** (A) the developer runs the steps by hand after the pipeline finishes. (B) The orchestrator runs them from the main session after the fix waves and the delta re-review, where the developer approves the permission prompts live, and pastes the result into the review.
 
 **Decision.** B.
 

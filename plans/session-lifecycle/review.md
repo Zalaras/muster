@@ -480,7 +480,7 @@ tmux 3.7b — a real AF_UNIX socket file bound and then closed, so nothing is li
 
 ```
 $ ls -l /tmp/.../stale
-srwxr-xr-x  1 damian  wheel  0 … /tmp/.../stale
+srwxr-xr-x  1 bob     wheel  0 … /tmp/.../stale
 $ tmux -S /tmp/.../stale list-panes -t muster-1
 no server running on /tmp/.../stale          exit=1
 ```

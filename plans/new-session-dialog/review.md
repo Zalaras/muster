@@ -178,7 +178,7 @@ None.
    defensively, any other error) both read as missing"), a 500 already produced the same
    text before this plan, `dead.ts` is outside this plan's Affected Files, and the
    daemon-down banner renders simultaneously and prominently. **No change requested.** If
-   Damian later wants the dead surface to distinguish *unreachable* from *no capture yet*,
+   the developer later wants the dead surface to distinguish *unreachable* from *no capture yet*,
    that is its own small item, not this plan's.
 2. **[note]** `api.test.ts`'s new describe block says "all 11 exported functions" and lists
    12 cases — because `browse` appears twice (with and without a `path`, two different URL

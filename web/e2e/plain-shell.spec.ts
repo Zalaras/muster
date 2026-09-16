@@ -773,7 +773,7 @@ test("a running shell's pip resolves to the --shell-pip token, not --teal (revie
   page,
   daemon,
 }) => {
-  // Settled by Damian as Option B (review.md Major 3): the pip gets its own token
+  // Settled by the developer as Option B (review.md Major 3): the pip gets its own token
   // instead of reusing `--teal`, which design-system §3 reserves for the Working state.
   // Pin this so the decision can't silently regress back to `--teal` — see
   // `expectPipUsesShellPipToken`'s own doc comment for how it resolves both tokens

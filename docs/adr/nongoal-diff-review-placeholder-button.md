@@ -11,7 +11,7 @@ tests: []
 refs: [SPEC.md, docs/history/interview-notes.md, docs/research/claude-session-manager-handoff.md]
 supersedes: []
 ---
-**Context.** The research called diff review the killer feature for a session manager. Damian reviews agent output outside any manager today and has his own ideas about how review should work.
+**Context.** The research called diff review the killer feature for a session manager. The developer reviews agent output outside any manager today and has their own ideas about how review should work.
 
 **Options.** (A) Build inline diff review in the dashboard with comments routed back to the session. (B) Keep review out of scope and, at most, offer a button that opens the session's checkout in the editor.
 

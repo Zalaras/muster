@@ -123,7 +123,7 @@ port, data dir and tmux socket, with six sessions.
 **A genuinely real shell.** Clicking `shell` in the Focus mainhead mounted a container
 labelled exactly `Shell: rv-repoA`. Typing `echo RV2-$((13*17))-$(basename $PWD)` read back
 `RV2-221-repoA`. The arithmetic and the directory name are both the shell's own work, so
-the round trip is real, and the prompt itself (`damian@Damians-MacBook repoA %`) confirms
+the round trip is real, and the prompt itself (`bob@Bobs-MacBook repoA %`) confirms
 REQ-1's cwd. A stray keystroke earlier produced a genuine `zsh: command not found: eecho`,
 which is its own proof the pane is a live zsh and not a replayed fixture.
 
@@ -145,7 +145,7 @@ Clicking a non-focused dead tile behaved the same, and neither click leaked a no
 the other tile — so the per-tile scoping is real, not incidental.
 
 **REQ-7 and REQ-8 end to end.** Started a shell on a **dead** session whose directory still
-existed: it mounted, the pip lit, and the tile body showed `damian@Damians-MacBook repoF %`
+existed: it mounted, the pip lit, and the tile body showed `bob@Bobs-MacBook repoF %`
 with the dead surface replaced. Typing `exit` then cleared the pip, flipped the segment
 back to `claude`, and swapped the dead surface back in.
 

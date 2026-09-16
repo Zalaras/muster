@@ -11,7 +11,7 @@ files: []
 tests: []
 refs: [docs/history/spikes/canary-fields.md, CLAUDE.md, kb:fact/local-settings-honoured]
 ---
-**What happened.** The spike deliberately did not isolate `~/.claude/settings.json`, because Damian's live sessions depend on it. His personal permission allowlist therefore applied to spike sessions: a `Bash(echo hello)` was auto-approved, produced no permission prompt, and the probe waiting on `PermissionRequest` waited on a hook that was never going to fire.
+**What happened.** The spike deliberately did not isolate `~/.claude/settings.json`, because the developer's live sessions depend on it. His personal permission allowlist therefore applied to spike sessions: a `Bash(echo hello)` was auto-approved, produced no permission prompt, and the probe waiting on `PermissionRequest` waited on a hook that was never going to fire.
 
 **Cost.** A probe run spent on a non-event, and a wrong conclusion narrowly avoided about whether the hook exists.
 

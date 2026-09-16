@@ -114,7 +114,7 @@ breakage of the Protocol Contract (`prefs` gaining `updateCheck`, `snapshot` gai
 - **Disposable minisign keypairs only.** Every fixture signs with a keypair generated
   in-process via `minisign.GenerateKey(nil)` (`aead.dev/minisign`, the real import path
   per daemon-implementation.md's Decisions). This agent never looked for or touched
-  Damian's real private key; the committed `internal/selfupdate/minisign.pub` is untouched
+  the developer's real private key; the committed `internal/selfupdate/minisign.pub` is untouched
   and used only by production code, never by these tests.
 - **`internal/server/update_test.go`'s D23 tests use a real per-test tmux socket**
   (`tmuxtest.Socket`), per `docs/conventions.md`'s rule that real tmux is for

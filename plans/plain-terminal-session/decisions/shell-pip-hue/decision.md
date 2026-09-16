@@ -2,7 +2,7 @@
 
 **Plan**: plain-terminal-session
 **Raised by**: review cycle 1, Major 3 (`[orchestrator:user-decision]`)
-**Reached by**: user decision (Damian, 2026-09-05)
+**Reached by**: user decision (the developer, 2026-09-05)
 **Outcome**: Option B — the pip gets its own token
 
 ## Question
@@ -10,7 +10,7 @@
 The `shell` segment's pip used `--teal`, which `docs/design/design-system.md` §3 reserves
 for the Working state ("a state colour may **only** mean that state"). REQ-4 of the
 approved plan specified a teal pip and the approved mockup carried it, so this was a
-design-system vocabulary question for Damian, not a defect for an agent or a `/decide`
+design-system vocabulary question for the developer, not a defect for an agent or a `/decide`
 debate.
 
 ## Options (verbatim from review.md)

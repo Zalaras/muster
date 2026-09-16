@@ -2141,7 +2141,7 @@ dialog.modal h2 {
 
 /* ── confirm dialogs (REQ-14, m4-reconcile) — End/Remove, modelled on the launch
  * dialog's own `dialog.modal` chrome above; `--danger` for the destructive confirm
- * button (review m4-reconcile cycle-3 Major 2, Damian's option A): a state colour may
+ * button (review m4-reconcile cycle-3 Major 2, the developer's option A): a state colour may
  * only mean that state (§3), so destructive actions get their own family rather than
  * borrowing `--rose`, which stays reserved for the Failed state. */
 dialog.confirm {

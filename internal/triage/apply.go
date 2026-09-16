@@ -13,7 +13,7 @@ import (
 // leave it for HistoryFile, which is read alongside it (ReadTracked) and never written.
 const TodoFile = "TODO.md"
 
-// Decision pairs an issue with the section Damian chose for it. The section choice stays
+// Decision pairs an issue with the section the developer chose for it. The section choice stays
 // a human one: where an item ranks is a judgement, and the skill still asks.
 type Decision struct {
 	Number  int

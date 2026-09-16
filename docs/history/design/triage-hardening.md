@@ -66,7 +66,7 @@ Three facts set the shape of the fix:
    session passes only the artifact *path*, so sanitised attacker text never enters its
    context.
 8. **Validate** — enums, ack, verbatim-substring provenance, count reconciliation.
-9. **Damian picks the section.** Unchanged; where an item ranks is his judgement.
+9. **The developer picks the section.** Unchanged; where an item ranks is their judgement.
 10. **Apply** — render from a fixed template, splice, stage only `TODO.md`, one commit.
 
 ### Transform ordering invariants
@@ -90,14 +90,14 @@ package wrote.
 
 | Condition | Route |
 |---|---|
-| bidi override, or a tripwire phrase | **held** — never sent to a model, reported to Damian |
+| bidi override, or a tripwire phrase | **held** — never sent to a model, reported to the developer |
 | no flags **and** `author_association ∈ {OWNER, MEMBER}` | normal — today's richer prose entry |
 | anything else | facts-only — enums and one quoted substring, no model-authored prose |
 
 Flags dominate association: the question is what the text does, not who sent it. Nothing
 falls back to comparing the login against a name — a login is not the check.
 
-On this repo OWNER/MEMBER means "filed from Damian's own dashboard button", so the normal
+On this repo OWNER/MEMBER means "filed from the developer's own dashboard button", so the normal
 path is effectively self-filed-only.
 
 ### Why drop-and-count, not reject
@@ -154,5 +154,5 @@ Stated rather than papered over.
   permission prompts, which is added involvement.
 - **Dropping the snapshot JSON.** It carries the version facts triage needs.
 - **Auto-closing on a tripwire hit.** See principle 5.
-- **Human review of sanitised issues.** Involvement stays flat: Damian picks a section,
+- **Human review of sanitised issues.** Involvement stays flat: the developer picks a section,
   approves a duplicate-close, and reads the held list.

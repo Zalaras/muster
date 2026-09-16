@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Stay private and keep the account-gated install path. (B) Go public, applying the settings as one scripted, dry-run-by-default step so the flip and its consequences are reviewable and repeatable.
 
-**Decision.** B, Damian's decision, after confirming his employment IP terms. The script is never run unasked and applies only the steps marked for it; the rest of the checklist is done by hand.
+**Decision.** B, the developer's decision, after confirming their employment IP terms. The script is never run unasked and applies only the steps marked for it; the rest of the checklist is done by hand.
 
 **Consequences.** Existing releases and their binaries became public with the flip. Issue bodies became attacker-controlled text, which drove the triage hardening. Projects, wiki and discussions are off; delete-branch-on-merge is on; six topics are set. Two operational lessons are recorded beside the checklist: the visibility flag needs a recent GitHub CLI, and the repository is briefly locked after the flip, so the script is idempotent and re-run.

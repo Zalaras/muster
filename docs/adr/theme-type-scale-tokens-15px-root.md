@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Leave pixel sizes and enlarge the few that read small. (B) A tokenised ramp anchored to the existing root size. (C) A tokenised ramp with the root raised one step, plus a user-facing text-size control in Settings.
 
-**Decision.** A ramp with the root raised, Damian's decision at planning, without the control: tokens first, the control later as a text-size pref with a Settings segmented control and a first-paint hint, recorded in the backlog.
+**Decision.** A ramp with the root raised, the developer's decision at planning, without the control: tokens first, the control later as a text-size pref with a Settings segmented control and a first-paint hint, recorded in the backlog.
 
 **Consequences.** The whole chrome grows slightly and together. A negative grep check pins that every font-size references a step, so a hardcoded size is caught. The terminal keeps its own xterm font size, outside the ramp. The Settings dialog is where the control lands when it is built.

@@ -83,7 +83,7 @@ func TestSpliceAppendsAfterTheLastEntry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Splice: %v", err)
 	}
-	// Priority order is Damian's, recorded in the file's own preamble; new entries go at
+	// Priority order is the developer's, recorded in the file's own preamble; new entries go at
 	// the end of the section, never sorted in.
 	if strings.Index(got, "issues/99") < strings.Index(got, "issues/4") {
 		t.Error("entry was inserted before an existing one instead of appended")

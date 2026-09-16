@@ -12,39 +12,39 @@ a daemon-owned title override.
 
 ## Overview
 
-Damian pulled four open dashboard issues into one plan because three of them are one sweep
+The developer pulled four open dashboard issues into one plan because three of them are one sweep
 over `web/src/style.css` and the fourth is small. The measured starting points (2026-09-03,
 `main` at `ed9fdc3`):
 
 - **#16 Focus marker.** `focusedId` is `main.ts`-local and never reaches `reconcileCards`; the
   only cue a card has is CSS `:focus-within`, which vanishes as soon as the user clicks into the
   terminal. In Tiles the strip only ever shows sessions that are *not* live, so a "live in this
-  view" marker would never render there. Decision (Damian, 2026-09-03): the marker means **"the
+  view" marker would never render there. Decision (the developer, 2026-09-03): the marker means **"the
   session the Focus pane is showing"**, rendered on the rail only, as a neutral treatment (state
   colours are spoken for, design-system §3): `--bg-hover` ground + a 1px inset `--edge` ring +
   `aria-current="true"`. No word tag.
 - **#18 Dim dark themes.** The AA gate passes while the metadata layer sits *at* the floor:
   Instrument `--fg-dim` on `--bg-hover` is 4.57:1, `--fg-muted` 5.52:1, `--idle` 4.51:1; Dark is
-  4.64 / 5.93 / 4.63. Decision (**option A**, Damian, 2026-09-03, from a side-by-side mock): one
+  4.64 / 5.93 / 4.63. Decision (**option A**, the developer, 2026-09-03, from a side-by-side mock): one
   higher floor for every theme — `--fg-muted` ≥ 8:1, `--fg-dim` ≥ 7:1, `--idle` and the four
   state hues as text ≥ 6:1, the two note tokens ≥ 7:1 — so Light moves too. The new values are
   tabulated under Implementation Notes and have been written into the two reference mockups
   during planning (they remain the design authority; `style.css` transcribes them verbatim).
 - **#19 Type scale.** `style.css` carries 61 hardcoded `font-size` declarations across thirteen
   distinct values from 9px to 16px and no size tokens; `body` is 14px but almost nothing inherits
-  it. Decision (Damian, 2026-09-03): a seven-step `--fs-*` ramp in rem anchored to one root size,
+  it. Decision (the developer, 2026-09-03): a seven-step `--fs-*` ramp in rem anchored to one root size,
   and the root moves from 14px to **15px** (≈7% up, the whole ramp together). **No user-facing
   text-size control in this plan** — that becomes a post-release TODO item (a `prefs.textSize`
   enum with a Settings segmented control and a first-paint hint). The terminal keeps its own
   font: xterm's 12.5px in `web/src/terminal/pane.ts` is untouched.
 - **#10 Rename.** Today `title` is written once from the launch form (`claude --name`) and then
   overwritten by the status line's `session_name` on every post; there is no rename route. The
-  TODO asked for a `/spec` pass first; Damian pulled it in directly and the spec-level questions
+  TODO asked for a `/spec` pass first; the developer pulled it in directly and the spec-level questions
   were settled in this interview: a **daemon-owned title override** (`title_override` column)
   that wins over the status line, exposed on the wire as `titleOverride`, with the wire `title`
   becoming the *display* title (override, else Claude's last-known name). The affordance is
   **inline click-to-edit on the title, in both views**: the Focus mainhead's heading and every
-  tile's header name in Tiles (Damian, 2026-09-03: "I should be able to rename from the tile
+  tile's header name in Tiles (the developer, 2026-09-03: "I should be able to rename from the tile
   view"). One shared editor module serves both. Clearing the field reverts to Claude Code's own
   name. This amends SPEC §2.1's "Muster does not maintain its own ID→title mapping"
   — the launch form's `--name` still reaches Claude Code unchanged; only a post-launch rename is
@@ -631,5 +631,5 @@ broadcast helper only when either differs.
   "Post-release": *Text-size setting — `prefs.textSize` enum (`small | medium | large`), a
   Settings-dialog segmented control beside Theme, `<html data-text-size>` driving `--fs-root`,
   and the first-paint hint extended so a reload doesn't flash. Deferred from `ui-text-and-focus`
-  (Damian, 2026-09-03): tokens first, control later.*
+  (the developer, 2026-09-03): tokens first, control later.*
 - `docs/protocol.md`: the §3.15 and §5.3 deltas above (merged at approval by the planner).

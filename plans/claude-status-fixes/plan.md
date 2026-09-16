@@ -42,7 +42,7 @@ Playwright repro (2026-09-03, `main` at `16436f6`):
   in `web/src/main.ts:884-885` call `cancelOpenRenames()` unconditionally; the gesture is
   only a view switch when the button is not the active one.
 
-Decisions taken with Damian (2026-09-03): (1) a subagent's permission request after the
+Decisions taken with the developer (2026-09-03): (1) a subagent's permission request after the
 parent's `Stop` is covered by the same rule as its tool activity — measured, not assumed;
 (2) no new rail surface for background work — it is `working`, files are changing; (3) a
 `Stop` whose `background_tasks` is non-empty still lands `idle`, and the first marked

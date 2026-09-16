@@ -475,7 +475,7 @@ test file. `D-tmuxleak` guards the naming convention staying inside `internal/tm
 
 ## Implementation Notes
 
-### Red-first (explicit instruction from Damian, 2026-09-14)
+### Red-first (explicit instruction from the developer, 2026-09-14)
 
 This run inverts `/orchestrate`'s default impl-then-tests order. `daemon-tests` authors **every
 `D*` above first**, runs them against the unmodified tree, and pastes the failing output into

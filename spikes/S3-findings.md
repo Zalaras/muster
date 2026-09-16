@@ -181,7 +181,7 @@ right, but it is not missing generally — it is on every tool-scoped and turn-s
 ```json
 {"hook_event_name":"PreToolUse","tool_name":"ExitPlanMode","permission_mode":"plan",
  "tool_input":{"plan":"# Plan: Add --verbose flag to main.go\n\n## Context\n…",
-               "planFilePath":"/Users/damian/.claude/plans/plan-how-to-add-purring-gray.md"},
+               "planFilePath":"/Users/bob/.claude/plans/plan-how-to-add-purring-gray.md"},
  "tool_use_id":"toolu_01B3Yg8D8gnHuXk1vp395xpP","session_id":"67f82285-…"}
 ```
 
@@ -338,7 +338,7 @@ stock behaviour.
 - **§6's gotcha "a `PermissionRequest` HTTP hook that times out renders no decision — UI
   must lose gracefully" is CONFIRMED**, and the failure is safe.
 - **A new hazard worth spec'ing.** Because it is a race, Muster can rip a prompt out from
-  under Damian mid-read. Auto-allow decisions should be fast (sub-second) so the prompt
+  under the developer mid-read. Auto-allow decisions should be fast (sub-second) so the prompt
   never appears at all, or deliberately slow enough that the human clearly owns it — the
   middle ground is the bad one. A short `timeout` (2–3 s) is the right default.
 - **§4.4's permissions UI gets a bonus**: `updatedPermissions` in the allow branch means a
@@ -365,7 +365,7 @@ hook fired; the HTTP hook did not:
 {"session_id":"26fea281-7b8d-4a32-a679-7ebb124496c5",
  "hook_event_name":"SessionStart","source":"startup",
  "model":"claude-haiku-4-5-20251001",
- "cwd":"/Users/damian/Documents/code/Projects/ccc-spike/instances/4/repo",
+ "cwd":"/Users/bob/Documents/code/Projects/ccc-spike/instances/4/repo",
  "transcript_path":"…/26fea281-….jsonl"}
 ```
 

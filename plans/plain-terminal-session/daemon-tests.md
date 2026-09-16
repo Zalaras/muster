@@ -227,10 +227,10 @@ overwrite `settingsPath` with tampered content between the before/after reads. B
 content assertion and the mtime assertion failed as expected:
 
 ```
-Error Trace:	/Users/damian/Documents/code/Projects/muster/internal/server/plainshell_test.go:299
+Error Trace:	/Users/bob/Documents/code/Projects/muster/internal/server/plainshell_test.go:299
 Error:      	Not equal: (settings.local.json content, real JSON) != (len=8) {TAMPERED}
 Messages:   	REQ-2: POST .../shell must never modify settings.local.json's content
-Error Trace:	/Users/damian/Documents/code/Projects/muster/internal/server/plainshell_test.go:300
+Error Trace:	/Users/bob/Documents/code/Projects/muster/internal/server/plainshell_test.go:300
 Error:      	Not equal: 2026-09-05 23:09:59.967217998 +0200 SAST != 2026-09-05 23:10:00.111775202 +0200 SAST
 Messages:   	REQ-2: POST .../shell must never rewrite settings.local.json, even byte-identically
 ```

@@ -15,7 +15,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     endedAt: null,
     attention: null,
     failure: null,
-    directory: "/Users/damian/code/muster",
+    directory: "/Users/bob/code/muster",
     repo: null,
     model: null,
     permissionMode: { value: "default", source: "seed" },
@@ -90,7 +90,7 @@ describe("buildCardViewModel — repo / branch line", () => {
 
   it("falls back to the directory basename when repo is null (REQ-15)", () => {
     const vm = buildCardViewModel(
-      makeSession({ id: 1, repo: null, directory: "/Users/damian/code/muster" }),
+      makeSession({ id: 1, repo: null, directory: "/Users/bob/code/muster" }),
       NOW,
     );
     expect(vm.repoLine).toBe("muster");
@@ -98,7 +98,7 @@ describe("buildCardViewModel — repo / branch line", () => {
 
   it("handles a directory with a trailing slash when falling back to basename", () => {
     const vm = buildCardViewModel(
-      makeSession({ id: 1, repo: null, directory: "/Users/damian/code/muster/" }),
+      makeSession({ id: 1, repo: null, directory: "/Users/bob/code/muster/" }),
       NOW,
     );
     expect(vm.repoLine).toBe("muster");

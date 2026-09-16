@@ -11,5 +11,5 @@ classifier inside the review subagent. Who runs it, and when?
 ## Outcome
 
 **The pipeline runs R1**: after the fix waves and the delta re-review, the orchestrator
-executes the four R1 steps from the main session, where Damian approves the permission
+executes the four R1 steps from the main session, where the developer approves the permission
 prompts live. The result is pasted into plans/issue-capture/review.md as the plan requires.

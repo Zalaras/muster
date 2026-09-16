@@ -248,7 +248,7 @@ block. Still owed, together with recording the outcome in `spikes/canary-fields.
    says a state colour may only mean that state and that "rose is never 'delete'"; a
    `failed` card's rose stripe can sit on screen beside a rose Remove hover. Either amend
    §3 to record the exception or add a `--danger` family. No pipeline agent may edit
-   `docs/design/design-system.md`. Damian's call. Carried unchanged from cycles 1 and 2.
+   `docs/design/design-system.md`. The developer's call. Carried unchanged from cycles 1 and 2.
 
 ### Minor
 
@@ -271,13 +271,13 @@ block. Still owed, together with recording the outcome in `spikes/canary-fields.
    surface's only recovery affordance again. One assertion, one surface — not a sweep.
 
 3. **[web-impl]** The hover-only `.acts-row` behaviour was decided inside the fix cycle,
-   not signed off. — `web/src/style.css:371-381` — cycle 2's Minor 4 asked for *Damian's
+   not signed off. — `web/src/style.css:371-381` — cycle 2's Minor 4 asked for *the developer's
    conscious sign-off* on always-on versus hover-only; web-impl implemented hover-only
    instead, reasoning from the mockup (`opt-c-both.html:277`), which is a defensible
    reading and is documented honestly in `web-implementation.md`. The behaviour itself
    measures correctly for both mouse and keyboard (Manual Verification 3). Flagging only
    so the decision is visible rather than absorbed: it changes rail density from what
-   shipped in cycles 1–2, and it is what produced Critical 1. Worth a line from Damian at
+   shipped in cycles 1–2, and it is what produced Critical 1. Worth a line from the developer at
    completion either way.
 
 4. **[web-tests]** `reconcileCards` — the cycle's largest new piece of logic — has no unit

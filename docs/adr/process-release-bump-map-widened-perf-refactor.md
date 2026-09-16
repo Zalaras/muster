@@ -15,6 +15,6 @@ supersedes: [release-versioning-automatic-from-conventional-commits]
 
 **Options.** (A) Keep feat and fix as the only releasing types. (B) Widen: feat bumps minor; fix, perf and refactor bump patch; the remaining types release nothing. (C) Release on every push regardless of type.
 
-**Decision.** B, settled with Damian after re-measuring the version tool. It hardwires only feat and fix and its configuration has no type-to-bump mapping, so the workflow carries a small shim: when the tool reports no bump but a perf or refactor commit exists since the last tag, it forces a patch.
+**Decision.** B, settled with the developer after re-measuring the version tool. It hardwires only feat and fix and its configuration has no type-to-bump mapping, so the workflow carries a small shim: when the tool reports no bump but a perf or refactor commit exists since the last tag, it forces a patch.
 
 **Consequences.** The release-note filter is defined as exactly the set of bumping types, so the two cannot drift apart. The published-subject length cap now binds perf and refactor as well as feat and fix. The breaking marker's meaning on a pre-1.0 line is decided separately and mechanically guarded rather than left to convention, which this record's predecessor had relied on.

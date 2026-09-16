@@ -855,7 +855,7 @@ const validSession = {
   endedAt: null,
   attention: null,
   failure: null,
-  directory: "/Users/damian/code/muster",
+  directory: "/Users/bob/code/muster",
   repo: { name: "muster", branch: "main", isWorktree: false },
   model: { id: "claude-sonnet-4-5", displayName: "sonnet" },
   permissionMode: { value: "default", source: "seed" },
@@ -884,7 +884,7 @@ const freshLaunchSession = {
   endedAt: null,
   attention: null,
   failure: null,
-  directory: "/Users/damian/code/muster",
+  directory: "/Users/bob/code/muster",
   repo: null,
   model: null,
   permissionMode: { value: "default", source: "seed" },
@@ -1113,7 +1113,7 @@ describe("parseSession — plan (plan markdown-viewing kb:anchor/ws.session REQ-
   it("parses a populated plan object (exists: true)", () => {
     const session = {
       ...validSession,
-      plan: { path: "/Users/damian/.claude/plans/say-hi-golden-finch.md", exists: true },
+      plan: { path: "/Users/bob/.claude/plans/say-hi-golden-finch.md", exists: true },
     };
     expect(parseSession(session)).toEqual(session);
   });
@@ -1121,7 +1121,7 @@ describe("parseSession — plan (plan markdown-viewing kb:anchor/ws.session REQ-
   it("parses a plan object with exists: false (plan mode entered, nothing written yet)", () => {
     const session = {
       ...validSession,
-      plan: { path: "/Users/damian/.claude/plans/say-hi-golden-finch.md", exists: false },
+      plan: { path: "/Users/bob/.claude/plans/say-hi-golden-finch.md", exists: false },
     };
     expect(parseSession(session)).toEqual(session);
   });
@@ -1137,7 +1137,7 @@ describe("parseSession — plan (plan markdown-viewing kb:anchor/ws.session REQ-
 
   it("rejects a plan object missing exists", () => {
     expect(
-      parseSession({ ...validSession, plan: { path: "/Users/damian/.claude/plans/x.md" } }),
+      parseSession({ ...validSession, plan: { path: "/Users/bob/.claude/plans/x.md" } }),
     ).toBeNull();
   });
 
@@ -1150,7 +1150,7 @@ describe("parseDocChanged (plan markdown-viewing kb:anchor/ws.doc-changed, W10)"
   const validDocChanged = {
     type: "docChanged",
     id: 7,
-    path: "/Users/damian/code/Projects/muster/TODO.md",
+    path: "/Users/bob/code/Projects/muster/TODO.md",
     at: "2026-09-13T09:15:00Z",
   };
 

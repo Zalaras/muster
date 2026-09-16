@@ -13,7 +13,7 @@ supersedes: []
 ---
 **Context.** Muster needs a little git knowledge, such as telling a worktree from a checkout and naming the branch, and one GitHub write, filing an issue. Claude Code itself does both by shelling out.
 
-**Options.** For git: (A) go-git, a pure-Go implementation whose behaviour drifts from the git binary on the same checkout; (B) os/exec against the git CLI. For GitHub: (C) the GitHub MCP server, which Damian would prefer in principle but believed lacked the tools needed; (D) the gh CLI, already logged in on the machine.
+**Options.** For git: (A) go-git, a pure-Go implementation whose behaviour drifts from the git binary on the same checkout; (B) os/exec against the git CLI. For GitHub: (C) the GitHub MCP server, which the developer would prefer in principle but believed lacked the tools needed; (D) the gh CLI, already logged in on the machine.
 
 **Decision.** B and D. Matching Claude Code's own behaviour matters more than avoiding a subprocess, and the CLIs are already present wherever Claude Code runs.
 

@@ -326,7 +326,7 @@ Tag every issue with the responsible agent so the orchestrator knows where to ro
   (`docs/protocol.md` / the plan's Protocol Contract), plan scope, an accepted ADR, or spending
   money — tag it `[orchestrator:user-decision]` instead:
   still two labelled options with measured trade-offs, but the orchestrator takes it straight to
-  Damian rather than to a debate that would have to refuse it (kb:lesson/protocol-decision-routed-to-debate).
+  the developer rather than to a debate that would have to refuse it (kb:lesson/protocol-decision-routed-to-debate).
 
 ## Verdict Rules
 

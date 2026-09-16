@@ -112,14 +112,14 @@ func TestSpotlightFinder_Find_ParsesOneCandidatePerLineAndSkipsBlankLines(t *tes
 		timeout:  time.Second,
 		lookPath: func(string) (string, error) { return "/usr/bin/mdfind", nil },
 		run: func(context.Context, string, ...string) ([]byte, error) {
-			return []byte("/Users/damian/Desktop/a.png\n/Users/damian/Downloads/a.png\n\n"), nil
+			return []byte("/Users/bob/Desktop/a.png\n/Users/bob/Downloads/a.png\n\n"), nil
 		},
 	}
 
 	candidates, err := f.Find(context.Background(), "/some/dir", "a.png", 10)
 
 	require.NoError(t, err)
-	assert.Equal(t, []string{"/Users/damian/Desktop/a.png", "/Users/damian/Downloads/a.png"}, candidates)
+	assert.Equal(t, []string{"/Users/bob/Desktop/a.png", "/Users/bob/Downloads/a.png"}, candidates)
 }
 
 func TestSpotlightFinder_Find_NoOutputYieldsNoCandidates(t *testing.T) {

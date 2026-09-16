@@ -35,7 +35,7 @@ const validSession: Session = {
   endedAt: null,
   attention: null,
   failure: null,
-  directory: "/Users/damian/code/muster",
+  directory: "/Users/bob/code/muster",
   repo: null,
   model: null,
   permissionMode: { value: "default", source: "seed" },
@@ -108,7 +108,7 @@ describe("api — launchSession (POST /api/sessions)", () => {
   it("posts the launch request and decodes a 201 Session response (REQ-1/REQ-2)", async () => {
     fetchMock.mockResolvedValue(fakeResponse(true, validSession));
     const result = await launchSession({
-      directory: "/Users/damian/code/muster",
+      directory: "/Users/bob/code/muster",
       model: "sonnet",
       permissionMode: "default",
     });
@@ -120,7 +120,7 @@ describe("api — launchSession (POST /api/sessions)", () => {
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          directory: "/Users/damian/code/muster",
+          directory: "/Users/bob/code/muster",
           model: "sonnet",
           permissionMode: "default",
         }),
@@ -270,7 +270,7 @@ describe("api — fetchRepos (GET /api/repos)", () => {
     const repos = [
       {
         id: 1,
-        path: "/Users/damian/code/muster",
+        path: "/Users/bob/code/muster",
         name: "muster",
         isGit: true,
         branch: "main",
@@ -282,7 +282,7 @@ describe("api — fetchRepos (GET /api/repos)", () => {
       },
       {
         id: 2,
-        path: "/Users/damian/code/fresh",
+        path: "/Users/bob/code/fresh",
         name: "fresh",
         isGit: false,
         branch: null,
@@ -332,7 +332,7 @@ describe("api — fetchRepos (GET /api/repos)", () => {
     const repos = [
       {
         id: 3,
-        path: "/Users/damian/code/auto-repo",
+        path: "/Users/bob/code/auto-repo",
         name: "auto-repo",
         isGit: true,
         branch: "main",
@@ -363,7 +363,7 @@ describe("api — browse (GET /api/browse)", () => {
 
   it("requests the bare endpoint when no path is given (daemon defaults to the home directory)", async () => {
     fetchMock.mockResolvedValue(
-      fakeResponse(true, { path: "/Users/damian", parent: "/Users", dirs: [] }),
+      fakeResponse(true, { path: "/Users/bob", parent: "/Users", dirs: [] }),
     );
     await browse();
     expect(fetchMock).toHaveBeenCalledWith("/api/browse", { credentials: "same-origin" });
@@ -371,10 +371,10 @@ describe("api — browse (GET /api/browse)", () => {
 
   it("URL-encodes the path query parameter", async () => {
     fetchMock.mockResolvedValue(
-      fakeResponse(true, { path: "/Users/damian/my code", parent: "/Users/damian", dirs: [] }),
+      fakeResponse(true, { path: "/Users/bob/my code", parent: "/Users/bob", dirs: [] }),
     );
-    await browse("/Users/damian/my code");
-    expect(fetchMock).toHaveBeenCalledWith("/api/browse?path=%2FUsers%2Fdamian%2Fmy%20code", {
+    await browse("/Users/bob/my code");
+    expect(fetchMock).toHaveBeenCalledWith("/api/browse?path=%2FUsers%2Fbob%2Fmy%20code", {
       credentials: "same-origin",
     });
   });
@@ -822,9 +822,9 @@ describe("api — fetchReaderListing (GET /api/sessions/{id}/reader, kb:anchor/s
 
   it("decodes a listing with a populated plan and files, requesting the right URL", async () => {
     const body = {
-      directory: "/Users/damian/code/muster",
+      directory: "/Users/bob/code/muster",
       plan: {
-        path: "/Users/damian/.claude/plans/say-hi.md",
+        path: "/Users/bob/.claude/plans/say-hi.md",
         exists: true,
         writtenAt: "2026-09-13T09:15:00Z",
       },
@@ -845,7 +845,7 @@ describe("api — fetchReaderListing (GET /api/sessions/{id}/reader, kb:anchor/s
 
   it("decodes plan: null — the transcript names no plan at all, never rejected", async () => {
     const body = {
-      directory: "/Users/damian/code/muster",
+      directory: "/Users/bob/code/muster",
       plan: null,
       files: [],
       listing: "walk",
@@ -858,8 +858,8 @@ describe("api — fetchReaderListing (GET /api/sessions/{id}/reader, kb:anchor/s
 
   it("decodes a plan with exists: false and writtenAt: null (plan mode entered, nothing written yet)", async () => {
     const body = {
-      directory: "/Users/damian/code/muster",
-      plan: { path: "/Users/damian/.claude/plans/say-hi.md", exists: false, writtenAt: null },
+      directory: "/Users/bob/code/muster",
+      plan: { path: "/Users/bob/.claude/plans/say-hi.md", exists: false, writtenAt: null },
       files: [],
       listing: "git",
       truncated: false,
@@ -871,7 +871,7 @@ describe("api — fetchReaderListing (GET /api/sessions/{id}/reader, kb:anchor/s
 
   it("decodes truncated: true (the 20,000-file walk cap was hit)", async () => {
     const body = {
-      directory: "/Users/damian/code/muster",
+      directory: "/Users/bob/code/muster",
       plan: null,
       files: [{ path: "a.md", writtenAt: null }],
       listing: "walk",
@@ -966,16 +966,16 @@ describe("api — fetchReaderFile (GET /api/sessions/{id}/reader/file, kb:anchor
 
   it("returns the raw text body verbatim on 200, never parsed as JSON", async () => {
     fetchMock.mockResolvedValue(fakeTextResponse("# Plan\n\nSome *markdown*.\n"));
-    const result = await fetchReaderFile(7, "/Users/damian/code/muster/TODO.md");
+    const result = await fetchReaderFile(7, "/Users/bob/code/muster/TODO.md");
     expect(result).toEqual({ ok: true, value: "# Plan\n\nSome *markdown*.\n" });
   });
 
   it("encodes the absolute path into the query string", async () => {
     fetchMock.mockResolvedValue(fakeTextResponse(""));
-    await fetchReaderFile(7, "/Users/damian/code/muster/docs/a b.md");
+    await fetchReaderFile(7, "/Users/bob/code/muster/docs/a b.md");
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/sessions/7/reader/file?path=" +
-        encodeURIComponent("/Users/damian/code/muster/docs/a b.md"),
+        encodeURIComponent("/Users/bob/code/muster/docs/a b.md"),
       { credentials: "same-origin" },
     );
   });
@@ -997,7 +997,7 @@ describe("api — fetchReaderFile (GET /api/sessions/{id}/reader/file, kb:anchor
     fetchMock.mockResolvedValue(
       fakeResponse(false, { error: { code: "not_found", message: "no such document" } }),
     );
-    const result = await fetchReaderFile(7, "/Users/damian/code/muster/../../etc/passwd");
+    const result = await fetchReaderFile(7, "/Users/bob/code/muster/../../etc/passwd");
     expect(result).toEqual({
       ok: false,
       error: { code: "not_found", message: "no such document" },
@@ -1661,13 +1661,13 @@ describe("api — locateDroppedFile (POST /api/sessions/{id}/locate, kb:anchor/s
 
   it("uploads the file as multipart/form-data under the 'file' part and decodes the 200 path (REQ-2/REQ-3)", async () => {
     fetchMock.mockResolvedValue(
-      fakeResponse(true, { path: "/Users/damian/Desktop/Screenshot 2026-08-30 at 14.35.00.png" }),
+      fakeResponse(true, { path: "/Users/bob/Desktop/Screenshot 2026-08-30 at 14.35.00.png" }),
     );
     const file = makeFile("Screenshot 2026-08-30 at 14.35.00.png");
     const result = await locateDroppedFile(7, file);
     expect(result).toEqual({
       ok: true,
-      value: { path: "/Users/damian/Desktop/Screenshot 2026-08-30 at 14.35.00.png" },
+      value: { path: "/Users/bob/Desktop/Screenshot 2026-08-30 at 14.35.00.png" },
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -1709,7 +1709,7 @@ describe("api — locateDroppedFile (POST /api/sessions/{id}/locate, kb:anchor/s
   });
 
   it("decodes a 409 ambiguous error envelope, carrying the paths array (REQ-3, two+ verified candidates)", async () => {
-    const paths = ["/Users/damian/a/dup.png", "/Users/damian/b/dup.png"];
+    const paths = ["/Users/bob/a/dup.png", "/Users/bob/b/dup.png"];
     fetchMock.mockResolvedValue(
       fakeResponse(false, {
         error: { code: "ambiguous", message: "2 identical files named dup.png", paths },

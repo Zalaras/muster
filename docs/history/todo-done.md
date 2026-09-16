@@ -79,7 +79,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
 - [x] E2E harness that runs a scratch daemon (per-run port + data dir, sqlite3 oracle,
       `restart()`). Done 2026-08-22
 
-- [x] **D4 check vs test bodies** — resolved 2026-08-22 (Damian chose the helper over
+- [x] **D4 check vs test bodies** — resolved 2026-08-22 (the developer chose the helper over
       narrowing the check): `internal/claudecode/claudecodetest` now exports the
       wire-body builders (`RawHookBody`, `EnvelopedHookBody`); the split literal in
       `internal/server/ingest_test.go` is gone and D4 stands unchanged at full strength.
@@ -248,7 +248,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
       panes. Measured otherwise — the hook entries live in the directory's
       `.claude/settings.local.json`, so with musterd stopped every Claude Code session in
       that directory prints `PreToolUse:Bash hook error connect ECONNREFUSED
-      127.0.0.1:8765` per tool call, Muster-launched or not (observed in Damian's own
+      127.0.0.1:8765` per tool call, Muster-launched or not (observed in the developer's own
       editing session in the muster repo, with no daemon running and no Muster session
       live). The banner only covers the dashboard; the noise in unmanaged sessions has no
       surface at all. See the per-directory-hooks and hook-entry-lifetime entries below —
@@ -280,7 +280,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
       investigate; found 2026-08-23. Muster writes its hooks into the *directory's*
       `.claude/settings.local.json` (settled by the 2026-08-20 probe: only the local file
       honors `hooks`/`statusLine`/`allowedHttpHookUrls`), which is per-directory and not
-      per-pane — so any Claude Code session Damian runs in that directory outside Muster
+      per-pane — so any Claude Code session the developer runs in that directory outside Muster
       also POSTs to `/ingest`. Measured: one such outside session accounted for 46 of the
       51 rows in the real `event` table (and still climbing while it ran), all correctly
       persisted unrouted (`resolveSessionID` → `persisting unrouted`), which also floods
@@ -319,7 +319,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
       silent-failure option can only be reached by routing them through a wrapper script
       too, which is a protocol-shape change, not a one-liner. Immediate workaround while
       this is open: delete the file (Muster's launch rewrites it).
-      **Resolved 2026-08-27 (plan `m4-hook-lifetime`), decided with Damian**: entries are
+      **Resolved 2026-08-27 (plan `m4-hook-lifetime`), decided with the developer**: entries are
       **permanent by design** — no reference-counting, no strip-on-shutdown. The
       "route through a wrapper so failure can be silent" option is what was built (every
       event, not just SessionStart/status-line, is now `type:"command"`), which changes
@@ -348,7 +348,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
       permanently "unknown", `usage_sample` at 0 rows); the M3 context gauge, model
       readout and status-line title are all blank. Mechanic proved locally: a 0700 script
       at a space-bearing path runs on direct exec and dies `rc=127` under `sh -c`.
-      Decision taken (Damian, 2026-08-23): **fix by shell-quoting the path**, not by
+      Decision taken (the developer, 2026-08-23): **fix by shell-quoting the path**, not by
       relocating the data dir — the `command` field is a shell command line, not a path
       field, so a tool writing a path into it must quote it, and `-data-dir` already
       accepts arbitrary paths. Work, in order:
@@ -414,7 +414,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
       focus unit tests are vacuous under the `FakeDomNode` shim (Minor 1) — the E2E case is the
       real guard; tighten or drop them.
 
-- [x] **R2 real-haiku End → Resume check** — done 2026-08-30 (run manually by Damian). (m4-reconcile Reviewer-Verified R2, not run by the
+- [x] **R2 real-haiku End → Resume check** — done 2026-08-30 (run manually by the developer). (m4-reconcile Reviewer-Verified R2, not run by the
       pipeline — it burns subscription): `claude --model claude-haiku-4-5-20251001` "say hi",
       End from the dashboard, Resume, confirm the enveloped `SessionStart(source:"resume")`
       carries the same `session_id` interactively on the pinned binary and the badge reads
@@ -422,7 +422,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
 
 ## Pre-v1 Cleanup
 
-- ~~**`make refs` is red in any fresh clone or worktree** / **`make check` cannot pass in a git worktree**~~ — **dropped 2026-09-16** (Damian, during pre-v1 non-feature triage): both entries described the same gap (`dead-refs.py` resolving gitignored paths); removed from the backlog rather than fixed.
+- ~~**`make refs` is red in any fresh clone or worktree** / **`make check` cannot pass in a git worktree**~~ — **dropped 2026-09-16** (the developer, during pre-v1 non-feature triage): both entries described the same gap (`dead-refs.py` resolving gitignored paths); removed from the backlog rather than fixed.
 
 <!-- kb: adr/process-composition-roots-registration-only, adr/process-one-name-per-feature, adr/rail-user-owned-manual-order-default, adr/tiles-slot-stable-grid-never-self-sorts, adr/theme-no-traffic-light-state-palette, adr/usage-model-window-polled-from-oauth-api, adr/launch-picker-recent-sidebar-plus-browse-list, adr/tiles-new-session-button-in-toolbar, adr/connection-dashboard-embedded-in-binary, adr/release-builds-cross-compiled-on-linux, adr/release-distribution-github-release-not-brew, adr/release-no-ci-test-job-yet, adr/issue-payload-allowlist-never-dump, adr/process-e2e-explicit-fixtures, adr/process-faked-subprocess-boundary, adr/process-exec-waitdelay-on-pipe-owning-commands, adr/canary-plan-mode-step-three-sole-residual, adr/canary-verified-range-observed-not-pinned, adr/process-repo-public, adr/release-install-front-door-curl-sh, adr/update-check-pref-governs-checking-only, adr/process-transient-displays-not-oracles, adr/triage-program-not-model-between-github-and-todo -->
 
@@ -558,7 +558,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
   came out at 213 not ~145 (one per question), and `orchestrate/SKILL.md` remains over its 5,000-word warn threshold.
 
 - [x] **Dismantle the two composition-root hotspots so plans can run in parallel** — one plan,
-  `full-stack`, via `/orchestrate` (Damian, 2026-09-11: single plan for both sides, files not
+  `full-stack`, via `/orchestrate` (the developer, 2026-09-11: single plan for both sides, files not
   sub-packages for now). Scaling check 2026-09-11: `web/src/main.ts` is 1,425 lines and has been
   edited by 21 commits (40 element lookups, ~20 module-level `let` state variables, every
   feature's event wiring); `internal/server` is already 45 files but every feature adds a field
@@ -631,7 +631,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
   (`make install` / `gh release download`) — **Homebrew deliberately deferred** to any
   open-sourcing, since a private tap needs
   `GitHubPrivateRepositoryReleaseDownloadStrategy` plus a permanent
-  `HOMEBREW_GITHUB_API_TOKEN`. **No test/lint job yet** — Damian's call pending possible
+  `HOMEBREW_GITHUB_API_TOKEN`. **No test/lint job yet** — the developer's call pending possible
   open-sourcing; the release build is the de facto compile gate, and adding `make check` as
   a step is a one-liner when wanted. Trigger table lives in `docs/conventions.md` § Commits.
   *2026-09-10:* open-sourcing moved into this section (see the flip item below), so all three
@@ -858,7 +858,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
     [#6](https://github.com/Zalaras/muster/issues/6) (drift warning is developer-facing) — a
     declared supported range is what makes that warning sayable in user terms.
 
-  Notes on the intended mechanism (Damian, 2026-09-07 — not yet a design, capture only):
+  Notes on the intended mechanism (the developer, 2026-09-07 — not yet a design, capture only):
   - The canary still runs against **the currently installed version only**. There is no
     multi-version canary rig; nothing about the "install several `claude` builds" shape is wanted.
   - The supported range accretes from green canary runs: **from wherever we started, up to the
@@ -907,9 +907,9 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
 - [x] **Open-source the repo — flip `Zalaras/muster` to public** — **done 2026-09-10**
   (`scripts/go-public.sh --yes`, three runs: gh too old, post-flip lock, then clean; every §2
   setting verified against the printed output and anonymously — `docs/go-public.md`, SPEC
-  changelog 2026-09-10). Left for Damian by hand: fork-PR template check, Issue button from a
+  changelog 2026-09-10). Left for the developer by hand: fork-PR template check, Issue button from a
   running `musterd`. The three unblocked items are the next entries below. Was (moved into
-  pre-v1 on 2026-09-10, Damian's call; the two install items below depend on it and came with it).
+  pre-v1 on 2026-09-10, the developer's call; the two install items below depend on it and came with it).
   Nothing left to decide: the procedure is `docs/go-public.md` (§1 pre-flip is done bar its two
   mechanical last checks), the reasoning is `docs/design/open-sourcing.md`, licence is MIT
   (`docs/history/spec-changelog.md` 2026-09-04) and the contribution policy is issues yes, PRs no.
@@ -924,7 +924,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
   [#7](https://github.com/Zalaras/muster/issues/7) (the first half, the broken README command,
   shipped 2026-09-02). ✅ **done 2026-09-10** (`scripts/install.sh`, direct fix, no pipeline —
   shell + Makefile + docs only; #7 was already closed by `c71a759`, so nothing to close).
-  Homebrew was **split out** on Damian's call and is its own item below. What it does:
+  Homebrew was **split out** on the developer's call and is its own item below. What it does:
   resolves "latest" through the `/releases/latest` **redirect** rather than the API
   (unauthenticated `api.github.com` is 60 req/hr per IP; the redirect is unmetered),
   downloads the arch archive plus `checksums.txt`, **verifies the SHA-256** — the thing
@@ -940,9 +940,9 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
   *after* a 5 MB download.
 
 - [x] **Post-open-source: revisit the install instructions** (asked 2026-09-09; **moved from
-  post-v1 into pre-v1 on 2026-09-10**, Damian) ✅ **done 2026-09-10** — the README was written
+  post-v1 into pre-v1 on 2026-09-10**, the developer) ✅ **done 2026-09-10** — the README was written
   for a private repo (every path through `gh release download`, `make install` carrying the
-  same `gh` dependency). Rewritten around the new installer, and on Damian's follow-up
+  same `gh` dependency). Rewritten around the new installer, and on the developer's follow-up
   instruction the review covered the **whole file, not just § Install**: 194 → 115 lines.
   Cut the "Why Muster" naming blockquote, the `claude-session-manager-handoff.md` note, the
   `## Layout` tree (whose closing line still said "M0 adds the HTTP/WS server"), `## Status`'s
@@ -970,7 +970,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
   "restart musterd to finish") or **Update and restart** (swap + in-place re-exec, confirm step
   names the plain-terminal shells that will close) or `musterd -update` (swap only); daemon-side
   check at startup + every 24 h via the `/releases/latest` redirect; **minisign-signed
-  `checksums.txt`** with the public key compiled in (key + CI secret are Damian's to create);
+  `checksums.txt`** with the public key compiled in (key + CI secret are the developer's to create);
   `dev` builds show nothing, Homebrew/unexpected paths badge but disable apply with the remedy.
 
 - [x] **Fix the `terminal.spec.ts` E12 parallelism flake before v1** — `web/e2e/terminal.spec.ts:235`
@@ -979,7 +979,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
   1 run in 2 that day (`plans/auto-update/review.md` note 1). The spec's own comment at `:243`
   already admits "transient timeouts only under full-suite parallelism" and only widened the
   timeout to 15 s. Find the actual cause in the terminal-attach path under load (or the fixture),
-  don't widen the timeout again. Damian, 2026-09-11: must be fixed before v1.
+  don't widen the timeout again. The developer, 2026-09-11: must be fixed before v1.
   **Cause found 2026-09-11** (timed probe, 15 kills, 1 reproduced): not the attach path and not
   load. The `4001` overlay E12 asserts on is a ~25 ms transient — the probe measured the overlay
   appearing 5–9 ms after `kill-window` and `#dead-surface` replacing the whole terminal region
@@ -1012,7 +1012,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
   reaches this file. Design and residual risks: `docs/design/triage-hardening.md`.
 
 - [x] Bump Vitest 4 → 5 ✅ done 2026-09-12 (direct on `main`, no pipeline). Deliberately held
-  out of the 2026-09-11 dependency pass (Damian: handle the major in its own session). Vitest
+  out of the 2026-09-11 dependency pass (the developer: handle the major in its own session). Vitest
   5.0.0 needs Node ≥22.12 and Vite ≥6.4 and the tree was already past both (Node 24.21, Vite
   8.3), so `vitest` was the only package that moved — there is no `@vitest/ui`, coverage or
   browser package here. **No test needed changing.** The entry's stated risk did not hold:
@@ -1083,8 +1083,8 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
   (`kb:adr/actions-serialized-per-session`). Proven at both levels: D3 at the daemon boundary
   and E1 through the real launch dialog, both authored red before the fix existed.
 
-  Damian's original code-reading lead was correct on every point, and all three of his
-  candidate fixes were considered: ids no longer reuse, the spawn retries at a higher id, and
+  The developer's original code-reading lead was correct on every point, and all three of
+  their candidate fixes were considered: ids no longer reuse, the spawn retries at a higher id, and
   adopt-or-kill was deliberately **rejected** — it would have destroyed a running pane because
   the database forgot it. An orphan is made harmless instead, never killed.
 <!-- kb: adr/surfaces-tmux-preflight-at-startup, adr/theme-two-layer-tokens-not-white-label, adr/drop-daemon-locates-original-never-stages, adr/focus-rail-click-focuses-terminal, adr/launch-permission-modes-offered-four-tabbed, adr/surfaces-scroll-speed-via-launch-env, adr/surfaces-scrollback-affordance-not-built, adr/shortcuts-option-command-family-off-reserved-chords, adr/rename-muster-owned-title-override-wins, adr/lifecycle-subagent-marked-events-not-stragglers, adr/rail-current-marker-means-shown-in-focus, adr/theme-contrast-floors-above-aa, adr/theme-type-scale-tokens-15px-root, adr/surfaces-shell-is-attach-target-not-session -->
@@ -1201,7 +1201,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
     *2026-09-09:* folded into the pre-v1 **canary coverage** item (Pre-v1 Cleanup) — do it there
     with the rest of the uncovered surface, not on its own.
 
-  The other, **terminal bandwidth (`tmux -CC`)**, was moved to post-v1 on 2026-09-09 (Damian) —
+  The other, **terminal bandwidth (`tmux -CC`)**, was moved to post-v1 on 2026-09-09 (the developer) —
   it is a separate plan of its own, not a loose end of this fix. See the M5+ entry.
 
 - [x] **README's install command doesn't work on Apple Silicon** ([#7](https://github.com/Zalaras/muster/issues/7))

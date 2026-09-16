@@ -99,7 +99,7 @@ only client→server WS traffic in v1 is terminal input/resize on the terminal s
 ```jsonc
 // request
 {
-  "directory": "/Users/damian/code/Projects/muster",  // required, absolute
+  "directory": "/Users/bob/code/Projects/muster",  // required, absolute
   "title": "flaky-e2e-hunt",                          // optional → `claude --name`
   "model": "opus",                                     // required; passed to `--model` verbatim — any non-empty string (UI offers sonnet/opus/haiku/fable presets + free-text override)
   "permissionMode": "acceptEdits"                      // required: "default" | "plan" | "acceptEdits" | "auto" — seeds the latch (kb:anchor/state.transitions).
@@ -137,7 +137,7 @@ to the UI.
 `200` → array ordered `pinned DESC, lastLaunchedAt DESC` (ux-flows §1.1):
 
 ```jsonc
-[{ "id": 3, "path": "/Users/damian/code/Projects/muster", "name": "muster",
+[{ "id": 3, "path": "/Users/bob/code/Projects/muster", "name": "muster",
    "isGit": true, "branch": "main",            // branch read at request time; null when !isGit
    "pinned": false, "lastLaunchedAt": "2026-08-20T08:01:00Z", "launchCount": 12,
    "lastModel": "opus",                        // model value of the last launch here; null before any
@@ -242,13 +242,13 @@ home).
 
 ```jsonc
 {
-  "path": "/Users/damian/code",          // the directory listed (absolute, cleaned)
-  "parent": "/Users/damian",             // null at the browse root and at filesystem
+  "path": "/Users/bob/code",          // the directory listed (absolute, cleaned)
+  "parent": "/Users/bob",             // null at the browse root and at filesystem
                                          //   root (the root is the Up ceiling; explicit
                                          //   absolute paths elsewhere stay browsable)
   "dirs": [                              // subdirectories only, dotfiles excluded,
     { "name": "Projects",                //   sorted by name; files never appear
-      "path": "/Users/damian/code/Projects",
+      "path": "/Users/bob/code/Projects",
       "isGit": false }                   // true iff it looks like a git checkout
   ]
 }
@@ -436,7 +436,7 @@ A browser hands a page a dropped file's **name and bytes, never its path**, and 
 the drag pasteboard private to the dragging app (measured 2026-09-02), so the daemon
 **locates the original** instead: the upload is a fingerprint, compared in memory against
 every file on disk with the same basename and size; the daemon **never writes the bytes to
-disk** — it is the original file or nothing (settled with Damian).
+disk** — it is the original file or nothing (settled with the developer).
 
 **Request:** `multipart/form-data` with exactly one file part named `file`; the part's
 `filename` is the dropped file's basename (UTF-8, as the browser supplies it). No other
@@ -445,7 +445,7 @@ parts are read. Bodies over 50 MiB + 64 KiB (multipart overhead) are refused.
 **Response 200:**
 
 ```json
-{ "path": "/Users/damian/Desktop/Screenshot 2026-08-30 at 14.35.00.png" }
+{ "path": "/Users/bob/Desktop/Screenshot 2026-08-30 at 14.35.00.png" }
 ```
 
 `path` is the absolute, symlink-resolved path of the **single** file whose basename, size
@@ -562,8 +562,8 @@ is written. `alive` is not consulted: the reader works on a dead session.
 
 ```jsonc
 {
-  "directory": "/Users/damian/code/Projects/muster",   // the session's directory, absolute, cleaned
-  "plan": { "path": "/Users/damian/.claude/plans/say-hi-golden-finch.md",
+  "directory": "/Users/bob/code/Projects/muster",   // the session's directory, absolute, cleaned
+  "plan": { "path": "/Users/bob/.claude/plans/say-hi-golden-finch.md",
             "exists": true,
             "writtenAt": "2026-09-13T09:15:00Z" },     // session.plan plus writtenAt: RFC3339 | null —
                                                        //   the last routed write seen this daemon lifetime.
@@ -836,7 +836,7 @@ is complexity with no payoff, and whole-object replacement is naturally loss-tol
   "endedAt": null,
   "attention": { "reason": "permission", "since": "2026-08-20T09:15:00Z" }, // non-null iff state == "needs_input"; reason "permission"|"idle"
   "failure": { "error": "server_error", "message": "API error ended the turn" }, // non-null iff state == "failed"; error is the RAW token — display it, never switch on it (H2: taxonomy isn't 1:1)
-  "directory": "/Users/damian/code/Projects/muster",
+  "directory": "/Users/bob/code/Projects/muster",
   "repo": { "name": "muster", "branch": "feat-e2e", "isWorktree": false },  // null when directory isn't a git checkout
   "model": { "id": "claude-opus-5", "displayName": "Opus 5" },  // launch value until the status line confirms; null if unknown
   "permissionMode": { "value": "plan", "source": "hook" },       // source "seed" (launch flag) | "hook" (a payload carried it); ALWAYS last-known, never authoritative (kb:adr/launch-form-seeds-model-and-permission-mode). value is an open string; observed "default" | "plan" | "acceptEdits" | "auto" (2.1.259)
@@ -860,7 +860,7 @@ is complexity with no payoff, and whole-object replacement is naturally loss-tol
                                     //   client sorts by it (prefs.railSort); the daemon never
                                     //   orders for display (kb:anchor/ws.snapshot unchanged). Changes arrive as
                                     //   ordinary sessionUpserts, one per changed session.
-  "plan": { "path": "/Users/damian/.claude/plans/say-hi-golden-finch.md",  // absolute, as the transcript resolved it
+  "plan": { "path": "/Users/bob/.claude/plans/say-hi-golden-finch.md",  // absolute, as the transcript resolved it
             "exists": true }        // false = plan mode entered, nothing written yet.
                                     //   null when the session's latest known transcript names no plan
                                     //   (never entered plan mode, or /clear minted a fresh transcript).
@@ -966,7 +966,7 @@ rows are simply absent from the first `snapshot`. Dead sessions otherwise stay v
 ```jsonc
 { "type": "docChanged",
   "id": 7,                                              // Muster session id
-  "path": "/Users/damian/code/Projects/muster/TODO.md",  // absolute, cleaned; the plan path or a .md under directory
+  "path": "/Users/bob/code/Projects/muster/TODO.md",  // absolute, cleaned; the plan path or a .md under directory
   "at": "2026-09-13T09:15:00Z" }                         // when the daemon processed the hook (hooks carry no timestamp)
 ```
 

@@ -54,7 +54,7 @@ Non-`checks` daemon criteria, verified by reading the tests and the code:
 | ID | Result | Evidence |
 |----|--------|----------|
 | D1 | pass | `TestMergeSettings_CommandFieldsAreShellQuotedForSpaceBearingPath` asserts `'<path>'` on both fields for a space-bearing path |
-| D2 | pass | `TestMergeSettings_ShellQuoteEscapesSingleQuoteAndStaysIdempotent` asserts `'/Users/damian/Damian'\''s stuff/…'` and byte-identity of the second merge |
+| D2 | pass | `TestMergeSettings_ShellQuoteEscapesSingleQuoteAndStaysIdempotent` asserts `'/Users/bob/the developer'\''s stuff/…'` and byte-identity of the second merge |
 | D3 | pass | `TestMergeSettings_ReplacesLegacyBareCommandEntriesWithQuoted` — one group, one entry, quoted, plus a `strings.Count == 1` sweep of the raw bytes for the bare path |
 | D4 | pass | `TestMergeSettings_QuotedExistingEntriesAreByteIdentical`; the pre-existing generic idempotency test also still passes |
 | D5 | **behaviour pass, coverage gap** | See Major 1 — the committed "foreign command hook survives" test is on `PostToolUse`, not on `SessionStart` alongside the quoted Muster entry. I verified the behaviour by hand-probe (throwaway test, since removed): merge over a foreign `SessionStart` `command` yields `["/Users/x/bin/greet.sh", "'/data/hook-sessionstart.sh'"]` — the foreign entry survives |

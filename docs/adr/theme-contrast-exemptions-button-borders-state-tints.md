@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Raise all control borders to the ratio. (B) Exempt all borders as decorative. (C) Split: buttons keep the hairline under the standard's allowance for a control whose label already meets the text ratio; fields and the segmented-control track get a new edge token at the non-text ratio because nothing else marks their extent; the four state border tints are exempt because the badge word and position already carry the state.
 
-**Decision.** C, taken by Damian at planning.
+**Decision.** C, taken by the developer at planning.
 
 **Consequences.** The pairs file records each exemption with its reason, so the next reviewer does not re-raise it. A new kind of control has to say which side of the split it falls on. The edge token later also draws the current-card ring in the rail, keeping that marker neutral.

@@ -151,7 +151,7 @@ Kinds and keywords are in `docs/conventions.md` § Knowledge records; a Code-lev
 `classDiagram` is allowed in a plan, never in a record. Read the kb's diagrams for the area
 first (`kb ls --type diagram`, and the feature spec's inline fences) and mark a changed one
 `delta of kb:diagram/<slug>` so the orchestrator applies it. Unsure whether one helps? Ask
-Damian rather than decide. plan-lint fails a fence whose keyword is outside the closed list.
+the developer rather than decide. plan-lint fails a fence whose keyword is outside the closed list.
 
 ### 7. UI Specifications (for web or full-stack)
 

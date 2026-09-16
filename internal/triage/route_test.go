@@ -32,7 +32,7 @@ func TestTripwire(t *testing.T) {
 
 // An accepted false positive, documented rather than tuned away. muster is a Claude Code
 // tool, so issues legitimately discuss prompt handling. The cost of this is ten seconds
-// of Damian's time; the cost of the alternative — auto-closing — is a real user's report
+// of the developer's time; the cost of the alternative — auto-closing — is a real user's report
 // silently dismissed, on a public repo, by a regex.
 func TestTripwireAcceptedFalsePositive(t *testing.T) {
 	if _, hit := Tripwire("the system prompt field in the status line is blank"); !hit {

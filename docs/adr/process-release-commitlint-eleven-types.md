@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Keep the home-grown seven and document them more firmly. (B) Adopt the standard commitlint conventional list of eleven types, with one repo-specific addition, the review verdict commit, legal only on plan branches because landing squashes it away.
 
-**Decision.** B, settled with Damian. A standard list is one nobody has to re-derive, tooling already understands it, and it leaves no type that appears in practice unclassified.
+**Decision.** B, settled with the developer. A standard list is one nobody has to re-derive, tooling already understands it, and it leaves no type that appears in practice unclassified.
 
 **Consequences.** The list is written once in the conventions and enforced by the commit-msg hook armed per clone, binding humans and pipeline agents on every branch. The review type never reaches the default branch. Every other release rule, the bump map, the notes filter and the breaking marker, keys off this list.

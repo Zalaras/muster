@@ -510,7 +510,7 @@ No other `.acts-row` consumer exists — swept `rg -n 'acts-row' web/src/style.c
 web/index.html` before and after; the only three usage sites are the ones enumerated
 above.
 
-### Major 2 — `--danger` tokens (Damian: option A)
+### Major 2 — `--danger` tokens (the developer: option A)
 
 `docs/design/design-system.md` §1 already carries the three new tokens (added by the
 orchestrator's decision step) — `--danger:#C94F4F`, `--danger-line:#7A3535`,
@@ -597,7 +597,7 @@ volatile in practice, but the code path exists).
 
 ### Minor 3 / Minor 7 — hover-only `.acts-row`, sign-off record
 
-Damian has confirmed hover-only action rows (revealed on `:hover` / `:focus-within`) as
+The developer has confirmed hover-only action rows (revealed on `:hover` / `:focus-within`) as
 the intended behaviour — no behaviour change beyond the Critical-1 scoping fix above
 (which only *scopes* the hover-only rule to `.card`, it does not change hover-only to
 always-on or vice versa for cards). Recorded here per this cycle's instruction.

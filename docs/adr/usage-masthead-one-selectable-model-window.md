@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Render a bar per window and let the masthead grow. (B) Carry the whole list on the wire and show one window, chosen from a selector whose choice is a persisted preference.
 
-**Decision.** B, settled with Damian. The default is the model he uses most.
+**Decision.** B, settled with the developer. The default is the model they use most.
 
 **Consequences.** The masthead keeps a fixed order: five-hour, seven-day, model-week, refresh control, model readout, daemon health. A model missing from the list renders unknown with no track, and a failed fetch leaves the last good bar labelled stale rather than hiding it. Adding a model costs no daemon release; the preference is validated only for length.

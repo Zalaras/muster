@@ -11,7 +11,7 @@ tests: [TestMigrate_AppliesInitSchema, TestMigrate_SecondCallIsANoOp]
 refs: [docs/history/spec-changelog.md, docs/conventions.md]
 supersedes: []
 ---
-**Context.** The data model is a few small tables in SQLite through a pure-Go driver. Damian knew GORM but found it heavy for this size.
+**Context.** The data model is a few small tables in SQLite through a pure-Go driver. The developer knew GORM but found it heavy for this size.
 
 **Options.** (A) GORM or another ORM. (B) A query builder. (C) database/sql with hand-written SQL, and schema changes as numbered SQL files embedded in the binary.
 

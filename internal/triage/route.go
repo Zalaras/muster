@@ -55,7 +55,7 @@ type Path int
 
 const (
 	// PathNormal keeps today's richer prose entry. Reached only by a clean body from a
-	// trusted association — in practice, an issue Damian filed from his own dashboard.
+	// trusted association — in practice, an issue the developer filed from their own dashboard.
 	PathNormal Path = iota
 	// PathFactsOnly renders from enums and one quoted substring, with no model-authored
 	// prose reaching TODO.md.
@@ -125,7 +125,7 @@ func (f Flags) Strings() []string {
 
 // TrustedAssociations is the set that may take the normal path.
 //
-// On this repo OWNER and MEMBER mean "filed from Damian's own dashboard button", so the
+// On this repo OWNER and MEMBER mean "filed from the developer's own dashboard button", so the
 // normal path is effectively self-filed-only. Nothing may fall back to comparing the
 // login against a name: the login is not the check, and an account can be renamed.
 var TrustedAssociations = map[string]bool{"OWNER": true, "MEMBER": true}

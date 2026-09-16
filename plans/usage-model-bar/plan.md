@@ -16,7 +16,7 @@ The masthead shows the 5-hour and 7-day bars from the status line's `rate_limits
 (`spikes/canary-fields.md` `rate_limits` section has the measured request/response). So musterd
 fetches it itself: a **second usage source**, the seam SPEC §9.6 reserved.
 
-Decisions taken with Damian 2026-08-30 (don't re-derive): the wire carries a **dynamic list** of
+Decisions taken with the developer 2026-08-30 (don't re-derive): the wire carries a **dynamic list** of
 model-scoped windows; the masthead shows **one**, chosen by a `<select>` and persisted as a pref,
 default `"Fable"`; polling every **5 min** plus a **refresh button**; musterd reads the Claude Code
 OAuth token from the macOS Keychain item `Claude Code-credentials`, **read-only** (never logged,
@@ -188,7 +188,7 @@ The standing hook cases (loss, duplication, reordering, `/clear` rebind, pane de
 sources are independent holders merged at broadcast time (case 10).
 
 1. Keychain item absent (fresh Mac, logged out) → `ErrNoCredentials` on every tick → `modelScopedError:"no-credentials"`, list null, one Warn total; feature is effectively off, UI honest.
-2. `security` prompts for access (first run on a new binary build could trigger a macOS dialog) → treated as exec failure/timeout (2 s exec timeout) → `no-credentials`; note in Implementation Notes for Damian to click Always Allow once.
+2. `security` prompts for access (first run on a new binary build could trigger a macOS dialog) → treated as exec failure/timeout (2 s exec timeout) → `no-credentials`; note in Implementation Notes for the developer to click Always Allow once.
 3. Token expired → 401 → `unauthorized`; Claude Code refreshes the Keychain item itself on its next run — musterd re-reads the file/Keychain on **every** tick, never caches beyond one tick.
 4. Endpoint returns 200 with no `limits` key or `[]` → success with empty list → `modelScoped: []`, select disabled, `unknown`.
 5. Server adds a second `weekly_scoped` model → list grows → select gains an option; the pref keeps pointing at Fable.
@@ -267,7 +267,7 @@ not under `cmd/` or `internal/`, so it cannot trip D3.
 - Poller pattern: copy `internal/session/manager.go:126-151` (`Start`/`Stop(ctx)` with `wg` + deadline Warn) and `:715-726` (ticker loop). Add a `refresh chan struct{}` (cap 1) selected alongside the ticker; `Refresh()` does a non-blocking send.
 - Persist-first ordering: copy `internal/usage/aggregator.go:47-90` including the comment explaining why the write precedes the commit.
 - Keychain read: `exec.CommandContext(ctx, "security", "find-generic-password", "-a", user, "-w", "-s", "Claude Code-credentials")`, 2 s ctx timeout, stderr discarded; output trimmed then JSON-decoded into `struct{ ClaudeAiOauth struct{ AccessToken string } }`. `user` from `os/user.Current()` in `main`, passed in.
-- If macOS prompts for Keychain access on first run, Damian clicks **Always Allow** once for `musterd`; document in `docs/dev-loop` notes / `README` if one exists.
+- If macOS prompts for Keychain access on first run, the developer clicks **Always Allow** once for `musterd`; document in `docs/dev-loop` notes / `README` if one exists.
 - Error kinds: `ErrNoCredentials` → `no-credentials`; `ErrUnauthorized` (401/403) → `unauthorized`; anything else (timeout, DNS, 5xx, decode error) → `unreachable`.
 - Web: `renderModelWeek` must `replaceChildren(select, num)` first and then call `renderUsageTrack` — that is what makes the known→unknown transition self-healing (see `renderBucket`'s doc comment).
 - `aria-busy` timer: clear on the next `onUsage` callback or after 5 s, whichever first.

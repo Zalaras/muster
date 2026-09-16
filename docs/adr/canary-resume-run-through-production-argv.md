@@ -11,7 +11,7 @@ tests: [TestPlanModeSequence, TestNotifications]
 refs: [docs/history/spec-changelog.md, plan:canary-full-coverage, kb:fact/resume-keeps-session-identity, kb:adr/lifecycle-resume-rebinds-existing-session]
 supersedes: []
 ---
-**Context.** Resume was verified once by a probe and then by a manual ritual Damian ran by hand: end a real session from the dashboard, resume it, confirm the start event carries the same session id. Nothing automated exercised the resume flag or the argv the daemon builds for it.
+**Context.** Resume was verified once by a probe and then by a manual ritual the developer ran by hand: end a real session from the dashboard, resume it, confirm the start event carries the same session id. Nothing automated exercised the resume flag or the argv the daemon builds for it.
 
 **Options.** (A) Keep the manual ritual. (B) Add a canary run that resumes the previous authenticated run through the production argv builder, zero-token, and drives one further turn in the resumed session so the interactive rows can be asserted there too.
 

@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Keep all rows until removed by hand. (B) Delete all dead rows at start. (C) Delete rows that were already ended in an earlier daemon lifetime, and mark as ended, with the startup time, rows that were alive but whose pane is now gone; the following start sweeps those.
 
-**Decision.** C, settled with Damian in planning: a fresh start keeps the UI clean, and the user had their resume chance in the previous lifetime.
+**Decision.** C, settled with the developer in planning: a fresh start keeps the UI clean, and the user had their resume chance in the previous lifetime.
 
 **Consequences.** The recorded end time of a session that died while the daemon was down is the startup time, because the true time is unknown. Ended sessions sort to the bottom of the rail and leave only on Remove or the next start. Event rows are kept when a session row is deleted.

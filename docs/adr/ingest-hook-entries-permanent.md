@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Reference-count sessions per directory and strip at zero. (B) Strip on daemon shutdown. (C) Strip when the last session in a directory is removed. (D) Leave entries in place forever.
 
-**Decision.** D, decided with Damian. Once every hook is a wrapper that exits silently when unmanaged, a stale entry costs a brief shell exit and no visible noise, so the lifetime question dissolves rather than needing an answer.
+**Decision.** D, decided with the developer. Once every hook is a wrapper that exits silently when unmanaged, a stale entry costs a brief shell exit and no visible noise, so the lifetime question dissolves rather than needing an answer.
 
 **Consequences.** Instrumenting a directory is idempotent and one-way. Uninstrumenting is a manual edit the user makes if they ever want it. The merge must stay byte-identical on repeat so version control in that directory sees no churn.

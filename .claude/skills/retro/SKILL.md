@@ -63,7 +63,7 @@ read that file for sentences whose class a script now enforces** (`plan-lint.sh`
 `dead-refs.py`, `e2e-lint.sh`, `orch-state.py`, `.githooks/*`) and list each as a *retire*
 proposal naming the covering check — only where the check runs before the reader acts; a rule an
 author-agent reads before writing stays, or it learns from a red gate after a wasted run.
-Retirement is always a proposal; Damian vets.
+Retirement is always a proposal; the developer vets.
 
 ### Size thresholds — warnings, never refusals
 
@@ -113,8 +113,8 @@ Then stop. The user picks by number in prose; do not offer menus.
 
 ## 5. `--audit` — the pipeline docs themselves
 
-Run when Damian asks. Read-only: it writes only the report, every line a numbered proposal
-Damian picks from (step 4 applies the picks).
+Run when the developer asks. Read-only: it writes only the report, every line a numbered proposal
+the developer picks from (step 4 applies the picks).
 
 ```bash
 for f in CLAUDE.md .claude/agents/*.md .claude/skills/*/SKILL.md; do
@@ -143,7 +143,7 @@ Report, in this order, each item numbered:
    lesson no plan has cited in the last five runs is a *retire* proposal.
 
 The previous audit is `plans/_audit/skills-agents-audit.md` (2026-09-06); write the new one
-beside it as `plans/_audit/audit-<date>.md` only if Damian asks for a file.
+beside it as `plans/_audit/audit-<date>.md` only if the developer asks for a file.
 
 ## Never
 

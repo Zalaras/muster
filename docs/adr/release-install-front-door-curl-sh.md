@@ -17,4 +17,4 @@ supersedes: [release-distribution-github-release-not-brew]
 
 **Decision.** C, with B split out as its own item and auto-update likewise. The script takes version, bin directory, architecture and base URL as flags or environment, the last two so the other architecture and the failure paths can be run on one machine.
 
-**Consequences.** Architecture resolution, the fresh temp directory, the archive member selection and the shadowing warning exist in exactly one place. The GitHub CLI has left the install path. Running the script, not reading it, found two bugs before it shipped. The README was rewritten around it and cut hard on Damian's instruction to review the whole file.
+**Consequences.** Architecture resolution, the fresh temp directory, the archive member selection and the shadowing warning exist in exactly one place. The GitHub CLI has left the install path. Running the script, not reading it, found two bugs before it shipped. The README was rewritten around it and cut hard on the developer's instruction to review the whole file.

@@ -20,7 +20,7 @@ toggle, the Settings dialog and disabled buttons. `web/src/style.css` transcribe
 mockups' theme blocks verbatim — the palette values are settled there, not re-derived by an
 agent.
 
-Four decisions taken in planning (Damian, 2026-09-02) that the spec left open:
+Four decisions taken in planning (the developer, 2026-09-02) that the spec left open:
 
 1. **Control borders split.** `.btn` borders stay on `--line-control` (1.5:1) under WCAG
    1.4.11's allowance that a button whose label meets 4.5:1 needs no contrasting boundary,
@@ -440,7 +440,7 @@ is carried: the `cssVar()` read in `pane.ts` measured nothing, and no spike valu
    everywhere (dark terminal pair; `follow` shows Instrument). No error surface, no per-tick
    log.
 2. **`theme` key absent** → `dark` (Claude's default), distinguishable from `unknown` on the
-   wire. (Damian's own file has no key today — measured 2026-09-02.)
+   wire. (the developer's own file has no key today — measured 2026-09-02.)
 3. **Unrecognised value** (`dark-daltonized`, `light-ansi`, a future `solarized`) → prefix
    match on `light`/`dark`; no match → `unknown`. Value not a string → `unknown`.
 4. **Torn write** — Claude Code rewrites the file itself; a tick may read a partial file →

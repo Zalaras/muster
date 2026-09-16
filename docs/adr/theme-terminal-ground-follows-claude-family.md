@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) The pane ground follows the Muster theme like every other surface. (B) The pane ground follows Claude Code's family regardless of the Muster theme, and each theme supplies a terminal pair, one ground for each family.
 
-**Decision.** B, settled with Damian. The pane is Claude Code's canvas; Muster matches the paper to what Claude is drawing for.
+**Decision.** B, settled with the developer. The pane is Claude Code's canvas; Muster matches the paper to what Claude is drawing for.
 
 **Consequences.** A dark dashboard with a light terminal is a legitimate and expected combination. Chrome recesses such as inputs must not share the pane ground token, which forced a later split. Theme switching never re-renders the terminal contents, only its ground.

@@ -36,7 +36,7 @@ Your spawn prompt gives you:
   reading") — never dress it as fact.
 - **Steelman first.** Each turn opens by restating the strongest form of your opponent's
   latest point before answering it. If you cannot restate it fairly, ask, don't rebut.
-- **No rhetoric.** No appeals to authority ("Damian would obviously…"), no invented users,
+- **No rhetoric.** No appeals to authority ("the developer would obviously…"), no invented users,
   no invented facts, no straw men, no repetition of a point already answered, no volume.
   If a point of yours was answered and you have no reply, say so and drop it.
 - **No new options** unless both of you state an identical hybrid in the same words; that

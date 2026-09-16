@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Keep the skill and add prompt hygiene. (B) Sandbox the reading session. (C) A dev-only program does everything mechanical, fetch through commit, and the one step that needs judgement, naming component, symptom, quoted error and section, is a subagent whose tools field, a genuine allowlist, holds nothing but Read; its reply is enum-constrained, validated by the program, and a malformed reply holds the issue.
 
-**Decision.** C, settled with Damian. The dormancy is the risk, so the defence is that no model-authored prose ever reaches the backlog; untrusted issues render from enums plus one verbatim-checked quote.
+**Decision.** C, settled with the developer. The dormancy is the risk, so the defence is that no model-authored prose ever reaches the backlog; untrusted issues render from enums plus one verbatim-checked quote.
 
-**Consequences.** The proposer is the first agent in the repository with a tools field. Its reply still enters the main session's context, a residual stated rather than papered over. The program refuses to run without the pre-commit hook armed. Damian's involvement is unchanged: pick a section, approve a duplicate close, read a held list that is empty on a normal run.
+**Consequences.** The proposer is the first agent in the repository with a tools field. Its reply still enters the main session's context, a residual stated rather than papered over. The program refuses to run without the pre-commit hook armed. The developer's involvement is unchanged: pick a section, approve a duplicate close, read a held list that is empty on a normal run.

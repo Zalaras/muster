@@ -302,7 +302,7 @@ empty `<span>`, so the button's accessible name is exactly `shell`.
    path as `exit`, and no liveness nudge on the parent. → **E10**
 7. **`exit` while the shell is hidden.** The socket was disposed on switch-away, so
    nothing tells the dashboard. The pip stays lit until the next click, which finds no
-   tmux session and spawns a fresh one. **Accepted** (Damian, 2026-09-05): clicking
+   tmux session and spawns a fresh one. **Accepted** (the developer, 2026-09-05): clicking
    always yields a working shell, which is REQ-8's behaviour anyway; the only cost is a
    briefly stale pip. Fixing it properly needs shell liveness on `/ws`, which REQ-11 of
    the spec forbids. → **D7** (the respawn is what must work), pip staleness untested by
@@ -503,7 +503,7 @@ paid for by the title **and** the repo/branch — "only the title absorbs it" is
 that header's layout can honour. Shrinking the control to an icon (`>_`, 27px vs 45–61px)
 only recovers 6/6 → 4/6. The footer restores the header to its exact no-control baseline;
 the one remaining truncation in the good rows is `worktree-conflicts-spike`, a title long
-enough to truncate today with no control present. **Damian approved the change to the
+enough to truncate today with no control present. **The developer approved the change to the
 footer on 2026-09-05.**
 
 Footer slack at 3×2 with the segment present: 190px on a live tile and **42px on a dead

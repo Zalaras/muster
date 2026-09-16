@@ -223,7 +223,7 @@ None.
 3. **[note]** The rename trigger is visually indistinguishable from static text (no
    border, no underline, `cursor: text`, discoverable only by the tooltip). That is what
    design-system §5 and REQ-13 specify, so it is not a defect — but it is the plan's one
-   deliberate discoverability trade-off and worth revisiting if Damian finds the
+   deliberate discoverability trade-off and worth revisiting if the developer finds the
    affordance invisible in daily use.
 
 ## Test Quality

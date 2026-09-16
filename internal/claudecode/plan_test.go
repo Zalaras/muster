@@ -26,7 +26,7 @@ func writeTranscript(t *testing.T, dir string, lines ...string) string {
 // must resolve under home, and both "nothing to find" cases (no marker line, no
 // transcript at all) must be the empty answer, never an error.
 func TestLocatePlanFile(t *testing.T) {
-	home := "/home/damian"
+	home := "/home/bob"
 
 	t.Run("plan_mode attachment line resolves planFilePath", func(t *testing.T) {
 		dir := t.TempDir()
@@ -65,7 +65,7 @@ func TestLocatePlanFile(t *testing.T) {
 		pf, err := LocatePlanFile(path, home)
 
 		require.NoError(t, err)
-		assert.Equal(t, PlanFile{Path: "/home/damian/.claude/plans/happy-otter.md", Source: "slug"}, pf)
+		assert.Equal(t, PlanFile{Path: "/home/bob/.claude/plans/happy-otter.md", Source: "slug"}, pf)
 	})
 
 	t.Run("planFilePath is authoritative even when a slug line is also present", func(t *testing.T) {
@@ -113,7 +113,7 @@ func TestLocatePlanFile(t *testing.T) {
 }
 
 func TestDefaultPlansDir(t *testing.T) {
-	assert.Equal(t, filepath.Join("/home/damian", ".claude", "plans"), DefaultPlansDir("/home/damian"))
+	assert.Equal(t, filepath.Join("/home/bob", ".claude", "plans"), DefaultPlansDir("/home/bob"))
 }
 
 // TestIsUnderDefaultPlansDir exercises REQ-16's third scan trigger, including the trap a

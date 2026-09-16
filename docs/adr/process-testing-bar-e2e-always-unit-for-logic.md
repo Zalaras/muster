@@ -17,4 +17,4 @@ supersedes: []
 
 **Decision.** C. A canary E2E additionally asserts that Claude Code's hooks and status line still carry the fields Muster needs before any version is adopted.
 
-**Consequences.** Every plan carries E2E specs authored before implementation, and the pipeline has separate roles for each kind of test. Real Claude runs are rationed to the canary and probes because they spend Damian's subscription; ordinary E2E fakes Claude with synthesised hook and status-line posts.
+**Consequences.** Every plan carries E2E specs authored before implementation, and the pipeline has separate roles for each kind of test. Real Claude runs are rationed to the canary and probes because they spend the developer's subscription; ordinary E2E fakes Claude with synthesised hook and status-line posts.

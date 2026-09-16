@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Full protection with required pull requests and checks, moving landing onto pull requests. (B) Block only the two irreversible operations, deletion and force-push, and leave the landing ritual as it is.
 
-**Decision.** B. Nobody but Damian pushes, review happens in the pipeline before landing, and a required-check gate would need the CI test job that is deliberately not built yet.
+**Decision.** B. Nobody but the developer pushes, review happens in the pipeline before landing, and a required-check gate would need the CI test job that is deliberately not built yet.
 
 **Consequences.** Actions are separately restricted to GitHub-owned and verified creators with a read-only default token and first-time-contributor approval for fork runs, belt and braces since the only workflow triggers on a push a fork cannot make. Revisiting the CI job is where the required-checks question reopens.

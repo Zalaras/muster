@@ -64,7 +64,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     endedAt: null,
     attention: null,
     failure: null,
-    directory: "/Users/damian/code/muster",
+    directory: "/Users/bob/code/muster",
     repo: null,
     model: null,
     permissionMode: { value: "default", source: "seed" },

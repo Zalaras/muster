@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Ask the user to state the family in Settings. (B) Have the daemon set Claude Code's theme to match Muster's. (C) Poll the one theme key of the config file read-only on a timer, map it to a family, and broadcast the family on change.
 
-**Decision.** C, settled with Damian. Claude Code's configuration is never written, in the same spirit as the Keychain token being read and never stored.
+**Decision.** C, settled with the developer. Claude Code's configuration is never written, in the same spirit as the Keychain token being read and never stored.
 
 **Consequences.** The daemon broadcasts a family, not the raw theme name, so the wire carries no Claude Code vocabulary. The file path and key name live only in the Claude Code package, with a test seam for the path and the poll interval. Review measured that the file's modification time never changed under polling and that nothing is logged per tick.

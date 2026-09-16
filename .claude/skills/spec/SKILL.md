@@ -73,7 +73,7 @@ folder, and `plan-lint` requires that spec to exist before `/orchestrate` runs.
 > What does the implementer need to know going in?
 
 - Which ADRs, facts and SPEC.md sections bear on this?
-- Which kb diagrams cover the area (`kb ls --type diagram`, the feature spec's inline fences)? Read and cite them. Propose a new one only for a state machine or sequence prose cannot carry — Damian decides.
+- Which kb diagrams cover the area (`kb ls --type diagram`, the feature spec's inline fences)? Read and cite them. Propose a new one only for a state machine or sequence prose cannot carry — the developer decides.
 - Which other features' behaviour does this touch or depend on? Name the behaviour, not the code —
   "the rail decides session order", not "`rail.go` sorts by `mru`". What the implementer needs
   from the codebase is `/plan-work`'s to work out.

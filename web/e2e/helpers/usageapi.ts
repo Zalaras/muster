@@ -2,7 +2,7 @@
 // seam): musterd's `-usage-api-url` points here instead of https://api.anthropic.com, so
 // no E2E run ever calls the real subscription endpoint. Response shapes synthesized here
 // must stay capture-faithful to docs/history/spikes/canary-fields.md's "GET /api/oauth/usage measured
-// live 2026-08-30" entry — the only measurement of this wire, taken against Damian's own
+// live 2026-08-30" entry — the only measurement of this wire, taken against the developer's own
 // token — never invented.
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 

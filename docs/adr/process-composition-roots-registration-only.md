@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Accept the collisions and serialise plans. (B) Split each side into sub-packages per feature. (C) Keep files where they are but make the two roots registration-only: each web feature is a controller module with a single init taking the app and its dependencies, each server feature a small type with explicit dependencies and a mount, both registered in one line; rules in the conventions, the planner and the reviewer keep logic from landing in a root again.
 
-**Decision.** C, Damian's call: one plan for both sides, files not sub-packages for now. Behaviour was unchanged throughout and the full E2E suite was the oracle.
+**Decision.** C, the developer's call: one plan for both sides, files not sub-packages for now. Behaviour was unchanged throughout and the full E2E suite was the oracle.
 
 **Consequences.** A controller never imports another controller; cross-feature needs go through init dependencies or app events, and a small app module owns the shared store, state and event bus. The planner may list a root under affected files only for a one-line registration. Sub-packages remain available if the directory itself becomes the coupling.

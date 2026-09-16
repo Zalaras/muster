@@ -103,7 +103,7 @@ $ npx tsc --noEmit
 (clean — exit 0)
 
 $ npm test
- RUN  v4.1.10 /Users/damian/Documents/code/Projects/muster/web
+ RUN  v4.1.10 /Users/bob/Documents/code/Projects/muster/web
  Test Files  16 passed (16)
       Tests  387 passed (387)
    Start at  21:40:52
@@ -280,7 +280,7 @@ $ npx tsc --noEmit
 (clean — exit 0)
 
 $ make web-test   (cd web && npm test)
- RUN  v4.1.10 /Users/damian/Documents/code/Projects/muster/web
+ RUN  v4.1.10 /Users/bob/Documents/code/Projects/muster/web
  Test Files  16 passed (16)
       Tests  404 passed (404)
    Duration  876ms

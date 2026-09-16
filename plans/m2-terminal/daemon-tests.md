@@ -230,7 +230,7 @@ ok  	github.com/Zalaras/muster/internal/claudecode	0.376s
 ok  	github.com/Zalaras/muster/internal/gitutil	1.652s
 --- FAIL: TestHandleTerminal_KillingTheTmuxSessionCloses4001AndNudgesLiveness (3.15s)
     terminal_test.go:411:
-        	Error Trace:	/Users/damian/Documents/code/Projects/muster/internal/server/terminal_test.go:411
+        	Error Trace:	/Users/bob/Documents/code/Projects/muster/internal/server/terminal_test.go:411
         	Error:      	Condition never satisfied
         	Test:       	TestHandleTerminal_KillingTheTmuxSessionCloses4001AndNudgesLiveness
         	Messages:   	D6: alive:false must follow promptly, not wait out the ~5s poll interval
@@ -466,7 +466,7 @@ ok  	github.com/Zalaras/muster/internal/tmux
 
 $ ls -la /private/tmp/tmux-501/   (before and after the full suite)
 total 0
-drwx------   2 damian  wheel   64 ...  .
+drwx------   2 bob     wheel   64 ...  .
 drwxrwxrwt  12 root    wheel  384 ...  ..
 (empty both times — no shared-socket-dir litter, D12 holds)
 ```

@@ -21,7 +21,7 @@ and the Focus-view session rail (state stripe, title, badge, time-in-state, repo
 blocked-longest-first sort, degraded states), with the masthead's view-switcher slot laid
 out but empty (Tiles is M2) and the main area a placeholder panel (terminal panes are M2).
 
-Scope lines drawn with Damian during planning: status-line posts keep being persisted and
+Scope lines drawn with the developer during planning: status-line posts keep being persisted and
 routed but update **no** session fields in M1 — titles and model refresh from the status
 line move to M3, so an untitled session renders "untitled" until then. Worktree
 recognition is stored as columns on the session row (`branch`, `is_worktree`); the
@@ -118,11 +118,11 @@ home directory.
 **Response 200:**
 ```jsonc
 {
-  "path": "/Users/damian/code",          // the directory listed (absolute, cleaned)
-  "parent": "/Users/damian",             // null at filesystem root
+  "path": "/Users/bob/code",          // the directory listed (absolute, cleaned)
+  "parent": "/Users/bob",             // null at filesystem root
   "dirs": [                              // subdirectories only, dotfiles excluded,
     { "name": "Projects",                //   sorted by name; files never appear
-      "path": "/Users/damian/code/Projects",
+      "path": "/Users/bob/code/Projects",
       "isGit": false }                   // true iff it looks like a git checkout
   ]
 }

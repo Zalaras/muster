@@ -99,7 +99,7 @@ Not applicable — this is an authoring-mode run.
   stub. Every test in this file that interacts with the shell surface (E1, E3, E4, E6,
   E9-E16) drives that real, harmless system shell — this is not the same category as
   launching a real `claude` process (CLAUDE.md's hard rule is specifically about not
-  burning Damian's Claude Code subscription) and no test in this file ever spawns `claude`
+  burning the developer's Claude Code subscription) and no test in this file ever spawns `claude`
   for real.
 - **E7/E15's "nested claude" fixture is a simulation, not a real invocation.** Per
   CLAUDE.md and this agent's own rules, a real `claude` binary is never launched anywhere

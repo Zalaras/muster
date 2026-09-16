@@ -3,7 +3,7 @@
 Frozen: the milestone plan SPEC.md carried while v1 was being built, kept verbatim for history. It
 is not current state; the features that came out of it are described in `docs/features/*/spec.md`.
 
-Each milestone ends with something Damian actually uses day-to-day.
+Each milestone ends with something the developer actually uses day-to-day.
 
 1. **M0 — Skeleton.** `musterd` daemon: HTTP+WS server, token auth, SQLite, `internal/claudecode`
    package stub, web shell that connects. E2E harness runs a scratch daemon.

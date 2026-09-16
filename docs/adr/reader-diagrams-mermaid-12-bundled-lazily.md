@@ -11,7 +11,7 @@ tests: [web/e2e/reader-mermaid.spec.ts]
 refs: [plan:mermaid-support, kb:adr/reader-markdown-rendered-in-browser, kb:adr/stack-system-font-stacks-only, kb:adr/knowledge-diagrams-are-mermaid-records]
 supersedes: []
 ---
-**Context.** The kb standardised on mermaid for every system and feature diagram and deferred rendering them in the docs reader. The reader must render fences without any network dependency, and Damian requires ELK layout support for large graphs.
+**Context.** The kb standardised on mermaid for every system and feature diagram and deferred rendering them in the docs reader. The reader must render fences without any network dependency, and the developer requires ELK layout support for large graphs.
 
 **Options.** (A) Load mermaid from a CDN at runtime. (B) Render in the daemon with mermaid-cli, which needs a headless Chromium. (C) mermaid 11.17.2, the mature line, plus a second pinned ELK add-on package registered by hand. (D) mermaid 12.0.0 (2026-09-10), which bundles ELK as the default layout for flowchart, state, class and ER diagrams, pinned exactly, bundled by Vite into hashed chunks that `//go:embed` compiles into the binary, and imported dynamically only when a rendered document contains a fence.
 

@@ -83,7 +83,7 @@ golangci-lint run
   exclusion) or inside `internal/server/` using only `ReadThemeFamily`/`t.TempDir()` paths —
   never the real basename.
 - INV-5 (no test reads the real config file): every path in every new test comes from
-  `t.TempDir()`; `Damian's real `~/.claude.json` is never opened.
+  `t.TempDir()`; `the developer's real `~/.claude.json` is never opened.
 - The "unreadable file" case in D5 uses a directory path rather than a chmod'd file — this
   avoids flakiness under a root or sandboxed test runner (which can silently bypass file
   permissions) while still exercising `os.ReadFile`'s error path deterministically on every

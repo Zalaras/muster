@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Style this one button's disabled state inside the plan. (B) Ship as-is, consistent with the rest of the dashboard, and file an app-wide token pass for disabled buttons.
 
-**Decision.** B, Damian's call at review. A one-off style would have introduced an inconsistency dressed as a fix.
+**Decision.** B, the developer's call at review. A one-off style would have introduced an inconsistency dressed as a fix.
 
 **Consequences.** No code change in the plan. The sweep is owned by the design system, not by whichever feature next notices the gap.

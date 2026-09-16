@@ -61,7 +61,7 @@ $ npx tsc --noEmit
 (no output — clean)
 
 $ npm test
- RUN  v4.1.10 /Users/damian/Documents/code/Projects/muster/web
+ RUN  v4.1.10 /Users/bob/Documents/code/Projects/muster/web
  Test Files  30 passed (30)
       Tests  1424 passed (1424)
 

@@ -11,7 +11,7 @@ import (
 // claudeConfigFileName is Claude Code's own global config file: a single JSON file
 // directly in the user's home directory (measured 2026-09-02 against the pinned
 // installed binary, version 2.1.258 — its top-level settings-key list includes "theme"
-// alongside "installMethod"/"autoUpdates"/etc, and Damian's own file has every one of
+// alongside "installMethod"/"autoUpdates"/etc, and the developer's own file has every one of
 // those keys but no "theme" entry, matching the "key absent" edge case below). Never
 // referenced outside this file (CLAUDE.md hard rule).
 const claudeConfigFileName = ".claude.json"

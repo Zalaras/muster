@@ -188,7 +188,7 @@ func publishRelease(t *testing.T, o *fakeOrigin, key minisign.PrivateKey, tag st
 	o.mu.Unlock()
 }
 
-// newUpdateTestKey generates a fresh disposable minisign keypair — never Damian's real
+// newUpdateTestKey generates a fresh disposable minisign keypair — never the developer's real
 // one (this agent never handles it, per the orchestrator's brief).
 func newUpdateTestKey(t *testing.T) (pub minisign.PublicKey, priv minisign.PrivateKey, pubFile []byte) {
 	t.Helper()

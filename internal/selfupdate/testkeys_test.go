@@ -10,7 +10,7 @@ import (
 )
 
 // testKeypair holds an in-process-generated minisign keypair plus its public key file's
-// bytes (verify.go's pubKey argument shape) — daemon-tests never handles Damian's real
+// bytes (verify.go's pubKey argument shape) — daemon-tests never handles the developer's real
 // private key (per the orchestrator's brief); every fixture here signs with a disposable
 // keypair generated fresh per test.
 type testKeypair struct {

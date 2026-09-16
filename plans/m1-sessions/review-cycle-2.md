@@ -135,7 +135,7 @@ Five probes:
 - **Critical 2 fix, confirmed end-to-end (PROBE-D)**: pre-seeded a directory's
   `.claude/settings.local.json` with a user `PostToolUse` formatter hook, a user `Stop`
   notify hook, a `MyOwnEvent` key and a scalar `someUserKey`, then did a real launch.
-  After: `PostToolUse` holds **both** `/Users/damian/bin/my-formatter.sh` and Muster's
+  After: `PostToolUse` holds **both** `/Users/bob/bin/my-formatter.sh` and Muster's
   `type:"http"` entry; `Stop` likewise; `MyOwnEvent` and `someUserKey` untouched;
   `SessionStart` correctly a single `type:"command"` wrapper. A second launch into the
   same directory produced a **byte-identical** file (no duplication). This is the exact

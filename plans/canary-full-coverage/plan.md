@@ -29,7 +29,7 @@ to) for the interface strings Muster depends on but cannot drive — `CLAUDE_COD
 taken from `LaunchEnv()`, the theme enum, the usage endpoint path and header. A string
 surviving does not prove semantics; it catches rename or removal, which is exactly the
 silent-degrade failure named for `SCROLL_SPEED`. (3) A **live tier** runs the production
-Keychain reader and one `GET /api/oauth/usage` with Damian's real token, and parses the real
+Keychain reader and one `GET /api/oauth/usage` with the developer's real token, and parses the real
 `~/.claude.json` — read-only, never printed. Decided 2026-09-10: a missing credential
 **fails** the run rather than skipping, since a skip passes silently on the one machine the
 gate exists for.
@@ -242,7 +242,7 @@ exist, that is an escalation, not a reason to edit `internal/claudecode/`.
   value reflects the flag before auth is the open question, which is why REQ-2 asserts a
   non-default value (`plan`) on the authenticated run D as the cross-check. If C-plan reports
   `default` while D reports `plan`, the unauth sweep is invalid for values and the fix is to
-  move the sweep onto authenticated runs (a cost decision for Damian), not to loosen the
+  move the sweep onto authenticated runs (a cost decision for the developer), not to loosen the
   assertion.
 - **`auto` model-gated to `default` on haiku** (2.1.259, 2/2, authenticated). Whether the gate
   is evaluated before the auth failure is unmeasured — hence REQ-1's {`auto`, `default`} set
@@ -499,7 +499,7 @@ Criteria that are not a single exit-code check. The review agent verifies these 
   losing their "not asserted by `make canary`" caveats.
 - **Decision 4.** The pin bump (2.1.246 → the installed version on green) is **not** part of
   this plan. `TestInstalledVersionMatchesPin` red in `canary-run.log` is expected (D12).
-  After `/land`, Damian runs the ritual in `docs/claude-code-pin.md` step 2.
+  After `/land`, the developer runs the ritual in `docs/claude-code-pin.md` step 2.
 
 ### Measured facts this plan leans on
 

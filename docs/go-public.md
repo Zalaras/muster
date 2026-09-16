@@ -23,7 +23,7 @@ exposure, but don't leave it open for a day.
 - [x] GitHub Projects tab turned off (2026-09-04).
 - [x] `CONTRIBUTING.md` added (2026-09-04) — GitHub links it above the new-issue and new-PR
       forms, which the PR template alone cannot reach.
-- [x] `plans/` publishes as-is — Damian's call (2026-09-04), no skim wanted.
+- [x] `plans/` publishes as-is — the developer's call (2026-09-04), no skim wanted.
 - [x] Delete the two junk root files, `a.png` and `session-manager-mockup.html` (done
       2026-09-04). `docs/research/claude-session-manager-handoff.md` **stays** — still referenced.
 - [x] **Community Standards (Insights → Community Standards) — decided 2026-09-04.**
@@ -68,17 +68,17 @@ ruleset POST — GitHub's brief post-flip lock. A third run seconds later went s
       `license: MIT`; `/security/policy` → 200; `releases/latest` → 200 and the v0.10.0 arm64
       archive downloads with no auth (5.0 MB). Dependabot alerts → 204 (on), fork-PR approval
       → `first_time_contributors`, selected actions → GitHub-owned + verified.
-- [ ] By hand, Damian: the PR template appears on a test PR from a fork you then close; the
+- [ ] By hand, the developer: the PR template appears on a test PR from a fork you then close; the
       Issue button in a running `musterd` still files (the token path is unchanged, but check).
 - [x] README § Install: rewritten 2026-09-10 around `scripts/install.sh` — the `gh` fences
-      are gone, and on Damian's instruction the pass covered the whole README (194 → 115
+      are gone, and on the developer's instruction the pass covered the whole README (194 → 115
       lines). Homebrew was split out of that work and is still open (below).
 - [x] `docs/history/design/open-sourcing.md` marked done; `SPEC.md` § 8 posture line → public since
       2026-09-10; spec-changelog entry (2026-09-10).
 - [x] The `curl | sh` installer from #7 shipped 2026-09-10 (`scripts/install.sh`): the
       anonymous asset download this flip enabled is exactly what it rests on, and it
       verifies the release's published SHA-256.
-- [ ] The **Homebrew tap** (GoReleaser `brews:` block) — split out on Damian's call and now
+- [ ] The **Homebrew tap** (GoReleaser `brews:` block) — split out on the developer's call and now
       its own `TODO.md` item. Unblocked by the flip (a public repo needs no private-tap
       token), just unscheduled.
 - [ ] Optional: add `make check` as a CI job now that Actions minutes are free

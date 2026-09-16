@@ -27,7 +27,7 @@ single path whose contents are identical. The page then pastes that path — Ter
 escaped, trailing space — through xterm's paste routine, which goes out over the existing
 terminal socket exactly like typing.
 
-**Settled with Damian at planning:** the daemon never writes a copy of the dropped file — an
+**Settled with the developer at planning:** the daemon never writes a copy of the dropped file — an
 unlocatable or ambiguous file produces a visible hint on the pane and types nothing. It must
 be the original file or nothing. Foreign drops anywhere on the dashboard are swallowed so a
 missed drop never navigates away. Dropping selected text (no files) pastes the text, as real
@@ -99,7 +99,7 @@ parts are read. Bodies over 50 MiB + 64 KiB (multipart overhead) are refused.
 
 **Response 200:**
 ```json
-{ "path": "/Users/damian/Desktop/Screenshot 2026-08-30 at 14.35.00.png" }
+{ "path": "/Users/bob/Desktop/Screenshot 2026-08-30 at 14.35.00.png" }
 ```
 `path` is the absolute, symlink-resolved path of the single file whose basename, size and
 bytes equal the upload. The daemon writes nothing to disk. The response is **not** escaped
@@ -441,7 +441,7 @@ against the tree: `internal/locate/` does not exist yet, so there are no pre-exi
   File([bytes], name))`). No `dragover` is needed for a dispatched `drop`, but E5's
   navigation check should dispatch `dragover` then `drop` on the masthead to exercise the
   guard's real path.
-- **Cross-platform note for SPEC** (Damian wants Linux and maybe Windows later): the only
+- **Cross-platform note for SPEC** (the developer wants Linux and maybe Windows later): the only
   OS-specific piece is the Spotlight `Finder`. Linux gets a `plocate`/`locate` finder,
   Windows a Windows Search one; the walk and byte-compare are portable as written.
 - **Doc upkeep (orchestrator):**

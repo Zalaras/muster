@@ -2,7 +2,7 @@
 
 Sentences in `.claude/` whose class a script now enforces, found while tightening the rulebook
 (pipeline-scaling cleanup, Track 2 B). **Nothing here has been removed.** Each row is a
-proposal for Damian to pick by number; `/retro --audit` regenerates this list on demand.
+proposal for the developer to pick by number; `/retro --audit` regenerates this list on demand.
 Line numbers are as of commit `1a72e86`.
 
 | # | Where | Sentence (abridged) | Covering check | Proposal |

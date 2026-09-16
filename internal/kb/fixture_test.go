@@ -167,7 +167,7 @@ The three containers and their wires.
 ` + "```mermaid" + `
 %% comment first
 C4Container
-  Person(u, "Damian")
+  Person(u, "Bob")
   Container(d, "musterd", "Go")
 ` + "```" + `
 `

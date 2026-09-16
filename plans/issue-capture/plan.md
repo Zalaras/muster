@@ -11,7 +11,7 @@
 Dogfooding muster produces friction faster than it produces the discipline to write it
 down. This adds a one-click path from "that was annoying" to a filed GitHub issue with
 the machine context already attached, so triage later has something to work from.
-muster's job ends at creating the issue: Damian triages into `TODO.md` and closes via
+muster's job ends at creating the issue: the developer triages into `TODO.md` and closes via
 commit references. There is no issue *reading*, no label automation, no status sync.
 
 The whole feature turns on one constraint: **the payload is an allowlist, never a dump**.
@@ -27,7 +27,7 @@ Two things the interview surfaced that the description's candidate list got wron
 **auto-generates from the conversation** (`docs/protocol.md` §5.3 M3 semantics), and
 `failure.message` is `LastAssistantMessage` verbatim (`internal/claudecode/interpret.go:86`
 → `internal/session/machine.go:67`). Both are prompt-derived and are hard-excluded.
-Damian additionally ruled that anything identifying him or his projects stays out — repo
+The developer additionally ruled that anything identifying them or their projects stays out — repo
 name, branch, worktree flag, absolute directory — and that account usage, though muster
 displays it, never goes in an issue. Per-session context **does** go in, deliberately, so
 long-context friction is diagnosable.
@@ -39,7 +39,7 @@ for copying, and nothing is written anywhere else.
 ## The allowlist
 
 This is the complete payload. Anything not on this list is not in the snapshot. The
-"personal?" column is the verification Damian asked for — every field is justified, not
+"personal?" column is the verification the developer asked for — every field is justified, not
 assumed.
 
 ### Always present (dashboard scope and session scope)
@@ -71,10 +71,10 @@ assumed.
 | `session.attention.reason` | `"permission"` \| `"idle"` \| absent | `sess.Attention.Reason`; the object is absent when `Attention` is nil | No — enum |
 | `session.attention.since` | RFC3339 UTC | `sess.Attention.Since` | No |
 | `session.failure.error` | string \| absent | `sess.Failure.Error` — the **raw token only** | No — a Claude Code error token, displayed verbatim per honesty rule 4 |
-| `session.model.id` | string \| null | `sess.Model.ID` | No — a Claude model id (or the launch dialog's custom-model string, which Damian types himself and can see in the preview) |
+| `session.model.id` | string \| null | `sess.Model.ID` | No — a Claude model id (or the launch dialog's custom-model string, which the developer types themself and can see in the preview) |
 | `session.permissionMode.value` | string | `sess.PermissionMode` | No |
 | `session.permissionMode.source` | `"seed"` \| `"hook"` | `sess.PermissionModeSource` | No |
-| `session.context.usedPct` | number \| — | `sess.Context.UsedPct`; the whole `context` object is `null` when `sess.Context` is nil | Damian's explicit inclusion — needed to catch long-context issues |
+| `session.context.usedPct` | number \| — | `sess.Context.UsedPct`; the whole `context` object is `null` when `sess.Context` is nil | the developer's explicit inclusion — needed to catch long-context issues |
 | `session.context.totalInputTokens` | int | `sess.Context.TotalInputTokens` | As above |
 | `session.context.windowSize` | int | `sess.Context.WindowSize` | As above |
 | `session.compactions` | int | `sess.Compactions` | No |
@@ -390,7 +390,7 @@ text already satisfies "available to copy".
 
 ### User Flows
 
-1. Damian hits friction and clicks `Issue` in the masthead.
+1. The developer hits friction and clicks `Issue` in the masthead.
 2. The dialog opens. `render/issue.ts` populates the Session select from the store (frozen
    list, REQ-2), preselects `focusedId`, and immediately `POST`s `/api/issue/captures` for
    that selection. `#issue-preview` reads `fetching snapshot…` and Submit is disabled.
@@ -551,8 +551,8 @@ can invalidate.
    a clean failure — the request succeeded upstream.
 10. **A note containing a triple-backtick fence.** The snapshot's JSON block uses a
     **four-backtick** fence so a note fence cannot close it. A note fence can still swallow
-    the table below it in GitHub's renderer; that is accepted — the note is Damian's own text
-    and the preview shows him exactly what he is about to post.
+    the table below it in GitHub's renderer; that is accepted — the note is the developer's own text
+    and the preview shows them exactly what they are about to post.
 11. **A `|` in a table value** (a custom model string, or a raw `failure.error` token). Every
     value cell escapes `|` as `\|` and collapses any newline to a space. Header and separator
     rows are daemon-constant.
@@ -742,7 +742,7 @@ reach a real host.
 disconnect kills them.
 
 **Logging.** Info on success: `number`, `url`, `scope`, `titleLen`, `noteLen` — never the
-title or note text, since Damian may paste anything into a free-text box and the daemon log is
+title or note text, since the developer may paste anything into a free-text box and the daemon log is
 not the place for it. Warn on failure: the stage (`token` / `post` / `decode`), the upstream
 status when there is one, and GitHub's `message`. Never the token, never the request body,
 never the `Authorization` header. This is a narrower reading of the "never log hook payloads"

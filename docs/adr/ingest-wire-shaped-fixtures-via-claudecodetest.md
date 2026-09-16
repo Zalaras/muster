@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Narrow the check so test files may spell out payload shapes. (B) Add a helper package inside the boundary that builds wire-shaped bodies for any test to call.
 
-**Decision.** B, Damian's choice, so the check stands unchanged.
+**Decision.** B, the developer's choice, so the check stands unchanged.
 
 **Consequences.** A payload shape change touches the helper once and every dependent test follows. The helper is the only place outside the adapter proper that spells a hook field name, and it is inside the same package tree. E2E helpers that synthesize posts mirror the same shapes in TypeScript.

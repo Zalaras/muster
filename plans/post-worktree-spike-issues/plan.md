@@ -307,7 +307,7 @@ E2 make web-build build && for i in 1 2 3 4 5; do (cd web && npx playwright test
 `ScratchDaemon.start()` resolves the binary from the module's own path
 (`web/e2e/helpers/daemon.ts:44`), so a self-test cannot point it at a deliberately-unhealthy
 binary without either a new option field or swapping `bin/musterd` globally. **Decided
-2026-09-07 (Damian): the option field.** The global swap is what the manual repro did, and it is
+2026-09-07 (the developer): the option field.** The global swap is what the manual repro did, and it is
 unsafe as a checked-in gate — any concurrent build or E2E run would pick up the fake, and the
 E2E suite runs 4 workers. One optional string on `ScratchDaemonOptions`, defaulting to today's
 path, keeps every existing caller byte-identical in behaviour and makes the fixture's own

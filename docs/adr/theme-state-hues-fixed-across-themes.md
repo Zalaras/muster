@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Each theme picks its own state palette. (B) The hue family per state is fixed across themes; a theme may adjust lightness and saturation to sit on its own grounds, nothing more.
 
-**Decision.** B, settled with Damian. State colour is vocabulary, not decoration; a theme changes the paper, not the words.
+**Decision.** B, settled with the developer. State colour is vocabulary, not decoration; a theme changes the paper, not the words.
 
 **Consequences.** State tokens keep their hue names because the hue is the semantic, while surface and text tokens are named by role. A new meaning still gets a new token family rather than a reused hue, as the banner and danger families did before. The contrast gate checks each state hue as text against each theme's grounds.

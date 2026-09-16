@@ -167,7 +167,7 @@ run D reporting `"plan"`. The `auto mode unavailable for this model` banner stil
   (`claude --resume <id>` in a fresh tmux session) and the pipeline did not re-measure it on
   the pinned binary (R2, burns subscription — TODO M4). A divergence would land the resumed
   session in `started` instead of `idle` (clear-rebind path), not break it. **Closed
-  2026-08-30:** R2 run manually by Damian on the pinned 2.1.246 — interactive dashboard
+  2026-08-30:** R2 run manually by the developer on the pinned 2.1.246 — interactive dashboard
   End → Resume carried the same `session_id` and the badge read `idle`. **Automated
 2026-09-10 (2.1.267 canary, run E):** a fresh tmux session launched through the production
 `claudecode.BuildArgv` (`--resume <id> --model … --permission-mode plan`, byte-for-byte
@@ -272,7 +272,7 @@ consistent with this. Re-check the `jt={...}` status-line builder on each pin bu
 internal `unifiedWindows` telemetry schema already carries the third window, so it may
 appear in a later release.
 
-**`GET /api/oauth/usage` measured live 2026-08-30 (HTTP 200, one call, Damian's token):**
+**`GET /api/oauth/usage` measured live 2026-08-30 (HTTP 200, one call, the developer's token):**
 headers `Authorization: Bearer <claudeAiOauth.accessToken>` (Keychain item
 `Claude Code-credentials`, read via `security find-generic-password -a "$USER" -w -s …`),
 `anthropic-beta: oauth-2025-04-20`. Response: `five_hour`/`seven_day` as
@@ -425,15 +425,15 @@ recycled PID. Use `pgrep -f` on the exact command line.
   inspection on any pin bump.
 - **Claude Code's theme setting lives in its global config file under the key `theme`** <!-- kb: fact/theme-config-key-and-enum -->
   (installed bundle `2.1.258`, 2026-09-02 — static inspection plus a read-only look at
-  Damian's real file, not a canary run; the file's basename is deliberately recorded only
+  the developer's real file, not a canary run; the file's basename is deliberately recorded only
   in `internal/claudecode/theme.go`). The bundle's value enum is
   `["dark","light","light-daltonized","dark-daltonized","light-ansi","dark-ansi"]`, its
   own family test is `startsWith("light")`, and the default when the key is absent is
-  `dark` (`resolveSetting("theme","dark")`). Damian's live file has no `theme` key. Basis
+  `dark` (`resolveSetting("theme","dark")`). The developer's live file has no `theme` key. Basis
   for `ReadThemeFamily`'s prefix mapping (plan `new-ui-design-colors`, REQ-13). Since
   2026-09-10 `make canary` asserts the four non-default enum members as byte strings in the
   installed bundle (static tier) and that `ReadThemeFamily(DefaultConfigPath())` parses
-  Damian's real file (live tier); string presence ≠ semantics, so still glance at the
+  the developer's real file (live tier); string presence ≠ semantics, so still glance at the
   `resolveSetting("theme", …)` site on a canary run. Note the installed bundle (2.1.258)
   was ahead of the then-verified ceiling (2.1.246) — see `docs/claude-code-versions.md`.
 - **`CLAUDE_CODE_SCROLL_SPEED` is present in the installed bundle** (2.1.267, 2026-09-10) — <!-- kb: fact/scroll-speed-env-present -->

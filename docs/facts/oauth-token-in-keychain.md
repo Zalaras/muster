@@ -17,7 +17,7 @@ The subscription OAuth access token is stored in the macOS Keychain generic-pass
 "Claude Code-credentials"`; the payload is JSON whose `claudeAiOauth.accessToken` is the bearer
 token.
 
-Evidence: read live 2026-08-30 against 2.1.251 with Damian's own token (FINDINGS per-model
+Evidence: read live 2026-08-30 against 2.1.251 with the developer's own token (FINDINGS per-model
 usage addendum). The guard runs the production `KeychainTokenReader` for the current OS user
 on every non-offline canary run and fails, never skips, on missing credentials; the static tier
 asserts `claudeAiOauth` and `find-generic-password` as byte strings in the installed bundle.

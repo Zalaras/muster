@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Wait for the status line to grow the field. (B) Have the daemon call the same endpoint the usage screen calls, with the same credential, on a timer and on demand.
 
-**Decision.** B, Damian's choice. The poller fetches at start and on a slow interval, and a refresh endpoint wakes it, coalescing concurrent requests into one fetch.
+**Decision.** B, the developer's choice. The poller fetches at start and on a slow interval, and a refresh endpoint wakes it, coalescing concurrent requests into one fetch.
 
 **Consequences.** Muster gains a second usage source, the seam the spec had reserved; it became a second concrete holder beside the aggregator rather than an interface. A failed fetch keeps the last good values and labels them stale. The endpoint's shape is a measured fact, guarded by the canary, because nothing about it is promised.

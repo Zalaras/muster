@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Run the Go suite with one package at a time, which treats the load rather than the fork and doubles the runtime. (B) A PATH shim: a fake binary ahead of the real one. (C) An injectable run function on the type that owns each subprocess call, the shape the locate package already used, with real tmux kept only where the assertion is about a PTY stream, geometry, liveness, pane environment or server options.
 
-**Decision.** C, settled with Damian. The test daemon's version check honours the binary flag so no test forks the real Claude Code; the server's locate tests use a walk-only locator.
+**Decision.** C, settled with the developer. The test daemon's version check honours the binary flag so no test forks the real Claude Code; the server's locate tests use a walk-only locator.
 
 **Consequences.** The implementer adds the seam with the call, and tests never reach around it. A fixed list of tests that are genuinely tmux-observable keeps a real server, fixed in the plan rather than left to agent judgement. The larger server creation and attach seam was left as a follow-up and closed by a later plan. No timing threshold is gated on.

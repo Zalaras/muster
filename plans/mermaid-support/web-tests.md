@@ -46,7 +46,7 @@ not Vitest-importable, left to Playwright/Reviewer-Verified per the implementer'
 
 ```
 $ npx vitest run src/reader/mermaid.test.ts src/reader/zoom.test.ts
- RUN  v5.0.0 /Users/damian/Documents/code/Projects/muster-from-main/web
+ RUN  v5.0.0 /Users/bob/Documents/code/Projects/muster-from-main/web
  Test Files  2 passed (2)
       Tests  57 passed (57)
 

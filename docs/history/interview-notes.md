@@ -15,7 +15,7 @@ why, context behind decisions, and the disposition of the earlier research/mocku
   by SPEC.md (though most survived re-examination: Go, GUI, real CLI, manager-launched
   sessions).
 - `session-manager-mockup.html` (deleted 2026-09-04 ahead of open-sourcing; the notes below
-  are the record) — a five-view mockup made under the working name **"Relay"**. That name is dead (Damian never chose it). Mockup disposition:
+  are the record) — a five-view mockup made under the working name **"Relay"**. That name is dead (the developer never chose it). Mockup disposition:
   - **Overview view** — closest to v1; but the "lead session" chat panel is cut, and the
     attention-ribbon (60-min state timeline) is unrated — nice visual, decide during build. <!-- kb: adr/nongoal-attention-ribbon-post-v1, adr/nongoal-lead-orchestrator-session -->
   - **Session grid** — survives as the interactive panes (must-have).
@@ -26,11 +26,11 @@ why, context behind decisions, and the disposition of the earlier research/mocku
     editor survives (v1.x); the live decision queue with blast-radius framing and the
     settings-diff preview are cut-for-now.
 
-## How Damian actually works (context behind the requirements)
+## How the developer actually works (context behind the requirements)
 
 - 3–6 sessions in macOS Terminal tabs, single window. Deliberately never starts sessions
   in the VSCode terminal/plugin — separate windows get lost. Precedent that "all
-  sessions in one place" is a habit he'll keep; launching only via Muster is not a burden.
+  sessions in one place" is a habit they'll keep; launching only via Muster is not a burden.
 - Runs mostly in **auto-accept mode**, so routine permission prompts are *not* the pain.
   The pain is **plan mode**: research prompts interrupt before the plan exists, and
   post-approval execution needs babysitting. This reframed the mockup's permission-queue
@@ -55,7 +55,7 @@ why, context behind decisions, and the disposition of the earlier research/mocku
 | Agent SDK instead of real CLI | Rejected (inherited from research, unchallenged) | `terminalSequence` and the status line die in SDK/`-p` mode — kills notification and usage data sources. <!-- kb: adr/stack-terminal-backing-tmux --> |
 | Go-side VT emulation + canvas renderer instead of xterm.js | Rejected for v1 | Full control but reimplements selection/scrollback/copy; xterm.js gives them free. Could revisit if xterm.js disappoints. <!-- kb: adr/stack-terminal-rendering-xterm-js --> |
 | macOS notifications | Cut by design | "The point is to be working in the dashboard." If the dashboard turns out not glanceable enough in practice, revisit. <!-- kb: adr/nongoal-macos-notifications --> |
-| Cost/spend tracking | Cut | Not what he cares about; usage limits are the real constraint on a subscription. <!-- kb: adr/nongoal-cost-tracking --> |
+| Cost/spend tracking | Cut | Not what they care about; usage limits are the real constraint on a subscription. <!-- kb: adr/nongoal-cost-tracking --> |
 | Lead orchestrator session in the dashboard | Cut | Native cross-session messaging (ListAgents/SendMessage) already covers it; can run a lead session in a normal pane. <!-- kb: adr/nongoal-lead-orchestrator-session --> |
 | Ship flow (PR create/merge, CI status) | Cut-for-now | <!-- kb: adr/nongoal-ship-flow --> |
 | Session forking / pause-checkout | Cut-for-now | "You can kind of do that anyway" — worth *tracking* in the dashboard someday, not building. <!-- kb: adr/nongoal-session-forking-pause-checkout --> |
@@ -63,7 +63,7 @@ why, context behind decisions, and the disposition of the earlier research/mocku
 | Containers as isolation | **Never** | Not everything runs cleanly in containers; resource hungry. <!-- kb: adr/nongoal-containers-as-isolation --> |
 | Resource gauges (CPU/RAM) | **Never** | <!-- kb: adr/nongoal-resource-gauges --> |
 | Second machine, one dashboard | **Never** | <!-- kb: adr/nongoal-second-machine-one-dashboard --> |
-| GitHub MCP for PR/issue integration | Rejected in favor of `gh` CLI | Damian would prefer MCP in principle but believes it lacks needed tools; expects `gh` in practice. <!-- kb: adr/stack-git-and-gh-clis-not-go-git --> |
+| GitHub MCP for PR/issue integration | Rejected in favor of `gh` CLI | the developer would prefer MCP in principle but believes it lacks needed tools; expects `gh` in practice. <!-- kb: adr/stack-git-and-gh-clis-not-go-git --> |
 | Per-project permission scoping in the permissions UI | Cut | Basic version is user-level only: one set of rules for all projects. <!-- kb: adr/nongoal-permissions-ui-basic-user-level-only --> |
 
 ## Ideas parked with architectural notes
@@ -77,7 +77,7 @@ why, context behind decisions, and the disposition of the earlier research/mocku
 - **Other agent CLIs** (maybe) <!-- kb: adr/nongoal-generic-agent-abstraction-layer --> — the only concession is the `internal/claudecode`
   adapter package boundary; explicitly *not* a generic multi-agent abstraction layer
   (dismissed as over-engineering for a personal tool).
-- **Auto-accept while planning** (SPEC §4.1) — worth remembering this was Damian's own
+- **Auto-accept while planning** (SPEC §4.1) — worth remembering this was the developer's own
   correction of a misread: not "auto-accept toggle in general" (exists natively) but
   auto-accepting *research prompts during plan mode*, which Claude Code doesn't offer.
 
@@ -109,7 +109,7 @@ The handoff doc remains the reference; highlights that shaped decisions:
 - Testing bar (also in SPEC) <!-- kb: adr/process-testing-bar-e2e-always-unit-for-logic -->: functional E2E always; unit tests confirm specific logic.
 - Repo private for now; licence **MIT** <!-- kb: adr/process-licence-mit, adr/process-repo-public --> (decided 2026-09-04, see `docs/history/spec-changelog.md`).
 - Naming: **settled on "Muster" 2026-08-16.** <!-- kb: adr/process-naming-muster --> Earlier candidates "CCC (Claude Code Control)"
-  and "Claude Control Plane" were dropped on two constraints Damian raised: the name must not
+  and "Claude Control Plane" were dropped on two constraints the developer raised: the name must not
   collide with an existing product/trademark, and it must not contain "Claude"/"cc" because a
   potential future state supports other agent CLIs. Checked and rejected on those grounds:
   `tower` (Git client), `wheelhouse` (registered TM, Ridgeline Solutions), `belfry` (active

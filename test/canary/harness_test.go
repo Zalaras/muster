@@ -31,7 +31,7 @@ import (
 //	  → hook.sh / status-line.sh POST the kb:anchor/ingest.envelope envelope
 //	  → an in-test capture server, parsed with claudecode.ParseIngestBody.
 //
-// No fake claude, no synthesized POSTs. Every real run burns Damian's subscription, so the
+// No fake claude, no synthesized POSTs. Every real run burns the developer's subscription, so the
 // harness performs a fixed set of runs, once per `go test` process, and every test is a
 // cheap view over them (CLAUDE.md: haiku only, trivial prompts, kill on exit):
 //

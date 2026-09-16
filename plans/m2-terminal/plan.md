@@ -14,7 +14,7 @@ mechanism here was measured by the 2026-08-16 spike (`spikes/FINDINGS.md` §7): 
 single-client attach, `window-size manual`, `pty.Setsize` **then** `tmux resize-window`,
 `scrollback: 0`, binary WS frames, EIO-as-EOF, and the one-live-client law.
 
-Two structural decisions were settled in planning (2026-08-23, with Damian):
+Two structural decisions were settled in planning (2026-08-23, with the developer):
 
 1. **One tmux session per Muster session.** A tmux client attaches to a tmux *session*
    and shows one window; Tiles needs up to 6 concurrent live surfaces, so M1's

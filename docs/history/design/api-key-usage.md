@@ -13,7 +13,7 @@ amount** for a session authenticated with an API key rather than a subscription?
 Measured against **2.1.270** by two methods: reading the status-line payload builder and
 the telemetry call sites straight out of the installed bundle, and one live probe session
 (rig instance 7, `claude-haiku-4-5-20251001`, prompt "say hi", killed after) with an OTLP
-receiver on `127.0.0.1:8797`. Damian has no API account, so everything below is measured
+receiver on `127.0.0.1:8797`. The developer has no API account, so everything below is measured
 on a **subscription**; the auth-independence claims come from the code path, which is the
 one link not verified live (see § Limitations).
 
@@ -153,15 +153,15 @@ Two tiers, independently shippable, in this order:
 ## 6. Gate before planning
 
 `kb:adr/nongoal-cost-tracking` is `rejected` and covers exactly this. Its reasoning —
-"Cost is not what Damian cares about; the usage limits are what actually stop work" —
-remains true for Damian on a subscription, and is precisely what fails for an API-key
+"Cost is not what the developer cares about; the usage limits are what actually stop work" —
+remains true for the developer on a subscription, and is precisely what fails for an API-key
 user, for whom dollars *are* the binding constraint. That asymmetry is the superseding
 argument, and it is a superseding ADR, not a plan. Note the existing scope line in
 `docs/features/usage/spec.md` § Does not ("No cost or spend is shown") moves with it.
 
 ## Evidence
 
-- Bundle read: `/Users/damian/.local/share/claude/versions/2.1.270` — status-line builder
+- Bundle read: `/Users/bob/.local/share/claude/versions/2.1.270` — status-line builder
   `eRs(…)`, telemetry call site incrementing both counters, the embedded SDK schema for
   `rate_limits_available` / `subscription_type`, and the `modelPricing` setting text.
 - Live probe: rig instance 7, one `claude-haiku-4-5-20251001` session, two turns, OTLP/HTTP-JSON

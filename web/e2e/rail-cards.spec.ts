@@ -215,7 +215,7 @@ test("a card's End button survives a render tick and still opens the End dialog 
 // review m4-reconcile cycle-3 Minor 2/3 (e2e-specs, web-implementation.md Fix Attempt
 // 3): the review's Critical 1 fix scoped the hover-reveal opacity rule to `.card
 // .acts-row`, leaving the dead-surface cap unconditionally visible while live rail
-// cards stay hover/focus-only, per Damian's cycle-3 sign-off. `toBeVisible()` cannot
+// cards stay hover/focus-only, per the developer's cycle-3 sign-off. `toBeVisible()` cannot
 // see either half of this (Playwright's actionability model treats `opacity: 0` as
 // visible) — this test reads the computed style directly, at rest and revealed by
 // both mouse hover and keyboard `:focus-within`.

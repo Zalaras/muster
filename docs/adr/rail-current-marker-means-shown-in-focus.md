@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) A marker meaning live in this view, rendered in both the rail and the Tiles strip. (B) A marker meaning shown in the Focus pane, rendered on the rail only. (C) Leave the focus-within cue.
 
-**Decision.** B, Damian's decision at planning. The treatment is neutral, the hover ground plus a thin inset ring on the edge token and an aria-current attribute, because state colours are spoken for.
+**Decision.** B, the developer's decision at planning. The treatment is neutral, the hover ground plus a thin inset ring on the edge token and an aria-current attribute, because state colours are spoken for.
 
 **Consequences.** The card reconciler takes the focused id as input. No word tag is added; assistive technology gets the attribute. The marker carries no state meaning, so a reviewer checking colour finds nothing to exempt.

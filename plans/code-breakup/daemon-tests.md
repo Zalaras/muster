@@ -111,7 +111,7 @@ $ make test
 ...
 --- FAIL: TestNew_RegistersLifecycleFeaturesInStartOrder (0.01s)
     server_test.go:26:
-        	Error Trace:	/Users/damian/Documents/code/Projects/muster/internal/server/server_test.go:26
+        	Error Trace:	/Users/bob/Documents/code/Projects/muster/internal/server/server_test.go:26
         	Error:      	Not same:
         	            	expected: &server.ingestFeature{...} (*server.ingestFeature)(0x1...)
         	            	actual  : &server.updateFeature{...} (*server.updateFeature)(0x1...)

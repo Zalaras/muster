@@ -11,7 +11,7 @@ tests: []
 refs: [SPEC.md, docs/history/interview-notes.md, kb:adr/launch-bypass-and-dontask-unoffered]
 supersedes: []
 ---
-**Context.** The mockup's permissions view had a live queue of pending permission decisions framed by blast radius, a preview of the settings diff each decision would write, and rules scoped per project. Damian runs mostly in auto-accept mode, so routine permission prompts are not his pain; plan mode is.
+**Context.** The mockup's permissions view had a live queue of pending permission decisions framed by blast radius, a preview of the settings diff each decision would write, and rules scoped per project. The developer runs mostly in auto-accept mode, so routine permission prompts are not their pain; plan mode is.
 
 **Options.** (A) Build the full view: queue, blast-radius framing, diff preview, per-project scopes. (B) A basic editor of user-level allow, ask and deny rules, one set for all projects, and route the plan-mode approval into its own flow.
 

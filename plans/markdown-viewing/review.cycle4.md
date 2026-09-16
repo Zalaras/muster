@@ -5,7 +5,7 @@
 **Pack**: `<!-- kb:pack plan=markdown-viewing role=review features=reader,surfaces,lifecycle,ingest -->`
 
 Cycle 4, **full re-review** (not a delta): every section below was re-run and re-read, at every
-severity, per Damian's explicit ask after granting a fresh review budget.
+severity, per the developer's explicit ask after granting a fresh review budget.
 
 **Both cycle-3 findings are genuinely fixed, and I verified each by measuring, not by reading the
 diff or trusting the logs.** `/doc.html` now bounds itself to the viewport on a normal, a short and

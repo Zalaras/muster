@@ -5,7 +5,7 @@ import { basename, loadingText } from "./paths";
 
 describe("basename", () => {
   it("returns the last path segment", () => {
-    expect(basename("/Users/damian/code/Projects/muster/TODO.md")).toBe("TODO.md");
+    expect(basename("/Users/bob/code/Projects/muster/TODO.md")).toBe("TODO.md");
   });
 
   it("returns the last segment of a relative path", () => {
@@ -17,7 +17,7 @@ describe("basename", () => {
   });
 
   it("returns the path itself for a trailing-slash path with nothing after it", () => {
-    expect(basename("/Users/damian/plans/")).toBe("/Users/damian/plans/");
+    expect(basename("/Users/bob/plans/")).toBe("/Users/bob/plans/");
   });
 
   it("returns an empty string for an empty path", () => {
@@ -31,7 +31,7 @@ describe("loadingText", () => {
   });
 
   it("returns 'loading <basename>…' for a path (REQ-8)", () => {
-    expect(loadingText("/Users/damian/code/Projects/muster/TODO.md")).toBe("loading TODO.md…");
+    expect(loadingText("/Users/bob/code/Projects/muster/TODO.md")).toBe("loading TODO.md…");
   });
 
   it("uses the same basename derivation as the standalone function", () => {

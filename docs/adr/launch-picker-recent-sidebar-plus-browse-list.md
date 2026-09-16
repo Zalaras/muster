@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Finder columns. (B) A persistent Recent sidebar beside a browse pane made of a clickable breadcrumb over a single child listing. (C) A path field with completion. For the title: fold it into the header, footer, strip or right column, or keep plain rows.
 
-**Decision.** B, chosen by Damian from a visual comparison, with plain rows for the form. The listed directory is the selection; descending changes it, a crumb or the up chord goes back, and clicking a recent restores that directory's last model and mode. The footer always names what will launch.
+**Decision.** B, chosen by the developer from a visual comparison, with plain rows for the form. The listed directory is the selection; descending changes it, a crumb or the up chord goes back, and clicking a recent restores that directory's last model and mode. The footer always names what will launch.
 
 **Consequences.** Model and start-in are segmented controls. The dialog has a fixed width with internally scrolling panes. Dotfiles stay excluded from the listing by decision. Web-only; the existing browse and repos endpoints already carried everything needed.

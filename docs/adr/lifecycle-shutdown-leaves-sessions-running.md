@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Kill every session on shutdown. (B) Always leave them. (C) A flag with three values: ask once on a terminal with a short timeout defaulting to no, leave, or kill with a final snapshot and the row marked ended; ask behaves as leave when there is no terminal.
 
-**Decision.** C, settled with Damian in planning.
+**Decision.** C, settled with the developer in planning.
 
 **Consequences.** A crash or a non-interactive stop never kills work. Restarting the daemon for an update leaves Claude sessions running and re-adopts them. The kill path is the one used by tests and by an explicit operator choice; an invalid flag value is rejected at startup.

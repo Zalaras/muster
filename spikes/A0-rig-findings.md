@@ -1,6 +1,6 @@
 # A0 — Rig & Isolation · findings
 
-Run date: 2026-08-16. Host: macOS (Darwin 25.6.0), Damian's machine.
+Run date: 2026-08-16. Host: macOS (Darwin 25.6.0), the developer's machine.
 `claude --version` at start: **2.1.233 (Claude Code)**.
 `claude --version` at end: **2.1.233 (Claude Code)** — no auto-update drift during the run.
 
@@ -53,7 +53,7 @@ user's real config dir or own a one-time login step.
 
 **Method.** Wrote `<scratch-repo>/.claude/settings.json` carrying all three keys —
 `statusLine`, `hooks`, `allowedHttpHookUrls` — and ran with the **default** config dir so
-auth came from Damian's real credentials.
+auth came from the developer's real credentials.
 
 **Observed.** Headless `claude -p "say hi"` returned `Hi! 👋 I'm ready to help…` and posted
 `UserPromptSubmit`, `Stop`, `SessionEnd` to the capture server. Interactively in tmux the
@@ -61,11 +61,11 @@ TUI rendered `Muster-SPIKE` — the capture server's reply — as its status lin
 banner `Haiku 4.5 · Claude Team · spandigital`.
 
 All three keys are honored at project scope. `allowedHttpHookUrls` is the notable one:
-it is defined **only** in the project settings (Damian's global settings have no such key),
+it is defined **only** in the project settings (the developer's global settings have no such key),
 and the HTTP hooks were delivered — so project scope really can authorize its own hook URLs.
 
 **Verdict. CONFIRMED — this is the isolation mechanism that wins.** Auth is untouched,
-hooks and status line are scoped to the scratch repo, and Damian's sessions in other
+hooks and status line are scoped to the scratch repo, and the developer's sessions in other
 directories are unaffected because project settings only apply under that path.
 
 **Caveat, stated honestly:** this is isolation of *configuration*, not of *state*. The
@@ -101,7 +101,7 @@ The decisive test was an A/B inside a **single hook block**, same session, same 
 ```json
 {
   "session_id": "d8cd1ec7-73be-4122-9d6a-b07bb9483a5a",
-  "transcript_path": "/Users/damian/.claude/projects/…/d8cd1ec7-….jsonl",
+  "transcript_path": "/Users/bob/.claude/projects/…/d8cd1ec7-….jsonl",
   "cwd": "…/instances/1/repo",
   "hook_event_name": "SessionStart",
   "source": "startup",
@@ -138,7 +138,7 @@ parsing needed. Full payload, complete field list, nothing redacted:
 
 ```json
 {
-  "cwd": "/Users/damian/Documents/code/Projects/ccc-spike/instances/1/repo",
+  "cwd": "/Users/bob/Documents/code/Projects/ccc-spike/instances/1/repo",
   "error": "authentication_failed",
   "hook_event_name": "StopFailure",
   "last_assistant_message": "Not logged in · Please run /login",
@@ -211,7 +211,7 @@ until answered:
 
 ```
  Accessing workspace:
- /Users/damian/Documents/code/Projects/ccc-spike/instances/1/repo
+ /Users/bob/Documents/code/Projects/ccc-spike/instances/1/repo
  Quick safety check: Is this a project you created or one you trust? …
  ❯ 1. Yes, I trust this folder
    2. No, exit
@@ -244,12 +244,12 @@ complete; nothing redacted (no credential-shaped values present):
 
 ```json
 {
-  "cwd": "/Users/damian/Documents/code/Projects/ccc-spike/instances/1/repo",
+  "cwd": "/Users/bob/Documents/code/Projects/ccc-spike/instances/1/repo",
   "hook_event_name": "SessionStart",
   "model": "claude-haiku-4-5-20251001",
   "session_id": "dc7cc182-509f-454c-818c-1b5a2fdb1658",
   "source": "startup",
-  "transcript_path": "/Users/damian/.claude/projects/-Users-damian-Documents-code-Projects-ccc-spike-instances-1-repo/dc7cc182-509f-454c-818c-1b5a2fdb1658.jsonl"
+  "transcript_path": "/Users/bob/.claude/projects/-Users-bob-Documents-code-Projects-ccc-spike-instances-1-repo/dc7cc182-509f-454c-818c-1b5a2fdb1658.jsonl"
 }
 ```
 
@@ -292,7 +292,7 @@ Full field list, pre-first-API-response (2026-08-16T13:00:01.538Z). Nothing reda
   "output_style": { "name": "default" },
   "session_id": "31f2ce0e-3a2a-4ca2-b21f-113e76118ebb",
   "thinking": { "enabled": true },
-  "transcript_path": "/Users/damian/.claude/projects/…/31f2ce0e-….jsonl",
+  "transcript_path": "/Users/bob/.claude/projects/…/31f2ce0e-….jsonl",
   "version": "2.1.233",
   "workspace": {
     "added_dirs": [], "current_dir": "…/instances/1/repo", "project_dir": "…/instances/1/repo"

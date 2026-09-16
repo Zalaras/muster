@@ -18,7 +18,7 @@ Browser behaviour rather than Claude Code wire format, but the same kind of meas
 platform fact, and the E2E suite is structurally unable to observe it.
 
 **`~/.claude/settings.json` md5 before and after: `20a641769314c762f0390de5495a9e31`** —
-byte-identical. Damian's live config was never modified.
+byte-identical. The developer's live config was never modified.
 
 ---
 
@@ -518,7 +518,7 @@ resize ~100 ms.
   Please run /login". macOS Keychain does not rescue it. Unusable for managed sessions.
 - **Project-scoped `<repo>/.claude/settings.json` works** and honors `hooks`, `statusLine`
   **and** `allowedHttpHookUrls` — the last of these authorized its own hook URLs while
-  Damian's global settings had no such key. This is how Muster should scope per-repo config.
+  the developer's global settings had no such key. This is how Muster should scope per-repo config.
 
 **SPEC §2.5 impact:** Muster cannot give a managed session an isolated config dir without
 owning a login step. It must either use the user's real config dir or accept that cost.
@@ -734,7 +734,7 @@ and a haiku session could never have exhibited a Fable bucket anyway.
 deliver the Fable bar on 2.1.251. The options are (a) wait — the internal telemetry schema
 already models the third window, so the status line may gain it; re-check the builder on
 every pin bump; (b) have `musterd` call `/api/oauth/usage` itself — requires reading
-Damian's OAuth token out of the macOS Keychain (`Claude Code-credentials`), a
+the developer's OAuth token out of the macOS Keychain (`Claude Code-credentials`), a
 credential-handling and SPEC-level decision, not a tweak; (c) drop the item. Recommendation
 recorded in TODO.md: (a) by default, decide on (b) explicitly if wanted.
 

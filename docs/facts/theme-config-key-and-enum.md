@@ -16,7 +16,7 @@ Claude Code's theme setting is the key `theme` in its global config file (the fi
 is recorded only in `internal/claudecode/theme.go`). The value enum in the bundle is
 `["dark", "light", "light-daltonized", "dark-daltonized", "light-ansi", "dark-ansi"]`; the
 bundle's own family test is `startsWith("light")`; the default when the key is absent is
-`dark` (`resolveSetting("theme", "dark")`). Damian's live file has no `theme` key.
+`dark` (`resolveSetting("theme", "dark")`). The developer's live file has no `theme` key.
 
 Evidence: static inspection of the installed 2.1.258 bundle plus a read-only look at the real
 file, 2026-09-02. Since 2026-09-10 the static tier asserts the four non-default enum members

@@ -396,7 +396,7 @@ allowlist: every field present is on the pinned list; **absent**: prompt text (`
 appears nowhere), assistant text (the reply appears nowhere), session title, directory,
 repo name, branch, worktree flag, Claude session id value (only `claudeSessionIdBound:
 true`), pane captures, hook payloads, status-line JSON, and all account usage. The
-session's context row is present by design (Damian's explicit inclusion).
+session's context row is present by design (the developer's explicit inclusion).
 
 <details>
 <summary>full body as returned by gh</summary>

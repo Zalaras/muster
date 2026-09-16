@@ -33,7 +33,7 @@ mean that state") and is not adopted. The one addition here: the dot gets a `tit
 the state word, so a hover explains the colour (a tile otherwise carries no state text).
 
 This amends ux-flows §3.7's sentence "Live tiles are the top N by attention, **in the same
-order §3.4 defines**" — decided with Damian 2026-08-29; the orchestrator records it (see
+order §3.4 defines**" — decided with the developer 2026-08-29; the orchestrator records it (see
 Doc upkeep). Decision debated and settled at planning: scope = grid only (sidebar
 pin/drag is its own plan); persistence = per-window ephemeral; auto-sort = none, ever;
 drop = insert-and-shift.

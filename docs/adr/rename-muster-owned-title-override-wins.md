@@ -15,6 +15,6 @@ supersedes: [rename-title-from-status-line-session-name]
 
 **Options.** (A) Keep reading the status line only; rename by typing Claude Code's slash command in the terminal. (B) A Muster-owned nullable override stored per session and set over HTTP, winning over the status line while set; clearing it reverts to Claude Code's name.
 
-**Decision.** B, pulled in directly by Damian without a separate spec pass. The wire title becomes the display title, override else last-known Claude name, with the override exposed as its own field.
+**Decision.** B, pulled in directly by the developer without a separate spec pass. The wire title becomes the display title, override else last-known Claude name, with the override exposed as its own field.
 
 **Consequences.** Status posts still refresh Claude Code's name and never touch the override; a hidden Claude-name change persists without a broadcast, and the endpoint broadcasts only on a wire change. An absent key is a bad request while an explicit null clears. The affordance is click-to-edit on the Focus heading and every tile header from one shared editor: Enter and blur commit, Escape cancels. The UI shows only the last broadcast, never a locally typed value.

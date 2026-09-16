@@ -1,7 +1,7 @@
 go test -tags=canary -count=1 -v ./test/canary/...
 === RUN   TestInstalledVersionMatchesPin
     canary_test.go:44: 
-        	Error Trace:	/Users/damian/Documents/code/Projects/muster/test/canary/canary_test.go:44
+        	Error Trace:	/Users/bob/Documents/code/Projects/muster/test/canary/canary_test.go:44
         	Error:      	Not equal: 
         	            	expected: "2.1.246"
         	            	actual  : "2.1.267"

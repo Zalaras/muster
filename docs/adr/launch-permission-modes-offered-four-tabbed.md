@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Relabel the radio to accept edits and offer nothing new. (B) Offer the four modes Claude Code cycles through with Shift+Tab, under its own labels, keeping default as the wire value behind manual and adding auto end to end. (C) Also accept manual as a fifth request value as an alias.
 
-**Decision.** B, Damian's list. Default stays behind manual because it is what hooks report, so the seed and the hook agree with no mapping and stored rows need no migration; default still emits no flag, the one spelling known to work on both supported versions. C was rejected as an alias with no behavioural difference.
+**Decision.** B, the developer's list. Default stays behind manual because it is what hooks report, so the seed and the hook agree with no mapping and stored rows need no migration; default still emits no flag, the one spelling known to work on both supported versions. C was rejected as an alias with no behavioural difference.
 
 **Consequences.** A stored per-directory mode the dialog has no radio for falls back to manual, so the checked radio always matches what the form sends. There is no dialog-side model-versus-mode warning: a seeded auto on a model that cannot run it is corrected by the first hook through the ordinary honesty path. The two unoffered modes are a separate, rejected record.

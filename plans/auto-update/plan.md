@@ -34,7 +34,7 @@ a non-release version string is a `dev` build (never checks, no buttons); a path
 prefix badges but defers to `brew upgrade`; a path the installer would not have written (not
 writable, or inside a git working tree) badges but names the installer as the remedy. The
 release pipeline gains a GoReleaser `signs:` block so every release publishes
-`checksums.txt.minisig`; the private key and its passphrase are CI secrets Damian creates and
+`checksums.txt.minisig`; the private key and its passphrase are CI secrets the developer creates and
 stores by hand, and the public key is a committed file the plan treats as a prerequisite.
 
 ## Requirements
@@ -62,7 +62,7 @@ stores by hand, and the public key is a committed file the plan treats as a prer
 - [ ] REQ-20: Concurrent applies are serialised: within the daemon a second `POST /api/update/apply` while one is in flight returns 202 and observes the same broadcast; across processes (`-update` vs daemon) a non-blocking flock on `<exedir>/.musterd-update.lock` makes the loser fail with "another musterd update is in progress".
 - [ ] REQ-21: Install classification at startup from the resolved path: `dev` (REQ-8) | `homebrew` (path under `/opt/homebrew`, `/usr/local/Cellar`, `/usr/local/Homebrew`, or `$HOMEBREW_PREFIX` when set) | `unmanaged` (directory not writable by the current user, or a `.git` entry in the directory or an ancestor **below** `$HOME`) | `installer` (everything else). `homebrew`'s remedy is `installed by Homebrew — run brew upgrade musterd`; `unmanaged`'s names the installer one-liner.
 - [ ] REQ-22: `musterd -update` performs REQ-14..18 for the latest release: prints `updated to vX.Y.Z — restart musterd to finish` (exit 0); `already up to date` (exit 0); the REQ-21 remedy or the verification error (exit 1). Never restarts anything. Honours `-update-base-url` and `-update-public-key-file`.
-- [ ] REQ-23: `.goreleaser.yaml` gains a `signs:` block producing `checksums.txt.minisig` with `minisign`; `release.yml` installs minisign and materialises the secret key from `MINISIGN_SECRET_KEY` / `MINISIGN_PASSWORD` secrets. The public key is `internal/selfupdate/minisign.pub`, `//go:embed`-ed — **Damian commits it before `/orchestrate` runs** (D5 gates it).
+- [ ] REQ-23: `.goreleaser.yaml` gains a `signs:` block producing `checksums.txt.minisig` with `minisign`; `release.yml` installs minisign and materialises the secret key from `MINISIGN_SECRET_KEY` / `MINISIGN_PASSWORD` secrets. The public key is `internal/selfupdate/minisign.pub`, `//go:embed`-ed — **the developer commits it before `/orchestrate` runs** (D5 gates it).
 - [ ] REQ-24: A release with a missing or invalid `.minisig` is refused (no unsigned fallback).
 
 ### Should Have
@@ -280,7 +280,7 @@ section extends that modal below the theme picker; the confirm dialog follows `#
 - `internal/selfupdate/lock.go` — `AcquireLock(exeDir) (release func(), error)`: `O_CREATE` + `syscall.Flock(LOCK_EX|LOCK_NB)`; `ErrInProgress`.
 - `internal/selfupdate/install.go` — `Classify(version, exePath string, env func(string) string, home string, access func(dir string) error) Install{Kind, Path, Remedy}`; `InstallerRemedy`, `HomebrewRemedy` consts.
 - `internal/selfupdate/exeversion.go` — `ProbeVersion(ctx, run execFunc, exePath) (string, error)` for REQ-26: runs `<exe> -version`, parses `musterd v?X.Y.Z`; `execFunc` is the injectable run seam (`cmd.WaitDelay` set).
-- `internal/selfupdate/minisign.pub` — **Damian's public key, committed by hand before `/orchestrate`**; `//go:embed`-ed by `PublicKey()`.
+- `internal/selfupdate/minisign.pub` — **the developer's public key, committed by hand before `/orchestrate`**; `//go:embed`-ed by `PublicKey()`.
 - `internal/server/update.go` — `updateManager`: state, `Start`/`Stop`/`Refresh`/`SetCheckEnabled`, tick (check + REQ-26 stat/probe), apply serialisation (mutex + `inFlight`), `restartRequests chan struct{}`, `updateMessage`/`UpdateInfo` wire types, `handleApplyUpdate`, `handleRestartImpact`.
 - `internal/server/state.go` — `Snapshot.Update UpdateInfo`; `PrefsInfo.UpdateCheck bool`.
 - `internal/server/prefs.go` — `updateCheck` in `prefsRequest`, defaults, load fallback, validation; after persist, `s.updates.SetCheckEnabled(v)` when the value changed.
@@ -355,7 +355,7 @@ per criterion.
 - **D2**: `go build ./...` passes.
 - **D3**: `make lint` passes.
 - **D4**: no release-URL construction outside `internal/selfupdate` (the negative grep in the block; test files are excluded because they fake the release server and legitimately spell its paths).
-- **D5**: `internal/selfupdate/minisign.pub` exists and is non-empty (Damian's prerequisite).
+- **D5**: `internal/selfupdate/minisign.pub` exists and is non-empty (the developer's prerequisite).
 - **D6**: `goreleaser check` accepts the `signs:` block.
 - **D7**: `ParseRelease` accepts exactly `v?MAJOR.MINOR.PATCH` and rejects `dev`, `v0.10.0-4-ge5102b8`, `0.10.0-dirty`, `1.2`.
 - **D8**: `LatestTag` returns the tag from a 302 `Location` (absolute and relative) and errors on 200, on no `Location`, and on a tail that is not `v<semver>`.
@@ -485,7 +485,7 @@ E1 make e2e
   `release.yml` adds, before the GoReleaser step: `sudo apt-get install -y minisign`; a step
   writing `${{ secrets.MINISIGN_SECRET_KEY }}` to `$RUNNER_TEMP/minisign.key` (mode 0600) and
   exporting `MINISIGN_KEY_FILE`; and `MINISIGN_PASSWORD: ${{ secrets.MINISIGN_PASSWORD }}` in the
-  GoReleaser step's `env`. **Damian generates the keypair** (`minisign -G -p
+  GoReleaser step's `env`. **The developer generates the keypair** (`minisign -G -p
   internal/selfupdate/minisign.pub -s <private>`), commits the `.pub`, and creates both secrets —
   Claude never handles the private key or passphrase (CLAUDE.md hard rule). `make release-check`
   passes `--skip=sign`.

@@ -78,8 +78,8 @@ func scanLines(s string) []line {
 
 // Splice inserts an entry at the end of a section, preserving the blank line between
 // entries. Appending rather than sorting is deliberate: TODO.md's "Reported issues"
-// preamble records that open entries sit in Damian's priority order, and re-sorting
-// would silently discard a ranking he set by hand.
+// preamble records that open entries sit in the developer's priority order, and re-sorting
+// would silently discard a ranking they set by hand.
 //
 // A pure insertion — the result is the original with one block added, and nothing else
 // touched. TestSpliceIsPureInsertion holds that.

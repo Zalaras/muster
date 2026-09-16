@@ -28,7 +28,7 @@ installed Claude Code 2.1.251 — measured, see Implementation Notes). The foote
 what will launch: `Launch in <path>`. Dialog width is fixed at 720px, capped at the viewport;
 panes scroll internally. Rejected in the same session: A (Finder columns — wider, weaker MRU
 columns), C (path field with completion — weak for exploring), and four "squash the Title into
-existing chrome" placements (header / footer / strip / right column) — Damian wants plain rows.
+existing chrome" placements (header / footer / strip / right column) — the developer wants plain rows.
 
 No protocol change: `GET /api/browse` already returns `path`, `parent` and `dirs`, and `GET
 /api/repos` already carries `branch`, `lastModel` and `lastPermissionMode`. Dotfiles stay

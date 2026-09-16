@@ -5,7 +5,7 @@
 
 Research/discussion session 2026-09-02/03. **The repo has been public since 2026-09-10**
 (`scripts/go-public.sh --yes`, run-through and outcome in `docs/go-public.md`). **Decided
-2026-09-04: MIT** — `LICENSE` is added (canonical text, © 2026 Damian Hunter) and the
+2026-09-04: MIT** — `LICENSE` is added (canonical text, © 2026 the developer Hunter) and the
 reasoning is in the `docs/history/spec-changelog.md` entry of that date. This note records the pre-flight
 audit and the licence analysis so the next session doesn't re-derive them.
 
@@ -16,7 +16,7 @@ Cleaner than expected. Findings, each verified by actually grepping rather than 
 - **No secrets in tracked files or git history.** `.mcp.json` holds only the context7
   HTTP endpoint, no token. `git log --all --diff-filter=A --name-only` surfaces no
   `.env`, `.pem`, credential or key files ever added.
-- **No hardcoded personal paths in shipping code.** `/Users/damian` appears 34 times but
+- **No hardcoded personal paths in shipping code.** `/Users/bob` appears 34 times but
   only in test fixtures (`web/src/*.test.ts`, `internal/claudecode/settings_test.go`),
   plans, and docs. Cosmetic, not a leak — `web/src/render/crumbs.test.ts` in particular
   uses it deliberately to exercise path splitting on spaces.
@@ -42,11 +42,11 @@ Blockers and chores, in order (the live run-through is `docs/go-public.md`, with
    research source (see §5 there and this file).
 5. ~~**Decide about `plans/`.**~~ **Decided 2026-09-04: publish it as-is.** 408 tracked
    files, much of it the internal process journal (specs, protocol contracts, review
-   cycles, retros) — probably the highest-value part of going public. Damian will skim the
-   files himself before the flip.
+   cycles, retros) — probably the highest-value part of going public. The developer will skim the
+   files it themself before the flip.
 
-The SPAN employment IP question raised on 2026-09-02 is **closed** — Damian confirmed
-2026-09-04 he knows the terms and it is not a blocker.
+The SPAN employment IP question raised on 2026-09-02 is **closed** — the developer confirmed
+2026-09-04 they know the terms and it is not a blocker.
 
 ## Licence landscape — what comparable tools chose
 
@@ -99,7 +99,7 @@ chose. 17 lines instead of ~200, and no `NOTICE` obligation for downstream users
 ## Adjacent facts worth keeping
 
 - **Publishing under a permissive licence does not give away the copyright.** It's a
-  non-exclusive grant; Damian keeps ownership and stays free to relicense or sell later.
+  non-exclusive grant; the developer keeps ownership and stays free to relicense or sell later.
   What shrinks is what a buyer would pay for, since they can already fork it free.
 - **The one irreversible step is merging a PR without a CLA.** After that the codebase
   is jointly owned and can't be relicensed without tracking down every contributor. A
@@ -109,7 +109,7 @@ chose. 17 lines instead of ~200, and no `NOTICE` obligation for downstream users
   patch" question by itself.
 - **Realistic outcomes if Anthropic (or anyone) took an interest**, most likely first:
   they build it themselves (no money changes hands, and a permissive licence lets them
-  legitimately read the code); they hire Damian (the credential outcome — the repo, and
+  legitimately read the code); they hire the developer (the credential outcome — the repo, and
   `plans/` especially, is the artifact); an upstream donation with copyright assignment;
   and only rarely an actual acquisition, which at this size is copyright + trademark
   transfer plus a transition consulting agreement, priced on the maintainer and the

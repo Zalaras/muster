@@ -25,7 +25,7 @@ has 30+ headings.
 
 ## Outcome
 
-**Option A.** Damian's call, 2026-09-13: leave it as measured and adjust later if using it shows a
+**Option A.** The developer's call, 2026-09-13: leave it as measured and adjust later if using it shows a
 floor is wanted — "we can always adjust later after feedback".
 
 The reviewer explicitly declined to assign this, correctly: it is a density judgement, not a

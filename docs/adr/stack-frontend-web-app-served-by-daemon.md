@@ -11,7 +11,7 @@ tests: []
 refs: [SPEC.md, docs/history/interview-notes.md, docs/research/claude-session-manager-handoff.md, kb:adr/stack-terminal-rendering-xterm-js, kb:adr/stack-wails-desktop-shell-deferred, kb:adr/connection-dashboard-embedded-in-binary]
 supersedes: []
 ---
-**Context.** Damian runs several sessions in Terminal tabs in one window and wanted them all in one place with state, usage and context visible. The interview first settled on a dashboard beside the terminal, then had to decide what the dashboard itself would be built with.
+**Context.** The developer runs several sessions in Terminal tabs in one window and wanted them all in one place with state, usage and context visible. The interview first settled on a dashboard beside the terminal, then had to decide what the dashboard itself would be built with.
 
 **Options.** For scope: (A) a read-only dashboard of derived state that jumps to a Terminal tab; (B) interactive panes so the dashboard is the workspace. For the surface: (C) a TUI, acceptable only with mouse support; (D) a native Go GUI on Gio with a Go-side terminal renderer, a month of renderer work and no phone access; (E) Fyne, whose widget and text model fights dense terminal grids; (F) Electron, heavy, with a large dependency tree for no gain over a wrapper; (G) a web app the daemon serves over WebSockets, opened as a standalone app window.
 

@@ -6,7 +6,7 @@ allowed-tools: Bash, Read, Edit, Grep
 ---
 
 > **Maintainer note:** Authored 2026-09-13. This runs in the main session, not a subagent:
-> a real `make canary` burns four haiku turns of Damian's subscription, and a red run needs
+> a real `make canary` burns four haiku turns of the developer's subscription, and a red run needs
 > a conversation rather than a verdict. `docs/claude-code-versions.md` stays the source of
 > truth for *why* the range works the way it does — this skill is only the driver, so don't
 > restate its rationale here.
@@ -31,7 +31,7 @@ You drive a Claude Code version check to a committed conclusion. Invoked with: *
    Fact records move in the **red** ritual only.
 3. **Never `git commit -am`** — `bump` prints exactly that as its hint, and it would sweep up
    every unrelated dirty file in the tree. Stage deliberately.
-4. **Never read or modify `~/.claude/settings.json`** (root `CLAUDE.md` hard rule) — Damian's
+4. **Never read or modify `~/.claude/settings.json`** (root `CLAUDE.md` hard rule) — the developer's
    live sessions depend on it. Nothing here needs it.
 5. **A real run costs four haiku turns.** Don't re-run to "be sure". The one exception is the
    named flake in step 5.
@@ -68,9 +68,9 @@ cat internal/claudecode/observed_versions.txt
 
 ## 3. Move versions only if asked
 
-Only when `$ARGUMENTS` names a target. **Confirm with Damian first**, and say why you're
-asking: there is exactly one `claude` binary on this machine and it is used for all of his
-work, not just Muster's managed sessions. Muster does not get to move it as a side effect.
+Only when `$ARGUMENTS` names a target. **Confirm with the developer first**, and say why you're
+asking: there is exactly one `claude` binary on this machine and it is used for all of the
+developer's work, not just Muster's managed sessions. Muster does not get to move it as a side effect.
 
 ```sh
 claude update <target>   # stable | latest | a specific version

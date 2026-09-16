@@ -32,7 +32,7 @@ directory earns its place by being used.
 ```
 New session                                       ⌥⌘N
 ─────────────────────────────────────────────────────
-Recent             │ / › Users › damian › code    ⌘↑
+Recent             │ / › Users › bob › code    ⌘↑
 ▸ muster   main 2m │   Projects (git)              ›
   mdroste… dev  1h │   spikes                      ›
   ledger…  main 2d │   scratch                     ›
@@ -140,7 +140,7 @@ What the flow remembers, and nothing more:
 **`worktree`** — exists in the schema sketch (`kb:adr/lifecycle-migrations-add-tables-when-written`), **not written by the launch flow in v1**.
 One thing v1 *does* do: **recognize** a worktree it was pointed at. If
 `git rev-parse --git-common-dir` differs from `--git-dir`, the directory is a linked
-worktree; record it so the rail can show `repo / branch` correctly. Damian already uses
+worktree; record it so the rail can show `repo / branch` correctly. The developer already uses
 worktrees by hand — v1 must display them truthfully even though it can't create them.
 
 **`session`** — as the schema sketch, with `worktree_id` populated only by the recognition above,

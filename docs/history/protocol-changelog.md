@@ -103,7 +103,7 @@ on 2026-09-11.
   `POST /api/usage/refresh`. Additive; no version bump.
 
 - **2026-08-28 — §4.2/§7.3: rebinding is monotonic** (plan `m4-hook-lifetime`, review cycle 1 <!-- kb: adr/ingest-monotonic-rebind -->
-  Critical, Option B chosen by Damian; `plans/m4-hook-lifetime/decisions/monotonic-rebind/`).
+  Critical, Option B chosen by the developer; `plans/m4-hook-lifetime/decisions/monotonic-rebind/`).
   An enveloped event naming a claude id this session has already left (a reordered
   straggler, typically the `/clear` pair's own `SessionEnd(reason:"clear")`) is routed and
   applied but never rebinds backwards or resets the gauge/compaction count. Known

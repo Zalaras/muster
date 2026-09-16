@@ -3,7 +3,7 @@
 **Outcome**: B — Keep plain `tmux attach`. `internal/termbridge` stays a raw byte pipe
 between a PTY and the WebSocket.
 
-The debate's own recommendation was to defer past v1. **Damian overruled that on 2026-09-13:
+The debate's own recommendation was to defer past v1. **The developer overruled that on 2026-09-13:
 "We're not deferring, drop it."** So the backlog entry is removed outright rather than carried
 — this is won't-fix, recorded as `kb:adr/surfaces-control-mode-not-adopted` (`status: rejected`).
 Dissent 1 below is therefore a reopening bar, not a scheduled revisit.

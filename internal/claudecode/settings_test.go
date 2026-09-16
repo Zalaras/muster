@@ -113,9 +113,9 @@ func TestMergeSettings_FreshFileHasNoHTTPEntry(t *testing.T) {
 // carries no URL/token field, so this is really "the merge never manufactures one".
 func TestMergeSettings_OutputContainsNoTokenOrURL(t *testing.T) {
 	cfg := SettingsConfig{
-		HookCommand:       "/Users/damian/Library/Application Support/Muster/hook.sh",
-		StatusLineCommand: "/Users/damian/Damian's stuff/status-line.sh",
-		LegacyCommands:    []string{"/Users/damian/Library/Application Support/Muster/hook-sessionstart.sh"},
+		HookCommand:       "/Users/bob/Library/Application Support/Muster/hook.sh",
+		StatusLineCommand: "/Users/bob/Bob's stuff/status-line.sh",
+		LegacyCommands:    []string{"/Users/bob/Library/Application Support/Muster/hook-sessionstart.sh"},
 	}
 
 	out, err := MergeSettings(nil, cfg)
@@ -435,7 +435,7 @@ func TestShellQuote(t *testing.T) {
 		want string
 	}{
 		{"space-free path", "/data/hook.sh", "'/data/hook.sh'"},
-		{"space-bearing path (the production shape)", "/Users/damian/Library/Application Support/Muster/status-line.sh", "'/Users/damian/Library/Application Support/Muster/status-line.sh'"},
+		{"space-bearing path (the production shape)", "/Users/bob/Library/Application Support/Muster/status-line.sh", "'/Users/bob/Library/Application Support/Muster/status-line.sh'"},
 		{"single quote embedded", "/a'b", `'/a'\''b'`},
 		{"multiple embedded quotes", "'''", `''\'''\'''\'''`},
 		{"empty string", "", "''"},
@@ -453,8 +453,8 @@ func TestShellQuote(t *testing.T) {
 // shape (spikes/FINDINGS.md 2026-08-25 addendum).
 func TestMergeSettings_CommandFieldIsShellQuotedForSpaceBearingPath(t *testing.T) {
 	cfg := SettingsConfig{
-		HookCommand:       "/Users/damian/Library/Application Support/Muster/hook.sh",
-		StatusLineCommand: "/Users/damian/Library/Application Support/Muster/status-line.sh",
+		HookCommand:       "/Users/bob/Library/Application Support/Muster/hook.sh",
+		StatusLineCommand: "/Users/bob/Library/Application Support/Muster/status-line.sh",
 	}
 
 	out, err := MergeSettings(nil, cfg)
@@ -481,8 +481,8 @@ func TestMergeSettings_CommandFieldIsShellQuotedForSpaceBearingPath(t *testing.T
 // that point, and a second merge on that output is byte-identical to the first.
 func TestMergeSettings_ShellQuoteEscapesSingleQuoteAndStaysIdempotent(t *testing.T) {
 	cfg := SettingsConfig{
-		HookCommand:       "/Users/damian/Damian's stuff/hook.sh",
-		StatusLineCommand: "/Users/damian/Damian's stuff/status-line.sh",
+		HookCommand:       "/Users/bob/Bob's stuff/hook.sh",
+		StatusLineCommand: "/Users/bob/Bob's stuff/status-line.sh",
 	}
 
 	first, err := MergeSettings(nil, cfg)
@@ -493,11 +493,11 @@ func TestMergeSettings_ShellQuoteEscapesSingleQuoteAndStaysIdempotent(t *testing
 	var hooks map[string][]hookGroup
 	require.NoError(t, json.Unmarshal(doc["hooks"], &hooks))
 	require.Len(t, hooks["SessionStart"][0].Hooks, 1)
-	assert.Equal(t, `'/Users/damian/Damian'\''s stuff/hook.sh'`, hooks["SessionStart"][0].Hooks[0].Command)
+	assert.Equal(t, `'/Users/bob/Bob'\''s stuff/hook.sh'`, hooks["SessionStart"][0].Hooks[0].Command)
 
 	var statusLine hookEntry
 	require.NoError(t, json.Unmarshal(doc["statusLine"], &statusLine))
-	assert.Equal(t, `'/Users/damian/Damian'\''s stuff/status-line.sh'`, statusLine.Command)
+	assert.Equal(t, `'/Users/bob/Bob'\''s stuff/status-line.sh'`, statusLine.Command)
 
 	second, err := MergeSettings(first, cfg)
 	require.NoError(t, err)

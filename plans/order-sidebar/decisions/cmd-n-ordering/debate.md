@@ -2,7 +2,7 @@
 
 ### Turn 1 — advocate-a (argument)
 
-Steelman of B: ⌘1 is today the only single keystroke that reaches whatever is blocking Damian without him reading the rail first. That is a real affordance, it costs zero code to keep, and the manual order is *his* — he already knows where his cards are, so he needs a key least for exactly those. A doc line is cheaper than a behaviour change.
+Steelman of B: ⌘1 is today the only single keystroke that reaches whatever is blocking the developer without them reading the rail first. That is a real affordance, it costs zero code to keep, and the manual order is *theirs* — they already know where their cards are, so they need a key least for exactly those. A doc line is cheaper than a behaviour change.
 
 My case:
 

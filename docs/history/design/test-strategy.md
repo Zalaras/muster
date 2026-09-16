@@ -101,7 +101,7 @@ per-test fixtures that future plans follow.
 
 ## Decision (2026-09-06)
 
-Settled directly with Damian on `main`. The rule is in `docs/conventions.md` §Testing; the
+Settled directly with the developer on `main`. The rule is in `docs/conventions.md` §Testing; the
 `docs/history/spec-changelog.md` entry of the same date summarises. What the audit changed about the framing:
 
 - **Option 4 as stated was wrong for most files.** Of the 16 per-test spec files, nearly all

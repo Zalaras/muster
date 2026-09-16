@@ -24,7 +24,7 @@ edit-TS → `make web-build` → reload loop needs no Go relink), listening on
 token baked in) is what to open in the browser.
 
 Because `make run` occupies the terminal, launch it in the background
-(`run_in_background`) or tell Damian to run `! make run` himself if he wants to watch
+(`run_in_background`) or tell the developer to run `! make run` themself if they want to watch
 the logs.
 
 `make run` now also opens the dashboard in the default browser once it's up (plan

@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Raise the timeouts that are marginal, site by site. (B) Serial mode on the heaviest files. (C) One policy in the config: a worker cap that bounds the daemons alive at once, one expect timeout and one test timeout that every wait inherits, with shortening allowed and lengthening forbidden.
 
-**Decision.** C, settled with Damian. A timing gate on a shared machine is a flake generator, so the policy sets bounds once and removes per-test numbers rather than tuning them.
+**Decision.** C, settled with the developer. A timing gate on a shared machine is a flake generator, so the policy sets bounds once and removes per-test numbers rather than tuning them.
 
 **Consequences.** Most polls and the stub-ready waits that had sat on the default now inherit the longer bound with no per-site edits. Redundant per-test timeout lines and fixed sleeps were removed; a stays-unchanged check uses the one sanctioned hold. The config and the fixtures module belong to the web implementer, never the E2E author, to keep the gate honest.

@@ -40,7 +40,7 @@ checks, hard-rule checklist clean.
 | **Minor 2** (stripe log line inaccurate) | **withdrawn — my error** | `style.css:230-236` *does* declare `background: var(--dim)`; see adjudication below |
 | Minor 3 (`NoteKind` discarded at DOM) | **fixed** | `sessions.ts:55` `note.dataset.noteKind = vm.noteKind`; all five variants unit-tested (`card.test.ts:147-282`) |
 | Minor 4 (⌘N `preventDefault` before guard) | **fixed** | guard now inside the handler, `launch.ts:223` (one nit below) |
-| Minor 5 (claude-code-pin drift) | **correctly routed to Damian** | a version bump is gated by `make canary` per CLAUDE.md — not an agent's call |
+| Minor 5 (claude-code-pin drift) | **correctly routed to the developer** | a version bump is gated by `make canary` per CLAUDE.md — not an agent's call |
 | Minors 6, 7 | recorded decisions, unchanged | as expected |
 
 ### Adjudication: cycle-2 Minor 2 (requested)
@@ -251,10 +251,10 @@ None.
    SQLite deliberately derives sidecar permissions from the main database file (now
    0600), and `Open` re-chmods all three on every start — noting it so a future reader
    doesn't mistake the `IsNotExist` tolerance for a gap.
-4. **[plan-work]** Carried forward from cycle 2's Minor 5, correctly routed to Damian and
+4. **[plan-work]** Carried forward from cycle 2's Minor 5, correctly routed to the developer and
    **not** expected of any agent: `spikes/canary-fields.md` records probes against
    2.1.240 while `docs/claude-code-pin.md` pins 2.1.233. A version bump is gated by
-   `make canary` per CLAUDE.md, so this is his decision; it belongs in the completion
+   `make canary` per CLAUDE.md, so this is their decision; it belongs in the completion
    report / `TODO.md`, which is where it went.
 5. **[e2e-specs]** / **[web-tests]** Carried forward as recorded decisions, unchanged and
    correct: REQ-21's `⟳n` counter has no E2E assertion (not in the Testable UI Elements

@@ -45,7 +45,7 @@
 
 | | Before | After |
 |---|---|---|
-| `bin/musterd` | `-rwxr-xr-x 1 damian staff 21371136 … bin/musterd` | `-rwxr-xr-x 1 damian staff 43044880 … bin/musterd` |
+| `bin/musterd` | `-rwxr-xr-x 1 bob    staff 21371136 … bin/musterd` | `-rwxr-xr-x 1 bob    staff 43044880 … bin/musterd` |
 | `index` entry chunk | `index-BHSaM5U5.js` — 387566 bytes | `index-CCb6XLkC.js` — 387543 bytes |
 
 "Before" is the tree exactly as `e2e-specs` left it (verified: `internal/webui/assets/assets/` had no mermaid chunk and matched the `index-BHSaM5U5.js` name test-specs.md's own REQ-12 live run used). The index entry chunk is essentially unchanged (387566 → 387543 bytes) — confirms REQ-4: mermaid is not in the eagerly-loaded entry chunk, only in its own lazily-loaded chunks. `bin/musterd` roughly doubled (+21.7 MB) because `//go:embed` now carries mermaid's full dependency tree (ELK, cytoscape, katex, dagre, every mermaid diagram-type chunk, and non-release sourcemaps) — inherent to ADR 1's "bundled, no CDN" choice, not something to trim from this side.

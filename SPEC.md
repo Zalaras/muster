@@ -16,7 +16,7 @@ agent-CLI-agnostic so supporting other agent CLIs later costs no rename
 
 ### Problem
 
-Damian runs 3–6 concurrent Claude Code sessions in macOS Terminal tabs. The pain, in his
+The developer runs 3–6 concurrent Claude Code sessions in macOS Terminal tabs. The pain, in their
 own ranking:
 
 - No way to see at a glance which tab is doing what, in which directory, in what state.
@@ -30,7 +30,7 @@ own ranking:
 
 ### Target user
 
-Damian, solo. Personal tool, macOS only, single machine, single user, English only.
+The developer, solo. Personal tool, macOS only, single machine, single user, English only.
 Motivation is daily utility plus the challenge of building it — not a product.
 
 ### Success criteria
@@ -91,7 +91,7 @@ notifications by design — the point is to be working *in* the dashboard.
 
 ### 3.1 Plan-mode flow (high interest)
 
-Damian works mostly in auto-accept mode, so ordinary permission prompts are rare. The
+The developer works mostly in auto-accept mode, so ordinary permission prompts are rare. The
 friction is plan mode: research prompts interrupt before the plan exists, and after
 approval the run needs babysitting.
 

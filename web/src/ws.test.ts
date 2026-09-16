@@ -77,7 +77,7 @@ const claudeThemeMessage: ClaudeThemeMessage = { type: "claudeTheme", family: "l
 const docChangedMessage: DocChanged = {
   type: "docChanged",
   id: 7,
-  path: "/Users/damian/code/Projects/muster/TODO.md",
+  path: "/Users/bob/code/Projects/muster/TODO.md",
   at: "2026-09-13T09:15:00Z",
 };
 
@@ -92,7 +92,7 @@ const session: Session = {
   endedAt: null,
   attention: null,
   failure: null,
-  directory: "/Users/damian/code/muster",
+  directory: "/Users/bob/code/muster",
   repo: { name: "muster", branch: "main", isWorktree: false },
   model: { id: "claude-sonnet-4-5", displayName: "sonnet" },
   permissionMode: { value: "default", source: "seed" },

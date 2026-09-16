@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Keep the attention comparator as the grid's order, accepting the churn. (B) Slot-stable: a promoted session lands in the demoted tile's slot, a departed tile's slot closes and the rest shift left, growth and backfill append at the end, and no automatic re-sort ever runs.
 
-**Decision.** B, decided with Damian at planning; membership rules are unchanged.
+**Decision.** B, decided with the developer at planning; membership rules are unchanged.
 
 **Consequences.** The rule "live tiles in the attention order" in the interface design is amended: attention still chooses who enters the grid, never where they sit. Shrinking drops the lowest-priority tiles wherever they are. Ordering is client state alongside membership; a separate record covers how the user reorders and another covers persistence.

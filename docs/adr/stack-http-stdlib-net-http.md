@@ -11,7 +11,7 @@ tests: [TestRoutes_APIStateRequiresCookie]
 refs: [docs/history/spec-changelog.md, docs/conventions.md, kb:anchor/transport, kb:anchor/http]
 supersedes: []
 ---
-**Context.** The daemon serves a handful of JSON endpoints, two WebSocket upgrades and a static bundle to one user on loopback. Damian knew Echo from earlier work.
+**Context.** The daemon serves a handful of JSON endpoints, two WebSocket upgrades and a static bundle to one user on loopback. The developer knew Echo from earlier work.
 
 **Options.** (A) Echo, for familiarity and its middleware ecosystem. (B) The standard library's router with method and path patterns.
 

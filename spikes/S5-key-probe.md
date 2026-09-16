@@ -88,7 +88,7 @@ Chrome run was not confirmed. Treat these three rows as *indicative, not conclus
 5. **Chrome does not reserve ⌘-digits** (indicative — see the caveat). This contradicts the
    common belief, repeated in the first draft of `plans/shortcut-fixes/plan.md`, that ⌘1–9
    is broken everywhere. It is not broken in Chrome.
-6. **Safari's ⌘1/⌘2/⌘9 remain unmeasured**, so whether ⌘1–9 was ever broken for Damian is
+6. **Safari's ⌘1/⌘2/⌘9 remain unmeasured**, so whether ⌘1–9 was ever broken for the developer is
    still unknown. It is plausible — Safari's "⌘1 through ⌘9 switch tabs" preference is on
    by default — but this file must not be cited as evidence that it was.
 7. **The ⌥⌘ family is clear in both browsers**, every candidate, with no caveat. That is

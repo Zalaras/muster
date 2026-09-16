@@ -94,7 +94,7 @@ $ npx tsc --noEmit
 (no output — clean)
 
 $ npm test
- RUN  v4.1.10 /Users/damian/Documents/code/Projects/muster/web
+ RUN  v4.1.10 /Users/bob/Documents/code/Projects/muster/web
  Test Files  24 passed (24)
       Tests  711 passed (711)
    Start at  23:59:38
@@ -135,7 +135,7 @@ pair with no derived variants, so there is nothing else to close.
 **Minor 6 — two misleading test titles.**
 1. The title on the path-separators/dots/hyphens/underscores test claimed to also cover
    "tildes-within-a-name-that-arent-standalone", but its fixture
-   (`/Users/damian/my-file_v2.final.txt`) contains no tilde at all. Per the orchestrator's
+   (`/Users/bob/my-file_v2.final.txt`) contains no tilde at all. Per the orchestrator's
    parallel correction to REQ-4 prose (Minor 7), `~` **is** in the escape set and is
    already independently pinned by the W4 table above — this test was never about tildes.
    Retitled to "leaves path separators, dots, hyphens and underscores unchanged where not

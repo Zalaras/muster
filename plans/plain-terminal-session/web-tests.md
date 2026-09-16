@@ -100,7 +100,7 @@ pick up) and is out of scope for a web unit-test verdict.
 > muster-web@0.0.0 test
 > vitest run
 
- RUN  v4.1.10 /Users/damian/Documents/code/Projects/muster/web
+ RUN  v4.1.10 /Users/bob/Documents/code/Projects/muster/web
 
  Test Files  28 passed (28)
       Tests  1046 passed (1046)
@@ -172,7 +172,7 @@ no longer uses them). My half: drop the two `describe` blocks in
 > muster-web@0.0.0 test
 > vitest run
 
- RUN  v4.1.10 /Users/damian/Documents/code/Projects/muster/web
+ RUN  v4.1.10 /Users/bob/Documents/code/Projects/muster/web
 
  Test Files  28 passed (28)
       Tests  1041 passed (1041)

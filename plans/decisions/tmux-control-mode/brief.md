@@ -28,7 +28,7 @@
 From `TODO.md` § Pre-v1 Cleanup:
 
 > - [ ] **Terminal bandwidth — `tmux -CC` control mode** — moved here from the #13 scroll-fix
->   follow-ups on 2026-09-09 (Damian): a plan of its own rather than a loose end of that fix.
+>   follow-ups on 2026-09-09 (the developer): a plan of its own rather than a loose end of that fix.
 >   Today's `tmux attach` path costs **19.4×** the bytes of a bare PTY for the same repaint, and
 >   1,759 bytes/sec while idle against zero (S6 §3). `tmux -CC` control mode measured **2.1×**
 >   and would keep tmux, session identity, reconcile and the existing tests intact (S6 §4).

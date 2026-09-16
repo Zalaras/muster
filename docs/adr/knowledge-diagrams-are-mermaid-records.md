@@ -11,7 +11,7 @@ tests: [TestCheck_HoldsADiagramToOneFenceWhoseKeywordMatchesItsKind, TestPack_Ca
 refs: [kb:spec/knowledge, kb:spec/reader]
 supersedes: []
 ---
-**Context.** The kb held prose only. Agents reconstruct the system's shape (which container talks to which, the session state machine, the hook sequence, the store schema) from scattered records on every run, and Damian has no picture of a codebase written almost entirely by agents. A diagram format had to sit in markdown, be readable by an LLM as text, and be rendered by the docs reader later without a build step.
+**Context.** The kb held prose only. Agents reconstruct the system's shape (which container talks to which, the session state machine, the hook sequence, the store schema) from scattered records on every run, and the developer has no picture of a codebase written almost entirely by agents. A diagram format had to sit in markdown, be readable by an LLM as text, and be rendered by the docs reader later without a build step.
 
 **Options.** (A) Free-form images under `docs/images/`. (B) Mermaid fences, one closed list of kinds, stored as typed records the kb tool indexes, packs and checks; feature-scoped diagrams inline in the feature's spec; plans free to embed any allowed kind (plus Code-level class diagrams, plans only). (C) A diagram CLI dependency to render and validate.
 

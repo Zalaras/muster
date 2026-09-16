@@ -4,7 +4,7 @@
 **Verdict**: approved
 **Pack**: `<!-- kb:pack plan=markdown-viewing role=review features=reader,surfaces,lifecycle,ingest -->`
 
-Cycle 6, **full review** (not a delta), at Damian's explicit ask, with focus behaviour and layout
+Cycle 6, **full review** (not a delta), at the developer's explicit ask, with focus behaviour and layout
 given the extra attention. Every section was re-run and re-read; all findings are reported at every
 severity.
 
@@ -316,7 +316,7 @@ None.
    `ReaderInstance.render` a third connection input, which is live dashboard code shared by four
    hosts, and each of the last five cycles has found a new defect in exactly that kind of change;
    the harm being bought off is a sub-perceptual flash over a placeholder. That trade is mine to
-   have got wrong — if Damian would rather have it fixed, the change is small and belongs in a
+   have got wrong — if the developer would rather have it fixed, the change is small and belongs in a
    follow-up, not in a seventh cycle of this plan.
 2. **[note]** An open pop-out does not follow a live theme change; it keeps the theme it was loaded
    with until reloaded. Measured: dashboard and pop-out both `data-theme="instrument"`, body

@@ -24,7 +24,7 @@ machine resolve; the whole corpus scans in under half a second). Rendering costs
 
 ## 1. Where a plan lives
 
-Read out of the 2.1.270 bundle (`/Users/damian/.local/share/claude/versions/2.1.270`):
+Read out of the 2.1.270 bundle (`/Users/bob/.local/share/claude/versions/2.1.270`):
 
 ```js
 // settings schema
@@ -63,7 +63,7 @@ Every hook carries `transcript_path`. Two things in that JSONL name the plan:
 
   ```json
   {"type":"attachment","attachment":{"type":"plan_mode","reminderType":"full","isSubAgent":false,
-   "planFilePath":"/Users/damian/.claude/plans/say-hi-golden-finch.md","planExists":false}, …}
+   "planFilePath":"/Users/bob/.claude/plans/say-hi-golden-finch.md","planExists":false}, …}
   ```
 
   | `attachment.type`   | lines in corpus | when |
@@ -100,7 +100,7 @@ session's plan gone (`kb:fact/clear-mints-new-session-id`), so "latest" matters.
 ## 3. When the plan changes
 
 Across the corpus Claude wrote plans with the **`Write` tool 49 times and `Edit` 0 times**
-(`"name":"Write","input":{"file_path":"/Users/damian/.claude/plans/…"}` in `assistant`
+(`"name":"Write","input":{"file_path":"/Users/bob/.claude/plans/…"}` in `assistant`
 lines) — consistent with the reminder's "build your plan incrementally by writing to or
 editing this file". A `PostToolUse` hook carries `tool_input.file_path` for `Write`
 (measured on the wire: `test/rig/captures/capture-1.jsonl`, `"tool_name":"Write"` with

@@ -56,7 +56,7 @@ state-dependent, it is a straight-line missing `sess.Failure = nil` in the
 ```
 === RUN   TestApplyInput_CrossStateInvariants/started/closed_prompt_marked_permission
     machine_test.go:670:
-        Error Trace:  /Users/damian/Documents/code/Projects/muster/internal/session/machine_test.go:670
+        Error Trace:  /Users/bob/Documents/code/Projects/muster/internal/session/machine_test.go:670
         Error:        Expected nil, but got: &session.Failure{Error:"stale_error", Message:"stale message"}
         Test:         TestApplyInput_CrossStateInvariants/started/closed_prompt_marked_permission
         Messages:     INV-F: failure must be nil once state has moved off failed to needs_input

@@ -11,7 +11,7 @@ tests: [web/e2e/reader-mermaid.spec.ts]
 refs: [plan:mermaid-support, kb:adr/reader-popout-is-a-second-page, docs/design/design-system.md]
 supersedes: []
 ---
-**Context.** Diagrams in the reader body are constrained to the column width; a large flowchart or C4 diagram is unreadable there, and in a compact tile more so. Damian asked that a diagram be enlargeable and, for large ones, zoomable and pannable.
+**Context.** Diagrams in the reader body are constrained to the column width; a large flowchart or C4 diagram is unreadable there, and in a compact tile more so. The developer asked that a diagram be enlargeable and, for large ones, zoomable and pannable.
 
 **Options.** (A) Open the sanitized SVG in a new tab as a blob URL and rely on the browser's native zoom. (B) A modal dialog showing the diagram fitted to the viewport, no further control. (C) One `dialog.modal` per reader root — the pattern launch, confirm, issue and Settings already use — opened fitted, with wheel zoom around the pointer, pointer-drag pan, `Zoom in`, `Zoom out`, `Reset zoom` and `Close` buttons and the `+`, `-`, `0` and arrow keys, applied as a CSS transform on a clone of the SVG.
 

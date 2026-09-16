@@ -23,7 +23,7 @@ Window. So the suggested fix would have fixed nothing.
 
 **⌘1–9 is a weaker case than it first appears, and the plan says so.** Chrome delivered
 ⌘1/⌘2/⌘9 to the page — it does *not* reserve them — and Safari's ⌘-digit rows were skipped
-in the probe run. So there is no measurement showing ⌘1–9 was ever broken for Damian; it is
+in the probe run. So there is no measurement showing ⌘1–9 was ever broken for the developer; it is
 plausible only because Safari's "⌘1 through ⌘9 switch tabs" preference is on by default.
 Nothing downstream may cite the probe as proof it was broken.
 
@@ -400,7 +400,7 @@ hold — even though it is browser behaviour rather than Claude Code wire format
 
 Playwright does **not** emulate macOS's ⌥ dead-key transformation: `press("Alt+Meta+Digit1")`
 delivers `key: "1"`, not `key: "¡"`. So a matcher wrongly written against `event.key` would
-pass the E2E suite and fail on Damian's actual keyboard. This is the second bug class in
+pass the E2E suite and fail on the developer's actual keyboard. This is the second bug class in
 this plan that E2E is structurally blind to (INV-1 is the first), and it is why W16 is a
 Vitest criterion constructing the event by hand rather than an E2E one. `web-tests` owns it;
 `e2e-specs` must not be assigned it.

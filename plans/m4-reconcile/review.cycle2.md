@@ -183,7 +183,7 @@ launched. Everything below is observed, not inferred:
     and a `favicon.ico` 404.
 
 **R2 was not performed.** It requires launching a real `claude --model
-claude-haiku-4-5-20251001` against Damian's live subscription, and my instructions for
+claude-haiku-4-5-20251001` against the developer's live subscription, and my instructions for
 this cycle say not to run one without explicit instruction. The reasoning R2 exists for
 still stands and I am not waving it away: the same-id claim behind REQ-8 was measured
 **headless** (`-p`) on 2.1.233, this plan resumes **interactively**, and the installed
@@ -268,7 +268,7 @@ None.
    only mean that state and that "rose is never 'delete'"; a `failed` card's rose stripe
    can sit on screen beside a rose Remove hover and a rose-filled confirm button. Either
    amend §3 to record the exception or add a `--danger` family. No pipeline agent may edit
-   `docs/design/design-system.md`. Damian's call.
+   `docs/design/design-system.md`. The developer's call.
 
 ### Minor
 
@@ -298,7 +298,7 @@ None.
 4. **[web-impl]** `.acts-row` is unconditionally visible on every live rail card. —
    `web/src/render/sessions.ts:117` — carried from cycle 1 Minor 12, deliberately not
    changed, and I agree with the reasoning (the Testable UI table needs it present). Still
-   worth Damian's conscious sign-off: the mockup annotates the row hover-only
+   worth the developer's conscious sign-off: the mockup annotates the row hover-only
    (`opt-c-both.html:277`), and shipping it always-on puts a destructive action one click
    from every card and changes rail density from the reference render.
 

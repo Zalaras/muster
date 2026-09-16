@@ -1,7 +1,7 @@
 # Code conventions
 
 Patterns the build agents (and any session writing code) follow. Chosen 2026-08-16 with
-Damian, deliberately *before* the first line of daemon code, so the multi-agent pipeline
+the developer, deliberately *before* the first line of daemon code, so the multi-agent pipeline
 never invents patterns mid-run. Library decisions are the `stack-` ADRs (`go run ./tools/kb ls --type adr`); this file is
 the how-we-write-code companion. If a convention here needs to change, change it here
 first — never diverge silently in code.

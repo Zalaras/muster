@@ -173,7 +173,7 @@ is public with a `curl | sh` front door, so there are now real installs to keep 
 ### Release pipeline
 
 - R23. `.goreleaser.yaml` gains a `signs:` block producing `checksums.txt.minisig` with
-  minisign. The **private key and its passphrase are a CI secret Damian creates and stores
+  minisign. The **private key and its passphrase are a CI secret the developer creates and stores
   by hand** (hard rule: Claude never handles credentials). The public key is committed
   (inside `internal/…`, next to the verifier) and the spec/plan records the fingerprint.
 - R24. A release without a valid `.minisig` is refused by R15 — the updater has no

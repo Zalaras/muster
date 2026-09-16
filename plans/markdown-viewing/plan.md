@@ -10,7 +10,7 @@
 
 ## Overview
 
-Reading markdown is the one thing Damian still leaves the dashboard for: the plan a session
+Reading markdown is the one thing the developer still leaves the dashboard for: the plan a session
 wrote in plan mode, the `plans/<name>/plan.md` a pipeline session works from, an ADR or
 `TODO.md` under the session's directory. This plan adds a **reader** to each session as a
 third surface — the `claude | shell` segment gains `docs`, in the Focus mainhead and every tile
@@ -151,7 +151,7 @@ regenerates). Additive throughout — protocol stays version 2.
 ### WS: daemon→UI — the Session object (`kb:anchor/ws.session`) gains `plan`
 
 ```jsonc
-"plan": { "path": "/Users/damian/.claude/plans/say-hi-golden-finch.md",  // absolute, as the transcript resolved it
+"plan": { "path": "/Users/bob/.claude/plans/say-hi-golden-finch.md",  // absolute, as the transcript resolved it
           "exists": true }                                                // false = plan mode entered, nothing written yet
 // null when the session's latest known transcript names no plan (never entered plan mode, or
 // /clear minted a fresh transcript). Refreshed by the transcript scan (REQ-16) and flipped to
@@ -164,7 +164,7 @@ regenerates). Additive throughout — protocol stays version 2.
 ```jsonc
 { "type": "docChanged",
   "id": 7,                                              // Muster session id
-  "path": "/Users/damian/code/Projects/muster/TODO.md",  // absolute, cleaned; the plan path or a .md under directory
+  "path": "/Users/bob/code/Projects/muster/TODO.md",  // absolute, cleaned; the plan path or a .md under directory
   "at": "2026-09-13T09:15:00Z" }                         // when the daemon processed the hook (hooks carry no timestamp)
 ```
 
@@ -190,8 +190,8 @@ not consulted.
 
 ```jsonc
 {
-  "directory": "/Users/damian/code/Projects/muster",   // the session's directory, absolute, cleaned
-  "plan": { "path": "/Users/damian/.claude/plans/say-hi-golden-finch.md",
+  "directory": "/Users/bob/code/Projects/muster",   // the session's directory, absolute, cleaned
+  "plan": { "path": "/Users/bob/.claude/plans/say-hi-golden-finch.md",
             "exists": true,
             "writtenAt": "2026-09-13T09:15:00Z" },     // same object as session.plan plus writtenAt:
                                                        //   RFC3339 | null — last routed write seen this daemon lifetime

@@ -17,7 +17,7 @@ resume it (`docs/protocol.md` §5.5 reserves `sessionRemoved`; `Manager.DeleteSe
 exists only as the launch-rollback path; no `kill-*` in a production path).
 
 This plan settles the durability policy and builds the three session actions on it.
-Decisions taken with Damian in planning (2026-08-26), not re-opened here:
+Decisions taken with the developer in planning (2026-08-26), not re-opened here:
 
 - **Sessions survive daemon shutdown** by default. On shutdown, if stdin is a TTY and
   live sessions exist, musterd asks once — *"N live sessions on tmux socket X — kill

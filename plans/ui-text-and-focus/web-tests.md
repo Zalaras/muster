@@ -105,7 +105,7 @@ $ npx tsc --noEmit
 (no output, exit 0)
 
 $ npx vitest run
- RUN  v4.1.10 /Users/damian/Documents/code/Projects/muster/web
+ RUN  v4.1.10 /Users/bob/Documents/code/Projects/muster/web
 
  Test Files  25 passed (25)
       Tests  743 passed (743)

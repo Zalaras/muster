@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Amend the design system so rose may also mean delete. (B) Add a danger family with base, line and foreground tokens for destructive controls.
 
-**Decision.** B, Damian's choice.
+**Decision.** B, the developer's choice.
 
 **Consequences.** A red on a button means an action; a red stripe on a card means a state. This is the second time a new meaning got a new token family rather than a reused one, and it sets the pattern for any further colour role.

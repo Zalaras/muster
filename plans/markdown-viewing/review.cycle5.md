@@ -4,8 +4,8 @@
 **Verdict**: needs-changes
 **Pack**: `<!-- kb:pack plan=markdown-viewing role=review features=reader,surfaces,lifecycle,ingest -->`
 
-Cycle 5, **full review** (not a delta), at Damian's explicit ask, with focus behaviour and layout
-given the extra attention he asked for. Every section below was re-run and re-read; all findings
+Cycle 5, **full review** (not a delta), at the developer's explicit ask, with focus behaviour and layout
+given the extra attention they asked for. Every section below was re-run and re-read; all findings
 are reported at every severity.
 
 **Both cycle-4 findings are genuinely fixed, and I verified each by measuring rather than by

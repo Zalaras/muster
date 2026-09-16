@@ -107,7 +107,7 @@ guards.
 
 I drove a real browser (Playwright) against a scratch `musterd` on port 47311 with its own
 data dir, a private tmux socket, and the harness's stub-claude binary, so nothing touched
-Damian's data dir, default tmux server, or subscription. One session launched through the
+the developer's data dir, default tmux server, or subscription. One session launched through the
 UI. Everything below is an observed value, not an inference from a passing test.
 
 **REQ-6, active-segment click.** Opened the mainhead rename, typed `manually verified

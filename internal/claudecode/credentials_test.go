@@ -24,12 +24,12 @@ func TestKeychainTokenReader_Success_ParsesAccessTokenAndPassesExpectedArgs(t *t
 		return []byte(`{"claudeAiOauth":{"accessToken":"tok-abc-123"}}`), nil
 	}
 
-	token, err := KeychainTokenReader("damian", run)(context.Background())
+	token, err := KeychainTokenReader("bob", run)(context.Background())
 
 	require.NoError(t, err)
 	assert.Equal(t, "tok-abc-123", token)
 	assert.Equal(t, "security", gotName, "KeychainTokenReader must never call anything but the injected exec func")
-	assert.Equal(t, []string{"find-generic-password", "-a", "damian", "-w", "-s", "Claude Code-credentials"}, gotArgs)
+	assert.Equal(t, []string{"find-generic-password", "-a", "bob", "-w", "-s", "Claude Code-credentials"}, gotArgs)
 }
 
 func TestKeychainTokenReader_ExecFailure_ReturnsErrNoCredentials(t *testing.T) {
@@ -37,7 +37,7 @@ func TestKeychainTokenReader_ExecFailure_ReturnsErrNoCredentials(t *testing.T) {
 		return nil, errors.New("exit status 44")
 	}
 
-	_, err := KeychainTokenReader("damian", run)(context.Background())
+	_, err := KeychainTokenReader("bob", run)(context.Background())
 
 	assert.ErrorIs(t, err, ErrNoCredentials, "a fresh Mac / logged-out Claude Code / unanswerable Keychain prompt must all map to ErrNoCredentials")
 }
@@ -47,7 +47,7 @@ func TestKeychainTokenReader_MalformedJSON_ReturnsErrNoCredentials(t *testing.T)
 		return []byte(`not json at all`), nil
 	}
 
-	_, err := KeychainTokenReader("damian", run)(context.Background())
+	_, err := KeychainTokenReader("bob", run)(context.Background())
 
 	assert.ErrorIs(t, err, ErrNoCredentials)
 }
@@ -57,7 +57,7 @@ func TestKeychainTokenReader_EmptyAccessToken_ReturnsErrNoCredentials(t *testing
 		return []byte(`{"claudeAiOauth":{"accessToken":""}}`), nil
 	}
 
-	_, err := KeychainTokenReader("damian", run)(context.Background())
+	_, err := KeychainTokenReader("bob", run)(context.Background())
 
 	assert.ErrorIs(t, err, ErrNoCredentials)
 }
@@ -67,7 +67,7 @@ func TestKeychainTokenReader_MissingAccessTokenKey_ReturnsErrNoCredentials(t *te
 		return []byte(`{"claudeAiOauth":{}}`), nil
 	}
 
-	_, err := KeychainTokenReader("damian", run)(context.Background())
+	_, err := KeychainTokenReader("bob", run)(context.Background())
 
 	assert.ErrorIs(t, err, ErrNoCredentials)
 }
@@ -83,7 +83,7 @@ func TestKeychainTokenReader_AppliesTwoSecondExecTimeout(t *testing.T) {
 		return []byte(`{"claudeAiOauth":{"accessToken":"tok"}}`), nil
 	}
 
-	_, err := KeychainTokenReader("damian", run)(context.Background())
+	_, err := KeychainTokenReader("bob", run)(context.Background())
 
 	require.NoError(t, err)
 	require.True(t, hasDeadline, "the exec func must receive a context with a deadline")
@@ -101,7 +101,7 @@ func TestKeychainTokenReader_RespectsParentContextCancellation(t *testing.T) {
 		return nil, runCtx.Err()
 	}
 
-	_, err := KeychainTokenReader("damian", run)(ctx)
+	_, err := KeychainTokenReader("bob", run)(ctx)
 
 	require.ErrorIs(t, err, ErrNoCredentials)
 	assert.True(t, sawCanceled, "the parent's cancellation must be visible to the exec seam")

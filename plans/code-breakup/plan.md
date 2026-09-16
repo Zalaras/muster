@@ -14,7 +14,7 @@ module-level `let` state variables, and every feature's event wiring. `internal/
 files, but every feature adds a field to the 25-field `Server` struct, a twin field in `Config`,
 and a line in the route table — so any two plans collide on the same three files. The cause is
 structural: plans list "`main.ts` — wire X" under Affected Files, agents comply, and review judges
-against the plan. This plan is the settled response (TODO.md, Damian 2026-09-11: one plan, both
+against the plan. This plan is the settled response (TODO.md, the developer 2026-09-11: one plan, both
 sides, files not sub-packages).
 
 **Behaviour is unchanged throughout.** No protocol delta, no schema change, no new user-visible

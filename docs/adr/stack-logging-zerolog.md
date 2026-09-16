@@ -13,7 +13,7 @@ supersedes: []
 ---
 **Context.** The daemon needed structured logs from the first milestone, readable in a terminal and greppable in a file, and the build agents needed one logger to inherit rather than one per package.
 
-**Options.** (A) The standard library's slog. (B) zerolog, Damian's structured logger of habit.
+**Options.** (A) The standard library's slog. (B) zerolog, the developer's structured logger of habit.
 
 **Decision.** B.
 

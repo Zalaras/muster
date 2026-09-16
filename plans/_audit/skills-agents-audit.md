@@ -4,7 +4,7 @@ Read-only audit of `.claude/agents/*.md` (8), `.claude/skills/*/SKILL.md` (17),
 `orchestrate/scripts/{gates.sh,orch-state.py}` and `.claude/settings.json`, judged against the
 outcomes in `plans/*/orchestration-state.json` (22 runs), `plans/*/review*.md` (31 review
 cycles), `plans/*/decisions/`, the 4 `docs(retro)` commits and the 12 earlier
-`docs(pipeline): encode the … retro` commits. The audit pass itself changed nothing; the edits Damian approved afterwards are listed in the final section.
+`docs(pipeline): encode the … retro` commits. The audit pass itself changed nothing; the edits the developer approved afterwards are listed in the final section.
 
 Two harness facts the findings rest on (confirmed against code.claude.com/docs/en/sub-agents.md
 and skills.md): custom subagents **do** receive the project `CLAUDE.md` alongside their agent
@@ -44,7 +44,7 @@ former name.
 | `skills/orchestrate/scripts/gates.sh` | script | 148 | — | keep | Dedupe, rg-vacuous-pass guard, `--no-e2e` SKIP registration all correct; run by reviews and completion. |
 | `skills/orchestrate/scripts/orch-state.py` | script | 179 | — | keep + 2 additions | `status completed` accepts any verdict; `fail` unused; no archive command (5 filename schemes for old cycles in practice). |
 | `skills/plan-work` | skill (inline) | 354 / 3749 | session | trim + mechanise | Planner-shape defects caused 4 of the last 6 second review cycles (Finding 2). Invariants sentence edited 3× (08-22, 09-04, 09-06) and the class still leaked. l.130 says no design system exists (it has since 08-16; 16/22 plans cite it anyway). 20 plan-name anecdotes. |
-| `skills/spec` | skill (inline) | 130 / 872 | session | keep | Nothing stale; one-question-at-a-time matches Damian's stated preference. |
+| `skills/spec` | skill (inline) | 130 / 872 | session | keep | Nothing stale; one-question-at-a-time matches the developer's stated preference. |
 | `skills/decide` | skill (inline) | 135 / 878 | session | keep | 1 use, worked. Grants `SendMessage` it never uses (l.80 "do not message either agent") and `Task` while its body says `Agent` (l.67). |
 | `skills/land` | skill (inline) | 174 / 1423 | session | keep | Every claim carries a measurement; grants exactly what it uses; refuse-don't-warn preflight. |
 | `skills/triage` | skill (inline) | 195 / 1665 | session | keep | One stale ref: l.63 `Makefile:73` (that line is `core.hooksPath`; the slug is at `Makefile:82`). |
@@ -383,7 +383,7 @@ Prose: F1 −3, F2 −11, F3 −5 (and ≈ −1,450 words), F4 0 (or −60 if de
 F7 −6, F8 0 → about **−85 prose lines** across `.claude/`. Scripts: F2 +55 (`plan-lint.sh`),
 F5 +12 / −4 (`orch-state.py`).
 
-## Applied 2026-09-06 (Damian approved 1, 2, 3, 5, 6, 7, 10; 4, 8, 9 held)
+## Applied 2026-09-06 (the developer approved 1, 2, 3, 5, 6, 7, 10; 4, 8, 9 held)
 
 | Finding | What changed |
 |---|---|

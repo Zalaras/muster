@@ -23,10 +23,10 @@ afterEach(() => {
 describe("showNotice — default 'outcome' kind (REQ-13: every notice's prior behaviour)", () => {
   it("un-hides the target and sets its text", () => {
     const target = fakeTarget();
-    showNotice(target, "pasted /Users/damian/file.png");
+    showNotice(target, "pasted /Users/bob/file.png");
 
     expect(target.hidden).toBe(false);
-    expect(target.textContent).toBe("pasted /Users/damian/file.png");
+    expect(target.textContent).toBe("pasted /Users/bob/file.png");
   });
 
   it("auto-hides after exactly 5s", () => {

@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Keep the hand check. (B) A live tier in the canary that runs the production readers against the real machine, skipping when a credential is absent so the suite stays green elsewhere. (C) The same tier, but a missing credential fails the run.
 
-**Decision.** C, Damian's call. The gate exists for exactly one machine, and on that machine a skip passes silently, which is the failure mode the tier is meant to remove. The tier reads only; nothing it reads is printed.
+**Decision.** C, the developer's call. The gate exists for exactly one machine, and on that machine a skip passes silently, which is the failure mode the tier is meant to remove. The tier reads only; nothing it reads is printed.
 
 **Consequences.** The canary costs one HTTPS request more and needs a logged-in Claude Code. The offline mode still runs nothing live. A machine without the credential cannot run the full canary, which is the honest statement of what it verifies.

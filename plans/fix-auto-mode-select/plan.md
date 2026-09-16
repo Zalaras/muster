@@ -24,7 +24,7 @@ reports `"auto"` on `UserPromptSubmit` and the footer reads `⏵⏵ auto mode on
 manual, and hooks report `"default"`; sonnet, opus and fable honour it.
 
 The fix is a vocabulary fix plus one new value. The four radios become `manual │ accept
-edits │ plan │ auto` (Damian's list, in Shift+Tab cycle order). Wire values: `default` stays
+edits │ plan │ auto` (the developer's list, in Shift+Tab cycle order). Wire values: `default` stays
 the value behind "manual" (it is what hooks report, so existing `lastPermissionMode` rows and
 the seed/latch comparison keep working with no migration); `acceptEdits` and `plan` are
 unchanged; `auto` is new end-to-end — request validation, argv, Go constant, TypeScript

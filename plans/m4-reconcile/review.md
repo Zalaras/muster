@@ -13,7 +13,7 @@ Resume button actually painted inside the "SESSION ENDED" pill. I also proved th
 guard assertions have teeth by reverting the CSS fix and watching E6 and E11 fail on
 exactly those lines.
 
-The `--rose` Major is closed the way Damian decided it: `docs/design/design-system.md` §1
+The `--rose` Major is closed the way the developer decided it: `docs/design/design-system.md` §1
 carries a `--danger` family, §3 now says destructive actions use it and never `--rose`,
 and every rose hit left in `style.css` is a Failed-state use. Measured on the live Remove
 confirm button: `rgb(201,79,79)` fill / `rgb(122,53,53)` border / white text — the tokens,
@@ -23,7 +23,7 @@ Everything is green: 96/96 E2E (full suite, 11 spec files, rebuilt binary and bu
 404/404 Vitest, all Go packages uncached, lint 0 issues, both builds, all 12 authored
 acceptance checks.
 
-Two findings, both Minor, both measured rather than inferred. The one worth Damian's eye
+Two findings, both Minor, both measured rather than inferred. The one worth the developer's eye
 is Minor 2: the focus-on-reorder fix landed on the rail but not on the Tiles grid, and I
 measured a focused tile-footer **End** button falling to `<body>` on a real priority
 change — with a control run proving it is the reorder, not the tick. That is cycle-3's
@@ -185,7 +185,7 @@ below is observed output, not description:
    state: started" pill now has a painted `Resume` button where cycle 3 had a blank strip,
    in Focus and inside a 2×2 dead tile alike.
 
-2. **The hover-only behaviour it depends on still works** (Damian's sign-off this cycle):
+2. **The hover-only behaviour it depends on still works** (the developer's sign-off this cycle):
    `rail acts-row: atRest=0 hover=1`. The rail screenshot shows a non-hovered ended card
    with no visible action row, and the focused ended card revealing Resume + Remove via
    `:focus-within` — keyboard users are covered.
@@ -256,7 +256,7 @@ None.
    cycles 1–3.
 
    *(Cycle 3's second Major — `--rose` for destructive actions — is **closed**, not
-   carried: Damian chose option A, the `--danger` family is in design-system §1/§3, and
+   carried: the developer chose option A, the `--danger` family is in design-system §1/§3, and
    web-impl repointed every destructive rule. Verified above.)*
 
 ### Minor

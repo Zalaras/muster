@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Instrument as a fixed default, chosen only from a dialog. (B) Follow Claude Code's theme family automatically with no override. (C) A basic Settings dialog off the masthead with exactly four choices, where the default is to follow Claude Code's family, light to Light and dark or unknown to Instrument, and choosing a theme sets an override that Follow Claude Code clears.
 
-**Decision.** C, settled with Damian. Following is the default because it needs no decision on first run; the override exists because a theme is a preference, not an inference.
+**Decision.** C, settled with the developer. Following is the default because it needs no decision on first run; the override exists because a theme is a preference, not an inference.
 
 **Consequences.** The pref rides the existing prefs path and echo, so no new persistence. Following is live: a change in Claude Code's theme moves an unset dashboard. The Settings dialog is deliberately minimal and becomes the home for later preferences such as text size.

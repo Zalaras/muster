@@ -1,7 +1,7 @@
 # Muster
 
 Go daemon (`musterd`) + web dashboard (Vite + TypeScript, **no framework**) that manages
-Claude Code sessions running in tmux. Personal tool for Damian, macOS only, single user.
+Claude Code sessions running in tmux. Personal tool for the developer, macOS only, single user.
 
 ## Knowledge — records, read through `kb`
 
@@ -80,11 +80,11 @@ anything with acceptance criteria.
 - tmux ALWAYS via a dedicated socket (`tmux -L muster`, or a per-test socket) — never
   the user's default server. Sizing: `pty.Setsize` **and** `resize-window`;
   `resize-pane` exits 0 and silently no-ops on single-pane windows (kb:lesson/resize-pane-silent-noop).
-- NEVER read or modify `~/.claude/settings.json` / `settings.local.json` — Damian's
+- NEVER read or modify `~/.claude/settings.json` / `settings.local.json` — the developer's
   live sessions depend on them. Isolation is always a project-scoped
   `.claude/settings.json` in a scratch repo. `CLAUDE_CONFIG_DIR` breaks subscription
   OAuth — do not use it.
-- Any test or spike that launches a real `claude` burns Damian's real subscription:
+- Any test or spike that launches a real `claude` burns the developer's real subscription:
   always pass `--model claude-haiku-4-5-20251001`, keep prompts trivial ("say hi"), and
   kill the session when done — an orphan keeps burning.
 - Never log hook payloads (they contain prompt text) anywhere world-readable.

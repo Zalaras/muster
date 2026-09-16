@@ -22,7 +22,7 @@ independent streams:
    message. The masthead upgrades from text-only readouts to the design-system gauge bars,
    plus a model readout (freshest sample's model).
 
-Decisions settled in this planning session (2026-08-23, with Damian):
+Decisions settled in this planning session (2026-08-23, with the developer):
 - **Usage-source seam (SPEC §9.6)**: a neutral `Sample` type + one aggregator in
   `internal/usage` — no Go interface type until a second source exists. The seam is the
   `Sample` shape plus the wire's `usage.source` field.

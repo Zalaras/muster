@@ -1,6 +1,6 @@
 // Command triage is the program half of /triage. It does everything the skill used to do
 // by hand with a model holding Bash and Edit, and leaves the model only the one judgement
-// that is genuinely Damian's: which section an item belongs in.
+// that is genuinely the developer's: which section an item belongs in.
 //
 //	go run ./tools/triage fetch --out DIR   # read open issues, sanitise, route, write artifacts
 //	go run ./tools/triage apply --artifacts DIR --proposals DIR --decisions FILE
@@ -205,7 +205,7 @@ func applyFlags(args []string) (artDir, propDir, decFile string, err error) {
 	return artDir, propDir, decFile, nil
 }
 
-// readDecisions loads the issue-number-to-section map Damian chose.
+// readDecisions loads the issue-number-to-section map the developer chose.
 func readDecisions(decFile string) (map[string]string, error) {
 	decRaw, err := os.ReadFile(decFile)
 	if err != nil {

@@ -53,13 +53,13 @@ $ npx tsc --noEmit
 (no output — clean)
 
 $ npx vitest run src/terminal/notice.test.ts
- RUN  v4.1.10 /Users/damian/Documents/code/Projects/muster/web
+ RUN  v4.1.10 /Users/bob/Documents/code/Projects/muster/web
  Test Files  1 passed (1)
       Tests  12 passed (12)
    Duration  277ms
 
 $ npm test
- RUN  v4.1.10 /Users/damian/Documents/code/Projects/muster/web
+ RUN  v4.1.10 /Users/bob/Documents/code/Projects/muster/web
  Test Files  29 passed (29)
       Tests  1053 passed (1053)
    Duration  1.94s

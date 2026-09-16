@@ -11,7 +11,7 @@ macOS on 2026-08-16. Findings and evidence live in `../A0-findings.md`.
 
 ## The one rule that matters
 
-**Never touch `~/.claude/settings.json` or `~/.claude/settings.local.json`.** Damian has
+**Never touch `~/.claude/settings.json` or `~/.claude/settings.local.json`.** The developer has
 live sessions running against them. Isolation comes from a **project-scoped
 `.claude/settings.json`** inside your instance's scratch repo — nothing else.
 
@@ -41,7 +41,7 @@ One digit, `0`-`9`, unique per agent so we don't collide. It determines everythi
 ## 2. Stamp out the instance
 
 ```bash
-cd /Users/damian/Documents/code/Projects/ccc-spike
+cd /Users/bob/Documents/code/Projects/ccc-spike
 ./rig/newspike.sh 3          # <- your index
 . instances/3/env.sh         # exports SPIKE_PORT, SPIKE_REPO, SPIKE_SOCKET, ...
 ```
@@ -69,10 +69,10 @@ echo "${CLAUDE_CONFIG_DIR:-<unset>}"    # must print <unset>
 ## 3. Start the capture server
 
 ```bash
-cd /Users/damian/Documents/code/Projects/ccc-spike
+cd /Users/bob/Documents/code/Projects/ccc-spike
 go build -o rig/capture/capture ./rig/capture
 nohup ./rig/capture/capture -port 8783 -instance 3 \
-  -dir /Users/damian/Documents/code/Projects/ccc-spike/captures \
+  -dir /Users/bob/Documents/code/Projects/ccc-spike/captures \
   > captures/capture-3.log 2>&1 &
 curl -s http://127.0.0.1:8783/health   # -> ok
 ```
@@ -96,14 +96,14 @@ Credential-shaped headers (`authorization`, `cookie`, `x-api-key`, …) are stor
 ```bash
 export PATH=/usr/local/bin:$PATH        # tmux 3.7b lives here
 S=ccc-spike-3
-R=/Users/damian/Documents/code/Projects/ccc-spike/instances/3/repo
+R=/Users/bob/Documents/code/Projects/ccc-spike/instances/3/repo
 
 tmux -L $S new-session -d -s s1 -x 200 -y 50 -c "$R"
 tmux -L $S set-option -g escape-time 0
 tmux -L $S set-option -g status off
 tmux -L $S set-option -g focus-events on     # silences a TUI nag
 tmux -L $S send-keys -t s1 \
-  'export LANG=en_US.UTF-8 TERM=xterm-256color; cd '"$R"'; unset CLAUDE_CONFIG_DIR; /Users/damian/.local/bin/claude --model claude-haiku-4-5-20251001' Enter
+  'export LANG=en_US.UTF-8 TERM=xterm-256color; cd '"$R"'; unset CLAUDE_CONFIG_DIR; /Users/bob/.local/bin/claude --model claude-haiku-4-5-20251001' Enter
 ```
 
 `-L $S` is load-bearing: it uses a private tmux server so you never touch a real one.
@@ -111,7 +111,7 @@ tmux -L $S send-keys -t s1 \
 TUI wraps into unreadable garbage. `LANG`/`TERM` matter or box-drawing renders as mojibake.
 
 **Always** pass `--model claude-haiku-4-5-20251001` and keep prompts trivial ("say hi").
-Damian's real subscription limits are being consumed. Note his global settings force
+The developer's real subscription limits are being consumed. Note their global settings force
 `claude-fable-5[1m]` + `effortLevel: high`, so the flag is what keeps you cheap — the
 generated project settings also pin the model, but pass the flag anyway.
 
@@ -149,7 +149,7 @@ Read the screen with `tmux -L $S capture-pane -p -t s1`. The bottom line shows
 ## 7. Read what was captured
 
 ```bash
-C=/Users/damian/Documents/code/Projects/ccc-spike/captures/capture-3.jsonl
+C=/Users/bob/Documents/code/Projects/ccc-spike/captures/capture-3.jsonl
 jq -c '{event,at:.received_at}' "$C" | grep -v '"event":null'   # hooks
 jq 'select(.path=="/statusline") | .body' "$C" | tail -40       # status line payloads
 ```
@@ -182,9 +182,9 @@ Point a session at the unauthenticated config dir and prompt it — it fails ins
 any API call, and emits a real `StopFailure` with `"error": "authentication_failed"`:
 
 ```bash
-cd /Users/damian/Documents/code/Projects/ccc-spike/instances/3/repo
-CLAUDE_CONFIG_DIR=/Users/damian/Documents/code/Projects/ccc-spike/instances/3/claude-config \
-  /Users/damian/.local/bin/claude -p "hi" --model claude-haiku-4-5-20251001 </dev/null
+cd /Users/bob/Documents/code/Projects/ccc-spike/instances/3/repo
+CLAUDE_CONFIG_DIR=/Users/bob/Documents/code/Projects/ccc-spike/instances/3/claude-config \
+  /Users/bob/.local/bin/claude -p "hi" --model claude-haiku-4-5-20251001 </dev/null
 ```
 
 Deterministic, ~1 second, zero tokens. It also emits `UserPromptSubmit` and `SessionEnd`,

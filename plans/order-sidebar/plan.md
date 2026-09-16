@@ -10,9 +10,9 @@
 
 Today the rail re-sorts itself by attention priority on every render (`web/src/sessions/sort.ts`,
 ux-flows §3.4, SPEC §2.1): a session that goes `needs_input` jumps to the top and back down
-again when answered. With 4–6 long-lived sessions Damian wants muscle memory instead
-(TODO.md "Pre-v1 Cleanup", first bullet): cards stay where they were opened, he can drag
-them into the order he wants, and a pin lifts the ones he keeps returning to into a block at
+again when answered. With 4–6 long-lived sessions the developer wants muscle memory instead
+(TODO.md "Pre-v1 Cleanup", first bullet): cards stay where they were opened, they can drag
+them into the order they want, and a pin lifts the ones they keep returning to into a block at
 the top. Decided at planning (2026-08-30): the attention sort is **not** removed — it becomes
 one of two rail sort modes, selectable from the rail head and persisted as a pref, because
 "where am I needed" and "where did I put things" are both wanted at different moments.

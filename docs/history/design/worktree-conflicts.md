@@ -19,7 +19,7 @@ Context specific to this repo (but the design should generalize into muster):
   `docs/protocol.md`, `web/e2e/helpers/*`, plus a few code chokepoints (state machine,
   routes, `web/src/main.ts`).
 
-## Damian's three ideas
+## The developer's three ideas
 
 ### 1. Cross-worktree session manager that talks to each orchestrator
 
@@ -55,7 +55,7 @@ Context specific to this repo (but the design should generalize into muster):
   exist, so the data is free.
 - **Cons:** the full version needs all in-flight plans in view; predicted file sets
   drift from actual; over-constrains parallelism to prevent rare collisions.
-- **Assessment:** skip the full version (Damian leans against it; agreed), but the
+- **Assessment:** skip the full version (the developer leans against it; agreed), but the
   lightweight one is nearly free: `/plan-work` (or the daemon) diffs a new plan's
   Affected Files against in-flight plans' manifests and **warns, never blocks**.
 
@@ -278,7 +278,7 @@ sizing `/orchestrate --resolve` against the existing resume machinery.
 
 ## Generalization — muster feature vs. this repo's adapter (2026-09-01)
 
-Correction from Damian after step 4: the debate drifted repo-specific. Worktree
+Correction from the developer after step 4: the debate drifted repo-specific. Worktree
 conflict handling is a **muster feature** — target repos will NOT have plans/,
 /orchestrate, review.md, TODO.md conventions, or our gates. Re-cut of stack v2:
 
@@ -319,7 +319,7 @@ per-repo hot-file policy. The pipeline is one consumer of the feature, not its s
 
 ## Muster-core v1 shape — session discussion 2026-09-01 (continued)
 
-Damian: a dedicated **integration session** for queueing merges is acceptable — user
+The developer: a dedicated **integration session** for queueing merges is acceptable — user
 opt-in at repo setup. Feature to be fully defined now; build order/timing is a later
 discussion.
 
@@ -380,7 +380,7 @@ discussion.
 
 ### Status at end of 2026-09-01 session
 
-**Decided (Damian):**
+**Decided (the developer):**
 - Worktree conflict handling is muster-core, generic; this repo's pipeline is one
   adapter/consumer.
 - An integration session for the merge queue is acceptable, user opt-in at setup.

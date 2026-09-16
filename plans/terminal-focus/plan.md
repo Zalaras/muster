@@ -30,7 +30,7 @@ keyboard-activation path (Enter/Space on a card), the ⌘1–9 shortcut, or the 
 touches focus — three of those were offered and declined at planning (see Scope
 decisions), and the drag path is explicitly protected.
 
-### Scope decisions (settled 2026-09-02 with Damian — do not widen)
+### Scope decisions (settled 2026-09-02 with the developer — do not widen)
 
 1. **Rail card pointer click only.** ⌘1–9 (`focusNth`), Enter/Space on a focused card,
    and a Tiles strip-card click keep their current behaviour: they select/promote and
@@ -381,7 +381,7 @@ E10 make e2e
 
 ### Why the source discriminator
 
-Damian scoped this to the pointer click (Scope decision 1). The card's click and
+The developer scoped this to the pointer click (Scope decision 1). The card's click and
 Enter/Space listeners share one callback today, so honouring that scope means the callback
 has to be told which fired. A second parameter is the smallest honest change — no second
 callback, no DOM flag. If the scope is later widened to keyboard activation, delete the

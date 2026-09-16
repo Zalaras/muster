@@ -72,7 +72,7 @@ All items done — see `docs/history/todo-done.md` § "M4 — Durability → v1 
 
 ## Pre-v1 Cleanup
 
-Everything below is now blocking a v1 release (Damian, 2026-09-12: no v1 until all of it is
+Everything below is now blocking a v1 release (the developer, 2026-09-12: no v1 until all of it is
 in) — a mix of small cleanup and full features that used to be filed as post-v1. **Cutting
 v1.0.0 (last below) is the final step, done only once everything above it has landed.**
 
@@ -198,7 +198,7 @@ and the second is the one to re-measure if a Claude Code bump touches worktrees.
   is measured-correct and ships one file, no build/distribution story); revisit if the
   per-event cost is ever felt on a tool-heavy turn.
 
-- [ ] **A Homebrew tap** — **split out of the installer item above on 2026-09-10** (Damian:
+- [ ] **A Homebrew tap** — **split out of the installer item above on 2026-09-10** (the developer:
   "we'll skip brew for now"), then folded into this section on 2026-09-12, so it blocks v1
   like everything else here; it sits last by priority, not because anything blocks it. Its
   original deferral reason is gone — that was the *private*-tap cost
@@ -220,7 +220,7 @@ and the second is the one to re-measure if a Claude Code bump touches worktrees.
     block's `repository.token` — *not* swapped in for `GITHUB_TOKEN` wholesale, which would
     widen what the PAT can reach to the release itself.
 
-  By hand (Damian): create **`Zalaras/homebrew-muster`**, public, empty — the `homebrew-`
+  By hand (the developer): create **`Zalaras/homebrew-muster`**, public, empty — the `homebrew-`
   prefix is what makes `brew install zalaras/muster/<name>` resolve; GoReleaser commits the
   cask file into it. And mint the PAT above.
 
@@ -277,9 +277,9 @@ Closing happens when the fix lands: `/land` puts `closes #N` in the squash subje
 (`docs/conventions.md` § Commits), and `/triage --audit` reports any issue whose entry is ticked
 while the issue is still open.
 
-Open entries below are in **Damian's priority order** (set 2026-09-01), not issue-number or
+Open entries below are in **the developer's priority order** (set 2026-09-01), not issue-number or
 filing order: #3 → #8 → #11 → #12 → #13, then the rest. Keep new entries appended at the end
-unless he re-ranks — don't re-sort this list.
+unless they re-rank — don't re-sort this list.
 
 - [ ] **Ingest: corroborate an envelope against the pane it came from** — `resolveSessionID`
   (`internal/server/ingest.go`) trusts an envelope's `musterSession` on bare map membership
@@ -302,7 +302,7 @@ unless he re-ranks — don't re-sort this list.
   sessions … kill them?" and does not mention the shells it will leave. Either kill them too or say
   so; `kb:adr/surfaces-shell-lifetime-until-exit-remove-or-reconcile` currently lists exit, Remove
   and reconcile — not shutdown — so changing it is a decision, not a bug fix. **Decided 2026-09-16
-  (Damian): kill them too.** `kill` kills every shell alongside the sessions and the `ask` prompt
+  (the developer): kill them too.** `kill` kills every shell alongside the sessions and the `ask` prompt
   counts them ("N live sessions and M shells"); `leave` leaves shells running as it does sessions
   (reconcile kills them at the next start regardless). The fixing plan carries a `proposed` ADR
   superseding the record above, adding shutdown-with-kill to the shell's lifetime list.
@@ -355,7 +355,7 @@ unless he re-ranks — don't re-sort this list.
 New post-v1 ideas go here.
 
 - [ ] **Usage under API-key auth** ([#9](https://github.com/Zalaras/muster/issues/9)) — the ask
-  is "support API usage billing as well". **Moved out of Pre-v1 Cleanup on 2026-09-13** (Damian:
+  is "support API usage billing as well". **Moved out of Pre-v1 Cleanup on 2026-09-13** (the developer:
   park it post-v1) after a spike answered whether it's even possible. Findings, traps and the
   proposed shape are in `docs/history/design/api-key-usage.md` — **read it before planning**;
   the wire facts it rests on are `kb:fact/otel-usage-metrics-shape` and

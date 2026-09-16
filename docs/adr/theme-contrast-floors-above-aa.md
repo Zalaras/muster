@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) One higher floor for every theme, so the Light theme moves too and the themes stay uniform. (B) Raise the dark themes only, leaving Light at AA.
 
-**Decision.** A, Damian's decision from a side-by-side mock at planning.
+**Decision.** A, the developer's decision from a side-by-side mock at planning.
 
 **Consequences.** The mockups remain the authority and the stylesheet transcribes them; the pairs file now gates the higher minimums rather than AA alone, so a palette regression fails the build at the new floor. The gate mechanism is unchanged. Every future theme inherits the higher floors.

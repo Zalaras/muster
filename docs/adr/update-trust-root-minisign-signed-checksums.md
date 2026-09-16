@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) The checksum alone, as the installer does. (B) A signature over the checksums file with a key compiled into the binary, so trust roots in the source tree rather than the host; the archive's hash is then checked against the signed file. (C) The same with an unsigned fallback for releases that predate signing.
 
-**Decision.** B, Damian's decision, using minisign with both its signature modes accepted. No fallback: a release without a signature is refused, and the release pipeline fails the release rather than publish one unsigned.
+**Decision.** B, the developer's decision, using minisign with both its signature modes accepted. No fallback: a release without a signature is refused, and the release pipeline fails the release rather than publish one unsigned.
 
-**Consequences.** The private key and its passphrase are secrets Damian created and holds; a release without them fails at the signing step by design. Local snapshot builds skip signing. Rotating the key means shipping a new public key in a release the old key signed, which the signing document walks through. A refused apply leaves the binary byte-identical.
+**Consequences.** The private key and its passphrase are secrets the developer created and holds; a release without them fails at the signing step by design. Local snapshot builds skip signing. Rotating the key means shipping a new public key in a release the old key signed, which the signing document walks through. A refused apply leaves the binary byte-identical.

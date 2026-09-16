@@ -189,7 +189,7 @@ labels share one line (single distinct y of 625) with no track overflow and no h
 document scroll.
 
 Not verified in the browser: a real `auto` launch reaching a live `claude` process. That is
-deliberate — it would burn Damian's subscription, and it is model-gated besides. The live
+deliberate — it would burn the developer's subscription, and it is model-gated besides. The live
 E2E suite covers the launch end-to-end against the stub (E1/E2/E3 green in my sweep).
 
 ## Issues

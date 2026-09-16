@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Keep one palette and adjust its values. (B) White-labelling: themes as user-loadable files, names and branding swappable. (C) Theming: components reference semantic tokens; each theme is a palette block that binds them; a custom theme is a new source block, with the file format left as architecture only.
 
-**Decision.** C, settled with Damian at the spec interview. The dashboard stays one product with swappable palettes; loading a theme file is deferred until someone needs it.
+**Decision.** C, settled with the developer at the spec interview. The dashboard stays one product with swappable palettes; loading a theme file is deferred until someone needs it.
 
 **Consequences.** Every component colour must go through a semantic token, so a hard-coded hue is a defect a gate can catch. Adding a theme is adding a block and re-running the contrast gate, never touching components. The visual direction is unchanged; the theme work is a palette on its structure.

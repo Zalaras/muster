@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Every selection path moves focus into the terminal: pointer click, Enter or Space on a card, the number chords, a Tiles strip click. (B) Pointer click on a rail card only, with a single call after render, guarded on the click source. (C) Leave focus alone and accept the second click.
 
-**Decision.** B, settled with Damian at planning. A pointer click means "go there"; a keyboard user who pressed Enter on a card may want to keep navigating cards, and the chords have their own contract.
+**Decision.** B, settled with the developer at planning. A pointer click means "go there"; a keyboard user who pressed Enter on a card may want to keep navigating cards, and the chords have their own contract.
 
 **Consequences.** The surface gains a focus method that is a no-op for a dead or disposed surface, so clicking an ended session's card leaves focus on the card. Nothing on the render tick, reconcile, view switch or drag-reorder path touches focus, which the plan pinned as an invariant. Review measured that after one click the active element was xterm's textarea inside the clicked session's container and typed input reached that pane.

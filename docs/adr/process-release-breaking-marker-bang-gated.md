@@ -15,6 +15,6 @@ supersedes: []
 
 **Options.** (A) Rely on convention: nobody writes the phrase or the marker. (B) Allow both markers and trust review. (C) One sanctioned marker, the exclamation mark, gated by an environment variable only a human sets; the footer phrase banned everywhere in a message by the commit-msg hook.
 
-**Decision.** C, settled with Damian. Agents and skills never set the variable, so a breaking release is always a deliberate human act.
+**Decision.** C, settled with the developer. Agents and skills never set the variable, so a breaking release is always a deliberate human act.
 
 **Consequences.** On the pre-1.0 line the marker is honest history: it records the breakage and bumps minor like any feature, under the clamp decided alongside this record; from 1.0 it resumes meaning major. The hook rejects the phrase even in prose, so a commit explaining a breaking change must find other words. Safety is mechanical, not a sentence in the conventions.

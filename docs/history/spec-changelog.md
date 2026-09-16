@@ -56,7 +56,7 @@ UX flows settled before M1/M2 UI work. Authority for interface behaviour is now
 ### 2026-08-16 — stack pattern decisions (AI-harness session)
 <!-- kb: adr/stack-http-stdlib-net-http, adr/stack-websocket-coder, adr/stack-logging-zerolog, adr/stack-db-database-sql-hand-sql, adr/process-web-unit-tests-vitest -->
 
-Chosen with Damian so the build agents inherit settled patterns rather than inventing them
+Chosen with the developer so the build agents inherit settled patterns rather than inventing them
 mid-pipeline (details in `docs/conventions.md`):
 
 - **§5** — HTTP: stdlib `net/http`; WebSocket: `coder/websocket` (stdlib has no real WS,
@@ -219,7 +219,7 @@ settled by the work, beyond routine implementation:
 
 Both Major review findings were resolved the same day (details in `TODO.md`): tests
 outside `internal/claudecode` now get wire-shaped bodies from the new
-`internal/claudecode/claudecodetest` helper package — Damian chose this over narrowing
+`internal/claudecode/claudecodetest` helper package — the developer chose this over narrowing
 D4, so the check stands unchanged — and the daemon-down banner grounds on dedicated
 `--banner-*` tokens added to design-system §1, returning `--rose` to Failed-only. No
 new wire-format facts — M0 never touches a real Claude Code.
@@ -234,7 +234,7 @@ path support). Approved on review cycle 2 (`plans/m2-terminal/review.md`; cycle 
 preserved as `review.cycle-1.md`). Decisions amended or settled by the work:
 
 - **tmux topology: one tmux session per Muster session** (`muster-<id>`, settled at
-  planning with Damian 2026-08-23): a tmux client attaches to a *session*, and Tiles
+  planning with the developer 2026-08-23): a tmux client attaches to a *session*, and Tiles
   needs up to 6 concurrent live surfaces, so M1's shared-session layout could not
   serve it. Pre-M2 session rows need no migration.
 - **`detach-on-destroy on`, not the spike's `off`** (review cycle-1 Critical 3,
@@ -256,7 +256,7 @@ the new measured facts are tmux-side (FINDINGS §7 amendment).
 <!-- kb: adr/usage-no-source-interface, adr/usage-no-hydration-across-restart, adr/usage-masthead-model-from-freshest-sample, adr/usage-history-persisted-not-rendered, adr/usage-sample-dedup-by-value -->
 
 M3's plan (`plans/m3-gauges/plan.md`) approved; protocol delta merged the same day
-(protocol §9 changelog). Decisions settled with Damian:
+(protocol §9 changelog). Decisions settled with the developer:
 
 - **§9 Q6 resolved (usage-source Go shape)** — a neutral `Sample` type + one aggregator
   in a new `internal/usage` package; **no Go interface type** until a second source
@@ -298,7 +298,7 @@ addendum). Two facts settled, no decision reopened:
 ### 2026-08-27 — M4 reconcile / shutdown policy / End · Remove · Resume shipped (plan `m4-reconcile`, via `/orchestrate`)
 <!-- kb: adr/lifecycle-shutdown-leaves-sessions-running, adr/lifecycle-reconcile-before-first-snapshot, adr/lifecycle-ended-rows-swept-next-start, adr/actions-pane-snapshot-display-only, adr/actions-placement-mainhead-and-card-rows, adr/actions-remove-allowed-on-live-session, adr/theme-danger-tokens-not-rose -->
 
-Settled as implemented (decisions taken with Damian 2026-08-26 in planning, plus two during
+Settled as implemented (decisions taken with the developer 2026-08-26 in planning, plus two during
 the run):
 
 - **Sessions survive daemon shutdown by policy.** `-on-exit` flag: `ask` (default — TTY
@@ -314,12 +314,12 @@ the run):
   under a "session ended" cap for dead sessions.
 - **End / Remove / Resume** with confirm dialogs; Remove is allowed on a live session (ends
   first). Placement C — mainhead above the focused terminal *and* action rows on cards / tile
-  footers. Action rows on cards are **hover / focus-within revealed** (Damian, 2026-08-27).
+  footers. Action rows on cards are **hover / focus-within revealed** (the developer, 2026-08-27).
 - **Resume lands in `idle`** via `KindResumeBind` (protocol §7.3 — the code previously landed
   it in `started`); a resume with a different claude id still escalates to clear-rebind.
 - **Design system: `--danger` family** (`--danger`, `--danger-line`, `--danger-fg`) for
   destructive actions — `--rose` stays reserved for Failed (§3 "rose is never delete").
-  Option A chosen by Damian 2026-08-27 over amending §3.
+  Option A chosen by the developer 2026-08-27 over amending §3.
 - Protocol: `POST …/end`, `DELETE …/{id}` (→ `sessionRemoved`), `POST …/resume` refined,
   `GET …/pane`, all in `docs/protocol.md`. Review (Opus, 4 cycles) approved; R2 (real-haiku
   End → Resume) is still owed — see TODO.
@@ -345,7 +345,7 @@ implemented:
   (skipped, `needsHarness`) as the pin-bump assertion.
 - Review (Opus) manually reproduced the bare-path failure (`rc=127`) and the quoted-path fix
   end-to-end on a real daemon at `/tmp/muster manual review/data`. The REQ-9 record against
-  the real default data dir with a real haiku session is still to be filled in by Damian.
+  the real default data dir with a real haiku session is still to be filled in by the developer.
 
 ### 2026-08-27 — M4 hook lifetime shipped (plan `m4-hook-lifetime`, via `/orchestrate`)
 <!-- kb: adr/ingest-all-hooks-command-wrappers, adr/ingest-monotonic-rebind, adr/ingest-hook-entries-permanent, adr/ingest-envelope-authoritative-binding -->
@@ -362,13 +362,13 @@ implemented:
   already-instrumented directory (legacy http entries, the legacy `hook-sessionstart.sh`
   command entry, and Muster's own prior `allowedHttpHookUrls` values) rather than
   replacing them with new ones.
-- **Binding is monotonic** (decided with Damian 2026-08-28, from the review's Critical:
+- **Binding is monotonic** (decided with the developer 2026-08-28, from the review's Critical:
   a reordered `SessionEnd(reason:"clear")` for the old id — delivery is unordered — was
   read as a forward `/clear` and reset a working session, zeroing its compaction count).
   Options were (A) accept the window as a residual, (B) never rebind backwards onto a
   claude id the session has already left, using the stale-id knowledge `byClaude`
   retains. **B chosen**; protocol §4.2/§7.3 amended.
-- **Hook entries are permanent by design** (decided with Damian 2026-08-27): no
+- **Hook entries are permanent by design** (decided with the developer 2026-08-27): no
   reference-counting, no strip-on-shutdown, no strip-on-remove. A stale entry now costs a
   silent 6–32 ms `sh` exit instead of a line of inline noise per tool call, so the
   lifetime question dissolves rather than needing an answer.
@@ -384,7 +384,7 @@ implemented:
   ms/event) is recorded post-v1, not built here.
 - Protocol: §4/§4.1/§4.2/§7.3 updated in `docs/protocol.md`. The manual real-haiku
   migration/silence check (launch against an already-instrumented directory, stop
-  musterd, confirm no hook-error lines) is Damian's post-merge acceptance step, recorded
+  musterd, confirm no hook-error lines) is the developer's post-merge acceptance step, recorded
   in `spikes/canary-fields.md` once run.
 
 ### 2026-08-29 — Tiles grid slot-stable + drag reorder (plan `move-tiles`, via `/orchestrate`)
@@ -394,7 +394,7 @@ implemented:
   promoted session in the demoted tile's slot, `applyDensity` keeps survivors' relative
   order (shrink drops lowest-priority wherever they sit, grow/backfill append), and only
   the user reorders. Amends ux-flows §3.7's "in the same order §3.4 defines" (decided
-  with Damian 2026-08-29). Order is per-window and ephemeral like `tilesLive` membership —
+  with the developer 2026-08-29). Order is per-window and ephemeral like `tilesLive` membership —
   no protocol or prefs change.
 - Drag-to-reorder: the tile header (`.thead`) is the only drag handle; drop on another tile
   is insert-and-shift (tab-bar semantics, chosen over swap). Feedback uses neutral
@@ -618,7 +618,7 @@ Settled while implementing plan `tmux-installation` (issues #2 and #4).
 <!-- kb: adr/process-release-commitlint-eleven-types, adr/process-release-bump-map-widened-perf-refactor, adr/process-release-notes-derived-from-bumping-types, adr/process-release-breaking-marker-bang-gated, adr/process-release-v0-clamp-v1-deliberate -->
 
 The release policy lived in five places that had drifted (conventions, the goreleaser
-filters, `release.yml`, `/land`, the agents' hardcoded types). Settled with Damian after
+filters, `release.yml`, `/land`, the agents' hardcoded types). Settled with the developer after
 re-measuring everything against the pinned svu v3.4.1; details and the worked
 measurements are in `docs/conventions.md` § Commits.
 
@@ -654,7 +654,7 @@ measurements are in `docs/conventions.md` § Commits.
 ### 2026-09-02 — theme tokens, light/dark pair, contrast pass (spec, plan `new-ui-design-colors`)
 <!-- kb: adr/theme-two-layer-tokens-not-white-label, adr/theme-three-builtin-themes-instrument-default, adr/theme-aa-contrast-gated-in-check, adr/theme-state-hues-fixed-across-themes, adr/theme-pref-follows-claude-until-picked, adr/theme-claude-theme-read-only-poll, adr/theme-terminal-ground-follows-claude-family -->
 
-Spec interview for issue #3; settled with Damian, not yet built. Full text in
+Spec interview for issue #3; settled with the developer, not yet built. Full text in
 `plans/new-ui-design-colors/spec.md`.
 
 - **Theming, not white labelling.** Muster stays single-user (§3); the same dashboard gets
@@ -900,7 +900,7 @@ Settles the "license decided later" posture in §8. Recorded arguments are in
   No CLA/DCO pre-emptively — decide when the first PR arrives.
 - **The repo remains private.** Adding `LICENSE` is the hard blocker cleared; the visibility
   flip waits on the remaining chores (README build/contributions lines, deleting `a.png` and
-  `session-manager-mockup.html`, the `plans/` privacy skim) and on Damian checking the SPAN
+  `session-manager-mockup.html`, the `plans/` privacy skim) and on the developer checking the SPAN
   employment IP clause.
 
 ### 2026-09-05 — a session may carry an ephemeral plain shell surface (plan `plain-terminal-session`, via `/orchestrate`, approved review cycle 2)
@@ -928,7 +928,7 @@ the Focus mainhead and in every tile footer swaps the surface body in place.
   leaves it running.
 - **Design-system §3 kept intact.** The plan and approved mockup specced a teal pip for
   "a shell is running"; review cycle 1 raised that `--teal` is reserved for Working, and
-  Damian chose to give the pip its own `--shell-pip` token per theme rather than record an
+  the developer chose to give the pip its own `--shell-pip` token per theme rather than record an
   exemption (`plans/plain-terminal-session/decisions/shell-pip-hue/`).
 - **Placement.** The tile control lives in `.tfoot .acts`, not the spec's original
   `.thead`: measured against the shipped header, a control in the header truncated every
@@ -942,7 +942,7 @@ the Focus mainhead and in every tile footer swaps the surface body in place.
 <!-- kb: adr/process-e2e-explicit-fixtures, adr/process-e2e-one-load-policy, adr/process-e2e-lint-mechanises-fixture-rules, adr/process-faked-subprocess-boundary, adr/process-e2e-no-playwright-retries -->
 
 Closes the open question raised 2026-09-03 (`docs/design/test-strategy.md`) after three measured
-load-sensitivity flakes. Settled in this session with Damian rather than through `/orchestrate`,
+load-sensitivity flakes. Settled in this session with the developer rather than through `/orchestrate`,
 since the pipeline's own rules were among the deliverables. The standing rule is
 `docs/conventions.md` §Testing; `.claude/agents/{e2e-specs,daemon-tests,review-work,web-impl}.md`,
 `/plan-work` and `plan-lint.sh` now carry it.
@@ -1000,7 +1000,7 @@ changed on the way:
   asserts the interface strings Muster cannot drive (`CLAUDE_CODE_SCROLL_SPEED` via
   `LaunchEnv()`, theme enum, usage path/header, credential key, Keychain mechanism, flag name)
   in the installed bundle; a live tier runs the production Keychain reader, `FetchUsage` and
-  `ReadThemeFamily` against Damian's real machine and **fails** — never skips — when a
+  `ReadThemeFamily` against the developer's real machine and **fails** — never skips — when a
   credential is missing, since a skip passes silently on the one machine the gate exists for.
   Cost: 4 haiku turns, 4 zero-token unauth runs, one zero-token resume, one HTTPS GET,
   ~2.3 min wall (was 3 turns / ~40 s). `MUSTER_CANARY_OFFLINE=1` stays zero-token.
@@ -1083,12 +1083,12 @@ Supersedes the 2026-08-31 "Distribution settled" entry's front door (`make insta
   stdin *is* the script, so a prompt would have to read `/dev/tty` for no benefit.
 - **`make install` is a one-line wrapper** around the same script, so arch resolution, the
   fresh temp dir, the `tar` member-select and the shadow warning exist in exactly one place.
-- **Homebrew is split out** of this work (Damian, 2026-09-10) and is its own `TODO.md` item.
+- **Homebrew is split out** of this work (the developer, 2026-09-10) and is its own `TODO.md` item.
   It is no longer *blocked* — the public repo removed the private-tap token cost the
   2026-08-31 entry named — only unscheduled.
 - **Auto-update is likewise split out**, still wanting a `/spec` pass. The SHA-256 check
   here is a precedent for its verification question, not an answer to it.
-- **The README is the front door too, and was cut 194 → 115 lines** on Damian's instruction
+- **The README is the front door too, and was cut 194 → 115 lines** on the developer's instruction
   to review the whole file, not just § Install: the naming blockquote, the layout tree, the
   milestone prose and the `gh` fences are gone; a dashboard screenshot and a licence section
   are in; the `Issue`-button detail moved to `CONTRIBUTING.md`, which had been pointing back
@@ -1138,7 +1138,7 @@ Interview in `plans/auto-update/spec.md`; decisions:
   test reaches github.com. Only a **strictly newer** `MAJOR.MINOR.PATCH` release badges.
 - **Trust root is minisign, not the checksum alone.** The release's `checksums.txt` must carry a
   valid `.minisig` against a public key compiled into the binary (`internal/selfupdate/minisign.pub`,
-  Damian's; the private key and passphrase are CI secrets he holds), and the archive's SHA-256
+  the developer's; the private key and passphrase are CI secrets they hold), and the archive's SHA-256
   must match that signed file. No unsigned fallback: a release without a `.minisig` is refused,
   and GoReleaser's `signs:` block fails the release rather than publishing one. Verification is
   `aead.dev/minisign` (§5 stack row), both signature modes.
@@ -1195,7 +1195,7 @@ because `allowed-tools` grants rather than restricts. Design and residual risks:
   sandbox also cannot give a hard network boundary from project settings
   (`sandbox.network.strictAllowlist` is user/managed scope only) and would add permission
   prompts, i.e. involvement.
-- **Damian's involvement is unchanged** — pick a section, approve a duplicate-close,
+- **The developer's involvement is unchanged** — pick a section, approve a duplicate-close,
   approve a dirty `TODO.md` — plus a held list that is empty on a normal run.
 
 ### 2026-09-11 — composition-root rule settled (plan `code-breakup`)
@@ -1207,4 +1207,4 @@ No SPEC section changes (§5/§7 describe the stack, not the file layout). `web/
 (`internal/server/<name>.go`, `mount(mux, guard)`) registered in one line. E2E specs and
 `web/e2e/helpers/<feature>.ts` follow the same feature names. Rule lives in
 `docs/conventions.md` § Composition roots; `plan-work` and `review-work` enforce it. Files, not
-sub-packages, for now (Damian, 2026-09-11).
+sub-packages, for now (the developer, 2026-09-11).

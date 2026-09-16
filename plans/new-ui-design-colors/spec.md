@@ -17,7 +17,7 @@ current palette, contrast-fixed, the default), a **conventional web-style dark**
 The driver is the theme system itself; the contrast pass rides along. Instrument fails WCAG
 AA on its smallest text today (`--dim` at 2.6:1 and the Idle badge at 2.8:1 on `--panel`,
 measured 2026-09-02), and fixing that properly means fixing it in the token layer, not with a
-one-off shade. Damian will use a dark theme day to day; the light theme ships regardless
+one-off shade. The developer will use a dark theme day to day; the light theme ships regardless
 because a v1 with a token system and no light palette is an architecture without proof.
 
 This is **theming, not white labelling**. White labelling rebrands a product for a third

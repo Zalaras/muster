@@ -15,6 +15,6 @@ supersedes: [surfaces-one-window-per-session]
 
 **Options.** (A) Keep one shared tmux session and accept a single live surface. (B) One tmux session per Muster session, one window each, all on Muster's dedicated socket.
 
-**Decision.** B, settled with Damian in planning. Rows from before the change need no migration because the target string is what identifies a session.
+**Decision.** B, settled with the developer in planning. Rows from before the change need no migration because the target string is what identifies a session.
 
 **Consequences.** Liveness and reconcile enumerate sessions on the socket by name, and an unknown name of Muster's shape is reported rather than adopted. Killing a session is a whole-session kill. A later plain-shell surface follows the same pattern with a suffixed name.

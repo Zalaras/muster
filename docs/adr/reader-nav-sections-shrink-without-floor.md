@@ -35,5 +35,5 @@ applies. This is a density judgement, not a correctness one, and daily use answe
 measurement: ship the simpler behaviour, add the floor if the dense tile proves uncomfortable.
 
 **Consequence.** No code change; both sections keep `overflow-y: auto` with no minimum height.
-Revisiting needs only the rule above plus a re-measure of both tile densities. Decided by Damian,
+Revisiting needs only the rule above plus a re-measure of both tile densities. Decided by the developer,
 2026-09-13 — `plans/markdown-viewing/decisions/nav-sections-no-height-floor/decision.md`.
