@@ -50,7 +50,8 @@ under-weighted. If the losing side's best point is genuinely open, say so.>
 
 ## Dissent worth recording
 <Anything the losing side got right that the winner should still honour in implementation,
-or a follow-up worth a TODO line. "None" is acceptable.>
+or a follow-up worth proposing in `plans/<plan>/proposed-backlog.md` — never a `TODO.md` line,
+which is the user's to file. "None" is acceptable.>
 ```
 
 5. Return the `**Decision**` line and the Decisive-argument paragraph as your final text.

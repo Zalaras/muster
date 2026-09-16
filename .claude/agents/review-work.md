@@ -306,7 +306,10 @@ Tag every issue with the responsible agent so the orchestrator knows where to ro
 - `[web-tests]` → web tests agent
 - `[e2e-specs]` → E2E test agent
 - `[note]` → nobody: an observation with no change requested; listed in the completion summary, never routed
-- `[orchestrator]` → nothing a pipeline agent may edit: `TODO.md` ticks, an ADR for a `deviation:` line,
+- `[orchestrator]` → nothing a pipeline agent may edit: `TODO.md` ticks (**ticks only** — follow-up
+  you think is worth keeping is *proposed* in `plans/<plan>/proposed-backlog.md`, and filing it is
+  the user's call, not yours or the orchestrator's: kb:adr/process-backlog-entries-are-the-users-to-file),
+  an ADR for a `deviation:` line,
   an unamended `doc-delta:` line, a plan defect (missing ```checks block, contradictory
   criteria), a manual-verification record the plan requires. The orchestrator's Doc-Upkeep Backstop
   and Completion steps own these. `docs/features/*/spec.md` and `docs/protocol.md` are neither yours

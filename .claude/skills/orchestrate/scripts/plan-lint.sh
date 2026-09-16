@@ -121,5 +121,12 @@ if [[ -z "$(section 'Doc Delta' | grep -vE '^[[:space:]]*$' | head -1)" ]]; then
   note "missing or empty '## Doc Delta' section (write 'No doc change.' if this plan changes no doc claim)"
 fi
 
+# 11. A non-empty `## Out of scope` section — the only route by which a run may add an open
+#     TODO.md item (kb:adr/process-backlog-entries-are-the-users-to-file). "Nothing." is a legal
+#     body; silence is not, because an absent section reads as "the orchestrator may decide".
+if [[ -z "$(section 'Out of scope' | grep -vE '^[[:space:]]*$' | head -1)" ]]; then
+  note "missing or empty '## Out of scope' section (write 'Nothing.' if this plan defers no work)"
+fi
+
 if (( FAILS )); then echo "plan-lint: $FAILS failure(s) in $P"; exit 1; fi
 echo "plan-lint: $P clean"

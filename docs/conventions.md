@@ -239,7 +239,27 @@ from the commit's own file list (decision 2026-09-01). That is the only issue au
 issues and never reads, labels, or syncs them (`kb:adr/issue-daemon-creates-issues-only`). `/land`
 composes that subject from the plan's `closes_issues`, so the reference is not left to whoever
 happens to run the merge; `/triage --audit` reports any issue still open whose entry is ticked (ticked entries live in
-`docs/history/todo-done.md`), which is how a dropped reference gets caught.
+`docs/history/todo-done.md`), which is how a dropped reference gets caught. What may *become*
+an entry is § Backlog, below.
+
+## Backlog
+
+`TODO.md` is the user's list. **Only the user files an open item into it**
+(kb:adr/process-backlog-entries-are-the-users-to-file) — by hand, or through `/triage`, which
+splices GitHub issues with a program rather than a model
+(kb:adr/triage-program-not-model-between-github-and-todo). An agent or pipeline run has exactly
+two legal writes: ticking a finished item and moving its block to `docs/history/todo-done.md`,
+and copying verbatim an entry the user already approved in a plan's `## Out of scope`.
+
+Everything else a run discovers is **proposed, not filed** — in `plans/<plan>/proposed-backlog.md`
+for a pipeline run, or in its report for a skill that has no plan directory. A proposal records
+who raised it and whether they asked for a change, so a reviewer's "no change requested" is still
+visible when the user decides. Placement is a ranking judgement and stays the user's: a section
+in the proposal is a hint, never a filing.
+
+Dropping a proposal is a complete outcome. Dropping a *filed* entry that carries an `issues/N`
+link is not — triage state is derived from the file, so the issue reappears as untriaged
+(kb:adr/triage-state-derived-from-todo).
 
 ## Comments
 

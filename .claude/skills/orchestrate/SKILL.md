@@ -292,7 +292,8 @@ included. This is the one input the agent cannot recover for itself — it has n
 and an unamended delta promotes a claim the fix waves already invalidated. Editing this file is not a
 plan amendment: `plan.md` stays as approved.
 
-The agent owns `docs/features/*/spec.md` and `docs/protocol.md`; you keep `TODO.md`, ADRs, facts and
+The agent owns `docs/features/*/spec.md` and `docs/protocol.md`; you keep `TODO.md`,
+`proposed-backlog.md`, ADRs, facts and
 `docs/diagrams/` records. On `contradiction`, `reopen review` and run a fix wave — the code, not the
 sentence, is what moves. On `blocked`, stop: a feature set wider than the plan's `**Features**` means
 every agent ran this plan with an incomplete pack, and that is the user's call, not a doc edit.
@@ -459,8 +460,8 @@ When all steps pass AND the review verdict is "approved", in this order:
 0. **Step 7 has run and returned `reconciled`.** Completion never precedes it — the feature specs
    and `docs/protocol.md` describe the pre-plan world until it does.
 1. Re-verify the Doc-Upkeep Backstop above (done before Step 6; fix anything the review cycles changed).
-2. Resolve every `[orchestrator]`-tagged issue in review.md: do the doc edit, or record it as a TODO.md entry in the right milestone if it is genuinely follow-up work. List each one and its disposition in the completion summary. An approved review may carry these; a `completed` pipeline may not leave them unaddressed.
-3. An approved review.md has no agent-tagged issue open at any severity (Verdict Rules) — if you find one, the verdict is wrong; stop and re-spawn the reviewer rather than writing a `TODO.md` line for it. Every `[note]` is listed in the completion summary verbatim — no TODO line, no agent.
+2. Resolve every `[orchestrator]`-tagged issue in review.md: do the doc edit, or propose genuine follow-up in `plans/<plan>/proposed-backlog.md` (doc-upkeep.md gives the shape) — **never as a new `TODO.md` item**, which is the user's to file (kb:adr/process-backlog-entries-are-the-users-to-file). List each one and its disposition in the completion summary. An approved review may carry these; a `completed` pipeline may not leave them unaddressed.
+3. An approved review.md has no agent-tagged issue open at any severity (Verdict Rules) — if you find one, the verdict is wrong; stop and re-spawn the reviewer rather than writing it down anywhere. Every `[note]` is listed in the completion summary verbatim — no TODO line, no agent; one worth keeping goes to `proposed-backlog.md`, **Change requested: no**.
 4. **Accept this plan's ADRs.** For every name in the plan's `**Features**`, `go run ./tools/kb
    ls --feature <f> --status proposed` — for each record whose `refs` carry `plan:<plan>`, Edit
    `status: accepted` and `date:` today. The ADR and the code it describes land in one squash,
@@ -472,8 +473,8 @@ When all steps pass AND the review verdict is "approved", in this order:
    (absent or `[]` means none). `/land` reads it to compose the squash subject's `closes #N`. You
    never close an issue yourself: the fix exists only on a branch the user has not accepted, and
    `approved` is the reviewer's opinion, not acceptance. The close fires when `/land` pushes to `main`.
-6. **End with everything committed.** Commit your doc-upkeep and state edits (`docs(<plan-name>):
-   doc upkeep and pipeline completion`) and confirm `git status --short` on `plan/<plan-name>`
+6. **End with everything committed.** Commit your doc-upkeep and state edits, `proposed-backlog.md`
+   included (`docs(<plan-name>): doc upkeep and pipeline completion`) and confirm `git status --short` on `plan/<plan-name>`
    shows nothing beyond the pre-flight strays — the branch is the review artifact (`git diff
    main...plan/<plan-name>`, then `/land <plan-name>`). An agent's uncommitted files are its defect
    (Pre-flight 4a); if it cannot commit them, commit them yourself as `chore(<plan-name>): commit

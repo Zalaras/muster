@@ -421,6 +421,14 @@ criterion goes, so it is assigned rather than dropped.
 
 <or "No doc change." when this plan changes no present-tense doc claim>
 
+## Out of scope
+
+- <a nearby thing this plan deliberately does not do, and why>
+
+<This is the ONLY route by which a run may add an open `TODO.md` item, copied verbatim, so the
+user approves the wording here or not at all (kb:adr/process-backlog-entries-are-the-users-to-file).
+Anything the run discovers later is proposed, never filed. "Nothing." is acceptable.>
+
 ## Implementation Notes
 
 <any additional context, patterns to follow, gotchas — cite `kb:fact/<slug>` for every measured

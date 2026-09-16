@@ -5,6 +5,12 @@ authoritative — this file tracks execution, not decisions.
 
 Milestone rule from the spec: **each milestone ends with something used day-to-day.**
 
+**The entries here are filed by hand.** An agent or pipeline run may only tick a finished item and
+move its block to `docs/history/todo-done.md`, or copy an entry a plan's approved `## Out of
+scope` already names. Everything else it finds is proposed — in `plans/<plan>/proposed-backlog.md`
+or in its report — and waits (`kb:adr/process-backlog-entries-are-the-users-to-file`,
+`docs/conventions.md` § Backlog).
+
 ## Setup ✅ done 2026-08-16
 
 All items done — see `docs/history/todo-done.md` § "Setup".

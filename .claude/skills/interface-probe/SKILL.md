@@ -174,7 +174,8 @@ Per CLAUDE.md doc upkeep, before the session ends:
 
 - New wire-format fact → a record in `docs/facts/` with `verified:` the version the payloads
   report, `refs:` the capture path with its count ("n of m sessions"), and `guard:` the canary or
-  unit test that pins it (`none` is allowed and becomes a `TODO.md` line). A fact proved wrong
+  unit test that pins it (`none` is allowed; offer the backlog line and let the user file it —
+  kb:adr/process-backlog-entries-are-the-users-to-file). A fact proved wrong
   gets its ceiling pinned and a new record linked by `refs`, never a rewrite.
 - A settled open question → an `accepted` ADR (probes run on `main` with the user present).
 - Tick anything this closes in `TODO.md`.

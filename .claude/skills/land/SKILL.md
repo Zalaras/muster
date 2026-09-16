@@ -110,6 +110,10 @@ Print, and get confirmation:
 - the issues it will close;
 - `git log --oneline main..plan/<plan>` — what is being squashed;
 - `git diff --stat main...plan/<plan>` — the size of what lands;
+- the backlog items the branch adds — `git diff main...plan/<plan> -- TODO.md | grep '^+- \[ \]'`
+  — and, for each, whether the plan's `## Out of scope` names it. Anything else is a run filing
+  work you did not approve (kb:adr/process-backlog-entries-are-the-users-to-file): say so here
+  rather than after the merge;
 - the **predicted release**: `feat`→minor; `fix`/`perf`/`refactor`→patch; everything
   else→none. Note that `.github/workflows/release.yml` computes the actual version on push
   (`svu next --v0`, plus its perf/refactor patch shim).

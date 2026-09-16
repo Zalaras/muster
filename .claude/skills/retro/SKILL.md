@@ -100,8 +100,9 @@ Then stop. The user picks by number in prose; do not offer menus.
 - Edit only `.claude/skills/**`, `.claude/agents/**`, any `CLAUDE.md` (root or subdirectory,
   creating one where step 2 placed it), `docs/conventions.md`, and `docs/lessons/*.md`. After a
   record: `make gen-kb && make check-kb`; the regenerated files ride the same commit. Never `plans/`, never product
-  or test code — a code defect the retro finds goes to `TODO.md` as a follow-up line, not into
-  this commit.
+  or test code — a code defect the retro finds is *proposed* in the report, for the user to file
+  or drop (kb:adr/process-backlog-entries-are-the-users-to-file); never written into `TODO.md`
+  and never into this commit.
 - Commit on **the branch the run happened on**, as `docs(retro): <plan> — <what changed, one
   line>`; it rides that plan's squash merge. Stay on `plan/<plan>` — a lesson may then cite
   `plan:<plan>` and the run's own `review.cycle*.md`, which do not exist on `main` until `/land`.

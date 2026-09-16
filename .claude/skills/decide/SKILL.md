@@ -119,7 +119,8 @@ Then land it where it belongs — you are the only party allowed to edit these:
   The debate artefacts stay in `decisions/<slug>/`; the ADR is what plans, comments and reviews
   cite.
 - `docs/design/design-system.md` or `ux-flows.md` when the decision is a design rule;
-- `TODO.md` when the dissent names follow-up work.
+- `plans/<plan>/proposed-backlog.md` when the dissent names follow-up work — proposed, never
+  filed into `TODO.md` (kb:adr/process-backlog-entries-are-the-users-to-file).
 - `make gen-kb && make check-kb`, generated files in the same commit.
 
 Return the outcome to the caller (the orchestrator quotes it in the next fix-wave prompt).

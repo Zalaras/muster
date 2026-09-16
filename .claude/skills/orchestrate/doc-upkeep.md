@@ -10,12 +10,22 @@ pipeline may have left stale and what a complete entry looks like.
 
 - **`TODO.md`** — a finished backlog item (or sub-bullet): tick it, add its `✅ done <date> (plan
   …)` line, move the block to `docs/history/todo-done.md` under the same heading (a sub-bullet
-  stays with its still-open parent). A new follow-up goes into the right milestone rather than
-  evaporating. **A ticked item with a GitHub issue link → record the issue number** for
+  stays with its still-open parent). **Ticks and moves only** — a new open item is the user's to
+  file (kb:adr/process-backlog-entries-are-the-users-to-file), the sole exception being one the
+  approved plan's § Out of scope names, copied verbatim. Everything else this run found goes to
+  `plans/<plan>/proposed-backlog.md`, where it waits for the user rather than evaporating.
+  **A ticked item with a GitHub issue link → record the issue number** for
   Completion step 5, judging **full vs partial**: a plan can advance an issue without finishing it (a
   design-token issue may span two plans). Only a fully-resolved issue is a close candidate; a
   partial one is named in the completion summary as deliberately *not* closing, with what
   remains.
+- **`plans/<plan>/proposed-backlog.md`** — where follow-up this run found is *proposed*, never
+  filed. One `### <title as it would read in TODO.md>` block each, then the entry body ready to
+  paste, under four lines: **Source** (`review.md` Minor 2 `[orchestrator]`, Note 4, an impl
+  log), **Change requested** (yes/no, quoting the reviewer — a `[note]` is always *no*, and
+  hiding that is the failure this file exists to prevent), **Suggested section** (a hint only;
+  the user chooses), **Pre-existing** (does this branch touch the code?). Say "nothing proposed"
+  in the completion summary rather than inventing entries.
 - **`docs/adr/`** — every `deviation:` line in an implementation log's `## Decisions`, and every
   `decisions/<slug>/decision.md` this run produced, has an ADR: write it (`status: proposed`,
   `refs: [plan:<plan-name>, <the log or decision file>]`, one decision per record), append
