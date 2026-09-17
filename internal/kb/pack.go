@@ -45,8 +45,16 @@ type PackOptions struct {
 	Features []string
 }
 
+// section is one row of a pack's word breakdown, in the order the sections are written.
+type section struct {
+	label string
+	words int
+}
+
 // Pack writes the role's context bundle for a plan (design §9) in a fixed order and
 // returns its word count. It never fails on budget: past PackWords it prints a WARN line.
+// The count and that warning open the pack, straight after the provenance marker, so the
+// reader meets the cost before the payload and not several hundred KB after it.
 func Pack(ix *Index, opts PackOptions, w io.Writer) (int, error) {
 	if !contains(Roles, opts.Role) {
 		return 0, fmt.Errorf("unknown role %q (want one of: %s)", opts.Role, strings.Join(Roles, ", "))
@@ -56,27 +64,59 @@ func Pack(ix *Index, opts PackOptions, w io.Writer) (int, error) {
 			return 0, fmt.Errorf("feature %q has no docs/features/%s/spec.md", name, name)
 		}
 	}
+	marker := fmt.Sprintf("<!-- kb:pack plan=%s role=%s features=%s -->\n", opts.Plan, opts.Role, strings.Join(opts.Features, ","))
+
+	// The body is built first so the summary can report on it. Every section starts with a
+	// newline, so slicing the body at these offsets never splits a word and the rows add up.
 	var b strings.Builder
-	fmt.Fprintf(&b, "<!-- kb:pack plan=%s role=%s features=%s -->\n", opts.Plan, opts.Role, strings.Join(opts.Features, ","))
+	var sections []section
+	prev := 0
+	record := func(label string) {
+		sections = append(sections, section{label, len(strings.Fields(b.String()[prev:]))})
+		prev = b.Len()
+	}
 
 	if err := writeRules(&b, ix, opts); err != nil {
 		return 0, err
 	}
+	record("rules")
 	writeFeatureSections(&b, ix, opts)
+	record("features")
 	writeDiagrams(&b, ix, opts)
+	record("diagrams")
 	writeDecisions(&b, ix, opts)
+	record("decisions")
 	writeProposedDecisions(&b, ix, opts)
+	record("proposed")
 	writeFacts(&b, ix, opts)
+	record("facts")
 	writeLessons(&b, ix, opts)
+	record("lessons")
 	writeRunbooks(&b, ix, opts)
+	record("runbooks")
 
-	words := len(strings.Fields(b.String()))
-	fmt.Fprintf(&b, "\nkb: pack %d words\n", words)
+	words := len(strings.Fields(marker)) + len(strings.Fields(b.String()))
+	_, err := io.WriteString(w, marker+packSummary(words, sections)+b.String())
+	return words, err
+}
+
+// packSummary renders the block that opens a pack. Its first line is the one the agent
+// definitions tell each role to record as **Pack**, so it keeps the wording those logs
+// already quote; the rows that follow say which section grew. The reported total covers the
+// marker and the body only — never this block — so the number stays comparable with the
+// figures earlier runs recorded.
+func packSummary(words int, sections []section) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "kb: pack %d words (budget %d)\n", words, PackWords)
 	if words > PackWords {
 		fmt.Fprintf(&b, "kb: WARN pack exceeds budget of %d words\n", PackWords)
 	}
-	_, err := io.WriteString(w, b.String())
-	return words, err
+	rows := make([]string, 0, len(sections))
+	for _, s := range sections {
+		rows = append(rows, fmt.Sprintf("%s %d", s.label, s.words))
+	}
+	fmt.Fprintf(&b, "kb: sections — %s\n", strings.Join(rows, " · "))
+	return b.String()
 }
 
 // writeRules writes the conventions slice for the role, then the active rule records:

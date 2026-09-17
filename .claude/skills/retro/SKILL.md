@@ -138,7 +138,9 @@ Report, in this order, each item numbered:
    clause) as *move to a lesson record* proposals (roles = the agent whose file holds it).
 5. **Review-cycle trend** — cycles per run in date order; if the last three runs each needed
    two or more, name the cycle-one Major class they share.
-6. **Pack size** — the table above; a pack over 8,000 words (`PackWords`, `internal/kb/budget.go`)
+6. **Pack size** — the table above (each pack now opens with its own count and a per-section
+   breakdown, so `wc -w` runs ~40 words high and the section that grew is read off the
+   `kb: sections` line rather than derived); a pack over 8,000 words (`PackWords`, `internal/kb/budget.go`)
    warns exactly like an agent file over its threshold (it is read on top of one) and names the record class that grew (`kb ls --role <r>`, by `date`); a
    lesson no plan has cited in the last five runs is a *retire* proposal.
 

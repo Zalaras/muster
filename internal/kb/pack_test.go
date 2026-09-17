@@ -2,7 +2,9 @@ package kb
 
 import (
 	"bytes"
+	"fmt"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -52,17 +54,18 @@ func runPack(t *testing.T, ix *Index, role string, features ...string) (string, 
 	return buf.String(), n
 }
 
-func TestPack_EmitsSectionsInTheFixedOrderAndEndsWithTheWordCount(t *testing.T) {
+func TestPack_OpensWithTheWordCountThenEmitsSectionsInTheFixedOrder(t *testing.T) {
 	_, ix := packFixture(t)
 	out, n := runPack(t, ix, "daemon-impl", "sessions")
-	assert.True(t, strings.HasPrefix(out, "<!-- kb:pack plan=this-plan role=daemon-impl features=sessions -->\n"), out)
-	order := []string{"\n# Rules\n", "Always wrap errors.", "## rule global-rule", "## rule sess-rule",
+	marker := "<!-- kb:pack plan=this-plan role=daemon-impl features=sessions -->\n"
+	assert.True(t, strings.HasPrefix(out, marker), out)
+	order := []string{"\nkb: pack ",
+		"\n# Rules\n", "Always wrap errors.", "## rule global-rule", "## rule sess-rule",
 		"\n# Feature: sessions\n", "The sessions feature keeps the rail ordered.", "# sessions — protocol contract", "### 3.10",
 		"\n# Decisions\n", "## decision earlier", "## decision pin-order",
 		"\n# Facts\n", "## fact statusline-cadence — ", "verified 2.1.246..2.1.267",
 		"\n# Lessons\n", "## lesson resize-twice",
-		"\n# Runbooks\n", "## runbook rotate",
-		"\nkb: pack "}
+		"\n# Runbooks\n", "## runbook rotate"}
 	last := -1
 	for _, s := range order {
 		idx := strings.Index(out, s)
@@ -71,11 +74,40 @@ func TestPack_EmitsSectionsInTheFixedOrderAndEndsWithTheWordCount(t *testing.T) 
 		last = idx
 	}
 	assert.Contains(t, out, "_accepted · 2026-08-30 · features: sessions · files: internal/sess/** · cite: kb:adr/pin-order_")
-	trailer := out[strings.LastIndex(out, "kb: pack "):]
-	assert.Regexp(t, `^kb: pack \d+ words\n$`, trailer)
-	assert.Equal(t, len(strings.Fields(out[:strings.LastIndex(out, "kb: pack ")])), n)
+
+	// The summary sits between the marker and the body, and the count covers the marker and
+	// the body only — the block reports on the pack without inflating it.
+	summary, body, ok := strings.Cut(strings.TrimPrefix(out, marker), "\n# Rules\n")
+	require.True(t, ok, out)
+	assert.Regexp(t, `^kb: pack \d+ words \(budget 8000\)\nkb: sections — `, summary)
+	assert.Equal(t, len(strings.Fields(marker))+len(strings.Fields("\n# Rules\n"+body)), n)
+
 	assert.NotContains(t, out, "# Decisions (proposed for this plan)", "only review and planner see proposals")
 	assert.NotContains(t, out, "kb:generated", "the contract header line is stripped")
+}
+
+func TestPack_BreakdownRowsAndTheMarkerSumToTheReportedTotal(t *testing.T) {
+	_, ix := packFixture(t)
+	for _, role := range []string{"daemon-impl", "review"} {
+		out, n := runPack(t, ix, role, "sessions", "other")
+		rows := regexp.MustCompile(`(?m)^kb: sections — (.+)$`).FindStringSubmatch(out)
+		require.NotNil(t, rows, out)
+		sum := 0
+		var labels []string
+		for _, row := range strings.Split(rows[1], " · ") {
+			var label string
+			var words int
+			_, err := fmt.Sscanf(row, "%s %d", &label, &words)
+			require.NoError(t, err, row)
+			labels = append(labels, label)
+			sum += words
+		}
+		assert.Equal(t, []string{"rules", "features", "diagrams", "decisions", "proposed", "facts", "lessons", "runbooks"}, labels,
+			"one row per section writer, in write order")
+		marker, _, ok := strings.Cut(out, "\n")
+		require.True(t, ok, out)
+		assert.Equal(t, n, sum+len(strings.Fields(marker)), "role %s: rows plus the marker must account for every word", role)
+	}
 }
 
 func TestPack_IncludesOnlyLessonsMatchingTheRoleAndDecisionsThatAreAccepted(t *testing.T) {
@@ -129,7 +161,17 @@ func TestPack_WarnsButDoesNotFailOverTheWordBudget(t *testing.T) {
 	ix, _ := loadFixture(t, root)
 	out, n := runPack(t, ix, "daemon-impl", "sessions")
 	assert.Greater(t, n, PackWords)
-	assert.True(t, strings.HasSuffix(out, "kb: WARN pack exceeds budget of 8000 words\n"), out[len(out)-120:])
+	head, _, _ := strings.Cut(out, "\n# Rules\n")
+	assert.Contains(t, head, fmt.Sprintf("kb: WARN pack exceeds budget of %d words\n", PackWords),
+		"the warning opens the pack, where it can still change what the reader does")
+}
+
+func TestPack_UnderBudgetReportsTheCountWithNoWarning(t *testing.T) {
+	_, ix := packFixture(t)
+	out, n := runPack(t, ix, "daemon-impl", "sessions")
+	require.Less(t, n, PackWords)
+	assert.Contains(t, out, fmt.Sprintf("kb: pack %d words (budget %d)\n", n, PackWords))
+	assert.NotContains(t, out, "WARN")
 }
 
 func TestPack_RejectsAnUnknownRoleOrFeature(t *testing.T) {
