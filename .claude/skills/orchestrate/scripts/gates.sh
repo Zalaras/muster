@@ -7,6 +7,7 @@
 #   --no-e2e         omit `make e2e` from the baseline (a daemon plan whose Step 1 was skipped)
 #   --checks-only    run only the plan's ```checks block
 #   --baseline-only  run only the baseline gates
+#   --fresh          ignore the result ledger and re-run every gate for real
 #   --wave N         the gate for one fix wave: that wave's build/test/e2e commands for the
 #                    side(s) the branch touched, plus every authored check the wave can reach
 #                    (wave 1 skips the test and e2e suites, wave 2 skips e2e, wave 3 runs all).
@@ -38,14 +39,15 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 cd "$ROOT" || exit 2
 
 PLAN="${1:-}"
-[[ -n "$PLAN" ]] || { echo "usage: gates.sh <plan> [--no-e2e] [--checks-only] [--baseline-only]" >&2; exit 2; }
+[[ -n "$PLAN" ]] || { echo "usage: gates.sh <plan> [--no-e2e] [--checks-only] [--baseline-only] [--fresh]" >&2; exit 2; }
 shift
-RUN_E2E=1; RUN_BASELINE=1; RUN_CHECKS=1; WAVE=""
+RUN_E2E=1; RUN_BASELINE=1; RUN_CHECKS=1; RUN_FRESH=0; WAVE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --no-e2e) RUN_E2E=0 ;;
     --checks-only) RUN_BASELINE=0 ;;
     --baseline-only) RUN_CHECKS=0 ;;
+    --fresh) RUN_FRESH=1 ;;
     --wave) shift; WAVE="${1:-}" ;;
     --wave=*) WAVE="${1#*=}" ;;
     *) echo "unknown flag: $1" >&2; exit 2 ;;
@@ -81,6 +83,45 @@ if [[ -s "${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]]; then
 fi
 PATH="$(go env GOPATH 2>/dev/null || echo "$HOME/go")/bin:$PATH"   # goreleaser & co. live here, not on a login shell's PATH (auto-update D6)
 
+# --- result ledger -------------------------------------------------------------------------
+# SEEN dedupes within one invocation; the ledger extends that across invocations, keyed on a
+# fingerprint of the working tree. The pipeline proved the same tree green up to four times per
+# review cycle (the wave-3 gate, Final Validation, the reviewer's own run) because "nothing has
+# changed since, that run counts" was a judgement call spanning separate processes that nothing
+# could enforce. Only a PASS is ever reused — a FAIL always re-runs, so the ledger can never
+# mask a red. The TTL bounds inputs the fingerprint cannot see (installed web dependencies, the
+# Go build cache, the pinned claude binary); --fresh discards the ledger entirely.
+LEDGER="${GATES_LEDGER:-${TMPDIR:-/tmp}/muster-gates-ledger-$PLAN.tsv}"
+LEDGER_TTL="${GATES_LEDGER_TTL:-14400}"   # 4 h
+
+tree_fingerprint() {
+  {
+    git rev-parse HEAD
+    git diff HEAD
+    git ls-files --others --exclude-standard | while IFS= read -r f; do shasum -a 256 "$f"; done
+    shasum -a 256 go.sum web/package-lock.json .nvmrc 2>/dev/null
+  } 2>/dev/null | shasum -a 256 | cut -d' ' -f1
+}
+
+# No git HEAD means no trustworthy fingerprint — run everything rather than reuse blindly.
+FP=""
+git rev-parse HEAD >/dev/null 2>&1 && FP="$(tree_fingerprint)"
+NOW="$(date +%s)"
+PRIOR=""
+if [[ -n "$FP" ]]; then
+  if (( RUN_FRESH )); then
+    : > "$LEDGER" 2>/dev/null || true
+  elif [[ -f "$LEDGER" ]]; then
+    PRIOR="$(awk -F'\t' -v fp="$FP" -v now="$NOW" -v ttl="$LEDGER_TTL" \
+      '$1==fp && $3=="PASS" && (now-$2)<=ttl {print $2 "\t" $4}' "$LEDGER")"
+  fi
+fi
+
+prior_at() {                   # $1 = cmd; prints the epoch of a reusable PASS, else nothing
+  [[ -n "$PRIOR" ]] || return 0
+  printf '%s\n' "$PRIOR" | awk -F'\t' -v c="$1" '$2==c {print $1; exit}'
+}
+
 # --- runner --------------------------------------------------------------------------------
 # macOS ships bash 3.2 (no associative arrays): SEEN is a newline-separated list of
 # "<status><TAB><cmd>" records, looked up by exact command match.
@@ -101,6 +142,16 @@ run_one() {                    # $1 = label/ID, $2 = command string
     printf '%s  %-4s %s  (same command as an earlier line — not re-run)\n' "$status" "$id" "$cmd"
     return
   fi
+  local at
+  at="$(prior_at "$cmd")"
+  if [[ -n "$at" ]]; then
+    RESULTS+=("PASS	$id	$cmd	(ledger)")
+    printf 'PASS  %-4s %s  (proven against this exact tree at %s — not re-run)\n' \
+      "$id" "$cmd" "$(date -r "$at" '+%H:%M:%S')"
+    SEEN="$SEEN
+PASS	$cmd"
+    return
+  fi
   n=$((n+1))
   local log="$LOG_DIR/$(printf '%02d' "$n")-$id.log"
   if ( eval "$cmd" ) >"$log" 2>&1; then
@@ -110,6 +161,9 @@ run_one() {                    # $1 = label/ID, $2 = command string
   fi
   SEEN="$SEEN
 $status	$cmd"
+  if [[ "$status" == PASS && -n "$FP" ]]; then
+    printf '%s\t%s\tPASS\t%s\n' "$FP" "$NOW" "$cmd" >>"$LEDGER" 2>/dev/null || true
+  fi
   RESULTS+=("$status	$id	$cmd")
   printf '%s  %-4s %s\n' "$status" "$id" "$cmd"
   if [[ "$status" == FAIL ]]; then
@@ -202,6 +256,9 @@ if (( RUN_BASELINE )); then
   run_one lint  "make lint"
   run_one web-build "make web-build"
   run_one web-test  "make web-test"
+  run_one web-lint  "make web-lint"        # Biome lint + format over web/src, web/e2e, web/scripts
+  run_one contrast  "make contrast"        # AA contrast/hue/literal gate over web/src/style.css
+  run_one versions  "make check-versions"  # no stale Claude Code version-range fragment
   run_one e2e-honest "! rg -n 'test\\.(skip|fixme|only)\\(' web/e2e"   # a skipped/only spec is a vacuous pass (file-drop-fix E9 class)
   run_one kb-check  "make check-kb"   # records parse, cited kb: ids resolve, generated INDEX/contract/rules/CLAUDE trailers fresh
   run_one dead-refs "python3 .claude/skills/orchestrate/scripts/dead-refs.py --all"   # cited paths / make targets / musterd flags exist (two second review cycles were dead references, 2026-09-10)

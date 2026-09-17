@@ -189,9 +189,13 @@ npx playwright test --list
 ### 5. Sweep the full suite for plan-superseded specs
 
 Once your own spec file passes, run the **full** suite (`make e2e` from the project root) before
-reporting `pass`. If a repair touched a wait, locator or oracle in a test that had failed
-intermittently, also run `make e2e-soak SPEC=<file> N=10` and paste its summary line in the Repairs
-row. The plan's approved protocol delta changes wire shapes and value semantics that *pre-existing*
+reporting `pass`. Then soak **every spec file this plan authored or changed** —
+`make e2e-soak SPEC=<file> N=10` each, summary line pasted in its Tests or Repairs row. Not only
+the ones that already flaked: a spec that is flaky from birth passes its first sweep and then reds
+somewhere downstream, where nobody can fix it but you. A red soak is yours to fix now, never a
+flake to report (kb:lesson/transient-display-is-not-an-oracle).
+
+The plan's approved protocol delta changes wire shapes and value semantics that *pre-existing*
 specs may assert the old way, and those specs are also yours (kb:lesson/validate-red-blamed-on-implementation). Triage each non-plan failure:
 
 - **The plan's approved delta (its Protocol Contract section / the merged `docs/protocol.md`)

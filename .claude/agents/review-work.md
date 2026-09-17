@@ -27,23 +27,29 @@ Then read the **actual source files** listed in the implementation logs to revie
 
 ## Review Process
 
-### 1. Run the Full E2E Suite First
+### 1. Run Every Gate First
 
-Before doing any code review, run the **whole** Playwright suite — not just this plan's spec file — from the project root:
+Before any code review, run every gate — baseline suites plus the whole ```checks block — in
+**one** invocation from the project root, with `timeout: 600000` on the Bash call (a cold run
+exceeds the 120 s default and the harness would background it out from under you,
+kb:lesson/subagent-never-woken-by-harness):
 
 ```bash
-make e2e
+GATES_LOG_DIR=/tmp/review-gates .claude/skills/orchestrate/scripts/gates.sh <plan-name>
 ```
 
-`make e2e` rebuilds the dashboard and the binary first (the harness serves prebuilt artifacts; a
-bare `npm run e2e` tests whatever was last compiled) and allocates its own port. Nothing else may
-build while it runs: a concurrent `npm run build` or `make web-build` swaps the bundle mid-sweep and
-fails specs with "element(s) not found", exactly like a real regression — §2's builds run after §1
-finishes, never beside it.
+One invocation is what makes each command run once: the runner dedupes a ```checks line equal to
+a baseline gate, reuses a PASS already proven against this exact tree, and runs everything
+sequentially so no build swaps the bundle under a running sweep. Full per-command output lands in
+`/tmp/review-gates`.
 
-If the diff repairs a flaky spec (a Repairs row or a `TODO.md`/plan entry names a flake), also run `make e2e-soak SPEC=<file> N=10` — one green `make e2e` does not distinguish a fix from a lucky roll.
+**You are the final validation** — nobody re-proves these gates between your verdict and doc
+reconciliation, so a red line is yours to report, never to skip. If the diff repairs a flaky spec
+(a Repairs row or a `TODO.md`/plan entry names a flake) that the ```checks block does not already
+soak, also run `make e2e-soak SPEC=<file> N=10` — one green sweep cannot tell a fix from a lucky
+roll.
 
-This run is a **regression sweep**, deliberately not redundant with the pipeline's E2E Validate step (which runs only this plan's spec file). You are the first and only step before approval that runs every spec — so you are the one who catches this plan's implementation breaking somebody else's test.
+The `make e2e` in that run is a **regression sweep** over every spec, not just this plan's — so you are the one who catches this plan's implementation breaking somebody else's test. Reported as reused, it is a pass against this exact tree; treat it as run.
 
 Tag failures by cause, not by convenience:
 
@@ -60,33 +66,25 @@ carrying a field Claude Code never sends is dishonest even when green).
 
 Set the verdict to `needs-changes` for any E2E failure. **Do not stop here** — continue with the full review below so that all issues surface in a single cycle.
 
-### 2. Run Unit Tests, Builds, Lint
+### 2. Read the Gate Results
 
-From the repo root / `web/` as appropriate:
+§1's run covers the daemon and web builds, `make test`, both lint gates, the contrast and
+version gates, `make check-kb`, dead-refs, `make e2e` and every line of the ```checks block —
+with the `rg` shim and pinned Node handled. Do not re-run any of them by hand; a second
+invocation re-runs suites the first already proved.
 
-```bash
-go build ./...     # Daemon build
-make test          # Daemon unit tests
-make lint          # golangci-lint
-npm run build      # Web build (tsc + Vite), from web/
-npm test           # Web unit tests (Vitest), from web/
-make check-kb      # records parse, cited ids resolve, generated files fresh
-```
-
-If any fail, tag as Critical and continue with the review to catch additional issues.
-
-Then run the plan's **authored acceptance checks**: `.claude/skills/orchestrate/scripts/gates.sh
-<plan-name> --checks-only` runs the whole ```checks block from the repo root, one `PASS`/`FAIL` line
-per ID, with the `rg` shim and pinned Node handled. Each line is `<ID> <single-line shell command>`
-and passes iff it exits 0. Report every result by ID in the `## Acceptance Checks` table. A failing
-check is **Critical**, tagged to the agent owning the file it names. Never treat a check as
-satisfied because a related command passed — run the exact line.
+Each ```checks line is `<ID> <single-line shell command>` and passes iff it exits 0. Report
+every result by ID in the `## Acceptance Checks` table — including a line the runner reused or
+deduped, which is a pass against this exact tree, not a skip. A failing check or baseline gate
+is **Critical**, tagged to the agent owning the file it names, and you continue the review so
+that all issues surface in a single cycle. Never treat a check as satisfied because a related
+command passed — the exact line must have run.
 
 If the plan has no ```checks block, note it under Minor tagged `[orchestrator]` (a plan defect — only *agent-tagged* Minors block approval) and verify the prose criteria by hand. Never substitute a partial parse of a compound prose criterion for the criterion itself.
 
 Also verify the plan's `### Reviewer-Verified` list explicitly, item by item — those items exist precisely because no command can check them.
 
-Doc upkeep (`TODO.md` tick, an ADR for every `deviation:` line, fact records) was done by the orchestrator before you were spawned: report it as one `DOC pass | FAIL — <what is missing>` row of `## Acceptance Checks`. A missing or false ADR is the one Major in that area (§8); a *false* user-facing statement is still a Major under §8. (`make check-kb` needs no row of its own — §2's command list already runs it as a build gate.)
+Doc upkeep (`TODO.md` tick, an ADR for every `deviation:` line, fact records) was done by the orchestrator before you were spawned: report it as one `DOC pass | FAIL — <what is missing>` row of `## Acceptance Checks`. A missing or false ADR is the one Major in that area (§8); a *false* user-facing statement is still a Major under §8. (`make check-kb` needs no row of its own — §1's run already covers it as a baseline gate.)
 
 **Also check the plan's `## Doc Delta` against what shipped.** Each line asserts something that is now true of a feature spec or `docs/protocol.md`; `doc-reconcile` promotes them verbatim after you approve, so you are the last adversarial reader of those claims. An assertion the code does not support is a Major, tagged to the agent that owns the code — not to the docs. You never edit the delta; `docs/features/*/spec.md` and `docs/protocol.md` are reconciled after this step, so their current contents are not yours to judge.
 
@@ -215,9 +213,9 @@ Because a Minor costs a fix wave and a re-review, keep the line to Note sharp: n
 ### 9. Delta Re-review
 
 Applies **only** when the orchestrator's prompt says the previous cycle's only open agent-tagged
-issues were Minors. §1 (the full `make e2e` sweep) and §2 (builds, unit tests, lint, `gates.sh
---checks-only`) still run in full — they are the regression net. For the rest, read the previous
-review (`plans/<plan-name>/review.cycle<N-1>.md`, archived by the orchestrator) and verify each
+issues were Minors. §1's gate run still happens in full — it is the regression net, and you are
+still the final validation. For the rest, read the previous review
+(`plans/<plan-name>/review.cycle<N-1>.md`, archived by the orchestrator) and verify each
 Minor against `git diff <that review's commit>..HEAD`: the fix is present, does what the Minor
 asked, and changes nothing beyond what it needed. Skip §2a and the §3–§7 re-read **unless** the diff
 touches non-test files under `web/src/`, `internal/` or `cmd/` beyond a Minor's stated scope — then

@@ -241,7 +241,7 @@ runs through the ordinary fix waves, the full suite and a delta re-review, count
 cycle (kb:lesson/decision-made-inside-a-fix-wave).
 
 **Review Retry Logic** — on `needs-changes`, the sequence is always wave 1 → gate → wave 2 → gate
-→ wave 3 → gate → full suite → review; never start a later wave before an earlier one has landed:
+→ wave 3 → gate → review; never start a later wave before an earlier one has landed:
 
 1. Read `review.md` and bucket every tagged issue: `[daemon-impl]`, `[web-impl]`, `[daemon-tests]`, `[web-tests]`, `[e2e-specs]`.
    - `[orchestrator]` issues are yours — never spawn an agent for them; handle them in Doc-Upkeep /
@@ -264,14 +264,11 @@ cycle (kb:lesson/decision-made-inside-a-fix-wave).
    - Max 2 debates per run. A third decision item, or any item on the skill's never-debated list, stops the pipeline and asks the user (kb:lesson/decision-made-inside-a-fix-wave).
 2. **Do not fan all five out at once — they are not independent.** Group the non-empty buckets into waves per Fix Wave Ordering and run them strictly in order. Within a wave, spawn its agents in parallel (multiple Agent calls in one message); between waves, wait for completion, stamp `finish <step>` for each agent that reported, and run the wave's gate.
 3. If a wave's gate fails, that wave's fix was incomplete. End the cycle there — count it against the review budget and report — rather than starting the next wave on a broken tree.
-4. **MANDATORY**: after the last wave completes and its gate passes, run
-   `.claude/skills/orchestrate/scripts/gates.sh <plan>` fresh (Final Validation) — the baseline
-   suites plus every line of the plan's ```checks block. `--no-e2e` is allowed only for a cycle
-   whose waves were unit-test-only; a cycle with a `[daemon-impl]`, `[web-impl]` or `[e2e-specs]`
-   wave always runs `make e2e`. If wave 3's gate already ran the full suite and nothing has changed
-   since, that run counts — do not run it twice. Any failure means the fix was incomplete — count
-   it against the review budget.
-5. Only AFTER the gate passes: `python3 $S <plan> archive review.md`, then `retry review` — **once per cycle**, not once per wave — then re-spawn the review agent.
+4. Do **not** run a full-suite gate of your own here. The reviewer's §1 runs
+   `gates.sh <plan>` — the baseline suites plus every line of the ```checks block — and that run
+   is the cycle's final validation. A red line reaches you as a Critical in `review.md`, alongside
+   the code findings the same cycle produced, so one fix wave answers both.
+5. `python3 $S <plan> archive review.md`, then `retry review` — **once per cycle**, not once per wave — then re-spawn the review agent.
 
 ### Review Cycle Exhaustion
 
