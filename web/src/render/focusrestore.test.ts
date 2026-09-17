@@ -2,11 +2,7 @@
 // drives around the disconnect->reconnect render pair. No DOM — `RestorableCandidate` is
 // duck-typed, so a plain object stands in for `document.activeElement`.
 import { describe, expect, it } from "vitest";
-import {
-  isRestorableControl,
-  shouldRestoreFocus,
-  type RestorableCandidate,
-} from "./focusrestore";
+import { isRestorableControl, shouldRestoreFocus, type RestorableCandidate } from "./focusrestore";
 
 /** `closest` answers `#app` (or not) the way a real DOM node would: an element inside the
  * shell resolves `#app`, one outside it (or the shell root itself, absent from a real
@@ -55,9 +51,9 @@ describe("isRestorableControl", () => {
 
 describe("shouldRestoreFocus (W2 decision table)", () => {
   it("is true only for {activeIsBody: true, stillInDocument: true, disabled: false}", () => {
-    expect(
-      shouldRestoreFocus({ activeIsBody: true, stillInDocument: true, disabled: false }),
-    ).toBe(true);
+    expect(shouldRestoreFocus({ activeIsBody: true, stillInDocument: true, disabled: false })).toBe(
+      true,
+    );
   });
 
   it("is false when the user has already focused something else after reconnect (activeIsBody: false)", () => {
@@ -78,9 +74,9 @@ describe("shouldRestoreFocus (W2 decision table)", () => {
   // Edge case 9: the control stays disabled after reconnect (e.g. Resume on a still-live
   // session).
   it("is false when the remembered element is still disabled (edge case 9)", () => {
-    expect(
-      shouldRestoreFocus({ activeIsBody: true, stillInDocument: true, disabled: true }),
-    ).toBe(false);
+    expect(shouldRestoreFocus({ activeIsBody: true, stillInDocument: true, disabled: true })).toBe(
+      false,
+    );
   });
 
   it("is false when every condition fails", () => {

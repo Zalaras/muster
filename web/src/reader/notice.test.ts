@@ -16,9 +16,7 @@ describe("deriveNotice — status precedence (INV-POPOUT-CONNECTING, W3)", () =>
   ];
   for (const [loadingPath, bodyRendered, noticeText] of connectingCells) {
     it(`is "connecting…" for status "connecting" with loadingPath=${JSON.stringify(loadingPath)}, bodyRendered=${bodyRendered}, noticeText=${JSON.stringify(noticeText)}`, () => {
-      expect(deriveNotice("connecting", loadingPath, bodyRendered, noticeText)).toBe(
-        "connecting…",
-      );
+      expect(deriveNotice("connecting", loadingPath, bodyRendered, noticeText)).toBe("connecting…");
     });
   }
 
@@ -47,15 +45,11 @@ describe("deriveNotice — status 'connected' (existing loading/outcome rules, W
   const status: ConnectionStatus = "connected";
 
   it("loadingPath set, bodyRendered true → the loading cue names the file", () => {
-    expect(deriveNotice(status, "docs/notes.md", true, "stale outcome")).toBe(
-      "loading notes.md…",
-    );
+    expect(deriveNotice(status, "docs/notes.md", true, "stale outcome")).toBe("loading notes.md…");
   });
 
   it("loadingPath set, bodyRendered false → falls through to noticeText, not the loading cue", () => {
-    expect(deriveNotice(status, "docs/notes.md", false, "stale outcome")).toBe(
-      "stale outcome",
-    );
+    expect(deriveNotice(status, "docs/notes.md", false, "stale outcome")).toBe("stale outcome");
   });
 
   it("loadingPath null, bodyRendered true → falls through to noticeText", () => {
