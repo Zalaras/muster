@@ -119,7 +119,9 @@ fi
 
 prior_at() {                   # $1 = cmd; prints the epoch of a reusable PASS, else nothing
   [[ -n "$PRIOR" ]] || return 0
-  printf '%s\n' "$PRIOR" | awk -F'\t' -v c="$1" '$2==c {print $1; exit}'
+  # Via ENVIRON, never `awk -v`: -v processes backslash escapes in the value, so a command
+  # containing \. or \( never matched itself and re-ran every time.
+  GATES_CMD="$1" awk -F'\t' '$2==ENVIRON["GATES_CMD"] {print $1; exit}' <<<"$PRIOR"
 }
 
 # --- runner --------------------------------------------------------------------------------
@@ -131,7 +133,7 @@ FAILS=0
 n=0
 
 seen_status() {                # $1 = cmd; prints PASS/FAIL if already run, else nothing
-  printf '%s\n' "$SEEN" | awk -F'\t' -v c="$1" '$2==c {print $1; exit}'
+  GATES_CMD="$1" awk -F'\t' '$2==ENVIRON["GATES_CMD"] {print $1; exit}' <<<"$SEEN"
 }
 
 run_one() {                    # $1 = label/ID, $2 = command string
