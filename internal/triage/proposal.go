@@ -34,6 +34,14 @@ type Proposal struct {
 // appear verbatim in the sanitised body, which is already stripped of markup and links.
 const maxErrorString = 80
 
+// StructureForging are the sequences that would let author text forge structure once spliced
+// into TODO.md: a tag, a table cell, a link, a code span.
+//
+// Two callers, two dispositions. [checkErrorString] rejects a quote containing one, because a
+// quote is optional and a bad one holds the issue. [HeaderSafe] replaces them instead, because
+// a title is not optional — the entry still has to file when the title is hostile.
+var StructureForging = []string{"<", ">", "|", "](", "`"}
+
 // reJSONFence strips one wrapping code fence. The model will add one; that is not an
 // error worth holding an issue over. Anything outside the fence is.
 var reJSONFence = regexp.MustCompile("(?s)\\A\\s*```(?:json)?\\s*\\n(.*?)\\n\\s*```\\s*\\z")
@@ -124,8 +132,7 @@ func checkErrorString(s, sanitisedBody string) error {
 	if strings.ContainsAny(s, "\n\r\t") {
 		return fmt.Errorf("error_string contains a line break")
 	}
-	// Characters that would let a quote forge structure once spliced into TODO.md.
-	for _, bad := range []string{"<", ">", "|", "](", "`"} {
+	for _, bad := range StructureForging {
 		if strings.Contains(s, bad) {
 			return fmt.Errorf("error_string contains %q", bad)
 		}

@@ -19,9 +19,9 @@
 - A nested `CLAUDE.md` is budgeted at 400 words outside kb fragments, the root at 150 lines (`internal/kb/budget.go`).
 
 <!-- kb:trailer -->
-<!-- kb:hash 25eaa23ca7ed88d9 -->
+<!-- kb:hash 69a062ef0fc6feff -->
 - **canary** — The verified Claude Code version range, canary tiers, and the fragments tools/versions regenerates. → `docs/features/canary/INDEX.md`
 - **knowledge** — Typed knowledge records, the kb tool that indexes and gates them, and the generated rules and indexes. → `docs/features/knowledge/INDEX.md`
 - **triage** — GitHub issues into TODO.md through a program, and the pre-commit link guard. → `docs/features/triage/INDEX.md`
-- 3 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 4 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

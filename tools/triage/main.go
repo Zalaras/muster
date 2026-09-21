@@ -19,6 +19,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -46,7 +47,7 @@ func realRun(ctx context.Context, name string, args ...string) ([]byte, []byte, 
 
 func run(args []string, stdout io.Writer, runCmd triage.RunFunc) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: triage <fetch|apply|audit> [flags]")
+		return fmt.Errorf("usage: triage <fetch|apply|table|audit> [flags]")
 	}
 	root, module, err := repoRoot()
 	if err != nil {
@@ -58,10 +59,12 @@ func run(args []string, stdout io.Writer, runCmd triage.RunFunc) error {
 		return cmdFetch(ctx, args[1:], stdout, runCmd, root, module)
 	case "apply":
 		return cmdApply(ctx, args[1:], stdout, runCmd, root, module)
+	case "table":
+		return cmdTable(args[1:], stdout)
 	case "audit":
 		return cmdAudit(ctx, stdout, runCmd, root, module)
 	default:
-		return fmt.Errorf("unknown subcommand %q (want fetch, apply or audit)", args[0])
+		return fmt.Errorf("unknown subcommand %q (want fetch, apply, table or audit)", args[0])
 	}
 }
 
@@ -184,6 +187,64 @@ func cmdApply(ctx context.Context, args []string, stdout io.Writer, runCmd triag
 	}
 	if len(held) > 0 {
 		fmt.Fprintf(stdout, "\n%d proposal(s) rejected:\n%s\n", len(held), strings.Join(held, "\n"))
+	}
+	return nil
+}
+
+// cmdTable prints the ranking table the developer picks sections from.
+//
+// It exists so that step is served by validated pipeline output rather than by a gh call: on
+// 2026-09-21 the session reached for `gh issue list` to get titles, because dispatch.json
+// carried none. Read-only by construction — it opens no file for writing and never touches
+// TODO.md or the tracker.
+//
+// A title is printed only for a row the artifact marks readable (owner-filed, unflagged);
+// every other row shows its enums alone, so a facts-only body still reaches no session.
+func cmdTable(args []string, stdout io.Writer) error {
+	artDir, err := flagValue(args, "--artifacts")
+	if err != nil {
+		return err
+	}
+	propDir, perr := flagValue(args, "--proposals")
+	if perr != nil {
+		return perr
+	}
+	if artDir == "" || propDir == "" {
+		return fmt.Errorf("usage: triage table --artifacts DIR --proposals DIR")
+	}
+
+	index, err := triage.ReadIndex(artDir)
+	if err != nil {
+		return err
+	}
+	sort.Slice(index, func(i, j int) bool { return index[i].Number < index[j].Number })
+
+	fmt.Fprintln(stdout, "| # | title | component | symptom | section hint |")
+	fmt.Fprintln(stdout, "|---|---|---|---|---|")
+	var held []string
+	for _, a := range index {
+		if a.Route == triage.PathHeld {
+			held = append(held, fmt.Sprintf("  #%d held — %s", a.Number, strings.Join(a.Flags.Strings(), " ")))
+			continue
+		}
+		raw, rerr := os.ReadFile(filepath.Join(propDir, fmt.Sprintf("%d.json", a.Number)))
+		if rerr != nil {
+			return fmt.Errorf("reading proposal for issue %d: %w", a.Number, rerr)
+		}
+		p, verr := triage.ValidateProposal(raw, a)
+		if verr != nil {
+			held = append(held, fmt.Sprintf("  #%d held — %v", a.Number, verr))
+			continue
+		}
+		title := "—"
+		if triage.Readable(a.AuthorAssociation, a.Route) {
+			title = triage.HeaderSafe(a.Title)
+		}
+		fmt.Fprintf(stdout, "| %d | %s | %s | %s | %s |\n",
+			a.Number, title, p.Component, p.Symptom, p.SectionHint)
+	}
+	if len(held) > 0 {
+		fmt.Fprintf(stdout, "\n%d issue(s) not in the table:\n%s\n", len(held), strings.Join(held, "\n"))
 	}
 	return nil
 }

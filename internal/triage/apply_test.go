@@ -51,8 +51,8 @@ func applyFixture(t *testing.T) (root string, arts map[int]Artifact, props map[i
 		t.Fatal(err)
 	}
 	arts = map[int]Artifact{
-		77: {Number: 77, Nonce: "n77", Body: "context deadline exceeded"},
-		78: {Number: 78, Nonce: "n78", Body: "boom"},
+		77: {Number: 77, Nonce: "n77", Body: "context deadline exceeded", Route: PathFactsOnly},
+		78: {Number: 78, Nonce: "n78", Body: "boom", Route: PathNormal, Title: "tmux pane dies on resize", AuthorAssociation: OwnerAssociation},
 	}
 	props = map[int]Proposal{
 		77: {Number: 77, Component: "daemon", Symptom: "hang", ErrorString: "context deadline exceeded"},

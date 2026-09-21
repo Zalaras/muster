@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Zalaras/muster/internal/triage"
 )
 
 const todoSeed = `# Muster backlog
@@ -204,10 +206,13 @@ func assertApplyPhase(t *testing.T, root, artDir string, gh *stubGH, out *string
 	if err := os.MkdirAll(propDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	var nonce56, body56 string
+	var nonce56, body56, nonce9 string
 	for _, a := range index {
 		if a.Number == 56 {
 			nonce56, body56 = a.Nonce, a.Body
+		}
+		if a.Number == 9 {
+			nonce9 = a.Nonce
 		}
 	}
 	if !strings.Contains(body56, "cannot bind port 7777") {
@@ -218,14 +223,22 @@ func assertApplyPhase(t *testing.T, root, artDir string, gh *stubGH, out *string
 		"error_string": "cannot bind port 7777", "section_hint": "Reported issues (pre-v1 release)",
 	})
 	write(t, filepath.Join(propDir, "56.json"), string(reply))
+	// Issue 9 is the OWNER-filed, unflagged one: it routes normal and is the only end-to-end
+	// exercise of that render path. Before 2026-09-21 it was fetched and never filed, so the
+	// path that carries a title had no end-to-end coverage at all.
+	reply9, _ := json.Marshal(map[string]any{
+		"number": 9, "ack": nonce9, "component": "daemon", "symptom": "missing-feature",
+		"error_string": "", "section_hint": "M5+ (v1.x, re-rank when reached)",
+	})
+	write(t, filepath.Join(propDir, "9.json"), string(reply9))
 	decFile := filepath.Join(root, "decisions.json")
-	write(t, decFile, `{"56":"Reported issues (pre-v1 release)"}`)
+	write(t, decFile, `{"56":"Reported issues (pre-v1 release)","9":"M5+ (v1.x, re-rank when reached)"}`)
 
 	out.Reset()
 	if err := run([]string{"apply", "--artifacts", artDir, "--proposals", propDir, "--decisions", decFile}, out, gh.run); err != nil {
 		t.Fatalf("apply: %v", err)
 	}
-	if len(gh.commits) != 1 || gh.commits[0] != "docs(triage): file #56 into the backlog" {
+	if len(gh.commits) != 1 || gh.commits[0] != "docs(triage): file #9 and #56 into the backlog" {
 		t.Errorf("commits = %v", gh.commits)
 	}
 	todo, todoErr := os.ReadFile(filepath.Join(root, "TODO.md"))
@@ -239,7 +252,23 @@ func assertApplyPhase(t *testing.T, root, artDir string, gh *stubGH, out *string
 	if !strings.Contains(got, `"cannot bind port 7777"`) {
 		t.Errorf("the quoted error did not survive:\n%s", got)
 	}
-	// It landed in its own section and forged no structure.
+	assertBothRenderPaths(t, got)
+}
+
+// assertBothRenderPaths checks the two entries the apply phase filed: the normal one carries
+// the issue's own title and makes no claim about the reporter, the facts-only one still
+// withholds, and neither forged structure on the way in.
+func assertBothRenderPaths(t *testing.T, got string) {
+	t.Helper()
+	if !strings.Contains(got, "- [ ] **billing** ([#9](https://github.com/Zalaras/muster/issues/9))") {
+		t.Errorf("the normal-path entry does not carry its title:\n%s", got)
+	}
+	if strings.Contains(got, "issues/9)) — daemon: missing-feature.\n  (reporter not trusted") {
+		t.Error("the normal-path entry claims its reporter is untrusted")
+	}
+	if !strings.Contains(got, "reporter not trusted; body withheld") {
+		t.Errorf("the facts-only entry dropped its withheld clause:\n%s", got)
+	}
 	if strings.Count(got, "\n## ") != strings.Count(todoSeed, "\n## ") {
 		t.Error("the splice changed the section structure")
 	}
@@ -302,20 +331,10 @@ type indexRow struct {
 	Number int
 	Nonce  string
 	Body   string
-	Route  routeString
-}
-
-type routeString int
-
-func (r routeString) String() string {
-	switch r {
-	case 0:
-		return "normal"
-	case 1:
-		return "facts-only"
-	default:
-		return "held"
-	}
+	// triage.Path, not a local copy with hardcoded integers: Artifact carries no JSON tags,
+	// so index.json encodes Route as the enum's ordinal. A second copy of that mapping here
+	// silently disagreed with the package when PathFactsOnly became the zero value.
+	Route triage.Path
 }
 
 func readIndex(t *testing.T, dir string) ([]indexRow, error) {

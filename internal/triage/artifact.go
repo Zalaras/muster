@@ -192,11 +192,18 @@ func WriteIndex(dir string, arts []Artifact) error {
 const DispatchFile = "dispatch.json"
 
 // Dispatch is one row of DispatchFile.
+//
+// Title and Readable are populated together and only for an owner-filed, unflagged issue
+// ([Readable]). They are what lets the session build a ranking table from this file instead
+// of reaching for gh, which is how author text used to enter it unsanitised. Every other
+// row carries no title, so a facts-only body still reaches no session.
 type Dispatch struct {
-	Number int    `json:"number"`
-	Path   string `json:"path"`
-	Ack    string `json:"ack"`
-	Route  string `json:"route"`
+	Number   int    `json:"number"`
+	Path     string `json:"path"`
+	Ack      string `json:"ack"`
+	Route    string `json:"route"`
+	Title    string `json:"title,omitempty"`
+	Readable bool   `json:"readable,omitempty"`
 }
 
 // WriteDispatch records how to reach each artifact that a proposer should read. Held
@@ -207,12 +214,17 @@ func WriteDispatch(dir string, arts []Artifact) error {
 		if a.Route == PathHeld {
 			continue
 		}
-		rows = append(rows, Dispatch{
+		row := Dispatch{
 			Number: a.Number,
 			Path:   filepath.Join(dir, fmt.Sprintf("%d.md", a.Number)),
 			Ack:    a.Nonce,
 			Route:  a.Route.String(),
-		})
+		}
+		if Readable(a.AuthorAssociation, a.Route) {
+			row.Readable = true
+			row.Title = a.Title
+		}
+		rows = append(rows, row)
 	}
 	b, err := json.MarshalIndent(rows, "", "  ")
 	if err != nil {

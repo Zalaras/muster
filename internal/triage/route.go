@@ -54,12 +54,19 @@ func Tripwire(clean string) (string, bool) {
 type Path int
 
 const (
-	// PathNormal keeps today's richer prose entry. Reached only by a clean body from a
-	// trusted association — in practice, an issue the developer filed from their own dashboard.
-	PathNormal Path = iota
 	// PathFactsOnly renders from enums and one quoted substring, with no model-authored
 	// prose reaching TODO.md.
-	PathFactsOnly
+	//
+	// It is the zero value deliberately. An Artifact whose Route was never set — a test
+	// fixture, a struct decoded from an index written by another build — must render the
+	// strict form, because the lax one is the only one that can leak. Before 2026-09-21
+	// PathNormal held this slot and every Artifact literal in the tests meant "normal"
+	// by accident.
+	PathFactsOnly Path = iota
+	// PathNormal additionally carries the sanitised issue title. The program supplies that
+	// title and no model writes any part of the entry. Reached only by a clean body from a
+	// trusted association — in practice, an issue the developer filed from their own dashboard.
+	PathNormal
 	// PathHeld never reaches a model at all and is reported for review.
 	PathHeld
 )
@@ -68,10 +75,10 @@ func (p Path) String() string {
 	switch p {
 	case PathNormal:
 		return "normal"
-	case PathFactsOnly:
-		return "facts-only"
-	default:
+	case PathHeld:
 		return "held"
+	default:
+		return "facts-only"
 	}
 }
 
@@ -129,6 +136,24 @@ func (f Flags) Strings() []string {
 // normal path is effectively self-filed-only. Nothing may fall back to comparing the
 // login against a name: the login is not the check, and an account can be renamed.
 var TrustedAssociations = map[string]bool{"OWNER": true, "MEMBER": true}
+
+// OwnerAssociation is the single association that means the repository owner filed this
+// themselves.
+//
+// TrustedAssociations is deliberately wider — MEMBER earns the richer render path too — but
+// only OWNER earns an in-session read. The member set grows the moment a collaborator is
+// added, and a grant keyed on it would widen with it, silently and without anyone revisiting
+// this decision (kb:adr/triage-owner-filed-artifacts-readable-in-session).
+const OwnerAssociation = "OWNER"
+
+// Readable reports whether the main session may open this issue's sanitised artifact.
+//
+// Both halves are required. PathNormal means Sanitize raised no flag on the title or the
+// body; OwnerAssociation means the text is the developer's own. Neither alone is enough: a
+// flagged owner issue is facts-only, and a clean MEMBER issue is somebody else's prose.
+func Readable(association string, route Path) bool {
+	return route == PathNormal && association == OwnerAssociation
+}
 
 // Route decides where an issue goes. Flags dominate association: a trusted author whose
 // body needed intervention still takes the facts-only path, because the question is what

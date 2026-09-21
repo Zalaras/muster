@@ -26,9 +26,12 @@ const todoFixture = `# Muster backlog
   — someday.
 `
 
+// Route is set explicitly, never left to the zero value: which path the zero value names is
+// exactly the thing that changed on 2026-09-21, and a fixture that relies on it silently
+// changes meaning with it.
 func testEntry(n int) string {
 	return RenderEntry(
-		Artifact{Number: n},
+		Artifact{Number: n, Route: PathFactsOnly},
 		Proposal{Component: "daemon", Symptom: "hang", ErrorString: "context deadline exceeded"},
 		"Zalaras/muster",
 	)
@@ -184,7 +187,7 @@ func TestCheckEntryShape(t *testing.T) {
 // no attacker-derived byte can reach column 0 of a continuation line.
 func TestRenderEntryShapeHolds(t *testing.T) {
 	for _, quote := range []string{"", "context deadline exceeded", strings.Repeat("x", maxErrorString)} {
-		e := RenderEntry(Artifact{Number: 7}, Proposal{Component: "tmux", Symptom: "crash", ErrorString: quote}, "Zalaras/muster")
+		e := RenderEntry(Artifact{Number: 7, Route: PathFactsOnly}, Proposal{Component: "tmux", Symptom: "crash", ErrorString: quote}, "Zalaras/muster")
 		if err := CheckEntryShape(e); err != nil {
 			t.Errorf("quote %q: %v\n%s", quote, err, e)
 		}

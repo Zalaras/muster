@@ -8,7 +8,9 @@
 - `Sanitize` transform order is fixed: bidi reject, truncate, strip image then link, defang URLs, HTML-escape ampersand first, escape non-ASCII. Each swap is a tested defect.
 - Triage state is derived from `TODO.md` links, never stored; triage never closes an issue (kb:adr/triage-state-derived-from-todo, kb:adr/triage-auto-close-never).
 - A schema value of the wrong kind is dropped, never coerced.
-- A rendered entry carries no author-controlled heading; containing what `Sanitize` lets through is `RenderEntry`'s job.
+- A rendered entry carries no author-controlled heading; containing what `Sanitize` lets through is `RenderEntry`'s job. The normal path puts the sanitised title in the bold span, so every title goes through `HeaderSafe` first — `Sanitize` preserves markdown deliberately, and `*` alone makes the pre-commit hook refuse the commit (kb:adr/triage-normal-path-carries-the-sanitised-title).
+- `PathFactsOnly` is the zero value of `Path`, so an unset or unknown route renders the strict form. Set `Route` explicitly in every `Artifact` literal rather than leaning on it.
+- Only an `OWNER`-filed, unflagged artifact may be read in the main session; `Readable` is the one predicate, and `TrustedAssociations` is deliberately wider (kb:adr/triage-owner-filed-artifacts-readable-in-session).
 
 **Exemplar**: `sanitize.go` — fixed-order transforms, sentinel refusals, constant markers; copy this shape for a new transform.
 
@@ -18,7 +20,7 @@
 - `testdata/issue-9.md` is a genuine filed issue with an embedded snapshot; the snapshot tests read it.
 
 <!-- kb:trailer -->
-<!-- kb:hash 9237eb7dbfe3388c -->
+<!-- kb:hash a68119ff97ef9287 -->
 - **triage** — GitHub issues into TODO.md through a program, and the pre-commit link guard. → `docs/features/triage/INDEX.md`
-- 3 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 5 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->
