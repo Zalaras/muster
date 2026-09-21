@@ -234,73 +234,62 @@ No entries are open here right now (the last seven were closed by plan `general-
 2026-09-16). When there are, they sit in **the developer's priority order**, not issue-number or
 filing order. Keep new entries appended at the end unless they re-rank — don't re-sort this list.
 
-- [ ] **dashboard: missing-feature** ([#27](https://github.com/Zalaras/muster/issues/27))
-  — no error text was quoted. Entry generated from validated fields only
-  (reporter not trusted; body withheld) — read issue #27 for the detail.
+- [ ] **Remove All Sessions** ([#27](https://github.com/Zalaras/muster/issues/27)) — a bulk "remove everything" action to start from a
+  clean slate, plus the option to select several sessions and remove those.
 
-- [ ] **dashboard: wrong-output** ([#28](https://github.com/Zalaras/muster/issues/28))
-  — no error text was quoted. Entry generated from validated fields only
-  (reporter not trusted; body withheld) — read issue #28 for the detail.
+- [ ] **New Session Reset** ([#28](https://github.com/Zalaras/muster/issues/28)) — picking a folder in the new-session dialog resets the options
+  already chosen, even when it is the same folder. Also change the default mode to manual or
+  auto, never accept-edits.
 
-- [ ] **daemon: missing-feature** ([#29](https://github.com/Zalaras/muster/issues/29))
-  — no error text was quoted. Entry generated from validated fields only
-  (reporter not trusted; body withheld) — read issue #29 for the detail.
+- [ ] **Block model selection** ([#29](https://github.com/Zalaras/muster/issues/29)) — a session can be launched with a model that is not
+  available (e.g. Fable) and Claude then errors when changing it. Block the selection, or refuse
+  the launch — erroring after the fact is not user-friendly.
 
-- [ ] **dashboard: wrong-output** ([#30](https://github.com/Zalaras/muster/issues/30))
-  — no error text was quoted. Entry generated from validated fields only
-  (reporter not trusted; body withheld) — read issue #30 for the detail.
+- [ ] **Why is Idle not above Working** ([#30](https://github.com/Zalaras/muster/issues/30)) — with Attention sort selected the rail cards put
+  IDLE below WORKING, though IDLE is the state arguably needing attention and WORKING is not.
 
-- [ ] **dashboard: visual** ([#31](https://github.com/Zalaras/muster/issues/31))
-  — no error text was quoted. Entry generated from validated fields only
-  (reporter not trusted; body withheld) — read issue #31 for the detail.
+- [ ] **Blue dot on shell is distracting** ([#31](https://github.com/Zalaras/muster/issues/31)) — the shell tab's blue dot reads as "needs your
+  attention" when it only means the shell has started; that probably needs no indicator at all.
 
-- [ ] **daemon: wrong-output** ([#32](https://github.com/Zalaras/muster/issues/32))
-  — no error text was quoted. Entry generated from validated fields only
-  (reporter not trusted; body withheld) — read issue #32 for the detail.
+- [ ] **Stuck on needs input** ([#32](https://github.com/Zalaras/muster/issues/32)) — after suggesting changes to a plan the session stayed on Needs
+  Input until the first response came back, only then flipping to Planning.
 
-- [ ] **tmux: wrong-output** ([#33](https://github.com/Zalaras/muster/issues/33))
-  — reported error: "adds \"3D\" or whatever it was". Entry generated from validated fields only
-  (reporter not trusted; body withheld) — read issue #33 for the detail.
+- [ ] **Shell doesn't allow opt-arrow** ([#33](https://github.com/Zalaras/muster/issues/33)) — Option-Arrow word-skip emits "3D" instead of
+  navigating. Shortcuts native to the CLI should survive into the shell.
 
-- [ ] **dashboard: missing-feature** ([#34](https://github.com/Zalaras/muster/issues/34))
-  — no error text was quoted. Entry generated from validated fields only
-  (reporter not trusted; body withheld) — read issue #34 for the detail.
+- [ ] **Read/Unread IDLEs** ([#34](https://github.com/Zalaras/muster/issues/34)) — once a session goes IDLE after a response there is no way to tell
+  which ones you have already read.
 
-- [ ] **unknown: unknown** ([#35](https://github.com/Zalaras/muster/issues/35))
-  — no error text was quoted. Entry generated from validated fields only
-  (reporter not trusted; body withheld) — read issue #35 for the detail.
+- [ ] **Plan missing** ([#35](https://github.com/Zalaras/muster/issues/35)) — a plan was not visible after the fact; unclear whether Claude cleans it
+  up or it is genuinely lost. Needs reproducing before it can be scoped.
 
-- [ ] **dashboard: wrong-output** ([#36](https://github.com/Zalaras/muster/issues/36))
-  — no error text was quoted. Entry generated from validated fields only
-  (reporter not trusted; body withheld) — read issue #36 for the detail.
+- [ ] **Dragging a file does not enable focus** ([#36](https://github.com/Zalaras/muster/issues/36)) — dropping a file on a Claude session does
+  not snap focus back to that terminal. Confirm the behaviour in a plain terminal first
+  (developer to check).
 
-- [ ] **dashboard: visual** ([#38](https://github.com/Zalaras/muster/issues/38))
-  — no error text was quoted. Entry generated from validated fields only
-  (reporter not trusted; body withheld) — read issue #38 for the detail.
+- [ ] **Railcard headings aren't useful cut off** ([#38](https://github.com/Zalaras/muster/issues/38)) — titles truncate too early to tell
+  sessions apart, which is the whole point of the rail. Wrap the title, or show more of it
+  before cutting.
 
-- [ ] **daemon: wrong-output** ([#40](https://github.com/Zalaras/muster/issues/40))
-  — no error text was quoted. Entry generated from validated fields only
-  (reporter not trusted; body withheld) — read issue #40 for the detail.
+- [ ] **Needs Input disappears while giving input** ([#40](https://github.com/Zalaras/muster/issues/40)) — answering a run of Claude questions
+  flips the state back to Planning after the first one, while more remain and Claude is idle.
 
-- [ ] **dashboard: wrong-output** ([#41](https://github.com/Zalaras/muster/issues/41))
-  — no error text was quoted. Entry generated from validated fields only
-  (reporter not trusted; body withheld) — read issue #41 for the detail.
+- [ ] **Starting a new session should open the new session** ([#41](https://github.com/Zalaras/muster/issues/41)) — starting a session while
+  another runs leaves you on the running one instead of navigating to the one you just started.
 
-- [ ] **dashboard: missing-feature** ([#42](https://github.com/Zalaras/muster/issues/42))
-  — no error text was quoted. Entry generated from validated fields only
-  (reporter not trusted; body withheld) — read issue #42 for the detail.
+- [ ] **Should your last message be the railcard description?** ([#42](https://github.com/Zalaras/muster/issues/42)) — show your own last
+  message rather than Claude's, since yours is shorter. Possibly a setting. Overlaps the
+  proper-description work in #17 — rank the two together.
 
-- [ ] **issue-capture: missing-feature** ([#43](https://github.com/Zalaras/muster/issues/43))
-  — no error text was quoted. Entry generated from validated fields only
-  (reporter not trusted; body withheld) — read issue #43 for the detail.
+- [ ] **Issue tag management** ([#43](https://github.com/Zalaras/muster/issues/43)) — define real GitHub labels and have the triage skill apply
+  them per its assessment. Needs kb:adr/issue-daemon-creates-issues-only revisited first:
+  triage deliberately never labels, assigns or milestones.
 
-- [ ] **dashboard: wrong-output** ([#45](https://github.com/Zalaras/muster/issues/45))
-  — no error text was quoted. Entry generated from validated fields only
-  (reporter not trusted; body withheld) — read issue #45 for the detail.
+- [ ] **No scrollbar on the shell** ([#45](https://github.com/Zalaras/muster/issues/45)) — mouse-wheel scrolling cycles through the previous
+  commands instead of scrolling the buffer.
 
-- [ ] **dashboard: wrong-output** ([#46](https://github.com/Zalaras/muster/issues/46))
-  — no error text was quoted. Entry generated from validated fields only
-  (reporter not trusted; body withheld) — read issue #46 for the detail.
+- [ ] **Handle frontmatter in renderer** ([#46](https://github.com/Zalaras/muster/issues/46)) — the markdown renderer shows frontmatter as one
+  large paragraph blob at the top of the file instead of parsing it.
 
 ## M5+ (v1.x, re-rank when reached)
 
@@ -334,17 +323,14 @@ New post-v1 ideas go here.
   implies at minimum an auth story and either a tunnel/relay or a public-facing listener —
   genuinely unsettled, wants a `/spec` pass before planning.
 
-- [ ] **dashboard: missing-feature** ([#37](https://github.com/Zalaras/muster/issues/37))
-  — no error text was quoted. Entry generated from validated fields only
-  (reporter not trusted; body withheld) — read issue #37 for the detail.
+- [ ] **Resize left sidebar** ([#37](https://github.com/Zalaras/muster/issues/37)) — resize the left sidebar, and minimise it the way the docs
+  outline does.
 
-- [ ] **dashboard: missing-feature** ([#39](https://github.com/Zalaras/muster/issues/39))
-  — no error text was quoted. Entry generated from validated fields only
-  (reporter not trusted; body withheld) — read issue #39 for the detail.
+- [ ] **Archive** ([#39](https://github.com/Zalaras/muster/issues/39)) — archive ended sessions rather than only removing them: move them after X
+  time or immediately, with a setting to disable it and one to auto-clear the archive.
 
-- [ ] **dashboard: missing-feature** ([#44](https://github.com/Zalaras/muster/issues/44))
-  — no error text was quoted. Entry generated from validated fields only
-  (reporter not trusted; body withheld) — read issue #44 for the detail.
+- [ ] **Show rendered plan** ([#44](https://github.com/Zalaras/muster/issues/44)) — auto-open the document tab when Claude presents a plan. Likely
+  only worth doing once the rendered view carries Accept/Reject and can swap back.
 
 ## Open questions carried forward
 
