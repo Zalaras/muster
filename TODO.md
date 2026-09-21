@@ -234,6 +234,74 @@ No entries are open here right now (the last seven were closed by plan `general-
 2026-09-16). When there are, they sit in **the developer's priority order**, not issue-number or
 filing order. Keep new entries appended at the end unless they re-rank — don't re-sort this list.
 
+- [ ] **dashboard: missing-feature** ([#27](https://github.com/Zalaras/muster/issues/27))
+  — no error text was quoted. Entry generated from validated fields only
+  (reporter not trusted; body withheld) — read issue #27 for the detail.
+
+- [ ] **dashboard: wrong-output** ([#28](https://github.com/Zalaras/muster/issues/28))
+  — no error text was quoted. Entry generated from validated fields only
+  (reporter not trusted; body withheld) — read issue #28 for the detail.
+
+- [ ] **daemon: missing-feature** ([#29](https://github.com/Zalaras/muster/issues/29))
+  — no error text was quoted. Entry generated from validated fields only
+  (reporter not trusted; body withheld) — read issue #29 for the detail.
+
+- [ ] **dashboard: wrong-output** ([#30](https://github.com/Zalaras/muster/issues/30))
+  — no error text was quoted. Entry generated from validated fields only
+  (reporter not trusted; body withheld) — read issue #30 for the detail.
+
+- [ ] **dashboard: visual** ([#31](https://github.com/Zalaras/muster/issues/31))
+  — no error text was quoted. Entry generated from validated fields only
+  (reporter not trusted; body withheld) — read issue #31 for the detail.
+
+- [ ] **daemon: wrong-output** ([#32](https://github.com/Zalaras/muster/issues/32))
+  — no error text was quoted. Entry generated from validated fields only
+  (reporter not trusted; body withheld) — read issue #32 for the detail.
+
+- [ ] **tmux: wrong-output** ([#33](https://github.com/Zalaras/muster/issues/33))
+  — reported error: "adds \"3D\" or whatever it was". Entry generated from validated fields only
+  (reporter not trusted; body withheld) — read issue #33 for the detail.
+
+- [ ] **dashboard: missing-feature** ([#34](https://github.com/Zalaras/muster/issues/34))
+  — no error text was quoted. Entry generated from validated fields only
+  (reporter not trusted; body withheld) — read issue #34 for the detail.
+
+- [ ] **unknown: unknown** ([#35](https://github.com/Zalaras/muster/issues/35))
+  — no error text was quoted. Entry generated from validated fields only
+  (reporter not trusted; body withheld) — read issue #35 for the detail.
+
+- [ ] **dashboard: wrong-output** ([#36](https://github.com/Zalaras/muster/issues/36))
+  — no error text was quoted. Entry generated from validated fields only
+  (reporter not trusted; body withheld) — read issue #36 for the detail.
+
+- [ ] **dashboard: visual** ([#38](https://github.com/Zalaras/muster/issues/38))
+  — no error text was quoted. Entry generated from validated fields only
+  (reporter not trusted; body withheld) — read issue #38 for the detail.
+
+- [ ] **daemon: wrong-output** ([#40](https://github.com/Zalaras/muster/issues/40))
+  — no error text was quoted. Entry generated from validated fields only
+  (reporter not trusted; body withheld) — read issue #40 for the detail.
+
+- [ ] **dashboard: wrong-output** ([#41](https://github.com/Zalaras/muster/issues/41))
+  — no error text was quoted. Entry generated from validated fields only
+  (reporter not trusted; body withheld) — read issue #41 for the detail.
+
+- [ ] **dashboard: missing-feature** ([#42](https://github.com/Zalaras/muster/issues/42))
+  — no error text was quoted. Entry generated from validated fields only
+  (reporter not trusted; body withheld) — read issue #42 for the detail.
+
+- [ ] **issue-capture: missing-feature** ([#43](https://github.com/Zalaras/muster/issues/43))
+  — no error text was quoted. Entry generated from validated fields only
+  (reporter not trusted; body withheld) — read issue #43 for the detail.
+
+- [ ] **dashboard: wrong-output** ([#45](https://github.com/Zalaras/muster/issues/45))
+  — no error text was quoted. Entry generated from validated fields only
+  (reporter not trusted; body withheld) — read issue #45 for the detail.
+
+- [ ] **dashboard: wrong-output** ([#46](https://github.com/Zalaras/muster/issues/46))
+  — no error text was quoted. Entry generated from validated fields only
+  (reporter not trusted; body withheld) — read issue #46 for the detail.
+
 ## M5+ (v1.x, re-rank when reached)
 
 New post-v1 ideas go here.
@@ -265,6 +333,18 @@ New post-v1 ideas go here.
   all localhost-only (single-user, macOS, no auth beyond LAN trust per `CLAUDE.md`), so this
   implies at minimum an auth story and either a tunnel/relay or a public-facing listener —
   genuinely unsettled, wants a `/spec` pass before planning.
+
+- [ ] **dashboard: missing-feature** ([#37](https://github.com/Zalaras/muster/issues/37))
+  — no error text was quoted. Entry generated from validated fields only
+  (reporter not trusted; body withheld) — read issue #37 for the detail.
+
+- [ ] **dashboard: missing-feature** ([#39](https://github.com/Zalaras/muster/issues/39))
+  — no error text was quoted. Entry generated from validated fields only
+  (reporter not trusted; body withheld) — read issue #39 for the detail.
+
+- [ ] **dashboard: missing-feature** ([#44](https://github.com/Zalaras/muster/issues/44))
+  — no error text was quoted. Entry generated from validated fields only
+  (reporter not trusted; body withheld) — read issue #44 for the detail.
 
 ## Open questions carried forward
 
