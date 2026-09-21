@@ -310,6 +310,15 @@ group deliberately, and otherwise don't re-sort this list.
 
 New post-v1 ideas go here.
 
+- [ ] **Drop the `lodash-es` override once mermaid stops needing it** — `web/package.json`
+  carries `"overrides": { "lodash-es": "4.18.1" }`, added 2026-09-21 to clear Dependabot alerts 21
+  (prototype pollution) and 22 (code injection). It exists because `mermaid@12.0.0` pins
+  `chevrotain` at `~11.1.2` and every chevrotain 11.x pins `lodash-es` at exactly `4.17.23`,
+  so neither `npm update` nor `npm audit fix` can move it — chevrotain only drops the
+  dependency in 13.x, outside mermaid's range. After any mermaid bump, check
+  `npm ls lodash-es`: once nothing pins it below the patched line, delete the block. Left in
+  place it silently holds `lodash-es` back and nothing will warn.
+
 - [ ] **Usage under API-key auth** ([#9](https://github.com/Zalaras/muster/issues/9)) — the ask
   is "support API usage billing as well". **Moved out of Pre-v1 Cleanup on 2026-09-13** (the developer:
   park it post-v1) after a spike answered whether it's even possible. Findings, traps and the
