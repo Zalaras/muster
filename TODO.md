@@ -230,12 +230,12 @@ Closing happens when the fix lands: `/land` puts `closes #N` in the squash subje
 (`docs/conventions.md` § Commits), and `/triage --audit` reports any issue whose entry is ticked
 while the issue is still open.
 
-No entries are open here right now (the last seven were closed by plan `general-cleanup`,
-2026-09-16). When there are, they sit in **the developer's priority order**, not issue-number or
-filing order. Keep new entries appended at the end unless they re-rank — don't re-sort this list.
+Entries sit in **the developer's priority order**, not issue-number or filing order, and are
+grouped under `###` sub-headings by the work they share — a group is a plausible single piece of
+work, not a ranking. `/triage` appends new entries at the end of the section; move one into a
+group deliberately, and otherwise don't re-sort this list.
 
-- [ ] **Remove All Sessions** ([#27](https://github.com/Zalaras/muster/issues/27)) — a bulk "remove everything" action to start from a
-  clean slate, plus the option to select several sessions and remove those.
+### Together — the new-session flow (#28, #29, #41)
 
 - [ ] **New Session Reset** ([#28](https://github.com/Zalaras/muster/issues/28)) — picking a folder in the new-session dialog resets the options
   already chosen, even when it is the same folder. Also change the default mode to manual or
@@ -245,51 +245,66 @@ filing order. Keep new entries appended at the end unless they re-rank — don't
   available (e.g. Fable) and Claude then errors when changing it. Block the selection, or refuse
   the launch — erroring after the fact is not user-friendly.
 
-- [ ] **Why is Idle not above Working** ([#30](https://github.com/Zalaras/muster/issues/30)) — with Attention sort selected the rail cards put
-  IDLE below WORKING, though IDLE is the state arguably needing attention and WORKING is not.
+- [ ] **Starting a new session should open the new session** ([#41](https://github.com/Zalaras/muster/issues/41)) — starting a session while
+  another runs leaves you on the running one instead of navigating to the one you just started.
 
-- [ ] **Blue dot on shell is distracting** ([#31](https://github.com/Zalaras/muster/issues/31)) — the shell tab's blue dot reads as "needs your
-  attention" when it only means the shell has started; that probably needs no indicator at all.
+### Together — Needs Input state transitions (#32, #40)
 
 - [ ] **Stuck on needs input** ([#32](https://github.com/Zalaras/muster/issues/32)) — after suggesting changes to a plan the session stayed on Needs
   Input until the first response came back, only then flipping to Planning.
 
-- [ ] **Shell doesn't allow opt-arrow** ([#33](https://github.com/Zalaras/muster/issues/33)) — Option-Arrow word-skip emits "3D" instead of
-  navigating. Shortcuts native to the CLI should survive into the shell.
+- [ ] **Needs Input disappears while giving input** ([#40](https://github.com/Zalaras/muster/issues/40)) — answering a run of Claude questions
+  flips the state back to Planning after the first one, while more remain and Claude is idle.
+
+### Together — rail cards (#30, #34, #38, #42)
+
+- [ ] **Why is Idle not above Working** ([#30](https://github.com/Zalaras/muster/issues/30)) — with Attention sort selected the rail cards put
+  IDLE below WORKING, though IDLE is the state arguably needing attention and WORKING is not.
 
 - [ ] **Read/Unread IDLEs** ([#34](https://github.com/Zalaras/muster/issues/34)) — once a session goes IDLE after a response there is no way to tell
   which ones you have already read.
-
-- [ ] **Plan missing** ([#35](https://github.com/Zalaras/muster/issues/35)) — a plan was not visible after the fact; unclear whether Claude cleans it
-  up or it is genuinely lost. Needs reproducing before it can be scoped.
-
-- [ ] **Dragging a file does not enable focus** ([#36](https://github.com/Zalaras/muster/issues/36)) — dropping a file on a Claude session does
-  not snap focus back to that terminal. Confirm the behaviour in a plain terminal first
-  (developer to check).
 
 - [ ] **Railcard headings aren't useful cut off** ([#38](https://github.com/Zalaras/muster/issues/38)) — titles truncate too early to tell
   sessions apart, which is the whole point of the rail. Wrap the title, or show more of it
   before cutting.
 
-- [ ] **Needs Input disappears while giving input** ([#40](https://github.com/Zalaras/muster/issues/40)) — answering a run of Claude questions
-  flips the state back to Planning after the first one, while more remain and Claude is idle.
-
-- [ ] **Starting a new session should open the new session** ([#41](https://github.com/Zalaras/muster/issues/41)) — starting a session while
-  another runs leaves you on the running one instead of navigating to the one you just started.
-
 - [ ] **Should your last message be the railcard description?** ([#42](https://github.com/Zalaras/muster/issues/42)) — show your own last
   message rather than Claude's, since yours is shorter. Possibly a setting. Overlaps the
   proper-description work in #17 — rank the two together.
 
-- [ ] **Issue tag management** ([#43](https://github.com/Zalaras/muster/issues/43)) — define real GitHub labels and have the triage skill apply
-  them per its assessment. Needs kb:adr/issue-daemon-creates-issues-only revisited first:
-  triage deliberately never labels, assigns or milestones.
+### Together — the shell tab (#31, #33, #45)
+
+- [ ] **Blue dot on shell is distracting** ([#31](https://github.com/Zalaras/muster/issues/31)) — the shell tab's blue dot reads as "needs your
+  attention" when it only means the shell has started; that probably needs no indicator at all.
+
+- [ ] **Shell doesn't allow opt-arrow** ([#33](https://github.com/Zalaras/muster/issues/33)) — Option-Arrow word-skip emits "3D" instead of
+  navigating. Shortcuts native to the CLI should survive into the shell.
 
 - [ ] **No scrollbar on the shell** ([#45](https://github.com/Zalaras/muster/issues/45)) — mouse-wheel scrolling cycles through the previous
   commands instead of scrolling the buffer.
 
+### Together — the plan and document tab (#35, #46; #44 in M5+ is the same seam)
+
+- [ ] **Plan missing** ([#35](https://github.com/Zalaras/muster/issues/35)) — a plan was not visible after the fact; unclear whether Claude cleans it
+  up or it is genuinely lost. Needs reproducing before it can be scoped.
+
 - [ ] **Handle frontmatter in renderer** ([#46](https://github.com/Zalaras/muster/issues/46)) — the markdown renderer shows frontmatter as one
   large paragraph blob at the top of the file instead of parsing it.
+
+### Together — clearing sessions away (#27; #39 in M5+ is the same seam)
+
+- [ ] **Remove All Sessions** ([#27](https://github.com/Zalaras/muster/issues/27)) — a bulk "remove everything" action to start from a
+  clean slate, plus the option to select several sessions and remove those.
+
+### On their own
+
+- [ ] **Dragging a file does not enable focus** ([#36](https://github.com/Zalaras/muster/issues/36)) — dropping a file on a Claude session does
+  not snap focus back to that terminal. Confirm the behaviour in a plain terminal first
+  (developer to check).
+
+- [ ] **Issue tag management** ([#43](https://github.com/Zalaras/muster/issues/43)) — define real GitHub labels and have the triage skill apply
+  them per its assessment. Needs kb:adr/issue-daemon-creates-issues-only revisited first:
+  triage deliberately never labels, assigns or milestones.
 
 ## M5+ (v1.x, re-rank when reached)
 
