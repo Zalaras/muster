@@ -62,8 +62,9 @@ claimed *effects* need measurement (the `ls -l` or the observed DOM, not the dif
 a green verdict hiding one. Never `sleep`/poll to wait on a subagent — the harness wakes only
 the **main session**, so agents run gates in the foreground (kb:lesson/subagent-never-woken-by-harness).
 
-Trivial fixes and doc work don't need the pipeline — judgement call, default to it for
-anything with acceptance criteria.
+The pipeline buys parallel daemon∥web tracks behind a protocol contract. Use it when the work
+changes the shipped artifact (`docs/conventions.md` § Commits). Work that releases nothing —
+`tools/`, `internal/kb`, `internal/triage`, skills, agents, docs — is a plan and a commit.
 
 ## Hard rules
 
