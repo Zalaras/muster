@@ -264,7 +264,11 @@ fi
 if (( RUN_BASELINE )); then
   echo "== baseline gates (plan $PLAN)"
   run_one build "go build ./..."
-  run_one test  "make test"
+  run_one test  "make test-race"           # the race detector is a real failure; ~100 s (2026-09-22), so only the baseline pays for it
+  # A green race run is a superset of `make test`, so an authored check naming the plain
+  # command dedupes to this PASS instead of running the suite a second time.
+  [[ "$(seen_status "make test-race")" == PASS ]] && SEEN="$SEEN
+PASS	make test"
   run_one lint  "make lint"
   run_one web-build "make web-build"
   run_one web-test  "make web-test"

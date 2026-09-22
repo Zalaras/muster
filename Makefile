@@ -18,6 +18,10 @@ build: ## Build the daemon into ./bin/musterd
 test: ## Run unit tests (uncached — every gate must be a fresh run)
 	go test -count=1 $(PKG)
 
+.PHONY: test-race
+test-race: ## Unit tests under the race detector (~100 s vs ~40 s plain, measured 2026-09-22) — the gates run this; testers run the fast one
+	go test -race -count=1 $(PKG)
+
 .PHONY: lint
 lint: ## Run golangci-lint
 	golangci-lint run
