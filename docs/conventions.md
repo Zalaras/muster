@@ -101,6 +101,38 @@ Each row's rationale is an ADR: `go run ./tools/kb ls --type adr | grep '/stack-
   `web/src/sessions/` and `web/src/terminal/` hold pure logic.
 - E2E spec files and `web/e2e/helpers/<feature>.ts` are named for the same feature seam.
 
+## Design
+
+What "good code" means here, so an implementation agent can aim for it and the maintainability
+reviewer can cite it by line. Principles, not prescriptions: a plan says *what*; the shape is the
+implementer's, reported in its log's `## Decisions` as a `design:` line per new type, module or
+seam (the shape chosen, why, and what it reused or matched).
+
+- **Reuse before add.** Before writing a helper, type or module, `rg` for one that already does it
+  and paste the grep in Decisions. A second implementation of an existing idea is a defect even
+  when both work.
+- **Match the siblings.** A new module in a package or directory takes its neighbours' shape —
+  constructor, seam, error path, naming — or says in Decisions why it diverges. A reader who
+  knows one module should know them all.
+- **One owner per concept.** A piece of state, a wire shape, a rule has one home; everything
+  else asks it. Two places that must agree will not.
+- **Small interfaces at the consumer; seams where a test needs one and nowhere else.** An
+  interface earns its existence by having a second implementation or a test that needs the
+  boundary (`docs/conventions.md` § Testing's run-func seam is the model).
+- **A pattern earns its name by the problem it solves.** "Factory", "registry", "strategy" are
+  fine when Decisions states the problem they answer here; introduced by label alone they are
+  ceremony a newcomer has to unlearn.
+- **Shared state names its writers and its guard.** Anything touched from more than one goroutine
+  (or more than one render pass) says so where it is declared, and the race detector covers it
+  (`make test-race`, a baseline gate; `make test` stays the fast run).
+- **Size is read, not obeyed.** `funlen`, `dupl` and the 500-line file check are warnings
+  (`make size-warn`; the gates run it scoped to the branch —
+  kb:adr/process-size-linters-warn-never-fail). Exceeding one is fine with a reason in Decisions;
+  the maintainability reviewer reads the warning and the reason together. The complexity
+  ceilings (gocyclo 15, Biome cognitive complexity 15) stay hard.
+- **Tests: duplicated bodies become table rows.** A helper or fixture is grepped for before it is
+  written; a `dupl` warning naming a test file is the tester's to collapse or explain.
+
 ## Testing (both sides)
 
 - E2E fakes Claude Code by default: synthesize hook / status-line POSTs from the shapes
