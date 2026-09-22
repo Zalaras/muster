@@ -171,7 +171,7 @@ func TestHandleShellTerminal_ScrollFrameZeroLinesNeverCallsScrollCopyMode(t *tes
 	require.NoError(t, c.Write(context.Background(), websocket.MessageBinary, []byte("x")))
 	require.Eventually(t, func() bool {
 		conn := fake.lastPaneConn()
-		return conn != nil && len(conn.writes) > 0
+		return conn != nil && conn.writeCount() > 0
 	}, 3*time.Second, 20*time.Millisecond)
 
 	assert.Empty(t, scroller.calls(), "a lines:0 scroll frame must never reach ScrollCopyMode")
@@ -212,7 +212,7 @@ func TestHandleShellTerminal_TypingWhileInCopyModeCancelsBeforeTheWrite(t *testi
 	require.NoError(t, c.Write(context.Background(), websocket.MessageBinary, []byte("x")))
 	require.Eventually(t, func() bool {
 		conn := fake.lastPaneConn()
-		return conn != nil && len(conn.writes) > 0
+		return conn != nil && conn.writeCount() > 0
 	}, 3*time.Second, 20*time.Millisecond)
 
 	assert.Equal(t, 1, scroller.cancelCount(), "REQ-10: typing after a scroll that entered copy-mode must cancel it first")
@@ -232,7 +232,7 @@ func TestHandleShellTerminal_TypingNeverCancelsWhenNoScrollHasHappened(t *testin
 	require.NoError(t, c.Write(context.Background(), websocket.MessageBinary, []byte("x")))
 	require.Eventually(t, func() bool {
 		conn := fake.lastPaneConn()
-		return conn != nil && len(conn.writes) > 0
+		return conn != nil && conn.writeCount() > 0
 	}, 3*time.Second, 20*time.Millisecond)
 
 	assert.Equal(t, 0, scroller.cancelCount())
@@ -258,7 +258,7 @@ func TestHandleShellTerminal_ScrollThatDoesNotEnterCopyModeNeverCancelsOnNextInp
 	require.NoError(t, c.Write(context.Background(), websocket.MessageBinary, []byte("x")))
 	require.Eventually(t, func() bool {
 		conn := fake.lastPaneConn()
-		return conn != nil && len(conn.writes) > 0
+		return conn != nil && conn.writeCount() > 0
 	}, 3*time.Second, 20*time.Millisecond)
 
 	assert.Equal(t, 0, scroller.cancelCount(), "entered=false must never flip inCopyMode true")

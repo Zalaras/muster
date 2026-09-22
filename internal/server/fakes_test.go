@@ -238,6 +238,14 @@ func (c *fakePaneConn) resize() (cols, rows int) {
 	return c.resizeCols, c.resizeRows
 }
 
+// writeCount reads back how many Write calls landed, under the lock Write appends with —
+// the socket pump writes from its own goroutine, so a test polling the bare slice races it.
+func (c *fakePaneConn) writeCount() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return len(c.writes)
+}
+
 // Close is idempotent (terminal.go's teardown and a simulated "exit" can both call it)
 // and calls onClose, if set, exactly once, strictly before unblocking Read — so any
 // caller that only observes "Read returned" (e.g. via the WS socket's own resulting
