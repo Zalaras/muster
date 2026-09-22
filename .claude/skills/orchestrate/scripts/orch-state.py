@@ -12,6 +12,10 @@ Usage (run from the project root):
                                                      completed is refused unless review.md says **Verdict**: approved
   orch-state.py <plan> archive <file>                rename plans/<plan>/<file> to <stem>.cycle<N><ext> before a
                                                      re-spawn overwrites it (N = existing archives + 1)
+  orch-state.py <plan> merge-review [--gates-failed N]
+                                                     merge review.code.md / review.browser.md / review.maintainability.md
+                                                     into review.md with one computed **Verdict** (worst of parts + gates)
+  orch-state.py <plan> reviewed <sha>                record the commit carrying this cycle's review.md (review_commits[N])
   orch-state.py <plan> reopen <step>                 resume: status in-progress, retries kept (--reset-retries zeroes),
                                                      remove <step> from completed_steps
   orch-state.py <plan> closes [N ...]                set closes_issues (no N clears it)
@@ -28,7 +32,7 @@ and the next `finish`/`done` closes it, so a re-spawned step keeps every attempt
 `step_started_at`/`step_finished_at` hold only the last one (ui-text-and-focus: authoring's
 ~19 min and web-impl's ~44 min first pass were overwritten by their fix re-spawns).
 """
-import argparse, datetime, json, pathlib, sys
+import argparse, datetime, json, pathlib, re, subprocess, sys
 
 STEPS = ["e2e-specs", "daemon-impl", "web-impl", "daemon-tests", "web-tests",
          "e2e-validate", "review", "doc-reconcile"]
@@ -109,6 +113,65 @@ def stamp_plan_status(plan_dir, value):
         f.write_text("".join(out))
 
 
+REVIEW_PARTS = [("code", "Correctness review"), ("browser", "Browser review"),
+                ("maintainability", "Maintainability review")]
+AGENT_TAG = re.compile(r"^\d+\. \*\*\[(daemon-impl|web-impl|daemon-tests|web-tests|e2e-specs)\]\*\*")
+VERDICT_LINE = re.compile(r"^\*\*Verdict\*\*:\s*(\S+)", re.M)
+
+def part_verdict(text):
+    """A part's own verdict word, or 'unusable' when the header is missing."""
+    m = VERDICT_LINE.search(text)
+    return m.group(1).strip().lower() if m else "unusable"
+
+def has_agent_tagged_issue(text):
+    """True iff a numbered issue under a Critical/Major/Minor heading carries a pipeline-agent tag.
+    A [note] or an [orchestrator] item never blocks; Notes sit under their own heading."""
+    blocking = False
+    for line in text.splitlines():
+        if line.startswith("### "):
+            blocking = line[4:].strip().split()[0] in ("Critical", "Major", "Minor")
+        elif line.startswith("## "):
+            blocking = False
+        elif blocking and AGENT_TAG.match(line):
+            return True
+    return False
+
+def merge_review(plan_dir, plan, cycle, gates_failed):
+    """Write review.md from whichever parts exist. The verdict is computed, not opined: blocked if
+    any part is blocked or unusable; else needs-changes if a gate failed, a part said so, or any
+    part carries an agent-tagged issue at any severity (the Verdict Rules every reviewer already
+    states); else approved. Each part's own verdict line is demoted to **Part verdict** so the file
+    holds exactly one **Verdict**: line — approved() and /land are substring tests over the whole
+    file and would otherwise pass a needs-changes review whose browser part said approved."""
+    parts, skipped = [], []
+    for key, heading in REVIEW_PARTS:
+        f = plan_dir / f"review.{key}.md"
+        (parts if f.exists() else skipped).append((key, heading, f))
+    if not any(k == "code" for k, _, _ in parts):
+        sys.exit("merge-review needs plans/<plan>/review.code.md — the correctness reviewer's part is never optional")
+    verdicts, blocking, bodies = [], False, []
+    for key, heading, f in parts:
+        text = f.read_text()
+        v = part_verdict(text)
+        verdicts.append((key, v))
+        blocking = blocking or has_agent_tagged_issue(text)
+        bodies.append(f"\n## {heading}\n\n" + VERDICT_LINE.sub(lambda m: f"**Part verdict**: {m.group(1)}", text.strip()) + "\n")
+    if any(v in ("blocked", "unusable") for _, v in verdicts):
+        verdict = "blocked"
+    elif gates_failed > 0 or blocking or any(v == "needs-changes" for _, v in verdicts):
+        verdict = "needs-changes"
+    else:
+        verdict = "approved"
+    header = (f"# Review: {plan}\n\n**Plan**: {plan}\n**Verdict**: {verdict}\n**Cycle**: {cycle}\n"
+              f"**Gates**: {gates_failed} failed\n"
+              f"**Parts**: {', '.join(k for k, _ in verdicts)}"
+              + (f" | skipped: {', '.join(k for k, _, _ in skipped)}" if skipped else "") + "\n"
+              + "**Part verdicts**: " + ", ".join(f"{k} {v}" for k, v in verdicts) + "\n"
+              "\n_Merged by orch-state.py merge-review; the verdict is computed from the parts and the gate run, never edited by hand._\n")
+    (plan_dir / "review.md").write_text(header + "".join(bodies))
+    print(f"merged {len(parts)} part(s) -> review.md: **Verdict**: {verdict}")
+    return verdict, [k for k, _ in verdicts]
+
 def approved(plan_dir):
     r = plan_dir / "review.md"
     return r.exists() and "**Verdict**: approved" in r.read_text()
@@ -121,13 +184,15 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("plan")
     ap.add_argument("cmd", choices=["init", "start", "finish", "done", "retry", "status", "reopen",
-                                   "show", "closes", "timings", "archive"])
+                                   "show", "closes", "timings", "archive", "merge-review", "reviewed"])
     ap.add_argument("arg", nargs="?")
     ap.add_argument("rest", nargs="*", help="closes: any further issue numbers")
     ap.add_argument("--step")
     ap.add_argument("--next")
     ap.add_argument("--reset-retries", action="store_true",
                     help="reopen only: zero the step's retry count (a fresh budget the user granted)")
+    ap.add_argument("--gates-failed", type=int, default=0,
+                    help="merge-review only: failed lines in the orchestrator's gate run (any > 0 forces needs-changes)")
     a = ap.parse_args()
 
     path = pathlib.Path("plans") / a.plan / "orchestration-state.json"
@@ -149,7 +214,7 @@ def main():
             print(json.dumps(s, indent=2)); return
         if a.cmd == "timings":
             print_timings(s); return
-        need = a.cmd in ("start", "finish", "done", "retry", "reopen", "status", "archive")
+        need = a.cmd in ("start", "finish", "done", "retry", "reopen", "status", "archive", "reviewed")
         if need and not a.arg:
             sys.exit(f"{a.cmd} needs an argument")
         if a.cmd in ("start", "finish", "done", "retry", "reopen") and a.arg not in STEPS:
@@ -183,6 +248,16 @@ def main():
                 sys.exit(f"{dst} already exists")
             src.rename(dst)
             print(f"archived {src.name} -> {dst.name}")
+        elif a.cmd == "merge-review":
+            cycle = s["retry_counts"].get("review", 0) + 1
+            verdict, used = merge_review(path.parent, a.plan, cycle, a.gates_failed)
+            s.setdefault("review_parts", {})[str(cycle)] = used
+            s.setdefault("review_verdicts", {})[str(cycle)] = verdict
+        elif a.cmd == "reviewed":
+            if subprocess.run(["git", "cat-file", "-e", f"{a.arg}^{{commit}}"], capture_output=True).returncode != 0:
+                sys.exit(f"{a.arg} is not a commit in this repository")
+            cycle = s["retry_counts"].get("review", 0) + 1
+            s.setdefault("review_commits", {})[str(cycle)] = a.arg
         elif a.cmd == "status":
             if a.arg not in ("in-progress", "blocked", "completed"):
                 sys.exit("status must be in-progress|blocked|completed")
