@@ -42,11 +42,14 @@ by default, no server reuse), `workers`/`timeout`/`expect.timeout` stay as docs/
   passes and is rebuilt only when its option set genuinely changes. A reuse/memo cache's key covers
   **every input that shapes the built node's attributes** (per-option `disabled`, placeholder state,
   labels), not just visible text — list those inputs in `## Decisions` (kb:lesson/select-rebuilt-every-tick-passed-selectoption).
-- **Precedent check for cross-cutting UI concerns.** Before solving focus retention, live updates,
-  keyboard handling, reorder, or stale/degraded display, `grep` for how the repo already handles it
-  (`pendingTileFocus`, `reconcileCards`, the `views.spec.ts` render-tick regression tests,
-  design-system §6) and reuse or extend that path; cite the precedent in `## Decisions`, or say none
-  exists — the reviewer will look.
+- **Precedent check before anything new.** Before adding a helper, type or module — and before
+  solving focus retention, live updates, keyboard handling, reorder, or stale/degraded display —
+  `grep` for how the repo already handles it (`pendingTileFocus`, `reconcileCards`, the
+  `views.spec.ts` render-tick regression tests, design-system §6) and reuse or extend that path;
+  paste the grep and cite the precedent in `## Decisions` as a `design:` line, or say none exists.
+  The maintainability reviewer looks with the sibling modules open (`docs/conventions.md` § Design:
+  the plan says *what*; the shape is yours to choose and yours to report). A new module in
+  `features/`, `render/`, `sessions/` or `terminal/` takes its neighbours' shape or says why not.
 
 ## Design System (binding)
 
@@ -87,10 +90,15 @@ After writing code, run these from `web/` and fix any issues before finishing:
 ```bash
 npx tsc --noEmit
 npm run build          # tsc + Vite
+npm run -s lint        # Biome — cognitive complexity 15 is a hard ceiling
+make size-warn         # from the project root: funlen / dupl / file length — warnings, never failures
 ```
 
 - No `any` types; keep `tsconfig.json`'s strictness flags satisfied, never loosened
 - Use semantic HTML elements
+- A size warning on a file you touched never fails a gate, but one you trip on purpose gets its
+  reason as a line in `## Decisions`; the maintainability reviewer reads both
+  (kb:adr/process-size-linters-warn-never-fail). Never split a module to silence the line.
 
 ## Verify Before Finishing (hard gate)
 
@@ -114,6 +122,12 @@ locator defect in the spec (wrong role, wrong name, an element the table never p
 yours to edit — name the test and the mismatch in `## Handoff` for validate mode. Never edit a spec,
 and never report `pass`/`fail` for them as a verdict — this is your smoke check, not the E2E gate
 (kb:lesson/authored-tests-never-run-before-validate).
+
+**Read your own diff as a newcomer before you log.** With `docs/conventions.md` § Design open:
+does each new function do one thing; is there a helper elsewhere that already does this (you grepped
+— paste it); is a layer crossed (protocol types imported into `render/`, logic in `main.ts`, DOM
+work in a pure module); do the names say what the code does. Fix what you find; what you keep on
+purpose is a `design:` line. The evidence rule applies — a claimed absence is a pasted grep.
 
 **Comments are part of the gate.** Before writing your log, re-read every comment your diff adds
 or touches, and every comment tree-wide naming anything you moved, renamed or deleted (grep the
@@ -188,6 +202,8 @@ Write (or append to) `plans/<plan-name>/web-implementation.md`:
 
 <one line per trade-off, including any Testable UI Elements row you could not implement as written; a departure from the plan starts `deviation:` and ends `→ ADR: pending` — the orchestrator writes the record; you never write `docs/`; every REQ the plan lists
 for your side appears in Changes or here as deliberately not done, with why — an unmentioned REQ is a review Minor at best (kb:lesson/unmentioned-req-costs-a-review-minor)>
+
+<one `design:` line per new module, type or seam — the shape chosen, why, what it reused or matched (paste the `rg` that found nothing to reuse), and for state touched by more than one render pass its owner; plus one line per size warning you kept on purpose, with the reason. The maintainability reviewer reads these without the plan>
 
 <a line per doc claim this work changes, starting `doc-delta:` — when what shipped makes a sentence in the plan's `## Doc Delta` wrong, or adds one it lacks. The orchestrator amends the staged delta; you never write `docs/`. `doc-reconcile` reads these after review, so a change you do not report here lands with the docs still describing the old behaviour>
 

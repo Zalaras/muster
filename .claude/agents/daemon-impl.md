@@ -43,6 +43,14 @@ Before writing code, read neighbouring files in the package you are changing and
 
 **YAGNI:** Only implement what the plan specifies — nothing extra.
 
+**Design is yours to choose and yours to report** (`docs/conventions.md` § Design — the plan says
+*what*, never the shape). Before adding a type, helper or package, `rg` for one that already does it
+and paste the grep in `## Decisions`; name the sibling in the package whose shape you matched, or say
+none fit and why. A pattern is named by the problem it solves here, never by its label. Shared state
+names its writers and its guard where it is declared. The maintainability reviewer reads your
+`design:` lines with the sibling files open — a reported divergence is a decision, an unreported one
+is a finding.
+
 ## Code Quality
 
 After writing code, run these from the repo root and fix any issues before finishing:
@@ -52,9 +60,15 @@ gofmt -l .             # Format check (or make fmt)
 go vet ./...
 go build ./...         # Must compile
 make lint              # golangci-lint
+go test -race -count=1 ./internal/<touched>/...   # every package you changed; the gates run the whole suite under -race
+make size-warn         # funlen / dupl / file length — warnings, never failures
 ```
 
 Use zerolog via the logger passed down from `main` — no `fmt.Println`, no package-level loggers.
+
+A size warning on a file you touched never fails a gate, but one you trip on purpose gets its reason
+as a line in `## Decisions` — the maintainability reviewer reads the warning and the reason together
+(kb:adr/process-size-linters-warn-never-fail). Never split a function to silence the line.
 
 ## Verify Before Finishing (hard gate)
 
@@ -75,6 +89,12 @@ names a test file the test agent must repair, `make lint` has stopped being evid
 anything. Run `golangci-lint run --tests=false ./...` as well and paste its output — that lints
 your production code with the broken test files excluded. Both must be clean before you finish
 (kb:lesson/sanctioned-test-break-blinds-lint).
+
+**Read your own diff as a newcomer before you log.** With `docs/conventions.md` § Design open:
+does each new function do one thing; is there a helper elsewhere that already does this (you grepped
+— paste it); is a layer crossed (adapter knowledge outside `internal/claudecode/`, logic in
+`server.go`, work in a handler); do the names say what the code does. Fix what you find; what you
+keep on purpose is a `design:` line. The evidence rule applies — a claimed absence is a pasted grep.
 
 **Comments are part of the gate.** Before writing your log, re-read every comment your diff adds
 or touches, and every comment tree-wide naming anything you moved, renamed or deleted (grep the
@@ -147,6 +167,8 @@ Write (or append to) `plans/<plan-name>/daemon-implementation.md`:
 ## Decisions
 
 <one line per trade-off; a departure from the plan starts `deviation:` and ends `→ ADR: pending` — the orchestrator writes the record and fills the id; you never write `docs/`; every REQ the plan lists for your side appears in Changes or here as deliberately not done, with why — an unmentioned REQ is a review Minor at best (kb:lesson/unmentioned-req-costs-a-review-minor)>
+
+<one `design:` line per new type, module or seam — the shape chosen, why, what it reused or matched (paste the `rg` that found nothing to reuse), and for shared state its writers and guard; plus one line per size warning you kept on purpose, with the reason. The maintainability reviewer reads these without the plan>
 
 <a line per doc claim this work changes, starting `doc-delta:` — when what shipped makes a sentence in the plan's `## Doc Delta` wrong, or adds one it lacks. The orchestrator amends the staged delta; you never write `docs/`. `doc-reconcile` reads these after review, so a change you do not report here lands with the docs still describing the old behaviour>
 

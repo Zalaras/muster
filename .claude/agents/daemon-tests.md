@@ -29,6 +29,11 @@ This agent receives: `<plan-name>`
 
 ## Test Strategy
 
+- **Duplicated test bodies become table rows.** Before writing a helper or fixture, grep for an
+  existing one and reuse it; a `dupl` line in the gates' `WARN size` output that names your file is
+  yours to collapse into a table, or to explain in your log's Summary if the repetition is the
+  point (`docs/conventions.md` § Design; kb:adr/process-size-linters-warn-never-fail).
+
 Per conventions §Testing (`kb:adr/process-testing-bar-e2e-always-unit-for-logic`), unit tests target **specific logic** — the E2E suite covers wiring. Priorities:
 
 - **The state machine, reconcile, and any JSON merge get exhaustive unit tests** — they are the logic the whole tool rests on. Cover every transition the plan defines, plus the loss cases (hooks are best-effort, at-most-once, unordered).

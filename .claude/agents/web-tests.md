@@ -31,6 +31,11 @@ All web code lives in `web/`; run every npm command from that directory.
 
 ## Test Strategy
 
+- **Duplicated test bodies become table rows.** Before writing a helper or fixture, grep for an
+  existing one and reuse it; a `dupl` line in the gates' `WARN size` output that names your file is
+  yours to collapse into a table, or to explain in your log's Summary if the repetition is the
+  point (`docs/conventions.md` § Design; kb:adr/process-size-linters-warn-never-fail).
+
 - **Protocol decoding** (`web/src/**` modules that parse daemon WS/HTTP messages): valid messages, unknown message types, malformed payloads, and the measured absences — fields that are null or missing before a session's first API response (the fact records in your pack). The "no data yet" state must decode to something a view renders as **"unknown", never an empty gauge**.
 - **State derivation**: every input the plan defines, plus daemon-down and reconnect transitions.
 - **Formatting** (durations, percentages, token counts): boundary values, null/absent inputs.
