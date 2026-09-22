@@ -1,7 +1,7 @@
 ---
 id: process-reviewer-owns-final-validation
 type: decision
-status: accepted
+status: superseded
 date: 2026-09-17
 summary: The reviewer's single gates run is the cycle's final validation, and the gate runner reuses a PASS proven against an identical working tree.
 features: []
