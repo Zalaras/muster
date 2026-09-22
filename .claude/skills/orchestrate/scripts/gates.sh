@@ -23,8 +23,9 @@
 #
 # Every command runs once — a checks line whose command string equals a baseline gate is
 # reported under its ID without a second run. Exit status is 0 iff every gate and every check
-# passed. Per-command output lands in $GATES_LOG_DIR (default: a fresh mktemp dir), and the
-# last 25 lines of each failure are echoed inline.
+# passed; a WARN line (size-warn.sh: funlen, dupl, file length) reports hits and never fails
+# (kb:adr/process-size-linters-warn-never-fail). Per-command output lands in $GATES_LOG_DIR
+# (default: a fresh mktemp dir), and the last 25 lines of each failure are echoed inline.
 #
 # Why a script (orchestrate retro, 2026-09-02): the Final Validation loop was hand-rolled
 # each run and once failed on zsh word-splitting rather than on a gate. Two environment
@@ -127,7 +128,7 @@ prior_at() {                   # $1 = cmd; prints the epoch of a reusable PASS, 
 # --- runner --------------------------------------------------------------------------------
 # macOS ships bash 3.2 (no associative arrays): SEEN is a newline-separated list of
 # "<status><TAB><cmd>" records, looked up by exact command match.
-RESULTS=()                     # "PASS|FAIL<TAB>ID<TAB>cmd"
+RESULTS=()                     # "PASS|FAIL|WARN<TAB>ID<TAB>cmd"
 SEEN=""
 FAILS=0
 n=0
@@ -173,6 +174,15 @@ $status	$cmd"
     tail -25 "$log"
     echo "----- end -----"
   fi
+}
+
+run_warn() {                   # $1 = label/ID, $2 = command string — reports hits, never fails
+  n=$((n+1))
+  local log="$LOG_DIR/$(printf '%02d' "$n")-$1.log"
+  ( eval "$2" ) >"$log" 2>&1 || true
+  local hits; hits="$(grep -c '^WARN ' "$log" 2>/dev/null || true)"
+  RESULTS+=("WARN	$1	$2	($hits hits)")
+  printf 'WARN  %-4s %s  (%s hits — never fails; see %s)\n' "$1" "$2" "${hits:-0}" "$log"
 }
 
 # --- wave-1 compile gates tolerant of sanctioned test-file breakage -----------------------------
@@ -265,6 +275,7 @@ if (( RUN_BASELINE )); then
   run_one kb-check  "make check-kb"   # records parse, cited kb: ids resolve, generated INDEX/contract/rules/CLAUDE trailers fresh
   run_one dead-refs "python3 .claude/skills/orchestrate/scripts/dead-refs.py --all"   # cited paths / make targets / musterd flags exist (two second review cycles were dead references, 2026-09-10)
   run_one e2e-lint  "make e2e-lint"   # fixtures only via helpers/fixtures.ts, no fixed sleeps (test-strategy)
+  run_warn size ".claude/skills/orchestrate/scripts/size-warn.sh --changed"   # funlen/dupl/file length on this branch's files; read by the maintainability reviewer, never a failure
   if (( RUN_E2E )); then
     run_one e2e "make e2e"
   else
@@ -299,7 +310,8 @@ if (( RUN_CHECKS )); then
 fi
 
 echo
-echo "== summary: $((${#RESULTS[@]})) lines, $FAILS failed; logs in $LOG_DIR"
+WARNS=0; for r in "${RESULTS[@]}"; do [[ "$r" == WARN* ]] && WARNS=$((WARNS+1)); done
+echo "== summary: $((${#RESULTS[@]})) lines, $FAILS failed, $WARNS warn-only; logs in $LOG_DIR"
 if (( FAILS )); then
   for r in "${RESULTS[@]}"; do [[ "$r" == FAIL* ]] && echo "  $r"; done
   exit 1

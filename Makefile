@@ -108,6 +108,10 @@ check-kb: ## Fail on a malformed record, an unresolved kb: citation, an unregist
 refs: ## Every repo path, make target and musterd flag cited in docs or comments must exist (run by make check)
 	python3 .claude/skills/orchestrate/scripts/dead-refs.py --all
 
+.PHONY: size-warn
+size-warn: ## Warn-only: long functions (funlen), duplicated blocks (dupl) and files over 500 lines, whole tree; never fails (the gates run it scoped to the branch)
+	.claude/skills/orchestrate/scripts/size-warn.sh
+
 .PHONY: check
 check: lint test web-lint web-test contrast e2e-lint check-versions check-kb refs ## Lint + test + web-lint + web-test + contrast + e2e-lint + check-versions + check-kb + refs
 
