@@ -210,6 +210,19 @@ and the second is the one to re-measure if a Claude Code bump touches worktrees.
   `musterd -version` → `brew audit --cask --strict --online`. Note the cask is only pushed on a
   tagged release, so the first true end-to-end test costs a version bump.
 
+- [ ] **Codebase maintainability cleanup** (filed 2026-09-22 at the developer's request; the
+  measured audit is `plans/_audit/code-quality-2026-09-22.md`) — one big pass, separate from the
+  review-agent redesign that is meant to keep it standing afterwards. The pipeline reviewer has
+  only ever checked plan and convention conformance: across all 58 review files, 0 findings on
+  patterns/principles/coupling, 3 on duplication, 5 on concurrency. Measured starting points:
+  `go test -race ./...` fails (one race, a test fake in `internal/server/shellscroll_test.go`;
+  `make test` never runs the detector); `dupl` 7 hits (all tests) and `funlen` 50, neither linter
+  in `.golangci.yml`; `internal/session/manager.go` is 1699 lines with 34 lock sites;
+  `web/src/protocol.ts` 877 and `api.ts` 745. Order the audit proposes: mechanise (`-race`,
+  `dupl`, `funlen` into the gates, land them green) → a newcomer's read per package for sibling
+  divergence, duplicated helpers and coupling → split the named hotspots. Sequenced after the
+  review-agent redesign so the maintainability reviewer it adds holds the line.
+
 - [ ] **Cutting v1.0.0 is the act of removing `--v0`** (settled 2026-09-01, `docs/history/spec-changelog.md`):
   `release.yml` passes `svu next --v0`, so while the flag exists a 1.0.0 cannot be cut, by
   accident or otherwise. When every item above closes, v1 ships as one deliberate commit
