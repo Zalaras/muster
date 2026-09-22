@@ -6,7 +6,7 @@ date: 2026-08-22
 summary: A negative grep banned a wire string in-scope tests legitimately needed; an agent split the literal, "hook_event" + "_name", flagged Major.
 features: []
 tags: [pipeline, claude-code-format]
-roles: [plan-work, daemon-impl, review]
+roles: [plan-work, daemon-impl, review, review-maintainability]
 files: []
 tests: []
 refs: [plan:m0-skeleton, .claude/skills/orchestrate/scripts/plan-lint.sh, .claude/skills/plan-work/SKILL.md, CLAUDE.md]

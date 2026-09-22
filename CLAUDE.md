@@ -36,9 +36,10 @@ Feature work goes through the multi-agent pipeline, not ad-hoc editing:
 2. `/plan-work <name>` — interactive plan with protocol-contract delta, Testable UI
    Elements, a Doc Delta and an Automated Checks block → `plans/<name>/plan.md`. User approves.
 3. `/orchestrate <name>` — runs e2e-specs (authoring) → daemon-impl ∥ web-impl →
-   daemon-tests ∥ web-tests → e2e-validate → review-work (Opus) → doc-reconcile, with fix waves
-   and `orchestration-state.json` resume. Only a review verdict of `approved` reaches
-   doc-reconcile, and only its `reconciled` completes the run.
+   daemon-tests ∥ web-tests → e2e-validate → gates (orchestrator, once) → review-work ∥
+   review-browser ∥ review-maintainability (Opus; merged into one computed verdict) →
+   doc-reconcile, with fix waves and `orchestration-state.json` resume. Only a merged review
+   verdict of `approved` reaches doc-reconcile, and only its `reconciled` completes the run.
 4. `/work-status [name]` — where things stand.
 5. `/triage [N|--all|--audit]` — pulls open GitHub issues into `TODO.md` and audits the
    two lists. An issue is triaged iff its `issues/N` link is in `TODO.md` or

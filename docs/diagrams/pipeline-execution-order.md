@@ -20,8 +20,12 @@ Inside `/orchestrate`, a full-stack plan runs both tracks; a `daemon` or `web` p
 other track's two boxes, and an E2E Scope of `none` drops both E2E stages. E2E Specs authors
 against a feature that does not exist yet, so it gates on collection, never on a pass. Each
 tester starts as soon as its own track is green — the daemon tester never waits for the web
-coder. Doc Reconcile is reached only by an `approved` review, and only its `reconciled` verdict
-completes the run (kb:adr/process-doc-reconcile-after-review). Retry budgets and the wave
+coder. The orchestrator runs the gates once and then spawns three Opus reviewers in parallel —
+correctness against the plan, the browser matrix (UI plans only), a maintainability read with the
+plan withheld — and merges their parts into one `review.md` whose verdict is computed, never
+opined (kb:adr/process-review-split-three-reviewers-computed-verdict). Doc Reconcile
+is reached only by an `approved` merged review, and only its `reconciled` verdict completes the
+run (kb:adr/process-doc-reconcile-after-review). Retry budgets and the wave
 ordering a `needs-changes` verdict follows are in the orchestrate skill's tables, not here.
 
 `/retro` runs in the session that ran `/orchestrate`, while the stumbles are still in context,
@@ -47,11 +51,17 @@ flowchart TD
         WT --> V
         V -->|implementation-bug| DI
         V -->|implementation-bug| WI
-        V --> R[Review — full suite, Opus]
-        R -->|needs-changes, in waves| DI
-        R -->|needs-changes, in waves| WI
-        R -->|approved| DR[Doc Reconcile]
-        DR -->|contradiction| R
+        V --> G[Gates — orchestrator, once]
+        G --> RC[Review: correctness]
+        G --> RB[Review: browser — UI plans]
+        G --> RM[Review: maintainability]
+        RC --> M[Merge — one computed verdict]
+        RB --> M
+        RM --> M
+        M -->|needs-changes, in waves| DI
+        M -->|needs-changes, in waves| WI
+        M -->|approved| DR[Doc Reconcile]
+        DR -->|contradiction| G
         DR -->|reconciled| C[Completion — accept ADRs, record closes]
     end
 

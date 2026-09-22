@@ -6,7 +6,7 @@ date: 2026-09-10
 summary: A 'closed' world-readable window left the WAL sidecar readable; 'references updated' missed a Go comment. Effects are measured and pasted, absences grepped.
 features: []
 tags: [pipeline, security]
-roles: [daemon-impl, web-impl, review]
+roles: [daemon-impl, web-impl, review, review-maintainability]
 files: []
 tests: []
 refs: [plan:m1-sessions, plan:version-claude-interface, CLAUDE.md, .claude/skills/orchestrate/scripts/dead-refs.py]

@@ -6,7 +6,7 @@ date: 2026-08-30
 summary: A <select> rebuilt every 1 s tick had no keyboard use, yet seven criteria stayed green via selectOption; a name-only cache key then disabled an option.
 features: [usage]
 tags: [ux, testing]
-roles: [web-impl, e2e-specs, review]
+roles: [web-impl, e2e-specs, review, review-browser]
 files: []
 tests: []
 refs: [plan:usage-model-bar, plans/usage-model-bar/review.failed.1.md, .claude/agents/web-impl.md, .claude/agents/e2e-specs.md]

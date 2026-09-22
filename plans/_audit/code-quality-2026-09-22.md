@@ -77,14 +77,20 @@ Of 251 `[note]`s, 5 touch code quality. Three structural causes:
 
 ## Proposed scope for the cleanup session (proposal — the developer picks)
 
-1. **Mechanise first.** Add `-race` to the Go test gate (measure the full-suite time before deciding
-   whether it is the default or its own target), enable `dupl` and `funlen` in `.golangci.yml`, and
-   fix the one race and seven `dupl` sites so the widened gate lands green.
+1. ~~**Mechanise first.**~~ **Done with the review redesign (2026-09-22).** Measured: the full
+   suite takes 1m40s under `-race` against 40s plain, so `make test-race` is its own target and a
+   failing baseline gate while `make test` stays the fast run; the test-fake race is fixed.
+   `funlen`, `dupl` and a 500-line file check run as `make size-warn` — **warnings, never
+   failures** (kb:adr/process-size-linters-warn-never-fail): a reason in the implementation log's
+   Decisions is read beside the warning by the new maintainability reviewer. The seven `dupl`
+   sites are therefore this session's to collapse, not a gate to land.
 2. **A newcomer's read per package and per `web/src` directory** against `docs/conventions.md` and
    `kb:diagram/daemon-components` / `kb:diagram/web-components`: sibling divergence, duplicated
    helpers, coupling, dead code. Each class with a cause becomes a lesson record; each fix is a
    commit that says which convention it restores.
 3. **Split the hotspots the numbers name:** `manager.go`, `main.run`, `server.New`, `protocol.ts`,
    `api.ts`.
-4. Sequence it after the review-agent redesign (separate work, same date) so the maintainability
-   reviewer that redesign adds holds the line afterwards.
+4. The review-agent redesign landed first (the `review-split` docs branch), so the
+   `review-maintainability` agent exists to hold the line: run it over each directory as you go
+   (`/review-maintainability <plan> Scope: <paths>`), and let its findings, not this list, set the
+   order.

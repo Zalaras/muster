@@ -6,7 +6,7 @@ date: 2026-08-23
 summary: No tile ever sent a resize frame while footers pattern-matched geometry and passed; five Criticals lived in the second view the plan's source states omitted.
 features: [tiles, surfaces]
 tags: [ux, testing, tmux]
-roles: [e2e-specs, web-impl, plan-work, orchestrator]
+roles: [e2e-specs, web-impl, plan-work, orchestrator, review-browser]
 files: []
 tests: []
 refs: [plan:m2-terminal, plans/m2-terminal/review.cycle-1.md, .claude/agents/e2e-specs.md, .claude/skills/orchestrate/SKILL.md]

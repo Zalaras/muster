@@ -6,7 +6,7 @@ date: 2026-08-27
 summary: A Minor fix gave .acts-row opacity 0 until hover; the dead surface reused the class, Resume vanished, and toBeVisible() passed over a Critical.
 features: [actions]
 tags: [ux, testing]
-roles: [web-impl, e2e-specs, review]
+roles: [web-impl, e2e-specs, review, review-browser, review-maintainability]
 files: []
 tests: []
 refs: [plan:m4-reconcile, plans/m4-reconcile/review.cycle3.md, .claude/agents/web-impl.md, .claude/agents/e2e-specs.md]

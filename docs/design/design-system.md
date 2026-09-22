@@ -3,7 +3,7 @@
 Chosen 2026-08-16: **direction A, "instrument"** (`docs/design/mockups/a-instrument.html`,
 tiled view in `d-tiled.html`). B and C are kept as rejected alternatives, not live options.
 
-This file is the concrete rule set `review-work` checks UI work against. Behaviour lives in
+This file is the concrete rule set the reviewers check UI work against — `review-work` the greppable token and markup rules, `review-browser` what §6 and §7 look like in the running app. Behaviour lives in
 `docs/design/ux-flows.md`; `SPEC.md` stays authoritative for what the product does.
 
 ## 1. Tokens and themes
@@ -256,7 +256,7 @@ at **≥ 60% used** (settled by m3-gauges planning, 2026-08-23 — the mockups' 
 
 ## 6. Honesty rules — these are correctness, not taste
 
-`review-work` treats a violation of any of these as a **Critical** finding, because each one
+`review-browser` treats a violation of any of these, observed in the running app, as a **Critical** finding, because each one
 makes the UI assert something Muster does not know.
 
 1. **Never render an empty gauge for unknown data.** Before a session's first API response

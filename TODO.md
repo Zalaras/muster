@@ -218,10 +218,16 @@ and the second is the one to re-measure if a Claude Code bump touches worktrees.
   `go test -race ./...` fails (one race, a test fake in `internal/server/shellscroll_test.go`;
   `make test` never runs the detector); `dupl` 7 hits (all tests) and `funlen` 50, neither linter
   in `.golangci.yml`; `internal/session/manager.go` is 1699 lines with 34 lock sites;
-  `web/src/protocol.ts` 877 and `api.ts` 745. Order the audit proposes: mechanise (`-race`,
-  `dupl`, `funlen` into the gates, land them green) → a newcomer's read per package for sibling
-  divergence, duplicated helpers and coupling → split the named hotspots. Sequenced after the
-  review-agent redesign so the maintainability reviewer it adds holds the line.
+  `web/src/protocol.ts` 877 and `api.ts` 745. The review redesign (2026-09-22, the
+  `review-split` docs branch) already landed the mechanical half: `make test-race` is a failing baseline
+  gate (the test-fake race is fixed), and `make size-warn` reports `funlen`, `dupl` and files over
+  500 lines as **warnings the maintainability reviewer reads, never failures**
+  (`kb:adr/process-size-linters-warn-never-fail`). What remains for this session: a newcomer's read
+  per package and per `web/src` directory against `docs/conventions.md` § Design — sibling
+  divergence, duplicated helpers and logic (run a clone detector on the TypeScript side; `dupl` sees
+  Go only), coupling, dead code — then split the hotspots the warnings name (`manager.go`,
+  `main.run`, `server.New`, `protocol.ts`, `api.ts`), each commit naming the convention it restores.
+  `/review-maintainability <plan> Scope: <paths>` runs the new reviewer over a directory.
 
 - [ ] **Cutting v1.0.0 is the act of removing `--v0`** (settled 2026-09-01, `docs/history/spec-changelog.md`):
   `release.yml` passes `svu next --v0`, so while the flag exists a 1.0.0 cannot be cut, by

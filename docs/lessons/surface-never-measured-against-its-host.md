@@ -6,7 +6,7 @@ date: 2026-09-14
 summary: Three layout Criticals in three cycles — nav below the body, sections clipped, a pop-out unbounded — each past a green suite that only resolved locators.
 features: []
 tags: [ux, testing]
-roles: [e2e-specs, web-impl, plan-work, review]
+roles: [e2e-specs, web-impl, plan-work, review, review-browser]
 files: []
 tests: []
 refs: [plan:markdown-viewing, plans/markdown-viewing/review.cycle1.md, plans/markdown-viewing/review.cycle2.md, plans/markdown-viewing/review.cycle3.md, .claude/agents/e2e-specs.md, kb:lesson/tiles-never-refit-behind-pattern-match]

@@ -329,7 +329,7 @@ These are designed, not afterthoughts — three of the four are *guaranteed* to 
 ## 5. Visual direction — settled
 
 **Direction A, "instrument", chosen 2026-08-16.** The rules it becomes are in
-`docs/design/design-system.md`, which is now what `review-work` checks UI against.
+`docs/design/design-system.md`, which is now what the reviewers (`review-work` for the rules in code, `review-browser` for what the app shows) check UI against.
 
 In `docs/design/mockups/`:
 

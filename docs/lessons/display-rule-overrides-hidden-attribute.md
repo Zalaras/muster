@@ -6,7 +6,7 @@ date: 2026-08-22
 summary: An author display rule overrides the UA [hidden] default regardless of specificity; six elements had the companion rule, the seventh was the validate failure.
 features: []
 tags: [ux, testing]
-roles: [web-impl, review, e2e-specs]
+roles: [web-impl, review, e2e-specs, review-browser]
 files: []
 tests: []
 refs: [plan:m1-sessions, .claude/agents/web-impl.md, .claude/agents/review-work.md]

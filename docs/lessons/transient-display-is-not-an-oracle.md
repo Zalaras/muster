@@ -6,7 +6,7 @@ date: 2026-09-11
 summary: E12 flaked for weeks on a ~25 ms overlay a later render pass destroys; assert the settled state and prove a flake fix with e2e-soak, not one green run.
 features: [surfaces]
 tags: [testing, ux]
-roles: [e2e-specs, e2e-validate, web-tests, review]
+roles: [e2e-specs, e2e-validate, web-tests, review, review-browser]
 files: [web/scripts/e2e-lint.sh]
 tests: [TestHandleTerminal_KillingTheTmuxSessionCloses4001AndNudgesLiveness]
 refs: [kb:adr/process-transient-displays-not-oracles, docs/history/design/test-strategy.md, Makefile]
