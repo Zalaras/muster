@@ -288,6 +288,10 @@ group deliberately, and otherwise don't re-sort this list.
   them per its assessment. Needs kb:adr/issue-daemon-creates-issues-only revisited first:
   triage deliberately never labels, assigns or milestones.
 
+- [ ] **I lost my session from yesterday (I think)** ([#47](https://github.com/Zalaras/muster/issues/47)) — daemon: missing-feature.
+
+- [ ] **Need Check for Updates button** ([#48](https://github.com/Zalaras/muster/issues/48)) — update: missing-feature.
+
 ## M5+ (v1.x, re-rank when reached)
 
 New post-v1 ideas go here.
