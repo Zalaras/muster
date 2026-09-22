@@ -288,9 +288,33 @@ group deliberately, and otherwise don't re-sort this list.
   them per its assessment. Needs kb:adr/issue-daemon-creates-issues-only revisited first:
   triage deliberately never labels, assigns or milestones.
 
-- [ ] **I lost my session from yesterday (I think)** ([#47](https://github.com/Zalaras/muster/issues/47)) — daemon: missing-feature.
+- [ ] **I lost my session from yesterday (I think)** ([#47](https://github.com/Zalaras/muster/issues/47)) — three sessions left open were
+  gone after stopping musterd and killing tmux. They should come back on restart as resumable
+  rows, even though Claude itself has quit. Mechanism, read from the ownership classifier's row
+  classes (`internal/session/manager.go:376-383`) and not yet reproduced: a row whose pane is
+  absent but which is still `alive=true` is "marked ended and kept — the resume chance is not
+  lost", and only the *following* startup sweeps it. That one-restart grace assumes a crash. A
+  graceful shutdown under `-on-exit=kill` runs `Manager.EndAll`, which marks every row
+  `alive:false` and persists it before exit, so the next startup sees "absent, alive=false" and
+  sweeps immediately — the grace is spent by the shutdown itself, and a cleanly stopped session
+  gets zero resume chances rather than one. `-on-exit=leave` should preserve the row; `ask` (the
+  default) depends on what was answered. Confirm with a test before planning. Changing it means
+  superseding kb:adr/lifecycle-reconcile-converges-with-the-socket, which is what ties a kept row
+  to having been alive at Reconcile time. The resume path itself already exists
+  (kb:anchor/sessions.resume).
 
-- [ ] **Need Check for Updates button** ([#48](https://github.com/Zalaras/muster/issues/48)) — update: missing-feature.
+- [ ] **Need Check for Updates button** ([#48](https://github.com/Zalaras/muster/issues/48)) — a user-initiated "check now" control in the
+  dashboard. The issue body is empty (title only), so everything below is read from the code, not
+  from the report. All of it ships except the manual trigger: the daemon checks once after listen
+  and then every `-update-check-interval` (default 24 h), broadcasts `update`
+  (kb:anchor/ws.update), and `POST /api/update/apply` (kb:anchor/update.apply) plus
+  `GET /api/update/restart-impact` (kb:anchor/update.restart-impact) already drive the
+  Update-and-restart confirm. What is missing is a way to ask *now* rather than waiting up to a
+  day. The only user-reachable trigger today is toggling the `updateCheck` pref off and on —
+  setting it true "triggers an immediate check" (`docs/protocol.md` § prefs) — which is a side
+  effect of a settings toggle, not a button. Needs a protocol delta: there is no check anchor,
+  only `update.apply` and `update.restart-impact`, so this adds one. It must not become a way for
+  the browser to reach github.com — the daemon checks, never the browser.
 
 ## M5+ (v1.x, re-rank when reached)
 
