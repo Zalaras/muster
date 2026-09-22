@@ -25,6 +25,7 @@ import {
   type SurfaceSwitchState,
 } from "../terminal/surfaceswitch";
 import type { TerminalSurface } from "../terminal/pane";
+import type { ShellActivityIndicator } from "../terminal/shellactivity";
 import type { Session } from "../protocol";
 import { orderRail, pickNeediest } from "../sessions/sort";
 
@@ -39,6 +40,7 @@ export interface FocusDeps {
     state(): SurfaceSwitchState;
     get(id: number, kind: SurfaceKind): TerminalSurface | undefined;
     select(id: number, kind: SurfaceKind, findDeadRefs: () => DeadSurfaceRefs | null): void;
+    activityFor(id: number): ShellActivityIndicator;
   };
   /** Tiles' promote — Focus's own shortcut-driven `nth`/`neediest` promote instead of
    * focusing when the current view is Tiles (`focusSession`'s shared tail). Tiles is
@@ -185,7 +187,8 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
     const surfaceState = session
       ? getSurfaceState(deps.getSurfaces().state(), session.id)
       : DEFAULT_SURFACE_STATE;
-    renderMainhead(mainheadElements, session, now, connected, surfaceState);
+    const activity = session ? deps.getSurfaces().activityFor(session.id) : "none";
+    renderMainhead(mainheadElements, session, now, connected, surfaceState, activity);
 
     if (!session) {
       mainSlotEl.hidden = true;

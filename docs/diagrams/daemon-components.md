@@ -14,8 +14,8 @@ refs: [kb:diagram/containers, kb:adr/nongoal-generic-agent-abstraction-layer, kb
 Components inside the `musterd` binary and their responsibilities. Every edge is a real import,
 drawn from the import blocks, not from prose; the absent edges are the architecture.
 
-`internal/store`, `internal/tmux` and `internal/claudecode` import nothing internal — leaf
-adapters, which is what keeps Claude-Code-format knowledge inside one package
+`internal/store`, `internal/tmux`, `internal/tty` and `internal/claudecode` import nothing
+internal — leaf adapters, which is what keeps Claude-Code-format knowledge inside one package
 (kb:adr/nongoal-generic-agent-abstraction-layer). `internal/session` never imports
 `internal/server`: it declares its own `PaneChecker`, `PaneSnapshotter` and `Killer` ports and
 `*tmux.Client` satisfies them, injected by the composition root. Ingest is not a package of its
@@ -51,6 +51,7 @@ C4Component
             Component(gitutil, "internal/gitutil", "git", "Repo, branch and worktree detection")
             ComponentDb(store, "internal/store", "database/sql", "Row gateway and forward-only migrations over SQLite")
             Component(tmuxpkg, "internal/tmux", "tmux CLI", "Dedicated-socket tmux driver")
+            Component(ttypkg, "internal/tty", "TIOCGETA ioctl", "Reads a pane tty's line discipline to tell work from waiting")
             Component(cc, "internal/claudecode", "Go", "The only package that knows Claude Code's wire format; reads its files, the Keychain and the usage API")
             Component(webui, "internal/webui", "embed.FS", "Embedded dashboard assets")
             Component(locate, "internal/locate", "mdfind", "Dropped-file resolution")
@@ -73,6 +74,7 @@ C4Component
     Rel(server, gitutil, "detects repo")
     Rel(server, store, "events, rows")
     Rel(server, tmuxpkg, "spawns, kills")
+    Rel(server, ttypkg, "reads line discipline")
     Rel(server, cc, "parses payloads")
     Rel(server, webui, "serves")
     Rel(server, locate, "resolves drops")

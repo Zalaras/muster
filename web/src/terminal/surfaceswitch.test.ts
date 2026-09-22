@@ -11,8 +11,8 @@
 // construction with no jsdom available in this Vitest environment — same category as
 // render/tiles.ts's `buildTile` (excluded from tiles.test.ts for the identical reason,
 // see that file's header comment). It is not covered here; the Testable UI Elements
-// table's `role="group"`/button-name/pip-presence assertions are Playwright's job
-// (web/e2e/plain-shell.spec.ts's W1/W4-style coverage).
+// table's `role="group"`/button-name/accessible-name (INV-3) assertions are Playwright's
+// job (web/e2e/shell-activity.spec.ts's W5-style coverage).
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SURFACE_STATE,
@@ -116,14 +116,14 @@ describe("surfaceswitch — setShellRunning (REQ-1/REQ-8: tracks whether the dae
   });
 });
 
-describe("surfaceswitch — shellEnded (REQ-8: exit/kill reverts to claude and clears the pip atomically)", () => {
+describe("surfaceswitch — shellEnded (REQ-8: exit/kill reverts to claude and clears shellRunning atomically)", () => {
   it("reverts selected to claude and clears shellRunning when shell was showing", () => {
     const state: SurfaceSwitchState = new Map([[1, { selected: "shell", shellRunning: true }]]);
     const next = shellEnded(state, 1);
     expect(getSurfaceState(next, 1)).toEqual({ selected: "claude", shellRunning: false });
   });
 
-  it("still clears shellRunning (the pip) even when claude was already the visible surface (edge case 7: pip stays lit until the next click otherwise)", () => {
+  it("still clears shellRunning even when claude was already the visible surface (edge case 7: shellRunning — which gates attachability and background mounting, not any indicator — would otherwise stay true until the next click)", () => {
     const state: SurfaceSwitchState = new Map([[1, { selected: "claude", shellRunning: true }]]);
     const next = shellEnded(state, 1);
     expect(getSurfaceState(next, 1)).toEqual({ selected: "claude", shellRunning: false });
@@ -272,13 +272,14 @@ describe("surfaceswitch — surfaceKey / parseSurfaceKey (the composite key main
 interface FakeSurfaceButton {
   attrs: Record<string, string>;
   disabled: boolean;
-  children: FakeSurfacePip[];
+  children: FakeShellActEl[];
   setAttribute(name: string, value: string): void;
-  contains(el: FakeSurfacePip): boolean;
-  prepend(el: FakeSurfacePip): void;
+  contains(el: FakeShellActEl): boolean;
+  prepend(el: FakeShellActEl): void;
 }
 
-interface FakeSurfacePip {
+interface FakeShellActEl {
+  dataset: Record<string, string>;
   remove(): void;
 }
 
@@ -308,9 +309,10 @@ function fakeSurfaceSegmentRefs(): SurfaceSegmentRefs & {
   const claudeBtn = fakeSurfaceButton();
   const shellBtn = fakeSurfaceButton();
   const docsBtn = fakeSurfaceButton();
-  const pipEl: FakeSurfacePip = {
+  const shellActEl: FakeShellActEl = {
+    dataset: {},
     remove() {
-      const i = shellBtn.children.indexOf(pipEl);
+      const i = shellBtn.children.indexOf(shellActEl);
       if (i >= 0) shellBtn.children.splice(i, 1);
     },
   };
@@ -319,7 +321,7 @@ function fakeSurfaceSegmentRefs(): SurfaceSegmentRefs & {
     claudeBtn: claudeBtn as unknown as HTMLButtonElement & FakeSurfaceButton,
     shellBtn: shellBtn as unknown as HTMLButtonElement & FakeSurfaceButton,
     docsBtn: docsBtn as unknown as HTMLButtonElement & FakeSurfaceButton,
-    pipEl: pipEl as unknown as HTMLElement,
+    shellActEl: shellActEl as unknown as HTMLElement,
   } as SurfaceSegmentRefs & {
     claudeBtn: FakeSurfaceButton;
     shellBtn: FakeSurfaceButton;
@@ -327,68 +329,89 @@ function fakeSurfaceSegmentRefs(): SurfaceSegmentRefs & {
   };
 }
 
-function hasPip(refs: ReturnType<typeof fakeSurfaceSegmentRefs>): boolean {
-  return refs.shellBtn.contains(refs.pipEl as unknown as FakeSurfacePip);
+/** `"none"` when the indicator isn't attached at all, else the `data-act` value the real
+ * `dataset["act"]` write would produce — mirrors what a caller actually observes: the
+ * indicator's presence and its `data-act` are the contract, not a boolean. */
+function shellActState(refs: ReturnType<typeof fakeSurfaceSegmentRefs>): string {
+  const el = refs.shellActEl as unknown as FakeShellActEl;
+  if (!refs.shellBtn.contains(el)) return "none";
+  return el.dataset["act"] ?? "";
 }
 
-describe("updateSurfaceSegment — States: 'no data yet' has no pip; a running shell shows one", () => {
-  it("no session ever switched: claude pressed, shell not pressed, no pip in the DOM", () => {
+describe("updateSurfaceSegment — States: 'no data yet' has no indicator; busy/done attach one with data-act", () => {
+  it("activity 'none': claude pressed, shell not pressed, no indicator in the DOM", () => {
     const refs = fakeSurfaceSegmentRefs();
-    updateSurfaceSegment(refs, DEFAULT_SURFACE_STATE, true);
+    updateSurfaceSegment(refs, DEFAULT_SURFACE_STATE, true, "none");
     expect(refs.claudeBtn.attrs["aria-pressed"]).toBe("true");
     expect(refs.shellBtn.attrs["aria-pressed"]).toBe("false");
     expect(refs.docsBtn.attrs["aria-pressed"]).toBe("false");
-    expect(hasPip(refs)).toBe(false);
+    expect(shellActState(refs)).toBe("none");
   });
 
   it("docs selected: docs pressed, neither claude nor shell pressed (plan markdown-viewing REQ-1, W4)", () => {
     const refs = fakeSurfaceSegmentRefs();
     const state: SessionSurfaceState = { selected: "docs", shellRunning: false };
-    updateSurfaceSegment(refs, state, true);
+    updateSurfaceSegment(refs, state, true, "none");
     expect(refs.claudeBtn.attrs["aria-pressed"]).toBe("false");
     expect(refs.shellBtn.attrs["aria-pressed"]).toBe("false");
     expect(refs.docsBtn.attrs["aria-pressed"]).toBe("true");
   });
 
-  it("a running, visible shell: shell pressed, pip attached", () => {
+  it("activity 'busy': shell pressed, indicator attached with data-act='busy'", () => {
     const refs = fakeSurfaceSegmentRefs();
     const state: SessionSurfaceState = { selected: "shell", shellRunning: true };
-    updateSurfaceSegment(refs, state, true);
+    updateSurfaceSegment(refs, state, true, "busy");
     expect(refs.claudeBtn.attrs["aria-pressed"]).toBe("false");
     expect(refs.shellBtn.attrs["aria-pressed"]).toBe("true");
-    expect(hasPip(refs)).toBe(true);
+    expect(shellActState(refs)).toBe("busy");
   });
 
-  it("a running shell hidden behind claude: claude pressed, pip still attached (the pip is a positive claim about the shell, independent of which surface is selected)", () => {
+  it("activity 'busy' while claude is selected: indicator still attached (the indicator reflects `activity`, not which surface is selected)", () => {
     const refs = fakeSurfaceSegmentRefs();
     const state: SessionSurfaceState = { selected: "claude", shellRunning: true };
-    updateSurfaceSegment(refs, state, true);
+    updateSurfaceSegment(refs, state, true, "busy");
     expect(refs.claudeBtn.attrs["aria-pressed"]).toBe("true");
     expect(refs.shellBtn.attrs["aria-pressed"]).toBe("false");
-    expect(hasPip(refs)).toBe(true);
+    expect(shellActState(refs)).toBe("busy");
   });
 
-  it("the pip is removed on the next pass once shellRunning goes back to false (REQ-8)", () => {
+  it("activity 'done': indicator attached with data-act='done'", () => {
     const refs = fakeSurfaceSegmentRefs();
-    updateSurfaceSegment(refs, { selected: "shell", shellRunning: true }, true);
-    expect(hasPip(refs)).toBe(true);
-    updateSurfaceSegment(refs, { selected: "claude", shellRunning: false }, true);
-    expect(hasPip(refs)).toBe(false);
+    const state: SessionSurfaceState = { selected: "claude", shellRunning: true };
+    updateSurfaceSegment(refs, state, true, "done");
+    expect(shellActState(refs)).toBe("done");
   });
 
-  it("a second pass with the pip already attached does not attach a duplicate", () => {
+  it("the indicator is removed on the next pass once activity returns to 'none' (REQ-4 self-clear/REQ-8 shell-gone)", () => {
+    const refs = fakeSurfaceSegmentRefs();
+    updateSurfaceSegment(refs, { selected: "shell", shellRunning: true }, true, "busy");
+    expect(shellActState(refs)).toBe("busy");
+    updateSurfaceSegment(refs, { selected: "claude", shellRunning: false }, true, "none");
+    expect(shellActState(refs)).toBe("none");
+  });
+
+  it("a second pass with the same activity does not attach a duplicate", () => {
     const refs = fakeSurfaceSegmentRefs();
     const state: SessionSurfaceState = { selected: "shell", shellRunning: true };
-    updateSurfaceSegment(refs, state, true);
-    updateSurfaceSegment(refs, state, true);
+    updateSurfaceSegment(refs, state, true, "busy");
+    updateSurfaceSegment(refs, state, true, "busy");
     expect(refs.shellBtn.children.length).toBe(1);
+  });
+
+  it("activity 'busy' then 'done' across two passes updates data-act in place, without a duplicate or a detach in between", () => {
+    const refs = fakeSurfaceSegmentRefs();
+    const state: SessionSurfaceState = { selected: "shell", shellRunning: true };
+    updateSurfaceSegment(refs, state, true, "busy");
+    updateSurfaceSegment(refs, state, true, "done");
+    expect(refs.shellBtn.children.length).toBe(1);
+    expect(shellActState(refs)).toBe("done");
   });
 });
 
 describe("updateSurfaceSegment — States: 'daemon down' disables both segments, never gated on alive/shellRunning", () => {
   it("disables both buttons when connected=false, regardless of which surface is selected", () => {
     const refs = fakeSurfaceSegmentRefs();
-    updateSurfaceSegment(refs, { selected: "shell", shellRunning: true }, false);
+    updateSurfaceSegment(refs, { selected: "shell", shellRunning: true }, false, "busy");
     expect(refs.claudeBtn.disabled).toBe(true);
     expect(refs.shellBtn.disabled).toBe(true);
     expect(refs.docsBtn.disabled).toBe(true);
@@ -396,15 +419,15 @@ describe("updateSurfaceSegment — States: 'daemon down' disables both segments,
 
   it("re-enables both buttons once connected=true again", () => {
     const refs = fakeSurfaceSegmentRefs();
-    updateSurfaceSegment(refs, DEFAULT_SURFACE_STATE, false);
-    updateSurfaceSegment(refs, DEFAULT_SURFACE_STATE, true);
+    updateSurfaceSegment(refs, DEFAULT_SURFACE_STATE, false, "none");
+    updateSurfaceSegment(refs, DEFAULT_SURFACE_STATE, true, "none");
     expect(refs.claudeBtn.disabled).toBe(false);
     expect(refs.shellBtn.disabled).toBe(false);
   });
 
   it("the shell segment stays enabled while connected even on a dead session (REQ-7: the shell button is never gated on alive) — modelled here as 'update never even receives alive', so connected=true always enables it regardless of the caller's session state", () => {
     const refs = fakeSurfaceSegmentRefs();
-    updateSurfaceSegment(refs, DEFAULT_SURFACE_STATE, true);
+    updateSurfaceSegment(refs, DEFAULT_SURFACE_STATE, true, "none");
     expect(refs.shellBtn.disabled).toBe(false);
   });
 });

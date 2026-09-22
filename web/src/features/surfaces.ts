@@ -14,6 +14,22 @@ import { createShell } from "../api";
 import { showDeadSurfaceNotice, type DeadSurfaceRefs } from "../render/dead";
 import { TerminalSurface } from "../terminal/pane";
 import {
+  clearOnSelect,
+  EMPTY_SHELL_ACTIVITY,
+  getShellActivity,
+  observeBusy,
+  observeIdle,
+  resolveOnset,
+  resolveSelfClear,
+  restoreBusy,
+  restoreIdle,
+  shellGone,
+  type ActivityResult,
+  type ScheduledTimer,
+  type ShellActivityIndicator,
+  type ShellActivityState,
+} from "../terminal/shellactivity";
+import {
   forgetSession,
   getSurfaceState,
   isSurfaceAttachable,
@@ -40,6 +56,10 @@ export interface SurfacesHandle {
   select(id: number, kind: SurfaceKind, findDeadRefs: () => DeadSurfaceRefs | null): void;
   applyTheme(): void;
   focusSelected(id: number): void;
+  /** Plan terminal-fixes-cleanup: the `shell` segment's busy/done verdict for `id`, per
+   * `terminal/shellactivity.ts`'s reducer — `render/mainhead.ts` and `features/tiles.ts`
+   * read this on every render pass to drive `span.shellact` (Testable UI Elements). */
+  activityFor(id: number): ShellActivityIndicator;
 }
 
 export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
@@ -48,9 +68,36 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
   // kind ever has a live entry (REQ-5 disposes the hidden one on every switch).
   const surfaces = new Map<string, TerminalSurface>();
   let surfaceSwitchState: SurfaceSwitchState = new Map();
+  let activityState: ShellActivityState = EMPTY_SHELL_ACTIVITY;
+
+  function isShellSelected(id: number): boolean {
+    return getSurfaceState(surfaceSwitchState, id).selected === "shell";
+  }
+
+  /** Glue for `shellactivity.ts`'s epoch-guarded timers (module header comment): applies
+   * the reducer's new state immediately and, if it asked for one, arranges the delayed
+   * callback with a real `setTimeout` — a late/superseded firing is a harmless no-op on
+   * the reducer side, so nothing here needs to track or cancel a timer handle. */
+  function applyActivity(result: ActivityResult): void {
+    activityState = result.state;
+    if (result.timer) scheduleActivityTimer(result.timer);
+  }
+
+  function scheduleActivityTimer(timer: ScheduledTimer): void {
+    setTimeout(() => {
+      activityState =
+        timer.kind === "onset"
+          ? resolveOnset(activityState, timer.id, timer.epoch)
+          : resolveSelfClear(activityState, timer.id, timer.epoch);
+      app.render();
+    }, timer.delayMs);
+  }
 
   function handleShellEnded(id: number): void {
     surfaceSwitchState = shellEnded(surfaceSwitchState, id);
+    // REQ-8/edge cases 1-2: the shell itself is gone — clears unconditionally, no
+    // transient tick (shellactivity.ts's `shellGone` vs. `observeIdle`).
+    activityState = shellGone(activityState, id);
     app.render();
   }
 
@@ -82,6 +129,8 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
       }
       surfaceSwitchState = setShellRunning(surfaceSwitchState, id, true);
       surfaceSwitchState = selectSurface(surfaceSwitchState, id, "shell");
+      // REQ-4: selecting `shell` clears a showing tick immediately.
+      activityState = clearOnSelect(activityState, id);
       app.render();
     });
   }
@@ -109,8 +158,8 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
       // Plan markdown-viewing INV-1: `docs` never has a `TerminalSurface` of its own,
       // but a shell still running underneath it must stay attached in the background
       // (never mounted — focus.ts/tiles.ts only ever ask for the *selected* kind) so its
-      // `onShellEnded` still fires and clears the pip/reverts state even while it isn't
-      // the displayed surface.
+      // `onShellEnded` still fires and reverts `shellRunning`/`selected` state even while
+      // it isn't the displayed surface.
       if (state.selected === "docs" && state.shellRunning) {
         entries.push({ id, kind: "shell" });
       }
@@ -164,13 +213,34 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
       surfaces.delete(key);
     }
     surfaceSwitchState = forgetSession(surfaceSwitchState, id);
+    activityState = shellGone(activityState, id);
+  });
+
+  // Plan terminal-fixes-cleanup: a live `shellActivity` transition for one session —
+  // Protocol Contract's `/ws` broadcast, independent of whichever shell socket (if any)
+  // is currently attached (E12).
+  app.on("shellActivity", (sessionId, busy) => {
+    applyActivity(
+      busy
+        ? observeBusy(activityState, sessionId)
+        : observeIdle(activityState, sessionId, isShellSelected(sessionId)),
+    );
   });
 
   /** After the daemon connection is restored, every currently-mounted surface gets a
    * chance to reattach — a no-op unless it's showing the "disconnected" overlay for a
    * still-attachable target. Plan plain-terminal-session, edge case 14: a shell surface's
-   * "attachable" is `shellRunning`, never `session.alive`. */
-  app.on("snapshot", () => {
+   * "attachable" is `shellRunning`, never `session.alive`.
+   *
+   * Plan terminal-fixes-cleanup: also re-syncs the activity indicator from
+   * `snapshot.shellsBusy` (W9) — every id it lists is busy right now, immediately, no
+   * onset delay; every id this module still shows "busy" for but the snapshot omits gets
+   * `restoreIdle`'s treatment, never `observeIdle`'s (that one is for a *live*
+   * `shellActivity` message only) — see `restoreIdle`'s own doc comment for why a
+   * snapshot gap always schedules the self-clear regardless of the current surface
+   * selection, which is what lets this same branch satisfy both W6/edge case 3 and edge
+   * case 4's daemon-restart-mid-command. */
+  app.on("snapshot", (snapshot) => {
     const sessions = app.store.values();
     for (const [key, surface] of surfaces) {
       const { id, kind } = parseSurfaceKey(key);
@@ -180,6 +250,19 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
           ? getSurfaceState(surfaceSwitchState, id).shellRunning
           : (session?.alive ?? false);
       surface.reattachIfDisconnected(attachable);
+    }
+
+    const busyNow = new Set(snapshot.shellsBusy ?? []);
+    for (const id of busyNow) applyActivity(restoreBusy(activityState, id));
+    // Snapshotting `.keys()` up front (rather than re-reading the reassigned
+    // `activityState` mid-loop): `applyActivity` replaces `activityState` with a new Map
+    // on every call (shellactivity.ts's immutable-update pattern), but the iterator this
+    // produces stays bound to the Map instance captured here, so it safely walks the
+    // pre-diff id set exactly once regardless of reassignment.
+    for (const id of activityState.keys()) {
+      if (!busyNow.has(id) && getShellActivity(activityState, id) === "busy") {
+        applyActivity(restoreIdle(activityState, id));
+      }
     }
   });
 
@@ -196,6 +279,9 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
     },
     focusSelected(id) {
       surfaces.get(surfaceKey(id, getSurfaceState(surfaceSwitchState, id).selected))?.focus();
+    },
+    activityFor(id) {
+      return getShellActivity(activityState, id);
     },
   };
 }

@@ -297,11 +297,144 @@ func (c *Client) ResizeWindow(ctx context.Context, target string, cols, rows int
 // test oracle only (CLAUDE.md hard rule: capture/attach are display + oracle, never a
 // state source); production code must never call this to derive session state.
 func (c *Client) DisplayVar(ctx context.Context, target, format string) (string, error) {
+	return c.displayVar(ctx, target, format)
+}
+
+// displayVar is DisplayVar's shared implementation. Unlike its exported wrapper, it is
+// also called by production code below (ScrollCopyMode) — tmux's own process/mode
+// tracking (`#{pane_in_mode}`, `#{history_size}`) is not pane *content*, so reading it
+// to drive copy-mode does not breach the CLAUDE.md hard rule DisplayVar's own doc
+// comment guards against (kb:adr/surfaces-shell-busy-from-tmux-process-state makes the
+// same distinction for the busy poller).
+func (c *Client) displayVar(ctx context.Context, target, format string) (string, error) {
 	out, err := c.run(ctx, "display-message", "-p", "-t", target, format)
 	if err != nil {
 		return "", fmt.Errorf("tmux display-message %q %q: %w", target, format, err)
 	}
 	return strings.TrimRight(out, "\n"), nil
+}
+
+// PaneActivity is one pane's tmux-reported process/screen state, as ListPaneActivity
+// reads it for the shell-activity poller (kb:anchor/ws.shell-activity). Query only —
+// tmux's own process tracking, never terminal content.
+type PaneActivity struct {
+	// SessionName is the tmux session name owning the pane ("muster-<id>" or
+	// "muster-<id>-shell") — tmux.IsShellSessionName/ParseSessionName turn it back
+	// into a Muster session id.
+	SessionName string
+	// CurrentCommand is `#{pane_current_command}`: the shell's own basename when idle
+	// or when a job is backgrounded, the foreground command otherwise.
+	CurrentCommand string
+	// AlternateOn is `#{alternate_on}` — true while the pane's foreground program owns
+	// the alternate screen (vim, less, Claude Code's TUI).
+	AlternateOn bool
+	// Tty is `#{pane_tty}`, the device path internal/tty.IsCanonical reads.
+	Tty string
+}
+
+// ListPaneActivity reads every pane on this socket's server in one tmux invocation
+// (kb:anchor/ws.shell-activity's poll) — never filtered by session here, since a single
+// `list-panes -a` is what makes this one exec regardless of how many shells exist;
+// callers pick out the shell panes they care about via IsShellSessionName. A no-server-
+// yet socket is an empty, non-error result (ListSessions' own convention).
+func (c *Client) ListPaneActivity(ctx context.Context) ([]PaneActivity, error) {
+	out, err := c.run(ctx, "list-panes", "-a", "-F", "#{session_name} #{pane_current_command} #{alternate_on} #{pane_tty}")
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			if isConnectionFailure(err) {
+				return nil, fmt.Errorf("listing pane activity: %w", err)
+			}
+			return nil, nil
+		}
+		return nil, fmt.Errorf("listing pane activity: %w", err)
+	}
+	trimmed := strings.TrimSpace(out)
+	if trimmed == "" {
+		return nil, nil
+	}
+	lines := strings.Split(trimmed, "\n")
+	activity := make([]PaneActivity, 0, len(lines))
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) != 4 {
+			continue // defensive: a Muster-owned session/window name never contains a space
+		}
+		activity = append(activity, PaneActivity{
+			SessionName:    fields[0],
+			CurrentCommand: fields[1],
+			AlternateOn:    fields[2] == "1",
+			Tty:            fields[3],
+		})
+	}
+	return activity, nil
+}
+
+// paneCopyModeState reads target's `#{pane_in_mode}`/`#{history_size}` in one
+// display-message call — ScrollCopyMode's own gate, never a state source beyond this
+// one wheel-driven control frame (kb:adr/surfaces-shell-scroll-via-daemon-copy-mode).
+func (c *Client) paneCopyModeState(ctx context.Context, target string) (inMode bool, historySize int, err error) {
+	out, derr := c.displayVar(ctx, target, "#{pane_in_mode} #{history_size}")
+	if derr != nil {
+		return false, 0, derr
+	}
+	fields := strings.Fields(out)
+	if len(fields) != 2 {
+		return false, 0, fmt.Errorf("tmux display-message %q: unexpected output %q", target, out)
+	}
+	n, perr := strconv.Atoi(fields[1])
+	if perr != nil {
+		return false, 0, fmt.Errorf("tmux display-message %q: parsing history_size %q: %w", target, fields[1], perr)
+	}
+	return fields[0] == "1", n, nil
+}
+
+// ScrollCopyMode translates one wheel gesture into tmux copy-mode commands against
+// target (kb:anchor/terminal.shell-ws, kb:adr/surfaces-shell-scroll-via-daemon-copy-mode).
+// lines is signed: positive scrolls back into history (`scroll-up`), negative toward the
+// live bottom (`scroll-down`); the caller (internal/server/terminal.go) is responsible
+// for clamping its magnitude to [1, 200]. Enters copy-mode with `-e` only when the pane
+// is not already in a mode and has real history to scroll to (`#{history_size}` > 0,
+// REQ-12/edge case 10) — `-e` is what makes tmux leave copy-mode by itself once scrolled
+// back to the bottom, so no explicit exit call exists. Issues a single
+// `send-keys -X -N <n>` rather than n separate invocations (D2). entered reports whether
+// the pane is now (or already was) in a mode, so the caller's own inCopyMode tracking
+// (terminal.go's pumpShellSocketToPTY, REQ-10) stays accurate for the "nothing to scroll
+// to" no-op — where entered is false even though err is nil.
+func (c *Client) ScrollCopyMode(ctx context.Context, target string, lines int) (entered bool, err error) {
+	if lines == 0 {
+		return false, nil
+	}
+	inMode, historySize, err := c.paneCopyModeState(ctx, target)
+	if err != nil {
+		return false, fmt.Errorf("tmux scroll copy-mode %q: %w", target, err)
+	}
+	if !inMode {
+		if historySize <= 0 {
+			return false, nil
+		}
+		if _, err := c.run(ctx, "copy-mode", "-e", "-t", target); err != nil {
+			return false, fmt.Errorf("tmux copy-mode %q: %w", target, err)
+		}
+	}
+	direction, n := "scroll-up", lines
+	if lines < 0 {
+		direction, n = "scroll-down", -lines
+	}
+	if _, err := c.run(ctx, "send-keys", "-X", "-N", strconv.Itoa(n), "-t", target, direction); err != nil {
+		return false, fmt.Errorf("tmux send-keys %s %q: %w", direction, target, err)
+	}
+	return true, nil
+}
+
+// CancelCopyMode issues `send-keys -X cancel` against target, returning its pane to the
+// live bottom (REQ-10) — called before writing input bytes to a pane the daemon knows
+// may still be in a mode.
+func (c *Client) CancelCopyMode(ctx context.Context, target string) error {
+	if _, err := c.run(ctx, "send-keys", "-X", "-t", target, "cancel"); err != nil {
+		return fmt.Errorf("tmux send-keys cancel %q: %w", target, err)
+	}
+	return nil
 }
 
 // ResolveSessionTarget returns the window/pane target for a live tmux session named

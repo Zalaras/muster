@@ -48,7 +48,7 @@ C4Component
             Component(protocol, "protocol.ts", "types", "Wire types and parsers for protocol version 2; imported by every layer, wires not drawn")
             Component(ws, "ws.ts", "WebSocket", "The state socket to musterd, backoff, dispatch")
             Component(api, "api.ts", "fetch", "The only fetch to musterd; ApiResult, never throws")
-            Component(terminal, "terminal/", "5 modules", "xterm.js surfaces and the per-terminal socket to musterd")
+            Component(terminal, "terminal/", "7 modules", "xterm.js surfaces, the per-terminal socket to musterd, shell key translation and the shell activity reducer")
             Component(dom, "dom.ts", "helpers", "Element lookup")
             Component(reader, "reader/", "9 modules", "Markdown render, nav tree, per-session memory in localStorage")
             Component(sessions, "sessions/", "8 modules", "Pure derivation — view-models, sort, tile math, formatters")

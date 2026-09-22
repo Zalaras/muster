@@ -17,15 +17,14 @@ import {
 import {
   createShellViaApi,
   deadSurfaceNotice,
-  expectPipUsesShellPipToken,
   mainheadSurfaceButton,
   mainheadSurfaceGroup,
-  shellPip,
   shellSurfaceRegion,
   shellTmuxTarget,
   ShellSocketTracker,
   tileSurfaceButton,
 } from "./helpers/shell";
+import { shellActivityIndicator } from "./helpers/shellinput";
 import { queryEvents } from "./helpers/db";
 import { dropFiles, dropNotice, liveTile, liveTileById, terminalRegion } from "./helpers/terminal";
 
@@ -63,7 +62,7 @@ test("switching to shell in Focus shows a live shell whose prompt responds to ty
     await expect(mainheadSurfaceGroup(page)).toBeVisible();
     await expect(claudeBtn).toHaveAttribute("aria-pressed", "true");
     await expect(shellBtn).toHaveAttribute("aria-pressed", "false");
-    await expect(shellPip(shellBtn)).toHaveCount(0);
+    await expect(shellActivityIndicator(shellBtn)).toHaveCount(0);
 
     const claudeRegion = terminalRegion(page, "plain-shell-e1");
     await expect(claudeRegion).toContainText("MUSTER-STUB-READY", { timeout: 15_000 });
@@ -84,7 +83,9 @@ test("switching to shell in Focus shows a live shell whose prompt responds to ty
     await expect(claudeRegion).toHaveCount(0);
     await expect(shellBtn).toHaveAttribute("aria-pressed", "true");
     await expect(claudeBtn).toHaveAttribute("aria-pressed", "false");
-    await expect(shellPip(shellBtn)).toHaveCount(1);
+    // REQ-1: a freshly spawned, still-idle shell puts no indicator in the segment — the
+    // "no data yet" and "idle" states are deliberately indistinguishable.
+    await expect(shellActivityIndicator(shellBtn)).toHaveCount(0);
 
     // The round trip: a real interactive shell echoes back what it's told to run.
     await shellRegion.click();
@@ -98,7 +99,8 @@ test("switching to shell in Focus shows a live shell whose prompt responds to ty
     await expect(terminalRegion(page, "plain-shell-e1")).toBeVisible({ timeout: 15_000 });
     await expect(shellSurfaceRegion(page, "plain-shell-e1")).toHaveCount(0);
     await expect(claudeBtn).toHaveAttribute("aria-pressed", "true");
-    await expect(shellPip(mainheadSurfaceButton(page, "shell"))).toHaveCount(1);
+    // Still no indicator — the shell is still running, but idle (REQ-1).
+    await expect(shellActivityIndicator(mainheadSurfaceButton(page, "shell"))).toHaveCount(0);
   } finally {
     await cleanup();
   }
@@ -161,10 +163,9 @@ test("a shell started in Focus is still running after switching to Tiles and bac
     await page.keyboard.press("Meta+Backslash");
     await expect(page.locator("#view-focus")).toBeVisible();
 
-    // Still running: the tmux session survived, the pip is still lit, and reattaching
-    // (a fresh click of the shell segment) repaints the same session's scrollback.
+    // Still running: the tmux session survived the view round trip, and reattaching (a
+    // fresh click of the shell segment) repaints the same session's scrollback.
     expect(await daemon.tmuxSessions()).toContain(shellTmuxTarget(session.id));
-    await expect(shellPip(mainheadSurfaceButton(page, "shell"))).toHaveCount(1);
   } finally {
     await cleanup();
   }
@@ -214,7 +215,7 @@ test("a shell can be started on a session whose alive is false, and the claude s
   }
 });
 
-test("typing exit closes the shell socket, swaps the visible surface back to Claude and clears the pip (E6, REQ-8)", async ({
+test("typing exit closes the shell socket and swaps the visible surface back to Claude (E6, REQ-8)", async ({
   page,
   daemon,
 }) => {
@@ -240,7 +241,6 @@ test("typing exit closes the shell socket, swaps the visible surface back to Cla
     await expect(shellSurfaceRegion(page, "plain-shell-e6")).toHaveCount(0);
     await expect(mainheadSurfaceButton(page, "claude")).toHaveAttribute("aria-pressed", "true");
     await expect(mainheadSurfaceButton(page, "shell")).toHaveAttribute("aria-pressed", "false");
-    await expect(shellPip(mainheadSurfaceButton(page, "shell"))).toHaveCount(0);
 
     // REQ-8's respawn: the next switch to shell spawns a fresh one.
     await mainheadSurfaceButton(page, "shell").click();
@@ -787,30 +787,8 @@ test("a tile footer renders the same segment as the mainhead, scoped per session
   }
 });
 
-test("a running shell's pip resolves to the --shell-pip token, not --teal (review Major 3, decision shell-pip-hue)", async ({
-  page,
-  daemon,
-}) => {
-  // Settled by the developer as Option B (review.md Major 3): the pip gets its own token
-  // instead of reusing `--teal`, which design-system §3 reserves for the Working state.
-  // Pin this so the decision can't silently regress back to `--teal` — see
-  // `expectPipUsesShellPipToken`'s own doc comment for how it resolves both tokens
-  // through the live document rather than comparing against a hardcoded hex literal.
-  const { path: dir, cleanup } = await scratchDirectory();
-  try {
-    await page.goto(daemon.dashboardUrl);
-    await launchSession(page, daemon, { directory: dir, title: "plain-shell-pip-color" });
-
-    const shellBtn = mainheadSurfaceButton(page, "shell");
-    await shellBtn.click();
-    await expect(shellSurfaceRegion(page, "plain-shell-pip-color")).toBeVisible({
-      timeout: 15_000,
-    });
-
-    const pip = shellPip(shellBtn);
-    await expect(pip).toHaveCount(1);
-    await expectPipUsesShellPipToken(pip);
-  } finally {
-    await cleanup();
-  }
-});
+// The "pip resolves to its dedicated colour token" pin (review plain-terminal-session
+// Major 3) is retired here, not adapted: plan terminal-fixes-cleanup REQ-1 removes the
+// pip and that token entirely (kb:adr/theme-shell-pip-retired-for-activity-indicator
+// supersedes kb:adr/theme-shell-pip-own-token). shell-activity.spec.ts covers its
+// replacement, the busy/done indicator.

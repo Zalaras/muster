@@ -4,7 +4,7 @@ type: lesson
 status: active
 date: 2026-09-10
 summary: An agent slept and polled for a backgrounded gate; the harness re-invokes only the main session when a task finishes, so the wait never ended. 60 minutes lost.
-features: [canary]
+features: []
 tags: [pipeline]
 roles: [orchestrator, daemon-impl, web-impl, daemon-tests, web-tests, e2e-specs, e2e-validate, review]
 files: []

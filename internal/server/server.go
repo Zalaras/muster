@@ -39,6 +39,11 @@ type Config struct {
 	TmuxClient paneSpawner
 	// Attach overrides how a terminal socket attaches to a tmux target; nil uses termbridge.Attach.
 	Attach attachFunc
+	// ShellScroll overrides the shell socket's copy-mode driver (kb:anchor/terminal.shell-ws); nil
+	// uses the real tmux client (the same one TmuxClient's override does not affect —
+	// production always wants real tmux copy-mode commands regardless of a paneSpawner
+	// test double).
+	ShellScroll shellScroller
 	// Locator resolves a dropped file's path (kb:anchor/sessions.locate); nil answers 500, never a panic.
 	Locator *locate.Locator
 	Launch  LaunchConfig
@@ -92,19 +97,20 @@ type Server struct {
 	tmuxLister tmuxSessionLister
 	features   []feature
 
-	sessions *sessionsFeature
-	terminal *terminalFeature
-	shell    *shellFeature
-	ingest   *ingestFeature
-	prefs    *prefsFeature
-	usage    *usageFeature
-	theme    *themeFeature
-	issue    *issueFeature
-	update   *updateFeature
-	locate   *locateFeature
-	browse   *browseFeature
-	repos    *reposFeature
-	reader   *readerFeature
+	sessions      *sessionsFeature
+	terminal      *terminalFeature
+	shell         *shellFeature
+	ingest        *ingestFeature
+	prefs         *prefsFeature
+	usage         *usageFeature
+	theme         *themeFeature
+	shellActivity *shellActivityFeature
+	issue         *issueFeature
+	update        *updateFeature
+	locate        *locateFeature
+	browse        *browseFeature
+	repos         *reposFeature
+	reader        *readerFeature
 }
 
 const defaultIngestQueueSize = 1024
@@ -182,7 +188,11 @@ func New(cfg Config) *Server {
 	s.reader = register(s, newReaderFeature(s.manager, s.hub, cfg.Logger))
 	s.sessions.reader = s.reader
 	s.terminal = register(s, newTerminalFeature(terminals, s.manager, attach, cfg.Logger))
-	s.shell = register(s, newShellFeature(shells, terminals, s.manager, attach, cfg.Logger))
+	scroller := cfg.ShellScroll
+	if scroller == nil {
+		scroller = tmuxClient
+	}
+	s.shell = register(s, newShellFeature(shells, terminals, s.manager, attach, scroller, cfg.Logger))
 	s.locate = register(s, newLocateFeature(s.manager, cfg.Locator))
 	s.browse = register(s, newBrowseFeature(&s.browseRoot))
 	s.repos = register(s, newReposFeature(cfg.Store, cfg.Logger))
@@ -201,6 +211,7 @@ func New(cfg Config) *Server {
 	s.usage = register(s, newUsageFeature(cfg.Usage, cfg.HTTPClient, cfg.Store, s.hub, cfg.Logger))
 	s.ingest.queue.usage = s.usage.aggregator
 	s.theme = register(s, newThemeFeature(cfg.Theme, s.hub, cfg.Logger))
+	s.shellActivity = register(s, newShellActivityFeature(shells.HasAny, tmuxClient.ListPaneActivity, s.hub, cfg.Logger))
 	s.update = register(s, newUpdateFeature(cfg.Update, cfg.HTTPClient, cfg.DaemonVersion, loadPrefs(context.Background(), cfg.Store).UpdateCheck, s.tmuxLister, s.manager, s.hub, cfg.Logger))
 	s.prefs.updateChecker = s.update
 

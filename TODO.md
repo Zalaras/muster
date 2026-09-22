@@ -272,17 +272,6 @@ group deliberately, and otherwise don't re-sort this list.
   message rather than Claude's, since yours is shorter. Possibly a setting. Overlaps the
   proper-description work in #17 — rank the two together.
 
-### Together — the shell tab (#31, #33, #45)
-
-- [ ] **Blue dot on shell is distracting** ([#31](https://github.com/Zalaras/muster/issues/31)) — the shell tab's blue dot reads as "needs your
-  attention" when it only means the shell has started; that probably needs no indicator at all.
-
-- [ ] **Shell doesn't allow opt-arrow** ([#33](https://github.com/Zalaras/muster/issues/33)) — Option-Arrow word-skip emits "3D" instead of
-  navigating. Shortcuts native to the CLI should survive into the shell.
-
-- [ ] **No scrollbar on the shell** ([#45](https://github.com/Zalaras/muster/issues/45)) — mouse-wheel scrolling cycles through the previous
-  commands instead of scrolling the buffer.
-
 ### Together — the plan and document tab (#35, #46; #44 in M5+ is the same seam)
 
 - [ ] **Plan missing** ([#35](https://github.com/Zalaras/muster/issues/35)) — a plan was not visible after the fact; unclear whether Claude cleans it

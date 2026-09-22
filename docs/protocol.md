@@ -806,6 +806,7 @@ across a `musterd` upgrade.
   "usage": { /* Usage object, kb:anchor/ws.usage */ },
   "prefs": { "view": "focus", "density": "2x2", "usageModel": "Fable", "railSort": "manual", "theme": "follow", "updateCheck": true },
   "claudeTheme": { "family": "dark" },   // "light" | "dark" | "unknown" — always present
+  "shellsBusy": [ 7, 12 ],               // session ids whose shell is busy (kb:anchor/ws.shell-activity); [] when none, always present
   "update": { /* kb:anchor/ws.update — always present*/ } }
 ```
 
@@ -1001,6 +1002,31 @@ client always re-derives the terminal pair (`<html data-claude-family>`) and, on
 `prefs` message never changes the family; a `claudeTheme` message never changes the
 dashboard theme while an override is set.
 
+<!-- kb:anchor ws.shell-activity -->
+### `shellActivity`
+
+```jsonc
+{ "type": "shellActivity", "sessionId": 7, "busy": true }
+```
+
+Whether session 7's plain shell (`kb:anchor/sessions.shell`) is running work, as opposed to
+sitting at a prompt. Broadcast on every observed change, from a ~1 s poll; never replayed, and
+the current set is carried in `snapshot.shellsBusy` so a reconnecting client re-syncs without
+waiting for a transition.
+
+`busy` is true when the shell pane's foreground command differs from the shell's own basename,
+the pane is **not** on the alternate screen, and the pane's tty is in **canonical** mode. The
+last gate is what separates work from waiting: an interactive line editor or TUI — zsh's zle,
+readline, `vim`, Claude Code's trust prompt — holds the tty in raw mode, while a batch command
+leaves it canonical. This is process and terminal-discipline state read through tmux and a
+`TIOCGETA` ioctl; pane **content** is never read (`kb:adr/surfaces-shell-busy-from-tmux-process-state`).
+
+A shell is still not a session (`kb:adr/surfaces-shell-is-attach-target-not-session`): this adds
+no `Session` field and no session state. It travels on `/ws` rather than
+`kb:anchor/terminal.shell-ws` because that socket exists only while the shell surface is
+selected, and the indicator must survive the user being elsewhere. A client that does not know
+`sessionId` ignores it.
+
 <!-- kb:anchor ws.update -->
 ### `update`
 
@@ -1080,11 +1106,35 @@ but has no running shell). `alive` is not consulted (`kb:anchor/sessions.shell`)
 pre-upgrade status — the WebSocket API hides it — which is why the spawn is a separate POST
 whose error body the dashboard can actually render.
 
-**Frames**: byte-for-byte identical to `kb:anchor/terminal.ws` — raw PTY output binary server→client, raw input
-binary client→server, and `{"type":"resize","cols":N,"rows":N}` as the only client→server text
-frame, with the same [20, 500] × [5, 300] clamps and the same `pty.Setsize` **then** `tmux
-resize-window` order (FINDINGS §7(d)). An unparseable or unknown text frame is ignored and
-logged, never fatal.
+**Frames**: as `kb:anchor/terminal.ws` — raw PTY output binary server→client, raw input binary
+client→server, and `{"type":"resize","cols":N,"rows":N}` with the same [20, 500] × [5, 300]
+clamps and the same `pty.Setsize` **then** `tmux resize-window` order (FINDINGS §7(d)). An
+unparseable or unknown text frame is ignored and logged, never fatal.
+
+This route accepts one **additional** client→server text frame that `kb:anchor/terminal.ws` does
+not:
+
+```jsonc
+{ "type": "scroll", "lines": 5 }   // signed: >0 scrolls back into history, <0 toward the live bottom
+```
+
+Sent on a wheel gesture over a shell surface, coalesced to at most one frame per animation
+frame; magnitude clamped to [1, 200]. The daemon translates it into tmux copy-mode against
+`muster-<id>-shell`: when the pane is not already in a mode and its history is non-empty it
+issues `copy-mode -e`, then `send-keys -X -N <magnitude> scroll-up` or `scroll-down`. The `-e`
+is what makes tmux leave copy-mode by itself once the pane is scrolled back to the bottom, so
+there is no exit frame. Scrolling past either end clamps and is not an error. The resulting
+redraw arrives as ordinary binary PTY output, so no server→client text frame is introduced.
+Before writing input bytes to a pane that is in a mode, the daemon issues `send-keys -X cancel`,
+so typing always reaches the shell and returns it to the live bottom.
+
+tmux mouse mode stays **off** for shell panes as for every other pane
+(`kb:adr/surfaces-shell-scroll-via-daemon-copy-mode`): if tmux requested mouse tracking, xterm.js
+would route every mousedown to the application and drag-to-select would stop working. Driving
+copy-mode from the daemon is what buys scrolling without spending selection.
+
+A `scroll` frame on `kb:anchor/terminal.ws` is an unknown text frame there — ignored and logged,
+never fatal — and the dashboard never sends one from a Claude surface.
 
 **Close codes**: `4000` `superseded`, `4001` `pane_ended` (the shell exited — `exit`, or an
 external kill), normal close (1001) on daemon shutdown. Unlike `kb:anchor/terminal.ws`'s `4001`, this one does

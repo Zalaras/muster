@@ -4,10 +4,11 @@
 // — the Focus mainhead (`.mainhead .surfseg`) and every tile's footer (`.tfoot .acts
 // .surfseg`, scoped through `article.tile[data-session-id]` since six tiles carry
 // identically-named buttons, exactly as they already do for End — Testable UI Elements).
-// Both groups expose the same two buttons, named exactly `claude` and `shell` (the pip
-// inside the `shell` button is an empty `<span>`, so it never changes the button's
-// accessible name).
-import { expect } from "@playwright/test";
+// Both groups expose the same two buttons, named exactly `claude` and `shell` (plan
+// terminal-fixes-cleanup: the `shell` button's activity indicator, `span.shellact`, is
+// `aria-hidden` for the same reason — see `helpers/shellinput.ts`'s
+// `shellActivityIndicator`, not this file, which owns only the pre-existing pip locator's
+// removal per that plan's Affected Files).
 import type { Locator, Page, WebSocket } from "@playwright/test";
 import { liveTileById } from "./terminal";
 
@@ -40,16 +41,6 @@ export function tileSurfaceGroup(page: Page, sessionId: number): Locator {
 /** One of a tile's two segment buttons, by exact accessible name. */
 export function tileSurfaceButton(page: Page, sessionId: number, kind: SurfaceKind): Locator {
   return tileSurfaceGroup(page, sessionId).getByRole("button", { name: kind, exact: true });
-}
-
-/** The pip inside a `shell` segment button — Testable UI Elements: "contains
- * `span.pip` when a shell runs". Its presence in the DOM (not merely a CSS state) is the
- * only indicator a shell is running (REQ-4), so callers assert `toHaveCount(1)` /
- * `toHaveCount(0)` on this locator rather than a visibility check. Review Major 3 /
- * decision `shell-pip-hue`: the pip's colour resolves to the `--shell-pip` token, not
- * `--teal` (`web/src/style.css`) — see `expectShellPipUsesShellPipToken` below. */
-export function shellPip(segmentButton: Locator): Locator {
-  return segmentButton.locator(".pip");
 }
 
 /**
@@ -136,44 +127,4 @@ export class ShellSocketTracker {
   get totalOpened(): number {
     return this.opened;
   }
-}
-
-/**
- * Waits for the mainhead's `shell` segment to become selected (`aria-pressed="true"`)
- * with a pip present — the settled "a shell is running and is the visible surface" state
- * — using `expect.poll`-free `expect(locator)` matchers directly, since both are DOM
- * attributes Playwright already retries on.
- */
-export async function expectMainheadShellSelectedAndRunning(page: Page): Promise<void> {
-  const shellBtn = mainheadSurfaceButton(page, "shell");
-  await expect(shellBtn).toHaveAttribute("aria-pressed", "true");
-  await expect(shellPip(shellBtn)).toHaveCount(1);
-}
-
-/**
- * Review Major 3 / decision `shell-pip-hue`: asserts a lit pip's computed
- * `background-color` resolves to the page's own `--shell-pip` custom property, and that
- * this differs from `--teal` — pinning that the design-system decision (Option B: the
- * pip gets its own token instead of reusing `--teal`, which §3 reserves for the Working
- * state) actually shipped, in whichever theme the page is currently rendering. Resolves
- * both tokens through a throwaway probe element in the SAME document (so the browser's
- * own `var()` resolution and colour-format normalisation apply identically to the token
- * and to the pip), rather than comparing the pip's `rgb(...)` against the token's `#hex`
- * string literally.
- */
-export async function expectPipUsesShellPipToken(pip: Locator): Promise<void> {
-  const pipColor = await pip.evaluate((el) => getComputedStyle(el).backgroundColor);
-  const tokens = await pip.page().evaluate(() => {
-    const probe = document.createElement("div");
-    probe.style.display = "none";
-    document.body.appendChild(probe);
-    probe.style.backgroundColor = "var(--shell-pip)";
-    const shellPipToken = getComputedStyle(probe).backgroundColor;
-    probe.style.backgroundColor = "var(--teal)";
-    const tealToken = getComputedStyle(probe).backgroundColor;
-    probe.remove();
-    return { shellPipToken, tealToken };
-  });
-  expect(pipColor).toBe(tokens.shellPipToken);
-  expect(pipColor).not.toBe(tokens.tealToken);
 }

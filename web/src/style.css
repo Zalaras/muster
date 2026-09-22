@@ -46,12 +46,6 @@
   --violet: #9e91f1;
   --teal: #56c5d0;
   --idle: #989db1;
-  /* Review plain-terminal-session Major 3 / decision shell-pip-hue (2026-09-05, Option
-   * B): the `shell` segment's pip — never `--teal`, so §3's "a state colour may only mean
-   * that state" stays unbroken. Hue 215° (blue), outside all four state-hue bands
-   * (amber 25-45, rose 345-15, violet 235-270, teal 165-195) and outside --idle's
-   * saturation ceiling. */
-  --shell-pip: #6c9ee5;
   --amber-line: #5c4526;
   --rose-line: #5c2e2e;
   --violet-line: #3e3663;
@@ -97,9 +91,6 @@
   --violet: #ada1f5;
   --teal: #4fcbc6;
   --idle: #a4abb7;
-  /* See instrument block above for the shell-pip decision — same hue (215°), tuned for
-   * this theme's palette. */
-  --shell-pip: #87b0e8;
   --amber-line: #5a4422;
   --rose-line: #5d2d31;
   --violet-line: #3f3a66;
@@ -141,9 +132,6 @@
   --violet: #583ad1;
   --teal: #0a6167;
   --idle: #535764;
-  /* See instrument block above for the shell-pip decision — same hue (215°), tuned dark
-   * enough for this theme's light ground. */
-  --shell-pip: #134b9a;
   --amber-line: #efd6ac;
   --rose-line: #f2c3c5;
   --violet-line: #d8d1f4;
@@ -667,22 +655,43 @@ body {
   color: var(--fg);
 }
 
-/* Review plain-terminal-session Major 3 / decision shell-pip-hue: its own `--shell-pip`
- * token, not `--teal` — §3's four state hues (amber/rose/violet/teal) keep their single
- * meanings untouched, and a running shell gets a fifth, dedicated hue instead of
- * borrowing Working's. The pip's mere presence, not its hue, is still the signal
- * (design-system §6: colour is never the sole carrier of state). */
-.surfseg .pip {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--shell-pip);
+/* Plan terminal-fixes-cleanup / decision theme-shell-pip-retired-for-activity-indicator:
+ * the pip (a bare presence dot on its own dedicated colour token, now removed) is retired
+ * for a busy/done indicator carrying real information — monochrome, never a state hue
+ * (design-system §1: amber/rose/violet/teal stay reserved for session state; a spinner is
+ * not a session state). `--fg-dim` while busy (a working spinner is ambient, not urgent),
+ * `--fg` once done (a completed tick is worth a beat more contrast) — colour is still
+ * never the sole carrier here: shape (spin vs. check) and `data-act` both change too. */
+.shellact {
+  width: 9px;
+  height: 9px;
   flex: none;
+  display: inline-block;
+}
+
+.shellact[data-act="busy"] {
+  border-radius: 50%;
+  border: 1.5px solid var(--fg-dim);
+  border-top-color: transparent;
+  animation: shellact-spin 0.7s linear infinite;
+}
+
+.shellact[data-act="done"] {
+  border-bottom: 1.5px solid var(--fg);
+  border-left: 1.5px solid var(--fg);
+  transform: rotate(-45deg);
+  margin-top: -2px;
+}
+
+@keyframes shellact-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* REQ-13: shrunk to fit a tile footer (mockup.css's own tile-placement measurement —
- * plan Implementation Notes > Tile footer width) — smaller font/padding/pip than the
- * mainhead's; `.surfseg`'s own border/spacing above already apply here unchanged.
+ * plan Implementation Notes > Tile footer width) — smaller font/padding/indicator than
+ * the mainhead's; `.surfseg`'s own border/spacing above already apply here unchanged.
  * Padding trimmed one notch further by plan markdown-viewing's third `docs` button,
  * which widens the segment by roughly a third (reviewer: check visually at 3×2 density —
  * no automated width oracle exists for this). */
@@ -692,9 +701,9 @@ body {
   gap: 4px;
 }
 
-.tfoot .surfseg .pip {
-  width: 4px;
-  height: 4px;
+.tfoot .surfseg .shellact {
+  width: 7px;
+  height: 7px;
 }
 
 /* ── plan markdown-viewing: the reader (docs/design/mockups/markdown-viewing/) ──────── */

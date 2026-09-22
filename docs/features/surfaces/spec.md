@@ -6,11 +6,11 @@ date: 2026-09-12
 summary: PTY bridge, xterm pane, the ephemeral shell surface, sizing, one live client per target.
 features: [surfaces]
 tags: [tmux]
-go: [internal/server/terminal*.go, internal/server/shells*.go, internal/server/plainshell_test.go, internal/server/settings_shell_test.go, internal/termbridge/**, internal/tmux/**]
+go: [internal/server/terminal*.go, internal/server/shells*.go, internal/server/shellactivity*.go, internal/server/plainshell_test.go, internal/server/settings_shell_test.go, internal/termbridge/**, internal/tmux/**, internal/tty/**]
 web: [web/src/features/surfaces.ts, web/src/terminal/**]
-e2e: [web/e2e/terminal.spec.ts, web/e2e/shell.spec.ts, web/e2e/plain-shell.spec.ts, web/e2e/helpers/terminal.ts, web/e2e/helpers/shell.ts]
-protocol: [terminal.ws, terminal.shell-ws, sessions.shell]
-refs: [kb:adr/surfaces-shared-attach-single-pty, kb:adr/surfaces-one-live-client-per-session, kb:adr/surfaces-one-live-client-per-attach-target, kb:adr/surfaces-one-tmux-session-per-session, kb:adr/surfaces-scrollback-affordance-not-built, kb:adr/surfaces-scroll-speed-via-launch-env, kb:adr/surfaces-shell-is-attach-target-not-session, kb:adr/surfaces-shell-spawn-http-then-attach-ws, kb:adr/surfaces-shell-dies-at-kill-shutdown-too, kb:adr/surfaces-shell-pane-carries-no-session-env, kb:adr/surfaces-shell-control-in-tile-footer, kb:adr/surfaces-tmux-preflight-at-startup, kb:adr/surfaces-detach-on-destroy-on, kb:adr/theme-terminal-ground-follows-claude-family, kb:adr/stack-terminal-rendering-xterm-js, kb:fact/scroll-speed-env-present, docs/design/design-system.md]
+e2e: [web/e2e/terminal.spec.ts, web/e2e/shell.spec.ts, web/e2e/plain-shell.spec.ts, web/e2e/shell-activity.spec.ts, web/e2e/shell-keys.spec.ts, web/e2e/shell-scroll.spec.ts, web/e2e/helpers/terminal.ts, web/e2e/helpers/shell.ts, web/e2e/helpers/shellinput.ts]
+protocol: [terminal.ws, terminal.shell-ws, sessions.shell, ws.shell-activity]
+refs: [kb:adr/surfaces-shared-attach-single-pty, kb:adr/surfaces-one-live-client-per-session, kb:adr/surfaces-one-live-client-per-attach-target, kb:adr/surfaces-one-tmux-session-per-session, kb:adr/surfaces-scrollback-affordance-claude-pane-only, kb:adr/surfaces-scroll-speed-via-launch-env, kb:adr/surfaces-shell-is-attach-target-not-session, kb:adr/surfaces-shell-spawn-http-then-attach-ws, kb:adr/surfaces-shell-dies-at-kill-shutdown-too, kb:adr/surfaces-shell-pane-carries-no-session-env, kb:adr/surfaces-shell-control-in-tile-footer, kb:adr/surfaces-tmux-preflight-at-startup, kb:adr/surfaces-detach-on-destroy-on, kb:adr/surfaces-shell-scroll-via-daemon-copy-mode, kb:adr/surfaces-shell-busy-from-tmux-process-state, kb:adr/surfaces-snapshot-restored-tick-always-self-clears, kb:adr/theme-terminal-ground-follows-claude-family, kb:adr/stack-terminal-rendering-xterm-js, kb:fact/scroll-speed-env-present, docs/design/design-system.md]
 ---
 A surface is a live, interactive terminal embedded in the dashboard: view output, click,
 type and prompt. Sessions run inside tmux on a dedicated socket, one tmux session per
@@ -24,10 +24,10 @@ session and streams raw bytes both ways; xterm.js renders them verbatim
 (kb:adr/stack-terminal-rendering-xterm-js). The dashboard restyles nothing inside the pane;
 only the frame's ground and foreground follow the theme family Claude Code itself draws
 for, in every Muster theme (kb:adr/theme-terminal-ground-follows-claude-family). tmux owns
-scrollback, so xterm keeps none and no scroll affordance is built
-(kb:adr/surfaces-scrollback-affordance-not-built); wheel speed inside Claude Code is set
-through an environment variable in the launch env (kb:adr/surfaces-scroll-speed-via-launch-env,
-kb:fact/scroll-speed-env-present).
+scrollback, so xterm keeps none; no scroll affordance is built for the Claude pane
+(kb:adr/surfaces-scrollback-affordance-claude-pane-only) — the shell surface, below, gets
+one. Wheel speed inside Claude Code is set through an environment variable in the launch
+env (kb:adr/surfaces-scroll-speed-via-launch-env, kb:fact/scroll-speed-env-present).
 
 ## Sizing and the one-live-client law
 
@@ -60,7 +60,15 @@ open on a dead session, and dies on exit, Remove, reconcile or a kill shutdown
 (kb:adr/surfaces-shell-dies-at-kill-shutdown-too). The Claude socket and the
 shell socket of one session never supersede each other
 (kb:adr/surfaces-one-live-client-per-attach-target). A shell's exit does not touch the
-session's liveness. A running shell shows a pip with its own token.
+session's liveness. The wheel over the shell surface scrolls the pane's tmux history: the
+client sends a `scroll` control frame that the daemon turns into tmux copy-mode commands,
+and tmux mouse mode stays off throughout so browser drag-to-select keeps working
+(kb:adr/surfaces-shell-scroll-via-daemon-copy-mode). Option+Arrow and Cmd+Arrow are
+translated to their readline word- and line-jump equivalents on the shell surface only;
+the Claude pane keeps xterm.js's own handling. A shell reports a busy flag derived from
+three tmux-read gates — its foreground command, its alternate-screen flag, and the pane
+tty's line discipline — and the shell segment shows a spinner while busy and a tick once
+work finishes (kb:adr/surfaces-shell-busy-from-tmux-process-state).
 
 ## Does not
 

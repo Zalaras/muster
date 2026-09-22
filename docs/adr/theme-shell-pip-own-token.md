@@ -1,7 +1,7 @@
 ---
 id: theme-shell-pip-own-token
 type: decision
-status: accepted
+status: superseded
 date: 2026-09-05
 summary: The running-shell pip gets its own token in every theme rather than reusing teal, which is reserved for Working; no exemption is recorded.
 features: [theme, surfaces]

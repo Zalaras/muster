@@ -39,6 +39,7 @@ import {
   type SurfaceSwitchState,
 } from "../terminal/surfaceswitch";
 import type { TerminalSurface } from "../terminal/pane";
+import type { ShellActivityIndicator } from "../terminal/shellactivity";
 import type { DeadSurfaceRefs, PaneState } from "../render/dead";
 import type { Session } from "../protocol";
 import type { SessionAction } from "../render/sessions";
@@ -54,6 +55,7 @@ export interface TilesDeps {
     state(): SurfaceSwitchState;
     get(id: number, kind: SurfaceKind): TerminalSurface | undefined;
     select(id: number, kind: SurfaceKind, findDeadRefs: () => DeadSurfaceRefs | null): void;
+    activityFor(id: number): ShellActivityIndicator;
   };
   getRenameHandlers(): TileRenameHandlers;
   /** Plan markdown-viewing: `reader` is constructed after `tiles` (main.ts's init
@@ -248,7 +250,12 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
       if (refs.actsEl)
         renderTileFooterActions(refs.actsEl, session, now, connected, deps.actions.dispatch);
       if (refs.surfaceSegment)
-        updateSurfaceSegment(refs.surfaceSegment, sessionSurfaceState, connected);
+        updateSurfaceSegment(
+          refs.surfaceSegment,
+          sessionSurfaceState,
+          connected,
+          deps.getSurfaces().activityFor(session.id),
+        );
       refs.rename?.setEnabled(connected);
     }
 

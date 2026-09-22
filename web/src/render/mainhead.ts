@@ -8,6 +8,7 @@
 import type { Session } from "../protocol";
 import { buildCardViewModel, resumeDisabledReason } from "../sessions/card";
 import { formatEndedAgo } from "../sessions/format";
+import type { ShellActivityIndicator } from "../terminal/shellactivity";
 import {
   DEFAULT_SURFACE_STATE,
   updateSurfaceSegment,
@@ -59,13 +60,16 @@ function mainheadMeta(session: Session, now: Date): string {
  * focused session) — updated every pass regardless of the `!session` branch below, since
  * `updateSurfaceSegment` only ever writes attributes and is harmless while `root` is
  * hidden. Defaults to the "no shell yet" state so a caller with no `surfaceSegment`
- * element (mainhead.test.ts's pre-plan fixtures) never needs to pass it. */
+ * element (mainhead.test.ts's pre-plan fixtures) never needs to pass it. `activity`
+ * (plan terminal-fixes-cleanup) is that same session's `shell` segment busy/done verdict
+ * (`features/surfaces.ts`'s `activityFor`); defaults to `"none"` for the same reason. */
 export function renderMainhead(
   elements: MainheadElements,
   session: Session | null,
   now: Date,
   connected: boolean,
   surfaceState: SessionSurfaceState = DEFAULT_SURFACE_STATE,
+  activity: ShellActivityIndicator = "none",
 ): void {
   if (!session) {
     elements.root.hidden = true;
@@ -82,7 +86,7 @@ export function renderMainhead(
     // only `metaEl` needs clearing here.
     elements.metaEl.textContent = "";
     if (elements.surfaceSegment)
-      updateSurfaceSegment(elements.surfaceSegment, surfaceState, connected);
+      updateSurfaceSegment(elements.surfaceSegment, surfaceState, connected, activity);
     return;
   }
   elements.root.hidden = false;
@@ -105,5 +109,5 @@ export function renderMainhead(
   elements.resumeBtn.title = resumeDisabledReason(session) ?? "";
   elements.removeBtn.disabled = !connected;
   if (elements.surfaceSegment)
-    updateSurfaceSegment(elements.surfaceSegment, surfaceState, connected);
+    updateSurfaceSegment(elements.surfaceSegment, surfaceState, connected, activity);
 }

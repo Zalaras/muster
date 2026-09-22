@@ -49,11 +49,11 @@ import {
 import { envelopeOpts, launchSession, scratchDirectory } from "./helpers/session";
 import {
   mainheadSurfaceButton,
-  shellPip,
   shellSurfaceRegion,
   shellTmuxTarget,
   tileSurfaceButton,
 } from "./helpers/shell";
+import { shellActivityIndicator } from "./helpers/shellinput";
 import { liveTileById, TerminalSocketTracker, terminalRegion } from "./helpers/terminal";
 
 // Plan markdown-viewing — REQ-1 through REQ-28, INV-1 through INV-8, acceptance E1-E29.
@@ -1419,7 +1419,7 @@ test("no terminal exists for the docs surface from every switch direction, and e
     await expect(mainheadSurfaceButton(page, "docs")).toHaveAttribute("aria-pressed", "true", {
       timeout: 15_000,
     });
-    await expect(shellPip(mainheadSurfaceButton(page, "shell"))).toHaveCount(0, {
+    await expect(shellActivityIndicator(mainheadSurfaceButton(page, "shell"))).toHaveCount(0, {
       timeout: 15_000,
     });
     await expect(readerRegion(page, "reader-inv1")).toBeVisible();

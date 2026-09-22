@@ -710,23 +710,33 @@ export class ScratchDaemon {
     return args;
   }
 
-  /** The spawn environment, or `undefined` to inherit `process.env` unchanged — which is
-   * what every run that sets none of the three override seams gets. */
-  private buildEnv(): NodeJS.ProcessEnv | undefined {
-    const env =
-      this.stubClaudeVersion !== undefined ||
-      this.stubClaudeVersionFails ||
-      this.extraEnv !== undefined
-        ? {
-            ...process.env,
-            ...(this.extraEnv ?? {}),
-            ...(this.stubClaudeVersion !== undefined
-              ? { MUSTER_E2E_STUB_VERSION: this.stubClaudeVersion }
-              : {}),
-            ...(this.stubClaudeVersionFails ? { MUSTER_E2E_STUB_VERSION_FAIL: "1" } : {}),
-          }
-        : undefined;
-    return env;
+  /**
+   * The spawn environment. Plan terminal-fixes-cleanup (e2e-specs validate-mode repair):
+   * `npx` unconditionally injects `EDITOR=vi` into a child process's environment when the
+   * invoking shell has none set — confirmed with `npx -y node -e
+   * "console.log(process.env.EDITOR)"` printing `vi` in a shell where a direct `node -e`
+   * prints `undefined`, and independently confirmed inside a scratch daemon's own spawned
+   * shell pane (`bindkey -lL main` reporting `bindkey -A viins main`). Every scratch
+   * daemon's shell surface runs `$SHELL -i` with no extra env
+   * (`kb:adr/surfaces-shell-pane-carries-no-session-env`), inheriting whatever `spawn()`
+   * is given here — so this run's own suite invocation (`npm run e2e` / `npx playwright
+   * test`) was silently forcing every shell surface's zsh into vi keymap instead of the
+   * plan's spike-measured emacs default, unrelated to anything the client sends. Pinned
+   * empty unconditionally, mirroring this file's existing "no E2E run can ever fall
+   * through to X" discipline for the usage/issue/theme-config ambient-state seams above —
+   * this can no longer be `undefined`.
+   */
+  private buildEnv(): NodeJS.ProcessEnv {
+    return {
+      ...process.env,
+      EDITOR: "",
+      VISUAL: "",
+      ...(this.extraEnv ?? {}),
+      ...(this.stubClaudeVersion !== undefined
+        ? { MUSTER_E2E_STUB_VERSION: this.stubClaudeVersion }
+        : {}),
+      ...(this.stubClaudeVersionFails ? { MUSTER_E2E_STUB_VERSION_FAIL: "1" } : {}),
+    };
   }
 
   private async spawnAndWait(): Promise<void> {

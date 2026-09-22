@@ -18,6 +18,13 @@
 // Plan markdown-viewing REQ-1: `docs` joins the segment as a third kind — a reader,
 // never a `TerminalSurface` (INV-1). It carries no shell-like "is it running" flag of
 // its own; `isSurfaceAttachable` below always answers `false` for it.
+
+// Plan terminal-fixes-cleanup, REQ-1 through REQ-4: the running-shell pip (a bare
+// presence dot, `kb:adr/theme-shell-pip-own-token`) is retired in favour of a busy/done
+// activity indicator carrying real information — `span.shellact`, driven by
+// `terminal/shellactivity.ts`'s reducer, never by DOM state built here.
+import type { ShellActivityIndicator } from "./shellactivity";
+
 export type SurfaceKind = "claude" | "shell" | "docs";
 
 export interface SessionSurfaceState {
@@ -27,8 +34,8 @@ export interface SessionSurfaceState {
 
 export type SurfaceSwitchState = ReadonlyMap<number, SessionSurfaceState>;
 
-/** States: "before the first switch: claude selected, shell unselected, no pip" — the
- * value every session starts at and returns to once a shell ends (REQ-8). */
+/** The value every session starts at and returns to once a shell ends (REQ-8): `claude`
+ * selected, no shell running. */
 export const DEFAULT_SURFACE_STATE: SessionSurfaceState = {
   selected: "claude",
   shellRunning: false,
@@ -72,10 +79,14 @@ export function setShellRunning(
 
 /** REQ-8: the shell ended (`exit`, an external kill, or any other PTY EOF on the shell
  * socket) — clears `shellRunning` and, in the same step, reverts `selected` to `claude`
- * if `shell` was showing (the swap-back and the pip clearing are one atomic state
- * change, never two renders). Plan markdown-viewing edge case 20/INV-1: a `docs`
- * selection is left untouched — only the pip clears — since `docs` was never the shell
- * surface to begin with. Identity if the session was already at the default state. */
+ * if `shell` was showing (one atomic state change, never two renders). `shellRunning` is
+ * what `features/surfaces.ts`'s `isSurfaceAttachable`/`desiredSurfaceEntries` read to
+ * decide whether a shell `TerminalSurface` should be mounted at all — including, while
+ * `docs` is selected, mounted invisibly in the background so this same handler still
+ * fires when the shell it's tracking ends underneath the reader. Plan markdown-viewing
+ * edge case 20/INV-1: a `docs` selection is left untouched here — only `shellRunning`
+ * clears — since `docs` was never the shell surface to begin with. Identity if the
+ * session was already at the default state. */
 export function shellEnded(state: SurfaceSwitchState, id: number): SurfaceSwitchState {
   const current = getSurfaceState(state, id);
   const selected = current.selected === "shell" ? "claude" : current.selected;
@@ -135,15 +146,15 @@ export interface SurfaceSegmentRefs {
   claudeBtn: HTMLButtonElement;
   shellBtn: HTMLButtonElement;
   /** Plan markdown-viewing REQ-1: the third `docs` segment, a native `<button>` exactly
-   * like its siblings — no pip, no `shellRunning`-style flag of its own. */
+   * like its siblings — no indicator, no `shellRunning`-style flag of its own. */
   docsBtn: HTMLButtonElement;
-  /** The pip `<span>` (Testable UI Elements: "the pip inside the shell button is an
-   * empty `<span>`, so the button's accessible name is exactly shell") — kept detached
-   * from `shellBtn` (via `.remove()`) until `updateSurfaceSegment` re-attaches it, rather
-   * than toggled via `hidden`/`display`, per the table's "the pip's presence in the DOM
-   * is the only indicator a shell is running" (a caller asserts `toHaveCount`, not
-   * visibility). */
-  pipEl: HTMLElement;
+  /** The activity indicator `<span>` (Testable UI Elements: `span.shellact`,
+   * `aria-hidden` so the shell button's accessible name stays exactly "shell" in every
+   * indicator state, INV-3) — kept detached from `shellBtn` (via `.remove()`) until
+   * `updateSurfaceSegment` re-attaches it, rather than toggled via `hidden`/`display`,
+   * per the table's "presence and `data-act` value are the contract" (a caller asserts
+   * `toHaveCount`/`toHaveAttribute`, not visibility). */
+  shellActEl: HTMLElement;
 }
 
 /** Builds the segmented control once (Testable UI Elements: `role="group"
@@ -165,12 +176,14 @@ export function buildSurfaceSegment(onSelect: (kind: SurfaceKind) => void): Surf
   const shellBtn = document.createElement("button");
   shellBtn.type = "button";
   shellBtn.dataset["surf"] = "shell";
-  const pipEl = document.createElement("span");
-  pipEl.className = "pip";
-  shellBtn.append(pipEl, document.createTextNode("shell"));
-  // States: "no data yet ... no pip" — starts absent; updateSurfaceSegment re-attaches
-  // it once a shell is known to be running.
-  pipEl.remove();
+  const shellActEl = document.createElement("span");
+  shellActEl.className = "shellact";
+  // INV-3: never contributes to the button's accessible name in any indicator state.
+  shellActEl.setAttribute("aria-hidden", "true");
+  shellBtn.append(shellActEl, document.createTextNode("shell"));
+  // States: "no data yet ... no indicator" — starts absent; updateSurfaceSegment
+  // re-attaches it once the reducer reports "busy" or "done".
+  shellActEl.remove();
 
   const docsBtn = document.createElement("button");
   docsBtn.type = "button";
@@ -183,17 +196,22 @@ export function buildSurfaceSegment(onSelect: (kind: SurfaceKind) => void): Surf
   shellBtn.addEventListener("click", () => onSelect("shell"));
   docsBtn.addEventListener("click", () => onSelect("docs"));
 
-  return { root, claudeBtn, shellBtn, docsBtn, pipEl };
+  return { root, claudeBtn, shellBtn, docsBtn, shellActEl };
 }
 
-/** Every render pass: `aria-pressed` on both segments, the pip's presence in the DOM, and
- * `disabled` on both while the WS is down (States: "the segment buttons are disabled
- * while the WS is down" — the same gate every other action control uses; never gated on
- * `alive`, since `shell` must stay clickable on a dead session — REQ-7). */
+/** Every render pass: `aria-pressed` on all three segments, the activity indicator's
+ * presence and `data-act` value, and `disabled` on all three while the WS is down
+ * (States: "the segment buttons are disabled while the WS is down" — the same gate every
+ * other action control uses; never gated on `alive`, since `shell` must stay clickable on
+ * a dead session — REQ-7). `activity` is `features/surfaces.ts`'s
+ * `terminal/shellactivity.ts` verdict for this session — `"none"` removes the indicator
+ * entirely (States: "no data yet" / an idle shell are deliberately indistinguishable,
+ * REQ-1), `"busy"`/`"done"` attach it and set `data-act` accordingly. */
 export function updateSurfaceSegment(
   refs: SurfaceSegmentRefs,
   state: SessionSurfaceState,
   connected: boolean,
+  activity: ShellActivityIndicator,
 ): void {
   refs.claudeBtn.setAttribute("aria-pressed", String(state.selected === "claude"));
   refs.shellBtn.setAttribute("aria-pressed", String(state.selected === "shell"));
@@ -201,7 +219,11 @@ export function updateSurfaceSegment(
   refs.claudeBtn.disabled = !connected;
   refs.shellBtn.disabled = !connected;
   refs.docsBtn.disabled = !connected;
-  const hasPip = refs.shellBtn.contains(refs.pipEl);
-  if (state.shellRunning && !hasPip) refs.shellBtn.prepend(refs.pipEl);
-  else if (!state.shellRunning && hasPip) refs.pipEl.remove();
+  const hasIndicator = refs.shellBtn.contains(refs.shellActEl);
+  if (activity === "none") {
+    if (hasIndicator) refs.shellActEl.remove();
+    return;
+  }
+  if (!hasIndicator) refs.shellBtn.prepend(refs.shellActEl);
+  refs.shellActEl.dataset["act"] = activity;
 }

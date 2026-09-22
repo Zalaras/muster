@@ -1,0 +1,139 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Shell indicator options — issue #31</title>
+<style>
+  :root {
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    --bg: #12141c; --bg-raised: #171a24; --bg-hover: #1c2029;
+    --line: #282d3b; --line-control: #343a4a;
+    --fg: #e8e6e1; --fg-muted: #b2b6c3; --fg-dim: #a6abbc;
+    --shell-pip: #6c9ee5;
+  }
+  body { background: var(--bg); color: var(--fg); font: 15px/1.5 ui-sans-serif, system-ui, sans-serif; margin: 0; padding: 32px 40px 64px; }
+  h1 { font-size: 1.07rem; font-weight: 600; margin: 0 0 4px; }
+  p.lede { color: var(--fg-muted); font-size: 0.82rem; margin: 0 0 28px; max-width: 62ch; }
+  table { border-collapse: collapse; width: 100%; max-width: 900px; }
+  th { text-align: left; font-size: 0.68rem; text-transform: uppercase; letter-spacing: .08em; color: var(--fg-dim); font-weight: 500; padding: 0 0 10px; border-bottom: 1px solid var(--line); }
+  td { padding: 18px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td.opt { width: 150px; padding-right: 20px; }
+  td.cell { width: 190px; }
+  td.note { color: var(--fg-muted); font-size: 0.75rem; padding-left: 20px; }
+  .name { font-weight: 600; font-size: 0.82rem; }
+  .id { font-family: var(--mono); font-size: 0.68rem; color: var(--fg-dim); }
+  .stack { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+  .tinylabel { font-family: var(--mono); font-size: 9px; color: var(--fg-dim); }
+
+  /* ── the real component, lifted from web/src/style.css ── */
+  .surfseg { display: inline-flex; border: 1px solid var(--line-control); overflow: hidden; flex: none; }
+  .surfseg button { font-family: var(--mono); font-size: 10.5px; padding: 4px 11px; background: transparent;
+    border: 0; border-right: 1px solid var(--line-control); color: var(--fg-dim); cursor: pointer;
+    display: flex; align-items: center; gap: 6px; }
+  .surfseg button:last-child { border-right: 0; }
+  .surfseg button[aria-pressed="true"] { background: var(--bg-hover); color: var(--fg); }
+  .surfseg .pip { width: 5px; height: 5px; border-radius: 50%; background: var(--shell-pip); flex: none; }
+  /* tile-footer size */
+  .tfoot .surfseg button { font-size: 9px; padding: 1px 6px; gap: 4px; }
+  .tfoot .surfseg .pip { width: 4px; height: 4px; }
+
+  /* ── option 4: neutral dot ── */
+  .opt-neutral .pip { background: var(--fg-dim); }
+  /* ── option 2: the label itself carries it ── */
+  .opt-weight .run { color: var(--fg); }
+  /* ── option 3: underline rule ── */
+  .opt-rule .run { box-shadow: inset 0 -1px 0 currentColor; }
+  /* ── option 5: prompt glyph ── */
+  .opt-glyph .glyph { font-family: var(--mono); flex: none; }
+</style>
+
+<h1>Shell indicator — options for issue&nbsp;#31</h1>
+<p class="lede">The <code>shell</code> segment in each state, at both sizes it ships at: the Focus mainhead
+(10.5px) and a tile footer (9px). Instrument theme. Left column of each pair is <em>no shell running</em>,
+right is <em>shell running</em>.</p>
+
+<table>
+<tr><th>Option</th><th>Mainhead</th><th>Tile footer</th><th></th></tr>
+
+<!-- 0 -->
+<tr>
+  <td class="opt"><div class="name">0 · Current</div><div class="id">blue pip</div></td>
+  <td class="cell"><div class="stack">
+    <div class="surfseg"><button aria-pressed="true">claude</button><button>shell</button><button>docs</button></div>
+    <div class="surfseg"><button aria-pressed="true">claude</button><button><span class="pip"></span>shell</button><button>docs</button></div>
+  </div></td>
+  <td class="cell tfoot"><div class="stack">
+    <div class="surfseg"><button aria-pressed="true">claude</button><button>shell</button><button>docs</button></div>
+    <div class="surfseg"><button aria-pressed="true">claude</button><button><span class="pip"></span>shell</button><button>docs</button></div>
+  </div></td>
+  <td class="note">What ships today. The dot sits where a status dot sits everywhere else in the UI, so it reads as “needs you”.</td>
+</tr>
+
+<!-- 1 -->
+<tr>
+  <td class="opt"><div class="name">1 · Nothing</div><div class="id">no indicator</div></td>
+  <td class="cell"><div class="stack">
+    <div class="surfseg"><button aria-pressed="true">claude</button><button>shell</button><button>docs</button></div>
+    <div class="surfseg"><button aria-pressed="true">claude</button><button>shell</button><button>docs</button></div>
+  </div></td>
+  <td class="cell tfoot"><div class="stack">
+    <div class="surfseg"><button aria-pressed="true">claude</button><button>shell</button><button>docs</button></div>
+    <div class="surfseg"><button aria-pressed="true">claude</button><button>shell</button><button>docs</button></div>
+  </div></td>
+  <td class="note">Your TODO’s instinct. Simplest thing that can work; retires the <code>--shell-pip</code> token from all three themes. You find out a shell is running by clicking <code>shell</code>.</td>
+</tr>
+
+<!-- 2 -->
+<tr>
+  <td class="opt"><div class="name">2 · Label weight</div><div class="id">dim → full</div></td>
+  <td class="cell opt-weight"><div class="stack">
+    <div class="surfseg"><button aria-pressed="true">claude</button><button>shell</button><button>docs</button></div>
+    <div class="surfseg"><button aria-pressed="true">claude</button><button class="run">shell</button><button>docs</button></div>
+  </div></td>
+  <td class="cell tfoot opt-weight"><div class="stack">
+    <div class="surfseg"><button aria-pressed="true">claude</button><button>shell</button><button>docs</button></div>
+    <div class="surfseg"><button aria-pressed="true">claude</button><button class="run">shell</button><button>docs</button></div>
+  </div></td>
+  <td class="note">No new glyph and no colour at all — the word brightens from <code>--fg-dim</code> to <code>--fg</code>. Quietest option that still says something. Risk: at a glance it can read as hover.</td>
+</tr>
+
+<!-- 3 -->
+<tr>
+  <td class="opt"><div class="name">3 · Underline</div><div class="id">rule under label</div></td>
+  <td class="cell opt-rule"><div class="stack">
+    <div class="surfseg"><button aria-pressed="true">claude</button><button>shell</button><button>docs</button></div>
+    <div class="surfseg"><button aria-pressed="true">claude</button><button class="run">shell</button><button>docs</button></div>
+  </div></td>
+  <td class="cell tfoot opt-rule"><div class="stack">
+    <div class="surfseg"><button aria-pressed="true">claude</button><button>shell</button><button>docs</button></div>
+    <div class="surfseg"><button aria-pressed="true">claude</button><button class="run">shell</button><button>docs</button></div>
+  </div></td>
+  <td class="note">Borrows the “this tab has something in it” idiom rather than the status-dot idiom. Monochrome, so it can never read as a state hue. Thin at 9px.</td>
+</tr>
+
+<!-- 4 -->
+<tr>
+  <td class="opt"><div class="name">4 · Neutral dot</div><div class="id">--fg-dim pip</div></td>
+  <td class="cell opt-neutral"><div class="stack">
+    <div class="surfseg"><button aria-pressed="true">claude</button><button>shell</button><button>docs</button></div>
+    <div class="surfseg"><button aria-pressed="true">claude</button><button><span class="pip"></span>shell</button><button>docs</button></div>
+  </div></td>
+  <td class="cell tfoot opt-neutral"><div class="stack">
+    <div class="surfseg"><button aria-pressed="true">claude</button><button>shell</button><button>docs</button></div>
+    <div class="surfseg"><button aria-pressed="true">claude</button><button><span class="pip"></span>shell</button><button>docs</button></div>
+  </div></td>
+  <td class="note">Smallest diff from today: same shape and layout, drop the hue. Keeps the DOM contract the E2E suite already asserts. Still a dot, so still somewhat status-flavoured.</td>
+</tr>
+
+<!-- 5 -->
+<tr>
+  <td class="opt"><div class="name">5 · Prompt glyph</div><div class="id">❯ prefix</div></td>
+  <td class="cell opt-glyph"><div class="stack">
+    <div class="surfseg"><button aria-pressed="true">claude</button><button>shell</button><button>docs</button></div>
+    <div class="surfseg"><button aria-pressed="true">claude</button><button><span class="glyph">❯</span>shell</button><button>docs</button></div>
+  </div></td>
+  <td class="cell tfoot opt-glyph"><div class="stack">
+    <div class="surfseg"><button aria-pressed="true">claude</button><button>shell</button><button>docs</button></div>
+    <div class="surfseg"><button aria-pressed="true">claude</button><button><span class="glyph">❯</span>shell</button><button>docs</button></div>
+  </div></td>
+  <td class="note">Says “a shell lives here”, not “attend to me” — the meaning is literal rather than coded. Costs a character of width and needs an <code>aria-hidden</code> so the button’s accessible name stays exactly <code>shell</code>.</td>
+</tr>
+</table>

@@ -10,10 +10,11 @@ import (
 )
 
 // TestNew_RegistersLifecycleFeaturesInStartOrder pins REQ-11: Start and Stop must run the
-// four independent-goroutine features in exactly today's order — ingest, usage poller,
-// theme poller, updates (server.go's own comment above the ingest/usage/theme
-// registrations) — since Start and Shutdown both iterate s.features in registration order,
-// unreversed (INV-5).
+// five independent-goroutine features in exactly today's order — ingest, usage poller,
+// theme poller, shell activity poller, updates (server.go's own comment above the
+// ingest/usage/theme/shellActivity registrations, plan terminal-fixes-cleanup Affected
+// Files: "internal/server/server.go — one-line registration of the poller") — since Start
+// and Shutdown both iterate s.features in registration order, unreversed (INV-5).
 func TestNew_RegistersLifecycleFeaturesInStartOrder(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 
@@ -24,11 +25,12 @@ func TestNew_RegistersLifecycleFeaturesInStartOrder(t *testing.T) {
 		}
 	}
 
-	require.Len(t, lifecycles, 4, "exactly four features implement lifecycle: ingest, usage, theme, update")
+	require.Len(t, lifecycles, 5, "exactly five features implement lifecycle: ingest, usage, theme, shellActivity, update")
 	assert.Same(t, srv.ingest, lifecycles[0], "REQ-11: ingest must start first")
 	assert.Same(t, srv.usage, lifecycles[1], "REQ-11: usage poller must start second")
 	assert.Same(t, srv.theme, lifecycles[2], "REQ-11: theme poller must start third")
-	assert.Same(t, srv.update, lifecycles[3], "REQ-11: updates must start last")
+	assert.Same(t, srv.shellActivity, lifecycles[3], "REQ-11: shell activity poller must start fourth")
+	assert.Same(t, srv.update, lifecycles[4], "REQ-11: updates must start last")
 }
 
 // TestNew_ZeroValueLaunchConfigDefaultsClaudeBin covers REQ-10 for LaunchConfig: a Config

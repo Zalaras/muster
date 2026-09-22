@@ -364,6 +364,36 @@ func TestHandleTerminal_UnparseableResizeFrameIsIgnoredNotFatal(t *testing.T) {
 	assert.Contains(t, out, "STILL_ALIVE_MARKER", "a bad text frame must never kill the socket")
 }
 
+// TestHandleTerminal_ScrollFrameIsIgnoredNotFatalAndNeverParsedAsAResize covers D6: a
+// `scroll` frame arriving on the Claude socket (a bug, or a stale client) must take the
+// exact same "ignored and logged" path as any other unknown text frame — decodable JSON
+// with a Type applyResizeFrame doesn't recognize, not a parse failure — and must never be
+// misread as a resize (frame.Cols/Rows are both zero, which would clamp to the floor and
+// visibly shrink the pane if it were ever applied).
+func TestHandleTerminal_ScrollFrameIsIgnoredNotFatalAndNeverParsedAsAResize(t *testing.T) {
+	srv := newTerminalTestServer(t)
+	sess := launchRealSession(t, srv, shellCommand())
+	httpSrv := httptest.NewServer(srv.Handler())
+	t.Cleanup(httpSrv.Close)
+	dc := tmux.New(srv.tmuxSocket) // see ResizeFrameAppliesRealGeometry's comment
+
+	c := dialTerminalOK(t, httpSrv, sess.ID)
+	defer func() { _ = c.CloseNow() }()
+
+	widthBefore, err := dc.DisplayVar(context.Background(), sess.TmuxTarget, "#{window_width}")
+	require.NoError(t, err)
+
+	require.NoError(t, c.Write(context.Background(), websocket.MessageText, []byte(`{"type":"scroll","lines":10}`)))
+
+	require.NoError(t, c.Write(context.Background(), websocket.MessageBinary, []byte("echo D6_STILL_ALIVE\n")))
+	out := readUntilContains(t, c, "D6_STILL_ALIVE", 5*time.Second)
+	assert.Contains(t, out, "D6_STILL_ALIVE", "D6: a scroll frame on the Claude socket must never close the socket")
+
+	widthAfter, err := dc.DisplayVar(context.Background(), sess.TmuxTarget, "#{window_width}")
+	require.NoError(t, err)
+	assert.Equal(t, widthBefore, widthAfter, "D6: a scroll frame must never be misread as a resize to 0x0")
+}
+
 // TestHandleTerminal_SecondSocketSupersedesTheFirst covers D3/INV-1 from the plainest
 // reachable state: no prior activity on the first socket before the second connects.
 func TestHandleTerminal_SecondSocketSupersedesTheFirst(t *testing.T) {
@@ -690,6 +720,32 @@ func TestClampInt_Table(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, clampInt(tt.v, tt.lo, tt.hi))
+		})
+	}
+}
+
+// TestClampScrollLines_Table covers D3's own clamp function in isolation: magnitude
+// bounded to [1, 200], sign preserved, and 0 staying 0 (the "nothing to scroll" case
+// applyShellTextFrame relies on to skip calling ScrollCopyMode at all).
+func TestClampScrollLines_Table(t *testing.T) {
+	tests := []struct {
+		name string
+		v    int
+		want int
+	}{
+		{"zero stays zero", 0, 0},
+		{"at the low boundary", 1, 1},
+		{"in range", 42, 42},
+		{"at the high boundary", 200, 200},
+		{"above the high boundary clamps down", 9999, 200},
+		{"negative below the boundary clamps, sign preserved", -9999, -200},
+		{"negative at the boundary", -200, -200},
+		{"negative in range", -42, -42},
+		{"negative at the low magnitude boundary", -1, -1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, clampScrollLines(tt.v))
 		})
 	}
 }

@@ -49,6 +49,9 @@ export interface AppEvents {
   focusChanged: (id: number | null) => void; // before the render that follows app.focus
   cancelRenames: () => void; // any trigger that must not let a blur-commit through
   docChanged: (docChanged: DocChanged) => void; // plan markdown-viewing: WS docChanged
+  // Plan terminal-fixes-cleanup: WS shellActivity — features/surfaces.ts's activity
+  // reducer is the only listener.
+  shellActivity: (sessionId: number, busy: boolean) => void;
 }
 
 export interface App {

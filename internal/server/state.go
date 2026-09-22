@@ -20,6 +20,10 @@ type Snapshot struct {
 	// Update is new in the auto-update plan (2026-09-10, kb:anchor/ws.update): always
 	// present, even on a daemon with updates disabled entirely.
 	Update UpdateInfo `json:"update"`
+	// ShellsBusy is new in terminal-fixes-cleanup (kb:anchor/ws.shell-activity): session ids
+	// whose shell is busy right now, always present as [] when none — never null — so a
+	// reconnecting client re-syncs without waiting for a shellActivity transition.
+	ShellsBusy []int64 `json:"shellsBusy"`
 }
 
 // ClaudeThemeInfo is the `claudeTheme` object inside a snapshot
@@ -102,6 +106,7 @@ func buildSnapshot() Snapshot {
 		Prefs:       defaultPrefs(),
 		ClaudeTheme: ClaudeThemeInfo{Family: string(claudecode.ThemeUnknown)},
 		Update:      UpdateInfo{Apply: UpdateApplyInfo{Phase: string(selfupdate.PhaseIdle)}},
+		ShellsBusy:  []int64{},
 	}
 }
 

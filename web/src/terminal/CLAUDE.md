@@ -20,8 +20,8 @@
 - `docs` never has a `TerminalSurface` (INV-1) — `isSurfaceAttachable` always answers `false` for it; the reader itself lives in `web/src/features/reader.ts`/`web/src/render/reader.ts`, not here.
 
 <!-- kb:trailer -->
-<!-- kb:hash 9382aa90f93b80e6 -->
+<!-- kb:hash 7882c0e58bfe14f1 -->
 - **drop** — File drop pastes the original on-disk path into the pane. → `docs/features/drop/INDEX.md`
 - **surfaces** — PTY bridge, xterm pane, the ephemeral shell surface, sizing, one live client per target. → `docs/features/surfaces/INDEX.md`
-- 8 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 12 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

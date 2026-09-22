@@ -1,7 +1,7 @@
 ---
 id: surfaces-scrollback-affordance-not-built
 type: decision
-status: rejected
+status: superseded
 date: 2026-09-03
 summary: No scrollbar or copy-mode surface for panes: Claude Code runs on the alternate screen by itself, so there is no buffer to scroll; tmux is not the cause.
 features: [surfaces]

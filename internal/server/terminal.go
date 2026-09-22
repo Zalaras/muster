@@ -30,6 +30,17 @@ type paneConn interface {
 // interface instead.
 type attachFunc func(ctx context.Context, target string) (paneConn, error)
 
+// shellScroller is the tmux copy-mode operations only the shell socket needs
+// (kb:anchor/terminal.shell-ws, kb:adr/surfaces-shell-scroll-via-daemon-copy-mode).
+// *tmux.Client satisfies it without knowing; a test fakes it directly. Both methods
+// drive tmux's own process/mode tracking through its query API, never pane content
+// (CLAUDE.md hard rule) — the same distinction internal/tmux.displayVar's doc comment
+// draws for production callers.
+type shellScroller interface {
+	ScrollCopyMode(ctx context.Context, target string, lines int) (entered bool, err error)
+	CancelCopyMode(ctx context.Context, target string) error
+}
+
 // Close codes the daemon initiates on a terminal socket (kb:anchor/terminal.ws).
 const (
 	closeSuperseded websocket.StatusCode = 4000
@@ -42,6 +53,13 @@ const (
 	maxResizeCols = 500
 	minResizeRows = 5
 	maxResizeRows = 300
+)
+
+// Scroll magnitude clamp (kb:anchor/terminal.shell-ws) — sign carries direction, so the
+// clamp applies to the absolute value.
+const (
+	minScrollLines = 1
+	maxScrollLines = 200
 )
 
 // terminalReadBufSize bounds one PTY->socket binary frame. tmux output arrives in
@@ -360,22 +378,121 @@ func pumpSocketToPTY(ctx context.Context, log zerolog.Logger, c *websocket.Conn,
 // accident.
 const maxLoggedFrameLen = 200
 
+// logUnknownTextFrame logs one unparseable/unknown text frame at Debug, truncated to
+// maxLoggedFrameLen — shared by applyResizeFrame (kb:anchor/terminal.ws) and
+// applyShellTextFrame (kb:anchor/terminal.shell-ws), which both treat this as "ignored, never
+// fatal" (D6: a `scroll` frame on the Claude socket takes this same path).
+func logUnknownTextFrame(log zerolog.Logger, data []byte, err error) {
+	logged := data
+	if len(logged) > maxLoggedFrameLen {
+		logged = logged[:maxLoggedFrameLen]
+	}
+	log.Debug().Err(err).Str("frame", string(logged)).Msg("ignoring unparseable/unknown terminal text frame")
+}
+
 // applyResizeFrame parses and clamps one resize control frame, applying it via
 // Bridge.Resize (pty.Setsize then tmux resize-window — FINDINGS §7(d)). An unparseable
-// or unknown text frame is ignored and logged, never fatal.
+// or unknown text frame is ignored and logged, never fatal — including a `scroll` frame
+// (D6), which decodes fine but has Type != "resize".
 func applyResizeFrame(ctx context.Context, log zerolog.Logger, bridge paneConn, data []byte) {
 	var frame resizeFrame
 	if err := json.Unmarshal(data, &frame); err != nil || frame.Type != "resize" {
-		logged := data
-		if len(logged) > maxLoggedFrameLen {
-			logged = logged[:maxLoggedFrameLen]
-		}
-		log.Debug().Err(err).Str("frame", string(logged)).Msg("ignoring unparseable/unknown terminal text frame")
+		logUnknownTextFrame(log, data, err)
 		return
 	}
 	cols := clampInt(frame.Cols, minResizeCols, maxResizeCols)
 	rows := clampInt(frame.Rows, minResizeRows, maxResizeRows)
 	if err := bridge.Resize(ctx, cols, rows); err != nil {
 		log.Warn().Err(err).Msg("terminal resize failed")
+	}
+}
+
+// shellTextFrame is the shell socket's client→server JSON: everything resizeFrame
+// accepts, plus `scroll` (kb:anchor/terminal.shell-ws). The Claude socket keeps decoding into
+// resizeFrame/applyResizeFrame unchanged (REQ-9) — this type and pumpShellSocketToPTY
+// below are reached only from GET /ws/shell/{id}.
+type shellTextFrame struct {
+	Type  string `json:"type"`
+	Cols  int    `json:"cols"`
+	Rows  int    `json:"rows"`
+	Lines int    `json:"lines"`
+}
+
+// clampScrollLines clamps a scroll frame's magnitude to [minScrollLines,
+// maxScrollLines] (D3) while preserving its sign; 0 stays 0 (nothing to scroll).
+func clampScrollLines(v int) int {
+	if v == 0 {
+		return 0
+	}
+	sign, mag := 1, v
+	if v < 0 {
+		sign, mag = -1, -v
+	}
+	return sign * clampInt(mag, minScrollLines, maxScrollLines)
+}
+
+// pumpShellSocketToPTY is pumpSocketToPTY's shell-surface variant (kb:anchor/terminal.shell-ws):
+// binary frames are raw input, but the daemon cancels copy-mode first when it knows this
+// pane may still be in one (REQ-10), so a keystroke always reaches the shell and returns
+// it to the live bottom; text frames add `scroll` to the resize frame pumpSocketToPTY
+// already accepts. inCopyMode lives only in this one connection's read loop — never
+// shared, so it needs no lock.
+func pumpShellSocketToPTY(ctx context.Context, log zerolog.Logger, c *websocket.Conn, bridge paneConn, scroller shellScroller, target string) {
+	inCopyMode := false
+	for {
+		msgType, data, err := c.Read(ctx)
+		if err != nil {
+			return
+		}
+		switch msgType {
+		case websocket.MessageBinary:
+			if inCopyMode {
+				if cerr := scroller.CancelCopyMode(ctx, target); cerr != nil {
+					log.Debug().Err(cerr).Msg("cancelling shell copy-mode before input failed")
+				}
+				inCopyMode = false
+			}
+			if _, werr := bridge.Write(data); werr != nil {
+				log.Debug().Err(werr).Msg("shell terminal pty write failed")
+				return
+			}
+		case websocket.MessageText:
+			applyShellTextFrame(ctx, log, bridge, scroller, target, data, &inCopyMode)
+		}
+	}
+}
+
+// applyShellTextFrame parses one shell-socket text frame and dispatches resize or
+// scroll; an unparseable or unknown frame is ignored and logged, never fatal, the same
+// contract as applyResizeFrame. inCopyMode is set from ScrollCopyMode's own entered
+// result, never assumed from a nil error — REQ-12/edge case 10's "nothing to scroll to"
+// no-op returns entered=false, and a `lines` of 0 after clamping (frame carried 0)
+// never calls ScrollCopyMode at all.
+func applyShellTextFrame(ctx context.Context, log zerolog.Logger, bridge paneConn, scroller shellScroller, target string, data []byte, inCopyMode *bool) {
+	var frame shellTextFrame
+	if err := json.Unmarshal(data, &frame); err != nil {
+		logUnknownTextFrame(log, data, err)
+		return
+	}
+	switch frame.Type {
+	case "resize":
+		cols := clampInt(frame.Cols, minResizeCols, maxResizeCols)
+		rows := clampInt(frame.Rows, minResizeRows, maxResizeRows)
+		if err := bridge.Resize(ctx, cols, rows); err != nil {
+			log.Warn().Err(err).Msg("shell terminal resize failed")
+		}
+	case "scroll":
+		lines := clampScrollLines(frame.Lines)
+		if lines == 0 {
+			return
+		}
+		entered, err := scroller.ScrollCopyMode(ctx, target, lines)
+		if err != nil {
+			log.Debug().Err(err).Msg("shell scroll failed")
+			return
+		}
+		*inCopyMode = entered
+	default:
+		logUnknownTextFrame(log, data, nil)
 	}
 }

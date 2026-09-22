@@ -125,6 +125,10 @@ const client = new WsClient(wsUrl, {
     app.emit("docChanged", msg);
     app.render();
   },
+  onShellActivity: (sessionId, busy) => {
+    app.emit("shellActivity", sessionId, busy);
+    app.render();
+  },
   onUpdate: (updateInfo) => {
     app.emit("update", updateInfo);
     app.render();

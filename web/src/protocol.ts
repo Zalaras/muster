@@ -248,6 +248,14 @@ export interface Snapshot {
   // rejecting the snapshot (edge case 32) - same additive-evolution tolerance as
   // `claudeTheme` before it.
   update: UpdateInfo | null;
+  // Plan terminal-fixes-cleanup (kb:anchor/ws.shell-activity): session ids whose shell is
+  // busy right now — lets a reconnecting dashboard re-sync the activity indicator without
+  // waiting for a `shellActivity` transition (W9). Present-only, same tolerance as
+  // `usage.model`/`modelScoped` (kb:anchor/conventions's additive evolution): an absent
+  // wire key stays absent on the parsed object rather than gaining a synthesized `[]`, so
+  // a pre-plan payload round-trips unchanged. Real callers read `snapshot.shellsBusy ??
+  // []`, same as every other present-only field's read site.
+  shellsBusy?: number[];
 }
 
 export interface SessionUpsert {
@@ -303,6 +311,16 @@ export interface DocChanged {
   at: string;
 }
 
+// Plan terminal-fixes-cleanup (kb:anchor/ws.shell-activity): broadcast on every observed
+// change of a shell's busy flag (the ~1s tmux poller — Protocol Contract). Deliberately
+// not a Session field and adds no session state (kb:adr/surfaces-shell-is-attach-target-not-session) —
+// a shell is still not a session.
+export interface ShellActivityMessage {
+  type: "shellActivity";
+  sessionId: number;
+  busy: boolean;
+}
+
 export type Message =
   | Hello
   | Snapshot
@@ -312,7 +330,8 @@ export type Message =
   | SessionRemoved
   | ClaudeThemeMessage
   | DocChanged
-  | UpdateMessage;
+  | UpdateMessage
+  | ShellActivityMessage;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -725,6 +744,16 @@ function parseSessions(value: unknown): Session[] | null {
   return sessions;
 }
 
+function parseShellsBusy(value: unknown): number[] | null {
+  if (!Array.isArray(value)) return null;
+  const ids: number[] = [];
+  for (const item of value) {
+    if (typeof item !== "number") return null;
+    ids.push(item);
+  }
+  return ids;
+}
+
 function parseSnapshot(rec: Record<string, unknown>): Snapshot | null {
   const sessions = parseSessions(rec["sessions"]);
   const usage = parseUsage(rec["usage"]);
@@ -743,7 +772,18 @@ function parseSnapshot(rec: Record<string, unknown>): Snapshot | null {
     update = parseUpdateInfo(rawUpdate);
     if (!update) return null;
   }
-  return { type: "snapshot", sessions, usage, prefs, claudeTheme, update };
+  const snapshot: Snapshot = { type: "snapshot", sessions, usage, prefs, claudeTheme, update };
+  // Plan terminal-fixes-cleanup: present-only, same pattern as `usage.model` above — an
+  // absent key stays absent on the parsed object rather than gaining a synthesized `[]`,
+  // so a pre-plan payload (and every existing snapshot fixture that predates this field)
+  // round-trips unchanged. Real callers read `snapshot.shellsBusy ?? []`
+  // (`features/surfaces.ts`), same as every other present-only field's read site.
+  if ("shellsBusy" in rec) {
+    const shellsBusy = parseShellsBusy(rec["shellsBusy"]);
+    if (!shellsBusy) return null;
+    snapshot.shellsBusy = shellsBusy;
+  }
+  return snapshot;
 }
 
 function parseSessionUpsert(rec: Record<string, unknown>): SessionUpsert | null {
@@ -793,6 +833,14 @@ export function parseDocChanged(rec: Record<string, unknown>): DocChanged | null
   return { type: "docChanged", id, path, at };
 }
 
+function parseShellActivityMessage(rec: Record<string, unknown>): ShellActivityMessage | null {
+  const sessionId = rec["sessionId"];
+  const busy = rec["busy"];
+  if (typeof sessionId !== "number") return null;
+  if (typeof busy !== "boolean") return null;
+  return { type: "shellActivity", sessionId, busy };
+}
+
 /** Parses one WS text frame's decoded JSON. Unknown/malformed messages yield `null`. */
 export function parseMessage(data: unknown): Message | null {
   if (!isRecord(data)) return null;
@@ -816,6 +864,8 @@ export function parseMessage(data: unknown): Message | null {
       return parseUpdateMessage(data);
     case "docChanged":
       return parseDocChanged(data);
+    case "shellActivity":
+      return parseShellActivityMessage(data);
     default:
       return null; // unknown message types are ignored (kb:anchor/conventions)
   }

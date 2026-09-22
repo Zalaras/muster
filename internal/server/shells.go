@@ -34,11 +34,20 @@ type shellRegistry struct {
 	tmux paneSpawner
 	log  zerolog.Logger
 
-	// mu guards idLocks only (session-lifecycle REQ-12: the registry's single global
-	// mutex became per-id, so two sessions' Ensure/Kill calls never block each other);
-	// the check-then-spawn/kill sequence itself is serialised by each id's own lock.
+	// mu guards idLocks and activeIDs (session-lifecycle REQ-12: the registry's single
+	// global mutex became per-id, so two sessions' Ensure/Kill calls never block each
+	// other); the check-then-spawn/kill sequence itself is serialised by each id's own
+	// lock.
 	mu      sync.Mutex
 	idLocks map[int64]*sync.Mutex
+	// activeIDs is the set of session ids this daemon instance believes currently have
+	// a shell — Ensure adds, Kill removes. It is deliberately not decremented when a
+	// shell exits on its own (`exit`, or an external kill): the shell-activity poller's
+	// own tmux read is what notices that (its busy diff drops the session), so
+	// overcounting here costs a few extra idle polls, never a stuck indicator. Its only
+	// job is HasAny's gate, the poller's own optimisation for the common case of a
+	// session with no shell tab ever opened (plan Gotchas).
+	activeIDs map[int64]struct{}
 }
 
 // newShellRegistry builds a shellRegistry bound to tmuxClient.
@@ -96,6 +105,7 @@ func (r *shellRegistry) Ensure(ctx context.Context, id int64, dir string) (targe
 		return "", false, fmt.Errorf("checking shell pane: %w", err)
 	}
 	if exists {
+		r.markActive(id)
 		return name, false, nil
 	}
 
@@ -110,12 +120,35 @@ func (r *shellRegistry) Ensure(ctx context.Context, id int64, dir string) (targe
 			nowExists, recheckErr := r.tmux.PaneExists(recheckCtx, name)
 			cancel()
 			if recheckErr == nil && nowExists {
+				r.markActive(id)
 				return name, false, nil
 			}
 		}
 		return "", false, fmt.Errorf("spawning shell: %w", spawnErr)
 	}
+	r.markActive(id)
 	return name, true, nil
+}
+
+// markActive records id in activeIDs (HasAny's gate). Called only from inside Ensure's
+// own per-id lock, but takes r.mu itself since activeIDs is read from other ids'
+// goroutines too (HasAny, and Kill for a different id).
+func (r *shellRegistry) markActive(id int64) {
+	r.mu.Lock()
+	if r.activeIDs == nil {
+		r.activeIDs = make(map[int64]struct{})
+	}
+	r.activeIDs[id] = struct{}{}
+	r.mu.Unlock()
+}
+
+// HasAny reports whether this daemon instance currently believes any session has a
+// shell — the shell-activity poller's gate to skip its own tmux exec entirely for the
+// common case of no shell ever opened (plan Gotchas; kb:anchor/ws.shell-activity).
+func (r *shellRegistry) HasAny() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.activeIDs) > 0
 }
 
 // Kill kills session id's shell tmux session, if any (Remove's path). A no-op, not an
@@ -135,6 +168,7 @@ func (r *shellRegistry) Kill(ctx context.Context, id int64) {
 
 	r.mu.Lock()
 	delete(r.idLocks, id)
+	delete(r.activeIDs, id)
 	r.mu.Unlock()
 }
 
@@ -154,11 +188,15 @@ type shellFeature struct {
 	terminals *terminalRegistry
 	manager   *session.Manager
 	attach    attachFunc
-	log       zerolog.Logger
+	// scroll drives the `scroll` control frame's tmux copy-mode commands
+	// (kb:anchor/terminal.shell-ws) — independent of registry.tmux (a narrower paneSpawner)
+	// so a test can fake copy-mode behaviour without faking session spawning too.
+	scroll shellScroller
+	log    zerolog.Logger
 }
 
-func newShellFeature(registry *shellRegistry, terminals *terminalRegistry, manager *session.Manager, attach attachFunc, log zerolog.Logger) *shellFeature {
-	return &shellFeature{registry: registry, terminals: terminals, manager: manager, attach: attach, log: log}
+func newShellFeature(registry *shellRegistry, terminals *terminalRegistry, manager *session.Manager, attach attachFunc, scroll shellScroller, log zerolog.Logger) *shellFeature {
+	return &shellFeature{registry: registry, terminals: terminals, manager: manager, attach: attach, scroll: scroll, log: log}
 }
 
 func (f *shellFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.Handler) {
@@ -261,7 +299,9 @@ func (f *shellFeature) handleShellTerminal(w http.ResponseWriter, r *http.Reques
 		pumpPTYToSocket(ctx, f.log, c, bridge, id, false, nil)
 	}()
 
-	pumpSocketToPTY(ctx, f.log, c, bridge)
+	// The shell socket's own variant: decodes the `scroll` control frame the Claude
+	// socket does not accept, and cancels copy-mode before writing input (REQ-10).
+	pumpShellSocketToPTY(ctx, f.log, c, bridge, f.scroll, shellTarget)
 	// Same teardown ordering as handleTerminal — see its comment for why.
 	cancel()
 	_ = bridge.Close()

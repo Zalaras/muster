@@ -1653,3 +1653,21 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
       2026-08-20): `.claude/settings.local.json` alone honors `hooks`, `statusLine` and
       `allowedHttpHookUrls`, and Claude Code gitignores it — so M1 writes the local file
       and the ingest token never lands in committable config.
+
+## Together — the shell tab (#31, #33, #45) ✅ done 2026-09-22 (plan `terminal-fixes-cleanup`, via `/orchestrate`; approved review cycle 3)
+
+- [x] **Blue dot on shell is distracting** ([#31](https://github.com/Zalaras/muster/issues/31)) — the shell tab's blue dot reads as "needs your
+  attention" when it only means the shell has started; that probably needs no indicator at all.
+
+- [x] **Shell doesn't allow opt-arrow** ([#33](https://github.com/Zalaras/muster/issues/33)) — Option-Arrow word-skip emits "3D" instead of
+  navigating. Shortcuts native to the CLI should survive into the shell.
+
+- [x] **No scrollbar on the shell** ([#45](https://github.com/Zalaras/muster/issues/45)) — mouse-wheel scrolling cycles through the previous
+  commands instead of scrolling the buffer.
+
+  Shipped: the pip and its colour token are gone, replaced by a monochrome spinner while the
+  shell runs foreground work and a tick when it finishes (#31); Option+Arrow and Cmd+Arrow are
+  translated to their readline equivalents on a shell surface only (#33); and the wheel scrolls
+  the pane's real tmux history through a `scroll` control frame the daemon turns into copy-mode
+  commands, with tmux mouse mode left off so drag-to-select still works (#45).
+

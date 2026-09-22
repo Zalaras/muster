@@ -8,6 +8,7 @@
 - Sizing drives `pty.Setsize` and `resize-window` together; never `resize-pane` (kb:adr/surfaces-shared-attach-single-pty, kb:lesson/resize-pane-silent-noop).
 - `detach-on-destroy` is on (kb:adr/surfaces-detach-on-destroy-on, kb:lesson/detach-on-destroy-misrouted-keystrokes).
 - `CapturePane` output is display only and may hold prompt text: never a state source, never logged (kb:adr/actions-pane-snapshot-display-only).
+- `ListPaneActivity` and copy-mode's `#{pane_in_mode}`/`#{history_size}` read tmux's own process/mode tracking through its query API, not pane content — that distinction is what lets the shell-busy poller and scroll driver use them without breaching the rule above (kb:adr/surfaces-shell-busy-from-tmux-process-state).
 - Preflight is bounded and version-aware: missing or broken tmux is fatal, an unrecognised version warns (kb:adr/surfaces-tmux-preflight-at-startup, kb:adr/surfaces-unrecognised-tmux-version-warns).
 - Subprocess seams are function fields; real tmux appears only where the assertion is a tmux-observable effect.
 
@@ -19,7 +20,7 @@
 - Probes use `-S` in a scratch dir and `kill-server` (kb:lesson/probe-tmux-sockets-left-in-shared-dir).
 
 <!-- kb:trailer -->
-<!-- kb:hash b4f2d027dd2effd0 -->
+<!-- kb:hash 7c3e7b8033febee4 -->
 - **surfaces** — PTY bridge, xterm pane, the ephemeral shell surface, sizing, one live client per target. → `docs/features/surfaces/INDEX.md`
-- 16 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 18 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

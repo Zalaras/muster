@@ -39,6 +39,7 @@ export interface WsClientHandlers {
   onClaudeTheme?: (family: ClaudeFamily) => void;
   onUpdate?: (update: UpdateInfo) => void;
   onDocChanged?: (docChanged: DocChanged) => void;
+  onShellActivity?: (sessionId: number, busy: boolean) => void;
   onDisconnected?: () => void;
   onProtocolMismatch?: (protocolVersion: number) => void;
 }
@@ -163,6 +164,10 @@ export class WsClient {
     }
     if (message.type === "docChanged") {
       this.handlers.onDocChanged?.(message);
+      return;
+    }
+    if (message.type === "shellActivity") {
+      this.handlers.onShellActivity?.(message.sessionId, message.busy);
       return;
     }
     this.handlers.onSnapshot?.(message);

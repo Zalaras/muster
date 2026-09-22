@@ -82,8 +82,14 @@ test("GET /api/state returns exactly the M0 snapshot object once authenticated",
   // carries no remedy; `update.running` is asserted structurally (`expect.any(String)`)
   // since the dev version string changes with every commit — updated here for the same
   // reason as density/usageModel/railSort/theme above.
+  // Top-level `shellsBusy` was added by plan terminal-fixes-cleanup (Protocol Contract:
+  // "snapshot gains one top-level key so a reconnecting dashboard re-syncs without
+  // waiting for a transition") — always `[]` here since this scratch daemon has no
+  // sessions at all, let alone a busy shell; updated here for the same reason as
+  // density/usageModel/railSort/theme/update above.
   expect(body).toEqual({
     sessions: [],
+    shellsBusy: [],
     usage: {
       fiveHour: null,
       sevenDay: null,

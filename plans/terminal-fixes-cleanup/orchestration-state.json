@@ -1,0 +1,138 @@
+{
+  "plan_name": "terminal-fixes-cleanup",
+  "status": "completed",
+  "current_step": "completed",
+  "retry_counts": {
+    "e2e-specs": 0,
+    "daemon-impl": 0,
+    "web-impl": 0,
+    "daemon-tests": 0,
+    "web-tests": 1,
+    "e2e-validate": 1,
+    "review": 2,
+    "doc-reconcile": 0
+  },
+  "completed_steps": [
+    "e2e-specs",
+    "daemon-impl",
+    "daemon-tests",
+    "web-impl",
+    "web-tests",
+    "e2e-validate",
+    "review",
+    "doc-reconcile"
+  ],
+  "step_started_at": {
+    "e2e-specs": "2026-09-22T07:28:47Z",
+    "daemon-impl": "2026-09-21T20:57:58Z",
+    "web-impl": "2026-09-22T06:41:52Z",
+    "daemon-tests": "2026-09-21T21:12:19Z",
+    "web-tests": "2026-09-22T06:47:38Z",
+    "e2e-validate": "2026-09-22T05:05:54Z",
+    "review": "2026-09-22T07:44:26Z",
+    "doc-reconcile": "2026-09-22T07:52:35Z"
+  },
+  "step_finished_at": {
+    "e2e-specs": "2026-09-22T07:44:26Z",
+    "daemon-impl": "2026-09-21T21:12:19Z",
+    "daemon-tests": "2026-09-21T21:32:57Z",
+    "web-impl": "2026-09-22T06:47:38Z",
+    "web-tests": "2026-09-22T06:52:54Z",
+    "e2e-validate": "2026-09-22T06:23:06Z",
+    "review": "2026-09-22T07:52:35Z",
+    "doc-reconcile": "2026-09-22T07:56:59Z"
+  },
+  "step_attempts": {
+    "e2e-specs": [
+      {
+        "start": "2026-09-21T20:37:54Z",
+        "finish": "2026-09-21T20:57:58Z"
+      },
+      {
+        "start": "2026-09-22T06:52:54Z",
+        "finish": "2026-09-22T07:12:16Z"
+      },
+      {
+        "start": "2026-09-22T07:28:47Z",
+        "finish": "2026-09-22T07:44:26Z"
+      }
+    ],
+    "daemon-impl": [
+      {
+        "start": "2026-09-21T20:57:58Z",
+        "finish": "2026-09-21T21:12:19Z"
+      }
+    ],
+    "web-impl": [
+      {
+        "start": "2026-09-21T20:57:59Z",
+        "finish": "2026-09-21T21:44:54Z"
+      },
+      {
+        "start": "2026-09-21T21:52:50Z",
+        "finish": "2026-09-21T21:59:46Z"
+      },
+      {
+        "start": "2026-09-22T06:41:52Z",
+        "finish": "2026-09-22T06:47:38Z"
+      }
+    ],
+    "daemon-tests": [
+      {
+        "start": "2026-09-21T21:12:19Z",
+        "finish": "2026-09-21T21:32:57Z"
+      }
+    ],
+    "web-tests": [
+      {
+        "start": "2026-09-21T21:44:54Z",
+        "finish": "2026-09-21T21:52:50Z"
+      },
+      {
+        "start": "2026-09-21T21:59:46Z",
+        "finish": "2026-09-21T22:01:34Z"
+      },
+      {
+        "start": "2026-09-22T06:47:38Z",
+        "finish": "2026-09-22T06:52:54Z"
+      }
+    ],
+    "e2e-validate": [
+      {
+        "start": "2026-09-21T22:04:18Z",
+        "finish": "2026-09-22T05:05:54Z"
+      },
+      {
+        "start": "2026-09-22T05:05:54Z",
+        "finish": "2026-09-22T06:23:06Z"
+      }
+    ],
+    "review": [
+      {
+        "start": "2026-09-22T06:23:06Z",
+        "finish": "2026-09-22T06:41:52Z"
+      },
+      {
+        "start": "2026-09-22T07:12:16Z",
+        "finish": "2026-09-22T07:28:46Z"
+      },
+      {
+        "start": "2026-09-22T07:44:26Z",
+        "finish": "2026-09-22T07:52:35Z"
+      }
+    ],
+    "doc-reconcile": [
+      {
+        "start": "2026-09-22T07:52:35Z",
+        "finish": "2026-09-22T07:56:59Z"
+      }
+    ]
+  },
+  "started_at": "2026-09-21T20:37:54Z",
+  "updated_at": "2026-09-22T08:00:54Z",
+  "closes_issues": [
+    31,
+    33,
+    45
+  ]
+}
