@@ -38,6 +38,13 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 		if !closed && promptID != nil {
 			sess.currentPromptID = *promptID
 		}
+		// REQ-12: the adapter (internal/claudecode) supplies Prompt only for a genuine
+		// user prompt, never a synthetic background-completion re-invocation; a straggler
+		// past a Stop already returned above, so reaching here means this isn't one.
+		if input.Prompt != nil {
+			text := truncate(*input.Prompt, 200)
+			sess.LastPrompt = &text
+		}
 		// kb:anchor/ws.session's attention-iff-needs_input / failure-iff-failed invariants (INV-A,
 		// INV-F) are unconditional: every transitioning path here — whether the prompt
 		// was open or a subagent-marked closed prompt — clears both, so a stale
@@ -68,7 +75,7 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 		sess.Attention = &Attention{Reason: "idle", Since: now}
 		// INV-F: same reasoning as KindNeedsInputPermission above — this branch is
 		// also reachable from failed (an unseen fresh prompt id when the preceding
-		// UserPromptSubmit was itself lost), and must not strand a stale failure note.
+		// turn-activity event was itself lost), and must not strand a stale failure note.
 		sess.Failure = nil
 		sess.setState(StateNeedsInput, now)
 
@@ -153,6 +160,9 @@ func applyBind(sess *Session, claudeSessionID string, input claudecode.StateInpu
 		// m3-gauges REQ-9: a fresh conversation has no context data yet either — the
 		// next status post of the new conversation refills it.
 		sess.Context = nil
+		// REQ-12: a fresh conversation has no prompt yet either — kb:anchor/ws.session:
+		// "null until a first prompt and again after /clear".
+		sess.LastPrompt = nil
 	}
 
 	// m4-reconcile REQ-8: a same-id resume bind lands in idle and leaves compactions/

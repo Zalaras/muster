@@ -110,6 +110,18 @@ export interface SessionObject {
    * recomputed here.
    */
   titleOverride: string | null;
+  /**
+   * Plan rail-card-improvements kb:anchor/ws.session (REQ-7): true iff the session's turn
+   * closed while no terminal client was attached to it and nobody has attached since.
+   * INV: `unread ⇒ state === "idle"`. Never null on the wire.
+   */
+  unread: boolean;
+  /**
+   * Plan rail-card-improvements kb:anchor/ws.session (REQ-12): the user's most recent
+   * prompt, truncated to 200 characters; `null` until a first prompt and again after
+   * `/clear`.
+   */
+  lastPrompt: string | null;
 }
 
 /**

@@ -10,7 +10,7 @@ go: []
 web: [web/src/features/tiles.ts, web/src/render/tiles*.ts, web/src/render/tiledrag*.ts]
 e2e: [web/e2e/tiles.spec.ts]
 protocol: []
-refs: [kb:adr/tiles-live-top-n-snapshot-rest, kb:adr/tiles-sticky-live-membership, kb:adr/tiles-slot-stable-grid-never-self-sorts, kb:adr/tiles-drag-reorder-header-handle-insert-shift, kb:adr/tiles-order-ephemeral-per-window, kb:adr/tiles-launched-session-promoted-into-grid, kb:adr/tiles-new-session-button-in-toolbar, kb:adr/surfaces-one-live-client-per-session, docs/design/ux-flows.md]
+refs: [kb:adr/tiles-live-top-n-snapshot-rest, kb:adr/tiles-sticky-live-membership, kb:adr/tiles-slot-stable-grid-never-self-sorts, kb:adr/tiles-drag-reorder-header-handle-insert-shift, kb:adr/tiles-order-ephemeral-per-window, kb:adr/tiles-launched-session-promoted-into-grid, kb:adr/launch-new-session-button-in-masthead, kb:adr/surfaces-one-live-client-per-session, docs/design/ux-flows.md]
 ---
 Tiles is the peer view to Focus (kb:spec/views): a grid of live terminal tiles over a
 snapshot strip, under the same masthead (docs/design/ux-flows.md "Shape — Tiles").
@@ -23,8 +23,9 @@ mid-keystroke (kb:adr/tiles-sticky-live-membership). The grid never re-sorts its
 attention; a promoted session takes the demoted tile's slot and survivors keep their order
 (kb:adr/tiles-slot-stable-grid-never-self-sorts). Clicking a strip card promotes it. A
 session launched from Tiles is promoted into the grid, demoting the lowest-priority tile
-when full (kb:adr/tiles-launched-session-promoted-into-grid); the New session button lives in
-the density toolbar (kb:adr/tiles-new-session-button-in-toolbar).
+when full (kb:adr/tiles-launched-session-promoted-into-grid). Sessions are launched from the
+masthead's New session button, shared with Focus (kb:adr/launch-new-session-button-in-masthead,
+kb:spec/launch).
 
 Tiles reorder by dragging the tile header onto another tile, which inserts and shifts, never
 swaps, with no daemon involvement (kb:adr/tiles-drag-reorder-header-handle-insert-shift).

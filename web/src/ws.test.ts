@@ -42,6 +42,8 @@ const snapshot: Snapshot = {
     railSort: "manual",
     theme: "follow",
     updateCheck: true,
+    railDensity: "comfortable",
+    railActivity: "turn",
   },
   claudeTheme: { family: "unknown" },
   update: updateInfo,
@@ -56,6 +58,8 @@ const prefsMessage: PrefsMessage = {
     railSort: "manual",
     theme: "dark",
     updateCheck: false,
+    railDensity: "compact",
+    railActivity: "prompt",
   },
 };
 
@@ -104,6 +108,8 @@ const session: Session = {
   createdAt: "2026-08-22T00:00:00Z",
   pinned: false,
   railPos: 0,
+  unread: false,
+  lastPrompt: null,
 };
 
 describe("backoffDelay", () => {

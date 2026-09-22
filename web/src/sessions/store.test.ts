@@ -25,6 +25,8 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     createdAt: "2026-08-22T00:00:00Z",
     pinned: false,
     railPos: overrides.id,
+    unread: false,
+    lastPrompt: null,
     ...overrides,
   };
 }

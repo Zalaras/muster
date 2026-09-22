@@ -162,12 +162,29 @@ export interface Session {
   // pinned/railPos/titleOverride above, since there is no pre-plan daemon this build
   // needs to keep parsing.
   plan: SessionPlan | null;
+  // Plan rail-card-improvements (kb:anchor/ws.session, REQ-7): true iff the turn closed
+  // while no terminal client was attached to this session on either surface and nobody
+  // has attached since. INV: unread ⇒ state == "idle". Required on every wire Session,
+  // same "daemon and client ship together" reasoning as pinned/railPos/titleOverride/plan
+  // above — no pre-plan daemon to tolerate here.
+  unread: boolean;
+  // Plan rail-card-improvements (kb:anchor/ws.session, REQ-12): the user's most recent
+  // prompt, truncated to 200 chars; `null` until a first prompt and again after `/clear`.
+  // Display-only — never logged (INV-6). Same "ship together" reasoning as `unread` above.
+  lastPrompt: string | null;
 }
 
 // Plan order-sidebar (kb:anchor/prefs.put): the rail's sort mode pref.
 export type RailSort = "manual" | "attention";
 
 export type Density = "2x2" | "3x2";
+
+// Plan rail-card-improvements (kb:anchor/prefs.put): the rail/strip card density pref.
+export type RailDensity = "compact" | "comfortable" | "expanded";
+
+// Plan rail-card-improvements (kb:anchor/prefs.put): which text a card's activity line
+// shows — turn-aware by default (REQ-14/kb:adr/rail-activity-line-turn-aware-default-with-pref).
+export type RailActivity = "turn" | "prompt" | "reply" | "both";
 
 // M2 (kb:anchor/prefs.put refinement): density is always present alongside view — the
 // daemon's default before any PUT is {"view":"focus","density":"2x2","usageModel":"Fable"}
@@ -189,6 +206,13 @@ export interface Prefs {
   // never changes without an explicit apply. Missing key (pre-plan daemon) defaults to
   // true (the daemon's own documented default), same tolerance as the other prefs above.
   updateCheck: boolean;
+  // Plan rail-card-improvements (kb:anchor/prefs.put): card density in the rail and the
+  // Tiles strip. Missing key (pre-plan daemon) defaults to "comfortable", same tolerance
+  // as the other prefs above.
+  railDensity: RailDensity;
+  // Plan rail-card-improvements (kb:anchor/prefs.put): which text a card's activity line
+  // shows. Missing key (pre-plan daemon) defaults to "turn", same tolerance as above.
+  railActivity: RailActivity;
 }
 
 // Plan auto-update (kb:anchor/ws.update): the daemon's startup classification of its own
@@ -462,6 +486,37 @@ function parseUsage(value: unknown): Usage | null {
   return usage;
 }
 
+function isRailSort(value: unknown): value is RailSort {
+  return value === "manual" || value === "attention";
+}
+
+function isRailDensity(value: unknown): value is RailDensity {
+  return value === "compact" || value === "comfortable" || value === "expanded";
+}
+
+function isRailActivity(value: unknown): value is RailActivity {
+  return value === "turn" || value === "prompt" || value === "reply" || value === "both";
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === "string";
+}
+
+function isBoolean(value: unknown): value is boolean {
+  return typeof value === "boolean";
+}
+
+/** Reads one prefs field that has a fixed default for a missing key and a guard for a
+ * present one — every field below `view`/`density` (which have no default; a pre-plan
+ * daemon always sends them) shares this exact "missing key defaults, present-but-wrong-shape
+ * rejects the whole object" shape. Extracted so `parsePrefs` states each field once,
+ * under Biome's complexity ceiling, rather than repeating a ternary-then-guard pair per
+ * field inline. */
+function parsePrefsField<T>(raw: unknown, fallback: T, guard: (v: unknown) => v is T): T | null {
+  const v = raw === undefined ? fallback : raw;
+  return guard(v) ? v : null;
+}
+
 function parsePrefs(value: unknown): Prefs | null {
   if (!isRecord(value)) return null;
   const view = value["view"];
@@ -470,26 +525,44 @@ function parsePrefs(value: unknown): Prefs | null {
   if (density !== "2x2" && density !== "3x2") return null;
   // Plan usage-model-bar: missing key (pre-plan daemon) defaults to the daemon's own
   // documented default, "Fable" (kb:anchor/ws.prefs).
-  const rawUsageModel = value["usageModel"];
-  const usageModel = rawUsageModel === undefined ? "Fable" : rawUsageModel;
-  if (typeof usageModel !== "string") return null;
+  const usageModel = parsePrefsField(value["usageModel"], "Fable", isString);
+  if (usageModel === null) return null;
   // Plan order-sidebar: missing key (pre-plan daemon) defaults to "manual" (docs/
   // kb:anchor/prefs.put's documented default).
-  const rawRailSort = value["railSort"];
-  const railSort = rawRailSort === undefined ? "manual" : rawRailSort;
-  if (railSort !== "manual" && railSort !== "attention") return null;
+  const railSort = parsePrefsField(value["railSort"], "manual", isRailSort);
+  if (railSort === null) return null;
   // Plan new-ui-design-colors (REQ-19): missing key (pre-plan daemon) defaults to
   // "follow" (kb:anchor/prefs.put's documented default) — the daemon treats the
   // string as opaque beyond its pattern, so no further validation happens client-side.
-  const rawTheme = value["theme"];
-  const theme = rawTheme === undefined ? "follow" : rawTheme;
-  if (typeof theme !== "string") return null;
+  const theme = parsePrefsField(value["theme"], "follow", isString);
+  if (theme === null) return null;
   // Plan auto-update: missing key (pre-plan daemon) defaults to true
   // (kb:anchor/prefs.put's documented default), same tolerance as usageModel/railSort/theme above.
-  const rawUpdateCheck = value["updateCheck"];
-  const updateCheck = rawUpdateCheck === undefined ? true : rawUpdateCheck;
-  if (typeof updateCheck !== "boolean") return null;
-  return { view, density, usageModel, railSort, theme, updateCheck };
+  const updateCheck = parsePrefsField(value["updateCheck"], true, isBoolean);
+  if (updateCheck === null) return null;
+  // Plan rail-card-improvements: missing key (pre-plan daemon) defaults to "comfortable"
+  // (kb:anchor/prefs.put's documented default). A *stored* value outside the enum is the
+  // daemon's problem, not the wire's — it falls back to "comfortable" server-side (D13's
+  // silent fallback) before it is ever sent. If an out-of-enum railDensity somehow reaches
+  // the client anyway, parsePrefsField's guard fails and parsePrefs rejects the whole
+  // prefs object (protocol.test.ts's "rejects a railDensity value outside the
+  // compact|comfortable|expanded enum").
+  const railDensity = parsePrefsField(value["railDensity"], "comfortable", isRailDensity);
+  if (railDensity === null) return null;
+  // Plan rail-card-improvements: missing key (pre-plan daemon) defaults to "turn"
+  // (kb:anchor/prefs.put's documented default), same tolerance as railDensity above.
+  const railActivity = parsePrefsField(value["railActivity"], "turn", isRailActivity);
+  if (railActivity === null) return null;
+  return {
+    view,
+    density,
+    usageModel,
+    railSort,
+    theme,
+    updateCheck,
+    railDensity,
+    railActivity,
+  };
 }
 
 function isUpdateInstallKind(value: unknown): value is UpdateInstallKind {
@@ -639,10 +712,11 @@ function parseSessionPlan(value: unknown): SessionPlan | null {
  * an unrecognized field name or type anywhere in the object rejects the whole session
  * (the caller drops the snapshot/upsert rather than render a half-formed card).
  *
- * Scores 35 on cognitive complexity, but every point is a flat `return null` guard at
- * zero nesting — the score tracks the wire object's field count, not any tangle.
- * Splitting it would scatter the "any bad field rejects the whole session" invariant
- * across several functions, where no single reader or test sees it whole. */
+ * Scores 41 on cognitive complexity (plan rail-card-improvements added `unread`/
+ * `lastPrompt`'s two guards), but every point is a flat `return null` guard at zero
+ * nesting — the score tracks the wire object's field count, not any tangle. Splitting
+ * it would scatter the "any bad field rejects the whole session" invariant across
+ * several functions, where no single reader or test sees it whole. */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: flat per-field guards; a split strands the all-or-nothing invariant
 export function parseSession(value: unknown): Session | null {
   if (!isRecord(value)) return null;
@@ -667,6 +741,8 @@ export function parseSession(value: unknown): Session | null {
   const railPos = value["railPos"];
   const titleOverride = value["titleOverride"];
   const rawPlan = value["plan"];
+  const unread = value["unread"];
+  const lastPrompt = value["lastPrompt"];
 
   if (typeof id !== "number") return null;
   if (title !== null && typeof title !== "string") return null;
@@ -707,6 +783,9 @@ export function parseSession(value: unknown): Session | null {
   const plan = rawPlan === null ? null : parseSessionPlan(rawPlan);
   if (rawPlan !== null && plan === null) return null;
 
+  if (typeof unread !== "boolean") return null;
+  if (lastPrompt !== null && typeof lastPrompt !== "string") return null;
+
   return {
     id,
     title,
@@ -730,6 +809,8 @@ export function parseSession(value: unknown): Session | null {
     railPos,
     titleOverride,
     plan,
+    unread,
+    lastPrompt,
   };
 }
 

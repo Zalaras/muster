@@ -9,6 +9,7 @@ import { expect, test } from "./helpers/fixtures";
 import { queryEvents } from "./helpers/db";
 import { envelopedSessionStart, envelopedStatusLineFull } from "./helpers/payloads";
 import { railCard } from "./helpers/railorder";
+import { newSessionButton } from "./helpers/railcards";
 import {
   envelopeOpts,
   findSession,
@@ -717,8 +718,10 @@ test("clicking an unrelated control (New session) still commits an open mainhead
 
     // "New session" is not one of the two view-switch buttons carrying the
     // mousedown-cancel guard, so this is REQ-14's ordinary path: the field's own
-    // `onBlur` commits, same as it always did.
-    await page.locator("#view-focus").getByRole("button", { name: "New session" }).click();
+    // `onBlur` commits, same as it always did. Plan rail-card-improvements REQ-6 moved
+    // the button out of the rail head into the masthead (`helpers/railcards.ts`), so it
+    // is no longer scoped under `#view-focus`.
+    await newSessionButton(page).click();
 
     await expect(mainheadRenameField(page)).toHaveCount(0);
     await expect(mainheadRenameButton(page)).toHaveText("committed via blur");

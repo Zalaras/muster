@@ -10,7 +10,7 @@ go: [internal/session/**, internal/server/sessionwire*.go, internal/store/sessio
 web: [web/src/sessions/store*.ts, web/src/sessions/live*.ts]
 e2e: [web/e2e/reconcile.spec.ts, web/e2e/helpers/session.ts]
 protocol: [state, state.displayed, state.tracked, state.transitions, state.ordering, state.liveness, ws.session, ws.session-upsert]
-refs: [kb:adr/lifecycle-session-identity-is-tmux-target, kb:adr/lifecycle-alive-flag-not-a-state, kb:adr/lifecycle-liveness-from-pane-existence, kb:adr/lifecycle-liveness-writes-stop-at-shutdown, kb:adr/lifecycle-prompt-ordering-guards, kb:adr/lifecycle-subagent-marked-events-not-stragglers, kb:adr/lifecycle-reconcile-before-first-snapshot, kb:adr/lifecycle-ended-rows-swept-next-start, kb:adr/lifecycle-resume-rebinds-existing-session, kb:adr/lifecycle-shutdown-leaves-sessions-running, kb:adr/surfaces-shell-dies-at-kill-shutdown-too, kb:adr/ingest-seq-assigned-at-ingest, kb:fact/hook-delivery-best-effort, kb:fact/stopfailure-replaces-stop, kb:fact/sessionend-reason-ambiguous, kb:fact/notification-types-observed, kb:fact/permission-mode-presence-split, kb:fact/subagent-hooks-carry-agent-id, kb:fact/resume-keeps-session-identity, kb:fact/clear-mints-new-session-id, kb:ref/data-model, docs/design/ux-flows.md]
+refs: [kb:adr/lifecycle-session-identity-is-tmux-target, kb:adr/lifecycle-alive-flag-not-a-state, kb:adr/lifecycle-liveness-from-pane-existence, kb:adr/lifecycle-liveness-writes-stop-at-shutdown, kb:adr/lifecycle-prompt-ordering-guards, kb:adr/lifecycle-subagent-marked-events-not-stragglers, kb:adr/lifecycle-reconcile-before-first-snapshot, kb:adr/lifecycle-ended-rows-swept-next-start, kb:adr/lifecycle-resume-rebinds-existing-session, kb:adr/lifecycle-shutdown-leaves-sessions-running, kb:adr/surfaces-shell-dies-at-kill-shutdown-too, kb:adr/ingest-seq-assigned-at-ingest, kb:adr/rail-unread-inferred-from-live-terminal-client, kb:fact/hook-delivery-best-effort, kb:fact/stopfailure-replaces-stop, kb:fact/sessionend-reason-ambiguous, kb:fact/notification-types-observed, kb:fact/permission-mode-presence-split, kb:fact/subagent-hooks-carry-agent-id, kb:fact/resume-keeps-session-identity, kb:fact/clear-mints-new-session-id, kb:ref/data-model, docs/design/ux-flows.md]
 ---
 A Muster session is one `claude` process the daemon launched into its own tmux session.
 Its identity is the tmux target; the Claude `session_id` is a mutable attribute that
@@ -24,7 +24,10 @@ Six displayed states (`kb:anchor/state.displayed`): `started` (launched, nothing
 happened), `planning` (mid-turn with the permission-mode latch on `plan`), `working`
 (mid-turn), `needs_input` (a permission or idle prompt is waiting, with `attention.reason`
 and `attention.since`), `failed` (a turn ended in an error, with the raw error token and
-message) and `idle` (a turn finished, with `lastActivity`). There is deliberately no
+message) and `idle` (a turn finished, with `lastActivity`, the user's `lastPrompt`, and
+`unread`, set when the turn closed with no terminal client attached and cleared by any
+transition out of idle or by an attach — kb:adr/rail-unread-inferred-from-live-terminal-client).
+There is deliberately no
 "Done": Claude Code knows a turn ended, not that a task completed, so `idle` plus the last
 activity line is the honest representation (docs/design/ux-flows.md "States and ordering").
 Liveness is an orthogonal `alive` flag, never a seventh state

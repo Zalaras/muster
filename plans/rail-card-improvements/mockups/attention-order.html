@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>#30 — attention order options</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+.card.unread .name::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--fg); margin-right: 7px; vertical-align: 1px; }
+.card.s-idle:not(.unread) .name { color: var(--fg-muted); font-weight: 600; }
+.card .card-in { padding: 7px 11px 8px; }
+.rank { position: absolute; left: -22px; top: 9px; font-family: var(--mono); font-size: var(--fs-2xs); color: var(--edge); }
+.rail { margin-left: 22px; }
+.opt { width: 322px; }
+</style></head><body>
+<h1>#30 · Attention sort order</h1>
+<p class="lead">The same seven sessions in each rail, sorted by the option's priority table. The pinned block and dead-last rule are unchanged in every option. Option-Command-0 (jump to neediest) reads the same table, so whatever is chosen here also decides where that chord lands. Unread marking uses option 1 from <code>unread.html</code> for illustration.</p>
+
+<div class="opts">
+
+<div class="opt">
+<h2>Today</h2>
+<div class="rail"><div class="railhead"><span>Attention ▾</span><span class="n">7</span></div><div class="cards">
+<article class="card s-blocked"><span class="rank">1</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">auth-jwt-rotation</span><span class="badge">needs input</span><span class="timer">04:12</span></div><div class="r2">ledger-api / wt-auth</div></div></article>
+<article class="card s-failed"><span class="rank">2</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">db-migration-audit</span><span class="badge">failed</span><span class="timer">6m</span></div><div class="r2">ledger-api / main</div></div></article>
+<article class="card s-plan"><span class="rank">3</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">spec-research</span><span class="badge">planning</span><span class="timer">00:47</span></div><div class="r2">muster / main</div></div></article>
+<article class="card s-work"><span class="rank">4</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">payments-refactor</span><span class="badge">working</span><span class="timer">02:31</span></div><div class="r2">mdrostering / develop</div></div></article>
+<article class="card s-start"><span class="rank">5</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">docs-pass</span><span class="badge">started</span><span class="timer">00:08</span></div><div class="r2">ccc-spike / —</div></div></article>
+<article class="card s-idle unread"><span class="rank">6</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">flaky-e2e-hunt</span><span class="badge">idle</span><span class="timer">2h</span></div><div class="r2">muster / feat-e2e</div></div></article>
+<article class="card s-idle"><span class="rank">7</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">readme-tidy</span><span class="badge">idle</span><span class="timer">34m</span></div><div class="r2">muster / main</div></div></article>
+</div></div>
+<p class="cap"><b>needs input → failed → planning → working → started → idle.</b> Idle longest-idle first. The issue: a finished reply waits below sessions that need nothing.</p>
+</div>
+
+<div class="opt">
+<h2>A · idle after failed</h2>
+<div class="rail"><div class="railhead"><span>Attention ▾</span><span class="n">7</span></div><div class="cards">
+<article class="card s-blocked"><span class="rank">1</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">auth-jwt-rotation</span><span class="badge">needs input</span><span class="timer">04:12</span></div><div class="r2">ledger-api / wt-auth</div></div></article>
+<article class="card s-failed"><span class="rank">2</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">db-migration-audit</span><span class="badge">failed</span><span class="timer">6m</span></div><div class="r2">ledger-api / main</div></div></article>
+<article class="card s-idle unread"><span class="rank">3</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">flaky-e2e-hunt</span><span class="badge">idle</span><span class="timer">2h</span></div><div class="r2">muster / feat-e2e</div></div></article>
+<article class="card s-idle"><span class="rank">4</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">readme-tidy</span><span class="badge">idle</span><span class="timer">34m</span></div><div class="r2">muster / main</div></div></article>
+<article class="card s-plan"><span class="rank">5</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">spec-research</span><span class="badge">planning</span><span class="timer">00:47</span></div><div class="r2">muster / main</div></div></article>
+<article class="card s-work"><span class="rank">6</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">payments-refactor</span><span class="badge">working</span><span class="timer">02:31</span></div><div class="r2">mdrostering / develop</div></div></article>
+<article class="card s-start"><span class="rank">7</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">docs-pass</span><span class="badge">started</span><span class="timer">00:08</span></div><div class="r2">ccc-spike / —</div></div></article>
+</div></div>
+<p class="cap"><b>needs input → failed → idle → planning → working → started.</b> "Stopped and waiting on you" outranks "busy". Read and unread idle sit together, longest-idle first, so a card you have dealt with still floats above working ones.</p>
+</div>
+
+<div class="opt">
+<h2>B · idle right after needs input</h2>
+<div class="rail"><div class="railhead"><span>Attention ▾</span><span class="n">7</span></div><div class="cards">
+<article class="card s-blocked"><span class="rank">1</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">auth-jwt-rotation</span><span class="badge">needs input</span><span class="timer">04:12</span></div><div class="r2">ledger-api / wt-auth</div></div></article>
+<article class="card s-idle unread"><span class="rank">2</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">flaky-e2e-hunt</span><span class="badge">idle</span><span class="timer">2h</span></div><div class="r2">muster / feat-e2e</div></div></article>
+<article class="card s-idle"><span class="rank">3</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">readme-tidy</span><span class="badge">idle</span><span class="timer">34m</span></div><div class="r2">muster / main</div></div></article>
+<article class="card s-failed"><span class="rank">4</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">db-migration-audit</span><span class="badge">failed</span><span class="timer">6m</span></div><div class="r2">ledger-api / main</div></div></article>
+<article class="card s-plan"><span class="rank">5</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">spec-research</span><span class="badge">planning</span><span class="timer">00:47</span></div><div class="r2">muster / main</div></div></article>
+<article class="card s-work"><span class="rank">6</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">payments-refactor</span><span class="badge">working</span><span class="timer">02:31</span></div><div class="r2">mdrostering / develop</div></div></article>
+<article class="card s-start"><span class="rank">7</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">docs-pass</span><span class="badge">started</span><span class="timer">00:08</span></div><div class="r2">ccc-spike / —</div></div></article>
+</div></div>
+<p class="cap"><b>needs input → idle → failed → planning → working → started.</b> Both "your turn" states lead. Failed drops below idle, which the design doc argues against ("loud, but static").</p>
+</div>
+
+<div class="opt">
+<h2>C · unread idle up, read idle last</h2>
+<div class="rail"><div class="railhead"><span>Attention ▾</span><span class="n">7</span></div><div class="cards">
+<article class="card s-blocked"><span class="rank">1</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">auth-jwt-rotation</span><span class="badge">needs input</span><span class="timer">04:12</span></div><div class="r2">ledger-api / wt-auth</div></div></article>
+<article class="card s-failed"><span class="rank">2</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">db-migration-audit</span><span class="badge">failed</span><span class="timer">6m</span></div><div class="r2">ledger-api / main</div></div></article>
+<article class="card s-idle unread"><span class="rank">3</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">flaky-e2e-hunt</span><span class="badge">idle</span><span class="timer">2h</span></div><div class="r2">muster / feat-e2e</div></div></article>
+<article class="card s-plan"><span class="rank">4</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">spec-research</span><span class="badge">planning</span><span class="timer">00:47</span></div><div class="r2">muster / main</div></div></article>
+<article class="card s-work"><span class="rank">5</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">payments-refactor</span><span class="badge">working</span><span class="timer">02:31</span></div><div class="r2">mdrostering / develop</div></div></article>
+<article class="card s-start"><span class="rank">6</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">docs-pass</span><span class="badge">started</span><span class="timer">00:08</span></div><div class="r2">ccc-spike / —</div></div></article>
+<article class="card s-idle"><span class="rank">7</span><div class="stripe"></div><div class="card-in"><div class="r1"><span class="name">readme-tidy</span><span class="badge">idle</span><span class="timer">34m</span></div><div class="r2">muster / main</div></div></article>
+</div></div>
+<p class="cap"><b>needs input → failed → idle (unread) → planning → working → started → idle (read).</b> Reading a card is what sinks it. Ties #30 to #34: attention mode becomes an inbox. Requires the read state to exist (mechanics question in the plan).</p>
+</div>
+
+</div>
+</body></html>

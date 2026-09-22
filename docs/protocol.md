@@ -165,15 +165,18 @@ dashboard browses via the daemon instead.
   "usageModel": "Fable",  // optional: 1–32 chars after trim — which per-model weekly window the masthead shows
   "railSort": "manual",   // optional: "manual" | "attention" — the rail's sort mode
   "theme": "dark",        // optional: ^[a-z][a-z0-9-]{0,31}$ — the dashboard theme; "follow" = no override
-  "updateCheck": true }   // optional: boolean — whether the daemon checks GitHub Releases for a newer musterd
+  "updateCheck": true,    // optional: boolean — whether the daemon checks GitHub Releases for a newer musterd
+  "railDensity": "comfortable",   // optional: "compact" | "comfortable" | "expanded" — card density in the rail and the Tiles strip
+  "railActivity": "turn" }        // optional: "turn" | "prompt" | "reply" | "both" — which text a card's activity line shows
 ```
 
 → `204`, no body. Persisted in kv under one JSON key (survives daemon restarts —
 ux-flows §3.8) and re-broadcast to all UI sockets as a `prefs` message carrying the
 **full** prefs object, which is how a second window stays in sync. Defaults before any
-PUT: `{"view":"focus","density":"2x2","usageModel":"Fable","railSort":"manual","theme":"follow","updateCheck":true}`.
+PUT: `{"view":"focus","density":"2x2","usageModel":"Fable","railSort":"manual","theme":"follow","updateCheck":true,"railDensity":"comfortable","railActivity":"turn"}`.
 **Errors:** 400 `invalid_request` — body not JSON, no known field present, a field
-value outside its enum, `usageModel` empty / longer than 32 chars, `theme` not
+value outside its enum (the message names the field, e.g. `railDensity must be one of compact,
+comfortable, expanded`), `usageModel` empty / longer than 32 chars, `theme` not
 matching its pattern, or `updateCheck` not a JSON boolean.
 
 `updateCheck`: governs **checking only** — the binary never changes
@@ -191,6 +194,17 @@ knows resolves the same way as `"follow"`. A persisted value failing the pattern
 `railSort`: `manual` shows the rail in the user-owned order
 (`pinned` block first, then `railPos` — `kb:anchor/ws.session`); `attention` keeps the pinned block first
 and sorts the unpinned group by the `kb:anchor/ws.snapshot` attention order. Client-side sort in both cases.
+
+`railDensity`: the card density in the rail and the Tiles strip — `comfortable` is the reference
+render, `compact` clamps the title to one line and drops the gauge track and the activity line,
+`expanded` lets the activity line run to three lines (kb:adr/rail-card-state-row-then-wrapping-title).
+Chosen from the rail head; the client applies it only from the echo. A persisted value outside
+the enum loads as `comfortable`.
+
+`railActivity`: which text a card's activity line shows — `turn` (the user's prompt while a turn
+is open, Claude's reply once it closes), `prompt`, `reply` or `both`
+(kb:adr/rail-activity-line-turn-aware-default-with-pref). Chosen in the Settings dialog; the
+client applies it only from the echo. A persisted value outside the enum loads as `turn`.
 
 <!-- kb:anchor sessions.pane -->
 ### `GET /api/sessions/{id}/pane`
@@ -804,7 +818,7 @@ across a `musterd` upgrade.
 { "type": "snapshot",
   "sessions": [ /* Session objects, kb:anchor/ws.session — order unspecified; the client sorts */ ],
   "usage": { /* Usage object, kb:anchor/ws.usage */ },
-  "prefs": { "view": "focus", "density": "2x2", "usageModel": "Fable", "railSort": "manual", "theme": "follow", "updateCheck": true },
+  "prefs": { "view": "focus", "density": "2x2", "usageModel": "Fable", "railSort": "manual", "theme": "follow", "updateCheck": true, "railDensity": "comfortable", "railActivity": "turn" },
   "claudeTheme": { "family": "dark" },   // "light" | "dark" | "unknown" — always present
   "shellsBusy": [ 7, 12 ],               // session ids whose shell is busy (kb:anchor/ws.shell-activity); [] when none, always present
   "update": { /* kb:anchor/ws.update — always present*/ } }
@@ -819,9 +833,11 @@ the TUI Claude draws, so it matches the ground to the theme Claude is drawing fo
 `prefs.theme` is `"follow"`, to resolve the dashboard theme. Where the setting lives and how
 it is read is `internal/claudecode`'s business — not specified here.
 
-**Sorting is client-side**, a pure function over Session fields per ux-flows §3.4
-(needs-input longest-blocked first → failed most recent → planning → working → started →
-idle longest-idle first), unit-tested in Vitest. The daemon never orders for display.
+**Sorting is client-side**, a pure function over Session fields
+(needs-input longest-blocked first → failed most recent → unread idle longest-idle first →
+started → planning → working → read idle longest-idle first —
+`kb:adr/rail-attention-order-your-turn-before-active`), unit-tested in Vitest. The daemon never
+orders for display.
 
 <!-- kb:anchor ws.session -->
 ### The Session object
@@ -850,6 +866,13 @@ is complexity with no payoff, and whole-object replacement is naturally loss-tol
   "context": { "usedPct": 42, "totalInputTokens": 84211,
                "windowSize": 200000, "compactions": 2 },          // usedPct/totalInputTokens/windowSize null before first API response → "ctx — unknown"
   "lastActivity": "Fixed the flaky retry; running the suite…",   // truncated last_assistant_message from the closing Stop; null until first Stop
+  "lastPrompt": "fix the flaky retry and rerun the suite",       // string | null — the user's most recent prompt, truncated to 200 chars; null until a
+                                    //   first prompt and again after /clear. A task-notification prompt (a background task
+                                    //   finishing) never replaces it. Display-only.
+  "unread": false,                  // boolean — true iff the session entered idle while no terminal client was attached to
+                                    //   either of its surfaces and nobody has attached since. INV: unread ⇒ state == "idle".
+                                    //   Cleared by any transition out of idle and by a successful attach on kb:anchor/terminal.ws or
+                                    //   kb:anchor/terminal.shell-ws. Independent of alive; survives restarts (reconcile never writes it).
   "claudeSessionId": "3f2a…",       // null until SessionStart binds
   "tmuxTarget": "muster:@4",        // the identity key; exposed for debugging/tests.
                                     //   "muster-<id>:@<n>" — one tmux session per Muster
@@ -901,6 +924,14 @@ Value semantics (within the nullability rules above):
   three are always all-null or all-non-null. `compactions` is live from PreCompact.
 - `lastActivity`: the closing Stop's last-assistant-message text, truncated to 200 chars by
   the daemon; `null` until a first Stop.
+- `lastPrompt`: the `UserPromptSubmit` prompt text, truncated to 200 chars by the daemon, set by
+  the turn-activity row for a prompt that is not a straggler; `null` until a first prompt and
+  after `/clear`; a prompt beginning `<task-notification>` (kb:fact/background-completion-new-prompt-id)
+  is not the user's and never replaces it. Never logged.
+- `unread`: set by the `Stop` row iff no terminal client is attached to the session at that
+  moment (the daemon's terminal registry is the authority); cleared by every transition to a
+  non-idle state and by a successful attach on either surface. Status posts never touch
+  `unread` or `lastPrompt`.
 - `alive`/`endedAt`: live from the liveness poll and the SessionEnd hint.
 - Status posts change **only** title/model/context, and only when a value actually changed
   (no no-op upserts) — never `state`/`stateSince`/`attention`/`failure`/`alive`/
@@ -953,7 +984,7 @@ full object built at send time. Neither half hydrates across a daemon restart. T
 ### `prefs`
 
 ```jsonc
-{ "type": "prefs", "prefs": { "view": "tiles", "density": "3x2", "usageModel": "Fable", "railSort": "manual", "theme": "dark", "updateCheck": true } }  // full-object echo of PUT /api/prefs
+{ "type": "prefs", "prefs": { "view": "tiles", "density": "3x2", "usageModel": "Fable", "railSort": "manual", "theme": "dark", "updateCheck": true, "railDensity": "comfortable", "railActivity": "turn" } }  // full-object echo of PUT /api/prefs
 ```
 
 <!-- kb:anchor ws.session-removed -->
@@ -1093,6 +1124,13 @@ before the new attach starts. Geometry ownership moves with the socket, which is
 the resize mechanics view-switching needs (ux-flows §3.8): the newly-owning surface sends
 its `resize` on connect, and sessions whose live surface didn't change are never touched.
 
+**Seen on attach** (kb:adr/rail-unread-inferred-from-live-terminal-client): a successful attach
+— the point at which the takeover installs the connection — marks the session seen. If
+`kb:anchor/ws.session`'s `unread` was true it becomes false, is persisted, and one `sessionUpsert` is
+broadcast **before** the first PTY byte is forwarded; when already false nothing is written or
+broadcast. The registry is also what the `Stop` row consults to decide whether a session is
+watched: a connection on either surface counts.
+
 <!-- kb:anchor terminal.shell-ws -->
 ### WebSocket `/ws/shell/{id}` — the shell PTY bridge
 
@@ -1144,7 +1182,8 @@ must never take a liveness flap because a shell under it exited.
 **One-live-client law**: enforced per **attach target**, not per session. `muster-<id>` and
 `muster-<id>-shell` are distinct targets, so a session's Claude socket and its shell socket are
 independent — opening one never supersedes the other. Two clients on the *same* target still
-supersede each other exactly as `kb:anchor/terminal.ws` describes.
+supersede each other exactly as `kb:anchor/terminal.ws` describes. A successful shell attach marks the
+session seen exactly as `kb:anchor/terminal.ws`'s attach does.
 
 <!-- kb:anchor state -->
 ## The state machine
@@ -1178,7 +1217,10 @@ the orthogonal `alive` flag (`kb:anchor/state.liveness`).
   *parent turn's* `prompt_id` plus the marker; the `Notification` a subagent triggers does
   not. The state machine sees the marker only as a neutral flag derived in
   `internal/claudecode`.
-- `compactions`, `context`, `attention`, `failure`, `lastActivity` — as surfaced in `kb:anchor/ws.session`.
+- `compactions`, `context`, `attention`, `failure`, `lastActivity`, `lastPrompt` — as surfaced in `kb:anchor/ws.session`.
+- `unread` — set by the `Stop` row iff the daemon's terminal registry holds no connection for
+  the session; cleared whenever the state becomes anything but `idle`, and by a successful
+  attach on either surface (`kb:anchor/terminal.ws`). Persisted; reconcile never writes it.
 
 <!-- kb:anchor state.transitions -->
 ### Transitions
@@ -1192,11 +1234,11 @@ distinct, and the latch is what separates them.
 |---|---|
 | Muster launch | Row created → `started`; latch seeded from the form |
 | `SessionStart` (`source:"startup"`, enveloped) | Bind `claudeSessionId`, record model → stay/enter `started` |
-| `SessionStart` (`source:"clear"`), or any enveloped non-status event whose `session_id` differs from the bound one | `/clear`: rebind, reset context + compactions → `started`; a non-`SessionStart` trigger then applies its own row |
+| `SessionStart` (`source:"clear"`), or any enveloped non-status event whose `session_id` differs from the bound one | `/clear`: rebind, reset context + compactions + `lastActivity` + `lastPrompt` → `started`; a non-`SessionStart` trigger then applies its own row |
 | Any enveloped non-status event whose `session_id` is a *previous* id of this session (already in `byClaude` → this session, not the current one) | Reordered straggler: route and apply the event's own row; **no** rebind, no reset (monotonic binding) |
 | Any enveloped non-status event on a never-bound session | Bind `claudeSessionId` (no transition), then apply the event's own row |
 | `SessionStart` (`source:"resume"`, same `session_id`) | Re-bind to new pane, `alive := true` → `idle` (history exists; it is waiting for input, not new) |
-| Turn-activity event (prompt not closed) | Adopt `prompt_id` as current (a new id is a new turn even if `UserPromptSubmit` was lost) → `ACTIVE`; update latch; **clear `attention` and `failure`** (`kb:anchor/ws.session`'s iff rules) |
+| Turn-activity event (prompt not closed) | Adopt `prompt_id` as current (a new id is a new turn even if `UserPromptSubmit` was lost) → `ACTIVE`; update latch; **clear `attention` and `failure`** (`kb:anchor/ws.session`'s iff rules); a `UserPromptSubmit` whose `prompt` does not begin `<task-notification>` sets `lastPrompt` (truncated to 200) |
 | Turn-activity event (prompt already closed, **no subagent marker**) | Straggler from an unordered stream: persist, **no transition, no field change** (the latch still updates) |
 | Turn-activity event (prompt already closed, **subagent marker present**) | A background subagent still working past the parent's `Stop` (#14, measured 2.1.259): → `ACTIVE`, clear `attention` and `failure`; the closed prompt is neither reopened nor adopted as current — the next Stop-family event still lands `idle`/`failed` |
 | `Notification` `permission_prompt` (prompt not closed) | → `needs_input`, `attention.reason:"permission"`; **clears `failure`** (`kb:anchor/ws.session`'s iff rule) |
@@ -1204,14 +1246,18 @@ distinct, and the latch is what separates them.
 | `Notification` — any other `notification_type` | Persist only, no transition (unobserved types stay inert) |
 | `PermissionRequest` (prompt not closed, **or closed with the subagent marker present**) | Corroborates → `needs_input`, reason `"permission"`; **clears `failure`** (`kb:anchor/ws.session`) (v1 never answers it; the terminal prompt races and wins). A subagent's permission wait past the parent's `Stop` is identified by this event alone — its `Notification` carries no marker |
 | `Notification` `permission_prompt` / `idle_prompt` (prompt already closed) | Straggler: persist, no transition (if the subagent's `PermissionRequest` was lost, the terminal itself still shows the prompt — the honest gap) |
-| `Stop` | Close `prompt_id` → `idle`; capture `lastActivity`. `background_tasks` is never read: a `Stop` with background work still running lands `idle`, and the first subagent-marked hook returns it to `ACTIVE` (~2 s later, measured) — holding `working` on `background_tasks` would pin a session for as long as a backgrounded shell lives |
+| `Stop` | Close `prompt_id` → `idle`; capture `lastActivity`; `unread := true` iff no terminal client is attached to the session (`kb:anchor/terminal.ws` Seen on attach), else `false`. `background_tasks` is never read: a `Stop` with background work still running lands `idle`, and the first subagent-marked hook returns it to `ACTIVE` (~2 s later, measured) — holding `working` on `background_tasks` would pin a session for as long as a backgrounded shell lives |
 | `StopFailure` | Close `prompt_id` → `failed`; capture raw `error` (`Stop`/`StopFailure` are mutually exclusive per prompt — H2) |
 | `PreCompact` | `compactions++`, no transition |
 | `SubagentStop` | Persist only |
 | `SessionEnd` (`reason:"clear"`) | `/clear` in progress: **not** a death hint — no effect on `alive`; the successor `SessionStart(source:"clear")` follows |
 | `SessionEnd` (any other reason) | `alive := false`, `endedAt` set; **state unchanged** (it's a hint — `kb:anchor/state.liveness` is the authority) |
+| Terminal attach (`kb:anchor/terminal.ws`, `kb:anchor/terminal.shell-ws`) | `unread := false`, persisted and broadcast iff it changed; **no transition** |
 | Status-line post | Title / model / context refresh (`kb:anchor/ws.session` value semantics) + account usage (`kb:anchor/ws.usage`), applied outside the state machine; **never a state source** — no effect on any state-machine-owned field (INV-1) |
 | Unknown `hook_event_name` | Persist + log; inert (forward compatibility) |
+
+Every row whose result is not `idle` also clears `unread` (`kb:anchor/ws.session`'s `unread ⇒ idle`
+invariant is held in one place, the state setter).
 
 `needs_input` exits through the same table: the user answering in the terminal produces
 turn-activity (→ `ACTIVE`) or a Stop-family event (→ `idle`/`failed`). Nothing else

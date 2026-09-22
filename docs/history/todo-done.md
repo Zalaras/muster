@@ -1671,3 +1671,28 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
   the pane's real tmux history through a `scroll` control frame the daemon turns into copy-mode
   commands, with tmux mouse mode left off so drag-to-select still works (#45).
 
+## Together — rail cards (#30, #34, #38, #42) ✅ done 2026-09-22 (plan `rail-card-improvements`, via `/orchestrate`; approved review cycle 2)
+<!-- kb: adr/launch-new-session-button-in-masthead, adr/rail-unread-marker-neutral-dot, adr/rail-activity-line-turn-aware-default-with-pref, adr/rail-card-state-row-then-wrapping-title, adr/rail-card-title-foreground-token, adr/rail-attention-order-your-turn-before-active, adr/rail-unread-inferred-from-live-terminal-client -->
+
+- [x] **Why is Idle not above Working** ([#30](https://github.com/Zalaras/muster/issues/30)) — with Attention sort selected the rail cards put
+  IDLE below WORKING, though IDLE is the state arguably needing attention and WORKING is not.
+
+- [x] **Read/Unread IDLEs** ([#34](https://github.com/Zalaras/muster/issues/34)) — once a session goes IDLE after a response there is no way to tell
+  which ones you have already read.
+
+- [x] **Railcard headings aren't useful cut off** ([#38](https://github.com/Zalaras/muster/issues/38)) — titles truncate too early to tell
+  sessions apart, which is the whole point of the rail. Wrap the title, or show more of it
+  before cutting.
+
+- [x] **Should your last message be the railcard description?** ([#42](https://github.com/Zalaras/muster/issues/42)) — show your own last
+  message rather than Claude's, since yours is shorter. Possibly a setting. Overlaps the
+  proper-description work in #17 — rank the two together.
+
+  Shipped: the card leads with a state row and lets the title wrap, with a three-step density
+  pref in the rail head and the New session button moved once into the masthead (#38); a session
+  whose turn closes while no terminal client is attached is unread, inferred by the daemon from
+  its terminal registry, shown as a neutral dot and cleared on attach (#34); attention order puts
+  needs input, failed, unread idle and started ahead of planning and working, with read idle last,
+  one comparator shared with Option-Command-0 and the Tiles pick (#30); and the activity line is
+  turn-aware by default — your prompt while a turn is open, Claude's reply once it closes — behind a
+  Settings pref offering prompt, reply or both (#42).

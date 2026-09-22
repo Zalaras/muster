@@ -287,6 +287,13 @@ func (f *shellFeature) handleShellTerminal(w http.ResponseWriter, r *http.Reques
 	defer func() { _ = bridge.Close() }()
 	defer f.terminals.release(key, conn)
 
+	// REQ-8's attach side effect applies to both surfaces: a successful shell takeover
+	// also marks the session seen, before any PTY byte is forwarded (kb:anchor/terminal.shell-ws
+	// Protocol Contract delta).
+	if err := f.manager.MarkSeen(r.Context(), id); err != nil {
+		f.log.Warn().Err(err).Int64("session_id", id).Msg("marking session seen failed")
+	}
+
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 

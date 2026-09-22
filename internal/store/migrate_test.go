@@ -37,14 +37,15 @@ func TestMigrate_AppliesInitSchema(t *testing.T) {
 	// m1-sessions added 0002_sessions.sql, m3-gauges added 0003_gauges.sql,
 	// m4-reconcile added 0004_reconcile.sql, usage-model-bar added 0005_usage_model.sql,
 	// order-sidebar added 0006_rail_order.sql, ui-text-and-focus added
-	// 0007_title_override.sql, and markdown-viewing added 0008_reader.sql, so a fresh
-	// database now records eight migrations (was 1 pre-M1 — see
-	// plans/m1-sessions/daemon-implementation.md Handoff).
-	assert.Equal(t, 8, schemaMigrationsCount(t, db))
+	// 0007_title_override.sql, markdown-viewing added 0008_reader.sql, and
+	// rail-card-improvements added 0009_rail_cards.sql, so a fresh database now records
+	// nine migrations (was 1 pre-M1 — see plans/m1-sessions/daemon-implementation.md
+	// Handoff).
+	assert.Equal(t, 9, schemaMigrationsCount(t, db))
 
 	var version int
 	require.NoError(t, db.QueryRowContext(ctx, `SELECT MAX(version) FROM schema_migrations`).Scan(&version))
-	assert.Equal(t, 8, version)
+	assert.Equal(t, 9, version)
 
 	// The tables the migration creates are usable.
 	_, err := db.ExecContext(ctx, `INSERT INTO kv (key, value) VALUES ('k', 'v')`)
@@ -61,7 +62,7 @@ func TestMigrate_SecondCallIsANoOp(t *testing.T) {
 
 	require.NoError(t, Migrate(ctx, db))
 	before := schemaMigrationsCount(t, db)
-	require.Equal(t, 8, before) // 0001_init + 0002_sessions (m1-sessions) + 0003_gauges (m3-gauges) + 0004_reconcile (m4-reconcile) + 0005_usage_model (usage-model-bar) + 0006_rail_order (order-sidebar) + 0007_title_override (ui-text-and-focus) + 0008_reader (markdown-viewing)
+	require.Equal(t, 9, before) // 0001_init + 0002_sessions (m1-sessions) + 0003_gauges (m3-gauges) + 0004_reconcile (m4-reconcile) + 0005_usage_model (usage-model-bar) + 0006_rail_order (order-sidebar) + 0007_title_override (ui-text-and-focus) + 0008_reader (markdown-viewing) + 0009_rail_cards (rail-card-improvements)
 
 	require.NoError(t, Migrate(ctx, db))
 	after := schemaMigrationsCount(t, db)

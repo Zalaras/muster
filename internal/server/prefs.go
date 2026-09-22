@@ -27,6 +27,14 @@ const defaultRailSort = "manual"
 // validThemePattern.
 const defaultTheme = "follow"
 
+// defaultRailDensity is prefs.railDensity's default — the rail and Tiles-strip card
+// density before any PUT ever names one (plan rail-card-improvements REQ-3).
+const defaultRailDensity = "comfortable"
+
+// defaultRailActivity is prefs.railActivity's default — which text a card's activity
+// line shows before any PUT ever names one (plan rail-card-improvements REQ-13).
+const defaultRailActivity = "turn"
+
 // validThemePattern is prefs.theme's wire pattern (kb:anchor/prefs.put): 1-32 chars,
 // a-z/0-9/-, starting with a letter. The daemon never interprets the value beyond this
 // — the client owns the theme registry.
@@ -35,18 +43,29 @@ var validThemePattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
 // prefsRequest is PUT /api/prefs' request body (kb:anchor/prefs.put): at least one
 // field required, unknown fields ignored. Pointers distinguish "absent" from "present".
 type prefsRequest struct {
-	View        *string `json:"view"`
-	Density     *string `json:"density"`
-	UsageModel  *string `json:"usageModel"`
-	RailSort    *string `json:"railSort"`
-	Theme       *string `json:"theme"`
-	UpdateCheck *bool   `json:"updateCheck"`
+	View         *string `json:"view"`
+	Density      *string `json:"density"`
+	UsageModel   *string `json:"usageModel"`
+	RailSort     *string `json:"railSort"`
+	Theme        *string `json:"theme"`
+	UpdateCheck  *bool   `json:"updateCheck"`
+	RailDensity  *string `json:"railDensity"`
+	RailActivity *string `json:"railActivity"`
 }
 
 func validView(v string) bool     { return v == "focus" || v == "tiles" }
 func validDensity(v string) bool  { return v == "2x2" || v == "3x2" }
 func validRailSort(v string) bool { return v == "manual" || v == "attention" }
 func validTheme(v string) bool    { return validThemePattern.MatchString(v) }
+
+// validRailDensity/validRailActivity are prefs.railDensity/prefs.railActivity's enums
+// (plan rail-card-improvements REQ-3/REQ-13).
+func validRailDensity(v string) bool {
+	return v == "compact" || v == "comfortable" || v == "expanded"
+}
+func validRailActivity(v string) bool {
+	return v == "turn" || v == "prompt" || v == "reply" || v == "both"
+}
 
 // validUsageModel reports whether v (after trimming) is 1–32 chars (kb:anchor/prefs.put).
 func validUsageModel(v string) bool {
@@ -57,7 +76,10 @@ func validUsageModel(v string) bool {
 // defaultPrefs is the shape before any PUT /api/prefs has ever landed (kb:anchor/prefs.put).
 // UpdateCheck defaults true.
 func defaultPrefs() PrefsInfo {
-	return PrefsInfo{View: "focus", Density: "2x2", UsageModel: defaultUsageModel, RailSort: defaultRailSort, Theme: defaultTheme, UpdateCheck: true}
+	return PrefsInfo{
+		View: "focus", Density: "2x2", UsageModel: defaultUsageModel, RailSort: defaultRailSort,
+		Theme: defaultTheme, UpdateCheck: true, RailDensity: defaultRailDensity, RailActivity: defaultRailActivity,
+	}
 }
 
 // storedPrefs is loadPrefs' unmarshal target: UpdateCheck is a pointer here (unlike
@@ -67,12 +89,14 @@ func defaultPrefs() PrefsInfo {
 // value fails the whole Unmarshal, which loadPrefs already treats as "return
 // defaultPrefs()" (so it too loads as true).
 type storedPrefs struct {
-	View        string `json:"view"`
-	Density     string `json:"density"`
-	UsageModel  string `json:"usageModel"`
-	RailSort    string `json:"railSort"`
-	Theme       string `json:"theme"`
-	UpdateCheck *bool  `json:"updateCheck"`
+	View         string `json:"view"`
+	Density      string `json:"density"`
+	UsageModel   string `json:"usageModel"`
+	RailSort     string `json:"railSort"`
+	Theme        string `json:"theme"`
+	UpdateCheck  *bool  `json:"updateCheck"`
+	RailDensity  string `json:"railDensity"`
+	RailActivity string `json:"railActivity"`
 }
 
 // prefsMessage is the WS `prefs` broadcast (kb:anchor/ws.prefs): a full-object echo
@@ -98,12 +122,14 @@ func loadPrefs(ctx context.Context, st *store.Store) PrefsInfo {
 		return defaultPrefs()
 	}
 	p := PrefsInfo{
-		View:        stored.View,
-		Density:     stored.Density,
-		UsageModel:  stored.UsageModel,
-		RailSort:    stored.RailSort,
-		Theme:       stored.Theme,
-		UpdateCheck: true,
+		View:         stored.View,
+		Density:      stored.Density,
+		UsageModel:   stored.UsageModel,
+		RailSort:     stored.RailSort,
+		Theme:        stored.Theme,
+		UpdateCheck:  true,
+		RailDensity:  stored.RailDensity,
+		RailActivity: stored.RailActivity,
 	}
 	if stored.UpdateCheck != nil {
 		p.UpdateCheck = *stored.UpdateCheck
@@ -122,6 +148,12 @@ func loadPrefs(ctx context.Context, st *store.Store) PrefsInfo {
 	}
 	if !validTheme(p.Theme) {
 		p.Theme = defaultTheme
+	}
+	if !validRailDensity(p.RailDensity) {
+		p.RailDensity = defaultRailDensity
+	}
+	if !validRailActivity(p.RailActivity) {
+		p.RailActivity = defaultRailActivity
 	}
 	return p
 }
@@ -173,9 +205,9 @@ type prefsField struct {
 
 // prefsFields is handlePutPrefs's validate-then-apply table. Slice order is load-bearing:
 // it decides which single error a request that is invalid in several fields at once
-// reports, so entries must stay in the order view, density, usageModel, railSort, theme.
-// UpdateCheck is deliberately absent — it is a bool with a changed-tracking side effect,
-// handled on its own in handlePutPrefs.
+// reports, so entries must stay in the order view, density, usageModel, railSort, theme,
+// railDensity, railActivity. UpdateCheck is deliberately absent — it is a bool with a
+// changed-tracking side effect, handled on its own in handlePutPrefs.
 func prefsFields(req *prefsRequest) []prefsField {
 	return []prefsField{
 		{
@@ -208,6 +240,18 @@ func prefsFields(req *prefsRequest) []prefsField {
 			msg:     "theme must be 1-32 chars of a-z, 0-9 or -, starting with a letter",
 			apply:   func(p *PrefsInfo) { p.Theme = *req.Theme },
 		},
+		{
+			present: req.RailDensity != nil,
+			valid:   func() bool { return validRailDensity(*req.RailDensity) },
+			msg:     "railDensity must be one of compact, comfortable, expanded",
+			apply:   func(p *PrefsInfo) { p.RailDensity = *req.RailDensity },
+		},
+		{
+			present: req.RailActivity != nil,
+			valid:   func() bool { return validRailActivity(*req.RailActivity) },
+			msg:     "railActivity must be one of turn, prompt, reply, both",
+			apply:   func(p *PrefsInfo) { p.RailActivity = *req.RailActivity },
+		},
 	}
 }
 
@@ -236,7 +280,7 @@ func (f *prefsFeature) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !supplied {
-		writeJSONError(w, http.StatusBadRequest, "invalid_request", "at least one of view, density, usageModel, railSort, theme or updateCheck is required")
+		writeJSONError(w, http.StatusBadRequest, "invalid_request", "at least one of view, density, usageModel, railSort, theme, railDensity, railActivity or updateCheck is required")
 		return
 	}
 

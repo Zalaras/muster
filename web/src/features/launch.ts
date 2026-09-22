@@ -32,8 +32,9 @@ const MODEL_PRESETS = ["sonnet", "opus", "haiku", "fable"] as const;
 
 export interface LaunchModalElements {
   dialog: HTMLDialogElement;
-  /** Every "New session" button in the shell — the Focus rail's and the Tiles toolbar's;
-   * each view hides the other's, so exactly one is visible at a time. */
+  /** REQ-6/INV-3 (plan rail-card-improvements): the one "New session" button in the
+   * shell — it now lives in the masthead, visible in both views, so this holds exactly
+   * one element (an array only so the click-listener loop below needs no special case). */
   openButtons: readonly HTMLButtonElement[];
   recentsList: HTMLElement;
   recentEntryTemplate: HTMLTemplateElement;
@@ -484,10 +485,7 @@ export function initLaunchModal(
 export function initLaunch(app: App, deps: { tiles: { promote(id: number): void } }): void {
   const elements: LaunchModalElements = {
     dialog: requireElement<HTMLDialogElement>("#launch-dialog"),
-    openButtons: [
-      requireElement<HTMLButtonElement>("#new-session-button"),
-      requireElement<HTMLButtonElement>("#tiles-new-session-button"),
-    ],
+    openButtons: [requireElement<HTMLButtonElement>("#new-session-button")],
     recentsList: requireElement<HTMLElement>("#mru-list"),
     recentEntryTemplate: requireElement<HTMLTemplateElement>("#mru-entry-template"),
     crumbsNav: requireElement<HTMLElement>("#browse-crumbs"),

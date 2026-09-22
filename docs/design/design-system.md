@@ -172,7 +172,8 @@ This is the one rule that makes two views safe, and it is the same law as §7.1:
 
 ## 5. Components
 
-**Masthead** — brand, view switcher (`Focus` / `Tiles`), then right-aligned: 5-hour bar,
+**Masthead** — brand, view switcher (`Focus` / `Tiles`), the `New session` button (the only
+launcher, present in both views), then right-aligned: 5-hour bar,
 7-day bar, model-week (selectable), refresh, model, daemon health. Always visible in both views; account-level truth is never
 behind a tab.
 
@@ -183,9 +184,18 @@ glyph follows the version text; it carries **no state colour** (§3) — it inhe
 readout's own muted text colour — and its hover/`aria-label` text names whether Claude Code
 needs updating or is simply newer than anything verified yet.
 
-**Rail card** — 3px state stripe, then title + badge + timer, `repo / branch`, then the
-context row (gauge, %, absolute tokens, compaction count), then either a **note** (amber
-left-border, for the reason it needs you) or a **snapshot** (mono, `--well` ground, clipped).
+**Rail card** — 3px state stripe, then a mono state row (badge, timer, pin), then the title
+(`--fg` on every surface that hosts the card, kb:adr/rail-card-title-foreground-token)
+wrapping to as many lines as it needs (one line with an ellipsis only in compact density; the
+full text is the hover `title`), `repo / branch` (also its own hover `title`), then the
+context row (gauge, %, absolute tokens, compaction count), then the activity line whose text
+`prefs.railActivity` chooses (turn-aware by default: your prompt while a turn is open, Claude's
+reply once it closes), then either a **note** (amber left-border, for the reason it needs you)
+or a **snapshot** (mono, `--well` ground, clipped). An unread idle session carries a neutral
+7px `--fg` dot before the title and a read idle title drops to `--fg-muted`; neither uses a
+state colour (§3). Density is `prefs.railDensity`, chosen from the icon segmented control in
+the rail head: comfortable is the reference, compact clamps the title and note to one line and
+hides the gauge track and activity line, expanded lets the activity line run to three lines.
 The card whose session the Focus pane is currently showing carries **`current`**
 (plan `ui-text-and-focus`, REQ-1/REQ-2) — `--bg-hover` ground, a 1px inset `--edge` ring, its
 action row shown unconditionally (same reveal as hover/focus-within) — a neutral treatment,

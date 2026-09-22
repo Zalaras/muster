@@ -47,6 +47,8 @@ const validSession: Session = {
   createdAt: "2026-08-22T00:00:00Z",
   pinned: false,
   railPos: 0,
+  unread: false,
+  lastPrompt: null,
 };
 
 function fakeResponse(ok: boolean, body: unknown): Response {

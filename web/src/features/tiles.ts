@@ -270,7 +270,15 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
     if (!hasSessions) {
       tilesGridEl.replaceChildren();
       tileElements.clear();
-      renderStrip(tilesStripEl, [], now, promoteSession, deps.actions.dispatch, connected);
+      renderStrip(
+        tilesStripEl,
+        [],
+        now,
+        promoteSession,
+        deps.actions.dispatch,
+        connected,
+        app.state.railActivity,
+      );
       return;
     }
 
@@ -287,7 +295,15 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
 
     reconcileTilesGrid(liveSessions, now, connected);
 
-    renderStrip(tilesStripEl, stripSessions, now, promoteSession, deps.actions.dispatch, connected);
+    renderStrip(
+      tilesStripEl,
+      stripSessions,
+      now,
+      promoteSession,
+      deps.actions.dispatch,
+      connected,
+      app.state.railActivity,
+    );
   }
 
   return {

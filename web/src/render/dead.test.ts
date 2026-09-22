@@ -110,6 +110,8 @@ describe("renderDeadSurface — REQ-19's '· captured <age>' clause", () => {
       createdAt: "2026-08-26T23:00:00Z",
       pinned: false,
       railPos: overrides.id,
+      unread: false,
+      lastPrompt: null,
       ...overrides,
     };
   }
@@ -363,6 +365,8 @@ describe("renderDeadSurface — Resume disabled reason (REQ-17/W3)", () => {
       createdAt: "2026-08-26T23:00:00Z",
       pinned: false,
       railPos: overrides.id,
+      unread: false,
+      lastPrompt: null,
       ...overrides,
     };
   }

@@ -3,7 +3,14 @@
 // daemon's response shape before any caller (features/launch.ts) sees it. Errors never
 // throw — every call returns an ApiResult so the launch modal can render `error.message`
 // inline (REQ-14) instead of an uncaught rejection.
-import { type Density, type RailSort, type Session, parseSession } from "./protocol";
+import {
+  type Density,
+  type RailActivity,
+  type RailDensity,
+  type RailSort,
+  type Session,
+  parseSession,
+} from "./protocol";
 
 export interface ApiErrorBody {
   code: string;
@@ -84,6 +91,12 @@ export interface PrefsRequest {
   // Plan auto-update (kb:anchor/prefs.put): whether the daemon checks GitHub Releases
   // for a newer musterd. Governs checking only (REQ-1/REQ-2).
   updateCheck?: boolean;
+  // Plan rail-card-improvements (kb:anchor/prefs.put): card density in the rail and the
+  // Tiles strip.
+  railDensity?: RailDensity;
+  // Plan rail-card-improvements (kb:anchor/prefs.put): which text a card's activity line
+  // shows.
+  railActivity?: RailActivity;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -30,6 +30,8 @@ function makeSession(id: number): Session {
     createdAt: `2026-08-22T00:00:${String(id).padStart(2, "0")}Z`,
     pinned: false,
     railPos: id,
+    unread: false,
+    lastPrompt: null,
   };
 }
 

@@ -1,7 +1,7 @@
 // Pure card view-model: everything a rail card displays, derived from a Session + "now",
 // with no DOM involved (docs/conventions.md — "keep logic in pure modules separate from
 // DOM code"). render/sessions.ts is the only consumer.
-import type { Session } from "../protocol";
+import type { RailActivity, Session } from "../protocol";
 import { elapsedSeconds, formatEndedAge, formatTimer } from "./format";
 
 export type NoteKind = "attention" | "failure" | "trust" | "no-signal" | "none";
@@ -10,6 +10,14 @@ export type NoteKind = "attention" | "failure" | "trust" | "no-signal" | "none";
  * Resume then Remove, in that order — the exact button label text (Testable UI Elements). */
 export type CardAction = "End" | "Resume" | "Remove";
 
+// Plan rail-card-improvements REQ-14: the two activity-line texts a card renders,
+// `.activity.you` and `.activity.claude` — either or both may be `null`, which the
+// renderer treats as "hide that line" (a null source renders no empty-prefix line).
+export interface CardActivity {
+  you: string | null;
+  claude: string | null;
+}
+
 export interface CardViewModel {
   id: number;
   title: string;
@@ -17,7 +25,7 @@ export interface CardViewModel {
   badge: string;
   timer: string;
   repoLine: string;
-  activity: string | null;
+  activity: CardActivity;
   noteKind: NoteKind;
   noteText: string | null;
   ended: boolean;
@@ -25,6 +33,9 @@ export interface CardViewModel {
   // Plan order-sidebar (REQ-8/REQ-9): drives the pin button's aria-label/aria-pressed/
   // title and the card's `pinned` class — render/sessions.ts is the only consumer.
   pinned: boolean;
+  // Plan rail-card-improvements (REQ-9): drives the card's `unread` class,
+  // `data-unread="true"` and the `unreadLabel` aria-label suffix below.
+  unread: boolean;
 }
 
 // design-system §3: the state->colour token map (applied via CSS class, never inline).
@@ -121,7 +132,53 @@ function firstLaunchNote(session: Session, now: Date): { kind: NoteKind; text: s
   return null;
 }
 
-export function buildCardViewModel(session: Session, now: Date): CardViewModel {
+// REQ-14: states in which a turn is currently open — `activityLines`'s "turn" mode shows
+// the user's own prompt while one of these holds, the reply otherwise (including
+// `failed`, edge case 25 — a failed turn is closed, not open).
+const TURN_OPEN_STATES: ReadonlySet<Session["state"]> = new Set([
+  "working",
+  "planning",
+  "needs_input",
+]);
+
+/** REQ-14: the pure mode -> text derivation for a card's two activity lines, extracted
+ * from `buildCardViewModel` to keep it under Biome's complexity ceiling
+ * (Implementation Notes) and so Vitest can cover the mode x state matrix with no DOM. A
+ * `null` source (no prompt yet, no reply yet) yields a `null` line — the renderer hides
+ * it rather than showing an empty-prefix line. */
+export function activityLines(session: Session, mode: RailActivity): CardActivity {
+  const prompt = session.lastPrompt;
+  const reply = session.lastActivity;
+
+  if (mode === "prompt") return { you: prompt ? `you: ${prompt}` : null, claude: null };
+  if (mode === "reply") return { you: null, claude: reply ? `claude: ${reply}` : null };
+  if (mode === "both") {
+    return {
+      you: prompt ? `you: ${prompt}` : null,
+      claude: reply ? `claude: ${reply}` : null,
+    };
+  }
+  // "turn": the open turn's prompt while one is open, else the last reply.
+  if (TURN_OPEN_STATES.has(session.state)) {
+    return { you: prompt ? `on: ${prompt}` : null, claude: null };
+  }
+  return { you: null, claude: reply ? `claude: ${reply}` : null };
+}
+
+/** REQ-9: the card's accessible name — the display title, with an ", unread" suffix
+ * while `unread` holds and nothing otherwise. Extracted so `render/sessions.ts` and this
+ * module share one wording rather than each spelling the suffix out. */
+export function unreadLabel(title: string, unread: boolean): string {
+  return unread ? `${title}, unread` : title;
+}
+
+export function buildCardViewModel(
+  session: Session,
+  now: Date,
+  // Defaults to the pref's own default ("turn") so every existing call site (and Vitest
+  // fixture) that predates this plan keeps compiling and rendering the same behaviour.
+  mode: RailActivity = "turn",
+): CardViewModel {
   let noteKind: NoteKind = "none";
   let noteText: string | null = null;
 
@@ -157,11 +214,12 @@ export function buildCardViewModel(session: Session, now: Date): CardViewModel {
     badge: BADGE_TEXT[session.state],
     timer,
     repoLine: repoLine(session),
-    activity: session.lastActivity ? `last: ${session.lastActivity}` : null,
+    activity: activityLines(session, mode),
     noteKind,
     noteText,
     ended,
     actions: ended ? ["Resume", "Remove"] : ["End"],
     pinned: session.pinned,
+    unread: session.unread,
   };
 }

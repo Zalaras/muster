@@ -78,14 +78,19 @@ type UsageInfo struct {
 // default "manual". Theme is new in new-ui-design-colors (2026-09-02): opaque to the
 // daemon beyond its pattern (kb:anchor/prefs.put), default "follow". UpdateCheck is
 // new in the auto-update plan (2026-09-10): whether the daemon checks GitHub Releases
-// for a newer musterd, default true.
+// for a newer musterd, default true. RailDensity and RailActivity are new in the
+// rail-card-improvements plan (2026-09-22): the rail/Tiles-strip card density
+// ("compact" | "comfortable" | "expanded", default "comfortable") and which text a
+// card's activity line shows ("turn" | "prompt" | "reply" | "both", default "turn").
 type PrefsInfo struct {
-	View        string `json:"view"`
-	Density     string `json:"density"`
-	UsageModel  string `json:"usageModel"`
-	RailSort    string `json:"railSort"`
-	Theme       string `json:"theme"`
-	UpdateCheck bool   `json:"updateCheck"`
+	View         string `json:"view"`
+	Density      string `json:"density"`
+	UsageModel   string `json:"usageModel"`
+	RailSort     string `json:"railSort"`
+	Theme        string `json:"theme"`
+	UpdateCheck  bool   `json:"updateCheck"`
+	RailDensity  string `json:"railDensity"`
+	RailActivity string `json:"railActivity"`
 }
 
 // buildSnapshot returns the fixed parts of a snapshot: no sessions, unknown usage,

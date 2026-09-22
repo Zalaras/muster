@@ -1,6 +1,14 @@
 package claudecode
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"strings"
+)
+
+// backgroundCompletionTag marks a prompt-submit event a finished background task
+// synthesized to re-invoke the main agent (kb:fact/background-completion-new-prompt-id):
+// never a real user prompt, so it's never surfaced as StateInput.Prompt.
+const backgroundCompletionTag = "<task-notification>"
 
 // InputKind is the neutral vocabulary the kb:anchor/state state machine (internal/session) operates
 // on. This is the whole interface between the two packages: internal/session never
@@ -55,6 +63,13 @@ type StateInput struct {
 	// event (including Notification, which never carries the marker) leaves this false.
 	// internal/session sees only this neutral bool, never the marker's payload key name.
 	FromSubagent bool
+
+	// Prompt is a genuine user prompt's text, truncation left to internal/session
+	// (mirrors LastActivity): present only for a real prompt-submit turn-activity event
+	// whose text isn't the synthetic background-completion re-invocation
+	// (kb:fact/background-completion-new-prompt-id); nil for every other turn-activity
+	// event and whenever the field is absent (REQ-12).
+	Prompt *string
 }
 
 // Interpret derives the neutral StateInput for one persisted event. eventType is the
@@ -65,7 +80,19 @@ func Interpret(eventType string, payload []byte) StateInput {
 	switch eventType {
 	case "SessionStart":
 		return interpretSessionStart(payload)
-	case "UserPromptSubmit", "PreToolUse", "PostToolUse":
+	case "UserPromptSubmit":
+		var f struct {
+			PermissionMode *string `json:"permission_mode"`
+			AgentID        *string `json:"agent_id"`
+			Prompt         *string `json:"prompt"`
+		}
+		_ = json.Unmarshal(payload, &f)
+		in := StateInput{Kind: KindTurnActivity, PermissionMode: f.PermissionMode, FromSubagent: f.AgentID != nil}
+		if f.Prompt != nil && !strings.HasPrefix(*f.Prompt, backgroundCompletionTag) {
+			in.Prompt = f.Prompt
+		}
+		return in
+	case "PreToolUse", "PostToolUse":
 		var f struct {
 			PermissionMode *string `json:"permission_mode"`
 			AgentID        *string `json:"agent_id"`

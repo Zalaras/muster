@@ -164,10 +164,12 @@ npm run e2e -- e2e/<your-file>.spec.ts
 found an implementation-bug, not a flaky test. Report it in the **E2E Implementation Bugs** table
 and leave the honest test failing; never hide it in a passing one (kb:lesson/fix-closed-one-cause-of-two).
 
-**Visibility of an interactive element is asserted by computed style, not `toBeVisible()` alone.**
-Playwright treats `opacity: 0` as visible. For any control a requirement says the user must see,
-pair `toBeVisible()` with `toHaveCSS("opacity", "1")` (for a hover/focus reveal, assert `0` at rest
-and `1` on hover / `:focus-within`) (kb:lesson/shared-class-css-hid-resume-button).
+**A CSS effect a requirement names is asserted by the computed property that produces it, never by
+a proxy that passes without it.** Playwright treats `opacity: 0` as visible, so a control the user
+must see pairs `toBeVisible()` with `toHaveCSS("opacity", "1")` (`0` at rest, `1` on hover /
+`:focus-within` for a reveal); an ellipsis or clamp is `text-overflow` plus `scrollWidth >
+clientWidth`, a token colour is `getComputedStyle` against the live variable
+(kb:lesson/shared-class-css-hid-resume-button, kb:lesson/mockup-vindicates-markup-not-cascade).
 
 If the only way to make a test green is to weaken it, that is an `implementation-bug`, not a repair. **Every repair must be declared** in the `## Repairs` table with the requirement its assertion still covers.
 

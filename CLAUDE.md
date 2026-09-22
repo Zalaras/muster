@@ -59,8 +59,8 @@ from it by `make gen-kb`, never edited) unilaterally; every agent leaves the
 tree compiling; claims need evidence (paste the failing output, don't assert) — and
 claimed *effects* need measurement (the `ls -l` or the observed DOM, not the diff). A
 `blocked`/`implementation-bug` verdict naming a real obstacle is a good outcome; the failure is
-a green verdict hiding one. Never `sleep`/poll to wait on a subagent — the harness wakes only
-the **main session**, so agents run gates in the foreground (kb:lesson/subagent-never-woken-by-harness).
+a green verdict hiding one. Never `sleep`, poll, or go idle waiting on a backgrounded command — the
+harness wakes only the **main session**, so agents run gates in the foreground (kb:lesson/subagent-never-woken-by-harness).
 
 The pipeline buys parallel daemon∥web tracks behind a protocol contract. Use it when the work
 changes the shipped artifact (`docs/conventions.md` § Commits). Work that releases nothing —

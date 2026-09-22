@@ -35,6 +35,7 @@
           <button type="button" id="view-focus-btn" class="seg-btn" aria-pressed="true">Focus</button>
           <button type="button" id="view-tiles-btn" class="seg-btn" aria-pressed="false">Tiles</button>
         </div>
+        <button id="new-session-button" type="button" class="btn">New session</button>
         <div class="masthead-right">
           <span id="usage-5h" class="usage-readout"></span>
           <span id="usage-7d" class="usage-readout"></span>
@@ -55,12 +56,22 @@
       <div id="view-focus" class="split">
         <aside class="rail" aria-label="Sessions">
           <div class="railhead">
-            <button id="new-session-button" type="button" class="btn">New session</button>
-            <span id="rail-count" class="n"></span>
             <select id="rail-sort" class="sel" aria-label="Sort">
               <option value="manual">Manual</option>
               <option value="attention">Attention</option>
             </select>
+            <span id="rail-count" class="n"></span>
+            <div id="rail-density" class="seg" role="group" aria-label="Card density">
+              <button type="button" class="seg-btn" data-density="compact" aria-pressed="false" aria-label="Compact" title="Compact">
+                <svg aria-hidden="true" viewBox="0 0 14 12"><rect y="0.5" width="14" height="1.5"/><rect y="3.5" width="14" height="1.5"/><rect y="6.5" width="14" height="1.5"/><rect y="9.5" width="14" height="1.5"/></svg>
+              </button>
+              <button type="button" class="seg-btn" data-density="comfortable" aria-pressed="true" aria-label="Comfortable" title="Comfortable">
+                <svg aria-hidden="true" viewBox="0 0 14 12"><rect y="0.5" width="14" height="2.5"/><rect y="4.75" width="14" height="2.5"/><rect y="9" width="14" height="2.5"/></svg>
+              </button>
+              <button type="button" class="seg-btn" data-density="expanded" aria-pressed="false" aria-label="Expanded" title="Expanded">
+                <svg aria-hidden="true" viewBox="0 0 14 12"><rect y="0.5" width="14" height="4.5"/><rect y="7" width="14" height="4.5"/></svg>
+              </button>
+            </div>
           </div>
           <div id="sessions" class="cards"></div>
         </aside>
@@ -103,7 +114,6 @@
             <button type="button" id="density-2x2-btn" class="seg-btn" aria-pressed="true">2×2</button>
             <button type="button" id="density-3x2-btn" class="seg-btn" aria-pressed="false">3×2</button>
           </div>
-          <button id="tiles-new-session-button" type="button" class="btn">New session</button>
         </div>
         <div id="tiles-empty" class="placeholder">No sessions yet — New session or ⌥⌘N to launch</div>
         <div id="tiles-grid" class="grid" hidden></div>
@@ -231,6 +241,19 @@
           Follow Claude Code paints Light when Claude Code's theme is light, Instrument otherwise. The terminal ground
           always follows Claude Code's theme, whichever Muster theme is chosen.
         </p>
+        <fieldset class="seg">
+          <legend>Rail card shows</legend>
+          <div class="seg-track">
+            <label><input type="radio" name="railActivity" value="turn" />Turn-aware</label>
+            <label><input type="radio" name="railActivity" value="prompt" />Your prompt</label>
+            <label><input type="radio" name="railActivity" value="reply" />Claude's reply</label>
+            <label><input type="radio" name="railActivity" value="both" />Both</label>
+          </div>
+          <p class="hint">
+            Turn-aware shows your prompt while a turn is open and Claude's reply once it is idle. Applies to every
+            rail and strip card, in every window.
+          </p>
+        </fieldset>
         <fieldset id="settings-update">
           <legend>Updates</legend>
           <dl class="update-versions">
@@ -270,15 +293,18 @@
       <article class="card" data-testid="session-card">
         <div class="stripe"></div>
         <div class="card-in">
-          <div class="r1">
-            <span class="name"></span>
+          <div class="r0">
             <span class="badge"></span>
             <span class="timer" aria-label="time in state"></span>
             <button class="pin" type="button" aria-label="Pin" aria-pressed="false" title="Pin to top"></button>
           </div>
+          <div class="r1">
+            <span class="name"></span>
+          </div>
           <div class="r2"></div>
           <div class="r3"></div>
-          <div class="activity" hidden></div>
+          <div class="activity you" hidden></div>
+          <div class="activity claude" hidden></div>
           <div class="note" hidden></div>
           <div class="acts-row" hidden></div>
         </div>

@@ -155,12 +155,18 @@ func New(cfg Config) *Server {
 			return bridge, nil
 		}
 	}
+	// terminals is constructed before the manager (composition-root wiring only) so it
+	// can be passed straight in as the manager's Watcher (plan rail-card-improvements
+	// REQ-8): the terminal registry already knows who's attached to what, so the manager
+	// needs no separate bookkeeping.
+	terminals := newTerminalRegistry()
 	s.manager = session.NewManager(session.Config{
 		Store:           cfg.Store,
 		Logger:          cfg.Logger,
 		PaneChecker:     tmuxClient,
 		PaneSnapshotter: tmuxClient,
 		SessionKiller:   tmuxClient,
+		Watcher:         terminals,
 		OnUpsert: func(sess *session.Session) {
 			s.hub.broadcast(sessionUpsertMessage{Type: "sessionUpsert", Session: toWireSession(sess)})
 		},
@@ -168,7 +174,6 @@ func New(cfg Config) *Server {
 			s.hub.broadcast(sessionRemovedMessage{Type: "sessionRemoved", ID: id})
 		},
 	})
-	terminals := newTerminalRegistry()
 	shells := newShellRegistry(spawner, cfg.Logger)
 	claudeBin := cfg.Launch.ClaudeBin
 	if claudeBin == "" {

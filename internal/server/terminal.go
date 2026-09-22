@@ -135,6 +135,17 @@ func (r *terminalRegistry) takeover(ctx context.Context, key terminalKey, attach
 	return conn, nil
 }
 
+// Watched satisfies internal/session.Watcher (plan rail-card-improvements REQ-8): true
+// iff a connection is currently registered for sessionID on either surface — the Claude
+// terminal or the plain shell.
+func (r *terminalRegistry) Watched(sessionID int64) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	_, claude := r.conns[terminalKey{sessionID: sessionID, surface: surfaceClaude}]
+	_, shell := r.conns[terminalKey{sessionID: sessionID, surface: surfaceShell}]
+	return claude || shell
+}
+
 // release removes conn from the registry iff it is still the registered connection for
 // key (a later takeover may already have replaced it).
 func (r *terminalRegistry) release(key terminalKey, conn *terminalConn) {
@@ -278,6 +289,12 @@ func (f *terminalFeature) handleTerminal(w http.ResponseWriter, r *http.Request)
 	bridge := conn.bridge
 	defer func() { _ = bridge.Close() }()
 	defer f.registry.release(key, conn)
+
+	// REQ-8's attach side effect: a successful takeover marks the session seen, before
+	// any PTY byte is forwarded (kb:anchor/terminal.ws Protocol Contract delta).
+	if err := f.manager.MarkSeen(r.Context(), id); err != nil {
+		f.log.Warn().Err(err).Int64("session_id", id).Msg("marking session seen failed")
+	}
 
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()

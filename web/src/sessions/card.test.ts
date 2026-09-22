@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Session } from "../protocol";
-import { buildCardViewModel } from "./card";
+import { activityLines, buildCardViewModel, unreadLabel } from "./card";
 
 const NOW = new Date("2026-08-22T00:00:10Z");
 
@@ -27,6 +27,8 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     createdAt: "2026-08-22T00:00:00Z",
     pinned: false,
     railPos: overrides.id,
+    unread: false,
+    lastPrompt: null,
     ...overrides,
   };
 }
@@ -105,15 +107,138 @@ describe("buildCardViewModel — repo / branch line", () => {
   });
 });
 
-describe("buildCardViewModel — activity", () => {
-  it("is null when lastActivity is null (no Stop yet)", () => {
-    const vm = buildCardViewModel(makeSession({ id: 1, lastActivity: null }), NOW);
-    expect(vm.activity).toBeNull();
+// Plan rail-card-improvements REQ-14 (W6): activityLines is the pure mode x state
+// derivation for a card's two activity lines — covered directly, with no DOM, per
+// kb:lesson/conditional-test-routing-resolves-to-nobody (this Should-Have belongs to
+// web-tests, not e2e, since it's unit-testable as built).
+describe("activityLines — turn mode (the pref default): your prompt while a turn is open, else the reply", () => {
+  it.each(["working", "planning", "needs_input"] as const)(
+    "shows 'on: <prompt>' and hides the reply while %s (a turn is open)",
+    (state) => {
+      const session = makeSession({
+        id: 1,
+        state,
+        lastPrompt: "fix the flaky retry",
+        lastActivity: "an earlier reply, must not show",
+      });
+      expect(activityLines(session, "turn")).toEqual({
+        you: "on: fix the flaky retry",
+        claude: null,
+      });
+    },
+  );
+
+  it.each(["started", "failed", "idle"] as const)(
+    "shows 'claude: <reply>' and hides the prompt while %s (no turn is open — edge case 25)",
+    (state) => {
+      const session = makeSession({
+        id: 1,
+        state,
+        lastPrompt: "an open prompt, must not show",
+        lastActivity: "fixed the flaky retry",
+      });
+      expect(activityLines(session, "turn")).toEqual({
+        you: null,
+        claude: "claude: fixed the flaky retry",
+      });
+    },
+  );
+
+  it("hides the prompt line when a turn is open but no prompt has been recorded yet (no empty prefix)", () => {
+    const session = makeSession({ id: 1, state: "working", lastPrompt: null });
+    expect(activityLines(session, "turn")).toEqual({ you: null, claude: null });
+  });
+});
+
+describe("activityLines — prompt mode: your prompt only, in every state", () => {
+  it("shows 'you: <prompt>' regardless of state", () => {
+    const session = makeSession({ id: 1, state: "idle", lastPrompt: "do the thing" });
+    expect(activityLines(session, "prompt")).toEqual({ you: "you: do the thing", claude: null });
   });
 
-  it("prefixes lastActivity with 'last: ' when present", () => {
-    const vm = buildCardViewModel(makeSession({ id: 1, lastActivity: "Fixed the bug." }), NOW);
-    expect(vm.activity).toBe("last: Fixed the bug.");
+  it("hides the line when lastPrompt is null (edge case 23)", () => {
+    const session = makeSession({ id: 1, state: "working", lastPrompt: null });
+    expect(activityLines(session, "prompt")).toEqual({ you: null, claude: null });
+  });
+});
+
+describe("activityLines — reply mode: Claude's reply only, in every state", () => {
+  it("shows 'claude: <reply>' regardless of state", () => {
+    const session = makeSession({ id: 1, state: "working", lastActivity: "fixed it" });
+    expect(activityLines(session, "reply")).toEqual({ you: null, claude: "claude: fixed it" });
+  });
+
+  it("hides the line when lastActivity is null (edge case 23)", () => {
+    const session = makeSession({ id: 1, state: "idle", lastActivity: null });
+    expect(activityLines(session, "reply")).toEqual({ you: null, claude: null });
+  });
+});
+
+describe("activityLines — both mode: both sides, independently", () => {
+  it("shows both lines when both sources are present", () => {
+    const session = makeSession({
+      id: 1,
+      state: "idle",
+      lastPrompt: "do the thing",
+      lastActivity: "done",
+    });
+    expect(activityLines(session, "both")).toEqual({
+      you: "you: do the thing",
+      claude: "claude: done",
+    });
+  });
+
+  it("shows only the prompt line when the reply is null (edge case 24)", () => {
+    const session = makeSession({ id: 1, lastPrompt: "do the thing", lastActivity: null });
+    expect(activityLines(session, "both")).toEqual({ you: "you: do the thing", claude: null });
+  });
+
+  it("shows only the reply line when the prompt is null (edge case 24)", () => {
+    const session = makeSession({ id: 1, lastPrompt: null, lastActivity: "done" });
+    expect(activityLines(session, "both")).toEqual({ you: null, claude: "claude: done" });
+  });
+
+  it("hides both lines when neither source has data yet (no data yet state, edge case 23)", () => {
+    const session = makeSession({ id: 1, lastPrompt: null, lastActivity: null });
+    expect(activityLines(session, "both")).toEqual({ you: null, claude: null });
+  });
+});
+
+describe("buildCardViewModel — activity (REQ-14): defaults to turn mode, feeds the {you, claude} shape", () => {
+  it("defaults to 'turn' mode when no mode argument is passed", () => {
+    const vm = buildCardViewModel(
+      makeSession({ id: 1, state: "working", lastPrompt: "fix the flaky retry" }),
+      NOW,
+    );
+    expect(vm.activity).toEqual({ you: "on: fix the flaky retry", claude: null });
+  });
+
+  it("passes the mode argument through to activityLines", () => {
+    const session = makeSession({ id: 1, state: "working", lastPrompt: "fix the flaky retry" });
+    const vm = buildCardViewModel(session, NOW, "prompt");
+    expect(vm.activity).toEqual(activityLines(session, "prompt"));
+  });
+});
+
+describe("unreadLabel (REQ-9): the card's accessible name", () => {
+  it("appends ', unread' when unread is true", () => {
+    expect(unreadLabel("fix the thing", true)).toBe("fix the thing, unread");
+  });
+
+  it("returns the title verbatim when unread is false", () => {
+    expect(unreadLabel("fix the thing", false)).toBe("fix the thing");
+  });
+});
+
+describe("buildCardViewModel — unread (REQ-9): passes session.unread through unchanged", () => {
+  it("is true when the session is unread", () => {
+    const vm = buildCardViewModel(makeSession({ id: 1, unread: true }), NOW);
+    expect(vm.unread).toBe(true);
+  });
+
+  it("is false when the session is read", () => {
+    const vm = buildCardViewModel(makeSession({ id: 1, unread: false }), NOW);
+    expect(vm.unread).toBe(false);
   });
 });
 

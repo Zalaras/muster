@@ -8,6 +8,8 @@ import type {
   Density,
   DocChanged,
   Prefs,
+  RailActivity,
+  RailDensity,
   RailSort,
   Session,
   Snapshot,
@@ -24,6 +26,11 @@ export interface AppState {
   view: View; // written only by features/views.ts (from prefs)
   density: Density; // written only by features/views.ts (from prefs)
   railSort: RailSort; // written only by features/rail.ts (from prefs)
+  // Plan rail-card-improvements: both adopted from `prefs`, in features/rail.ts's own
+  // `prefs` handler (alongside `railSort` above and `document.body.dataset.railDensity`,
+  // INV-4) even though `railActivity`'s control lives in the Settings dialog.
+  railDensity: RailDensity; // written only by features/rail.ts (from prefs)
+  railActivity: RailActivity; // written only by features/rail.ts (from prefs)
   focusedId: number | null; // written only via app.focus(id)
   connection: ConnectionStatus; // written only by features/connection.ts
 }
@@ -77,6 +84,8 @@ export function createApp(): App {
     view: "focus",
     density: "2x2",
     railSort: "manual",
+    railDensity: "comfortable",
+    railActivity: "turn",
     focusedId: null,
     connection: "connecting",
   };

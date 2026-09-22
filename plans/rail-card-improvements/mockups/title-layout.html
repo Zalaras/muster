@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>#38 — title layout options</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+/* A — clamp to two lines; badge, timer and pin hold the first line */
+.optA .r1 { align-items: flex-start; }
+.optA .name { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.25; }
+.optA .badge, .optA .timer, .optA .pin { margin-top: 2px; }
+
+/* B — title owns row one; badge and timer join the repo line */
+.optB .r1 .badge, .optB .r1 .timer { display: none; }
+.optB .r2 { display: flex; align-items: baseline; gap: 8px; }
+.optB .r2 .repo { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.optB .r2 .badge { font-family: var(--mono); font-size: var(--fs-2xs); letter-spacing: 0.11em; text-transform: uppercase; padding: 1px 5px; border: 1px solid var(--line-control); flex: none; margin-left: auto; }
+.optB .r2 .timer { margin-left: 0; }
+
+/* C — a meta row leads; the title wraps to whatever it needs */
+.optC .r0 { display: flex; align-items: baseline; gap: 8px; }
+.optC .r1 { margin-top: 4px; }
+.optC .name { white-space: normal; line-height: 1.25; }
+
+/* D — middle ellipsis, everything else as today */
+.optD .name { text-overflow: clip; }
+</style></head><body>
+<h1>#38 · Rail-card title layout</h1>
+<p class="lead">The same four sessions in every rail. Today's card gives the title roughly 150px (≈18 characters) because the badge, timer and pin share its row. Every option below is one CSS change on the shared card template, so the Tiles strip inherits it unless scoped to <code>.rail</code>.</p>
+
+<div class="opts">
+
+<div class="opt">
+<h2>Today (reference)</h2>
+<div class="rail"><div class="railhead"><span>Manual ▾</span><span class="n">4</span></div><div class="cards">
+<article class="card s-work"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">Fix the flaky retry wrapper in the e2e suite</span><span class="badge">working</span><span class="timer">02:31</span><button class="pin"></button></div>
+  <div class="r2">muster / plan/terminal-fixes-cleanup (worktree)</div>
+  <div class="r3"><span class="ctx hot"><i style="width:77%"></i></span><span>77%</span><span class="tok">154k</span><span class="compact">⟳1</span></div>
+  <div class="activity">last: Carried the sub-line wheel remainder; dropping the stale pip…</div>
+</div></article>
+<article class="card s-blocked"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">Rail card title truncation and layout review</span><span class="badge">needs input</span><span class="timer">11:48</span><button class="pin"></button></div>
+  <div class="r2">muster / plan/rail-cards (worktree)</div>
+  <div class="r3"><span class="ctx"><i style="width:42%"></i></span><span>42%</span><span class="tok">84k</span></div>
+  <div class="note">needs your permission — 11:48</div>
+</div></article>
+<article class="card s-idle"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">Worktree lifecycle spec: sibling path decision</span><span class="badge">idle</span><span class="timer">34m</span><button class="pin"></button></div>
+  <div class="r2">muster / main</div>
+  <div class="r3"><span class="ctx"><i style="width:8%"></i></span><span>8%</span><span class="tok">16k</span></div>
+  <div class="activity">last: Wrote the two fact records and linked them from the spec.</div>
+</div></article>
+<article class="card s-plan"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">mdr-shifts</span><span class="badge">planning</span><span class="timer">00:47</span><button class="pin"></button></div>
+  <div class="r2">mdrostering / develop</div>
+  <div class="r3"><span class="ctx"><i style="width:12%"></i></span><span>12%</span><span class="tok">24k</span></div>
+</div></article>
+</div></div>
+<p class="cap">Titles cut at ~18 characters. Three of the four here read as the same session.</p>
+</div>
+
+<div class="opt optA">
+<h2>A · clamp to two lines</h2>
+<div class="rail"><div class="railhead"><span>Manual ▾</span><span class="n">4</span></div><div class="cards">
+<article class="card s-work"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">Fix the flaky retry wrapper in the e2e suite</span><span class="badge">working</span><span class="timer">02:31</span><button class="pin"></button></div>
+  <div class="r2">muster / plan/terminal-fixes-cleanup (worktree)</div>
+  <div class="r3"><span class="ctx hot"><i style="width:77%"></i></span><span>77%</span><span class="tok">154k</span><span class="compact">⟳1</span></div>
+  <div class="activity">last: Carried the sub-line wheel remainder; dropping the stale pip…</div>
+</div></article>
+<article class="card s-blocked"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">Rail card title truncation and layout review</span><span class="badge">needs input</span><span class="timer">11:48</span><button class="pin"></button></div>
+  <div class="r2">muster / plan/rail-cards (worktree)</div>
+  <div class="r3"><span class="ctx"><i style="width:42%"></i></span><span>42%</span><span class="tok">84k</span></div>
+  <div class="note">needs your permission — 11:48</div>
+</div></article>
+<article class="card s-idle"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">Worktree lifecycle spec: sibling path decision</span><span class="badge">idle</span><span class="timer">34m</span><button class="pin"></button></div>
+  <div class="r2">muster / main</div>
+  <div class="r3"><span class="ctx"><i style="width:8%"></i></span><span>8%</span><span class="tok">16k</span></div>
+  <div class="activity">last: Wrote the two fact records and linked them from the spec.</div>
+</div></article>
+<article class="card s-plan"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">mdr-shifts</span><span class="badge">planning</span><span class="timer">00:47</span><button class="pin"></button></div>
+  <div class="r2">mdrostering / develop</div>
+  <div class="r3"><span class="ctx"><i style="width:12%"></i></span><span>12%</span><span class="tok">24k</span></div>
+</div></article>
+</div></div>
+<p class="cap"><b>Two lines max</b>, then an ellipsis. Badge, timer and pin stay on the first line. Card height varies by at most one line; ~36 characters visible. Short titles render exactly as today.</p>
+</div>
+
+<div class="opt optB">
+<h2>B · title owns its row</h2>
+<div class="rail"><div class="railhead"><span>Manual ▾</span><span class="n">4</span></div><div class="cards">
+<article class="card s-work"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">Fix the flaky retry wrapper in the e2e suite</span><button class="pin"></button></div>
+  <div class="r2"><span class="repo">muster / plan/terminal-fixes-cleanup (worktree)</span><span class="badge">working</span><span class="timer">02:31</span></div>
+  <div class="r3"><span class="ctx hot"><i style="width:77%"></i></span><span>77%</span><span class="tok">154k</span><span class="compact">⟳1</span></div>
+  <div class="activity">last: Carried the sub-line wheel remainder; dropping the stale pip…</div>
+</div></article>
+<article class="card s-blocked"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">Rail card title truncation and layout review</span><button class="pin"></button></div>
+  <div class="r2"><span class="repo">muster / plan/rail-cards (worktree)</span><span class="badge">needs input</span><span class="timer">11:48</span></div>
+  <div class="r3"><span class="ctx"><i style="width:42%"></i></span><span>42%</span><span class="tok">84k</span></div>
+  <div class="note">needs your permission — 11:48</div>
+</div></article>
+<article class="card s-idle"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">Worktree lifecycle spec: sibling path decision</span><button class="pin"></button></div>
+  <div class="r2"><span class="repo">muster / main</span><span class="badge">idle</span><span class="timer">34m</span></div>
+  <div class="r3"><span class="ctx"><i style="width:8%"></i></span><span>8%</span><span class="tok">16k</span></div>
+  <div class="activity">last: Wrote the two fact records and linked them from the spec.</div>
+</div></article>
+<article class="card s-plan"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">mdr-shifts</span><button class="pin"></button></div>
+  <div class="r2"><span class="repo">mdrostering / develop</span><span class="badge">planning</span><span class="timer">00:47</span></div>
+  <div class="r3"><span class="ctx"><i style="width:12%"></i></span><span>12%</span><span class="tok">24k</span></div>
+</div></article>
+</div></div>
+<p class="cap"><b>Single line, full width</b> (~34 characters). Badge and timer move down beside the repo line, which now truncates instead. Card height unchanged; the state word is smaller and lower.</p>
+</div>
+
+<div class="opt optC">
+<h2>C · meta row first, title wraps</h2>
+<div class="rail"><div class="railhead"><span>Manual ▾</span><span class="n">4</span></div><div class="cards">
+<article class="card s-work"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">working</span><span class="timer">02:31</span><button class="pin"></button></div>
+  <div class="r1"><span class="name">Fix the flaky retry wrapper in the e2e suite</span></div>
+  <div class="r2">muster / plan/terminal-fixes-cleanup (worktree)</div>
+  <div class="r3"><span class="ctx hot"><i style="width:77%"></i></span><span>77%</span><span class="tok">154k</span><span class="compact">⟳1</span></div>
+  <div class="activity">last: Carried the sub-line wheel remainder; dropping the stale pip…</div>
+</div></article>
+<article class="card s-blocked"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">needs input</span><span class="timer">11:48</span><button class="pin"></button></div>
+  <div class="r1"><span class="name">Rail card title truncation and layout review</span></div>
+  <div class="r2">muster / plan/rail-cards (worktree)</div>
+  <div class="r3"><span class="ctx"><i style="width:42%"></i></span><span>42%</span><span class="tok">84k</span></div>
+  <div class="note">needs your permission — 11:48</div>
+</div></article>
+<article class="card s-idle"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">idle</span><span class="timer">34m</span><button class="pin"></button></div>
+  <div class="r1"><span class="name">Worktree lifecycle spec: sibling path decision</span></div>
+  <div class="r2">muster / main</div>
+  <div class="r3"><span class="ctx"><i style="width:8%"></i></span><span>8%</span><span class="tok">16k</span></div>
+  <div class="activity">last: Wrote the two fact records and linked them from the spec.</div>
+</div></article>
+<article class="card s-plan"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">planning</span><span class="timer">00:47</span><button class="pin"></button></div>
+  <div class="r1"><span class="name">mdr-shifts</span></div>
+  <div class="r2">mdrostering / develop</div>
+  <div class="r3"><span class="ctx"><i style="width:12%"></i></span><span>12%</span><span class="tok">24k</span></div>
+</div></article>
+</div></div>
+<p class="cap"><b>Never truncates.</b> State and timer lead as a small meta row, the title takes as many lines as it needs. Tallest cards; the state word comes first, which the attention sort likes.</p>
+</div>
+
+<div class="opt optD">
+<h2>D · middle ellipsis</h2>
+<div class="rail"><div class="railhead"><span>Manual ▾</span><span class="n">4</span></div><div class="cards">
+<article class="card s-work"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">Fix the f…e2e suite</span><span class="badge">working</span><span class="timer">02:31</span><button class="pin"></button></div>
+  <div class="r2">muster / plan/terminal-fixes-cleanup (worktree)</div>
+  <div class="r3"><span class="ctx hot"><i style="width:77%"></i></span><span>77%</span><span class="tok">154k</span><span class="compact">⟳1</span></div>
+  <div class="activity">last: Carried the sub-line wheel remainder; dropping the stale pip…</div>
+</div></article>
+<article class="card s-blocked"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">Rail card…ut review</span><span class="badge">needs input</span><span class="timer">11:48</span><button class="pin"></button></div>
+  <div class="r2">muster / plan/rail-cards (worktree)</div>
+  <div class="r3"><span class="ctx"><i style="width:42%"></i></span><span>42%</span><span class="tok">84k</span></div>
+  <div class="note">needs your permission — 11:48</div>
+</div></article>
+<article class="card s-idle"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">Worktree…h decision</span><span class="badge">idle</span><span class="timer">34m</span><button class="pin"></button></div>
+  <div class="r2">muster / main</div>
+  <div class="r3"><span class="ctx"><i style="width:8%"></i></span><span>8%</span><span class="tok">16k</span></div>
+  <div class="activity">last: Wrote the two fact records and linked them from the spec.</div>
+</div></article>
+<article class="card s-plan"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">mdr-shifts</span><span class="badge">planning</span><span class="timer">00:47</span><button class="pin"></button></div>
+  <div class="r2">mdrostering / develop</div>
+  <div class="r3"><span class="ctx"><i style="width:12%"></i></span><span>12%</span><span class="tok">24k</span></div>
+</div></article>
+</div></div>
+<p class="cap"><b>Keeps head and tail</b> of the title, same row as today. CSS has no middle ellipsis, so this is measured in JS on every render and re-measured on resize. Same character budget as today, just split.</p>
+</div>
+
+</div>
+</body></html>

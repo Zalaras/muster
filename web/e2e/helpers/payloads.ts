@@ -148,6 +148,14 @@ interface TurnActivityOpts {
   agentId?: string;
   /** Plan markdown-viewing: see `SessionStartOpts.transcriptPath`. Default unchanged. */
   transcriptPath?: string;
+  /**
+   * Plan rail-card-improvements REQ-12: this hook's `prompt` field — `internal/claudecode`
+   * reads it as `StateInput.Prompt` for `Session.LastPrompt` and the turn-aware activity
+   * line. Default unchanged ("do the thing", M0's fixture) so no pre-existing caller
+   * needs to change. Pass a string beginning `<task-notification>` to reproduce the
+   * measured background-completion shape (kb:fact/background-completion-new-prompt-id).
+   */
+  prompt?: string;
 }
 
 /** Raw `UserPromptSubmit` — opens a turn (turn-activity event, kb:anchor/state.transitions). */
@@ -160,6 +168,7 @@ export function rawUserPromptSubmit(
     permissionMode = "default",
     agentId,
     transcriptPath = "/tmp/t.jsonl",
+    prompt = "do the thing",
   } = opts;
   const payload: Record<string, unknown> = {
     hook_event_name: "UserPromptSubmit",
@@ -168,7 +177,7 @@ export function rawUserPromptSubmit(
     cwd: "/tmp",
     prompt_id: promptId,
     permission_mode: permissionMode,
-    prompt: "do the thing",
+    prompt,
   };
   if (agentId !== undefined) {
     payload.agent_id = agentId;

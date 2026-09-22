@@ -87,6 +87,10 @@ test("GET /api/state returns exactly the M0 snapshot object once authenticated",
   // waiting for a transition") — always `[]` here since this scratch daemon has no
   // sessions at all, let alone a busy shell; updated here for the same reason as
   // density/usageModel/railSort/theme/update above.
+  // `prefs.railDensity` and `prefs.railActivity` were added by plan
+  // rail-card-improvements (plan.md's Protocol Contract, merged into docs/protocol.md on
+  // approval) — default "comfortable" / "turn" before any PUT /api/prefs; updated here
+  // for the same reason as density/usageModel/railSort/theme/update above.
   expect(body).toEqual({
     sessions: [],
     shellsBusy: [],
@@ -108,6 +112,8 @@ test("GET /api/state returns exactly the M0 snapshot object once authenticated",
       railSort: "manual",
       theme: "follow",
       updateCheck: true,
+      railDensity: "comfortable",
+      railActivity: "turn",
     },
     claudeTheme: { family: "unknown" },
     update: {

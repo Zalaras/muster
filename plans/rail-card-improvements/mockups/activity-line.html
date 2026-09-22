@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>#42 — activity line options</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+.activity .who { color: var(--fg-muted); }
+.optC .activity + .activity { margin-top: 2px; }
+/* settings fieldset mock */
+.settings { width: 440px; background: var(--bg-raised); border: 1px solid var(--line-control); padding: 14px 16px; font-family: var(--sans); }
+.settings h3 { font-family: var(--mono); font-size: var(--fs-2xs); letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-dim); margin: 0 0 10px; }
+.seg { display: inline-flex; border: 1px solid var(--edge); font-family: var(--mono); font-size: var(--fs-xs); }
+.seg span { padding: 5px 10px; color: var(--fg-muted); border-right: 1px solid var(--edge); }
+.seg span:last-child { border-right: 0; }
+.seg span.on { background: var(--bg-hover); color: var(--fg); }
+.settings p { font-size: var(--fs-xs); color: var(--fg-dim); font-family: var(--mono); margin: 10px 0 0; line-height: 1.5; }
+</style></head><body>
+<h1>#42 · What the activity line shows</h1>
+<p class="lead">Today the line is <code>last: &lt;Claude's closing message, 200 chars&gt;</code>, set only when a turn ends, so during a turn it shows the <i>previous</i> turn's reply. Your prompt is on the wire already (<code>UserPromptSubmit.prompt</code>) and is not stored yet; every option below needs the daemon to keep it. Same four sessions in each rail; the working and planning cards are mid-turn.</p>
+
+<div class="opts">
+
+<div class="opt">
+<h2>A · Claude's reply (today)</h2>
+<div class="rail"><div class="railhead"><span>Manual ▾</span><span class="n">4</span></div><div class="cards">
+<article class="card s-idle"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">flaky-e2e-hunt</span><span class="badge">idle</span><span class="timer">03:12</span></div>
+  <div class="r2">muster / feat-e2e</div>
+  <div class="r3"><span class="ctx"><i style="width:42%"></i></span><span>42%</span><span class="tok">84k</span></div>
+  <div class="activity">last: Rewrote the retry wrapper and re-ran the suite; green locally.</div>
+</div></article>
+<article class="card s-work"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">payments-refactor</span><span class="badge">working</span><span class="timer">02:31</span></div>
+  <div class="r2">mdrostering / develop</div>
+  <div class="r3"><span class="ctx hot"><i style="width:77%"></i></span><span>77%</span><span class="tok">154k</span><span class="compact">⟳1</span></div>
+  <div class="activity">last: Fixed the charge rounding; running the suite.</div>
+</div></article>
+<article class="card s-plan"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">spec-research</span><span class="badge">planning</span><span class="timer">00:47</span></div>
+  <div class="r2">muster / main</div>
+  <div class="r3"><span class="ctx"><i style="width:12%"></i></span><span>12%</span><span class="tok">24k</span></div>
+</div></article>
+<article class="card s-blocked"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">auth-jwt-rotation</span><span class="badge">needs input</span><span class="timer">04:12</span></div>
+  <div class="r2">ledger-api / wt-auth</div>
+  <div class="r3"><span class="ctx"><i style="width:19%"></i></span><span>19%</span><span class="tok">38k</span></div>
+  <div class="note">needs your permission — 04:12</div>
+</div></article>
+</div></div>
+<p class="cap"><b>Reference.</b> Working shows the <i>previous</i> reply; planning shows nothing (no Stop yet).</p>
+</div>
+
+<div class="opt">
+<h2>B · your last prompt</h2>
+<div class="rail"><div class="railhead"><span>Manual ▾</span><span class="n">4</span></div><div class="cards">
+<article class="card s-idle"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">flaky-e2e-hunt</span><span class="badge">idle</span><span class="timer">03:12</span></div>
+  <div class="r2">muster / feat-e2e</div>
+  <div class="r3"><span class="ctx"><i style="width:42%"></i></span><span>42%</span><span class="tok">84k</span></div>
+  <div class="activity"><span class="who">you:</span> fix the flaky retry and rerun the suite</div>
+</div></article>
+<article class="card s-work"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">payments-refactor</span><span class="badge">working</span><span class="timer">02:31</span></div>
+  <div class="r2">mdrostering / develop</div>
+  <div class="r3"><span class="ctx hot"><i style="width:77%"></i></span><span>77%</span><span class="tok">154k</span><span class="compact">⟳1</span></div>
+  <div class="activity"><span class="who">you:</span> now do the same for refunds</div>
+</div></article>
+<article class="card s-plan"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">spec-research</span><span class="badge">planning</span><span class="timer">00:47</span></div>
+  <div class="r2">muster / main</div>
+  <div class="r3"><span class="ctx"><i style="width:12%"></i></span><span>12%</span><span class="tok">24k</span></div>
+  <div class="activity"><span class="who">you:</span> plan the worktree manager, read the conflicts doc first</div>
+</div></article>
+<article class="card s-blocked"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">auth-jwt-rotation</span><span class="badge">needs input</span><span class="timer">04:12</span></div>
+  <div class="r2">ledger-api / wt-auth</div>
+  <div class="r3"><span class="ctx"><i style="width:19%"></i></span><span>19%</span><span class="tok">38k</span></div>
+  <div class="activity"><span class="who">you:</span> rotate the staging keys and clean up</div>
+  <div class="note">needs your permission — 04:12</div>
+</div></article>
+</div></div>
+<p class="cap"><b>The ask, always.</b> Shorter, and it fills in for working and planning cards too. Loses what Claude concluded.</p>
+</div>
+
+<div class="opt optC">
+<h2>C · both, two lines</h2>
+<div class="rail"><div class="railhead"><span>Manual ▾</span><span class="n">4</span></div><div class="cards">
+<article class="card s-idle"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">flaky-e2e-hunt</span><span class="badge">idle</span><span class="timer">03:12</span></div>
+  <div class="r2">muster / feat-e2e</div>
+  <div class="r3"><span class="ctx"><i style="width:42%"></i></span><span>42%</span><span class="tok">84k</span></div>
+  <div class="activity"><span class="who">you:</span> fix the flaky retry and rerun the suite</div>
+  <div class="activity"><span class="who">claude:</span> Rewrote the retry wrapper and re-ran the suite; green locally.</div>
+</div></article>
+<article class="card s-work"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">payments-refactor</span><span class="badge">working</span><span class="timer">02:31</span></div>
+  <div class="r2">mdrostering / develop</div>
+  <div class="r3"><span class="ctx hot"><i style="width:77%"></i></span><span>77%</span><span class="tok">154k</span><span class="compact">⟳1</span></div>
+  <div class="activity"><span class="who">you:</span> now do the same for refunds</div>
+  <div class="activity"><span class="who">claude:</span> Fixed the charge rounding; running the suite.</div>
+</div></article>
+<article class="card s-plan"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">spec-research</span><span class="badge">planning</span><span class="timer">00:47</span></div>
+  <div class="r2">muster / main</div>
+  <div class="r3"><span class="ctx"><i style="width:12%"></i></span><span>12%</span><span class="tok">24k</span></div>
+  <div class="activity"><span class="who">you:</span> plan the worktree manager, read the conflicts doc first</div>
+</div></article>
+<article class="card s-blocked"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">auth-jwt-rotation</span><span class="badge">needs input</span><span class="timer">04:12</span></div>
+  <div class="r2">ledger-api / wt-auth</div>
+  <div class="r3"><span class="ctx"><i style="width:19%"></i></span><span>19%</span><span class="tok">38k</span></div>
+  <div class="activity"><span class="who">you:</span> rotate the staging keys and clean up</div>
+  <div class="note">needs your permission — 04:12</div>
+</div></article>
+</div></div>
+<p class="cap"><b>The exchange.</b> One extra line per card. On a working card the Claude line is still the previous turn's reply, which reads oddly beside the new prompt.</p>
+</div>
+
+<div class="opt">
+<h2>D · one line, turn-aware</h2>
+<div class="rail"><div class="railhead"><span>Manual ▾</span><span class="n">4</span></div><div class="cards">
+<article class="card s-idle"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">flaky-e2e-hunt</span><span class="badge">idle</span><span class="timer">03:12</span></div>
+  <div class="r2">muster / feat-e2e</div>
+  <div class="r3"><span class="ctx"><i style="width:42%"></i></span><span>42%</span><span class="tok">84k</span></div>
+  <div class="activity"><span class="who">claude:</span> Rewrote the retry wrapper and re-ran the suite; green locally.</div>
+</div></article>
+<article class="card s-work"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">payments-refactor</span><span class="badge">working</span><span class="timer">02:31</span></div>
+  <div class="r2">mdrostering / develop</div>
+  <div class="r3"><span class="ctx hot"><i style="width:77%"></i></span><span>77%</span><span class="tok">154k</span><span class="compact">⟳1</span></div>
+  <div class="activity"><span class="who">on:</span> now do the same for refunds</div>
+</div></article>
+<article class="card s-plan"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">spec-research</span><span class="badge">planning</span><span class="timer">00:47</span></div>
+  <div class="r2">muster / main</div>
+  <div class="r3"><span class="ctx"><i style="width:12%"></i></span><span>12%</span><span class="tok">24k</span></div>
+  <div class="activity"><span class="who">on:</span> plan the worktree manager, read the conflicts doc first</div>
+</div></article>
+<article class="card s-blocked"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">auth-jwt-rotation</span><span class="badge">needs input</span><span class="timer">04:12</span></div>
+  <div class="r2">ledger-api / wt-auth</div>
+  <div class="r3"><span class="ctx"><i style="width:19%"></i></span><span>19%</span><span class="tok">38k</span></div>
+  <div class="activity"><span class="who">on:</span> rotate the staging keys and clean up</div>
+  <div class="note">needs your permission — 04:12</div>
+</div></article>
+</div></div>
+<p class="cap"><b>Whichever is news.</b> While a turn is open (working, planning, needs input) the line is <code>on: &lt;your prompt&gt;</code>; once idle it flips to <code>claude: &lt;reply&gt;</code>. Same height as today, never stale. No setting needed, but no choice either.</p>
+</div>
+
+<div class="opt wide">
+<h2>E · a setting (any of B, C, D as default)</h2>
+<div class="settings">
+  <h3>Rail card activity line</h3>
+  <div class="seg"><span class="on">Your prompt</span><span>Claude's reply</span><span>Both</span><span>Turn-aware</span></div>
+  <p>Shown under the context row on every rail card and Tiles strip card. Applies to all windows; a future summary option would slot in here.</p>
+</div>
+<p class="cap"><b>Persisted as <code>prefs.railActivity</code></b> next to <code>railSort</code>; lives in the Settings dialog rather than the rail head, since it is not something you flip often. Adding it means the daemon stores both texts regardless of which is shown.</p>
+</div>
+
+</div>
+</body></html>

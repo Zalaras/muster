@@ -1,7 +1,7 @@
 ---
 id: tiles-new-session-button-in-toolbar
 type: decision
-status: accepted
+status: superseded
 date: 2026-08-30
 summary: Tiles gets its own New session button in the density toolbar, opening the shared launch dialog; a plus pseudo-tile in the grid was rejected.
 features: [tiles, launch]

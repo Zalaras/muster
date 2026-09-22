@@ -256,22 +256,6 @@ group deliberately, and otherwise don't re-sort this list.
 - [ ] **Needs Input disappears while giving input** ([#40](https://github.com/Zalaras/muster/issues/40)) — answering a run of Claude questions
   flips the state back to Planning after the first one, while more remain and Claude is idle.
 
-### Together — rail cards (#30, #34, #38, #42)
-
-- [ ] **Why is Idle not above Working** ([#30](https://github.com/Zalaras/muster/issues/30)) — with Attention sort selected the rail cards put
-  IDLE below WORKING, though IDLE is the state arguably needing attention and WORKING is not.
-
-- [ ] **Read/Unread IDLEs** ([#34](https://github.com/Zalaras/muster/issues/34)) — once a session goes IDLE after a response there is no way to tell
-  which ones you have already read.
-
-- [ ] **Railcard headings aren't useful cut off** ([#38](https://github.com/Zalaras/muster/issues/38)) — titles truncate too early to tell
-  sessions apart, which is the whole point of the rail. Wrap the title, or show more of it
-  before cutting.
-
-- [ ] **Should your last message be the railcard description?** ([#42](https://github.com/Zalaras/muster/issues/42)) — show your own last
-  message rather than Claude's, since yours is shorter. Possibly a setting. Overlaps the
-  proper-description work in #17 — rank the two together.
-
 ### Together — the plan and document tab (#35, #46; #44 in M5+ is the same seam)
 
 - [ ] **Plan missing** ([#35](https://github.com/Zalaras/muster/issues/35)) — a plan was not visible after the fact; unclear whether Claude cleans it
@@ -284,6 +268,15 @@ group deliberately, and otherwise don't re-sort this list.
 
 - [ ] **Remove All Sessions** ([#27](https://github.com/Zalaras/muster/issues/27)) — a bulk "remove everything" action to start from a
   clean slate, plus the option to select several sessions and remove those.
+
+- [ ] **Sessions survive only one daemon start after their tmux server is gone** — filed by the
+  developer 2026-09-22 during `rail-card-improvements` planning. Reconcile keeps a session whose pane
+  vanished while musterd was down as an ended, resumable card, but the *following* start deletes it
+  (`kb:adr/lifecycle-reconcile-converges-with-the-socket`, restating the sweep rule of
+  `kb:adr/lifecycle-ended-rows-swept-next-start`). So after a computer restart, or a crash that
+  also took the tmux server, one unresumed restart of musterd clears the whole rail — a crash must
+  not clear sessions. Wants a superseding ADR: keep ended rows until Removed, or until the archive
+  policy of #39 moves them. Same seam as #27 and #39.
 
 ### On their own
 

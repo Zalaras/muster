@@ -26,27 +26,58 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     createdAt: "2026-08-22T00:00:00Z",
     pinned: false,
     railPos: overrides.id,
+    unread: false,
+    lastPrompt: null,
     ...overrides,
   };
 }
 
-describe("sortSessions — state priority (REQ-16)", () => {
-  it("orders needs_input, failed, planning, working, started, idle", () => {
+// Plan rail-card-improvements REQ-11 (W5): the seven-group attention priority table,
+// amended from the six-state REQ-16 table — idle now splits into an unread "your turn"
+// group ahead of started, and a read group that stays last.
+describe("sortSessions — state priority (REQ-11)", () => {
+  it("orders needs_input, failed, unread idle, started, planning, working, read idle", () => {
     const sessions = [
-      makeSession({ id: 1, state: "idle", stateSince: "2026-08-22T00:00:00Z" }),
-      makeSession({ id: 2, state: "started", stateSince: "2026-08-22T00:00:00Z" }),
-      makeSession({ id: 3, state: "working", stateSince: "2026-08-22T00:00:00Z" }),
-      makeSession({ id: 4, state: "planning", stateSince: "2026-08-22T00:00:00Z" }),
-      makeSession({ id: 5, state: "failed", stateSince: "2026-08-22T00:00:00Z" }),
       makeSession({
-        id: 6,
+        id: 1,
         state: "needs_input",
-        stateSince: "2026-08-22T00:00:00Z",
-        attention: { reason: "permission", since: "2026-08-22T00:00:00Z" },
+        attention: { reason: "idle", since: "2026-08-22T00:00:00Z" },
       }),
+      makeSession({ id: 2, state: "failed" }),
+      makeSession({ id: 3, state: "idle", unread: true }),
+      makeSession({ id: 4, state: "started" }),
+      makeSession({ id: 5, state: "planning" }),
+      makeSession({ id: 6, state: "working" }),
+      makeSession({ id: 7, state: "idle", unread: false }),
     ];
-    const sorted = sortSessions(sessions).map((s) => s.id);
-    expect(sorted).toEqual([6, 5, 4, 3, 2, 1]);
+    // Shuffled input order so the assertion can't pass by accident of insertion order.
+    const shuffled = [
+      sessions[6]!,
+      sessions[2]!,
+      sessions[4]!,
+      sessions[0]!,
+      sessions[5]!,
+      sessions[3]!,
+      sessions[1]!,
+    ];
+    const sorted = sortSessions(shuffled).map((s) => s.id);
+    expect(sorted).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  });
+
+  it("sorts an unread idle session ahead of started (REQ-11's 'your turn' group)", () => {
+    const sessions = [
+      makeSession({ id: 1, state: "started" }),
+      makeSession({ id: 2, state: "idle", unread: true }),
+    ];
+    expect(sortSessions(sessions).map((s) => s.id)).toEqual([2, 1]);
+  });
+
+  it("sorts a read idle session after working (REQ-11's tail group)", () => {
+    const sessions = [
+      makeSession({ id: 1, state: "idle", unread: false }),
+      makeSession({ id: 2, state: "working" }),
+    ];
+    expect(sortSessions(sessions).map((s) => s.id)).toEqual([2, 1]);
   });
 
   it("never mutates the input array", () => {
@@ -54,6 +85,16 @@ describe("sortSessions — state priority (REQ-16)", () => {
     const original = [...sessions];
     sortSessions(sessions);
     expect(sessions).toEqual(original);
+  });
+});
+
+describe("sortSessions — idle unread/read tiebreak (REQ-11): longest-idle first within each idle group", () => {
+  it("orders the unread idle group by stateSince ascending, same as the read group", () => {
+    const sessions = [
+      makeSession({ id: 1, state: "idle", unread: true, stateSince: "2026-08-22T00:05:00Z" }),
+      makeSession({ id: 2, state: "idle", unread: true, stateSince: "2026-08-22T00:01:00Z" }),
+    ];
+    expect(sortSessions(sessions).map((s) => s.id)).toEqual([2, 1]);
   });
 });
 
@@ -467,6 +508,16 @@ describe("pickNeediest — highest-attention live session (plan shortcut-fixes R
     const sessions = [
       makeSession({ id: 1, state: "idle" }),
       makeSession({ id: 2, state: "working" }),
+    ];
+    expect(pickNeediest(sessions)?.id).toBe(2);
+  });
+
+  // Plan rail-card-improvements (E6, W5): pickNeediest reads REQ-11's amended table, so an
+  // unread idle session outranks a merely working one — the Option-Command-0 chord's target.
+  it("picks an unread idle session over a working one (REQ-11's 'your turn' group)", () => {
+    const sessions = [
+      makeSession({ id: 1, state: "working" }),
+      makeSession({ id: 2, state: "idle", unread: true }),
     ];
     expect(pickNeediest(sessions)?.id).toBe(2);
   });

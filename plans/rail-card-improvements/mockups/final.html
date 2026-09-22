@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>rail-card-improvements — design authority</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+/* ── masthead (transcribed from style.css, plus the New session button after the switcher) ── */
+.masthead { display: flex; align-items: center; gap: 20px; padding: 10px 16px; background: var(--bg-raised); border: 1px solid var(--line); width: 1180px; box-sizing: border-box; }
+.brand h1 { font-family: var(--disp); font-size: var(--fs-xl); font-weight: 800; letter-spacing: -0.02em; margin: 0; }
+.seg-btn { font-family: var(--mono); font-size: var(--fs-xs); padding: 4px 13px; background: transparent; border: 1px solid var(--line-control); color: var(--fg-dim); cursor: pointer; }
+.view-switcher, .seg { display: flex; }
+.view-switcher .seg-btn, .seg .seg-btn { border-right-width: 0; }
+.view-switcher .seg-btn:last-child, .seg .seg-btn:last-child { border-right-width: 1px; }
+.seg-btn[aria-pressed="true"] { color: var(--fg); background: var(--bg-hover); }
+.btn { white-space: nowrap; font-family: var(--mono); font-size: var(--fs-xs); padding: 4px 10px; background: transparent; border: 1px solid var(--line-control); color: var(--fg-muted); cursor: pointer; }
+.masthead-right { display: flex; align-items: center; gap: 16px; margin-left: auto; font-family: var(--mono); font-size: var(--fs-sm); color: var(--fg-muted); }
+.bar { display: inline-block; width: 60px; height: 4px; background: var(--line); vertical-align: middle; margin: 0 6px; position: relative; }
+.bar i { position: absolute; inset: 0 auto 0 0; background: var(--fg-muted); }
+.bar.warn i { background: var(--amber); }
+
+/* ── rail head: sort left, count and density right ── */
+.railhead { gap: 8px; }
+.railhead .n { margin-left: auto; }
+.railhead .seg .seg-btn { padding: 3px 6px; line-height: 0; }
+.railhead .seg svg { width: 14px; height: 12px; display: block; fill: currentColor; }
+
+/* ── card, layout C ── */
+.r0 { display: flex; align-items: baseline; gap: 8px; }
+.r0 .timer { margin-left: auto; }
+.card .r1 { margin-top: 4px; display: block; }
+.card .name { white-space: normal; line-height: 1.25; }
+.card.unread .name::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--fg); margin-right: 7px; vertical-align: 1px; }
+.card.s-idle:not(.unread) .name { color: var(--fg-muted); font-weight: 600; }
+.activity .who { color: var(--fg-muted); }
+.activity + .activity { margin-top: 2px; }
+
+/* ── densities, applied via [data-rail-density] on body in the real app ── */
+.compact .card-in { padding: 6px 11px 7px; }
+.compact .r1 { margin-top: 2px; }
+.compact .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--fs-md); }
+.compact .r2 { margin-top: 3px; }
+.compact .r3 { margin-top: 3px; }
+.compact .r3 .ctx { display: none; }
+.compact .activity { display: none; }
+.compact .note { margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.expanded .activity { white-space: normal; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* settings */
+.settings { width: 440px; background: var(--bg-raised); border: 1px solid var(--line-control); padding: 14px 16px; }
+.settings h3 { font-family: var(--mono); font-size: var(--fs-2xs); letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-dim); margin: 0 0 8px; font-weight: 400; }
+.seg-track { display: inline-flex; border: 1px solid var(--edge); border-radius: 2px; font-family: var(--mono); font-size: var(--fs-xs); }
+.seg-track span { padding: 5px 10px; color: var(--fg-muted); border-right: 1px solid var(--edge); }
+.seg-track span:last-child { border-right: 0; }
+.seg-track span.on { background: var(--bg-hover); color: var(--fg); }
+.settings p { font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-dim); margin: 10px 0 0; line-height: 1.5; }
+.row { display: flex; gap: 28px; align-items: flex-start; margin-top: 26px; }
+</style></head><body>
+<h1>rail-card-improvements · design authority</h1>
+<p class="lead">The chosen options composed: New session in the masthead right of the view switcher; rail head with the sort select left, session count and a three-step density control right; cards on layout C (state row, wrapping title, repo line, context row, activity line); unread idle marked by a neutral dot before the title; the activity line turn-aware by default. Density and the activity line are prefs, remembered across windows and restarts.</p>
+
+<h2>Masthead, both views</h2>
+<header class="masthead">
+  <div class="brand"><h1>Muster</h1></div>
+  <div class="view-switcher" role="group" aria-label="View"><button class="seg-btn" aria-pressed="true">Focus</button><button class="seg-btn" aria-pressed="false">Tiles</button></div>
+  <button class="btn" type="button">New session</button>
+  <div class="masthead-right">
+    <span>5h <span class="bar warn"><i style="width:61%"></i></span>61%</span>
+    <span>7d <span class="bar"><i style="width:23%"></i></span>23%</span>
+    <span>Fable <span class="bar"><i style="width:12%"></i></span>12%</span>
+    <span class="btn">↻</span><span class="btn">Issue</span><span class="btn">Settings</span>
+    <span>claude 2.1.260</span><span style="color:var(--fg)">connected</span>
+  </div>
+</header>
+
+<div class="row">
+<div class="opt">
+<h2>Rail · comfortable (default)</h2>
+<div class="rail">
+  <div class="railhead"><span class="sel">Attention ▾</span><span class="n">6</span>
+    <div class="seg" role="group" aria-label="Card density">
+      <button class="seg-btn" aria-pressed="false" aria-label="Compact" title="Compact"><svg viewBox="0 0 14 12"><rect y="0.5" width="14" height="1.5"/><rect y="3.5" width="14" height="1.5"/><rect y="6.5" width="14" height="1.5"/><rect y="9.5" width="14" height="1.5"/></svg></button>
+      <button class="seg-btn" aria-pressed="true" aria-label="Comfortable" title="Comfortable"><svg viewBox="0 0 14 12"><rect y="0.5" width="14" height="2.5"/><rect y="4.75" width="14" height="2.5"/><rect y="9" width="14" height="2.5"/></svg></button>
+      <button class="seg-btn" aria-pressed="false" aria-label="Expanded" title="Expanded"><svg viewBox="0 0 14 12"><rect y="0.5" width="14" height="4.5"/><rect y="7" width="14" height="4.5"/></svg></button>
+    </div>
+  </div>
+  <div class="cards">
+<article class="card s-blocked"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">needs input</span><span class="timer">04:12</span><button class="pin"></button></div>
+  <div class="r1"><span class="name">auth-jwt-rotation</span></div>
+  <div class="r2" title="ledger-api / wt-auth (worktree)">ledger-api / wt-auth (worktree)</div>
+  <div class="r3"><span class="ctx"><i style="width:19%"></i></span><span>19%</span><span class="tok">38k</span></div>
+  <div class="activity"><span class="who">on:</span> rotate the staging keys and clean up</div>
+  <div class="note">needs your permission — 04:12</div>
+</div></article>
+<article class="card s-failed"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">failed</span><span class="timer">6m</span><button class="pin"></button></div>
+  <div class="r1"><span class="name">db-migration-audit</span></div>
+  <div class="r2" title="ledger-api / main">ledger-api / main</div>
+  <div class="r3"><span class="ctx hot"><i style="width:61%"></i></span><span>61%</span><span class="tok">122k</span></div>
+  <div class="note fail">server_error — API error ended the turn</div>
+</div></article>
+<article class="card s-idle unread"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">idle</span><span class="timer">03:12</span><button class="pin"></button></div>
+  <div class="r1"><span class="name">Fix the flaky retry wrapper in the e2e suite</span></div>
+  <div class="r2" title="muster / plan/terminal-fixes-cleanup (worktree)">muster / plan/terminal-fixes-cleanup (worktree)</div>
+  <div class="r3"><span class="ctx"><i style="width:42%"></i></span><span>42%</span><span class="tok">84k</span><span class="compact">⟳1</span></div>
+  <div class="activity"><span class="who">claude:</span> Rewrote the retry wrapper and re-ran the suite; green locally.</div>
+</div></article>
+<article class="card s-start"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">started</span><span class="timer">00:08</span><button class="pin"></button></div>
+  <div class="r1"><span class="name">docs-pass</span></div>
+  <div class="r2" title="ccc-spike">ccc-spike</div>
+  <div class="r3 unk">context unknown — no API response yet</div>
+  <div class="note">first launch here — likely waiting on Claude Code's trust prompt</div>
+</div></article>
+<article class="card s-work current"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">working</span><span class="timer">02:31</span><button class="pin"></button></div>
+  <div class="r1"><span class="name">Rail card title truncation and layout review</span></div>
+  <div class="r2" title="muster / plan/rail-cards (worktree)">muster / plan/rail-cards (worktree)</div>
+  <div class="r3"><span class="ctx hot"><i style="width:77%"></i></span><span>77%</span><span class="tok">154k</span></div>
+  <div class="activity"><span class="who">on:</span> mock up at least 3 options for anything that needs a design</div>
+</div></article>
+<article class="card s-idle"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">idle</span><span class="timer">34m</span><button class="pin"></button></div>
+  <div class="r1"><span class="name">readme-tidy</span></div>
+  <div class="r2" title="muster / main">muster / main</div>
+  <div class="r3"><span class="ctx"><i style="width:8%"></i></span><span>8%</span><span class="tok">16k</span></div>
+  <div class="activity"><span class="who">claude:</span> rewrote the Commands section</div>
+</div></article>
+  </div>
+</div>
+<p class="cap">Attention order: needs input → failed → unread idle → started → planning → working → read idle. The working card is <b>current</b> (shown in Focus). Hovering a cut-off repo line shows it in full via <code>title</code>.</p>
+</div>
+
+<div class="opt compact">
+<h2>Rail · compact</h2>
+<div class="rail">
+  <div class="railhead"><span class="sel">Attention ▾</span><span class="n">6</span>
+    <div class="seg" role="group" aria-label="Card density">
+      <button class="seg-btn" aria-pressed="true" aria-label="Compact" title="Compact"><svg viewBox="0 0 14 12"><rect y="0.5" width="14" height="1.5"/><rect y="3.5" width="14" height="1.5"/><rect y="6.5" width="14" height="1.5"/><rect y="9.5" width="14" height="1.5"/></svg></button>
+      <button class="seg-btn" aria-pressed="false" aria-label="Comfortable" title="Comfortable"><svg viewBox="0 0 14 12"><rect y="0.5" width="14" height="2.5"/><rect y="4.75" width="14" height="2.5"/><rect y="9" width="14" height="2.5"/></svg></button>
+      <button class="seg-btn" aria-pressed="false" aria-label="Expanded" title="Expanded"><svg viewBox="0 0 14 12"><rect y="0.5" width="14" height="4.5"/><rect y="7" width="14" height="4.5"/></svg></button>
+    </div>
+  </div>
+  <div class="cards">
+<article class="card s-blocked"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">needs input</span><span class="timer">04:12</span></div>
+  <div class="r1"><span class="name" title="auth-jwt-rotation">auth-jwt-rotation</span></div>
+  <div class="r2" title="ledger-api / wt-auth (worktree)">ledger-api / wt-auth (worktree)</div>
+  <div class="r3"><span class="ctx"></span><span>19%</span><span class="tok">38k</span></div>
+  <div class="note">needs your permission — 04:12</div>
+</div></article>
+<article class="card s-failed"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">failed</span><span class="timer">6m</span></div>
+  <div class="r1"><span class="name" title="db-migration-audit">db-migration-audit</span></div>
+  <div class="r2" title="ledger-api / main">ledger-api / main</div>
+  <div class="r3"><span class="ctx"></span><span>61%</span><span class="tok">122k</span></div>
+  <div class="note fail">server_error — API error ended the turn</div>
+</div></article>
+<article class="card s-idle unread"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">idle</span><span class="timer">03:12</span></div>
+  <div class="r1"><span class="name" title="Fix the flaky retry wrapper in the e2e suite">Fix the flaky retry wrapper in the e2e suite</span></div>
+  <div class="r2" title="muster / plan/terminal-fixes-cleanup (worktree)">muster / plan/terminal-fixes-cleanup (worktree)</div>
+  <div class="r3"><span class="ctx"></span><span>42%</span><span class="tok">84k</span><span class="compact">⟳1</span></div>
+</div></article>
+<article class="card s-start"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">started</span><span class="timer">00:08</span></div>
+  <div class="r1"><span class="name" title="docs-pass">docs-pass</span></div>
+  <div class="r2" title="ccc-spike">ccc-spike</div>
+  <div class="r3 unk">context unknown</div>
+  <div class="note">first launch here — likely waiting on Claude Code's trust prompt</div>
+</div></article>
+<article class="card s-work current"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">working</span><span class="timer">02:31</span></div>
+  <div class="r1"><span class="name" title="Rail card title truncation and layout review">Rail card title truncation and layout review</span></div>
+  <div class="r2" title="muster / plan/rail-cards (worktree)">muster / plan/rail-cards (worktree)</div>
+  <div class="r3"><span class="ctx"></span><span>77%</span><span class="tok">154k</span></div>
+</div></article>
+<article class="card s-idle"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">idle</span><span class="timer">34m</span></div>
+  <div class="r1"><span class="name" title="readme-tidy">readme-tidy</span></div>
+  <div class="r2" title="muster / main">muster / main</div>
+  <div class="r3"><span class="ctx"></span><span>8%</span><span class="tok">16k</span></div>
+</div></article>
+  </div>
+</div>
+<p class="cap">Compact: title one line (ellipsis, full text on hover), context numbers without the track, no activity line, note clipped to one line.</p>
+</div>
+
+<div class="opt expanded">
+<h2>Rail · expanded</h2>
+<div class="rail">
+  <div class="railhead"><span class="sel">Attention ▾</span><span class="n">6</span>
+    <div class="seg" role="group" aria-label="Card density">
+      <button class="seg-btn" aria-pressed="false" aria-label="Compact" title="Compact"><svg viewBox="0 0 14 12"><rect y="0.5" width="14" height="1.5"/><rect y="3.5" width="14" height="1.5"/><rect y="6.5" width="14" height="1.5"/><rect y="9.5" width="14" height="1.5"/></svg></button>
+      <button class="seg-btn" aria-pressed="false" aria-label="Comfortable" title="Comfortable"><svg viewBox="0 0 14 12"><rect y="0.5" width="14" height="2.5"/><rect y="4.75" width="14" height="2.5"/><rect y="9" width="14" height="2.5"/></svg></button>
+      <button class="seg-btn" aria-pressed="true" aria-label="Expanded" title="Expanded"><svg viewBox="0 0 14 12"><rect y="0.5" width="14" height="4.5"/><rect y="7" width="14" height="4.5"/></svg></button>
+    </div>
+  </div>
+  <div class="cards">
+<article class="card s-blocked"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">needs input</span><span class="timer">04:12</span></div>
+  <div class="r1"><span class="name">auth-jwt-rotation</span></div>
+  <div class="r2" title="ledger-api / wt-auth (worktree)">ledger-api / wt-auth (worktree)</div>
+  <div class="r3"><span class="ctx"><i style="width:19%"></i></span><span>19%</span><span class="tok">38k</span></div>
+  <div class="activity"><span class="who">on:</span> rotate the staging keys, clean up the old ones in .keys/staging and make sure the deploy script still finds the new pair</div>
+  <div class="note">needs your permission — 04:12</div>
+</div></article>
+<article class="card s-idle unread"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">idle</span><span class="timer">03:12</span></div>
+  <div class="r1"><span class="name">Fix the flaky retry wrapper in the e2e suite</span></div>
+  <div class="r2" title="muster / plan/terminal-fixes-cleanup (worktree)">muster / plan/terminal-fixes-cleanup (worktree)</div>
+  <div class="r3"><span class="ctx"><i style="width:42%"></i></span><span>42%</span><span class="tok">84k</span><span class="compact">⟳1</span></div>
+  <div class="activity"><span class="who">claude:</span> Rewrote the retry wrapper so a slow trackpad's sub-line remainder carries over, and re-ran the suite three times; green locally each time.</div>
+</div></article>
+<article class="card s-work current"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">working</span><span class="timer">02:31</span></div>
+  <div class="r1"><span class="name">Rail card title truncation and layout review</span></div>
+  <div class="r2" title="muster / plan/rail-cards (worktree)">muster / plan/rail-cards (worktree)</div>
+  <div class="r3"><span class="ctx hot"><i style="width:77%"></i></span><span>77%</span><span class="tok">154k</span></div>
+  <div class="activity"><span class="who">on:</span> mock up at least 3 options for anything that needs a design and come back to me with the questions all at once</div>
+</div></article>
+  </div>
+</div>
+<p class="cap">Expanded: identical to comfortable except the activity line runs to three lines.</p>
+</div>
+</div>
+
+<div class="row">
+<div class="opt wide">
+<h2>Settings · new fieldset between Theme and Updates</h2>
+<div class="settings">
+  <h3>Rail card shows</h3>
+  <div class="seg-track"><span class="on">Turn-aware</span><span>Your prompt</span><span>Claude's reply</span><span>Both</span></div>
+  <p>Turn-aware shows your prompt while a turn is open and Claude's reply once it is idle. Applies to every rail and strip card, in every window.</p>
+</div>
+</div>
+<div class="opt wide">
+<h2>Activity line by pref, one idle card</h2>
+<div class="rail" style="width:440px">
+<div class="cards">
+<article class="card s-idle"><div class="stripe"></div><div class="card-in"><div class="r0"><span class="badge">idle</span><span class="timer">03:12</span></div><div class="r1"><span class="name">turn · idle</span></div><div class="activity"><span class="who">claude:</span> Rewrote the retry wrapper and re-ran the suite; green locally.</div></div></article>
+<article class="card s-work"><div class="stripe"></div><div class="card-in"><div class="r0"><span class="badge">working</span><span class="timer">00:40</span></div><div class="r1"><span class="name">turn · working</span></div><div class="activity"><span class="who">on:</span> fix the flaky retry and rerun the suite</div></div></article>
+<article class="card s-idle"><div class="stripe"></div><div class="card-in"><div class="r0"><span class="badge">idle</span><span class="timer">03:12</span></div><div class="r1"><span class="name">prompt</span></div><div class="activity"><span class="who">you:</span> fix the flaky retry and rerun the suite</div></div></article>
+<article class="card s-idle"><div class="stripe"></div><div class="card-in"><div class="r0"><span class="badge">idle</span><span class="timer">03:12</span></div><div class="r1"><span class="name">reply</span></div><div class="activity"><span class="who">claude:</span> Rewrote the retry wrapper and re-ran the suite; green locally.</div></div></article>
+<article class="card s-idle"><div class="stripe"></div><div class="card-in"><div class="r0"><span class="badge">idle</span><span class="timer">03:12</span></div><div class="r1"><span class="name">both</span></div><div class="activity"><span class="who">you:</span> fix the flaky retry and rerun the suite</div><div class="activity"><span class="who">claude:</span> Rewrote the retry wrapper and re-ran the suite; green locally.</div></div></article>
+</div></div>
+<p class="cap">Prefixes are literal text: <code>on:</code> for the open turn's prompt, <code>you:</code> for your prompt otherwise, <code>claude:</code> for the reply. A missing side renders nothing.</p>
+</div>
+</div>
+</body></html>

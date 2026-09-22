@@ -498,6 +498,20 @@ body {
   border-color: var(--fg-muted);
 }
 
+/* REQ-5: the rail-head density control — three icon-only `.seg-btn`s, tighter than the
+ * masthead/toolbar's own text segments (mockups/final.html's `.railhead .seg`). */
+.railhead .seg .seg-btn {
+  padding: 3px 6px;
+  line-height: 0;
+}
+
+.railhead .seg svg {
+  width: 14px;
+  height: 12px;
+  display: block;
+  fill: currentColor;
+}
+
 .cards {
   overflow-y: auto;
   flex: 1;
@@ -1805,20 +1819,60 @@ body {
   min-width: 0;
 }
 
-.r1 {
+/* REQ-1 (plan rail-card-improvements, layout C): `.r0` is the small state row — badge,
+ * timer, pin — that now leads the card; `.r1` holds only the wrapping title below it. */
+.r0 {
   display: flex;
   align-items: baseline;
   gap: 8px;
 }
 
+.r0 .timer {
+  margin-left: auto;
+}
+
+.r1 {
+  margin-top: 4px;
+  display: block;
+}
+
+/* REQ-1: the title wraps to as many lines as it needs in comfortable/expanded density —
+ * "nothing on the card truncates except in compact" — so the base (comfortable) rule
+ * carries no `overflow`/`text-overflow`; the compact density block below re-adds
+ * single-line clamping. */
 .card .name {
   font-family: var(--disp);
   font-weight: 700;
   font-size: var(--fs-base);
   letter-spacing: -0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  line-height: 1.25;
+  /* Decision read-idle-title-colour (Outcome A, docs/adr/rail-card-title-foreground-token.md,
+   * proposed): the rail's `.cards { color: var(--fg-dim) }` ground left the title inheriting
+   * metadata's token instead of its own display role (design-system §2); the strip already
+   * painted titles at `--fg`, so this brings the rail into line with it and makes REQ-9's
+   * read-idle drop to `--fg-muted` a real drop on both surfaces. */
+  color: var(--fg);
+}
+
+/* REQ-9 (unread idle): a neutral dot before the title, never a state colour
+ * (design-system §3) — `--fg` only, kb:adr/rail-unread-marker-neutral-dot. */
+.card.unread .name::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--fg);
+  margin-right: 7px;
+  vertical-align: 1px;
+}
+
+/* REQ-9: a read idle card's title drops to muted weight-600 — `--fg-muted` only, same
+ * "shape/weight carries the state, never colour meaning" rule as the dot above. */
+.card.s-idle:not(.unread) .name {
+  color: var(--fg-muted);
+  font-weight: 600;
 }
 
 .card .badge {
@@ -1923,6 +1977,13 @@ body {
   margin-top: 6px;
 }
 
+/* REQ-14: two activity lines can both show at once (`both` mode) — the second sits
+ * closer than the 6px `.r3`/`.note` rhythm, matching mockups/final.html's `.activity +
+ * .activity`. */
+.activity + .activity {
+  margin-top: 2px;
+}
+
 .activity[hidden] {
   display: none;
 }
@@ -1999,6 +2060,71 @@ body {
 .card.ended .name {
   text-decoration: line-through;
   text-decoration-color: var(--line-control);
+}
+
+/* ── rail card density (REQ-3/REQ-4, plan rail-card-improvements) ───────────────────────
+ * Keyed on `body[data-rail-density]`, written only from the `prefs` broadcast
+ * (features/rail.ts, INV-4) — never from the click. Comfortable is the reference render
+ * (the base card rules above); compact and expanded are the two deltas. Applies to the
+ * Tiles strip too, since `.strip .card` is the same shared card markup (E7/E16). */
+body[data-rail-density="compact"] .card-in {
+  padding: 6px 11px 7px;
+}
+body[data-rail-density="compact"] .r1 {
+  margin-top: 2px;
+}
+body[data-rail-density="compact"] .card .name {
+  /* Review cycle 1 Major 1: `.name` is a `<span>` inside the now-block `.r1`, so it
+   * computes `display: inline` and `overflow`/`text-overflow` are inert on a non-replaced
+   * inline box. A block formatting context makes the declared ellipsis apply; the unread
+   * dot (`.name::before`, `inline-block`) still flows on the same line as the title text
+   * because block boxes carry inline content in normal flow, and `title` on `.name` is
+   * unaffected by `display`. */
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--fs-md);
+}
+body[data-rail-density="compact"] .r2 {
+  margin-top: 3px;
+}
+body[data-rail-density="compact"] .r3 {
+  margin-top: 3px;
+}
+/* Only the track hides — the percent and token numbers stay (REQ-4). */
+body[data-rail-density="compact"] .r3 .ctx {
+  display: none;
+}
+/* Both activity lines are dropped entirely in compact, hidden or not — this rule is
+ * deliberately unconditional (not scoped to `:not([hidden])`), so it never races the
+ * `[hidden]` attribute the way an unconditional `display` rule can
+ * (kb:lesson/display-rule-overrides-hidden-attribute): every value it can take (a line
+ * with text, a line with none) ends at the same `display: none` either way. */
+body[data-rail-density="compact"] .activity {
+  display: none;
+}
+body[data-rail-density="compact"] .note {
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body[data-rail-density="expanded"] .activity {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* Unlike compact's unconditional override above, expanded's `display: -webkit-box` DOES
+ * collide with `.activity[hidden] { display: none }` on a null line — this selector's
+ * higher specificity (one more class) wins the cascade over both the generic `[hidden]`
+ * rule and the plain rule above, so a hidden line stays hidden in expanded density too
+ * (kb:lesson/display-rule-overrides-hidden-attribute's companion-rule requirement). */
+body[data-rail-density="expanded"] .activity[hidden] {
+  display: none;
 }
 
 /* ── pin control (plan order-sidebar REQ-8/REQ-9/REQ-17) ─────────────────────────────── */

@@ -2,7 +2,7 @@
 id: domain-model
 type: diagram
 status: active
-date: 2026-09-15
+date: 2026-09-22
 kind: domain
 summary: The logical model in plain terms — a Session, its Repo, Terminals, Tabs, Events, Context Usage and plan, beside Account Usage and User Settings.
 features: []
@@ -49,6 +49,7 @@ classDiagram
         branch, is_worktree
         pane snapshot when dead
         pinned, position
+        unread, last_prompt
     }
     class Repo {
         identity: path
@@ -94,6 +95,8 @@ classDiagram
         view: focus, tiles
         density: 2x2, 3x2
         rail_sort: manual, attention
+        rail_density: compact, comfortable, expanded
+        rail_activity: turn, prompt, reply, both
         usage_model
         theme: follow, instrument, dark, light
         update_check

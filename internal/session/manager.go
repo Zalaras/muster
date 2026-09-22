@@ -39,6 +39,15 @@ type Killer interface {
 	ListSessions(ctx context.Context) ([]string, error)
 }
 
+// Watcher answers whether a session currently has a live terminal client attached, on
+// either surface (plan rail-card-improvements REQ-8, kb:anchor/state.tracked) —
+// internal/server's terminal registry satisfies it. Apply's turn_closed handling treats
+// a nil Watcher (e.g. a Manager built without one, most unit tests) as reporting false
+// for every id — unwatched, never a panic.
+type Watcher interface {
+	Watched(sessionID int64) bool
+}
+
 // Sentinel errors the internal/server package branches on to pick an HTTP status
 // (kb:anchor/sessions.resume / kb:anchor/sessions.end / kb:anchor/sessions.remove) — the one place callers of End/Remove/RecordResume
 // must inspect a specific error rather than treating every failure alike.
@@ -68,6 +77,7 @@ type Config struct {
 	OnUpsert        func(*Session)  // broadcasts a sessionUpsert; may be nil in tests
 	OnRemoved       func(id int64)  // broadcasts sessionRemoved (m4-reconcile REQ-6); may be nil in tests
 	PollInterval    time.Duration   // 0 uses defaultPollInterval
+	Watcher         Watcher         // REQ-8; nil counts every session as unwatched
 }
 
 // Manager is the in-memory session registry and the kb:anchor/state state machine's home. Every
@@ -82,6 +92,7 @@ type Manager struct {
 	onUpsert        func(*Session)
 	onRemoved       func(id int64)
 	interval        time.Duration
+	watcher         Watcher
 
 	mu       sync.Mutex
 	sessions map[int64]*Session
@@ -146,6 +157,7 @@ func NewManager(cfg Config) *Manager {
 		onUpsert:        cfg.OnUpsert,
 		onRemoved:       cfg.OnRemoved,
 		interval:        interval,
+		watcher:         cfg.Watcher,
 		sessions:        make(map[int64]*Session),
 		byClaude:        make(map[string]int64),
 	}
@@ -810,6 +822,14 @@ func (m *Manager) Apply(ctx context.Context, musterSessionID int64, claudeSessio
 	if input.Kind == claudecode.KindBind || input.Kind == claudecode.KindClearRebind {
 		m.byClaude[claudeSessionID] = musterSessionID
 	}
+	// REQ-7/REQ-8: a closing turn sets Unread from the watcher's answer at this moment —
+	// true iff no terminal client is attached to this session on either surface, false
+	// otherwise. A nil watcher (Config.Watcher unset, most unit tests) counts as
+	// unwatched. Every other input kind leaves Unread to setState's own idle-only rule
+	// (session.go).
+	if input.Kind == claudecode.KindTurnClosed {
+		sess.Unread = m.watcher == nil || !m.watcher.Watched(musterSessionID)
+	}
 	row := sessionToRow(sess)
 	snapshot := sess.Clone()
 	m.mu.Unlock()
@@ -912,6 +932,34 @@ func (m *Manager) SetTitle(ctx context.Context, id int64, title *string) (bool, 
 	}
 	m.broadcast(snapshot)
 	return true, nil
+}
+
+// MarkSeen clears id's Unread flag (plan rail-card-improvements REQ-8): the attach side
+// effect on either terminal surface, called before the first byte is forwarded.
+// Persists and broadcasts one sessionUpsert only when Unread was actually true (D8) — an
+// already-read session's attach neither writes nor broadcasts. Returns ErrUnknownSession
+// for a missing id.
+func (m *Manager) MarkSeen(ctx context.Context, id int64) error {
+	m.mu.Lock()
+	sess, ok := m.sessions[id]
+	if !ok {
+		m.mu.Unlock()
+		return ErrUnknownSession
+	}
+	if !sess.Unread {
+		m.mu.Unlock()
+		return nil
+	}
+	sess.Unread = false
+	row := sessionToRow(sess)
+	snapshot := sess.Clone()
+	m.mu.Unlock()
+
+	if err := m.store.UpdateSession(ctx, row); err != nil {
+		return fmt.Errorf("marking session %d seen: %w", id, err)
+	}
+	m.broadcast(snapshot)
+	return nil
 }
 
 // SetTranscript records id's latest known transcript path (REQ-16), persisting only
@@ -1571,6 +1619,8 @@ func rowToSession(row store.SessionRow) *Session {
 		RailPos:              row.RailPos,
 		TitleOverride:        row.TitleOverride,
 		PlanExists:           row.PlanExists,
+		Unread:               row.Unread,
+		LastPrompt:           row.LastPrompt,
 	}
 	applyReaderRowFields(s, row)
 	if row.TmuxPane != nil {
@@ -1644,6 +1694,8 @@ func sessionToRow(s *Session) store.SessionRow {
 		RailPos:              s.RailPos,
 		TitleOverride:        s.TitleOverride,
 		PlanExists:           s.PlanExists,
+		Unread:               s.Unread,
+		LastPrompt:           s.LastPrompt,
 	}
 	if s.TranscriptPath != "" {
 		transcriptPath := s.TranscriptPath

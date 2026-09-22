@@ -1,33 +1,34 @@
 import { basename } from "node:path";
-import { expect, type Page, test } from "./helpers/fixtures";
+import { expect, test } from "./helpers/fixtures";
+import { newSessionButton } from "./helpers/railcards";
 import { childEntry, crumbButton, launchDialog } from "./helpers/picker";
 import { browseScratchDirectory, launchSession } from "./helpers/session";
 import { liveTile, stripCard } from "./helpers/terminal";
 
-// TODO.md "Create new session from tile view": the Focus rail's New session button is
-// hidden with the rail whenever Tiles is active, so Tiles gets its own button in the
-// density toolbar, driving the same #launch-dialog, and a launch made from Tiles always
-// lands as a live tile (promoting into a full grid) rather than in the strip.
+// TODO.md "Create new session from tile view": a launch made from Tiles always lands as
+// a live tile (promoting into a full grid) rather than in the strip, driving the same
+// #launch-dialog as everywhere else.
+//
+// Plan rail-card-improvements REQ-6 (kb:adr/launch-new-session-button-in-masthead)
+// retired the Tiles toolbar's own `#tiles-new-session-button`: the single masthead
+// `#new-session-button` (`helpers/railcards.ts`) now stays mounted and visible in both
+// views, so this file no longer needs its own view-scoped locator.
 //
 // Grid membership depends on the EXACT total session count (`toHaveCount(4)` on the grid,
 // the `#tiles-empty` state) and prefs are global per daemon, so — like views.spec.ts —
 // every test here takes the per-test `daemon` fixture (helpers/fixtures.ts).
 
-/** Tiles' New session button, scoped to `#view-tiles`: the view switch lands only after
- * the prefs round-trip, so an unscoped role query can resolve to the rail's still-visible
- * button and then wait forever on it once the rail hides (same trap `stripCard` documents). */
-function newSessionButton(page: Page) {
-  return page.locator("#view-tiles").getByRole("button", { name: "New session" });
-}
-
-test("Tiles exposes a New session button that opens the launch modal", async ({ page, daemon }) => {
+test("Tiles shows the masthead New session button, with no Tiles-only button, and it opens the launch modal", async ({
+  page,
+  daemon,
+}) => {
   await page.goto(daemon.dashboardUrl);
   await page.getByRole("button", { name: "Tiles" }).click();
 
-  // The rail (and its button) is hidden with the Focus view; the toolbar one takes over.
-  await expect(page.locator("#new-session-button")).toBeHidden();
-  const button = page.locator("#tiles-new-session-button");
-  await expect(button).toBeVisible();
+  // REQ-6/INV-3: one button total, visible in Tiles too — not hidden with the rail, and
+  // the old Tiles-only toolbar button is gone.
+  await expect(newSessionButton(page)).toBeVisible();
+  await expect(page.locator("#tiles-new-session-button")).toHaveCount(0);
   await expect(page.locator("#tiles-empty")).toContainText("New session");
 
   await newSessionButton(page).click();

@@ -10,11 +10,12 @@ go: [internal/server/browse*.go, internal/server/repos*.go, internal/server/sess
 web: [web/src/features/launch.ts, web/src/render/crumbs*.ts]
 e2e: [web/e2e/launch.spec.ts, web/e2e/tiles-launch.spec.ts, web/e2e/permission-mode.spec.ts, web/e2e/helpers/picker.ts]
 protocol: [sessions.create, repos.list, browse.get]
-refs: [kb:adr/launch-picker-recent-sidebar-plus-browse-list, kb:adr/launch-browse-via-daemon-not-native-chooser, kb:adr/launch-hybrid-mru-directory-memory, kb:adr/launch-form-seeds-model-and-permission-mode, kb:adr/launch-model-presets-passed-verbatim, kb:adr/launch-permission-modes-offered-four-tabbed, kb:adr/launch-bypass-and-dontask-unoffered, kb:adr/launch-trust-prompt-never-auto-answered, kb:adr/launch-settings-local-json-not-settings-json, kb:adr/launch-project-scoped-settings-not-config-dir, kb:adr/tiles-launched-session-promoted-into-grid, kb:fact/name-flag-reaches-title, kb:fact/permission-mode-flag-on-wire, kb:fact/permission-mode-auto-model-gated, kb:fact/fable-model-alias, kb:fact/local-settings-honoured, kb:fact/config-dir-breaks-oauth, kb:fact/trust-prompt-preselects-exit, docs/design/ux-flows.md]
+refs: [kb:adr/launch-picker-recent-sidebar-plus-browse-list, kb:adr/launch-browse-via-daemon-not-native-chooser, kb:adr/launch-hybrid-mru-directory-memory, kb:adr/launch-form-seeds-model-and-permission-mode, kb:adr/launch-model-presets-passed-verbatim, kb:adr/launch-permission-modes-offered-four-tabbed, kb:adr/launch-bypass-and-dontask-unoffered, kb:adr/launch-trust-prompt-never-auto-answered, kb:adr/launch-settings-local-json-not-settings-json, kb:adr/launch-project-scoped-settings-not-config-dir, kb:adr/tiles-launched-session-promoted-into-grid, kb:adr/launch-new-session-button-in-masthead, kb:fact/name-flag-reaches-title, kb:fact/permission-mode-flag-on-wire, kb:fact/permission-mode-auto-model-gated, kb:fact/fable-model-alias, kb:fact/local-settings-honoured, kb:fact/config-dir-breaks-oauth, kb:fact/trust-prompt-preselects-exit, docs/design/ux-flows.md]
 ---
 Sessions are launched from the dashboard and nowhere else: macOS gives no access to another
-process's PTY, so Muster manages only what it started. The dialog opens from the rail's New
-session button, the Tiles toolbar button or the launch chord (kb:spec/shortcuts).
+process's PTY, so Muster manages only what it started. The dialog opens from the masthead's
+New session button or the launch chord (kb:spec/shortcuts,
+kb:adr/launch-new-session-button-in-masthead).
 
 ## The picker
 

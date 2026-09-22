@@ -39,6 +39,8 @@ const onPrefs: Prefs = {
   railSort: "manual",
   theme: "follow",
   updateCheck: true,
+  railDensity: "comfortable",
+  railActivity: "turn",
 };
 const offPrefs: Prefs = { ...onPrefs, updateCheck: false };
 

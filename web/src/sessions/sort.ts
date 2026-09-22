@@ -1,16 +1,30 @@
 // The client-side rail sort (REQ-16, kb:anchor/ws.snapshot, ux-flows §3.4). The daemon
 // never orders for display — this is the one place that priority table lives, kept pure
 // so Vitest can pin every state and tiebreak without a DOM.
-import type { RailSort, Session, SessionState } from "../protocol";
+import type { RailSort, Session } from "../protocol";
 
-const STATE_PRIORITY: Record<SessionState, number> = {
-  needs_input: 0,
-  failed: 1,
-  planning: 2,
-  working: 3,
-  started: 4,
-  idle: 5,
-};
+/** REQ-11 (plan rail-card-improvements): the attention priority table, amended from the
+ * six-state table above — `idle` now splits on `unread`, sorting into the "your turn"
+ * group (ahead of `started`) when unread and staying last, after `working`, when read.
+ * `started` moves ahead of `planning`/`working` into the "your turn" group too (a
+ * launched session is waiting for its first prompt). One function, not a static
+ * `Record`, since `idle`'s rank now depends on a second field. */
+function statePriority(session: Session): number {
+  switch (session.state) {
+    case "needs_input":
+      return 0;
+    case "failed":
+      return 1;
+    case "idle":
+      return session.unread ? 2 : 6;
+    case "started":
+      return 3;
+    case "planning":
+      return 4;
+    case "working":
+      return 5;
+  }
+}
 
 function parseTime(iso: string): number {
   const parsed = Date.parse(iso);
@@ -52,7 +66,7 @@ export function sortSessions(sessions: readonly Session[]): Session[] {
       if (byEnded !== 0) return byEnded;
       return a.id - b.id;
     }
-    const byPriority = STATE_PRIORITY[a.state] - STATE_PRIORITY[b.state];
+    const byPriority = statePriority(a) - statePriority(b);
     if (byPriority !== 0) return byPriority;
     const byOrder = orderKey(a) - orderKey(b);
     if (byOrder !== 0) return byOrder;

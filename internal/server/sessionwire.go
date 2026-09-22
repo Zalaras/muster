@@ -36,6 +36,10 @@ type sessionWire struct {
 	// plan file, null when the latest known transcript names none. Required key on
 	// every Session object.
 	Plan *sessionWirePlan `json:"plan"`
+	// Unread/LastPrompt (plan rail-card-improvements REQ-7/REQ-12, kb:anchor/ws.session):
+	// required keys on every Session object.
+	Unread     bool    `json:"unread"`
+	LastPrompt *string `json:"lastPrompt"`
 }
 
 type sessionWireAttention struct {
@@ -116,6 +120,8 @@ func toWireSession(s *session.Session) sessionWire {
 		Pinned:          s.Pinned,
 		RailPos:         s.RailPos,
 		Plan:            toWireSessionPlan(s),
+		Unread:          s.Unread,
+		LastPrompt:      s.LastPrompt,
 	}
 
 	if s.EndedAt != nil {

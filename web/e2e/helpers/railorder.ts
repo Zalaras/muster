@@ -42,10 +42,11 @@ export async function stripOrderIds(page: Page): Promise<number[]> {
 }
 
 /**
- * The pin/unpin control inside a card's `.r1` (Testable UI Elements: role `button`, name
- * `Pin` unpinned / `Unpin` pinned, `aria-pressed` mirroring `pinned`). The accessible
- * name flips with state, so match either — callers assert the specific name/state
- * separately.
+ * The pin/unpin control inside a card's state row (Testable UI Elements: role `button`,
+ * name `Pin` unpinned / `Unpin` pinned, `aria-pressed` mirroring `pinned`; plan
+ * rail-card-improvements REQ-1 moved this control's container from `.r1` into `.r0`,
+ * `web/src/render/sessions.ts`). The accessible name flips with state, so match either —
+ * callers assert the specific name/state separately.
  */
 export function pinButton(card: Locator): Locator {
   return card.getByRole("button", { name: /^(Pin|Unpin)$/ });

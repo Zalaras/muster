@@ -2,16 +2,16 @@
 id: store-schema
 type: diagram
 status: active
-date: 2026-09-15
+date: 2026-09-22
 kind: er
-summary: Every SQLite table at its final shape after migrations 0001-0008, with the schema's single foreign key.
+summary: Every SQLite table at its final shape after migrations 0001-0009, with the schema's single foreign key.
 features: []
 tags: [store]
 files: [internal/store/migrations/*.sql, internal/store/*.go]
 tests: [TestMigrate_AppliesInitSchema, TestMigrate_CreatesSchemaMigrationsTableIfAbsent]
 refs: [kb:ref/data-model, kb:adr/lifecycle-session-identity-is-tmux-target, kb:adr/ingest-seq-assigned-at-ingest, kb:adr/ingest-envelope-binds-never-cwd, plans/_audit/diagrams-from-code.md]
 ---
-Final shape, with the additive `ALTER TABLE`s of 0003-0008 folded into `session`. Migrations are
+Final shape, with the additive `ALTER TABLE`s of 0003-0009 folded into `session`. Migrations are
 forward-only and purely additive: no migration has ever changed or dropped a column, and the one
 data statement is 0006's `rail_pos` backfill.
 
@@ -98,6 +98,8 @@ erDiagram
         TEXT transcript_file "0008, display only"
         TEXT plan_path "0008"
         INTEGER plan_exists "0008, NOT NULL DEFAULT 0"
+        INTEGER unread "0009, NOT NULL DEFAULT 0"
+        TEXT last_prompt "0009, display only"
     }
 
     event {

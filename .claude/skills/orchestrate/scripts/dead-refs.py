@@ -5,7 +5,8 @@ that markdown or a code comment cites must exist.
 Default scope: files changed against main (on main: the last commit). --all scans the tree.
 Exit 1 on any missing reference, 0 otherwise; a run that extracts nothing says so instead
 of passing silently. plans/** and docs/history/** are out of scope — they record what was
-true when written.
+true when written. A target git ignores (`.claude/settings.local.json`, a rig capture) is reported
+as `ignored`, not missing: it exists by design in a real checkout and never in a fresh worktree.
 
 Why (2026-09-11): three of four consecutive second review cycles were a stale statement, and
 two of those were a reference to something deleted (a Go comment pointing at a removed doc;
@@ -22,7 +23,6 @@ os.chdir(ROOT)
 
 # Tokens that look like repo paths but are not, one reason each.
 WHITELIST = {
-    "web/dist": "build output, gitignored",
     "test/expect/types": "a @playwright/test import path, not a repo dir",
     "cmd/muster-desktop/": "the future Wails wrapper (kb:adr/stack-wails-desktop-shell-deferred), deliberately not built",
 }
@@ -35,6 +35,16 @@ SKIP_CHARS = ("*", "<", ">", "{", "…", "$", "...")
 
 def git(*args):
     return subprocess.run(["git", *args], capture_output=True, text=True, check=True).stdout
+
+
+def gitignored(paths):
+    """The subset of paths .gitignore covers — cited on purpose, absent by design (a worktree has none)."""
+    if not paths:
+        return set()
+    query = [q for p in paths for q in (p, p.rstrip("/") + "/")]  # a directory pattern needs the slash
+    r = subprocess.run(["git", "check-ignore", "--stdin"], input="\n".join(query) + "\n", capture_output=True, text=True)
+    hits = {h for h in r.stdout.split("\n") if h}
+    return {p for p in paths if p in hits or p.rstrip("/") + "/" in hits}
 
 
 def scope_files(argv):
@@ -112,6 +122,7 @@ def main(argv):
     files = [f for f in scope_files(argv) if in_scope(f) and os.path.isfile(f)]
     targets, flags, basenames = known_make_targets(), known_flags(), tracked_basenames()
     checked = missing = 0
+    pending = []
     for f in files:
         with open(f, errors="replace") as fh:
             text = fh.read()
@@ -158,8 +169,14 @@ def main(argv):
                 d, _, last = p.rpartition("/")  # Go qualified identifier: internal/session.Manager → internal/session
                 if re.match(r"^[a-z0-9_]+\.[A-Za-z]", last) and os.path.isdir(os.path.join(d, last.split(".")[0])):
                     continue
-                missing += 1
-                print(f"{f}:{ln}  {tok}  missing (path)")
+                pending.append((f, ln, tok, p))
+    ignored = gitignored({p for _, _, _, p in pending})
+    for f, ln, tok, p in pending:
+        if p in ignored:
+            print(f"{f}:{ln}  {tok}  ignored (gitignored by design)")
+            continue
+        missing += 1
+        print(f"{f}:{ln}  {tok}  missing (path)")
     moved = moved_paths()
     if moved:  # a rename orphans citations in files the diff never touched — scan the whole tree
         pats = ["*.md", "*.go", "*.ts", "*.sh", "Makefile", ".githooks/*"]
@@ -173,7 +190,7 @@ def main(argv):
                         missing += 1
                         print(f"{f}:{ln}  {tail}  missing (moved: {old} -> {new or 'deleted'})")
     for w in WHITELIST:
-        exists = (w.startswith("make ") and w[5:] in targets) or (not w.startswith("make ") and os.path.exists(w) and w not in ("web/dist",))
+        exists = (w.startswith("make ") and w[5:] in targets) or (not w.startswith("make ") and os.path.exists(w))
         if exists:
             print(f"dead-refs: whitelist entry {w!r} now exists — remove it from WHITELIST")
     if checked == 0:

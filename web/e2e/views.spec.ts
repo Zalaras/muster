@@ -181,6 +181,9 @@ test("GET /api/state's prefs snapshot carries both view and density (M2 protocol
   // docs/protocol.md on approval; default "follow" before any PUT) — same rationale.
   // `updateCheck` was added by plan auto-update (kb:anchor/prefs.put / kb:anchor/ws.prefs delta, merged into
   // docs/protocol.md on approval; default true before any PUT) — same rationale.
+  // `railDensity`/`railActivity` were added by plan rail-card-improvements (plan.md's
+  // Protocol Contract, merged into docs/protocol.md on approval; default "comfortable" /
+  // "turn" before any PUT) — same rationale.
   const before = (await stateRes.json()) as {
     prefs: {
       view: string;
@@ -189,6 +192,8 @@ test("GET /api/state's prefs snapshot carries both view and density (M2 protocol
       railSort: string;
       theme: string;
       updateCheck: boolean;
+      railDensity: string;
+      railActivity: string;
     };
   };
   expect(before.prefs).toEqual({
@@ -198,6 +203,8 @@ test("GET /api/state's prefs snapshot carries both view and density (M2 protocol
     railSort: "manual",
     theme: "follow",
     updateCheck: true,
+    railDensity: "comfortable",
+    railActivity: "turn",
   });
 
   const putRes = await page.request.put(`${daemon.baseURL}/api/prefs`, {
@@ -214,6 +221,8 @@ test("GET /api/state's prefs snapshot carries both view and density (M2 protocol
       railSort: string;
       theme: string;
       updateCheck: boolean;
+      railDensity: string;
+      railActivity: string;
     };
   };
   expect(after.prefs).toEqual({
@@ -223,5 +232,7 @@ test("GET /api/state's prefs snapshot carries both view and density (M2 protocol
     railSort: "manual",
     theme: "follow",
     updateCheck: true,
+    railDensity: "comfortable",
+    railActivity: "turn",
   });
 });

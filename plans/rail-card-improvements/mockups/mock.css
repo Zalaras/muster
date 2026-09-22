@@ -1,0 +1,97 @@
+/* Shared chrome for the rail-card-improvements mockups. Tokens and card rules are
+ * transcribed from web/src/style.css (instrument theme) so every option renders on the
+ * real card; each page adds only the rules its options change. */
+:root {
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --disp: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --fs-root: 15px;
+  --fs-2xs: 0.68rem;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.82rem;
+  --fs-md: 0.89rem;
+  --fs-base: 1rem;
+  --fs-lg: 1.07rem;
+  --fs-xl: 1.14rem;
+  --bg: #12141c;
+  --bg-raised: #171a24;
+  --bg-hover: #1c2029;
+  --well: #0d0f16;
+  --line: #282d3b;
+  --line-control: #343a4a;
+  --edge: #6a7286;
+  --fg: #e8e6e1;
+  --fg-muted: #b2b6c3;
+  --fg-dim: #a6abbc;
+  --amber: #f2a33c;
+  --rose: #e77f7f;
+  --violet: #9e91f1;
+  --teal: #56c5d0;
+  --idle: #989db1;
+  --amber-line: #5c4526;
+  --rose-line: #5c2e2e;
+  --violet-line: #3e3663;
+  --teal-line: #215058;
+  --amber-note: #f5cc93;
+  --rose-note: #f1b0b0;
+  --amber-fg: #12141c;
+}
+html { font-size: var(--fs-root); }
+body {
+  margin: 0;
+  padding: 28px 32px 60px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: var(--fs-base);
+}
+h1 { font-family: var(--disp); font-size: var(--fs-xl); margin: 0 0 6px; letter-spacing: -0.01em; }
+h2 { font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-dim); margin: 0 0 10px; }
+p.lead { color: var(--fg-muted); max-width: 900px; margin: 0 0 26px; line-height: 1.5; font-size: var(--fs-md); }
+.opts { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+.opt { width: 300px; flex: none; }
+.opt .cap { font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-dim); line-height: 1.5; margin: 10px 0 0; }
+.opt .cap b { color: var(--fg); font-weight: 600; }
+.opt.wide { width: 440px; }
+
+/* rail */
+.rail { width: 300px; border: 1px solid var(--line); background: var(--bg-raised); display: flex; flex-direction: column; }
+.opt.wide .rail { width: 440px; }
+.railhead { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-dim); }
+.railhead .n { margin-left: auto; font-variant-numeric: tabular-nums; }
+.railhead .sel { border: 1px solid var(--edge); border-radius: 3px; padding: 2px 4px; color: var(--fg-dim); }
+.cards { display: flex; flex-direction: column; }
+
+/* card — verbatim from style.css */
+.card { display: flex; border-bottom: 1px solid var(--line); position: relative; cursor: pointer; }
+.card:hover { background: var(--bg-hover); }
+.card.current { background: var(--bg-hover); outline: 1px solid var(--edge); outline-offset: -1px; }
+.card .stripe { width: 3px; flex: none; background: var(--fg-dim); }
+.card-in { padding: 9px 11px 10px; flex: 1; min-width: 0; }
+.r1 { display: flex; align-items: baseline; gap: 8px; }
+.card .name { font-family: var(--disp); font-weight: 700; font-size: var(--fs-base); letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card .badge { font-family: var(--mono); font-size: var(--fs-2xs); letter-spacing: 0.11em; text-transform: uppercase; padding: 2px 5px; border: 1px solid var(--line-control); color: var(--fg-muted); flex: none; }
+.card .timer { margin-left: auto; font-family: var(--mono); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; color: var(--fg-dim); flex: none; }
+.card .pin { border: none; background: transparent; padding: 0 2px; margin-left: 6px; font-size: var(--fs-md); line-height: 1; color: var(--fg-dim); opacity: 0; }
+.card .pin::before { content: "⚲"; }
+.card.pinned .pin, .card:hover .pin { opacity: 1; }
+.r2 { font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-dim); margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.r3 { display: flex; align-items: center; gap: 7px; margin-top: 7px; font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+.r3.unk { color: var(--fg-dim); font-style: italic; }
+.r3 .ctx { width: 52px; height: 3px; background: var(--line); position: relative; flex: none; }
+.r3 .ctx i { position: absolute; inset: 0 auto 0 0; background: var(--fg-muted); }
+.r3 .ctx.hot i { background: var(--amber); }
+.r3 .compact { margin-left: auto; color: var(--fg-dim); }
+.activity { font-family: var(--mono); font-size: var(--fs-xs); line-height: 1.4; color: var(--fg-dim); margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.note { margin-top: 7px; font-family: var(--mono); font-size: var(--fs-xs); line-height: 1.5; color: var(--amber-note); border-left: 2px solid var(--amber); padding-left: 8px; }
+.note.fail { color: var(--rose-note); border-color: var(--rose); }
+.s-blocked .stripe { background: var(--amber); } .s-blocked .badge { color: var(--amber); border-color: var(--amber-line); }
+.s-failed .stripe { background: var(--rose); } .s-failed .badge { color: var(--rose); border-color: var(--rose-line); }
+.s-plan .stripe { background: var(--violet); } .s-plan .badge { color: var(--violet); border-color: var(--violet-line); }
+.s-work .stripe { background: var(--teal); } .s-work .badge { color: var(--teal); border-color: var(--teal-line); }
+.s-start .stripe { background: var(--fg-muted); } .s-start .badge { color: var(--fg-muted); }
+.s-idle .stripe { background: var(--idle); } .s-idle .badge { color: var(--idle); }
+.card.ended { opacity: 0.55; }
+
+/* annotation chip on a card */
+.tag { position: absolute; right: 8px; bottom: 6px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--edge); }

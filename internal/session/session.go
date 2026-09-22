@@ -117,6 +117,20 @@ type Session struct {
 	PlanPath       string
 	PlanExists     bool
 
+	// Unread (plan rail-card-improvements REQ-7): true iff the turn closed with no
+	// terminal client attached to this session, since cleared. INV: Unread ⇒ State ==
+	// idle, enforced by setState — the one place every applyInput arm routes through.
+	// Set by Manager.Apply after a turn_closed input per the watcher's answer; cleared by
+	// Manager.MarkSeen (attach on either surface). Display-only, independent of Alive,
+	// survives a restart.
+	Unread bool
+
+	// LastPrompt (plan rail-card-improvements REQ-12): the user's most recent prompt,
+	// truncated to 200 chars, nil until a first prompt or after /clear. Set by
+	// KindTurnActivity when the adapter supplied one; display-only, never read by the
+	// state machine.
+	LastPrompt *string
+
 	currentPromptID string
 	closedPromptIDs []string // bounded ring, most recent last, capped at maxClosedPrompts
 }
@@ -165,7 +179,14 @@ func (s *Session) closePrompt(id string) {
 
 // setState transitions to next, updating stateSince only when the state actually
 // changes (Edge Case 3: reapplying an event to the same state is a no-op transition).
+// Every transition to a non-idle state clears Unread (kb:anchor/state.tracked's Unread ⇒
+// idle invariant) — enforced here, the one place every applyInput arm routes through, so
+// no arm can strand it. Manager.Apply is the only place that ever sets Unread true, after
+// applyInput returns.
 func (s *Session) setState(next State, now time.Time) {
+	if next != StateIdle {
+		s.Unread = false
+	}
 	if s.State == next {
 		return
 	}

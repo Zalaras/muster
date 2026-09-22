@@ -41,6 +41,8 @@ const validSnapshot = {
     railSort: "manual",
     theme: "follow",
     updateCheck: true,
+    railDensity: "comfortable",
+    railActivity: "turn",
   },
   claudeTheme: { family: "unknown" },
   update: validUpdateInfo,
@@ -226,6 +228,8 @@ describe("parseMessage — snapshot", () => {
         railSort: "manual",
         theme: "follow",
         updateCheck: true,
+        railDensity: "comfortable",
+        railActivity: "turn",
       },
     };
     expect(parseMessage(snapshot)).toEqual(snapshot);
@@ -241,6 +245,8 @@ describe("parseMessage — snapshot", () => {
         railSort: "manual",
         theme: "follow",
         updateCheck: true,
+        railDensity: "comfortable",
+        railActivity: "turn",
       },
     });
   });
@@ -266,6 +272,8 @@ describe("parseMessage — snapshot", () => {
         railSort: "manual",
         theme: "follow",
         updateCheck: true,
+        railDensity: "comfortable",
+        railActivity: "turn",
       },
     });
   });
@@ -279,7 +287,14 @@ describe("parsePrefs — railSort (plan order-sidebar REQ-5 / kb:anchor/prefs.pu
     };
     expect(parseMessage(snapshot)).toEqual({
       ...snapshot,
-      prefs: { ...snapshot.prefs, railSort: "manual", theme: "follow", updateCheck: true },
+      prefs: {
+        ...snapshot.prefs,
+        railSort: "manual",
+        theme: "follow",
+        updateCheck: true,
+        railDensity: "comfortable",
+        railActivity: "turn",
+      },
     });
   });
 
@@ -299,6 +314,71 @@ describe("parsePrefs — railSort (plan order-sidebar REQ-5 / kb:anchor/prefs.pu
   });
 });
 
+// Plan rail-card-improvements (kb:anchor/prefs.put, W7): same missing-key-defaults /
+// out-of-enum-rejects shape as railSort above — a pre-plan daemon payload (no
+// railDensity/railActivity keys at all) must still parse, defaulting to the daemon's own
+// documented defaults ("comfortable"/"turn").
+describe("parsePrefs — railDensity (plan rail-card-improvements / kb:anchor/prefs.put)", () => {
+  it("defaults a missing railDensity to 'comfortable' (pre-plan daemon payload)", () => {
+    const { railDensity, ...restPrefs } = validSnapshot.prefs;
+    const snapshot = { ...validSnapshot, prefs: restPrefs };
+    expect(parseMessage(snapshot)).toEqual({
+      ...snapshot,
+      prefs: { ...restPrefs, railDensity: "comfortable" },
+    });
+  });
+
+  it.each(["compact", "comfortable", "expanded"] as const)(
+    "parses an explicit railDensity of '%s'",
+    (railDensity) => {
+      const snapshot = { ...validSnapshot, prefs: { ...validSnapshot.prefs, railDensity } };
+      expect(parseMessage(snapshot)).toEqual(snapshot);
+    },
+  );
+
+  it("rejects a railDensity value outside the compact|comfortable|expanded enum", () => {
+    const snapshot = { ...validSnapshot, prefs: { ...validSnapshot.prefs, railDensity: "cosy" } };
+    expect(parseMessage(snapshot)).toBeNull();
+  });
+
+  it("rejects a non-string railDensity", () => {
+    const snapshot = { ...validSnapshot, prefs: { ...validSnapshot.prefs, railDensity: 1 } };
+    expect(parseMessage(snapshot)).toBeNull();
+  });
+});
+
+describe("parsePrefs — railActivity (plan rail-card-improvements / kb:anchor/prefs.put)", () => {
+  it("defaults a missing railActivity to 'turn' (pre-plan daemon payload)", () => {
+    const { railActivity, ...restPrefs } = validSnapshot.prefs;
+    const snapshot = { ...validSnapshot, prefs: restPrefs };
+    expect(parseMessage(snapshot)).toEqual({
+      ...snapshot,
+      prefs: { ...restPrefs, railActivity: "turn" },
+    });
+  });
+
+  it.each(["turn", "prompt", "reply", "both"] as const)(
+    "parses an explicit railActivity of '%s'",
+    (railActivity) => {
+      const snapshot = { ...validSnapshot, prefs: { ...validSnapshot.prefs, railActivity } };
+      expect(parseMessage(snapshot)).toEqual(snapshot);
+    },
+  );
+
+  it("rejects a railActivity value outside the turn|prompt|reply|both enum", () => {
+    const snapshot = {
+      ...validSnapshot,
+      prefs: { ...validSnapshot.prefs, railActivity: "summary" },
+    };
+    expect(parseMessage(snapshot)).toBeNull();
+  });
+
+  it("rejects a non-string railActivity", () => {
+    const snapshot = { ...validSnapshot, prefs: { ...validSnapshot.prefs, railActivity: 1 } };
+    expect(parseMessage(snapshot)).toBeNull();
+  });
+});
+
 describe("parseMessage — prefs (M2 REQ-10/INV-4: the PUT /api/prefs echo broadcast)", () => {
   const validPrefsMessage = {
     type: "prefs",
@@ -309,6 +389,8 @@ describe("parseMessage — prefs (M2 REQ-10/INV-4: the PUT /api/prefs echo broad
       railSort: "manual",
       theme: "follow",
       updateCheck: true,
+      railDensity: "comfortable",
+      railActivity: "turn",
     },
   };
 
@@ -339,6 +421,8 @@ describe("parseMessage — prefs (M2 REQ-10/INV-4: the PUT /api/prefs echo broad
         railSort: "manual",
         theme: "follow",
         updateCheck: true,
+        railDensity: "comfortable",
+        railActivity: "turn",
       },
     });
   });
@@ -352,7 +436,13 @@ describe("parsePrefs — theme (plan new-ui-design-colors REQ-19, W7)", () => {
     };
     expect(parseMessage(snapshot)).toEqual({
       ...snapshot,
-      prefs: { ...snapshot.prefs, theme: "follow", updateCheck: true },
+      prefs: {
+        ...snapshot.prefs,
+        theme: "follow",
+        updateCheck: true,
+        railDensity: "comfortable",
+        railActivity: "turn",
+      },
     });
   });
 
@@ -869,6 +959,8 @@ const validSession = {
   railPos: 5,
   titleOverride: null,
   plan: null,
+  unread: false,
+  lastPrompt: null,
 };
 
 // The measured "no data yet" shape (docs/history/spikes/canary-fields.md): a session that has just
@@ -898,6 +990,8 @@ const freshLaunchSession = {
   railPos: 6,
   titleOverride: null,
   plan: null,
+  unread: false,
+  lastPrompt: null,
 };
 
 describe("parseSession — full kb:anchor/ws.session shape", () => {
@@ -1146,6 +1240,48 @@ describe("parseSession — plan (plan markdown-viewing kb:anchor/ws.session REQ-
   });
 });
 
+// Plan rail-card-improvements (kb:anchor/ws.session REQ-7/REQ-12, W7): required on every
+// wire Session, same "no pre-plan-daemon tolerance" reasoning as pinned/railPos/
+// titleOverride/plan above — the daemon and client ship together for this plan.
+describe("parseSession — unread/lastPrompt (plan rail-card-improvements kb:anchor/ws.session)", () => {
+  it("parses unread:true", () => {
+    const session = { ...validSession, unread: true };
+    expect(parseSession(session)).toEqual(session);
+  });
+
+  it("parses a populated lastPrompt", () => {
+    const session = { ...validSession, lastPrompt: "fix the flaky retry and rerun the suite" };
+    expect(parseSession(session)).toEqual(session);
+  });
+
+  it("parses lastPrompt: null (no prompt yet, or /clear reset it)", () => {
+    const session = { ...validSession, lastPrompt: null };
+    expect(parseSession(session)).toEqual(session);
+  });
+
+  it("rejects a session missing unread entirely (no pre-plan-daemon tolerance for this field)", () => {
+    const { unread, ...rest } = validSession;
+    expect(parseSession(rest)).toBeNull();
+  });
+
+  it("rejects a session missing lastPrompt entirely", () => {
+    const { lastPrompt, ...rest } = validSession;
+    expect(parseSession(rest)).toBeNull();
+  });
+
+  it("rejects a non-boolean unread", () => {
+    expect(parseSession({ ...validSession, unread: "true" })).toBeNull();
+  });
+
+  it("rejects a null unread (the field is required and boolean, never nullable)", () => {
+    expect(parseSession({ ...validSession, unread: null })).toBeNull();
+  });
+
+  it("rejects a non-string, non-null lastPrompt (e.g. numeric)", () => {
+    expect(parseSession({ ...validSession, lastPrompt: 42 })).toBeNull();
+  });
+});
+
 describe("parseDocChanged (plan markdown-viewing kb:anchor/ws.doc-changed, W10)", () => {
   const validDocChanged = {
     type: "docChanged",
@@ -1225,6 +1361,8 @@ describe("parseMessage — snapshot with sessions (M1: non-empty for the first t
         railSort: "manual",
         theme: "follow",
         updateCheck: true,
+        railDensity: "comfortable",
+        railActivity: "turn",
       },
       claudeTheme: { family: "unknown" },
       update: validUpdateInfo,

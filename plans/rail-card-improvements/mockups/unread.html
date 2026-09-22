@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>#34 — unread idle options</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+/* 1 — dot before the title; read idle titles go muted */
+.opt1 .card.unread .name::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--fg); margin-right: 7px; vertical-align: 1px; }
+.opt1 .card.s-idle:not(.unread) .name { color: var(--fg-muted); font-weight: 600; }
+
+/* 2 — the badge says it: filled "idle · new" until read */
+.opt2 .card.unread .badge { background: var(--idle); color: var(--bg); border-color: var(--idle); }
+
+/* 3 — weight and fade only, no glyph */
+.opt3 .card.s-idle:not(.unread) .name { color: var(--fg-muted); font-weight: 600; }
+.opt3 .card.s-idle:not(.unread) .stripe { opacity: 0.45; }
+.opt3 .card.s-idle:not(.unread) .activity { color: var(--edge); }
+.opt3 .card.unread .activity { color: var(--fg-muted); }
+
+/* 4 — marker on the activity line */
+.opt4 .card.unread .activity { color: var(--fg); }
+.opt4 .card.unread .activity::before { content: "new"; font-size: var(--fs-2xs); letter-spacing: 0.11em; text-transform: uppercase; border: 1px solid var(--edge); padding: 0 4px; margin-right: 7px; color: var(--fg-muted); vertical-align: 1px; }
+.opt4 .card.s-idle:not(.unread) .activity { color: var(--edge); }
+</style></head><body>
+<h1>#34 · Which idle sessions have I read?</h1>
+<p class="lead">Each rail has three idle cards: two <b>unread</b> (they went idle while you were elsewhere) and one <b>read</b> (you focused it after it went idle). The focused card is always read by definition. A working card is included to show that the marker only applies to idle. Design rule in force: state colour means state and nothing else, so every marker here is neutral (<code>--fg</code>, <code>--fg-muted</code>, <code>--edge</code>) and none uses amber.</p>
+
+<div class="opts">
+
+<div class="opt opt1">
+<h2>1 · dot before the title</h2>
+<div class="rail"><div class="railhead"><span>Attention ▾</span><span class="n">4</span></div><div class="cards">
+<article class="card s-idle unread"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">flaky-e2e-hunt</span><span class="badge">idle</span><span class="timer">03:12</span></div>
+  <div class="r2">muster / feat-e2e</div>
+  <div class="r3"><span class="ctx"><i style="width:42%"></i></span><span>42%</span><span class="tok">84k</span></div>
+  <div class="activity">last: Rewrote the retry wrapper; the suite is green locally.</div>
+  <span class="tag">unread</span>
+</div></article>
+<article class="card s-idle unread"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">spec-research</span><span class="badge">idle</span><span class="timer">19:40</span></div>
+  <div class="r2">muster / main</div>
+  <div class="r3"><span class="ctx"><i style="width:12%"></i></span><span>12%</span><span class="tok">24k</span></div>
+  <div class="activity">last: Three options written up in the spec, ready for review.</div>
+  <span class="tag">unread</span>
+</div></article>
+<article class="card s-work"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">payments-refactor</span><span class="badge">working</span><span class="timer">02:31</span></div>
+  <div class="r2">mdrostering / develop</div>
+  <div class="r3"><span class="ctx hot"><i style="width:77%"></i></span><span>77%</span><span class="tok">154k</span><span class="compact">⟳1</span></div>
+  <div class="activity">last: Fixed the charge rounding; running the suite.</div>
+</div></article>
+<article class="card s-idle"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">readme-tidy</span><span class="badge">idle</span><span class="timer">34m</span></div>
+  <div class="r2">muster / main</div>
+  <div class="r3"><span class="ctx"><i style="width:8%"></i></span><span>8%</span><span class="tok">16k</span></div>
+  <div class="activity">last: rewrote the Commands section</div>
+  <span class="tag">read</span>
+</div></article>
+</div></div>
+<p class="cap"><b>Mail-client convention.</b> A 7px <code>--fg</code> dot leads the title while unread; once read the dot goes and the title drops to <code>--fg-muted</code>. Shape carries it, not colour.</p>
+</div>
+
+<div class="opt opt2">
+<h2>2 · the badge says it</h2>
+<div class="rail"><div class="railhead"><span>Attention ▾</span><span class="n">4</span></div><div class="cards">
+<article class="card s-idle unread"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">flaky-e2e-hunt</span><span class="badge">idle · new</span><span class="timer">03:12</span></div>
+  <div class="r2">muster / feat-e2e</div>
+  <div class="r3"><span class="ctx"><i style="width:42%"></i></span><span>42%</span><span class="tok">84k</span></div>
+  <div class="activity">last: Rewrote the retry wrapper; the suite is green locally.</div>
+  <span class="tag">unread</span>
+</div></article>
+<article class="card s-idle unread"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">spec-research</span><span class="badge">idle · new</span><span class="timer">19:40</span></div>
+  <div class="r2">muster / main</div>
+  <div class="r3"><span class="ctx"><i style="width:12%"></i></span><span>12%</span><span class="tok">24k</span></div>
+  <div class="activity">last: Three options written up in the spec, ready for review.</div>
+  <span class="tag">unread</span>
+</div></article>
+<article class="card s-work"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">payments-refactor</span><span class="badge">working</span><span class="timer">02:31</span></div>
+  <div class="r2">mdrostering / develop</div>
+  <div class="r3"><span class="ctx hot"><i style="width:77%"></i></span><span>77%</span><span class="tok">154k</span><span class="compact">⟳1</span></div>
+  <div class="activity">last: Fixed the charge rounding; running the suite.</div>
+</div></article>
+<article class="card s-idle"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">readme-tidy</span><span class="badge">idle</span><span class="timer">34m</span></div>
+  <div class="r2">muster / main</div>
+  <div class="r3"><span class="ctx"><i style="width:8%"></i></span><span>8%</span><span class="tok">16k</span></div>
+  <div class="activity">last: rewrote the Commands section</div>
+  <span class="tag">read</span>
+</div></article>
+</div></div>
+<p class="cap"><b>A word, in the badge.</b> Unread reads <code>idle · new</code> and fills with the idle token; read reverts to the outlined <code>idle</code>. Loudest option; the fill is still the idle colour, so §3 holds. Costs ~30px of title width while unread.</p>
+</div>
+
+<div class="opt opt3">
+<h2>3 · weight and fade</h2>
+<div class="rail"><div class="railhead"><span>Attention ▾</span><span class="n">4</span></div><div class="cards">
+<article class="card s-idle unread"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">flaky-e2e-hunt</span><span class="badge">idle</span><span class="timer">03:12</span></div>
+  <div class="r2">muster / feat-e2e</div>
+  <div class="r3"><span class="ctx"><i style="width:42%"></i></span><span>42%</span><span class="tok">84k</span></div>
+  <div class="activity">last: Rewrote the retry wrapper; the suite is green locally.</div>
+  <span class="tag">unread</span>
+</div></article>
+<article class="card s-idle unread"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">spec-research</span><span class="badge">idle</span><span class="timer">19:40</span></div>
+  <div class="r2">muster / main</div>
+  <div class="r3"><span class="ctx"><i style="width:12%"></i></span><span>12%</span><span class="tok">24k</span></div>
+  <div class="activity">last: Three options written up in the spec, ready for review.</div>
+  <span class="tag">unread</span>
+</div></article>
+<article class="card s-work"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">payments-refactor</span><span class="badge">working</span><span class="timer">02:31</span></div>
+  <div class="r2">mdrostering / develop</div>
+  <div class="r3"><span class="ctx hot"><i style="width:77%"></i></span><span>77%</span><span class="tok">154k</span><span class="compact">⟳1</span></div>
+  <div class="activity">last: Fixed the charge rounding; running the suite.</div>
+</div></article>
+<article class="card s-idle"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">readme-tidy</span><span class="badge">idle</span><span class="timer">34m</span></div>
+  <div class="r2">muster / main</div>
+  <div class="r3"><span class="ctx"><i style="width:8%"></i></span><span>8%</span><span class="tok">16k</span></div>
+  <div class="activity">last: rewrote the Commands section</div>
+  <span class="tag">read</span>
+</div></article>
+</div></div>
+<p class="cap"><b>No glyph, no word.</b> Read idle cards recede: title to <code>--fg-muted</code> 600, stripe at 45%, activity to <code>--edge</code>. Quietest, but it is the only option where nothing on the card names the state, so assistive tech would need an <code>aria-description</code>.</p>
+</div>
+
+<div class="opt opt4">
+<h2>4 · tag on the activity line</h2>
+<div class="rail"><div class="railhead"><span>Attention ▾</span><span class="n">4</span></div><div class="cards">
+<article class="card s-idle unread"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">flaky-e2e-hunt</span><span class="badge">idle</span><span class="timer">03:12</span></div>
+  <div class="r2">muster / feat-e2e</div>
+  <div class="r3"><span class="ctx"><i style="width:42%"></i></span><span>42%</span><span class="tok">84k</span></div>
+  <div class="activity">last: Rewrote the retry wrapper; the suite is green locally.</div>
+  <span class="tag">unread</span>
+</div></article>
+<article class="card s-idle unread"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">spec-research</span><span class="badge">idle</span><span class="timer">19:40</span></div>
+  <div class="r2">muster / main</div>
+  <div class="r3"><span class="ctx"><i style="width:12%"></i></span><span>12%</span><span class="tok">24k</span></div>
+  <div class="activity">last: Three options written up in the spec, ready for review.</div>
+  <span class="tag">unread</span>
+</div></article>
+<article class="card s-work"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">payments-refactor</span><span class="badge">working</span><span class="timer">02:31</span></div>
+  <div class="r2">mdrostering / develop</div>
+  <div class="r3"><span class="ctx hot"><i style="width:77%"></i></span><span>77%</span><span class="tok">154k</span><span class="compact">⟳1</span></div>
+  <div class="activity">last: Fixed the charge rounding; running the suite.</div>
+</div></article>
+<article class="card s-idle"><div class="stripe"></div><div class="card-in">
+  <div class="r1"><span class="name">readme-tidy</span><span class="badge">idle</span><span class="timer">34m</span></div>
+  <div class="r2">muster / main</div>
+  <div class="r3"><span class="ctx"><i style="width:8%"></i></span><span>8%</span><span class="tok">16k</span></div>
+  <div class="activity">last: rewrote the Commands section</div>
+  <span class="tag">read</span>
+</div></article>
+</div></div>
+<p class="cap"><b>Marks the thing that is new</b>: the reply. A small outlined <code>new</code> tag leads the activity line and the line brightens to <code>--fg</code>; read lines fade to <code>--edge</code>. Title row untouched, so it composes with any #38 layout.</p>
+</div>
+
+</div>
+</body></html>

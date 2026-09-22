@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>#38 — rail density options</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+/* every density builds on layout option C (meta row first, wrapping title) */
+.r0 { display: flex; align-items: baseline; gap: 8px; }
+.card .r1 { margin-top: 4px; }
+.card .name { white-space: normal; line-height: 1.25; }
+
+/* compact: title clamps to one line, repo and context share one row, no activity */
+.compact .card-in { padding: 6px 11px 7px; }
+.compact .r1 { margin-top: 2px; }
+.compact .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--fs-md); }
+.compact .r2 { display: flex; gap: 7px; margin-top: 3px; align-items: center; }
+.compact .r2 .repo { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.compact .r2 .ctxpct { margin-left: auto; flex: none; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+.compact .r3, .compact .activity { display: none; }
+.compact .note { margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* expanded: activity shows up to three lines */
+.expanded .activity { white-space: normal; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+</style></head><body>
+<h1>#38 · Rail density</h1>
+<p class="lead">The issue also asks for "compact / expanded" options. Three densities, each on layout option C from <code>title-layout.html</code> (it is the one whose height already varies). This would be a new pref, <code>prefs.railDensity</code>, chosen in Settings or from the rail head.</p>
+
+<div class="opts">
+
+<div class="opt compact">
+<h2>Compact</h2>
+<div class="rail"><div class="railhead"><span>Manual ▾</span><span class="n">5</span></div><div class="cards">
+<article class="card s-blocked"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">needs input</span><span class="timer">11:48</span></div>
+  <div class="r1"><span class="name">Rail card title truncation and layout review</span></div>
+  <div class="r2"><span class="repo">muster / plan/rail-cards</span><span class="ctxpct">42% · 84k</span></div>
+  <div class="note">needs your permission — 11:48</div>
+</div></article>
+<article class="card s-work"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">working</span><span class="timer">02:31</span></div>
+  <div class="r1"><span class="name">Fix the flaky retry wrapper in the e2e suite</span></div>
+  <div class="r2"><span class="repo">muster / plan/terminal-fixes-cleanup</span><span class="ctxpct">77% · 154k ⟳1</span></div>
+</div></article>
+<article class="card s-idle"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">idle</span><span class="timer">34m</span></div>
+  <div class="r1"><span class="name">Worktree lifecycle spec: sibling path decision</span></div>
+  <div class="r2"><span class="repo">muster / main</span><span class="ctxpct">8% · 16k</span></div>
+</div></article>
+<article class="card s-plan"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">planning</span><span class="timer">00:47</span></div>
+  <div class="r1"><span class="name">mdr-shifts</span></div>
+  <div class="r2"><span class="repo">mdrostering / develop</span><span class="ctxpct">12% · 24k</span></div>
+</div></article>
+<article class="card s-start"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">started</span><span class="timer">00:08</span></div>
+  <div class="r1"><span class="name">docs-pass</span></div>
+  <div class="r2"><span class="repo">ccc-spike / —</span><span class="ctxpct">unknown</span></div>
+</div></article>
+</div></div>
+<p class="cap"><b>Two or three rows.</b> Title clamps to one line, the gauge track is dropped in favour of the numbers, no activity line. ~9 cards visible at 900px tall.</p>
+</div>
+
+<div class="opt">
+<h2>Comfortable (default)</h2>
+<div class="rail"><div class="railhead"><span>Manual ▾</span><span class="n">5</span></div><div class="cards">
+<article class="card s-blocked"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">needs input</span><span class="timer">11:48</span></div>
+  <div class="r1"><span class="name">Rail card title truncation and layout review</span></div>
+  <div class="r2">muster / plan/rail-cards (worktree)</div>
+  <div class="r3"><span class="ctx"><i style="width:42%"></i></span><span>42%</span><span class="tok">84k</span></div>
+  <div class="note">needs your permission — 11:48</div>
+</div></article>
+<article class="card s-work"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">working</span><span class="timer">02:31</span></div>
+  <div class="r1"><span class="name">Fix the flaky retry wrapper in the e2e suite</span></div>
+  <div class="r2">muster / plan/terminal-fixes-cleanup (worktree)</div>
+  <div class="r3"><span class="ctx hot"><i style="width:77%"></i></span><span>77%</span><span class="tok">154k</span><span class="compact">⟳1</span></div>
+  <div class="activity">last: Carried the sub-line wheel remainder; dropping the stale pip…</div>
+</div></article>
+<article class="card s-idle"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">idle</span><span class="timer">34m</span></div>
+  <div class="r1"><span class="name">Worktree lifecycle spec: sibling path decision</span></div>
+  <div class="r2">muster / main</div>
+  <div class="r3"><span class="ctx"><i style="width:8%"></i></span><span>8%</span><span class="tok">16k</span></div>
+  <div class="activity">last: Wrote the two fact records and linked them from the spec.</div>
+</div></article>
+<article class="card s-plan"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">planning</span><span class="timer">00:47</span></div>
+  <div class="r1"><span class="name">mdr-shifts</span></div>
+  <div class="r2">mdrostering / develop</div>
+  <div class="r3"><span class="ctx"><i style="width:12%"></i></span><span>12%</span><span class="tok">24k</span></div>
+</div></article>
+<article class="card s-start"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">started</span><span class="timer">00:08</span></div>
+  <div class="r1"><span class="name">docs-pass</span></div>
+  <div class="r2">ccc-spike / —</div>
+  <div class="r3 unk">context unknown — no API response yet</div>
+  <div class="note">first launch here — likely waiting on Claude Code's trust prompt</div>
+</div></article>
+</div></div>
+<p class="cap"><b>Today's rows</b>, with the title wrapping. Activity stays one clipped line.</p>
+</div>
+
+<div class="opt expanded">
+<h2>Expanded</h2>
+<div class="rail"><div class="railhead"><span>Manual ▾</span><span class="n">5</span></div><div class="cards">
+<article class="card s-blocked"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">needs input</span><span class="timer">11:48</span></div>
+  <div class="r1"><span class="name">Rail card title truncation and layout review</span></div>
+  <div class="r2">muster / plan/rail-cards (worktree)</div>
+  <div class="r3"><span class="ctx"><i style="width:42%"></i></span><span>42%</span><span class="tok">84k</span></div>
+  <div class="activity">you: mock up at least 3 options for anything that needs a design and come back with questions all at once</div>
+  <div class="note">needs your permission — 11:48</div>
+</div></article>
+<article class="card s-work"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">working</span><span class="timer">02:31</span></div>
+  <div class="r1"><span class="name">Fix the flaky retry wrapper in the e2e suite</span></div>
+  <div class="r2">muster / plan/terminal-fixes-cleanup (worktree)</div>
+  <div class="r3"><span class="ctx hot"><i style="width:77%"></i></span><span>77%</span><span class="tok">154k</span><span class="compact">⟳1</span></div>
+  <div class="activity">last: Carried the sub-line wheel remainder so slow trackpad scrolls accumulate, and dropped the stale pip comments the review flagged. Running the web suite now.</div>
+</div></article>
+<article class="card s-idle"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">idle</span><span class="timer">34m</span></div>
+  <div class="r1"><span class="name">Worktree lifecycle spec: sibling path decision</span></div>
+  <div class="r2">muster / main</div>
+  <div class="r3"><span class="ctx"><i style="width:8%"></i></span><span>8%</span><span class="tok">16k</span></div>
+  <div class="activity">last: Wrote the two fact records and linked them from the spec. Both carry guard: none until the feature is built.</div>
+</div></article>
+<article class="card s-plan"><div class="stripe"></div><div class="card-in">
+  <div class="r0"><span class="badge">planning</span><span class="timer">00:47</span></div>
+  <div class="r1"><span class="name">mdr-shifts</span></div>
+  <div class="r2">mdrostering / develop</div>
+  <div class="r3"><span class="ctx"><i style="width:12%"></i></span><span>12%</span><span class="tok">24k</span></div>
+</div></article>
+</div></div>
+<p class="cap"><b>Activity up to three lines.</b> Everything else as Comfortable. Cards get tall; ~4 visible at 900px.</p>
+</div>
+
+</div>
+</body></html>

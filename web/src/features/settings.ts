@@ -6,6 +6,11 @@ import type { App } from "../app";
 import { putPrefs } from "../api";
 import { requireElement, requireElements } from "../dom";
 import { isThemeChoice, type ThemeChoice } from "../theme";
+import type { RailActivity } from "../protocol";
+
+function isRailActivity(value: string): value is RailActivity {
+  return value === "turn" || value === "prompt" || value === "reply" || value === "both";
+}
 
 export interface SettingsDialogElements {
   dialog: HTMLDialogElement;
@@ -17,6 +22,8 @@ export interface SettingsDialogElements {
   updateToggle: HTMLInputElement;
   applyBtn: HTMLButtonElement;
   restartBtn: HTMLButtonElement;
+  // Plan rail-card-improvements (REQ-13): the "Rail card shows" fieldset's four radios.
+  railActivityRadios: HTMLInputElement[];
 }
 
 export interface SettingsDialogHandlers {
@@ -32,6 +39,9 @@ export interface SettingsDialogHandlers {
   /** Plan auto-update: opens the restart-impact confirm (User Flow 3) — features/update.ts
    * owns the `GET /api/update/restart-impact` round trip and the confirm dialog itself. */
   onUpdateAndRestart: () => void;
+  /** Plan rail-card-improvements (REQ-13): fires immediately on change, same
+   * fire-and-forget/no-optimistic-update shape as `onChooseTheme` (INV-4). */
+  onChooseRailActivity: (mode: RailActivity) => void;
 }
 
 export interface SettingsDialogController {
@@ -42,8 +52,9 @@ export interface SettingsDialogController {
    * theme, or no snapshot yet) leaves every radio unchecked, matching edge case 6's
    * "honest, and the next pick fixes it". `updateCheck` (plan auto-update) is the Updates
    * toggle's own `prefs.updateCheck`-only source of truth — same INV-7 discipline, one
-   * more field on the same broadcast-driven call. */
-  setChecked: (theme: string, updateCheck: boolean) => void;
+   * more field on the same broadcast-driven call. `railActivity` (REQ-13) is the fourth,
+   * same discipline again — the checked radio follows the broadcast, never the click. */
+  setChecked: (theme: string, updateCheck: boolean, railActivity: RailActivity) => void;
 }
 
 export function initSettingsDialog(
@@ -65,6 +76,13 @@ export function initSettingsDialog(
   elements.applyBtn.addEventListener("click", () => handlers.onUpdate());
   elements.restartBtn.addEventListener("click", () => handlers.onUpdateAndRestart());
 
+  for (const radio of elements.railActivityRadios) {
+    radio.addEventListener("change", () => {
+      if (!radio.checked) return;
+      if (isRailActivity(radio.value)) handlers.onChooseRailActivity(radio.value);
+    });
+  }
+
   return {
     open() {
       if (!elements.dialog.open) elements.dialog.showModal();
@@ -72,11 +90,14 @@ export function initSettingsDialog(
     close() {
       if (elements.dialog.open) elements.dialog.close();
     },
-    setChecked(theme, updateCheck) {
+    setChecked(theme, updateCheck, railActivity) {
       for (const radio of elements.themeRadios) {
         radio.checked = radio.value === theme;
       }
       elements.updateToggle.checked = updateCheck;
+      for (const radio of elements.railActivityRadios) {
+        radio.checked = radio.value === railActivity;
+      }
     },
   };
 }
@@ -105,6 +126,9 @@ export function initSettings(
     updateToggle: deps.update.toggle,
     applyBtn: deps.update.applyBtn,
     restartBtn: deps.update.restartBtn,
+    railActivityRadios: requireElements<HTMLInputElement>(
+      '#settings-dialog input[name="railActivity"]',
+    ),
   };
   const controller = initSettingsDialog(elements, {
     onChooseTheme: (theme) => {
@@ -121,11 +145,19 @@ export function initSettings(
     },
     onUpdate: () => deps.update.apply(),
     onUpdateAndRestart: () => deps.update.applyAndRestart(),
+    onChooseRailActivity: (railActivity) => {
+      void putPrefs({ railActivity }).then((result) => {
+        if (!result.ok)
+          console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);
+      });
+    },
   });
 
   settingsButtonEl.addEventListener("click", () => controller.open());
 
-  app.on("prefs", (prefs) => controller.setChecked(prefs.theme, prefs.updateCheck));
+  app.on("prefs", (prefs) =>
+    controller.setChecked(prefs.theme, prefs.updateCheck, prefs.railActivity),
+  );
   // States (new-ui-design-colors): "Daemon down ... The Settings dialog closes with the
   // other dialogs ... since a PUT cannot land."
   app.on("status", () => controller.close());

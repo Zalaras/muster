@@ -1,7 +1,12 @@
 // Rail cards (docs/protocol.md UI Specifications > Rail; design-system §5 card anatomy).
 // DOM only — every displayed string comes from ../sessions/card.ts's pure view-model.
-import type { Session } from "../protocol";
-import { buildCardViewModel, type CardAction, type CardViewModel } from "../sessions/card";
+import type { RailActivity, Session } from "../protocol";
+import {
+  buildCardViewModel,
+  unreadLabel,
+  type CardAction,
+  type CardViewModel,
+} from "../sessions/card";
 import { renderContextRow } from "./context";
 import { captureFocusedControl, restoreFocusedControl, type FocusedControl } from "./focus";
 
@@ -103,7 +108,12 @@ function reconcileActsRow(
  * Vitest fixtures build only the subset they assert on. */
 function applyCardText(card: HTMLElement, vm: CardViewModel, session: Session): void {
   const name = card.querySelector<HTMLElement>(".name");
-  if (name) name.textContent = vm.title;
+  if (name) {
+    name.textContent = vm.title;
+    // REQ-2: `.name` always carries `title` equal to the display title, so a title
+    // clamped to one line in compact density can still be read in full on hover.
+    name.title = vm.title;
+  }
 
   const badge = card.querySelector<HTMLElement>(".badge");
   if (badge) badge.textContent = vm.badge;
@@ -112,15 +122,26 @@ function applyCardText(card: HTMLElement, vm: CardViewModel, session: Session): 
   if (timer) timer.textContent = vm.timer;
 
   const repoLine = card.querySelector<HTMLElement>(".r2");
-  if (repoLine) repoLine.textContent = vm.repoLine;
+  if (repoLine) {
+    repoLine.textContent = vm.repoLine;
+    // REQ-2: `.r2` always carries `title` equal to its own text, same reasoning as `.name`.
+    repoLine.title = vm.repoLine;
+  }
 
   const contextRow = card.querySelector<HTMLElement>(".r3");
   if (contextRow) renderContextRow(contextRow, session.context, "r3");
 
-  const activity = card.querySelector<HTMLElement>(".activity");
-  if (activity) {
-    activity.hidden = vm.activity === null;
-    activity.textContent = vm.activity ?? "";
+  // REQ-14: the two activity lines write independently — either may be hidden while the
+  // other shows, and both are hidden when neither source has data yet.
+  const activityYou = card.querySelector<HTMLElement>(".activity.you");
+  if (activityYou) {
+    activityYou.hidden = vm.activity.you === null;
+    activityYou.textContent = vm.activity.you ?? "";
+  }
+  const activityClaude = card.querySelector<HTMLElement>(".activity.claude");
+  if (activityClaude) {
+    activityClaude.hidden = vm.activity.claude === null;
+    activityClaude.textContent = vm.activity.claude ?? "";
   }
 
   const note = card.querySelector<HTMLElement>(".note");
@@ -135,6 +156,24 @@ function applyCardText(card: HTMLElement, vm: CardViewModel, session: Session): 
     note.className = vm.noteKind === "failure" ? "note fail" : "note";
     note.dataset.noteKind = vm.noteKind;
   }
+}
+
+/** The card's `class` attribute — extracted from `updateSessionCardContent` to keep it
+ * under Biome's complexity ceiling (five independent modifiers, one ternary each). */
+function cardClassName(vm: CardViewModel, pinnedLast: boolean, isCurrent: boolean): string {
+  return `card ${vm.stateClass}${vm.ended ? " ended" : ""}${vm.pinned ? " pinned" : ""}${pinnedLast ? " pinned-last" : ""}${isCurrent ? " current" : ""}${vm.unread ? " unread" : ""}`;
+}
+
+/** REQ-9: the card's `aria-label` and `data-unread` — extracted from
+ * `updateSessionCardContent` to keep it under Biome's complexity ceiling. */
+function applyUnreadAttributes(card: HTMLElement, vm: CardViewModel): void {
+  // Gives the card an accessible name (review m1-sessions Minor 9) — a bare <span> title
+  // carries none on its own. An unread session's name carries a ", unread" suffix.
+  card.setAttribute("aria-label", unreadLabel(vm.title, vm.unread));
+  // `data-unread="true"` only while unread — removed entirely otherwise (never set to
+  // "false"), matching the pattern `draggable` below uses for its own boolean.
+  if (vm.unread) card.dataset["unread"] = "true";
+  else delete card.dataset["unread"];
 }
 
 /** Refreshes an already-built card's mutable content in place from the shared
@@ -152,14 +191,15 @@ function updateSessionCardContent(
   draggable = false,
   pinnedLast = false,
   currentId: number | null = null,
+  // Defaults to the pref's own default ("turn"), same reasoning as
+  // sessions/card.ts's buildCardViewModel default.
+  railActivity: RailActivity = "turn",
 ): void {
-  const vm = buildCardViewModel(session, now);
+  const vm = buildCardViewModel(session, now, railActivity);
   const isCurrent = session.id === currentId;
 
-  card.className = `card ${vm.stateClass}${vm.ended ? " ended" : ""}${vm.pinned ? " pinned" : ""}${pinnedLast ? " pinned-last" : ""}${isCurrent ? " current" : ""}`;
-  // Gives the card an accessible name (review m1-sessions Minor 9) — a bare <span> title
-  // carries none on its own. Mandatory now that M2 makes cards focusable/clickable.
-  card.setAttribute("aria-label", vm.title);
+  card.className = cardClassName(vm, pinnedLast, isCurrent);
+  applyUnreadAttributes(card, vm);
   // The reconciliation key `reconcileCards` uses to match existing DOM nodes against
   // incoming sessions (review m4-reconcile cycle-2 Major 1).
   card.dataset["sessionId"] = String(session.id);
@@ -187,7 +227,7 @@ function updateSessionCardContent(
 
   // REQ-8/REQ-17: the pin button's aria-label/aria-pressed/title follow `pinned` on
   // every pass. `data-action`/`data-id` (not the `.acts-row` buttons' own convention,
-  // since this button lives in `.r1` rather than an acts row) let it participate in the
+  // since this button lives in `.r0` rather than an acts row) let it participate in the
   // existing `captureFocusedControl`/`restoreFocusedControl` contract unchanged
   // (render/focus.ts: "an action button (data-action + data-id)") — REQ-16's focus
   // survival needs no new code path, just this button carrying the same two attributes
@@ -224,6 +264,7 @@ export function buildSessionCardElement(
   draggable = false,
   pinnedLast = false,
   currentId: number | null = null,
+  railActivity: RailActivity = "turn",
 ): HTMLElement {
   const fragment = template.content.cloneNode(true) as DocumentFragment;
   const card = fragment.querySelector<HTMLElement>(".card");
@@ -237,6 +278,7 @@ export function buildSessionCardElement(
     draggable,
     pinnedLast,
     currentId,
+    railActivity,
   );
 
   // REQ-8: wired once, like the click/keydown listeners below — reconcileCards never
@@ -291,6 +333,7 @@ export function updateSessionCardElement(
   draggable = false,
   pinnedLast = false,
   currentId: number | null = null,
+  railActivity: RailActivity = "turn",
 ): void {
   updateSessionCardContent(
     card,
@@ -301,6 +344,7 @@ export function updateSessionCardElement(
     draggable,
     pinnedLast,
     currentId,
+    railActivity,
   );
 }
 
@@ -365,6 +409,9 @@ export function reconcileCards(
   // passes `focusedId`, the strip always passes `null` (render/tiles.ts's `renderStrip`)
   // so a strip card is never current (INV-3).
   currentId: number | null = null,
+  // Defaults to the pref's own default ("turn"), same reasoning as this module's other
+  // functions above.
+  railActivity: RailActivity = "turn",
 ): void {
   const existingById = indexCardsBySessionId(container);
 
@@ -402,6 +449,7 @@ export function reconcileCards(
         draggable,
         pinnedLast,
         currentId,
+        railActivity,
       );
     } else {
       card = buildSessionCardElement(
@@ -414,6 +462,7 @@ export function reconcileCards(
         draggable,
         pinnedLast,
         currentId,
+        railActivity,
       );
     }
 
@@ -457,6 +506,9 @@ export function renderSessions(
   // REQ-1/REQ-3: the id of the session the Focus pane is showing — passed straight
   // through to `reconcileCards`. `features/rail.ts` supplies `focusedId` here for the rail.
   currentId: number | null = null,
+  // REQ-14: which text each card's activity line shows — passed straight through to
+  // `reconcileCards`. `features/rail.ts` supplies `app.state.railActivity` here.
+  railActivity: RailActivity = "turn",
 ): void {
   if (sessions.length === 0) {
     // `textContent` assignment already clears any existing children (real DOM), so no
@@ -476,6 +528,7 @@ export function renderSessions(
     draggable,
     pendingFocus,
     currentId,
+    railActivity,
   );
 }
 

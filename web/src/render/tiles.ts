@@ -2,7 +2,7 @@
 // d-tiled.html; design-system §4/§5). DOM only — every displayed string comes from
 // ../sessions/card.ts's pure view-model, shared with the rail, since a strip card IS a
 // rail card per the plan's UI spec: "the M1 card content on its side".
-import type { Session } from "../protocol";
+import type { RailActivity, Session } from "../protocol";
 import {
   buildDeadSurfaceFromTemplate,
   collectDeadSurfaceRefs,
@@ -199,6 +199,9 @@ export function renderStrip(
   onPromote: (id: number) => void,
   onAction?: (action: SessionAction, id: number) => void,
   connected = true,
+  // REQ-14: railActivity defaults to the pref's own default ("turn"), same reasoning as
+  // render/sessions.ts's functions.
+  railActivity: RailActivity = "turn",
 ): void {
   el.hidden = sessions.length === 0;
   if (sessions.length === 0) {
@@ -221,6 +224,7 @@ export function renderStrip(
     false,
     undefined,
     null,
+    railActivity,
   );
 }
 
