@@ -197,7 +197,7 @@ func TestPack_RendersAcceptedDecisionsAsDecisionAndConsequencesOnly(t *testing.T
 
 func TestPack_IncludesOnlyTheConventionsSectionsForTheRole(t *testing.T) {
 	root, _ := packFixture(t)
-	mustWriteFile(t, root, "docs/conventions.md", "# Code conventions\n\nPreamble.\n\n## Go\n\nGo rule.\n\n## TypeScript / web\n\nTS rule.\n\n## Testing (both sides)\n\nTest rule.\n\n## Comments\n\nComment rule.\n")
+	mustWriteFile(t, root, "docs/conventions.md", "# Code conventions\n\nPreamble.\n\n## Go\n\nGo rule.\n\n## TypeScript / web\n\nTS rule.\n\n## Design\n\nDesign rule.\n\n## Testing (both sides)\n\nTest rule.\n\n## Comments\n\nComment rule.\n")
 	ix, _, err := Load(root)
 	require.NoError(t, err)
 	daemon, _ := runPack(t, ix, "daemon-impl", "sessions")
@@ -210,9 +210,17 @@ func TestPack_IncludesOnlyTheConventionsSectionsForTheRole(t *testing.T) {
 	assert.Contains(t, tests, "Test rule.")
 	assert.NotContains(t, tests, "Go rule.")
 	planner, _ := runPack(t, ix, "planner", "sessions")
-	for _, s := range []string{"Go rule.", "TS rule.", "Test rule.", "Comment rule."} {
+	for _, s := range []string{"Go rule.", "TS rule.", "Design rule.", "Test rule.", "Comment rule."} {
 		assert.Contains(t, planner, s)
 	}
+	maint, _ := runPack(t, ix, "review-maintainability", "sessions")
+	assert.Contains(t, maint, "Design rule.")
+	assert.Contains(t, maint, "Go rule.")
+	assert.NotContains(t, maint, "Test rule.", "the maintainability reviewer judges shape, not test strategy")
+	browser, _ := runPack(t, ix, "review-browser", "sessions")
+	assert.Contains(t, browser, "Test rule.")
+	assert.NotContains(t, browser, "Go rule.")
+	assert.NotContains(t, browser, "Design rule.")
 }
 
 func TestPack_CarriesFeatureDiagramsToEveryRoleAndSystemDiagramsToPlanningRolesOnly(t *testing.T) {
@@ -225,7 +233,7 @@ func TestPack_CarriesFeatureDiagramsToEveryRoleAndSystemDiagramsToPlanningRolesO
 	assert.Less(t, strings.Index(impl, "# Feature: sessions"), strings.Index(impl, "\n# Diagrams\n"))
 	assert.Less(t, strings.Index(impl, "\n# Diagrams\n"), strings.Index(impl, "\n# Decisions\n"))
 
-	for _, role := range []string{"planner", "review", "plan-work", "orchestrator"} {
+	for _, role := range []string{"planner", "review", "plan-work", "orchestrator", "review-maintainability"} {
 		out, _ := runPack(t, ix, role, "sessions")
 		assert.Contains(t, out, "## diagram system-container", role)
 	}

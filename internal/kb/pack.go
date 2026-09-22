@@ -153,8 +153,9 @@ func writeFeatureSections(b *strings.Builder, ix *Index, opts PackOptions) {
 }
 
 // systemDiagramRoles are the roles that read the feature-less (system-wide) diagrams; an
-// implementation pack carries only the diagrams naming one of its features.
-var systemDiagramRoles = []string{"planner", "plan-work", "review", "orchestrator"}
+// implementation pack carries only the diagrams naming one of its features. The
+// maintainability reviewer judges shape against the component diagrams, so it reads them too.
+var systemDiagramRoles = []string{"planner", "plan-work", "review", "orchestrator", "review-maintainability"}
 
 // writeDiagrams writes the active diagrams for the pack, fence included: those naming
 // one of the pack's features for every role, the system-wide ones for the roles that
@@ -310,6 +311,10 @@ var conventionsByRole = map[string][]string{
 	"web-tests":    {"Testing", "Comments", "Knowledge records"},
 	"e2e-specs":    {"Testing", "Comments", "Knowledge records"},
 	"e2e-validate": {"Testing", "Comments", "Knowledge records"},
+	// The browser reviewer measures the running app; the maintainability reviewer judges shape and
+	// never reads the plan, so its rules are the code sections plus Design.
+	"review-browser":         {"Stack", "TypeScript", "Testing", "Comments", "Knowledge records"},
+	"review-maintainability": {"Stack", "Go", "TypeScript", "Composition roots", "Design", "Comments", "Knowledge records"},
 }
 
 // conventionsForRole keeps the preamble and the level-two sections the role reads.
