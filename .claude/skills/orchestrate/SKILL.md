@@ -220,7 +220,7 @@ Read `**Verdict**` and the `## Repairs` table in `plans/<plan-name>/test-specs.m
 
 ### Step 6: Review — gates, then three reviewers, then one merged verdict
 
-Three focused reviewers replace the one that did everything (kb:adr/process-review-is-three-focused-reviewers-with-a-computed-verdict).
+Three focused reviewers replace the one that did everything (kb:adr/process-review-split-three-reviewers-computed-verdict).
 Each files only its own class of defect and none of them commits; you run the gates, merge the
 parts and commit the result.
 

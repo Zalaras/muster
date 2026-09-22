@@ -8,7 +8,7 @@ features: []
 tags: [pipeline]
 files: [.claude/skills/orchestrate/SKILL.md, .claude/skills/orchestrate/scripts/gates.sh, .claude/agents/review-work.md, .claude/agents/review-browser.md, .claude/agents/review-maintainability.md]
 tests: []
-refs: [kb:adr/process-reviewer-owns-final-validation, kb:adr/process-review-is-three-focused-reviewers-with-a-computed-verdict, kb:lesson/concurrent-build-invalidates-running-e2e, kb:lesson/subagent-never-woken-by-harness]
+refs: [kb:adr/process-reviewer-owns-final-validation, kb:adr/process-review-split-three-reviewers-computed-verdict, kb:lesson/concurrent-build-invalidates-running-e2e, kb:lesson/subagent-never-woken-by-harness]
 supersedes: [process-reviewer-owns-final-validation]
 ---
 **Context.** `kb:adr/process-reviewer-owns-final-validation` moved the cycle's single gate run into
