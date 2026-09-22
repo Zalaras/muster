@@ -258,7 +258,7 @@ group deliberately, and otherwise don't re-sort this list.
 
 - [ ] **New Session Reset** ([#28](https://github.com/Zalaras/muster/issues/28)) — picking a folder in the new-session dialog resets the options
   already chosen, even when it is the same folder. Also change the default mode to manual or
-  auto, never accept-edits.
+  auto, never accept-edits. Addendum: can we see what the claude default is and use that otherwise default to auto. Also remember the last selection and use that
 
 - [ ] **Block model selection** ([#29](https://github.com/Zalaras/muster/issues/29)) — a session can be launched with a model that is not
   available (e.g. Fable) and Claude then errors when changing it. Block the selection, or refuse
