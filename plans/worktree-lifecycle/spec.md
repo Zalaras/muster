@@ -40,7 +40,9 @@ and the feature the merge queue was parked behind (kb:adr/worktree-merge-queue-d
 
 - An optional "new worktree" choice in the launch dialog, with a name field and an editable base
   branch, that creates the tree and launches the session in it.
-- Placement: sibling of the checkout, `../<repo>-<name>`, with a per-repo override. No central root.
+- Placement: sibling of the checkout, `../<repo>-<name>`, by default; an optional global worktree
+  root puts every tree under `<root>/<repo>/<name>`; a per-repo override sets a parent directory
+  for that repo alone.
 - Branch creation from the chosen base; live collision warning and a hard fail on launch.
 - Setup on creation: copy untracked files (`.env` and friends) and run install steps, configurable
   per repo — SPEC §3.2 calls this must-have, and without it the tree is present but unusable.
@@ -69,8 +71,13 @@ and the feature the merge queue was parked behind (kb:adr/worktree-merge-queue-d
    `muster/` prefix, since these are ordinary branches that get pushed and landed.
 3. **Base branch**: shown in the dialog, defaulting to the repo's default branch, click-to-edit to
    pick another existing branch.
-4. **Location**: sibling of the checkout by default; a per-repo override sets a different parent
-   directory. No central worktree root.
+4. **Location**, resolved in order: the repo's override if set; else the global worktree root if
+   set, as `<root>/<repo>/<name>`; else the sibling `../<repo>-<name>`. Both settings are user
+   settings the dashboard edits and default to unset, so a fresh install places siblings. A root or
+   override that lies inside any git working tree is refused when set and when a launch resolves to
+   it — nesting is what native `--worktree` gets wrong (`kb:fact/worktree-flag-defaults`). Neither
+   lives in the daemon's data directory or beside the binary: trees are the user's source, not app
+   state, and that path holds a space that already breaks shell quoting.
 5. Creation is `git worktree add -b <branch> <path> <base>`, run by the daemon **before** the tmux
    pane is spawned. The pane's cwd is the new tree; `claude` is launched plain, without `--worktree`.
 6. The tree's path is stored on the session row and is the single source of truth for the tether,
@@ -121,6 +128,9 @@ and the feature the merge queue was parked behind (kb:adr/worktree-merge-queue-d
   path goes stale; the session must degrade rather than error repeatedly.
 - **A repo with no default branch resolvable**, a detached HEAD, or no remote — the base-branch
   default has to fall back to the current HEAD rather than fail.
+- **Two repos share a name** under a global root — `<root>/<repo>/` collides. Key the repo
+  directory on the checkout's basename and refuse the second repo with the reason until its
+  override is set, rather than inventing a disambiguated name.
 - **The checkout is itself a worktree** — creating a sibling of a sibling. `git worktree add` from
   a linked worktree works and attaches to the same common dir; the naming must not compound
   (`../repo-a-b`).
@@ -139,7 +149,10 @@ and the feature the merge queue was parked behind (kb:adr/worktree-merge-queue-d
 - [ ] The name field defaults to the slugified session title, and to a generated name when the
       title is empty.
 - [ ] The base branch shows the repo's default branch and can be edited to another existing branch.
-- [ ] A per-repo override changes the parent directory; with no override the tree is a sibling.
+- [ ] With neither setting the tree is a sibling; with a global root it is `<root>/<repo>/<name>`;
+      a per-repo override wins over the root for that repo only.
+- [ ] Setting a root or override that lies inside a git working tree is refused with the reason,
+      and no tree is created there.
 - [ ] Configured setup runs before the session starts: a copied `.env` and the install's effects
       are present in the tree at the session's first prompt (measured in the tree, not inferred).
 - [ ] Typing a name matching an existing branch or directory warns in the dialog, and submitting it
@@ -155,7 +168,9 @@ and the feature the merge queue was parked behind (kb:adr/worktree-merge-queue-d
 
 ## References
 
-- `kb:adr/worktree-muster-owned-sibling-path`, `kb:adr/launch-hybrid-mru-directory-memory`,
+- `kb:adr/worktree-muster-owned-sibling-path` — its "no central worktree root" clause is amended
+  by requirement 4; `/plan-work` writes the superseding ADR (sibling default, optional global root,
+  per-repo override; nesting refused). `kb:adr/launch-hybrid-mru-directory-memory`,
   `kb:adr/stack-git-and-gh-clis-not-go-git`, `kb:adr/worktree-merge-queue-daemon-driven`,
   `kb:adr/process-exec-waitdelay-on-pipe-owning-commands`
 - `kb:fact/worktree-flag-defaults`, `kb:fact/worktree-create-hook-owns-path`,
