@@ -313,6 +313,9 @@ var conventionsByRole = map[string][]string{
 	"e2e-validate": {"Testing", "Comments", "Knowledge records"},
 	// The browser reviewer measures the running app; the maintainability reviewer judges shape and
 	// never reads the plan, so its rules are the code sections plus Design.
+	// The correctness reviewer judges statements against the plan: the code and testing sections,
+	// never Commits or Backlog (the orchestrator's) or Design (the maintainability reviewer's).
+	"review":                 {"Stack", "Go", "TypeScript", "Composition roots", "Testing", "Comments", "Knowledge records"},
 	"review-browser":         {"Stack", "TypeScript", "Testing", "Comments", "Knowledge records"},
 	"review-maintainability": {"Stack", "Go", "TypeScript", "Composition roots", "Design", "Comments", "Knowledge records"},
 }
