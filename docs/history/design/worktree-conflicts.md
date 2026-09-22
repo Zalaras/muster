@@ -409,3 +409,155 @@ discussion.
 
 Next session: start from this section; the requirements inventory above is the
 skeleton for an eventual `/spec` pass on the feature.
+
+## Spike results — 2026-09-06/07 (seven spikes, `docs/history/spikes/worktree/`)
+
+Run beside the `v1-cleanup` pipeline in a separate worktree; isolation rules and per-spike
+reports in `docs/history/spikes/worktree/README.md` and `S<N>-*.md`. What each settled, and what it
+changes above:
+
+1. **Worktree hooks (S1)** — `WorktreeCreate` is a *blocking, response-bearing* hook: the
+   registered hook must create the tree and return its path (command: stdout; http:
+   `hookSpecificOutput.worktreePath`); an empty reply aborts the launch. `WorktreeRemove`
+   fires only on interactive exit, never headless, and removal is likewise delegated.
+   Default with no hook: `<repo>/.claude/worktrees/<name>`, branch `worktree-<name>`,
+   locked with `claude session <name> (pid N …)`. **Changes §4.2:** Muster owns creation,
+   naming and setup scripts *through* `--worktree` via its existing command wrappers; the
+   `worktree` table is written by the hook handler; cleanup needs a reconcile sweep
+   (unlock stale locks, remove clean trees) because headless/crashed sessions never fire
+   the remove hook. Measured on 2.1.263 (pin 2.1.246).
+2. **Queue prototype (S3)** — rebase → verify → squash as a persisted state machine with no
+   LLM: 7-point crash matrix all recover to one commit whose tree equals the verified tree;
+   verify failure, conflict and forged-tree paths leave `main` untouched and the
+   integration worktree clean. **Corrections to stack v2 item 4:** rerere handling is
+   ~115 lines, not ~15 (no observable id for a replayed resolution; forget must re-create
+   the conflict), and replay only pays off for re-attempts and twins against the *same*
+   `main`. Rebase and `merge-tree` can disagree on conflict sets for multi-commit
+   branches — the matrix must say which it shows.
+3. **Owner handoff (S4)** — the primary rung works: a Haiku owner resolved a textual +
+   semantic conflict correctly in 36 s and left a clean rebased tree. **Two amendments:**
+   (a) in default/acceptEdits the owner blocks on Bash approval for `git rebase`, so the
+   queue should do the mechanical rebase itself (S3) and hand the owner only the conflict
+   hunks — a file edit acceptEdits covers; (b) the owner resolved a conflict on the verify
+   script in its own favour and the gate passed by being rewritten — **the queue must run
+   the target's verify command, never the candidate's**, and flag resolutions that touch
+   gate files.
+4. **Resolver context (S6)** — 3 adversarial pairs, Haiku both arms: with task context 3/3
+   correct; diff-only 2/3, losing B's intent exactly where the diff alone reads as "main
+   deleted, B re-added". Verify passed in all 6, including the wrong one (it rewrote a
+   test) — so the "only content present in a parent, only inside conflict hunks" rule must
+   be enforced mechanically. Directional (n = 3); repeat with ~10 pairs and Sonnet/Opus
+   before a number goes in SPEC.
+5. **Undo / push policy (S7)** — squash reverts are clean unless a later land touched the
+   same hunks (then reverse-order only); every revert push on a release-on-push repo cuts a
+   release. **Default: hold (merge locally, don't push) for repos flagged
+   `releases_on_push`**, push otherwise — resolves open decision 1. Per land record
+   `pre_sha`, `post_sha`, pushed?, tag. Resolves open decision 2's floor: unpushed top ⇒
+   reset, else revert, detect revert conflicts up front.
+6. **Census (S5)** — 29 adjacent landed pairs rebuilt as parallel branches: 25 textually
+   clean, 4 conflict (all docs). Filename overlap over-predicts 2:1. Gate runs on the 25
+   clean merges: **0 semantic conflicts** — every merge red was one of three
+   load-sensitive tests failing on trees where identical code passes; 16 of 25 merges
+   had a spurious red, so a queue needs one retry + parent-HEAD comparison to tell flake
+   from regression. Side finding: `e0319f8` landed on `main` with a red e2e suite
+   (preflight `claude --version` vs the old sleep-loop stub) — the kind of individually-red
+   land the verify gate exists to catch.
+6b. **Second repo (S8, MDRostering: Go+React, 440 commits, 39 real merges)**: real
+   merges 38/39 clean, 1 lockfile conflict, `merge-tree` ~80 ms/pair; adjacent pairs 27%
+   textual (hot: committed `src/dist/`, `pkg/api/server.go`); **0 semantic conflicts in
+   40 gated clean merges, 26 of them same-file pairs**. Overlap-as-signal precision 5% on
+   real merges vs 70% on adjacent pairs: tier-2 `merge-tree` must drive the matrix, and
+   the suppression/defuse list must accept directories.
+6c. **Team repo (S9, SPANDigital/presidium-services: Go, 3,933 commits, 71 authors, 113
+   live branches)**: real merges 328/372 clean (18 of 44 conflicts are `VERSION`/generated);
+   89/113 unmerged branches conflict with `develop`, but Damian's correction stands: those are
+   mostly abandoned branches, evidence for the cleanup sweep only, not for concurrency; among the 16 branches
+   both recent and current, 6/120 pairs conflict, all dependabot/generated, **0 hand-written**;
+   0 semantic conflicts in 18 gated clean merges. Adds to the design: `stale` vs `colliding`
+   cells, a rebase nudge, the abandoned-branch sweep, and a history-derived hot-file table
+   (`VERSION`-style bot files) as the first thing the daemon computes for a repo.
+6d. **Literature check (`docs/history/spikes/worktree/research-merge-conflicts.md`, 20 sources)** — the
+   "0 semantic conflicts" result is what small-team data looks like, not a law: Brun 2011
+   measured 1% build + 6% test conflicts among 5,355 clean-looking merges, and Mergify's 2026
+   queue data has a green PR breaking main 0.77% of the time at 2–5 engineers rising to 12.5%
+   at 40+. Overlap as a predictor is confirmed weak (Leßenich 2018: none of 7 indicators;
+   Owhadi-Kareshk 2019: safe-merge F1 0.95 vs conflict F1 0.6). Two 2026 agent-PR studies
+   put co-active agent PR conflict at 20–42%, in source code — agents collide far more than
+   the human histories we measured, which *raises* the radar's value for Muster's workload.
+   Ghiotto 2020: 87% of conflict chunks resolve from chunk content alone — the coverage of
+   the "parent content only" resolver rule. Brindescu 2020: manually-resolved conflict code
+   is 26× more bug-prone — re-review after resolution is not optional. Prior-art correction:
+   **Clash (2026) does ship live pairwise merge-tree across worktrees**, and blocks writes via
+   a PreToolUse hook — the control half we rejected.
+6e. **Rebase-on-every-base-change replay (S10, presidium's 44 real conflicting merges)** —
+   event-based rebasing does **not** reduce conflict: the same region re-conflicts on each
+   later base commit, total resolved hunks are 2.3–5.8× the one-shot merge's, and each
+   episode is about the same size. It buys earliness only (first collision at ~23% of the
+   branch's life); 3/44 conflicts vanish through path dependence. **Policy:** auto-rebase
+   while `merge-tree` says it is clean (idle session, clean tree — 73–88% of base moves),
+   stop at the first predicted conflict and surface it once; never nag per base move; bot
+   files (`VERSION`, lockfiles) excluded. Cadence rules are a proxy this signal replaces.
+7. **Passive radar (S2)** — running since 2026-09-06 on the muster repo's worktrees;
+   analysis in `radar-analyze.sh`. Needs a week of real parallel work before it says
+   anything; no linked worktrees existed anywhere under `code/` before this spike.
+
+Open decisions from the 2026-09-01 status: **1 and 2 resolved above (S7)**; 3 (integration
+session details) partly informed by S4/S6 — permission mode must allow git, and the resolver
+needs a mechanical hunk-scope check; 4 (radar-first vs wait for §4.2) — S1 makes §4.2 cheap
+enough to build first, since ownership falls out of the hooks; 5 (build order) still parked.
+
+## Proposed implementation — discussion 2026-09-07 (after the spikes and the literature check)
+
+Build order, each piece standing on the one before. 1 and 2 go through `/spec` first.
+
+1. **Worktree manager through Claude Code's own hook.** Launch with `--worktree <name>`; the
+   daemon's `WorktreeCreate` handler creates the tree (naming policy, setup scripts: copy
+   `.env`, install steps) and returns the path. Ownership comes from the hook payloads and
+   the lock reason. Reconcile-on-start sweeps trees left by headless exits and crashes:
+   remove if clean, flag if dirty or unpushed. (S1.)
+2. **Radar, `merge-tree` only.** Per repo every ~30 s: each worktree against the base and
+   pairwise, ~100–150 ms a cell. Cells: green · stale (behind, still clean) · colliding.
+   Filename overlap is *not* shown — it is wrong most of the time (S8/S9, Leßenich,
+   Owhadi-Kareshk). A per-repo hot-file list, computed from history in minutes with the
+   census scripts and applied automatically with a one-line notice and an edit link, keeps
+   `VERSION`-style files from painting cells red. (S5/S8/S9.)
+3. **Auto-rebase while free, warn once.** Idle session + clean tree + clean `merge-tree` ⇒
+   rebase the worktree with the queue's abort-safe machinery and tell the session via its
+   next `UserPromptSubmit` context. First *predicted* conflict ⇒ stop, attention state,
+   files listed, no further nagging: forcing rebases past that point multiplies same-size
+   resolutions 2–6× for no smaller final conflict (S10). Cadence rules are the proxy this
+   replaces.
+4. **Land queue** from the S3 prototype: daemon-driven rebase → verify → merge in its own
+   integration worktree; state persisted before every step (7-point crash matrix green).
+   Verify failure also runs the target's HEAD; "base already red" and a single retry
+   separate flake and drift from regression (S5/S8/S9: every red we saw was one of those).
+   Push policy per repo; default **hold** where a push cuts a release; undo records pre/post
+   SHAs (S7).
+5. **Resolution ladder, automatic by default, human last.** (a) mechanical: rerere replay,
+   hot-file driver, repo-supplied regenerate command; (b) **the owning session** at idle —
+   has the task in context, resolved a real conflict correctly in 36 s (S4); (c) a
+   summoned integration session fed both branches' task context (S6: context 3/3 vs
+   diff-only 2/3, n=3); (d) human via Needs-Input. Guardrails, because the agent *will*
+   otherwise rewrite the gate (S4 run 4, S6 p3): edit conflict hunks only; content present
+   in a parent or a mechanical composition of both (Ghiotto: covers ~87% of chunks); never
+   touch verify/test files; gates and a scoped review re-run before landing (Brindescu:
+   manually-resolved conflict code is 26× more bug-prone).
+
+**Hot files without per-language knowledge.** Muster knows two mechanical strategies and no
+ecosystems: *pick a side* (`merge=ours`/`theirs` in `.gitattributes`, the fix for `VERSION`)
+and *run the repo's regenerate command* (one optional string, same slot as the verify
+command — `npm install --package-lock-only && go mod tidy` and the like). Anything without a
+rule falls through to the ladder, i.e. to an LLM. Detection is mechanical; resolution
+without a rule is not.
+
+**Settings.** Global defaults with per-repo override: base branch · merge style (squash /
+merge commit / rebase; squash default because undo and the "verified tree == landed tree"
+check are simplest with one commit) · push policy (hold / auto) · verify command · regenerate
+command · hot-file list · auto-rebase-while-clean on/off · ladder depth before a human is
+asked.
+
+**Open (honest) risks.** Auto-rebasing a worktree under an idle-but-about-to-resume session;
+agents holding stale line numbers after a rebase; permission mode blocking the owner's
+mechanical steps (S4 run 2) — hence the queue does the git and hands over hunks only;
+resolver hunk-scope enforcement needs per-file-class teeth (union is mechanical and still
+corrupts an in-place edit).
