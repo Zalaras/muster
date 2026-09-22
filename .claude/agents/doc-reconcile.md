@@ -82,7 +82,7 @@ Commit per feature, so a run that dies half-way leaves a tree whose `check-kb` s
 
 ## Output
 
-Write `plans/<plan-name>/doc-reconcile.md` (standalone: report in your final message):
+Write `plans/<plan-name>/doc-reconcile.md` (only a standalone run reports in its final message instead):
 
 ```markdown
 # Doc Reconcile: <plan-name>

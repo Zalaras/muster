@@ -245,6 +245,11 @@ export interface UpdateInfo {
   running: string;
   install: UpdateInstallKind;
   remedy: string | null;
+  // Plan rail-card-improvements-2 (kb:anchor/ws.update): true iff a release check is
+  // possible at all — `-update-base-url` is non-empty and the install kind is not "dev".
+  // Constant for the daemon's life and independent of `prefs.updateCheck`, which governs
+  // only the automatic schedule. False means POST /api/update/check returns 404.
+  canCheck: boolean;
   available: string | null;
   checkedAt: string | null;
   installed: string | null;
@@ -595,23 +600,27 @@ function parseUpdateApply(value: unknown): UpdateApply | null {
 /** Plan auto-update (kb:anchor/ws.update). Every field is read-checked; a malformed
  * value anywhere rejects the whole object rather than degrading it to a partial "unknown"
  * shape (same discipline as parseSession). */
-function parseUpdateInfo(value: unknown): UpdateInfo | null {
+// Exported for api.ts's `checkForUpdate` (kb:anchor/update.check), which decodes the same
+// shape from a POST response instead of a WS broadcast.
+export function parseUpdateInfo(value: unknown): UpdateInfo | null {
   if (!isRecord(value)) return null;
   const running = value["running"];
   const install = value["install"];
   const remedy = value["remedy"];
+  const canCheck = value["canCheck"];
   const available = value["available"];
   const checkedAt = value["checkedAt"];
   const installed = value["installed"];
   if (typeof running !== "string") return null;
   if (!isUpdateInstallKind(install)) return null;
   if (remedy !== null && typeof remedy !== "string") return null;
+  if (typeof canCheck !== "boolean") return null;
   if (available !== null && typeof available !== "string") return null;
   if (checkedAt !== null && typeof checkedAt !== "string") return null;
   if (installed !== null && typeof installed !== "string") return null;
   const apply = parseUpdateApply(value["apply"]);
   if (!apply) return null;
-  return { running, install, remedy, available, checkedAt, installed, apply };
+  return { running, install, remedy, canCheck, available, checkedAt, installed, apply };
 }
 
 function isClaudeFamily(value: unknown): value is ClaudeFamily {

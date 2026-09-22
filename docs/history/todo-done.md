@@ -1696,3 +1696,93 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
   one comparator shared with Option-Command-0 and the Tiles pick (#30); and the activity line is
   turn-aware by default — your prompt while a turn is open, Claude's reply once it closes — behind a
   Settings pref offering prompt, reply or both (#42).
+
+
+## Together — rail card second pass and the update check (#48, #49, #50, #51) ✅ done 2026-09-22 (plan `rail-card-improvements-2`, via `/orchestrate`; approved review cycle 2)
+<!-- kb: adr/rail-card-title-leads-and-density-ramp-corrected, adr/update-check-pref-governs-automatic-checking-only, adr/update-manual-check-is-a-synchronous-post -->
+
+### Together — rail card layout, second pass (#49, #50)
+
+Both amend the same accepted decision, `kb:adr/rail-card-state-row-then-wrapping-title`
+(2026-09-22, plan `rail-card-improvements`, the developer's pick from side-by-side mockups), so
+one superseding ADR covers the group; both land in `web/index.html` and `web/src/style.css`
+with no protocol delta, and the Tiles strip follows either way because it shares the card
+template (E7/E16). Both readings below come from the stylesheet, not the built app — confirm
+each as a computed property in the browser before planning, per the lesson this very plan's retro
+left (`kb:lesson/mockup-vindicates-markup-not-cascade`).
+
+- [x] **Comfortable and Expanded are inverted, and compact should keep the context bar** ([#49](https://github.com/Zalaras/muster/issues/49))
+  — two asks; the second was added to the issue after it was filed. **(a)** "When selecting
+  Comfortable you get Expanded and vice versa." Read from the code, not reproduced in a browser:
+  nothing is crossed at the click — each button carries its own `data-density`
+  (`web/index.html:65-73`) and the click just PUTs that value
+  (`web/src/features/rail.ts:72-75`). The inversion is in the render. Comfortable is the base
+  card and puts **no** clamp on `.activity` (`web/src/style.css:1972-1978`), so an activity line
+  wraps to as many lines as it needs; expanded adds `-webkit-line-clamp: 3`
+  (`web/src/style.css:2114-2120`), which is a *cap*. So expanded is never taller than
+  comfortable and is shorter the moment a line would run past three lines — the reported swap,
+  exactly. The ADR and `docs/features/rail/spec.md:40-43` describe that same inversion
+  ("expanded lets the activity line run to three lines"), so the design is what is wrong here,
+  not a drift from it: comfortable wants its own clamp with expanded left uncapped, or the two
+  labels swap. **(b)** Show the gauge track in compact too — "it doesn't take any vertical
+  space", which is true: the track is a flex item in the same `.r3` row as the percent and token
+  numbers, so hiding it with `body[data-rail-density="compact"] .r3 .ctx { display: none }`
+  (`web/src/style.css:2096-2098`) buys no height. That rule is REQ-4 of the just-landed plan and
+  its sentence in `docs/features/rail/spec.md:40-43` ("compact … drops the gauge track") moves
+  with it.
+
+- [x] **Swap Status and Title around in the Rail Card** ([#50](https://github.com/Zalaras/muster/issues/50)) — "Title should be at the top".
+  Today `.r0` (state badge, timer, pin) leads and `.r1` carries the title
+  (`web/index.html:296-303`) — that is option C of the ADR above, so this reverses a decision
+  that is four commits old and needs the superseding ADR before it is planned; read that ADR's
+  rejected option B first ("give the title its own row and drop the badge and timer beside the
+  repo line"), which is close to what is now being asked for. Two things the swap has to answer
+  rather than assume: `.r0` also holds the pin button and the state timer, so leading with the
+  title either lifts the pin above it or splits that row; and the density deltas are keyed on
+  the row classes (`body[data-rail-density="compact"] .r1/.r2/.r3`,
+  `web/src/style.css:2070-2098`), so the margin rhythm is re-tuned, not just reordered.
+
+- [x] **Need Check for Updates button** ([#48](https://github.com/Zalaras/muster/issues/48)) — a user-initiated "check now" control in the
+  dashboard. The issue body is empty (title only), so everything below is read from the code, not
+  from the report. All of it ships except the manual trigger: the daemon checks once after listen
+  and then every `-update-check-interval` (default 24 h), broadcasts `update`
+  (kb:anchor/ws.update), and `POST /api/update/apply` (kb:anchor/update.apply) plus
+  `GET /api/update/restart-impact` (kb:anchor/update.restart-impact) already drive the
+  Update-and-restart confirm. What is missing is a way to ask *now* rather than waiting up to a
+  day. The only user-reachable trigger today is toggling the `updateCheck` pref off and on —
+  setting it true "triggers an immediate check" (`docs/protocol.md` § prefs) — which is a side
+  effect of a settings toggle, not a button. Needs a protocol delta: there is no check anchor,
+  only `update.apply` and `update.restart-impact`, so this adds one. It must not become a way for
+  the browser to reach github.com — the daemon checks, never the browser.
+
+  On its own deliberately: nothing else open shares the update seam — auto-update itself landed
+  2026-09-10, and the Homebrew tap entry in Pre-v1 Cleanup touches it only through "which binary
+  wins on `$PATH`", not this code path.
+
+- [x] **Shell "tick" looks like a down arrow** ([#51](https://github.com/Zalaras/muster/issues/51)) — "Should look like a tick".
+  Confirmed by reading the shape rather than the screen: the done indicator is a CSS-drawn
+  check — a **9×9** box showing only `border-bottom` and `border-left`, rotated `-45deg`
+  (`web/src/style.css:693-698`). Equal sides give equal arms, so the glyph is a symmetric V,
+  i.e. a chevron; a tick needs unequal arms (a box roughly half as wide as it is tall, so the
+  short stroke reads as the down-arm and the long one as the up-arm). The tile-footer override
+  that shrinks it to 7×7 (`web/src/style.css:718-721`) needs the same proportion. Nothing
+  asserts the geometry — presence and the `data-act` value are the tested contract
+  (`web/src/terminal/surfaceswitch.ts:151-156`) — so this is a `style.css`-only change that
+  reads from the stylesheet and wants the same in-browser confirmation as #49/#50, and it
+  breaks no test. Grouping considered: it is a different feature from #49/#50 (surfaces, not
+  rail) under a different decision (`kb:adr/theme-shell-pip-retired-for-activity-indicator`),
+  but all three are style-only with no protocol delta, so it can ride that plan if one is cut.
+
+  Shipped: the rail card now leads with its wrapping title and puts the state row (badge, timer,
+  pin) beneath it, on the rail and on the Tiles strip alike since they share one template (#50);
+  the density ramp is monotonic again — comfortable clamps the activity line to three lines,
+  expanded lets it run, compact still drops it — and the gauge track renders in all three
+  densities, which measured as costing no height at all (#49); every activity line carries its
+  full text as a hover title, since comfortable now clamps where it did not before. The shell
+  done indicator is a box wider than it is tall, so its two arms are unequal and it reads as a
+  tick rather than a symmetric chevron, on the Focus mainhead and in the tile footer both (#51).
+  Settings gained a `Check now` button backed by `POST /api/update/check`, which performs one
+  release check synchronously and returns the result or the reason it failed; the
+  "Check for updates daily" pref now governs only the daemon's own schedule, a user-initiated
+  check runs regardless of it, and the update object carries `canCheck` so the button can say
+  when checking is possible at all (#48).

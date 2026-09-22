@@ -265,6 +265,7 @@
           <label class="check"><input type="checkbox" id="update-check-toggle" name="updateCheck" /> Check for updates daily</label>
           <p class="hint" id="update-status" role="status"></p>
           <div class="update-actions">
+            <button type="button" id="update-check-button" class="btn">Check now</button>
             <button type="button" id="update-apply-button" class="btn">Update</button>
             <button type="button" id="update-restart-button" class="btn key">Update and restart</button>
           </div>
@@ -293,13 +294,13 @@
       <article class="card" data-testid="session-card">
         <div class="stripe"></div>
         <div class="card-in">
+          <div class="r1">
+            <span class="name"></span>
+          </div>
           <div class="r0">
             <span class="badge"></span>
             <span class="timer" aria-label="time in state"></span>
             <button class="pin" type="button" aria-label="Pin" aria-pressed="false" title="Pin to top"></button>
-          </div>
-          <div class="r1">
-            <span class="name"></span>
           </div>
           <div class="r2"></div>
           <div class="r3"></div>

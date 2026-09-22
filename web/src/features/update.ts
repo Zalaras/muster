@@ -2,13 +2,14 @@
 // code-breakup vocabulary: "update"; plan auto-update). No dependency on any other
 // controller — `settings.ts` depends on this module's exposed elements/methods instead.
 import type { App } from "../app";
-import { applyUpdate, fetchRestartImpact } from "../api";
+import { applyUpdate, checkForUpdate, fetchRestartImpact } from "../api";
 import { requireElement } from "../dom";
 import {
   buildUpdateViewModel,
   initRestartConfirm,
   renderSettingsBadge,
   renderUpdateSection,
+  type CheckState,
   type RestartConfirmController,
   type UpdateSectionElements,
 } from "../render/update";
@@ -21,10 +22,17 @@ export interface UpdateHandle {
   readonly toggle: HTMLInputElement;
   readonly applyBtn: HTMLButtonElement;
   readonly restartBtn: HTMLButtonElement;
+  /** REQ-10 (plan rail-card-improvements-2): `#update-check-button`, same
+   * shared-element-shape reason as the three above — `settings.ts` wires its `click`. */
+  readonly checkBtn: HTMLButtonElement;
   /** Plan auto-update User Flow 2: `POST /api/update/apply {}`. */
   apply(): void;
   /** Plan auto-update User Flow 3: fetch the restart impact, then open the confirm. */
   applyAndRestart(): void;
+  /** REQ-7/REQ-13 (plan rail-card-improvements-2): `POST /api/update/check`. A no-op
+   * while this window's own check is already in flight (W4/edge case 16) — `settings.ts`
+   * fires this straight from the button's click handler, same shape as `apply`. */
+  check(): void;
 }
 
 export function initUpdate(app: App): UpdateHandle {
@@ -37,10 +45,14 @@ export function initUpdate(app: App): UpdateHandle {
     statusEl: requireElement<HTMLElement>("#update-status"),
     applyBtn: requireElement<HTMLButtonElement>("#update-apply-button"),
     restartBtn: requireElement<HTMLButtonElement>("#update-restart-button"),
+    checkBtn: requireElement<HTMLButtonElement>("#update-check-button"),
   };
 
   let currentUpdate: UpdateInfo | null = null;
   let currentPrefs: Prefs | null = null;
+  // REQ-10/REQ-12/REQ-13: this window's own `Check now` request state — never derived
+  // from `UpdateInfo` (see render/update.ts's `CheckState` doc comment).
+  const checkState: CheckState = { inFlight: false, error: null };
 
   function apply(): void {
     void applyUpdate(false).then((result) => {
@@ -60,6 +72,23 @@ export function initUpdate(app: App): UpdateHandle {
         return;
       }
       restartConfirm.open(result.value.shells);
+    });
+  }
+
+  // REQ-7/REQ-8/REQ-13: runs regardless of `prefs.updateCheck` (that pref governs only
+  // the daemon's own automatic schedule). A new check clears any previous failure
+  // immediately, so a second press doesn't leave a stale reason on screen while the fresh
+  // request is still in flight; the resulting `available`/`checkedAt` reach this window
+  // via the `update` broadcast the daemon sends on success (same "response carries no
+  // state, the socket does" shape `apply`/`applyAndRestart` already follow above) — this
+  // call only tracks whether the *request itself* is in flight or failed.
+  function check(): void {
+    if (checkState.inFlight) return; // W4/edge case 16: no double-open from one window.
+    checkState.inFlight = true;
+    checkState.error = null;
+    void checkForUpdate().then((result) => {
+      checkState.inFlight = false;
+      checkState.error = result.ok ? null : result.error.message;
     });
   }
 
@@ -96,8 +125,8 @@ export function initUpdate(app: App): UpdateHandle {
   app.on("status", () => restartConfirm.close());
 
   // Render phase 3 (UI Specifications > Render phase order).
-  app.onRender(() => {
-    const vm = buildUpdateViewModel(currentUpdate, currentPrefs);
+  app.onRender((frame) => {
+    const vm = buildUpdateViewModel(currentUpdate, currentPrefs, frame.now, checkState);
     renderUpdateSection(updateSectionElements, vm);
     renderSettingsBadge(settingsButtonEl, vm.badged);
   });
@@ -106,7 +135,9 @@ export function initUpdate(app: App): UpdateHandle {
     toggle: updateSectionElements.toggle,
     applyBtn: updateSectionElements.applyBtn,
     restartBtn: updateSectionElements.restartBtn,
+    checkBtn: updateSectionElements.checkBtn,
     apply,
     applyAndRestart,
+    check,
   };
 }

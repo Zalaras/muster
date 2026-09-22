@@ -184,18 +184,21 @@ glyph follows the version text; it carries **no state colour** (§3) — it inhe
 readout's own muted text colour — and its hover/`aria-label` text names whether Claude Code
 needs updating or is simply newer than anything verified yet.
 
-**Rail card** — 3px state stripe, then a mono state row (badge, timer, pin), then the title
+**Rail card** — 3px state stripe, then the title
 (`--fg` on every surface that hosts the card, kb:adr/rail-card-title-foreground-token)
 wrapping to as many lines as it needs (one line with an ellipsis only in compact density; the
-full text is the hover `title`), `repo / branch` (also its own hover `title`), then the
+full text is the hover `title`), then a mono state row (badge, timer, pin),
+`repo / branch` (also its own hover `title`), then the
 context row (gauge, %, absolute tokens, compaction count), then the activity line whose text
 `prefs.railActivity` chooses (turn-aware by default: your prompt while a turn is open, Claude's
-reply once it closes), then either a **note** (amber left-border, for the reason it needs you)
+reply once it closes; its full text is its hover `title` too), then either a **note** (amber left-border, for the reason it needs you)
 or a **snapshot** (mono, `--well` ground, clipped). An unread idle session carries a neutral
 7px `--fg` dot before the title and a read idle title drops to `--fg-muted`; neither uses a
 state colour (§3). Density is `prefs.railDensity`, chosen from the icon segmented control in
-the rail head: comfortable is the reference, compact clamps the title and note to one line and
-hides the gauge track and activity line, expanded lets the activity line run to three lines.
+the rail head: comfortable is the reference and clamps the activity line to three lines,
+compact clamps the title and note to one line and drops the activity line, expanded lets the
+activity line run to as many lines as it needs. The gauge track renders in all three
+(kb:adr/rail-card-title-leads-and-density-ramp-corrected).
 The card whose session the Focus pane is currently showing carries **`current`**
 (plan `ui-text-and-focus`, REQ-1/REQ-2) — `--bg-hover` ground, a 1px inset `--edge` ring, its
 action row shown unconditionally (same reveal as hover/focus-within) — a neutral treatment,

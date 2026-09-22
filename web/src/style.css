@@ -690,11 +690,26 @@ body {
   animation: shellact-spin 0.7s linear infinite;
 }
 
+/* REQ-6 (plan rail-card-improvements-2): `height < width` so the two arms drawn by
+ * `border-bottom` (length = width, becomes the up-right stroke under the rotation) and
+ * `border-left` (length = height, becomes the up-left stroke) are unequal and the glyph
+ * reads as a tick rather than a symmetric chevron (Implementation Notes' derivation —
+ * `box-sizing: border-box` is global, so the declared width/height *are* the arm
+ * lengths). `margin-top` is the same kind of optical nudge the old symmetric glyph
+ * carried, re-measured for this box's own centroid: the two border strokes' filled
+ * (not just centerline) union has its centroid offset 1.485px below the box's own
+ * center once rotated, so pulling the box up by that amount lands the drawn ink's
+ * centroid where `.shellact[data-act="busy"]`'s symmetric circle already sits — verified
+ * against a real render (`.surfseg button`'s flex `align-items: center`) at 8x
+ * device-scale, comparing candidate margins against the busy circle's own centered
+ * line. */
 .shellact[data-act="done"] {
+  width: 9px;
+  height: 5px;
   border-bottom: 1.5px solid var(--fg);
   border-left: 1.5px solid var(--fg);
   transform: rotate(-45deg);
-  margin-top: -2px;
+  margin-top: -1.5px;
 }
 
 @keyframes shellact-spin {
@@ -715,9 +730,21 @@ body {
   gap: 4px;
 }
 
-.tfoot .surfseg .shellact {
+/* REQ-6: split by `data-act` — a shared 7×7 override would keep `done` square only by
+ * accident once its base shape changed (edge case 22). `busy` stays a circle on every
+ * surface; `done`'s arm-length ratio (7:4, same shape family as the mainhead's 9:5) is
+ * carried through with its own re-measured optical nudge (same centroid method as the
+ * mainhead's `-1.5px`, scaled down: this box's rotated ink centroid sits 1.02px below its
+ * own center). */
+.tfoot .surfseg .shellact[data-act="busy"] {
   width: 7px;
   height: 7px;
+}
+
+.tfoot .surfseg .shellact[data-act="done"] {
+  width: 7px;
+  height: 4px;
+  margin-top: -1px;
 }
 
 /* ── plan markdown-viewing: the reader (docs/design/mockups/markdown-viewing/) ──────── */
@@ -1819,9 +1846,18 @@ body {
   min-width: 0;
 }
 
-/* REQ-1 (plan rail-card-improvements, layout C): `.r0` is the small state row — badge,
- * timer, pin — that now leads the card; `.r1` holds only the wrapping title below it. */
+/* REQ-4/REQ-5 (plan rail-card-improvements-2, supersedes the layout-C comment this
+ * replaced): `.r1` — the wrapping title — now leads the card; `.r0` (badge, timer, pin)
+ * follows below it, the pin travelling with the badge/timer rather than lifting above
+ * the title. The 4px top margin keys on *position* (the row below the leader) rather
+ * than being copied verbatim onto the swapped class names (W12) — it moved from `.r1` to
+ * `.r0` along with the reorder, the same swap the compact density block below makes. */
+.r1 {
+  display: block;
+}
+
 .r0 {
+  margin-top: 4px;
   display: flex;
   align-items: baseline;
   gap: 8px;
@@ -1829,11 +1865,6 @@ body {
 
 .r0 .timer {
   margin-left: auto;
-}
-
-.r1 {
-  margin-top: 4px;
-  display: block;
 }
 
 /* REQ-1: the title wraps to as many lines as it needs in comfortable/expanded density —
@@ -1969,12 +2000,23 @@ body {
   color: var(--fg-dim);
 }
 
+/* REQ-1 (plan rail-card-improvements-2): comfortable is the reference render (Overview's
+ * measured baseline) and clamps to three lines here, in the base rule — expanded's own
+ * block below removes the clamp instead of adding one, the inverse of the pre-plan
+ * behaviour this corrects. `.activity[hidden]`'s higher specificity ((0,2,0) vs this
+ * rule's (0,1,0)) already wins the cascade unconditionally, so this rule needs no
+ * companion `[hidden]` override the way expanded's does below. */
 .activity {
   font-family: var(--mono);
   font-size: var(--fs-xs);
   line-height: 1.4;
   color: var(--fg-dim);
   margin-top: 6px;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* REQ-14: two activity lines can both show at once (`both` mode) — the second sits
@@ -2062,15 +2104,19 @@ body {
   text-decoration-color: var(--line-control);
 }
 
-/* ── rail card density (REQ-3/REQ-4, plan rail-card-improvements) ───────────────────────
+/* ── rail card density (REQ-3/REQ-4, plan rail-card-improvements; ramp and REQ-3's track
+ * corrected by plan rail-card-improvements-2's REQ-1/REQ-3/REQ-5) ─────────────────────
  * Keyed on `body[data-rail-density]`, written only from the `prefs` broadcast
  * (features/rail.ts, INV-4) — never from the click. Comfortable is the reference render
- * (the base card rules above); compact and expanded are the two deltas. Applies to the
- * Tiles strip too, since `.strip .card` is the same shared card markup (E7/E16). */
+ * (the base card rules above, now including the three-line activity clamp); compact and
+ * expanded are the two deltas. Applies to the Tiles strip too, since `.strip .card` is
+ * the same shared card markup (E7/E16). */
 body[data-rail-density="compact"] .card-in {
   padding: 6px 11px 7px;
 }
-body[data-rail-density="compact"] .r1 {
+/* REQ-5: same position-not-class swap as the base rule above — `.r0` is the row below
+ * the leading `.r1` in compact too, so it carries compact's 2px step. */
+body[data-rail-density="compact"] .r0 {
   margin-top: 2px;
 }
 body[data-rail-density="compact"] .card .name {
@@ -2092,10 +2138,6 @@ body[data-rail-density="compact"] .r2 {
 body[data-rail-density="compact"] .r3 {
   margin-top: 3px;
 }
-/* Only the track hides — the percent and token numbers stay (REQ-4). */
-body[data-rail-density="compact"] .r3 .ctx {
-  display: none;
-}
 /* Both activity lines are dropped entirely in compact, hidden or not — this rule is
  * deliberately unconditional (not scoped to `:not([hidden])`), so it never races the
  * `[hidden]` attribute the way an unconditional `display` rule can
@@ -2111,18 +2153,20 @@ body[data-rail-density="compact"] .note {
   text-overflow: ellipsis;
 }
 
+/* REQ-1: expanded leaves the activity line uncapped — `display: block` overrides the
+ * base rule's `-webkit-box`/`-webkit-line-clamp` entirely rather than raising the clamp
+ * count, so the line wraps to however many lines it needs (`overflow: visible` too, since
+ * the base rule's `overflow: hidden` only matters together with the clamp it's paired
+ * with here). */
 body[data-rail-density="expanded"] .activity {
-  white-space: normal;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  display: block;
+  overflow: visible;
 }
-/* Unlike compact's unconditional override above, expanded's `display: -webkit-box` DOES
- * collide with `.activity[hidden] { display: none }` on a null line — this selector's
- * higher specificity (one more class) wins the cascade over both the generic `[hidden]`
- * rule and the plain rule above, so a hidden line stays hidden in expanded density too
- * (kb:lesson/display-rule-overrides-hidden-attribute's companion-rule requirement). */
+/* This selector's higher specificity ((0,2,1), one more class than the base `.activity`
+ * plus the `body[data-rail-density]` attribute) DOES collide with `.activity[hidden] {
+ * display: none }` ((0,2,0)) on a null line — the override above sets `display` too, so
+ * without this companion a hidden line would stay visible in expanded density
+ * (kb:lesson/display-rule-overrides-hidden-attribute). */
 body[data-rail-density="expanded"] .activity[hidden] {
   display: none;
 }

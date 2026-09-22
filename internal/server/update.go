@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -70,6 +71,7 @@ type UpdateInfo struct {
 	Running   string          `json:"running"`
 	Install   string          `json:"install"`
 	Remedy    *string         `json:"remedy"`
+	CanCheck  bool            `json:"canCheck"`
 	Available *string         `json:"available"`
 	CheckedAt *string         `json:"checkedAt"`
 	Installed *string         `json:"installed"`
@@ -77,11 +79,14 @@ type UpdateInfo struct {
 }
 
 // Sentinel errors updateManager.RequestApply returns — handleApplyUpdate maps each to
-// its wire error code (kb:anchor/update.apply).
+// its wire error code (kb:anchor/update.apply). errCheckFailed is checkAvailability's
+// own sentinel, wrapping the release host's own error text — handleCheckUpdate maps it
+// to 502 (kb:anchor/update.check); errShuttingDown is reused by both.
 var (
 	errUpdateUnsupported = errors.New("update unsupported for this install")
 	errNothingToApply    = errors.New("no newer release is known")
 	errShuttingDown      = errors.New("musterd is shutting down")
+	errCheckFailed       = errors.New("update check failed")
 )
 
 // updateExecFunc runs a subprocess and returns its stdout — the ProbeVersion seam
@@ -236,24 +241,40 @@ func (m *updateManager) tick(ctx context.Context) {
 	if !enabled {
 		return
 	}
-	m.checkAvailability(ctx)
+	// The tick loop discards the error; it is already logged at debug inside
+	// checkAvailability, and D13 keeps the wire untouched on a failed automatic check.
+	_ = m.checkAvailability(ctx, false)
 }
 
-// checkAvailability is one REQ-1..7 poll attempt: a failure changes nothing on the wire
-// (D17) and is logged at debug only; a success updates available/checkedAt and always
-// broadcasts (checkedAt changes on every successful check, regardless of whether
-// available itself did) — unless the pref was turned off while this check was in flight
-// (D16), in which case the result is discarded and nothing is broadcast.
-func (m *updateManager) checkAvailability(ctx context.Context) {
+// checkAvailability is one release-check poll attempt, run by both the tick loop
+// (manual false, D13's silent-on-failure path — plan rail-card-improvements-2) and
+// POST /api/update/check (manual true, REQ-7): a failure is logged at debug and, for
+// a manual caller, returned so handleCheckUpdate can map it onto a wire error code
+// (kb:anchor/update.check). A success updates available/checkedAt and always broadcasts
+// (checkedAt changes on every successful check, regardless of whether available itself
+// did) — unless this is the automatic path and the pref was turned off while the check
+// was in flight (D16), in which case the result is discarded and nothing is broadcast.
+// A manual check keeps its result even then (Edge Case 9): prefs.updateCheck governs
+// only the daemon's own schedule (REQ-8).
+func (m *updateManager) checkAvailability(ctx context.Context, manual bool) error {
+	if manual {
+		m.mu.Lock()
+		shuttingDown := m.shuttingDown
+		m.mu.Unlock()
+		if shuttingDown {
+			return errShuttingDown
+		}
+	}
+
 	tag, err := selfupdate.LatestTag(ctx, m.client, m.base)
 	if err != nil {
 		m.log.Debug().Err(err).Msg("update check failed")
-		return
+		return fmt.Errorf("%w: %w", errCheckFailed, err)
 	}
 	latest, ok := selfupdate.ParseRelease(tag)
 	if !ok {
 		m.log.Debug().Str("tag", tag).Msg("update check: latest tag is not a release version")
-		return
+		return fmt.Errorf("%w: latest tag %q is not a release version", errCheckFailed, tag)
 	}
 
 	var available *string
@@ -264,15 +285,16 @@ func (m *updateManager) checkAvailability(ctx context.Context) {
 	at := time.Now().UTC().Format(time.RFC3339)
 
 	m.mu.Lock()
-	if !m.checkEnabled {
+	if !manual && !m.checkEnabled {
 		m.mu.Unlock()
-		return
+		return nil
 	}
 	m.available = available
 	m.checkedAt = &at
 	m.mu.Unlock()
 
 	m.emit()
+	return nil
 }
 
 // checkSwap is REQ-26: at each tick, stat the running executable; if size/mtime differ
@@ -488,6 +510,7 @@ func (m *updateManager) Current() UpdateInfo {
 		Running:   m.running,
 		Install:   string(m.install.Kind),
 		Remedy:    remedy,
+		CanCheck:  m.install.Kind != selfupdate.KindDev,
 		Available: m.available,
 		CheckedAt: m.checkedAt,
 		Installed: m.installed,
@@ -551,6 +574,7 @@ func newUpdateFeature(cfg UpdateConfig, httpClient *http.Client, daemonVersion s
 }
 
 func (f *updateFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.Handler) {
+	mux.Handle("POST /api/update/check", guard(http.HandlerFunc(f.handleCheckUpdate)))
 	mux.Handle("POST /api/update/apply", guard(http.HandlerFunc(f.handleApplyUpdate)))
 	mux.Handle("GET /api/update/restart-impact", guard(http.HandlerFunc(f.handleRestartImpact)))
 }
@@ -607,6 +631,29 @@ func (f *updateFeature) restartRequestsChan() <-chan struct{} {
 		return nil
 	}
 	return f.um.restartRequests
+}
+
+// handleCheckUpdate is POST /api/update/check (kb:anchor/update.check): performs one
+// release check synchronously, on the same code path as the periodic tick, and returns
+// the resulting update object. Runs regardless of prefs.updateCheck, which governs only
+// the daemon's own automatic schedule (REQ-8) — canCheck false is the only reason this
+// 404s.
+func (f *updateFeature) handleCheckUpdate(w http.ResponseWriter, r *http.Request) {
+	if f.um == nil || f.um.installKind() == selfupdate.KindDev {
+		writeJSONError(w, http.StatusNotFound, "not_found", "update checking is not available for this install")
+		return
+	}
+
+	switch err := f.um.checkAvailability(r.Context(), true); {
+	case err == nil:
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(f.um.Current())
+	case errors.Is(err, errShuttingDown):
+		writeJSONError(w, http.StatusConflict, "shutting_down", "musterd is shutting down")
+	default:
+		writeJSONError(w, http.StatusBadGateway, "check_failed", err.Error())
+	}
 }
 
 // applyUpdateRequest is POST /api/update/apply's request body (kb:anchor/update.apply).

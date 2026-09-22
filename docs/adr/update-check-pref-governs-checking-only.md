@@ -1,7 +1,7 @@
 ---
 id: update-check-pref-governs-checking-only
 type: decision
-status: accepted
+status: superseded
 date: 2026-09-10
 summary: One boolean pref, default on, governs only whether the daemon checks for a newer release; applying is always explicit via a button or the update flag.
 features: [update, settings]

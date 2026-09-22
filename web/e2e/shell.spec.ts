@@ -91,6 +91,11 @@ test("GET /api/state returns exactly the M0 snapshot object once authenticated",
   // rail-card-improvements (plan.md's Protocol Contract, merged into docs/protocol.md on
   // approval) — default "comfortable" / "turn" before any PUT /api/prefs; updated here
   // for the same reason as density/usageModel/railSort/theme/update above.
+  // `update.canCheck` was added by plan rail-card-improvements-2 (Protocol Contract: one
+  // field added to kb:anchor/ws.update between `remedy` and `available`) — false here
+  // because this scratch daemon's `install` is "dev", one of the two conditions that
+  // make a release check impossible regardless of `-update-base-url` — updated here for
+  // the same reason as density/usageModel/railSort/theme/update above.
   expect(body).toEqual({
     sessions: [],
     shellsBusy: [],
@@ -120,6 +125,7 @@ test("GET /api/state returns exactly the M0 snapshot object once authenticated",
       running: expect.any(String),
       install: "dev",
       remedy: null,
+      canCheck: false,
       available: null,
       checkedAt: null,
       installed: null,

@@ -22,6 +22,9 @@ export interface SettingsDialogElements {
   updateToggle: HTMLInputElement;
   applyBtn: HTMLButtonElement;
   restartBtn: HTMLButtonElement;
+  // Plan rail-card-improvements-2 (REQ-10): `#update-check-button` — same wiring-only
+  // shape as the two apply buttons above.
+  checkBtn: HTMLButtonElement;
   // Plan rail-card-improvements (REQ-13): the "Rail card shows" fieldset's four radios.
   railActivityRadios: HTMLInputElement[];
 }
@@ -39,6 +42,10 @@ export interface SettingsDialogHandlers {
   /** Plan auto-update: opens the restart-impact confirm (User Flow 3) — features/update.ts
    * owns the `GET /api/update/restart-impact` round trip and the confirm dialog itself. */
   onUpdateAndRestart: () => void;
+  /** REQ-7/REQ-10 (plan rail-card-improvements-2): `POST /api/update/check` — same
+   * fire-and-forget shape as `onUpdate`; features/update.ts's `check` owns the in-flight
+   * guard (W4). */
+  onCheckNow: () => void;
   /** Plan rail-card-improvements (REQ-13): fires immediately on change, same
    * fire-and-forget/no-optimistic-update shape as `onChooseTheme` (INV-4). */
   onChooseRailActivity: (mode: RailActivity) => void;
@@ -73,6 +80,7 @@ export function initSettingsDialog(
   elements.updateToggle.addEventListener("change", () => {
     handlers.onToggleUpdateCheck(elements.updateToggle.checked);
   });
+  elements.checkBtn.addEventListener("click", () => handlers.onCheckNow());
   elements.applyBtn.addEventListener("click", () => handlers.onUpdate());
   elements.restartBtn.addEventListener("click", () => handlers.onUpdateAndRestart());
 
@@ -113,8 +121,10 @@ export function initSettings(
       toggle: HTMLInputElement;
       applyBtn: HTMLButtonElement;
       restartBtn: HTMLButtonElement;
+      checkBtn: HTMLButtonElement;
       apply(): void;
       applyAndRestart(): void;
+      check(): void;
     };
   },
 ): SettingsDialogController {
@@ -126,6 +136,7 @@ export function initSettings(
     updateToggle: deps.update.toggle,
     applyBtn: deps.update.applyBtn,
     restartBtn: deps.update.restartBtn,
+    checkBtn: deps.update.checkBtn,
     railActivityRadios: requireElements<HTMLInputElement>(
       '#settings-dialog input[name="railActivity"]',
     ),
@@ -145,6 +156,7 @@ export function initSettings(
     },
     onUpdate: () => deps.update.apply(),
     onUpdateAndRestart: () => deps.update.applyAndRestart(),
+    onCheckNow: () => deps.update.check(),
     onChooseRailActivity: (railActivity) => {
       void putPrefs({ railActivity }).then((result) => {
         if (!result.ok)

@@ -9,8 +9,8 @@ tags: [security]
 go: [internal/server/update*.go, internal/selfupdate/**]
 web: [web/src/features/update.ts, web/src/render/update*.ts]
 e2e: [web/e2e/update.spec.ts, web/e2e/helpers/update.ts, web/e2e/helpers/releases.ts]
-protocol: [update.apply, update.restart-impact, ws.update]
-refs: [kb:adr/update-check-runs-in-daemon-daily, kb:adr/update-check-pref-governs-checking-only, kb:adr/update-install-kinds-decide-who-may-apply, kb:adr/update-trust-root-minisign-signed-checksums, kb:adr/update-restart-is-in-place-reexec-not-shutdown, kb:adr/update-release-knowledge-in-selfupdate-package, kb:adr/release-latest-resolved-via-redirect-not-api, kb:adr/stack-selfupdate-minisign-library]
+protocol: [update.check, update.apply, update.restart-impact, ws.update]
+refs: [kb:adr/update-check-runs-in-daemon-daily, kb:adr/update-check-pref-governs-automatic-checking-only, kb:adr/update-manual-check-is-a-synchronous-post, kb:adr/update-install-kinds-decide-who-may-apply, kb:adr/update-trust-root-minisign-signed-checksums, kb:adr/update-restart-is-in-place-reexec-not-shutdown, kb:adr/update-release-knowledge-in-selfupdate-package, kb:adr/release-latest-resolved-via-redirect-not-api, kb:adr/stack-selfupdate-minisign-library]
 ---
 musterd can find, verify and install a newer release of itself and restart into it without
 losing a session.
@@ -19,9 +19,11 @@ losing a session.
 `-update-check-interval`, by reading the releases-latest redirect of `-update-base-url`,
 never the REST API and never from the browser (kb:adr/update-check-runs-in-daemon-daily,
 kb:adr/release-latest-resolved-via-redirect-not-api). The `updateCheck` preference governs
-checking only; turning it off clears the available version and stops every update-related
-request (kb:adr/update-check-pref-governs-checking-only). An empty base URL disables
-checking and apply, as every test daemon sets.
+automatic checking only; turning it off clears the available version, and a user-initiated
+check (`kb:anchor/update.check`) runs regardless of it
+(kb:adr/update-check-pref-governs-automatic-checking-only,
+kb:adr/update-manual-check-is-a-synchronous-post). An empty base URL disables checking and
+apply, as every test daemon sets.
 
 **Install kinds.** At startup the binary classifies its install from the resolved
 executable path as installer, dev, homebrew or unmanaged. Only installer may apply; dev is
@@ -45,8 +47,9 @@ under the same PID and arguments; reconcile re-adopts every Claude session on th
 the Update-and-restart confirm names them from `kb:anchor/update.restart-impact`.
 
 **Dashboard.** The Settings dialog's Updates section shows running and available versions,
-the daily-check toggle, status text and the two apply buttons; the Settings button wears a
-dot while a newer release is available and not yet swapped in. All release knowledge lives
-in one package (kb:adr/update-release-knowledge-in-selfupdate-package).
+the daily-check toggle, a Check now button, status text and the two apply buttons; once a
+check has completed, the available-version readout also carries how long ago it ran. The
+Settings button wears a dot while a newer release is available and not yet swapped in. All
+release knowledge lives in one package (kb:adr/update-release-knowledge-in-selfupdate-package).
 
 Muster never installs an update on its own.

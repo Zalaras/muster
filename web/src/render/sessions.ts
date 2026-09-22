@@ -133,15 +133,21 @@ function applyCardText(card: HTMLElement, vm: CardViewModel, session: Session): 
 
   // REQ-14: the two activity lines write independently — either may be hidden while the
   // other shows, and both are hidden when neither source has data yet.
+  // REQ-2 (plan rail-card-improvements-2): each line carries its full text as `title`,
+  // same reasoning as `.name`/`.r2` above — comfortable now clamps this line to three
+  // lines, so the hover title is the only way to read text beyond that. Cleared (not
+  // left stale) when the line is hidden.
   const activityYou = card.querySelector<HTMLElement>(".activity.you");
   if (activityYou) {
     activityYou.hidden = vm.activity.you === null;
     activityYou.textContent = vm.activity.you ?? "";
+    activityYou.title = vm.activity.you ?? "";
   }
   const activityClaude = card.querySelector<HTMLElement>(".activity.claude");
   if (activityClaude) {
     activityClaude.hidden = vm.activity.claude === null;
     activityClaude.textContent = vm.activity.claude ?? "";
+    activityClaude.title = vm.activity.claude ?? "";
   }
 
   const note = card.querySelector<HTMLElement>(".note");

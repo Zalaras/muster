@@ -1,10 +1,11 @@
 // Locators for plan rail-card-improvements: the restructured card template (REQ-1, a
-// state row first, then a wrapping title, repo line, context row and two activity
-// lines), the rail-head density control (REQ-5) and the masthead's single New session
-// button (REQ-6). The card/strip container itself is `helpers/session.ts`'s
-// `sessionCard` / `helpers/railorder.ts`'s `railCard` — this file only adds locators for
-// what moved or is new inside that same template, mirroring `helpers/theme.ts`'s split
-// (one small locator file per plan, reusing the shared container locators).
+// wrapping title first, then a state row, repo line, context row and two activity
+// lines — reordered by rail-card-improvements-2 REQ-4, title ahead of state row), the
+// rail-head density control (REQ-5) and the masthead's single New session button
+// (REQ-6). The card/strip container itself is `helpers/session.ts`'s `sessionCard` /
+// `helpers/railorder.ts`'s `railCard` — this file only adds locators for what moved or
+// is new inside that same template, mirroring `helpers/theme.ts`'s split (one small
+// locator file per plan, reusing the shared container locators).
 import type { Locator, Page } from "@playwright/test";
 
 export type RailDensity = "compact" | "comfortable" | "expanded";
@@ -50,6 +51,12 @@ export function newSessionButton(page: Page): Locator {
 /** REQ-1's state row: `.r0`, holding the badge, timer and pin control. */
 export function cardStateRow(card: Locator): Locator {
   return card.locator(".r0");
+}
+
+/** Plan rail-card-improvements-2 REQ-4: the card's title row, `.r1` — leads `.card-in`,
+ * ahead of `cardStateRow`'s `.r0` (E5, INV-4). */
+export function cardTitleRow(card: Locator): Locator {
+  return card.locator(".r1");
 }
 
 /** REQ-1/REQ-2: the card's title, `.name` — carries a `title` attribute equal to the

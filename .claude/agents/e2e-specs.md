@@ -190,8 +190,9 @@ npx playwright test --list
 
 ### 5. Sweep the full suite for plan-superseded specs
 
-Once your own spec file passes, run the **full** suite (`make e2e` from the project root) before
-reporting `pass`. Then soak **every spec file this plan authored or changed** —
+Once your own spec file passes, run the **full** suite (`make e2e` from the project root, with
+`timeout: 600000` on the Bash call — it exceeds the 120 s default and the harness would background
+it out from under you, kb:lesson/subagent-never-woken-by-harness) before reporting `pass`. Then soak **every spec file this plan authored or changed** —
 `make e2e-soak SPEC=<file> N=10` each, summary line pasted in its Tests or Repairs row. Not only
 the ones that already flaked: a spec that is flaky from birth passes its first sweep and then reds
 somewhere downstream, where nobody can fix it but you. A red soak is yours to fix now, never a

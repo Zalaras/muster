@@ -19,6 +19,7 @@ import {
   settingsBadgeDot,
   updateApplyButton,
   updateAvailableReadout,
+  updateCheckButton,
   updateCheckToggle,
   updateRestartButton,
   updateRunningReadout,
@@ -114,7 +115,10 @@ test("a strictly newer release badges Settings and shows Running/Available in th
 
     const dialog = await openSettingsDialog(page);
     await expect(updateRunningReadout(dialog)).toHaveText(`v${OLD_VERSION}`);
-    await expect(updateAvailableReadout(dialog)).toHaveText(`v${NEW_VERSION}`);
+    // Plan rail-card-improvements-2 REQ-11: the Available readout now carries the age of
+    // the last successful check (the daemon's own on-listen check, here) alongside the
+    // version.
+    await expect(updateAvailableReadout(dialog)).toHaveText(`v${NEW_VERSION} · checked now`);
     await expect(updateCheckToggle(dialog)).toBeChecked();
     await expect(updateApplyButton(dialog)).toBeEnabled();
     await expect(updateRestartButton(dialog)).toBeEnabled();
@@ -163,7 +167,7 @@ test("pref persisted off across a daemon restart: two check intervals pass with 
   }
 });
 
-test("unchecking the toggle clears the badge and shows checking disabled; rechecking triggers an immediate check (E3, REQ-3, INV-1)", async ({
+test("unchecking the toggle clears the badge and available version; rechecking triggers an immediate check (E3, REQ-3, INV-1; plan rail-card-improvements-2 REQ-11)", async ({
   page,
   startDaemon,
 }) => {
@@ -187,13 +191,18 @@ test("unchecking the toggle clears the badge and shows checking disabled; rechec
 
     await updateCheckToggle(dialog).uncheck();
     await expect(settingsBadgeDot(page)).toBeHidden();
-    await expect(updateAvailableReadout(dialog)).toHaveText("checking disabled");
+    // Plan rail-card-improvements-2 REQ-11: the readout's disabled-check branch is
+    // removed entirely — turning the toggle off still clears `checkedAt` (the pref's
+    // documented side effect is unchanged), which now reads as the same "no data yet"
+    // state a session that has never checked shows.
+    await expect(updateAvailableReadout(dialog)).toHaveText("not checked yet");
 
     const countBefore = fakeServer.requestCount("/latest");
     await updateCheckToggle(dialog).check();
     await expect.poll(() => fakeServer.requestCount("/latest")).toBeGreaterThan(countBefore);
     await expect(settingsBadgeDot(page)).toBeVisible();
-    await expect(updateAvailableReadout(dialog)).toHaveText(`v${NEW_VERSION}`);
+    // REQ-11: rechecking is itself a successful check, so the age suffix reappears.
+    await expect(updateAvailableReadout(dialog)).toHaveText(`v${NEW_VERSION} · checked now`);
   } finally {
     if (staged) await staged.cleanup();
     await cleanup();
@@ -281,7 +290,8 @@ test("Update and restart brings back the same Claude session, its terminal, and 
     await expect(settingsBadgeDot(page)).toBeVisible();
     let dialog = await openSettingsDialog(page);
     await expect(updateRunningReadout(dialog)).toHaveText(`v${OLD_VERSION}`);
-    await expect(updateAvailableReadout(dialog)).toHaveText(`v${NEW_VERSION}`);
+    // Plan rail-card-improvements-2 REQ-11.
+    await expect(updateAvailableReadout(dialog)).toHaveText(`v${NEW_VERSION} · checked now`);
 
     const panePidBefore = await daemon.tmuxDisplay(session.tmuxTarget, "#{pane_pid}");
     const serverPidBefore = await daemon.tmuxDisplay(session.tmuxTarget, "#{pid}");
@@ -302,7 +312,8 @@ test("Update and restart brings back the same Claude session, its terminal, and 
 
     dialog = await openSettingsDialog(page);
     await expect(updateRunningReadout(dialog)).toHaveText(`v${NEW_VERSION}`);
-    await expect(updateAvailableReadout(dialog)).toHaveText("up to date");
+    // The restarted daemon's own on-listen check refreshes `checkedAt` (REQ-11).
+    await expect(updateAvailableReadout(dialog)).toHaveText("up to date · checked now");
     await settingsCloseButton(dialog).click();
 
     const card = sessionCard(page, "restart-e5");
@@ -512,7 +523,8 @@ test("a binary staged under $HOMEBREW_PREFIX badges but disables both buttons wi
     await page.goto(daemon.dashboardUrl);
     await expect(settingsBadgeDot(page)).toBeVisible();
     const dialog = await openSettingsDialog(page);
-    await expect(updateAvailableReadout(dialog)).toHaveText(`v${NEW_VERSION}`);
+    // Plan rail-card-improvements-2 REQ-11.
+    await expect(updateAvailableReadout(dialog)).toHaveText(`v${NEW_VERSION} · checked now`);
     await expect(updateApplyButton(dialog)).toBeDisabled();
     await expect(updateRestartButton(dialog)).toBeDisabled();
     await expect(updateStatusLine(dialog)).toContainText("brew upgrade musterd");
@@ -544,7 +556,8 @@ test("fake latest equal to running, then older: Available reads up to date and n
 
     await page.goto(daemon.dashboardUrl);
     const dialog = await openSettingsDialog(page);
-    await expect(updateAvailableReadout(dialog)).toHaveText("up to date");
+    // Plan rail-card-improvements-2 REQ-11: every successful check carries the age suffix.
+    await expect(updateAvailableReadout(dialog)).toHaveText("up to date · checked now");
     await expect(settingsBadgeDot(page)).toBeHidden();
 
     // Reuses oldBinary's bytes as filler content — this release's archive is never
@@ -554,7 +567,7 @@ test("fake latest equal to running, then older: Available reads up to date and n
     const countBefore = fakeServer.requestCount("/latest");
     fakeServer.setLatest(olderTag);
     await expect.poll(() => fakeServer.requestCount("/latest")).toBeGreaterThan(countBefore);
-    await expect(updateAvailableReadout(dialog)).toHaveText("up to date");
+    await expect(updateAvailableReadout(dialog)).toHaveText("up to date · checked now");
     await expect(settingsBadgeDot(page)).toBeHidden();
   } finally {
     if (staged) await staged.cleanup();
@@ -710,7 +723,8 @@ test("a binary staged inside a scratch git tree badges but disables both buttons
     await page.goto(daemon.dashboardUrl);
     await expect(settingsBadgeDot(page)).toBeVisible();
     const dialog = await openSettingsDialog(page);
-    await expect(updateAvailableReadout(dialog)).toHaveText(`v${NEW_VERSION}`);
+    // Plan rail-card-improvements-2 REQ-11.
+    await expect(updateAvailableReadout(dialog)).toHaveText(`v${NEW_VERSION} · checked now`);
     await expect(updateApplyButton(dialog)).toBeDisabled();
     await expect(updateRestartButton(dialog)).toBeDisabled();
     // Exact remedy wording isn't pinned by the plan (REQ-21 only says "names the
@@ -808,7 +822,8 @@ test("Restart now after a plain Update shows the confirm and completes with no s
 
     dialog = await openSettingsDialog(page);
     await expect(updateRunningReadout(dialog)).toHaveText(`v${NEW_VERSION}`);
-    await expect(updateAvailableReadout(dialog)).toHaveText("up to date");
+    // The restarted daemon's own on-listen check refreshes `checkedAt` (REQ-11).
+    await expect(updateAvailableReadout(dialog)).toHaveText("up to date · checked now");
     // Semantics per kb:anchor/update.apply: `installed` already equalled `available`,
     // so the restart-only apply skips the download entirely — no second archive fetch.
     expect(fakeServer.requestCount(archivePath)).toBe(countBeforeRestart);
@@ -816,4 +831,149 @@ test("Restart now after a plain Update shows the confirm and completes with no s
     if (staged) await staged.cleanup();
     await cleanup();
   }
+});
+
+// Plan rail-card-improvements-2 — REQ-7 through REQ-13 (#48: the `Check now` button and
+// `POST /api/update/check`). Plan acceptance: E9 through E12.
+
+test("pressing Check now with a newer release published shows that version in the Available readout and badges the Settings button (E9)", async ({
+  page,
+  startDaemon,
+}) => {
+  const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
+  let staged: StagedBinary | undefined;
+  try {
+    staged = await stageInstaller(OLD_VERSION);
+    // No release published yet — the daemon's own immediate on-listen check (REQ-4 of
+    // the auto-update plan) finds nothing at `/latest` and leaves `checkedAt` null, so
+    // the version shown after clicking Check now can only have come from THIS click.
+    const daemon = await startDaemon({
+      binary: staged.path,
+      updateBaseURL: fakeServer.baseURL,
+      updatePublicKeyFile: pubKeyPath,
+    });
+
+    await page.goto(daemon.dashboardUrl);
+    const dialog = await openSettingsDialog(page);
+    await expect(updateAvailableReadout(dialog)).toHaveText("not checked yet");
+    await expect(settingsBadgeDot(page)).toBeHidden();
+
+    const newBinary = await buildVersionedMusterd(NEW_VERSION);
+    await fakeServer.publish({ tag: NEW_TAG, binaryPath: newBinary });
+    fakeServer.setLatest(NEW_TAG);
+
+    await updateCheckButton(dialog).click();
+    // REQ-11: a successful check, manual or automatic, always carries the age suffix.
+    await expect(updateAvailableReadout(dialog)).toHaveText(`v${NEW_VERSION} · checked now`);
+    await expect(settingsBadgeDot(page)).toBeVisible();
+    await expect(settingsButton(page)).toHaveAttribute("aria-label", "Settings, update available");
+  } finally {
+    if (staged) await staged.cleanup();
+    await cleanup();
+  }
+});
+
+test("with daily checking off from startup, the Available readout reads not checked yet, and pressing Check now replaces it with a checked age (E10)", async ({
+  page,
+  startDaemon,
+}) => {
+  const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
+  let staged: StagedBinary | undefined;
+  try {
+    staged = await stageInstaller(OLD_VERSION);
+    // Published tag equals the running version, so a successful check reads "up to
+    // date" — this test cares about the checked-age suffix, not a version bump (E9
+    // already covers that).
+    await fakeServer.publish({
+      tag: `v${OLD_VERSION}`,
+      binaryPath: await buildVersionedMusterd(OLD_VERSION),
+    });
+    fakeServer.setLatest(`v${OLD_VERSION}`);
+    const daemon = await startDaemon({
+      binary: staged.path,
+      updateBaseURL: fakeServer.baseURL,
+      updatePublicKeyFile: pubKeyPath,
+    });
+
+    // Turn the pref off, then restart so the SECOND lifetime boots with it already
+    // persisted off (mirrors the pre-existing "pref persisted off across a restart"
+    // test above) — only then does the daemon's own immediate on-listen check never
+    // fire, leaving `checkedAt` null at load, i.e. genuinely "off from startup".
+    await page.goto(daemon.dashboardUrl);
+    let dialog = await openSettingsDialog(page);
+    await updateCheckToggle(dialog).uncheck();
+    // Confirms the PUT (and its broadcast) landed before restarting — this dashboard
+    // never renders the checkbox optimistically (rail-layout.spec.ts's own
+    // "no-optimistic-state" precedent).
+    await expect(updateCheckToggle(dialog)).not.toBeChecked();
+    await daemon.restart();
+
+    await page.goto(daemon.dashboardUrl);
+    dialog = await openSettingsDialog(page);
+    await expect(updateCheckToggle(dialog)).not.toBeChecked();
+    await expect(updateAvailableReadout(dialog)).toHaveText("not checked yet");
+
+    // REQ-8: a user-initiated check runs regardless of the pref.
+    await expect(updateCheckButton(dialog)).toBeEnabled();
+    await updateCheckButton(dialog).click();
+    await expect(updateAvailableReadout(dialog)).toHaveText(/^up to date · checked now$/);
+  } finally {
+    if (staged) await staged.cleanup();
+    await cleanup();
+  }
+});
+
+test("pressing Check now against a stopped release host shows a reason in the status line while the Available readout keeps its previous value (E11)", async ({
+  page,
+  startDaemon,
+}) => {
+  const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
+  let staged: StagedBinary | undefined;
+  try {
+    staged = await stageInstaller(OLD_VERSION);
+    const newBinary = await buildVersionedMusterd(NEW_VERSION);
+    await fakeServer.publish({ tag: NEW_TAG, binaryPath: newBinary });
+    fakeServer.setLatest(NEW_TAG);
+    const daemon = await startDaemon({
+      binary: staged.path,
+      updateBaseURL: fakeServer.baseURL,
+      updatePublicKeyFile: pubKeyPath,
+    });
+
+    await page.goto(daemon.dashboardUrl);
+    await expect(settingsBadgeDot(page)).toBeVisible();
+    const dialog = await openSettingsDialog(page);
+    // REQ-11: the daemon's own on-listen check already succeeded once.
+    await expect(updateAvailableReadout(dialog)).toHaveText(`v${NEW_VERSION} · checked now`);
+
+    // Plan Affected Files: stopping the fake server is the sanctioned way to make
+    // `/latest` fail for this case — no new FakeReleaseServer tamper kind needed.
+    await fakeServer.stop();
+
+    await updateCheckButton(dialog).click();
+    // Exact wording isn't pinned by the plan (REQ-12 only says "renders its reason") —
+    // matched loosely, a validate-mode repair target if daemon-impl's actual string
+    // differs, mirroring E13's own precedent above.
+    await expect(updateStatusLine(dialog)).toHaveText(/fail/i);
+    // REQ-12: a transient check failure never erases a known version — the readout (and
+    // its age suffix, still reflecting the earlier successful check) is untouched.
+    await expect(updateAvailableReadout(dialog)).toHaveText(`v${NEW_VERSION} · checked now`);
+  } finally {
+    if (staged) await staged.cleanup();
+    await cleanup();
+  }
+});
+
+test("Check now is disabled on a daemon started with an empty update base URL (E12)", async ({
+  page,
+  startDaemon,
+}) => {
+  // No `updateBaseURL` override — every scratch daemon otherwise passes an explicit
+  // empty `-update-base-url` (helpers/daemon.ts), exactly the `canCheck` false state
+  // the plan's States section names as "the state every E2E daemon that sets an empty
+  // base URL is in".
+  const daemon = await startDaemon();
+  await page.goto(daemon.dashboardUrl);
+  const dialog = await openSettingsDialog(page);
+  await expect(updateCheckButton(dialog)).toBeDisabled();
 });

@@ -179,7 +179,8 @@ value outside its enum (the message names the field, e.g. `railDensity must be o
 comfortable, expanded`), `usageModel` empty / longer than 32 chars, `theme` not
 matching its pattern, or `updateCheck` not a JSON boolean.
 
-`updateCheck`: governs **checking only** — the binary never changes
+`updateCheck`: governs the daemon's **automatic checking only** — a user-initiated check
+(`kb:anchor/update.check`) runs whatever this is set to, and the binary never changes
 without an explicit `POST /api/update/apply` (`kb:anchor/update.apply`) or `musterd -update`. A change has side
 effects beyond the echo: `false` clears `update.available`/`update.checkedAt` and broadcasts
 `update` (`kb:anchor/ws.update`); `true` triggers an immediate check. A persisted non-boolean loads as `true`.
@@ -196,8 +197,9 @@ knows resolves the same way as `"follow"`. A persisted value failing the pattern
 and sorts the unpinned group by the `kb:anchor/ws.snapshot` attention order. Client-side sort in both cases.
 
 `railDensity`: the card density in the rail and the Tiles strip — `comfortable` is the reference
-render, `compact` clamps the title to one line and drops the gauge track and the activity line,
-`expanded` lets the activity line run to three lines (kb:adr/rail-card-state-row-then-wrapping-title).
+render and clamps the activity line to three lines, `compact` clamps the title to one line and
+drops the activity line, `expanded` lets the activity line run to however many lines it needs,
+and the gauge track renders in all three (kb:adr/rail-card-title-leads-and-density-ramp-corrected).
 Chosen from the rail head; the client applies it only from the echo. A persisted value outside
 the enum loads as `comfortable`.
 
@@ -629,6 +631,37 @@ There is no `POST`/`PUT`/`DELETE` under `/reader`: the reader is read-only by co
   `{ "error": { "code": "not_found", "message": "no such document" } }`
 - `413 too_large` — the file exceeds 10 MiB (10,485,760 bytes).
   `{ "error": { "code": "too_large", "message": "/Users/d/big.md is 12.4 MB; the reader serves files up to 10 MB" } }`
+
+<!-- kb:anchor update.check -->
+### `POST /api/update/check`
+
+**Auth**: UI cookie (401 `unauthorized`). No request body; any body sent is ignored.
+
+Performs one release check synchronously — the same path the periodic tick takes, against
+the `/releases/latest` redirect of `-update-base-url`, bounded by the same 10 s check
+timeout. On success it updates `available` and `checkedAt`, broadcasts `update`
+(`kb:anchor/ws.update`) and returns the new object. It runs regardless of
+`prefs.updateCheck`, which governs only the daemon's own schedule, and its result is never
+discarded on account of that pref. → `200`:
+
+```jsonc
+{ "running": "0.13.0", "install": "installer", "remedy": null,
+  "canCheck": true,                      // boolean — as kb:anchor/ws.update
+  "available": "0.14.0",                 // string|null — as kb:anchor/ws.update
+  "checkedAt": "2026-09-22T10:04:00Z",   // RFC3339 — non-null on every 200
+  "installed": null,
+  "apply": { "phase": "idle", "version": null, "error": null } }
+```
+
+**Errors:**
+- 404 `not_found` — updates disabled (`musterd -update-base-url ""`) or the install is
+  `dev`; exactly the cases where `canCheck` is false.
+  `{ "error": { "code": "not_found", "message": "update checking is not available for this install" } }`
+- 409 `shutting_down` — the daemon is already shutting down.
+  `{ "error": { "code": "shutting_down", "message": "musterd is shutting down" } }`
+- 502 `check_failed` — the release host could not be reached, or its latest tag is not a
+  release version. The message names the reason and never includes the response body.
+  `{ "error": { "code": "check_failed", "message": "requesting https://example.test/releases/latest: connection refused" } }`
 
 <!-- kb:anchor update.apply -->
 ### `POST /api/update/apply`
@@ -1066,7 +1099,8 @@ selected, and the indicator must survive the user being elsewhere. A client that
     "running": "0.10.0",                  // string — the daemon's version as built; release builds are bare MAJOR.MINOR.PATCH (GoReleaser's {{.Version}}); dev builds are the raw string ("dev", "v0.10.0-4-ge5102b8")
     "install": "installer",               // "installer" | "dev" | "homebrew" | "unmanaged" — startup classification from the resolved executable path, constant for the daemon's life
     "remedy": null,                        // string iff install is "homebrew" | "unmanaged" (the one-line remedy to show); null otherwise
-    "available": "0.11.0",                // string|null — a strictly newer release from the last successful check; null when none, when prefs.updateCheck is false, when install is "dev", or when checking is disabled by flag
+    "canCheck": true,                      // boolean — true iff a release check is possible at all: -update-base-url is non-empty AND install is not "dev". Fixed for the daemon's life, and independent of prefs.updateCheck, which governs only the automatic schedule. False means kb:anchor/update.check returns 404
+    "available": "0.11.0",                // string|null — a strictly newer release from the last successful check, automatic or user-initiated; null when none, when install is "dev", when checking is disabled by flag, or after prefs.updateCheck was turned off, which clears it
     "checkedAt": "2026-09-10T20:00:00Z",  // RFC3339|null — the last successful check; null before one and after the pref is turned off
     "installed": null,                     // string|null — a version swapped onto disk (by this daemon, or detected from a `musterd -update` run) that the running process has not yet restarted into
     "apply": { "phase": "idle",           // "idle" | "downloading" | "verifying" | "installing" | "restarting" | "failed" | "done"
@@ -1082,7 +1116,8 @@ Settings-button badge rule is `available != null && installed == null`. After a 
 daemon starts with `installed: null`, `apply.phase: "idle"`. The check itself runs in the
 daemon (once after listen, then every `-update-check-interval`, default 24 h) against the
 `/releases/latest` redirect of `-update-base-url` — never `api.github.com`, never the browser;
-with `updateCheck` false the daemon makes no update-related request at all. Where the release
+with `updateCheck` false the daemon starts no check of its own, and `kb:anchor/update.check`
+still performs one on request. Where the release
 lives and how it is verified is `internal/selfupdate`'s business — not specified here.
 
 <!-- kb:anchor terminal.ws -->

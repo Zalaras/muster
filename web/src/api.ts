@@ -9,7 +9,9 @@ import {
   type RailDensity,
   type RailSort,
   type Session,
+  type UpdateInfo,
   parseSession,
+  parseUpdateInfo,
 } from "./protocol";
 
 export interface ApiErrorBody {
@@ -619,6 +621,21 @@ export async function applyUpdate(restart: boolean): Promise<ApiResult<null>> {
   }
   const error = parseApiError(errorBody);
   return { ok: false, error: error ?? genericError };
+}
+
+/** `POST /api/update/check` (kb:anchor/update.check, plan rail-card-improvements-2 REQ-7).
+ * Performs one synchronous release check and returns the resulting update object on
+ * success — unlike `applyUpdate`/`putPrefs`, the response itself carries the new state
+ * (the caller doesn't need to wait for the `update` broadcast, though one still arrives).
+ * Runs regardless of `prefs.updateCheck` (REQ-8). Errors: `404 not_found` (`canCheck`
+ * false) / `409 shutting_down` / `502 check_failed`. */
+export async function checkForUpdate(): Promise<ApiResult<UpdateInfo>> {
+  const res = await safeFetch("/api/update/check", {
+    method: "POST",
+    credentials: "same-origin",
+  });
+  if (!res) return { ok: false, error: networkError };
+  return decodeJson(res, parseUpdateInfo);
 }
 
 /** One `muster-<n>-shell` tmux session alive on the daemon's socket

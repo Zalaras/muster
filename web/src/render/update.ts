@@ -9,6 +9,7 @@
 // Confirm/Cancel wired to one target captured at open time).
 import type { RestartImpactShell } from "../api";
 import type { Prefs, UpdateInfo } from "../protocol";
+import { agoSuffix, formatAge } from "../sessions/format";
 
 /** Every apply phase during which a request is genuinely in flight — REQ-10's
  * `aria-busy="true"` and the "phase not in flight" clause of the Buttons-enabled rule. */
@@ -39,23 +40,37 @@ export interface UpdateViewModel {
   badged: boolean;
   /** `aria-busy` on `#settings-update` while an apply phase is in flight. */
   busy: boolean;
+  /** REQ-10 (plan rail-card-improvements-2): `Check now`'s own `disabled` state —
+   * `update.canCheck` and no check of its own already in flight. Independent of
+   * `toggleChecked`/`updateEnabled` — a user-initiated check runs regardless of the
+   * daily-check toggle (REQ-8). */
+  checkEnabled: boolean;
+  /** Whether this window's own `Check now` request is in flight — `aria-busy` on the
+   * button, same shape as `busy` above for the apply buttons. */
+  checkBusy: boolean;
 }
 
-/** The "Available" readout (UI Specifications > Text rules table). A development build and
- * a disabled check each say so rather than showing a version, so the row never implies a
- * check that did not happen. */
-function availableText(update: UpdateInfo, updateCheck: boolean, isDev: boolean): string {
+/** The "Available" readout (UI Specifications > Text rules table, REQ-11). A development
+ * build says so rather than showing a version. Every other case carries the age of the
+ * last successful check (`agoSuffix(formatAge(...))`, same composition `sessions/format.ts`
+ * already uses elsewhere) once one has ever completed — `checkedAt` null (never checked,
+ * or just cleared by turning the daily-check toggle off) is the one case with no suffix at
+ * all, not an empty one (edge case 19). */
+function availableText(update: UpdateInfo, isDev: boolean, now: Date): string {
   if (isDev) return "not checked (development build)";
-  if (!updateCheck) return "checking disabled";
-  if (update.available !== null) return `v${update.available}`;
   if (update.checkedAt === null) return "not checked yet";
-  return "up to date";
+  const version = update.available !== null ? `v${update.available}` : "up to date";
+  return `${version} · checked ${agoSuffix(formatAge(update.checkedAt, now))}`;
 }
 
-/** The status line under the buttons (UI Specifications > Text rules table). Apply-phase
- * progress wins over the "installed, awaiting restart" line, which in turn wins over a
- * standing remedy. */
-function statusText(update: UpdateInfo): string {
+/** The status line under the buttons (UI Specifications > Text rules table). A failed
+ * user-initiated check (REQ-12, `checkError`) wins over everything else — it is the most
+ * recent thing the user asked for and the Available readout deliberately keeps showing
+ * its previous value, so this line is the only place the failure surfaces. Otherwise,
+ * apply-phase progress wins over the "installed, awaiting restart" line, which in turn
+ * wins over a standing remedy. */
+function statusText(update: UpdateInfo, checkError: string | null): string {
+  if (checkError !== null) return checkError;
   switch (update.apply.phase) {
     case "downloading":
       return `Downloading v${update.apply.version ?? ""}…`;
@@ -77,6 +92,16 @@ function statusText(update: UpdateInfo): string {
   }
 }
 
+/** REQ-10/REQ-13 (plan rail-card-improvements-2): the `Check now` request's own state,
+ * owned by `features/update.ts` (never derived from `UpdateInfo` — a manual check's
+ * in-flight/error status is this window's own, not daemon-broadcast state). */
+export interface CheckState {
+  inFlight: boolean;
+  /** REQ-12: the reason a user-initiated check failed, or null once cleared (a new check
+   * starting, or one succeeding). */
+  error: string | null;
+}
+
 /** UI Specifications > Text rules table. `update === null` covers both "before the first
  * snapshot" (the dialog can't be open then anyway — nothing in features/settings.ts opens
  * it before a user click) and edge case 32's permanent
@@ -86,6 +111,8 @@ function statusText(update: UpdateInfo): string {
 export function buildUpdateViewModel(
   update: UpdateInfo | null,
   prefs: Prefs | null,
+  now: Date,
+  check: CheckState,
 ): UpdateViewModel {
   const updateCheck = prefs?.updateCheck ?? true;
 
@@ -102,13 +129,18 @@ export function buildUpdateViewModel(
       status: "",
       badged: false,
       busy: false,
+      // W2/edge case 21: `canCheck` is never known without an `update` object, so the
+      // button stays disabled — same shape a pre-plan daemon's absent `update` already
+      // produces.
+      checkEnabled: false,
+      checkBusy: check.inFlight,
     };
   }
 
   const isDev = update.install === "dev";
   const running = isDev ? `${update.running} (development build)` : `v${update.running}`;
 
-  const available = availableText(update, updateCheck, isDev);
+  const available = availableText(update, isDev, now);
 
   const phase = update.apply.phase;
   const inFlight = IN_FLIGHT_PHASES.has(phase);
@@ -119,7 +151,7 @@ export function buildUpdateViewModel(
   const updateEnabled = baseEnabled && update.installed === null;
   const restartLabel = update.installed !== null ? "Restart now" : "Update and restart";
 
-  const status = statusText(update);
+  const status = statusText(update, check.error);
 
   return {
     running,
@@ -133,6 +165,9 @@ export function buildUpdateViewModel(
     status,
     badged: update.available !== null && update.installed === null,
     busy: inFlight,
+    // REQ-10: `canCheck` and no manual check of this window's own already running.
+    checkEnabled: update.canCheck && !check.inFlight,
+    checkBusy: check.inFlight,
   };
 }
 
@@ -144,6 +179,9 @@ export interface UpdateSectionElements {
   statusEl: HTMLElement;
   applyBtn: HTMLButtonElement;
   restartBtn: HTMLButtonElement;
+  /** REQ-10 (plan rail-card-improvements-2): `#update-check-button`, the first child of
+   * `.update-actions` (Testable UI Elements). */
+  checkBtn: HTMLButtonElement;
 }
 
 /** Applies one `UpdateViewModel` to the Updates section's DOM. Never writes
@@ -159,6 +197,12 @@ export function renderUpdateSection(elements: UpdateSectionElements, vm: UpdateV
   elements.applyBtn.disabled = !vm.updateEnabled;
   elements.restartBtn.disabled = !vm.restartEnabled;
   elements.restartBtn.textContent = vm.restartLabel;
+  elements.checkBtn.disabled = !vm.checkEnabled;
+  if (vm.checkBusy) {
+    elements.checkBtn.setAttribute("aria-busy", "true");
+  } else {
+    elements.checkBtn.removeAttribute("aria-busy");
+  }
   if (vm.busy) {
     elements.section.setAttribute("aria-busy", "true");
   } else {

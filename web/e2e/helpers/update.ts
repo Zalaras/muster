@@ -52,6 +52,13 @@ export function updateApplyButton(dialog: Locator): Locator {
   return dialog.getByRole("button", { name: "Update", exact: true });
 }
 
+/** Plan rail-card-improvements-2 REQ-7/REQ-10: `#update-check-button`, accessible name
+ * "Check now" — the first child of `.update-actions`, ahead of `updateApplyButton`.
+ * Disabled whenever `canCheck` is false or a check of its own is in flight (REQ-13). */
+export function updateCheckButton(dialog: Locator): Locator {
+  return dialog.getByRole("button", { name: "Check now", exact: true });
+}
+
 /** `#update-restart-button` — located by id rather than role+name, because its
  * accessible name changes ("Update and restart" -> "Restart now" after a swap, REQ-25).
  * Absent for a `dev` install (REQ-13). */

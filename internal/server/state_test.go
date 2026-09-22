@@ -35,7 +35,7 @@ func TestBuildSnapshot_M0Shape(t *testing.T) {
 		"prefs": {"view": "focus", "density": "2x2", "usageModel": "Fable", "railSort": "manual", "theme": "follow", "updateCheck": true, "railDensity": "comfortable", "railActivity": "turn"},
 		"claudeTheme": {"family": "unknown"},
 		"update": {
-			"running": "", "install": "", "remedy": null, "available": null, "checkedAt": null, "installed": null,
+			"running": "", "install": "", "remedy": null, "canCheck": false, "available": null, "checkedAt": null, "installed": null,
 			"apply": {"phase": "idle", "version": null, "error": null}
 		},
 		"shellsBusy": []

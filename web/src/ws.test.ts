@@ -25,6 +25,7 @@ const updateInfo: UpdateInfo = {
   running: "0.10.0",
   install: "installer",
   remedy: null,
+  canCheck: true,
   available: "0.11.0",
   checkedAt: "2026-09-10T20:00:00Z",
   installed: null,

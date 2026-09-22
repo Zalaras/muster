@@ -1,7 +1,7 @@
 ---
 id: rail-card-state-row-then-wrapping-title
 type: decision
-status: accepted
+status: superseded
 date: 2026-09-22
 summary: The rail card leads with a small state row and lets the title wrap; a three-step density pref in the rail head trades rows for cards.
 features: [rail, settings]

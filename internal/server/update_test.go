@@ -253,7 +253,7 @@ func TestUpdateManager_SetCheckEnabledFalseClearsAndBroadcastsOnce(t *testing.T)
 	origin.setLatest("v0.11.0")
 	m, changes := newTestUpdateManager(t, func(c *updateManagerConfig) { c.Base = origin.URL() })
 
-	m.checkAvailability(context.Background())
+	require.NoError(t, m.checkAvailability(context.Background(), false))
 	first := <-changes
 	require.NotNil(t, first.Available, "sanity: a check must have found v0.11.0 available first")
 
@@ -305,7 +305,7 @@ func TestUpdateManager_LateResponseAfterDisableIsDiscarded(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		m.checkAvailability(context.Background())
+		_ = m.checkAvailability(context.Background(), false)
 		close(done)
 	}()
 	time.Sleep(50 * time.Millisecond) // let the goroutine reach the held HTTP call
@@ -333,13 +333,13 @@ func TestUpdateManager_FailedCheckKeepsPreviousResultAndBroadcastsNothing(t *tes
 	origin.setLatest("v0.11.0")
 	m, changes := newTestUpdateManager(t, func(c *updateManagerConfig) { c.Base = origin.URL() })
 
-	m.checkAvailability(context.Background())
+	require.NoError(t, m.checkAvailability(context.Background(), false))
 	first := <-changes
 	require.NotNil(t, first.Available)
 	require.NotNil(t, first.CheckedAt)
 
 	origin.setFailNext(true)
-	m.checkAvailability(context.Background())
+	require.Error(t, m.checkAvailability(context.Background(), false))
 
 	select {
 	case extra := <-changes:

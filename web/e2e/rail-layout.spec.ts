@@ -1,14 +1,32 @@
 import { expect, test } from "./helpers/fixtures";
+import { cardContextRow, cardContextTrack } from "./helpers/gauges";
+import {
+  envelopedSessionStart,
+  envelopedStatusLineFull,
+  rawStop,
+  rawUserPromptSubmit,
+} from "./helpers/payloads";
 import {
   bodyRailDensity,
+  cardActivityClaude,
+  cardActivityYou,
   cardName,
   cardRepoLine,
+  cardStateRow,
+  cardTitleRow,
   newSessionButton,
   railDensityButton,
   railDensityGroup,
 } from "./helpers/railcards";
 import { railSortSelect } from "./helpers/railorder";
-import { launchSession, scratchDirectory, sessionCard } from "./helpers/session";
+import {
+  envelopeOpts,
+  launchSession,
+  scratchDirectory,
+  type SessionObject,
+  sessionCard,
+} from "./helpers/session";
+import { liveTile, stripCard } from "./helpers/terminal";
 
 // Plan rail-card-improvements — REQ-1 through REQ-6, REQ-15 (card layout, rail-head
 // density and the single masthead New session button). Plan acceptance: E2, E7, E11,
@@ -232,5 +250,312 @@ test("a card's End button keeps focus and node identity when a density button is
     expect(stillTagged).toBe(true);
   } finally {
     await cleanup();
+  }
+});
+
+// Plan rail-card-improvements-2 — REQ-1 through REQ-4 (#49/#50's second pass: the
+// density ramp swap, the restored compact gauge track and the title-leads row order).
+// Plan acceptance: E1 through E6. Same fixture plan header as above: `prefs.railDensity`
+// is daemon-global, so every test below also takes the per-test `daemon` fixture.
+
+test("a long activity line clamps to three lines in comfortable density and runs past three lines in expanded (E1, REQ-1)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "density-clamp-e1",
+    });
+    const claudeId = "claude-density-clamp-e1";
+    // Kept under 200 characters deliberately — `internal/claudecode` truncates the reply
+    // text at 200 chars the same way it truncates `lastPrompt` (pre-existing, unrelated
+    // to this plan), and this test needs an exact-text match to compute line counts.
+    const longReply =
+      "the retry logic now backs off exponentially and logs each attempt with its delay, " +
+      "the flaky assertion in the queue drain test was rewritten to poll instead of sleep, " +
+      "and the suite passed twice";
+
+    await request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
+    });
+    await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit(claudeId) });
+    await request.post(daemon.ingestURL("hook"), {
+      data: rawStop(claudeId, { lastAssistantMessage: longReply }),
+    });
+
+    const card = sessionCard(page, "density-clamp-e1");
+    const line = cardActivityClaude(card);
+    await expect(line).toHaveText(`claude: ${longReply}`);
+    // REQ-2/edge case 1: the clamp makes the tail of the line unreachable without a
+    // hover title carrying the full text — plan Edge Cases maps REQ-2's own e2e coverage
+    // to this criterion.
+    await expect(line).toHaveAttribute("title", `claude: ${longReply}`);
+
+    const lineHeight = await line.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
+    // Comfortable is the density on load (default `railDensity`).
+    const comfortableHeight = await line.evaluate((el) => el.getBoundingClientRect().height);
+    // REQ-1: clamped to three lines — never noticeably more than three line-heights.
+    expect(comfortableHeight).toBeLessThanOrEqual(lineHeight * 3.5);
+    expect(comfortableHeight).toBeGreaterThan(lineHeight * 1.5);
+
+    await railDensityButton(page, "expanded").click();
+    await expect.poll(() => bodyRailDensity(page)).toBe("expanded");
+    await expect(line).toHaveAttribute("title", `claude: ${longReply}`);
+    const expandedHeight = await line.evaluate((el) => el.getBoundingClientRect().height);
+    // REQ-1: expanded is uncapped — this reply needs well more than three lines.
+    expect(expandedHeight).toBeGreaterThan(lineHeight * 3.5);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("card height is never greater in comfortable than in expanded, for a short and a long activity line (E2, INV-1)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  const dirShort = await scratchDirectory();
+  const dirLong = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const shortMsg = "done";
+    const longMsg =
+      "a very long assistant reply that needs to run past three lines even in the widest " +
+      "rail column this suite ever measures, repeated with enough words to guarantee it " +
+      "overflows regardless of viewport width or font metrics on the run machine";
+
+    const sessionShort = await launchSession(page, daemon, {
+      directory: dirShort.path,
+      title: "density-ramp-short",
+    });
+    const sessionLong = await launchSession(page, daemon, {
+      directory: dirLong.path,
+      title: "density-ramp-long",
+    });
+
+    async function closeTurn(
+      claudeId: string,
+      session: SessionObject,
+      message: string,
+    ): Promise<void> {
+      await request.post(daemon.ingestURL("hook"), {
+        data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
+      });
+      await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit(claudeId) });
+      await request.post(daemon.ingestURL("hook"), {
+        data: rawStop(claudeId, { lastAssistantMessage: message }),
+      });
+    }
+
+    await closeTurn("claude-density-ramp-short", sessionShort, shortMsg);
+    await closeTurn("claude-density-ramp-long", sessionLong, longMsg);
+
+    const cardShort = sessionCard(page, "density-ramp-short");
+    const cardLong = sessionCard(page, "density-ramp-long");
+    await expect(cardActivityClaude(cardShort)).toHaveText(`claude: ${shortMsg}`);
+    await expect(cardActivityClaude(cardLong)).toContainText("claude:");
+
+    async function heights(): Promise<{ short: number; long: number }> {
+      return {
+        short: await cardShort.evaluate((el) => el.getBoundingClientRect().height),
+        long: await cardLong.evaluate((el) => el.getBoundingClientRect().height),
+      };
+    }
+
+    await railDensityButton(page, "compact").click();
+    await expect.poll(() => bodyRailDensity(page)).toBe("compact");
+    const compact = await heights();
+
+    await railDensityButton(page, "comfortable").click();
+    await expect.poll(() => bodyRailDensity(page)).toBe("comfortable");
+    const comfortable = await heights();
+
+    await railDensityButton(page, "expanded").click();
+    await expect.poll(() => bodyRailDensity(page)).toBe("expanded");
+    const expanded = await heights();
+
+    // INV-1: for each card, height compact ≤ comfortable ≤ expanded. The short case is
+    // where a naive clamp swap still passes; the long case is the reported inversion
+    // (Overview: comfortable measured 248.5px against expanded's 169.8px pre-fix).
+    expect(compact.short).toBeLessThanOrEqual(comfortable.short);
+    expect(comfortable.short).toBeLessThanOrEqual(expanded.short);
+    expect(compact.long).toBeLessThanOrEqual(comfortable.long);
+    expect(comfortable.long).toBeLessThanOrEqual(expanded.long);
+  } finally {
+    await dirShort.cleanup();
+    await dirLong.cleanup();
+  }
+});
+
+test("a compact card renders a visible context gauge track when context is known (E3)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "density-e3-known",
+    });
+    await request.post(daemon.ingestURL("status"), {
+      data: envelopedStatusLineFull("claude-density-e3-known", {
+        ...(await envelopeOpts(session, daemon)),
+        contextUsedPct: 42,
+      }),
+    });
+
+    const card = sessionCard(page, "density-e3-known");
+    await expect(cardContextRow(card)).not.toHaveClass(/unk/);
+
+    await railDensityButton(page, "compact").click();
+    await expect.poll(() => bodyRailDensity(page)).toBe("compact");
+
+    // REQ-3: the rule hiding `.r3 .ctx` in compact is removed — the track keeps a
+    // non-zero rendered width there, same as in every other density.
+    const track = cardContextTrack(card);
+    await expect(track).toBeVisible();
+    const box = await track.evaluate((el) => el.getBoundingClientRect());
+    expect(box.width).toBeGreaterThan(0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("a compact card with unknown context renders the word and no gauge track (E6)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    // No status-line post at all — context stays unknown (kb:fact/unknown-before-first-response).
+    await launchSession(page, daemon, { directory: dir, title: "density-e6-unknown" });
+    const card = sessionCard(page, "density-e6-unknown");
+
+    await railDensityButton(page, "compact").click();
+    await expect.poll(() => bodyRailDensity(page)).toBe("compact");
+
+    // render/context.ts's unknown branch sets `.r3.unk` with plain text and builds no
+    // `.ctx` element at all — REQ-3 removing compact's hiding rule can never produce an
+    // empty track here (edge case 3).
+    await expect(card.locator(".r3.unk")).toContainText("unknown");
+    await expect(cardContextTrack(card)).toHaveCount(0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("a card with no activity text renders no activity line in compact or expanded, and compact drops a populated one too (E4)", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  const dirPopulated = await scratchDirectory();
+  const dirEmpty = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, {
+      directory: dirPopulated.path,
+      title: "density-e4-populated",
+    });
+    const claudeId = "claude-density-e4";
+    await request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
+    });
+    await request.post(daemon.ingestURL("hook"), { data: rawUserPromptSubmit(claudeId) });
+    await request.post(daemon.ingestURL("hook"), {
+      data: rawStop(claudeId, { lastAssistantMessage: "done" }),
+    });
+
+    const populatedCard = sessionCard(page, "density-e4-populated");
+    await expect(cardActivityClaude(populatedCard)).toHaveText("claude: done");
+
+    await launchSession(page, daemon, { directory: dirEmpty.path, title: "density-e4-empty" });
+    const emptyCard = sessionCard(page, "density-e4-empty");
+
+    await railDensityButton(page, "compact").click();
+    await expect.poll(() => bodyRailDensity(page)).toBe("compact");
+    // Compact drops the line entirely (REQ-1's unchanged clause), even though it carries
+    // text.
+    await expect(cardActivityClaude(populatedCard)).toBeHidden();
+    await expect(cardActivityClaude(emptyCard)).toBeHidden();
+    await expect(cardActivityYou(emptyCard)).toBeHidden();
+
+    await railDensityButton(page, "expanded").click();
+    await expect.poll(() => bodyRailDensity(page)).toBe("expanded");
+    // A line with no text stays absent regardless of density's own `display` override
+    // (kb:lesson/display-rule-overrides-hidden-attribute's companion-rule requirement).
+    await expect(cardActivityClaude(emptyCard)).toBeHidden();
+    await expect(cardActivityYou(emptyCard)).toBeHidden();
+  } finally {
+    await dirPopulated.cleanup();
+    await dirEmpty.cleanup();
+  }
+});
+
+test("the title renders above the state row on a rail card and on a Tiles strip card (E5, INV-4)", async ({
+  page,
+  daemon,
+}) => {
+  // The rail always shows every session regardless of density, but the Tiles strip only
+  // holds sessions demoted out of the live grid (tiles.spec.ts's own "switching density"
+  // pattern) — a single launched session stays a live tile (which does not share
+  // `#session-card-template` with the rail/strip card) and never reaches the strip.
+  // Five sessions at the default 2×2 grid leaves exactly one stripped.
+  const dirs = await Promise.all(Array.from({ length: 5 }, () => scratchDirectory()));
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const titles = dirs.map((_, i) => `row-order-e5-${i}`);
+    for (const [i, dir] of dirs.entries()) {
+      await launchSession(page, daemon, { directory: dir.path, title: titles[i] ?? "" });
+    }
+
+    const railCard = sessionCard(page, titles[0] ?? "");
+    await expect(railCard).toBeVisible();
+    const railTitleTop = await cardTitleRow(railCard).evaluate(
+      (el) => el.getBoundingClientRect().top,
+    );
+    const railStateTop = await cardStateRow(railCard).evaluate(
+      (el) => el.getBoundingClientRect().top,
+    );
+    expect(railTitleTop).toBeLessThan(railStateTop);
+
+    await page.getByRole("button", { name: "Tiles", exact: true }).click();
+    // Wait for the grid to actually render live tiles before reading which title landed
+    // in the strip (tiles.spec.ts's own "switching density" pattern) — without this, the
+    // loop below can run before the view switch has painted anything, finding every
+    // title's live-tile count at zero and picking the wrong one.
+    await expect(page.getByRole("button", { name: "2×2" })).toHaveAttribute("aria-pressed", "true");
+    await expect(liveTile(page, titles[0] ?? "")).toBeVisible();
+
+    let strippedTitle: string | undefined;
+    for (const t of titles) {
+      if ((await liveTile(page, t).count()) === 0) {
+        strippedTitle = t;
+        break;
+      }
+    }
+    if (!strippedTitle) {
+      throw new Error("expected exactly one of the five sessions demoted to the strip");
+    }
+    const strip = stripCard(page, strippedTitle);
+    await expect(strip).toBeVisible();
+    // INV-4: the rail card and the Tiles strip card share one template — a fix applied
+    // to only one host is a fix applied to neither.
+    const stripTitleTop = await cardTitleRow(strip).evaluate(
+      (el) => el.getBoundingClientRect().top,
+    );
+    const stripStateTop = await cardStateRow(strip).evaluate(
+      (el) => el.getBoundingClientRect().top,
+    );
+    expect(stripTitleTop).toBeLessThan(stripStateTop);
+  } finally {
+    await Promise.all(dirs.map((d) => d.cleanup()));
   }
 });

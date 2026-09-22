@@ -24,6 +24,10 @@ const validUpdateInfo = {
   running: "0.10.0",
   install: "installer",
   remedy: null,
+  // Plan rail-card-improvements-2 (kb:anchor/ws.update): true iff a release check is
+  // possible at all — see the "canCheck is missing/not a boolean" cases in the
+  // "parseSnapshot — update" describe block below.
+  canCheck: true,
   available: "0.11.0",
   checkedAt: "2026-09-10T20:00:00Z",
   installed: null,
@@ -513,6 +517,8 @@ describe("parseSnapshot — update (plan auto-update kb:anchor/ws.snapshot / kb:
         running: "v0.10.0-4-ge5102b8",
         install: "dev",
         remedy: null,
+        // A dev install can never check (REQ-9's "install kind is not dev" clause).
+        canCheck: false,
         available: null,
         checkedAt: null,
         installed: null,
@@ -588,6 +594,22 @@ describe("parseSnapshot — update (plan auto-update kb:anchor/ws.snapshot / kb:
     const { running, ...rest } = validUpdateInfo;
     void running;
     const snapshot = { ...validSnapshot, update: rest };
+    expect(parseMessage(snapshot)).toBeNull();
+  });
+
+  // Plan rail-card-improvements-2, edge case 21: a pre-plan daemon's `update` object
+  // carries every other field but predates `canCheck` entirely — the measured-absence case
+  // for this field, same "present but malformed rejects the whole snapshot" discipline as
+  // every other required `update` field above (`running`, `apply`), not a separate leniency.
+  it("rejects the whole snapshot when update.canCheck is missing (pre-plan daemon, edge case 21)", () => {
+    const { canCheck, ...rest } = validUpdateInfo;
+    void canCheck;
+    const snapshot = { ...validSnapshot, update: rest };
+    expect(parseMessage(snapshot)).toBeNull();
+  });
+
+  it("rejects the whole snapshot when update.canCheck is not a boolean", () => {
+    const snapshot = { ...validSnapshot, update: { ...validUpdateInfo, canCheck: "true" } };
     expect(parseMessage(snapshot)).toBeNull();
   });
 

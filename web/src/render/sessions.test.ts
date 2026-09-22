@@ -304,9 +304,12 @@ class FakeDomNode {
 }
 
 /** Mirrors `index.html`'s `#session-card-template` markup (article.card > [.stripe,
- * .card-in > [.r1 > [.name, .badge, .timer], .r2, .r3, .activity, .note, .acts-row]])
- * closely enough for `buildSessionCardElement`/`updateSessionCardContent`'s real
- * `querySelector` calls to resolve every field they touch. */
+ * .card-in > [.r1 > [.name], .r0 > [.badge, .timer, .pin], .r2, .r3, .activity.you,
+ * .activity.claude, .note, .acts-row]]) closely enough for `buildSessionCardElement`/
+ * `updateSessionCardContent`'s real `querySelector` calls to resolve every field they
+ * touch. Row order follows REQ-4 (plan rail-card-improvements-2): `.r1` (title) leads,
+ * `.r0` (badge/timer/pin) follows — but nothing here asserts sibling order itself (no
+ * test below inspects `.r0`/`.r1` position), only that each class resolves. */
 function buildCardTemplateFragment(): FakeDomNode {
   const fragment = new FakeDomNode("#document-fragment");
   const card = new FakeDomNode("article");
@@ -319,26 +322,31 @@ function buildCardTemplateFragment(): FakeDomNode {
   r1.className = "r1";
   const name = new FakeDomNode("span");
   name.className = "name";
+  r1.appendChild(name);
+  const r0 = new FakeDomNode("div");
+  r0.className = "r0";
   const badge = new FakeDomNode("span");
   badge.className = "badge";
   const timer = new FakeDomNode("span");
   timer.className = "timer";
-  r1.appendChild(name);
-  r1.appendChild(badge);
-  r1.appendChild(timer);
-  // Plan order-sidebar REQ-8: the pin button appended to `.r1` in
+  r0.appendChild(badge);
+  r0.appendChild(timer);
+  // Plan order-sidebar REQ-8: the pin button appended to `.r0` in
   // `session-card-template` (index.html) — mirrored here so
   // `updateSessionCardContent`'s real `querySelector(".pin")` resolves it.
   const pin = new FakeDomNode("button");
   pin.className = "pin";
-  r1.appendChild(pin);
+  r0.appendChild(pin);
   const r2 = new FakeDomNode("div");
   r2.className = "r2";
   const r3 = new FakeDomNode("div");
   r3.className = "r3";
-  const activity = new FakeDomNode("div");
-  activity.className = "activity";
-  activity.hidden = true;
+  const activityYou = new FakeDomNode("div");
+  activityYou.className = "activity you";
+  activityYou.hidden = true;
+  const activityClaude = new FakeDomNode("div");
+  activityClaude.className = "activity claude";
+  activityClaude.hidden = true;
   const note = new FakeDomNode("div");
   note.className = "note";
   note.hidden = true;
@@ -346,9 +354,11 @@ function buildCardTemplateFragment(): FakeDomNode {
   actsRow.className = "acts-row";
   actsRow.hidden = true;
   cardIn.appendChild(r1);
+  cardIn.appendChild(r0);
   cardIn.appendChild(r2);
   cardIn.appendChild(r3);
-  cardIn.appendChild(activity);
+  cardIn.appendChild(activityYou);
+  cardIn.appendChild(activityClaude);
   cardIn.appendChild(note);
   cardIn.appendChild(actsRow);
   card.appendChild(stripe);
