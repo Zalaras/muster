@@ -67,10 +67,12 @@ Spawn each step as a subagent using the Agent tool with the step's own `subagent
 | Daemon tests | `daemon-tests` |
 | Web tests | `web-tests` |
 | E2E validate & repair | `e2e-specs` (validate mode) |
-| Review | `review-work` |
+| Review — correctness | `review-work` |
+| Review — browser | `review-browser` (skipped for a daemon-only plan) |
+| Review — maintainability | `review-maintainability` |
 | Doc reconcile | `doc-reconcile` |
 
-Each subagent already carries its full instructions (its agent definition is its system prompt), so the spawn prompt is the task, the mode, the plan name and the project root — **never pasted file contents** (the agent reads from disk) and never an explicit `model` (each definition pins its own: Sonnet workers, Opus review).
+Each subagent already carries its full instructions (its agent definition is its system prompt), so the spawn prompt is the task, the mode, the plan name and the project root — **never pasted file contents** (the agent reads from disk) and never an explicit `model` (each definition pins its own: Sonnet workers, Opus reviewers).
 
 ### Verdicts and budgets
 
@@ -86,8 +88,9 @@ Every step ends with a `**Verdict**` in its output file. Read it from disk, then
 | 5 e2e-validate | `implementation-bug` | Route each row of the **E2E Implementation Bugs** table to the agent in its `Route` column, per Fix Wave Ordering; then re-spawn Step 5. | 2 attempts; on exhaustion `status blocked` — never review with failing E2E tests |
 | 5 e2e-validate | `authored` | The agent ignored validate mode. Re-spawn once with the mode restated. | counts against the 2 |
 | 5 e2e-validate | any, with a `## Repairs` row that weakened an assertion, or without the line "No assertion was deleted, skipped, or weakened" | A failed validate attempt, not a pass. | counts against the 2 |
-| 6 review | `approved` | Completion — after settling any open decision items (Step 6). | |
-| 6 review | `needs-changes` | Review Retry Logic (Step 6). | 3 cycles; on exhaustion, Review Cycle Exhaustion |
+| 6 review | `approved` (merged, computed by `merge-review`) | Completion — after settling any open decision items (Step 6). | |
+| 6 review | `needs-changes` (merged) | Review Retry Logic (Step 6). | 3 cycles; on exhaustion, Review Cycle Exhaustion |
+| 6 review | a part file (`review.code.md`, `review.browser.md`, `review.maintainability.md`) missing or without a usable `**Verdict**` | `archive` it if present, re-spawn **that one reviewer** with the same prompt; then `merge-review` again. | 1 per part per cycle |
 | any | `blocked` | `python3 $S <plan> status blocked --step <step>`, report to the user. | |
 | any | no output file, or an unusable verdict | `python3 $S <plan> archive <file>` to preserve what it wrote, re-spawn once; a second failure is `blocked`. | 1 |
 | 7 doc-reconcile | `reconciled` | Completion. | |
@@ -215,24 +218,55 @@ Your definition's Validate Mode applies in full; never weaken an assertion — r
 
 Read `**Verdict**` and the `## Repairs` table in `plans/<plan-name>/test-specs.md` and act on them per the table above.
 
-### Step 6: Review Agent
+### Step 6: Review — gates, then three reviewers, then one merged verdict
 
-Spawn `subagent_type: "review-work"`:
-```
-Execute the review task for plan: <plan-name>
-Project root: <project-root>
-This is review cycle <N>. When your review is written, commit plans/<plan-name>/review.md
-yourself (your definition says how).
-```
+Three focused reviewers replace the one that did everything (kb:adr/process-review-is-three-focused-reviewers-with-a-computed-verdict).
+Each files only its own class of defect and none of them commits; you run the gates, merge the
+parts and commit the result.
 
-For cycle 2+, when the previous cycle's only open agent-tagged issues were Minors (no
-agent-tagged Critical/Major), append this line so the reviewer runs its lighter mode:
-```
-Cycle <N-1>'s only open agent-tagged issues were Minors — your definition's §9 Delta
-Re-review applies; the previous review is plans/<plan-name>/review.cycle<N-1>.md.
-```
-That archive must exist before the re-spawn — `python3 $S <plan> archive review.md` (State
-Tracking) is what creates it, so run it before spawning, not after.
+1. **Gates, once, yours.** `python3 $S <plan> start review`, then in the foreground with
+   `timeout: 600000` (a cold run exceeds the 120 s default and the harness would background it):
+   ```bash
+   GATES_LOG_DIR=$TMPDIR/gates-<plan>-c<N> .claude/skills/orchestrate/scripts/gates.sh <plan>   # --no-e2e for a daemon plan whose Step 1 was skipped
+   ```
+   Note the summary's `<F> failed` count; the ledger makes a re-run on an identical tree a reuse,
+   which is why nobody runs it twice (kb:adr/process-gates-run-once-by-orchestrator-before-review).
+   A red line does **not** stop the review — the reviewers report it as a Critical and one fix wave
+   answers gate and findings together.
+2. **Choose the reviewer set.** `review-work` always. `review-browser` unless the plan's
+   `**Work Type**` is `daemon`. On a delta cycle (below), `review-browser` runs only if
+   `git diff --name-only <review_commits[N-1]>..HEAD -- web/src ':!*.test.ts'` is non-empty, and
+   `review-maintainability` only if `git diff --name-only <review_commits[N-1]>..HEAD -- cmd internal web/src ':!*_test.go' ':!*.test.ts'`
+   is non-empty (`python3 $S <plan> show` has `review_commits`). List the skipped ones in the
+   spawn message so the merged header can say so.
+3. **Spawn the set in one message**, each with `subagent_type` from the table and this prompt
+   (the second line names the reviewer's task word: `review` / `browser review` / `maintainability review`):
+   ```
+   Execute the <task> for plan: <plan-name>
+   Project root: <project-root>
+   This is review cycle <N>. GATES_LOG_DIR: <the directory from item 1> (<F> failed lines).
+   Write your part file only; do not commit — the orchestrator commits all parts together.
+   ```
+   For `review-work` on cycle 2+, when the previous cycle's only open agent-tagged issues were
+   Minors (no agent-tagged Critical/Major, in any part), append:
+   ```
+   Cycle <N-1>'s only open agent-tagged issues were Minors — your definition's §9 Delta
+   Re-review applies; the previous review is plans/<plan-name>/review.cycle<N-1>.md.
+   ```
+   That archive must exist before the re-spawn — `python3 $S <plan> archive review.md` (State
+   Tracking) creates it, so run it before spawning, not after.
+4. **Merge and commit.** When every spawned reviewer has reported:
+   ```bash
+   python3 $S <plan> merge-review --gates-failed <F>      # writes review.md; prints the computed verdict
+   git add plans/<plan>/review.md plans/<plan>/review.code.md [plans/<plan>/review.browser.md] [plans/<plan>/review.maintainability.md]
+   git commit -- <those paths> -m "review(<plan>): cycle <N> — <verdict>"    # plus the harness trailers
+   python3 $S <plan> reviewed "$(git rev-parse HEAD)"     # review_commits[N], for the next cycle's skip rules
+   python3 $S <plan> finish review
+   ```
+   The verdict is computed — worst of the parts and the gates, `needs-changes` on any agent-tagged
+   issue at any severity — never edited. Read it from `review.md`'s header and act by the table.
+   Issue numbering restarts in each part; when you quote an issue anywhere, name its part
+   ("browser Major 1").
 
 **Approved with open decision items is conditional.** `[orchestrator:decision]` and
 `[orchestrator:user-decision]` items never block approval but do block completion: settle each per
@@ -243,7 +277,7 @@ cycle (kb:lesson/decision-made-inside-a-fix-wave).
 **Review Retry Logic** — on `needs-changes`, the sequence is always wave 1 → gate → wave 2 → gate
 → wave 3 → gate → review; never start a later wave before an earlier one has landed:
 
-1. Read `review.md` and bucket every tagged issue: `[daemon-impl]`, `[web-impl]`, `[daemon-tests]`, `[web-tests]`, `[e2e-specs]`.
+1. Read `review.md` and bucket every tagged issue **across all three parts**: `[daemon-impl]`, `[web-impl]`, `[daemon-tests]`, `[web-tests]`, `[e2e-specs]`. Quote each with its part name ("maintainability Major 2") — numbering restarts per part.
    - `[orchestrator]` issues are yours — never spawn an agent for them; handle them in Doc-Upkeep /
      Completion. A doc-only one may be fixed while a fix wave runs iff its file set (`docs/`,
      `TODO.md`, `SPEC.md`) is disjoint from every file the wave's agents may write and each wave
@@ -264,15 +298,17 @@ cycle (kb:lesson/decision-made-inside-a-fix-wave).
    - Max 2 debates per run. A third decision item, or any item on the skill's never-debated list, stops the pipeline and asks the user (kb:lesson/decision-made-inside-a-fix-wave).
 2. **Do not fan all five out at once — they are not independent.** Group the non-empty buckets into waves per Fix Wave Ordering and run them strictly in order. Within a wave, spawn its agents in parallel (multiple Agent calls in one message); between waves, wait for completion, stamp `finish <step>` for each agent that reported, and run the wave's gate.
 3. If a wave's gate fails, that wave's fix was incomplete. End the cycle there — count it against the review budget and report — rather than starting the next wave on a broken tree.
-4. Do **not** run a full-suite gate of your own here. The reviewer's §1 runs
-   `gates.sh <plan>` — the baseline suites plus every line of the ```checks block — and that run
-   is the cycle's final validation. A red line reaches you as a Critical in `review.md`, alongside
-   the code findings the same cycle produced, so one fix wave answers both.
-5. `python3 $S <plan> archive review.md`, then `retry review` — **once per cycle**, not once per wave — then re-spawn the review agent.
+4. Do **not** run a full-suite gate between waves. The next cycle's Step 6 item 1 runs
+   `gates.sh <plan>` once — the baseline suites plus every line of the ```checks block — and that
+   run is the cycle's validation; a red line becomes the merged header's `**Gates**: N failed` and
+   a Critical the same fix wave answers alongside the reviewers' findings.
+5. `python3 $S <plan> archive review.md`, then `archive review.<part>.md` for each part file that
+   exists (`code`, `browser`, `maintainability`), then `retry review` — **once per cycle**, not once
+   per wave — then Step 6 from item 1.
 
 ### Review Cycle Exhaustion
 
-If all 3 review cycles are used and the final verdict is still `needs-changes`:
+If all 3 review cycles are used and the final merged verdict is still `needs-changes`:
 1. Do NOT mark the pipeline as "completed"
 2. `python3 $S <plan> status blocked --step review`
 3. Report to the user exactly what issues remain, referencing the review.md file
@@ -370,7 +406,9 @@ python3 $S <plan> finish <step>                     # a fix-mode re-spawn report
 python3 $S <plan> done <step> --next <next-step>    # after a step's verdict is read
 python3 $S <plan> done review --next completed      # the terminal step still needs --next
 python3 $S <plan> retry <step>                      # each fix/validate/review cycle (closes a still-open attempt itself)
-python3 $S <plan> archive <file>                    # before a re-spawn overwrites a verdict file (review.md → review.cycle<N>.md)
+python3 $S <plan> archive <file>                    # before a re-spawn overwrites a verdict file (review.md → review.cycle<N>.md; parts: review.browser.md → review.browser.cycle<N>.md)
+python3 $S <plan> merge-review --gates-failed <F>   # Step 6 item 4: parts → review.md with one computed **Verdict**
+python3 $S <plan> reviewed <sha>                    # Step 6 item 4: the commit carrying this cycle's review.md (review_commits[N])
 python3 $S <plan> closes 2 4                        # Completion step 5: issues /land will close
 python3 $S <plan> status blocked --step <step>      # on exhaustion
 python3 $S <plan> status completed                  # only after review = approved
@@ -422,7 +460,9 @@ runner** — never a hand-rolled loop, never a cached agent verdict:
 
 The script header documents what it runs, how it dedupes, where it logs and how it handles the `rg`
 shim. Paste its summary into the completion report. **Every baseline gate and every authored check
-must pass** — otherwise the pipeline is not complete.
+must pass** — otherwise the pipeline is not complete. On a tree unchanged since Step 6's run this is
+a ledger reuse that costs seconds and proves the tree did not move; the `WARN size` line never
+counts against it.
 
 If the plan has no ```checks block, run the baseline gates and say in the summary that the plan
 predates the Automated Checks convention. Do NOT parse prose criteria for backticked commands to
