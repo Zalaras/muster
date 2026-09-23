@@ -4,7 +4,7 @@
 // here, at startup, unlike a tile's editor, which `render/tiles.ts`'s `buildTile` attaches
 // per tile using `tileRenameHandlers` below.
 import type { App } from "../app";
-import { putTitle } from "../api";
+import { putTitle } from "../api/sessions";
 import { attachRenameEditor, type RenameEditorController } from "../render/rename";
 import type { TileRenameHandlers } from "../render/tiles";
 import type { TitleCommand } from "../sessions/rename";
@@ -23,12 +23,7 @@ export function initRename(app: App, deps: { focus: { nameEl: HTMLElement } }): 
    * nothing, on a failed request) drives the redraw, never a locally-typed title. */
   function handleRenameCommit(id: number, command: TitleCommand): void {
     const title = command.kind === "set" ? command.title : null;
-    void putTitle(id, title).then((result) => {
-      if (!result.ok)
-        console.error(
-          `PUT /api/sessions/${id}/title failed: ${result.error.code} ${result.error.message}`,
-        );
-    });
+    void putTitle(id, title);
   }
 
   const mainheadRename: RenameEditorController = attachRenameEditor(deps.focus.nameEl, {

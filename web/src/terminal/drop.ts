@@ -2,7 +2,7 @@
 // drag-and-drop feature (plan file-drop-fix). No DOM, no fetch — kept separate from
 // terminal/pane.ts's DOM/socket wiring so it's Vitest-testable (docs/conventions.md:
 // "keep logic in pure modules separate from DOM code").
-import type { ApiErrorBody } from "../api";
+import type { ApiErrorBody } from "../api/http";
 
 /** REQ-4: Terminal.app-style path escaping — a backslash is prefixed to every space and
  * to every character in this set; everything else (including non-ASCII) passes through

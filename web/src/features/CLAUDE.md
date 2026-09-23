@@ -6,7 +6,7 @@
 - `main.ts` holds no DOM lookup, listener, or module-level mutable state (kb:adr/process-composition-roots-registration-only).
 - No controller imports a sibling; `deps` is typed structurally with the exact methods it calls.
 - Each `AppState` field has exactly one writer, adopted from a `prefs` broadcast, never optimistically from a click.
-- Every daemon call goes through `../api.ts`; one `WsClient` owns the connection.
+- Every daemon call goes through `../api/`; one `WsClient` owns the connection.
 - The name matches the server handler file, E2E spec prefix and helper (kb:adr/process-one-name-per-feature).
 - Shortcuts dispatch on `matchShortcut`'s action, never on `event.key` (kb:adr/shortcuts-match-event-code-in-pure-module).
 

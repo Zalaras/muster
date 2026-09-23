@@ -7,7 +7,7 @@
 // concerns"): the restart confirm is structurally the same "named session action confirm"
 // concern End/Remove already solved (showModal()/close(), a body rebuilt from data,
 // Confirm/Cancel wired to one target captured at open time).
-import type { RestartImpactShell } from "../api";
+import type { RestartImpactShell } from "../api/update";
 import type { Prefs, UpdateInfo } from "../protocol";
 import { agoSuffix, formatAge } from "../sessions/format";
 

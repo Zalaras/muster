@@ -2,9 +2,10 @@
 // fetch-result mapper) — everything else here (renderDeadSurface, collectDeadSurfaceRefs,
 // buildDeadSurfaceFromTemplate) constructs/queries real DOM and has no jsdom configured
 // (docs/conventions.md defers DOM construction to Playwright; see web/e2e/actions.spec.ts
-// for REQ-13's dead-surface coverage). Mocking ../api keeps this a pure logic test.
+// for REQ-13's dead-surface coverage). Mocking ../api/sessions keeps this a pure logic test.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ApiResult, PaneSnapshot } from "../api";
+import type { ApiResult } from "../api/http";
+import type { PaneSnapshot } from "../api/sessions";
 import type { Session } from "../protocol";
 import {
   loadPane,
@@ -14,11 +15,11 @@ import {
   type PaneState,
 } from "./dead";
 
-vi.mock("../api", () => ({
+vi.mock("../api/sessions", () => ({
   fetchPane: vi.fn(),
 }));
 
-import { fetchPane } from "../api";
+import { fetchPane } from "../api/sessions";
 
 const fetchPaneMock = vi.mocked(fetchPane);
 

@@ -9,7 +9,7 @@
 // resolve the real `const` when `findDeadSurfaceRefs` is actually called, well after
 // every controller has finished construction (never during it).
 import type { App } from "../app";
-import { endSession, pinSession, removeSession, resumeSession } from "../api";
+import { endSession, pinSession, removeSession, resumeSession } from "../api/sessions";
 import { requireElement } from "../dom";
 import { forget } from "../reader/memory";
 import {
@@ -105,21 +105,15 @@ export function initActions(app: App, deps: ActionsDeps): ActionsHandle {
 
   /** Fire-and-forget, no optimistic state — the resulting `sessionUpsert`s (or nothing,
    * on a failed request) drive the redraw. */
+  // http.ts's `logApiFailure` already logs a failed request under its own route (e-m5);
+  // this module's job is only `showActionError`'s UI-visible half.
   function doPin(id: number, pinned: boolean): void {
-    void pinSession(id, pinned).then((result) => {
-      if (!result.ok)
-        console.error(
-          `PUT /api/sessions/${id}/pin failed: ${result.error.code} ${result.error.message}`,
-        );
-    });
+    void pinSession(id, pinned);
   }
 
   function doEnd(id: number): void {
     void endSession(id).then((result) => {
       if (!result.ok) {
-        console.error(
-          `POST /api/sessions/${id}/end failed: ${result.error.code} ${result.error.message}`,
-        );
         showActionError(result.error.message);
         return;
       }
@@ -132,9 +126,6 @@ export function initActions(app: App, deps: ActionsDeps): ActionsHandle {
   async function doResume(id: number): Promise<void> {
     const result = await resumeSession(id);
     if (!result.ok) {
-      console.error(
-        `POST /api/sessions/${id}/resume failed: ${result.error.code} ${result.error.message}`,
-      );
       showActionError(result.error.message);
       return;
     }
@@ -146,9 +137,6 @@ export function initActions(app: App, deps: ActionsDeps): ActionsHandle {
   function doRemove(id: number): void {
     void removeSession(id).then((result) => {
       if (!result.ok) {
-        console.error(
-          `DELETE /api/sessions/${id} failed: ${result.error.code} ${result.error.message}`,
-        );
         showActionError(result.error.message);
         return;
       }

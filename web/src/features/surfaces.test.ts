@@ -6,19 +6,19 @@
 // `null` the registered render phase's `visibleSessionIds()` returns `[]`, so the render
 // phase never reaches `openMissingSurfaces` (which would construct a real
 // `TerminalSurface` and need a DOM this file's no-jsdom Vitest config doesn't have — same
-// reasoning as render/dead.test.ts's header comment). Mocking ../api keeps this a pure
-// logic test, same shape as render/dead.test.ts's `fetchPane` mock.
+// reasoning as render/dead.test.ts's header comment). Mocking ../api/sessions keeps this a
+// pure logic test, same shape as render/dead.test.ts's `fetchPane` mock.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ApiResult } from "../api";
+import type { ApiResult } from "../api/http";
 import { createApp } from "../app";
 import { getSurfaceState } from "../terminal/surfaceswitch";
 import { initSurfaces } from "./surfaces";
 
-vi.mock("../api", () => ({
+vi.mock("../api/sessions", () => ({
   createShell: vi.fn(),
 }));
 
-import { createShell, type CreateShellResult } from "../api";
+import { createShell, type CreateShellResult } from "../api/sessions";
 
 const createShellMock = vi.mocked(createShell);
 

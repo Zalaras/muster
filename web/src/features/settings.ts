@@ -3,7 +3,7 @@
 // the checked radio" invariant, INV-7). Modelled on render/confirm.ts's controller shape:
 // elements in, handlers in, {open, close, setChecked} out.
 import type { App } from "../app";
-import { putPrefs } from "../api";
+import { requestPrefs } from "../api/prefs";
 import { requireElement, requireElements } from "../dom";
 import { isThemeChoice, type ThemeChoice } from "../theme";
 import { isRailActivity, type RailActivity } from "../protocol";
@@ -138,27 +138,12 @@ export function initSettings(
     ),
   };
   const controller = initSettingsDialog(elements, {
-    onChooseTheme: (theme) => {
-      void putPrefs({ theme }).then((result) => {
-        if (!result.ok)
-          console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);
-      });
-    },
-    onToggleUpdateCheck: (checked) => {
-      void putPrefs({ updateCheck: checked }).then((result) => {
-        if (!result.ok)
-          console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);
-      });
-    },
+    onChooseTheme: (theme) => requestPrefs({ theme }),
+    onToggleUpdateCheck: (checked) => requestPrefs({ updateCheck: checked }),
     onUpdate: () => deps.update.apply(),
     onUpdateAndRestart: () => deps.update.applyAndRestart(),
     onCheckNow: () => deps.update.check(),
-    onChooseRailActivity: (railActivity) => {
-      void putPrefs({ railActivity }).then((result) => {
-        if (!result.ok)
-          console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);
-      });
-    },
+    onChooseRailActivity: (railActivity) => requestPrefs({ railActivity }),
   });
 
   settingsButtonEl.addEventListener("click", () => controller.open());

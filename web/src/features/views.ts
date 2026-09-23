@@ -11,7 +11,7 @@
 // tiles.ts's header comment. Edge case 7: a reconnect echoing identical prefs must not
 // emit `cancelRenames` or reshuffle anything.
 import type { App } from "../app";
-import { putPrefs } from "../api";
+import { requestPrefs } from "../api/prefs";
 import { requireElement } from "../dom";
 import { renderDensityControl, renderViewSwitcher } from "../render/masthead";
 import type { Density, View } from "../protocol";
@@ -33,17 +33,11 @@ export function initViews(app: App): ViewsHandle {
   let lastView = app.state.view;
 
   function requestView(newView: View): void {
-    void putPrefs({ view: newView }).then((result) => {
-      if (!result.ok)
-        console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);
-    });
+    requestPrefs({ view: newView });
   }
 
   function requestDensity(newDensity: Density): void {
-    void putPrefs({ density: newDensity }).then((result) => {
-      if (!result.ok)
-        console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);
-    });
+    requestPrefs({ density: newDensity });
   }
 
   app.on("prefs", (prefs) => {

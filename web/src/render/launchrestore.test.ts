@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Repo } from "../api";
+import type { Repo } from "../api/launch";
 import { DEFAULT_MODEL, initialRestore, repoRestore, type Touched } from "./launchrestore";
 
 const baseRepo: Repo = {

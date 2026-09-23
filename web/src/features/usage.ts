@@ -2,7 +2,7 @@
 // per-model weekly window (plan code-breakup vocabulary: "usage"; plans m3-usage,
 // usage-model-bar). No dependency on any other controller.
 import type { App } from "../app";
-import { putPrefs, refreshUsage } from "../api";
+import { requestPrefs, refreshUsage } from "../api/prefs";
 import { requireElement } from "../dom";
 import {
   renderModelWeek,
@@ -40,10 +40,7 @@ export function initUsage(app: App): void {
   /** REQ-12: the model-week `<select>`'s change handler — fire-and-forget;
    * `usageModel` only ever changes via the `prefs` echo, never optimistically here. */
   function requestUsageModel(newModel: string): void {
-    void putPrefs({ usageModel: newModel }).then((result) => {
-      if (!result.ok)
-        console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);
-    });
+    requestPrefs({ usageModel: newModel });
   }
 
   app.on("snapshot", (snapshot) => {
@@ -64,13 +61,9 @@ export function initUsage(app: App): void {
     usageRefreshBtn.setAttribute("aria-busy", "true");
     if (usageRefreshTimer !== null) clearTimeout(usageRefreshTimer);
     usageRefreshTimer = setTimeout(clearUsageRefreshBusy, 5000);
+    // http.ts's `logApiFailure` already logs a failed request under its own route (e-m5).
     void refreshUsage().then((result) => {
-      if (!result.ok) {
-        console.error(
-          `POST /api/usage/refresh failed: ${result.error.code} ${result.error.message}`,
-        );
-        clearUsageRefreshBusy();
-      }
+      if (!result.ok) clearUsageRefreshBusy();
     });
   });
 

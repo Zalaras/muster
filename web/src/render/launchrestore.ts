@@ -3,7 +3,8 @@
 // relationship as this directory's `crumbs.ts` and `focusrestore.ts` to their one
 // caller: a pure decision split out of a controller lives here, not in features/,
 // which holds controllers only.
-import { permissionModeToCheck, type PermissionMode, type Repo } from "../api";
+import type { Repo } from "../api/launch";
+import { permissionModeToCheck, type PermissionMode } from "../sessions/permission";
 
 /** The one fallback a repo has no stored model to restore — also `resetForm`'s brand-new-
  * form default (features/launch.ts), so "sonnet" is written in exactly one place. */

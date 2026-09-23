@@ -8,7 +8,7 @@
 // just enough state (`textContent`, `disabled`, `hidden`, `dataset`, attributes, a fake
 // `addEventListener`/`showModal`/`close`) to assert on, never a real DOM node.
 import { describe, expect, it, vi } from "vitest";
-import type { RestartImpactShell } from "../api";
+import type { RestartImpactShell } from "../api/update";
 import type { Prefs, UpdateApplyPhase, UpdateInfo, UpdateInstallKind } from "../protocol";
 import {
   buildUpdateViewModel,

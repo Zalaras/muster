@@ -1,5 +1,5 @@
 // The Issue dialog (plan issue-capture; kb:anchor/issue.captures / kb:anchor/issue.create). DOM + wiring
-// only — every daemon call goes through ../api.ts. `initIssue` below owns the masthead
+// only — every daemon call goes through `../api/issue.ts`. `initIssue` below owns the masthead
 // trigger button (`#issue-button`, disabled on daemon-down like every other masthead
 // control) and calls `open()` with the rail's own session order and `focusedId`; this module
 // never reads the session store itself, so the frozen-option-list rule (REQ-2) holds by
@@ -7,10 +7,11 @@
 //
 // W3: this module must never reference an allowlist field name. The preview is composed
 // from exactly two things it treats as opaque strings — the daemon's own
-// `snapshotMarkdown` (api.ts's `IssueCapture`) and the user's own note text — never a
+// `snapshotMarkdown` (api/issue.ts's `IssueCapture`) and the user's own note text — never a
 // key out of `snapshot`. That is what makes the daemon the only place allowlisted data
 // becomes text (plan Implementation Notes).
-import { captureIssueSnapshot, fileIssue, type ApiErrorBody, type IssueCapture } from "../api";
+import { captureIssueSnapshot, fileIssue, type IssueCapture } from "../api/issue";
+import type { ApiErrorBody } from "../api/http";
 import type { App } from "../app";
 import { requireElement } from "../dom";
 import { orderRail } from "../sessions/sort";

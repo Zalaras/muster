@@ -4,8 +4,8 @@
 // "a JSON object", "an array of these", and "null or one of these" are recognised — a
 // parser still owns what its own fields mean. Home: `web/src/protocol/`, ahead of the
 // settled split of `protocol.ts` itself into this directory (plan maintainability-cleanup
-// W1/W3) — `protocol.ts`, `api.ts`, `theme.ts` and `reader/memory.ts` all import from here
-// rather than each other.
+// W1/W3) — `protocol.ts`, `web/src/api/`, `theme.ts` and `reader/memory.ts` all import from
+// here rather than each other.
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

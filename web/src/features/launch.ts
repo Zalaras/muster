@@ -2,7 +2,7 @@
 // child listing) over a stacked segmented form (kb:anchor/sessions.create / kb:anchor/repos.list / kb:anchor/browse.get; plan
 // new-session-dialog UI Specifications; design authority
 // plans/new-session-dialog/mockup.html). DOM + wiring only — every daemon call goes
-// through ../api.ts, and the parsed Session comes back through `onLaunched` so this
+// through `../api/launch.ts`, and the parsed Session comes back through `onLaunched` so this
 // module's `initLaunch` (which holds `app`, the session store's owner) decides what
 // happens next.
 //
@@ -14,14 +14,13 @@ import {
   browse,
   fetchRepos,
   launchSession,
-  permissionModeToCheck,
   type BrowseEntry,
   type BrowseResult,
   type LaunchRequest,
-  type PermissionMode,
   type Repo,
-} from "../api";
+} from "../api/launch";
 import type { App } from "../app";
+import { permissionModeToCheck, type PermissionMode } from "../sessions/permission";
 import { requireElement, requireElements } from "../dom";
 import type { Session } from "../protocol";
 import { formatAge } from "../sessions/format";
@@ -116,9 +115,9 @@ export function initLaunchModal(
 
   // REQ-6/REQ-5: a stored value the dialog has no radio for (a future Claude Code mode,
   // `null`, or the empty string) falls back to `auto` — decided by the pure, unit-tested
-  // `permissionModeToCheck` (api.ts), which takes `null` directly (no caller-side coercion
-  // to `""`). `setPermissionMode` here and `selectedPermissionMode` just below are this
-  // file's two callers.
+  // `permissionModeToCheck` (sessions/permission.ts), which takes `null` directly (no
+  // caller-side coercion to `""`). `setPermissionMode` here and `selectedPermissionMode`
+  // just below are this file's two callers.
   function setPermissionMode(value: string | null): void {
     checkRadio(elements.permissionModeRadios, permissionModeToCheck(value));
   }

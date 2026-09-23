@@ -642,7 +642,7 @@ function parseUpdateApply(value: unknown): UpdateApply | null {
 /** Plan auto-update (kb:anchor/ws.update). Every field is read-checked; a malformed
  * value anywhere rejects the whole object rather than degrading it to a partial "unknown"
  * shape (same discipline as parseSession). */
-// Exported for api.ts's `checkForUpdate` (kb:anchor/update.check), which decodes the same
+// Exported for api/update.ts's `checkForUpdate` (kb:anchor/update.check), which decodes the same
 // shape from a POST response instead of a WS broadcast.
 export function parseUpdateInfo(value: unknown): UpdateInfo | null {
   if (!isRecord(value)) return null;

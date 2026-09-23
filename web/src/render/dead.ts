@@ -6,7 +6,7 @@
 // two surfaces never drift out of sync with each other. Pure builder + fetch trigger
 // (docs/conventions.md): DOM construction and the `GET .../pane` fetch live here; caching
 // *when* to fetch is features/actions.ts's job (`ensurePaneFetch`/`paneState`).
-import { fetchPane } from "../api";
+import { fetchPane } from "../api/sessions";
 import type { Session } from "../protocol";
 import { resumeDisabledReason, stateBadgeText } from "../sessions/card";
 import { formatEndedAgo } from "../sessions/format";

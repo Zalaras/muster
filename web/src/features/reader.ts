@@ -8,7 +8,7 @@
 // is DOM-only and never fetches or opens a socket (W16). Mirrors `features/surfaces.ts`'s
 // mount/dispose diff shape — the render phase below is the only place a `ReaderInstance`
 // is ever constructed or disposed.
-import { fetchReaderFile, fetchReaderListing, type ReaderListing } from "../api";
+import { fetchReaderFile, fetchReaderListing, type ReaderListing } from "../api/reader";
 import type { App, RenderFrame } from "../app";
 import { requireElement } from "../dom";
 import type { DocChanged, Session } from "../protocol";

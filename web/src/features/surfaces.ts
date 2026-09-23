@@ -10,7 +10,8 @@
 // later `const` rather than taking a value now.
 import type { App, RenderFrame } from "../app";
 import type { Session } from "../protocol";
-import { createShell, type ApiErrorBody } from "../api";
+import { createShell } from "../api/sessions";
+import type { ApiErrorBody } from "../api/http";
 import { showDeadSurfaceNotice, type DeadSurfaceRefs } from "../render/dead";
 import { TerminalSurface } from "../terminal/pane";
 import {
@@ -114,7 +115,7 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
     error: ApiErrorBody,
     findDeadRefs: () => DeadSurfaceRefs | null,
   ): void {
-    console.error(`POST /api/sessions/${id}/shell failed: ${error.code} ${error.message}`);
+    // http.ts's `logApiFailure` already logged this under its own route (e-m5).
     const liveSurface = surfaces.get(surfaceKey(id, "claude"));
     if (liveSurface) {
       liveSurface.showNotice(error.message);

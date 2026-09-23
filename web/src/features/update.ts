@@ -2,7 +2,7 @@
 // code-breakup vocabulary: "update"; plan auto-update). No dependency on any other
 // controller — `settings.ts` depends on this module's exposed elements/methods instead.
 import type { App } from "../app";
-import { applyUpdate, checkForUpdate, fetchRestartImpact } from "../api";
+import { applyUpdate, checkForUpdate, fetchRestartImpact } from "../api/update";
 import { requireElement } from "../dom";
 import {
   buildUpdateViewModel,
@@ -54,23 +54,15 @@ export function initUpdate(app: App): UpdateHandle {
   // from `UpdateInfo` (see render/update.ts's `CheckState` doc comment).
   const checkState: CheckState = { inFlight: false, error: null };
 
+  // http.ts's `logApiFailure` already logs a failed request under its own route — this
+  // module has nothing further to do with one (e-m5).
   function apply(): void {
-    void applyUpdate(false).then((result) => {
-      if (!result.ok)
-        console.error(
-          `POST /api/update/apply failed: ${result.error.code} ${result.error.message}`,
-        );
-    });
+    void applyUpdate(false);
   }
 
   function applyAndRestart(): void {
     void fetchRestartImpact().then((result) => {
-      if (!result.ok) {
-        console.error(
-          `GET /api/update/restart-impact failed: ${result.error.code} ${result.error.message}`,
-        );
-        return;
-      }
+      if (!result.ok) return;
       restartConfirm.open(result.value.shells);
     });
   }
@@ -98,12 +90,7 @@ export function initUpdate(app: App): UpdateHandle {
   }
 
   function handleRestartConfirmed(): void {
-    void applyUpdate(true).then((result) => {
-      if (!result.ok)
-        console.error(
-          `POST /api/update/apply failed: ${result.error.code} ${result.error.message}`,
-        );
-    });
+    void applyUpdate(true);
   }
 
   const restartConfirm: RestartConfirmController = initRestartConfirm(

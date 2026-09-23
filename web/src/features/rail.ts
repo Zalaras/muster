@@ -2,7 +2,8 @@
 // "rail"). `deps.surfaces` is a real value — `surfaces` is constructed before `rail`
 // (main.ts's init order).
 import type { App } from "../app";
-import { putPrefs, putSessionOrder } from "../api";
+import { requestPrefs } from "../api/prefs";
+import { putSessionOrder } from "../api/sessions";
 import { requireElement, requireElements } from "../dom";
 import { installDragReorder } from "../render/dragreorder";
 import type { FocusedControl } from "../render/focus";
@@ -28,17 +29,11 @@ export function initRail(app: App, deps: RailDeps): void {
   let pendingRailFocus: FocusedControl | null = null;
 
   function requestRailSort(newSort: RailSort): void {
-    void putPrefs({ railSort: newSort }).then((result) => {
-      if (!result.ok)
-        console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);
-    });
+    requestPrefs({ railSort: newSort });
   }
 
   function requestRailDensity(newDensity: RailDensity): void {
-    void putPrefs({ railDensity: newDensity }).then((result) => {
-      if (!result.ok)
-        console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);
-    });
+    requestPrefs({ railDensity: newDensity });
   }
 
   // No sticky client-side state depends on `railSort` (unlike view/density's `tilesLive`)
@@ -78,12 +73,7 @@ export function initRail(app: App, deps: RailDeps): void {
       const move = moveCard(orderRail(app.store.values(), "manual"), draggedId, targetId);
       if (!move) return;
       pendingRailFocus = focusedBeforeDrag;
-      void putSessionOrder(move.ids, move.pinnedCount).then((result) => {
-        if (!result.ok)
-          console.error(
-            `PUT /api/sessions/order failed: ${result.error.code} ${result.error.message}`,
-          );
-      });
+      void putSessionOrder(move.ids, move.pinnedCount);
     },
   });
 
