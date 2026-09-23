@@ -229,6 +229,77 @@ and the second is the one to re-measure if a Claude Code bump touches worktrees.
   `main.run`, `server.New`, `protocol.ts`, `api.ts`), each commit naming the convention it restores.
   `/review-maintainability <plan> Scope: <paths>` runs the new reviewer over a directory.
 
+Filed 2026-09-23 by the developer from the plans' `proposed-backlog.md` files (each names its
+source; the file records the decision):
+
+- [ ] **Run `make web-lint` in the wave-2 gate** — `gates.sh`'s wave cases hard-code
+  build/lint/test/web-build/web-test/e2e, and Biome reaches a wave only when a plan authors
+  `make web-lint` in its ```` ```checks ```` block. `terminal-fixes-cleanup` authored none, so a
+  format error passed every wave gate and was caught only by hand (`bbad9cf`). Add `web-lint` to
+  the wave-2 case so no plan can forget it. From `plans/terminal-fixes-cleanup/`.
+
+- [ ] **Shorten the Settings update-check error** — with the release host down,
+  `#update-status` prints Go's whole transport chain verbatim (`update check failed: requesting
+  http://…/latest: Head "http://…/latest": dial tcp …: connect: connection refused`): four
+  wrapped lines, the URL twice, pushing the action row down. Contract-compliant; decide how much
+  of the chain to show. From `plans/rail-card-improvements-2/`.
+
+- [ ] **Stale plan IDs in `update.go` doc comments** — several comments in
+  `internal/server/update.go` carry auto-update's plan IDs (e.g. the `(D16)` at line 256), so a
+  reader chasing one in a later plan that touched the file finds nothing, and `dead-refs` cannot
+  check plan IDs. Decide whether to drop the IDs or name the owning plan. From
+  `plans/rail-card-improvements-2/`.
+
+- [ ] **Unit-test the real wheel accumulator** — `shellkeys.test.ts`'s `accumulateFrame`
+  mirrors `pane.ts`'s private sub-line accumulation instead of calling it, so reverting the fix
+  in `pane.ts` leaves those tests green (only the `shell-scroll.spec.ts` E2E catches it). Lift
+  the step into `shellkeys.ts` as a pure `(accum, deltaY) => { accum, lines }` that `pane.ts`
+  calls. From `plans/terminal-fixes-cleanup/`.
+
+- [ ] **Reduced-motion rule for the activity spinner** — `shellact-spin` (`web/src/style.css`,
+  0.7 s infinite) is the stylesheet's only animation, and nothing in `web/src` or `docs/design`
+  handles `prefers-reduced-motion`. Stop or slow the spin under it. From
+  `plans/terminal-fixes-cleanup/`.
+
+- [ ] **`observeWrite` can write an older plan back over a newer one** —
+  `internal/server/reader.go` reads the session, then calls `SetPlan(…, sess.PlanPath, true)`
+  under a separate lock; a transcript scan committing a new plan between the two is overwritten
+  by the old path. Make the exists-flip a compare-and-set inside `Manager.mu` (flip only if the
+  stored path still equals the one read). From `plans/frontmatter/`.
+
+- [ ] **Session setters persist out of order** — every `Manager` setter in
+  `internal/session/manager.go` mutates under `Manager.mu`, then writes SQLite and broadcasts
+  after unlocking, so two writers to one session can persist in the opposite order to their
+  in-memory commit, leaving the stored row stale until the next write. From `plans/frontmatter/`.
+
+- [ ] **Investigate an any-owner rule for `features-scope.sh`** — today a changed file fails the
+  gate unless *every* feature owning it is in the plan's `**Features**` header, so editing one
+  handler in a shared file (e.g. `internal/server/sessions.go`: launch, actions, rail, rename)
+  pulls in every co-owner and grows each role's pack by about 11,000 words. Find out whether one
+  owner is enough; `doc-reconcile.md` Step 1 would have to change to match. Background:
+  `plans/new-session-improvement/decisions/features-scope/`,
+  `kb:adr/process-features-scope-answered-by-widening-header`.
+
+- [ ] **Settle where a controller's DOM-free decision module lives** — `docs/conventions.md`
+  § Composition roots and `web/src/render/CLAUDE.md` call `render/` "pure DOM builders", yet
+  `render/focusrestore.ts` and `render/launchrestore.ts` are DOM-free decisions kept there to
+  avoid a `sessions/→api` dependency. Either the rule names this case or the two modules move.
+  From `plans/new-session-improvement/`.
+
+- [ ] **Keep the current session's rail card on screen** — in a rail with more cards than fit,
+  a launch and the number chords (⌥⌘5–9, ⌥⌘0) move the current marker to a card that can be
+  scrolled out of view, so you can't see which session you're on; nothing in `web/src` calls
+  `scrollIntoView`. Candidate: the single "bring a session forward" owner scrolls the card into
+  view (`block: "nearest"`) on every path. Doing it supersedes
+  `kb:adr/rail-launch-leaves-rail-scroll-untouched`, which left launch unscrolled to match the
+  chords. From `plans/new-session-improvement/`.
+
+- [ ] **Name a launched session's `model_not_found`** — a model the installed Claude Code knows
+  but the account cannot run passes the launch pre-check and fails its first turn with
+  `StopFailure.error = "model_not_found"` (kb:fact/unknown-model-fails-first-turn); the card
+  shows only the generic failure. Candidate: say "model unavailable" on the card and offer
+  Resume with another model. From `plans/new-session-improvement/` (its `## Out of scope`).
+
 - [ ] **Cutting v1.0.0 is the act of removing `--v0`** (settled 2026-09-01, `docs/history/spec-changelog.md`):
   `release.yml` passes `svu next --v0`, so while the flag exists a 1.0.0 cannot be cut, by
   accident or otherwise. When every item above closes, v1 ships as one deliberate commit

@@ -36,3 +36,10 @@ of feature specs and 8343 of decisions before any role-specific section is added
 The warning is printed and ignored on every spawn. Worth a look at whether the budget is wrong,
 the decisions section should carry summaries rather than full records for features outside the
 plan's Affected Files, or the pack should be trimmed per role.
+
+---
+
+## Decisions (the developer, 2026-09-23)
+
+- **`dead-refs --all` is red in any fresh worktree** — already done: `dead-refs.py` now reports a gitignored target as `ignored`, not missing. Not filed.
+- **Every role's `kb pack` overran its budget** — not doing.

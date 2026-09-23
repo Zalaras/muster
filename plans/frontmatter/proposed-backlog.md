@@ -30,3 +30,10 @@ Follow-up this run found. Nothing here is filed in `TODO.md` — each block wait
 - **Suggested section**: lifecycle / durability.
 - **Pre-existing**: yes — every setter on `main` has the shape; this branch's `ApplyPlanScan`
   copies it rather than introducing it.
+
+---
+
+## Decisions (the developer, 2026-09-23)
+
+- **observeWrite plan revert** — filed: TODO.md § Pre-v1 Cleanup, "`observeWrite` can write an older plan back over a newer one".
+- **Setter persist order** — filed: TODO.md § Pre-v1 Cleanup, "Session setters persist out of order".

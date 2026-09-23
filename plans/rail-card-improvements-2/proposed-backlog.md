@@ -59,3 +59,13 @@ Every role's pack for this plan ran far over budget: 24,952 words for review, 24
 orchestrator, 17,840 for e2e-specs, 16,858 for daemon-impl, against a stated 8,000. The four
 features this plan touches (rail, surfaces, update, settings) pull in 7,668 words of decisions
 alone. Worth deciding whether the budget is wrong or the packing is.
+
+---
+
+## Decisions (the developer, 2026-09-23)
+
+1. Data race in the shell-terminal scroll test — already done: fixed in `22079f8`. Not filed.
+2. Whether `-race` should gate — already done: `make test-race` is a baseline gate (`9048a7c`). Not filed.
+3. How much of the transport error chain to show — filed: TODO.md § Pre-v1 Cleanup, "Shorten the Settings update-check error".
+4. Owning plan in `update.go`'s doc comments — filed: TODO.md § Pre-v1 Cleanup, "Stale plan IDs in `update.go` doc comments".
+5. `kb pack` budget overrun — not doing.

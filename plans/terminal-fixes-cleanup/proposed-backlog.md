@@ -65,3 +65,11 @@ ask for one.
 `prefers-reduced-motion` block anywhere in `web/src` or `docs/design`. A 0.7 s infinite spinner
 is the app's first sustained motion, so if a reduced-motion rule is ever wanted, this is the
 element that needs it.
+
+---
+
+## Decisions (the developer, 2026-09-23)
+
+- **`make web-lint` never runs inside a wave gate** — filed: TODO.md § Pre-v1 Cleanup, "Run `make web-lint` in the wave-2 gate".
+- **Lift the wheel accumulator step into a pure function** — filed: TODO.md § Pre-v1 Cleanup, "Unit-test the real wheel accumulator".
+- **A `prefers-reduced-motion` rule for the activity spinner** — filed: TODO.md § Pre-v1 Cleanup, "Reduced-motion rule for the activity spinner".

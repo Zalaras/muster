@@ -51,3 +51,12 @@ Proposals only: nothing here is filed in `TODO.md` unless the developer copies i
 - **Change requested**: not yet. The plan left filing it to the developer's approval of the wording, and that approval hasn't been given.
 - **Suggested section**: launch / lifecycle (a hint only)
 - **Pre-existing**: yes. The account-side gate predates this branch, which narrows it to catalogued-but-unavailable models.
+
+---
+
+## Decisions (the developer, 2026-09-23)
+
+- **Any-owner rule for `features-scope.sh`** — filed as an investigation: TODO.md § Pre-v1 Cleanup, "Investigate an any-owner rule for `features-scope.sh`".
+- **Keep the rail's current marker on screen** — filed: TODO.md § Pre-v1 Cleanup, "Keep the current session's rail card on screen".
+- **Where a controller's DOM-free pure decision lives** — filed: TODO.md § Pre-v1 Cleanup, "Settle where a controller's DOM-free decision module lives".
+- **Name a launched session's `model_not_found`** — filed: TODO.md § Pre-v1 Cleanup, wording as proposed.
