@@ -977,3 +977,61 @@ test("Check now is disabled on a daemon started with an empty update base URL (E
   const dialog = await openSettingsDialog(page);
   await expect(updateCheckButton(dialog)).toBeDisabled();
 });
+
+// Plan maintainability-cleanup WF1 (e-note-4): `check()` used to mutate its own
+// `checkState` without ever calling `app.render()` itself, relying entirely on
+// `main.ts`'s unconditional `setInterval(app.render, 1000)` to eventually show the
+// result — up to a second late, and invisible to E9-E12 above because their default
+// `expect` timeout comfortably outlasts that one tick. `page.clock` is installed and
+// then paused right before the click so that periodic tick genuinely cannot fire during
+// this test (Playwright's clock only fakes Date/setTimeout/setInterval, never the real
+// fetch/WebSocket I/O the daemon round trip itself uses) — on the pre-fix code these
+// `expect` calls time out instead of racing a real clock.
+test("Check now disables the button the instant it starts and shows its result the instant it settles, not on the next periodic render tick (e-note-4)", async ({
+  page,
+  startDaemon,
+}) => {
+  const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
+  let staged: StagedBinary | undefined;
+  try {
+    staged = await stageInstaller(OLD_VERSION);
+    // No tag ever published — `/latest` 404s once let through, a deterministic failure
+    // with no dependence on tearing down the server mid-test (E11's `fakeServer.stop()`).
+    const daemon = await startDaemon({
+      binary: staged.path,
+      updateBaseURL: fakeServer.baseURL,
+      updatePublicKeyFile: pubKeyPath,
+    });
+
+    await page.clock.install();
+    await page.goto(daemon.dashboardUrl);
+    const dialog = await openSettingsDialog(page);
+    await expect(updateCheckButton(dialog)).toBeEnabled();
+
+    // Freezes the page's own clock from here on — main.ts's periodic `app.render()`
+    // tick cannot fire again until this test explicitly advances it (it never does).
+    await page.clock.pauseAt(new Date());
+    fakeServer.hold();
+    await updateCheckButton(dialog).click();
+
+    // No `expect.poll`/timeout here on purpose: `click()` only resolves once the
+    // browser's synchronous handling of the click event (including `check()`'s own
+    // body up to the `await`-free `.then()` registration) has completed, so a render
+    // `check()` triggers itself is already in the DOM by this point on the fixed code,
+    // and the frozen periodic tick could not have supplied it another way.
+    expect(await updateCheckButton(dialog).isDisabled()).toBe(true);
+    expect(await updateCheckButton(dialog).getAttribute("aria-busy")).toBe("true");
+
+    fakeServer.release();
+    // With the clock frozen, only a render `check()`'s own `.then()` callback issues
+    // can ever satisfy these — the periodic tick that used to paper over the pre-fix
+    // gap cannot run. On the pre-fix code these two hang until the suite's expect
+    // timeout.
+    await expect(updateStatusLine(dialog)).toHaveText(/fail/i);
+    await expect(updateCheckButton(dialog)).toBeEnabled();
+    await expect(updateCheckButton(dialog)).not.toHaveAttribute("aria-busy", "true");
+  } finally {
+    if (staged) await staged.cleanup();
+    await cleanup();
+  }
+});
