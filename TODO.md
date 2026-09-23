@@ -379,11 +379,15 @@ ADRs).
   (`not installed by the muster installer — run: curl … install.sh | sh`). That is the designed
   outcome for an install classified `unmanaged` (`kb:adr/update-install-kinds-decide-who-may-apply`;
   `selfupdate.Classify` in `internal/selfupdate/install.go`: an unwritable binary directory, or
-  one inside a git tree below `$HOME`). First step is to confirm where the binary that filed it
-  ran from: if it was the installer's `~/.local/bin/musterd`, the classification is wrong and
-  this is a bug; if it was a repo build, the fault is that the panel reads as broken rather than
-  saying why. Either way the remedy should name the reason and the path it classified, and a
-  one-line remedy that pipes `curl` into `sh` from a Settings dialog is worth a second look.
+  one inside a git tree below `$HOME`). **It is a misclassification:** the reporting copy was
+  installed by `install.sh` on another machine (the developer, 2026-09-23), and the installer
+  refuses a directory it can't write (`scripts/install.sh:118`), so the writability check should
+  have passed. Suspects, to check on that machine: a `.git` in an ancestor of the bin dir
+  strictly below `$HOME` (e.g. `~/.local` under a dotfiles manager); a `--bin-dir` or
+  `MUSTER_BIN_DIR` elsewhere; a symlink resolving into a git tree; a different `$HOME` or
+  user when the daemon started. Nothing records which rule fired, so start by logging the
+  classified path and the rule at startup. That diagnostic belongs in the fix too: the remedy
+  should name the reason and the path, not just "not installed by the muster installer".
 
 - [ ] **Shorten the Settings update-check error** — with the release host down,
   `#update-status` prints Go's whole transport chain verbatim (`update check failed: requesting
