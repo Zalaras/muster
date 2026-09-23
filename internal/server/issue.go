@@ -502,10 +502,6 @@ type issueFeature struct {
 }
 
 func newIssueFeature(cfg IssueConfig, httpClient *http.Client, manager *session.Manager, st *store.Store, daemonVersion string, claudeCode ClaudeCodeInfo, log zerolog.Logger) *issueFeature {
-	client := httpClient
-	if client == nil {
-		client = http.DefaultClient
-	}
 	var tokenReader ghissue.TokenReader
 	if cfg.TokenFile != "" {
 		tokenReader = ghissue.FileTokenReader(cfg.TokenFile)
@@ -516,7 +512,7 @@ func newIssueFeature(cfg IssueConfig, httpClient *http.Client, manager *session.
 		repo:          cfg.Repo,
 		apiURL:        cfg.APIURL,
 		captures:      newCaptureStore(),
-		client:        &ghissue.Client{HTTPClient: client, BaseURL: cfg.APIURL, TokenReader: tokenReader},
+		client:        &ghissue.Client{HTTPClient: httpClient, BaseURL: cfg.APIURL, TokenReader: tokenReader},
 		manager:       manager,
 		store:         st,
 		daemonVersion: daemonVersion,
@@ -528,12 +524,6 @@ func newIssueFeature(cfg IssueConfig, httpClient *http.Client, manager *session.
 func (f *issueFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.Handler) {
 	mux.Handle("POST /api/issue/captures", guard(http.HandlerFunc(f.handleCreateCapture)))
 	mux.Handle("POST /api/issues", guard(http.HandlerFunc(f.handleCreateIssue)))
-}
-
-// buildIssueSnapshot is a thin test-facing delegator: issue_test.go calls
-// srv.buildIssueSnapshot(...) directly rather than through the HTTP endpoint.
-func (s *Server) buildIssueSnapshot(ctx context.Context, now time.Time, sess *session.Session) issueSnapshot {
-	return s.issue.buildIssueSnapshot(ctx, now, sess)
 }
 
 // handleCreateCapture is POST /api/issue/captures (REQ-3, kb:anchor/issue.captures).

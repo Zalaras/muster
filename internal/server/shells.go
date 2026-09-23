@@ -217,7 +217,13 @@ type shellFeature struct {
 	log    zerolog.Logger
 }
 
-func newShellFeature(registry *shellRegistry, terminals *terminalRegistry, manager *session.Manager, attach attachFunc, scroll shellScroller, log zerolog.Logger) *shellFeature {
+// newShellFeature builds the shell surface. scroll is Config.ShellScroll's override;
+// realScroll is the daemon's one real tmux client, substituted whenever scroll is nil —
+// the default lives here, beside its one consumer, rather than in the composition root.
+func newShellFeature(registry *shellRegistry, terminals *terminalRegistry, manager *session.Manager, attach attachFunc, scroll, realScroll shellScroller, log zerolog.Logger) *shellFeature {
+	if scroll == nil {
+		scroll = realScroll
+	}
 	return &shellFeature{registry: registry, terminals: terminals, manager: manager, attach: attach, scroll: scroll, log: log}
 }
 

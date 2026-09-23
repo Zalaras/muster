@@ -9,7 +9,6 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/Zalaras/muster/internal/claudecode"
 	"github.com/Zalaras/muster/internal/locate"
 	"github.com/Zalaras/muster/internal/session"
 	"github.com/Zalaras/muster/internal/store"
@@ -17,6 +16,19 @@ import (
 	"github.com/Zalaras/muster/internal/tmux"
 	"github.com/Zalaras/muster/internal/webui"
 )
+
+// ClaudeCodeInfo is the daemon's startup snapshot of the installed Claude Code against
+// the canary-verified range, used to build the WS `hello` message
+// (kb:anchor/ws.hello) and the issue-capture snapshot. Installed is nil iff Status is "unknown" (the
+// startup version check failed, hung past its timeout, or was unparseable); Floor/Verified
+// are always populated. A Config field (server.go, not ws.go): main computes it once, at
+// startup, before New exists.
+type ClaudeCodeInfo struct {
+	Installed *string
+	Floor     string
+	Verified  string
+	Status    string
+}
 
 // Config wires everything a Server needs, built entirely in main (no init() magic, no
 // package-level state). Core fields are shared by more than one feature or by the root
@@ -34,7 +46,8 @@ type Config struct {
 	IngestQueueSize int
 	TmuxSocket      string
 	// HTTPClient is shared by every feature with outbound HTTP calls (usage, issue,
-	// update); nil defaults to http.DefaultClient in each.
+	// update); nil defaults to http.DefaultClient, resolved once by New (like TmuxClient
+	// and Attach below) since all three features need the same default.
 	HTTPClient *http.Client
 	// TmuxClient overrides the tmux client sessionLauncher/shellRegistry use; nil constructs tmux.New(cfg.TmuxSocket).
 	TmuxClient paneSpawner
@@ -87,7 +100,6 @@ type Server struct {
 	uiToken       string
 	ingestToken   string
 	webDist       string
-	browseRoot    string
 	tmuxSocket    string
 	daemonVersion string
 	claudeCode    ClaudeCodeInfo
@@ -96,11 +108,14 @@ type Server struct {
 	manager    *session.Manager
 	tmuxClient paneSpawner
 	tmuxLister tmuxSessionLister
-	features   []feature
+	// features is Start/Stop order (REQ-11): a property of the order register(s, f) is
+	// called in below, independent of the order each f was constructed in — usage and
+	// ingest are constructed out of registration order (ingest's constructor takes
+	// usage's aggregator) but registered ingest-then-usage, so REQ-11 holds regardless.
+	features []feature
 
 	sessions      *sessionsFeature
 	terminal      *terminalFeature
-	shell         *shellFeature
 	ingest        *ingestFeature
 	prefs         *prefsFeature
 	usage         *usageFeature
@@ -109,28 +124,18 @@ type Server struct {
 	issue         *issueFeature
 	update        *updateFeature
 	locate        *locateFeature
-	browse        *browseFeature
-	repos         *reposFeature
 	reader        *readerFeature
 }
-
-const defaultIngestQueueSize = 1024
 
 // New builds a Server and wires its routes. Nothing here starts a goroutine; call Start
 // once the caller is ready to begin processing.
 func New(cfg Config) *Server {
-	size := cfg.IngestQueueSize
-	if size <= 0 {
-		size = defaultIngestQueueSize
-	}
-
 	s := &Server{
 		log:           cfg.Logger,
 		store:         cfg.Store,
 		uiToken:       cfg.UIToken,
 		ingestToken:   cfg.IngestToken,
 		webDist:       cfg.WebDist,
-		browseRoot:    cfg.Launch.BrowseRoot,
 		tmuxSocket:    cfg.TmuxSocket,
 		daemonVersion: cfg.DaemonVersion,
 		claudeCode:    cfg.ClaudeCode,
@@ -156,6 +161,12 @@ func New(cfg Config) *Server {
 			return bridge, nil
 		}
 	}
+	// httpClient is shared by usage/issue/update, resolved once here rather than in each
+	// (like spawner/attach above): all three want the same default.
+	httpClient := cfg.HTTPClient
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
 	// terminals is constructed before the manager (composition-root wiring only) so it
 	// can be passed straight in as the manager's Watcher (plan rail-card-improvements
 	// REQ-8): the terminal registry already knows who's attached to what, so the manager
@@ -168,61 +179,40 @@ func New(cfg Config) *Server {
 		PaneSnapshotter: tmuxClient,
 		TmuxSessions:    tmuxClient,
 		Watcher:         terminals,
-		OnUpsert: func(sess *session.Session) {
-			s.hub.broadcast(sessionUpsertMessage{Type: "sessionUpsert", Session: toWireSession(sess)})
-		},
-		OnRemoved: func(id int64) {
-			s.hub.broadcast(sessionRemovedMessage{Type: "sessionRemoved", ID: id})
-		},
+		OnUpsert:        func(sess *session.Session) { s.hub.broadcast(sessionUpsertWire(sess)) },
+		OnRemoved:       func(id int64) { s.hub.broadcast(sessionRemovedWire(id)) },
 	})
 	shells := newShellRegistry(spawner, cfg.Logger)
-	claudeBin := cfg.Launch.ClaudeBin
-	if claudeBin == "" {
-		claudeBin = "claude"
-	}
-	launcher := &sessionLauncher{
-		store:            cfg.Store,
-		manager:          s.manager,
-		tmux:             spawner,
-		log:              cfg.Logger,
-		claudeBin:        claudeBin,
-		hookScript:       cfg.Launch.HookScript,
-		statusLineScript: cfg.Launch.StatusLineScript,
-		legacyScripts:    cfg.Launch.LegacyScripts,
-		checkModel: func(ctx context.Context, dir, model string) (claudecode.ModelVerdict, error) {
-			return claudecode.CheckModel(ctx, claudecode.RunModelCheck, claudeBin, dir, model)
-		},
-	}
-	s.sessions = register(s, newSessionsFeature(s.manager, launcher, shells, terminals, cfg.Logger))
+	launcher := newSessionLauncher(cfg.Store, s.manager, spawner, cfg.Launch, cfg.Logger)
+
+	// reader has no dependency on sessions (only on manager/hub, already built above), so
+	// it's built first and handed into newSessionsFeature — sessions' only use of it is
+	// Remove's write-log drop.
 	s.reader = register(s, newReaderFeature(s.manager, s.hub, cfg.Logger))
-	s.sessions.reader = s.reader
+	s.sessions = register(s, newSessionsFeature(s.manager, launcher, shells, terminals, s.reader, cfg.Logger))
 	s.terminal = register(s, newTerminalFeature(terminals, s.manager, attach, cfg.Logger))
-	scroller := cfg.ShellScroll
-	if scroller == nil {
-		scroller = tmuxClient
-	}
-	s.shell = register(s, newShellFeature(shells, terminals, s.manager, attach, scroller, cfg.Logger))
+	register(s, newShellFeature(shells, terminals, s.manager, attach, cfg.ShellScroll, tmuxClient, cfg.Logger))
 	s.locate = register(s, newLocateFeature(s.manager, cfg.Locator, cfg.Logger))
-	s.browse = register(s, newBrowseFeature(&s.browseRoot, cfg.Logger))
-	s.repos = register(s, newReposFeature(cfg.Store, cfg.Logger))
-	s.issue = register(s, newIssueFeature(cfg.Issue, cfg.HTTPClient, s.manager, cfg.Store, cfg.DaemonVersion, cfg.ClaudeCode, cfg.Logger))
-	// Edge Case 13's construction cycle: prefs needs update's SetCheckEnabled, update
-	// needs prefs' persisted value at construction — build prefs first, then update,
-	// then wire prefs.updateChecker to it (prefs has no Start/Stop, so REQ-11 below is unaffected).
-	s.prefs = register(s, newPrefsFeature(cfg.Store, s.hub, cfg.Logger))
-	// REQ-11's Start/Stop order — ingest, usage poller, theme poller, updates — is this
-	// registration order. Start/Shutdown both loop s.features in it, unreversed: these
-	// four run independent goroutines with no dependency on one another, so a LIFO
-	// teardown would only suggest a dependency that doesn't exist.
-	s.ingest = register(s, newIngestFeature(cfg.Store, size, cfg.IngestToken, cfg.Logger))
-	s.ingest.queue.manager = s.manager
-	s.ingest.queue.files = s.reader
-	s.usage = register(s, newUsageFeature(cfg.Usage, cfg.HTTPClient, cfg.Store, s.hub, cfg.Logger))
-	s.ingest.queue.usage = s.usage.aggregator
+	register(s, newBrowseFeature(cfg.Launch.BrowseRoot, cfg.Logger))
+	register(s, newReposFeature(cfg.Store, cfg.Logger))
+	s.issue = register(s, newIssueFeature(cfg.Issue, httpClient, s.manager, cfg.Store, cfg.DaemonVersion, cfg.ClaudeCode, cfg.Logger))
+
+	// update is built before prefs so prefs can take it as its checkEnabledSetter
+	// straight from the constructor — update's own initial checkEnabled value comes from
+	// its own loadPrefs read (update.go), not from a *prefsFeature, so there is no cycle
+	// forcing the reverse order.
+	updateFeat := newUpdateFeature(cfg.Update, httpClient, cfg.DaemonVersion, cfg.Store, s.tmuxLister, s.manager, s.hub, cfg.Logger)
+	s.prefs = register(s, newPrefsFeature(cfg.Store, s.hub, updateFeat, cfg.Logger))
+
+	// usage is built before ingest so ingest's constructor can take its aggregator; both
+	// are registered in REQ-11's order (ingest, then usage) regardless — see features'
+	// doc comment above.
+	usageFeat := newUsageFeature(cfg.Usage, httpClient, cfg.Store, s.hub, cfg.Logger)
+	s.ingest = register(s, newIngestFeature(cfg.Store, cfg.IngestQueueSize, cfg.IngestToken, s.manager, s.reader, usageFeat.aggregator, cfg.Logger))
+	s.usage = register(s, usageFeat)
 	s.theme = register(s, newThemeFeature(cfg.Theme, s.hub, cfg.Logger))
 	s.shellActivity = register(s, newShellActivityFeature(shells.HasAny, tmuxClient.ListPaneActivity, s.hub, cfg.Logger))
-	s.update = register(s, newUpdateFeature(cfg.Update, cfg.HTTPClient, cfg.DaemonVersion, loadPrefs(context.Background(), cfg.Store).UpdateCheck, s.tmuxLister, s.manager, s.hub, cfg.Logger))
-	s.prefs.updateChecker = s.update
+	s.update = register(s, updateFeat)
 
 	s.routes()
 	return s

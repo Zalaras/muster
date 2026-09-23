@@ -91,6 +91,17 @@ type sessionRemovedMessage struct {
 	ID   int64  `json:"id"`
 }
 
+// sessionUpsertWire and sessionRemovedWire build the two envelopes session.Manager's
+// OnUpsert/OnRemoved callbacks broadcast (New wires them, server.go) — the wire mapping
+// lives here, beside the types it builds, not in the composition root.
+func sessionUpsertWire(sess *session.Session) sessionUpsertMessage {
+	return sessionUpsertMessage{Type: "sessionUpsert", Session: toWireSession(sess)}
+}
+
+func sessionRemovedWire(id int64) sessionRemovedMessage {
+	return sessionRemovedMessage{Type: "sessionRemoved", ID: id}
+}
+
 // paneSnapshotWire is GET /api/sessions/{id}/pane's response shape (m4-reconcile REQ-4,
 // kb:anchor/sessions.pane).
 type paneSnapshotWire struct {

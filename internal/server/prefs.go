@@ -75,6 +75,26 @@ func validUsageModel(v string) bool {
 	return n >= 1 && n <= 32
 }
 
+// PrefsInfo is the `prefs` object inside a snapshot (kb:anchor/prefs.put /
+// kb:anchor/ws.snapshot), persisted in kv and broadcast on change. Density is the Tiles
+// grid density. UsageModel is which modelScoped entry the masthead's third readout shows,
+// default "Fable". RailSort is the rail's sort mode, "manual" | "attention", default
+// "manual". Theme is opaque to the daemon beyond its pattern (kb:anchor/prefs.put),
+// default "follow". UpdateCheck is whether the daemon checks GitHub Releases for a newer
+// musterd, default true. RailDensity and RailActivity are the rail/Tiles-strip card
+// density ("compact" | "comfortable" | "expanded", default "comfortable") and which text
+// a card's activity line shows ("turn" | "prompt" | "reply" | "both", default "turn").
+type PrefsInfo struct {
+	View         string `json:"view"`
+	Density      string `json:"density"`
+	UsageModel   string `json:"usageModel"`
+	RailSort     string `json:"railSort"`
+	Theme        string `json:"theme"`
+	UpdateCheck  bool   `json:"updateCheck"`
+	RailDensity  string `json:"railDensity"`
+	RailActivity string `json:"railActivity"`
+}
+
 // defaultPrefs is the shape before any PUT /api/prefs has ever landed (kb:anchor/prefs.put).
 // UpdateCheck defaults true.
 func defaultPrefs() PrefsInfo {
@@ -160,11 +180,11 @@ func loadPrefs(ctx context.Context, st *store.Store) PrefsInfo {
 	return p
 }
 
-// checkEnabledSetter is prefsFeature's narrow view of the update feature (Edge Case 13's
-// construction-cycle break): prefs needs to notify update of a checkEnabled transition,
-// update needs prefs' persisted value at construction. Resolved by construction order in
-// New — prefs is built first with updateChecker left nil-safe until New wires it to the
-// update feature right after constructing it (documented in daemon-implementation.md).
+// checkEnabledSetter is prefsFeature's narrow view of the update feature: prefs notifies
+// it of a checkEnabled transition. update's own initial value comes from its own
+// loadPrefs read inside newUpdateFeature, not from a *prefsFeature — so update is built
+// first and handed straight into newPrefsFeature; there is no construction-order cycle to
+// break.
 type checkEnabledSetter interface {
 	SetCheckEnabled(enabled bool)
 }
@@ -178,8 +198,8 @@ type prefsFeature struct {
 	log           zerolog.Logger
 }
 
-func newPrefsFeature(st *store.Store, hub *wsHub, log zerolog.Logger) *prefsFeature {
-	return &prefsFeature{store: st, hub: hub, log: log}
+func newPrefsFeature(st *store.Store, hub *wsHub, updateChecker checkEnabledSetter, log zerolog.Logger) *prefsFeature {
+	return &prefsFeature{store: st, hub: hub, updateChecker: updateChecker, log: log}
 }
 
 func (f *prefsFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.Handler) {
@@ -188,12 +208,6 @@ func (f *prefsFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.H
 
 func (f *prefsFeature) contribute(ctx context.Context, snap *Snapshot) {
 	snap.Prefs = loadPrefs(ctx, f.store)
-}
-
-// loadPrefs is a thin test-facing delegator: prefs_test.go calls srv.loadPrefs(ctx)
-// directly rather than going through the prefs feature or an HTTP round-trip.
-func (s *Server) loadPrefs(ctx context.Context) PrefsInfo {
-	return loadPrefs(ctx, s.store)
 }
 
 // prefsField is one validated string-ish pref in handlePutPrefs's table. present says the

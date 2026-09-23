@@ -149,6 +149,31 @@ type sessionLauncher struct {
 	checkModel func(ctx context.Context, dir, model string) (claudecode.ModelVerdict, error)
 }
 
+// newSessionLauncher builds the launch/resume service, defaulting cfg.ClaudeBin to
+// "claude" (main's flag default is never empty, but a zero-value Config must still spawn
+// something nameable). Test call sites construct *sessionLauncher literals directly
+// instead, so they can leave checkModel nil (see its own doc comment) — this constructor
+// is production's one path.
+func newSessionLauncher(store *store.Store, manager *session.Manager, tmux paneSpawner, cfg LaunchConfig, log zerolog.Logger) *sessionLauncher {
+	claudeBin := cfg.ClaudeBin
+	if claudeBin == "" {
+		claudeBin = "claude"
+	}
+	return &sessionLauncher{
+		store:            store,
+		manager:          manager,
+		tmux:             tmux,
+		log:              log,
+		claudeBin:        claudeBin,
+		hookScript:       cfg.HookScript,
+		statusLineScript: cfg.StatusLineScript,
+		legacyScripts:    cfg.LegacyScripts,
+		checkModel: func(ctx context.Context, dir, model string) (claudecode.ModelVerdict, error) {
+			return claudecode.CheckModel(ctx, claudecode.RunModelCheck, claudeBin, dir, model)
+		},
+	}
+}
+
 // Launch validates req, runs the model check, upserts the repo row, inserts the
 // session row, writes settings.local.json, spawns the tmux window, and
 // records/broadcasts the finished session — in that order (order matters: the session
@@ -514,9 +539,7 @@ type sessionsFeature struct {
 	log       zerolog.Logger
 
 	// reader drops a removed session's write log (plan markdown-viewing edge case 28).
-	// Set post-construction (server.go, mirroring ingest's queue.manager wiring) since
-	// readerFeature needs the manager sessionsFeature is itself built from; nil is a
-	// valid no-op for tests that don't exercise the reader.
+	// nil is a valid no-op for tests that don't exercise the reader.
 	reader writeLogForgetter
 }
 
@@ -526,8 +549,8 @@ type writeLogForgetter interface {
 	forgetSession(id int64)
 }
 
-func newSessionsFeature(manager *session.Manager, launcher *sessionLauncher, shells *shellRegistry, terminals *terminalRegistry, log zerolog.Logger) *sessionsFeature {
-	return &sessionsFeature{manager: manager, launcher: launcher, shells: shells, terminals: terminals, log: log}
+func newSessionsFeature(manager *session.Manager, launcher *sessionLauncher, shells *shellRegistry, terminals *terminalRegistry, reader writeLogForgetter, log zerolog.Logger) *sessionsFeature {
+	return &sessionsFeature{manager: manager, launcher: launcher, shells: shells, terminals: terminals, reader: reader, log: log}
 }
 
 func (f *sessionsFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.Handler) {

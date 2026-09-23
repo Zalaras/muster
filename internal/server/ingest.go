@@ -59,11 +59,21 @@ type filesObserver interface {
 	Observe(ctx context.Context, sessionID int64, claudeSessionID string, sig claudecode.FileSignal)
 }
 
-func newIngestQueue(st *store.Store, log zerolog.Logger, size int) *ingestQueue {
+// defaultIngestQueueSize is Config.IngestQueueSize's default, applied here rather than in
+// the composition root: this is the one constructor that consumes the value.
+const defaultIngestQueueSize = 1024
+
+func newIngestQueue(st *store.Store, log zerolog.Logger, size int, manager *session.Manager, files filesObserver, usageAgg *usage.Aggregator) *ingestQueue {
+	if size <= 0 {
+		size = defaultIngestQueueSize
+	}
 	return &ingestQueue{
-		ch:    make(chan ingestJob, size),
-		store: st,
-		log:   log,
+		ch:      make(chan ingestJob, size),
+		store:   st,
+		log:     log,
+		manager: manager,
+		files:   files,
+		usage:   usageAgg,
 	}
 }
 
@@ -90,28 +100,6 @@ func (q *ingestQueue) Start() {
 			q.process(job)
 		}
 	}()
-}
-
-// Drain returns once every job enqueued before this call has been fully processed —
-// through Observe, the reader's write record (REQ-3) — by sending a marker job behind
-// them on the same channel and waiting for the single worker to reach it. It returns
-// ctx.Err() if that does not happen before ctx is done: nothing was queued (returns at
-// once), and the worker is not running (blocks until the deadline) both fall out of this
-// same wait, with no special-casing. Test-only: production code never waits on the
-// ingest queue's own backpressure.
-func (q *ingestQueue) Drain(ctx context.Context) error {
-	ack := make(chan struct{})
-	select {
-	case q.ch <- ingestJob{drainAck: ack}:
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-	select {
-	case <-ack:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
 }
 
 // Stop closes the queue and waits for the worker to drain it, giving up once ctx is
@@ -272,8 +260,8 @@ type ingestFeature struct {
 	log   zerolog.Logger
 }
 
-func newIngestFeature(st *store.Store, size int, token string, log zerolog.Logger) *ingestFeature {
-	return &ingestFeature{queue: newIngestQueue(st, log, size), token: token, log: log}
+func newIngestFeature(st *store.Store, size int, token string, manager *session.Manager, files filesObserver, usageAgg *usage.Aggregator, log zerolog.Logger) *ingestFeature {
+	return &ingestFeature{queue: newIngestQueue(st, log, size, manager, files, usageAgg), token: token, log: log}
 }
 
 func (f *ingestFeature) mount(mux *http.ServeMux, _ func(http.Handler) http.Handler) {

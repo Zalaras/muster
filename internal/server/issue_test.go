@@ -642,7 +642,7 @@ func fullyPopulatedSession(id int64) *session.Session {
 // sentinel is trivially absent and the rest are still checked.
 func assertNoHardExclusionLeak(t *testing.T, srv *testServer, sess *session.Session) issueSnapshot {
 	t.Helper()
-	snap := srv.buildIssueSnapshot(context.Background(), time.Now(), sess)
+	snap := srv.issue.buildIssueSnapshot(context.Background(), time.Now(), sess)
 	rawJSON, err := json.Marshal(snap)
 	require.NoError(t, err)
 	markdown := renderSnapshotMarkdown(snap)
@@ -738,7 +738,7 @@ func TestBuildIssueSnapshot_UnboundSession_EventsAllZeroNullEmpty(t *testing.T) 
 	srv := newTestServer(t, ClaudeCodeInfo{})
 	sess := fullyPopulatedSession(999) // no events inserted for this id
 
-	snap := srv.buildIssueSnapshot(context.Background(), time.Now(), sess)
+	snap := srv.issue.buildIssueSnapshot(context.Background(), time.Now(), sess)
 
 	require.NotNil(t, snap.Session)
 	assert.Nil(t, snap.Session.Events.FirstSeq)
@@ -764,7 +764,7 @@ func TestBuildIssueSnapshot_EventsSummaryReflectsLast10RoutedEvents(t *testing.T
 	insertEvents(t, srv, 1, types)
 	sess := fullyPopulatedSession(1)
 
-	snap := srv.buildIssueSnapshot(context.Background(), time.Now(), sess)
+	snap := srv.issue.buildIssueSnapshot(context.Background(), time.Now(), sess)
 
 	require.NotNil(t, snap.Session)
 	require.NotNil(t, snap.Session.Events.FirstSeq)
@@ -784,7 +784,7 @@ func TestBuildIssueSnapshot_LastReceivedAtIsPlainRFC3339NoFraction(t *testing.T)
 	insertEvents(t, srv, 1, []string{"Stop"})
 	sess := fullyPopulatedSession(1)
 
-	snap := srv.buildIssueSnapshot(context.Background(), time.Now(), sess)
+	snap := srv.issue.buildIssueSnapshot(context.Background(), time.Now(), sess)
 
 	require.NotNil(t, snap.Session.Events.LastReceivedAt)
 	_, err := time.Parse(time.RFC3339, *snap.Session.Events.LastReceivedAt)
@@ -797,7 +797,7 @@ func TestBuildIssueSnapshot_LastReceivedAtIsPlainRFC3339NoFraction(t *testing.T)
 func TestBuildIssueSnapshot_DashboardScope_KeySetExactly(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{Floor: "2.1.246", Verified: "2.1.267", Status: "verified"})
 
-	snap := srv.buildIssueSnapshot(context.Background(), time.Now(), nil)
+	snap := srv.issue.buildIssueSnapshot(context.Background(), time.Now(), nil)
 	raw, err := json.Marshal(snap)
 	require.NoError(t, err)
 
@@ -822,7 +822,7 @@ func TestBuildIssueSnapshot_SessionScope_KeySetMatchesAllowlistExactly(t *testin
 	insertEvents(t, srv, 1, []string{"PreToolUse", "PostToolUse", "PreToolUse", "Stop"})
 	sess := fullyPopulatedSession(1)
 
-	snap := srv.buildIssueSnapshot(context.Background(), time.Now(), sess)
+	snap := srv.issue.buildIssueSnapshot(context.Background(), time.Now(), sess)
 	raw, err := json.Marshal(snap)
 	require.NoError(t, err)
 
@@ -922,7 +922,7 @@ func TestRenderSnapshotMarkdown_SessionScope_FullyPopulated_MatchesExpectedForma
 	}
 	insertEvents(t, srv, 7, []string{"PreToolUse", "PostToolUse", "PreToolUse", "Stop"})
 
-	snap := srv.buildIssueSnapshot(context.Background(), time.Now(), sess)
+	snap := srv.issue.buildIssueSnapshot(context.Background(), time.Now(), sess)
 	got := renderSnapshotMarkdown(snap)
 
 	require.NotNil(t, snap.Session)

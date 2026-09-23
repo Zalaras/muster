@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -8,8 +9,11 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Zalaras/muster/internal/store"
 )
 
 func getBrowseRequest(t *testing.T, srv *testServer, query string) *httptest.ResponseRecorder {
@@ -140,9 +144,17 @@ func TestHandleBrowse_APathThatIsAFileIs404(t *testing.T) {
 func newBrowseRootTestServer(t *testing.T) (*testServer, string) {
 	t.Helper()
 	root := t.TempDir()
-	srv := newTestServer(t, ClaudeCodeInfo{})
-	srv.browseRoot = root
-	return srv, root
+	dbPath := filepath.Join(t.TempDir(), "muster.db")
+	st, err := store.Open(context.Background(), dbPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = st.Close() })
+	logBuf := &syncBuffer{}
+	srv := New(Config{
+		Store: st, Logger: zerolog.New(logBuf), UIToken: testUIToken,
+		IngestToken: testIngestToken, WebDist: t.TempDir(), DaemonVersion: "test-version",
+		Launch: LaunchConfig{BrowseRoot: root},
+	})
+	return &testServer{Server: srv, dbPath: dbPath, logs: logBuf, store: st}, root
 }
 
 func TestHandleBrowse_NoPathDefaultsToConfiguredBrowseRoot(t *testing.T) {

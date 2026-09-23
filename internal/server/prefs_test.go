@@ -83,7 +83,7 @@ func TestHandlePutPrefs_UnknownFieldsAlongsideAKnownOneAreIgnored(t *testing.T) 
 	rec := putPrefsRequest(t, srv, `{"view":"tiles","bogus":123}`)
 
 	require.Equal(t, http.StatusNoContent, rec.Code)
-	assert.Equal(t, "tiles", srv.loadPrefs(context.Background()).View)
+	assert.Equal(t, "tiles", loadPrefs(context.Background(), srv.store).View)
 }
 
 func TestHandlePutPrefs_SetsViewOnlyLeavesDensityUntouched(t *testing.T) {
@@ -93,7 +93,7 @@ func TestHandlePutPrefs_SetsViewOnlyLeavesDensityUntouched(t *testing.T) {
 	rec := putPrefsRequest(t, srv, `{"view":"tiles"}`)
 
 	require.Equal(t, http.StatusNoContent, rec.Code)
-	got := srv.loadPrefs(context.Background())
+	got := loadPrefs(context.Background(), srv.store)
 	assert.Equal(t, "tiles", got.View)
 	assert.Equal(t, "3x2", got.Density, "a view-only PUT must not reset density back to its default")
 }
@@ -105,7 +105,7 @@ func TestHandlePutPrefs_SetsDensityOnlyLeavesViewUntouched(t *testing.T) {
 	rec := putPrefsRequest(t, srv, `{"density":"3x2"}`)
 
 	require.Equal(t, http.StatusNoContent, rec.Code)
-	got := srv.loadPrefs(context.Background())
+	got := loadPrefs(context.Background(), srv.store)
 	assert.Equal(t, "tiles", got.View, "a density-only PUT must not reset view back to its default")
 	assert.Equal(t, "3x2", got.Density)
 }
@@ -116,7 +116,7 @@ func TestHandlePutPrefs_SetsBothFieldsInOneRequest(t *testing.T) {
 	rec := putPrefsRequest(t, srv, `{"view":"tiles","density":"3x2"}`)
 
 	require.Equal(t, http.StatusNoContent, rec.Code)
-	got := srv.loadPrefs(context.Background())
+	got := loadPrefs(context.Background(), srv.store)
 	assert.Equal(t, "tiles", got.View)
 	assert.Equal(t, "3x2", got.Density)
 }
@@ -138,7 +138,7 @@ func TestHandlePutPrefs_PersistsToKVUnderOneJSONKey(t *testing.T) {
 func TestLoadPrefs_DefaultsBeforeAnyPUT(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 
-	got := srv.loadPrefs(context.Background())
+	got := loadPrefs(context.Background(), srv.store)
 
 	assert.Equal(t, "focus", got.View)
 	assert.Equal(t, "2x2", got.Density)
@@ -150,7 +150,7 @@ func TestLoadPrefs_CorruptKVValueFallsBackToDefaults(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 	require.NoError(t, srv.store.KVSet(context.Background(), "prefs", `{not valid json`))
 
-	got := srv.loadPrefs(context.Background())
+	got := loadPrefs(context.Background(), srv.store)
 
 	assert.Equal(t, "focus", got.View)
 	assert.Equal(t, "2x2", got.Density)
@@ -163,7 +163,7 @@ func TestLoadPrefs_InvalidEnumValuesInKVFallBackPerField(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 	require.NoError(t, srv.store.KVSet(context.Background(), "prefs", `{"view":"sideways","density":"3x2"}`))
 
-	got := srv.loadPrefs(context.Background())
+	got := loadPrefs(context.Background(), srv.store)
 
 	assert.Equal(t, "focus", got.View, "an invalid persisted view must fall back to the default, not propagate")
 	assert.Equal(t, "3x2", got.Density, "a valid sibling field must survive the other field's fallback")
@@ -190,7 +190,7 @@ func TestHandlePutPrefs_RejectedRequestsNeverPersistOrBroadcast(t *testing.T) {
 	rec := putPrefsRequest(t, srv, `{"view":"sideways"}`)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 
-	got := srv.loadPrefs(context.Background())
+	got := loadPrefs(context.Background(), srv.store)
 	assert.Equal(t, "tiles", got.View, "a rejected PUT must not touch the persisted prefs")
 	assert.Equal(t, "3x2", got.Density)
 
@@ -284,7 +284,7 @@ func TestPrefs_PersistAcrossADaemonRestart(t *testing.T) {
 		WebDist: t.TempDir(), DaemonVersion: "test-version",
 	})
 
-	got := srv2.loadPrefs(context.Background())
+	got := loadPrefs(context.Background(), srv2.store)
 	assert.Equal(t, "tiles", got.View, "prefs must survive a daemon restart (D10)")
 	assert.Equal(t, "3x2", got.Density)
 }
@@ -303,7 +303,7 @@ type prefsWire struct {
 func TestLoadPrefs_DefaultUsageModelIsFable(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 
-	got := srv.loadPrefs(context.Background())
+	got := loadPrefs(context.Background(), srv.store)
 
 	assert.Equal(t, "Fable", got.UsageModel)
 }
@@ -340,7 +340,7 @@ func TestHandlePutPrefs_UsageModelExactly32CharsIsAccepted(t *testing.T) {
 	rec := putPrefsRequest(t, srv, `{"usageModel":"`+name+`"}`)
 
 	require.Equal(t, http.StatusNoContent, rec.Code)
-	assert.Equal(t, name, srv.loadPrefs(context.Background()).UsageModel)
+	assert.Equal(t, name, loadPrefs(context.Background(), srv.store).UsageModel)
 }
 
 // TestHandlePutPrefs_SetsUsageModelOnlyLeavesViewAndDensityUntouched covers the
@@ -353,7 +353,7 @@ func TestHandlePutPrefs_SetsUsageModelOnlyLeavesViewAndDensityUntouched(t *testi
 	rec := putPrefsRequest(t, srv, `{"usageModel":"Opus"}`)
 
 	require.Equal(t, http.StatusNoContent, rec.Code)
-	got := srv.loadPrefs(context.Background())
+	got := loadPrefs(context.Background(), srv.store)
 	assert.Equal(t, "tiles", got.View, "a usageModel-only PUT must not reset view")
 	assert.Equal(t, "3x2", got.Density, "a usageModel-only PUT must not reset density")
 	assert.Equal(t, "Opus", got.UsageModel)
@@ -368,7 +368,7 @@ func TestHandlePutPrefs_UsageModelIsTrimmedBeforePersisting(t *testing.T) {
 	rec := putPrefsRequest(t, srv, `{"usageModel":"  Opus  "}`)
 
 	require.Equal(t, http.StatusNoContent, rec.Code)
-	assert.Equal(t, "Opus", srv.loadPrefs(context.Background()).UsageModel)
+	assert.Equal(t, "Opus", loadPrefs(context.Background(), srv.store).UsageModel)
 }
 
 // TestHandlePutPrefs_UsageModelPresentAloneSatisfiesAtLeastOneFieldRequired covers the
@@ -427,7 +427,7 @@ func TestLoadPrefs_InvalidUsageModelInKVFallsBackToFableIndependently(t *testing
 	srv := newTestServer(t, ClaudeCodeInfo{})
 	require.NoError(t, srv.store.KVSet(context.Background(), "prefs", `{"view":"tiles","density":"3x2","usageModel":""}`))
 
-	got := srv.loadPrefs(context.Background())
+	got := loadPrefs(context.Background(), srv.store)
 
 	assert.Equal(t, "tiles", got.View)
 	assert.Equal(t, "3x2", got.Density)
@@ -457,7 +457,7 @@ func TestPrefs_UsageModelPersistsAcrossADaemonRestart(t *testing.T) {
 		WebDist: t.TempDir(), DaemonVersion: "test-version",
 	})
 
-	assert.Equal(t, "Opus", srv2.loadPrefs(context.Background()).UsageModel)
+	assert.Equal(t, "Opus", loadPrefs(context.Background(), srv2.store).UsageModel)
 }
 
 // TestLoadPrefs_DefaultRailSortIsManual covers plan order-sidebar kb:anchor/prefs.put's
@@ -465,7 +465,7 @@ func TestPrefs_UsageModelPersistsAcrossADaemonRestart(t *testing.T) {
 func TestLoadPrefs_DefaultRailSortIsManual(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 
-	got := srv.loadPrefs(context.Background())
+	got := loadPrefs(context.Background(), srv.store)
 
 	assert.Equal(t, "manual", got.RailSort)
 }
@@ -503,7 +503,7 @@ func TestHandlePutPrefs_RailSortAcceptsBothEnumValues(t *testing.T) {
 			rec := putPrefsRequest(t, srv, `{"railSort":"`+v+`"}`)
 
 			require.Equal(t, http.StatusNoContent, rec.Code)
-			assert.Equal(t, v, srv.loadPrefs(context.Background()).RailSort)
+			assert.Equal(t, v, loadPrefs(context.Background(), srv.store).RailSort)
 		})
 	}
 }
@@ -527,7 +527,7 @@ func TestHandlePutPrefs_SetsRailSortOnlyLeavesOtherFieldsUntouched(t *testing.T)
 	rec := putPrefsRequest(t, srv, `{"railSort":"attention"}`)
 
 	require.Equal(t, http.StatusNoContent, rec.Code)
-	got := srv.loadPrefs(context.Background())
+	got := loadPrefs(context.Background(), srv.store)
 	assert.Equal(t, "tiles", got.View, "a railSort-only PUT must not reset view")
 	assert.Equal(t, "3x2", got.Density, "a railSort-only PUT must not reset density")
 	assert.Equal(t, "Opus", got.UsageModel, "a railSort-only PUT must not reset usageModel")
@@ -542,7 +542,7 @@ func TestLoadPrefs_InvalidRailSortInKVFallsBackToManualIndependently(t *testing.
 	srv := newTestServer(t, ClaudeCodeInfo{})
 	require.NoError(t, srv.store.KVSet(context.Background(), "prefs", `{"view":"tiles","density":"3x2","usageModel":"Opus","railSort":"bogus"}`))
 
-	got := srv.loadPrefs(context.Background())
+	got := loadPrefs(context.Background(), srv.store)
 
 	assert.Equal(t, "tiles", got.View)
 	assert.Equal(t, "3x2", got.Density)
@@ -573,7 +573,7 @@ func TestPrefs_RailSortPersistsAcrossADaemonRestart(t *testing.T) {
 		WebDist: t.TempDir(), DaemonVersion: "test-version",
 	})
 
-	assert.Equal(t, "attention", srv2.loadPrefs(context.Background()).RailSort)
+	assert.Equal(t, "attention", loadPrefs(context.Background(), srv2.store).RailSort)
 }
 
 // TestHandlePutPrefs_BroadcastsRailSortInPrefsMessage covers D16/INV-4's echo clause for
@@ -611,7 +611,7 @@ type prefsWireWithRailSort struct {
 func TestLoadPrefs_DefaultThemeIsFollow(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 
-	got := srv.loadPrefs(context.Background())
+	got := loadPrefs(context.Background(), srv.store)
 
 	assert.Equal(t, "follow", got.Theme)
 }
@@ -656,7 +656,7 @@ func TestHandlePutPrefs_ThemeAcceptsTheOpaquePattern(t *testing.T) {
 			rec := putPrefsRequest(t, srv, `{"theme":"`+v+`"}`)
 
 			require.Equal(t, http.StatusNoContent, rec.Code)
-			assert.Equal(t, v, srv.loadPrefs(context.Background()).Theme)
+			assert.Equal(t, v, loadPrefs(context.Background(), srv.store).Theme)
 		})
 	}
 }
@@ -681,12 +681,12 @@ func TestHandlePutPrefs_ThemePersistsToKV(t *testing.T) {
 func TestHandlePutPrefs_ThemeFollowRoundTripsAfterAnOverride(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 	require.Equal(t, http.StatusNoContent, putPrefsRequest(t, srv, `{"theme":"dark"}`).Code)
-	require.Equal(t, "dark", srv.loadPrefs(context.Background()).Theme)
+	require.Equal(t, "dark", loadPrefs(context.Background(), srv.store).Theme)
 
 	rec := putPrefsRequest(t, srv, `{"theme":"follow"}`)
 
 	require.Equal(t, http.StatusNoContent, rec.Code)
-	assert.Equal(t, "follow", srv.loadPrefs(context.Background()).Theme)
+	assert.Equal(t, "follow", loadPrefs(context.Background(), srv.store).Theme)
 }
 
 // TestHandlePutPrefs_ThemePresentAloneSatisfiesAtLeastOneFieldRequired mirrors the other
@@ -709,7 +709,7 @@ func TestHandlePutPrefs_SetsThemeOnlyLeavesOtherFieldsUntouched(t *testing.T) {
 	rec := putPrefsRequest(t, srv, `{"theme":"dark"}`)
 
 	require.Equal(t, http.StatusNoContent, rec.Code)
-	got := srv.loadPrefs(context.Background())
+	got := loadPrefs(context.Background(), srv.store)
 	assert.Equal(t, "tiles", got.View, "a theme-only PUT must not reset view")
 	assert.Equal(t, "3x2", got.Density, "a theme-only PUT must not reset density")
 	assert.Equal(t, "Opus", got.UsageModel, "a theme-only PUT must not reset usageModel")
@@ -725,7 +725,7 @@ func TestLoadPrefs_InvalidThemeInKVFallsBackToFollowIndependently(t *testing.T) 
 	srv := newTestServer(t, ClaudeCodeInfo{})
 	require.NoError(t, srv.store.KVSet(context.Background(), "prefs", `{"view":"tiles","density":"3x2","usageModel":"Opus","railSort":"attention","theme":"BAD VALUE"}`))
 
-	got := srv.loadPrefs(context.Background())
+	got := loadPrefs(context.Background(), srv.store)
 
 	assert.Equal(t, "tiles", got.View)
 	assert.Equal(t, "3x2", got.Density)
@@ -756,7 +756,7 @@ func TestPrefs_ThemePersistsAcrossADaemonRestart(t *testing.T) {
 		WebDist: t.TempDir(), DaemonVersion: "test-version",
 	})
 
-	assert.Equal(t, "dark", srv2.loadPrefs(context.Background()).Theme)
+	assert.Equal(t, "dark", loadPrefs(context.Background(), srv2.store).Theme)
 }
 
 // TestHandlePutPrefs_BroadcastsThemeInPrefsMessage covers D12/INV-4's echo clause for the

@@ -66,17 +66,13 @@ func newUsageFeature(cfg UsageConfig, httpClient *http.Client, st *store.Store, 
 
 	switch {
 	case cfg.Poll > 0 && cfg.APIURL != "":
-		client := httpClient
-		if client == nil {
-			client = http.DefaultClient
-		}
 		var tokenReader claudecode.TokenReader
 		if cfg.TokenFile != "" {
 			tokenReader = claudecode.FileTokenReader(cfg.TokenFile)
 		} else {
 			tokenReader = claudecode.KeychainTokenReader(cfg.KeychainUser, claudecode.RunCommand)
 		}
-		f.poller = newUsagePoller(client, cfg.APIURL, tokenReader, cfg.Poll, f.modelScoped, log)
+		f.poller = newUsagePoller(httpClient, cfg.APIURL, tokenReader, cfg.Poll, f.modelScoped, log)
 	case cfg.Poll > 0:
 		// Misconfiguration, not a code path main.go can ever hit (it always passes the
 		// flag's non-empty default): fail toward no polling rather than toward a silent

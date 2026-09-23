@@ -234,7 +234,7 @@ func TestIngestQueue_OverflowDropsCountsAndLogs(t *testing.T) {
 	// worker, so every enqueue after the buffer fills is an overflow.
 	var logBuf strings.Builder
 	logger := zerolog.New(&logBuf)
-	q := newIngestQueue(nil, logger, 1)
+	q := newIngestQueue(nil, logger, 1, nil, nil, nil)
 
 	q.enqueue(ingestJob{kind: claudecode.KindHook, body: []byte(`{}`)})
 	q.enqueue(ingestJob{kind: claudecode.KindHook, body: []byte(`{}`)}) // overflow #1
@@ -244,11 +244,33 @@ func TestIngestQueue_OverflowDropsCountsAndLogs(t *testing.T) {
 	assert.Contains(t, logBuf.String(), "dropping event")
 }
 
+// Drain returns once every job enqueued before this call has been fully processed —
+// through Observe, the reader's write record (REQ-3) — by sending a marker job behind
+// them on the same channel and waiting for the single worker to reach it. It returns
+// ctx.Err() if that does not happen before ctx is done: nothing was queued (returns at
+// once), and the worker is not running (blocks until the deadline) both fall out of this
+// same wait, with no special-casing. Test-only: production code never waits on the
+// ingest queue's own backpressure.
+func (q *ingestQueue) Drain(ctx context.Context) error {
+	ack := make(chan struct{})
+	select {
+	case q.ch <- ingestJob{drainAck: ack}:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	select {
+	case <-ack:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
 // TestIngestQueue_Drain_NothingQueuedReturnsImmediately covers D3/Edge Case 3's first
 // half: with the worker running and nothing else on the channel, Drain's own marker job
 // is reached at once — it must not wait out ctx's deadline.
 func TestIngestQueue_Drain_NothingQueuedReturnsImmediately(t *testing.T) {
-	q := newIngestQueue(nil, zerolog.Nop(), 4)
+	q := newIngestQueue(nil, zerolog.Nop(), 4, nil, nil, nil)
 	q.Start()
 	t.Cleanup(func() {
 		stopCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -267,7 +289,7 @@ func TestIngestQueue_Drain_NothingQueuedReturnsImmediately(t *testing.T) {
 // half: with no worker ever draining q.ch, Drain's marker job is enqueued (the channel has
 // room) but never reached, so Drain blocks until ctx's own deadline and returns its error.
 func TestIngestQueue_Drain_WorkerNotRunningBlocksToDeadline(t *testing.T) {
-	q := newIngestQueue(nil, zerolog.Nop(), 4)
+	q := newIngestQueue(nil, zerolog.Nop(), 4, nil, nil, nil)
 	// Deliberately never Start()ed.
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
@@ -281,7 +303,7 @@ func TestIngestQueue_Drain_WorkerNotRunningBlocksToDeadline(t *testing.T) {
 
 func TestIngestQueue_EnqueueNeverBlocksWhenFull(t *testing.T) {
 	logger := zerolog.Nop()
-	q := newIngestQueue(nil, logger, 1)
+	q := newIngestQueue(nil, logger, 1, nil, nil, nil)
 	q.enqueue(ingestJob{kind: claudecode.KindHook, body: []byte(`{}`)})
 
 	done := make(chan struct{})

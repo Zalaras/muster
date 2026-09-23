@@ -16,6 +16,7 @@ import (
 
 	"github.com/Zalaras/muster/internal/selfupdate"
 	"github.com/Zalaras/muster/internal/session"
+	"github.com/Zalaras/muster/internal/store"
 	"github.com/Zalaras/muster/internal/tmux"
 )
 
@@ -76,6 +77,14 @@ type UpdateInfo struct {
 	CheckedAt *string         `json:"checkedAt"`
 	Installed *string         `json:"installed"`
 	Apply     UpdateApplyInfo `json:"apply"`
+}
+
+// defaultUpdateInfo is UpdateInfo's shape before updateFeature exists (kb:anchor/ws.update)
+// — buildSnapshot's placeholder. Every real snapshot overwrites it via
+// updateFeature.contribute, which additionally knows the Running/Install/Remedy values
+// this can't (they aren't known until New constructs the feature).
+func defaultUpdateInfo() UpdateInfo {
+	return UpdateInfo{Apply: UpdateApplyInfo{Phase: string(selfupdate.PhaseIdle)}}
 }
 
 // Sentinel errors updateManager.RequestApply returns — handleApplyUpdate maps each to
@@ -539,23 +548,20 @@ type updateFeature struct {
 	log           zerolog.Logger
 }
 
-// newUpdateFeature builds the feature. prefsUpdateCheck is the persisted
-// prefs.updateCheck value at daemon startup, read by New before constructing this
-// feature (Edge Case 13: prefs is built first, then update, then prefs is wired to
-// this feature's SetCheckEnabled — see prefs.go's checkEnabledSetter doc comment).
-func newUpdateFeature(cfg UpdateConfig, httpClient *http.Client, daemonVersion string, prefsUpdateCheck bool, tmuxLister tmuxSessionLister, sessions *session.Manager, hub *wsHub, log zerolog.Logger) *updateFeature {
+// newUpdateFeature builds the feature. httpClient is the daemon's one shared HTTP client
+// (New defaults it once, since usage/issue/update all need the same default). store is
+// read once, here, for the persisted prefs.updateCheck value at daemon startup — update's
+// own concern, not New's: prefsFeature takes this feature as its checkEnabledSetter (see
+// prefs.go's doc comment), never the reverse, so there is no cycle to sequence around.
+func newUpdateFeature(cfg UpdateConfig, httpClient *http.Client, daemonVersion string, store *store.Store, tmuxLister tmuxSessionLister, sessions *session.Manager, hub *wsHub, log zerolog.Logger) *updateFeature {
 	f := &updateFeature{install: cfg.Install, daemonVersion: daemonVersion, tmuxLister: tmuxLister, sessions: sessions, log: log}
 	if cfg.BaseURL != "" {
-		client := httpClient
-		if client == nil {
-			client = http.DefaultClient
-		}
 		pubKey := cfg.PublicKey
 		if len(pubKey) == 0 {
 			pubKey = selfupdate.PublicKey()
 		}
 		f.um = newUpdateManager(updateManagerConfig{
-			Client:       client,
+			Client:       httpClient,
 			Base:         cfg.BaseURL,
 			Interval:     cfg.CheckInterval,
 			PubKey:       pubKey,
@@ -563,7 +569,7 @@ func newUpdateFeature(cfg UpdateConfig, httpClient *http.Client, daemonVersion s
 			Running:      daemonVersion,
 			ExePath:      cfg.ExePath,
 			ExeRun:       cfg.ExeRun,
-			CheckEnabled: prefsUpdateCheck,
+			CheckEnabled: loadPrefs(context.Background(), store).UpdateCheck,
 			Log:          log,
 			OnChange: func(u UpdateInfo) {
 				hub.broadcast(updateMessage{Type: "update", Update: u})

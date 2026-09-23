@@ -20,7 +20,7 @@ import (
 func TestLoadPrefs_DefaultRailDensityAndRailActivity(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 
-	got := srv.loadPrefs(context.Background())
+	got := loadPrefs(context.Background(), srv.store)
 
 	assert.Equal(t, "comfortable", got.RailDensity)
 	assert.Equal(t, "turn", got.RailActivity)
@@ -84,7 +84,7 @@ func TestHandlePutPrefs_RailDensityAcceptsAllThreeEnumValues(t *testing.T) {
 			rec := putPrefsRequest(t, srv, `{"railDensity":"`+v+`"}`)
 
 			require.Equal(t, http.StatusNoContent, rec.Code)
-			assert.Equal(t, v, srv.loadPrefs(context.Background()).RailDensity)
+			assert.Equal(t, v, loadPrefs(context.Background(), srv.store).RailDensity)
 		})
 	}
 }
@@ -99,7 +99,7 @@ func TestHandlePutPrefs_RailActivityAcceptsAllFourEnumValues(t *testing.T) {
 			rec := putPrefsRequest(t, srv, `{"railActivity":"`+v+`"}`)
 
 			require.Equal(t, http.StatusNoContent, rec.Code)
-			assert.Equal(t, v, srv.loadPrefs(context.Background()).RailActivity)
+			assert.Equal(t, v, loadPrefs(context.Background(), srv.store).RailActivity)
 		})
 	}
 }
@@ -129,7 +129,7 @@ func TestHandlePutPrefs_SetsRailDensityOnlyLeavesOtherFieldsUntouched(t *testing
 	rec := putPrefsRequest(t, srv, `{"railDensity":"compact"}`)
 
 	require.Equal(t, http.StatusNoContent, rec.Code)
-	got := srv.loadPrefs(context.Background())
+	got := loadPrefs(context.Background(), srv.store)
 	assert.Equal(t, "tiles", got.View, "a railDensity-only PUT must not reset view")
 	assert.Equal(t, "3x2", got.Density, "a railDensity-only PUT must not reset density")
 	assert.Equal(t, "prompt", got.RailActivity, "a railDensity-only PUT must not reset railActivity")
@@ -145,7 +145,7 @@ func TestHandlePutPrefs_SetsRailActivityOnlyLeavesOtherFieldsUntouched(t *testin
 	rec := putPrefsRequest(t, srv, `{"railActivity":"reply"}`)
 
 	require.Equal(t, http.StatusNoContent, rec.Code)
-	got := srv.loadPrefs(context.Background())
+	got := loadPrefs(context.Background(), srv.store)
 	assert.Equal(t, "tiles", got.View, "a railActivity-only PUT must not reset view")
 	assert.Equal(t, "expanded", got.RailDensity, "a railActivity-only PUT must not reset railDensity")
 	assert.Equal(t, "reply", got.RailActivity)
@@ -159,7 +159,7 @@ func TestLoadPrefs_InvalidRailDensityInKVFallsBackToComfortableIndependently(t *
 	srv := newTestServer(t, ClaudeCodeInfo{})
 	require.NoError(t, srv.store.KVSet(context.Background(), "prefs", `{"view":"tiles","railDensity":"cosy","railActivity":"prompt"}`))
 
-	got := srv.loadPrefs(context.Background())
+	got := loadPrefs(context.Background(), srv.store)
 
 	assert.Equal(t, "comfortable", got.RailDensity, "an invalid persisted railDensity must fall back to the default")
 	assert.Equal(t, "prompt", got.RailActivity, "a sibling field's valid persisted value must survive independently")
@@ -170,7 +170,7 @@ func TestLoadPrefs_InvalidRailActivityInKVFallsBackToTurnIndependently(t *testin
 	srv := newTestServer(t, ClaudeCodeInfo{})
 	require.NoError(t, srv.store.KVSet(context.Background(), "prefs", `{"view":"tiles","railDensity":"expanded","railActivity":"summary"}`))
 
-	got := srv.loadPrefs(context.Background())
+	got := loadPrefs(context.Background(), srv.store)
 
 	assert.Equal(t, "turn", got.RailActivity, "an invalid persisted railActivity must fall back to the default")
 	assert.Equal(t, "expanded", got.RailDensity, "a sibling field's valid persisted value must survive independently")
@@ -249,7 +249,7 @@ func TestPrefs_RailDensityAndRailActivityPersistAcrossADaemonRestart(t *testing.
 		WebDist: t.TempDir(), DaemonVersion: "test-version",
 	})
 
-	got := srv2.loadPrefs(context.Background())
+	got := loadPrefs(context.Background(), srv2.store)
 	assert.Equal(t, "compact", got.RailDensity)
 	assert.Equal(t, "both", got.RailActivity)
 }

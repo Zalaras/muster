@@ -23,6 +23,21 @@ type ThemeConfig struct {
 	ConfigFile string
 }
 
+// ClaudeThemeInfo is the `claudeTheme` object inside a snapshot
+// (kb:anchor/ws.snapshot / kb:anchor/ws.claude-theme, plan new-ui-design-colors REQ-15) — the daemon's latest read of Claude
+// Code's own theme family. Family is always present: "unknown" while polling is
+// disabled (-claude-theme-poll 0) or no read has yet succeeded.
+type ClaudeThemeInfo struct {
+	Family string `json:"family"`
+}
+
+// defaultClaudeThemeInfo is ClaudeThemeInfo's shape before themeFeature's first poll (or
+// forever, when polling is disabled) — buildSnapshot's placeholder, matching
+// themeFeature.contribute's own nil-poller case.
+func defaultClaudeThemeInfo() ClaudeThemeInfo {
+	return ClaudeThemeInfo{Family: string(claudecode.ThemeUnknown)}
+}
+
 // themeFeature owns the Claude-theme poller and the snapshot's claudeTheme object (plan
 // code-breakup REQ-6). It mounts no routes.
 type themeFeature struct {
