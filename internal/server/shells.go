@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -22,6 +23,24 @@ import (
 // context), Ensure/Kill run with context.WithoutCancel and would otherwise wait on a
 // wedged tmux forever — hanging End/Remove, which call Kill, right along with it.
 const shellTmuxTimeout = 5 * time.Second
+
+// Scroll magnitude clamp (kb:anchor/terminal.shell-ws) — sign carries direction, so the
+// clamp applies to the absolute value.
+const (
+	minScrollLines = 1
+	maxScrollLines = 200
+)
+
+// shellScroller is the tmux copy-mode operations only the shell socket needs
+// (kb:anchor/terminal.shell-ws, kb:adr/surfaces-shell-scroll-via-daemon-copy-mode).
+// *tmux.Client satisfies it without knowing; a test fakes it directly. Both methods
+// drive tmux's own process/mode tracking through its query API, never pane content
+// (CLAUDE.md hard rule) — the same distinction internal/tmux.displayVar's doc comment
+// draws for production callers.
+type shellScroller interface {
+	ScrollCopyMode(ctx context.Context, target string, lines int) (entered bool, err error)
+	CancelCopyMode(ctx context.Context, target string) error
+}
 
 // shellRegistry is the plain-shell surface's daemon-lifetime record
 // (kb:anchor/sessions.shell): a shell has no persistent representation anywhere — no SQLite row, no
@@ -72,6 +91,14 @@ func (r *shellRegistry) lockID(id int64) (unlock func()) {
 	return l.Unlock
 }
 
+// PaneExists reports whether name's tmux pane is currently live, bounded by
+// shellTmuxTimeout like every other tmux call this registry makes.
+func (r *shellRegistry) PaneExists(ctx context.Context, name string) (bool, error) {
+	checkCtx, cancel := context.WithTimeout(ctx, shellTmuxTimeout)
+	defer cancel()
+	return r.tmux.PaneExists(checkCtx, name)
+}
+
 // interactiveShellArgv returns the argv for the user's interactive shell: $SHELL if set
 // in the daemon's own environment, else /bin/zsh, run with -i so it behaves like an
 // interactive login terminal (aliases, prompt, etc.) rather than a bare script runner.
@@ -97,9 +124,7 @@ func (r *shellRegistry) Ensure(ctx context.Context, id int64, dir string) (targe
 
 	name := tmux.ShellSessionName(id)
 
-	checkCtx, cancel := context.WithTimeout(ctx, shellTmuxTimeout)
-	exists, err := r.tmux.PaneExists(checkCtx, name)
-	cancel()
+	exists, err := r.PaneExists(ctx, name)
 	if err != nil {
 		return "", false, fmt.Errorf("checking shell pane: %w", err)
 	}
@@ -115,9 +140,7 @@ func (r *shellRegistry) Ensure(ctx context.Context, id int64, dir string) (targe
 		if errors.Is(spawnErr, tmux.ErrSessionExists) {
 			// REQ-12: a concurrent spawn elsewhere on the socket (or a stale check) beat
 			// this one to it — re-check rather than failing with shell_spawn_failed.
-			recheckCtx, cancel := context.WithTimeout(ctx, shellTmuxTimeout)
-			nowExists, recheckErr := r.tmux.PaneExists(recheckCtx, name)
-			cancel()
+			nowExists, recheckErr := r.PaneExists(ctx, name)
 			if recheckErr == nil && nowExists {
 				r.markActive(id)
 				return name, false, nil
@@ -231,9 +254,12 @@ func (f *shellFeature) handleCreateShell(w http.ResponseWriter, r *http.Request)
 }
 
 // handleShellTerminal is GET /ws/shell/{id} (kb:anchor/terminal.shell-ws): pre-upgrade auth
-// (the requireCookie wrapper) and Origin check, 404/409 validation, takeover, and the two
-// byte pumps. Attach only — POST /api/sessions/{id}/shell (handleCreateShell) is the only
-// thing that spawns a shell; alive is not consulted, in either direction (REQ-7).
+// (the requireCookie wrapper) and Origin check, 404/409 validation, then the attach-and-pump
+// lifecycle both surfaces share (attachAndPump). Attach only — POST
+// /api/sessions/{id}/shell (handleCreateShell) is the only thing that spawns a shell; alive
+// is not consulted, in either direction (REQ-7). The 404 here is its own not_found check
+// (manager.Exists, not sessionOr404's manager.Get) because a dead session with no live shell
+// still answers no_shell, never not_found.
 func (f *shellFeature) handleShellTerminal(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
@@ -245,7 +271,9 @@ func (f *shellFeature) handleShellTerminal(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	shellTarget := tmux.ShellSessionName(id)
-	exists, perr := f.registry.tmux.PaneExists(r.Context(), shellTarget)
+	// Goes through the registry (bounded by shellTmuxTimeout) rather than f.registry.tmux
+	// directly, matching every other tmux call this surface makes.
+	exists, perr := f.registry.PaneExists(r.Context(), shellTarget)
 	if perr != nil {
 		f.log.Error().Err(perr).Int64("session_id", id).Msg("checking shell pane failed")
 		writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
@@ -256,57 +284,104 @@ func (f *shellFeature) handleShellTerminal(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	c, err := websocket.Accept(w, r, nil)
-	if err != nil {
-		f.log.Info().Err(err).Msg("shell terminal ws upgrade rejected")
-		return
-	}
-	defer func() { _ = c.CloseNow() }()
-
-	// takeover evicts any prior connection for this session's shell surface only — the
-	// Claude surface's key is untouched (INV-3), so opening the shell socket never
-	// supersedes a live Claude socket for the same session, and vice versa.
-	key := terminalKey{sessionID: id, surface: surfaceShell}
-	conn, err := f.terminals.takeover(r.Context(), key, func(attachCtx context.Context) (*terminalConn, error) {
-		bridge, aerr := f.attach(attachCtx, shellTarget)
-		if aerr != nil {
-			return nil, aerr
-		}
-		return &terminalConn{ws: c, bridge: bridge}, nil
-	})
-	if err != nil {
-		f.log.Error().Err(err).Int64("session_id", id).Str("tmux_target", shellTarget).Msg("attaching shell bridge failed")
-		_ = c.Close(websocket.StatusInternalError, "attach failed")
-		return
-	}
-	bridge := conn.bridge
-	defer func() { _ = bridge.Close() }()
-	defer f.terminals.release(key, conn)
-
-	// REQ-8's attach side effect applies to both surfaces: a successful shell takeover
-	// also marks the session seen, before any PTY byte is forwarded (kb:anchor/terminal.shell-ws
-	// Protocol Contract delta).
-	if err := f.manager.MarkSeen(r.Context(), id); err != nil {
-		f.log.Warn().Err(err).Int64("session_id", id).Msg("marking session seen failed")
-	}
-
-	ctx, cancel := context.WithCancel(r.Context())
-	defer cancel()
-
-	ptyDone := make(chan struct{})
-	go func() {
-		defer close(ptyDone)
-		defer cancel()
-		// nudgeOnEOF is false: a shell's death is not its session's death (kb:anchor/terminal.shell-ws) — a
+	attachAndPump(w, r, f.log, f.terminals, f.manager, id, f.attach, terminalPump{
+		target: shellTarget,
+		// The Claude surface's key is untouched (INV-3), so opening the shell socket never
+		// supersedes a live Claude socket for the same session, and vice versa.
+		key: terminalKey{sessionID: id, surface: surfaceShell},
+		// nudge is nil: a shell's death is not its session's death (kb:anchor/terminal.shell-ws) — a
 		// live session must never take a liveness flap because a shell under it exited.
-		pumpPTYToSocket(ctx, f.log, c, bridge, id, false, nil)
-	}()
+		nudge: nil,
+		socketToPTY: func(ctx context.Context, c *websocket.Conn, bridge paneConn) {
+			// The shell socket's own variant: decodes the `scroll` control frame the Claude
+			// socket does not accept, and cancels copy-mode before writing input (REQ-10).
+			pumpShellSocketToPTY(ctx, f.log, c, bridge, f.scroll, shellTarget)
+		},
+	})
+}
 
-	// The shell socket's own variant: decodes the `scroll` control frame the Claude
-	// socket does not accept, and cancels copy-mode before writing input (REQ-10).
-	pumpShellSocketToPTY(ctx, f.log, c, bridge, f.scroll, shellTarget)
-	// Same teardown ordering as handleTerminal — see its comment for why.
-	cancel()
-	_ = bridge.Close()
-	<-ptyDone
+// shellTextFrame is the shell socket's client→server JSON: everything resizeFrame
+// accepts, plus `scroll` (kb:anchor/terminal.shell-ws). The Claude socket keeps decoding into
+// resizeFrame/applyResizeFrame unchanged (REQ-9) — this type and pumpShellSocketToPTY
+// below are reached only from GET /ws/shell/{id}.
+type shellTextFrame struct {
+	Type  string `json:"type"`
+	Cols  int    `json:"cols"`
+	Rows  int    `json:"rows"`
+	Lines int    `json:"lines"`
+}
+
+// clampScrollLines clamps a scroll frame's magnitude to [minScrollLines,
+// maxScrollLines] (D3) while preserving its sign; 0 stays 0 (nothing to scroll).
+func clampScrollLines(v int) int {
+	if v == 0 {
+		return 0
+	}
+	sign, mag := 1, v
+	if v < 0 {
+		sign, mag = -1, -v
+	}
+	return sign * clampInt(mag, minScrollLines, maxScrollLines)
+}
+
+// pumpShellSocketToPTY is pumpSocketToPTY's shell-surface variant (kb:anchor/terminal.shell-ws):
+// binary frames are raw input, but the daemon cancels copy-mode first when it knows this
+// pane may still be in one (REQ-10), so a keystroke always reaches the shell and returns
+// it to the live bottom; text frames add `scroll` to the resize frame pumpSocketToPTY
+// already accepts. inCopyMode lives only in this one connection's read loop — never
+// shared, so it needs no lock.
+func pumpShellSocketToPTY(ctx context.Context, log zerolog.Logger, c *websocket.Conn, bridge paneConn, scroller shellScroller, target string) {
+	inCopyMode := false
+	for {
+		msgType, data, err := c.Read(ctx)
+		if err != nil {
+			return
+		}
+		switch msgType {
+		case websocket.MessageBinary:
+			if inCopyMode {
+				if cerr := scroller.CancelCopyMode(ctx, target); cerr != nil {
+					log.Debug().Err(cerr).Msg("cancelling shell copy-mode before input failed")
+				}
+				inCopyMode = false
+			}
+			if _, werr := bridge.Write(data); werr != nil {
+				log.Debug().Err(werr).Msg("shell terminal pty write failed")
+				return
+			}
+		case websocket.MessageText:
+			applyShellTextFrame(ctx, log, bridge, scroller, target, data, &inCopyMode)
+		}
+	}
+}
+
+// applyShellTextFrame parses one shell-socket text frame and dispatches resize or
+// scroll; an unparseable or unknown frame is ignored and logged, never fatal, the same
+// contract as applyResizeFrame. inCopyMode is set from ScrollCopyMode's own entered
+// result, never assumed from a nil error — REQ-12/edge case 10's "nothing to scroll to"
+// no-op returns entered=false, and a `lines` of 0 after clamping (frame carried 0)
+// never calls ScrollCopyMode at all.
+func applyShellTextFrame(ctx context.Context, log zerolog.Logger, bridge paneConn, scroller shellScroller, target string, data []byte, inCopyMode *bool) {
+	var frame shellTextFrame
+	if err := json.Unmarshal(data, &frame); err != nil {
+		logUnknownTextFrame(log, data, err)
+		return
+	}
+	switch frame.Type {
+	case "resize":
+		applyResize(ctx, log, bridge, frame.Cols, frame.Rows, "shell terminal resize failed")
+	case "scroll":
+		lines := clampScrollLines(frame.Lines)
+		if lines == 0 {
+			return
+		}
+		entered, err := scroller.ScrollCopyMode(ctx, target, lines)
+		if err != nil {
+			log.Debug().Err(err).Msg("shell scroll failed")
+			return
+		}
+		*inCopyMode = entered
+	default:
+		logUnknownTextFrame(log, data, nil)
+	}
 }

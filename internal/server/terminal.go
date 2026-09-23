@@ -30,17 +30,6 @@ type paneConn interface {
 // interface instead.
 type attachFunc func(ctx context.Context, target string) (paneConn, error)
 
-// shellScroller is the tmux copy-mode operations only the shell socket needs
-// (kb:anchor/terminal.shell-ws, kb:adr/surfaces-shell-scroll-via-daemon-copy-mode).
-// *tmux.Client satisfies it without knowing; a test fakes it directly. Both methods
-// drive tmux's own process/mode tracking through its query API, never pane content
-// (CLAUDE.md hard rule) — the same distinction internal/tmux.displayVar's doc comment
-// draws for production callers.
-type shellScroller interface {
-	ScrollCopyMode(ctx context.Context, target string, lines int) (entered bool, err error)
-	CancelCopyMode(ctx context.Context, target string) error
-}
-
 // Close codes the daemon initiates on a terminal socket (kb:anchor/terminal.ws).
 const (
 	closeSuperseded websocket.StatusCode = 4000
@@ -53,13 +42,6 @@ const (
 	maxResizeCols = 500
 	minResizeRows = 5
 	maxResizeRows = 300
-)
-
-// Scroll magnitude clamp (kb:anchor/terminal.shell-ws) — sign carries direction, so the
-// clamp applies to the absolute value.
-const (
-	minScrollLines = 1
-	maxScrollLines = 200
 )
 
 // terminalReadBufSize bounds one PTY->socket binary frame. tmux output arrives in
@@ -246,7 +228,7 @@ func (f *terminalFeature) closeAll() {
 
 // handleTerminal is GET /ws/terminal/{id} (kb:anchor/terminal.ws): pre-upgrade auth (the
 // requireCookie wrapper) and Origin check (websocket.Accept's own default), 404/409
-// validation, takeover, and the two byte pumps.
+// validation, then the attach-and-pump lifecycle both surfaces share (attachAndPump).
 func (f *terminalFeature) handleTerminal(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
@@ -263,37 +245,64 @@ func (f *terminalFeature) handleTerminal(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	attachAndPump(w, r, f.log, f.registry, f.manager, id, f.attach, terminalPump{
+		target: sess.TmuxTarget,
+		key:    terminalKey{sessionID: id, surface: surfaceClaude},
+		// nudge is set: a Claude pane's death is its session's death (REQ-6) — a clean
+		// PTY EOF nudges the liveness poll rather than waiting out the ~5s interval.
+		nudge: f.manager.Nudge,
+		socketToPTY: func(ctx context.Context, c *websocket.Conn, bridge paneConn) {
+			pumpSocketToPTY(ctx, f.log, c, bridge)
+		},
+	})
+}
+
+// terminalPump is one surface's half of attachAndPump: the tmux target to attach, its
+// registry slot, whether a clean PTY EOF should nudge the session's liveness poll (nil:
+// never — the shell surface's death is not its session's death, kb:anchor/terminal.shell-ws), and
+// how that surface reads client frames off the socket.
+type terminalPump struct {
+	target      string
+	key         terminalKey
+	nudge       func(context.Context, int64)
+	socketToPTY func(ctx context.Context, c *websocket.Conn, bridge paneConn)
+}
+
+// attachAndPump is the terminal-socket lifecycle shared by the Claude surface
+// (terminalFeature.handleTerminal) and the shell surface (shellFeature.handleShellTerminal):
+// Accept, takeover with an attach closure (evicting whatever was previously registered for
+// p.key before the new attach starts, REQ-2 — see terminalRegistry.takeover's doc comment),
+// MarkSeen, the PTY->socket pump running in the background, the surface's own socket->PTY
+// pump, then teardown in the order pumpPTYToSocket's ctx.Err() check depends on.
+func attachAndPump(w http.ResponseWriter, r *http.Request, log zerolog.Logger, registry *terminalRegistry, manager *session.Manager, sessionID int64, attach attachFunc, p terminalPump) {
 	c, err := websocket.Accept(w, r, nil)
 	if err != nil {
-		f.log.Info().Err(err).Msg("terminal ws upgrade rejected")
+		log.Info().Err(err).Msg("terminal ws upgrade rejected")
 		return
 	}
 	defer func() { _ = c.CloseNow() }()
 
-	// takeover evicts any prior connection for this session's Claude surface (closing its
-	// socket and PTY) before attach runs, so the old PTY is gone before the new attach
-	// starts (REQ-2) — see terminalRegistry.takeover's doc comment.
-	key := terminalKey{sessionID: id, surface: surfaceClaude}
-	conn, err := f.registry.takeover(r.Context(), key, func(attachCtx context.Context) (*terminalConn, error) {
-		bridge, aerr := f.attach(attachCtx, sess.TmuxTarget)
+	conn, err := registry.takeover(r.Context(), p.key, func(attachCtx context.Context) (*terminalConn, error) {
+		bridge, aerr := attach(attachCtx, p.target)
 		if aerr != nil {
 			return nil, aerr
 		}
 		return &terminalConn{ws: c, bridge: bridge}, nil
 	})
 	if err != nil {
-		f.log.Error().Err(err).Int64("session_id", id).Str("tmux_target", sess.TmuxTarget).Msg("attaching terminal bridge failed")
+		log.Error().Err(err).Int64("session_id", sessionID).Str("tmux_target", p.target).Msg("attaching terminal bridge failed")
 		_ = c.Close(websocket.StatusInternalError, "attach failed")
 		return
 	}
 	bridge := conn.bridge
 	defer func() { _ = bridge.Close() }()
-	defer f.registry.release(key, conn)
+	defer registry.release(p.key, conn)
 
-	// REQ-8's attach side effect: a successful takeover marks the session seen, before
-	// any PTY byte is forwarded (kb:anchor/terminal.ws Protocol Contract delta).
-	if err := f.manager.MarkSeen(r.Context(), id); err != nil {
-		f.log.Warn().Err(err).Int64("session_id", id).Msg("marking session seen failed")
+	// REQ-8's attach side effect applies to both surfaces: a successful takeover marks the
+	// session seen, before any PTY byte is forwarded (kb:anchor/terminal.ws / kb:anchor/terminal.shell-ws
+	// Protocol Contract delta).
+	if err := manager.MarkSeen(r.Context(), sessionID); err != nil {
+		log.Warn().Err(err).Int64("session_id", sessionID).Msg("marking session seen failed")
 	}
 
 	ctx, cancel := context.WithCancel(r.Context())
@@ -303,12 +312,10 @@ func (f *terminalFeature) handleTerminal(w http.ResponseWriter, r *http.Request)
 	go func() {
 		defer close(ptyDone)
 		defer cancel()
-		// nudge is set: a Claude pane's death is its session's death (REQ-6) — a clean
-		// PTY EOF here nudges the liveness poll rather than waiting out the ~5s interval.
-		pumpPTYToSocket(ctx, f.log, c, bridge, id, true, f.manager.Nudge)
+		pumpPTYToSocket(ctx, log, c, bridge, sessionID, p.nudge != nil, p.nudge)
 	}()
 
-	pumpSocketToPTY(ctx, f.log, c, bridge)
+	p.socketToPTY(ctx, c, bridge)
 	// The client side is gone (socket closed by the peer, or ctx canceled for another
 	// reason such as shutdown): cancel ctx *before* closing the bridge, so
 	// pumpPTYToSocket's ctx.Err() check below recognizes the read error this produces as
@@ -417,99 +424,17 @@ func applyResizeFrame(ctx context.Context, log zerolog.Logger, bridge paneConn, 
 		logUnknownTextFrame(log, data, err)
 		return
 	}
-	cols := clampInt(frame.Cols, minResizeCols, maxResizeCols)
-	rows := clampInt(frame.Rows, minResizeRows, maxResizeRows)
+	applyResize(ctx, log, bridge, frame.Cols, frame.Rows, "terminal resize failed")
+}
+
+// applyResize is the one resize implementation both applyResizeFrame (kb:anchor/terminal.ws)
+// and the shell surface's "resize" case (applyShellTextFrame, kb:anchor/terminal.shell-ws)
+// drive: clamp to the daemon's bounds and apply via Bridge.Resize (pty.Setsize then tmux
+// resize-window). logMsg lets each surface keep its own warn wording.
+func applyResize(ctx context.Context, log zerolog.Logger, bridge paneConn, cols, rows int, logMsg string) {
+	cols = clampInt(cols, minResizeCols, maxResizeCols)
+	rows = clampInt(rows, minResizeRows, maxResizeRows)
 	if err := bridge.Resize(ctx, cols, rows); err != nil {
-		log.Warn().Err(err).Msg("terminal resize failed")
-	}
-}
-
-// shellTextFrame is the shell socket's client→server JSON: everything resizeFrame
-// accepts, plus `scroll` (kb:anchor/terminal.shell-ws). The Claude socket keeps decoding into
-// resizeFrame/applyResizeFrame unchanged (REQ-9) — this type and pumpShellSocketToPTY
-// below are reached only from GET /ws/shell/{id}.
-type shellTextFrame struct {
-	Type  string `json:"type"`
-	Cols  int    `json:"cols"`
-	Rows  int    `json:"rows"`
-	Lines int    `json:"lines"`
-}
-
-// clampScrollLines clamps a scroll frame's magnitude to [minScrollLines,
-// maxScrollLines] (D3) while preserving its sign; 0 stays 0 (nothing to scroll).
-func clampScrollLines(v int) int {
-	if v == 0 {
-		return 0
-	}
-	sign, mag := 1, v
-	if v < 0 {
-		sign, mag = -1, -v
-	}
-	return sign * clampInt(mag, minScrollLines, maxScrollLines)
-}
-
-// pumpShellSocketToPTY is pumpSocketToPTY's shell-surface variant (kb:anchor/terminal.shell-ws):
-// binary frames are raw input, but the daemon cancels copy-mode first when it knows this
-// pane may still be in one (REQ-10), so a keystroke always reaches the shell and returns
-// it to the live bottom; text frames add `scroll` to the resize frame pumpSocketToPTY
-// already accepts. inCopyMode lives only in this one connection's read loop — never
-// shared, so it needs no lock.
-func pumpShellSocketToPTY(ctx context.Context, log zerolog.Logger, c *websocket.Conn, bridge paneConn, scroller shellScroller, target string) {
-	inCopyMode := false
-	for {
-		msgType, data, err := c.Read(ctx)
-		if err != nil {
-			return
-		}
-		switch msgType {
-		case websocket.MessageBinary:
-			if inCopyMode {
-				if cerr := scroller.CancelCopyMode(ctx, target); cerr != nil {
-					log.Debug().Err(cerr).Msg("cancelling shell copy-mode before input failed")
-				}
-				inCopyMode = false
-			}
-			if _, werr := bridge.Write(data); werr != nil {
-				log.Debug().Err(werr).Msg("shell terminal pty write failed")
-				return
-			}
-		case websocket.MessageText:
-			applyShellTextFrame(ctx, log, bridge, scroller, target, data, &inCopyMode)
-		}
-	}
-}
-
-// applyShellTextFrame parses one shell-socket text frame and dispatches resize or
-// scroll; an unparseable or unknown frame is ignored and logged, never fatal, the same
-// contract as applyResizeFrame. inCopyMode is set from ScrollCopyMode's own entered
-// result, never assumed from a nil error — REQ-12/edge case 10's "nothing to scroll to"
-// no-op returns entered=false, and a `lines` of 0 after clamping (frame carried 0)
-// never calls ScrollCopyMode at all.
-func applyShellTextFrame(ctx context.Context, log zerolog.Logger, bridge paneConn, scroller shellScroller, target string, data []byte, inCopyMode *bool) {
-	var frame shellTextFrame
-	if err := json.Unmarshal(data, &frame); err != nil {
-		logUnknownTextFrame(log, data, err)
-		return
-	}
-	switch frame.Type {
-	case "resize":
-		cols := clampInt(frame.Cols, minResizeCols, maxResizeCols)
-		rows := clampInt(frame.Rows, minResizeRows, maxResizeRows)
-		if err := bridge.Resize(ctx, cols, rows); err != nil {
-			log.Warn().Err(err).Msg("shell terminal resize failed")
-		}
-	case "scroll":
-		lines := clampScrollLines(frame.Lines)
-		if lines == 0 {
-			return
-		}
-		entered, err := scroller.ScrollCopyMode(ctx, target, lines)
-		if err != nil {
-			log.Debug().Err(err).Msg("shell scroll failed")
-			return
-		}
-		*inCopyMode = entered
-	default:
-		logUnknownTextFrame(log, data, nil)
+		log.Warn().Err(err).Msg(logMsg)
 	}
 }
