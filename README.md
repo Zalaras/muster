@@ -104,7 +104,7 @@ tap exists, and the dialog says so instead of offering the buttons.
   brew upgrade tmux    # older than 3.2
   ```
 - **Claude Code**, verified against
-  <!-- versions:range -->2.1.246–2.1.270<!-- /versions:range -->. Its auto-updater is
+  <!-- versions:range -->2.1.246–2.1.280<!-- /versions:range -->. Its auto-updater is
   deliberately left on — see below.
 
 ## Claude Code versions
