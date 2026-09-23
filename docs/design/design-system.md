@@ -175,7 +175,9 @@ This is the one rule that makes two views safe, and it is the same law as §7.1:
 **Masthead** — brand, view switcher (`Focus` / `Tiles`), the `New session` button (the only
 launcher, present in both views), then right-aligned: 5-hour bar,
 7-day bar, model-week (selectable), refresh, model, daemon health. Always visible in both views; account-level truth is never
-behind a tab.
+behind a tab. Its text never wraps. Below 1840px the gaps tighten and the bars drop to 40px, and the model
+name is the one readout that truncates, with its full name on hover
+(kb:adr/usage-masthead-narrow-width-shrinks-bars-truncates-model).
 
 **Claude Code version readout** (`#claude-version`, plan `version-claude-interface`) —
 `claude <installed>`, or `Claude installation unknown` when the check failed or hasn't

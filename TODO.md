@@ -129,12 +129,6 @@ ADRs).
   them per its assessment. Needs kb:adr/issue-daemon-creates-issues-only revisited first:
   triage deliberately never labels, assigns or milestones.
 
-- [ ] **Usage gauge is a little squashed on small 14" screen** ([#52](https://github.com/Zalaras/muster/issues/52)) — the masthead usage gauge
-  cramps at a 14" laptop width (filed from Focus view, 2x2, one session). No screenshot; reproduce
-  at the laptop's viewport width with the model-window selector showing before planning. Scope
-  is the masthead's layout at that width, not UI scaling
-  (`kb:adr/nongoal-ui-scaling-delegated-to-browser-zoom`).
-
 ## Pre-v1
 
 Everything below is blocking a v1 release (the developer, 2026-09-12: no v1 until all of it is

@@ -8,9 +8,9 @@ features: [usage]
 tags: [claude-code-format]
 go: [internal/server/usage*.go, internal/server/gauges_test.go, internal/usage/**, internal/claudecode/status*.go, internal/claudecode/usageapi*.go, internal/claudecode/credentials*.go, internal/store/usage*.go]
 web: [web/src/features/usage.ts, web/src/render/masthead*.ts, web/src/render/context*.ts, web/src/sessions/context*.ts]
-e2e: [web/e2e/gauges.spec.ts, web/e2e/usage-model.spec.ts, web/e2e/helpers/gauges.ts, web/e2e/helpers/usageapi.ts]
+e2e: [web/e2e/gauges.spec.ts, web/e2e/usage-model.spec.ts, web/e2e/masthead-layout.spec.ts, web/e2e/helpers/gauges.ts, web/e2e/helpers/usageapi.ts]
 protocol: [usage.refresh, ws.usage]
-refs: [kb:adr/usage-context-gauge-shows-tokens-and-compactions, kb:adr/usage-unknown-renders-word-not-track, kb:adr/usage-masthead-model-from-freshest-sample, kb:adr/usage-masthead-one-selectable-model-window, kb:adr/usage-model-window-polled-from-oauth-api, kb:adr/usage-keychain-token-read-only, kb:adr/usage-sample-dedup-by-value, kb:adr/usage-no-hydration-across-restart, kb:adr/usage-history-persisted-not-rendered, kb:adr/usage-no-source-interface, kb:fact/context-window-shape, kb:fact/rate-limits-wire-shape, kb:fact/unknown-before-first-response, kb:fact/status-line-has-no-model-bucket, kb:fact/usage-api-oauth-shape, kb:fact/oauth-token-in-keychain, kb:fact/status-posts-arrive-in-pairs, kb:fact/refresh-interval-seconds, kb:ref/data-model, docs/design/design-system.md]
+refs: [kb:adr/usage-context-gauge-shows-tokens-and-compactions, kb:adr/usage-masthead-narrow-width-shrinks-bars-truncates-model, kb:adr/usage-unknown-renders-word-not-track, kb:adr/usage-masthead-model-from-freshest-sample, kb:adr/usage-masthead-one-selectable-model-window, kb:adr/usage-model-window-polled-from-oauth-api, kb:adr/usage-keychain-token-read-only, kb:adr/usage-sample-dedup-by-value, kb:adr/usage-no-hydration-across-restart, kb:adr/usage-history-persisted-not-rendered, kb:adr/usage-no-source-interface, kb:fact/context-window-shape, kb:fact/rate-limits-wire-shape, kb:fact/unknown-before-first-response, kb:fact/status-line-has-no-model-bucket, kb:fact/usage-api-oauth-shape, kb:fact/oauth-token-in-keychain, kb:fact/status-posts-arrive-in-pairs, kb:fact/refresh-interval-seconds, kb:ref/data-model, docs/design/design-system.md]
 ---
 Usage answers two of the success criteria: how much of the account's limits are used, and
 how much context each session has consumed.
@@ -40,7 +40,9 @@ are persisted as history but no history view is built
 (kb:adr/usage-history-persisted-not-rendered, kb:ref/data-model). After a daemon restart the
 buckets are unknown until the next status post (kb:adr/usage-no-hydration-across-restart).
 A session that is idle posts nothing unless the status line's refresh interval is set
-(kb:fact/refresh-interval-seconds).
+(kb:fact/refresh-interval-seconds). The masthead holds one row at a 14" laptop width: nothing in it wraps, the bars
+narrow below 1840px and the model name truncates with its full name on hover
+(kb:adr/usage-masthead-narrow-width-shrinks-bars-truncates-model).
 
 A third bar shows one per-model weekly window, which the status line does not carry
 (kb:fact/status-line-has-no-model-bucket). The daemon polls Claude Code's OAuth usage

@@ -1610,6 +1610,16 @@ the mobile/responsive pass rem-ifies the pixel layer.
   stays a named residual in `docs/claude-code-versions.md`: it needs a subagent plus an
   unanswered permission prompt. Two forced green runs on 2.1.280, 6 haiku turns each.
 
+- [x] **Usage gauge is a little squashed on small 14" screen** ([#52](https://github.com/Zalaras/muster/issues/52)) ✅ done 2026-09-23 (small fix, no plan) — the masthead usage gauge
+  cramps at a 14" laptop width (filed from Focus view, 2x2, one session). No screenshot; reproduce
+  at the laptop's viewport width with the model-window selector showing before planning. Scope
+  is the masthead's layout at that width, not UI scaling
+  (`kb:adr/nongoal-ui-scaling-delegated-to-browser-zoom`).
+  Reproduced at 1512px: the masthead's content measures about 1780px, so each gauge's reset
+  suffix wrapped onto three lines and the row grew from 46px to 63px. Fixed by never wrapping
+  masthead text, narrowing the bars to 40px and tightening the gaps below 1840px, and truncating the model
+  name with a hover title (kb:adr/usage-masthead-narrow-width-shrinks-bars-truncates-model).
+
 ## Post v1
 <!-- kb: adr/connection-installed-claude-classified-never-refused, adr/issue-disabled-button-affordance-deferred -->
 
