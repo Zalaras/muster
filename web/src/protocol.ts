@@ -1,16 +1,14 @@
 // Message types and parser for the daemon->UI WebSocket protocol (docs/protocol.md, protocol
-// version 2 as of plan version-claude-interface, 2026-09-10).
+// version 2).
 //
-// M0 only ever sends `hello` and `snapshot` (docs/history/protocol-changelog.md). Unknown message
-// types and unknown fields are ignored per kb:anchor/conventions's "additive evolution" rule —
-// parsing here only ever reads the fields it knows about, so future additions never
-// need a change here to keep working.
+// Unknown message types and unknown fields are ignored per kb:anchor/conventions's "additive
+// evolution" rule — parsing here only ever reads the fields it knows about, so future
+// additions never need a change here to keep working.
 
 export const PROTOCOL_VERSION = 2;
 
-// Plan version-claude-interface (kb:anchor/ws.hello, protocol 2): the daemon's startup
-// classification of the installed Claude Code against the canary-verified range —
-// replaces the M0-era {pinned, installed, drift} pin/drift shape.
+// kb:anchor/ws.hello: the daemon's startup classification of the installed Claude Code
+// against the canary-verified range.
 export type ClaudeCodeStatus = "unknown" | "below" | "verified" | "above";
 
 export interface ClaudeCodeInfo {
@@ -48,10 +46,10 @@ export type ModelScopedError = "no-credentials" | "unauthorized" | "unreachable"
 export interface Usage {
   fiveHour: UsageBucket | null;
   sevenDay: UsageBucket | null;
-  // M3 addition (kb:anchor/ws.usage): the freshest sample's model, masthead-only.
-  // Optional (not just nullable) so a pre-M3 wire payload that omits the key entirely
-  // round-trips unchanged (additive evolution, kb:anchor/conventions) — present-and-null still
-  // means "no sample yet", same as the buckets.
+  // kb:anchor/ws.usage: the freshest sample's model, masthead-only. Optional (not just
+  // nullable) so a wire payload that omits the key entirely round-trips unchanged (additive
+  // evolution, kb:anchor/conventions) — present-and-null still means "no sample yet", same
+  // as the buckets.
   model?: SessionModelInfo | null;
   sampledAt: string | null;
   source: string;
@@ -66,7 +64,6 @@ export interface Usage {
   modelScopedSource?: string;
 }
 
-/** M0 never sends a non-null bucket; kept so callers don't special-case M0 vs later. */
 export const UNKNOWN_USAGE: Usage = {
   fiveHour: null,
   sevenDay: null,
@@ -121,8 +118,8 @@ export interface SessionPlan {
   exists: boolean;
 }
 
-// Full shape per kb:anchor/ws.session (M1: the state machine now produces non-empty
-// arrays, so parseSession below validates every field rather than trusting the daemon).
+// Full shape per kb:anchor/ws.session; parseSession below validates every field rather
+// than trusting the daemon.
 export interface Session {
   id: number;
   title: string | null;
@@ -140,8 +137,8 @@ export interface Session {
   lastActivity: string | null;
   claudeSessionId: string | null;
   tmuxTarget: string;
-  // M1 addition (kb:anchor/ws.session): true iff the launch created this directory's repo row —
-  // drives the trust-prompt vs. no-signal honesty note client-side (REQ-17).
+  // kb:anchor/ws.session: true iff the launch created this directory's repo row —
+  // drives the trust-prompt vs. no-signal honesty note client-side.
   firstLaunchHere: boolean;
   createdAt: string;
   // Plan order-sidebar (kb:anchor/ws.session): the rail's user-owned order. Required on every
@@ -189,11 +186,11 @@ export type RailDensity = "compact" | "comfortable" | "expanded";
 // shows — turn-aware by default (REQ-14/kb:adr/rail-activity-line-turn-aware-default-with-pref).
 export type RailActivity = "turn" | "prompt" | "reply" | "both";
 
-// M2 (kb:anchor/prefs.put refinement): density is always present alongside view — the
-// daemon's default before any PUT is {"view":"focus","density":"2x2","usageModel":"Fable"}
-// — so all three fields are required here, matching every real `snapshot`/`prefs` payload
-// on the wire. `usageModel` was added by plan usage-model-bar; `parsePrefs` below defaults
-// a missing key to `"Fable"` so a pre-plan daemon's payload still parses.
+// kb:anchor/prefs.put: density is always present alongside view — the daemon's default
+// before any PUT is {"view":"focus","density":"2x2","usageModel":"Fable"} — so all three
+// fields are required here, matching every real `snapshot`/`prefs` payload on the wire.
+// `parsePrefs` below defaults a missing `usageModel` key to `"Fable"` so a payload without
+// it still parses.
 export interface Prefs {
   view: "focus" | "tiles";
   density: Density;
@@ -295,21 +292,21 @@ export interface SessionUpsert {
   session: Session;
 }
 
-// M2 (kb:anchor/ws.prefs): full-object echo of every accepted `PUT /api/prefs`,
-// broadcast to every connected UI socket (INV-4).
+// kb:anchor/ws.prefs: full-object echo of every accepted `PUT /api/prefs`,
+// broadcast to every connected UI socket.
 export interface PrefsMessage {
   type: "prefs";
   prefs: Prefs;
 }
 
-// M3 (kb:anchor/ws.usage): broadcast whenever a routed status post's bucket values or
+// kb:anchor/ws.usage: broadcast whenever a routed status post's bucket values or
 // model changed — a bare `sampledAt` advance produces no broadcast (server-side dedup).
 export interface UsageMessage {
   type: "usage";
   usage: Usage;
 }
 
-// M4 (kb:anchor/ws.session-removed, plan m4-reconcile REQ-15): sent once per `DELETE
+// kb:anchor/ws.session-removed: sent once per `DELETE
 // /api/sessions/{id}` — a client that has never seen `id` ignores it (features/actions.ts's
 // `handleRemoved` is a no-op on an unknown id, same tolerance as every other broadcast here).
 export interface SessionRemoved {
@@ -455,8 +452,8 @@ function parseUsage(value: unknown): Usage | null {
   if (typeof source !== "string") return null;
 
   const usage: Usage = { fiveHour, sevenDay, sampledAt, source };
-  // `model` (M3) is read only when the key is actually present on the wire — an absent
-  // key stays absent on the parsed object (additive evolution, kb:anchor/conventions), so an M0–M2
+  // `model` is read only when the key is actually present on the wire — an absent key
+  // stays absent on the parsed object (additive evolution, kb:anchor/conventions), so a
   // payload with no `model` key round-trips byte-for-byte rather than gaining a
   // synthesized `model: null`.
   if ("model" in value) {

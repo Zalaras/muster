@@ -180,8 +180,8 @@ func validateLaunchRequest(req createSessionRequest) *launchError {
 func buildLaunchEnv(sessionID int64) map[string]string {
 	env := map[string]string{
 		"MUSTER_SESSION": strconv.FormatInt(sessionID, 10),
-		// A Go-daemon child inherits no LANG/LC_ALL of its own — cheap to set now; the
-		// failure otherwise presents as a broken terminal bridge in M2.
+		// A Go-daemon child inherits no LANG/LC_ALL of its own; without them the failure
+		// presents as a broken terminal bridge.
 		"LANG":   "en_US.UTF-8",
 		"LC_ALL": "en_US.UTF-8",
 	}

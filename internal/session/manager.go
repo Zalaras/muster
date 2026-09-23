@@ -1689,11 +1689,10 @@ func rowToSession(row store.SessionRow) *Session {
 		s.ClaudeSessionID = *row.ClaudeSessionID
 	}
 	if row.Model != nil {
-		// M3 (REQ-16): model_display_name persists the real display name once a
-		// status-line post has provided one, so a restart shows "Haiku 4.5" rather
-		// than re-deriving it from the id. Rows written before M3 (or before any
-		// status post arrived) have a null column — fall back to the id, matching
-		// the pre-M3 behaviour.
+		// model_display_name persists the real display name once a status-line post
+		// has provided one, so a restart shows "Haiku 4.5" rather than re-deriving it
+		// from the id. A row no status post has reached has a null column — fall back
+		// to the id.
 		displayName := *row.Model
 		if row.ModelDisplayName != nil && *row.ModelDisplayName != "" {
 			displayName = *row.ModelDisplayName

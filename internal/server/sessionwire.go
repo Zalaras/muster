@@ -69,9 +69,9 @@ type sessionWirePermissionMode struct {
 	Source string `json:"source"`
 }
 
-// sessionWireContext is the kb:anchor/ws.session M3 context gauge: the three numeric fields are always
-// all-null (unknown, INV-2) or all-non-null, populated only once a routed status-line
-// post has carried a non-null used-percentage (REQ-2); compactions is live since M1.
+// sessionWireContext is the kb:anchor/ws.session context gauge: the three numeric fields are
+// always all-null (unknown) or all-non-null, populated only once a routed status-line post
+// has carried a non-null used-percentage; compactions is always live.
 type sessionWireContext struct {
 	UsedPct          *float64 `json:"usedPct"`
 	TotalInputTokens *int64   `json:"totalInputTokens"`

@@ -1,8 +1,7 @@
-// Cookie-authed HTTP wrappers for the M1 UI-facing endpoints (kb:anchor/sessions.create,
-// kb:anchor/repos.list, kb:anchor/browse.get). Decoding mirrors protocol.ts's style: pure parse functions validate the
-// daemon's response shape before any caller (features/launch.ts) sees it. Errors never
-// throw — every call returns an ApiResult so the launch modal can render `error.message`
-// inline (REQ-14) instead of an uncaught rejection.
+// Cookie-authed HTTP wrappers for the daemon's UI-facing endpoints. Decoding mirrors
+// protocol.ts's style: pure parse functions validate the daemon's response shape before any
+// caller sees it. Errors never throw — every call returns an ApiResult so a caller (the
+// launch modal, say) can render `error.message` inline instead of an uncaught rejection.
 import {
   type Density,
   type RailActivity,
@@ -78,10 +77,9 @@ export interface LaunchRequest {
   permissionMode: PermissionMode;
 }
 
-// M2 (kb:anchor/prefs.put): at least one field, unknown fields ignored — all optional
-// here since a caller only ever changes one of view/density/usageModel at a time.
-// `usageModel` added by plan usage-model-bar (REQ-8): 1-32 chars after trim, validated
-// daemon-side.
+// kb:anchor/prefs.put: at least one field, unknown fields ignored — all optional here
+// since a caller only ever changes one field at a time. `usageModel`: 1-32 chars after
+// trim, validated daemon-side.
 export interface PrefsRequest {
   view?: "focus" | "tiles";
   density?: Density;

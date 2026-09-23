@@ -1,6 +1,6 @@
--- M1: repo (MRU picker + per-directory launch defaults), session (the kb:anchor/state state
+-- repo (MRU picker + per-directory launch defaults), session (the kb:anchor/state state
 -- machine's persisted row), and event.session_id (routing an ingested event to the
--- Muster session it belongs to). See plans/m1-sessions/plan.md > Schema Changes.
+-- Muster session it belongs to).
 
 CREATE TABLE repo (
   id                   INTEGER PRIMARY KEY,
@@ -27,8 +27,8 @@ CREATE TABLE session (
   directory              TEXT    NOT NULL,
   branch                 TEXT,              -- captured at launch; null when not git
   is_worktree            INTEGER NOT NULL DEFAULT 0, -- linked-worktree recognition
-  title                  TEXT,              -- launch --name value; null otherwise (M3
-                                            -- takes over from the status line)
+  title                  TEXT,              -- launch --name value, then refreshed from
+                                            -- the status line; null otherwise
   state                  TEXT    NOT NULL,  -- started|planning|working|needs_input|failed|idle
   state_since            TEXT    NOT NULL,
   permission_mode        TEXT    NOT NULL,  -- the latch value
@@ -47,5 +47,5 @@ CREATE TABLE session (
 ) STRICT;
 
 ALTER TABLE event ADD COLUMN session_id INTEGER;  -- Muster session id once routed;
-                                                  -- NULL = unrouted (or pre-M1 rows)
+                                                  -- NULL = unrouted (or a row older than this column)
 CREATE INDEX idx_event_session_id ON event(session_id);

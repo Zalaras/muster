@@ -66,7 +66,7 @@ export function formatEndedAgo(endedAtIso: string, now: Date): string {
   return agoSuffix(formatEndedAge(endedAtIso, now));
 }
 
-// M3 (plan m3-gauges): the single ≥60%-used threshold shared by every gauge surface —
+// The single ≥60%-used threshold shared by every gauge surface —
 // a masthead usage bar takes `warn` and a context track takes `hot` at this value
 // (design-system §5 "Gauge thresholds"). Compared against the raw (unrounded) percentage,
 // never the display-rounded one, so a bar reading "60%" on screen because of rounding a

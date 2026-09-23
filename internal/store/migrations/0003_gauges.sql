@@ -1,6 +1,5 @@
--- M3: usage_sample (account-level rate-limit history, persist-only in v1) and the
--- session columns the status line's context gauge and model display name land in. See
--- plans/m3-gauges/plan.md > Schema Changes.
+-- usage_sample (account-level rate-limit history, persist-only in v1) and the session
+-- columns the status line's context gauge and model display name land in.
 
 CREATE TABLE usage_sample (
   id                   INTEGER PRIMARY KEY,

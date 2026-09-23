@@ -35,7 +35,6 @@ type ClaudeThemeInfo struct {
 }
 
 // UsageBucket is one of the five-hour/seven-day usage readouts (kb:anchor/ws.usage).
-// M0 never populates it; it exists so the null shape below type-checks.
 type UsageBucket struct {
 	UsedPct  float64 `json:"usedPct"`
 	ResetsAt string  `json:"resetsAt"`
@@ -49,15 +48,13 @@ type UsageModelWindow struct {
 	ResetsAt    string  `json:"resetsAt"`
 }
 
-// UsageInfo is the `usage` object inside a snapshot. M0 has no usage samples yet, so
-// every field renders null/"unknown" (REQ-16). Model is new in M3 (kb:anchor/ws.usage): the freshest
-// sample's model, for the masthead readout — present as an explicit `null` key (no
-// `omitempty`), matching FiveHour/SevenDay/SampledAt: "null iff buckets null" per the
-// plan's Protocol Contract, not an absent key. ModelScoped/ModelScopedAt/ModelScopedError
-// are the second, independent usage source (plan usage-model-bar, 2026-08-30): nil
-// slice/pointer renders `null` on the wire (no `omitempty`) until the first successful
-// fetch; an empty-but-non-nil ModelScoped is a valid, distinct successful result.
-// ModelScopedSource is a wire constant in v1, never empty.
+// UsageInfo is the `usage` object inside a snapshot (kb:anchor/ws.usage). Model is the
+// freshest sample's model, for the masthead readout — present as an explicit `null` key
+// (no `omitempty`), matching FiveHour/SevenDay/SampledAt: null iff the buckets are null,
+// not an absent key. ModelScoped/ModelScopedAt/ModelScopedError are the second,
+// independent usage source: nil slice/pointer renders `null` on the wire (no `omitempty`)
+// until the first successful fetch; an empty-but-non-nil ModelScoped is a valid, distinct
+// successful result. ModelScopedSource is a wire constant in v1, never empty.
 type UsageInfo struct {
 	FiveHour          *UsageBucket       `json:"fiveHour"`
 	SevenDay          *UsageBucket       `json:"sevenDay"`
@@ -70,18 +67,15 @@ type UsageInfo struct {
 	ModelScopedSource string             `json:"modelScopedSource"`
 }
 
-// PrefsInfo is the `prefs` object inside a snapshot (kb:anchor/prefs.put / kb:anchor/ws.snapshot). M2
-// makes this persist (kv) and broadcast; Density is new in M2 (the Tiles grid density).
-// UsageModel is new in the usage-model-bar plan (2026-08-30): which modelScoped entry
-// the masthead's third readout shows, default "Fable". RailSort is new in the
-// order-sidebar plan (2026-08-30): the rail's sort mode, "manual" | "attention",
-// default "manual". Theme is new in new-ui-design-colors (2026-09-02): opaque to the
-// daemon beyond its pattern (kb:anchor/prefs.put), default "follow". UpdateCheck is
-// new in the auto-update plan (2026-09-10): whether the daemon checks GitHub Releases
-// for a newer musterd, default true. RailDensity and RailActivity are new in the
-// rail-card-improvements plan (2026-09-22): the rail/Tiles-strip card density
-// ("compact" | "comfortable" | "expanded", default "comfortable") and which text a
-// card's activity line shows ("turn" | "prompt" | "reply" | "both", default "turn").
+// PrefsInfo is the `prefs` object inside a snapshot (kb:anchor/prefs.put /
+// kb:anchor/ws.snapshot), persisted in kv and broadcast on change. Density is the Tiles
+// grid density. UsageModel is which modelScoped entry the masthead's third readout shows,
+// default "Fable". RailSort is the rail's sort mode, "manual" | "attention", default
+// "manual". Theme is opaque to the daemon beyond its pattern (kb:anchor/prefs.put),
+// default "follow". UpdateCheck is whether the daemon checks GitHub Releases for a newer
+// musterd, default true. RailDensity and RailActivity are the rail/Tiles-strip card
+// density ("compact" | "comfortable" | "expanded", default "comfortable") and which text
+// a card's activity line shows ("turn" | "prompt" | "reply" | "both", default "turn").
 type PrefsInfo struct {
 	View         string `json:"view"`
 	Density      string `json:"density"`
@@ -95,9 +89,9 @@ type PrefsInfo struct {
 
 // buildSnapshot returns the fixed parts of a snapshot: no sessions, unknown usage,
 // default prefs, unknown claudeTheme family (before any PUT /api/prefs or poll tick).
-// Retained as the M0 baseline (still exercised directly by TestBuildSnapshot_M0Shape);
-// production handlers call (*Server).currentSnapshot, which fills Sessions, the real
-// persisted Prefs, and the poller's current family.
+// TestBuildSnapshot_M0Shape pins its exact shape; production handlers call
+// (*Server).currentSnapshot, which starts from it and fills Sessions, the real persisted
+// Prefs, and the poller's current family.
 func buildSnapshot() Snapshot {
 	return Snapshot{
 		Sessions: []sessionWire{},
@@ -115,12 +109,11 @@ func buildSnapshot() Snapshot {
 	}
 }
 
-// currentSnapshot is buildSnapshot's M1+ successor: the same fixed usage shape, with
-// Sessions filled from the live session registry (REQ-12, core — the session manager is
-// not itself a registered feature) and every other section filled by looping the
-// registered features' snapshotContributor (REQ-6): usage, prefs, claudeTheme and
-// update. Field independence means contribution order doesn't matter — each feature
-// writes only its own Snapshot field.
+// currentSnapshot is buildSnapshot with Sessions filled from the live session registry
+// (core — the session manager is not itself a registered feature) and every other section
+// filled by looping the registered features' snapshotContributor: usage, prefs,
+// claudeTheme and update. Field independence means contribution order doesn't matter —
+// each feature writes only its own Snapshot field.
 func (s *Server) currentSnapshot(ctx context.Context) Snapshot {
 	snap := buildSnapshot()
 	sessions := s.manager.List()

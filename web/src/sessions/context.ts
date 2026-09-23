@@ -1,9 +1,9 @@
-// Pure derivation for the M3 context-row gauge (design-system §5's card `.r3` / tile
-// `.ctxinfo`; REQ-13's "one derivation, two renderers" — render/context.ts is the only
-// DOM consumer). Honesty rule 1 (design-system §6): unknown context never derives a
+// Pure derivation for the context-row gauge (design-system §5's card `.r3` / tile
+// `.ctxinfo`; one derivation, two renderers — render/context.ts is the only DOM
+// consumer). Honesty rule 1 (design-system §6): unknown context never derives a
 // percentage or a track — `usedPct`/`totalInputTokens`/`windowSize` are all-null or
-// all-non-null on the wire (protocol INV-2), so checking either of the first two is
-// sufficient to know the whole triple's state.
+// all-non-null on the wire (kb:anchor/ws.session), so checking either of the first two
+// is sufficient to know the whole triple's state.
 import type { SessionContext } from "../protocol";
 import { formatTokens, GAUGE_WARN_THRESHOLD } from "./format";
 

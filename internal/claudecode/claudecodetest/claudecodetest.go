@@ -325,7 +325,7 @@ func RawPermissionRequest(sessionID, promptID string) string {
 	})
 }
 
-// StopOpts customizes RawStop beyond its M0-compatible defaults.
+// StopOpts overrides RawStop's defaults; a zero field keeps its default.
 type StopOpts struct {
 	PromptID             string
 	PermissionMode       string
@@ -333,7 +333,7 @@ type StopOpts struct {
 }
 
 // RawStop returns a raw (non-enveloped) `Stop` — the common shape for ordinary
-// plain-HTTP hooks. A zero-value StopOpts reproduces M0's fixture.
+// plain-HTTP hooks.
 func RawStop(sessionID string, opts StopOpts) string {
 	promptID := opts.PromptID
 	if promptID == "" {
@@ -361,7 +361,7 @@ func RawStop(sessionID string, opts StopOpts) string {
 	})
 }
 
-// StopFailureOpts customizes RawStopFailure beyond its M0-compatible defaults.
+// StopFailureOpts overrides RawStopFailure's defaults; a zero field keeps its default.
 type StopFailureOpts struct {
 	PromptID             string
 	Error                string
@@ -463,13 +463,12 @@ func EnvelopedStatusLinePreFirstResponse(sessionID string, musterSession int, tm
 	return marshal(env)
 }
 
-// StatusLineFullOpts customizes EnvelopedStatusLineFull beyond its M3-baseline defaults
-// (musterSession 1, model "claude-haiku-4-5-20251001"/"Haiku 4.5", 42% context used /
-// 84000 input tokens / 200000 window, 61% five-hour / 23% seven-day usage, both resetting
-// at a fixed far-future epoch). TmuxPane has no default (REQ-12): left empty, it omits
-// the envelope's tmuxPane field (the headless shape) rather than filling one in. Every
-// default is fixed and non-wall-clock-dependent so two zero-value calls are byte-identical
-// (REQ-15's dedup-testing requirement, m3-gauges INV-5/D9).
+// StatusLineFullOpts overrides EnvelopedStatusLineFull's defaults (musterSession 1, model
+// "claude-haiku-4-5-20251001"/"Haiku 4.5", 42% context used / 84000 input tokens / 200000
+// window, 61% five-hour / 23% seven-day usage, both resetting at a fixed far-future epoch).
+// TmuxPane has no default: left empty, it omits the envelope's tmuxPane field (the headless
+// shape) rather than filling one in. Every default is fixed and non-wall-clock-dependent so
+// two zero-value calls are byte-identical, which dedup tests depend on.
 type StatusLineFullOpts struct {
 	MusterSession int
 	// TmuxPane, left empty, omits the envelope's tmuxPane field (the headless shape).

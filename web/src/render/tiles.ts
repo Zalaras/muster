@@ -1,7 +1,7 @@
 // Tiles view rendering: the live grid + the snapshot strip (docs/design/mockups/
 // d-tiled.html; design-system §4/§5). DOM only — every displayed string comes from
 // ../sessions/card.ts's pure view-model, shared with the rail, since a strip card IS a
-// rail card per the plan's UI spec: "the M1 card content on its side".
+// rail card on its side.
 import type { RailActivity, Session } from "../protocol";
 import {
   buildDeadSurfaceFromTemplate,

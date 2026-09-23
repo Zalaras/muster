@@ -1,6 +1,6 @@
-// Shared DOM builder for the M3 context-row gauge — the rail/strip card's `.r3` row and
-// the tile header's `.ctxinfo` span are the same view-model rendered twice (REQ-13's
-// "one derivation, two renderers"; docs/design/mockups/a-instrument.html lines 103-111 /
+// Shared DOM builder for the context-row gauge — the rail/strip card's `.r3` row and
+// the tile header's `.ctxinfo` span are the same view-model rendered twice (one
+// derivation, two renderers; docs/design/mockups/a-instrument.html lines 103-111 /
 // d-tiled.html's `.thead .ctx`). DOM only — derivation lives in ../sessions/context.ts.
 import type { SessionContext } from "../protocol";
 import { buildContextRowViewModel } from "../sessions/context";

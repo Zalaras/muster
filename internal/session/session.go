@@ -43,19 +43,18 @@ type Failure struct {
 	Message string
 }
 
-// Model is the session's model readout; both fields start at the launch value
-// verbatim (M1 value semantics). From M3 on, a routed status-line post refreshes both
-// fields whenever its model object is present (kb:anchor/ws.session M3 value semantics).
+// Model is the session's model readout (kb:anchor/ws.session value semantics); both
+// fields start at the launch value verbatim, and a routed status-line post refreshes both
+// whenever its model object is present.
 type Model struct {
 	ID          string
 	DisplayName string
 }
 
-// Context is the session's live context-window gauge (kb:anchor/ws.session M3 value semantics):
-// UsedPct/TotalInputTokens/WindowSize are always all present together — a nil *Context
-// means unknown (INV-2), never a zero value. Populated only by a routed status-line
-// post whose payload carries a non-null used-percentage (REQ-2); reset to nil by
-// `/clear` (REQ-9).
+// Context is the session's live context-window gauge (kb:anchor/ws.session value
+// semantics): UsedPct/TotalInputTokens/WindowSize are always all present together — a nil
+// *Context means unknown, never a zero value. Populated only by a routed status-line post
+// whose payload carries a non-null used-percentage; reset to nil by `/clear`.
 type Context struct {
 	UsedPct          float64
 	TotalInputTokens int64
@@ -64,7 +63,7 @@ type Context struct {
 
 // Session is one row of the kb:anchor/state state machine, held in memory and persisted on every
 // mutation. Guard fields (currentPromptID/closedPromptIDs) are in-memory only — a
-// daemon restart resets them (accepted M1 edge, plan Schema Changes note).
+// daemon restart resets them.
 type Session struct {
 	ID                   int64
 	TmuxTarget           string

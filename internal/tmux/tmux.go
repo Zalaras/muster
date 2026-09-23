@@ -67,34 +67,30 @@ func (c *Client) socketFlag() []string {
 	return []string{"-L", c.socket}
 }
 
-// serverOptions are the carry-over options the 2026-08-16 spike measured
-// (spikes/FINDINGS.md §7) plus `prefix`/`prefix2 None` so keystrokes (including C-b)
-// pass through to claude instead of being swallowed as a tmux prefix (plan
-// Implementation Notes — daemon-impl verified manually: with `prefix None` set, sending
-// literal `C-b` bytes through the PTY reaches the attached shell instead of tmux).
+// serverOptions are the carry-over options the tmux spike measured (spikes/FINDINGS.md
+// §7) plus `prefix`/`prefix2 None` so keystrokes (including C-b) pass through to claude
+// instead of being swallowed as a tmux prefix (verified manually: with `prefix None` set,
+// sending literal `C-b` bytes through the PTY reaches the attached shell instead of tmux).
 //
-// detach-on-destroy is "on", not the spike's measured "off" (plan REQ-4, amended in
-// review cycle 1, 2026-08-23): the spike measured "off" against M1's single-shared-
-// session topology, where there was only ever one tmux session on the socket to hop to
-// (itself). Under structural decision 1 (one tmux session per Muster session), "off"
-// means a destroyed session's attach client migrates to a DIFFERENT Muster session
-// instead of exiting — no PTY EOF (so no 4001/liveness nudge), a second client ends up
-// attached to that other session (breaking INV-1), and keystrokes typed into the dead
-// session's surface are delivered to a different session's Claude Code (review.md
-// Critical 3). "on" makes the client exit cleanly when its session is destroyed, which
-// is what termbridge.Bridge.Read's EIO->EOF mapping and REQ-6 depend on.
+// detach-on-destroy is "on", not the spike's measured "off"
+// (kb:adr/surfaces-detach-on-destroy-on): the spike measured "off" with only one tmux
+// session on the socket, so there was nowhere to hop to. With one tmux session per Muster
+// session (kb:adr/surfaces-one-tmux-session-per-session), "off" means a destroyed
+// session's attach client migrates to a DIFFERENT Muster session instead of exiting — no
+// PTY EOF (so no 4001/liveness nudge), a second client ends up attached to that other
+// session, and keystrokes typed into the dead session's surface are delivered to a
+// different session's Claude Code. "on" makes the client exit cleanly when its session is
+// destroyed, which is what termbridge.Bridge.Read's EIO->EOF mapping depends on.
 //
-// destroy-unattached stays "off": re-verified under the amendment (not just carried
-// over) with a throwaway creack/pty program mirroring Bridge.Close() exactly — attach a
-// client to one of two sessions on a scratch socket with these exact two options set,
-// then close the PTY master and kill+wait the attach process (Bridge.Close()'s own
-// sequence, i.e. a normal client-initiated detach, NOT kill-session): `tmux
-// list-sessions` afterward still showed both sessions and `list-clients` was empty —
-// the session survives with no attached client, letting claude keep running while
-// nobody is viewing it. destroy-unattached governs "does a session survive its last
-// client detaching" and detach-on-destroy governs "what happens to a client when its
-// session is destroyed" — two different events, so the amendment to one does not
-// disturb the other.
+// destroy-unattached stays "off": verified with a throwaway creack/pty program mirroring
+// Bridge.Close() exactly — attach a client to one of two sessions on a scratch socket with
+// these exact two options set, then close the PTY master and kill+wait the attach process
+// (Bridge.Close()'s own sequence, i.e. a normal client-initiated detach, NOT kill-session):
+// `tmux list-sessions` afterward still showed both sessions and `list-clients` was empty —
+// the session survives with no attached client, letting claude keep running while nobody
+// is viewing it. destroy-unattached governs "does a session survive its last client
+// detaching" and detach-on-destroy governs "what happens to a client when its session is
+// destroyed" — two different events, so setting one does not disturb the other.
 var serverOptions = [][]string{
 	{"set-option", "-g", "default-terminal", "tmux-256color"},
 	{"set-option", "-as", "terminal-features", ",xterm-256color:RGB"},

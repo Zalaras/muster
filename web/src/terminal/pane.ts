@@ -228,7 +228,7 @@ export class TerminalSurface {
       this.refit(true);
     });
     socket.addEventListener("message", (event: MessageEvent) => {
-      // kb:anchor/terminal.ws: no server->client text frames in M2 — only binary PTY output.
+      // kb:anchor/terminal.ws: no server->client text frames — only binary PTY output.
       if (event.data instanceof ArrayBuffer) {
         this.term?.write(new Uint8Array(event.data));
       }

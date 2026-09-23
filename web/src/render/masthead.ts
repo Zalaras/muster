@@ -59,9 +59,8 @@ export interface ViewSwitcherElements {
   tilesButton: HTMLButtonElement;
 }
 
-/** Focus/Tiles segmented control (design-system §4.1) — the M1 slot design-system §8
- * required to be laid out from the start now gets filled in. `aria-pressed` is the
- * Testable UI Elements contract for both buttons. */
+/** Focus/Tiles segmented control (design-system §4.1). `aria-pressed` is the tested
+ * contract for both buttons. */
 export function renderViewSwitcher(elements: ViewSwitcherElements, view: "focus" | "tiles"): void {
   elements.focusButton.setAttribute("aria-pressed", String(view === "focus"));
   elements.tilesButton.setAttribute("aria-pressed", String(view === "tiles"));
@@ -85,17 +84,16 @@ export function renderDensityControl(
   elements.threeByTwoButton.setAttribute("aria-pressed", String(density === "3x2"));
 }
 
-/** M3 (REQ-11/REQ-14, design-system §5 "Gauge thresholds"): inserts the masthead usage
- * bar's track-fill between `.lbl` and `.num`, and appends the reset-time suffix after
- * `.num` — into the *same* bucket element `renderUsage` above just rebuilt
- * (`#usage-5h`/`#usage-7d` — the Testable UI Elements table's "existing element
- * upgraded"). Must be called immediately after `renderUsage` on the same element, every
+/** Design-system §5 "Gauge thresholds": inserts the masthead usage bar's track-fill
+ * between `.lbl` and `.num`, and appends the reset-time suffix after `.num` — into the
+ * *same* bucket element `renderUsage` above just rebuilt (`#usage-5h`/`#usage-7d`).
+ * Must be called immediately after `renderUsage` on the same element, every
  * render pass: `renderUsage` always calls `replaceChildren`, which clears any
  * previously-appended track/resets nodes back down to a bare `[.lbl, .num]`, so this
  * function starts from a clean slate every time rather than needing to find or remove
  * stale markup itself — that's also what makes the honesty rule (below) self-healing
- * across a value going from known back to unknown (e.g. REQ-7's masthead reset to
- * unknown after a daemon restart).
+ * across a value going from known back to unknown (e.g. the masthead's reset to unknown
+ * after a daemon restart).
  *
  * Final child order mirrors the reference render (`mockups/a-instrument.html:199`):
  * `.lbl`, `.bar`, `.num`, `.resets` — the bar reads before the number, not after.
@@ -120,11 +118,11 @@ export function renderUsageTrack(el: HTMLElement, bucket: UsageBucket | null, no
   el.appendChild(resets);
 }
 
-/** REQ-12: the masthead model readout — the Usage object's freshest-sample model,
- * verbatim. Empty/hidden while null (no hydration at boot, REQ-7; also null again right
- * after a daemon restart until the next status post). Accepts `undefined` too since
- * `Usage.model` is an optional wire field (protocol.ts) — a pre-M3-shaped payload that
- * omits it entirely reads the same as an explicit null. */
+/** The masthead model readout — the Usage object's freshest-sample model, verbatim.
+ * Empty/hidden while null (no hydration at boot; also null again right after a daemon
+ * restart until the next status post). Accepts `undefined` too since `Usage.model` is an
+ * optional wire field (protocol.ts) — a payload that omits it entirely reads the same as
+ * an explicit null. */
 export function renderUsageModel(
   el: HTMLElement,
   model: SessionModelInfo | null | undefined,

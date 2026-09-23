@@ -21,9 +21,8 @@ type Store struct {
 }
 
 // Open opens (creating if absent) the SQLite database at path, enables WAL mode, and
-// applies any pending migrations. A single connection is used deliberately: M0's ingest
-// path is a single writer goroutine, and one connection keeps SQLite's own
-// one-writer-at-a-time rule from ever surfacing as SQLITE_BUSY.
+// applies any pending migrations. A single connection is used deliberately: it serialises
+// every writer, so SQLite's own one-writer-at-a-time rule never surfaces as SQLITE_BUSY.
 func Open(ctx context.Context, path string) (*Store, error) {
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
@@ -45,14 +44,13 @@ func Open(ctx context.Context, path string) (*Store, error) {
 		return nil, fmt.Errorf("migrating %q: %w", path, err)
 	}
 
-	// The driver creates the file world-readable by default; M1 is the first milestone
-	// where real prompt text actually flows into it (hook payloads), so tighten it
-	// (review Minor 3 — adjacent to, not a violation of, the "never log hook payloads"
-	// hard rule, since a DB isn't a log). In WAL mode SQLite has, by this point, already
-	// created the -wal/-shm sidecars at the driver's default (world-readable) mode too —
-	// and the WAL is precisely where the most recently written pages (i.e. the newest
-	// hook payloads) live, so it needs the same restriction as the main file (review
-	// cycle 2 Major 1: chmod'ing only the main file left the sidecars world-readable).
+	// The driver creates the file world-readable by default, and hook payloads (prompt
+	// text) flow into it, so tighten it — adjacent to, not a violation of, the "never log
+	// hook payloads" hard rule, since a DB isn't a log. In WAL mode SQLite has, by this
+	// point, already created the -wal/-shm sidecars at the driver's default
+	// (world-readable) mode too — and the WAL is precisely where the most recently written
+	// pages (i.e. the newest hook payloads) live, so it needs the same restriction as the
+	// main file.
 	for _, p := range []string{path, path + "-wal", path + "-shm"} {
 		if err := os.Chmod(p, 0o600); err != nil && !os.IsNotExist(err) {
 			_ = db.Close()
@@ -133,13 +131,13 @@ type Event struct {
 }
 
 // InsertEvent persists ev, assigning it the next seq for its ClaudeSessionID as part of
-// the same insert (MAX(seq)+1 scoped to that session). Safe under M0's single ingest
+// the same insert (MAX(seq)+1 scoped to that session). Safe under the single ingest
 // worker; it is not a general-purpose concurrent seq allocator.
 func (s *Store) InsertEvent(ctx context.Context, ev Event) error {
-	// RFC3339Nano (m3-gauges REQ-10, M0 review minor): plain RFC3339's second granularity
-	// let two immediate inserts land with identical timestamps; readers parse with
-	// RFC3339Nano, which accepts both old (second-granularity) and new rows, and seq
-	// remains the only ordering authority regardless.
+	// RFC3339Nano: plain RFC3339's second granularity lets two immediate inserts land
+	// with identical timestamps; readers parse with RFC3339Nano, which accepts both old
+	// (second-granularity) and new rows, and seq remains the only ordering authority
+	// regardless.
 	receivedAt := time.Now().UTC().Format(time.RFC3339Nano)
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO event (claude_session_id, seq, type, prompt_id, tool_use_id, muster_session, tmux_pane, payload, received_at, session_id)

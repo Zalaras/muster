@@ -19,9 +19,9 @@ export function initUsage(app: App): void {
   const usageRefreshBtn = requireElement<HTMLButtonElement>("#usage-refresh");
   const usageModelEl = requireElement<HTMLElement>("#usage-model");
 
-  // M3: the account-global Usage object, from the initial `snapshot` and every
-  // subsequent `usage` broadcast — re-rendered every pass so REQ-14's reset-time
-  // formatting stays current against the wall clock.
+  // The account-global Usage object, from the initial `snapshot` and every subsequent
+  // `usage` broadcast — re-rendered every pass so the reset-time formatting stays current
+  // against the wall clock.
   let currentUsage: Usage = UNKNOWN_USAGE;
   // Plan usage-model-bar: which model-scoped window the masthead's third readout shows —
   // same "daemon's `prefs` broadcast is the single source of truth" rule as
