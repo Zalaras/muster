@@ -2,7 +2,7 @@
 name: land
 description: "Squash-merges an approved plan branch to main with a conventional subject that closes its issues, then deletes the branch."
 argument-hint: "<plan-name>"
-allowed-tools: Read, Grep, Glob, Bash, AskUserQuestion
+allowed-tools: Read, Grep, Glob, Bash, Edit, AskUserQuestion
 ---
 
 > **Maintainer note:** This command lives in a skill and runs in the main session — it is the
@@ -10,7 +10,10 @@ allowed-tools: Read, Grep, Glob, Bash, AskUserQuestion
 > ask. Authored 2026-08-31. It exists because the merge was previously an undocumented
 > end-of-session request: the subject convention lived only as a pattern in `git log`, and
 > whether an issue closed depended on the merging session noticing that a ticked `TODO.md`
-> item carried an issue link.
+> item carried an issue link. Step 2 was added 2026-09-23, when 16 proposals across 5 plans'
+> `proposed-backlog.md` files turned out never to have been put to the user (3 already fixed,
+> 2 duplicates): the file was durable but nothing made anyone read it
+> (kb:adr/process-land-decides-proposed-backlog).
 
 You land an approved plan branch on `main`. `/orchestrate` deliberately never merges or pushes
 (`.claude/skills/orchestrate/SKILL.md` Completion step 8) — this is that missing step.
@@ -48,12 +51,50 @@ Check all of these before touching anything. If any fails, stop and say exactly 
 6. For each name in the plan's `**Features**`, `go run ./tools/kb ls --feature <f> --status
    proposed` lists no record with `refs: plan:<plan>`, and `make check-kb` exits 0 on the
    branch. A `proposed` ADR here means orchestrate's Completion step 4 was skipped — send it back
-   rather than flipping it yourself; this command edits nothing.
+   rather than flipping it yourself. The only files this command ever edits are `TODO.md` and
+   `proposed-backlog.md` files, in step 2, on the user's answers.
 
 A plan that never went through `/orchestrate` (no state file, no review) is not landable by this
 command. Say so and let the user commit it themselves.
 
-## 2. Compose the subject
+## 2. Decide the proposed follow-ups
+
+A run files nothing into `TODO.md`; it proposes in `plans/<plan>/proposed-backlog.md`
+(kb:adr/process-backlog-entries-are-the-users-to-file). This is where the user decides, so the
+decisions ride the same squash as the fix (kb:adr/process-land-decides-proposed-backlog).
+
+**Scope.** This plan's file, plus every other `plans/*/proposed-backlog.md` **as it is on
+`main`** (`git show main:<path>`) that has no `## Decisions` section, or a Decisions line marked
+`deferred` — the sweep catches plans committed without `/land`. A swept file is edited on the
+plan branch only when `git diff --quiet main plan/<plan> -- <path>` holds; otherwise leave it for
+the next `/land` and say so. Nothing open → "no proposals", one line, and go to step 3.
+
+**Verify before showing.** For each proposal, check it still holds: grep the symbol or line it
+names, `git log -S` for a fix. Mark one fixed since as **already done** with the commit or line
+as evidence, and one that repeats another proposal or an open `TODO.md` entry as **duplicate of
+#N**. Never mark either without that evidence.
+
+**Print** a numbered list grouped by plan, one short line each — the block's **Summary** line
+where it has one — tagging **Asked** where **Change requested** is yes, then a tally: distinct,
+already done, duplicates. **Ask in prose, not an `AskUserQuestion` menu**: the user answers per
+number — yes, not doing, defer, or a changed wording ("add as an investigation"). Asked to
+explain one, explain it plainly and wait.
+
+**Apply**, on `plan/<plan>` (`git checkout plan/<plan>`):
+
+- Each yes → `TODO.md`, in the section the user names, else **Pre-v1 Cleanup** above the
+  "Cutting v1.0.0" entry, under a `Filed <date> by the developer from the plans'
+  proposed-backlog.md files` lead line: `- [ ] **Title** — body … From \`plans/<plan>/\`.` An
+  entry that would reverse an accepted ADR names it.
+- Every decision → one line in a `## Decisions (the developer, <date>)` section appended to its
+  file: `filed: TODO.md § <section>, "<title>"`, `not doing`, `already done: <evidence>. Not
+  filed.`, or `deferred`.
+- Commit the files by name, `docs(<plan>): file follow-ups from proposed-backlog`, then
+  `make check-kb` and `python3 .claude/skills/orchestrate/scripts/dead-refs.py --all` exit 0,
+  and `git merge-tree --write-tree main plan/<plan>` exits 0 (1 means the edit now conflicts
+  with `main` — stop and ask).
+
+## 3. Compose the subject
 
 Format, per `docs/conventions.md` § Commits — one sentence, no body:
 
@@ -102,7 +143,7 @@ issues, the subject simply has no tail.
 a plan can advance an issue without finishing it. If orchestrate flagged an issue as partially
 addressed, name it in the report as deliberately not closing.
 
-## 3. Show before doing
+## 4. Show before doing
 
 Print, and get confirmation:
 
@@ -111,7 +152,7 @@ Print, and get confirmation:
 - `git log --oneline main..plan/<plan>` — what is being squashed;
 - `git diff --stat main...plan/<plan>` — the size of what lands;
 - the backlog items the branch adds — `git diff main...plan/<plan> -- TODO.md | grep '^+- \[ \]'`
-  — and, for each, whether the plan's `## Out of scope` names it. Anything else is a run filing
+  — and, for each, whether step 2 filed it or the plan's `## Out of scope` names it. Anything else is a run filing
   work you did not approve (kb:adr/process-backlog-entries-are-the-users-to-file): say so here
   rather than after the merge;
 - the **predicted release**: `feat`→minor; `fix`/`perf`/`refactor`→patch; everything
@@ -120,7 +161,7 @@ Print, and get confirmation:
 
 Landing chooses the version bump. Make that visible rather than implicit.
 
-## 4. Land
+## 5. Land
 
 ```bash
 git checkout main
@@ -133,7 +174,7 @@ git push
 its own — leave it that way. The push triggers `release.yml`, which tags and publishes darwin
 archives, and GitHub closes the referenced issues.
 
-## 5. Delete the branch
+## 6. Delete the branch
 
 A squash-merge leaves git considering the branch unmerged, so `git branch --merged` is useless
 here and `-d` will refuse. `-D` is therefore required — which means the verification has to be
@@ -162,10 +203,11 @@ being unlanded. Don't delete on that alone; establish all three:
 
 If any of the three is unclear, keep the branch and ask. A branch costs nothing; lost work does.
 
-## 6. Report
+## 7. Report
 
 - the squash SHA on `main` and the subject that landed;
 - which issues will close, and any deliberately left open with the reason;
+- the proposals decided in step 2 — filed (and where), not doing, already done, deferred;
 - the release workflow triggered and the predicted bump;
 - the branch deleted, with the empty-diff verification stated as evidence.
 
@@ -179,3 +221,5 @@ Then remind the user that `/triage --audit` will show any issue whose close sile
   `MUSTER_BREAKING=1`, which only a human sets), and never write the breaking-footer phrase
   anywhere in a commit message.
 - Never delete a branch whose diff against `main` is non-empty.
+- Never file a proposal the user did not choose, and never mark one already done or duplicate
+  without evidence.

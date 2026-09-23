@@ -287,7 +287,10 @@ Everything else a run discovers is **proposed, not filed** — in `plans/<plan>/
 for a pipeline run, or in its report for a skill that has no plan directory. A proposal records
 who raised it and whether they asked for a change, so a reviewer's "no change requested" is still
 visible when the user decides. Placement is a ranking judgement and stays the user's: a section
-in the proposal is a hint, never a filing.
+in the proposal is a hint, never a filing. `/land` puts each open proposal to the user before
+the merge, files the ones they choose, and records every decision in the file's `## Decisions`
+section; a `deferred` one comes back at the next `/land`
+(kb:adr/process-land-decides-proposed-backlog).
 
 Dropping a proposal is a complete outcome. Dropping a *filed* entry that carries an `issues/N`
 link is not — triage state is derived from the file, so the issue reappears as untriaged

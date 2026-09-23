@@ -14,7 +14,8 @@ refs: [kb:adr/process-doc-reconcile-after-review, kb:lesson/squash-merge-never-e
 One feature, end to end. Each arrow into a skill is a gate that refuses rather than warns:
 `/plan-work` refuses a spec whose `Status` is not `Approved`; `/orchestrate` refuses a `draft`
 plan or any `plan-lint` FAIL and spawns nobody; `/land` refuses a review verdict that is not
-`approved`, a dirty tree, or a `proposed` ADR still carrying this plan's name.
+`approved`, a dirty tree, or a `proposed` ADR still carrying this plan's name, and puts every open
+proposed follow-up to the user before it merges (kb:adr/process-land-decides-proposed-backlog).
 
 Inside `/orchestrate`, a full-stack plan runs both tracks; a `daemon` or `web` plan drops the
 other track's two boxes, and an E2E Scope of `none` drops both E2E stages. E2E Specs authors
@@ -66,7 +67,7 @@ flowchart TD
     end
 
     ORCH --> RETRO["/retro — one lesson or nothing, commits on the plan branch"]
-    RETRO --> LAND["/land — squash to main, closes #N, push, delete branch"]
+    RETRO --> LAND["/land — decide proposals, squash to main, closes #N, push, delete branch"]
     ORCH -.->|blocked verdict — never completed| USER([Back to the user])
     LAND -.->|verdict not approved, or a proposed ADR remains| USER
 ```
