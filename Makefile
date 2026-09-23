@@ -89,8 +89,8 @@ run: build web-build ## Run musterd against the real data dir, serving the disk 
 	./$(BIN) -web-dist internal/webui/assets
 
 .PHONY: canary
-canary: ## Drive the real claude (4 haiku turns + zero-token unauth/resume/live checks), assert every field Muster depends on, then extend the verified range on a green run outside it; MUSTER_CANARY_OFFLINE=1 = compile + classify + static binary check only
-	go test -tags=canary -count=1 -v ./test/canary/... && go run ./tools/versions bump
+canary: ## Drive the real claude (6 haiku turns incl. resume + zero-token unauth/fail-server/model/live checks), assert every field Muster depends on, then extend the verified range on a green run outside it; MUSTER_CANARY_OFFLINE=1 = compile + classify + static binary check only
+	go test -tags=canary -count=1 -timeout 25m -v ./test/canary/... && go run ./tools/versions bump
 
 .PHONY: gen-versions
 gen-versions: ## Regenerate the Claude Code version-range fragments in README.md and docs/claude-code-versions.md

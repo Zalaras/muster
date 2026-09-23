@@ -50,6 +50,16 @@ import (
 //	F  REQ-9's zero-token production CheckModel run against the installed binary: an
 //	   unrecognised custom model string and the recognised haiku preset, both --bare
 //	   so no tokens are spent and no hooks fire                              (0 tokens)
+//	G  interactive ($MUSTER_SESSION=50): a sleeping Bash call interrupted with Esc, then a
+//	   quiet window longer than the idle_prompt delay                        (1 haiku turn)
+//	H  headless ($MUSTER_SESSION=51): four parallel Reads, one of a missing file, with the
+//	   capture server holding each PostToolUse response for postToolUseHold (1 haiku turn)
+//	I  headless against an in-test fail server, once per StopFailure mapping row
+//	   ($MUSTER_SESSION=60 onward, one per row)                              (0 tokens)
+//	J  interactive against a fail server answering 429 with rate-limit headers
+//	   ($MUSTER_SESSION=52), one prompt that fails                           (0 tokens)
+//
+// Runs G–J live in harness_turns_test.go.
 //
 // Isolation: the scratch repo lives under os.MkdirTemp (/var/folders, outside ~/Documents
 // so no parent CLAUDE.md leaks into the session); ~/.claude/settings.json is never read or
@@ -68,6 +78,11 @@ const (
 	sessionUnauthAuto    int64 = 47 // unauthenticated, --permission-mode auto (haiku model-gated to default)
 	sessionResume        int64 = 48 // run E: resume of sessionInteract's claude session_id
 	sessionUnauthDefault int64 = 49 // unauthenticated, explicit --permission-mode default (REQ-9)
+	sessionInterrupt     int64 = 50 // run G: Esc during a running Bash call
+	sessionToolBatch     int64 = 51 // run H: parallel Reads, PostToolUse responses held
+	sessionFailedTurn    int64 = 52 // run J: interactive, every API call fails with a 429
+	// sessionStopFailureBase is run I's first row; row i is sessionStopFailureBase+i.
+	sessionStopFailureBase int64 = 60
 
 	headlessPrompt    = "Run exactly this shell command and nothing else, then stop: echo hi"
 	interactivePrompt = "say hi"
@@ -78,6 +93,8 @@ const (
 
 	interactiveTmuxID       int64 = 99 // tmux session "muster-99" on the scratch socket: run D
 	interactiveResumeTmuxID int64 = 98 // tmux session "muster-98" on the scratch socket: run E
+	interruptTmuxID         int64 = 97 // tmux session "muster-97" on the scratch socket: run G
+	failedTurnTmuxID        int64 = 96 // tmux session "muster-96" on the scratch socket: run J
 
 	// refreshIntervalSeconds is the one settings key the canary writes that production never
 	// does (kb:adr/canary-refresh-interval-key-canary-only): MergeSettings emits statusLine
@@ -190,6 +207,10 @@ type fixture struct {
 		recognisedVerdict   claudecode.ModelVerdict
 	}
 
+	interrupt  interruptRun  // run G
+	toolBatch  toolBatchRun  // run H
+	failedTurn failedTurnRun // run J
+
 	tmuxClient *tmux.Client
 }
 
@@ -240,7 +261,7 @@ func TestMain(m *testing.M) {
 // build
 
 func (f *fixture) build() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 16*time.Minute)
 	defer cancel()
 
 	installed, err := claudecode.InstalledVersion(ctx, "claude")
@@ -307,6 +328,10 @@ func (f *fixture) build() error {
 		{"run D (interactive status line)", f.runD},
 		{"run E (resume + plan mode)", f.runE},
 		{"run F (model-catalog pre-check)", f.runF},
+		{"run G (interrupt mid-tool)", f.runG},
+		{"run H (parallel Reads, held PostToolUse)", f.runH},
+		{"run I (StopFailure mapping)", f.runI},
+		{"run J (all-failing interactive status line)", f.runJ},
 	}
 	for _, r := range runs {
 		if err := r.fn(ctx); err != nil {
@@ -400,6 +425,13 @@ func (f *fixture) handle(w http.ResponseWriter, r *http.Request) {
 		c.ev.Type = "unparseable"
 	}
 	f.record(c)
+	// Run H's PostToolUse posts are recorded on arrival, then answered late: the production
+	// wrapper's curl is synchronous, so the hook itself lasts postToolUseHold without the
+	// settings changing (kb:adr/canary-hook-await-measured-by-held-ingest-response).
+	if kind == claudecode.KindHook && c.ev.Type == "PostToolUse" &&
+		c.ev.MusterSession != nil && *c.ev.MusterSession == sessionToolBatch {
+		time.Sleep(postToolUseHold)
+	}
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -433,21 +465,23 @@ func baseEnv() []string {
 	return env
 }
 
-// headless runs one headless turn. permissionMode, when non-empty, is passed as
+// headless runs one headless `echo hi` turn. permissionMode, when non-empty, is passed as
 // --permission-mode (REQ-1's unauthenticated sweep); empty omits the flag entirely, as
 // every run before REQ-1 did.
 func (f *fixture) headless(ctx context.Context, permissionMode string, extraEnv ...string) (string, error) {
+	flags := []string{"--allowedTools", "Bash", "--output-format", "json"}
+	if permissionMode != "" {
+		flags = append(flags, "--permission-mode", permissionMode)
+	}
+	return f.headlessRun(ctx, headlessPrompt, flags, extraEnv)
+}
+
+// headlessRun runs `claude -p prompt --model haiku flags...` in the scratch repo and returns
+// its combined output once the last hook has had time to land.
+func (f *fixture) headlessRun(ctx context.Context, prompt string, flags, extraEnv []string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
-	args := []string{
-		"-p", headlessPrompt,
-		"--model", haikuModel,
-		"--allowedTools", "Bash",
-		"--output-format", "json",
-	}
-	if permissionMode != "" {
-		args = append(args, "--permission-mode", permissionMode)
-	}
+	args := append([]string{"-p", prompt, "--model", haikuModel}, flags...)
 	cmd := exec.CommandContext(ctx, "claude", args...)
 	cmd.Dir = f.repo
 	cmd.Env = append(baseEnv(), extraEnv...)
@@ -532,20 +566,7 @@ func (f *fixture) runD(ctx context.Context) error {
 		Title:          "Muster Canary",
 		PermissionMode: "plan",
 	})
-	env := map[string]string{
-		"MUSTER_SESSION": fmt.Sprint(sessionInteract),
-		"LANG":           "en_US.UTF-8",
-		"TERM":           "xterm-256color",
-	}
-	target, _, err := f.tmuxClient.NewSession(ctx, interactiveTmuxID, f.repo, env, argv)
-	if err != nil {
-		return err
-	}
-	if err = f.tmuxClient.ResizeWindow(ctx, target, 200, 50); err != nil {
-		return err
-	}
-
-	c, trustPromptSeen, err := f.waitForSessionStart(ctx, target, sessionInteract, 90*time.Second)
+	target, c, trustPromptSeen, err := f.startInteractive(ctx, interactiveTmuxID, sessionInteract, argv, nil)
 	f.interactive.trustPromptSeen = trustPromptSeen
 	if err != nil {
 		return err
@@ -559,13 +580,7 @@ func (f *fixture) runD(ctx context.Context) error {
 		f.interactive.transcriptPath = tp
 	}
 
-	// Type and submit separately (probe skill: one combined call swallows the newline).
-	time.Sleep(2 * time.Second)
-	if err := f.sendKeys(ctx, target, interactivePrompt); err != nil {
-		return err
-	}
-	time.Sleep(1 * time.Second)
-	if err := f.sendKeys(ctx, target, "Enter"); err != nil {
+	if err := f.submit(ctx, target, interactivePrompt); err != nil {
 		return err
 	}
 
@@ -602,11 +617,54 @@ func (f *fixture) runD(ctx context.Context) error {
 	f.shiftTabStep(ctx, target)
 	f.clearStep(ctx, target)
 
-	if err := f.tmuxClient.KillSession(ctx, fmt.Sprintf("muster-%d", interactiveTmuxID)); err != nil {
+	return f.killPane(ctx, interactiveTmuxID)
+}
+
+// startInteractive launches argv as tmux session muster-<tmuxID> on the scratch socket, with
+// $MUSTER_SESSION=session plus extraEnv (KEY=value, as headlessRun takes it), sized 200x50,
+// and waits up to 90 s for its SessionStart, answering the trust prompt on the way. A nil
+// capture means none arrived; each caller words that failure itself. On success it gives the
+// REPL 2 s to accept input.
+func (f *fixture) startInteractive(ctx context.Context, tmuxID, session int64, argv, extraEnv []string) (string, *capture, bool, error) {
+	env := map[string]string{
+		"MUSTER_SESSION": fmt.Sprint(session),
+		"LANG":           "en_US.UTF-8",
+		"TERM":           "xterm-256color",
+	}
+	for _, kv := range extraEnv {
+		k, v, _ := strings.Cut(kv, "=")
+		env[k] = v
+	}
+	target, _, err := f.tmuxClient.NewSession(ctx, tmuxID, f.repo, env, argv)
+	if err != nil {
+		return "", nil, false, err
+	}
+	if err = f.tmuxClient.ResizeWindow(ctx, target, 200, 50); err != nil {
+		return target, nil, false, err
+	}
+	c, trustPromptSeen, err := f.waitForSessionStart(ctx, target, session, 90*time.Second)
+	if c != nil {
+		time.Sleep(2 * time.Second)
+	}
+	return target, c, trustPromptSeen, err
+}
+
+// killPane kills muster-<tmuxID> and lets its last posts land. The kill error is returned;
+// a caller that kills on a deferred path may drop it, since the pane may already be gone.
+func (f *fixture) killPane(ctx context.Context, tmuxID int64) error {
+	err := f.tmuxClient.KillSession(ctx, fmt.Sprintf("muster-%d", tmuxID))
+	f.settle(2 * time.Second)
+	return err
+}
+
+// submit types text into target's pane, then presses Enter as a separate send-keys: one
+// combined call swallows the newline (probe skill).
+func (f *fixture) submit(ctx context.Context, target, text string) error {
+	if err := f.sendKeys(ctx, target, text); err != nil {
 		return err
 	}
-	f.settle(2 * time.Second)
-	return nil
+	time.Sleep(1 * time.Second)
+	return f.sendKeys(ctx, target, "Enter")
 }
 
 // waitForSessionStart polls for session's SessionStart hook, answering the workspace-trust
@@ -657,14 +715,7 @@ func (f *fixture) shiftTabStep(ctx context.Context, target string) {
 // session_id captured at run D's first SessionStart, whose transcript survives the clear.
 func (f *fixture) clearStep(ctx context.Context, target string) {
 	f.interactive.clearAt = time.Now()
-	// Type and submit separately, as everywhere else in this harness: one combined send-keys
-	// swallows the newline.
-	if err := f.sendKeys(ctx, target, "/clear"); err != nil {
-		f.interactive.clearErr = err
-		return
-	}
-	time.Sleep(1 * time.Second)
-	if err := f.sendKeys(ctx, target, "Enter"); err != nil {
+	if err := f.submit(ctx, target, "/clear"); err != nil {
 		f.interactive.clearErr = err
 		return
 	}
@@ -693,21 +744,8 @@ func (f *fixture) runE(ctx context.Context) error {
 		PermissionMode:  "plan",
 		ResumeSessionID: f.interactive.claudeSessionID,
 	})
-	env := map[string]string{
-		"MUSTER_SESSION": fmt.Sprint(sessionResume),
-		"LANG":           "en_US.UTF-8",
-		"TERM":           "xterm-256color",
-	}
-	target, _, err := f.tmuxClient.NewSession(ctx, interactiveResumeTmuxID, f.repo, env, argv)
-	if err != nil {
-		return err
-	}
-	if err = f.tmuxClient.ResizeWindow(ctx, target, 200, 50); err != nil {
-		return err
-	}
-
 	// Same trust-prompt loop as run D (Edge Case 3): a resume launch can re-trigger it.
-	started, _, err := f.waitForSessionStart(ctx, target, sessionResume, 90*time.Second)
+	target, started, _, err := f.startInteractive(ctx, interactiveResumeTmuxID, sessionResume, argv, nil)
 	if err != nil {
 		return err
 	}
@@ -715,12 +753,7 @@ func (f *fixture) runE(ctx context.Context) error {
 		return fmt.Errorf("no SessionStart within 90s on the resume relaunch (run E)")
 	}
 
-	time.Sleep(2 * time.Second)
-	if err := f.sendKeys(ctx, target, exitPlanPrompt); err != nil {
-		return err
-	}
-	time.Sleep(1 * time.Second)
-	if err := f.sendKeys(ctx, target, "Enter"); err != nil {
+	if err := f.submit(ctx, target, exitPlanPrompt); err != nil {
 		return err
 	}
 
@@ -732,11 +765,7 @@ func (f *fixture) runE(ctx context.Context) error {
 	}
 
 	// Kill without ever answering the dialog (REQ-5) — no Enter/Down/Escape past this point.
-	if err := f.tmuxClient.KillSession(ctx, fmt.Sprintf("muster-%d", interactiveResumeTmuxID)); err != nil {
-		return err
-	}
-	f.settle(2 * time.Second)
-	return nil
+	return f.killPane(ctx, interactiveResumeTmuxID)
 }
 
 // runF is REQ-9's zero-token production check (D13): it calls the exact
@@ -934,20 +963,51 @@ func (f *fixture) sessionStartAfterClear() *capture {
 	})
 }
 
-// hooksBetween lists the hook events on one claude session_id that arrived in [from, to).
+// hooksBetween lists the hook events on one claude session_id that arrived in [from, to),
+// a Notification labelled with its type, e.g. "Notification{idle_prompt}".
 func (f *fixture) hooksBetween(session int64, claudeID string, from, to time.Time) []string {
 	var out []string
 	for _, c := range f.hookEvents(session) {
-		if c.ev.SessionID == claudeID && !c.at.Before(from) && c.at.Before(to) {
-			out = append(out, c.ev.Type)
+		if c.ev.SessionID != claudeID || c.at.Before(from) || !c.at.Before(to) {
+			continue
 		}
+		label := c.ev.Type
+		if nt, ok := c.payload["notification_type"].(string); ok && c.ev.Type == "Notification" {
+			label += "{" + nt + "}"
+		}
+		out = append(out, label)
 	}
 	return out
 }
 
-func (f *fixture) hookTypes(session int64) []string {
-	var out []string
-	for _, c := range f.hookEvents(session) {
+// statusPostBefore is the last status post on claudeID that arrived before t.
+func (f *fixture) statusPostBefore(session int64, claudeID string, t time.Time) *capture {
+	var last *capture
+	for _, c := range f.statusPostsFor(session, claudeID) {
+		if c.at.Before(t) {
+			c := c
+			last = &c
+		}
+	}
+	return last
+}
+
+// statusPostAfter is the first status post on claudeID that arrived at or after t.
+func (f *fixture) statusPostAfter(session int64, claudeID string, t time.Time) *capture {
+	for _, c := range f.statusPostsFor(session, claudeID) {
+		if !c.at.Before(t) {
+			c := c
+			return &c
+		}
+	}
+	return nil
+}
+
+func (f *fixture) hookTypes(session int64) []string { return eventTypes(f.hookEvents(session)) }
+
+func eventTypes(cs []capture) []string {
+	out := make([]string, 0, len(cs))
+	for _, c := range cs {
 		out = append(out, c.ev.Type)
 	}
 	return out
@@ -998,12 +1058,13 @@ func (f *fixture) teardown() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if f.tmuxClient != nil {
-		// REQ-12: both tmux sessions (D and E) before the scratch socket's server itself.
+		// REQ-12: every tmux session (D, E, G, J) before the scratch socket's server itself.
 		// Each KillSession is a no-op error if that session already exited (e.g. the build
 		// failed before runE ever created muster-98) — ignored the same way run D's kill
 		// always was.
-		_ = f.tmuxClient.KillSession(ctx, fmt.Sprintf("muster-%d", interactiveTmuxID))
-		_ = f.tmuxClient.KillSession(ctx, fmt.Sprintf("muster-%d", interactiveResumeTmuxID))
+		for _, id := range []int64{interactiveTmuxID, interactiveResumeTmuxID, interruptTmuxID, failedTurnTmuxID} {
+			_ = f.tmuxClient.KillSession(ctx, fmt.Sprintf("muster-%d", id))
+		}
 		args := []string{"kill-server"}
 		if strings.Contains(f.socket(), "/") {
 			args = append([]string{"-S", f.socket()}, args...)

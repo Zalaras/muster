@@ -9,8 +9,8 @@ tags: [claude-code-format]
 files: [internal/claudecode/settings.go, internal/session/machine.go]
 tests: []
 refs: [test/rig/captures/capture-8.jsonl, kb:fact/hooks-not-awaited-on-failure-exit, kb:fact/permission-request-races-terminal-prompt, kb:adr/lifecycle-prompt-ordering-guards]
-verified: 2.1.280..2.1.280
-guard: none
+verified: 2.1.280..canary
+guard: TestPostToolUseNotAwaited
 ---
 Which hooks hold Claude Code up, measured by delaying one event's command hook (sh + curl, the
 production transport) and timing the next event's start:
@@ -36,4 +36,7 @@ kb:adr/lifecycle-prompt-ordering-guards absorbs it. Not measured: `Notification`
 (kb:fact/permission-request-races-terminal-prompt).
 
 Evidence: interface probe 2026-09-23, instance 8. 10 headless sessions (3 undelayed, 7
-delayed), plus 1 interactive session through the fail-proxy.
+delayed), plus 1 interactive session through the fail-proxy. Guarded since 2026-09-23 by
+`TestPostToolUseNotAwaited` (canary run H), for the `PostToolUse` bullet only: in a 4-call
+parallel `Read` batch, the next `PreToolUse` came 0.50–0.53 s after a `PostToolUse` whose hook
+lasted 1 s, and 0.22–0.25 s after one that lasted 1.5 s. The other rows stay probe-measured.

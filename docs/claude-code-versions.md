@@ -170,13 +170,17 @@ coverage on 2026-09-10 (plan `canary-full-coverage`), and extended to the verifi
 `MergeSettings` into a scratch repo's `.claude/settings.local.json`, from a data dir whose
 path contains a space — and captures the wrapper's enveloped POSTs on an in-test server.
 Three tiers: a harness that launches real sessions, a static tier that scans the installed
-binary, and a live tier that calls the real Keychain and usage API. ~2.5–3 min wall time.
+binary, and a live tier that calls the real Keychain and usage API. ~5 min wall time (307 s on 2.1.280).
 
 One key in those settings is **not** production's: the harness adds
 `statusLine.refreshInterval` after `MergeSettings` returns, because production omits it and an
 idle managed session therefore posts nothing at all to observe
 (kb:adr/canary-refresh-interval-key-canary-only). Everything else is the production chain
-verbatim.
+verbatim, except in four runs. Run G appends `--allowedTools Bash` to `BuildArgv`'s argv
+(kb:adr/canary-interrupt-run-preallows-bash). Runs I and J set `ANTHROPIC_BASE_URL` to an
+in-test fail server, with `CLAUDE_CODE_MAX_RETRIES=0` (kb:adr/canary-api-failures-induced-in-process).
+Run H's `PostToolUse` replies are held for 1.5 s by the capture server, not by the settings
+(kb:adr/canary-hook-await-measured-by-held-ingest-response).
 
 | run | shape | cost | proves |
 |---|---|---|---|
@@ -186,6 +190,10 @@ verbatim.
 | D | interactive in tmux on a scratch socket, launched via `BuildArgv` with `Title: "Muster Canary"` and plan-mode permission, "say hi", then a bounded wait for the post-`Stop` `Notification{idle_prompt}`; then two keystroke checks in that idle window — `S-Tab`, and `/clear` — before the pane is killed | 1 haiku turn | status-line fields, unknown-vs-zero (pre-response post), `version`, `session_title`/`session_name` flowing through the flag, the idle-prompt Notification field inventory; the `refreshInterval` tick cadence across the ~60 s idle wait; Shift+Tab firing no hook; `/clear` minting a new `session_id` in the same pane and `SessionEnd.reason` values |
 | E | a second tmux session on the same scratch socket, resuming run D's session via `BuildArgv` with `ResumeSessionID` (byte-for-byte what `internal/server`'s Resume builds), then a prompt that calls `ExitPlanMode`, waited on through `PermissionRequest` and the following `Notification{permission_prompt}`, killed **without answering the dialog** | 1 haiku turn | `SessionStart.source == "resume"` with `session_id`/`transcript_path` matching D (closes the R2 check); `PreToolUse → PermissionRequest` ordering and field inventory; the `permission_prompt` Notification sharing `PermissionRequest`'s `prompt_id` |
 | F | no session: the production `claudecode.CheckModel`/`RunModelCheck` pair against the installed binary, once for `muster-canary-unrecognized-model` and once for the haiku preset (`--bare --no-session-persistence --model <m> -p ""`) | 0 tokens | the model-catalog pre-check still refuses a model the catalog lacks and passes one it knows (kb:fact/model-catalog-precheck-zero-token) |
+| G | a third tmux session, `BuildArgv` plus `--allowedTools Bash`, one `echo start && sleep 30 && echo end` call; Esc 3 s after its `PreToolUse`, confirmed by "Interrupted" on the pane, then a 70 s quiet window | 1 haiku turn | an interrupt emits no `Stop`, `StopFailure` or `PostToolUse`, and no `idle_prompt` follows (kb:fact/interrupt-emits-no-turn-end) |
+| H | headless, four parallel `Read` calls in one message, one of a missing file, `--output-format stream-json`; the capture server holds each `PostToolUse` reply 1.5 s | 1 haiku turn | the next `PreToolUse` does not wait on a `PostToolUse` hook (kb:fact/hook-await-per-event); a failed tool emits no `PostToolUse` (kb:fact/tool-failure-hook-events) |
+| I ×8 | headless against an in-test fail server, one run per injected status/message | 0 tokens | the `StopFailure.error` mapping: 429 `rate_limit`, 500/529 `server_error`, 404 `model_not_found`, 401 `authentication_failed`, 400 by message `billing_error`/`invalid_request`/`unknown` (kb:fact/stopfailure-error-by-status) |
+| J | a fourth tmux session against a fail server answering 429 with `anthropic-ratelimit-unified-*` headers, one prompt | 0 tokens | an all-failing session's status line: null context, zero cost, `rate_limits` taken from the error response's headers, no usage change across the failed turn (kb:fact/status-line-around-failed-turns) |
 
 **Static tier** (`test/canary/static_test.go`, `TestInstalledBinaryCarriesInterfaceStrings`):
 resolves the `claude` on `PATH` through `EvalSymlinks` to the Mach-O bundle and scans it in
@@ -211,7 +219,7 @@ than skipping, since a skip would pass silently on the one machine this gate exi
 `MUSTER_CANARY_OFFLINE=1 make canary` compiles the package and checks the classification
 plus the static tier — no tokens, no network, no Keychain read. The harness never touches
 `~/.claude/settings.json` (verify: `md5 -q` before and after), lives under `/var/folders`
-(no parent `CLAUDE.md` leaks in), and tears both tmux sessions and the scratch socket's
+(no parent `CLAUDE.md` leaks in), and tears all four tmux sessions and the scratch socket's
 server down in `TestMain`.
 
 **Still manual** (a named `/interface-probe` ritual, not a gated assertion): step 3 of the
@@ -221,7 +229,10 @@ on subagent-originated hooks — a subagent costs ≥ 2 turns and Muster's only 
 is that field; the `fable` model alias — verified by static inspection by hand; and
 `session_name`'s auto-generated source (kb:fact/status-session-name-source) — it needs a
 second interactive run without `--name`, and a one-turn session may never derive a name at
-all, so the assertion would pass or fail on luck. `SubagentStop` itself is not a residual:
+all, so the assertion would pass or fail on luck; and a background subagent's tool hooks
+arriving while the main agent waits on a permission prompt
+(kb:fact/subagent-hooks-during-permission-wait) — it needs a subagent (≥ 2 turns) and an
+unanswered permission prompt in the same turn. `SubagentStop` itself is not a residual:
 `interpret.go` treats it as `KindInert` and Muster reads nothing from it.
 
 The fact records are the index of what is and isn't gated:
@@ -239,4 +250,4 @@ plan review that needs canary evidence, the convention is a full, forced `make c
 saved verbatim to `plans/<plan-name>/canary-run.log`
 (`MUSTER_CANARY_FORCE=1 make canary 2>&1 | tee plans/<plan-name>/canary-run.log`), run once
 per review cycle rather than delegated to a subagent or added to a checks block, since each
-real run burns four haiku turns.
+real run burns six haiku turns.

@@ -6,7 +6,7 @@ allowed-tools: Bash, Read, Edit, Grep
 ---
 
 > **Maintainer note:** Authored 2026-09-13. This runs in the main session, not a subagent:
-> a real `make canary` burns four haiku turns of the developer's subscription, and a red run needs
+> a real `make canary` burns six haiku turns of the developer's subscription, and a red run needs
 > a conversation rather than a verdict. `docs/claude-code-versions.md` stays the source of
 > truth for *why* the range works the way it does — this skill is only the driver, so don't
 > restate its rationale here.
@@ -33,7 +33,7 @@ You drive a Claude Code version check to a committed conclusion. Invoked with: *
    every unrelated dirty file in the tree. Stage deliberately.
 4. **Never read or modify `~/.claude/settings.json`** (root `CLAUDE.md` hard rule) — the developer's
    live sessions depend on it. Nothing here needs it.
-5. **A real run costs four haiku turns.** Don't re-run to "be sure". The one exception is the
+5. **A real run costs six haiku turns.** Don't re-run to "be sure". The one exception is the
    named flake in step 5.
 
 ## 1. Preflight — refuse, don't warn

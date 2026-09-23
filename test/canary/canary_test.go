@@ -3,7 +3,7 @@
 // Package canary asserts that the installed Claude Code still emits every field and
 // behaviour Muster depends on. Run it before adopting any new Claude Code version:
 //
-//	make canary                          # 4 haiku turns + zero-token unauth/resume/live
+//	make canary                          # 6 haiku turns + zero-token unauth/resume/fail/live
 //	                                      # checks, then extends the verified range on a
 //	                                      # green run outside it (go run ./tools/versions
 //	                                      # bump) — unless installed equals the verified
@@ -15,8 +15,9 @@
 // It is behind a build tag because it drives a real `claude` install — and, in the live
 // tier, the real macOS Keychain and usage API — and is therefore neither hermetic nor
 // fast. The harness (harness_test.go) runs the production settings→sh→wrapper→POST chain
-// against a real binary exactly once per process (runs A-F); the tests in this file are
-// views over those captures. static_test.go scans the installed binary for interface
+// against a real binary exactly once per process (runs A-F here, G-J in
+// harness_turns_test.go); the tests in this file and turns_test.go are views over those
+// captures. static_test.go scans the installed binary for interface
 // strings Muster cannot drive through a canary run; live_test.go exercises the real
 // Keychain, usage API and theme config. The inventory they all assert is
 // docs/history/spikes/canary-fields.md; the range doc is docs/claude-code-versions.md.
@@ -27,8 +28,10 @@
 // ExitPlanMode permission dialog actually answered — steps 1-2 are asserted, unanswered,
 // by TestPlanModeSequence and TestNotifications), agent_id on subagent-originated hooks
 // (a subagent costs >= 2 turns; SubagentStop itself is not a residual — interpret.go
-// treats it as KindInert and Muster reads nothing from it), and the `fable` alias
-// (verified by static inspection). All three stay /interface-probe rituals.
+// treats it as KindInert and Muster reads nothing from it), a background subagent's tool
+// hooks during a main-agent permission wait (a subagent plus an unanswered prompt,
+// kb:fact/subagent-hooks-during-permission-wait), and the `fable` alias (verified by static
+// inspection). All four stay /interface-probe rituals.
 package canary
 
 import (
@@ -673,15 +676,8 @@ func TestShiftTabFiresNoHook(t *testing.T) {
 	assert.Emptyf(t, f.hooksBetween(sessionInteract, f.preClearClaudeID(), from, to),
 		"cycling the permission mode must fire no hook; %s window saw them", to.Sub(from))
 
-	var before, after *capture
-	for _, c := range f.statusPostsFor(sessionInteract, f.preClearClaudeID()) {
-		switch {
-		case c.at.Before(from):
-			before = &c
-		case after == nil:
-			after = &c
-		}
-	}
+	before := f.statusPostBefore(sessionInteract, f.preClearClaudeID(), from)
+	after := f.statusPostAfter(sessionInteract, f.preClearClaudeID(), from)
 	require.NotNil(t, before, "no status-line post before Shift+Tab to compare against")
 	require.NotNil(t, after, "no status-line post after Shift+Tab (refreshInterval should have ticked within the wait)")
 	assert.ElementsMatch(t, keys(before.payload), keys(after.payload),

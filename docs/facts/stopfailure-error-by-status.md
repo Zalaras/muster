@@ -9,8 +9,8 @@ tags: [claude-code-format]
 files: [internal/claudecode/interpret.go, internal/session/machine.go]
 tests: [TestInterpret_StopFailure]
 refs: [test/rig/captures/capture-8.jsonl, kb:fact/stopfailure-error-taxonomy, kb:fact/unknown-model-fails-first-turn]
-verified: 2.1.280..2.1.280
-guard: none
+verified: 2.1.280..canary
+guard: TestStopFailureErrorByStatus
 ---
 The binary's `StopFailure.error` enum has 13 values: `authentication_failed`,
 `oauth_org_not_allowed`, `account_on_hold`, `verification_required`, `billing_error`,
@@ -39,4 +39,6 @@ Not induced: `account_on_hold`, `verification_required` (a 403 mentioning verifi
 only for the `invalid_request` cases.
 
 Evidence: interface probe 2026-09-23, instance 8. 18 headless fail-proxy sessions, 1 real
-capped headless session, 1 interactive 429.
+capped headless session, 1 interactive 429. Guarded since 2026-09-23 by
+`TestStopFailureErrorByStatus` (canary run I, zero tokens): 429, 500, 529, 404, 401 and the three
+400 messages. 408, 413, 502, 503, the 403 rows and `max_output_tokens` stay probe-measured.

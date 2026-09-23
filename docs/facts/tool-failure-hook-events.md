@@ -9,8 +9,8 @@ tags: [claude-code-format]
 files: [internal/claudecode/settings.go, internal/claudecode/interpret.go]
 tests: []
 refs: [test/rig/captures/capture-8.jsonl, kb:fact/hook-payload-fields]
-verified: 2.1.280..2.1.280
-guard: none
+verified: 2.1.280..canary
+guard: TestFailedToolEmitsNoPostToolUse
 ---
 - **Failed tool.** `Read` on a missing file: `PreToolUse` → `PostToolUseFailure` →
   `PostToolBatch`, with no `PostToolUse`. The payload has `tool_name`, `tool_input`,
@@ -29,3 +29,6 @@ in every capture, after every `PostToolUse` of the batch had finished
 (kb:fact/hook-await-per-event).
 
 Evidence: interface probe 2026-09-23, instance 8. 1 headless and 1 interactive haiku session.
+Guarded since 2026-09-23 by `TestFailedToolEmitsNoPostToolUse` (canary run H), for the half the
+production settings can see: a failed `Read` emits `PreToolUse` and no `PostToolUse`. The
+`PostToolUseFailure` payload and the validation-rejected call stay probe-measured.

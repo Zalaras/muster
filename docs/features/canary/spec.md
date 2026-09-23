@@ -10,7 +10,7 @@ go: [test/canary/**, tools/versions/**, internal/claudecode/version*.go, interna
 web: []
 e2e: []
 protocol: [ws.hello]
-refs: [kb:adr/canary-verified-range-observed-not-pinned, kb:adr/canary-claude-auto-updater-left-on, kb:adr/canary-drives-installed-claude-through-production-chain, kb:adr/canary-permission-mode-sweep-on-unauthenticated-path, kb:adr/canary-resume-run-through-production-argv, kb:adr/canary-live-tier-fails-never-skips, kb:adr/canary-static-tier-asserts-bundle-strings, kb:adr/canary-skips-on-ceiling-bump-extends-record, kb:adr/canary-interactive-dialog-rows-accepted-residual, kb:adr/canary-version-gated-adapters-not-built, kb:adr/connection-installed-claude-classified-never-refused, kb:adr/process-interface-probe-rig-in-repo, kb:fact/status-version-matches-installed, kb:fact/headless-fires-full-hook-sequence, docs/claude-code-versions.md]
+refs: [kb:adr/canary-api-failures-induced-in-process, kb:adr/canary-interrupt-run-preallows-bash, kb:adr/canary-hook-await-measured-by-held-ingest-response, kb:adr/canary-verified-range-observed-not-pinned, kb:adr/canary-claude-auto-updater-left-on, kb:adr/canary-drives-installed-claude-through-production-chain, kb:adr/canary-permission-mode-sweep-on-unauthenticated-path, kb:adr/canary-resume-run-through-production-argv, kb:adr/canary-live-tier-fails-never-skips, kb:adr/canary-static-tier-asserts-bundle-strings, kb:adr/canary-skips-on-ceiling-bump-extends-record, kb:adr/canary-interactive-dialog-rows-accepted-residual, kb:adr/canary-version-gated-adapters-not-built, kb:adr/connection-installed-claude-classified-never-refused, kb:adr/process-interface-probe-rig-in-repo, kb:fact/status-version-matches-installed, kb:fact/headless-fires-full-hook-sequence, docs/claude-code-versions.md]
 ---
 Muster depends on Claude Code's hook payloads, status-line JSON and CLI flags, none of which
 are documented or stable. The canary is how that dependency is kept honest.
@@ -39,6 +39,11 @@ bundle for interface strings Muster cannot drive (kb:adr/canary-static-tier-asse
 The interactive run's idle wait doubles as a zero-token keystroke tier — the status line's
 tick cadence, Shift+Tab firing no hook, and `/clear` minting a new session id in the same pane
 (kb:adr/canary-run-d-holds-two-claude-sessions, kb:adr/canary-refresh-interval-key-canary-only).
+A fail-server tier points `ANTHROPIC_BASE_URL` at an in-test server to induce API failures at
+zero tokens (kb:adr/canary-api-failures-induced-in-process). Two more turns cover how a turn
+ends or waits: an Esc interrupt mid-tool (kb:adr/canary-interrupt-run-preallows-bash), and a
+parallel tool batch whose `PostToolUse` replies the capture server holds
+(kb:adr/canary-hook-await-measured-by-held-ingest-response).
 An offline mode compiles, classifies and runs the static tier only. The status-line
 version is asserted equal to the installed one (kb:fact/status-version-matches-installed).
 

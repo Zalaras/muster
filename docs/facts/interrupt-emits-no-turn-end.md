@@ -9,8 +9,8 @@ tags: [claude-code-format, state-machine]
 files: [internal/session/machine.go, internal/claudecode/interpret.go]
 tests: []
 refs: [test/rig/captures/capture-8.jsonl, kb:fact/notification-types-observed, kb:fact/stopfailure-replaces-stop, kb:fact/hook-delivery-best-effort]
-verified: 2.1.280..2.1.280
-guard: none
+verified: 2.1.280..canary
+guard: TestInterruptEmitsNoTurnEnd
 ---
 Pressing Esc in the TUI ends the turn ("Interrupted · What should Claude do instead?") and emits
 **no hook event**:
@@ -33,4 +33,7 @@ close it until the next prompt. The status line still posts after the interrupt,
 is not a state source.
 
 Evidence: interface probe 2026-09-23, instance 8. 2 interactive haiku sessions, 1 interrupt
-each, plus 1 control turn. The replay used a temporary test, not committed.
+each, plus 1 control turn. The replay used a temporary test, not committed. Guarded since
+2026-09-23 by `TestInterruptEmitsNoTurnEnd` (canary run G), for the mid-tool case: Esc 3 s into a
+`sleep 30` Bash call, then 70 s with no hook at all (2 of 2 runs). The mid-stream case stays a
+probe question.

@@ -9,8 +9,8 @@ tags: [claude-code-format]
 files: [internal/claudecode/status.go, internal/server/usage.go]
 tests: []
 refs: [test/rig/captures/capture-8.jsonl, kb:fact/unknown-before-first-response, kb:fact/unknown-model-fails-first-turn]
-verified: 2.1.280..2.1.280
-guard: none
+verified: 2.1.280..canary
+guard: TestStatusLineAroundFailedTurns
 ---
 In an interactive session where every API call fails at the fail-proxy:
 
@@ -36,4 +36,7 @@ come from an error response's headers. Headless runs post no status line at all.
 
 Evidence: interface probe 2026-09-23, instance 8. 1 interactive fail-proxy session, 2 failed
 turns. 4 interactive real-API sessions for the startup posts (3 direct, 1 through the
-pass-through proxy with no prompt).
+pass-through proxy with no prompt). Guarded since 2026-09-23 by
+`TestStatusLineAroundFailedTurns` (canary run J, zero tokens): every post null, zero cost,
+`rate_limits` from an injected 429's headers already on the first startup post, and no usage
+change across the failed turn. The real-API startup race stays probe-measured.
