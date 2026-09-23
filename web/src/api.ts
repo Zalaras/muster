@@ -3,15 +3,13 @@
 // caller sees it. Errors never throw — every call returns an ApiResult so a caller (the
 // launch modal, say) can render `error.message` inline instead of an uncaught rejection.
 import {
-  type Density,
-  type RailActivity,
-  type RailDensity,
-  type RailSort,
+  type Prefs,
   type Session,
   type UpdateInfo,
   parseSession,
   parseUpdateInfo,
 } from "./protocol";
+import { isRecord, parseListOf, parseNullable } from "./protocol/decode";
 
 export interface ApiErrorBody {
   code: string;
@@ -77,32 +75,11 @@ export interface LaunchRequest {
   permissionMode: PermissionMode;
 }
 
-// kb:anchor/prefs.put: at least one field, unknown fields ignored — all optional here
-// since a caller only ever changes one field at a time. `usageModel`: 1-32 chars after
-// trim, validated daemon-side.
-export interface PrefsRequest {
-  view?: "focus" | "tiles";
-  density?: Density;
-  usageModel?: string;
-  // Plan order-sidebar (kb:anchor/prefs.put): the rail's sort mode.
-  railSort?: RailSort;
-  // Plan new-ui-design-colors (kb:anchor/prefs.put): matches ^[a-z][a-z0-9-]{0,31}$;
-  // opaque to the daemon. "follow" means no override.
-  theme?: string;
-  // Plan auto-update (kb:anchor/prefs.put): whether the daemon checks GitHub Releases
-  // for a newer musterd. Governs checking only (REQ-1/REQ-2).
-  updateCheck?: boolean;
-  // Plan rail-card-improvements (kb:anchor/prefs.put): card density in the rail and the
-  // Tiles strip.
-  railDensity?: RailDensity;
-  // Plan rail-card-improvements (kb:anchor/prefs.put): which text a card's activity line
-  // shows.
-  railActivity?: RailActivity;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+// kb:anchor/prefs.put: at least one field, unknown fields ignored — a caller only ever
+// changes one field at a time. Derived from `Prefs` (Minor 2, review cycle 1) rather than
+// listed a second time — `usageModel`'s "1-32 chars after trim, validated daemon-side" and
+// every other field's own semantics stay documented once, on `Prefs` itself.
+export type PrefsRequest = Partial<Prefs>;
 
 function parseApiError(value: unknown): ApiErrorBody | null {
   if (!isRecord(value)) return null;
@@ -154,14 +131,7 @@ function parseRepo(value: unknown): Repo | null {
 }
 
 function parseRepos(value: unknown): Repo[] | null {
-  if (!Array.isArray(value)) return null;
-  const repos: Repo[] = [];
-  for (const item of value) {
-    const repo = parseRepo(item);
-    if (!repo) return null;
-    repos.push(repo);
-  }
-  return repos;
+  return parseListOf(value, parseRepo);
 }
 
 function parseBrowseEntry(value: unknown): BrowseEntry | null {
@@ -179,17 +149,11 @@ function parseBrowseResult(value: unknown): BrowseResult | null {
   if (!isRecord(value)) return null;
   const path = value["path"];
   const parent = value["parent"];
-  const dirs = value["dirs"];
   if (typeof path !== "string") return null;
   if (parent !== null && typeof parent !== "string") return null;
-  if (!Array.isArray(dirs)) return null;
-  const parsedDirs: BrowseEntry[] = [];
-  for (const item of dirs) {
-    const entry = parseBrowseEntry(item);
-    if (!entry) return null;
-    parsedDirs.push(entry);
-  }
-  return { path, parent, dirs: parsedDirs };
+  const dirs = parseListOf(value["dirs"], parseBrowseEntry);
+  if (!dirs) return null;
+  return { path, parent, dirs };
 }
 
 const genericError: ApiErrorBody = {
@@ -660,14 +624,8 @@ function parseRestartImpactShell(value: unknown): RestartImpactShell | null {
 
 function parseRestartImpact(value: unknown): RestartImpact | null {
   if (!isRecord(value)) return null;
-  const rawShells = value["shells"];
-  if (!Array.isArray(rawShells)) return null;
-  const shells: RestartImpactShell[] = [];
-  for (const item of rawShells) {
-    const shell = parseRestartImpactShell(item);
-    if (!shell) return null;
-    shells.push(shell);
-  }
+  const shells = parseListOf(value["shells"], parseRestartImpactShell);
+  if (!shells) return null;
   return { shells };
 }
 
@@ -724,20 +682,13 @@ function parseReaderFileEntry(value: unknown): ReaderFileEntry | null {
 function parseReaderListing(value: unknown): ReaderListing | null {
   if (!isRecord(value)) return null;
   const directory = value["directory"];
-  const rawPlan = value["plan"];
-  const rawFiles = value["files"];
   const listing = value["listing"];
   const truncated = value["truncated"];
   if (typeof directory !== "string") return null;
-  const plan = rawPlan === null ? null : parseReaderPlan(rawPlan);
-  if (rawPlan !== null && plan === null) return null;
-  if (!Array.isArray(rawFiles)) return null;
-  const files: ReaderFileEntry[] = [];
-  for (const item of rawFiles) {
-    const entry = parseReaderFileEntry(item);
-    if (!entry) return null;
-    files.push(entry);
-  }
+  const plan = parseNullable(value["plan"], parseReaderPlan);
+  if (plan === undefined) return null;
+  const files = parseListOf(value["files"], parseReaderFileEntry);
+  if (!files) return null;
   if (listing !== "git" && listing !== "walk") return null;
   if (typeof truncated !== "boolean") return null;
   return { directory, plan, files, listing, truncated };

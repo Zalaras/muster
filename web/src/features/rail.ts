@@ -9,12 +9,8 @@ import type { FocusedControl } from "../render/focus";
 import { renderSessions } from "../render/sessions";
 import { moveCard } from "../sessions/railorder";
 import { orderRail } from "../sessions/sort";
-import type { RailDensity, RailSort } from "../protocol";
+import { isRailDensity, type RailDensity, type RailSort } from "../protocol";
 import type { SessionAction } from "../render/sessions";
-
-function isRailDensity(value: string | undefined): value is RailDensity {
-  return value === "compact" || value === "comfortable" || value === "expanded";
-}
 
 // W6/INV-4: structural deps, not `import type { ActionsHandle }`/`{ SurfacesHandle }`
 // from `./actions`/`./surfaces`.

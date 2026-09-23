@@ -2,7 +2,8 @@
 // `prefs.theme` as opaque (kb:anchor/prefs.put) — the client owns the list of known
 // theme names, so adding a theme never needs a daemon release, only a new
 // `[data-theme]` block in style.css plus a new entry in THEMES below.
-import type { ClaudeFamily } from "./protocol";
+import { type ClaudeFamily, isClaudeFamily } from "./protocol";
+import { isRecord } from "./protocol/decode";
 
 export const THEMES = ["instrument", "dark", "light"] as const;
 export type ThemeName = (typeof THEMES)[number];
@@ -42,10 +43,6 @@ export interface ThemeHint {
   family: ClaudeFamily;
 }
 
-function isClaudeFamily(value: unknown): value is ClaudeFamily {
-  return value === "light" || value === "dark" || value === "unknown";
-}
-
 /** REQ-11: reads the hint the last `writeThemeHint` call wrote. `null` for anything not
  * a recognisable hint — absent, malformed JSON, an unknown theme name, or storage that
  * throws (private mode, disabled storage) — so a caller never half-applies one. */
@@ -63,10 +60,9 @@ export function readThemeHint(storage: Pick<Storage, "getItem"> = localStorage):
   } catch {
     return null;
   }
-  if (typeof parsed !== "object" || parsed === null) return null;
-  const record = parsed as Record<string, unknown>;
-  const theme = record["theme"];
-  const family = record["family"];
+  if (!isRecord(parsed)) return null;
+  const theme = parsed["theme"];
+  const family = parsed["family"];
   if (typeof theme !== "string" || !isThemeName(theme)) return null;
   if (!isClaudeFamily(family)) return null;
   return { theme, family };

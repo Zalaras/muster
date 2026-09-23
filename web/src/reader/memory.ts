@@ -8,6 +8,8 @@
 // in-memory only and resets on restart, so acknowledging a write is keyed by its
 // `writtenAt`/`docChanged.at` value (they're the same timestamp, one write log): a later
 // write to the same path gets a new value and lights the dot again.
+import { isRecord } from "../protocol/decode";
+
 export interface StorageLike {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
@@ -26,7 +28,7 @@ function keyFor(sessionId: number): string {
 }
 
 function isClearedAtShape(value: unknown): value is Record<string, string> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  if (!isRecord(value)) return false;
   return Object.values(value).every((v) => typeof v === "string");
 }
 
@@ -38,10 +40,9 @@ export function loadMemory(storage: StorageLike, sessionId: number): ReaderMemor
     const raw = storage.getItem(keyFor(sessionId));
     if (!raw) return EMPTY_MEMORY;
     const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== "object" || parsed === null) return EMPTY_MEMORY;
-    const rec = parsed as Record<string, unknown>;
-    const openPath = typeof rec["openPath"] === "string" ? rec["openPath"] : null;
-    const clearedAt = isClearedAtShape(rec["clearedAt"]) ? rec["clearedAt"] : {};
+    if (!isRecord(parsed)) return EMPTY_MEMORY;
+    const openPath = typeof parsed["openPath"] === "string" ? parsed["openPath"] : null;
+    const clearedAt = isClearedAtShape(parsed["clearedAt"]) ? parsed["clearedAt"] : {};
     return { openPath, clearedAt };
   } catch {
     return EMPTY_MEMORY;

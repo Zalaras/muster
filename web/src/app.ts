@@ -3,22 +3,22 @@
 // phases, and render() itself. Pure enough to unit-test (no DOM) — every feature module
 // builds on top of this rather than main.ts wiring them together directly.
 import type { ConnectionStatus } from "./render/masthead";
-import type {
-  ClaudeFamily,
-  Density,
-  DocChanged,
-  Prefs,
-  RailActivity,
-  RailDensity,
-  RailSort,
-  Session,
-  Snapshot,
-  Usage,
-  UpdateInfo,
+import {
+  type ClaudeFamily,
+  type Density,
+  type DocChanged,
+  PREF_DEFAULTS,
+  type Prefs,
+  type RailActivity,
+  type RailDensity,
+  type RailSort,
+  type Session,
+  type Snapshot,
+  type Usage,
+  type UpdateInfo,
+  type View,
 } from "./protocol";
 import { SessionStore } from "./sessions/store";
-
-export type View = "focus" | "tiles";
 
 /** Fields more than one feature reads. Each is written by exactly one feature (noted per
  * field) — everything else stays a closure variable inside the feature that owns it. */
@@ -81,11 +81,11 @@ type ErasedListener = (...args: never[]) => void;
 export function createApp(): App {
   const store = new SessionStore();
   const state: AppState = {
-    view: "focus",
-    density: "2x2",
-    railSort: "manual",
-    railDensity: "comfortable",
-    railActivity: "turn",
+    view: PREF_DEFAULTS.view,
+    density: PREF_DEFAULTS.density,
+    railSort: PREF_DEFAULTS.railSort,
+    railDensity: PREF_DEFAULTS.railDensity,
+    railActivity: PREF_DEFAULTS.railActivity,
     focusedId: null,
     connection: "connecting",
   };

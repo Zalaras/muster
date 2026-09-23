@@ -1,6 +1,6 @@
 // Rail cards (docs/protocol.md UI Specifications > Rail; design-system §5 card anatomy).
 // DOM only — every displayed string comes from ../sessions/card.ts's pure view-model.
-import type { RailActivity, Session } from "../protocol";
+import { PREF_DEFAULTS, type RailActivity, type Session } from "../protocol";
 import {
   buildCardViewModel,
   unreadLabel,
@@ -199,7 +199,7 @@ function updateSessionCardContent(
   currentId: number | null = null,
   // Defaults to the pref's own default ("turn"), same reasoning as
   // sessions/card.ts's buildCardViewModel default.
-  railActivity: RailActivity = "turn",
+  railActivity: RailActivity = PREF_DEFAULTS.railActivity,
 ): void {
   const vm = buildCardViewModel(session, now, railActivity);
   const isCurrent = session.id === currentId;
@@ -268,7 +268,7 @@ export function buildSessionCardElement(
   draggable = false,
   pinnedLast = false,
   currentId: number | null = null,
-  railActivity: RailActivity = "turn",
+  railActivity: RailActivity = PREF_DEFAULTS.railActivity,
 ): HTMLElement {
   const fragment = template.content.cloneNode(true) as DocumentFragment;
   const card = fragment.querySelector<HTMLElement>(".card");
@@ -335,7 +335,7 @@ export function updateSessionCardElement(
   draggable = false,
   pinnedLast = false,
   currentId: number | null = null,
-  railActivity: RailActivity = "turn",
+  railActivity: RailActivity = PREF_DEFAULTS.railActivity,
 ): void {
   updateSessionCardContent(
     card,
@@ -413,7 +413,7 @@ export function reconcileCards(
   currentId: number | null = null,
   // Defaults to the pref's own default ("turn"), same reasoning as this module's other
   // functions above.
-  railActivity: RailActivity = "turn",
+  railActivity: RailActivity = PREF_DEFAULTS.railActivity,
 ): void {
   const existingById = indexCardsBySessionId(container);
 
@@ -510,7 +510,7 @@ export function renderSessions(
   currentId: number | null = null,
   // REQ-14: which text each card's activity line shows — passed straight through to
   // `reconcileCards`. `features/rail.ts` supplies `app.state.railActivity` here.
-  railActivity: RailActivity = "turn",
+  railActivity: RailActivity = PREF_DEFAULTS.railActivity,
 ): void {
   if (sessions.length === 0) {
     // `textContent` assignment already clears any existing children (real DOM), so no

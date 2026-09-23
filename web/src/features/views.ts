@@ -14,7 +14,7 @@ import type { App } from "../app";
 import { putPrefs } from "../api";
 import { requireElement } from "../dom";
 import { renderDensityControl, renderViewSwitcher } from "../render/masthead";
-import type { Density } from "../protocol";
+import type { Density, View } from "../protocol";
 
 export interface ViewsHandle {
   /** design-system §4.1: ⌘\ toggles the view. */
@@ -32,7 +32,7 @@ export function initViews(app: App): ViewsHandle {
 
   let lastView = app.state.view;
 
-  function requestView(newView: "focus" | "tiles"): void {
+  function requestView(newView: View): void {
     void putPrefs({ view: newView }).then((result) => {
       if (!result.ok)
         console.error(`PUT /api/prefs failed: ${result.error.code} ${result.error.message}`);

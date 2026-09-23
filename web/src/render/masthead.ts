@@ -11,6 +11,7 @@ import type {
   SessionModelInfo,
   Usage,
   UsageBucket,
+  View,
 } from "../protocol";
 import { formatResets, GAUGE_WARN_THRESHOLD } from "../sessions/format";
 
@@ -61,7 +62,7 @@ export interface ViewSwitcherElements {
 
 /** Focus/Tiles segmented control (design-system §4.1). `aria-pressed` is the tested
  * contract for both buttons. */
-export function renderViewSwitcher(elements: ViewSwitcherElements, view: "focus" | "tiles"): void {
+export function renderViewSwitcher(elements: ViewSwitcherElements, view: View): void {
   elements.focusButton.setAttribute("aria-pressed", String(view === "focus"));
   elements.tilesButton.setAttribute("aria-pressed", String(view === "tiles"));
 }
@@ -76,7 +77,7 @@ export interface DensityControlElements {
  * "Masthead ... the density control renders only in Tiles"). */
 export function renderDensityControl(
   elements: DensityControlElements,
-  view: "focus" | "tiles",
+  view: View,
   density: Density,
 ): void {
   elements.container.hidden = view !== "tiles";

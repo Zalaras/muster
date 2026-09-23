@@ -6,11 +6,7 @@ import type { App } from "../app";
 import { putPrefs } from "../api";
 import { requireElement, requireElements } from "../dom";
 import { isThemeChoice, type ThemeChoice } from "../theme";
-import type { RailActivity } from "../protocol";
-
-function isRailActivity(value: string): value is RailActivity {
-  return value === "turn" || value === "prompt" || value === "reply" || value === "both";
-}
+import { isRailActivity, type RailActivity } from "../protocol";
 
 export interface SettingsDialogElements {
   dialog: HTMLDialogElement;

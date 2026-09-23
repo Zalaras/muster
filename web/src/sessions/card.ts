@@ -1,7 +1,7 @@
 // Pure card view-model: everything a rail card displays, derived from a Session + "now",
 // with no DOM involved (docs/conventions.md — "keep logic in pure modules separate from
 // DOM code"). render/sessions.ts is the only consumer.
-import type { RailActivity, Session } from "../protocol";
+import { PREF_DEFAULTS, type RailActivity, type Session } from "../protocol";
 import { elapsedSeconds, formatEndedAge, formatTimer } from "./format";
 
 export type NoteKind = "attention" | "failure" | "trust" | "no-signal" | "none";
@@ -175,9 +175,10 @@ export function unreadLabel(title: string, unread: boolean): string {
 export function buildCardViewModel(
   session: Session,
   now: Date,
-  // Defaults to the pref's own default ("turn") so every existing call site (and Vitest
-  // fixture) that predates this plan keeps compiling and rendering the same behaviour.
-  mode: RailActivity = "turn",
+  // Defaults to the pref's own default (PREF_DEFAULTS.railActivity, Minor 1) so every
+  // existing call site (and Vitest fixture) that predates this plan keeps compiling and
+  // rendering the same behaviour.
+  mode: RailActivity = PREF_DEFAULTS.railActivity,
 ): CardViewModel {
   let noteKind: NoteKind = "none";
   let noteText: string | null = null;

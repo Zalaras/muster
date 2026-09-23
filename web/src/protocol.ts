@@ -5,11 +5,14 @@
 // evolution" rule — parsing here only ever reads the fields it knows about, so future
 // additions never need a change here to keep working.
 
+import { isRecord, parseListOf, parseNullable } from "./protocol/decode";
+
 export const PROTOCOL_VERSION = 2;
 
 // kb:anchor/ws.hello: the daemon's startup classification of the installed Claude Code
 // against the canary-verified range.
-export type ClaudeCodeStatus = "unknown" | "below" | "verified" | "above";
+export const CLAUDE_CODE_STATUSES = ["unknown", "below", "verified", "above"] as const;
+export type ClaudeCodeStatus = (typeof CLAUDE_CODE_STATUSES)[number];
 
 export interface ClaudeCodeInfo {
   installed: string | null;
@@ -41,7 +44,8 @@ export interface ModelWindow {
 
 /** REQ-6: the three failure kinds a model-scoped poll can end in; `null` after a
  * successful fetch. */
-export type ModelScopedError = "no-credentials" | "unauthorized" | "unreachable";
+export const MODEL_SCOPED_ERRORS = ["no-credentials", "unauthorized", "unreachable"] as const;
+export type ModelScopedError = (typeof MODEL_SCOPED_ERRORS)[number];
 
 export interface Usage {
   fiveHour: UsageBucket | null;
@@ -71,7 +75,15 @@ export const UNKNOWN_USAGE: Usage = {
   source: "subscription",
 };
 
-export type SessionState = "started" | "planning" | "working" | "needs_input" | "failed" | "idle";
+export const SESSION_STATES = [
+  "started",
+  "planning",
+  "working",
+  "needs_input",
+  "failed",
+  "idle",
+] as const;
+export type SessionState = (typeof SESSION_STATES)[number];
 
 export interface SessionAttention {
   reason: "permission" | "idle";
@@ -175,16 +187,23 @@ export interface Session {
 }
 
 // Plan order-sidebar (kb:anchor/prefs.put): the rail's sort mode pref.
-export type RailSort = "manual" | "attention";
+export const RAIL_SORTS = ["manual", "attention"] as const;
+export type RailSort = (typeof RAIL_SORTS)[number];
 
-export type Density = "2x2" | "3x2";
+export const VIEWS = ["focus", "tiles"] as const;
+export type View = (typeof VIEWS)[number];
+
+export const DENSITIES = ["2x2", "3x2"] as const;
+export type Density = (typeof DENSITIES)[number];
 
 // Plan rail-card-improvements (kb:anchor/prefs.put): the rail/strip card density pref.
-export type RailDensity = "compact" | "comfortable" | "expanded";
+export const RAIL_DENSITIES = ["compact", "comfortable", "expanded"] as const;
+export type RailDensity = (typeof RAIL_DENSITIES)[number];
 
 // Plan rail-card-improvements (kb:anchor/prefs.put): which text a card's activity line
 // shows — turn-aware by default (REQ-14/kb:adr/rail-activity-line-turn-aware-default-with-pref).
-export type RailActivity = "turn" | "prompt" | "reply" | "both";
+export const RAIL_ACTIVITIES = ["turn", "prompt", "reply", "both"] as const;
+export type RailActivity = (typeof RAIL_ACTIVITIES)[number];
 
 // kb:anchor/prefs.put: density is always present alongside view — the daemon's default
 // before any PUT is {"view":"focus","density":"2x2","usageModel":"Fable"} — so all three
@@ -192,7 +211,7 @@ export type RailActivity = "turn" | "prompt" | "reply" | "both";
 // `parsePrefs` below defaults a missing `usageModel` key to `"Fable"` so a payload without
 // it still parses.
 export interface Prefs {
-  view: "focus" | "tiles";
+  view: View;
   density: Density;
   usageModel: string;
   // Plan order-sidebar (kb:anchor/prefs.put): defaulted to "manual" client-side when
@@ -215,19 +234,40 @@ export interface Prefs {
   railActivity: RailActivity;
 }
 
+// One-owner defaults for every pref (Minor 1, review cycle 1) — `parsePrefsField`'s
+// fallback for a missing wire key below, and `app.ts`'s initial `AppState` before the
+// first snapshot ever arrives. `view`/`density` have no *wire* default (a pre-plan daemon
+// always sends both, so `parsePrefs` rejects a payload missing either rather than
+// defaulting it) — they're here only because the client still needs something to paint
+// before it has heard from the daemon at all, and kb:anchor/ws.prefs documents the
+// daemon's own default snapshot as exactly this object.
+export const PREF_DEFAULTS: Prefs = {
+  view: "focus",
+  density: "2x2",
+  usageModel: "Fable",
+  railSort: "manual",
+  theme: "follow",
+  updateCheck: true,
+  railDensity: "comfortable",
+  railActivity: "turn",
+};
+
 // Plan auto-update (kb:anchor/ws.update): the daemon's startup classification of its own
 // resolved executable path, constant for the daemon's life.
-export type UpdateInstallKind = "installer" | "dev" | "homebrew" | "unmanaged";
+export const UPDATE_INSTALL_KINDS = ["installer", "dev", "homebrew", "unmanaged"] as const;
+export type UpdateInstallKind = (typeof UPDATE_INSTALL_KINDS)[number];
 
 // Plan auto-update (kb:anchor/ws.update): apply progress, broadcast on every phase change.
-export type UpdateApplyPhase =
-  | "idle"
-  | "downloading"
-  | "verifying"
-  | "installing"
-  | "restarting"
-  | "failed"
-  | "done";
+export const UPDATE_APPLY_PHASES = [
+  "idle",
+  "downloading",
+  "verifying",
+  "installing",
+  "restarting",
+  "failed",
+  "done",
+] as const;
+export type UpdateApplyPhase = (typeof UPDATE_APPLY_PHASES)[number];
 
 export interface UpdateApply {
   phase: UpdateApplyPhase;
@@ -260,7 +300,8 @@ export interface UpdateInfo {
 // Claude Code's own theme setting, folded to a family. Always present on every
 // snapshot/GET /api/state — "unknown" while polling is disabled or nothing has been
 // read yet.
-export type ClaudeFamily = "light" | "dark" | "unknown";
+export const CLAUDE_FAMILIES = ["light", "dark", "unknown"] as const;
+export type ClaudeFamily = (typeof CLAUDE_FAMILIES)[number];
 
 export interface ClaudeThemeInfo {
   family: ClaudeFamily;
@@ -362,12 +403,8 @@ export type Message =
   | UpdateMessage
   | ShellActivityMessage;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function isClaudeCodeStatus(value: unknown): value is ClaudeCodeStatus {
-  return value === "unknown" || value === "below" || value === "verified" || value === "above";
+  return (CLAUDE_CODE_STATUSES as readonly unknown[]).includes(value);
 }
 
 function parseClaudeCode(value: unknown): ClaudeCodeInfo | null {
@@ -417,35 +454,23 @@ function parseModelWindow(value: unknown): ModelWindow | null {
   return { displayName, usedPct, resetsAt };
 }
 
-function parseModelScopedList(value: unknown): ModelWindow[] | null {
-  if (!Array.isArray(value)) return null;
-  const windows: ModelWindow[] = [];
-  for (const item of value) {
-    const window = parseModelWindow(item);
-    if (!window) return null;
-    windows.push(window);
-  }
-  return windows;
-}
-
 function isModelScopedError(value: unknown): value is ModelScopedError {
-  return value === "no-credentials" || value === "unauthorized" || value === "unreachable";
+  return (MODEL_SCOPED_ERRORS as readonly unknown[]).includes(value);
 }
 
-/** Scores 33 on cognitive complexity, all of it flat guards plus the one-level
- * `if ("key" in value)` blocks that implement present-only additive evolution
- * (kb:anchor/conventions). Each block carries the comment explaining why an absent key
- * must stay absent rather than become `null`; splitting the function strands those
- * comments away from the fields they govern. */
+/** Scores 23 on cognitive complexity (down from 33 before the shared decoders — Major 3,
+ * review cycle 1 — absorbed the two-line nullable-of pattern into one call each), still
+ * over Biome's 15 ceiling: the remainder is the four `if ("key" in value)` blocks that
+ * implement present-only additive evolution (kb:anchor/conventions), each carrying the
+ * comment explaining why an absent key must stay absent rather than become `null`.
+ * Splitting the function strands those comments away from the fields they govern. */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: flat guards plus present-only key blocks whose comments must stay with their fields
 function parseUsage(value: unknown): Usage | null {
   if (!isRecord(value)) return null;
-  const rawFiveHour = value["fiveHour"];
-  const rawSevenDay = value["sevenDay"];
-  const fiveHour = rawFiveHour === null ? null : parseUsageBucket(rawFiveHour);
-  const sevenDay = rawSevenDay === null ? null : parseUsageBucket(rawSevenDay);
-  if (rawFiveHour !== null && fiveHour === null) return null;
-  if (rawSevenDay !== null && sevenDay === null) return null;
+  const fiveHour = parseNullable(value["fiveHour"], parseUsageBucket);
+  if (fiveHour === undefined) return null;
+  const sevenDay = parseNullable(value["sevenDay"], parseUsageBucket);
+  if (sevenDay === undefined) return null;
   const sampledAt = value["sampledAt"];
   const source = value["source"];
   if (sampledAt !== null && typeof sampledAt !== "string") return null;
@@ -457,9 +482,8 @@ function parseUsage(value: unknown): Usage | null {
   // payload with no `model` key round-trips byte-for-byte rather than gaining a
   // synthesized `model: null`.
   if ("model" in value) {
-    const rawModel = value["model"];
-    const model = rawModel === null ? null : parseModelInfo(rawModel);
-    if (rawModel !== null && model === null) return null;
+    const model = parseNullable(value["model"], parseModelInfo);
+    if (model === undefined) return null;
     usage.model = model;
   }
   // Plan usage-model-bar (kb:anchor/ws.usage): same present-only pattern as `model`
@@ -468,9 +492,10 @@ function parseUsage(value: unknown): Usage | null {
   // `modelScoped` element) rejects the whole message rather than silently degrading to
   // "unknown" (W5).
   if ("modelScoped" in value) {
-    const rawModelScoped = value["modelScoped"];
-    const modelScoped = rawModelScoped === null ? null : parseModelScopedList(rawModelScoped);
-    if (rawModelScoped !== null && modelScoped === null) return null;
+    const modelScoped = parseNullable(value["modelScoped"], (v) =>
+      parseListOf(v, parseModelWindow),
+    );
+    if (modelScoped === undefined) return null;
     usage.modelScoped = modelScoped;
   }
   if ("modelScopedAt" in value) {
@@ -492,15 +517,27 @@ function parseUsage(value: unknown): Usage | null {
 }
 
 function isRailSort(value: unknown): value is RailSort {
-  return value === "manual" || value === "attention";
+  return (RAIL_SORTS as readonly unknown[]).includes(value);
 }
 
-function isRailDensity(value: unknown): value is RailDensity {
-  return value === "compact" || value === "comfortable" || value === "expanded";
+function isView(value: unknown): value is View {
+  return (VIEWS as readonly unknown[]).includes(value);
 }
 
-function isRailActivity(value: unknown): value is RailActivity {
-  return value === "turn" || value === "prompt" || value === "reply" || value === "both";
+function isDensity(value: unknown): value is Density {
+  return (DENSITIES as readonly unknown[]).includes(value);
+}
+
+// Exported: features/rail.ts's density-button guard imports this instead of keeping its
+// own copy (review.maintainability.d-webcore.md Major 1/Seed check B4).
+export function isRailDensity(value: unknown): value is RailDensity {
+  return (RAIL_DENSITIES as readonly unknown[]).includes(value);
+}
+
+// Exported: features/settings.ts's rail-activity-radio guard imports this instead of
+// keeping its own copy (same finding as isRailDensity above).
+export function isRailActivity(value: unknown): value is RailActivity {
+  return (RAIL_ACTIVITIES as readonly unknown[]).includes(value);
 }
 
 function isString(value: unknown): value is string {
@@ -509,6 +546,10 @@ function isString(value: unknown): value is string {
 
 function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean";
+}
+
+function isNumber(value: unknown): value is number {
+  return typeof value === "number";
 }
 
 /** Reads one prefs field that has a fixed default for a missing key and a guard for a
@@ -526,37 +567,46 @@ function parsePrefs(value: unknown): Prefs | null {
   if (!isRecord(value)) return null;
   const view = value["view"];
   const density = value["density"];
-  if (view !== "focus" && view !== "tiles") return null;
-  if (density !== "2x2" && density !== "3x2") return null;
+  if (!isView(view)) return null;
+  if (!isDensity(density)) return null;
   // Plan usage-model-bar: missing key (pre-plan daemon) defaults to the daemon's own
-  // documented default, "Fable" (kb:anchor/ws.prefs).
-  const usageModel = parsePrefsField(value["usageModel"], "Fable", isString);
+  // documented default (kb:anchor/ws.prefs, PREF_DEFAULTS above).
+  const usageModel = parsePrefsField(value["usageModel"], PREF_DEFAULTS.usageModel, isString);
   if (usageModel === null) return null;
-  // Plan order-sidebar: missing key (pre-plan daemon) defaults to "manual" (docs/
-  // kb:anchor/prefs.put's documented default).
-  const railSort = parsePrefsField(value["railSort"], "manual", isRailSort);
+  // Plan order-sidebar: missing key (pre-plan daemon) defaults to PREF_DEFAULTS.railSort
+  // (kb:anchor/prefs.put's documented default).
+  const railSort = parsePrefsField(value["railSort"], PREF_DEFAULTS.railSort, isRailSort);
   if (railSort === null) return null;
   // Plan new-ui-design-colors (REQ-19): missing key (pre-plan daemon) defaults to
-  // "follow" (kb:anchor/prefs.put's documented default) — the daemon treats the
-  // string as opaque beyond its pattern, so no further validation happens client-side.
-  const theme = parsePrefsField(value["theme"], "follow", isString);
+  // PREF_DEFAULTS.theme (kb:anchor/prefs.put's documented default) — the daemon treats
+  // the string as opaque beyond its pattern, so no further validation happens client-side.
+  const theme = parsePrefsField(value["theme"], PREF_DEFAULTS.theme, isString);
   if (theme === null) return null;
-  // Plan auto-update: missing key (pre-plan daemon) defaults to true
+  // Plan auto-update: missing key (pre-plan daemon) defaults to PREF_DEFAULTS.updateCheck
   // (kb:anchor/prefs.put's documented default), same tolerance as usageModel/railSort/theme above.
-  const updateCheck = parsePrefsField(value["updateCheck"], true, isBoolean);
+  const updateCheck = parsePrefsField(value["updateCheck"], PREF_DEFAULTS.updateCheck, isBoolean);
   if (updateCheck === null) return null;
-  // Plan rail-card-improvements: missing key (pre-plan daemon) defaults to "comfortable"
-  // (kb:anchor/prefs.put's documented default). A *stored* value outside the enum is the
-  // daemon's problem, not the wire's — it falls back to "comfortable" server-side (D13's
-  // silent fallback) before it is ever sent. If an out-of-enum railDensity somehow reaches
-  // the client anyway, parsePrefsField's guard fails and parsePrefs rejects the whole
-  // prefs object (protocol.test.ts's "rejects a railDensity value outside the
-  // compact|comfortable|expanded enum").
-  const railDensity = parsePrefsField(value["railDensity"], "comfortable", isRailDensity);
+  // Plan rail-card-improvements: missing key (pre-plan daemon) defaults to
+  // PREF_DEFAULTS.railDensity (kb:anchor/prefs.put's documented default). A *stored*
+  // value outside the enum is the daemon's problem, not the wire's — it falls back to
+  // "comfortable" server-side (D13's silent fallback) before it is ever sent. If an
+  // out-of-enum railDensity somehow reaches the client anyway, parsePrefsField's guard
+  // fails and parsePrefs rejects the whole prefs object (protocol.test.ts's "rejects a
+  // railDensity value outside the compact|comfortable|expanded enum").
+  const railDensity = parsePrefsField(
+    value["railDensity"],
+    PREF_DEFAULTS.railDensity,
+    isRailDensity,
+  );
   if (railDensity === null) return null;
-  // Plan rail-card-improvements: missing key (pre-plan daemon) defaults to "turn"
-  // (kb:anchor/prefs.put's documented default), same tolerance as railDensity above.
-  const railActivity = parsePrefsField(value["railActivity"], "turn", isRailActivity);
+  // Plan rail-card-improvements: missing key (pre-plan daemon) defaults to
+  // PREF_DEFAULTS.railActivity (kb:anchor/prefs.put's documented default), same tolerance
+  // as railDensity above.
+  const railActivity = parsePrefsField(
+    value["railActivity"],
+    PREF_DEFAULTS.railActivity,
+    isRailActivity,
+  );
   if (railActivity === null) return null;
   return {
     view,
@@ -571,19 +621,11 @@ function parsePrefs(value: unknown): Prefs | null {
 }
 
 function isUpdateInstallKind(value: unknown): value is UpdateInstallKind {
-  return value === "installer" || value === "dev" || value === "homebrew" || value === "unmanaged";
+  return (UPDATE_INSTALL_KINDS as readonly unknown[]).includes(value);
 }
 
 function isUpdateApplyPhase(value: unknown): value is UpdateApplyPhase {
-  return (
-    value === "idle" ||
-    value === "downloading" ||
-    value === "verifying" ||
-    value === "installing" ||
-    value === "restarting" ||
-    value === "failed" ||
-    value === "done"
-  );
+  return (UPDATE_APPLY_PHASES as readonly unknown[]).includes(value);
 }
 
 function parseUpdateApply(value: unknown): UpdateApply | null {
@@ -623,8 +665,10 @@ export function parseUpdateInfo(value: unknown): UpdateInfo | null {
   return { running, install, remedy, canCheck, available, checkedAt, installed, apply };
 }
 
-function isClaudeFamily(value: unknown): value is ClaudeFamily {
-  return value === "light" || value === "dark" || value === "unknown";
+// Exported: theme.ts imports this instead of keeping its own copy
+// (review.maintainability.d-webcore.md Major 1/Seed check B4).
+export function isClaudeFamily(value: unknown): value is ClaudeFamily {
+  return (CLAUDE_FAMILIES as readonly unknown[]).includes(value);
 }
 
 function parseClaudeThemeInfo(value: unknown): ClaudeThemeInfo | null {
@@ -635,14 +679,7 @@ function parseClaudeThemeInfo(value: unknown): ClaudeThemeInfo | null {
 }
 
 function isSessionState(value: unknown): value is SessionState {
-  return (
-    value === "started" ||
-    value === "planning" ||
-    value === "working" ||
-    value === "needs_input" ||
-    value === "failed" ||
-    value === "idle"
-  );
+  return (SESSION_STATES as readonly unknown[]).includes(value);
 }
 
 function parseAttention(value: unknown): SessionAttention | null {
@@ -690,17 +727,15 @@ function parsePermissionModeInfo(value: unknown): PermissionModeInfo | null {
   return { value: modeValue, source };
 }
 
-function parseNullableNumber(value: unknown): number | null | undefined {
-  if (value === null) return null;
-  if (typeof value === "number") return value;
-  return undefined; // sentinel: caller treats as invalid
+function asNumber(value: unknown): number | null {
+  return isNumber(value) ? value : null;
 }
 
 function parseContext(value: unknown): SessionContext | null {
   if (!isRecord(value)) return null;
-  const usedPct = parseNullableNumber(value["usedPct"]);
-  const totalInputTokens = parseNullableNumber(value["totalInputTokens"]);
-  const windowSize = parseNullableNumber(value["windowSize"]);
+  const usedPct = parseNullable(value["usedPct"], asNumber);
+  const totalInputTokens = parseNullable(value["totalInputTokens"], asNumber);
+  const windowSize = parseNullable(value["windowSize"], asNumber);
   const compactions = value["compactions"];
   if (usedPct === undefined || totalInputTokens === undefined || windowSize === undefined)
     return null;
@@ -760,19 +795,19 @@ export function parseSession(value: unknown): Session | null {
   if (typeof alive !== "boolean") return null;
   if (endedAt !== null && typeof endedAt !== "string") return null;
 
-  const attention = rawAttention === null ? null : parseAttention(rawAttention);
-  if (rawAttention !== null && attention === null) return null;
+  const attention = parseNullable(rawAttention, parseAttention);
+  if (attention === undefined) return null;
 
-  const failure = rawFailure === null ? null : parseFailure(rawFailure);
-  if (rawFailure !== null && failure === null) return null;
+  const failure = parseNullable(rawFailure, parseFailure);
+  if (failure === undefined) return null;
 
   if (typeof directory !== "string") return null;
 
-  const repo = rawRepo === null ? null : parseRepoInfo(rawRepo);
-  if (rawRepo !== null && repo === null) return null;
+  const repo = parseNullable(rawRepo, parseRepoInfo);
+  if (repo === undefined) return null;
 
-  const model = rawModel === null ? null : parseModelInfo(rawModel);
-  if (rawModel !== null && model === null) return null;
+  const model = parseNullable(rawModel, parseModelInfo);
+  if (model === undefined) return null;
 
   const permissionMode = parsePermissionModeInfo(value["permissionMode"]);
   if (!permissionMode) return null;
@@ -789,8 +824,8 @@ export function parseSession(value: unknown): Session | null {
   if (typeof railPos !== "number") return null;
   if (titleOverride !== null && typeof titleOverride !== "string") return null;
 
-  const plan = rawPlan === null ? null : parseSessionPlan(rawPlan);
-  if (rawPlan !== null && plan === null) return null;
+  const plan = parseNullable(rawPlan, parseSessionPlan);
+  if (plan === undefined) return null;
 
   if (typeof unread !== "boolean") return null;
   if (lastPrompt !== null && typeof lastPrompt !== "string") return null;
@@ -823,29 +858,8 @@ export function parseSession(value: unknown): Session | null {
   };
 }
 
-function parseSessions(value: unknown): Session[] | null {
-  if (!Array.isArray(value)) return null;
-  const sessions: Session[] = [];
-  for (const item of value) {
-    const session = parseSession(item);
-    if (!session) return null;
-    sessions.push(session);
-  }
-  return sessions;
-}
-
-function parseShellsBusy(value: unknown): number[] | null {
-  if (!Array.isArray(value)) return null;
-  const ids: number[] = [];
-  for (const item of value) {
-    if (typeof item !== "number") return null;
-    ids.push(item);
-  }
-  return ids;
-}
-
 function parseSnapshot(rec: Record<string, unknown>): Snapshot | null {
-  const sessions = parseSessions(rec["sessions"]);
+  const sessions = parseListOf(rec["sessions"], parseSession);
   const usage = parseUsage(rec["usage"]);
   const prefs = parsePrefs(rec["prefs"]);
   // Plan new-ui-design-colors (REQ-19): missing key (pre-plan daemon) defaults to
@@ -869,7 +883,7 @@ function parseSnapshot(rec: Record<string, unknown>): Snapshot | null {
   // round-trips unchanged. Real callers read `snapshot.shellsBusy ?? []`
   // (`features/surfaces.ts`), same as every other present-only field's read site.
   if ("shellsBusy" in rec) {
-    const shellsBusy = parseShellsBusy(rec["shellsBusy"]);
+    const shellsBusy = parseListOf(rec["shellsBusy"], asNumber);
     if (!shellsBusy) return null;
     snapshot.shellsBusy = shellsBusy;
   }
