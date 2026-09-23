@@ -36,12 +36,15 @@ func main() {
 		errType   = flag.String("error-type", "api_error", "Anthropic error .type to inject")
 		upstream  = flag.String("upstream", "", "if set, reverse-proxy to this origin and only fail after -fail-after")
 		failAfter = flag.Int("fail-after", 0, "with -upstream: number of /v1/messages requests to let through first")
+		message   = flag.String("message", "probe-induced failure", "Anthropic error .message to inject (some mappings key on it, e.g. \"Credit balance is too low\")")
+		headers   headerFlags
 	)
+	flag.Var(&headers, "header", "extra response header on an injected failure, as Name:value (repeatable; e.g. anthropic-ratelimit-unified-status:rejected)")
 	flag.Parse()
 
 	lg := log.New(log.Writer(), "[failproxy] ", log.LstdFlags|log.Lmicroseconds)
 
-	body := fmt.Sprintf(`{"type":"error","error":{"type":%q,"message":"probe-induced failure"}}`, *errType)
+	body := fmt.Sprintf(`{"type":"error","error":{"type":%q,"message":%q}}`, *errType, *message)
 
 	var seen int64
 	var rp *httputil.ReverseProxy
@@ -76,6 +79,9 @@ func main() {
 		}
 		lg.Printf("FAIL %s %s -> %d", r.Method, r.URL.Path, *status)
 		w.Header().Set("Content-Type", "application/json")
+		for _, h := range headers {
+			w.Header().Set(h[0], h[1])
+		}
 		w.WriteHeader(*status)
 		_, _ = io.WriteString(w, body)
 	}
@@ -91,4 +97,18 @@ func main() {
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// headerFlags collects repeated -header Name:value flags.
+type headerFlags [][2]string
+
+func (h *headerFlags) String() string { return fmt.Sprint(*h) }
+
+func (h *headerFlags) Set(v string) error {
+	name, value, ok := strings.Cut(v, ":")
+	if !ok || name == "" {
+		return fmt.Errorf("want Name:value, got %q", v)
+	}
+	*h = append(*h, [2]string{name, value})
+	return nil
 }
