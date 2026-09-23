@@ -106,6 +106,25 @@ type Manager struct {
 	// after that could ever contend on it again).
 	idLocks map[int64]*sync.Mutex
 
+	// writeChain is a per-session write-ordering turnstile, guarded by mu itself (map
+	// access only, same discipline as idLocks): writeChain[id] is always the completion
+	// signal of the most recently *scheduled* persist for id. nextWriteTurnLocked draws a
+	// ticket (replacing the entry) while the caller still holds mu, so tickets are handed
+	// out in exactly the order their mutations happened; finishWrite waits for the
+	// previous ticket to close before persisting, so two setters racing to write the same
+	// id can never persist — or broadcast — out of that order. Remove reclaims an id's
+	// entry the same way it reclaims idLocks.
+	writeChain map[int64]chan struct{}
+
+	// nextRailPos is the RailPos CreateSession hands to the next new session, guarded by mu
+	// itself. Deciding and advancing it in one critical section is what makes two
+	// concurrent launches get distinct positions — unlike reading max(existing RailPos)
+	// from m.sessions, which two launches can both see before either has registered.
+	// LoadAll seeds it from the persisted rows; it only ever increases, so a value skipped
+	// by a since-removed session is never reused, which is harmless — a new session only
+	// needs to land after every existing one, not at a contiguous next value.
+	nextRailPos int64
+
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
@@ -181,6 +200,7 @@ func (m *Manager) LoadAll(ctx context.Context) error {
 			m.byClaude[sess.ClaudeSessionID] = sess.ID
 		}
 	}
+	m.nextRailPos = m.maxRailPosLocked() + 1
 	return nil
 }
 
@@ -241,11 +261,14 @@ type CreateParams struct {
 func (m *Manager) CreateSession(ctx context.Context, p CreateParams) (*Session, error) {
 	model := p.Model
 
-	// RailPos = max(existing)+1 (plan order-sidebar REQ-1), computed from the manager's
-	// own in-memory registry rather than a separate SQL MAX() query (Implementation
-	// Notes: "the manager already holds every session in memory under m.mu").
+	// RailPos = max(existing)+1: opened order lands at the bottom of the unpinned block.
+	// Deciding it and advancing nextRailPos happen in the same critical section, so two
+	// concurrent CreateSession calls can never both see the same value — unlike reading
+	// max(m.sessions) here and only registering the new session (invisible to that same
+	// read) after InsertSession's round trip.
 	m.mu.Lock()
-	railPos := m.maxRailPosLocked() + 1
+	railPos := m.nextRailPos
+	m.nextRailPos++
 	m.mu.Unlock()
 
 	row, err := m.store.InsertSession(ctx, store.InsertSessionParams{
@@ -273,21 +296,59 @@ func (m *Manager) CreateSession(ctx context.Context, p CreateParams) (*Session, 
 	return sess.Clone(), nil
 }
 
-// rollbackOnPersistFailure is session-lifecycle REQ-14's shared tail: when persistErr is
-// non-nil, it re-locks and applies restore to sess — but only if id still maps to the
-// very same *Session (it may have been removed entirely in the meantime) — so a failed
-// UpdateSession never leaves memory disagreeing with the DB. Returns persistErr wrapped
-// with id and verb, or nil.
-func (m *Manager) rollbackOnPersistFailure(id int64, sess *Session, persistErr error, verb string, restore func(*Session)) error {
-	if persistErr == nil {
-		return nil
+// nextWriteTurnLocked draws id's next write ticket — must be called with m.mu held,
+// and before it is released, so tickets are handed out in exactly the order their
+// mutations happened. wait is the previous ticket's completion signal (nil when none is
+// outstanding, the common case); done closes this ticket's own signal, letting whoever
+// drew the next one proceed. See writeChain's field doc for the guard.
+func (m *Manager) nextWriteTurnLocked(id int64) (wait <-chan struct{}, done func()) {
+	if m.writeChain == nil {
+		m.writeChain = make(map[int64]chan struct{})
 	}
-	m.mu.Lock()
-	if cur, ok := m.sessions[id]; ok && cur == sess {
-		restore(cur)
+	wait = m.writeChain[id]
+	mine := make(chan struct{})
+	m.writeChain[id] = mine
+	return wait, func() { close(mine) }
+}
+
+// finishWrite is the single writer tail shared by every method that persists a Session
+// row: called after the caller has released m.mu having already built row/snapshot from
+// the mutation it just made (and drawn wait/done via nextWriteTurnLocked while it still
+// held the lock), it waits for any earlier write on the same id to finish, runs persist,
+// and — on failure — re-locks and calls restore against the live *Session iff it is still
+// exactly the sess this write mutated (id may have been removed entirely in the
+// meantime). One persist-failure policy for every setter: memory never claims what
+// the DB doesn't hold. On success it broadcasts snapshot, skipped when snapshot is nil
+// (SetTranscript's silent write, storeSnapshot's display-only cache). done is always
+// called before returning, whether persist succeeded or failed, so the next queued write
+// — if any — is never blocked by this one's outcome.
+func (m *Manager) finishWrite(id int64, sess *Session, wait <-chan struct{}, done func(), persist func() error, snapshot *Session, restore func(*Session)) error {
+	if wait != nil {
+		<-wait
 	}
-	m.mu.Unlock()
-	return fmt.Errorf("%s session %d: %w", verb, id, persistErr)
+	defer done()
+
+	if err := persist(); err != nil {
+		m.mu.Lock()
+		if cur, ok := m.sessions[id]; ok && cur == sess {
+			restore(cur)
+		}
+		m.mu.Unlock()
+		return err
+	}
+	if snapshot != nil {
+		m.broadcast(snapshot)
+	}
+	return nil
+}
+
+// cloneRestore is the ordinary restore func finishWrite's callers pass: prev was cloned
+// before the mutation, so putting it back reverts every field in one assignment — Model/
+// Context/Attention/Failure included, since a real change to any of those always replaces
+// the pointer rather than writing into it, so copying the old
+// pointer value back is a full, correct undo.
+func cloneRestore(prev *Session) func(*Session) {
+	return func(cur *Session) { *cur = *prev }
 }
 
 // RecordLaunch stamps the real tmux target/pane once the window has been spawned, and
@@ -301,19 +362,18 @@ func (m *Manager) RecordLaunch(ctx context.Context, id int64, tmuxTarget, tmuxPa
 		m.mu.Unlock()
 		return nil, fmt.Errorf("recording launch: unknown session %d", id)
 	}
-	prevTarget, prevPane := sess.TmuxTarget, sess.TmuxPane
+	prev := sess.Clone()
 	sess.TmuxTarget = tmuxTarget
 	sess.TmuxPane = tmuxPane
 	row := sessionToRow(sess)
 	snapshot := sess.Clone()
+	wait, done := m.nextWriteTurnLocked(id)
 	m.mu.Unlock()
 
-	if err := m.store.UpdateSession(ctx, row); err != nil {
-		return nil, m.rollbackOnPersistFailure(id, sess, err, "persisting launch for", func(cur *Session) {
-			cur.TmuxTarget, cur.TmuxPane = prevTarget, prevPane
-		})
+	persist := func() error { return m.store.UpdateSession(ctx, row) }
+	if err := m.finishWrite(id, sess, wait, done, persist, snapshot, cloneRestore(prev)); err != nil {
+		return nil, fmt.Errorf("persisting launch for session %d: %w", id, err)
 	}
-	m.broadcast(snapshot)
 	return snapshot, nil
 }
 
@@ -601,18 +661,20 @@ func (m *Manager) RepairOwnedSession(ctx context.Context, id int64) (*Session, e
 		m.mu.Unlock()
 		return nil, ErrUnknownSession
 	}
+	prev := sess.Clone()
 	sess.Alive = true
 	sess.EndedAt = nil
 	sess.TmuxTarget = target
 	sess.TmuxPane = pane
 	row := sessionToRow(sess)
 	snapshot := sess.Clone()
+	wait, done := m.nextWriteTurnLocked(id)
 	m.mu.Unlock()
 
-	if err := m.store.UpdateSession(ctx, row); err != nil {
+	persist := func() error { return m.store.UpdateSession(ctx, row) }
+	if err := m.finishWrite(id, sess, wait, done, persist, snapshot, cloneRestore(prev)); err != nil {
 		return nil, fmt.Errorf("persisting repaired session %d: %w", id, err)
 	}
-	m.broadcast(snapshot)
 	return snapshot, nil
 }
 
@@ -638,6 +700,7 @@ func (m *Manager) reviveOwnedSession(ctx context.Context, id int64, tmuxName str
 		m.mu.Unlock()
 		return
 	}
+	prev := sess.Clone()
 	changed := false
 	if !sess.Alive {
 		sess.Alive = true
@@ -655,13 +718,13 @@ func (m *Manager) reviveOwnedSession(ctx context.Context, id int64, tmuxName str
 	}
 	row := sessionToRow(sess)
 	snapshot := sess.Clone()
+	wait, done := m.nextWriteTurnLocked(id)
 	m.mu.Unlock()
 
-	if err := m.store.UpdateSession(ctx, row); err != nil {
+	persist := func() error { return m.store.UpdateSession(ctx, row) }
+	if err := m.finishWrite(id, sess, wait, done, persist, snapshot, cloneRestore(prev)); err != nil {
 		m.log.Warn().Err(err).Int64("session_id", id).Msg("reconcile: persisting repaired session failed")
-		return
 	}
-	m.broadcast(snapshot)
 }
 
 // classifySessions is Reconcile's first phase: it snapshots the registry under m.mu,
@@ -795,6 +858,12 @@ func (m *Manager) Apply(ctx context.Context, musterSessionID int64, claudeSessio
 		m.mu.Unlock()
 		return nil, fmt.Errorf("apply: unknown session %d", musterSessionID)
 	}
+	prev := sess.Clone()
+	// claudeSessionID is fixed for the whole call, so byClaude ever gets at most this one
+	// key touched below — captured once, before either mutation branch, so a persist
+	// failure can put it back exactly as it was (one persist-failure policy for every
+	// setter, byClaude included, not just sess's own fields).
+	prevOwner, hadPrevOwner := m.byClaude[claudeSessionID]
 
 	if enveloped && !isBindKind(input.Kind) {
 		switch {
@@ -833,12 +902,21 @@ func (m *Manager) Apply(ctx context.Context, musterSessionID int64, claudeSessio
 	}
 	row := sessionToRow(sess)
 	snapshot := sess.Clone()
+	wait, done := m.nextWriteTurnLocked(musterSessionID)
 	m.mu.Unlock()
 
-	if err := m.store.UpdateSession(ctx, row); err != nil {
+	restore := func(cur *Session) {
+		*cur = *prev
+		if hadPrevOwner {
+			m.byClaude[claudeSessionID] = prevOwner
+		} else {
+			delete(m.byClaude, claudeSessionID)
+		}
+	}
+	persist := func() error { return m.store.UpdateSession(ctx, row) }
+	if err := m.finishWrite(musterSessionID, sess, wait, done, persist, snapshot, restore); err != nil {
 		return nil, fmt.Errorf("persisting session %d: %w", musterSessionID, err)
 	}
-	m.broadcast(snapshot)
 	return snapshot, nil
 }
 
@@ -868,6 +946,7 @@ func (m *Manager) ApplyStatus(ctx context.Context, musterSessionID int64, update
 		m.mu.Unlock()
 		return nil, fmt.Errorf("apply status: unknown session %d", musterSessionID)
 	}
+	prev := sess.Clone()
 
 	// Captured before applyStatusUpdate mutates sess, so the wire-visible delta (REQ-12)
 	// can be judged independently of the persist-worthy delta applyStatusUpdate itself
@@ -891,13 +970,16 @@ func (m *Manager) ApplyStatus(ctx context.Context, musterSessionID int64, update
 	// not broadcast — the wire object (DisplayTitle()/model/context) is unchanged, and
 	// kb:anchor/ws.session's no-no-op-upserts rule stands.
 	broadcast := !stringPtrEqual(beforeDisplay, sess.DisplayTitle()) || beforeModel != sess.Model || beforeContext != sess.Context
+	wait, done := m.nextWriteTurnLocked(musterSessionID)
 	m.mu.Unlock()
 
-	if err := m.store.UpdateSession(ctx, row); err != nil {
-		return nil, fmt.Errorf("persisting status update for session %d: %w", musterSessionID, err)
+	broadcastSnapshot := snapshot
+	if !broadcast {
+		broadcastSnapshot = nil
 	}
-	if broadcast {
-		m.broadcast(snapshot)
+	persist := func() error { return m.store.UpdateSession(ctx, row) }
+	if err := m.finishWrite(musterSessionID, sess, wait, done, persist, broadcastSnapshot, cloneRestore(prev)); err != nil {
+		return nil, fmt.Errorf("persisting status update for session %d: %w", musterSessionID, err)
 	}
 	return snapshot, nil
 }
@@ -915,6 +997,7 @@ func (m *Manager) SetTitle(ctx context.Context, id int64, title *string) (bool, 
 		return false, ErrUnknownSession
 	}
 
+	prev := sess.Clone()
 	beforeDisplay := sess.DisplayTitle()
 	beforeOverride := sess.TitleOverride
 	sess.TitleOverride = title
@@ -926,12 +1009,13 @@ func (m *Manager) SetTitle(ctx context.Context, id int64, title *string) (bool, 
 
 	row := sessionToRow(sess)
 	snapshot := sess.Clone()
+	wait, done := m.nextWriteTurnLocked(id)
 	m.mu.Unlock()
 
-	if err := m.store.UpdateSession(ctx, row); err != nil {
+	persist := func() error { return m.store.UpdateSession(ctx, row) }
+	if err := m.finishWrite(id, sess, wait, done, persist, snapshot, cloneRestore(prev)); err != nil {
 		return false, fmt.Errorf("persisting title for session %d: %w", id, err)
 	}
-	m.broadcast(snapshot)
 	return true, nil
 }
 
@@ -951,15 +1035,17 @@ func (m *Manager) MarkSeen(ctx context.Context, id int64) error {
 		m.mu.Unlock()
 		return nil
 	}
+	prev := sess.Clone()
 	sess.Unread = false
 	row := sessionToRow(sess)
 	snapshot := sess.Clone()
+	wait, done := m.nextWriteTurnLocked(id)
 	m.mu.Unlock()
 
-	if err := m.store.UpdateSession(ctx, row); err != nil {
+	persist := func() error { return m.store.UpdateSession(ctx, row) }
+	if err := m.finishWrite(id, sess, wait, done, persist, snapshot, cloneRestore(prev)); err != nil {
 		return fmt.Errorf("marking session %d seen: %w", id, err)
 	}
-	m.broadcast(snapshot)
 	return nil
 }
 
@@ -980,11 +1066,18 @@ func (m *Manager) SetTranscript(ctx context.Context, id int64, claudeSessionID, 
 		m.mu.Unlock()
 		return false, nil
 	}
+	prev := sess.Clone()
 	sess.TranscriptPath = path
 	row := sessionToRow(sess)
+	wait, done := m.nextWriteTurnLocked(id)
 	m.mu.Unlock()
 
-	if err := m.store.UpdateSession(ctx, row); err != nil {
+	// snapshot is nil (D15): SetTranscript never broadcasts, but it still shares id's
+	// write-ordering turnstile — it writes the same whole row every other setter does, so
+	// an out-of-turn persist here would just as easily clobber a newer field elsewhere in
+	// the row.
+	persist := func() error { return m.store.UpdateSession(ctx, row) }
+	if err := m.finishWrite(id, sess, wait, done, persist, nil, cloneRestore(prev)); err != nil {
 		return false, fmt.Errorf("persisting transcript path for session %d: %w", id, err)
 	}
 	return true, nil
@@ -1010,16 +1103,54 @@ func (m *Manager) SetPlan(ctx context.Context, id int64, claudeSessionID, path s
 		m.mu.Unlock()
 		return snapshot, false, nil
 	}
+	prev := sess.Clone()
 	sess.PlanPath = path
 	sess.PlanExists = exists
 	row := sessionToRow(sess)
 	snapshot := sess.Clone()
+	wait, done := m.nextWriteTurnLocked(id)
 	m.mu.Unlock()
 
-	if err := m.store.UpdateSession(ctx, row); err != nil {
+	persist := func() error { return m.store.UpdateSession(ctx, row) }
+	if err := m.finishWrite(id, sess, wait, done, persist, snapshot, cloneRestore(prev)); err != nil {
 		return nil, false, fmt.Errorf("persisting plan for session %d: %w", id, err)
 	}
-	m.broadcast(snapshot)
+	return snapshot, true, nil
+}
+
+// MarkPlanWritten flips id's PlanExists to true iff its currently-committed PlanPath is
+// still expectedPath and PlanExists is still false — internal/server/reader.go's
+// observeWrite exists-flip: the decision and the write happen in one Manager.mu critical
+// section against the value actually committed *now*, never against a path the caller
+// read earlier through Get() outside the lock. Without this, a concurrent ApplyPlanScan
+// naming a different plan could be overwritten back to the stale path SetPlan's generic
+// (path, exists) signature would otherwise blindly write (observeWrite used to call
+// SetPlan directly for this; SetPlan itself is unchanged and still used by callers that
+// already hold the real, current path). Refused (no persist, changed=false) when
+// claudeSessionID no longer names id's current binding (REQ-26/INV-8), same as SetPlan.
+func (m *Manager) MarkPlanWritten(ctx context.Context, id int64, claudeSessionID, expectedPath string) (*Session, bool, error) {
+	m.mu.Lock()
+	sess, ok := m.sessions[id]
+	if !ok {
+		m.mu.Unlock()
+		return nil, false, ErrUnknownSession
+	}
+	if sess.ClaudeSessionID != claudeSessionID || sess.PlanPath != expectedPath || sess.PlanExists {
+		snapshot := sess.Clone()
+		m.mu.Unlock()
+		return snapshot, false, nil
+	}
+	prev := sess.Clone()
+	sess.PlanExists = true
+	row := sessionToRow(sess)
+	snapshot := sess.Clone()
+	wait, done := m.nextWriteTurnLocked(id)
+	m.mu.Unlock()
+
+	persist := func() error { return m.store.UpdateSession(ctx, row) }
+	if err := m.finishWrite(id, sess, wait, done, persist, snapshot, cloneRestore(prev)); err != nil {
+		return nil, false, fmt.Errorf("persisting plan for session %d: %w", id, err)
+	}
 	return snapshot, true, nil
 }
 
@@ -1065,16 +1196,18 @@ func (m *Manager) ApplyPlanScan(ctx context.Context, id int64, claudeSessionID, 
 		m.mu.Unlock()
 		return snapshot, false, nil
 	}
+	prev := sess.Clone()
 	sess.PlanPath = path
 	sess.PlanExists = exists
 	row := sessionToRow(sess)
 	snapshot := sess.Clone()
+	wait, done := m.nextWriteTurnLocked(id)
 	m.mu.Unlock()
 
-	if err := m.store.UpdateSession(ctx, row); err != nil {
+	persist := func() error { return m.store.UpdateSession(ctx, row) }
+	if err := m.finishWrite(id, sess, wait, done, persist, snapshot, cloneRestore(prev)); err != nil {
 		return nil, false, fmt.Errorf("persisting plan for session %d: %w", id, err)
 	}
-	m.broadcast(snapshot)
 	return snapshot, true, nil
 }
 
@@ -1137,12 +1270,19 @@ func (m *Manager) storeSnapshot(ctx context.Context, id int64, text string) {
 		m.mu.Unlock()
 		return
 	}
+	prev := sess.Clone()
 	now := time.Now().UTC()
 	sess.LastSnapshot = text
 	sess.LastSnapshotAt = now
+	wait, done := m.nextWriteTurnLocked(id)
 	m.mu.Unlock()
 
-	if err := m.store.UpdateSnapshot(ctx, id, text, now); err != nil {
+	// snapshot is nil (never broadcasts, see doc above); this still needs id's write
+	// ticket and the same persist-failure policy as every other setter (memory must
+	// not claim a snapshot the DB doesn't hold) even though its persist is a narrower
+	// UpdateSnapshot column set, not the whole-row UpdateSession every other writer uses.
+	persist := func() error { return m.store.UpdateSnapshot(ctx, id, text, now) }
+	if err := m.finishWrite(id, sess, wait, done, persist, nil, cloneRestore(prev)); err != nil {
 		m.log.Error().Err(err).Int64("session_id", id).Msg("persisting pane snapshot failed")
 	}
 }
@@ -1315,9 +1455,12 @@ func (m *Manager) Remove(ctx context.Context, id int64) error {
 	}
 
 	// The id is never reissued (REQ-2), so nothing can ever contend on this lock again —
-	// reclaim it rather than growing the map for the life of the daemon.
+	// reclaim it rather than growing the map for the life of the daemon. writeChain's
+	// entry is reclaimed the same way and for the same reason: no write for a removed,
+	// never-reused id can ever be scheduled again.
 	m.mu.Lock()
 	delete(m.idLocks, id)
+	delete(m.writeChain, id)
 	m.mu.Unlock()
 	return nil
 }
@@ -1374,11 +1517,7 @@ func (m *Manager) RecordResume(ctx context.Context, id int64, tmuxTarget, tmuxPa
 		m.mu.Unlock()
 		return nil, ErrUnknownSession
 	}
-	prevTarget, prevPane := sess.TmuxTarget, sess.TmuxPane
-	prevAlive := sess.Alive
-	prevEndedAt := sess.EndedAt
-	prevSnapshot := sess.LastSnapshot
-	prevSnapshotAt := sess.LastSnapshotAt
+	prev := sess.Clone()
 
 	sess.TmuxTarget = tmuxTarget
 	sess.TmuxPane = tmuxPane
@@ -1388,26 +1527,21 @@ func (m *Manager) RecordResume(ctx context.Context, id int64, tmuxTarget, tmuxPa
 	sess.LastSnapshotAt = time.Time{}
 	row := sessionToRow(sess)
 	snapshot := sess.Clone()
+	wait, done := m.nextWriteTurnLocked(id)
 	m.mu.Unlock()
 
 	// REQ-14: a persist failure rolls every field back — a half-resumed session must
 	// never look alive in memory while the DB still has it dead.
-	if err := m.store.UpdateSession(ctx, row); err != nil {
-		return nil, m.rollbackOnPersistFailure(id, sess, err, "persisting resume for", func(cur *Session) {
-			cur.TmuxTarget, cur.TmuxPane = prevTarget, prevPane
-			cur.Alive = prevAlive
-			cur.EndedAt = prevEndedAt
-			cur.LastSnapshot = prevSnapshot
-			cur.LastSnapshotAt = prevSnapshotAt
-		})
+	persist := func() error { return m.store.UpdateSession(ctx, row) }
+	if err := m.finishWrite(id, sess, wait, done, persist, snapshot, cloneRestore(prev)); err != nil {
+		return nil, fmt.Errorf("persisting resume for session %d: %w", id, err)
 	}
-	m.broadcast(snapshot)
 	return snapshot, nil
 }
 
-// maxRailPosLocked returns the largest RailPos among known sessions, or -1 when there
-// are none — CreateSession adds 1 to get "opened order = bottom of the unpinned block"
-// (REQ-1). Must be called with m.mu held.
+// maxRailPosLocked returns the largest RailPos among known sessions, or -1 when there are
+// none — LoadAll's one-time seed for nextRailPos, CreateSession's own decision from then
+// on (REQ-1: "opened order = bottom of the unpinned block"). Must be called with m.mu held.
 func (m *Manager) maxRailPosLocked() int64 {
 	highest := int64(-1)
 	for _, s := range m.sessions {
@@ -1428,35 +1562,64 @@ func (m *Manager) railEntriesLocked() []railEntry {
 	return out
 }
 
+// railWrite is one changed session's rail write, fully built while applyRailChangesLocked
+// still holds m.mu — row/snapshot/wait/done all reflect that lock scope's mutation, so
+// persistAndBroadcastRail's later, unlocked loop only ever waits, persists and restores;
+// it never touches sess again to derive anything.
+type railWrite struct {
+	id       int64
+	sess     *Session // live pointer, for finishWrite's identity-checked restore
+	prev     *Session // pre-mutation clone, cloneRestore's target on a persist failure
+	row      store.SessionRow
+	snapshot *Session
+	wait     <-chan struct{}
+	done     func()
+}
+
+// errRailWriteAborted is persistAndBroadcastRail's internal signal for a not-yet-attempted
+// write it is rolling back after an earlier one in the same batch failed — never returned
+// to a caller.
+var errRailWriteAborted = errors.New("rail write aborted by an earlier failure in the same batch")
+
 // applyRailChangesLocked writes each changed entry's Pinned/RailPos into the live
-// in-memory session and returns value-copy snapshots to persist and broadcast once
-// unlocked. Must be called with m.mu held; entries naming a session no longer present
-// (removed between the read and the write) are silently skipped.
-func (m *Manager) applyRailChangesLocked(changed []railEntry) []*Session {
-	snapshots := make([]*Session, 0, len(changed))
+// in-memory session and draws its write ticket, all still under m.mu, returning what
+// persistAndBroadcastRail needs to persist and broadcast each one once unlocked. Must be
+// called with m.mu held; entries naming a session no longer present (removed between the
+// read and the write) are silently skipped.
+func (m *Manager) applyRailChangesLocked(changed []railEntry) []railWrite {
+	writes := make([]railWrite, 0, len(changed))
 	for _, c := range changed {
 		sess, ok := m.sessions[c.ID]
 		if !ok {
 			continue
 		}
+		prev := sess.Clone()
 		sess.Pinned = c.Pinned
 		sess.RailPos = c.RailPos
-		snapshots = append(snapshots, sess.Clone())
+		row := sessionToRow(sess)
+		snapshot := sess.Clone()
+		wait, done := m.nextWriteTurnLocked(c.ID)
+		writes = append(writes, railWrite{id: c.ID, sess: sess, prev: prev, row: row, snapshot: snapshot, wait: wait, done: done})
 	}
-	return snapshots
+	return writes
 }
 
-// persistAndBroadcastRail persists and broadcasts each of snapshots in turn — the tail
-// shared by SetPinned/SetOrder once the in-memory mutation is done and the lock
-// released (REQ-3/REQ-4: "every session whose pinned or railPos changed is broadcast").
-// Stops and returns the first persist error, wrapped with the session id; sessions
-// already persisted in this call have already been broadcast.
-func (m *Manager) persistAndBroadcastRail(ctx context.Context, snapshots []*Session) error {
-	for _, snap := range snapshots {
-		if err := m.store.UpdateSession(ctx, sessionToRow(snap)); err != nil {
-			return fmt.Errorf("persisting rail order for session %d: %w", snap.ID, err)
+// persistAndBroadcastRail persists and broadcasts each of writes in turn — the tail
+// shared by SetPinned/SetOrder once the in-memory mutation is done and the lock released
+// (REQ-3/REQ-4: "every session whose pinned or railPos changed is broadcast"). Stops at
+// the first persist failure and rolls that one back plus every write still queued behind
+// it (a batch that stops partway must never leave memory claiming rail positions the
+// DB never recorded) — writes already persisted and broadcast earlier in this call stand.
+func (m *Manager) persistAndBroadcastRail(ctx context.Context, writes []railWrite) error {
+	for i, w := range writes {
+		row := w.row
+		persist := func() error { return m.store.UpdateSession(ctx, row) }
+		if err := m.finishWrite(w.id, w.sess, w.wait, w.done, persist, w.snapshot, cloneRestore(w.prev)); err != nil {
+			for _, rest := range writes[i+1:] {
+				_ = m.finishWrite(rest.id, rest.sess, rest.wait, rest.done, func() error { return errRailWriteAborted }, nil, cloneRestore(rest.prev))
+			}
+			return fmt.Errorf("persisting rail order for session %d: %w", w.id, err)
 		}
-		m.broadcast(snap)
 	}
 	return nil
 }
@@ -1473,10 +1636,10 @@ func (m *Manager) SetPinned(ctx context.Context, id int64, pinned bool) error {
 		m.mu.Unlock()
 		return err
 	}
-	snapshots := m.applyRailChangesLocked(changed)
+	writes := m.applyRailChangesLocked(changed)
 	m.mu.Unlock()
 
-	return m.persistAndBroadcastRail(ctx, snapshots)
+	return m.persistAndBroadcastRail(ctx, writes)
 }
 
 // SetOrder applies kb:anchor/sessions.order's full rail-order mutation: the pure
@@ -1490,10 +1653,10 @@ func (m *Manager) SetOrder(ctx context.Context, ids []int64, pinnedCount int) er
 		m.mu.Unlock()
 		return err
 	}
-	snapshots := m.applyRailChangesLocked(changed)
+	writes := m.applyRailChangesLocked(changed)
 	m.mu.Unlock()
 
-	return m.persistAndBroadcastRail(ctx, snapshots)
+	return m.persistAndBroadcastRail(ctx, writes)
 }
 
 func (m *Manager) broadcast(s *Session) {
@@ -1625,21 +1788,19 @@ func (m *Manager) markEnded(ctx context.Context, id int64) (*Session, error) {
 		m.mu.Unlock()
 		return snapshot, nil
 	}
-	prevEndedAt := sess.EndedAt
+	prev := sess.Clone()
 	sess.Alive = false
 	endedAt := time.Now().UTC()
 	sess.EndedAt = &endedAt
 	row := sessionToRow(sess)
 	snapshot := sess.Clone()
+	wait, done := m.nextWriteTurnLocked(id)
 	m.mu.Unlock()
 
-	if err := m.store.UpdateSession(ctx, row); err != nil {
-		return nil, m.rollbackOnPersistFailure(id, sess, err, "persisting ended", func(cur *Session) {
-			cur.Alive = true
-			cur.EndedAt = prevEndedAt
-		})
+	persist := func() error { return m.store.UpdateSession(ctx, row) }
+	if err := m.finishWrite(id, sess, wait, done, persist, snapshot, cloneRestore(prev)); err != nil {
+		return nil, fmt.Errorf("persisting ended session %d: %w", id, err)
 	}
-	m.broadcast(snapshot)
 	return snapshot, nil
 }
 

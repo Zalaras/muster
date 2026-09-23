@@ -4,7 +4,10 @@
 // (CLAUDE.md hard rule; plan m1-sessions "The state machine — implementation shape").
 package session
 
-import "time"
+import (
+	"time"
+	"unicode/utf8"
+)
 
 // State is one of the six displayed states (kb:anchor/state.displayed).
 type State string
@@ -214,9 +217,15 @@ func stringPtrEqual(a, b *string) bool {
 	return *a == *b
 }
 
+// truncate cuts s to at most n bytes without splitting a multi-byte UTF-8 rune:
+// LastPrompt/LastActivity are hook-supplied text, and a byte-count cut that lands mid-rune
+// would persist and broadcast invalid UTF-8.
 func truncate(s string, n int) string {
 	if len(s) <= n {
 		return s
+	}
+	for n > 0 && !utf8.RuneStart(s[n]) {
+		n--
 	}
 	return s[:n]
 }

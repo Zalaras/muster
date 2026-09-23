@@ -132,11 +132,16 @@ func applyBind(sess *Session, claudeSessionID string, input claudecode.StateInpu
 
 	sess.ClaudeSessionID = claudeSessionID
 	if input.Model != nil {
-		if sess.Model == nil {
-			sess.Model = &Model{ID: *input.Model}
-		} else {
-			sess.Model.ID = *input.Model
+		// A fresh pointer, never a field written into the old one: List/Get hand out
+		// Clone()s that share this *Model, and Session.Clone's contract is that a changed
+		// model is always a new pointer, never mutated in place. DisplayName is carried
+		// over from the previous Model (empty on a new model, stale on an id change) —
+		// what the card should show on a bind is a separate, undecided question.
+		next := Model{ID: *input.Model}
+		if sess.Model != nil {
+			next.DisplayName = sess.Model.DisplayName
 		}
+		sess.Model = &next
 	}
 
 	// kb:anchor/ws.session's attention-iff-needs_input / failure-iff-failed invariants are unconditional:

@@ -105,7 +105,7 @@ func (l *writeLog) forget(sessionID int64) {
 type readerManager interface {
 	Get(id int64) (*session.Session, bool)
 	SetTranscript(ctx context.Context, id int64, claudeSessionID, path string) (bool, error)
-	SetPlan(ctx context.Context, id int64, claudeSessionID, path string, exists bool) (*session.Session, bool, error)
+	MarkPlanWritten(ctx context.Context, id int64, claudeSessionID, expectedPath string) (*session.Session, bool, error)
 	ApplyPlanScan(ctx context.Context, id int64, claudeSessionID, foundPath string) (*session.Session, bool, error)
 }
 
@@ -188,8 +188,13 @@ func (f *readerFeature) observeWrite(ctx context.Context, sessionID int64, claud
 
 	if clean == sess.PlanPath && !sess.PlanExists {
 		// The sessionUpsert carrying exists:true must precede docChanged (Protocol
-		// Contract) — this call broadcasts it (via SetPlan) before the broadcast below.
-		if _, _, err := f.manager.SetPlan(ctx, sessionID, claudeSessionID, sess.PlanPath, true); err != nil && !errors.Is(err, session.ErrUnknownSession) {
+		// Contract) — this call broadcasts it (via MarkPlanWritten) before the broadcast
+		// below. MarkPlanWritten re-checks PlanPath against the manager's current,
+		// lock-held value rather than the sess read above: this Get() happened outside the
+		// lock, so by the time we get here a concurrent ApplyPlanScan may already have moved
+		// PlanPath on, and a plain SetPlan(sess.PlanPath, true) would blindly write that
+		// stale path back over it.
+		if _, _, err := f.manager.MarkPlanWritten(ctx, sessionID, claudeSessionID, sess.PlanPath); err != nil && !errors.Is(err, session.ErrUnknownSession) {
 			f.log.Warn().Err(err).Int64("session_id", sessionID).Msg("reader: flipping plan exists failed")
 		}
 	}

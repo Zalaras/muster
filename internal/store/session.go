@@ -14,6 +14,24 @@ import (
 // credential MUSTER_SESSION, so reuse is a correctness bug (plan session-lifecycle REQ-1/REQ-2).
 const sessionIDWatermarkKey = "session.id_watermark"
 
+// readIDWatermark returns the persisted session id watermark via q (either *Store.db or
+// an open *sql.Tx) — 0 when the key has never been set. The one reader InsertSession and
+// BumpIDWatermark both call, so the kv value's parsing lives in one place.
+func readIDWatermark(ctx context.Context, q dbTx) (int64, error) {
+	str, ok, err := kvGet(ctx, q, sessionIDWatermarkKey)
+	if err != nil {
+		return 0, fmt.Errorf("reading session id watermark: %w", err)
+	}
+	if !ok {
+		return 0, nil
+	}
+	watermark, err := strconv.ParseInt(str, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("parsing session id watermark %q: %w", str, err)
+	}
+	return watermark, nil
+}
+
 // SessionRow is the persisted shape of a session (m1-sessions Schema Changes). It is
 // the storage-level twin of internal/session.Session; internal/server converts between
 // the two so this package stays free of the kb:anchor/state state machine's own vocabulary.
@@ -134,16 +152,9 @@ func (s *Store) InsertSession(ctx context.Context, p InsertSessionParams) (Sessi
 		return SessionRow{}, fmt.Errorf("reading max session id: %w", scanErr)
 	}
 
-	watermarkStr, ok, err := kvGet(ctx, tx, sessionIDWatermarkKey)
+	watermark, err := readIDWatermark(ctx, tx)
 	if err != nil {
-		return SessionRow{}, fmt.Errorf("reading session id watermark: %w", err)
-	}
-	var watermark int64
-	if ok {
-		watermark, err = strconv.ParseInt(watermarkStr, 10, 64)
-		if err != nil {
-			return SessionRow{}, fmt.Errorf("parsing session id watermark %q: %w", watermarkStr, err)
-		}
+		return SessionRow{}, err
 	}
 
 	id := maxExisting.Int64
@@ -191,23 +202,31 @@ func (s *Store) InsertSession(ctx context.Context, p InsertSessionParams) (Sessi
 // untouched if it's already higher (session-lifecycle REQ-9: an unknown "muster-<N>" or
 // "muster-<N>-shell" tmux session found on the socket during reconcile must still block
 // id N from ever being allocated to a new row, even though no row names it).
+//
+// The read and the conditional write run in one transaction: Open's
+// single connection (SetMaxOpenConns(1)) means a held *sql.Tx has exclusive use of it
+// until Commit/Rollback, so this can never interleave with InsertSession's own
+// watermark-reading transaction — a bump can never lower a watermark InsertSession has
+// concurrently raised, whichever one actually runs first.
 func (s *Store) BumpIDWatermark(ctx context.Context, minID int64) error {
-	current, ok, err := s.KVGet(ctx, sessionIDWatermarkKey)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("reading session id watermark: %w", err)
+		return fmt.Errorf("beginning id watermark bump transaction: %w", err)
 	}
-	var currentVal int64
-	if ok {
-		currentVal, err = strconv.ParseInt(current, 10, 64)
-		if err != nil {
-			return fmt.Errorf("parsing session id watermark %q: %w", current, err)
+	defer func() { _ = tx.Rollback() }() // no-op once Commit has succeeded
+
+	current, err := readIDWatermark(ctx, tx)
+	if err != nil {
+		return err
+	}
+	if minID > current {
+		if err := kvSet(ctx, tx, sessionIDWatermarkKey, strconv.FormatInt(minID, 10)); err != nil {
+			return fmt.Errorf("persisting session id watermark: %w", err)
 		}
 	}
-	if minID <= currentVal {
-		return nil
-	}
-	if err := s.KVSet(ctx, sessionIDWatermarkKey, strconv.FormatInt(minID, 10)); err != nil {
-		return fmt.Errorf("persisting session id watermark: %w", err)
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("committing id watermark bump: %w", err)
 	}
 	return nil
 }
