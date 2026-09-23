@@ -16,8 +16,28 @@ import {
   type ViewSwitcherElements,
 } from "./masthead";
 
+/** A bare `{ textContent }` stub, plus an attribute store (same `Map`-backed idiom as
+ * `fakeButton` below) so `renderUsageModel`'s `title`/`removeAttribute("title")` calls —
+ * issue #52's hover-tooltip fix — have somewhere to land. `title` reflects the "title"
+ * attribute the way a real `HTMLElement` does, so `removeAttribute` leaves it genuinely
+ * absent (`hasAttribute` false), not just an empty string. */
 function fakeElement(): HTMLElement {
-  return { textContent: "" } as unknown as HTMLElement;
+  const attrs = new Map<string, string>();
+  return {
+    textContent: "",
+    get title(): string {
+      return attrs.get("title") ?? "";
+    },
+    set title(value: string) {
+      attrs.set("title", value);
+    },
+    removeAttribute(name: string): void {
+      attrs.delete(name);
+    },
+    hasAttribute(name: string): boolean {
+      return attrs.has(name);
+    },
+  } as unknown as HTMLElement;
 }
 
 /** A minimal DOM stand-in for `renderUsage`/`renderUsageTrack` — this Vitest environment
@@ -606,6 +626,44 @@ describe("renderUsageModel (REQ-12): the masthead model readout", () => {
     renderUsageModel(el, null);
     expect(el.hidden).toBe(true);
     expect(el.textContent).toBe("");
+  });
+
+  // Issue #52: `.model` truncates whenever the masthead row runs out of horizontal space
+  // (style.css), so `title` carries the full name for a hover tooltip whenever a
+  // truncated one might be showing.
+  it("sets title to the model's displayName verbatim when shown", () => {
+    const el = fakeElement();
+    const model: SessionModelInfo = { id: "claude-haiku-4-5", displayName: "Haiku 4.5" };
+    renderUsageModel(el, model);
+    expect(el.title).toBe("Haiku 4.5");
+    expect(el.hasAttribute("title")).toBe(true);
+  });
+
+  it("clears title on a known -> null transition — attribute absent, not an empty string", () => {
+    const el = fakeElement();
+    renderUsageModel(el, { id: "claude-opus-5", displayName: "Opus 5" });
+    expect(el.hasAttribute("title")).toBe(true);
+    renderUsageModel(el, null);
+    expect(el.hasAttribute("title")).toBe(false);
+    expect(el.title).toBe("");
+  });
+
+  it("clears title on a known -> undefined transition (pre-plan payload with no model key) — attribute absent", () => {
+    const el = fakeElement();
+    renderUsageModel(el, { id: "claude-opus-5", displayName: "Opus 5" });
+    expect(el.hasAttribute("title")).toBe(true);
+    renderUsageModel(el, undefined);
+    expect(el.hasAttribute("title")).toBe(false);
+    expect(el.title).toBe("");
+  });
+
+  it("updates title on a model -> different-model change", () => {
+    const el = fakeElement();
+    renderUsageModel(el, { id: "claude-haiku-4-5", displayName: "Haiku 4.5" });
+    expect(el.title).toBe("Haiku 4.5");
+    renderUsageModel(el, { id: "claude-opus-5", displayName: "Opus 5" });
+    expect(el.title).toBe("Opus 5");
+    expect(el.hasAttribute("title")).toBe(true);
   });
 });
 
