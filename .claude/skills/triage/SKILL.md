@@ -129,12 +129,12 @@ go run ./tools/triage table --artifacts <dir> --proposals <dir>
 Where an item lands is a ranking judgement that belongs to the user. Present the candidates via
 `AskUserQuestion` with a one-line rationale each:
 
-- `## Pre-v1 Cleanup` — blocks cutting v1.
-- `## Reported issues (pre-v1 release)` — reported friction to fix before release.
-- `## M5+ (v1.x, re-rank when reached)` — real, not urgent.
+- `## Issues` — reported friction to fix before release.
+- `## Pre-v1` — blocks cutting v1.
+- `## Post v1` — real, not urgent.
 
 The proposer's `section_hint` is a hint; recommend one, but let the user move it. Write the
-answers to a decisions file as `{"42": "Reported issues (pre-v1 release)"}`.
+answers to a decisions file as `{"42": "Issues"}`.
 
 ### 4b. Duplicate or invalid issues
 

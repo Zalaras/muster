@@ -46,7 +46,7 @@ jobs:
           current="$(svu current 2>/dev/null || echo v0.0.0)"
           # --v0 clamps any breaking marker to a minor bump while on 0.x, so v1.0.0
           # cannot be cut by accident — removing this flag is the deliberate act that
-          # cuts v1 (TODO.md § Pre-v1 Cleanup). Measured 2026-09-01 (svu v3.4.1):
+          # cuts v1 (TODO.md § v1 Release). Measured 2026-09-01 (svu v3.4.1):
           # without it, `!` on any type — and the breaking footer phrase anywhere in a
           # commit body, even mid-sentence — jumps 0.x straight to 1.0.0.
           next="$(svu next --v0)"

@@ -56,7 +56,7 @@ One JSON object. No prose before it, none after it, no explanation:
   "component": "daemon",
   "symptom": "crash",
   "error_string": "cannot bind port 7777",
-  "section_hint": "Reported issues (pre-v1 release)"
+  "section_hint": "Issues"
 }
 ```
 
@@ -70,8 +70,7 @@ One JSON object. No prose before it, none after it, no explanation:
   the error the report names. Copy it exactly; do not tidy, translate or reconstruct it.
   If the report quotes no error, use `""`. An invented or edited quote is rejected, and
   rejection holds the issue.
-- `section_hint` — one of: `Pre-v1 Cleanup`, `Reported issues (pre-v1 release)`,
-  `M5+ (v1.x, re-rank when reached)`. A hint only; the developer chooses the real section.
+- `section_hint` — one of: `Issues`, `Pre-v1`, `Post v1`. A hint only; the developer chooses the real section.
 
 Choosing `unknown` for a vague report is correct and costs nothing. Guessing is worse than
 saying you do not know: every field you return is checked, and a wrong enum is noise in a

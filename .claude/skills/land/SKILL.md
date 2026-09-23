@@ -82,9 +82,8 @@ explain one, explain it plainly and wait.
 
 **Apply**, on `plan/<plan>` (`git checkout plan/<plan>`):
 
-- Each yes → `TODO.md`, in the section the user names, else **Pre-v1 Cleanup** above the
-  "Cutting v1.0.0" entry, under a `Filed <date> by the developer from the plans'
-  proposed-backlog.md files` lead line: `- [ ] **Title** — body … From \`plans/<plan>/\`.` An
+- Each yes → `TODO.md`, in the section the user names, else at the end of **Pre-v1**, under a
+  `Filed <date> by the developer from the plans' proposed-backlog.md files` lead line: `- [ ] **Title** — body … From \`plans/<plan>/\`.` An
   entry that would reverse an accepted ADR names it.
 - Every decision → one line in a `## Decisions (the developer, <date>)` section appended to its
   file: `filed: TODO.md § <section>, "<title>"`, `not doing`, `already done: <evidence>. Not

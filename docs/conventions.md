@@ -241,7 +241,7 @@ the notes — but the one-sentence, no-body rule still binds every type.
 - **On 0.x nothing can cut v1.0.0 by accident**: `release.yml` passes `svu next --v0`,
   which clamps every breaking marker to a minor bump while the current version is 0.x
   (measured: `feat!:` on v0.2.0 → v0.3.0). Cutting v1 is the deliberate act of removing
-  `--v0` (TODO.md § Pre-v1 Cleanup). So a `!` on 0.x is honest history — it marks the
+  `--v0` (TODO.md § v1 Release). So a `!` on 0.x is honest history — it marks the
   breakage and bumps minor like any `feat`; at v1 it resumes meaning major.
 
 **All of this is machine-enforced** by `.githooks/commit-msg` — armed per clone with

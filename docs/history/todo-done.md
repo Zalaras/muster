@@ -93,6 +93,19 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
       the scratch daemon's stdio, dumps the tail on unexpected exit, and appends it to
       the never-became-healthy error.
 
+Retired from `TODO.md` 2026-09-23 when the finished-milestone sections were dropped:
+
+Design constraints already settled by the spikes — do not re-derive:
+
+- Hooks carry **no timestamp or sequence number**. Assign a monotonic per-session `seq` at
+  ingest; `prompt_id` / `tool_use_id` are the only correlation keys.
+- Hook receipt must **return 200 immediately and process asynchronously**. A slow receiver
+  taxes every turn by its `timeout`, additively, per hook. Use timeouts of **1–2 s, not 5**.
+- `SessionStart` is **silently never delivered over `type:"http"`** — needs a
+  `type:"command"` wrapper. Everything else works over HTTP.
+- Session identity keys on the **tmux target**, not Claude's `session_id` (`/clear` starts a
+  new one in the same pane).
+
 ## M1 — Sessions exist ✅ done 2026-08-22 (plan `m1-sessions`, via `/orchestrate`)
 <!-- kb: adr/launch-browse-via-daemon-not-native-chooser, adr/launch-form-seeds-model-and-permission-mode, adr/canary-exact-pin-bumped-after-green-runs, adr/canary-verified-range-observed-not-pinned, adr/process-e2e-per-run-ports-and-sockets-no-reuse, adr/rail-attention-sort-order, fact/stopfailure-replaces-stop -->
 
@@ -204,6 +217,13 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
 
 - [x] Persist `usage_sample` history — done 2026-08-23: migration `0003_gauges.sql`,
       rows written only on value change; no history UI in v1 (per plan)
+
+Retired from `TODO.md` 2026-09-23 when the finished-milestone sections were dropped:
+
+> **Caveat, added 2026-08-23 after manual testing:** every item below is implemented and
+> passes its tests, but all of it was validated against *synthesized* status-line posts.
+> The real chain never delivered a single one — see M4's unquoted-command-path entry —
+> so these surfaces have not yet been seen rendering real data. Re-verify there.
 
 ## M4 — Durability → v1 complete
 <!-- kb: adr/lifecycle-reconcile-before-first-snapshot, adr/lifecycle-liveness-from-pane-existence, adr/lifecycle-shutdown-leaves-sessions-running, adr/lifecycle-resume-rebinds-existing-session, adr/canary-drives-installed-claude-through-production-chain, adr/canary-interactive-dialog-rows-accepted-residual, adr/ingest-all-hooks-command-wrappers, adr/ingest-hook-entries-permanent, adr/ingest-shell-quote-at-write-boundary, adr/actions-remove-allowed-on-live-session, adr/process-tests-run-space-bearing-data-dir -->
@@ -420,7 +440,20 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
       carries the same `session_id` interactively on the pinned binary and the badge reads
       `idle`; record in `spikes/canary-fields.md` (placeholder note added there). Kill it after.
 
-## Pre-v1 Cleanup
+Retired from `TODO.md` 2026-09-23 when the finished-milestone sections were dropped:
+
+**Plan split (decided 2026-08-25, after m4-hook-quoting; don't re-derive):**
+- **A `m4-reconcile`** — next. Reconcile on start + daemon-shutdown-vs-running-sessions
+  policy (one design question, decide together) + end/remove a session (reconcile needs a
+  "dead, confirmed" sink) + `--resume` on top. Also absorbs the D5 regression guard below.
+- **B `m4-hook-lifetime`** — after A. Per-directory hooks, never-removed hook entries, and
+  the "daemon down" surface: one root (`.claude/settings.local.json`), one protocol-shape
+  question (route HTTP hooks through a wrapper so failure can be silent). Depends on A's
+  end/remove flow if the reference-counting option is picked.
+- **C `m4-canary`** — independent. Unskip `test/canary/canary_test.go` (incl.
+  `TestCommandHookPathQuoting`); the pin-bump gate. Burns real subscription per run.
+
+## Pre-v1
 
 - [x] **Flaky: drop-paste E14 in `web/e2e/plain-shell.spec.ts`** ✅ done 2026-09-16 (plan `general-cleanup`, via `/orchestrate`; approved review cycle 1) (added 2026-09-15) — "a file
   dropped on a shell surface pastes its escaped path (E14, REQ-11)" went red once in three full
@@ -1120,7 +1153,28 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
   reshaping the registry from a string tuple into entry records carrying display labels, which
   wants its own ADR. Cite: `plans/new-ui-design-colors/review.md` (cycle 1, Minor 1, `[web-impl]`).
 
-## Reported issues (pre-v1 release)
+Retired from `TODO.md` 2026-09-23 (dropped or resolved, previously kept struck through):
+
+~~**Text-size setting**~~ — **dropped 2026-09-13**, `kb:adr/nongoal-ui-scaling-delegated-to-browser-zoom`.
+A `/spec` pass established the want was *UI* size, not text size; every spacing dimension in
+`web/src/style.css` is a pixel literal, so a `--fs-root` pref would grow type inside chrome that
+doesn't move. Browser zoom scales the pixel layer and the terminal together and persists per origin
+(the daemon's address is a fixed default), so it is the control. Don't re-derive; revisit only if
+the mobile/responsive pass rem-ifies the pixel layer.
+
+- ~~Layering note (m3 review cycle-1 Minor 3)~~ — resolved 2026-08-23 (m3 retro chore):
+  `InterpretStatus` now returns its own neutral `StatusAccount`/`StatusBucket` types and
+  `internal/server`'s `processStatus` maps them into a `usage.Sample` at the §9.6 seam;
+  `go list -deps ./internal/claudecode` no longer includes `internal/usage` or
+  `internal/store`.
+- ~~Durability nit (m3 review cycle-2 Minor 4)~~ — resolved 2026-08-23 (m3 retro chore):
+  `Record` now persists the `usage_sample` row *before* committing to memory and
+  broadcasting, so a failed write leaves `Current()` on the last persisted sample and the
+  retry is never deduped away (regression test
+  `TestAggregator_Record_PersistFailureLeavesMemoryUnchanged`; safe to drop the lock
+  across the write because Record runs only on the single ingest worker goroutine, R4).
+
+## Issues
 
 - [x] **Ingest: corroborate an envelope against the pane it came from** ✅ done 2026-09-16 (plan `general-cleanup`, via `/orchestrate`; approved review cycle 1) — `resolveSessionID`
   (`internal/server/ingest.go`) trusts an envelope's `musterSession` on bare map membership
@@ -1542,7 +1596,7 @@ here — the triage program reads both, writes only `TODO.md`. Moved out of `TOD
   nothing has rendered and a `loading…` tree row while the listing is in flight; re-fetches of the
   open file stay silent (kb:adr/reader-loading-cue-never-clears-a-rendered-body).
 
-## M5+ (v1.x, re-rank when reached)
+## Post v1
 <!-- kb: adr/connection-installed-claude-classified-never-refused, adr/issue-disabled-button-affordance-deferred -->
 
 - [x] **`views.spec.ts` E7 is load-flaky (1 failure in 5 full-suite runs, 2026-09-07)** — observed
