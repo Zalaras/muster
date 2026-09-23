@@ -213,6 +213,24 @@ body {
   background: var(--bg-raised);
   border-bottom: 1px solid var(--line);
   flex: none;
+  white-space: nowrap;
+}
+
+/* Issue #52: whenever the masthead row runs out of room (~1780-1820px natural width with
+ * every gauge known, the model-week selector showing and a long model name — see the
+ * media query below), the browser's default flex shrink wraps every readout's text
+ * instead of eliding it. Direct children stay unshrinkable (`flex: none`) except
+ * `.masthead-right`, which is allowed to shrink down to its own children's minimum
+ * (`min-width: 0` — otherwise flexbox's default `min-width: auto` keeps it at its
+ * unshrunk content width and the row still overflows); within it, only `.model` (below)
+ * is elastic. */
+.masthead > * {
+  flex: none;
+}
+
+.masthead > .masthead-right {
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .brand h1 {
@@ -225,9 +243,10 @@ body {
 
 /* design-system §4.1: Focus/Tiles segmented control, mono, sharing the button border
  * treatment with the density control below (.seg / .seg-btn). */
+/* `flex: none` comes from `.masthead > *` (above) — `.view-switcher` is always a direct
+ * child of `.masthead`, so it needs no rule of its own here. */
 .view-switcher {
   display: flex;
-  flex: none;
 }
 
 .seg-btn {
@@ -271,6 +290,14 @@ body {
   font-family: var(--mono);
   font-size: var(--fs-sm);
   color: var(--fg-muted);
+}
+
+/* Issue #52: every readout inside `.masthead-right` stays fixed-size by default — only
+ * `.model` (below) is allowed to shrink, and never `.usage-readout`/`.bar`: prototyping
+ * showed a shrunk readout's text overlaps its neighbour once it's narrower than its
+ * content, which is worse than the model name eliding. */
+.masthead-right > * {
+  flex: none;
 }
 
 .masthead-right [role="status"] {
@@ -354,6 +381,20 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Issue #52: the one elastic readout in `.masthead-right` — a long model name ellipsizes
+ * rather than wrapping or forcing the row to overflow; `masthead.ts` sets `title` to the
+ * full name so it's still readable on hover when truncated. Scoped as
+ * `.masthead-right > .model` (0,2,0) rather than bare `.model` (0,1,0) so it wins over
+ * `.masthead-right > * { flex: none; }` above regardless of source order — the two rules
+ * would tie on specificity as bare classes and source order would decide, which is
+ * fragile to a future reorder. */
+.masthead-right > .model {
+  flex: 0 1 auto;
+  min-width: 6ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .model[hidden] {
   display: none;
 }
@@ -399,6 +440,30 @@ body {
 
 #usage-refresh {
   line-height: 1;
+}
+
+/* Issue #52: below the masthead's measured natural width — ~1780px with the default
+ * "connected"/short-version strings, ~1820px with the longest realistic strings
+ * ("reconnecting…", "claude 2.1.281 ⚠") — tighten spacing and shrink the gauge bars so
+ * the row still fits without wrapping (a 14" MacBook's default 1512px viewport is the
+ * motivating case). One tier — measured (a static repro, playwright) to fit the default
+ * and realistic-usage states down to 1440px, and the longest-strings state down to
+ * 1512px, with `.model` ellipsizing the rest. The rare "Claude installation unknown" +
+ * "reconnecting…" combination still overflows by ~25px at 1512px and further below that —
+ * accepted per the ADR, since it needs both an unrecognized install and a dropped
+ * connection at once (kb:adr/usage-masthead-narrow-width-shrinks-bars-truncates-model). */
+@media (max-width: 1840px) {
+  .masthead {
+    gap: 14px;
+  }
+
+  .masthead-right {
+    gap: 8px;
+  }
+
+  .bar {
+    width: 40px;
+  }
 }
 
 /* Honesty rule (design-system §6.7): loud, full-width, on the dedicated banner tokens —

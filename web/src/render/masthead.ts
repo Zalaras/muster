@@ -122,7 +122,11 @@ export function renderUsageTrack(el: HTMLElement, bucket: UsageBucket | null, no
  * Empty/hidden while null (no hydration at boot; also null again right after a daemon
  * restart until the next status post). Accepts `undefined` too since `Usage.model` is an
  * optional wire field (protocol.ts) — a payload that omits it entirely reads the same as
- * an explicit null. */
+ * an explicit null.
+ *
+ * Issue #52: `.model` ellipsizes whenever the masthead row runs out of room (style.css),
+ * so `title` carries the full name for a hover tooltip whenever a truncated one might be
+ * showing. */
 export function renderUsageModel(
   el: HTMLElement,
   model: SessionModelInfo | null | undefined,
@@ -130,10 +134,12 @@ export function renderUsageModel(
   if (!model) {
     el.hidden = true;
     el.textContent = "";
+    el.removeAttribute("title");
     return;
   }
   el.hidden = false;
   el.textContent = model.displayName;
+  el.title = model.displayName;
 }
 
 /** Per-`el` memory for `renderModelWeek`, keyed by the container element so the `<select>`
