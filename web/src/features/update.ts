@@ -86,9 +86,14 @@ export function initUpdate(app: App): UpdateHandle {
     if (checkState.inFlight) return; // W4/edge case 16: no double-open from one window.
     checkState.inFlight = true;
     checkState.error = null;
+    app.render();
     void checkForUpdate().then((result) => {
       checkState.inFlight = false;
       checkState.error = result.ok ? null : result.error.message;
+      // Settling `checkState` mid-tick needs its own render (issue.ts's `takeCapture`
+      // renders on both sides of its await, same shape) — otherwise a failed check's
+      // reason, and the re-enabled button, wait for the next 1 s tick.
+      app.render();
     });
   }
 

@@ -10,7 +10,7 @@
 // later `const` rather than taking a value now.
 import type { App, RenderFrame } from "../app";
 import type { Session } from "../protocol";
-import { createShell } from "../api";
+import { createShell, type ApiErrorBody } from "../api";
 import { showDeadSurfaceNotice, type DeadSurfaceRefs } from "../render/dead";
 import { TerminalSurface } from "../terminal/pane";
 import {
@@ -69,6 +69,11 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
   const surfaces = new Map<string, TerminalSurface>();
   let surfaceSwitchState: SurfaceSwitchState = new Map();
   let activityState: ShellActivityState = EMPTY_SHELL_ACTIVITY;
+  // Stale-response guard for `select`'s shell-spawn round trip — same shape as
+  // `features/launch.ts`'s `browseRequestId` and `features/issue.ts`'s `captureRequestId`,
+  // but keyed per session id: `select` runs for independent sessions concurrently, and a
+  // newer selection on session A must never drop a still-current spawn on session B.
+  const selectRequestId = new Map<number, number>();
 
   function isShellSelected(id: number): boolean {
     return getSurfaceState(surfaceSwitchState, id).selected === "shell";
@@ -101,12 +106,33 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
     app.render();
   }
 
+  /** A shell-spawn POST failed: surface the message on whichever `claude` surface is live,
+   * or through the dead-surface notice when nothing is. Split out of `select` to keep its
+   * cognitive complexity under the lint ceiling. */
+  function reportShellSpawnFailure(
+    id: number,
+    error: ApiErrorBody,
+    findDeadRefs: () => DeadSurfaceRefs | null,
+  ): void {
+    console.error(`POST /api/sessions/${id}/shell failed: ${error.code} ${error.message}`);
+    const liveSurface = surfaces.get(surfaceKey(id, "claude"));
+    if (liveSurface) {
+      liveSurface.showNotice(error.message);
+      return;
+    }
+    const deadRefs = findDeadRefs();
+    if (deadRefs) showDeadSurfaceNotice(deadRefs, error.message);
+  }
+
   function select(id: number, kind: SurfaceKind, findDeadRefs: () => DeadSurfaceRefs | null): void {
     const current = getSurfaceState(surfaceSwitchState, id);
     if (current.selected === kind) return;
 
     // Plan markdown-viewing REQ-1/Affected Files: `docs` is a pure selection, same as
     // `claude` — no daemon round trip, unlike `shell`'s lazy spawn below.
+    const requestId = (selectRequestId.get(id) ?? 0) + 1;
+    selectRequestId.set(id, requestId);
+
     if (kind === "claude" || kind === "docs") {
       surfaceSwitchState = selectSurface(surfaceSwitchState, id, kind);
       app.render();
@@ -114,17 +140,11 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
     }
 
     void createShell(id).then((result) => {
+      // A newer selection for this id landed first — drop this stale response
+      // (features/launch.ts's `navigate` guard, same shape).
+      if (selectRequestId.get(id) !== requestId) return;
       if (!result.ok) {
-        console.error(
-          `POST /api/sessions/${id}/shell failed: ${result.error.code} ${result.error.message}`,
-        );
-        const liveSurface = surfaces.get(surfaceKey(id, "claude"));
-        if (liveSurface) {
-          liveSurface.showNotice(result.error.message);
-        } else {
-          const deadRefs = findDeadRefs();
-          if (deadRefs) showDeadSurfaceNotice(deadRefs, result.error.message);
-        }
+        reportShellSpawnFailure(id, result.error, findDeadRefs);
         return;
       }
       surfaceSwitchState = setShellRunning(surfaceSwitchState, id, true);
@@ -214,6 +234,7 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
     }
     surfaceSwitchState = forgetSession(surfaceSwitchState, id);
     activityState = shellGone(activityState, id);
+    selectRequestId.delete(id);
   });
 
   // Plan terminal-fixes-cleanup: a live `shellActivity` transition for one session —
