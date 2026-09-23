@@ -17,6 +17,7 @@ import { requireElement } from "../dom";
 import { pad2 } from "../sessions/format";
 import { orderRail } from "../sessions/sort";
 import type { Session } from "../protocol/session";
+import { buildSessionOptions, DASHBOARD_SCOPE_VALUE, renderIssueButton } from "../render/issue";
 
 export interface IssueDialogElements {
   dialog: HTMLDialogElement;
@@ -46,10 +47,6 @@ export interface IssueDialogController {
    * render/confirm.ts's `closeAll`. */
   closeAll: () => void;
 }
-
-/** REQ-2's exact dashboard-scope option text — em dashes (U+2014), single spaces. */
-const DASHBOARD_SCOPE_TEXT = "— none (dashboard only) —";
-const DASHBOARD_SCOPE_VALUE = "";
 
 /** W4: pure, so Vitest can exercise it directly. Normalises CRLF to LF, trims the whole
  * string, and emits either `""` (whitespace-only note) or
@@ -82,10 +79,6 @@ function formatCaptureTime(iso: string): string {
  * render/confirm.ts's session label). */
 function formatErrorDetail(err: ApiErrorBody): string {
   return `${err.code} — ${err.message}`;
-}
-
-export function renderIssueButton(el: HTMLButtonElement, connected: boolean): void {
-  el.disabled = !connected;
 }
 
 function initIssueDialog(elements: IssueDialogElements): IssueDialogController {
@@ -161,26 +154,6 @@ function initIssueDialog(elements: IssueDialogElements): IssueDialogController {
     updateSubmitEnabled();
   }
 
-  function buildSessionOptions(sessions: readonly Session[], focusedId: number | null): void {
-    const dashboardOption = document.createElement("option");
-    dashboardOption.value = DASHBOARD_SCOPE_VALUE;
-    dashboardOption.textContent = DASHBOARD_SCOPE_TEXT;
-
-    const sessionOptions = sessions.map((session) => {
-      const option = document.createElement("option");
-      option.value = String(session.id);
-      option.textContent = session.title ?? "untitled";
-      return option;
-    });
-
-    elements.sessionSelect.replaceChildren(dashboardOption, ...sessionOptions);
-    const preselect =
-      focusedId !== null && sessions.some((s) => s.id === focusedId)
-        ? String(focusedId)
-        : DASHBOARD_SCOPE_VALUE;
-    elements.sessionSelect.value = preselect;
-  }
-
   function selectedSessionId(): number | null {
     const raw = elements.sessionSelect.value;
     return raw === DASHBOARD_SCOPE_VALUE ? null : Number(raw);
@@ -240,7 +213,7 @@ function initIssueDialog(elements: IssueDialogElements): IssueDialogController {
     elements.closeBtn.hidden = true;
     clearError();
 
-    buildSessionOptions(sessions, focusedId);
+    buildSessionOptions(elements.sessionSelect, sessions, focusedId);
     capture = null;
     captureFailed = false;
     renderPreview();

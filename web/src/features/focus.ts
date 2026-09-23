@@ -8,7 +8,7 @@
 // `SurfacesHandle` from `./actions`/`./surfaces`.
 import type { App, RenderFrame } from "../app";
 import { requireElement } from "../dom";
-import { renderFocusMain, renderSizenote } from "../render/sessions";
+import { renderFocusMain, renderSizenote } from "../render/focusview";
 import { renderMainhead, type MainheadElements } from "../render/mainhead";
 import type { SessionAction } from "../sessions/card";
 import {
@@ -18,13 +18,13 @@ import {
   type PaneState,
 } from "../render/dead";
 import {
-  buildSurfaceSegment,
   DEFAULT_SURFACE_STATE,
   getSurfaceState,
   type SessionSurfaceState,
   type SurfaceKind,
   type SurfaceSwitchState,
 } from "../terminal/surfaceswitch";
+import { buildSurfaceSegment } from "../render/surfaceseg";
 import type { TerminalSurface } from "../terminal/pane";
 import type { ShellActivityIndicator } from "../terminal/shellactivity";
 import type { Session } from "../protocol/session";

@@ -7,7 +7,7 @@ summary: End, Resume and Remove a session, the pane snapshot for dead sessions, 
 features: [actions]
 tags: [ux]
 go: [internal/server/sessions*.go]
-web: [web/src/features/actions.ts, web/src/render/confirm.ts, web/src/render/dead*.ts, web/src/render/actionerror*.ts]
+web: [web/src/features/actions*.ts, web/src/render/confirm.ts, web/src/render/dead*.ts, web/src/render/actionerror*.ts]
 e2e: [web/e2e/actions.spec.ts]
 protocol: [sessions.end, sessions.resume, sessions.remove, sessions.pane, ws.session-removed]
 refs: [kb:adr/actions-placement-mainhead-and-card-rows, kb:adr/actions-pane-snapshot-display-only, kb:adr/actions-remove-allowed-on-live-session, kb:adr/lifecycle-resume-rebinds-existing-session, kb:adr/lifecycle-ended-rows-swept-next-start, kb:adr/surfaces-shell-dies-at-kill-shutdown-too, kb:adr/theme-danger-tokens-not-rose, kb:fact/resume-keeps-session-identity]

@@ -9,19 +9,28 @@
 // resolve the real `const` when `findDeadSurfaceRefs` is actually called, well after
 // every controller has finished construction (never during it).
 import type { App } from "../app";
-import { endSession, pinSession, removeSession, resumeSession } from "../api/sessions";
+import { endSession, fetchPane, pinSession, removeSession, resumeSession } from "../api/sessions";
 import { requireElement } from "../dom";
 import { forget } from "../reader/memory";
-import {
-  collectDeadSurfaceRefs,
-  loadPane,
-  type DeadSurfaceRefs,
-  type PaneState,
-} from "../render/dead";
+import { collectDeadSurfaceRefs, type DeadSurfaceRefs, type PaneState } from "../render/dead";
 import { renderActionError } from "../render/actionerror";
 import { initConfirmDialogs, type ConfirmDialogs } from "../render/confirm";
+import { endDialogBody, removeDialogBody } from "./actionscopy";
 import type { SessionAction } from "../sessions/card";
 import type { Session } from "../protocol/session";
+
+/** Review seed B8: `render/dead.ts` used to also own this fetch trigger — DOM builders
+ * take data in, they don't go fetch it. Wraps `GET /api/sessions/{id}/pane` into the
+ * three-state `PaneState` `render/dead.ts`'s `renderDeadSurface` takes. `no_snapshot` (and,
+ * defensively, any other error) both read as "missing" — the dead surface never
+ * distinguishes a genuine no-capture-yet from an unexpected error, it just shows the
+ * honest "no snapshot captured" text either way (edge case 13). */
+export async function loadPane(id: number): Promise<PaneState> {
+  const result = await fetchPane(id);
+  if (result.ok)
+    return { status: "ok", text: result.value.text, capturedAt: result.value.capturedAt };
+  return { status: "missing" };
+}
 
 export interface ActionsDeps {
   focusDeadSurfaceRefs(): DeadSurfaceRefs;
@@ -149,9 +158,9 @@ export function initActions(app: App, deps: ActionsDeps): ActionsHandle {
     const session = app.store.values().find((s) => s.id === id);
     if (!session) return;
     if (action === "end") {
-      confirmDialogs.openEnd(session);
+      confirmDialogs.openEnd(session, endDialogBody(session, new Date()));
     } else if (action === "remove") {
-      confirmDialogs.openRemove(session);
+      confirmDialogs.openRemove(session, removeDialogBody(session, new Date()));
     } else if (action === "pin") {
       doPin(session.id, !session.pinned);
     } else {

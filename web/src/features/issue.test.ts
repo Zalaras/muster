@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { composeNoteSection, renderIssueButton } from "./issue";
+import { composeNoteSection } from "./issue";
 
 // W4: "The note-section composer produces the empty string for a whitespace-only note,
 // and `"## What happened\n\n<note>\n\n"` otherwise, with CRLF normalised to LF." Pinned
@@ -58,25 +58,5 @@ describe("composeNoteSection (W4, plan issue-capture Implementation Notes)", () 
 
   it("a single non-whitespace character is enough to produce the section (boundary against the empty case)", () => {
     expect(composeNoteSection("x")).toBe("## What happened\n\nx\n\n");
-  });
-});
-
-describe("renderIssueButton (masthead trigger, REQ-13: disabled while the daemon is down)", () => {
-  function fakeButton(): HTMLButtonElement {
-    return { disabled: false } as unknown as HTMLButtonElement;
-  }
-
-  it("enables the button when connected", () => {
-    const el = fakeButton();
-    el.disabled = true;
-    renderIssueButton(el, true);
-    expect(el.disabled).toBe(false);
-  });
-
-  it("disables the button when not connected", () => {
-    const el = fakeButton();
-    el.disabled = false;
-    renderIssueButton(el, false);
-    expect(el.disabled).toBe(true);
   });
 });

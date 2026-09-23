@@ -1,6 +1,6 @@
 # web/src/terminal — xterm pane and bridge
 
-**Owns**: the `TerminalSurface` in `pane.ts` (xterm.js instance, `/ws/terminal/{id}` socket, one overlay element) plus pure halves: close-code to overlay mapping, drop classification and path escaping, the shared `role="status"` notice, the `claude | shell | docs` control. Which surfaces exist is `web/src/features/surfaces.ts`'s decision. **Features**: drop, reader, surfaces.
+**Owns**: the `TerminalSurface` in `pane.ts` (xterm.js instance, `/ws/terminal/{id}` socket, one overlay element) plus pure halves: close-code to overlay mapping, drop classification and path escaping, the shared `role="status"` notice, the `claude | shell | docs` control's reducer (`surfaceswitch.ts`) — its DOM half is `web/src/render/surfaceseg.ts`. Which surfaces exist is `web/src/features/surfaces.ts`'s decision. **Features**: drop, reader, surfaces.
 
 **Invariants** (violations are review-Critical):
 - Only the surface manager constructs or disposes a `TerminalSurface`; no render path opens a socket, never for an `alive:false` session.
@@ -14,7 +14,7 @@
 
 **Gotchas**:
 - The `4001` overlay lives about 25 ms before the dead surface replaces it; no test asserts it (kb:lesson/transient-display-is-not-an-oracle).
-- `surfaceswitch.ts` is built once per host and mutated afterwards, never rebuilt on a render tick (kb:lesson/select-rebuilt-every-tick-passed-selectoption).
+- `render/surfaceseg.ts`'s segment control is built once per host and mutated afterwards, never rebuilt on a render tick (kb:lesson/select-rebuilt-every-tick-passed-selectoption).
 - Fit is observed, never pattern-matched from footer geometry (kb:lesson/tiles-never-refit-behind-pattern-match).
 - Dropped paths escape Terminal.app-style: backslash before every space and metacharacter, non-ASCII untouched (`drop.ts`).
 - `docs` never has a `TerminalSurface` (INV-1) — `isSurfaceAttachable` always answers `false` for it; the reader itself lives in `web/src/features/reader.ts`/`web/src/render/reader.ts`, not here.

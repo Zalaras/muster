@@ -10,7 +10,7 @@
 // items never starting a drag).
 
 import { installDragReorder } from "./dragreorder";
-import type { FocusedControl } from "./focus";
+import type { FocusedControl } from "./focuskeep";
 
 /** Installs delegated drag-to-reorder listeners on `gridEl` (plan move-tiles DOM spec).
  * `onMove` is called with (draggedId, targetId, focusedBeforeDrag) on a valid tile-on-tile

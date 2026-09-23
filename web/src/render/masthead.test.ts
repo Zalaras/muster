@@ -5,7 +5,6 @@ import type { SessionModelInfo } from "../protocol/session";
 import type { ModelWindow, Usage } from "../protocol/usage";
 import { formatResets } from "../sessions/format";
 import {
-  describeClaudeVersion,
   renderClaudeVersion,
   renderConnectionStatus,
   renderDensityControl,
@@ -18,6 +17,7 @@ import {
   type UsageElements,
   type ViewSwitcherElements,
 } from "./masthead";
+import { describeClaudeVersion } from "../features/connectionversion";
 
 /** A bare `{ textContent }` stub, plus an attribute store (same `Map`-backed idiom as
  * `fakeButton` below) so `renderUsageModel`'s `title`/`removeAttribute("title")` calls —
@@ -277,92 +277,11 @@ describe("renderUsage + renderUsageTrack — element order matches the reference
 });
 
 // Plan version-claude-interface, UI Specifications > DOM: the six-row table
-// `describeClaudeVersion` implements. Exercised directly (pure function, no DOM) so every
-// row is pinned independently of how `renderClaudeVersion` happens to build markup.
+// `describeClaudeVersion` implements — exercised directly (pure function, no DOM) in
+// `../features/connectionversion.test.ts`, not here. The fixtures below are shared with
+// that file's warning-sentence assertions.
 const VERSION_NOT_TESTED = "This Claude Code version has not been tested with Muster";
 const VERSION_NOT_TESTED_UPDATE = `${VERSION_NOT_TESTED} — please update Claude Code`;
-
-describe("describeClaudeVersion — UI Specifications > DOM six-row table", () => {
-  it("row 1: null (pre-hello) -> 'claude unknown', no warning", () => {
-    expect(describeClaudeVersion(null)).toEqual({ text: "claude unknown", warning: null });
-  });
-
-  it("row 2: status 'unknown' (with a populated installed, which the daemon never actually sends alongside unknown) -> 'Claude installation unknown', no warning", () => {
-    const info: ClaudeCodeInfo = {
-      installed: "2.1.267",
-      floor: "2.1.246",
-      verified: "2.1.267",
-      status: "unknown",
-    };
-    expect(describeClaudeVersion(info)).toEqual({
-      text: "Claude installation unknown",
-      warning: null,
-    });
-  });
-
-  it("row 2 (installed genuinely null): status 'unknown' with installed null -> 'Claude installation unknown', no warning", () => {
-    const info: ClaudeCodeInfo = {
-      installed: null,
-      floor: "2.1.246",
-      verified: "2.1.267",
-      status: "unknown",
-    };
-    expect(describeClaudeVersion(info)).toEqual({
-      text: "Claude installation unknown",
-      warning: null,
-    });
-  });
-
-  it("row 3: status 'verified' -> 'claude <installed>', no warning", () => {
-    const info: ClaudeCodeInfo = {
-      installed: "2.1.267",
-      floor: "2.1.246",
-      verified: "2.1.267",
-      status: "verified",
-    };
-    expect(describeClaudeVersion(info)).toEqual({ text: "claude 2.1.267", warning: null });
-  });
-
-  it("row 4: status 'above' -> 'claude <installed>' + the not-tested warning (no update wording)", () => {
-    const info: ClaudeCodeInfo = {
-      installed: "2.1.270",
-      floor: "2.1.246",
-      verified: "2.1.267",
-      status: "above",
-    };
-    expect(describeClaudeVersion(info)).toEqual({
-      text: "claude 2.1.270",
-      warning: VERSION_NOT_TESTED,
-    });
-  });
-
-  it("row 5: status 'below' -> 'claude <installed>' + the not-tested-please-update warning (em dash U+2014)", () => {
-    const info: ClaudeCodeInfo = {
-      installed: "2.1.200",
-      floor: "2.1.246",
-      verified: "2.1.267",
-      status: "below",
-    };
-    const result = describeClaudeVersion(info);
-    expect(result).toEqual({ text: "claude 2.1.200", warning: VERSION_NOT_TESTED_UPDATE });
-    expect(result.warning).toContain("—"); // em dash, not a hyphen
-  });
-
-  it("row 6 (defensive): a non-'unknown' status with installed null -> 'Claude installation unknown', no warning (the daemon never sends this — INV-1 — but the parser only type-checks, so the renderer must not template 'claude null')", () => {
-    for (const status of ["verified", "above", "below"] as const) {
-      const info: ClaudeCodeInfo = {
-        installed: null,
-        floor: "2.1.246",
-        verified: "2.1.267",
-        status,
-      };
-      expect(describeClaudeVersion(info)).toEqual({
-        text: "Claude installation unknown",
-        warning: null,
-      });
-    }
-  });
-});
 
 /** Minimal DOM stand-in for `renderClaudeVersion`'s `replaceChildren`-based rebuild: text
  * nodes (`document.createTextNode`) and the warning `<span>` (`document.createElement`),
@@ -437,14 +356,14 @@ describe("renderClaudeVersion — rebuilds #claude-version via replaceChildren (
       verified: "2.1.267",
       status: "verified",
     };
-    renderClaudeVersion(el as unknown as HTMLElement, info);
+    renderClaudeVersion(el as unknown as HTMLElement, describeClaudeVersion(info));
     expect(el.nodes()).toHaveLength(1);
     expect(el.textContent).toBe("claude 2.1.267");
   });
 
   it("pre-hello (null info): a lone 'claude unknown' text node", () => {
     const el = element();
-    renderClaudeVersion(el as unknown as HTMLElement, null);
+    renderClaudeVersion(el as unknown as HTMLElement, describeClaudeVersion(null));
     expect(el.nodes()).toHaveLength(1);
     expect(el.textContent).toBe("claude unknown");
   });
@@ -457,7 +376,7 @@ describe("renderClaudeVersion — rebuilds #claude-version via replaceChildren (
       verified: "2.1.267",
       status: "above",
     };
-    renderClaudeVersion(el as unknown as HTMLElement, info);
+    renderClaudeVersion(el as unknown as HTMLElement, describeClaudeVersion(info));
 
     const [textNode, glyph] = el.nodes();
     expect(el.nodes()).toHaveLength(2);
@@ -479,7 +398,7 @@ describe("renderClaudeVersion — rebuilds #claude-version via replaceChildren (
       verified: "2.1.267",
       status: "below",
     };
-    renderClaudeVersion(el as unknown as HTMLElement, info);
+    renderClaudeVersion(el as unknown as HTMLElement, describeClaudeVersion(info));
 
     const [, glyph] = el.nodes();
     expect(glyph!.getAttribute("aria-label")).toBe(VERSION_NOT_TESTED_UPDATE);
@@ -489,20 +408,26 @@ describe("renderClaudeVersion — rebuilds #claude-version via replaceChildren (
 
   it("re-renders cleanly across a warning -> no-warning transition (self-healing: no stale glyph left behind)", () => {
     const el = element();
-    renderClaudeVersion(el as unknown as HTMLElement, {
-      installed: "2.1.270",
-      floor: "2.1.246",
-      verified: "2.1.267",
-      status: "above",
-    });
+    renderClaudeVersion(
+      el as unknown as HTMLElement,
+      describeClaudeVersion({
+        installed: "2.1.270",
+        floor: "2.1.246",
+        verified: "2.1.267",
+        status: "above",
+      }),
+    );
     expect(el.nodes()).toHaveLength(2);
 
-    renderClaudeVersion(el as unknown as HTMLElement, {
-      installed: "2.1.267",
-      floor: "2.1.246",
-      verified: "2.1.267",
-      status: "verified",
-    });
+    renderClaudeVersion(
+      el as unknown as HTMLElement,
+      describeClaudeVersion({
+        installed: "2.1.267",
+        floor: "2.1.246",
+        verified: "2.1.267",
+        status: "verified",
+      }),
+    );
     expect(el.nodes()).toHaveLength(1);
     expect(el.textContent).toBe("claude 2.1.267");
   });

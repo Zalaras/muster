@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { captureFocusedControl, restoreFocusedControl } from "./focus";
+import { captureFocusedControl, restoreFocusedControl } from "./focuskeep";
 
 // Minimal stand-ins: `captureFocusedControl` only needs `document.activeElement`,
 // `instanceof HTMLElement`, `dataset` and `contains`; `restoreFocusedControl` needs

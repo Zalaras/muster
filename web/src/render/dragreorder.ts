@@ -39,7 +39,7 @@
 // Session objects, exactly like the ids this module already maps.
 
 import { DRAG_MIME } from "../dragmime";
-import { captureFocusedControl, type FocusedControl } from "./focus";
+import { captureFocusedControl, type FocusedControl } from "./focuskeep";
 
 export interface DragReorderOptions {
   /** Selects the draggable item element from any descendant target (e.g. "article.tile",

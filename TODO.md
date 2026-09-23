@@ -258,11 +258,6 @@ tick a sub-item as it lands, the parent when all have.
 - [ ] **Conventions to settle** — one docs-first plan: each settles a rule in
   `docs/conventions.md`, then applies it. The same kind of work as the Codebase maintainability
   cleanup above, so it can ride that pass.
-  - [ ] **Settle where a controller's DOM-free decision module lives** — `docs/conventions.md`
-    § Composition roots and `web/src/render/CLAUDE.md` call `render/` "pure DOM builders", yet
-    `render/focusrestore.ts` and `render/launchrestore.ts` are DOM-free decisions kept there to
-    avoid a `sessions/→api` dependency. Either the rule names this case or the two modules move.
-    From `plans/new-session-improvement/`.
   - [ ] **Stale plan IDs in `update.go` doc comments** — several comments in
     `internal/server/update.go` carry auto-update's plan IDs (e.g. the `(D16)` at line 256), so
     a reader chasing one in a later plan that touched the file finds nothing, and `dead-refs`

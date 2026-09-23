@@ -1,8 +1,7 @@
 // Pure decisions for the launch dialog's async open-time restore (REQ-5/REQ-6,
-// plan new-session-improvement, W5/W6), used only by features/launch.ts — same
-// relationship as this directory's `crumbs.ts` and `focusrestore.ts` to their one
-// caller: a pure decision split out of a controller lives here, not in features/,
-// which holds controllers only.
+// plan new-session-improvement, W5/W6; review seed B7), used only by features/launch.ts,
+// its one caller — this module lives beside it (docs/conventions.md § Composition roots:
+// a DOM-free decision one controller calls lives in `features/`, not `render/`).
 import type { Repo } from "../api/launch";
 import { permissionModeToCheck, type PermissionMode } from "../sessions/permission";
 

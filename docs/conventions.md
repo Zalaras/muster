@@ -99,6 +99,11 @@ Each row's rationale is an ADR: `go run ./tools/kb ls --type adr | grep '/stack-
   exemplar `internal/server/usage.go`), registered in one line in the root.
 - `web/src/render/` holds pure DOM builders; `web/src/features/` holds controllers;
   `web/src/sessions/` and `web/src/terminal/` hold pure logic.
+- A DOM-free decision (a pure derivation, a view-model, composed text) that only one
+  controller ever calls lives beside that controller in `features/`, not in `render/` —
+  `render/` holds the DOM half only, taking the already-computed value as a parameter.
+  When the same pure logic is genuinely about session data rather than one feature's own
+  concern, it lives in `sessions/` instead.
 - E2E spec files and `web/e2e/helpers/<feature>.ts` are named for the same feature seam.
 
 ## Design

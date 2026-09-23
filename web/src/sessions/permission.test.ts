@@ -15,7 +15,7 @@ describe("permission — PERMISSION_MODES", () => {
 // Plan fix-auto-mode-select REQ-6 (review cycle 1, Major 2): permissionModeToCheck is the
 // single decision point for "which radio should be checked for this stored value" —
 // features/launch.ts's setPermissionMode and selectedPermissionMode, and
-// render/launchrestore.ts's initialRestore/repoRestore, all go through it (review.md
+// features/launchrestore.ts's initialRestore/repoRestore, all go through it (review.md
 // Major 1's extraction; review-maintainability cycle 1 moved the module and split out
 // repoRestore). Each recognised PERMISSION_MODES value must round-trip to itself; anything
 // else — an unrecognised string, null, or "" — must fall back to "auto" (plan

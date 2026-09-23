@@ -12,45 +12,8 @@ import {
   type SessionAction,
 } from "../sessions/card";
 import { renderContextRow } from "./context";
-import { captureFocusedControl, restoreFocusedControl, type FocusedControl } from "./focus";
-
-const ACTION_BY_LABEL: Record<CardAction, SessionAction> = {
-  End: "end",
-  Resume: "resume",
-  Remove: "remove",
-};
-
-/** One action button (card/strip/tile-footer), shared across every surface that renders
- * one of REQ-11/REQ-12's End/Resume/Remove rows. `event.stopPropagation()` is REQ-11's
- * explicit requirement ("Clicks on the buttons do not change focus") — attached directly
- * on the button rather than via a delegated container listener, so it always runs before
- * the card's own click-to-focus listener regardless of DOM nesting. `enabled` folds in
- * both the connection-down gate (States: "action buttons are disabled while the WS is
- * down") and any per-action rule (e.g. Resume needs a claudeSessionId) the caller already
- * computed. */
-export function buildActionButton(
-  label: CardAction,
-  id: number,
-  enabled: boolean,
-  onAction?: (action: SessionAction, id: number) => void,
-): HTMLButtonElement {
-  const action = ACTION_BY_LABEL[label];
-  const btn = document.createElement("button");
-  btn.type = "button";
-  // Mockup fidelity (opt-c-both.html/tiles-dead.html): every Remove button carries the
-  // same `.danger` (hover-danger, design-system §1/§3's --danger family, cycle-3
-  // Major 2) treatment, End/Resume stay plain.
-  btn.className = label === "Remove" ? "btn sm danger" : "btn sm";
-  btn.textContent = label;
-  btn.dataset["action"] = action;
-  btn.dataset["id"] = String(id);
-  btn.disabled = !enabled;
-  btn.addEventListener("click", (event) => {
-    event.stopPropagation();
-    if (!btn.disabled) onAction?.(action, id);
-  });
-  return btn;
-}
+import { captureFocusedControl, restoreFocusedControl, type FocusedControl } from "./focuskeep";
+import { buildActionButton } from "./actionbutton";
 
 /** Reconciles one card's `.acts-row` in place: when the label sequence is unchanged
  * (the common case — a live card stays End-only, an ended card stays Resume+Remove, on
@@ -225,7 +188,7 @@ function updateSessionCardContent(
   // every pass. `data-action`/`data-id` (not the `.acts-row` buttons' own convention,
   // since this button lives in `.r0` rather than an acts row) let it participate in the
   // existing `captureFocusedControl`/`restoreFocusedControl` contract unchanged
-  // (render/focus.ts: "an action button (data-action + data-id)") — REQ-16's focus
+  // (render/focuskeep.ts: "an action button (data-action + data-id)") — REQ-16's focus
   // survival needs no new code path, just this button carrying the same two attributes
   // `buildActionButton` already sets.
   const pinBtn = card.querySelector<HTMLButtonElement>(".pin");
@@ -378,7 +341,7 @@ export function reconcileCards(
   const existingById = indexCardsBySessionId(container);
 
   // review m4-reconcile cycle-3 Minor 1: the reorder below can blur a focused card or
-  // action button (see render/focus.ts for the measured mechanism). Snapshot the focused
+  // action button (see render/focuskeep.ts for the measured mechanism). Snapshot the focused
   // logical control before the loop so it can be re-focused afterwards — preferring a
   // caller-supplied pre-blur snapshot (see `pendingFocus`'s doc comment above) when one
   // was handed in.
@@ -492,33 +455,4 @@ export function renderSessions(
     currentId,
     railActivity,
   );
-}
-
-export interface FocusMainElements {
-  emptyEl: HTMLElement;
-  slotEl: HTMLElement;
-}
-
-/** Toggles Focus's main area between the honest empty state and the terminal slot — the
- * slot's contents (a TerminalSurface's root) are features/surfaces.ts's job, not
- * this module's (docs/conventions.md: DOM here, sockets/pane lifecycle in features/surfaces.ts). */
-export function renderFocusMain(elements: FocusMainElements, hasSessions: boolean): void {
-  elements.emptyEl.hidden = hasSessions;
-  elements.slotEl.hidden = !hasSessions;
-}
-
-/** REQ-15's sizenote line: `<cols>×<rows> · one live client · geometry owned by this
- * pane`. `null` geometry (no focused session, or one not yet laid out) hides the line
- * entirely rather than rendering a half-formed one. */
-export function renderSizenote(
-  el: HTMLElement,
-  geometry: { cols: number; rows: number } | null,
-): void {
-  if (!geometry) {
-    el.hidden = true;
-    el.textContent = "";
-    return;
-  }
-  el.hidden = false;
-  el.textContent = `${geometry.cols}×${geometry.rows} · one live client · geometry owned by this pane`;
 }

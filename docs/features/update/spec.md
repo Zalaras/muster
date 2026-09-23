@@ -7,7 +7,7 @@ summary: Release check, minisign-verified apply, in-place restart with sessions 
 features: [update]
 tags: [security]
 go: [internal/server/update*.go, internal/selfupdate/**]
-web: [web/src/features/update.ts, web/src/render/update*.ts]
+web: [web/src/features/update*.ts, web/src/render/update*.ts]
 e2e: [web/e2e/update.spec.ts, web/e2e/helpers/update.ts, web/e2e/helpers/releases.ts]
 protocol: [update.check, update.apply, update.restart-impact, ws.update]
 refs: [kb:adr/update-check-runs-in-daemon-daily, kb:adr/update-check-pref-governs-automatic-checking-only, kb:adr/update-manual-check-is-a-synchronous-post, kb:adr/update-install-kinds-decide-who-may-apply, kb:adr/update-trust-root-minisign-signed-checksums, kb:adr/update-restart-is-in-place-reexec-not-shutdown, kb:adr/update-release-knowledge-in-selfupdate-package, kb:adr/release-latest-resolved-via-redirect-not-api, kb:adr/stack-selfupdate-minisign-library]

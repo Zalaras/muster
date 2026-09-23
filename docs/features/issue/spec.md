@@ -7,7 +7,7 @@ summary: Issue capture and GitHub issue creation from the dashboard.
 features: [issue]
 tags: [security]
 go: [internal/server/issue*.go, internal/ghissue/**]
-web: [web/src/features/issue*.ts]
+web: [web/src/features/issue*.ts, web/src/render/issue*.ts]
 e2e: [web/e2e/issue-capture.spec.ts, web/e2e/helpers/issue.ts, web/e2e/helpers/ghapi.ts]
 protocol: [issue.captures, issue.create]
 refs: [kb:adr/issue-capture-then-file-server-held, kb:adr/issue-payload-allowlist-never-dump, kb:adr/issue-preview-is-the-leak-check, kb:adr/issue-auth-gh-token-at-time-of-use, kb:adr/issue-daemon-creates-issues-only, kb:adr/stack-git-and-gh-clis-not-go-git]

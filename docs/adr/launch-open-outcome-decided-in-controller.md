@@ -6,7 +6,7 @@ date: 2026-09-23
 summary: The dialog's open-time navigation outcome is acted on inside initOpen with no pure relabelling seam; its three branches are asserted end to end.
 features: [launch]
 tags: [testing]
-files: [web/src/features/launch.ts, web/src/render/launchrestore.ts]
+files: [web/src/features/launch.ts, web/src/features/launchrestore.ts]
 tests: []
 refs: [plan:new-session-improvement, plans/new-session-improvement/web-tests.md]
 supersedes: []

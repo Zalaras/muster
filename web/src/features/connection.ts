@@ -4,7 +4,8 @@
 // reads "connecting…" rather than flashing "musterd unreachable" on first load.
 import type { App, ConnectionStatus } from "../app";
 import { requireElement } from "../dom";
-import { isRestorableControl, shouldRestoreFocus } from "../render/focusrestore";
+import { isRestorableControl, shouldRestoreFocus } from "./connectionrestore";
+import { describeClaudeVersion } from "./connectionversion";
 import { renderBanner } from "../render/banner";
 import { renderClaudeVersion, renderConnectionStatus } from "../render/masthead";
 import type { ClaudeCodeInfo } from "../protocol/hello";
@@ -65,7 +66,7 @@ export function initConnection(app: App): ConnectionHandle {
 
   // No hello has arrived yet — same "unknown, not empty" honesty rule as any other
   // no-data-yet readout (design-system §6).
-  renderClaudeVersion(claudeVersionEl, null);
+  renderClaudeVersion(claudeVersionEl, describeClaudeVersion(null));
 
   // REQ-7: the one control the socket dropped focus off of, remembered by node identity
   // across the disconnect->reconnect pair of renders — never per-site (R1).
@@ -111,7 +112,7 @@ export function initConnection(app: App): ConnectionHandle {
   return {
     connected(claudeCode) {
       state.connected();
-      renderClaudeVersion(claudeVersionEl, claudeCode);
+      renderClaudeVersion(claudeVersionEl, describeClaudeVersion(claudeCode));
     },
     disconnected() {
       state.disconnected();

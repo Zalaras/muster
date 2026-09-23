@@ -5,14 +5,13 @@ import type { App } from "../app";
 import { applyUpdate, checkForUpdate, fetchRestartImpact } from "../api/update";
 import { requireElement } from "../dom";
 import {
-  buildUpdateViewModel,
   initRestartConfirm,
   renderSettingsBadge,
   renderUpdateSection,
-  type CheckState,
   type RestartConfirmController,
   type UpdateSectionElements,
 } from "../render/update";
+import { buildUpdateViewModel, type CheckState } from "./updateview";
 import type { Prefs } from "../protocol/prefs";
 import type { UpdateInfo } from "../protocol/update";
 

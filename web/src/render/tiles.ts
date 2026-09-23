@@ -19,14 +19,12 @@ import {
 } from "../sessions/card";
 import { ageAgo, formatAge } from "../sessions/format";
 import { renderContextRow } from "./context";
-import { buildActionButton, reconcileCards } from "./sessions";
+import { reconcileCards } from "./sessions";
+import { buildActionButton } from "./actionbutton";
 import { attachRenameEditor, type RenameEditorController } from "./rename";
 import type { TitleCommand } from "../sessions/rename";
-import {
-  buildSurfaceSegment,
-  type SurfaceKind,
-  type SurfaceSegmentRefs,
-} from "../terminal/surfaceswitch";
+import type { SurfaceKind } from "../terminal/surfaceswitch";
+import { buildSurfaceSegment, type SurfaceSegmentRefs } from "./surfaceseg";
 
 export interface TileRefs {
   root: HTMLElement;

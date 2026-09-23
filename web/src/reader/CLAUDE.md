@@ -8,8 +8,10 @@ browser-side "last open file / which writes are acknowledged" memory (`memory.ts
 basename plus the loading-cue status text (`paths.ts`), mermaid fence/theme/error-text/id
 helpers (`mermaid.ts`) and the diagram modal's zoom/pan arithmetic (`zoom.ts`). `render/reader.ts`
 draws the results; `render/mermaid.ts` and `render/diagrams.ts` are the DOM half of the
-diagram pass; `features/reader.ts` owns the socket, the fetches and which session gets a
-mounted instance. **Features**: reader.
+diagram pass, and `render/frontmatter.ts` is the DOM half of the frontmatter split —
+`markdown.ts`'s `renderMarkdown` returns the parsed `Frontmatter` alongside the body
+fragment and builds no element from it itself; `features/reader.ts` owns the socket, the
+fetches and which session gets a mounted instance. **Features**: reader.
 
 **Invariants** (violations are review-Critical):
 - Every module here is Vitest-testable with no DOM and no socket (docs/conventions.md) —

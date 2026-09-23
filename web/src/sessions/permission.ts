@@ -3,7 +3,7 @@
 // concerns "make a request" — they're the rules for a wire enum value, which belongs beside the
 // other pure session logic in this directory (`web/src/sessions/CLAUDE.md`: "no DOM, no socket,
 // no fetch"). `api/launch.ts`'s `LaunchRequest.permissionMode` field and every UI caller
-// (features/launch.ts, render/launchrestore.ts) import from here instead.
+// (features/launch.ts, features/launchrestore.ts) import from here instead.
 
 // Plan fix-auto-mode-select (kb:anchor/sessions.create): the accepted wire values for
 // permissionMode, in dialog/cycle order. `default` is Claude Code's manual mode (the UI
@@ -17,7 +17,7 @@ export type PermissionMode = (typeof PERMISSION_MODES)[number];
 // empty string) falls back to `auto`, since Muster cannot read Claude Code's own
 // configured default (Out of scope) and auto is the least surprising guess. Pure and
 // exported so it's unit-testable without a fake DOM; features/launch.ts's
-// `setPermissionMode` and `selectedPermissionMode`, and render/launchrestore.ts's
+// `setPermissionMode` and `selectedPermissionMode`, and features/launchrestore.ts's
 // `repoRestore`, are its callers, all passing a `string | null` straight through — the
 // function takes `null` directly, no caller-side coercion to `""` needed.
 export function permissionModeToCheck(stored: string | null): PermissionMode {

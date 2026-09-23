@@ -1,10 +1,13 @@
 // REQ-14 (plan m4-reconcile): the End/Remove confirm dialogs — two `<dialog>` elements
 // modelled on features/launch.ts's `#launch-dialog` (same `showModal()`/`close()` pattern,
-// same reliance on the browser's native Escape-cancels-a-modal-dialog behaviour, which
+// same reliance on the browser's own native Escape-cancels-a-modal-dialog behaviour, which
 // needs no code here to satisfy). DOM + wiring only: the actual End/Remove HTTP calls are
-// features/actions.ts's dispatcher's job (it owns the session store and decides what happens next).
+// features/actions.ts's dispatcher's job (it owns the session store and decides what
+// happens next), which also composes each dialog's body text
+// (`features/actionscopy.ts`'s `endDialogBody`/`removeDialogBody` — review seed B7: that
+// copy composition is a DOM-free decision with one controller caller, so it lives beside
+// it, not here) and passes it in.
 import type { Session } from "../protocol/session";
-import { buildCardViewModel } from "../sessions/card";
 
 export interface ConfirmDialogElements {
   endDialog: HTMLDialogElement;
@@ -23,32 +26,10 @@ export interface ConfirmDialogHandlers {
 }
 
 export interface ConfirmDialogs {
-  openEnd: (session: Session) => void;
-  openRemove: (session: Session) => void;
+  openEnd: (session: Session, bodyText: string) => void;
+  openRemove: (session: Session, bodyText: string) => void;
   /** States: "Daemon down ... Dialogs, if open, close." */
   closeAll: () => void;
-}
-
-function sessionLabel(session: Session, now: Date): string {
-  const title = session.title ?? "untitled";
-  return `${title} — ${buildCardViewModel(session, now).repoLine}`;
-}
-
-/** REQ-14's End dialog copy: names the session, says it stays as ended and can be
- * resumed. */
-function renderEndDialogBody(el: HTMLElement, session: Session, now: Date): void {
-  el.textContent =
-    `${sessionLabel(session, now)}. Kills the tmux pane and the claude inside it. The card stays in the rail ` +
-    "as ended — Resume can pick the conversation back up if this was a slip.";
-}
-
-/** REQ-14's Remove dialog copy: it disappears and cannot be resumed from here, plus —
- * only when the target is still alive — "ends the session first" (E9's exact phrase). */
-function renderRemoveDialogBody(el: HTMLElement, session: Session, now: Date): void {
-  const endsFirst = session.alive ? " This ends the session first." : "";
-  el.textContent =
-    `${sessionLabel(session, now)}.${endsFirst} Deletes it from Muster for good — the card disappears and it ` +
-    "can no longer be resumed from here.";
 }
 
 export function initConfirmDialogs(
@@ -73,14 +54,14 @@ export function initConfirmDialogs(
   });
 
   return {
-    openEnd(session) {
+    openEnd(session, bodyText) {
       endTargetId = session.id;
-      renderEndDialogBody(elements.endBody, session, new Date());
+      elements.endBody.textContent = bodyText;
       if (!elements.endDialog.open) elements.endDialog.showModal();
     },
-    openRemove(session) {
+    openRemove(session, bodyText) {
       removeTargetId = session.id;
-      renderRemoveDialogBody(elements.removeBody, session, new Date());
+      elements.removeBody.textContent = bodyText;
       if (!elements.removeDialog.open) elements.removeDialog.showModal();
     },
     closeAll() {

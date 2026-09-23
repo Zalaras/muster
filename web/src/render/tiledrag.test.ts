@@ -16,17 +16,17 @@
 // sequencing itself (independent of the real blur timing) is worth a fast, deterministic
 // unit test.
 //
-// Technique matches render/focus.test.ts's own precedent for the same seam
+// Technique matches render/focuskeep.test.ts's own precedent for the same seam
 // (captureFocusedControl): minimal hand-rolled stand-ins for just the DOM surface
 // tiledrag.ts actually touches (closest/classList/dataset), with `globalThis.Element`
 // patched so tiledrag.ts's `instanceof Element` guards resolve — not a jsdom/DOM-simulation
-// suite. `./focus`'s own capture logic is mocked out (it's already covered by
-// focus.test.ts) so this file tests only tiledrag.ts's use of it.
+// suite. `./focuskeep`'s own capture logic is mocked out (it's already covered by
+// focuskeep.test.ts) so this file tests only tiledrag.ts's use of it.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { FocusedControl } from "./focus";
+import type { FocusedControl } from "./focuskeep";
 
 const { captureFocusedControl } = vi.hoisted(() => ({ captureFocusedControl: vi.fn() }));
-vi.mock("./focus", () => ({ captureFocusedControl }));
+vi.mock("./focuskeep", () => ({ captureFocusedControl }));
 
 const { installTileDrag } = await import("./tiledrag");
 

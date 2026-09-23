@@ -1,30 +1,13 @@
-// Breadcrumb model for the launch dialog's browse pane (plan new-session-dialog, REQ-5/
-// REQ-6). `splitCrumbs` is the pure half — unit-tested by web-tests — turning an absolute
-// path into its ordered ancestor chain, root first. `renderCrumbs` is the tiny DOM half
-// that draws it into the `<nav>` (mockup: plans/new-session-dialog/mockup.html), used only
-// by features/launch.ts.
+// Breadcrumb DOM for the launch dialog's browse pane (plan new-session-dialog, REQ-5/
+// REQ-6) — draws the `Crumb[]` chain into the `<nav>` (mockup:
+// plans/new-session-dialog/mockup.html), used only by features/launch.ts. The path-to-
+// chain derivation (`splitCrumbs`) is a DOM-free decision that lives beside its one
+// caller, `features/launchcrumbs.ts` (review seed B7; docs/conventions.md § Composition
+// roots).
 
 export interface Crumb {
   name: string;
   path: string;
-}
-
-/** Splits an absolute path into its ancestor chain, root first: `"/a/b"` ->
- * `[{name:"/",path:"/"},{name:"a",path:"/a"},{name:"b",path:"/a/b"}]`. `"/"` alone yields
- * the single root crumb. A trailing slash is tolerated (stripped before splitting) — the
- * daemon's `GET /api/browse` never rejects one, so the picker shouldn't choke on one
- * either (edge case 6 / W2 unit tests). Names are split on `/` only, never re-escaped, so
- * spaces and unicode in a path component pass through untouched. */
-export function splitCrumbs(path: string): Crumb[] {
-  const trimmed = path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
-  const parts = trimmed.split("/").filter((part) => part.length > 0);
-  const crumbs: Crumb[] = [{ name: "/", path: "/" }];
-  let acc = "";
-  for (const part of parts) {
-    acc += `/${part}`;
-    crumbs.push({ name: part, path: acc });
-  }
-  return crumbs;
 }
 
 /** Renders `crumbs` into `nav`: every ancestor as a clickable `<button data-path>`

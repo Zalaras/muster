@@ -6,7 +6,7 @@ import { requestPrefs } from "../api/prefs";
 import { putSessionOrder } from "../api/sessions";
 import { requireElement, requireElements } from "../dom";
 import { installDragReorder } from "../render/dragreorder";
-import type { FocusedControl } from "../render/focus";
+import type { FocusedControl } from "../render/focuskeep";
 import { renderSessions } from "../render/sessions";
 import { moveCard } from "../sessions/railorder";
 import { orderRail } from "../sessions/sort";

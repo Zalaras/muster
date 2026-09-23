@@ -2,7 +2,11 @@
 // drives around the disconnect->reconnect render pair. No DOM — `RestorableCandidate` is
 // duck-typed, so a plain object stands in for `document.activeElement`.
 import { describe, expect, it } from "vitest";
-import { isRestorableControl, shouldRestoreFocus, type RestorableCandidate } from "./focusrestore";
+import {
+  isRestorableControl,
+  shouldRestoreFocus,
+  type RestorableCandidate,
+} from "./connectionrestore";
 
 /** `closest` answers `#app` (or not) the way a real DOM node would: an element inside the
  * shell resolves `#app`, one outside it (or the shell root itself, absent from a real

@@ -14,7 +14,6 @@ import {
   browse,
   fetchRepos,
   launchSession,
-  type BrowseEntry,
   type BrowseResult,
   type LaunchRequest,
   type Repo,
@@ -23,10 +22,16 @@ import type { App } from "../app";
 import { permissionModeToCheck, type PermissionMode } from "../sessions/permission";
 import { requireElement, requireElements } from "../dom";
 import type { Session } from "../protocol/session";
-import { formatAge } from "../sessions/format";
 import { matchShortcut } from "../shortcuts";
-import { renderCrumbs, splitCrumbs } from "../render/crumbs";
-import { DEFAULT_MODEL, initialRestore, repoRestore, type Touched } from "../render/launchrestore";
+import { renderCrumbs } from "../render/crumbs";
+import {
+  renderBrowseListing,
+  renderBrowseLoading,
+  renderLaunchFooter,
+  renderRecentsList,
+} from "../render/launch";
+import { splitCrumbs } from "./launchcrumbs";
+import { DEFAULT_MODEL, initialRestore, repoRestore, type Touched } from "./launchrestore";
 
 const MODEL_PRESETS = ["sonnet", "opus", "haiku", "fable"] as const;
 
@@ -151,94 +156,44 @@ function initLaunchModal(elements: LaunchModalElements, handlers: LaunchModalHan
     reposErrorPersistent = false;
   }
 
-  function buildRecentButton(repo: Repo, now: Date): HTMLButtonElement {
-    const fragment = elements.recentEntryTemplate.content.cloneNode(true) as DocumentFragment;
-    const button = fragment.querySelector<HTMLButtonElement>("button.dir");
-    if (!button) throw new Error("mru-entry-template is missing its button");
-    const name = button.querySelector<HTMLElement>(".dir-name");
-    const branch = button.querySelector<HTMLElement>(".dir-branch");
-    const age = button.querySelector<HTMLElement>(".dir-age");
-    if (name) name.textContent = repo.name;
-    if (branch) branch.textContent = repo.branch ?? "—";
-    if (age) age.textContent = formatAge(repo.lastLaunchedAt, now);
-    // REQ-18: the full path lives in `title`; the visible entry stays name · branch · age.
-    button.title = repo.path;
-    // INV-2: pressed is derived, never stored — recomputed on every render from whether
-    // this repo's path equals the current selection.
-    button.setAttribute("aria-pressed", current?.path === repo.path ? "true" : "false");
-    button.addEventListener("click", () => {
-      void (async () => {
-        const outcome = await navigate(repo.path);
-        // Implementation notes: model/mode apply only after the navigation succeeds, so a
-        // 404'd recent leaves the form untouched (INV-3 covers launch-time failures too).
-        // REQ-6: unlike the initial restore, a clicked Recent always restores its
-        // directory's model and mode, touched or not — `repoRestore` is the one owner of
-        // what those values are.
-        if (outcome === "ok") {
-          const values = repoRestore(repo);
-          setModel(values.model);
-          setPermissionMode(values.mode);
-        }
-      })();
-    });
-    return button;
+  /** A clicked Recent navigates, then — REQ-6: unlike the initial restore, a clicked
+   * Recent always restores its directory's model and mode, touched or not —
+   * `repoRestore` is the one owner of what those values are. Implementation notes:
+   * model/mode apply only after the navigation succeeds, so a 404'd recent leaves the
+   * form untouched (INV-3 covers launch-time failures too). */
+  function selectRecent(repo: Repo): void {
+    void (async () => {
+      const outcome = await navigate(repo.path);
+      if (outcome === "ok") {
+        const values = repoRestore(repo);
+        setModel(values.model);
+        setPermissionMode(values.mode);
+      }
+    })();
   }
 
   function renderRecents(): void {
-    if (!reposLoaded) {
-      // States: "no data yet" — nothing beneath the Recent heading until repos arrive.
-      elements.recentsList.replaceChildren();
-      return;
-    }
-    if (repos.length === 0) {
-      const empty = document.createElement("p");
-      empty.className = "empty";
-      empty.textContent = "No recent directories";
-      elements.recentsList.replaceChildren(empty);
-      return;
-    }
-    const now = new Date();
-    elements.recentsList.replaceChildren(...repos.map((repo) => buildRecentButton(repo, now)));
-  }
-
-  function buildEntryButton(dir: BrowseEntry): HTMLButtonElement {
-    const fragment = elements.entryTemplate.content.cloneNode(true) as DocumentFragment;
-    const button = fragment.querySelector<HTMLButtonElement>("button.entry");
-    if (!button) throw new Error("subdir-entry-template is missing its button");
-    const nm = button.querySelector<HTMLElement>(".nm");
-    if (nm) nm.textContent = dir.name;
-    if (dir.isGit) {
-      const git = document.createElement("span");
-      git.className = "git";
-      git.textContent = " (git)";
-      button.querySelector(".chev")?.before(git);
-    }
-    button.addEventListener("click", () => void navigate(dir.path));
-    return button;
+    renderRecentsList(
+      elements.recentsList,
+      elements.recentEntryTemplate,
+      repos,
+      reposLoaded,
+      current?.path ?? null,
+      selectRecent,
+    );
   }
 
   function renderListing(): void {
-    if (!current) {
-      // Daemon-down / never-succeeded state: an empty region, never "No subdirectories" —
-      // that would claim knowledge Muster does not have (design-system §6 honesty rules).
-      elements.browseDirs.replaceChildren();
-      return;
-    }
-    if (current.dirs.length === 0) {
-      const empty = document.createElement("p");
-      empty.className = "empty";
-      empty.textContent = "No subdirectories";
-      elements.browseDirs.replaceChildren(empty);
-      return;
-    }
-    elements.browseDirs.replaceChildren(...current.dirs.map((dir) => buildEntryButton(dir)));
+    renderBrowseListing(
+      elements.browseDirs,
+      elements.entryTemplate,
+      current?.dirs ?? null,
+      (path) => void navigate(path),
+    );
   }
 
   function renderListingLoading(): void {
-    const loading = document.createElement("p");
-    loading.className = "loading";
-    loading.textContent = "loading…";
-    elements.browseDirs.replaceChildren(loading);
+    renderBrowseLoading(elements.browseDirs);
   }
 
   function updateCrumbs(): void {
@@ -250,25 +205,12 @@ function initLaunchModal(elements: LaunchModalElements, handlers: LaunchModalHan
   }
 
   function renderFooter(): void {
-    const path = current?.path;
-    if (!path) {
-      elements.launchTargetPath.textContent = "—";
-      elements.launchTargetBranch.hidden = true;
-      elements.launchTargetBranch.textContent = "";
-      return;
-    }
-    elements.launchTargetPath.textContent = path;
+    const path = current?.path ?? null;
     // REQ-17: the browse endpoint never reports the listed directory's own branch — the
     // only honest source is a recent whose served path matches (derived, like `pressed`,
     // not tracked separately as "how did we get here").
-    const branch = repos.find((repo) => repo.path === path)?.branch ?? null;
-    if (branch) {
-      elements.launchTargetBranch.textContent = ` · ${branch}`;
-      elements.launchTargetBranch.hidden = false;
-    } else {
-      elements.launchTargetBranch.textContent = "";
-      elements.launchTargetBranch.hidden = true;
-    }
+    const branch = path ? (repos.find((repo) => repo.path === path)?.branch ?? null) : null;
+    renderLaunchFooter(elements.launchTargetPath, elements.launchTargetBranch, path, branch);
   }
 
   function renderAll(): void {

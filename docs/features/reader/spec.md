@@ -7,7 +7,7 @@ summary: The docs surface — a sanitized markdown reader for a session's plan a
 features: [reader]
 tags: [ux, security, claude-code-format]
 go: [internal/claudecode/plan*.go, internal/claudecode/files*.go, internal/server/reader*.go, internal/session/reader_test.go, internal/store/migrations/0008_reader.sql]
-web: [web/src/reader/**, web/src/features/reader.ts, web/src/render/reader.ts, web/src/render/diagrams.ts, web/src/render/diagramdialog.ts, web/src/render/mermaid.ts, web/src/doc.ts, web/doc.html, web/src/storage*.ts]
+web: [web/src/reader/**, web/src/features/reader.ts, web/src/render/reader.ts, web/src/render/frontmatter*.ts, web/src/render/diagrams.ts, web/src/render/diagramdialog.ts, web/src/render/mermaid.ts, web/src/doc.ts, web/doc.html, web/src/storage*.ts]
 e2e: [web/e2e/general-cleanup.spec.ts, web/e2e/reader.spec.ts, web/e2e/reader-mermaid.spec.ts, web/e2e/helpers/reader.ts]
 protocol: [sessions.reader, sessions.reader-file, ws.doc-changed, ws.session]
 refs: [plan:markdown-viewing, plan:markdown-render-fixes, plan:mermaid-support, kb:fact/plan-file-path-in-transcript, kb:fact/plan-mode-hook-sequence, kb:adr/issue-preview-is-the-leak-check, kb:adr/surfaces-shell-control-in-tile-footer, kb:adr/connection-banner-only-after-first-hello, kb:spec/surfaces, docs/design/design-system.md]

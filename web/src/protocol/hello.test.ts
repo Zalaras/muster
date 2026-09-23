@@ -36,7 +36,7 @@ describe("parseMessage — hello (plan version-claude-interface, protocol 2: hel
     expect(parseMessage(hello)).toEqual(hello);
   });
 
-  it("structurally accepts (does not reject) a non-unknown status paired with a null installed — a daemon bug INV-1 rules out on the wire, but the parser only type-checks; the renderer (masthead.ts describeClaudeVersion) is what treats this defensively", () => {
+  it("structurally accepts (does not reject) a non-unknown status paired with a null installed — a daemon bug INV-1 rules out on the wire, but the parser only type-checks; the renderer (features/connectionversion.ts's describeClaudeVersion) is what treats this defensively", () => {
     const hello = {
       ...validHello,
       claudeCode: { ...validHello.claudeCode, status: "verified", installed: null },

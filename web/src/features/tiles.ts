@@ -28,16 +28,20 @@ import {
   type TileRefs,
   type TileRenameHandlers,
 } from "../render/tiles";
-import { captureFocusedControl, restoreFocusedControl, type FocusedControl } from "../render/focus";
+import {
+  captureFocusedControl,
+  restoreFocusedControl,
+  type FocusedControl,
+} from "../render/focuskeep";
 import { installTileDrag } from "../render/tiledrag";
 import { applyDensity, densityCount, initialLive, moveTile, promote } from "../sessions/live";
 import { orderRail } from "../sessions/sort";
 import {
   getSurfaceState,
-  updateSurfaceSegment,
   type SurfaceKind,
   type SurfaceSwitchState,
 } from "../terminal/surfaceswitch";
+import { updateSurfaceSegment } from "../render/surfaceseg";
 import type { TerminalSurface } from "../terminal/pane";
 import type { ShellActivityIndicator } from "../terminal/shellactivity";
 import type { DeadSurfaceRefs, PaneState } from "../render/dead";

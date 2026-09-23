@@ -5,7 +5,6 @@
 // Honesty rules (design-system §6.1): a null usage bucket renders the word "unknown"
 // and no track/gauge markup at all — never a 0%-filled bar.
 import type { ConnectionStatus } from "../app";
-import type { ClaudeCodeInfo } from "../protocol/hello";
 import type { Density, View } from "../protocol/prefs";
 import type { SessionModelInfo } from "../protocol/session";
 import type { ModelWindow, Usage, UsageBucket } from "../protocol/usage";
@@ -349,37 +348,13 @@ export function renderModelWeek(
 
 /** Plan version-claude-interface, UI Specifications > DOM: the readout's text and, when
  * the installed Claude Code falls outside the canary-verified range, the warning-glyph
- * hover text. Pure so `renderClaudeVersion` and its unit tests can share one source of
- * truth for the six-row table below. */
+ * hover text. This is `renderClaudeVersion`'s render contract — `features/
+ * connectionversion.ts`'s `describeClaudeVersion` is its one producer (review seed B7:
+ * that derivation is a DOM-free decision with one controller caller, so it lives beside
+ * `features/connection.ts`, not here). */
 export interface ClaudeVersionDescription {
   text: string;
   warning: string | null;
-}
-
-const VERSION_NOT_TESTED = "This Claude Code version has not been tested with Muster";
-const VERSION_NOT_TESTED_UPDATE = `${VERSION_NOT_TESTED} — please update Claude Code`;
-
-/** UI Specifications > DOM table:
- * - `null` (pre-hello) -> "claude unknown", no warning
- * - `status: "unknown"` (any `installed`), or a defensive non-`unknown` status with
- *   `installed === null` (the daemon never sends this — INV-1) -> "Claude installation
- *   unknown", no warning
- * - `status: "verified"` -> "claude <installed>", no warning
- * - `status: "above"` -> "claude <installed>" + the "not tested" warning
- * - `status: "below"` -> "claude <installed>" + the "not tested, please update" warning
- */
-export function describeClaudeVersion(info: ClaudeCodeInfo | null): ClaudeVersionDescription {
-  if (!info) return { text: "claude unknown", warning: null };
-  if (info.status === "unknown" || info.installed === null) {
-    return { text: "Claude installation unknown", warning: null };
-  }
-  if (info.status === "above") {
-    return { text: `claude ${info.installed}`, warning: VERSION_NOT_TESTED };
-  }
-  if (info.status === "below") {
-    return { text: `claude ${info.installed}`, warning: VERSION_NOT_TESTED_UPDATE };
-  }
-  return { text: `claude ${info.installed}`, warning: null };
 }
 
 /** UI Specifications > DOM: rebuilds `#claude-version`'s children with `replaceChildren`
@@ -388,8 +363,8 @@ export function describeClaudeVersion(info: ClaudeCodeInfo | null): ClaudeVersio
  * `claude 2.0.0 ⚠` — `aria-label` and `title` both carry the same warning sentence
  * (Testable UI Elements: the glyph's accessible name and its native tooltip must match).
  * No button, link or other control lives inside the readout (REQ-5 "no dismiss"). */
-export function renderClaudeVersion(el: HTMLElement, info: ClaudeCodeInfo | null): void {
-  const { text, warning } = describeClaudeVersion(info);
+export function renderClaudeVersion(el: HTMLElement, description: ClaudeVersionDescription): void {
+  const { text, warning } = description;
   if (warning === null) {
     el.replaceChildren(document.createTextNode(text));
     return;

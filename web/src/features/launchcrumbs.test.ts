@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { splitCrumbs } from "./crumbs";
+import { splitCrumbs } from "./launchcrumbs";
 
 // splitCrumbs is the pure half of the breadcrumb model (plan new-session-dialog, REQ-5/
 // REQ-6/W2) — the DOM half (renderCrumbs) is Playwright's job (docs/conventions.md: no

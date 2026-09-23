@@ -9,12 +9,8 @@ import type { Session } from "../protocol/session";
 import { buildCardViewModel, canResume, resumeDisabledReason } from "../sessions/card";
 import { ageAgo } from "../sessions/format";
 import type { ShellActivityIndicator } from "../terminal/shellactivity";
-import {
-  DEFAULT_SURFACE_STATE,
-  updateSurfaceSegment,
-  type SessionSurfaceState,
-  type SurfaceSegmentRefs,
-} from "../terminal/surfaceswitch";
+import { DEFAULT_SURFACE_STATE, type SessionSurfaceState } from "../terminal/surfaceswitch";
+import { updateSurfaceSegment, type SurfaceSegmentRefs } from "./surfaceseg";
 
 export interface MainheadElements {
   root: HTMLElement;

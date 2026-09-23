@@ -7,7 +7,7 @@ summary: Settings dialog and the prefs it edits.
 features: [settings]
 tags: [ux]
 go: [internal/server/prefs*.go]
-web: [web/src/features/settings.ts]
+web: [web/src/features/settings.ts, web/src/render/settings*.ts]
 e2e: []
 protocol: [prefs.put]
 refs: [kb:adr/theme-pref-follows-claude-until-picked, kb:adr/theme-pref-enum-follow-not-nullable, kb:adr/update-check-pref-governs-automatic-checking-only, kb:adr/rail-user-owned-manual-order-default, kb:adr/usage-masthead-one-selectable-model-window, kb:adr/rail-activity-line-turn-aware-default-with-pref, kb:adr/rail-card-title-leads-and-density-ramp-corrected]

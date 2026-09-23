@@ -15,10 +15,12 @@
 // a focused button), focus is restored to the equivalent node by its stable key (`path` /
 // `headingId`) after the rebuild.
 import { requireElement } from "../dom";
+import type { Frontmatter } from "../reader/frontmatter";
 import { UNKNOWN_SESSION_TEXT } from "../reader/notice";
 import { loadingText } from "../reader/paths";
 import type { FlatTreeEntry } from "../reader/tree";
 import { wireDiagramDialog } from "./diagramdialog";
+import { buildFrontmatterNode } from "./frontmatter";
 
 /** `doc.ts`'s placeholder when its `?session=` doesn't parse (review cycle 1 Critical 1) —
  * not part of the `#reader-template` component below, since nothing here needs a session
@@ -78,7 +80,7 @@ export interface ReaderVM {
 
 export type ReaderBody =
   | { kind: "placeholder"; text: string }
-  | { kind: "fragment"; fragment: DocumentFragment };
+  | { kind: "fragment"; fragment: DocumentFragment; frontmatter: Frontmatter | null };
 
 export interface ReaderCallbacks {
   /** A tree file button — `path` is relative to the session directory, exactly as the
@@ -479,7 +481,10 @@ export function renderReader(refs: ReaderRefs, vm: ReaderVM): void {
 
 /** Sets the reader body — only ever called when the open file's rendered content
  * actually changes (a successful fetch), never from the tick-driven `renderReader` above,
- * since a `DocumentFragment` empties itself the moment it's inserted. */
+ * since a `DocumentFragment` empties itself the moment it's inserted. REQ-5/REQ-6: the
+ * frontmatter node (if any) is built and prepended here, after `reader/markdown.ts`'s own
+ * outline walk — so it can never be queried as a heading or counted in the outline (review
+ * seed d-m4: this is the DOM half of that split). */
 export function setReaderBody(refs: ReaderRefs, body: ReaderBody): void {
   if (body.kind === "placeholder") {
     const p = document.createElement("p");
@@ -488,6 +493,8 @@ export function setReaderBody(refs: ReaderRefs, body: ReaderBody): void {
     refs.body.replaceChildren(p);
     return;
   }
+  const frontmatterNode = buildFrontmatterNode(body.frontmatter);
+  if (frontmatterNode) body.fragment.prepend(frontmatterNode);
   refs.body.replaceChildren(body.fragment);
 }
 

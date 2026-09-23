@@ -1,9 +1,11 @@
-// Pure focus-restore decision (plan general-cleanup REQ-7) — the DOM effect (remembering
-// `document.activeElement` before a disconnect render, calling `.focus()` after a
-// reconnect render) lives in `features/connection.ts`; these two functions are its unit
-// surface, deliberately typed on a minimal duck-typed shape rather than `Element` so
-// Vitest can drive them with a plain object, no jsdom (docs/conventions.md, Implementation
-// Notes > Focus restore).
+// Pure focus-restore decision (plan general-cleanup REQ-7; review seed B7) — the DOM
+// effect (remembering `document.activeElement` before a disconnect render, calling
+// `.focus()` after a reconnect render) lives in `features/connection.ts`, its one caller;
+// this module lives beside it (docs/conventions.md § Composition roots: a DOM-free
+// decision one controller calls lives in `features/`, not `render/`). These two functions
+// are its unit surface, deliberately typed on a minimal duck-typed shape rather than
+// `Element` so Vitest can drive them with a plain object, no jsdom (docs/conventions.md,
+// Implementation Notes > Focus restore).
 
 /** The subset of `Element` a restore decision needs. A real `document.activeElement`
  * satisfies this structurally. */

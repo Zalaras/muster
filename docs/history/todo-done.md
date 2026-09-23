@@ -1174,6 +1174,13 @@ the mobile/responsive pass rem-ifies the pixel layer.
   `TestAggregator_Record_PersistFailureLeavesMemoryUnchanged`; safe to drop the lock
   across the write because Record runs only on the single ingest worker goroutine, R4).
 
+- **Conventions to settle** (parent still open in `TODO.md` — its plan-ID sub-item lands with the maintainability cleanup's comment sweep)
+  - [x] **Settle where a controller's DOM-free decision module lives** ✅ done 2026-09-23 (plan `maintainability-cleanup`, unit W6a: `docs/conventions.md` § Composition roots now names the case, and both modules moved to `web/src/features/`) — `docs/conventions.md`
+    § Composition roots and `web/src/render/CLAUDE.md` call `render/` "pure DOM builders", yet
+    `render/focusrestore.ts` and `render/launchrestore.ts` are DOM-free decisions kept there to
+    avoid a `sessions/→api` dependency. Either the rule names this case or the two modules move.
+    From `plans/new-session-improvement/`.
+
 ## Issues
 
 - [x] **Ingest: corroborate an envelope against the pane it came from** ✅ done 2026-09-16 (plan `general-cleanup`, via `/orchestrate`; approved review cycle 1) — `resolveSessionID`

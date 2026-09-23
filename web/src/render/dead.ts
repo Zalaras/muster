@@ -3,10 +3,11 @@
 // Focus's `#dead-surface` (static markup, one instance) and, per dead tile, cloned from
 // `#dead-surface-template` into that tile's `.tbody-slot` (render/tiles.ts's
 // `mountTileDeadSurface`) — both share this module's pure builder/render functions so the
-// two surfaces never drift out of sync with each other. Pure builder + fetch trigger
-// (docs/conventions.md): DOM construction and the `GET .../pane` fetch live here; caching
-// *when* to fetch is features/actions.ts's job (`ensurePaneFetch`/`paneState`).
-import { fetchPane } from "../api/sessions";
+// two surfaces never drift out of sync with each other. DOM only (review seed B8: this
+// module used to also own the `GET .../pane` fetch itself; `features/actions.ts`'s
+// `loadPane` now does that and passes the resulting `PaneState` in, so no path here opens
+// a request) — caching *when* to fetch is features/actions.ts's job
+// (`ensurePaneFetch`/`paneState`).
 import type { Session } from "../protocol/session";
 import { canResume, resumeDisabledReason, stateBadgeText } from "../sessions/card";
 import { ageAgo } from "../sessions/format";
@@ -112,17 +113,6 @@ export function renderDeadSurface(
   refs.resumeBtn.disabled = !connected || !canResume(session.claudeSessionId);
   // REQ-17/W3: a disabled-for-no-claudeSessionId Resume says why, not just sits greyed.
   refs.resumeBtn.title = resumeDisabledReason(session) ?? "";
-}
-
-/** The fetch trigger: wraps `GET /api/sessions/{id}/pane` into the three-state `PaneState`
- * above. `no_snapshot` (and, defensively, any other error) both read as "missing" — the
- * dead surface never distinguishes a genuine no-capture-yet from an unexpected error, it
- * just shows the honest "no snapshot captured" text either way (edge case 13). */
-export async function loadPane(id: number): Promise<PaneState> {
-  const result = await fetchPane(id);
-  if (result.ok)
-    return { status: "ok", text: result.value.text, capturedAt: result.value.capturedAt };
-  return { status: "missing" };
 }
 
 /** Review plain-terminal-session Major 1: shows (or, given `null`, clears) the dead

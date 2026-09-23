@@ -294,11 +294,11 @@ class ReaderInstance {
       return;
     }
     this.noticeText = null;
-    const { fragment, outline } = renderMarkdown(result.value);
+    const { fragment, outline, frontmatter } = renderMarkdown(result.value);
     this.outline = outline;
     this.currentHeadingId = outline[0]?.id ?? null;
     this.bodyRendered = true;
-    setReaderBody(this.refs, { kind: "fragment", fragment });
+    setReaderBody(this.refs, { kind: "fragment", fragment, frontmatter });
     // REQ-1/REQ-12: runs after the fragment is in the DOM and `renderMarkdown` has
     // already assigned heading ids — a no-op for a document with no mermaid fence. Never
     // awaited here: REQ-10 keeps the fenced source visible while it's in flight, and a
