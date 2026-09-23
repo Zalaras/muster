@@ -7,12 +7,12 @@ import (
 
 const todoFixture = `# Muster backlog
 
-## Pre-v1 Cleanup
+## Pre-v1
 
 - [ ] **something** ([#1](https://github.com/Zalaras/muster/issues/1))
   — a thing.
 
-## Reported issues (pre-v1 release)
+## Issues
 
 - [x] **tmux dependency** ([#2](https://github.com/Zalaras/muster/issues/2))
   — fixed.
@@ -20,7 +20,7 @@ const todoFixture = `# Muster backlog
 - [ ] **install docs** ([#4](https://github.com/Zalaras/muster/issues/4))
   — pending.
 
-## M5+ (v1.x, re-rank when reached)
+## Post v1
 
 - [ ] **later** ([#40](https://github.com/Zalaras/muster/issues/40))
   — someday.
@@ -64,7 +64,7 @@ func TestSpliceIntoEachSection(t *testing.T) {
 // A pure insertion: the original file survives byte for byte with one block added.
 func TestSpliceIsPureInsertion(t *testing.T) {
 	entry := testEntry(99)
-	got, err := Splice(todoFixture, "Reported issues (pre-v1 release)", entry)
+	got, err := Splice(todoFixture, "Issues", entry)
 	if err != nil {
 		t.Fatalf("Splice: %v", err)
 	}
@@ -82,7 +82,7 @@ func TestSpliceIsPureInsertion(t *testing.T) {
 }
 
 func TestSpliceAppendsAfterTheLastEntry(t *testing.T) {
-	got, err := Splice(todoFixture, "Reported issues (pre-v1 release)", testEntry(99))
+	got, err := Splice(todoFixture, "Issues", testEntry(99))
 	if err != nil {
 		t.Fatalf("Splice: %v", err)
 	}
@@ -100,14 +100,14 @@ func TestSpliceErrors(t *testing.T) {
 		}
 	})
 	t.Run("duplicate section", func(t *testing.T) {
-		dup := todoFixture + "\n## Pre-v1 Cleanup\n\n"
-		if _, err := Splice(dup, "Pre-v1 Cleanup", testEntry(99)); err == nil {
+		dup := todoFixture + "\n## Pre-v1\n\n"
+		if _, err := Splice(dup, "Pre-v1", testEntry(99)); err == nil {
 			t.Fatal("want an error")
 		}
 	})
 	t.Run("entry that forges structure is refused", func(t *testing.T) {
-		bad := "- [ ] **a: b** ([#9](https://github.com/Zalaras/muster/issues/9))\n## Reported issues (pre-v1 release)\n"
-		if _, err := Splice(todoFixture, "Pre-v1 Cleanup", bad); err == nil {
+		bad := "- [ ] **a: b** ([#9](https://github.com/Zalaras/muster/issues/9))\n## Issues\n"
+		if _, err := Splice(todoFixture, "Pre-v1", bad); err == nil {
 			t.Fatal("want an error")
 		}
 	})

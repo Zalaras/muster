@@ -74,10 +74,10 @@ func HeaderSafe(s string) string {
 // (kb:adr/triage-program-not-model-between-github-and-todo).
 //
 // The guarantee that matters is structural, not textual. Markdown survives sanitisation by
-// design, so a title or body can still contain a line reading "## Reported issues (pre-v1
-// release)"; spliced in raw that would forge a section heading and break the next run's
-// scanner. Containing that is this function's job: no continuation line it emits begins with
-// a markdown structural character at column 0, and every title passes through [HeaderSafe].
+// design, so a title or body can still contain a line reading "## Issues"; spliced in raw
+// that would forge a section heading and break the next run's scanner. Containing that is
+// this function's job: no continuation line it emits begins with a markdown structural
+// character at column 0, and every title passes through [HeaderSafe].
 // [CheckEntryShape] asserts the first; the pre-commit hook asserts the second.
 func RenderEntry(a Artifact, p Proposal, repo string) string {
 	if a.Route == PathNormal {

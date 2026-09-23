@@ -14,17 +14,17 @@ import (
 
 const todoSeed = `# Muster backlog
 
-## Pre-v1 Cleanup
+## Pre-v1
 
 - [ ] **something** ([#1](https://github.com/Zalaras/muster/issues/1))
   — a thing.
 
-## Reported issues (pre-v1 release)
+## Issues
 
 - [x] **done** ([#2](https://github.com/Zalaras/muster/issues/2))
   — fixed.
 
-## M5+ (v1.x, re-rank when reached)
+## Post v1
 
 - [ ] **later** ([#40](https://github.com/Zalaras/muster/issues/40))
   — someday.
@@ -220,7 +220,7 @@ func assertApplyPhase(t *testing.T, root, artDir string, gh *stubGH, out *string
 	}
 	reply, _ := json.Marshal(map[string]any{
 		"number": 56, "ack": nonce56, "component": "daemon", "symptom": "crash",
-		"error_string": "cannot bind port 7777", "section_hint": "Reported issues (pre-v1 release)",
+		"error_string": "cannot bind port 7777", "section_hint": "Issues",
 	})
 	write(t, filepath.Join(propDir, "56.json"), string(reply))
 	// Issue 9 is the OWNER-filed, unflagged one: it routes normal and is the only end-to-end
@@ -228,11 +228,11 @@ func assertApplyPhase(t *testing.T, root, artDir string, gh *stubGH, out *string
 	// path that carries a title had no end-to-end coverage at all.
 	reply9, _ := json.Marshal(map[string]any{
 		"number": 9, "ack": nonce9, "component": "daemon", "symptom": "missing-feature",
-		"error_string": "", "section_hint": "M5+ (v1.x, re-rank when reached)",
+		"error_string": "", "section_hint": "Post v1",
 	})
 	write(t, filepath.Join(propDir, "9.json"), string(reply9))
 	decFile := filepath.Join(root, "decisions.json")
-	write(t, decFile, `{"56":"Reported issues (pre-v1 release)","9":"M5+ (v1.x, re-rank when reached)"}`)
+	write(t, decFile, `{"56":"Issues","9":"Post v1"}`)
 
 	out.Reset()
 	if err := run([]string{"apply", "--artifacts", artDir, "--proposals", propDir, "--decisions", decFile}, out, gh.run); err != nil {
@@ -293,7 +293,7 @@ func TestApplyRefusesHeldIssue(t *testing.T) {
 		t.Fatal(err)
 	}
 	decFile := filepath.Join(root, "d.json")
-	write(t, decFile, `{"55":"Reported issues (pre-v1 release)"}`)
+	write(t, decFile, `{"55":"Issues"}`)
 
 	err := run([]string{"apply", "--artifacts", artDir, "--proposals", propDir, "--decisions", decFile}, &out, gh.run)
 	if err == nil || !strings.Contains(err.Error(), "held") {

@@ -77,7 +77,7 @@ func scanLines(s string) []line {
 }
 
 // Splice inserts an entry at the end of a section, preserving the blank line between
-// entries. Appending rather than sorting is deliberate: TODO.md's "Reported issues"
+// entries. Appending rather than sorting is deliberate: TODO.md's "Issues"
 // preamble records that open entries sit in the developer's priority order, and re-sorting
 // would silently discard a ranking they set by hand.
 //

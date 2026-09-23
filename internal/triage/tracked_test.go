@@ -9,7 +9,7 @@ import (
 
 const historyFixture = `# Muster backlog — done items
 
-## Reported issues (pre-v1 release)
+## Issues
 
 - [x] **archived and fixed** ([#55](https://github.com/Zalaras/muster/issues/55))
   — moved here when it was ticked.
@@ -69,8 +69,8 @@ func TestApplySkipsArchivedIssue(t *testing.T) {
 
 	g := &gitStub{hooksPath: ".githooks", staged: "TODO.md\n"}
 	decisions := []Decision{
-		{Number: 55, Section: "Reported issues (pre-v1 release)"},
-		{Number: 77, Section: "Reported issues (pre-v1 release)"},
+		{Number: 55, Section: "Issues"},
+		{Number: 77, Section: "Issues"},
 	}
 	subject, err := Apply(context.Background(), g.run, root, "Zalaras/muster", decisions, arts, props)
 	if err != nil {

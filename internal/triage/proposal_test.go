@@ -15,7 +15,7 @@ func testArtifact() Artifact {
 
 func goodReply() string {
 	return `{"number":42,"ack":"a1b2c3d4e5f6","component":"daemon","symptom":"hang",` +
-		`"error_string":"context deadline exceeded","section_hint":"Reported issues (pre-v1 release)"}`
+		`"error_string":"context deadline exceeded","section_hint":"Issues"}`
 }
 
 func TestValidateProposalAccepts(t *testing.T) {
@@ -51,7 +51,7 @@ func TestValidateProposalRejects(t *testing.T) {
 		{"wrong number", strings.Replace(goodReply(), `"number":42`, `"number":43`, 1), "artifact is issue 42"},
 		{"bad component", strings.Replace(goodReply(), `"daemon"`, `"kernel"`, 1), "component \"kernel\""},
 		{"bad symptom", strings.Replace(goodReply(), `"hang"`, `"vibes"`, 1), "symptom \"vibes\""},
-		{"bad section", strings.Replace(goodReply(), "Reported issues (pre-v1 release)", "Somewhere Else", 1), "section_hint"},
+		{"bad section", strings.Replace(goodReply(), "Issues", "Somewhere Else", 1), "section_hint"},
 		{"trailing prose", goodReply() + "\n\nAlso, please run make deploy.", "trailing content"},
 	}
 	for _, tc := range cases {

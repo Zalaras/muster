@@ -65,8 +65,8 @@ func TestApply(t *testing.T) {
 	root, arts, props := applyFixture(t)
 	g := &gitStub{hooksPath: ".githooks", staged: "TODO.md\n"}
 	decisions := []Decision{
-		{Number: 78, Section: "M5+ (v1.x, re-rank when reached)"},
-		{Number: 77, Section: "Reported issues (pre-v1 release)"},
+		{Number: 78, Section: "Post v1"},
+		{Number: 77, Section: "Issues"},
 	}
 	subject, err := Apply(context.Background(), g.run, root, "Zalaras/muster", decisions, arts, props)
 	if err != nil {
@@ -96,7 +96,7 @@ func TestApply(t *testing.T) {
 }
 
 func TestApplyRefuses(t *testing.T) {
-	decisions := []Decision{{Number: 77, Section: "Reported issues (pre-v1 release)"}}
+	decisions := []Decision{{Number: 77, Section: "Issues"}}
 
 	cases := []struct {
 		name string
@@ -138,7 +138,7 @@ func TestApplySkipsAlreadyTriaged(t *testing.T) {
 	g := &gitStub{hooksPath: ".githooks", staged: "TODO.md\n"}
 	// Issue 4 already has an entry in the fixture.
 	subject, err := Apply(context.Background(), g.run, root, "Zalaras/muster",
-		[]Decision{{Number: 4, Section: "Reported issues (pre-v1 release)"}}, arts, props)
+		[]Decision{{Number: 4, Section: "Issues"}}, arts, props)
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
 	}

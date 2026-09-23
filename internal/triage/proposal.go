@@ -14,9 +14,9 @@ var (
 	Components = []string{"dashboard", "daemon", "tmux", "installer", "update", "issue-capture", "hooks", "docs", "unknown"}
 	Symptoms   = []string{"crash", "hang", "wrong-output", "visual", "missing-feature", "perf", "install", "unknown"}
 	Sections   = []string{
-		"Pre-v1 Cleanup",
-		"Reported issues (pre-v1 release)",
-		"M5+ (v1.x, re-rank when reached)",
+		"Issues",
+		"Pre-v1",
+		"Post v1",
 	}
 )
 
