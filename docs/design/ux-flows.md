@@ -95,7 +95,7 @@ Start in    [ manual │ accept edits │ plan │ auto ]
    identity** (§7) — a `/clear` later mints a new Claude `session_id` in the same pane and
    must not look like a new session.
 3. Set `LANG`/`LC_ALL` on the spawned process — a process spawned by a Go daemon inherits
-   none, and the failure presents as a totally broken terminal bridge (TODO M2).
+   none, and the failure presents as a totally broken terminal bridge.
 4. Ensure the directory's project-scoped `<dir>/.claude/settings.json` registers Muster's
    hooks, status line and `allowedHttpHookUrls`. Never `~/.claude/settings.json`; never
    `CLAUDE_CONFIG_DIR` (breaks subscription OAuth).

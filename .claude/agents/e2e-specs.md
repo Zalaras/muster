@@ -26,7 +26,7 @@ In `validate` or `fix` mode, also read:
 - `plans/<plan-name>/daemon-implementation.md` and `plans/<plan-name>/web-implementation.md` — what was actually built and where, so you can check your locators against the real markup
 - `plans/<plan-name>/review.md` (fix mode only) — the issues tagged `[e2e-specs]` are yours
 
-Then read the existing E2E infrastructure **as it currently is** — it matures milestone by milestone, so never assume its shape:
+Then read the existing E2E infrastructure **as it currently is** — it matures plan by plan, so never assume its shape:
 - `web/playwright.config.ts` — config, webServer, port strategy
 - `web/e2e/*.spec.ts` — existing test patterns
 - The global setup/fixture files the config references (`web/e2e/helpers/*`)

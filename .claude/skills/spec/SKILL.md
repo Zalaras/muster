@@ -67,7 +67,7 @@ folder, and `plan-lint` requires that spec to exist before `/orchestrate` runs.
 > What are we building and why?
 
 - What problem does this solve?
-- Why does it need to be done now (which milestone does it serve)?
+- Why does it need to be done now (which `TODO.md` entry or issue does it close)?
 
 ### 2. Background & Context
 > What does the implementer need to know going in?

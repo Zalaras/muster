@@ -6,8 +6,8 @@ is working, which one is waiting on you, and how much context each has left.
 
 ![The Muster dashboard — three sessions in the rail, one focused with a live terminal pane](https://raw.githubusercontent.com/Zalaras/muster/main/docs/images/dashboard.png)
 
-Personal tool, macOS only, single user. Not a product. M0–M4 have shipped; the remaining
-pre-v1 work is in [`TODO.md`](TODO.md).
+Personal tool, macOS only, single user. Not a product. What remains before v1 is in
+[`TODO.md`](TODO.md).
 
 ## Install
 
@@ -145,8 +145,8 @@ permits it.
 
 | Document | What it is |
 |---|---|
-| [`SPEC.md`](SPEC.md) | **Authoritative spec.** Features, tech stack, milestones, risks |
-| [`TODO.md`](TODO.md) | Milestone backlog and open questions |
+| [`SPEC.md`](SPEC.md) | **Authoritative spec.** Features, roadmap, tech stack, risks |
+| [`TODO.md`](TODO.md) | Backlog (issues, pre-v1, v1 release, post-v1) and open questions |
 | [`docs/protocol.md`](docs/protocol.md) | The daemon↔dashboard protocol contract |
 | [`docs/claude-code-versions.md`](docs/claude-code-versions.md) | The verified version range and the upgrade rituals |
 | [`spikes/FINDINGS.md`](spikes/FINDINGS.md) | Measured Claude Code interface facts |

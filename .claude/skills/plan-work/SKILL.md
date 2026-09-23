@@ -54,7 +54,7 @@ If no spec exists, proceed normally — the spec step is optional.
 
 ### 1. Understand the Scope
 
-Ask the user to elaborate on what this adds or fixes and which milestone it serves. Read relevant existing code (Grep/Glob) and the pack's feature `spec.md` and ADRs to understand current patterns.
+Ask the user to elaborate on what this adds or fixes and which `TODO.md` entry or issue it closes. Read relevant existing code (Grep/Glob) and the pack's feature `spec.md` and ADRs to understand current patterns.
 
 ### 2. Determine Work Type
 
