@@ -6,7 +6,7 @@ date: 2026-08-20
 summary: Commands go over HTTP; the state WebSocket is server-to-client only, and the only client-to-server socket traffic is terminal input and resize.
 features: [connection]
 tags: [envelope]
-files: [internal/server/ws.go, web/src/ws.ts, web/src/api.ts]
+files: [internal/server/ws.go, web/src/ws.ts, web/src/api/http.ts]
 tests: [TestHandleWS_RequiresCookie, web/e2e/auth.spec.ts]
 refs: [docs/history/spec-changelog.md, kb:anchor/transport, kb:anchor/ws, kb:anchor/terminal.ws]
 supersedes: []

@@ -14,7 +14,7 @@ import type { App } from "../app";
 import { requestPrefs } from "../api/prefs";
 import { requireElement } from "../dom";
 import { renderDensityControl, renderViewSwitcher } from "../render/masthead";
-import type { Density, View } from "../protocol";
+import type { Density, View } from "../protocol/prefs";
 
 export interface ViewsHandle {
   /** design-system §4.1: ⌘\ toggles the view. */

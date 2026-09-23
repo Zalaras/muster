@@ -11,7 +11,8 @@
 import { fetchReaderFile, fetchReaderListing, type ReaderListing } from "../api/reader";
 import type { App, RenderFrame } from "../app";
 import { requireElement } from "../dom";
-import type { DocChanged, Session } from "../protocol";
+import type { DocChanged } from "../protocol/messages";
+import type { Session } from "../protocol/session";
 import { changedText } from "../reader/freshness";
 import { renderMarkdown, type OutlineEntry } from "../reader/markdown";
 import { isDirty, loadMemory, saveMemory, withOpened, type ReaderMemory } from "../reader/memory";

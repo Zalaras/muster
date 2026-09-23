@@ -10,7 +10,7 @@
 // for `.nm`) — this module swaps that exact button node out for an `input.name-edit` and
 // back, never rebuilding either, so the button's own click listener (wired once, below)
 // survives every open/close cycle.
-import type { Session } from "../protocol";
+import type { Session } from "../protocol/session";
 import { titleCommand, type TitleCommand } from "../sessions/rename";
 
 export interface RenameEditorHandlers {

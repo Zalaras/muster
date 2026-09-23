@@ -4,15 +4,10 @@
 //
 // Honesty rules (design-system §6.1): a null usage bucket renders the word "unknown"
 // and no track/gauge markup at all — never a 0%-filled bar.
-import type {
-  ClaudeCodeInfo,
-  Density,
-  ModelWindow,
-  SessionModelInfo,
-  Usage,
-  UsageBucket,
-  View,
-} from "../protocol";
+import type { ClaudeCodeInfo } from "../protocol/hello";
+import type { Density, View } from "../protocol/prefs";
+import type { SessionModelInfo } from "../protocol/session";
+import type { ModelWindow, Usage, UsageBucket } from "../protocol/usage";
 import { formatResets, GAUGE_WARN_THRESHOLD } from "../sessions/format";
 
 export type ConnectionStatus = "connecting" | "connected" | "reconnecting";
@@ -122,7 +117,7 @@ export function renderUsageTrack(el: HTMLElement, bucket: UsageBucket | null, no
 /** The masthead model readout — the Usage object's freshest-sample model, verbatim.
  * Empty/hidden while null (no hydration at boot; also null again right after a daemon
  * restart until the next status post). Accepts `undefined` too since `Usage.model` is an
- * optional wire field (protocol.ts) — a payload that omits it entirely reads the same as
+ * optional wire field (protocol/usage.ts) — a payload that omits it entirely reads the same as
  * an explicit null.
  *
  * Issue #52: `.model` ellipsizes whenever the masthead row runs out of room (style.css),

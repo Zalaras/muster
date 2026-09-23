@@ -18,7 +18,8 @@
 // ids are members (the demoted slot on promote, which members survive a shrink, which
 // members backfill a grow), never to reorder the array itself. The only way the array's
 // order changes is `moveTile`, which is a user drag.
-import type { Density, Session } from "../protocol";
+import type { Density } from "../protocol/prefs";
+import type { Session } from "../protocol/session";
 import { sortSessions } from "./sort";
 
 export function densityCount(density: Density): number {

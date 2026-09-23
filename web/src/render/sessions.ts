@@ -1,6 +1,7 @@
 // Rail cards (docs/protocol.md UI Specifications > Rail; design-system §5 card anatomy).
 // DOM only — every displayed string comes from ../sessions/card.ts's pure view-model.
-import { PREF_DEFAULTS, type RailActivity, type Session } from "../protocol";
+import { PREF_DEFAULTS, type RailActivity } from "../protocol/prefs";
+import type { Session } from "../protocol/session";
 import {
   buildCardViewModel,
   unreadLabel,

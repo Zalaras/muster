@@ -8,7 +8,7 @@
 // web/e2e/gauges.spec.ts (E1, E3, E4, E12) against the real DOM, and its derivation
 // (pct/tokensText/hot) is covered without any DOM at all by ../sessions/context.test.ts.
 import { describe, expect, it } from "vitest";
-import type { SessionContext } from "../protocol";
+import type { SessionContext } from "../protocol/session";
 import { renderContextRow } from "./context";
 
 function fakeElement(): HTMLElement & { className: string } {

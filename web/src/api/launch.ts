@@ -1,6 +1,6 @@
 // The launch dialog's daemon calls: create a session, list the MRU repo picker, and browse
 // the filesystem for a directory to launch in.
-import { parseSession, type Session } from "../protocol";
+import { parseSession, type Session } from "../protocol/session";
 import { isRecord, parseListOf } from "../protocol/decode";
 import type { PermissionMode } from "../sessions/permission";
 import { requestJson, type ApiResult } from "./http";

@@ -10,7 +10,7 @@ import type { FocusedControl } from "../render/focus";
 import { renderSessions } from "../render/sessions";
 import { moveCard } from "../sessions/railorder";
 import { orderRail } from "../sessions/sort";
-import { isRailDensity, type RailDensity, type RailSort } from "../protocol";
+import { isRailDensity, type RailDensity, type RailSort } from "../protocol/prefs";
 import type { SessionAction } from "../render/sessions";
 
 // W6/INV-4: structural deps, not `import type { ActionsHandle }`/`{ SurfacesHandle }`

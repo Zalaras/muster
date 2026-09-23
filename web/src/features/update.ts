@@ -13,7 +13,8 @@ import {
   type RestartConfirmController,
   type UpdateSectionElements,
 } from "../render/update";
-import type { Prefs, UpdateInfo } from "../protocol";
+import type { Prefs } from "../protocol/prefs";
+import type { UpdateInfo } from "../protocol/update";
 
 export interface UpdateHandle {
   /** For `settings.ts`'s `SettingsDialogElements` — the same DOM nodes, shared so the

@@ -1,6 +1,6 @@
 // Actions on an existing session: end, resume, remove, pin, rename, reorder, the ephemeral
 // shell and its pane snapshot.
-import { parseSession, type Session } from "../protocol";
+import { parseSession, type Session } from "../protocol/session";
 import { isRecord } from "../protocol/decode";
 import { requestEmpty, requestJson, type ApiResult } from "./http";
 

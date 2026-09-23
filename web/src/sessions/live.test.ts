@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Session, SessionState } from "../protocol";
+import type { Session, SessionState } from "../protocol/session";
 import { applyDensity, densityCount, initialLive, moveTile, promote } from "./live";
 
 // All sessions share the same state ("idle") with strictly increasing `stateSince`, so

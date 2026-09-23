@@ -3,7 +3,7 @@
 // same reliance on the browser's native Escape-cancels-a-modal-dialog behaviour, which
 // needs no code here to satisfy). DOM + wiring only: the actual End/Remove HTTP calls are
 // features/actions.ts's dispatcher's job (it owns the session store and decides what happens next).
-import type { Session } from "../protocol";
+import type { Session } from "../protocol/session";
 import { buildCardViewModel } from "../sessions/card";
 
 export interface ConfirmDialogElements {

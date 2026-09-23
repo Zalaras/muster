@@ -2,7 +2,8 @@
 // d-tiled.html; design-system §4/§5). DOM only — every displayed string comes from
 // ../sessions/card.ts's pure view-model, shared with the rail, since a strip card IS a
 // rail card on its side.
-import { PREF_DEFAULTS, type RailActivity, type Session } from "../protocol";
+import { PREF_DEFAULTS, type RailActivity } from "../protocol/prefs";
+import type { Session } from "../protocol/session";
 import {
   buildDeadSurfaceFromTemplate,
   collectDeadSurfaceRefs,

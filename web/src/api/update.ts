@@ -1,5 +1,5 @@
 // Release check, apply, and the shells a restart would affect.
-import { parseUpdateInfo, type UpdateInfo } from "../protocol";
+import { parseUpdateInfo, type UpdateInfo } from "../protocol/update";
 import { isRecord, parseListOf } from "../protocol/decode";
 import { requestEmpty, requestJson, type ApiResult } from "./http";
 

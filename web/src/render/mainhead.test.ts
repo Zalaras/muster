@@ -20,7 +20,7 @@
 // pass), not a rendering/interaction concern, so it belongs here rather than in
 // Playwright per docs/conventions.md's split.
 import { describe, expect, it } from "vitest";
-import type { Session } from "../protocol";
+import type { Session } from "../protocol/session";
 import { renderMainhead, type MainheadElements } from "./mainhead";
 
 function fakeElement(): HTMLElement {

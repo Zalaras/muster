@@ -41,7 +41,7 @@ import {
 import type { TerminalSurface } from "../terminal/pane";
 import type { ShellActivityIndicator } from "../terminal/shellactivity";
 import type { DeadSurfaceRefs, PaneState } from "../render/dead";
-import type { Session } from "../protocol";
+import type { Session } from "../protocol/session";
 import type { SessionAction } from "../render/sessions";
 
 export interface TilesDeps {

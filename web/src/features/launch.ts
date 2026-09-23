@@ -22,7 +22,7 @@ import {
 import type { App } from "../app";
 import { permissionModeToCheck, type PermissionMode } from "../sessions/permission";
 import { requireElement, requireElements } from "../dom";
-import type { Session } from "../protocol";
+import type { Session } from "../protocol/session";
 import { formatAge } from "../sessions/format";
 import { matchShortcut } from "../shortcuts";
 import { renderCrumbs, splitCrumbs } from "../render/crumbs";

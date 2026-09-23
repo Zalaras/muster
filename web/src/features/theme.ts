@@ -3,7 +3,7 @@
 // value — `surfaces` is constructed before `theme` (main.ts's init order).
 import type { App } from "../app";
 import { resolveTheme, writeThemeHint } from "../theme";
-import type { ClaudeFamily } from "../protocol";
+import type { ClaudeFamily } from "../protocol/theme";
 
 // W6/INV-4: structural, not a sibling import of SurfacesHandle from the surfaces module.
 export function initTheme(app: App, deps: { surfaces: { applyTheme(): void } }): void {

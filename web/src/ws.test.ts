@@ -1,16 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type {
-  ClaudeThemeMessage,
-  DocChanged,
-  Hello,
-  PrefsMessage,
-  Session,
-  Snapshot,
-  UpdateInfo,
-  UpdateMessage,
-  Usage,
-  UsageMessage,
-} from "./protocol";
+import type { Hello } from "./protocol/hello";
+import type { DocChanged, Snapshot } from "./protocol/messages";
+import type { PrefsMessage } from "./protocol/prefs";
+import type { Session } from "./protocol/session";
+import type { ClaudeThemeMessage } from "./protocol/theme";
+import type { UpdateInfo, UpdateMessage } from "./protocol/update";
+import type { Usage, UsageMessage } from "./protocol/usage";
 import { backoffDelay, type SocketLike, WsClient, type WsClientHandlers } from "./ws";
 
 const hello: Hello = {

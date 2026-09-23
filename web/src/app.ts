@@ -3,21 +3,20 @@
 // phases, and render() itself. Pure enough to unit-test (no DOM) — every feature module
 // builds on top of this rather than main.ts wiring them together directly.
 import type { ConnectionStatus } from "./render/masthead";
+import type { DocChanged, Snapshot } from "./protocol/messages";
 import {
-  type ClaudeFamily,
   type Density,
-  type DocChanged,
   PREF_DEFAULTS,
   type Prefs,
   type RailActivity,
   type RailDensity,
   type RailSort,
-  type Session,
-  type Snapshot,
-  type Usage,
-  type UpdateInfo,
   type View,
-} from "./protocol";
+} from "./protocol/prefs";
+import type { Session } from "./protocol/session";
+import type { ClaudeFamily } from "./protocol/theme";
+import type { UpdateInfo } from "./protocol/update";
+import type { Usage } from "./protocol/usage";
 import { SessionStore } from "./sessions/store";
 
 /** Fields more than one feature reads. Each is written by exactly one feature (noted per

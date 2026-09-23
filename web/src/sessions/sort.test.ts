@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { RailSort, Session, SessionState } from "../protocol";
+import type { RailSort } from "../protocol/prefs";
+import type { Session, SessionState } from "../protocol/session";
 import { orderRail, pickNeediest, sortSessions } from "./sort";
 
 // Minimal valid Session fixture; each test overrides only the fields it cares about.

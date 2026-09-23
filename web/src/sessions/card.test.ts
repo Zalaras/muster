@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Session } from "../protocol";
+import type { Session } from "../protocol/session";
 import { activityLines, buildCardViewModel, unreadLabel } from "./card";
 
 const NOW = new Date("2026-08-22T00:00:10Z");

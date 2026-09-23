@@ -10,7 +10,7 @@ import {
   renderUsageModel,
   renderUsageTrack,
 } from "../render/masthead";
-import { UNKNOWN_USAGE, type Usage } from "../protocol";
+import { UNKNOWN_USAGE, type Usage } from "../protocol/usage";
 
 export function initUsage(app: App): void {
   const usageFiveHourEl = requireElement<HTMLElement>("#usage-5h");

@@ -15,7 +15,7 @@ import type { ApiErrorBody } from "../api/http";
 import type { App } from "../app";
 import { requireElement } from "../dom";
 import { orderRail } from "../sessions/sort";
-import type { Session } from "../protocol";
+import type { Session } from "../protocol/session";
 
 export interface IssueDialogElements {
   dialog: HTMLDialogElement;

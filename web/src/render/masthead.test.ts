@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ClaudeCodeInfo, Density, ModelWindow, SessionModelInfo, Usage } from "../protocol";
+import type { ClaudeCodeInfo } from "../protocol/hello";
+import type { Density } from "../protocol/prefs";
+import type { SessionModelInfo } from "../protocol/session";
+import type { ModelWindow, Usage } from "../protocol/usage";
 import { formatResets } from "../sessions/format";
 import {
   describeClaudeVersion,

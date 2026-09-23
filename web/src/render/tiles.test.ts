@@ -8,7 +8,7 @@
 // nodes rather than a wholesale chrome rebuild) and renderStrip's empty branch (returns
 // before ever looking up a template).
 import { describe, expect, it } from "vitest";
-import type { Session } from "../protocol";
+import type { Session } from "../protocol/session";
 import { renderStrip, renderTileGeometry, updateTile, type TileRefs } from "./tiles";
 
 function fakeElement(): HTMLElement {

@@ -8,7 +8,8 @@
 // concern End/Remove already solved (showModal()/close(), a body rebuilt from data,
 // Confirm/Cancel wired to one target captured at open time).
 import type { RestartImpactShell } from "../api/update";
-import type { Prefs, UpdateInfo } from "../protocol";
+import type { Prefs } from "../protocol/prefs";
+import type { UpdateInfo } from "../protocol/update";
 import { agoSuffix, formatAge } from "../sessions/format";
 
 /** Every apply phase during which a request is genuinely in flight — REQ-10's

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SessionContext } from "../protocol";
+import type { SessionContext } from "../protocol/session";
 import { buildContextRowViewModel } from "./context";
 
 function makeContext(overrides: Partial<SessionContext> = {}): SessionContext {

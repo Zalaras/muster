@@ -1,7 +1,8 @@
 // The client-side rail sort (REQ-16, kb:anchor/ws.snapshot, ux-flows §3.4). The daemon
 // never orders for display — this is the one place that priority table lives, kept pure
 // so Vitest can pin every state and tiebreak without a DOM.
-import type { RailSort, Session } from "../protocol";
+import type { RailSort } from "../protocol/prefs";
+import type { Session } from "../protocol/session";
 
 /** REQ-11 (plan rail-card-improvements): the attention priority table, amended from the
  * six-state table above — `idle` now splits on `unread`, sorting into the "your turn"

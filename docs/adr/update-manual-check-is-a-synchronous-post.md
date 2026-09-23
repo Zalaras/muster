@@ -6,7 +6,7 @@ date: 2026-09-22
 summary: A user-initiated update check is a synchronous POST returning the result or an error, not a 202 plus a new check phase on the update broadcast.
 features: [update]
 tags: [ux]
-files: [internal/server/update.go, web/src/api.ts, web/src/features/update.ts]
+files: [internal/server/update.go, web/src/api/update.ts, web/src/features/update.ts]
 tests: []
 refs: [plan:rail-card-improvements-2, "#48", kb:anchor/update.check, kb:anchor/update.apply, kb:anchor/ws.update, kb:adr/update-check-pref-governs-automatic-checking-only]
 supersedes: []

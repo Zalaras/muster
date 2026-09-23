@@ -6,7 +6,7 @@ date: 2026-09-23
 summary: Start in keeps the four tabbed modes under Claude Code's labels, sends every one as an explicit flag, and falls back to auto when nothing is remembered.
 features: [launch, lifecycle]
 tags: [ux, claude-code-format, user-decision]
-files: [internal/claudecode/launch.go, web/src/features/launch.ts, web/src/api.ts, web/index.html]
+files: [internal/claudecode/launch.go, web/src/features/launch.ts, web/src/sessions/permission.ts, web/index.html]
 tests: []
 refs: [plan:new-session-improvement, kb:fact/permission-mode-no-flag-follows-configured-default, kb:fact/permission-mode-flag-on-wire, kb:fact/permission-mode-auto-model-gated, kb:adr/launch-bypass-and-dontask-unoffered]
 supersedes: [launch-permission-modes-offered-four-tabbed]

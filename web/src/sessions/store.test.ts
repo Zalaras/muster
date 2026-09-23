@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Session } from "../protocol";
+import type { Session } from "../protocol/session";
 import { SessionStore } from "./store";
 
 function makeSession(overrides: Partial<Session> & { id: number }): Session {

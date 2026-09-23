@@ -4,7 +4,7 @@
 // percentage or a track — `usedPct`/`totalInputTokens`/`windowSize` are all-null or
 // all-non-null on the wire (kb:anchor/ws.session), so checking either of the first two
 // is sufficient to know the whole triple's state.
-import type { SessionContext } from "../protocol";
+import type { SessionContext } from "../protocol/session";
 import { formatTokens, GAUGE_WARN_THRESHOLD } from "./format";
 
 export interface ContextRowViewModel {

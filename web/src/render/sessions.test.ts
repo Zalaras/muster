@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { vi } from "vitest";
-import type { Session } from "../protocol";
+import type { Session } from "../protocol/session";
 import {
   reconcileCards,
   renderFocusMain,

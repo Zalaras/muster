@@ -6,7 +6,7 @@ date: 2026-09-10
 summary: The protocol version bumps only when an existing field changes shape; additive messages and fields do not bump, and a skewed open tab is told to reload.
 features: [connection]
 tags: [envelope, ux]
-files: [internal/server/ws.go, web/src/protocol.ts, docs/protocol.md]
+files: [internal/server/ws.go, web/src/protocol/hello.ts, docs/protocol.md]
 tests: [web/e2e/claude-version.spec.ts, web/e2e/resilience.spec.ts]
 refs: [docs/history/protocol-changelog.md, docs/history/spec-changelog.md, plan:version-claude-interface, kb:anchor/ws.hello, kb:adr/connection-dashboard-embedded-in-binary, kb:adr/connection-installed-claude-classified-never-refused]
 supersedes: []

@@ -2,7 +2,7 @@
 // the tile header's `.ctxinfo` span are the same view-model rendered twice (one
 // derivation, two renderers; docs/design/mockups/a-instrument.html lines 103-111 /
 // d-tiled.html's `.thead .ctx`). DOM only — derivation lives in ../sessions/context.ts.
-import type { SessionContext } from "../protocol";
+import type { SessionContext } from "../protocol/session";
 import { buildContextRowViewModel } from "../sessions/context";
 
 /** `baseClass` is the caller's own class name (`"r3"` for rail/strip cards, `"ctxinfo"`

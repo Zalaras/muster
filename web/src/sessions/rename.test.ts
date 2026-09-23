@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Session } from "../protocol";
+import type { Session } from "../protocol/session";
 import { titleCommand } from "./rename";
 
 // `titleCommand` only reads `title`/`titleOverride` (see its own Pick<> signature) — a

@@ -6,7 +6,7 @@ date: 2026-09-12
 summary: The web gate is Biome — three rule groups, a cognitive ceiling of fifteen, and the first formatter — cleared by refactoring; two wire validators are exempt.
 features: []
 tags: [testing]
-files: [web/biome.json, web/package.json, Makefile, docs/conventions.md, web/src/protocol.ts]
+files: [web/biome.json, web/package.json, Makefile, docs/conventions.md, web/src/protocol/usage.ts, web/src/protocol/session.ts]
 tests: []
 refs: [kb:adr/process-go-lint-complexity-ceiling-fifteen, kb:adr/process-e2e-explicit-fixtures, kb:adr/release-no-ci-test-job-yet, kb:lesson/plan-gave-no-single-owner, docs/conventions.md]
 supersedes: []

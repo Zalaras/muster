@@ -5,7 +5,7 @@
 // text the card already owns. Static markup (one instance in index.html, unlike the
 // per-session card/tile templates) — features/focus.ts wires the three buttons' click
 // listeners once at startup and this module only ever toggles their `disabled` state.
-import type { Session } from "../protocol";
+import type { Session } from "../protocol/session";
 import { buildCardViewModel, resumeDisabledReason } from "../sessions/card";
 import { formatEndedAgo } from "../sessions/format";
 import type { ShellActivityIndicator } from "../terminal/shellactivity";

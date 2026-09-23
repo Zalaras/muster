@@ -7,7 +7,7 @@
 // (docs/conventions.md): DOM construction and the `GET .../pane` fetch live here; caching
 // *when* to fetch is features/actions.ts's job (`ensurePaneFetch`/`paneState`).
 import { fetchPane } from "../api/sessions";
-import type { Session } from "../protocol";
+import type { Session } from "../protocol/session";
 import { resumeDisabledReason, stateBadgeText } from "../sessions/card";
 import { formatEndedAgo } from "../sessions/format";
 import { showNotice } from "../terminal/notice";

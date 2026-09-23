@@ -11,7 +11,7 @@ import {
   renderConnectionStatus,
   type ConnectionStatus,
 } from "../render/masthead";
-import type { ClaudeCodeInfo } from "../protocol";
+import type { ClaudeCodeInfo } from "../protocol/hello";
 
 export interface ConnectionHandle {
   /** WS `onHello`: marks the daemon reachable, sets status "connected", and renders the

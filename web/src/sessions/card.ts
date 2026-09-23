@@ -1,7 +1,8 @@
 // Pure card view-model: everything a rail card displays, derived from a Session + "now",
 // with no DOM involved (docs/conventions.md — "keep logic in pure modules separate from
 // DOM code"). render/sessions.ts is the only consumer.
-import { PREF_DEFAULTS, type RailActivity, type Session } from "../protocol";
+import { PREF_DEFAULTS, type RailActivity } from "../protocol/prefs";
+import type { Session } from "../protocol/session";
 import { elapsedSeconds, formatEndedAge, formatTimer } from "./format";
 
 export type NoteKind = "attention" | "failure" | "trust" | "no-signal" | "none";

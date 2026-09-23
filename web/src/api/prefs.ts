@@ -1,7 +1,7 @@
 // Prefs writes and the usage-refresh poke — both are "response carries no state, the
 // socket does" shapes: the actual new value reaches every UI socket via a WS broadcast
 // (`prefs`/`usage`), so neither caller here ever needs a decoded body.
-import type { Prefs } from "../protocol";
+import type { Prefs } from "../protocol/prefs";
 import { requestEmpty, type ApiResult } from "./http";
 
 // kb:anchor/prefs.put: at least one field, unknown fields ignored — a caller only ever

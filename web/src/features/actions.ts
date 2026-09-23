@@ -21,7 +21,7 @@ import {
 import { renderActionError } from "../render/actionerror";
 import { initConfirmDialogs, type ConfirmDialogs } from "../render/confirm";
 import type { SessionAction } from "../render/sessions";
-import type { Session } from "../protocol";
+import type { Session } from "../protocol/session";
 
 export interface ActionsDeps {
   focusDeadSurfaceRefs(): DeadSurfaceRefs;

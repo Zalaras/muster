@@ -6,7 +6,7 @@ import type { App } from "../app";
 import { requestPrefs } from "../api/prefs";
 import { requireElement, requireElements } from "../dom";
 import { isThemeChoice, type ThemeChoice } from "../theme";
-import { isRailActivity, type RailActivity } from "../protocol";
+import { isRailActivity, type RailActivity } from "../protocol/prefs";
 
 export interface SettingsDialogElements {
   dialog: HTMLDialogElement;

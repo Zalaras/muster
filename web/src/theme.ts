@@ -2,8 +2,8 @@
 // `prefs.theme` as opaque (kb:anchor/prefs.put) — the client owns the list of known
 // theme names, so adding a theme never needs a daemon release, only a new
 // `[data-theme]` block in style.css plus a new entry in THEMES below.
-import { type ClaudeFamily, isClaudeFamily } from "./protocol";
 import { isRecord } from "./protocol/decode";
+import { type ClaudeFamily, isClaudeFamily } from "./protocol/theme";
 
 export const THEMES = ["instrument", "dark", "light"] as const;
 export type ThemeName = (typeof THEMES)[number];

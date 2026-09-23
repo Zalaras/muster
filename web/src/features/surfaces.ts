@@ -9,7 +9,7 @@
 // order — tiles needs `surfaces.get`/`select` at render time), so this closes over the
 // later `const` rather than taking a value now.
 import type { App, RenderFrame } from "../app";
-import type { Session } from "../protocol";
+import type { Session } from "../protocol/session";
 import { createShell } from "../api/sessions";
 import type { ApiErrorBody } from "../api/http";
 import { showDeadSurfaceNotice, type DeadSurfaceRefs } from "../render/dead";

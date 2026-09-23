@@ -6,7 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApiResult } from "../api/http";
 import type { PaneSnapshot } from "../api/sessions";
-import type { Session } from "../protocol";
+import type { Session } from "../protocol/session";
 import {
   loadPane,
   renderDeadSurface,

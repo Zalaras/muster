@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Session } from "../protocol";
+import type { Session } from "../protocol/session";
 import { createShell, endSession, fetchPane, removeSession, resumeSession } from "./sessions";
 import { fakeResponse, fakeResponseThatThrows, fakeStatusResponse } from "./testfakes";
 

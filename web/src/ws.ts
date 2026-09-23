@@ -3,21 +3,15 @@
 // by the W7 automated check: `rg -n "new WebSocket" web/src --glob '!web/src/ws.ts'`).
 //
 // Owns: connecting, reconnecting with backoff, and dispatching parsed messages to
-// handlers. Message parsing and the protocol-version gate live in protocol.ts; this
-// module just wires the socket lifecycle to them.
-import {
-  type ClaudeFamily,
-  type DocChanged,
-  type Hello,
-  type Message,
-  type Prefs,
-  type Session,
-  type Snapshot,
-  type Usage,
-  type UpdateInfo,
-  isSupportedProtocolVersion,
-  parseMessage,
-} from "./protocol";
+// handlers. Message parsing lives in protocol/messages.ts and the protocol-version gate
+// in protocol/hello.ts; this module just wires the socket lifecycle to them.
+import { type Hello, isSupportedProtocolVersion } from "./protocol/hello";
+import { type DocChanged, type Message, type Snapshot, parseMessage } from "./protocol/messages";
+import type { Prefs } from "./protocol/prefs";
+import type { Session } from "./protocol/session";
+import type { ClaudeFamily } from "./protocol/theme";
+import type { UpdateInfo } from "./protocol/update";
+import type { Usage } from "./protocol/usage";
 
 const RECONNECT_BASE_MS = 500;
 const RECONNECT_CAP_MS = 8000;

@@ -9,7 +9,8 @@
 // `addEventListener`/`showModal`/`close`) to assert on, never a real DOM node.
 import { describe, expect, it, vi } from "vitest";
 import type { RestartImpactShell } from "../api/update";
-import type { Prefs, UpdateApplyPhase, UpdateInfo, UpdateInstallKind } from "../protocol";
+import type { Prefs } from "../protocol/prefs";
+import type { UpdateApplyPhase, UpdateInfo, UpdateInstallKind } from "../protocol/update";
 import {
   buildUpdateViewModel,
   type CheckState,

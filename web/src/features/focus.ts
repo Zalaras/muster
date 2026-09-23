@@ -26,7 +26,7 @@ import {
 } from "../terminal/surfaceswitch";
 import type { TerminalSurface } from "../terminal/pane";
 import type { ShellActivityIndicator } from "../terminal/shellactivity";
-import type { Session } from "../protocol";
+import type { Session } from "../protocol/session";
 import { orderRail, pickNeediest } from "../sessions/sort";
 
 export interface FocusDeps {
