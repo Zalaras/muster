@@ -17,7 +17,7 @@ import { changedText } from "../reader/freshness";
 import { renderMarkdown, type OutlineEntry } from "../reader/markdown";
 import { isDirty, loadMemory, saveMemory, withOpened, type ReaderMemory } from "../reader/memory";
 import { mermaidThemeFor } from "../reader/mermaid";
-import { classifyDocChanged, deriveNotice } from "../reader/notice";
+import { classifyDocChanged, deriveNotice, UNKNOWN_SESSION_TEXT } from "../reader/notice";
 import { basename, loadingText } from "../reader/paths";
 import { buildTree, filterTree, flattenTree, type FlatTreeEntry } from "../reader/tree";
 import { renderDiagrams, rerenderDiagrams } from "../render/diagrams";
@@ -46,12 +46,23 @@ export interface StandaloneTarget {
   path: string | null;
 }
 
+/** `doc.ts`'s own query parse (review cycle 1 Critical 1 — used to live in the entry
+ * itself), moved beside the type it builds. `null` when `?session=` is missing or isn't a
+ * bare non-negative integer — `doc.ts` then has no id to build a reader around at all
+ * (Views > Pop-out), the nearest honest thing left to show. */
+export function parseStandaloneQuery(search: string): StandaloneTarget | null {
+  const params = new URLSearchParams(search);
+  const rawSession = params.get("session");
+  const sessionId = rawSession !== null && /^\d+$/.test(rawSession) ? Number(rawSession) : null;
+  if (sessionId === null) return null;
+  return { sessionId, path: params.get("path") };
+}
+
 export interface ReaderHandle {
   /** For `features/focus.ts`/`features/tiles.ts` to mount, mirroring `SurfacesHandle.get`. */
   rootFor(id: number): HTMLElement | null;
 }
 
-const UNKNOWN_SESSION_TEXT = "unknown session";
 const FILE_GONE_PREFIX = "file no longer exists — ";
 const PLACEHOLDER_TEXT = "nothing open — pick a file";
 

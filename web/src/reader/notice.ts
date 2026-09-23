@@ -4,6 +4,10 @@ import type { ConnectionStatus } from "../render/masthead";
 import { loadingText } from "./paths";
 
 export const UNREACHABLE_TEXT = "musterd unreachable — showing last render";
+/** Shared by two different "unknown" moments: `features/reader.ts`'s listing fetch
+ * getting `unknown_session` back for a session id the URL did carry, and `doc.ts`'s own
+ * `?session=` failing to parse into one at all — the same honest word either way. */
+export const UNKNOWN_SESSION_TEXT = "unknown session";
 
 /**
  * Status-line text precedence (originally W9, extended by REQ-8): a reader that has

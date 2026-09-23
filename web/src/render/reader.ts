@@ -14,9 +14,20 @@
 // structurally required (an expand/collapse, a filter, or the file listing changing under
 // a focused button), focus is restored to the equivalent node by its stable key (`path` /
 // `headingId`) after the rebuild.
+import { UNKNOWN_SESSION_TEXT } from "../reader/notice";
 import { loadingText } from "../reader/paths";
 import type { FlatTreeEntry } from "../reader/tree";
 import { wireDiagramDialog } from "./diagramdialog";
+
+/** `doc.ts`'s placeholder when its `?session=` doesn't parse (review cycle 1 Critical 1) —
+ * not part of the `#reader-template` component below, since nothing here needs a session
+ * id to construct: there is no reader at all to build. */
+export function renderUnknownSessionNotice(host: HTMLElement): void {
+  const notice = document.createElement("p");
+  notice.setAttribute("role", "status");
+  notice.textContent = UNKNOWN_SESSION_TEXT;
+  host.replaceChildren(notice);
+}
 
 export interface OutlineEntryVM {
   id: string;

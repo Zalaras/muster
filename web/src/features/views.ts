@@ -10,7 +10,7 @@
 // change" comparison, to reset `tilesLive`) happens to run before or after this one; see
 // tiles.ts's header comment. Edge case 7: a reconnect echoing identical prefs must not
 // emit `cancelRenames` or reshuffle anything.
-import type { App } from "../app";
+import type { App, RenderFrame } from "../app";
 import { requestPrefs } from "../api/prefs";
 import { requireElement } from "../dom";
 import { renderDensityControl, renderViewSwitcher } from "../render/masthead";
@@ -21,7 +21,17 @@ export interface ViewsHandle {
   toggle(): void;
 }
 
-export function initViews(app: App): ViewsHandle {
+/** The one thing `focus`/`tiles` need to be dispatched to by view (review cycle 1
+ * Critical 1: this render-phase split used to be registered inline in `main.ts`, the one
+ * piece of render-phase logic a composition root had of its own). */
+export interface ViewRenderer {
+  renderView(frame: RenderFrame): void;
+}
+
+export function initViews(
+  app: App,
+  deps: { focus: ViewRenderer; tiles: ViewRenderer },
+): ViewsHandle {
   const viewFocusBtn = requireElement<HTMLButtonElement>("#view-focus-btn");
   const viewTilesBtn = requireElement<HTMLButtonElement>("#view-tiles-btn");
   const density2x2Btn = requireElement<HTMLButtonElement>("#density-2x2-btn");
@@ -72,8 +82,12 @@ export function initViews(app: App): ViewsHandle {
   density2x2Btn.addEventListener("click", () => requestDensity("2x2"));
   density3x2Btn.addEventListener("click", () => requestDensity("3x2"));
 
-  // Render phase 9 (UI Specifications > Render phase order).
-  app.onRender(() => {
+  // Render phases 9-10 (UI Specifications > Render phase order): the switcher/density
+  // control and the two view containers' `hidden`, then — inherently split across two
+  // other controllers by shared state, so registered here rather than inside either
+  // one's own init (main.ts formerly registered this second half itself) — Focus's or
+  // Tiles' own content render for whichever view is current.
+  app.onRender((frame) => {
     renderViewSwitcher({ focusButton: viewFocusBtn, tilesButton: viewTilesBtn }, app.state.view);
     renderDensityControl(
       {
@@ -86,6 +100,8 @@ export function initViews(app: App): ViewsHandle {
     );
     viewFocusEl.hidden = app.state.view !== "focus";
     viewTilesEl.hidden = app.state.view !== "tiles";
+    if (app.state.view === "focus") deps.focus.renderView(frame);
+    else deps.tiles.renderView(frame);
   });
 
   return {

@@ -10,6 +10,7 @@ import "@xterm/xterm/css/xterm.css";
 import { locateDroppedFile } from "../api/terminal";
 import type { Session } from "../protocol/session";
 import { DRAG_MIME } from "../render/dragreorder";
+import { wsUrl } from "../ws";
 import {
   classifyApiFailure,
   classifyDrop,
@@ -215,9 +216,8 @@ export class TerminalSurface {
    * session — guarded in the constructor, and `reattachIfDisconnected` re-checks it. */
   private attach(): void {
     if (this.disposed) return;
-    const wsProtocol = location.protocol === "https:" ? "wss:" : "ws:";
     const path = this.kind === "shell" ? "shell" : "terminal";
-    const socket = new WebSocket(`${wsProtocol}//${location.host}/ws/${path}/${this.sessionId}`);
+    const socket = new WebSocket(wsUrl(`/ws/${path}/${this.sessionId}`));
     socket.binaryType = "arraybuffer";
     this.socket = socket;
     this.lastSentCols = 0;

@@ -16,6 +16,15 @@ import type { Usage } from "./protocol/usage";
 const RECONNECT_BASE_MS = 500;
 const RECONNECT_CAP_MS = 8000;
 
+/** The one place `ws(s)://<host>/<path>` gets built (review cycle 1 Critical 1/Seed B6) —
+ * `main.ts` and `doc.ts` both call this for the daemon's `/ws` socket; `terminal/pane.ts`
+ * builds its per-surface `/ws/terminal/{id}` and `/ws/shell/{id}` sockets off the same
+ * rule instead of a third hand-copied `location.protocol === "https:" ? "wss:" : "ws:"`. */
+export function wsUrl(path: string): string {
+  const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${location.host}${path}`;
+}
+
 /** 500ms doubling per attempt, capped at 8s (REQ-17). Pure — Vitest covers the schedule. */
 export function backoffDelay(attempt: number): number {
   return Math.min(RECONNECT_BASE_MS * 2 ** attempt, RECONNECT_CAP_MS);

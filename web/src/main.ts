@@ -31,7 +31,8 @@ import { initSettings } from "./features/settings";
 import { initShortcuts } from "./features/shortcuts";
 import { initConnection } from "./features/connection";
 import { installDropGuard } from "./render/dropguard";
-import { WsClient } from "./ws";
+import { WsClient, wsUrl } from "./ws";
+import { coreWsHandlers } from "./wsapp";
 
 const app = createApp();
 
@@ -57,7 +58,6 @@ const focus = initFocus(app, {
 const surfaces = initSurfaces(app, { tilesLive: () => tiles.liveIds() });
 const reader = initReader(app, { tilesLive: () => tiles.liveIds(), getSurfaces: () => surfaces });
 initRail(app, { actions, surfaces });
-const views = initViews(app);
 // Render phase order (UI Specifications > Render phase order — behaviour-bearing):
 //  1. actions  — dead-pane tracking (registered inside initActions)
 //  2. usage    — gauges/model week/model readout (initUsage)
@@ -68,14 +68,10 @@ const views = initViews(app);
 //  7. surfaces — open/close diff over (id, kind) keys (initSurfaces)
 //  8. reader   — mount/dispose diff over docs-selected sessions (initReader)
 //  9. rail     — renderSessions, count, sort select (initRail)
-// 10. views    — switcher, density control, view containers' hidden (initViews)
-// 11. focus (view) in Focus, else tiles (view) in Tiles — the one phase inherently split
-//     across two controllers by shared state, so it is registered here rather than
-//     inside either controller's own init.
-app.onRender((frame) => {
-  if (app.state.view === "focus") focus.renderView(frame);
-  else tiles.renderView(frame);
-});
+// 10. views    — switcher, density control, view containers' hidden, then focus (view) in
+//     Focus, else tiles (view) in Tiles — registered inside initViews, since that phase is
+//     inherently split across two controllers by shared state (views.ts).
+const views = initViews(app, { focus, tiles });
 const rename = initRename(app, { focus });
 initTheme(app, { surfaces });
 initLaunch(app, { focus, surfaces });
@@ -95,34 +91,15 @@ installDropGuard(document);
 setInterval(app.render, 1000);
 app.render();
 
-const wsProtocol = location.protocol === "https:" ? "wss:" : "ws:";
-const wsUrl = `${wsProtocol}//${location.host}/ws`;
-
-const client = new WsClient(wsUrl, {
-  onConnecting: () => connection.disconnected(),
-  onHello: (hello) => connection.connected(hello.claudeCode),
-  onSnapshot: (snapshot) => {
-    app.store.replaceAll(snapshot.sessions);
-    app.emit("prefs", snapshot.prefs);
-    app.emit("snapshot", snapshot);
-    app.render();
-  },
-  onSessionUpsert: (session) => {
-    app.store.upsert(session);
-    app.render();
-  },
+// The dashboard's own handlers, layered over the shared core mapping (wsapp.ts) — the
+// pop-out (doc.ts) registers that core unchanged; these are the ones it has no feature to
+// receive (Critical 1: "the pop-out differs from the dashboard only in the handlers it
+// declares it leaves out").
+const client = new WsClient(wsUrl("/ws"), {
+  ...coreWsHandlers(app, connection),
   onSessionRemoved: (id) => actions.handleRemoved(id),
-  onPrefs: (prefs) => {
-    app.emit("prefs", prefs);
-    app.render();
-  },
   onUsage: (usageInfo) => {
     app.emit("usage", usageInfo);
-    app.render();
-  },
-  onClaudeTheme: (family) => app.emit("claudeTheme", family),
-  onDocChanged: (msg) => {
-    app.emit("docChanged", msg);
     app.render();
   },
   onShellActivity: (sessionId, busy) => {
@@ -133,7 +110,6 @@ const client = new WsClient(wsUrl, {
     app.emit("update", updateInfo);
     app.render();
   },
-  onDisconnected: () => connection.disconnected(),
   onProtocolMismatch: () => connection.showProtocolMismatch(),
 });
 
