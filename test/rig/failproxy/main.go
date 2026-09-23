@@ -27,6 +27,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/Zalaras/muster/test/rig/failapi"
 )
 
 func main() {
@@ -44,7 +46,7 @@ func main() {
 
 	lg := log.New(log.Writer(), "[failproxy] ", log.LstdFlags|log.Lmicroseconds)
 
-	body := fmt.Sprintf(`{"type":"error","error":{"type":%q,"message":%q}}`, *errType, *message)
+	failure := failapi.Failure{Status: *status, Type: *errType, Message: *message, Headers: headers}
 
 	var seen int64
 	var rp *httputil.ReverseProxy
@@ -78,12 +80,7 @@ func main() {
 			return
 		}
 		lg.Printf("FAIL %s %s -> %d", r.Method, r.URL.Path, *status)
-		w.Header().Set("Content-Type", "application/json")
-		for _, h := range headers {
-			w.Header().Set(h[0], h[1])
-		}
-		w.WriteHeader(*status)
-		_, _ = io.WriteString(w, body)
+		failure.Serve(w, r)
 	}
 
 	addr := fmt.Sprintf("127.0.0.1:%d", *port)
