@@ -2,6 +2,7 @@
 // d-tiled.html; design-system §4/§5). DOM only — every displayed string comes from
 // ../sessions/card.ts's pure view-model, shared with the rail, since a strip card IS a
 // rail card on its side.
+import { requireTemplate } from "../dom";
 import { PREF_DEFAULTS, type RailActivity } from "../protocol/prefs";
 import type { Session } from "../protocol/session";
 import {
@@ -10,10 +11,15 @@ import {
   renderDeadSurface,
   type PaneState,
 } from "./dead";
-import { buildCardViewModel, stateBadgeText } from "../sessions/card";
-import { formatEndedAge, formatEndedAgo } from "../sessions/format";
+import {
+  buildCardViewModel,
+  canResume,
+  stateBadgeText,
+  type SessionAction,
+} from "../sessions/card";
+import { ageAgo, formatAge } from "../sessions/format";
 import { renderContextRow } from "./context";
-import { buildActionButton, reconcileCards, type SessionAction } from "./sessions";
+import { buildActionButton, reconcileCards } from "./sessions";
 import { attachRenameEditor, type RenameEditorController } from "./rename";
 import type { TitleCommand } from "../sessions/rename";
 import {
@@ -21,12 +27,6 @@ import {
   type SurfaceKind,
   type SurfaceSegmentRefs,
 } from "../terminal/surfaceswitch";
-
-function requireTemplate(id: string): HTMLTemplateElement {
-  const el = document.getElementById(id);
-  if (!(el instanceof HTMLTemplateElement)) throw new Error(`missing template: #${id}`);
-  return el;
-}
 
 export interface TileRefs {
   root: HTMLElement;
@@ -105,7 +105,7 @@ function updateTileChrome(root: HTMLElement, session: Session, now: Date): void 
     timer.textContent = session.alive
       ? vm.timer
       : session.endedAt
-        ? formatEndedAge(session.endedAt, now)
+        ? formatAge(session.endedAt, now)
         : "";
 }
 
@@ -272,8 +272,8 @@ export function renderTileFooterActions(
   // Leads with "✕" rather than "ended" (mockups/tiles-dead.html's `.tfoot .snap`: "✕
   // ended 6m ago") — deliberately not the word this tile's `.endbar` also starts with
   // (see `updateTileChrome`'s comment on the same collision).
-  const ageText = session.endedAt ? `✕ ended ${formatEndedAgo(session.endedAt, now)}` : "✕ ended";
-  const resumeEnabled = connected && session.claudeSessionId !== null;
+  const ageText = session.endedAt ? `✕ ended ${ageAgo(session.endedAt, now)}` : "✕ ended";
+  const resumeEnabled = connected && canResume(session.claudeSessionId);
 
   const [ageEl, resumeEl, removeEl] = tail;
   const sameShape =

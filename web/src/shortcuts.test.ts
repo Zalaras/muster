@@ -236,15 +236,3 @@ describe("matchShortcut — macOS Opt dead-key proof (W16)", () => {
     );
   });
 });
-
-describe("SHORTCUT_HELP (REQ-12)", () => {
-  it("is exported as an array so a future help overlay has a single data source", async () => {
-    const { SHORTCUT_HELP } = await import("./shortcuts");
-    expect(Array.isArray(SHORTCUT_HELP)).toBe(true);
-    expect(SHORTCUT_HELP.length).toBeGreaterThan(0);
-    for (const entry of SHORTCUT_HELP) {
-      expect(typeof entry.label).toBe("string");
-      expect(typeof entry.chord).toBe("string");
-    }
-  });
-});

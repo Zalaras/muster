@@ -2,15 +2,11 @@
 // version readout (plan code-breakup vocabulary: "connection"). Owns `everConnected` —
 // only true once a `hello` has ever been received, so a socket that hasn't connected yet
 // reads "connecting…" rather than flashing "musterd unreachable" on first load.
-import type { App } from "../app";
+import type { App, ConnectionStatus } from "../app";
 import { requireElement } from "../dom";
 import { isRestorableControl, shouldRestoreFocus } from "../render/focusrestore";
 import { renderBanner } from "../render/banner";
-import {
-  renderClaudeVersion,
-  renderConnectionStatus,
-  type ConnectionStatus,
-} from "../render/masthead";
+import { renderClaudeVersion, renderConnectionStatus } from "../render/masthead";
 import type { ClaudeCodeInfo } from "../protocol/hello";
 
 export interface ConnectionHandle {

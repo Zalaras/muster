@@ -2,13 +2,12 @@
 // `prefs.theme` as opaque (kb:anchor/prefs.put) — the client owns the list of known
 // theme names, so adding a theme never needs a daemon release, only a new
 // `[data-theme]` block in style.css plus a new entry in THEMES below.
-import { isRecord } from "./protocol/decode";
-import { type ClaudeFamily, isClaudeFamily } from "./protocol/theme";
+import type { ClaudeFamily } from "./protocol/theme";
+import { writeJson } from "./storage";
 
 export const THEMES = ["instrument", "dark", "light"] as const;
 export type ThemeName = (typeof THEMES)[number];
 export type ThemeChoice = "follow" | ThemeName;
-export type { ClaudeFamily };
 
 function isThemeName(value: string): value is ThemeName {
   return (THEMES as readonly string[]).includes(value);
@@ -43,41 +42,12 @@ export interface ThemeHint {
   family: ClaudeFamily;
 }
 
-/** REQ-11: reads the hint the last `writeThemeHint` call wrote. `null` for anything not
- * a recognisable hint — absent, malformed JSON, an unknown theme name, or storage that
- * throws (private mode, disabled storage) — so a caller never half-applies one. */
-export function readThemeHint(storage: Pick<Storage, "getItem"> = localStorage): ThemeHint | null {
-  let raw: string | null;
-  try {
-    raw = storage.getItem(HINT_KEY);
-  } catch {
-    return null;
-  }
-  if (!raw) return null;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  if (!isRecord(parsed)) return null;
-  const theme = parsed["theme"];
-  const family = parsed["family"];
-  if (typeof theme !== "string" || !isThemeName(theme)) return null;
-  if (!isClaudeFamily(family)) return null;
-  return { theme, family };
-}
-
 /** REQ-11/REQ-12: `features/theme.ts` rewrites this every time it applies a theme or family.
- * Swallows a throwing storage — the hint is a best-effort first-paint optimisation,
- * never a hard dependency of the render path that calls this. */
+ * Read back only by the plain inline script in `index.html`/`doc.html` (deliberately
+ * duplicated there, not imported — see its own comment), never by this module. */
 export function writeThemeHint(
   hint: ThemeHint,
   storage: Pick<Storage, "setItem"> = localStorage,
 ): void {
-  try {
-    storage.setItem(HINT_KEY, JSON.stringify(hint));
-  } catch {
-    // best-effort only — see doc comment above.
-  }
+  writeJson(storage, HINT_KEY, hint);
 }

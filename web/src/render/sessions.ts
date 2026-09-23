@@ -1,35 +1,24 @@
 // Rail cards (docs/protocol.md UI Specifications > Rail; design-system §5 card anatomy).
 // DOM only — every displayed string comes from ../sessions/card.ts's pure view-model.
+import { requireTemplate } from "../dom";
 import { PREF_DEFAULTS, type RailActivity } from "../protocol/prefs";
 import type { Session } from "../protocol/session";
 import {
   buildCardViewModel,
+  canResume,
   unreadLabel,
   type CardAction,
   type CardViewModel,
+  type SessionAction,
 } from "../sessions/card";
 import { renderContextRow } from "./context";
 import { captureFocusedControl, restoreFocusedControl, type FocusedControl } from "./focus";
-
-/** REQ-11's card/strip/tile action-row buttons all dispatch through this one shape —
- * `features/actions.ts`'s dispatcher owns what each action actually does (open a confirm
- * dialog, or call Resume directly per User Flow 3). Plan order-sidebar REQ-8 adds
- * `"pin"` — the card's pin button dispatches through the same shape; `features/actions.ts`'s
- * dispatcher calls `pinSession(id, !session.pinned)` directly, same as Resume (no confirm
- * dialog). */
-export type SessionAction = "end" | "resume" | "remove" | "pin";
 
 const ACTION_BY_LABEL: Record<CardAction, SessionAction> = {
   End: "end",
   Resume: "resume",
   Remove: "remove",
 };
-
-function requireTemplate(id: string): HTMLTemplateElement {
-  const el = document.getElementById(id);
-  if (!(el instanceof HTMLTemplateElement)) throw new Error(`missing template: #${id}`);
-  return el;
-}
 
 /** One action button (card/strip/tile-footer), shared across every surface that renders
  * one of REQ-11/REQ-12's End/Resume/Remove rows. `event.stopPropagation()` is REQ-11's
@@ -91,14 +80,14 @@ function reconcileActsRow(
     existing.forEach((btn, i) => {
       const label = actions[i];
       if (label === undefined) return;
-      btn.disabled = !(connected && (label !== "Resume" || claudeSessionId !== null));
+      btn.disabled = !(connected && (label !== "Resume" || canResume(claudeSessionId)));
     });
     return;
   }
 
   actsRow.replaceChildren(
     ...actions.map((label) => {
-      const enabled = connected && (label !== "Resume" || claudeSessionId !== null);
+      const enabled = connected && (label !== "Resume" || canResume(claudeSessionId));
       return buildActionButton(label, id, enabled, onAction);
     }),
   );
@@ -258,7 +247,7 @@ function updateSessionCardContent(
  * terminal on a deliberate pointer selection (features/rail.ts's rail callback) can tell
  * the two apart without a second callback or a DOM flag. Listeners are wired up exactly
  * once here — `reconcileCards` never rebuilds an existing card, it calls
- * `updateSessionCardElement` on the same node instead. */
+ * `updateSessionCardContent` on the same node instead. */
 export function buildSessionCardElement(
   session: Session,
   now: Date,
@@ -321,36 +310,6 @@ export function buildSessionCardElement(
   return card;
 }
 
-/** Refreshes an already-built card in place for the current render pass — the update
- * half of the `buildSessionCardElement`/`updateSessionCardElement` pair
- * `reconcileCards` uses, mirroring `render/tiles.ts`'s existing `buildTile`/`updateTile`
- * convention (review m2-terminal Critical 2's in-place-mutation pattern, now applied
- * here too). Exported for the same shared-module reason `buildSessionCardElement` is:
- * `render/tiles.ts`'s `renderStrip` reconciles the identical card markup. */
-export function updateSessionCardElement(
-  card: HTMLElement,
-  session: Session,
-  now: Date,
-  connected: boolean,
-  onAction?: (action: SessionAction, id: number) => void,
-  draggable = false,
-  pinnedLast = false,
-  currentId: number | null = null,
-  railActivity: RailActivity = PREF_DEFAULTS.railActivity,
-): void {
-  updateSessionCardContent(
-    card,
-    session,
-    now,
-    connected,
-    onAction,
-    draggable,
-    pinnedLast,
-    currentId,
-    railActivity,
-  );
-}
-
 /** Clears stray non-element children (e.g. the honest-empty-state's lone text node, left
  * behind when the session list goes from empty to non-empty) and indexes the surviving
  * cards by the `data-session-id` reconciliation key. */
@@ -386,10 +345,10 @@ function lastPinnedSessionId(sessions: readonly Session[]): number | undefined {
  * element) whether or not anything about that card changed, so a keyboard user's focus
  * silently falls to `<body>` within the next tick. An existing card is updated in place
  * and moved only if its position actually changed; only sessions with no existing card
- * build a new one, and only departed ids remove one. Also the Minor-3 fix: a steady rail
- * with nothing changed now touches no DOM nodes beyond the per-field text/attr updates
- * `updateSessionCardElement` already does — no wholesale remove+reinsert, so no forced
- * layout and no discarded in-card text selection. */
+ * build a new one, and only departed ids remove one. A steady rail with nothing changed
+ * touches no DOM nodes beyond the per-field text/attr updates `updateSessionCardContent`
+ * already does — no wholesale remove+reinsert, so no forced layout and no discarded
+ * in-card text selection. */
 export function reconcileCards(
   container: HTMLElement,
   sessions: readonly Session[],
@@ -443,7 +402,7 @@ export function reconcileCards(
     const pinnedLast = session.id === lastPinnedId;
     let card = existingById.get(session.id);
     if (card) {
-      updateSessionCardElement(
+      updateSessionCardContent(
         card,
         session,
         now,

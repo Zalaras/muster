@@ -75,6 +75,11 @@ export function sortSessions(sessions: readonly Session[]): Session[] {
   });
 }
 
+/** The manual/pinned-block ordering key, ascending: `railPos`, `id` tiebreak. */
+function byRailPos(a: Session, b: Session): number {
+  return a.railPos - b.railPos || a.id - b.id;
+}
+
 /** REQ-6 (plan order-sidebar): pinned block first (by `railPos`, `id` tiebreak), the
  * unpinned group after — `manual` orders that unpinned group by `railPos`/`id` too
  * (INV-3: independent of `state`/`alive`/`attention`/`stateSince`), `attention` orders it
@@ -83,12 +88,10 @@ export function sortSessions(sessions: readonly Session[]): Session[] {
  * strip and `features/focus.ts`'s default-focus pick all read display order through this one
  * function rather than calling `sortSessions` directly. */
 export function orderRail(sessions: readonly Session[], mode: RailSort): Session[] {
-  const pinned = sessions
-    .filter((s) => s.pinned)
-    .sort((a, b) => a.railPos - b.railPos || a.id - b.id);
+  const pinned = sessions.filter((s) => s.pinned).sort(byRailPos);
   const unpinned = sessions.filter((s) => !s.pinned);
   if (mode === "manual") {
-    return [...pinned, ...unpinned.sort((a, b) => a.railPos - b.railPos || a.id - b.id)];
+    return [...pinned, ...unpinned.sort(byRailPos)];
   }
   return [...pinned, ...sortSessions(unpinned)];
 }

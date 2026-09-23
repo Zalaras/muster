@@ -10,7 +10,7 @@
 import type { RestartImpactShell } from "../api/update";
 import type { Prefs } from "../protocol/prefs";
 import type { UpdateInfo } from "../protocol/update";
-import { agoSuffix, formatAge } from "../sessions/format";
+import { ageAgo } from "../sessions/format";
 
 /** Every apply phase during which a request is genuinely in flight — REQ-10's
  * `aria-busy="true"` and the "phase not in flight" clause of the Buttons-enabled rule. */
@@ -53,15 +53,14 @@ export interface UpdateViewModel {
 
 /** The "Available" readout (UI Specifications > Text rules table, REQ-11). A development
  * build says so rather than showing a version. Every other case carries the age of the
- * last successful check (`agoSuffix(formatAge(...))`, same composition `sessions/format.ts`
- * already uses elsewhere) once one has ever completed — `checkedAt` null (never checked,
- * or just cleared by turning the daily-check toggle off) is the one case with no suffix at
- * all, not an empty one (edge case 19). */
+ * last successful check (`ageAgo`) once one has ever completed — `checkedAt` null (never
+ * checked, or just cleared by turning the daily-check toggle off) is the one case with no
+ * suffix at all, not an empty one (edge case 19). */
 function availableText(update: UpdateInfo, isDev: boolean, now: Date): string {
   if (isDev) return "not checked (development build)";
   if (update.checkedAt === null) return "not checked yet";
   const version = update.available !== null ? `v${update.available}` : "up to date";
-  return `${version} · checked ${agoSuffix(formatAge(update.checkedAt, now))}`;
+  return `${version} · checked ${ageAgo(update.checkedAt, now)}`;
 }
 
 /** The status line under the buttons (UI Specifications > Text rules table). A failed

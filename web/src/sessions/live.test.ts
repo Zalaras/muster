@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Session, SessionState } from "../protocol/session";
-import { applyDensity, densityCount, initialLive, moveTile, promote } from "./live";
+import { applyDensity, densityCount, initialLive, moveTile, promote, visibleIds } from "./live";
 
 // All sessions share the same state ("idle") with strictly increasing `stateSince`, so
 // sort.ts's tiebreak (stateSince ascending) makes the §3.4 sort order exactly the
@@ -228,6 +228,24 @@ describe("moveTile (plan move-tiles REQ-3/W6): pure insert-and-shift reorder —
 
   it("dragging a tile one slot backward is a plain adjacent swap", () => {
     expect(moveTile([1, 2, 3, 4], 3, 2)).toEqual([1, 3, 2, 4]);
+  });
+});
+
+describe("visibleIds: the one 'ids visible in the current view' rule shared by features/surfaces.ts and features/reader.ts", () => {
+  it("returns tilesLive verbatim outside Focus (view is Tiles)", () => {
+    expect(visibleIds("tiles", null, [1, 2, 3])).toEqual([1, 2, 3]);
+  });
+
+  it("returns tilesLive verbatim outside Focus even when a focusedId is also set", () => {
+    expect(visibleIds("tiles", 7, [1, 2, 3])).toEqual([1, 2, 3]);
+  });
+
+  it("returns just the focused id in Focus, ignoring tilesLive entirely", () => {
+    expect(visibleIds("focus", 7, [1, 2, 3])).toEqual([7]);
+  });
+
+  it("returns an empty list in Focus when nothing is focused", () => {
+    expect(visibleIds("focus", null, [1, 2, 3])).toEqual([]);
   });
 });
 

@@ -13,6 +13,7 @@ import type { Session } from "../protocol/session";
 import { createShell } from "../api/sessions";
 import type { ApiErrorBody } from "../api/http";
 import { showDeadSurfaceNotice, type DeadSurfaceRefs } from "../render/dead";
+import { visibleIds } from "../sessions/live";
 import { TerminalSurface } from "../terminal/pane";
 import {
   clearOnSelect,
@@ -156,11 +157,8 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
     });
   }
 
-  /** The ids the current view can show a surface for: the focused one in focus view, every
-   * live tile otherwise. */
   function visibleSessionIds(): readonly number[] {
-    if (app.state.view !== "focus") return deps.tilesLive();
-    return app.state.focusedId !== null ? [app.state.focusedId] : [];
+    return visibleIds(app.state.view, app.state.focusedId, deps.tilesLive());
   }
 
   /** The `(id, kind)` pairs that should have a mounted surface right now — a visible

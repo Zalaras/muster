@@ -1,7 +1,7 @@
 // Plan general-cleanup (REQ-6, REQ-8, W3, W4) — the reader's pure status-line and
 // docChanged-dispatch derivations. No DOM, no fetch (docs/conventions.md).
 import { describe, expect, it } from "vitest";
-import type { ConnectionStatus } from "../render/masthead";
+import type { ConnectionStatus } from "../app";
 import { classifyDocChanged, deriveNotice, UNREACHABLE_TEXT } from "./notice";
 
 describe("deriveNotice — status precedence (INV-POPOUT-CONNECTING, W3)", () => {

@@ -36,7 +36,7 @@ function sessionLabel(session: Session, now: Date): string {
 
 /** REQ-14's End dialog copy: names the session, says it stays as ended and can be
  * resumed. */
-export function renderEndDialogBody(el: HTMLElement, session: Session, now: Date): void {
+function renderEndDialogBody(el: HTMLElement, session: Session, now: Date): void {
   el.textContent =
     `${sessionLabel(session, now)}. Kills the tmux pane and the claude inside it. The card stays in the rail ` +
     "as ended — Resume can pick the conversation back up if this was a slip.";
@@ -44,7 +44,7 @@ export function renderEndDialogBody(el: HTMLElement, session: Session, now: Date
 
 /** REQ-14's Remove dialog copy: it disappears and cannot be resumed from here, plus —
  * only when the target is still alive — "ends the session first" (E9's exact phrase). */
-export function renderRemoveDialogBody(el: HTMLElement, session: Session, now: Date): void {
+function renderRemoveDialogBody(el: HTMLElement, session: Session, now: Date): void {
   const endsFirst = session.alive ? " This ends the session first." : "";
   el.textContent =
     `${sessionLabel(session, now)}.${endsFirst} Deletes it from Muster for good — the card disappears and it ` +

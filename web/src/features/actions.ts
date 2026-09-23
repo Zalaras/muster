@@ -20,7 +20,7 @@ import {
 } from "../render/dead";
 import { renderActionError } from "../render/actionerror";
 import { initConfirmDialogs, type ConfirmDialogs } from "../render/confirm";
-import type { SessionAction } from "../render/sessions";
+import type { SessionAction } from "../sessions/card";
 import type { Session } from "../protocol/session";
 
 export interface ActionsDeps {

@@ -6,8 +6,8 @@
 // per-session card/tile templates) — features/focus.ts wires the three buttons' click
 // listeners once at startup and this module only ever toggles their `disabled` state.
 import type { Session } from "../protocol/session";
-import { buildCardViewModel, resumeDisabledReason } from "../sessions/card";
-import { formatEndedAgo } from "../sessions/format";
+import { buildCardViewModel, canResume, resumeDisabledReason } from "../sessions/card";
+import { ageAgo } from "../sessions/format";
 import type { ShellActivityIndicator } from "../terminal/shellactivity";
 import {
   DEFAULT_SURFACE_STATE,
@@ -42,8 +42,7 @@ export interface MainheadElements {
 function mainheadMeta(session: Session, now: Date): string {
   const parts: string[] = [buildCardViewModel(session, now).repoLine];
   if (session.model) parts.push(session.model.displayName);
-  if (!session.alive && session.endedAt)
-    parts.push(`ended ${formatEndedAgo(session.endedAt, now)}`);
+  if (!session.alive && session.endedAt) parts.push(`ended ${ageAgo(session.endedAt, now)}`);
   return parts.join(" · ");
 }
 
@@ -104,7 +103,7 @@ export function renderMainhead(
   elements.renameBtn.disabled = !connected;
   elements.metaEl.textContent = mainheadMeta(session, now);
   elements.endBtn.disabled = !connected || !session.alive;
-  elements.resumeBtn.disabled = !connected || session.alive || session.claudeSessionId === null;
+  elements.resumeBtn.disabled = !connected || session.alive || !canResume(session.claudeSessionId);
   // REQ-17/W3: a disabled-for-no-claudeSessionId Resume says why, not just sits greyed.
   elements.resumeBtn.title = resumeDisabledReason(session) ?? "";
   elements.removeBtn.disabled = !connected;

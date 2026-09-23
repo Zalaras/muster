@@ -70,10 +70,7 @@ function checkedValue(radios: readonly HTMLInputElement[]): string | null {
   return radios.find((radio) => radio.checked)?.value ?? null;
 }
 
-export function initLaunchModal(
-  elements: LaunchModalElements,
-  handlers: LaunchModalHandlers,
-): void {
+function initLaunchModal(elements: LaunchModalElements, handlers: LaunchModalHandlers): void {
   // The picker's whole state: what GET /api/browse most recently returned (null before
   // the first successful browse of this open), the served MRU list, whether that list has
   // resolved at all yet, and a monotonic counter guarding against a stale response landing

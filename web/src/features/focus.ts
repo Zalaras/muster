@@ -8,8 +8,9 @@
 // `SurfacesHandle` from `./actions`/`./surfaces`.
 import type { App, RenderFrame } from "../app";
 import { requireElement } from "../dom";
-import { renderFocusMain, renderSizenote, type SessionAction } from "../render/sessions";
+import { renderFocusMain, renderSizenote } from "../render/sessions";
 import { renderMainhead, type MainheadElements } from "../render/mainhead";
+import type { SessionAction } from "../sessions/card";
 import {
   collectDeadSurfaceRefs,
   renderDeadSurface,

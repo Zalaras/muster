@@ -168,7 +168,6 @@ class FakeSocket implements SocketLike {
 function makeHandlers(): WsClientHandlers & Record<string, ReturnType<typeof vi.fn>> {
   return {
     onConnecting: vi.fn(),
-    onConnected: vi.fn(),
     onHello: vi.fn(),
     onSnapshot: vi.fn(),
     onSessionUpsert: vi.fn(),
@@ -310,11 +309,9 @@ describe("WsClient — full socket lifecycle via an injected fake socket", () =>
     expect(sockets).toHaveLength(1);
   });
 
-  it("calls onConnected when the socket opens, and dispatches a parsed hello on message", () => {
+  it("dispatches a parsed hello frame to onHello once the socket is open", () => {
     client.start();
     sockets[0]!.emitOpen();
-    expect(handlers.onConnected).toHaveBeenCalledTimes(1);
-
     sockets[0]!.emitMessage(JSON.stringify(hello));
     expect(handlers.onHello).toHaveBeenCalledWith(hello);
   });
@@ -439,14 +436,6 @@ describe("WsClient — full socket lifecycle via an injected fake socket", () =>
     client.start();
     sockets[0]!.emitError();
     expect(sockets[0]!.closed).toBe(true);
-  });
-
-  it("stop() prevents any further reconnect attempt", () => {
-    client.start();
-    sockets[0]!.emitClose();
-    client.stop();
-    vi.advanceTimersByTime(10_000);
-    expect(sockets).toHaveLength(1);
   });
 
   it("a close event from a superseded (already-replaced) socket is not double-handled", () => {

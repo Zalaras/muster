@@ -60,7 +60,7 @@ export interface SettingsDialogController {
   setChecked: (theme: string, updateCheck: boolean, railActivity: RailActivity) => void;
 }
 
-export function initSettingsDialog(
+function initSettingsDialog(
   elements: SettingsDialogElements,
   handlers: SettingsDialogHandlers,
 ): SettingsDialogController {
@@ -123,7 +123,7 @@ export function initSettings(
       check(): void;
     };
   },
-): SettingsDialogController {
+): void {
   const settingsButtonEl = requireElement<HTMLButtonElement>("#settings-button");
   const elements: SettingsDialogElements = {
     dialog: requireElement<HTMLDialogElement>("#settings-dialog"),
@@ -154,6 +154,4 @@ export function initSettings(
   // States (new-ui-design-colors): "Daemon down ... The Settings dialog closes with the
   // other dialogs ... since a PUT cannot land."
   app.on("status", () => controller.close());
-
-  return controller;
 }

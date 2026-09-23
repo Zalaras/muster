@@ -16,8 +16,8 @@ describe("basename", () => {
     expect(basename("TODO.md")).toBe("TODO.md");
   });
 
-  it("returns the path itself for a trailing-slash path with nothing after it", () => {
-    expect(basename("/Users/bob/plans/")).toBe("/Users/bob/plans/");
+  it("strips a trailing slash before taking the last segment (shared with sessions/card.ts)", () => {
+    expect(basename("/Users/bob/plans/")).toBe("plans");
   });
 
   it("returns an empty string for an empty path", () => {

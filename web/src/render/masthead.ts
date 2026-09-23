@@ -4,13 +4,12 @@
 //
 // Honesty rules (design-system §6.1): a null usage bucket renders the word "unknown"
 // and no track/gauge markup at all — never a 0%-filled bar.
+import type { ConnectionStatus } from "../app";
 import type { ClaudeCodeInfo } from "../protocol/hello";
 import type { Density, View } from "../protocol/prefs";
 import type { SessionModelInfo } from "../protocol/session";
 import type { ModelWindow, Usage, UsageBucket } from "../protocol/usage";
 import { formatResets, GAUGE_WARN_THRESHOLD } from "../sessions/format";
-
-export type ConnectionStatus = "connecting" | "connected" | "reconnecting";
 
 export function renderConnectionStatus(el: HTMLElement, status: ConnectionStatus): void {
   const text =

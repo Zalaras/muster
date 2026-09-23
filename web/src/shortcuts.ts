@@ -99,13 +99,3 @@ export function matchShortcut(event: KeyboardEvent): ShortcutAction | null {
   }
   return null;
 }
-
-/** REQ-12: the binding table as label+chord data, for a future shortcuts-help overlay —
- * none is built here, the keyboard model itself is out of scope (ux-flows §4). */
-export const SHORTCUT_HELP: ReadonlyArray<{ readonly label: string; readonly chord: string }> = [
-  { label: "New session", chord: "⌥⌘N" },
-  { label: "Focus / promote session n", chord: "⌥⌘1–9" },
-  { label: "Jump to neediest session", chord: "⌥⌘0" },
-  { label: "Toggle Focus / Tiles", chord: "⌘\\" },
-  { label: "Launch dialog: parent directory", chord: "⌘↑" },
-];

@@ -1,6 +1,6 @@
 // Pure reader status-line/docChanged derivation (plan general-cleanup REQ-6, REQ-8) —
 // no DOM, no fetch; `features/reader.ts` is the only caller.
-import type { ConnectionStatus } from "../render/masthead";
+import type { ConnectionStatus } from "../app";
 import { loadingText } from "./paths";
 
 export const UNREACHABLE_TEXT = "musterd unreachable — showing last render";

@@ -38,17 +38,8 @@
 // (W11): `captureFocusedControl` is a generic DOM helper keyed on data attributes, not
 // Session objects, exactly like the ids this module already maps.
 
+import { DRAG_MIME } from "../dragmime";
 import { captureFocusedControl, type FocusedControl } from "./focus";
-
-// Plan file-drop-fix, edge case 1: exported so a terminal surface's own drag handlers
-// (terminal/pane.ts) can positively identify "this drag is an internal tile/rail reorder
-// crossing over me" and bail without claiming it (INV-3), rather than treating it as a
-// foreign text drop (REQ-10) — which a plain "text/plain" MIME would be indistinguishable
-// from, since real dragged text uses that exact same standard type. Nothing reads the
-// *value* stored under this MIME (the drop handler above resolves the dragged id from its
-// own `draggingId` module state instead — see the header comment), so the string itself
-// is opaque and only its presence in `dataTransfer.types` is ever checked.
-export const DRAG_MIME = "application/x-muster-drag-id";
 
 export interface DragReorderOptions {
   /** Selects the draggable item element from any descendant target (e.g. "article.tile",

@@ -7,9 +7,9 @@
     <!-- REQ-11: no-wrong-theme-first-frame. Plain inline script (not a module — Vite
          leaves a non-module inline script in place, and a module would run deferred,
          too late to beat the stylesheet), runs before the stylesheet link below so the
-         first paint is never in the wrong theme. Mirrors theme.ts's readThemeHint
-         shape, deliberately duplicated rather than imported (this must run standalone,
-         before any bundle loads). Every storage access is try/catch'd — a throwing
+         first paint is never in the wrong theme. Mirrors the `ThemeHint` shape
+         theme.ts's `writeThemeHint` writes, deliberately duplicated rather than imported
+         (this must run standalone, before any bundle loads). Every storage access is try/catch'd — a throwing
          storage (private mode, disabled storage) just leaves the attributes unset,
          falling through to the bare :root default (Instrument, dark terminal pair). -->
     <script>

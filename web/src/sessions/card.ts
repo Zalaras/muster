@@ -1,15 +1,23 @@
 // Pure card view-model: everything a rail card displays, derived from a Session + "now",
 // with no DOM involved (docs/conventions.md — "keep logic in pure modules separate from
-// DOM code"). render/sessions.ts is the only consumer.
+// DOM code"). render/sessions.ts is the main consumer; the action vocabulary below is
+// also shared by every feature controller that dispatches a card/mainhead/tile action.
 import { PREF_DEFAULTS, type RailActivity } from "../protocol/prefs";
 import type { Session } from "../protocol/session";
-import { elapsedSeconds, formatEndedAge, formatTimer } from "./format";
+import { elapsedSeconds, formatAge, formatTimer } from "./format";
 
 export type NoteKind = "attention" | "failure" | "trust" | "no-signal" | "none";
 
 /** REQ-11's card action-row contract: a live card offers only End; an ended card offers
  * Resume then Remove, in that order — the exact button label text (Testable UI Elements). */
 export type CardAction = "End" | "Resume" | "Remove";
+
+/** The action a card/mainhead/tile dispatches when its End/Resume/Remove/pin control
+ * fires — `features/actions.ts`'s dispatcher owns what each one actually does (open a
+ * confirm dialog, or call Resume/pin directly). One vocabulary for every surface that
+ * offers these controls, so a dispatcher never has to translate between a render-side
+ * label and its own action names. */
+export type SessionAction = "end" | "resume" | "remove" | "pin";
 
 // Plan rail-card-improvements REQ-14: the two activity-line texts a card renders,
 // `.activity.you` and `.activity.claude` — either or both may be `null`, which the
@@ -67,13 +75,20 @@ export function stateBadgeText(state: Session["state"]): string {
   return BADGE_TEXT[state];
 }
 
+/** Whether a Resume control should be enabled for this `claudeSessionId` — the one place
+ * that rule is written, shared by every rail/mainhead/tile/dead-surface Resume button
+ * (combined with `connected` where the caller has that too). */
+export function canResume(claudeSessionId: string | null): boolean {
+  return claudeSessionId !== null;
+}
+
 /** REQ-17/W3: why a Resume control is disabled, shared with render/mainhead.ts and
  * render/dead.ts (their `title`/`aria-description`) so the two surfaces never drift into
  * different wording for the same `409 not_resumable` cause. `null` when there is no
  * reason to give (session is alive, or `claudeSessionId` is bound) — callers clear the
  * attribute in that case rather than writing an empty string over it. */
 export function resumeDisabledReason(session: Session): string | null {
-  if (session.claudeSessionId === null)
+  if (!canResume(session.claudeSessionId))
     return "Can't resume — this session never started a Claude conversation.";
   return null;
 }
@@ -82,7 +97,11 @@ export function resumeDisabledReason(session: Session): string | null {
 // 'no signal yet'".
 const NO_SIGNAL_THRESHOLD_SECONDS = 10;
 
-function basename(path: string): string {
+/** The last non-empty path segment — shared with reader/paths.ts, which re-exports this
+ * for the reader's own file-path display. A trailing slash is stripped first, so a bare
+ * directory path (`session.directory` with no repo) still yields its own name rather than
+ * the whole path (`basename("/Users/bob/") === "bob"`, not `""`). */
+export function basename(path: string): string {
   const trimmed = path.replace(/\/+$/, "");
   const parts = trimmed.split("/");
   return parts[parts.length - 1] || path;
@@ -206,7 +225,7 @@ export function buildCardViewModel(
   // invariant), so the fallback below is defensive-only and never observed in practice.
   const timer =
     ended && session.endedAt
-      ? `ended ${formatEndedAge(session.endedAt, now)}`
+      ? `ended ${formatAge(session.endedAt, now)}`
       : formatTimer(session.stateSince, now);
 
   return {

@@ -1,9 +1,11 @@
-// Pure time formatters (docs/protocol.md Implementation Notes: "stateSince/
+// Pure time/number formatters (docs/protocol.md Implementation Notes: "stateSince/
 // attention.since are daemon truth; the ticking is rendering. Keep formatters pure for
 // Vitest."). Design-system §2: every value that changes over time gets tabular-nums —
-// enforced in CSS, not here, but these functions are what feeds those elements.
+// enforced in CSS, not here, but these functions are what feeds those elements. Also
+// holds the one gauge-warn threshold (`GAUGE_WARN_THRESHOLD`) every usage/context surface
+// shares, and `formatTokens`, since both travel with the readouts these formatters feed.
 
-function pad2(n: number): string {
+export function pad2(n: number): string {
   return n < 10 ? `0${n}` : `${n}`;
 }
 
@@ -30,7 +32,9 @@ export function formatTimer(sinceIso: string, now: Date): string {
   return `${Math.floor(seconds / 86400)}d`;
 }
 
-/** Coarse relative age for the launch modal's MRU list (ux-flows §1.1: "2m", "1h", "2d"). */
+/** Coarse relative age since `sinceIso`, in one bucket ("now", "2m", "1h", "2d") — the
+ * launch modal's MRU list (ux-flows §1.1), a session's ended-timer, and every other
+ * "how long ago" readout in the dashboard that isn't ticking-seconds precision. */
 export function formatAge(sinceIso: string, now: Date): string {
   const seconds = elapsedSeconds(sinceIso, now);
   if (seconds < 60) return "now";
@@ -39,31 +43,19 @@ export function formatAge(sinceIso: string, now: Date): string {
   return `${Math.floor(seconds / 86400)}d`;
 }
 
-/** REQ-9/REQ-10/REQ-13 (plan m4-reconcile): the coarse age since a session ended, in the
- * same buckets as `formatAge` ("now", "2m", "1h", "2d") — `endedAt` is only ever non-null
- * together with `alive:false` (kb:anchor/state.liveness's paired invariant), so callers never need to
- * special-case a null endedAt for a session they already know is dead. */
-export function formatEndedAge(endedAtIso: string, now: Date): string {
-  return formatAge(endedAtIso, now);
-}
-
-/** review m4-reconcile Major 6 / markdown-viewing cycle-1 Major 2: every caller that
- * composes "<age> ago" copy around a relative-age bucket must go through this instead of
- * appending " ago" directly — the sub-minute bucket is the literal string "now"
- * (format.test.ts:104 asserts this deliberately for `formatEndedAge`), and "now ago" is
- * ungrammatical on the plan's most common path (looking at a session, or a file, right
- * after the event). Originally written only for `formatEndedAgo`'s callers; the reader's
- * `changedText` (reader/freshness.ts) repeated the same "<age> ago" composition and hit
- * the same bug, so the fix now lives in one place a third caller can reuse instead of
- * re-deriving. */
+/** Every caller that composes "<age> ago" copy around `formatAge` must go through this
+ * instead of appending " ago" directly — the sub-minute bucket is the literal string
+ * "now" (format.test.ts asserts this deliberately), and "now ago" is ungrammatical on the
+ * dashboard's most common path (looking at a session, or a file, right after the event). */
 export function agoSuffix(age: string): string {
   return age === "now" ? "now" : `${age} ago`;
 }
 
-/** Mainhead, `.endbar`/`.endcap` and the tile footer age readout all render this instead
- * of composing their own "${formatEndedAge(...)} ago" string. */
-export function formatEndedAgo(endedAtIso: string, now: Date): string {
-  return agoSuffix(formatEndedAge(endedAtIso, now));
+/** `agoSuffix(formatAge(...))` — mainhead, `.endbar`/`.endcap`, the tile footer, the
+ * reader's changed-file readout and the update checker's "checked <age> ago" line all
+ * render this instead of composing the pair themselves. */
+export function ageAgo(sinceIso: string, now: Date): string {
+  return agoSuffix(formatAge(sinceIso, now));
 }
 
 // The single ≥60%-used threshold shared by every gauge surface —

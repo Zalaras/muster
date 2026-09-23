@@ -9,7 +9,7 @@
 // mount/dispose diff shape — the render phase below is the only place a `ReaderInstance`
 // is ever constructed or disposed.
 import { fetchReaderFile, fetchReaderListing, type ReaderListing } from "../api/reader";
-import type { App, RenderFrame } from "../app";
+import type { App, ConnectionStatus, RenderFrame } from "../app";
 import { requireElement } from "../dom";
 import type { DocChanged } from "../protocol/messages";
 import type { Session } from "../protocol/session";
@@ -20,8 +20,8 @@ import { mermaidThemeFor } from "../reader/mermaid";
 import { classifyDocChanged, deriveNotice, UNKNOWN_SESSION_TEXT } from "../reader/notice";
 import { basename, loadingText } from "../reader/paths";
 import { buildTree, filterTree, flattenTree, type FlatTreeEntry } from "../reader/tree";
+import { visibleIds } from "../sessions/live";
 import { renderDiagrams, rerenderDiagrams } from "../render/diagrams";
-import type { ConnectionStatus } from "../render/masthead";
 import {
   attachScrollSpy,
   buildReader,
@@ -516,17 +516,14 @@ class ReaderInstance {
   }
 }
 
-/** `visibleDocsIds` mirrors `features/surfaces.ts`'s own `visibleSessionIds` — each
- * controller computes its own view-scoped visibility rather than sharing one (W6/INV-4:
- * no controller imports a sibling). */
+/** The visible ids (`sessions/live.ts`'s `visibleIds` — the same rule
+ * `features/surfaces.ts`'s terminal visibility uses) that also currently have `docs`
+ * selected as their surface. */
 function visibleDocsIds(app: App, deps: ReaderDeps): readonly number[] {
   const state = deps.getSurfaces().state();
-  if (app.state.view !== "focus") {
-    return deps.tilesLive().filter((id) => getSurfaceState(state, id).selected === "docs");
-  }
-  const id = app.state.focusedId;
-  if (id === null) return [];
-  return getSurfaceState(state, id).selected === "docs" ? [id] : [];
+  return visibleIds(app.state.view, app.state.focusedId, deps.tilesLive()).filter(
+    (id) => getSurfaceState(state, id).selected === "docs",
+  );
 }
 
 export function initReader(

@@ -1,8 +1,9 @@
 // Tile membership + ordering logic for the Tiles view (plan m2-terminal, REQ-8/REQ-11 —
 // sticky live-tile membership over top-N-by-attention; plan move-tiles REQ-1/REQ-2/REQ-3
-// — the grid is slot-stable and user-orderable). Pure, no DOM and no socket —
-// features/tiles.ts is the only caller (docs/conventions.md: keep state-derivation logic
-// in pure modules separate from DOM code).
+// — the grid is slot-stable and user-orderable). Pure, no DOM and no socket
+// (docs/conventions.md: keep state-derivation logic in pure modules separate from DOM
+// code). `features/tiles.ts` is the main caller for membership/reorder; `visibleIds`
+// below is also called by `features/surfaces.ts` and `features/reader.ts`.
 //
 // Sticky rule (plan "Two structural decisions ... 2"): the live set is recomputed to
 // top-N-by-attention only at view entry (`initialLive`) and density change
@@ -18,12 +19,28 @@
 // ids are members (the demoted slot on promote, which members survive a shrink, which
 // members backfill a grow), never to reorder the array itself. The only way the array's
 // order changes is `moveTile`, which is a user drag.
-import type { Density } from "../protocol/prefs";
+import type { Density, View } from "../protocol/prefs";
 import type { Session } from "../protocol/session";
+import { insertAtDragTarget } from "./reorder";
 import { sortSessions } from "./sort";
 
 export function densityCount(density: Density): number {
   return density === "3x2" ? 6 : 4;
+}
+
+/** The session ids the current view can show a surface for at all — every live tile in
+ * Tiles, or just the focused id (if any) in Focus. Both `features/surfaces.ts`'s terminal
+ * visibility and `features/reader.ts`'s docs visibility are this same rule (docs and
+ * shell surfaces differ only in which of a visible id's surfaces they mount), so both
+ * controllers call this rather than each re-deriving it — no controller may import
+ * another, but both already depend on `sessions/`. */
+export function visibleIds(
+  view: View,
+  focusedId: number | null,
+  tilesLive: readonly number[],
+): readonly number[] {
+  if (view !== "focus") return tilesLive;
+  return focusedId !== null ? [focusedId] : [];
 }
 
 function sortedIds(sessions: readonly Session[]): number[] {
@@ -108,25 +125,11 @@ export function applyDensity(
 }
 
 /**
- * Pure reorder (plan move-tiles REQ-3): removes `draggedId` and reinserts it at
- * `targetId`'s current index (insert-and-shift — see plan edge case 2 for the forward/
- * backward worked examples). Identity (same contents, new array) when the two ids are
- * equal or either is not a member of `live` — a drop on self, a departed drag source, or
- * a departed drop target are all no-ops (plan edge cases 1/6).
+ * Pure reorder: `sessions/reorder.ts`'s `insertAtDragTarget` (also `railorder.ts`'s
+ * `moveCard`'s reorder), applied to plain ids. Identity (same contents, new array) when
+ * the two ids are equal or either is not a member of `live` — a drop on self, a departed
+ * drag source, or a departed drop target are all no-ops (plan move-tiles edge cases 1/6).
  */
 export function moveTile(live: readonly number[], draggedId: number, targetId: number): number[] {
-  if (draggedId === targetId || !live.includes(draggedId) || !live.includes(targetId)) {
-    return [...live];
-  }
-  // Target's index must be read from the ORIGINAL array, before the dragged id is
-  // removed. Removing it first (and indexing into the shortened array) shifts every
-  // index after the dragged id's original slot down by one, which only happens to be
-  // harmless for backward drags (dragged id after target — nothing before the target
-  // moves) but silently lands forward drags one slot too early (dragged id before
-  // target — the removal shifts the target's own index down by one before it's read).
-  const targetIndex = live.indexOf(targetId);
-  const withoutDragged = live.filter((id) => id !== draggedId);
-  const result = [...withoutDragged];
-  result.splice(targetIndex, 0, draggedId);
-  return result;
+  return insertAtDragTarget(live, (id) => id, draggedId, targetId) ?? [...live];
 }

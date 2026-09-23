@@ -8,8 +8,8 @@ import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { locateDroppedFile } from "../api/terminal";
+import { DRAG_MIME } from "../dragmime";
 import type { Session } from "../protocol/session";
-import { DRAG_MIME } from "../render/dragreorder";
 import { wsUrl } from "../ws";
 import {
   classifyApiFailure,

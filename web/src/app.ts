@@ -2,7 +2,6 @@
 // AppState fields more than one feature reads, a typed event bus, the ordered render
 // phases, and render() itself. Pure enough to unit-test (no DOM) — every feature module
 // builds on top of this rather than main.ts wiring them together directly.
-import type { ConnectionStatus } from "./render/masthead";
 import type { DocChanged, Snapshot } from "./protocol/messages";
 import {
   type Density,
@@ -18,6 +17,11 @@ import type { ClaudeFamily } from "./protocol/theme";
 import type { UpdateInfo } from "./protocol/update";
 import type { Usage } from "./protocol/usage";
 import { SessionStore } from "./sessions/store";
+
+/** The three-way WS connection state — `features/connection.ts`'s domain vocabulary,
+ * used widely enough (this module, the reader, the pop-out) that it lives on the seam
+ * rather than in a render module none of those other callers otherwise depend on. */
+export type ConnectionStatus = "connecting" | "connected" | "reconnecting";
 
 /** Fields more than one feature reads. Each is written by exactly one feature (noted per
  * field) — everything else stays a closure variable inside the feature that owns it. */

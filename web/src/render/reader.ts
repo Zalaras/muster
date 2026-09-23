@@ -14,6 +14,7 @@
 // structurally required (an expand/collapse, a filter, or the file listing changing under
 // a focused button), focus is restored to the equivalent node by its stable key (`path` /
 // `headingId`) after the rebuild.
+import { requireElement } from "../dom";
 import { UNKNOWN_SESSION_TEXT } from "../reader/notice";
 import { loadingText } from "../reader/paths";
 import type { FlatTreeEntry } from "../reader/tree";
@@ -129,12 +130,6 @@ export interface ReaderRefs {
   callbacks: ReaderCallbacks;
 }
 
-function requireEl<T extends Element>(root: ParentNode, selector: string): T {
-  const el = root.querySelector<T>(selector);
-  if (!el) throw new Error(`reader markup is missing ${selector}`);
-  return el;
-}
-
 /** Clones `#reader-template` and wires the listeners that never change for the life of
  * this instance — everything a rebuildable tree/outline button needs is wired fresh each
  * time it's (re)built, below. */
@@ -145,31 +140,31 @@ export function buildReader(template: HTMLTemplateElement, callbacks: ReaderCall
 
   const refs: ReaderRefs = {
     root,
-    badge: requireEl(root, ".docbar > .badge"),
-    fname: requireEl(root, ".docbar > .fname"),
-    path: requireEl(root, ".docbar > .path"),
-    chg: requireEl(root, ".docbar > .chg"),
-    chgText: requireEl(root, ".chgtext"),
-    popOut: requireEl<HTMLAnchorElement>(root, ".docbar > .ib"),
-    navToggle: requireEl<HTMLButtonElement>(root, '[data-role="arr-nav"]'),
-    notice: requireEl(root, ".reader-notice"),
-    body: requireEl(root, "article.md"),
-    nav: requireEl(root, "nav.rnav"),
-    planHeader: requireEl(root, '[data-role="plan-header"]'),
-    planSlot: requireEl(root, '[data-role="plan-slot"]'),
-    filesToggle: requireEl<HTMLButtonElement>(root, '[data-role="files-toggle"]'),
-    filesDir: requireEl(root, '[data-role="files-toggle"] .dir'),
-    filter: requireEl<HTMLInputElement>(root, ".filter"),
-    tree: requireEl(root, '[data-role="tree"]'),
-    outlineToggle: requireEl<HTMLButtonElement>(root, '[data-role="outline-toggle"]'),
-    outline: requireEl(root, '[data-role="outline"]'),
-    diagramDialog: requireEl<HTMLDialogElement>(root, "dialog.diagram-modal"),
-    diagramStage: requireEl(root, ".diagram-stage"),
-    diagramCanvas: requireEl(root, ".diagram-canvas"),
-    diagramZoomIn: requireEl<HTMLButtonElement>(root, ".diagram-zoom-in"),
-    diagramZoomOut: requireEl<HTMLButtonElement>(root, ".diagram-zoom-out"),
-    diagramZoomReset: requireEl<HTMLButtonElement>(root, ".diagram-zoom-reset"),
-    diagramClose: requireEl<HTMLButtonElement>(root, ".diagram-close"),
+    badge: requireElement(".docbar > .badge", root),
+    fname: requireElement(".docbar > .fname", root),
+    path: requireElement(".docbar > .path", root),
+    chg: requireElement(".docbar > .chg", root),
+    chgText: requireElement(".chgtext", root),
+    popOut: requireElement<HTMLAnchorElement>(".docbar > .ib", root),
+    navToggle: requireElement<HTMLButtonElement>('[data-role="arr-nav"]', root),
+    notice: requireElement(".reader-notice", root),
+    body: requireElement("article.md", root),
+    nav: requireElement("nav.rnav", root),
+    planHeader: requireElement('[data-role="plan-header"]', root),
+    planSlot: requireElement('[data-role="plan-slot"]', root),
+    filesToggle: requireElement<HTMLButtonElement>('[data-role="files-toggle"]', root),
+    filesDir: requireElement('[data-role="files-toggle"] .dir', root),
+    filter: requireElement<HTMLInputElement>(".filter", root),
+    tree: requireElement('[data-role="tree"]', root),
+    outlineToggle: requireElement<HTMLButtonElement>('[data-role="outline-toggle"]', root),
+    outline: requireElement('[data-role="outline"]', root),
+    diagramDialog: requireElement<HTMLDialogElement>("dialog.diagram-modal", root),
+    diagramStage: requireElement(".diagram-stage", root),
+    diagramCanvas: requireElement(".diagram-canvas", root),
+    diagramZoomIn: requireElement<HTMLButtonElement>(".diagram-zoom-in", root),
+    diagramZoomOut: requireElement<HTMLButtonElement>(".diagram-zoom-out", root),
+    diagramZoomReset: requireElement<HTMLButtonElement>(".diagram-zoom-reset", root),
+    diagramClose: requireElement<HTMLButtonElement>(".diagram-close", root),
     callbacks,
   };
 

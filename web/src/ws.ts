@@ -32,7 +32,6 @@ export function backoffDelay(attempt: number): number {
 
 export interface WsClientHandlers {
   onConnecting?: () => void;
-  onConnected?: () => void;
   onHello?: (hello: Hello) => void;
   onSnapshot?: (snapshot: Snapshot) => void;
   onSessionUpsert?: (session: Session) => void;
@@ -69,7 +68,6 @@ export class WsClient {
   private readonly socketFactory: SocketFactory;
   private socket: SocketLike | null = null;
   private attempt = 0;
-  private stopped = false;
 
   constructor(
     url: string,
@@ -82,24 +80,13 @@ export class WsClient {
   }
 
   start(): void {
-    this.stopped = false;
     this.connect();
-  }
-
-  stop(): void {
-    this.stopped = true;
-    this.socket?.close();
-    this.socket = null;
   }
 
   private connect(): void {
     this.handlers.onConnecting?.();
     const socket = this.socketFactory(this.url);
     this.socket = socket;
-
-    socket.addEventListener("open", () => {
-      this.handlers.onConnected?.();
-    });
 
     socket.addEventListener("message", (event: MessageEvent) => {
       this.handleRawMessage(event.data);
@@ -177,11 +164,8 @@ export class WsClient {
   }
 
   private scheduleReconnect(): void {
-    if (this.stopped) return;
     const delay = backoffDelay(this.attempt);
     this.attempt += 1;
-    setTimeout(() => {
-      if (!this.stopped) this.connect();
-    }, delay);
+    setTimeout(() => this.connect(), delay);
   }
 }

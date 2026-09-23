@@ -8,8 +8,8 @@
 // *when* to fetch is features/actions.ts's job (`ensurePaneFetch`/`paneState`).
 import { fetchPane } from "../api/sessions";
 import type { Session } from "../protocol/session";
-import { resumeDisabledReason, stateBadgeText } from "../sessions/card";
-import { formatEndedAgo } from "../sessions/format";
+import { canResume, resumeDisabledReason, stateBadgeText } from "../sessions/card";
+import { ageAgo } from "../sessions/format";
 import { showNotice } from "../terminal/notice";
 
 export interface DeadSurfaceRefs {
@@ -38,7 +38,11 @@ export type PaneState =
   | { status: "ok"; text: string; capturedAt: string }
   | { status: "missing" };
 
-function refsFromRoot(root: HTMLElement): DeadSurfaceRefs {
+/** Reads refs off an already-mounted `.dead-surface` root (Focus's static `#dead-surface`,
+ * or a tile's previously-cloned instance) — never re-clones, mirroring render/tiles.ts's
+ * `updateTileChrome` convention of requerying existing chrome rather than caching it. Also
+ * `buildDeadSurfaceFromTemplate`'s own querying step, once its clone has a root to query. */
+export function collectDeadSurfaceRefs(root: HTMLElement): DeadSurfaceRefs {
   const endbarEl = root.querySelector<HTMLElement>(".endbar");
   const snapshotEl = root.querySelector<HTMLElement>("pre.snapshot");
   const capBodyEl = root.querySelector<HTMLElement>(".endcap-text");
@@ -50,20 +54,13 @@ function refsFromRoot(root: HTMLElement): DeadSurfaceRefs {
   return { root, endbarEl, snapshotEl, capBodyEl, resumeBtn, noticeEl };
 }
 
-/** Reads refs off an already-mounted `.dead-surface` root (Focus's static `#dead-surface`,
- * or a tile's previously-cloned instance) — never re-clones, mirroring render/tiles.ts's
- * `updateTileChrome` convention of requerying existing chrome rather than caching it. */
-export function collectDeadSurfaceRefs(root: HTMLElement): DeadSurfaceRefs {
-  return refsFromRoot(root);
-}
-
 /** Clones a fresh `.dead-surface` out of `#dead-surface-template` — the one path that
  * builds new DOM, used only the first time a given tile goes dead. */
 export function buildDeadSurfaceFromTemplate(template: HTMLTemplateElement): DeadSurfaceRefs {
   const fragment = template.content.cloneNode(true) as DocumentFragment;
   const root = fragment.querySelector<HTMLElement>(".dead-surface");
   if (!root) throw new Error("dead-surface-template is missing its .dead-surface root");
-  return refsFromRoot(root);
+  return collectDeadSurfaceRefs(root);
 }
 
 /** REQ-13's exact copy, transcribed from the mockups (Implementation Notes: "do not
@@ -79,12 +76,12 @@ export function renderDeadSurface(
   now: Date,
   connected: boolean,
 ): void {
-  // review m4-reconcile Major 6 + Minor 7: `formatEndedAgo` avoids "ended now ago", and
-  // — mirroring how card.ts/tiles.ts already treat this same defensive branch — a null
-  // `endedAt` renders no age clause at all rather than the confident-but-wrong "just now"
-  // (`endedAt` and `alive:false` are a paired invariant per kb:anchor/state.liveness, so this branch
-  // is defensive, not a real path, but it should stay honest if it's ever hit).
-  const age = session.endedAt ? formatEndedAgo(session.endedAt, now) : null;
+  // `ageAgo` avoids "ended now ago", and — mirroring how card.ts/tiles.ts already treat
+  // this same defensive branch — a null `endedAt` renders no age clause at all rather than
+  // the confident-but-wrong "just now" (`endedAt` and `alive:false` are a paired invariant
+  // per kb:anchor/state.liveness, so this branch is defensive, not a real path, but it
+  // should stay honest if it's ever hit).
+  const age = session.endedAt ? ageAgo(session.endedAt, now) : null;
   const badge = stateBadgeText(session.state);
   refs.endbarEl.textContent = age
     ? `ended ${age} · last state ${badge} · last captured screen, not a live client`
@@ -94,9 +91,8 @@ export function renderDeadSurface(
     // REQ-19 (nice-to-have) / design-system §6.8: possibly-stale state shows its age —
     // the snapshot can be a few seconds older than `age` above (End freezes the ended
     // timer, but the capture that produced this text was taken slightly earlier still).
-    // `formatEndedAgo` is the same "never 'now ago'" helper the age clause above already
-    // uses, so this can't reintroduce Major 6's bug.
-    refs.endbarEl.textContent += ` · captured ${formatEndedAgo(pane.capturedAt, now)}`;
+    // `ageAgo` is the same "never 'now ago'" helper the age clause above already uses.
+    refs.endbarEl.textContent += ` · captured ${ageAgo(pane.capturedAt, now)}`;
     refs.snapshotEl.textContent = pane.text;
     refs.capBodyEl.textContent = age ? `${age} · last state: ${badge}` : `last state: ${badge}`;
   } else if (pane.status === "missing") {
@@ -113,7 +109,7 @@ export function renderDeadSurface(
 
   refs.resumeBtn.dataset["action"] = "resume";
   refs.resumeBtn.dataset["id"] = String(session.id);
-  refs.resumeBtn.disabled = !connected || session.claudeSessionId === null;
+  refs.resumeBtn.disabled = !connected || !canResume(session.claudeSessionId);
   // REQ-17/W3: a disabled-for-no-claudeSessionId Resume says why, not just sits greyed.
   refs.resumeBtn.title = resumeDisabledReason(session) ?? "";
 }

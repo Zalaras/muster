@@ -1,12 +1,8 @@
 // Pure path/text derivations for the reader (plan markdown-render-fixes REQ-13) — no DOM,
 // Vitest-tested directly.
+import { basename } from "../sessions/card";
 
-/** The last path segment; falls back to `path` itself for a path with no `/` (matches the
- * shape `features/reader.ts` used inline before this module existed). */
-export function basename(path: string): string {
-  const parts = path.split("/");
-  return parts[parts.length - 1] || path;
-}
+export { basename };
 
 /** The reader's "loading" text — the status line's `loading <basename>…` while a
  * user-initiated open of `path` is in flight (REQ-8), or the bare `loading…` (`path`

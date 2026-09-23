@@ -9,12 +9,9 @@
 // `writtenAt`/`docChanged.at` value (they're the same timestamp, one write log): a later
 // write to the same path gets a new value and lights the dot again.
 import { isRecord } from "../protocol/decode";
+import { readJson, writeJson, type StorageLike } from "../storage";
 
-export interface StorageLike {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-  removeItem(key: string): void;
-}
+export type { StorageLike };
 
 export interface ReaderMemory {
   openPath: string | null;
@@ -32,29 +29,21 @@ function isClearedAtShape(value: unknown): value is Record<string, string> {
   return Object.values(value).every((v) => typeof v === "string");
 }
 
-/** Every access is try/caught: a throwing storage (private mode, disabled storage) or a
- * foreign JSON shape (an older build, hand-edited storage) yields the empty default
- * rather than throwing — W7. */
+function parseMemory(value: unknown): ReaderMemory | null {
+  if (!isRecord(value)) return null;
+  const openPath = typeof value["openPath"] === "string" ? value["openPath"] : null;
+  const clearedAt = isClearedAtShape(value["clearedAt"]) ? value["clearedAt"] : {};
+  return { openPath, clearedAt };
+}
+
+/** A throwing storage (private mode, disabled storage) or a foreign JSON shape (an older
+ * build, hand-edited storage) yields the empty default rather than throwing — W7. */
 export function loadMemory(storage: StorageLike, sessionId: number): ReaderMemory {
-  try {
-    const raw = storage.getItem(keyFor(sessionId));
-    if (!raw) return EMPTY_MEMORY;
-    const parsed: unknown = JSON.parse(raw);
-    if (!isRecord(parsed)) return EMPTY_MEMORY;
-    const openPath = typeof parsed["openPath"] === "string" ? parsed["openPath"] : null;
-    const clearedAt = isClearedAtShape(parsed["clearedAt"]) ? parsed["clearedAt"] : {};
-    return { openPath, clearedAt };
-  } catch {
-    return EMPTY_MEMORY;
-  }
+  return readJson(storage, keyFor(sessionId), parseMemory, EMPTY_MEMORY);
 }
 
 export function saveMemory(storage: StorageLike, sessionId: number, memory: ReaderMemory): void {
-  try {
-    storage.setItem(keyFor(sessionId), JSON.stringify(memory));
-  } catch {
-    // Private mode / disabled storage / quota — memory just doesn't survive a reload.
-  }
+  writeJson(storage, keyFor(sessionId), memory);
 }
 
 /** REQ-17/W4: clears `muster.reader.<id>` on `sessionRemoved` (features/actions.ts's

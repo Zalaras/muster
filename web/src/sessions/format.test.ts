@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   agoSuffix,
+  ageAgo,
   elapsedSeconds,
   formatAge,
-  formatEndedAge,
-  formatEndedAgo,
   formatResets,
   formatTimer,
   formatTokens,
@@ -75,7 +74,7 @@ describe("formatTimer", () => {
   });
 });
 
-describe("formatAge", () => {
+describe("formatAge (REQ-9/REQ-10/REQ-13, plan m4-reconcile): coarse buckets, one function for both a session's live age and its endedAt age", () => {
   const since = "2026-08-22T00:00:00Z";
 
   it.each([
@@ -90,33 +89,16 @@ describe("formatAge", () => {
     const now = new Date(new Date(since).getTime() + seconds * 1000);
     expect(formatAge(since, now)).toBe(expected);
   });
-});
 
-describe("formatEndedAge (REQ-9/REQ-10/REQ-13, plan m4-reconcile): same coarse buckets as formatAge", () => {
-  const endedAt = "2026-08-22T00:00:00Z";
-
-  it.each([
-    [0, "now"],
-    [59, "now"],
-    [60, "1m"],
-    [3599, "59m"],
-    [3600, "1h"],
-    [86399, "23h"],
-    [86400, "1d"],
-  ])("formats %d elapsed seconds since endedAt as %s", (seconds, expected) => {
-    const now = new Date(new Date(endedAt).getTime() + seconds * 1000);
-    expect(formatEndedAge(endedAt, now)).toBe(expected);
-  });
-
-  it("never shows a negative age for an endedAt timestamp momentarily in the future (clock race)", () => {
+  it("never shows a negative age for a timestamp momentarily in the future (clock race)", () => {
     const now = new Date("2026-08-22T00:00:00Z");
     const future = "2026-08-22T00:00:05Z";
-    expect(formatEndedAge(future, now)).toBe("now");
+    expect(formatAge(future, now)).toBe("now");
   });
 
-  it("returns 'now' for an unparsable endedAt rather than throwing", () => {
-    expect(() => formatEndedAge("not-a-date", new Date())).not.toThrow();
-    expect(formatEndedAge("not-a-date", new Date("2026-08-22T00:00:00Z"))).toBe("now");
+  it("returns 'now' for an unparsable timestamp rather than throwing", () => {
+    expect(() => formatAge("not-a-date", new Date())).not.toThrow();
+    expect(formatAge("not-a-date", new Date("2026-08-22T00:00:00Z"))).toBe("now");
   });
 });
 
@@ -130,17 +112,17 @@ describe("agoSuffix (review markdown-viewing cycle-1 Major 2): the shared '<age>
   });
 });
 
-describe("formatEndedAgo: agoSuffix applied to formatEndedAge", () => {
+describe("ageAgo: agoSuffix applied to formatAge", () => {
   it("reads 'now', never 'now ago', for a sub-minute endedAt", () => {
     const endedAt = "2026-08-22T00:00:00Z";
     const now = new Date("2026-08-22T00:00:05Z");
-    expect(formatEndedAgo(endedAt, now)).toBe("now");
+    expect(ageAgo(endedAt, now)).toBe("now");
   });
 
   it("reads '<age> ago' once a minute has elapsed", () => {
     const endedAt = "2026-08-22T00:00:00Z";
     const now = new Date("2026-08-22T00:02:00Z");
-    expect(formatEndedAgo(endedAt, now)).toBe("2m ago");
+    expect(ageAgo(endedAt, now)).toBe("2m ago");
   });
 });
 

@@ -14,6 +14,7 @@ import { captureIssueSnapshot, fileIssue, type IssueCapture } from "../api/issue
 import type { ApiErrorBody } from "../api/http";
 import type { App } from "../app";
 import { requireElement } from "../dom";
+import { pad2 } from "../sessions/format";
 import { orderRail } from "../sessions/sort";
 import type { Session } from "../protocol/session";
 
@@ -74,8 +75,7 @@ function composePreview(note: string, snapshotMarkdown: string): string {
 function formatCaptureTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number): string => (n < 10 ? `0${n}` : `${n}`);
-  return `captured ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}Z`;
+  return `captured ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}:${pad2(d.getUTCSeconds())}Z`;
 }
 
 /** Testable UI Elements: `<code> — <message>` verbatim (em dash, same convention as
@@ -88,7 +88,7 @@ export function renderIssueButton(el: HTMLButtonElement, connected: boolean): vo
   el.disabled = !connected;
 }
 
-export function initIssueDialog(elements: IssueDialogElements): IssueDialogController {
+function initIssueDialog(elements: IssueDialogElements): IssueDialogController {
   // The one held capture (or its absence) this open/selection is showing. `requestId`
   // guards a session-select change (or a fresh open) racing a still-in-flight capture
   // fetch — mirrors features/launch.ts's `browseRequestId`.
