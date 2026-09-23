@@ -14,6 +14,9 @@
 #   4. No spec asserts the terminal pane's "session ended" overlay — a ~25 ms transient the
 #      alive:false render pass replaces with the dead surface (terminal.spec.ts E12 flaked on
 #      it for weeks); assert #dead-surface / .dead-surface .endcap and the socket tracker.
+#   5. Biome lint and format over e2e/ — `make web-lint` checks the same files, but an agent
+#      that runs only the e2e suite never meets it until the pipeline's wave gate (frontmatter
+#      review cycle 1: a one-line format diff cost a round-trip after the sweep was green).
 # Comment-only lines are skipped (a leading // or *), helpers/ is exempt by construction.
 set -u
 cd "$(dirname "$0")/.." || exit 2
@@ -43,6 +46,8 @@ report "fixed sleep in a spec — use a web-first expect/expect.poll, or settleF
 # terminalOverlay(; the second alternative catches a raw getByText on the same text.
 hits=$(for f in e2e/*.spec.ts; do code_lines '(terminalOverlay\(.*[^[:alnum:]]ended|getByText\(/[^/]*session ended)' "$f"; done)
 report "asserting the transient \"session ended\" overlay — assert the durable dead surface instead: #dead-surface (Focus) / .dead-surface .endcap (tile), terminalRegion(...).toHaveCount(0), TerminalSocketTracker for the socket" "$hits"
+
+hits=$(npx --no-install biome check e2e 2>&1) || report "biome lint/format over e2e/ — run \`npx biome check --write e2e\` from web/" "$hits"
 
 if [ "$fails" -gt 0 ]; then
   echo "e2e-lint: $fails rule(s) violated"

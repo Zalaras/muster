@@ -106,6 +106,7 @@ type readerManager interface {
 	Get(id int64) (*session.Session, bool)
 	SetTranscript(ctx context.Context, id int64, claudeSessionID, path string) (bool, error)
 	SetPlan(ctx context.Context, id int64, claudeSessionID, path string, exists bool) (*session.Session, bool, error)
+	ApplyPlanScan(ctx context.Context, id int64, claudeSessionID, foundPath string) (*session.Session, bool, error)
 }
 
 // readerFeature owns the reader's two GETs and the docChanged/plan-scan side effects
@@ -214,9 +215,15 @@ func readerPathQualifies(dir, planPath, path string) bool {
 	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
-// scanPlan runs REQ-16's transcript scan and persists the result via SetPlan, which
-// itself enforces REQ-26/INV-8's claudeSessionID gate. transcriptPath == "" is a no-op
-// (nothing to scan yet).
+// scanPlan runs REQ-16's transcript scan and hands its result to
+// Manager.ApplyPlanScan, which is the sole place REQ-8/D7's sticky-once-named
+// retention rule (kb:adr/reader-plan-sticky-once-named) is decided — the retain-or-find
+// choice, the exists stat and the write all happen inside one Manager.mu critical
+// section there, so this function only ever reports what the scan found, never what the
+// session currently holds. ApplyPlanScan itself enforces REQ-26/INV-8's
+// claudeSessionID gate. transcriptPath == "" is a no-op (nothing to scan yet); a scan
+// whose transcript is missing or names no plan also passes foundPath == "" — LocatePlanFile's
+// ErrNotExist branch returns a zero PlanFile, not an error.
 func (f *readerFeature) scanPlan(ctx context.Context, sessionID int64, claudeSessionID, transcriptPath string) {
 	if transcriptPath == "" {
 		return
@@ -226,13 +233,8 @@ func (f *readerFeature) scanPlan(ctx context.Context, sessionID int64, claudeSes
 		f.log.Debug().Err(err).Int64("session_id", sessionID).Msg("reader: scanning transcript for plan failed")
 		return
 	}
-	exists := false
-	if pf.Path != "" {
-		if info, statErr := os.Stat(pf.Path); statErr == nil && !info.IsDir() {
-			exists = true
-		}
-	}
-	if _, _, err := f.manager.SetPlan(ctx, sessionID, claudeSessionID, pf.Path, exists); err != nil && !errors.Is(err, session.ErrUnknownSession) {
+
+	if _, _, err := f.manager.ApplyPlanScan(ctx, sessionID, claudeSessionID, pf.Path); err != nil && !errors.Is(err, session.ErrUnknownSession) {
 		f.log.Warn().Err(err).Int64("session_id", sessionID).Msg("reader: persisting plan failed")
 	}
 }

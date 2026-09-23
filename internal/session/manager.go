@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -993,7 +994,10 @@ func (m *Manager) SetTranscript(ctx context.Context, id int64, claudeSessionID, 
 // broadcasting a sessionUpsert only when path or exists actually changed. Refused (no
 // persist, changed=false, the session's current snapshot returned) when
 // claudeSessionID no longer names id's current binding (REQ-26/INV-8) — a straggler's
-// scan or write must never move the plan. path == "" is the wire plan:null.
+// scan or write must never move the plan. path == "" is the wire plan:null. Callers
+// that already know the real path to write (observeWrite's exists-true flip) call this
+// directly; a transcript scan that may find nothing goes through ApplyPlanScan instead,
+// which is the only place the sticky-once-named retention rule is decided.
 func (m *Manager) SetPlan(ctx context.Context, id int64, claudeSessionID, path string, exists bool) (*Session, bool, error) {
 	m.mu.Lock()
 	sess, ok := m.sessions[id]
@@ -1002,6 +1006,61 @@ func (m *Manager) SetPlan(ctx context.Context, id int64, claudeSessionID, path s
 		return nil, false, ErrUnknownSession
 	}
 	if sess.ClaudeSessionID != claudeSessionID || (sess.PlanPath == path && sess.PlanExists == exists) {
+		snapshot := sess.Clone()
+		m.mu.Unlock()
+		return snapshot, false, nil
+	}
+	sess.PlanPath = path
+	sess.PlanExists = exists
+	row := sessionToRow(sess)
+	snapshot := sess.Clone()
+	m.mu.Unlock()
+
+	if err := m.store.UpdateSession(ctx, row); err != nil {
+		return nil, false, fmt.Errorf("persisting plan for session %d: %w", id, err)
+	}
+	m.broadcast(snapshot)
+	return snapshot, true, nil
+}
+
+// ApplyPlanScan commits one transcript scan's result (REQ-8/D7,
+// kb:adr/reader-plan-sticky-once-named) — the sole place the sticky-once-named
+// retention rule is decided. foundPath == "" is a scan that found nothing (a planless
+// transcript, or one that no longer exists); foundPath != "" is a scan that named a
+// plan and always replaces. The retain-or-replace decision, the stat that re-derives
+// exists, and the write all happen inside one Manager.mu critical section, so a scan
+// that finds nothing can never read a plan another goroutine is about to commit, decide
+// to keep "no plan", and then write that decision over the newer one — the read of the
+// currently-committed PlanPath and the write of the final PlanPath/PlanExists are
+// atomic with each other. The stat is a local os.Stat, so it runs under the lock rather
+// than in a separate step that could go stale between reading and committing. Refused
+// (no persist, changed=false) when claudeSessionID no longer names id's current binding
+// (REQ-26/INV-8), same as SetPlan.
+func (m *Manager) ApplyPlanScan(ctx context.Context, id int64, claudeSessionID, foundPath string) (*Session, bool, error) {
+	m.mu.Lock()
+	sess, ok := m.sessions[id]
+	if !ok {
+		m.mu.Unlock()
+		return nil, false, ErrUnknownSession
+	}
+	if sess.ClaudeSessionID != claudeSessionID {
+		snapshot := sess.Clone()
+		m.mu.Unlock()
+		return snapshot, false, nil
+	}
+
+	path := foundPath
+	if path == "" {
+		path = sess.PlanPath
+	}
+	exists := false
+	if path != "" {
+		if info, statErr := os.Stat(path); statErr == nil && !info.IsDir() {
+			exists = true
+		}
+	}
+
+	if sess.PlanPath == path && sess.PlanExists == exists {
 		snapshot := sess.Clone()
 		m.mu.Unlock()
 		return snapshot, false, nil

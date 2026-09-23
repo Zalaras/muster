@@ -177,6 +177,64 @@ export function popOutURL(id: number, path: string): string {
   return `/doc.html?session=${id}&path=${encodeURIComponent(path)}`;
 }
 
+// ── Frontmatter (plan frontmatter) ──────────────────────────────────────────────────────
+//
+// Locators transcribed from the plan's Testable UI Elements table and DOM sketch: the
+// flat-block table is a native `<table aria-label="Frontmatter">` with `<th scope="row">`
+// key cells (role `rowheader`) and `<td>` value cells (role `cell`); the fallback block is
+// `pre.frontmatter > code`, which — like a `<details><summary>` — carries no implicit
+// role, so it's a plain CSS locator rather than a `getByRole` query.
+
+/** The frontmatter key/value table (REQ-2, REQ-5) — always the body's first element when
+ * present (assert via `renderedBody(region).evaluate(el => el.firstElementChild?.tagName)`,
+ * since a role query alone can't answer position). Absent for the raw-fallback or empty
+ * shapes, or when the file carries no frontmatter at all. */
+export function frontmatterTable(region: Locator): Locator {
+  return renderedBody(region).getByRole("table", { name: "Frontmatter" });
+}
+
+/** Every row's key cell in document order — the REQ-2 "one row per key, in file order"
+ * oracle without pinning a specific key. */
+export function frontmatterKeyCells(region: Locator): Locator {
+  return frontmatterTable(region).getByRole("rowheader");
+}
+
+/** A frontmatter row, scoped by its key cell's exact text — duplicate keys (W8) each get
+ * their own `<tr>`, so this can match more than one row and callers needing a single row
+ * should further scope with `.first()`/`.nth()`. `filter({has})` re-applies the inner
+ * locator's full selector chain scoped to each `tr` candidate, so the inner locator must be
+ * rooted at `page` rather than at any ancestor of the `tr` — `region` or `table` both make
+ * the reapplied selector look for a nested match inside the `<tr>`, which never exists. */
+function frontmatterRow(region: Locator, key: string): Locator {
+  const table = frontmatterTable(region);
+  return table
+    .locator("tr")
+    .filter({ has: region.page().getByRole("rowheader", { name: key, exact: true }) });
+}
+
+/** A frontmatter row's key cell (`<th scope="row">`), by its own text. */
+export function frontmatterKeyCell(region: Locator, key: string): Locator {
+  return frontmatterRow(region, key).getByRole("rowheader", { name: key, exact: true });
+}
+
+/** A frontmatter row's value cell (`<td>`), by its row's key text. */
+export function frontmatterValueCell(region: Locator, key: string): Locator {
+  return frontmatterRow(region, key).getByRole("cell");
+}
+
+/** The raw fallback block (REQ-3) — `pre.frontmatter > code`, inner text verbatim. Absent
+ * for the flat-table or empty shapes, or when the file carries no frontmatter at all. */
+export function frontmatterFallback(region: Locator): Locator {
+  return renderedBody(region).locator("pre.frontmatter");
+}
+
+/** Every outline entry button in document order — the REQ-6 "frontmatter contributes no
+ * outline entry" oracle: assert `.first()`'s name against the document's own first real
+ * heading, or the full list against the headings a fixture expects and nothing else. */
+export function outlineEntries(region: Locator): Locator {
+  return navOutlineSection(region).getByRole("button");
+}
+
 // ── Fake transcript (kb:fact/plan-file-path-in-transcript) ─────────────────────────────
 
 export interface FakeTranscriptOpts {

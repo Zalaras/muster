@@ -50,7 +50,7 @@ C4Component
             Component(api, "api.ts", "fetch", "The only fetch to musterd; ApiResult, never throws")
             Component(terminal, "terminal/", "7 modules", "xterm.js surfaces, the per-terminal socket to musterd, shell key translation and the shell activity reducer")
             Component(dom, "dom.ts", "helpers", "Element lookup")
-            Component(reader, "reader/", "9 modules", "Markdown render, nav tree, per-session memory in localStorage")
+            Component(reader, "reader/", "10 modules", "Markdown render, nav tree, per-session memory in localStorage")
             Component(sessions, "sessions/", "8 modules", "Pure derivation — view-models, sort, tile math, formatters")
             Component(theme, "theme.ts", "registry", "Theme choice; first-paint hint in localStorage")
             Component(shortcuts, "shortcuts.ts", "pure", "Keyboard chord table")

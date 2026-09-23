@@ -1,11 +1,12 @@
 # web/src/reader — pure reader logic, no DOM
 
 **Owns**: everything the reader derives without touching the DOM — sanitized markdown
-rendering + outline extraction (`markdown.ts`), heading-id slugging (`slug.ts`), the nav
-tree (`tree.ts`), the freshness cue's text (`freshness.ts`), the browser-side "last
-open file / which writes are acknowledged" memory (`memory.ts`), basename plus the
-loading-cue status text (`paths.ts`), mermaid fence/theme/error-text/id helpers
-(`mermaid.ts`) and the diagram modal's zoom/pan arithmetic (`zoom.ts`). `render/reader.ts`
+rendering + outline extraction (`markdown.ts`), splitting a leading frontmatter block off
+a file's raw text into a table/raw-fallback shape (`frontmatter.ts`), heading-id slugging
+(`slug.ts`), the nav tree (`tree.ts`), the freshness cue's text (`freshness.ts`), the
+browser-side "last open file / which writes are acknowledged" memory (`memory.ts`),
+basename plus the loading-cue status text (`paths.ts`), mermaid fence/theme/error-text/id
+helpers (`mermaid.ts`) and the diagram modal's zoom/pan arithmetic (`zoom.ts`). `render/reader.ts`
 draws the results; `render/mermaid.ts` and `render/diagrams.ts` are the DOM half of the
 diagram pass; `features/reader.ts` owns the socket, the fetches and which session gets a
 mounted instance. **Features**: reader.

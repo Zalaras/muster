@@ -24,8 +24,9 @@ it (kb:fact/plan-file-path-in-transcript). The daemon keeps the latest transcrip
 session, persisted, and scans it on bounded triggers — SessionStart, leaving plan mode
 (kb:fact/plan-mode-hook-sequence), a write under the plans directory, and the reader opening —
 never on every hook. The result is the Session object's `plan` (`kb:anchor/ws.session`): the
-path and whether the file exists, null when the latest transcript names none. A hook whose
-Claude session id the session has already left never moves the transcript or the plan.
+path and whether the file exists — null until a transcript names one, and never null again once
+it has; a scan that finds nothing keeps the last plan. A hook whose Claude session id the
+session has already left never moves the transcript or the plan.
 
 ## Change signal
 
@@ -61,7 +62,9 @@ imported only when a document contains a ```` ```mermaid ```` fence and is bundl
 binary, never fetched. A fence becomes a diagram whose SVG crosses DOMPurify like the markdown
 does; one mermaid cannot parse keeps its fenced source with a labelled reason beneath. Diagrams
 follow the dashboard theme and re-render when it changes, and each enlarges into a modal with
-zoom and pan. The sanitized output enters the DOM as a fragment, never through `innerHTML`. Last open file and cleared dots
+zoom and pan. The sanitized output enters the DOM as a fragment, never through `innerHTML`. A leading YAML
+frontmatter block renders as a key/value table above the body (raw when not flat) and never
+reaches the outline. Last open file and cleared dots
 are remembered per session in the browser; the pop-out (`/doc.html`) is a second page sharing the
 component, the socket client and that memory. The pop-out's status line shows `connecting…`
 until its first `hello`, the unreachable text after a lost connection, and its theme follows

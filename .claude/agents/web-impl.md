@@ -131,7 +131,7 @@ purpose is a `design:` line. The evidence rule applies — a claimed absence is 
 
 **Comments are part of the gate.** Before writing your log, re-read every comment your diff adds
 or touches, and every comment tree-wide naming anything you moved, renamed or deleted (grep the
-old identifier) against `docs/conventions.md` §Comments: delete narration and greppable citations; keep only a non-obvious *why*, citing `kb:<type>/<slug>` where a record exists — and every touched package's `CLAUDE.md` hand-written part must still be true (a false one is a review Major). A
+old identifier) or describing behaviour you changed (grep its old wording) against `docs/conventions.md` §Comments: delete narration and greppable citations; keep only a non-obvious *why*, citing `kb:<type>/<slug>` where a record exists — and every touched package's `CLAUDE.md` hand-written part must still be true (a false one is a review Major). A
 path, `make` target or `musterd` flag a comment cites must exist — `python3
 .claude/skills/orchestrate/scripts/dead-refs.py` fails the gate otherwise, and the reviewer treats a
 false or dead comment as Major.

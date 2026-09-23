@@ -109,10 +109,13 @@ export interface SessionContext {
   compactions: number;
 }
 
-// Plan markdown-viewing (kb:anchor/ws.session): the plan the transcript scan derived, or
-// `null` when the session's latest known transcript names no plan at all (never entered
-// plan mode, or `/clear` minted a fresh planless transcript). `exists: false` means plan
-// mode was entered but nothing has been written yet.
+// Plan markdown-viewing (kb:anchor/ws.session): the plan the transcript scan derived.
+// `null` until a transcript of this session has named a plan (never entered plan mode);
+// once non-null it is never null again for the row's lifetime — a scan that finds no plan
+// (a `/clear`'s fresh transcript, a deleted transcript) keeps the path and re-checks
+// `exists`, and only a scan that names a plan replaces it (kb:adr/reader-plan-sticky-once-named).
+// `exists: false` means the path is known but no file is there: plan mode entered with
+// nothing written yet, or the file was since deleted.
 export interface SessionPlan {
   path: string;
   exists: boolean;

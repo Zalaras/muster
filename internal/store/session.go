@@ -67,9 +67,11 @@ type SessionRow struct {
 	TitleOverride *string
 
 	// TranscriptPath/PlanPath/PlanExists (plan markdown-viewing Schema Changes): the
-	// latest transcript path a routed hook named and the plan derived from it.
-	// Display-only, never read by the state machine. TranscriptPath/PlanPath are NULL
-	// until a hook/scan sets them; PlanExists defaults to 0.
+	// latest transcript path a routed hook named, and the plan derived from it.
+	// Display-only, never read by the state machine. TranscriptPath is NULL until a
+	// hook sets it. PlanPath is NULL until a transcript has named a plan; once set, a
+	// planless scan keeps it rather than nulling it back out
+	// (kb:adr/reader-plan-sticky-once-named). PlanExists defaults to 0.
 	TranscriptPath *string
 	PlanPath       *string
 	PlanExists     bool

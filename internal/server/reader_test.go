@@ -426,6 +426,216 @@ func TestHandleReaderList_KnownTranscriptResolvesPlanAndBroadcastsBeforeRespondi
 	assert.True(t, msg.Session.Plan.Exists)
 }
 
+// TestScanPlan_StickyOnceNamed covers REQ-8/D7 (kb:adr/reader-plan-sticky-once-named):
+// once a session has a plan, a scan that finds nothing must never clear it, and must
+// re-derive exists by stat against whichever path is in play; a scan that finds a plan
+// always replaces. The table crosses every starting retention state — none yet, a
+// retained plan whose file is still on disk, a retained plan whose file has since been
+// deleted — against every scan outcome a real transcript can produce, so the invariant
+// is checked from every reachable source state rather than only the transition that
+// motivated the fix. It also covers D2/D3/D5's broadcast half: each row dials its own WS
+// client after setup and computes "changed" from the session's actual pre-scan state
+// (read fresh via Get, not from setup's returned retainedPath/retainedExists — those name
+// what a scan finding nothing must leave in place, which for the "file since deleted"
+// row differs from the session's actual stored exists until a scan re-derives it), then
+// asserts a sessionUpsert carrying the final plan arrives exactly once when changed
+// (D2/D3), and none at all when the scan reproduced what was already committed (D5).
+func TestScanPlan_StickyOnceNamed(t *testing.T) {
+	const claudeID = "scan-plan-claude"
+
+	newBoundSession := func(t *testing.T) (*testServer, *session.Session) {
+		t.Helper()
+		srv := newTestServer(t, ClaudeCodeInfo{})
+		sess := seedLiveSessionInDir(t, srv, t.TempDir())
+		_, err := srv.manager.Apply(context.Background(), sess.ID, claudeID, nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
+		require.NoError(t, err)
+		return srv, sess
+	}
+
+	retentionStates := []struct {
+		name string
+		// setup optionally establishes a retained plan before the scan under test, and
+		// reports the path/exists a scan finding nothing must leave in place.
+		setup func(t *testing.T, srv *testServer, sess *session.Session) (retainedPath string, retainedExists bool)
+	}{
+		{
+			name: "no plan retained yet",
+			setup: func(_ *testing.T, _ *testServer, _ *session.Session) (string, bool) {
+				return "", false
+			},
+		},
+		{
+			name: "plan retained, its file still on disk",
+			setup: func(t *testing.T, srv *testServer, sess *session.Session) (string, bool) {
+				p := filepath.Join(t.TempDir(), "retained.md")
+				require.NoError(t, os.WriteFile(p, []byte("# Retained"), 0o644))
+				_, _, err := srv.manager.SetPlan(context.Background(), sess.ID, claudeID, p, true)
+				require.NoError(t, err)
+				return p, true
+			},
+		},
+		{
+			name: "plan retained, its file since deleted",
+			setup: func(t *testing.T, srv *testServer, sess *session.Session) (string, bool) {
+				p := filepath.Join(t.TempDir(), "retained.md")
+				require.NoError(t, os.WriteFile(p, []byte("# Retained"), 0o644))
+				_, _, err := srv.manager.SetPlan(context.Background(), sess.ID, claudeID, p, true)
+				require.NoError(t, err)
+				require.NoError(t, os.Remove(p))
+				return p, false
+			},
+		},
+	}
+
+	scanOutcomes := []struct {
+		name string
+		// build returns the transcript to scan, and what that scan finds: foundPath ==
+		// "" means the scan finds nothing (LocatePlanFile's zero PlanFile, whether from a
+		// missing transcript or one with no plan markers).
+		build func(t *testing.T) (transcriptPath, foundPath string, foundExists bool)
+	}{
+		{
+			name: "transcript file does not exist",
+			build: func(t *testing.T) (string, string, bool) {
+				return filepath.Join(t.TempDir(), "missing.jsonl"), "", false
+			},
+		},
+		{
+			name: "transcript exists but names no plan",
+			build: func(t *testing.T) (string, string, bool) {
+				p := filepath.Join(t.TempDir(), "transcript.jsonl")
+				require.NoError(t, os.WriteFile(p, []byte(claudecodetest.RawSessionEnd(claudeID, "other")+"\n"), 0o644))
+				return p, "", false
+			},
+		},
+		{
+			name: "transcript names a plan whose file exists",
+			build: func(t *testing.T) (string, string, bool) {
+				planPath := filepath.Join(t.TempDir(), "found.md")
+				require.NoError(t, os.WriteFile(planPath, []byte("# Found"), 0o644))
+				p := filepath.Join(t.TempDir(), "transcript.jsonl")
+				require.NoError(t, os.WriteFile(p, []byte(claudecodetest.PlanAttachmentLine("plan_mode", planPath, true)+"\n"), 0o644))
+				return p, planPath, true
+			},
+		},
+		{
+			name: "transcript names a plan not yet written",
+			build: func(t *testing.T) (string, string, bool) {
+				planPath := filepath.Join(t.TempDir(), "not-written.md")
+				p := filepath.Join(t.TempDir(), "transcript.jsonl")
+				require.NoError(t, os.WriteFile(p, []byte(claudecodetest.PlanAttachmentLine("plan_mode", planPath, true)+"\n"), 0o644))
+				return p, planPath, false
+			},
+		},
+	}
+
+	for _, rs := range retentionStates {
+		for _, so := range scanOutcomes {
+			t.Run(rs.name+"/"+so.name, func(t *testing.T) {
+				srv, sess := newBoundSession(t)
+				retainedPath, retainedExists := rs.setup(t, srv, sess)
+				transcriptPath, foundPath, foundExists := so.build(t)
+
+				before, ok := srv.manager.Get(sess.ID)
+				require.True(t, ok)
+
+				httpSrv := httptest.NewServer(srv.Handler())
+				t.Cleanup(httpSrv.Close)
+				wsURL := "ws" + httpSrv.URL[len("http"):] + "/ws"
+				c, err := dialWS(t, wsURL, nil)
+				require.NoError(t, err)
+				defer func() { _ = c.CloseNow() }()
+				_ = readJSON[helloWire](t, c)
+				_ = readJSON[snapshotWire](t, c)
+
+				srv.reader.scanPlan(context.Background(), sess.ID, claudeID, transcriptPath)
+
+				got, ok := srv.manager.Get(sess.ID)
+				require.True(t, ok)
+
+				wantPath, wantExists := retainedPath, retainedExists
+				if foundPath != "" {
+					wantPath, wantExists = foundPath, foundExists
+				}
+				assert.Equal(t, wantPath, got.PlanPath,
+					"REQ-8: the found plan replaces, else the retained path must survive a scan that finds nothing")
+				assert.Equal(t, wantExists, got.PlanExists,
+					"exists must be re-derived by stat against whichever path is in play")
+
+				if wantPath != before.PlanPath || wantExists != before.PlanExists {
+					msg := readJSON[sessionUpsertMessage](t, c)
+					assert.Equal(t, "sessionUpsert", msg.Type)
+					if wantPath == "" {
+						assert.Nil(t, msg.Session.Plan, "D5: plan:null must be null on the wire")
+					} else {
+						require.NotNil(t, msg.Session.Plan, "D2/D3: the broadcast must carry the committed plan")
+						assert.Equal(t, wantPath, msg.Session.Plan.Path)
+						assert.Equal(t, wantExists, msg.Session.Plan.Exists)
+					}
+					assertNoSessionUpsertArrives(t, c) // D2's "broadcast once": exactly one, not a second
+				} else {
+					assertNoSessionUpsertArrives(t, c) // D5: a scan reproducing what was already committed broadcasts nothing
+				}
+			})
+		}
+	}
+}
+
+// TestScanPlan_PlanlessScanOfOneSessionLeavesAnotherSessionsPlanUntouched covers
+// D6/edge case 10: a planless scan against one session must never read or write another
+// session's retained plan, and must broadcast nothing for it.
+func TestScanPlan_PlanlessScanOfOneSessionLeavesAnotherSessionsPlanUntouched(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+
+	const claudeA = "two-session-scan-a"
+	const claudeB = "two-session-scan-b"
+	sessA := seedLiveSessionInDir(t, srv, t.TempDir())
+	_, err := srv.manager.Apply(context.Background(), sessA.ID, claudeA, nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
+	require.NoError(t, err)
+	sessB := seedLiveSessionInDir(t, srv, t.TempDir())
+	_, err = srv.manager.Apply(context.Background(), sessB.ID, claudeB, nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
+	require.NoError(t, err)
+
+	planA := filepath.Join(t.TempDir(), "plan-a.md")
+	require.NoError(t, os.WriteFile(planA, []byte("# A"), 0o644))
+	_, _, err = srv.manager.SetPlan(context.Background(), sessA.ID, claudeA, planA, true)
+	require.NoError(t, err)
+
+	planB := filepath.Join(t.TempDir(), "plan-b.md")
+	require.NoError(t, os.WriteFile(planB, []byte("# B"), 0o644))
+	_, _, err = srv.manager.SetPlan(context.Background(), sessB.ID, claudeB, planB, true)
+	require.NoError(t, err)
+
+	// A planless transcript (names no plan) scanned against A only.
+	transcriptA := filepath.Join(t.TempDir(), "transcript.jsonl")
+	require.NoError(t, os.WriteFile(transcriptA, []byte(claudecodetest.RawSessionEnd(claudeA, "other")+"\n"), 0o644))
+
+	httpSrv := httptest.NewServer(srv.Handler())
+	t.Cleanup(httpSrv.Close)
+	wsURL := "ws" + httpSrv.URL[len("http"):] + "/ws"
+	c, err := dialWS(t, wsURL, nil)
+	require.NoError(t, err)
+	defer func() { _ = c.CloseNow() }()
+	_ = readJSON[helloWire](t, c)
+	_ = readJSON[snapshotWire](t, c)
+
+	srv.reader.scanPlan(context.Background(), sessA.ID, claudeA, transcriptA)
+
+	gotB, ok := srv.manager.Get(sessB.ID)
+	require.True(t, ok)
+	assert.Equal(t, planB, gotB.PlanPath, "D6: a planless scan of A must never touch B's retained plan")
+	assert.True(t, gotB.PlanExists)
+
+	gotA, ok := srv.manager.Get(sessA.ID)
+	require.True(t, ok)
+	assert.Equal(t, planA, gotA.PlanPath, "A's own retained plan must survive a scan finding nothing")
+	assert.True(t, gotA.PlanExists)
+
+	// Neither session's plan actually changed (A retained what it already had, B was
+	// never touched), so no sessionUpsert for either fires.
+	assertNoSessionUpsertArrives(t, c)
+}
+
 // TestHandleReaderList_WrittenAtNonNullOnlyForARecordedWrite covers D19: writtenAt is
 // non-null exactly for a path a routed write has recorded, and null for every other
 // listed file.
@@ -834,4 +1044,77 @@ func TestIngestRouting_StragglerFromBeforeAClearNeverMovesTranscriptOrPlan(t *te
 	// worker's pipeline Drain's own doc comment names — so this is a direct read.
 	_, ok = srv.reader.writes.get(sess.ID, filepath.Clean(staleWrite))
 	assert.True(t, ok, "the stale write must still be recorded — the write itself was real")
+}
+
+// TestIngestRouting_SessionStartClearAppliedBeforeLateSessionEndPlanRetained covers
+// D4/edge case 3: a /clear pair delivered out of order, SessionStart(B) processed before
+// A's SessionEnd arrives late. The rebind's own SessionStart(B) fires its own scan
+// (PlanMaybeReady, claudecode.InterpretFiles) against a transcript naming no plan, which
+// must retain the pre-clear plan on the strength of D7's retention rule alone — not
+// because the SessionEnd happened to come first, since here it does not. The late
+// SessionEnd(A) that follows must not move anything further: SessionEnd's event type
+// never sets PlanMaybeReady, so it triggers no scan regardless of arrival order, and its
+// claudeSessionID no longer names the session's current binding (the straggler gate).
+func TestIngestRouting_SessionStartClearAppliedBeforeLateSessionEndPlanRetained(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	srv.Start()
+	t.Cleanup(func() { srv.Shutdown(context.Background()) })
+	dir := t.TempDir()
+	sess := seedLiveSessionInDir(t, srv, dir)
+
+	const claudeA = "clear-before-late-end-a"
+	const claudeB = "clear-before-late-end-b"
+	transcriptA := "/tmp/transcript-clear-before-late-end-a.jsonl"
+	// transcriptB is written for real (unlike transcriptA, which the rebind's own scan
+	// never reaches: A has no plan yet when its SessionStart scan runs, before SetPlan
+	// below). A missing file and a planless transcript both dead-end at PlanFile{}, but
+	// only a written, content-free transcript is the route a real /clear produces
+	// (kb:fact/clear-mints-new-session-id) — the rebind's own scan must exercise that
+	// route, not LocatePlanFile's missing-file branch.
+	transcriptB := filepath.Join(t.TempDir(), "transcript-clear-before-late-end-b.jsonl")
+	require.NoError(t, os.WriteFile(transcriptB, []byte(claudecodetest.RawSessionEnd(claudeB, "other")+"\n"), 0o644))
+
+	drain := func() {
+		t.Helper()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		require.NoError(t, srv.ingest.queue.Drain(ctx))
+	}
+
+	bindA := postIngest(t, srv, "/ingest/"+testIngestToken+"/hook",
+		claudecodetest.EnvelopedSessionStartTranscript(claudeA, transcriptA, claudecodetest.SessionStartOpts{MusterSession: int(sess.ID), TmuxPane: "%1"}))
+	require.Equal(t, 200, bindA.Code)
+	drain()
+
+	planA := filepath.Join(t.TempDir(), "plan-a.md")
+	require.NoError(t, os.WriteFile(planA, []byte("# Plan A"), 0o644))
+	_, _, err := srv.manager.SetPlan(context.Background(), sess.ID, claudeA, planA, true)
+	require.NoError(t, err)
+
+	// The rebind's own SessionStart(clear) is delivered — and fully processed, including
+	// its own scan — before A's SessionEnd, the other half of the pair, arrives at all.
+	rebindB := postIngest(t, srv, "/ingest/"+testIngestToken+"/hook",
+		claudecodetest.EnvelopedSessionStartTranscript(claudeB, transcriptB, claudecodetest.SessionStartOpts{MusterSession: int(sess.ID), Source: "clear", TmuxPane: "%1"}))
+	require.Equal(t, 200, rebindB.Code)
+	drain()
+
+	got, ok := srv.manager.Get(sess.ID)
+	require.True(t, ok)
+	require.Equal(t, claudeB, got.ClaudeSessionID)
+	require.Equal(t, transcriptB, got.TranscriptPath)
+	assert.Equal(t, planA, got.PlanPath, "D4: the rebind's own scan (transcriptB names no plan) must retain the pre-clear plan")
+	assert.True(t, got.PlanExists)
+
+	// A's SessionEnd, the other half of the clear pair, arrives only now — late.
+	lateEnd := postIngest(t, srv, "/ingest/"+testIngestToken+"/hook",
+		claudecodetest.EnvelopedHookBody(int(sess.ID), "%1", "SessionEnd", claudeA))
+	require.Equal(t, 200, lateEnd.Code)
+	drain()
+
+	got, ok = srv.manager.Get(sess.ID)
+	require.True(t, ok)
+	assert.Equal(t, claudeB, got.ClaudeSessionID, "the late SessionEnd must not rebind backwards")
+	assert.Equal(t, transcriptB, got.TranscriptPath, "the late SessionEnd must not move the transcript")
+	assert.Equal(t, planA, got.PlanPath, "the late SessionEnd triggers no scan and must not move the retained plan")
+	assert.True(t, got.PlanExists)
 }

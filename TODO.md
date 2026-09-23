@@ -275,14 +275,6 @@ group deliberately, and otherwise don't re-sort this list.
 - [ ] **Needs Input disappears while giving input** ([#40](https://github.com/Zalaras/muster/issues/40)) — answering a run of Claude questions
   flips the state back to Planning after the first one, while more remain and Claude is idle.
 
-### Together — the plan and document tab (#35, #46; #44 in M5+ is the same seam)
-
-- [ ] **Plan missing** ([#35](https://github.com/Zalaras/muster/issues/35)) — a plan was not visible after the fact; unclear whether Claude cleans it
-  up or it is genuinely lost. Needs reproducing before it can be scoped.
-
-- [ ] **Handle frontmatter in renderer** ([#46](https://github.com/Zalaras/muster/issues/46)) — the markdown renderer shows frontmatter as one
-  large paragraph blob at the top of the file instead of parsing it.
-
 ### Together — session retention and clearing (#27, #47; #39 in M5+ is the same seam)
 
 - [ ] **Remove All Sessions** ([#27](https://github.com/Zalaras/muster/issues/27)) — a bulk "remove everything" action to start from a

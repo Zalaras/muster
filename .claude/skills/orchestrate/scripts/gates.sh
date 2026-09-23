@@ -250,6 +250,7 @@ if [[ -n "$WAVE" ]]; then
        (( WEB_TOUCHED ))    && { run_one web-test "make web-test"; run_one web-build "make web-build"; } ;;
     3) run_one e2e "make e2e" ;;
   esac
+  run_one features ".claude/skills/orchestrate/scripts/features-scope.sh $PLAN"   # a fix wave that moved code into another feature widens the pack
   # A wave runs every authored check except the suites a later wave owns — this is what makes
   # `make web-lint` (and any other static check the plan authored) part of every wave gate.
   # Wave 1 also leaves the full lint and web-build to wave 2 (sanctioned test-file breakage above).
@@ -279,6 +280,7 @@ PASS	make test"
   run_one kb-check  "make check-kb"   # records parse, cited kb: ids resolve, generated INDEX/contract/rules/CLAUDE trailers fresh
   run_one dead-refs "python3 .claude/skills/orchestrate/scripts/dead-refs.py --all"   # cited paths / make targets / musterd flags exist (two second review cycles were dead references, 2026-09-10)
   run_one e2e-lint  "make e2e-lint"   # fixtures only via helpers/fixtures.ts, no fixed sleeps (test-strategy)
+  run_one features ".claude/skills/orchestrate/scripts/features-scope.sh $PLAN"   # changed files' owning features all in **Features** (frontmatter retro, 2026-09-23)
   run_warn size ".claude/skills/orchestrate/scripts/size-warn.sh --changed"   # funlen/dupl/file length on this branch's files; read by the maintainability reviewer, never a failure
   if (( RUN_E2E )); then
     run_one e2e "make e2e"

@@ -25,6 +25,11 @@ import {
   filterBox,
   folderEntry,
   freshnessCue,
+  frontmatterFallback,
+  frontmatterKeyCell,
+  frontmatterKeyCells,
+  frontmatterTable,
+  frontmatterValueCell,
   getReaderFile,
   holdReaderFileResponse,
   holdReaderListingResponse,
@@ -32,6 +37,7 @@ import {
   navToggle,
   navTreeSection,
   noPlanText,
+  outlineEntries,
   outlineEntry,
   outlineHeaderToggle,
   planHeaderRow,
@@ -77,6 +83,22 @@ import { liveTileById, TerminalSocketTracker, terminalRegion } from "./helpers/t
 // touch. Every test this plan added or edited is itself new-behaviour against the
 // single-button/loading-cue design that does not exist in the tree yet, so it carries the
 // same collection-only gate as the rest of this file; none is a regression pin.
+//
+// Plan frontmatter (Fixture plan: this file's existing `daemon` fixture, unchanged — see
+// plan.md header) reverses the markdown-viewing/markdown-render-fixes "planless scan
+// clears the slot" contract (REQ-8, kb:adr/reader-plan-sticky-once-named) and adds a
+// leading-frontmatter renderer (REQ-1..REQ-10, kb:adr/reader-frontmatter-flat-table-raw-
+// fallback). Two markdown-viewing tests assert exactly the behaviour REQ-8 reverses, so
+// they are rewritten in place rather than left beside a contradicting pair: the test at
+// what was E5 ("after a /clear pair naming a planless transcript, the slot returns to no
+// plan yet") and at what was E29 (its straggler-hook counterpart) — both below, still at
+// their original position, now titled and asserting this plan's E1/E2. The three
+// frontmatter-rendering tests (E3-E5) are new and are appended in their own section near
+// the end of this file, after the markdown-render-fixes tests they don't touch. Every one
+// of the five is new-behaviour against a daemon/web tree that does not implement this
+// plan yet (the E1/E2 rewrites are new-behaviour precisely because they assert the
+// opposite of what passes today), so all five carry the same collection-only gate as the
+// rest of this file; none is a regression pin.
 
 test("Focus mainhead gains a docs segment; selecting it shows the reader and hides the Claude terminal, and selecting claude restores it (E1, REQ-1, REQ-2)", async ({
   page,
@@ -203,7 +225,7 @@ test("a session whose transcript names no plan shows no plan yet and lists the d
   }
 });
 
-test("after a /clear pair naming a planless transcript, the slot returns to no plan yet (E5, edge case 3)", async ({
+test("after a /clear pair naming a planless transcript, the plan slot still shows the pre-clear plan and its badge (plan frontmatter E1, rewrites markdown-viewing E5, REQ-8, edge case 1)", async ({
   page,
   daemon,
 }) => {
@@ -228,6 +250,8 @@ test("after a /clear pair naming a planless transcript, the slot returns to no p
     await mainheadSurfaceButton(page, "docs").click();
     const region = readerRegion(page, "reader-e5");
     await expect(barPlanBadge(region)).toBeVisible({ timeout: 15_000 });
+    await expect(barFileName(region)).toHaveText("reader-e5-old.md");
+    await expect(barPath(region)).toHaveText(oldPlan);
 
     const newTranscript = join(daemon.dataDir, "transcripts", "reader-e5-new.jsonl");
     await writeFakeTranscript(newTranscript, {});
@@ -242,8 +266,17 @@ test("after a /clear pair naming a planless transcript, the slot returns to no p
       }),
     });
 
-    await expect(noPlanText(region)).toHaveText("no plan yet", { timeout: 15_000 });
-    await expect(barPlanBadge(region)).toHaveCount(0);
+    // REQ-8 / kb:adr/reader-plan-sticky-once-named: the fresh transcript names no plan,
+    // so the scan the rebind's SessionStart triggers must keep the retained plan rather
+    // than clearing the slot — the reversal of markdown-viewing's old E5 this plan makes.
+    // Nothing is expected to change here, so the wait is a settle, not a state transition
+    // to poll for (docs/conventions.md §Testing: settleFor is the sanctioned fixed hold
+    // for a stays-unchanged check).
+    await settleFor(page, 1_000);
+    await expect(barPlanBadge(region)).toBeVisible();
+    await expect(barFileName(region)).toHaveText("reader-e5-old.md");
+    await expect(barPath(region)).toHaveText(oldPlan);
+    await expect(noPlanText(region)).toHaveCount(0);
   } finally {
     await cleanup();
   }
@@ -1286,7 +1319,7 @@ test("after a daemon restart and reload, switching to docs shows the plan in the
   }
 });
 
-test("after a /clear pair, a straggler Write hook carrying the old claude id and transcript leaves the slot at no plan yet (E29, INV-8)", async ({
+test("after a /clear pair naming a planless transcript, a straggler Write hook from the pre-clear id leaves the plan slot showing the retained plan (plan frontmatter E2, rewrites markdown-viewing E29, REQ-8, REQ-9, edge case 5)", async ({
   page,
   daemon,
 }) => {
@@ -1323,9 +1356,16 @@ test("after a /clear pair, a straggler Write hook carrying the old claude id and
 
     await mainheadSurfaceButton(page, "docs").click();
     const region = readerRegion(page, "reader-e29");
-    await expect(noPlanText(region)).toHaveText("no plan yet", { timeout: 15_000 });
+    // The rebind's planless scan retains the pre-clear plan (REQ-8, isolated by the E1
+    // test above) rather than clearing to "no plan yet".
+    await expect(barPlanBadge(region)).toBeVisible({ timeout: 15_000 });
+    await expect(barFileName(region)).toHaveText("reader-e29-old.md");
+    await expect(noPlanText(region)).toHaveCount(0);
 
-    // Straggler: the OLD claude id and OLD transcript path, arriving after the rebind.
+    // Straggler: the OLD claude id and OLD transcript path, arriving after the rebind —
+    // REQ-9's gate (kb:adr/reader-plan-located-by-transcript-scan, unchanged by this
+    // plan) must still hold: a hook whose Claude session id the session has already left
+    // never moves plan, so the retained plan from REQ-8 is exactly what survives here too.
     await page.request.post(daemon.ingestURL("hook"), {
       data: rawPostToolUse(oldClaudeId, {
         toolName: "Write",
@@ -1335,8 +1375,10 @@ test("after a /clear pair, a straggler Write hook carrying the old claude id and
     });
 
     await settleFor(page, 1_000);
-    await expect(noPlanText(region)).toHaveText("no plan yet");
-    await expect(barPlanBadge(region)).toHaveCount(0);
+    await expect(barPlanBadge(region)).toBeVisible();
+    await expect(barFileName(region)).toHaveText("reader-e29-old.md");
+    await expect(barPath(region)).toHaveText(oldPlan);
+    await expect(noPlanText(region)).toHaveCount(0);
   } finally {
     await cleanup();
   }
@@ -2127,5 +2169,225 @@ test("with two tiles on docs, holding one tile's file response shows the loading
     await expect(readerStatusLine(regionA)).toBeHidden();
   } finally {
     await Promise.all([dirA.cleanup(), dirB.cleanup()]);
+  }
+});
+
+// ─── plan frontmatter: the leading-frontmatter renderer (REQ-1..REQ-10). The two /clear
+// retention tests (E1, E2) live above, in place of markdown-viewing's old E5/E29 — see the
+// file header note. These three cover the rendering split itself: the flat table (E3), a
+// value carrying markup (E4), and the nested-YAML raw fallback (E5). E6 ("a file with no
+// frontmatter renders exactly as before") needs no new test — E15/E17 above already open
+// files whose first line is not `---` and are unchanged by this plan.
+
+test("opening a file with flat frontmatter shows a Frontmatter table as the body's first element with one row per key, and the outline's first entry is the document's first real heading (plan frontmatter E3, REQ-1, REQ-2, REQ-5, REQ-6, edge case 20)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await writeFile(
+      join(dir, "front.md"),
+      [
+        "---",
+        "id: reader-plan-located-by-transcript-scan",
+        "tags: [claude-code-format, store]",
+        "status: accepted",
+        "---",
+        "# Real Heading",
+        "",
+        "Body text.",
+        "",
+        "## Second Heading",
+        "",
+        "More text.",
+        "",
+      ].join("\n"),
+    );
+    // edge case 20: a file that is only frontmatter renders the table with an empty
+    // body and an empty outline.
+    await writeFile(join(dir, "only-front.md"), ["---", "solo: value", "---", ""].join("\n"));
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, { directory: dir, title: "reader-fm-e3" });
+
+    await mainheadSurfaceButton(page, "docs").click();
+    const region = readerRegion(page, "reader-fm-e3");
+    await fileEntry(region, "front.md").click();
+    const body = renderedBody(region);
+    await expect(body).toContainText("Real Heading", { timeout: 15_000 });
+
+    await expect(frontmatterKeyCells(region)).toHaveCount(3);
+    await expect(frontmatterKeyCell(region, "id")).toBeVisible();
+    await expect(frontmatterValueCell(region, "id")).toHaveText(
+      "reader-plan-located-by-transcript-scan",
+    );
+    await expect(frontmatterKeyCell(region, "tags")).toBeVisible();
+    await expect(frontmatterValueCell(region, "tags")).toHaveText("[claude-code-format, store]");
+    await expect(frontmatterKeyCell(region, "status")).toBeVisible();
+    await expect(frontmatterValueCell(region, "status")).toHaveText("accepted");
+
+    // REQ-5: the frontmatter table is the first child of the rendered body.
+    expect(await body.evaluate((el) => el.firstElementChild?.tagName)).toBe("TABLE");
+
+    // REQ-6: no outline entry for any frontmatter key; the outline starts at the
+    // document's own first real heading and has exactly the document's two headings.
+    await expect(outlineEntry(region, "id")).toHaveCount(0);
+    await expect(outlineEntry(region, "tags")).toHaveCount(0);
+    await expect(outlineEntries(region)).toHaveCount(2);
+    await expect(outlineEntries(region).first()).toHaveText("Real Heading");
+
+    // edge case 20: frontmatter-only file — table renders, outline is empty.
+    await fileEntry(region, "only-front.md").click();
+    await expect(frontmatterValueCell(region, "solo")).toHaveText("value", { timeout: 15_000 });
+    await expect(outlineEntries(region)).toHaveCount(0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("a frontmatter value carrying <img onerror> and <script> shows as literal text and no img or script element exists in the body (plan frontmatter E4, REQ-2, REQ-5, edge case 21)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await writeFile(
+      join(dir, "fm-unsafe.md"),
+      [
+        "---",
+        'title: <img src=x onerror="window.__fmXss = true">',
+        "note: <script>window.__fmXss = true;</script>",
+        "---",
+        "# Heading",
+        "",
+        "Body text.",
+        "",
+      ].join("\n"),
+    );
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, { directory: dir, title: "reader-fm-e4" });
+
+    await mainheadSurfaceButton(page, "docs").click();
+    const region = readerRegion(page, "reader-fm-e4");
+    await fileEntry(region, "fm-unsafe.md").click();
+    const body = renderedBody(region);
+    await expect(body).toContainText("Heading", { timeout: 15_000 });
+
+    await expect(frontmatterValueCell(region, "title")).toHaveText(
+      '<img src=x onerror="window.__fmXss = true">',
+    );
+    await expect(frontmatterValueCell(region, "note")).toHaveText(
+      "<script>window.__fmXss = true;</script>",
+    );
+    await expect(body.locator("img")).toHaveCount(0);
+    await expect(body.locator("script")).toHaveCount(0);
+    await expect(body.locator("[onerror]")).toHaveCount(0);
+    expect(
+      await page.evaluate(() => (window as unknown as { __fmXss?: boolean }).__fmXss),
+    ).toBeUndefined();
+  } finally {
+    await cleanup();
+  }
+});
+
+test("opening a file with nested-YAML frontmatter shows the raw block verbatim in pre.frontmatter and no body heading or outline entry contains frontmatter text (plan frontmatter E5, REQ-3, REQ-6, edge case 22, edge case 23)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    const innerText = "tags:\n  - a\n  - b\nnotes: |\n  # Not a real heading\n  just text\n";
+    const fileText = `---\n${innerText}---\n# Real Heading\n\nBody text.\n`;
+    await writeFile(join(dir, "fm-raw.md"), fileText);
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, { directory: dir, title: "reader-fm-e5" });
+
+    await mainheadSurfaceButton(page, "docs").click();
+    const region = readerRegion(page, "reader-fm-e5");
+    await fileEntry(region, "fm-raw.md").click();
+    const body = renderedBody(region);
+    await expect(body).toContainText("Real Heading", { timeout: 15_000 });
+
+    await expect(frontmatterTable(region)).toHaveCount(0);
+    const fallback = frontmatterFallback(region);
+    await expect(fallback).toBeVisible();
+    // REQ-3's "verbatim" is exact bytes, not the whitespace-normalized comparison
+    // `toHaveText` performs — a raw `textContent()` equality check is the only oracle
+    // that can tell a preserved newline from a collapsed one.
+    await expect.poll(async () => fallback.textContent(), { timeout: 15_000 }).toBe(innerText);
+
+    // REQ-6 / edge case 23: the "# Not a real heading" line lives inside the raw block
+    // and never reaches the outline or becomes a body heading.
+    await expect(outlineEntry(region, "Not a real heading")).toHaveCount(0);
+    await expect(outlineEntries(region)).toHaveCount(1);
+    await expect(outlineEntries(region).first()).toHaveText("Real Heading");
+    await expect(body.locator("h1, h2, h3, h4, h5, h6")).toHaveCount(1);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("a long frontmatter key never forces article.md to scroll horizontally in a 3x2 tile with the file explorer open (correctness review cycle 1 coverage, REQ-10, W16, kb:adr/reader-frontmatter-key-column-may-break)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    // A fact-shaped key (the browser review's own `fact.md` example, 28 chars) and a
+    // ~60-char key (the review's Major 1 repro, measured `scrollWidth 525 > clientWidth
+    // 233` before web-impl's fix cycle 1 CSS change).
+    await writeFile(
+      join(dir, "wide-key.md"),
+      [
+        "---",
+        "verified_claude_code_version: 2.1.3",
+        "an_extremely_long_frontmatter_key_used_to_test_line_wrapping: value",
+        "---",
+        "# Heading",
+        "",
+        "Body text.",
+        "",
+      ].join("\n"),
+    );
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, {
+      directory: dir,
+      title: "reader-fm-wide-key",
+    });
+
+    // 3x2, explorer open: the browser review's Major 1 host (tile 425×316, article.md
+    // 233px with the nav open) — density set before the tile mounts so it starts compact
+    // (E27's `navCollapsedDefault`), then the nav toggle opens the file explorer.
+    await page.keyboard.press("Meta+Backslash");
+    await expect(page.locator("#view-tiles")).toBeVisible();
+    await page.getByRole("button", { name: "3×2" }).click();
+    await expect(page.getByRole("button", { name: "3×2" })).toHaveAttribute("aria-pressed", "true");
+    await tileSurfaceButton(page, session.id, "docs").click();
+    const region = readerRegionInTile(page, session.id);
+    await expect(region).toBeVisible({ timeout: 15_000 });
+    await expect(readerNav(region)).toHaveCount(0);
+    await navToggle(region).click();
+    await expect(readerNav(region)).toBeVisible({ timeout: 15_000 });
+
+    await fileEntry(region, "wide-key.md").click();
+    const body = renderedBody(region);
+    await expect(body).toContainText("Heading", { timeout: 15_000 });
+    await expect(frontmatterKeyCell(region, "verified_claude_code_version")).toBeVisible();
+    await expect(
+      frontmatterKeyCell(region, "an_extremely_long_frontmatter_key_used_to_test_line_wrapping"),
+    ).toBeVisible();
+
+    // REQ-10 / W16: article.md must never force horizontal scroll, whatever the key's
+    // length — the key column caps and breaks instead (the ADR's accepted trade-off).
+    // Poll re-reads scrollWidth and clientWidth together on each attempt so a layout
+    // that is still narrowing can't pass against a stale, already-captured value.
+    await expect
+      .poll(
+        async () =>
+          body.evaluate((el) => (el.scrollWidth <= el.clientWidth ? "fits" : "overflows")),
+        { timeout: 15_000 },
+      )
+      .toBe("fits");
+  } finally {
+    await cleanup();
   }
 });

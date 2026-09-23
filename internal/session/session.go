@@ -109,10 +109,12 @@ type Session struct {
 	TitleOverride *string
 
 	// TranscriptPath/PlanPath/PlanExists (plan markdown-viewing REQ-16/REQ-17): the
-	// latest transcript path a routed hook named and the plan derived from it via
-	// claudecode.LocatePlanFile. Display-only, never read by machine.go; "" means
-	// "none yet" (PlanPath "" is the wire plan:null). Mutated only by
-	// Manager.SetTranscript/SetPlan.
+	// latest transcript path a routed hook named, and the plan derived from it via
+	// claudecode.LocatePlanFile. Display-only, never read by machine.go. PlanPath ""
+	// (the wire plan:null) means no transcript has ever named a plan; once a plan has
+	// been named, a planless scan keeps it rather than clearing it back to ""
+	// (kb:adr/reader-plan-sticky-once-named). Mutated only by
+	// Manager.SetTranscript/SetPlan/ApplyPlanScan.
 	TranscriptPath string
 	PlanPath       string
 	PlanExists     bool

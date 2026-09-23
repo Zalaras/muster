@@ -1786,3 +1786,22 @@ left (`kb:lesson/mockup-vindicates-markup-not-cascade`).
   "Check for updates daily" pref now governs only the daemon's own schedule, a user-initiated
   check runs regardless of it, and the update object carries `canCheck` so the button can say
   when checking is possible at all (#48).
+
+## Together — the plan and document tab (#35, #46; #44 in M5+ is the same seam) ✅ done 2026-09-23 (plan `frontmatter`, via `/orchestrate`; approved review cycle 3)
+<!-- kb: adr/reader-frontmatter-flat-table-raw-fallback, adr/reader-frontmatter-key-column-may-break, adr/reader-plan-sticky-once-named -->
+
+- [x] **Plan missing** ([#35](https://github.com/Zalaras/muster/issues/35)) — a plan was not visible after the fact; unclear whether Claude cleans it
+  up or it is genuinely lost. Needs reproducing before it can be scoped.
+
+- [x] **Handle frontmatter in renderer** ([#46](https://github.com/Zalaras/muster/issues/46)) — the markdown renderer shows frontmatter as one
+  large paragraph blob at the top of the file instead of parsing it.
+
+  Shipped: a leading YAML frontmatter block is split off before the markdown parser sees it and
+  renders as a key/value table above the body — built from text nodes only, values verbatim,
+  with a fixed layout that gives keys 40% of the width and lets them wrap so no tile scrolls
+  sideways — or as a raw preformatted block when it is not flat `key: value` lines; it never
+  enters the outline (#46). #35 was not reproduced; the fix closes the class of routes that
+  emptied the slot instead: once a session has named a plan it keeps it, a scan that finds no
+  plan (a `/clear`'s fresh transcript, a deleted transcript) keeps the path and re-checks
+  whether the file exists, and only a scan naming another plan replaces it — decided in one
+  locked section of the session manager (#35).

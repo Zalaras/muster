@@ -6,7 +6,8 @@ Usage (run from the project root):
   orch-state.py <plan> start <step>                  stamp step_started_at[<step>] (every spawn, fix re-spawns too)
   orch-state.py <plan> finish <step>                 stamp step_finished_at[<step>] only — for a fix-mode re-spawn that
                                                      reports; leaves completed_steps/current_step alone
-  orch-state.py <plan> done <step> --next STEP       mark <step> completed, move on
+  orch-state.py <plan> done <step> --next STEP       mark <step> completed, move on; e2e-specs is refused while an
+                                                     authoring Tests row is marked neither run nor collection-only
   orch-state.py <plan> retry <step>                  bump retry_counts[<step>]
   orch-state.py <plan> status <in-progress|blocked|completed> [--step STEP]
                                                      completed is refused unless review.md says **Verdict**: approved
@@ -176,6 +177,23 @@ def approved(plan_dir):
     r = plan_dir / "review.md"
     return r.exists() and "**Verdict**: approved" in r.read_text()
 
+def unmarked_authoring_rows(plan_dir):
+    """Rows of test-specs.md's ## Tests table carrying neither authoring status, while the file is
+    in authoring mode. Why (frontmatter retro, 2026-09-23): "mark each row" had been reworded twice
+    and a run still shipped a table with no status column, costing a send-back."""
+    t = plan_dir / "test-specs.md"
+    if not t.exists() or "**Mode**: authoring" not in t.read_text():
+        return []
+    rows, on = [], False
+    for line in t.read_text().splitlines():
+        if line.startswith("## "):
+            on = line.strip() == "## Tests"
+            continue
+        if on and line.startswith("|") and not re.match(r"^\|[\s:|-]+\|$", line) and "Test Name" not in line:
+            if "ran-green-at-authoring" not in line and "collection-only" not in line:
+                rows.append(line[:90])
+    return rows
+
 def fmt(td):
     m, sec = divmod(int(td.total_seconds()), 60)
     return f"{m}m{sec:02d}s"
@@ -230,6 +248,9 @@ def main():
                 sys.exit("done needs --next STEP (use 'completed' after review)")
             if a.next == "completed" and not approved(path.parent):
                 sys.exit("review.md does not say '**Verdict**: approved' — the pipeline is not completed")
+            if a.arg == "e2e-specs" and (rows := unmarked_authoring_rows(path.parent)):
+                sys.exit("test-specs.md Tests rows marked neither ran-green-at-authoring nor collection-only "
+                         "— send e2e-specs back:\n  " + "\n  ".join(rows))
             if a.arg not in s["completed_steps"]:
                 s["completed_steps"].append(a.arg)
             close_attempt(s, a.arg)

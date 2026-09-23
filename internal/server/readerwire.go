@@ -33,8 +33,9 @@ type docChangedMessage struct {
 	At   string `json:"at"`
 }
 
-// sessionWirePlan is the Session object's `plan` field (kb:anchor/ws.session). Null when
-// the session's latest known transcript names no plan.
+// sessionWirePlan is the Session object's `plan` field (kb:anchor/ws.session). Null
+// until a transcript has named a plan; once set, a planless scan keeps it
+// (kb:adr/reader-plan-sticky-once-named).
 type sessionWirePlan struct {
 	Path   string `json:"path"`
 	Exists bool   `json:"exists"`

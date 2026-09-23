@@ -139,9 +139,8 @@ spec files the change now covers, and finish with Verdict: harness-only — not 
 ```
 
 Wait for completion, then verify `plans/<plan-name>/test-specs.md` exists and act on its verdict
-(table above). Before continuing on `authored`, check the Tests table: each row is
-`ran-green-at-authoring` or `collection-only`, and at least the regression-pin rows carry the
-former with a pasted run summary. All `collection-only` on a plan whose REQs include "unchanged"
+(table above). Before continuing on `authored`, check the Tests table: at least the regression-pin
+rows carry `ran-green-at-authoring` with a pasted run summary. All `collection-only` on a plan whose REQs include "unchanged"
 behaviour means the agent skipped the live run — send it back once
 (kb:lesson/authored-tests-never-run-before-validate). Step 5 proves the new-behaviour tests run.
 
@@ -281,9 +280,9 @@ cycle (kb:lesson/decision-made-inside-a-fix-wave).
    - `[orchestrator]` issues are yours — never spawn an agent for them; handle them in Doc-Upkeep /
      Completion. A doc-only one may be fixed while a fix wave runs iff its file set (`docs/`,
      `TODO.md`, `SPEC.md`) is disjoint from every file the wave's agents may write and each wave
-     prompt says to leave those files alone. `make gen-kb` runs only between waves: it rewrites
-     `.claude/rules/*.md` and the trailer in `internal/<pkg>/CLAUDE.md`, files a wave-1 agent may
-     hold (kb:lesson/orchestrator-work-spawned-as-agent).
+     prompt says to leave those files alone. `make gen-kb` runs between a wave and its gate — it rewrites
+     `.claude/rules/*.md` and `internal/<pkg>/CLAUDE.md` trailers wave-1 agents hold
+     (kb:lesson/orchestrator-work-spawned-as-agent).
    - **Every severity routes.** An agent with any tagged issue — Critical, Major or Minor — is spawned in its wave with all of them; Minors are never deferred to `TODO.md` (kb:lesson/finding-severity-misrouted). The cycle after a Minors-only wave is a cheap delta re-review (above).
    - **Exception — plan-log and doc-label Minors:** a Minor whose whole fix is wording or a label inside `plans/<plan>/*.md`, `docs/` or `TODO.md` (no code, test or assertion) is yours to make while the wave runs, in your own `docs(<plan-name>)` commit, cited in the completion summary; the delta re-review verifies it (kb:lesson/orchestrator-work-spawned-as-agent).
    - `[note]` items are never routed; list them in the completion summary.
@@ -297,7 +296,7 @@ cycle (kb:lesson/decision-made-inside-a-fix-wave).
    - `[orchestrator:decision]` → run the `decide` skill (`.claude/skills/decide/SKILL.md`) **before** any fix wave: two `debater` agents argue the options to each other, a fresh `judge` breaks a tie, `decisions/<slug>/decision.md` records it. Quote the outcome verbatim in the implementing agent's fix-wave prompt.
    - Max 2 debates per run. A third decision item, or any item on the skill's never-debated list, stops the pipeline and asks the user (kb:lesson/decision-made-inside-a-fix-wave).
 2. **Do not fan all five out at once — they are not independent.** Group the non-empty buckets into waves per Fix Wave Ordering and run them strictly in order. Within a wave, spawn its agents in parallel (multiple Agent calls in one message); between waves, wait for completion, stamp `finish <step>` for each agent that reported, and run the wave's gate.
-3. If a wave's gate fails, that wave's fix was incomplete. End the cycle there — count it against the review budget and report — rather than starting the next wave on a broken tree.
+3. A wave gate red only on that wave's own files goes back to its agent once; red again or elsewhere ends the cycle — count it and report — never start the next wave on a broken tree.
 4. Do **not** run a full-suite gate between waves. The next cycle's Step 6 item 1 runs
    `gates.sh <plan>` once — the baseline suites plus every line of the ```checks block — and that
    run is the cycle's validation; a red line becomes the merged header's `**Gates**: N failed` and

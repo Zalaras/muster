@@ -447,9 +447,8 @@ class ReaderInstance {
 
   private buildBarVM(session: Session | null, now: Date): ReaderVM["bar"] {
     // A present `session` is authoritative, including an explicit `plan: null` (no
-    // plan) — the listing's own (possibly stale, pre-`/clear`) plan path is a fallback
-    // only for the rare case `session` itself isn't known yet (E5: a `/clear` must not
-    // resurrect the old plan's badge just because the listing hasn't been re-fetched).
+    // plan) — the listing's own (possibly stale) plan path is a fallback only for the
+    // rare case `session` itself isn't known yet (kb:adr/reader-plan-sticky-once-named).
     const planPath = session ? (session.plan?.path ?? null) : (this.listing?.plan?.path ?? null);
     const openWrittenAt = this.openPath ? (this.writtenAt.get(this.openPath) ?? null) : null;
     return {

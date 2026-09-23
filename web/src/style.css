@@ -1032,6 +1032,27 @@ body {
   font-style: italic;
 }
 
+/* Reuses `.md table`/`.md th`/`.md td` above as-is (same selectors, no new tokens).
+ * Auto table layout treats a cell's `width`/`max-width` as a hint, not a constraint, so
+ * a long or underscore-only key (no wrap opportunity for the browser's default breaking)
+ * can still grow the table past the article and force horizontal scroll. `table-layout:
+ * fixed` makes the column widths authoritative instead of content-derived, so the key
+ * column's 40% is a hard cap the browser must wrap inside rather than a hint it can
+ * ignore. */
+.md table.frontmatter {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.md table.frontmatter th {
+  width: 40%;
+  overflow-wrap: anywhere;
+}
+
+.md table.frontmatter td {
+  overflow-wrap: anywhere;
+}
+
 /* Plan mermaid-support — a rendered diagram grounds like `.md pre` does (no mockup draws
  * one, UI Specifications). `overflow-x: auto` plus `render/mermaid.ts` stripping
  * mermaid's own responsive width/max-width (REQ-11) is what lets a wide diagram scroll

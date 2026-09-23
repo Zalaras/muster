@@ -33,8 +33,9 @@ type sessionWire struct {
 	Pinned          bool                      `json:"pinned"`
 	RailPos         int64                     `json:"railPos"`
 	// Plan (plan markdown-viewing REQ-17, kb:anchor/ws.session): the session's derived
-	// plan file, null when the latest known transcript names none. Required key on
-	// every Session object.
+	// plan file, null until a transcript has named a plan; once set, a planless scan
+	// keeps it (kb:adr/reader-plan-sticky-once-named). Required key on every Session
+	// object.
 	Plan *sessionWirePlan `json:"plan"`
 	// Unread/LastPrompt (plan rail-card-improvements REQ-7/REQ-12, kb:anchor/ws.session):
 	// required keys on every Session object.
