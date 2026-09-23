@@ -7,3 +7,6 @@
 
 # style(web): apply Biome formatting across web/src, web/e2e and web/scripts
 5c40ecde2675b57501a065157b15df8875ca0f76
+
+# refactor(session): split manager.go into sibling files by concern (pure move)
+02e80512be470aab16b3f67fb3a5adc1e9d8dd84
