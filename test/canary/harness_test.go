@@ -22,8 +22,8 @@ import (
 	"github.com/Zalaras/muster/internal/tmux"
 )
 
-// The canary harness (plan m4-canary, 2026-08-29). It drives the REAL Claude Code binary
-// through the exact production chain that shipped broken in M3 (m4-hook-quoting):
+// The canary harness. It drives the REAL Claude Code binary through the exact production
+// chain:
 //
 //	claudecode.WriteWrapperScripts + claudecode.MergeSettings
 //	  → <scratch repo>/.claude/settings.local.json (data dir path contains a SPACE)

@@ -215,9 +215,9 @@ func TestInsertEvent_NullableEnvelopeAndCorrelationFields(t *testing.T) {
 }
 
 // TestInsertEvent_ReceivedAtIsRFC3339NanoAndDiffersAcrossImmediateInserts covers
-// REQ-10/D13 (M0 review minor): received_at now carries nanosecond precision, so two
-// inserts that land within the same wall-clock second still get distinguishable
-// timestamps — plain RFC3339's second granularity made that impossible.
+// received_at's nanosecond precision: two inserts that land within the same wall-clock
+// second still get distinguishable timestamps, which plain RFC3339's second granularity
+// cannot give.
 func TestInsertEvent_ReceivedAtIsRFC3339NanoAndDiffersAcrossImmediateInserts(t *testing.T) {
 	st := openTestStore(t)
 	ctx := context.Background()

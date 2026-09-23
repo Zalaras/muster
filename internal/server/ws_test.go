@@ -243,8 +243,6 @@ func TestHandleWS_AllowsAbsentOrigin(t *testing.T) {
 }
 
 func TestHandleWS_MultipleClientsEachGetHelloAndSnapshot(t *testing.T) {
-	// Edge Case 13: the registry must handle N clients even though M0 never broadcasts
-	// after the initial handshake.
 	srv := newTestServer(t, ClaudeCodeInfo{})
 	httpSrv := httptest.NewServer(srv.Handler())
 	t.Cleanup(httpSrv.Close)

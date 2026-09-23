@@ -1,7 +1,7 @@
 import { expect, test } from "./helpers/fixtures";
 
-// REQ-6, REQ-7, REQ-8, REQ-15, REQ-16 — the M0 shell: masthead, unknown usage, empty
-// sessions state, hello+snapshot, and GET /api/state sharing the snapshot shape.
+// The dashboard shell: masthead, unknown usage, empty sessions state, hello+snapshot, and
+// GET /api/state sharing the snapshot shape.
 // Every test asserts daemon-global state (the empty sessions state, the exact /api/state
 // snapshot), so each takes the test-scoped `daemon` fixture: a fresh scratch daemon per
 // test, per docs/conventions.md §Testing.
@@ -17,11 +17,11 @@ test("renders the masthead, connection status and empty sessions state after the
   // Testable UI Elements: mandated role="status" on the masthead connection element.
   await expect(page.getByRole("status")).toHaveText(/connected/i);
 
-  // Exact match: M2 (plan m2-terminal) added two more empty-state placeholders that
-  // contain this string as a substring ("No sessions yet — ⌥⌘N to launch", in the Focus
-  // main area and the Tiles view) — a non-exact getByText now resolves to 3 elements.
-  // The rail's own bare-text empty state (`#sessions`, M1, unchanged) is the one this
-  // test asserts on; exact:true disambiguates without weakening the assertion.
+  // Exact match: the Focus main area and the Tiles view each have an empty-state
+  // placeholder that contains this string as a substring ("No sessions yet — … to
+  // launch"), so a non-exact getByText resolves to 3 elements. The rail's own bare-text
+  // empty state (`#sessions`) is the one this test asserts on; exact:true disambiguates
+  // without weakening the assertion.
   await expect(page.getByText("No sessions yet", { exact: true })).toBeVisible();
 });
 
@@ -31,7 +31,6 @@ test("renders both usage readouts as the word unknown, never an empty gauge", as
 }) => {
   await page.goto(daemon.dashboardUrl);
 
-  // Testable UI Elements table's exact patterns for the M0 null-usage state.
   await expect(page.getByText(/5h[\s\S]*unknown/i)).toBeVisible();
   await expect(page.getByText(/7d[\s\S]*unknown/i)).toBeVisible();
 
@@ -45,7 +44,7 @@ test("shows the Claude Code version reported by hello", async ({ page, daemon })
   await expect(page.getByText(/claude\s+2\./i)).toBeVisible();
 });
 
-test("GET /api/state returns exactly the M0 snapshot object once authenticated", async ({
+test("GET /api/state returns exactly the empty-daemon snapshot object once authenticated", async ({
   page,
   daemon,
 }) => {
@@ -54,48 +53,15 @@ test("GET /api/state returns exactly the M0 snapshot object once authenticated",
   const res = await page.request.get(`${daemon.baseURL}/api/state`);
   expect(res.status()).toBe(200);
   const body = await res.json();
-  // `prefs.density` was added by plan m2-terminal (kb:anchor/prefs.put delta, default "2x2"
-  // before any PUT /api/prefs) — updated here so this M0 assertion tracks the merged
-  // protocol contract rather than going stale the moment m2-terminal ships.
-  // `usage.model` was added by plan m3-gauges (kb:anchor/ws.usage delta) — present as an
-  // explicit null until the first status post carries buckets + model together, same
-  // as fiveHour/sevenDay/sampledAt — updated here for the same reason as density above.
-  // `usage.modelScoped`/`modelScopedAt`/`modelScopedError`/`modelScopedSource` and
-  // `prefs.usageModel` were added by plan usage-model-bar (kb:anchor/ws.usage / kb:anchor/ws.prefs / kb:anchor/prefs.put
-  // delta, merged into docs/protocol.md on approval) — this scratch daemon has no
-  // usage-token-file content written, so its immediate on-Start fetch (REQ-1) fails
-  // fast with "no-credentials" (the same shape a real machine with no Keychain item
-  // would see), and `modelScoped`/`modelScopedAt` stay null (INV-1: null iff null).
-  // `prefs.railSort` was added by plan order-sidebar (kb:anchor/prefs.put delta, merged into
-  // docs/protocol.md on approval) — default "manual" before any PUT /api/prefs;
-  // updated here for the same reason as density/usageModel above.
-  // `prefs.theme` and top-level `claudeTheme` were added by plan new-ui-design-colors
-  // (kb:anchor/prefs.put / kb:anchor/ws.snapshot delta, merged into docs/protocol.md on approval) — default
-  // theme "follow" before any PUT /api/prefs; `claudeTheme.family` is "unknown" because
-  // this scratch daemon passes no `-claude-theme-poll` (REQ-15, REQ-19) — updated here
-  // for the same reason as density/usageModel/railSort above.
-  // `prefs.updateCheck` and top-level `update` were added by plan auto-update
-  // (kb:anchor/prefs.put / kb:anchor/ws.snapshot / kb:anchor/ws.prefs / kb:anchor/ws.update delta, merged into docs/protocol.md on approval) —
-  // `updateCheck` defaults true before any PUT /api/prefs; `update.install` is "dev"
-  // because this scratch daemon runs `bin/musterd`, itself stamped by `git describe`
-  // (REQ-8), so it never checks (`available`/`checkedAt`/`installed` stay null) and
-  // carries no remedy; `update.running` is asserted structurally (`expect.any(String)`)
-  // since the dev version string changes with every commit — updated here for the same
-  // reason as density/usageModel/railSort/theme above.
-  // Top-level `shellsBusy` was added by plan terminal-fixes-cleanup (Protocol Contract:
-  // "snapshot gains one top-level key so a reconnecting dashboard re-syncs without
-  // waiting for a transition") — always `[]` here since this scratch daemon has no
-  // sessions at all, let alone a busy shell; updated here for the same reason as
-  // density/usageModel/railSort/theme/update above.
-  // `prefs.railDensity` and `prefs.railActivity` were added by plan
-  // rail-card-improvements (plan.md's Protocol Contract, merged into docs/protocol.md on
-  // approval) — default "comfortable" / "turn" before any PUT /api/prefs; updated here
-  // for the same reason as density/usageModel/railSort/theme/update above.
-  // `update.canCheck` was added by plan rail-card-improvements-2 (Protocol Contract: one
-  // field added to kb:anchor/ws.update between `remedy` and `available`) — false here
-  // because this scratch daemon's `install` is "dev", one of the two conditions that
-  // make a release check impossible regardless of `-update-base-url` — updated here for
-  // the same reason as density/usageModel/railSort/theme/update above.
+  // Values that follow from this scratch daemon's setup rather than from the defaults:
+  // it writes no usage-token-file content, so its immediate on-Start fetch fails fast
+  // with "no-credentials" (what a machine with no Keychain item sees) and
+  // `modelScoped`/`modelScopedAt` stay null; `usage.model` stays null until a status post
+  // carries buckets and model together; `claudeTheme.family` is "unknown" because no
+  // `-claude-theme-poll` is passed; `update.install` is "dev" because `bin/musterd` is
+  // stamped by `git describe`, so it never checks (`available`/`checkedAt`/`installed`
+  // null, no remedy, `canCheck` false regardless of `-update-base-url`), and
+  // `update.running` is matched structurally since the dev version changes every commit.
   expect(body).toEqual({
     sessions: [],
     shellsBusy: [],

@@ -10,14 +10,9 @@ import {
 } from "./helpers/session";
 import { terminalRegion } from "./helpers/terminal";
 
-// Plan m2-terminal — REQ-9 (view switcher/keyboard), REQ-10 (prefs), plus the INV-4
-// prefs-echo invariant and the M2 protocol delta (GET /api/state's prefs snapshot).
-//
-// Plan code-breakup's E2E split (plan.md UI Specifications → E2E split) moved this
-// file's Tiles density/promotion/socket-count/drag-reorder tests to tiles.spec.ts (plans
-// m2-terminal and move-tiles); what remains below is the Focus/Tiles switcher itself,
-// its keyboard shortcuts, and the prefs object's wire contract — none of which depend on
-// Tiles' grid density or session count.
+// The Focus/Tiles switcher itself, its keyboard shortcuts, and the prefs object's wire
+// contract (the prefs echo and GET /api/state's prefs snapshot) — none of which depend on
+// Tiles' grid density or session count; those tests live in tiles.spec.ts.
 //
 // Every test here takes the per-test `daemon` fixture (helpers/fixtures.ts): the view
 // switcher's own persisted pref and the prefs broadcast are both global per daemon, so a
@@ -63,8 +58,8 @@ test("Cmd+\\ toggles the view and Opt+Cmd+1 focuses the top-priority session reg
   const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
   try {
     await page.goto(daemon.dashboardUrl);
-    // Launch B first, A second — but only A gets a permission prompt, so it must sort
-    // to the top (M1's needs-input-first rule) regardless of launch order.
+    // Launch B first, A second — but only A gets a permission prompt, so under the
+    // Attention sort selected below it must sort to the top regardless of launch order.
     const sessionB = await launchSession(page, daemon, { directory: dirB.path, title: "prio-b" });
     const sessionA = await launchSession(page, daemon, { directory: dirA.path, title: "prio-a" });
 
@@ -163,7 +158,7 @@ test("every accepted PUT /api/prefs re-broadcasts the full object to every other
   }
 });
 
-test("GET /api/state's prefs snapshot carries both view and density (M2 protocol delta)", async ({
+test("GET /api/state's prefs snapshot carries the full prefs object before and after a density PUT", async ({
   page,
   daemon,
 }) => {
@@ -171,19 +166,6 @@ test("GET /api/state's prefs snapshot carries both view and density (M2 protocol
 
   const stateRes = await page.request.get(`${daemon.baseURL}/api/state`);
   expect(stateRes.status()).toBe(200);
-  // `usageModel` was added by plan usage-model-bar (kb:anchor/prefs.put / kb:anchor/ws.prefs delta, merged
-  // into docs/protocol.md on approval; default "Fable" before any PUT) — included
-  // here so this M2 assertion tracks the merged protocol contract rather than going
-  // stale the moment usage-model-bar ships, same rationale as density's own addition.
-  // `railSort` was added by plan order-sidebar (kb:anchor/prefs.put delta, merged into
-  // docs/protocol.md on approval; default "manual" before any PUT) — same rationale.
-  // `theme` was added by plan new-ui-design-colors (kb:anchor/prefs.put delta, merged into
-  // docs/protocol.md on approval; default "follow" before any PUT) — same rationale.
-  // `updateCheck` was added by plan auto-update (kb:anchor/prefs.put / kb:anchor/ws.prefs delta, merged into
-  // docs/protocol.md on approval; default true before any PUT) — same rationale.
-  // `railDensity`/`railActivity` were added by plan rail-card-improvements (plan.md's
-  // Protocol Contract, merged into docs/protocol.md on approval; default "comfortable" /
-  // "turn" before any PUT) — same rationale.
   const before = (await stateRes.json()) as {
     prefs: {
       view: string;

@@ -1,30 +1,20 @@
-// Scratch-daemon harness for the E2E suite (plan m0-skeleton, extended by m1-sessions —
-// Affected Files > E2E: "-claude-bin (a stub script the harness writes) and a per-run
-// -tmux-socket; kill that tmux server in teardown").
+// Scratch-daemon harness for the E2E suite.
 //
 // Specs never call startScratchDaemon() themselves: helpers/fixtures.ts wraps it as the
 // `daemon` fixture (fresh per test), `startDaemon` (runtime-computed options) and
 // `fileDaemon()` (one per file), and web/scripts/e2e-lint.sh fails a spec that bypasses
 // them. Each start is a fresh port + fresh temp data dir + a freshly spawned `bin/musterd`
 // process, per docs/conventions.md's "never attach to an existing server" rule. Nothing
-// here talks to Vite — that harness retired with the pre-M0 scaffold.
+// here talks to Vite.
 //
-// M1 addition: every scratch daemon also gets its own dedicated tmux socket (never
-// `-L muster`, never the user's default server — CLAUDE.md hard rule) and a stub
-// `claude` binary passed via `-claude-bin` (one file shared by the whole run, see
-// ensureSharedStubClaude), so `POST /api/sessions` really spawns a tmux window without
-// ever launching a real `claude` process. The stub never exits on its
-// own — pane-liveness tests (E9/E12) control death explicitly via `tmux kill-window`.
-//
-// M2 addition (plan m2-terminal, REQ-5 — the queued M1 follow-up): the socket is now a
-// filesystem *path* inside the scratch data dir (`-S`, never a bare `-L` name), so every
-// tmux server this harness starts lives, and dies, inside a directory the harness already
-// deletes — matching REQ-5's socket-path support the daemon itself gains. The stub
-// `claude` binary is upgraded from a plain sleep loop to an echo loop (REQ-1/E1/E2's
-// terminal-bridge round trip needs *something* to read back): it prints
-// `MUSTER-STUB-READY`, then `stub-echo:<line>` per input line, then falls into the old
-// sleep-forever loop once its stdin hits EOF (pane death) — so M1's liveness specs, which
-// depend on the pane staying alive until explicitly killed, are unaffected.
+// Every scratch daemon gets its own dedicated tmux socket — a filesystem *path* inside the
+// scratch data dir (`-S`, never `-L muster`, never the user's default server — CLAUDE.md
+// hard rule), so every tmux server this harness starts lives, and dies, inside a directory
+// the harness already deletes — and a stub `claude` binary passed via `-claude-bin` (one
+// file shared by the whole run, see ensureSharedStubClaude), so `POST /api/sessions`
+// really spawns a tmux window without ever launching a real `claude` process. The stub
+// echoes its input for the terminal bridge (see STUB_CLAUDE_SCRIPT) and never exits on its
+// own — pane-liveness tests control death explicitly via `tmux kill-window`.
 import { type ChildProcess, execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
@@ -64,10 +54,10 @@ interface TokensFile {
   ingestToken: string;
 }
 
-/** `-on-exit` values (plan m4-reconcile REQ-3): `ask` is the daemon's own default when
- * the flag is omitted entirely, so `start()`'s `onExit` option defaults to `undefined`
- * (no flag passed) rather than the string `"ask"` — that keeps the default-flag path
- * exercised by every pre-M4 spec unchanged. */
+/** `-on-exit` values: `ask` is the daemon's own default when the flag is omitted
+ * entirely, so `start()`'s `onExit` option defaults to `undefined` (no flag passed) rather
+ * than the string `"ask"` — that keeps the default-flag path exercised by every spec that
+ * doesn't set it. */
 export type OnExitPolicy = "ask" | "leave" | "kill";
 
 /**
@@ -397,9 +387,9 @@ export class ScratchDaemon {
   readonly dataDir: string;
   readonly dbPath: string;
   /**
-   * Dedicated tmux socket *path* for this run only (REQ-19, path form per M2 REQ-5) —
-   * never `-L muster`. Living inside `dataDir` means `teardown()`'s `rm` cleans up the
-   * socket file too; every `tmux` invocation below uses `-S`, never `-L`.
+   * Dedicated tmux socket *path* for this run only — never `-L muster`. Living inside
+   * `dataDir` means `teardown()`'s `rm` cleans up the socket file too; every `tmux`
+   * invocation below uses `-S`, never `-L`.
    */
   readonly tmuxSocket: string;
   /** Absolute path to the stub `claude` binary this run's launches will invoke. */
@@ -524,7 +514,7 @@ export class ScratchDaemon {
     this.baseURL = `http://127.0.0.1:${port}`;
     this.dataDir = dataDir;
     this.dbPath = join(dataDir, "muster.db");
-    // M2 REQ-5: a path (contains "/"), not a bare name — exercises the daemon's own
+    // A path (contains "/"), not a bare name — exercises the daemon's own
     // `-S` vs `-L` branch and keeps the socket file inside the scratch dir teardown()
     // already deletes.
     this.tmuxSocket = join(dataDir, "tmux.sock");
@@ -551,12 +541,11 @@ export class ScratchDaemon {
 
   static async start(opts: ScratchDaemonOptions = {}): Promise<ScratchDaemon> {
     const port = await freePort();
-    // M4 (plan m4-hook-quoting, REQ-6/E1): the prefix contains a literal space so every
-    // scratch daemon's data dir exercises the production path shape — the default macOS
-    // data dir (`~/Library/Application Support/Muster`) contains a space, and until this
-    // change no E2E run ever exercised the shell-quoting path the two command hooks rely
-    // on (spikes/FINDINGS.md 2026-08-25 addendum). Do not "fix" a spec that breaks on the
-    // space — that's the harness doing its job; report it instead (plan Affected Files).
+    // The prefix contains a literal space so every scratch daemon's data dir exercises the
+    // production path shape — the default macOS data dir
+    // (`~/Library/Application Support/Muster`) contains a space, which the shell quoting
+    // of the two command hooks must survive. Do not "fix" a spec that breaks on the space
+    // — that's the harness doing its job; report it instead.
     const dataDir = await mkdtemp(join(tmpdir(), "muster e2e-"));
     // Plan issue-capture REQ-17: resolve the deny stub BEFORE constructing, since the
     // constructor wants a concrete `issueApiURL` string, never `undefined`.

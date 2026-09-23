@@ -34,13 +34,7 @@ func TestMigrate_AppliesInitSchema(t *testing.T) {
 
 	require.NoError(t, Migrate(ctx, db))
 
-	// m1-sessions added 0002_sessions.sql, m3-gauges added 0003_gauges.sql,
-	// m4-reconcile added 0004_reconcile.sql, usage-model-bar added 0005_usage_model.sql,
-	// order-sidebar added 0006_rail_order.sql, ui-text-and-focus added
-	// 0007_title_override.sql, markdown-viewing added 0008_reader.sql, and
-	// rail-card-improvements added 0009_rail_cards.sql, so a fresh database now records
-	// nine migrations (was 1 pre-M1 — see plans/m1-sessions/daemon-implementation.md
-	// Handoff).
+	// One row per file in migrations/ (0001_init.sql through 0009_rail_cards.sql).
 	assert.Equal(t, 9, schemaMigrationsCount(t, db))
 
 	var version int

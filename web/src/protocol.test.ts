@@ -145,7 +145,7 @@ describe("parseMessage — hello (plan version-claude-interface, protocol 2: hel
 });
 
 describe("parseMessage — snapshot", () => {
-  it("parses the M0 empty-sessions, null-usage snapshot", () => {
+  it("parses the empty-sessions, null-usage snapshot", () => {
     expect(parseMessage(validSnapshot)).toEqual(validSnapshot);
   });
 
@@ -162,7 +162,7 @@ describe("parseMessage — snapshot", () => {
     expect(parseMessage(snapshot)).toEqual(snapshot);
   });
 
-  it("parses a snapshot whose usage carries the M3 model field (REQ-11/12)", () => {
+  it("parses a snapshot whose usage carries the model field", () => {
     const snapshot = {
       ...validSnapshot,
       usage: {
@@ -212,12 +212,12 @@ describe("parseMessage — snapshot", () => {
     expect(parseMessage(snapshot)).toBeNull();
   });
 
-  it("rejects a prefs.density outside the known enum (M2 kb:anchor/prefs.put refinement)", () => {
+  it("rejects a prefs.density outside the known enum", () => {
     const snapshot = { ...validSnapshot, prefs: { view: "focus", density: "4x4" } };
     expect(parseMessage(snapshot)).toBeNull();
   });
 
-  it("rejects a snapshot whose prefs.density is missing entirely (M2: density is always present on the wire)", () => {
+  it("rejects a snapshot whose prefs.density is missing entirely (density is always present on the wire)", () => {
     const snapshot = { ...validSnapshot, prefs: { view: "focus" } };
     expect(parseMessage(snapshot)).toBeNull();
   });
@@ -383,7 +383,7 @@ describe("parsePrefs — railActivity (plan rail-card-improvements / kb:anchor/p
   });
 });
 
-describe("parseMessage — prefs (M2 REQ-10/INV-4: the PUT /api/prefs echo broadcast)", () => {
+describe("parseMessage — prefs (the PUT /api/prefs echo broadcast)", () => {
   const validPrefsMessage = {
     type: "prefs",
     prefs: {
@@ -706,7 +706,7 @@ describe("parseMessage — claudeTheme (plan new-ui-design-colors kb:anchor/ws.c
   });
 });
 
-describe("parseMessage — usage (M3 REQ-5/kb:anchor/ws.usage: broadcast on value/model change)", () => {
+describe("parseMessage — usage (kb:anchor/ws.usage: broadcast on value/model change)", () => {
   const knownUsage = {
     type: "usage",
     usage: {
@@ -718,7 +718,7 @@ describe("parseMessage — usage (M3 REQ-5/kb:anchor/ws.usage: broadcast on valu
     },
   };
 
-  it("parses a fully-populated usage message including the M3 model field", () => {
+  it("parses a fully-populated usage message including the model field", () => {
     expect(parseMessage(knownUsage)).toEqual(knownUsage);
   });
 
@@ -1114,7 +1114,7 @@ describe("parseSession — full kb:anchor/ws.session shape", () => {
     expect(parseSession(session)).toEqual(session);
   });
 
-  it("parses a context with populated numeric fields (post-M3, forward-compatible)", () => {
+  it("parses a context with populated numeric fields", () => {
     const session = {
       ...validSession,
       context: { usedPct: 42.5, totalInputTokens: 1000, windowSize: 200000, compactions: 0 },
@@ -1370,7 +1370,7 @@ describe("parseMessage — sessionUpsert", () => {
   });
 });
 
-describe("parseMessage — snapshot with sessions (M1: non-empty for the first time)", () => {
+describe("parseMessage — snapshot with sessions", () => {
   it("parses a snapshot with multiple valid sessions", () => {
     const snapshot = {
       type: "snapshot",

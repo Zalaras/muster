@@ -2,8 +2,7 @@
 //
 // It stands in for musterd: it accepts Claude Code HTTP hook posts at
 // /hook/{event} and status-line posts at /statusline, and appends every request
-// to a JSONL file for later inspection. Used by the /interface-probe skill and
-// (from M4) the canary/E2E harness.
+// to a JSONL file for later inspection. Used by the /interface-probe skill.
 //
 // Usage:
 //

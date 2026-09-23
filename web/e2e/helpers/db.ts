@@ -1,7 +1,6 @@
-// Read-only sqlite3-CLI oracle for the scratch daemon's `event` table (plan m0-skeleton,
-// Protocol Contract: "the E2E ingest oracle queries it read-only via the sqlite3 CLI").
-// GET /api/state can't show events until M1, so this is the only way an E2E test can
-// observe ingest without becoming a daemon-internals test.
+// Read-only sqlite3-CLI oracle for the scratch daemon's `event` table. No API exposes the
+// persisted event rows, so this is the only way an E2E test can observe ingest without
+// becoming a daemon-internals test.
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 

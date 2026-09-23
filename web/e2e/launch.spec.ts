@@ -28,12 +28,10 @@ import {
 
 const execFileAsync = promisify(execFile);
 
-// Plan new-session-dialog: the launch dialog rebuilt as a Finder-style picker (recents
-// sidebar + clickable breadcrumb + one child listing where the listed directory *is*
-// the selection) with segmented Model/Start-in controls. This file replaces the M1
-// Browse…/Up/Use-this-folder flow entirely — those controls no longer exist (REQ-2).
-//
-// REQ-1..18, INV-1..4. Plan acceptance: E1-E15.
+// The launch dialog is a Finder-style picker (recents sidebar + clickable breadcrumb +
+// one child listing where the listed directory *is* the selection) with segmented
+// Model/Start-in controls. The legacy Browse…/Up/Use-this-folder controls no longer exist;
+// the first test asserts their absence.
 //
 // Every test takes the per-test `daemon` fixture (helpers/fixtures.ts): the recents list
 // is daemon-global, and the dialog opens straight onto the most recent recent (REQ-8) —
@@ -41,7 +39,7 @@ const execFileAsync = promisify(execFile);
 // neighbour test's launch on a shared daemon would break. Order/count/pressed-state
 // assertions on the sidebar need the same isolation.
 
-test("opens on the browse root with an empty sidebar when there are no recents, exposing every Testable UI Element and none of the removed M1 controls (REQ-2, REQ-9, REQ-10, REQ-11, REQ-16, E2)", async ({
+test("opens on the browse root with an empty sidebar when there are no recents, exposing every Testable UI Element and none of the removed legacy browse controls (REQ-2, REQ-9, REQ-10, REQ-11, REQ-16, E2)", async ({
   page,
   daemon,
 }) => {

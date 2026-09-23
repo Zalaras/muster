@@ -1,6 +1,6 @@
 import { expect, fileDaemon, test } from "./helpers/fixtures";
 
-// REQ-1, REQ-4, REQ-5, REQ-7 (origin check) — auth surface for M0.
+// The auth surface, including the WS origin check.
 // One scratch daemon per file via fileDaemon() (one per worker for the tests it runs from
 // here — docs/conventions.md's "never attach to an existing server"): every test is a
 // stateless request against auth surfaces, so none can observe a neighbour.

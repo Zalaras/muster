@@ -934,10 +934,9 @@ func TestApplyStatus_ModelDisplayNamePersistsAcrossARestart(t *testing.T) {
 	assert.Equal(t, "Haiku 4.5", got.Model.DisplayName, "REQ-16: the real display name must survive a restart, not be re-derived from the id")
 }
 
-// TestRowToSession_ModelDisplayNameFallsBackToIDForPreM3Rows covers REQ-16's other
-// half: a row written before M3 (or before any status post ever arrived) has a null
-// model_display_name column — rowToSession must fall back to the id, matching the
-// pre-M3 behaviour, rather than surfacing an empty display name.
+// TestRowToSession_ModelDisplayNameFallsBackToIDForPreM3Rows: a row no status post has
+// reached has a null model_display_name column — rowToSession must fall back to the id
+// rather than surfacing an empty display name.
 func TestRowToSession_ModelDisplayNameFallsBackToIDForPreM3Rows(t *testing.T) {
 	modelID := "sonnet"
 	row := store.SessionRow{ID: 1, Model: &modelID, ModelDisplayName: nil}

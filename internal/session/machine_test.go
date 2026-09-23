@@ -60,7 +60,7 @@ func TestApplyInput_Bind(t *testing.T) {
 		applyInput(sess, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindBind, Model: &newID}, fixedNow)
 
 		assert.Equal(t, newID, sess.Model.ID)
-		assert.Equal(t, "sonnet", sess.Model.DisplayName, "displayName stays the verbatim launch string until M3 (kb:anchor/ws.session M1 value semantics)")
+		assert.Equal(t, "sonnet", sess.Model.DisplayName, "a bind updates only the id: displayName stays the verbatim launch string until a status-line post refreshes it (kb:anchor/ws.session value semantics)")
 	})
 
 	t.Run("no model field present leaves Model nil", func(t *testing.T) {

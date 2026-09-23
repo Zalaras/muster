@@ -457,15 +457,13 @@ func TestUnknownVersusZero(t *testing.T) {
 	t.Logf("%d pre-response post(s) checked", len(pre))
 }
 
-// TestCommandHookPathQuoting guards m4-hook-quoting REQ-8/D9: a command-hook path is a
-// `/bin/sh -c` command line, not a path field, so an unquoted space-bearing path silently
-// breaks both command hooks Muster depends on (the M3 gauges never rendered real data for
-// this reason). The harness's data dir contains a space; the binding cells are: the
-// generated settings quote both commands, SessionStart is delivered (run A), and the
-// status line posts (run D).
+// TestCommandHookPathQuoting guards kb:fact/hook-commands-are-shell-lines: a command-hook
+// path is a `/bin/sh -c` command line, not a path field, so an unquoted space-bearing path
+// silently breaks both command hooks Muster depends on. The harness's data dir contains a
+// space; the binding cells are: the generated settings quote both commands, SessionStart is
+// delivered (run A), and the status line posts (run D).
 //
-// Measured history (2026-08-25 probe, 2.1.245, spikes/FINDINGS.md addendum) — path/form →
-// SessionStart delivered / status line posted:
+// Measured on 2.1.245 — path/form → SessionStart delivered / status line posted:
 //
 //	space, bare  → no  / no (silent)      space, '…' → yes / yes     space, "…" → yes / not run
 //	plain, bare  → yes / not run          plain, '…' → yes / yes     plain, "…" → yes / not run

@@ -1,11 +1,10 @@
-// Rail-order helpers for the order-sidebar E2E suite (plan order-sidebar).
+// Rail-order helpers.
 //
-// The rail/strip card is the same `data-testid="session-card"` template M1 shipped
-// (`web/e2e/helpers/session.ts`'s `sessionCard`), and it coexists in the DOM with its
-// strip copy whenever Tiles is active (`helpers/terminal.ts`'s `stripCard`/`liveTile`
-// comments explain why an unscoped match is ambiguous) — so every locator here is scoped
-// to the rail's own container (`#sessions`), mirroring that established pattern rather
-// than inventing a new one.
+// The rail and strip cards share one `data-testid="session-card"` template
+// (`helpers/session.ts`'s `sessionCard`), and both copies are in the DOM whenever Tiles is
+// active (`helpers/terminal.ts`'s `stripCard`/`liveTile` comments explain why an unscoped
+// match is ambiguous) — so every locator here is scoped to the rail's own container
+// (`#sessions`).
 import type { Locator, Page } from "@playwright/test";
 
 /** Rail card locator, scoped to `#sessions` (the Focus rail) so a session that is both

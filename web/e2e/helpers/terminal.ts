@@ -1,8 +1,7 @@
-// Terminal-pane helpers for the m2-terminal E2E suite (plan m2-terminal).
+// Terminal-pane helpers.
 //
-// M2's Testable UI Elements table pins the live-terminal container by aria-label
-// (`Terminal: <title>`) but leaves xterm's own DOM untouched — "xterm.js owns the inner
-// DOM — locate the container, not xterm internals". `@xterm/xterm` 6.0.0 ships no
+// The live-terminal container is located by aria-label (`Terminal: <title>`), never by
+// xterm's own DOM — xterm.js owns the inner DOM. `@xterm/xterm` 6.0.0 ships no
 // canvas/WebGL addon in this project's dependencies (only `@xterm/addon-fit`), so its
 // default renderer is DOM-based: rendered rows are real text nodes, readable via
 // Playwright's normal text matchers without reaching into xterm internals.
@@ -69,16 +68,15 @@ export function terminalOverlay(region: Locator): Locator {
 }
 
 /**
- * Live tile locator (Tiles view) — the plan calls live tiles "article-shaped" in its
- * Testable UI Elements notes: the tile template's root is a bare `<article class="tile">`,
- * the one plain element that carries an implicit ARIA role (`article`) without any
+ * Live tile locator (Tiles view). The tile template's root is a bare
+ * `<article class="tile">`, which carries an implicit ARIA role (`article`) without any
  * attribute. A bare `getByRole("article")` is NOT enough to identify a live tile,
- * though: the snapshot strip's cards (`web/e2e/helpers/terminal.ts`'s `stripCard`, same
- * template M1's rail card uses) are `<article class="card" data-testid="session-card">`
- * — also role="article" — so a role-only locator matches both a session's live tile AND
- * its strip card whenever it appears in either place, corrupting every "is this session
- * live or stripped" count in views.spec.ts. Scope on the `.tile` class (only the live-grid
- * template uses it) to disambiguate from a strip/rail card of the same session.
+ * though: the snapshot strip's cards (`stripCard` below, the same template the rail card
+ * uses) are `<article class="card" data-testid="session-card">` — also role="article" — so
+ * a role-only locator matches both a session's live tile AND its strip card whenever it
+ * appears in either place, corrupting every "is this session live or stripped" count in
+ * tiles.spec.ts. Scope on the `.tile` class (only the live-grid template uses it) to
+ * disambiguate from a strip/rail card of the same session.
  */
 export function liveTile(page: Page, title: string): Locator {
   return page.locator("article.tile").filter({ hasText: title });
@@ -97,11 +95,10 @@ export function liveTileById(page: Page, id: number): Locator {
 }
 
 /**
- * Strip-card locator (Tiles view). The plan's UI spec says a strip card is literally "the
- * M1 card content on its side" — i.e. the same rail-card component M1 already ships
- * (`data-testid="session-card"`), and web-impl's `renderStrip` does reuse that exact
- * template. But the Focus-view rail (`aria-label="Sessions"`) is only ever `hidden`, not
- * removed, when Tiles is active (`main.ts`'s `viewFocusEl.hidden = view !== "focus"`), so
+ * Strip-card locator (Tiles view). A strip card is the rail card's template
+ * (`data-testid="session-card"`) — `renderStrip` reuses it. But the Focus-view rail
+ * (`aria-label="Sessions"`) is only ever `hidden`, not removed, when Tiles is active
+ * (`features/views.ts`'s `viewFocusEl.hidden = app.state.view !== "focus"`), so
  * a session's rail card and its strip card coexist in the DOM at once — both
  * `data-testid="session-card"` with the same title text. A bare `getByTestId` match is
  * therefore ambiguous (strict-mode violation) the moment a session is both known (rail)

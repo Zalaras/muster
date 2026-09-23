@@ -438,7 +438,7 @@ function fakeStatusResponse(status: number, body?: unknown): Response {
   } as unknown as Response;
 }
 
-describe("api — putPrefs (PUT /api/prefs, kb:anchor/prefs.put / M2 REQ-10)", () => {
+describe("api — putPrefs (PUT /api/prefs, kb:anchor/prefs.put)", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {

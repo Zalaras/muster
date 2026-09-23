@@ -1,8 +1,8 @@
-// Synthesized Claude Code hook / status-line payloads for the E2E suite (M0, extended
-// by m1-sessions for the kb:anchor/state state machine's event set).
+// Synthesized Claude Code hook / status-line payloads for the E2E suite, covering the
+// kb:anchor/state state machine's event set.
 //
-// Shapes are copied from the plan's Implementation Notes and docs/history/spikes/canary-fields.md's
-// measured captures against 2.1.233/2.1.237 — never invented. No real `claude` is ever
+// Shapes are copied from docs/history/spikes/canary-fields.md's measured captures against
+// 2.1.233/2.1.237 — never invented. No real `claude` is ever
 // launched here (CLAUDE.md hard rule); this is the whole of how these tests fake Claude
 // Code.
 //
@@ -32,10 +32,9 @@ function envelope(
 /**
  * Enveloped `SessionStart` with NO `musterSession`/`tmuxPane` at all — the shape a
  * `claude` process posts when its wrapper's environment carries no `MUSTER_SESSION`
- * (plan plain-terminal-session, Implementation Notes "Isolation is structural"; edge
- * case 1: a `claude` run started from inside a plain shell pane). Distinct from
+ * (a `claude` run started from inside a plain shell pane). Distinct from
  * `envelopedSessionStart(id, {})`, whose `EnvelopeOpts` DEFAULTs `musterSession` to 1
- * before `envelope()` ever sees it, reproducing the bound M0 fixture's binding half —
+ * before `envelope()` ever sees it, reproducing the bound fixture's binding half —
  * not the unbound shape this scenario measures. This builder skips even that default
  * so `envelope()`'s own `!== undefined` guard omits both fields, leaving
  * `resolveSessionID` (`internal/server/ingest.go`) nothing to route on but the
@@ -65,10 +64,10 @@ interface SessionStartOpts extends EnvelopeOpts {
   /**
    * `SessionStart.model` is optional (measured: present on 2 of 5 startup captures,
    * absent on another startup, on `source:"clear"`, and on a fresh headless startup —
-   * 2026-08-22 probe, docs/history/spikes/canary-fields.md "Values worth asserting"). When present it
-   * is always a **plain model-id string** — never the `{id, display_name}` object, which
-   * is the status line's shape only. Pass `null` to omit the field entirely; omit this
-   * option to get the default present-model shape (M0 behaviour).
+   * docs/history/spikes/canary-fields.md "Values worth asserting"). When present it is
+   * always a **plain model-id string** — never the `{id, display_name}` object, which is
+   * the status line's shape only. Pass `null` to omit the field entirely; omit this
+   * option to get the default present-model shape.
    */
   model?: string | null;
   /**
@@ -84,13 +83,12 @@ interface SessionStartOpts extends EnvelopeOpts {
 /**
  * Enveloped `SessionStart` — the one hook that is silently never delivered over plain
  * HTTP (canary-fields.md "Transport"), so the real wrapper always posts it enveloped.
- * `musterSession` defaults to 1 (M0 behaviour); m1-sessions tests pass a real launched
- * session's id. `tmuxPane` has NO default (plan general-cleanup REQ-12,
- * kb:adr/ingest-envelope-pane-must-corroborate) — corroboration checks it against the
- * session's stored pane, so every caller states it explicitly: the real pane
- * (`daemon.tmuxPaneId(session.tmuxTarget)`) for a routing-sensitive test, or an
- * explicit literal for a fixture that doesn't care whether it routes. Omitting it
- * omits the field entirely, the headless/unbound shape.
+ * `musterSession` defaults to 1; tests that route to a real launched session pass its id.
+ * `tmuxPane` has NO default (kb:adr/ingest-envelope-pane-must-corroborate) —
+ * corroboration checks it against the session's stored pane, so every caller states it
+ * explicitly: the real pane (`daemon.tmuxPaneId(session.tmuxTarget)`) for a
+ * routing-sensitive test, or an explicit literal for a fixture that doesn't care whether
+ * it routes. Omitting it omits the field entirely, the headless/unbound shape.
  */
 export function envelopedSessionStart(
   sessionId: string,
@@ -149,10 +147,9 @@ interface TurnActivityOpts {
   /** Plan markdown-viewing: see `SessionStartOpts.transcriptPath`. Default unchanged. */
   transcriptPath?: string;
   /**
-   * Plan rail-card-improvements REQ-12: this hook's `prompt` field — `internal/claudecode`
-   * reads it as `StateInput.Prompt` for `Session.LastPrompt` and the turn-aware activity
-   * line. Default unchanged ("do the thing", M0's fixture) so no pre-existing caller
-   * needs to change. Pass a string beginning `<task-notification>` to reproduce the
+   * This hook's `prompt` field — `internal/claudecode` reads it as `StateInput.Prompt`
+   * for `Session.LastPrompt` and the turn-aware activity line. Defaults to "do the
+   * thing". Pass a string beginning `<task-notification>` to reproduce the
    * measured background-completion shape (kb:fact/background-completion-new-prompt-id).
    */
   prompt?: string;
@@ -319,20 +316,15 @@ export function rawPermissionRequest(
 interface StopOpts extends TurnActivityOpts {
   lastAssistantMessage?: string;
   /**
-   * Plan claude-status-fixes decision 3 / Edge Case 1: `background_tasks` is fixture
-   * realism for the E2E specs only, never a state input — a `Stop` with a non-empty
-   * list still lands `idle`, and only the first marked subagent hook returns the
-   * session to `working`. Defaults to `[]` (M0's fixture). Use `runningSubagentTask()`
-   * / `runningShellTask()` for the measured non-empty entry shapes.
+   * `background_tasks` is fixture realism for the E2E specs only, never a state input —
+   * a `Stop` with a non-empty list still lands `idle`, and only the first marked
+   * subagent hook returns the session to `working`. Defaults to `[]`. Use
+   * `runningSubagentTask()` / `runningShellTask()` for the measured non-empty entry shapes.
    */
   backgroundTasks?: unknown[];
 }
 
-/**
- * Raw (non-enveloped) `Stop` — the common shape for ordinary plain-HTTP hooks. Defaults
- * (`promptId: "p1"`, `permissionMode: "default"`, message `"hi"`, empty
- * `background_tasks`) reproduce M0's fixture.
- */
+/** Raw (non-enveloped) `Stop` — the common shape for ordinary plain-HTTP hooks. */
 export function rawStop(sessionId: string, opts: StopOpts = {}): Record<string, unknown> {
   const {
     promptId = "p1",
@@ -440,13 +432,12 @@ export function rawSessionEnd(
  * Enveloped status-line body, pre-first-API-response shape: `context_window`'s
  * percentages/current_usage are null and `rate_limits` is entirely absent — the exact
  * "the whole rate_limits key is absent (not empty, not null) until a session's first API
- * response" state from canary-fields.md. `opts.musterSession` defaults to 1 (M0
- * behaviour); m1-sessions tests pass a real launched session's id. `opts.sessionName`
- * adds the status line's `session_name` field (canary-fields.md "the title source") —
- * used by m1-sessions REQ-13 to prove a status post still mutates no session field in
- * M1 even though it carries a plausible title. `opts.tmuxPane` has no default (plan
- * general-cleanup REQ-12, kb:adr/ingest-envelope-pane-must-corroborate) — every caller
- * states it explicitly, same as `envelopedSessionStart`.
+ * response" state from canary-fields.md. `opts.musterSession` defaults to 1; tests that
+ * route to a real launched session pass its id. `opts.sessionName` adds the status line's
+ * `session_name` field (canary-fields.md "the title source"), which becomes the session's
+ * title absent a rename override (kb:anchor/ws.session). `opts.tmuxPane` has no default
+ * (kb:adr/ingest-envelope-pane-must-corroborate) — every caller states it explicitly,
+ * same as `envelopedSessionStart`.
  */
 export function envelopedStatusLinePreFirstResponse(
   sessionId: string,

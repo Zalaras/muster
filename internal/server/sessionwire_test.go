@@ -138,9 +138,9 @@ func TestToWireSession_EndedAtFormatsAsRFC3339WhenSet(t *testing.T) {
 	assert.False(t, w.Alive)
 }
 
-// TestToWireSession_ContextGaugesAreAlwaysNullExceptCompactions covers the M1 Protocol
-// Contract note directly: usedPct/totalInputTokens/windowSize are always null in M1
-// (gauges are M3), regardless of any other session state; only compactions is live.
+// TestToWireSession_ContextGaugesAreAlwaysNullExceptCompactions covers the unknown gauge:
+// with no Session.Context (no routed status post has carried a used-percentage),
+// usedPct/totalInputTokens/windowSize render null while compactions stays live.
 func TestToWireSession_ContextGaugesAreAlwaysNullExceptCompactions(t *testing.T) {
 	s := minimalSession()
 	s.Compactions = 3

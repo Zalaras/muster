@@ -18,11 +18,10 @@ import (
 )
 
 func TestBuildSnapshot_M0Shape(t *testing.T) {
-	// REQ-6/REQ-16: M0's snapshot is fixed — empty sessions, every usage field null except
-	// source, prefs.view/density default to "focus"/"2x2" (density added in m2-terminal,
-	// REQ-10), shellsBusy empty (added in terminal-fixes-cleanup, kb:anchor/ws.shell-activity,
-	// always present as [] when none). This is the exact object kb:anchor/ws.snapshot / docs/history/protocol-changelog.md pins, shared verbatim by
-	// GET /api/state and the WS `snapshot` message.
+	// The fixed snapshot — empty sessions, every usage field null except the two sources,
+	// default prefs, shellsBusy present as [] when none (kb:anchor/ws.shell-activity). This
+	// is the exact object kb:anchor/ws.snapshot pins, shared verbatim by GET /api/state and
+	// the WS `snapshot` message.
 	got, err := json.Marshal(buildSnapshot())
 	require.NoError(t, err)
 

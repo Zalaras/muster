@@ -401,7 +401,7 @@ test("killing the scratch tmux window greys the card without changing its badge 
   }
 });
 
-test("a status-line post persists, routes, and refreshes the title per M3 value semantics (REQ-4)", async ({
+test("a status-line post persists, routes, and refreshes the title from session_name (REQ-4)", async ({
   page,
   request,
 }) => {
@@ -431,11 +431,8 @@ test("a status-line post persists, routes, and refreshes the title per M3 value 
       })
       .toBe(2);
 
-    // M3 supersedes the M1 rule (kb:anchor/ws.session): the status line's session_name now
-    // refreshes `title` whenever present (REQ-4). This is sanctioned protocol-delta
-    // breakage of the old M1-era expectation, not an implementation defect — routing
-    // and event persistence (asserted above) are unaffected and still the point of
-    // this test. Polled: the title is applied by the async ingest worker.
+    // With no rename override set, the status line's session_name becomes the wire `title`
+    // whenever present (kb:anchor/ws.session). Polled: the async ingest worker applies it.
     await expect
       .poll(async () => {
         const state = await getState(page, daemon());
@@ -451,8 +448,6 @@ test("two synthesized PreCompact hooks bump the rail card's compaction counter t
   page,
   request,
 }) => {
-  // Plan m2-terminal, REQ-14: one of the two queued M1 follow-ups. Rendering has existed
-  // since M1 (web/src/sessions/card.ts) — only the E2E test was missing.
   const { path: dir, cleanup } = await scratchDirectory();
   try {
     await page.goto(daemon().dashboardUrl);

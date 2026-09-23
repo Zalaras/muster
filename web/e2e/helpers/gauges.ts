@@ -1,19 +1,7 @@
-// Locator helpers for the m3-gauges E2E suite (plan m3-gauges).
-//
-// Structural class-name guesses here are grounded in the plan's Implementation Notes
-// ("masthead markup: follow mockups/a-instrument.html lines 199-202 structurally —
-// `.gauge` -> `.lbl`/`.bar > i`/`.num`/`.resets`, `.model`"; "the card row follows lines
-// 236-298 (`.ctx > i`, `%`, `.tok`, `.compact`)") and docs/design/design-system.md's
-// settled threshold classes (a masthead bar takes `warn`, a context track takes `hot`,
-// both at >=60% used, settled 2026-08-23). The existing usage-readout ids
-// (#usage-5h/#usage-7d, web/index.html) and the `.r3`/`.ctxinfo` containers are M2-era
-// markup this plan explicitly upgrades in place rather than replaces (Testable UI
-// Elements: "existing element upgraded").
-//
-// None of this is verified against real DOM yet — authoring mode, the implementation
-// doesn't exist. Validate mode repairs these against whatever web-impl actually ships;
-// several locators here deliberately hedge across two or three plausible markups via
-// `.or()` for exactly that reason.
+// Locators for the masthead usage gauges and the card/tile context gauges. A masthead bar
+// takes `warn` and a context track takes `hot`, both at the shared >=60%-used threshold
+// (GAUGE_WARN_THRESHOLD). Several locators accept two or three markups via `.or()`; the
+// shipped DOM matches one of them.
 import type { Locator, Page } from "@playwright/test";
 
 export type Bucket = "5h" | "7d";
@@ -41,16 +29,13 @@ export function mastheadBucketWarn(page: Page, bucket: Bucket): Locator {
     .or(page.locator(`#usage-${bucket}.warn`));
 }
 
-/** The masthead's model readout (REQ-12) — new in M3, no id exists yet in index.html.
- * The Testable UI Elements table explicitly defers this locator choice to e2e-specs
- * ("picks the locator against the real DOM"); best guess is the `.model` class the
- * Implementation Notes name explicitly, scoped under the masthead. */
+/** The masthead's model readout (`#usage-model.model` in index.html), matched by its
+ * `.model` class under the masthead. */
 export function mastheadModelReadout(page: Page): Locator {
   return page.locator(".masthead-right .model, .masthead .model, [data-testid='masthead-model']");
 }
 
-/** A rail/strip card's context row (`.r3`) — existing M1/M2 element; REQ-13 upgrades its
- * content and adds track markup, not its container or class. */
+/** A rail/strip card's context row (`.r3`), which holds the track markup. */
 export function cardContextRow(card: Locator): Locator {
   return card.locator(".r3");
 }
@@ -67,8 +52,7 @@ export function cardContextHot(card: Locator): Locator {
   return row.locator(".ctx.hot").or(row.locator(".hot"));
 }
 
-/** A tile's context-info span (`.ctxinfo`) — existing M2 element, same in-place upgrade
- * as `.r3`. */
+/** A tile's context-info span (`.ctxinfo`), rendered like a card's `.r3` row. */
 export function tileContextInfo(tile: Locator): Locator {
   return tile.locator(".ctxinfo");
 }

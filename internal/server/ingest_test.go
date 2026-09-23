@@ -17,9 +17,8 @@ import (
 )
 
 // countEventsForSession queries the store's own SQLite file directly (the same technique
-// the E2E harness's sqlite3 oracle uses) since M0's store package deliberately exposes no
-// query-by-session API — GET /api/state can't show events until M1 (plan's Schema
-// Changes note).
+// the E2E harness's sqlite3 oracle uses) since the store package exposes no event query
+// by Claude session id.
 func countEventsForSession(t *testing.T, srv *testServer, sessionID string) int {
 	t.Helper()
 	var n int

@@ -1,10 +1,5 @@
-// Locator helpers for the new-session-dialog Finder-style picker (plan new-session-dialog).
-//
-// Structure transcribed from `plans/new-session-dialog/mockup.html` (the design
-// authority) and the plan's Testable UI Elements table — not from the pre-rebuild M1
-// dialog, whose Browse…/Up/Use-this-folder flow this plan removes outright. Kept as a
-// shared module (rather than duplicated locators in launch.spec.ts and
-// tiles-launch.spec.ts) since both files drive the same picker.
+// Locator helpers for the launch dialog's Finder-style picker, shared by launch.spec.ts
+// and tiles-launch.spec.ts since both drive the same picker.
 import type { Locator, Page } from "@playwright/test";
 
 /** The launch dialog itself — `aria-labelledby` gives it the accessible name "New

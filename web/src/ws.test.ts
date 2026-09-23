@@ -230,7 +230,7 @@ describe("WsClient.dispatch — pure message application, no socket involved", (
     expect(handlers.onSnapshot).not.toHaveBeenCalled();
   });
 
-  it("routes a prefs message to onPrefs with the bare prefs object, not onSnapshot (M2 REQ-10/INV-4)", () => {
+  it("routes a prefs message to onPrefs with the bare prefs object, not onSnapshot", () => {
     const handlers = makeHandlers();
     const client = new WsClient("ws://x", handlers);
     client.dispatch(prefsMessage);
@@ -238,7 +238,7 @@ describe("WsClient.dispatch — pure message application, no socket involved", (
     expect(handlers.onSnapshot).not.toHaveBeenCalled();
   });
 
-  it("routes a usage message to onUsage with the bare usage object, not onSnapshot (M3 kb:anchor/ws.usage)", () => {
+  it("routes a usage message to onUsage with the bare usage object, not onSnapshot (kb:anchor/ws.usage)", () => {
     const handlers = makeHandlers();
     const client = new WsClient("ws://x", handlers);
     client.dispatch(usageMessage);
@@ -246,7 +246,7 @@ describe("WsClient.dispatch — pure message application, no socket involved", (
     expect(handlers.onSnapshot).not.toHaveBeenCalled();
   });
 
-  it("routes a sessionRemoved message to onSessionRemoved with the bare id, not onSnapshot (M4 kb:anchor/ws.session-removed, REQ-15)", () => {
+  it("routes a sessionRemoved message to onSessionRemoved with the bare id, not onSnapshot (kb:anchor/ws.session-removed)", () => {
     const handlers = makeHandlers();
     const client = new WsClient("ws://x", handlers);
     client.dispatch({ type: "sessionRemoved", id: 7 });

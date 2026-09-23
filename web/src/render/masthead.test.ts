@@ -150,7 +150,7 @@ describe("renderUsage — honesty rule: null renders 'unknown', never a gauge/pe
   // "5h61%" with no separator. Verified live by web-impl against the real DOM; asserted
   // per-span here (via `.lbl`/`.num`) so the honesty-rule content is pinned without
   // depending on that concatenation detail.
-  it("renders 'unknown' for both buckets when both are null (pre-hello / M0 state)", () => {
+  it("renders 'unknown' for both buckets when both are null (pre-hello state)", () => {
     const els = elements();
     renderUsage(els, unknown);
     expect((els.fiveHour as unknown as FakeDomNode).querySelector(".lbl")?.textContent).toBe("5h");
@@ -551,12 +551,12 @@ describe("renderDensityControl — renders only in Tiles; aria-pressed reflects 
   );
 });
 
-// M3 (plan m3-gauges REQ-11/W7): renderUsageTrack's known-bucket branch builds real DOM
+// renderUsageTrack's known-bucket branch builds real DOM
 // nodes via `document.createElement`, which this Vitest environment doesn't provide (no
 // jsdom is configured — docs/conventions.md assigns rendering to Playwright). Only the
 // null-bucket early return is DOM-construction-free, so that's what's covered here; the
 // known-bucket honesty/warn-threshold behavior is covered end-to-end by
-// web/e2e/gauges.spec.ts (E5/E12) against the real DOM.
+// web/e2e/gauges.spec.ts against the real DOM.
 describe("renderUsageTrack — honesty rule 1 (INV-3): a null bucket appends nothing at all", () => {
   it("touches the element zero times for a null bucket (no track, no resets text)", () => {
     const el = fakeAppendableElement();
@@ -582,7 +582,7 @@ describe("renderUsageModel (REQ-12): the masthead model readout", () => {
     expect(el.textContent).toBe("");
   });
 
-  it("hides and clears the element when model is undefined (pre-M3-shaped payload with no model key)", () => {
+  it("hides and clears the element when model is undefined (payload with no model key)", () => {
     const el = fakeElement() as HTMLElement & { hidden: boolean };
     el.hidden = false;
     renderUsageModel(el, undefined);

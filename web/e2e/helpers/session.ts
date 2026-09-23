@@ -1,8 +1,8 @@
-// Real-launch helper for the m1-sessions E2E suite (plan m1-sessions).
+// Real-launch helper.
 //
-// `POST /api/sessions` is real in every M1 test — it's the one daemon action E2E never
-// fakes, because REQ-2 says the session row + `sessionUpsert` must exist before any hook
-// can arrive, and REQ-19's `-claude-bin` stub is exactly what lets it launch a real tmux
+// `POST /api/sessions` is real in every test that needs a session — it's the one daemon
+// action E2E never fakes, because the session row + `sessionUpsert` must exist before any
+// hook can arrive, and the `-claude-bin` stub is exactly what lets it launch a real tmux
 // window without ever starting a real `claude` process. Everything downstream of the
 // launch (SessionStart, turn activity, notifications, Stop/StopFailure, …) is synthesized
 // via web/e2e/helpers/payloads.ts and POSTed to the daemon's ingest endpoints the same
