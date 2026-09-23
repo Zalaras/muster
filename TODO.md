@@ -35,6 +35,28 @@ group deliberately, and otherwise don't re-sort this list.
 - [ ] **Needs Input disappears while giving input** ([#40](https://github.com/Zalaras/muster/issues/40)) — answering a run of Claude questions
   flips the state back to Planning after the first one, while more remain and Claude is idle.
 
+### Together — turn-state gaps the 2026-09-23 interface probe measured
+
+Both were filed by the developer 2026-09-23 from the interface probe that settled the hook-ordering,
+`StopFailure` and status-line open questions. Both are `applyInput` arms in
+`internal/session/machine.go`, reproduced by replaying captured 2.1.280 sequences through
+`Interpret` + `applyInput`.
+
+- [ ] **A background subagent clears a main-agent permission wait** — while the main agent
+  waits on a permission prompt, a background subagent keeps emitting tool hooks
+  (kb:fact/subagent-hooks-during-permission-wait). Each is `KindTurnActivity` on an open
+  prompt, which clears `Attention` and sets `working`. So the card leaves `needs_input` on the
+  first subagent event, and if the subagent outlasts the one-shot `permission_prompt`
+  notification (15 s past it in the probe), the session sits `working` with the dialog on
+  screen until it is answered. Candidate: subagent-marked activity leaves a permission
+  `Attention` in place.
+
+- [ ] **An interrupted turn stays `working` forever** — Esc ends a turn with no hook at all:
+  no `Stop`, no `StopFailure`, no `PostToolUse`/`PostToolUseFailure`. No `idle_prompt`
+  follows, either (kb:fact/interrupt-emits-no-turn-end). The prompt is never closed, so the card
+  reads `working` until the next prompt. Needs a design pass: there is no hook signal to key
+  on, and terminal output is never a state source (CLAUDE.md hard rule).
+
 ### Together — session retention and clearing (#27, #47; #39 in Post v1 is the same seam)
 
 - [ ] **Remove All Sessions** ([#27](https://github.com/Zalaras/muster/issues/27)) — a bulk "remove everything" action to start from a
@@ -98,6 +120,14 @@ ADRs).
   2026-09-23 to sit with #53.
 
 ### On their own
+
+- [ ] **Canary coverage for the 2026-09-23 probe facts** — the six facts the probe recorded all
+  carry `guard: none`: kb:fact/hook-await-per-event, kb:fact/interrupt-emits-no-turn-end,
+  kb:fact/stopfailure-error-by-status, kb:fact/subagent-hooks-during-permission-wait,
+  kb:fact/tool-failure-hook-events and kb:fact/status-line-around-failed-turns. Guard at least
+  the interrupt fact and the `PostToolUse`-not-awaited ordering, the two most likely to change
+  Muster's behaviour on a bump. The fail-proxy's new `-message`/`-header` flags and
+  `CLAUDE_CODE_MAX_RETRIES=0` make the `StopFailure` mapping a cheap zero-token run.
 
 - [ ] **Dragging a file does not enable focus** ([#36](https://github.com/Zalaras/muster/issues/36)) — dropping a file on a Claude session does
   not snap focus back to that terminal. Confirm the behaviour in a plain terminal first
