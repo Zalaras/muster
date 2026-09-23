@@ -134,10 +134,16 @@ mode lets N `/v1/messages` through first to induce a genuinely **mid-turn** deat
 ```bash
 go build -o bin/probe-failproxy ./test/rig/failproxy
 bin/probe-failproxy -port 879$PROBE_IDX -status 500 &            # every call fails
+# -message sets error.message (some mappings key on it); -header Name:value (repeatable) adds
+# response headers, e.g. anthropic-ratelimit-unified-status:rejected on a 429
 # or: bin/probe-failproxy -port 879$PROBE_IDX -upstream https://api.anthropic.com -fail-after 1 &
 cd $PROBE_REPO && ANTHROPIC_BASE_URL=http://127.0.0.1:879$PROBE_IDX \
   /Users/damian/.local/bin/claude -p "say hi" --model claude-haiku-4-5-20251001 </dev/null
 ```
+
+`CLAUDE_CODE_MAX_RETRIES=0` skips the ~90 s retry backoff on 429/5xx, so each induction takes
+~5 s. Avoid `-upstream` for anything that sends a prompt: one two-`Read` turn through it
+created ~273k cache tokens (~$0.55 estimated) against ~5–30k without the proxy.
 
 ## 5. Read the captures
 
