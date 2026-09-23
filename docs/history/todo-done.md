@@ -1676,7 +1676,7 @@ the mobile/responsive pass rem-ifies the pixel layer.
   (spec 2026-09-02, #3 above)** — do not plan separately.
 
 ## Open questions carried forward
-<!-- kb: adr/usage-no-source-interface, adr/launch-settings-local-json-not-settings-json, fact/resume-keeps-session-identity, fact/stopfailure-replaces-stop, fact/refresh-interval-seconds, fact/command-hooks-inherit-pane-env, fact/clear-mints-new-session-id, fact/local-settings-honoured -->
+<!-- kb: adr/usage-no-source-interface, adr/launch-settings-local-json-not-settings-json, fact/resume-keeps-session-identity, fact/stopfailure-replaces-stop, fact/refresh-interval-seconds, fact/command-hooks-inherit-pane-env, fact/clear-mints-new-session-id, fact/local-settings-honoured, fact/hook-await-per-event, fact/subagent-hooks-during-permission-wait, fact/stopfailure-error-by-status, fact/interrupt-emits-no-turn-end, fact/tool-failure-hook-events, fact/status-line-around-failed-turns -->
 
 - [x] **`--resume` never exercised** — settled (H2 probe 2026-08-16): `SessionStart` fires
       with `source: "resume"` and the **same** `session_id`/`transcript_path`, so reconcile
@@ -1707,6 +1707,27 @@ the mobile/responsive pass rem-ifies the pixel layer.
       2026-08-20): `.claude/settings.local.json` alone honors `hooks`, `statusLine` and
       `allowedHttpHookUrls`, and Claude Code gitignores it — so M1 writes the local file
       and the ingest token never lands in committable config.
+
+- [x] **Hook ordering under heavy concurrency** — settled (interface probe 2026-09-23,
+      2.1.280, production command-hook transport): `SessionStart`, `UserPromptSubmit`,
+      `PreToolUse` (per tool), `PostToolBatch` and `Stop` are awaited; `PostToolUse` does not
+      hold the next tool, so across a batch the next `PreToolUse` can arrive first (7 of 8
+      with 1 s hooks); `StopFailure` is fire-and-forget. Within one tool `Pre` always precedes
+      `Post`. The ordering guards absorb every inversion seen; the race that *does* mis-state
+      a session is a background subagent's activity during a permission wait
+      (kb:fact/hook-await-per-event, kb:fact/subagent-hooks-during-permission-wait).
+
+- [x] **`StopFailure` error taxonomy** — settled (same probe): the enum is 13 values on
+      2.1.280, 9 induced with a per-status mapping; 529 maps to `server_error` and
+      `overloaded` is never produced. Does `StopFailure` cover every turn end? No — an Esc
+      interrupt emits no hook at all and no `idle_prompt` follows
+      (kb:fact/stopfailure-error-by-status, kb:fact/interrupt-emits-no-turn-end,
+      kb:fact/tool-failure-hook-events).
+
+- [x] **Status-line behaviour on failure paths** — settled (same probe): an interactive
+      session whose calls all fail still posts at startup and once per failed turn, with null
+      context and cost 0; `rate_limits` appears only if an (error) response carries the
+      unified headers. No usable context data (kb:fact/status-line-around-failed-turns).
 
 ## Together — the shell tab (#31, #33, #45) ✅ done 2026-09-22 (plan `terminal-fixes-cleanup`, via `/orchestrate`; approved review cycle 3)
 

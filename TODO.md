@@ -390,10 +390,5 @@ New post-v1 ideas go here; re-rank when reached.
 
 From `spikes/FINDINGS.md` "Still open" and the open-question ADRs (`go run ./tools/kb ls --type adr --status proposed`).
 
-- [ ] **Hook ordering under heavy concurrency** — no inversion observed at four parallel
-      tool calls; low risk given turn-level transitions.
-- [ ] **`StopFailure` error taxonomy** — 2 of 9 types induced; 7 unobserved.
-- [ ] **Status-line behaviour on failure paths** — does a session that never reaches a first
-      API response ever emit usable usage data?
 - [ ] **Launch/worktree data-layer design** (`docs/design/ux-flows.md` § 2, `kb:adr/launch-hybrid-mru-directory-memory`) — genuinely unsettled; revisit at
       SPEC §3.2 (worktree manager).

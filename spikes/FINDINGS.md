@@ -559,13 +559,15 @@ can read, edit and execute in that folder.
    through a 60 s idle stretch (12 ticks, 2 of 2 interactive sessions). See the
    2026-08-25 addendum. The 2.1.233 observation (no ticks at `1000`) was simply a value
    that never elapsed.
-3. **Hook ordering under heavy concurrency** — interleaving confirmed at four parallel tool
-   calls, no inversion observed (§5c). Low risk given turn-level transitions.
-4. **Whether `StopFailure` covers *all* turn-ending errors.** Two error types were induced;
-   the other seven in the taxonomy are unobserved.
-5. **Status-line invocation on failure paths** — whether a session that never reaches a
-   first API response ever emits usable usage data, which affects what a freshly-launched
-   or failed session shows in the dashboard.
+3. ~~**Hook ordering under heavy concurrency**~~ — **RESOLVED (2026-09-23 interface probe,
+   2.1.280):** within a tool `Pre` precedes `Post`; across a batch `PostToolUse` is not
+   awaited and can arrive after the next tool's `PreToolUse`. See kb:fact/hook-await-per-event.
+4. ~~**Whether `StopFailure` covers *all* turn-ending errors.**~~ — **RESOLVED (same probe):**
+   every induced API error does (9 of 13 values), but an Esc interrupt emits no hook at all.
+   See kb:fact/stopfailure-error-by-status and kb:fact/interrupt-emits-no-turn-end.
+5. ~~**Status-line invocation on failure paths**~~ — **RESOLVED (same probe):** posts arrive
+   at startup and after each failed turn with null context; no usable usage data. See
+   kb:fact/status-line-around-failed-turns.
 6. ~~**Whether `Stop` also fires alongside `StopFailure`, or is replaced by it.**~~ —
    **RESOLVED (2026-08-16, H2 probe): replaced, never both** — see §3. (This item had
    contradicted §3's CONFIRMED claim; the re-run with mid-turn coverage settles it.)
