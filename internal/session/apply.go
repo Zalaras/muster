@@ -47,7 +47,7 @@ func (m *Manager) Apply(ctx context.Context, musterSessionID int64, claudeSessio
 	sess, ok := m.sessions[musterSessionID]
 	if !ok {
 		m.mu.Unlock()
-		return nil, fmt.Errorf("apply: unknown session %d", musterSessionID)
+		return nil, ErrUnknownSession
 	}
 	prev := sess.Clone()
 	// claudeSessionID is fixed for the whole call, so byClaude ever gets at most this one
@@ -135,7 +135,7 @@ func (m *Manager) ApplyStatus(ctx context.Context, musterSessionID int64, update
 	sess, ok := m.sessions[musterSessionID]
 	if !ok {
 		m.mu.Unlock()
-		return nil, fmt.Errorf("apply status: unknown session %d", musterSessionID)
+		return nil, ErrUnknownSession
 	}
 	prev := sess.Clone()
 

@@ -1,13 +1,14 @@
 package server
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"strings"
+
+	"github.com/rs/zerolog"
 
 	"github.com/Zalaras/muster/internal/locate"
 	"github.com/Zalaras/muster/internal/session"
@@ -29,10 +30,11 @@ type locateResponse struct {
 type locateFeature struct {
 	manager *session.Manager
 	locator *locate.Locator
+	log     zerolog.Logger
 }
 
-func newLocateFeature(manager *session.Manager, locator *locate.Locator) *locateFeature {
-	return &locateFeature{manager: manager, locator: locator}
+func newLocateFeature(manager *session.Manager, locator *locate.Locator, log zerolog.Logger) *locateFeature {
+	return &locateFeature{manager: manager, locator: locator, log: log}
 }
 
 func (f *locateFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.Handler) {
@@ -50,9 +52,8 @@ func (f *locateFeature) handleLocateFile(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	sess, ok := f.manager.Get(id)
+	sess, ok := sessionOr404(w, f.manager, id)
 	if !ok {
-		writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
 		return
 	}
 
@@ -85,7 +86,8 @@ func (f *locateFeature) handleLocateFile(w http.ResponseWriter, r *http.Request)
 	// call it exists to protect — every 400/413 body-validation branch above must stay
 	// reachable and unaffected regardless of whether a Locator is configured.
 	if f.locator == nil {
-		writeJSONError(w, http.StatusInternalServerError, "internal_error", "locating file")
+		f.log.Error().Msg("locating file failed: no Locator configured")
+		writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
 		return
 	}
 
@@ -98,14 +100,13 @@ func (f *locateFeature) handleLocateFile(w http.ResponseWriter, r *http.Request)
 		case errors.As(err, &ambiguous):
 			writeLocateAmbiguous(w, name, ambiguous.Paths)
 		default:
-			writeJSONError(w, http.StatusInternalServerError, "internal_error", "locating file")
+			f.log.Error().Err(err).Msg("locating file failed")
+			writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
 		}
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(locateResponse{Path: path})
+	writeJSON(w, http.StatusOK, locateResponse{Path: path})
 }
 
 var (
@@ -147,20 +148,8 @@ func readFilePart(mr *multipart.Reader) (string, []byte, error) {
 }
 
 // writeLocateAmbiguous writes 409 ambiguous (kb:anchor/sessions.locate): the standard
-// error envelope with an extra paths field listing every verified match.
+// error envelope with its extra paths field listing every verified match.
 func writeLocateAmbiguous(w http.ResponseWriter, name string, paths []string) {
-	var resp struct {
-		Error struct {
-			Code    string   `json:"code"`
-			Message string   `json:"message"`
-			Paths   []string `json:"paths"`
-		} `json:"error"`
-	}
-	resp.Error.Code = "ambiguous"
-	resp.Error.Message = fmt.Sprintf("%d identical files named %s", len(paths), name)
-	resp.Error.Paths = paths
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusConflict)
-	_ = json.NewEncoder(w).Encode(resp)
+	writeJSONErrorPaths(w, http.StatusConflict, "ambiguous",
+		fmt.Sprintf("%d identical files named %s", len(paths), name), paths)
 }

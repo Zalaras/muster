@@ -1,12 +1,13 @@
 package server
 
 import (
-	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/rs/zerolog"
 
 	"github.com/Zalaras/muster/internal/gitutil"
 )
@@ -31,10 +32,11 @@ type browseResponse struct {
 // live value, not a snapshot taken at New time.
 type browseFeature struct {
 	root *string
+	log  zerolog.Logger
 }
 
-func newBrowseFeature(root *string) *browseFeature {
-	return &browseFeature{root: root}
+func newBrowseFeature(root *string, log zerolog.Logger) *browseFeature {
+	return &browseFeature{root: root, log: log}
 }
 
 func (f *browseFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.Handler) {
@@ -50,7 +52,8 @@ func (f *browseFeature) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	if root == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, "internal_error", "could not determine home directory")
+			f.log.Error().Err(err).Msg("determining home directory failed")
+			writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
 			return
 		}
 		root = home
@@ -93,7 +96,5 @@ func (f *browseFeature) handleBrowse(w http.ResponseWriter, r *http.Request) {
 		parent = &p
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(browseResponse{Path: path, Parent: parent, Dirs: dirs})
+	writeJSON(w, http.StatusOK, browseResponse{Path: path, Parent: parent, Dirs: dirs})
 }

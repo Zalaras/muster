@@ -49,7 +49,7 @@ type UpsertRepoParams struct {
 // launch_count >= 1 from its own first insert, so the UPDATE branch's `+ 1` can never
 // produce 1 — a returned launch_count of 1 is only reachable via the INSERT branch.
 func (s *Store) UpsertRepo(ctx context.Context, p UpsertRepoParams) (Repo, bool, error) {
-	now := time.Now().UTC().Format(time.RFC3339)
+	now := encodeTime(time.Now())
 
 	row := s.db.QueryRowContext(ctx, `
 		INSERT INTO repo (path, name, is_git, pinned, last_launched_at, launch_count, last_model, last_permission_mode, created_at)
@@ -71,8 +71,10 @@ func (s *Store) UpsertRepo(ctx context.Context, p UpsertRepoParams) (Repo, bool,
 	return r, r.LaunchCount == 1, nil
 }
 
-// GetRepo looks up a repo row by id (used when building a Session's repo/branch wire
-// fields).
+// GetRepo looks up a repo row by id. No production code calls this today (a-m7: `rg
+// '\.GetRepo\('` finds only test callers) — production always already has the row it
+// needs from ListRepos or UpsertRepo's own return value. It exists for test setup that
+// wants one row back after UpsertRepo without listing every repo.
 func (s *Store) GetRepo(ctx context.Context, id int64) (Repo, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id, path, name, is_git, pinned, last_launched_at, launch_count, last_model, last_permission_mode, created_at
@@ -128,8 +130,13 @@ func scanRepo(row rowScanner) (Repo, error) {
 	}
 	r.IsGit = isGit != 0
 	r.Pinned = pinned != 0
-	r.LastLaunchedAt, _ = time.Parse(time.RFC3339, lastLaunchedAt)
-	r.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+	var err error
+	if r.LastLaunchedAt, err = decodeTime(lastLaunchedAt); err != nil {
+		return Repo{}, fmt.Errorf("scanning repo %d: last_launched_at: %w", r.ID, err)
+	}
+	if r.CreatedAt, err = decodeTime(createdAt); err != nil {
+		return Repo{}, fmt.Errorf("scanning repo %d: created_at: %w", r.ID, err)
+	}
 	return r, nil
 }
 

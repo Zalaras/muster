@@ -1,9 +1,7 @@
 package server
 
 import (
-	"encoding/json"
 	"net/http"
-	"time"
 
 	"github.com/rs/zerolog"
 
@@ -45,7 +43,7 @@ func (f *reposFeature) handleListRepos(w http.ResponseWriter, r *http.Request) {
 	repos, err := f.store.ListRepos(r.Context())
 	if err != nil {
 		f.log.Error().Err(err).Msg("listing repos failed")
-		writeJSONError(w, http.StatusInternalServerError, "internal_error", "could not list repos")
+		writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
 		return
 	}
 
@@ -62,14 +60,12 @@ func (f *reposFeature) handleListRepos(w http.ResponseWriter, r *http.Request) {
 			IsGit:              repo.IsGit,
 			Branch:             branch,
 			Pinned:             repo.Pinned,
-			LastLaunchedAt:     repo.LastLaunchedAt.UTC().Format(time.RFC3339),
+			LastLaunchedAt:     wireTime(repo.LastLaunchedAt),
 			LaunchCount:        repo.LaunchCount,
 			LastModel:          repo.LastModel,
 			LastPermissionMode: repo.LastPermissionMode,
 		})
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(out)
+	writeJSON(w, http.StatusOK, out)
 }

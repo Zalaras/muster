@@ -150,7 +150,7 @@ func (f *issueFeature) buildIssueSnapshot(ctx context.Context, now time.Time, se
 	prefs := loadPrefs(ctx, f.store)
 
 	snap := issueSnapshot{
-		CapturedAt: now.UTC().Format(time.RFC3339),
+		CapturedAt: wireTime(now),
 		Scope:      "dashboard",
 	}
 	snap.Musterd.Version = f.daemonVersion
@@ -173,20 +173,17 @@ func (f *issueFeature) buildIssueSnapshot(ctx context.Context, now time.Time, se
 
 	ss := &issueSnapshotSession{
 		State:                string(sess.State),
-		StateSince:           sess.StateSince.UTC().Format(time.RFC3339),
+		StateSince:           wireTime(sess.StateSince),
 		Alive:                sess.Alive,
 		PermissionMode:       issueSnapshotPermission{Value: string(sess.PermissionMode), Source: sess.PermissionModeSource},
 		Compactions:          sess.Compactions,
 		TmuxTarget:           sess.TmuxTarget,
-		CreatedAt:            sess.CreatedAt.UTC().Format(time.RFC3339),
+		CreatedAt:            wireTime(sess.CreatedAt),
 		ClaudeSessionIDBound: sess.ClaudeSessionID != "",
-	}
-	if sess.EndedAt != nil {
-		v := sess.EndedAt.UTC().Format(time.RFC3339)
-		ss.EndedAt = &v
+		EndedAt:              wireTimePtr(sess.EndedAt),
 	}
 	if sess.Attention != nil {
-		ss.Attention = &issueSnapshotAttention{Reason: sess.Attention.Reason, Since: sess.Attention.Since.UTC().Format(time.RFC3339)}
+		ss.Attention = &issueSnapshotAttention{Reason: sess.Attention.Reason, Since: wireTime(sess.Attention.Since)}
 	}
 	if sess.Failure != nil {
 		ss.Failure = &issueSnapshotFailure{Error: sess.Failure.Error}
@@ -207,14 +204,11 @@ func (f *issueFeature) buildIssueSnapshot(ctx context.Context, now time.Time, se
 		f.log.Warn().Err(err).Int64("session_id", sess.ID).Msg("reading event summary for issue capture failed")
 	}
 	ss.Events = issueSnapshotEvents{
-		FirstSeq:    summary.FirstSeq,
-		LastSeq:     summary.LastSeq,
-		Count:       summary.Count,
-		RecentTypes: summary.RecentTypes,
-	}
-	if summary.LastReceivedAt != nil {
-		v := summary.LastReceivedAt.UTC().Format(time.RFC3339)
-		ss.Events.LastReceivedAt = &v
+		FirstSeq:       summary.FirstSeq,
+		LastSeq:        summary.LastSeq,
+		Count:          summary.Count,
+		RecentTypes:    summary.RecentTypes,
+		LastReceivedAt: wireTimePtr(summary.LastReceivedAt),
 	}
 	if ss.Events.RecentTypes == nil {
 		ss.Events.RecentTypes = []string{}
@@ -577,9 +571,7 @@ func (f *issueFeature) handleCreateCapture(w http.ResponseWriter, r *http.Reques
 	}
 	f.captures.put(&issueCapture{id: id, capturedAt: now, snapshot: snapshot, snapshotMarkdown: markdown})
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(createCaptureResponse{
+	writeJSON(w, http.StatusCreated, createCaptureResponse{
 		CaptureID:        id,
 		CapturedAt:       now.Format(time.RFC3339),
 		Snapshot:         snapshot,
@@ -688,7 +680,5 @@ func (f *issueFeature) handleCreateIssue(w http.ResponseWriter, r *http.Request)
 		Int("note_len", utf8.RuneCountInString(req.Note)).
 		Msg("filed github issue")
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(createIssueResponse{Number: number, URL: htmlURL, Repo: f.repo})
+	writeJSON(w, http.StatusCreated, createIssueResponse{Number: number, URL: htmlURL, Repo: f.repo})
 }

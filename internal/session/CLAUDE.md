@@ -1,6 +1,6 @@
 # internal/session — state machine and session registry
 
-**Owns**: the six displayed states, transitions from neutral `claudecode.StateInput`, the in-memory registry (`Manager`), liveness polling, reconcile on start, rail order and titles. Persistence goes through `internal/store`; tmux through the `PaneChecker`, `Killer` and `PaneSnapshotter` interfaces defined here. **Features**: lifecycle, rail, reader, rename.
+**Owns**: the six displayed states, transitions from neutral `claudecode.StateInput`, the in-memory registry (`Manager`), liveness polling, reconcile on start, rail order and titles. Persistence goes through `internal/store`; tmux through the `PaneChecker`, `TmuxSessions` and `PaneSnapshotter` interfaces defined here. **Features**: lifecycle, rail, reader, rename.
 
 **Invariants** (violations are review-Critical):
 - A session is identified by its tmux target; the Claude session_id is a mutable attribute (kb:adr/lifecycle-session-identity-is-tmux-target, kb:fact/clear-mints-new-session-id).

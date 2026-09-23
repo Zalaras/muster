@@ -166,7 +166,7 @@ func New(cfg Config) *Server {
 		Logger:          cfg.Logger,
 		PaneChecker:     tmuxClient,
 		PaneSnapshotter: tmuxClient,
-		SessionKiller:   tmuxClient,
+		TmuxSessions:    tmuxClient,
 		Watcher:         terminals,
 		OnUpsert: func(sess *session.Session) {
 			s.hub.broadcast(sessionUpsertMessage{Type: "sessionUpsert", Session: toWireSession(sess)})
@@ -202,19 +202,19 @@ func New(cfg Config) *Server {
 		scroller = tmuxClient
 	}
 	s.shell = register(s, newShellFeature(shells, terminals, s.manager, attach, scroller, cfg.Logger))
-	s.locate = register(s, newLocateFeature(s.manager, cfg.Locator))
-	s.browse = register(s, newBrowseFeature(&s.browseRoot))
+	s.locate = register(s, newLocateFeature(s.manager, cfg.Locator, cfg.Logger))
+	s.browse = register(s, newBrowseFeature(&s.browseRoot, cfg.Logger))
 	s.repos = register(s, newReposFeature(cfg.Store, cfg.Logger))
 	s.issue = register(s, newIssueFeature(cfg.Issue, cfg.HTTPClient, s.manager, cfg.Store, cfg.DaemonVersion, cfg.ClaudeCode, cfg.Logger))
 	// Edge Case 13's construction cycle: prefs needs update's SetCheckEnabled, update
 	// needs prefs' persisted value at construction — build prefs first, then update,
 	// then wire prefs.updateChecker to it (prefs has no Start/Stop, so REQ-11 below is unaffected).
-	s.prefs = register(s, newPrefsFeature(cfg.Store, s.hub))
+	s.prefs = register(s, newPrefsFeature(cfg.Store, s.hub, cfg.Logger))
 	// REQ-11's Start/Stop order — ingest, usage poller, theme poller, updates — is this
 	// registration order. Start/Shutdown both loop s.features in it, unreversed: these
 	// four run independent goroutines with no dependency on one another, so a LIFO
 	// teardown would only suggest a dependency that doesn't exist.
-	s.ingest = register(s, newIngestFeature(cfg.Store, cfg.Logger, size, cfg.IngestToken))
+	s.ingest = register(s, newIngestFeature(cfg.Store, size, cfg.IngestToken, cfg.Logger))
 	s.ingest.queue.manager = s.manager
 	s.ingest.queue.files = s.reader
 	s.usage = register(s, newUsageFeature(cfg.Usage, cfg.HTTPClient, cfg.Store, s.hub, cfg.Logger))

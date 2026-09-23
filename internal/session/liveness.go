@@ -55,19 +55,21 @@ func (m *Manager) Snapshot(id int64) (text string, at time.Time, ok bool) {
 	return sess.LastSnapshot, sess.LastSnapshotAt, true
 }
 
-// captureSnapshot runs capture-pane for an alive session and persists the result only
-// when it changed (REQ-4). A capture error (Edge Case 9: transient tmux failure) is not
-// a pane-missing signal — the previous snapshot is kept and liveness is never touched.
-func (m *Manager) captureSnapshot(ctx context.Context, id int64, target string) {
-	if m.paneSnapshotter == nil {
-		return
-	}
-	text, err := m.paneSnapshotter.CapturePane(ctx, target)
+// captureAndStoreSnapshot runs capture-pane for an alive session (via captureCtx) and, on
+// success, persists the result via storeSnapshot (via persistCtx) — the shared body
+// checkOneLiveness's periodic capture and endLocked's final pre-kill capture both built by
+// hand (S6). The two contexts are kept separate because endLocked bounds only the tmux
+// call to endRemoveTmuxTimeout while keeping the outer request ctx for the DB write;
+// checkOneLiveness passes the same ctx for both. A capture error (Edge Case 9: transient
+// tmux failure) is not a pane-missing signal — the previous snapshot is kept and liveness
+// is never touched.
+func (m *Manager) captureAndStoreSnapshot(captureCtx, persistCtx context.Context, id int64, target string) {
+	text, err := m.paneSnapshotter.CapturePane(captureCtx, target)
 	if err != nil {
 		m.log.Debug().Err(err).Int64("session_id", id).Msg("pane snapshot capture failed")
 		return
 	}
-	m.storeSnapshot(ctx, id, text)
+	m.storeSnapshot(persistCtx, id, text)
 }
 
 // storeSnapshot persists text for id iff it differs from what's already stored
@@ -120,36 +122,22 @@ func (m *Manager) pollLoop(ctx context.Context) {
 // checkLiveness polls every alive, fully-launched session's pane and flips it dead on
 // the first miss (kb:anchor/state.liveness). State is never touched here.
 func (m *Manager) checkLiveness(ctx context.Context) {
-	if m.paneChecker == nil {
-		return
-	}
-
 	// REQ-16/D17: one ListSessions call confirms the tmux server itself is reachable
 	// before any pane is believed gone — a server-level failure (tmux unreachable) is
 	// transient and must leave every session as-is for the next tick, never read as N
 	// simultaneous deaths. Deliberately once per sweep, not once per session.
-	if m.sessionKiller != nil {
-		if _, err := m.sessionKiller.ListSessions(ctx); err != nil {
-			m.log.Warn().Err(err).Msg("liveness sweep: tmux server unreachable; leaving sessions as-is")
-			return
-		}
+	if _, err := m.tmuxSessions.ListSessions(ctx); err != nil {
+		m.log.Warn().Err(err).Msg("liveness sweep: tmux server unreachable; leaving sessions as-is")
+		return
 	}
 
 	// Collect value copies, not *Session pointers, under the lock (review Major 8):
 	// holding a live pointer and reading its field after Unlock races with any writer
 	// (e.g. RecordLaunch) mutating the same field concurrently.
-	type livenessTarget struct {
-		id     int64
-		target string
-	}
-	m.mu.Lock()
-	var targets []livenessTarget
-	for _, s := range m.sessions {
-		if s.Alive && s.TmuxTarget != "" {
-			targets = append(targets, livenessTarget{id: s.ID, target: s.TmuxTarget})
-		}
-	}
-	m.mu.Unlock()
+	targets := collectLocked(m,
+		func(s *Session) bool { return s.Alive && s.TmuxTarget != "" },
+		func(s *Session) sessionSnapshot { return sessionSnapshot{id: s.ID, target: s.TmuxTarget} },
+	)
 
 	for _, target := range targets {
 		m.checkOneLiveness(ctx, target.id, target.target, false)
@@ -160,9 +148,6 @@ func (m *Manager) checkLiveness(ctx context.Context) {
 // next poll tick (kb:anchor/terminal.ws: a PTY EOF should promptly flip alive:false — "the daemon
 // also nudges the liveness poll" — rather than lagging up to the ~5s interval).
 func (m *Manager) Nudge(ctx context.Context, sessionID int64) {
-	if m.paneChecker == nil {
-		return
-	}
 	m.mu.Lock()
 	sess, ok := m.sessions[sessionID]
 	var target string
@@ -191,7 +176,7 @@ func (m *Manager) checkOneLiveness(ctx context.Context, id int64, target string,
 			return
 		}
 	} else if exists {
-		m.captureSnapshot(ctx, id, target)
+		m.captureAndStoreSnapshot(ctx, ctx, id, target)
 		return
 	}
 

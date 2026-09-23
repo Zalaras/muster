@@ -282,7 +282,7 @@ func (m *updateManager) checkAvailability(ctx context.Context, manual bool) erro
 		v := latest.String()
 		available = &v
 	}
-	at := time.Now().UTC().Format(time.RFC3339)
+	at := wireTime(time.Now())
 
 	m.mu.Lock()
 	if !manual && !m.checkEnabled {
@@ -646,9 +646,7 @@ func (f *updateFeature) handleCheckUpdate(w http.ResponseWriter, r *http.Request
 
 	switch err := f.um.checkAvailability(r.Context(), true); {
 	case err == nil:
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(f.um.Current())
+		writeJSON(w, http.StatusOK, f.um.Current())
 	case errors.Is(err, errShuttingDown):
 		writeJSONError(w, http.StatusConflict, "shutting_down", "musterd is shutting down")
 	default:
@@ -690,7 +688,7 @@ func (f *updateFeature) handleApplyUpdate(w http.ResponseWriter, r *http.Request
 		writeJSONError(w, http.StatusConflict, "shutting_down", "musterd is shutting down")
 	default:
 		f.log.Warn().Err(err).Msg("starting update apply failed")
-		writeJSONError(w, http.StatusInternalServerError, "internal_error", "starting update apply failed")
+		writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
 	}
 }
 
@@ -732,7 +730,5 @@ func (f *updateFeature) handleRestartImpact(w http.ResponseWriter, r *http.Reque
 		shells = append(shells, restartImpactShell{SessionID: id, Title: title})
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(restartImpactResponse{Shells: shells})
+	writeJSON(w, http.StatusOK, restartImpactResponse{Shells: shells})
 }

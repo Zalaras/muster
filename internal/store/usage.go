@@ -23,15 +23,15 @@ type UsageSampleRow struct {
 // InsertUsageSample persists one usage_sample row, stamping its receipt time itself
 // (RFC3339Nano UTC, REQ-10) rather than trusting a caller-supplied timestamp.
 func (s *Store) InsertUsageSample(ctx context.Context, r UsageSampleRow) error {
-	at := time.Now().UTC().Format(time.RFC3339Nano)
+	at := encodeReceiptTime(time.Now())
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO usage_sample (
 			at, model_id, model_display_name, five_hour_pct, five_hour_resets_at,
 			seven_day_pct, seven_day_resets_at, source
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`,
-		at, r.ModelID, r.ModelDisplayName, r.FiveHourPct, r.FiveHourResetsAt.UTC().Format(time.RFC3339),
-		r.SevenDayPct, r.SevenDayResetsAt.UTC().Format(time.RFC3339), r.Source,
+		at, r.ModelID, r.ModelDisplayName, r.FiveHourPct, encodeTime(r.FiveHourResetsAt),
+		r.SevenDayPct, encodeTime(r.SevenDayResetsAt), r.Source,
 	)
 	if err != nil {
 		return fmt.Errorf("inserting usage sample: %w", err)
@@ -59,18 +59,19 @@ func (s *Store) InsertUsageModelSamples(ctx context.Context, rows []UsageModelSa
 	if len(rows) == 0 {
 		return nil
 	}
-	at := time.Now().UTC().Format(time.RFC3339Nano)
+	at := encodeReceiptTime(time.Now())
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("beginning usage model sample tx: %w", err)
 	}
+	defer func() { _ = tx.Rollback() }() // no-op once Commit has succeeded
+
 	for _, r := range rows {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO usage_model_sample (at, display_name, pct, resets_at, source)
 			VALUES (?, ?, ?, ?, ?)
-		`, at, r.DisplayName, r.Pct, r.ResetsAt.UTC().Format(time.RFC3339), r.Source); err != nil {
-			_ = tx.Rollback()
+		`, at, r.DisplayName, r.Pct, encodeTime(r.ResetsAt), r.Source); err != nil {
 			return fmt.Errorf("inserting usage model sample: %w", err)
 		}
 	}

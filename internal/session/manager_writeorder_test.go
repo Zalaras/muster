@@ -7,16 +7,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/Zalaras/muster/internal/claudecode"
 )
 
-// fakeResolvingKiller extends fakeKiller (manager_test.go) with ResolveSessionTarget, so
-// it also satisfies targetResolver — needed only by RepairOwnedSession, which
-// type-asserts its SessionKiller port for that capability (manager.go:647).
+// fakeResolvingKiller extends fakeKiller (manager_test.go) with a real
+// ResolveSessionTarget answer, shadowing fakeKiller's own "not supported" one — needed by
+// RepairOwnedSession/reviveOwnedSession, which call TmuxSessions.ResolveSessionTarget
+// directly (a-M1 folded it into the port; there is no more type-assertion to satisfy).
 type fakeResolvingKiller struct {
 	*fakeKiller
 	target, pane string
@@ -321,10 +321,7 @@ func TestPersistFailure_RollsBackEveryMutationUniformly(t *testing.T) {
 			st := openTestStore(t)
 			rec := &upsertsRecorder{}
 			killer := &fakeResolvingKiller{fakeKiller: newFakeKiller(), target: "muster-resumed:@1", pane: "%9"}
-			mgr := NewManager(Config{
-				Store: st, Logger: zerolog.Nop(), PaneChecker: nil, SessionKiller: killer, OnUpsert: rec.record,
-				PollInterval: 10 * time.Millisecond,
-			})
+			mgr := newTestManager(t, st, nil, rec.record, withTmuxSessions(killer))
 			ctx := context.Background()
 			dir := t.TempDir()
 			sess := createLaunchedSession(t, mgr, st, dir)

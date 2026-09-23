@@ -268,7 +268,7 @@ func (c *fakePaneConn) Close() error {
 
 // newFakeTmuxTestServer builds a Server whose paneSpawner and attachFunc are both fakes
 // (REQ-1/REQ-2): no real tmux server is ever started, matching REQ-3's "moved" tests.
-// The manager's own PaneChecker/PaneSnapshotter/SessionKiller are unaffected by this
+// The manager's own PaneChecker/PaneSnapshotter/TmuxSessions are unaffected by this
 // (server.go's New always constructs those from a real, if never-actually-touched,
 // tmux.Client bound to cfg.TmuxSocket — an independent seam this plan does not add) —
 // callers must never invoke a path that reaches them (Nudge, End, Remove, Reconcile,

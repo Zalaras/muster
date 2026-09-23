@@ -272,7 +272,7 @@ type ingestFeature struct {
 	log   zerolog.Logger
 }
 
-func newIngestFeature(st *store.Store, log zerolog.Logger, size int, token string) *ingestFeature {
+func newIngestFeature(st *store.Store, size int, token string, log zerolog.Logger) *ingestFeature {
 	return &ingestFeature{queue: newIngestQueue(st, log, size), token: token, log: log}
 }
 

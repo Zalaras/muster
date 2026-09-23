@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -252,15 +251,14 @@ func (f *readerFeature) handleReaderList(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	sess, ok := f.manager.Get(id)
+	sess, ok := sessionOr404(w, f.manager, id)
 	if !ok {
-		writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
 		return
 	}
 
 	info, err := os.Stat(sess.Directory)
 	if err != nil || !info.IsDir() {
-		writeJSONError(w, http.StatusConflict, "directory_missing", fmt.Sprintf("%s no longer exists", sess.Directory))
+		writeDirectoryMissing(w, sess.Directory)
 		return
 	}
 
@@ -283,9 +281,7 @@ func (f *readerFeature) handleReaderList(w http.ResponseWriter, r *http.Request)
 		plan = &readerPlanWire{Path: sess.PlanPath, Exists: sess.PlanExists, WrittenAt: f.writtenAtWire(id, sess.PlanPath)}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(readerListingWire{
+	writeJSON(w, http.StatusOK, readerListingWire{
 		Directory: sess.Directory,
 		Plan:      plan,
 		Files:     files,
@@ -299,7 +295,7 @@ func (f *readerFeature) writtenAtWire(sessionID int64, path string) *string {
 	if !ok {
 		return nil
 	}
-	s := at.UTC().Format(time.RFC3339)
+	s := wireTime(at)
 	return &s
 }
 
@@ -310,9 +306,8 @@ func (f *readerFeature) handleReaderFile(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	sess, ok := f.manager.Get(id)
+	sess, ok := sessionOr404(w, f.manager, id)
 	if !ok {
-		writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
 		return
 	}
 

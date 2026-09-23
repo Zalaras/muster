@@ -110,7 +110,7 @@ var serverOptions = [][]string{
 // kb:anchor/ingest.envelope: `tmux new-session -e`). Returns the window's target (e.g. "muster-7:@1") and
 // pane id (e.g. "%12"). Delegates to NewNamedSession with the "muster-<id>" convention.
 func (c *Client) NewSession(ctx context.Context, id int64, dir string, env map[string]string, command []string) (target, pane string, err error) {
-	return c.NewNamedSession(ctx, "muster-"+strconv.FormatInt(id, 10), dir, env, command)
+	return c.NewNamedSession(ctx, SessionName(id), dir, env, command)
 }
 
 // ErrSessionExists is wrapped into the error NewNamedSession returns when tmux refuses to
@@ -181,6 +181,12 @@ func (c *Client) killLeakedSession(ctx context.Context, name string) {
 	_ = c.KillSession(ctx, name)
 }
 
+// sessionPrefix is Muster's tmux naming convention, declared exactly once (c-adapters
+// Minor 4): every name this file builds or parses — ShellSessionName, SessionName,
+// IsShellSessionName, ParseSessionName, HasSessionPrefix, and NewSession via SessionName
+// — is built from this one constant rather than each hand-rolling "muster-".
+const sessionPrefix = "muster-"
+
 // shellSessionSuffix marks a tmux session name as a plain-shell surface
 // (kb:anchor/sessions.shell) rather than a Claude pane — the one place the "muster-<id>-shell" convention is
 // spelled out (plan plain-terminal-session, Affected Files).
@@ -189,7 +195,7 @@ const shellSessionSuffix = "-shell"
 // ShellSessionName returns the tmux session name for session id's plain-shell surface:
 // always "muster-<id>-shell".
 func ShellSessionName(id int64) string {
-	return "muster-" + strconv.FormatInt(id, 10) + shellSessionSuffix
+	return sessionPrefix + strconv.FormatInt(id, 10) + shellSessionSuffix
 }
 
 // SessionName returns the tmux session name for session id's Claude pane: always
@@ -197,7 +203,16 @@ func ShellSessionName(id int64) string {
 // "muster-" naming convention is spelled in this one package rather than hand-rolled at
 // each call site.
 func SessionName(id int64) string {
-	return "muster-" + strconv.FormatInt(id, 10)
+	return sessionPrefix + strconv.FormatInt(id, 10)
+}
+
+// HasSessionPrefix reports whether name carries Muster's tmux naming convention at all
+// ("muster-..."), whether or not it further matches ParseSessionName's or
+// IsShellSessionName's specific shapes — Reconcile's "was this at least meant for us"
+// check before logging an unrecognized name as unknown (kb:anchor/state.liveness),
+// without that call site hand-rolling the prefix itself (c-adapters Minor 4).
+func HasSessionPrefix(name string) bool {
+	return strings.HasPrefix(name, sessionPrefix)
 }
 
 // IsShellSessionName reports whether name is a shell session name ("muster-<id>-shell")
@@ -205,11 +220,10 @@ func SessionName(id int64) string {
 // shell on the socket unconditionally (kb:anchor/state.liveness) without duplicating the
 // naming convention.
 func IsShellSessionName(name string) (id int64, ok bool) {
-	const prefix = "muster-"
-	if !strings.HasPrefix(name, prefix) || !strings.HasSuffix(name, shellSessionSuffix) {
+	if !strings.HasPrefix(name, sessionPrefix) || !strings.HasSuffix(name, shellSessionSuffix) {
 		return 0, false
 	}
-	middle := name[len(prefix) : len(name)-len(shellSessionSuffix)]
+	middle := name[len(sessionPrefix) : len(name)-len(shellSessionSuffix)]
 	n, err := strconv.ParseInt(middle, 10, 64)
 	if err != nil {
 		return 0, false
@@ -221,11 +235,10 @@ func IsShellSessionName(name string) (id int64, ok bool) {
 // ("muster-<N>") and, if so, its id — the mirror of IsShellSessionName for the
 // non-shell shape (session-lifecycle plan REQ-3). Never matches a shell name.
 func ParseSessionName(name string) (id int64, ok bool) {
-	const prefix = "muster-"
-	if !strings.HasPrefix(name, prefix) || strings.HasSuffix(name, shellSessionSuffix) {
+	if !strings.HasPrefix(name, sessionPrefix) || strings.HasSuffix(name, shellSessionSuffix) {
 		return 0, false
 	}
-	n, err := strconv.ParseInt(name[len(prefix):], 10, 64)
+	n, err := strconv.ParseInt(name[len(sessionPrefix):], 10, 64)
 	if err != nil {
 		return 0, false
 	}
@@ -336,14 +349,10 @@ type PaneActivity struct {
 func (c *Client) ListPaneActivity(ctx context.Context) ([]PaneActivity, error) {
 	out, err := c.run(ctx, "list-panes", "-a", "-F", "#{session_name} #{pane_current_command} #{alternate_on} #{pane_tty}")
 	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			if isConnectionFailure(err) {
-				return nil, fmt.Errorf("listing pane activity: %w", err)
-			}
-			return nil, nil
+		if absent, checkErr := tmuxAbsence(err); !absent {
+			return nil, fmt.Errorf("listing pane activity: %w", checkErr)
 		}
-		return nil, fmt.Errorf("listing pane activity: %w", err)
+		return nil, nil
 	}
 	trimmed := strings.TrimSpace(out)
 	if trimmed == "" {
@@ -472,14 +481,29 @@ func (c *Client) PaneExists(ctx context.Context, target string) (bool, error) {
 	if err == nil {
 		return true, nil
 	}
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
-		if isConnectionFailure(err) {
-			return false, fmt.Errorf("checking pane %q: %w", target, err)
-		}
-		return false, nil // tmux exits non-zero when the target doesn't exist
+	if absent, checkErr := tmuxAbsence(err); !absent {
+		return false, fmt.Errorf("checking pane %q: %w", target, checkErr)
 	}
-	return false, fmt.Errorf("checking pane %q: %w", target, err)
+	return false, nil // tmux exits non-zero when the target doesn't exist
+}
+
+// tmuxAbsence classifies a non-nil error from one of run's "target not found" queries
+// (ListPaneActivity, PaneExists, ListSessions): true means tmux answered and the thing
+// asked about genuinely isn't there, so the caller should treat it as an ordinary
+// empty/false result rather than a failure. false carries the error the caller should
+// propagate instead — either err itself (not an *exec.ExitError at all, e.g. run's
+// wrapped ctx.Err() on an expired deadline) or isConnectionFailure's "couldn't even ask"
+// case. Written once so the three query methods can't diverge on this decision the way
+// isConnectionFailure's own doc names two Criticals over (c-adapters Minor 5).
+func tmuxAbsence(err error) (absent bool, checkErr error) {
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		return false, err
+	}
+	if isConnectionFailure(err) {
+		return false, err
+	}
+	return true, nil
 }
 
 // isConnectionFailure reports whether err's message carries tmux's own "error connecting
@@ -583,14 +607,10 @@ func (c *Client) KillSession(ctx context.Context, name string) error {
 func (c *Client) ListSessions(ctx context.Context) ([]string, error) {
 	out, err := c.run(ctx, "list-sessions", "-F", "#{session_name}")
 	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			if isConnectionFailure(err) {
-				return nil, fmt.Errorf("listing tmux sessions: %w", err)
-			}
-			return nil, nil
+		if absent, checkErr := tmuxAbsence(err); !absent {
+			return nil, fmt.Errorf("listing tmux sessions: %w", checkErr)
 		}
-		return nil, fmt.Errorf("listing tmux sessions: %w", err)
+		return nil, nil
 	}
 	trimmed := strings.TrimSpace(out)
 	if trimmed == "" {

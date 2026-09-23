@@ -171,7 +171,7 @@ func TestHandleCreateSession_ADirectoryThatIsAFileIs400(t *testing.T) {
 // tmux socket at all.
 func TestLauncher_CorruptSettingsFileRefusesAndRollsBackTheSessionRow(t *testing.T) {
 	st := openLauncherTestStore(t)
-	mgr := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop()})
+	mgr := newSessionTestManager(t, st)
 	dir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".claude"), 0o700))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".claude", "settings.local.json"), []byte(`{not valid json`), 0o600))
@@ -208,6 +208,60 @@ func openLauncherTestStore(t *testing.T) *store.Store {
 	return st
 }
 
+// noopPaneChecker/noopPaneSnapshotter/noopTmuxSessions are minimal doubles for
+// session.Manager's three now-required ports (a-M1: NewManager panics on a missing one).
+// This file's launcher/handler tests build a Manager directly rather than through
+// server.New() (which always wires a real *tmux.Client) and mostly don't exercise tmux at
+// all, so a no-op default is enough; the tests that do care already have their own double
+// (errKiller, spawnerKiller below) and just need ResolveSessionTarget added.
+type noopPaneChecker struct{}
+
+func (noopPaneChecker) PaneExists(context.Context, string) (bool, error) { return false, nil }
+
+type noopPaneSnapshotter struct{}
+
+func (noopPaneSnapshotter) CapturePane(context.Context, string) (string, error) { return "", nil }
+
+type noopTmuxSessions struct{}
+
+func (noopTmuxSessions) KillSession(context.Context, string) error      { return nil }
+func (noopTmuxSessions) ListSessions(context.Context) ([]string, error) { return nil, nil }
+func (noopTmuxSessions) ResolveSessionTarget(context.Context, string) (string, string, error) {
+	return "", "", errors.New("noopTmuxSessions: ResolveSessionTarget not supported")
+}
+
+// sessionManagerOpt overrides one field of newSessionTestManager's default Config — this
+// package's own copy of internal/session's testManagerOpt (review Minor 8's "per-test
+// overrides" constructor); a package-local copy because _test.go doubles can't be
+// imported across packages.
+type sessionManagerOpt func(*session.Config)
+
+func withOnUpsert(f func(*session.Session)) sessionManagerOpt {
+	return func(c *session.Config) { c.OnUpsert = f }
+}
+
+func withTmuxSessions(ts session.TmuxSessions) sessionManagerOpt {
+	return func(c *session.Config) { c.TmuxSessions = ts }
+}
+
+// newSessionTestManager is the one constructor this file's tests build a session.Manager
+// through directly (review Minor 8): every port defaults to a no-op double, overridden by
+// sessionManagerOpt where a test's scenario needs a real answer.
+func newSessionTestManager(t *testing.T, st *store.Store, opts ...sessionManagerOpt) *session.Manager {
+	t.Helper()
+	cfg := session.Config{
+		Store:           st,
+		Logger:          zerolog.Nop(),
+		PaneChecker:     noopPaneChecker{},
+		PaneSnapshotter: noopPaneSnapshotter{},
+		TmuxSessions:    noopTmuxSessions{},
+	}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	return session.NewManager(cfg)
+}
+
 // stubSessionOutFile is where sharedStubClaude (main_test.go) records the MUSTER_SESSION
 // it was handed for sessionID. Reading that back is the only reliable way to observe what
 // a tmux `new-window -e` actually passed the spawned process: tmux's own `show-environment`
@@ -237,13 +291,9 @@ func newTestTmuxClient(t *testing.T) *tmux.Client {
 func TestLauncher_SuccessfulLaunchEndToEnd(t *testing.T) {
 	st := openLauncherTestStore(t)
 	var upserts []*session.Session
-	mgr := session.NewManager(session.Config{
-		Store:  st,
-		Logger: zerolog.Nop(),
-		OnUpsert: func(s *session.Session) {
-			upserts = append(upserts, s.Clone())
-		},
-	})
+	mgr := newSessionTestManager(t, st, withOnUpsert(func(s *session.Session) {
+		upserts = append(upserts, s.Clone())
+	}))
 	tmuxClient := newTestTmuxClient(t)
 	dir := t.TempDir()
 
@@ -312,7 +362,7 @@ func TestLauncher_SuccessfulLaunchEndToEnd(t *testing.T) {
 // tmux-observable effect, so no real tmux server is needed.
 func TestLauncher_AutoPermissionModeSeedsLatchAndRepoDefault(t *testing.T) {
 	st := openLauncherTestStore(t)
-	mgr := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop()})
+	mgr := newSessionTestManager(t, st)
 	dir := t.TempDir()
 
 	l := &sessionLauncher{
@@ -370,10 +420,7 @@ func TestLauncher_ModelUnrecognised_RefusesAndWritesNothing(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := openLauncherTestStore(t)
 			var upserts []*session.Session
-			mgr := session.NewManager(session.Config{
-				Store: st, Logger: zerolog.Nop(),
-				OnUpsert: func(s *session.Session) { upserts = append(upserts, s.Clone()) },
-			})
+			mgr := newSessionTestManager(t, st, withOnUpsert(func(s *session.Session) { upserts = append(upserts, s.Clone()) }))
 			fake := newFakeTmux()
 			dir := t.TempDir()
 			settingsPath := filepath.Join(dir, ".claude", "settings.local.json")
@@ -446,7 +493,7 @@ func TestLauncher_ModelUnrecognised_RefusesAndWritesNothing(t *testing.T) {
 // those are excluded; every other field must match).
 func TestLauncher_ModelRecognised_ProceedsToCreated(t *testing.T) {
 	st := openLauncherTestStore(t)
-	mgr := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop()})
+	mgr := newSessionTestManager(t, st)
 	fake := newFakeTmux()
 
 	noCheckLauncher := &sessionLauncher{
@@ -516,7 +563,7 @@ func TestLauncher_ModelRecognised_ProceedsToCreated(t *testing.T) {
 // fake at this seam can independently prove.
 func TestLauncher_ModelCheckRunError_FailsOpenAndLogsWarn(t *testing.T) {
 	st := openLauncherTestStore(t)
-	mgr := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop()})
+	mgr := newSessionTestManager(t, st)
 	fake := newFakeTmux()
 	dir := t.TempDir()
 
@@ -549,7 +596,7 @@ func TestLauncher_ModelCheckRunError_FailsOpenAndLogsWarn(t *testing.T) {
 // this asserts the launcher-level side effect that check never fires.
 func TestLauncher_ValidationFailure_NeverInvokesTheModelCheck(t *testing.T) {
 	st := openLauncherTestStore(t)
-	mgr := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop()})
+	mgr := newSessionTestManager(t, st)
 	fake := newFakeTmux()
 
 	var checkCalls int
@@ -579,7 +626,7 @@ func TestLauncher_ValidationFailure_NeverInvokesTheModelCheck(t *testing.T) {
 // the identical shared string, so both assertions fail together.
 func TestLauncher_Resume_NotResumableMessageNamesWhichCauseApplies(t *testing.T) {
 	st := openLauncherTestStore(t)
-	mgr := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop()})
+	mgr := newSessionTestManager(t, st)
 	dir := t.TempDir()
 	repo, _, err := st.UpsertRepo(context.Background(), store.UpsertRepoParams{
 		Path: dir, Name: "proj", Model: "sonnet", PermissionMode: "default",
@@ -603,9 +650,9 @@ func TestLauncher_Resume_NotResumableMessageNamesWhichCauseApplies(t *testing.T)
 	require.NotNil(t, aliveErr)
 	require.Equal(t, "not_resumable", aliveErr.code)
 
-	// Cause 2: dead, and never bound a claudeSessionId (End with no SessionKiller/
-	// PaneChecker configured on this mgr goes straight to the direct markEnded path, no
-	// tmux needed).
+	// Cause 2: dead, and never bound a claudeSessionId (this mgr's noop TmuxSessions/
+	// PaneChecker double kills nothing and reports every pane absent, so End still lands
+	// on the direct markEnded path with no real tmux needed).
 	deadSess, err := mgr.CreateSession(context.Background(), session.CreateParams{
 		RepoID: repo.ID, Directory: dir, PermissionMode: session.PermissionDefault, Model: "sonnet", FirstLaunchHere: false,
 	})
@@ -675,7 +722,7 @@ func TestHandleCreateSession_OrphanedTmuxSessionDoesNotBlockLaunch(t *testing.T)
 // Launch never calls MaxSessionID at all, so the probe count stays at zero.
 func TestLauncher_ProbesMaxSessionIDAndDegradesToFloorZeroOnError(t *testing.T) {
 	st := openLauncherTestStore(t)
-	mgr := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop()})
+	mgr := newSessionTestManager(t, st)
 	dir := t.TempDir()
 	fake := newFakeTmux()
 	fake.maxSessionIDErr = errors.New("boom: tmux unreadable")
@@ -699,7 +746,7 @@ func TestLauncher_ProbesMaxSessionIDAndDegradesToFloorZeroOnError(t *testing.T) 
 // retry must succeed.
 func TestLauncher_RetriesOnceOnASingleErrSessionExistsThenSucceedsWithAHigherID(t *testing.T) {
 	st := openLauncherTestStore(t)
-	mgr := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop()})
+	mgr := newSessionTestManager(t, st)
 	dir := t.TempDir()
 	fake := newFakeTmux()
 	fake.queueNewSessionErrs(tmux.ErrSessionExists)
@@ -727,7 +774,7 @@ func TestLauncher_RetriesOnceOnASingleErrSessionExistsThenSucceedsWithAHigherID(
 // per attempt.
 func TestLauncher_ExhaustsThreeAttemptsOnRepeatedErrSessionExists(t *testing.T) {
 	st := openLauncherTestStore(t)
-	mgr := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop()})
+	mgr := newSessionTestManager(t, st)
 	dir := t.TempDir()
 	fake := newFakeTmux()
 	fake.newSessionErr = tmux.ErrSessionExists
@@ -757,12 +804,13 @@ func TestLauncher_ExhaustsThreeAttemptsOnRepeatedErrSessionExists(t *testing.T) 
 	assert.Empty(t, rows, "every attempt's row must be rolled back, never leaked")
 }
 
-// errKiller is a session.Killer double whose KillSession always fails with a fixed,
-// non-nil error — used to force a *genuine* kill failure for D15. Phase 1 shipped REQ-6
-// (internal/tmux.Client.KillSession treats an already-gone tmux session as a successful
-// kill), so a fabricated/never-spawned tmux target no longer reproduces this scenario; a
-// Killer double is the only way left to get a kill that must still fail. ListSessions is
-// never exercised by the Remove path this test drives.
+// errKiller is a session.TmuxSessions double whose KillSession always fails with a
+// fixed, non-nil error — used to force a *genuine* kill failure for D15. Phase 1 shipped
+// REQ-6 (internal/tmux.Client.KillSession treats an already-gone tmux session as a
+// successful kill), so a fabricated/never-spawned tmux target no longer reproduces this
+// scenario; a TmuxSessions double is the only way left to get a kill that must still
+// fail. ListSessions/ResolveSessionTarget are never exercised by the Remove/End paths
+// these tests drive.
 type errKiller struct {
 	killErr error
 }
@@ -773,6 +821,10 @@ func (k *errKiller) KillSession(_ context.Context, _ string) error {
 
 func (k *errKiller) ListSessions(_ context.Context) ([]string, error) {
 	return nil, nil
+}
+
+func (k *errKiller) ResolveSessionTarget(_ context.Context, _ string) (string, string, error) {
+	return "", "", errors.New("errKiller: ResolveSessionTarget not supported")
 }
 
 // TestHandleRemoveSession_FailingEndLeavesTheShellRunningAndTheRowPresent covers plan
@@ -786,7 +838,7 @@ func TestHandleRemoveSession_FailingEndLeavesTheShellRunningAndTheRowPresent(t *
 	client := tmux.New(socket) // real tmux — backs only the shell registry below
 	st := openLauncherTestStore(t)
 	killer := &errKiller{killErr: errors.New("boom: tmux unreachable")}
-	manager := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop(), SessionKiller: killer})
+	manager := newSessionTestManager(t, st, withTmuxSessions(killer))
 	shells := newShellRegistry(client, zerolog.Nop())
 	terminals := newTerminalRegistry()
 	launcher := &sessionLauncher{store: st, manager: manager, tmux: client, log: zerolog.Nop()}
@@ -853,7 +905,7 @@ func terminalConnFor(terminals *terminalRegistry, id int64) *terminalConn {
 func TestHandleEndSession_FailingKillLeavesTheTerminalSocketOpen(t *testing.T) {
 	st := openLauncherTestStore(t)
 	killer := &errKiller{killErr: errors.New("boom: tmux unreachable")}
-	manager := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop(), SessionKiller: killer})
+	manager := newSessionTestManager(t, st, withTmuxSessions(killer))
 	terminals := newTerminalRegistry()
 	fake := newFakeTmux()
 	terminalFeat := newTerminalFeature(terminals, manager, fake.attach, zerolog.Nop())
@@ -931,7 +983,7 @@ func TestHandleEndSession_FailingKillLeavesTheTerminalSocketOpen(t *testing.T) {
 // tmux call is enough to reliably widen the window.
 func TestLauncher_ConcurrentResumesSpawnExactlyOnce(t *testing.T) {
 	st := openLauncherTestStore(t)
-	mgr := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop()})
+	mgr := newSessionTestManager(t, st)
 	dir := t.TempDir()
 	repo, _, err := st.UpsertRepo(context.Background(), store.UpsertRepoParams{
 		Path: dir, Name: "proj", Model: "sonnet", PermissionMode: "default",
@@ -1038,7 +1090,7 @@ func (b *barrierTmux) newSessionCalls() int {
 // out of the response body, so a failure here needs the log to say why.
 func TestLauncher_ConcurrentLaunchesForTheSameDirectoryProduceTwoDistinctRows(t *testing.T) {
 	st := openLauncherTestStore(t)
-	mgr := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop()})
+	mgr := newSessionTestManager(t, st)
 	dir := t.TempDir()
 	fake := newBarrierTmux()
 
@@ -1078,9 +1130,9 @@ func TestLauncher_ConcurrentLaunchesForTheSameDirectoryProduceTwoDistinctRows(t 
 }
 
 // spawnerKiller is REQ-5(e)/D4's second fake: a paneSpawner (for the launcher) and a
-// session.Killer (for the manager's End) sharing one call log, so a test can observe
-// whether a Launch's spawn and an End's kill for the *same* id ever overlap. Production
-// wiring shares a single *tmux.Client across both roles the same way.
+// session.TmuxSessions (for the manager's End) sharing one call log, so a test can
+// observe whether a Launch's spawn and an End's kill for the *same* id ever overlap.
+// Production wiring shares a single *tmux.Client across both roles the same way.
 type spawnerKiller struct {
 	mu          sync.Mutex
 	callOrder   []string
@@ -1123,6 +1175,9 @@ func (k *spawnerKiller) MaxSessionID(_ context.Context) (int64, error) { return 
 func (k *spawnerKiller) ListSessions(_ context.Context) ([]string, error) {
 	return nil, nil
 }
+func (k *spawnerKiller) ResolveSessionTarget(_ context.Context, _ string) (string, string, error) {
+	return "", "", errors.New("spawnerKiller: ResolveSessionTarget not supported")
+}
 
 func (k *spawnerKiller) calls() []string {
 	k.mu.Lock()
@@ -1144,7 +1199,7 @@ func TestLauncher_LaunchRacingEndOnTheSameIDCannotInterleave(t *testing.T) {
 	dir := t.TempDir()
 	fake := newSpawnerKiller()
 	fake.newSessHold = true
-	mgr := session.NewManager(session.Config{Store: st, Logger: zerolog.Nop(), SessionKiller: fake})
+	mgr := newSessionTestManager(t, st, withTmuxSessions(fake))
 
 	l := &sessionLauncher{
 		store: st, manager: mgr, tmux: fake, log: zerolog.Nop(), claudeBin: "irrelevant-never-reached",

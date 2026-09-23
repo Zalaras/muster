@@ -2,7 +2,6 @@ package server
 
 import (
 	"crypto/hmac"
-	"encoding/json"
 	"net/http"
 )
 
@@ -35,22 +34,6 @@ func writeHTMLUnauthorized(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write([]byte(relaunchHTML))
 }
 
-type errorResponse struct {
-	Error struct {
-		Code    string `json:"code"`
-		Message string `json:"message"`
-	} `json:"error"`
-}
-
-func writeJSONError(w http.ResponseWriter, status int, code, message string) {
-	var resp errorResponse
-	resp.Error.Code = code
-	resp.Error.Message = message
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(resp)
-}
-
 func writeJSONUnauthorized(w http.ResponseWriter, _ *http.Request) {
 	writeJSONError(w, http.StatusUnauthorized, "unauthorized", "missing or invalid auth cookie; relaunch Muster")
 }
@@ -71,9 +54,7 @@ func requireCookie(token string, onUnauthorized http.HandlerFunc, next http.Hand
 
 // handleHealthz is intentionally unauthenticated (REQ-1).
 func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]string{
+	writeJSON(w, http.StatusOK, map[string]string{
 		"status":  "ok",
 		"version": s.daemonVersion,
 	})

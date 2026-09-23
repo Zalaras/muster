@@ -1,10 +1,6 @@
 package server
 
-import (
-	"time"
-
-	"github.com/Zalaras/muster/internal/usage"
-)
+import "github.com/Zalaras/muster/internal/usage"
 
 // usageMessage is the WS `usage` envelope (kb:anchor/ws.usage).
 type usageMessage struct {
@@ -19,25 +15,21 @@ type usageMessage struct {
 // can never drift apart and every caller builds the merged object from both holders'
 // Current() at send time (Edge Case 10).
 func toWireUsage(snap usage.Snapshot, model usage.ModelSnapshot) UsageInfo {
-	out := UsageInfo{Source: snap.Source, ModelScopedSource: model.Source}
+	out := UsageInfo{Source: snap.Source, ModelScopedSource: model.Source, SampledAt: wireTimePtr(snap.SampledAt)}
 	if snap.FiveHour != nil {
 		out.FiveHour = &UsageBucket{
 			UsedPct:  snap.FiveHour.UsedPct,
-			ResetsAt: snap.FiveHour.ResetsAt.UTC().Format(time.RFC3339),
+			ResetsAt: wireTime(snap.FiveHour.ResetsAt),
 		}
 	}
 	if snap.SevenDay != nil {
 		out.SevenDay = &UsageBucket{
 			UsedPct:  snap.SevenDay.UsedPct,
-			ResetsAt: snap.SevenDay.ResetsAt.UTC().Format(time.RFC3339),
+			ResetsAt: wireTime(snap.SevenDay.ResetsAt),
 		}
 	}
 	if snap.Model != nil {
 		out.Model = &sessionWireModel{ID: snap.Model.ID, DisplayName: snap.Model.DisplayName}
-	}
-	if snap.SampledAt != nil {
-		v := snap.SampledAt.UTC().Format(time.RFC3339)
-		out.SampledAt = &v
 	}
 
 	// model.Windows is nil until the first successful fetch; a non-nil (possibly
@@ -50,15 +42,12 @@ func toWireUsage(snap usage.Snapshot, model usage.ModelSnapshot) UsageInfo {
 			windows[i] = UsageModelWindow{
 				DisplayName: w.DisplayName,
 				UsedPct:     w.UsedPct,
-				ResetsAt:    w.ResetsAt.UTC().Format(time.RFC3339),
+				ResetsAt:    wireTime(w.ResetsAt),
 			}
 		}
 		out.ModelScoped = windows
 	}
-	if model.At != nil {
-		v := model.At.UTC().Format(time.RFC3339)
-		out.ModelScopedAt = &v
-	}
+	out.ModelScopedAt = wireTimePtr(model.At)
 	out.ModelScopedError = model.Error
 
 	return out

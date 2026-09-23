@@ -17,7 +17,7 @@ drawn from the import blocks, not from prose; the absent edges are the architect
 `internal/store`, `internal/tmux`, `internal/tty` and `internal/claudecode` import nothing
 internal — leaf adapters, which is what keeps Claude-Code-format knowledge inside one package
 (kb:adr/nongoal-generic-agent-abstraction-layer). `internal/session` never imports
-`internal/server`: it declares its own `PaneChecker`, `PaneSnapshotter` and `Killer` ports and
+`internal/server`: it declares its own `PaneChecker`, `PaneSnapshotter` and `TmuxSessions` ports and
 `*tmux.Client` satisfies them, injected by the composition root. Ingest is not a package of its
 own: it is `internal/server/ingest.go`, one feature type among the server's twenty-odd.
 

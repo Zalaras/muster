@@ -2,7 +2,6 @@ package server
 
 import (
 	"path/filepath"
-	"time"
 
 	"github.com/Zalaras/muster/internal/session"
 )
@@ -109,7 +108,7 @@ func toWireSession(s *session.Session) sessionWire {
 		Title:           s.DisplayTitle(), // REQ-11: the display title, not the raw Title column
 		TitleOverride:   s.TitleOverride,
 		State:           string(s.State),
-		StateSince:      s.StateSince.UTC().Format(time.RFC3339),
+		StateSince:      wireTime(s.StateSince),
 		Alive:           s.Alive,
 		Directory:       s.Directory,
 		PermissionMode:  sessionWirePermissionMode{Value: string(s.PermissionMode), Source: s.PermissionModeSource},
@@ -117,20 +116,17 @@ func toWireSession(s *session.Session) sessionWire {
 		LastActivity:    s.LastActivity,
 		TmuxTarget:      s.TmuxTarget,
 		FirstLaunchHere: s.FirstLaunchHere,
-		CreatedAt:       s.CreatedAt.UTC().Format(time.RFC3339),
+		CreatedAt:       wireTime(s.CreatedAt),
 		Pinned:          s.Pinned,
 		RailPos:         s.RailPos,
 		Plan:            toWireSessionPlan(s),
 		Unread:          s.Unread,
 		LastPrompt:      s.LastPrompt,
+		EndedAt:         wireTimePtr(s.EndedAt),
 	}
 
-	if s.EndedAt != nil {
-		v := s.EndedAt.UTC().Format(time.RFC3339)
-		w.EndedAt = &v
-	}
 	if s.Attention != nil {
-		w.Attention = &sessionWireAttention{Reason: s.Attention.Reason, Since: s.Attention.Since.UTC().Format(time.RFC3339)}
+		w.Attention = &sessionWireAttention{Reason: s.Attention.Reason, Since: wireTime(s.Attention.Since)}
 	}
 	if s.Failure != nil {
 		w.Failure = &sessionWireFailure{Error: s.Failure.Error, Message: s.Failure.Message}

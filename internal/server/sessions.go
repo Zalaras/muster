@@ -77,13 +77,14 @@ func (e *launchError) Error() string { return e.message }
 
 // Fixed 5xx `message` text (REQ-10, kb:anchor/transport): display text for the user, never
 // a wrapped tmux/OS error string — the raw error goes only to the adjacent log.Error()
-// line. 4xx messages are unaffected; they were already fixed phrases.
+// line. 4xx messages are unaffected; they were already fixed phrases. This vocabulary's
+// generic member, msgInternalError, lives in respond.go — every feature shares it, not
+// just launch/resume.
 const (
 	msgEndFailed        = "couldn't end the session — tmux reported an error; see the daemon log"
 	msgRemoveFailed     = "couldn't remove the session — tmux reported an error; see the daemon log"
 	msgLaunchFailed     = "couldn't launch — see the daemon log"
 	msgShellSpawnFailed = "couldn't open a shell — tmux reported an error; see the daemon log"
-	msgInternalError    = "something went wrong on the daemon — see the daemon log"
 )
 
 func invalidRequest(message string) *launchError {
@@ -561,9 +562,7 @@ func (f *sessionsFeature) handleCreateSession(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(toWireSession(sess))
+	writeJSON(w, http.StatusCreated, toWireSession(sess))
 }
 
 // parseSessionID reads the {id} path value, writing a 404 unknown_session itself on a
@@ -607,9 +606,7 @@ func (f *sessionsFeature) handleEndSession(w http.ResponseWriter, r *http.Reques
 	}
 
 	f.terminals.closeSession(id)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(toWireSession(sess))
+	writeJSON(w, http.StatusOK, toWireSession(sess))
 }
 
 // handleRemoveSession is DELETE /api/sessions/{id} (REQ-6, kb:anchor/sessions.remove).
@@ -658,9 +655,7 @@ func (f *sessionsFeature) handleResumeSession(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(toWireSession(sess))
+	writeJSON(w, http.StatusOK, toWireSession(sess))
 }
 
 // handlePaneSnapshot is GET /api/sessions/{id}/pane (REQ-4, kb:anchor/sessions.pane).
@@ -680,9 +675,7 @@ func (f *sessionsFeature) handlePaneSnapshot(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(paneSnapshotWire{Text: text, CapturedAt: at.UTC().Format(time.RFC3339)})
+	writeJSON(w, http.StatusOK, paneSnapshotWire{Text: text, CapturedAt: wireTime(at)})
 }
 
 // pinSessionRequest is PUT /api/sessions/{id}/pin's request body (kb:anchor/sessions.pin).
@@ -709,7 +702,7 @@ func (f *sessionsFeature) handlePinSession(w http.ResponseWriter, r *http.Reques
 			writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
 		default:
 			f.log.Error().Err(err).Int64("session_id", id).Msg("pinning session failed")
-			writeJSONError(w, http.StatusInternalServerError, "internal_error", "pinning session")
+			writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
 		}
 		return
 	}
@@ -737,7 +730,7 @@ func (f *sessionsFeature) handleSetOrder(w http.ResponseWriter, r *http.Request)
 			writeJSONError(w, http.StatusBadRequest, "invalid_request", "ids must be a duplicate-free list of known session ids, and pinnedCount must be in [0, len(ids)]")
 		default:
 			f.log.Error().Err(err).Msg("setting rail order failed")
-			writeJSONError(w, http.StatusInternalServerError, "internal_error", "setting rail order")
+			writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
 		}
 		return
 	}

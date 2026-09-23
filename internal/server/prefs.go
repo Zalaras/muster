@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/rs/zerolog"
+
 	"github.com/Zalaras/muster/internal/store"
 )
 
@@ -173,10 +175,11 @@ type prefsFeature struct {
 	store         *store.Store
 	hub           *wsHub
 	updateChecker checkEnabledSetter
+	log           zerolog.Logger
 }
 
-func newPrefsFeature(st *store.Store, hub *wsHub) *prefsFeature {
-	return &prefsFeature{store: st, hub: hub}
+func newPrefsFeature(st *store.Store, hub *wsHub, log zerolog.Logger) *prefsFeature {
+	return &prefsFeature{store: st, hub: hub, log: log}
 }
 
 func (f *prefsFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.Handler) {
@@ -299,11 +302,13 @@ func (f *prefsFeature) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 
 	encoded, err := json.Marshal(prefs)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "internal_error", "encoding prefs")
+		f.log.Error().Err(err).Msg("encoding prefs failed")
+		writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
 		return
 	}
 	if err := f.store.KVSet(ctx, prefsKVKey, string(encoded)); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "internal_error", "persisting prefs")
+		f.log.Error().Err(err).Msg("persisting prefs failed")
+		writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
 		return
 	}
 

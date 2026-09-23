@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 
 	"github.com/Zalaras/muster/internal/claudecode"
@@ -133,7 +132,5 @@ func (s *Server) currentSnapshot(ctx context.Context) Snapshot {
 // handleState serves GET /api/state — the same snapshot object the WS handshake sends,
 // minus the "type" envelope (REQ-6).
 func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(s.currentSnapshot(r.Context()))
+	writeJSON(w, http.StatusOK, s.currentSnapshot(r.Context()))
 }

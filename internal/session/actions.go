@@ -17,7 +17,7 @@ func (m *Manager) RecordLaunch(ctx context.Context, id int64, tmuxTarget, tmuxPa
 	sess, ok := m.sessions[id]
 	if !ok {
 		m.mu.Unlock()
-		return nil, fmt.Errorf("recording launch: unknown session %d", id)
+		return nil, ErrUnknownSession
 	}
 	prev := sess.Clone()
 	sess.TmuxTarget = tmuxTarget
@@ -65,38 +65,22 @@ func (m *Manager) endLocked(ctx context.Context, id int64) (*Session, error) {
 	target := sess.TmuxTarget
 	m.mu.Unlock()
 
-	if m.paneSnapshotter != nil {
-		snapCtx, cancel := context.WithTimeout(ctx, endRemoveTmuxTimeout)
-		text, err := m.paneSnapshotter.CapturePane(snapCtx, target)
-		cancel()
-		if err != nil {
-			m.log.Debug().Err(err).Int64("session_id", id).Msg("final pane snapshot capture failed")
-		} else {
-			m.storeSnapshot(ctx, id, text)
-		}
+	snapCtx, cancel := context.WithTimeout(ctx, endRemoveTmuxTimeout)
+	m.captureAndStoreSnapshot(snapCtx, ctx, id, target)
+	cancel()
+
+	if err := m.killSessionWithTimeout(ctx, id); err != nil {
+		return nil, fmt.Errorf("ending session %d: %w", id, err)
 	}
 
-	if m.sessionKiller != nil {
-		killCtx, cancel := context.WithTimeout(ctx, endRemoveTmuxTimeout)
-		err := m.sessionKiller.KillSession(killCtx, sessionTmuxName(id))
-		cancel()
-		if err != nil {
-			return nil, fmt.Errorf("ending session %d: %w", id, err)
-		}
-	}
-
-	if m.paneChecker != nil {
-		// endOnCheckError:=true here (review cycle 1 Minor 1): we just killed the tmux
-		// session ourselves, so a PaneExists error on this specific check is not an
-		// ordinary transient hiccup to shrug off until the next poll — End must not
-		// return alive:true after a kill it just performed. The periodic poll/nudge
-		// callers below keep the conservative default (leave as-is on a check error).
-		checkCtx, cancel := context.WithTimeout(ctx, endRemoveTmuxTimeout)
-		m.checkOneLiveness(checkCtx, id, target, true)
-		cancel()
-	} else if _, err := m.markEnded(ctx, id); err != nil {
-		return nil, err
-	}
+	// endOnCheckError:=true here (review cycle 1 Minor 1): we just killed the tmux
+	// session ourselves, so a PaneExists error on this specific check is not an
+	// ordinary transient hiccup to shrug off until the next poll — End must not
+	// return alive:true after a kill it just performed. The periodic poll/nudge
+	// callers keep the conservative default (leave as-is on a check error).
+	checkCtx, cancel2 := context.WithTimeout(ctx, endRemoveTmuxTimeout)
+	m.checkOneLiveness(checkCtx, id, target, true)
+	cancel2()
 
 	snapshot, ok := m.Get(id)
 	if !ok {
@@ -105,19 +89,21 @@ func (m *Manager) endLocked(ctx context.Context, id int64) (*Session, error) {
 	return snapshot, nil
 }
 
+// killSessionWithTimeout kills id's tmux Claude-pane session, bounded by
+// endRemoveTmuxTimeout — the identical timeout-construction-and-cancel pair End and
+// Remove's not-alive path both built by hand (S6).
+func (m *Manager) killSessionWithTimeout(ctx context.Context, id int64) error {
+	killCtx, cancel := context.WithTimeout(ctx, endRemoveTmuxTimeout)
+	defer cancel()
+	return m.tmuxSessions.KillSession(killCtx, sessionTmuxName(id))
+}
+
 // EndAll ends every currently alive session — the `-on-exit=kill` shutdown path
 // (REQ-3): each gets a final snapshot, is killed, and its row is marked alive:false
 // before the daemon exits. One session's failure is logged and does not stop the rest.
 // Returns how many were successfully ended.
 func (m *Manager) EndAll(ctx context.Context) int {
-	m.mu.Lock()
-	var ids []int64
-	for id, sess := range m.sessions {
-		if sess.Alive {
-			ids = append(ids, id)
-		}
-	}
-	m.mu.Unlock()
+	ids := collectLocked(m, func(s *Session) bool { return s.Alive }, func(s *Session) int64 { return s.ID })
 
 	ended := 0
 	for _, id := range ids {
@@ -133,13 +119,9 @@ func (m *Manager) EndAll(ctx context.Context) int {
 // shellNamesOnSocket lists every muster-<n>-shell tmux session name currently on the
 // socket — KillAllShells and ShellCount's shared read, matching the same
 // tmux.IsShellSessionName predicate reconcile's own unconditional shell-kill loop uses
-// (reportAndSweepUnknown above). A nil sessionKiller (tests that don't wire one) reads as
-// no shells, never an error.
+// (reportAndSweepUnknown above).
 func (m *Manager) shellNamesOnSocket(ctx context.Context) ([]string, error) {
-	if m.sessionKiller == nil {
-		return nil, nil
-	}
-	names, err := m.sessionKiller.ListSessions(ctx)
+	names, err := m.tmuxSessions.ListSessions(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing tmux sessions: %w", err)
 	}
@@ -165,7 +147,7 @@ func (m *Manager) KillAllShells(ctx context.Context) (int, error) {
 	}
 	killed := 0
 	for _, name := range shells {
-		if err := m.sessionKiller.KillSession(ctx, name); err != nil {
+		if err := m.tmuxSessions.KillSession(ctx, name); err != nil {
 			m.log.Warn().Err(err).Str("tmux_session", name).Msg("shutdown: killing shell session failed")
 			continue
 		}
@@ -196,20 +178,7 @@ func (m *Manager) ShellCount(ctx context.Context) (int, error) {
 func (m *Manager) Remove(ctx context.Context, id int64) error {
 	unlock := m.LockSession(id)
 	defer unlock()
-
-	if err := m.removeLocked(ctx, id); err != nil {
-		return err
-	}
-
-	// The id is never reissued (REQ-2), so nothing can ever contend on this lock again —
-	// reclaim it rather than growing the map for the life of the daemon. writeChain's
-	// entry is reclaimed the same way and for the same reason: no write for a removed,
-	// never-reused id can ever be scheduled again.
-	m.mu.Lock()
-	delete(m.idLocks, id)
-	delete(m.writeChain, id)
-	m.mu.Unlock()
-	return nil
+	return m.removeLocked(ctx, id)
 }
 
 func (m *Manager) removeLocked(ctx context.Context, id int64) error {
@@ -222,34 +191,23 @@ func (m *Manager) removeLocked(ctx context.Context, id int64) error {
 	alive := sess.Alive
 	m.mu.Unlock()
 
-	switch {
-	case alive:
+	if alive {
 		if _, err := m.endLocked(ctx, id); err != nil {
 			return fmt.Errorf("removing session %d: %w", id, err)
 		}
-	case m.sessionKiller != nil:
+	} else {
 		// REQ-15: a not-alive row's muster-<id> tmux session may still be running (an
 		// earlier kill silently failed, or a repair raced in) — kill it idempotently
 		// (REQ-6 makes "already gone" a success) so Remove can never leave an orphan.
-		killCtx, cancel := context.WithTimeout(ctx, endRemoveTmuxTimeout)
-		err := m.sessionKiller.KillSession(killCtx, sessionTmuxName(id))
-		cancel()
-		if err != nil {
+		if err := m.killSessionWithTimeout(ctx, id); err != nil {
 			return fmt.Errorf("removing session %d: %w", id, err)
 		}
 	}
 
-	// REQ-14: the row is deleted before the in-memory entry is dropped, and OnRemoved
-	// fires only once both have actually succeeded — a failed delete must never look like
-	// a completed remove.
-	if err := m.store.DeleteSession(ctx, id); err != nil {
-		return fmt.Errorf("removing session %d: %w", id, err)
-	}
-	m.removeFromMemory(id)
-	if m.onRemoved != nil {
-		m.onRemoved(id)
-	}
-	return nil
+	// REQ-14: removeSessionRecord deletes the row before dropping the in-memory entry,
+	// and OnRemoved fires only once both have succeeded — a failed delete must never look
+	// like a completed remove.
+	return m.removeSessionRecord(ctx, id, true)
 }
 
 // RecordResume stamps the new tmux target/pane after a successful resume spawn (REQ-7,

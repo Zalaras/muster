@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -212,13 +211,12 @@ func (f *shellFeature) handleCreateShell(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	sess, exists := f.manager.Get(id)
-	if !exists {
-		writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
+	sess, ok := sessionOr404(w, f.manager, id)
+	if !ok {
 		return
 	}
 	if info, err := os.Stat(sess.Directory); err != nil || !info.IsDir() {
-		writeJSONError(w, http.StatusConflict, "directory_missing", fmt.Sprintf("%s no longer exists", sess.Directory))
+		writeDirectoryMissing(w, sess.Directory)
 		return
 	}
 
@@ -229,9 +227,7 @@ func (f *shellFeature) handleCreateShell(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(createShellResponse{Target: target, Created: created})
+	writeJSON(w, http.StatusOK, createShellResponse{Target: target, Created: created})
 }
 
 // handleShellTerminal is GET /ws/shell/{id} (kb:anchor/terminal.shell-ws): pre-upgrade auth

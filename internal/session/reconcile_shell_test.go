@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -41,7 +40,7 @@ func TestReconcile_KillsEveryShellSessionUnconditionallyAndCountsThem(t *testing
 	killer := newFakeKiller(shellOfKnown, shellOfUnknown, shellOfZero, knownTarget[:len(knownTarget)-len(":@1")])
 	pc := newFakePaneChecker()
 	pc.setExists(knownTarget, true)
-	mgr := NewManager(Config{Store: st, Logger: zerolog.Nop(), PaneChecker: pc, SessionKiller: killer})
+	mgr := newTestManager(t, st, pc, nil, withTmuxSessions(killer))
 	require.NoError(t, mgr.LoadAll(ctx))
 
 	report := mgr.Reconcile(ctx)
@@ -78,7 +77,7 @@ func TestReconcile_NeverListsAnyShellSessionAsUnknown(t *testing.T) {
 	killer := newFakeKiller(shellOfKnown, shellOfUnknown, shellOfZero, genuinelyUnknownClaudeSession)
 	pc := newFakePaneChecker()
 	pc.setExists(knownTarget, true)
-	mgr := NewManager(Config{Store: st, Logger: zerolog.Nop(), PaneChecker: pc, SessionKiller: killer})
+	mgr := newTestManager(t, st, pc, nil, withTmuxSessions(killer))
 	require.NoError(t, mgr.LoadAll(ctx))
 
 	report := mgr.Reconcile(ctx)
@@ -99,7 +98,7 @@ func TestReconcile_AFailedShellKillIsNotCountedButStillNeverReportedAsUnknown(t 
 	shellName := tmux.ShellSessionName(42)
 	killer := newFakeKiller(shellName)
 	killer.setKillErr(shellName, assertAnError{})
-	mgr := NewManager(Config{Store: st, Logger: zerolog.Nop(), SessionKiller: killer})
+	mgr := newTestManager(t, st, nil, nil, withTmuxSessions(killer))
 	require.NoError(t, mgr.LoadAll(ctx))
 
 	report := mgr.Reconcile(ctx)

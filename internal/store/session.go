@@ -139,7 +139,7 @@ type InsertSessionParams struct {
 // doubles as both the tmux session name and the ingest bearer credential
 // MUSTER_SESSION=<id>.
 func (s *Store) InsertSession(ctx context.Context, p InsertSessionParams) (SessionRow, error) {
-	now := time.Now().UTC().Format(time.RFC3339)
+	now := encodeTime(time.Now())
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -243,20 +243,20 @@ func (s *Store) DeleteSession(ctx context.Context, id int64) error {
 // UpdateSession writes back the full row (whole-object, matching the whole-object
 // sessionUpsert design — kb:anchor/ws.session) after any mutation.
 func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
-	stateSince := row.StateSince.UTC().Format(time.RFC3339)
+	stateSince := encodeTime(row.StateSince)
 	var attentionSince, endedAt *string
 	if row.AttentionSince != nil {
-		v := row.AttentionSince.UTC().Format(time.RFC3339)
+		v := encodeTime(*row.AttentionSince)
 		attentionSince = &v
 	}
 	if row.EndedAt != nil {
-		v := row.EndedAt.UTC().Format(time.RFC3339)
+		v := encodeTime(*row.EndedAt)
 		endedAt = &v
 	}
 
 	var lastSnapshotAt *string
 	if row.LastSnapshotAt != nil {
-		v := row.LastSnapshotAt.UTC().Format(time.RFC3339)
+		v := encodeTime(*row.LastSnapshotAt)
 		lastSnapshotAt = &v
 	}
 
@@ -358,18 +358,32 @@ func scanSession(row rowScanner) (SessionRow, error) {
 	r.Pinned = pinned != 0
 	r.PlanExists = planExists != 0
 	r.Unread = unread != 0
-	r.StateSince, _ = time.Parse(time.RFC3339, stateSince)
-	r.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+	var err error
+	if r.StateSince, err = decodeTime(stateSince); err != nil {
+		return SessionRow{}, fmt.Errorf("scanning session %d: state_since: %w", r.ID, err)
+	}
+	if r.CreatedAt, err = decodeTime(createdAt); err != nil {
+		return SessionRow{}, fmt.Errorf("scanning session %d: created_at: %w", r.ID, err)
+	}
 	if attentionSince != nil {
-		t, _ := time.Parse(time.RFC3339, *attentionSince)
+		t, err := decodeTime(*attentionSince)
+		if err != nil {
+			return SessionRow{}, fmt.Errorf("scanning session %d: attention_since: %w", r.ID, err)
+		}
 		r.AttentionSince = &t
 	}
 	if endedAt != nil {
-		t, _ := time.Parse(time.RFC3339, *endedAt)
+		t, err := decodeTime(*endedAt)
+		if err != nil {
+			return SessionRow{}, fmt.Errorf("scanning session %d: ended_at: %w", r.ID, err)
+		}
 		r.EndedAt = &t
 	}
 	if lastSnapshotAt != nil {
-		t, _ := time.Parse(time.RFC3339, *lastSnapshotAt)
+		t, err := decodeTime(*lastSnapshotAt)
+		if err != nil {
+			return SessionRow{}, fmt.Errorf("scanning session %d: last_snapshot_at: %w", r.ID, err)
+		}
 		r.LastSnapshotAt = &t
 	}
 	return r, nil
@@ -380,7 +394,7 @@ func scanSession(row rowScanner) (SessionRow, error) {
 // alive session — called only when the captured text actually changed (same pattern as
 // usage_sample). Never logged (may hold prompt text).
 func (s *Store) UpdateSnapshot(ctx context.Context, id int64, text string, at time.Time) error {
-	ts := at.UTC().Format(time.RFC3339)
+	ts := encodeTime(at)
 	if _, err := s.db.ExecContext(ctx, `UPDATE session SET last_snapshot = ?, last_snapshot_at = ? WHERE id = ?`, text, ts, id); err != nil {
 		return fmt.Errorf("updating snapshot for session %d: %w", id, err)
 	}

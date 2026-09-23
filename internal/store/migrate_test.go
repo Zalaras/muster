@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"path/filepath"
 	"testing"
+	"testing/fstest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -71,6 +72,25 @@ func TestMigrate_SecondCallIsANoOp(t *testing.T) {
 	var value string
 	require.NoError(t, db.QueryRowContext(ctx, `SELECT value FROM kv WHERE key = 'k'`).Scan(&value))
 	assert.Equal(t, "v", value)
+}
+
+// TestLoadMigrations_DuplicateVersionIsLoadError covers a-m6: two migration files
+// sharing a version must fail loading, not silently apply only the first and skip the
+// second forever. loadMigrations takes an fs.FS (migrate.go), specifically so a test can
+// pass an fstest.MapFS instead of mutating the package-level migrationsFS shared with
+// every other test in this package (docs/conventions.md § Go).
+func TestLoadMigrations_DuplicateVersionIsLoadError(t *testing.T) {
+	fsys := fstest.MapFS{
+		"migrations/0001_a.sql": {Data: []byte("SELECT 1;")},
+		"migrations/0001_b.sql": {Data: []byte("SELECT 1;")}, // shares version 1 with 0001_a.sql on purpose
+	}
+
+	_, err := loadMigrations(fsys)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "share version")
+	assert.Contains(t, err.Error(), "0001_a.sql")
+	assert.Contains(t, err.Error(), "0001_b.sql")
 }
 
 func TestMigrate_CreatesSchemaMigrationsTableIfAbsent(t *testing.T) {

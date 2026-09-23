@@ -66,6 +66,45 @@ func (s *Store) Close() error {
 	return s.db.Close()
 }
 
+// encodeTime formats t as this package's on-disk time text: RFC3339, UTC (the CLAUDE.md
+// gotcha "Times are RFC3339 UTC text ... parse on read") — the one encoder every
+// INSERT/UPDATE statement uses for a stored time column, so the format has one owner
+// (a-m2). Receipt stamps (event.received_at, usage_sample.at) are the documented
+// exception: they need nanosecond precision so two immediate inserts don't land with
+// identical timestamps, and use encodeReceiptTime instead.
+func encodeTime(t time.Time) string {
+	return t.UTC().Format(time.RFC3339)
+}
+
+// decodeTime parses text written by encodeTime. A value that fails to parse is corrupt
+// data, not "never set" (a-m2: "no silent failures") — the caller surfaces the error as a
+// scan error rather than silently returning a zero time.
+func decodeTime(text string) (time.Time, error) {
+	t, err := time.Parse(time.RFC3339, text)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("parsing stored time %q: %w", text, err)
+	}
+	return t, nil
+}
+
+// encodeReceiptTime formats t as a receipt stamp: RFC3339Nano, UTC — InsertEvent and the
+// usage sample writers stamp "when this row was received" themselves rather than trusting
+// a caller-supplied time (kb:adr/ingest-seq-assigned-at-ingest), and nanosecond precision
+// is what lets two immediate inserts land with distinct timestamps.
+func encodeReceiptTime(t time.Time) string {
+	return t.UTC().Format(time.RFC3339Nano)
+}
+
+// decodeReceiptTime parses text written by encodeReceiptTime (see decodeTime's doc on why
+// a parse failure is an error, not a zero value).
+func decodeReceiptTime(text string) (time.Time, error) {
+	t, err := time.Parse(time.RFC3339Nano, text)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("parsing stored receipt time %q: %w", text, err)
+	}
+	return t, nil
+}
+
 // dbTx is satisfied by both *sql.DB and *sql.Tx — narrow enough to let the kv
 // read/write logic run either outside a transaction (KVGet/KVSet) or inside one
 // (session-lifecycle REQ-1: InsertSession reads and bumps the id watermark as part of
@@ -134,11 +173,11 @@ type Event struct {
 // the same insert (MAX(seq)+1 scoped to that session). Safe under the single ingest
 // worker; it is not a general-purpose concurrent seq allocator.
 func (s *Store) InsertEvent(ctx context.Context, ev Event) error {
-	// RFC3339Nano: plain RFC3339's second granularity lets two immediate inserts land
-	// with identical timestamps; readers parse with RFC3339Nano, which accepts both old
-	// (second-granularity) and new rows, and seq remains the only ordering authority
-	// regardless.
-	receivedAt := time.Now().UTC().Format(time.RFC3339Nano)
+	// encodeReceiptTime: plain RFC3339's second granularity lets two immediate inserts
+	// land with identical timestamps; readers parse with decodeReceiptTime (RFC3339Nano),
+	// which accepts both old (second-granularity) and new rows, and seq remains the only
+	// ordering authority regardless.
+	receivedAt := encodeReceiptTime(time.Now())
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO event (claude_session_id, seq, type, prompt_id, tool_use_id, muster_session, tmux_pane, payload, received_at, session_id)
 		VALUES (?, (SELECT COALESCE(MAX(seq), 0) + 1 FROM event WHERE claude_session_id = ?), ?, ?, ?, ?, ?, ?, ?, ?)
@@ -180,10 +219,11 @@ func (s *Store) EventSummary(ctx context.Context, sessionID int64) (EventSummary
 		return EventSummary{}, fmt.Errorf("summarizing events for session %d: %w", sessionID, err)
 	}
 	if lastReceivedAt != nil {
-		if t, err := time.Parse(time.RFC3339Nano, *lastReceivedAt); err == nil {
-			t = t.UTC()
-			out.LastReceivedAt = &t
+		t, err := decodeReceiptTime(*lastReceivedAt)
+		if err != nil {
+			return EventSummary{}, fmt.Errorf("summarizing events for session %d: %w", sessionID, err)
 		}
+		out.LastReceivedAt = &t
 	}
 
 	rows, err := s.db.QueryContext(ctx, `

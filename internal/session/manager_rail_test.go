@@ -4,14 +4,12 @@ import (
 	"context"
 	"sync"
 	"testing"
-	"time"
 
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/Zalaras/muster/internal/claudecode"
-	"github.com/Zalaras/muster/internal/store"
+	"github.com/Zalaras/muster/internal/tmux"
 )
 
 // fakeWatcher is a Watcher double: fully test-controlled per-id answers, no real
@@ -35,19 +33,6 @@ func (f *fakeWatcher) setWatched(id int64, v bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.watched[id] = v
-}
-
-// newTestManagerWithWatcher mirrors manager_test.go's newTestManager, adding the one
-// Config field that helper leaves unset: Watcher.
-func newTestManagerWithWatcher(t *testing.T, st *store.Store, onUpsert func(*Session), w Watcher) *Manager {
-	t.Helper()
-	return NewManager(Config{
-		Store:        st,
-		Logger:       zerolog.Nop(),
-		OnUpsert:     onUpsert,
-		PollInterval: 10 * time.Millisecond,
-		Watcher:      w,
-	})
 }
 
 // TestApply_TurnClosed_SetsUnreadFromWatcher covers D5/D6/D7 and the daemon half of
@@ -82,7 +67,7 @@ func TestApply_TurnClosed_SetsUnreadFromWatcher(t *testing.T) {
 					watcher = newFakeWatcher()
 					w = watcher
 				}
-				mgr := newTestManagerWithWatcher(t, st, rec.record, w)
+				mgr := newTestManager(t, st, nil, rec.record, withWatcher(w))
 				sess := createLaunchedSession(t, mgr, st, t.TempDir())
 				claudeID := "claude-1"
 				advanceToState(t, mgr, sess.ID, claudeID, from, true)
@@ -116,7 +101,7 @@ func TestApply_TurnClosed_WatcherIsPerSessionIndependence(t *testing.T) {
 	st := openTestStore(t)
 	rec := &upsertsRecorder{}
 	watcher := newFakeWatcher()
-	mgr := newTestManagerWithWatcher(t, st, rec.record, watcher)
+	mgr := newTestManager(t, st, nil, rec.record, withWatcher(watcher))
 
 	sessA := createLaunchedSession(t, mgr, st, t.TempDir())
 	sessB := createLaunchedSession(t, mgr, st, t.TempDir())
@@ -151,7 +136,7 @@ func TestApply_MonotonicRebindGuard_StragglerTurnClosedBehavesLikeAnyOther(t *te
 	st := openTestStore(t)
 	rec := &upsertsRecorder{}
 	watcher := newFakeWatcher()
-	mgr := newTestManagerWithWatcher(t, st, rec.record, watcher)
+	mgr := newTestManager(t, st, nil, rec.record, withWatcher(watcher))
 	sess := createLaunchedSession(t, mgr, st, t.TempDir())
 
 	_, err := mgr.Apply(ctx, sess.ID, "claude-old", nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
@@ -183,7 +168,7 @@ func TestManager_MarkSeen(t *testing.T) {
 		st := openTestStore(t)
 		rec := &upsertsRecorder{}
 		watcher := newFakeWatcher()
-		mgr := newTestManagerWithWatcher(t, st, rec.record, watcher)
+		mgr := newTestManager(t, st, nil, rec.record, withWatcher(watcher))
 		sess := createLaunchedSession(t, mgr, st, t.TempDir())
 		_, err := mgr.Apply(context.Background(), sess.ID, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
 		require.NoError(t, err)
@@ -264,10 +249,10 @@ func TestReconcile_LeavesUnreadAndLastPromptUntouchedAcrossRowClasses(t *testing
 	markedEndedRow.LastPrompt = &prompt
 	require.NoError(t, st.UpdateSession(ctx, markedEndedRow))
 
-	pc := newFakePaneChecker()
-	pc.setExists("muster-keptalive:@1", true)
-	pc.setExists("muster-markedended:@1", false)
-	mgr := NewManager(Config{Store: st, Logger: zerolog.Nop(), PaneChecker: pc})
+	// a-M1: ownership classification goes by ListSessions name, not PaneChecker — only
+	// keptAlive's real muster-<id> name is listed as present.
+	killer := newFakeKiller(tmux.SessionName(keptAliveSess.ID))
+	mgr := newTestManager(t, st, nil, nil, withTmuxSessions(killer))
 	require.NoError(t, mgr.LoadAll(ctx))
 
 	_ = mgr.Reconcile(ctx)

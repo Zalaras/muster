@@ -305,3 +305,63 @@ func TestInsertEvent_SessionIDRoutingColumn(t *testing.T) {
 		`SELECT session_id FROM event WHERE claude_session_id = 'sess-unrouted'`).Scan(&unrouted))
 	assert.Nil(t, unrouted, "an unrouted event must persist with a NULL session_id, never a guessed one")
 }
+
+// TestCorruptStoredTime_SurfacesAsScanError covers a-m2: a stored time column that fails
+// to parse is corrupt data, not "never set" — it must surface as an error, never silently
+// read back as a zero time. One column per decodeTime/decodeReceiptTime call site
+// (scanSession, scanRepo, EventSummary): the parse-and-wrap shape is identical for every
+// other column each function owns (scanSession's other four, scanRepo's other one), so
+// one corrupted column per function proves the pattern without re-testing time.Parse
+// itself five times over.
+func TestCorruptStoredTime_SurfacesAsScanError(t *testing.T) {
+	t.Run("scanSession: state_since", func(t *testing.T) {
+		st := openTestStore(t)
+		repoID := seedTestRepo(t, st)
+		ctx := context.Background()
+		row, err := st.InsertSession(ctx, InsertSessionParams{
+			RepoID: repoID, Directory: "/tmp/proj", PermissionMode: "default", FirstLaunchHere: true,
+		})
+		require.NoError(t, err)
+		_, err = st.db.ExecContext(ctx, `UPDATE session SET state_since = ? WHERE id = ?`, "not-a-time", row.ID)
+		require.NoError(t, err)
+
+		_, err = st.GetSession(ctx, row.ID)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "state_since", "the scan error must name the corrupt column")
+	})
+
+	t.Run("scanRepo: last_launched_at", func(t *testing.T) {
+		st := openTestStore(t)
+		ctx := context.Background()
+		repo, _, err := st.UpsertRepo(ctx, UpsertRepoParams{
+			Path: "/tmp/proj", Name: "proj", Model: "sonnet", PermissionMode: "default",
+		})
+		require.NoError(t, err)
+		_, err = st.db.ExecContext(ctx, `UPDATE repo SET last_launched_at = ? WHERE id = ?`, "not-a-time", repo.ID)
+		require.NoError(t, err)
+
+		_, err = st.GetRepo(ctx, repo.ID)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "last_launched_at", "the scan error must name the corrupt column")
+	})
+
+	t.Run("EventSummary: received_at", func(t *testing.T) {
+		st := openTestStore(t)
+		ctx := context.Background()
+		repo, _, err := st.UpsertRepo(ctx, UpsertRepoParams{Path: "/tmp/proj", Name: "proj", Model: "sonnet", PermissionMode: "default"})
+		require.NoError(t, err)
+		sess, err := st.InsertSession(ctx, InsertSessionParams{RepoID: repo.ID, Directory: "/tmp/proj", PermissionMode: "default"})
+		require.NoError(t, err)
+		require.NoError(t, st.InsertEvent(ctx, Event{
+			ClaudeSessionID: "sess-corrupt", Type: "Stop", Payload: []byte(`{}`), SessionID: &sess.ID,
+		}))
+		_, err = st.db.ExecContext(ctx, `UPDATE event SET received_at = ? WHERE claude_session_id = 'sess-corrupt'`, "not-a-time")
+		require.NoError(t, err)
+
+		_, err = st.EventSummary(ctx, sess.ID)
+
+		require.Error(t, err, "a corrupt received_at must no longer silently summarize with LastReceivedAt left nil")
+	})
+}
