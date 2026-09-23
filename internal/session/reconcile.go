@@ -67,27 +67,27 @@ type targetResolver interface {
 // REQ-10: unlike before, a markEnded/DeleteSession failure during the act phase is
 // logged and does not stop the rest — in particular the shell sweep, which now runs
 // before the act phase, always happens regardless.
-func (m *Manager) Reconcile(ctx context.Context) (ReconcileReport, error) {
+func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 	var report ReconcileReport
 
 	if m.sessionKiller == nil {
 		toEnd, toSweep := m.classifySessions(ctx, &report)
 		m.actOnReconcile(ctx, &report, toEnd, toSweep)
 		m.logReconcile(report)
-		return report, nil
+		return report
 	}
 
 	names, err := m.sessionKiller.ListSessions(ctx)
 	if err != nil {
 		m.log.Warn().Err(err).Msg("reconcile: listing tmux sessions failed; taking no action this cycle")
 		m.logReconcile(report)
-		return report, nil
+		return report
 	}
 
 	toEnd, toSweep := m.classifySessionsByOwnership(ctx, names, &report)
 	m.actOnReconcile(ctx, &report, toEnd, toSweep)
 	m.logReconcile(report)
-	return report, nil
+	return report
 }
 
 func (m *Manager) logReconcile(report ReconcileReport) {

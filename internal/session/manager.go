@@ -91,6 +91,12 @@ type Manager struct {
 	interval        time.Duration
 	watcher         Watcher
 
+	// mu guards sessions, byClaude, idLocks, writeChain and nextRailPos below: every map's
+	// own entries, and every field of a *Session sessions holds — a *Session is mutable
+	// only while mu is held (Critical 1: this is the rule applyBind used to break by
+	// mutating a Model a released Clone() already shared). Every exported read (Get/List/
+	// Exists/Resolve/PaneOf/…) takes its own Clone() before releasing mu, so a caller never
+	// holds a pointer another goroutine can still mutate.
 	mu       sync.Mutex
 	sessions map[int64]*Session
 	byClaude map[string]int64 // claude session id -> muster session id
@@ -99,7 +105,8 @@ type Manager struct {
 	// (map access only — never held across tmux I/O). LockSession serialises one id's
 	// Launch/Resume/End/Remove check-then-act without blocking a different id's; Remove
 	// reclaims an id's entry once its row is gone (the id is never reissued, so nothing
-	// after that could ever contend on it again).
+	// after that could ever contend on it again). Created eagerly by NewManager, like
+	// sessions/byClaude — LockSession no longer lazily initialises it.
 	idLocks map[int64]*sync.Mutex
 
 	// writeChain is a per-session write-ordering turnstile, guarded by mu itself (map
@@ -144,9 +151,6 @@ type Manager struct {
 // Resume the same way End/Remove do internally.
 func (m *Manager) LockSession(id int64) (unlock func()) {
 	m.mu.Lock()
-	if m.idLocks == nil {
-		m.idLocks = make(map[int64]*sync.Mutex)
-	}
 	l, ok := m.idLocks[id]
 	if !ok {
 		l = &sync.Mutex{}
@@ -176,6 +180,7 @@ func NewManager(cfg Config) *Manager {
 		watcher:         cfg.Watcher,
 		sessions:        make(map[int64]*Session),
 		byClaude:        make(map[string]int64),
+		idLocks:         make(map[int64]*sync.Mutex),
 	}
 }
 

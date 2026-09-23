@@ -44,8 +44,7 @@ func TestReconcile_KillsEveryShellSessionUnconditionallyAndCountsThem(t *testing
 	mgr := NewManager(Config{Store: st, Logger: zerolog.Nop(), PaneChecker: pc, SessionKiller: killer})
 	require.NoError(t, mgr.LoadAll(ctx))
 
-	report, err := mgr.Reconcile(ctx)
-	require.NoError(t, err)
+	report := mgr.Reconcile(ctx)
 
 	assert.Equal(t, 3, report.ShellsKilled, "D11: every shell-named session must be killed and counted, whatever its <n>")
 	assert.ElementsMatch(t, []string{shellOfKnown, shellOfUnknown, shellOfZero}, killer.killedNames(),
@@ -82,8 +81,7 @@ func TestReconcile_NeverListsAnyShellSessionAsUnknown(t *testing.T) {
 	mgr := NewManager(Config{Store: st, Logger: zerolog.Nop(), PaneChecker: pc, SessionKiller: killer})
 	require.NoError(t, mgr.LoadAll(ctx))
 
-	report, err := mgr.Reconcile(ctx)
-	require.NoError(t, err)
+	report := mgr.Reconcile(ctx)
 
 	assert.Equal(t, []string{genuinelyUnknownClaudeSession}, report.UnknownSessions,
 		"D12: no shell-named session may ever appear in UnknownSessions, but a genuinely unknown non-shell session still must")
@@ -104,8 +102,7 @@ func TestReconcile_AFailedShellKillIsNotCountedButStillNeverReportedAsUnknown(t 
 	mgr := NewManager(Config{Store: st, Logger: zerolog.Nop(), SessionKiller: killer})
 	require.NoError(t, mgr.LoadAll(ctx))
 
-	report, err := mgr.Reconcile(ctx)
-	require.NoError(t, err)
+	report := mgr.Reconcile(ctx)
 
 	assert.Equal(t, 0, report.ShellsKilled, "a kill that errored must not be counted as killed")
 	assert.Empty(t, report.UnknownSessions, "a shell name must never be reported as unknown even when its kill failed")

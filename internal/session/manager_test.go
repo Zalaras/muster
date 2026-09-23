@@ -996,8 +996,7 @@ func TestReconcile_DeletesEndedRowsMarksDeadPanesEndedLeavesLivePanesByteIdentic
 	mgr := NewManager(Config{Store: st, Logger: zerolog.Nop(), PaneChecker: pc, OnUpsert: rec.record})
 	require.NoError(t, mgr.LoadAll(ctx))
 
-	report, err := mgr.Reconcile(ctx)
-	require.NoError(t, err)
+	report := mgr.Reconcile(ctx)
 
 	assert.Equal(t, ReconcileReport{KeptAlive: 1, MarkedEnded: 1, Swept: 1}, report)
 
@@ -1053,8 +1052,7 @@ func TestReconcile_ReportsUnknownMusterSessionsWithoutCreatingRows(t *testing.T)
 	mgr := NewManager(Config{Store: st, Logger: zerolog.New(&logBuf), PaneChecker: pc, SessionKiller: killer})
 	require.NoError(t, mgr.LoadAll(ctx))
 
-	report, err := mgr.Reconcile(ctx)
-	require.NoError(t, err)
+	report := mgr.Reconcile(ctx)
 
 	assert.Equal(t, []string{"muster-999999"}, report.UnknownSessions,
 		"the known session and the non-muster-prefixed session must not be reported")
@@ -1089,8 +1087,7 @@ func TestReconcile_ReportsAndLogsAMusterPrefixedNameMatchingNeitherShapeAsUnknow
 	mgr := NewManager(Config{Store: st, Logger: zerolog.New(&logBuf), SessionKiller: killer})
 	require.NoError(t, mgr.LoadAll(ctx))
 
-	report, err := mgr.Reconcile(ctx)
-	require.NoError(t, err)
+	report := mgr.Reconcile(ctx)
 
 	assert.Equal(t, []string{"muster-99999-foreign"}, report.UnknownSessions,
 		"D22: a muster-prefixed name matching neither shape must still be reported unknown")
@@ -1147,8 +1144,7 @@ func TestReconcile_ListSessionsFailureActsOnNothing(t *testing.T) {
 	mgr := NewManager(Config{Store: st, Logger: zerolog.Nop(), PaneChecker: pc, SessionKiller: killer})
 	require.NoError(t, mgr.LoadAll(ctx))
 
-	_, err = mgr.Reconcile(ctx)
-	require.NoError(t, err)
+	_ = mgr.Reconcile(ctx)
 
 	aliveAfter, ok := mgr.Get(aliveSess.ID)
 	require.True(t, ok)
@@ -2709,8 +2705,7 @@ func TestReconcile_LiveMusterSessionUnderAPlaceholderTargetIsRepairedAndKeptAliv
 	require.NoError(t, err)
 
 	require.NoError(t, mgr.LoadAll(ctx))
-	_, err = mgr.Reconcile(ctx)
-	require.NoError(t, err)
+	_ = mgr.Reconcile(ctx)
 
 	got, ok := mgr.Get(sess.ID)
 	require.True(t, ok, "D8: the row must survive Reconcile")
@@ -2757,8 +2752,7 @@ func TestReconcile_AliveFalseRowWithALiveMusterSessionIsRevivedNotSwept(t *testi
 	require.NoError(t, st.UpdateSession(ctx, row))
 
 	require.NoError(t, mgr.LoadAll(ctx))
-	_, err = mgr.Reconcile(ctx)
-	require.NoError(t, err)
+	_ = mgr.Reconcile(ctx)
 
 	got, ok := mgr.Get(sess.ID)
 	require.True(t, ok, "D9: the row must not be deleted while its pane is live")
@@ -2799,8 +2793,7 @@ func TestReconcile_AliveRowWithAStaleWindowTargetIsRepairedNotMarkedEnded(t *tes
 	require.NoError(t, st.UpdateSession(ctx, row))
 
 	require.NoError(t, mgr.LoadAll(ctx))
-	_, err = mgr.Reconcile(ctx)
-	require.NoError(t, err)
+	_ = mgr.Reconcile(ctx)
 
 	got, ok := mgr.Get(sess.ID)
 	require.True(t, ok)

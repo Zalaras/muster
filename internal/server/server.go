@@ -241,9 +241,7 @@ func (s *Server) Start() {
 	if err := s.manager.LoadAll(ctx); err != nil {
 		s.log.Error().Err(err).Msg("failed to load sessions at startup")
 	}
-	if _, err := s.manager.Reconcile(ctx); err != nil {
-		s.log.Error().Err(err).Msg("failed to reconcile sessions at startup")
-	}
+	s.manager.Reconcile(ctx)
 	s.manager.Start()
 	for _, f := range s.features {
 		if lc, ok := f.(lifecycle); ok {

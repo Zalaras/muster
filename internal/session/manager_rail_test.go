@@ -270,8 +270,7 @@ func TestReconcile_LeavesUnreadAndLastPromptUntouchedAcrossRowClasses(t *testing
 	mgr := NewManager(Config{Store: st, Logger: zerolog.Nop(), PaneChecker: pc})
 	require.NoError(t, mgr.LoadAll(ctx))
 
-	_, err = mgr.Reconcile(ctx)
-	require.NoError(t, err)
+	_ = mgr.Reconcile(ctx)
 
 	got, ok := mgr.Get(keptAliveSess.ID)
 	require.True(t, ok)
