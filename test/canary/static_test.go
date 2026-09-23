@@ -56,6 +56,15 @@ func TestInstalledBinaryCarriesInterfaceStrings(t *testing.T) {
 	needles["credential JSON key"] = "claudeAiOauth"
 	needles["Keychain mechanism"] = "find-generic-password"
 	needles["permission-mode flag"] = "permission-mode"
+	// REQ-9: the two flags and the stderr sentence REQ-1's pre-check depends on
+	// (kb:fact/model-catalog-precheck-zero-token) — internal/claudecode/modelcheck.go's own
+	// strings, mirrored here rather than imported (D11 scopes to internal/ and cmd/, where
+	// test files are inside the net too; test/canary sits outside that boundary entirely,
+	// and modelCatalogSentence is unexported, so mirroring rather than importing is the
+	// only option here).
+	needles["model catalog sentence"] = "isn't described by this version's model catalog"
+	needles["--bare flag"] = "--bare"
+	needles["--no-session-persistence flag"] = "--no-session-persistence"
 
 	misses, err := scanForNeedles(resolved, needles)
 	require.NoErrorf(t, err, "scanning %s", resolved)

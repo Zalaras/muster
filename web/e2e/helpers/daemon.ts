@@ -115,6 +115,29 @@ const STUB_CLAUDE_SCRIPT = [
   `  echo "\${MUSTER_E2E_STUB_VERSION:-${STUB_CLAUDE_VERSION}} (Claude Code)"`,
   "  exit 0",
   "fi",
+  // Plan new-session-improvement REQ-1: the daemon's per-launch model-catalog pre-check
+  // runs `<claude> --bare --no-session-persistence --model <model> -p ''` before every
+  // launch (kb:fact/model-catalog-precheck-zero-token). Without this branch that argv
+  // falls straight into the read loop below with stdin already at EOF, hanging until
+  // REQ-1's 5s bound on every single E2E launch once the daemon wires the check in. A
+  // model starting with `muster-e2e-unrecognized` gets the measured catalog-refusal
+  // sentence on stderr; every other model passes through clean and exit 1 either way,
+  // matching the real binary's "the sentence is the only signal" contract.
+  `if [ "$1" = "--bare" ]; then`,
+  `  model=""`,
+  `  prev=""`,
+  `  for arg in "$@"; do`,
+  `    if [ "$prev" = "--model" ]; then model="$arg"; fi`,
+  `    prev="$arg"`,
+  `  done`,
+  `  case "$model" in`,
+  `    muster-e2e-unrecognized*)`,
+  `      echo "\\"$model\\" isn't described by this version's model catalog; update Claude Code, or map it with behavesAs on a modelPicker row." >&2`,
+  `      ;;`,
+  `  esac`,
+  '  echo "Error: Input must be provided either through stdin or as a prompt argument when using --print" >&2',
+  "  exit 1",
+  "fi",
   'echo "MUSTER-STUB-READY"',
   "while IFS= read -r line; do",
   '  echo "stub-echo:$line"',

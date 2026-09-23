@@ -1,0 +1,13 @@
+internal/server/server.go → feature 'connection', not in **Features**: launch  focus  tiles
+internal/server/sessions_test.go → feature 'actions', not in **Features**: launch  focus  tiles
+internal/server/sessions_test.go → feature 'rail', not in **Features**: launch  focus  tiles
+internal/server/sessions_test.go → feature 'rename', not in **Features**: launch  focus  tiles
+internal/server/sessions.go → feature 'actions', not in **Features**: launch  focus  tiles
+internal/server/sessions.go → feature 'rail', not in **Features**: launch  focus  tiles
+internal/server/sessions.go → feature 'rename', not in **Features**: launch  focus  tiles
+web/e2e/helpers/daemon.ts → feature 'connection', not in **Features**: launch  focus  tiles
+web/src/api.test.ts → feature 'connection', not in **Features**: launch  focus  tiles
+web/src/api.ts → feature 'connection', not in **Features**: launch  focus  tiles
+web/src/main.ts → feature 'connection', not in **Features**: launch  focus  tiles
+web/src/terminal/pane.ts → feature 'surfaces', not in **Features**: launch  focus  tiles
+Widening **Features** is the developer's call — stop the pipeline and ask (kb pack keys on the header).

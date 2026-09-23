@@ -112,6 +112,17 @@ func directoryMissing(message string) *launchError {
 	return &launchError{status: http.StatusConflict, code: "directory_missing", message: message}
 }
 
+// modelUnrecognized is REQ-1's 400 for a model the installed Claude Code's catalog does
+// not describe (kb:anchor/sessions.create). %q reproduces the fixed message's quoting
+// exactly.
+func modelUnrecognized(model string) *launchError {
+	return &launchError{
+		status:  http.StatusBadRequest,
+		code:    "model_unrecognized",
+		message: fmt.Sprintf("Claude Code doesn't recognise the model %q — update Claude Code, or pick another model", model),
+	}
+}
+
 // sessionLauncher composes store+tmux+claudecode+session.Manager to perform one launch.
 // Handlers only decode/delegate/encode.
 type sessionLauncher struct {
@@ -130,12 +141,17 @@ type sessionLauncher struct {
 	// legacyScripts lists prior wrapper paths MergeSettings must still recognise and
 	// drop from an already-instrumented directory.
 	legacyScripts []string
+
+	// checkModel is REQ-1's model-catalog pre-check, run between validateLaunchRequest
+	// and UpsertRepo. nil means no check, so existing literal-constructed test launchers
+	// keep compiling and behave exactly as before this plan.
+	checkModel func(ctx context.Context, dir, model string) (claudecode.ModelVerdict, error)
 }
 
-// Launch validates req, upserts the repo row, inserts the session row, writes
-// settings.local.json, spawns the tmux window, and records/broadcasts the finished
-// session — in that order (order matters: the session needs an id before the tmux
-// spawn that puts it in the pane environment).
+// Launch validates req, runs the model check, upserts the repo row, inserts the
+// session row, writes settings.local.json, spawns the tmux window, and
+// records/broadcasts the finished session — in that order (order matters: the session
+// needs an id before the tmux spawn that puts it in the pane environment).
 // validateLaunchRequest is Launch's pure prefix: it reads req alone, touches no launcher
 // state and runs before anything has been written, so a rejection here needs no rollback.
 // Check order is load-bearing — it decides which single error a request invalid in
@@ -192,6 +208,19 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 		return nil, lerr
 	}
 	dir := req.Directory
+
+	// REQ-1/REQ-2: runs after validation and before any write (UpsertRepo is next), so a
+	// refusal leaves nothing to roll back (INV-1). A check that errors fails open — the
+	// launch proceeds exactly as before this plan — and is logged at warn without the
+	// stderr body (the sentence itself stays inside internal/claudecode, D11).
+	if l.checkModel != nil {
+		verdict, err := l.checkModel(ctx, dir, req.Model)
+		if err != nil {
+			l.log.Warn().Err(err).Str("directory", dir).Str("model", req.Model).Msg("model-catalog check failed; launch proceeding")
+		} else if verdict == claudecode.ModelUnrecognised {
+			return nil, modelUnrecognized(req.Model)
+		}
+	}
 
 	isGit := gitutil.IsRepo(ctx, dir)
 	var branch *string

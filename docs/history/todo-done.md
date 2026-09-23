@@ -1805,3 +1805,36 @@ left (`kb:lesson/mockup-vindicates-markup-not-cascade`).
   plan (a `/clear`'s fresh transcript, a deleted transcript) keeps the path and re-checks
   whether the file exists, and only a scan naming another plan replaces it — decided in one
   locked section of the session manager (#35).
+
+## Together — the new-session flow (#28, #29, #41) ✅ done 2026-09-23 (plan `new-session-improvement`, via `/orchestrate`; approved review cycle 4)
+
+- [x] **New Session Reset** ([#28](https://github.com/Zalaras/muster/issues/28)) — picking a folder in the new-session dialog resets the options
+  already chosen, even when it is the same folder. Also change the default mode to manual or
+  auto, never accept-edits. Addendum: can we see what the claude default is and use that otherwise default to auto. Also remember the last selection and use that
+
+  Shipped: when there is nothing to restore (no recents, or a remembered mode with no radio),
+  Start in falls back to **auto**, including the static default in the markup. Clicking a Recent
+  still restores that directory's last model and mode, as the developer asked. The dialog's
+  open-time restore no longer overwrites a model or mode the user picked first, and a Recent the
+  user clicks during it wins outright. A first recent whose directory is gone falls back to the
+  browse root. The addendum, reading Claude Code's configured default, was declined: it lives in
+  user-level settings Muster never reads, so auto is the fallback instead.
+
+- [x] **Block model selection** ([#29](https://github.com/Zalaras/muster/issues/29)) — a session can be launched with a model that is not
+  available (e.g. Fable) and Claude then errors when changing it. Block the selection, or refuse
+  the launch — erroring after the fact is not user-friendly.
+
+  Shipped: before anything is written, a launch checks the model against the installed Claude
+  Code's model catalog with a zero-token `--bare` run. A model the catalog doesn't describe is
+  refused with `model_unrecognized`, and the dialog stays open with its fields intact. A check
+  that can't run fails open. Every Start-in mode, manual included, is now sent as an explicit
+  `--permission-mode` flag, because with no flag Claude Code started in its configured default
+  (auto on the developer's machine).
+
+- [x] **Starting a new session should open the new session** ([#41](https://github.com/Zalaras/muster/issues/41)) — starting a session while
+  another runs leaves you on the running one instead of navigating to the one you just started.
+
+  Shipped: a successful launch opens the launched session. In Focus it becomes the focused
+  session, and in both views keyboard focus moves into its terminal, so typing (or answering the
+  trust prompt) reaches it at once. Focus and the number chords share one "bring forward" owner.
+  The rail's scroll is left alone, as it is for the chords.

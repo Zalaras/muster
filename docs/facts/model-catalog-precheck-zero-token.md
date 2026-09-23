@@ -6,11 +6,11 @@ date: 2026-09-23
 summary: claude --model X -p "" warns on stderr that X "isn't described by this version's model catalog" when the binary lacks it; no API call, no tokens.
 features: [launch]
 tags: [claude-code-format]
-files: []
-tests: []
+files: [internal/claudecode/modelcheck.go]
+tests: [TestModelCatalogPrecheck, TestInstalledBinaryCarriesInterfaceStrings, TestStderrSaysUnrecognised]
 refs: [test/rig/captures/capture-3.jsonl, kb:fact/fable-model-alias, plan:new-session-improvement]
 verified: 2.1.274..2.1.280
-guard: none
+guard: TestModelCatalogPrecheck
 ---
 The binary checks `--model` against a built-in model catalog at startup, before it
 authenticates. For a string the catalog does not describe, it prints one stderr line beginning

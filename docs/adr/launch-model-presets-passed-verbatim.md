@@ -1,7 +1,7 @@
 ---
 id: launch-model-presets-passed-verbatim
 type: decision
-status: accepted
+status: superseded
 date: 2026-08-30
 summary: The Model control offers named presets, including fable, that are passed to --model verbatim; the daemon accepts any non-empty model string.
 features: [launch]

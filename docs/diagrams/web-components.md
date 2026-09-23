@@ -41,7 +41,7 @@ C4Component
             Component(doc, "doc.ts", "entry", "Pop-out reader composition root")
         }
         Boundary(rnd, "Render and seam") {
-            Component(render, "render/", "21 modules", "DOM only — view-model in, DOM out")
+            Component(render, "render/", "22 modules", "DOM only — view-model in, DOM out")
             Component(app, "app.ts", "seam", "Session store, shared state, typed event bus, render phases")
         }
         Boundary(leaves, "Leaves") {

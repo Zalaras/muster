@@ -9,6 +9,7 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"github.com/Zalaras/muster/internal/claudecode"
 	"github.com/Zalaras/muster/internal/locate"
 	"github.com/Zalaras/muster/internal/session"
 	"github.com/Zalaras/muster/internal/store"
@@ -188,6 +189,9 @@ func New(cfg Config) *Server {
 		hookScript:       cfg.Launch.HookScript,
 		statusLineScript: cfg.Launch.StatusLineScript,
 		legacyScripts:    cfg.Launch.LegacyScripts,
+		checkModel: func(ctx context.Context, dir, model string) (claudecode.ModelVerdict, error) {
+			return claudecode.CheckModel(ctx, claudecode.RunModelCheck, claudeBin, dir, model)
+		},
 	}
 	s.sessions = register(s, newSessionsFeature(s.manager, launcher, shells, terminals, cfg.Logger))
 	s.reader = register(s, newReaderFeature(s.manager, s.hub, cfg.Logger))

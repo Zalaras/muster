@@ -72,26 +72,42 @@ describe("api — PERMISSION_MODES", () => {
 
 // Plan fix-auto-mode-select REQ-6 (review cycle 1, Major 2): permissionModeToCheck is the
 // single decision point for "which radio should be checked for this stored value" —
-// features/launch.ts's setPermissionMode and selectedPermissionMode both go through it
-// (review.md Major 1's extraction). Each recognised PERMISSION_MODES value must round-trip
-// to itself; anything else — an unrecognised string, null, or "" — must fall back to
-// "default" (the "manual" radio), never leave every radio unchecked (the bug the reviewer
-// measured on main: `checked: []`).
-describe("api — permissionModeToCheck (REQ-6)", () => {
+// features/launch.ts's setPermissionMode and selectedPermissionMode, and
+// render/launchrestore.ts's initialRestore/repoRestore, all go through it (review.md
+// Major 1's extraction; review-maintainability cycle 1 moved the module and split out
+// repoRestore). Each recognised PERMISSION_MODES value must round-trip to itself; anything
+// else — an unrecognised string, null, or "" — must fall back to "auto" (plan
+// new-session-improvement REQ-5, W4: the fallback moved off "default" so a fresh dialog and
+// an unrecoverable stored value both land on the least-surprising mode), never leave every
+// radio unchecked (the bug the reviewer measured on main: `checked: []`).
+describe("api — permissionModeToCheck (REQ-6, fallback per plan new-session-improvement W4)", () => {
   it.each(PERMISSION_MODES)("round-trips the recognised value %j to itself", (mode) => {
     expect(permissionModeToCheck(mode)).toBe(mode);
   });
 
-  it("falls back to default for an unrecognised string", () => {
-    expect(permissionModeToCheck("someFutureMode")).toBe("default");
+  it("falls back to auto for an unrecognised string", () => {
+    expect(permissionModeToCheck("someFutureMode")).toBe("auto");
   });
 
-  it("falls back to default for null", () => {
-    expect(permissionModeToCheck(null)).toBe("default");
+  // review cycle 1, correctness Minor 3: bypassPermissions is a real Claude Code mode
+  // (kb:adr/launch-bypass-and-dontask-unoffered) the dialog deliberately never offers —
+  // it must fall back like any other unrecognised string, not be special-cased. A
+  // fallback keyed on Claude Code's own mode list, rather than on PERMISSION_MODES, would
+  // pass this while failing "someFutureMode" above.
+  it("falls back to auto for the deliberately-unoffered bypassPermissions", () => {
+    expect(permissionModeToCheck("bypassPermissions")).toBe("auto");
   });
 
-  it("falls back to default for the empty string", () => {
-    expect(permissionModeToCheck("")).toBe("default");
+  it("falls back to auto for an arbitrary unrecognised string", () => {
+    expect(permissionModeToCheck("nonsense")).toBe("auto");
+  });
+
+  it("falls back to auto for null", () => {
+    expect(permissionModeToCheck(null)).toBe("auto");
+  });
+
+  it("falls back to auto for the empty string", () => {
+    expect(permissionModeToCheck("")).toBe("auto");
   });
 });
 

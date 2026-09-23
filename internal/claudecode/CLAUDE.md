@@ -7,7 +7,7 @@
 - Every hook Muster registers, SessionStart included, is a `type:"command"` wrapper (kb:adr/ingest-all-hooks-command-wrappers, kb:fact/sessionstart-not-over-http).
 - Settings land in the project-scoped `.claude/settings.local.json`, never the user's files (kb:adr/launch-settings-local-json-not-settings-json, kb:adr/launch-project-scoped-settings-not-config-dir).
 - Shell quoting happens at the write boundary (kb:adr/ingest-shell-quote-at-write-boundary, kb:fact/hook-commands-are-shell-lines).
-- Subprocesses run through the injectable `execFunc`; no test executes the real `security` or `claude` binary.
+- Subprocesses run through an injectable run seam (`execFunc`, `ModelCheckRun`); no test executes the real `security` or `claude` binary.
 - Hook timeout is 2 s, never 5.
 
 **Exemplar**: `status.go` — private wire structs, one `Interpret*` function, neutral exported types.
@@ -20,12 +20,12 @@
 - A measured shape beats the official docs; record a new one as a fact before coding against it.
 
 <!-- kb:trailer -->
-<!-- kb:hash 1fafc5fa0f66c37e -->
+<!-- kb:hash ed2ad1a2612a2a0d -->
 - **canary** — The verified Claude Code version range, canary tiers, and the fragments tools/versions regenerates. → `docs/features/canary/INDEX.md`
 - **ingest** — Hook and status-line ingest endpoints, the envelope that binds an event to a Muster session, seq assigned at ingest. → `docs/features/ingest/INDEX.md`
 - **launch** — Launch dialog, repo browse and picker, trust prompt, project-scoped settings write, the claude argv. → `docs/features/launch/INDEX.md`
 - **reader** — The docs surface — a sanitized markdown reader for a session's plan and the .md files under its directory, with a file nav, outline and pop-out. → `docs/features/reader/INDEX.md`
 - **theme** — Muster theme preference and the Claude theme family poll. → `docs/features/theme/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
-- 63 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 64 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

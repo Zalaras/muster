@@ -17,10 +17,12 @@ type LaunchParams struct {
 // BuildArgv returns the full argv (binary included) for launching `claude` with p.
 // `--permission-mode` is confirmed by spike S2 (`--permission-mode plan`,
 // `--permission-mode acceptEdits`) and by the 2026-09-03 permission-mode probe against
-// 2.1.259 (`--permission-mode auto`, docs/history/spikes/canary-fields.md § Hook payloads); "default"
-// needs no flag — it's Claude Code's own default and carries no CLI flag of its own, and
-// remains the safer spelling since `default` is unlisted in the CLI's own choices while
-// `manual` may not exist across the verified range (docs/claude-code-versions.md).
+// 2.1.259 (`--permission-mode auto`, docs/history/spikes/canary-fields.md § Hook payloads).
+// Every accepted mode, "default" included, is now sent explicitly: with no flag at all
+// Claude Code starts in its own configured default, which the 2026-09-23 probe measured
+// as auto on the developer's machine, not manual
+// (kb:fact/permission-mode-no-flag-follows-configured-default) — omitting the flag for
+// "default" no longer means manual.
 func BuildArgv(binary string, p LaunchParams) []string {
 	args := []string{binary, "--model", p.Model}
 	if p.ResumeSessionID != "" {
@@ -29,7 +31,7 @@ func BuildArgv(binary string, p LaunchParams) []string {
 		args = append(args, "--name", p.Title)
 	}
 	switch p.PermissionMode {
-	case "plan", "acceptEdits", "auto":
+	case "default", "plan", "acceptEdits", "auto":
 		args = append(args, "--permission-mode", p.PermissionMode)
 	}
 	return args

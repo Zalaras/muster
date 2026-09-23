@@ -437,11 +437,12 @@ export class TerminalSurface {
     };
   }
 
-  /** Moves DOM focus into xterm's input. Called by features/rail.ts (via
-   * features/surfaces.ts's `focusSelected`) only on a pointer selection,
-   * never from a render pass (REQ-4/INV-1). A silent no-op for a dead session's surface
-   * (`term` is null — never had a terminal to focus) and for a disposed surface. Never
-   * opens, closes or otherwise touches the socket. */
+  /** Moves DOM focus into xterm's input. Called via features/surfaces.ts's
+   * `focusSelected`: by features/rail.ts on a pointer selection, and by
+   * features/launch.ts after a successful launch (REQ-7/REQ-8, plan
+   * new-session-improvement) — never from a render pass (REQ-4/INV-1). A silent no-op for
+   * a dead session's surface (`term` is null — never had a terminal to focus) and for a
+   * disposed surface. Never opens, closes or otherwise touches the socket. */
   focus(): void {
     if (this.disposed || !this.term) return;
     this.term.focus();

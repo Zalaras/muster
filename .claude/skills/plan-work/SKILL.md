@@ -134,7 +134,7 @@ WS daemon→UI  session_state
 Sent on every state transition. `target` is the tmux target — the session key.
 ```
 
-**On approval, merge the delta into `docs/protocol.md`** under the anchors of the plan's `**Features**`, then `make gen-kb` so `docs/features/<f>/contract.md` follows — both agents code against the generated contract. No agent may change the contract unilaterally mid-pipeline — a contract problem stops the pipeline and comes back to the user.
+**On approval, merge the delta into `docs/protocol.md`** under the anchors of the plan's `**Features**`, add each new file's glob to its feature spec's frontmatter, then `make gen-kb` so `docs/features/<f>/contract.md` follows — both agents code against the generated contract. No agent may change the contract unilaterally mid-pipeline — a contract problem stops the pipeline and comes back to the user.
 
 ### 6. Schema Changes
 

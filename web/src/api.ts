@@ -57,17 +57,18 @@ export interface BrowseResult {
 export const PERMISSION_MODES = ["default", "acceptEdits", "plan", "auto"] as const;
 export type PermissionMode = (typeof PERMISSION_MODES)[number];
 
-// Plan fix-auto-mode-select REQ-6: the single decision point for "which radio should be
-// checked for this stored value" — a stored mode this dialog has no radio for (a future
-// Claude Code mode, `null`, or the empty string) falls back to `manual` (`default`). Pure
-// and exported so it's unit-testable without a fake DOM; features/launch.ts's
-// `setPermissionMode` and `selectedPermissionMode` are its only two callers, both passing
-// a `string | null` straight through — the function takes `null` directly, no caller-side
-// coercion to `""` needed.
+// The single decision point for "which radio should be checked for this stored value" —
+// a stored mode this dialog has no radio for (a future Claude Code mode, `null`, or the
+// empty string) falls back to `auto`, since Muster cannot read Claude Code's own
+// configured default (Out of scope) and auto is the least surprising guess. Pure and
+// exported so it's unit-testable without a fake DOM; features/launch.ts's
+// `setPermissionMode` and `selectedPermissionMode`, and render/launchrestore.ts's
+// `repoRestore`, are its callers, all passing a `string | null` straight through — the
+// function takes `null` directly, no caller-side coercion to `""` needed.
 export function permissionModeToCheck(stored: string | null): PermissionMode {
   return (PERMISSION_MODES as readonly string[]).includes(stored ?? "")
     ? (stored as PermissionMode)
-    : "default";
+    : "auto";
 }
 
 export interface LaunchRequest {

@@ -15,7 +15,7 @@
 // It is behind a build tag because it drives a real `claude` install — and, in the live
 // tier, the real macOS Keychain and usage API — and is therefore neither hermetic nor
 // fast. The harness (harness_test.go) runs the production settings→sh→wrapper→POST chain
-// against a real binary exactly once per process (runs A-E); the tests in this file are
+// against a real binary exactly once per process (runs A-F); the tests in this file are
 // views over those captures. static_test.go scans the installed binary for interface
 // strings Muster cannot drive through a canary run; live_test.go exercises the real
 // Keychain, usage API and theme config. The inventory they all assert is
@@ -238,6 +238,10 @@ func TestLaunchFlags(t *testing.T) {
 			want    []string // acceptable observed values
 		}{
 			{"unauth, no flag", sessionUnauth, []string{"default"}},
+			// REQ-9: the explicit spelling alongside the pre-existing no-flag row — REQ-4
+			// means production now always sends this flag, so its own wire mapping needs
+			// its own sweep row rather than relying on "no flag" as a stand-in for it.
+			{"unauth, explicit default", sessionUnauthDefault, []string{"default"}},
 			{"unauth, plan", sessionUnauthPlan, []string{"plan"}},
 			{"unauth, acceptEdits", sessionUnauthAccept, []string{"acceptEdits"}},
 			// auto is model-gated to default on haiku (canary-fields "permission-mode
@@ -278,6 +282,26 @@ func TestLaunchFlags(t *testing.T) {
 		assert.Equal(t, d.ev.SessionID, e.ev.SessionID, "resume must carry the same claude session_id")
 		assert.NotEmpty(t, d.ev.SessionID, "run D's session_id must not be empty for this comparison to mean anything")
 		assert.Equal(t, d.payload["transcript_path"], e.payload["transcript_path"], "resume must carry the same transcript_path")
+	})
+}
+
+// TestModelCatalogPrecheck is REQ-9/D13: run F's production claudecode.CheckModel calls
+// against the installed binary correctly classify an unrecognised custom model string and
+// the recognised haiku preset every other run in this harness already launches with
+// (kb:fact/model-catalog-precheck-zero-token). This is the zero-token production check
+// itself, not the static tier's byte-string scan (TestInstalledBinaryCarriesInterfaceStrings)
+// or the wire-level permission-mode sweep (TestLaunchFlags).
+func TestModelCatalogPrecheck(t *testing.T) {
+	f := harness(t)
+
+	t.Run("an unrecognised custom model comes back ModelUnrecognised", func(t *testing.T) {
+		assert.Equal(t, claudecode.ModelUnrecognised, f.modelCheck.unrecognisedVerdict,
+			"%q must be unrecognised by the installed binary's model catalog", unrecognizedCanaryModel)
+	})
+
+	t.Run("the launched haiku preset comes back ModelRecognised", func(t *testing.T) {
+		assert.Equal(t, claudecode.ModelRecognised, f.modelCheck.recognisedVerdict,
+			"%q must be recognised — every other run in this harness launches it successfully", haikuModel)
 	})
 }
 

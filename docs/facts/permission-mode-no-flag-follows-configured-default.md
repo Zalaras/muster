@@ -7,10 +7,10 @@ summary: With no --permission-mode flag a session starts in the machine's config
 features: [launch]
 tags: [claude-code-format]
 files: [internal/claudecode/launch.go]
-tests: []
+tests: [TestLaunchFlags]
 refs: [test/rig/captures/capture-3.jsonl, kb:fact/permission-mode-flag-on-wire, plan:new-session-improvement]
 verified: 2.1.280..2.1.280
-guard: none
+guard: TestLaunchFlags
 ---
 On the developer's machine (2.1.280, Team account), a session launched with no
 `--permission-mode` flag showed `⏵⏵ auto mode on`, and `UserPromptSubmit.permission_mode` was

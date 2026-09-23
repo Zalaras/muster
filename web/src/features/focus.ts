@@ -43,7 +43,7 @@ export interface FocusDeps {
     activityFor(id: number): ShellActivityIndicator;
   };
   /** Tiles' promote — Focus's own shortcut-driven `nth`/`neediest` promote instead of
-   * focusing when the current view is Tiles (`focusSession`'s shared tail). Tiles is
+   * focusing when the current view is Tiles (`bringForward`'s shared tail). Tiles is
    * constructed before focus (main.ts's init order), so this is a real value. */
   promoteTile(id: number): void;
   /** Plan markdown-viewing: `reader` is constructed after `focus` (main.ts's init
@@ -60,6 +60,11 @@ export interface FocusHandle {
   nth(n: number): void;
   /** ⌥⌘0: jump to the single highest-attention live session. */
   neediest(): void;
+  /** Bring `session` forward in the current view: focuses it in Focus, promotes it in
+   * Tiles. The shared tail of `nth`/`neediest`, also reached by `features/launch.ts`'s
+   * `onLaunched` through this structurally typed handle — the one owner for "bring a
+   * session forward", never duplicated in launch.ts. */
+  bringForward(session: Session): void;
   /** Render phase 10 in Focus (main.ts dispatches focus vs. tiles by `app.state.view`). */
   renderView(frame: RenderFrame): void;
 }
@@ -104,8 +109,9 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
     if (app.state.focusedId !== null) deps.actions.dispatch("resume", app.state.focusedId);
   });
 
-  /** Focus (Focus view) or promote (Tiles) `session` — the shared tail of `nth`/`neediest`. */
-  function focusSession(session: Session): void {
+  /** Focus (Focus view) or promote (Tiles) `session` — see the `bringForward` doc comment
+   * on `FocusHandle` above. */
+  function bringForward(session: Session): void {
     if (app.state.view === "focus") {
       app.focus(session.id);
       app.render();
@@ -116,12 +122,12 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
 
   function nth(n: number): void {
     const session = orderRail(app.store.values(), app.state.railSort)[n - 1];
-    if (session) focusSession(session);
+    if (session) bringForward(session);
   }
 
   function neediest(): void {
     const session = pickNeediest(app.store.values());
-    if (session) focusSession(session);
+    if (session) bringForward(session);
   }
 
   // Render phase 6 (UI Specifications > Render phase order): default `focusedId` to the
@@ -234,6 +240,7 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
     nameEl: mainheadElements.nameEl,
     nth,
     neediest,
+    bringForward,
     renderView,
   };
 }

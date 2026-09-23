@@ -78,7 +78,7 @@ app.onRender((frame) => {
 });
 const rename = initRename(app, { focus });
 initTheme(app, { surfaces });
-initLaunch(app, { tiles });
+initLaunch(app, { focus, surfaces });
 initSettings(app, { update });
 initShortcuts(app, { views, focus, actions });
 const connection = initConnection(app);

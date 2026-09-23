@@ -182,9 +182,10 @@ verbatim.
 |---|---|---|---|
 | A | headless `-p`, `$MUSTER_SESSION` set, one `echo hi` tool call | 1 haiku turn | SessionStart transport, hook field inventory, envelope on every event, quoting |
 | B | same, no `$MUSTER_SESSION` | 1 haiku turn | an unmanaged session posts **nothing** |
-| C ×4 | headless with an unauthenticated `CLAUDE_CONFIG_DIR`, one run per launch permission mode (no flag, `plan`, `acceptEdits`, `auto`) | 0 tokens | `StopFailure{authentication_failed}` replaces `Stop`; `UserPromptSubmit.permission_mode` reflects each launch flag (`auto` on haiku may report `auto` or `default` — both accepted, logged) |
+| C ×5 | headless with an unauthenticated `CLAUDE_CONFIG_DIR`, one run per launch permission mode (no flag, explicit `default`, `plan`, `acceptEdits`, `auto`) | 0 tokens | `StopFailure{authentication_failed}` replaces `Stop`; `UserPromptSubmit.permission_mode` reflects each launch flag (`auto` on haiku may report `auto` or `default` — both accepted, logged) |
 | D | interactive in tmux on a scratch socket, launched via `BuildArgv` with `Title: "Muster Canary"` and plan-mode permission, "say hi", then a bounded wait for the post-`Stop` `Notification{idle_prompt}`; then two keystroke checks in that idle window — `S-Tab`, and `/clear` — before the pane is killed | 1 haiku turn | status-line fields, unknown-vs-zero (pre-response post), `version`, `session_title`/`session_name` flowing through the flag, the idle-prompt Notification field inventory; the `refreshInterval` tick cadence across the ~60 s idle wait; Shift+Tab firing no hook; `/clear` minting a new `session_id` in the same pane and `SessionEnd.reason` values |
 | E | a second tmux session on the same scratch socket, resuming run D's session via `BuildArgv` with `ResumeSessionID` (byte-for-byte what `internal/server`'s Resume builds), then a prompt that calls `ExitPlanMode`, waited on through `PermissionRequest` and the following `Notification{permission_prompt}`, killed **without answering the dialog** | 1 haiku turn | `SessionStart.source == "resume"` with `session_id`/`transcript_path` matching D (closes the R2 check); `PreToolUse → PermissionRequest` ordering and field inventory; the `permission_prompt` Notification sharing `PermissionRequest`'s `prompt_id` |
+| F | no session: the production `claudecode.CheckModel`/`RunModelCheck` pair against the installed binary, once for `muster-canary-unrecognized-model` and once for the haiku preset (`--bare --no-session-persistence --model <m> -p ""`) | 0 tokens | the model-catalog pre-check still refuses a model the catalog lacks and passes one it knows (kb:fact/model-catalog-precheck-zero-token) |
 
 **Static tier** (`test/canary/static_test.go`, `TestInstalledBinaryCarriesInterfaceStrings`):
 resolves the `claude` on `PATH` through `EvalSymlinks` to the Mach-O bundle and scans it in
@@ -192,8 +193,9 @@ bounded overlapping chunks for the interface strings Muster depends on but canno
 launching a session — every `claudecode.LaunchEnv()` key (today
 `CLAUDE_CODE_SCROLL_SPEED`, read from the map so the assertion follows production rather
 than spelling the variable), the theme enum members, the usage endpoint path and beta
-header, the credential JSON key, the Keychain mechanism, and the `permission-mode` flag
-name. It runs under `MUSTER_CANARY_OFFLINE=1` (no session, no network) and reports misses
+header, the credential JSON key, the Keychain mechanism, the `permission-mode` flag
+name, and the model-catalog pre-check's catalog sentence and its `--bare` and
+`--no-session-persistence` flags. It runs under `MUSTER_CANARY_OFFLINE=1` (no session, no network) and reports misses
 by name and resolved path. A string surviving in the binary does not prove its semantics
 are unchanged — it catches rename or removal, the silent-degrade failure class
 `CLAUDE_CODE_SCROLL_SPEED` was named for.

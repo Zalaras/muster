@@ -8,9 +8,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestBuildArgv covers the CLI argv construction confirmed by spike S2: default needs
-// no --permission-mode flag (it's Claude Code's own default), plan/acceptEdits do, and
-// --name is only added when a title was given.
+// TestBuildArgv covers the CLI argv construction confirmed by spike S2 and REQ-4: every
+// accepted mode, "default" included, now emits its own --permission-mode flag
+// (kb:fact/permission-mode-no-flag-follows-configured-default — with no flag Claude Code
+// starts in its own configured default, which is not always manual), and --name is only
+// added when a title was given.
 func TestBuildArgv(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -18,9 +20,9 @@ func TestBuildArgv(t *testing.T) {
 		want   []string
 	}{
 		{
-			name:   "default mode with no title omits both --permission-mode and --name",
+			name:   "default mode with no title adds --permission-mode default and omits --name",
 			params: LaunchParams{Model: "sonnet", PermissionMode: "default"},
-			want:   []string{"claude", "--model", "sonnet"},
+			want:   []string{"claude", "--model", "sonnet", "--permission-mode", "default"},
 		},
 		{
 			name:   "plan mode adds --permission-mode plan",
@@ -40,9 +42,9 @@ func TestBuildArgv(t *testing.T) {
 			want:   []string{"claude", "--model", "sonnet", "--permission-mode", "auto"},
 		},
 		{
-			name:   "a title adds --name after --model",
+			name:   "a title adds --name after --model, before --permission-mode default",
 			params: LaunchParams{Model: "sonnet", Title: "Spike Title Probe", PermissionMode: "default"},
-			want:   []string{"claude", "--model", "sonnet", "--name", "Spike Title Probe"},
+			want:   []string{"claude", "--model", "sonnet", "--name", "Spike Title Probe", "--permission-mode", "default"},
 		},
 		{
 			name:   "title and non-default mode combine, model+name first then permission-mode",
@@ -57,15 +59,16 @@ func TestBuildArgv(t *testing.T) {
 		{
 			name:   "empty title never adds --name",
 			params: LaunchParams{Model: "sonnet", Title: "", PermissionMode: "default"},
-			want:   []string{"claude", "--model", "sonnet"},
+			want:   []string{"claude", "--model", "sonnet", "--permission-mode", "default"},
 		},
 		{
 			// D13/REQ-7: a resume relaunch emits --resume <id> and omits --name, even when
 			// a Title was also set — --name is meaningless for a resumed session (the
-			// tmux/pane title comes from the original launch, not a resume).
+			// tmux/pane title comes from the original launch, not a resume). REQ-4/INV-3:
+			// --permission-mode is still explicit on a resume.
 			name:   "ResumeSessionID emits --resume and omits --name even when Title is also set",
 			params: LaunchParams{Model: "sonnet", Title: "Should Be Omitted", PermissionMode: "default", ResumeSessionID: "abc-123"},
-			want:   []string{"claude", "--model", "sonnet", "--resume", "abc-123"},
+			want:   []string{"claude", "--model", "sonnet", "--resume", "abc-123", "--permission-mode", "default"},
 		},
 		{
 			name:   "ResumeSessionID combines with a non-default permission mode",
@@ -82,11 +85,38 @@ func TestBuildArgv(t *testing.T) {
 	}
 }
 
+// TestBuildArgv_PermissionModeAlwaysExplicit is D10/INV-3: every accepted mode emits
+// --permission-mode <mode> exactly once, on both a plain launch and a resume relaunch.
+func TestBuildArgv_PermissionModeAlwaysExplicit(t *testing.T) {
+	for _, mode := range []string{"default", "plan", "acceptEdits", "auto"} {
+		for _, resumeID := range []string{"", "abc-123"} {
+			name := mode + " resume=" + resumeID
+			t.Run(name, func(t *testing.T) {
+				got := BuildArgv("claude", LaunchParams{
+					Model:           "sonnet",
+					PermissionMode:  mode,
+					ResumeSessionID: resumeID,
+				})
+
+				count := 0
+				for i, arg := range got {
+					if arg == "--permission-mode" {
+						count++
+						require.Less(t, i+1, len(got), "--permission-mode has no value")
+						assert.Equal(t, mode, got[i+1])
+					}
+				}
+				assert.Equal(t, 1, count, "--permission-mode must appear exactly once, got argv %v", got)
+			})
+		}
+	}
+}
+
 func TestBuildArgv_UsesTheGivenBinaryName(t *testing.T) {
 	// REQ-19: the -claude-bin flag lets E2E launch a stub binary instead of the real one.
 	got := BuildArgv("/tmp/stub-claude.sh", LaunchParams{Model: "sonnet", PermissionMode: "default"})
 
-	assert.Equal(t, []string{"/tmp/stub-claude.sh", "--model", "sonnet"}, got)
+	assert.Equal(t, []string{"/tmp/stub-claude.sh", "--model", "sonnet", "--permission-mode", "default"}, got)
 }
 
 // TestLaunchEnv pins the exact Claude Code variable name and a usable value. The name is

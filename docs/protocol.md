@@ -103,14 +103,22 @@ only client→server WS traffic in v1 is terminal input/resize on the terminal s
 {
   "directory": "/Users/bob/code/Projects/muster",  // required, absolute
   "title": "flaky-e2e-hunt",                          // optional → `claude --name`
-  "model": "opus",                                     // required; passed to `--model` verbatim — any non-empty string (UI offers sonnet/opus/haiku/fable presets + free-text override)
+  "model": "opus",                                     // required; passed to `--model` verbatim — any non-empty string the installed Claude Code's model catalog does not refuse (pre-check below; UI offers sonnet/opus/haiku/fable presets + free-text override)
   "permissionMode": "acceptEdits"                      // required: "default" | "plan" | "acceptEdits" | "auto" — seeds the latch (kb:anchor/state.transitions).
-                                                       // "default" is Claude Code's manual mode (UI label "manual"; measured 2.1.259: no-flag,
-                                                       // `manual` and `default` all report permission_mode "default"). "auto" added by
+                                                       // "default" is Claude Code's manual mode (UI label "manual"). Every value is sent as an
+                                                       // explicit `--permission-mode` flag: with no flag Claude Code starts in its configured
+                                                       // default, which can be auto (kb:fact/permission-mode-no-flag-follows-configured-default). "auto" added by
                                                        // bypassPermissions/dontAsk deliberately not offered (kb:adr/launch-bypass-and-dontask-unoffered).
 }
 // response: 201 + the Session object (kb:anchor/ws.session), state "started"
 ```
+
+Pre-check (kb:adr/launch-refuses-model-outside-binary-catalog): after the `invalid_request` rules
+and before any side effect, the daemon runs `claude --bare --no-session-persistence --model
+<model> -p ""` in `directory` (≤ 5 s, zero tokens, no hooks —
+kb:fact/model-catalog-precheck-zero-token). If its stderr carries the model-catalog warning the
+launch is refused with `400 model_unrecognized` and nothing is written; a check that cannot run,
+times out, or prints no warning lets the launch proceed.
 
 Side effects (ux-flows §1.3): upsert `repo` row; create the tmux window on the `muster`
 socket with `MUSTER_SESSION` set in the pane environment (`kb:anchor/ingest.envelope`); ensure the directory's
@@ -121,6 +129,10 @@ arrives, because the first hook may be a long way off (trust prompt, ux-flows §
 Errors: `400 invalid_request` (missing/relative directory; empty/unknown
 `permissionMode` — message `permissionMode must be one of default, plan, acceptEdits, auto`;
 empty `model`; directory that does not exist or is not a directory),
+`400 model_unrecognized` (the pre-check above — checked after every `invalid_request` rule, so
+a request invalid both ways reports `invalid_request`; message `Claude Code doesn't recognise the
+model "<model>" — update Claude Code, or pick another model`, e.g.
+`{"error": {"code": "model_unrecognized", "message": "Claude Code doesn't recognise the model \"zephyr\" — update Claude Code, or pick another model"}}`),
 `500 launch_failed` (tmux/spawn failure, message carries stderr; also a
 `settings.local.json` that exists but is not valid JSON — Muster refuses to guess at
 merging into a corrupt file, and the error message names the file).

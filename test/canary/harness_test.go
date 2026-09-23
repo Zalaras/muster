@@ -38,7 +38,8 @@ import (
 //	A  headless, managed   ($MUSTER_SESSION=42) — one Bash tool call        (1 haiku turn)
 //	B  headless, unmanaged (no $MUSTER_SESSION) — must produce zero posts    (1 haiku turn)
 //	C  headless, unauthenticated CLAUDE_CONFIG_DIR, once per launch permission mode
-//	   ($MUSTER_SESSION=43/45/46/47: no flag, plan, acceptEdits, auto)        (0 tokens)
+//	   ($MUSTER_SESSION=43/45/46/47/49: no flag, plan, acceptEdits, auto, explicit
+//	   default — REQ-9's added row)                                          (0 tokens)
 //	D  interactive in tmux on a scratch socket ($MUSTER_SESSION=44), launched with
 //	   Title:"Muster Canary", PermissionMode:"plan", "say hi" — then a wait for the
 //	   idle_prompt Notification before the pane is killed                    (1 haiku turn)
@@ -46,6 +47,9 @@ import (
 //	   socket ($MUSTER_SESSION=48), through the exact BuildArgv+ResumeSessionID chain
 //	   internal/server's Resume uses; one turn asking Claude to call ExitPlanMode, left
 //	   unanswered by design — the dialog is never driven                    (1 haiku turn)
+//	F  REQ-9's zero-token production CheckModel run against the installed binary: an
+//	   unrecognised custom model string and the recognised haiku preset, both --bare
+//	   so no tokens are spent and no hooks fire                              (0 tokens)
 //
 // Isolation: the scratch repo lives under os.MkdirTemp (/var/folders, outside ~/Documents
 // so no parent CLAUDE.md leaks into the session); ~/.claude/settings.json is never read or
@@ -56,13 +60,14 @@ const (
 	haikuModel = "claude-haiku-4-5-20251001"
 	testToken  = "canary-token"
 
-	sessionManaged      int64 = 42
-	sessionUnauth       int64 = 43 // unauthenticated, no --permission-mode flag
-	sessionInteract     int64 = 44
-	sessionUnauthPlan   int64 = 45 // unauthenticated, --permission-mode plan
-	sessionUnauthAccept int64 = 46 // unauthenticated, --permission-mode acceptEdits
-	sessionUnauthAuto   int64 = 47 // unauthenticated, --permission-mode auto (haiku model-gated to default)
-	sessionResume       int64 = 48 // run E: resume of sessionInteract's claude session_id
+	sessionManaged       int64 = 42
+	sessionUnauth        int64 = 43 // unauthenticated, no --permission-mode flag
+	sessionInteract      int64 = 44
+	sessionUnauthPlan    int64 = 45 // unauthenticated, --permission-mode plan
+	sessionUnauthAccept  int64 = 46 // unauthenticated, --permission-mode acceptEdits
+	sessionUnauthAuto    int64 = 47 // unauthenticated, --permission-mode auto (haiku model-gated to default)
+	sessionResume        int64 = 48 // run E: resume of sessionInteract's claude session_id
+	sessionUnauthDefault int64 = 49 // unauthenticated, explicit --permission-mode default (REQ-9)
 
 	headlessPrompt    = "Run exactly this shell command and nothing else, then stop: echo hi"
 	interactivePrompt = "say hi"
@@ -80,10 +85,17 @@ const (
 	// kb:fact/refresh-interval-seconds has nothing to observe. 5 s over run D's ~60 s idle
 	// wait gives ~12 ticks; TestRefreshIntervalIsSeconds asserts far fewer than that.
 	refreshIntervalSeconds = 5
+
+	// unrecognizedCanaryModel is REQ-9's model string the installed binary's catalog must
+	// not describe; run F asserts CheckModel classifies it ModelUnrecognised.
+	unrecognizedCanaryModel = "muster-canary-unrecognized-model"
 )
 
-// unauthRuns is REQ-1's four-way permission-mode sweep on the zero-token unauthenticated
-// path: one run per launch permission mode, "" meaning no --permission-mode flag at all.
+// unauthRuns is REQ-1's permission-mode sweep on the zero-token unauthenticated path: one
+// run per launch permission mode, "" meaning no --permission-mode flag at all. REQ-9 adds
+// the explicit "default" row alongside the pre-existing no-flag row, since BuildArgv now
+// sends default explicitly too (REQ-4) and the explicit spelling's wire mapping
+// (kb:fact/permission-mode-flag-on-wire) was otherwise unswept here.
 var unauthRuns = []struct {
 	session int64
 	mode    string
@@ -92,6 +104,7 @@ var unauthRuns = []struct {
 	{sessionUnauthPlan, "plan"},
 	{sessionUnauthAccept, "acceptEdits"},
 	{sessionUnauthAuto, "auto"},
+	{sessionUnauthDefault, "default"},
 }
 
 // offlineEnv, when set, skips every test that needs a real run — lets the canary package be
@@ -168,6 +181,13 @@ type fixture struct {
 		clearAt           time.Time // when /clear was typed
 		clearErr          error
 		postClearClaudeID string // the session_id /clear minted in the same pane
+	}
+
+	// modelCheck holds run F's REQ-9 verdicts: CheckModel run against the installed
+	// binary for an unrecognised custom model and the recognised haiku preset.
+	modelCheck struct {
+		unrecognisedVerdict claudecode.ModelVerdict
+		recognisedVerdict   claudecode.ModelVerdict
 	}
 
 	tmuxClient *tmux.Client
@@ -286,6 +306,7 @@ func (f *fixture) build() error {
 		{"run C (unauthenticated StopFailure)", f.runC},
 		{"run D (interactive status line)", f.runD},
 		{"run E (resume + plan mode)", f.runE},
+		{"run F (model-catalog pre-check)", f.runF},
 	}
 	for _, r := range runs {
 		if err := r.fn(ctx); err != nil {
@@ -715,6 +736,32 @@ func (f *fixture) runE(ctx context.Context) error {
 		return err
 	}
 	f.settle(2 * time.Second)
+	return nil
+}
+
+// runF is REQ-9's zero-token production check (D13): it calls the exact
+// claudecode.CheckModel/RunModelCheck pair internal/server wires up, against the
+// installed `claude` binary, for a model string the catalog cannot know
+// (unrecognizedCanaryModel) and one it must (haikuModel — the same preset every other
+// run in this harness already launches successfully). No tmux, no hooks, no tokens
+// (kb:fact/model-catalog-precheck-zero-token). A run error here — the binary couldn't
+// start, or hung past CheckModel's own 5 s bound (applied inside CheckModel itself since
+// review cycle 1's maintainability fix; this run no longer wraps its own timeout around
+// it) — fails the whole build like every other run, since it means the production
+// pre-check itself is broken against the installed binary, not merely that this one
+// launch would have failed open.
+func (f *fixture) runF(ctx context.Context) error {
+	unrec, err := claudecode.CheckModel(ctx, claudecode.RunModelCheck, "claude", f.repo, unrecognizedCanaryModel)
+	if err != nil {
+		return fmt.Errorf("CheckModel(%q): %w", unrecognizedCanaryModel, err)
+	}
+	f.modelCheck.unrecognisedVerdict = unrec
+
+	rec, err := claudecode.CheckModel(ctx, claudecode.RunModelCheck, "claude", f.repo, haikuModel)
+	if err != nil {
+		return fmt.Errorf("CheckModel(%q): %w", haikuModel, err)
+	}
+	f.modelCheck.recognisedVerdict = rec
 	return nil
 }
 

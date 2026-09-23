@@ -1,7 +1,7 @@
 ---
 id: launch-permission-modes-offered-four-tabbed
 type: decision
-status: accepted
+status: superseded
 date: 2026-09-03
 summary: The Start-in control offers Claude Code's four tabbed modes under its own labels; default stays the wire value behind manual and auto is new end to end.
 features: [launch, lifecycle]

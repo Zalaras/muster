@@ -59,7 +59,7 @@ C4Container
     }
 
     Boundary(agent, "Where sessions run") {
-        System_Ext(claude, "Claude Code", "claude CLI, one process per Muster session, plus a version probe at startup")
+        System_Ext(claude, "Claude Code", "claude CLI, one process per Muster session, plus a version probe at startup and a model-catalog check before each launch")
         System_Ext(tmux, "tmux server", "On socket muster; one tmux session per Muster session, plus shells")
         System_Ext(claudefiles, "Claude Code files", "~/.claude.json, transcripts, plan files")
         System_Ext(repodir, "Repositories", "The launched checkout or worktree")

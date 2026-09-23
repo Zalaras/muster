@@ -254,19 +254,6 @@ grouped under `###` sub-headings by the work they share — a group is a plausib
 work, not a ranking. `/triage` appends new entries at the end of the section; move one into a
 group deliberately, and otherwise don't re-sort this list.
 
-### Together — the new-session flow (#28, #29, #41)
-
-- [ ] **New Session Reset** ([#28](https://github.com/Zalaras/muster/issues/28)) — picking a folder in the new-session dialog resets the options
-  already chosen, even when it is the same folder. Also change the default mode to manual or
-  auto, never accept-edits. Addendum: can we see what the claude default is and use that otherwise default to auto. Also remember the last selection and use that
-
-- [ ] **Block model selection** ([#29](https://github.com/Zalaras/muster/issues/29)) — a session can be launched with a model that is not
-  available (e.g. Fable) and Claude then errors when changing it. Block the selection, or refuse
-  the launch — erroring after the fact is not user-friendly.
-
-- [ ] **Starting a new session should open the new session** ([#41](https://github.com/Zalaras/muster/issues/41)) — starting a session while
-  another runs leaves you on the running one instead of navigating to the one you just started.
-
 ### Together — Needs Input state transitions (#32, #40)
 
 - [ ] **Stuck on needs input** ([#32](https://github.com/Zalaras/muster/issues/32)) — after suggesting changes to a plan the session stayed on Needs

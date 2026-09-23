@@ -128,5 +128,28 @@ if [[ -z "$(section 'Out of scope' | grep -vE '^[[:space:]]*$' | head -1)" ]]; t
   note "missing or empty '## Out of scope' section (write 'Nothing.' if this plan defers no work)"
 fi
 
+# 12. Every source path under Affected Files is owned by a feature the header names — features-scope.sh's
+#     rule, applied before anyone spawns. new-session-improvement hit it at its first wave gate (a 49-minute
+#     stop), and its new files, owned by no feature, kept check-kb red until approval was impossible.
+#     `kb for` resolves a path that does not exist yet, so new files are judged by the globs they will match.
+header="$(grep -E '^\*\*Features\*\*:' "$P" | head -1 | sed -E 's/^\*\*Features\*\*:[[:space:]]*//; s/,/ /g')"
+paths="$(section 'Affected Files' | grep -oE '`(cmd|internal|web/src|web/e2e)/[^`[:space:]]+\.[a-z]+(:[0-9]+)?`' \
+  | tr -d '`' | sed -E 's/:[0-9]+$//' | grep -vE '(/CLAUDE\.md|^web/src/protocol\.ts)$' | sort -u)"
+if [[ -n "$paths" ]]; then
+  kb="$(mktemp -d)/kb"
+  if go build -o "$kb" ./tools/kb 2>/dev/null; then
+    while IFS= read -r f; do
+      owners="$("$kb" for "$f" 2>/dev/null | awk '/^features:/{on=1;next} /^[a-z]+:/{on=0} on && NF{print $1}')"
+      [[ -z "$owners" ]] && { note "$f: owned by no feature — add its glob to docs/features/<f>/spec.md at approval"; continue; }
+      for o in $owners; do
+        case " $header " in *" $o "*) ;; *) note "$f → feature '$o', not in **Features** — widen the header" ;; esac
+      done
+    done <<<"$paths"
+  else
+    note "could not build tools/kb to check Affected Files ownership"
+  fi
+  rm -rf "$(dirname "$kb")"
+fi
+
 if (( FAILS )); then echo "plan-lint: $FAILS failure(s) in $P"; exit 1; fi
 echo "plan-lint: $P clean"
