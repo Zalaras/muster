@@ -1596,6 +1596,20 @@ the mobile/responsive pass rem-ifies the pixel layer.
   nothing has rendered and a `loading…` tree row while the listing is in flight; re-fetches of the
   open file stay silent (kb:adr/reader-loading-cue-never-clears-a-rendered-body).
 
+- [x] **Canary coverage for the 2026-09-23 probe facts** ✅ done 2026-09-23 (a plan and a commit, no `/orchestrate`: test-only) — the six facts the probe recorded all
+  carry `guard: none`: kb:fact/hook-await-per-event, kb:fact/interrupt-emits-no-turn-end,
+  kb:fact/stopfailure-error-by-status, kb:fact/subagent-hooks-during-permission-wait,
+  kb:fact/tool-failure-hook-events and kb:fact/status-line-around-failed-turns. Guard at least
+  the interrupt fact and the `PostToolUse`-not-awaited ordering, the two most likely to change
+  Muster's behaviour on a bump. The fail-proxy's new `-message`/`-header` flags and
+  `CLAUDE_CODE_MAX_RETRIES=0` make the `StopFailure` mapping a cheap zero-token run.
+  Landed as canary runs G–J: an Esc interrupt mid-tool, a parallel `Read` batch whose
+  `PostToolUse` replies the capture server holds 1.5 s, an eight-row zero-token `StopFailure`
+  sweep and an all-failing interactive session, both against an in-test fail server
+  (`test/rig/failapi`). Five of the six facts now carry a guard. kb:fact/subagent-hooks-during-permission-wait
+  stays a named residual in `docs/claude-code-versions.md`: it needs a subagent plus an
+  unanswered permission prompt. Two forced green runs on 2.1.280, 6 haiku turns each.
+
 ## Post v1
 <!-- kb: adr/connection-installed-claude-classified-never-refused, adr/issue-disabled-button-affordance-deferred -->
 

@@ -121,14 +121,6 @@ ADRs).
 
 ### On their own
 
-- [ ] **Canary coverage for the 2026-09-23 probe facts** — the six facts the probe recorded all
-  carry `guard: none`: kb:fact/hook-await-per-event, kb:fact/interrupt-emits-no-turn-end,
-  kb:fact/stopfailure-error-by-status, kb:fact/subagent-hooks-during-permission-wait,
-  kb:fact/tool-failure-hook-events and kb:fact/status-line-around-failed-turns. Guard at least
-  the interrupt fact and the `PostToolUse`-not-awaited ordering, the two most likely to change
-  Muster's behaviour on a bump. The fail-proxy's new `-message`/`-header` flags and
-  `CLAUDE_CODE_MAX_RETRIES=0` make the `StopFailure` mapping a cheap zero-token run.
-
 - [ ] **Dragging a file does not enable focus** ([#36](https://github.com/Zalaras/muster/issues/36)) — dropping a file on a Claude session does
   not snap focus back to that terminal. Confirm the behaviour in a plain terminal first
   (developer to check).
