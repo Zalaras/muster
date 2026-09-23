@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1072,4 +1073,13 @@ func TestTruncate(t *testing.T) {
 	assert.Equal(t, "short", truncate("short", 200))
 	assert.Equal(t, "ab", truncate("abcdef", 2))
 	assert.Empty(t, truncate("", 5))
+
+	// a-note-3: LastPrompt/LastActivity are hook-supplied text, so a byte-count cut can
+	// land inside a multi-byte rune. "ab€" is 5 bytes ('a', 'b', then the 3-byte euro
+	// sign); n=4 lands on the euro sign's last byte, so a plain s[:n] would keep two of
+	// its three bytes and persist invalid UTF-8. truncate must back off to the nearest
+	// rune boundary at or before n instead of splitting it.
+	got := truncate("ab€", 4)
+	assert.Equal(t, "ab", got, "must back off to the rune boundary rather than split the euro sign")
+	assert.True(t, utf8.ValidString(got), "truncate must never return invalid UTF-8")
 }
