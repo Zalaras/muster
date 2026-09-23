@@ -287,12 +287,6 @@ tick a sub-item as it lands, the parent when all have.
     cannot check plan IDs. Decide whether code comments cite plan IDs at all, then apply it.
     From `plans/rail-card-improvements-2/`.
 
-- [ ] **Shorten the Settings update-check error** — with the release host down,
-  `#update-status` prints Go's whole transport chain verbatim (`update check failed: requesting
-  http://…/latest: Head "http://…/latest": dial tcp …: connect: connection refused`): four
-  wrapped lines, the URL twice, pushing the action row down. Contract-compliant; decide how much
-  of the chain to show. From `plans/rail-card-improvements-2/`.
-
 - [ ] **Keep the current session's rail card on screen** — in a rail with more cards than fit,
   a launch and the number chords (⌥⌘5–9, ⌥⌘0) move the current marker to a card that can be
   scrolled out of view, so you can't see which session you're on; nothing in `web/src` calls
@@ -374,6 +368,29 @@ group deliberately, and otherwise don't re-sort this list.
   `-on-exit=kill` shutdown here — so the superseding ADR each asks for is one ADR, and the
   archive policy of #39 is where a kept row eventually goes.
 
+### Together — the Settings Updates panel (#53, and the update-check error below)
+
+Both are what `#update-status` tells the developer when an update can't go ahead; one web-side
+pass over that panel's copy and states (`kb for internal/server/update.go` for the governing
+ADRs).
+
+- [ ] **Check update shows the new update but cannot update** ([#53](https://github.com/Zalaras/muster/issues/53)) — on 0.18.0 the panel shows
+  0.18.1 available with Update and Update-and-restart disabled and the unmanaged remedy
+  (`not installed by the muster installer — run: curl … install.sh | sh`). That is the designed
+  outcome for an install classified `unmanaged` (`kb:adr/update-install-kinds-decide-who-may-apply`;
+  `selfupdate.Classify` in `internal/selfupdate/install.go`: an unwritable binary directory, or
+  one inside a git tree below `$HOME`). First step is to confirm where the binary that filed it
+  ran from: if it was the installer's `~/.local/bin/musterd`, the classification is wrong and
+  this is a bug; if it was a repo build, the fault is that the panel reads as broken rather than
+  saying why. Either way the remedy should name the reason and the path it classified, and a
+  one-line remedy that pipes `curl` into `sh` from a Settings dialog is worth a second look.
+
+- [ ] **Shorten the Settings update-check error** — with the release host down,
+  `#update-status` prints Go's whole transport chain verbatim (`update check failed: requesting
+  http://…/latest: Head "http://…/latest": dial tcp …: connect: connection refused`): four
+  wrapped lines, the URL twice, pushing the action row down. Contract-compliant; decide how much
+  of the chain to show. From `plans/rail-card-improvements-2/`; moved here from Pre-v1 Cleanup
+  2026-09-23 to sit with #53.
 
 ### On their own
 
@@ -384,6 +401,12 @@ group deliberately, and otherwise don't re-sort this list.
 - [ ] **Issue tag management** ([#43](https://github.com/Zalaras/muster/issues/43)) — define real GitHub labels and have the triage skill apply
   them per its assessment. Needs kb:adr/issue-daemon-creates-issues-only revisited first:
   triage deliberately never labels, assigns or milestones.
+
+- [ ] **Usage gauge is a little squashed on small 14" screen** ([#52](https://github.com/Zalaras/muster/issues/52)) — the masthead usage gauge
+  cramps at a 14" laptop width (filed from Focus view, 2x2, one session). No screenshot; reproduce
+  at the laptop's viewport width with the model-window selector showing before planning. Scope
+  is the masthead's layout at that width, not UI scaling
+  (`kb:adr/nongoal-ui-scaling-delegated-to-browser-zoom`).
 
 
 ## M5+ (v1.x, re-rank when reached)
