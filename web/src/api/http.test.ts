@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchRestartImpact, applyUpdate } from "./update";
 import { browse, fetchRepos, launchSession } from "./launch";
-import { putPrefs, refreshUsage } from "./prefs";
+import { putPrefs } from "./prefs";
+import { refreshUsage } from "./usage";
 import {
   createShell,
   endSession,

@@ -319,6 +319,7 @@ describe("renderStrip — hides entirely when every session is live (plan edge c
   it("hides the strip and clears its children when the session list is empty", () => {
     const el = fakeElement();
     renderStrip(el, [], new Date(), {} as unknown as HTMLTemplateElement, () => {}, {
+      onAction: () => {},
       connected: true,
       railActivity: "turn",
     });

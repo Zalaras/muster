@@ -1,14 +1,13 @@
-// The WS-to-App mapping: what a `WsClient` message does to
-// `app.store`/`app.state` — store replace/upsert, the snapshot's `prefs` + `snapshot`
-// emits, a render after each. `main.ts` and `doc.ts` used to hand-copy this into their own
-// handler bodies; both now register `coreWsHandlers(app, connection)` and layer their own
-// handlers on top (the dashboard's session-removed/usage/update/shell-activity/mismatch
-// wiring, which the pop-out has no feature to receive). Connection-status handling itself
+// The WS-to-App mapping: every WS message's app-side effect (store write, emit, render).
+// `coreWsHandlers` is what both `main.ts` and `doc.ts` register unchanged; `dashboardWsHandlers`
+// layers the dashboard-only messages on top (session-removed/usage/update/shell-activity/
+// mismatch), which the pop-out has no feature to receive. Connection-status handling itself
 // stays owned by `features/connection.ts` — this module only calls into whatever
 // `WsAppConnection` the caller already built.
 import type { App } from "./app";
 import type { ClaudeCodeInfo } from "./protocol/hello";
 import type { WsClientHandlers } from "./ws";
+import type { ActionsHandle } from "./features/actions";
 
 /** The slice of `ConnectionHandle`/`ConnectionState` (`features/connection.ts`) this
  * mapping needs. `ConnectionState.connected()` takes no argument — TS's function
@@ -19,9 +18,15 @@ export interface WsAppConnection {
   disconnected(): void;
 }
 
-/** Exactly what `doc.ts` registers verbatim; `main.ts` spreads its own dashboard-only
- * handlers over the result ("the pop-out differs from the dashboard only in
- * the handlers it declares it leaves out"). */
+/** `WsAppConnection` plus the one method only the dashboard's protocol-mismatch handler
+ * needs — `ConnectionHandle` (`features/connection.ts`) satisfies this; `ConnectionState`,
+ * which `doc.ts` builds, does not, so it stays scoped to `dashboardWsHandlers`. */
+export interface DashboardConnection extends WsAppConnection {
+  showProtocolMismatch(): void;
+}
+
+/** Exactly what `doc.ts` registers verbatim; `dashboardWsHandlers` below spreads the
+ * dashboard's own additional handlers over the result. */
 export function coreWsHandlers(app: App, connection: WsAppConnection): WsClientHandlers {
   return {
     onConnecting: () => connection.disconnected(),
@@ -49,5 +54,33 @@ export function coreWsHandlers(app: App, connection: WsAppConnection): WsClientH
       app.render();
     },
     onDisconnected: () => connection.disconnected(),
+  };
+}
+
+/** The dashboard's full handler set: `coreWsHandlers` plus the messages only `main.ts`'s
+ * features receive (the pop-out has no feature for any of these). Kept here, not in
+ * `main.ts`, so every WS message's app-side effect lives in one module — `main.ts`'s
+ * `WsClient` construction then holds only this call. */
+export function dashboardWsHandlers(
+  app: App,
+  connection: DashboardConnection,
+  actions: Pick<ActionsHandle, "handleRemoved">,
+): WsClientHandlers {
+  return {
+    ...coreWsHandlers(app, connection),
+    onSessionRemoved: (id) => actions.handleRemoved(id),
+    onUsage: (usage) => {
+      app.emit("usage", usage);
+      app.render();
+    },
+    onShellActivity: (sessionId, busy) => {
+      app.emit("shellActivity", sessionId, busy);
+      app.render();
+    },
+    onUpdate: (update) => {
+      app.emit("update", update);
+      app.render();
+    },
+    onProtocolMismatch: () => connection.showProtocolMismatch(),
   };
 }

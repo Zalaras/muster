@@ -78,8 +78,8 @@ function formatCaptureTime(iso: string): string {
   return `captured ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}:${pad2(d.getUTCSeconds())}Z`;
 }
 
-/** Testable UI Elements: `<code> — <message>` verbatim (em dash, same convention as
- * render/confirm.ts's session label). */
+/** `<code> — <message>` verbatim (em dash, same convention as
+ * features/actionscopy.ts's session label). */
 function formatErrorDetail(err: ApiErrorBody): string {
   return `${err.code} — ${err.message}`;
 }
@@ -276,6 +276,6 @@ export function initIssue(app: App): void {
   // States: "Daemon down ... an open #issue-dialog closes."
   app.on("status", () => dialog.closeAll());
 
-  // Render phase 4 (UI Specifications > Render phase order).
+  // Render phase 4 (main.ts's numbered render-phase order).
   app.onRender((frame) => renderIssueButton(issueButtonEl, frame.connected));
 }

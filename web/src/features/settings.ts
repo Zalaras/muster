@@ -4,7 +4,7 @@
 // out" shape lives in `render/`, matching render/confirm.ts and render/update.ts's
 // `initRestartConfirm`.
 import type { App } from "../app";
-import { requestPrefs } from "../api/prefs";
+import { sendPrefsPatch } from "../api/prefs";
 import { requireElement, requireElements } from "../dom";
 import { initSettingsDialog, type SettingsDialogElements } from "../render/settings";
 
@@ -23,8 +23,8 @@ export function initSettings(app: App): void {
     ),
   };
   const controller = initSettingsDialog(elements, {
-    onChooseTheme: (theme) => requestPrefs({ theme }),
-    onChooseRailActivity: (railActivity) => requestPrefs({ railActivity }),
+    onChooseTheme: (theme) => sendPrefsPatch({ theme }),
+    onChooseRailActivity: (railActivity) => sendPrefsPatch({ railActivity }),
   });
 
   settingsButtonEl.addEventListener("click", () => controller.open());

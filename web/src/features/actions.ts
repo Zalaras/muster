@@ -1,20 +1,13 @@
 // End/Resume/Remove/Pin dispatcher, their confirm dialogs, and the dead-pane snapshot
 // cache (kb:adr/process-one-name-per-feature: "actions"). Every mainhead,
-// rail card, tile footer and dead-surface cap routes through `dispatch`.
-//
-// `deps.getFocusDeadSurfaceRefs`/`deps.getTileDeadSurfaceRefs` are lazy thunks, not eager
-// values: `actions` is constructed before `focus`/`tiles` exist (main.ts's init order —
-// both of them depend on `actions`, e.g. for `dispatch`/`ensurePaneFetch`), so main.ts
-// passes `(id) => focus.deadSurfaceRefsFor(id)` / `(id) => tiles.deadSurfaceRefsFor(id)`
-// closures that only resolve the real `const` when `findDeadSurfaceRefs` is actually
-// called, well after every controller has finished construction (never during it). Each
-// closure asks the view that owns the markup, rather than this module
-// querying a tile's `.dead-surface` itself — `focus`/`tiles` are the only two places that
-// know what a dead surface looks like in their own view.
+// rail card, tile footer and dead-surface cap routes through `dispatch`. This module
+// carries no dead-surface API of its own — `features/focus.ts` and `features/tiles.ts`
+// each hand `surfaces.select` their own `deadSurfaceRefsFor` lookup directly, since each
+// is the only one that knows what a dead surface looks like in its own view.
 import type { App } from "../app";
 import { endSession, fetchPane, pinSession, removeSession, resumeSession } from "../api/sessions";
 import { requireElement } from "../dom";
-import type { DeadSurfaceRefs, PaneState } from "../render/dead";
+import type { PaneState } from "../render/dead";
 import { renderActionError } from "../render/actionerror";
 import { initConfirmDialogs, type ConfirmDialogs } from "../render/confirm";
 import { endDialogBody, removeDialogBody } from "./actionscopy";
@@ -34,21 +27,11 @@ export async function loadPane(id: number): Promise<PaneState> {
   return { status: "missing" };
 }
 
-export interface ActionsDeps {
-  /** `null` unless `id` is currently shown as Focus's dead surface. */
-  getFocusDeadSurfaceRefs(id: number): DeadSurfaceRefs | null;
-  /** `null` unless `id` currently has a dead tile mounted. */
-  getTileDeadSurfaceRefs(id: number): DeadSurfaceRefs | null;
-}
-
 export interface ActionsHandle {
   dispatch(action: SessionAction, id: number): void;
   /** Session-focusing shortcuts no-op while a modal `<dialog>` other than
    * the launch dialog is open. */
   isBlockingDialogOpen(): boolean;
-  /** Locates the dead surface currently displayed for `id`'s `claude` segment, if any,
-   * for routing a spawn-failure notice. */
-  findDeadSurfaceRefs(id: number): DeadSurfaceRefs | null;
   ensurePaneFetch(id: number): void;
   paneState(id: number): PaneState;
   /** Strips a removed session from the store and fans out `sessionRemoved` to
@@ -57,7 +40,7 @@ export interface ActionsHandle {
   handleRemoved(id: number): void;
 }
 
-export function initActions(app: App, deps: ActionsDeps): ActionsHandle {
+export function initActions(app: App): ActionsHandle {
   const deadPaneCache = new Map<number, PaneState>();
   const previousAlive = new Map<number, boolean>();
   const actionErrorEl = requireElement<HTMLElement>("#action-error");
@@ -81,8 +64,6 @@ export function initActions(app: App, deps: ActionsDeps): ActionsHandle {
     return deadPaneCache.get(id) ?? { status: "loading" };
   }
 
-  /** Prunes the dead-pane tracking maps to the current session id set, then invalidates
-   * any cache entry whose session just transitioned alive -> dead this pass. */
   /** Drops both per-session maps' entries for sessions the store no longer carries, so a
    * removed id cannot leak a stale liveness flag or a stale captured pane. */
   function forgetSessionsNotIn(ids: ReadonlySet<number>): void {
@@ -94,6 +75,8 @@ export function initActions(app: App, deps: ActionsDeps): ActionsHandle {
     }
   }
 
+  /** Prunes the dead-pane tracking maps to the current session id set, then invalidates
+   * any cache entry whose session just transitioned alive -> dead this pass. */
   function updateDeadPaneTracking(sessions: readonly Session[]): void {
     forgetSessionsNotIn(new Set(sessions.map((s) => s.id)));
     for (const session of sessions) {
@@ -102,7 +85,7 @@ export function initActions(app: App, deps: ActionsDeps): ActionsHandle {
       previousAlive.set(session.id, session.alive);
     }
   }
-  // Render phase 1 (UI Specifications > Render phase order).
+  // Render phase 1 (main.ts's numbered render-phase order).
   app.onRender((frame) => updateDeadPaneTracking(frame.sessions));
 
   function handleRemoved(id: number): void {
@@ -198,9 +181,6 @@ export function initActions(app: App, deps: ActionsDeps): ActionsHandle {
       return Array.from(document.querySelectorAll<HTMLDialogElement>("dialog[open]")).some(
         (dialog) => dialog.id !== "launch-dialog",
       );
-    },
-    findDeadSurfaceRefs(id) {
-      return deps.getFocusDeadSurfaceRefs(id) ?? deps.getTileDeadSurfaceRefs(id);
     },
     ensurePaneFetch,
     paneState,

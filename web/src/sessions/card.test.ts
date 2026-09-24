@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { Session } from "../protocol/session";
-import { activityLines, buildCardViewModel, unreadLabel } from "./card";
+import {
+  activityLines,
+  buildCardViewModel,
+  deadCapPrefix,
+  deadEndbarText,
+  mainheadMeta,
+  tileFooterAgeText,
+  tileHeaderTimerText,
+  unreadLabel,
+} from "./card";
 
 const NOW = new Date("2026-08-22T00:00:10Z");
 
@@ -455,5 +464,130 @@ describe("buildCardViewModel — ended timer (REQ-9): 'ended <age>' from endedAt
     );
     expect(vm.timer).not.toMatch(/^ended /);
     expect(vm.timer).toBe("00:10");
+  });
+});
+
+describe("mainheadMeta: 'repo/branch · model · ended <age>' — repoLine plus the two optional clauses", () => {
+  it("is just the repo line when there is no model and the session is alive", () => {
+    const session = makeSession({
+      id: 1,
+      repo: { name: "muster", branch: "main", isWorktree: false },
+      model: null,
+    });
+    expect(mainheadMeta(session, NOW)).toBe("muster / main");
+  });
+
+  it("appends the model's display name when present", () => {
+    const session = makeSession({
+      id: 1,
+      repo: { name: "muster", branch: "main", isWorktree: false },
+      model: { id: "claude-x", displayName: "Sonnet 5" },
+    });
+    expect(mainheadMeta(session, NOW)).toBe("muster / main · Sonnet 5");
+  });
+
+  it("appends 'ended <age>' only once the session is dead and has an endedAt", () => {
+    const session = makeSession({
+      id: 1,
+      repo: null,
+      directory: "/Users/bob/code/muster",
+      model: { id: "claude-x", displayName: "Sonnet 5" },
+      alive: false,
+      endedAt: "2026-08-21T23:54:00Z", // 6 minutes before NOW
+    });
+    expect(mainheadMeta(session, NOW)).toBe("muster · Sonnet 5 · ended 6m ago");
+  });
+
+  it("omits the ended clause for a dead session with no endedAt (defensive; alive:false always pairs with endedAt)", () => {
+    const session = makeSession({ id: 1, repo: null, alive: false, endedAt: null, model: null });
+    expect(mainheadMeta(session, NOW)).toBe("muster");
+  });
+
+  it("falls back to the directory basename when repo is null, same as repoLine", () => {
+    const session = makeSession({ id: 1, repo: null, directory: "/Users/bob/code/other" });
+    expect(mainheadMeta(session, NOW)).toBe("other");
+  });
+});
+
+describe("tileHeaderTimerText: alive ticks via formatTimer; dead shows the bare age, no 'ended' prefix", () => {
+  it("ticks the same MM:SS timer as buildCardViewModel's own timer for a live session", () => {
+    const session = makeSession({ id: 1, alive: true, stateSince: "2026-08-22T00:00:00Z" });
+    expect(tileHeaderTimerText(session, NOW)).toBe("00:10");
+  });
+
+  it("shows the bare age (no 'ended' word) for a dead session with an endedAt", () => {
+    const session = makeSession({ id: 1, alive: false, endedAt: "2026-08-21T23:54:00Z" }); // 6m before NOW
+    expect(tileHeaderTimerText(session, NOW)).toBe("6m");
+  });
+
+  it("is empty for a dead session with no endedAt (defensive)", () => {
+    const session = makeSession({ id: 1, alive: false, endedAt: null });
+    expect(tileHeaderTimerText(session, NOW)).toBe("");
+  });
+});
+
+describe("tileFooterAgeText: '✕ ended <age> ago', or bare '✕ ended' with no endedAt", () => {
+  it("reads '✕ ended <age> ago' for a dead session with an endedAt", () => {
+    const session = makeSession({ id: 1, alive: false, endedAt: "2026-08-21T23:54:00Z" }); // 6m before NOW
+    expect(tileFooterAgeText(session, NOW)).toBe("✕ ended 6m ago");
+  });
+
+  it("reads 'now', never 'now ago', for a sub-minute endedAt (agoSuffix's own honesty rule)", () => {
+    const session = makeSession({ id: 1, alive: false, endedAt: "2026-08-22T00:00:05Z" }); // 5s before NOW
+    expect(tileFooterAgeText(session, NOW)).toBe("✕ ended now");
+  });
+
+  it("falls back to bare '✕ ended' when endedAt is null (defensive)", () => {
+    const session = makeSession({ id: 1, alive: false, endedAt: null });
+    expect(tileFooterAgeText(session, NOW)).toBe("✕ ended");
+  });
+});
+
+describe("deadEndbarText: 'ended <age> · last state <badge> · last captured screen, not a live client'", () => {
+  it("composes the age, badge word and fixed tail for a dead session with an endedAt", () => {
+    const session = makeSession({
+      id: 1,
+      alive: false,
+      state: "working",
+      endedAt: "2026-08-21T23:54:00Z", // 6m before NOW
+    });
+    expect(deadEndbarText(session, NOW)).toBe(
+      "ended 6m ago · last state working · last captured screen, not a live client",
+    );
+  });
+
+  it.each([
+    ["started", "started"],
+    ["planning", "planning"],
+    ["needs_input", "needs input"],
+    ["failed", "failed"],
+    ["idle", "idle"],
+  ] as const)("uses the lowercase badge word for state %s", (state, word) => {
+    const session = makeSession({ id: 1, alive: false, state, endedAt: "2026-08-22T00:00:00Z" });
+    expect(deadEndbarText(session, NOW)).toContain(`last state ${word}`);
+  });
+
+  it("omits the age clause (no leading 'ended <age>') when endedAt is null, defensively", () => {
+    const session = makeSession({ id: 1, alive: false, state: "idle", endedAt: null });
+    expect(deadEndbarText(session, NOW)).toBe(
+      "ended · last state idle · last captured screen, not a live client",
+    );
+  });
+});
+
+describe("deadCapPrefix: '<age> · last state: <badge>', or without the age clause when endedAt is null", () => {
+  it("composes the age and badge word for a dead session with an endedAt", () => {
+    const session = makeSession({
+      id: 1,
+      alive: false,
+      state: "failed",
+      endedAt: "2026-08-21T23:54:00Z", // 6m before NOW
+    });
+    expect(deadCapPrefix(session, NOW)).toBe("6m ago · last state: failed");
+  });
+
+  it("omits the age clause when endedAt is null, defensively", () => {
+    const session = makeSession({ id: 1, alive: false, state: "idle", endedAt: null });
+    expect(deadCapPrefix(session, NOW)).toBe("last state: idle");
   });
 });

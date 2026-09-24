@@ -1,9 +1,8 @@
-// The "put this root in that slot, or empty it" idiom repeated across
+// The "put this root in that slot, or empty it" idiom, shared by
 // features/focus.ts's main slot (reader, then terminal surface) and features/tiles.ts's
-// per-tile body slot (reader, then terminal surface) — `rg -n "firstElementChild"
-// web/src --glob '!*.test.ts'` before this unit found exactly those four sites, no
-// existing shared helper. Pure DOM, no state of its own (render/CLAUDE.md's render-state
-// rule) — the slot element itself is the only state, held by the caller.
+// per-tile body slot (reader, then terminal surface). Pure DOM, no state of its own
+// (render/CLAUDE.md's render-state rule) — the slot element itself is the only state,
+// held by the caller.
 
 /** Mounts `root` into `slot` iff it isn't already the slot's one child, and empties the
  * slot when `root` is `null` — never a redundant `replaceChildren` that would otherwise

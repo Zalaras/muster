@@ -43,10 +43,11 @@ export function formatAge(sinceIso: string, now: Date): string {
   return `${Math.floor(seconds / 86400)}d`;
 }
 
-/** Every caller that composes "<age> ago" copy around `formatAge` must go through this
- * instead of appending " ago" directly — the sub-minute bucket is the literal string
- * "now" (format.test.ts asserts this deliberately), and "now ago" is ungrammatical on the
- * dashboard's most common path (looking at a session, or a file, right after the event). */
+/** `ageAgo` below's own "<age> ago" composition — the sub-minute bucket is the literal
+ * string "now" (format.test.ts asserts this deliberately), and "now ago" is
+ * ungrammatical on the dashboard's most common path (looking at a session, or a file,
+ * right after the event). Exported only for format.test.ts's direct coverage — every
+ * production "<age> ago" reading goes through `ageAgo` below, never this. */
 export function agoSuffix(age: string): string {
   return age === "now" ? "now" : `${age} ago`;
 }
@@ -75,7 +76,7 @@ export function formatTokens(tokens: number): string {
 
 /** A usage bucket's or session context's reset time, compactly — same local
  * day as `now` renders `resets HH:MM`, otherwise the short weekday (`resets Fri`). Uses
- * the client's local timezone (R5) — the daemon ships UTC RFC3339Nano; `Date`'s local
+ * the client's local timezone — the daemon ships UTC RFC3339Nano; `Date`'s local
  * getters do the conversion. */
 export function formatResets(resetsAtIso: string, now: Date): string {
   const resetsAt = new Date(resetsAtIso);

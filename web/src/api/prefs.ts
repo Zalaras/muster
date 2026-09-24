@@ -1,6 +1,6 @@
-// Prefs writes and the usage-refresh poke — both are "response carries no state, the
-// socket does" shapes: the actual new value reaches every UI socket via a WS broadcast
-// (`prefs`/`usage`), so neither caller here ever needs a decoded body.
+// Prefs writes — a "response carries no state, the socket does" shape: the new value
+// reaches every UI socket via the `prefs` WS broadcast, so the caller here never needs a
+// decoded body.
 import type { Prefs } from "../protocol/prefs";
 import { requestEmpty, type ApiResult } from "./http";
 
@@ -17,17 +17,13 @@ export async function putPrefs(body: PrefsRequest): Promise<ApiResult<null>> {
   return requestEmpty("PUT", "/api/prefs", 204, body);
 }
 
-// The 8 call sites that changed exactly one pref field and only ever logged the
-// failure (never surfaced it in the UI) collapse to this — `putPrefs`'s own failure log
-// (http.ts's `logApiFailure`) already covers what each of those `.then(console.error)`
-// blocks used to spell out by hand.
-export function requestPrefs(patch: PrefsRequest): void {
+// Every prefs-changing control (rail sort/density, view/density switcher, theme/rail-activity
+// radios, the update-check toggle) fires a one-field patch and only ever logs a failure —
+// `putPrefs`'s own failure log (http.ts's `logApiFailure`) already covers that, so this
+// wrapper exists to make "fire-and-forget, never awaited" the caller's only decision.
+// Named apart from http.ts's `request*` family (`requestJson`/`requestEmpty`/…, which all
+// return an awaited `ApiResult`) since this one is `void`-returning and synchronous at the
+// call site.
+export function sendPrefsPatch(patch: PrefsRequest): void {
   void putPrefs(patch);
-}
-
-/** `POST /api/usage/refresh` (kb:anchor/usage.refresh). `202` with no body on success — the
- * fetch itself runs asynchronously and its result reaches every UI socket via the next
- * `usage` broadcast. Errors: `404 not_found` when the poller is disabled (`-usage-poll 0`). */
-export async function refreshUsage(): Promise<ApiResult<null>> {
-  return requestEmpty("POST", "/api/usage/refresh", 202);
 }

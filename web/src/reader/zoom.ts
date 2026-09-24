@@ -4,8 +4,7 @@
 // the next.
 
 export interface ZoomState {
-  /** Multiplier on top of `fit` — `1` reads as "fit" (Testable UI Elements: `data-zoom`
-   * is `1.00` on open). */
+  /** Multiplier on top of `fit` — `1` reads as "fit" (`data-zoom` is `1.00` on open). */
   zoom: number;
   /** Canvas translate, in stage pixels. */
   x: number;

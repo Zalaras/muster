@@ -49,3 +49,13 @@ export function writeJson(
     // best-effort only — see doc comment above.
   }
 }
+
+/** Best-effort removal — same throwing-storage tolerance as `writeJson`. Every caller that
+ * clears a key goes through this rather than wrapping `removeItem` in its own try/catch. */
+export function removeItem(storage: Pick<StorageLike, "removeItem">, key: string): void {
+  try {
+    storage.removeItem(key);
+  } catch {
+    // best-effort only — see writeJson's doc comment above.
+  }
+}

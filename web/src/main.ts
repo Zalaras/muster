@@ -8,12 +8,12 @@
 //
 // Init order below is dependency order, not the render-phase order (the two are
 // independent — see the numbered block further down): most controllers take real handle
-// values from controllers already constructed; `actions` and `tiles` instead take a
-// small thunk (`() => laterConst.method(...)`) for the one or two methods they need from
-// a controller constructed *after* them, since those thunks are only ever invoked later
-// (a click, a render pass) — never synchronously during the referencing controller's own
-// init call. This is what lets `actions`/`tiles`/`focus`/`surfaces`' mutual needs resolve
-// without a construction cycle.
+// values from controllers already constructed; `tiles`, `focus`, `surfaces` and `reader`
+// instead take a small thunk (`() => laterConst.method(...)`) for the one or two methods
+// they need from a controller constructed *after* them, since those thunks are only ever
+// invoked later (a click, a render pass) — never synchronously during the referencing
+// controller's own init call. This is what lets their mutual needs resolve without a
+// construction cycle.
 import { createApp } from "./app";
 import { initActions } from "./features/actions";
 import { initUsage } from "./features/usage";
@@ -33,21 +33,19 @@ import { initShortcuts } from "./features/shortcuts";
 import { initConnection } from "./features/connection";
 import { installDropGuard } from "./render/dropguard";
 import { WsClient, wsUrl } from "./ws";
-import { coreWsHandlers } from "./wsapp";
+import { dashboardWsHandlers } from "./wsapp";
 
 const app = createApp();
 
-const actions = initActions(app, {
-  getFocusDeadSurfaceRefs: (id) => focus.deadSurfaceRefsFor(id),
-  getTileDeadSurfaceRefs: (id) => tiles.deadSurfaceRefsFor(id),
-});
+const actions = initActions(app);
 initUsage(app);
 initUpdate(app);
 initIssue(app);
+const rename = initRename(app);
 const tiles = initTiles(app, {
   actions,
   getSurfaces: () => surfaces,
-  getRenameHandlers: () => rename.tileRenameHandlers,
+  renameHandlers: rename.tileRenameHandlers,
   getReader: () => reader,
 });
 const focus = initFocus(app, {
@@ -55,15 +53,13 @@ const focus = initFocus(app, {
   getSurfaces: () => surfaces,
   promoteTile: tiles.promote,
   getReader: () => reader,
-  getRename: () => rename,
+  renameHandlers: rename.mainheadRenameHandlers,
 });
-const surfaces = initSurfaces(app, { getTilesLive: () => tiles.liveIds() });
-const reader = initReader(app, {
-  getTilesLive: () => tiles.liveIds(),
-  getSurfaces: () => surfaces,
-});
+const surfaces = initSurfaces(app, { tilesLive: tiles.liveIds });
+const reader = initReader(app, { tilesLive: tiles.liveIds, surfaces });
 initRail(app, { actions, surfaces });
-// Render phase order (UI Specifications > Render phase order — behaviour-bearing):
+// Render phase order (behaviour-bearing — see each phase's own controller for why its
+// position matters):
 //  1. actions  — dead-pane tracking (registered inside initActions)
 //  2. usage    — gauges/model week/model readout (initUsage)
 //  3. update   — Updates section + Settings badge (initUpdate)
@@ -77,7 +73,6 @@ initRail(app, { actions, surfaces });
 //     Focus, else tiles (view) in Tiles — registered inside initViews, since that phase is
 //     inherently split across two controllers by shared state (views.ts).
 const views = initViews(app, { focus, tiles });
-const rename = initRename(app, { focus });
 initTheme(app);
 const launch = initLaunch(app, { focus, surfaces });
 initSettings(app);
@@ -97,26 +92,6 @@ installDropGuard(document);
 setInterval(app.render, 1000);
 app.render();
 
-// The dashboard's own handlers, layered over the shared core mapping (wsapp.ts) — the
-// pop-out (doc.ts) registers that core unchanged; these are the ones it has no feature to
-// receive ("the pop-out differs from the dashboard only in the handlers it
-// declares it leaves out").
-const client = new WsClient(wsUrl("/ws"), {
-  ...coreWsHandlers(app, connection),
-  onSessionRemoved: (id) => actions.handleRemoved(id),
-  onUsage: (usageInfo) => {
-    app.emit("usage", usageInfo);
-    app.render();
-  },
-  onShellActivity: (sessionId, busy) => {
-    app.emit("shellActivity", sessionId, busy);
-    app.render();
-  },
-  onUpdate: (updateInfo) => {
-    app.emit("update", updateInfo);
-    app.render();
-  },
-  onProtocolMismatch: () => connection.showProtocolMismatch(),
-});
+const client = new WsClient(wsUrl("/ws"), dashboardWsHandlers(app, connection, actions));
 
 client.start();

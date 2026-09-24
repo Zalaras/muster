@@ -9,7 +9,7 @@ import type { ClaudeVersionDescription } from "../render/masthead";
 const VERSION_NOT_TESTED = "This Claude Code version has not been tested with Muster";
 const VERSION_NOT_TESTED_UPDATE = `${VERSION_NOT_TESTED} — please update Claude Code`;
 
-/** UI Specifications > DOM table:
+/** The text/warning decision per `ClaudeCodeInfo.status`:
  * - `null` (pre-hello) -> "claude unknown", no warning
  * - `status: "unknown"` (any `installed`), or a defensive non-`unknown` status with
  *   `installed === null` (the daemon never sends this — kb:adr/connection-installed-claude-classified-never-refused) -> "Claude installation

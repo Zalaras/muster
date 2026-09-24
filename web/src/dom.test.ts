@@ -1,8 +1,8 @@
-// review Minor 6: `checkRadioValue` is the "sync a radio group from external state" idiom
-// pulled out of `features/launch.ts` and `render/settings.ts`, which each hand-rolled it.
-// Both callers already exercise it indirectly (render/settings.test.ts's "setChecked"
-// describe block); this file covers the helper itself directly, including the
-// no-match/matched-return-value cases neither caller's own test bothers asserting on.
+// `checkRadioValue` is the "sync a radio group from external state" idiom shared by
+// `features/launch.ts` and `render/settings.ts`. Both callers already exercise it
+// indirectly (render/settings.test.ts's "setChecked" describe block); this file covers
+// the helper itself directly, including the no-match/matched-return-value cases neither
+// caller's own test bothers asserting on.
 import { describe, expect, it } from "vitest";
 import { checkRadioValue } from "./dom";
 

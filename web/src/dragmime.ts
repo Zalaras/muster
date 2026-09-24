@@ -1,6 +1,6 @@
 // The opaque signal that marks an in-progress browser drag as "one of muster's own
 // reorder drags" (rail cards, tiles) rather than a foreign drop (a dragged file, or
-// text) — render/dragreorder.ts sets it on dragstart, terminal/pane.ts checks for its
+// text) — render/dragreorder.ts sets it on dragstart, terminal/dropwire.ts checks for its
 // presence to bail out of a drag crossing over a live terminal without claiming it as a
 // file drop, rather than treating it as a foreign text drop (a plain "text/plain" MIME
 // would be indistinguishable from a real dragged text selection, which uses that exact

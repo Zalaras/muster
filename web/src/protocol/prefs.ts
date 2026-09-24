@@ -2,7 +2,7 @@
 // kb:anchor/prefs.put) — one of the protocol/ concept modules split
 // out of the former protocol.ts.
 
-import { isRecord } from "./decode";
+import { isBoolean, isRecord, isString } from "./decode";
 
 // kb:anchor/prefs.put: the rail's sort mode pref.
 export const RAIL_SORTS = ["manual", "attention"] as const;
@@ -95,18 +95,10 @@ export function isRailDensity(value: unknown): value is RailDensity {
   return (RAIL_DENSITIES as readonly unknown[]).includes(value);
 }
 
-// Exported: features/settings.ts's rail-activity-radio guard imports this instead of
-// keeping its own copy (same finding as isRailDensity above).
+// Exported: render/settings.ts's rail-activity-radio guard imports this instead of
+// keeping its own copy.
 export function isRailActivity(value: unknown): value is RailActivity {
   return (RAIL_ACTIVITIES as readonly unknown[]).includes(value);
-}
-
-function isString(value: unknown): value is string {
-  return typeof value === "string";
-}
-
-function isBoolean(value: unknown): value is boolean {
-  return typeof value === "boolean";
 }
 
 /** Reads one prefs field that has a fixed default for a missing key and a guard for a
@@ -148,7 +140,7 @@ export function parsePrefs(value: unknown): Prefs | null {
   // value outside the enum is the daemon's problem, not the wire's — it falls back to
   // "comfortable" server-side before it is ever sent. If an
   // out-of-enum railDensity somehow reaches the client anyway, parsePrefsField's guard
-  // fails and parsePrefs rejects the whole prefs object (protocol.test.ts's "rejects a
+  // fails and parsePrefs rejects the whole prefs object (protocol/prefs.test.ts's "rejects a
   // railDensity value outside the compact|comfortable|expanded enum").
   const railDensity = parsePrefsField(
     value["railDensity"],

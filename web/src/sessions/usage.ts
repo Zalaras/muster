@@ -4,15 +4,10 @@
 // `render/context.ts` pair for the context gauge. `#usage-5h`,
 // `#usage-7d` and `#usage-model-week`'s own percent/bar/resets slice all share this same
 // shape — a `UsageBucket` and a `ModelWindow` (protocol/usage.ts) carry the same
-// `usedPct`/`resetsAt` pair, just from two different daemon sources.
+// `usedPct`/`resetsAt` pair, just from two different daemon sources; `ModelWindow` is
+// structurally a `UsageBucket` plus `displayName`, so both pass here unchanged.
+import type { UsageBucket } from "../protocol/usage";
 import { formatResets, GAUGE_WARN_THRESHOLD } from "./format";
-
-/** The subset of `UsageBucket`/`ModelWindow` this derivation needs — both protocol types
- * already carry exactly these two fields. */
-export interface UsageBucketSource {
-  usedPct: number;
-  resetsAt: string;
-}
 
 export interface UsageBucketViewModel {
   /** `"42%"`, or `"unknown"` — design-system §6.1: never a percentage guessed from a
@@ -29,7 +24,7 @@ export interface UsageBucketViewModel {
 }
 
 export function buildUsageBucketViewModel(
-  bucket: UsageBucketSource | null,
+  bucket: UsageBucket | null,
   now: Date,
 ): UsageBucketViewModel {
   if (!bucket) {

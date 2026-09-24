@@ -4,7 +4,7 @@
 
 import { isRecord } from "./decode";
 
-// Plan new-ui-design-colors (kb:anchor/ws.snapshot / kb:anchor/ws.claude-theme): the daemon's latest read of
+// kb:anchor/ws.snapshot / kb:anchor/ws.claude-theme: the daemon's latest read of
 // Claude Code's own theme setting, folded to a family. Always present on every
 // snapshot/GET /api/state — "unknown" while polling is disabled or nothing has been
 // read yet.
@@ -15,16 +15,15 @@ export interface ClaudeThemeInfo {
   family: ClaudeFamily;
 }
 
-// Plan new-ui-design-colors (kb:anchor/ws.claude-theme): sent only when the polled family
-// differs from the previously broadcast one — never per tick. Note the flat shape
-// (`family` a top-level key, not nested under `claudeTheme` like the snapshot field).
+// kb:anchor/ws.claude-theme: sent only when the polled family differs from the
+// previously broadcast one — never per tick. Note the flat shape (`family` a top-level
+// key, not nested under `claudeTheme` like the snapshot field).
 export interface ClaudeThemeMessage {
   type: "claudeTheme";
   family: ClaudeFamily;
 }
 
-// Exported: theme.ts imports this instead of keeping its own copy.
-export function isClaudeFamily(value: unknown): value is ClaudeFamily {
+function isClaudeFamily(value: unknown): value is ClaudeFamily {
   return (CLAUDE_FAMILIES as readonly unknown[]).includes(value);
 }
 

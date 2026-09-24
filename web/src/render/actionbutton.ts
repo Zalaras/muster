@@ -20,7 +20,7 @@ export function buildActionButton(
   label: CardAction,
   id: number,
   enabled: boolean,
-  onAction?: (action: SessionAction, id: number) => void,
+  onAction: (action: SessionAction, id: number) => void,
 ): HTMLButtonElement {
   const action = ACTION_BY_LABEL[label];
   const btn = document.createElement("button");
@@ -35,7 +35,7 @@ export function buildActionButton(
   btn.disabled = !enabled;
   btn.addEventListener("click", (event) => {
     event.stopPropagation();
-    if (!btn.disabled) onAction?.(action, id);
+    if (!btn.disabled) onAction(action, id);
   });
   return btn;
 }

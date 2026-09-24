@@ -3,25 +3,10 @@
 // JSON shape, and key strictly per session id — see memory.ts's header comment for why
 // isDirty/withOpened are keyed by writtenAt rather than a live event history.
 import { describe, expect, it } from "vitest";
-import {
-  forget,
-  isDirty,
-  loadMemory,
-  saveMemory,
-  withOpened,
-  type ReaderMemory,
-  type StorageLike,
-} from "./memory";
+import { forget, isDirty, loadMemory, saveMemory, withOpened, type ReaderMemory } from "./memory";
+import type { StorageLike } from "../storage";
 
-// `forget` (REQ-17/W4) needs to remove a key. `StorageLike` (memory.ts) has no
-// `removeItem` yet — that's part of the red state below — so these fixtures declare it
-// themselves via `StorageLikeWithRemove` rather than widening the imported type; additive,
-// so every describe block above the `forget` one is unaffected.
-interface StorageLikeWithRemove extends StorageLike {
-  removeItem(key: string): void;
-}
-
-function fakeStorage(initial: Record<string, string> = {}): StorageLikeWithRemove & {
+function fakeStorage(initial: Record<string, string> = {}): StorageLike & {
   data: Record<string, string>;
 } {
   const data = { ...initial };
@@ -39,7 +24,7 @@ function fakeStorage(initial: Record<string, string> = {}): StorageLikeWithRemov
   };
 }
 
-function throwingStorage(): StorageLikeWithRemove {
+function throwingStorage(): StorageLike {
   return {
     getItem() {
       throw new Error("storage disabled");

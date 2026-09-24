@@ -1,10 +1,11 @@
-// The mainhead's rename editor and the shared getSession/onCommit pair every tile's own
-// editor uses. `deps.focus.nameEl` is the one thing this module needs from `focus.ts` —
-// attached once, here, at startup, unlike a tile's editor, which `render/tiles.ts`'s
-// `buildTile` attaches per tile using `tileRenameHandlers` below.
+// The shared getSession/onCommit pair every rename editor uses — the mainhead's
+// (features/focus.ts) and every tile's (features/tiles.ts's `render/tiles.ts`'s
+// `buildTile`). This module holds no editor of its own and touches no DOM: each host
+// attaches its own `render/rename.ts` editor(s) directly, using the handlers here, the
+// same way a tile already did before this module owned the mainhead's too.
 import type { App } from "../app";
 import { putTitle } from "../api/sessions";
-import { attachRenameEditor, type RenameEditorController } from "../render/rename";
+import type { RenameEditorHandlers } from "../render/rename";
 import type { TileRenameHandlers } from "../render/tiles";
 import type { TitleCommand } from "../sessions/rename";
 
@@ -12,21 +13,12 @@ export interface RenameHandle {
   /** The shared pair every tile's own editor adapts into its per-tile shape
    * (`render/tiles.ts`'s `buildTile`). */
   readonly tileRenameHandlers: TileRenameHandlers;
-  /** The mainhead editor's own `isEditing` — `features/focus.ts` asks
-   * this (through its own `getRename` thunk, since `rename` is constructed after `focus`,
-   * main.ts's init order) rather than `render/mainhead.ts` reading `render/rename.ts`'s
-   * `data-editing` DOM attribute itself. */
-  isEditing(): boolean;
+  /** The mainhead's own getSession/onCommit pair — `features/focus.ts` attaches its one
+   * editor with this directly. */
+  readonly mainheadRenameHandlers: RenameEditorHandlers;
 }
 
-// Deps are typed structurally, not via a sibling import of FocusHandle from the focus
-// module (kb:adr/process-composition-roots-registration-only) — this module only ever
-// touches focus's `nameEl`.
-export interface RenameDeps {
-  focus: { nameEl: HTMLElement };
-}
-
-export function initRename(app: App, deps: RenameDeps): RenameHandle {
+export function initRename(app: App): RenameHandle {
   /** The one `putTitle` dispatcher both the mainhead's editor and every tile's editor
    * route through — fire-and-forget; the resulting `sessionUpsert` (or nothing, on a
    * failed request) drives the redraw, never a locally-typed title
@@ -36,24 +28,15 @@ export function initRename(app: App, deps: RenameDeps): RenameHandle {
     void putTitle(id, title);
   }
 
-  const mainheadRename: RenameEditorController = attachRenameEditor(deps.focus.nameEl, {
-    getSession: () => app.store.values().find((s) => s.id === app.state.focusedId) ?? null,
-    onCommit: handleRenameCommit,
-  });
-
   const tileRenameHandlers: TileRenameHandlers = {
     getSession: (id) => app.store.values().find((s) => s.id === id) ?? null,
     onCommit: handleRenameCommit,
   };
 
-  // Cancels the mainhead's open rename editor, with no request sent either way, on every
-  // trigger that must not let a blur-driven commit through — a disconnect, a `view` change
-  // arriving over the wire, or a direct mousedown on the Focus/Tiles masthead buttons
-  // (views.ts's own guard, kb:adr/views-active-segment-click-commits-rename).
-  app.on("cancelRenames", () => mainheadRename.cancel());
-  app.on("status", () => mainheadRename.cancel());
-  // focusChanged: today's `setFocusedId` always cancelled the mainhead editor first.
-  app.on("focusChanged", () => mainheadRename.cancel());
+  const mainheadRenameHandlers: RenameEditorHandlers = {
+    getSession: () => app.store.values().find((s) => s.id === app.state.focusedId) ?? null,
+    onCommit: handleRenameCommit,
+  };
 
-  return { tileRenameHandlers, isEditing: mainheadRename.isEditing };
+  return { tileRenameHandlers, mainheadRenameHandlers };
 }

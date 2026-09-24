@@ -4,12 +4,12 @@
 
 import { isRecord } from "./decode";
 
-// Plan auto-update (kb:anchor/ws.update): the daemon's startup classification of its own
-// resolved executable path, constant for the daemon's life.
+// The daemon's startup classification of its own resolved executable path, constant for
+// the daemon's life.
 export const UPDATE_INSTALL_KINDS = ["installer", "dev", "homebrew", "unmanaged"] as const;
 export type UpdateInstallKind = (typeof UPDATE_INSTALL_KINDS)[number];
 
-// Plan auto-update (kb:anchor/ws.update): apply progress, broadcast on every phase change.
+// Apply progress, broadcast on every phase change.
 export const UPDATE_APPLY_PHASES = [
   "idle",
   "downloading",
@@ -29,18 +29,18 @@ export interface UpdateApply {
   error: string | null;
 }
 
-// Plan auto-update (kb:anchor/ws.update): the daemon's current view of its own update
-// state, always present on `snapshot` and re-sent on every field change as a bare `update`
-// message. `running` duplicates `hello.daemon.version` deliberately - render/update.ts's
-// buildUpdateViewModel renders the Settings dialog from this one object.
+// The daemon's current view of its own update state, always present on `snapshot` and
+// re-sent on every field change as a bare `update` message. `running` duplicates
+// `hello.daemon.version` deliberately - render/update.ts's buildUpdateViewModel renders
+// the Settings dialog from this one object.
 export interface UpdateInfo {
   running: string;
   install: UpdateInstallKind;
   remedy: string | null;
-  // Plan rail-card-improvements-2 (kb:anchor/ws.update): true iff a release check is
-  // possible at all — `-update-base-url` is non-empty and the install kind is not "dev".
-  // Constant for the daemon's life and independent of `prefs.updateCheck`, which governs
-  // only the automatic schedule. False means POST /api/update/check returns 404.
+  // True iff a release check is possible at all — `-update-base-url` is non-empty and the
+  // install kind is not "dev". Constant for the daemon's life and independent of
+  // `prefs.updateCheck`, which governs only the automatic schedule. False means
+  // POST /api/update/check returns 404.
   canCheck: boolean;
   available: string | null;
   checkedAt: string | null;
@@ -48,8 +48,8 @@ export interface UpdateInfo {
   apply: UpdateApply;
 }
 
-// Plan auto-update (kb:anchor/ws.update): sent on every change to any `update` field
-// (check result, pref toggle, each apply phase, an out-of-band swap detection).
+// Sent on every change to any `update` field (check result, pref toggle, each apply
+// phase, an out-of-band swap detection).
 export interface UpdateMessage {
   type: "update";
   update: UpdateInfo;
@@ -74,9 +74,9 @@ function parseUpdateApply(value: unknown): UpdateApply | null {
   return { phase, version, error };
 }
 
-/** Plan auto-update (kb:anchor/ws.update). Every field is read-checked; a malformed
- * value anywhere rejects the whole object rather than degrading it to a partial "unknown"
- * shape (same discipline as parseSession). */
+/** Every field is read-checked; a malformed value anywhere rejects the whole object
+ * rather than degrading it to a partial "unknown" shape (same discipline as
+ * parseSession). */
 // Exported for api/update.ts's `checkForUpdate` (kb:anchor/update.check), which decodes the same
 // shape from a POST response instead of a WS broadcast.
 export function parseUpdateInfo(value: unknown): UpdateInfo | null {

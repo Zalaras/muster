@@ -1,11 +1,10 @@
-// Drop-onto-a-surface wiring, pulled out of `terminal/pane.ts`'s
-// `TerminalSurface` — its drop handling used to be built into the class itself, the one
-// piece of that class not shared with every other surface concern (socket, xterm
-// lifecycle, overlay). Installed once per surface, from outside, mirroring
-// `render/dragreorder.ts`'s/`render/dropguard.ts`'s `install*(root, ...)` shape. Pure
-// classification/escaping/notice-text stays in `./drop.ts` (terminal/CLAUDE.md: a pure
-// module takes no `HTMLElement`) — this is the DOM half. The surface itself is reached
-// only through the small structural `DropSurface` interface below, never a whole
+// Drop-onto-a-surface wiring — the one concern of a terminal surface not shared with
+// every other surface concern (socket, xterm lifecycle, overlay), so it lives apart from
+// `terminal/pane.ts`'s `TerminalSurface`. Installed once per surface, from outside,
+// mirroring `render/dragreorder.ts`'s/`render/dropguard.ts`'s `install*(root, ...)` shape.
+// Pure classification/escaping/notice-text stays in `./drop.ts` (terminal/CLAUDE.md: a
+// pure module takes no `HTMLElement`) — this is the DOM half. The surface itself is
+// reached only through the small structural `DropSurface` interface below, never a whole
 // `TerminalSurface` import.
 import { locateDroppedFile } from "../api/terminal";
 import { DRAG_MIME } from "../dragmime";
@@ -103,10 +102,10 @@ async function handleDrop(
   }
 }
 
-/** Installs the three drag listeners on `root` (UI Specifications: "Focus pane and Tiles
- * tiles ... become a drop target"). Called unconditionally, even for a dead session's
- * surface (`hasTerminal()` false) — it just prevents the browser's default navigation and
- * stops there; no notice, no request, no drop-target styling for that case. */
+/** Installs the three drag listeners on `root` — every Focus pane and Tiles tile becomes
+ * a drop target. Called unconditionally, even for a dead session's surface
+ * (`hasTerminal()` false) — it just prevents the browser's default navigation and stops
+ * there; no notice, no request, no drop-target styling for that case. */
 export function installTerminalDrop(
   root: HTMLElement,
   sessionId: number,

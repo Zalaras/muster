@@ -9,9 +9,7 @@
 // `writtenAt`/`docChanged.at` value (they're the same timestamp, one write log): a later
 // write to the same path gets a new value and lights the dot again.
 import { isRecord } from "../protocol/decode";
-import { readJson, writeJson, type StorageLike } from "../storage";
-
-export type { StorageLike };
+import { readJson, removeItem, writeJson, type StorageLike } from "../storage";
 
 export interface ReaderMemory {
   openPath: string | null;
@@ -52,15 +50,9 @@ export function saveMemory(storage: StorageLike, sessionId: number, memory: Read
  * monotonic and never reused (kb:adr/lifecycle-session-ids-monotonic-never-reused), so
  * no later session can ever carry this id. That is precisely why the key has to be
  * dropped here: nothing else will ever collide with it and reclaim it, so without this
- * every removed session leaves a key behind for good. Same try/catch contract as
- * loadMemory/saveMemory above — a throwing accessor (private window, blocked site data)
- * is a no-op, not an error the removal flow should ever see. */
+ * every removed session leaves a key behind for good. */
 export function forget(storage: StorageLike, sessionId: number): void {
-  try {
-    storage.removeItem(keyFor(sessionId));
-  } catch {
-    // Private mode / disabled storage — nothing to clear, and nothing should throw.
-  }
+  removeItem(storage, keyFor(sessionId));
 }
 
 /** Whether `path`'s changed dot should show, given the daemon's current

@@ -1,12 +1,11 @@
 // The Updates section, restart confirm, Settings badge, and apply handlers. No dependency
 // on any other controller (kb:adr/process-composition-roots-registration-only): this module
-// now wires its own toggle/apply/restart/check buttons directly (features/CLAUDE.md "Owns":
-// "each controller wires listeners on the elements it looked up itself"). `settings.ts` used
-// to take an `update` dep purely to relay those clicks; it no longer references this module
-// at all.
+// wires its own toggle/apply/restart/check buttons directly (features/CLAUDE.md "Owns":
+// "each controller wires listeners on the elements it looked up itself"). `settings.ts`
+// never references this module.
 import type { App } from "../app";
 import { applyUpdate, checkForUpdate, fetchRestartImpact } from "../api/update";
-import { requestPrefs } from "../api/prefs";
+import { sendPrefsPatch } from "../api/prefs";
 import { requireElement } from "../dom";
 import {
   initRestartConfirm,
@@ -89,7 +88,7 @@ export function initUpdate(app: App): void {
   // This module wires its own Updates-section buttons — no other
   // controller reaches into these elements.
   updateSectionElements.toggle.addEventListener("change", () => {
-    requestPrefs({ updateCheck: updateSectionElements.toggle.checked });
+    sendPrefsPatch({ updateCheck: updateSectionElements.toggle.checked });
   });
   updateSectionElements.applyBtn.addEventListener("click", () => apply());
   updateSectionElements.restartBtn.addEventListener("click", () => applyAndRestart());
@@ -111,7 +110,7 @@ export function initUpdate(app: App): void {
   // against a dead daemon can't be confirmed as done.
   app.on("status", () => restartConfirm.close());
 
-  // Render phase 3 (UI Specifications > Render phase order).
+  // Render phase 3 (main.ts's numbered render-phase order).
   app.onRender((frame) => {
     const vm = buildUpdateViewModel(currentUpdate, frame.now, checkState);
     renderUpdateSection(updateSectionElements, vm);

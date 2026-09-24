@@ -13,10 +13,9 @@
 // is idempotent once already at capacity with valid members, which is what lets it be
 // called on every session-list change without reshuffling anything a user chose.
 //
-// Slot-stable ordering (kb:adr/tiles-slot-stable-grid-never-self-sorts, amends ux-flows
-// §3.7): `promote` and `applyDensity` used to re-sort the whole live array back to §3.4
-// order on every call, which meant a bare priority change (no membership change at all)
-// moved every tile in the grid. Neither function re-sorts anymore — §3.4 order is used
+// Slot-stable ordering (kb:adr/tiles-slot-stable-grid-never-self-sorts): neither
+// `promote` nor `applyDensity` re-sorts the live array — a bare priority change (no
+// membership change at all) must never move a tile in the grid. Priority order is used
 // only to decide *which* ids are members (the demoted slot on promote, which members
 // survive a shrink, which members backfill a grow), never to reorder the array itself.
 // The only way the array's order changes is `moveTile`, which is a user drag.

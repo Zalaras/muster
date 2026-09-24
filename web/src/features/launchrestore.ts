@@ -3,7 +3,8 @@
 // § Composition roots: a DOM-free decision one controller calls lives in `features/`,
 // not `render/`).
 import type { Repo } from "../api/launch";
-import { permissionModeToCheck, type PermissionMode } from "../sessions/permission";
+import type { PermissionMode } from "../protocol/session";
+import { permissionModeToCheck } from "../sessions/permission";
 
 /** The one fallback a repo has no stored model to restore — also `resetForm`'s brand-new-
  * form default (features/launch.ts), so "sonnet" is written in exactly one place. */

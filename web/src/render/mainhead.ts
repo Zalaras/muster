@@ -6,8 +6,7 @@
 // per-session card/tile templates) — features/focus.ts wires the three buttons' click
 // listeners once at startup and this module only ever toggles their `disabled` state.
 import type { Session } from "../protocol/session";
-import { buildCardViewModel, canResume, resumeDisabledReason } from "../sessions/card";
-import { ageAgo } from "../sessions/format";
+import { canResume, mainheadMeta, resumeDisabledReason } from "../sessions/card";
 import type { ShellActivityIndicator } from "../terminal/shellactivity";
 import type { SessionSurfaceState } from "../terminal/surfaceswitch";
 import { updateSurfaceSegment, type SurfaceSegmentRefs } from "./surfaceseg";
@@ -28,16 +27,6 @@ export interface MainheadElements {
   // built once by features/focus.ts at startup and inserted between `.meta` and `.acts`
   // — this module only ever updates its attributes (below), never rebuilds it.
   surfaceSegment: SurfaceSegmentRefs;
-}
-
-/** The meta line: "repo/branch · model · `ended <age>` when dead" — reuses
- * `buildCardViewModel`'s `repoLine` (the same repo-or-basename fallback the rail card
- * shows) rather than re-deriving it. */
-function mainheadMeta(session: Session, now: Date): string {
-  const parts: string[] = [buildCardViewModel(session, now).repoLine];
-  if (session.model) parts.push(session.model.displayName);
-  if (!session.alive && session.endedAt) parts.push(`ended ${ageAgo(session.endedAt, now)}`);
-  return parts.join(" · ");
 }
 
 /** `session` is the currently-focused one, or `null` when nothing is focused (no
@@ -61,24 +50,20 @@ export function renderMainhead(
   connected: boolean,
   surfaceState: SessionSurfaceState,
   activity: ShellActivityIndicator,
-  // Asks the rename controller directly (features/focus.ts's caller reads
-  // its own `deps.getRename().isEditing()`), rather than this module reading
-  // `render/rename.ts`'s `data-editing` DOM attribute off `elements.nameEl` itself.
-  isEditingName = false,
+  // Asks the rename controller directly (features/focus.ts's caller reads its own
+  // attached editor's `isEditing()`), rather than this module reading DOM state off
+  // `elements.nameEl` itself. Required, not optional — the one production caller always
+  // passes it.
+  isEditingName: boolean,
 ): void {
   if (!session) {
     elements.root.hidden = true;
-    // This branch used to run
-    // `elements.nameEl.textContent = ""`, which permanently detached the
-    // `button.rename` child `nameEl` must always keep (Testable UI Elements:
-    // "Mainhead heading — heading — #mainhead h2.name" always contains the rename
-    // button). `features/focus.ts` captures that button once via `requireElement`
-    // and `attachRenameEditor` finds it once at startup — there is no later rebuild
-    // path — and the dashboard always runs one render() pass with zero sessions
-    // before the first sessionUpsert, so this branch fired on every page load and
-    // wiped the button before any session data ever arrived. `elements.root` is
-    // hidden in this state, so the button (and any stale text on it) is not visible;
-    // only `metaEl` needs clearing here.
+    // Never `elements.nameEl.textContent = ""` here — that would permanently detach the
+    // `button.rename` child `nameEl` must always keep: `features/focus.ts` captures that
+    // button once via `requireElement` and `attachRenameEditor` finds it once at
+    // startup, with no later rebuild path. `elements.root` is hidden in this state, so
+    // the button (and any stale text on it) is not visible; only `metaEl` needs
+    // clearing here.
     elements.metaEl.textContent = "";
     updateSurfaceSegment(elements.surfaceSegment, surfaceState, connected, activity);
     return;

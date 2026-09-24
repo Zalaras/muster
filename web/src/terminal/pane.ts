@@ -9,7 +9,6 @@ import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import type { Session } from "../protocol/session";
 import { wsUrl } from "../ws";
-import { installTerminalDrop } from "./dropwire";
 import { showNotice as showNoticeOn } from "./notice";
 import { overlayForCloseCode, overlayText, type OverlayKind } from "./overlay";
 import { PIXELS_PER_LINE, shellKeyBytes, wheelDeltaToScrollLines } from "./shellkeys";
@@ -32,8 +31,9 @@ function cssVar(name: string, fallback: string): string {
   return value || fallback;
 }
 
-/** The one place xterm's theme colors are read off the design-system
- * tokens — the constructor and `applyTheme()` used to each build this object separately. */
+/** The one place xterm's theme colors are read off the design-system tokens — both the
+ * constructor and `applyTheme()` call this rather than each building the object
+ * themselves. */
 function terminalThemeColors(): { background: string; foreground: string } {
   return {
     background: cssVar("--term", "Canvas"),
@@ -109,18 +109,13 @@ export class TerminalSurface {
       if (this.overlayKind === "superseded") this.attach();
     });
 
-    // Plan file-drop-fix, UI Specifications > DOM: lives alongside `.terminal-overlay`,
-    // toggled the same way (the `hidden` attribute).
+    // Lives alongside `.terminal-overlay`, toggled the same way (the `hidden` attribute).
     this.noticeEl = document.createElement("div");
     this.noticeEl.className = "terminal-notice";
     this.noticeEl.setAttribute("role", "status");
     this.noticeEl.hidden = true;
 
     this.root.append(this.bodyEl, this.overlayEl, this.noticeEl);
-    // Installed from outside, through the small `DropSurface` interface this class
-    // satisfies structurally — the drop feature's own DOM/fetch logic no longer lives
-    // inside this constructor.
-    installTerminalDrop(this.root, this.sessionId, this);
 
     if (kind === "claude" && !session.alive) {
       this.setOverlay("ended");
@@ -259,11 +254,11 @@ export class TerminalSurface {
     this.overlayEl.textContent = "";
   }
 
-  // ── file-drop-fix: drag-and-drop onto this surface ──────────────────────────────────
-  // The DOM/fetch wiring for this feature moved to `./dropwire.ts`'s
-  // `installTerminalDrop`, installed from the constructor above — this class exposes only
-  // the small `DropSurface` surface it needs (`hasTerminal`/`canPasteNow`/`pasteText`/
-  // `showNotice`/`focus`, all below).
+  // ── drag-and-drop onto this surface ──────────────────────────────────────────────────
+  // The DOM/fetch wiring lives in `./dropwire.ts`'s `installTerminalDrop`, installed by
+  // features/surfaces.ts (the one place a `TerminalSurface` is constructed) — this class
+  // exposes only the small `DropSurface` surface it needs (`hasTerminal`/`canPasteNow`/
+  // `pasteText`/`showNotice`/`focus`, all below).
 
   /** Whether this surface has ever constructed an xterm instance — `dropwire.ts`'s outer
    * drag guard (a dead `"claude"` surface still swallows the browser's default drop
@@ -338,9 +333,9 @@ export class TerminalSurface {
 
   /** Re-themes a live terminal in place — xterm.js 6's `term.options.theme`
    * assignment restyles without recreating the `Terminal` instance. Called on every live
-   * surface by `features/surfaces.ts`'s `applyTheme()`, itself invoked by `features/theme.ts`
-   * after a `snapshot`/`prefs`/`claudeTheme` message sets the theme attributes; never from
-   * the 1s render tick. A no-op for a dead session's surface
+   * surface by `features/surfaces.ts`'s `themeChanged` subscriber, which `features/theme.ts`
+   * emits after a `snapshot`/`prefs`/`claudeTheme` message sets the theme attributes; never
+   * from the 1s render tick. A no-op for a dead session's surface
    * (`this.term` is null — it never had a terminal to restyle). */
   applyTheme(): void {
     if (!this.term) return;

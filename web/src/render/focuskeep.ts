@@ -37,7 +37,7 @@
  * (`key`) — shared by both flavours below. */
 interface CapturedFocus<K> {
   readonly key: K;
-  /** The element that was focused, so `restoreIfLost` can detect "nothing changed". */
+  /** The element that was focused, so `restoreFocusIfLost` can detect "nothing changed". */
   readonly element: Element;
 }
 

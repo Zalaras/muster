@@ -4,16 +4,17 @@
 // socket outside this manager, and never for an `alive:false` session. Also owns
 // per-session surface-switch state (`claude`/`shell` selection).
 //
-// `deps.getTilesLive` reads `tiles`'s current live-id list on every call — `tiles` is
-// already constructed by the time `surfaces` is (main.ts's init order: `tiles` itself
-// takes a forward-reference thunk for `surfaces`, the other half of that pair), but this
-// module's deps keep the same `get<Noun>` naming its sibling thunks use.
+// `deps.tilesLive` is `tiles.liveIds` passed straight through — `tiles` is already
+// constructed by the time `surfaces` is (main.ts's init order: `tiles` itself takes a
+// forward-reference `get<Noun>` thunk for `surfaces`, the other half of that pair), so
+// this is a real value, not a thunk, even though the value itself is a getter function.
 import type { App, RenderFrame } from "../app";
 import type { Session } from "../protocol/session";
 import { createShell } from "../api/sessions";
 import type { ApiErrorBody } from "../api/http";
 import { showDeadSurfaceNotice, type DeadSurfaceRefs } from "../render/dead";
 import { visibleIds } from "../sessions/live";
+import { installTerminalDrop } from "../terminal/dropwire";
 import { TerminalSurface } from "../terminal/pane";
 import {
   clearOnSelect,
@@ -45,7 +46,7 @@ import {
 } from "../terminal/surfaceswitch";
 
 export interface SurfacesDeps {
-  getTilesLive(): readonly number[];
+  tilesLive(): readonly number[];
 }
 
 export interface SurfacesHandle {
@@ -57,7 +58,7 @@ export interface SurfacesHandle {
   select(id: number, kind: SurfaceKind, findDeadRefs: () => DeadSurfaceRefs | null): void;
   focusSelected(id: number): void;
   /** The `shell` segment's busy/done verdict for `id`, per `terminal/shellactivity.ts`'s
-   * reducer — `render/mainhead.ts` and `features/tiles.ts` read this on every render pass
+   * reducer — `features/focus.ts` and `features/tiles.ts` read this on every render pass
    * to drive `span.shellact`. */
   activityFor(id: number): ShellActivityIndicator;
 }
@@ -158,7 +159,7 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
   }
 
   function visibleSessionIds(): readonly number[] {
-    return visibleIds(app.state.view, app.state.focusedId, deps.getTilesLive());
+    return visibleIds(app.state.view, app.state.focusedId, deps.tilesLive());
   }
 
   /** The `(id, kind)` pairs that should have a mounted surface right now — a visible
@@ -198,7 +199,10 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
   }
 
   /** Constructs a `TerminalSurface` for every wanted `(id, kind)` that has none yet — the
-   * only place in the app one is ever constructed. */
+   * only place in the app one is ever constructed, and so the one place its drop wiring
+   * (`terminal/dropwire.ts`) is installed — never inside `TerminalSurface`'s own
+   * constructor, the same "attaches from outside" shape `render/dragreorder.ts`'s and
+   * `render/dropguard.ts`'s owners already follow. */
   function openMissingSurfaces(
     entries: ReadonlyArray<{ id: number; kind: SurfaceKind }>,
     sessions: readonly Session[],
@@ -209,7 +213,9 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
       const session = sessions.find((s) => s.id === entry.id);
       if (!session) continue;
       const onShellEnded = entry.kind === "shell" ? () => handleShellEnded(entry.id) : undefined;
-      surfaces.set(key, new TerminalSurface(session, entry.kind, onShellEnded));
+      const surface = new TerminalSurface(session, entry.kind, onShellEnded);
+      installTerminalDrop(surface.root, entry.id, surface);
+      surfaces.set(key, surface);
     }
   }
 
@@ -223,9 +229,8 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
     openMissingSurfaces(desiredEntries, sessions);
   });
 
-  // The one theme-change signal features/theme.ts emits — re-themes every live terminal in
-  // place, replacing the removed `SurfacesHandle.applyTheme()` that used to be called
-  // directly from there.
+  // The one theme-change signal features/theme.ts emits — re-themes every live terminal
+  // in place.
   app.on("themeChanged", () => {
     for (const surface of surfaces.values()) surface.applyTheme();
   });

@@ -1,7 +1,8 @@
 // The masthead's usage gauges: text readout, track/resets markup, model readout, and the
 // per-model weekly window. No dependency on any other controller.
 import type { App } from "../app";
-import { requestPrefs, refreshUsage } from "../api/prefs";
+import { sendPrefsPatch } from "../api/prefs";
+import { refreshUsage } from "../api/usage";
 import { requireElement } from "../dom";
 import {
   buildUsageBucket,
@@ -32,12 +33,12 @@ export function initUsage(app: App): void {
   /** The model-week `<select>`'s change handler — fire-and-forget;
    * `usageModel` only ever changes via the `prefs` echo, never optimistically here. */
   function requestUsageModel(newModel: string): void {
-    requestPrefs({ usageModel: newModel });
+    sendPrefsPatch({ usageModel: newModel });
   }
 
-  // Each bucket's DOM refs are built once, here, and held across
-  // every render pass — `render/CLAUDE.md`'s render-state rule (the model-week `<select>`
-  // used to persist in a module-level `WeakMap` inside `render/masthead.ts` instead).
+  // Each bucket's DOM refs are built once, here, and held across every render pass, per
+  // `render/CLAUDE.md`'s render-state rule: the state belongs to whoever renders, never to
+  // a module-level map inside `render/masthead.ts`.
   const fiveHourRefs = buildUsageBucket(usageFiveHourEl, "5h");
   const sevenDayRefs = buildUsageBucket(usageSevenDayEl, "7d");
   const modelWeekRefs = buildUsageModelWeek(
@@ -82,7 +83,7 @@ export function initUsage(app: App): void {
     });
   });
 
-  // Render phase 2 (UI Specifications > Render phase order).
+  // Render phase 2 (main.ts's numbered render-phase order).
   app.onRender((frame) => {
     renderUsageBucket(fiveHourRefs, currentUsage.fiveHour, frame.now);
     renderUsageBucket(sevenDayRefs, currentUsage.sevenDay, frame.now);

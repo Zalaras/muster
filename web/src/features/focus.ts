@@ -8,8 +8,9 @@
 // `SurfacesHandle` from `./actions`/`./surfaces`.
 import type { App, RenderFrame } from "../app";
 import { requireElement } from "../dom";
-import { renderFocusMain, renderSizenote } from "../render/focusview";
+import { renderFocusMain, renderSizenote, setMainSlotHidden } from "../render/focusview";
 import { renderMainhead, type MainheadElements } from "../render/mainhead";
+import { attachRenameEditor, type RenameEditorHandlers } from "../render/rename";
 import { mountSlotRoot } from "../render/slotmount";
 import type { SessionAction } from "../sessions/card";
 import {
@@ -35,7 +36,6 @@ import { orderRail, pickNeediest } from "../sessions/sort";
 export interface FocusDeps {
   actions: {
     dispatch(action: SessionAction, id: number): void;
-    findDeadSurfaceRefs(id: number): DeadSurfaceRefs | null;
     ensurePaneFetch(id: number): void;
     paneState(id: number): PaneState;
   };
@@ -49,19 +49,19 @@ export interface FocusDeps {
    * focusing when the current view is Tiles (`bringForward`'s shared tail). Tiles is
    * constructed before focus (main.ts's init order), so this is a real value. */
   promoteTile(id: number): void;
-  /** Plan markdown-viewing: `reader` is constructed after `focus` (main.ts's init
+  /** `reader` is constructed after `focus` (main.ts's init
    * order), so this is a thunk like `getSurfaces` above — invoked only from `renderView`. */
   getReader(): { rootFor(id: number): HTMLElement | null };
-  /** `rename` is constructed after `focus` (main.ts's init order), so this
-   * is a thunk too — `renderView` asks it whether the mainhead's editor is open, instead of
-   * `render/mainhead.ts` reading `render/rename.ts`'s `data-editing` DOM attribute itself. */
-  getRename(): { isEditing(): boolean };
+  /** `rename` is constructed before `focus` (main.ts's init order), so this is a real
+   * value — this module attaches its own mainhead editor with it directly, the same way
+   * `render/tiles.ts`'s `buildTile` attaches each tile's editor with `renameHandlers`. */
+  renameHandlers: RenameEditorHandlers;
 }
 
 export interface FocusHandle {
-  /** `null` unless `id` is the currently-focused session in Focus view —
-   * `actions.ts`'s `findDeadSurfaceRefs` thunk asks this instead of reaching into Focus's
-   * own markup itself. */
+  /** `null` unless `id` is the currently-focused session in Focus view — Focus's own
+   * dead-surface lookup, passed directly to `surfaces.select` for a spawn-failure notice
+   * (never reached through `features/actions.ts`, which carries no dead-surface API). */
   deadSurfaceRefsFor(id: number): DeadSurfaceRefs | null;
   /** For `rename.ts`'s mainhead editor attachment. */
   readonly nameEl: HTMLElement;
@@ -74,15 +74,24 @@ export interface FocusHandle {
    * `onLaunched` through this structurally typed handle — the one owner for "bring a
    * session forward", never duplicated in launch.ts. */
   bringForward(session: Session): void;
-  /** Render phase 10 in Focus (main.ts dispatches focus vs. tiles by `app.state.view`). */
+  /** Render phase 10 in Focus (features/views.ts dispatches focus vs. tiles by `app.state.view`). */
   renderView(frame: RenderFrame): void;
 }
 
 export function initFocus(app: App, deps: FocusDeps): FocusHandle {
+  const deadSurfaceEl = requireElement<HTMLElement>("#dead-surface");
+  const deadSurfaceRefs: DeadSurfaceRefs = collectDeadSurfaceRefs(deadSurfaceEl);
+
+  /** `null` unless `id` is the currently-focused session in Focus view — passed directly
+   * to `surfaces.select` below, and returned on `FocusHandle` for the same reason. */
+  function deadSurfaceRefsFor(id: number): DeadSurfaceRefs | null {
+    return app.state.view === "focus" && app.state.focusedId === id ? deadSurfaceRefs : null;
+  }
+
   const mainheadSurfaceSegment = buildSurfaceSegment((kind) => {
     if (app.state.focusedId !== null) {
       const id = app.state.focusedId;
-      deps.getSurfaces().select(id, kind, () => deps.actions.findDeadSurfaceRefs(id));
+      deps.getSurfaces().select(id, kind, () => deadSurfaceRefsFor(id));
     }
   });
   requireElement<HTMLElement>("#mainhead .acts").before(mainheadSurfaceSegment.root);
@@ -97,8 +106,15 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
     renameBtn: requireElement<HTMLButtonElement>("#mainhead button.rename"),
     surfaceSegment: mainheadSurfaceSegment,
   };
-  const deadSurfaceEl = requireElement<HTMLElement>("#dead-surface");
-  const deadSurfaceRefs: DeadSurfaceRefs = collectDeadSurfaceRefs(deadSurfaceEl);
+
+  // Attached here, directly, the same way `render/tiles.ts`'s `buildTile` attaches each
+  // tile's own editor with its `renameHandlers` — `features/rename.ts` holds no editor of
+  // its own.
+  const mainheadRename = attachRenameEditor(mainheadElements.nameEl, deps.renameHandlers);
+  app.on("cancelRenames", () => mainheadRename.cancel());
+  app.on("status", () => mainheadRename.cancel());
+  // focusChanged: today's `setFocusedId` always cancelled the mainhead editor first.
+  app.on("focusChanged", () => mainheadRename.cancel());
 
   const mainEmptyEl = requireElement<HTMLElement>("#main-empty");
   const mainSlotEl = requireElement<HTMLElement>("#main-terminal-slot");
@@ -139,7 +155,7 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
     if (session) bringForward(session);
   }
 
-  // Render phase 6 (UI Specifications > Render phase order): default `focusedId` to the
+  // Render phase 6 (main.ts's numbered render-phase order): default `focusedId` to the
   // top of the rail's own order when unset/vanished. Only fires in Focus — Tiles' own
   // membership phase (5) owns `tilesLive` instead.
   app.onRender((frame) => {
@@ -158,7 +174,7 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
    * the project ceiling. */
   function mountReader(session: Session): void {
     const readerRoot = deps.getReader().rootFor(session.id);
-    mainSlotEl.hidden = readerRoot === null;
+    setMainSlotHidden(mainSlotEl, readerRoot === null);
     mountSlotRoot(mainSlotEl, readerRoot);
     renderSizenote(sizenoteEl, null);
   }
@@ -173,17 +189,13 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
       renderSizenote(sizenoteEl, null);
       return;
     }
-    mainSlotEl.hidden = false;
+    setMainSlotHidden(mainSlotEl, false);
     mountSlotRoot(mainSlotEl, surface.root);
-    // Reserve the sizenote line's layout space BEFORE fitting — a non-breaking space
-    // keeps the reserved line the same height real geometry
-    // text would, so even the very first attach reserves the right amount of space. Must
-    // stay a literal NBSP (U+00A0), not an ASCII space: `.sizenote` is flex, and a flex
-    // item holding only collapsible whitespace renders at zero height.
-    if (sizenoteEl.hidden) {
-      sizenoteEl.hidden = false;
-      sizenoteEl.textContent = " ";
-    }
+    // Reserve the sizenote line's layout space BEFORE fitting (`renderSizenote`'s
+    // `reserving` option) — needed only the first time this attaches, while the line is
+    // still hidden; once it's already showing a prior geometry, that text stays put until
+    // `refit()` below reports the real one.
+    if (sizenoteEl.hidden) renderSizenote(sizenoteEl, null, { reserving: true });
     surface.refit();
     renderSizenote(sizenoteEl, surface.geometry);
   }
@@ -204,12 +216,12 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
       connected,
       surfaceState,
       activity,
-      deps.getRename().isEditing(),
+      mainheadRename.isEditing(),
     );
 
     if (!session) {
-      mainSlotEl.hidden = true;
-      mainSlotEl.replaceChildren();
+      setMainSlotHidden(mainSlotEl, true);
+      mountSlotRoot(mainSlotEl, null);
       deadSurfaceEl.hidden = true;
       renderSizenote(sizenoteEl, null);
       return;
@@ -221,7 +233,7 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
     const bodyKind = surfaceBodyKind(surfaceState.selected, session.alive);
 
     if (bodyKind === "dead") {
-      mainSlotEl.hidden = true;
+      setMainSlotHidden(mainSlotEl, true);
       mountSlotRoot(mainSlotEl, null);
       deadSurfaceEl.hidden = false;
       deps.actions.ensurePaneFetch(session.id);
@@ -247,9 +259,7 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
   }
 
   return {
-    deadSurfaceRefsFor(id) {
-      return app.state.view === "focus" && app.state.focusedId === id ? deadSurfaceRefs : null;
-    },
+    deadSurfaceRefsFor,
     nameEl: mainheadElements.nameEl,
     nth,
     neediest,

@@ -12,8 +12,8 @@ export interface Crumb {
 
 /** Renders `crumbs` into `nav`: every ancestor as a clickable `<button data-path>`
  * separated by an `aria-hidden` `›`, the last as the non-clickable `<span
- * aria-current="location">`, followed by the decorative `⌘↑` kbd (UI Specifications: the
- * mockup's `#browse-crumbs` structure). `onNavigate` fires on an ancestor click. */
+ * aria-current="location">`, followed by the decorative `⌘↑` kbd (the mockup's
+ * `#browse-crumbs` structure). `onNavigate` fires on an ancestor click. */
 export function renderCrumbs(
   nav: HTMLElement,
   crumbs: readonly Crumb[],

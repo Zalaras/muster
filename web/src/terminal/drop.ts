@@ -61,7 +61,7 @@ export function classifyDrop(types: readonly string[], fileCount: number): DropK
   return "none";
 }
 
-/** The outcomes `noticeForFailure` renders, per the plan's Testable UI Elements table. */
+/** The outcomes `noticeForFailure` renders. */
 export type LocateFailure =
   | { kind: "not_located" }
   | { kind: "ambiguous"; count: number }
@@ -96,9 +96,8 @@ export function noticeForFailure(name: string, failure: LocateFailure): string {
 /** Maps a `POST /api/sessions/{id}/locate` failure (kb:anchor/sessions.locate) to the
  * `LocateFailure` kind whose notice text `noticeForFailure` should show. `ambiguous`
  * carries the daemon's own `paths` count; every other non-2xx (`400`, `500`,
- * `network_error`, or any code this client doesn't recognise) is `"other"`. Moved here
- * (web-tests fix attempt 1) from `terminal/pane.ts` so this pure `code -> kind` mapping
- * is Vitest-testable without a DOM/xterm/socket harness — same separation as
+ * `network_error`, or any code this client doesn't recognise) is `"other"`. Pure `code ->
+ * kind` mapping, Vitest-testable without a DOM/xterm/socket harness — same separation as
  * `terminal/overlay.ts`'s `overlayForCloseCode`. */
 export function classifyApiFailure(error: ApiErrorBody): LocateFailure {
   switch (error.code) {

@@ -2,12 +2,12 @@
 // `deps.surfaces` is a real value — `surfaces` is constructed before `rail`
 // (main.ts's init order).
 import type { App } from "../app";
-import { requestPrefs } from "../api/prefs";
+import { sendPrefsPatch } from "../api/prefs";
 import { putSessionOrder } from "../api/sessions";
 import { requireElement, requireElements } from "../dom";
 import { installDragReorder } from "../render/dragreorder";
 import type { FocusedControl } from "../render/focuskeep";
-import { renderSessions } from "../render/sessions";
+import { renderRailDensityControl, renderSessions } from "../render/sessions";
 import { moveCard } from "../sessions/railorder";
 import { orderRail } from "../sessions/sort";
 import { isRailDensity, type RailDensity, type RailSort } from "../protocol/prefs";
@@ -26,17 +26,17 @@ export function initRail(app: App, deps: RailDeps): void {
   const railSortSelect = requireElement<HTMLSelectElement>("#rail-sort");
   const railDensityButtons = requireElements<HTMLButtonElement>("#rail-density .seg-btn");
   // Looked up once, here, and passed into `render/sessions.ts`'s
-  // `renderSessions` — `render/` no longer calls `requireTemplate` itself.
+  // `renderSessions` — no `render/` module looks up its own template.
   const sessionCardTemplate = requireElement<HTMLTemplateElement>("#session-card-template");
 
   let pendingRailFocus: FocusedControl | null = null;
 
   function requestRailSort(newSort: RailSort): void {
-    requestPrefs({ railSort: newSort });
+    sendPrefsPatch({ railSort: newSort });
   }
 
   function requestRailDensity(newDensity: RailDensity): void {
-    requestPrefs({ railDensity: newDensity });
+    sendPrefsPatch({ railDensity: newDensity });
   }
 
   // No sticky client-side state depends on `railSort` (unlike view/density's `tilesLive`)
@@ -80,7 +80,7 @@ export function initRail(app: App, deps: RailDeps): void {
     },
   });
 
-  // Render phase 8 (UI Specifications > Render phase order).
+  // Render phase 9 (main.ts's numbered render-phase order).
   app.onRender((frame) => {
     renderSessions(
       sessionsEl,
@@ -108,11 +108,6 @@ export function initRail(app: App, deps: RailDeps): void {
     railSortSelect.value = app.state.railSort;
     // The pressed button always reflects `app.state.railDensity` (itself
     // only ever adopted from `prefs` above), never the click that requested it.
-    for (const button of railDensityButtons) {
-      button.setAttribute(
-        "aria-pressed",
-        String(button.dataset["density"] === app.state.railDensity),
-      );
-    }
+    renderRailDensityControl(railDensityButtons, app.state.railDensity);
   });
 }

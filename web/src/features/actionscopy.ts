@@ -4,29 +4,32 @@
 // stays the DOM half: `initConfirmDialogs`'s `openEnd`/`openRemove` take the text these
 // produce as a parameter and only ever assign it to `textContent`.
 import type { Session } from "../protocol/session";
-import { buildCardViewModel } from "../sessions/card";
+import { repoLine } from "../sessions/card";
 
-function sessionLabel(session: Session, now: Date): string {
+function sessionLabel(session: Session): string {
   const title = session.title ?? "untitled";
-  return `${title} — ${buildCardViewModel(session, now).repoLine}`;
+  return `${title} — ${repoLine(session)}`;
 }
 
 /** End dialog copy: names the session, says it stays as ended and can be
- * resumed. */
-export function endDialogBody(session: Session, now: Date): string {
+ * resumed. `now` is unused by this dialog's own copy — kept so both dialog builders share
+ * one signature with `features/actions.ts`'s `dispatch`, which passes `new Date()` to
+ * either uniformly. */
+export function endDialogBody(session: Session, _now: Date): string {
   return (
-    `${sessionLabel(session, now)}. Kills the tmux pane and the claude inside it. The card stays in the rail ` +
+    `${sessionLabel(session)}. Kills the tmux pane and the claude inside it. The card stays in the rail ` +
     "as ended — Resume can pick the conversation back up if this was a slip."
   );
 }
 
 /** Remove dialog copy (kb:adr/actions-remove-allowed-on-live-session): it disappears and
  * cannot be resumed from here, plus — only when the target is still alive — "ends the
- * session first", the exact phrase web/e2e/actions.spec.ts asserts. */
-export function removeDialogBody(session: Session, now: Date): string {
+ * session first", the exact phrase web/e2e/actions.spec.ts asserts. `now` is unused, same
+ * reason as `endDialogBody` above. */
+export function removeDialogBody(session: Session, _now: Date): string {
   const endsFirst = session.alive ? " This ends the session first." : "";
   return (
-    `${sessionLabel(session, now)}.${endsFirst} Deletes it from Muster for good — the card disappears and it ` +
+    `${sessionLabel(session)}.${endsFirst} Deletes it from Muster for good — the card disappears and it ` +
     "can no longer be resumed from here."
   );
 }

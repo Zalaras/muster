@@ -1118,11 +1118,10 @@ body {
   overflow-wrap: anywhere;
 }
 
-/* Plan mermaid-support — a rendered diagram grounds like `.md pre` does (no mockup draws
- * one, UI Specifications). `overflow-x: auto` plus `render/mermaid.ts` stripping
- * mermaid's own responsive width/max-width (REQ-11) is what lets a wide diagram scroll
- * instead of shrinking to fit — the same contract `.md pre` already gives a wide code
- * block. */
+/* A rendered diagram grounds like `.md pre` does (no mockup draws one). `overflow-x:
+ * auto` plus `render/mermaid.ts` stripping mermaid's own responsive width/max-width is
+ * what lets a wide diagram scroll instead of shrinking to fit — the same contract `.md
+ * pre` already gives a wide code block. */
 .md figure.diagram {
   background: var(--bg-hover);
   border: 1px solid var(--line);
@@ -1502,10 +1501,10 @@ body {
   display: none;
 }
 
-/* plan file-drop-fix, UI Specifications > DOM: a one-line strip across the BOTTOM of the
- * surface, not a full scrim like `.terminal-overlay` above — the pane stays readable
- * while a locate request is in flight or a failure notice is showing (design-system
- * §7.5: the dashboard supplies the frame, never restyles pane contents). */
+/* A one-line strip across the BOTTOM of the surface, not a full scrim like
+ * `.terminal-overlay` above — the pane stays readable while a locate request is in
+ * flight or a failure notice is showing (design-system §7.5: the dashboard supplies the
+ * frame, never restyles pane contents). */
 .terminal-notice {
   position: absolute;
   left: 0;
@@ -2421,9 +2420,9 @@ dialog.confirm p {
   color: var(--fg-muted);
 }
 
-/* ── diagram modal (plan mermaid-support, REQ-8) — one per reader root, modelled on the
+/* ── diagram modal — one per reader root, modelled on the
  * launch/confirm dialogs' shared `dialog.modal` chrome above but sized to the viewport
- * (UI Specifications) rather than a fixed content width. `grid-template-rows: 1fr auto`
+ * rather than a fixed content width. `grid-template-rows: 1fr auto`
  * means the stage and the toolbar (`.modal-foot`) together fill the box with no gap, so
  * every click inside it lands on one of the two — only a genuine backdrop click ever
  * reaches the `<dialog>` element itself (`render/diagramdialog.ts`'s close-on-backdrop
@@ -2888,8 +2887,8 @@ fieldset.seg legend {
   display: none;
 }
 
-/* ── issue dialog (plan issue-capture) ──────────────────────────────────
- * UI Specifications: 560px — wider than a confirm dialog (it hosts a preview pane),
+/* ── issue dialog ──────────────────────────────────
+ * 560px — wider than a confirm dialog (it hosts a preview pane),
  * narrower than the 720px launch dialog. The dialog never grows past 80vh; the preview
  * pane is what scrolls internally, not the whole dialog (`.foot` and the form stay put).
  */

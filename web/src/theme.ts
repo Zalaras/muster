@@ -3,7 +3,7 @@
 // theme names, so adding a theme never needs a daemon release, only a new
 // `[data-theme]` block in style.css plus a new entry in THEMES below.
 import type { ClaudeFamily } from "./protocol/theme";
-import { writeJson } from "./storage";
+import { writeJson, type StorageLike } from "./storage";
 
 export const THEMES = ["instrument", "dark", "light"] as const;
 export type ThemeName = (typeof THEMES)[number];
@@ -46,7 +46,7 @@ export interface ThemeHint {
  * duplicated there, not imported — see its own comment), never by this module. */
 export function writeThemeHint(
   hint: ThemeHint,
-  storage: Pick<Storage, "setItem"> = localStorage,
+  storage: Pick<StorageLike, "setItem"> = localStorage,
 ): void {
   writeJson(storage, HINT_KEY, hint);
 }

@@ -369,10 +369,11 @@ function baseOptions(overrides: Partial<CardListOptions> = {}): CardListOptions 
     draggable: false,
     currentId: null,
     railActivity: "turn",
-    // `CardOptions.onClick` is required (review maintainability Major 6) — no test in this
-    // file asserts on the click itself (that's rail.test.ts's/tiles.test.ts's job for their
-    // own real callers), so a no-op default is enough for every case here.
+    // `CardOptions.onClick`/`onAction` are required — no test in this file asserts on
+    // either callback itself (that's rail.test.ts's/tiles.test.ts's job for their own real
+    // callers), so a no-op default is enough for every case here.
     onClick: () => {},
+    onAction: () => {},
     ...overrides,
   };
 }

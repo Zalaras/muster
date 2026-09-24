@@ -1,10 +1,9 @@
-// UI Specifications > Text rules: the pure decision behind the Updates section's readouts
-// — split out of render/update.ts: a DOM-free decision with one controller caller,
-// features/update.ts, lives beside it, not in `render/`. `buildUpdateViewModel` is pure so
-// every Text-rules row can be table-tested (web/src/features/updateview.test.ts) without
-// a DOM; `render/update.ts`'s `renderUpdateSection` stays the DOM half, taking the
-// `UpdateViewModel` this produces as a parameter (that split already existed — only the
-// derivation itself moves here).
+// The pure decision behind the Updates section's readouts — a DOM-free decision with one
+// controller caller, features/update.ts, lives beside it, not in `render/`.
+// `buildUpdateViewModel` is pure so every text rule can be table-tested
+// (web/src/features/updateview.test.ts) without a DOM; `render/update.ts`'s
+// `renderUpdateSection` stays the DOM half, taking the `UpdateViewModel` this produces as
+// a parameter.
 import type { UpdateInfo } from "../protocol/update";
 import type { UpdateViewModel } from "../render/update";
 import { ageAgo } from "../sessions/format";
@@ -40,7 +39,7 @@ function availableText(update: UpdateInfo, isDev: boolean, now: Date): string {
   return `${version} · checked ${ageAgo(update.checkedAt, now)}`;
 }
 
-/** The status line under the buttons (UI Specifications > Text rules table). A failed
+/** The status line under the buttons. A failed
  * user-initiated check (`checkError`) wins over everything else — it is the most
  * recent thing the user asked for and the Available readout deliberately keeps showing
  * its previous value, so this line is the only place the failure surfaces. Otherwise,

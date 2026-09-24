@@ -9,10 +9,10 @@
 // evolution" rule — parsing here only ever reads the fields it knows about, so future
 // additions never need a change here to keep working.
 
-import { isRecord, parseListOf } from "./decode";
+import { asNumber, isRecord, parseListOf } from "./decode";
 import { type Hello, parseHello } from "./hello";
 import { type Prefs, type PrefsMessage, parsePrefs, parsePrefsMessage } from "./prefs";
-import { asNumber, type Session, parseSession } from "./session";
+import { type Session, parseSession } from "./session";
 import {
   type ClaudeThemeInfo,
   type ClaudeThemeMessage,
@@ -68,7 +68,7 @@ export interface DocChanged {
 }
 
 // kb:anchor/ws.shell-activity: broadcast on every observed
-// change of a shell's busy flag (the ~1s tmux poller — Protocol Contract). Deliberately
+// change of a shell's busy flag (the daemon's ~1s tmux poller). Deliberately
 // not a Session field and adds no session state (kb:adr/surfaces-shell-is-attach-target-not-session) —
 // a shell is still not a session.
 export interface ShellActivityMessage {
@@ -94,7 +94,7 @@ function parseSnapshot(rec: Record<string, unknown>): Snapshot | null {
   const usage = parseUsage(rec["usage"]);
   const prefs = parsePrefs(rec["prefs"]);
   // Missing key (an older daemon) defaults to
-  // {family: "unknown"}, same tolerance as prefs.theme above.
+  // {family: "unknown"}, same tolerance as protocol/prefs.ts's `theme` field.
   const rawClaudeTheme = rec["claudeTheme"];
   const claudeTheme: ClaudeThemeInfo | null =
     rawClaudeTheme === undefined ? { family: "unknown" } : parseClaudeThemeInfo(rawClaudeTheme);
@@ -108,7 +108,7 @@ function parseSnapshot(rec: Record<string, unknown>): Snapshot | null {
     if (!update) return null;
   }
   const snapshot: Snapshot = { type: "snapshot", sessions, usage, prefs, claudeTheme, update };
-  // Present-only, same pattern as `usage.model` above — an
+  // Present-only, same pattern as protocol/usage.ts's `model` field — an
   // absent key stays absent on the parsed object rather than gaining a synthesized `[]`,
   // so an older daemon's payload (and every existing snapshot fixture that predates this field)
   // round-trips unchanged. Real callers read `snapshot.shellsBusy ?? []`
@@ -133,7 +133,7 @@ function parseSessionRemoved(rec: Record<string, unknown>): SessionRemoved | nul
   return { type: "sessionRemoved", id };
 }
 
-/** Plan markdown-viewing (kb:anchor/ws.doc-changed). */
+/** kb:anchor/ws.doc-changed. */
 export function parseDocChanged(rec: Record<string, unknown>): DocChanged | null {
   const id = rec["id"];
   const path = rec["path"];

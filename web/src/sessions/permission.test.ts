@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { PERMISSION_MODES, permissionModeToCheck } from "./permission";
+import { PERMISSION_MODES } from "../protocol/session";
+import { permissionModeToCheck } from "./permission";
 
 // Plan fix-auto-mode-select (Implementation Notes — "Web pattern"): PERMISSION_MODES is
 // the single source for both LaunchRequest's permissionMode union and features/launch.ts's
@@ -12,16 +13,14 @@ describe("permission — PERMISSION_MODES", () => {
   });
 });
 
-// Plan fix-auto-mode-select REQ-6 (review cycle 1, Major 2): permissionModeToCheck is the
-// single decision point for "which radio should be checked for this stored value" —
-// features/launch.ts's setPermissionMode and selectedPermissionMode, and
-// features/launchrestore.ts's initialRestore/repoRestore, all go through it (review.md
-// Major 1's extraction; review-maintainability cycle 1 moved the module and split out
-// repoRestore). Each recognised PERMISSION_MODES value must round-trip to itself; anything
-// else — an unrecognised string, null, or "" — must fall back to "auto" (plan
-// new-session-improvement REQ-5, W4: the fallback moved off "default" so a fresh dialog and
-// an unrecoverable stored value both land on the least-surprising mode), never leave every
-// radio unchecked (the bug the reviewer measured on main: `checked: []`).
+// Plan fix-auto-mode-select REQ-6: permissionModeToCheck is the single decision point for
+// "which radio should be checked for this stored value" — features/launch.ts's
+// setPermissionMode and selectedPermissionMode, and features/launchrestore.ts's
+// initialRestore/repoRestore, all go through it. Each recognised PERMISSION_MODES value
+// must round-trip to itself; anything else — an unrecognised string, null, or "" — must
+// fall back to "auto" (plan new-session-improvement REQ-5, W4: the fallback moved off
+// "default" so a fresh dialog and an unrecoverable stored value both land on the
+// least-surprising mode), never leave every radio unchecked.
 describe("permission — permissionModeToCheck (REQ-6, fallback per plan new-session-improvement W4)", () => {
   it.each(PERMISSION_MODES)("round-trips the recognised value %j to itself", (mode) => {
     expect(permissionModeToCheck(mode)).toBe(mode);
@@ -31,11 +30,10 @@ describe("permission — permissionModeToCheck (REQ-6, fallback per plan new-ses
     expect(permissionModeToCheck("someFutureMode")).toBe("auto");
   });
 
-  // review cycle 1, correctness Minor 3: bypassPermissions is a real Claude Code mode
-  // (kb:adr/launch-bypass-and-dontask-unoffered) the dialog deliberately never offers —
-  // it must fall back like any other unrecognised string, not be special-cased. A
-  // fallback keyed on Claude Code's own mode list, rather than on PERMISSION_MODES, would
-  // pass this while failing "someFutureMode" above.
+  // bypassPermissions is a real Claude Code mode (kb:adr/launch-bypass-and-dontask-unoffered)
+  // the dialog deliberately never offers — it must fall back like any other unrecognised
+  // string, not be special-cased. A fallback keyed on Claude Code's own mode list, rather
+  // than on PERMISSION_MODES, would pass this while failing "someFutureMode" above.
   it("falls back to auto for the deliberately-unoffered bypassPermissions", () => {
     expect(permissionModeToCheck("bypassPermissions")).toBe("auto");
   });

@@ -1,6 +1,8 @@
-// The single WebSocket client module (docs/conventions.md — "one WebSocket client
-// module owns the daemon connection"; nothing else may construct a WebSocket, enforced
-// by an automated check: `rg -n "new WebSocket" web/src --glob '!web/src/ws.ts'`).
+// The one module for the daemon's `/ws` connection (docs/conventions.md — "one WebSocket
+// client module owns the daemon connection"). `terminal/pane.ts` separately constructs
+// its own per-surface `/ws/terminal/{id}` and `/ws/shell/{id}` sockets — a different
+// concern (one live client per terminal/shell target), not the daemon connection this
+// module owns.
 //
 // Owns: connecting, reconnecting with backoff, and dispatching parsed messages to
 // handlers. Message parsing lives in protocol/messages.ts and the protocol-version gate

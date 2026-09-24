@@ -7,8 +7,8 @@
 import type { ConnectionStatus } from "../app";
 import type { Density, View } from "../protocol/prefs";
 import type { SessionModelInfo } from "../protocol/session";
-import type { ModelWindow, Usage } from "../protocol/usage";
-import { buildUsageBucketViewModel, type UsageBucketSource } from "../sessions/usage";
+import type { ModelWindow, Usage, UsageBucket } from "../protocol/usage";
+import { buildUsageBucketViewModel } from "../sessions/usage";
 
 export function renderConnectionStatus(el: HTMLElement, status: ConnectionStatus): void {
   const text =
@@ -51,19 +51,16 @@ export function buildUsageBucket(container: HTMLElement, label: string): UsageBu
 }
 
 /** The one renderer for every masthead usage bucket — `#usage-5h`, `#usage-7d`, and (via
- * `renderUsageModelWeek` below) `#usage-model-week`'s own percent/bar/resets slice (this
- * used to be two separate implementations, `renderBucket`+`renderUsageTrack`
- * — rebuild-every-pass, with `renderUsageTrack` only correct when called immediately after
- * `renderBucket` on the same element — and `applyModelTrack` — mutate-in-place). Mutates
- * `refs.num`/`.bar`/`.fill`/`.resets` in place; final child order mirrors the reference
- * render (`mockups/a-instrument.html:199`): `.lbl`, `.bar`, `.num`, `.resets`.
+ * `renderUsageModelWeek` below) `#usage-model-week`'s own percent/bar/resets slice.
+ * Mutates `refs.num`/`.bar`/`.fill`/`.resets` in place; final child order mirrors the
+ * reference render (`mockups/a-instrument.html:199`): `.lbl`, `.bar`, `.num`, `.resets`.
  *
  * Honesty rule 1 (design-system §6.1): an unknown bucket removes any existing bar/resets
  * (self-healing across a known -> unknown transition, e.g. a daemon restart) and leaves no
  * track markup at all — never a 0%-filled one. */
 export function renderUsageBucket(
   refs: UsageBucketRefs,
-  bucket: UsageBucketSource | null,
+  bucket: UsageBucket | null,
   now: Date,
 ): void {
   const vm = buildUsageBucketViewModel(bucket, now);
@@ -117,8 +114,7 @@ export interface DensityControlElements {
   threeByTwoButton: HTMLButtonElement;
 }
 
-/** The density control renders only in Tiles (design-system §4/UI Specifications:
- * "Masthead ... the density control renders only in Tiles"). */
+/** The density control renders only in Tiles (design-system §4). */
 export function renderDensityControl(
   elements: DensityControlElements,
   view: View,
@@ -154,10 +150,9 @@ export function renderUsageModel(
 }
 
 /** `#usage-model-week`'s own persistent refs — the caller (`features/usage.ts`) builds
- * one of these once, at startup, and holds it across every render pass (this
- * used to be a module-level `WeakMap<HTMLElement, ModelWeekState>` keyed by the
- * container, which is exactly the render-state shape `render/CLAUDE.md`'s render-state
- * rule now forbids — the state belongs to whoever renders, not to this module).
+ * one of these once, at startup, and holds it across every render pass, per
+ * `render/CLAUDE.md`'s render-state rule: the state belongs to whoever renders, never to
+ * a module-level map keyed by the element.
  *
  * Rebuilding a brand-new `<select>` every
  * pass (via `container.replaceChildren`) is fine for the two sibling bucket readouts —
@@ -333,13 +328,13 @@ export interface ClaudeVersionDescription {
   warning: string | null;
 }
 
-/** UI Specifications > DOM: rebuilds `#claude-version`'s children with `replaceChildren`
- * (no innerHTML). No warning -> a lone text node. A warning -> a trailing-space text node
+/** Rebuilds `#claude-version`'s children with `replaceChildren` (no innerHTML). No
+ * warning -> a lone text node. A warning -> a trailing-space text node
  * (`"claude <installed> "`) followed by the `role="img"` glyph, so `textContent` reads
- * `claude 2.0.0 ⚠` — `aria-label` and `title` both carry the same warning sentence
- * (Testable UI Elements: the glyph's accessible name and its native tooltip must match).
- * No button, link or other control lives inside the readout — the glyph and its hover
- * text are the whole interface, `kb:adr/connection-installed-claude-classified-never-refused`. */
+ * `claude 2.0.0 ⚠` — `aria-label` and `title` both carry the same warning sentence, so the
+ * glyph's accessible name and its native tooltip always match. No button, link or other
+ * control lives inside the readout — the glyph and its hover text are the whole
+ * interface, `kb:adr/connection-installed-claude-classified-never-refused`. */
 export function renderClaudeVersion(el: HTMLElement, description: ClaudeVersionDescription): void {
   const { text, warning } = description;
   if (warning === null) {

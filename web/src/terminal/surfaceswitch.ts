@@ -33,7 +33,7 @@ export function getSurfaceState(state: SurfaceSwitchState, id: number): SessionS
   return state.get(id) ?? DEFAULT_SURFACE_STATE;
 }
 
-/** User flow 2/3: switches which surface is selected for `id`. Never changes
+/** Switches which surface is selected for `id`. Never changes
  * `shellRunning` — that only ever changes via `setShellRunning`/`shellEnded` below, which
  * keep it in step with what the daemon actually reports (POST success/failure, PTY EOF).
  * Identity (same map) when `kind` is already selected, so a caller can call this

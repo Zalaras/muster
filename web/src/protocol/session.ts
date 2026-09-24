@@ -1,7 +1,7 @@
 // Wire type and parser for one `Session` (docs/protocol.md, kb:anchor/ws.session) — one of the protocol/
 // concept modules split out of the former protocol.ts.
 
-import { isRecord, parseNullable } from "./decode";
+import { asNumber, isRecord, parseNullable } from "./decode";
 
 export const SESSION_STATES = [
   "started",
@@ -13,8 +13,11 @@ export const SESSION_STATES = [
 ] as const;
 export type SessionState = (typeof SESSION_STATES)[number];
 
+export const ATTENTION_REASONS = ["permission", "idle"] as const;
+export type AttentionReason = (typeof ATTENTION_REASONS)[number];
+
 export interface SessionAttention {
-  reason: "permission" | "idle";
+  reason: AttentionReason;
   since: string;
 }
 
@@ -34,9 +37,23 @@ export interface SessionModelInfo {
   displayName: string;
 }
 
+export const PERMISSION_MODE_SOURCES = ["seed", "hook"] as const;
+export type PermissionModeSource = (typeof PERMISSION_MODE_SOURCES)[number];
+
 export interface PermissionModeInfo {
   value: string;
-  source: "seed" | "hook";
+  source: PermissionModeSource;
+}
+
+// kb:anchor/sessions.create: the accepted wire values for `permissionMode` on `POST
+// /api/sessions`, in dialog/cycle order. `default` is Claude Code's manual mode (the UI
+// labels it "manual"); one source for both the request union and the launch dialog's radio
+// guard, so they can't drift apart.
+export const PERMISSION_MODES = ["default", "acceptEdits", "plan", "auto"] as const;
+export type PermissionMode = (typeof PERMISSION_MODES)[number];
+
+export function isPermissionMode(value: unknown): value is PermissionMode {
+  return (PERMISSION_MODES as readonly unknown[]).includes(value);
 }
 
 export interface SessionContext {
@@ -118,11 +135,15 @@ function isSessionState(value: unknown): value is SessionState {
   return (SESSION_STATES as readonly unknown[]).includes(value);
 }
 
+function isAttentionReason(value: unknown): value is AttentionReason {
+  return (ATTENTION_REASONS as readonly unknown[]).includes(value);
+}
+
 function parseAttention(value: unknown): SessionAttention | null {
   if (!isRecord(value)) return null;
   const reason = value["reason"];
   const since = value["since"];
-  if (reason !== "permission" && reason !== "idle") return null;
+  if (!isAttentionReason(reason)) return null;
   if (typeof since !== "string") return null;
   return { reason, since };
 }
@@ -156,24 +177,17 @@ export function parseModelInfo(value: unknown): SessionModelInfo | null {
   return { id, displayName };
 }
 
+function isPermissionModeSource(value: unknown): value is PermissionModeSource {
+  return (PERMISSION_MODE_SOURCES as readonly unknown[]).includes(value);
+}
+
 function parsePermissionModeInfo(value: unknown): PermissionModeInfo | null {
   if (!isRecord(value)) return null;
   const modeValue = value["value"];
   const source = value["source"];
   if (typeof modeValue !== "string") return null;
-  if (source !== "seed" && source !== "hook") return null;
+  if (!isPermissionModeSource(source)) return null;
   return { value: modeValue, source };
-}
-
-function isNumber(value: unknown): value is number {
-  return typeof value === "number";
-}
-
-// Exported: messages.ts's `parseSnapshot` uses this for `shellsBusy` (a list of session
-// ids), the same "unknown -> number | null" adapter `parseContext` below needs for its
-// three nullable numeric fields.
-export function asNumber(value: unknown): number | null {
-  return isNumber(value) ? value : null;
 }
 
 function parseContext(value: unknown): SessionContext | null {

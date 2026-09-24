@@ -2,11 +2,11 @@
 // `tilesLive` — per-window, ephemeral, client-only membership/order state (never synced
 // across windows, never a prefs field; kb:adr/tiles-order-ephemeral-per-window).
 //
-// `deps.getSurfaces`/`deps.getRenameHandlers` are thunks: `surfaces`/`rename` are
-// constructed after `tiles` (main.ts's init order — `surfaces` needs `tiles.liveIds` at
-// its own render time), so this closes over their later `const`s rather than taking real
-// values now; both are only ever called from `renderView`, invoked well after every
-// controller exists.
+// `deps.getSurfaces` is a thunk: `surfaces` is constructed after `tiles` (main.ts's init
+// order — `surfaces` needs `tiles.liveIds` at its own render time), so this closes over
+// its later `const` rather than taking a real value now; it's only ever called from
+// `renderView`, invoked well after every controller exists. `rename` is constructed
+// before `tiles`, so `deps.renameHandlers` is a real value.
 //
 // This module tracks its own `lastView`/`lastDensity` (redundant with `app.state`,
 // deliberately) because its `prefs` handler reads `prefs.view`/`prefs.density` off the
@@ -50,7 +50,6 @@ import type { SessionAction } from "../sessions/card";
 export interface TilesDeps {
   actions: {
     dispatch(action: SessionAction, id: number): void;
-    findDeadSurfaceRefs(id: number): DeadSurfaceRefs | null;
     ensurePaneFetch(id: number): void;
     paneState(id: number): PaneState;
   };
@@ -60,7 +59,7 @@ export interface TilesDeps {
     select(id: number, kind: SurfaceKind, findDeadRefs: () => DeadSurfaceRefs | null): void;
     activityFor(id: number): ShellActivityIndicator;
   };
-  getRenameHandlers(): TileRenameHandlers;
+  renameHandlers: TileRenameHandlers;
   /** `reader` is constructed after `tiles` (main.ts's init
    * order), so this is a thunk like `getSurfaces` above — invoked only from `renderView`. */
   getReader(): { rootFor(id: number): HTMLElement | null };
@@ -72,9 +71,9 @@ export interface TilesHandle {
   promote(id: number): void;
   /** For `surfaces.ts`'s render-phase visibility diff. */
   liveIds(): readonly number[];
-  /** `null` unless `id` currently has a dead tile mounted —
-   * `actions.ts`'s `findDeadSurfaceRefs` thunk asks this instead of reaching into a
-   * tile's body slot itself. */
+  /** `null` unless `id` currently has a dead tile mounted — Tiles' own dead-surface
+   * lookup, passed directly to `surfaces.select` for a spawn-failure notice (never
+   * reached through `features/actions.ts`, which carries no dead-surface API). */
   deadSurfaceRefsFor(id: number): DeadSurfaceRefs | null;
   /** Render phase 10 in Tiles. */
   renderView(frame: RenderFrame): void;
@@ -85,8 +84,8 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
   const tilesGridEl = requireElement<HTMLElement>("#tiles-grid");
   const tilesStripEl = requireElement<HTMLElement>("#tiles-strip");
   const deadSurfaceTemplate = requireElement<HTMLTemplateElement>("#dead-surface-template");
-  // Looked up once, here, and passed into every `render/tiles.ts` builder
-  // that needs it — `render/` no longer calls `requireTemplate` itself.
+  // Looked up once, here, and passed into every `render/tiles.ts` builder that needs it —
+  // no `render/` module looks up its own template.
   const tileTemplate = requireElement<HTMLTemplateElement>("#tile-template");
   const sessionCardTemplate = requireElement<HTMLTemplateElement>("#session-card-template");
 
@@ -98,6 +97,16 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
   let pendingTileFocus: FocusedControl | null = null;
   let lastView = app.state.view;
   let lastDensity = app.state.density;
+
+  /** `null` unless `id` currently has a dead tile mounted — passed directly to
+   * `surfaces.select` for a spawn-failure notice, and returned on `TilesHandle` for the
+   * same reason (never reached through `features/actions.ts`, which carries no
+   * dead-surface API). */
+  function deadSurfaceRefsFor(id: number): DeadSurfaceRefs | null {
+    const tileDeadEl =
+      tileElements.get(id)?.bodySlot.querySelector<HTMLElement>(".dead-surface") ?? null;
+    return tileDeadEl ? collectDeadSurfaceRefs(tileDeadEl) : null;
+  }
 
   function promoteSession(id: number): void {
     if (app.state.view !== "tiles") return;
@@ -112,7 +121,7 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
   /** The one tile-teardown routine — cancel (no request) and detach the
    * rename editor's own listener before the tile leaves the DOM, then drop its refs. A
    * no-op for an id with no mounted tile. Shared by the `sessionRemoved` handler and
-   * `dropTilesNotIn` below, which used to repeat this body verbatim. */
+   * `dropTilesNotIn` below. */
   function teardownTile(id: number): void {
     const refs = tileElements.get(id);
     if (!refs) return;
@@ -144,7 +153,7 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
     tilesLive = tilesLive.filter((x) => x !== id);
   });
 
-  // Render phase 5 (UI Specifications > Render phase order): in Tiles, `tilesLive` tracks
+  // Render phase 5 (main.ts's numbered render-phase order): in Tiles, `tilesLive` tracks
   // density every pass (a session removed elsewhere, a new one launched, ...).
   app.onRender((frame) => {
     if (app.state.view === "tiles") {
@@ -202,9 +211,8 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
       session,
       deps.actions.paneState(session.id),
       now,
-      connected,
       deadSurfaceTemplate,
-      deps.actions.dispatch,
+      { connected, onAction: deps.actions.dispatch },
     );
     renderTileGeometry(refs, false, null);
   }
@@ -257,8 +265,8 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
         // A freshly built tile's `bodySlot` starts empty (its template has no children
         // there), so `mountSlotRoot`'s own firstElementChild diff already mounts on the
         // first pass — no separate "is this a new tile" force-mount flag needed.
-        refs = buildTile(session, now, tileTemplate, deps.getRenameHandlers(), (id, kind) =>
-          deps.getSurfaces().select(id, kind, () => deps.actions.findDeadSurfaceRefs(id)),
+        refs = buildTile(session, now, tileTemplate, deps.renameHandlers, (id, kind) =>
+          deps.getSurfaces().select(id, kind, () => deadSurfaceRefsFor(id)),
         );
         tileElements.set(session.id, refs);
         // renderTileBody's refit needs a laid-out container (FitAddon.fit() silently
@@ -291,8 +299,8 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
     tilesEmptyEl.hidden = hasSessions;
     tilesGridEl.hidden = !hasSessions;
 
-    // One `renderStrip` call per pass — `stripSessions` is `[]` in the
-    // empty-dashboard case, same as the two call sites used to pass by hand.
+    // One `renderStrip` call per pass — `stripSessions` is `[]` in the empty-dashboard
+    // case.
     let stripSessions: readonly Session[] = [];
     if (!hasSessions) {
       tilesGridEl.replaceChildren();
@@ -320,11 +328,7 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
   return {
     promote: promoteSession,
     liveIds: () => tilesLive,
-    deadSurfaceRefsFor(id) {
-      const tileDeadEl =
-        tileElements.get(id)?.bodySlot.querySelector<HTMLElement>(".dead-surface") ?? null;
-      return tileDeadEl ? collectDeadSurfaceRefs(tileDeadEl) : null;
-    },
+    deadSurfaceRefsFor,
     renderView,
   };
 }

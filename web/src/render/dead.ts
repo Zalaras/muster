@@ -3,13 +3,12 @@
 // Focus's `#dead-surface` (static markup, one instance) and, per dead tile, cloned from
 // `#dead-surface-template` into that tile's `.tbody-slot` (render/tiles.ts's
 // `mountTileDeadSurface`) — both share this module's pure builder/render functions so the
-// two surfaces never drift out of sync with each other. DOM only: this
-// module used to also own the `GET .../pane` fetch itself; `features/actions.ts`'s
-// `loadPane` now does that and passes the resulting `PaneState` in, so no path here opens
-// a request) — caching *when* to fetch is features/actions.ts's job
+// two surfaces never drift out of sync with each other. DOM only: `features/actions.ts`'s
+// `loadPane` owns the `GET .../pane` fetch and passes the resulting `PaneState` in, so no
+// path here opens a request — caching *when* to fetch is features/actions.ts's job
 // (`ensurePaneFetch`/`paneState`).
 import type { Session } from "../protocol/session";
-import { canResume, resumeDisabledReason, stateBadgeText } from "../sessions/card";
+import { canResume, deadCapPrefix, deadEndbarText, resumeDisabledReason } from "../sessions/card";
 import { ageAgo } from "../sessions/format";
 import { showNotice } from "../terminal/notice";
 
@@ -72,25 +71,16 @@ export function renderDeadSurface(
   now: Date,
   connected: boolean,
 ): void {
-  // `ageAgo` avoids "ended now ago", and — mirroring how card.ts/tiles.ts already treat
-  // this same defensive branch — a null `endedAt` renders no age clause at all rather than
-  // the confident-but-wrong "just now" (`endedAt` and `alive:false` are a paired invariant
-  // per kb:anchor/state.liveness, so this branch is defensive, not a real path, but it
-  // should stay honest if it's ever hit).
-  const age = session.endedAt ? ageAgo(session.endedAt, now) : null;
-  const badge = stateBadgeText(session.state);
-  refs.endbarEl.textContent = age
-    ? `ended ${age} · last state ${badge} · last captured screen, not a live client`
-    : `ended · last state ${badge} · last captured screen, not a live client`;
+  refs.endbarEl.textContent = deadEndbarText(session, now);
 
   if (pane.status === "ok") {
     // design-system §6.8: possibly-stale state shows its age — the snapshot can be a few
-    // seconds older than `age` above (End freezes the ended timer, but the capture that
-    // produced this text was taken slightly earlier still). `ageAgo` is the same "never
-    // 'now ago'" helper the age clause above already uses.
+    // seconds older than the endbar's own age (End freezes the ended timer, but the
+    // capture that produced this text was taken slightly earlier still). `ageAgo` is the
+    // same "never 'now ago'" helper `deadEndbarText`/`deadCapPrefix` already use.
     refs.endbarEl.textContent += ` · captured ${ageAgo(pane.capturedAt, now)}`;
     refs.snapshotEl.textContent = pane.text;
-    refs.capBodyEl.textContent = age ? `${age} · last state: ${badge}` : `last state: ${badge}`;
+    refs.capBodyEl.textContent = deadCapPrefix(session, now);
   } else if (pane.status === "missing") {
     refs.snapshotEl.textContent = "";
     refs.capBodyEl.textContent = "no snapshot captured";
@@ -114,10 +104,11 @@ export function renderDeadSurface(
  * convention, same "a new outcome replaces whatever text was there" behaviour), for the
  * one case that has no live `TerminalSurface` to route a notice through: a shell
  * spawn-failure message when the session whose `shell` spawn failed is currently showing
- * this dead surface for `claude`, not a live pane. Delegates to `terminal/notice.ts`
- * (extracting the shared 5s-auto-hide logic rather than duplicating it here) — every
- * caller here is a failure outcome, so this never passes `"inflight"`, keeping the
- * always-5s-auto-hide contract `dead.test.ts` already asserts unchanged. */
+ * this dead surface for `claude`, not a live pane. Takes the same `DeadSurfaceRefs` every
+ * other dead-surface function here takes, rather than making its caller
+ * (features/surfaces.ts) reach into `.noticeEl` itself — every caller here is a failure
+ * outcome, so this never passes `"inflight"`, keeping the always-5s-auto-hide contract
+ * `dead.test.ts` already asserts unchanged. */
 export function showDeadSurfaceNotice(refs: DeadSurfaceRefs, text: string | null): void {
   showNotice(refs.noticeEl, text);
 }

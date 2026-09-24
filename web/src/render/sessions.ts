@@ -1,6 +1,6 @@
-// Rail cards (docs/protocol.md UI Specifications > Rail; design-system §5 card anatomy).
+// Rail cards (design-system §5 card anatomy).
 // DOM only — every displayed string comes from ../sessions/card.ts's pure view-model.
-import type { RailActivity } from "../protocol/prefs";
+import type { RailActivity, RailDensity } from "../protocol/prefs";
 import type { Session } from "../protocol/session";
 import {
   buildCardViewModel,
@@ -18,17 +18,17 @@ import { buildActionButton } from "./actionbutton";
 
 /** The card/rail options every render function in this module needs,
  * travelling as one named object rather than a positional tail of booleans and
- * nullables — `renderReader(refs, vm)`/`renderUpdateSection(elements, vm)`/
- * `renderMainhead(elements, …)` are this module's siblings for the same shape. `onClick`
+ * nullables — `renderReader(refs, vm)`/`renderUpdateSection(elements, vm)` are this
+ * module's siblings for the same shape (`render/mainhead.ts`'s `renderMainhead` still
+ * takes a positional tail, unconverted). `onClick`
  * only matters to `buildSessionCardElement` (the click/keydown listeners are wired once,
  * never on an update); every other field is read by both build and update. */
 export interface CardOptions {
   onClick: (id: number, source: "pointer" | "keyboard") => void;
-  // `| undefined` spelled out (not just `?:`) so a caller forwarding its own optional
-  // callback field — `render/tiles.ts`'s `StripOptions.onAction`, say — can assign it
-  // straight through: `exactOptionalPropertyTypes` treats `field?: T` and `field?: T |
-  // undefined` differently when the *value* being assigned is itself `T | undefined`.
-  onAction?: ((action: SessionAction, id: number) => void) | undefined;
+  // Required, not optional: every real caller (features/rail.ts, features/tiles.ts) passes
+  // `deps.actions.dispatch` straight through — there is no card/strip render path that
+  // legitimately has no action handler.
+  onAction: (action: SessionAction, id: number) => void;
   connected: boolean;
   /** Manual-mode rail cards are draggable (kb:adr/rail-user-owned-manual-order-default);
    * attention-mode rail cards and every
@@ -65,19 +65,18 @@ interface CardRenderOptions extends CardOptions {
 /** Reconciles one card's `.acts-row` in place: when the label sequence is unchanged
  * (the common case — a live card stays End-only, an ended card stays Resume+Remove, on
  * every 1s tick) only each existing button's `disabled` state is refreshed, so the exact
- * button node a keyboard user has focused survives the tick (previously this row was
- * unconditionally `replaceChildren`'d every render,
- * destroying and rebuilding every action button once a second and dropping focus to
- * `<body>` with no automatic re-focus). The label sequence only changes on a genuine
- * live/ended transition, which legitimately does need a rebuilt row (Resume/Remove
- * didn't exist a moment ago). */
+ * button node a keyboard user has focused survives the tick — an unconditional
+ * `replaceChildren` every render would destroy and rebuild every action button once a
+ * second and drop focus to `<body>` with no automatic re-focus. The label sequence only
+ * changes on a genuine live/ended transition, which legitimately does need a rebuilt row
+ * (Resume/Remove didn't exist a moment ago). */
 function reconcileActsRow(
   actsRow: HTMLElement,
   actions: readonly CardAction[],
   id: number,
   claudeSessionId: string | null,
   connected: boolean,
-  onAction?: (action: SessionAction, id: number) => void,
+  onAction: (action: SessionAction, id: number) => void,
 ): void {
   const existing = Array.from(actsRow.children).filter(
     (child): child is HTMLButtonElement => child instanceof HTMLButtonElement,
@@ -238,7 +237,7 @@ function updateSessionCardContent(
  * the two apart without a second callback or a DOM flag. Listeners are wired up exactly
  * once here — `reconcileCards` never rebuilds an existing card, it calls
  * `updateSessionCardContent` on the same node instead. */
-export function buildSessionCardElement(
+function buildSessionCardElement(
   session: Session,
   now: Date,
   template: HTMLTemplateElement,
@@ -254,7 +253,7 @@ export function buildSessionCardElement(
   const pinBtn = requireElement<HTMLButtonElement>(".pin", card);
   pinBtn.addEventListener("click", (event) => {
     event.stopPropagation();
-    options.onAction?.("pin", session.id);
+    options.onAction("pin", session.id);
   });
 
   const onClick = options.onClick;
@@ -367,10 +366,8 @@ export function reconcileCards(
     if (!seen.has(id)) card.remove();
   }
 
-  // The id-keyed insertBefore-reorder-plus-focus-restore algorithm below
-  // this point used to live here, verbatim, and again in features/tiles.ts's
-  // `reconcileTilesGrid` for the Tiles grid — now shared with the rail/strip and the grid
-  // via render/keyedreorder.ts.
+  // The id-keyed insertBefore-reorder-plus-focus-restore algorithm, shared by the
+  // rail/strip and (via features/tiles.ts) the Tiles grid.
   reconcileKeyedOrder(container, entries, focused);
 }
 
@@ -391,4 +388,17 @@ export function renderSessions(
     return;
   }
   reconcileCards(el, sessions, now, template, options);
+}
+
+/** The rail's compact/comfortable/expanded density segmented control — the same
+ * `aria-pressed`-per-button shape `render/masthead.ts`'s `renderViewSwitcher`/
+ * `renderDensityControl` render for the Focus/Tiles and 2×2/3×2 controls, kept here
+ * instead since this one lives in the rail, not the masthead. */
+export function renderRailDensityControl(
+  buttons: readonly HTMLButtonElement[],
+  density: RailDensity,
+): void {
+  for (const button of buttons) {
+    button.setAttribute("aria-pressed", String(button.dataset["density"] === density));
+  }
 }

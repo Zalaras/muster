@@ -2,7 +2,7 @@
 import { isRecord } from "../protocol/decode";
 import { requestJson, type ApiResult } from "./http";
 
-/** Plan issue-capture (kb:anchor/issue.captures): the held server-side snapshot a capture
+/** kb:anchor/issue.captures: the held server-side snapshot a capture
  * produces. `snapshot` is deliberately left as an opaque record here
  * (kb:adr/issue-preview-is-the-leak-check) — features/issue.ts never reads a field out of
  * it; only `snapshotMarkdown` (the daemon's own rendered string) ever reaches the preview. */

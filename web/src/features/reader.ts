@@ -33,6 +33,7 @@ import {
   attachScrollSpy,
   buildReader,
   renderReader,
+  renderUnknownSessionNotice,
   scrollHeadingIntoView,
   setReaderBody,
   type PlanSlotVM,
@@ -41,9 +42,12 @@ import {
 } from "../render/reader";
 import { getSurfaceState, type SurfaceSwitchState } from "../terminal/surfaceswitch";
 
+// `tiles` and `surfaces` are both already constructed by the time `reader` is (main.ts's
+// init order), so both fields below are real values passed straight through — `tilesLive`
+// is `tiles.liveIds` itself, a getter function, not a thunk wrapping a forward reference.
 export interface ReaderDeps {
-  getTilesLive(): readonly number[];
-  getSurfaces(): { state(): SurfaceSwitchState };
+  tilesLive(): readonly number[];
+  surfaces: { state(): SurfaceSwitchState };
 }
 
 /** `doc.ts`'s pop-out target — `path` is the initial file to open, from `location.search`;
@@ -383,10 +387,8 @@ class ReaderInstance {
    * theme flip) rather than racing it; `seq` pins this re-render to the file open that was
    * current when the theme changed, so a document switched in the meantime discards it via
    * the same `isCurrent` guard every other diagram write uses. Called by `initReader`'s own
-   * `app.on("themeChanged", ...)` for every mounted instance — this used to be each
-   * instance's own `MutationObserver` on `<html data-theme>`, which is what forced
-   * `doc.ts` to fake a no-op `surfaces.applyTheme` for `features/theme.ts`'s other push
-   * path; both surfaces now react to the same signal. */
+   * `app.on("themeChanged", ...)` for every mounted instance — the one theme-change signal
+   * every surface (this reader, every live terminal) reacts to on its own account. */
   handleThemeChange(): void {
     const theme = currentMermaidTheme();
     const seq = this.fetchSeq;
@@ -513,8 +515,8 @@ class ReaderInstance {
  * `features/surfaces.ts`'s terminal visibility uses) that also currently have `docs`
  * selected as their surface. */
 function visibleDocsIds(app: App, deps: ReaderDeps): readonly number[] {
-  const state = deps.getSurfaces().state();
-  return visibleIds(app.state.view, app.state.focusedId, deps.getTilesLive()).filter(
+  const state = deps.surfaces.state();
+  return visibleIds(app.state.view, app.state.focusedId, deps.tilesLive()).filter(
     (id) => getSurfaceState(state, id).selected === "docs",
   );
 }
@@ -594,8 +596,7 @@ export function initReader(
     for (const instance of instances.values()) instance.refetchOpenFile();
   });
 
-  // The one theme-change signal features/theme.ts emits, replacing each instance's own
-  // `<html data-theme>` `MutationObserver`.
+  // The one theme-change signal features/theme.ts emits.
   app.on("themeChanged", () => {
     for (const instance of instances.values()) instance.handleThemeChange();
   });
@@ -608,8 +609,7 @@ export function initReader(
     app.on("sessionRemoved", (id) => {
       instances.get(id)?.dispose();
       instances.delete(id);
-      // Reader memory is created/saved/forgotten only by this feature —
-      // `features/actions.ts`'s `handleRemoved` used to clear it directly.
+      // Reader memory is created/saved/forgotten only by this feature.
       forget(window.localStorage, id);
     });
   }
@@ -617,4 +617,29 @@ export function initReader(
   return {
     rootFor: (id) => instances.get(id)?.root ?? null,
   };
+}
+
+/** `doc.ts`'s pop-out never has tiles or another surface to report — a reader that never
+ * shares a session with a terminal doesn't need either. */
+const STANDALONE_READER_DEPS: ReaderDeps = {
+  tilesLive: () => [],
+  surfaces: { state: () => new Map() },
+};
+
+/** `doc.ts`'s whole reader mount: finds `#reader-host`, shows the unknown-session notice
+ * when `target` didn't parse, otherwise builds the one `ReaderInstance` and mounts its root.
+ * Returns `null` on the notice path, since there is nothing left for `doc.ts` to wire up. */
+export function mountStandaloneReader(
+  app: App,
+  target: StandaloneTarget | null,
+): ReaderHandle | null {
+  const host = requireElement<HTMLElement>("#reader-host");
+  if (target === null) {
+    renderUnknownSessionNotice(host);
+    return null;
+  }
+  const reader = initReader(app, STANDALONE_READER_DEPS, target);
+  const root = reader.rootFor(target.sessionId);
+  if (root) host.replaceChildren(root);
+  return reader;
 }

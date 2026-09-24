@@ -1,10 +1,9 @@
 // One positioning routine for every keyed, ordered set of session-id roots this dashboard
 // reconciles into a container — the rail, the strip and (via features/tiles.ts) the Tiles
-// grid. `render/sessions.ts`'s `reconcileCards` used to carry this loop
-// itself, and `features/tiles.ts`'s `reconcileTilesGrid` duplicated it verbatim for tiles
-// (a DOM reorder inside a controller, which conventions § Composition roots reserves for
-// `render/`). Positioning only: building/updating each entry's content and removing
-// whatever fell out of the new order are the caller's job, done before this runs.
+// grid (a DOM reorder belongs in `render/`, per conventions § Composition roots, never
+// hand-rolled inside a controller). Positioning only: building/updating each entry's
+// content and removing whatever fell out of the new order are the caller's job, done
+// before this runs.
 import { restoreFocusedControl, type FocusedControl } from "./focuskeep";
 
 /** One entry already built or updated for this pass — `id` is the reconciliation key,

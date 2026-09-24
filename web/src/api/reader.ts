@@ -1,4 +1,4 @@
-// Plan markdown-viewing (kb:anchor/sessions.reader / kb:anchor/sessions.reader-file).
+// kb:anchor/sessions.reader / kb:anchor/sessions.reader-file.
 import { isRecord, parseListOf, parseNullable } from "../protocol/decode";
 import { requestJson, requestText, type ApiResult } from "./http";
 
@@ -13,12 +13,19 @@ export interface ReaderFileEntry {
   writtenAt: string | null;
 }
 
+export const READER_LISTING_KINDS = ["git", "walk"] as const;
+export type ReaderListingKind = (typeof READER_LISTING_KINDS)[number];
+
 export interface ReaderListing {
   directory: string;
   plan: ReaderPlan | null;
   files: ReaderFileEntry[];
-  listing: "git" | "walk";
+  listing: ReaderListingKind;
   truncated: boolean;
+}
+
+function isReaderListingKind(value: unknown): value is ReaderListingKind {
+  return (READER_LISTING_KINDS as readonly unknown[]).includes(value);
 }
 
 function parseReaderPlan(value: unknown): ReaderPlan | null {
@@ -51,7 +58,7 @@ function parseReaderListing(value: unknown): ReaderListing | null {
   if (plan === undefined) return null;
   const files = parseListOf(value["files"], parseReaderFileEntry);
   if (!files) return null;
-  if (listing !== "git" && listing !== "walk") return null;
+  if (!isReaderListingKind(listing)) return null;
   if (typeof truncated !== "boolean") return null;
   return { directory, plan, files, listing, truncated };
 }

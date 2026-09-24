@@ -5,13 +5,12 @@
 import type { RailSort } from "../protocol/prefs";
 import type { Session } from "../protocol/session";
 
-/** kb:adr/rail-attention-order-your-turn-before-active: the attention priority table,
- * amended from the six-state table above — `idle` now splits on `unread`, sorting into
- * the "your turn" group (ahead of `started`) when unread and staying last, after
- * `working`, when read.
- * `started` moves ahead of `planning`/`working` into the "your turn" group too (a
- * launched session is waiting for its first prompt). One function, not a static
- * `Record`, since `idle`'s rank now depends on a second field. */
+/** kb:adr/rail-attention-order-your-turn-before-active: the attention priority table.
+ * `idle` splits on `unread`, sorting into the "your turn" group (ahead of `started`) when
+ * unread and staying last, after `working`, when read. `started` sits ahead of
+ * `planning`/`working` in the "your turn" group too (a launched session is waiting for
+ * its first prompt). One function, not a static `Record`, since `idle`'s rank depends on
+ * a second field. */
 function statePriority(session: Session): number {
   switch (session.state) {
     case "needs_input":
@@ -37,8 +36,8 @@ function parseTime(iso: string): number {
 /** The within-group ordering key, ascending:
  * - needs_input: longest-blocked first — `attention.since` ascending (oldest first).
  * - failed: most-recent first — negated `stateSince` so descending reads as ascending.
- * - planning/working/started/idle: `stateSince` ascending (the plan's explicit
- *   tiebreak for the first three; for idle it's also literally "longest-idle first"). */
+ * - planning/working/started/idle: `stateSince` ascending (for idle it's also literally
+ *   "longest-idle first"). */
 function orderKey(session: Session): number {
   if (session.state === "needs_input") {
     return session.attention ? parseTime(session.attention.since) : Number.POSITIVE_INFINITY;

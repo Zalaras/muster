@@ -7,7 +7,7 @@ summary: Muster theme preference and the Claude theme family poll.
 features: [theme]
 tags: [ux, claude-code-format]
 go: [internal/server/themepoll*.go, internal/claudecode/theme*.go]
-web: [web/src/features/theme.ts, web/src/theme*.ts, web/src/storage*.ts]
+web: [web/src/features/theme*.ts, web/src/theme*.ts, web/src/storage*.ts]
 e2e: [web/e2e/general-cleanup.spec.ts, web/e2e/theme.spec.ts, web/e2e/helpers/theme.ts]
 protocol: [ws.claude-theme]
 refs: [kb:adr/theme-three-builtin-themes-instrument-default, kb:adr/theme-pref-follows-claude-until-picked, kb:adr/theme-pref-enum-follow-not-nullable, kb:adr/theme-claude-theme-read-only-poll, kb:adr/theme-terminal-ground-follows-claude-family, kb:adr/theme-two-layer-tokens-not-white-label, kb:adr/theme-aa-contrast-gated-in-check, kb:adr/theme-state-hues-fixed-across-themes, kb:adr/theme-type-scale-tokens-15px-root, kb:adr/stack-system-font-stacks-only, kb:fact/theme-config-key-and-enum, docs/design/design-system.md]

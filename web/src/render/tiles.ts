@@ -14,9 +14,11 @@ import {
   buildCardViewModel,
   canResume,
   stateBadgeText,
+  tileFooterAgeText,
+  tileHeaderTimerText,
   type SessionAction,
 } from "../sessions/card";
-import { ageAgo, formatAge } from "../sessions/format";
+import { requireElement } from "../dom";
 import { renderContextRow } from "./context";
 import { reconcileCards, type CardListOptions } from "./sessions";
 import { buildActionButton } from "./actionbutton";
@@ -71,55 +73,41 @@ function updateTileChrome(
   const vm = buildCardViewModel(session, now);
   root.className = `tile ${vm.stateClass}${vm.ended ? " ended" : ""}`;
 
-  const dot = root.querySelector<HTMLElement>(".sdot");
-  const nameEl = root.querySelector<HTMLElement>(".nm");
-  const where = root.querySelector<HTMLElement>(".wh");
-  const ctx = root.querySelector<HTMLElement>(".ctxinfo");
-  const timer = root.querySelector<HTMLElement>(".tm");
+  // Every slot below is part of `#tile-template`'s fixed markup (index.html) — required,
+  // not optionally guarded, the same rule `render/sessions.ts`'s `applyCardText` follows.
+  const dot = requireElement<HTMLElement>(".sdot", root);
+  const nameEl = requireElement<HTMLElement>(".nm", root);
+  const where = requireElement<HTMLElement>(".wh", root);
+  const ctx = requireElement<HTMLElement>(".ctxinfo", root);
+  const timer = requireElement<HTMLElement>(".tm", root);
 
   // The dot carries no text of its own, so a hover is the only
   // way to learn what its colour means — `title` is the same state word the badge/dead
   // surface already use (`stateBadgeText`), not a second copy.
-  if (dot) dot.title = stateBadgeText(session.state);
+  dot.title = stateBadgeText(session.state);
   // While `refs.rename`'s editor is open, skip the
   // title write entirely so a render tick or `sessionUpsert` mid-edit never touches the
   // open field's value, focus or selection — the caller (`updateTile`) asks the editor's
-  // own controller, rather than this module reading `render/rename.ts`'s `data-editing`
-  // DOM attribute itself (hosts ask the controller, not the DOM). `.nm`
+  // own controller, rather than this module reading DOM state itself (hosts ask the
+  // controller, not the DOM). `.nm`
   // wraps a `button.rename` (built once, in `buildTile` below) whose text this writes,
   // never `.nm`'s own textContent, so the button node — and its click listener — survives
   // every tick untouched.
-  if (nameEl && !isEditingName) {
-    const renameBtn = nameEl.querySelector<HTMLButtonElement>("button.rename");
-    if (renameBtn) renameBtn.textContent = vm.title;
+  if (!isEditingName) {
+    requireElement<HTMLButtonElement>("button.rename", nameEl).textContent = vm.title;
   }
-  if (where) where.textContent = vm.repoLine;
-  if (ctx) renderContextRow(ctx, session.context, "ctxinfo");
-  // A dead tile's header timer shows the bare age, deliberately WITHOUT the "ended"
-  // word — `vm.timer` ("ended <age>") is the rail/strip card's own wording, and
-  // a tile's dead-surface (mounted in the same subtree, unlike a card) already has an
-  // `.endbar` that starts with "ended " per the Testable UI Elements' `/^ended /`
-  // contract. Two elements inside one tile both starting with "ended " would make any
-  // `tile.getByText(/^ended /)` locator ambiguous (Playwright strict-mode violation) —
-  // the footer age readout (`.tage`, see `renderTileFooterActions`) sidesteps
-  // the same trap by leading with "✕" instead.
-  if (timer)
-    timer.textContent = session.alive
-      ? vm.timer
-      : session.endedAt
-        ? formatAge(session.endedAt, now)
-        : "";
+  where.textContent = vm.repoLine;
+  renderContextRow(ctx, session.context, "ctxinfo");
+  timer.textContent = tileHeaderTimerText(session, now);
 }
 
 /** Builds one tile's chrome (header + empty body slot + footer) from the shared
- * view-model. The Testable UI Elements table calls a live tile "article-shaped" — the
- * template's root is a bare `<article>`, which is the one plain element that carries an
- * implicit ARIA role (`article`) without any attribute, and its header (`.nm`) carries
- * the session title text the table also requires. `template` is looked up once by the
- * caller (`features/tiles.ts`'s `initTiles`) and passed in — this used to
- * call `requireTemplate("tile-template")` itself, on every tile built, while its own
- * sibling `mountTileDeadSurface` below already took its template as a parameter; every
- * `render/` builder now follows that same rule. */
+ * view-model. A live tile is "article-shaped" — the template's root is a bare
+ * `<article>`, which is the one plain element that carries an implicit ARIA role
+ * (`article`) without any attribute, and its header (`.nm`) carries the session title
+ * text. `template` is looked up once by the caller (`features/tiles.ts`'s `initTiles`)
+ * and passed in, matching its sibling `mountTileDeadSurface` below — every `render/`
+ * builder takes its template as a parameter rather than looking one up itself. */
 export function buildTile(
   session: Session,
   now: Date,
@@ -161,8 +149,8 @@ export function buildTile(
   // UI Elements).
   renameBtn.title = "Rename · clear to use Claude Code's name";
   nameEl.replaceChildren(renameBtn);
-  // The tile is the host that knows about its own `.thead` drag handle —
-  // the editor itself no longer reaches for it via a `.closest(".thead")` selector.
+  // The tile is the host that knows about its own `.thead` drag handle — the editor
+  // itself holds no selector into its container's markup.
   const rename = attachRenameEditor(nameEl, {
     getSession: () => renameHandlers.getSession(session.id),
     onCommit: renameHandlers.onCommit,
@@ -180,8 +168,7 @@ export function buildTile(
 
 /** Refreshes an existing tile's chrome for the current render pass — never rebuilds or
  * re-parents anything (see `updateTileChrome`). Asks the tile's own rename controller
- * whether it's editing, rather than reading the `data-editing` DOM
- * attribute `render/rename.ts` sets. */
+ * whether it's editing, rather than reading DOM state itself. */
 export function updateTile(refs: TileRefs, session: Session, now: Date): void {
   updateTileChrome(refs.root, session, now, refs.rename.isEditing());
 }
@@ -206,7 +193,7 @@ export function renderTileGeometry(
  * draggable and never "current", so those two `CardOptions` fields are
  * this function's own job to fill in, not the caller's. */
 export interface StripOptions {
-  onAction?: ((action: SessionAction, id: number) => void) | undefined;
+  onAction: (action: SessionAction, id: number) => void;
   connected: boolean;
   railActivity: RailActivity;
 }
@@ -269,7 +256,7 @@ export function renderTileFooterActions(
   session: Session,
   now: Date,
   connected: boolean,
-  onAction?: (action: SessionAction, id: number) => void,
+  onAction: (action: SessionAction, id: number) => void,
 ): void {
   // `.surfseg` (built once in `buildTile`, prepended into `.acts`,
   // kb:adr/surfaces-shell-control-in-tile-footer) is a
@@ -290,8 +277,8 @@ export function renderTileFooterActions(
   }
   // Leads with "✕" rather than "ended" (mockups/tiles-dead.html's `.tfoot .snap`: "✕
   // ended 6m ago") — deliberately not the word this tile's `.endbar` also starts with
-  // (see `updateTileChrome`'s comment on the same collision).
-  const ageText = session.endedAt ? `✕ ended ${ageAgo(session.endedAt, now)}` : "✕ ended";
+  // (see `tileHeaderTimerText`'s doc comment on the same collision).
+  const ageText = tileFooterAgeText(session, now);
   const resumeEnabled = connected && canResume(session.claudeSessionId);
 
   const [ageEl, resumeEl, removeEl] = tail;
@@ -327,6 +314,13 @@ export function renderTileFooterActions(
   );
 }
 
+/** `mountTileDeadSurface`'s own options: the two caller-decided fields, named rather than
+ * a positional tail — same shape as `CardOptions`/`StripOptions`. */
+export interface MountTileDeadSurfaceOptions {
+  connected: boolean;
+  onAction: (action: SessionAction, id: number) => void;
+}
+
 /** Mounts (once) or refreshes a dead tile's dead-surface inside its
  * `.tbody-slot`, cloning from `#dead-surface-template` the first time this tile goes dead
  * and requerying the existing instance on every later pass — same convention as
@@ -340,17 +334,16 @@ export function mountTileDeadSurface(
   session: Session,
   pane: PaneState,
   now: Date,
-  connected: boolean,
   template: HTMLTemplateElement,
-  onAction?: (action: SessionAction, id: number) => void,
+  options: MountTileDeadSurfaceOptions,
 ): void {
   const existing = bodySlot.querySelector<HTMLElement>(".dead-surface");
   const refs = existing ? collectDeadSurfaceRefs(existing) : buildDeadSurfaceFromTemplate(template);
   if (!existing) {
     bodySlot.replaceChildren(refs.root);
     refs.resumeBtn.addEventListener("click", () => {
-      if (!refs.resumeBtn.disabled) onAction?.("resume", session.id);
+      if (!refs.resumeBtn.disabled) options.onAction("resume", session.id);
     });
   }
-  renderDeadSurface(refs, session, pane, now, connected);
+  renderDeadSurface(refs, session, pane, now, options.connected);
 }

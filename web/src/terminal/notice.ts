@@ -1,11 +1,11 @@
 // The shared show/clear/auto-hide logic for the one
-// `role="status"` notice each terminal-style surface owns — extracted from what the
-// plain-terminal-session review recorded as the same fifteen lines twice
-// (`terminal/pane.ts`'s `TerminalSurface.showNotice` and `render/dead.ts`'s
-// `showDeadSurfaceNotice`, "mirrors ... exactly"). Operates on the minimal
-// `{ hidden, textContent }` shape rather than `HTMLElement`, so it needs no DOM and
-// `dead.test.ts`'s existing `fakeRefs()`/`fakeNoticeEl()` stubs can drive it directly
-// (docs/conventions.md: keep logic in pure modules separate from DOM code).
+// `role="status"` notice each terminal-style surface owns — one definition for what
+// `terminal/pane.ts`'s `TerminalSurface.showNotice` and `render/dead.ts`'s
+// `showDeadSurfaceNotice` both need (the two mirror each other's contract exactly).
+// Operates on the minimal `{ hidden, textContent }` shape rather than `HTMLElement`, so
+// it needs no DOM and `dead.test.ts`'s existing `fakeRefs()`/`fakeNoticeEl()` stubs can
+// drive it directly (docs/conventions.md: keep logic in pure modules separate from DOM
+// code).
 export interface NoticeTarget {
   // `boolean | "until-found"` matches lib.dom.d.ts's `HTMLElement.hidden` exactly (the
   // HTML spec's content-visibility addition) so a real element is assignable here without
@@ -14,12 +14,12 @@ export interface NoticeTarget {
   textContent: string;
 }
 
-/** An `"outcome"` notice auto-hides ~5s after it appears, as every notice used
- * to. An `"inflight"` notice (`terminal/pane.ts`'s `Locating <name>…` text while a
- * locate request is running) stays visible until something else replaces it — no timer
- * is armed for it at all. Only `terminal/pane.ts` ever passes `"inflight"`; every
- * `showDeadSurfaceNotice` caller is a failure outcome, so `render/dead.ts` never needs the
- * distinction and relies on the `"outcome"` default. */
+/** An `"outcome"` notice auto-hides ~5s after it appears. An `"inflight"` notice
+ * (`terminal/dropwire.ts`'s `Locating <name>…` text while a locate request is running)
+ * stays visible until something else replaces it — no timer is armed for it at all. Only
+ * `terminal/dropwire.ts` ever passes `"inflight"`; every `showDeadSurfaceNotice` caller is
+ * a failure outcome, so `render/dead.ts` never needs the distinction and relies on the
+ * `"outcome"` default. */
 export type NoticeKind = "outcome" | "inflight";
 
 const AUTO_HIDE_MS = 5000;

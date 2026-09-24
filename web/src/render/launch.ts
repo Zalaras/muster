@@ -6,6 +6,7 @@
 // these builders never call `navigate` themselves, only report which repo/entry was
 // picked.
 import type { BrowseEntry, Repo } from "../api/launch";
+import { requireElement } from "../dom";
 import { formatAge } from "../sessions/format";
 
 function buildRecentButton(
@@ -18,12 +19,10 @@ function buildRecentButton(
   const fragment = template.content.cloneNode(true) as DocumentFragment;
   const button = fragment.querySelector<HTMLButtonElement>("button.dir");
   if (!button) throw new Error("mru-entry-template is missing its button");
-  const name = button.querySelector<HTMLElement>(".dir-name");
-  const branch = button.querySelector<HTMLElement>(".dir-branch");
-  const age = button.querySelector<HTMLElement>(".dir-age");
-  if (name) name.textContent = repo.name;
-  if (branch) branch.textContent = repo.branch ?? "—";
-  if (age) age.textContent = formatAge(repo.lastLaunchedAt, now);
+  // `#mru-entry-template`'s fixed markup (index.html) guarantees every slot below.
+  requireElement<HTMLElement>(".dir-name", button).textContent = repo.name;
+  requireElement<HTMLElement>(".dir-branch", button).textContent = repo.branch ?? "—";
+  requireElement<HTMLElement>(".dir-age", button).textContent = formatAge(repo.lastLaunchedAt, now);
   // The full path lives in `title`; the visible entry stays name · branch · age.
   button.title = repo.path;
   // `aria-pressed` is derived, never stored — recomputed on every render from whether
@@ -71,8 +70,8 @@ function buildBrowseEntryButton(
   const fragment = template.content.cloneNode(true) as DocumentFragment;
   const button = fragment.querySelector<HTMLButtonElement>("button.entry");
   if (!button) throw new Error("subdir-entry-template is missing its button");
-  const nm = button.querySelector<HTMLElement>(".nm");
-  if (nm) nm.textContent = dir.name;
+  // `#subdir-entry-template`'s fixed markup (index.html) guarantees `.nm`.
+  requireElement<HTMLElement>(".nm", button).textContent = dir.name;
   if (dir.isGit) {
     const git = document.createElement("span");
     git.className = "git";

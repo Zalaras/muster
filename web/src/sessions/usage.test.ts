@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatResets } from "./format";
-import { buildUsageBucketViewModel, type UsageBucketSource } from "./usage";
+import type { UsageBucket as UsageBucketSource } from "../protocol/usage";
+import { buildUsageBucketViewModel } from "./usage";
 
 // R5: `formatResets` (which this derivation delegates to for `resetsText`) renders using
 // the *local* timezone, while the daemon ships UTC RFC3339Nano — same `localIso` idiom as

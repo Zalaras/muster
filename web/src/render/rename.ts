@@ -1,9 +1,8 @@
 // Shared inline rename editor (kb:adr/rename-muster-owned-title-override-wins) — the Focus mainhead's
 // heading and every Tiles tile header attach one of these to their own container. DOM
-// and key handling only, modelled on features/settings.ts's controller shape (elements/
-// handlers in, a small controller out); `titleCommand` (sessions/rename.ts) decides what
-// a commit actually sends, `features/rename.ts` turns the result into a `putTitle` call —
-// this module never touches the network.
+// and key handling only: elements/handlers in, a small controller out; `titleCommand`
+// (sessions/rename.ts) decides what a commit actually sends, `features/rename.ts` turns
+// the result into a `putTitle` call — this module never touches the network.
 //
 // `container` must already hold, as its only child, the `<button type="button"
 // class="rename">` the caller built (mainhead.ts's static markup; tiles.ts's `buildTile`
@@ -23,10 +22,9 @@ export interface RenameEditorHandlers {
   /** A host-specific effect the editor's open/close should trigger — a
    * tile suspends its own `.thead` drag handle while its title is being edited; the
    * mainhead has no such effect and omits this. Fires exactly on open (`true`) and close
-   * (`false`), never on every render pass. This module used to reach for `.thead` itself
-   * via `container.closest(".thead")` — a selector that only the tile host's markup
-   * happens to satisfy — which is exactly the "selector inside the editor" the finding
-   * objects to; the host now owns that lookup and hands the editor a plain callback. */
+   * (`false`), never on every render pass. The host owns any lookup into its own markup
+   * (a tile's `.thead`) and hands this module a plain callback — this editor holds no
+   * selector into its container. */
   onEditingChange?: (editing: boolean) => void;
 }
 
@@ -66,7 +64,6 @@ export function attachRenameEditor(
     input.removeEventListener("keydown", onKeydown);
     input.removeEventListener("blur", onBlur);
     container.replaceChildren(button);
-    delete container.dataset["editing"];
     input = null;
     handlers.onEditingChange?.(false);
   }
@@ -113,7 +110,6 @@ export function attachRenameEditor(
 
     input = field;
     container.replaceChildren(field);
-    container.dataset["editing"] = "true";
     handlers.onEditingChange?.(true);
 
     field.addEventListener("keydown", onKeydown);

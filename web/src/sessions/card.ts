@@ -4,13 +4,14 @@
 // also shared by every feature controller that dispatches a card/mainhead/tile action.
 import { PREF_DEFAULTS, type RailActivity } from "../protocol/prefs";
 import type { Session } from "../protocol/session";
-import { elapsedSeconds, formatAge, formatTimer } from "./format";
+import { basename } from "../reader/paths";
+import { ageAgo, elapsedSeconds, formatAge, formatTimer } from "./format";
 
 export type NoteKind = "attention" | "failure" | "trust" | "no-signal" | "none";
 
 /** kb:adr/actions-placement-mainhead-and-card-rows's card action-row contract: a live card
  * offers only End; an ended card offers Resume then Remove, in that order — the exact
- * button label text (Testable UI Elements). */
+ * button label text a test locator matches. */
 export type CardAction = "End" | "Resume" | "Remove";
 
 /** The action a card/mainhead/tile dispatches when its End/Resume/Remove/pin control
@@ -59,7 +60,7 @@ const STATE_CLASS: Record<Session["state"], string> = {
   idle: "s-idle",
 };
 
-// Testable UI Elements: "lowercase in DOM; CSS may uppercase".
+// Lowercase in the DOM; CSS may uppercase for display.
 const BADGE_TEXT: Record<Session["state"], string> = {
   started: "started",
   planning: "planning",
@@ -99,19 +100,11 @@ export function resumeDisabledReason(session: Session): string | null {
 // 'no signal yet'".
 const NO_SIGNAL_THRESHOLD_SECONDS = 10;
 
-/** The last non-empty path segment — shared with reader/paths.ts, which re-exports this
- * for the reader's own file-path display. A trailing slash is stripped first, so a bare
- * directory path (`session.directory` with no repo) still yields its own name rather than
- * the whole path (`basename("/Users/bob/") === "bob"`, not `""`). */
-export function basename(path: string): string {
-  const trimmed = path.replace(/\/+$/, "");
-  const parts = trimmed.split("/");
-  return parts[parts.length - 1] || path;
-}
-
 /** "repo / branch" with a worktree marker, or the directory basename when there's no
- * repo at all (design-system §5 card anatomy). */
-function repoLine(session: Session): string {
+ * repo at all (design-system §5 card anatomy). Exported for the callers that want only
+ * this line (features/actionscopy.ts's dialog copy, render/mainhead.ts's meta line)
+ * without building a whole `CardViewModel`. */
+export function repoLine(session: Session): string {
   if (session.repo) {
     const branch = session.repo.branch ?? "—";
     const worktree = session.repo.isWorktree ? " (worktree)" : "";
@@ -120,7 +113,60 @@ function repoLine(session: Session): string {
   return basename(session.directory);
 }
 
-/** Plan line 287 / design-system §3: the attention note pairs the reason with a
+/** The mainhead's meta line: "repo/branch · model · `ended <age>` when dead" — reuses
+ * `repoLine` above (the same repo-or-basename fallback the rail card shows) rather than
+ * re-deriving it. render/mainhead.ts's only caller, features/focus.ts, passes the raw
+ * session through; the text itself is a `sessions/` view-model like the rest of this
+ * module, not something render/ composes. */
+export function mainheadMeta(session: Session, now: Date): string {
+  const parts: string[] = [repoLine(session)];
+  if (session.model) parts.push(session.model.displayName);
+  if (!session.alive && session.endedAt) parts.push(`ended ${ageAgo(session.endedAt, now)}`);
+  return parts.join(" · ");
+}
+
+/** A dead tile's header timer: the bare age, deliberately WITHOUT the "ended" word — a
+ * tile's dead-surface (mounted in the same subtree, unlike a rail card) already has an
+ * `.endbar` that starts with "ended ", and two elements inside one tile both starting
+ * with "ended " would make any `tile.getByText(/^ended /)` locator ambiguous (Playwright
+ * strict-mode violation). Alive reads the same ticking timer `buildCardViewModel.timer`
+ * uses. */
+export function tileHeaderTimerText(session: Session, now: Date): string {
+  if (session.alive) return formatTimer(session.stateSince, now);
+  return session.endedAt ? formatAge(session.endedAt, now) : "";
+}
+
+/** A dead tile's footer age readout: "✕ ended <age> ago", or bare "✕ ended" while
+ * `endedAt` is null (defensive; see `tileHeaderTimerText`'s sibling comment on the same
+ * "ended " collision this "✕" prefix sidesteps). */
+export function tileFooterAgeText(session: Session, now: Date): string {
+  return session.endedAt ? `✕ ended ${ageAgo(session.endedAt, now)}` : "✕ ended";
+}
+
+/** The dead surface's endbar base text — "ended <age> · last state <badge> · last
+ * captured screen, not a live client", or without the age clause when `endedAt` is null
+ * (defensive; `endedAt`/`alive:false` are a paired invariant per
+ * kb:anchor/state.liveness). render/dead.ts appends the pane's own "captured <age>"
+ * clause afterwards, since that derives from `PaneState`, not `Session`. */
+export function deadEndbarText(session: Session, now: Date): string {
+  const age = session.endedAt ? ageAgo(session.endedAt, now) : null;
+  const badge = stateBadgeText(session.state);
+  return age
+    ? `ended ${age} · last state ${badge} · last captured screen, not a live client`
+    : `ended · last state ${badge} · last captured screen, not a live client`;
+}
+
+/** The dead surface's cap body prefix for a captured pane — "<age> · last state:
+ * <badge>", or without the age clause when `endedAt` is null. render/dead.ts substitutes
+ * its own text for the other two pane-fetch states ("no snapshot captured", "loading
+ * last screen…"). */
+export function deadCapPrefix(session: Session, now: Date): string {
+  const age = session.endedAt ? ageAgo(session.endedAt, now) : null;
+  const badge = stateBadgeText(session.state);
+  return age ? `${age} · last state: ${badge}` : `last state: ${badge}`;
+}
+
+/** design-system §3: the attention note pairs the reason with a
  * since-timer that counts up and escalates — driven by `attention.since`, which is the
  * blocked-since truth the sort (sort.ts) orders on. This is deliberately not
  * `session.stateSince` (the card's top-row `.timer`): that resets on any re-entry into
@@ -200,9 +246,9 @@ export function unreadLabel(title: string, unread: boolean): string {
 export function buildCardViewModel(
   session: Session,
   now: Date,
-  // Defaults to the pref's own default (PREF_DEFAULTS.railActivity) so every existing call
-  // site (and Vitest fixture) that predates this parameter keeps compiling and rendering
-  // the same behaviour.
+  // Defaults to the pref's own default (PREF_DEFAULTS.railActivity) for callers that read
+  // everything but `activity` off the view-model — render/tiles.ts's `updateTileChrome`
+  // never renders the activity lines, so it has no real mode to pass.
   mode: RailActivity = PREF_DEFAULTS.railActivity,
 ): CardViewModel {
   let noteKind: NoteKind = "none";

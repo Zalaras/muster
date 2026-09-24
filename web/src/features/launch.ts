@@ -18,10 +18,10 @@ import {
   type Repo,
 } from "../api/launch";
 import type { App } from "../app";
-import { permissionModeToCheck, type PermissionMode } from "../sessions/permission";
+import { permissionModeToCheck } from "../sessions/permission";
 import { checkRadioValue, requireElement, requireElements } from "../dom";
 import { renderActionError } from "../render/actionerror";
-import type { Session } from "../protocol/session";
+import type { PermissionMode, Session } from "../protocol/session";
 import { renderCrumbs } from "../render/crumbs";
 import {
   renderBrowseListing,
@@ -450,11 +450,6 @@ function initLaunchModal(
   };
 }
 
-/** The controller entry: locates the launch dialog + its two open buttons, wires
- * `onLaunched` to the store and to opening the launched session — focused in Focus,
- * promoted in Tiles, keyboard focus in its terminal in both views
- * (kb:adr/launch-opens-launched-session, kb:adr/tiles-launched-session-promoted-into-grid).
- * Returns the `LaunchHandle` `features/shortcuts.ts` dispatches ⌥⌘N/⌘↑ through. */
 // Structural, not a sibling import of FocusHandle/SurfacesHandle from their
 // owning sibling modules.
 export interface LaunchDeps {
@@ -462,6 +457,11 @@ export interface LaunchDeps {
   surfaces: { focusSelected(id: number): void };
 }
 
+/** The controller entry: locates the launch dialog + its one open button, wires
+ * `onLaunched` to the store and to opening the launched session — focused in Focus,
+ * promoted in Tiles, keyboard focus in its terminal in both views
+ * (kb:adr/launch-opens-launched-session, kb:adr/tiles-launched-session-promoted-into-grid).
+ * Returns the `LaunchHandle` `features/shortcuts.ts` dispatches ⌥⌘N/⌘↑ through. */
 export function initLaunch(app: App, deps: LaunchDeps): LaunchHandle {
   const elements: LaunchModalElements = {
     dialog: requireElement<HTMLDialogElement>("#launch-dialog"),

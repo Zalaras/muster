@@ -69,7 +69,7 @@ export function initConnection(app: App): ConnectionHandle {
   renderClaudeVersion(claudeVersionEl, describeClaudeVersion(null));
 
   // The one control the socket dropped focus off of, remembered by node identity
-  // across the disconnect->reconnect pair of renders — never per-site (R1).
+  // across the disconnect->reconnect pair of renders — never per-site.
   let remembered: (HTMLButtonElement | HTMLSelectElement) | null = null;
 
   const state = createConnectionState(app, (status) => {
