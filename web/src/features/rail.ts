@@ -25,6 +25,9 @@ export function initRail(app: App, deps: RailDeps): void {
   const railCountEl = requireElement<HTMLElement>("#rail-count");
   const railSortSelect = requireElement<HTMLSelectElement>("#rail-sort");
   const railDensityButtons = requireElements<HTMLButtonElement>("#rail-density .seg-btn");
+  // Review Minor 12: looked up once, here, and passed into `render/sessions.ts`'s
+  // `renderSessions` — `render/` no longer calls `requireTemplate` itself.
+  const sessionCardTemplate = requireElement<HTMLTemplateElement>("#session-card-template");
 
   let pendingRailFocus: FocusedControl | null = null;
 
@@ -83,19 +86,22 @@ export function initRail(app: App, deps: RailDeps): void {
       sessionsEl,
       orderRail(frame.sessions, app.state.railSort),
       frame.now,
-      (id, source) => {
-        app.focus(id);
-        app.render();
-        // plan terminal-focus: only a deliberate pointer click on a rail card moves
-        // keyboard focus into the terminal.
-        if (source === "pointer") deps.surfaces.focusSelected(id);
+      sessionCardTemplate,
+      {
+        onClick: (id, source) => {
+          app.focus(id);
+          app.render();
+          // plan terminal-focus: only a deliberate pointer click on a rail card moves
+          // keyboard focus into the terminal.
+          if (source === "pointer") deps.surfaces.focusSelected(id);
+        },
+        onAction: deps.actions.dispatch,
+        connected: frame.connected,
+        draggable: app.state.railSort === "manual",
+        pendingFocus: pendingRailFocus,
+        currentId: app.state.focusedId,
+        railActivity: app.state.railActivity,
       },
-      deps.actions.dispatch,
-      frame.connected,
-      app.state.railSort === "manual",
-      pendingRailFocus,
-      app.state.focusedId,
-      app.state.railActivity,
     );
     pendingRailFocus = null;
     railCountEl.textContent = frame.sessions.length > 0 ? String(frame.sessions.length) : "";

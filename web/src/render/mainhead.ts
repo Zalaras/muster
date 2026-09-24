@@ -65,6 +65,10 @@ export function renderMainhead(
   connected: boolean,
   surfaceState: SessionSurfaceState = DEFAULT_SURFACE_STATE,
   activity: ShellActivityIndicator = "none",
+  // Review Minor 3: asks the rename controller directly (features/focus.ts's caller reads
+  // its own `deps.getRename().isEditing()`), rather than this module reading
+  // `render/rename.ts`'s `data-editing` DOM attribute off `elements.nameEl` itself.
+  isEditingName = false,
 ): void {
   if (!session) {
     elements.root.hidden = true;
@@ -85,11 +89,10 @@ export function renderMainhead(
     return;
   }
   elements.root.hidden = false;
-  // REQ-15/INV-4: `render/rename.ts` marks `nameEl` while its editor is open — skip the
-  // title write entirely so a render tick or `sessionUpsert` mid-edit never touches the
-  // input's value, focus or selection. The rename button (inside `nameEl`) is written
-  // only on the non-editing branch below, same reasoning.
-  if (elements.nameEl.dataset["editing"] !== "true") {
+  // REQ-15/INV-4: while the rename editor is open, skip the title write entirely so a
+  // render tick or `sessionUpsert` mid-edit never touches the input's value, focus or
+  // selection.
+  if (!isEditingName) {
     elements.renameBtn.textContent = session.title ?? "untitled";
   }
   // Same "every render pass, regardless of the editing skip above" rule as its three

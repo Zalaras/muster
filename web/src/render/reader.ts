@@ -21,6 +21,7 @@ import { loadingText } from "../reader/paths";
 import type { FlatTreeEntry } from "../reader/tree";
 import { wireDiagramDialog } from "./diagramdialog";
 import { buildFrontmatterNode } from "./frontmatter";
+import { captureFocusedKey, restoreFocusedKey } from "./focuskeep";
 
 /** `doc.ts`'s placeholder when its `?session=` doesn't parse (review cycle 1 Critical 1) —
  * not part of the `#reader-template` component below, since nothing here needs a session
@@ -213,18 +214,34 @@ function renderBar(refs: ReaderRefs, vm: ReaderBarVM): void {
   if (vm.popOutHref !== null) refs.popOut.href = vm.popOutHref;
 }
 
-function applyPlanAttrs(btn: HTMLButtonElement, vm: Extract<PlanSlotVM, { kind: "file" }>): void {
-  if (vm.current) btn.setAttribute("aria-current", "true");
-  else btn.removeAttribute("aria-current");
+/** Minor 14: the one place `aria-current` is toggled — `applyPlanAttrs`, `buildTreeButton`,
+ * `applyTreeAttrs` and `buildOutlineButton`/`applyOutlineAttrs` all wrote this same
+ * two-line if/else independently before this helper existed. */
+function setAriaCurrent(el: HTMLElement, current: boolean | undefined): void {
+  if (current) el.setAttribute("aria-current", "true");
+  else el.removeAttribute("aria-current");
+}
+
+/** Minor 14: the one place a button's `.dot` (the unsaved-changes marker) is added or
+ * removed — same duplication as `setAriaCurrent` above, across `applyPlanAttrs`,
+ * `buildTreeButton` and `applyTreeAttrs`. `dirty`/`current` are optional on
+ * `FlatTreeEntry` (a directory row carries neither) — undefined reads the same as false,
+ * matching the truthy checks these two helpers replace. */
+function setDirtyDot(btn: HTMLElement, dirty: boolean | undefined): void {
   const existingDot = btn.querySelector<HTMLElement>(".dot");
-  if (vm.dirty && !existingDot) {
+  if (dirty && !existingDot) {
     const dot = document.createElement("span");
     dot.className = "dot";
     dot.setAttribute("aria-hidden", "true");
     btn.append(dot);
-  } else if (!vm.dirty && existingDot) {
+  } else if (!dirty && existingDot) {
     existingDot.remove();
   }
+}
+
+function applyPlanAttrs(btn: HTMLButtonElement, vm: Extract<PlanSlotVM, { kind: "file" }>): void {
+  setAriaCurrent(btn, vm.current);
+  setDirtyDot(btn, vm.dirty);
 }
 
 /** `current`/`dirty` are attribute-level state — the same defect class review
@@ -294,14 +311,9 @@ function buildTreeButton(refs: ReaderRefs, entry: FlatTreeEntry): HTMLButtonElem
     btn.append(car, document.createTextNode(`${entry.name}/`), cnt);
     btn.addEventListener("click", () => refs.callbacks.onToggleFolder(entry.path));
   } else {
-    if (entry.current) btn.setAttribute("aria-current", "true");
+    setAriaCurrent(btn, entry.current);
     btn.append(document.createTextNode(entry.name));
-    if (entry.dirty) {
-      const dot = document.createElement("span");
-      dot.className = "dot";
-      dot.setAttribute("aria-hidden", "true");
-      btn.append(dot);
-    }
+    setDirtyDot(btn, entry.dirty);
     btn.addEventListener("click", () => refs.callbacks.onSelectPath(entry.path));
   }
   return btn;
@@ -323,25 +335,6 @@ function treeStructOf(entry: FlatTreeEntry): unknown {
     : { kind: "file", path: entry.path, name: entry.name, depth: entry.depth };
 }
 
-/** Finds the currently-focused element's stable key, iff it's a direct child of
- * `container` — used to restore focus onto the equivalent node across a rebuild that
- * genuinely changes the row set. */
-function focusedKeyWithin(container: HTMLElement, dataKey: string): string | null {
-  const active = document.activeElement;
-  if (!(active instanceof HTMLElement) || active.parentElement !== container) return null;
-  return active.dataset[dataKey] ?? null;
-}
-
-function restoreFocusByKey(container: HTMLElement, dataKey: string, key: string | null): void {
-  if (key === null) return;
-  for (const child of container.children) {
-    if (child instanceof HTMLElement && child.dataset[dataKey] === key) {
-      child.focus();
-      return;
-    }
-  }
-}
-
 /** Applies `current`/`dirty` to the already-built buttons in place — entries and DOM
  * children are in the same order (both derive from the same flattened array), so this
  * never needs to search. */
@@ -350,17 +343,8 @@ function applyTreeAttrs(container: HTMLElement, entries: readonly FlatTreeEntry[
   entries.forEach((entry, i) => {
     const btn = buttons[i];
     if (!(btn instanceof HTMLButtonElement) || entry.kind !== "file") return;
-    if (entry.current) btn.setAttribute("aria-current", "true");
-    else btn.removeAttribute("aria-current");
-    const existingDot = btn.querySelector<HTMLElement>(".dot");
-    if (entry.dirty && !existingDot) {
-      const dot = document.createElement("span");
-      dot.className = "dot";
-      dot.setAttribute("aria-hidden", "true");
-      btn.append(dot);
-    } else if (!entry.dirty && existingDot) {
-      existingDot.remove();
-    }
+    setAriaCurrent(btn, entry.current);
+    setDirtyDot(btn, entry.dirty);
   });
 }
 
@@ -387,9 +371,9 @@ function renderTree(refs: ReaderRefs, entries: readonly FlatTreeEntry[], loading
     refs.tree.replaceChildren(buildTreeLoadingRow());
     return;
   }
-  const focusedPath = focusedKeyWithin(refs.tree, "path");
+  const focusedPath = captureFocusedKey(refs.tree, "path");
   refs.tree.replaceChildren(...entries.map((entry) => buildTreeButton(refs, entry)));
-  restoreFocusByKey(refs.tree, "path", focusedPath);
+  restoreFocusedKey(refs.tree, "path", focusedPath);
 }
 
 function buildOutlineButton(refs: ReaderRefs, entry: OutlineEntryVM): HTMLButtonElement {
@@ -397,7 +381,7 @@ function buildOutlineButton(refs: ReaderRefs, entry: OutlineEntryVM): HTMLButton
   btn.type = "button";
   btn.className = `ol h${entry.level}`;
   btn.dataset["headingId"] = entry.id;
-  if (entry.current) btn.setAttribute("aria-current", "true");
+  setAriaCurrent(btn, entry.current);
   btn.textContent = entry.text;
   btn.addEventListener("click", () => refs.callbacks.onOutlineSelect(entry.id));
   return btn;
@@ -414,8 +398,7 @@ function applyOutlineAttrs(container: HTMLElement, entries: readonly OutlineEntr
   entries.forEach((entry, i) => {
     const btn = buttons[i];
     if (!(btn instanceof HTMLButtonElement)) return;
-    if (entry.current) btn.setAttribute("aria-current", "true");
-    else btn.removeAttribute("aria-current");
+    setAriaCurrent(btn, entry.current);
   });
 }
 
@@ -426,9 +409,9 @@ function renderOutline(refs: ReaderRefs, entries: readonly OutlineEntryVM[]): vo
     return;
   }
   refs.outline.dataset["structSig"] = structSig;
-  const focusedId = focusedKeyWithin(refs.outline, "headingId");
+  const focusedId = captureFocusedKey(refs.outline, "headingId");
   refs.outline.replaceChildren(...entries.map((entry) => buildOutlineButton(refs, entry)));
-  restoreFocusByKey(refs.outline, "headingId", focusedId);
+  restoreFocusedKey(refs.outline, "headingId", focusedId);
 }
 
 /** Every render pass — cheap to call on the once-a-second tick too, since the tree and

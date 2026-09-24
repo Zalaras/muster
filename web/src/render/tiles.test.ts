@@ -9,6 +9,7 @@
 // before ever looking up a template).
 import { describe, expect, it } from "vitest";
 import type { Session } from "../protocol/session";
+import type { RenameEditorController } from "./rename";
 import { renderStrip, renderTileGeometry, updateTile, type TileRefs } from "./tiles";
 
 function fakeElement(): HTMLElement {
@@ -48,6 +49,31 @@ function fakeRefs(): TileRefs {
     bodySlot: fakeElement(),
     geoEl: fakeElement(),
     markerEl: fakeElement(),
+  };
+}
+
+/** Review Minor 3: `updateTile` now asks `refs.rename?.isEditing()` instead of reading
+ * `.nm`'s `data-editing` DOM attribute — this fixture stands in for a tile's real
+ * `RenameEditorController` (attached by `buildTile` in production), with a mutable
+ * `setEditing` escape hatch so a test can flip it mid-sequence the same way an editor's
+ * own `open()`/`closeEditor()` would. `open`/`cancel`/`setEnabled`/`dispose` are no-ops —
+ * `updateTile` never calls them. */
+function fakeRenameController(initialEditing = false): {
+  controller: RenameEditorController;
+  setEditing: (editing: boolean) => void;
+} {
+  let editing = initialEditing;
+  return {
+    controller: {
+      open: () => {},
+      cancel: () => {},
+      isEditing: () => editing,
+      setEnabled: () => {},
+      dispose: () => {},
+    },
+    setEditing: (value: boolean) => {
+      editing = value;
+    },
   };
 }
 
@@ -254,55 +280,52 @@ describe("updateTile — REQ-9 (plan move-tiles): the state dot gets a title = t
 });
 
 // REQ-15/INV-4/W12 (plan ui-text-and-focus): the 1s render tick (`updateTile` ->
-// `updateTileChrome`) must leave an open rename field's value untouched — it does this
-// by skipping the title write entirely while `.nm` is marked `data-editing="true"` by
-// render/rename.ts's editor. `fakeNameEl()`'s `dataset` is a real mutable object (not a
-// getter), so this test can flip the flag directly, matching what the editor itself does
-// to the real node.
-describe('updateTile — REQ-15/INV-4: skips the title write while `.nm.dataset.editing` is "true" (W12)', () => {
+// `updateTileChrome`) must leave an open rename field's value untouched — review Minor 3
+// moved this decision from `.nm`'s `data-editing` DOM attribute to asking the tile's own
+// `refs.rename?.isEditing()`, so these fixtures now carry a `fakeRenameController` instead
+// of poking the DOM attribute directly.
+describe("updateTile — REQ-15/INV-4: skips the title write while refs.rename?.isEditing() is true (W12)", () => {
   it("leaves the rename button's text untouched while an edit is open, even though a new sessionUpsert carries a different title", () => {
     const root = fakeTileRoot();
+    const { controller, setEditing } = fakeRenameController();
     const refs: TileRefs = {
       root,
       bodySlot: fakeElement(),
       geoEl: fakeElement(),
       markerEl: fakeElement(),
+      rename: controller,
     };
     updateTile(refs, makeSession({ id: 1, title: "before" }), NOW);
     expect(root.querySelector(".nm")?.textContent).toBe("before");
 
-    const nameEl = root.querySelector(".nm") as unknown as {
-      dataset: Record<string, string | undefined>;
-    };
-    nameEl.dataset["editing"] = "true";
+    setEditing(true);
 
     updateTile(refs, makeSession({ id: 1, title: "sneaking in mid-edit" }), NOW);
     expect(root.querySelector(".nm")?.textContent).toBe("before");
   });
 
-  it("writes the title once the edit closes (dataset.editing cleared) — not stuck stale forever", () => {
+  it("writes the title once the edit closes (isEditing() false again) — not stuck stale forever", () => {
     const root = fakeTileRoot();
+    const { controller, setEditing } = fakeRenameController();
     const refs: TileRefs = {
       root,
       bodySlot: fakeElement(),
       geoEl: fakeElement(),
       markerEl: fakeElement(),
+      rename: controller,
     };
     updateTile(refs, makeSession({ id: 1, title: "before" }), NOW);
 
-    const nameEl = root.querySelector(".nm") as unknown as {
-      dataset: Record<string, string | undefined>;
-    };
-    nameEl.dataset["editing"] = "true";
+    setEditing(true);
     updateTile(refs, makeSession({ id: 1, title: "typed but not committed" }), NOW);
     expect(root.querySelector(".nm")?.textContent).toBe("before");
 
-    delete nameEl.dataset["editing"];
+    setEditing(false);
     updateTile(refs, makeSession({ id: 1, title: "committed name" }), NOW);
     expect(root.querySelector(".nm")?.textContent).toBe("committed name");
   });
 
-  it("writes the title normally when dataset.editing is absent (the common, non-editing case)", () => {
+  it("writes the title normally when refs.rename is absent (the pre-plan fixture shape, treated as not-editing)", () => {
     const root = fakeTileRoot();
     const refs: TileRefs = {
       root,
@@ -322,7 +345,10 @@ describe('updateTile — REQ-15/INV-4: skips the title write while `.nm.dataset.
 describe("renderStrip — hides entirely when every session is live (plan edge case 7)", () => {
   it("hides the strip and clears its children when the session list is empty", () => {
     const el = fakeElement();
-    renderStrip(el, [], new Date(), () => {});
+    renderStrip(el, [], new Date(), {} as unknown as HTMLTemplateElement, () => {}, {
+      connected: true,
+      railActivity: "turn",
+    });
     expect(el.hidden).toBe(true);
   });
 });

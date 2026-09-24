@@ -21,9 +21,3 @@ export function requireElements<T extends HTMLElement>(
   if (els.length === 0) throw new Error(`missing required elements: ${selector}`);
   return els;
 }
-
-export function requireTemplate(id: string): HTMLTemplateElement {
-  const el = document.getElementById(id);
-  if (!(el instanceof HTMLTemplateElement)) throw new Error(`missing template: #${id}`);
-  return el;
-}

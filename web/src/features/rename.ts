@@ -13,6 +13,11 @@ export interface RenameHandle {
   /** The shared pair every tile's own editor adapts into its per-tile shape
    * (`render/tiles.ts`'s `buildTile`). */
   readonly tileRenameHandlers: TileRenameHandlers;
+  /** Review Minor 3: the mainhead editor's own `isEditing` — `features/focus.ts` asks
+   * this (through its own `getRename` thunk, since `rename` is constructed after `focus`,
+   * main.ts's init order) rather than `render/mainhead.ts` reading `render/rename.ts`'s
+   * `data-editing` DOM attribute itself. */
+  isEditing(): boolean;
 }
 
 // W6/INV-4: structural, not a sibling import of FocusHandle from the focus module —
@@ -45,5 +50,5 @@ export function initRename(app: App, deps: { focus: { nameEl: HTMLElement } }): 
   // focusChanged: today's `setFocusedId` always cancelled the mainhead editor first.
   app.on("focusChanged", () => mainheadRename.cancel());
 
-  return { tileRenameHandlers };
+  return { tileRenameHandlers, isEditing: mainheadRename.isEditing };
 }

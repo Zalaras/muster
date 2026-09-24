@@ -400,12 +400,11 @@ class ReaderInstance {
     this.diagramPass = this.diagramPass
       .catch(() => {})
       .then(() =>
-        rerenderDiagrams(
-          this.refs.body,
-          theme,
+        rerenderDiagrams(this.refs.body, {
           instance,
-          () => !this.disposed && seq === this.fetchSeq,
-        ),
+          theme,
+          isCurrent: () => !this.disposed && seq === this.fetchSeq,
+        }),
       );
   }
 

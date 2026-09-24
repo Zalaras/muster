@@ -20,6 +20,14 @@ export interface RenameEditorHandlers {
   getSession: () => Session | null;
   /** Fires once, only for a `"set"`/`"clear"` outcome — a `"noop"` never reaches here. */
   onCommit: (id: number, command: TitleCommand) => void;
+  /** Review Minor 3: a host-specific effect the editor's open/close should trigger — a
+   * tile suspends its own `.thead` drag handle while its title is being edited; the
+   * mainhead has no such effect and omits this. Fires exactly on open (`true`) and close
+   * (`false`), never on every render pass. This module used to reach for `.thead` itself
+   * via `container.closest(".thead")` — a selector that only the tile host's markup
+   * happens to satisfy — which is exactly the "selector inside the editor" the finding
+   * objects to; the host now owns that lookup and hands the editor a plain callback. */
+  onEditingChange?: (editing: boolean) => void;
 }
 
 export interface RenameEditorController {
@@ -53,19 +61,14 @@ export function attachRenameEditor(
   // commit a second time. Set the instant either Enter or blur starts closing the edit.
   let settled = true;
 
-  function thead(): HTMLElement | null {
-    return container.closest<HTMLElement>(".thead");
-  }
-
   function closeEditor(): void {
     if (!input) return;
     input.removeEventListener("keydown", onKeydown);
     input.removeEventListener("blur", onBlur);
     container.replaceChildren(button);
     delete container.dataset["editing"];
-    const head = thead();
-    if (head) head.setAttribute("draggable", "true");
     input = null;
+    handlers.onEditingChange?.(false);
   }
 
   function finish(action: "commit" | "cancel"): void {
@@ -111,8 +114,7 @@ export function attachRenameEditor(
     input = field;
     container.replaceChildren(field);
     container.dataset["editing"] = "true";
-    const head = thead();
-    if (head) head.setAttribute("draggable", "false");
+    handlers.onEditingChange?.(true);
 
     field.addEventListener("keydown", onKeydown);
     field.addEventListener("blur", onBlur);

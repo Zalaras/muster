@@ -28,11 +28,8 @@ import {
   type TileRefs,
   type TileRenameHandlers,
 } from "../render/tiles";
-import {
-  captureFocusedControl,
-  restoreFocusedControl,
-  type FocusedControl,
-} from "../render/focuskeep";
+import { captureFocusedControl, type FocusedControl } from "../render/focuskeep";
+import { reconcileKeyedOrder, type KeyedReorderEntry } from "../render/keyedreorder";
 import { installTileDrag } from "../render/tiledrag";
 import { applyDensity, densityCount, initialLive, moveTile, promote } from "../sessions/live";
 import { orderRail } from "../sessions/sort";
@@ -84,6 +81,10 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
   const tilesGridEl = requireElement<HTMLElement>("#tiles-grid");
   const tilesStripEl = requireElement<HTMLElement>("#tiles-strip");
   const deadSurfaceTemplate = requireElement<HTMLTemplateElement>("#dead-surface-template");
+  // Review Minor 12: looked up once, here, and passed into every `render/tiles.ts` builder
+  // that needs it — `render/` no longer calls `requireTemplate` itself.
+  const tileTemplate = requireElement<HTMLTemplateElement>("#tile-template");
+  const sessionCardTemplate = requireElement<HTMLTemplateElement>("#session-card-template");
 
   let tilesLive: number[] = [];
   // Tiles' mounted chrome per live session id — kept across render passes so the 1s tick
@@ -224,29 +225,31 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
   ): void {
     dropTilesNotIn(new Set(liveSessions.map((s) => s.id)));
 
+    // review m2-terminal Critical 2 / Major 4: captured before any tile's content is
+    // built or updated below, not just before the position pass — a content update (say,
+    // a genuine live/ended transition) can itself blur a focused descendant, same
+    // reasoning as `render/sessions.ts`'s `reconcileCards`.
     const focused = pendingTileFocus ?? captureFocusedControl(tilesGridEl);
     pendingTileFocus = null;
 
-    let previousRoot: HTMLElement | null = null;
+    // Review Major 4: this module keeps only membership (`tilesLive`, via
+    // `dropTilesNotIn` above) and each tile's own refs; the actual DOM
+    // insertBefore-reorder-plus-focus-restore is `render/keyedreorder.ts`'s shared
+    // routine, the same one `render/sessions.ts`'s `reconcileCards` uses for the rail and
+    // strip.
+    const entries: KeyedReorderEntry[] = [];
     for (const session of liveSessions) {
       let refs = tileElements.get(session.id);
       const isNewTile = !refs;
       if (!refs) {
-        refs = buildTile(session, now, deps.getRenameHandlers(), (id, kind) =>
+        refs = buildTile(session, now, tileTemplate, deps.getRenameHandlers(), (id, kind) =>
           deps.getSurfaces().select(id, kind, () => deps.actions.findDeadSurfaceRefs(id)),
         );
         tileElements.set(session.id, refs);
       } else {
         updateTile(refs, session, now);
       }
-
-      const desiredNext: Element | null = previousRoot
-        ? previousRoot.nextElementSibling
-        : tilesGridEl.firstElementChild;
-      if (desiredNext !== refs.root) {
-        tilesGridEl.insertBefore(refs.root, desiredNext);
-      }
-      previousRoot = refs.root;
+      entries.push({ id: session.id, root: refs.root });
 
       const sessionSurfaceState = getSurfaceState(deps.getSurfaces().state(), session.id);
       renderTileBody(refs, session, sessionSurfaceState.selected, isNewTile, now, connected);
@@ -263,7 +266,7 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
       refs.rename?.setEnabled(connected);
     }
 
-    restoreFocusedControl(focused, (id) => tileElements.get(id)?.root);
+    reconcileKeyedOrder(tilesGridEl, entries, focused);
   }
 
   function renderView(frame: RenderFrame): void {
@@ -274,15 +277,11 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
     if (!hasSessions) {
       tilesGridEl.replaceChildren();
       tileElements.clear();
-      renderStrip(
-        tilesStripEl,
-        [],
-        now,
-        promoteSession,
-        deps.actions.dispatch,
+      renderStrip(tilesStripEl, [], now, sessionCardTemplate, promoteSession, {
+        onAction: deps.actions.dispatch,
         connected,
-        app.state.railActivity,
-      );
+        railActivity: app.state.railActivity,
+      });
       return;
     }
 
@@ -299,15 +298,11 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
 
     reconcileTilesGrid(liveSessions, now, connected);
 
-    renderStrip(
-      tilesStripEl,
-      stripSessions,
-      now,
-      promoteSession,
-      deps.actions.dispatch,
+    renderStrip(tilesStripEl, stripSessions, now, sessionCardTemplate, promoteSession, {
+      onAction: deps.actions.dispatch,
       connected,
-      app.state.railActivity,
-    );
+      railActivity: app.state.railActivity,
+    });
   }
 
   return {

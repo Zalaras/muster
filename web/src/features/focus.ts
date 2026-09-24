@@ -50,6 +50,10 @@ export interface FocusDeps {
   /** Plan markdown-viewing: `reader` is constructed after `focus` (main.ts's init
    * order), so this is a thunk like `getSurfaces` above — invoked only from `renderView`. */
   getReader(): { rootFor(id: number): HTMLElement | null };
+  /** Review Minor 3: `rename` is constructed after `focus` (main.ts's init order), so this
+   * is a thunk too — `renderView` asks it whether the mainhead's editor is open, instead of
+   * `render/mainhead.ts` reading `render/rename.ts`'s `data-editing` DOM attribute itself. */
+  getRename(): { isEditing(): boolean };
 }
 
 export interface FocusHandle {
@@ -195,7 +199,15 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
       ? getSurfaceState(deps.getSurfaces().state(), session.id)
       : DEFAULT_SURFACE_STATE;
     const activity = session ? deps.getSurfaces().activityFor(session.id) : "none";
-    renderMainhead(mainheadElements, session, now, connected, surfaceState, activity);
+    renderMainhead(
+      mainheadElements,
+      session,
+      now,
+      connected,
+      surfaceState,
+      activity,
+      deps.getRename().isEditing(),
+    );
 
     if (!session) {
       mainSlotEl.hidden = true;

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { vi } from "vitest";
 import type { Session } from "../protocol/session";
-import { reconcileCards, renderSessions } from "./sessions";
+import { reconcileCards, renderSessions, type CardListOptions } from "./sessions";
 
 function fakeElement(): HTMLElement {
   return { textContent: "", hidden: false } as unknown as HTMLElement;
@@ -15,7 +15,7 @@ function fakeElement(): HTMLElement {
 describe("renderSessions", () => {
   it("renders the honest empty state when there are no sessions", () => {
     const el = fakeElement();
-    renderSessions(el, []);
+    renderSessions(el, [], NOW, fakeTemplate(), baseOptions());
     expect(el.textContent).toBe("No sessions yet");
   });
 });
@@ -357,6 +357,22 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
   };
 }
 
+/** Review Major 5: `reconcileCards`/`renderSessions` now take one `CardListOptions`
+ * object instead of a positional tail — this file's own tests care about one field at a
+ * time (a reorder, a pin flip, a draggable mode), so this fills in the rest with the
+ * values every prior positional call in this file defaulted to (`connected: true`,
+ * `draggable: false`, `currentId: null`, `railActivity: "turn"`), letting each test
+ * override only the field it's actually exercising. */
+function baseOptions(overrides: Partial<CardListOptions> = {}): CardListOptions {
+  return {
+    connected: true,
+    draggable: false,
+    currentId: null,
+    railActivity: "turn",
+    ...overrides,
+  };
+}
+
 describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
   let fakeDocument: {
     activeElement: FakeDomNode | null;
@@ -381,15 +397,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
   it("builds one card per session, in the given order, on first reconcile (insert case)", () => {
     const el = container();
     const sessions = [makeSession({ id: 1 }), makeSession({ id: 2 }), makeSession({ id: 3 })];
-    reconcileCards(
-      el as unknown as HTMLElement,
-      sessions,
-      NOW,
-      fakeTemplate(),
-      undefined,
-      undefined,
-      true,
-    );
+    reconcileCards(el as unknown as HTMLElement, sessions, NOW, fakeTemplate(), baseOptions());
 
     expect(el.children.map((c) => c.dataset["sessionId"])).toEqual(["1", "2", "3"]);
     expect(el.children.map((c) => c.querySelector(".name")?.textContent)).toEqual([
@@ -406,9 +414,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
       [makeSession({ id: 1, title: "first" })],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
+      baseOptions(),
     );
     const before = el.children[0];
 
@@ -417,9 +423,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
       [makeSession({ id: 1, title: "second" })],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
+      baseOptions(),
     );
     const after = el.children[0];
 
@@ -434,9 +438,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
       [makeSession({ id: 1 }), makeSession({ id: 2 })],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
+      baseOptions(),
     );
     const [cardA, cardB] = el.children;
 
@@ -445,9 +447,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
       [makeSession({ id: 2 }), makeSession({ id: 1 })],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
+      baseOptions(),
     );
 
     expect(el.children.map((c) => c.dataset["sessionId"])).toEqual(["2", "1"]);
@@ -463,9 +463,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
       [makeSession({ id: 1 }), makeSession({ id: 2 }), makeSession({ id: 3 })],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
+      baseOptions(),
     );
     const survivor1 = el.children[0];
     const survivor3 = el.children[2];
@@ -475,9 +473,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
       [makeSession({ id: 1 }), makeSession({ id: 3 })],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
+      baseOptions(),
     );
 
     expect(el.children.map((c) => c.dataset["sessionId"])).toEqual(["1", "3"]);
@@ -493,9 +489,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
       [makeSession({ id: 1 })],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
+      baseOptions(),
     );
 
     expect(el.childNodes).toHaveLength(1);
@@ -515,9 +509,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
         [makeSession({ id: 1 }), makeSession({ id: 2 })],
         NOW,
         fakeTemplate(),
-        undefined,
-        undefined,
-        true,
+        baseOptions(),
       );
       const endBtn = el.children[1]?.querySelector('[data-action="end"]');
       endBtn?.focus();
@@ -534,9 +526,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
         [makeSession({ id: 1 }), makeSession({ id: 2 })],
         NOW,
         fakeTemplate(),
-        undefined,
-        undefined,
-        true,
+        baseOptions(),
       );
       const endBtn = el.children[1]?.querySelector('[data-action="end"]') as FakeDomNode;
       endBtn.focus();
@@ -547,9 +537,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
         [makeSession({ id: 2 }), makeSession({ id: 1 })],
         NOW,
         fakeTemplate(),
-        undefined,
-        undefined,
-        true,
+        baseOptions(),
       );
       expect(fakeDocument.activeElement).toBeNull();
       endBtn.focus = realFocus;
@@ -565,9 +553,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
         ],
         NOW,
         fakeTemplate(),
-        undefined,
-        undefined,
-        true,
+        baseOptions(),
       );
       const endBtn = el.children[1]?.querySelector('[data-action="end"]');
       expect(endBtn).toBeTruthy();
@@ -583,9 +569,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
         ],
         NOW,
         fakeTemplate(),
-        undefined,
-        undefined,
-        true,
+        baseOptions(),
       );
 
       const activeAfter = fakeDocument.activeElement;
@@ -601,9 +585,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
         [makeSession({ id: 1 }), makeSession({ id: 2 })],
         NOW,
         fakeTemplate(),
-        undefined,
-        undefined,
-        true,
+        baseOptions(),
       );
       const cardTwo = el.children[1];
       cardTwo?.focus();
@@ -614,9 +596,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
         [makeSession({ id: 2 }), makeSession({ id: 1 })],
         NOW,
         fakeTemplate(),
-        undefined,
-        undefined,
-        true,
+        baseOptions(),
       );
 
       expect(fakeDocument.activeElement?.dataset["sessionId"]).toBe("2");
@@ -632,18 +612,14 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
         [makeSession({ id: 1 }), makeSession({ id: 2 })],
         NOW,
         fakeTemplate(),
-        undefined,
-        undefined,
-        true,
+        baseOptions(),
       );
       reconcileCards(
         el as unknown as HTMLElement,
         [makeSession({ id: 2 }), makeSession({ id: 1 })],
         NOW,
         fakeTemplate(),
-        undefined,
-        undefined,
-        true,
+        baseOptions(),
       );
 
       expect(fakeDocument.activeElement).toBe(outsideEl);
@@ -656,9 +632,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
         [makeSession({ id: 1 }), makeSession({ id: 2 })],
         NOW,
         fakeTemplate(),
-        undefined,
-        undefined,
-        true,
+        baseOptions(),
       );
       const cardOne = el.children[0];
       cardOne?.focus();
@@ -670,9 +644,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
         [makeSession({ id: 1 }), makeSession({ id: 2 })],
         NOW,
         fakeTemplate(),
-        undefined,
-        undefined,
-        true,
+        baseOptions(),
       );
 
       expect(fakeDocument.activeElement).toBe(cardOne);
@@ -709,9 +681,7 @@ describe("reconcileCards — pin button attributes (plan order-sidebar REQ-8/REQ
       [makeSession({ id: 1, pinned: false })],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
+      baseOptions(),
     );
     const pin = el.children[0]?.querySelector(".pin");
     expect(pin?.getAttribute("aria-label")).toBe("Pin");
@@ -726,9 +696,7 @@ describe("reconcileCards — pin button attributes (plan order-sidebar REQ-8/REQ
       [makeSession({ id: 1, pinned: true })],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
+      baseOptions(),
     );
     const pin = el.children[0]?.querySelector(".pin");
     expect(pin?.getAttribute("aria-label")).toBe("Unpin");
@@ -743,9 +711,7 @@ describe("reconcileCards — pin button attributes (plan order-sidebar REQ-8/REQ
       [makeSession({ id: 1, pinned: false })],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
+      baseOptions(),
     );
     const pinBefore = el.children[0]?.querySelector(".pin");
 
@@ -754,9 +720,7 @@ describe("reconcileCards — pin button attributes (plan order-sidebar REQ-8/REQ
       [makeSession({ id: 1, pinned: true })],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
+      baseOptions(),
     );
     const pinAfter = el.children[0]?.querySelector(".pin");
 
@@ -773,18 +737,14 @@ describe("reconcileCards — pin button attributes (plan order-sidebar REQ-8/REQ
       [makeSession({ id: 1, pinned: true })],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
+      baseOptions(),
     );
     reconcileCards(
       el as unknown as HTMLElement,
       [makeSession({ id: 1, pinned: false })],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
+      baseOptions(),
     );
     const pin = el.children[0]?.querySelector(".pin");
     expect(pin?.getAttribute("aria-label")).toBe("Pin");
@@ -799,9 +759,7 @@ describe("reconcileCards — pin button attributes (plan order-sidebar REQ-8/REQ
       [makeSession({ id: 7, pinned: false })],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
+      baseOptions(),
     );
     const pin = el.children[0]?.querySelector(".pin");
     expect(pin?.dataset["action"]).toBe("pin");
@@ -840,9 +798,7 @@ describe("reconcileCards — pinned block visual: `pinned`/`pinned-last` classes
       ],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
+      baseOptions(),
     );
     expect(el.children[0]?.className.split(/\s+/)).toContain("pinned");
     expect(el.children[1]?.className.split(/\s+/)).toContain("pinned");
@@ -860,9 +816,7 @@ describe("reconcileCards — pinned block visual: `pinned`/`pinned-last` classes
       ],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
+      baseOptions(),
     );
     expect(el.children[0]?.className.split(/\s+/)).not.toContain("pinned-last");
     expect(el.children[1]?.className.split(/\s+/)).toContain("pinned-last");
@@ -876,9 +830,7 @@ describe("reconcileCards — pinned block visual: `pinned`/`pinned-last` classes
       [makeSession({ id: 1, pinned: false }), makeSession({ id: 2, pinned: false })],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
+      baseOptions(),
     );
     for (const card of el.children) {
       expect(card.className.split(/\s+/)).not.toContain("pinned-last");
@@ -896,9 +848,7 @@ describe("reconcileCards — pinned block visual: `pinned`/`pinned-last` classes
       ],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
+      baseOptions(),
     );
     // Session 2 is unpinned; the caller re-renders with the new orderRail-ordered list
     // (pinned block first) — id 1 is now the sole pinned session.
@@ -911,9 +861,7 @@ describe("reconcileCards — pinned block visual: `pinned`/`pinned-last` classes
       ],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
+      baseOptions(),
     );
     expect(el.children[0]?.className.split(/\s+/)).toContain("pinned-last");
     expect(el.children[1]?.className.split(/\s+/)).not.toContain("pinned-last");
@@ -951,12 +899,7 @@ describe("reconcileCards — INV-3 marker: aria-current follows currentId (W6)",
       sessions,
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
-      false,
-      undefined,
-      2,
+      baseOptions({ currentId: 2 }),
     );
 
     const [c1, c2, c3] = el.children;
@@ -976,12 +919,7 @@ describe("reconcileCards — INV-3 marker: aria-current follows currentId (W6)",
       sessions,
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
-      false,
-      undefined,
-      null,
+      baseOptions({ currentId: null }),
     );
 
     for (const card of el.children) {
@@ -998,12 +936,7 @@ describe("reconcileCards — INV-3 marker: aria-current follows currentId (W6)",
       sessions,
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
-      false,
-      undefined,
-      1,
+      baseOptions({ currentId: 1 }),
     );
     expect(el.children[0]?.getAttribute("aria-current")).toBe("true");
     expect(el.children[1]?.hasAttribute("aria-current")).toBe(false);
@@ -1013,12 +946,7 @@ describe("reconcileCards — INV-3 marker: aria-current follows currentId (W6)",
       sessions,
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
-      false,
-      undefined,
-      2,
+      baseOptions({ currentId: 2 }),
     );
     expect(el.children[0]?.hasAttribute("aria-current")).toBe(false);
     expect(el.children[1]?.getAttribute("aria-current")).toBe("true");
@@ -1032,12 +960,7 @@ describe("reconcileCards — INV-3 marker: aria-current follows currentId (W6)",
       [makeSession({ id: 1 }), makeSession({ id: 2 }), makeSession({ id: 3 })],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
-      false,
-      undefined,
-      1,
+      baseOptions({ currentId: 1 }),
     );
     expect(el.children.map((c) => c.getAttribute("aria-current"))).toEqual(["true", null, null]);
 
@@ -1048,12 +971,7 @@ describe("reconcileCards — INV-3 marker: aria-current follows currentId (W6)",
       [makeSession({ id: 2 }), makeSession({ id: 1 }), makeSession({ id: 3 })],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
-      false,
-      undefined,
-      1,
+      baseOptions({ currentId: 1 }),
     );
 
     const currentCards = el.children.filter((c) => c.hasAttribute("aria-current"));
@@ -1088,9 +1006,7 @@ describe("reconcileCards — draggable attribute (plan order-sidebar REQ-10/W15/
       [makeSession({ id: 1 })],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
+      baseOptions(),
     );
     expect(el.children[0]?.getAttribute("draggable")).toBe("false");
   });
@@ -1102,10 +1018,7 @@ describe("reconcileCards — draggable attribute (plan order-sidebar REQ-10/W15/
       [makeSession({ id: 1 }), makeSession({ id: 2 })],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
-      true,
+      baseOptions({ draggable: true }),
     );
     expect(el.children[0]?.getAttribute("draggable")).toBe("true");
     expect(el.children[1]?.getAttribute("draggable")).toBe("true");
@@ -1118,10 +1031,7 @@ describe("reconcileCards — draggable attribute (plan order-sidebar REQ-10/W15/
       [makeSession({ id: 1 })],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
-      false,
+      baseOptions(),
     );
     expect(el.children[0]?.getAttribute("draggable")).toBe("false");
   });
@@ -1133,10 +1043,7 @@ describe("reconcileCards — draggable attribute (plan order-sidebar REQ-10/W15/
       [makeSession({ id: 1 })],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
-      true,
+      baseOptions({ draggable: true }),
     );
     expect(el.children[0]?.getAttribute("draggable")).toBe("true");
 
@@ -1145,10 +1052,7 @@ describe("reconcileCards — draggable attribute (plan order-sidebar REQ-10/W15/
       [makeSession({ id: 1 })],
       NOW,
       fakeTemplate(),
-      undefined,
-      undefined,
-      true,
-      false,
+      baseOptions(),
     );
     expect(el.children[0]?.getAttribute("draggable")).toBe("false");
   });

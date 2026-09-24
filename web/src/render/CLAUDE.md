@@ -1,6 +1,8 @@
 # web/src/render — pure DOM builders, no state
 
-**Owns**: the DOM half of every view: rail cards, tiles and strip, mainhead, masthead, dead surface, confirm dialogs, inline rename editor, drag wiring, drop guard, the reader (bar, nav tree, outline) and its diagram pass (`diagrams.ts`, `mermaid.ts`, the dialog wiring in `diagramdialog.ts`). No state, fetch or socket here; session/reader derivation lives in `web/src/sessions/`/`web/src/reader/`, wiring in `web/src/features/`. A DOM-free decision that only one controller ever calls (a pure derivation, a view-model, composed text) lives beside that controller in `web/src/features/` instead of here — a builder in this directory takes the already-computed value as a parameter, never the raw data it would derive one from (docs/conventions.md § Composition roots). **Features**: actions, connection, drop, focus, launch, rail, reader, rename, tiles, update, usage.
+**Owns**: the DOM half of every view: rail cards, tiles and strip, mainhead, masthead, dead surface, confirm dialogs, inline rename editor, drag wiring, drop guard, the reader (bar, nav tree, outline) and its diagram pass (`diagrams.ts`, `mermaid.ts`, `diagramdialog.ts`). No cross-call state here (render-state rule below); session/reader derivation lives in `web/src/sessions/`/`web/src/reader/`, wiring in `web/src/features/`. A DOM-free decision only one controller calls lives in `web/src/features/`, not here — a builder here takes the computed value, never the raw data (docs/conventions.md § Composition roots). **Features**: actions, connection, drop, focus, launch, rail, reader, rename, tiles, update, usage.
+
+**Render-state rule** (Minor 1): a builder holds only its own instance's state — never state keyed across calls by an external id; that belongs to the caller, which holds refs it built once (`masthead.ts`'s model-week `<select>`, not a module-level `Map`).
 
 **Invariants** (violations are review-Critical):
 - Every displayed string comes from a pure view-model (`sessions.ts` reads `../sessions/card.ts`); a builder never composes a second copy of text a card already owns.
@@ -9,15 +11,15 @@
 - An unknown gauge renders the word "unknown" and no track (kb:adr/usage-unknown-renders-word-not-track).
 - Pointer and DnD listeners map events to session ids and call back; the caller in `features/` owns the reorder math (`dragreorder.ts`).
 
-**Exemplar**: `confirm.ts` — elements in, handlers in, a small controller out; copy this shape for a new dialog. `context.ts` for one builder rendered in two places.
+**Exemplar**: `confirm.ts` — elements/handlers in, a controller out, copy this shape. `context.ts`: one builder, two renderers.
 
 **Gotchas**:
-- `insertBefore` on a mounted node detaches it first and Chrome blurs the focused descendant; wrap reorders in `focuskeep.ts`'s snapshot and restore.
+- `insertBefore` on a mounted node detaches it first and Chrome blurs the focused descendant; via `focuskeep.ts`'s snapshot/restore. `keyedreorder.ts` shares this across the rail, strip and grid (Major 4).
 - A `[hidden]` element with an author `display` rule stays visible (kb:lesson/display-rule-overrides-hidden-attribute).
 - A shared class carries its CSS along: `.acts-row` hover-opacity hid the dead surface's Resume (kb:lesson/shared-class-css-hid-resume-button).
 - `dead.ts` renders in two hosts, Focus's `#dead-surface` and every tile clone; change the builder, never one host.
-- `reader.ts`'s tree/outline rebuild only when their flattened content's signature (stashed on the container's `dataset`) actually changes, so the once-a-second tick never steals focus from a tree button or the filter box.
-- `diagramdialog.ts`'s backdrop-close is `event.target === dialogEl` — works because a `<dialog>`'s `::backdrop` isn't a real node, so a click that lands outside the dialog's own box targets the dialog element itself; only holds when the dialog's children fill its entire box (no author padding left uncovered).
+- `reader.ts`'s tree/outline rebuild only when their flattened signature (stashed on the container's `dataset`) changes, so the 1s tick never steals focus from a tree button or the filter box.
+- `diagramdialog.ts`'s backdrop-close is `event.target === dialogEl` — a `<dialog>`'s `::backdrop` isn't a real node, so an outside click targets the dialog itself; only when its children fill the whole box (no padding left uncovered).
 
 <!-- kb:trailer -->
 <!-- kb:hash 9c35a325af3972f5 -->

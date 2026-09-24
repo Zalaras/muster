@@ -5,16 +5,18 @@ import type { SessionModelInfo } from "../protocol/session";
 import type { ModelWindow, Usage } from "../protocol/usage";
 import { formatResets } from "../sessions/format";
 import {
+  buildUsageBucket,
+  buildUsageModelWeek,
   renderClaudeVersion,
   renderConnectionStatus,
   renderDensityControl,
-  renderModelWeek,
-  renderUsage,
+  renderUsageBucket,
   renderUsageModel,
-  renderUsageTrack,
+  renderUsageModelWeek,
   renderViewSwitcher,
   type DensityControlElements,
-  type UsageElements,
+  type UsageBucketRefs,
+  type UsageModelWeekRefs,
   type ViewSwitcherElements,
 } from "./masthead";
 import { describeClaudeVersion } from "../features/connectionversion";
@@ -43,21 +45,24 @@ function fakeElement(): HTMLElement {
   } as unknown as HTMLElement;
 }
 
-/** A minimal DOM stand-in for `renderUsage`/`renderUsageTrack` — this Vitest environment
- * has no jsdom (docs/conventions.md defers DOM *construction* to Playwright), but
- * `renderBucket` (masthead.ts) now unconditionally calls `document.createElement` even in
- * its "unknown" branch (it builds a permanent `.lbl`/`.num` pair every render pass), so a
- * plain `{ textContent: "" }` fake can no longer exercise it at all — every call throws
- * `ReferenceError: document is not defined`. Rather than lose the honesty-rule coverage to
- * Playwright (E2E has no test for the 0%/99.6% rounding boundary asserted below), this
- * stubs just enough of `Element`/`Document` — `createElement`, `appendChild`,
- * `insertBefore`, `replaceChildren`, `querySelector`, and a `textContent` that reflects
- * appended children — for these two renderers' actual DOM calls to run for real. */
+/** A minimal DOM stand-in for `buildUsageBucket`/`renderUsageBucket` — this Vitest
+ * environment has no jsdom (docs/conventions.md defers DOM *construction* to Playwright),
+ * but `buildUsageBucket` calls `document.createElement` to build its permanent `.lbl`/`.num`
+ * pair, so a plain `{ textContent: "" }` fake can't exercise it at all — every call throws
+ * `ReferenceError: document is not defined`. Rather than lose the honesty-rule/DOM-order
+ * coverage to Playwright (E2E has no test pinning node order or reuse), this stubs just
+ * enough of `Element`/`Document` — `createElement`, `appendChild`, `insertBefore`,
+ * `replaceChildren`, `remove`, `querySelector`, and a `textContent` that reflects appended
+ * children — for these renderers' actual DOM calls to run for real. `remove()` is Major 2's
+ * own addition: `renderUsageBucket`'s known -> unknown honesty transition tears its bar/
+ * resets back out via `.remove()`, which the pre-plan `renderBucket`/`renderUsageTrack` pair
+ * never needed to call. */
 class FakeDomNode {
   readonly tagName: string;
   className = "";
   hidden = false;
   readonly style: Record<string, string> = {};
+  private parent: FakeDomNode | null = null;
   private children: FakeDomNode[] = [];
   private ownText = "";
 
@@ -78,6 +83,7 @@ class FakeDomNode {
 
   appendChild(child: FakeDomNode): FakeDomNode {
     this.children.push(child);
+    child.parent = this;
     return child;
   }
 
@@ -85,11 +91,20 @@ class FakeDomNode {
     const index = referenceNode ? this.children.indexOf(referenceNode) : -1;
     if (index === -1) this.children.push(newNode);
     else this.children.splice(index, 0, newNode);
+    newNode.parent = this;
     return newNode;
   }
 
   replaceChildren(...nodes: FakeDomNode[]): void {
     this.children = nodes;
+    for (const node of nodes) node.parent = this;
+  }
+
+  remove(): void {
+    if (!this.parent) return;
+    const index = this.parent.children.indexOf(this);
+    if (index !== -1) this.parent.children.splice(index, 1);
+    this.parent = null;
   }
 
   querySelector(selector: string): FakeDomNode | null {
@@ -97,31 +112,12 @@ class FakeDomNode {
     return this.children.find((c) => c.className.split(" ").includes(wanted)) ?? null;
   }
 
-  /** Child *classNames*, not `tagName` — `renderBucket`/`renderUsageTrack` build every
-   * node as a `<span>` (only the track fill is an `<i>`), so `className` (`lbl`/`bar`/
-   * `num`/`resets`) is what actually distinguishes them for an order assertion. */
+  /** Child *classNames*, not `tagName` — `buildUsageBucket`/`renderUsageBucket` build
+   * every node as a `<span>` (only the track fill is an `<i>`), so `className` (`lbl`/
+   * `bar`/`num`/`resets`) is what actually distinguishes them for an order assertion. */
   childClasses(): string[] {
     return this.children.map((c) => c.className);
   }
-}
-
-function fakeDomElement(): HTMLElement {
-  return new FakeDomNode("div") as unknown as HTMLElement;
-}
-
-/** A fake element that records whether/how many times a child was appended, without
- * requiring a real `document` (this Vitest environment has none — DOM construction
- * itself, i.e. `renderUsageTrack`'s known-bucket branch, is Playwright's job per
- * docs/conventions.md; see web/e2e/gauges.spec.ts). Enough to prove the honesty-rule
- * early return: a null bucket must touch the element exactly zero times. */
-function fakeAppendableElement(): HTMLElement & {
-  appendChild: ReturnType<typeof vi.fn>;
-  hidden: boolean;
-} {
-  return { textContent: "", hidden: false, appendChild: vi.fn() } as unknown as HTMLElement & {
-    appendChild: ReturnType<typeof vi.fn>;
-    hidden: boolean;
-  };
 }
 
 /** A fake button that records `aria-pressed` the way a real HTMLButtonElement would
@@ -147,17 +143,17 @@ describe("renderConnectionStatus", () => {
   });
 });
 
-describe("renderUsage — honesty rule: null renders 'unknown', never a gauge/percentage", () => {
-  const unknown: Usage = {
-    fiveHour: null,
-    sevenDay: null,
-    sampledAt: null,
-    source: "subscription",
-  };
-
-  function elements(): UsageElements {
-    return { fiveHour: fakeDomElement(), sevenDay: fakeDomElement() };
-  }
+// Review Major 2: `renderUsage`/`renderUsageTrack`/`UsageElements` (a two-bucket struct,
+// rebuilt every render pass) collapsed into one `buildUsageBucket`/`renderUsageBucket`
+// pair, called once per bucket by the caller (features/usage.ts builds `fiveHourRefs`/
+// `sevenDayRefs` once and holds them). The percent/warn/fillPercent/resetsText derivation
+// itself — including the 0%/99.6% rounding-boundary cases previously pinned here — is now
+// pure logic in `../sessions/usage.ts`'s `buildUsageBucketViewModel`, exercised without any
+// DOM at all by `../sessions/usage.test.ts`; what's left to pin here is `renderUsageBucket`'s
+// own DOM-writing contract (which nodes exist, in which order, and the honesty-rule
+// self-healing across a known -> unknown transition).
+describe("buildUsageBucket + renderUsageBucket — honesty rule: null renders 'unknown', never a gauge/percentage", () => {
+  const now = new Date("2026-08-23T09:00:00Z");
 
   beforeEach(() => {
     vi.stubGlobal("document", { createElement: (tag: string) => new FakeDomNode(tag) });
@@ -167,63 +163,70 @@ describe("renderUsage — honesty rule: null renders 'unknown', never a gauge/pe
     vi.unstubAllGlobals();
   });
 
+  function bucketRefs(label: string): { container: FakeDomNode; refs: UsageBucketRefs } {
+    const container = new FakeDomNode("div");
+    const refs = buildUsageBucket(container as unknown as HTMLElement, label);
+    return { container, refs };
+  }
+
   // Review cycle 1 / Major 2's fix splits the bucket into permanent `.lbl`/`.num` spans
   // (web-implementation.md Fix Attempt 1) with no space character between them — spacing
   // is CSS `gap`, not text content, so `el.textContent` concatenates to "5hunknown" /
   // "5h61%" with no separator. Verified live by web-impl against the real DOM; asserted
   // per-span here (via `.lbl`/`.num`) so the honesty-rule content is pinned without
   // depending on that concatenation detail.
-  it("renders 'unknown' for both buckets when both are null (pre-hello state)", () => {
-    const els = elements();
-    renderUsage(els, unknown);
-    expect((els.fiveHour as unknown as FakeDomNode).querySelector(".lbl")?.textContent).toBe("5h");
-    expect((els.fiveHour as unknown as FakeDomNode).querySelector(".num")?.textContent).toBe(
-      "unknown",
-    );
-    expect((els.sevenDay as unknown as FakeDomNode).querySelector(".lbl")?.textContent).toBe("7d");
-    expect((els.sevenDay as unknown as FakeDomNode).querySelector(".num")?.textContent).toBe(
-      "unknown",
+  it("builds a permanent .lbl/.num shell and renders 'unknown' with no bar/resets for a null bucket (pre-hello state)", () => {
+    const { container, refs } = bucketRefs("5h");
+    renderUsageBucket(refs, null, now);
+    expect(container.querySelector(".lbl")?.textContent).toBe("5h");
+    expect(container.querySelector(".num")?.textContent).toBe("unknown");
+    expect(container.querySelector(".bar")).toBeNull();
+    expect(container.querySelector(".resets")).toBeNull();
+  });
+
+  it("renders a rounded percentage, bar and resets text when the bucket is present", () => {
+    const { container, refs } = bucketRefs("5h");
+    renderUsageBucket(refs, { usedPct: 61.2, resetsAt: "2026-08-20T11:00:00Z" }, now);
+    expect(container.querySelector(".num")?.textContent).toBe("61%");
+    expect(container.querySelector(".resets")?.textContent).toBe(
+      `· ${formatResets("2026-08-20T11:00:00Z", now)}`,
     );
   });
 
-  it("renders a rounded percentage when a bucket is present", () => {
-    const els = elements();
-    renderUsage(els, { ...unknown, fiveHour: { usedPct: 61.2, resetsAt: "2026-08-20T11:00:00Z" } });
-    expect((els.fiveHour as unknown as FakeDomNode).querySelector(".num")?.textContent).toBe("61%");
-    expect((els.sevenDay as unknown as FakeDomNode).querySelector(".num")?.textContent).toBe(
-      "unknown",
-    );
+  it("removes an existing bar/resets on a known -> unknown transition (self-healing, e.g. a daemon restart)", () => {
+    const { container, refs } = bucketRefs("5h");
+    renderUsageBucket(refs, { usedPct: 61.2, resetsAt: "2026-08-20T11:00:00Z" }, now);
+    expect(container.querySelector(".bar")).not.toBeNull();
+
+    renderUsageBucket(refs, null, now);
+    expect(container.querySelector(".num")?.textContent).toBe("unknown");
+    expect(container.querySelector(".bar")).toBeNull();
+    expect(container.querySelector(".resets")).toBeNull();
+    expect(refs.bar).toBeNull();
+    expect(refs.fill).toBeNull();
+    expect(refs.resets).toBeNull();
   });
 
-  it("rounds the boundary values 0 and 99.6 correctly (0% and 100%, never blank)", () => {
-    const els = elements();
-    renderUsage(els, {
-      ...unknown,
-      fiveHour: { usedPct: 0, resetsAt: "2026-08-20T11:00:00Z" },
-      sevenDay: { usedPct: 99.6, resetsAt: "2026-08-20T11:00:00Z" },
-    });
-    expect((els.fiveHour as unknown as FakeDomNode).querySelector(".num")?.textContent).toBe("0%");
-    expect((els.sevenDay as unknown as FakeDomNode).querySelector(".num")?.textContent).toBe(
-      "100%",
-    );
-  });
+  it("touches document.createElement zero times across repeated null renders — the permanent .lbl/.num shell already exists, and no track markup is ever built for an unknown bucket", () => {
+    const createElement = vi.fn((tag: string) => new FakeDomNode(tag));
+    vi.stubGlobal("document", { createElement });
+    const container = new FakeDomNode("div");
+    const refs = buildUsageBucket(container as unknown as HTMLElement, "5h");
+    createElement.mockClear();
 
-  it("only one bucket null renders independently ('unknown' for that bucket only)", () => {
-    const els = elements();
-    renderUsage(els, { ...unknown, sevenDay: { usedPct: 23, resetsAt: "2026-08-22T06:00:00Z" } });
-    expect((els.fiveHour as unknown as FakeDomNode).querySelector(".num")?.textContent).toBe(
-      "unknown",
-    );
-    expect((els.sevenDay as unknown as FakeDomNode).querySelector(".num")?.textContent).toBe("23%");
+    renderUsageBucket(refs, null, now);
+    renderUsageBucket(refs, null, now);
+
+    expect(createElement).not.toHaveBeenCalled();
   });
 });
 
 // Review cycle 1 / Major 2: the masthead bucket's child order regressed to a fused
 // "5h 61%" text node followed by the bar (bar rendering *after* the number). Fixed by
-// splitting renderBucket into `.lbl`/`.num` spans so renderUsageTrack can insert the bar
+// splitting the bucket into `.lbl`/`.num` spans so `renderUsageBucket` can insert the bar
 // between them; this locks the reference order (mockups/a-instrument.html:199) in place
 // so it can't silently regress again.
-describe("renderUsage + renderUsageTrack — element order matches the reference render (Major 2 regression guard)", () => {
+describe("renderUsageBucket — element order matches the reference render (Major 2 regression guard)", () => {
   const now = new Date("2026-08-23T09:00:00Z");
 
   beforeEach(() => {
@@ -235,44 +238,30 @@ describe("renderUsage + renderUsageTrack — element order matches the reference
   });
 
   it("orders children lbl, bar, num, resets for a known bucket — bar reads before the number", () => {
-    const el = new FakeDomNode("div");
+    const container = new FakeDomNode("div");
+    const refs = buildUsageBucket(container as unknown as HTMLElement, "5h");
     const bucket = { usedPct: 61.2, resetsAt: "2026-08-20T11:00:00Z" };
-    const usage: Usage = {
-      fiveHour: bucket,
-      sevenDay: null,
-      sampledAt: "2026-08-23T08:59:00Z",
-      source: "subscription",
-    };
 
-    renderUsage({ fiveHour: el as unknown as HTMLElement, sevenDay: fakeDomElement() }, usage);
-    renderUsageTrack(el as unknown as HTMLElement, bucket, now);
+    renderUsageBucket(refs, bucket, now);
 
-    expect(el.childClasses()).toEqual(["lbl", "bar warn", "num", "resets"]);
-    expect(el.querySelector(".lbl")?.textContent).toBe("5h");
-    expect(el.querySelector(".num")?.textContent).toBe("61%");
-    expect(el.querySelector(".resets")?.textContent).toBe(
+    expect(container.childClasses()).toEqual(["lbl", "bar warn", "num", "resets"]);
+    expect(container.querySelector(".lbl")?.textContent).toBe("5h");
+    expect(container.querySelector(".num")?.textContent).toBe("61%");
+    expect(container.querySelector(".resets")?.textContent).toBe(
       `· ${formatResets(bucket.resetsAt, now)}`,
     );
   });
 
   it("applies the 'warn' modifier at or above the 60% threshold and omits it below", () => {
-    const warnBucket = { usedPct: 61.2, resetsAt: "2026-08-20T11:00:00Z" };
-    const warnEl = new FakeDomNode("div");
-    renderUsage(
-      { fiveHour: warnEl as unknown as HTMLElement, sevenDay: fakeDomElement() },
-      { fiveHour: warnBucket, sevenDay: null, sampledAt: null, source: "subscription" },
-    );
-    renderUsageTrack(warnEl as unknown as HTMLElement, warnBucket, now);
-    expect(warnEl.querySelector(".bar")?.className).toBe("bar warn");
+    const warnContainer = new FakeDomNode("div");
+    const warnRefs = buildUsageBucket(warnContainer as unknown as HTMLElement, "5h");
+    renderUsageBucket(warnRefs, { usedPct: 61.2, resetsAt: "2026-08-20T11:00:00Z" }, now);
+    expect(warnContainer.querySelector(".bar")?.className).toBe("bar warn");
 
-    const plainBucket = { usedPct: 23, resetsAt: "2026-08-20T11:00:00Z" };
-    const plainEl = new FakeDomNode("div");
-    renderUsage(
-      { fiveHour: plainEl as unknown as HTMLElement, sevenDay: fakeDomElement() },
-      { fiveHour: plainBucket, sevenDay: null, sampledAt: null, source: "subscription" },
-    );
-    renderUsageTrack(plainEl as unknown as HTMLElement, plainBucket, now);
-    expect(plainEl.querySelector(".bar")?.className).toBe("bar");
+    const plainContainer = new FakeDomNode("div");
+    const plainRefs = buildUsageBucket(plainContainer as unknown as HTMLElement, "5h");
+    renderUsageBucket(plainRefs, { usedPct: 23, resetsAt: "2026-08-20T11:00:00Z" }, now);
+    expect(plainContainer.querySelector(".bar")?.className).toBe("bar");
   });
 });
 
@@ -499,27 +488,6 @@ describe("renderDensityControl — renders only in Tiles; aria-pressed reflects 
   );
 });
 
-// renderUsageTrack's known-bucket branch builds real DOM
-// nodes via `document.createElement`, which this Vitest environment doesn't provide (no
-// jsdom is configured — docs/conventions.md assigns rendering to Playwright). Only the
-// null-bucket early return is DOM-construction-free, so that's what's covered here; the
-// known-bucket honesty/warn-threshold behavior is covered end-to-end by
-// web/e2e/gauges.spec.ts against the real DOM.
-describe("renderUsageTrack — honesty rule 1 (INV-3): a null bucket appends nothing at all", () => {
-  it("touches the element zero times for a null bucket (no track, no resets text)", () => {
-    const el = fakeAppendableElement();
-    renderUsageTrack(el, null, new Date("2026-08-23T09:00:00Z"));
-    expect(el.appendChild).not.toHaveBeenCalled();
-  });
-
-  it("is a true no-op regardless of the current time (no time-dependent path taken when bucket is null)", () => {
-    const el = fakeAppendableElement();
-    renderUsageTrack(el, null, new Date("2000-01-01T00:00:00Z"));
-    renderUsageTrack(el, null, new Date("2099-01-01T00:00:00Z"));
-    expect(el.appendChild).not.toHaveBeenCalled();
-  });
-});
-
 describe("renderUsageModel (REQ-12): the masthead model readout", () => {
   it("hides and clears the element when model is null (no sample yet)", () => {
     const el = fakeElement() as HTMLElement & { hidden: boolean };
@@ -702,7 +670,7 @@ class FakeDomNodeRich {
   }
 }
 
-describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-2/INV-3)", () => {
+describe("buildUsageModelWeek + renderUsageModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-2/INV-3)", () => {
   const now = new Date("2026-08-30T10:00:00Z");
   const fable: ModelWindow = {
     displayName: "Fable",
@@ -733,15 +701,33 @@ describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-
     return new FakeDomNodeRich("div");
   }
 
+  /** Review Major 2/Minor 1: `features/usage.ts`'s `initUsage` builds one
+   * `UsageModelWeekRefs` at startup — before any daemon data has arrived, so a single
+   * disabled option showing the just-initialized pref name — and holds it across every
+   * render pass; this mirrors that same initial build for each test, so
+   * `renderUsageModelWeek` is always exercised against caller-held refs the way its real
+   * caller uses it, never a bare container. */
+  function freshModelWeekRefs(el: FakeDomNodeRich): UsageModelWeekRefs {
+    return buildUsageModelWeek(
+      el as unknown as HTMLElement,
+      ["Fable"],
+      false,
+      false,
+      "Fable",
+      () => {},
+    );
+  }
+
   it("renders unknown with a disabled single-option select when modelScoped is null (no data yet)", () => {
     const el = container();
+    const refs = freshModelWeekRefs(el);
     const usage: Usage = {
       ...baseUsage,
       modelScoped: null,
       modelScopedAt: null,
       modelScopedError: null,
     };
-    renderModelWeek(el as unknown as HTMLElement, usage, "Fable", now, vi.fn());
+    renderUsageModelWeek(refs, usage, "Fable", now, vi.fn());
 
     expect(el.childClasses()).toEqual(["lbl usage-model-select", "num"]);
     const [select, num] = el.nodes();
@@ -754,7 +740,8 @@ describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-
 
   it("renders unknown with a disabled select when modelScoped is undefined (pre-plan daemon payload)", () => {
     const el = container();
-    renderModelWeek(el as unknown as HTMLElement, baseUsage, "Fable", now, vi.fn());
+    const refs = freshModelWeekRefs(el);
+    renderUsageModelWeek(refs, baseUsage, "Fable", now, vi.fn());
 
     const [select, num] = el.nodes();
     expect(select!.disabled).toBe(true);
@@ -764,13 +751,14 @@ describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-
 
   it("renders unknown with a disabled select when modelScoped is an empty list (successful fetch, no scoped windows)", () => {
     const el = container();
+    const refs = freshModelWeekRefs(el);
     const usage: Usage = {
       ...baseUsage,
       modelScoped: [],
       modelScopedAt: "2026-08-30T09:59:00Z",
       modelScopedError: null,
     };
-    renderModelWeek(el as unknown as HTMLElement, usage, "Fable", now, vi.fn());
+    renderUsageModelWeek(refs, usage, "Fable", now, vi.fn());
 
     const [select, num] = el.nodes();
     expect(select!.disabled).toBe(true);
@@ -780,13 +768,14 @@ describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-
 
   it("renders the selected model's bar/percent/resets when it is present in a non-null list (REQ-9)", () => {
     const el = container();
+    const refs = freshModelWeekRefs(el);
     const usage: Usage = {
       ...baseUsage,
       modelScoped: [fable, opus],
       modelScopedAt: "2026-08-30T09:59:00Z",
       modelScopedError: null,
     };
-    renderModelWeek(el as unknown as HTMLElement, usage, "Fable", now, vi.fn());
+    renderUsageModelWeek(refs, usage, "Fable", now, vi.fn());
 
     expect(el.childClasses()).toEqual(["lbl usage-model-select", "bar warn", "num", "resets"]);
     const [select, , num, resets] = el.nodes();
@@ -800,8 +789,9 @@ describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-
   it("applies the warn modifier at or above 60% and omits it below (design-system §5 threshold)", () => {
     const belowWarn: ModelWindow = { ...fable, usedPct: 59.9 };
     const elBelow = container();
-    renderModelWeek(
-      elBelow as unknown as HTMLElement,
+    const refsBelow = freshModelWeekRefs(elBelow);
+    renderUsageModelWeek(
+      refsBelow,
       { ...baseUsage, modelScoped: [belowWarn], modelScopedError: null },
       "Fable",
       now,
@@ -811,8 +801,9 @@ describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-
 
     const atWarn: ModelWindow = { ...fable, usedPct: 60 };
     const elAt = container();
-    renderModelWeek(
-      elAt as unknown as HTMLElement,
+    const refsAt = freshModelWeekRefs(elAt);
+    renderUsageModelWeek(
+      refsAt,
       { ...baseUsage, modelScoped: [atWarn], modelScopedError: null },
       "Fable",
       now,
@@ -823,8 +814,9 @@ describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-
 
   it("renders unknown with zero track markup when the selected pref names a model absent from a non-null list (REQ-10/INV-2)", () => {
     const el = container();
+    const refs = freshModelWeekRefs(el);
     const usage: Usage = { ...baseUsage, modelScoped: [fable, opus], modelScopedError: null };
-    renderModelWeek(el as unknown as HTMLElement, usage, "Sonnet", now, vi.fn());
+    renderUsageModelWeek(refs, usage, "Sonnet", now, vi.fn());
 
     expect(el.childClasses()).toEqual(["lbl usage-model-select", "num"]);
     const [select, num] = el.nodes();
@@ -842,8 +834,9 @@ describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-
 
   it("adds .stale and a title = the error word while keeping the last-good bar (REQ-11/INV-3)", () => {
     const el = container();
+    const refs = freshModelWeekRefs(el);
     const usage: Usage = { ...baseUsage, modelScoped: [fable], modelScopedError: "unauthorized" };
-    renderModelWeek(el as unknown as HTMLElement, usage, "Fable", now, vi.fn());
+    renderUsageModelWeek(refs, usage, "Fable", now, vi.fn());
 
     expect(el.classList.contains("stale")).toBe(true);
     expect(el.title).toBe("unauthorized");
@@ -853,10 +846,11 @@ describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-
     expect(el.querySelector(".bar")).not.toBeNull();
   });
 
-  it("clears .stale and the title on the next error-free render (self-healing, matches renderBucket's pattern)", () => {
+  it("clears .stale and the title on the next error-free render (self-healing, matches renderUsageBucket's pattern)", () => {
     const el = container();
-    renderModelWeek(
-      el as unknown as HTMLElement,
+    const refs = freshModelWeekRefs(el);
+    renderUsageModelWeek(
+      refs,
       { ...baseUsage, modelScoped: [fable], modelScopedError: "unreachable" },
       "Fable",
       now,
@@ -864,8 +858,8 @@ describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-
     );
     expect(el.classList.contains("stale")).toBe(true);
 
-    renderModelWeek(
-      el as unknown as HTMLElement,
+    renderUsageModelWeek(
+      refs,
       { ...baseUsage, modelScoped: [fable], modelScopedError: null },
       "Fable",
       now,
@@ -879,8 +873,9 @@ describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-
     "uses %s verbatim as the title",
     (errorKind) => {
       const el = container();
-      renderModelWeek(
-        el as unknown as HTMLElement,
+      const refs = freshModelWeekRefs(el);
+      renderUsageModelWeek(
+        refs,
         { ...baseUsage, modelScoped: null, modelScopedError: errorKind },
         "Fable",
         now,
@@ -892,9 +887,10 @@ describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-
 
   it("invokes the onSelectModel callback with the new value on a select change event (REQ-12)", () => {
     const el = container();
+    const refs = freshModelWeekRefs(el);
     const onSelect = vi.fn();
     const usage: Usage = { ...baseUsage, modelScoped: [fable, opus], modelScopedError: null };
-    renderModelWeek(el as unknown as HTMLElement, usage, "Fable", now, onSelect);
+    renderUsageModelWeek(refs, usage, "Fable", now, onSelect);
 
     const [select] = el.nodes();
     select!.value = "Opus";
@@ -904,8 +900,9 @@ describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-
 
   it("rebuilds when the option list changes — a known -> unknown transition leaves no stale bar/resets behind (self-healing)", () => {
     const el = container();
-    renderModelWeek(
-      el as unknown as HTMLElement,
+    const refs = freshModelWeekRefs(el);
+    renderUsageModelWeek(
+      refs,
       { ...baseUsage, modelScoped: [fable], modelScopedError: null },
       "Fable",
       now,
@@ -918,8 +915,8 @@ describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-
     // honesty transition, and a genuine option-list change, so this is one of the cases
     // that legitimately still rebuilds (see the node-reuse describe block below for the
     // steady-state case that must NOT rebuild).
-    renderModelWeek(
-      el as unknown as HTMLElement,
+    renderUsageModelWeek(
+      refs,
       { ...baseUsage, modelScoped: [opus], modelScopedError: null },
       "Fable",
       now,
@@ -936,8 +933,10 @@ describe("renderModelWeek (plan usage-model-bar REQ-9/REQ-10/REQ-11/REQ-12, INV-
 // re-render tick with unchanged data (the common case, since `modelScoped` only refreshes on
 // a ~5-min poll). These tests pin the fixed contract: the same `<select>` node instance
 // (and the `.num`/`.bar`/`.resets` siblings) persists across renders whenever the option-name
-// sequence is unchanged, and only a genuine option-list change is allowed to replace it.
-describe("renderModelWeek — node reuse across render passes (review cycle 1, Critical 1)", () => {
+// sequence is unchanged, and only a genuine option-list change is allowed to replace it —
+// now via the caller-held `UsageModelWeekRefs` (review Minor 1) rather than a lookup keyed
+// by the container element.
+describe("renderUsageModelWeek — node reuse across render passes (review cycle 1, Critical 1)", () => {
   const now = new Date("2026-08-30T10:00:00Z");
   const fable: ModelWindow = {
     displayName: "Fable",
@@ -968,17 +967,29 @@ describe("renderModelWeek — node reuse across render passes (review cycle 1, C
     return new FakeDomNodeRich("div");
   }
 
+  function freshModelWeekRefs(el: FakeDomNodeRich): UsageModelWeekRefs {
+    return buildUsageModelWeek(
+      el as unknown as HTMLElement,
+      ["Fable"],
+      false,
+      false,
+      "Fable",
+      () => {},
+    );
+  }
+
   it("keeps the same <select> node instance across a re-render with an unchanged option list, updating only .value/.disabled in place", () => {
     const el = container();
+    const refs = freshModelWeekRefs(el);
     const usage: Usage = { ...baseUsage, modelScoped: [fable, opus], modelScopedError: null };
-    renderModelWeek(el as unknown as HTMLElement, usage, "Fable", now, vi.fn());
+    renderUsageModelWeek(refs, usage, "Fable", now, vi.fn());
 
     const [select1, , num1, resets1] = el.nodes();
     expect(select1!.value).toBe("Fable");
     expect(select1!.disabled).toBe(false);
 
     // Same names ["Fable", "Opus"] — only the selection and the bucket values differ.
-    renderModelWeek(el as unknown as HTMLElement, usage, "Opus", now, vi.fn());
+    renderUsageModelWeek(refs, usage, "Opus", now, vi.fn());
 
     const [select2, , num2, resets2] = el.nodes();
     expect(select2).toBe(select1); // identity, not just equality — the node was never detached
@@ -993,9 +1004,10 @@ describe("renderModelWeek — node reuse across render passes (review cycle 1, C
 
   it("toggles select.disabled in place (true -> false) across the loading -> loaded transition when the option list is unchanged", () => {
     const el = container();
+    const refs = freshModelWeekRefs(el);
     // "No data yet": modelScoped null, so the single-option list is just the pref name.
-    renderModelWeek(
-      el as unknown as HTMLElement,
+    renderUsageModelWeek(
+      refs,
       { ...baseUsage, modelScoped: null, modelScopedError: null },
       "Fable",
       now,
@@ -1009,8 +1021,8 @@ describe("renderModelWeek — node reuse across render passes (review cycle 1, C
     // Data arrives, and it happens to be the same single-name list ["Fable"] — names are
     // unchanged, so this must reuse the same select/num nodes rather than rebuilding, while
     // still picking up disabled=false and the newly-available bar/resets.
-    renderModelWeek(
-      el as unknown as HTMLElement,
+    renderUsageModelWeek(
+      refs,
       { ...baseUsage, modelScoped: [fable], modelScopedError: null },
       "Fable",
       now,
@@ -1026,13 +1038,14 @@ describe("renderModelWeek — node reuse across render passes (review cycle 1, C
 
   it("does not duplicate bar/num/resets nodes across repeated renders of an unchanged bucket", () => {
     const el = container();
+    const refs = freshModelWeekRefs(el);
     const usage: Usage = { ...baseUsage, modelScoped: [fable], modelScopedError: null };
-    renderModelWeek(el as unknown as HTMLElement, usage, "Fable", now, vi.fn());
+    renderUsageModelWeek(refs, usage, "Fable", now, vi.fn());
     const firstPass = el.nodes();
     expect(firstPass.length).toBe(4);
 
-    renderModelWeek(el as unknown as HTMLElement, usage, "Fable", now, vi.fn());
-    renderModelWeek(el as unknown as HTMLElement, usage, "Fable", now, vi.fn());
+    renderUsageModelWeek(refs, usage, "Fable", now, vi.fn());
+    renderUsageModelWeek(refs, usage, "Fable", now, vi.fn());
     const thirdPass = el.nodes();
 
     expect(thirdPass.length).toBe(4);
@@ -1044,8 +1057,9 @@ describe("renderModelWeek — node reuse across render passes (review cycle 1, C
 
   it("rebuilds a brand-new <select> node when the option list actually changes", () => {
     const el = container();
-    renderModelWeek(
-      el as unknown as HTMLElement,
+    const refs = freshModelWeekRefs(el);
+    renderUsageModelWeek(
+      refs,
       { ...baseUsage, modelScoped: [fable], modelScopedError: null },
       "Fable",
       now,
@@ -1056,8 +1070,8 @@ describe("renderModelWeek — node reuse across render passes (review cycle 1, C
 
     // Option set genuinely grows from ["Fable"] to ["Fable", "Opus"] — a real change of
     // choices, which is the one path still allowed to replace the node.
-    renderModelWeek(
-      el as unknown as HTMLElement,
+    renderUsageModelWeek(
+      refs,
       { ...baseUsage, modelScoped: [fable, opus], modelScopedError: null },
       "Fable",
       now,
@@ -1070,9 +1084,10 @@ describe("renderModelWeek — node reuse across render passes (review cycle 1, C
 
   it("re-wires the change listener onto the rebuilt node so onSelectModel still fires after an option-list rebuild", () => {
     const el = container();
+    const refs = freshModelWeekRefs(el);
     const onSelectFirst = vi.fn();
-    renderModelWeek(
-      el as unknown as HTMLElement,
+    renderUsageModelWeek(
+      refs,
       { ...baseUsage, modelScoped: [fable], modelScopedError: null },
       "Fable",
       now,
@@ -1080,8 +1095,8 @@ describe("renderModelWeek — node reuse across render passes (review cycle 1, C
     );
 
     const onSelectSecond = vi.fn();
-    renderModelWeek(
-      el as unknown as HTMLElement,
+    renderUsageModelWeek(
+      refs,
       { ...baseUsage, modelScoped: [fable, opus], modelScopedError: null },
       "Fable",
       now,
@@ -1104,8 +1119,9 @@ describe("renderModelWeek — node reuse across render passes (review cycle 1, C
   // flip in it forces the rebuild path even when `names` itself is unchanged.
   it("rebuilds the select — not just reuse — when a placeholder flip leaves the name sequence unchanged (list gains the pref model)", () => {
     const el = container();
-    renderModelWeek(
-      el as unknown as HTMLElement,
+    const refs = freshModelWeekRefs(el);
+    renderUsageModelWeek(
+      refs,
       { ...baseUsage, modelScoped: [opus], modelScopedError: null },
       "Fable",
       now,
@@ -1119,8 +1135,8 @@ describe("renderModelWeek — node reuse across render passes (review cycle 1, C
     // The endpoint now includes "Fable" too: placeholderNeeded flips true -> false, but
     // the resulting name sequence is still exactly ["Fable", "Opus"] — the collision
     // Major 1 found.
-    renderModelWeek(
-      el as unknown as HTMLElement,
+    renderUsageModelWeek(
+      refs,
       { ...baseUsage, modelScoped: [fable, opus], modelScopedError: null },
       "Fable",
       now,
@@ -1135,8 +1151,9 @@ describe("renderModelWeek — node reuse across render passes (review cycle 1, C
 
   it("rebuilds the select when a placeholder flip leaves the name sequence unchanged (list loses the pref model, reverse of the above)", () => {
     const el = container();
-    renderModelWeek(
-      el as unknown as HTMLElement,
+    const refs = freshModelWeekRefs(el);
+    renderUsageModelWeek(
+      refs,
       { ...baseUsage, modelScoped: [fable, opus], modelScopedError: null },
       "Fable",
       now,
@@ -1150,8 +1167,8 @@ describe("renderModelWeek — node reuse across render passes (review cycle 1, C
     // The endpoint drops "Fable": placeholderNeeded flips false -> true, but the name
     // sequence is still exactly ["Fable", "Opus"] (the synthesized placeholder reuses the
     // pref name as names[0]).
-    renderModelWeek(
-      el as unknown as HTMLElement,
+    renderUsageModelWeek(
+      refs,
       { ...baseUsage, modelScoped: [opus], modelScopedError: null },
       "Fable",
       now,

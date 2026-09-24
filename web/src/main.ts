@@ -54,6 +54,7 @@ const focus = initFocus(app, {
   getSurfaces: () => surfaces,
   promoteTile: tiles.promote,
   getReader: () => reader,
+  getRename: () => rename,
 });
 const surfaces = initSurfaces(app, { tilesLive: () => tiles.liveIds() });
 const reader = initReader(app, { tilesLive: () => tiles.liveIds(), getSurfaces: () => surfaces });

@@ -5,10 +5,11 @@ import type { App } from "../app";
 import { requestPrefs, refreshUsage } from "../api/prefs";
 import { requireElement } from "../dom";
 import {
-  renderModelWeek,
-  renderUsage,
+  buildUsageBucket,
+  buildUsageModelWeek,
+  renderUsageBucket,
   renderUsageModel,
-  renderUsageTrack,
+  renderUsageModelWeek,
 } from "../render/masthead";
 import { UNKNOWN_USAGE, type Usage } from "../protocol/usage";
 
@@ -28,6 +29,26 @@ export function initUsage(app: App): void {
   // view/density/railSort/themeChoice; the daemon's own default before any PUT is "Fable".
   let usageModel = "Fable";
 
+  /** REQ-12: the model-week `<select>`'s change handler — fire-and-forget;
+   * `usageModel` only ever changes via the `prefs` echo, never optimistically here. */
+  function requestUsageModel(newModel: string): void {
+    requestPrefs({ usageModel: newModel });
+  }
+
+  // Review Major 2/Minor 1: each bucket's DOM refs are built once, here, and held across
+  // every render pass — `render/CLAUDE.md`'s render-state rule (the model-week `<select>`
+  // used to persist in a module-level `WeakMap` inside `render/masthead.ts` instead).
+  const fiveHourRefs = buildUsageBucket(usageFiveHourEl, "5h");
+  const sevenDayRefs = buildUsageBucket(usageSevenDayEl, "7d");
+  const modelWeekRefs = buildUsageModelWeek(
+    usageModelWeekEl,
+    [usageModel],
+    false,
+    false,
+    usageModel,
+    requestUsageModel,
+  );
+
   let usageRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   function clearUsageRefreshBusy(): void {
     usageRefreshBtn.removeAttribute("aria-busy");
@@ -35,12 +56,6 @@ export function initUsage(app: App): void {
       clearTimeout(usageRefreshTimer);
       usageRefreshTimer = null;
     }
-  }
-
-  /** REQ-12: the model-week `<select>`'s change handler — fire-and-forget;
-   * `usageModel` only ever changes via the `prefs` echo, never optimistically here. */
-  function requestUsageModel(newModel: string): void {
-    requestPrefs({ usageModel: newModel });
   }
 
   app.on("snapshot", (snapshot) => {
@@ -69,10 +84,9 @@ export function initUsage(app: App): void {
 
   // Render phase 2 (UI Specifications > Render phase order).
   app.onRender((frame) => {
-    renderUsage({ fiveHour: usageFiveHourEl, sevenDay: usageSevenDayEl }, currentUsage);
-    renderUsageTrack(usageFiveHourEl, currentUsage.fiveHour, frame.now);
-    renderUsageTrack(usageSevenDayEl, currentUsage.sevenDay, frame.now);
+    renderUsageBucket(fiveHourRefs, currentUsage.fiveHour, frame.now);
+    renderUsageBucket(sevenDayRefs, currentUsage.sevenDay, frame.now);
     renderUsageModel(usageModelEl, currentUsage.model);
-    renderModelWeek(usageModelWeekEl, currentUsage, usageModel, frame.now, requestUsageModel);
+    renderUsageModelWeek(modelWeekRefs, currentUsage, usageModel, frame.now, requestUsageModel);
   });
 }

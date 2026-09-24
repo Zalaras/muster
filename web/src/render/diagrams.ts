@@ -96,7 +96,7 @@ export async function renderDiagrams(body: HTMLElement, opts: DiagramPassOptions
 /**
  * The theme pass (REQ-7): re-renders every already-rendered `figure.diagram` in `body`
  * from its retained source, in the newly mapped theme — never re-fetching the file.
- * review cycle 1 Critical 1 (durable half): mints a fresh id per figure from `instance`
+ * review cycle 1 Critical 1 (durable half): mints a fresh id per figure from `opts.instance`
  * rather than reusing the figure's existing SVG id. Reusing it let a stale clone left
  * behind by the enlarge dialog (same id, same document) steal this render — mermaid
  * resolves `render(id, …)` against whichever element with that id it finds first, not
@@ -104,37 +104,33 @@ export async function renderDiagrams(body: HTMLElement, opts: DiagramPassOptions
  * should exist, but a defensive skip beats a crash) or that fails to re-render — the
  * source parsed once already, so a throw here would be a mermaid-internal error rather
  * than a real edge case — is left exactly as it was rather than replaced with an error
- * line.
+ * line. Takes the same `DiagramPassOptions` shape as `renderDiagrams` (review Minor 15) —
+ * both passes are keyed by the same instance/isCurrent/theme triple.
  */
-export async function rerenderDiagrams(
-  body: HTMLElement,
-  theme: MermaidTheme,
-  instance: number,
-  isCurrent: () => boolean,
-): Promise<void> {
+export async function rerenderDiagrams(body: HTMLElement, opts: DiagramPassOptions): Promise<void> {
   const figures = Array.from(body.querySelectorAll<HTMLElement>("figure.diagram"));
   let n = 0;
   for (const figure of figures) {
     const source = sourceByFigure.get(figure);
     const existingSvg = figure.querySelector("svg");
-    const id = diagramId(instance, n);
+    const id = diagramId(opts.instance, n);
     n += 1;
     if (source === undefined || !existingSvg) continue;
 
     let fragment: DocumentFragment;
     try {
-      fragment = await renderDiagramSvg(id, source, theme);
+      fragment = await renderDiagramSvg(id, source, opts.theme);
     } catch {
       continue;
     }
 
     // W12: a theme pass superseded by a newer one (another theme flip, or the document
     // itself changing under it) must never touch the DOM.
-    if (!isCurrent()) return;
+    if (!opts.isCurrent()) return;
 
     const button = figure.querySelector<HTMLButtonElement>(".diagram-enlarge");
     if (!button) continue;
     button.replaceChildren(fragment);
-    figure.dataset["mermaidTheme"] = theme;
+    figure.dataset["mermaidTheme"] = opts.theme;
   }
 }
