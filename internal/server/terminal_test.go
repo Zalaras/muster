@@ -294,7 +294,12 @@ func TestHandleTerminal_StreamsPTYOutputAndAcceptsInput(t *testing.T) {
 
 // TestHandleTerminal_ResizeFrameAppliesRealGeometry covers D4/REQ-3 end to end through
 // the actual WS JSON frame shape (clamping is covered in isolation by
-// TestClampInt_Table; this proves the parsed values reach tmux via DisplayVar).
+// TestClampInt_Table; this proves the parsed values reach tmux via DisplayVar), plus
+// REQ-3's clamp clause: an out-of-range request lands at the clamp boundary, not the raw
+// requested (or rejected) value. Table-driven per plan D9/T1: both rows share one real
+// tmux session and socket, sending their resize frames in sequence on the same
+// connection, since each row's DisplayVar assertion checks only the geometry its own
+// frame just set.
 func TestHandleTerminal_ResizeFrameAppliesRealGeometry(t *testing.T) {
 	srv := newTerminalTestServer(t)
 	sess := launchRealSession(t, srv, sleepForeverCommand())
@@ -309,39 +314,28 @@ func TestHandleTerminal_ResizeFrameAppliesRealGeometry(t *testing.T) {
 	c := dialTerminalOK(t, httpSrv, sess.ID)
 	defer func() { _ = c.CloseNow() }()
 
-	require.NoError(t, c.Write(context.Background(), websocket.MessageText, []byte(`{"type":"resize","cols":150,"rows":45}`)))
+	tests := []struct {
+		name       string
+		frame      string
+		wantWidth  string
+		wantHeight string
+	}{
+		{"within bounds applies exactly", `{"type":"resize","cols":150,"rows":45}`, "150", "45"},
+		{"out of range clamps to the protocol bounds", `{"type":"resize","cols":99999,"rows":1}`, "500", "5"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.NoError(t, c.Write(context.Background(), websocket.MessageText, []byte(tt.frame)))
 
-	require.Eventually(t, func() bool {
-		w, dErr := dc.DisplayVar(context.Background(), sess.TmuxTarget, "#{window_width}")
-		return dErr == nil && w == "150"
-	}, 3*time.Second, 50*time.Millisecond)
-	h, hErr := dc.DisplayVar(context.Background(), sess.TmuxTarget, "#{window_height}")
-	require.NoError(t, hErr)
-	assert.Equal(t, "45", h)
-}
-
-// TestHandleTerminal_ResizeFrameIsClampedToTheProtocolBounds covers REQ-3's clamp
-// clause via the real wire shape: an out-of-range request lands at the clamp boundary,
-// not the raw requested (or rejected) value.
-func TestHandleTerminal_ResizeFrameIsClampedToTheProtocolBounds(t *testing.T) {
-	srv := newTerminalTestServer(t)
-	sess := launchRealSession(t, srv, sleepForeverCommand())
-	httpSrv := httptest.NewServer(srv.Handler())
-	t.Cleanup(httpSrv.Close)
-	dc := tmux.New(srv.tmuxSocket) // see ResizeFrameAppliesRealGeometry's comment
-
-	c := dialTerminalOK(t, httpSrv, sess.ID)
-	defer func() { _ = c.CloseNow() }()
-
-	require.NoError(t, c.Write(context.Background(), websocket.MessageText, []byte(`{"type":"resize","cols":99999,"rows":1}`)))
-
-	require.Eventually(t, func() bool {
-		w, dErr := dc.DisplayVar(context.Background(), sess.TmuxTarget, "#{window_width}")
-		return dErr == nil && w == "500"
-	}, 3*time.Second, 50*time.Millisecond)
-	h, hErr := dc.DisplayVar(context.Background(), sess.TmuxTarget, "#{window_height}")
-	require.NoError(t, hErr)
-	assert.Equal(t, "5", h)
+			require.Eventually(t, func() bool {
+				w, dErr := dc.DisplayVar(context.Background(), sess.TmuxTarget, "#{window_width}")
+				return dErr == nil && w == tt.wantWidth
+			}, 3*time.Second, 50*time.Millisecond)
+			h, hErr := dc.DisplayVar(context.Background(), sess.TmuxTarget, "#{window_height}")
+			require.NoError(t, hErr)
+			assert.Equal(t, tt.wantHeight, h)
+		})
+	}
 }
 
 // TestHandleTerminal_UnparseableResizeFrameIsIgnoredNotFatal covers Edge Case 9: a

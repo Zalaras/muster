@@ -195,73 +195,46 @@ func TestHandleShellTerminal_ScrollErrorIsLoggedNotFatal(t *testing.T) {
 	assert.Contains(t, srv.logs.String(), "shell scroll failed", "a failed scroll must be logged, never silently dropped")
 }
 
-// TestHandleShellTerminal_TypingWhileInCopyModeCancelsBeforeTheWrite covers REQ-10/E10:
-// once a scroll frame reports entered=true, the next binary input frame must cancel
-// copy-mode before the bytes reach the pane.
-func TestHandleShellTerminal_TypingWhileInCopyModeCancelsBeforeTheWrite(t *testing.T) {
-	srv, fake, scroller := newFakeTmuxTestServerWithScroll(t)
-	scroller.setEntered(true)
-	sess, httpSrv := spawnFakeShell(t, srv)
+// TestHandleShellTerminal_CopyModeCancelOnNextInput covers REQ-10/E10 and REQ-12/edge
+// case 10 together: the next binary input frame cancels copy-mode iff a prior scroll
+// frame actually entered it (ScrollCopyMode's own entered result, never assumed from a
+// nil error — the doc comment on applyShellTextFrame). Table-driven per plan D9/T1 —
+// the three cases (entered, not-entered, no scroll at all) differed only in whether a
+// scroll frame was sent first and in the entered value it reported.
+func TestHandleShellTerminal_CopyModeCancelOnNextInput(t *testing.T) {
+	tests := []struct {
+		name        string
+		scrollFirst bool
+		entered     bool
+		wantCancels int
+	}{
+		{"scroll enters copy mode, next input cancels it first (REQ-10)", true, true, 1},
+		{"scroll reports entered=false, next input never cancels (REQ-12/edge case 10)", true, false, 0},
+		{"no prior scroll at all, ordinary typing never cancels (REQ-10 negative source state)", false, false, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv, fake, scroller := newFakeTmuxTestServerWithScroll(t)
+			scroller.setEntered(tt.entered)
+			sess, httpSrv := spawnFakeShell(t, srv)
 
-	c := dialShellOK(t, httpSrv, sess.ID)
-	defer func() { _ = c.CloseNow() }()
+			c := dialShellOK(t, httpSrv, sess.ID)
+			defer func() { _ = c.CloseNow() }()
 
-	require.NoError(t, c.Write(context.Background(), websocket.MessageText, []byte(`{"type":"scroll","lines":5}`)))
-	require.Eventually(t, func() bool { return len(scroller.calls()) == 1 }, 3*time.Second, 20*time.Millisecond)
+			if tt.scrollFirst {
+				require.NoError(t, c.Write(context.Background(), websocket.MessageText, []byte(`{"type":"scroll","lines":5}`)))
+				require.Eventually(t, func() bool { return len(scroller.calls()) == 1 }, 3*time.Second, 20*time.Millisecond)
+			}
 
-	require.NoError(t, c.Write(context.Background(), websocket.MessageBinary, []byte("x")))
-	require.Eventually(t, func() bool {
-		conn := fake.lastPaneConn()
-		return conn != nil && conn.writeCount() > 0
-	}, 3*time.Second, 20*time.Millisecond)
+			require.NoError(t, c.Write(context.Background(), websocket.MessageBinary, []byte("x")))
+			require.Eventually(t, func() bool {
+				conn := fake.lastPaneConn()
+				return conn != nil && conn.writeCount() > 0
+			}, 3*time.Second, 20*time.Millisecond)
 
-	assert.Equal(t, 1, scroller.cancelCount(), "REQ-10: typing after a scroll that entered copy-mode must cancel it first")
-}
-
-// TestHandleShellTerminal_TypingNeverCancelsWhenNoScrollHasHappened covers REQ-10's
-// negative source state: with no prior scroll frame at all, ordinary typing must never
-// call CancelCopyMode — proving the cancel is conditional on the connection's own
-// inCopyMode tracking, not unconditional before every write.
-func TestHandleShellTerminal_TypingNeverCancelsWhenNoScrollHasHappened(t *testing.T) {
-	srv, fake, scroller := newFakeTmuxTestServerWithScroll(t)
-	sess, httpSrv := spawnFakeShell(t, srv)
-
-	c := dialShellOK(t, httpSrv, sess.ID)
-	defer func() { _ = c.CloseNow() }()
-
-	require.NoError(t, c.Write(context.Background(), websocket.MessageBinary, []byte("x")))
-	require.Eventually(t, func() bool {
-		conn := fake.lastPaneConn()
-		return conn != nil && conn.writeCount() > 0
-	}, 3*time.Second, 20*time.Millisecond)
-
-	assert.Equal(t, 0, scroller.cancelCount())
-}
-
-// TestHandleShellTerminal_ScrollThatDoesNotEnterCopyModeNeverCancelsOnNextInput covers
-// REQ-12/edge case 10's no-op path end to end: ScrollCopyMode's own entered=false (the
-// "nothing to scroll to" result) must leave the connection's inCopyMode tracking false,
-// so the very next input frame skips CancelCopyMode — proven by the doc comment on
-// applyShellTextFrame ("inCopyMode is set from ScrollCopyMode's own entered result, never
-// assumed from a nil error").
-func TestHandleShellTerminal_ScrollThatDoesNotEnterCopyModeNeverCancelsOnNextInput(t *testing.T) {
-	srv, fake, scroller := newFakeTmuxTestServerWithScroll(t)
-	scroller.setEntered(false)
-	sess, httpSrv := spawnFakeShell(t, srv)
-
-	c := dialShellOK(t, httpSrv, sess.ID)
-	defer func() { _ = c.CloseNow() }()
-
-	require.NoError(t, c.Write(context.Background(), websocket.MessageText, []byte(`{"type":"scroll","lines":5}`)))
-	require.Eventually(t, func() bool { return len(scroller.calls()) == 1 }, 3*time.Second, 20*time.Millisecond)
-
-	require.NoError(t, c.Write(context.Background(), websocket.MessageBinary, []byte("x")))
-	require.Eventually(t, func() bool {
-		conn := fake.lastPaneConn()
-		return conn != nil && conn.writeCount() > 0
-	}, 3*time.Second, 20*time.Millisecond)
-
-	assert.Equal(t, 0, scroller.cancelCount(), "entered=false must never flip inCopyMode true")
+			assert.Equal(t, tt.wantCancels, scroller.cancelCount())
+		})
+	}
 }
 
 // TestHandleShellTerminal_ResizeFrameStillDecodesOnTheShellSocket covers REQ-9's other

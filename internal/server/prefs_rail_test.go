@@ -4,14 +4,10 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"testing"
 
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/Zalaras/muster/internal/store"
 )
 
 // TestLoadPrefs_DefaultRailDensityAndRailActivity covers kb:anchor/prefs.put's
@@ -225,31 +221,6 @@ type prefsWireWithRailCards struct {
 	} `json:"prefs"`
 }
 
-// TestPrefs_RailDensityAndRailActivityPersistAcrossADaemonRestart mirrors
-// TestPrefs_RailSortPersistsAcrossADaemonRestart (prefs_test.go) for the two new fields:
-// a fresh Server opened against the same on-disk store sees the persisted values.
-func TestPrefs_RailDensityAndRailActivityPersistAcrossADaemonRestart(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "muster.db")
-	st1, err := store.Open(context.Background(), dbPath)
-	require.NoError(t, err)
-
-	srv1 := New(Config{
-		Store: st1, Logger: zerolog.Nop(), UIToken: testUIToken, IngestToken: testIngestToken,
-		WebDist: t.TempDir(), DaemonVersion: "test-version",
-	})
-	rec := putPrefsRequest(t, &testServer{Server: srv1}, `{"railDensity":"compact","railActivity":"both"}`)
-	require.Equal(t, http.StatusNoContent, rec.Code)
-	require.NoError(t, st1.Close())
-
-	st2, err := store.Open(context.Background(), dbPath)
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = st2.Close() })
-	srv2 := New(Config{
-		Store: st2, Logger: zerolog.Nop(), UIToken: testUIToken, IngestToken: testIngestToken,
-		WebDist: t.TempDir(), DaemonVersion: "test-version",
-	})
-
-	got := loadPrefs(context.Background(), srv2.store)
-	assert.Equal(t, "compact", got.RailDensity)
-	assert.Equal(t, "both", got.RailActivity)
-}
+// The railDensity/railActivity restart-persistence case is a row of
+// TestPrefs_PersistAcrossADaemonRestart in prefs_test.go, alongside every other pref
+// field's own case.

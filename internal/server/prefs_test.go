@@ -257,10 +257,12 @@ func TestHandlePutPrefs_TwoAcceptedPutsProduceTwoBroadcasts(t *testing.T) {
 	assert.Equal(t, "3x2", second.Prefs.Density)
 }
 
-// TestPrefs_PersistAcrossADaemonRestart covers D10: a fresh Server built against the
-// same on-disk store (simulating a daemon restart, since tmux/PTY state is irrelevant
-// to prefs) still returns the last-written prefs.
-func TestPrefs_PersistAcrossADaemonRestart(t *testing.T) {
+// restartAndReloadPrefs covers D10: it PUTs body against a Server backed by a
+// fresh on-disk store, closes that store (simulating a daemon restart, since
+// tmux/PTY state is irrelevant to prefs), reopens a second Server against the
+// same path, and returns what that second Server loads.
+func restartAndReloadPrefs(t *testing.T, body string) PrefsInfo {
+	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "muster.db")
 	st1, err := store.Open(context.Background(), dbPath)
 	require.NoError(t, err)
@@ -269,10 +271,7 @@ func TestPrefs_PersistAcrossADaemonRestart(t *testing.T) {
 		Store: st1, Logger: zerolog.Nop(), UIToken: testUIToken, IngestToken: testIngestToken,
 		WebDist: t.TempDir(), DaemonVersion: "test-version",
 	})
-	req := httptest.NewRequest(http.MethodPut, "/api/prefs", strings.NewReader(`{"view":"tiles","density":"3x2"}`))
-	req.AddCookie(&http.Cookie{Name: cookieName, Value: testUIToken})
-	rec := httptest.NewRecorder()
-	srv1.Handler().ServeHTTP(rec, req)
+	rec := putPrefsRequest(t, &testServer{Server: srv1}, body)
 	require.Equal(t, http.StatusNoContent, rec.Code)
 	require.NoError(t, st1.Close())
 
@@ -284,9 +283,63 @@ func TestPrefs_PersistAcrossADaemonRestart(t *testing.T) {
 		WebDist: t.TempDir(), DaemonVersion: "test-version",
 	})
 
-	got := loadPrefs(context.Background(), srv2.store)
-	assert.Equal(t, "tiles", got.View, "prefs must survive a daemon restart (D10)")
-	assert.Equal(t, "3x2", got.Density)
+	return loadPrefs(context.Background(), srv2.store)
+}
+
+// TestPrefs_PersistAcrossADaemonRestart covers D10 for every pref field added so
+// far: each row PUTs one field (or pair, for the two rail-card fields that shipped
+// together) against a fresh on-disk store, then asserts a second Server opened
+// against the same path still returns it. Table-driven per plan D9/T1 — the five
+// per-field cases differed only in the PUT body and the fields checked afterward.
+func TestPrefs_PersistAcrossADaemonRestart(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want func(t *testing.T, got PrefsInfo)
+	}{
+		{
+			name: "view and density",
+			body: `{"view":"tiles","density":"3x2"}`,
+			want: func(t *testing.T, got PrefsInfo) {
+				assert.Equal(t, "tiles", got.View, "prefs must survive a daemon restart (D10)")
+				assert.Equal(t, "3x2", got.Density)
+			},
+		},
+		{
+			name: "usageModel",
+			body: `{"usageModel":"Opus"}`,
+			want: func(t *testing.T, got PrefsInfo) {
+				assert.Equal(t, "Opus", got.UsageModel)
+			},
+		},
+		{
+			name: "railSort",
+			body: `{"railSort":"attention"}`,
+			want: func(t *testing.T, got PrefsInfo) {
+				assert.Equal(t, "attention", got.RailSort)
+			},
+		},
+		{
+			name: "theme",
+			body: `{"theme":"dark"}`,
+			want: func(t *testing.T, got PrefsInfo) {
+				assert.Equal(t, "dark", got.Theme)
+			},
+		},
+		{
+			name: "railDensity and railActivity",
+			body: `{"railDensity":"compact","railActivity":"both"}`,
+			want: func(t *testing.T, got PrefsInfo) {
+				assert.Equal(t, "compact", got.RailDensity)
+				assert.Equal(t, "both", got.RailActivity)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.want(t, restartAndReloadPrefs(t, tt.body))
+		})
+	}
 }
 
 type prefsWire struct {
@@ -434,32 +487,6 @@ func TestLoadPrefs_InvalidUsageModelInKVFallsBackToFableIndependently(t *testing
 	assert.Equal(t, "Fable", got.UsageModel, "an invalid persisted usageModel must fall back to the default")
 }
 
-// TestPrefs_UsageModelPersistsAcrossADaemonRestart mirrors
-// TestPrefs_PersistAcrossADaemonRestart for the third field.
-func TestPrefs_UsageModelPersistsAcrossADaemonRestart(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "muster.db")
-	st1, err := store.Open(context.Background(), dbPath)
-	require.NoError(t, err)
-
-	srv1 := New(Config{
-		Store: st1, Logger: zerolog.Nop(), UIToken: testUIToken, IngestToken: testIngestToken,
-		WebDist: t.TempDir(), DaemonVersion: "test-version",
-	})
-	rec := putPrefsRequest(t, &testServer{Server: srv1}, `{"usageModel":"Opus"}`)
-	require.Equal(t, http.StatusNoContent, rec.Code)
-	require.NoError(t, st1.Close())
-
-	st2, err := store.Open(context.Background(), dbPath)
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = st2.Close() })
-	srv2 := New(Config{
-		Store: st2, Logger: zerolog.Nop(), UIToken: testUIToken, IngestToken: testIngestToken,
-		WebDist: t.TempDir(), DaemonVersion: "test-version",
-	})
-
-	assert.Equal(t, "Opus", loadPrefs(context.Background(), srv2.store).UsageModel)
-}
-
 // TestLoadPrefs_DefaultRailSortIsManual covers plan order-sidebar kb:anchor/prefs.put's
 // default-before-any-PUT clause for the new field.
 func TestLoadPrefs_DefaultRailSortIsManual(t *testing.T) {
@@ -548,32 +575,6 @@ func TestLoadPrefs_InvalidRailSortInKVFallsBackToManualIndependently(t *testing.
 	assert.Equal(t, "3x2", got.Density)
 	assert.Equal(t, "Opus", got.UsageModel)
 	assert.Equal(t, "manual", got.RailSort, "an invalid persisted railSort must fall back to the default")
-}
-
-// TestPrefs_RailSortPersistsAcrossADaemonRestart mirrors
-// TestPrefs_UsageModelPersistsAcrossADaemonRestart for the fourth field.
-func TestPrefs_RailSortPersistsAcrossADaemonRestart(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "muster.db")
-	st1, err := store.Open(context.Background(), dbPath)
-	require.NoError(t, err)
-
-	srv1 := New(Config{
-		Store: st1, Logger: zerolog.Nop(), UIToken: testUIToken, IngestToken: testIngestToken,
-		WebDist: t.TempDir(), DaemonVersion: "test-version",
-	})
-	rec := putPrefsRequest(t, &testServer{Server: srv1}, `{"railSort":"attention"}`)
-	require.Equal(t, http.StatusNoContent, rec.Code)
-	require.NoError(t, st1.Close())
-
-	st2, err := store.Open(context.Background(), dbPath)
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = st2.Close() })
-	srv2 := New(Config{
-		Store: st2, Logger: zerolog.Nop(), UIToken: testUIToken, IngestToken: testIngestToken,
-		WebDist: t.TempDir(), DaemonVersion: "test-version",
-	})
-
-	assert.Equal(t, "attention", loadPrefs(context.Background(), srv2.store).RailSort)
 }
 
 // TestHandlePutPrefs_BroadcastsRailSortInPrefsMessage covers D16/INV-4's echo clause for
@@ -732,31 +733,6 @@ func TestLoadPrefs_InvalidThemeInKVFallsBackToFollowIndependently(t *testing.T) 
 	assert.Equal(t, "Opus", got.UsageModel)
 	assert.Equal(t, "attention", got.RailSort)
 	assert.Equal(t, "follow", got.Theme, "an invalid persisted theme must fall back to follow")
-}
-
-// TestPrefs_ThemePersistsAcrossADaemonRestart mirrors the other fields' restart tests.
-func TestPrefs_ThemePersistsAcrossADaemonRestart(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "muster.db")
-	st1, err := store.Open(context.Background(), dbPath)
-	require.NoError(t, err)
-
-	srv1 := New(Config{
-		Store: st1, Logger: zerolog.Nop(), UIToken: testUIToken, IngestToken: testIngestToken,
-		WebDist: t.TempDir(), DaemonVersion: "test-version",
-	})
-	rec := putPrefsRequest(t, &testServer{Server: srv1}, `{"theme":"dark"}`)
-	require.Equal(t, http.StatusNoContent, rec.Code)
-	require.NoError(t, st1.Close())
-
-	st2, err := store.Open(context.Background(), dbPath)
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = st2.Close() })
-	srv2 := New(Config{
-		Store: st2, Logger: zerolog.Nop(), UIToken: testUIToken, IngestToken: testIngestToken,
-		WebDist: t.TempDir(), DaemonVersion: "test-version",
-	})
-
-	assert.Equal(t, "dark", loadPrefs(context.Background(), srv2.store).Theme)
 }
 
 // TestHandlePutPrefs_BroadcastsThemeInPrefsMessage covers D12/INV-4's echo clause for the
