@@ -67,18 +67,7 @@ func (l *writeLog) record(sessionID int64, path string, at time.Time) {
 		l.bySession[sessionID] = m
 	}
 	m[path] = at
-	if len(m) <= maxWriteLogPaths {
-		return
-	}
-	var oldestPath string
-	var oldestAt time.Time
-	first := true
-	for p, t := range m {
-		if first || t.Before(oldestAt) {
-			oldestPath, oldestAt, first = p, t, false
-		}
-	}
-	delete(m, oldestPath)
+	evictOldest(m, maxWriteLogPaths, func(t time.Time) time.Time { return t })
 }
 
 func (l *writeLog) get(sessionID int64, path string) (time.Time, bool) {

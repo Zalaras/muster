@@ -84,3 +84,35 @@ func AssetName(ver, goos, goarch string) string {
 func DownloadURL(base, tag, asset string) string {
 	return strings.TrimRight(base, "/") + "/download/" + tag + "/" + asset
 }
+
+// ReleaseTag is a release Version's tag form, "v" + Version.String() — the one place the
+// tag⇄version mapping is spelled (cmd/musterd and internal/server both built this by hand;
+// kb:adr/update-release-knowledge-in-selfupdate-package puts every release-format fact
+// here).
+func ReleaseTag(version string) string {
+	return "v" + version
+}
+
+// CheckNewer answers "is a newer release available than running": resolve the latest
+// release tag, parse it, and compare against running. cmd/musterd's `-update` and
+// internal/server's periodic/manual checks both ran this exact sequence by hand
+// (kb:adr/update-release-knowledge-in-selfupdate-package). err is non-nil only when the
+// latest tag could not be resolved or parsed. running failing to parse (a dev build)
+// reports newer=false with no error — every caller only reaches this after establishing
+// its own version is a release build (Install.Kind != KindDev), so that branch is a
+// defensive default, not a distinct error condition either caller needs to surface.
+func CheckNewer(ctx context.Context, client *http.Client, base, running string) (latest Version, newer bool, err error) {
+	tag, err := LatestTag(ctx, client, base)
+	if err != nil {
+		return Version{}, false, err
+	}
+	latest, ok := ParseRelease(tag)
+	if !ok {
+		return Version{}, false, fmt.Errorf("latest tag %q is not a release version", tag)
+	}
+	runningVer, ok := ParseRelease(running)
+	if !ok {
+		return latest, false, nil
+	}
+	return latest, latest.Compare(runningVer) > 0, nil
+}

@@ -275,19 +275,14 @@ func (m *updateManager) checkAvailability(ctx context.Context, manual bool) erro
 		}
 	}
 
-	tag, err := selfupdate.LatestTag(ctx, m.client, m.base)
+	latest, newer, err := selfupdate.CheckNewer(ctx, m.client, m.base, m.running)
 	if err != nil {
 		m.log.Debug().Err(err).Msg("update check failed")
 		return fmt.Errorf("%w: %w", errCheckFailed, err)
 	}
-	latest, ok := selfupdate.ParseRelease(tag)
-	if !ok {
-		m.log.Debug().Str("tag", tag).Msg("update check: latest tag is not a release version")
-		return fmt.Errorf("%w: latest tag %q is not a release version", errCheckFailed, tag)
-	}
 
 	var available *string
-	if running, ok := selfupdate.ParseRelease(m.running); ok && latest.Compare(running) > 0 {
+	if newer {
 		v := latest.String()
 		available = &v
 	}
@@ -404,7 +399,7 @@ func (m *updateManager) RequestApply(ctx context.Context, restart bool) error {
 		m.mu.Unlock()
 		return errShuttingDown
 	}
-	if m.install.Kind != selfupdate.KindInstaller {
+	if !m.install.MayApply() {
 		m.mu.Unlock()
 		return errUpdateUnsupported
 	}
@@ -452,7 +447,7 @@ func (m *updateManager) runApply(ctx context.Context, version string, restart, s
 		err = selfupdate.Apply(ctx, selfupdate.Options{
 			Client:  m.client,
 			Base:    m.base,
-			Tag:     "v" + version,
+			Tag:     selfupdate.ReleaseTag(version),
 			ExePath: m.exePath,
 			PubKey:  m.pubKey,
 			Progress: func(p selfupdate.Phase) {
@@ -510,25 +505,38 @@ func (m *updateManager) Current() UpdateInfo {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	var remedy *string
-	if m.install.Remedy != "" {
-		r := m.install.Remedy
-		remedy = &r
-	}
+	return buildUpdateInfo(m.install, m.running, m.install.Kind != selfupdate.KindDev, m.available, m.checkedAt, m.installed, UpdateApplyInfo{
+		Phase:   string(m.applyPhase),
+		Version: m.applyVersion,
+		Error:   m.applyError,
+	})
+}
+
+// buildUpdateInfo is the `update` wire object's one builder (Minor 3): updateManager.Current
+// calls it with its live check state, and updateFeature.current calls it with the disabled
+// defaults when no updateManager exists (BaseURL == ""). Both halves were assembling the
+// same shape — including the Remedy pointer — by hand.
+func buildUpdateInfo(install selfupdate.Install, running string, canCheck bool, available, checkedAt, installed *string, apply UpdateApplyInfo) UpdateInfo {
 	return UpdateInfo{
-		Running:   m.running,
-		Install:   string(m.install.Kind),
-		Remedy:    remedy,
-		CanCheck:  m.install.Kind != selfupdate.KindDev,
-		Available: m.available,
-		CheckedAt: m.checkedAt,
-		Installed: m.installed,
-		Apply: UpdateApplyInfo{
-			Phase:   string(m.applyPhase),
-			Version: m.applyVersion,
-			Error:   m.applyError,
-		},
+		Running:   running,
+		Install:   string(install.Kind),
+		Remedy:    remedyPointer(install),
+		CanCheck:  canCheck,
+		Available: available,
+		CheckedAt: checkedAt,
+		Installed: installed,
+		Apply:     apply,
 	}
+}
+
+// remedyPointer is UpdateInfo.Remedy's mapping from selfupdate.Install: empty means no
+// remedy sentence (an "installer" install, or no install classification at all).
+func remedyPointer(install selfupdate.Install) *string {
+	if install.Remedy == "" {
+		return nil
+	}
+	r := install.Remedy
+	return &r
 }
 
 func (m *updateManager) emit() {
@@ -613,17 +621,7 @@ func (f *updateFeature) current() UpdateInfo {
 	if f.um != nil {
 		return f.um.Current()
 	}
-	var remedy *string
-	if f.install.Remedy != "" {
-		r := f.install.Remedy
-		remedy = &r
-	}
-	return UpdateInfo{
-		Running: f.daemonVersion,
-		Install: string(f.install.Kind),
-		Remedy:  remedy,
-		Apply:   UpdateApplyInfo{Phase: string(selfupdate.PhaseIdle)},
-	}
+	return buildUpdateInfo(f.install, f.daemonVersion, false, nil, nil, nil, UpdateApplyInfo{Phase: string(selfupdate.PhaseIdle)})
 }
 
 func (f *updateFeature) contribute(_ context.Context, snap *Snapshot) {

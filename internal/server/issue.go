@@ -409,18 +409,7 @@ func (cs *captureStore) put(c *issueCapture) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 	cs.captures[c.id] = c
-	if len(cs.captures) <= maxCaptures {
-		return
-	}
-	var oldestID string
-	var oldestAt time.Time
-	first := true
-	for id, entry := range cs.captures {
-		if first || entry.capturedAt.Before(oldestAt) {
-			oldestID, oldestAt, first = id, entry.capturedAt, false
-		}
-	}
-	delete(cs.captures, oldestID)
+	evictOldest(cs.captures, maxCaptures, func(c *issueCapture) time.Time { return c.capturedAt })
 }
 
 // reserve returns the capture for id if it is usable — known, not expired, not already
@@ -501,24 +490,31 @@ type issueFeature struct {
 	log           zerolog.Logger
 }
 
+// newIssueFeature builds the feature. client stays nil when APIURL == "" (mirrors
+// usageFeature's nil-when-disabled poller, Minor 4): no token reader is built and no
+// exec.LookPath/gh probe happens on a daemon with issue capture disabled — every handler
+// already 404s on f.apiURL == "" before it would reach f.client.
 func newIssueFeature(cfg IssueConfig, httpClient *http.Client, manager *session.Manager, st *store.Store, daemonVersion string, claudeCode ClaudeCodeInfo, log zerolog.Logger) *issueFeature {
-	var tokenReader ghissue.TokenReader
-	if cfg.TokenFile != "" {
-		tokenReader = ghissue.FileTokenReader(cfg.TokenFile)
-	} else {
-		tokenReader = ghissue.GhCLITokenReader(exec.LookPath, ghissue.RunCommand)
-	}
-	return &issueFeature{
+	f := &issueFeature{
 		repo:          cfg.Repo,
 		apiURL:        cfg.APIURL,
 		captures:      newCaptureStore(),
-		client:        &ghissue.Client{HTTPClient: httpClient, BaseURL: cfg.APIURL, TokenReader: tokenReader},
 		manager:       manager,
 		store:         st,
 		daemonVersion: daemonVersion,
 		claudeCode:    claudeCode,
 		log:           log,
 	}
+	if cfg.APIURL != "" {
+		var tokenReader ghissue.TokenReader
+		if cfg.TokenFile != "" {
+			tokenReader = ghissue.FileTokenReader(cfg.TokenFile)
+		} else {
+			tokenReader = ghissue.GhCLITokenReader(exec.LookPath, ghissue.RunCommand)
+		}
+		f.client = &ghissue.Client{HTTPClient: httpClient, BaseURL: cfg.APIURL, TokenReader: tokenReader}
+	}
+	return f
 }
 
 func (f *issueFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.Handler) {
@@ -585,6 +581,34 @@ type createIssueResponse struct {
 const maxIssueTitleLen = 200
 const maxIssueNoteLen = 8000
 
+// errCaptureUnusable is fileIssue's sentinel for a reserve refusal — the capture id is
+// unknown, expired, already consumed, or already being filed by a concurrent request.
+// handleCreateIssue maps it to 409 capture_expired (kb:anchor/issue.create).
+var errCaptureUnusable = errors.New("issue capture is unknown, expired, in flight, or already filed")
+
+// fileIssue is POST /api/issues' whole capture-to-GitHub lifecycle: reserve the capture,
+// post it, and consume or release depending on the outcome. handleCreateIssue delegates
+// to this one call rather than running reserve/release/consume inline (Minor 4; conventions
+// § Go, "handlers decode, delegate, encode"). err is errCaptureUnusable, or *ghissue.Client's
+// own ErrAuthFailed/ErrPostFailed unchanged — the caller's error mapping is unaffected by
+// this move.
+func (f *issueFeature) fileIssue(ctx context.Context, captureID, title, note string) (number int, htmlURL, scope string, err error) {
+	capture := f.captures.reserve(captureID, time.Now().UTC())
+	if capture == nil {
+		return 0, "", "", errCaptureUnusable
+	}
+
+	body := composeIssueBody(note, capture.snapshotMarkdown)
+	number, htmlURL, err = f.client.CreateIssue(ctx, f.repo, title, body)
+	if err != nil {
+		f.captures.release(captureID)
+		return 0, "", "", err
+	}
+
+	f.captures.consume(captureID)
+	return number, htmlURL, capture.snapshot.Scope, nil
+}
+
 // handleCreateIssue is POST /api/issues (REQ-8/REQ-9/REQ-10, kb:anchor/issue.create).
 func (f *issueFeature) handleCreateIssue(w http.ResponseWriter, r *http.Request) {
 	if f.apiURL == "" {
@@ -615,28 +639,20 @@ func (f *issueFeature) handleCreateIssue(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	capture := f.captures.reserve(req.CaptureID, time.Now().UTC())
-	if capture == nil {
-		// Edge Case 2's remedy sentence lives here: the pinned UI summary is always
-		// "Could not file the issue.", so this message is the only place the user sees
-		// what to actually do about it (review cycle 1 Minor 3).
-		writeJSONError(w, http.StatusConflict, "capture_expired", "capture is unknown, expired, in flight, or already filed; reopen the dialog to take a fresh snapshot")
-		return
-	}
-
 	// context.WithoutCancel (mirrors sessionLauncher.Launch/Resume, Edge Case 13): once
 	// the capture is reserved, a client that navigates away or hits Escape must not
 	// cancel the in-flight GitHub POST — the daemon still files it and logs it.
 	ctx := context.WithoutCancel(r.Context())
-	body := composeIssueBody(req.Note, capture.snapshotMarkdown)
-
-	number, htmlURL, err := f.client.CreateIssue(ctx, f.repo, title, body)
+	number, htmlURL, scope, err := f.fileIssue(ctx, req.CaptureID, title, req.Note)
 	if err != nil {
-		f.captures.release(req.CaptureID)
-
 		var authErr *ghissue.ErrAuthFailed
 		var postErr *ghissue.ErrPostFailed
 		switch {
+		case errors.Is(err, errCaptureUnusable):
+			// Edge Case 2's remedy sentence lives here: the pinned UI summary is always
+			// "Could not file the issue.", so this message is the only place the user
+			// sees what to actually do about it (review cycle 1 Minor 3).
+			writeJSONError(w, http.StatusConflict, "capture_expired", "capture is unknown, expired, in flight, or already filed; reopen the dialog to take a fresh snapshot")
 		case errors.As(err, &authErr):
 			// authErr.Message is proven token-free by D9/INV-3 — safe to log (review
 			// cycle 1 Major: the warn line must carry the upstream status/message, not
@@ -660,12 +676,10 @@ func (f *issueFeature) handleCreateIssue(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	f.captures.consume(req.CaptureID)
-
 	f.log.Info().
 		Int("number", number).
 		Str("url", htmlURL).
-		Str("scope", capture.snapshot.Scope).
+		Str("scope", scope).
 		Int("title_len", utf8.RuneCountInString(title)).
 		Int("note_len", utf8.RuneCountInString(req.Note)).
 		Msg("filed github issue")

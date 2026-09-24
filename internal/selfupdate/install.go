@@ -34,6 +34,15 @@ type Install struct {
 	Remedy string
 }
 
+// MayApply is kb:adr/update-install-kinds-decide-who-may-apply's rule: only an
+// installer-managed binary may be replaced in place. cmd/musterd and internal/server each
+// wrote this test by hand, in different forms (an installer allow-list here, a
+// dev/homebrew/unmanaged deny-list there) that only agreed because exactly four kinds
+// exist — a fifth kind would silently diverge between them.
+func (i Install) MayApply() bool {
+	return i.Kind == KindInstaller
+}
+
 // homebrewPrefixes are the fixed Homebrew install roots checked in addition to
 // $HOMEBREW_PREFIX (REQ-21).
 var homebrewPrefixes = []string{"/opt/homebrew", "/usr/local/Cellar", "/usr/local/Homebrew"}

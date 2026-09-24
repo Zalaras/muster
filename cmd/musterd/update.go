@@ -49,30 +49,19 @@ func runUpdate(ctx context.Context, stdout, stderr io.Writer, base string, pubKe
 		fmt.Fprintln(stderr, "not a release build")
 		return errUpdateFailed
 	}
-	if install.Kind == selfupdate.KindHomebrew || install.Kind == selfupdate.KindUnmanaged {
+	if !install.MayApply() {
 		fmt.Fprintln(stderr, install.Remedy)
 		return errUpdateFailed
 	}
 
 	client := http.DefaultClient
 
-	tag, err := selfupdate.LatestTag(ctx, client, base)
+	latest, newer, err := selfupdate.CheckNewer(ctx, client, base, running)
 	if err != nil {
 		fmt.Fprintln(stderr, "checking latest release:", err)
 		return errUpdateFailed
 	}
-	latest, ok := selfupdate.ParseRelease(tag)
-	if !ok {
-		fmt.Fprintln(stderr, "checking latest release: latest tag is not a release version")
-		return errUpdateFailed
-	}
-	runningVersion, ok := selfupdate.ParseRelease(running)
-	if !ok {
-		// install.Kind would already be "dev" for this — belt and braces.
-		fmt.Fprintln(stderr, "not a release build")
-		return errUpdateFailed
-	}
-	if latest.Compare(runningVersion) <= 0 {
+	if !newer {
 		fmt.Fprintln(stdout, "already up to date")
 		return nil
 	}
@@ -87,7 +76,7 @@ func runUpdate(ctx context.Context, stdout, stderr io.Writer, base string, pubKe
 	if err := selfupdate.Apply(ctx, selfupdate.Options{
 		Client:  client,
 		Base:    base,
-		Tag:     tag,
+		Tag:     selfupdate.ReleaseTag(latest.String()),
 		ExePath: exePath,
 		PubKey:  pubKey,
 	}); err != nil {
