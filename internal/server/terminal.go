@@ -88,39 +88,58 @@ type terminalKey struct {
 // Two separate guards, never nested in the other order: keyLocks serialises one key's
 // whole takeover — including the old socket's Close and the new attach's I/O — so a
 // second evict can never race a first attach that hasn't registered yet; mu guards only
-// conns map reads/writes and is never held across that I/O. session.Manager.Apply calls
+// conns/closed reads/writes and is never held across that I/O. session.Manager.Apply calls
 // Watched (below) while holding session.Manager.mu, so a takeover that instead held mu
 // across a slow peer's close handshake would stall every session read in the daemon for as
 // long as that handshake takes — Watched must only ever need mu's brief hold, never
 // keyLocks'.
+//
+// closed is set once by closeAll (daemon shutdown) and checked by takeover both before and
+// after its attach call: a takeover already past the first check when closeAll runs finishes
+// its attach and is caught by the second check, so a connection can never be installed into
+// conns after closeAll has run — it is instead closed with the same shutdown code closeAll
+// used.
 type terminalRegistry struct {
 	keyLocks keyedlock.Locks[terminalKey]
 
-	mu    sync.Mutex
-	conns map[terminalKey]*terminalConn
+	mu     sync.Mutex
+	conns  map[terminalKey]*terminalConn
+	closed bool
 }
 
 func newTerminalRegistry() *terminalRegistry {
 	return &terminalRegistry{conns: make(map[terminalKey]*terminalConn)}
 }
 
+// errRegistryClosed is takeover's sentinel for "closeAll has already run" — attachAndPump
+// treats it as teardown, not an attach failure worth logging: the connection has already
+// been (or is about to be) closed with the shutdown code, either by closeAll itself or by
+// takeover's own second closed check below.
+var errRegistryClosed = errors.New("terminal registry closed")
+
 // takeover evicts whatever connection is currently registered for key — closing its
 // socket (4000 superseded) and tearing down its PTY — then calls attach to build the
 // replacement and installs it. keyLocks' per-key lock is held across the whole sequence
 // (not just the map swap), which is what actually delivers the guarantee that the old PTY
-// is torn down before the new attach starts: an earlier version evicted and installed
-// atomically but ran the new termbridge.Attach *after* releasing its lock and after
-// already being installed, so a slow attach let two PTYs/tmux clients coexist on the
-// session for its duration. It also serializes two concurrent connects for the same key,
-// so a second evict can never race a first attach that hasn't registered yet. mu itself is
-// only ever held for the map read/write on either side of that I/O — a Watched call
-// concurrent with a takeover in progress briefly sees no entry for key rather than
+// is torn down before the new attach starts. It also serializes two concurrent connects for
+// the same key, so a second evict can never race a first attach that hasn't registered yet.
+// mu itself is only ever held for the map read/write on either side of that I/O — a Watched
+// call concurrent with a takeover in progress briefly sees no entry for key rather than
 // blocking until the takeover finishes.
+//
+// closed is checked twice: once before evicting (a takeover starting after closeAll has
+// nothing to evict and nothing to attach for), and once more after attach returns, since
+// closeAll can run while this call's own attach is still in flight — that second check is
+// what keeps a slow attach from installing a connection closeAll will never know to close.
 func (r *terminalRegistry) takeover(ctx context.Context, key terminalKey, attach func(context.Context) (*terminalConn, error)) (*terminalConn, error) {
 	unlock := r.keyLocks.Lock(key)
 	defer unlock()
 
 	r.mu.Lock()
+	if r.closed {
+		r.mu.Unlock()
+		return nil, errRegistryClosed
+	}
 	old := r.conns[key]
 	delete(r.conns, key)
 	r.mu.Unlock()
@@ -136,6 +155,12 @@ func (r *terminalRegistry) takeover(ctx context.Context, key terminalKey, attach
 	}
 
 	r.mu.Lock()
+	if r.closed {
+		r.mu.Unlock()
+		_ = conn.ws.Close(websocket.StatusNormalClosure, "musterd shutting down")
+		_ = conn.bridge.Close()
+		return nil, errRegistryClosed
+	}
 	r.conns[key] = conn
 	r.mu.Unlock()
 	return conn, nil
@@ -197,12 +222,15 @@ func (r *terminalRegistry) closeSessionAndShell(sessionID int64) {
 }
 
 // closeAll closes every live terminal socket (daemon shutdown — normal close 1001,
-// kb:anchor/terminal.ws) and clears the map, so a takeover racing shutdown can't re-close an
-// already-closed conn it still thinks is live.
+// kb:anchor/terminal.ws), clears the map, and marks the registry closed — so a takeover
+// racing shutdown can't re-close an already-closed conn it still thinks is live, and a
+// takeover whose attach finishes after this point closes its new connection instead of
+// installing it (see takeover's own doc comment).
 func (r *terminalRegistry) closeAll() {
 	r.mu.Lock()
 	conns := r.conns
 	r.conns = make(map[terminalKey]*terminalConn)
+	r.closed = true
 	r.mu.Unlock()
 
 	for _, c := range conns {
@@ -317,6 +345,11 @@ func attachAndPump(w http.ResponseWriter, r *http.Request, log zerolog.Logger, r
 		return &terminalConn{ws: c, bridge: bridge}, nil
 	})
 	if err != nil {
+		if errors.Is(err, errRegistryClosed) {
+			// closeAll already closed c with the shutdown code (or is about to, via
+			// takeover's own second check) — nothing more to do here.
+			return
+		}
 		log.Error().Err(err).Int64("session_id", sessionID).Str("tmux_target", p.target).Msg("attaching terminal bridge failed")
 		_ = c.Close(websocket.StatusInternalError, "attach failed")
 		return
@@ -328,7 +361,7 @@ func attachAndPump(w http.ResponseWriter, r *http.Request, log zerolog.Logger, r
 	// Marking the session seen on attach applies to both surfaces
 	// (kb:adr/rail-unread-inferred-from-live-terminal-client): a successful takeover
 	// marks the session seen, before any PTY byte is forwarded (kb:anchor/terminal.ws /
-	// kb:anchor/terminal.shell-ws Protocol Contract delta).
+	// kb:anchor/terminal.shell-ws).
 	if err := manager.MarkSeen(r.Context(), sessionID); err != nil {
 		log.Warn().Err(err).Int64("session_id", sessionID).Msg("marking session seen failed")
 	}
@@ -393,7 +426,7 @@ func pumpPTYToSocket(ctx context.Context, log zerolog.Logger, c *websocket.Conn,
 					// pumpSocketToPTY goroutine's blocked Read, which returns and cancels
 					// the shared ctx almost immediately — racing (and normally beating)
 					// this nudge's in-flight tmux list-panes call. The nudge must outlive
-					// that teardown race, same pattern as sessions.go's rollback.
+					// that teardown race, same pattern as launcher.go's rollback.
 					nudge(context.WithoutCancel(ctx), sessionID)
 				}
 			} else {

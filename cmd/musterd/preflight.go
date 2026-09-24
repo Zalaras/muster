@@ -33,7 +33,7 @@ func runTmuxPreflight(ctx context.Context, stderr io.Writer, preflight func(cont
 	case tmux.StatusTooOld:
 		fmt.Fprintln(stderr, "musterd preflight")
 		fmt.Fprintf(stderr, "  x tmux    %s at %s - need %s or newer\n", result.Version, result.Path, tmux.MinVersion)
-		fmt.Fprintln(stderr) // UI spec: a blank line separates the report from main's "musterd: ..." verdict line
+		fmt.Fprintln(stderr) // a blank line separates the report from main's "musterd: ..." verdict line
 		return result, errors.New("tmux is required - Muster runs every session in tmux. Upgrade it with: " + tmuxUpgradeRemedy)
 
 	default: // tmux.StatusNotFound: absent, not executable, exiting non-zero, or timed out
@@ -43,7 +43,7 @@ func runTmuxPreflight(ctx context.Context, stderr io.Writer, preflight func(cont
 		} else {
 			fmt.Fprintln(stderr, "  x tmux    not found in $PATH")
 		}
-		fmt.Fprintln(stderr) // UI spec: a blank line separates the report from main's "musterd: ..." verdict line
+		fmt.Fprintln(stderr) // a blank line separates the report from main's "musterd: ..." verdict line
 		return result, fmt.Errorf("tmux is required - Muster runs every session in tmux. Install it with: %s", tmuxInstallRemedy)
 	}
 }

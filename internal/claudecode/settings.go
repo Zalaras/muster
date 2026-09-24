@@ -41,6 +41,17 @@ const (
 func IngestHookPath(token string) string   { return ingestPathPrefix + token + ingestHookSuffix }
 func IngestStatusPath(token string) string { return ingestPathPrefix + token + ingestStatusSuffix }
 
+// ProjectSettingsPath returns dir's project-scoped settings file
+// (kb:adr/launch-settings-local-json-not-settings-json,
+// kb:adr/launch-project-scoped-settings-not-config-dir): the one file MergeSettings'
+// output is ever written to. internal/server's launch path asks for this rather than
+// spelling ".claude/settings.local.json" itself, so where Claude Code reads project-local
+// settings lives in exactly one place (CLAUDE.md hard rule: all Claude-Code-format
+// knowledge lives in this package).
+func ProjectSettingsPath(dir string) string {
+	return filepath.Join(dir, ".claude", "settings.local.json")
+}
+
 // httpHookEvents was every event Claude Code delivered over plain HTTP before Muster
 // moved every hook to a command wrapper (kb:adr/ingest-all-hooks-command-wrappers). It is
 // kept as the ten non-SessionStart event names because allHookEvents below is built from
@@ -105,9 +116,10 @@ type hookGroup struct {
 // shape (/ingest/<token>/hook or /ingest/<token>/status, built from the same
 // ingestPathPrefix/ingestHookSuffix/ingestStatusSuffix IngestHookPath and
 // IngestStatusPath use), independent of host, port or token — those all change across
-// daemon instances/restarts, but the shape doesn't: a naive "matches cfg.HookURL
-// exactly" check would fail to recognize Muster's own stale entry once the port/token
-// rotates, and the wholesale-replace guarantee depends on recognizing it anyway.
+// daemon instances/restarts, but the shape doesn't: a naive "matches the current entry's
+// URL exactly" check would fail to recognize Muster's own stale entry once the
+// port/token rotates, and the wholesale-replace guarantee depends on recognizing it
+// anyway.
 var musterIngestPath = regexp.MustCompile(`^` + regexp.QuoteMeta(ingestPathPrefix) + `[^/]+(` +
 	regexp.QuoteMeta(ingestHookSuffix) + `|` + regexp.QuoteMeta(ingestStatusSuffix) + `)$`)
 

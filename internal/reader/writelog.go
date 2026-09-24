@@ -12,9 +12,9 @@ import (
 const maxWriteLogPaths = 512
 
 // WriteLog is the daemon's in-memory record of routed writes, per session — forgotten on
-// daemon restart, like shells (Schema Changes: "the write log is not persisted"). Record
-// is called from internal/server's single ingest worker; Get and Forget are called from
-// HTTP handlers and session removal. mu guards bySession against that concurrent access.
+// daemon restart, like shells: nothing here is written to disk. Record is called from
+// internal/server's single ingest worker; Get and Forget are called from HTTP handlers and
+// session removal. mu guards bySession against that concurrent access.
 type WriteLog struct {
 	mu        sync.Mutex
 	bySession map[int64]map[string]time.Time

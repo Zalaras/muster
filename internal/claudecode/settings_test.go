@@ -425,6 +425,14 @@ func TestMergeSettings_EmptyExistingBehavesLikeNilExisting(t *testing.T) {
 	assert.Equal(t, string(fromNil), string(fromEmpty))
 }
 
+// TestProjectSettingsPath covers Critical 1's fix: the one declaration of the
+// project-scoped settings file location, mirroring DefaultPlansDir/DefaultConfigPath's
+// own plain-join shape (plan_test.go, theme_test.go) rather than a caller spelling
+// ".claude/settings.local.json" itself.
+func TestProjectSettingsPath(t *testing.T) {
+	assert.Equal(t, filepath.Join("/home/bob/project", ".claude", "settings.local.json"), ProjectSettingsPath("/home/bob/project"))
+}
+
 // TestShellQuote covers the unit itself: single-quoting, and the four-character
 // close-escape-reopen replacement for an embedded quote, independent of MergeSettings'
 // JSON plumbing.

@@ -16,10 +16,8 @@ import (
 // (internal/claudecode.FetchUsage) on an interval, mapping each successful fetch into
 // internal/usage.ModelScoped — the seam ingest.go's processStatus is for the
 // status-line half of the `usage` message. Refresh wakes it early
-// (kb:anchor/usage.refresh), coalesced to at most one extra fetch.
-//
-// Pattern copied from internal/session.Manager's liveness poll (manager.go:126-151 for
-// Start/Stop, :715-726 for the ticker loop).
+// (kb:anchor/usage.refresh), coalesced to at most one extra fetch. Embeds bgLoop
+// (bgloop.go) for its Start/Stop/loop shape; tick below is its own.
 type usagePoller struct {
 	client      *http.Client
 	baseURL     string

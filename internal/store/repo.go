@@ -71,10 +71,10 @@ func (s *Store) UpsertRepo(ctx context.Context, p UpsertRepoParams) (Repo, bool,
 	return r, r.LaunchCount == 1, nil
 }
 
-// GetRepo looks up a repo row by id. No production code calls this today (a-m7: `rg
-// '\.GetRepo\('` finds only test callers) — production always already has the row it
-// needs from ListRepos or UpsertRepo's own return value. It exists for test setup that
-// wants one row back after UpsertRepo without listing every repo.
+// GetRepo looks up a repo row by id. No production code calls this today — production
+// always already has the row it needs from ListRepos or UpsertRepo's own return value.
+// It exists for test setup that wants one row back after UpsertRepo without listing
+// every repo.
 func (s *Store) GetRepo(ctx context.Context, id int64) (Repo, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id, path, name, is_git, pinned, last_launched_at, launch_count, last_model, last_permission_mode, created_at

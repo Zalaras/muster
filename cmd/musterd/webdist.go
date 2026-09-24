@@ -14,8 +14,9 @@ import (
 // checkWebDist validates the -web-dist / embedded-dashboard serving precedence at startup
 // (kb:adr/connection-dashboard-embedded-in-binary). An on-disk override (-web-dist set) is
 // a permissive dev override: a directory missing index.html only logs a warning and
-// startup proceeds — cmd/musterd/onexit_test.go:125 depends on an empty -web-dist dir
-// being accepted, and this is deliberate: serve whatever is there. Falling through to the
+// startup proceeds — onexit_test.go's spawnDaemon helper depends on an empty -web-dist
+// dir being accepted for every daemon it spawns, and this is deliberate: serve whatever
+// is there. Falling through to the
 // embedded dashboard (-web-dist unset) with nothing actually embedded — a binary built
 // before any `make web-build` — is fatal: it replaces the old silent 404-everything
 // failure with an actionable error naming both remedies, before the daemon ever starts

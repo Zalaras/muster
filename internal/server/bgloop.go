@@ -10,8 +10,8 @@ import (
 	"github.com/Zalaras/muster/internal/boundedwait"
 )
 
-// bgLoop is the Start/cancel/bounded-wait-with-warn shape usagePoller, themePoller,
-// shellActivityPoller and updateManager each hand-wrote. Embedding it leaves each poller
+// bgLoop is the Start/cancel/bounded-wait-with-warn shape shared by usagePoller,
+// themePoller, shellActivityPoller and updateManager. Embedding it leaves each poller
 // owning only its own tick.
 type bgLoop struct {
 	cancel context.CancelFunc
@@ -38,10 +38,10 @@ func (l *bgLoop) stop(ctx context.Context, log zerolog.Logger, warnMsg string) {
 }
 
 // runTicked runs tick immediately, then on every tick of interval and every receive from
-// refresh, until ctx is done — the tick/ticker/refresh loop body usagePoller, themePoller,
-// shellActivityPoller and updateManager each wrote out by hand. refresh may be nil: a nil
-// channel is never ready, so pollers with no refresh path (theme, shell activity) simply
-// never take that case.
+// refresh, until ctx is done — the tick/ticker/refresh loop body shared by usagePoller,
+// themePoller, shellActivityPoller and updateManager. refresh may be nil: a nil channel is
+// never ready, so pollers with no refresh path (theme, shell activity) simply never take
+// that case.
 func runTicked(ctx context.Context, interval time.Duration, refresh <-chan struct{}, tick func(ctx context.Context)) {
 	tick(ctx)
 	ticker := time.NewTicker(interval)

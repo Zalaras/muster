@@ -29,13 +29,14 @@ var (
 
 // probeVersionFunc reads the version a swapped-in binary reports — checkSwap's
 // consumer-side seam over selfupdate.ProbeVersion (docs/conventions.md § Testing,
-// matching reader.go's gitFilesFunc): production is selfupdate.ProbeVersion,
-// same-package tests overwrite the field directly rather than forking a real `#!/bin/sh`
-// stub per test (kb:lesson/first-exec-of-fresh-script-costs-270ms).
+// matching readerFeature.gitFiles' shape, kb:adr/process-adapter-run-seam-constructor-default):
+// production is selfupdate.ProbeVersion, same-package tests overwrite the field directly
+// rather than forking a real `#!/bin/sh` stub per test
+// (kb:lesson/first-exec-of-fresh-script-costs-270ms).
 type probeVersionFunc func(ctx context.Context, exePath string) (string, error)
 
 // updateManagerConfig configures a newUpdateManager call. Constructed only when
-// -update-base-url is non-empty (Server.New); a nil *updateManager on Server means
+// -update-base-url is non-empty (newUpdateFeature); a nil um field on updateFeature means
 // updates are disabled entirely (mirrors usagePoller's nil-when-disabled shape).
 type updateManagerConfig struct {
 	Client       *http.Client
@@ -100,6 +101,9 @@ type updateManager struct {
 func newUpdateManager(cfg updateManagerConfig) *updateManager {
 	client := cfg.Client
 	if client == nil {
+		// New always resolves cfg.HTTPClient before newUpdateFeature ever builds a
+		// updateManagerConfig; this fallback exists for update_test.go's direct
+		// construction of one without a Client.
 		client = http.DefaultClient
 	}
 	m := &updateManager{
@@ -137,15 +141,16 @@ func (m *updateManager) Start() {
 }
 
 // Stop cancels the tick loop and waits for it to exit, giving up when ctx is done
-// (mirrors usagePoller.Stop). Marks the manager as shutting down first, so any apply
-// already in flight — and any new POST /api/update/apply racing shutdown — observes
-// errShuttingDown.
+// (mirrors usagePoller.Stop). Marks the manager as shutting down first, so any new POST
+// /api/update/apply racing shutdown observes errShuttingDown; an apply already in flight is
+// not itself shutting-down-flagged (runApply never reads shuttingDown) — it is instead
+// canceled below.
 //
-// It also cancels an in-flight apply and bounded-waits for it: before this, RequestApply's
-// goroutine ran under context.WithoutCancel and outlived Stop entirely, so a SIGTERM
-// mid-download could exit the process in the middle of selfupdate.Apply, leaving its temp
-// file behind. Cancellation aborts the download/verify in progress; runApply/
-// finishApplyFailed's existing error path (an apply reads an error from a canceled
+// Cancelling and bounded-waiting for an in-flight apply matters because
+// selfupdate.Apply's download/verify/install would otherwise run under context.WithoutCancel
+// and outlive Stop entirely: a SIGTERM mid-download could exit the process in the middle of
+// it, leaving its temp file behind. Cancellation aborts the download/verify in progress;
+// runApply/finishApplyFailed's existing error path (an apply reads an error from a canceled
 // ctx.Err() exactly as it would any other download failure) records it as a failed apply
 // rather than a successful one.
 func (m *updateManager) Stop(ctx context.Context) {
@@ -201,7 +206,7 @@ func (m *updateManager) checkAvailability(ctx context.Context, manual bool) erro
 		}
 	}
 
-	latest, newer, err := selfupdate.CheckNewer(ctx, m.client, m.base, m.running)
+	latest, _, newer, err := selfupdate.CheckNewer(ctx, m.client, m.base, m.running)
 	if err != nil {
 		m.log.Debug().Err(err).Msg("update check failed")
 		return fmt.Errorf("%w: %w", errCheckFailed, err)
@@ -357,9 +362,14 @@ func (m *updateManager) RequestApply(ctx context.Context, restart bool) error {
 	applyCtx, cancel := context.WithCancel(ctx)
 	m.applyInFlight = true
 	m.applyCancel = cancel
+	// Add must happen before Unlock, in the same critical section that just checked
+	// shuttingDown above: sync.WaitGroup forbids a positive Add racing a Wait on a
+	// zero counter, and Stop's own Wait can run the instant this unlocks. Add here
+	// happens-before that Unlock, which happens-before Stop's Lock, so Stop can never
+	// observe an empty applyWG for an apply this call has already committed to starting.
+	m.applyWG.Add(1)
 	m.mu.Unlock()
 
-	m.applyWG.Add(1)
 	go m.runApply(applyCtx, *version, restart, skipDownload)
 	return nil
 }

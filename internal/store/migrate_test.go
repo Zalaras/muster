@@ -74,9 +74,9 @@ func TestMigrate_SecondCallIsANoOp(t *testing.T) {
 	assert.Equal(t, "v", value)
 }
 
-// TestLoadMigrations_DuplicateVersionIsLoadError covers a-m6: two migration files
-// sharing a version must fail loading, not silently apply only the first and skip the
-// second forever. loadMigrations takes an fs.FS (migrate.go), specifically so a test can
+// TestLoadMigrations_DuplicateVersionIsLoadError proves two migration files sharing a
+// version fail loading, not silently apply only the first and skip the second forever.
+// loadMigrations takes an fs.FS (migrate.go), specifically so a test can
 // pass an fstest.MapFS instead of mutating the package-level migrationsFS shared with
 // every other test in this package (docs/conventions.md § Go).
 func TestLoadMigrations_DuplicateVersionIsLoadError(t *testing.T) {

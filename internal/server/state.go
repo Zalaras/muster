@@ -13,12 +13,12 @@ type Snapshot struct {
 	Usage       UsageInfo       `json:"usage"`
 	Prefs       PrefsInfo       `json:"prefs"`
 	ClaudeTheme ClaudeThemeInfo `json:"claudeTheme"`
-	// Update is new in the auto-update plan (2026-09-10, kb:anchor/ws.update): always
-	// present, even on a daemon with updates disabled entirely.
+	// Update (kb:anchor/ws.update): always present, even on a daemon with updates disabled
+	// entirely.
 	Update UpdateInfo `json:"update"`
-	// ShellsBusy is new in terminal-fixes-cleanup (kb:anchor/ws.shell-activity): session ids
-	// whose shell is busy right now, always present as [] when none — never null — so a
-	// reconnecting client re-syncs without waiting for a shellActivity transition.
+	// ShellsBusy (kb:anchor/ws.shell-activity): session ids whose shell is busy right now,
+	// always present as [] when none — never null — so a reconnecting client re-syncs
+	// without waiting for a shellActivity transition.
 	ShellsBusy []int64 `json:"shellsBusy"`
 }
 

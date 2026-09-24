@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -77,18 +76,6 @@ func (f *sessionsFeature) handleCreateSession(w http.ResponseWriter, r *http.Req
 	writeJSON(w, http.StatusCreated, toWireSession(sess))
 }
 
-// parseSessionID reads the {id} path value, writing a 404 unknown_session itself on a
-// malformed value (an unparseable id is indistinguishable from an unknown one to the
-// caller — same response either way).
-func parseSessionID(w http.ResponseWriter, r *http.Request) (int64, bool) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
-		writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
-		return 0, false
-	}
-	return id, true
-}
-
 // handleEndSession is POST /api/sessions/{id}/end (kb:anchor/sessions.end). The terminal
 // socket is closed only once End has actually succeeded — a 404/409, and a genuine
 // end_failed kill failure alike (kb:adr/actions-kill-is-idempotent), must never tear down
@@ -105,7 +92,7 @@ func (f *sessionsFeature) handleEndSession(w http.ResponseWriter, r *http.Reques
 	if endErr != nil {
 		switch {
 		case errors.Is(endErr, session.ErrUnknownSession):
-			writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
+			writeUnknownSession(w)
 			return
 		case errors.Is(endErr, session.ErrSessionNotAlive):
 			writeJSONError(w, http.StatusConflict, "not_alive", "session is already ended")
@@ -136,7 +123,7 @@ func (f *sessionsFeature) handleRemoveSession(w http.ResponseWriter, r *http.Req
 	if remErr := f.manager.Remove(context.WithoutCancel(r.Context()), id); remErr != nil {
 		switch {
 		case errors.Is(remErr, session.ErrUnknownSession):
-			writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
+			writeUnknownSession(w)
 		default:
 			f.log.Error().Err(remErr).Int64("session_id", id).Msg("removing session failed")
 			writeJSONError(w, http.StatusInternalServerError, "end_failed", msgRemoveFailed)
@@ -178,7 +165,7 @@ func (f *sessionsFeature) handlePaneSnapshot(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	if !f.manager.Exists(id) {
-		writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
+		writeUnknownSession(w)
 		return
 	}
 	text, at, ok := f.manager.Snapshot(id)
@@ -211,7 +198,7 @@ func (f *sessionsFeature) handlePinSession(w http.ResponseWriter, r *http.Reques
 	if err := f.manager.SetPinned(context.WithoutCancel(r.Context()), id, *req.Pinned); err != nil {
 		switch {
 		case errors.Is(err, session.ErrUnknownSession):
-			writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
+			writeUnknownSession(w)
 		default:
 			f.log.Error().Err(err).Int64("session_id", id).Msg("pinning session failed")
 			writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
@@ -306,7 +293,7 @@ func (f *sessionsFeature) handleSetTitle(w http.ResponseWriter, r *http.Request)
 	if _, err := f.manager.SetTitle(context.WithoutCancel(r.Context()), id, title); err != nil {
 		switch {
 		case errors.Is(err, session.ErrUnknownSession):
-			writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
+			writeUnknownSession(w)
 		default:
 			f.log.Error().Err(err).Int64("session_id", id).Msg("setting session title failed")
 			writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)

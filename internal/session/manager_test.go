@@ -92,13 +92,12 @@ func (f *fakePaneChecker) setErr(target string, err error) {
 	f.err[target] = err
 }
 
-// fakeKiller is a Killer double: fully test-controlled ListSessions/KillSession, no real
-// tmux socket needed (m4-reconcile REQ-2's unknown-panes check and REQ-5/REQ-6's kill
-// path). ListSessions' answer is fixed at construction (Reconcile's own test scenarios
-// don't need it to change mid-test); KillSession's per-name outcome and call log are
-// mutable under a lock since Manager methods call it from the caller's own goroutine but
-// tests read the log back afterward.
-type fakeKiller struct {
+// fakeTmuxSessions is a TmuxSessions double: fully test-controlled ListSessions/
+// KillSession, no real tmux socket needed. ListSessions' answer is fixed at construction
+// (Reconcile's own test scenarios don't need it to change mid-test); KillSession's
+// per-name outcome and call log are mutable under a lock since Manager methods call it
+// from the caller's own goroutine but tests read the log back afterward.
+type fakeTmuxSessions struct {
 	mu       sync.Mutex
 	sessions []string
 	killErr  map[string]error
@@ -109,11 +108,11 @@ type fakeKiller struct {
 	listErr error
 }
 
-func newFakeKiller(sessions ...string) *fakeKiller {
-	return &fakeKiller{sessions: sessions, killErr: map[string]error{}}
+func newFakeTmuxSessions(sessions ...string) *fakeTmuxSessions {
+	return &fakeTmuxSessions{sessions: sessions, killErr: map[string]error{}}
 }
 
-func (f *fakeKiller) ListSessions(_ context.Context) ([]string, error) {
+func (f *fakeTmuxSessions) ListSessions(_ context.Context) ([]string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.listErr != nil {
@@ -124,13 +123,13 @@ func (f *fakeKiller) ListSessions(_ context.Context) ([]string, error) {
 	return out, nil
 }
 
-func (f *fakeKiller) setListErr(err error) {
+func (f *fakeTmuxSessions) setListErr(err error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.listErr = err
 }
 
-func (f *fakeKiller) KillSession(_ context.Context, name string) error {
+func (f *fakeTmuxSessions) KillSession(_ context.Context, name string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if err, ok := f.killErr[name]; ok {
@@ -140,13 +139,13 @@ func (f *fakeKiller) KillSession(_ context.Context, name string) error {
 	return nil
 }
 
-func (f *fakeKiller) setKillErr(name string, err error) {
+func (f *fakeTmuxSessions) setKillErr(name string, err error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.killErr[name] = err
 }
 
-func (f *fakeKiller) killedNames() []string {
+func (f *fakeTmuxSessions) killedNames() []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	out := make([]string, len(f.killed))
@@ -156,11 +155,11 @@ func (f *fakeKiller) killedNames() []string {
 
 // ResolveSessionTarget satisfies TmuxSessions for the tests that only need
 // ListSessions/KillSession (Reconcile and kill-path tests, most of this suite's
-// fakeKiller uses) — the same "unsupported" shape a real resolve failure already takes.
-// fakeResolvingKiller (manager_writeorder_test.go) shadows this with a real answer for
+// fakeTmuxSessions uses) — the same "unsupported" shape a real resolve failure already takes.
+// fakeResolvingTmuxSessions (manager_writeorder_test.go) shadows this with a real answer for
 // the repair/revive tests that do need one.
-func (f *fakeKiller) ResolveSessionTarget(_ context.Context, _ string) (string, string, error) {
-	return "", "", errors.New("fakeKiller: ResolveSessionTarget not supported")
+func (f *fakeTmuxSessions) ResolveSessionTarget(_ context.Context, _ string) (string, string, error) {
+	return "", "", errors.New("fakeTmuxSessions: ResolveSessionTarget not supported")
 }
 
 // fakePaneSnapshotter is a PaneSnapshotter double: fully test-controlled CapturePane
@@ -198,10 +197,9 @@ func (f *fakePaneSnapshotter) setErr(target string, err error) {
 	f.errs[target] = err
 }
 
-// testManagerOpt overrides one field of newTestManager's default Config — the "per-test
-// overrides" review Minor 8 asks for, so a test that needs PaneSnapshotter, TmuxSessions,
-// a Watcher, OnRemoved or a non-default PollInterval shares this one constructor instead
-// of hand-rolling its own NewManager(Config{...}).
+// testManagerOpt overrides one field of newTestManager's default Config, so a test that
+// needs PaneSnapshotter, TmuxSessions, a Watcher, OnRemoved or a non-default PollInterval
+// shares this one constructor instead of hand-rolling its own NewManager(Config{...}).
 type testManagerOpt func(*Config)
 
 func withPaneSnapshotter(ps PaneSnapshotter) testManagerOpt {
@@ -229,11 +227,11 @@ func withLogger(l zerolog.Logger) testManagerOpt {
 }
 
 // newTestManager is the one constructor every session-package test builds a Manager
-// through (review Minor 8): it supplies a default fake for each of the three ports
-// NewManager now requires (PaneChecker, PaneSnapshotter, TmuxSessions), so a test that
-// doesn't care about tmux at all can still build a Manager, and testManagerOpt overrides
-// the rest. pc/onUpsert stay positional (every call site already passes them) with a nil
-// pc defaulting the same way the other two ports do.
+// through: it supplies a default fake for each of the three ports NewManager requires
+// (PaneChecker, PaneSnapshotter, TmuxSessions), so a test that doesn't care about tmux at
+// all can still build a Manager, and testManagerOpt overrides the rest. pc/onUpsert stay
+// positional (every call site already passes them) with a nil pc defaulting the same way
+// the other two ports do.
 func newTestManager(t *testing.T, st *store.Store, pc PaneChecker, onUpsert func(*Session), opts ...testManagerOpt) *Manager {
 	t.Helper()
 	if pc == nil {
@@ -244,7 +242,7 @@ func newTestManager(t *testing.T, st *store.Store, pc PaneChecker, onUpsert func
 		Logger:          zerolog.Nop(),
 		PaneChecker:     pc,
 		PaneSnapshotter: newFakePaneSnapshotter(),
-		TmuxSessions:    newFakeKiller(),
+		TmuxSessions:    newFakeTmuxSessions(),
 		OnUpsert:        onUpsert,
 		PollInterval:    10 * time.Millisecond, // fast enough for tests to observe within seconds
 	}
@@ -254,7 +252,7 @@ func newTestManager(t *testing.T, st *store.Store, pc PaneChecker, onUpsert func
 	return NewManager(cfg)
 }
 
-// TestNewManager_PanicsOnMissingRequiredPort covers a-M1: PaneChecker, PaneSnapshotter and
+// TestNewManager_PanicsOnMissingRequiredPort proves PaneChecker, PaneSnapshotter and
 // TmuxSessions are each required at construction, one at a time — a missing port must
 // panic regardless of which of the three is left nil, not just the first one a caller
 // happens to omit.
@@ -265,7 +263,7 @@ func TestNewManager_PanicsOnMissingRequiredPort(t *testing.T) {
 			Logger:          zerolog.Nop(),
 			PaneChecker:     newFakePaneChecker(),
 			PaneSnapshotter: newFakePaneSnapshotter(),
-			TmuxSessions:    newFakeKiller(),
+			TmuxSessions:    newFakeTmuxSessions(),
 		}
 	}
 
@@ -825,7 +823,7 @@ func TestEnd_StillMarksEndedAfterStop(t *testing.T) {
 	dir := t.TempDir()
 	repoID := seedRepo(t, st, dir)
 	pc := newFakePaneChecker()
-	killer := newFakeKiller()
+	killer := newFakeTmuxSessions()
 	snapper := newFakePaneSnapshotter()
 	rec := &upsertsRecorder{}
 	mgr := newTestManager(t, st, pc, rec.record, withTmuxSessions(killer), withPaneSnapshotter(snapper))
@@ -1132,11 +1130,11 @@ func TestReconcile_DeletesEndedRowsMarksDeadPanesEndedLeavesLivePanesByteIdentic
 	require.NoError(t, err)
 
 	// "Fresh daemon lifetime": reload from the store with a fake TmuxSessions listing
-	// only the live-pane session's real muster-<id> name — a-M1 made ownership
-	// classification (by ListSessions name, not PaneChecker.PaneExists) the only path, so
-	// what makes a row "still there" is now its id appearing in ListSessions' answer, not
-	// a PaneChecker verdict on its (here, arbitrary) stored TmuxTarget string.
-	killer := newFakeKiller(tmux.SessionName(livePaneSess.ID))
+	// only the live-pane session's real muster-<id> name — ownership classification goes
+	// by ListSessions name, not PaneChecker.PaneExists, so what makes a row "still there"
+	// is its id appearing in ListSessions' answer, not a PaneChecker verdict on its (here,
+	// arbitrary) stored TmuxTarget string.
+	killer := newFakeTmuxSessions(tmux.SessionName(livePaneSess.ID))
 	rec := &upsertsRecorder{}
 	mgr := newTestManager(t, st, nil, rec.record, withTmuxSessions(killer))
 	require.NoError(t, mgr.LoadAll(ctx))
@@ -1190,7 +1188,7 @@ func TestReconcile_ReportsUnknownMusterSessionsWithoutCreatingRows(t *testing.T)
 	_, err = mgr0.RecordLaunch(ctx, sess.ID, target, "%1")
 	require.NoError(t, err)
 
-	killer := newFakeKiller(knownName, "muster-999999", "not-a-muster-session-at-all")
+	killer := newFakeTmuxSessions(knownName, "muster-999999", "not-a-muster-session-at-all")
 	pc := newFakePaneChecker()
 	pc.setExists(target, true)
 	var logBuf bytes.Buffer
@@ -1227,7 +1225,7 @@ func TestReconcile_ReportsAndLogsAMusterPrefixedNameMatchingNeitherShapeAsUnknow
 	st := openTestStore(t)
 	ctx := context.Background()
 
-	killer := newFakeKiller("muster-99999-foreign")
+	killer := newFakeTmuxSessions("muster-99999-foreign")
 	var logBuf bytes.Buffer
 	mgr := newTestManager(t, st, nil, nil, withTmuxSessions(killer), withLogger(zerolog.New(&logBuf)))
 	require.NoError(t, mgr.LoadAll(ctx))
@@ -1282,7 +1280,7 @@ func TestReconcile_ListSessionsFailureActsOnNothing(t *testing.T) {
 	_, err = seed.End(ctx, deadSess.ID) // seed's default fakes: kill no-ops, PaneExists defaults false, so End still marks it ended
 	require.NoError(t, err)
 
-	killer := newFakeKiller()
+	killer := newFakeTmuxSessions()
 	killer.setListErr(errors.New("tmux server unreachable"))
 	pc := newFakePaneChecker()
 	pc.setErr(aliveTarget, errors.New("tmux server unreachable")) // the same socket, entirely unreachable
@@ -1657,7 +1655,7 @@ func TestEnd_OnATwoSessionManagerFlipsOnlyTheTargetsAlive(t *testing.T) {
 	dir := t.TempDir()
 	repoID := seedRepo(t, st, dir)
 	pc := newFakePaneChecker()
-	killer := newFakeKiller()
+	killer := newFakeTmuxSessions()
 	snapper := newFakePaneSnapshotter()
 	rec := &upsertsRecorder{}
 	mgr := newTestManager(t, st, pc, rec.record, withTmuxSessions(killer), withPaneSnapshotter(snapper))
@@ -1712,7 +1710,7 @@ func TestEnd_MarksEndedWhenPostKillPaneCheckErrors(t *testing.T) {
 	dir := t.TempDir()
 	repoID := seedRepo(t, st, dir)
 	pc := newFakePaneChecker()
-	killer := newFakeKiller()
+	killer := newFakeTmuxSessions()
 	snapper := newFakePaneSnapshotter()
 	mgr := newTestManager(t, st, pc, nil, withTmuxSessions(killer), withPaneSnapshotter(snapper))
 	params := createParams(dir)
@@ -1795,7 +1793,7 @@ func TestRemove_EndsAnAliveSessionFirstAndLeavesTheRowOnAFailingKill(t *testing.
 
 	t.Run("successful kill removes the row and fires OnRemoved", func(t *testing.T) {
 		pc := newFakePaneChecker()
-		killer := newFakeKiller()
+		killer := newFakeTmuxSessions()
 		var removedIDs []int64
 		mgr := newTestManager(t, st, pc, nil, withTmuxSessions(killer), withOnRemoved(func(id int64) { removedIDs = append(removedIDs, id) }))
 
@@ -1833,7 +1831,7 @@ func TestRemove_EndsAnAliveSessionFirstAndLeavesTheRowOnAFailingKill(t *testing.
 
 	t.Run("a failing kill leaves the row and never fires OnRemoved", func(t *testing.T) {
 		pc := newFakePaneChecker()
-		killer := newFakeKiller()
+		killer := newFakeTmuxSessions()
 		var removedIDs []int64
 		mgr := newTestManager(t, st, pc, nil, withTmuxSessions(killer), withOnRemoved(func(id int64) { removedIDs = append(removedIDs, id) }))
 
@@ -3079,7 +3077,7 @@ func TestCheckLiveness_ListSessionsFailureLeavesSessionsAsIsDespitePaneExistsFal
 	params.RepoID = repoID
 
 	pc := newFakePaneChecker()
-	killer := newFakeKiller()
+	killer := newFakeTmuxSessions()
 	killer.setListErr(errors.New("tmux server unreachable"))
 	rec := &upsertsRecorder{}
 	mgr := newTestManager(t, st, pc, rec.record, withTmuxSessions(killer))
@@ -3110,7 +3108,7 @@ func TestCheckLiveness_ListSessionsFailureLeavesSessionsAsIsDespitePaneExistsFal
 // tmux.Client.KillSession's own idempotence).
 func TestKillAllShells_KillsEveryShellAndNoClaudeSessions(t *testing.T) {
 	st := openTestStore(t)
-	killer := newFakeKiller("muster-1", "muster-2-shell", "muster-3-shell", "other-unrelated")
+	killer := newFakeTmuxSessions("muster-1", "muster-2-shell", "muster-3-shell", "other-unrelated")
 	mgr := newTestManager(t, st, nil, nil, withTmuxSessions(killer))
 
 	killed, err := mgr.KillAllShells(context.Background())
@@ -3127,7 +3125,7 @@ func TestKillAllShells_KillsEveryShellAndNoClaudeSessions(t *testing.T) {
 // stop the rest" discipline (REQ-10).
 func TestKillAllShells_OneShellFailingDoesNotStopTheRest(t *testing.T) {
 	st := openTestStore(t)
-	killer := newFakeKiller("muster-1-shell", "muster-2-shell")
+	killer := newFakeTmuxSessions("muster-1-shell", "muster-2-shell")
 	killer.setKillErr("muster-1-shell", errors.New("kill-session failed"))
 	mgr := newTestManager(t, st, nil, nil, withTmuxSessions(killer))
 
@@ -3138,11 +3136,11 @@ func TestKillAllShells_OneShellFailingDoesNotStopTheRest(t *testing.T) {
 	assert.Equal(t, []string{"muster-2-shell"}, killer.killedNames())
 }
 
-// TestKillAllShells_EmptySocketReadsAsNoShells covers D12's sibling case: a tmux socket
-// with nothing on it reads as zero shells, not an error — a-M1 made TmuxSessions a
-// required port (TestNewManager_PanicsOnMissingRequiredPort below), so this can no longer
-// be "no killer wired at all"; an empty default fakeKiller (newTestManager's own default)
-// is the equivalent case shellNamesOnSocket must still handle without erroring.
+// TestKillAllShells_EmptySocketReadsAsNoShells: a tmux socket with nothing on it reads as
+// zero shells, not an error. TmuxSessions is a required port
+// (TestNewManager_PanicsOnMissingRequiredPort below), so this exercises the equivalent
+// case instead — an empty default fakeTmuxSessions (newTestManager's own default) —
+// which shellNamesOnSocket must still handle without erroring.
 func TestKillAllShells_EmptySocketReadsAsNoShells(t *testing.T) {
 	st := openTestStore(t)
 	mgr := newTestManager(t, st, nil, nil)
@@ -3160,7 +3158,7 @@ func TestKillAllShells_EmptySocketReadsAsNoShells(t *testing.T) {
 // the manager method itself just reports the failure honestly.
 func TestKillAllShells_ListSessionsFailureIsReturnedAsAnError(t *testing.T) {
 	st := openTestStore(t)
-	killer := newFakeKiller()
+	killer := newFakeTmuxSessions()
 	killer.setListErr(errors.New("tmux server unreachable"))
 	mgr := newTestManager(t, st, nil, nil, withTmuxSessions(killer))
 
@@ -3174,7 +3172,7 @@ func TestKillAllShells_ListSessionsFailureIsReturnedAsAnError(t *testing.T) {
 // anything.
 func TestShellCount_CountsOnlyShellNames(t *testing.T) {
 	st := openTestStore(t)
-	killer := newFakeKiller("muster-1", "muster-2-shell", "muster-3-shell", "other-unrelated")
+	killer := newFakeTmuxSessions("muster-1", "muster-2-shell", "muster-3-shell", "other-unrelated")
 	mgr := newTestManager(t, st, nil, nil, withTmuxSessions(killer))
 
 	count, err := mgr.ShellCount(context.Background())
@@ -3188,7 +3186,7 @@ func TestShellCount_CountsOnlyShellNames(t *testing.T) {
 // half, the ShellCount-specific twin of TestKillAllShells_ListSessionsFailureIsReturnedAsAnError.
 func TestShellCount_ListSessionsFailureIsReturnedAsAnError(t *testing.T) {
 	st := openTestStore(t)
-	killer := newFakeKiller()
+	killer := newFakeTmuxSessions()
 	killer.setListErr(errors.New("tmux server unreachable"))
 	mgr := newTestManager(t, st, nil, nil, withTmuxSessions(killer))
 

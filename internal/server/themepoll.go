@@ -96,8 +96,8 @@ type themeReader func(path string) claudecode.ThemeFamily
 
 // themePoller polls Claude Code's own theme setting on an interval, broadcasting
 // `claudeTheme` only when the family changes (kb:anchor/ws.claude-theme,
-// kb:adr/theme-claude-theme-read-only-poll) — pattern copied from usagePoller
-// (usagepoll.go)'s Start/Stop/loop/tick shape.
+// kb:adr/theme-claude-theme-read-only-poll). Embeds bgLoop (bgloop.go) for its
+// Start/Stop/loop shape, same as usagePoller/shellActivityPoller; tick below is its own.
 type themePoller struct {
 	path      string
 	reader    themeReader

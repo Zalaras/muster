@@ -44,9 +44,9 @@ const defaultUsagePoll = 5 * time.Minute
 const defaultClaudeThemePoll = 10 * time.Second
 
 // defaultUpdateBaseURL is -update-base-url's default — empty disables checking and apply
-// entirely, the IssueAPIURL shape; every E2E daemon passes "" explicitly
-// (web/e2e/helpers/daemon.ts), so this default is only ever live outside tests
-// (kb:adr/update-check-runs-in-daemon-daily).
+// entirely, the same "empty disables the feature" shape -issue-api-url and -usage-api-url
+// use; every E2E daemon passes "" explicitly (web/e2e/helpers/daemon.ts), so this default
+// is only ever live outside tests (kb:adr/update-check-runs-in-daemon-daily).
 const defaultUpdateBaseURL = "https://github.com/Zalaras/muster/releases"
 
 // defaultUpdateCheckInterval is -update-check-interval's default: daily, so every open tab
@@ -232,6 +232,7 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		return fmt.Errorf("opening store: %w", err)
 	}
 	defer func() { _ = st.Close() }()
+	st.SetLogger(log) // scanSession's corrupt-row warnings (internal/store/session.go)
 
 	serving, err := prepareServing(ctx, f, st, log)
 	if err != nil {
@@ -479,7 +480,8 @@ func stopForRestart(httpServer *http.Server, srv *server.Server, st *store.Store
 
 // keychainUser returns the current OS account name for KeychainTokenReader's
 // `security find-generic-password -a <user>` lookup — read once in main and passed in
-// rather than looked up inside the adapter (kb:adr/usage-keychain-token-read-only). Empty
+// rather than looked up inside the adapter, so a lookup failure is this function's own
+// concern and not a reason for KeychainTokenReader to have its own os/user import. Empty
 // on lookup failure — KeychainTokenReader then simply fails every tick with
 // ErrNoCredentials rather than musterd refusing to start.
 func keychainUser() string {

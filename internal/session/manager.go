@@ -12,7 +12,6 @@ import (
 
 	"github.com/Zalaras/muster/internal/keyedlock"
 	"github.com/Zalaras/muster/internal/store"
-	"github.com/Zalaras/muster/internal/tmux"
 )
 
 // PaneChecker reports whether a tmux pane still exists — the liveness poll's only
@@ -34,11 +33,8 @@ type PaneSnapshotter interface {
 // target. Reconcile's ownership classification and repair
 // (kb:adr/lifecycle-reconcile-converges-with-the-socket), End/EndAll/Remove's kill path
 // (kb:adr/actions-serialized-per-session) and the shell-lifecycle helpers all go through
-// this one port — a *tmux.Client satisfies it. Target resolution is folded in here (it
-// used to be a separate targetResolver interface Manager discovered via type-assertion,
-// since Killer test doubles never implemented it) so every caller can call
-// ResolveSessionTarget directly; a fake that doesn't support it just returns an error,
-// the same shape a real failure already took.
+// this one port — a *tmux.Client satisfies it. A fake that doesn't support
+// ResolveSessionTarget just returns an error, the same shape a real failure already took.
 type TmuxSessions interface {
 	KillSession(ctx context.Context, name string) error
 	ListSessions(ctx context.Context) ([]string, error)
@@ -83,10 +79,17 @@ type Config struct {
 	PaneChecker     PaneChecker
 	PaneSnapshotter PaneSnapshotter
 	TmuxSessions    TmuxSessions
-	OnUpsert        func(*Session) // broadcasts a sessionUpsert; may be nil in tests
-	OnRemoved       func(id int64) // broadcasts sessionRemoved (kb:anchor/ws.session-removed); may be nil in tests
-	PollInterval    time.Duration  // 0 uses defaultPollInterval
-	Watcher         Watcher        // nil counts every session as unwatched
+	// OnUpsert, OnRemoved and Watcher are wired by production exactly like the three tmux
+	// ports above, but stay nil-tolerant rather than required: unlike a nil tmux port —
+	// which had no safe meaning and forced a whole second, unsafe classification path
+	// before the ports became required — a nil value here already has a real, defined
+	// meaning documented on the field itself (skip the broadcast; count every session as
+	// unwatched). Tests lean on that tolerance to build a Manager without wiring a
+	// websocket hub or a terminal registry.
+	OnUpsert     func(*Session) // broadcasts a sessionUpsert; may be nil in tests
+	OnRemoved    func(id int64) // broadcasts sessionRemoved (kb:anchor/ws.session-removed); may be nil in tests
+	Watcher      Watcher        // nil counts every session as unwatched
+	PollInterval time.Duration  // 0 uses defaultPollInterval
 }
 
 // Manager is the in-memory session registry and the kb:anchor/state state machine's home. Every
@@ -105,10 +108,9 @@ type Manager struct {
 
 	// mu guards sessions, byClaude, writeChain and nextRailPos below: every map's own
 	// entries, and every field of a *Session sessions holds — a *Session is mutable only
-	// while mu is held (this is the rule applyBind used to break by mutating a Model a
-	// released Clone() already shared). Every exported read (Get/List/Exists/Resolve/
-	// PaneOf/…) takes its own Clone() before releasing mu, so a caller never holds a
-	// pointer another goroutine can still mutate.
+	// while mu is held. Every exported read (Get/List/Exists/Resolve/PaneOf/…) takes its
+	// own Clone() before releasing mu, so a caller never holds a pointer another goroutine
+	// can still mutate.
 	mu       sync.Mutex
 	sessions map[int64]*Session
 	byClaude map[string]int64 // claude session id -> muster session id
@@ -116,9 +118,10 @@ type Manager struct {
 	// locks is the per-session-id lock (kb:adr/actions-serialized-per-session), guarded by
 	// its own mutex, not mu — the same keyedlock.Locks type internal/server's shellRegistry
 	// uses, rather than each package hand-rolling the same map. Guards Launch/Resume/
-	// End/Remove's whole check-then-act without blocking a different id's. Remove reclaims
-	// an id's entry once its row is gone (the id is never reissued, so nothing after that
-	// could ever contend on it again).
+	// End/Remove's whole check-then-act without blocking a different id's. removeSessionRecord
+	// reclaims an id's entry once its row is gone (the id is never reissued); see
+	// keyedlock.Locks.Forget's doc for what makes that reclaim safe against a
+	// client-supplied id racing it.
 	locks keyedlock.Locks[int64]
 
 	// writeChain is a per-session write-ordering turnstile, guarded by mu itself (map
@@ -128,7 +131,9 @@ type Manager struct {
 	// mu, so tickets are handed out in exactly the order their mutations happened;
 	// finishWrite waits for the previous ticket to close before persisting, so two setters
 	// racing to write the same id can never persist — or broadcast — out of that order.
-	// Remove reclaims an id's entry the same way it reclaims locks' entry (Forget).
+	// removeSessionRecord draws a ticket the same way every setter does, and reclaims the
+	// entry once its own turn comes (dropSessionFromMemory), so a write queued behind a
+	// removal always finds the id already gone at its own turn.
 	writeChain map[int64]chan struct{}
 
 	// nextRailPos is the RailPos CreateSession hands to the next new session, guarded by mu
@@ -162,17 +167,19 @@ type Manager struct {
 // tmux I/O — never across mu itself; internal/server's sessionLauncher and shellFeature use
 // this directly to serialise their own actions the same way End/Remove do internally, so a
 // shell can never be spawned for an id whose Remove has started or finished — both go
-// through this same lock.
+// through this same lock. A caller always re-validates id's existence under m.mu once it
+// has the lock (every action here does): that check, not id never being lockable again, is
+// what makes reclaiming a removed id's lock entry safe against a client-supplied id racing
+// a Remove (keyedlock.Locks.Forget's doc).
 func (m *Manager) LockSession(id int64) (unlock func()) {
 	return m.locks.Lock(id)
 }
 
 // NewManager builds a Manager. PaneChecker, PaneSnapshotter and TmuxSessions are all
-// required (a-M1): production always wires all three to the same *tmux.Client, and a
-// Manager missing one used to fork Reconcile onto a second, unsafe classification path
-// (classifySessions, since removed) reachable only from tests that skipped wiring one —
-// panicking here instead means that path can no longer exist. Call LoadAll then Start
-// once the caller is ready.
+// required: production always wires all three to the same *tmux.Client, and panicking
+// here on a missing one means Reconcile's ownership classification has exactly one code
+// path, never a second, untested one a caller could reach by skipping a port. Call
+// LoadAll then Start once the caller is ready.
 func NewManager(cfg Config) *Manager {
 	if cfg.PaneChecker == nil || cfg.PaneSnapshotter == nil || cfg.TmuxSessions == nil {
 		panic("session.NewManager: PaneChecker, PaneSnapshotter and TmuxSessions are all required")
@@ -241,11 +248,10 @@ type CreateParams struct {
 func (m *Manager) CreateSession(ctx context.Context, p CreateParams) (*Session, error) {
 	model := p.Model
 
-	// RailPos = max(existing)+1: opened order lands at the bottom of the unpinned block.
-	// Deciding it and advancing nextRailPos happen in the same critical section, so two
-	// concurrent CreateSession calls can never both see the same value — unlike reading
-	// max(m.sessions) here and only registering the new session (invisible to that same
-	// read) after InsertSession's round trip.
+	// Deciding railPos and advancing nextRailPos happen in the same critical section, so
+	// two concurrent CreateSession calls can never both see the same value — unlike
+	// reading max(m.sessions) here and only registering the new session (invisible to that
+	// same read) after InsertSession's round trip.
 	m.mu.Lock()
 	railPos := m.nextRailPos
 	m.nextRailPos++
@@ -284,8 +290,9 @@ func (m *Manager) DeleteSession(ctx context.Context, id int64) error {
 }
 
 // removeFromMemory drops id from the in-memory registry and its claude-id index, if
-// present. Shared by removeSessionRecord (DeleteSession's launch rollback, Reconcile's
-// sweep and Remove) and apply.go's Apply, which drops a stale byClaude entry on its own.
+// present. Its one caller is dropSessionFromMemory (removeSessionRecord's tail) — Apply's
+// own restore path drops a single stale byClaude entry directly (apply.go) rather than
+// through this, since it never removes the session itself, only its own claude-id mapping.
 func (m *Manager) removeFromMemory(id int64) {
 	m.mu.Lock()
 	delete(m.sessions, id)
@@ -297,64 +304,77 @@ func (m *Manager) removeFromMemory(id int64) {
 	m.mu.Unlock()
 }
 
-// removeSessionRecord deletes id's row and, only once that succeeds, drops it from
-// memory and reclaims its per-id lock and write-ticket entries — the one order and one
-// tail every removal path shares (S7/a-m4): DeleteSession's launch rollback, Remove, and
-// Reconcile's sweep. `git log -S` on the old per-caller orderings found no rationale for
-// the divergence (DeleteSession/Reconcile dropped memory before the store row; Remove's
-// removeLocked did the reverse) — this follows removeLocked's order, store first, so a
-// failed delete can never look like a completed remove. notify controls whether
-// OnRemoved fires: Remove broadcasts sessionRemoved (kb:adr/actions-remove-allowed-on-live-session);
-// DeleteSession's rollback and Reconcile's sweep are both startup/failure housekeeping
-// the UI never displayed a row for, so neither broadcasts (kb:anchor/ws.session-removed:
-// "Startup sweeps send nothing").
-func (m *Manager) removeSessionRecord(ctx context.Context, id int64, notify bool) error {
-	if err := m.store.DeleteSession(ctx, id); err != nil {
-		return fmt.Errorf("removing session %d: %w", id, err)
-	}
+// dropSessionFromMemory removes id's in-memory entry, write-ticket chain and per-id lock
+// — removeSessionRecord's tail once the store side of a removal is settled, whichever way
+// (see removeSessionRecord's announced/unannounced split). The id is never reissued
+// (kb:adr/lifecycle-session-ids-monotonic-never-reused), so its writeChain/locks entries
+// can never be scheduled or locked again through the ordinary lookup-by-id paths.
+func (m *Manager) dropSessionFromMemory(id int64) {
 	m.removeFromMemory(id)
-
-	// The id is never reissued (kb:adr/lifecycle-session-ids-monotonic-never-reused), so
-	// nothing can ever contend on this lock again — reclaim it rather than growing the map
-	// for the life of the daemon. writeChain's entry is reclaimed the same way and for the
-	// same reason: no write for a removed, never-reused id can ever be scheduled again.
-	m.locks.Forget(id)
 	m.mu.Lock()
 	delete(m.writeChain, id)
 	m.mu.Unlock()
+	m.locks.Forget(id)
+}
 
-	if notify && m.onRemoved != nil {
+// removeSessionRecord is the one removal path DeleteSession's launch rollback, Remove and
+// Reconcile's sweep all share. It first draws id's write-ticket the same way every setter
+// does and waits its turn, so a write already queued for id finishes (persisted, or rolled
+// back) before the row is deleted, and any write queued *behind* this call finds the
+// session already gone at its own turn and declines to persist or broadcast
+// (persistWholeRow's doc) — removal is sequenced through the same turnstile a write is,
+// not a side channel next to it.
+//
+// announced controls the store/memory order, because the two removal callers need
+// opposite answers to "what must be true if the store delete fails":
+//   - announced=true (Remove): the row's session was already broadcast as a sessionUpsert
+//     at least once, so a live client believes it exists. The store delete must succeed
+//     *before* memory drops — a failed delete leaves the row exactly as it was, in both
+//     places, rather than vanishing from memory while the DB (and every other client)
+//     still has it.
+//   - announced=false (DeleteSession's launch rollback, Reconcile's startup sweep): no
+//     client has ever seen a sessionUpsert for this row — DeleteSession runs before
+//     RecordLaunch's first broadcast, and Reconcile runs before the daemon serves its
+//     first snapshot at all. A failed delete here must still drop memory, or a session
+//     nobody was ever told about becomes visible in the next List()/snapshot purely
+//     because a DB error happened to land — visible-because-delete-failed is exactly what
+//     announced=true is protecting against, and here there is nothing to protect: the
+//     failure is logged instead.
+//
+// OnRemoved only fires for announced removals — Reconcile's sweep and a launch rollback
+// are startup/failure housekeeping no client ever saw a row for
+// (kb:anchor/ws.session-removed: "Startup sweeps send nothing").
+func (m *Manager) removeSessionRecord(ctx context.Context, id int64, announced bool) error {
+	m.mu.Lock()
+	wait, done := m.nextWriteTurnLocked(id)
+	m.mu.Unlock()
+	if wait != nil {
+		<-wait
+	}
+	defer done()
+
+	if err := m.store.DeleteSession(ctx, id); err != nil {
+		if !announced {
+			// Still surfaced to the caller below (a real DB failure is worth knowing
+			// about), but memory drops regardless — see the announced=false case above.
+			m.log.Warn().Err(err).Int64("session_id", id).Msg("removing never-announced session's row failed; dropping it from memory anyway")
+			m.dropSessionFromMemory(id)
+		}
+		return fmt.Errorf("removing session %d: %w", id, err)
+	}
+	m.dropSessionFromMemory(id)
+
+	if announced && m.onRemoved != nil {
 		m.onRemoved(id)
 	}
 	return nil
 }
 
-// sessionTmuxName returns the tmux session name Muster spawns for id — tmux.SessionName's
-// own convention, used by End/EndAll/Remove to name the kill target without needing the
-// live tmuxTarget string (declared once, in internal/tmux, rather than rebuilt here).
-func sessionTmuxName(id int64) string {
-	return tmux.SessionName(id)
-}
-
-// sessionSnapshot is a value-copy of one session's id/alive/target taken under m.mu — the
-// shape every locked "collect these fields, then work with them after releasing the
-// lock" loop needs, since a *Session's fields are mutable only while mu is held (Critical
-// 1's rule: a released Clone() must never alias a field a later mutation writes through).
-// A caller uses only the fields relevant to it. Replaces three near-identical copies
-// (Reconcile's reconcileRow, its since-removed classifySessions fallback's local row, and
-// checkLiveness's livenessTarget — S6).
-type sessionSnapshot struct {
-	id     int64
-	alive  bool
-	target string
-}
-
-// collectLocked builds a worklist from every session for which include reports true,
+// collectSessions builds a worklist from every session for which include reports true,
 // taking a value under m.mu via take — the shared shape behind Reconcile's ownership
-// classification, EndAll's alive-id worklist and checkLiveness's alive-target worklist
-// (S6), which each hand-wrote the same lock/iterate/append loop. Must be called without
-// m.mu already held.
-func collectLocked[T any](m *Manager, include func(*Session) bool, take func(*Session) T) []T {
+// classification, EndAll's alive-id worklist and checkLiveness's alive-target worklist,
+// each of which used to hand-write the same lock/iterate/append loop.
+func collectSessions[T any](m *Manager, include func(*Session) bool, take func(*Session) T) []T {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var out []T
@@ -364,6 +384,16 @@ func collectLocked[T any](m *Manager, include func(*Session) bool, take func(*Se
 		}
 	}
 	return out
+}
+
+// sessionRef is a value-copy of one session's id/alive/target taken under m.mu — the
+// shape every locked "collect these fields, then work with them after releasing the
+// lock" loop needs, since a *Session's fields are mutable only while mu is held. A caller
+// uses only the fields relevant to it.
+type sessionRef struct {
+	id     int64
+	alive  bool
+	target string
 }
 
 // Get returns session id's current snapshot, if known — used by the terminal bridge's

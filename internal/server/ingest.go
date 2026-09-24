@@ -168,7 +168,9 @@ func (q *ingestQueue) process(job ingestJob) {
 	// raw (non-enveloped) post, still accepted for the canary/legacy path, never binds.
 	enveloped := ev.MusterSession != nil
 	if _, err := q.manager.Apply(ctx, *sessionID, ev.SessionID, ev.PromptID, input, enveloped); err != nil {
-		q.log.Warn().Err(err).Str("kind", string(job.kind)).Msg("applying ingest event to session state failed")
+		// session_id logged explicitly: Apply's own error (ErrUnknownSession, on the
+		// common "already removed" path) carries no id of its own to print.
+		q.log.Warn().Err(err).Int64("session_id", *sessionID).Str("kind", string(job.kind)).Msg("applying ingest event to session state failed")
 	}
 
 	// Runs after Apply, on this same single worker, so Observe's claudeSessionID
@@ -187,7 +189,7 @@ func (q *ingestQueue) processStatus(ctx context.Context, sessionID int64, payloa
 	update := claudecode.InterpretStatus(payload)
 
 	if _, err := q.manager.ApplyStatus(ctx, sessionID, update); err != nil {
-		q.log.Warn().Err(err).Msg("applying status update to session failed")
+		q.log.Warn().Err(err).Int64("session_id", sessionID).Msg("applying status update to session failed")
 	}
 
 	if update.Account == nil || q.usage == nil {

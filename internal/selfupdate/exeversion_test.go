@@ -12,8 +12,8 @@ import (
 
 // fakeRun returns run funcs standing in for the injectable exec seam (never a $PATH
 // shim, docs/conventions.md) — one returning a fixed stdout, one returning an error.
-func fakeRunReturning(output string, err error) func(ctx context.Context, name string, args ...string) (string, error) {
-	return func(context.Context, string, ...string) (string, error) { return output, err }
+func fakeRunReturning(output string, err error) func(ctx context.Context, name string, args ...string) ([]byte, error) {
+	return func(context.Context, string, ...string) ([]byte, error) { return []byte(output), err }
 }
 
 // TestProbeVersion_ParsesRecognisedFormats covers D25's accepted half: both the full
@@ -77,7 +77,7 @@ func TestRunVersionProbe_CapturesStdout(t *testing.T) {
 	out, err := runVersionProbe(ctx, "/bin/echo", "musterd v0.11.0")
 
 	require.NoError(t, err)
-	assert.Equal(t, "musterd v0.11.0\n", out)
+	assert.Equal(t, "musterd v0.11.0\n", string(out))
 }
 
 // TestRunVersionProbe_NonZeroExitIsAnError covers runVersionProbe's error propagation

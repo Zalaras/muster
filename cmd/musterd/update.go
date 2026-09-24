@@ -41,9 +41,11 @@ func reexec(exe string) error {
 
 // runUpdate implements `musterd -update`: checks the latest release against the running
 // version and, if strictly newer, downloads/verifies/installs it — never restarting
-// anything (kb:adr/update-install-kinds-decide-who-may-apply). Prints its stdout messages
-// verbatim on success; on failure it writes the remedy or verification error to stderr
-// itself and returns errUpdateFailed (a non-nil error is enough for main to exit
+// anything, since this CLI invocation exits once the binary on disk is replaced; a
+// running daemon's own in-place restart (kb:adr/update-restart-is-in-place-reexec-not-shutdown)
+// is a separate path, triggered through RequestApply, not this one. Prints its stdout
+// messages verbatim on success; on failure it writes the remedy or verification error to
+// stderr itself and returns errUpdateFailed (a non-nil error is enough for main to exit
 // non-zero).
 func runUpdate(ctx context.Context, stdout, stderr io.Writer, base string, pubKey []byte, running, exePath string, install selfupdate.Install) error {
 	if install.Kind == selfupdate.KindDev {
@@ -57,7 +59,7 @@ func runUpdate(ctx context.Context, stdout, stderr io.Writer, base string, pubKe
 
 	client := http.DefaultClient
 
-	latest, newer, err := selfupdate.CheckNewer(ctx, client, base, running)
+	latest, tag, newer, err := selfupdate.CheckNewer(ctx, client, base, running)
 	if err != nil {
 		fmt.Fprintln(stderr, "checking latest release:", err)
 		return errUpdateFailed
@@ -77,7 +79,7 @@ func runUpdate(ctx context.Context, stdout, stderr io.Writer, base string, pubKe
 	if err := selfupdate.Apply(ctx, selfupdate.Options{
 		Client:  client,
 		Base:    base,
-		Tag:     selfupdate.ReleaseTag(latest.String()),
+		Tag:     tag,
 		ExePath: exePath,
 		PubKey:  pubKey,
 	}); err != nil {

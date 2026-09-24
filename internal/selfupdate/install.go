@@ -35,10 +35,9 @@ type Install struct {
 }
 
 // MayApply is kb:adr/update-install-kinds-decide-who-may-apply's rule: only an
-// installer-managed binary may be replaced in place. cmd/musterd and internal/server each
-// wrote this test by hand, in different forms (an installer allow-list here, a
-// dev/homebrew/unmanaged deny-list there) that only agreed because exactly four kinds
-// exist — a fifth kind would silently diverge between them.
+// installer-managed binary may be replaced in place — the one place this test is
+// written, so cmd/musterd and internal/server can't diverge on it if a fifth kind is
+// ever added.
 func (i Install) MayApply() bool {
 	return i.Kind == KindInstaller
 }

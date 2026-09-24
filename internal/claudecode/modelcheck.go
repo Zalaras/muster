@@ -31,8 +31,13 @@ const (
 // modelCheckRun is the injectable seam CheckModel calls instead of a real subprocess
 // (docs/conventions.md § Testing, mirroring credentials.go's execFunc) — the production
 // value is runModelCheck. It returns the run's stderr; a nil error covers any process
-// completion, including the catalog run's own always-exit-1 (kb:fact/model-catalog-precheck-zero-token).
-type modelCheckRun func(ctx context.Context, dir string, argv []string) ([]byte, error)
+// completion, including the catalog run's own always-exit-1
+// (kb:fact/model-catalog-precheck-zero-token). name/args carry the argv the same way
+// every sibling run-func does; dir is prepended because this check must run in the
+// launch directory, the same "one signature per output need, plus a working-dir input
+// where one is needed" shape gitutil.gitRunner's run field uses
+// (kb:adr/process-adapter-run-seam-constructor-default).
+type modelCheckRun func(ctx context.Context, dir, name string, args ...string) ([]byte, error)
 
 // modelChecker holds the subprocess seam CheckModel crosses (the constructor-default
 // shape docs/conventions.md § Testing names —
@@ -58,11 +63,11 @@ const modelCheckWaitDelay = 2 * time.Second
 // applied inside KeychainTokenReader.
 const modelCheckTimeout = 5 * time.Second
 
-// runModelCheck is CheckModel's production modelCheckRun: runs argv[0] with the rest as
-// args, in dir, with empty stdin (kb:fact/model-catalog-precheck-zero-token's `</dev/null`),
-// returning stderr. The catalog run always exits 1 (kb:fact/model-catalog-precheck-zero-token),
-// so a plain *exec.ExitError is not reported as a failure — only a run that could not
-// start or was killed by modelCheckWaitDelay/ctx is.
+// runModelCheck is CheckModel's production modelCheckRun: runs name with args, in dir,
+// with empty stdin (kb:fact/model-catalog-precheck-zero-token's `</dev/null`), returning
+// stderr. The catalog run always exits 1 (kb:fact/model-catalog-precheck-zero-token), so
+// a plain *exec.ExitError is not reported as a failure — only a run that could not start
+// or was killed by modelCheckWaitDelay/ctx is.
 //
 // A ctx-cancelled kill also surfaces as a plain *exec.ExitError ("signal: killed") — Go's
 // exec package does not tag it any differently from a process that exited on its own — so
@@ -70,8 +75,8 @@ const modelCheckTimeout = 5 * time.Second
 // is already done (it bounds the wait *after* Cancel/ctx-done, never before), so checking
 // ctx.Err() first closes both the ctx-deadline kill and the WaitDelay-forced one with a
 // single check, ahead of the ExitError swallow.
-func runModelCheck(ctx context.Context, dir string, argv []string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+func runModelCheck(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
 	cmd.Stdin = strings.NewReader("")
 	var stderr bytes.Buffer
@@ -103,8 +108,7 @@ func CheckModel(ctx context.Context, bin, dir, model string) (ModelVerdict, erro
 func (m *modelChecker) check(ctx context.Context, bin, dir, model string) (ModelVerdict, error) {
 	ctx, cancel := context.WithTimeout(ctx, modelCheckTimeout)
 	defer cancel()
-	argv := []string{bin, "--bare", "--no-session-persistence", "--model", model, "-p", ""}
-	stderr, err := m.run(ctx, dir, argv)
+	stderr, err := m.run(ctx, dir, bin, "--bare", "--no-session-persistence", "--model", model, "-p", "")
 	if err != nil {
 		return ModelRecognised, err
 	}

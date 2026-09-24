@@ -11,13 +11,27 @@ import (
 	"os"
 	"time"
 
+	"github.com/rs/zerolog"
+
 	// modernc.org/sqlite registers the "sqlite" driver used by Open below.
 	_ "modernc.org/sqlite"
 )
 
 // Store owns the daemon's single SQLite connection.
 type Store struct {
-	db *sql.DB
+	db  *sql.DB
+	log zerolog.Logger
+}
+
+// SetLogger installs the logger scanSession's corrupt-row warnings use (see
+// decodeRowTime/decodeRowTimePtr) — internal/server/server.go calls this once, right
+// after Open, the same way it wires every other package's logger. Left unset (the
+// zero value, zerolog.Logger{}, which is a working no-op logger) a corrupt row just logs
+// nowhere, which is what every store.Open(ctx, path) two-arg test call gets: adding a
+// required logger parameter to Open would force a signature change onto every one of
+// those call sites instead of only the one that wants the log.
+func (s *Store) SetLogger(l zerolog.Logger) {
+	s.log = l
 }
 
 // Open opens (creating if absent) the SQLite database at path, enables WAL mode, and
@@ -68,17 +82,19 @@ func (s *Store) Close() error {
 
 // encodeTime formats t as this package's on-disk time text: RFC3339, UTC (the CLAUDE.md
 // gotcha "Times are RFC3339 UTC text ... parse on read") — the one encoder every
-// INSERT/UPDATE statement uses for a stored time column, so the format has one owner
-// (a-m2). Receipt stamps (event.received_at, usage_sample.at) are the documented
-// exception: they need nanosecond precision so two immediate inserts don't land with
-// identical timestamps, and use encodeReceiptTime instead.
+// INSERT/UPDATE statement uses for a stored time column, so the format has one owner.
+// Receipt stamps (event.received_at, usage_sample.at) are the documented exception: they
+// need nanosecond precision so two immediate inserts don't land with identical timestamps,
+// and use encodeReceiptTime instead.
 func encodeTime(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
 }
 
 // decodeTime parses text written by encodeTime. A value that fails to parse is corrupt
-// data, not "never set" (a-m2: "no silent failures") — the caller surfaces the error as a
-// scan error rather than silently returning a zero time.
+// data, not "never set" — the caller surfaces the error rather than silently returning a
+// zero time. scanSession's own callers (decodeRowTime/decodeRowTimePtr) are the one
+// exception: a corrupt session column is logged and read as zero rather than failing the
+// whole row (see their doc).
 func decodeTime(text string) (time.Time, error) {
 	t, err := time.Parse(time.RFC3339, text)
 	if err != nil {

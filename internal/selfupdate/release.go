@@ -87,33 +87,37 @@ func DownloadURL(base, tag, asset string) string {
 }
 
 // ReleaseTag is a release Version's tag form, "v" + Version.String() — the one place the
-// tag⇄version mapping is spelled (cmd/musterd and internal/server both built this by hand;
-// kb:adr/update-release-knowledge-in-selfupdate-package puts every release-format fact
-// here).
+// tag⇄version mapping is spelled (kb:adr/update-release-knowledge-in-selfupdate-package
+// puts every release-format fact here). Used to rebuild a tag from a Version a caller
+// held onto past the moment it resolved one (internal/server's RequestApply, applying
+// against the version it displayed at check time, not a re-fetched tag).
 func ReleaseTag(version string) string {
 	return "v" + version
 }
 
 // CheckNewer answers "is a newer release available than running": resolve the latest
-// release tag, parse it, and compare against running. cmd/musterd's `-update` and
-// internal/server's periodic/manual checks both ran this exact sequence by hand
-// (kb:adr/update-release-knowledge-in-selfupdate-package). err is non-nil only when the
-// latest tag could not be resolved or parsed. running failing to parse (a dev build)
-// reports newer=false with no error — every caller only reaches this after establishing
-// its own version is a release build (Install.Kind != KindDev), so that branch is a
-// defensive default, not a distinct error condition either caller needs to surface.
-func CheckNewer(ctx context.Context, client *http.Client, base, running string) (latest Version, newer bool, err error) {
-	tag, err := LatestTag(ctx, client, base)
+// release tag, parse it, and compare against running
+// (kb:adr/update-release-knowledge-in-selfupdate-package). tag is LatestTag's own
+// resolved string, returned alongside latest so a caller that applies immediately
+// (cmd/musterd's `-update`) can pass GitHub's own tag straight to Apply instead of
+// reconstructing one with ReleaseTag, which is only exact for a tag already shaped
+// "v"+Version.String()`. err is non-nil only when the latest tag could not be resolved
+// or parsed. running failing to parse (a dev build) reports newer=false with no error —
+// every caller only reaches this after establishing its own version is a release build
+// (Install.Kind != KindDev), so that branch is a defensive default, not a distinct error
+// condition either caller needs to surface.
+func CheckNewer(ctx context.Context, client *http.Client, base, running string) (latest Version, tag string, newer bool, err error) {
+	tag, err = LatestTag(ctx, client, base)
 	if err != nil {
-		return Version{}, false, err
+		return Version{}, "", false, err
 	}
 	latest, ok := ParseRelease(tag)
 	if !ok {
-		return Version{}, false, fmt.Errorf("latest tag %q is not a release version", tag)
+		return Version{}, "", false, fmt.Errorf("latest tag %q is not a release version", tag)
 	}
 	runningVer, ok := ParseRelease(running)
 	if !ok {
-		return latest, false, nil
+		return latest, tag, false, nil
 	}
-	return latest, latest.Compare(runningVer) > 0, nil
+	return latest, tag, latest.Compare(runningVer) > 0, nil
 }

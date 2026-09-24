@@ -35,10 +35,16 @@ func (l *Locks[K]) Lock(key K) (unlock func()) {
 	return m.Unlock
 }
 
-// Forget removes key's entry. Callers must only call this once key can never be locked
-// again (e.g. a session id, never reissued, once its row is gone) — reclaiming it any
-// earlier would let a Lock call already queued on the old *sync.Mutex race a fresh one a
-// later Lock(key) creates.
+// Forget removes key's entry, so a later Lock(key) allocates a fresh *sync.Mutex rather
+// than reusing the old one. That fresh mutex can start a second, independent holder of
+// "key's lock" alongside anyone already queued on the mutex Forget just dropped — Forget
+// itself does not prevent that. It's still safe to call once the resource key names is
+// gone for good (e.g. a session id, never reissued, once its row is gone), provided every
+// Lock(key) caller re-validates that the resource still exists once it actually holds the
+// lock, whichever mutex it got: a caller racing a stale, client-supplied key then finds
+// nothing there and stops, rather than acting through a resurrected lock. Reclaiming the
+// entry is what keeps the map from growing for the life of the daemon; it never claims
+// exclusivity beyond what each caller's own post-lock check enforces.
 func (l *Locks[K]) Forget(key K) {
 	l.mu.Lock()
 	delete(l.locks, key)

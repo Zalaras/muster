@@ -10,14 +10,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestBumpIDWatermark_ConcurrentWithInsertSessionNeverLowersThePersistedWatermark covers
-// a-M3: BumpIDWatermark used to read the watermark, then write minID back in a second,
-// separate statement — two round trips on the store's single connection
-// (Open's SetMaxOpenConns(1)), so a real InsertSession could commit a higher watermark in
-// the gap between them, and Bump's stale write would overwrite it back down. That reopens
-// exactly the id-reuse bug kb:adr/lifecycle-session-ids-monotonic-never-reused exists to
-// close: a lowered watermark lets a future InsertSession reissue an id a since-removed
-// row already used.
+// TestBumpIDWatermark_ConcurrentWithInsertSessionNeverLowersThePersistedWatermark proves
+// BumpIDWatermark's read and its conditional write run in one transaction, not two round
+// trips on the store's single connection (Open's SetMaxOpenConns(1)): a real InsertSession
+// racing between a separate read and write could commit a higher watermark in the gap,
+// and a stale write would overwrite it back down. That would reopen exactly the id-reuse
+// bug kb:adr/lifecycle-session-ids-monotonic-never-reused exists to close: a lowered
+// watermark lets a future InsertSession reissue an id a since-removed row already used.
 //
 // Each round races a burst of InsertSession calls (which push the true watermark up by
 // burst) against one BumpIDWatermark call whose minID is only valid against the

@@ -7,12 +7,10 @@ import (
 	_ "embed"
 	"fmt"
 	"io"
-	"os/exec"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // versionRE matches the leading semver of `claude --version`, e.g. "2.1.233 (Claude Code)".
@@ -21,14 +19,14 @@ var versionRE = regexp.MustCompile(`^(\d+\.\d+\.\d+)`)
 // versionChecker holds the subprocess seam InstalledVersion crosses (the
 // constructor-default shape docs/conventions.md § Testing names —
 // kb:adr/process-adapter-run-seam-constructor-default), the same shape as tmux's
-// preflighter: production always runInstalledVersion, same-package tests overwrite the
-// field. Built fresh per call, like tmux.Preflight's newPreflighter().
+// preflighter: production always runCommand (credentials.go), same-package tests
+// overwrite the field. Built fresh per call, like tmux.Preflight's newPreflighter().
 type versionChecker struct {
 	run execFunc
 }
 
 func newVersionChecker() *versionChecker {
-	return &versionChecker{run: runInstalledVersion}
+	return &versionChecker{run: runCommand}
 }
 
 // InstalledVersion reports the version of the claude binary at bin — the same
@@ -53,24 +51,6 @@ func (v *versionChecker) installedVersion(ctx context.Context, bin string) (stri
 		return "", fmt.Errorf("parsing claude --version output %q", trimmed)
 	}
 	return m[1], nil
-}
-
-// runInstalledVersion is InstalledVersion's production execFunc: unlike runCommand
-// (credentials.go), it uses cmd.Output() rather than a plain Stdout buffer, so a
-// non-zero exit's *exec.ExitError carries the process's stderr the way it always has —
-// InstalledVersion's error message merely wraps that error, so this keeps its text
-// unchanged rather than folding InstalledVersion onto runCommand's slightly different
-// error shape.
-func runInstalledVersion(ctx context.Context, bin string, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, bin, args...)
-	// WaitDelay bounds the wait for a descendant that inherited the --version
-	// stdout pipe to close it. The timer starts when ctx is done or when Wait
-	// sees the process exit, whichever comes first — without it, Output's Wait
-	// can block on that descendant forever even with ctx never firing
-	// (docs/conventions.md §Go; this held musterd's startup hostage before its
-	// first log line).
-	cmd.WaitDelay = 2 * time.Second
-	return cmd.Output()
 }
 
 // ObservedVersion is one row of the observed-versions record (observed_versions.txt): a

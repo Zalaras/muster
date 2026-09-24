@@ -37,7 +37,7 @@ func TestReconcile_KillsEveryShellSessionUnconditionallyAndCountsThem(t *testing
 	shellOfUnknown := tmux.ShellSessionName(knownSess.ID + 999000) // no session has this id
 	shellOfZero := tmux.ShellSessionName(0)
 
-	killer := newFakeKiller(shellOfKnown, shellOfUnknown, shellOfZero, knownTarget[:len(knownTarget)-len(":@1")])
+	killer := newFakeTmuxSessions(shellOfKnown, shellOfUnknown, shellOfZero, knownTarget[:len(knownTarget)-len(":@1")])
 	pc := newFakePaneChecker()
 	pc.setExists(knownTarget, true)
 	mgr := newTestManager(t, st, pc, nil, withTmuxSessions(killer))
@@ -74,7 +74,7 @@ func TestReconcile_NeverListsAnyShellSessionAsUnknown(t *testing.T) {
 	shellOfZero := tmux.ShellSessionName(0)
 	genuinelyUnknownClaudeSession := "muster-999999999" // NOT a shell name — must still be reported
 
-	killer := newFakeKiller(shellOfKnown, shellOfUnknown, shellOfZero, genuinelyUnknownClaudeSession)
+	killer := newFakeTmuxSessions(shellOfKnown, shellOfUnknown, shellOfZero, genuinelyUnknownClaudeSession)
 	pc := newFakePaneChecker()
 	pc.setExists(knownTarget, true)
 	mgr := newTestManager(t, st, pc, nil, withTmuxSessions(killer))
@@ -96,7 +96,7 @@ func TestReconcile_AFailedShellKillIsNotCountedButStillNeverReportedAsUnknown(t 
 	ctx := context.Background()
 
 	shellName := tmux.ShellSessionName(42)
-	killer := newFakeKiller(shellName)
+	killer := newFakeTmuxSessions(shellName)
 	killer.setKillErr(shellName, assertAnError{})
 	mgr := newTestManager(t, st, nil, nil, withTmuxSessions(killer))
 	require.NoError(t, mgr.LoadAll(ctx))

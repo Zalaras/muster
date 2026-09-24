@@ -85,6 +85,9 @@ func (m *Manager) actOnReconcile(ctx context.Context, report *ReconcileReport, t
 		report.MarkedEnded++
 	}
 	for _, id := range toSweep {
+		// announced=false: no client has seen any session yet this boot (Reconcile runs
+		// before the first snapshot is served), so a failed delete must still drop the row
+		// from memory rather than leave it to be served as if it had been.
 		if err := m.removeSessionRecord(ctx, id, false); err != nil {
 			m.log.Error().Err(err).Int64("session_id", id).Msg("reconcile: sweeping session failed")
 			continue
@@ -99,9 +102,9 @@ func (m *Manager) actOnReconcile(ctx context.Context, report *ReconcileReport, t
 // toEnd/toSweep for actOnReconcile). Unknown muster-<n> names are reported+logged and
 // muster-<n>-shell names are killed unconditionally — both raise the id watermark.
 func (m *Manager) classifySessionsByOwnership(ctx context.Context, names []string, report *ReconcileReport) (toEnd, toSweep []int64) {
-	rows := collectLocked(m,
+	rows := collectSessions(m,
 		func(*Session) bool { return true },
-		func(s *Session) sessionSnapshot { return sessionSnapshot{id: s.ID, alive: s.Alive} },
+		func(s *Session) sessionRef { return sessionRef{id: s.ID, alive: s.Alive} },
 	)
 	knownIDs := make(map[int64]bool, len(rows))
 	for _, r := range rows {
@@ -214,7 +217,7 @@ func (m *Manager) reportAndSweepUnknown(ctx context.Context, classified classifi
 // without ever quoting raw tmux stderr.
 func (m *Manager) RepairOwnedSession(ctx context.Context, id int64) (*Session, error) {
 	resolveCtx, cancel := context.WithTimeout(ctx, endRemoveTmuxTimeout)
-	target, pane, err := m.tmuxSessions.ResolveSessionTarget(resolveCtx, sessionTmuxName(id))
+	target, pane, err := m.tmuxSessions.ResolveSessionTarget(resolveCtx, tmux.SessionName(id))
 	cancel()
 	if err != nil {
 		return nil, fmt.Errorf("repairing session %d: %w", id, err)
@@ -231,7 +234,9 @@ func (m *Manager) RepairOwnedSession(ctx context.Context, id int64) (*Session, e
 	sess.EndedAt = nil
 	sess.TmuxTarget = target
 	sess.TmuxPane = pane
-	snapshot, err := m.persistAndFinishLocked(ctx, id, sess, prev)
+	post := sess.Clone()
+
+	snapshot, err := m.persistWholeRow(ctx, id, sess, prev, post, true)
 	if err != nil {
 		return nil, fmt.Errorf("persisting repaired session %d: %w", id, err)
 	}
@@ -273,24 +278,8 @@ func (m *Manager) reviveOwnedSession(ctx context.Context, id int64, tmuxName str
 		m.mu.Unlock()
 		return
 	}
-	if _, err := m.persistAndFinishLocked(ctx, id, sess, prev); err != nil {
+	post := sess.Clone()
+	if _, err := m.persistWholeRow(ctx, id, sess, prev, post, true); err != nil {
 		m.log.Warn().Err(err).Int64("session_id", id).Msg("reconcile: persisting repaired session failed")
 	}
-}
-
-// persistAndFinishLocked persists sess (already mutated in place under m.mu, with prev
-// its pre-mutation clone) via the write-ticket/finishWrite machinery, then unlocks — the
-// identical tail RepairOwnedSession and reviveOwnedSession both built by hand. Must be
-// called with m.mu held; unlocks it either way.
-func (m *Manager) persistAndFinishLocked(ctx context.Context, id int64, sess, prev *Session) (*Session, error) {
-	row := sessionToRow(sess)
-	snapshot := sess.Clone()
-	wait, done := m.nextWriteTurnLocked(id)
-	m.mu.Unlock()
-
-	persist := func() error { return m.store.UpdateSession(ctx, row) }
-	if err := m.finishWrite(id, sess, wait, done, persist, snapshot, cloneRestore(prev)); err != nil {
-		return nil, err
-	}
-	return snapshot, nil
 }

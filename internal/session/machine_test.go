@@ -1107,7 +1107,7 @@ func TestTruncate(t *testing.T) {
 	assert.Equal(t, "ab", truncate("abcdef", 2))
 	assert.Empty(t, truncate("", 5))
 
-	// a-note-3: LastPrompt/LastActivity are hook-supplied text, so a byte-count cut can
+	// LastPrompt/LastActivity are hook-supplied text, so a byte-count cut can
 	// land inside a multi-byte rune. "ab€" is 5 bytes ('a', 'b', then the 3-byte euro
 	// sign); n=4 lands on the euro sign's last byte, so a plain s[:n] would keep two of
 	// its three bytes and persist invalid UTF-8. truncate must back off to the nearest

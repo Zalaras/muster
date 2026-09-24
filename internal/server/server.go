@@ -96,9 +96,16 @@ type Server struct {
 	mux *http.ServeMux
 	log zerolog.Logger
 
+	// store, tmuxClient, sessions, ingest, usage, theme, shellActivity, issue, locate and
+	// reader are never read again by this package's own production code once New has
+	// wired them in — production reaches each through the http.ServeMux route, callback or
+	// constructor argument New already gave it. They stay struct fields only because this
+	// package's own tests reach into them directly (e.g. srv.tmuxClient.KillWindow,
+	// srv.store.KVGet). terminal and update are the two fields production itself still
+	// reads after construction (Shutdown's s.terminal.closeAll, RestartRequests'
+	// s.update.restartRequestsChan).
 	store         *store.Store
 	uiToken       string
-	ingestToken   string
 	webDist       string
 	tmuxSocket    string
 	daemonVersion string
@@ -117,7 +124,6 @@ type Server struct {
 	sessions      *sessionsFeature
 	terminal      *terminalFeature
 	ingest        *ingestFeature
-	prefs         *prefsFeature
 	usage         *usageFeature
 	theme         *themeFeature
 	shellActivity *shellActivityFeature
@@ -128,13 +134,17 @@ type Server struct {
 }
 
 // New builds a Server and wires its routes. Nothing here starts a goroutine; call Start
-// once the caller is ready to begin processing.
+// once the caller is ready to begin processing. Its length is one construction-plus-register
+// line per feature (13 features) plus the four Config overrides below whose default is
+// another root-built object (spawner, attach, httpClient, shellScroll) — every one of those
+// four is resolved here, in this one place, and nowhere else
+// (kb:adr/process-size-linters-warn-never-fail: the funlen warning this trips has that
+// recorded reason; no split asked).
 func New(cfg Config) *Server {
 	s := &Server{
 		log:           cfg.Logger,
 		store:         cfg.Store,
 		uiToken:       cfg.UIToken,
-		ingestToken:   cfg.IngestToken,
 		webDist:       cfg.WebDist,
 		tmuxSocket:    cfg.TmuxSocket,
 		daemonVersion: cfg.DaemonVersion,
@@ -166,6 +176,13 @@ func New(cfg Config) *Server {
 	if httpClient == nil {
 		httpClient = http.DefaultClient
 	}
+	// shellScroll is the shell socket's copy-mode driver: cfg.ShellScroll's override, or
+	// the daemon's one real tmux client — resolved here, alongside spawner/attach/
+	// httpClient above, rather than as a fallback parameter threaded into newShellFeature.
+	shellScroll := cfg.ShellScroll
+	if shellScroll == nil {
+		shellScroll = tmuxClient
+	}
 	// terminals is constructed before the manager (composition-root wiring only) so it
 	// can be passed straight in as the manager's Watcher
 	// (kb:adr/rail-unread-inferred-from-live-terminal-client): the terminal registry
@@ -190,7 +207,7 @@ func New(cfg Config) *Server {
 	s.reader = register(s, newReaderFeature(s.manager, s.hub, cfg.Logger))
 	s.sessions = register(s, newSessionsFeature(s.manager, launcher, shells, terminals, s.reader, cfg.Logger))
 	s.terminal = register(s, newTerminalFeature(terminals, s.manager, attach, cfg.Logger))
-	register(s, newShellFeature(shells, terminals, s.manager, attach, cfg.ShellScroll, tmuxClient, cfg.Logger))
+	register(s, newShellFeature(shells, terminals, s.manager, attach, shellScroll, cfg.Logger))
 	s.locate = register(s, newLocateFeature(s.manager, cfg.Locator, cfg.Logger))
 	register(s, newBrowseFeature(cfg.Launch.BrowseRoot, cfg.Logger))
 	register(s, newReposFeature(cfg.Store, cfg.Logger))
@@ -201,7 +218,7 @@ func New(cfg Config) *Server {
 	// its own loadPrefs read (update.go), not from a *prefsFeature, so there is no cycle
 	// forcing the reverse order.
 	updateFeat := newUpdateFeature(cfg.Update, httpClient, cfg.DaemonVersion, cfg.Store, s.manager, s.hub, cfg.Logger)
-	s.prefs = register(s, newPrefsFeature(cfg.Store, s.hub, updateFeat, cfg.Logger))
+	register(s, newPrefsFeature(cfg.Store, s.hub, updateFeat, cfg.Logger))
 
 	// usage is built before ingest so ingest's constructor can take its aggregator; both
 	// are registered in the fixed order (ingest, then usage) regardless — see features'

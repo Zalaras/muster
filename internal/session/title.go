@@ -29,44 +29,9 @@ func (m *Manager) SetTitle(ctx context.Context, id int64, title *string) (bool, 
 		return false, nil
 	}
 
-	row := sessionToRow(sess)
-	snapshot := sess.Clone()
-	wait, done := m.nextWriteTurnLocked(id)
-	m.mu.Unlock()
-
-	persist := func() error { return m.store.UpdateSession(ctx, row) }
-	if err := m.finishWrite(id, sess, wait, done, persist, snapshot, cloneRestore(prev)); err != nil {
+	post := sess.Clone()
+	if _, err := m.persistWholeRow(ctx, id, sess, prev, post, true); err != nil {
 		return false, fmt.Errorf("persisting title for session %d: %w", id, err)
 	}
 	return true, nil
-}
-
-// MarkSeen clears id's Unread flag (kb:adr/rail-unread-inferred-from-live-terminal-client):
-// the attach side effect on either terminal surface, called before the first byte is
-// forwarded. Persists and broadcasts one sessionUpsert only when Unread was actually
-// true — an already-read session's attach neither writes nor broadcasts. Returns
-// ErrUnknownSession for a missing id.
-func (m *Manager) MarkSeen(ctx context.Context, id int64) error {
-	m.mu.Lock()
-	sess, ok := m.sessions[id]
-	if !ok {
-		m.mu.Unlock()
-		return ErrUnknownSession
-	}
-	if !sess.Unread {
-		m.mu.Unlock()
-		return nil
-	}
-	prev := sess.Clone()
-	sess.Unread = false
-	row := sessionToRow(sess)
-	snapshot := sess.Clone()
-	wait, done := m.nextWriteTurnLocked(id)
-	m.mu.Unlock()
-
-	persist := func() error { return m.store.UpdateSession(ctx, row) }
-	if err := m.finishWrite(id, sess, wait, done, persist, snapshot, cloneRestore(prev)); err != nil {
-		return fmt.Errorf("marking session %d seen: %w", id, err)
-	}
-	return nil
 }

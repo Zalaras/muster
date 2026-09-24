@@ -43,14 +43,14 @@ type UsageInfo struct {
 
 // emptyUsageInfo is UsageInfo's shape before either usage source has ever answered
 // (kb:anchor/ws.usage) — buildSnapshot's placeholder, immediately overwritten by
-// usageFeature.contribute in every real snapshot (usage is always registered). The two
-// literals mirror usage.Aggregator/ModelScoped's own unexported defaults
-// (defaultSource/defaultModelScopedSource in internal/usage) — this package has no
-// zero-value holder to ask before New constructs one.
+// usageFeature.contribute in every real snapshot (usage is always registered; this
+// package has no zero-value holder to ask before New constructs one). Reads
+// usage.DefaultSource/DefaultModelScopedSource directly rather than keeping its own copy
+// of either literal.
 func emptyUsageInfo() UsageInfo {
 	return UsageInfo{
-		Source:            "subscription",
-		ModelScopedSource: "subscription-api",
+		Source:            usage.DefaultSource,
+		ModelScopedSource: usage.DefaultModelScopedSource,
 	}
 }
 

@@ -121,8 +121,9 @@ type InsertSessionParams struct {
 
 	// RailPos is the manual rail position for the new session
 	// (kb:adr/rail-order-daemon-owned-per-session-fields): the caller
-	// (internal/session.Manager, under its lock) computes max(existing)+1 so the newest
-	// session lands at the bottom of the unpinned block. Pinned always starts false.
+	// (internal/session.Manager, under its lock) hands in its own monotonic nextRailPos
+	// counter so the newest session lands at the bottom of the unpinned block. Pinned
+	// always starts false.
 	RailPos int64
 
 	// MinID floors the allocated id above this value (0 = no floor) — the launcher
@@ -303,7 +304,7 @@ const sessionColumns = `
 
 func (s *Store) GetSession(ctx context.Context, id int64) (SessionRow, error) {
 	row := s.db.QueryRowContext(ctx, `SELECT `+sessionColumns+` FROM session WHERE id = ?`, id)
-	r, err := scanSession(row)
+	r, err := s.scanSession(row)
 	if err != nil {
 		return SessionRow{}, fmt.Errorf("getting session %d: %w", id, err)
 	}
@@ -321,7 +322,7 @@ func (s *Store) ListSessions(ctx context.Context) ([]SessionRow, error) {
 
 	var out []SessionRow
 	for rows.Next() {
-		r, err := scanSession(rows)
+		r, err := s.scanSession(rows)
 		if err != nil {
 			return nil, fmt.Errorf("scanning session row: %w", err)
 		}
@@ -333,7 +334,35 @@ func (s *Store) ListSessions(ctx context.Context) ([]SessionRow, error) {
 	return out, nil
 }
 
-func scanSession(row rowScanner) (SessionRow, error) {
+// decodeRowTime decodes a mandatory stored time column for scanSession. A single corrupt
+// value must never fail the row it's on, let alone every other row in the same
+// ListSessions call — a bad state_since would otherwise fail the whole query, LoadAll with
+// it, and the daemon would boot with an empty session registry, reading every live
+// muster-<n> tmux session as unknown. The corruption is still surfaced: a warning names
+// the table, row id and column, and the field reads as zero, same as a row no post has
+// ever reached.
+func (s *Store) decodeRowTime(table string, id int64, column, text string) time.Time {
+	t, err := decodeTime(text)
+	if err != nil {
+		s.log.Warn().Err(err).Str("table", table).Int64("row_id", id).Str("column", column).Msg("corrupt stored time; reading as zero")
+		return time.Time{}
+	}
+	return t
+}
+
+// decodeRowTimePtr is decodeRowTime's nullable-column counterpart: ok is false on a
+// corrupt value, and the caller leaves its pointer field nil (unset) rather than
+// dereferencing a zero time that couldn't be told apart from "never set".
+func (s *Store) decodeRowTimePtr(table string, id int64, column, text string) (t time.Time, ok bool) {
+	t, err := decodeTime(text)
+	if err != nil {
+		s.log.Warn().Err(err).Str("table", table).Int64("row_id", id).Str("column", column).Msg("corrupt stored time; leaving unset")
+		return time.Time{}, false
+	}
+	return t, true
+}
+
+func (s *Store) scanSession(row rowScanner) (SessionRow, error) {
 	var (
 		r                            SessionRow
 		isWorktree, alive, firstHere int
@@ -361,33 +390,22 @@ func scanSession(row rowScanner) (SessionRow, error) {
 	r.Pinned = pinned != 0
 	r.PlanExists = planExists != 0
 	r.Unread = unread != 0
-	var err error
-	if r.StateSince, err = decodeTime(stateSince); err != nil {
-		return SessionRow{}, fmt.Errorf("scanning session %d: state_since: %w", r.ID, err)
-	}
-	if r.CreatedAt, err = decodeTime(createdAt); err != nil {
-		return SessionRow{}, fmt.Errorf("scanning session %d: created_at: %w", r.ID, err)
-	}
+	r.StateSince = s.decodeRowTime("session", r.ID, "state_since", stateSince)
+	r.CreatedAt = s.decodeRowTime("session", r.ID, "created_at", createdAt)
 	if attentionSince != nil {
-		t, err := decodeTime(*attentionSince)
-		if err != nil {
-			return SessionRow{}, fmt.Errorf("scanning session %d: attention_since: %w", r.ID, err)
+		if t, ok := s.decodeRowTimePtr("session", r.ID, "attention_since", *attentionSince); ok {
+			r.AttentionSince = &t
 		}
-		r.AttentionSince = &t
 	}
 	if endedAt != nil {
-		t, err := decodeTime(*endedAt)
-		if err != nil {
-			return SessionRow{}, fmt.Errorf("scanning session %d: ended_at: %w", r.ID, err)
+		if t, ok := s.decodeRowTimePtr("session", r.ID, "ended_at", *endedAt); ok {
+			r.EndedAt = &t
 		}
-		r.EndedAt = &t
 	}
 	if lastSnapshotAt != nil {
-		t, err := decodeTime(*lastSnapshotAt)
-		if err != nil {
-			return SessionRow{}, fmt.Errorf("scanning session %d: last_snapshot_at: %w", r.ID, err)
+		if t, ok := s.decodeRowTimePtr("session", r.ID, "last_snapshot_at", *lastSnapshotAt); ok {
+			r.LastSnapshotAt = &t
 		}
-		r.LastSnapshotAt = &t
 	}
 	return r, nil
 }

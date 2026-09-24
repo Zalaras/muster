@@ -249,9 +249,9 @@ func TestReconcile_LeavesUnreadAndLastPromptUntouchedAcrossRowClasses(t *testing
 	markedEndedRow.LastPrompt = &prompt
 	require.NoError(t, st.UpdateSession(ctx, markedEndedRow))
 
-	// a-M1: ownership classification goes by ListSessions name, not PaneChecker — only
+	// Ownership classification goes by ListSessions name, not PaneChecker — only
 	// keptAlive's real muster-<id> name is listed as present.
-	killer := newFakeKiller(tmux.SessionName(keptAliveSess.ID))
+	killer := newFakeTmuxSessions(tmux.SessionName(keptAliveSess.ID))
 	mgr := newTestManager(t, st, nil, nil, withTmuxSessions(killer))
 	require.NoError(t, mgr.LoadAll(ctx))
 

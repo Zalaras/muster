@@ -50,9 +50,9 @@ func (m *Manager) Snapshot(id int64) (text string, at time.Time, ok bool) {
 
 // captureAndStoreSnapshot runs capture-pane for an alive session (via captureCtx) and, on
 // success, persists the result via storeSnapshot (via persistCtx) — the shared body
-// checkOneLiveness's periodic capture and endLocked's final pre-kill capture both built by
-// hand (S6). The two contexts are kept separate because endLocked bounds only the tmux
-// call to endRemoveTmuxTimeout while keeping the outer request ctx for the DB write;
+// checkOneLiveness's periodic capture and endLocked's final pre-kill capture both need. The
+// two contexts are kept separate because endLocked bounds only the tmux call to
+// endRemoveTmuxTimeout while keeping the outer request ctx for the DB write;
 // checkOneLiveness passes the same ctx for both. A capture error (a transient tmux
 // failure) is not a pane-missing signal — the previous snapshot is kept and liveness
 // is never touched.
@@ -68,7 +68,9 @@ func (m *Manager) captureAndStoreSnapshot(captureCtx, persistCtx context.Context
 // storeSnapshot persists text for id iff it differs from what's already stored — written
 // only when the text changes. Never logs text (may hold prompt text) and never
 // broadcasts — the snapshot isn't part of the Session wire object (kb:anchor/sessions.pane's
-// own GET endpoint serves it).
+// own GET endpoint serves it). Spells out its own persistWholeRow-shaped tail rather than
+// calling that helper: UpdateSnapshot writes only the two snapshot columns, a narrower
+// persist than every other setter's whole-row UpdateSession.
 func (m *Manager) storeSnapshot(ctx context.Context, id int64, text string) {
 	m.mu.Lock()
 	sess, ok := m.sessions[id]
@@ -85,15 +87,15 @@ func (m *Manager) storeSnapshot(ctx context.Context, id int64, text string) {
 	now := time.Now().UTC()
 	sess.LastSnapshot = text
 	sess.LastSnapshotAt = now
+	post := sess.Clone()
 	wait, done := m.nextWriteTurnLocked(id)
 	m.mu.Unlock()
 
-	// snapshot is nil (never broadcasts, see doc above); this still needs id's write
-	// ticket and the same persist-failure policy as every other setter (memory must
-	// not claim a snapshot the DB doesn't hold) even though its persist is a narrower
-	// UpdateSnapshot column set, not the whole-row UpdateSession every other writer uses.
+	// snapshot=nil: storeSnapshot never broadcasts (see doc above), but it still needs
+	// id's write ticket and the same persist-failure policy as every other setter (memory
+	// must not claim a snapshot the DB doesn't hold).
 	persist := func() error { return m.store.UpdateSnapshot(ctx, id, text, now) }
-	if err := m.finishWrite(id, sess, wait, done, persist, nil, cloneRestore(prev)); err != nil {
+	if err := m.finishWrite(id, sess, wait, done, persist, nil, restoreChangedFields(prev, post)); err != nil {
 		m.log.Error().Err(err).Int64("session_id", id).Msg("persisting pane snapshot failed")
 	}
 }
@@ -126,9 +128,9 @@ func (m *Manager) checkLiveness(ctx context.Context) {
 	// Collect value copies, not *Session pointers, under the lock: holding a live
 	// pointer and reading its field after Unlock races with any writer
 	// (e.g. RecordLaunch) mutating the same field concurrently.
-	targets := collectLocked(m,
+	targets := collectSessions(m,
 		func(s *Session) bool { return s.Alive && s.TmuxTarget != "" },
-		func(s *Session) sessionSnapshot { return sessionSnapshot{id: s.ID, target: s.TmuxTarget} },
+		func(s *Session) sessionRef { return sessionRef{id: s.ID, target: s.TmuxTarget} },
 	)
 
 	for _, target := range targets {
@@ -207,13 +209,10 @@ func (m *Manager) markEnded(ctx context.Context, id int64) (*Session, error) {
 	sess.Alive = false
 	endedAt := time.Now().UTC()
 	sess.EndedAt = &endedAt
-	row := sessionToRow(sess)
-	snapshot := sess.Clone()
-	wait, done := m.nextWriteTurnLocked(id)
-	m.mu.Unlock()
+	post := sess.Clone()
 
-	persist := func() error { return m.store.UpdateSession(ctx, row) }
-	if err := m.finishWrite(id, sess, wait, done, persist, snapshot, cloneRestore(prev)); err != nil {
+	snapshot, err := m.persistWholeRow(ctx, id, sess, prev, post, true)
+	if err != nil {
 		return nil, fmt.Errorf("persisting ended session %d: %w", id, err)
 	}
 	return snapshot, nil

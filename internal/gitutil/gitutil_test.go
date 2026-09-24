@@ -101,8 +101,8 @@ func TestIsWorktree_TrueForALinkedWorktreeFalseForItsMainCheckout(t *testing.T) 
 // not-ignored split the reader depends on.
 
 func TestGitRunner_ListFiles_ParsesNulSeparatedOutput(t *testing.T) {
-	g := &gitRunner{run: func(context.Context, string, ...string) (string, error) {
-		return "zeta.md\x00notes.txt\x00docs/alpha.md\x00", nil
+	g := &gitRunner{run: func(context.Context, string, string, ...string) ([]byte, error) {
+		return []byte("zeta.md\x00notes.txt\x00docs/alpha.md\x00"), nil
 	}}
 
 	paths, err := g.listFiles(context.Background(), "/some/dir")
@@ -112,8 +112,8 @@ func TestGitRunner_ListFiles_ParsesNulSeparatedOutput(t *testing.T) {
 }
 
 func TestGitRunner_ListFiles_EmptyOutputIsNilNotEmptySlice(t *testing.T) {
-	g := &gitRunner{run: func(context.Context, string, ...string) (string, error) {
-		return "", nil
+	g := &gitRunner{run: func(context.Context, string, string, ...string) ([]byte, error) {
+		return nil, nil
 	}}
 
 	paths, err := g.listFiles(context.Background(), "/some/dir")
@@ -124,8 +124,8 @@ func TestGitRunner_ListFiles_EmptyOutputIsNilNotEmptySlice(t *testing.T) {
 
 func TestGitRunner_ListFiles_RunErrorPropagates(t *testing.T) {
 	wantErr := errors.New("exit status 128: not a git repository")
-	g := &gitRunner{run: func(context.Context, string, ...string) (string, error) {
-		return "", wantErr
+	g := &gitRunner{run: func(context.Context, string, string, ...string) ([]byte, error) {
+		return nil, wantErr
 	}}
 
 	_, err := g.listFiles(context.Background(), "/some/dir")

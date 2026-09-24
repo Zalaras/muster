@@ -1,6 +1,6 @@
 # internal/claudecode — the Claude Code adapter boundary
 
-**Owns**: every Claude-Code-format fact: hook payload keys, status-line JSON, `settings.local.json` entries, CLI argv, version pinning, the theme config file, the Keychain token and the OAuth usage API. Output is neutral domain values (`StateInput`, `StatusUpdate`, `LaunchParams`). No session state, HTTP or tmux here. **Features**: ingest, canary, launch, reader, theme, usage.
+**Owns**: every Claude-Code-format fact: hook payload keys, status-line JSON, `settings.local.json`'s path and entries, CLI argv, version pinning, the theme config file, the Keychain token and the OAuth usage API; also the wrapper-script contract layered on top of that format (the ingest URL path shape, `MusterSessionEnvVar`) — a caller assembles a hook command from these before anything else about it is Claude-Code-specific, so the owner has to be findable in one place rather than reconstructed at each call site. Output is neutral domain values (`StateInput`, `StatusUpdate`, `LaunchParams`). No session state, HTTP or tmux here. **Features**: ingest, canary, launch, reader, theme, usage.
 
 **Invariants** (violations are review-Critical):
 - A Claude Code payload key or event name appears in this package and nowhere else; other packages' tests build wire bodies through `claudecodetest` (kb:adr/ingest-wire-shaped-fixtures-via-claudecodetest).

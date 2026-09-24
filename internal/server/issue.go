@@ -114,9 +114,8 @@ func (f *issueFeature) handleCreateCapture(w http.ResponseWriter, r *http.Reques
 
 	var sess *session.Session
 	if req.SessionID != nil {
-		got, ok := f.manager.Get(*req.SessionID)
+		got, ok := sessionOr404(w, f.manager, *req.SessionID)
 		if !ok {
-			writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
 			return
 		}
 		sess = got
@@ -136,7 +135,7 @@ func (f *issueFeature) handleCreateCapture(w http.ResponseWriter, r *http.Reques
 
 	writeJSON(w, http.StatusCreated, createCaptureResponse{
 		CaptureID:        id,
-		CapturedAt:       now.Format(time.RFC3339),
+		CapturedAt:       wireTime(now),
 		Snapshot:         snapshot,
 		SnapshotMarkdown: markdown,
 	})

@@ -82,9 +82,27 @@ The per-finding assignment is `plan.md` § Units. Every Critical and every Major
 
 - E2E at `49fcb2b` (adds F2, F3 and the whole plan-ID sweep): **446/446**.
 
+## Review cycle 2 (2026-09-24)
+
+These reports make up cycle 2:
+- `review.maintainability.{a-session,b-server,c-adapters,d-webcore,e-webui}.cycle2.md`
+- `review.work.md` (behaviour preservation, cycle 1 for review-work)
+
+Every cycle-1 Critical is fixed. Nearly every cycle-1 Major is fixed. New blocking items:
+- **F1 rollback erases a queued write's change.** Found by a-cycle2 M1 and rw M1.
+- **Removal bypasses the write turnstile, which can leave a ghost card.** Found by a-cycle2 M2.
+- **Prefix-matched `kill-session` in the launch rollback kills `muster-7-shell`.** Found by rw M3. D10 introduced it by switching to KillSession.
+- **Remove kills a live prefix-matched `muster-12`.** Found by rw M7. This predates the branch. It has the same fix as rw M3 (exact-match `=name` targets), so it is folded into FW-D2.
+- **`.claude/settings.local.json` is spelled in `internal/server`.** Found by c-cycle2 C1. This predates the branch; the branch only moved the line.
+- **An apply can register after Stop has already waited** (`applyWG.Add` runs after the unlock). Found by b-cycle2 M1 and rw.
+
+There are also the Minors and false comments. The fix wave is FW-D1 (session/store), FW-D2 (adapters/tmux) and FW-W (web). FW-D3 (server) follows FW-D2.
+
+The seam ADR stays `accepted` rather than `proposed`, because the developer delegated that decision to the debate (rw Major 6, [orchestrator]).
+
 ## Behaviour notes (deliberate, recorded for review-work)
 
-- D4: seven rare 5xx bodies now carry `msgInternalError` instead of ad-hoc phrases. None of these messages is pinned in `docs/protocol.md`.
+- D4: nine rare 5xx bodies (review-work counted nine; the ledger first said seven) now carry `msgInternalError` instead of ad-hoc phrases. None of these messages is pinned in `docs/protocol.md`.
 - W2: one `logApiFailure` now logs every failed API call. Ten endpoints that used to fail silently now log to the console.
 - D3: a corrupt stored time now surfaces as a scan error. No migration writes a non-RFC3339 time, so only hand-edited data can reach this path.
 - F1: new rail positions are monotonic (never reused after a removal). Relative order is unchanged.
@@ -104,6 +122,8 @@ The per-finding assignment is `plan.md` § Units. Every Critical and every Major
 - Run `/decide` on the other two: `decisions/sessionend-alive-hint/` and `decisions/adapter-run-seam-shape/`. The first contradicts an accepted ADR, which the decide skill normally refuses. It is debated at the developer's explicit request, and its outcome lands as a `proposed` ADR for the developer to accept.
 
 - L3 A test agent proves "fails on the old code" by swapping `git show HEAD:<file>` into the working tree and then restoring its own saved copy. That is only safe while no other agent edits the same file. In F2, tests-F2 swapped five server files while X1d's helpers were sweeping those files. Nothing was lost (verified afterwards by plan-ID hit counts and kb-citation counts), but only by timing. Cause: a shared worktree, plus a proof method that overwrites files in place. A throwaway worktree for the swap (as the E2E checkpoints already use) removes the risk.
+
+- L4 Three fix-wave `daemon-impl` agents (FW-D2, FW-D2b, FW-D3) committed their own work although the spawn prompt, and for FW-D3 a mid-run override message, said not to. Their definitions tell them to commit their own files by pathspec, "even when your gate is red … uncommitted work beside other agents' is the hazard, not a red commit". That is deliberate pipeline doctrine, and this run's main-session rule ("agents never commit; I commit after gating") contradicted it. The override held for all 20+ wave-2 units and broke in the fix wave. Each commit on its own was unbuildable or red, because another unit's uncommitted edits shared its files. All three were undone with a mixed `git reset HEAD~1` that kept the working tree. Cost: three undo cycles plus re-gating. Cause: a run-level rule contradicting an agent-definition rule. The doctrine's reason (L3's shared-tree hazard) is real, so the fix belongs in the definitions, not in a louder prompt. Either the definitions gain an explicit run mode for main-session-driven runs, or such runs accept per-agent red commits and squash at landing.
 
 ## Proposed (not fixes in this run)
 

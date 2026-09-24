@@ -54,11 +54,16 @@ type shellRegistry struct {
 	tmux paneSpawner
 	log  zerolog.Logger
 
-	// locks is the per-session-id lock (kb:adr/actions-serialized-per-session: two
-	// sessions' Ensure/Kill calls never block each other); the check-then-spawn/kill
-	// sequence itself is serialised by each id's own lock. The same keyedlock.Locks type
-	// session.Manager.LockSession uses, rather than each package hand-rolling the same
-	// map+mutex.
+	// locks is this registry's own per-session-id lock (kb:adr/actions-serialized-per-session):
+	// its one job is making Ensure/Kill safe to call concurrently for the same id, verified
+	// directly against the registry by this package's own tests
+	// (TestShellRegistry_ConcurrentEnsureOnlySpawnsOnce) without relying on any caller
+	// holding a lock of their own — two different sessions' calls never block each other.
+	// session.Manager.LockSession (held by handleCreateShell, shells.go) is a second,
+	// different guarantee this lock cannot give: it holds off a concurrent Remove while the
+	// existence check and Ensure run, because it and this lock are different mutexes on
+	// different owners. The same keyedlock.Locks type session.Manager.LockSession uses,
+	// rather than each package hand-rolling the same map+mutex.
 	locks keyedlock.Locks[int64]
 
 	// mu guards activeIDs only.
@@ -213,13 +218,11 @@ type shellFeature struct {
 	log    zerolog.Logger
 }
 
-// newShellFeature builds the shell surface. scroll is Config.ShellScroll's override;
-// realScroll is the daemon's one real tmux client, substituted whenever scroll is nil —
-// the default lives here, beside its one consumer, rather than in the composition root.
-func newShellFeature(registry *shellRegistry, terminals *terminalRegistry, manager *session.Manager, attach attachFunc, scroll, realScroll shellScroller, log zerolog.Logger) *shellFeature {
-	if scroll == nil {
-		scroll = realScroll
-	}
+// newShellFeature builds the shell surface. scroll is already resolved — Config.ShellScroll
+// when set, else the daemon's one real tmux client (New defaults every Config override
+// whose fallback is another root-built object in the one place, alongside spawner/attach/
+// httpClient).
+func newShellFeature(registry *shellRegistry, terminals *terminalRegistry, manager *session.Manager, attach attachFunc, scroll shellScroller, log zerolog.Logger) *shellFeature {
 	return &shellFeature{registry: registry, terminals: terminals, manager: manager, attach: attach, scroll: scroll, log: log}
 }
 
@@ -238,9 +241,7 @@ func (f *shellFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.H
 // never observe a session that a concurrent Remove is in the middle of dropping, and any
 // Remove that starts after this check passes must wait for Ensure to finish first —
 // either way, a shell can never be spawned for an id whose Remove has started or already
-// succeeded. Without this, the earlier sessionOr404 check and the Ensure call below raced
-// Remove independently, so a Remove could complete between them and Ensure would spawn a
-// shell for an id that no longer exists.
+// succeeded.
 func (f *shellFeature) handleCreateShell(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
 	if !ok {

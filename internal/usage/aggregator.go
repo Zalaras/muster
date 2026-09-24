@@ -14,6 +14,11 @@ import (
 // defaultSource is the only source in v1 (the kb:adr/usage-no-source-interface seam: "api"/"otel" later).
 const defaultSource = "subscription"
 
+// DefaultSource exposes defaultSource for internal/server's emptyUsageInfo placeholder —
+// the one caller outside this package that needs the same default, so it reads this
+// instead of keeping its own copy of the literal.
+const DefaultSource = defaultSource
+
 // Config wires an Aggregator. OnChange broadcasts the `usage` WS message; nil in tests.
 type Config struct {
 	Store    *store.Store

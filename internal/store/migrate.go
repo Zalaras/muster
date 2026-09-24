@@ -33,7 +33,7 @@ func loadMigrations(fsys fs.FS) ([]migration, error) {
 	}
 
 	migrations := make([]migration, 0, len(entries))
-	seen := make(map[int]string, len(entries)) // a-m6: two files sharing a version is a load error, not a silent skip
+	seen := make(map[int]string, len(entries)) // two files sharing a version is a load error, not a silent skip
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
@@ -94,10 +94,10 @@ func Migrate(ctx context.Context, db *sql.DB) error {
 }
 
 // applyOneMigration runs m's SQL and records it in schema_migrations inside one
-// transaction, using the deferred-Rollback idiom InsertSession/BumpIDWatermark already
-// use rather than an explicit per-error Rollback call at every branch (a-note-6: one
-// transaction idiom for the package). Split out of Migrate's loop so that idiom's defer
-// fires per migration, not only once the whole loop returns.
+// transaction, using the deferred-Rollback idiom InsertSession/BumpIDWatermark also use
+// rather than an explicit per-error Rollback call at every branch — one transaction idiom
+// for the package. Split out of Migrate's loop so that idiom's defer fires per migration,
+// not only once the whole loop returns.
 func applyOneMigration(ctx context.Context, db *sql.DB, m migration) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {

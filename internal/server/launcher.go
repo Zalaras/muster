@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -25,6 +26,10 @@ type paneSpawner interface {
 	NewSession(ctx context.Context, id int64, dir string, env map[string]string, command []string) (target, pane string, err error)
 	NewNamedSession(ctx context.Context, name, dir string, env map[string]string, command []string) (target, pane string, err error)
 	PaneExists(ctx context.Context, target string) (bool, error)
+	// KillWindow kills one window by target. No production caller — every rollback/kill
+	// path here and in internal/session goes through KillSession instead, for its
+	// already-gone-is-fine idempotence; kept on the interface only so this package's own
+	// tests can tear down a spawned pane directly through srv.tmuxClient.KillWindow.
 	KillWindow(ctx context.Context, target string) error
 	KillSession(ctx context.Context, name string) error
 	// MaxSessionID probes the tmux socket's own highest session id: the launcher calls it
@@ -83,9 +88,9 @@ type sessionLauncher struct {
 	legacyScripts []string
 
 	// checkModel is the model-catalog pre-check (kb:adr/launch-refuses-model-outside-binary-catalog),
-	// run between validateLaunchRequest and UpsertRepo. nil means no check, so existing
-	// literal-constructed test launchers keep compiling and behave exactly as before this
-	// check existed.
+	// run between validateLaunchRequest and UpsertRepo. nil means no check — every
+	// *sessionLauncher literal a test constructs directly leaves it unset and skips it
+	// entirely.
 	checkModel func(ctx context.Context, dir, model string) (claudecode.ModelVerdict, error)
 }
 
@@ -114,10 +119,6 @@ func newSessionLauncher(store *store.Store, manager *session.Manager, tmux paneS
 	}
 }
 
-// Launch validates req, runs the model check, upserts the repo row, inserts the
-// session row, writes settings.local.json, spawns the tmux window, and
-// records/broadcasts the finished session — in that order (order matters: the session
-// needs an id before the tmux spawn that puts it in the pane environment).
 // validateLaunchRequest is Launch's pure prefix: it reads req alone, touches no launcher
 // state and runs before anything has been written, so a rejection here needs no rollback.
 // Check order is load-bearing — it decides which single error a request invalid in
@@ -133,7 +134,9 @@ func validateLaunchRequest(req createSessionRequest) *launchError {
 		return invalidRequest("model must not be empty")
 	}
 	if !session.ValidPermissionMode(req.PermissionMode) {
-		return invalidRequest("permissionMode must be one of default, plan, acceptEdits, auto")
+		// Built from claudecode.PermissionModes — the one owner of the set — rather than
+		// spelling its members again here.
+		return invalidRequest("permissionMode must be one of " + strings.Join(claudecode.PermissionModes, ", "))
 	}
 	return nil
 }
@@ -168,10 +171,9 @@ const maxLaunchAttempts = 3
 // shellTmuxTimeout/endRemoveTmuxTimeout's value.
 const launchTmuxTimeout = 5 * time.Second
 
-// spawnSession runs tmux.NewSession bounded by launchTmuxTimeout. Launch and Resume are
-// its only two callers — the two spawn-under-timeout blocks were identical except for
-// the directory argument, so sharing this means the timeout and the context plumbing
-// can't drift between them.
+// spawnSession runs tmux.NewSession bounded by launchTmuxTimeout — Launch and Resume are
+// its only two callers, sharing it so the timeout and the context plumbing can't drift
+// between the two call sites.
 func (l *sessionLauncher) spawnSession(ctx context.Context, id int64, dir string, env map[string]string, argv []string) (target, pane string, err error) {
 	spawnCtx, cancel := context.WithTimeout(ctx, launchTmuxTimeout)
 	defer cancel()
@@ -195,6 +197,10 @@ func (l *sessionLauncher) killSessionAfterRecordFailure(ctx context.Context, id 
 	}
 }
 
+// Launch validates req, runs the model check, upserts the repo row, inserts the
+// session row, writes settings.local.json, spawns the tmux window, and
+// records/broadcasts the finished session — in that order (order matters: the session
+// needs an id before the tmux spawn that puts it in the pane environment).
 func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) (*session.Session, *launchError) {
 	if lerr := validateLaunchRequest(req); lerr != nil {
 		return nil, lerr
@@ -203,10 +209,9 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 
 	// checkModel runs after validation and before any write (UpsertRepo is next), so a
 	// refusal leaves nothing to roll back. A check that errors fails open — the launch
-	// proceeds exactly as before this check existed
-	// (kb:adr/launch-refuses-model-outside-binary-catalog) — and is logged at warn
-	// without the stderr body: that sentence is Claude-Code wire-format detail, kept
-	// inside internal/claudecode.
+	// proceeds regardless (kb:adr/launch-refuses-model-outside-binary-catalog) — and is
+	// logged at warn without the stderr body: that sentence is Claude-Code wire-format
+	// detail, kept inside internal/claudecode.
 	if l.checkModel != nil {
 		verdict, err := l.checkModel(ctx, dir, req.Model)
 		if err != nil {
@@ -424,11 +429,12 @@ func (l *sessionLauncher) Resume(ctx context.Context, id int64) (*session.Sessio
 	return final, nil
 }
 
-// writeSettings ensures dir/.claude/settings.local.json registers Muster's hooks,
-// status-line and allowed-URL config. A corrupt existing file refuses the launch by name
+// writeSettings ensures dir's project-scoped settings file
+// (claudecode.ProjectSettingsPath) registers Muster's hooks, status-line and
+// allowed-URL config. A corrupt existing file refuses the launch by name
 // (kb:anchor/sessions.create) rather than guessing.
 func (l *sessionLauncher) writeSettings(dir string) error {
-	path := filepath.Join(dir, ".claude", "settings.local.json")
+	path := claudecode.ProjectSettingsPath(dir)
 
 	var existing []byte
 	if b, err := os.ReadFile(path); err == nil {
@@ -456,7 +462,7 @@ func (l *sessionLauncher) writeSettings(dir string) error {
 	// torn write there refuses every future launch in the directory
 	// (kb:adr/actions-serialized-per-session's Consequences). The temp file is created
 	// in the same directory so the rename is atomic (same filesystem).
-	tmp, err := os.CreateTemp(settingsDir, ".settings.local.json.tmp-*")
+	tmp, err := os.CreateTemp(settingsDir, "."+filepath.Base(path)+".tmp-*")
 	if err != nil {
 		return fmt.Errorf("creating temp file in %s: %w", settingsDir, err)
 	}

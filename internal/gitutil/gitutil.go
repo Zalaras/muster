@@ -18,9 +18,15 @@ import (
 // kb:adr/process-adapter-run-seam-constructor-default): production always runGit,
 // same-package tests overwrite the field directly. Built fresh per call, the same as
 // tmux.Preflight's newPreflighter(), since none of gitutil's functions carry any
-// per-call config beyond ctx and dir.
+// per-call config beyond ctx and dir. The stdout-only shape
+// (kb:adr/process-adapter-run-seam-constructor-default's "one signature per output
+// need") is claudecode.execFunc/tmux's preflighter.run/locate.SpotlightFinder.run's own
+// `func(ctx, name string, args ...string) ([]byte, error)`, with dir prepended — every
+// git invocation needs a working directory, and name/args still carry the argv the same
+// way, even though runGit's own name is always "git" (mirroring tmux.Client.exec's own
+// field, always called with "tmux").
 type gitRunner struct {
-	run func(ctx context.Context, dir string, args ...string) (string, error)
+	run func(ctx context.Context, dir, name string, args ...string) ([]byte, error)
 }
 
 func newGitRunner() *gitRunner {
@@ -33,22 +39,23 @@ func IsRepo(ctx context.Context, dir string) bool {
 }
 
 func (g *gitRunner) isRepo(ctx context.Context, dir string) bool {
-	out, err := g.run(ctx, dir, "rev-parse", "--is-inside-work-tree")
-	return err == nil && strings.TrimSpace(out) == "true"
+	out, err := g.run(ctx, dir, "git", "rev-parse", "--is-inside-work-tree")
+	return err == nil && strings.TrimSpace(string(out)) == "true"
 }
 
-// Branch returns the current branch name, or nil when dir isn't a git checkout or is
-// in a detached-HEAD state (session.branch is "null when not git" — Schema Changes).
+// Branch returns the current branch name, or nil when dir isn't a git checkout or is in
+// a detached-HEAD state — the wire's own "null when not git" contract
+// (docs/protocol.md's repo.branch).
 func Branch(ctx context.Context, dir string) *string {
 	return newGitRunner().branch(ctx, dir)
 }
 
 func (g *gitRunner) branch(ctx context.Context, dir string) *string {
-	out, err := g.run(ctx, dir, "rev-parse", "--abbrev-ref", "HEAD")
+	out, err := g.run(ctx, dir, "git", "rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil {
 		return nil
 	}
-	name := strings.TrimSpace(out)
+	name := strings.TrimSpace(string(out))
 	if name == "" || name == "HEAD" {
 		return nil
 	}
@@ -56,21 +63,21 @@ func (g *gitRunner) branch(ctx context.Context, dir string) *string {
 }
 
 // IsWorktree reports whether dir is a linked worktree: its git-dir and the repository's
-// common-dir differ (ux-flows §2's recognition rule).
+// common-dir differ (kb:adr/launch-hybrid-mru-directory-memory's recognition rule).
 func IsWorktree(ctx context.Context, dir string) bool {
 	return newGitRunner().isWorktree(ctx, dir)
 }
 
 func (g *gitRunner) isWorktree(ctx context.Context, dir string) bool {
-	gitDir, err := g.run(ctx, dir, "rev-parse", "--git-dir")
+	gitDir, err := g.run(ctx, dir, "git", "rev-parse", "--git-dir")
 	if err != nil {
 		return false
 	}
-	commonDir, err := g.run(ctx, dir, "rev-parse", "--git-common-dir")
+	commonDir, err := g.run(ctx, dir, "git", "rev-parse", "--git-common-dir")
 	if err != nil {
 		return false
 	}
-	return strings.TrimSpace(gitDir) != strings.TrimSpace(commonDir)
+	return strings.TrimSpace(string(gitDir)) != strings.TrimSpace(string(commonDir))
 }
 
 // ListFiles returns every path `git ls-files -co --exclude-standard` reports for dir (a
@@ -85,11 +92,11 @@ func ListFiles(ctx context.Context, dir string) ([]string, error) {
 }
 
 func (g *gitRunner) listFiles(ctx context.Context, dir string) ([]string, error) {
-	out, err := g.run(ctx, dir, "ls-files", "-co", "--exclude-standard", "-z")
+	out, err := g.run(ctx, dir, "git", "ls-files", "-co", "--exclude-standard", "-z")
 	if err != nil {
 		return nil, err
 	}
-	trimmed := strings.TrimRight(out, "\x00")
+	trimmed := strings.TrimRight(string(out), "\x00")
 	if trimmed == "" {
 		return nil, nil
 	}
@@ -103,8 +110,8 @@ func (g *gitRunner) listFiles(ctx context.Context, dir string) ([]string, error)
 	return paths, nil
 }
 
-func runGit(ctx context.Context, dir string, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", args...)
+func runGit(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
 	// WaitDelay bounds the wait for a descendant that inherited the stdout pipe
 	// to close it. The timer starts when ctx is done or when Wait sees git
@@ -112,6 +119,5 @@ func runGit(ctx context.Context, dir string, args ...string) (string, error) {
 	// that descendant forever even with ctx never firing (docs/conventions.md
 	// §Go).
 	cmd.WaitDelay = 2 * time.Second
-	out, err := cmd.Output()
-	return string(out), err
+	return cmd.Output()
 }

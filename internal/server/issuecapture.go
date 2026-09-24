@@ -28,9 +28,9 @@ type issueCapture struct {
 	inFlight         bool
 }
 
-// captureStore is the daemon-memory-only holder for captures (Schema Changes: "not
-// persisted — a snapshot that outlives the daemon that took it would describe a world
-// that no longer exists").
+// captureStore is the daemon-memory-only holder for captures
+// (kb:adr/issue-capture-then-file-server-held) — never persisted: a snapshot that outlives
+// the daemon that took it would describe a world that no longer exists.
 type captureStore struct {
 	mu       sync.Mutex
 	captures map[string]*issueCapture

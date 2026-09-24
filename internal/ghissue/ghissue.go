@@ -48,16 +48,16 @@ type TokenReader func(ctx context.Context) (string, error)
 // startup Claude Code version check) rather than an arbitrary value.
 const ghTokenTimeout = 5 * time.Second
 
-// execFunc abstracts running `gh` — mirrors claudecode/credentials.go's own execFunc
-// seam (no test may execute the real `gh` binary). Unlike that seam, both stdout and
-// stderr are returned: a failure's message carries gh's trimmed stderr, never its
-// stdout. runCommand is the production value.
-type execFunc func(ctx context.Context, name string, args ...string) (stdout, stderr string, err error)
+// execFunc abstracts running `gh` — the both-streams shape
+// (kb:adr/process-adapter-run-seam-constructor-default's "one signature per output
+// need") tmux.Client.exec also uses: a failure's message carries gh's trimmed stderr,
+// never its stdout. runCommand is the production value.
+type execFunc func(ctx context.Context, name string, args ...string) (stdout, stderr []byte, err error)
 
 // runCommand is the production execFunc: runs name with args, capturing stdout and
 // stderr separately. Neither is ever logged by any caller — stdout is where the bearer
 // token lives (kb:adr/issue-auth-gh-token-at-time-of-use).
-func runCommand(ctx context.Context, name string, args ...string) (stdout, stderr string, err error) {
+func runCommand(ctx context.Context, name string, args ...string) (stdout, stderr []byte, err error) {
 	cmd := exec.CommandContext(ctx, name, args...)
 	var outBuf, errBuf bytes.Buffer
 	cmd.Stdout = &outBuf
@@ -69,7 +69,7 @@ func runCommand(ctx context.Context, name string, args ...string) (stdout, stder
 	// (docs/conventions.md §Go).
 	cmd.WaitDelay = 2 * time.Second
 	err = cmd.Run()
-	return outBuf.String(), errBuf.String(), err
+	return outBuf.Bytes(), errBuf.Bytes(), err
 }
 
 // ghTokenReader holds the two subprocess-boundary seams GhCLITokenReader crosses (the
@@ -99,14 +99,14 @@ func (r *ghTokenReader) read(ctx context.Context) (string, error) {
 	defer cancel()
 	stdout, stderr, err := r.run(cctx, "gh", "auth", "token")
 	if err != nil {
-		msg := strings.TrimSpace(stderr)
+		msg := strings.TrimSpace(string(stderr))
 		if msg == "" {
 			msg = "gh auth token exited with an error"
 		}
 		return "", &ErrAuthFailed{Message: fmt.Sprintf("gh auth token: %s; run `gh auth login`", msg)}
 	}
 
-	token := strings.TrimSpace(stdout)
+	token := strings.TrimSpace(string(stdout))
 	if token == "" {
 		return "", &ErrAuthFailed{Message: "gh auth token printed an empty token; run `gh auth login`"}
 	}

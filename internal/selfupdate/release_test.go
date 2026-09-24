@@ -207,7 +207,7 @@ func TestCheckNewer(t *testing.T) {
 				w.WriteHeader(http.StatusFound)
 			})
 
-			latest, newer, err := CheckNewer(context.Background(), srv.Client(), srv.URL, tt.running)
+			latest, _, newer, err := CheckNewer(context.Background(), srv.Client(), srv.URL, tt.running)
 
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantLatest, latest)
@@ -221,7 +221,7 @@ func TestCheckNewer(t *testing.T) {
 // both must propagate a non-nil error rather than reporting a (silently wrong) result.
 func TestCheckNewer_Errors(t *testing.T) {
 	t.Run("transport error", func(t *testing.T) {
-		_, _, err := CheckNewer(context.Background(), http.DefaultClient, "http://127.0.0.1:1", "0.11.0")
+		_, _, _, err := CheckNewer(context.Background(), http.DefaultClient, "http://127.0.0.1:1", "0.11.0")
 		assert.Error(t, err)
 	})
 
@@ -232,7 +232,29 @@ func TestCheckNewer_Errors(t *testing.T) {
 		}))
 		t.Cleanup(srv.Close)
 
-		_, _, err := CheckNewer(context.Background(), srv.Client(), srv.URL, "0.11.0")
+		_, _, _, err := CheckNewer(context.Background(), srv.Client(), srv.URL, "0.11.0")
 		assert.Error(t, err)
 	})
+}
+
+// TestCheckNewer_ReturnsTheRawResolvedTagNotAReconstructedOne covers review-work Note 8:
+// cmd/musterd's `-update` passes CheckNewer's tag straight to Apply rather than
+// rebuilding one with ReleaseTag(latest.String()) — the Decisions section's own
+// reasoning is that ReleaseTag is only exact for a tag already shaped
+// "v"+Version.String(), and GitHub's own tag isn't guaranteed to be. This resolves a tag
+// with no leading "v" (still a valid ParseRelease match, per releasePattern's own
+// optional-"v" clause) precisely so the two would diverge if tag were reconstructed
+// instead of returned raw: ReleaseTag(latest.String()) would come back "v0.11.0", but the
+// server's own redirect said "0.11.0".
+func TestCheckNewer_ReturnsTheRawResolvedTagNotAReconstructedOne(t *testing.T) {
+	srv := newRedirectServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Location", "/tag/0.11.0")
+		w.WriteHeader(http.StatusFound)
+	})
+
+	latest, tag, _, err := CheckNewer(context.Background(), srv.Client(), srv.URL, "0.10.0")
+
+	require.NoError(t, err)
+	assert.Equal(t, "0.11.0", tag, "tag must be the raw string LatestTag resolved, never rebuilt via ReleaseTag(latest.String())")
+	assert.NotEqual(t, ReleaseTag(latest.String()), tag, "sanity: this case is chosen so a reconstructed tag would visibly differ")
 }

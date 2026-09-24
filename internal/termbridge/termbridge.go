@@ -2,8 +2,9 @@
 // (kb:anchor/terminal.ws): spawning `tmux attach-session` under a `creack/pty`-managed
 // pseudo-terminal, streaming raw bytes both directions, and resizing with pty.Setsize then
 // tmux resize-window, never the pane-level primitive (kb:adr/surfaces-shared-attach-single-pty).
-// This package knows nothing about WebSockets or sessions — internal/server/terminal.go is
-// the only caller, and owns the socket-level concerns (auth, takeover, frame shapes).
+// This package knows nothing about WebSockets or sessions — internal/server is the only
+// caller (its own server.go wires Attach in), and owns the socket-level concerns (auth,
+// takeover, frame shapes).
 package termbridge
 
 import (

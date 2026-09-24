@@ -13,22 +13,22 @@ import (
 	"github.com/Zalaras/muster/internal/claudecode"
 )
 
-// fakeResolvingKiller extends fakeKiller (manager_test.go) with a real
-// ResolveSessionTarget answer, shadowing fakeKiller's own "not supported" one — needed by
+// fakeResolvingTmuxSessions extends fakeTmuxSessions (manager_test.go) with a real
+// ResolveSessionTarget answer, shadowing fakeTmuxSessions's own "not supported" one — needed by
 // RepairOwnedSession/reviveOwnedSession, which call TmuxSessions.ResolveSessionTarget
-// directly (a-M1 folded it into the port; there is no more type-assertion to satisfy).
-type fakeResolvingKiller struct {
-	*fakeKiller
+// directly.
+type fakeResolvingTmuxSessions struct {
+	*fakeTmuxSessions
 	target, pane string
 }
 
-func (f *fakeResolvingKiller) ResolveSessionTarget(_ context.Context, _ string) (string, string, error) {
+func (f *fakeResolvingTmuxSessions) ResolveSessionTarget(_ context.Context, _ string) (string, string, error) {
 	return f.target, f.pane, nil
 }
 
-// --- Critical 1: a changed Model must never mutate one a clone already shares ---
+// --- A changed Model must never mutate one a clone already shares ---
 
-// TestApplyBind_DoesNotMutateAModelSharedByAnEarlierClone covers a-C1, deterministically:
+// TestApplyBind_DoesNotMutateAModelSharedByAnEarlierClone proves, deterministically:
 // a clone taken via Get/List shares its *Model pointer with the live session
 // (Session.Clone is a shallow copy). Rebinding to a different Claude session id must
 // swap in a fresh *Model rather than writing through the old one, or the earlier clone's
@@ -55,14 +55,14 @@ func TestApplyBind_DoesNotMutateAModelSharedByAnEarlierClone(t *testing.T) {
 	_, err = mgr.Apply(ctx, sess.ID, "claude-2", nil, claudecode.StateInput{Kind: claudecode.KindBind, Model: &modelB}, true)
 	require.NoError(t, err)
 
-	assert.Equal(t, modelA, before.Model.ID, "a-C1: a clone taken before the rebind must keep reporting the old model, not have it mutated out from under it")
+	assert.Equal(t, modelA, before.Model.ID, "a clone taken before the rebind must keep reporting the old model, not have it mutated out from under it")
 
 	after, ok := mgr.Get(sess.ID)
 	require.True(t, ok)
 	assert.Equal(t, modelB, after.Model.ID)
 }
 
-// TestApplyBind_ConcurrentWithListNeverRacesOnModel is a-C1's race-detector-driven half:
+// TestApplyBind_ConcurrentWithListNeverRacesOnModel is the race-detector-driven half:
 // one goroutine rebinds with alternating models while another concurrently lists
 // sessions and reads the Model.ID each clone reports, unsynchronized (the same read
 // internal/server's wire mapping performs). Pre-fix, applyBind wrote into the shared
@@ -97,7 +97,7 @@ func TestApplyBind_ConcurrentWithListNeverRacesOnModel(t *testing.T) {
 		for range iterations {
 			for _, s := range mgr.List() {
 				if s.Model != nil {
-					_ = s.Model.ID // unsynchronized read — a-C1's exact race
+					_ = s.Model.ID // unsynchronized read of a field a concurrent rebind may replace
 				}
 			}
 		}
@@ -108,14 +108,15 @@ func TestApplyBind_ConcurrentWithListNeverRacesOnModel(t *testing.T) {
 	assert.True(t, ok)
 }
 
-// --- a-M2: CreateSession's railPos must be decided and advanced in one critical section ---
+// --- CreateSession's railPos must be decided and advanced in one critical section ---
 
-// TestCreateSession_ConcurrentLaunchesForDifferentDirectoriesGetDistinctRailPos covers
-// a-M2 at the Manager level (TestLauncher_ConcurrentLaunchesForTheSameDirectoryProduceTwoDistinctRows's
-// shape, one level down): two concurrent CreateSession calls must never both read the
-// same "next" railPos, since InsertSession's own round trip separates the read from the
-// registration that would make it visible to a second caller. Looped, since the
-// pre-fix collision is real but timing-dependent.
+// TestCreateSession_ConcurrentLaunchesForDifferentDirectoriesGetDistinctRailPos proves this
+// at the Manager level (the same shape as
+// TestLauncher_ConcurrentLaunchesForTheSameDirectoryProduceTwoDistinctRows, one level
+// down): two concurrent CreateSession calls must never both read the same "next" railPos,
+// since InsertSession's own round trip separates the read from the registration that
+// would make it visible to a second caller. Looped, since the collision is real but
+// timing-dependent.
 func TestCreateSession_ConcurrentLaunchesForDifferentDirectoriesGetDistinctRailPos(t *testing.T) {
 	st := openTestStore(t)
 	mgr := newTestManager(t, st, nil, nil)
@@ -176,13 +177,13 @@ func TestCreateSession_AfterRailReorderStillExceedsEveryExistingRailPos(t *testi
 	assert.Greater(t, next.RailPos, maxExisting, "a new session's railPos must exceed every existing one even after the rail has been rebuilt")
 }
 
-// --- b-M1/a-S2: MarkPlanWritten's exists-flip must be a CAS against the committed path ---
+// --- MarkPlanWritten's exists-flip must be a CAS against the committed path ---
 
-// TestMarkPlanWritten_RefusesAStalePathAndFlipsExistsOnlyForTheCommittedOne covers b-M1/
-// a-S2's exact reproduction: observeWrite reads PlanPath outside the lock, so by the
-// time it calls MarkPlanWritten a concurrent ApplyPlanScan may have already moved
-// PlanPath on. MarkPlanWritten must re-check against the value committed *now*, not the
-// caller's stale read — and must still flip a path that IS still current.
+// TestMarkPlanWritten_RefusesAStalePathAndFlipsExistsOnlyForTheCommittedOne reproduces
+// observeWrite's own race: it reads PlanPath outside the lock, so by the time it calls
+// MarkPlanWritten a concurrent ApplyPlanScan may have already moved PlanPath on.
+// MarkPlanWritten must re-check against the value committed *now*, not the caller's stale
+// read — and must still flip a path that IS still current.
 func TestMarkPlanWritten_RefusesAStalePathAndFlipsExistsOnlyForTheCommittedOne(t *testing.T) {
 	st := openTestStore(t)
 	rec := &upsertsRecorder{}
@@ -209,7 +210,7 @@ func TestMarkPlanWritten_RefusesAStalePathAndFlipsExistsOnlyForTheCommittedOne(t
 
 		got, changed, err := mgr.MarkPlanWritten(ctx, sess.ID, "claude-1", stalePath)
 		require.NoError(t, err)
-		assert.False(t, changed, "b-M1: a stale expectedPath must never commit")
+		assert.False(t, changed, "a stale expectedPath must never commit")
 		assert.Equal(t, p2, got.PlanPath, "the current, scan-committed path must survive untouched")
 		assert.True(t, got.PlanExists)
 		assert.Len(t, rec.all(), before, "a refused flip must not broadcast")
@@ -255,14 +256,14 @@ func writeTempPlanFile(t *testing.T, name string) string {
 	return path
 }
 
-// --- S1: every persist-touching setter shares one rollback-on-failure policy ---
+// --- Every persist-touching setter shares one rollback-on-failure policy ---
 
-// TestPersistFailure_RollsBackEveryMutationUniformly covers S1's widened finding: only
-// RecordLaunch/RecordResume/markEnded used to roll back a failed persist, leaving every
-// other setter free to leave memory ahead of the DB. Table-driven since every row shares
-// the same setup/assert shape (build a bound, launched session, close the store, call
-// the setter, assert the in-memory session is byte-identical to its pre-call clone and
-// nothing broadcast) and differs only in which setter runs.
+// TestPersistFailure_RollsBackEveryMutationUniformly proves every setter that persists a
+// row — not just RecordLaunch/RecordResume/markEnded — rolls back on a failed persist.
+// Table-driven since every row shares the same setup/assert shape (build a bound,
+// launched session, close the store, call the setter, assert the in-memory session is
+// byte-identical to its pre-call clone and nothing broadcast) and differs only in which
+// setter runs.
 func TestPersistFailure_RollsBackEveryMutationUniformly(t *testing.T) {
 	title := "renamed"
 	tests := []struct {
@@ -271,8 +272,8 @@ func TestPersistFailure_RollsBackEveryMutationUniformly(t *testing.T) {
 	}{
 		{"Apply", func(ctx context.Context, mgr *Manager, sess *Session) error {
 			// A no-op-shaped input (e.g. re-closing an already-idle turn) leaves nothing
-			// for finishWrite to actually roll back, proving nothing about S1 — this must
-			// be a genuine mutation (state idle->working, LastPrompt, currentPromptID).
+			// for finishWrite to actually roll back, proving nothing — this must be a
+			// genuine mutation (state idle->working, LastPrompt, currentPromptID).
 			promptID, prompt := "closed-store-prompt", "hello"
 			_, err := mgr.Apply(ctx, sess.ID, "claude-1", &promptID, claudecode.StateInput{Kind: claudecode.KindTurnActivity, Prompt: &prompt}, true)
 			return err
@@ -320,7 +321,7 @@ func TestPersistFailure_RollsBackEveryMutationUniformly(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			st := openTestStore(t)
 			rec := &upsertsRecorder{}
-			killer := &fakeResolvingKiller{fakeKiller: newFakeKiller(), target: "muster-resumed:@1", pane: "%9"}
+			killer := &fakeResolvingTmuxSessions{fakeTmuxSessions: newFakeTmuxSessions(), target: "muster-resumed:@1", pane: "%9"}
 			mgr := newTestManager(t, st, nil, rec.record, withTmuxSessions(killer))
 			ctx := context.Background()
 			dir := t.TempDir()
@@ -338,17 +339,17 @@ func TestPersistFailure_RollsBackEveryMutationUniformly(t *testing.T) {
 
 			after, ok := mgr.Get(sess.ID)
 			require.True(t, ok)
-			assert.Equal(t, before, after, "S1: a failed persist must leave the in-memory session exactly as it was")
+			assert.Equal(t, before, after, "a failed persist must leave the in-memory session exactly as it was")
 			assert.Len(t, rec.all(), beforeBroadcasts, "a failed persist must never broadcast")
 		})
 	}
 }
 
-// TestPersistFailure_RailBatchRollsBackEveryQueuedWrite covers S1's rail-tail half:
-// persistAndBroadcastRail used to stop at the first persist failure with every
-// already-mutated-in-memory entry left in place — including ones behind the failure that
-// were never even attempted. With a closed store the very first write in the batch
-// fails, so every one of the 3 affected sessions must roll back, not just it.
+// TestPersistFailure_RailBatchRollsBackEveryQueuedWrite proves persistAndBroadcastRail's
+// own rollback: every already-mutated-in-memory entry, including ones behind the failure
+// that were never even attempted, must roll back rather than stay ahead of the DB. With a
+// closed store the very first write in the batch fails, so every one of the 3 affected
+// sessions must roll back, not just it.
 func TestPersistFailure_RailBatchRollsBackEveryQueuedWrite(t *testing.T) {
 	tests := []struct {
 		name string
@@ -397,7 +398,7 @@ func TestPersistFailure_RailBatchRollsBackEveryQueuedWrite(t *testing.T) {
 	}
 }
 
-// --- S1: the write-ordering ticket itself, white-box, since real DB-call timing can't
+// --- The write-ordering ticket itself, white-box, since real DB-call timing can't
 // be forced deterministically ---
 
 // TestWriteTurns_FinishWriteOrdersPersistsByTicketNotGoroutineStartOrder drives

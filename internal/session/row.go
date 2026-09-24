@@ -7,10 +7,7 @@ import (
 )
 
 // derefOrZero returns *p, or T's zero value when p is nil — rowToSession's shared answer
-// for every nullable-column-to-value field (a-m1: the ~20 hand-written nil checks this
-// package used to repeat once per field, including the two applyReaderRowFields existed
-// only to peel off rowToSession to dodge the gocyclo ceiling, not because they were a
-// cohesive group).
+// for every nullable-column-to-value field.
 func derefOrZero[T any](p *T) T {
 	if p == nil {
 		var zero T

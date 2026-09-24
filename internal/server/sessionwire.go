@@ -109,9 +109,9 @@ type paneSnapshotWire struct {
 }
 
 // toWireSession converts a session.Session to its wire shape. repo is null "when
-// directory isn't a git checkout" (kb:anchor/ws.session) — session.Branch is authoritatively nil in
-// exactly that case (Schema Changes: "branch ... null when not git"), so that's the
-// single source of truth here; no separate is-git flag is needed.
+// directory isn't a git checkout" (kb:anchor/ws.session) — session.Branch is authoritatively
+// nil in exactly that case, so that's the single source of truth here; no separate is-git
+// flag is needed.
 func toWireSession(s *session.Session) sessionWire {
 	w := sessionWire{
 		ID:              s.ID,

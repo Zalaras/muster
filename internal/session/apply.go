@@ -92,24 +92,33 @@ func (m *Manager) Apply(ctx context.Context, musterSessionID int64, claudeSessio
 	if input.Kind == claudecode.KindTurnClosed {
 		sess.Unread = m.watcher == nil || !m.watcher.Watched(musterSessionID)
 	}
-	row := sessionToRow(sess)
-	snapshot := sess.Clone()
+	post := sess.Clone()
 	wait, done := m.nextWriteTurnLocked(musterSessionID)
 	m.mu.Unlock()
 
+	// Apply spells out its own tail rather than calling persistWholeRow: byClaude is
+	// Manager-level map state, not a field of sess, so restoring it can't go through
+	// restoreChangedFields' per-field Session CAS — it's put back unconditionally to what
+	// it held before this call, the same outcome a whole-struct restore would have given a
+	// single in-flight write (persistWholeRow's doc), and reverting it further finely
+	// would need tracking a second writer's claim on the same claude id, which nothing in
+	// this package does today.
+	fieldRestore := restoreChangedFields(prev, post)
 	restore := func(cur *Session) {
-		*cur = *prev
+		fieldRestore(cur)
 		if hadPrevOwner {
 			m.byClaude[claudeSessionID] = prevOwner
 		} else {
 			delete(m.byClaude, claudeSessionID)
 		}
 	}
-	persist := func() error { return m.store.UpdateSession(ctx, row) }
-	if err := m.finishWrite(musterSessionID, sess, wait, done, persist, snapshot, restore); err != nil {
+
+	persist, result := m.wholeRowPersist(ctx, musterSessionID, sess)
+	if err := m.finishWrite(musterSessionID, sess, wait, done, persist, nil, restore); err != nil {
 		return nil, fmt.Errorf("persisting session %d: %w", musterSessionID, err)
 	}
-	return snapshot, nil
+	m.broadcast(*result)
+	return *result, nil
 }
 
 // isBindKind reports whether kind is one of the three inputs applyInput itself routes
@@ -157,23 +166,16 @@ func (m *Manager) ApplyStatus(ctx context.Context, musterSessionID int64, update
 		m.mu.Unlock()
 		return snapshot, nil
 	}
-	row := sessionToRow(sess)
-	snapshot := sess.Clone()
+	post := sess.Clone()
 	// A status post that only refreshed Claude's name while an override is set persists
 	// the row (Title changed, above — applyStatusUpdate reported it) but must not
 	// broadcast — the wire object (DisplayTitle()/model/context) is unchanged, and
 	// kb:anchor/ws.session's no-no-op-upserts rule stands
 	// (kb:adr/rename-muster-owned-title-override-wins).
 	broadcast := !stringPtrEqual(beforeDisplay, sess.DisplayTitle()) || beforeModel != sess.Model || beforeContext != sess.Context
-	wait, done := m.nextWriteTurnLocked(musterSessionID)
-	m.mu.Unlock()
 
-	broadcastSnapshot := snapshot
-	if !broadcast {
-		broadcastSnapshot = nil
-	}
-	persist := func() error { return m.store.UpdateSession(ctx, row) }
-	if err := m.finishWrite(musterSessionID, sess, wait, done, persist, broadcastSnapshot, cloneRestore(prev)); err != nil {
+	snapshot, err := m.persistWholeRow(ctx, musterSessionID, sess, prev, post, broadcast)
+	if err != nil {
 		return nil, fmt.Errorf("persisting status update for session %d: %w", musterSessionID, err)
 	}
 	return snapshot, nil

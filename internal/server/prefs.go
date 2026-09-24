@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -313,12 +314,21 @@ func (f *prefsFeature) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := r.Context()
+	if err := f.applyAndPersist(r.Context(), fields, req.UpdateCheck); err != nil {
+		f.log.Error().Err(err).Msg("applying prefs failed")
+		writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
+		return
+	}
 
-	// One PUT's load-merge-persist-broadcast is atomic against every other: without this
-	// lock, two concurrent single-field PUTs can both loadPrefs the same base object, so
-	// the second's KVSet/broadcast overwrites the first's field with a value that never
-	// included it.
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// applyAndPersist runs PUT /api/prefs' atomic load-merge-persist-broadcast sequence
+// (kb:anchor/prefs.put): the whole sequence runs under f.mu, declared where the field says
+// why. Business logic lives here, not in the handler (docs/conventions.md § Go, "handlers
+// decode, delegate, encode") — handlePutPrefs only decodes/validates fields above and
+// encodes the result below.
+func (f *prefsFeature) applyAndPersist(ctx context.Context, fields []prefsField, updateCheck *bool) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -329,21 +339,17 @@ func (f *prefsFeature) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 			field.apply(&prefs)
 		}
 	}
-	if req.UpdateCheck != nil && *req.UpdateCheck != prefs.UpdateCheck {
-		prefs.UpdateCheck = *req.UpdateCheck
+	if updateCheck != nil && *updateCheck != prefs.UpdateCheck {
+		prefs.UpdateCheck = *updateCheck
 		updateCheckChanged = true
 	}
 
 	encoded, err := json.Marshal(prefs)
 	if err != nil {
-		f.log.Error().Err(err).Msg("encoding prefs failed")
-		writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
-		return
+		return fmt.Errorf("encoding prefs: %w", err)
 	}
 	if err := f.store.KVSet(ctx, prefsKVKey, string(encoded)); err != nil {
-		f.log.Error().Err(err).Msg("persisting prefs failed")
-		writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
-		return
+		return fmt.Errorf("persisting prefs: %w", err)
 	}
 
 	f.hub.broadcast(prefsMessage{Type: "prefs", Prefs: prefs})
@@ -354,6 +360,5 @@ func (f *prefsFeature) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 	if updateCheckChanged && f.updateChecker != nil {
 		f.updateChecker.SetCheckEnabled(prefs.UpdateCheck)
 	}
-
-	w.WriteHeader(http.StatusNoContent)
+	return nil
 }

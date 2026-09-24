@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
-	"github.com/Zalaras/muster/internal/store"
 )
 
 // maxRailPosLocked returns the largest RailPos among known sessions, or -1 when there are
@@ -32,18 +30,19 @@ func (m *Manager) railEntriesLocked() []railEntry {
 	return out
 }
 
-// railWrite is one changed session's rail write, fully built while applyRailChangesLocked
-// still holds m.mu — row/snapshot/wait/done all reflect that lock scope's mutation, so
-// persistAndBroadcastRail's later, unlocked loop only ever waits, persists and restores;
-// it never touches sess again to derive anything.
+// railWrite is one changed session's rail write, captured while applyRailChangesLocked
+// still holds m.mu: sess/prev/post/wait/done all reflect that lock scope's mutation.
+// persistAndBroadcastRail's own persist closure re-reads the row and broadcast snapshot
+// from live memory at each write's turn rather than freezing them here — the same reason
+// persistWholeRow does: a bystander write on the same id queued in between must never be
+// baked over or wiped out.
 type railWrite struct {
-	id       int64
-	sess     *Session // live pointer, for finishWrite's identity-checked restore
-	prev     *Session // pre-mutation clone, cloneRestore's target on a persist failure
-	row      store.SessionRow
-	snapshot *Session
-	wait     <-chan struct{}
-	done     func()
+	id   int64
+	sess *Session // live pointer, for finishWrite's identity-checked restore
+	prev *Session // pre-mutation clone, restoreChangedFields' baseline
+	post *Session // post-mutation clone, restoreChangedFields' "did anything else touch this since" reference
+	wait <-chan struct{}
+	done func()
 }
 
 // errRailWriteAborted is persistAndBroadcastRail's internal signal for a not-yet-attempted
@@ -66,27 +65,47 @@ func (m *Manager) applyRailChangesLocked(changed []railEntry) []railWrite {
 		prev := sess.Clone()
 		sess.Pinned = c.Pinned
 		sess.RailPos = c.RailPos
-		row := sessionToRow(sess)
-		snapshot := sess.Clone()
+		post := sess.Clone()
 		wait, done := m.nextWriteTurnLocked(c.ID)
-		writes = append(writes, railWrite{id: c.ID, sess: sess, prev: prev, row: row, snapshot: snapshot, wait: wait, done: done})
+		writes = append(writes, railWrite{id: c.ID, sess: sess, prev: prev, post: post, wait: wait, done: done})
 	}
 	return writes
+}
+
+// railPersist builds w's persist closure: like persistWholeRow, it re-reads w.id's row
+// (and, on success, the broadcast snapshot) from live memory only when finishWrite actually
+// calls it — at w's own turn, after every earlier write on the same id has resolved —
+// rather than from a value frozen back when applyRailChangesLocked mutated it.
+func (m *Manager) railPersist(ctx context.Context, w railWrite) func() error {
+	return func() error {
+		m.mu.Lock()
+		cur, ok := m.sessions[w.id]
+		if !ok || cur != w.sess {
+			m.mu.Unlock()
+			return ErrUnknownSession
+		}
+		row := sessionToRow(cur)
+		snapshot := cur.Clone()
+		m.mu.Unlock()
+		if err := m.store.UpdateSession(ctx, row); err != nil {
+			return err
+		}
+		m.broadcast(snapshot)
+		return nil
+	}
 }
 
 // persistAndBroadcastRail persists and broadcasts each of writes in turn — the tail
 // shared by SetPinned/SetOrder once the in-memory mutation is done and the lock released:
 // every session whose pinned or railPos changed is broadcast. Stops at
 // the first persist failure and rolls that one back plus every write still queued behind
-// it (a batch that stops partway must never leave memory claiming rail positions the
-// DB never recorded) — writes already persisted and broadcast earlier in this call stand.
+// it (a batch that stops partway must never leave memory claiming rail positions the DB
+// never recorded) — writes already persisted and broadcast earlier in this call stand.
 func (m *Manager) persistAndBroadcastRail(ctx context.Context, writes []railWrite) error {
 	for i, w := range writes {
-		row := w.row
-		persist := func() error { return m.store.UpdateSession(ctx, row) }
-		if err := m.finishWrite(w.id, w.sess, w.wait, w.done, persist, w.snapshot, cloneRestore(w.prev)); err != nil {
+		if err := m.finishWrite(w.id, w.sess, w.wait, w.done, m.railPersist(ctx, w), nil, restoreChangedFields(w.prev, w.post)); err != nil {
 			for _, rest := range writes[i+1:] {
-				_ = m.finishWrite(rest.id, rest.sess, rest.wait, rest.done, func() error { return errRailWriteAborted }, nil, cloneRestore(rest.prev))
+				_ = m.finishWrite(rest.id, rest.sess, rest.wait, rest.done, func() error { return errRailWriteAborted }, nil, restoreChangedFields(rest.prev, rest.post))
 			}
 			return fmt.Errorf("persisting rail order for session %d: %w", w.id, err)
 		}
@@ -127,4 +146,31 @@ func (m *Manager) SetOrder(ctx context.Context, ids []int64, pinnedCount int) er
 	m.mu.Unlock()
 
 	return m.persistAndBroadcastRail(ctx, writes)
+}
+
+// MarkSeen clears id's Unread flag (kb:adr/rail-unread-inferred-from-live-terminal-client):
+// the attach side effect on either terminal surface, called before the first byte is
+// forwarded. Persists and broadcasts one sessionUpsert only when Unread was actually
+// true — an already-read session's attach neither writes nor broadcasts. Returns
+// ErrUnknownSession for a missing id. Lives here, not beside SetTitle: Unread is a rail
+// concept — set by Apply's turn_closed handling (apply.go), cleared here, read by the
+// rail's own unread badge — not a title one.
+func (m *Manager) MarkSeen(ctx context.Context, id int64) error {
+	m.mu.Lock()
+	sess, ok := m.sessions[id]
+	if !ok {
+		m.mu.Unlock()
+		return ErrUnknownSession
+	}
+	if !sess.Unread {
+		m.mu.Unlock()
+		return nil
+	}
+	prev := sess.Clone()
+	sess.Unread = false
+	post := sess.Clone()
+	if _, err := m.persistWholeRow(ctx, id, sess, prev, post, true); err != nil {
+		return fmt.Errorf("marking session %d seen: %w", id, err)
+	}
+	return nil
 }

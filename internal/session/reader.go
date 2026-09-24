@@ -26,16 +26,13 @@ func (m *Manager) SetTranscript(ctx context.Context, id int64, claudeSessionID, 
 	}
 	prev := sess.Clone()
 	sess.TranscriptPath = path
-	row := sessionToRow(sess)
-	wait, done := m.nextWriteTurnLocked(id)
-	m.mu.Unlock()
+	post := sess.Clone()
 
-	// snapshot is nil: SetTranscript never broadcasts, but it still shares id's
+	// broadcast=false: SetTranscript never broadcasts, but it still shares id's
 	// write-ordering turnstile — it writes the same whole row every other setter does, so
 	// an out-of-turn persist here would just as easily clobber a newer field elsewhere in
 	// the row.
-	persist := func() error { return m.store.UpdateSession(ctx, row) }
-	if err := m.finishWrite(id, sess, wait, done, persist, nil, cloneRestore(prev)); err != nil {
+	if _, err := m.persistWholeRow(ctx, id, sess, prev, post, false); err != nil {
 		return false, fmt.Errorf("persisting transcript path for session %d: %w", id, err)
 	}
 	return true, nil
@@ -45,10 +42,14 @@ func (m *Manager) SetTranscript(ctx context.Context, id int64, claudeSessionID, 
 // only when path or exists actually changed. Refused (no persist, changed=false, the
 // session's current snapshot returned) when claudeSessionID no longer names id's current
 // binding (kb:spec/reader) — a straggler's scan or write must never move the plan.
-// path == "" is the wire plan:null. Callers
-// that already know the real path to write (observeWrite's exists-true flip) call this
-// directly; a transcript scan that may find nothing goes through ApplyPlanScan instead,
-// which is the only place the sticky-once-named retention rule is decided.
+// path == "" is the wire plan:null.
+//
+// No production code calls SetPlan today (`rg '\.SetPlan\(' internal -g '!*_test.go'`
+// finds nothing): ApplyPlanScan is production's one writer for a transcript scan's
+// result, and MarkPlanWritten is production's one writer for the exists-flip. SetPlan
+// stays as a lower-level primitive tests use to seed PlanPath/PlanExists directly, without
+// going through ApplyPlanScan's sticky-retention decision or MarkPlanWritten's
+// compare-and-set — it bypasses both, which is exactly why production never calls it.
 func (m *Manager) SetPlan(ctx context.Context, id int64, claudeSessionID, path string, exists bool) (*Session, bool, error) {
 	m.mu.Lock()
 	sess, ok := m.sessions[id]
@@ -64,13 +65,10 @@ func (m *Manager) SetPlan(ctx context.Context, id int64, claudeSessionID, path s
 	prev := sess.Clone()
 	sess.PlanPath = path
 	sess.PlanExists = exists
-	row := sessionToRow(sess)
-	snapshot := sess.Clone()
-	wait, done := m.nextWriteTurnLocked(id)
-	m.mu.Unlock()
+	post := sess.Clone()
 
-	persist := func() error { return m.store.UpdateSession(ctx, row) }
-	if err := m.finishWrite(id, sess, wait, done, persist, snapshot, cloneRestore(prev)); err != nil {
+	snapshot, err := m.persistWholeRow(ctx, id, sess, prev, post, true)
+	if err != nil {
 		return nil, false, fmt.Errorf("persisting plan for session %d: %w", id, err)
 	}
 	return snapshot, true, nil
@@ -82,10 +80,9 @@ func (m *Manager) SetPlan(ctx context.Context, id int64, claudeSessionID, path s
 // section against the value actually committed *now*, never against a path the caller
 // read earlier through Get() outside the lock. Without this, a concurrent ApplyPlanScan
 // naming a different plan could be overwritten back to the stale path SetPlan's generic
-// (path, exists) signature would otherwise blindly write (observeWrite used to call
-// SetPlan directly for this; SetPlan itself is unchanged and still used by callers that
-// already hold the real, current path). Refused (no persist, changed=false) when
-// claudeSessionID no longer names id's current binding (kb:spec/reader), same as SetPlan.
+// (path, exists) signature would otherwise blindly write. Refused (no persist,
+// changed=false) when claudeSessionID no longer names id's current binding (kb:spec/reader),
+// same as SetPlan.
 func (m *Manager) MarkPlanWritten(ctx context.Context, id int64, claudeSessionID, expectedPath string) (*Session, bool, error) {
 	m.mu.Lock()
 	sess, ok := m.sessions[id]
@@ -100,13 +97,10 @@ func (m *Manager) MarkPlanWritten(ctx context.Context, id int64, claudeSessionID
 	}
 	prev := sess.Clone()
 	sess.PlanExists = true
-	row := sessionToRow(sess)
-	snapshot := sess.Clone()
-	wait, done := m.nextWriteTurnLocked(id)
-	m.mu.Unlock()
+	post := sess.Clone()
 
-	persist := func() error { return m.store.UpdateSession(ctx, row) }
-	if err := m.finishWrite(id, sess, wait, done, persist, snapshot, cloneRestore(prev)); err != nil {
+	snapshot, err := m.persistWholeRow(ctx, id, sess, prev, post, true)
+	if err != nil {
 		return nil, false, fmt.Errorf("persisting plan for session %d: %w", id, err)
 	}
 	return snapshot, true, nil
@@ -157,13 +151,10 @@ func (m *Manager) ApplyPlanScan(ctx context.Context, id int64, claudeSessionID, 
 	prev := sess.Clone()
 	sess.PlanPath = path
 	sess.PlanExists = exists
-	row := sessionToRow(sess)
-	snapshot := sess.Clone()
-	wait, done := m.nextWriteTurnLocked(id)
-	m.mu.Unlock()
+	post := sess.Clone()
 
-	persist := func() error { return m.store.UpdateSession(ctx, row) }
-	if err := m.finishWrite(id, sess, wait, done, persist, snapshot, cloneRestore(prev)); err != nil {
+	snapshot, err := m.persistWholeRow(ctx, id, sess, prev, post, true)
+	if err != nil {
 		return nil, false, fmt.Errorf("persisting plan for session %d: %w", id, err)
 	}
 	return snapshot, true, nil

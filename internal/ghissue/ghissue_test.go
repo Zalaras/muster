@@ -26,10 +26,10 @@ func TestGhCLITokenReader_Success_ParsesTrimmedStdoutAndPassesExpectedArgs(t *te
 	}
 	var gotName string
 	var gotArgs []string
-	run := func(_ context.Context, name string, args ...string) (string, string, error) {
+	run := func(_ context.Context, name string, args ...string) ([]byte, []byte, error) {
 		gotName = name
 		gotArgs = args
-		return "  tok-abc-123  \n", "", nil
+		return []byte("  tok-abc-123  \n"), nil, nil
 	}
 
 	token, err := (&ghTokenReader{lookPath: lookPath, run: run}).read(context.Background())
@@ -43,9 +43,9 @@ func TestGhCLITokenReader_Success_ParsesTrimmedStdoutAndPassesExpectedArgs(t *te
 
 func TestGhCLITokenReader_GhNotOnPath_ReturnsErrAuthFailed(t *testing.T) {
 	lookPath := func(string) (string, error) { return "", errors.New("not found") }
-	run := func(context.Context, string, ...string) (string, string, error) {
+	run := func(context.Context, string, ...string) ([]byte, []byte, error) {
 		t.Fatal("run must not be called when gh is not on PATH")
-		return "", "", nil
+		return nil, nil, nil
 	}
 
 	_, err := (&ghTokenReader{lookPath: lookPath, run: run}).read(context.Background())
@@ -57,8 +57,8 @@ func TestGhCLITokenReader_GhNotOnPath_ReturnsErrAuthFailed(t *testing.T) {
 
 func TestGhCLITokenReader_NonZeroExit_ReturnsErrAuthFailedWithTrimmedStderr(t *testing.T) {
 	lookPath := func(string) (string, error) { return "/usr/bin/gh", nil }
-	run := func(context.Context, string, ...string) (string, string, error) {
-		return "", "  not logged in  \n", errors.New("exit status 1")
+	run := func(context.Context, string, ...string) ([]byte, []byte, error) {
+		return nil, []byte("  not logged in  \n"), errors.New("exit status 1")
 	}
 
 	_, err := (&ghTokenReader{lookPath: lookPath, run: run}).read(context.Background())
@@ -71,8 +71,8 @@ func TestGhCLITokenReader_NonZeroExit_ReturnsErrAuthFailedWithTrimmedStderr(t *t
 
 func TestGhCLITokenReader_NonZeroExitEmptyStderr_UsesGenericMessage(t *testing.T) {
 	lookPath := func(string) (string, error) { return "/usr/bin/gh", nil }
-	run := func(context.Context, string, ...string) (string, string, error) {
-		return "", "", errors.New("exit status 1")
+	run := func(context.Context, string, ...string) ([]byte, []byte, error) {
+		return nil, nil, errors.New("exit status 1")
 	}
 
 	_, err := (&ghTokenReader{lookPath: lookPath, run: run}).read(context.Background())
@@ -84,8 +84,8 @@ func TestGhCLITokenReader_NonZeroExitEmptyStderr_UsesGenericMessage(t *testing.T
 
 func TestGhCLITokenReader_EmptyToken_ReturnsErrAuthFailed(t *testing.T) {
 	lookPath := func(string) (string, error) { return "/usr/bin/gh", nil }
-	run := func(context.Context, string, ...string) (string, string, error) {
-		return "   \n", "", nil
+	run := func(context.Context, string, ...string) ([]byte, []byte, error) {
+		return []byte("   \n"), nil, nil
 	}
 
 	_, err := (&ghTokenReader{lookPath: lookPath, run: run}).read(context.Background())
@@ -102,9 +102,9 @@ func TestGhCLITokenReader_AppliesFiveSecondTimeout(t *testing.T) {
 	lookPath := func(string) (string, error) { return "/usr/bin/gh", nil }
 	var gotDeadline time.Time
 	var hasDeadline bool
-	run := func(ctx context.Context, _ string, _ ...string) (string, string, error) {
+	run := func(ctx context.Context, _ string, _ ...string) ([]byte, []byte, error) {
 		gotDeadline, hasDeadline = ctx.Deadline()
-		return "tok", "", nil
+		return []byte("tok"), nil, nil
 	}
 
 	_, err := (&ghTokenReader{lookPath: lookPath, run: run}).read(context.Background())
@@ -121,9 +121,9 @@ func TestGhCLITokenReader_RespectsParentContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	var sawCanceled bool
-	run := func(runCtx context.Context, _ string, _ ...string) (string, string, error) {
+	run := func(runCtx context.Context, _ string, _ ...string) ([]byte, []byte, error) {
 		sawCanceled = runCtx.Err() != nil
-		return "", "", runCtx.Err()
+		return nil, nil, runCtx.Err()
 	}
 
 	_, err := (&ghTokenReader{lookPath: lookPath, run: run}).read(ctx)
@@ -140,8 +140,8 @@ func TestGhCLITokenReader_RespectsParentContextCancellation(t *testing.T) {
 func TestGhCLITokenReader_StdoutNeverEchoedIntoTheErrorEvenOnFailure(t *testing.T) {
 	const secretToken = "gh-stdout-leak-sentinel-do-not-echo"
 	lookPath := func(string) (string, error) { return "/usr/bin/gh", nil }
-	run := func(context.Context, string, ...string) (string, string, error) {
-		return secretToken, "permission denied", errors.New("exit status 1")
+	run := func(context.Context, string, ...string) ([]byte, []byte, error) {
+		return []byte(secretToken), []byte("permission denied"), errors.New("exit status 1")
 	}
 
 	_, err := (&ghTokenReader{lookPath: lookPath, run: run}).read(context.Background())
@@ -428,8 +428,8 @@ func TestCreateIssue_ErrorMessagesNeverContainTheToken(t *testing.T) {
 
 	t.Run("gh auth token non-zero exit with stdout containing token-shaped text", func(t *testing.T) {
 		lookPath := func(string) (string, error) { return "/usr/bin/gh", nil }
-		run := func(context.Context, string, ...string) (string, string, error) {
-			return secretToken, "not logged in", errors.New("exit 1")
+		run := func(context.Context, string, ...string) ([]byte, []byte, error) {
+			return []byte(secretToken), []byte("not logged in"), errors.New("exit 1")
 		}
 		c := &Client{TokenReader: (&ghTokenReader{lookPath: lookPath, run: run}).read}
 
@@ -441,8 +441,8 @@ func TestCreateIssue_ErrorMessagesNeverContainTheToken(t *testing.T) {
 
 	t.Run("gh auth token prints empty token", func(t *testing.T) {
 		lookPath := func(string) (string, error) { return "/usr/bin/gh", nil }
-		run := func(context.Context, string, ...string) (string, string, error) {
-			return "   ", "", nil
+		run := func(context.Context, string, ...string) ([]byte, []byte, error) {
+			return []byte("   "), nil, nil
 		}
 		c := &Client{TokenReader: (&ghTokenReader{lookPath: lookPath, run: run}).read}
 
@@ -461,6 +461,6 @@ func TestRunCommand_HarmlessSmokeTestNeverUsedByGhCLITokenReaderTests(t *testing
 	stdout, stderr, err := runCommand(context.Background(), "echo", "hello")
 
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "hello")
+	assert.Contains(t, string(stdout), "hello")
 	assert.Empty(t, stderr)
 }

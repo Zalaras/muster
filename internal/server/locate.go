@@ -44,9 +44,9 @@ func (f *locateFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.
 // decodes the single multipart file part directly off the wire — never via
 // ParseMultipartForm's memory/temp-file split — so the upload can never touch disk
 // (kb:adr/drop-daemon-locates-original-never-stages), delegates to the Locator, and maps
-// its outcome to the Protocol Contract's
-// error codes. Business logic (candidate discovery, byte comparison) lives entirely in
-// internal/locate; this handler only decodes, delegates and encodes.
+// its outcome onto kb:anchor/sessions.locate's error codes. Business logic (candidate
+// discovery, byte comparison) lives entirely in internal/locate; this handler only
+// decodes, delegates and encodes.
 func (f *locateFeature) handleLocateFile(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
 	if !ok {
@@ -116,8 +116,8 @@ var (
 
 // readFilePart reads the first (and only) part named "file" off mr, entirely in memory
 // (kb:adr/drop-daemon-locates-original-never-stages: the upload is a fingerprint, never
-// staged to disk). Every other part is skipped unread — the Protocol Contract reads no
-// other parts.
+// staged to disk). Every other part is skipped unread — kb:anchor/sessions.locate reads
+// no other parts.
 func readFilePart(mr *multipart.Reader) (string, []byte, error) {
 	for {
 		part, partErr := mr.NextPart()

@@ -109,8 +109,8 @@ func (f *readerFeature) observeWrite(ctx context.Context, sessionID int64, claud
 	f.writes.Record(sessionID, clean, now)
 
 	if clean == sess.PlanPath && !sess.PlanExists {
-		// The sessionUpsert carrying exists:true must precede docChanged (Protocol
-		// Contract) — this call broadcasts it (via MarkPlanWritten) before the broadcast
+		// The sessionUpsert carrying exists:true must precede docChanged
+		// (kb:anchor/ws.doc-changed) — this call broadcasts it (via MarkPlanWritten) before the broadcast
 		// below. MarkPlanWritten re-checks PlanPath against the manager's current,
 		// lock-held value rather than the sess read above: this Get() happened outside the
 		// lock, so by the time we get here a concurrent ApplyPlanScan may already have moved
@@ -121,7 +121,7 @@ func (f *readerFeature) observeWrite(ctx context.Context, sessionID int64, claud
 		}
 	}
 
-	f.hub.broadcast(docChangedMessage{Type: "docChanged", ID: sessionID, Path: clean, At: now.Format(time.RFC3339)})
+	f.hub.broadcast(docChangedMessage{Type: "docChanged", ID: sessionID, Path: clean, At: wireTime(now)})
 }
 
 // scanPlan runs the transcript scan for a locatable plan file and hands its result to

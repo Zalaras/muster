@@ -16,6 +16,11 @@ import (
 // constant on the wire (kb:anchor/ws.usage modelScopedSource).
 const defaultModelScopedSource = "subscription-api"
 
+// DefaultModelScopedSource exposes defaultModelScopedSource for internal/server's
+// emptyUsageInfo placeholder — the one caller outside this package that needs the same
+// default, so it reads this instead of keeping its own copy of the literal.
+const DefaultModelScopedSource = defaultModelScopedSource
+
 // ModelScopedConfig wires a ModelScoped. OnChange broadcasts the merged `usage` WS
 // message; nil in tests.
 type ModelScopedConfig struct {

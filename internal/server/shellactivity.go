@@ -61,8 +61,9 @@ func (f *shellActivityFeature) contribute(_ context.Context, snap *Snapshot) {
 }
 
 // shellActivityPoller polls tmux's own process/tty state on an interval, broadcasting
-// `shellActivity` only on a change (kb:anchor/ws.shell-activity, kb:adr/surfaces-shell-busy-from-tmux-process-state)
-// — pattern copied from usagePoller/themePoller's Start/Stop/loop/tick shape.
+// `shellActivity` only on a change (kb:anchor/ws.shell-activity, kb:adr/surfaces-shell-busy-from-tmux-process-state).
+// Embeds bgLoop (bgloop.go) for its Start/Stop/loop shape, same as usagePoller/themePoller;
+// tick below is its own.
 type shellActivityPoller struct {
 	lister    paneActivityLister
 	canonical ttyCanonicalChecker

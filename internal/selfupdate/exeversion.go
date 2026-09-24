@@ -27,7 +27,10 @@ var versionPattern = regexp.MustCompile(`^` + regexp.QuoteMeta(VersionLinePrefix
 
 // versionProbeRun is the injectable seam ProbeVersion crosses instead of a real
 // subprocess (docs/conventions.md § Testing) — the production value is runVersionProbe.
-type versionProbeRun func(ctx context.Context, name string, args ...string) (string, error)
+// ([]byte, error): the stdout-only shape claudecode.execFunc, tmux's preflighter.run and
+// locate.SpotlightFinder.run also use (kb:adr/process-adapter-run-seam-constructor-default's
+// "one signature per output need").
+type versionProbeRun func(ctx context.Context, name string, args ...string) ([]byte, error)
 
 // versionProber holds the subprocess seam ProbeVersion crosses (the constructor-default
 // shape docs/conventions.md § Testing names —
@@ -55,7 +58,7 @@ func (p *versionProber) probe(ctx context.Context, exePath string) (string, erro
 	if err != nil {
 		return "", fmt.Errorf("running %s -version: %w", exePath, err)
 	}
-	m := versionPattern.FindStringSubmatch(out)
+	m := versionPattern.FindStringSubmatch(string(out))
 	if m == nil {
 		return "", fmt.Errorf("unrecognised version output: %q", out)
 	}
@@ -65,11 +68,11 @@ func (p *versionProber) probe(ctx context.Context, exePath string) (string, erro
 // runVersionProbe is the production versionProbeRun: runs name with args, capturing
 // stdout, with WaitDelay bounding the wait for a hung descendant (docs/conventions.md
 // §Go).
-func runVersionProbe(ctx context.Context, name string, args ...string) (string, error) {
+func runVersionProbe(ctx context.Context, name string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
 	cmd.WaitDelay = 2 * time.Second
 	err := cmd.Run()
-	return buf.String(), err
+	return buf.Bytes(), err
 }

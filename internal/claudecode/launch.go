@@ -1,5 +1,7 @@
 package claudecode
 
+import "slices"
+
 // PermissionDefault, PermissionPlan, PermissionAcceptEdits and PermissionAuto are every
 // value Claude Code's `--permission-mode` flag accepts (kb:fact/permission-mode-flag-on-wire)
 // — Claude-Code-format vocabulary, so this package is its one owner (CLAUDE.md hard
@@ -13,18 +15,13 @@ const (
 	PermissionAuto        = "auto"
 )
 
-// PermissionModes lists every value above, in the order BuildArgv/ValidPermissionMode
-// iterate them.
+// PermissionModes lists every value above, in the order ValidPermissionMode's error
+// text (internal/server/launcher.go) reports them.
 var PermissionModes = []string{PermissionDefault, PermissionPlan, PermissionAcceptEdits, PermissionAuto}
 
 // ValidPermissionMode reports whether s is one of PermissionModes.
 func ValidPermissionMode(s string) bool {
-	for _, m := range PermissionModes {
-		if m == s {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(PermissionModes, s)
 }
 
 // LaunchParams are the neutral inputs to building the `claude` CLI invocation

@@ -40,8 +40,8 @@ func defaultUpdateInfo() UpdateInfo {
 
 // buildUpdateInfo is the `update` wire object's one builder: updateManager.Current
 // calls it with its live check state, and updateFeature.current calls it with the disabled
-// defaults when no updateManager exists (BaseURL == ""). Both halves were assembling the
-// same shape — including the Remedy pointer — by hand.
+// defaults when no updateManager exists (BaseURL == "") — the one place both halves'
+// shape, including the Remedy pointer, is assembled.
 func buildUpdateInfo(install selfupdate.Install, running string, canCheck bool, available, checkedAt, installed *string, apply UpdateApplyInfo) UpdateInfo {
 	return UpdateInfo{
 		Running:   running,

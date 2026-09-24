@@ -22,13 +22,10 @@ func (m *Manager) RecordLaunch(ctx context.Context, id int64, tmuxTarget, tmuxPa
 	prev := sess.Clone()
 	sess.TmuxTarget = tmuxTarget
 	sess.TmuxPane = tmuxPane
-	row := sessionToRow(sess)
-	snapshot := sess.Clone()
-	wait, done := m.nextWriteTurnLocked(id)
-	m.mu.Unlock()
+	post := sess.Clone()
 
-	persist := func() error { return m.store.UpdateSession(ctx, row) }
-	if err := m.finishWrite(id, sess, wait, done, persist, snapshot, cloneRestore(prev)); err != nil {
+	snapshot, err := m.persistWholeRow(ctx, id, sess, prev, post, true)
+	if err != nil {
 		return nil, fmt.Errorf("persisting launch for session %d: %w", id, err)
 	}
 	return snapshot, nil
@@ -92,11 +89,11 @@ func (m *Manager) endLocked(ctx context.Context, id int64) (*Session, error) {
 
 // killSessionWithTimeout kills id's tmux Claude-pane session, bounded by
 // endRemoveTmuxTimeout — the identical timeout-construction-and-cancel pair End and
-// Remove's not-alive path both built by hand (S6).
+// Remove's not-alive path both need.
 func (m *Manager) killSessionWithTimeout(ctx context.Context, id int64) error {
 	killCtx, cancel := context.WithTimeout(ctx, endRemoveTmuxTimeout)
 	defer cancel()
-	return m.tmuxSessions.KillSession(killCtx, sessionTmuxName(id))
+	return m.tmuxSessions.KillSession(killCtx, tmux.SessionName(id))
 }
 
 // EndAll ends every currently alive session — the `-on-exit=kill` shutdown path
@@ -105,7 +102,7 @@ func (m *Manager) killSessionWithTimeout(ctx context.Context, id int64) error {
 // failure is logged and does not stop the rest. Returns how many were successfully
 // ended.
 func (m *Manager) EndAll(ctx context.Context) int {
-	ids := collectLocked(m, func(s *Session) bool { return s.Alive }, func(s *Session) int64 { return s.ID })
+	ids := collectSessions(m, func(s *Session) bool { return s.Alive }, func(s *Session) int64 { return s.ID })
 
 	ended := 0
 	for _, id := range ids {
@@ -120,9 +117,9 @@ func (m *Manager) EndAll(ctx context.Context) int {
 
 // ShellNames lists every muster-<n>-shell tmux session name currently on the socket —
 // KillAllShells and ShellCount's shared read, matching the same tmux.IsShellSessionName
-// predicate reconcile's own unconditional shell-kill loop uses (reportAndSweepUnknown
-// above). Exported so internal/server's restart-impact endpoint asks this one place too,
-// rather than listing tmux sessions on its own.
+// predicate reconcile.go's own unconditional shell-kill loop uses. Exported so
+// internal/server's restart-impact endpoint asks this one place too, rather than listing
+// tmux sessions on its own.
 func (m *Manager) ShellNames(ctx context.Context) ([]string, error) {
 	names, err := m.tmuxSessions.ListSessions(ctx)
 	if err != nil {
@@ -210,9 +207,9 @@ func (m *Manager) removeLocked(ctx context.Context, id int64) error {
 		}
 	}
 
-	// removeSessionRecord deletes the row before dropping the in-memory entry, and
-	// OnRemoved fires only once both have succeeded — a failed delete must never look
-	// like a completed remove.
+	// Remove's row was announced (a sessionUpsert went out for it), so
+	// removeSessionRecord's announced=true order applies: store first, so a failed delete
+	// never looks like a completed remove.
 	return m.removeSessionRecord(ctx, id, true)
 }
 
@@ -237,15 +234,12 @@ func (m *Manager) RecordResume(ctx context.Context, id int64, tmuxTarget, tmuxPa
 	sess.EndedAt = nil
 	sess.LastSnapshot = ""
 	sess.LastSnapshotAt = time.Time{}
-	row := sessionToRow(sess)
-	snapshot := sess.Clone()
-	wait, done := m.nextWriteTurnLocked(id)
-	m.mu.Unlock()
+	post := sess.Clone()
 
-	// A persist failure rolls every field back — a half-resumed session must never look
-	// alive in memory while the DB still has it dead.
-	persist := func() error { return m.store.UpdateSession(ctx, row) }
-	if err := m.finishWrite(id, sess, wait, done, persist, snapshot, cloneRestore(prev)); err != nil {
+	// A persist failure rolls every field this call touched back — a half-resumed session
+	// must never look alive in memory while the DB still has it dead.
+	snapshot, err := m.persistWholeRow(ctx, id, sess, prev, post, true)
+	if err != nil {
 		return nil, fmt.Errorf("persisting resume for session %d: %w", id, err)
 	}
 	return snapshot, nil

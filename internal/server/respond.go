@@ -4,14 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/Zalaras/muster/internal/session"
 )
 
 // This file is server's transport home (kb:anchor/transport): the error envelope, the
-// success-JSON writer, and the session-or-404 / directory-missing lookups shared across
-// features, plus the package's one fixed 5xx phrase and its one wire-time rule.
+// success-JSON writer, the id-parse / session-or-404 / directory-missing lookups shared
+// across features, plus the package's one fixed 5xx phrase and its one wire-time rule.
 
 // errorResponse is the error envelope every non-2xx JSON response shares
 // (kb:anchor/transport): {"error": {"code", "message"}}. Paths is the `ambiguous` route's
@@ -55,26 +56,47 @@ func writeJSONErrorPaths(w http.ResponseWriter, status int, code, message string
 	writeJSON(w, status, resp)
 }
 
+// msgUnknownSession is the fixed 404 body for kb:anchor/transport's "unknown_session" code
+// — every source of it (a malformed {id}, a manager miss, an ErrUnknownSession from a later
+// mutation) answers with this same code+message pair, spelled once here.
+const msgUnknownSession = "unknown session id"
+
+func writeUnknownSession(w http.ResponseWriter) {
+	writeJSONError(w, http.StatusNotFound, "unknown_session", msgUnknownSession)
+}
+
+// parseSessionID reads the {id} path value, writing 404 unknown_session itself on a
+// malformed value (an unparseable id is indistinguishable from an unknown one to the
+// caller — same response either way).
+func parseSessionID(w http.ResponseWriter, r *http.Request) (int64, bool) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeUnknownSession(w)
+		return 0, false
+	}
+	return id, true
+}
+
 // sessionGetter is the one method sessionOr404 needs, narrow enough that both
-// *session.Manager (locate, shells) and readerFeature's narrower readerManager view
+// *session.Manager (locate, shells, issue) and readerFeature's narrower readerManager view
 // satisfy it.
 type sessionGetter interface {
 	Get(id int64) (*session.Session, bool)
 }
 
 // sessionOr404 looks up id and writes 404 unknown_session itself on a miss — the
-// parse-id/Get/404 pattern locate, reader and shells each repeated.
+// parse-id/Get/404 pattern every one of locate, reader, shells and issue shares.
 func sessionOr404(w http.ResponseWriter, manager sessionGetter, id int64) (*session.Session, bool) {
 	sess, ok := manager.Get(id)
 	if !ok {
-		writeJSONError(w, http.StatusNotFound, "unknown_session", "unknown session id")
+		writeUnknownSession(w)
 		return nil, false
 	}
 	return sess, true
 }
 
 // writeDirectoryMissing writes 409 directory_missing for dir — the stat-then-409 pattern
-// reader and shells share, byte-identical text. sessions.go's Resume path answers the
+// reader and shells share, byte-identical text. launcher.go's Resume path answers the
 // same code with its own, different message (its own launchError vocabulary) and is
 // deliberately left unmerged: two sites using different text for the same code keep their
 // own text.

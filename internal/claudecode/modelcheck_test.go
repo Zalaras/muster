@@ -64,9 +64,9 @@ func TestStderrSaysUnrecognised(t *testing.T) {
 func TestCheckModel_ArgvAndDir(t *testing.T) {
 	var gotDir string
 	var gotArgv []string
-	run := func(_ context.Context, dir string, argv []string) ([]byte, error) {
+	run := func(_ context.Context, dir, name string, args ...string) ([]byte, error) {
 		gotDir = dir
-		gotArgv = argv
+		gotArgv = append([]string{name}, args...)
 		return nil, nil
 	}
 
@@ -92,7 +92,7 @@ func TestCheckModel_VerdictFollowsStderr(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			run := func(context.Context, string, []string) ([]byte, error) {
+			run := func(context.Context, string, string, ...string) ([]byte, error) {
 				return []byte(tt.stderr), nil
 			}
 
@@ -109,7 +109,7 @@ func TestCheckModel_VerdictFollowsStderr(t *testing.T) {
 // exited non-zero (the shape runModelCheck itself never returns as an error, since it
 // unwraps *exec.ExitError) must not surface as a CheckModel error either.
 func TestCheckModel_ExitErrorIsNotAFailure(t *testing.T) {
-	run := func(context.Context, string, []string) ([]byte, error) {
+	run := func(context.Context, string, string, ...string) ([]byte, error) {
 		return []byte("some stderr"), nil // runModelCheck's own contract: exit 1 -> nil error
 	}
 
@@ -126,7 +126,7 @@ func TestCheckModel_ExitErrorIsNotAFailure(t *testing.T) {
 // a broken check.
 func TestCheckModel_RunError_FailsOpen(t *testing.T) {
 	wantErr := errors.New("exec: \"claude\": executable file not found in $PATH")
-	run := func(context.Context, string, []string) ([]byte, error) {
+	run := func(context.Context, string, string, ...string) ([]byte, error) {
 		return nil, wantErr
 	}
 
@@ -143,7 +143,7 @@ func TestCheckModel_ContextDeadlineExceeded_FailsOpen(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Nanosecond)
 	defer cancel()
 	<-ctx.Done()
-	run := func(runCtx context.Context, _ string, _ []string) ([]byte, error) {
+	run := func(runCtx context.Context, _, _ string, _ ...string) ([]byte, error) {
 		return nil, runCtx.Err()
 	}
 
@@ -162,7 +162,7 @@ func TestCheckModel_ContextDeadlineExceeded_FailsOpen(t *testing.T) {
 func TestRunModelCheck_ReturnsStderrRegardlessOfExitCode(t *testing.T) {
 	dir := t.TempDir()
 
-	stderr, err := runModelCheck(context.Background(), dir, []string{"sh", "-c", "printf hello-stderr 1>&2; exit 1"})
+	stderr, err := runModelCheck(context.Background(), dir, "sh", "-c", "printf hello-stderr 1>&2; exit 1")
 
 	require.NoError(t, err)
 	assert.Equal(t, "hello-stderr", string(stderr))
@@ -174,7 +174,7 @@ func TestRunModelCheck_ReturnsStderrRegardlessOfExitCode(t *testing.T) {
 func TestRunModelCheck_StdinIsEmpty(t *testing.T) {
 	dir := t.TempDir()
 
-	stderr, err := runModelCheck(context.Background(), dir, []string{"sh", "-c", "cat 1>&2"})
+	stderr, err := runModelCheck(context.Background(), dir, "sh", "-c", "cat 1>&2")
 
 	require.NoError(t, err)
 	assert.Empty(t, string(stderr), "stdin must already be at EOF, never blocking on input")
@@ -184,7 +184,7 @@ func TestRunModelCheck_StdinIsEmpty(t *testing.T) {
 func TestRunModelCheck_UsesGivenDirectory(t *testing.T) {
 	dir := t.TempDir()
 
-	stderr, err := runModelCheck(context.Background(), dir, []string{"sh", "-c", "pwd 1>&2"})
+	stderr, err := runModelCheck(context.Background(), dir, "sh", "-c", "pwd 1>&2")
 
 	require.NoError(t, err)
 	assert.Equal(t, dir, string(bytes.TrimSpace(stderr)))
@@ -195,7 +195,7 @@ func TestRunModelCheck_UsesGivenDirectory(t *testing.T) {
 func TestRunModelCheck_CommandCannotStart_ReturnsError(t *testing.T) {
 	dir := t.TempDir()
 
-	_, err := runModelCheck(context.Background(), dir, []string{filepath.Join(dir, "does-not-exist")})
+	_, err := runModelCheck(context.Background(), dir, filepath.Join(dir, "does-not-exist"))
 
 	require.Error(t, err)
 }
@@ -212,7 +212,7 @@ func TestRunModelCheck_ContextDeadlineBoundsAHungProcess(t *testing.T) {
 	defer cancel()
 
 	start := time.Now()
-	_, err := runModelCheck(ctx, dir, []string{"sh", "-c", "sleep 30"})
+	_, err := runModelCheck(ctx, dir, "sh", "-c", "sleep 30")
 	elapsed := time.Since(start)
 
 	assert.Lessf(t, elapsed, modelCheckWaitDelay+2*time.Second,
@@ -228,7 +228,7 @@ func TestRunModelCheck_ContextDeadlineBoundsAHungProcess(t *testing.T) {
 func TestRunModelCheck_HarmlessSmokeTestNeverUsesRealClaude(t *testing.T) {
 	dir := t.TempDir()
 
-	stderr, err := runModelCheck(context.Background(), dir, []string{"echo", "harmless"})
+	stderr, err := runModelCheck(context.Background(), dir, "echo", "harmless")
 
 	require.NoError(t, err)
 	assert.Empty(t, string(stderr), "echo writes to stdout, not stderr")
