@@ -1,15 +1,14 @@
-// The pop-out page's composition root (plan markdown-viewing REQ-8/REQ-27,
-// kb:adr/reader-popout-is-a-second-page) — a second Vite entry, not a hash route inside
-// `index.html`'s own composition root (Implementation Notes). Builds the same `App` +
-// `WsClient` shape `main.ts` does and mounts one standalone `ReaderInstance` into
+// The pop-out page's composition root (kb:adr/reader-popout-is-a-second-page) — a second
+// Vite entry, not a hash route inside `index.html`'s own composition root. Builds the same
+// `App` + `WsClient` shape `main.ts` does and mounts one standalone `ReaderInstance` into
 // `#reader-host`; there is no masthead, rail, banner or any other feature here.
 //
-// The `WsClient` wiring below is `wsapp.ts`'s `coreWsHandlers` unchanged (review cycle 1
-// Critical 1 — this used to be a hand-copied duplicate of `main.ts`'s handler bodies,
-// which is how review cycle 5 Critical 1 happened: the previous version before that wired
-// none of the three connection callbacks, so `app.state.connection` never left its
-// "connecting" default and the reader's status line asserted "unreachable" forever, even
-// while this page's own socket was live). `onSessionRemoved` is deliberately not wired
+// The `WsClient` wiring below is `wsapp.ts`'s `coreWsHandlers` unchanged — this used to be
+// a hand-copied duplicate of `main.ts`'s handler bodies, which is how a real regression
+// happened: the previous version before that wired none of the three connection callbacks,
+// so `app.state.connection` never left its "connecting" default and the reader's status
+// line asserted "unreachable" forever, even while this page's own socket was live.
+// `onSessionRemoved` is deliberately not wired
 // either way — `initReader`'s own `sessionRemoved` subscription is gated `if
 // (!standalone)`, so it would be a dead wire here regardless — nor is `onUsage`/`onUpdate`/
 // `onShellActivity` (no feature on this page reads any of them) or `onProtocolMismatch`
@@ -46,7 +45,7 @@ if (target === null) {
   const root = reader.rootFor(target.sessionId);
   if (root) host.replaceChildren(root);
 
-  // REQ-9: same controller `main.ts` registers — review Major 8: `initTheme` no longer
+  // Same controller `main.ts` registers — `initTheme` no longer
   // takes a `surfaces` dep at all (it emits `app.emit("themeChanged")`, and this page's
   // own `reader` above already subscribes to it), so there is no fake to write here
   // anymore. Registered before the socket starts, like `main.ts`'s own init order, so

@@ -1,14 +1,13 @@
 // The launch dialog: a Finder-style picker (recents sidebar + clickable breadcrumb + one
-// child listing) over a stacked segmented form (kb:anchor/sessions.create / kb:anchor/repos.list / kb:anchor/browse.get; plan
-// new-session-dialog UI Specifications; design authority
-// plans/new-session-dialog/mockup.html). DOM + wiring only — every daemon call goes
+// child listing) over a stacked segmented form (kb:anchor/sessions.create / kb:anchor/repos.list / kb:anchor/browse.get;
+// kb:adr/launch-picker-recent-sidebar-plus-browse-list). DOM + wiring only — every daemon call goes
 // through `../api/launch.ts`, and the parsed Session comes back through `onLaunched` so this
 // module's `initLaunch` (which holds `app`, the session store's owner) decides what
 // happens next.
 //
-// The listed directory *is* the selection (REQ-3): there is a single `current:
+// The listed directory *is* the selection: there is a single `current:
 // BrowseResult | null`, and the readout, the crumbs and the submit body all derive from
-// it — that's what makes INV-1 hold by construction. `navigate(path)` is the one door:
+// it — that invariant holds by construction. `navigate(path)` is the one door:
 // child click, crumb click, ⌘↑, a recent click and open all call it.
 import {
   browse,
@@ -37,7 +36,7 @@ const MODEL_PRESETS = ["sonnet", "opus", "haiku", "fable"] as const;
 
 export interface LaunchModalElements {
   dialog: HTMLDialogElement;
-  /** REQ-6/INV-3 (plan rail-card-improvements): the one "New session" button in the
+  /** kb:adr/launch-new-session-button-in-masthead: the one "New session" button in the
    * shell — it now lives in the masthead, visible in both views, so this holds exactly
    * one element (an array only so the click-listener loop below needs no special case). */
   openButtons: readonly HTMLButtonElement[];
@@ -65,12 +64,11 @@ export interface LaunchModalHandlers {
 export interface LaunchHandle {
   /** ⌥⌘N: opens the launch dialog — idempotent while it's already open. */
   open(): void;
-  /** Whether the dialog is currently open — review Minor 7: `features/shortcuts.ts`'s one
-   * window keydown listener checks this before dispatching ⌘↑, replacing the dialog-open
-   * guard that used to live inside this module's own listener. */
+  /** Whether the dialog is currently open — `features/shortcuts.ts`'s one
+   * window keydown listener checks this before dispatching ⌘↑. */
   isOpen(): boolean;
-  /** ⌘↑ (REQ-6): navigates to the parent of the listed directory. Callers only invoke
-   * this once `isOpen()` is true (dialog-scoped, not listing-scoped — edge case 11). */
+  /** ⌘↑: navigates to the parent of the listed directory. Callers only invoke
+   * this once `isOpen()` is true (dialog-scoped, not listing-scoped). */
   navigateToParentDir(): void;
 }
 
@@ -85,12 +83,12 @@ function initLaunchModal(
   // The picker's whole state: what GET /api/browse most recently returned (null before
   // the first successful browse of this open), the served MRU list, whether that list has
   // resolved at all yet, and a monotonic counter guarding against a stale response landing
-  // after a newer navigation was issued (edge cases 7/8).
+  // after a newer navigation was issued.
   let current: BrowseResult | null = null;
   let repos: Repo[] = [];
   let reposLoaded = false;
   let browseRequestId = 0;
-  // REQ-6a: which fields the user has changed since the dialog opened, so the async
+  // Which fields the user has changed since the dialog opened, so the async
   // initial restore (initOpen/initialRestore) never overwrites a deliberate choice. Set
   // only from a real `change`/`input` DOM event below — never by this module's own
   // `setModel`/`setPermissionMode` calls, which assign `.checked`/`.value` directly and so
@@ -100,7 +98,7 @@ function initLaunchModal(
   // kind. That error has no fix-it action in this dialog (nothing re-fetches repos
   // mid-open), so it must survive the browse-root fallback `initOpen()` issues right
   // after it — unlike a *browse* failure, which a later successful navigate() is meant
-  // to clear (edge case 2). Reset whenever a non-repos error replaces it or the error is
+  // to clear. Reset whenever a non-repos error replaces it or the error is
   // explicitly cleared.
   let reposErrorPersistent = false;
 
@@ -121,7 +119,7 @@ function initLaunchModal(
     updateCustomModelVisibility();
   }
 
-  // REQ-6/REQ-5: a stored value the dialog has no radio for (a future Claude Code mode,
+  // A stored value the dialog has no radio for (a future Claude Code mode,
   // `null`, or the empty string) falls back to `auto` — decided by the pure, unit-tested
   // `permissionModeToCheck` (sessions/permission.ts), which takes `null` directly (no
   // caller-side coercion to `""`). `setPermissionMode` here and `selectedPermissionMode`
@@ -141,14 +139,14 @@ function initLaunchModal(
     return permissionModeToCheck(checkedValue(elements.permissionModeRadios));
   }
 
-  // Review Minor 6: the "write the message, toggle hidden" message-region idiom already
+  // The "write the message, toggle hidden" message-region idiom already
   // has one implementation, `render/actionerror.ts`'s `renderActionError`.
   function showError(message: string): void {
     renderActionError(elements.launchError, message);
     reposErrorPersistent = false;
   }
 
-  // The repos-fetch failure (REQ-13): shown the same way as any other error, but must
+  // The repos-fetch failure: shown the same way as any other error, but must
   // not be wiped by the browse-root fallback that `initOpen()` runs immediately
   // afterwards (there is no user action, inside this dialog, that fixes GET /api/repos).
   function showReposError(message: string): void {
@@ -161,11 +159,10 @@ function initLaunchModal(
     reposErrorPersistent = false;
   }
 
-  /** A clicked Recent navigates, then — REQ-6: unlike the initial restore, a clicked
-   * Recent always restores its directory's model and mode, touched or not —
-   * `repoRestore` is the one owner of what those values are. Implementation notes:
-   * model/mode apply only after the navigation succeeds, so a 404'd recent leaves the
-   * form untouched (INV-3 covers launch-time failures too). */
+  /** A clicked Recent navigates, then, unlike the initial restore, always restores its
+   * directory's model and mode, touched or not — `repoRestore` is the one owner of what
+   * those values are. Model/mode apply only after the navigation succeeds, so a 404'd
+   * recent leaves the form untouched. */
   function selectRecent(repo: Repo): void {
     void (async () => {
       const outcome = await navigate(repo.path);
@@ -211,7 +208,7 @@ function initLaunchModal(
 
   function renderFooter(): void {
     const path = current?.path ?? null;
-    // REQ-17: the browse endpoint never reports the listed directory's own branch — the
+    // The browse endpoint never reports the listed directory's own branch — the
     // only honest source is a recent whose served path matches (derived, like `pressed`,
     // not tracked separately as "how did we get here").
     const branch = path ? (repos.find((repo) => repo.path === path)?.branch ?? null) : null;
@@ -227,14 +224,14 @@ function initLaunchModal(
 
   /** `navigate()`'s outcome: whether the browse it issued landed, failed, or was
    * superseded by a newer navigation before it resolved. `initOpen` switches on this
-   * directly (REQ-6b/c); `navigateUp` passes it through. */
+   * directly (kb:adr/launch-open-outcome-decided-in-controller); `navigateUp` passes it through. */
   type NavigateOutcome = "ok" | "failed" | "superseded";
 
   /** The one door for changing the selection. Bumps the request counter, shows
    * `loading…`, awaits the browse, and reports `"superseded"` if a newer navigation was
-   * issued meanwhile (edge case 7) without touching the listing that newer navigation is
-   * about to render. On failure the previous listing is restored untouched (INV-3) while
-   * the error surfaces. REQ-6/W6: the three-way outcome (not a plain boolean) is what lets
+   * issued meanwhile without touching the listing that newer navigation is
+   * about to render. On failure the previous listing is restored untouched while
+   * the error surfaces. The three-way outcome (not a plain boolean) is what lets
    * `initOpen` tell a genuine failure from a superseded race. */
   async function navigate(path?: string): Promise<NavigateOutcome> {
     const requestId = ++browseRequestId;
@@ -242,7 +239,7 @@ function initLaunchModal(
     const result = await browse(path);
     if (requestId !== browseRequestId) return "superseded";
     if (result.ok) {
-      // Edge case 2 preserved: a *browse* error (including a validation/launch error, or
+      // A *browse* error (including a validation/launch error, or
       // no error at all) is cleared by the next successful navigation. A *repos* error is
       // not — see `showReposError`.
       if (!reposErrorPersistent) clearError();
@@ -258,7 +255,7 @@ function initLaunchModal(
   /** Returns `null` when there is no parent crumb to ascend to (nothing was attempted —
    * a true no-op), otherwise the underlying `navigate()` result (`ok`/`failed` both
    * re-render the listing and so do lose focus; `superseded` does not). Callers that
-   * re-anchor focus after ascending (REQ-15) key off the `null` case to skip that
+   * re-anchor focus after ascending key off the `null` case to skip that
    * re-anchor on the genuine no-op — see the `ArrowLeft` handler below. */
   function navigateUp(): Promise<NavigateOutcome | null> {
     const buttons = elements.crumbsNav.querySelectorAll<HTMLButtonElement>("button[data-path]");
@@ -267,8 +264,8 @@ function initLaunchModal(
     return Promise.resolve(null);
   }
 
-  /** REQ-15 traversal continuity: `renderAll()` replaces every entry button on each
-   * navigation (the picker's per-navigation full-rebuild — see Decisions), so the button
+  /** Traversal continuity: `renderAll()` replaces every entry button on each
+   * navigation (the picker's per-navigation full rebuild), so the button
    * that held focus before a descend/ascend is gone afterward and focus silently falls to
    * `<body>`. Re-anchoring on the first entry of the new listing keeps ↑/↓/←/→ usable past
    * one keystroke instead of one-shot. */
@@ -276,7 +273,7 @@ function initLaunchModal(
     elements.browseDirs.querySelector<HTMLButtonElement>("button.entry")?.focus();
   }
 
-  /** REQ-6a: applies whichever of `initialRestore`'s two fields survived the touched
+  /** Applies whichever of `initialRestore`'s two fields survived the touched
    * filter — a plain caller of the pure decision. */
   function applyInitialRestore(first: Repo): void {
     const restore = initialRestore(touched, first);
@@ -284,7 +281,7 @@ function initLaunchModal(
     if (restore.mode !== undefined) setPermissionMode(restore.mode);
   }
 
-  /** REQ-2's initial-open sequence: fetches the MRU list, then (REQ-6b/c) attempts the
+  /** The initial-open sequence: fetches the MRU list, then attempts the
    * first recent's directory and switches on its outcome directly — see the branches
    * below for what each of `"ok"`/`"failed"`/`"superseded"` does. */
   async function initOpen(): Promise<void> {
@@ -309,12 +306,12 @@ function initLaunchModal(
     if (outcome === "ok") {
       applyInitialRestore(first);
     } else if (outcome === "failed") {
-      // Edge case 2/REQ-6c: the first recent's directory no longer exists. Without a
+      // The first recent's directory no longer exists. Without a
       // fallback there would be no crumbs to click, so fall back to the browse root; its
-      // success clears the error the failed attempt raised (acceptable per the plan).
+      // success clears the error the failed attempt raised.
       await navigate(undefined);
     }
-    // REQ-6b ("superseded"): the initial navigation was superseded by a navigation the
+    // "superseded": the initial navigation was superseded by a navigation the
     // user started — it does nothing further, so the user's own navigation is never
     // clobbered.
   }
@@ -327,7 +324,7 @@ function initLaunchModal(
     elements.titleInput.value = "";
     elements.customModelInput.value = "";
     setModel(DEFAULT_MODEL);
-    // REQ-5: with no stored mode to restore, `permissionModeToCheck`'s own fallback (now
+    // With no stored mode to restore, `permissionModeToCheck`'s own fallback (now
     // `auto`) decides — one source of truth, same as every other caller of
     // `setPermissionMode`.
     setPermissionMode(null);
@@ -374,9 +371,9 @@ function initLaunchModal(
     button.addEventListener("click", openModal);
   }
 
-  // REQ-15: with focus on a child entry, ↑/↓ move focus between entries and →/Enter
+  // With focus on a child entry, ↑/↓ move focus between entries and →/Enter
   // descend (Enter already works for free — it's a <button>); ← is ⌘↑'s synonym, but only
-  // when focus is inside the listing (review Minor 7: features/shortcuts.ts's one window
+  // when focus is inside the listing (features/shortcuts.ts's one window
   // keydown listener covers the ⌘↑ case everywhere else, so this bows out whenever the
   // meta key is held).
   /** Roving-focus arrow handling for the browse list. Returns false for any key the list
@@ -400,8 +397,7 @@ function initLaunchModal(
       }
       case "ArrowLeft":
         // `null` means there was no parent crumb — a genuine no-op — so focus stays put
-        // instead of re-anchoring to the (unchanged) first entry (review Minor: a no-op
-        // ascend must not jump focus).
+        // instead of re-anchoring to the (unchanged) first entry.
         void navigateUp().then((result) => {
           if (result !== null) focusFirstEntry();
         });
@@ -454,12 +450,12 @@ function initLaunchModal(
   };
 }
 
-/** REQ-2's controller entry: locates the launch dialog + its two open buttons, wires
- * `onLaunched` to the store and (REQ-7/REQ-8, plan new-session-improvement) opening the
- * launched session — focused in Focus, promoted in Tiles, keyboard focus in its terminal
- * in both views (plan code-breakup vocabulary: "launch"). Returns the `LaunchHandle`
- * `features/shortcuts.ts` dispatches ⌥⌘N/⌘↑ through (review Minor 7). */
-// W6/INV-4: structural, not a sibling import of FocusHandle/SurfacesHandle from their
+/** The controller entry: locates the launch dialog + its two open buttons, wires
+ * `onLaunched` to the store and to opening the launched session — focused in Focus,
+ * promoted in Tiles, keyboard focus in its terminal in both views
+ * (kb:adr/launch-opens-launched-session, kb:adr/tiles-launched-session-promoted-into-grid).
+ * Returns the `LaunchHandle` `features/shortcuts.ts` dispatches ⌥⌘N/⌘↑ through. */
+// Structural, not a sibling import of FocusHandle/SurfacesHandle from their
 // owning sibling modules.
 export interface LaunchDeps {
   focus: { bringForward(session: Session): void };
@@ -488,20 +484,20 @@ export function initLaunch(app: App, deps: LaunchDeps): LaunchHandle {
   };
 
   return initLaunchModal(elements, {
-    // REQ-2: the card must appear the instant the 201 comes back — before any hook can
+    // The card must appear the instant the 201 comes back — before any hook can
     // possibly arrive. The `sessionUpsert` the daemon also broadcasts for this same
     // launch is a harmless duplicate upsert once the WS delivers it.
     onLaunched: (session) => {
       app.store.upsert(session);
-      // REQ-7: focuses in Focus, promotes in Tiles (the grid may be full — `promote`
+      // Focuses in Focus, promotes in Tiles (the grid may be full — `promote`
       // demotes exactly the lowest-priority live tile). `focus.bringForward` is the one
       // owner of this decision, shared with the number chords — reached structurally,
       // never by importing `./focus`.
       deps.focus.bringForward(session);
-      // REQ-7/REQ-8: keyboard focus follows in both views. `dialog.close()` (called by
+      // Keyboard focus follows in both views. `dialog.close()` (called by
       // `submit()` before this handler runs) restores focus to the opener synchronously,
       // and the surface this targets is only mounted by `bringForward`'s render/promote
-      // above (surfaces.ts's render phase), so this must run last (Implementation Notes).
+      // above (surfaces.ts's render phase), so this must run last.
       deps.surfaces.focusSelected(session.id);
     },
   });

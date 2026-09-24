@@ -1,4 +1,4 @@
-// Plan mermaid-support — pure zoom/pan arithmetic for the diagram modal (REQ-9, INV-5).
+// Pure zoom/pan arithmetic for the diagram modal (kb:adr/reader-diagram-enlarge-is-a-zoomable-modal).
 // No DOM here: `render/diagramdialog.ts` is the only module that reads events and writes
 // `data-zoom`/`style.transform`; this module only ever transforms one `ZoomState` into
 // the next.
@@ -24,7 +24,8 @@ export function fitScale(svgW: number, svgH: number, stageW: number, stageH: num
   return Math.min(stageW / svgW, stageH / svgH);
 }
 
-/** Clamps to `[ZOOM_MIN, ZOOM_MAX]` (INV-5). */
+/** Clamps to `[ZOOM_MIN, ZOOM_MAX]` — a quarter to eight times fit
+ * (kb:adr/reader-diagram-enlarge-is-a-zoomable-modal). */
 export function clampZoom(zoom: number): number {
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom));
 }

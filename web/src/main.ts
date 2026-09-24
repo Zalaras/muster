@@ -1,6 +1,7 @@
-// Muster dashboard entrypoint (docs/history/protocol-changelog.md). The composition root only (plan
-// code-breakup REQ-1): builds the app, initialises every feature controller in
-// dependency order, wires the one `WsClient` to `app`, starts the 1s tick, and installs
+// Muster dashboard entrypoint (docs/history/protocol-changelog.md). The composition root
+// only (kb:adr/process-composition-roots-registration-only): builds the app, initialises
+// every feature controller in dependency order, wires the one `WsClient` to `app`, starts
+// the 1s tick, and installs
 // the document-level drop guard. No DOM lookup, no DOM listener, no module-level mutable
 // state lives here — each feature controller under `features/` owns its own element
 // lookups, listeners and closure state (docs/conventions.md > Composition roots).
@@ -12,7 +13,7 @@
 // a controller constructed *after* them, since those thunks are only ever invoked later
 // (a click, a render pass) — never synchronously during the referencing controller's own
 // init call. This is what lets `actions`/`tiles`/`focus`/`surfaces`' mutual needs resolve
-// without a construction cycle (cf. the daemon side's Edge Case 13).
+// without a construction cycle.
 import { createApp } from "./app";
 import { initActions } from "./features/actions";
 import { initUsage } from "./features/usage";
@@ -83,9 +84,10 @@ initSettings(app);
 initShortcuts(app, { views, focus, actions, launch });
 const connection = initConnection(app);
 
-// plan file-drop-fix REQ-1: a document-level foreign-drag/drop guard, installed once at
+// A document-level foreign-drag/drop guard, installed once at
 // startup — swallows a drag/drop anywhere it isn't already claimed by a terminal
-// surface's own drop target or the tile/rail reorder handlers (REQ-9/INV-3).
+// surface's own drop target or the tile/rail reorder handlers
+// (kb:adr/drop-reorder-drag-mime-custom-type).
 installDropGuard(document);
 
 // Every view ticks every second (design-system §2 tabular-nums timers) — this never
@@ -97,7 +99,7 @@ app.render();
 
 // The dashboard's own handlers, layered over the shared core mapping (wsapp.ts) — the
 // pop-out (doc.ts) registers that core unchanged; these are the ones it has no feature to
-// receive (Critical 1: "the pop-out differs from the dashboard only in the handlers it
+// receive ("the pop-out differs from the dashboard only in the handlers it
 // declares it leaves out").
 const client = new WsClient(wsUrl("/ws"), {
   ...coreWsHandlers(app, connection),

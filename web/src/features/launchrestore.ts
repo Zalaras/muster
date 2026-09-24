@@ -1,7 +1,7 @@
-// Pure decisions for the launch dialog's async open-time restore (REQ-5/REQ-6,
-// plan new-session-improvement, W5/W6; review seed B7), used only by features/launch.ts,
-// its one caller — this module lives beside it (docs/conventions.md § Composition roots:
-// a DOM-free decision one controller calls lives in `features/`, not `render/`).
+// Pure decisions for the launch dialog's async open-time restore, used only by
+// features/launch.ts, its one caller — this module lives beside it (docs/conventions.md
+// § Composition roots: a DOM-free decision one controller calls lives in `features/`,
+// not `render/`).
 import type { Repo } from "../api/launch";
 import { permissionModeToCheck, type PermissionMode } from "../sessions/permission";
 
@@ -19,7 +19,7 @@ export interface Touched {
 }
 
 /** The field(s) the initial restore should apply. A key is present only when its field is
- * untouched (REQ-6a) — the caller applies whichever keys exist and leaves the rest of the
+ * untouched — the caller applies whichever keys exist and leaves the rest of the
  * form as the user left it. */
 export interface Restore {
   model?: string;
@@ -36,7 +36,7 @@ export function repoRestore(repo: Repo): { model: string; mode: PermissionMode }
   };
 }
 
-/** REQ-6a: restores only the fields the user has not touched since the dialog opened. */
+/** Restores only the fields the user has not touched since the dialog opened. */
 export function initialRestore(touched: Touched, repo: Repo): Restore {
   const values = repoRestore(repo);
   const restore: Restore = {};

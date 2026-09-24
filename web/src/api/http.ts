@@ -1,6 +1,6 @@
-// Shared HTTP plumbing for every daemon endpoint wrapper under `web/src/api/` (review
-// B1/e-m5: this used to be 8 copy-pasted decode-empty blocks, 21 repeated `credentials`
-// lines and 19 hand-formatted `console.error` sites spread across features/). This module
+// Shared HTTP plumbing for every daemon endpoint wrapper under `web/src/api/` — this used to
+// be 8 copy-pasted decode-empty blocks, 21 repeated `credentials` lines and 19 hand-formatted
+// `console.error` sites spread across features/. This module
 // is the *only* place that calls `fetch`, decodes a response, or logs a failure — every
 // `api/*.ts` endpoint file calls one of the four `request*` functions below and never
 // touches `fetch`, `Response` or `console` itself.
@@ -13,9 +13,8 @@ import { isRecord } from "../protocol/decode";
 export interface ApiErrorBody {
   code: string;
   message: string;
-  // Plan file-drop-fix (kb:anchor/sessions.locate): only the `409 ambiguous` locate error
-  // carries this — every verified match, so the caller can count them (REQ-3). Ignored
-  // by every other error path.
+  // kb:anchor/sessions.locate: only the `409 ambiguous` locate error carries this — every
+  // verified match, so the caller can count them. Ignored by every other error path.
   paths?: string[];
 }
 
@@ -39,7 +38,7 @@ const genericError: ApiErrorBody = {
   message: "Unexpected response from musterd.",
 };
 
-// REQ-13's `network` failure mode (daemon down, connection refused, sleep/wake, aborted
+// The `network` failure mode (daemon down, connection refused, sleep/wake, aborted
 // request): a rejected `fetch` must never propagate — every exported function in
 // `web/src/api/` routes its fetch through this so the "errors never throw" contract
 // actually holds for every call site, not just JSON-decoding failures.
@@ -103,7 +102,7 @@ async function decodeEmpty(res: Response, successStatus: number): Promise<ApiRes
   return { ok: false, error: await parseErrorResponse(res) };
 }
 
-// e-m5: the one place that formats a failed `ApiResult` — a controller never spells out an
+// The one place that formats a failed `ApiResult` — a controller never spells out an
 // API path or re-states `error.code`/`error.message` itself. The four `request*` functions
 // below call this on every failure (network, decode, or the daemon's own error envelope),
 // so every endpoint logs the same way whether or not its caller also does something with

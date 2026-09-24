@@ -7,7 +7,8 @@ import { buildContextRowViewModel } from "../sessions/context";
 
 /** `baseClass` is the caller's own class name (`"r3"` for rail/strip cards, `"ctxinfo"`
  * for tiles) — reset on every render so an `unk` modifier from a prior unknown render
- * never lingers once real data arrives, and vice versa (e.g. after `/clear`, REQ-9).
+ * never lingers once real data arrives, and vice versa (e.g. after `/clear`, which resets
+ * the gauge without changing session identity — kb:adr/lifecycle-alive-flag-not-a-state).
  *
  * Honesty rule 1 (design-system §6.1): unknown context sets plain text and never builds
  * a track element at all — a 0%-filled track would read as "0% used". Known context

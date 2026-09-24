@@ -23,7 +23,7 @@ export function requireElements<T extends HTMLElement>(
 }
 
 /** Checks exactly the radio in `radios` whose `value` matches, explicitly unchecking every
- * other one — review Minor 6: this "sync a radio group from external state" idiom was
+ * other one — this "sync a radio group from external state" idiom was
  * hand-rolled in `features/launch.ts` (models/permission-mode) and again in
  * `render/settings.ts` (theme/rail-activity); one shared helper for both. Returns whether
  * any radio matched, for a caller that falls back when the stored value has no radio

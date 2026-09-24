@@ -1,6 +1,6 @@
-// Pure time/number formatters (docs/protocol.md Implementation Notes: "stateSince/
-// attention.since are daemon truth; the ticking is rendering. Keep formatters pure for
-// Vitest."). Design-system §2: every value that changes over time gets tabular-nums —
+// Pure time/number formatters — `stateSince`/`attention.since` (`kb:anchor/ws.session`)
+// are daemon truth; the ticking is rendering, so these formatters stay pure for Vitest.
+// Design-system §2: every value that changes over time gets tabular-nums —
 // enforced in CSS, not here, but these functions are what feeds those elements. Also
 // holds the one gauge-warn threshold (`GAUGE_WARN_THRESHOLD`) every usage/context surface
 // shares, and `formatTokens`, since both travel with the readouts these formatters feed.
@@ -65,7 +65,7 @@ export function ageAgo(sinceIso: string, now: Date): string {
 // 59.6 doesn't also falsely claim the threshold.
 export const GAUGE_WARN_THRESHOLD = 60;
 
-/** W5: absolute token counts, compact. `< 1000` verbatim, `< 1_000_000` as "NNk",
+/** Absolute token counts, compact. `< 1000` verbatim, `< 1_000_000` as "NNk",
  * `>= 1_000_000` as "N.NM" (one decimal, per design-system's tabular-nums numbers). */
 export function formatTokens(tokens: number): string {
   if (tokens < 1000) return String(tokens);
@@ -73,7 +73,7 @@ export function formatTokens(tokens: number): string {
   return `${(tokens / 1_000_000).toFixed(1)}M`;
 }
 
-/** W6/REQ-14: a usage bucket's or session context's reset time, compactly — same local
+/** A usage bucket's or session context's reset time, compactly — same local
  * day as `now` renders `resets HH:MM`, otherwise the short weekday (`resets Fri`). Uses
  * the client's local timezone (R5) — the daemon ships UTC RFC3339Nano; `Date`'s local
  * getters do the conversion. */

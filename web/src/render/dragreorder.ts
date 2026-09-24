@@ -1,9 +1,10 @@
-// Generalised drag-to-reorder wiring (plan order-sidebar, generalising plan move-tiles'
-// original tile-only drag module). DOM-only: maps pointer/DnD events to session ids and
-// calls back into the caller (features/tiles.ts for the Tiles grid, features/rail.ts for
-// the rail), which owns the reorder math (sessions/live.ts's `moveTile` for the Tiles grid,
-// sessions/railorder.ts's `moveCard` for the rail respectively) — this module has no
-// Session or store knowledge at all (W11).
+// Generalised drag-to-reorder wiring, shared by the Tiles grid
+// (kb:adr/tiles-drag-reorder-header-handle-insert-shift) and the rail
+// (kb:adr/rail-whole-card-drag-drop-decides-pin). DOM-only: maps pointer/DnD events to
+// session ids and calls back into the caller (features/tiles.ts for the Tiles grid,
+// features/rail.ts for the rail), which owns the reorder math (sessions/live.ts's
+// `moveTile` for the Tiles grid, sessions/railorder.ts's `moveCard` for the rail
+// respectively) — this module has no Session or store knowledge at all.
 //
 // Delegated listeners on `container` (not per-item) so a freshly built item (a
 // promotion, a backfill, a newly-built rail card) is draggable/droppable with no extra
@@ -14,18 +15,18 @@
 // header is a handle); the rail passes none, so the whole card is the handle — any
 // mousedown/dragstart inside a matched item counts. An item carrying `draggable="false"`
 // never starts a drag regardless of this module's wiring, because the browser itself
-// never fires `dragstart` for it (plan order-sidebar REQ-10) — attention-mode rail cards
-// rely on exactly this, not on any check here.
+// never fires `dragstart` for it — attention-mode rail cards rely on exactly this, not
+// on any check here.
 //
 // `draggingId` is module-level per call (one container, one drag at a time) and doubles
 // as the "is a drag from this container in progress" flag: `dragover` only calls
 // `preventDefault()` while it is set, which is what lets the browser's own drop event
 // fire for an in-container drag while leaving a foreign drag (a file, text from outside
-// the page) to the browser's default handling (plan edge case 3).
+// the page) to the browser's default handling (this drag already carries a
+// Muster-specific MIME type — kb:adr/drop-reorder-drag-mime-custom-type — which is what
+// lets `render/dropguard.ts` tell a genuinely foreign drag from one of these).
 //
-// Pre-blur focus capture (carried over from plan move-tiles' original tile-only drag
-// module, plan move-tiles E2E validate attempt 1 / plan order-sidebar's "Carried-over
-// measurements"): a drag's initiating
+// Pre-blur focus capture: a drag's initiating
 // `mousedown` blurs whatever control currently has focus anywhere in the container to
 // `<body>` as the browser's own default action for that mousedown — and it does so
 // before `dragstart` ever fires, so by the time a `drop` lands and the caller's own
@@ -34,8 +35,8 @@
 // blur action is applied, so this module captures the focused control right there — via
 // the same `captureFocusedControl` helper the reconcilers already use — and hands it to
 // `onMove` so the caller can feed it to the reconciler's existing restore step instead of
-// a (by-then-too-late) live capture. This module still has no `Session`/store knowledge
-// (W11): `captureFocusedControl` is a generic DOM helper keyed on data attributes, not
+// a (by-then-too-late) live capture. This module still has no `Session`/store knowledge:
+// `captureFocusedControl` is a generic DOM helper keyed on data attributes, not
 // Session objects, exactly like the ids this module already maps.
 
 import { DRAG_MIME } from "../dragmime";
@@ -75,11 +76,11 @@ function isFromHandle(
   return target.closest(handleSelector ?? itemSelector) !== null;
 }
 
-/** Installs delegated drag-to-reorder listeners on `container` (plan order-sidebar
- * REQ-10/REQ-11, generalising plan move-tiles' original tile-only drag wiring). Safe to
- * call exactly once per container element's lifetime — the container itself is never
- * replaced, only its children are reconciled. Callers: `features/tiles.ts` (the Tiles
- * grid, handle `.thead`) and `features/rail.ts` (the rail, whole card as handle). */
+/** Installs delegated drag-to-reorder listeners on `container`, generalising the
+ * original tile-only drag wiring to also serve the rail. Safe to call exactly once per
+ * container element's lifetime — the container itself is never replaced, only its
+ * children are reconciled. Callers: `features/tiles.ts` (the Tiles grid, handle
+ * `.thead`) and `features/rail.ts` (the rail, whole card as handle). */
 export function installDragReorder(container: HTMLElement, options: DragReorderOptions): void {
   const { itemSelector, handleSelector, onMove } = options;
   let draggingId: number | null = null;
@@ -128,8 +129,7 @@ export function installDragReorder(container: HTMLElement, options: DragReorderO
 
   container.addEventListener("dragover", (event) => {
     // Only claim the drop while a drag from this container is in progress — a foreign
-    // drag (plan edge case 3) is left to the browser's default (no preventDefault, no
-    // drop-target class).
+    // drag is left to the browser's default (no preventDefault, no drop-target class).
     if (draggingId === null) return;
     event.preventDefault();
     if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
@@ -172,8 +172,8 @@ export function installDragReorder(container: HTMLElement, options: DragReorderO
   });
 
   container.addEventListener("dragend", () => {
-    // Fires on drop OR an aborted drag (Escape, dropped outside any valid target — plan
-    // edge cases 2/3); always safe to clear here since `drop`'s own handler already
+    // Fires on drop OR an aborted drag (Escape, dropped outside any valid target);
+    // always safe to clear here since `drop`'s own handler already
     // cleared state on a successful reorder.
     clearDragState();
   });

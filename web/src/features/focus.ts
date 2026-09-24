@@ -1,9 +1,9 @@
 // The Focus view: mainhead, main terminal slot, dead surface, sizenote, default focus
-// (plan code-breakup vocabulary: "focus"). `deps.getSurfaces` is a thunk — `surfaces` is
+// (kb:adr/process-one-name-per-feature). `deps.getSurfaces` is a thunk — `surfaces` is
 // constructed after `focus` (main.ts's init order), and the only place this module needs
 // it is inside a click callback, invoked well after every controller exists.
 //
-// W6/INV-4: no controller module imports a sibling — `deps` below is typed structurally
+// No controller module imports a sibling — `deps` below is typed structurally
 // (the exact method shapes this module calls), never by importing `ActionsHandle`/
 // `SurfacesHandle` from `./actions`/`./surfaces`.
 import type { App, RenderFrame } from "../app";
@@ -52,14 +52,14 @@ export interface FocusDeps {
   /** Plan markdown-viewing: `reader` is constructed after `focus` (main.ts's init
    * order), so this is a thunk like `getSurfaces` above — invoked only from `renderView`. */
   getReader(): { rootFor(id: number): HTMLElement | null };
-  /** Review Minor 3: `rename` is constructed after `focus` (main.ts's init order), so this
+  /** `rename` is constructed after `focus` (main.ts's init order), so this
    * is a thunk too — `renderView` asks it whether the mainhead's editor is open, instead of
    * `render/mainhead.ts` reading `render/rename.ts`'s `data-editing` DOM attribute itself. */
   getRename(): { isEditing(): boolean };
 }
 
 export interface FocusHandle {
-  /** Review Major 9: `null` unless `id` is the currently-focused session in Focus view —
+  /** `null` unless `id` is the currently-focused session in Focus view —
    * `actions.ts`'s `findDeadSurfaceRefs` thunk asks this instead of reaching into Focus's
    * own markup itself. */
   deadSurfaceRefsFor(id: number): DeadSurfaceRefs | null;
@@ -113,7 +113,7 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
   mainheadElements.removeBtn.addEventListener("click", () => {
     if (app.state.focusedId !== null) deps.actions.dispatch("remove", app.state.focusedId);
   });
-  // The Focus dead surface's own cap carries a Resume button too (REQ-13/User Flow 3).
+  // The Focus dead surface's own cap carries a Resume button too.
   deadSurfaceRefs.resumeBtn.addEventListener("click", () => {
     if (app.state.focusedId !== null) deps.actions.dispatch("resume", app.state.focusedId);
   });
@@ -153,7 +153,7 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
     if (app.state.focusedId === id) app.focus(null);
   });
 
-  /** Plan markdown-viewing REQ-2: mounts the reader into the main slot for `docs` —
+  /** Mounts the reader into the main slot for `docs` (kb:adr/reader-docs-is-third-surface-segment) —
    * split out of `renderView` purely to keep that function's cognitive complexity under
    * the project ceiling. */
   function mountReader(session: Session): void {
@@ -175,8 +175,8 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
     }
     mainSlotEl.hidden = false;
     mountSlotRoot(mainSlotEl, surface.root);
-    // Reserve the sizenote line's layout space BEFORE fitting (review m2-terminal Minor
-    // 1) — a non-breaking space keeps the reserved line the same height real geometry
+    // Reserve the sizenote line's layout space BEFORE fitting — a non-breaking space
+    // keeps the reserved line the same height real geometry
     // text would, so even the very first attach reserves the right amount of space. Must
     // stay a literal NBSP (U+00A0), not an ASCII space: `.sizenote` is flex, and a flex
     // item holding only collapsible whitespace renders at zero height.
@@ -215,9 +215,9 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
       return;
     }
 
-    // Review Major 3: the one "what does this session's slot show?" decision, shared with
-    // features/tiles.ts — plan plain-terminal-session edge case 5 (dead only for `claude`)
-    // and markdown-viewing REQ-2/REQ-3 (`docs` replaces the pane regardless of `alive`).
+    // The one "what does this session's slot show?" decision, shared with
+    // features/tiles.ts: dead only applies to the `claude` surface, and `docs` replaces
+    // the pane regardless of `alive` (kb:adr/reader-docs-is-third-surface-segment).
     const bodyKind = surfaceBodyKind(surfaceState.selected, session.alive);
 
     if (bodyKind === "dead") {

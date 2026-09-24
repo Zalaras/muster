@@ -1,6 +1,6 @@
 // Wire types and parser for `UpdateInfo` and its `update` broadcast (docs/protocol.md,
 // kb:anchor/ws.update) — one of the protocol/ concept modules split
-// out of the former protocol.ts (plan maintainability-cleanup W3).
+// out of the former protocol.ts.
 
 import { isRecord } from "./decode";
 
@@ -23,9 +23,9 @@ export type UpdateApplyPhase = (typeof UPDATE_APPLY_PHASES)[number];
 
 export interface UpdateApply {
   phase: UpdateApplyPhase;
-  // string|null - the release being/last applied; null iff phase is "idle" (INV-4).
+  // string|null - the release being/last applied; null iff phase is "idle".
   version: string | null;
-  // string|null - message plus remedy sentence; non-null iff phase is "failed" (INV-4).
+  // string|null - message plus remedy sentence; non-null iff phase is "failed".
   error: string | null;
 }
 

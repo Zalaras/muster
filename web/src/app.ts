@@ -1,4 +1,4 @@
-// The cross-feature seam (plan code-breakup REQ-3): the session store, the shared
+// The cross-feature seam: the session store, the shared
 // AppState fields more than one feature reads, a typed event bus, the ordered render
 // phases, and render() itself. Pure enough to unit-test (no DOM) — every feature module
 // builds on top of this rather than main.ts wiring them together directly.
@@ -29,9 +29,9 @@ export interface AppState {
   view: View; // written only by features/views.ts (from prefs)
   density: Density; // written only by features/views.ts (from prefs)
   railSort: RailSort; // written only by features/rail.ts (from prefs)
-  // Plan rail-card-improvements: both adopted from `prefs`, in features/rail.ts's own
-  // `prefs` handler (alongside `railSort` above and `document.body.dataset.railDensity`,
-  // INV-4) even though `railActivity`'s control lives in the Settings dialog.
+  // Both adopted from `prefs`, in features/rail.ts's own
+  // `prefs` handler (alongside `railSort` above and `document.body.dataset.railDensity`)
+  // even though `railActivity`'s control lives in the Settings dialog.
   railDensity: RailDensity; // written only by features/rail.ts (from prefs)
   railActivity: RailActivity; // written only by features/rail.ts (from prefs)
   focusedId: number | null; // written only via app.focus(id)
@@ -41,8 +41,8 @@ export interface AppState {
 export interface RenderFrame {
   sessions: readonly Session[];
   now: Date;
-  /** `state.connection` verbatim (REQ-8) — the reader needs the three-way status to tell
-   * "never connected" from "lost connection" (INV-POPOUT-CONNECTING); every other reader
+  /** `state.connection` verbatim — the reader needs the three-way status to tell
+   * "never connected" from "lost connection"; every other reader
    * keeps using the derived `connected` below. */
   connection: ConnectionStatus;
   connected: boolean;
@@ -58,11 +58,11 @@ export interface AppEvents {
   sessionRemoved: (id: number) => void; // WS sessionRemoved, and a successful DELETE
   focusChanged: (id: number | null) => void; // before the render that follows app.focus
   cancelRenames: () => void; // any trigger that must not let a blur-commit through
-  docChanged: (docChanged: DocChanged) => void; // plan markdown-viewing: WS docChanged
-  // Plan terminal-fixes-cleanup: WS shellActivity — features/surfaces.ts's activity
+  docChanged: (docChanged: DocChanged) => void; // WS docChanged
+  // WS shellActivity (kb:anchor/ws.shell-activity) — features/surfaces.ts's activity
   // reducer is the only listener.
   shellActivity: (sessionId: number, busy: boolean) => void;
-  // Review Major 8: emitted by features/theme.ts once it has written the `<html>`
+  // Emitted by features/theme.ts once it has written the `<html>`
   // theme/family attributes — the one signal both features/surfaces.ts's live terminals
   // and features/reader.ts's diagram instances react to, replacing a `deps.surfaces`
   // callback on one side and a per-instance `MutationObserver` on the other.

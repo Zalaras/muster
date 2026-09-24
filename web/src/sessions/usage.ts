@@ -1,7 +1,7 @@
 // Pure derivation for one masthead usage bucket's readout (design-system §5 "Gauge
 // thresholds"; §6.1 honesty rule) — one derivation, one renderer (render/masthead.ts's
 // `renderUsageBucket`), matching `sessions/context.ts`'s `buildContextRowViewModel` /
-// `render/context.ts` pair for the context gauge (review Major 2). `#usage-5h`,
+// `render/context.ts` pair for the context gauge. `#usage-5h`,
 // `#usage-7d` and `#usage-model-week`'s own percent/bar/resets slice all share this same
 // shape — a `UsageBucket` and a `ModelWindow` (protocol/usage.ts) carry the same
 // `usedPct`/`resetsAt` pair, just from two different daemon sources.

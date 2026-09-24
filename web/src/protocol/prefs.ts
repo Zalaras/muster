@@ -1,10 +1,10 @@
 // Wire types and parser for `Prefs` and its `prefs` broadcast (docs/protocol.md,
 // kb:anchor/prefs.put) — one of the protocol/ concept modules split
-// out of the former protocol.ts (plan maintainability-cleanup W3).
+// out of the former protocol.ts.
 
 import { isRecord } from "./decode";
 
-// Plan order-sidebar (kb:anchor/prefs.put): the rail's sort mode pref.
+// kb:anchor/prefs.put: the rail's sort mode pref.
 export const RAIL_SORTS = ["manual", "attention"] as const;
 export type RailSort = (typeof RAIL_SORTS)[number];
 
@@ -14,12 +14,12 @@ export type View = (typeof VIEWS)[number];
 export const DENSITIES = ["2x2", "3x2"] as const;
 export type Density = (typeof DENSITIES)[number];
 
-// Plan rail-card-improvements (kb:anchor/prefs.put): the rail/strip card density pref.
+// kb:anchor/prefs.put: the rail/strip card density pref.
 export const RAIL_DENSITIES = ["compact", "comfortable", "expanded"] as const;
 export type RailDensity = (typeof RAIL_DENSITIES)[number];
 
-// Plan rail-card-improvements (kb:anchor/prefs.put): which text a card's activity line
-// shows — turn-aware by default (REQ-14/kb:adr/rail-activity-line-turn-aware-default-with-pref).
+// kb:anchor/prefs.put: which text a card's activity line
+// shows — turn-aware by default (kb:adr/rail-activity-line-turn-aware-default-with-pref).
 export const RAIL_ACTIVITIES = ["turn", "prompt", "reply", "both"] as const;
 export type RailActivity = (typeof RAIL_ACTIVITIES)[number];
 
@@ -32,29 +32,29 @@ export interface Prefs {
   view: View;
   density: Density;
   usageModel: string;
-  // Plan order-sidebar (kb:anchor/prefs.put): defaulted to "manual" client-side when
-  // the key is absent (same "pre-plan daemon" tolerance as `usageModel`).
+  // kb:anchor/prefs.put: defaulted to "manual" client-side when
+  // the key is absent (same tolerance as `usageModel`, for a daemon predating this field).
   railSort: RailSort;
-  // Plan new-ui-design-colors (kb:anchor/prefs.put, REQ-19): opaque to the daemon
+  // kb:anchor/prefs.put: opaque to the daemon
   // beyond its pattern — the client owns the theme registry (theme.ts). Missing key
-  // (pre-plan daemon) defaults to "follow", same tolerance as usageModel/railSort.
+  // (a daemon predating this field) defaults to "follow", same tolerance as usageModel/railSort.
   theme: string;
-  // Plan auto-update (kb:anchor/prefs.put / kb:anchor/ws.prefs): governs checking only - the binary
-  // never changes without an explicit apply. Missing key (pre-plan daemon) defaults to
+  // kb:anchor/prefs.put / kb:anchor/ws.prefs: governs checking only - the binary
+  // never changes without an explicit apply. Missing key (a daemon predating this field) defaults to
   // true (the daemon's own documented default), same tolerance as the other prefs above.
   updateCheck: boolean;
-  // Plan rail-card-improvements (kb:anchor/prefs.put): card density in the rail and the
-  // Tiles strip. Missing key (pre-plan daemon) defaults to "comfortable", same tolerance
+  // kb:anchor/prefs.put: card density in the rail and the
+  // Tiles strip. Missing key (a daemon predating this field) defaults to "comfortable", same tolerance
   // as the other prefs above.
   railDensity: RailDensity;
-  // Plan rail-card-improvements (kb:anchor/prefs.put): which text a card's activity line
-  // shows. Missing key (pre-plan daemon) defaults to "turn", same tolerance as above.
+  // kb:anchor/prefs.put: which text a card's activity line
+  // shows. Missing key (a daemon predating this field) defaults to "turn", same tolerance as above.
   railActivity: RailActivity;
 }
 
-// One-owner defaults for every pref (Minor 1, review cycle 1) — `parsePrefsField`'s
+// One-owner defaults for every pref — `parsePrefsField`'s
 // fallback for a missing wire key below, and `app.ts`'s initial `AppState` before the
-// first snapshot ever arrives. `view`/`density` have no *wire* default (a pre-plan daemon
+// first snapshot ever arrives. `view`/`density` have no *wire* default (every daemon
 // always sends both, so `parsePrefs` rejects a payload missing either rather than
 // defaulting it) — they're here only because the client still needs something to paint
 // before it has heard from the daemon at all, and kb:anchor/ws.prefs documents the
@@ -90,7 +90,7 @@ function isDensity(value: unknown): value is Density {
 }
 
 // Exported: features/rail.ts's density-button guard imports this instead of keeping its
-// own copy (review.maintainability.d-webcore.md Major 1/Seed check B4).
+// own copy.
 export function isRailDensity(value: unknown): value is RailDensity {
   return (RAIL_DENSITIES as readonly unknown[]).includes(value);
 }
@@ -110,7 +110,7 @@ function isBoolean(value: unknown): value is boolean {
 }
 
 /** Reads one prefs field that has a fixed default for a missing key and a guard for a
- * present one — every field below `view`/`density` (which have no default; a pre-plan
+ * present one — every field below `view`/`density` (which have no default; every
  * daemon always sends them) shares this exact "missing key defaults, present-but-wrong-shape
  * rejects the whole object" shape. Extracted so `parsePrefs` states each field once,
  * under Biome's complexity ceiling, rather than repeating a ternary-then-guard pair per
@@ -126,27 +126,27 @@ export function parsePrefs(value: unknown): Prefs | null {
   const density = value["density"];
   if (!isView(view)) return null;
   if (!isDensity(density)) return null;
-  // Plan usage-model-bar: missing key (pre-plan daemon) defaults to the daemon's own
+  // Missing key (a daemon predating this field) defaults to the daemon's own
   // documented default (kb:anchor/ws.prefs, PREF_DEFAULTS above).
   const usageModel = parsePrefsField(value["usageModel"], PREF_DEFAULTS.usageModel, isString);
   if (usageModel === null) return null;
-  // Plan order-sidebar: missing key (pre-plan daemon) defaults to PREF_DEFAULTS.railSort
+  // Missing key (a daemon predating this field) defaults to PREF_DEFAULTS.railSort
   // (kb:anchor/prefs.put's documented default).
   const railSort = parsePrefsField(value["railSort"], PREF_DEFAULTS.railSort, isRailSort);
   if (railSort === null) return null;
-  // Plan new-ui-design-colors (REQ-19): missing key (pre-plan daemon) defaults to
+  // Missing key (a daemon predating this field) defaults to
   // PREF_DEFAULTS.theme (kb:anchor/prefs.put's documented default) — the daemon treats
   // the string as opaque beyond its pattern, so no further validation happens client-side.
   const theme = parsePrefsField(value["theme"], PREF_DEFAULTS.theme, isString);
   if (theme === null) return null;
-  // Plan auto-update: missing key (pre-plan daemon) defaults to PREF_DEFAULTS.updateCheck
+  // Missing key (a daemon predating this field) defaults to PREF_DEFAULTS.updateCheck
   // (kb:anchor/prefs.put's documented default), same tolerance as usageModel/railSort/theme above.
   const updateCheck = parsePrefsField(value["updateCheck"], PREF_DEFAULTS.updateCheck, isBoolean);
   if (updateCheck === null) return null;
-  // Plan rail-card-improvements: missing key (pre-plan daemon) defaults to
+  // Missing key (a daemon predating this field) defaults to
   // PREF_DEFAULTS.railDensity (kb:anchor/prefs.put's documented default). A *stored*
   // value outside the enum is the daemon's problem, not the wire's — it falls back to
-  // "comfortable" server-side (D13's silent fallback) before it is ever sent. If an
+  // "comfortable" server-side before it is ever sent. If an
   // out-of-enum railDensity somehow reaches the client anyway, parsePrefsField's guard
   // fails and parsePrefs rejects the whole prefs object (protocol.test.ts's "rejects a
   // railDensity value outside the compact|comfortable|expanded enum").
@@ -156,7 +156,7 @@ export function parsePrefs(value: unknown): Prefs | null {
     isRailDensity,
   );
   if (railDensity === null) return null;
-  // Plan rail-card-improvements: missing key (pre-plan daemon) defaults to
+  // Missing key (a daemon predating this field) defaults to
   // PREF_DEFAULTS.railActivity (kb:anchor/prefs.put's documented default), same tolerance
   // as railDensity above.
   const railActivity = parsePrefsField(

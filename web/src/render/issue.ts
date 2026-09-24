@@ -1,11 +1,14 @@
-// The Issue dialog's DOM builders (plan issue-capture) — split out of features/issue.ts
-// (review seed B9: DOM building belongs in `render/`, matching `render/crumbs.ts`'s shape
-// for a small builder used by exactly one controller). `initIssueDialog` itself stays in
+// The Issue dialog's DOM builders (kb:spec/issue) — split out of features/issue.ts
+// (docs/conventions.md § Composition roots: DOM building belongs in `render/`, matching
+// `render/crumbs.ts`'s shape for a small builder used by exactly one controller).
+// `initIssueDialog` itself stays in
 // features/issue.ts: it owns the capture/submit network calls and the mutable capture
 // state, which `render/` never does.
 import type { Session } from "../protocol/session";
 
-/** REQ-2's exact dashboard-scope option text — em dashes (U+2014), single spaces. */
+/** The dashboard-scope option's exact text — em dashes (U+2014), single spaces; a
+ * separate literal copy in `web/e2e/helpers/issue.ts`'s `DASHBOARD_SCOPE_OPTION_TEXT`
+ * must match this byte-for-byte since the two aren't shared via import. */
 export const DASHBOARD_SCOPE_TEXT = "— none (dashboard only) —";
 export const DASHBOARD_SCOPE_VALUE = "";
 
@@ -13,7 +16,7 @@ export function renderIssueButton(el: HTMLButtonElement, connected: boolean): vo
   el.disabled = !connected;
 }
 
-/** REQ-2: builds the Session select from `sessions` (already in rail order — the caller's
+/** Builds the Session select from `sessions` (already in rail order — the caller's
  * job, not this module's) plus the dashboard-scope option, and preselects `focusedId`
  * when it's in the list else the dashboard option. */
 export function buildSessionOptions(

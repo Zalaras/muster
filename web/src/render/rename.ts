@@ -1,4 +1,4 @@
-// Shared inline rename editor (plan ui-text-and-focus REQ-13-16) — the Focus mainhead's
+// Shared inline rename editor (kb:adr/rename-muster-owned-title-override-wins) — the Focus mainhead's
 // heading and every Tiles tile header attach one of these to their own container. DOM
 // and key handling only, modelled on features/settings.ts's controller shape (elements/
 // handlers in, a small controller out); `titleCommand` (sessions/rename.ts) decides what
@@ -20,7 +20,7 @@ export interface RenameEditorHandlers {
   getSession: () => Session | null;
   /** Fires once, only for a `"set"`/`"clear"` outcome — a `"noop"` never reaches here. */
   onCommit: (id: number, command: TitleCommand) => void;
-  /** Review Minor 3: a host-specific effect the editor's open/close should trigger — a
+  /** A host-specific effect the editor's open/close should trigger — a
    * tile suspends its own `.thead` drag handle while its title is being edited; the
    * mainhead has no such effect and omits this. Fires exactly on open (`true`) and close
    * (`false`), never on every render pass. This module used to reach for `.thead` itself
@@ -57,7 +57,7 @@ export function attachRenameEditor(
   const button: HTMLButtonElement = maybeButton;
 
   let input: HTMLInputElement | null = null;
-  // Edge case 11: Enter commits, removes the input, and the removal's own blur must not
+  // Enter commits, removes the input, and the removal's own blur must not
   // commit a second time. Set the instant either Enter or blur starts closing the edit.
   let settled = true;
 

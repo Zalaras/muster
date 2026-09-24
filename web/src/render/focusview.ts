@@ -1,5 +1,5 @@
-// Focus's main-area toggle and sizenote (plan m4-reconcile / plan terminal-focus) — split
-// out of render/sessions.ts (review seed B10: both are called only by features/focus.ts,
+// Focus's main-area toggle and sizenote — split
+// out of render/sessions.ts (both are called only by features/focus.ts,
 // not by anything the rail/tile card builders in render/sessions.ts own).
 
 export interface FocusMainElements {
@@ -15,7 +15,7 @@ export function renderFocusMain(elements: FocusMainElements, hasSessions: boolea
   elements.slotEl.hidden = !hasSessions;
 }
 
-/** REQ-15's sizenote line: `<cols>×<rows> · one live client · geometry owned by this
+/** The sizenote line: `<cols>×<rows> · one live client · geometry owned by this
  * pane`. `null` geometry (no focused session, or one not yet laid out) hides the line
  * entirely rather than rendering a half-formed one. */
 export function renderSizenote(

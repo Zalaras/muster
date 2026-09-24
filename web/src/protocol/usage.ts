@@ -1,6 +1,6 @@
 // Wire types and parser for `Usage` and its `usage` broadcast (docs/protocol.md,
 // kb:anchor/ws.usage) — one of the protocol/ concept modules split
-// out of the former protocol.ts (plan maintainability-cleanup W3).
+// out of the former protocol.ts.
 
 import { isRecord, parseListOf, parseNullable } from "./decode";
 import { parseModelInfo, type SessionModelInfo } from "./session";
@@ -10,7 +10,7 @@ export interface UsageBucket {
   resetsAt: string;
 }
 
-/** Plan usage-model-bar (kb:anchor/ws.usage): one model-scoped weekly window, as
+/** kb:anchor/ws.usage: one model-scoped weekly window, as
  * musterd's own `GET /api/oauth/usage` poller reports it — a second usage source,
  * independent of the status-line buckets above. */
 export interface ModelWindow {
@@ -19,7 +19,7 @@ export interface ModelWindow {
   resetsAt: string;
 }
 
-/** REQ-6: the three failure kinds a model-scoped poll can end in; `null` after a
+/** The three failure kinds a model-scoped poll can end in; `null` after a
  * successful fetch. */
 export const MODEL_SCOPED_ERRORS = ["no-credentials", "unauthorized", "unreachable"] as const;
 export type ModelScopedError = (typeof MODEL_SCOPED_ERRORS)[number];
@@ -34,11 +34,11 @@ export interface Usage {
   model?: SessionModelInfo | null;
   sampledAt: string | null;
   source: string;
-  // Plan usage-model-bar additions (kb:anchor/ws.usage) — optional wire fields, same
+  // kb:anchor/ws.usage — optional wire fields, same
   // "absent key round-trips as absent, not synthesized null" pattern as `model` above,
-  // so a pre-plan daemon's payload (all four keys absent) round-trips unchanged. INV-1
-  // (modelScopedAt null iff modelScoped null) is a daemon-side invariant only — a client
-  // reads `usage.modelScoped ?? null` and `usage.modelScopedAt ?? null` uniformly.
+  // so an older daemon's payload (all four keys absent) round-trips unchanged. That
+  // modelScopedAt is null iff modelScoped is null is a daemon-side invariant only — a
+  // client reads `usage.modelScoped ?? null` and `usage.modelScopedAt ?? null` uniformly.
   modelScoped?: ModelWindow[] | null;
   modelScopedAt?: string | null;
   modelScopedError?: ModelScopedError | null;
@@ -82,9 +82,9 @@ function isModelScopedError(value: unknown): value is ModelScopedError {
   return (MODEL_SCOPED_ERRORS as readonly unknown[]).includes(value);
 }
 
-/** Scores 23 on cognitive complexity (down from 33 before the shared decoders — Major 3,
- * review cycle 1 — absorbed the two-line nullable-of pattern into one call each), still
- * over Biome's 15 ceiling: the remainder is the four `if ("key" in value)` blocks that
+/** Scores 23 on cognitive complexity (down from 33 before the shared decoders absorbed the
+ * two-line nullable-of pattern into one call each), still over Biome's 15 ceiling: the
+ * remainder is the four `if ("key" in value)` blocks that
  * implement present-only additive evolution (kb:anchor/conventions), each carrying the
  * comment explaining why an absent key must stay absent rather than become `null`.
  * Splitting the function strands those comments away from the fields they govern. */
@@ -110,11 +110,11 @@ export function parseUsage(value: unknown): Usage | null {
     if (model === undefined) return null;
     usage.model = model;
   }
-  // Plan usage-model-bar (kb:anchor/ws.usage): same present-only pattern as `model`
+  // kb:anchor/ws.usage: same present-only pattern as `model`
   // above — each of the four new fields is read only when its key is on the wire, and a
   // malformed value (wrong type, an unrecognized `modelScopedError` string, a malformed
   // `modelScoped` element) rejects the whole message rather than silently degrading to
-  // "unknown" (W5).
+  // "unknown" (guarded by web/src/protocol/usage.test.ts).
   if ("modelScoped" in value) {
     const modelScoped = parseNullable(value["modelScoped"], (v) =>
       parseListOf(v, parseModelWindow),

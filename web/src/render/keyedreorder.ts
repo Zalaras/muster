@@ -1,6 +1,6 @@
 // One positioning routine for every keyed, ordered set of session-id roots this dashboard
 // reconciles into a container — the rail, the strip and (via features/tiles.ts) the Tiles
-// grid (review Major 4). `render/sessions.ts`'s `reconcileCards` used to carry this loop
+// grid. `render/sessions.ts`'s `reconcileCards` used to carry this loop
 // itself, and `features/tiles.ts`'s `reconcileTilesGrid` duplicated it verbatim for tiles
 // (a DOM reorder inside a controller, which conventions § Composition roots reserves for
 // `render/`). Positioning only: building/updating each entry's content and removing

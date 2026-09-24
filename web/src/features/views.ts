@@ -1,14 +1,13 @@
-// Focus/Tiles switcher, density buttons, and the two view containers' `hidden` (plan
-// code-breakup vocabulary: "views"). Owns `app.state.view`/`app.state.density` — the only
-// module that ever writes them, always adopted from a `prefs` broadcast, never
-// optimistically from a click.
+// Focus/Tiles switcher, density buttons, and the two view containers' `hidden`. Owns
+// `app.state.view`/`app.state.density` — the only module that ever writes them, always
+// adopted from a `prefs` broadcast, never optimistically from a click.
 //
 // The `prefs` handler reads `prefs.view`/`prefs.density` directly off the incoming
 // message rather than off `app.state` (which it is itself about to overwrite) and
 // compares against its own `lastView`/`lastDensity` — so it is safe regardless of
 // whether `tiles.ts`'s own `prefs` subscriber (which needs the same "did it actually
 // change" comparison, to reset `tilesLive`) happens to run before or after this one; see
-// tiles.ts's header comment. Edge case 7: a reconnect echoing identical prefs must not
+// tiles.ts's header comment. A reconnect echoing identical prefs must not
 // emit `cancelRenames` or reshuffle anything.
 import type { App, RenderFrame } from "../app";
 import { requestPrefs } from "../api/prefs";
@@ -21,9 +20,9 @@ export interface ViewsHandle {
   toggle(): void;
 }
 
-/** The one thing `focus`/`tiles` need to be dispatched to by view (review cycle 1
- * Critical 1: this render-phase split used to be registered inline in `main.ts`, the one
- * piece of render-phase logic a composition root had of its own). */
+/** The one thing `focus`/`tiles` need to be dispatched to by view: this render-phase split
+ * used to be registered inline in `main.ts`, the one piece of render-phase logic a
+ * composition root had of its own (kb:adr/process-composition-roots-registration-only). */
 export interface ViewRenderer {
   renderView(frame: RenderFrame): void;
 }
@@ -52,9 +51,9 @@ export function initViews(
 
   app.on("prefs", (prefs) => {
     if (prefs.view !== lastView) {
-      // review cycle 1 Critical 1: a view switch hides the other view's whole subtree
-      // rather than reconciling it, so an open rename editor's blur would otherwise
-      // commit — cancel both surfaces before the switch.
+      // A view switch hides the other view's whole subtree rather than reconciling it, so
+      // an open rename editor's blur would otherwise commit — cancel both surfaces before
+      // the switch.
       app.emit("cancelRenames");
     }
     lastView = prefs.view;
@@ -62,11 +61,11 @@ export function initViews(
     app.state.density = prefs.density;
   });
 
-  // review cycle 1 Critical 1, live-browser-verified gap: a `mousedown` fires (and its
+  // Live-browser-verified gap: a `mousedown` fires (and its
   // default action blurs any open rename editor) before the paired `click` listener
   // below runs, so cancelling there is too late. A same-view press must NOT cancel — the
   // ordinary mousedown-default blur should reach the field's own `onBlur` and commit
-  // (plan claude-status-fixes REQ-6/REQ-7).
+  // (kb:adr/views-active-segment-click-commits-rename).
   viewFocusBtn.addEventListener("mousedown", (e) => {
     if (e.button === 0 && app.state.view !== "focus") app.emit("cancelRenames");
   });

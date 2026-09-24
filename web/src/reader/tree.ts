@@ -1,4 +1,4 @@
-// Pure nav-tree logic (REQ-10/REQ-11, W5/W6) — nests the listing's relative `.md` paths,
+// Pure nav-tree logic — nests the listing's relative `.md` paths,
 // counts files per folder and filters by substring. No DOM: render/reader.ts walks the
 // result to build/update the nav; features/reader.ts owns which folders are manually
 // toggled open (docs/conventions.md: keep derivation pure, separate from DOM code).
@@ -14,8 +14,8 @@ export interface DirEntry {
   readonly kind: "dir";
   readonly name: string;
   readonly path: string;
-  /** `buildTree` always starts a folder collapsed (W5); `filterTree` sets this `true`
-   * on every ancestor of a match (REQ-11). Manual toggling is render/reader.ts's own
+  /** `buildTree` always starts a folder collapsed; `filterTree` sets this `true`
+   * on every ancestor of a match. Manual toggling is render/reader.ts's own
    * state, applied on top of whichever tree (base or filtered) is current. */
   readonly expanded: boolean;
   readonly children: readonly TreeEntry[];
@@ -46,7 +46,7 @@ function finalize(dir: MutableDir): DirEntry {
   return { kind: "dir", name: dir.name, path: dir.path, expanded: false, children };
 }
 
-/** REQ-10: nests every relative `.md` path into a tree — folders before files, both
+/** Nests every relative `.md` path into a tree — folders before files, both
  * alphabetical, every folder starting collapsed. `paths` are forward-slash relative
  * paths exactly as the listing wire shape carries them. */
 export function buildTree(paths: readonly string[]): readonly TreeEntry[] {
@@ -68,7 +68,7 @@ export function buildTree(paths: readonly string[]): readonly TreeEntry[] {
 }
 
 /** Recursive file count under one entry — 1 for a file, the sum over its children for a
- * folder (the nav's folder-count badges and the `Files` header's `<n> .md`, REQ-10). */
+ * folder (the nav's folder-count badges and the `Files` header's `<n> .md`). */
 export function countFiles(node: TreeEntry): number {
   if (node.kind === "file") return 1;
   return node.children.reduce((sum, child) => sum + countFiles(child), 0);
@@ -95,9 +95,9 @@ export interface FlatTreeEntry {
   expanded?: boolean;
   /** Recursive file count (dirs only) — undefined on a file entry. */
   count?: number;
-  /** REQ-13 (dirs never carry this; only files and the plan slot can be "dirty"). */
+  /** Dirs never carry this; only files and the plan slot can be "dirty". */
   dirty?: boolean;
-  /** The currently-open file (REQ-12). */
+  /** The currently-open file. */
   current?: boolean;
 }
 
@@ -144,7 +144,7 @@ export function flattenTree(
   return out;
 }
 
-/** REQ-11: a case-insensitive substring match on the relative path, keeping only
+/** A case-insensitive substring match on the relative path, keeping only
  * matching files and expanding every ancestor folder that leads to one. An empty (or
  * whitespace-only) query returns `tree` unchanged — clearing the filter box "restores
  * the collapsed tree" because features/reader.ts also drops its own manual-expand set

@@ -1,14 +1,15 @@
-// Window keydown -> views/focus/tiles/launch (plan code-breakup vocabulary: "shortcuts").
-// Matching itself lives in `../shortcuts.ts` (REQ-3) — this only ever dispatches on the
-// returned action, never on `event.key`/`event.code` directly (W11). Review Minor 7: the
-// one `window` keydown listener for every bound chord — ⌥⌘N (launch modal) and ⌘↑ (parent
-// directory) used to be dispatched by a second listener inside `features/launch.ts`
-// itself; both now reach `deps.launch` through this module instead.
+// Window keydown -> views/focus/tiles/launch. Matching itself lives in `../shortcuts.ts` —
+// this only ever dispatches on the returned action, never on `event.key`/`event.code`
+// directly (kb:adr/shortcuts-match-event-code-in-pure-module). This is the one `window`
+// keydown listener for every bound chord — ⌥⌘N (launch modal) and ⌘↑ (parent directory)
+// used to be dispatched by a second listener inside `features/launch.ts` itself; both now
+// reach `deps.launch` through this module instead.
 import type { App } from "../app";
 import { matchShortcut } from "../shortcuts";
 
-// W6/INV-4: structural deps, not `import type { ActionsHandle }`/`{ FocusHandle }`/
-// `{ ViewsHandle }`/`{ LaunchHandle }` from their owning sibling modules.
+// Structural deps, not `import type { ActionsHandle }`/`{ FocusHandle }`/
+// `{ ViewsHandle }`/`{ LaunchHandle }` from their owning sibling modules
+// (kb:adr/process-composition-roots-registration-only).
 export interface ShortcutsDeps {
   views: { toggle(): void };
   focus: { nth(n: number): void; neediest(): void };
@@ -34,16 +35,17 @@ export function initShortcuts(_app: App, deps: ShortcutsDeps): void {
         if (!deps.actions.isBlockingDialogOpen()) deps.focus.neediest();
         break;
       case "new-session":
-        // preventDefault unconditionally, even with the dialog already open (REQ-8;
-        // review m1-sessions cycle-3 minor: preventDefault must precede the open-guard).
-        // REQ-2: the browser's own bare ⌘N is left alone — this only ever fires for ⌥⌘N.
+        // preventDefault unconditionally, even with the dialog already open — it must
+        // precede launch.open()'s own open-guard. The browser's own bare ⌘N is left alone —
+        // this only ever fires for ⌥⌘N
+        // (kb:adr/shortcuts-option-command-family-off-reserved-chords).
         event.preventDefault();
         deps.launch.open();
         break;
       case "launch-parent-dir":
-        // REQ-6: ⌘↑ navigates to the parent of the listed directory. Dialog-scoped, not
-        // listing-scoped (edge case 11 — it still fires with focus in the Title input) —
-        // unlike every other case here, a closed dialog means no `preventDefault` either.
+        // ⌘↑ navigates to the parent of the listed directory. Dialog-scoped, not
+        // listing-scoped — it still fires with focus in the Title input — so unlike every
+        // other case here, a closed dialog means no `preventDefault` either.
         if (!deps.launch.isOpen()) break;
         event.preventDefault();
         deps.launch.navigateToParentDir();

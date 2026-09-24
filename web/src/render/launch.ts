@@ -1,6 +1,7 @@
 // The launch dialog's Recent-directories list, child listing, and footer readout — split
-// out of features/launch.ts (review seed B9: DOM building belongs in `render/`, matching
-// render/crumbs.ts's shape — elements/values in, an `onSelect` callback out). The
+// out of features/launch.ts (docs/conventions.md § Composition roots: DOM building belongs
+// in `render/`, matching render/crumbs.ts's shape — elements/values in, an `onSelect`
+// callback out). The
 // controller (features/launch.ts) still owns navigation, restore and all daemon calls;
 // these builders never call `navigate` themselves, only report which repo/entry was
 // picked.
@@ -23,16 +24,16 @@ function buildRecentButton(
   if (name) name.textContent = repo.name;
   if (branch) branch.textContent = repo.branch ?? "—";
   if (age) age.textContent = formatAge(repo.lastLaunchedAt, now);
-  // REQ-18: the full path lives in `title`; the visible entry stays name · branch · age.
+  // The full path lives in `title`; the visible entry stays name · branch · age.
   button.title = repo.path;
-  // INV-2: pressed is derived, never stored — recomputed on every render from whether
+  // `aria-pressed` is derived, never stored — recomputed on every render from whether
   // this repo's path equals the current selection.
   button.setAttribute("aria-pressed", selected ? "true" : "false");
   button.addEventListener("click", () => onSelect(repo));
   return button;
 }
 
-/** REQ-2's Recent list: nothing beneath the heading while the MRU fetch hasn't resolved
+/** The Recent list: nothing beneath the heading while the MRU fetch hasn't resolved
  * yet (States: "no data yet"), "No recent directories" once it has and came back empty,
  * else one button per repo (`selectedPath` decides which carries `aria-pressed`). */
 export function renderRecentsList(
@@ -114,8 +115,8 @@ export function renderBrowseLoading(container: HTMLElement): void {
 }
 
 /** The footer's target readout: an em dash and no branch while nothing is listed yet,
- * else the path and — REQ-17: the browse endpoint never reports the listed directory's
- * own branch, so the only honest source is a recent whose served path matches — that
+ * else the path and — the browse endpoint never reports the listed directory's own
+ * branch, so the only honest source is a recent whose served path matches — that
  * recent's branch when there is one. */
 export function renderLaunchFooter(
   pathEl: HTMLElement,

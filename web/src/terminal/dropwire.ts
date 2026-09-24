@@ -1,4 +1,4 @@
-// Drop-onto-a-surface wiring (review Minor 16), pulled out of `terminal/pane.ts`'s
+// Drop-onto-a-surface wiring, pulled out of `terminal/pane.ts`'s
 // `TerminalSurface` — its drop handling used to be built into the class itself, the one
 // piece of that class not shared with every other surface concern (socket, xterm
 // lifecycle, overlay). Installed once per surface, from outside, mirroring
@@ -21,7 +21,7 @@ import {
 /** The one thing `installTerminalDrop` needs from a surface — deliberately narrower than
  * `TerminalSurface` itself (no socket, no xterm instance, no overlay state). */
 export interface DropSurface {
-  /** Whether this surface has a terminal at all (REQ-8: even a dead session's surface
+  /** Whether this surface has a terminal at all (even a dead session's surface
    * installs the listeners, they just stop at `preventDefault`) — distinct from
    * `canPasteNow`, which also requires the socket to be open right now. */
   hasTerminal(): boolean;
@@ -31,10 +31,11 @@ export interface DropSurface {
   focus(): void;
 }
 
-/** Edge case 1 / INV-3: a tile-header or rail-card reorder drag carries
- * `render/dragreorder.ts`'s own MIME, never `Files` or plain `text/plain` — checking for
- * its presence is what lets an internal reorder drag pass through to the grid/rail
- * container's own listener instead of being wrongly claimed here as a foreign drop. */
+/** kb:adr/drop-reorder-drag-mime-custom-type: a tile-header or rail-card reorder drag
+ * carries `render/dragreorder.ts`'s own MIME, never `Files` or plain `text/plain` —
+ * checking for its presence is what lets an internal reorder drag pass through to the
+ * grid/rail container's own listener instead of being wrongly claimed here as a foreign
+ * drop. */
 function isInternalDrag(event: DragEvent): boolean {
   return event.dataTransfer?.types.includes(DRAG_MIME) ?? false;
 }
@@ -45,7 +46,7 @@ async function locateAndPasteOne(
   file: File,
 ): Promise<void> {
   if (!surface.canPasteNow()) {
-    // REQ-8: no request when there's nowhere to paste.
+    // No request when there's nowhere to paste.
     surface.showNotice(noticeForFailure(file.name, { kind: "not_connected" }));
     return;
   }
@@ -53,7 +54,7 @@ async function locateAndPasteOne(
     surface.showNotice(noticeForFailure(file.name, { kind: "too_large" }));
     return;
   }
-  // REQ-13: in-flight, not an outcome — stays visible for as long as the request takes.
+  // In-flight, not an outcome — stays visible for as long as the request takes.
   surface.showNotice(locatingText(file.name), "inflight");
   const result = await locateDroppedFile(sessionId, file);
   if (!result.ok) {
@@ -64,12 +65,12 @@ async function locateAndPasteOne(
     surface.showNotice(null);
     surface.focus();
   } else {
-    // Edge case 3: the session/socket died between the request and the response.
+    // The session/socket died between the request and the response.
     surface.showNotice(noticeForFailure(file.name, { kind: "not_connected" }));
   }
 }
 
-/** REQ-2/REQ-10: classifies the drop and either runs the sequential locate→paste loop
+/** Classifies the drop and either runs the sequential locate→paste loop
  * (files) or pastes verbatim (text-only); "none" is silently swallowed. */
 async function handleDrop(
   sessionId: number,

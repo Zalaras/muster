@@ -17,14 +17,14 @@ fetches and which session gets a mounted instance. **Features**: reader.
 - Every module here is Vitest-testable with no DOM and no socket (docs/conventions.md) —
   except `markdown.ts`, whose DOMPurify default export needs a real `window` and throws
   `default.sanitize is not a function` under this project's jsdom-less Vitest (measured
-  2026-09-13). Its coverage is Playwright's: W15, E15, E16. `render/mermaid.ts` is the
-  same shape (needs `window` for mermaid/DOMPurify) — not Vitest-importable either;
+  2026-09-13). Its coverage is Playwright's: `web/e2e/reader.spec.ts`. `render/mermaid.ts`
+  is the same shape (needs `window` for mermaid/DOMPurify) — not Vitest-importable either;
   `mermaid.ts` and `zoom.ts` themselves are pure and join `slug.ts` as exemplars.
 - The sanitized fragment `markdown.ts` returns is the only thing ever inserted into the
-  reader body, via `replaceChildren` — never `innerHTML` with interpolated data (W15).
+  reader body, via `replaceChildren` — never `innerHTML` with interpolated data.
 - `memory.ts` never throws: every storage access is try/caught, defaulting to empty.
 - A write is acknowledged by its own `writtenAt`/`docChanged.at` value, not a boolean —
-  the same path written again after being opened must re-dirty (REQ-13).
+  the same path written again after being opened must re-dirty.
 
 **Exemplar**: `slug.ts` + `slug.test.ts` — a small pure function pair; copy this shape for
 a new derivation.

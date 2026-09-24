@@ -3,14 +3,13 @@ import { isRecord } from "../protocol/decode";
 import { requestJson, type ApiResult } from "./http";
 
 /** Plan issue-capture (kb:anchor/issue.captures): the held server-side snapshot a capture
- * produces. `snapshot` is deliberately left as an opaque record here — features/issue.ts
- * (W3) never reads a field out of it; only `snapshotMarkdown` (the daemon's own rendered
- * string) ever reaches the preview. */
-// `takenAt` deliberately renames the wire's `capturedAt` (W3 — the check that
-// features/issue.ts never spells out a snapshot/capture field name greps for the literal
-// string "capturedAt"; parsing it under a different TS-side name here, in api/issue.ts,
-// which is out of that check's scope, is what lets REQ-20's timestamp reach the dialog
-// without features/issue.ts ever naming the wire field it came from).
+ * produces. `snapshot` is deliberately left as an opaque record here
+ * (kb:adr/issue-preview-is-the-leak-check) — features/issue.ts never reads a field out of
+ * it; only `snapshotMarkdown` (the daemon's own rendered string) ever reaches the preview. */
+// `takenAt` deliberately renames the wire's `capturedAt` — parsing it under a different
+// TS-side name here, in api/issue.ts, keeps features/issue.ts from ever having to name the
+// wire field the capture's timestamp came from, consistent with treating `snapshot` as
+// opaque above.
 export interface IssueCapture {
   captureId: string;
   takenAt: string;
@@ -65,9 +64,9 @@ function parseFiledIssue(value: unknown): FiledIssue | null {
 }
 
 /** `POST /api/issues` (kb:anchor/issue.create). Files a held capture — never a
- * client-supplied payload (REQ-3). A successful file consumes the capture; a failure
- * does not, so a retry needs no re-capture. Errors: `400 invalid_request` /
- * `404 not_found` (disabled) / `409 capture_expired` / `502 issue_auth_failed` /
+ * client-supplied payload (kb:adr/issue-capture-then-file-server-held). A successful file
+ * consumes the capture; a failure does not, so a retry needs no re-capture. Errors:
+ * `400 invalid_request` / `404 not_found` (disabled) / `409 capture_expired` / `502 issue_auth_failed` /
  * `502 issue_post_failed`. */
 export async function fileIssue(body: FileIssueRequest): Promise<ApiResult<FiledIssue>> {
   return requestJson("POST", "/api/issues", parseFiledIssue, body);

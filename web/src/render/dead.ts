@@ -1,9 +1,9 @@
-// REQ-13 (plan m4-reconcile): the dead-session surface — an end bar, the last captured
+// The dead-session surface (kb:adr/actions-pane-snapshot-display-only) — an end bar, the last captured
 // pane snapshot, and a centred "session ended" cap with Resume. Mounted in two places:
 // Focus's `#dead-surface` (static markup, one instance) and, per dead tile, cloned from
 // `#dead-surface-template` into that tile's `.tbody-slot` (render/tiles.ts's
 // `mountTileDeadSurface`) — both share this module's pure builder/render functions so the
-// two surfaces never drift out of sync with each other. DOM only (review seed B8: this
+// two surfaces never drift out of sync with each other. DOM only: this
 // module used to also own the `GET .../pane` fetch itself; `features/actions.ts`'s
 // `loadPane` now does that and passes the resulting `PaneState` in, so no path here opens
 // a request) — caching *when* to fetch is features/actions.ts's job
@@ -19,17 +19,16 @@ export interface DeadSurfaceRefs {
   snapshotEl: HTMLElement;
   capBodyEl: HTMLElement;
   resumeBtn: HTMLButtonElement;
-  /** Review plain-terminal-session Major 1: the dead surface's own `role="status"` notice
-   * (`.terminal-notice`, same class/CSS `terminal/pane.ts`'s `TerminalSurface` uses), for
-   * the one case that has no live surface to route a notice through — a spawn failure
-   * (REQ-12) on a session whose `claude` surface is currently this dead surface, not a
-   * live pane. Built once, in `collectDeadSurfaceRefs` below; only `showDeadSurfaceNotice`
-   * reads it. */
+  /** The dead surface's own `role="status"` notice (`.terminal-notice`, same class/CSS
+   * `terminal/pane.ts`'s `TerminalSurface` uses), for the one case that has no live surface
+   * to route a notice through — a shell spawn failure on a session whose `claude` surface
+   * is currently this dead surface, not a live pane. Built once, in
+   * `collectDeadSurfaceRefs` below; only `showDeadSurfaceNotice` reads it. */
   noticeEl: HTMLElement;
 }
 
-/** The three fetch outcomes render/dead.ts cares about — `capturedAt` is carried for
- * REQ-19 (nice-to-have) callers but not required by the honesty text below. */
+/** The three fetch outcomes render/dead.ts cares about — `capturedAt` is carried for the
+ * optional "captured … ago" addendum below, not required by the honesty text itself. */
 export type PaneState =
   | { status: "loading" }
   | { status: "ok"; text: string; capturedAt: string }
@@ -60,9 +59,9 @@ export function buildDeadSurfaceFromTemplate(template: HTMLTemplateElement): Dea
   return collectDeadSurfaceRefs(root);
 }
 
-/** REQ-13's exact copy, transcribed from the mockups (Implementation Notes: "do not
- * compose new strings") — the end bar always starts with "ended " (Testable UI Elements:
- * `/^ended /`), the cap always contains "session ended" plus a Resume button, and the
+/** Copy transcribed verbatim from the mockups, never composed as new strings — the end
+ * bar always starts with "ended " (Testable UI Elements: `/^ended /`), the cap always
+ * contains "session ended" plus a Resume button, and the
  * 404 `no_snapshot` case swaps the cap's body for the "unknown, not empty" honesty text
  * rather than a blank one. `connected` gates the Resume button the same way the mainhead
  * and card action rows do (States: "action buttons are disabled while the WS is down"). */
@@ -85,10 +84,10 @@ export function renderDeadSurface(
     : `ended · last state ${badge} · last captured screen, not a live client`;
 
   if (pane.status === "ok") {
-    // REQ-19 (nice-to-have) / design-system §6.8: possibly-stale state shows its age —
-    // the snapshot can be a few seconds older than `age` above (End freezes the ended
-    // timer, but the capture that produced this text was taken slightly earlier still).
-    // `ageAgo` is the same "never 'now ago'" helper the age clause above already uses.
+    // design-system §6.8: possibly-stale state shows its age — the snapshot can be a few
+    // seconds older than `age` above (End freezes the ended timer, but the capture that
+    // produced this text was taken slightly earlier still). `ageAgo` is the same "never
+    // 'now ago'" helper the age clause above already uses.
     refs.endbarEl.textContent += ` · captured ${ageAgo(pane.capturedAt, now)}`;
     refs.snapshotEl.textContent = pane.text;
     refs.capBodyEl.textContent = age ? `${age} · last state: ${badge}` : `last state: ${badge}`;
@@ -96,10 +95,9 @@ export function renderDeadSurface(
     refs.snapshotEl.textContent = "";
     refs.capBodyEl.textContent = "no snapshot captured";
   } else {
-    // review m4-reconcile Minor 9: while the pane fetch is in flight, this was
-    // previously indistinguishable from a session that ended on a genuinely blank
-    // screen ("no snapshot captured" reads as a confirmed negative, not "don't know
-    // yet"). Say so explicitly instead of rendering empty strings.
+    // While the pane fetch is in flight, an empty string would be indistinguishable from
+    // a session that ended on a genuinely blank screen ("no snapshot captured" reads as a
+    // confirmed negative, not "don't know yet") — say so explicitly instead.
     refs.snapshotEl.textContent = "";
     refs.capBodyEl.textContent = "loading last screen…";
   }
@@ -107,21 +105,19 @@ export function renderDeadSurface(
   refs.resumeBtn.dataset["action"] = "resume";
   refs.resumeBtn.dataset["id"] = String(session.id);
   refs.resumeBtn.disabled = !connected || !canResume(session.claudeSessionId);
-  // REQ-17/W3: a disabled-for-no-claudeSessionId Resume says why, not just sits greyed.
+  // A disabled-for-no-claudeSessionId Resume says why, not just sits greyed.
   refs.resumeBtn.title = resumeDisabledReason(session) ?? "";
 }
 
-/** Review plain-terminal-session Major 1: shows (or, given `null`, clears) the dead
- * surface's own `role="status"` notice — mirrors `TerminalSurface.showNotice`
- * (`terminal/pane.ts`) exactly (same 5s auto-hide per REQ-6's existing convention, same
- * "a new outcome replaces whatever text was there" behaviour), for the one case that has
- * no live `TerminalSurface` to route a notice through: REQ-12's spawn-failure message when
- * the session whose `shell` spawn failed is currently showing this dead surface for
- * `claude`, not a live pane. Delegates to `terminal/notice.ts` (plan v1-cleanup REQ-12,
- * extracting what the review above found duplicated) — every caller here is a failure
- * outcome (plan Implementation Notes), so this never passes `"inflight"` and keeps the
- * always-5s-auto-hide contract `dead.test.ts` already asserts unchanged (REQ-13 changes
- * only `terminal/pane.ts`). */
+/** Shows (or, given `null`, clears) the dead surface's own `role="status"` notice —
+ * mirrors `TerminalSurface.showNotice` (`terminal/pane.ts`) exactly (same 5s auto-hide
+ * convention, same "a new outcome replaces whatever text was there" behaviour), for the
+ * one case that has no live `TerminalSurface` to route a notice through: a shell
+ * spawn-failure message when the session whose `shell` spawn failed is currently showing
+ * this dead surface for `claude`, not a live pane. Delegates to `terminal/notice.ts`
+ * (extracting the shared 5s-auto-hide logic rather than duplicating it here) — every
+ * caller here is a failure outcome, so this never passes `"inflight"`, keeping the
+ * always-5s-auto-hide contract `dead.test.ts` already asserts unchanged. */
 export function showDeadSurfaceNotice(refs: DeadSurfaceRefs, text: string | null): void {
   showNotice(refs.noticeEl, text);
 }

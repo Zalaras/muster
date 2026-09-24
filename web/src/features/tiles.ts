@@ -1,6 +1,6 @@
-// Tiles grid reconcile, strip, tile drag, density application, and promote (plan
-// code-breakup vocabulary: "tiles"). Owns `tilesLive` — per-window, ephemeral, client-only
-// membership/order state (never synced across windows, never a prefs field).
+// Tiles grid reconcile, strip, tile drag, density application, and promote. Owns
+// `tilesLive` — per-window, ephemeral, client-only membership/order state (never synced
+// across windows, never a prefs field; kb:adr/tiles-order-ephemeral-per-window).
 //
 // `deps.getSurfaces`/`deps.getRenameHandlers` are thunks: `surfaces`/`rename` are
 // constructed after `tiles` (main.ts's init order — `surfaces` needs `tiles.liveIds` at
@@ -13,8 +13,8 @@
 // incoming message, not off `app.state` — see views.ts's header comment for why: by the
 // time this handler might run, `views.ts`'s own handler could already have overwritten
 // `app.state.view`/`density` with the new values, which would make an
-// against-`app.state` comparison always report "unchanged" (Edge Case 2/7).
-// W6/INV-4: `deps` below is typed structurally rather than by importing
+// against-`app.state` comparison always report "unchanged".
+// `deps` below is typed structurally rather than by importing
 // `ActionsHandle`/`SurfacesHandle`/`RenameHandle` from their owning sibling modules.
 import type { App, RenderFrame } from "../app";
 import { requireElement } from "../dom";
@@ -61,7 +61,7 @@ export interface TilesDeps {
     activityFor(id: number): ShellActivityIndicator;
   };
   getRenameHandlers(): TileRenameHandlers;
-  /** Plan markdown-viewing: `reader` is constructed after `tiles` (main.ts's init
+  /** `reader` is constructed after `tiles` (main.ts's init
    * order), so this is a thunk like `getSurfaces` above — invoked only from `renderView`. */
   getReader(): { rootFor(id: number): HTMLElement | null };
 }
@@ -72,7 +72,7 @@ export interface TilesHandle {
   promote(id: number): void;
   /** For `surfaces.ts`'s render-phase visibility diff. */
   liveIds(): readonly number[];
-  /** Review Major 9: `null` unless `id` currently has a dead tile mounted —
+  /** `null` unless `id` currently has a dead tile mounted —
    * `actions.ts`'s `findDeadSurfaceRefs` thunk asks this instead of reaching into a
    * tile's body slot itself. */
   deadSurfaceRefsFor(id: number): DeadSurfaceRefs | null;
@@ -85,7 +85,7 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
   const tilesGridEl = requireElement<HTMLElement>("#tiles-grid");
   const tilesStripEl = requireElement<HTMLElement>("#tiles-strip");
   const deadSurfaceTemplate = requireElement<HTMLTemplateElement>("#dead-surface-template");
-  // Review Minor 12: looked up once, here, and passed into every `render/tiles.ts` builder
+  // Looked up once, here, and passed into every `render/tiles.ts` builder
   // that needs it — `render/` no longer calls `requireTemplate` itself.
   const tileTemplate = requireElement<HTMLTemplateElement>("#tile-template");
   const sessionCardTemplate = requireElement<HTMLTemplateElement>("#session-card-template");
@@ -93,7 +93,7 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
   let tilesLive: number[] = [];
   // Tiles' mounted chrome per live session id — kept across render passes so the 1s tick
   // (and every other render trigger) updates existing tiles in place instead of
-  // rebuilding the grid (review m2-terminal Critical 2).
+  // rebuilding the grid.
   const tileElements = new Map<number, TileRefs>();
   let pendingTileFocus: FocusedControl | null = null;
   let lastView = app.state.view;
@@ -109,7 +109,7 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
     for (const refs of tileElements.values()) refs.rename.cancel();
   }
 
-  /** Review Minor 11: the one tile-teardown routine — cancel (no request) and detach the
+  /** The one tile-teardown routine — cancel (no request) and detach the
    * rename editor's own listener before the tile leaves the DOM, then drop its refs. A
    * no-op for an id with no mounted tile. Shared by the `sessionRemoved` handler and
    * `dropTilesNotIn` below, which used to repeat this body verbatim. */
@@ -138,7 +138,7 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
   });
 
   app.on("sessionRemoved", (id) => {
-    // REQ-15/edge case 18: cancel (no request) and detach the editor's own listener
+    // Cancel (no request) and detach the editor's own listener
     // before the tile itself is removed from the DOM.
     teardownTile(id);
     tilesLive = tilesLive.filter((x) => x !== id);
@@ -153,7 +153,7 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
   });
 
   // The tile grid's handle is `.thead` — only a drag that starts there reorders the grid;
-  // the body/footer are not drag handles (plan move-tiles REQ-4/REQ-5/REQ-6).
+  // the body/footer are not drag handles (kb:adr/tiles-drag-reorder-header-handle-insert-shift).
   installDragReorder(tilesGridEl, {
     itemSelector: "article.tile",
     handleSelector: ".thead",
@@ -173,8 +173,8 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
     }
   }
 
-  /** Plan markdown-viewing REQ-15: the reader replaces the tile body for `docs`,
-   * regardless of `alive` — no `TerminalSurface` ever exists for it (INV-1). */
+  /** The reader replaces the tile body for `docs` regardless of `alive` — no
+   * `TerminalSurface` ever exists for it (kb:adr/reader-docs-is-third-surface-segment). */
   function renderReaderTileBody(refs: TileRefs, session: Session): void {
     const readerRoot = deps.getReader().rootFor(session.id);
     mountSlotRoot(refs.bodySlot, readerRoot);
@@ -210,10 +210,10 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
   }
 
   /** Fills one tile's body slot: the reader, the selected surface, or the dead-pane
-   * surface — review Major 3's shared `surfaceBodyKind` decision, the same one
-   * features/focus.ts's main slot uses, so the two views can't drift on the branch order
-   * or conditions. Owns the tile's geometry frame either way, so the three paths cannot
-   * disagree about what was rendered. */
+   * surface — the same shared `surfaceBodyKind` decision features/focus.ts's main slot
+   * uses, so the two views can't drift on the branch order or conditions. Owns the tile's
+   * geometry frame either way, so the three paths cannot disagree about what was
+   * rendered. */
   function renderTileBody(
     refs: TileRefs,
     session: Session,
@@ -238,14 +238,14 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
   ): void {
     dropTilesNotIn(new Set(liveSessions.map((s) => s.id)));
 
-    // review m2-terminal Critical 2 / Major 4: captured before any tile's content is
+    // Captured before any tile's content is
     // built or updated below, not just before the position pass — a content update (say,
     // a genuine live/ended transition) can itself blur a focused descendant, same
     // reasoning as `render/sessions.ts`'s `reconcileCards`.
     const focused = pendingTileFocus ?? captureFocusedControl(tilesGridEl);
     pendingTileFocus = null;
 
-    // Review Major 4: this module keeps only membership (`tilesLive`, via
+    // This module keeps only membership (`tilesLive`, via
     // `dropTilesNotIn` above) and each tile's own refs; the actual DOM
     // insertBefore-reorder-plus-focus-restore is `render/keyedreorder.ts`'s shared
     // routine, the same one `render/sessions.ts`'s `reconcileCards` uses for the rail and
@@ -291,7 +291,7 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
     tilesEmptyEl.hidden = hasSessions;
     tilesGridEl.hidden = !hasSessions;
 
-    // Review Minor 11: one `renderStrip` call per pass — `stripSessions` is `[]` in the
+    // One `renderStrip` call per pass — `stripSessions` is `[]` in the
     // empty-dashboard case, same as the two call sites used to pass by hand.
     let stripSessions: readonly Session[] = [];
     if (!hasSessions) {

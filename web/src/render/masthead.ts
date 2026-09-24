@@ -20,7 +20,7 @@ export function renderConnectionStatus(el: HTMLElement, status: ConnectionStatus
   el.textContent = text;
 }
 
-/** Review Major 2/Minor 1: one bucket's persistent DOM refs, built once and held by the
+/** One bucket's persistent DOM refs, built once and held by the
  * caller (`features/usage.ts`) across every render pass — `render/CLAUDE.md`'s render-
  * state rule, the same "build once, caller holds the refs" shape as
  * `buildSurfaceSegment`/`buildTile`. `bar`/`fill`/`resets` are `null` while the bucket is
@@ -51,8 +51,8 @@ export function buildUsageBucket(container: HTMLElement, label: string): UsageBu
 }
 
 /** The one renderer for every masthead usage bucket — `#usage-5h`, `#usage-7d`, and (via
- * `renderUsageModelWeek` below) `#usage-model-week`'s own percent/bar/resets slice (review
- * Major 2: these used to be two separate implementations, `renderBucket`+`renderUsageTrack`
+ * `renderUsageModelWeek` below) `#usage-model-week`'s own percent/bar/resets slice (this
+ * used to be two separate implementations, `renderBucket`+`renderUsageTrack`
  * — rebuild-every-pass, with `renderUsageTrack` only correct when called immediately after
  * `renderBucket` on the same element — and `applyModelTrack` — mutate-in-place). Mutates
  * `refs.num`/`.bar`/`.fill`/`.resets` in place; final child order mirrors the reference
@@ -154,12 +154,12 @@ export function renderUsageModel(
 }
 
 /** `#usage-model-week`'s own persistent refs — the caller (`features/usage.ts`) builds
- * one of these once, at startup, and holds it across every render pass (review Minor 1:
- * this used to be a module-level `WeakMap<HTMLElement, ModelWeekState>` keyed by the
+ * one of these once, at startup, and holds it across every render pass (this
+ * used to be a module-level `WeakMap<HTMLElement, ModelWeekState>` keyed by the
  * container, which is exactly the render-state shape `render/CLAUDE.md`'s render-state
  * rule now forbids — the state belongs to whoever renders, not to this module).
  *
- * review usage-model-bar cycle 1, Critical 1: rebuilding a brand-new `<select>` every
+ * Rebuilding a brand-new `<select>` every
  * pass (via `container.replaceChildren`) is fine for the two sibling bucket readouts —
  * they hold no interactive state — but this readout's `<select>` is a real focusable
  * control. Passing an *already-attached* node back through `replaceChildren` alongside a
@@ -176,8 +176,8 @@ export interface UsageModelWeekRefs {
    * whenever this differs — that's the only path allowed to touch `select`'s position in
    * the DOM again. */
   names: string[];
-  /** Whether `names[0]` was a synthesized disabled placeholder when `select` was built
-   * (review cycle 2, Major 1). The name sequence alone is not a reliable "did the option
+  /** Whether `names[0]` was a synthesized disabled placeholder when `select` was built.
+   * The name sequence alone is not a reliable "did the option
    * set change" signal: a placeholder flip can leave the sequence identical while the
    * per-option `disabled` flags — set once in `buildUsageModelWeek` and never re-synced by
    * the reuse path — need to change (pref `Fable` with list `[Fable, Opus]` and pref
@@ -214,7 +214,7 @@ export function buildUsageModelWeek(
     const option = document.createElement("option") as HTMLOptionElement;
     option.value = name;
     option.textContent = name;
-    // Minor 3 (review cycle 1): a pref naming a model absent from a non-null list used
+    // A pref naming a model absent from a non-null list used
     // to leave the select at selectedIndex -1 (blank). A synthesized placeholder option
     // — disabled, so it can't be re-chosen — is prepended in that case (see
     // `renderUsageModelWeek`) and shows the pref name instead of a blank control,
@@ -240,19 +240,19 @@ export function buildUsageModelWeek(
   };
 }
 
-/** Plan usage-model-bar (REQ-9/REQ-10/REQ-11, UI Specifications > Testable UI Elements):
- * the third masthead usage readout, `#usage-model-week` — the per-model weekly window
+/** `kb:adr/usage-masthead-one-selectable-model-window`: the third masthead usage readout,
+ * `#usage-model-week` — the per-model weekly window
  * musterd fetches itself from `/api/oauth/usage`, unlike the two status-line buckets
  * above.
  *
- * Unlike the two sibling readouts, this one's label is a real `<select>` — review cycle
- * 1 Critical 1 found it being destroyed and rebuilt every 1s render tick, which meant it
+ * Unlike the two sibling readouts, this one's label is a real `<select>` — it was once
+ * destroyed and rebuilt every 1s render tick, which meant it
  * could never be operated by keyboard and its dropdown could never stay open. `refs.select`
  * (and its trailing bucket siblings) persist in the caller-held `refs` object across
  * render passes; this function only touches the select's position in the DOM again when
  * the option-name sequence actually changes, or when whether a placeholder option is
- * needed flips even though the resulting name sequence is unchanged (review cycle 2,
- * Major 1 — see `UsageModelWeekRefs.placeholderNeeded`'s doc comment). See
+ * needed flips even though the resulting name sequence is unchanged (see
+ * `UsageModelWeekRefs.placeholderNeeded`'s doc comment). See
  * `buildUsageModelWeek`'s doc comment for why even a same-node `replaceChildren` call
  * isn't safe once the node is attached.
  *
@@ -260,17 +260,19 @@ export function buildUsageModelWeek(
  * list is null or empty it instead renders a single, disabled option reading the current
  * pref, so the readout always shows a model name even before the first fetch lands
  * (States > "No data yet"). When the list is non-null but doesn't contain the pref name,
- * a disabled placeholder option for the pref name is prepended (Minor 3, review cycle 1)
+ * a disabled placeholder option for the pref name is prepended
  * so the control shows that name instead of rendering blank — the honest "unknown" state
  * (below) is unaffected either way.
  *
- * Honesty rules (design-system §6): "unknown" with zero track markup when the selected
- * model has no matching window (REQ-10/INV-2 — null list, empty list, or a pref pointing
- * at a name the list doesn't contain, all take this same path via a failed `.find`).
+ * Honesty rules (design-system §6, `kb:adr/usage-unknown-renders-word-not-track`):
+ * "unknown" with zero track markup when the selected
+ * model has no matching window — null list, empty list, or a pref pointing
+ * at a name the list doesn't contain, all take this same path via a failed `.find`.
  * `modelScopedError` non-null adds `.stale` + `title` = the error word without discarding
- * the last-good bucket (REQ-11/INV-3) — `renderUsageBucket` keeping the existing
- * bar/resets nodes (rather than clearing them) is what "keeps the last-good bar" means
- * concretely.
+ * the last-good bucket (`kb:adr/usage-masthead-one-selectable-model-window`'s "a failed
+ * fetch leaves the last good bar labelled stale rather than hiding it") — `renderUsageBucket`
+ * keeping the existing bar/resets nodes (rather than clearing them) is what "keeps the
+ * last-good bar" means concretely.
  */
 export function renderUsageModelWeek(
   refs: UsageModelWeekRefs,
@@ -319,12 +321,13 @@ export function renderUsageModelWeek(
   }
 }
 
-/** Plan version-claude-interface, UI Specifications > DOM: the readout's text and, when
+/** The readout's text and, when
  * the installed Claude Code falls outside the canary-verified range, the warning-glyph
- * hover text. This is `renderClaudeVersion`'s render contract — `features/
- * connectionversion.ts`'s `describeClaudeVersion` is its one producer (review seed B7:
- * that derivation is a DOM-free decision with one controller caller, so it lives beside
- * `features/connection.ts`, not here). */
+ * hover text (`kb:adr/connection-installed-claude-classified-never-refused`). This is
+ * `renderClaudeVersion`'s render contract — `features/
+ * connectionversion.ts`'s `describeClaudeVersion` is its one producer: that derivation is
+ * a DOM-free decision with one controller caller, so it lives beside
+ * `features/connection.ts`, not here. */
 export interface ClaudeVersionDescription {
   text: string;
   warning: string | null;
@@ -335,7 +338,8 @@ export interface ClaudeVersionDescription {
  * (`"claude <installed> "`) followed by the `role="img"` glyph, so `textContent` reads
  * `claude 2.0.0 ⚠` — `aria-label` and `title` both carry the same warning sentence
  * (Testable UI Elements: the glyph's accessible name and its native tooltip must match).
- * No button, link or other control lives inside the readout (REQ-5 "no dismiss"). */
+ * No button, link or other control lives inside the readout — the glyph and its hover
+ * text are the whole interface, `kb:adr/connection-installed-claude-classified-never-refused`. */
 export function renderClaudeVersion(el: HTMLElement, description: ClaudeVersionDescription): void {
   const { text, warning } = description;
   if (warning === null) {

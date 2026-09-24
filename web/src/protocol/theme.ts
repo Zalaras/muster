@@ -1,6 +1,6 @@
 // Wire types and parser for the daemon's Claude Code theme read and its `claudeTheme`
 // broadcast (docs/protocol.md, kb:anchor/ws.claude-theme) — one of the protocol/ concept
-// modules split out of the former protocol.ts (plan maintainability-cleanup W3).
+// modules split out of the former protocol.ts.
 
 import { isRecord } from "./decode";
 
@@ -23,8 +23,7 @@ export interface ClaudeThemeMessage {
   family: ClaudeFamily;
 }
 
-// Exported: theme.ts imports this instead of keeping its own copy
-// (review.maintainability.d-webcore.md Major 1/Seed check B4).
+// Exported: theme.ts imports this instead of keeping its own copy.
 export function isClaudeFamily(value: unknown): value is ClaudeFamily {
   return (CLAUDE_FAMILIES as readonly unknown[]).includes(value);
 }

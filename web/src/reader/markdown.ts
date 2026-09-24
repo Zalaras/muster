@@ -1,17 +1,16 @@
-// REQ-5/REQ-14/REQ-22: renders one markdown file's raw bytes to a sanitized DOM fragment
-// plus its outline (kb:adr/reader-markdown-rendered-in-browser). A leading frontmatter
-// block is split off first (kb:adr/reader-frontmatter-flat-table-raw-fallback) so it
-// never reaches marked; only the remaining body goes marked (GFM) → DOMPurify
-// (`RETURN_DOM_FRAGMENT`) → heading ids assigned from the same walk that builds the
-// outline, so the two can never disagree about which heading is which. The daemon hands
-// raw `text/markdown` bytes and parses nothing it serves (kb:adr/reader-served-paths-confined-to-directory-or-plan);
-// this module is the only place that ever turns them into HTML, and the sanitized
-// fragment is what render/reader.ts inserts via `article.replaceChildren` — never through
-// `innerHTML` (W15). The parsed frontmatter is returned, not built into DOM here (review
-// seed d-m4: element construction belongs in `render/`) — `render/frontmatter.ts`'s
-// `buildFrontmatterNode` and `render/reader.ts`'s `setReaderBody` do that, prepending the
-// result after the outline walk below so a frontmatter table/pre can never be queried as
-// a heading or counted in the outline.
+// Renders one markdown file's raw bytes to a sanitized DOM fragment plus its outline
+// (kb:adr/reader-markdown-rendered-in-browser). A leading frontmatter block is split off
+// first (kb:adr/reader-frontmatter-flat-table-raw-fallback) so it never reaches marked;
+// only the remaining body goes marked (GFM) → DOMPurify (`RETURN_DOM_FRAGMENT`) → heading
+// ids assigned from the same walk that builds the outline, so the two can never disagree
+// about which heading is which. The daemon hands raw `text/markdown` bytes and parses
+// nothing it serves (kb:adr/reader-served-paths-confined-to-directory-or-plan); this
+// module is the only place that ever turns them into HTML, and the sanitized fragment is
+// what render/reader.ts inserts via `article.replaceChildren`, never `innerHTML`. The
+// parsed frontmatter is returned, not built into DOM here — element construction belongs
+// in `render/`: `render/frontmatter.ts`'s `buildFrontmatterNode` and `render/reader.ts`'s
+// `setReaderBody` do that, prepending the result after the outline walk below so a
+// frontmatter table/pre can never be queried as a heading or counted in the outline.
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 import type { Frontmatter } from "./frontmatter";

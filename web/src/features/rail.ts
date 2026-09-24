@@ -1,5 +1,5 @@
-// The rail: cards, count, sort select, and drag reorder (plan code-breakup vocabulary:
-// "rail"). `deps.surfaces` is a real value — `surfaces` is constructed before `rail`
+// The rail: cards, count, sort select, and drag reorder (kb:adr/process-one-name-per-feature).
+// `deps.surfaces` is a real value — `surfaces` is constructed before `rail`
 // (main.ts's init order).
 import type { App } from "../app";
 import { requestPrefs } from "../api/prefs";
@@ -13,7 +13,7 @@ import { orderRail } from "../sessions/sort";
 import { isRailDensity, type RailDensity, type RailSort } from "../protocol/prefs";
 import type { SessionAction } from "../sessions/card";
 
-// W6/INV-4: structural deps, not `import type { ActionsHandle }`/`{ SurfacesHandle }`
+// Structural deps, not `import type { ActionsHandle }`/`{ SurfacesHandle }`
 // from `./actions`/`./surfaces`.
 export interface RailDeps {
   actions: { dispatch(action: SessionAction, id: number): void };
@@ -25,7 +25,7 @@ export function initRail(app: App, deps: RailDeps): void {
   const railCountEl = requireElement<HTMLElement>("#rail-count");
   const railSortSelect = requireElement<HTMLSelectElement>("#rail-sort");
   const railDensityButtons = requireElements<HTMLButtonElement>("#rail-density .seg-btn");
-  // Review Minor 12: looked up once, here, and passed into `render/sessions.ts`'s
+  // Looked up once, here, and passed into `render/sessions.ts`'s
   // `renderSessions` — `render/` no longer calls `requireTemplate` itself.
   const sessionCardTemplate = requireElement<HTMLTemplateElement>("#session-card-template");
 
@@ -41,9 +41,9 @@ export function initRail(app: App, deps: RailDeps): void {
 
   // No sticky client-side state depends on `railSort` (unlike view/density's `tilesLive`)
   // — the rail/strip just render through `orderRail(sessions, railSort)` every pass.
-  // REQ-3/INV-4: `railDensity`/`railActivity` are adopted here too — never optimistically
-  // from a click — and `body[data-rail-density]` is written only from this same broadcast
-  // (W9), mirroring features/theme.ts's `document.documentElement.dataset` write.
+  // `railDensity`/`railActivity` are adopted here too — never optimistically
+  // from a click — and `body[data-rail-density]` is written only from this same broadcast,
+  // mirroring features/theme.ts's `document.documentElement.dataset` write.
   app.on("prefs", (prefs) => {
     app.state.railSort = prefs.railSort;
     app.state.railDensity = prefs.railDensity;
@@ -56,7 +56,7 @@ export function initRail(app: App, deps: RailDeps): void {
   });
 
   for (const button of railDensityButtons) {
-    // REQ-15: a mousedown's default action focuses its target, which would blur a
+    // A mousedown's default action focuses its target, which would blur a
     // focused card or action button the instant a density button is clicked — before
     // this module's own `click` listener even runs. Suppressing that default action (the
     // same technique a toolbar button uses to leave a text field's own focus/selection
@@ -91,8 +91,8 @@ export function initRail(app: App, deps: RailDeps): void {
         onClick: (id, source) => {
           app.focus(id);
           app.render();
-          // plan terminal-focus: only a deliberate pointer click on a rail card moves
-          // keyboard focus into the terminal.
+          // Only a deliberate pointer click on a rail card moves keyboard focus into the
+          // terminal (kb:adr/focus-rail-click-focuses-terminal).
           if (source === "pointer") deps.surfaces.focusSelected(id);
         },
         onAction: deps.actions.dispatch,
@@ -106,7 +106,7 @@ export function initRail(app: App, deps: RailDeps): void {
     pendingRailFocus = null;
     railCountEl.textContent = frame.sessions.length > 0 ? String(frame.sessions.length) : "";
     railSortSelect.value = app.state.railSort;
-    // REQ-5/INV-4: the pressed button always reflects `app.state.railDensity` (itself
+    // The pressed button always reflects `app.state.railDensity` (itself
     // only ever adopted from `prefs` above), never the click that requested it.
     for (const button of railDensityButtons) {
       button.setAttribute(

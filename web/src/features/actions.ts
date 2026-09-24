@@ -1,5 +1,5 @@
 // End/Resume/Remove/Pin dispatcher, their confirm dialogs, and the dead-pane snapshot
-// cache (plan code-breakup vocabulary: "actions"; plan m4-reconcile). Every mainhead,
+// cache (kb:adr/process-one-name-per-feature: "actions"). Every mainhead,
 // rail card, tile footer and dead-surface cap routes through `dispatch`.
 //
 // `deps.getFocusDeadSurfaceRefs`/`deps.getTileDeadSurfaceRefs` are lazy thunks, not eager
@@ -7,8 +7,8 @@
 // both of them depend on `actions`, e.g. for `dispatch`/`ensurePaneFetch`), so main.ts
 // passes `(id) => focus.deadSurfaceRefsFor(id)` / `(id) => tiles.deadSurfaceRefsFor(id)`
 // closures that only resolve the real `const` when `findDeadSurfaceRefs` is actually
-// called, well after every controller has finished construction (never during it). Review
-// Major 9: each closure asks the view that owns the markup, rather than this module
+// called, well after every controller has finished construction (never during it). Each
+// closure asks the view that owns the markup, rather than this module
 // querying a tile's `.dead-surface` itself — `focus`/`tiles` are the only two places that
 // know what a dead surface looks like in their own view.
 import type { App } from "../app";
@@ -21,12 +21,12 @@ import { endDialogBody, removeDialogBody } from "./actionscopy";
 import type { SessionAction } from "../sessions/card";
 import type { Session } from "../protocol/session";
 
-/** Review seed B8: `render/dead.ts` used to also own this fetch trigger — DOM builders
+/** `render/dead.ts` used to also own this fetch trigger — DOM builders
  * take data in, they don't go fetch it. Wraps `GET /api/sessions/{id}/pane` into the
  * three-state `PaneState` `render/dead.ts`'s `renderDeadSurface` takes. `no_snapshot` (and,
  * defensively, any other error) both read as "missing" — the dead surface never
  * distinguishes a genuine no-capture-yet from an unexpected error, it just shows the
- * honest "no snapshot captured" text either way (edge case 13). */
+ * honest "no snapshot captured" text either way. */
 export async function loadPane(id: number): Promise<PaneState> {
   const result = await fetchPane(id);
   if (result.ok)
@@ -43,15 +43,15 @@ export interface ActionsDeps {
 
 export interface ActionsHandle {
   dispatch(action: SessionAction, id: number): void;
-  /** Edge case 8: session-focusing shortcuts no-op while a modal `<dialog>` other than
+  /** Session-focusing shortcuts no-op while a modal `<dialog>` other than
    * the launch dialog is open. */
   isBlockingDialogOpen(): boolean;
-  /** Review plain-terminal-session Major 1: locates the dead surface currently
-   * displayed for `id`'s `claude` segment, if any, for routing a spawn-failure notice. */
+  /** Locates the dead surface currently displayed for `id`'s `claude` segment, if any,
+   * for routing a spawn-failure notice. */
   findDeadSurfaceRefs(id: number): DeadSurfaceRefs | null;
   ensurePaneFetch(id: number): void;
   paneState(id: number): PaneState;
-  /** REQ-15: strips a removed session from the store and fans out `sessionRemoved` to
+  /** Strips a removed session from the store and fans out `sessionRemoved` to
    * every other feature's own cleanup, then renders. Called from the WS `sessionRemoved`
    * message and from a successful `DELETE /api/sessions/:id`. */
   handleRemoved(id: number): void;
@@ -62,7 +62,7 @@ export function initActions(app: App, deps: ActionsDeps): ActionsHandle {
   const previousAlive = new Map<number, boolean>();
   const actionErrorEl = requireElement<HTMLElement>("#action-error");
 
-  /** REQ-17/W2: the one path that touches `#action-error` — a failed End/Resume/Remove
+  /** The one path that touches `#action-error` — a failed End/Resume/Remove
    * writes its message, the next successful one of the three clears it. */
   function showActionError(message: string | null): void {
     renderActionError(actionErrorEl, message);
@@ -117,7 +117,7 @@ export function initActions(app: App, deps: ActionsDeps): ActionsHandle {
 
   /** Fire-and-forget, no optimistic state — the resulting `sessionUpsert`s (or nothing,
    * on a failed request) drive the redraw. */
-  // http.ts's `logApiFailure` already logs a failed request under its own route (e-m5);
+  // http.ts's `logApiFailure` already logs a failed request under its own route;
   // this module's job is only `showActionError`'s UI-visible half.
   function doPin(id: number, pinned: boolean): void {
     void pinSession(id, pinned);
@@ -188,7 +188,8 @@ export function initActions(app: App, deps: ActionsDeps): ActionsHandle {
     },
   );
 
-  // States (m4-reconcile): "Daemon down ... Dialogs, if open, close."
+  // Any non-connected status (disconnected, daemon down) closes an open confirm dialog,
+  // so a stale End/Remove confirmation can't be actioned against a dropped connection.
   app.on("status", () => confirmDialogs.closeAll());
 
   return {

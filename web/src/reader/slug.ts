@@ -1,4 +1,4 @@
-// Pure heading-id derivation for the reader's outline (REQ-14, W8) — no DOM, so
+// Pure heading-id derivation for the reader's outline — no DOM, so
 // `markdown.ts`'s heading walk and the outline builder share one algorithm without
 // either owning a DOM dependency (docs/conventions.md: keep logic pure).
 
@@ -13,7 +13,7 @@ export function headingSlug(text: string): string {
     .replace(/\s+/g, "-");
 }
 
-/** Edge case 26: a repeated heading text yields the same slug twice — GitHub's own
+/** A repeated heading text yields the same slug twice — GitHub's own
  * dedupe scheme (`notes`, `notes-2`, `notes-3`, ...) applied over the whole document in
  * heading order, so every outline entry still has a unique id to scroll to. */
 export function dedupeIds(slugs: readonly string[]): string[] {

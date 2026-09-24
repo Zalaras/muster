@@ -1,6 +1,6 @@
-// REQ-14 (plan m4-reconcile)'s End/Remove confirm dialogs' body-text composition — split
-// out of render/confirm.ts (review seed B7: a DOM-free decision with one controller
-// caller, features/actions.ts, lives beside it, not in `render/`). `render/confirm.ts`
+// End/Remove confirm dialogs' body-text composition — split
+// out of render/confirm.ts: a DOM-free decision with one controller
+// caller, features/actions.ts, lives beside it, not in `render/`. `render/confirm.ts`
 // stays the DOM half: `initConfirmDialogs`'s `openEnd`/`openRemove` take the text these
 // produce as a parameter and only ever assign it to `textContent`.
 import type { Session } from "../protocol/session";
@@ -11,7 +11,7 @@ function sessionLabel(session: Session, now: Date): string {
   return `${title} — ${buildCardViewModel(session, now).repoLine}`;
 }
 
-/** REQ-14's End dialog copy: names the session, says it stays as ended and can be
+/** End dialog copy: names the session, says it stays as ended and can be
  * resumed. */
 export function endDialogBody(session: Session, now: Date): string {
   return (
@@ -20,8 +20,9 @@ export function endDialogBody(session: Session, now: Date): string {
   );
 }
 
-/** REQ-14's Remove dialog copy: it disappears and cannot be resumed from here, plus —
- * only when the target is still alive — "ends the session first" (E9's exact phrase). */
+/** Remove dialog copy (kb:adr/actions-remove-allowed-on-live-session): it disappears and
+ * cannot be resumed from here, plus — only when the target is still alive — "ends the
+ * session first", the exact phrase web/e2e/actions.spec.ts asserts. */
 export function removeDialogBody(session: Session, now: Date): string {
   const endsFirst = session.alive ? " This ends the session first." : "";
   return (

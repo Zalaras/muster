@@ -1,6 +1,6 @@
-// Plan terminal-fixes-cleanup: the pure per-session reducer over `shellActivity`/
-// `snapshot.shellsBusy` messages and surface selections that drives the `shell` segment's
-// busy/done indicator (REQ-2 through REQ-4, REQ-11, REQ-13, REQ-14; supersedes the pip,
+// The pure per-session reducer over `shellActivity`/`snapshot.shellsBusy` messages and
+// surface selections that drives the `shell` segment's busy/done indicator
+// (kb:adr/surfaces-shell-busy-from-tmux-process-state; supersedes the pip,
 // kb:adr/theme-shell-pip-retired-for-activity-indicator). No DOM, no socket, no real
 // timer — `features/surfaces.ts` owns the actual `setTimeout` calls and this module's
 // `epoch` field is what makes a stale one harmless (see `ScheduledTimer` below) rather
@@ -8,12 +8,12 @@
 //
 // Two "make busy" entry points exist (`observeBusy` — a live `shellActivity{busy:true}`,
 // and `restoreBusy` — `snapshot.shellsBusy`) because they carry different timing
-// guarantees: `observeBusy` starting from idle applies REQ-11's ~600ms onset delay (a
+// guarantees: `observeBusy` starting from idle applies a short onset delay (a
 // fresh transition might be a command too short to bother showing); `restoreBusy` never
 // does, because by the time a reconnecting dashboard reads `shellsBusy` the work has
-// already been running for an unknown, possibly long, time (W9) — same reasoning edge
-// case 5 applies to a "done" segment where a new command starts before the tick clears:
-// that transition is immediate too (`observeBusy` only delays a transition out of "none").
+// already been running for an unknown, possibly long, time — the same reasoning applies
+// to a "done" segment where a new command starts before the tick clears: that transition
+// is immediate too (`observeBusy` only delays a transition out of "none").
 
 export type ShellActivityIndicator = "none" | "busy" | "done";
 
@@ -31,8 +31,8 @@ export type ShellActivityState = ReadonlyMap<number, SessionEntry>;
 
 export const EMPTY_SHELL_ACTIVITY: ShellActivityState = new Map();
 
-const ONSET_DELAY_MS = 600; // REQ-11
-const SELF_CLEAR_DELAY_MS = 3000; // REQ-4
+const ONSET_DELAY_MS = 600;
+const SELF_CLEAR_DELAY_MS = 3000;
 
 export interface ScheduledTimer {
   kind: "onset" | "selfClear";
@@ -60,9 +60,9 @@ function withEntry(state: ShellActivityState, id: number, entry: SessionEntry): 
 
 /**
  * A live `shellActivity{busy:true}` for `id`. From "none": starts (or restarts, if one
- * was already pending) the REQ-11 onset delay — the indicator itself stays "none" until
- * `resolveOnset` confirms it. From "done" (edge case 5): promotes to "busy" immediately
- * and cancels any pending self-clear timer via the epoch bump. Already "busy": identity.
+ * was already pending) the onset delay — the indicator itself stays "none" until
+ * `resolveOnset` confirms it. From "done": promotes to "busy" immediately and cancels any
+ * pending self-clear timer via the epoch bump. Already "busy": identity.
  */
 export function observeBusy(state: ShellActivityState, id: number): ActivityResult {
   const current = state.get(id) ?? NONE_ENTRY;
@@ -78,9 +78,9 @@ export function observeBusy(state: ShellActivityState, id: number): ActivityResu
 }
 
 /**
- * `snapshot.shellsBusy` reports `id` as busy right now (W9). Always immediate, whatever
+ * `snapshot.shellsBusy` reports `id` as busy right now. Always immediate, whatever
  * the current indicator — a reconnecting dashboard has no way to know how long the work
- * has already been running, so REQ-11's onset delay does not apply here.
+ * has already been running, so the onset delay does not apply here.
  */
 export function restoreBusy(state: ShellActivityState, id: number): ActivityResult {
   const current = state.get(id) ?? NONE_ENTRY;
@@ -90,8 +90,8 @@ export function restoreBusy(state: ShellActivityState, id: number): ActivityResu
 }
 
 /** `resolveOnset`'s delayed callback fires: promotes "none" to "busy" iff `epoch` still
- * matches (nothing else happened to this session meanwhile) — REQ-11/W8: a busy period
- * shorter than the onset delay reports `busy:false` first, which clears the entry back
+ * matches (nothing else happened to this session meanwhile) — a busy period shorter than
+ * the onset delay reports `busy:false` first, which clears the entry back
  * to a fresh epoch (see `observeIdle` below) and makes this call a no-op, so no spinner
  * ever shows for it. */
 export function resolveOnset(
@@ -107,13 +107,13 @@ export function resolveOnset(
 /**
  * A live `shellActivity{busy:false}` for `id`. `shellSelected` is whether this session's
  * `shell` surface is the currently selected one on THIS window (features/surfaces.ts
- * reads its own `surfaceSwitchState`): selected schedules the REQ-4 ~3s self-clear (User
+ * reads its own `surfaceSwitchState`): selected schedules the ~3s self-clear (User
  * Flow 5); not selected leaves "done" showing indefinitely — User Flow 3's "the spinner
  * becomes a tick and stays" — until `clearOnSelect` below runs (User Flow 4) or a page
  * reload rediscovers it, whichever comes first. See `restoreIdle` below for the *other*
  * way a "busy" entry goes idle.
  *
- * REQ-3/W8: while the entry is still "none" (a busy period shorter than REQ-11's onset
+ * While the entry is still "none" (a busy period shorter than the onset
  * delay — `observeBusy`'s pending-onset branch), this bumps the epoch without touching
  * `indicator`, so the onset timer `observeBusy` scheduled sees a stale epoch when it
  * fires and never promotes to "busy" — "a command that never raised a spinner never
@@ -121,12 +121,13 @@ export function resolveOnset(
  * this did (kb:lesson/effect-claimed-from-the-diff) but didn't: the old no-op guard
  * (`current.indicator !== "busy"`) left a still-"none" entry's epoch untouched, so a late
  * `resolveOnset` promoted it to "busy" anyway (fix attempt 1, pinned by
- * shellactivity.test.ts's W8 case). This necessarily changes `observeIdle`'s return for
+ * shellactivity.test.ts's "a busy period that ends before the onset delay elapses never
+ * shows a spinner" case). This necessarily changes `observeIdle`'s return for
  * that one case from the prior literal `{state, timer: null}` identity to a new state
  * object with the same `indicator` — the two are observationally different only via
  * reference equality, never via `getShellActivity`, but a reference-equality
  * (`toBe(r.state)`) assertion on that exact case cannot hold for any fix here, because it
- * and W8 exercise the identical `observeIdle(r.state, 1, false)` call and, if that call
+ * and that same case exercise the identical `observeIdle(r.state, 1, false)` call and, if that call
  * were a true identity no-op, `resolveOnset(that same object, 1, r.timer!.epoch)` would
  * be indistinguishable from the sibling "epoch matches, still 'none': promotes to
  * 'busy'" case that must keep promoting — the two pinned expectations are mutually
@@ -159,9 +160,10 @@ export function observeIdle(
 
 /**
  * `id` was "busy" and is missing from a reconnecting dashboard's `snapshot.shellsBusy`
- * (edge case 3/W6), where the daemon's own poller cannot tell "the command finished
- * while we were offline" (the shell still exists — REQ-4 should apply normally) apart
- * from "reconcile killed the shell at daemon restart" (edge case 4/E8 — the shell is
+ * (kb:adr/surfaces-snapshot-restored-tick-always-self-clears), where the daemon's own
+ * poller cannot tell "the command finished while we were offline" (the shell still
+ * exists — the ordinary tick behavior should apply) apart from "reconcile killed the
+ * shell at daemon restart" (the shell is
  * gone outright, `shellGone` is never called for it because no PTY socket was attached
  * to deliver that signal): `shellActivityPoller.reconcile` (`internal/server/shellactivity.go`)
  * documents both as "no longer in newBusy", the identical wire shape. Unlike `observeIdle`,
@@ -172,7 +174,7 @@ export function observeIdle(
  * is mistaken for "still working". `clearOnSelect` can still fire first if the user gets
  * there before the timer does.
  *
- * Same "none" guard as `observeIdle` above, for the same reason (W8's shape): if this
+ * Same "none" guard as `observeIdle` above, for the same reason: if this
  * were ever called against a pending-onset entry, a late `resolveOnset` must not promote
  * it. `features/surfaces.ts`'s only call site already filters to `getShellActivity(...)
  * === "busy"` before calling this, so the branch is currently unreachable in practice —
@@ -198,8 +200,8 @@ export function restoreIdle(state: ShellActivityState, id: number): ActivityResu
   };
 }
 
-/** The REQ-4 ~3s self-clear timer fires: "done" → "none" iff `epoch` still matches (a new
- * busy period — W7/edge case 5 — or an immediate select-clear already moved past it). */
+/** The ~3s self-clear timer fires: "done" → "none" iff `epoch` still matches (a new busy
+ * period, or an immediate select-clear, already moved past it). */
 export function resolveSelfClear(
   state: ShellActivityState,
   id: number,
@@ -210,7 +212,7 @@ export function resolveSelfClear(
   return withEntry(state, id, { indicator: "none", epoch });
 }
 
-/** REQ-4: the user selects `id`'s `shell` surface — a showing tick clears immediately.
+/** The user selects `id`'s `shell` surface — a showing tick clears immediately.
  * Identity for "none"/"busy" (selecting shell while busy leaves the spinner alone). */
 export function clearOnSelect(state: ShellActivityState, id: number): ShellActivityState {
   const current = state.get(id) ?? NONE_ENTRY;
@@ -218,9 +220,9 @@ export function clearOnSelect(state: ShellActivityState, id: number): ShellActiv
   return withEntry(state, id, { indicator: "none", epoch: current.epoch + 1 });
 }
 
-/** REQ-8/edge cases 1-2: the shell itself is gone (PTY `4001` on a live shell socket, or
+/** The shell itself is gone (PTY `4001` on a live shell socket, or
  * the session was removed) — clears unconditionally, busy or done, with no transient
- * tick (E7: "leaves no spinner and no tick behind"), unlike `observeIdle`'s inference
+ * tick ("leaves no spinner and no tick behind"), unlike `observeIdle`'s inference
  * from a mere snapshot gap. */
 export function shellGone(state: ShellActivityState, id: number): ShellActivityState {
   if (!state.has(id)) return state;

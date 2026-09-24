@@ -4,14 +4,14 @@
  * `insertBefore` on an already-mounted node still detaches it first per the DOM spec, and
  * Chrome blurs a focused descendant on that detach even though the reattach is synchronous
  * — measured live on both the rail (`SORT-CHANGE focus: before=true after=false
- * active=BODY`, review m4-reconcile cycle 3 Minor 1) and the Tiles grid (cycle 4 Minor 2:
- * a tile-footer End survives 2.5 s of render ticks and falls to `<body>` the moment a
- * `Notification` reorders the grid). A `replaceChildren` rebuild (the reader's tree/
- * outline, when their structural signature changes) blurs a focused descendant outright,
- * for the same underlying reason. Every one of these reconcilers records *which* logical
- * element was focused before its rebuild/reorder and re-focuses the equivalent element
- * afterwards if — and only if — the rebuild actually lost it (review Minor 13: this used
- * to be three separate implementations of that same shape).
+ * active=BODY`) and the Tiles grid (a tile-footer End survives 2.5 s of render ticks and
+ * falls to `<body>` the moment a `Notification` reorders the grid). A `replaceChildren`
+ * rebuild (the reader's tree/outline, when their structural signature changes) blurs a
+ * focused descendant outright, for the same underlying reason. Every one of these
+ * reconcilers records *which* logical element was focused before its rebuild/reorder and
+ * re-focuses the equivalent element afterwards if — and only if — the rebuild actually
+ * lost it (this module replaces what used to be three separate implementations of that
+ * same shape).
  *
  * Two "logical element" flavours live here, sharing the capture/restore-if-lost primitives
  * below:

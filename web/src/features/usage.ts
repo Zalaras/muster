@@ -1,6 +1,5 @@
 // The masthead's usage gauges: text readout, track/resets markup, model readout, and the
-// per-model weekly window (plan code-breakup vocabulary: "usage"; plans m3-usage,
-// usage-model-bar). No dependency on any other controller.
+// per-model weekly window. No dependency on any other controller.
 import type { App } from "../app";
 import { requestPrefs, refreshUsage } from "../api/prefs";
 import { requireElement } from "../dom";
@@ -24,18 +23,19 @@ export function initUsage(app: App): void {
   // `usage` broadcast — re-rendered every pass so the reset-time formatting stays current
   // against the wall clock.
   let currentUsage: Usage = UNKNOWN_USAGE;
-  // Plan usage-model-bar: which model-scoped window the masthead's third readout shows —
-  // same "daemon's `prefs` broadcast is the single source of truth" rule as
-  // view/density/railSort/themeChoice; the daemon's own default before any PUT is "Fable".
+  // Which model-scoped window the masthead's third readout shows — same "daemon's `prefs`
+  // broadcast is the single source of truth" rule as view/density/railSort/themeChoice; the
+  // daemon's own default before any PUT is "Fable"
+  // (kb:adr/usage-masthead-one-selectable-model-window).
   let usageModel = "Fable";
 
-  /** REQ-12: the model-week `<select>`'s change handler — fire-and-forget;
+  /** The model-week `<select>`'s change handler — fire-and-forget;
    * `usageModel` only ever changes via the `prefs` echo, never optimistically here. */
   function requestUsageModel(newModel: string): void {
     requestPrefs({ usageModel: newModel });
   }
 
-  // Review Major 2/Minor 1: each bucket's DOM refs are built once, here, and held across
+  // Each bucket's DOM refs are built once, here, and held across
   // every render pass — `render/CLAUDE.md`'s render-state rule (the model-week `<select>`
   // used to persist in a module-level `WeakMap` inside `render/masthead.ts` instead).
   const fiveHourRefs = buildUsageBucket(usageFiveHourEl, "5h");
@@ -70,13 +70,13 @@ export function initUsage(app: App): void {
   });
 
   usageRefreshBtn.addEventListener("click", () => {
-    // REQ-12: aria-busy from click until the next `usage` message or 5s, whichever is
+    // aria-busy from click until the next `usage` message or 5s, whichever is
     // first — the fallback for a fetch that hangs or a result that never triggers a
     // broadcast because the list didn't change.
     usageRefreshBtn.setAttribute("aria-busy", "true");
     if (usageRefreshTimer !== null) clearTimeout(usageRefreshTimer);
     usageRefreshTimer = setTimeout(clearUsageRefreshBusy, 5000);
-    // http.ts's `logApiFailure` already logs a failed request under its own route (e-m5).
+    // http.ts's `logApiFailure` already logs a failed request under its own route.
     void refreshUsage().then((result) => {
       if (!result.ok) clearUsageRefreshBusy();
     });

@@ -3,7 +3,7 @@
 // beside that concept's parser instead), the `Message` union, and the one entry point
 // (`parseMessage`) that dispatches a decoded WS frame to its parser (docs/protocol.md,
 // protocol version 2) — one of the protocol/ concept modules split
-// out of the former protocol.ts (plan maintainability-cleanup W3).
+// out of the former protocol.ts.
 //
 // Unknown message types and unknown fields are ignored per kb:anchor/conventions's "additive
 // evolution" rule — parsing here only ever reads the fields it knows about, so future
@@ -28,17 +28,17 @@ export interface Snapshot {
   usage: Usage;
   prefs: Prefs;
   claudeTheme: ClaudeThemeInfo;
-  // Plan auto-update (kb:anchor/ws.snapshot): always present on a post-plan daemon; a
-  // pre-plan daemon's payload (no `update` key at all) parses this as null rather than
-  // rejecting the snapshot (edge case 32) - same additive-evolution tolerance as
+  // kb:anchor/ws.snapshot: always present once the daemon supports updates; an older
+  // daemon's payload (no `update` key at all) parses this as null rather than
+  // rejecting the snapshot - same additive-evolution tolerance as
   // `claudeTheme` before it.
   update: UpdateInfo | null;
-  // Plan terminal-fixes-cleanup (kb:anchor/ws.shell-activity): session ids whose shell is
+  // kb:anchor/ws.shell-activity: session ids whose shell is
   // busy right now — lets a reconnecting dashboard re-sync the activity indicator without
-  // waiting for a `shellActivity` transition (W9). Present-only, same tolerance as
+  // waiting for a `shellActivity` transition. Present-only, same tolerance as
   // `usage.model`/`modelScoped` (kb:anchor/conventions's additive evolution): an absent
   // wire key stays absent on the parsed object rather than gaining a synthesized `[]`, so
-  // a pre-plan payload round-trips unchanged. Real callers read `snapshot.shellsBusy ??
+  // an older daemon's payload round-trips unchanged. Real callers read `snapshot.shellsBusy ??
   // []`, same as every other present-only field's read site.
   shellsBusy?: number[];
 }
@@ -56,9 +56,9 @@ export interface SessionRemoved {
   id: number;
 }
 
-// Plan markdown-viewing (kb:anchor/ws.doc-changed): sent once per routed PostToolUse
-// Write/Edit/MultiEdit naming a `.md` under the session's directory or its plan path
-// (REQ-18). Best-effort like the hooks it mirrors — a client never depends on receiving
+// kb:anchor/ws.doc-changed: sent once per routed PostToolUse
+// Write/Edit/MultiEdit naming a `.md` under the session's directory or its plan path.
+// Best-effort like the hooks it mirrors — a client never depends on receiving
 // one; a missed write just leaves the file labelled stale by its freshness cue instead.
 export interface DocChanged {
   type: "docChanged";
@@ -67,7 +67,7 @@ export interface DocChanged {
   at: string;
 }
 
-// Plan terminal-fixes-cleanup (kb:anchor/ws.shell-activity): broadcast on every observed
+// kb:anchor/ws.shell-activity: broadcast on every observed
 // change of a shell's busy flag (the ~1s tmux poller — Protocol Contract). Deliberately
 // not a Session field and adds no session state (kb:adr/surfaces-shell-is-attach-target-not-session) —
 // a shell is still not a session.
@@ -93,13 +93,13 @@ function parseSnapshot(rec: Record<string, unknown>): Snapshot | null {
   const sessions = parseListOf(rec["sessions"], parseSession);
   const usage = parseUsage(rec["usage"]);
   const prefs = parsePrefs(rec["prefs"]);
-  // Plan new-ui-design-colors (REQ-19): missing key (pre-plan daemon) defaults to
-  // {family: "unknown"}, same pre-plan-daemon tolerance as prefs.theme above.
+  // Missing key (an older daemon) defaults to
+  // {family: "unknown"}, same tolerance as prefs.theme above.
   const rawClaudeTheme = rec["claudeTheme"];
   const claudeTheme: ClaudeThemeInfo | null =
     rawClaudeTheme === undefined ? { family: "unknown" } : parseClaudeThemeInfo(rawClaudeTheme);
   if (!sessions || !usage || !prefs || !claudeTheme) return null;
-  // Plan auto-update: missing key (pre-plan daemon) parses as null (edge case 32); a
+  // Missing key (an older daemon) parses as null; a
   // present-but-malformed value rejects the whole snapshot, same discipline as claudeTheme.
   const rawUpdate = rec["update"];
   let update: UpdateInfo | null = null;
@@ -108,9 +108,9 @@ function parseSnapshot(rec: Record<string, unknown>): Snapshot | null {
     if (!update) return null;
   }
   const snapshot: Snapshot = { type: "snapshot", sessions, usage, prefs, claudeTheme, update };
-  // Plan terminal-fixes-cleanup: present-only, same pattern as `usage.model` above — an
+  // Present-only, same pattern as `usage.model` above — an
   // absent key stays absent on the parsed object rather than gaining a synthesized `[]`,
-  // so a pre-plan payload (and every existing snapshot fixture that predates this field)
+  // so an older daemon's payload (and every existing snapshot fixture that predates this field)
   // round-trips unchanged. Real callers read `snapshot.shellsBusy ?? []`
   // (`features/surfaces.ts`), same as every other present-only field's read site.
   if ("shellsBusy" in rec) {

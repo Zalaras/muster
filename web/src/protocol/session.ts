@@ -1,5 +1,5 @@
 // Wire type and parser for one `Session` (docs/protocol.md, kb:anchor/ws.session) — one of the protocol/
-// concept modules split out of the former protocol.ts (plan maintainability-cleanup W3).
+// concept modules split out of the former protocol.ts.
 
 import { isRecord, parseNullable } from "./decode";
 
@@ -46,7 +46,7 @@ export interface SessionContext {
   compactions: number;
 }
 
-// Plan markdown-viewing (kb:anchor/ws.session): the plan the transcript scan derived.
+// kb:anchor/ws.session: the plan the transcript scan derived.
 // `null` until a transcript of this session has named a plan (never entered plan mode);
 // once non-null it is never null again for the row's lifetime — a scan that finds no plan
 // (a `/clear`'s fresh transcript, a deleted transcript) keeps the path and re-checks
@@ -81,36 +81,36 @@ export interface Session {
   // drives the trust-prompt vs. no-signal honesty note client-side.
   firstLaunchHere: boolean;
   createdAt: string;
-  // Plan order-sidebar (kb:anchor/ws.session): the rail's user-owned order. Required on every
+  // kb:anchor/ws.session: the rail's user-owned order. Required on every
   // wire Session (never null, both fields ship together) — unlike `model`/`usageModel`'s
-  // "absent key defaults" pattern, there is no pre-plan daemon to tolerate here (the
-  // daemon and client ship together for this plan), so parseSession below rejects a
+  // "absent key defaults" pattern, no daemon version predates this field (the
+  // daemon and client shipped it together), so parseSession below rejects a
   // session missing either field rather than defaulting it.
   pinned: boolean;
   railPos: number;
-  // Plan ui-text-and-focus (kb:anchor/ws.session): the user's rename via `PUT
+  // kb:anchor/ws.session: the user's rename via `PUT
   // /api/sessions/{id}/title`; `null` means no override. `title` above is already the
   // daemon's precedence-resolved DISPLAY title (titleOverride when non-null, else
   // Claude's last-known name) — a client renders `title` and reads this field only to
   // decide whether "clear" means anything (sessions/rename.ts's `titleCommand`).
-  // Required on every wire Session, same "no pre-plan daemon to tolerate" reasoning as
-  // pinned/railPos above (ship together).
+  // Required on every wire Session, same "daemon and client shipped it together" reasoning as
+  // pinned/railPos above.
   titleOverride: string | null;
-  // Plan markdown-viewing REQ-17 (kb:anchor/ws.session): additive, no protocol bump
+  // kb:anchor/ws.session: additive, no protocol bump
   // (kb:adr/connection-protocol-bumps-only-on-shape-change) — but required on every wire
-  // Session all the same, same "daemon and client ship together" reasoning as
-  // pinned/railPos/titleOverride above, since there is no pre-plan daemon this build
-  // needs to keep parsing.
+  // Session all the same, same "daemon and client shipped it together" reasoning as
+  // pinned/railPos/titleOverride above.
   plan: SessionPlan | null;
-  // Plan rail-card-improvements (kb:anchor/ws.session, REQ-7): true iff the turn closed
+  // kb:anchor/ws.session: true iff the turn closed
   // while no terminal client was attached to this session on either surface and nobody
   // has attached since. INV: unread ⇒ state == "idle". Required on every wire Session,
-  // same "daemon and client ship together" reasoning as pinned/railPos/titleOverride/plan
-  // above — no pre-plan daemon to tolerate here.
+  // same "daemon and client shipped it together" reasoning as pinned/railPos/titleOverride/plan
+  // above.
   unread: boolean;
-  // Plan rail-card-improvements (kb:anchor/ws.session, REQ-12): the user's most recent
+  // kb:anchor/ws.session: the user's most recent
   // prompt, truncated to 200 chars; `null` until a first prompt and again after `/clear`.
-  // Display-only — never logged (INV-6). Same "ship together" reasoning as `unread` above.
+  // Display-only — never logged (kb:adr/rail-activity-line-turn-aware-default-with-pref).
+  // Same "ship together" reasoning as `unread` above.
   lastPrompt: string | null;
 }
 
@@ -201,7 +201,7 @@ function parseSessionPlan(value: unknown): SessionPlan | null {
  * an unrecognized field name or type anywhere in the object rejects the whole session
  * (the caller drops the snapshot/upsert rather than render a half-formed card).
  *
- * Scores 41 on cognitive complexity (plan rail-card-improvements added `unread`/
+ * Scores 41 on cognitive complexity (adding `unread`/
  * `lastPrompt`'s two guards), but every point is a flat `return null` guard at zero
  * nesting — the score tracks the wire object's field count, not any tangle. Splitting
  * it would scatter the "any bad field rejects the whole session" invariant across

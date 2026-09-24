@@ -1,9 +1,9 @@
-// The Updates section, restart confirm, Settings badge, and apply handlers (plan
-// code-breakup vocabulary: "update"; plan auto-update). No dependency on any other
-// controller — review Major 7: this module now wires its own toggle/apply/restart/check
-// buttons directly (features/CLAUDE.md "Owns": "each controller wires listeners on the
-// elements it looked up itself"). `settings.ts` used to take an `update` dep purely to
-// relay those clicks; it no longer references this module at all.
+// The Updates section, restart confirm, Settings badge, and apply handlers. No dependency
+// on any other controller (kb:adr/process-composition-roots-registration-only): this module
+// now wires its own toggle/apply/restart/check buttons directly (features/CLAUDE.md "Owns":
+// "each controller wires listeners on the elements it looked up itself"). `settings.ts` used
+// to take an `update` dep purely to relay those clicks; it no longer references this module
+// at all.
 import type { App } from "../app";
 import { applyUpdate, checkForUpdate, fetchRestartImpact } from "../api/update";
 import { requestPrefs } from "../api/prefs";
@@ -32,12 +32,12 @@ export function initUpdate(app: App): void {
   };
 
   let currentUpdate: UpdateInfo | null = null;
-  // REQ-10/REQ-12/REQ-13: this window's own `Check now` request state — never derived
-  // from `UpdateInfo` (see render/update.ts's `CheckState` doc comment).
+  // This window's own `Check now` request state — never derived from `UpdateInfo` (see
+  // render/update.ts's `CheckState` doc comment; kb:adr/update-manual-check-is-a-synchronous-post).
   const checkState: CheckState = { inFlight: false, error: null };
 
   // http.ts's `logApiFailure` already logs a failed request under its own route — this
-  // module has nothing further to do with one (e-m5).
+  // module has nothing further to do with one.
   function apply(): void {
     void applyUpdate(false);
   }
@@ -49,15 +49,16 @@ export function initUpdate(app: App): void {
     });
   }
 
-  // REQ-7/REQ-8/REQ-13: runs regardless of `prefs.updateCheck` (that pref governs only
-  // the daemon's own automatic schedule). A new check clears any previous failure
+  // Runs regardless of `prefs.updateCheck` (that pref governs only the daemon's own
+  // automatic schedule; kb:adr/update-check-pref-governs-automatic-checking-only). A new
+  // check clears any previous failure
   // immediately, so a second press doesn't leave a stale reason on screen while the fresh
   // request is still in flight; the resulting `available`/`checkedAt` reach this window
   // via the `update` broadcast the daemon sends on success (same "response carries no
   // state, the socket does" shape `apply`/`applyAndRestart` already follow above) — this
   // call only tracks whether the *request itself* is in flight or failed.
   function check(): void {
-    if (checkState.inFlight) return; // W4/edge case 16: no double-open from one window.
+    if (checkState.inFlight) return; // No double-open from one window.
     checkState.inFlight = true;
     checkState.error = null;
     app.render();
@@ -85,7 +86,7 @@ export function initUpdate(app: App): void {
     { onConfirm: handleRestartConfirmed },
   );
 
-  // Review Major 7: this module wires its own Updates-section buttons — no other
+  // This module wires its own Updates-section buttons — no other
   // controller reaches into these elements.
   updateSectionElements.toggle.addEventListener("change", () => {
     requestPrefs({ updateCheck: updateSectionElements.toggle.checked });
@@ -101,7 +102,7 @@ export function initUpdate(app: App): void {
     currentUpdate = update;
   });
   app.on("prefs", (prefs) => {
-    // INV-7: the toggle's checked state only ever comes from the prefs broadcast, never
+    // The toggle's checked state only ever comes from the prefs broadcast, never
     // optimistically from its own `change` handler above — same discipline
     // `render/settings.ts`'s theme/rail-activity radios follow.
     updateSectionElements.toggle.checked = prefs.updateCheck;

@@ -1,5 +1,5 @@
-// Pure reader status-line/docChanged derivation (plan general-cleanup REQ-6, REQ-8) —
-// no DOM, no fetch; `features/reader.ts` is the only caller.
+// Pure reader status-line/docChanged derivation — no DOM, no fetch; `features/reader.ts`
+// is the only caller.
 import type { ConnectionStatus } from "../app";
 import { loadingText } from "./paths";
 
@@ -10,14 +10,14 @@ export const UNREACHABLE_TEXT = "musterd unreachable — showing last render";
 export const UNKNOWN_SESSION_TEXT = "unknown session";
 
 /**
- * Status-line text precedence (originally W9, extended by REQ-8): a reader that has
+ * Status-line text precedence: a reader that has
  * never connected — a pop-out loaded while the daemon is down, or killed mid-load, before
- * any `hello` — reads `"connecting…"` (the masthead's own word, INV-POPOUT-CONNECTING),
+ * any `hello` — reads `"connecting…"` (the masthead's own word),
  * never the unreachable text, which stays reserved for a *lost* connection
- * (`"reconnecting"`). Once connected, daemon-down (design-system §6.7, REQ-15) is moot and
- * the existing rules apply: a user-initiated open in flight names itself (REQ-8) once
+ * (`"reconnecting"`). Once connected, daemon-down (design-system §6.7) is moot and
+ * the existing rules apply: a user-initiated open in flight names itself once
  * something is actually on screen to grey out, while nothing has rendered yet the body's
- * own `loading…` placeholder is the cue instead (REQ-9), so the status line stays
+ * own `loading…` placeholder is the cue instead, so the status line stays
  * whatever it already was; otherwise the last fetch's own outcome.
  */
 export function deriveNotice(
@@ -32,7 +32,7 @@ export function deriveNotice(
   return noticeText;
 }
 
-/** `docChanged` dispatch classification (REQ-6, markdown-render-fixes edge case 5): a
+/** `docChanged` dispatch classification: a
  * write to the currently open file gets a silent re-fetch; a write to anything else just
  * updates that file's tree dot. */
 export function classifyDocChanged(

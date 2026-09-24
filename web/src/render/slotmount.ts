@@ -1,4 +1,4 @@
-// Review Major 3: the "put this root in that slot, or empty it" idiom repeated across
+// The "put this root in that slot, or empty it" idiom repeated across
 // features/focus.ts's main slot (reader, then terminal surface) and features/tiles.ts's
 // per-tile body slot (reader, then terminal surface) — `rg -n "firstElementChild"
 // web/src --glob '!*.test.ts'` before this unit found exactly those four sites, no

@@ -1,18 +1,17 @@
-// REQ-9 (plan new-ui-design-colors): the Settings dialog controller — locates the elements,
-// wires the PUT and the "the prefs broadcast is the only source of the checked radio"
-// invariant (INV-7). The dialog's own DOM/wiring is `render/settings.ts`'s
-// `initSettingsDialog` (review seed B9: that "elements in, handlers in, controller out"
-// shape lives in `render/`, matching render/confirm.ts and render/update.ts's
-// `initRestartConfirm`).
+// The Settings dialog controller — locates the elements, wires the PUT and the "the prefs
+// broadcast is the only source of the checked radio" invariant. The dialog's own DOM/wiring
+// is `render/settings.ts`'s `initSettingsDialog`: that "elements in, handlers in, controller
+// out" shape lives in `render/`, matching render/confirm.ts and render/update.ts's
+// `initRestartConfirm`.
 import type { App } from "../app";
 import { requestPrefs } from "../api/prefs";
 import { requireElement, requireElements } from "../dom";
 import { initSettingsDialog, type SettingsDialogElements } from "../render/settings";
 
-/** REQ-2's controller entry: locates the Settings button + dialog, wires the PUT and
- * self-registers the `status`/`prefs` subscriptions the dialog needs (plan code-breakup
- * vocabulary: "settings"). Review Major 7: no dependency on any other controller — the
- * Updates section (`features/update.ts`) wires its own toggle and buttons. */
+/** The controller entry: locates the Settings button + dialog, wires the PUT and
+ * self-registers the `status`/`prefs` subscriptions the dialog needs. No dependency on any
+ * other controller — the Updates section (`features/update.ts`) wires its own toggle and
+ * buttons. */
 export function initSettings(app: App): void {
   const settingsButtonEl = requireElement<HTMLButtonElement>("#settings-button");
   const elements: SettingsDialogElements = {
@@ -31,7 +30,7 @@ export function initSettings(app: App): void {
   settingsButtonEl.addEventListener("click", () => controller.open());
 
   app.on("prefs", (prefs) => controller.setChecked(prefs.theme, prefs.railActivity));
-  // States (new-ui-design-colors): "Daemon down ... The Settings dialog closes with the
-  // other dialogs ... since a PUT cannot land."
+  // Every open dialog closes when the daemon goes down, since a PUT (or any other request)
+  // cannot land while disconnected.
   app.on("status", () => controller.close());
 }

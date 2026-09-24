@@ -1,4 +1,4 @@
-// The WS-to-App mapping (review cycle 1 Critical 1): what a `WsClient` message does to
+// The WS-to-App mapping: what a `WsClient` message does to
 // `app.store`/`app.state` — store replace/upsert, the snapshot's `prefs` + `snapshot`
 // emits, a render after each. `main.ts` and `doc.ts` used to hand-copy this into their own
 // handler bodies; both now register `coreWsHandlers(app, connection)` and layer their own
@@ -20,7 +20,7 @@ export interface WsAppConnection {
 }
 
 /** Exactly what `doc.ts` registers verbatim; `main.ts` spreads its own dashboard-only
- * handlers over the result (Critical 1's "the pop-out differs from the dashboard only in
+ * handlers over the result ("the pop-out differs from the dashboard only in
  * the handlers it declares it leaves out"). */
 export function coreWsHandlers(app: App, connection: WsAppConnection): WsClientHandlers {
   return {

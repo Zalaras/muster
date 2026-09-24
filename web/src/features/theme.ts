@@ -1,6 +1,5 @@
-// `themeChoice`/`claudeFamily`, `<html>` attributes, and the first-paint hint (plan
-// code-breakup vocabulary: "theme"; plan new-ui-design-colors). No dependency on any other
-// controller (review Major 8): re-theming live terminals and reader diagrams used to be a
+// Owns `themeChoice`/`claudeFamily`, the `<html>` attributes, and the first-paint hint. No
+// dependency on any other controller: re-theming live terminals and reader diagrams used to be a
 // direct `deps.surfaces.applyTheme()` call from here, with the reader instead watching
 // `<html data-theme>` itself via its own `MutationObserver` — two different mechanisms for
 // the same "a theme changed" fact, which is what forced `doc.ts` to fake a no-op
@@ -12,16 +11,16 @@ import { resolveTheme, writeThemeHint } from "../theme";
 import type { ClaudeFamily } from "../protocol/theme";
 
 export function initTheme(app: App): void {
-  // Plan new-ui-design-colors: both default to the values a fresh daemon reports before
-  // any snapshot arrives. Neither is applied to the DOM until the first real message —
-  // the `<head>` hint script already painted the last-known theme before any JS ran
-  // (REQ-11), and overwriting it with these defaults here would destroy that first paint.
+  // Both default to the values a fresh daemon reports before any snapshot arrives. Neither
+  // is applied to the DOM until the first real message — the `<head>` hint script already
+  // painted the last-known theme before any JS ran, and overwriting it with these defaults
+  // here would destroy that first paint.
   let themeChoice = "follow";
   let claudeFamily: ClaudeFamily = "unknown";
 
   /** Applies the resolved theme + Claude family to `<html>`, re-themes every live
    * terminal surface in place, and rewrites the first-paint hint. `resolveTheme` alone is
-   * what makes INV-1/INV-2 hold: a known `themeChoice` resolves the same theme regardless
+   * what keeps this deterministic: a known `themeChoice` resolves the same theme regardless
    * of `claudeFamily`, so a family-only change never moves `data-theme` while an override
    * is set, and a `prefs`-only change never touches `data-claude-family`. */
   function applyAttributes(): void {
@@ -29,15 +28,15 @@ export function initTheme(app: App): void {
     document.documentElement.dataset["theme"] = theme;
     document.documentElement.dataset["claudeFamily"] = claudeFamily;
     writeThemeHint({ theme, family: claudeFamily });
-    // Review Major 8: the one signal every live terminal (features/surfaces.ts) and every
-    // reader diagram instance (features/reader.ts) reacts to — emitted after the DOM
-    // attributes above are written, since both listeners read the theme back off them.
+    // The one signal every live terminal (features/surfaces.ts) and every reader diagram
+    // instance (features/reader.ts) reacts to — emitted after the DOM attributes above are
+    // written, since both listeners read the theme back off them.
     app.emit("themeChanged");
   }
 
   app.on("prefs", (prefs) => {
-    // INV-7: `themeChoice` only ever changes here, from the broadcast — never
-    // optimistically from the radio's own click handler (settings.ts).
+    // `themeChoice` only ever changes here, from the broadcast — never optimistically from
+    // the radio's own click handler (settings.ts).
     themeChoice = prefs.theme;
     applyAttributes();
   });
@@ -47,8 +46,8 @@ export function initTheme(app: App): void {
     applyAttributes();
   });
 
-  // kb:anchor/ws.claude-theme/INV-2: never touches `themeChoice` — only `claudeFamily`, so `data-theme` only
-  // moves when `themeChoice` is currently "follow".
+  // kb:anchor/ws.claude-theme: `claudeTheme` never touches `themeChoice` — only
+  // `claudeFamily`, so `data-theme` only moves when `themeChoice` is currently "follow".
   app.on("claudeTheme", (family) => {
     claudeFamily = family;
     applyAttributes();

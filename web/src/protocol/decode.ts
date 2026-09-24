@@ -1,6 +1,6 @@
-// Shared decoder building blocks (review.maintainability.d-webcore.md Major 3): a JSON
-// object guard, an array-of-T decoder, and a null-or-T decoder. Every wire parser in this
-// codebase hand-wrote these three shapes at its own call site; this module owns only how
+// Shared decoder building blocks: a JSON object guard, an array-of-T decoder, and a
+// null-or-T decoder. Every wire parser in this codebase hand-wrote these three shapes at
+// its own call site; this module owns only how
 // "a JSON object", "an array of these", and "null or one of these" are recognised — a
 // parser still owns what its own fields mean. Every module under `web/src/protocol/`,
 // `web/src/api/`, `theme.ts` and `reader/memory.ts` imports from here rather than each

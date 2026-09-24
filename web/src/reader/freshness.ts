@@ -1,7 +1,7 @@
-// Pure freshness-cue text (REQ-18, W9; kb:adr/reader-change-signal-is-the-write-hook) —
-// the docbar's `.chg` element renders this whenever a write has been seen for the open
-// file; render/reader.ts omits the element entirely otherwise (REQ-24), never calling
-// this with a null timestamp.
+// Pure freshness-cue text (kb:adr/reader-change-signal-is-the-write-hook) — the docbar's
+// `.chg` element renders this whenever a write has been seen for the open file;
+// render/reader.ts omits the element entirely otherwise, never calling this with a null
+// timestamp.
 import { ageAgo } from "../sessions/format";
 
 /** `changed <age> ago`, reusing the same relative-age buckets ("now", "2m", "1h", "2d")

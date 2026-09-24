@@ -1,5 +1,6 @@
-// Pure drop math for manual rail reordering (plan order-sidebar REQ-11). No DOM, no
-// socket — render/dragreorder.ts's delegated listeners call this via features/rail.ts.
+// Pure drop math for manual rail reordering
+// (kb:adr/rail-order-daemon-owned-per-session-fields). No DOM, no socket —
+// render/dragreorder.ts's delegated listeners call this via features/rail.ts.
 // The insert-and-shift reorder itself is `sessions/reorder.ts`'s `insertAtDragTarget`,
 // shared with `sessions/live.ts`'s `moveTile` for the Tiles grid; this module adds only
 // the rail's own `pinnedCount` derivation on top.
@@ -27,7 +28,8 @@ export interface MoveCardResult {
 /**
  * Reorders `ordered` via `insertAtDragTarget` (the dragged entry takes on the target's
  * `pinned` value at the drop) and returns `null` for a self-drop or when either id is
- * absent (plan edge case 2). Never mutates `ordered`.
+ * absent (both are no-ops the caller should ignore, not a reorder). Never mutates
+ * `ordered`.
  *
  * Because `ordered` is always pinned-block-then-unpinned-block (sessions/sort.ts's
  * `orderRail(sessions, "manual")`) and the dragged entry always lands directly adjacent

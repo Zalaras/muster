@@ -32,7 +32,7 @@ function cssVar(name: string, fallback: string): string {
   return value || fallback;
 }
 
-/** review Minor 16: the one place xterm's theme colors are read off the design-system
+/** The one place xterm's theme colors are read off the design-system
  * tokens — the constructor and `applyTheme()` used to each build this object separately. */
 function terminalThemeColors(): { background: string; foreground: string } {
   return {
@@ -42,16 +42,15 @@ function terminalThemeColors(): { background: string; foreground: string } {
 }
 
 /**
- * One live terminal surface — the Claude pane (`/ws/terminal/{id}`, kb:anchor/terminal.ws) or,
- * since plan plain-terminal-session, a session's plain shell (`/ws/shell/{id}`,
- * kb:anchor/terminal.shell-ws). `kind` picks the WS path and the aria-label prefix; every other behaviour —
- * drop handling, resize, overlays, theming — is shared unchanged (plan Affected Files).
- * Constructing a `"claude"` surface for an already-dead session (`alive: false`) never
- * opens a socket (REQ-13: "no attach attempt for a session Muster already knows is
- * dead") — it renders the "session ended" overlay directly and stops there. A `"shell"`
- * surface is never constructed for a session with no running shell (features/surfaces.ts
- * only mounts one after `POST .../shell` succeeds), so it has no equivalent dead-on-arrival check —
- * REQ-7's "the shell route never consults `alive`" applies here too.
+ * One live terminal surface — the Claude pane (`/ws/terminal/{id}`, kb:anchor/terminal.ws) or
+ * a session's plain shell (`/ws/shell/{id}`, kb:anchor/terminal.shell-ws,
+ * kb:adr/surfaces-shell-is-attach-target-not-session). `kind` picks the WS path and the
+ * aria-label prefix; every other behaviour — drop handling, resize, overlays, theming — is
+ * shared unchanged. Constructing a `"claude"` surface for an already-dead session
+ * (`alive: false`) never opens a socket — it renders the "session ended" overlay directly
+ * and stops there. A `"shell"` surface is never constructed for a session with no running
+ * shell (features/surfaces.ts only mounts one after `POST .../shell` succeeds), so it has
+ * no equivalent dead-on-arrival check — the shell route never consults `alive` either.
  */
 export class TerminalSurface {
   /** The aria-labelled container the Testable UI Elements table pins
@@ -64,7 +63,7 @@ export class TerminalSurface {
   private readonly noticeEl: HTMLElement;
   private readonly sessionId: number;
   private readonly kind: SurfaceKind;
-  /** REQ-8: fired only for a `"shell"` surface whose socket closes with `4001
+  /** Fired only for a `"shell"` surface whose socket closes with `4001
    * pane_ended` (the shell exited or was killed externally) — features/surfaces.ts's hook to revert
    * the surface-switch state (`shellEnded`) and re-render, which is what actually swaps
    * the visible surface back to Claude and disposes this one. Never fired for `"claude"`
@@ -79,9 +78,10 @@ export class TerminalSurface {
   private lastSentRows = 0;
   private overlayKind: OverlayKind | null = null;
   private disposed = false;
-  // REQ-7/W4: one animation frame's worth of accumulated wheel `deltaY`, for `kind ===
-  // "shell"` only — coalesced so a fast wheel gesture sends at most one `scroll` frame
-  // per frame rather than one per native `wheel` event.
+  // kb:adr/surfaces-shell-scroll-via-daemon-copy-mode: one animation frame's worth of
+  // accumulated wheel `deltaY`, for `kind === "shell"` only — coalesced so a fast wheel
+  // gesture sends at most one `scroll` frame per frame rather than one per native `wheel`
+  // event.
   private wheelAccumDeltaY = 0;
   private wheelFlushScheduled = false;
 
@@ -117,9 +117,9 @@ export class TerminalSurface {
     this.noticeEl.hidden = true;
 
     this.root.append(this.bodyEl, this.overlayEl, this.noticeEl);
-    // review Minor 16: installed from outside, through the small `DropSurface` interface
-    // this class satisfies structurally — the drop feature's own DOM/fetch logic no
-    // longer lives inside this constructor.
+    // Installed from outside, through the small `DropSurface` interface this class
+    // satisfies structurally — the drop feature's own DOM/fetch logic no longer lives
+    // inside this constructor.
     installTerminalDrop(this.root, this.sessionId, this);
 
     if (kind === "claude" && !session.alive) {
@@ -136,9 +136,9 @@ export class TerminalSurface {
       fontSize: 12.5,
       lineHeight: 1.65,
       // Neutral CSS system-color keywords, not a literal duplicate of --term/--term-fg's
-      // hex values (review m2-terminal Minor 5) — these only ever apply if the token read
-      // itself comes back empty, which in practice never happens since both are always
-      // declared on :root. --term-fg (not --fg, plan new-ui-design-colors REQ-1): the
+      // hex values — these only ever apply if the token read itself comes back empty,
+      // which in practice never happens since both are always declared on :root.
+      // --term-fg (not --fg, kb:adr/theme-terminal-ground-follows-claude-family): the
       // pane's foreground follows Claude Code's own theme family, independent of the
       // Muster chrome theme (design-system §7.5).
       theme: terminalThemeColors(),
@@ -154,19 +154,19 @@ export class TerminalSurface {
     this.term = term;
     this.fitAddon = fitAddon;
 
-    // REQ-5 through REQ-12/INV-1: installed for `kind === "shell"` only — a `claude`
-    // surface never attaches either handler, so xterm's own key/wheel handling (which
-    // Claude Code itself reads correctly, Overview) is completely unreached for it.
+    // Installed for `kind === "shell"` only — a `claude` surface never attaches either
+    // handler, so xterm's own key/wheel handling (which Claude Code itself reads
+    // correctly) is completely unreached for it.
     if (kind === "shell") this.installShellInputHandlers(term);
 
     this.attach();
   }
 
-  /** REQ-5/REQ-6/REQ-7/INV-1: the shell surface's readline key translation and
-   * wheel-driven copy-mode scroll, both via xterm.js's own custom-handler hooks so
-   * neither handler contends with xterm's internal key/wheel processing (rather than a
-   * second DOM listener racing it). Called once, from the constructor, only when `kind
-   * === "shell"`. */
+  /** The shell surface's readline key translation and wheel-driven copy-mode scroll
+   * (kb:adr/surfaces-shell-scroll-via-daemon-copy-mode), both via xterm.js's own
+   * custom-handler hooks so neither handler contends with xterm's internal key/wheel
+   * processing (rather than a second DOM listener racing it). Called once, from the
+   * constructor, only when `kind === "shell"`. */
   private installShellInputHandlers(term: Terminal): void {
     term.attachCustomKeyEventHandler((event) => {
       if (event.type !== "keydown") return true;
@@ -184,17 +184,17 @@ export class TerminalSurface {
         this.wheelFlushScheduled = true;
         requestAnimationFrame(() => this.flushWheelScroll());
       }
-      return false; // REQ-7: never falls through to xterm's own cursor-key wheel fallback.
+      return false; // Never falls through to xterm's own cursor-key wheel fallback.
     });
   }
 
-  /** The coalesced `scroll` frame (W4) — reads the accumulator built up by every `wheel`
+  /** The coalesced `scroll` frame — reads the accumulator built up by every `wheel`
    * event since the last animation frame. A `0` conversion (the gesture accumulated to
    * date is too small to round to a whole line — a slow trackpad's per-event `deltaY` is
    * routinely under `PIXELS_PER_LINE`) sends no frame and leaves the accumulator
    * untouched, so the next frame's events add to the same sub-line remainder rather than
-   * starting over from it (review cycle 1 Major 1: zeroing unconditionally here discarded
-   * that remainder every frame, so a gentle scroll never reached a whole line at all).
+   * starting over from it (zeroing unconditionally here discarded that remainder every
+   * frame, so a gentle scroll never reached a whole line at all).
    * When a frame *is* sent, only the pixel amount that rounded into `lines` comes back
    * out — `lines * PIXELS_PER_LINE` signed opposite to `deltaY` per
    * `wheelDeltaToScrollLines`'s convention (negative `deltaY` yields positive `lines`), so
@@ -238,9 +238,10 @@ export class TerminalSurface {
       this.socket = null;
       if (this.disposed) return;
       this.setOverlay(overlayForCloseCode(event.code));
-      // REQ-8: PTY EOF on a shell surface (`exit`, or an external kill) — never fired for
-      // `4000 superseded` (E12: a superseded shell tab stays on `shell`, showing the
-      // overlay, since the shell itself is still running elsewhere).
+      // PTY EOF on a shell surface (`exit`, or an external kill) — never fired for
+      // `4000 superseded` (kb:adr/surfaces-one-live-client-per-attach-target: a
+      // superseded shell tab stays on `shell`, showing the overlay, since the shell
+      // itself is still running elsewhere).
       if (this.kind === "shell" && event.code === 4001) this.onShellEnded?.();
     });
     socket.addEventListener("error", () => socket.close());
@@ -259,7 +260,7 @@ export class TerminalSurface {
   }
 
   // ── file-drop-fix: drag-and-drop onto this surface ──────────────────────────────────
-  // review Minor 16: the DOM/fetch wiring for this feature moved to `./dropwire.ts`'s
+  // The DOM/fetch wiring for this feature moved to `./dropwire.ts`'s
   // `installTerminalDrop`, installed from the constructor above — this class exposes only
   // the small `DropSurface` surface it needs (`hasTerminal`/`canPasteNow`/`pasteText`/
   // `showNotice`/`focus`, all below).
@@ -277,10 +278,10 @@ export class TerminalSurface {
   }
 
   /** Pastes `text` through xterm's own paste routine (normalises line endings, wraps in
-   * bracketed-paste markers iff the application enabled mode 2004 — Implementation
-   * Notes), which routes through the same `onData` → socket-send path as typed input.
-   * Returns false and sends nothing when there's no terminal or the socket isn't open
-   * (W8) — the caller shows the not-connected notice in that case. */
+   * bracketed-paste markers iff the application enabled mode 2004), which routes through
+   * the same `onData` → socket-send path as typed input. Returns false and sends nothing
+   * when there's no terminal or the socket isn't open — the caller shows the
+   * not-connected notice in that case. */
   pasteText(text: string): boolean {
     if (!this.canPasteNow()) return false;
     this.term?.paste(text);
@@ -288,12 +289,11 @@ export class TerminalSurface {
   }
 
   /** Shows (or, given `null`, clears) the one `role="status"` notice this surface owns —
-   * a new outcome always replaces whatever text was there (edge case 19), cancelling any
-   * pending auto-hide timer first. Delegates to `terminal/notice.ts` (plan v1-cleanup
-   * REQ-12): an `"outcome"` text (the default — every caller but `dropwire.ts`'s
-   * in-flight locate text) auto-hides after ~5s (REQ-6); an `"inflight"` text
-   * stays up until something else replaces it (REQ-13); `null` hides immediately with no
-   * timer either way. */
+   * a new outcome always replaces whatever text was there, cancelling any pending
+   * auto-hide timer first. Delegates to `terminal/notice.ts`: an `"outcome"` text (the
+   * default — every caller but `dropwire.ts`'s in-flight locate text) auto-hides after
+   * ~5s; an `"inflight"` text stays up until something else replaces it; `null` hides
+   * immediately with no timer either way. */
   showNotice(text: string | null, kind: "outcome" | "inflight" = "outcome"): void {
     if (this.disposed) return;
     showNoticeOn(this.noticeEl, text, kind);
@@ -303,8 +303,8 @@ export class TerminalSurface {
    * Re-fits to the container's current size and sends a `resize` frame if the fitted
    * geometry changed. `immediate` skips the ~100ms debounce for the one-time initial
    * resize the protocol requires right after open. Safe to call on every render pass —
-   * a no-op unless the container's size actually changed (design-system §4.2 / REQ-11:
-   * only sessions whose live surface changed are ever resized).
+   * a no-op unless the container's size actually changed (design-system §4.2 — only
+   * sessions whose live surface changed are ever resized).
    */
   refit(immediate = false): void {
     if (!this.term || !this.fitAddon) return;
@@ -329,14 +329,14 @@ export class TerminalSurface {
     else this.resizeTimer = setTimeout(send, RESIZE_DEBOUNCE_MS);
   }
 
-  /** The pane's own fitted geometry (REQ-15's sizenote / tile footer), or `null` before
-   * the terminal has ever been laid out (a dead session never gets one). */
+  /** The pane's own fitted geometry, consumed by the sizenote / tile footer, or `null`
+   * before the terminal has ever been laid out (a dead session never gets one). */
   get geometry(): TerminalSurfaceGeometry | null {
     if (!this.term) return null;
     return { cols: this.term.cols, rows: this.term.rows };
   }
 
-  /** REQ-12: re-themes a live terminal in place — xterm.js 6's `term.options.theme`
+  /** Re-themes a live terminal in place — xterm.js 6's `term.options.theme`
    * assignment restyles without recreating the `Terminal` instance. Called on every live
    * surface by `features/surfaces.ts`'s `applyTheme()`, itself invoked by `features/theme.ts`
    * after a `snapshot`/`prefs`/`claudeTheme` message sets the theme attributes; never from
@@ -349,10 +349,10 @@ export class TerminalSurface {
 
   /** Moves DOM focus into xterm's input. Called via features/surfaces.ts's
    * `focusSelected`: by features/rail.ts on a pointer selection, and by
-   * features/launch.ts after a successful launch (REQ-7/REQ-8, plan
-   * new-session-improvement) — never from a render pass (REQ-4/INV-1). A silent no-op for
-   * a dead session's surface (`term` is null — never had a terminal to focus) and for a
-   * disposed surface. Never opens, closes or otherwise touches the socket. */
+   * features/launch.ts after a successful launch — never from a render pass
+   * (kb:adr/focus-rail-click-focuses-terminal). A silent no-op for a dead session's
+   * surface (`term` is null — never had a terminal to focus) and for a disposed surface.
+   * Never opens, closes or otherwise touches the socket. */
   focus(): void {
     if (this.disposed || !this.term) return;
     this.term.focus();

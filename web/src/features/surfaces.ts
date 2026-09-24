@@ -1,14 +1,13 @@
 // The `TerminalSurface` manager: which sessions are live in the current view (Focus's
 // one pane, or Tiles' grid) and which `terminal/pane.ts` instances exist for them — the
-// only place a `TerminalSurface` is ever constructed or disposed (W7/W8: no render path
-// opens a socket outside this manager, and never for an `alive:false` session). Also owns
-// per-session surface-switch state (`claude`/`shell` selection) — plan
-// plain-terminal-session (plan code-breakup vocabulary: "surfaces").
+// only place a `TerminalSurface` is ever constructed or disposed. No render path opens a
+// socket outside this manager, and never for an `alive:false` session. Also owns
+// per-session surface-switch state (`claude`/`shell` selection).
 //
 // `deps.getTilesLive` reads `tiles`'s current live-id list on every call — `tiles` is
 // already constructed by the time `surfaces` is (main.ts's init order: `tiles` itself
 // takes a forward-reference thunk for `surfaces`, the other half of that pair), but this
-// module's deps keep the same `get<Noun>` naming its sibling thunks use (review Minor 4).
+// module's deps keep the same `get<Noun>` naming its sibling thunks use.
 import type { App, RenderFrame } from "../app";
 import type { Session } from "../protocol/session";
 import { createShell } from "../api/sessions";
@@ -52,22 +51,22 @@ export interface SurfacesDeps {
 export interface SurfacesHandle {
   state(): SurfaceSwitchState;
   get(id: number, kind: SurfaceKind): TerminalSurface | undefined;
-  /** Plan plain-terminal-session REQ-4/REQ-5/REQ-8/REQ-12: the one dispatcher every
-   * `claude`/`shell` segment (mainhead + every tile) routes through. `findDeadRefs` is
-   * consulted only on a shell-creation failure with no live surface to route the notice
-   * through. */
+  /** The one dispatcher every `claude`/`shell` segment (mainhead + every tile) routes
+   * through. `findDeadRefs` is consulted only on a shell-creation failure with no live
+   * surface to route the notice through. */
   select(id: number, kind: SurfaceKind, findDeadRefs: () => DeadSurfaceRefs | null): void;
   focusSelected(id: number): void;
-  /** Plan terminal-fixes-cleanup: the `shell` segment's busy/done verdict for `id`, per
-   * `terminal/shellactivity.ts`'s reducer — `render/mainhead.ts` and `features/tiles.ts`
-   * read this on every render pass to drive `span.shellact` (Testable UI Elements). */
+  /** The `shell` segment's busy/done verdict for `id`, per `terminal/shellactivity.ts`'s
+   * reducer — `render/mainhead.ts` and `features/tiles.ts` read this on every render pass
+   * to drive `span.shellact`. */
   activityFor(id: number): ShellActivityIndicator;
 }
 
 export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
   // Keyed by `surfaceKey(id, kind)`, not by session id alone — a session's Claude pane
-  // and its shell are independent attach targets (INV-3), and only the currently-selected
-  // kind ever has a live entry (REQ-5 disposes the hidden one on every switch).
+  // and its shell are independent attach targets
+  // (kb:adr/surfaces-shell-is-attach-target-not-session), and only the currently-selected
+  // kind ever has a live entry: switching disposes the hidden one.
   const surfaces = new Map<string, TerminalSurface>();
   let surfaceSwitchState: SurfaceSwitchState = new Map();
   let activityState: ShellActivityState = EMPTY_SHELL_ACTIVITY;
@@ -102,8 +101,8 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
 
   function handleShellEnded(id: number): void {
     surfaceSwitchState = shellEnded(surfaceSwitchState, id);
-    // REQ-8/edge cases 1-2: the shell itself is gone — clears unconditionally, no
-    // transient tick (shellactivity.ts's `shellGone` vs. `observeIdle`).
+    // The shell itself is gone — clears unconditionally, no transient tick
+    // (shellactivity.ts's `shellGone` vs. `observeIdle`).
     activityState = shellGone(activityState, id);
     app.render();
   }
@@ -116,7 +115,7 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
     error: ApiErrorBody,
     findDeadRefs: () => DeadSurfaceRefs | null,
   ): void {
-    // http.ts's `logApiFailure` already logged this under its own route (e-m5).
+    // http.ts's `logApiFailure` already logged this under its own route.
     const liveSurface = surfaces.get(surfaceKey(id, "claude"));
     if (liveSurface) {
       liveSurface.showNotice(error.message);
@@ -130,8 +129,8 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
     const current = getSurfaceState(surfaceSwitchState, id);
     if (current.selected === kind) return;
 
-    // Plan markdown-viewing REQ-1/Affected Files: `docs` is a pure selection, same as
-    // `claude` — no daemon round trip, unlike `shell`'s lazy spawn below.
+    // `docs` is a pure selection, same as `claude` — no daemon round trip, unlike
+    // `shell`'s lazy spawn below.
     const requestId = (selectRequestId.get(id) ?? 0) + 1;
     selectRequestId.set(id, requestId);
 
@@ -151,7 +150,8 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
       }
       surfaceSwitchState = setShellRunning(surfaceSwitchState, id, true);
       surfaceSwitchState = selectSurface(surfaceSwitchState, id, "shell");
-      // REQ-4: selecting `shell` clears a showing tick immediately.
+      // Selecting `shell` clears a showing tick immediately
+      // (kb:adr/surfaces-snapshot-restored-tick-always-self-clears).
       activityState = clearOnSelect(activityState, id);
       app.render();
     });
@@ -174,11 +174,12 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
       if (isSurfaceAttachable(surfaceSwitchState, id, session.alive)) {
         entries.push({ id, kind: state.selected });
       }
-      // Plan markdown-viewing INV-1: `docs` never has a `TerminalSurface` of its own,
-      // but a shell still running underneath it must stay attached in the background
-      // (never mounted — focus.ts/tiles.ts only ever ask for the *selected* kind) so its
-      // `onShellEnded` still fires and reverts `shellRunning`/`selected` state even while
-      // it isn't the displayed surface.
+      // `docs` never has a `TerminalSurface` of its own
+      // (kb:adr/reader-docs-is-third-surface-segment), but a shell still running
+      // underneath it must stay attached in the background (never mounted —
+      // focus.ts/tiles.ts only ever ask for the *selected* kind) so its `onShellEnded`
+      // still fires and reverts `shellRunning`/`selected` state even while it isn't the
+      // displayed surface.
       if (state.selected === "docs" && state.shellRunning) {
         entries.push({ id, kind: "shell" });
       }
@@ -212,7 +213,7 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
     }
   }
 
-  // Render phase 7 (UI Specifications > Render phase order): open/close diff over
+  // Render phase 7 (main.ts's numbered render phase order): open/close diff over
   // `(id, kind)` keys against the current view's visible ids.
   app.onRender((frame: RenderFrame) => {
     const { sessions } = frame;
@@ -222,17 +223,19 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
     openMissingSurfaces(desiredEntries, sessions);
   });
 
-  // Review Major 8: the one theme-change signal features/theme.ts emits — re-themes every
-  // live terminal in place, replacing the removed `SurfacesHandle.applyTheme()` that used
-  // to be called directly from there.
+  // The one theme-change signal features/theme.ts emits — re-themes every live terminal in
+  // place, replacing the removed `SurfacesHandle.applyTheme()` that used to be called
+  // directly from there.
   app.on("themeChanged", () => {
     for (const surface of surfaces.values()) surface.applyTheme();
   });
 
   app.on("sessionRemoved", (id) => {
-    // REQ-9: Remove kills both tmux sessions server-side; the client mirrors that by
-    // dropping whichever of the composite-keyed surfaces exists. `docs` never has a
-    // mounted `TerminalSurface` (INV-1) — included for symmetry, always a no-op `.get`.
+    // Remove kills both tmux sessions server-side
+    // (kb:adr/actions-remove-allowed-on-live-session); the client mirrors that by dropping
+    // whichever of the composite-keyed surfaces exists. `docs` never has a mounted
+    // `TerminalSurface` (kb:adr/reader-docs-is-third-surface-segment) — included for
+    // symmetry, always a no-op `.get`.
     for (const kind of ["claude", "shell", "docs"] as const) {
       const key = surfaceKey(id, kind);
       surfaces.get(key)?.dispose();
@@ -243,9 +246,8 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
     selectRequestId.delete(id);
   });
 
-  // Plan terminal-fixes-cleanup: a live `shellActivity` transition for one session —
-  // Protocol Contract's `/ws` broadcast, independent of whichever shell socket (if any)
-  // is currently attached (E12).
+  // A live `shellActivity` transition for one session — the Protocol Contract's `/ws`
+  // broadcast, independent of whichever shell socket (if any) is currently attached.
   app.on("shellActivity", (sessionId, busy) => {
     applyActivity(
       busy
@@ -256,17 +258,17 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
 
   /** After the daemon connection is restored, every currently-mounted surface gets a
    * chance to reattach — a no-op unless it's showing the "disconnected" overlay for a
-   * still-attachable target. Plan plain-terminal-session, edge case 14: a shell surface's
-   * "attachable" is `shellRunning`, never `session.alive`.
+   * still-attachable target. A shell surface's "attachable" is `shellRunning`, never
+   * `session.alive`.
    *
-   * Plan terminal-fixes-cleanup: also re-syncs the activity indicator from
-   * `snapshot.shellsBusy` (W9) — every id it lists is busy right now, immediately, no
-   * onset delay; every id this module still shows "busy" for but the snapshot omits gets
-   * `restoreIdle`'s treatment, never `observeIdle`'s (that one is for a *live*
-   * `shellActivity` message only) — see `restoreIdle`'s own doc comment for why a
-   * snapshot gap always schedules the self-clear regardless of the current surface
-   * selection, which is what lets this same branch satisfy both W6/edge case 3 and edge
-   * case 4's daemon-restart-mid-command. */
+   * Also re-syncs the activity indicator from `snapshot.shellsBusy` — every id it lists is
+   * busy right now, immediately, no onset delay; every id this module still shows "busy"
+   * for but the snapshot omits gets `restoreIdle`'s treatment, never `observeIdle`'s (that
+   * one is for a *live* `shellActivity` message only) — see `restoreIdle`'s own doc comment
+   * for why a snapshot gap always schedules the self-clear regardless of the current
+   * surface selection, which is what lets this same branch satisfy both a WS-blip
+   * reconnect and a daemon restart mid-command
+   * (kb:adr/surfaces-snapshot-restored-tick-always-self-clears). */
   app.on("snapshot", (snapshot) => {
     const sessions = app.store.values();
     for (const [key, surface] of surfaces) {

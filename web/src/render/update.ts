@@ -1,4 +1,4 @@
-// Plan auto-update, UI Specifications > Text rules: the Settings dialog's Updates section
+// The Settings dialog's Updates section (kb:spec/update)
 // (`#settings-update`) plus the masthead Settings-button badge and the restart confirm's
 // body. DOM only, mirroring render/confirm.ts's shape (elements in, handlers in, a
 // controller out) for the restart confirm dialog specifically — a precedent reuse
@@ -6,9 +6,9 @@
 // confirm is structurally the same "named session action confirm" concern End/Remove
 // already solved (showModal()/close(), a body rebuilt from data, Confirm/Cancel wired to
 // one target captured at open time). `UpdateViewModel` below is this module's render
-// contract — `features/updateview.ts`'s `buildUpdateViewModel` is its one producer (review
-// seed B7: that derivation is a DOM-free decision with one controller caller, so it lives
-// beside `features/update.ts`, not here).
+// contract — `features/updateview.ts`'s `buildUpdateViewModel` is its one producer: that
+// derivation is a DOM-free decision with one controller caller, so it lives
+// beside `features/update.ts`, not here.
 import type { RestartImpactShell } from "../api/update";
 
 export interface UpdateViewModel {
@@ -20,14 +20,14 @@ export interface UpdateViewModel {
   restartEnabled: boolean;
   restartLabel: string;
   status: string;
-  /** REQ-9/INV-6: `available != null && installed == null`. */
+  /** `available != null && installed == null`. */
   badged: boolean;
   /** `aria-busy` on `#settings-update` while an apply phase is in flight. */
   busy: boolean;
-  /** REQ-10 (plan rail-card-improvements-2): `Check now`'s own `disabled` state —
+  /** `Check now`'s own `disabled` state —
    * `update.canCheck` and no check of its own already in flight. Independent of
    * `prefs.updateCheck`/`updateEnabled` — a user-initiated check runs regardless of the
-   * daily-check toggle (REQ-8). */
+   * daily-check toggle (kb:adr/update-check-pref-governs-automatic-checking-only). */
   checkEnabled: boolean;
   /** Whether this window's own `Check now` request is in flight — `aria-busy` on the
    * button, same shape as `busy` above for the apply buttons. */
@@ -42,7 +42,7 @@ export interface UpdateSectionElements {
   statusEl: HTMLElement;
   applyBtn: HTMLButtonElement;
   restartBtn: HTMLButtonElement;
-  /** REQ-10 (plan rail-card-improvements-2): `#update-check-button`, the first child of
+  /** `#update-check-button`, the first child of
    * `.update-actions` (Testable UI Elements). */
   checkBtn: HTMLButtonElement;
 }
@@ -73,7 +73,7 @@ export function renderUpdateSection(elements: UpdateSectionElements, vm: UpdateV
   }
 }
 
-/** REQ-9: the masthead Settings button's badge dot plus its accessible name/data
+/** The masthead Settings button's badge dot plus its accessible name/data
  * attribute — `#settings-button .update-dot` (aria-hidden, so never located by role). */
 export function renderSettingsBadge(button: HTMLButtonElement, badged: boolean): void {
   const dot = button.querySelector<HTMLElement>(".update-dot");
@@ -88,8 +88,9 @@ export function renderSettingsBadge(button: HTMLButtonElement, badged: boolean):
   }
 }
 
-/** REQ-11: the restart confirm's body, naming the plain-terminal shells that will close
- * (or saying none are open) — Claude sessions always keep running (INV-5). */
+/** The restart confirm's body, naming the plain-terminal shells that will close
+ * (or saying none are open) — Claude sessions always keep running
+ * (kb:adr/update-restart-is-in-place-reexec-not-shutdown). */
 export function renderRestartImpact(el: HTMLElement, shells: readonly RestartImpactShell[]): void {
   if (shells.length === 0) {
     el.textContent =
@@ -117,7 +118,7 @@ export interface RestartConfirmController {
   close: () => void;
 }
 
-/** REQ-11's confirm dialog (`#update-restart-dialog`) — modelled on render/confirm.ts's
+/** The restart confirm dialog (`#update-restart-dialog`) — modelled on render/confirm.ts's
  * End/Remove dialogs: showModal()/close(), body rebuilt from data at open time, Confirm
  * fires the handler after closing. */
 export function initRestartConfirm(

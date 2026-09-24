@@ -1,12 +1,12 @@
-// The reader's frontmatter DOM builders — split out of reader/markdown.ts (review d-m4 /
-// e-webui Minor 4: `reader/` holds pure logic with no DOM building beyond the sanitizer's
-// own window requirement; element construction belongs in `render/`).
+// The reader's frontmatter DOM builders — split out of reader/markdown.ts: `reader/`
+// holds pure logic with no DOM building beyond the sanitizer's own window requirement;
+// element construction belongs in `render/` (docs/conventions.md § Composition roots).
 // `reader/markdown.ts`'s `renderMarkdown` returns the parsed `Frontmatter` alongside the
 // body fragment; `render/reader.ts`'s `setReaderBody` calls `buildFrontmatterNode` and
 // prepends the result, so no DOM is built inside `reader/`.
 import type { Frontmatter, FrontmatterEntry } from "../reader/frontmatter";
 
-// REQ-5, REQ-10: built from DOM APIs with textContent only. A frontmatter value never
+// Built from DOM APIs with textContent only. A frontmatter value never
 // reaches marked or DOMPurify — there is nothing to sanitize because nothing here is
 // ever parsed as markup, the same boundary kb:adr/reader-diagram-svg-crosses-dompurify
 // draws for mermaid SVG, just on the other side of it.

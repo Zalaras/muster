@@ -1,6 +1,6 @@
 // Wire types and parser for the daemon's `hello` message and the protocol-version gate
 // (docs/protocol.md, protocol version 2) — one of the protocol/ concept modules split out
-// of the former protocol.ts (plan maintainability-cleanup W3).
+// of the former protocol.ts.
 
 import { isRecord } from "./decode";
 
@@ -57,7 +57,8 @@ export function parseHello(rec: Record<string, unknown>): Hello | null {
   };
 }
 
-/** REQ-18: a `hello.protocolVersion` the client doesn't know triggers the mismatch view. */
+/** kb:adr/connection-protocol-bumps-only-on-shape-change: a `hello.protocolVersion` the
+ * client doesn't know triggers the mismatch view. */
 export function isSupportedProtocolVersion(version: number): boolean {
   return version === PROTOCOL_VERSION;
 }

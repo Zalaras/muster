@@ -28,18 +28,20 @@ import { buildSurfaceSegment, type SurfaceSegmentRefs } from "./surfaceseg";
 export interface TileRefs {
   root: HTMLElement;
   /** Where the caller (features/tiles.ts, via features/surfaces.ts's surface manager)
-   * moves a live TerminalSurface's root, OR (REQ-12) where a dead tile's dead-surface is
+   * moves a live TerminalSurface's root, OR where a dead tile's dead-surface is
    * mounted — this module never touches a socket or an xterm instance itself. */
   bodySlot: HTMLElement;
   geoEl: HTMLElement;
   markerEl: HTMLElement;
-  /** REQ-12's footer action row — built once, in `buildTile` below. */
+  /** The footer action row — built once, in `buildTile` below. */
   actsEl: HTMLElement;
-  /** REQ-13/REQ-15: this tile's rename editor, attached to `.thead .nm`, built once in
+  /** This tile's rename editor (kb:adr/rename-muster-owned-title-override-wins), attached
+   * to `.thead .nm`, built once in
    * `buildTile` below. `features/tiles.ts` calls `cancel()`/`dispose()` on demotion (before
    * the tile leaves the grid) and `setEnabled()` on every connection change. */
   rename: RenameEditorController;
-  /** Plan plain-terminal-session REQ-4: this tile's `claude | shell` segment, built once
+  /** This tile's `claude | shell` segment (kb:adr/surfaces-shell-control-in-tile-footer),
+   * built once
    * in `buildTile` and prepended into `.tfoot .acts`. `features/tiles.ts` calls
    * `updateSurfaceSegment` on it every render pass. */
   surfaceSegment: SurfaceSegmentRefs;
@@ -48,7 +50,7 @@ export interface TileRefs {
 /** `features/rename.ts` supplies one pair of callbacks, shared by every tile — `getSession` is
  * parameterized by id so `buildTile` can close over the one session this tile owns, and
  * `onCommit` is the single `putTitle` dispatcher both the mainhead and every tile route
- * through (REQ-13's "one shared editor module serves both"). */
+ * through (kb:adr/rename-muster-owned-title-override-wins's "one shared editor module serves both"). */
 export interface TileRenameHandlers {
   getSession: (id: number) => Session | null;
   onCommit: (id: number, command: TitleCommand) => void;
@@ -57,7 +59,7 @@ export interface TileRenameHandlers {
 /** Updates one tile's header chrome (title/where/context/timer + state class) in place
  * from the shared view-model, without touching `bodySlot`'s mounted live surface — the
  * only two callers are `buildTile` (fresh chrome) and features/tiles.ts's tiles reconciler
- * (existing chrome, every render pass; review m2-terminal Critical 2: rebuilding a
+ * (existing chrome, every render pass; rebuilding a
  * live tile's chrome wholesale re-parents its mounted surface root and blurs xterm's
  * textarea, so updates must mutate the existing nodes instead). */
 function updateTileChrome(
@@ -75,15 +77,15 @@ function updateTileChrome(
   const ctx = root.querySelector<HTMLElement>(".ctxinfo");
   const timer = root.querySelector<HTMLElement>(".tm");
 
-  // REQ-9 (plan move-tiles): the dot carries no text of its own, so a hover is the only
+  // The dot carries no text of its own, so a hover is the only
   // way to learn what its colour means — `title` is the same state word the badge/dead
   // surface already use (`stateBadgeText`), not a second copy.
   if (dot) dot.title = stateBadgeText(session.state);
-  // REQ-15/INV-4 (plan ui-text-and-focus): while `refs.rename`'s editor is open, skip the
+  // While `refs.rename`'s editor is open, skip the
   // title write entirely so a render tick or `sessionUpsert` mid-edit never touches the
   // open field's value, focus or selection — the caller (`updateTile`) asks the editor's
   // own controller, rather than this module reading `render/rename.ts`'s `data-editing`
-  // DOM attribute itself (review Minor 3: hosts ask the controller, not the DOM). `.nm`
+  // DOM attribute itself (hosts ask the controller, not the DOM). `.nm`
   // wraps a `button.rename` (built once, in `buildTile` below) whose text this writes,
   // never `.nm`'s own textContent, so the button node — and its click listener — survives
   // every tick untouched.
@@ -94,12 +96,12 @@ function updateTileChrome(
   if (where) where.textContent = vm.repoLine;
   if (ctx) renderContextRow(ctx, session.context, "ctxinfo");
   // A dead tile's header timer shows the bare age, deliberately WITHOUT the "ended"
-  // word — `vm.timer` ("ended <age>") is the rail/strip card's own wording (REQ-9), and
+  // word — `vm.timer` ("ended <age>") is the rail/strip card's own wording, and
   // a tile's dead-surface (mounted in the same subtree, unlike a card) already has an
   // `.endbar` that starts with "ended " per the Testable UI Elements' `/^ended /`
   // contract. Two elements inside one tile both starting with "ended " would make any
   // `tile.getByText(/^ended /)` locator ambiguous (Playwright strict-mode violation) —
-  // REQ-12's own footer age readout (`.tage`, see `renderTileFooterActions`) sidesteps
+  // the footer age readout (`.tage`, see `renderTileFooterActions`) sidesteps
   // the same trap by leading with "✕" instead.
   if (timer)
     timer.textContent = session.alive
@@ -114,7 +116,7 @@ function updateTileChrome(
  * template's root is a bare `<article>`, which is the one plain element that carries an
  * implicit ARIA role (`article`) without any attribute, and its header (`.nm`) carries
  * the session title text the table also requires. `template` is looked up once by the
- * caller (`features/tiles.ts`'s `initTiles`) and passed in — review Minor 12: this used to
+ * caller (`features/tiles.ts`'s `initTiles`) and passed in — this used to
  * call `requireTemplate("tile-template")` itself, on every tile built, while its own
  * sibling `mountTileDeadSurface` below already took its template as a parameter; every
  * `render/` builder now follows that same rule. */
@@ -139,25 +141,27 @@ export function buildTile(
 
   root.dataset["sessionId"] = String(session.id);
 
-  // REQ-4/REQ-13: built once, prepended as `.acts`'s permanent first child —
+  // Built once, prepended as `.acts`'s permanent first child (kb:adr/surfaces-shell-control-in-tile-footer) —
   // `renderTileFooterActions` below never touches it, only the End/Resume/Remove/age
   // nodes that follow it (Testable UI Elements: "scope through
   // article.tile[data-session-id]").
   const surfaceSegment = buildSurfaceSegment((kind) => onSurfaceSelect(session.id, kind));
   actsEl.append(surfaceSegment.root);
 
-  // REQ-13(b): `.nm` wraps the same rename trigger the mainhead uses — built once, here,
+  // `.nm` wraps the same rename trigger the mainhead uses (kb:adr/rename-muster-owned-title-override-wins)
+  // — built once, here,
   // so `updateTileChrome`'s later passes only ever write its text, never rebuild it (the
   // click listener `attachRenameEditor` wires below survives every tick).
   const renameBtn = document.createElement("button");
   renameBtn.type = "button";
   renameBtn.className = "rename";
-  // REQ-19: the revert path (clear -> Claude Code's own name) is discoverable without
+  // The revert path (clear -> Claude Code's own name, kb:adr/rename-muster-owned-title-override-wins)
+  // is discoverable without
   // documentation; the accessible name is still the button's text either way (Testable
   // UI Elements).
   renameBtn.title = "Rename · clear to use Claude Code's name";
   nameEl.replaceChildren(renameBtn);
-  // Review Minor 3: the tile is the host that knows about its own `.thead` drag handle —
+  // The tile is the host that knows about its own `.thead` drag handle —
   // the editor itself no longer reaches for it via a `.closest(".thead")` selector.
   const rename = attachRenameEditor(nameEl, {
     getSession: () => renameHandlers.getSession(session.id),
@@ -176,16 +180,16 @@ export function buildTile(
 
 /** Refreshes an existing tile's chrome for the current render pass — never rebuilds or
  * re-parents anything (see `updateTileChrome`). Asks the tile's own rename controller
- * whether it's editing (review Minor 3), rather than reading the `data-editing` DOM
+ * whether it's editing, rather than reading the `data-editing` DOM
  * attribute `render/rename.ts` sets. */
 export function updateTile(refs: TileRefs, session: Session, now: Date): void {
   updateTileChrome(refs.root, session, now, refs.rename.isEditing());
 }
 
-/** Tile footer geometry + live/stopped marker (REQ-15's "tile footers show their real
+/** Tile footer geometry + live/stopped marker ("tile footers show their real
  * geometry"; design-system §5: the marker reads `live` or `stopped`). Driven by the
- * session's own `alive` flag, not by geometry nullability — review m2-terminal
- * Critical 5: a surface that ever attached keeps a non-null `geometry` forever, so a
+ * session's own `alive` flag, not by geometry nullability — a surface that ever
+ * attached keeps a non-null `geometry` forever, so a
  * session that dies while its tile is live must not still read `live` just because its
  * last-known geometry is still around. */
 export function renderTileGeometry(
@@ -198,8 +202,8 @@ export function renderTileGeometry(
   refs.markerEl.className = alive ? "marker live" : "marker";
 }
 
-/** Review Major 5: `renderStrip`'s own caller-facing options — a strip card is never
- * draggable and never "current" (edge case 14), so those two `CardOptions` fields are
+/** `renderStrip`'s own caller-facing options — a strip card is never
+ * draggable and never "current", so those two `CardOptions` fields are
  * this function's own job to fill in, not the caller's. */
 export interface StripOptions {
   onAction?: ((action: SessionAction, id: number) => void) | undefined;
@@ -208,14 +212,14 @@ export interface StripOptions {
 }
 
 /** Renders the snapshot strip: the same rail-card markup, on its side — clicking
- * promotes (REQ-8's "clicking a strip card promotes it"). Hides the strip entirely when
- * every session is live (plan edge case 7: "the strip hides when empty"). `options.onAction`/
+ * promotes ("clicking a strip card promotes it"). Hides the strip entirely when
+ * every session is live ("the strip hides when empty"). `options.onAction`/
  * `options.connected` thread through to each strip card's action row exactly like the rail
- * (REQ-11's "a strip card carries the same pair" — it's the same shared card template).
- * Reconciles by session id via `render/sessions.ts`'s shared `reconcileCards` (review
- * m4-reconcile cycle-2 Major 1) rather than rebuilding every strip card each tick — same
+ * ("a strip card carries the same pair" — it's the same shared card template).
+ * Reconciles by session id via `render/sessions.ts`'s shared `reconcileCards`
+ * rather than rebuilding every strip card each tick — same
  * fix, same reason, as the rail's `renderSessions`. `template` is looked up once by the
- * caller (review Minor 12, same rule as `buildTile` above). */
+ * caller (same rule as `buildTile` above). */
 export function renderStrip(
   el: HTMLElement,
   sessions: readonly Session[],
@@ -233,27 +237,28 @@ export function renderStrip(
     onClick: onPromote,
     onAction: options.onAction,
     connected: options.connected,
-    // Plan order-sidebar REQ-13: a strip card is never draggable, regardless of the
+    // A strip card is never draggable, regardless of the
     // rail's current sort mode — the strip is a promote surface, not a manual-order drop
     // target.
     draggable: false,
-    // REQ-1: always `null` — a strip card is never "the session the Focus pane is
-    // showing" (edge case 14), so it can never carry the marker.
+    // Always `null` — a strip card is never "the session the Focus pane is
+    // showing" (kb:adr/rail-current-marker-means-shown-in-focus), so it can never carry
+    // the marker.
     currentId: null,
     railActivity: options.railActivity,
   };
   reconcileCards(el, sessions, now, template, cardOptions);
 }
 
-/** REQ-12's tile footer action row: a live tile gets End; a dead tile gets the "ended
+/** The tile footer action row: a live tile gets End; a dead tile gets the "ended
  * <age> ago" text (the geometry readout's replacement — `.geo` itself stays untouched and
  * empty, per `renderTileGeometry`'s existing frozen contract) plus Resume + Remove. Text
- * and buttons share one `<span class="acts">` (the plan's own DOM spec: "footer gains a
+ * and buttons share one `<span class="acts">` ("footer gains a
  * single `.acts` span after `.marker`" — no second element was added for the age text).
  *
  * Updates the existing button(s) in place when the row's shape (live-End vs.
  * dead-age+Resume+Remove) hasn't changed, rather than unconditionally rebuilding —
- * review m4-reconcile cycle-2 Major 1: this ran via `actsEl.replaceChildren(...)` on
+ * this ran via `actsEl.replaceChildren(...)` on
  * every 1s render tick regardless of whether anything changed, destroying and rebuilding
  * every tile footer's action button(s) a second after they were focused, with focus
  * falling to `<body>` rather than the new node. The row's shape only changes on a
@@ -266,7 +271,8 @@ export function renderTileFooterActions(
   connected: boolean,
   onAction?: (action: SessionAction, id: number) => void,
 ): void {
-  // REQ-4/REQ-13: `.surfseg` (built once in `buildTile`, prepended into `.acts`) is a
+  // `.surfseg` (built once in `buildTile`, prepended into `.acts`,
+  // kb:adr/surfaces-shell-control-in-tile-footer) is a
   // permanent fixture of this row, never part of the shape checks or rebuilds below —
   // only the children AFTER it (End, or age+Resume+Remove) are ever touched.
   const surfaceSegment = actsEl.querySelector<HTMLElement>(":scope > .surfseg");
@@ -321,11 +327,11 @@ export function renderTileFooterActions(
   );
 }
 
-/** REQ-12/REQ-13: mounts (once) or refreshes a dead tile's dead-surface inside its
+/** Mounts (once) or refreshes a dead tile's dead-surface inside its
  * `.tbody-slot`, cloning from `#dead-surface-template` the first time this tile goes dead
  * and requerying the existing instance on every later pass — same convention as
- * `updateTileChrome`'s existing chrome nodes, never a live TerminalSurface for `alive:false`
- * (W8/INV-5). The cap's Resume button's click listener is attached exactly once, only in
+ * `updateTileChrome`'s existing chrome nodes, never a live TerminalSurface for `alive:false`.
+ * The cap's Resume button's click listener is attached exactly once, only in
  * the fresh-clone branch — `renderDeadSurface` itself runs every pass and only ever
  * updates text/dataset/disabled, never re-wires a listener (which would otherwise stack a
  * new one on the same button every render tick for as long as the tile stays dead). */

@@ -1,9 +1,9 @@
-// Breadcrumb DOM for the launch dialog's browse pane (plan new-session-dialog, REQ-5/
-// REQ-6) — draws the `Crumb[]` chain into the `<nav>` (mockup:
-// plans/new-session-dialog/mockup.html), used only by features/launch.ts. The path-to-
-// chain derivation (`splitCrumbs`) is a DOM-free decision that lives beside its one
-// caller, `features/launchcrumbs.ts` (review seed B7; docs/conventions.md § Composition
-// roots).
+// Breadcrumb DOM for the launch dialog's browse pane
+// (kb:adr/launch-picker-recent-sidebar-plus-browse-list) — draws the `Crumb[]` chain into
+// the `<nav>` (mockup: plans/new-session-dialog/mockup.html), used only by
+// features/launch.ts. The path-to-chain derivation (`splitCrumbs`) is a DOM-free decision
+// that lives beside its one caller, `features/launchcrumbs.ts` (docs/conventions.md §
+// Composition roots).
 
 export interface Crumb {
   name: string;
@@ -47,10 +47,10 @@ export function renderCrumbs(
   kbd.textContent = "⌘↑";
   nodes.push(kbd);
   nav.replaceChildren(...nodes);
-  // review Minor 2: on a deep path the bar overflows `.crumbs`'s own `overflow-x: auto`
-  // (edge case 14 sanctions the scroll, not resting at its start) and a fresh render
-  // otherwise leaves scrollLeft at 0 — the current-directory segment and the `⌘↑` hint
-  // scrolled out of view behind the ancestors. Snap to the end so what's on screen is
-  // where you are, not where you started.
+  // On a deep path the bar overflows `.crumbs`'s own `overflow-x: auto` (the scroll
+  // itself is expected, not something to prevent) and a fresh render otherwise leaves
+  // scrollLeft at 0 — the current-directory segment and the `⌘↑` hint scrolled out of
+  // view behind the ancestors. Snap to the end so what's on screen is where you are, not
+  // where you started.
   nav.scrollLeft = nav.scrollWidth;
 }

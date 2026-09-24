@@ -1,15 +1,15 @@
-// The Issue dialog (plan issue-capture; kb:anchor/issue.captures / kb:anchor/issue.create). DOM + wiring
+// The Issue dialog (kb:anchor/issue.captures / kb:anchor/issue.create). DOM + wiring
 // only — every daemon call goes through `../api/issue.ts`. `initIssue` below owns the masthead
 // trigger button (`#issue-button`, disabled on daemon-down like every other masthead
 // control) and calls `open()` with the rail's own session order and `focusedId`; this module
-// never reads the session store itself, so the frozen-option-list rule (REQ-2) holds by
-// construction — there is nothing here to re-read after the dialog opens.
+// never reads the session store itself, so the option list stays frozen once the dialog is
+// open — there is nothing here to re-read after that.
 //
-// W3: this module must never reference an allowlist field name. The preview is composed
+// This module must never reference an allowlist field name. The preview is composed
 // from exactly two things it treats as opaque strings — the daemon's own
 // `snapshotMarkdown` (api/issue.ts's `IssueCapture`) and the user's own note text — never a
 // key out of `snapshot`. That is what makes the daemon the only place allowlisted data
-// becomes text (plan Implementation Notes).
+// becomes text (kb:adr/issue-payload-allowlist-never-dump).
 import { captureIssueSnapshot, fileIssue, type IssueCapture } from "../api/issue";
 import type { ApiErrorBody } from "../api/http";
 import type { App } from "../app";
@@ -39,36 +39,38 @@ export interface IssueDialogElements {
 }
 
 export interface IssueDialogController {
-  /** REQ-2: builds the Session select from `sessions` (already in rail order — the
+  /** Builds the Session select from `sessions` (already in rail order — the
    * caller's job, not this module's) plus the dashboard-scope option, preselects
    * `focusedId` when it's in the list else the dashboard option, and immediately takes a
    * capture for that selection. A no-op if the dialog is already open. */
   open: (sessions: readonly Session[], focusedId: number | null) => void;
-  /** REQ-13: "Daemon down ... an open #issue-dialog closes." Mirrors
+  /** "Daemon down ... an open #issue-dialog closes." Mirrors
    * render/confirm.ts's `closeAll`. */
   closeAll: () => void;
 }
 
-/** W4: pure, so Vitest can exercise it directly. Normalises CRLF to LF, trims the whole
+/** Pure, so Vitest can exercise it directly. Normalises CRLF to LF, trims the whole
  * string, and emits either `""` (whitespace-only note) or
  * `"## What happened\n\n" + trimmed + "\n\n"` — pinned identically on the daemon side
- * (plan Implementation Notes: "One composer for the note section, two callers"), which
- * is what makes INV-2's byte-identity assertion meaningful rather than coincidental. */
+ * (one composer for the note section, two callers), which is what makes the
+ * byte-identity assertion in kb:adr/issue-preview-is-the-leak-check meaningful rather
+ * than coincidental. */
 export function composeNoteSection(note: string): string {
   const trimmed = note.replace(/\r\n/g, "\n").trim();
   if (trimmed === "") return "";
   return `## What happened\n\n${trimmed}\n\n`;
 }
 
-/** The live preview text (User Flow 3/4): the composed note section followed by the
+/** The live preview text: the composed note section followed by the
  * daemon's own `snapshotMarkdown` verbatim — `body = noteSection + snapshotMarkdown`,
- * exactly the daemon's own composition rule (kb:anchor/issue.create), so INV-2 holds
+ * exactly the daemon's own composition rule (kb:anchor/issue.create), so the preview
+ * stays byte-identical to the posted body (kb:adr/issue-preview-is-the-leak-check)
  * without this module ever inspecting `snapshotMarkdown`'s contents. */
 function composePreview(note: string, snapshotMarkdown: string): string {
   return composeNoteSection(note) + snapshotMarkdown;
 }
 
-/** REQ-20: "captured HH:MM:SSZ" from the capture's RFC3339 UTC timestamp — an absolute
+/** "captured HH:MM:SSZ" from the capture's RFC3339 UTC timestamp — an absolute
  * reading, not a ticking age (this dialog has no per-second render pass). */
 function formatCaptureTime(iso: string): string {
   const d = new Date(iso);
@@ -91,7 +93,7 @@ function initIssueDialog(elements: IssueDialogElements): IssueDialogController {
   let captureRequestId = 0;
   let submitting = false;
 
-  // Review Minor 6: two message regions, each already covered by
+  // Two message regions, each already covered by
   // `render/actionerror.ts`'s `renderActionError` (write the text, toggle `hidden`).
   function clearError(): void {
     renderActionError(elements.errorEl, null);
@@ -123,7 +125,7 @@ function initIssueDialog(elements: IssueDialogElements): IssueDialogController {
     elements.captureTimeEl.textContent = "";
   }
 
-  /** REQ-6: empty title (after trim), no landed capture, or an in-flight capture/POST all
+  /** Empty title (after trim), no landed capture, or an in-flight capture/POST all
    * disable Submit. */
   function updateSubmitEnabled(): void {
     elements.submitBtn.disabled =
@@ -176,11 +178,11 @@ function initIssueDialog(elements: IssueDialogElements): IssueDialogController {
     submitting = false;
 
     if (!result.ok) {
-      // Edge Case 2: a `capture_expired` failure means the held snapshot is now known
+      // A `capture_expired` failure means the held snapshot is now known
       // gone — Submit stays disabled (via `capture === null`) until the session
       // selection changes (or the dialog is reopened) takes a fresh one. Any other
       // failure (e.g. `issue_post_failed`) leaves the still-good capture in place so a
-      // bare retry works without re-capturing (REQ-10).
+      // bare retry works without re-capturing.
       if (result.error.code === "capture_expired") capture = null;
       showError("Could not file the issue.", result.error);
       renderPreview();
@@ -242,8 +244,8 @@ function initIssueDialog(elements: IssueDialogElements): IssueDialogController {
   };
 }
 
-/** REQ-2's controller entry: the masthead's Issue button + `#issue-dialog`. The frozen
- * session list (REQ-2) is the rail's own current order plus `focusedId`, computed here at
+/** The controller entry: the masthead's Issue button + `#issue-dialog`. The frozen
+ * session list is the rail's own current order plus `focusedId`, computed here at
  * click time from `app.store`/`app.state` — this module owns no session-store access of
  * its own. */
 export function initIssue(app: App): void {

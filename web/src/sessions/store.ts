@@ -18,8 +18,8 @@ export class SessionStore {
     this.sessions.set(session.id, session);
   }
 
-  /** Applies one `sessionRemoved` (REQ-15). A no-op if `id` is unknown (edge case 12 —
-   * "a client that has never seen this id ignores it"), not an error. */
+  /** Applies one `sessionRemoved` (`kb:anchor/ws.session-removed`). A no-op if `id` is
+   * unknown — a client that has never seen this id simply ignores it, not an error. */
   remove(id: number): void {
     this.sessions.delete(id);
   }

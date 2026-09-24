@@ -1,6 +1,6 @@
-// Pure commit/cancel semantics for the inline rename editor (plan ui-text-and-focus
-// REQ-14). No DOM here — render/rename.ts owns the button<->input swap and calls this to
-// decide what (if anything) to send.
+// Pure commit/cancel semantics for the inline rename editor
+// (kb:adr/rename-muster-owned-title-override-wins). No DOM here — render/rename.ts owns
+// the button<->input swap and calls this to decide what (if anything) to send.
 import type { Session } from "../protocol/session";
 
 export type TitleCommand = { kind: "noop" } | { kind: "set"; title: string } | { kind: "clear" };

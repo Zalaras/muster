@@ -8,8 +8,9 @@ import { elapsedSeconds, formatAge, formatTimer } from "./format";
 
 export type NoteKind = "attention" | "failure" | "trust" | "no-signal" | "none";
 
-/** REQ-11's card action-row contract: a live card offers only End; an ended card offers
- * Resume then Remove, in that order — the exact button label text (Testable UI Elements). */
+/** kb:adr/actions-placement-mainhead-and-card-rows's card action-row contract: a live card
+ * offers only End; an ended card offers Resume then Remove, in that order — the exact
+ * button label text (Testable UI Elements). */
 export type CardAction = "End" | "Resume" | "Remove";
 
 /** The action a card/mainhead/tile dispatches when its End/Resume/Remove/pin control
@@ -19,9 +20,9 @@ export type CardAction = "End" | "Resume" | "Remove";
  * label and its own action names. */
 export type SessionAction = "end" | "resume" | "remove" | "pin";
 
-// Plan rail-card-improvements REQ-14: the two activity-line texts a card renders,
-// `.activity.you` and `.activity.claude` — either or both may be `null`, which the
-// renderer treats as "hide that line" (a null source renders no empty-prefix line).
+// kb:adr/rail-activity-line-turn-aware-default-with-pref: the two activity-line texts a
+// card renders, `.activity.you` and `.activity.claude` — either or both may be `null`, which
+// the renderer treats as "hide that line" (a null source renders no empty-prefix line).
 export interface CardActivity {
   you: string | null;
   claude: string | null;
@@ -39,10 +40,11 @@ export interface CardViewModel {
   noteText: string | null;
   ended: boolean;
   actions: readonly CardAction[];
-  // Plan order-sidebar (REQ-8/REQ-9): drives the pin button's aria-label/aria-pressed/
-  // title and the card's `pinned` class — render/sessions.ts is the only consumer.
+  // kb:adr/rail-whole-card-drag-drop-decides-pin: drives the pin button's
+  // aria-label/aria-pressed/title and the card's `pinned` class — render/sessions.ts is the
+  // only consumer.
   pinned: boolean;
-  // Plan rail-card-improvements (REQ-9): drives the card's `unread` class,
+  // kb:adr/rail-unread-marker-neutral-dot: drives the card's `unread` class,
   // `data-unread="true"` and the `unreadLabel` aria-label suffix below.
   unread: boolean;
 }
@@ -82,11 +84,11 @@ export function canResume(claudeSessionId: string | null): boolean {
   return claudeSessionId !== null;
 }
 
-/** REQ-17/W3: why a Resume control is disabled, shared with render/mainhead.ts and
- * render/dead.ts (their `title`/`aria-description`) so the two surfaces never drift into
- * different wording for the same `409 not_resumable` cause. `null` when there is no
- * reason to give (session is alive, or `claudeSessionId` is bound) — callers clear the
- * attribute in that case rather than writing an empty string over it. */
+/** Why a Resume control is disabled, shared with render/mainhead.ts and render/dead.ts
+ * (their `title`/`aria-description`) so the two surfaces never drift into different
+ * wording for the same `409 not_resumable` cause. `null` when there is no reason to give
+ * (session is alive, or `claudeSessionId` is bound) — callers clear the attribute in that
+ * case rather than writing an empty string over it. */
 export function resumeDisabledReason(session: Session): string | null {
   if (!canResume(session.claudeSessionId))
     return "Can't resume — this session never started a Claude conversation.";
@@ -136,8 +138,9 @@ function failureNote(session: Session): string | null {
   return `${session.failure.error} — ${session.failure.message}`;
 }
 
-/** REQ-17 / ux-flows §1.4: trust-prompt vs. no-signal honesty note, derived client-side
- * from `firstLaunchHere` + elapsed time since launch — never guessed from pane content. */
+/** kb:adr/launch-trust-prompt-never-auto-answered / ux-flows §1.4: trust-prompt vs.
+ * no-signal honesty note, derived client-side from `firstLaunchHere` + elapsed time since
+ * launch — never guessed from pane content. */
 function firstLaunchNote(session: Session, now: Date): { kind: NoteKind; text: string } | null {
   if (session.state !== "started" || session.claudeSessionId !== null) return null;
   if (session.firstLaunchHere) {
@@ -152,20 +155,21 @@ function firstLaunchNote(session: Session, now: Date): { kind: NoteKind; text: s
   return null;
 }
 
-// REQ-14: states in which a turn is currently open — `activityLines`'s "turn" mode shows
-// the user's own prompt while one of these holds, the reply otherwise (including
-// `failed`, edge case 25 — a failed turn is closed, not open).
+// kb:adr/rail-activity-line-turn-aware-default-with-pref: states in which a turn is
+// currently open — `activityLines`'s "turn" mode shows the user's own prompt while one of
+// these holds, the reply otherwise (a failed turn is closed, not open, so `failed` is not
+// in this set).
 const TURN_OPEN_STATES: ReadonlySet<Session["state"]> = new Set([
   "working",
   "planning",
   "needs_input",
 ]);
 
-/** REQ-14: the pure mode -> text derivation for a card's two activity lines, extracted
- * from `buildCardViewModel` to keep it under Biome's complexity ceiling
- * (Implementation Notes) and so Vitest can cover the mode x state matrix with no DOM. A
- * `null` source (no prompt yet, no reply yet) yields a `null` line — the renderer hides
- * it rather than showing an empty-prefix line. */
+/** kb:adr/rail-activity-line-turn-aware-default-with-pref: the pure mode -> text
+ * derivation for a card's two activity lines, extracted from `buildCardViewModel` to keep
+ * it under Biome's complexity ceiling and so Vitest can cover the mode x state matrix with
+ * no DOM. A `null` source (no prompt yet, no reply yet) yields a `null` line — the
+ * renderer hides it rather than showing an empty-prefix line. */
 export function activityLines(session: Session, mode: RailActivity): CardActivity {
   const prompt = session.lastPrompt;
   const reply = session.lastActivity;
@@ -185,9 +189,10 @@ export function activityLines(session: Session, mode: RailActivity): CardActivit
   return { you: null, claude: reply ? `claude: ${reply}` : null };
 }
 
-/** REQ-9: the card's accessible name — the display title, with an ", unread" suffix
- * while `unread` holds and nothing otherwise. Extracted so `render/sessions.ts` and this
- * module share one wording rather than each spelling the suffix out. */
+/** kb:adr/rail-unread-marker-neutral-dot: the card's accessible name — the display title,
+ * with an ", unread" suffix while `unread` holds and nothing otherwise. Extracted so
+ * `render/sessions.ts` and this module share one wording rather than each spelling the
+ * suffix out. */
 export function unreadLabel(title: string, unread: boolean): string {
   return unread ? `${title}, unread` : title;
 }
@@ -195,9 +200,9 @@ export function unreadLabel(title: string, unread: boolean): string {
 export function buildCardViewModel(
   session: Session,
   now: Date,
-  // Defaults to the pref's own default (PREF_DEFAULTS.railActivity, Minor 1) so every
-  // existing call site (and Vitest fixture) that predates this plan keeps compiling and
-  // rendering the same behaviour.
+  // Defaults to the pref's own default (PREF_DEFAULTS.railActivity) so every existing call
+  // site (and Vitest fixture) that predates this parameter keeps compiling and rendering
+  // the same behaviour.
   mode: RailActivity = PREF_DEFAULTS.railActivity,
 ): CardViewModel {
   let noteKind: NoteKind = "none";
@@ -219,7 +224,7 @@ export function buildCardViewModel(
   }
 
   const ended = !session.alive;
-  // REQ-9: an ended card's timer reads "ended <age>" from `endedAt`, not the running
+  // An ended card's timer reads "ended <age>" from `endedAt`, not the running
   // state timer — `stateSince` stopped advancing the instant reconcile/End froze `state`.
   // `session.endedAt` is only ever null while `alive:true` (kb:anchor/state.liveness's paired
   // invariant), so the fallback below is defensive-only and never observed in practice.

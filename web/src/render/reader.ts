@@ -1,11 +1,11 @@
-// The reader component's DOM half (plan markdown-viewing UI Specifications > Reader DOM)
+// The reader component's DOM half (kb:spec/reader)
 // — one component, cloned from `#reader-template` into three hosts (Focus's main slot, a
 // tile's body slot, and `doc.html`'s standalone page). Pure DOM: fetches, the socket and
 // all state live in `features/reader.ts`; this module only ever receives a view-model and
 // writes it into already-built nodes (docs/conventions.md). The tree and outline sections
 // are rebuilt (`replaceChildren`) only when their *structural* signature (row set, names,
 // depths, expansion, counts) differs from the last pass; `current`/`dirty` are
-// attribute-level state (review markdown-viewing cycle-3 Major 1) and are applied to the
+// attribute-level state (kb:lesson/select-rebuilt-every-tick-passed-selectoption) and are applied to the
 // existing buttons in place, never trigger a rebuild — so the once-a-second render tick,
 // scrolling the body (which moves the outline's `current`) or opening a file (which moves
 // both) never steals focus from a tree/outline button or the filter box
@@ -23,7 +23,7 @@ import { wireDiagramDialog } from "./diagramdialog";
 import { buildFrontmatterNode } from "./frontmatter";
 import { captureFocusedKey, restoreFocusedKey } from "./focuskeep";
 
-/** `doc.ts`'s placeholder when its `?session=` doesn't parse (review cycle 1 Critical 1) —
+/** `doc.ts`'s placeholder when its `?session=` doesn't parse —
  * not part of the `#reader-template` component below, since nothing here needs a session
  * id to construct: there is no reader at all to build. */
 export function renderUnknownSessionNotice(host: HTMLElement): void {
@@ -41,8 +41,8 @@ export interface OutlineEntryVM {
 }
 
 export type PlanSlotVM =
-  | { kind: "absent" } // dead session (REQ-3)
-  | { kind: "none" } // session.plan is null or !exists (REQ-9)
+  | { kind: "absent" } // dead session
+  | { kind: "none" } // session.plan is null or !exists
   | { kind: "file"; basename: string; dirty: boolean; current: boolean };
 
 export interface ReaderBarVM {
@@ -51,7 +51,7 @@ export interface ReaderBarVM {
   path: string;
   /** `false` removes `.path` entirely — compact hosts (a tile) drop it from the bar. */
   pathVisible: boolean;
-  /** `null` removes the `.chg` element entirely (REQ-24) — never rendered as "unknown". */
+  /** `null` removes the `.chg` element entirely — never rendered as "unknown". */
   freshness: string | null;
   /** `null` hides the pop-out link (nothing open, or the standalone page itself). */
   popOutHref: string | null;
@@ -70,12 +70,12 @@ export interface ReaderVM {
   /** `null` before the listing arrives — the count element is absent, never `0 .md`. */
   filesHeader: { dir: string; count: string | null };
   tree: readonly FlatTreeEntry[];
-  /** REQ-10: the listing fetch hasn't resolved yet — the tree shows one `loading…` row
+  /** The listing fetch hasn't resolved yet — the tree shows one `loading…` row
    * instead of `tree`'s (necessarily empty) entries. */
   treeLoading: boolean;
   outline: readonly OutlineEntryVM[];
-  /** REQ-14: a user-initiated open is in flight — `article.md` dims and carries
-   * `aria-busy`. */
+  /** A user-initiated open is in flight — `article.md` dims and carries
+   * `aria-busy` (kb:adr/reader-loading-cue-never-clears-a-rendered-body). */
   bodyLoading: boolean;
 }
 
@@ -106,8 +106,9 @@ export interface ReaderRefs {
   chg: HTMLElement;
   chgText: HTMLElement;
   popOut: HTMLAnchorElement;
-  /** The single nav-toggle button (markdown-render-fixes REQ-1..REQ-3) — last child of
-   * `.docbar`, never `hidden`; its glyph and `aria-expanded` track the nav's own state. */
+  /** The single nav-toggle button (kb:adr/reader-nav-toggle-is-one-fixed-button) — last
+   * child of `.docbar`, never `hidden`; its glyph and `aria-expanded` track the nav's own
+   * state. */
   navToggle: HTMLButtonElement;
   notice: HTMLElement;
   body: HTMLElement;
@@ -120,9 +121,9 @@ export interface ReaderRefs {
   tree: HTMLElement;
   outlineToggle: HTMLButtonElement;
   outline: HTMLElement;
-  /** Plan mermaid-support (REQ-8) — one dialog per reader root (INV-3), wired once by
-   * `wireDiagramDialog` in `buildReader` below; never touched by `renderReader`'s own
-   * per-tick pass, since its visibility is driven entirely by open/close events. */
+  /** One dialog per reader root (kb:adr/reader-diagram-enlarge-is-a-zoomable-modal), wired
+   * once by `wireDiagramDialog` in `buildReader` below; never touched by `renderReader`'s
+   * own per-tick pass, since its visibility is driven entirely by open/close events. */
   diagramDialog: HTMLDialogElement;
   diagramStage: HTMLElement;
   diagramCanvas: HTMLElement;
@@ -187,7 +188,8 @@ function setPresence(el: HTMLElement, anchor: HTMLElement, present: boolean): vo
 }
 
 /** `vm.popOutHref` is `null` both when nothing is open and, permanently, on the
- * standalone pop-out page itself (REQ-27) — `features/reader.ts`/`doc.ts` never compute
+ * standalone pop-out page itself (kb:adr/reader-popout-is-a-second-page) —
+ * `features/reader.ts`/`doc.ts` never compute
  * a non-null href in standalone mode, so this needs no separate "am I doc.html" flag. */
 function renderBar(refs: ReaderRefs, vm: ReaderBarVM): void {
   setPresence(refs.badge, refs.fname, vm.badgeVisible);
@@ -196,7 +198,7 @@ function renderBar(refs: ReaderRefs, vm: ReaderBarVM): void {
 
   // `.chg` first, still anchored on the permanent `.ib` (popOut) — `.ib` is only ever
   // hidden (`.hidden =`), never removed from the DOM, so it's a safe anchor even when
-  // `.chg` itself is absent (REQ-24's default state, no write seen yet).
+  // `.chg` itself is absent (the default state, no write seen yet).
   setPresence(refs.chg, refs.popOut, vm.freshness !== null);
   if (vm.freshness !== null) refs.chgText.textContent = vm.freshness;
 
@@ -204,7 +206,7 @@ function renderBar(refs: ReaderRefs, vm: ReaderBarVM): void {
   // only moves an element when it transitions from absent to present — it never repairs
   // an already-connected element's position — so anchoring both insertions on the same
   // fixed point (`.ib`) left `.path` stranded after an already-connected `.chg` on a
-  // Tiles→Focus round trip (review cycle 2 Major 1: `.path` is re-inserted while `.chg`
+  // Tiles→Focus round trip (`.path` is re-inserted while `.chg`
   // never moved). Picking the anchor from `.chg`'s presence this pass keeps
   // badge/fname/path/chg/popOut order deterministic regardless of what was already
   // connected going in.
@@ -214,7 +216,7 @@ function renderBar(refs: ReaderRefs, vm: ReaderBarVM): void {
   if (vm.popOutHref !== null) refs.popOut.href = vm.popOutHref;
 }
 
-/** Minor 14: the one place `aria-current` is toggled — `applyPlanAttrs`, `buildTreeButton`,
+/** The one place `aria-current` is toggled — `applyPlanAttrs`, `buildTreeButton`,
  * `applyTreeAttrs` and `buildOutlineButton`/`applyOutlineAttrs` all wrote this same
  * two-line if/else independently before this helper existed. */
 function setAriaCurrent(el: HTMLElement, current: boolean | undefined): void {
@@ -222,7 +224,7 @@ function setAriaCurrent(el: HTMLElement, current: boolean | undefined): void {
   else el.removeAttribute("aria-current");
 }
 
-/** Minor 14: the one place a button's `.dot` (the unsaved-changes marker) is added or
+/** The one place a button's `.dot` (the unsaved-changes marker) is added or
  * removed — same duplication as `setAriaCurrent` above, across `applyPlanAttrs`,
  * `buildTreeButton` and `applyTreeAttrs`. `dirty`/`current` are optional on
  * `FlatTreeEntry` (a directory row carries neither) — undefined reads the same as false,
@@ -244,16 +246,17 @@ function applyPlanAttrs(btn: HTMLButtonElement, vm: Extract<PlanSlotVM, { kind: 
   setDirtyDot(btn, vm.dirty);
 }
 
-/** `current`/`dirty` are attribute-level state — the same defect class review
- * markdown-viewing cycle-3 Major 1 measured on the tree/outline buttons applies here
+/** `current`/`dirty` are attribute-level state — the same defect class
+ * `kb:lesson/select-rebuilt-every-tick-passed-selectoption` measured on the tree/outline
+ * buttons applies here
  * identically (this is the plan slot's own single interactive button): the struct
  * signature is only `kind` + `basename` (which file, if any is open), so opening the plan
  * or a `docChanged` toggling its dirty dot updates the existing button in place rather
  * than destroying and rebuilding it. */
 function renderPlanSlot(refs: ReaderRefs, vm: PlanSlotVM): void {
-  // REQ-6: a dead session drops the plan header row whole (`.hd` plus its label), not
+  // A dead session drops the plan header row whole (`.hd` plus its label), not
   // just the label — no empty padded strip at the top of the nav. The nav toggle now
-  // lives in the docbar, unaffected by plan liveness (REQ-1).
+  // lives in the docbar, unaffected by plan liveness (kb:adr/reader-nav-toggle-is-one-fixed-button).
   refs.planHeader.hidden = vm.kind === "absent";
   refs.planSlot.hidden = vm.kind === "absent";
 
@@ -319,8 +322,9 @@ function buildTreeButton(refs: ReaderRefs, entry: FlatTreeEntry): HTMLButtonElem
   return btn;
 }
 
-/** Every field `buildTreeButton` reads except `current`/`dirty` (review markdown-viewing
- * cycle-3 Major 1: those two are attribute-level state, applied in place by
+/** Every field `buildTreeButton` reads except `current`/`dirty` (those two are
+ * attribute-level state — same defect class as
+ * `kb:lesson/select-rebuilt-every-tick-passed-selectoption` — applied in place by
  * `applyTreeAttrs`, and must never force a rebuild). */
 function treeStructOf(entry: FlatTreeEntry): unknown {
   return entry.kind === "dir"
@@ -348,7 +352,7 @@ function applyTreeAttrs(container: HTMLElement, entries: readonly FlatTreeEntry[
   });
 }
 
-/** REQ-10: a single `loading…` row, shaped like `.f.none` (`renderPlanSlot`'s "no plan
+/** A single `loading…` row, shaped like `.f.none` (`renderPlanSlot`'s "no plan
  * yet" placeholder) but its own class rather than a literal `.f.none` — the plan slot's
  * "no plan yet" can render before the listing fetch resolves (it reads `session.plan`,
  * not `this.listing`), so a `.rnav .f.none` locator would otherwise match both at once.
@@ -425,10 +429,10 @@ export function renderReader(refs: ReaderRefs, vm: ReaderVM): void {
   refs.notice.hidden = vm.notice === null;
   refs.notice.textContent = vm.notice ?? "";
 
-  // REQ-1..REQ-3: one button, never hidden — `nav.rnav` itself is the only thing this
+  // One button, never hidden (kb:adr/reader-nav-toggle-is-one-fixed-button) — `nav.rnav`
+  // itself is the only thing this
   // toggle hides, so the button is never rebuilt or removed and keeps focus across a
-  // toggle with no restore dance needed (review markdown-viewing cycle-4 Major 1 is moot
-  // for a control that can never lose its node).
+  // toggle with no restore dance needed — moot for a control that can never lose its node.
   refs.nav.hidden = vm.navCollapsed;
   refs.navToggle.setAttribute("aria-expanded", String(!vm.navCollapsed));
   refs.navToggle.textContent = vm.navCollapsed ? "‹" : "›";
@@ -454,7 +458,8 @@ export function renderReader(refs: ReaderRefs, vm: ReaderVM): void {
   refs.outline.hidden = vm.outlineFolded;
   renderOutline(refs, vm.outline);
 
-  // REQ-14: `aria-busy` is removed rather than set to `"false"` when clear, matching how
+  // `aria-busy` is removed rather than set to `"false"` when clear (kb:adr/reader-loading-cue-never-clears-a-rendered-body),
+  // matching how
   // `aria-current` is handled elsewhere in this module — the attribute's presence is the
   // durable oracle, never a computed style mid-transition.
   refs.body.classList.toggle("loading", vm.bodyLoading);
@@ -464,10 +469,10 @@ export function renderReader(refs: ReaderRefs, vm: ReaderVM): void {
 
 /** Sets the reader body — only ever called when the open file's rendered content
  * actually changes (a successful fetch), never from the tick-driven `renderReader` above,
- * since a `DocumentFragment` empties itself the moment it's inserted. REQ-5/REQ-6: the
+ * since a `DocumentFragment` empties itself the moment it's inserted. The
  * frontmatter node (if any) is built and prepended here, after `reader/markdown.ts`'s own
- * outline walk — so it can never be queried as a heading or counted in the outline (review
- * seed d-m4: this is the DOM half of that split). */
+ * outline walk — so it can never be queried as a heading or counted in the outline
+ * (kb:adr/reader-frontmatter-flat-table-raw-fallback: this is the DOM half of that split). */
 export function setReaderBody(refs: ReaderRefs, body: ReaderBody): void {
   if (body.kind === "placeholder") {
     const p = document.createElement("p");
@@ -481,7 +486,7 @@ export function setReaderBody(refs: ReaderRefs, body: ReaderBody): void {
   refs.body.replaceChildren(body.fragment);
 }
 
-/** REQ-14 scroll-spy: the last heading whose top is at or above the container's top is
+/** Scroll-spy: the last heading whose top is at or above the container's top is
  * current. rAF-throttled, one listener per instance, disposed when the instance is —
  * `getHeadingEls` is read fresh each call since the body's headings change on every
  * re-render. Returns the disposer. */
@@ -519,8 +524,8 @@ export function attachScrollSpy(
   return () => container.removeEventListener("scroll", onScroll);
 }
 
-/** Scrolls the body so `headingEl`'s top aligns with the container's top (REQ-14's
- * outline-click-to-scroll). */
+/** Scrolls the body so `headingEl`'s top aligns with the container's top
+ * (outline-click-to-scroll). */
 export function scrollHeadingIntoView(container: HTMLElement, headingEl: HTMLElement): void {
   const delta = headingEl.getBoundingClientRect().top - container.getBoundingClientRect().top;
   container.scrollTop += delta;

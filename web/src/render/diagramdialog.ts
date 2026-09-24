@@ -1,9 +1,10 @@
-// Plan mermaid-support — wires the one `dialog.diagram-modal` per reader root (REQ-8):
-// opening it from any `.diagram-enlarge` click, zoom/pan from wheel, pointer drag, the
-// keyboard and the toolbar buttons (REQ-9), and closing on Escape, a backdrop click or
-// `Close` with focus restored (REQ-8, edge case 21). Delegated listeners only — figures
-// are rebuilt by `render/diagrams.ts` on every open/re-fetch, so nothing here holds a
-// reference to a particular figure across a render pass.
+// Wires the one `dialog.diagram-modal` per reader root
+// (kb:adr/reader-diagram-enlarge-is-a-zoomable-modal): opening it from any
+// `.diagram-enlarge` click, zoom/pan from wheel, pointer drag, the keyboard and the
+// toolbar buttons, and closing on Escape, a backdrop click or `Close` with focus
+// restored. Delegated listeners only — figures are rebuilt by `render/diagrams.ts` on
+// every open/re-fetch, so nothing here holds a reference to a particular figure across a
+// render pass.
 import { fitScale, panBy, resetZoom, transformOf, wheelFactor, zoomAround } from "../reader/zoom";
 import type { ReaderRefs } from "./reader";
 
@@ -26,8 +27,8 @@ function intrinsicSize(svg: SVGSVGElement): { w: number; h: number } {
 }
 
 /** Wires the dialog for one reader instance's refs — called once from `buildReader`.
- * `state`/`fit` are this closure's own private variables (one dialog per root, INV-3), never
- * exposed on `ReaderRefs`. */
+ * `state`/`fit` are this closure's own private variables — one dialog per reader root —
+ * never exposed on `ReaderRefs`. */
 export function wireDiagramDialog(refs: ReaderRefs): void {
   let state = resetZoom();
   let fit = 1;
@@ -45,10 +46,9 @@ export function wireDiagramDialog(refs: ReaderRefs): void {
     refs.diagramCanvas.style.transform = transformOf(state, fit);
   }
 
-  /** W22: `fit` (and the canvas's own centred position, kept out of the pan state so
-   * `Reset zoom` can restore literal `translate(0px, 0px)`) is computed on open and on
-   * `Reset zoom` only — never on every zoom step, and never on window resize (edge case
-   * 28). */
+  /** `fit` (and the canvas's own centred position, kept out of the pan state so `Reset
+   * zoom` can restore literal `translate(0px, 0px)`) is computed on open and on `Reset
+   * zoom` only — never on every zoom step, and never on window resize. */
   function computeFitAndCenter(): void {
     const svg = refs.diagramCanvas.querySelector("svg");
     if (!svg) return;
@@ -83,9 +83,8 @@ export function wireDiagramDialog(refs: ReaderRefs): void {
     const svg = figure?.querySelector("svg");
     if (!svg) return;
     openedButton = button;
-    // W20: a clone, never the live node — the dialog must survive the body being
-    // replaced under it (edge case 21) and never lets the modal's own transform touch
-    // the figure's on-page SVG.
+    // A clone, never the live node — the dialog must survive the body being replaced
+    // under it and never lets the modal's own transform touch the figure's on-page SVG.
     refs.diagramCanvas.replaceChildren(svg.cloneNode(true));
     state = resetZoom();
     if (!refs.diagramDialog.open) refs.diagramDialog.showModal();
@@ -116,14 +115,13 @@ export function wireDiagramDialog(refs: ReaderRefs): void {
     const button = openedButton;
     openedButton = null;
     drag = null;
-    // review cycle 1 Critical 1: the canvas holds a clone of the figure's own SVG (W20),
-    // id included. `rerenderDiagrams` mints a fresh id per pass rather than reusing the
-    // figure's (review cycle 2 Major 1), so this clear is defence in depth rather than
-    // the only thing preventing a stale-id collision — but it's independently
-    // sufficient, and it stops a closed modal holding a full SVG copy, and its
-    // duplicate ids, in the document until the next open.
+    // The canvas holds a clone of the figure's own SVG, id included. `rerenderDiagrams`
+    // mints a fresh id per pass rather than reusing the figure's, so this clear is
+    // defence in depth rather than the only thing preventing a stale-id collision — but
+    // it's independently sufficient, and it stops a closed modal holding a full SVG copy,
+    // and its duplicate ids, in the document until the next open.
     refs.diagramCanvas.replaceChildren();
-    // Edge case 21: the body may have re-rendered while the dialog was open, detaching
+    // The body may have re-rendered while the dialog was open, detaching
     // the original button — fall back to `article.md` rather than focusing nothing.
     if (button?.isConnected) button.focus();
     else refs.body.focus();
@@ -135,7 +133,7 @@ export function wireDiagramDialog(refs: ReaderRefs): void {
 
   // Non-passive so `preventDefault` actually stops the page/browser from zooming too —
   // the same handler covers a trackpad pinch, which arrives as a `wheel` event with
-  // `ctrlKey` set (edge case 27).
+  // `ctrlKey` set.
   refs.diagramStage.addEventListener(
     "wheel",
     (event) => {
@@ -183,8 +181,9 @@ export function wireDiagramDialog(refs: ReaderRefs): void {
       default:
         return;
     }
-    // Escape is the dialog's own (Implementation Notes) — every key handled above stops
-    // here so it never reaches whatever `document`-level shortcut listener is behind it.
+    // Escape isn't handled here — it's the dialog's own native cancel behaviour — but
+    // every key this switch does handle stops here so it never reaches whatever
+    // `document`-level shortcut listener is behind it.
     event.preventDefault();
   });
 

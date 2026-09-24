@@ -1,5 +1,5 @@
 // Connection status readout, daemon-down banner, protocol mismatch, and the Claude Code
-// version readout (plan code-breakup vocabulary: "connection"). Owns `everConnected` —
+// version readout (kb:adr/process-one-name-per-feature: "connection"). Owns `everConnected` —
 // only true once a `hello` has ever been received, so a socket that hasn't connected yet
 // reads "connecting…" rather than flashing "musterd unreachable" on first load.
 import type { App, ConnectionStatus } from "../app";
@@ -19,7 +19,7 @@ export interface ConnectionHandle {
   disconnected(): void;
   /** The shell vanishes under this fatal state; moving focus onto the (fatal,
    * tabindex="-1") mismatch element gives a keyboard/screen-reader user somewhere
-   * sensible to land (review m1-sessions Minor 7). */
+   * sensible to land. */
   showProtocolMismatch(): void;
 }
 
@@ -27,7 +27,7 @@ export interface ConnectionHandle {
  * `everConnected` (true only once a `hello` has ever arrived, so a socket that hasn't
  * connected yet reads "connecting" rather than flashing "reconnecting"/unreachable on
  * first load). `initConnection` below wraps this with the dashboard's masthead/banner
- * rendering; `doc.ts` (review cycle 5 Critical 1 — the pop-out had no writer for
+ * rendering; `doc.ts` (the pop-out had no writer for
  * `app.state.connection` at all, so its reader stayed permanently "unreachable") uses it
  * directly, since `/doc.html` has none of the elements `initConnection` requires. */
 export interface ConnectionState {
@@ -68,7 +68,7 @@ export function initConnection(app: App): ConnectionHandle {
   // no-data-yet readout (design-system §6).
   renderClaudeVersion(claudeVersionEl, describeClaudeVersion(null));
 
-  // REQ-7: the one control the socket dropped focus off of, remembered by node identity
+  // The one control the socket dropped focus off of, remembered by node identity
   // across the disconnect->reconnect pair of renders — never per-site (R1).
   let remembered: (HTMLButtonElement | HTMLSelectElement) | null = null;
 
@@ -78,20 +78,21 @@ export function initConnection(app: App): ConnectionHandle {
     // can only produce "reconnecting" when a hello has ever arrived, and only "connecting"
     // when it hasn't, so the banner condition collapses to this one comparison.
     renderBanner(bannerEl, status === "reconnecting");
-    // States (m4-reconcile): "Daemon down ... Dialogs, if open, close" — every dialog
-    // controller subscribes to this event itself rather than being reached from here.
+    // Broadcasts every non-connected status (disconnected, daemon down) so any open
+    // dialog can close itself — each dialog controller subscribes to this event
+    // itself rather than being reached from here.
     if (status !== "connected") app.emit("status", status);
     if (status !== "connected") {
       // Captured before the render below disables it — a disabled control loses focus
       // to `body` the instant `.disabled` is set, so this is the last moment it's still
-      // `document.activeElement` (edge case 11: a second drop's `activeElement` is
+      // `document.activeElement` (a second drop's `activeElement` is
       // already `body`, so this is a no-op and the first remembered element survives).
       const active = document.activeElement;
       remembered = isRestorableControl(active)
         ? (active as HTMLButtonElement | HTMLSelectElement)
         : remembered;
     }
-    // review m4-reconcile Major 3: every already-drawn surface carries `connected` baked
+    // Every already-drawn surface carries `connected` baked
     // into its last render call — re-render on every transition (down and back up) so
     // button-disabled state never goes stale.
     app.render();

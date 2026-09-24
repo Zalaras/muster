@@ -1,6 +1,6 @@
 // The single WebSocket client module (docs/conventions.md — "one WebSocket client
 // module owns the daemon connection"; nothing else may construct a WebSocket, enforced
-// by the W7 automated check: `rg -n "new WebSocket" web/src --glob '!web/src/ws.ts'`).
+// by an automated check: `rg -n "new WebSocket" web/src --glob '!web/src/ws.ts'`).
 //
 // Owns: connecting, reconnecting with backoff, and dispatching parsed messages to
 // handlers. Message parsing lives in protocol/messages.ts and the protocol-version gate
@@ -16,7 +16,7 @@ import type { Usage } from "./protocol/usage";
 const RECONNECT_BASE_MS = 500;
 const RECONNECT_CAP_MS = 8000;
 
-/** The one place `ws(s)://<host>/<path>` gets built (review cycle 1 Critical 1/Seed B6) —
+/** The one place `ws(s)://<host>/<path>` gets built —
  * `main.ts` and `doc.ts` both call this for the daemon's `/ws` socket; `terminal/pane.ts`
  * builds its per-surface `/ws/terminal/{id}` and `/ws/shell/{id}` sockets off the same
  * rule instead of a third hand-copied `location.protocol === "https:" ? "wss:" : "ws:"`. */
@@ -25,7 +25,7 @@ export function wsUrl(path: string): string {
   return `${protocol}//${location.host}${path}`;
 }
 
-/** 500ms doubling per attempt, capped at 8s (REQ-17). Pure — Vitest covers the schedule. */
+/** 500ms doubling per attempt, capped at 8s. Pure — Vitest covers the schedule. */
 export function backoffDelay(attempt: number): number {
   return Math.min(RECONNECT_BASE_MS * 2 ** attempt, RECONNECT_CAP_MS);
 }
