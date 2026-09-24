@@ -25,16 +25,17 @@ type ModelScopedConfig struct {
 }
 
 // ModelScoped holds the daemon's per-model weekly usage windows in memory — the second,
-// independent usage holder the plan Overview requires so Aggregator's single-writer
-// assumption (aggregator.go:62-67) stays true: each holder keeps exactly one writer
-// (the status-line ingest path for Aggregator, musterd's own poller for this one).
+// independent usage holder kb:adr/usage-no-source-interface calls for, so Aggregator's
+// single-writer assumption (aggregator.go's Record) stays true: each holder keeps exactly
+// one writer (the status-line ingest path for Aggregator, musterd's own poller for this
+// one).
 type ModelScoped struct {
 	store    *store.Store
 	log      zerolog.Logger
 	onChange func(ModelSnapshot)
 
 	mu      sync.Mutex
-	current []ModelWindow // nil until the first successful fetch (REQ-14)
+	current []ModelWindow // nil until the first successful fetch
 	at      *time.Time
 	errKind *string
 }
@@ -46,8 +47,8 @@ func NewModelScoped(cfg ModelScopedConfig) *ModelScoped {
 }
 
 // Record applies one successful fetch: dedups against the current list sorted by
-// DisplayName (REQ-5 — pass a non-nil, possibly empty, slice to distinguish "fetched, no
-// windows" from "never fetched"), persists one usage_model_sample row per window before
+// DisplayName — callers pass a non-nil, possibly empty, slice to distinguish "fetched, no
+// windows" from "never fetched" — persists one usage_model_sample row per window before
 // committing to memory when the list changed, and always clears a standing error — a
 // success after a failure must broadcast even when the list itself is unchanged, since
 // modelScopedError changed.
@@ -100,8 +101,8 @@ func (m *ModelScoped) Record(ctx context.Context, windows []ModelWindow) error {
 	return nil
 }
 
-// SetError records a failed poll (REQ-6): the last-good list and its timestamp are kept
-// untouched. Logged at Warn the first time this error kind is seen in a row, Debug on
+// SetError records a failed poll (kb:adr/usage-model-window-polled-from-oauth-api): the
+// last-good list and its timestamp are kept untouched. Logged at Warn the first time this error kind is seen in a row, Debug on
 // repeats — a broadcast fires only on the Warn transition, since a repeat carries no new
 // information the UI doesn't already have (modelScopedError is already that value).
 func (m *ModelScoped) SetError(kind string) {
@@ -136,7 +137,7 @@ func (m *ModelScoped) snapshotLocked() ModelSnapshot {
 	return ModelSnapshot{Windows: m.current, At: m.at, Error: m.errKind, Source: defaultModelScopedSource}
 }
 
-// sortedWindows returns a sorted copy of windows (by DisplayName, REQ-5) — a copy so the
+// sortedWindows returns a sorted copy of windows (by DisplayName) — a copy so the
 // caller's slice and the one this package retains never alias. A nil input returns a
 // non-nil empty slice: callers that mean "a successful fetch found nothing" must pass a
 // non-nil (even if len-0) slice in the first place — sortedWindows only sorts, it never
@@ -149,7 +150,7 @@ func sortedWindows(windows []ModelWindow) []ModelWindow {
 }
 
 // windowsEqual reports whether a and b carry the same windows in the same order,
-// including the nil-vs-empty distinction REQ-14/INV-1 rely on (a nil list is "never
+// including the nil-vs-empty distinction this package relies on (a nil list is "never
 // fetched"; a non-nil empty list is "fetched, no windows" — the two must never compare
 // equal).
 func windowsEqual(a, b []ModelWindow) bool {

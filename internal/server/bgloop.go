@@ -11,8 +11,8 @@ import (
 )
 
 // bgLoop is the Start/cancel/bounded-wait-with-warn shape usagePoller, themePoller,
-// shellActivityPoller and updateManager each hand-wrote (maintainability-cleanup review,
-// Major 4/G3). Embedding it leaves each poller owning only its own tick.
+// shellActivityPoller and updateManager each hand-wrote. Embedding it leaves each poller
+// owning only its own tick.
 type bgLoop struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup

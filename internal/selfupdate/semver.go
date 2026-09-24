@@ -12,8 +12,8 @@ type Version struct {
 }
 
 // releasePattern is deliberately anchored end-to-end: a pre-release/build suffix
-// ("v0.10.0-4-ge5102b8", "0.10.0-dirty") or a short form ("1.2") must not parse
-// (REQ-8/D7) — those are exactly what marks a build as `dev`.
+// ("v0.10.0-4-ge5102b8", "0.10.0-dirty") or a short form ("1.2") must not parse —
+// those are exactly what marks a build as `dev`.
 var releasePattern = regexp.MustCompile(`^v?(\d+)\.(\d+)\.(\d+)$`)
 
 // ParseRelease parses s as a strict release version: optional leading "v", then exactly
@@ -34,7 +34,7 @@ func ParseRelease(s string) (Version, bool) {
 }
 
 // Compare returns -1, 0 or +1 as v is less than, equal to, or greater than other,
-// ordering numerically field by field (REQ-6/D9) — never lexicographically, so "0.9.0"
+// ordering numerically field by field — never lexicographically, so "0.9.0"
 // correctly precedes "0.10.0".
 func (v Version) Compare(other Version) int {
 	if v.Major != other.Major {
@@ -59,7 +59,7 @@ func cmpInt(a, b int) int {
 
 // String renders the bare MAJOR.MINOR.PATCH form, no leading "v" — GoReleaser's
 // {{.Version}} shape, matching kb:anchor/ws.update's "running" for a release build.
-// Callers that render the "v0.11.0" display form (plan Text rules) prepend "v" themselves.
+// Callers that render the "v0.11.0" display form prepend "v" themselves.
 func (v Version) String() string {
 	return fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
 }

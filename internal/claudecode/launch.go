@@ -1,13 +1,11 @@
 package claudecode
 
 // PermissionDefault, PermissionPlan, PermissionAcceptEdits and PermissionAuto are every
-// value Claude Code's `--permission-mode` flag accepts (spike S2's `plan`/`acceptEdits`,
-// and the 2026-09-03 permission-mode probe against 2.1.259 for `auto`,
-// docs/history/spikes/canary-fields.md § Hook payloads) — Claude-Code-format vocabulary,
-// so this package is its one owner (CLAUDE.md hard rule; maintainability-cleanup review
-// Major 6/c-Minor 11). internal/session's PermissionMode constants derive from these
-// (session already imports claudecode, so that direction never cycles); internal/server
-// validates incoming requests through whichever of the two it already has in hand.
+// value Claude Code's `--permission-mode` flag accepts (kb:fact/permission-mode-flag-on-wire)
+// — Claude-Code-format vocabulary, so this package is its one owner (CLAUDE.md hard
+// rule). internal/session's PermissionMode constants derive from these (session already
+// imports claudecode, so that direction never cycles); internal/server validates
+// incoming requests through whichever of the two it already has in hand.
 const (
 	PermissionDefault     = "default"
 	PermissionPlan        = "plan"
@@ -37,9 +35,9 @@ type LaunchParams struct {
 	Title          string // optional; empty omits --name
 	PermissionMode string // one of PermissionModes
 
-	// ResumeSessionID is non-empty for a resume relaunch (m4-reconcile REQ-7 / docs/
-	// kb:anchor/sessions.resume): emits `--resume <id>` and omits `--name` (D13) — the only place
-	// the `--resume` flag string may appear (D6).
+	// ResumeSessionID is non-empty for a resume relaunch (kb:anchor/sessions.resume):
+	// emits `--resume <id>` and omits `--name` — the only place the `--resume` flag
+	// string may appear.
 	ResumeSessionID string
 }
 
@@ -67,26 +65,27 @@ func BuildArgv(binary string, p LaunchParams) []string {
 // ScrollSpeed is the mouse-wheel scroll rate, in lines per notch, handed to Claude Code's
 // TUI via CLAUDE_CODE_SCROLL_SPEED. Claude Code owns the wheel — its TUI enables mouse
 // tracking (1000/1002/1003 plus SGR 1006) whether or not tmux is in the loop
-// (spikes/S6-scroll-bandwidth.md §1) — so this is the only lever Muster has over scroll
-// distance; nothing in the dashboard or in tmux can widen it.
+// (spikes/S6-scroll-bandwidth.md) — so this is the only lever Muster has over scroll
+// distance; nothing in the dashboard or in tmux can widen it
+// (kb:adr/surfaces-scroll-speed-via-launch-env).
 //
-// Why 5: Claude Code's own default measured ~1 line per notch (9 lines over 10 notches,
-// S6 §5) against 17 lines for a single PageUp on the same screen, which is the "scrolling
-// is slow" half of issue #13. 5 is the conventional terminal wheel step of 3 rounded up
+// Why 5: Claude Code's own default measured ~1 line per notch (9 lines over 10 notches)
+// against 17 lines for a single PageUp on the same screen, which is the "scrolling is
+// slow" half of issue #13. 5 is the conventional terminal wheel step of 3 rounded up
 // toward that PageUp distance, and measured 4.9 lines/notch end to end through a
-// Muster-launched session. Values above ~10 are unverified: the 15 probe ran off the top
-// of its 120-line transcript before the rate could be read, so proportionality is
-// confirmed at 5 and assumed, not measured, beyond it.
+// Muster-launched session. Values above ~10 are unverified: a higher setting ran off the
+// top of its 120-line transcript before the rate could be read, so proportionality is
+// confirmed at 5 and assumed, not measured, beyond it (spikes/S6-scroll-bandwidth.md).
 //
 // UNSUPPORTED INTERFACE: the variable is absent from `claude --help` and was found by
-// reading strings out of the binary; it carries no compatibility promise. Measured on
-// 2.1.259, inside the verified range declared in docs/claude-code-versions.md; these
-// numbers want re-confirming if a future canary run pushes the verified ceiling past that
-// build. Since 2026-09-10, `make canary`'s
-// static tier asserts this variable's presence (by name, read from LaunchEnv()) in the
-// installed binary, which catches an upstream rename or removal; it does not catch a
-// change in the variable's effect on scroll rate — that stays a manual re-measurement
-// against spikes/S6-scroll-bandwidth.md.
+// reading strings out of the binary; it carries no compatibility promise
+// (kb:fact/scroll-speed-env-present). Measured on 2.1.259, inside the verified range
+// declared in docs/claude-code-versions.md; these numbers want re-confirming if a future
+// canary run pushes the verified ceiling past that build. `make canary`'s static tier
+// asserts this variable's presence (by name, read from LaunchEnv()) in the installed
+// binary, which catches an upstream rename or removal; it does not catch a change in the
+// variable's effect on scroll rate — that stays a manual re-measurement against
+// spikes/S6-scroll-bandwidth.md.
 const ScrollSpeed = "5"
 
 // LaunchEnv returns the Claude-Code-specific environment shared by a launch and a resume.

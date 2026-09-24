@@ -7,10 +7,10 @@ import (
 )
 
 // WalkFinder discovers candidates by walking a directory tree, filtering by basename
-// and size as it goes (REQ-5's fallback path, used once SpotlightFinder yields nothing
-// verified). It skips .git directories, stops at cap entries or when ctx is done —
-// Edge Case 11 treats either as "exhausted", never an error — and does not follow
-// symlinked directories (filepath.WalkDir's own behaviour).
+// and size as it goes — the fallback path, used once SpotlightFinder yields nothing
+// verified (kb:adr/drop-daemon-locates-original-never-stages). It skips .git directories,
+// stops at cap entries or when ctx is done — both are treated as "exhausted", never an
+// error — and does not follow symlinked directories (filepath.WalkDir's own behaviour).
 type WalkFinder struct {
 	entryCap int
 }

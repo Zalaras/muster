@@ -9,10 +9,11 @@ import (
 	"time"
 )
 
-// SpotlightFinder discovers candidates via macOS Spotlight (mdfind) — REQ-5's fast
-// path, checked before the directory walk. It degrades to no candidates and no error
-// (D11) whenever mdfind is absent or the query times out, since a Spotlight miss just
-// means the walk finder gets a turn — never a reason to fail the request.
+// SpotlightFinder discovers candidates via macOS Spotlight (mdfind) — the fast path,
+// checked before the directory walk (kb:adr/drop-daemon-locates-original-never-stages).
+// It degrades to no candidates and no error whenever mdfind is absent or the query times
+// out, since a Spotlight miss just means the walk finder gets a turn — never a reason to
+// fail the request.
 type SpotlightFinder struct {
 	timeout  time.Duration
 	lookPath func(string) (string, error)
@@ -44,9 +45,9 @@ func runMdfind(ctx context.Context, name string, args ...string) ([]byte, error)
 }
 
 // BuildQuery builds the exact mdfind query string for an exact basename and size match
-// (REQ-5, D10). A single quote embedded in name is escaped for mdfind's own query
-// syntax — a quote becomes backslash then quote — since this string is passed straight
-// to mdfind's argv, never through a shell.
+// (kb:adr/drop-daemon-locates-original-never-stages). A single quote embedded in name is
+// escaped for mdfind's own query syntax — a quote becomes backslash then quote — since
+// this string is passed straight to mdfind's argv, never through a shell.
 func BuildQuery(name string, size int64) string {
 	escaped := strings.ReplaceAll(name, "'", `\'`)
 	return fmt.Sprintf("kMDItemFSName == '%s' && kMDItemFSSize == %d", escaped, size)
@@ -54,7 +55,7 @@ func BuildQuery(name string, size int64) string {
 
 // Find runs mdfind with BuildQuery's exact-match query. Any failure — missing binary,
 // timeout, or mdfind itself erroring — degrades to (nil, nil): only the walk finder's
-// own failures are treated as real errors (D11, Implementation Notes).
+// own failures are treated as real errors.
 func (f *SpotlightFinder) Find(ctx context.Context, _, name string, size int64) ([]string, error) {
 	if _, err := f.lookPath("mdfind"); err != nil {
 		return nil, nil

@@ -8,8 +8,8 @@ type updateMessage struct {
 	Update UpdateInfo `json:"update"`
 }
 
-// UpdateApplyInfo is the `update.apply` object (kb:anchor/ws.update). INV-4: Error is
-// non-nil iff Phase is "failed"; Version is nil iff Phase is "idle".
+// UpdateApplyInfo is the `update.apply` object (kb:anchor/ws.update). Error is non-nil
+// iff Phase is "failed"; Version is nil iff Phase is "idle".
 type UpdateApplyInfo struct {
 	Phase   string  `json:"phase"`
 	Version *string `json:"version"`
@@ -38,7 +38,7 @@ func defaultUpdateInfo() UpdateInfo {
 	return UpdateInfo{Apply: UpdateApplyInfo{Phase: string(selfupdate.PhaseIdle)}}
 }
 
-// buildUpdateInfo is the `update` wire object's one builder (Minor 3): updateManager.Current
+// buildUpdateInfo is the `update` wire object's one builder: updateManager.Current
 // calls it with its live check state, and updateFeature.current calls it with the disabled
 // defaults when no updateManager exists (BaseURL == ""). Both halves were assembling the
 // same shape — including the Remedy pointer — by hand.

@@ -152,7 +152,7 @@ func compareInt(a, b int) int {
 }
 
 // RangeOf returns rows' semver minimum and maximum version strings — the floor and the
-// verified ceiling — independent of row order (INV-6). Empty rows yields empty strings.
+// verified ceiling — independent of row order. Empty rows yields empty strings.
 func RangeOf(rows []ObservedVersion) (floor, verified string) {
 	if len(rows) == 0 {
 		return "", ""
@@ -231,9 +231,10 @@ func Classify(installed string) VersionStatus {
 }
 
 // VersionReport is CheckVersion's result. It never carries an error to the caller in a way
-// that blocks startup: Installed is nil iff Status is StatusUnknown (INV-1); Floor and
-// Verified are always populated (INV-2). Err is the underlying cause when Status is
-// StatusUnknown — carried for logging only, never for control flow.
+// that blocks startup (kb:adr/connection-installed-claude-classified-never-refused):
+// Installed is nil iff Status is StatusUnknown; Floor and Verified are always populated.
+// Err is the underlying cause when Status is StatusUnknown — carried for logging only,
+// never for control flow.
 type VersionReport struct {
 	Installed *string
 	Floor     string

@@ -26,9 +26,9 @@ func DefaultConfigPath() (string, error) {
 	return filepath.Join(home, claudeConfigFileName), nil
 }
 
-// ThemeFamily is Claude Code's theme family, as read from its global config (REQ-13) —
-// the daemon only ever cares which pair (light or dark) the TUI is drawing, never the
-// specific named theme.
+// ThemeFamily is Claude Code's theme family, as read from its global config
+// (kb:adr/theme-claude-theme-read-only-poll) — the daemon only ever cares which pair
+// (light or dark) the TUI is drawing, never the specific named theme.
 type ThemeFamily string
 
 const (
@@ -39,7 +39,7 @@ const (
 
 // claudeConfig decodes only the one field Muster reads from Claude Code's global config
 // file — every other key (there are dozens: installMethod, autoUpdates, machineID, …)
-// is structurally ignored by encoding/json's default unmarshal behaviour (D8).
+// is structurally ignored by encoding/json's default unmarshal behaviour.
 type claudeConfig struct {
 	Theme *string `json:"theme"`
 }
@@ -56,7 +56,7 @@ type claudeConfig struct {
 //   - value prefixed "light" -> ThemeLight; prefixed "dark" -> ThemeDark; anything else
 //     (e.g. a future "solarized") -> ThemeUnknown.
 //
-// Read-only: this function never opens path for writing (INV-6).
+// Read-only: this function never opens path for writing (kb:adr/theme-claude-theme-read-only-poll).
 func ReadThemeFamily(path string) ThemeFamily {
 	data, err := os.ReadFile(path)
 	if err != nil {

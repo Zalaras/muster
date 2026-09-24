@@ -23,7 +23,7 @@ type statusModel struct {
 // statusContext mirrors context_window. UsedPercentage is a pointer because it (and
 // remaining_percentage/current_usage, both unused here) are null before a session's
 // first API response, with total_input_tokens sitting at 0 in that same window — a null
-// is not "0%" (REQ-2, canary-fields.md).
+// is not "0%" (kb:fact/unknown-before-first-response).
 type statusContext struct {
 	ContextWindowSize int64    `json:"context_window_size"`
 	UsedPercentage    *float64 `json:"used_percentage"`
@@ -31,7 +31,7 @@ type statusContext struct {
 }
 
 // statusRateLimits mirrors rate_limits. The whole key is absent (not empty, not null)
-// until a session's first API response (REQ-3, canary-fields.md).
+// until a session's first API response (kb:fact/unknown-before-first-response).
 type statusRateLimits struct {
 	FiveHour statusBucket `json:"five_hour"`
 	SevenDay statusBucket `json:"seven_day"`
@@ -50,8 +50,8 @@ type StatusModel struct {
 	DisplayName string
 }
 
-// StatusContext is the neutral context-gauge triple — always adopted all together
-// (INV-2), never partially.
+// StatusContext is the neutral context-gauge triple. Its three fields all come from the
+// same context_window object and are always adopted together, never partially.
 type StatusContext struct {
 	UsedPct          float64
 	TotalInputTokens int64
@@ -59,7 +59,7 @@ type StatusContext struct {
 }
 
 // StatusBucket is one neutral usage-limit readout (five-hour or seven-day) with the
-// wire's epoch reset time already converted to UTC (REQ-3).
+// wire's epoch reset time already converted to UTC (kb:fact/rate-limits-wire-shape).
 type StatusBucket struct {
 	UsedPct  float64
 	ResetsAt time.Time
@@ -68,8 +68,8 @@ type StatusBucket struct {
 // StatusAccount is the neutral account-usage reading a status-line payload carries.
 // It is deliberately this package's own type rather than internal/usage's Sample, so
 // the adapter stays dependency-free of the aggregator (and, transitively, the storage
-// layer) — internal/server maps it into a usage.Sample at the seam (m3 review cycle-1
-// Minor 3). Field meanings match usage.Sample one-for-one.
+// layer); internal/server maps it into a usage.Sample at the seam. Field meanings match
+// usage.Sample one-for-one.
 type StatusAccount struct {
 	FiveHour StatusBucket
 	SevenDay StatusBucket
@@ -77,10 +77,10 @@ type StatusAccount struct {
 	Source   string // "subscription" — the status line is the subscription source
 }
 
-// StatusUpdate is the neutral result of interpreting one status-line payload (REQ-1):
+// StatusUpdate is the neutral result of interpreting one status-line payload:
 // optional title, optional model, optional context, optional account usage sample.
 // Every field is nil when the payload didn't carry it — callers apply only what's
-// present, never inventing a zero value (REQ-2/REQ-3/REQ-4's "only when present" rules).
+// present, never inventing a zero value.
 type StatusUpdate struct {
 	Title   *string
 	Model   *StatusModel
@@ -107,7 +107,8 @@ func InterpretStatus(payload []byte) StatusUpdate {
 		out.Model = &StatusModel{ID: p.Model.ID, DisplayName: p.Model.DisplayName}
 	}
 
-	// REQ-2: adopt the context block only when used_percentage is non-null.
+	// Adopt the context block only when used_percentage is non-null
+	// (kb:fact/unknown-before-first-response).
 	if p.ContextWindow != nil && p.ContextWindow.UsedPercentage != nil {
 		out.Context = &StatusContext{
 			UsedPct:          *p.ContextWindow.UsedPercentage,
@@ -116,9 +117,9 @@ func InterpretStatus(payload []byte) StatusUpdate {
 		}
 	}
 
-	// REQ-3/Edge Case 9: a sample is produced only when rate_limits is present, and only
-	// when the model object is present in the same payload — a sample is never recorded
-	// with a stale/last-known model.
+	// A sample is produced only when rate_limits is present, and only when the model
+	// object is present in the same payload — a sample is never recorded with a
+	// stale/last-known model.
 	if p.RateLimits != nil && p.Model != nil {
 		out.Account = &StatusAccount{
 			FiveHour: StatusBucket{

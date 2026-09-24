@@ -1,6 +1,6 @@
 // Package ghissue is a minimal GitHub Issues client: obtaining a bearer token and
 // filing one issue. It knows nothing about muster sessions, the daemon store, or Claude
-// Code (plan issue-capture D5) — CreateIssue takes two strings (title, body) and posts
+// Code — CreateIssue takes two strings (title, body) and posts
 // them; the caller (internal/server) owns everything about what goes into those strings.
 package ghissue
 
@@ -20,7 +20,8 @@ import (
 // ErrAuthFailed is returned by a TokenReader (and by CreateIssue, which returns it
 // unwrapped when the failure happened at the token step) when a bearer token could not
 // be obtained: gh missing, gh auth token exiting non-zero, or an empty token. Message
-// never carries gh's stdout — that's where the token lives (REQ-11/INV-3).
+// never carries gh's stdout — that's where the token lives
+// (kb:adr/issue-auth-gh-token-at-time-of-use).
 type ErrAuthFailed struct {
 	Message string
 }
@@ -30,7 +31,8 @@ func (e *ErrAuthFailed) Error() string { return e.Message }
 // ErrPostFailed is returned by CreateIssue when the request to GitHub itself failed:
 // non-2xx, a transport error, or a 2xx body that would not parse. MaybeCreated is true
 // whenever the request reached GitHub and may have created the issue — an unreadable or
-// unusable 2xx body (plan Edge Case 9).
+// unusable 2xx body counts too, since GitHub may have created the issue before the
+// response became unreadable.
 type ErrPostFailed struct {
 	Message      string
 	MaybeCreated bool
@@ -42,8 +44,8 @@ func (e *ErrPostFailed) Error() string { return e.Message }
 // internal/claudecode.TokenReader (credentials.go); callers must never cache a value.
 type TokenReader func(ctx context.Context) (string, error)
 
-// ghTokenTimeout bounds `gh auth token` (plan Implementation Notes: "5s, matching
-// versionCheckTimeout in main.go").
+// ghTokenTimeout bounds `gh auth token`, matching cmd/musterd's versionCheckTimeout (the
+// startup Claude Code version check) rather than an arbitrary value.
 const ghTokenTimeout = 5 * time.Second
 
 // execFunc abstracts running `gh` for GhCLITokenReader's tests — mirrors
@@ -53,7 +55,8 @@ const ghTokenTimeout = 5 * time.Second
 type execFunc func(ctx context.Context, name string, args ...string) (stdout, stderr string, err error)
 
 // RunCommand is the production execFunc: runs name with args, capturing stdout and
-// stderr separately. Neither is ever logged by any caller (REQ-11).
+// stderr separately. Neither is ever logged by any caller — stdout is where the bearer
+// token lives (kb:adr/issue-auth-gh-token-at-time-of-use).
 func RunCommand(ctx context.Context, name string, args ...string) (stdout, stderr string, err error) {
 	cmd := exec.CommandContext(ctx, name, args...)
 	var outBuf, errBuf bytes.Buffer
@@ -100,9 +103,10 @@ func GhCLITokenReader(lookPath func(string) (string, error), run execFunc) Token
 }
 
 // FileTokenReader reads the trimmed contents of path as the token — the
-// -issue-token-file test seam (REQ-14), plain text (deliberately not the JSON shape of
+// -issue-token-file test seam, plain text (deliberately not the JSON shape of
 // claudecode.FileTokenReader) that makes it structurally impossible for a test using it
-// to fall through to a real `gh` invocation.
+// to fall through to a real `gh` invocation (docs/conventions.md §Testing: every
+// subprocess call gets an injectable seam, never a real fork in a test).
 func FileTokenReader(path string) TokenReader {
 	return func(_ context.Context) (string, error) {
 		data, err := os.ReadFile(path)
@@ -117,12 +121,12 @@ func FileTokenReader(path string) TokenReader {
 	}
 }
 
-// createIssueTimeout bounds the GitHub POST (plan Implementation Notes: "10s"), derived
-// from the caller's context so a client disconnect kills it too.
+// createIssueTimeout bounds the GitHub POST, derived from the caller's context so a
+// client disconnect kills it too.
 const createIssueTimeout = 10 * time.Second
 
 // Client is a minimal GitHub Issues client. TokenReader is re-read on every CreateIssue
-// call — REQ-8's "never stored, re-read on every use".
+// call — never stored, re-read on every use (kb:adr/issue-auth-gh-token-at-time-of-use).
 type Client struct {
 	HTTPClient  *http.Client
 	BaseURL     string
@@ -146,9 +150,10 @@ type githubErrorBody struct {
 // CreateIssue obtains a fresh bearer token via c.TokenReader, then POSTs
 // {c.BaseURL}/repos/{repo}/issues with title/body (kb:anchor/issue.create's measured
 // headers), returning the created issue's number and html_url. The token travels only in
-// the Authorization header — never logged, never echoed into a returned error (INV-3);
-// this holds whether the failure happened obtaining the token (*ErrAuthFailed, returned
-// unwrapped) or posting to GitHub (*ErrPostFailed).
+// the Authorization header — never logged, never echoed into a returned error
+// (kb:adr/issue-auth-gh-token-at-time-of-use); this holds whether the failure happened
+// obtaining the token (*ErrAuthFailed, returned unwrapped) or posting to GitHub
+// (*ErrPostFailed).
 func (c *Client) CreateIssue(ctx context.Context, repo, title, body string) (number int, htmlURL string, err error) {
 	token, err := c.TokenReader(ctx)
 	if err != nil {
@@ -203,7 +208,7 @@ func (c *Client) CreateIssue(ctx context.Context, repo, title, body string) (num
 	}
 	// A 2xx body that unmarshals cleanly but carries no usable issue (e.g. "{}") is not a
 	// success either — it would otherwise surface as "Filed <repo>#0" linked to an empty
-	// href, and the capture would be consumed for nothing (review cycle 1 Minor 4).
+	// href, and the capture would be consumed for nothing.
 	if out.Number == 0 || out.HTMLURL == "" {
 		return 0, "", &ErrPostFailed{
 			Message:      "github returned a 2xx response with no issue number/URL; the issue may nonetheless have been created — check the repo",

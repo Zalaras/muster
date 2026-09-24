@@ -9,10 +9,9 @@ import (
 	"github.com/Zalaras/muster/internal/session"
 )
 
-// This file is server's transport home (kb:anchor/transport, b-M8): the error envelope,
-// the success-JSON writer, and the session-or-404 / directory-missing lookups shared
-// across features, plus the package's one fixed 5xx phrase (b-m1) and its one wire-time
-// rule (b-m13).
+// This file is server's transport home (kb:anchor/transport): the error envelope, the
+// success-JSON writer, and the session-or-404 / directory-missing lookups shared across
+// features, plus the package's one fixed 5xx phrase and its one wire-time rule.
 
 // errorResponse is the error envelope every non-2xx JSON response shares
 // (kb:anchor/transport): {"error": {"code", "message"}}. Paths is the `ambiguous` route's
@@ -27,8 +26,8 @@ type errorResponse struct {
 }
 
 // msgInternalError is the fixed phrase for a 500 with nothing more specific to say
-// (kb:anchor/transport, b-m1) — the raw error goes only to the adjacent log line, never
-// onto the wire.
+// (kb:anchor/transport) — the raw error goes only to the adjacent log line, never onto
+// the wire.
 const msgInternalError = "something went wrong on the daemon — see the daemon log"
 
 // writeJSON writes v as status's JSON body: the header/WriteHeader/Encode shape every

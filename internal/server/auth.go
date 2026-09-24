@@ -7,11 +7,12 @@ import (
 
 const cookieName = "muster_auth"
 
-// cookieMaxAge is 30 days (Implementation Notes: the UI token is reusable at /auth, not
-// single-shot; kb:adr/connection-ui-token-reusable-not-one-time — "one-time" describes the launcher flow, not token burning).
+// cookieMaxAge is 30 days: the UI token is reusable at /auth, not single-shot
+// (kb:adr/connection-ui-token-reusable-not-one-time — "one-time" describes the launcher
+// flow, not token burning).
 const cookieMaxAge = 30 * 24 * 60 * 60
 
-// tokensEqual is a constant-time token comparison (REQ-5). hmac.Equal checks lengths
+// tokensEqual is a constant-time token comparison. hmac.Equal checks lengths
 // first (a length mismatch is not a secret worth hiding here) then compares in constant
 // time, exactly like the stdlib's own recommended pattern.
 func tokensEqual(a, b string) bool {
@@ -40,7 +41,7 @@ func writeJSONUnauthorized(w http.ResponseWriter, _ *http.Request) {
 
 // requireCookie wraps next so that a request without a valid muster_auth cookie never
 // reaches it; onUnauthorized decides the shape of the 401 (JSON for API/WS, HTML for
-// static — REQ-5).
+// static).
 func requireCookie(token string, onUnauthorized http.HandlerFunc, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c, err := r.Cookie(cookieName)
@@ -52,7 +53,7 @@ func requireCookie(token string, onUnauthorized http.HandlerFunc, next http.Hand
 	})
 }
 
-// handleHealthz is intentionally unauthenticated (REQ-1).
+// handleHealthz is intentionally unauthenticated (kb:spec/connection).
 func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{
 		"status":  "ok",
@@ -60,7 +61,7 @@ func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
-// handleAuth exchanges the UI token for the session cookie (REQ-4).
+// handleAuth exchanges the UI token for the session cookie (kb:spec/connection).
 func (s *Server) handleAuth(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
 	if !tokensEqual(token, s.uiToken) {

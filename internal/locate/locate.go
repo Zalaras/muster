@@ -1,10 +1,11 @@
 // Package locate resolves a dropped file's original on-disk path from its bytes alone
-// (plan file-drop-fix): a browser hands a page a dropped file's name and bytes, never
+// (kb:spec/drop): a browser hands a page a dropped file's name and bytes, never
 // its path, so the daemon locates the original by asking a sequence of Finders for
 // basename+size candidates and verifying each one byte-for-byte before it counts. The
-// package never writes the uploaded bytes anywhere (INV-2) and imports nothing from
-// internal/server, internal/session or internal/claudecode (D17) — it is pure
-// filesystem logic, agnostic of sessions, HTTP and Claude Code.
+// package never writes the uploaded bytes anywhere
+// (kb:adr/drop-daemon-locates-original-never-stages) and imports nothing from
+// internal/server, internal/session or internal/claudecode (kb:diagram/daemon-components)
+// — it is pure filesystem logic, agnostic of sessions, HTTP and Claude Code.
 package locate
 
 import (
@@ -27,23 +28,24 @@ type Finder interface {
 	Find(ctx context.Context, dir, name string, size int64) ([]string, error)
 }
 
-// DefaultWalkCap bounds WalkFinder's directory traversal (Edge Case 11): a huge session
+// DefaultWalkCap bounds WalkFinder's directory traversal: a huge session
 // directory (node_modules, a monorepo) stops here rather than running unbounded.
 const DefaultWalkCap = 200_000
 
 // DefaultSpotlightTimeout bounds SpotlightFinder's mdfind call before it degrades to
-// the walk (REQ-5).
+// the walk (kb:adr/drop-daemon-locates-original-never-stages).
 const DefaultSpotlightTimeout = 2 * time.Second
 
-// Locator resolves a dropped file's original path by asking each Finder in turn — REQ-5
-// puts Spotlight ahead of the directory walk — and stopping at the first Finder that
-// yields any verified (byte-identical) candidate.
+// Locator resolves a dropped file's original path by asking each Finder in turn —
+// kb:adr/drop-daemon-locates-original-never-stages puts Spotlight ahead of the directory
+// walk — and stopping at the first Finder that yields any verified (byte-identical)
+// candidate.
 type Locator struct {
 	finders []Finder
 }
 
 // New builds the daemon's real Locator: Spotlight first, then a directory walk over the
-// session's own directory (REQ-5).
+// session's own directory (kb:adr/drop-daemon-locates-original-never-stages).
 func New() *Locator {
 	return &Locator{
 		finders: []Finder{
@@ -67,7 +69,7 @@ func NewWithFinders(finders ...Finder) *Locator {
 var ErrNotLocated = errors.New("locate: no file matched")
 
 // ErrAmbiguous means two or more distinct on-disk files matched — Paths lists every
-// verified match, absolute and sorted (REQ-5, kb:anchor/sessions.locate).
+// verified match, absolute and sorted (kb:anchor/sessions.locate).
 type ErrAmbiguous struct {
 	Paths []string
 }
@@ -107,8 +109,8 @@ func (l *Locator) Locate(ctx context.Context, dir, name string, upload []byte) (
 }
 
 // verifyCandidates byte-compares every candidate against upload, resolves survivors
-// through EvalSymlinks so the same file reached by two paths counts once (D7), and
-// returns the sorted, deduplicated result (REQ-5). A candidate that vanishes or becomes
+// through EvalSymlinks so the same file reached by two paths counts once, and
+// returns the sorted, deduplicated result. A candidate that vanishes or becomes
 // unreadable between discovery and verification is dropped rather than treated as an
 // error — it was never a real match to begin with.
 func verifyCandidates(candidates []string, upload []byte) []string {

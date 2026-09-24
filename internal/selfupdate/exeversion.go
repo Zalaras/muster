@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// ProbeVersionTimeout bounds `<exe> -version` (REQ-26/D24) — a hung swapped binary must
+// ProbeVersionTimeout bounds `<exe> -version` — a hung swapped binary must
 // never wedge the update manager's tick loop.
 const ProbeVersionTimeout = 5 * time.Second
 
@@ -22,12 +22,12 @@ const VersionLinePrefix = "musterd "
 // versionPattern matches musterd's own `-version` output (VersionLinePrefix followed by
 // "%s (Claude Code verified %s)", cmd/musterd's -version printer): an optional "v" then
 // MAJOR.MINOR.PATCH, immediately after VersionLinePrefix. "musterd dev" has no digit run
-// at this position and correctly fails to match (D25).
+// at this position and correctly fails to match.
 var versionPattern = regexp.MustCompile(`^` + regexp.QuoteMeta(VersionLinePrefix) + `v?(\d+\.\d+\.\d+)\b`)
 
 // ProbeVersion runs `exePath -version` via run — an injectable seam
 // (docs/conventions.md "every subprocess call gets an injectable run func"), never a
-// $PATH shim — and parses the leading "musterd v?X.Y.Z" from its output (REQ-26). ctx
+// $PATH shim — and parses the leading "musterd v?X.Y.Z" from its output. ctx
 // should already carry ProbeVersionTimeout; a non-parseable or non-release version
 // (e.g. "musterd dev") is an error, exactly like a probe that fails or hangs.
 func ProbeVersion(ctx context.Context, run func(ctx context.Context, name string, args ...string) (string, error), exePath string) (string, error) {

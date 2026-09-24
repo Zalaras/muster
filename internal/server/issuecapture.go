@@ -8,13 +8,15 @@ import (
 	"time"
 )
 
-// maxCaptures/captureTTL bound the in-memory capture store (REQ-15).
+// maxCaptures/captureTTL bound the in-memory capture store
+// (kb:adr/issue-capture-then-file-server-held).
 const maxCaptures = 8
 const captureTTL = 15 * time.Minute
 
-// issueCapture is one held, immutable snapshot (REQ-15/INV-4): its snapshot and
-// snapshotMarkdown are fixed at capture time and never recomputed, so filing later
-// posts exactly what was previewed regardless of any state change in between.
+// issueCapture is one held, immutable snapshot
+// (kb:adr/issue-capture-then-file-server-held): its snapshot and snapshotMarkdown are
+// fixed at capture time and never recomputed, so filing later posts exactly what was
+// previewed regardless of any state change in between.
 type issueCapture struct {
 	id               string
 	capturedAt       time.Time
@@ -37,7 +39,7 @@ func newCaptureStore() *captureStore {
 }
 
 // put stores c, evicting the oldest-by-capturedAt entry once the store holds more than
-// maxCaptures (REQ-15: "taking a 9th evicts the oldest").
+// maxCaptures (kb:adr/issue-capture-then-file-server-held's capacity cap).
 func (cs *captureStore) put(c *issueCapture) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
@@ -47,9 +49,9 @@ func (cs *captureStore) put(c *issueCapture) {
 
 // reserve returns the capture for id if it is usable — known, not expired, not already
 // consumed, and not already being filed by a concurrent request — and marks it
-// in-flight so a duplicate concurrent POST (Edge Case 12's "belt to braces" alongside
-// the client-side Submit-disable) cannot also file it. Returns nil otherwise, which the
-// caller reports as 409 capture_expired.
+// in-flight so a duplicate concurrent POST cannot also file it, belt to braces alongside
+// the client-side Submit-disable. Returns nil otherwise, which the caller reports as 409
+// capture_expired.
 func (cs *captureStore) reserve(id string, now time.Time) *issueCapture {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
@@ -61,8 +63,8 @@ func (cs *captureStore) reserve(id string, now time.Time) *issueCapture {
 	return c
 }
 
-// consume marks id filed successfully — permanent; a captureId can never be reused
-// again (D10).
+// consume marks id filed successfully — permanent; a captureId can never be reused again
+// (kb:adr/issue-capture-then-file-server-held).
 func (cs *captureStore) consume(id string) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
@@ -73,7 +75,8 @@ func (cs *captureStore) consume(id string) {
 }
 
 // release clears an id's in-flight reservation without consuming it — a failed filing
-// attempt does not consume the capture, so a retry needs no re-capture (REQ-10).
+// attempt does not consume the capture, so a retry needs no re-capture
+// (kb:adr/issue-capture-then-file-server-held).
 func (cs *captureStore) release(id string) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()

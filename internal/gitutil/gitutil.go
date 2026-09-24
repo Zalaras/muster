@@ -1,5 +1,5 @@
 // Package gitutil shells out to the `git` CLI (docs/conventions.md: "Git/GitHub: never
-// go-git") to answer the small set of questions m1-sessions needs about a launch
+// go-git") to answer the small set of questions the launch dialog needs about a launch
 // directory: is it a git checkout, what branch is it on, and is it a linked worktree.
 // Nothing here is Claude-Code-format knowledge; it stays out of internal/claudecode by
 // design.

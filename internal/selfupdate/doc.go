@@ -3,6 +3,6 @@
 // naming and checksums.txt format, and the minisign signature file format. It knows
 // nothing about the daemon's HTTP surface, its store, or tmux — internal/server owns the
 // poller, apply serialisation and the wire messages; cmd/musterd owns the -update flag,
-// the install classification at startup, and the in-place re-exec (plan auto-update,
-// 2026-09-10).
+// the install classification at startup, and the in-place re-exec
+// (kb:adr/update-release-knowledge-in-selfupdate-package).
 package selfupdate

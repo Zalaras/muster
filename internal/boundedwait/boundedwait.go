@@ -1,11 +1,11 @@
 // Package boundedwait holds the one piece of a background-loop shutdown that crosses
 // package boundaries: bounded-wait-with-warn. internal/session's liveness poll and
 // internal/server's ingest queue and four pollers each hand-wrote "cancel (or close), wait
-// for the goroutine to exit, but give up and warn once ctx is done" (maintainability-cleanup
-// review, Major 4/G3). internal/session must never import internal/server
-// (kb:diagram/daemon-components), so the shared half lives here instead, importing nothing
-// internal itself. Named for the wait, not "lifecycle" — internal/server already uses that
-// word for its own feature Start/Stop interface.
+// for the goroutine to exit, but give up and warn once ctx is done" — extracting the
+// duplicated pattern here removes that repetition. internal/session must never import
+// internal/server (kb:diagram/daemon-components), so the shared half lives here instead,
+// importing nothing internal itself. Named for the wait, not "lifecycle" —
+// internal/server already uses that word for its own feature Start/Stop interface.
 package boundedwait
 
 import (

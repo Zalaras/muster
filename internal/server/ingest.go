@@ -19,14 +19,14 @@ import (
 
 // ingestJob is a raw, not-yet-parsed ingest post. Parsing happens in the worker, not the
 // handler, so the handler can enqueue-and-200 with no DB or Claude-Code-format work on
-// the request path (REQ-10).
+// the request path (kb:adr/ingest-seq-assigned-at-ingest).
 type ingestJob struct {
 	kind claudecode.Kind
 	body []byte
 
-	// drainAck, when non-nil, marks this job as a Drain marker (REQ-3) rather than a real
-	// post: the worker closes it in place of calling process, in FIFO order behind every
-	// job enqueued before Drain was called.
+	// drainAck, when non-nil, marks this job as a Drain marker rather than a real post:
+	// the worker closes it in place of calling process, in FIFO order behind every job
+	// enqueued before Drain was called.
 	drainAck chan<- struct{}
 }
 
@@ -48,9 +48,9 @@ type ingestQueue struct {
 	// that only exercise raw persistence or the state machine.
 	usage *usage.Aggregator
 
-	// files receives every routed hook event's neutral claudecode.FileSignal (plan
-	// markdown-viewing REQ-16/REQ-18) — never called for status posts. Nil in tests
-	// that don't exercise the reader.
+	// files receives every routed hook event's neutral claudecode.FileSignal
+	// (kb:spec/reader) — never called for status posts. Nil in tests that don't
+	// exercise the reader.
 	files filesObserver
 }
 
@@ -79,7 +79,8 @@ func newIngestQueue(st *store.Store, log zerolog.Logger, size int, manager *sess
 }
 
 // enqueue never blocks: a full queue drops the job, counts it, and logs — hooks are
-// lossy by design, and Muster must never add backpressure onto Claude Code (REQ-23).
+// lossy by design (kb:fact/hook-delivery-best-effort), and Muster must never add
+// backpressure onto Claude Code.
 func (q *ingestQueue) enqueue(job ingestJob) {
 	select {
 	case q.ch <- job:
@@ -154,7 +155,7 @@ func (q *ingestQueue) process(job ingestJob) {
 	// job.kind is already the typed value ParseIngestBody classified the post as
 	// (claudecode.KindStatus mints ev.Type "status_line"); comparing job.kind here instead
 	// of ev.Type keeps that event-type string inside internal/claudecode (CLAUDE.md hard
-	// rule, maintainability-cleanup review Minor 7).
+	// rule).
 	if job.kind == claudecode.KindStatus {
 		q.processStatus(ctx, *sessionID, ev.Payload)
 		return
@@ -171,7 +172,8 @@ func (q *ingestQueue) process(job ingestJob) {
 	}
 
 	// Runs after Apply, on this same single worker, so Observe's claudeSessionID
-	// comparison sees the post-rebind binding (REQ-26/INV-8, reader.go's own doc comment).
+	// comparison sees the post-rebind binding (kb:spec/reader; see also reader.go's own
+	// doc comments).
 	if q.files != nil {
 		q.files.Observe(ctx, *sessionID, ev.SessionID, claudecode.InterpretFiles(ev.Type, ev.Payload))
 	}
@@ -247,9 +249,9 @@ func (q *ingestQueue) resolveSessionID(kind claudecode.Kind, ev claudecode.Event
 	return nil
 }
 
-// ingestFeature owns the two token-path ingest endpoints (plan code-breakup REQ-6). Its
-// routes are mounted unguarded — the ingest token, not the UI cookie, is the auth
-// boundary here (kb:anchor/ingest).
+// ingestFeature owns the two token-path ingest endpoints. Its routes are mounted
+// unguarded — the ingest token, not the UI cookie, is the auth boundary here
+// (kb:anchor/ingest).
 type ingestFeature struct {
 	queue *ingestQueue
 	token string
@@ -277,9 +279,9 @@ func (f *ingestFeature) handleIngestStatus(w http.ResponseWriter, r *http.Reques
 	f.handleIngest(w, r, claudecode.KindStatus)
 }
 
-// handleIngest is shared by both ingest endpoints (REQ-10, REQ-11): check the token
-// (404 on mismatch — no oracle for guessing), enqueue the raw body, return 200
-// immediately. No DB work happens on this path.
+// handleIngest is shared by both ingest endpoints (kb:adr/ingest-seq-assigned-at-ingest):
+// check the token (404 on mismatch — no oracle for guessing), enqueue the raw body,
+// return 200 immediately. No DB work happens on this path.
 func (f *ingestFeature) handleIngest(w http.ResponseWriter, r *http.Request, kind claudecode.Kind) {
 	token := r.PathValue("token")
 	if !tokensEqual(token, f.token) {

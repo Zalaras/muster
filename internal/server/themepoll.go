@@ -11,8 +11,8 @@ import (
 	"github.com/Zalaras/muster/internal/claudecode"
 )
 
-// ThemeConfig groups the Claude-theme poller's config (plan code-breakup REQ-7). Poll <=
-// 0 means the poller is never constructed at all (mirrors UsageConfig.Poll's shape) — a
+// ThemeConfig groups the Claude-theme poller's config. Poll <= 0 means the poller is
+// never constructed at all (mirrors UsageConfig.Poll's shape) — a
 // zero-value Config never opens ConfigFile.
 type ThemeConfig struct {
 	// Poll is the poll interval. <= 0 disables polling entirely: snapshot.claudeTheme.family
@@ -24,8 +24,8 @@ type ThemeConfig struct {
 }
 
 // ClaudeThemeInfo is the `claudeTheme` object inside a snapshot
-// (kb:anchor/ws.snapshot / kb:anchor/ws.claude-theme, plan new-ui-design-colors REQ-15) — the daemon's latest read of Claude
-// Code's own theme family. Family is always present: "unknown" while polling is
+// (kb:anchor/ws.snapshot / kb:anchor/ws.claude-theme) — the daemon's latest read of
+// Claude Code's own theme family. Family is always present: "unknown" while polling is
 // disabled (-claude-theme-poll 0) or no read has yet succeeded.
 type ClaudeThemeInfo struct {
 	Family string `json:"family"`
@@ -38,8 +38,8 @@ func defaultClaudeThemeInfo() ClaudeThemeInfo {
 	return ClaudeThemeInfo{Family: string(claudecode.ThemeUnknown)}
 }
 
-// themeFeature owns the Claude-theme poller and the snapshot's claudeTheme object (plan
-// code-breakup REQ-6). It mounts no routes.
+// themeFeature owns the Claude-theme poller and the snapshot's claudeTheme object. It
+// mounts no routes.
 type themeFeature struct {
 	poller *themePoller // nil when ThemeConfig.Poll <= 0
 }
@@ -82,22 +82,22 @@ type claudeThemeMessage struct {
 	Family string `json:"family"`
 }
 
-// themeRetryDelay is the torn-write guard's wait before a retry read (REQ-14,
-// Implementation Notes: "the 250 ms retry is a time.After inside tick"). Claude Code
-// rewrites its own global config file; a tick can land mid-write and see a truncated or
-// partial JSON body, which claudecode.ReadThemeFamily reports as Unknown like any other
-// parse failure. The retry gives that self-overwrite a moment to finish before the
-// poller treats a momentary blip as a real theme change.
+// themeRetryDelay is the torn-write guard's wait before a retry read: a time.After
+// inside tick. Claude Code rewrites its own global config file; a tick can land mid-write
+// and see a truncated or partial JSON body, which claudecode.ReadThemeFamily reports as
+// Unknown like any other parse failure. The retry gives that self-overwrite a moment to
+// finish before the poller treats a momentary blip as a real theme change.
 const themeRetryDelay = 250 * time.Millisecond
 
-// themeReader abstracts claudecode.ReadThemeFamily for tests (Implementation Notes:
-// "Tests inject the reader (func(string) claudecode.ThemeFamily) ... — never a real
-// 10 s wait"). Production always passes claudecode.ReadThemeFamily.
+// themeReader abstracts claudecode.ReadThemeFamily for tests: injecting the reader
+// (func(string) claudecode.ThemeFamily) lets a test drive the poller without a real 10 s
+// wait. Production always passes claudecode.ReadThemeFamily.
 type themeReader func(path string) claudecode.ThemeFamily
 
 // themePoller polls Claude Code's own theme setting on an interval, broadcasting
-// `claudeTheme` only when the family changes (kb:anchor/ws.claude-theme, REQ-14) — pattern
-// copied from usagePoller (usagepoll.go)'s Start/Stop/loop/tick shape.
+// `claudeTheme` only when the family changes (kb:anchor/ws.claude-theme,
+// kb:adr/theme-claude-theme-read-only-poll) — pattern copied from usagePoller
+// (usagepoll.go)'s Start/Stop/loop/tick shape.
 type themePoller struct {
 	path      string
 	reader    themeReader
@@ -122,7 +122,7 @@ func newThemePoller(path string, reader themeReader, interval time.Duration, bro
 	}
 }
 
-// Start begins the poll loop with an immediate first tick (REQ-14). Call once.
+// Start begins the poll loop with an immediate first tick. Call once.
 func (p *themePoller) Start() {
 	p.bg.start(func(ctx context.Context) { runTicked(ctx, p.interval, nil, p.tick) })
 }
@@ -133,17 +133,17 @@ func (p *themePoller) Stop(ctx context.Context) {
 	p.bg.stop(ctx, p.log, "theme poller did not stop before shutdown deadline")
 }
 
-// Current returns the poller's latest family — used to fill snapshot.claudeTheme
-// (REQ-15). ThemeUnknown before the first tick completes.
+// Current returns the poller's latest family — used to fill snapshot.claudeTheme.
+// ThemeUnknown before the first tick completes.
 func (p *themePoller) Current() claudecode.ThemeFamily {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.current
 }
 
-// tick runs one read attempt, applying the torn-write retry guard (REQ-14) before
-// deciding whether the family changed since the previous tick. Broadcasts and logs one
-// Debug line only on an actual change — never per tick (REQ-14, R2).
+// tick runs one read attempt, applying the torn-write retry guard before deciding
+// whether the family changed since the previous tick. Broadcasts and logs one Debug line
+// only on an actual change — never per tick (kb:adr/theme-claude-theme-read-only-poll).
 func (p *themePoller) tick(ctx context.Context) {
 	family := p.reader(p.path)
 

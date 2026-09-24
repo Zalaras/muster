@@ -12,9 +12,9 @@ import (
 	"github.com/Zalaras/muster/internal/usage"
 )
 
-// UsageConfig groups the per-model usage poller's config (plan code-breakup REQ-7). Poll
-// <= 0 means the poller is never constructed at all — a zero-value Config never reaches
-// api.anthropic.com or the Keychain (Edge Case 14, REQ-10).
+// UsageConfig groups the per-model usage poller's config. Poll <= 0 means the poller is
+// never constructed at all — a zero-value Config never reaches api.anthropic.com or the
+// Keychain.
 type UsageConfig struct {
 	// Poll is the poll interval. <= 0 disables polling entirely: POST /api/usage/refresh
 	// then 404s (kb:anchor/usage.refresh).
@@ -35,11 +35,11 @@ type UsageConfig struct {
 
 // usageFeature owns both usage sources — the status-line Aggregator (fed by the ingest
 // worker) and the per-model poller — plus POST /api/usage/refresh and the snapshot's
-// usage object (plan code-breakup REQ-6).
+// usage object.
 type usageFeature struct {
 	aggregator  *usage.Aggregator
 	modelScoped *usage.ModelScoped
-	poller      *usagePoller // nil when UsageConfig.Poll <= 0 (Edge Case 14)
+	poller      *usagePoller // nil when UsageConfig.Poll <= 0
 }
 
 func newUsageFeature(cfg UsageConfig, httpClient *http.Client, st *store.Store, hub *wsHub, log zerolog.Logger) *usageFeature {
@@ -53,9 +53,9 @@ func newUsageFeature(cfg UsageConfig, httpClient *http.Client, st *store.Store, 
 		},
 	})
 
-	// ModelScoped is always constructed, independent of whether the poller runs
-	// (Edge Case 14): Poll <= 0 still needs a holder so the wire's modelScoped* fields
-	// render their honest null/"subscription-api" shape.
+	// ModelScoped is always constructed, independent of whether the poller runs: Poll <=
+	// 0 still needs a holder so the wire's modelScoped* fields render their honest
+	// null/"subscription-api" shape.
 	f.modelScoped = usage.NewModelScoped(usage.ModelScopedConfig{
 		Store:  st,
 		Logger: log,
@@ -105,8 +105,8 @@ func (f *usageFeature) contribute(_ context.Context, snap *Snapshot) {
 
 // handleUsageRefresh is POST /api/usage/refresh (kb:anchor/usage.refresh): wakes the
 // per-model usage poller for an immediate fetch, coalesced server-side by usagePoller
-// itself. 404 not_found when polling is disabled (Poll <= 0 — the poller was never
-// constructed, Edge Case 14).
+// itself (kb:adr/usage-model-window-polled-from-oauth-api). 404 not_found when polling is
+// disabled (Poll <= 0 — the poller was never constructed).
 func (f *usageFeature) handleUsageRefresh(w http.ResponseWriter, _ *http.Request) {
 	if f.poller == nil {
 		writeJSONError(w, http.StatusNotFound, "not_found", "usage polling is disabled")

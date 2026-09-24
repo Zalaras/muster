@@ -103,8 +103,8 @@ func DefaultPlansDir(home string) string {
 }
 
 // IsUnderDefaultPlansDir reports whether path sits under the current user's default
-// plans directory — REQ-16's third scan trigger ("a Write/Edit whose path sits under the
-// default plans directory"). Unlike LocatePlanFile this resolves the home directory
+// plans directory — the reader's third scan trigger (kb:spec/reader): "a Write/Edit whose
+// path sits under the default plans directory". Unlike LocatePlanFile this resolves the home directory
 // itself: InterpretFiles' signature is fixed by the ingest path and has no home to
 // thread through, so a test needing a different answer sets $HOME.
 func IsUnderDefaultPlansDir(path string) bool {

@@ -24,9 +24,8 @@ type locateResponse struct {
 	Path string `json:"path"`
 }
 
-// locateFeature owns POST /api/sessions/{id}/locate (plan code-breakup REQ-6). locator
-// is nilable: a misconfigured server (Config.Locator left nil) answers 500 rather than
-// nil-dereferencing (REQ-6/D6).
+// locateFeature owns POST /api/sessions/{id}/locate. locator is nilable: a misconfigured
+// server (Config.Locator left nil) answers 500 rather than nil-dereferencing.
 type locateFeature struct {
 	manager *session.Manager
 	locator *locate.Locator
@@ -41,10 +40,11 @@ func (f *locateFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.
 	mux.Handle("POST /api/sessions/{id}/locate", guard(http.HandlerFunc(f.handleLocateFile)))
 }
 
-// handleLocateFile is POST /api/sessions/{id}/locate (plan file-drop-fix,
-// kb:anchor/sessions.locate). It decodes the single multipart file part directly off the wire — never via
+// handleLocateFile is POST /api/sessions/{id}/locate (kb:anchor/sessions.locate). It
+// decodes the single multipart file part directly off the wire — never via
 // ParseMultipartForm's memory/temp-file split — so the upload can never touch disk
-// (INV-2), delegates to the Locator, and maps its outcome to the Protocol Contract's
+// (kb:adr/drop-daemon-locates-original-never-stages), delegates to the Locator, and maps
+// its outcome to the Protocol Contract's
 // error codes. Business logic (candidate discovery, byte comparison) lives entirely in
 // internal/locate; this handler only decodes, delegates and encodes.
 func (f *locateFeature) handleLocateFile(w http.ResponseWriter, r *http.Request) {
@@ -81,7 +81,7 @@ func (f *locateFeature) handleLocateFile(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// REQ-6/D6: a misconfigured server (Config.Locator left nil) answers 500 instead of
+	// A misconfigured server (Config.Locator left nil) answers 500 instead of
 	// nil-dereferencing here. Placed after readFilePart succeeds so it guards only the
 	// call it exists to protect — every 400/413 body-validation branch above must stay
 	// reachable and unaffected regardless of whether a Locator is configured.
@@ -115,8 +115,9 @@ var (
 )
 
 // readFilePart reads the first (and only) part named "file" off mr, entirely in memory
-// (INV-2: the upload is a fingerprint, never staged to disk). Every other part is
-// skipped unread — the Protocol Contract reads no other parts.
+// (kb:adr/drop-daemon-locates-original-never-stages: the upload is a fingerprint, never
+// staged to disk). Every other part is skipped unread — the Protocol Contract reads no
+// other parts.
 func readFilePart(mr *multipart.Reader) (string, []byte, error) {
 	for {
 		part, partErr := mr.NextPart()

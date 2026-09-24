@@ -18,8 +18,8 @@ import (
 	"github.com/Zalaras/muster/internal/store"
 )
 
-// IssueConfig groups the file-an-issue button's config (plan code-breakup REQ-7). Empty
-// APIURL disables both endpoints entirely (mirrors UsageConfig.APIURL's shape): a
+// IssueConfig groups the file-an-issue button's config. Empty APIURL disables both
+// endpoints entirely (mirrors UsageConfig.APIURL's shape): a
 // zero-value Config must never reach the real GitHub API host or execute `gh`.
 type IssueConfig struct {
 	// Repo is the GitHub repo issues are filed against.
@@ -50,11 +50,11 @@ type createCaptureResponse struct {
 }
 
 // issueCaptureDisabledMessage is the shared 404 body for both endpoints when
-// -issue-api-url is empty (Edge Case 14, mirrors kb:anchor/usage.refresh's disabled-poller shape).
+// -issue-api-url is empty (mirrors kb:anchor/usage.refresh's disabled-poller shape).
 const issueCaptureDisabledMessage = "issue capture is disabled on this daemon"
 
 // issueFeature owns the file-an-issue button's two endpoints, its in-memory capture
-// store, and the GitHub client (plan code-breakup REQ-6).
+// store, and the GitHub client.
 type issueFeature struct {
 	repo     string
 	apiURL   string
@@ -69,7 +69,7 @@ type issueFeature struct {
 }
 
 // newIssueFeature builds the feature. client stays nil when APIURL == "" (mirrors
-// usageFeature's nil-when-disabled poller, Minor 4): no token reader is built and no
+// usageFeature's nil-when-disabled poller): no token reader is built and no
 // exec.LookPath/gh probe happens on a daemon with issue capture disabled — every handler
 // already 404s on f.apiURL == "" before it would reach f.client.
 func newIssueFeature(cfg IssueConfig, httpClient *http.Client, manager *session.Manager, st *store.Store, daemonVersion string, claudeCode ClaudeCodeInfo, log zerolog.Logger) *issueFeature {
@@ -100,7 +100,7 @@ func (f *issueFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.H
 	mux.Handle("POST /api/issues", guard(http.HandlerFunc(f.handleCreateIssue)))
 }
 
-// handleCreateCapture is POST /api/issue/captures (REQ-3, kb:anchor/issue.captures).
+// handleCreateCapture is POST /api/issue/captures (kb:anchor/issue.captures).
 func (f *issueFeature) handleCreateCapture(w http.ResponseWriter, r *http.Request) {
 	if f.apiURL == "" {
 		writeJSONError(w, http.StatusNotFound, "not_found", issueCaptureDisabledMessage)
@@ -166,7 +166,7 @@ var errCaptureUnusable = errors.New("issue capture is unknown, expired, in fligh
 
 // fileIssue is POST /api/issues' whole capture-to-GitHub lifecycle: reserve the capture,
 // post it, and consume or release depending on the outcome. handleCreateIssue delegates
-// to this one call rather than running reserve/release/consume inline (Minor 4; conventions
+// to this one call rather than running reserve/release/consume inline (docs/conventions.md
 // § Go, "handlers decode, delegate, encode"). err is errCaptureUnusable, or *ghissue.Client's
 // own ErrAuthFailed/ErrPostFailed unchanged — the caller's error mapping is unaffected by
 // this move.
@@ -187,7 +187,7 @@ func (f *issueFeature) fileIssue(ctx context.Context, captureID, title, note str
 	return number, htmlURL, capture.snapshot.Scope, nil
 }
 
-// handleCreateIssue is POST /api/issues (REQ-8/REQ-9/REQ-10, kb:anchor/issue.create).
+// handleCreateIssue is POST /api/issues (kb:anchor/issue.create).
 func (f *issueFeature) handleCreateIssue(w http.ResponseWriter, r *http.Request) {
 	if f.apiURL == "" {
 		writeJSONError(w, http.StatusNotFound, "not_found", issueCaptureDisabledMessage)
@@ -205,9 +205,9 @@ func (f *issueFeature) handleCreateIssue(w http.ResponseWriter, r *http.Request)
 	}
 	title := strings.TrimSpace(req.Title)
 	// Counted in runes, not bytes: the client's maxlength counts UTF-16 code units and
-	// REQ-6/kb:anchor/issue.create both say "chars" — len() on a Go string is bytes, which
-	// would reject a 200-character title containing multi-byte runes (em dashes, accents,
-	// emoji) that the client gate had already let through (review cycle 1 Minor 1).
+	// kb:anchor/issue.create says "chars" — len() on a Go string is bytes, which would
+	// reject a 200-character title containing multi-byte runes (em dashes, accents,
+	// emoji) that the client gate had already let through.
 	if title == "" || utf8.RuneCountInString(title) > maxIssueTitleLen {
 		writeJSONError(w, http.StatusBadRequest, "invalid_request", "title must be 1-200 characters after trimming")
 		return
@@ -217,9 +217,9 @@ func (f *issueFeature) handleCreateIssue(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// context.WithoutCancel (mirrors sessionLauncher.Launch/Resume, Edge Case 13): once
-	// the capture is reserved, a client that navigates away or hits Escape must not
-	// cancel the in-flight GitHub POST — the daemon still files it and logs it.
+	// context.WithoutCancel (mirrors sessionLauncher.Launch/Resume): once the capture is
+	// reserved, a client that navigates away or hits Escape must not cancel the
+	// in-flight GitHub POST — the daemon still files it and logs it.
 	ctx := context.WithoutCancel(r.Context())
 	number, htmlURL, scope, err := f.fileIssue(ctx, req.CaptureID, title, req.Note)
 	if err != nil {
@@ -227,24 +227,24 @@ func (f *issueFeature) handleCreateIssue(w http.ResponseWriter, r *http.Request)
 		var postErr *ghissue.ErrPostFailed
 		switch {
 		case errors.Is(err, errCaptureUnusable):
-			// Edge Case 2's remedy sentence lives here: the pinned UI summary is always
-			// "Could not file the issue.", so this message is the only place the user
-			// sees what to actually do about it (review cycle 1 Minor 3).
+			// The remedy sentence lives here: the pinned UI summary is always "Could not
+			// file the issue.", so this message is the only place the user sees what to
+			// actually do about it.
 			writeJSONError(w, http.StatusConflict, "capture_expired", "capture is unknown, expired, in flight, or already filed; reopen the dialog to take a fresh snapshot")
 		case errors.As(err, &authErr):
-			// authErr.Message is proven token-free by D9/INV-3 — safe to log (review
-			// cycle 1 Major: the warn line must carry the upstream status/message, not
-			// just the stage). Field name must not be "message": that collides with
-			// zerolog.MessageFieldName (the key Msg() itself writes), which silently
-			// drops this field under ConsoleWriter and duplicates the JSON key
-			// (review cycle 2 Critical 1).
+			// authErr.Message is proven token-free
+			// (kb:adr/issue-auth-gh-token-at-time-of-use) — safe to log; the warn line
+			// must carry the upstream status/message, not just the stage. Field name
+			// must not be "message": that collides with zerolog.MessageFieldName (the
+			// key Msg() itself writes), which silently drops this field under
+			// ConsoleWriter and duplicates the JSON key.
 			f.log.Warn().Str("stage", "token").Str("upstream", authErr.Message).Msg("filing issue: obtaining github token failed")
 			writeJSONError(w, http.StatusBadGateway, "issue_auth_failed", authErr.Message)
 		case errors.As(err, &postErr):
 			// postErr.Message already carries GitHub's upstream status (e.g. "github
 			// returned 404: ...") and message where GitHub provided one — proven
-			// token-free by D9/INV-3. Field name "upstream", not "message" (review
-			// cycle 2 Critical 1 — see comment above).
+			// token-free (kb:adr/issue-auth-gh-token-at-time-of-use). Field name
+			// "upstream", not "message" — see comment above.
 			f.log.Warn().Str("stage", "post").Bool("maybe_created", postErr.MaybeCreated).Str("upstream", postErr.Message).Msg("filing issue: posting to github failed")
 			writeJSONError(w, http.StatusBadGateway, "issue_post_failed", postErr.Message)
 		default:

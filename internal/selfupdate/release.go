@@ -11,16 +11,17 @@ import (
 	"time"
 )
 
-// CheckTimeout bounds one LatestTag call (REQ-7/D26) — a hung/slow GitHub must never
+// CheckTimeout bounds one LatestTag call — a hung/slow GitHub must never
 // stall the daemon's check loop.
 const CheckTimeout = 10 * time.Second
 
-// LatestTag resolves {base}/latest's redirect to a release tag (REQ-5): a HEAD request
+// LatestTag resolves {base}/latest's redirect to a release tag
+// (kb:adr/release-latest-resolved-via-redirect-not-api): a HEAD request
 // (the redirect is unmetered, unlike the rate-limited REST API scripts/install.sh also
 // avoids), following no redirects itself — the Location header is read directly off the
 // 3xx response. The Location may be absolute or path-relative (both measured against
-// github.com's real redirect shape, plan's carried-over measurement); only its last path
-// segment is used, and it must parse as a release tag (D8).
+// github.com's real redirect shape); only its last path
+// segment is used, and it must parse as a release tag.
 func LatestTag(ctx context.Context, client *http.Client, base string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, CheckTimeout)
 	defer cancel()
@@ -71,7 +72,7 @@ func LatestTag(ctx context.Context, client *http.Client, base string) (string, e
 	return tag, nil
 }
 
-// AssetName is GoReleaser's archive name_template for the musterd build (REQ-14): ver is
+// AssetName is GoReleaser's archive name_template for the musterd build: ver is
 // the bare version (Version.String(), no leading "v"); goos is always "darwin" in
 // practice — callers pass it explicitly rather than this package hardcoding
 // runtime.GOOS, since that constant belongs to the caller's own build context.
@@ -79,7 +80,7 @@ func AssetName(ver, goos, goarch string) string {
 	return fmt.Sprintf("musterd_%s_%s_%s.tar.gz", ver, goos, goarch)
 }
 
-// DownloadURL builds a release download URL: {base}/download/{tag}/{asset} (REQ-5/14) —
+// DownloadURL builds a release download URL: {base}/download/{tag}/{asset} —
 // the same base LatestTag resolved against.
 func DownloadURL(base, tag, asset string) string {
 	return strings.TrimRight(base, "/") + "/download/" + tag + "/" + asset

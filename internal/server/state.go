@@ -62,7 +62,7 @@ func (s *Server) currentSnapshot(ctx context.Context) Snapshot {
 }
 
 // handleState serves GET /api/state — the same snapshot object the WS handshake sends,
-// minus the "type" envelope (REQ-6).
+// minus the "type" envelope.
 func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.currentSnapshot(r.Context()))
 }

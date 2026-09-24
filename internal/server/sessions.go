@@ -15,8 +15,8 @@ import (
 )
 
 // sessionsFeature owns the session lifecycle endpoints: create, end, resume, remove,
-// pin, order, title and pane-snapshot (plan code-breakup REQ-6). shells/terminals are
-// the shared collaborators shellFeature/terminalFeature also hold — sessions needs them
+// pin, order, title and pane-snapshot. shells/terminals are the shared collaborators
+// shellFeature/terminalFeature also hold — sessions needs them
 // only for End/Remove's socket-close and Remove's shell-kill side effects. The launch and
 // resume work itself is launcher.go's sessionLauncher; this file only decodes, delegates
 // and encodes.
@@ -27,8 +27,8 @@ type sessionsFeature struct {
 	terminals *terminalRegistry
 	log       zerolog.Logger
 
-	// reader drops a removed session's write log (plan markdown-viewing edge case 28).
-	// nil is a valid no-op for tests that don't exercise the reader.
+	// reader drops a removed session's write log. nil is a valid no-op for tests that
+	// don't exercise the reader.
 	reader writeLogForgetter
 }
 
@@ -56,7 +56,7 @@ func (f *sessionsFeature) mount(mux *http.ServeMux, guard func(http.Handler) htt
 	mux.Handle("PUT /api/sessions/{id}/title", guard(http.HandlerFunc(f.handleSetTitle)))
 }
 
-// handleCreateSession is POST /api/sessions (REQ-1 through REQ-6, REQ-14, REQ-19..21).
+// handleCreateSession is POST /api/sessions (kb:anchor/sessions.create).
 func (f *sessionsFeature) handleCreateSession(w http.ResponseWriter, r *http.Request) {
 	var req createSessionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -89,12 +89,12 @@ func parseSessionID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	return id, true
 }
 
-// handleEndSession is POST /api/sessions/{id}/end (REQ-5, kb:anchor/sessions.end).
-// session-lifecycle REQ-13: the terminal socket is closed only once End has actually
-// succeeded — a 404/409, and a genuine end_failed kill failure alike, must never tear
-// down a socket for a session whose pane is still running (review cycle 1 Major 2: a
-// failed kill leaves the row alive and the pane up, so closing the socket here left the
-// user staring at a dead-surface overlay over a live session).
+// handleEndSession is POST /api/sessions/{id}/end (kb:anchor/sessions.end). The terminal
+// socket is closed only once End has actually succeeded — a 404/409, and a genuine
+// end_failed kill failure alike (kb:adr/actions-kill-is-idempotent), must never tear down
+// a socket for a session whose pane is still running: a failed kill leaves the row alive
+// and the pane up, so closing the socket here would leave the user staring at a
+// dead-surface overlay over a live session.
 func (f *sessionsFeature) handleEndSession(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
 	if !ok {
@@ -121,12 +121,12 @@ func (f *sessionsFeature) handleEndSession(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusOK, toWireSession(sess))
 }
 
-// handleRemoveSession is DELETE /api/sessions/{id} (REQ-6, kb:anchor/sessions.remove).
-// Since plain-terminal-session (kb:anchor/sessions.shell/REQ-9) this also kills the
-// session's shell tmux session, unlike End which deliberately leaves a shell running.
-// session-lifecycle REQ-13: the shell/terminal teardown runs only after manager.Remove has
-// actually succeeded — a failed Remove must leave both exactly as they were, retryable
-// without collateral loss (D15).
+// handleRemoveSession is DELETE /api/sessions/{id} (kb:anchor/sessions.remove,
+// kb:adr/actions-remove-allowed-on-live-session). This also kills the session's shell
+// tmux session (kb:anchor/sessions.shell), unlike End which deliberately leaves a shell
+// running. The shell/terminal teardown runs only after manager.Remove has actually
+// succeeded — a failed Remove must leave both exactly as they were, retryable without
+// collateral loss.
 func (f *sessionsFeature) handleRemoveSession(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
 	if !ok {
@@ -154,7 +154,7 @@ func (f *sessionsFeature) handleRemoveSession(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// handleResumeSession is POST /api/sessions/{id}/resume (REQ-7, kb:anchor/sessions.resume).
+// handleResumeSession is POST /api/sessions/{id}/resume (kb:anchor/sessions.resume).
 func (f *sessionsFeature) handleResumeSession(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
 	if !ok {
@@ -170,7 +170,7 @@ func (f *sessionsFeature) handleResumeSession(w http.ResponseWriter, r *http.Req
 	writeJSON(w, http.StatusOK, toWireSession(sess))
 }
 
-// handlePaneSnapshot is GET /api/sessions/{id}/pane (REQ-4, kb:anchor/sessions.pane).
+// handlePaneSnapshot is GET /api/sessions/{id}/pane (kb:anchor/sessions.pane).
 // Served for live sessions too; the UI only asks for dead ones.
 func (f *sessionsFeature) handlePaneSnapshot(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
@@ -195,7 +195,7 @@ type pinSessionRequest struct {
 	Pinned *bool `json:"pinned"`
 }
 
-// handlePinSession is PUT /api/sessions/{id}/pin (plan order-sidebar REQ-3).
+// handlePinSession is PUT /api/sessions/{id}/pin (kb:anchor/sessions.pin).
 func (f *sessionsFeature) handlePinSession(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
 	if !ok {
@@ -228,7 +228,7 @@ type setOrderRequest struct {
 	PinnedCount *int    `json:"pinnedCount"`
 }
 
-// handleSetOrder is PUT /api/sessions/order (plan order-sidebar REQ-4).
+// handleSetOrder is PUT /api/sessions/order (kb:anchor/sessions.order).
 func (f *sessionsFeature) handleSetOrder(w http.ResponseWriter, r *http.Request) {
 	var req setOrderRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.IDs == nil || req.PinnedCount == nil {
@@ -252,8 +252,8 @@ func (f *sessionsFeature) handleSetOrder(w http.ResponseWriter, r *http.Request)
 
 const maxSessionTitleLen = 100
 
-// setTitleRequest is PUT /api/sessions/{id}/title's request body (plan ui-text-and-focus
-// REQ-10, kb:anchor/sessions.title). Title is decoded as json.RawMessage rather than
+// setTitleRequest is PUT /api/sessions/{id}/title's request body
+// (kb:anchor/sessions.title). Title is decoded as json.RawMessage rather than
 // *string so an absent "title" key (400) is distinguishable from an explicit
 // `"title": null` (204, clears the override) — json.RawMessage.UnmarshalJSON copies the
 // literal bytes verbatim, including a bare `null`, while a missing key leaves the field
@@ -266,8 +266,7 @@ type setTitleRequest struct {
 // not JSON, title key missing, title neither string nor null, or trimmed-empty/too-long).
 const invalidTitleMessage = "title must be null or 1-100 characters after trimming"
 
-// handleSetTitle is PUT /api/sessions/{id}/title (plan ui-text-and-focus REQ-10,
-// kb:anchor/sessions.title).
+// handleSetTitle is PUT /api/sessions/{id}/title (kb:anchor/sessions.title).
 func (f *sessionsFeature) handleSetTitle(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
 	if !ok {

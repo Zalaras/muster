@@ -31,13 +31,13 @@ type sessionWire struct {
 	CreatedAt       string                    `json:"createdAt"`
 	Pinned          bool                      `json:"pinned"`
 	RailPos         int64                     `json:"railPos"`
-	// Plan (plan markdown-viewing REQ-17, kb:anchor/ws.session): the session's derived
-	// plan file, null until a transcript has named a plan; once set, a planless scan
-	// keeps it (kb:adr/reader-plan-sticky-once-named). Required key on every Session
-	// object.
+	// Plan (kb:anchor/ws.session): the session's derived plan file, null until a
+	// transcript has named a plan; once set, a planless scan keeps it
+	// (kb:adr/reader-plan-sticky-once-named). Required key on every Session object.
 	Plan *sessionWirePlan `json:"plan"`
-	// Unread/LastPrompt (plan rail-card-improvements REQ-7/REQ-12, kb:anchor/ws.session):
-	// required keys on every Session object.
+	// Unread/LastPrompt (kb:anchor/ws.session, kb:adr/rail-unread-inferred-from-live-terminal-client,
+	// kb:adr/rail-activity-line-turn-aware-default-with-pref): required keys on every
+	// Session object.
 	Unread     bool    `json:"unread"`
 	LastPrompt *string `json:"lastPrompt"`
 }
@@ -84,8 +84,8 @@ type sessionUpsertMessage struct {
 	Session sessionWire `json:"session"`
 }
 
-// sessionRemovedMessage is the WS `sessionRemoved` envelope (m4-reconcile REQ-6, docs/
-// kb:anchor/ws.session-removed) — sent once per DELETE /api/sessions/{id}.
+// sessionRemovedMessage is the WS `sessionRemoved` envelope (kb:anchor/ws.session-removed)
+// — sent once per DELETE /api/sessions/{id}.
 type sessionRemovedMessage struct {
 	Type string `json:"type"`
 	ID   int64  `json:"id"`
@@ -102,8 +102,7 @@ func sessionRemovedWire(id int64) sessionRemovedMessage {
 	return sessionRemovedMessage{Type: "sessionRemoved", ID: id}
 }
 
-// paneSnapshotWire is GET /api/sessions/{id}/pane's response shape (m4-reconcile REQ-4,
-// kb:anchor/sessions.pane).
+// paneSnapshotWire is GET /api/sessions/{id}/pane's response shape (kb:anchor/sessions.pane).
 type paneSnapshotWire struct {
 	Text       string `json:"text"`
 	CapturedAt string `json:"capturedAt"`
@@ -116,7 +115,7 @@ type paneSnapshotWire struct {
 func toWireSession(s *session.Session) sessionWire {
 	w := sessionWire{
 		ID:              s.ID,
-		Title:           s.DisplayTitle(), // REQ-11: the display title, not the raw Title column
+		Title:           s.DisplayTitle(), // kb:adr/rename-muster-owned-title-override-wins: the display title, not the raw Title column
 		TitleOverride:   s.TitleOverride,
 		State:           string(s.State),
 		StateSince:      wireTime(s.StateSince),

@@ -16,8 +16,8 @@ import (
 	"github.com/Zalaras/muster/internal/tmux"
 )
 
-// UpdateConfig groups auto-update's checker/apply config (plan code-breakup REQ-7).
-// BaseURL empty means no updateManager is constructed at all (mirrors UsageConfig's
+// UpdateConfig groups auto-update's checker/apply config. BaseURL empty means no
+// updateManager is constructed at all (mirrors UsageConfig's
 // nil-when-disabled shape) — a zero-value Config must never reach github.com.
 type UpdateConfig struct {
 	// BaseURL is the GitHub Releases base URL; "" disables checking and apply entirely.
@@ -40,10 +40,10 @@ type UpdateConfig struct {
 	ExeRun updateExecFunc
 }
 
-// updateFeature owns auto-update's two endpoints and the snapshot's update object (plan
-// code-breakup REQ-6). It is always registered, even when updates are disabled —
-// internally um is nil and every method answers exactly as a disabled daemon does today
-// (Edge Case 14's nil-when-disabled shape, applied at the feature boundary this time).
+// updateFeature owns auto-update's two endpoints and the snapshot's update object. It is
+// always registered, even when updates are disabled — internally um is nil and every
+// method answers exactly as a disabled daemon does today (the same nil-when-disabled
+// shape as usageFeature, applied at the feature boundary this time).
 type updateFeature struct {
 	install       selfupdate.Install
 	daemonVersion string
@@ -101,8 +101,8 @@ func (f *updateFeature) Stop(ctx context.Context) {
 	}
 }
 
-// SetCheckEnabled satisfies prefsFeature's checkEnabledSetter (Edge Case 13). A no-op
-// when updates are disabled entirely.
+// SetCheckEnabled satisfies prefsFeature's checkEnabledSetter. A no-op when updates are
+// disabled entirely.
 func (f *updateFeature) SetCheckEnabled(enabled bool) {
 	if f.um != nil {
 		f.um.SetCheckEnabled(enabled)
@@ -111,8 +111,7 @@ func (f *updateFeature) SetCheckEnabled(enabled bool) {
 
 // current returns the live `update` object (kb:anchor/ws.update): the manager's own
 // state when updates are enabled, or a static shape reflecting the fixed install
-// classification when they are not — either way it always names the true install kind
-// (Edge Case 33).
+// classification when they are not — either way it always names the true install kind.
 func (f *updateFeature) current() UpdateInfo {
 	if f.um != nil {
 		return f.um.Current()
@@ -136,8 +135,9 @@ func (f *updateFeature) restartRequestsChan() <-chan struct{} {
 // handleCheckUpdate is POST /api/update/check (kb:anchor/update.check): performs one
 // release check synchronously, on the same code path as the periodic tick, and returns
 // the resulting update object. Runs regardless of prefs.updateCheck, which governs only
-// the daemon's own automatic schedule (REQ-8) — canCheck false is the only reason this
-// 404s.
+// the daemon's own automatic schedule
+// (kb:adr/update-check-pref-governs-automatic-checking-only) — canCheck false is the
+// only reason this 404s.
 func (f *updateFeature) handleCheckUpdate(w http.ResponseWriter, r *http.Request) {
 	if f.um == nil || f.um.installKind() == selfupdate.KindDev {
 		writeJSONError(w, http.StatusNotFound, "not_found", "update checking is not available for this install")
@@ -219,12 +219,12 @@ func (f *updateFeature) handleRestartImpact(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, restartImpactResponse{Shells: shells})
 }
 
-// restartImpactShells is handleRestartImpact's domain call (§ Go "handlers decode,
-// delegate, encode"): every muster-<n>-shell tmux session on the socket, each paired with
-// its owning session's title. session.Manager.ShellNames is the one place that lists
-// shell sessions on the socket (Minor 8) — ShellCount and KillAllShells already ask it,
-// so restart-impact's dialog and the on-exit prompt can never disagree about which shells
-// exist.
+// restartImpactShells is handleRestartImpact's domain call (docs/conventions.md § Go
+// "handlers decode, delegate, encode"): every muster-<n>-shell tmux session on the
+// socket, each paired with its owning session's title. session.Manager.ShellNames is the
+// one place that lists shell sessions on the socket — ShellCount and KillAllShells
+// already ask it, so restart-impact's dialog and the on-exit prompt can never disagree
+// about which shells exist.
 func restartImpactShells(ctx context.Context, sessions *session.Manager) ([]restartImpactShell, error) {
 	names, err := sessions.ShellNames(ctx)
 	if err != nil {

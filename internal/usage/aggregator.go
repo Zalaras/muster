@@ -21,9 +21,9 @@ type Config struct {
 	OnChange func(Snapshot)
 }
 
-// Aggregator holds the daemon's single, account-global usage reading in memory
-// (REQ-5/6/7). It starts unknown at construction — no hydration from persisted
-// usage_sample rows across a daemon restart (decided 2026-08-23, plan Overview).
+// Aggregator holds the daemon's single, account-global usage reading in memory. It
+// starts unknown at construction — no hydration from persisted usage_sample rows across a
+// daemon restart (kb:adr/usage-no-hydration-across-restart).
 type Aggregator struct {
 	store    *store.Store
 	log      zerolog.Logger
@@ -40,10 +40,10 @@ func NewAggregator(cfg Config) *Aggregator {
 
 // Record applies one new sample: updates in-memory state, persists a usage_sample row,
 // and invokes OnChange — but only when the bucket values or model changed since the last
-// recorded sample (REQ-5, INV-5). sampledAt advancing alone is never a change, which is
-// why it's stamped here rather than accepted from the caller: the ~435 ms pair posts
-// (canary-fields.md) carry identical bucket/model values and must collapse to one
-// broadcast and one row, not two.
+// recorded sample (kb:adr/usage-sample-dedup-by-value). sampledAt advancing alone is
+// never a change, which is why it's stamped here rather than accepted from the caller:
+// the ~435 ms pair posts (kb:fact/status-posts-arrive-in-pairs) carry identical
+// bucket/model values and must collapse to one broadcast and one row, not two.
 func (a *Aggregator) Record(ctx context.Context, s Sample) error {
 	s.SampledAt = time.Now().UTC()
 	if s.Source == "" {
@@ -61,10 +61,9 @@ func (a *Aggregator) Record(ctx context.Context, s Sample) error {
 	// Persist BEFORE the in-memory commit: if the row write fails, Current() must keep
 	// reporting the previous sample, so snapshots never carry values that have no row —
 	// and because a.current has not advanced, the next post with the same values retries
-	// persistence instead of being deduped away (m3 review cycle-2 Minor 4). Dropping the
-	// lock across the write is safe: Record only ever runs on the single ingest worker
-	// goroutine (R4), so no second Record can interleave — the mutex guards Current()
-	// readers on other goroutines.
+	// persistence instead of being deduped away. Dropping the lock across the write is
+	// safe: Record only ever runs on the single ingest worker goroutine, so no second
+	// Record can interleave — the mutex guards Current() readers on other goroutines.
 	if err := a.store.InsertUsageSample(ctx, store.UsageSampleRow{
 		ModelID:          s.Model.ID,
 		ModelDisplayName: s.Model.DisplayName,
@@ -112,7 +111,8 @@ func (a *Aggregator) snapshotLocked() Snapshot {
 }
 
 // unchanged reports whether next carries the same bucket values and model as prev —
-// the value-level de-dup REQ-5 requires (sampledAt is deliberately excluded).
+// the value-level de-dup kb:adr/usage-sample-dedup-by-value requires (sampledAt is
+// deliberately excluded).
 func unchanged(prev, next Sample) bool {
 	return prev.FiveHour.UsedPct == next.FiveHour.UsedPct &&
 		prev.FiveHour.ResetsAt.Equal(next.FiveHour.ResetsAt) &&

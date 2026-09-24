@@ -9,8 +9,9 @@ import (
 	"time"
 )
 
-// preflightTimeout bounds `tmux -V` (REQ-1): it never contacts a tmux server, so it
-// returns near-instantly — a timeout means the binary itself is broken, not busy.
+// preflightTimeout bounds `tmux -V` (kb:adr/surfaces-tmux-preflight-at-startup): it never
+// contacts a tmux server, so it returns near-instantly — a timeout means the binary
+// itself is broken, not busy.
 const preflightTimeout = 2 * time.Second
 
 // preflighter holds the two process boundaries Preflight crosses — resolving the binary
@@ -37,14 +38,14 @@ func newPreflighter() *preflighter {
 // even after `tmux -V` itself has exited. WaitDelay bounds that wait: the timer starts
 // when ctx is done or when Wait sees the process exit, whichever comes first, so a hung
 // `tmux -V` (or a forked descendant holding its pipe) cannot stall this indefinitely even
-// if ctx never fires (docs/conventions.md §Go; post-worktree-spike-issues REQ-1/REQ-3).
+// if ctx never fires (docs/conventions.md §Go; kb:adr/process-exec-waitdelay-on-pipe-owning-commands).
 func runCommand(ctx context.Context, path string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, path, args...)
 	cmd.WaitDelay = 2 * time.Second
 	return cmd.Output()
 }
 
-// MinVersion is the oldest tmux Muster's own tmux usage can rely on (REQ-2). NewSession
+// MinVersion is the oldest tmux Muster's own tmux usage can rely on. NewSession
 // in tmux.go uses "new-session -e" and applyServerOptions there uses "set-option -as
 // terminal-features", both introduced in tmux 3.2; below that they fail obscurely at
 // first launch instead of at startup.
@@ -52,7 +53,7 @@ var MinVersion = ParsedVersion{Major: 3, Minor: 2}
 
 // versionPattern matches the first major.minor pair in `tmux -V` output (e.g. "tmux
 // 3.3a", "tmux next-3.4"). Trailing letters/suffixes and anything before the digits are
-// ignored (Edge Cases 3-4).
+// ignored.
 var versionPattern = regexp.MustCompile(`(\d+)\.(\d+)`)
 
 // ParsedVersion is a tmux version's numeric (major, minor) pair.
@@ -66,7 +67,7 @@ func (v ParsedVersion) String() string {
 }
 
 // Less reports whether v is older than other, comparing major then minor numerically
-// (Edge Case 3: a string compare would put "3.10" below "3.2").
+// (a string compare would put "3.10" below "3.2").
 func (v ParsedVersion) Less(other ParsedVersion) bool {
 	if v.Major != other.Major {
 		return v.Major < other.Major
@@ -75,8 +76,9 @@ func (v ParsedVersion) Less(other ParsedVersion) bool {
 }
 
 // ParseVersion extracts the first (major, minor) pair from raw `tmux -V` output. ok is
-// false when no numeric version is found at all (e.g. "tmux master") — REQ-3's warning
-// path, not an error.
+// false when no numeric version is found at all (e.g. "tmux master") — that's the
+// unrecognized-version warning path (kb:adr/surfaces-unrecognised-tmux-version-warns), not
+// an error.
 func ParseVersion(raw string) (v ParsedVersion, ok bool) {
 	m := versionPattern.FindStringSubmatch(raw)
 	if m == nil {
@@ -101,13 +103,13 @@ const (
 	StatusOK PreflightStatus = iota
 	// StatusNotFound means tmux could not be run at all: absent from $PATH, not
 	// executable, exiting non-zero, or failing to answer `tmux -V` within
-	// preflightTimeout (REQ-1, Edge Cases 1-2). Fatal.
+	// preflightTimeout (kb:adr/surfaces-tmux-preflight-at-startup). Fatal.
 	StatusNotFound
 	// StatusTooOld means tmux ran and its version parsed, but it is older than
-	// MinVersion (REQ-2). Fatal.
+	// MinVersion. Fatal.
 	StatusTooOld
 	// StatusUnrecognized means tmux ran but its output did not parse as a version
-	// (REQ-3, e.g. "tmux master"). Not fatal — Muster cannot prove an unrecognized
+	// (e.g. "tmux master"). Not fatal — Muster cannot prove an unrecognized
 	// build is too old, so startup proceeds with a warning.
 	StatusUnrecognized
 )
@@ -118,7 +120,7 @@ type PreflightResult struct {
 	// Found reports whether exec.LookPath resolved a tmux binary at all. False only
 	// for StatusNotFound with nothing on $PATH.
 	Found bool
-	// Path is the resolved absolute path (Edge Case 6/REQ-14), set whenever Found is
+	// Path is the resolved absolute path, set whenever Found is
 	// true — including when the binary was found but failed to run.
 	Path string
 	// Version is `tmux -V`'s stdout with the leading "tmux" program name trimmed off

@@ -14,10 +14,10 @@ import (
 	"github.com/Zalaras/muster/internal/session"
 )
 
-// issueSnapshot is the strict allowlisted payload behind the file-an-issue button (plan
-// issue-capture §"The allowlist"). Every field here is copied explicitly from its
-// source — never produced by marshalling a whole-object shape and removing keys
-// (Implementation Notes: "Assemble by copy, never by subtraction").
+// issueSnapshot is the strict allowlisted payload behind the file-an-issue button
+// (kb:adr/issue-payload-allowlist-never-dump). Every field here is copied explicitly
+// from its source — never produced by marshalling a whole-object shape and removing
+// keys.
 type issueSnapshot struct {
 	CapturedAt string                  `json:"capturedAt"`
 	Scope      string                  `json:"scope"`
@@ -26,7 +26,7 @@ type issueSnapshot struct {
 	Host       issueSnapshotHost       `json:"host"`
 	Dashboard  issueSnapshotDashboard  `json:"dashboard"`
 	// Session is present only for scope == "session"; the key is absent (not null) for
-	// dashboard scope (plan allowlist table).
+	// dashboard scope.
 	Session *issueSnapshotSession `json:"session,omitempty"`
 }
 
@@ -59,8 +59,7 @@ type issueSnapshotSession struct {
 	StateSince string  `json:"stateSince"`
 	Alive      bool    `json:"alive"`
 	EndedAt    *string `json:"endedAt"`
-	// Attention/Failure: the whole object is absent (never null) when there is none —
-	// plan allowlist table.
+	// Attention/Failure: the whole object is absent (never null) when there is none.
 	Attention            *issueSnapshotAttention `json:"attention,omitempty"`
 	Failure              *issueSnapshotFailure   `json:"failure,omitempty"`
 	Model                *issueSnapshotModel     `json:"model"`
@@ -79,7 +78,7 @@ type issueSnapshotAttention struct {
 }
 
 // issueSnapshotFailure carries only the raw error token — never the assistant-generated
-// failure message (plan hard exclusion 5).
+// failure message (kb:adr/issue-payload-allowlist-never-dump).
 type issueSnapshotFailure struct {
 	Error string `json:"error"`
 }
@@ -108,8 +107,9 @@ type issueSnapshotEvents struct {
 }
 
 // buildIssueSnapshot assembles the allowlisted snapshot by explicit field copy. sess is
-// nil for dashboard scope. Named "sess" deliberately — the D6 automated check greps this
-// file for a handful of excluded field accesses by that receiver name.
+// nil for dashboard scope; issue_test.go's key-set test
+// (TestBuildIssueSnapshot_SessionScope_KeySetMatchesAllowlistExactly) is what actually
+// proves no excluded field leaks through.
 func (f *issueFeature) buildIssueSnapshot(ctx context.Context, now time.Time, sess *session.Session) issueSnapshot {
 	sessions := f.manager.List()
 	alive := 0
@@ -189,12 +189,11 @@ func (f *issueFeature) buildIssueSnapshot(ctx context.Context, now time.Time, se
 	return snap
 }
 
-// issueFooter is the markdown body's provenance line — a constant string, byte-for-byte
-// (plan "## The issue body": "The `<sub>` footer is a constant string").
+// issueFooter is the markdown body's provenance line — a constant string, byte-for-byte.
 const issueFooter = "<sub>Filed from the Muster dashboard. Allowlisted snapshot only — no prompt text, hook payload bodies, status-line JSON, pane captures, directory paths, repository names or account usage.</sub>"
 
 // renderSnapshotMarkdown renders the `## Snapshot` section, the raw-JSON `<details>`
-// block and the provenance footer (plan "## The issue body"). Row order is fixed, never
+// block and the provenance footer. Row order is fixed, never
 // map order; dashboard scope emits only the first four rows and the JSON has no session
 // key (snap.Session == nil already omits it from the marshalled JSON).
 func renderSnapshotMarkdown(snap issueSnapshot) string {
@@ -254,8 +253,8 @@ func row(field, value string) string {
 	return "| " + field + " | " + escapeCell(value) + " |"
 }
 
-// escapeCell applies the plan's table-value escaping (Edge Case 11): a literal `|`
-// would otherwise close the table cell early, and a newline would break the row.
+// escapeCell applies markdown table-value escaping: a literal `|` would otherwise close
+// the table cell early, and a newline would break the row.
 func escapeCell(v string) string {
 	v = strings.ReplaceAll(v, "\r\n", " ")
 	v = strings.ReplaceAll(v, "\n", " ")
@@ -327,10 +326,10 @@ func recentEventsCell(ev issueSnapshotEvents) string {
 }
 
 // noteSection composes the `## What happened` section from a raw note — the daemon's
-// half of the "one composer, two callers" duplication (Implementation Notes); the
-// dashboard's features/issue.ts implements the identical rule for the live preview, and
-// INV-2's E2E turns that duplication into a tested equality. CRLF is normalised to LF,
-// the whole string trimmed, and the empty case yields "".
+// half of the "one composer, two callers" duplication: the dashboard's features/issue.ts
+// implements the identical rule for the live preview, and E2E turns that duplication
+// into a tested equality (kb:adr/issue-preview-is-the-leak-check). CRLF is normalised to
+// LF, the whole string trimmed, and the empty case yields "".
 func noteSection(note string) string {
 	normalized := strings.ReplaceAll(note, "\r\n", "\n")
 	trimmed := strings.TrimSpace(normalized)
@@ -341,7 +340,7 @@ func noteSection(note string) string {
 }
 
 // composeIssueBody is the full posted/previewed body: the note section followed by the
-// capture's snapshotMarkdown, no trailing newline (plan "## The issue body").
+// capture's snapshotMarkdown, no trailing newline.
 func composeIssueBody(note, snapshotMarkdown string) string {
 	return noteSection(note) + snapshotMarkdown
 }

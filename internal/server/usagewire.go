@@ -15,7 +15,7 @@ type UsageBucket struct {
 }
 
 // UsageModelWindow is one entry of the `usage.modelScoped` list (kb:anchor/ws.usage,
-// plan usage-model-bar) — one per-model weekly usage window.
+// kb:adr/usage-masthead-one-selectable-model-window) — one per-model weekly usage window.
 type UsageModelWindow struct {
 	DisplayName string  `json:"displayName"`
 	UsedPct     float64 `json:"usedPct"`
@@ -55,11 +55,11 @@ func emptyUsageInfo() UsageInfo {
 }
 
 // toWireUsage converts the two independent usage sources — the status-line Aggregator's
-// snapshot and the per-model poller's ModelScoped snapshot (plan usage-model-bar,
-// 2026-08-30) — into one wire object. It is the single mapping point for both, shared by
-// every `usage` broadcast and every snapshot's embedded usage object, so the two halves
-// can never drift apart and every caller builds the merged object from both holders'
-// Current() at send time (Edge Case 10).
+// snapshot and the per-model poller's ModelScoped snapshot
+// (kb:adr/usage-model-window-polled-from-oauth-api) — into one wire object. It is the
+// single mapping point for both, shared by every `usage` broadcast and every snapshot's
+// embedded usage object, so the two halves can never drift apart and every caller builds
+// the merged object from both holders' Current() at send time.
 func toWireUsage(snap usage.Snapshot, model usage.ModelSnapshot) UsageInfo {
 	out := UsageInfo{Source: snap.Source, ModelScopedSource: model.Source, SampledAt: wireTimePtr(snap.SampledAt)}
 	if snap.FiveHour != nil {
@@ -79,9 +79,9 @@ func toWireUsage(snap usage.Snapshot, model usage.ModelSnapshot) UsageInfo {
 	}
 
 	// model.Windows is nil until the first successful fetch; a non-nil (possibly
-	// empty) slice is a distinct, valid successful result (REQ-14/INV-1) — only
-	// assign out.ModelScoped inside this branch so the "never fetched" case keeps it
-	// nil (renders `null`, no `omitempty` on the field).
+	// empty) slice is a distinct, valid successful result — only assign out.ModelScoped
+	// inside this branch so the "never fetched" case keeps it nil (renders `null`, no
+	// `omitempty` on the field).
 	if model.Windows != nil {
 		windows := make([]UsageModelWindow, len(model.Windows))
 		for i, w := range model.Windows {

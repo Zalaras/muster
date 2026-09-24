@@ -14,8 +14,8 @@ import (
 	"github.com/Zalaras/muster/internal/tty"
 )
 
-// shellActivityPollInterval is the `shellActivity` poll rate (kb:anchor/ws.shell-activity, plan
-// Protocol Contract: "a ~1 s poller").
+// shellActivityPollInterval is the `shellActivity` poll rate: a ~1 s poller
+// (kb:anchor/ws.shell-activity).
 const shellActivityPollInterval = time.Second
 
 // shellActivityMessage is the WS `shellActivity` broadcast (kb:anchor/ws.shell-activity). Sent on
@@ -118,7 +118,7 @@ func (p *shellActivityPoller) Current() []int64 {
 // tick reads every shell pane's tmux-reported state and reconciles it against the
 // previous tick's busy set, broadcasting one message per session whose busy flag
 // changed. hasShells gates the tmux exec entirely when this daemon instance has never
-// spawned a shell (plan Gotchas: "must not run a tmux invocation when no shell exists").
+// spawned a shell.
 func (p *shellActivityPoller) tick(ctx context.Context) {
 	if !p.hasShells() {
 		return
@@ -135,8 +135,9 @@ func (p *shellActivityPoller) tick(ctx context.Context) {
 		if !ok {
 			continue // a Claude pane, or something else on the socket
 		}
-		// D5/D9: alternate-screen or the shell's own idle prompt is never busy,
-		// whatever its tty mode — cheaper to skip the ioctl for those panes.
+		// Alternate-screen or the shell's own idle prompt is never busy, whatever its
+		// tty mode — cheaper to skip the ioctl for those panes
+		// (kb:adr/surfaces-shell-busy-from-tmux-process-state).
 		if pa.AlternateOn || pa.CurrentCommand == p.shellBase {
 			continue
 		}
@@ -156,8 +157,9 @@ func (p *shellActivityPoller) tick(ctx context.Context) {
 
 // reconcile swaps in newBusy and broadcasts one message per session whose busy flag
 // changed since the previous tick — covers a shell going idle, going busy, and a shell
-// disappearing from panes entirely (exited while busy, E7; reconcile-killed at daemon
-// restart, E8 — both read as "no longer in newBusy", the same path as going idle).
+// disappearing from panes entirely (exited while busy, or reconcile-killed at daemon
+// restart — see shellactivity_test.go's E7/E8 cases — both read as "no longer in
+// newBusy", the same path as going idle).
 func (p *shellActivityPoller) reconcile(newBusy map[int64]bool) {
 	p.mu.Lock()
 	old := p.busy

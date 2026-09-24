@@ -7,7 +7,8 @@ import (
 	"strings"
 )
 
-// Kind is the daemon's startup install classification (REQ-21) — constant for the
+// Kind is the daemon's startup install classification
+// (kb:adr/update-install-kinds-decide-who-may-apply) — constant for the
 // daemon's life (kb:anchor/ws.update "install").
 type Kind string
 
@@ -19,8 +20,8 @@ const (
 )
 
 // InstallerRemedy and HomebrewRemedy are the one-line remedies shown for unmanaged and
-// homebrew installs respectively (REQ-21; kb:anchor/ws.update "remedy"), and
-// `musterd -update`'s stderr message for the same two kinds (REQ-22).
+// homebrew installs respectively (kb:anchor/ws.update "remedy"), and
+// `musterd -update`'s stderr message for the same two kinds.
 const (
 	InstallerRemedy = "not installed by the muster installer — run: curl -fsSL https://raw.githubusercontent.com/Zalaras/muster/main/scripts/install.sh | sh"
 	HomebrewRemedy  = "installed by Homebrew — run brew upgrade musterd"
@@ -44,13 +45,14 @@ func (i Install) MayApply() bool {
 }
 
 // homebrewPrefixes are the fixed Homebrew install roots checked in addition to
-// $HOMEBREW_PREFIX (REQ-21).
+// $HOMEBREW_PREFIX.
 var homebrewPrefixes = []string{"/opt/homebrew", "/usr/local/Cellar", "/usr/local/Homebrew"}
 
-// Classify determines the install kind from the resolved executable path (REQ-21).
+// Classify determines the install kind from the resolved executable path
+// (kb:adr/update-install-kinds-decide-who-may-apply).
 //
 //   - version is the running binary's version string (as built) — anything that doesn't
-//     parse via ParseRelease is a dev build (REQ-8), checked before path is examined at all.
+//     parse via ParseRelease is a dev build, checked before path is examined at all.
 //   - exePath must already be resolved through os.Executable + filepath.EvalSymlinks.
 //   - env reads one environment variable (production: os.Getenv; tests: a fake map).
 //   - home is the user's home directory (production: os.UserHomeDir()).
@@ -93,8 +95,8 @@ func withinDir(path, dir string) bool {
 }
 
 // inGitTreeBelowHome walks dir upward looking for a ".git" entry, stopping strictly
-// below home without checking home itself (D13: a dotfiles repo's .git at $HOME must not
-// make every binary under $HOME "unmanaged").
+// below home without checking home itself: a dotfiles repo's .git at $HOME must not
+// make every binary under $HOME "unmanaged".
 func inGitTreeBelowHome(dir, home string) bool {
 	home = filepath.Clean(home)
 	for {

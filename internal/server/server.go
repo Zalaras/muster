@@ -33,7 +33,7 @@ type ClaudeCodeInfo struct {
 // Config wires everything a Server needs, built entirely in main (no init() magic, no
 // package-level state). Core fields are shared by more than one feature or by the root
 // itself; everything else groups into one sub-struct per feature, declared in that
-// feature's own file (plan code-breakup REQ-7).
+// feature's own file.
 type Config struct {
 	Store       *store.Store
 	Logger      zerolog.Logger
@@ -107,10 +107,11 @@ type Server struct {
 	hub        *wsHub
 	manager    *session.Manager
 	tmuxClient paneSpawner
-	// features is Start/Stop order (REQ-11): a property of the order register(s, f) is
-	// called in below, independent of the order each f was constructed in — usage and
-	// ingest are constructed out of registration order (ingest's constructor takes
-	// usage's aggregator) but registered ingest-then-usage, so REQ-11 holds regardless.
+	// features is Start/Stop order: a property of the order register(s, f) is called in
+	// below, independent of the order each f was constructed in — usage and ingest are
+	// constructed out of registration order (ingest's constructor takes usage's
+	// aggregator) but registered ingest-then-usage, so registration order, not
+	// construction order, is what Start/Stop honours.
 	features []feature
 
 	sessions      *sessionsFeature
@@ -166,9 +167,9 @@ func New(cfg Config) *Server {
 		httpClient = http.DefaultClient
 	}
 	// terminals is constructed before the manager (composition-root wiring only) so it
-	// can be passed straight in as the manager's Watcher (plan rail-card-improvements
-	// REQ-8): the terminal registry already knows who's attached to what, so the manager
-	// needs no separate bookkeeping.
+	// can be passed straight in as the manager's Watcher
+	// (kb:adr/rail-unread-inferred-from-live-terminal-client): the terminal registry
+	// already knows who's attached to what, so the manager needs no separate bookkeeping.
 	terminals := newTerminalRegistry()
 	s.manager = session.NewManager(session.Config{
 		Store:           cfg.Store,
@@ -203,7 +204,7 @@ func New(cfg Config) *Server {
 	s.prefs = register(s, newPrefsFeature(cfg.Store, s.hub, updateFeat, cfg.Logger))
 
 	// usage is built before ingest so ingest's constructor can take its aggregator; both
-	// are registered in REQ-11's order (ingest, then usage) regardless — see features'
+	// are registered in the fixed order (ingest, then usage) regardless — see features'
 	// doc comment above.
 	usageFeat := newUsageFeature(cfg.Usage, httpClient, cfg.Store, s.hub, cfg.Logger)
 	s.ingest = register(s, newIngestFeature(cfg.Store, cfg.IngestQueueSize, cfg.IngestToken, s.manager, s.reader, usageFeat.aggregator, cfg.Logger))
@@ -222,7 +223,7 @@ func (s *Server) Handler() http.Handler {
 }
 
 // Start reloads and reconciles sessions, then starts every lifecycle feature in
-// registration order (REQ-11). Call once, after New — Reconcile runs synchronously here
+// registration order. Call once, after New — Reconcile runs synchronously here
 // so neither `/ws` nor `GET /api/state` can observe a pre-reconcile session list.
 func (s *Server) Start() {
 	ctx := context.Background()
@@ -261,13 +262,15 @@ func (s *Server) EndAllSessions(ctx context.Context) int {
 	return s.manager.EndAll(ctx)
 }
 
-// KillAllShells kills every shell tmux session on the socket — REQ-13's `-on-exit=kill`
-// companion to EndAllSessions, run after it (sessions may hold the socket busy).
+// KillAllShells kills every shell tmux session on the socket — the `-on-exit=kill`
+// companion to EndAllSessions, run after it (sessions may hold the socket busy),
+// per kb:adr/surfaces-shell-dies-at-kill-shutdown-too.
 func (s *Server) KillAllShells(ctx context.Context) (int, error) {
 	return s.manager.KillAllShells(ctx)
 }
 
-// ShellCount counts every shell tmux session on the socket — REQ-13's on-exit prompt.
+// ShellCount counts every shell tmux session on the socket — the on-exit prompt's count,
+// per kb:adr/surfaces-shell-dies-at-kill-shutdown-too.
 func (s *Server) ShellCount(ctx context.Context) (int, error) {
 	return s.manager.ShellCount(ctx)
 }
@@ -291,7 +294,7 @@ func (s *Server) StopLivenessPoll(ctx context.Context) {
 
 // Shutdown closes every open WS connection (unblocking hijacked-connection goroutines
 // http.Server.Shutdown cannot reach) and terminal socket, stops the liveness poll, then
-// stops every lifecycle feature in Start's registration order (REQ-11).
+// stops every lifecycle feature in Start's registration order.
 func (s *Server) Shutdown(ctx context.Context) {
 	s.hub.closeAll()
 	s.terminal.closeAll()

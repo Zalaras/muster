@@ -9,11 +9,11 @@ import (
 )
 
 // ErrInProgress is AcquireLock's failure when another process already holds the update
-// lock (REQ-20's cross-process serialisation: `musterd -update` racing the daemon's own
-// apply).
+// lock — cross-process serialisation so `musterd -update` racing the daemon's own
+// apply can't run two applies at once (kb:adr/update-install-kinds-decide-who-may-apply).
 var ErrInProgress = errors.New("another musterd update is in progress")
 
-// lockFileName is the flock target, beside the binary (Implementation Notes).
+// lockFileName is the flock target, beside the binary.
 const lockFileName = ".musterd-update.lock"
 
 // AcquireLock takes a non-blocking exclusive flock on <exeDir>/.musterd-update.lock,

@@ -19,8 +19,9 @@ import (
 // (kb:anchor/ws.update).
 type Phase string
 
-// The seven phases Apply/the update manager walk through, in order (D19): Idle is never
-// reported by Apply itself (it's the pre-apply/at-rest phase the manager starts at).
+// The seven phases Apply/the update manager walk through, in order (kb:anchor/ws.update):
+// Idle is never reported by Apply itself (it's the pre-apply/at-rest phase the manager
+// starts at).
 const (
 	PhaseIdle        Phase = "idle"
 	PhaseDownloading Phase = "downloading"
@@ -31,14 +32,14 @@ const (
 	PhaseDone        Phase = "done"
 )
 
-// ApplyTimeout bounds one whole Apply call (REQ-14/D26) — three small files and one
+// ApplyTimeout bounds one whole Apply call — three small files and one
 // archive must never hang the daemon indefinitely.
 const ApplyTimeout = 120 * time.Second
 
-// releaseGOOS is REQ-14's fixed asset OS component — muster only ships darwin builds, so
+// releaseGOOS is the fixed asset OS component — muster only ships darwin builds, so
 // this is a constant, never runtime.GOOS (which would still happen to be "darwin" on the
-// only platform muster runs on, but the plan calls the asset name's OS component out
-// explicitly rather than implicitly).
+// only platform muster runs on, but a constant makes the asset name's OS component
+// explicit rather than implicit).
 const releaseGOOS = "darwin"
 
 // Options configures one Apply call.
@@ -50,7 +51,7 @@ type Options struct {
 	// Tag is the release tag to install, e.g. "v0.11.0".
 	Tag string
 	// ExePath is the resolved (os.Executable + filepath.EvalSymlinks) real path of the
-	// running binary — the temp file is written beside it and renamed over it (REQ-17).
+	// running binary — the temp file is written beside it and renamed over it.
 	ExePath string
 	// PubKey is the compiled-in (or -update-public-key-file-overridden) minisign public
 	// key file's raw bytes.
@@ -60,10 +61,11 @@ type Options struct {
 }
 
 // Apply downloads the release archive plus checksums.txt/checksums.txt.minisig for
-// runtime.GOARCH (REQ-14), verifies them (REQ-15/16), extracts the musterd member, and
-// installs it over opts.ExePath (REQ-17), reporting phases via opts.Progress. Any
+// runtime.GOARCH, verifies them, extracts the musterd member, and
+// installs it over opts.ExePath, reporting phases via opts.Progress. Any
 // failure returns before installBinary is ever reached, so opts.ExePath stays
-// byte-identical to before the call (REQ-18/INV-3) — including a failure during
+// byte-identical to before the call (kb:adr/update-trust-root-minisign-signed-checksums)
+// — including a failure during
 // installBinary itself, which removes its own temp file on every error path.
 func Apply(ctx context.Context, opts Options) error {
 	ctx, cancel := context.WithTimeout(ctx, ApplyTimeout)
@@ -139,9 +141,9 @@ func fetch(ctx context.Context, client *http.Client, url string) ([]byte, error)
 	return io.ReadAll(resp.Body)
 }
 
-// extractMember returns name's contents from a gzipped tar archive (REQ-17), matched by
+// extractMember returns name's contents from a gzipped tar archive, matched by
 // basename so a leading directory entry in the tar (if any) doesn't matter. An archive
-// with no such member (edge case 18, e.g. one carrying only README.md) is an error, not
+// with no such member (e.g. one carrying only README.md) is an error, not
 // a zero-length result.
 func extractMember(archive []byte, name string) ([]byte, error) {
 	gz, err := gzip.NewReader(bytes.NewReader(archive))
@@ -172,10 +174,11 @@ func extractMember(archive []byte, name string) ([]byte, error) {
 }
 
 // installBinary writes data to a fixed-name temp file beside exePath (same filesystem,
-// so the final rename is atomic) named ".musterd-<tag>.tmp" (Implementation Notes),
+// so the final rename is atomic) named ".musterd-<tag>.tmp",
 // chmods it 0755, then renames it over exePath. exePath itself is never opened for
 // writing — the temp file is removed on every failure path, so a write error or a
-// disk-full mid-write (edge case 19) leaves exePath untouched (REQ-18).
+// disk-full mid-write leaves exePath untouched
+// (kb:adr/update-trust-root-minisign-signed-checksums).
 func installBinary(exePath, tag string, data []byte) error {
 	dir := filepath.Dir(exePath)
 	tmpPath := filepath.Join(dir, fmt.Sprintf(".musterd-%s.tmp", tag))

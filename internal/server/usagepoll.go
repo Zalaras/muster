@@ -44,7 +44,8 @@ func newUsagePoller(client *http.Client, baseURL string, tokenReader claudecode.
 	}
 }
 
-// Start begins the poll loop with an immediate first fetch (REQ-1). Call once.
+// Start begins the poll loop with an immediate first fetch
+// (kb:adr/usage-model-window-polled-from-oauth-api). Call once.
 func (p *usagePoller) Start() {
 	p.bg.start(func(ctx context.Context) { runTicked(ctx, p.interval, p.refresh, p.tick) })
 }
@@ -57,10 +58,10 @@ func (p *usagePoller) Stop(ctx context.Context) {
 
 // Refresh wakes the poller for an immediate fetch (kb:anchor/usage.refresh). Coalesced: a
 // refresh already pending in the buffered channel makes this a silent no-op, so any
-// number of concurrent calls collapse into at most one extra fetch (Edge Case 7); a
-// refresh arriving while a fetch is already in flight is picked up as the very next tick
-// once the loop goroutine is free (Edge Case 8) — there is never a second concurrent
-// fetch, because one loop goroutine processes ticks and refreshes sequentially.
+// number of concurrent calls collapse into at most one extra fetch; a refresh arriving
+// while a fetch is already in flight is picked up as the very next tick once the loop
+// goroutine is free — there is never a second concurrent fetch, because one loop
+// goroutine processes ticks and refreshes sequentially.
 func (p *usagePoller) Refresh() {
 	select {
 	case p.refresh <- struct{}{}:
@@ -70,7 +71,7 @@ func (p *usagePoller) Refresh() {
 
 // tick runs one fetch attempt. Both the token read and the HTTP call impose their own
 // bounded timeouts (KeychainTokenReader's 2s, FetchUsage's 5s), so a tick can never block
-// the loop goroutine indefinitely (Edge Case 11).
+// the loop goroutine indefinitely.
 func (p *usagePoller) tick(ctx context.Context) {
 	token, err := p.tokenReader(ctx)
 	if err != nil {
@@ -94,9 +95,9 @@ func (p *usagePoller) tick(ctx context.Context) {
 	}
 
 	// A successful fetch is represented as a non-nil (possibly empty) slice even when
-	// report.ModelScoped itself is nil — REQ-14/INV-1's "an empty list is a valid,
-	// distinct successful result" depends on this construction, not on
-	// InterpretUsageReport's own (ambiguous) nil-vs-empty choice.
+	// report.ModelScoped itself is nil — "an empty list is a valid, distinct successful
+	// result" depends on this construction, not on InterpretUsageReport's own (ambiguous)
+	// nil-vs-empty choice.
 	windows := make([]usage.ModelWindow, len(report.ModelScoped))
 	for i, w := range report.ModelScoped {
 		windows[i] = usage.ModelWindow{DisplayName: w.DisplayName, UsedPct: w.UsedPct, ResetsAt: w.ResetsAt}
@@ -107,7 +108,7 @@ func (p *usagePoller) tick(ctx context.Context) {
 }
 
 // usageErrorKind maps a poll failure to the wire's modelScopedError vocabulary
-// (kb:anchor/ws.usage / plan Implementation Notes): ErrNoCredentials ->
+// (kb:anchor/ws.usage): ErrNoCredentials ->
 // "no-credentials", ErrUnauthorized -> "unauthorized", anything else (timeout, DNS,
 // 5xx, decode error) -> "unreachable".
 func usageErrorKind(err error) string {

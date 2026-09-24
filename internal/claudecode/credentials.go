@@ -14,21 +14,22 @@ import (
 // ErrNoCredentials is returned by a TokenReader when no Claude Code OAuth token is
 // available — a fresh Mac, a logged-out Claude Code, a Keychain access prompt that
 // can't be answered non-interactively, or (FileTokenReader) a missing/unreadable
-// scratch file (usage-model-bar Edge Cases 1/2).
+// scratch file.
 var ErrNoCredentials = errors.New("no claude code credentials available")
 
 // TokenReader returns the Claude Code OAuth access token. It is re-read on every call —
 // callers must never cache a value across polls, because Claude Code refreshes the
-// Keychain item itself on its own runs (Edge Case 3).
+// Keychain item itself on its own runs.
 type TokenReader func(ctx context.Context) (string, error)
 
-// execFunc abstracts running an external command for KeychainTokenReader's tests (D8:
-// no test may execute the real `security` binary). RunCommand is the production value.
+// execFunc abstracts running an external command for KeychainTokenReader's tests
+// (kb:adr/usage-keychain-token-read-only: no test may execute the real `security`
+// binary). RunCommand is the production value.
 type execFunc func(ctx context.Context, name string, args ...string) ([]byte, error)
 
 // RunCommand is the production execFunc: runs name with args, returning stdout. Stderr
-// is discarded — nothing on this path is ever logged (REQ-2), including a Keychain
-// access-prompt's own stderr text.
+// is discarded — nothing on this path is ever logged (kb:adr/usage-keychain-token-read-only),
+// including a Keychain access-prompt's own stderr text.
 func RunCommand(ctx context.Context, name string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
 	var stdout bytes.Buffer
@@ -45,14 +46,15 @@ func RunCommand(ctx context.Context, name string, args ...string) ([]byte, error
 	return stdout.Bytes(), nil
 }
 
-// keychainExecTimeout bounds the `security` invocation (Implementation Notes: "2 s exec
-// timeout") — a hung or prompting `security` process must not stall a poll tick forever.
+// keychainExecTimeout bounds the `security` invocation — a hung or prompting `security`
+// process must not stall a poll tick forever.
 const keychainExecTimeout = 2 * time.Second
 
 // KeychainTokenReader reads the Claude Code OAuth token from the macOS Keychain item
-// "Claude Code-credentials", read-only (REQ-2) — musterd never writes to the Keychain
-// and never refreshes the token itself. user is the account name `security` looks the
-// item up under (main passes os/user.Current()'s value); run is the exec seam D8
+// "Claude Code-credentials" (kb:fact/oauth-token-in-keychain), read-only
+// (kb:adr/usage-keychain-token-read-only) — musterd never writes to the Keychain and
+// never refreshes the token itself. user is the account name `security` looks the item
+// up under (main passes os/user.Current()'s value); run is the exec seam that ADR
 // requires for testing.
 func KeychainTokenReader(user string, run execFunc) TokenReader {
 	return func(ctx context.Context) (string, error) {
@@ -67,8 +69,8 @@ func KeychainTokenReader(user string, run execFunc) TokenReader {
 }
 
 // FileTokenReader reads the same {"claudeAiOauth":{"accessToken":"…"}} shape from a
-// plain file — the -usage-token-file test seam (REQ-13) that makes it structurally
-// impossible for a test to fall through to the real Keychain.
+// plain file — the -usage-token-file test seam (kb:adr/usage-keychain-token-read-only)
+// that makes it structurally impossible for a test to fall through to the real Keychain.
 func FileTokenReader(path string) TokenReader {
 	return func(_ context.Context) (string, error) {
 		data, err := os.ReadFile(path)
@@ -80,7 +82,7 @@ func FileTokenReader(path string) TokenReader {
 }
 
 // oauthCredentials is the Keychain item's (and the equivalent scratch file's) JSON
-// shape — the only fields musterd reads (Implementation Notes).
+// shape — the only fields musterd reads (kb:fact/oauth-token-in-keychain).
 type oauthCredentials struct {
 	ClaudeAiOauth struct {
 		AccessToken string `json:"accessToken"`

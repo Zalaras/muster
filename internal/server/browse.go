@@ -37,8 +37,8 @@ type browseResponse struct {
 	Dirs   []browseDirWire `json:"dirs"`
 }
 
-// browseFeature owns GET /api/browse (plan code-breakup REQ-6). root is Config's
-// -browse-root flag value, fixed for the daemon's lifetime.
+// browseFeature owns GET /api/browse. root is Config's -browse-root flag value, fixed
+// for the daemon's lifetime.
 type browseFeature struct {
 	root string
 	log  zerolog.Logger
@@ -53,8 +53,9 @@ func (f *browseFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.
 }
 
 // handleBrowse is GET /api/browse: lists a directory's subdirectories for the launch
-// modal's folder browser (REQ-6), since browsers never reveal a chosen folder's
-// absolute path. The browse root (-browse-root; empty = the user's home directory)
+// modal's folder browser (kb:adr/launch-browse-via-daemon-not-native-chooser), since
+// browsers never reveal a chosen folder's absolute path. The browse root (-browse-root;
+// empty = the user's home directory)
 // is the no-param default and the "Up" ceiling; explicit paths elsewhere stay allowed.
 func (f *browseFeature) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	resp, err := browseDirectory(r.Context(), f.root, r.URL.Query().Get("path"))
@@ -73,8 +74,8 @@ func (f *browseFeature) handleBrowse(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// browseDirectory is handleBrowse's domain call (§ Go "handlers decode, delegate,
-// encode"; maintainability-cleanup review Minor 14): resolves the effective root,
+// browseDirectory is handleBrowse's domain call (docs/conventions.md § Go "handlers
+// decode, delegate, encode"): resolves the effective root,
 // validates and cleans path, and lists path's non-dot subdirectories with each one's
 // isGit probe, sorted, plus the "Up" parent (nil at the root).
 func browseDirectory(ctx context.Context, root, path string) (browseResponse, error) {

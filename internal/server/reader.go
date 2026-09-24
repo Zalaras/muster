@@ -21,14 +21,14 @@ import (
 	"github.com/Zalaras/muster/internal/session"
 )
 
-// maxWriteLogPaths caps writeLog's per-session memory (Implementation Notes: "when a
-// session's map exceeds 512 entries drop the oldest").
+// maxWriteLogPaths caps writeLog's per-session memory: once a session's map exceeds
+// this many entries, record drops the single oldest.
 const maxWriteLogPaths = 512
 
-// maxReaderFileBytes is REQ-6's serving cap: 10 MiB, exactly.
+// maxReaderFileBytes is the reader's serving cap (kb:spec/reader): 10 MiB, exactly.
 const maxReaderFileBytes = 10 * 1024 * 1024
 
-// maxWalkFiles is REQ-25's non-git listing cap.
+// maxWalkFiles is the non-git listing's walk cap.
 const maxWalkFiles = 20000
 
 // readerExecFunc runs `git` for listMarkdown — an injectable seam like usage.go's
@@ -81,7 +81,7 @@ func (l *writeLog) get(sessionID int64, path string) (time.Time, bool) {
 	return at, ok
 }
 
-// forget drops sessionID's whole write log — Remove's cleanup (edge case 28).
+// forget drops sessionID's whole write log — Remove's cleanup.
 func (l *writeLog) forget(sessionID int64) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -97,9 +97,9 @@ type readerManager interface {
 	ApplyPlanScan(ctx context.Context, id int64, claudeSessionID, foundPath string) (*session.Session, bool, error)
 }
 
-// readerFeature owns the reader's two GETs and the docChanged/plan-scan side effects
-// (plan markdown-viewing). No route here ever mutates a file (INV-7) — the reader is
-// read-only by construction.
+// readerFeature owns the reader's two GETs and the docChanged/plan-scan side effects.
+// No route here ever mutates a file — the reader is read-only by construction
+// (kb:spec/reader).
 type readerFeature struct {
 	manager readerManager
 	hub     *wsHub
@@ -129,19 +129,19 @@ func (f *readerFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.
 	mux.Handle("GET /api/sessions/{id}/reader/file", guard(http.HandlerFunc(f.handleReaderFile)))
 }
 
-// forgetSession drops id's write log — called once from sessions.go's Remove path
-// (edge case 28).
+// forgetSession drops id's write log — called once from sessions.go's Remove path.
 func (f *readerFeature) forgetSession(id int64) {
 	f.writes.forget(id)
 }
 
-// Observe feeds one routed hook's neutral claudecode.FileSignal into the reader
-// (REQ-16/REQ-18): a transcript path refreshes SetTranscript, a written path records
-// the write log and fires docChanged when in scope, and PlanMaybeReady re-scans the
-// transcript. Called from the single ingest worker, after Apply — so
-// SetTranscript/SetPlan's claudeSessionID comparison sees the post-rebind binding
-// (REQ-26/INV-8) — and never blocks on the hub (docChanged goes through wsHub.broadcast,
-// already non-blocking).
+// Observe feeds one routed hook's neutral claudecode.FileSignal into the reader: a
+// transcript path refreshes SetTranscript, a written path records the write log and
+// fires docChanged when in scope (kb:adr/reader-change-signal-is-the-write-hook), and
+// PlanMaybeReady re-scans the transcript. Called from the single ingest worker, after
+// Apply — so SetTranscript/SetPlan's claudeSessionID comparison sees the post-rebind
+// binding: a hook whose Claude session id the session has already left never moves the
+// transcript or the plan (kb:spec/reader) — and never blocks on the hub (docChanged goes
+// through wsHub.broadcast, already non-blocking).
 func (f *readerFeature) Observe(ctx context.Context, sessionID int64, claudeSessionID string, sig claudecode.FileSignal) {
 	if sig.TranscriptPath != "" {
 		if _, err := f.manager.SetTranscript(ctx, sessionID, claudeSessionID, sig.TranscriptPath); err != nil && !errors.Is(err, session.ErrUnknownSession) {
@@ -159,8 +159,9 @@ func (f *readerFeature) Observe(ctx context.Context, sessionID int64, claudeSess
 }
 
 // observeWrite records a routed write and fires docChanged when it names a `.md` under
-// the session's directory or its plan path (REQ-18) — never logged together with any
-// payload text; the path alone is fine (it is what the wire carries).
+// the session's directory or its plan path (kb:adr/reader-change-signal-is-the-write-hook)
+// — never logged together with any payload text; the path alone is fine (it is what the
+// wire carries).
 func (f *readerFeature) observeWrite(ctx context.Context, sessionID int64, claudeSessionID, writtenPath string) {
 	sess, ok := f.manager.Get(sessionID)
 	if !ok {
@@ -190,9 +191,10 @@ func (f *readerFeature) observeWrite(ctx context.Context, sessionID int64, claud
 	f.hub.broadcast(docChangedMessage{Type: "docChanged", ID: sessionID, Path: clean, At: now.Format(time.RFC3339)})
 }
 
-// readerPathQualifies is REQ-18's scope test: after filepath.Clean, path sits lexically
-// under dir and ends in `.md` (case-insensitive), or equals planPath — no symlink
-// resolution (that confinement belongs to serving, in confine, not to the change
+// readerPathQualifies is the change-signal's scope test
+// (kb:adr/reader-change-signal-is-the-write-hook): after filepath.Clean, path sits
+// lexically under dir and ends in `.md` (case-insensitive), or equals planPath — no
+// symlink resolution (that confinement belongs to serving, in confine, not to the change
 // signal).
 func readerPathQualifies(dir, planPath, path string) bool {
 	if planPath != "" && path == planPath {
@@ -208,14 +210,15 @@ func readerPathQualifies(dir, planPath, path string) bool {
 	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
-// scanPlan runs REQ-16's transcript scan and hands its result to
-// Manager.ApplyPlanScan, which is the sole place REQ-8/D7's sticky-once-named
-// retention rule (kb:adr/reader-plan-sticky-once-named) is decided — the retain-or-find
-// choice, the exists stat and the write all happen inside one Manager.mu critical
-// section there, so this function only ever reports what the scan found, never what the
-// session currently holds. ApplyPlanScan itself enforces REQ-26/INV-8's
-// claudeSessionID gate. transcriptPath == "" is a no-op (nothing to scan yet); a scan
-// whose transcript is missing or names no plan also passes foundPath == "" — LocatePlanFile's
+// scanPlan runs the transcript scan for a locatable plan file and hands its result to
+// Manager.ApplyPlanScan, which is the sole place the sticky-once-named retention rule
+// (kb:adr/reader-plan-sticky-once-named) is decided — the retain-or-find choice, the
+// exists stat and the write all happen inside one Manager.mu critical section there, so
+// this function only ever reports what the scan found, never what the session currently
+// holds. ApplyPlanScan itself enforces the claudeSessionID gate: a hook whose Claude
+// session id the session has already left never moves the transcript or the plan
+// (kb:spec/reader). transcriptPath == "" is a no-op (nothing to scan yet); a scan whose
+// transcript is missing or names no plan also passes foundPath == "" — LocatePlanFile's
 // ErrNotExist branch returns a zero PlanFile, not an error.
 func (f *readerFeature) scanPlan(ctx context.Context, sessionID int64, claudeSessionID, transcriptPath string) {
 	if transcriptPath == "" {
@@ -233,8 +236,9 @@ func (f *readerFeature) scanPlan(ctx context.Context, sessionID int64, claudeSes
 }
 
 // handleReaderList is GET /api/sessions/{id}/reader (kb:anchor/sessions.reader): runs the
-// transcript scan as a side effect (REQ-16's "reader open" trigger — served, dead
-// sessions included), then lists the session's readable markdown.
+// transcript scan as a side effect (the reader opening is one of the scan's bounded
+// triggers, kb:spec/reader — served, dead sessions included), then lists the session's
+// readable markdown.
 func (f *readerFeature) handleReaderList(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
 	if !ok {
@@ -338,10 +342,10 @@ func (f *readerFeature) handleReaderFile(w http.ResponseWriter, r *http.Request)
 
 // confine reports whether requested may be served for a session rooted at dir with
 // derived plan path planPath (""  = none), and its symlink-resolved form when so
-// (REQ-20/INV-2): after filepath.EvalSymlinks of both dir and requested, requested must
-// sit under dir and end in `.md` (case-insensitive), or equal the resolved planPath.
-// Existence/directory-ness beyond symlink resolution is the caller's job (a Stat after
-// confine, distinguishing 404 from 413 — Implementation Notes).
+// (kb:spec/reader's confinement rule): after filepath.EvalSymlinks of both dir and
+// requested, requested must sit under dir and end in `.md` (case-insensitive), or equal
+// the resolved planPath. Existence/directory-ness beyond symlink resolution is the
+// caller's job (a Stat after confine, distinguishing 404 from 413).
 func confine(dir, planPath, requested string) (string, bool) {
 	resolvedDir, err := filepath.EvalSymlinks(filepath.Clean(dir))
 	if err != nil {
@@ -369,7 +373,7 @@ func confine(dir, planPath, requested string) (string, bool) {
 
 // listMarkdown lists every `.md` (case-insensitive) file under dir: `git ls-files -co
 // --exclude-standard` when dir is a git checkout, a bounded dot-directory-skipping walk
-// otherwise (REQ-10/REQ-25). A git failure (not a checkout, or a real error) is not
+// otherwise (kb:spec/reader). A git failure (not a checkout, or a real error) is not
 // itself an error — it falls back to the walk, logged at debug.
 func (f *readerFeature) listMarkdown(ctx context.Context, dir string) (paths []string, listing string, truncated bool) {
 	out, err := f.runGit(ctx, dir, "ls-files", "-co", "--exclude-standard", "-z")
@@ -392,16 +396,16 @@ func (f *readerFeature) listMarkdown(ctx context.Context, dir string) (paths []s
 	return md, "git", false
 }
 
-// errWalkCap stops walkMarkdown's WalkDir early once REQ-25's cap is reached; never
+// errWalkCap stops walkMarkdown's WalkDir early once maxWalkFiles is reached; never
 // surfaced past this function.
 var errWalkCap = errors.New("reader: walk file cap reached")
 
 func walkMarkdown(dir string) (paths []string, listing string, truncated bool) {
 	var md []string
 	// The walk's own top-level error (beyond the cap sentinel, handled inline below) is
-	// never inspected: walkMarkdown has no logger (kept pure per Implementation Notes),
-	// the caller (listMarkdown) already logs the git-fallback path, and it means a root
-	// that vanished mid-walk — rare enough that the partial md collected so far is an
+	// never inspected: walkMarkdown has no logger (kept intentionally pure), the caller
+	// (listMarkdown) already logs the git-fallback path, and it means a root that
+	// vanished mid-walk — rare enough that the partial md collected so far is an
 	// adequate answer.
 	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {

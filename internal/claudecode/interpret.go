@@ -40,7 +40,7 @@ type StateInput struct {
 
 	// PermissionMode is set only when the payload carried permission_mode (the latch's
 	// "source:hook" case) — nil means "this event never carries the field", never "reset
-	// to unknown" (REQ-9).
+	// to unknown" (kb:fact/permission-mode-presence-split).
 	PermissionMode *string
 
 	// Model is SessionStart's optional model id, when present.
@@ -68,7 +68,7 @@ type StateInput struct {
 	// (mirrors LastActivity): present only for a real prompt-submit turn-activity event
 	// whose text isn't the synthetic background-completion re-invocation
 	// (kb:fact/background-completion-new-prompt-id); nil for every other turn-activity
-	// event and whenever the field is absent (REQ-12).
+	// event and whenever the field is absent.
 	Prompt *string
 }
 
@@ -123,7 +123,7 @@ func Interpret(eventType string, payload []byte) StateInput {
 		_ = json.Unmarshal(payload, &f)
 		in := StateInput{Kind: KindTurnFailed, LastActivity: f.LastAssistantMessage}
 		// nil (not a pointer to "") when the payload carried no error field — a StopFailure
-		// with an absent error must not render as a bare " — message" note (review Minor 11).
+		// with an absent error must not render as a bare " — message" note.
 		if f.Error != "" {
 			in.FailureError = &f.Error
 		}
@@ -153,9 +153,10 @@ func interpretSessionStart(payload []byte) StateInput {
 	case "clear":
 		kind = KindClearRebind
 	case "resume":
-		// m4-reconcile REQ-8: a resume bind lands in idle (history exists; it is waiting
-		// for input, not new) unless applyBind escalates it to a clear-rebind because the
-		// claude session id actually changed (Edge Case 5 loss tolerance).
+		// A resume bind lands in idle (history exists; it is waiting for input, not new)
+		// unless applyBind escalates it to a clear-rebind because the claude session id
+		// actually changed (kb:adr/lifecycle-resume-rebinds-existing-session,
+		// kb:fact/resume-keeps-session-identity).
 		kind = KindResumeBind
 	}
 
@@ -170,8 +171,9 @@ func interpretSessionStart(payload []byte) StateInput {
 // measurement (interface probe, 2026-08-22, docs/history/spikes/canary-fields.md "Values worth
 // asserting" → SessionStart.model): when present it is always a plain model-id string
 // (e.g. "claude-haiku-4-5-20251001") — never the {id, display_name} object shape the
-// status line uses. The object-shape branch this function used to also accept was
-// speculative (review Major 11) and is dropped now that the wire shape is known.
+// status line uses (kb:fact/sessionstart-model-optional-string). The object-shape branch
+// this function used to also accept was speculative and is dropped now that the wire
+// shape is known.
 func modelID(raw json.RawMessage) string {
 	if len(raw) == 0 {
 		return ""

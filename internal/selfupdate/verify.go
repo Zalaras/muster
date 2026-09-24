@@ -11,8 +11,8 @@ import (
 )
 
 // ErrBadSignature, ErrChecksumMismatch and ErrNoChecksumLine are VerifyChecksums'/
-// ChecksumFor's sentinel refusals (REQ-15/16/17) — every message doubles as the UI
-// status line's failure text (Text rules: "Update failed: <error>"), so each names both
+// ChecksumFor's sentinel refusals — every message doubles as the UI
+// status line's failure text ("Update failed: <error>"), so each names both
 // the fact and the remedy in one sentence.
 var (
 	ErrBadSignature     = errors.New("signature on checksums.txt did not verify — the release may be tampered with; nothing was installed")
@@ -25,8 +25,8 @@ var (
 // minisign public key file's raw bytes). Both minisign signature modes verify
 // transparently through the one call: minisign.Verify re-hashes the message with
 // BLAKE2b-512 internally whenever the parsed signature's algorithm says prehashed
-// (`ED`), and compares directly for the legacy `Ed` mode — REQ-15's "both modes
-// accepted" needs no branching here.
+// (`ED`), and compares directly for the legacy `Ed` mode — both signature modes are
+// accepted (kb:adr/update-trust-root-minisign-signed-checksums) with no branching here.
 func VerifyChecksums(pubKey, checksums, minisig []byte) error {
 	var key minisign.PublicKey
 	if err := key.UnmarshalText(pubKey); err != nil {
@@ -40,8 +40,7 @@ func VerifyChecksums(pubKey, checksums, minisig []byte) error {
 
 // ChecksumFor returns the SHA-256 recorded in an already-verified checksums.txt for
 // asset, matched by exact basename against GoReleaser's "<hex>  <asset>" lines — one or
-// two spaces both accepted, since strings.Fields splits on any run of whitespace (plan's
-// carried-over measurement).
+// two spaces both accepted, since strings.Fields splits on any run of whitespace.
 func ChecksumFor(checksums []byte, asset string) ([32]byte, error) {
 	var zero [32]byte
 	for _, line := range strings.Split(string(checksums), "\n") {
@@ -61,7 +60,7 @@ func ChecksumFor(checksums []byte, asset string) ([32]byte, error) {
 }
 
 // SHA256Of hashes data — used to compare a downloaded archive against ChecksumFor's
-// result before extraction (REQ-16).
+// result before extraction.
 func SHA256Of(data []byte) [32]byte {
 	return sha256.Sum256(data)
 }

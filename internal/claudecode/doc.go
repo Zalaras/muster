@@ -17,19 +17,17 @@
 //     with no retry and no replay, so every consumer must tolerate gaps rather than assume a
 //     complete event stream.
 //
-// Since m4-hook-lifetime (2026-08-27) every hook Muster registers, including SessionStart
-// and the status line, is a type:"command" wrapper script rather than a plain HTTP hook —
-// Claude Code's own type:"http" transport left an unmanaged session's failures visible
+// Every hook Muster registers, including SessionStart and the status line, is a
+// type:"command" wrapper script rather than a plain HTTP hook (kb:adr/ingest-all-hooks-command-wrappers)
+// — Claude Code's own type:"http" transport left an unmanaged session's failures visible
 // inline and a stopped daemon noisy on every tool call. The wrapper exits 0 silently in
 // both cases (kb:anchor/ingest.transport). Wire shapes on /ingest/* are unchanged.
 //
-// Since new-ui-design-colors (2026-09-02), theme.go also owns Claude Code's own global
-// config file (name, location, and its "theme" key) — read-only, polled for the theme
-// family that grounds the terminal pane and drives the dashboard's "Follow Claude Code"
-// preference.
+// theme.go also owns Claude Code's own global config file (name, location, and its
+// "theme" key) — read-only, polled for the theme family that grounds the terminal pane
+// and drives the dashboard's "Follow Claude Code" preference (kb:adr/theme-claude-theme-read-only-poll).
 //
-// Since claude-status-fixes (2026-09-03), Interpret also reads a background subagent's
-// agent marker (measured 2.1.259, canary-fields.md "Subagent and background-task
-// fields") and exposes it to internal/session only as StateInput.FromSubagent — a
-// neutral bool, never the payload key name.
+// Interpret also reads a background subagent's agent marker
+// (kb:fact/subagent-hooks-carry-agent-id) and exposes it to internal/session only as
+// StateInput.FromSubagent — a neutral bool, never the payload key name.
 package claudecode

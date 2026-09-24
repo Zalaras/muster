@@ -15,7 +15,7 @@ type launchError struct {
 
 func (e *launchError) Error() string { return e.message }
 
-// Fixed 5xx `message` text (REQ-10, kb:anchor/transport): display text for the user, never
+// Fixed 5xx `message` text (kb:anchor/transport): display text for the user, never
 // a wrapped tmux/OS error string — the raw error goes only to the adjacent log.Error()
 // line. 4xx messages are unaffected; they were already fixed phrases. This vocabulary's
 // generic member, msgInternalError, lives in respond.go — every feature shares it, not
@@ -31,14 +31,14 @@ func invalidRequest(message string) *launchError {
 	return &launchError{status: http.StatusBadRequest, code: "invalid_request", message: message}
 }
 
-// launchFailed is every launch/resume failure's 500 body (REQ-10): the fixed phrase only
+// launchFailed is every launch/resume failure's 500 body: the fixed phrase only
 // — the caller logs the raw error itself at the site.
 func launchFailed() *launchError {
 	return &launchError{status: http.StatusInternalServerError, code: "launch_failed", message: msgLaunchFailed}
 }
 
 // notFound, notResumable and directoryMissing are Resume's own error codes
-// (m4-reconcile REQ-7, kb:anchor/sessions.resume) — reusing launchError's shape rather than
+// (kb:anchor/sessions.resume) — reusing launchError's shape rather than
 // a parallel type, since the server-side handling (writeJSONError(status, code,
 // message)) is identical.
 func notFound(message string) *launchError {
@@ -53,9 +53,9 @@ func directoryMissing(message string) *launchError {
 	return &launchError{status: http.StatusConflict, code: "directory_missing", message: message}
 }
 
-// modelUnrecognized is REQ-1's 400 for a model the installed Claude Code's catalog does
-// not describe (kb:anchor/sessions.create). %q reproduces the fixed message's quoting
-// exactly.
+// modelUnrecognized is the 400 for a model the installed Claude Code's catalog does not
+// describe (kb:anchor/sessions.create, kb:adr/launch-refuses-model-outside-binary-catalog).
+// %q reproduces the fixed message's quoting exactly.
 func modelUnrecognized(model string) *launchError {
 	return &launchError{
 		status:  http.StatusBadRequest,

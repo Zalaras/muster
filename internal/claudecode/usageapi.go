@@ -18,14 +18,13 @@ var ErrUnauthorized = errors.New("usage api: unauthorized")
 // measured live 2026-08-30") — undocumented, re-checked on every Claude Code pin bump.
 const usageAPIPath = "/api/oauth/usage"
 
-// usageAPITimeout bounds one fetch (REQ-3/Edge Case 11): the poll loop must never block
-// on a wedged endpoint.
+// usageAPITimeout bounds one fetch: the poll loop must never block on a wedged endpoint.
 const usageAPITimeout = 5 * time.Second
 
 // UsageWindow is one per-model weekly-scoped usage window read from
 // GET /api/oauth/usage's `limits[]`. Neutral vocabulary — internal/usage.ModelWindow is
-// this seam's other half; internal/server maps between them (mirrors StatusAccount →
-// usage.Sample, m3 review cycle-1 Minor 3).
+// this seam's other half; internal/server maps between them (mirrors how it maps
+// StatusAccount to usage.Sample).
 type UsageWindow struct {
 	DisplayName string
 	UsedPct     float64
@@ -64,8 +63,8 @@ type usageAPIScopeModel struct {
 }
 
 // FetchUsage calls GET <baseURL>/api/oauth/usage with the Claude Code OAuth token
-// (docs/history/spikes/canary-fields.md's measured headers) and decodes the response. token is never
-// logged here or by any caller (REQ-2).
+// (kb:fact/usage-api-oauth-shape's measured headers) and decodes the response. token is
+// never logged here or by any caller (kb:adr/usage-keychain-token-read-only).
 func FetchUsage(ctx context.Context, client *http.Client, baseURL, token string) (UsageReport, error) {
 	ctx, cancel := context.WithTimeout(ctx, usageAPITimeout)
 	defer cancel()
@@ -100,10 +99,10 @@ func FetchUsage(ctx context.Context, client *http.Client, baseURL, token string)
 
 // InterpretUsageReport is the pure decode InterpretStatus mirrors for the status line —
 // it never does I/O. Only `kind == "weekly_scoped"` entries carrying a non-empty
-// `scope.model.display_name` become a UsageWindow (REQ-4); a missing `limits` key,
-// other kinds, a null/empty display_name, an unparseable resets_at on one entry, and
-// unknown top-level keys are all ignored rather than erroring — an undocumented,
-// evolving endpoint (canary-fields.md) must not be able to break the whole poll over one
+// `scope.model.display_name` become a UsageWindow (kb:fact/usage-api-oauth-shape); a
+// missing `limits` key, other kinds, a null/empty display_name, an unparseable resets_at
+// on one entry, and unknown top-level keys are all ignored rather than erroring — an
+// undocumented, evolving endpoint must not be able to break the whole poll over one
 // unexpected entry.
 func InterpretUsageReport(body []byte) (UsageReport, error) {
 	var resp usageAPIResponse
@@ -132,9 +131,10 @@ func InterpretUsageReport(body []byte) (UsageReport, error) {
 	return out, nil
 }
 
-// parseResetsAt accepts resets_at either as an RFC3339(Nano)-with-offset string (the
-// measured live shape, e.g. "2026-09-01T13:59:59.522599+00:00") or an integer epoch
-// seconds (REQ-4's dual format).
+// parseResetsAt accepts resets_at either as an RFC3339(Nano)-with-offset string
+// (kb:fact/usage-api-oauth-shape's measured live shape, e.g.
+// "2026-09-01T13:59:59.522599+00:00") or an integer epoch seconds, since the endpoint is
+// undocumented and its exact format carries no guarantee.
 func parseResetsAt(raw json.RawMessage) (time.Time, error) {
 	var s string
 	if err := json.Unmarshal(raw, &s); err == nil {

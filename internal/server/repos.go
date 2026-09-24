@@ -9,7 +9,7 @@ import (
 	"github.com/Zalaras/muster/internal/store"
 )
 
-// repoWire is one GET /api/repos element (kb:anchor/repos.list, additive REQ-5 fields).
+// repoWire is one GET /api/repos element (kb:anchor/repos.list).
 type repoWire struct {
 	ID                 int64   `json:"id"`
 	Path               string  `json:"path"`
@@ -23,7 +23,7 @@ type repoWire struct {
 	LastPermissionMode *string `json:"lastPermissionMode"`
 }
 
-// reposFeature owns GET /api/repos (plan code-breakup REQ-6).
+// reposFeature owns GET /api/repos.
 type reposFeature struct {
 	store *store.Store
 	log   zerolog.Logger
@@ -37,8 +37,9 @@ func (f *reposFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.H
 	mux.Handle("GET /api/repos", guard(http.HandlerFunc(f.handleListRepos)))
 }
 
-// handleListRepos is GET /api/repos: the MRU directory picker list, ordered
-// `pinned DESC, lastLaunchedAt DESC`, with branch read at request time (D20).
+// handleListRepos is GET /api/repos: the MRU directory picker list
+// (kb:adr/launch-hybrid-mru-directory-memory), ordered `pinned DESC, lastLaunchedAt
+// DESC`, with branch read at request time.
 func (f *reposFeature) handleListRepos(w http.ResponseWriter, r *http.Request) {
 	repos, err := f.store.ListRepos(r.Context())
 	if err != nil {
