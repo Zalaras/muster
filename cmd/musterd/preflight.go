@@ -9,14 +9,14 @@ import (
 	"github.com/Zalaras/muster/internal/tmux"
 )
 
-// runTmuxPreflight consults internal/tmux.Preflight and renders its result: nothing on
-// an all-clear (REQ-13 — the detected version instead joins the "musterd starting" log
-// line, added by run itself), a warning row on an unrecognized version (REQ-3, startup
-// proceeds), or a fatal report plus a returned error naming the remedy (REQ-1/REQ-2/
-// REQ-17). It holds no tmux version knowledge of its own beyond calling internal/tmux —
-// MinVersion, parsing and the comparison all live there (REQ-4/R2). preflight is
-// tmux.Preflight in production; tests pass a closure returning a canned result, since
-// this function's own job is only the rendering (docs/conventions.md §Testing).
+// runTmuxPreflight consults internal/tmux.Preflight and renders its result: nothing on an
+// all-clear (the detected version instead joins the "musterd starting" log line, added by
+// run itself), a warning row on an unrecognized version (startup proceeds), or a fatal
+// report plus a returned error naming the remedy (kb:adr/surfaces-tmux-preflight-at-startup).
+// It holds no tmux version knowledge of its own beyond calling internal/tmux — MinVersion,
+// parsing and the comparison all live there. preflight is tmux.Preflight in production;
+// tests pass a closure returning a canned result, since this function's own job is only
+// the rendering (docs/conventions.md §Testing).
 func runTmuxPreflight(ctx context.Context, stderr io.Writer, preflight func(context.Context) tmux.PreflightResult) (tmux.PreflightResult, error) {
 	result := preflight(ctx)
 
@@ -48,12 +48,12 @@ func runTmuxPreflight(ctx context.Context, stderr io.Writer, preflight func(cont
 	}
 }
 
-// tmuxInstallRemedy is the "not installed" remedy string. README.md's Prerequisites
-// section (REQ-12) quotes this byte-for-byte (D13/R1) — keep the two in sync by hand,
-// since README is prose, not generated.
+// tmuxInstallRemedy is the "not installed" remedy string. README.md's Requirements
+// section quotes this byte-for-byte — keep the two in sync by hand, since README is
+// prose, not generated.
 const tmuxInstallRemedy = "brew install tmux"
 
-// tmuxUpgradeRemedy is the "too old" remedy string. README.md's Prerequisites section
-// (REQ-12) quotes this byte-for-byte too — keep the two in sync by hand, same as
-// tmuxInstallRemedy above.
+// tmuxUpgradeRemedy is the "too old" remedy string. README.md's Requirements section
+// quotes this byte-for-byte too — keep the two in sync by hand, same as tmuxInstallRemedy
+// above.
 const tmuxUpgradeRemedy = "brew upgrade tmux"

@@ -14,10 +14,10 @@ import (
 )
 
 // errRestart is run()'s sentinel for "an applied update wants an in-place restart"
-// (REQ-19): every step of a graceful shutdown (HTTP, WS, ingest, store) has already run
-// by the time run() returns this — main performs the actual syscall.Exec itself
-// (Implementation Notes "Re-exec"), so run() stays testable without ever replacing the
-// test binary's own process image.
+// (kb:adr/update-restart-is-in-place-reexec-not-shutdown): every step of a graceful
+// shutdown (HTTP, WS, ingest, store) has already run by the time run() returns this —
+// main performs the actual syscall.Exec itself, so run() stays testable without ever
+// replacing the test binary's own process image.
 type errRestart struct {
 	exe string
 }
@@ -33,17 +33,18 @@ func (e *errRestart) Error() string {
 var errUpdateFailed = errors.New("update failed")
 
 // reexec replaces the current process image with exe, passing os.Args verbatim and
-// os.Environ() plus MUSTER_RESTARTED=1 (REQ-19/INV-7: no flag added, dropped or
-// reordered). Only returns on failure — syscall.Exec never returns on success.
+// os.Environ() plus MUSTER_RESTARTED=1 — no flag added, dropped or reordered. Only
+// returns on failure — syscall.Exec never returns on success.
 func reexec(exe string) error {
 	return syscall.Exec(exe, os.Args, append(os.Environ(), "MUSTER_RESTARTED=1"))
 }
 
-// runUpdate implements `musterd -update` (REQ-22): checks the latest release against
-// the running version and, if strictly newer, downloads/verifies/installs it — never
-// restarting anything. Prints the exact REQ-22 stdout messages on success; on failure it
-// writes the remedy or verification error to stderr itself and returns errUpdateFailed
-// (a non-nil error is enough for main to exit non-zero).
+// runUpdate implements `musterd -update`: checks the latest release against the running
+// version and, if strictly newer, downloads/verifies/installs it — never restarting
+// anything (kb:adr/update-install-kinds-decide-who-may-apply). Prints its stdout messages
+// verbatim on success; on failure it writes the remedy or verification error to stderr
+// itself and returns errUpdateFailed (a non-nil error is enough for main to exit
+// non-zero).
 func runUpdate(ctx context.Context, stdout, stderr io.Writer, base string, pubKey []byte, running, exePath string, install selfupdate.Install) error {
 	if install.Kind == selfupdate.KindDev {
 		fmt.Fprintln(stderr, "not a release build")

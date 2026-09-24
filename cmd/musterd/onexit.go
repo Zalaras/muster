@@ -16,8 +16,9 @@ import (
 	"github.com/Zalaras/muster/internal/server"
 )
 
-// onExitPromptTimeout bounds the `-on-exit=ask` confirmation (REQ-3): unanswered within
-// this window (or stdin isn't a TTY at all) resolves to "leave", never a silent kill.
+// onExitPromptTimeout bounds the `-on-exit=ask` confirmation: unanswered within this
+// window (or stdin isn't a TTY at all) resolves to "leave", never a silent kill
+// (kb:adr/lifecycle-shutdown-leaves-sessions-running).
 const onExitPromptTimeout = 10 * time.Second
 
 // shutdownGracefully resolves the -on-exit policy and then tears the daemon down.
@@ -35,13 +36,13 @@ const onExitPromptTimeout = 10 * time.Second
 // clean). Stopping the poll here is a few milliseconds in the common case (it only waits
 // out an in-flight tick), well inside shutdownTimeout's own budget for the rest of
 // teardown. This closes only the periodic-poll path to the symptom, not every path: a
-// live terminal's PTY-EOF liveness nudge (internal/server/terminal.go's pumpPTYToSocket,
-// REQ-6) can mark the same row ended just as fast, entirely independently of this poll.
+// live terminal's PTY-EOF liveness nudge (internal/server/terminal.go's pumpPTYToSocket)
+// can mark the same row ended just as fast, entirely independently of this poll.
 //
 // The policy is resolved (and, for "ask", possibly prompted) before the shutdown timeout
-// budget starts — the REQ-3 prompt has its own 10s timeout, separate from shutdownTimeout's
-// budget for the rest of teardown. With zero live sessions and zero shells neither branch
-// prints anything (REQ-13).
+// budget starts — the ask prompt has its own 10s timeout (onExitPromptTimeout), separate
+// from shutdownTimeout's budget for the rest of teardown. With zero live sessions and zero
+// shells neither branch prints anything.
 func shutdownGracefully(f *cliFlags, srv *server.Server, httpServer *http.Server, stdin *os.File, stderr io.Writer, log zerolog.Logger) {
 	stopPollCtx, stopPollCancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	srv.StopLivenessPoll(stopPollCtx)
@@ -49,8 +50,8 @@ func shutdownGracefully(f *cliFlags, srv *server.Server, httpServer *http.Server
 
 	live := srv.LiveSessionCount()
 
-	// REQ-13: counted before resolveOnExit so the ask prompt can name it. A count
-	// failure (socket unreachable) is logged and treated as zero — never blocks
+	// Counted before resolveOnExit so the ask prompt can name it (kb:adr/surfaces-shell-dies-at-kill-shutdown-too).
+	// A count failure (socket unreachable) is logged and treated as zero — never blocks
 	// shutdown, and shell teardown below is skipped since KillAllShells would just hit
 	// the same failure.
 	shellCountCtx, shellCountCancel := context.WithTimeout(context.Background(), shutdownTimeout)
@@ -64,15 +65,15 @@ func shutdownGracefully(f *cliFlags, srv *server.Server, httpServer *http.Server
 	if live > 0 || shells > 0 {
 		switch resolveOnExit(f.onExit, stdin, stderr, live, shells, srv.TmuxSocket()) {
 		case onExitKill:
-			// Bounded (review cycle 1 Minor 3): context.Background() had no deadline at
-			// all, so a wedged tmux kill-session could hang shutdown indefinitely,
-			// outside shutdownTimeout's own budget for the rest of teardown below.
+			// Bounded: an unbounded context here would let a wedged tmux kill-session
+			// hang shutdown indefinitely, outside shutdownTimeout's own budget for the
+			// rest of teardown below.
 			endAllCtx, endAllCancel := context.WithTimeout(context.Background(), shutdownTimeout)
 			ended := srv.EndAllSessions(endAllCtx)
 			endAllCancel()
 
-			// Order matters (Implementation Notes "Shells at shutdown"): sessions first —
-			// they may hold the socket busy — then shells, each under its own budget.
+			// Order matters: sessions first — they may hold the socket busy — then
+			// shells, each under its own budget (kb:adr/surfaces-shell-dies-at-kill-shutdown-too).
 			killedShells := 0
 			if shellCountErr == nil {
 				killShellsCtx, killShellsCancel := context.WithTimeout(context.Background(), shutdownTimeout)
@@ -98,9 +99,9 @@ func shutdownGracefully(f *cliFlags, srv *server.Server, httpServer *http.Server
 	srv.Shutdown(shutdownCtx)
 }
 
-// onExitDecision is -on-exit's final, already-resolved leave/kill decision (REQ-3):
-// "ask" is resolved to one of these by resolveOnExit before run's shutdown path acts on
-// it — nothing downstream of resolveOnExit ever sees "ask" itself.
+// onExitDecision is -on-exit's final, already-resolved leave/kill decision: "ask" is
+// resolved to one of these by resolveOnExit before run's shutdown path acts on it —
+// nothing downstream of resolveOnExit ever sees "ask" itself.
 type onExitDecision int
 
 const (
@@ -112,7 +113,7 @@ const (
 // "leave"/"kill" pass straight through; "ask" prompts once — but only when stdin is a
 // real terminal (isTerminal) — and otherwise resolves to "leave" without printing
 // anything. Callers only invoke this once they already know liveSessions > 0 || shells >
-// 0 (REQ-3/REQ-13: zero of both gets no prompt and no log line at all).
+// 0: zero of both gets no prompt and no log line at all.
 func resolveOnExit(flagValue string, stdin *os.File, stderr io.Writer, liveSessions, shells int, tmuxSocket string) onExitDecision {
 	switch flagValue {
 	case "kill":
@@ -127,12 +128,12 @@ func resolveOnExit(flagValue string, stdin *os.File, stderr io.Writer, liveSessi
 }
 
 // isTerminal reports whether f is attached to a real terminal, via
-// github.com/mattn/go-isatty rather than Stat's ModeCharDevice (REQ-9): /dev/null is
-// also a character device (measured 2026-08-31: mode=Dcrw-rw-rw- charDevice=true), which
-// made the old check wrongly treat every /dev/null stdin — every onexit_test.go
-// subprocess, every E2E-spawned scratch daemon — as if it were a terminal. A stat/fd
-// failure or a nil file is treated as "not a terminal" (Edge Case 13: run's own
-// nil-stdin callers must keep resolving to false).
+// github.com/mattn/go-isatty rather than Stat's ModeCharDevice: /dev/null is also a
+// character device (measured 2026-08-31: mode=Dcrw-rw-rw- charDevice=true), which made
+// the old check wrongly treat every /dev/null stdin — every onexit_test.go subprocess,
+// every E2E-spawned scratch daemon — as if it were a terminal
+// (kb:adr/connection-dashboard-auto-opens-on-terminal). A stat/fd failure or a nil file is
+// treated as "not a terminal" — run's own nil-stdin callers must keep resolving to false.
 func isTerminal(f *os.File) bool {
 	if f == nil {
 		return false
@@ -140,12 +141,12 @@ func isTerminal(f *os.File) bool {
 	return isatty.IsTerminal(f.Fd())
 }
 
-// askKillPrompt prints the REQ-3/REQ-13 confirmation to stderr and reads one line from
+// askKillPrompt prints the kill/leave confirmation to stderr and reads one line from
 // stdin, racing a 10s timeout: only "y"/"Y"/"yes" (case-insensitive) answers kill;
-// anything else, or the timeout firing first, answers leave (Edge Case 10: a TTY with
-// nobody watching must never be silently killed). The grammar is deliberately
-// plural-fixed ("1 shells") — the developer accepted it (2026-09-16) to keep the prompt
-// text a single fixed format string (D16) rather than branching on count.
+// anything else, or the timeout firing first, answers leave — a TTY with nobody watching
+// must never be silently killed. The grammar is deliberately plural-fixed ("1 shells") —
+// the developer accepted it (2026-09-16) to keep the prompt text a single fixed format
+// string rather than branching on count.
 func askKillPrompt(stdin *os.File, stderr io.Writer, liveSessions, shells int, tmuxSocket string) onExitDecision {
 	fmt.Fprintf(stderr, "%d live sessions and %d shells on tmux socket %s — kill them? [y/N] ", liveSessions, shells, tmuxSocket)
 

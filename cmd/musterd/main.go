@@ -35,20 +35,22 @@ var version = "dev"
 // closing, and the ingest queue draining, combined.
 const shutdownTimeout = 10 * time.Second
 
-// defaultUsagePoll is -usage-poll's default (plan usage-model-bar REQ-1).
+// defaultUsagePoll is -usage-poll's default: the per-model window is polled on a slow
+// timer, not derived from the status line (kb:adr/usage-model-window-polled-from-oauth-api).
 const defaultUsagePoll = 5 * time.Minute
 
-// defaultClaudeThemePoll is -claude-theme-poll's default (plan new-ui-design-colors
-// REQ-14).
+// defaultClaudeThemePoll is -claude-theme-poll's default poll interval for Claude Code's
+// theme config key (kb:adr/theme-claude-theme-read-only-poll).
 const defaultClaudeThemePoll = 10 * time.Second
 
-// defaultUpdateBaseURL is -update-base-url's default (plan auto-update REQ-5) — empty
-// disables checking and apply entirely, the IssueAPIURL shape; every E2E daemon passes
-// "" explicitly (web/e2e/helpers/daemon.ts), so this default is only ever live outside
-// tests.
+// defaultUpdateBaseURL is -update-base-url's default — empty disables checking and apply
+// entirely, the IssueAPIURL shape; every E2E daemon passes "" explicitly
+// (web/e2e/helpers/daemon.ts), so this default is only ever live outside tests
+// (kb:adr/update-check-runs-in-daemon-daily).
 const defaultUpdateBaseURL = "https://github.com/Zalaras/muster/releases"
 
-// defaultUpdateCheckInterval is -update-check-interval's default (plan auto-update REQ-4).
+// defaultUpdateCheckInterval is -update-check-interval's default: daily, so every open tab
+// agrees over the life of a long-running daemon (kb:adr/update-check-runs-in-daemon-daily).
 const defaultUpdateCheckInterval = 24 * time.Hour
 
 func main() {
@@ -56,8 +58,8 @@ func main() {
 
 	var restart *errRestart
 	if errors.As(err, &restart) {
-		// Only returns on failure (Implementation Notes "Re-exec") — everything needed
-		// for a clean shutdown already happened inside run() before it returned this.
+		// reexec only returns on failure — everything needed for a clean shutdown
+		// already happened inside run() before it returned this (kb:adr/update-restart-is-in-place-reexec-not-shutdown).
 		if execErr := reexec(restart.exe); execErr != nil {
 			fmt.Fprintln(os.Stderr, "musterd: restarting:", execErr)
 			os.Exit(1)
@@ -110,10 +112,10 @@ func parseFlags(args []string, stderr io.Writer) (*cliFlags, error) {
 		defaultDataDir = filepath.Join(home, "Library", "Application Support", "Muster")
 	}
 
-	// -claude-config-file's default (plan new-ui-design-colors, Affected Files): empty
-	// when DefaultConfigPath itself fails (no home directory) — polling then stays
-	// enabled but every read reports "unknown", never a fallback constant duplicating
-	// the file's own name outside internal/claudecode.
+	// -claude-config-file's default is empty when DefaultConfigPath itself fails (no
+	// home directory) — polling then stays enabled but every read reports "unknown",
+	// never a fallback constant duplicating the file's own name outside
+	// internal/claudecode.
 	defaultClaudeConfigFile := ""
 	if p, err := claudecode.DefaultConfigPath(); err == nil {
 		defaultClaudeConfigFile = p
@@ -159,10 +161,10 @@ func parseFlags(args []string, stderr io.Writer) (*cliFlags, error) {
 	return &f, nil
 }
 
-// resolveInstall classifies how musterd was installed (REQ-21) and picks the minisign
-// public key releases are verified against. A failure resolving the executable path is not
-// fatal: exePath stays "", which Classify treats no differently than any other
-// unwritable/unresolvable directory.
+// resolveInstall classifies how musterd was installed (kb:adr/update-install-kinds-decide-who-may-apply)
+// and picks the minisign public key releases are verified against. A failure resolving the
+// executable path is not fatal: exePath stays "", which Classify treats no differently than
+// any other unwritable/unresolvable directory.
 func resolveInstall(updatePublicKeyFile string) (string, selfupdate.Install, []byte, error) {
 	exePath, resolveErr := os.Executable()
 	if resolveErr == nil {
@@ -195,9 +197,9 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		return nil
 	}
 
-	// Install classification (REQ-21) happens here — before tmux preflight, data dir
-	// creation or anything else below — because both -update and the normal server path
-	// need it, and -update needs nothing heavier than this to run.
+	// Install classification happens here — before tmux preflight, data dir creation or
+	// anything else below — because both -update and the normal server path need it, and
+	// -update needs nothing heavier than this to run.
 	exePath, install, updatePublicKey, err := resolveInstall(f.updatePublicKeyFile)
 	if err != nil {
 		return err
@@ -207,9 +209,10 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		return runUpdate(context.Background(), stdout, stderr, f.updateBaseURL, updatePublicKey, version, exePath, install)
 	}
 
-	// REQ-19: read once, then unset immediately — a restarted daemon must not leave the
-	// variable set for whatever it execs later (a shell alias, a future restart of its
-	// own), and openDashboard's guard below is the only thing that ever needs the value.
+	// Read once, then unset immediately — a restarted daemon must not leave the variable
+	// set for whatever it execs later (a shell alias, a future restart of its own), and
+	// openDashboard's guard below is the only thing that ever needs the value
+	// (kb:adr/update-restart-is-in-place-reexec-not-shutdown).
 	restarted := os.Getenv("MUSTER_RESTARTED") != ""
 	_ = os.Unsetenv("MUSTER_RESTARTED")
 
@@ -247,12 +250,12 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 
 	logStartup(log, f, serving, preflight, install)
 
-	// REQ-6: fires only when both the flag and stdin's terminal-ness hold — the
-	// terminal condition is load-bearing (Implementation Notes): it is what guarantees
-	// no test run can open a browser, independent of any flag a test does or doesn't
-	// pass. Runs on its own goroutine (REQ-8) and never logs dashboardURL itself (R4).
-	// A restarted daemon skips this too (auto-update REQ-19) — stdin is still the
-	// original TTY, so without the check a restart would pop a second browser tab.
+	// Fires only when both the flag and stdin's terminal-ness hold — the terminal
+	// condition is load-bearing: it is what guarantees no test run can open a browser,
+	// independent of any flag a test does or doesn't pass
+	// (kb:adr/connection-dashboard-auto-opens-on-terminal). Runs on its own goroutine and
+	// never logs dashboardURL itself. A restarted daemon skips this too — stdin is still
+	// the original TTY, so without the check a restart would pop a second browser tab.
 	maybeOpenDashboard(ctx, f, stdin, restarted, serving.dashboardURL, log)
 
 	sigCh := make(chan os.Signal, 1)
@@ -267,11 +270,11 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		}
 		return nil
 	case <-srv.RestartRequests():
-		// auto-update REQ-19: a restart is not a shutdown — it never reaches the
-		// -on-exit prompt below and never kills a session (reconcile re-adopts every
-		// Claude session on the way back up, kb:anchor/state.liveness). The graceful stop happens here,
+		// A restart is not a shutdown — it never reaches the -on-exit prompt below and
+		// never kills a session (reconcile re-adopts every Claude session on the way
+		// back up, kb:anchor/state.liveness). The graceful stop happens here,
 		// synchronously, so the WAL is checkpointed and no ingest event is lost before
-		// main performs the actual syscall.Exec (Implementation Notes "Re-exec").
+		// main performs the actual syscall.Exec (kb:adr/update-restart-is-in-place-reexec-not-shutdown).
 		log.Info().Msg("restarting musterd to apply an update")
 		stopForRestart(httpServer, srv, st, log)
 		return &errRestart{exe: exePath}
@@ -290,10 +293,10 @@ func newLogger(debug bool, stderr io.Writer) zerolog.Logger {
 	return zerolog.New(zerolog.ConsoleWriter{Out: stderr}).Level(level).With().Timestamp().Logger()
 }
 
-// prepareStartup runs every check that must pass before the daemon has any side effect,
-// in order (plan tmux-installation D4): the socket path tmux has to be able to bind, the
-// tmux preflight itself, the dashboard-serving precedence, and finally the data dir —
-// the first step here that actually writes anything.
+// prepareStartup runs every check that must pass before the daemon has any side effect, in
+// order: the socket path tmux has to be able to bind, the tmux preflight itself
+// (kb:adr/surfaces-tmux-preflight-at-startup), the dashboard-serving precedence, and
+// finally the data dir — the first step here that actually writes anything.
 //
 // Fail fast on a socket path tmux cannot bind (AF_UNIX sun_path limit) — otherwise the
 // failure surfaces later as a bare "File name too long" from inside tmux.
@@ -367,7 +370,8 @@ func prepareServing(ctx context.Context, f *cliFlags, st *store.Store, log zerol
 	if err != nil {
 		return nil, fmt.Errorf("writing hook wrapper scripts: %w", err)
 	}
-	// REQ-16: paths only, never the token or URL either script embeds.
+	// Paths only, never the token or URL either script embeds (never log hook payloads
+	// or credentials, CLAUDE.md).
 	log.Info().Str("hook_script", hookScript).Str("status_line_script", statusLineScript).
 		Msg("wrote hook wrapper scripts")
 
@@ -433,8 +437,8 @@ func buildServerConfig(f *cliFlags, st *store.Store, log zerolog.Logger, serving
 }
 
 // logStartup writes the one-line startup record, plus the install remedy when there is
-// one: REQ-28, a Homebrew or unmanaged install never sees the Settings-dialog remedy
-// unless they open it, so name it here too.
+// one: a Homebrew or unmanaged install never sees the Settings-dialog remedy unless they
+// open it, so name it here too (kb:adr/update-install-kinds-decide-who-may-apply).
 func logStartup(log zerolog.Logger, f *cliFlags, serving *servingEnv, preflight tmux.PreflightResult, install selfupdate.Install) {
 	log.Info().
 		Str("version", version).
@@ -450,8 +454,9 @@ func logStartup(log zerolog.Logger, f *cliFlags, serving *servingEnv, preflight 
 	}
 }
 
-// maybeOpenDashboard applies REQ-6's guard. The terminal condition is load-bearing: it,
-// not the flag, is what guarantees no test run can ever open a browser.
+// maybeOpenDashboard applies the auto-open guard. The terminal condition is load-bearing:
+// it, not the flag, is what guarantees no test run can ever open a browser
+// (kb:adr/connection-dashboard-auto-opens-on-terminal).
 func maybeOpenDashboard(ctx context.Context, f *cliFlags, stdin *os.File, restarted bool, dashboardURL string, log zerolog.Logger) {
 	if f.openFlag && isTerminal(stdin) && !restarted {
 		openDashboard(ctx, f.openCmd, dashboardURL, log)
@@ -474,10 +479,10 @@ func stopForRestart(httpServer *http.Server, srv *server.Server, st *store.Store
 }
 
 // keychainUser returns the current OS account name for KeychainTokenReader's
-// `security find-generic-password -a <user>` lookup (Implementation Notes: "user from
-// os/user.Current() in main, passed in"). Empty on lookup failure — KeychainTokenReader
-// then simply fails every tick with ErrNoCredentials rather than musterd refusing to
-// start.
+// `security find-generic-password -a <user>` lookup — read once in main and passed in
+// rather than looked up inside the adapter (kb:adr/usage-keychain-token-read-only). Empty
+// on lookup failure — KeychainTokenReader then simply fails every tick with
+// ErrNoCredentials rather than musterd refusing to start.
 func keychainUser() string {
 	u, err := user.Current()
 	if err != nil {

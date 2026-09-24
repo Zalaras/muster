@@ -16,8 +16,9 @@ const versionCheckTimeout = 5 * time.Second
 
 // checkClaudeCode reports the installed Claude Code version against the canary-verified
 // range (docs/claude-code-versions.md), without ever failing startup: no outcome here
-// makes musterd exit non-zero or skip serving (INV-3). bin is the -claude-bin value, so
-// the check and session launches agree on which binary "claude" is.
+// makes musterd exit non-zero or skip serving
+// (kb:adr/connection-installed-claude-classified-never-refused). bin is the -claude-bin
+// value, so the check and session launches agree on which binary "claude" is.
 func checkClaudeCode(ctx context.Context, bin string, log zerolog.Logger) server.ClaudeCodeInfo {
 	report := claudecode.CheckVersion(ctx, bin)
 

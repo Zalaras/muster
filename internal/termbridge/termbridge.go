@@ -1,9 +1,9 @@
 // Package termbridge owns the daemon-side PTY lifecycle for one terminal socket
 // (kb:anchor/terminal.ws): spawning `tmux attach-session` under a `creack/pty`-managed
-// pseudo-terminal, streaming raw bytes both directions, and resizing per FINDINGS §7(d)
-// (pty.Setsize then tmux resize-window, never the pane-level primitive). This package
-// knows nothing about WebSockets or sessions — internal/server/terminal.go is the only
-// caller, and owns the socket-level concerns (auth, takeover, frame shapes).
+// pseudo-terminal, streaming raw bytes both directions, and resizing with pty.Setsize then
+// tmux resize-window, never the pane-level primitive (kb:adr/surfaces-shared-attach-single-pty).
+// This package knows nothing about WebSockets or sessions — internal/server/terminal.go is
+// the only caller, and owns the socket-level concerns (auth, takeover, frame shapes).
 package termbridge
 
 import (
@@ -29,12 +29,12 @@ const (
 	initialRows = 24
 )
 
-// resizeTmuxTimeout bounds Resize's tmux resize-window call (review cycle 1 Major 3,
-// REQ-12) — the WS read loop calls Resize synchronously per resize frame, and a wedged
-// tmux there must not hang the whole connection's frame loop forever. Attach's own tmux
-// invocation is deliberately left tied to the caller's ctx instead: attach-session is
-// meant to run for the connection's entire lifetime, not return quickly, so it is bounded
-// by the connection closing (which cancels ctx), not by a fixed deadline.
+// resizeTmuxTimeout bounds Resize's tmux resize-window call — the WS read loop calls
+// Resize synchronously per resize frame, and a wedged tmux there must not hang the whole
+// connection's frame loop forever. Attach's own tmux invocation is deliberately left tied
+// to the caller's ctx instead: attach-session is meant to run for the connection's entire
+// lifetime, not return quickly, so it is bounded by the connection closing (which cancels
+// ctx), not by a fixed deadline.
 const resizeTmuxTimeout = 5 * time.Second
 
 // Bridge is one daemon-owned PTY attached to a tmux session.
@@ -49,9 +49,9 @@ type Bridge struct {
 }
 
 // Attach spawns `tmux attach-session -t target` under a fresh PTY, with TERM/LANG set
-// explicitly (REQ-6 — without them tmux falls back to ASCII line-drawing and Claude's
-// boxes render as "qqqq", which looks exactly like a rendering bug rather than a missing
-// env var). ctx is exec.CommandContext's context: if it is canceled, the attach process
+// explicitly — without them tmux falls back to ASCII line-drawing and Claude's boxes
+// render as "qqqq", which looks exactly like a rendering bug rather than a missing env
+// var. ctx is exec.CommandContext's context: if it is canceled, the attach process
 // is killed. In practice ctx is the caller's request context, so the Bridge's lifetime
 // tracks that request for as long as it's live, and Close is what tears it down
 // explicitly and idempotently once the caller is done with it either way.
@@ -68,8 +68,8 @@ func Attach(ctx context.Context, tmuxClient *tmux.Client, target string) (*Bridg
 }
 
 // Read reads raw PTY output verbatim. A macOS PTY read returns EIO once the other end
-// (the attach process) has exited; treat that as clean EOF (FINDINGS §7), matching what
-// every other EOF-producing reader would report.
+// (the attach process) has exited; treat that as clean EOF, matching what every other
+// EOF-producing reader would report.
 func (b *Bridge) Read(p []byte) (int, error) {
 	n, err := b.pty.Read(p)
 	if err != nil && errors.Is(err, syscall.EIO) {
@@ -85,7 +85,7 @@ func (b *Bridge) Write(p []byte) (int, error) {
 
 // Resize applies pty.Setsize (sizes the region the tmux client paints into) and then
 // tmux resize-window (sizes the window the application lays out against) — in that
-// order, always both, never the pane-level primitive (FINDINGS §7(d)).
+// order, always both, never the pane-level primitive (kb:adr/surfaces-shared-attach-single-pty).
 func (b *Bridge) Resize(ctx context.Context, cols, rows int) error {
 	if err := pty.Setsize(b.pty, &pty.Winsize{Cols: uint16(cols), Rows: uint16(rows)}); err != nil {
 		return fmt.Errorf("pty.Setsize: %w", err)

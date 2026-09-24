@@ -13,7 +13,7 @@ import (
 )
 
 // bootstrapTokens loads the UI and ingest tokens from kv, generating and persisting them
-// on first run (REQ-2).
+// on first run.
 func bootstrapTokens(ctx context.Context, st *store.Store) (uiToken, ingestToken string, err error) {
 	uiToken, err = getOrCreateToken(ctx, st, "ui_token")
 	if err != nil {
@@ -58,8 +58,8 @@ type tokensFile struct {
 }
 
 // writeTokensFile writes <data-dir>/tokens.json (mode 0600) on every startup — the
-// launcher/E2E handoff (REQ-3). Rewritten identically across restarts since the tokens
-// themselves persist in kv.
+// launcher/E2E handoff. Rewritten identically across restarts since the tokens themselves
+// persist in kv.
 func writeTokensFile(dataDir, dashboardURL, uiToken, ingestToken string) error {
 	tf := tokensFile{
 		DashboardURL: dashboardURL,
@@ -76,7 +76,7 @@ func writeTokensFile(dataDir, dashboardURL, uiToken, ingestToken string) error {
 		return fmt.Errorf("writing %s: %w", path, err)
 	}
 	// os.WriteFile only applies the mode to a newly-created file; force it on every
-	// startup regardless (REQ-3: "mode 0600" is a standing property, not a one-time one).
+	// startup regardless — mode 0600 is a standing property, not a one-time one.
 	if err := os.Chmod(path, 0o600); err != nil {
 		return fmt.Errorf("chmod %s: %w", path, err)
 	}
