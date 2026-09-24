@@ -126,6 +126,30 @@ func TestClassify_NilAccessFuncIsTreatedAsWritable(t *testing.T) {
 	assert.Equal(t, KindInstaller, got.Kind)
 }
 
+// TestInstall_MayApply covers kb:adr/update-install-kinds-decide-who-may-apply's rule
+// over every Kind that exists: only KindInstaller may apply in place.
+// cmd/musterd/update.go (pre-refactor) blocked KindDev/KindHomebrew/KindUnmanaged as a
+// deny-list; internal/server/update.go allowed only KindInstaller as an allow-list — this
+// table pins both down as the same rule, so a fifth Kind can no longer silently diverge
+// them.
+func TestInstall_MayApply(t *testing.T) {
+	tests := []struct {
+		kind Kind
+		want bool
+	}{
+		{KindDev, false},
+		{KindHomebrew, false},
+		{KindUnmanaged, false},
+		{KindInstaller, true},
+	}
+	for _, tt := range tests {
+		t.Run(string(tt.kind), func(t *testing.T) {
+			got := Install{Kind: tt.kind}.MayApply()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 // TestWritableDir covers the production access func: a writable dir and an unwritable
 // one (mode 0o500, no write bit) report accordingly.
 func TestWritableDir(t *testing.T) {

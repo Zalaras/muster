@@ -163,3 +163,76 @@ func TestDownloadURL(t *testing.T) {
 	assert.Equal(t, "https://example.com/releases/download/v0.11.0/asset", DownloadURL("https://example.com/releases/", "v0.11.0", "asset"),
 		"a trailing slash on base must not produce a doubled slash")
 }
+
+// TestReleaseTag pins the one place the tag<->version mapping is spelled out.
+func TestReleaseTag(t *testing.T) {
+	assert.Equal(t, "v0.11.0", ReleaseTag("0.11.0"))
+}
+
+// TestReleaseTag_RoundTripsWithParseRelease covers the round trip both former callers
+// (cmd/musterd, internal/server) relied on: a Version's tag form parses back to the same
+// Version.
+func TestReleaseTag_RoundTripsWithParseRelease(t *testing.T) {
+	v := Version{Major: 1, Minor: 2, Patch: 3}
+
+	parsed, ok := ParseRelease(ReleaseTag(v.String()))
+
+	require.True(t, ok)
+	assert.Equal(t, v, parsed)
+}
+
+// TestCheckNewer covers the newer/equal/older/unparseable-running cells cmd/musterd's
+// `-update` and internal/server's periodic/manual checks each compared by hand before
+// this unified them (kb:adr/update-release-knowledge-in-selfupdate-package).
+func TestCheckNewer(t *testing.T) {
+	tests := []struct {
+		name       string
+		tag        string
+		running    string
+		wantLatest Version
+		wantNewer  bool
+	}{
+		{"latest is newer than running", "v0.12.0", "0.11.0", Version{0, 12, 0}, true},
+		{"latest equals running", "v0.11.0", "0.11.0", Version{0, 11, 0}, false},
+		{"latest is older than running", "v0.10.0", "0.11.0", Version{0, 10, 0}, false},
+		{
+			"running does not parse (dev build) reports not-newer with no error",
+			"v0.11.0", "dev", Version{0, 11, 0}, false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := newRedirectServer(t, func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Location", "/tag/"+tt.tag)
+				w.WriteHeader(http.StatusFound)
+			})
+
+			latest, newer, err := CheckNewer(context.Background(), srv.Client(), srv.URL, tt.running)
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantLatest, latest)
+			assert.Equal(t, tt.wantNewer, newer)
+		})
+	}
+}
+
+// TestCheckNewer_Errors covers CheckNewer's own two failure shapes: LatestTag failing
+// outright (transport error) and LatestTag resolving a tag that isn't a release version —
+// both must propagate a non-nil error rather than reporting a (silently wrong) result.
+func TestCheckNewer_Errors(t *testing.T) {
+	t.Run("transport error", func(t *testing.T) {
+		_, _, err := CheckNewer(context.Background(), http.DefaultClient, "http://127.0.0.1:1", "0.11.0")
+		assert.Error(t, err)
+	})
+
+	t.Run("redirect tag not a release version", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Location", "/tag/not-a-version")
+			w.WriteHeader(http.StatusFound)
+		}))
+		t.Cleanup(srv.Close)
+
+		_, _, err := CheckNewer(context.Background(), srv.Client(), srv.URL, "0.11.0")
+		assert.Error(t, err)
+	})
+}
