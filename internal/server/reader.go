@@ -4,80 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
-	"strings"
-	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
 
 	"github.com/Zalaras/muster/internal/claudecode"
 	"github.com/Zalaras/muster/internal/gitutil"
+	"github.com/Zalaras/muster/internal/reader"
 	"github.com/Zalaras/muster/internal/session"
 )
 
-// maxWriteLogPaths caps writeLog's per-session memory: once a session's map exceeds
-// this many entries, record drops the single oldest.
-const maxWriteLogPaths = 512
-
 // maxReaderFileBytes is the reader's serving cap (kb:spec/reader): 10 MiB, exactly.
 const maxReaderFileBytes = 10 * 1024 * 1024
-
-// maxWalkFiles is the non-git listing's walk cap.
-const maxWalkFiles = 20000
-
-// gitFilesFunc lists the files git sees under dir — listMarkdown's consumer-side seam
-// over gitutil.ListFiles (docs/conventions.md § Testing): production is
-// gitutil.ListFiles, same-package tests fake a neutral file list here rather than git's
-// own byte stream, since git's argv is gitutil's concern, not this package's.
-type gitFilesFunc func(ctx context.Context, dir string) ([]string, error)
-
-// writeLog is the daemon's in-memory record of routed writes, per session — forgotten
-// on daemon restart, like shells (Schema Changes: "the write log is not persisted").
-type writeLog struct {
-	mu        sync.Mutex
-	bySession map[int64]map[string]time.Time
-}
-
-func newWriteLog() *writeLog {
-	return &writeLog{bySession: make(map[int64]map[string]time.Time)}
-}
-
-// record notes that path was written at at, capping each session at maxWriteLogPaths
-// entries by dropping the single oldest once the cap is exceeded.
-func (l *writeLog) record(sessionID int64, path string, at time.Time) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	m, ok := l.bySession[sessionID]
-	if !ok {
-		m = make(map[string]time.Time)
-		l.bySession[sessionID] = m
-	}
-	m[path] = at
-	evictOldest(m, maxWriteLogPaths, func(t time.Time) time.Time { return t })
-}
-
-func (l *writeLog) get(sessionID int64, path string) (time.Time, bool) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	m, ok := l.bySession[sessionID]
-	if !ok {
-		return time.Time{}, false
-	}
-	at, ok := m[path]
-	return at, ok
-}
-
-// forget drops sessionID's whole write log — Remove's cleanup.
-func (l *writeLog) forget(sessionID int64) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	delete(l.bySession, sessionID)
-}
 
 // readerManager is readerFeature's view of *session.Manager — narrowed to what this
 // feature calls, so tests can fake it without the whole manager.
@@ -95,9 +36,9 @@ type readerFeature struct {
 	manager  readerManager
 	hub      *wsHub
 	log      zerolog.Logger
-	gitFiles gitFilesFunc
+	gitFiles reader.ListFilesFunc
 	home     string
-	writes   *writeLog
+	writes   *reader.WriteLog
 }
 
 func newReaderFeature(manager readerManager, hub *wsHub, log zerolog.Logger) *readerFeature {
@@ -111,7 +52,7 @@ func newReaderFeature(manager readerManager, hub *wsHub, log zerolog.Logger) *re
 		log:      log,
 		gitFiles: gitutil.ListFiles,
 		home:     home,
-		writes:   newWriteLog(),
+		writes:   reader.NewWriteLog(),
 	}
 }
 
@@ -122,7 +63,7 @@ func (f *readerFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.
 
 // forgetSession drops id's write log — called once from sessions.go's Remove path.
 func (f *readerFeature) forgetSession(id int64) {
-	f.writes.forget(id)
+	f.writes.Forget(id)
 }
 
 // Observe feeds one routed hook's neutral claudecode.FileSignal into the reader: a
@@ -159,12 +100,13 @@ func (f *readerFeature) observeWrite(ctx context.Context, sessionID int64, claud
 		return
 	}
 	clean := filepath.Clean(writtenPath)
-	if !readerPathQualifies(sess.Directory, sess.PlanPath, clean) {
+	scope := reader.Scope{Dir: sess.Directory, PlanPath: sess.PlanPath}
+	if !scope.PathQualifies(clean) {
 		return
 	}
 
 	now := time.Now().UTC()
-	f.writes.record(sessionID, clean, now)
+	f.writes.Record(sessionID, clean, now)
 
 	if clean == sess.PlanPath && !sess.PlanExists {
 		// The sessionUpsert carrying exists:true must precede docChanged (Protocol
@@ -180,25 +122,6 @@ func (f *readerFeature) observeWrite(ctx context.Context, sessionID int64, claud
 	}
 
 	f.hub.broadcast(docChangedMessage{Type: "docChanged", ID: sessionID, Path: clean, At: now.Format(time.RFC3339)})
-}
-
-// readerPathQualifies is the change-signal's scope test
-// (kb:adr/reader-change-signal-is-the-write-hook): after filepath.Clean, path sits
-// lexically under dir and ends in `.md` (case-insensitive), or equals planPath — no
-// symlink resolution (that confinement belongs to serving, in confine, not to the change
-// signal).
-func readerPathQualifies(dir, planPath, path string) bool {
-	if planPath != "" && path == planPath {
-		return true
-	}
-	if !strings.EqualFold(filepath.Ext(path), ".md") {
-		return false
-	}
-	rel, err := filepath.Rel(dir, path)
-	if err != nil {
-		return false
-	}
-	return filepath.IsLocal(rel)
 }
 
 // scanPlan runs the transcript scan for a locatable plan file and hands its result to
@@ -275,7 +198,7 @@ func (f *readerFeature) handleReaderList(w http.ResponseWriter, r *http.Request)
 }
 
 func (f *readerFeature) writtenAtWire(sessionID int64, path string) *string {
-	at, ok := f.writes.get(sessionID, path)
+	at, ok := f.writes.Get(sessionID, path)
 	if !ok {
 		return nil
 	}
@@ -301,7 +224,8 @@ func (f *readerFeature) handleReaderFile(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	resolved, ok := confine(sess.Directory, sess.PlanPath, path)
+	scope := reader.Scope{Dir: sess.Directory, PlanPath: sess.PlanPath}
+	resolved, ok := scope.Confine(path)
 	if !ok {
 		writeJSONError(w, http.StatusNotFound, "not_found", "no such document")
 		return
@@ -331,97 +255,14 @@ func (f *readerFeature) handleReaderFile(w http.ResponseWriter, r *http.Request)
 	_, _ = w.Write(body)
 }
 
-// confine reports whether requested may be served for a session rooted at dir with
-// derived plan path planPath (""  = none), and its symlink-resolved form when so
-// (kb:spec/reader's confinement rule): after filepath.EvalSymlinks of both dir and
-// requested, requested must sit under dir and end in `.md` (case-insensitive), or equal
-// the resolved planPath. Existence/directory-ness beyond symlink resolution is the
-// caller's job (a Stat after confine, distinguishing 404 from 413).
-func confine(dir, planPath, requested string) (string, bool) {
-	resolvedDir, err := filepath.EvalSymlinks(filepath.Clean(dir))
-	if err != nil {
-		return "", false
-	}
-	resolvedRequested, err := filepath.EvalSymlinks(filepath.Clean(requested))
-	if err != nil {
-		return "", false
-	}
-
-	if planPath != "" {
-		if resolvedPlan, err := filepath.EvalSymlinks(filepath.Clean(planPath)); err == nil && resolvedRequested == resolvedPlan {
-			return resolvedRequested, true
-		}
-	}
-
-	if !strings.HasPrefix(resolvedRequested, resolvedDir+string(os.PathSeparator)) {
-		return "", false
-	}
-	if !strings.EqualFold(filepath.Ext(resolvedRequested), ".md") {
-		return "", false
-	}
-	return resolvedRequested, true
-}
-
-// listMarkdown lists every `.md` (case-insensitive) file under dir: gitutil.ListFiles's
-// `git ls-files -co --exclude-standard` listing when dir is a git checkout, filtered to
-// `.md`, or a bounded dot-directory-skipping walk otherwise (kb:spec/reader). A git
-// failure (not a checkout, or a real error) is not itself an error — it falls back to
-// the walk, logged at debug.
+// listMarkdown lists every `.md` (case-insensitive) file under dir (kb:spec/reader),
+// delegating the scope rules to internal/reader; a git-query failure is not itself an
+// error — reader.ListMarkdown already falls back to the walk — so this only logs it at
+// debug.
 func (f *readerFeature) listMarkdown(ctx context.Context, dir string) (paths []string, listing string, truncated bool) {
-	files, err := f.gitFiles(ctx, dir)
+	paths, listing, truncated, err := reader.ListMarkdown(ctx, dir, f.gitFiles)
 	if err != nil {
 		f.log.Debug().Err(err).Str("directory", dir).Msg("reader: git ls-files failed; falling back to walk listing")
-		return walkMarkdown(dir)
 	}
-
-	var md []string
-	for _, rel := range files {
-		if strings.EqualFold(filepath.Ext(rel), ".md") {
-			md = append(md, rel)
-		}
-	}
-	sort.Strings(md)
-	return md, "git", false
-}
-
-// errWalkCap stops walkMarkdown's WalkDir early once maxWalkFiles is reached; never
-// surfaced past this function.
-var errWalkCap = errors.New("reader: walk file cap reached")
-
-func walkMarkdown(dir string) (paths []string, listing string, truncated bool) {
-	var md []string
-	// The walk's own top-level error (beyond the cap sentinel, handled inline below) is
-	// never inspected: walkMarkdown has no logger (kept intentionally pure), the caller
-	// (listMarkdown) already logs the git-fallback path, and it means a root that
-	// vanished mid-walk — rare enough that the partial md collected so far is an
-	// adequate answer.
-	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return nil //nolint:nilerr // deliberately continue past one unreadable entry rather than failing the whole listing
-		}
-		if path == dir {
-			return nil
-		}
-		if d.IsDir() {
-			if strings.HasPrefix(d.Name(), ".") {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if !strings.EqualFold(filepath.Ext(d.Name()), ".md") {
-			return nil
-		}
-		rel, err := filepath.Rel(dir, path)
-		if err != nil {
-			return nil //nolint:nilerr // an unrelatable path is skipped, not fatal to the listing
-		}
-		md = append(md, filepath.ToSlash(rel))
-		if len(md) >= maxWalkFiles {
-			return errWalkCap
-		}
-		return nil
-	})
-	truncated = len(md) >= maxWalkFiles
-	sort.Strings(md)
-	return md, "walk", truncated
+	return paths, listing, truncated
 }

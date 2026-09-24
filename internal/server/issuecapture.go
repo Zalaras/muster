@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/Zalaras/muster/internal/evict"
 )
 
 // maxCaptures/captureTTL bound the in-memory capture store
@@ -44,7 +46,7 @@ func (cs *captureStore) put(c *issueCapture) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 	cs.captures[c.id] = c
-	evictOldest(cs.captures, maxCaptures, func(c *issueCapture) time.Time { return c.capturedAt })
+	evict.Oldest(cs.captures, maxCaptures, func(c *issueCapture) time.Time { return c.capturedAt })
 }
 
 // reserve returns the capture for id if it is usable — known, not expired, not already
