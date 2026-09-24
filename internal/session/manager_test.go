@@ -874,6 +874,70 @@ func TestEnd_StillMarksEndedAfterStop(t *testing.T) {
 	assert.True(t, otherPersisted.Alive, "the bystander's row must be untouched in the store too")
 }
 
+// TestApply_SessionEndAfterStopKeepsResumeChance is the regression test named by the
+// sessionend-alive-hint decision
+// (plans/maintainability-cleanup/decisions/sessionend-alive-hint/decision.md): Apply has
+// no `stopped` guard, so a non-clear SessionEnd hook delivered after Manager.Stop can land
+// in the up-to-10s `-on-exit=ask` prompt window between StopLivenessPoll
+// (cmd/musterd/onexit.go:48, called via Server.StopLivenessPoll,
+// internal/server/server.go:291) and the HTTP shutdown that follows it
+// (cmd/musterd/onexit.go:96). Before this fix that hint wrote alive=false straight to the
+// row; a daemon restarting with the row paneless and alive=false would have the next
+// boot's Reconcile sweep it immediately (reconcile.go's absent+alive=false branch),
+// losing Resume. After the fix the row stays alive=true through the whole window, so the
+// next boot's Reconcile instead takes the absent+alive=true branch: marked ended and
+// kept, one more life before it is finally swept.
+func TestApply_SessionEndAfterStopKeepsResumeChance(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+	repoID := seedRepo(t, st, dir)
+	pc := newFakePaneChecker()
+	mgr := newTestManager(t, st, pc, nil)
+	params := createParams(dir)
+	params.RepoID = repoID
+
+	target, err := mgr.CreateSession(ctx, params)
+	require.NoError(t, err)
+	targetTmux := "muster-" + strconv.FormatInt(target.ID, 10) + ":@1"
+	_, err = mgr.RecordLaunch(ctx, target.ID, targetTmux, "%1")
+	require.NoError(t, err)
+	pc.setExists(targetTmux, true)
+
+	bound, err := mgr.Apply(ctx, target.ID, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
+	require.NoError(t, err)
+	require.True(t, bound.Alive)
+
+	stopCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	mgr.Stop(stopCtx) // shutdownGracefully's own first statement, ahead of the ask/kill branch
+
+	pc.setExists(targetTmux, false) // Claude Code exited under -on-exit=ask; the pane is gone
+	// mid the up-to-10s prompt window, before HTTP shutdown and before the next boot's
+	// Reconcile ever runs.
+
+	// The async hook worker delivers the SessionEnd it received in that window, landing
+	// after Stop -- exactly as it can today, since Apply has no `stopped` guard.
+	final, err := mgr.Apply(ctx, target.ID, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindDeathHint}, true)
+	require.NoError(t, err)
+	assert.True(t, final.Alive, "a non-clear SessionEnd delivered after Stop must not flip alive")
+	assert.Nil(t, final.EndedAt)
+
+	persisted, err := st.GetSession(ctx, target.ID)
+	require.NoError(t, err)
+	assert.True(t, persisted.Alive, "the stored row must stay alive through the whole shutdown window")
+
+	// One daemon lifetime later: the pane is still gone (default fake TmuxSessions lists
+	// no sessions), so Reconcile must take the absent+alive=true branch (marked ended,
+	// kept for a resume chance) rather than sweeping a row that never should have been
+	// persisted alive=false in the first place.
+	mgr2 := newTestManager(t, st, pc, nil)
+	require.NoError(t, mgr2.LoadAll(ctx))
+	report := mgr2.Reconcile(ctx)
+	assert.Equal(t, 1, report.MarkedEnded, "the row gets one more life: marked ended, not swept")
+	assert.Equal(t, 0, report.Swept)
+}
+
 // TestApplyStatus_PersistsAndBroadcastsOnAChange covers REQ-4's happy path: a status
 // post carrying new title/model/context data persists the row and broadcasts once.
 func TestApplyStatus_PersistsAndBroadcastsOnAChange(t *testing.T) {

@@ -888,19 +888,52 @@ func TestApplyInput_Compaction(t *testing.T) {
 	assert.Equal(t, fixedNow, sess.StateSince)
 }
 
-// TestApplyInput_DeathHint covers D15/REQ-11: any SessionEnd reason other than "clear"
-// sets alive:false and endedAt, leaving state untouched (liveness never changes state).
-func TestApplyInput_DeathHint(t *testing.T) {
-	sess := newTestSession()
-	sess.State = StateWorking
-	sess.Alive = true
+// TestApplyInput_SessionEndNeverWritesAlive covers the sessionend-alive-hint decision
+// (plans/maintainability-cleanup/decisions/sessionend-alive-hint/decision.md): alive is
+// decided by pane existence alone (kb:adr/lifecycle-liveness-from-pane-existence,
+// kb:adr/lifecycle-alive-flag-not-a-state), so a non-clear SessionEnd (KindDeathHint) must
+// leave Alive, EndedAt and State byte-identical from every source state and starting
+// liveness — not just the one "currently alive" case a single-row test would exercise
+// (kb:lesson/invariant-missed-by-per-transition-tests).
+func TestApplyInput_SessionEndNeverWritesAlive(t *testing.T) {
+	sourceStates := []State{
+		StateStarted,
+		StatePlanning,
+		StateWorking,
+		StateNeedsInput,
+		StateFailed,
+		StateIdle,
+	}
+	priorEnd := fixedNow.Add(-time.Hour)
 
-	applyInput(sess, "c1", nil, claudecode.StateInput{Kind: claudecode.KindDeathHint}, fixedNow)
+	for _, state := range sourceStates {
+		for _, alive := range []bool{true, false} {
+			t.Run(string(state)+"/alive="+strconv.FormatBool(alive), func(t *testing.T) {
+				sess := newTestSession()
+				sess.State = state
+				sess.StateSince = fixedNow
+				sess.Alive = alive
+				if !alive {
+					// A session already marked not-alive may already carry an EndedAt from
+					// an earlier hint or from Reconcile; a second death hint must not touch
+					// it either.
+					sess.EndedAt = &priorEnd
+				}
 
-	assert.False(t, sess.Alive)
-	require.NotNil(t, sess.EndedAt)
-	assert.Equal(t, fixedNow, *sess.EndedAt)
-	assert.Equal(t, StateWorking, sess.State, "a death hint must never change the displayed state")
+				applyInput(sess, "c1", nil, claudecode.StateInput{Kind: claudecode.KindDeathHint}, laterNow())
+
+				assert.Equal(t, alive, sess.Alive, "a death hint must never write alive")
+				assert.Equal(t, state, sess.State, "a death hint must never change the displayed state")
+				assert.Equal(t, fixedNow, sess.StateSince, "a death hint must never move stateSince")
+				if alive {
+					assert.Nil(t, sess.EndedAt, "a death hint must never set endedAt")
+				} else {
+					require.NotNil(t, sess.EndedAt)
+					assert.Equal(t, priorEnd, *sess.EndedAt, "a death hint must never overwrite an existing endedAt")
+				}
+			})
+		}
+	}
 }
 
 // TestApplyInput_ClearDeathHintAndInert cover D15's other half and kb:anchor/state.transitions's forward-
