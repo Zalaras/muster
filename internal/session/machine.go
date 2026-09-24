@@ -12,13 +12,14 @@ import (
 // hold the manager's lock.
 //
 // Deliberately exceeds the complexity ceiling. Every arm is one Kind of the wire
-// vocabulary, so the count is the domain's, not this function's, and the INV-A/INV-F/INV-P
-// comments cross-reference between adjacent arms ("also reachable from failed") — splitting
-// the switch would strand an invariant's halves in different functions, which no test can
-// catch. See kb:adr/lifecycle-prompt-ordering-guards, kb:adr/ingest-monotonic-rebind and
+// vocabulary, so the count is the domain's, not this function's, and the
+// attention/failure/prompt-adoption invariant comments cross-reference between adjacent
+// arms ("also reachable from failed") — splitting the switch would strand an invariant's
+// halves in different functions, which no test can catch. See
+// kb:adr/lifecycle-prompt-ordering-guards, kb:adr/ingest-monotonic-rebind and
 // kb:adr/lifecycle-subagent-marked-events-not-stragglers.
 //
-//nolint:gocyclo // one arm per wire Kind; splitting strands the cross-referencing INV-A/INV-F/INV-P comments
+//nolint:gocyclo // one arm per wire Kind; splitting strands the cross-referencing attention/failure/prompt invariant comments
 func applyInput(sess *Session, claudeSessionID string, promptID *string, input claudecode.StateInput, now time.Time) {
 	switch input.Kind {
 	case claudecode.KindBind, claudecode.KindClearRebind, claudecode.KindResumeBind:
@@ -28,26 +29,26 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 		latchPermissionMode(sess, input.PermissionMode)
 		closed := promptID != nil && sess.promptClosed(*promptID)
 		if closed && !input.FromSubagent {
-			return // straggler past a Stop — persist only, no transition (Edge Case 2)
+			return // straggler past a Stop — persist only, no transition
 		}
 		// A closed prompt with the subagent marker is a background subagent still
-		// working past the parent's Stop (measured 2.1.259, canary-fields.md): it
-		// transitions the session like ordinary activity, but the closed prompt is
-		// never reopened or adopted as current (INV-P) — only an open/unseen prompt id
+		// working past the parent's Stop (kb:fact/subagent-hooks-carry-agent-id): it
+		// transitions the session like ordinary activity, but the closed prompt id
+		// itself is never reopened or adopted as current — only an open/unseen prompt id
 		// is adopted here.
 		if !closed && promptID != nil {
 			sess.currentPromptID = *promptID
 		}
-		// REQ-12: the adapter (internal/claudecode) supplies Prompt only for a genuine
-		// user prompt, never a synthetic background-completion re-invocation; a straggler
+		// The adapter (internal/claudecode) supplies Prompt only for a genuine user
+		// prompt, never a synthetic background-completion re-invocation; a straggler
 		// past a Stop already returned above, so reaching here means this isn't one.
 		if input.Prompt != nil {
 			text := truncate(*input.Prompt, 200)
 			sess.LastPrompt = &text
 		}
-		// kb:anchor/ws.session's attention-iff-needs_input / failure-iff-failed invariants (INV-A,
-		// INV-F) are unconditional: every transitioning path here — whether the prompt
-		// was open or a subagent-marked closed prompt — clears both, so a stale
+		// kb:anchor/ws.session's attention-iff-needs_input / failure-iff-failed
+		// invariants are unconditional: every transitioning path here — whether the
+		// prompt was open or a subagent-marked closed prompt — clears both, so a stale
 		// permission wait or failure note never survives into the next working state.
 		sess.Attention = nil
 		sess.Failure = nil
@@ -61,7 +62,7 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 		// background permission wait (measured 2.1.259) exactly like the open-prompt
 		// case — same transition, no prompt reopening.
 		sess.Attention = &Attention{Reason: "permission", Since: now}
-		// INV-F (kb:anchor/ws.session, unconditional): failure is non-null iff state == failed. This
+		// kb:anchor/ws.session's failure-iff-failed invariant is unconditional: this
 		// branch always transitions to needs_input, so a failure note carried over
 		// from an earlier failed turn (e.g. StopFailure, then a subagent-marked
 		// PermissionRequest against that same now-closed prompt) must not survive.
@@ -73,8 +74,8 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 			return
 		}
 		sess.Attention = &Attention{Reason: "idle", Since: now}
-		// INV-F: same reasoning as KindNeedsInputPermission above — this branch is
-		// also reachable from failed (an unseen fresh prompt id when the preceding
+		// Same reasoning as KindNeedsInputPermission above — this branch is also
+		// reachable from failed (an unseen fresh prompt id when the preceding
 		// turn-activity event was itself lost), and must not strand a stale failure note.
 		sess.Failure = nil
 		sess.setState(StateNeedsInput, now)
@@ -121,9 +122,11 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 	}
 }
 
-// applyBind handles SessionStart's Bind/ClearRebind (kb:anchor/state.transitions), escalating a
-// plain Bind to a clear-rebind when the incoming claude session id differs from one
-// already bound on this pane without a clear source (Edge Case 5: loss tolerance).
+// applyBind handles SessionStart's Bind/ClearRebind (kb:anchor/state.transitions),
+// escalating a plain Bind to a clear-rebind when the incoming claude session id differs
+// from one already bound on this pane without a clear source — delivery is lossy, so the
+// daemon cannot rely on having seen the intervening SessionEnd
+// (kb:fact/hook-delivery-best-effort).
 func applyBind(sess *Session, claudeSessionID string, input claudecode.StateInput, now time.Time) {
 	kind := input.Kind
 	if sess.ClaudeSessionID != "" && sess.ClaudeSessionID != claudeSessionID {
@@ -144,13 +147,13 @@ func applyBind(sess *Session, claudeSessionID string, input claudecode.StateInpu
 		sess.Model = &next
 	}
 
-	// kb:anchor/ws.session's attention-iff-needs_input / failure-iff-failed invariants are unconditional:
-	// no bind — clear-rebind or a plain re-bind with an unchanged claude session id (e.g.
-	// SessionStart(source:"resume"), which per docs/history/spikes/canary-fields.md reuses the
-	// original session_id and so never reaches the escalation above) — may land on
-	// `started` while still carrying a previous turn's blocked-or-failed note (review
-	// cycle 2 Critical 1: this was previously reset only inside the KindClearRebind
-	// branch, leaving a plain re-bind able to strand attention/failure).
+	// kb:anchor/ws.session's attention-iff-needs_input / failure-iff-failed invariants
+	// are unconditional: no bind — clear-rebind or a plain re-bind with an unchanged
+	// claude session id (e.g. SessionStart(source:"resume"), which per
+	// kb:fact/resume-keeps-session-identity reuses the original session_id and so never
+	// reaches the escalation above) — may land on `started` while still carrying a
+	// previous turn's blocked-or-failed note. This reset covers both the clear-rebind
+	// and the plain re-bind path, not just clear-rebind.
 	sess.Attention = nil
 	sess.Failure = nil
 
@@ -162,25 +165,27 @@ func applyBind(sess *Session, claudeSessionID string, input claudecode.StateInpu
 		// a first Stop". This part is genuinely /clear-only semantics, unlike the
 		// attention/failure reset above.
 		sess.LastActivity = nil
-		// m3-gauges REQ-9: a fresh conversation has no context data yet either — the
-		// next status post of the new conversation refills it.
+		// A fresh conversation has no context data yet either
+		// (kb:adr/usage-context-gauge-shows-tokens-and-compactions) — the next status
+		// post of the new conversation refills it.
 		sess.Context = nil
-		// REQ-12: a fresh conversation has no prompt yet either — kb:anchor/ws.session:
+		// A fresh conversation has no prompt yet either — kb:anchor/ws.session:
 		// "null until a first prompt and again after /clear".
 		sess.LastPrompt = nil
 	}
 
-	// m4-reconcile REQ-8: a same-id resume bind lands in idle and leaves compactions/
-	// lastActivity/context alone (history exists; it is waiting for input, not new) —
-	// this only runs when kind wasn't escalated to KindClearRebind above, which already
-	// took the full-reset/started path a different claude id implies.
+	// A same-id resume bind lands in idle and leaves compactions/lastActivity/context
+	// alone — history exists; it is waiting for input, not new
+	// (kb:adr/lifecycle-resume-rebinds-existing-session). This only runs when kind
+	// wasn't escalated to KindClearRebind above, which already took the
+	// full-reset/started path a different claude id implies.
 	//
-	// REQ-8 does not authorise touching `alive` here (review cycle 1 Major 1): INV-1
-	// makes tmux pane existence the sole authority for liveness, and this branch runs
-	// from a hook payload, which may be queued/late relative to the tmux state it
-	// describes. RecordResume already sets `alive` on the real resume path, from the
-	// tmux spawn that actually happened; a resume-bind hook that outraces or follows a
-	// pane's real death must never override that.
+	// This never touches `alive`: pane existence is the sole authority for liveness
+	// (kb:adr/lifecycle-liveness-from-pane-existence), and this branch runs from a hook
+	// payload, which may be queued/late relative to the tmux state it describes.
+	// RecordResume already sets `alive` on the real resume path, from the tmux spawn
+	// that actually happened; a resume-bind hook that outraces or follows a pane's real
+	// death must never override that.
 	if kind == claudecode.KindResumeBind {
 		sess.setState(StateIdle, now)
 		return
@@ -190,7 +195,7 @@ func applyBind(sess *Session, claudeSessionID string, input claudecode.StateInpu
 
 func latchPermissionMode(sess *Session, mode *string) {
 	if mode == nil {
-		return // never resets the latch (REQ-9) — most events carry no permission_mode
+		return // never resets the latch (kb:fact/permission-mode-presence-split) — most events carry no permission_mode
 	}
 	sess.PermissionMode = PermissionMode(*mode)
 	sess.PermissionModeSource = "hook"

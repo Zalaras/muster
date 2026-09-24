@@ -7,29 +7,27 @@ import (
 	"github.com/Zalaras/muster/internal/tmux"
 )
 
-// ReconcileReport summarizes what Reconcile did (REQ-17's log line; D9/D10's test
-// assertions).
+// ReconcileReport summarizes what Reconcile did, for its own log line and for tests to
+// assert against.
 type ReconcileReport struct {
 	KeptAlive       int
 	MarkedEnded     int
 	Swept           int
-	UnknownSessions []string // muster-<n> tmux sessions on the socket with no row (REQ-2)
+	UnknownSessions []string // muster-<n> tmux sessions on the socket with no row
 	// ShellsKilled counts "muster-<n>-shell" tmux sessions killed unconditionally
-	// (kb:anchor/state.liveness, plan plain-terminal-session REQ-10) — never adopted, and
-	// never listed in UnknownSessions.
+	// (kb:anchor/state.liveness) — never adopted, and never listed in UnknownSessions.
 	ShellsKilled int
 }
 
 // Reconcile runs once at daemon startup, synchronously, before the first snapshot is
-// served (REQ-1/REQ-2/REQ-17, kb:anchor/state.liveness). Call after LoadAll and before
-// Start. session-lifecycle REQ-9 rewrote this to classify every known row from **one**
-// ListSessions snapshot, by tmux name ownership, rather than trusting the stored
-// alive/target — R3's investigation found that reading was never actually cross-checked
-// against tmux, only ever produced for a shell-kill/report side effect:
+// served (kb:anchor/state.liveness, kb:adr/lifecycle-reconcile-before-first-snapshot).
+// Call after LoadAll and before Start. Classification runs from **one** ListSessions
+// snapshot, by tmux name ownership, never from the stored alive/target alone
+// (kb:adr/lifecycle-reconcile-converges-with-the-socket):
 //   - "muster-<id>" present on the socket → the row owns it: re-derive
 //     tmux_target/tmux_pane from tmux, keep alive:=true, persist+broadcast only on an
 //     actual change (reviveOwnedSession). This is what stops a live pane from ever being
-//     deleted, whatever the stored alive said (Edge Cases 5/6/7/8).
+//     deleted, whatever the stored alive said.
 //   - "muster-<id>" absent, row alive=true → marked ended and kept (the resume chance
 //     is not lost; the *following* startup's absent case sweeps it).
 //   - "muster-<id>" absent, row alive=false → swept (deleted; already had its resume
@@ -40,17 +38,16 @@ type ReconcileReport struct {
 //   - "muster-<n>-shell" → killed unconditionally, whatever its <n>; never adopted or
 //     reported unknown; its id also raises the watermark.
 //
-// a-M1: PaneChecker/PaneSnapshotter/TmuxSessions are all required at construction
-// (NewManager panics otherwise), so ownership classification is the only classification
-// path — a ListSessions call that itself fails is a different case and must NOT read as
-// "every not-alive row's pane is confirmed gone" (that was the shape of the orphan class
-// this plan exists to close, reached from a new direction, D26/review cycle 2 Major):
-// Reconcile instead acts on nothing this cycle and leaves every row untouched, and the
-// next successful poll reconciles once the socket is reachable again.
+// PaneChecker/PaneSnapshotter/TmuxSessions are all required at construction (NewManager
+// panics otherwise), so ownership classification is the only classification path — a
+// ListSessions call that itself fails is a different case and must NOT read as "every
+// not-alive row's pane is confirmed gone": Reconcile instead acts on nothing this cycle
+// and leaves every row untouched, and the next successful poll reconciles once the
+// socket is reachable again.
 //
-// REQ-10: a markEnded/DeleteSession failure during the act phase is logged and does not
-// stop the rest — in particular the shell sweep, which runs before the act phase, always
-// happens regardless.
+// A markEnded/DeleteSession failure during the act phase is logged and does not stop the
+// rest — in particular the shell sweep, which runs before the act phase, always happens
+// regardless.
 func (m *Manager) Reconcile(ctx context.Context) ReconcileReport {
 	var report ReconcileReport
 
@@ -77,8 +74,8 @@ func (m *Manager) logReconcile(report ReconcileReport) {
 }
 
 // actOnReconcile is Reconcile's act phase, shared by every classification path: mark
-// every toEnd id ended, then delete every toSweep id. REQ-10: a single id's failure is
-// logged and does not stop the rest.
+// every toEnd id ended, then delete every toSweep id. A single id's failure is logged and
+// does not stop the rest.
 func (m *Manager) actOnReconcile(ctx context.Context, report *ReconcileReport, toEnd, toSweep []int64) {
 	for _, id := range toEnd {
 		if _, err := m.markEnded(ctx, id); err != nil {
@@ -96,8 +93,8 @@ func (m *Manager) actOnReconcile(ctx context.Context, report *ReconcileReport, t
 	}
 }
 
-// classifySessionsByOwnership is REQ-9's classification: names is one ListSessions
-// snapshot. Every known row present in it is revived/repaired in place (KeptAlive);
+// classifySessionsByOwnership classifies ownership from one ListSessions snapshot.
+// Every known row present in it is revived/repaired in place (KeptAlive);
 // every known row absent from it follows the old alive-based rule exactly (returned via
 // toEnd/toSweep for actOnReconcile). Unknown muster-<n> names are reported+logged and
 // muster-<n>-shell names are killed unconditionally — both raise the id watermark.
@@ -134,7 +131,8 @@ func (m *Manager) classifySessionsByOwnership(ctx context.Context, names []strin
 // classifiedTmuxNames is classifyTmuxNames' pure result: names split into the live
 // muster-<id> claude-pane names found (known or not — the caller decides), the
 // muster-<id>-shell ids to kill unconditionally, the unknown names to report, and the
-// highest id seen across every shape (REQ-9's watermark-raise floor).
+// highest id seen across every shape — the floor that raises the id watermark
+// (kb:adr/lifecycle-session-ids-monotonic-never-reused).
 type classifiedTmuxNames struct {
 	live         map[int64]string
 	shellIDs     []int64
@@ -142,7 +140,7 @@ type classifiedTmuxNames struct {
 	maxSeen      int64
 }
 
-// classifyTmuxNames is REQ-9's pure name-parsing step, split out of
+// classifyTmuxNames is the pure name-parsing step, split out of
 // classifySessionsByOwnership to keep it under the gocyclo ceiling
 // (docs/conventions.md § Go): no tmux I/O, no lock, just tmux.ParseSessionName/
 // IsShellSessionName against knownIDs (every id classifySessionsByOwnership's own row
@@ -159,11 +157,10 @@ func classifyTmuxNames(names []string, knownIDs map[int64]bool) classifiedTmuxNa
 		}
 		id, ok := tmux.ParseSessionName(name)
 		if !ok {
-			// REQ-9/D22: a muster-prefixed name matching neither known shape is still
-			// reported+logged as unknown, same as main did before this plan (Edge
-			// Case 22) — only a name with no muster- prefix at all is an unrelated
-			// tmux session ignored entirely. It contributes no id, so it never raises
-			// the watermark.
+			// A muster-prefixed name matching neither known shape is still
+			// reported+logged as unknown — only a name with no muster- prefix at all is
+			// an unrelated tmux session ignored entirely. It contributes no id, so it
+			// never raises the watermark.
 			if tmux.HasSessionPrefix(name) {
 				out.unknownNames = append(out.unknownNames, name)
 			}
@@ -182,7 +179,7 @@ func classifyTmuxNames(names []string, knownIDs map[int64]bool) classifiedTmuxNa
 
 // reportAndSweepUnknown is classifySessionsByOwnership's tail: report+log every unknown
 // muster-<n> (never adopted, never killed), kill every muster-<n>-shell unconditionally,
-// and raise the id watermark above every id seen either way (REQ-9).
+// and raise the id watermark above every id seen either way.
 func (m *Manager) reportAndSweepUnknown(ctx context.Context, classified classifiedTmuxNames, report *ReconcileReport) {
 	for _, name := range classified.unknownNames {
 		report.UnknownSessions = append(report.UnknownSessions, name)
@@ -205,14 +202,16 @@ func (m *Manager) reportAndSweepUnknown(ctx context.Context, classified classifi
 }
 
 // RepairOwnedSession re-derives id's tmux_target/tmux_pane from a muster-<id> tmux
-// session that is live even though the row does not currently believe it owns it —
-// REQ-8's resume repair: when sessionLauncher.Resume's own spawn collides with
-// ErrSessionExists, a live muster-<id> under a not-alive row *is* that row's own pane
-// (Edge Case 6: a SIGKILL landed between an earlier resume's spawn and its persist, or a
-// race with Reconcile). Returns ErrUnknownSession for an unknown id, or an error naming
-// what went wrong if no live pane can actually be confirmed (the tmux session named by id
-// turns out not to exist after all, or ResolveSessionTarget isn't supported) — the caller
-// turns that into 500 launch_failed without ever quoting raw tmux stderr.
+// session that is live even though the row does not currently believe it owns it — the
+// resume repair for when sessionLauncher.Resume's own spawn collides with
+// ErrSessionExists: a live muster-<id> under a not-alive row *is* that row's own pane
+// (a SIGKILL landed between an earlier resume's spawn and its persist, or a race with
+// Reconcile — kb:adr/lifecycle-reconcile-converges-with-the-socket,
+// kb:adr/lifecycle-resume-rebinds-existing-session). Returns ErrUnknownSession for an
+// unknown id, or an error naming what went wrong if no live pane can actually be
+// confirmed (the tmux session named by id turns out not to exist after all, or
+// ResolveSessionTarget isn't supported) — the caller turns that into 500 launch_failed
+// without ever quoting raw tmux stderr.
 func (m *Manager) RepairOwnedSession(ctx context.Context, id int64) (*Session, error) {
 	resolveCtx, cancel := context.WithTimeout(ctx, endRemoveTmuxTimeout)
 	target, pane, err := m.tmuxSessions.ResolveSessionTarget(resolveCtx, sessionTmuxName(id))
@@ -239,12 +238,13 @@ func (m *Manager) RepairOwnedSession(ctx context.Context, id int64) (*Session, e
 	return snapshot, nil
 }
 
-// reviveOwnedSession is REQ-9's repair step for a row whose muster-<id> tmux session is
-// present on the socket: it is kept alive (reviving an alive=false row rather than
-// leaving it swept, D9) and has its tmux_target/tmux_pane re-derived from tmux and
-// persisted+broadcast only if either actually changed (D8/D10). A resolve failure (tmux
-// raced the ListSessions snapshot, or ResolveSessionTarget isn't supported) is
-// warn-logged and leaves the stored target as-is rather than blocking the alive revival.
+// reviveOwnedSession is the repair step for a row whose muster-<id> tmux session is
+// present on the socket (kb:adr/lifecycle-reconcile-converges-with-the-socket): it is
+// kept alive (reviving an alive=false row rather than leaving it swept) and has its
+// tmux_target/tmux_pane re-derived from tmux and persisted+broadcast only if either
+// actually changed. A resolve failure (tmux raced the ListSessions snapshot, or
+// ResolveSessionTarget isn't supported) is warn-logged and leaves the stored target as-is
+// rather than blocking the alive revival.
 func (m *Manager) reviveOwnedSession(ctx context.Context, id int64, tmuxName string) {
 	target, pane, err := m.tmuxSessions.ResolveSessionTarget(ctx, tmuxName)
 	if err != nil {
@@ -280,8 +280,8 @@ func (m *Manager) reviveOwnedSession(ctx context.Context, id int64, tmuxName str
 
 // persistAndFinishLocked persists sess (already mutated in place under m.mu, with prev
 // its pre-mutation clone) via the write-ticket/finishWrite machinery, then unlocks — the
-// identical tail RepairOwnedSession and reviveOwnedSession both built by hand (S6). Must
-// be called with m.mu held; unlocks it either way.
+// identical tail RepairOwnedSession and reviveOwnedSession both built by hand. Must be
+// called with m.mu held; unlocks it either way.
 func (m *Manager) persistAndFinishLocked(ctx context.Context, id int64, sess, prev *Session) (*Session, error) {
 	row := sessionToRow(sess)
 	snapshot := sess.Clone()

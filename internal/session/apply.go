@@ -13,33 +13,34 @@ import (
 // are generic identifiers, not Claude Code payload vocabulary; input is the neutral
 // StateInput the claudecode interpreter derived.
 //
-// enveloped is m4-hook-lifetime's REQ-9 binding-authority signal: it is true iff the
-// ingest post carried the kb:anchor/ingest.envelope envelope (i.e. arrived through Muster's own command
-// wrapper, never a raw/legacy post). For an enveloped event whose Kind is not itself a
-// binder (KindBind/KindClearRebind/KindResumeBind — those already carry their own bind
-// logic via applyInput/applyBind below), this session's *actual* claudeSessionID is
-// compared against the one this event names before applyInput runs:
-//   - never bound (ClaudeSessionID == "") → bind it, no state transition (a lost
-//     SessionStart, Edge Case 5).
+// enveloped is true iff the ingest post carried the kb:anchor/ingest.envelope envelope
+// (i.e. arrived through Muster's own command wrapper, never a raw/legacy post); an
+// enveloped post is the sole binding authority (kb:adr/ingest-envelope-authoritative-binding).
+// For an enveloped event whose Kind is not itself a binder (KindBind/KindClearRebind/
+// KindResumeBind — those already carry their own bind logic via applyInput/applyBind
+// below), this session's *actual* claudeSessionID is compared against the one this event
+// names before applyInput runs:
+//   - never bound (ClaudeSessionID == "") → bind it, no state transition (this covers a
+//     lost SessionStart: the pane's later events still bind it).
 //   - bound to a different id, and that id has never been this session's → the same
 //     rebind SessionStart(source:"clear") gets (reset context/compactions, → started),
-//     applied first, so the event that follows lands on a freshly-started session
-//     (Edge Case 4).
+//     applied first, so the event that follows lands on a freshly-started session — the
+//     shape /clear produces (kb:fact/clear-mints-new-session-id).
 //   - bound to a different id, but `byClaude[claudeSessionID]` already points at *this*
 //     session — meaning this session left that id for its current one already — the
 //     event is a reordered straggler from a conversation this session has moved on
 //     from (typically the `/clear` pair's own `SessionEnd(reason:"clear")`, since
 //     delivery is unordered per CLAUDE.md's hard rule). Rebinding is **monotonic**
-//     (kb:anchor/ingest.envelope, decided 2026-08-28, review of this plan, Critical 1): it
-//     is routed and applied below, but it never rebinds *backwards* — the current
-//     binding, context gauge and compaction counter are left untouched (Edge Case 6a).
+//     (kb:adr/ingest-envelope-authoritative-binding): it is routed and applied below,
+//     but it never rebinds *backwards* — the current binding, context gauge and
+//     compaction counter are left untouched.
 //
-// Raw (non-enveloped) events never take this path (REQ-10): they keep routing by the
-// existing byClaude mapping and never bind or rebind. Status-line posts never call Apply
-// at all (REQ-11) — they go through ApplyStatus.
+// Raw (non-enveloped) events never take this path: they keep routing by the existing
+// byClaude mapping and never bind or rebind. Status-line posts never call Apply at all —
+// they go through ApplyStatus.
 //
 // Either way, this function does exactly one persist and one broadcast, whether or not
-// the rebind branch ran (D18).
+// the rebind branch ran.
 func (m *Manager) Apply(ctx context.Context, musterSessionID int64, claudeSessionID string, promptID *string, input claudecode.StateInput, enveloped bool) (*Session, error) {
 	now := time.Now().UTC()
 
@@ -83,11 +84,11 @@ func (m *Manager) Apply(ctx context.Context, musterSessionID int64, claudeSessio
 	if input.Kind == claudecode.KindBind || input.Kind == claudecode.KindClearRebind {
 		m.byClaude[claudeSessionID] = musterSessionID
 	}
-	// REQ-7/REQ-8: a closing turn sets Unread from the watcher's answer at this moment —
-	// true iff no terminal client is attached to this session on either surface, false
-	// otherwise. A nil watcher (Config.Watcher unset, most unit tests) counts as
-	// unwatched. Every other input kind leaves Unread to setState's own idle-only rule
-	// (session.go).
+	// A closing turn sets Unread from the watcher's answer at this moment — true iff no
+	// terminal client is attached to this session on either surface, false otherwise
+	// (kb:adr/rail-unread-inferred-from-live-terminal-client). A nil watcher
+	// (Config.Watcher unset, most unit tests) counts as unwatched. Every other input kind
+	// leaves Unread to setState's own idle-only rule (session.go).
 	if input.Kind == claudecode.KindTurnClosed {
 		sess.Unread = m.watcher == nil || !m.watcher.Watched(musterSessionID)
 	}
@@ -123,13 +124,15 @@ func isBindKind(kind claudecode.InputKind) bool {
 	}
 }
 
-// ApplyStatus applies one routed status-line post's neutral StatusUpdate (REQ-4):
-// title, model, and context refresh, whichever fields the payload actually carried.
-// Persists and broadcasts sessionUpsert only when a surfaced field actually changed
-// (applyStatusUpdate's return value) — status posts fire on every tool use, and a
-// no-op upsert on every one of them would spam the wire (INV-5's session-side twin).
-// Never a state source (INV-1): applyStatusUpdate has no path to state/stateSince/
-// attention/failure/alive/compactions/permissionMode.
+// ApplyStatus applies one routed status-line post's neutral StatusUpdate: title, model,
+// and context refresh, whichever fields the payload actually carried. Persists and
+// broadcasts sessionUpsert only when a surfaced field actually changed
+// (applyStatusUpdate's return value) — status posts fire on every tool use, and a no-op
+// upsert on every one of them would spam the wire
+// (kb:adr/connection-whole-object-session-upserts). Never a state source:
+// applyStatusUpdate has no path to state/stateSince/attention/failure/alive/compactions/
+// permissionMode — status posts never drive the state machine
+// (kb:adr/ingest-envelope-authoritative-binding).
 func (m *Manager) ApplyStatus(ctx context.Context, musterSessionID int64, update claudecode.StatusUpdate) (*Session, error) {
 	m.mu.Lock()
 	sess, ok := m.sessions[musterSessionID]
@@ -139,8 +142,8 @@ func (m *Manager) ApplyStatus(ctx context.Context, musterSessionID int64, update
 	}
 	prev := sess.Clone()
 
-	// Captured before applyStatusUpdate mutates sess, so the wire-visible delta (REQ-12)
-	// can be judged independently of the persist-worthy delta applyStatusUpdate itself
+	// Captured before applyStatusUpdate mutates sess, so the wire-visible delta can be
+	// judged independently of the persist-worthy delta applyStatusUpdate itself
 	// reports: Model/Context are always replaced wholesale on a real change (never
 	// mutated in place, per applyStatusUpdate's own doc comment), so a pointer
 	// inequality after is exactly "this field changed"; DisplayTitle() folds in
@@ -156,10 +159,11 @@ func (m *Manager) ApplyStatus(ctx context.Context, musterSessionID int64, update
 	}
 	row := sessionToRow(sess)
 	snapshot := sess.Clone()
-	// REQ-12: a status post that only refreshed Claude's name while an override is set
-	// persists the row (Title changed, above — applyStatusUpdate reported it) but must
-	// not broadcast — the wire object (DisplayTitle()/model/context) is unchanged, and
-	// kb:anchor/ws.session's no-no-op-upserts rule stands.
+	// A status post that only refreshed Claude's name while an override is set persists
+	// the row (Title changed, above — applyStatusUpdate reported it) but must not
+	// broadcast — the wire object (DisplayTitle()/model/context) is unchanged, and
+	// kb:anchor/ws.session's no-no-op-upserts rule stands
+	// (kb:adr/rename-muster-owned-title-override-wins).
 	broadcast := !stringPtrEqual(beforeDisplay, sess.DisplayTitle()) || beforeModel != sess.Model || beforeContext != sess.Context
 	wait, done := m.nextWriteTurnLocked(musterSessionID)
 	m.mu.Unlock()

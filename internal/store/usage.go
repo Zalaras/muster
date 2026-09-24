@@ -6,10 +6,10 @@ import (
 	"time"
 )
 
-// UsageSampleRow is one persisted usage_sample row (m3-gauges Schema Changes) —
+// UsageSampleRow is one persisted usage_sample row (kb:ref/data-model) —
 // internal/usage's storage-level twin, keeping this package free of internal/usage's own
-// domain vocabulary. A row is only ever inserted for a complete sample (REQ-3/REQ-5); a
-// partial sample is never persisted, so every field here is required.
+// domain vocabulary. A row is only ever inserted for a complete sample; a partial sample
+// is never persisted, so every field here is required.
 type UsageSampleRow struct {
 	ModelID          string
 	ModelDisplayName string
@@ -21,7 +21,7 @@ type UsageSampleRow struct {
 }
 
 // InsertUsageSample persists one usage_sample row, stamping its receipt time itself
-// (RFC3339Nano UTC, REQ-10) rather than trusting a caller-supplied timestamp.
+// (RFC3339Nano UTC) rather than trusting a caller-supplied timestamp.
 func (s *Store) InsertUsageSample(ctx context.Context, r UsageSampleRow) error {
 	at := encodeReceiptTime(time.Now())
 	_, err := s.db.ExecContext(ctx, `
@@ -39,9 +39,10 @@ func (s *Store) InsertUsageSample(ctx context.Context, r UsageSampleRow) error {
 	return nil
 }
 
-// UsageModelSampleRow is one persisted usage_model_sample row (plan usage-model-bar,
-// Schema Changes) — internal/usage's storage-level twin, keeping this package free of
-// internal/usage's own domain vocabulary. At is not part of this shape: every row in one
+// UsageModelSampleRow is one persisted usage_model_sample row
+// (kb:adr/usage-model-window-polled-from-oauth-api, kb:ref/data-model) —
+// internal/usage's storage-level twin, keeping this package free of internal/usage's own
+// domain vocabulary. At is not part of this shape: every row in one
 // InsertUsageModelSamples batch shares a single receipt timestamp, stamped by the store
 // itself (mirrors InsertUsageSample), not trusted from a caller.
 type UsageModelSampleRow struct {
@@ -52,9 +53,9 @@ type UsageModelSampleRow struct {
 }
 
 // InsertUsageModelSamples persists rows in one transaction sharing a single receipt
-// timestamp (plan Schema Changes: "one per window, same at"). An empty slice is a no-op,
-// not an error — Record only calls this when the list actually changed and non-empty
-// input is never guaranteed by callers in general.
+// timestamp — one row per window, all stamped `at` the same instant. An empty slice is a
+// no-op, not an error — Record only calls this when the list actually changed and
+// non-empty input is never guaranteed by callers in general.
 func (s *Store) InsertUsageModelSamples(ctx context.Context, rows []UsageModelSampleRow) error {
 	if len(rows) == 0 {
 		return nil

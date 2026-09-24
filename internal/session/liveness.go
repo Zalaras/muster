@@ -32,16 +32,16 @@ func (m *Manager) Stop(ctx context.Context) {
 	boundedwait.Wait(ctx, &m.wg, m.log, "session manager liveness poll did not stop before shutdown deadline")
 }
 
-// Snapshot returns id's last captured pane screen, if any (REQ-4's GET .../pane read
-// path) — display source only, never a state source.
+// Snapshot returns id's last captured pane screen, if any (kb:anchor/sessions.pane's
+// read path) — display source only, never a state source.
 func (m *Manager) Snapshot(id int64) (text string, at time.Time, ok bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	sess, exists := m.sessions[id]
 	// LastSnapshotAt.IsZero() (never captured) is the honest sentinel, not
-	// LastSnapshot == "" (review cycle 1 Minor 2) — a genuinely blank pane that was
-	// captured successfully has LastSnapshot == "" too, and must still serve 200 text,
-	// not a 404 no_snapshot claiming nothing was ever captured.
+	// LastSnapshot == "" — a genuinely blank pane that was captured successfully has
+	// LastSnapshot == "" too, and must still serve 200 text, not a 404 no_snapshot
+	// claiming nothing was ever captured.
 	if !exists || sess.LastSnapshotAt.IsZero() {
 		return "", time.Time{}, false
 	}
@@ -53,8 +53,8 @@ func (m *Manager) Snapshot(id int64) (text string, at time.Time, ok bool) {
 // checkOneLiveness's periodic capture and endLocked's final pre-kill capture both built by
 // hand (S6). The two contexts are kept separate because endLocked bounds only the tmux
 // call to endRemoveTmuxTimeout while keeping the outer request ctx for the DB write;
-// checkOneLiveness passes the same ctx for both. A capture error (Edge Case 9: transient
-// tmux failure) is not a pane-missing signal — the previous snapshot is kept and liveness
+// checkOneLiveness passes the same ctx for both. A capture error (a transient tmux
+// failure) is not a pane-missing signal — the previous snapshot is kept and liveness
 // is never touched.
 func (m *Manager) captureAndStoreSnapshot(captureCtx, persistCtx context.Context, id int64, target string) {
 	text, err := m.paneSnapshotter.CapturePane(captureCtx, target)
@@ -65,19 +65,18 @@ func (m *Manager) captureAndStoreSnapshot(captureCtx, persistCtx context.Context
 	m.storeSnapshot(persistCtx, id, text)
 }
 
-// storeSnapshot persists text for id iff it differs from what's already stored
-// (REQ-4/Schema Changes: "written only when the text changes"). Never logs text (may
-// hold prompt text) and never broadcasts — the snapshot isn't part of the Session wire
-// object (kb:anchor/sessions.pane's own GET endpoint serves it).
+// storeSnapshot persists text for id iff it differs from what's already stored — written
+// only when the text changes. Never logs text (may hold prompt text) and never
+// broadcasts — the snapshot isn't part of the Session wire object (kb:anchor/sessions.pane's
+// own GET endpoint serves it).
 func (m *Manager) storeSnapshot(ctx context.Context, id int64, text string) {
 	m.mu.Lock()
 	sess, ok := m.sessions[id]
 	// The diff check alone would short-circuit a genuinely blank first capture (zero
 	// value LastSnapshot == "" already equals text == ""), leaving LastSnapshotAt zero
 	// forever even though a capture did succeed — Snapshot's IsZero() sentinel would then
-	// wrongly report "never captured" (review cycle 2 Minor 2). Requiring LastSnapshotAt
-	// to already be set before the diff can skip means the very first capture — blank or
-	// not — always persists.
+	// wrongly report "never captured". Requiring LastSnapshotAt to already be set before
+	// the diff can skip means the very first capture — blank or not — always persists.
 	if !ok || (sess.LastSnapshot == text && !sess.LastSnapshotAt.IsZero()) {
 		m.mu.Unlock()
 		return
@@ -115,17 +114,17 @@ func (m *Manager) pollLoop(ctx context.Context) {
 // checkLiveness polls every alive, fully-launched session's pane and flips it dead on
 // the first miss (kb:anchor/state.liveness). State is never touched here.
 func (m *Manager) checkLiveness(ctx context.Context) {
-	// REQ-16/D17: one ListSessions call confirms the tmux server itself is reachable
-	// before any pane is believed gone — a server-level failure (tmux unreachable) is
-	// transient and must leave every session as-is for the next tick, never read as N
-	// simultaneous deaths. Deliberately once per sweep, not once per session.
+	// One ListSessions call confirms the tmux server itself is reachable before any pane
+	// is believed gone — a server-level failure (tmux unreachable) is transient and must
+	// leave every session as-is for the next tick, never read as N simultaneous deaths.
+	// Deliberately once per sweep, not once per session.
 	if _, err := m.tmuxSessions.ListSessions(ctx); err != nil {
 		m.log.Warn().Err(err).Msg("liveness sweep: tmux server unreachable; leaving sessions as-is")
 		return
 	}
 
-	// Collect value copies, not *Session pointers, under the lock (review Major 8):
-	// holding a live pointer and reading its field after Unlock races with any writer
+	// Collect value copies, not *Session pointers, under the lock: holding a live
+	// pointer and reading its field after Unlock races with any writer
 	// (e.g. RecordLaunch) mutating the same field concurrently.
 	targets := collectLocked(m,
 		func(s *Session) bool { return s.Alive && s.TmuxTarget != "" },
@@ -155,11 +154,11 @@ func (m *Manager) Nudge(ctx context.Context, sessionID int64) {
 }
 
 // checkOneLiveness is checkLiveness/Nudge/End's shared body: check one target's pane,
-// capture a fresh snapshot while it's alive (REQ-4), and flip the session dead on the
-// first miss. endOnCheckError controls what happens when PaneExists itself errors
-// (distinct from a clean "pane not found"): the periodic poll/nudge callers pass false
-// and leave the session as-is for the next tick (an ordinary transient tmux hiccup —
-// review cycle 1 Minor 1), while End passes true because it just killed the session
+// capture a fresh snapshot while it's alive (kb:anchor/sessions.pane), and flip the
+// session dead on the first miss. endOnCheckError controls what happens when PaneExists
+// itself errors (distinct from a clean "pane not found"): the periodic poll/nudge
+// callers pass false and leave the session as-is for the next tick (an ordinary
+// transient tmux hiccup), while End passes true because it just killed the session
 // itself and a check error there must not leave End reporting alive:true.
 func (m *Manager) checkOneLiveness(ctx context.Context, id int64, target string, endOnCheckError bool) {
 	exists, err := m.paneChecker.PaneExists(ctx, target)
@@ -189,10 +188,9 @@ func (m *Manager) checkOneLiveness(ctx context.Context, id int64, target string,
 // markEnded flips one session's alive to false with endedAt=now, persists the whole row,
 // and broadcasts. Idempotent (already-ended is a no-op, no double broadcast). Shared by
 // checkOneLiveness (the ordinary poll/nudge path), Reconcile's mark-ended rows, and End
-// (via its own liveness nudge — Implementation Notes: "final snapshot → kill-session →
-// liveness nudge"). REQ-14/D16: a persist failure rolls the alive/endedAt flip back, so
-// the next poll tick re-checks the session instead of the daemon silently believing it
-// dead while the DB still says alive.
+// (via its own liveness nudge: final snapshot, kill-session, then this). A persist
+// failure rolls the alive/endedAt flip back, so the next poll tick re-checks the session
+// instead of the daemon silently believing it dead while the DB still says alive.
 func (m *Manager) markEnded(ctx context.Context, id int64) (*Session, error) {
 	m.mu.Lock()
 	sess, ok := m.sessions[id]

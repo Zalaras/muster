@@ -7,7 +7,7 @@ import (
 )
 
 // Repo is one row of the MRU directory picker (kb:anchor/repos.list), also the home
-// of the per-directory launch defaults (m1-sessions REQ-5).
+// of the per-directory launch defaults (kb:ref/data-model).
 type Repo struct {
 	ID                 int64
 	Path               string
@@ -21,7 +21,7 @@ type Repo struct {
 	CreatedAt          time.Time
 }
 
-// UpsertRepoParams are the values a launch records on the repo row (REQ-3).
+// UpsertRepoParams are the values a launch records on the repo row.
 type UpsertRepoParams struct {
 	Path           string
 	Name           string
@@ -88,7 +88,7 @@ func (s *Store) GetRepo(ctx context.Context, id int64) (Repo, error) {
 }
 
 // ListRepos returns every repo row ordered `pinned DESC, last_launched_at DESC`
-// (kb:anchor/repos.list / REQ-5), for the launch modal's MRU list.
+// (kb:anchor/repos.list), for the launch modal's MRU list.
 func (s *Store) ListRepos(ctx context.Context) ([]Repo, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, path, name, is_git, pinned, last_launched_at, launch_count, last_model, last_permission_mode, created_at

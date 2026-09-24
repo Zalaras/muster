@@ -21,7 +21,7 @@ type PaneChecker interface {
 	PaneExists(ctx context.Context, target string) (bool, error)
 }
 
-// PaneSnapshotter captures a live pane's current screen text (m4-reconcile REQ-4) —
+// PaneSnapshotter captures a live pane's current screen text (kb:anchor/sessions.pane) —
 // display source only, never read by the state machine and never logged (may hold
 // prompt text). internal/tmux.Client satisfies it.
 type PaneSnapshotter interface {
@@ -30,11 +30,12 @@ type PaneSnapshotter interface {
 
 // TmuxSessions is the Manager's live view of tmux itself: enumerating every session on
 // the socket, killing one by name, and resolving a live session's current window/pane
-// target. Reconcile's ownership classification and repair (REQ-2/REQ-8/REQ-9), End/
-// EndAll/Remove's kill path (REQ-5) and the shell-lifecycle helpers all go through this
-// one port — a *tmux.Client satisfies it. a-M1 folded target resolution in here (it used
-// to be a separate targetResolver interface Manager discovered via type-assertion, since
-// Killer test doubles never implemented it) so every caller can call
+// target. Reconcile's ownership classification and repair
+// (kb:adr/lifecycle-reconcile-converges-with-the-socket), End/EndAll/Remove's kill path
+// (kb:adr/actions-serialized-per-session) and the shell-lifecycle helpers all go through
+// this one port — a *tmux.Client satisfies it. Target resolution is folded in here (it
+// used to be a separate targetResolver interface Manager discovered via type-assertion,
+// since Killer test doubles never implemented it) so every caller can call
 // ResolveSessionTarget directly; a fake that doesn't support it just returns an error,
 // the same shape a real failure already took.
 type TmuxSessions interface {
@@ -44,7 +45,7 @@ type TmuxSessions interface {
 }
 
 // Watcher answers whether a session currently has a live terminal client attached, on
-// either surface (plan rail-card-improvements REQ-8, kb:anchor/state.tracked) —
+// either surface (kb:adr/rail-unread-inferred-from-live-terminal-client, kb:anchor/state.tracked) —
 // internal/server's terminal registry satisfies it. Apply's turn_closed handling treats
 // a nil Watcher (e.g. a Manager built without one, most unit tests) as reporting false
 // for every id — unwatched, never a panic.
@@ -64,10 +65,10 @@ var (
 const defaultPollInterval = 5 * time.Second
 
 // endRemoveTmuxTimeout bounds every tmux invocation endLocked/removeLocked/
-// RepairOwnedSession make (review cycle 1 Major 3 and cycle 2 Minor, REQ-12): all three
-// run under a per-session-id lock acquired by End/Remove/Resume, so a wedged tmux there
-// no longer just hangs one request — it wedges every later End/Resume/Remove for that
-// same id, permanently. Mirrors shellTmuxTimeout's value (internal/server/shells.go).
+// RepairOwnedSession make: all three run under a per-session-id lock acquired by
+// End/Remove/Resume (kb:adr/actions-serialized-per-session), so a wedged tmux there no
+// longer just hangs one request — it wedges every later End/Resume/Remove for that same
+// id, permanently. Mirrors shellTmuxTimeout's value (internal/server/shells.go).
 const endRemoveTmuxTimeout = 5 * time.Second
 
 // Config wires a Manager. Built by internal/server; nothing here starts a goroutine
@@ -82,9 +83,9 @@ type Config struct {
 	PaneSnapshotter PaneSnapshotter
 	TmuxSessions    TmuxSessions
 	OnUpsert        func(*Session) // broadcasts a sessionUpsert; may be nil in tests
-	OnRemoved       func(id int64) // broadcasts sessionRemoved (m4-reconcile REQ-6); may be nil in tests
+	OnRemoved       func(id int64) // broadcasts sessionRemoved (kb:anchor/ws.session-removed); may be nil in tests
 	PollInterval    time.Duration  // 0 uses defaultPollInterval
-	Watcher         Watcher        // REQ-8; nil counts every session as unwatched
+	Watcher         Watcher        // nil counts every session as unwatched
 }
 
 // Manager is the in-memory session registry and the kb:anchor/state state machine's home. Every
@@ -103,16 +104,16 @@ type Manager struct {
 
 	// mu guards sessions, byClaude, idLocks, writeChain and nextRailPos below: every map's
 	// own entries, and every field of a *Session sessions holds — a *Session is mutable
-	// only while mu is held (Critical 1: this is the rule applyBind used to break by
-	// mutating a Model a released Clone() already shared). Every exported read (Get/List/
+	// only while mu is held (this is the rule applyBind used to break by mutating a
+	// Model a released Clone() already shared). Every exported read (Get/List/
 	// Exists/Resolve/PaneOf/…) takes its own Clone() before releasing mu, so a caller never
 	// holds a pointer another goroutine can still mutate.
 	mu       sync.Mutex
 	sessions map[int64]*Session
 	byClaude map[string]int64 // claude session id -> muster session id
 
-	// idLocks is session-lifecycle REQ-11's per-session-id lock, guarded by mu itself
-	// (map access only — never held across tmux I/O). LockSession serialises one id's
+	// idLocks is the per-session-id lock (kb:adr/actions-serialized-per-session), guarded
+	// by mu itself (map access only — never held across tmux I/O). LockSession serialises one id's
 	// Launch/Resume/End/Remove check-then-act without blocking a different id's; Remove
 	// reclaims an id's entry once its row is gone (the id is never reissued, so nothing
 	// after that could ever contend on it again). Created eagerly by NewManager, like
@@ -155,8 +156,9 @@ type Manager struct {
 	stopped atomic.Bool
 }
 
-// LockSession acquires id's per-session lock (REQ-11) and returns the func that releases
-// it. Held across a whole logical action — including its tmux I/O — never across mu
+// LockSession acquires id's per-session lock (kb:adr/actions-serialized-per-session) and
+// returns the func that releases it. Held across a whole logical action — including its
+// tmux I/O — never across mu
 // itself; internal/server's sessionLauncher uses this directly to serialise Launch and
 // Resume the same way End/Remove do internally.
 func (m *Manager) LockSession(id int64) (unlock func()) {
@@ -202,8 +204,8 @@ func NewManager(cfg Config) *Manager {
 	}
 }
 
-// LoadAll reloads every persisted session into memory (daemon-restart reconcile,
-// Edge Case 7 — the liveness poll re-evaluates alive on its own next tick).
+// LoadAll reloads every persisted session into memory (daemon-restart reconcile) — the
+// liveness poll re-evaluates alive on its own next tick.
 func (m *Manager) LoadAll(ctx context.Context) error {
 	rows, err := m.store.ListSessions(ctx)
 	if err != nil {
@@ -223,7 +225,7 @@ func (m *Manager) LoadAll(ctx context.Context) error {
 	return nil
 }
 
-// CreateParams seeds a new launched session (REQ-1/REQ-2).
+// CreateParams seeds a new launched session.
 type CreateParams struct {
 	RepoID          int64
 	Directory       string
@@ -234,17 +236,16 @@ type CreateParams struct {
 	Model           string
 	FirstLaunchHere bool
 
-	// MinID floors the allocated id above this value (0 = no floor) — session-lifecycle
-	// REQ-1/REQ-7: the launcher's MaxSessionID probe of the tmux socket, passed straight
-	// through to store.InsertSessionParams.MinID.
+	// MinID floors the allocated id above this value (0 = no floor) — the launcher's
+	// MaxSessionID probe of the tmux socket, passed straight through to
+	// store.InsertSessionParams.MinID (kb:adr/lifecycle-session-ids-monotonic-never-reused).
 	MinID int64
 }
 
 // CreateSession inserts the session row (tmuxTarget still a placeholder — the launcher
-// needs this id to build the tmux pane environment before it can spawn the window,
-// plan Implementation Notes) and registers it in memory. No broadcast yet: REQ-2's
-// "before any hook can arrive" is satisfied by RecordLaunch, once the real tmux target
-// is known.
+// needs this id to build the tmux pane environment before it can spawn the window) and
+// registers it in memory. No broadcast yet: staying silent until any hook can arrive is
+// satisfied by RecordLaunch, once the real tmux target is known.
 func (m *Manager) CreateSession(ctx context.Context, p CreateParams) (*Session, error) {
 	model := p.Model
 
@@ -283,9 +284,9 @@ func (m *Manager) CreateSession(ctx context.Context, p CreateParams) (*Session, 
 	return sess.Clone(), nil
 }
 
-// DeleteSession removes a session that failed to launch after its row was inserted
-// (plan Implementation Notes: "on spawn failure: delete the row"). No OnRemoved
-// broadcast: the row was never announced with a sessionUpsert either.
+// DeleteSession removes a session that failed to launch after its row was inserted — on
+// a spawn failure the row is deleted rather than left behind. No OnRemoved broadcast: the
+// row was never announced with a sessionUpsert either.
 func (m *Manager) DeleteSession(ctx context.Context, id int64) error {
 	return m.removeSessionRecord(ctx, id, false)
 }
@@ -311,17 +312,18 @@ func (m *Manager) removeFromMemory(id int64) {
 // the divergence (DeleteSession/Reconcile dropped memory before the store row; Remove's
 // removeLocked did the reverse) — this follows removeLocked's order, store first, so a
 // failed delete can never look like a completed remove. notify controls whether
-// OnRemoved fires: Remove's REQ-6 contract broadcasts sessionRemoved; DeleteSession's
-// rollback and Reconcile's sweep are both startup/failure housekeeping the UI never
-// displayed a row for, so neither broadcasts (kb:anchor/ws.session-removed: "Startup
-// sweeps send nothing").
+// OnRemoved fires: Remove broadcasts sessionRemoved (kb:adr/actions-remove-allowed-on-live-session);
+// DeleteSession's rollback and Reconcile's sweep are both startup/failure housekeeping
+// the UI never displayed a row for, so neither broadcasts (kb:anchor/ws.session-removed:
+// "Startup sweeps send nothing").
 func (m *Manager) removeSessionRecord(ctx context.Context, id int64, notify bool) error {
 	if err := m.store.DeleteSession(ctx, id); err != nil {
 		return fmt.Errorf("removing session %d: %w", id, err)
 	}
 	m.removeFromMemory(id)
 
-	// The id is never reissued (REQ-2), so nothing can ever contend on this lock again —
+	// The id is never reissued (kb:adr/lifecycle-session-ids-monotonic-never-reused), so
+	// nothing can ever contend on this lock again —
 	// reclaim it rather than growing the map for the life of the daemon. writeChain's
 	// entry is reclaimed the same way and for the same reason: no write for a removed,
 	// never-reused id can ever be scheduled again.
@@ -338,8 +340,7 @@ func (m *Manager) removeSessionRecord(ctx context.Context, id int64, notify bool
 
 // sessionTmuxName returns the tmux session name Muster spawns for id — tmux.SessionName's
 // own convention, used by End/EndAll/Remove to name the kill target without needing the
-// live tmuxTarget string (c-adapters Minor 4: declared once, in internal/tmux, rather
-// than rebuilt here).
+// live tmuxTarget string (declared once, in internal/tmux, rather than rebuilt here).
 func sessionTmuxName(id int64) string {
 	return tmux.SessionName(id)
 }
@@ -388,8 +389,8 @@ func (m *Manager) Get(id int64) (*Session, bool) {
 }
 
 // Exists reports whether id is a known (not necessarily alive) Muster session — used
-// by the ingest worker to validate an envelope's musterSession before trusting it
-// (Edge Case 12: a stale env must persist unrouted, never bind).
+// by the ingest worker to validate an envelope's musterSession before trusting it: a
+// stale envelope naming an id that no longer exists must persist unrouted, never bind.
 func (m *Manager) Exists(id int64) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -397,8 +398,8 @@ func (m *Manager) Exists(id int64) bool {
 	return ok
 }
 
-// Resolve returns the Muster session bound to a Claude session id, if any (REQ-7's
-// routing rule for every non-binding event).
+// Resolve returns the Muster session bound to a Claude session id, if any — the routing
+// rule for every non-binding event (kb:adr/ingest-envelope-authoritative-binding).
 func (m *Manager) Resolve(claudeSessionID string) (int64, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

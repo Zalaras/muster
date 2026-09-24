@@ -8,10 +8,11 @@ import (
 	"time"
 )
 
-// sessionIDWatermarkKey is the kv-table key REQ-1 uses to persist the highest session id
-// ever allocated, so a later delete (rollback, Remove, reconcile's sweep) can never let
-// that id come back — the id doubles as the tmux session name and the ingest bearer
-// credential MUSTER_SESSION, so reuse is a correctness bug (plan session-lifecycle REQ-1/REQ-2).
+// sessionIDWatermarkKey is the kv-table key that persists the highest session id ever
+// allocated, so a later delete (rollback, Remove, reconcile's sweep) can never let that id
+// come back — the id doubles as the tmux session name and the ingest bearer credential
+// MUSTER_SESSION, so reuse is a correctness bug
+// (kb:adr/lifecycle-session-ids-monotonic-never-reused).
 const sessionIDWatermarkKey = "session.id_watermark"
 
 // readIDWatermark returns the persisted session id watermark via q (either *Store.db or
@@ -32,7 +33,7 @@ func readIDWatermark(ctx context.Context, q dbTx) (int64, error) {
 	return watermark, nil
 }
 
-// SessionRow is the persisted shape of a session (m1-sessions Schema Changes). It is
+// SessionRow is the persisted shape of a session (kb:ref/data-model). It is
 // the storage-level twin of internal/session.Session; internal/server converts between
 // the two so this package stays free of the kb:anchor/state state machine's own vocabulary.
 type SessionRow struct {
@@ -50,7 +51,7 @@ type SessionRow struct {
 	PermissionMode       string
 	PermissionModeSource string
 	Model                *string
-	ModelDisplayName     *string // m3-gauges REQ-8/REQ-16; NULL = derive from Model (id)
+	ModelDisplayName     *string // NULL = derive the display name from Model (the raw id)
 	Compactions          int
 	AttentionReason      *string
 	AttentionSince       *time.Time
@@ -62,52 +63,52 @@ type SessionRow struct {
 	FirstLaunchHere      bool
 	CreatedAt            time.Time
 
-	// Context gauge (m3-gauges REQ-8): always all-nil or all-non-nil (INV-2). NULL =
-	// unknown — a session that hasn't yet received a post-first-response status post.
+	// Context gauge (kb:adr/usage-context-gauge-shows-tokens-and-compactions): always
+	// all-nil or all-non-nil. NULL = unknown — a session that hasn't yet received a
+	// post-first-response status post.
 	ContextUsedPct          *float64
 	ContextTotalInputTokens *int64
 	ContextWindowSize       *int64
 
-	// LastSnapshot/LastSnapshotAt (m4-reconcile REQ-4): the last capture-pane text and
-	// when it was captured — always both-nil or both-non-nil. Display source only, never
-	// read by the state machine; never logged (may hold prompt text).
+	// LastSnapshot/LastSnapshotAt (kb:anchor/sessions.pane): the last capture-pane text
+	// and when it was captured — always both-nil or both-non-nil. Display source only,
+	// never read by the state machine; never logged (may hold prompt text).
 	LastSnapshot   *string
 	LastSnapshotAt *time.Time
 
-	// Pinned/RailPos (plan order-sidebar): user-owned rail order. Display-only —
-	// never read by the state machine or the status path (D17).
+	// Pinned/RailPos (kb:adr/rail-order-daemon-owned-per-session-fields): user-owned
+	// rail order. Display-only — never read by the state machine or the status path.
 	Pinned  bool
 	RailPos int64
 
-	// TitleOverride (plan ui-text-and-focus REQ-9): the user's rename via PUT
-	// .../title. Display-only, nullable, never touched by the status path (INV-2) —
+	// TitleOverride (kb:adr/rename-muster-owned-title-override-wins): the user's rename
+	// via PUT .../title. Display-only, nullable, never touched by the status path —
 	// wins over Title in the wire "title" (internal/session.Session.DisplayTitle()).
 	TitleOverride *string
 
-	// TranscriptPath/PlanPath/PlanExists (plan markdown-viewing Schema Changes): the
-	// latest transcript path a routed hook named, and the plan derived from it.
-	// Display-only, never read by the state machine. TranscriptPath is NULL until a
-	// hook sets it. PlanPath is NULL until a transcript has named a plan; once set, a
-	// planless scan keeps it rather than nulling it back out
-	// (kb:adr/reader-plan-sticky-once-named). PlanExists defaults to 0.
+	// TranscriptPath/PlanPath/PlanExists (docs/features/reader/spec.md): the latest
+	// transcript path a routed hook named, and the plan derived from it. Display-only,
+	// never read by the state machine. TranscriptPath is NULL until a hook sets it.
+	// PlanPath is NULL until a transcript has named a plan; once set, a planless scan
+	// keeps it rather than nulling it back out (kb:adr/reader-plan-sticky-once-named).
+	// PlanExists defaults to 0.
 	TranscriptPath *string
 	PlanPath       *string
 	PlanExists     bool
 
-	// Unread/LastPrompt (plan rail-card-improvements REQ-7/REQ-12): Unread is true iff
-	// the session's turn closed with no terminal client attached, since cleared by a
-	// non-idle transition or an attach. LastPrompt is the user's most recent prompt,
-	// truncated to 200 chars, NULL until a first prompt or after /clear. Both
-	// display-only, never read by the state machine.
+	// Unread/LastPrompt (kb:adr/rail-unread-inferred-from-live-terminal-client): Unread
+	// is true iff the session's turn closed with no terminal client attached, since
+	// cleared by a non-idle transition or an attach. LastPrompt is the user's most
+	// recent prompt, truncated to 200 chars, NULL until a first prompt or after /clear.
+	// Both display-only, never read by the state machine.
 	Unread     bool
 	LastPrompt *string
 }
 
-// InsertSessionParams seeds a new session row (REQ-1/REQ-2): state "started", the
-// permission-mode latch seeded with source "seed", alive, created now. TmuxTarget is
-// a placeholder ("") until the caller records the real tmux window via UpdateSession —
-// the row must exist (and get an id) before the tmux spawn that needs that id in the
-// pane environment (plan Implementation Notes: launch sequence).
+// InsertSessionParams seeds a new session row: state "started", the permission-mode
+// latch seeded with source "seed", alive, created now. TmuxTarget is a placeholder ("")
+// until the caller records the real tmux window via UpdateSession — the row must exist
+// (and get an id) before the tmux spawn that needs that id in the pane environment.
 type InsertSessionParams struct {
 	RepoID          int64
 	Directory       string
@@ -118,26 +119,27 @@ type InsertSessionParams struct {
 	Model           *string
 	FirstLaunchHere bool
 
-	// RailPos is the manual rail position for the new session (plan order-sidebar
-	// REQ-1): the caller (internal/session.Manager, under its lock) computes
-	// max(existing)+1 so the newest session lands at the bottom of the unpinned
-	// block. Pinned always starts false.
+	// RailPos is the manual rail position for the new session
+	// (kb:adr/rail-order-daemon-owned-per-session-fields): the caller
+	// (internal/session.Manager, under its lock) computes max(existing)+1 so the newest
+	// session lands at the bottom of the unpinned block. Pinned always starts false.
 	RailPos int64
 
-	// MinID floors the allocated id above this value (0 = no floor) — session-lifecycle
-	// REQ-1/REQ-7: the launcher passes its MaxSessionID probe of the tmux socket here, so
-	// a new row never lands on an id an orphaned "muster-<N>" tmux session already owns.
+	// MinID floors the allocated id above this value (0 = no floor) — the launcher
+	// passes its MaxSessionID probe of the tmux socket here, so a new row never lands on
+	// an id an orphaned "muster-<N>" tmux session already owns
+	// (kb:adr/lifecycle-session-ids-monotonic-never-reused).
 	MinID int64
 }
 
 // InsertSession allocates the new row's id as
 // max(COALESCE(MAX(id) from session, 0), the persisted watermark, p.MinID) + 1, inserted
 // with that id explicit, and persists the new watermark — all in one transaction
-// (session-lifecycle REQ-1/REQ-2). This is what makes an id un-reissuable: SQLite's
-// ROWID (no AUTOINCREMENT on this table) would otherwise reuse max(rowid)+1 the moment
-// the highest row is deleted (launch rollback, Remove, reconcile's sweep), and that id
-// doubles as both the tmux session name and the ingest bearer credential
-// MUSTER_SESSION=<id>.
+// (kb:adr/lifecycle-session-ids-monotonic-never-reused). This is what makes an id
+// un-reissuable: SQLite's ROWID (no AUTOINCREMENT on this table) would otherwise reuse
+// max(rowid)+1 the moment the highest row is deleted (launch rollback, Remove,
+// reconcile's sweep), and that id doubles as both the tmux session name and the ingest
+// bearer credential MUSTER_SESSION=<id>.
 func (s *Store) InsertSession(ctx context.Context, p InsertSessionParams) (SessionRow, error) {
 	now := encodeTime(time.Now())
 
@@ -199,9 +201,10 @@ func (s *Store) InsertSession(ctx context.Context, p InsertSessionParams) (Sessi
 }
 
 // BumpIDWatermark raises the persisted session id watermark to at least minID, leaving it
-// untouched if it's already higher (session-lifecycle REQ-9: an unknown "muster-<N>" or
-// "muster-<N>-shell" tmux session found on the socket during reconcile must still block
-// id N from ever being allocated to a new row, even though no row names it).
+// untouched if it's already higher: an unknown "muster-<N>" or "muster-<N>-shell" tmux
+// session found on the socket during reconcile must still block id N from ever being
+// allocated to a new row, even though no row names it
+// (kb:adr/lifecycle-session-ids-monotonic-never-reused).
 //
 // The read and the conditional write run in one transaction: Open's
 // single connection (SetMaxOpenConns(1)) means a held *sql.Tx has exclusive use of it
@@ -231,8 +234,8 @@ func (s *Store) BumpIDWatermark(ctx context.Context, minID int64) error {
 	return nil
 }
 
-// DeleteSession removes a session row — the launch-failure rollback path (plan
-// Implementation Notes: "on spawn failure: delete the row").
+// DeleteSession removes a session row — the launch-failure rollback path: on a spawn
+// failure the row is deleted rather than left behind.
 func (s *Store) DeleteSession(ctx context.Context, id int64) error {
 	if _, err := s.db.ExecContext(ctx, `DELETE FROM session WHERE id = ?`, id); err != nil {
 		return fmt.Errorf("deleting session %d: %w", id, err)
@@ -308,7 +311,7 @@ func (s *Store) GetSession(ctx context.Context, id int64) (SessionRow, error) {
 }
 
 // ListSessions returns every session row (order unspecified — the client sorts,
-// kb:anchor/ws.snapshot), for daemon startup reload (Edge Case 7).
+// kb:anchor/ws.snapshot), for daemon startup reload.
 func (s *Store) ListSessions(ctx context.Context) ([]SessionRow, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT `+sessionColumns+` FROM session`)
 	if err != nil {
@@ -389,10 +392,11 @@ func scanSession(row rowScanner) (SessionRow, error) {
 	return r, nil
 }
 
-// UpdateSnapshot persists only the last captured pane screen for id (REQ-4), separate
-// from UpdateSession's whole-row write since it happens on every liveness tick for every
-// alive session — called only when the captured text actually changed (same pattern as
-// usage_sample). Never logged (may hold prompt text).
+// UpdateSnapshot persists only the last captured pane screen for id
+// (kb:anchor/sessions.pane), separate from UpdateSession's whole-row write since it
+// happens on every liveness tick for every alive session — called only when the captured
+// text actually changed (same pattern as usage_sample). Never logged (may hold prompt
+// text).
 func (s *Store) UpdateSnapshot(ctx context.Context, id int64, text string, at time.Time) error {
 	ts := encodeTime(at)
 	if _, err := s.db.ExecContext(ctx, `UPDATE session SET last_snapshot = ?, last_snapshot_at = ? WHERE id = ?`, text, ts, id); err != nil {

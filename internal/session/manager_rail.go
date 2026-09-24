@@ -10,7 +10,8 @@ import (
 
 // maxRailPosLocked returns the largest RailPos among known sessions, or -1 when there are
 // none — LoadAll's one-time seed for nextRailPos, CreateSession's own decision from then
-// on (REQ-1: "opened order = bottom of the unpinned block"). Must be called with m.mu held.
+// on: a newly opened session lands at the bottom of the unpinned block
+// (kb:adr/rail-order-daemon-owned-per-session-fields). Must be called with m.mu held.
 func (m *Manager) maxRailPosLocked() int64 {
 	highest := int64(-1)
 	for _, s := range m.sessions {
@@ -74,8 +75,8 @@ func (m *Manager) applyRailChangesLocked(changed []railEntry) []railWrite {
 }
 
 // persistAndBroadcastRail persists and broadcasts each of writes in turn — the tail
-// shared by SetPinned/SetOrder once the in-memory mutation is done and the lock released
-// (REQ-3/REQ-4: "every session whose pinned or railPos changed is broadcast"). Stops at
+// shared by SetPinned/SetOrder once the in-memory mutation is done and the lock released:
+// every session whose pinned or railPos changed is broadcast. Stops at
 // the first persist failure and rolls that one back plus every write still queued behind
 // it (a batch that stops partway must never leave memory claiming rail positions the
 // DB never recorded) — writes already persisted and broadcast earlier in this call stand.
@@ -96,8 +97,8 @@ func (m *Manager) persistAndBroadcastRail(ctx context.Context, writes []railWrit
 // SetPinned applies kb:anchor/sessions.pin's pin mutation to id: pins or unpins it,
 // renumbering whatever the invariant requires (railorder.go's applyPin), and persists +
 // broadcasts every session whose pinned or railPos changed — nothing when id was
-// already in the requested state (D8, INV-5). Returns ErrUnknownSession if id doesn't
-// exist (the server maps it to 404 unknown_session).
+// already in the requested state. Returns ErrUnknownSession if id doesn't exist (the
+// server maps it to 404 unknown_session).
 func (m *Manager) SetPinned(ctx context.Context, id int64, pinned bool) error {
 	m.mu.Lock()
 	changed, err := applyPin(m.railEntriesLocked(), id, pinned)

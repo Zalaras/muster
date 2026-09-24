@@ -107,8 +107,9 @@ func decodeReceiptTime(text string) (time.Time, error) {
 
 // dbTx is satisfied by both *sql.DB and *sql.Tx — narrow enough to let the kv
 // read/write logic run either outside a transaction (KVGet/KVSet) or inside one
-// (session-lifecycle REQ-1: InsertSession reads and bumps the id watermark as part of
-// the same transaction that allocates the row's id) without duplicating the SQL.
+// (InsertSession reads and bumps the id watermark as part of the same transaction that
+// allocates the row's id — kb:adr/lifecycle-session-ids-monotonic-never-reused) without
+// duplicating the SQL.
 type dbTx interface {
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
@@ -164,8 +165,8 @@ type Event struct {
 
 	// SessionID is the Muster session (session.id) this event routed to, resolved by
 	// the caller (internal/server/ingest.go, via internal/session's binding map)
-	// before persistence. Nil means unrouted (m1-sessions REQ-7/D9): an unknown Claude
-	// session id, or a stale/absent envelope — never guessed at by cwd.
+	// before persistence. Nil means unrouted: an unknown Claude session id, or a
+	// stale/absent envelope — never guessed at by cwd.
 	SessionID *int64
 }
 
@@ -192,7 +193,7 @@ func (s *Store) InsertEvent(ctx context.Context, ev Event) error {
 }
 
 // EventSummary is the per-Muster-session event-routing summary behind the issue-capture
-// snapshot's allowlisted session.events fields (plan issue-capture, Schema Changes) —
+// snapshot's allowlisted session.events fields (kb:adr/issue-payload-allowlist-never-dump) —
 // bounds, a count and the last 10 event.type values, never a payload.
 type EventSummary struct {
 	FirstSeq       *int64

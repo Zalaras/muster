@@ -1,7 +1,7 @@
 // Package session holds the state machine (kb:anchor/state) and the in-memory
 // session registry that feeds it. It operates purely on claudecode.StateInput values
 // and its own neutral fields — no Claude Code payload key or event name appears here
-// (CLAUDE.md hard rule; plan m1-sessions "The state machine — implementation shape").
+// (CLAUDE.md hard rule).
 package session
 
 import (
@@ -26,10 +26,9 @@ const (
 // PermissionMode is the latched last-known permission mode (kb:anchor/state.tracked).
 // The four values are Claude Code's own `--permission-mode` vocabulary
 // (kb:fact/permission-mode-no-flag-follows-configured-default), owned by
-// internal/claudecode (CLAUDE.md hard rule; maintainability-cleanup review Major
-// 6/c-Minor 11) — this package's constants derive from that owner rather than
-// re-declaring the literals, since session already imports claudecode (for StateInput),
-// so this direction never cycles.
+// internal/claudecode (CLAUDE.md hard rule) — this package's constants derive from that
+// owner rather than re-declaring the literals, since session already imports claudecode
+// (for StateInput), so this direction never cycles.
 type PermissionMode string
 
 const (
@@ -44,7 +43,7 @@ const (
 
 // PermissionModes lists every mode as this package's own typed enum — internal/server
 // validates incoming requests against it rather than re-spelling the four literals
-// itself (maintainability-cleanup review, Major 6).
+// itself.
 var PermissionModes = []PermissionMode{PermissionDefault, PermissionPlan, PermissionAcceptEdits, PermissionAuto}
 
 // ValidPermissionMode reports whether s is one of PermissionModes. Delegates to
@@ -112,47 +111,46 @@ type Session struct {
 	FirstLaunchHere      bool
 	CreatedAt            time.Time
 
-	// LastSnapshot/LastSnapshotAt (m4-reconcile REQ-4): the last capture-pane text and
-	// when it was captured. "" / zero means "never captured yet" — display source only,
-	// never read by the state machine, never logged (may hold prompt text).
+	// LastSnapshot/LastSnapshotAt (kb:anchor/sessions.pane): the last capture-pane text
+	// and when it was captured. "" / zero means "never captured yet" — display source
+	// only, never read by the state machine, never logged (may hold prompt text).
 	LastSnapshot   string
 	LastSnapshotAt time.Time
 
-	// Pinned/RailPos (plan order-sidebar): user-owned rail order. Display-only —
-	// never read by the state machine (D17); mutated only by railorder.go's pure
-	// applyPin/applyOrder, via Manager.SetPinned/SetOrder.
+	// Pinned/RailPos (kb:adr/rail-order-daemon-owned-per-session-fields): user-owned
+	// rail order. Display-only — never read by the state machine; mutated only by
+	// railorder.go's pure applyPin/applyOrder, via Manager.SetPinned/SetOrder.
 	Pinned  bool
 	RailPos int64
 
-	// TitleOverride (plan ui-text-and-focus REQ-9/REQ-11): the user's rename via PUT
-	// .../title, nil = none. Display-only, wins over Title in DisplayTitle() — never
-	// read by the state machine or the status path (INV-2); mutated only by
+	// TitleOverride (kb:adr/rename-muster-owned-title-override-wins): the user's rename
+	// via PUT .../title, nil = none. Display-only, wins over Title in DisplayTitle() —
+	// never read by the state machine or the status path; mutated only by
 	// Manager.SetTitle.
 	TitleOverride *string
 
-	// TranscriptPath/PlanPath/PlanExists (plan markdown-viewing REQ-16/REQ-17): the
-	// latest transcript path a routed hook named, and the plan derived from it via
-	// claudecode.LocatePlanFile. Display-only, never read by machine.go. PlanPath ""
-	// (the wire plan:null) means no transcript has ever named a plan; once a plan has
-	// been named, a planless scan keeps it rather than clearing it back to ""
-	// (kb:adr/reader-plan-sticky-once-named). Mutated only by
-	// Manager.SetTranscript/SetPlan/ApplyPlanScan.
+	// TranscriptPath/PlanPath/PlanExists (kb:spec/reader): the latest transcript path a
+	// routed hook named, and the plan derived from it via claudecode.LocatePlanFile.
+	// Display-only, never read by machine.go. PlanPath "" (the wire plan:null) means no
+	// transcript has ever named a plan; once a plan has been named, a planless scan
+	// keeps it rather than clearing it back to "" (kb:adr/reader-plan-sticky-once-named).
+	// Mutated only by Manager.SetTranscript/SetPlan/ApplyPlanScan.
 	TranscriptPath string
 	PlanPath       string
 	PlanExists     bool
 
-	// Unread (plan rail-card-improvements REQ-7): true iff the turn closed with no
-	// terminal client attached to this session, since cleared. INV: Unread ⇒ State ==
-	// idle, enforced by setState — the one place every applyInput arm routes through.
-	// Set by Manager.Apply after a turn_closed input per the watcher's answer; cleared by
-	// Manager.MarkSeen (attach on either surface). Display-only, independent of Alive,
-	// survives a restart.
+	// Unread (kb:adr/rail-unread-inferred-from-live-terminal-client): true iff the turn
+	// closed with no terminal client attached to this session, since cleared. The
+	// invariant Unread implies State == idle is enforced by setState — the one place
+	// every applyInput arm routes through. Set by Manager.Apply after a turn_closed
+	// input per the watcher's answer; cleared by Manager.MarkSeen (attach on either
+	// surface). Display-only, independent of Alive, survives a restart.
 	Unread bool
 
-	// LastPrompt (plan rail-card-improvements REQ-12): the user's most recent prompt,
-	// truncated to 200 chars, nil until a first prompt or after /clear. Set by
-	// KindTurnActivity when the adapter supplied one; display-only, never read by the
-	// state machine.
+	// LastPrompt (kb:adr/rail-unread-inferred-from-live-terminal-client): the user's most
+	// recent prompt, truncated to 200 chars, nil until a first prompt or after /clear.
+	// Set by KindTurnActivity when the adapter supplied one; display-only, never read by
+	// the state machine.
 	LastPrompt *string
 
 	currentPromptID string
@@ -169,9 +167,9 @@ func (s *Session) Clone() *Session {
 	return &c
 }
 
-// DisplayTitle returns the wire "title" (plan ui-text-and-focus REQ-11): TitleOverride
-// when non-nil, else Claude's last-known name (Title), else nil. The daemon owns this
-// precedence; no client computes it (kb:anchor/ws.session).
+// DisplayTitle returns the wire "title" (kb:adr/rename-muster-owned-title-override-wins):
+// TitleOverride when non-nil, else Claude's last-known name (Title), else nil. The daemon
+// owns this precedence; no client computes it (kb:anchor/ws.session).
 func (s *Session) DisplayTitle() *string {
 	if s.TitleOverride != nil {
 		return s.TitleOverride
@@ -202,7 +200,7 @@ func (s *Session) closePrompt(id string) {
 }
 
 // setState transitions to next, updating stateSince only when the state actually
-// changes (Edge Case 3: reapplying an event to the same state is a no-op transition).
+// changes: reapplying an event to the same state is a no-op transition.
 // Every transition to a non-idle state clears Unread (kb:anchor/state.tracked's Unread ⇒
 // idle invariant) — enforced here, the one place every applyInput arm routes through, so
 // no arm can strand it. Manager.Apply is the only place that ever sets Unread true, after
@@ -228,8 +226,7 @@ func (s *Session) activeState() State {
 }
 
 // stringPtrEqual reports whether two nullable strings hold the same value — nil equals
-// only nil (plan ui-text-and-focus: SetTitle/applyStatusUpdate's "did the wire title
-// change" checks).
+// only nil (SetTitle/applyStatusUpdate's "did the wire title change" checks).
 func stringPtrEqual(a, b *string) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil
