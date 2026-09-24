@@ -7,32 +7,63 @@ package claudecodetest
 
 import "encoding/json"
 
+// Defaults shared by two or more builders below, each declared exactly once
+// (review.maintainability.c-adapters Major 4).
+const (
+	defaultTranscriptPath = "/tmp/t.jsonl"
+	defaultCWD            = "/tmp"
+	defaultPromptID       = "p1"
+	defaultPermissionMode = "default"
+	defaultModelID        = "claude-haiku-4-5-20251001"
+	defaultModelDisplay   = "Haiku 4.5"
+	defaultClaudeVersion  = "2.1.233"
+	defaultContextWindow  = 200000
+)
+
+// orDefault returns s, or def when s is empty.
+func orDefault(s, def string) string {
+	if s == "" {
+		return def
+	}
+	return s
+}
+
+// envelope wraps payload in the musterSession/tmuxPane envelope Muster's hook command
+// wrapper produces (the one shape every enveloped builder below sends). musterSession
+// left at zero defaults to 1, the common single-session fixture; tmuxPane, left empty,
+// omits the field entirely (the headless shape, kb:adr/ingest-envelope-pane-must-corroborate)
+// rather than sending an empty string.
+func envelope(musterSession int, tmuxPane string, payload map[string]any) map[string]any {
+	if musterSession == 0 {
+		musterSession = 1
+	}
+	env := map[string]any{
+		"musterSession": musterSession,
+		"payload":       payload,
+	}
+	if tmuxPane != "" {
+		env["tmuxPane"] = tmuxPane
+	}
+	return env
+}
+
 // RawHookBody returns a minimal raw (non-enveloped) hook POST body for the given
 // hook event and session id, as Claude Code itself would send it.
 func RawHookBody(event, sessionID string) string {
 	return marshal(map[string]any{
 		"hook_event_name": event,
 		"session_id":      sessionID,
-		"cwd":             "/tmp",
+		"cwd":             defaultCWD,
 	})
 }
 
 // EnvelopedHookBody wraps a minimal hook payload for the given event and session id
-// in the musterSession/tmuxPane envelope produced by Muster's hook command wrapper. An
-// empty tmuxPane omits the field entirely (the headless shape, kb:adr/ingest-envelope-pane-must-corroborate)
-// rather than sending an empty string.
+// in the musterSession/tmuxPane envelope produced by Muster's hook command wrapper.
 func EnvelopedHookBody(musterSession int, tmuxPane, event, sessionID string) string {
-	env := map[string]any{
-		"musterSession": musterSession,
-		"payload": map[string]any{
-			"hook_event_name": event,
-			"session_id":      sessionID,
-		},
-	}
-	if tmuxPane != "" {
-		env["tmuxPane"] = tmuxPane
-	}
-	return marshal(env)
+	return marshal(envelope(musterSession, tmuxPane, map[string]any{
+		"hook_event_name": event,
+		"session_id":      sessionID,
+	}))
 }
 
 // SessionStartOpts customizes EnvelopedSessionStart beyond its defaults (musterSession 1,
@@ -54,98 +85,34 @@ type SessionStartOpts struct {
 	OmitModel bool
 }
 
+// sessionStartPayload builds the `SessionStart` hook payload shared by
+// EnvelopedSessionStart and EnvelopedSessionStartTranscript, which differ only in
+// transcript_path.
+func sessionStartPayload(sessionID, transcriptPath string, opts SessionStartOpts) map[string]any {
+	payload := map[string]any{
+		"hook_event_name": "SessionStart",
+		"session_id":      sessionID,
+		"transcript_path": transcriptPath,
+		"cwd":             defaultCWD,
+		"source":          orDefault(opts.Source, "startup"),
+	}
+	if !opts.OmitModel {
+		// A plain model-id string, never an {id, display_name} object (settled by
+		// measurement — interface probe, 2026-08-22, docs/history/spikes/canary-fields.md "Values
+		// worth asserting" → SessionStart.model; review Major 11).
+		payload["model"] = orDefault(opts.ModelID, defaultModelID)
+	}
+	return payload
+}
+
 // EnvelopedSessionStart returns the enveloped `SessionStart` body — the one hook that
 // is silently never delivered over plain HTTP (canary-fields.md "Transport"), so the
 // real wrapper always posts it enveloped. A zero-value SessionStartOpts posts the
 // headless shape (no tmuxPane, REQ-12) — the caller states a pane explicitly wherever
 // routing is expected.
 func EnvelopedSessionStart(sessionID string, opts SessionStartOpts) string {
-	musterSession := opts.MusterSession
-	if musterSession == 0 {
-		musterSession = 1
-	}
-	source := opts.Source
-	if source == "" {
-		source = "startup"
-	}
-
-	payload := map[string]any{
-		"hook_event_name": "SessionStart",
-		"session_id":      sessionID,
-		"transcript_path": "/tmp/t.jsonl",
-		"cwd":             "/tmp",
-		"source":          source,
-	}
-	if !opts.OmitModel {
-		modelID := opts.ModelID
-		if modelID == "" {
-			modelID = "claude-haiku-4-5-20251001"
-		}
-		// A plain model-id string, never an {id, display_name} object (settled by
-		// measurement — interface probe, 2026-08-22, docs/history/spikes/canary-fields.md "Values
-		// worth asserting" → SessionStart.model; review Major 11).
-		payload["model"] = modelID
-	}
-
-	env := map[string]any{
-		"musterSession": musterSession,
-		"payload":       payload,
-	}
-	if opts.TmuxPane != "" {
-		env["tmuxPane"] = opts.TmuxPane
-	}
-	return marshal(env)
-}
-
-// TurnActivityOpts customizes the turn-activity builders below.
-type TurnActivityOpts struct {
-	PromptID       string // default "p1"
-	PermissionMode string // default "default"
-}
-
-func (o TurnActivityOpts) promptID() string {
-	if o.PromptID == "" {
-		return "p1"
-	}
-	return o.PromptID
-}
-
-func (o TurnActivityOpts) permissionMode() string {
-	if o.PermissionMode == "" {
-		return "default"
-	}
-	return o.PermissionMode
-}
-
-// RawUserPromptSubmit returns a raw `UserPromptSubmit` — opens a turn (kb:anchor/state.transitions).
-func RawUserPromptSubmit(sessionID string, opts TurnActivityOpts) string {
-	return marshal(map[string]any{
-		"hook_event_name": "UserPromptSubmit",
-		"session_id":      sessionID,
-		"transcript_path": "/tmp/t.jsonl",
-		"cwd":             "/tmp",
-		"prompt_id":       opts.promptID(),
-		"permission_mode": opts.permissionMode(),
-		"prompt":          "do the thing",
-	})
-}
-
-// RawPostToolUse returns a raw `PostToolUse` — also a turn-activity event; useful for
-// straggler-past-Stop cases.
-func RawPostToolUse(sessionID string, opts TurnActivityOpts) string {
-	return marshal(map[string]any{
-		"hook_event_name": "PostToolUse",
-		"session_id":      sessionID,
-		"transcript_path": "/tmp/t.jsonl",
-		"cwd":             "/tmp",
-		"prompt_id":       opts.promptID(),
-		"permission_mode": opts.permissionMode(),
-		"tool_name":       "Write",
-		"tool_input":      map[string]any{"file_path": "/tmp/x.txt"},
-		"tool_use_id":     "tu1",
-		"tool_response":   map[string]any{"ok": true},
-		"duration_ms":     42,
-	})
+	payload := sessionStartPayload(sessionID, defaultTranscriptPath, opts)
+	return marshal(envelope(opts.MusterSession, opts.TmuxPane, payload))
 }
 
 // ToolFileOpts customizes RawPostToolUseFile/RawPreToolUseTool beyond their defaults
@@ -157,22 +124,16 @@ type ToolFileOpts struct {
 	// the only place a session's plan slug lives (kb:fact/plan-file-path-in-transcript).
 	TranscriptPath string
 	// AgentID, when non-empty, marks the hook as subagent-fired (kb:fact/subagent-hooks-carry-agent-id):
-	// agent_id/agent_type are added, matching RawPostToolUse's existing marker shape.
+	// agent_id/agent_type are added to mark it.
 	AgentID string
 }
 
 func (o ToolFileOpts) promptID() string {
-	if o.PromptID == "" {
-		return "p1"
-	}
-	return o.PromptID
+	return orDefault(o.PromptID, defaultPromptID)
 }
 
 func (o ToolFileOpts) transcriptPath() string {
-	if o.TranscriptPath == "" {
-		return "/tmp/t.jsonl"
-	}
-	return o.TranscriptPath
+	return orDefault(o.TranscriptPath, defaultTranscriptPath)
 }
 
 // RawPostToolUseFile returns a raw `PostToolUse` naming toolName/filePath in
@@ -180,17 +141,13 @@ func (o ToolFileOpts) transcriptPath() string {
 // a chosen tool, transcript path and optional subagent marker, so server tests never
 // spell the wire keys themselves.
 func RawPostToolUseFile(sessionID, toolName, filePath string, opts ToolFileOpts) string {
-	permissionMode := opts.PermissionMode
-	if permissionMode == "" {
-		permissionMode = "default"
-	}
 	body := map[string]any{
 		"hook_event_name": "PostToolUse",
 		"session_id":      sessionID,
 		"transcript_path": opts.transcriptPath(),
-		"cwd":             "/tmp",
+		"cwd":             defaultCWD,
 		"prompt_id":       opts.promptID(),
-		"permission_mode": permissionMode,
+		"permission_mode": orDefault(opts.PermissionMode, defaultPermissionMode),
 		"tool_name":       toolName,
 		"tool_input":      map[string]any{"file_path": filePath},
 		"tool_use_id":     "tu1",
@@ -209,17 +166,13 @@ func RawPostToolUseFile(sessionID, toolName, filePath string, opts ToolFileOpts)
 // `PreToolUse{tool_name:"ExitPlanMode", permission_mode:"plan"}`), generalized to any
 // tool name for the "other PreToolUse tools must not scan" side of D6.
 func RawPreToolUseTool(sessionID, toolName string, opts ToolFileOpts) string {
-	permissionMode := opts.PermissionMode
-	if permissionMode == "" {
-		permissionMode = "plan"
-	}
 	body := map[string]any{
 		"hook_event_name": "PreToolUse",
 		"session_id":      sessionID,
 		"transcript_path": opts.transcriptPath(),
-		"cwd":             "/tmp",
+		"cwd":             defaultCWD,
 		"prompt_id":       opts.promptID(),
-		"permission_mode": permissionMode,
+		"permission_mode": orDefault(opts.PermissionMode, "plan"),
 		"tool_name":       toolName,
 		"tool_input":      map[string]any{},
 		"tool_use_id":     "tu0",
@@ -232,40 +185,12 @@ func RawPreToolUseTool(sessionID, toolName string, opts ToolFileOpts) string {
 }
 
 // EnvelopedSessionStartTranscript returns an enveloped `SessionStart` naming
-// transcriptPath — REQ-16's first scan trigger, kept separate from
-// EnvelopedSessionStart/SessionStartOpts (m1-sessions territory) so this plan's own
-// fixture need is additive, not a reshape of an existing one.
+// transcriptPath — REQ-16's first scan trigger, kept separate from EnvelopedSessionStart
+// because that builder's own transcript_path is a fixed default: this one lets a caller
+// name a transcript file that a later plan-scan test then writes to.
 func EnvelopedSessionStartTranscript(sessionID, transcriptPath string, opts SessionStartOpts) string {
-	musterSession := opts.MusterSession
-	if musterSession == 0 {
-		musterSession = 1
-	}
-	source := opts.Source
-	if source == "" {
-		source = "startup"
-	}
-	payload := map[string]any{
-		"hook_event_name": "SessionStart",
-		"session_id":      sessionID,
-		"transcript_path": transcriptPath,
-		"cwd":             "/tmp",
-		"source":          source,
-	}
-	if !opts.OmitModel {
-		modelID := opts.ModelID
-		if modelID == "" {
-			modelID = "claude-haiku-4-5-20251001"
-		}
-		payload["model"] = modelID
-	}
-	env := map[string]any{
-		"musterSession": musterSession,
-		"payload":       payload,
-	}
-	if opts.TmuxPane != "" {
-		env["tmuxPane"] = opts.TmuxPane
-	}
-	return marshal(env)
+	payload := sessionStartPayload(sessionID, transcriptPath, opts)
+	return marshal(envelope(opts.MusterSession, opts.TmuxPane, payload))
 }
 
 // PlanAttachmentLine returns one transcript JSONL line naming planFilePath via a
@@ -301,8 +226,8 @@ func RawNotification(sessionID, promptID, notificationType string) string {
 	return marshal(map[string]any{
 		"hook_event_name":   "Notification",
 		"session_id":        sessionID,
-		"transcript_path":   "/tmp/t.jsonl",
-		"cwd":               "/tmp",
+		"transcript_path":   defaultTranscriptPath,
+		"cwd":               defaultCWD,
 		"prompt_id":         promptID,
 		"notification_type": notificationType,
 		"message":           message,
@@ -315,10 +240,10 @@ func RawPermissionRequest(sessionID, promptID string) string {
 	return marshal(map[string]any{
 		"hook_event_name":        "PermissionRequest",
 		"session_id":             sessionID,
-		"transcript_path":        "/tmp/t.jsonl",
-		"cwd":                    "/tmp",
+		"transcript_path":        defaultTranscriptPath,
+		"cwd":                    defaultCWD,
 		"prompt_id":              promptID,
-		"permission_mode":        "default",
+		"permission_mode":        defaultPermissionMode,
 		"tool_name":              "Write",
 		"tool_input":             map[string]any{"file_path": "/tmp/x.txt"},
 		"permission_suggestions": []any{map[string]any{"type": "setMode", "mode": "acceptEdits", "destination": "session"}},
@@ -335,26 +260,14 @@ type StopOpts struct {
 // RawStop returns a raw (non-enveloped) `Stop` — the common shape for ordinary
 // plain-HTTP hooks.
 func RawStop(sessionID string, opts StopOpts) string {
-	promptID := opts.PromptID
-	if promptID == "" {
-		promptID = "p1"
-	}
-	permissionMode := opts.PermissionMode
-	if permissionMode == "" {
-		permissionMode = "default"
-	}
-	lastAssistantMessage := opts.LastAssistantMessage
-	if lastAssistantMessage == "" {
-		lastAssistantMessage = "hi"
-	}
 	return marshal(map[string]any{
 		"hook_event_name":        "Stop",
 		"session_id":             sessionID,
-		"transcript_path":        "/tmp/t.jsonl",
-		"cwd":                    "/tmp",
-		"prompt_id":              promptID,
-		"permission_mode":        permissionMode,
-		"last_assistant_message": lastAssistantMessage,
+		"transcript_path":        defaultTranscriptPath,
+		"cwd":                    defaultCWD,
+		"prompt_id":              orDefault(opts.PromptID, defaultPromptID),
+		"permission_mode":        orDefault(opts.PermissionMode, defaultPermissionMode),
+		"last_assistant_message": orDefault(opts.LastAssistantMessage, "hi"),
 		"stop_hook_active":       false,
 		"background_tasks":       []any{},
 		"session_crons":          []any{},
@@ -372,95 +285,87 @@ type StopFailureOpts struct {
 // given turn (canary-fields.md: "never both for the same turn"); carries no
 // permission_mode (the never-present list).
 func RawStopFailure(sessionID string, opts StopFailureOpts) string {
-	promptID := opts.PromptID
-	if promptID == "" {
-		promptID = "p1"
-	}
-	errTok := opts.Error
-	if errTok == "" {
-		errTok = "server_error"
-	}
-	lastAssistantMessage := opts.LastAssistantMessage
-	if lastAssistantMessage == "" {
-		lastAssistantMessage = "API error ended the turn"
-	}
 	return marshal(map[string]any{
 		"hook_event_name":        "StopFailure",
 		"session_id":             sessionID,
-		"transcript_path":        "/tmp/t.jsonl",
-		"cwd":                    "/tmp",
-		"prompt_id":              promptID,
-		"error":                  errTok,
-		"last_assistant_message": lastAssistantMessage,
+		"transcript_path":        defaultTranscriptPath,
+		"cwd":                    defaultCWD,
+		"prompt_id":              orDefault(opts.PromptID, defaultPromptID),
+		"error":                  orDefault(opts.Error, "server_error"),
+		"last_assistant_message": orDefault(opts.LastAssistantMessage, "API error ended the turn"),
 	})
 }
 
 // RawPreCompact returns a raw `PreCompact` — increments the compaction counter only,
 // no transition.
 func RawPreCompact(sessionID, promptID string) string {
-	if promptID == "" {
-		promptID = "p1"
-	}
 	return marshal(map[string]any{
 		"hook_event_name": "PreCompact",
 		"session_id":      sessionID,
-		"transcript_path": "/tmp/t.jsonl",
-		"cwd":             "/tmp",
-		"prompt_id":       promptID,
+		"transcript_path": defaultTranscriptPath,
+		"cwd":             defaultCWD,
+		"prompt_id":       orDefault(promptID, defaultPromptID),
 	})
 }
 
 // RawSessionEnd returns a raw `SessionEnd` — reason "clear" is not a death hint
 // (kb:anchor/state.transitions); any other reason sets alive:false. Carries no permission_mode.
 func RawSessionEnd(sessionID, reason string) string {
-	if reason == "" {
-		reason = "other"
-	}
 	return marshal(map[string]any{
 		"hook_event_name": "SessionEnd",
 		"session_id":      sessionID,
-		"transcript_path": "/tmp/t.jsonl",
-		"cwd":             "/tmp",
-		"reason":          reason,
+		"transcript_path": defaultTranscriptPath,
+		"cwd":             defaultCWD,
+		"reason":          orDefault(reason, "other"),
 	})
 }
 
-// EnvelopedStatusLinePreFirstResponse returns an enveloped status-line body in the
-// pre-first-API-response shape: context_window's percentages/current_usage are null
-// and rate_limits is entirely absent (canary-fields.md's measured pre-response state).
-// sessionName, when non-empty, adds the status line's session_name field.
-func EnvelopedStatusLinePreFirstResponse(sessionID string, musterSession int, tmuxPane, sessionName string) string {
-	payload := map[string]any{
+// statusLineBase builds the status-line fields every status-line payload carries
+// regardless of shape (session_id/transcript_path/cwd/version/workspace/output_style/
+// thinking/fast_mode/exceeds_200k_tokens) — the part EnvelopedStatusLinePreFirstResponse
+// and statusLineFullPayload would otherwise write out twice.
+func statusLineBase(sessionID string) map[string]any {
+	return map[string]any{
 		"session_id":          sessionID,
-		"transcript_path":     "/tmp/t.jsonl",
-		"cwd":                 "/tmp",
-		"version":             "2.1.233",
-		"model":               map[string]any{"id": "claude-haiku-4-5-20251001", "display_name": "Haiku 4.5"},
+		"transcript_path":     defaultTranscriptPath,
+		"cwd":                 defaultCWD,
+		"version":             defaultClaudeVersion,
 		"workspace":           map[string]any{"current_dir": "/tmp", "project_dir": "/tmp", "added_dirs": []any{}},
 		"output_style":        map[string]any{"name": "default"},
 		"thinking":            map[string]any{"enabled": false},
 		"fast_mode":           false,
 		"exceeds_200k_tokens": false,
-		"context_window": map[string]any{
-			"context_window_size":  200000,
-			"used_percentage":      nil,
-			"remaining_percentage": nil,
-			"total_input_tokens":   0,
-			"total_output_tokens":  0,
-			"current_usage":        nil,
-		},
 	}
-	if sessionName != "" {
-		payload["session_name"] = sessionName
+}
+
+// StatusLinePreFirstResponseOpts overrides EnvelopedStatusLinePreFirstResponse's
+// defaults (musterSession 1), the same options shape StatusLineFullOpts uses.
+type StatusLinePreFirstResponseOpts struct {
+	MusterSession int
+	// TmuxPane, left empty, omits the envelope's tmuxPane field (the headless shape).
+	TmuxPane string
+	// SessionName, when non-empty, adds the status line's session_name field.
+	SessionName string
+}
+
+// EnvelopedStatusLinePreFirstResponse returns an enveloped status-line body in the
+// pre-first-API-response shape: context_window's percentages/current_usage are null
+// and rate_limits is entirely absent (canary-fields.md's measured pre-response state).
+func EnvelopedStatusLinePreFirstResponse(sessionID string, opts StatusLinePreFirstResponseOpts) string {
+	payload := statusLineBase(sessionID)
+	payload["model"] = map[string]any{"id": defaultModelID, "display_name": defaultModelDisplay}
+	payload["context_window"] = map[string]any{
+		"context_window_size":  defaultContextWindow,
+		"used_percentage":      nil,
+		"remaining_percentage": nil,
+		"total_input_tokens":   0,
+		"total_output_tokens":  0,
+		"current_usage":        nil,
 	}
-	env := map[string]any{"payload": payload}
-	if musterSession != 0 {
-		env["musterSession"] = musterSession
+	if opts.SessionName != "" {
+		payload["session_name"] = opts.SessionName
 	}
-	if tmuxPane != "" {
-		env["tmuxPane"] = tmuxPane
-	}
-	return marshal(env)
+	return marshal(envelope(opts.MusterSession, opts.TmuxPane, payload))
 }
 
 // StatusLineFullOpts overrides EnvelopedStatusLineFull's defaults (musterSession 1, model
@@ -505,21 +410,7 @@ const farFutureResetsAt = 4070908800
 // StatusLineFullOpts reproduces the fixed default fixture byte-for-byte.
 func EnvelopedStatusLineFull(sessionID string, opts StatusLineFullOpts) string {
 	payload := statusLineFullPayload(sessionID, opts)
-
-	musterSession := opts.MusterSession
-	if musterSession == 0 {
-		musterSession = 1
-	}
-	tmuxPane := opts.TmuxPane
-
-	env := map[string]any{"payload": payload}
-	if musterSession != 0 {
-		env["musterSession"] = musterSession
-	}
-	if tmuxPane != "" {
-		env["tmuxPane"] = tmuxPane
-	}
-	return marshal(env)
+	return marshal(envelope(opts.MusterSession, opts.TmuxPane, payload))
 }
 
 // RawStatusLineFull returns the same post-first-API-response status-line shape as
@@ -537,14 +428,8 @@ func RawStatusLineFull(sessionID string, opts StatusLineFullOpts) string {
 // EnvelopedStatusLineFull and RawStatusLineFull, applying StatusLineFullOpts' documented
 // defaults.
 func statusLineFullPayload(sessionID string, opts StatusLineFullOpts) map[string]any {
-	modelID := opts.ModelID
-	if modelID == "" {
-		modelID = "claude-haiku-4-5-20251001"
-	}
-	modelDisplayName := opts.ModelDisplayName
-	if modelDisplayName == "" {
-		modelDisplayName = "Haiku 4.5"
-	}
+	modelID := orDefault(opts.ModelID, defaultModelID)
+	modelDisplayName := orDefault(opts.ModelDisplayName, defaultModelDisplay)
 	usedPct := 42.0
 	if opts.UsedPct != nil {
 		usedPct = *opts.UsedPct
@@ -555,7 +440,7 @@ func statusLineFullPayload(sessionID string, opts StatusLineFullOpts) map[string
 	}
 	windowSize := opts.WindowSize
 	if windowSize == 0 {
-		windowSize = 200000
+		windowSize = defaultContextWindow
 	}
 	fiveHourPct := opts.FiveHourPct
 	if fiveHourPct == 0 {
@@ -574,32 +459,22 @@ func statusLineFullPayload(sessionID string, opts StatusLineFullOpts) map[string
 		sevenDayResetsAt = farFutureResetsAt
 	}
 
-	payload := map[string]any{
-		"session_id":          sessionID,
-		"transcript_path":     "/tmp/t.jsonl",
-		"cwd":                 "/tmp",
-		"version":             "2.1.233",
-		"model":               map[string]any{"id": modelID, "display_name": modelDisplayName},
-		"workspace":           map[string]any{"current_dir": "/tmp", "project_dir": "/tmp", "added_dirs": []any{}},
-		"output_style":        map[string]any{"name": "default"},
-		"thinking":            map[string]any{"enabled": false},
-		"fast_mode":           false,
-		"exceeds_200k_tokens": false,
-		"context_window": map[string]any{
-			"context_window_size":  windowSize,
-			"used_percentage":      usedPct,
-			"remaining_percentage": 100 - usedPct,
-			"total_input_tokens":   totalInputTokens,
-			"total_output_tokens":  49,
-			"current_usage": map[string]any{
-				"input_tokens": 10, "output_tokens": 49,
-				"cache_creation_input_tokens": 15558, "cache_read_input_tokens": 23318,
-			},
+	payload := statusLineBase(sessionID)
+	payload["model"] = map[string]any{"id": modelID, "display_name": modelDisplayName}
+	payload["context_window"] = map[string]any{
+		"context_window_size":  windowSize,
+		"used_percentage":      usedPct,
+		"remaining_percentage": 100 - usedPct,
+		"total_input_tokens":   totalInputTokens,
+		"total_output_tokens":  49,
+		"current_usage": map[string]any{
+			"input_tokens": 10, "output_tokens": 49,
+			"cache_creation_input_tokens": 15558, "cache_read_input_tokens": 23318,
 		},
-		"rate_limits": map[string]any{
-			"five_hour": map[string]any{"used_percentage": fiveHourPct, "resets_at": fiveHourResetsAt},
-			"seven_day": map[string]any{"used_percentage": sevenDayPct, "resets_at": sevenDayResetsAt},
-		},
+	}
+	payload["rate_limits"] = map[string]any{
+		"five_hour": map[string]any{"used_percentage": fiveHourPct, "resets_at": fiveHourResetsAt},
+		"seven_day": map[string]any{"used_percentage": sevenDayPct, "resets_at": sevenDayResetsAt},
 	}
 	if opts.SessionName != "" {
 		payload["session_name"] = opts.SessionName

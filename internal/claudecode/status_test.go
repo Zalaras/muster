@@ -14,7 +14,7 @@ import (
 // pre-first-API-response shape (null percentages, zero tokens, rate_limits entirely
 // absent) must surface as unknown, never as "0%"/an account sample.
 func TestInterpretStatus_PreFirstResponse(t *testing.T) {
-	body := claudecodetest.EnvelopedStatusLinePreFirstResponse("claude-1", 1, "%12", "")
+	body := claudecodetest.EnvelopedStatusLinePreFirstResponse("claude-1", claudecodetest.StatusLinePreFirstResponseOpts{MusterSession: 1, TmuxPane: "%12"})
 	payload := innerPayload(t, body)
 
 	got := InterpretStatus(payload)
@@ -27,7 +27,9 @@ func TestInterpretStatus_PreFirstResponse(t *testing.T) {
 }
 
 func TestInterpretStatus_PreFirstResponse_SessionNameSurfacesAsTitle(t *testing.T) {
-	body := claudecodetest.EnvelopedStatusLinePreFirstResponse("claude-1", 1, "%12", "Run echo hello bash command")
+	body := claudecodetest.EnvelopedStatusLinePreFirstResponse("claude-1", claudecodetest.StatusLinePreFirstResponseOpts{
+		MusterSession: 1, TmuxPane: "%12", SessionName: "Run echo hello bash command",
+	})
 	payload := innerPayload(t, body)
 
 	got := InterpretStatus(payload)

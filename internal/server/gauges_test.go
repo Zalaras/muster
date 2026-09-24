@@ -77,7 +77,9 @@ func TestIngestStatusLine_PreFirstResponsePostLeavesContextUnknownAndRecordsNoSa
 	t.Cleanup(func() { srv.Shutdown(context.Background()) })
 	sess := seedLiveSession(t, srv)
 
-	body := claudecodetest.EnvelopedStatusLinePreFirstResponse("claude-status-2", int(sess.ID), "%1", "")
+	body := claudecodetest.EnvelopedStatusLinePreFirstResponse("claude-status-2", claudecodetest.StatusLinePreFirstResponseOpts{
+		MusterSession: int(sess.ID), TmuxPane: "%1",
+	})
 	rec := postIngest(t, srv, "/ingest/"+testIngestToken+"/status", body)
 	require.Equal(t, 200, rec.Code)
 
