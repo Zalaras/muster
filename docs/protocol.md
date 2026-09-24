@@ -981,7 +981,7 @@ Value semantics (within the nullability rules above):
   moment (the daemon's terminal registry is the authority); cleared by every transition to a
   non-idle state and by a successful attach on either surface. Status posts never touch
   `unread` or `lastPrompt`.
-- `alive`/`endedAt`: live from the liveness poll and the SessionEnd hint.
+- `alive`/`endedAt`: live from the liveness poll (`kb:anchor/state.liveness`) alone.
 - Status posts change **only** title/model/context, and only when a value actually changed
   (no no-op upserts) — never `state`/`stateSince`/`attention`/`failure`/`alive`/
   `permissionMode`/`compactions` (INV-1; `kb:anchor/state.transitions`'s "never a state source").
@@ -1301,8 +1301,8 @@ distinct, and the latch is what separates them.
 | `StopFailure` | Close `prompt_id` → `failed`; capture raw `error` (`Stop`/`StopFailure` are mutually exclusive per prompt — H2) |
 | `PreCompact` | `compactions++`, no transition |
 | `SubagentStop` | Persist only |
-| `SessionEnd` (`reason:"clear"`) | `/clear` in progress: **not** a death hint — no effect on `alive`; the successor `SessionStart(source:"clear")` follows |
-| `SessionEnd` (any other reason) | `alive := false`, `endedAt` set; **state unchanged** (it's a hint — `kb:anchor/state.liveness` is the authority) |
+| `SessionEnd` (`reason:"clear"`) | `/clear` in progress: no effect on `alive` (no `SessionEnd` has one); the successor `SessionStart(source:"clear")` follows |
+| `SessionEnd` (any other reason) | Persist only: no effect on `alive`, `endedAt` or state — `alive` flips when the liveness poll (`kb:anchor/state.liveness`) finds the pane gone |
 | Terminal attach (`kb:anchor/terminal.ws`, `kb:anchor/terminal.shell-ws`) | `unread := false`, persisted and broadcast iff it changed; **no transition** |
 | Status-line post | Title / model / context refresh (`kb:anchor/ws.session` value semantics) + account usage (`kb:anchor/ws.usage`), applied outside the state machine; **never a state source** — no effect on any state-machine-owned field (INV-1) |
 | Unknown `hook_event_name` | Persist + log; inert (forward compatibility) |
@@ -1341,9 +1341,9 @@ The state machine and these guards get exhaustive table-driven unit tests (conve
 ### Liveness
 
 `alive` is decided by **tmux pane existence on the muster socket** — polled (~5 s) and
-event-nudged (`SessionEnd`, PTY EOF, End). A pane is believed gone only when the tmux server
+event-nudged (PTY EOF, End). A pane is believed gone only when the tmux server
 itself is reachable: a server-level failure is transient and leaves every session as it was,
-rather than reading as N simultaneous deaths. `SessionEnd` is only a hint
+rather than reading as N simultaneous deaths. `SessionEnd` never writes `alive`
 (`kill -9` emits nothing; `reason` can't distinguish crash from clean exit). A dead
 session keeps its last `state`, greys out, sorts last, and offers Resume/Remove.
 

@@ -7,7 +7,7 @@ summary: SessionEnd.reason is "other" for both a killed pane and a normal exit; 
 features: [lifecycle]
 tags: [claude-code-format]
 files: [internal/session/machine.go]
-tests: [TestApplyInput_DeathHint]
+tests: [TestApplyInput_SessionEndNeverWritesAlive]
 refs: [spikes/FINDINGS.md]
 verified: 2.1.233..canary
 guard: TestSessionEndReasonAmbiguous

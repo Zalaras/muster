@@ -44,7 +44,7 @@ vocabulary. `Stop` closes a turn into `idle`; `StopFailure` closes it into `fail
 and `PermissionRequest`, enter `needs_input` (kb:fact/notification-types-observed).
 Turn-activity events (`UserPromptSubmit`, `PreToolUse`, `PostToolUse`) enter `working` or
 `planning` and clear attention and failure. `PreCompact` increments the compaction counter.
-`SessionEnd` is a death hint only (kb:fact/sessionend-reason-ambiguous). The permission
+`SessionEnd` changes no state and never writes `alive` (kb:fact/sessionend-reason-ambiguous). The permission
 mode is a last-known latch seeded by the launch form and overwritten by any event that
 carries the field; events without it never reset it (kb:fact/permission-mode-presence-split).
 The full table is `kb:anchor/state.transitions`; tracked variables are `kb:anchor/state.tracked`.
@@ -122,7 +122,7 @@ never waits for an event to make progress (`kb:anchor/state.ordering`).
 ## Liveness, reconcile, shutdown
 
 `alive` is decided by pane existence on the muster socket, polled and nudged by
-`SessionEnd`, PTY EOF and End (kb:adr/lifecycle-liveness-from-pane-existence,
+PTY EOF and End (kb:adr/lifecycle-liveness-from-pane-existence,
 `kb:anchor/state.liveness`). Once shutdown has begun, the periodic poll and the PTY-EOF
 nudge stop persisting `alive=false`; the on-exit policy, or else the next boot's reconcile,
 is the sole authority on a session's final `alive` state — End's own path is unaffected

@@ -111,13 +111,11 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 	case claudecode.KindCompaction:
 		sess.Compactions++
 
-	case claudecode.KindDeathHint:
-		sess.Alive = false
-		endedAt := now
-		sess.EndedAt = &endedAt
-
-	case claudecode.KindClearDeathHint, claudecode.KindInert:
-		// no-op: SessionEnd(reason:"clear") is not a death hint; unknown/inert events
+	case claudecode.KindDeathHint, claudecode.KindClearDeathHint, claudecode.KindInert:
+		// no-op: alive comes from the pane check alone
+		// (kb:adr/lifecycle-liveness-from-pane-existence) — a non-clear SessionEnd is
+		// persisted as a hint but never writes alive/endedAt from a payload.
+		// SessionEnd(reason:"clear") is not a death hint either; unknown/inert events
 		// persist (already done by the ingest worker) with no state effect.
 	}
 }

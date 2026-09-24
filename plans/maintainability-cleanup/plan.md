@@ -49,6 +49,12 @@ because each one states what a fix must make true. Units run in the order listed
   - One keyed-lock implementation serves the manager and the shell registry. For b-m11, Stop
     cancels an in-flight apply and waits for it, bounded.
 
+- **F3 `fix(session)` — SessionEnd stops writing alive** (*Amended*, `decisions/sessionend-alive-hint`, consensus B).
+  - Delete the `claudecode.KindDeathHint` effect in `internal/session/machine.go`. A non-clear SessionEnd persists and changes no state; decide whether the kind itself still earns a name in `internal/claudecode/interpret.go` or folds into `KindInert`.
+  - Correct `docs/protocol.md`: the `:1305` row, the "alive/endedAt: live from … the SessionEnd hint" line at `:984`, and SessionEnd in the "event-nudged" list at `:1344`, which is false today.
+  - Correct `docs/features/lifecycle/spec.md` and the fact record's `tests:` field if it names a renamed test.
+  - daemon-tests: the old test that pinned `alive := false` now pins "no effect on alive", plus a test that a SessionEnd applied after Stop leaves the stored row `alive=1`, so reconcile keeps it resumable.
+
 ### Daemon track: refactors (`refactor` commits; behaviour unchanged)
 
 - **D2 session shape.**
