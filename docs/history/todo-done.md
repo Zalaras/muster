@@ -1174,12 +1174,51 @@ the mobile/responsive pass rem-ifies the pixel layer.
   `TestAggregator_Record_PersistFailureLeavesMemoryUnchanged`; safe to drop the lock
   across the write because Record runs only on the single ingest worker goroutine, R4).
 
-- **Conventions to settle** (parent still open in `TODO.md` — its plan-ID sub-item lands with the maintainability cleanup's comment sweep)
+- [x] **Conventions to settle** ✅ done 2026-09-24 (plan `maintainability-cleanup`, run by the main session with agents; findings ledger `plans/maintainability-cleanup/findings.md`) — one docs-first plan: each settles a rule in
+  `docs/conventions.md`, then applies it. The same kind of work as the Codebase maintainability
+  cleanup above, so it can ride that pass.
   - [x] **Settle where a controller's DOM-free decision module lives** ✅ done 2026-09-23 (plan `maintainability-cleanup`, unit W6a: `docs/conventions.md` § Composition roots now names the case, and both modules moved to `web/src/features/`) — `docs/conventions.md`
     § Composition roots and `web/src/render/CLAUDE.md` call `render/` "pure DOM builders", yet
     `render/focusrestore.ts` and `render/launchrestore.ts` are DOM-free decisions kept there to
     avoid a `sessions/→api` dependency. Either the rule names this case or the two modules move.
     From `plans/new-session-improvement/`.
+  - [x] **Stale plan IDs in `update.go` doc comments** ✅ done 2026-09-24 (unit X1: the rule already existed in `docs/conventions.md` § Comments; about 1,500 non-test comment lines were swept across `internal/`, `cmd/` and `web/src`) — several comments in
+    `internal/server/update.go` carry auto-update's plan IDs (e.g. the `(D16)` at line 256), so
+    a reader chasing one in a later plan that touched the file finds nothing, and `dead-refs`
+    cannot check plan IDs. Decide whether code comments cite plan IDs at all, then apply it.
+    From `plans/rail-card-improvements-2/`.
+
+- [x] **Codebase maintainability cleanup** ✅ done 2026-09-24 (plan `maintainability-cleanup`, run by the main session with agents; findings ledger `plans/maintainability-cleanup/findings.md`) (filed 2026-09-22 at the developer's request; the
+  measured audit is `plans/_audit/code-quality-2026-09-22.md`) — one big pass, separate from the
+  review-agent redesign that is meant to keep it standing afterwards. The pipeline reviewer has
+  only ever checked plan and convention conformance: across all 58 review files, 0 findings on
+  patterns/principles/coupling, 3 on duplication, 5 on concurrency. Measured starting points:
+  `go test -race ./...` fails (one race, a test fake in `internal/server/shellscroll_test.go`;
+  `make test` never runs the detector); `dupl` 7 hits (all tests) and `funlen` 50, neither linter
+  in `.golangci.yml`; `internal/session/manager.go` is 1699 lines with 34 lock sites;
+  `web/src/protocol.ts` 877 and `api.ts` 745. The review redesign (2026-09-22, the
+  `review-split` docs branch) already landed the mechanical half: `make test-race` is a failing baseline
+  gate (the test-fake race is fixed), and `make size-warn` reports `funlen`, `dupl` and files over
+  500 lines as **warnings the maintainability reviewer reads, never failures**
+  (`kb:adr/process-size-linters-warn-never-fail`). What remains for this session: a newcomer's read
+  per package and per `web/src` directory against `docs/conventions.md` § Design — sibling
+  divergence, duplicated helpers and logic (run a clone detector on the TypeScript side; `dupl` sees
+  Go only), coupling, dead code — then split the hotspots the warnings name (`manager.go`,
+  `main.run`, `server.New`, `protocol.ts`, `api.ts`), each commit naming the convention it restores.
+  `/review-maintainability <plan> Scope: <paths>` runs the new reviewer over a directory.
+
+- [x] **Session `Manager` write ordering** ✅ done 2026-09-24 (plan `maintainability-cleanup`, run by the main session with agents; findings ledger `plans/maintainability-cleanup/findings.md`) — units F1 and FW-D1/FW-D1b — one daemon plan: both are writes that leave
+  `Manager.mu` before they finish. Both touch `internal/session/manager.go`, which the Codebase
+  maintainability cleanup above splits — land this first, or fold it into that pass.
+  - [x] **`observeWrite` can write an older plan back over a newer one** —
+    `internal/server/reader.go` reads the session, then calls `SetPlan(…, sess.PlanPath, true)`
+    under a separate lock; a transcript scan committing a new plan between the two is
+    overwritten by the old path. Make the exists-flip a compare-and-set inside `Manager.mu`
+    (flip only if the stored path still equals the one read). From `plans/frontmatter/`.
+  - [x] **Session setters persist out of order** — every `Manager` setter mutates under
+    `Manager.mu`, then writes SQLite and broadcasts after unlocking, so two writers to one
+    session can persist in the opposite order to their in-memory commit, leaving the stored row
+    stale until the next write. From `plans/frontmatter/`.
 
 ## Issues
 

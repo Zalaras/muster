@@ -192,25 +192,6 @@ and the second is the one to re-measure if a Claude Code bump touches worktrees.
   is measured-correct and ships one file, no build/distribution story); revisit if the
   per-event cost is ever felt on a tool-heavy turn.
 
-- [ ] **Codebase maintainability cleanup** (filed 2026-09-22 at the developer's request; the
-  measured audit is `plans/_audit/code-quality-2026-09-22.md`) — one big pass, separate from the
-  review-agent redesign that is meant to keep it standing afterwards. The pipeline reviewer has
-  only ever checked plan and convention conformance: across all 58 review files, 0 findings on
-  patterns/principles/coupling, 3 on duplication, 5 on concurrency. Measured starting points:
-  `go test -race ./...` fails (one race, a test fake in `internal/server/shellscroll_test.go`;
-  `make test` never runs the detector); `dupl` 7 hits (all tests) and `funlen` 50, neither linter
-  in `.golangci.yml`; `internal/session/manager.go` is 1699 lines with 34 lock sites;
-  `web/src/protocol.ts` 877 and `api.ts` 745. The review redesign (2026-09-22, the
-  `review-split` docs branch) already landed the mechanical half: `make test-race` is a failing baseline
-  gate (the test-fake race is fixed), and `make size-warn` reports `funlen`, `dupl` and files over
-  500 lines as **warnings the maintainability reviewer reads, never failures**
-  (`kb:adr/process-size-linters-warn-never-fail`). What remains for this session: a newcomer's read
-  per package and per `web/src` directory against `docs/conventions.md` § Design — sibling
-  divergence, duplicated helpers and logic (run a clone detector on the TypeScript side; `dupl` sees
-  Go only), coupling, dead code — then split the hotspots the warnings name (`manager.go`,
-  `main.run`, `server.New`, `protocol.ts`, `api.ts`), each commit naming the convention it restores.
-  `/review-maintainability <plan> Scope: <paths>` runs the new reviewer over a directory.
-
 Filed 2026-09-23 by the developer from the plans' `proposed-backlog.md` files (each names its
 source; the file records the decision). Entries that make one plan are grouped under a parent;
 tick a sub-item as it lands, the parent when all have.
@@ -230,19 +211,6 @@ tick a sub-item as it lands, the parent when all have.
     Background: `plans/new-session-improvement/decisions/features-scope/`,
     `kb:adr/process-features-scope-answered-by-widening-header`.
 
-- [ ] **Session `Manager` write ordering** — one daemon plan: both are writes that leave
-  `Manager.mu` before they finish. Both touch `internal/session/manager.go`, which the Codebase
-  maintainability cleanup above splits — land this first, or fold it into that pass.
-  - [ ] **`observeWrite` can write an older plan back over a newer one** —
-    `internal/server/reader.go` reads the session, then calls `SetPlan(…, sess.PlanPath, true)`
-    under a separate lock; a transcript scan committing a new plan between the two is
-    overwritten by the old path. Make the exists-flip a compare-and-set inside `Manager.mu`
-    (flip only if the stored path still equals the one read). From `plans/frontmatter/`.
-  - [ ] **Session setters persist out of order** — every `Manager` setter mutates under
-    `Manager.mu`, then writes SQLite and broadcasts after unlocking, so two writers to one
-    session can persist in the opposite order to their in-memory commit, leaving the stored row
-    stale until the next write. From `plans/frontmatter/`.
-
 - [ ] **Shell terminal follow-ups** — one web plan over the shell pane (`web/src/terminal/`,
   `web/src/style.css`):
   - [ ] **Unit-test the real wheel accumulator** — `shellkeys.test.ts`'s `accumulateFrame`
@@ -254,15 +222,6 @@ tick a sub-item as it lands, the parent when all have.
     the stylesheet's only animation, and nothing in `web/src` or `docs/design` handles
     `prefers-reduced-motion`. Stop or slow the spin under it. From
     `plans/terminal-fixes-cleanup/`.
-
-- [ ] **Conventions to settle** — one docs-first plan: each settles a rule in
-  `docs/conventions.md`, then applies it. The same kind of work as the Codebase maintainability
-  cleanup above, so it can ride that pass.
-  - [ ] **Stale plan IDs in `update.go` doc comments** — several comments in
-    `internal/server/update.go` carry auto-update's plan IDs (e.g. the `(D16)` at line 256), so
-    a reader chasing one in a later plan that touched the file finds nothing, and `dead-refs`
-    cannot check plan IDs. Decide whether code comments cite plan IDs at all, then apply it.
-    From `plans/rail-card-improvements-2/`.
 
 - [ ] **Keep the current session's rail card on screen** — in a rail with more cards than fit,
   a launch and the number chords (⌥⌘5–9, ⌥⌘0) move the current marker to a card that can be

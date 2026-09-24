@@ -100,6 +100,9 @@ There are also the Minors and false comments. The fix wave is FW-D1 (session/sto
 
 The seam ADR stays `accepted` rather than `proposed`, because the developer delegated that decision to the debate (rw Major 6, [orchestrator]).
 
+- Final gates at `9afe5fb`: `make check`, `make test-race` and the canary vet are green, and **E2E is 446/446**. `make size-warn` reports 65 (baseline 81): dupl 7→0, filelen 14→6, funlen 60→59 (all but 9 are test tables).
+- Fix cycles: the plan capped fix waves at 2. A third, narrowly scoped one (FW-D1b plus the FW-Z residue) ran because the second wave's turnstile rewrite introduced two measured regressions: memory/DB divergence, and broadcasts leaving the ticket. Landing those would have reopened the fixed bugs.
+
 ## Behaviour notes (deliberate, recorded for review-work)
 
 - D4: nine rare 5xx bodies (review-work counted nine; the ledger first said seven) now carry `msgInternalError` instead of ad-hoc phrases. None of these messages is pinned in `docs/protocol.md`.
