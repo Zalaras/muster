@@ -261,6 +261,9 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
           deps.getSurfaces().select(id, kind, () => deps.actions.findDeadSurfaceRefs(id)),
         );
         tileElements.set(session.id, refs);
+        // renderTileBody's refit needs a laid-out container (FitAddon.fit() silently
+        // does nothing on a detached node); reconcileKeyedOrder below positions it.
+        tilesGridEl.append(refs.root);
       } else {
         updateTile(refs, session, now);
       }
