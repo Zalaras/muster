@@ -32,7 +32,7 @@ func TestGhCLITokenReader_Success_ParsesTrimmedStdoutAndPassesExpectedArgs(t *te
 		return "  tok-abc-123  \n", "", nil
 	}
 
-	token, err := GhCLITokenReader(lookPath, run)(context.Background())
+	token, err := (&ghTokenReader{lookPath: lookPath, run: run}).read(context.Background())
 
 	require.NoError(t, err)
 	assert.Equal(t, "tok-abc-123", token)
@@ -48,7 +48,7 @@ func TestGhCLITokenReader_GhNotOnPath_ReturnsErrAuthFailed(t *testing.T) {
 		return "", "", nil
 	}
 
-	_, err := GhCLITokenReader(lookPath, run)(context.Background())
+	_, err := (&ghTokenReader{lookPath: lookPath, run: run}).read(context.Background())
 
 	var authErr *ErrAuthFailed
 	require.ErrorAs(t, err, &authErr)
@@ -61,7 +61,7 @@ func TestGhCLITokenReader_NonZeroExit_ReturnsErrAuthFailedWithTrimmedStderr(t *t
 		return "", "  not logged in  \n", errors.New("exit status 1")
 	}
 
-	_, err := GhCLITokenReader(lookPath, run)(context.Background())
+	_, err := (&ghTokenReader{lookPath: lookPath, run: run}).read(context.Background())
 
 	var authErr *ErrAuthFailed
 	require.ErrorAs(t, err, &authErr)
@@ -75,7 +75,7 @@ func TestGhCLITokenReader_NonZeroExitEmptyStderr_UsesGenericMessage(t *testing.T
 		return "", "", errors.New("exit status 1")
 	}
 
-	_, err := GhCLITokenReader(lookPath, run)(context.Background())
+	_, err := (&ghTokenReader{lookPath: lookPath, run: run}).read(context.Background())
 
 	var authErr *ErrAuthFailed
 	require.ErrorAs(t, err, &authErr)
@@ -88,7 +88,7 @@ func TestGhCLITokenReader_EmptyToken_ReturnsErrAuthFailed(t *testing.T) {
 		return "   \n", "", nil
 	}
 
-	_, err := GhCLITokenReader(lookPath, run)(context.Background())
+	_, err := (&ghTokenReader{lookPath: lookPath, run: run}).read(context.Background())
 
 	var authErr *ErrAuthFailed
 	require.ErrorAs(t, err, &authErr)
@@ -107,7 +107,7 @@ func TestGhCLITokenReader_AppliesFiveSecondTimeout(t *testing.T) {
 		return "tok", "", nil
 	}
 
-	_, err := GhCLITokenReader(lookPath, run)(context.Background())
+	_, err := (&ghTokenReader{lookPath: lookPath, run: run}).read(context.Background())
 
 	require.NoError(t, err)
 	require.True(t, hasDeadline, "the exec func must receive a context with a deadline")
@@ -126,7 +126,7 @@ func TestGhCLITokenReader_RespectsParentContextCancellation(t *testing.T) {
 		return "", "", runCtx.Err()
 	}
 
-	_, err := GhCLITokenReader(lookPath, run)(ctx)
+	_, err := (&ghTokenReader{lookPath: lookPath, run: run}).read(ctx)
 
 	var authErr *ErrAuthFailed
 	require.ErrorAs(t, err, &authErr)
@@ -144,7 +144,7 @@ func TestGhCLITokenReader_StdoutNeverEchoedIntoTheErrorEvenOnFailure(t *testing.
 		return secretToken, "permission denied", errors.New("exit status 1")
 	}
 
-	_, err := GhCLITokenReader(lookPath, run)(context.Background())
+	_, err := (&ghTokenReader{lookPath: lookPath, run: run}).read(context.Background())
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "permission denied", "stderr is legitimately reported")
@@ -418,7 +418,7 @@ func TestCreateIssue_ErrorMessagesNeverContainTheToken(t *testing.T) {
 	// error is asserted against a stdout value shaped like a real token.
 	t.Run("gh missing", func(t *testing.T) {
 		lookPath := func(string) (string, error) { return "", errors.New("not found") }
-		c := &Client{TokenReader: GhCLITokenReader(lookPath, nil)}
+		c := &Client{TokenReader: (&ghTokenReader{lookPath: lookPath, run: nil}).read}
 
 		_, _, err := c.CreateIssue(context.Background(), "acme/widgets", "t", "b")
 
@@ -431,7 +431,7 @@ func TestCreateIssue_ErrorMessagesNeverContainTheToken(t *testing.T) {
 		run := func(context.Context, string, ...string) (string, string, error) {
 			return secretToken, "not logged in", errors.New("exit 1")
 		}
-		c := &Client{TokenReader: GhCLITokenReader(lookPath, run)}
+		c := &Client{TokenReader: (&ghTokenReader{lookPath: lookPath, run: run}).read}
 
 		_, _, err := c.CreateIssue(context.Background(), "acme/widgets", "t", "b")
 
@@ -444,7 +444,7 @@ func TestCreateIssue_ErrorMessagesNeverContainTheToken(t *testing.T) {
 		run := func(context.Context, string, ...string) (string, string, error) {
 			return "   ", "", nil
 		}
-		c := &Client{TokenReader: GhCLITokenReader(lookPath, run)}
+		c := &Client{TokenReader: (&ghTokenReader{lookPath: lookPath, run: run}).read}
 
 		_, _, err := c.CreateIssue(context.Background(), "acme/widgets", "t", "b")
 
@@ -454,11 +454,11 @@ func TestCreateIssue_ErrorMessagesNeverContainTheToken(t *testing.T) {
 }
 
 // TestRunCommand_HarmlessSmokeTestNeverUsedByGhCLITokenReaderTests documents that every
-// GhCLITokenReader test above passes its own func literal, never RunCommand — mirrors
-// claudecode/credentials_test.go's identical guard. Exercises RunCommand exactly once,
+// GhCLITokenReader test above passes its own func literal, never runCommand — mirrors
+// claudecode/credentials_test.go's identical guard. Exercises runCommand exactly once,
 // against a harmless always-installed binary, never `gh`.
 func TestRunCommand_HarmlessSmokeTestNeverUsedByGhCLITokenReaderTests(t *testing.T) {
-	stdout, stderr, err := RunCommand(context.Background(), "echo", "hello")
+	stdout, stderr, err := runCommand(context.Background(), "echo", "hello")
 
 	require.NoError(t, err)
 	assert.Contains(t, stdout, "hello")

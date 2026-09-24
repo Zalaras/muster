@@ -74,7 +74,6 @@ type StatusAccount struct {
 	FiveHour StatusBucket
 	SevenDay StatusBucket
 	Model    StatusModel
-	Source   string // "subscription" — the status line is the subscription source
 }
 
 // StatusUpdate is the neutral result of interpreting one status-line payload:
@@ -130,8 +129,7 @@ func InterpretStatus(payload []byte) StatusUpdate {
 				UsedPct:  p.RateLimits.SevenDay.UsedPercentage,
 				ResetsAt: time.Unix(p.RateLimits.SevenDay.ResetsAt, 0).UTC(),
 			},
-			Model:  StatusModel{ID: p.Model.ID, DisplayName: p.Model.DisplayName},
-			Source: "subscription",
+			Model: StatusModel{ID: p.Model.ID, DisplayName: p.Model.DisplayName},
 		}
 	}
 

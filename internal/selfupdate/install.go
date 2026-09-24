@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // Kind is the daemon's startup install classification
@@ -91,7 +90,7 @@ func withinDir(path, dir string) bool {
 	if err != nil {
 		return false
 	}
-	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+	return filepath.IsLocal(rel)
 }
 
 // inGitTreeBelowHome walks dir upward looking for a ".git" entry, stopping strictly

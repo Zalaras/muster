@@ -2,6 +2,7 @@ package claudecode
 
 import (
 	"bufio"
+	"cmp"
 	"context"
 	_ "embed"
 	"fmt"
@@ -17,6 +18,19 @@ import (
 // versionRE matches the leading semver of `claude --version`, e.g. "2.1.233 (Claude Code)".
 var versionRE = regexp.MustCompile(`^(\d+\.\d+\.\d+)`)
 
+// versionChecker holds the subprocess seam InstalledVersion crosses (the
+// constructor-default shape docs/conventions.md § Testing names —
+// kb:adr/process-adapter-run-seam-constructor-default), the same shape as tmux's
+// preflighter: production always runInstalledVersion, same-package tests overwrite the
+// field. Built fresh per call, like tmux.Preflight's newPreflighter().
+type versionChecker struct {
+	run execFunc
+}
+
+func newVersionChecker() *versionChecker {
+	return &versionChecker{run: runInstalledVersion}
+}
+
 // InstalledVersion reports the version of the claude binary at bin — the same
 // -claude-bin value the daemon launches sessions with (a bare "claude" resolves on
 // PATH), so a test daemon's stub answers `--version` and no test ever runs the real
@@ -25,15 +39,11 @@ var versionRE = regexp.MustCompile(`^(\d+\.\d+\.\d+)`)
 // The caller supplies the context: this runs on the daemon's startup path, and a hung
 // claude binary must not stall it indefinitely.
 func InstalledVersion(ctx context.Context, bin string) (string, error) {
-	cmd := exec.CommandContext(ctx, bin, "--version")
-	// WaitDelay bounds the wait for a descendant that inherited the --version
-	// stdout pipe to close it. The timer starts when ctx is done or when Wait
-	// sees the process exit, whichever comes first — without it, Output's Wait
-	// can block on that descendant forever even with ctx never firing
-	// (docs/conventions.md §Go; this held musterd's startup hostage before its
-	// first log line).
-	cmd.WaitDelay = 2 * time.Second
-	out, err := cmd.Output()
+	return newVersionChecker().installedVersion(ctx, bin)
+}
+
+func (v *versionChecker) installedVersion(ctx context.Context, bin string) (string, error) {
+	out, err := v.run(ctx, bin, "--version")
 	if err != nil {
 		return "", fmt.Errorf("running claude --version: %w", err)
 	}
@@ -43,6 +53,24 @@ func InstalledVersion(ctx context.Context, bin string) (string, error) {
 		return "", fmt.Errorf("parsing claude --version output %q", trimmed)
 	}
 	return m[1], nil
+}
+
+// runInstalledVersion is InstalledVersion's production execFunc: unlike runCommand
+// (credentials.go), it uses cmd.Output() rather than a plain Stdout buffer, so a
+// non-zero exit's *exec.ExitError carries the process's stderr the way it always has —
+// InstalledVersion's error message merely wraps that error, so this keeps its text
+// unchanged rather than folding InstalledVersion onto runCommand's slightly different
+// error shape.
+func runInstalledVersion(ctx context.Context, bin string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, bin, args...)
+	// WaitDelay bounds the wait for a descendant that inherited the --version
+	// stdout pipe to close it. The timer starts when ctx is done or when Wait
+	// sees the process exit, whichever comes first — without it, Output's Wait
+	// can block on that descendant forever even with ctx never firing
+	// (docs/conventions.md §Go; this held musterd's startup hostage before its
+	// first log line).
+	cmd.WaitDelay = 2 * time.Second
+	return cmd.Output()
 }
 
 // ObservedVersion is one row of the observed-versions record (observed_versions.txt): a
@@ -132,22 +160,11 @@ func parseSemver(v string) (semver, bool) {
 func compareSemver(a, b semver) int {
 	switch {
 	case a.major != b.major:
-		return compareInt(a.major, b.major)
+		return cmp.Compare(a.major, b.major)
 	case a.minor != b.minor:
-		return compareInt(a.minor, b.minor)
+		return cmp.Compare(a.minor, b.minor)
 	default:
-		return compareInt(a.patch, b.patch)
-	}
-}
-
-func compareInt(a, b int) int {
-	switch {
-	case a < b:
-		return -1
-	case a > b:
-		return 1
-	default:
-		return 0
+		return cmp.Compare(a.patch, b.patch)
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -352,21 +353,24 @@ func TestUpdateManager_FailedCheckKeepsPreviousResultAndBroadcastsNothing(t *tes
 }
 
 // TestUpdateManager_CheckSwap_DetectsAnExternalSwap covers D24's success half: a stat
-// change plus a successful probe sets Installed.
+// change plus a successful probe sets Installed. checkSwap's own probe call is faked at
+// m.probeVersion (the consumer port over selfupdate.ProbeVersion), never a forked
+// subprocess — docs/conventions.md § Testing.
 func TestUpdateManager_CheckSwap_DetectsAnExternalSwap(t *testing.T) {
 	dir := t.TempDir()
 	exePath := filepath.Join(dir, "musterd")
 	require.NoError(t, os.WriteFile(exePath, []byte("original"), 0o755))
 
-	var probed string
 	m, changes := newTestUpdateManager(t, func(c *updateManagerConfig) {
 		c.ExePath = exePath
-		c.ExeRun = func(context.Context, string, ...string) (string, error) { return probed, nil }
 	})
+	m.probeVersion = func(context.Context, string) (string, error) {
+		return "0.11.0", nil
+	}
 
-	// Change size+mtime relative to the construction-time stat.
-	require.NoError(t, os.WriteFile(exePath, []byte("a different, longer size on disk"), 0o755))
-	probed = "musterd v0.11.0"
+	// Change size+mtime relative to the construction-time stat — only the stat diff
+	// matters to checkSwap's swap-detection branch, not the file's content.
+	require.NoError(t, os.WriteFile(exePath, []byte("changed"), 0o644))
 
 	m.checkSwap(context.Background())
 
@@ -385,9 +389,11 @@ func TestUpdateManager_CheckSwap_ProbeFailureOrTimeoutLeavesInstalledNull(t *tes
 		require.NoError(t, os.WriteFile(exePath, []byte("original"), 0o755))
 		m, _ := newTestUpdateManager(t, func(c *updateManagerConfig) {
 			c.ExePath = exePath
-			c.ExeRun = func(context.Context, string, ...string) (string, error) { return "", assert.AnError }
 		})
-		require.NoError(t, os.WriteFile(exePath, []byte("changed"), 0o755))
+		m.probeVersion = func(context.Context, string) (string, error) {
+			return "", errors.New("boom")
+		}
+		require.NoError(t, os.WriteFile(exePath, []byte("changed"), 0o644))
 
 		m.checkSwap(context.Background())
 
@@ -400,12 +406,12 @@ func TestUpdateManager_CheckSwap_ProbeFailureOrTimeoutLeavesInstalledNull(t *tes
 		require.NoError(t, os.WriteFile(exePath, []byte("original"), 0o755))
 		m, _ := newTestUpdateManager(t, func(c *updateManagerConfig) {
 			c.ExePath = exePath
-			c.ExeRun = func(ctx context.Context, _ string, _ ...string) (string, error) {
-				<-ctx.Done()
-				return "", ctx.Err()
-			}
 		})
-		require.NoError(t, os.WriteFile(exePath, []byte("changed"), 0o755))
+		m.probeVersion = func(ctx context.Context, _ string) (string, error) {
+			<-ctx.Done()
+			return "", ctx.Err()
+		}
+		require.NoError(t, os.WriteFile(exePath, []byte("changed"), 0o644))
 
 		// checkSwap wraps the incoming ctx with ProbeVersionTimeout via
 		// context.WithTimeout — passing an already-short-deadline ctx here makes the

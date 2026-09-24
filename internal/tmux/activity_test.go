@@ -22,9 +22,10 @@ func fakeActivityExec(t *testing.T, fn func(args []string) ([]byte, error)) *Cli
 	t.Helper()
 	return &Client{
 		socket: "irrelevant-fake-socket",
-		exec: func(_ context.Context, name string, args ...string) ([]byte, error) {
+		exec: func(_ context.Context, name string, args ...string) (stdout, stderr []byte, err error) {
 			require.Equal(t, "tmux", name)
-			return fn(args)
+			out, err := fn(args)
+			return out, nil, err
 		},
 	}
 }
@@ -150,7 +151,7 @@ func TestListPaneActivity_RealTmux_OneInvocationCoversEveryPane(t *testing.T) {
 
 	var calls int
 	realExec := c.exec
-	c.exec = func(ctx context.Context, name string, args ...string) ([]byte, error) {
+	c.exec = func(ctx context.Context, name string, args ...string) (stdout, stderr []byte, err error) {
 		calls++
 		return realExec(ctx, name, args...)
 	}

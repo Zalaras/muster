@@ -2,6 +2,8 @@ package gitutil
 
 import (
 	"context"
+	"errors"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -91,4 +93,65 @@ func TestIsWorktree_TrueForALinkedWorktreeFalseForItsMainCheckout(t *testing.T) 
 
 	assert.True(t, IsWorktree(context.Background(), worktreeDir), "ux-flows §2's recognition rule: git-dir != common-dir for a linked worktree")
 	assert.False(t, IsWorktree(context.Background(), mainDir), "the original checkout is not itself a linked worktree")
+}
+
+// ListFiles: the gitRunner-level table covers the NUL-parsing logic directly (no
+// subprocess needed for that), and the two ListFiles-level tests below confirm the real
+// `git ls-files -co --exclude-standard -z` argv actually produces the tracked/untracked/
+// not-ignored split the reader depends on.
+
+func TestGitRunner_ListFiles_ParsesNulSeparatedOutput(t *testing.T) {
+	g := &gitRunner{run: func(context.Context, string, ...string) (string, error) {
+		return "zeta.md\x00notes.txt\x00docs/alpha.md\x00", nil
+	}}
+
+	paths, err := g.listFiles(context.Background(), "/some/dir")
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"zeta.md", "notes.txt", "docs/alpha.md"}, paths)
+}
+
+func TestGitRunner_ListFiles_EmptyOutputIsNilNotEmptySlice(t *testing.T) {
+	g := &gitRunner{run: func(context.Context, string, ...string) (string, error) {
+		return "", nil
+	}}
+
+	paths, err := g.listFiles(context.Background(), "/some/dir")
+
+	require.NoError(t, err)
+	assert.Nil(t, paths)
+}
+
+func TestGitRunner_ListFiles_RunErrorPropagates(t *testing.T) {
+	wantErr := errors.New("exit status 128: not a git repository")
+	g := &gitRunner{run: func(context.Context, string, ...string) (string, error) {
+		return "", wantErr
+	}}
+
+	_, err := g.listFiles(context.Background(), "/some/dir")
+
+	assert.ErrorIs(t, err, wantErr)
+}
+
+func TestListFiles_ReturnsTrackedUntrackedButNotGitignoredFiles(t *testing.T) {
+	dir := initRepoWithOneCommit(t)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "tracked.md"), []byte("x"), 0o644))
+	runGitFixture(t, dir, "add", "tracked.md")
+	runGitFixture(t, dir, "-c", "user.email=test@example.com", "-c", "user.name=Test", "commit", "-q", "-m", "add tracked")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "untracked.txt"), []byte("y"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("ignored.md\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "ignored.md"), []byte("z"), 0o644))
+
+	paths, err := ListFiles(context.Background(), dir)
+
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"tracked.md", "untracked.txt", ".gitignore"}, paths, "ignored.md must be excluded by --exclude-standard")
+}
+
+func TestListFiles_ErrorForANonGitDirectory(t *testing.T) {
+	dir := t.TempDir()
+
+	_, err := ListFiles(context.Background(), dir)
+
+	assert.Error(t, err)
 }

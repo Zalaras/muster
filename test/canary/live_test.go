@@ -39,7 +39,7 @@ func liveToken(t *testing.T) string {
 	u, err := user.Current()
 	require.NoError(t, err, "resolving current OS user")
 
-	reader := claudecode.KeychainTokenReader(u.Username, claudecode.RunCommand)
+	reader := claudecode.KeychainTokenReader(u.Username)
 	token, err := reader(t.Context())
 	require.NoErrorf(t, err, "production Keychain reader returned no credentials for user %q", u.Username)
 	require.NotEmpty(t, token, "Keychain token must be non-empty")

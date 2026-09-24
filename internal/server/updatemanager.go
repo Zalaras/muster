@@ -27,9 +27,12 @@ var (
 	errCheckFailed       = errors.New("update check failed")
 )
 
-// updateExecFunc runs a subprocess and returns its stdout — the ProbeVersion seam
-// (selfupdate.RunVersionProbe in production).
-type updateExecFunc func(ctx context.Context, name string, args ...string) (string, error)
+// probeVersionFunc reads the version a swapped-in binary reports — checkSwap's
+// consumer-side seam over selfupdate.ProbeVersion (docs/conventions.md § Testing,
+// matching reader.go's gitFilesFunc): production is selfupdate.ProbeVersion,
+// same-package tests overwrite the field directly rather than forking a real `#!/bin/sh`
+// stub per test (kb:lesson/first-exec-of-fresh-script-costs-270ms).
+type probeVersionFunc func(ctx context.Context, exePath string) (string, error)
 
 // updateManagerConfig configures a newUpdateManager call. Constructed only when
 // -update-base-url is non-empty (Server.New); a nil *updateManager on Server means
@@ -42,7 +45,6 @@ type updateManagerConfig struct {
 	Install      selfupdate.Install
 	Running      string
 	ExePath      string
-	ExeRun       updateExecFunc
 	CheckEnabled bool
 	Log          zerolog.Logger
 	OnChange     func(UpdateInfo)
@@ -60,9 +62,13 @@ type updateManager struct {
 	install  selfupdate.Install
 	running  string
 	exePath  string
-	exeRun   updateExecFunc
 	log      zerolog.Logger
 	onChange func(UpdateInfo)
+
+	// probeVersion is checkSwap's version-probe seam, defaulted to selfupdate.ProbeVersion
+	// below — never threaded through updateManagerConfig or the composition root, since
+	// it never varies in production (kb:adr/process-adapter-run-seam-constructor-default).
+	probeVersion probeVersionFunc
 
 	startInfo os.FileInfo // stat at construction — checkSwap's reference point for detecting an out-of-band binary swap
 
@@ -104,11 +110,11 @@ func newUpdateManager(cfg updateManagerConfig) *updateManager {
 		install:         cfg.Install,
 		running:         cfg.Running,
 		exePath:         cfg.ExePath,
-		exeRun:          cfg.ExeRun,
 		log:             cfg.Log,
 		onChange:        cfg.OnChange,
 		checkEnabled:    cfg.CheckEnabled && cfg.Install.Kind != selfupdate.KindDev,
 		applyPhase:      selfupdate.PhaseIdle,
+		probeVersion:    selfupdate.ProbeVersion,
 		refresh:         make(chan struct{}, 1),
 		restartRequests: make(chan struct{}, 1),
 	}
@@ -227,7 +233,7 @@ func (m *updateManager) checkAvailability(ctx context.Context, manual bool) erro
 // success, set `installed`. A failed or hanging probe leaves `installed` null and is
 // retried next tick — no different from never having detected a change at all.
 func (m *updateManager) checkSwap(ctx context.Context) {
-	if m.exePath == "" || m.exeRun == nil {
+	if m.exePath == "" {
 		return
 	}
 	info, err := os.Stat(m.exePath)
@@ -247,7 +253,7 @@ func (m *updateManager) checkSwap(ctx context.Context) {
 	}
 
 	probeCtx, cancel := context.WithTimeout(ctx, selfupdate.ProbeVersionTimeout)
-	version, err := selfupdate.ProbeVersion(probeCtx, m.exeRun, m.exePath)
+	version, err := m.probeVersion(probeCtx, m.exePath)
 	cancel()
 	if err != nil {
 		m.log.Debug().Err(err).Msg("probing swapped binary version failed")

@@ -195,13 +195,14 @@ func (q *ingestQueue) processStatus(ctx context.Context, sessionID int64, payloa
 	}
 	// The adapter's neutral StatusAccount maps into the aggregator's Sample here — this
 	// keeps internal/claudecode dependency-free of internal/usage (and transitively the
-	// store).
+	// store). Source is left unset: the status line carries no source of its own, and
+	// Aggregator.Record is the one place that fills the default — the adapter must not
+	// invent Muster's own source label.
 	acct := update.Account
 	sample := usage.Sample{
 		FiveHour: usage.Bucket{UsedPct: acct.FiveHour.UsedPct, ResetsAt: acct.FiveHour.ResetsAt},
 		SevenDay: usage.Bucket{UsedPct: acct.SevenDay.UsedPct, ResetsAt: acct.SevenDay.ResetsAt},
 		Model:    usage.Model{ID: acct.Model.ID, DisplayName: acct.Model.DisplayName},
-		Source:   acct.Source,
 	}
 	if err := q.usage.Record(ctx, sample); err != nil {
 		q.log.Warn().Err(err).Msg("recording usage sample failed")
@@ -263,8 +264,12 @@ func newIngestFeature(st *store.Store, size int, token string, manager *session.
 }
 
 func (f *ingestFeature) mount(mux *http.ServeMux, _ func(http.Handler) http.Handler) {
-	mux.HandleFunc("POST /ingest/{token}/hook", f.handleIngestHook)
-	mux.HandleFunc("POST /ingest/{token}/status", f.handleIngestStatus)
+	// Registered from claudecode.IngestHookPath/IngestStatusPath — the same declaration
+	// WriteWrapperScripts builds the generated wrapper scripts' URLs from and
+	// musterIngestPath's legacy-entry regexp matches against, so the route pattern and
+	// the URL a script actually POSTs to can never drift apart.
+	mux.HandleFunc("POST "+claudecode.IngestHookPath("{token}"), f.handleIngestHook)
+	mux.HandleFunc("POST "+claudecode.IngestStatusPath("{token}"), f.handleIngestStatus)
 }
 
 func (f *ingestFeature) Start() { f.queue.Start() }

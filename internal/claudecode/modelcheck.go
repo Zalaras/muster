@@ -28,11 +28,24 @@ const (
 	ModelUnrecognised
 )
 
-// ModelCheckRun is the injectable seam CheckModel calls instead of a real subprocess
+// modelCheckRun is the injectable seam CheckModel calls instead of a real subprocess
 // (docs/conventions.md § Testing, mirroring credentials.go's execFunc) — the production
-// value is RunModelCheck. It returns the run's stderr; a nil error covers any process
+// value is runModelCheck. It returns the run's stderr; a nil error covers any process
 // completion, including the catalog run's own always-exit-1 (kb:fact/model-catalog-precheck-zero-token).
-type ModelCheckRun func(ctx context.Context, dir string, argv []string) ([]byte, error)
+type modelCheckRun func(ctx context.Context, dir string, argv []string) ([]byte, error)
+
+// modelChecker holds the subprocess seam CheckModel crosses (the constructor-default
+// shape docs/conventions.md § Testing names —
+// kb:adr/process-adapter-run-seam-constructor-default): production always
+// runModelCheck, same-package tests overwrite the field. Built fresh per call, like
+// tmux.Preflight's newPreflighter().
+type modelChecker struct {
+	run modelCheckRun
+}
+
+func newModelChecker() *modelChecker {
+	return &modelChecker{run: runModelCheck}
+}
 
 // modelCheckWaitDelay bounds the wait for a descendant that inherited the stderr pipe to
 // close it once ctx fires (docs/conventions.md § Go).
@@ -45,7 +58,7 @@ const modelCheckWaitDelay = 2 * time.Second
 // applied inside KeychainTokenReader.
 const modelCheckTimeout = 5 * time.Second
 
-// RunModelCheck is CheckModel's production ModelCheckRun: runs argv[0] with the rest as
+// runModelCheck is CheckModel's production modelCheckRun: runs argv[0] with the rest as
 // args, in dir, with empty stdin (kb:fact/model-catalog-precheck-zero-token's `</dev/null`),
 // returning stderr. The catalog run always exits 1 (kb:fact/model-catalog-precheck-zero-token),
 // so a plain *exec.ExitError is not reported as a failure — only a run that could not
@@ -57,7 +70,7 @@ const modelCheckTimeout = 5 * time.Second
 // is already done (it bounds the wait *after* Cancel/ctx-done, never before), so checking
 // ctx.Err() first closes both the ctx-deadline kill and the WaitDelay-forced one with a
 // single check, ahead of the ExitError swallow.
-func RunModelCheck(ctx context.Context, dir string, argv []string) ([]byte, error) {
+func runModelCheck(ctx context.Context, dir string, argv []string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Dir = dir
 	cmd.Stdin = strings.NewReader("")
@@ -78,17 +91,20 @@ func RunModelCheck(ctx context.Context, dir string, argv []string) ([]byte, erro
 }
 
 // CheckModel runs the zero-token pre-check (kb:fact/model-catalog-precheck-zero-token) for
-// model in dir: `<bin> --bare --no-session-persistence --model <model> -p ""` through run
-// (kb:adr/process-faked-subprocess-boundary), bounded by modelCheckTimeout. A run error
-// (the binary can't start, or blocks past the deadline) is returned to the caller so
-// Launch can fail open and log a warning without the stderr body
-// (kb:adr/launch-refuses-model-outside-binary-catalog); the verdict is ModelUnrecognised
-// iff stderr carries modelCatalogSentence, never the exit code.
-func CheckModel(ctx context.Context, run ModelCheckRun, bin, dir, model string) (ModelVerdict, error) {
+// model in dir: `<bin> --bare --no-session-persistence --model <model> -p ""`, bounded by
+// modelCheckTimeout. A run error (the binary can't start, or blocks past the deadline) is
+// returned to the caller so Launch can fail open and log a warning without the stderr
+// body (kb:adr/launch-refuses-model-outside-binary-catalog); the verdict is
+// ModelUnrecognised iff stderr carries modelCatalogSentence, never the exit code.
+func CheckModel(ctx context.Context, bin, dir, model string) (ModelVerdict, error) {
+	return newModelChecker().check(ctx, bin, dir, model)
+}
+
+func (m *modelChecker) check(ctx context.Context, bin, dir, model string) (ModelVerdict, error) {
 	ctx, cancel := context.WithTimeout(ctx, modelCheckTimeout)
 	defer cancel()
 	argv := []string{bin, "--bare", "--no-session-persistence", "--model", model, "-p", ""}
-	stderr, err := run(ctx, dir, argv)
+	stderr, err := m.run(ctx, dir, argv)
 	if err != nil {
 		return ModelRecognised, err
 	}

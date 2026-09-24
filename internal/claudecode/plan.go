@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // PlanFile is where a session's plan-mode plan lives, derived from its transcript.
@@ -117,5 +116,5 @@ func IsUnderDefaultPlansDir(path string) bool {
 	if err != nil {
 		return false
 	}
-	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+	return filepath.IsLocal(rel)
 }

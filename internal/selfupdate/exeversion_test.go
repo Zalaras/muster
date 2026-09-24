@@ -31,7 +31,7 @@ func TestProbeVersion_ParsesRecognisedFormats(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ProbeVersion(context.Background(), fakeRunReturning(tt.output, nil), "/path/to/musterd")
+			got, err := (&versionProber{run: fakeRunReturning(tt.output, nil)}).probe(context.Background(), "/path/to/musterd")
 
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
@@ -51,7 +51,7 @@ func TestProbeVersion_RejectsDevAndUnparseableOutput(t *testing.T) {
 	}
 	for _, output := range tests {
 		t.Run(output, func(t *testing.T) {
-			_, err := ProbeVersion(context.Background(), fakeRunReturning(output, nil), "/path/to/musterd")
+			_, err := (&versionProber{run: fakeRunReturning(output, nil)}).probe(context.Background(), "/path/to/musterd")
 			assert.Error(t, err)
 		})
 	}
@@ -63,7 +63,7 @@ func TestProbeVersion_RejectsDevAndUnparseableOutput(t *testing.T) {
 func TestProbeVersion_RunFailurePropagates(t *testing.T) {
 	wantErr := errors.New("boom")
 
-	_, err := ProbeVersion(context.Background(), fakeRunReturning("", wantErr), "/path/to/musterd")
+	_, err := (&versionProber{run: fakeRunReturning("", wantErr)}).probe(context.Background(), "/path/to/musterd")
 
 	assert.ErrorIs(t, err, wantErr)
 }
@@ -74,19 +74,19 @@ func TestRunVersionProbe_CapturesStdout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	out, err := RunVersionProbe(ctx, "/bin/echo", "musterd v0.11.0")
+	out, err := runVersionProbe(ctx, "/bin/echo", "musterd v0.11.0")
 
 	require.NoError(t, err)
 	assert.Equal(t, "musterd v0.11.0\n", out)
 }
 
-// TestRunVersionProbe_NonZeroExitIsAnError covers RunVersionProbe's error propagation
+// TestRunVersionProbe_NonZeroExitIsAnError covers runVersionProbe's error propagation
 // from a real subprocess that exits non-zero.
 func TestRunVersionProbe_NonZeroExitIsAnError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err := RunVersionProbe(ctx, "/usr/bin/false")
+	_, err := runVersionProbe(ctx, "/usr/bin/false")
 
 	assert.Error(t, err)
 }

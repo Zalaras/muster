@@ -24,7 +24,7 @@ func TestKeychainTokenReader_Success_ParsesAccessTokenAndPassesExpectedArgs(t *t
 		return []byte(`{"claudeAiOauth":{"accessToken":"tok-abc-123"}}`), nil
 	}
 
-	token, err := KeychainTokenReader("bob", run)(context.Background())
+	token, err := (&keychainReader{user: "bob", run: run}).read(context.Background())
 
 	require.NoError(t, err)
 	assert.Equal(t, "tok-abc-123", token)
@@ -37,7 +37,7 @@ func TestKeychainTokenReader_ExecFailure_ReturnsErrNoCredentials(t *testing.T) {
 		return nil, errors.New("exit status 44")
 	}
 
-	_, err := KeychainTokenReader("bob", run)(context.Background())
+	_, err := (&keychainReader{user: "bob", run: run}).read(context.Background())
 
 	assert.ErrorIs(t, err, ErrNoCredentials, "a fresh Mac / logged-out Claude Code / unanswerable Keychain prompt must all map to ErrNoCredentials")
 }
@@ -47,7 +47,7 @@ func TestKeychainTokenReader_MalformedJSON_ReturnsErrNoCredentials(t *testing.T)
 		return []byte(`not json at all`), nil
 	}
 
-	_, err := KeychainTokenReader("bob", run)(context.Background())
+	_, err := (&keychainReader{user: "bob", run: run}).read(context.Background())
 
 	assert.ErrorIs(t, err, ErrNoCredentials)
 }
@@ -57,7 +57,7 @@ func TestKeychainTokenReader_EmptyAccessToken_ReturnsErrNoCredentials(t *testing
 		return []byte(`{"claudeAiOauth":{"accessToken":""}}`), nil
 	}
 
-	_, err := KeychainTokenReader("bob", run)(context.Background())
+	_, err := (&keychainReader{user: "bob", run: run}).read(context.Background())
 
 	assert.ErrorIs(t, err, ErrNoCredentials)
 }
@@ -67,7 +67,7 @@ func TestKeychainTokenReader_MissingAccessTokenKey_ReturnsErrNoCredentials(t *te
 		return []byte(`{"claudeAiOauth":{}}`), nil
 	}
 
-	_, err := KeychainTokenReader("bob", run)(context.Background())
+	_, err := (&keychainReader{user: "bob", run: run}).read(context.Background())
 
 	assert.ErrorIs(t, err, ErrNoCredentials)
 }
@@ -83,7 +83,7 @@ func TestKeychainTokenReader_AppliesTwoSecondExecTimeout(t *testing.T) {
 		return []byte(`{"claudeAiOauth":{"accessToken":"tok"}}`), nil
 	}
 
-	_, err := KeychainTokenReader("bob", run)(context.Background())
+	_, err := (&keychainReader{user: "bob", run: run}).read(context.Background())
 
 	require.NoError(t, err)
 	require.True(t, hasDeadline, "the exec func must receive a context with a deadline")
@@ -101,7 +101,7 @@ func TestKeychainTokenReader_RespectsParentContextCancellation(t *testing.T) {
 		return nil, runCtx.Err()
 	}
 
-	_, err := KeychainTokenReader("bob", run)(ctx)
+	_, err := (&keychainReader{user: "bob", run: run}).read(ctx)
 
 	require.ErrorIs(t, err, ErrNoCredentials)
 	assert.True(t, sawCanceled, "the parent's cancellation must be visible to the exec seam")
@@ -191,13 +191,13 @@ func TestDecodeOAuthToken_IgnoresUnknownSiblingKeys(t *testing.T) {
 }
 
 // TestRunCommand_NeverExecutedByAnyOtherTestInThisFile documents D8 rather than testing
-// RunCommand's own behaviour (which would require running a real external process) —
-// every KeychainTokenReader test above passes its own func literal, never RunCommand
+// runCommand's own behaviour (which would require running a real external process) —
+// every KeychainTokenReader test above passes its own func literal, never runCommand
 // itself. This test exists so a future edit that swaps a test's exec func back to
-// RunCommand by accident fails obviously: it exercises RunCommand exactly once, against
+// runCommand by accident fails obviously: it exercises runCommand exactly once, against
 // a harmless, always-installed binary, not `security`.
 func TestRunCommand_HarmlessSmokeTestNeverUsedByKeychainTests(t *testing.T) {
-	out, err := RunCommand(context.Background(), "echo", "hello")
+	out, err := runCommand(context.Background(), "echo", "hello")
 
 	require.NoError(t, err)
 	assert.Contains(t, string(out), "hello")

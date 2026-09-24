@@ -1,14 +1,12 @@
 package server
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -18,6 +16,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/Zalaras/muster/internal/claudecode"
+	"github.com/Zalaras/muster/internal/gitutil"
 	"github.com/Zalaras/muster/internal/session"
 )
 
@@ -31,19 +30,11 @@ const maxReaderFileBytes = 10 * 1024 * 1024
 // maxWalkFiles is the non-git listing's walk cap.
 const maxWalkFiles = 20000
 
-// readerExecFunc runs `git` for listMarkdown — an injectable seam like usage.go's
-// TokenReader/execFunc pattern; no test executes the real git binary through it.
-type readerExecFunc func(ctx context.Context, dir string, args ...string) ([]byte, error)
-
-// runGit is the production readerExecFunc: `git -C dir <args>`, output only (stderr
-// discarded — a failure here is a fallback signal, not something to surface to the UI).
-func readerRunGit(ctx context.Context, dir string, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", dir}, args...)...)
-	// WaitDelay bounds the wait for a descendant that inherited the stdout pipe to
-	// close it (docs/conventions.md § Go).
-	cmd.WaitDelay = 2 * time.Second
-	return cmd.Output()
-}
+// gitFilesFunc lists the files git sees under dir — listMarkdown's consumer-side seam
+// over gitutil.ListFiles (docs/conventions.md § Testing): production is
+// gitutil.ListFiles, same-package tests fake a neutral file list here rather than git's
+// own byte stream, since git's argv is gitutil's concern, not this package's.
+type gitFilesFunc func(ctx context.Context, dir string) ([]string, error)
 
 // writeLog is the daemon's in-memory record of routed writes, per session — forgotten
 // on daemon restart, like shells (Schema Changes: "the write log is not persisted").
@@ -101,12 +92,12 @@ type readerManager interface {
 // No route here ever mutates a file — the reader is read-only by construction
 // (kb:spec/reader).
 type readerFeature struct {
-	manager readerManager
-	hub     *wsHub
-	log     zerolog.Logger
-	runGit  readerExecFunc
-	home    string
-	writes  *writeLog
+	manager  readerManager
+	hub      *wsHub
+	log      zerolog.Logger
+	gitFiles gitFilesFunc
+	home     string
+	writes   *writeLog
 }
 
 func newReaderFeature(manager readerManager, hub *wsHub, log zerolog.Logger) *readerFeature {
@@ -115,12 +106,12 @@ func newReaderFeature(manager readerManager, hub *wsHub, log zerolog.Logger) *re
 		log.Warn().Err(err).Msg("reader: could not determine home directory; slug-only plans will not resolve")
 	}
 	return &readerFeature{
-		manager: manager,
-		hub:     hub,
-		log:     log,
-		runGit:  readerRunGit,
-		home:    home,
-		writes:  newWriteLog(),
+		manager:  manager,
+		hub:      hub,
+		log:      log,
+		gitFiles: gitutil.ListFiles,
+		home:     home,
+		writes:   newWriteLog(),
 	}
 }
 
@@ -207,7 +198,7 @@ func readerPathQualifies(dir, planPath, path string) bool {
 	if err != nil {
 		return false
 	}
-	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+	return filepath.IsLocal(rel)
 }
 
 // scanPlan runs the transcript scan for a locatable plan file and hands its result to
@@ -371,25 +362,22 @@ func confine(dir, planPath, requested string) (string, bool) {
 	return resolvedRequested, true
 }
 
-// listMarkdown lists every `.md` (case-insensitive) file under dir: `git ls-files -co
-// --exclude-standard` when dir is a git checkout, a bounded dot-directory-skipping walk
-// otherwise (kb:spec/reader). A git failure (not a checkout, or a real error) is not
-// itself an error — it falls back to the walk, logged at debug.
+// listMarkdown lists every `.md` (case-insensitive) file under dir: gitutil.ListFiles's
+// `git ls-files -co --exclude-standard` listing when dir is a git checkout, filtered to
+// `.md`, or a bounded dot-directory-skipping walk otherwise (kb:spec/reader). A git
+// failure (not a checkout, or a real error) is not itself an error — it falls back to
+// the walk, logged at debug.
 func (f *readerFeature) listMarkdown(ctx context.Context, dir string) (paths []string, listing string, truncated bool) {
-	out, err := f.runGit(ctx, dir, "ls-files", "-co", "--exclude-standard", "-z")
+	files, err := f.gitFiles(ctx, dir)
 	if err != nil {
 		f.log.Debug().Err(err).Str("directory", dir).Msg("reader: git ls-files failed; falling back to walk listing")
 		return walkMarkdown(dir)
 	}
 
 	var md []string
-	for _, p := range bytes.Split(bytes.TrimRight(out, "\x00"), []byte{0}) {
-		if len(p) == 0 {
-			continue
-		}
-		rel := string(p)
+	for _, rel := range files {
 		if strings.EqualFold(filepath.Ext(rel), ".md") {
-			md = append(md, filepath.ToSlash(rel))
+			md = append(md, rel)
 		}
 	}
 	sort.Strings(md)

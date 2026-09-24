@@ -22,15 +22,16 @@ var ErrNoCredentials = errors.New("no claude code credentials available")
 // Keychain item itself on its own runs.
 type TokenReader func(ctx context.Context) (string, error)
 
-// execFunc abstracts running an external command for KeychainTokenReader's tests
-// (kb:adr/usage-keychain-token-read-only: no test may execute the real `security`
-// binary). RunCommand is the production value.
+// execFunc abstracts running an external command — the seam every run-func-shaped
+// stdout-only adapter call in this package crosses (kb:adr/usage-keychain-token-read-only:
+// no test may execute the real `security` binary; kb:adr/process-adapter-run-seam-constructor-default).
+// runCommand is the production value.
 type execFunc func(ctx context.Context, name string, args ...string) ([]byte, error)
 
-// RunCommand is the production execFunc: runs name with args, returning stdout. Stderr
+// runCommand is the production execFunc: runs name with args, returning stdout. Stderr
 // is discarded — nothing on this path is ever logged (kb:adr/usage-keychain-token-read-only),
 // including a Keychain access-prompt's own stderr text.
-func RunCommand(ctx context.Context, name string, args ...string) ([]byte, error) {
+func runCommand(ctx context.Context, name string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
@@ -50,22 +51,33 @@ func RunCommand(ctx context.Context, name string, args ...string) ([]byte, error
 // process must not stall a poll tick forever.
 const keychainExecTimeout = 2 * time.Second
 
+// keychainReader holds the subprocess seam KeychainTokenReader crosses (the
+// constructor-default shape docs/conventions.md § Testing names —
+// kb:adr/process-adapter-run-seam-constructor-default): production always runCommand,
+// same-package tests overwrite the field.
+type keychainReader struct {
+	user string
+	run  execFunc
+}
+
 // KeychainTokenReader reads the Claude Code OAuth token from the macOS Keychain item
 // "Claude Code-credentials" (kb:fact/oauth-token-in-keychain), read-only
 // (kb:adr/usage-keychain-token-read-only) — musterd never writes to the Keychain and
 // never refreshes the token itself. user is the account name `security` looks the item
-// up under (main passes os/user.Current()'s value); run is the exec seam that ADR
-// requires for testing.
-func KeychainTokenReader(user string, run execFunc) TokenReader {
-	return func(ctx context.Context) (string, error) {
-		cctx, cancel := context.WithTimeout(ctx, keychainExecTimeout)
-		defer cancel()
-		out, err := run(cctx, "security", "find-generic-password", "-a", user, "-w", "-s", "Claude Code-credentials")
-		if err != nil {
-			return "", ErrNoCredentials
-		}
-		return decodeOAuthToken(out)
+// up under (main passes os/user.Current()'s value).
+func KeychainTokenReader(user string) TokenReader {
+	kr := &keychainReader{user: user, run: runCommand}
+	return kr.read
+}
+
+func (k *keychainReader) read(ctx context.Context) (string, error) {
+	cctx, cancel := context.WithTimeout(ctx, keychainExecTimeout)
+	defer cancel()
+	out, err := k.run(cctx, "security", "find-generic-password", "-a", k.user, "-w", "-s", "Claude Code-credentials")
+	if err != nil {
+		return "", ErrNoCredentials
 	}
+	return decodeOAuthToken(out)
 }
 
 // FileTokenReader reads the same {"claudeAiOauth":{"accessToken":"…"}} shape from a

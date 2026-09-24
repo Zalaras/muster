@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"os/exec"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -88,7 +87,7 @@ func newIssueFeature(cfg IssueConfig, httpClient *http.Client, manager *session.
 		if cfg.TokenFile != "" {
 			tokenReader = ghissue.FileTokenReader(cfg.TokenFile)
 		} else {
-			tokenReader = ghissue.GhCLITokenReader(exec.LookPath, ghissue.RunCommand)
+			tokenReader = ghissue.GhCLITokenReader()
 		}
 		f.client = &ghissue.Client{HTTPClient: httpClient, BaseURL: cfg.APIURL, TokenReader: tokenReader}
 	}

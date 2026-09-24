@@ -109,7 +109,7 @@ func newSessionLauncher(store *store.Store, manager *session.Manager, tmux paneS
 		statusLineScript: cfg.StatusLineScript,
 		legacyScripts:    cfg.LegacyScripts,
 		checkModel: func(ctx context.Context, dir, model string) (claudecode.ModelVerdict, error) {
-			return claudecode.CheckModel(ctx, claudecode.RunModelCheck, claudeBin, dir, model)
+			return claudecode.CheckModel(ctx, claudeBin, dir, model)
 		},
 	}
 }
@@ -143,7 +143,7 @@ func validateLaunchRequest(req createSessionRequest) *launchError {
 // inherit on its own, and whatever Claude Code's own launch environment adds.
 func buildLaunchEnv(sessionID int64) map[string]string {
 	env := map[string]string{
-		"MUSTER_SESSION": strconv.FormatInt(sessionID, 10),
+		claudecode.MusterSessionEnvVar: strconv.FormatInt(sessionID, 10),
 		// A Go-daemon child inherits no LANG/LC_ALL of its own; without them the failure
 		// presents as a broken terminal bridge.
 		"LANG":   "en_US.UTF-8",
@@ -178,16 +178,20 @@ func (l *sessionLauncher) spawnSession(ctx context.Context, id int64, dir string
 	return l.tmux.NewSession(spawnCtx, id, dir, env, argv)
 }
 
-// killWindowAfterRecordFailure kills the tmux window a spawn already created once
+// killSessionAfterRecordFailure kills the tmux session a spawn already created once
 // RecordLaunch/RecordResume failed to persist it (action names which, for the log line
-// only) — the window would otherwise keep running with no session row and no broadcast
-// behind it, invisible to the user. Logs its own failure; the caller still returns
-// launchFailed() regardless.
-func (l *sessionLauncher) killWindowAfterRecordFailure(ctx context.Context, target, action string) {
+// only) — the pane would otherwise keep running with no session row and no broadcast
+// behind it, invisible to the user. Goes through KillSession, not KillWindow, so this
+// rollback shares the same already-gone semantics (idempotent against a target that's
+// already gone) as every other production caller in internal/session and
+// shellRegistry. Logs its own failure; the caller still returns launchFailed()
+// regardless.
+func (l *sessionLauncher) killSessionAfterRecordFailure(ctx context.Context, id int64, action string) {
 	killCtx, cancel := context.WithTimeout(ctx, launchTmuxTimeout)
 	defer cancel()
-	if err := l.tmux.KillWindow(killCtx, target); err != nil {
-		l.log.Error().Err(err).Str("tmux_target", target).Msgf("failed to kill tmux window after %s failure", action)
+	name := tmux.SessionName(id)
+	if err := l.tmux.KillSession(killCtx, name); err != nil {
+		l.log.Error().Err(err).Int64("session_id", id).Str("tmux_session", name).Msgf("failed to kill tmux session after %s failure", action)
 	}
 }
 
@@ -329,7 +333,7 @@ func (l *sessionLauncher) spawnAndRecordLaunch(ctx context.Context, id int64, di
 		// The tmux window was already spawned; without this the pane keeps running
 		// with no session row and no broadcast behind it — an invisible session the
 		// user can't see or reach.
-		l.killWindowAfterRecordFailure(ctx, target, "RecordLaunch")
+		l.killSessionAfterRecordFailure(ctx, id, "RecordLaunch")
 		return nil, false, launchFailed()
 	}
 	return final, false, nil
@@ -414,7 +418,7 @@ func (l *sessionLauncher) Resume(ctx context.Context, id int64) (*session.Sessio
 	final, err := l.manager.RecordResume(ctx, id, target, pane)
 	if err != nil {
 		l.log.Error().Err(err).Int64("session_id", id).Msg("recording resume failed")
-		l.killWindowAfterRecordFailure(ctx, target, "RecordResume")
+		l.killSessionAfterRecordFailure(ctx, id, "RecordResume")
 		return nil, launchFailed()
 	}
 	return final, nil

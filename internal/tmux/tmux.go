@@ -22,15 +22,18 @@ import (
 // Client issues tmux commands against one dedicated socket.
 type Client struct {
 	socket string
-	// exec spawns the tmux subprocess for run — the same injectable-seam shape as
-	// preflighter's run field, locate.SpotlightFinder's run field and claudecode's
-	// execFunc (docs/conventions.md §Testing). Production always execCombinedOutput;
-	// same-package tests may overwrite the field directly (the struct's zero-value
-	// construction path is New, same as preflighter's own tests build a struct
-	// literal) to simulate a tmux exit shape real tmux cannot be driven to
-	// deterministically — e.g. KillSession's post-kill PaneExists recheck reporting
-	// the session still there (kb:adr/actions-kill-is-idempotent).
-	exec func(ctx context.Context, name string, args ...string) ([]byte, error)
+	// exec spawns the tmux subprocess — the one seam every method on this Client starts
+	// a subprocess through, the same injectable-seam shape as preflighter's run
+	// field, locate.SpotlightFinder's run field and claudecode's execFunc
+	// (docs/conventions.md §Testing). stdout and stderr are always kept separate —
+	// run folds them back together for its own error text, but runCapture's stdout is
+	// live pane content that must never reach an error message (CLAUDE.md hard rule).
+	// Production always execSeparated; same-package tests may overwrite the field
+	// directly (the struct's zero-value construction path is New, same as preflighter's
+	// own tests build a struct literal) to simulate a tmux exit shape real tmux cannot
+	// be driven to deterministically — e.g. KillSession's post-kill PaneExists recheck
+	// reporting the session still there (kb:adr/actions-kill-is-idempotent).
+	exec func(ctx context.Context, name string, args ...string) (stdout, stderr []byte, err error)
 }
 
 // New returns a Client bound to the given socket (never the user's default tmux
@@ -38,7 +41,7 @@ type Client struct {
 // named socket in tmux's own socket directory (-L), so the E2E harness and
 // per-test Go tests can point sockets at scratch dirs that already get deleted.
 func New(socket string) *Client {
-	return &Client{socket: socket, exec: execCombinedOutput}
+	return &Client{socket: socket, exec: execSeparated}
 }
 
 // maxSocketPathLen is the longest -S socket path tmux can actually bind: AF_UNIX's
@@ -648,7 +651,7 @@ func trimTrailingBlankLines(s string) string {
 
 func (c *Client) run(ctx context.Context, args ...string) (string, error) {
 	full := append(c.socketFlag(), args...)
-	out, err := c.exec(ctx, "tmux", full...)
+	stdout, stderr, err := c.exec(ctx, "tmux", full...)
 	if err != nil {
 		if ctx.Err() != nil {
 			// exec.CommandContext kills the subprocess on an expired context the same
@@ -663,46 +666,51 @@ func (c *Client) run(ctx context.Context, args ...string) (string, error) {
 			//nolint:errorlint // err is deliberately %v, not %w: it must NOT join the
 			// chain, or errors.As(err, &exitErr) below would still match its
 			// *exec.ExitError and undo the whole point of this branch.
-			return string(out), fmt.Errorf("tmux %s: %w (%v)", args[0], ctx.Err(), err)
+			return string(stdout), fmt.Errorf("tmux %s: %w (%v)", args[0], ctx.Err(), err)
 		}
-		return string(out), fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
+		// tmux writes an ordinary query's error only to one of the two streams (its
+		// replies on success, a diagnostic on stderr on failure), so folding both into
+		// the message reproduces execCombinedOutput's old single-buffer text without
+		// this method needing to know which stream tmux used.
+		return string(stdout), fmt.Errorf("%w: %s", err, strings.TrimSpace(string(stdout)+string(stderr)))
 	}
-	return string(out), nil
+	return string(stdout), nil
 }
 
-// execCombinedOutput is run's production exec seam: spawns name with args, combined
-// stdout+stderr captured, bounded by a WaitDelay for a descendant that inherited the
-// pipe (docs/conventions.md §Go) — the same body run's own exec.Cmd construction used
-// inline before the exec field was split out.
-func execCombinedOutput(ctx context.Context, name string, args ...string) ([]byte, error) {
+// execSeparated is the Client.exec production seam: spawns name with args, stdout and
+// stderr captured into separate buffers, bounded by a WaitDelay for a descendant that
+// inherited a pipe (docs/conventions.md §Go).
+func execSeparated(ctx context.Context, name string, args ...string) (stdout, stderr []byte, err error) {
 	cmd := exec.CommandContext(ctx, name, args...)
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
 	// WaitDelay bounds the wait for a descendant that inherited the
 	// stdout/stderr pipe to close it. The timer starts when ctx is done or
-	// when Wait sees tmux exit, whichever comes first — without it,
-	// CombinedOutput's Wait can block on that descendant forever even with
-	// ctx never firing (docs/conventions.md §Go).
+	// when Wait sees tmux exit, whichever comes first — without it, Run's
+	// Wait can block on that descendant forever even with ctx never firing
+	// (docs/conventions.md §Go).
 	cmd.WaitDelay = 2 * time.Second
-	return cmd.CombinedOutput()
+	err = cmd.Run()
+	return outBuf.Bytes(), errBuf.Bytes(), err
 }
 
-// runCapture is run's capture-pane-only variant: unlike
-// run, it never folds the subprocess's stdout into the returned error. For
-// `capture-pane -p`, stdout *is* the live pane text — which may hold prompt content —
-// and no caller may ever log it (CLAUDE.md hard rule). Stdout and stderr are kept
-// separate so a failure's error can only ever carry tmux's own stderr diagnostic.
+// runCapture is run's capture-pane-only variant, through the same Client.exec seam
+// (rather than a second exec.CommandContext of its own, which also missed run's
+// ctx-expiry wrapping below): unlike run, it never folds the
+// subprocess's stdout into the returned error. For `capture-pane -p`, stdout *is* the
+// live pane text — which may hold prompt content — and no caller may ever log it
+// (CLAUDE.md hard rule). Stdout and stderr are kept separate so a failure's error can
+// only ever carry tmux's own stderr diagnostic.
 func (c *Client) runCapture(ctx context.Context, args ...string) (string, error) {
 	full := append(c.socketFlag(), args...)
-	cmd := exec.CommandContext(ctx, "tmux", full...)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	// WaitDelay bounds the wait for a descendant that inherited these pipes to
-	// close them. The timer starts when ctx is done or when Wait sees tmux
-	// exit, whichever comes first — without it, Run's Wait can block on that
-	// descendant forever even with ctx never firing (docs/conventions.md §Go).
-	cmd.WaitDelay = 2 * time.Second
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
+	stdout, stderr, err := c.exec(ctx, "tmux", full...)
+	if err != nil {
+		if ctx.Err() != nil {
+			//nolint:errorlint // see run's identical branch: err must stay %v, never %w.
+			return "", fmt.Errorf("tmux %s: %w (%v)", args[0], ctx.Err(), err)
+		}
+		return "", fmt.Errorf("%w: %s", err, strings.TrimSpace(string(stderr)))
 	}
-	return stdout.String(), nil
+	return string(stdout), nil
 }

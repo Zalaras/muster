@@ -70,7 +70,7 @@ func TestCheckModel_ArgvAndDir(t *testing.T) {
 		return nil, nil
 	}
 
-	_, err := CheckModel(context.Background(), run, "claude", "/some/dir", "zephyr")
+	_, err := (&modelChecker{run: run}).check(context.Background(), "claude", "/some/dir", "zephyr")
 
 	require.NoError(t, err)
 	assert.Equal(t, "/some/dir", gotDir)
@@ -96,7 +96,7 @@ func TestCheckModel_VerdictFollowsStderr(t *testing.T) {
 				return []byte(tt.stderr), nil
 			}
 
-			verdict, err := CheckModel(context.Background(), run, "claude", "/dir", "zephyr")
+			verdict, err := (&modelChecker{run: run}).check(context.Background(), "claude", "/dir", "zephyr")
 
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, verdict)
@@ -106,14 +106,14 @@ func TestCheckModel_VerdictFollowsStderr(t *testing.T) {
 
 // TestCheckModel_ExitErrorIsNotAFailure covers REQ-2's "the exit code is not a signal: it
 // is 1 for known and unknown models alike" — a run func reporting the process merely
-// exited non-zero (the shape RunModelCheck itself never returns as an error, since it
+// exited non-zero (the shape runModelCheck itself never returns as an error, since it
 // unwraps *exec.ExitError) must not surface as a CheckModel error either.
 func TestCheckModel_ExitErrorIsNotAFailure(t *testing.T) {
 	run := func(context.Context, string, []string) ([]byte, error) {
-		return []byte("some stderr"), nil // RunModelCheck's own contract: exit 1 -> nil error
+		return []byte("some stderr"), nil // runModelCheck's own contract: exit 1 -> nil error
 	}
 
-	verdict, err := CheckModel(context.Background(), run, "claude", "/dir", "sonnet")
+	verdict, err := (&modelChecker{run: run}).check(context.Background(), "claude", "/dir", "sonnet")
 
 	require.NoError(t, err)
 	assert.Equal(t, ModelRecognised, verdict)
@@ -130,7 +130,7 @@ func TestCheckModel_RunError_FailsOpen(t *testing.T) {
 		return nil, wantErr
 	}
 
-	verdict, err := CheckModel(context.Background(), run, "claude", "/dir", "zephyr")
+	verdict, err := (&modelChecker{run: run}).check(context.Background(), "claude", "/dir", "zephyr")
 
 	require.ErrorIs(t, err, wantErr)
 	assert.Equal(t, ModelRecognised, verdict, "a run error must fail open, never refuse a launch on its own")
@@ -147,13 +147,13 @@ func TestCheckModel_ContextDeadlineExceeded_FailsOpen(t *testing.T) {
 		return nil, runCtx.Err()
 	}
 
-	verdict, err := CheckModel(ctx, run, "claude", "/dir", "zephyr")
+	verdict, err := (&modelChecker{run: run}).check(ctx, "claude", "/dir", "zephyr")
 
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	assert.Equal(t, ModelRecognised, verdict)
 }
 
-// --- RunModelCheck (the production ModelCheckRun seam: real subprocess mechanics only —
+// --- runModelCheck (the production modelCheckRun seam: real subprocess mechanics only —
 // argv/verdict wiring is CheckModel's own and already covered above without a subprocess) ---
 
 // TestRunModelCheck_ReturnsStderrRegardlessOfExitCode is REQ-2's "the exit code is not a
@@ -162,19 +162,19 @@ func TestCheckModel_ContextDeadlineExceeded_FailsOpen(t *testing.T) {
 func TestRunModelCheck_ReturnsStderrRegardlessOfExitCode(t *testing.T) {
 	dir := t.TempDir()
 
-	stderr, err := RunModelCheck(context.Background(), dir, []string{"sh", "-c", "printf hello-stderr 1>&2; exit 1"})
+	stderr, err := runModelCheck(context.Background(), dir, []string{"sh", "-c", "printf hello-stderr 1>&2; exit 1"})
 
 	require.NoError(t, err)
 	assert.Equal(t, "hello-stderr", string(stderr))
 }
 
 // TestRunModelCheck_StdinIsEmpty is D5's stdin clause: the run must not inherit the
-// test process's stdin — a `cat` fed RunModelCheck's stdin exits at once with nothing to
+// test process's stdin — a `cat` fed runModelCheck's stdin exits at once with nothing to
 // echo, which would hang instead if a live terminal or pipe were attached.
 func TestRunModelCheck_StdinIsEmpty(t *testing.T) {
 	dir := t.TempDir()
 
-	stderr, err := RunModelCheck(context.Background(), dir, []string{"sh", "-c", "cat 1>&2"})
+	stderr, err := runModelCheck(context.Background(), dir, []string{"sh", "-c", "cat 1>&2"})
 
 	require.NoError(t, err)
 	assert.Empty(t, string(stderr), "stdin must already be at EOF, never blocking on input")
@@ -184,7 +184,7 @@ func TestRunModelCheck_StdinIsEmpty(t *testing.T) {
 func TestRunModelCheck_UsesGivenDirectory(t *testing.T) {
 	dir := t.TempDir()
 
-	stderr, err := RunModelCheck(context.Background(), dir, []string{"sh", "-c", "pwd 1>&2"})
+	stderr, err := runModelCheck(context.Background(), dir, []string{"sh", "-c", "pwd 1>&2"})
 
 	require.NoError(t, err)
 	assert.Equal(t, dir, string(bytes.TrimSpace(stderr)))
@@ -195,7 +195,7 @@ func TestRunModelCheck_UsesGivenDirectory(t *testing.T) {
 func TestRunModelCheck_CommandCannotStart_ReturnsError(t *testing.T) {
 	dir := t.TempDir()
 
-	_, err := RunModelCheck(context.Background(), dir, []string{filepath.Join(dir, "does-not-exist")})
+	_, err := runModelCheck(context.Background(), dir, []string{filepath.Join(dir, "does-not-exist")})
 
 	require.Error(t, err)
 }
@@ -204,7 +204,7 @@ func TestRunModelCheck_CommandCannotStart_ReturnsError(t *testing.T) {
 // deadline" (D6/REQ-2/Edge Case 1: "the launch proceeds and a warn line is logged").
 // The warn line is Launch's own `if err != nil` branch (internal/server/sessions.go), so
 // a killed-by-ctx run must come back as an error, the same as a run that could not start
-// at all — CheckModel's fail-open path only fires the warning when RunModelCheck reports
+// at all — CheckModel's fail-open path only fires the warning when runModelCheck reports
 // one.
 func TestRunModelCheck_ContextDeadlineBoundsAHungProcess(t *testing.T) {
 	dir := t.TempDir()
@@ -212,23 +212,23 @@ func TestRunModelCheck_ContextDeadlineBoundsAHungProcess(t *testing.T) {
 	defer cancel()
 
 	start := time.Now()
-	_, err := RunModelCheck(ctx, dir, []string{"sh", "-c", "sleep 30"})
+	_, err := runModelCheck(ctx, dir, []string{"sh", "-c", "sleep 30"})
 	elapsed := time.Since(start)
 
 	assert.Lessf(t, elapsed, modelCheckWaitDelay+2*time.Second,
-		"RunModelCheck must return once ctx fires and modelCheckWaitDelay elapses, not wait for the full sleep; took %s", elapsed)
+		"runModelCheck must return once ctx fires and modelCheckWaitDelay elapses, not wait for the full sleep; took %s", elapsed)
 	require.Error(t, err)
 }
 
 // TestRunModelCheck_HarmlessSmokeTestNeverUsesRealClaude documents D11's boundary the
 // same way credentials_test.go's TestRunCommand_HarmlessSmokeTestNeverUsedByKeychainTests
 // does: every test above passes its own sh -c script, never a real `claude` invocation —
-// this is the one place RunModelCheck itself runs, against a harmless, always-installed
+// this is the one place runModelCheck itself runs, against a harmless, always-installed
 // binary.
 func TestRunModelCheck_HarmlessSmokeTestNeverUsesRealClaude(t *testing.T) {
 	dir := t.TempDir()
 
-	stderr, err := RunModelCheck(context.Background(), dir, []string{"echo", "harmless"})
+	stderr, err := runModelCheck(context.Background(), dir, []string{"echo", "harmless"})
 
 	require.NoError(t, err)
 	assert.Empty(t, string(stderr), "echo writes to stdout, not stderr")

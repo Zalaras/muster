@@ -1,6 +1,7 @@
 package tmux
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"errors"
@@ -682,19 +683,25 @@ func TestKillSession_PostKillRecheckStillThereReturnsTheOriginalKillError(t *tes
 
 	c := &Client{
 		socket: "irrelevant-fake-socket",
-		exec: func(ctx context.Context, _ string, args ...string) ([]byte, error) {
+		exec: func(ctx context.Context, _ string, args ...string) (stdout, stderr []byte, err error) {
 			switch {
 			case slices.Contains(args, "kill-session"):
 				// A real *exec.ExitError (not a hand-built one) so KillSession's
 				// errors.As(err, &exitErr) matches exactly as it would against real
-				// tmux — only the exit status and captured output are faked.
-				return exec.CommandContext(ctx, "sh", "-c", "echo "+killStderrMarker+" >&2; exit 1").CombinedOutput()
+				// tmux — only the exit status and captured stderr are faked. Stdout is
+				// deliberately not folded in here (the exec seam keeps the two streams
+				// separate; run's own error text is what re-joins them).
+				cmd := exec.CommandContext(ctx, "sh", "-c", "echo "+killStderrMarker+" >&2; exit 1")
+				var errBuf bytes.Buffer
+				cmd.Stderr = &errBuf
+				runErr := cmd.Run()
+				return nil, errBuf.Bytes(), runErr
 			case slices.Contains(args, "list-panes"):
 				// PaneExists' recheck: a nil error from run means "found it" (stillThere).
-				return []byte("ok"), nil
+				return []byte("ok"), nil, nil
 			default:
 				t.Fatalf("unexpected tmux subcommand: %v", args)
-				return nil, nil
+				return nil, nil, nil
 			}
 		},
 	}

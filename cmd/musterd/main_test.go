@@ -326,7 +326,6 @@ func TestBuildServerConfig_MapsEveryFlagOntoTheServerConfig(t *testing.T) {
 	assert.Equal(t, pubKey, cfg.Update.PublicKey)
 	assert.Equal(t, install, cfg.Update.Install)
 	assert.Equal(t, "/usr/local/bin/musterd", cfg.Update.ExePath)
-	assert.NotNil(t, cfg.Update.ExeRun, "apply cannot verify the replacement binary without a version probe")
 }
 
 // TestParseFlags_RejectsInvalidValues covers the two post-parse validations parseFlags

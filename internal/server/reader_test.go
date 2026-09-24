@@ -10,7 +10,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -158,14 +157,14 @@ func TestWalkMarkdown_CapsAt20000AndReportsTruncated(t *testing.T) {
 }
 
 // TestListMarkdown_GitSuccessFiltersToMarkdownAndSorts covers D7's git branch through
-// the injectable readerExecFunc — no test executes the real git binary through this
-// seam (reader.go's own doc comment on readerExecFunc).
+// the injectable gitFilesFunc — no test executes the real git binary through this seam
+// (reader.go's own doc comment on gitFilesFunc; gitutil.ListFiles's own parsing of git's
+// NUL-separated output is gitutil's test, not this one's).
 func TestListMarkdown_GitSuccessFiltersToMarkdownAndSorts(t *testing.T) {
-	fakeGit := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
-		entries := []string{"zeta.md", "notes.txt", "docs/alpha.MD", "docs/"}
-		return []byte(strings.Join(entries, "\x00") + "\x00"), nil
+	fakeGit := func(_ context.Context, _ string) ([]string, error) {
+		return []string{"zeta.md", "notes.txt", "docs/alpha.MD", "docs/"}, nil
 	}
-	f := &readerFeature{runGit: fakeGit, log: zerolog.Nop()}
+	f := &readerFeature{gitFiles: fakeGit, log: zerolog.Nop()}
 
 	paths, listing, truncated := f.listMarkdown(context.Background(), "/whatever")
 
@@ -180,10 +179,10 @@ func TestListMarkdown_GitSuccessFiltersToMarkdownAndSorts(t *testing.T) {
 func TestListMarkdown_GitFailureFallsBackToWalk(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "TODO.md"), []byte("x"), 0o644))
-	fakeGit := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+	fakeGit := func(_ context.Context, _ string) ([]string, error) {
 		return nil, errors.New("exit status 128: not a git repository")
 	}
-	f := &readerFeature{runGit: fakeGit, log: zerolog.Nop()}
+	f := &readerFeature{gitFiles: fakeGit, log: zerolog.Nop()}
 
 	paths, listing, truncated := f.listMarkdown(context.Background(), dir)
 

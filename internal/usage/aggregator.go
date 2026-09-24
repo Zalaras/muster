@@ -23,7 +23,9 @@ type Config struct {
 
 // Aggregator holds the daemon's single, account-global usage reading in memory. It
 // starts unknown at construction — no hydration from persisted usage_sample rows across a
-// daemon restart (kb:adr/usage-no-hydration-across-restart).
+// daemon restart (kb:adr/usage-no-hydration-across-restart). Record is its single writer
+// (only the ingest worker goroutine calls it, so no second Record can interleave); mu
+// guards current for Current()'s readers on other goroutines against that one writer.
 type Aggregator struct {
 	store    *store.Store
 	log      zerolog.Logger

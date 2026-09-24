@@ -82,6 +82,25 @@ func TestHandleIngest_WrongTokenOnStatusEndpointReturns404(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, rec.Code)
 }
 
+// TestMount_RegistersRoutesAtClaudecodeIngestPathDeclaration covers Major 2: mount builds
+// its two route patterns from claudecode.IngestHookPath/IngestStatusPath rather than a
+// second, hand-spelled "/ingest/.../hook"/".../status" literal of its own. Every other
+// test in this file posts a hand-spelled literal, which would keep passing even if
+// mount's own pattern silently drifted from the declaration — this one instead builds
+// its request paths from the same functions WriteWrapperScripts uses to build a real
+// hook script's URL, so a divergence between the two shows up as a 404 here.
+func TestMount_RegistersRoutesAtClaudecodeIngestPathDeclaration(t *testing.T) {
+	srv := newTestServer(t, ClaudeCodeInfo{})
+	srv.Start()
+	t.Cleanup(func() { srv.Shutdown(context.Background()) })
+
+	hookRec := postIngest(t, srv, claudecode.IngestHookPath(testIngestToken), `{"session_id":"route-proof-hook"}`)
+	assert.Equal(t, http.StatusOK, hookRec.Code)
+
+	statusRec := postIngest(t, srv, claudecode.IngestStatusPath(testIngestToken), `{"session_id":"route-proof-status"}`)
+	assert.Equal(t, http.StatusOK, statusRec.Code)
+}
+
 func TestHandleIngest_ReturnsBefore200WithNoSynchronousDBWork(t *testing.T) {
 	// D10: the handler enqueues and returns 200 with no DB work on the request path.
 	// Proof: the ingest worker is never started here, yet the handler still returns 200 —

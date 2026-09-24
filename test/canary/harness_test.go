@@ -768,25 +768,24 @@ func (f *fixture) runE(ctx context.Context) error {
 	return f.killPane(ctx, interactiveResumeTmuxID)
 }
 
-// runF is REQ-9's zero-token production check (D13): it calls the exact
-// claudecode.CheckModel/RunModelCheck pair internal/server wires up, against the
-// installed `claude` binary, for a model string the catalog cannot know
-// (unrecognizedCanaryModel) and one it must (haikuModel — the same preset every other
-// run in this harness already launches successfully). No tmux, no hooks, no tokens
-// (kb:fact/model-catalog-precheck-zero-token). A run error here — the binary couldn't
-// start, or hung past CheckModel's own 5 s bound (applied inside CheckModel itself since
-// review cycle 1's maintainability fix; this run no longer wraps its own timeout around
-// it) — fails the whole build like every other run, since it means the production
-// pre-check itself is broken against the installed binary, not merely that this one
-// launch would have failed open.
+// runF is REQ-9's zero-token production check (D13): it calls the exact claudecode.CheckModel
+// internal/server wires up, against the installed `claude` binary, for a model string the
+// catalog cannot know (unrecognizedCanaryModel) and one it must (haikuModel — the same
+// preset every other run in this harness already launches successfully). No tmux, no
+// hooks, no tokens (kb:fact/model-catalog-precheck-zero-token). A run error here — the
+// binary couldn't start, or hung past CheckModel's own 5 s bound (applied inside
+// CheckModel itself since review cycle 1's maintainability fix; this run no longer wraps
+// its own timeout around it) — fails the whole build like every other run, since it means
+// the production pre-check itself is broken against the installed binary, not merely that
+// this one launch would have failed open.
 func (f *fixture) runF(ctx context.Context) error {
-	unrec, err := claudecode.CheckModel(ctx, claudecode.RunModelCheck, "claude", f.repo, unrecognizedCanaryModel)
+	unrec, err := claudecode.CheckModel(ctx, "claude", f.repo, unrecognizedCanaryModel)
 	if err != nil {
 		return fmt.Errorf("CheckModel(%q): %w", unrecognizedCanaryModel, err)
 	}
 	f.modelCheck.unrecognisedVerdict = unrec
 
-	rec, err := claudecode.CheckModel(ctx, claudecode.RunModelCheck, "claude", f.repo, haikuModel)
+	rec, err := claudecode.CheckModel(ctx, "claude", f.repo, haikuModel)
 	if err != nil {
 		return fmt.Errorf("CheckModel(%q): %w", haikuModel, err)
 	}

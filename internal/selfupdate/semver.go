@@ -1,6 +1,7 @@
 package selfupdate
 
 import (
+	"cmp"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -38,23 +39,12 @@ func ParseRelease(s string) (Version, bool) {
 // correctly precedes "0.10.0".
 func (v Version) Compare(other Version) int {
 	if v.Major != other.Major {
-		return cmpInt(v.Major, other.Major)
+		return cmp.Compare(v.Major, other.Major)
 	}
 	if v.Minor != other.Minor {
-		return cmpInt(v.Minor, other.Minor)
+		return cmp.Compare(v.Minor, other.Minor)
 	}
-	return cmpInt(v.Patch, other.Patch)
-}
-
-func cmpInt(a, b int) int {
-	switch {
-	case a < b:
-		return -1
-	case a > b:
-		return 1
-	default:
-		return 0
-	}
+	return cmp.Compare(v.Patch, other.Patch)
 }
 
 // String renders the bare MAJOR.MINOR.PATCH form, no leading "v" — GoReleaser's

@@ -80,6 +80,8 @@ The per-finding assignment is `plan.md` § Units. Every Critical and every Major
 - E2E at `db84642`: 445/446. The failure at `tiles.spec.ts:790` was root-caused to W6b (`03a6fd8`): a new tile's first refit ran on a detached node (lesson L2). Fixed in `59cd108`.
 - E2E at `59cd108` (every web unit through W8, the tile fix, D2–D9, and X1a/X1b): **446/446**, plus `tiles.spec.ts` soaked 3×10 = **510/510**.
 
+- E2E at `49fcb2b` (adds F2, F3 and the whole plan-ID sweep): **446/446**.
+
 ## Behaviour notes (deliberate, recorded for review-work)
 
 - D4: seven rare 5xx bodies now carry `msgInternalError` instead of ad-hoc phrases. None of these messages is pinned in `docs/protocol.md`.
@@ -101,6 +103,8 @@ The per-finding assignment is `plan.md` § Units. Every Critical and every Major
 - Fix the concurrency bugs: F2 goes ahead.
 - Run `/decide` on the other two: `decisions/sessionend-alive-hint/` and `decisions/adapter-run-seam-shape/`. The first contradicts an accepted ADR, which the decide skill normally refuses. It is debated at the developer's explicit request, and its outcome lands as a `proposed` ADR for the developer to accept.
 
+- L3 A test agent proves "fails on the old code" by swapping `git show HEAD:<file>` into the working tree and then restoring its own saved copy. That is only safe while no other agent edits the same file. In F2, tests-F2 swapped five server files while X1d's helpers were sweeping those files. Nothing was lost (verified afterwards by plan-ID hit counts and kb-citation counts), but only by timing. Cause: a shared worktree, plus a proof method that overwrites files in place. A throwaway worktree for the swap (as the E2E checkpoints already use) removes the risk.
+
 ## Proposed (not fixes in this run)
 
 - ~~P3~~ → now unit **D11** (the developer, 2026-09-24: "Fix the minors"). b-m14: move the reader's domain (`writeLog`, `readerPathQualifies`, `confine`, `listMarkdown`) out of `internal/server` into its own package, like `locate`, `usage` and `session`. It is a package extraction with a new diagram node, not a cleanup edit. Raised by the server reviewer; a change was requested.
@@ -113,3 +117,4 @@ The per-finding assignment is `plan.md` § Units. Every Critical and every Major
 - P2 Two E2E specs assume that `make build` produces a dev-stamped binary (`Makefile:6` VERSION = `git describe --tags --always --dirty`). On a commit that is exactly a release tag, which is `main` right after every release, both fail (`shell.spec.ts:47`, `update.spec.ts:449`). The fix would be for the E2E fixture to stamp its own dev version, instead of relying on whatever `git describe` says. Change requested: no, found in the baseline run.
 
 - P8 A liveness `Nudge` on a non-clear `SessionEnd` would narrow the ≤5 s stale-"alive" window that decision `sessionend-alive-hint` accepted when no terminal is attached. The nudge must stay behind the `stopped` guard (kb:adr/lifecycle-liveness-writes-stop-at-shutdown). Raised by the sessionend debate; no change requested.
+- P9 c-M2's secondary point: the ingest route and `MUSTER_SESSION` are Muster vocabulary, and D10 declared each once in `internal/claudecode` (server imports claudecode, so no new diagram edge). Moving them to a Muster-owned package would need a `WriteWrapperScripts` signature change. Whether claudecode should hold Muster vocabulary at all is an ADR-level boundary question. Raised by the adapters reviewer and implementer D10; no change requested in this run.

@@ -70,7 +70,7 @@ func newUsageFeature(cfg UsageConfig, httpClient *http.Client, st *store.Store, 
 		if cfg.TokenFile != "" {
 			tokenReader = claudecode.FileTokenReader(cfg.TokenFile)
 		} else {
-			tokenReader = claudecode.KeychainTokenReader(cfg.KeychainUser, claudecode.RunCommand)
+			tokenReader = claudecode.KeychainTokenReader(cfg.KeychainUser)
 		}
 		f.poller = newUsagePoller(httpClient, cfg.APIURL, tokenReader, cfg.Poll, f.modelScoped, log)
 	case cfg.Poll > 0:

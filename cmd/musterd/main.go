@@ -431,7 +431,6 @@ func buildServerConfig(f *cliFlags, st *store.Store, log zerolog.Logger, serving
 			PublicKey:     updatePublicKey,
 			Install:       install,
 			ExePath:       exePath,
-			ExeRun:        selfupdate.RunVersionProbe,
 		},
 	}
 }

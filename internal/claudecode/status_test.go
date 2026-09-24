@@ -64,7 +64,6 @@ func TestInterpretStatus_FullPost(t *testing.T) {
 	require.NotNil(t, got.Account)
 	assert.Equal(t, 61.0, got.Account.FiveHour.UsedPct)
 	assert.Equal(t, 23.0, got.Account.SevenDay.UsedPct)
-	assert.Equal(t, "subscription", got.Account.Source)
 	assert.Equal(t, "claude-haiku-4-5-20251001", got.Account.Model.ID)
 	assert.Equal(t, "Haiku 4.5", got.Account.Model.DisplayName)
 }

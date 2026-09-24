@@ -2,7 +2,7 @@ package claudecode
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -317,24 +317,95 @@ func TestClassify_UsesEmbeddedRecord(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------------------
-// CheckVersion (D9): INV-1 (Installed nil iff Status unknown) and INV-2 (Floor/Verified
-// always populated, Floor <= Verified) across every outcome. Every stub is a real
-// executable passed by path — never a $PATH shim (docs/conventions.md §Testing).
+// versionChecker.installedVersion (c-adapters Minor 2): the exec-output-to-version-or-
+// error mapping that CheckVersion's classification rows used to exercise by forking a
+// freshly written stub script per row (conventions §Testing: "a fork per test is what
+// made `make test` load-sensitive"; kb:lesson/first-exec-of-fresh-script-costs-270ms).
+// InstalledVersion (version.go) is now a one-line wrapper over this same-package type
+// (kb:adr/process-adapter-run-seam-constructor-default, the modelChecker/versionProber
+// shape), so the mapping is tested directly against a fake run, no subprocess at all —
+// the same split modelcheck_test.go already draws between TestCheckModel_* (fake run)
+// and TestRunModelCheck_* (real subprocess mechanics only).
 
-// writeVersionStub writes a real executable that, unless empty, echoes output to stdout
-// and exits with code.
-func writeVersionStub(t *testing.T, output string, code int) string {
-	t.Helper()
-	dir := t.TempDir()
-	path := filepath.Join(dir, "claude")
-	script := "#!/bin/sh\n"
-	if output != "" {
-		script += fmt.Sprintf("echo %q\n", output)
+func TestVersionChecker_InstalledVersion(t *testing.T) {
+	tests := []struct {
+		name       string
+		run        func(ctx context.Context, bin string, args ...string) ([]byte, error)
+		wantErrHas string
+		want       string
+	}{
+		{
+			name: "run error is wrapped",
+			run: func(context.Context, string, ...string) ([]byte, error) {
+				return nil, errors.New("exit status 1")
+			},
+			wantErrHas: "running claude --version",
+		},
+		{
+			name: "unparseable output is wrapped",
+			run: func(context.Context, string, ...string) ([]byte, error) {
+				return []byte("not a version string"), nil
+			},
+			wantErrHas: "parsing claude --version output",
+		},
+		{
+			name: "below the floor",
+			run: func(context.Context, string, ...string) ([]byte, error) {
+				return []byte("1.0.0 (Claude Code)"), nil
+			},
+			want: "1.0.0",
+		},
+		{
+			name: "equal to the floor",
+			run: func(context.Context, string, ...string) ([]byte, error) {
+				return []byte(Floor() + " (Claude Code)"), nil
+			},
+			want: Floor(),
+		},
+		{
+			name: "equal to the ceiling",
+			run: func(context.Context, string, ...string) ([]byte, error) {
+				return []byte(Verified() + " (Claude Code)"), nil
+			},
+			want: Verified(),
+		},
+		{
+			name: "above the ceiling",
+			run: func(context.Context, string, ...string) ([]byte, error) {
+				return []byte("99.0.0 (Claude Code)"), nil
+			},
+			want: "99.0.0",
+		},
 	}
-	script += fmt.Sprintf("exit %d\n", code)
-	require.NoError(t, os.WriteFile(path, []byte(script), 0o755))
-	return path
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v := &versionChecker{run: tt.run}
+
+			got, err := v.installedVersion(context.Background(), "claude")
+
+			if tt.wantErrHas != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErrHas)
+				assert.Empty(t, got)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }
+
+// ---------------------------------------------------------------------------------------
+// CheckVersion (D9): INV-1 (Installed nil iff Status unknown) and INV-2 (Floor/Verified
+// always populated, Floor <= Verified). CheckVersion itself has no run seam (only
+// InstalledVersion, above, does) — TestVersionChecker_InstalledVersion already proves the
+// exec-to-version-or-error mapping, and TestClassifyAgainst/TestClassify_UsesEmbeddedRecord
+// already prove the classification math, so the one case here (a nonexistent path, which
+// forks nothing — exec fails before any process starts) covers CheckVersion's own error
+// wiring without adding back the per-row stub-script forking Minor 2 removed. The
+// success-branch wiring (`Installed: &installed, Status: ClassifyAgainst(...)`) is a
+// two-field struct literal with no branching of its own; re-proving it against a forked
+// process would only re-test the two pieces above through an extra subprocess.
 
 func assertVersionReportInvariants(t *testing.T, report VersionReport) {
 	t.Helper()
@@ -364,42 +435,6 @@ func TestCheckVersion(t *testing.T) {
 			bin:        func(t *testing.T) string { return filepath.Join(t.TempDir(), "no-such-claude") },
 			wantStatus: StatusUnknown,
 			wantErr:    true,
-		},
-		{
-			name:       "non-zero exit is unknown",
-			bin:        func(t *testing.T) string { return writeVersionStub(t, "", 1) },
-			wantStatus: StatusUnknown,
-			wantErr:    true,
-		},
-		{
-			name:       "unparseable output is unknown",
-			bin:        func(t *testing.T) string { return writeVersionStub(t, "not a version string", 0) },
-			wantStatus: StatusUnknown,
-			wantErr:    true,
-		},
-		{
-			name:          "below the floor",
-			bin:           func(t *testing.T) string { return writeVersionStub(t, "1.0.0 (Claude Code)", 0) },
-			wantStatus:    StatusBelow,
-			wantInstalled: "1.0.0",
-		},
-		{
-			name:          "equal to the floor is verified",
-			bin:           func(t *testing.T) string { return writeVersionStub(t, Floor()+" (Claude Code)", 0) },
-			wantStatus:    StatusVerified,
-			wantInstalled: Floor(),
-		},
-		{
-			name:          "equal to the ceiling is verified",
-			bin:           func(t *testing.T) string { return writeVersionStub(t, Verified()+" (Claude Code)", 0) },
-			wantStatus:    StatusVerified,
-			wantInstalled: Verified(),
-		},
-		{
-			name:          "above the ceiling",
-			bin:           func(t *testing.T) string { return writeVersionStub(t, "99.0.0 (Claude Code)", 0) },
-			wantStatus:    StatusAbove,
-			wantInstalled: "99.0.0",
 		},
 	}
 	for _, tt := range tests {

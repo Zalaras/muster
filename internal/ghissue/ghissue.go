@@ -48,16 +48,16 @@ type TokenReader func(ctx context.Context) (string, error)
 // startup Claude Code version check) rather than an arbitrary value.
 const ghTokenTimeout = 5 * time.Second
 
-// execFunc abstracts running `gh` for GhCLITokenReader's tests — mirrors
-// claudecode/credentials.go's own execFunc seam (no test may execute the real `gh`
-// binary). Unlike that seam, both stdout and stderr are returned: a failure's message
-// carries gh's trimmed stderr, never its stdout.
+// execFunc abstracts running `gh` — mirrors claudecode/credentials.go's own execFunc
+// seam (no test may execute the real `gh` binary). Unlike that seam, both stdout and
+// stderr are returned: a failure's message carries gh's trimmed stderr, never its
+// stdout. runCommand is the production value.
 type execFunc func(ctx context.Context, name string, args ...string) (stdout, stderr string, err error)
 
-// RunCommand is the production execFunc: runs name with args, capturing stdout and
+// runCommand is the production execFunc: runs name with args, capturing stdout and
 // stderr separately. Neither is ever logged by any caller — stdout is where the bearer
 // token lives (kb:adr/issue-auth-gh-token-at-time-of-use).
-func RunCommand(ctx context.Context, name string, args ...string) (stdout, stderr string, err error) {
+func runCommand(ctx context.Context, name string, args ...string) (stdout, stderr string, err error) {
 	cmd := exec.CommandContext(ctx, name, args...)
 	var outBuf, errBuf bytes.Buffer
 	cmd.Stdout = &outBuf
@@ -72,34 +72,45 @@ func RunCommand(ctx context.Context, name string, args ...string) (stdout, stder
 	return outBuf.String(), errBuf.String(), err
 }
 
+// ghTokenReader holds the two subprocess-boundary seams GhCLITokenReader crosses (the
+// constructor-default shape docs/conventions.md § Testing names —
+// kb:adr/process-adapter-run-seam-constructor-default): production always
+// exec.LookPath/runCommand, same-package tests overwrite the fields.
+type ghTokenReader struct {
+	lookPath func(string) (string, error)
+	run      execFunc
+}
+
 // GhCLITokenReader runs `gh auth token`, returning its trimmed stdout as the bearer
-// token. lookPath and run are the test seams (production: exec.LookPath, RunCommand) —
-// no test may execute the real `gh` binary. A missing gh, a non-zero exit, or an empty
-// token all report *ErrAuthFailed carrying gh's trimmed stderr and naming
-// `gh auth login`; gh's stdout is never included in an error.
-func GhCLITokenReader(lookPath func(string) (string, error), run execFunc) TokenReader {
-	return func(ctx context.Context) (string, error) {
-		if _, err := lookPath("gh"); err != nil {
-			return "", &ErrAuthFailed{Message: "gh is not installed or not on PATH; run `gh auth login`"}
-		}
+// token. A missing gh, a non-zero exit, or an empty token all report *ErrAuthFailed
+// carrying gh's trimmed stderr and naming `gh auth login`; gh's stdout is never included
+// in an error.
+func GhCLITokenReader() TokenReader {
+	r := &ghTokenReader{lookPath: exec.LookPath, run: runCommand}
+	return r.read
+}
 
-		cctx, cancel := context.WithTimeout(ctx, ghTokenTimeout)
-		defer cancel()
-		stdout, stderr, err := run(cctx, "gh", "auth", "token")
-		if err != nil {
-			msg := strings.TrimSpace(stderr)
-			if msg == "" {
-				msg = "gh auth token exited with an error"
-			}
-			return "", &ErrAuthFailed{Message: fmt.Sprintf("gh auth token: %s; run `gh auth login`", msg)}
-		}
-
-		token := strings.TrimSpace(stdout)
-		if token == "" {
-			return "", &ErrAuthFailed{Message: "gh auth token printed an empty token; run `gh auth login`"}
-		}
-		return token, nil
+func (r *ghTokenReader) read(ctx context.Context) (string, error) {
+	if _, err := r.lookPath("gh"); err != nil {
+		return "", &ErrAuthFailed{Message: "gh is not installed or not on PATH; run `gh auth login`"}
 	}
+
+	cctx, cancel := context.WithTimeout(ctx, ghTokenTimeout)
+	defer cancel()
+	stdout, stderr, err := r.run(cctx, "gh", "auth", "token")
+	if err != nil {
+		msg := strings.TrimSpace(stderr)
+		if msg == "" {
+			msg = "gh auth token exited with an error"
+		}
+		return "", &ErrAuthFailed{Message: fmt.Sprintf("gh auth token: %s; run `gh auth login`", msg)}
+	}
+
+	token := strings.TrimSpace(stdout)
+	if token == "" {
+		return "", &ErrAuthFailed{Message: "gh auth token printed an empty token; run `gh auth login`"}
+	}
+	return token, nil
 }
 
 // FileTokenReader reads the trimmed contents of path as the token — the

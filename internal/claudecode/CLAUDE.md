@@ -7,7 +7,7 @@
 - Every hook Muster registers, SessionStart included, is a `type:"command"` wrapper (kb:adr/ingest-all-hooks-command-wrappers, kb:fact/sessionstart-not-over-http).
 - Settings land in the project-scoped `.claude/settings.local.json`, never the user's files (kb:adr/launch-settings-local-json-not-settings-json, kb:adr/launch-project-scoped-settings-not-config-dir).
 - Shell quoting happens at the write boundary (kb:adr/ingest-shell-quote-at-write-boundary, kb:fact/hook-commands-are-shell-lines).
-- Subprocesses run through an injectable run seam (`execFunc`, `ModelCheckRun`); no test executes the real `security` or `claude` binary.
+- Subprocesses run through an injectable run seam, set in each caller's own constructor-default type (`execFunc`, `modelCheckRun`, `versionChecker`); no test executes the real `security` or `claude` binary.
 - Hook timeout is 2 s, never 5.
 
 **Exemplar**: `status.go` — private wire structs, one `Interpret*` function, neutral exported types.

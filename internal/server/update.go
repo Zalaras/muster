@@ -35,9 +35,6 @@ type UpdateConfig struct {
 	// ExePath is the resolved (os.Executable + filepath.EvalSymlinks) real path of the
 	// running binary — where an apply installs the new one and what swap detection stats.
 	ExePath string
-	// ExeRun runs `<exe> -version` for the swap-detection probe — an injectable seam
-	// like ClaudeBin's execFunc (selfupdate.RunVersionProbe in production).
-	ExeRun updateExecFunc
 }
 
 // updateFeature owns auto-update's two endpoints and the snapshot's update object. It is
@@ -72,7 +69,6 @@ func newUpdateFeature(cfg UpdateConfig, httpClient *http.Client, daemonVersion s
 			Install:      cfg.Install,
 			Running:      daemonVersion,
 			ExePath:      cfg.ExePath,
-			ExeRun:       cfg.ExeRun,
 			CheckEnabled: loadPrefs(context.Background(), store).UpdateCheck,
 			Log:          log,
 			OnChange: func(u UpdateInfo) {
