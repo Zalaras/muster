@@ -21,6 +21,18 @@ internal — leaf adapters, which is what keeps Claude-Code-format knowledge ins
 `*tmux.Client` satisfies them, injected by the composition root. Ingest is not a package of its
 own: it is `internal/server/ingest.go`, one feature type among the server's twenty-odd.
 
+`internal/boundedwait` and `internal/keyedlock` are shared primitives with no internal
+imports, pulled out once each stopped being one caller's private helper: `boundedwait.Wait`
+is the bounded-wait-with-warn shutdown tail (`server`'s ingest queue, background-loop and
+update-apply stops; `session.Manager.Stop`'s liveness poll); `keyedlock.Locks[K]` is the
+per-id/per-target lock (`session.Manager`'s row locks, `server`'s shell and terminal
+registries). `internal/evict` is the same move one level lower: its `Oldest` rule serves
+`server`'s issue-capture store and `internal/reader`'s `WriteLog`, since `internal/reader`
+must not import `internal/server` for it. `internal/reader` itself is a small domain
+package, not an adapter: a session's markdown scope, confinement and write-log rules,
+pure filesystem logic with no logger, extracted from `internal/server` to be testable
+without an HTTP server.
+
 This opens the musterd box of kb:diagram/containers. The outside systems stay on that diagram;
 here an adapter's description names what it reaches, and only imports are wires. The loop worth
 following is still `claude` posting its own hooks back to the ingest endpoint: the daemon writes
@@ -40,6 +52,7 @@ C4Component
         Boundary(root, "Domain, bridges and the composition root") {
             Component(session, "internal/session", "Go", "State machine and in-memory registry; its own tmux ports")
             Component(usage, "internal/usage", "Go", "Usage-sample aggregation")
+            Component(reader, "internal/reader", "Go", "A session's markdown scope, confinement and write-log rules")
             Component(bridge, "internal/termbridge", "creack/pty", "PTY lifecycle for one attach")
             Component(ghissue, "internal/ghissue", "GitHub API, gh", "Issue creation")
             Component(cmd, "cmd/musterd", "main", "Flags, data dir, preflight, http.Server, restart loop")
@@ -56,6 +69,11 @@ C4Component
             Component(webui, "internal/webui", "embed.FS", "Embedded dashboard assets")
             Component(locate, "internal/locate", "mdfind", "Dropped-file resolution")
             Component(selfupd, "internal/selfupdate", "minisign", "Release check, verify and apply from GitHub Releases")
+        }
+        Boundary(prim, "Shared primitives") {
+            Component(boundedwait, "internal/boundedwait", "Go", "Bounded wait-with-warn shutdown tail")
+            Component(keyedlock, "internal/keyedlock", "Go", "Per-key lock, generic over the key type")
+            Component(evict, "internal/evict", "Go", "Generic map-eviction rule")
         }
     }
 
@@ -79,12 +97,19 @@ C4Component
     Rel(server, webui, "serves")
     Rel(server, locate, "resolves drops")
     Rel(server, selfupd, "polls, applies")
+    Rel(server, reader, "scope, confine, list markdown")
+    Rel(server, boundedwait, "shutdown wait tails")
+    Rel(server, keyedlock, "shell, terminal locks")
+    Rel(server, evict, "issue-capture eviction")
 
     Rel(session, store, "persists rows")
     Rel(session, tmuxpkg, "liveness, kill")
     Rel(session, cc, "StateInput")
+    Rel(session, boundedwait, "liveness-poll stop")
+    Rel(session, keyedlock, "per-row lock")
     Rel(usage, store, "persists samples")
     Rel(bridge, tmuxpkg, "attach argv, resize")
+    Rel(reader, evict, "write-log eviction")
 
     UpdateRelStyle(usage, store, $offsetY="-22")
     UpdateRelStyle(session, tmuxpkg, $offsetY="20")

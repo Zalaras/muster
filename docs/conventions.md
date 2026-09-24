@@ -86,7 +86,8 @@ Each row's rationale is an ADR: `go run ./tools/kb ls --type adr | grep '/stack-
   so a matrix test comes down by hoisting the per-cell body to module scope. A
   `biome-ignore` needs its reason on the same line, and must sit immediately above the
   node — an intervening comment silently detaches it, which `suppressions/unused` then
-  reports. The only two live suppressions are `protocol.ts`'s wire validators.
+  reports. The only two live suppressions are `protocol/`'s wire validators
+  (`session.ts` and `usage.ts`).
 - `web/src/style.css` belongs to the `contrast` gate alone; Biome does not format it.
 
 ## Composition roots
