@@ -113,6 +113,8 @@ The seam ADR stays `accepted` rather than `proposed`, because the developer dele
 
 ## Lesson candidates
 
+All five were approved by the developer on 2026-09-24 and written as records: `kb:lesson/main-session-gate-list-dropped-check-kb` (L1), `kb:lesson/refactor-moved-dom-attach-after-layout-call` (L2), `kb:lesson/proof-swap-in-shared-worktree` (L3), `kb:lesson/agent-definition-commit-step-beat-run-rule` (L4) and `kb:lesson/test-pinned-signature-bent-the-design` (L5; L5 was raised after cycle 3).
+
 - L2 W6b (`03a6fd8`) moved the Tiles grid's `insertBefore` into a shared keyed-reorder pass that runs after the tile bodies render. A new tile's `refit()` then ran on a detached node, where FitAddon.fit() silently does nothing. The only symptom was a ~1-in-60 E2E geometry failure under load. Three soaks at the broken commit happened to pass, which pointed the first attribution at the wrong commit. The cause surfaced only with instrumentation (a `root.isConnected` trace) plus an injected attach delay. Unit tests could not see it (no DOM). Cost: about 1.5 h of soak and bisect. Cause: a refactor reordered DOM attachment relative to a layout-dependent call.
 
 - L1 Commits W2 and W3 landed with `check-kb` failing, because the per-unit web gate left it out. The moved files dropped out of the feature registry. From then on, `check-kb` joined every unit's gate.

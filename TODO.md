@@ -38,24 +38,15 @@ group deliberately, and otherwise don't re-sort this list.
 ### Together — turn-state gaps the 2026-09-23 interface probe measured
 
 Both were filed by the developer 2026-09-23 from the interface probe that settled the hook-ordering,
-`StopFailure` and status-line open questions. Both are `applyInput` arms in
-`internal/session/machine.go`, reproduced by replaying captured 2.1.280 sequences through
-`Interpret` + `applyInput`.
+`StopFailure` and status-line open questions.
 
 - [ ] **A background subagent clears a main-agent permission wait** — while the main agent
-  waits on a permission prompt, a background subagent keeps emitting tool hooks
-  (kb:fact/subagent-hooks-during-permission-wait). Each is `KindTurnActivity` on an open
-  prompt, which clears `Attention` and sets `working`. So the card leaves `needs_input` on the
-  first subagent event, and if the subagent outlasts the one-shot `permission_prompt`
-  notification (15 s past it in the probe), the session sits `working` with the dialog on
-  screen until it is answered. Candidate: subagent-marked activity leaves a permission
-  `Attention` in place.
+  waits on a permission prompt and a background subagent is still working, the card leaves
+  Needs Input and can sit on `working` with the permission dialog on screen until it is
+  answered.
 
-- [ ] **An interrupted turn stays `working` forever** — Esc ends a turn with no hook at all:
-  no `Stop`, no `StopFailure`, no `PostToolUse`/`PostToolUseFailure`. No `idle_prompt`
-  follows, either (kb:fact/interrupt-emits-no-turn-end). The prompt is never closed, so the card
-  reads `working` until the next prompt. Needs a design pass: there is no hook signal to key
-  on, and terminal output is never a state source (CLAUDE.md hard rule).
+- [ ] **An interrupted turn stays `working` forever** — after Esc interrupts a turn, the card
+  reads `working` until the next prompt.
 
 ### Together — session retention and clearing (#27, #47; #39 in Post v1 is the same seam)
 
@@ -63,13 +54,9 @@ Both were filed by the developer 2026-09-23 from the interface probe that settle
   clean slate, plus the option to select several sessions and remove those.
 
 - [ ] **Sessions survive only one daemon start after their tmux server is gone** — filed by the
-  developer 2026-09-22 during `rail-card-improvements` planning. Reconcile keeps a session whose pane
-  vanished while musterd was down as an ended, resumable card, but the *following* start deletes it
-  (`kb:adr/lifecycle-reconcile-converges-with-the-socket`, restating the sweep rule of
-  `kb:adr/lifecycle-ended-rows-swept-next-start`). So after a computer restart, or a crash that
-  also took the tmux server, one unresumed restart of musterd clears the whole rail — a crash must
-  not clear sessions. Wants a superseding ADR: keep ended rows until Removed, or until the archive
-  policy of #39 moves them. Same seam as #27 and #39.
+  developer 2026-09-22 during `rail-card-improvements` planning. After a computer restart, or a
+  crash that also took the tmux server, sessions come back once as ended, resumable cards, and
+  the next restart of musterd clears the whole rail. A crash must not clear sessions.
 
 - [ ] **I lost my session from yesterday (I think)** ([#47](https://github.com/Zalaras/muster/issues/47)) — three sessions left open were
   gone after stopping musterd and killing tmux. They should come back on restart as resumable
@@ -77,30 +64,19 @@ Both were filed by the developer 2026-09-23 from the interface probe that settle
 
 ### Together — the Settings Updates panel (#53, and the update-check error below)
 
-Both are what `#update-status` tells the developer when an update can't go ahead; one web-side
-pass over that panel's copy and states (`kb for internal/server/update.go` for the governing
-ADRs).
+Both are what `#update-status` tells the developer when an update can't go ahead.
 
 - [ ] **Check update shows the new update but cannot update** ([#53](https://github.com/Zalaras/muster/issues/53)) — on 0.18.0 the panel shows
   0.18.1 available with Update and Update-and-restart disabled and the unmanaged remedy
-  (`not installed by the muster installer — run: curl … install.sh | sh`). That is the designed
-  outcome for an install classified `unmanaged` (`kb:adr/update-install-kinds-decide-who-may-apply`;
-  `selfupdate.Classify` in `internal/selfupdate/install.go`: an unwritable binary directory, or
-  one inside a git tree below `$HOME`). **It is a misclassification:** the reporting copy was
-  installed by `install.sh` on another machine (the developer, 2026-09-23), and the installer
-  refuses a directory it can't write (`scripts/install.sh:118`), so the writability check should
-  have passed. Suspects, to check on that machine: a `.git` in an ancestor of the bin dir
-  strictly below `$HOME` (e.g. `~/.local` under a dotfiles manager); a `--bin-dir` or
-  `MUSTER_BIN_DIR` elsewhere; a symlink resolving into a git tree; a different `$HOME` or
-  user when the daemon started. Nothing records which rule fired, so start by logging the
-  classified path and the rule at startup. That diagnostic belongs in the fix too: the remedy
-  should name the reason and the path, not just "not installed by the muster installer".
+  (`not installed by the muster installer — run: curl … install.sh | sh`), although that copy
+  was installed by `install.sh` on another machine (the developer, 2026-09-23). It should offer
+  the update.
 
 - [ ] **Shorten the Settings update-check error** — with the release host down,
   `#update-status` prints Go's whole transport chain verbatim (`update check failed: requesting
   http://…/latest: Head "http://…/latest": dial tcp …: connect: connection refused`): four
-  wrapped lines, the URL twice, pushing the action row down. Contract-compliant; decide how much
-  of the chain to show. From `plans/rail-card-improvements-2/`; moved here from Pre-v1
+  wrapped lines, the URL twice, pushing the action row down. Decide how much of the chain to
+  show. From `plans/rail-card-improvements-2/`; moved here from Pre-v1
   2026-09-23 to sit with #53.
 
 ### On their own
@@ -112,6 +88,36 @@ ADRs).
 - [ ] **Issue tag management** ([#43](https://github.com/Zalaras/muster/issues/43)) — define real GitHub labels and have the triage skill apply
   them per its assessment. Needs kb:adr/issue-daemon-creates-issues-only revisited first:
   triage deliberately never labels, assigns or milestones.
+
+### From the maintainability cleanup (2026-09-24)
+
+Filed by the developer from the cleanup's proposed backlog (`plans/maintainability-cleanup/proposed-backlog.md`).
+
+Fix:
+
+- [ ] **`make check` fails in a fresh clone or worktree** — `check-kb` reports `refs` entries for
+  `test/rig/captures/*.jsonl` that match no file; it passes only in the developer's checkout.
+- [ ] **Two E2E specs fail on a release-tag commit** — `shell.spec.ts:47` and
+  `update.spec.ts:449` fail whenever HEAD is exactly a release tag (e.g. `main` right after a
+  release).
+- [ ] **Shutdown's `/ws` close code disagrees with the protocol** — musterd closes dashboard
+  sockets with 1000 at shutdown; `docs/protocol.md` says 1001.
+- [ ] **The ingest endpoint accepts hook bodies of any size.**
+- [ ] **Check the Focus view's first-attach terminal height** — the size note's reserved row
+  was restored; confirm the terminal is not a row short on first attach.
+- [ ] **A card's model name is empty or stale after the model changes in a session.**
+
+Refactor:
+
+- [ ] **Decide the owner of the ingest route and `MUSTER_SESSION`** — both are Muster names,
+  declared today in `internal/claudecode`.
+- [ ] **Plan IDs remain in test-file comments** — about 370 lines; production code is clean.
+- [ ] **No test covers the launch rollback after a failed record.**
+- [ ] **`internal/boundedwait` has no tests of its own.**
+
+Quality of life:
+
+- [ ] **A card shows alive for up to 5 s after Claude exits** when no terminal is attached.
 
 ## Pre-v1
 
