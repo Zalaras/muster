@@ -1,0 +1,7 @@
+# Decision: adapter-run-seam-shape
+
+**Outcome**: A. The constructor-default shape. Each adapter sets its production run func inside its own constructor, as an unexported function. A function-shaped API is an exported wrapper with no seam over an unexported struct (the `tmux.Preflight` → `preflighter` shape). Same-package tests overwrite the field. The composition root never passes a run func.
+**Reached by**: consensus. advocate-b-seam conceded in turn 2.
+**Decisive argument**: No test anywhere fakes an exported run func from outside its package. Every cross-package fake already sits at a consumer port: the launcher's `checkModel`, `TokenFile`, `paneSpawner`, and the server-owned `ExeRun`. Exporting production run funcs therefore buys nothing. It also creates a default that can be forgotten silently: `updatemanager.go:209` returns early when `exeRun` is nil, and only `cmd/musterd/main_test.go:329` guards against that. The wiring runs through four hops that the registration-only ADR forbids.
+**Dissent to honour**: None. advocate-b corrected the brief on one point: `test/canary` calls `claudecode.RunCommand`/`RunModelCheck` from outside the package, but only to pass the production value back in. Under A those callers call the no-seam wrapper directly.
+**Landed in**: `docs/adr/process-adapter-run-seam-constructor-default.md`, `docs/conventions.md` § Testing, and `plans/maintainability-cleanup/plan.md` (D10).

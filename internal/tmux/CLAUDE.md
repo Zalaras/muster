@@ -20,7 +20,7 @@
 - Probes use `-S` in a scratch dir and `kill-server` (kb:lesson/probe-tmux-sockets-left-in-shared-dir).
 
 <!-- kb:trailer -->
-<!-- kb:hash 7c3e7b8033febee4 -->
+<!-- kb:hash 4cec86d0e1947d9c -->
 - **surfaces** — PTY bridge, xterm pane, the ephemeral shell surface, sizing, one live client per target. → `docs/features/surfaces/INDEX.md`
-- 18 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 19 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

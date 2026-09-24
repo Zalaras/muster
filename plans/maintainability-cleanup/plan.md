@@ -104,8 +104,7 @@ because each one states what a fix must make true. Units run in the order listed
   - c-m9: the `-version` format is declared once.
   - The `main.go:768` comment names the developer by first name; rewrite it.
 - **D10 adapters.**
-  - c-M1: one subprocess-seam convention. The shape is **decided in `docs/conventions.md` §
-    Testing first**; the main session will say which.
+  - c-M1: one subprocess-seam convention: **the constructor-default shape** (*Amended*, `decisions/adapter-run-seam-shape`, kb:adr/process-adapter-run-seam-constructor-default; the rule is now in `docs/conventions.md` § Testing). Apply it to claudecode, ghissue, selfupdate and gitutil, drop the root's run-func wiring, and turn the exported function APIs into no-seam wrappers.
   - c-M2: the ingest route and `MUSTER_SESSION` each have one declaration.
   - c-m1 + b-M7/V3: gitutil owns every git query behind a seam, and the server spells no git
     argv.
@@ -119,6 +118,10 @@ because each one states what a fix must make true. Units run in the order listed
   - c-m10: internal/usage owns the source label.
   - c-m12: the dead `claudecode.Classify` goes.
   - c-m15: `Aggregator` names its writer.
+- **D11 reader domain package** (the developer, 2026-09-24: "Fix the minors").
+  - b-m14's second half: the reader's scope and confinement rules (`writeLog`, `readerPathQualifies`, `confine`, `listMarkdown`/`walkMarkdown`) move out of `internal/server/reader.go` into their own package, like `locate`, `usage` and `session`.
+  - The handler decodes, delegates and encodes; the rules are testable without an HTTP server.
+  - `kb:diagram/daemon-components` gains the node in X2.
 - **D9 test tidy** (daemon-tests):
   - T1: the dupl pairs become table rows.
   - c-M4 + c-m16: each claudecodetest wire skeleton is built once, the dead builders go, and the

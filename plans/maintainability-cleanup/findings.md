@@ -73,13 +73,40 @@ Every seed was confirmed except V9 (no change), G1 (no change), G2 (no change ac
 
 The per-finding assignment is `plan.md` § Units. Every Critical and every Major is assigned. Minors are assigned where they sit in a file a unit already touches, or where they cost about the same as their Major. Findings that belong to review-work (comment truth, correctness notes) are covered by X1 or F1, or listed below.
 
+## Gate record
+
+- E2E at `b3a032c` (after F1, WF1, W1–W4, D2, D3, D4): **446 passed, 0 failed** (445 baseline + 1 from WF1). The two baseline failures (P2) went away once HEAD stopped being a release tag.
+
+- E2E at `db84642`: 445/446. The failure at `tiles.spec.ts:790` was root-caused to W6b (`03a6fd8`): a new tile's first refit ran on a detached node (lesson L2). Fixed in `59cd108`.
+- E2E at `59cd108` (every web unit through W8, the tile fix, D2–D9, and X1a/X1b): **446/446**, plus `tiles.spec.ts` soaked 3×10 = **510/510**.
+
+## Behaviour notes (deliberate, recorded for review-work)
+
+- D4: seven rare 5xx bodies now carry `msgInternalError` instead of ad-hoc phrases. None of these messages is pinned in `docs/protocol.md`.
+- W2: one `logApiFailure` now logs every failed API call. Ten endpoints that used to fail silently now log to the console.
+- D3: a corrupt stored time now surfaces as a scan error. No migration writes a non-RFC3339 time, so only hand-edited data can reach this path.
+- F1: new rail positions are monotonic (never reused after a removal). Relative order is unchanged.
+- W5: the reader's `basename` now strips a trailing slash. Reader callers pass only file paths.
+
 ## Lesson candidates
+
+- L2 W6b (`03a6fd8`) moved the Tiles grid's `insertBefore` into a shared keyed-reorder pass that runs after the tile bodies render. A new tile's `refit()` then ran on a detached node, where FitAddon.fit() silently does nothing. The only symptom was a ~1-in-60 E2E geometry failure under load. Three soaks at the broken commit happened to pass, which pointed the first attribution at the wrong commit. The cause surfaced only with instrumentation (a `root.isConnected` trace) plus an injected attach delay. Unit tests could not see it (no DOM). Cost: about 1.5 h of soak and bisect. Cause: a refactor reordered DOM attachment relative to a layout-dependent call.
+
+- L1 Commits W2 and W3 landed with `check-kb` failing, because the per-unit web gate left it out. The moved files dropped out of the feature registry. From then on, `check-kb` joined every unit's gate.
+
+
+## Decisions from the developer (2026-09-24)
+
+- Fix the Minors: every Minor is fixed in this run and none is cut to proposed-backlog. P3 became D11.
+- Fix the concurrency bugs: F2 goes ahead.
+- Run `/decide` on the other two: `decisions/sessionend-alive-hint/` and `decisions/adapter-run-seam-shape/`. The first contradicts an accepted ADR, which the decide skill normally refuses. It is debated at the developer's explicit request, and its outcome lands as a `proposed` ADR for the developer to accept.
 
 ## Proposed (not fixes in this run)
 
-- P3 b-m14: move the reader's domain (`writeLog`, `readerPathQualifies`, `confine`, `listMarkdown`) out of `internal/server` into its own package, like `locate`, `usage` and `session`. It is a package extraction with a new diagram node, not a cleanup edit. Raised by the server reviewer; a change was requested.
+- ~~P3~~ → now unit **D11** (the developer, 2026-09-24: "Fix the minors"). b-m14: move the reader's domain (`writeLog`, `readerPathQualifies`, `confine`, `listMarkdown`) out of `internal/server` into its own package, like `locate`, `usage` and `session`. It is a package extraction with a new diagram node, not a cleanup edit. Raised by the server reviewer; a change was requested.
 - P4 a-note-3: `applyBind` leaves `DisplayName` empty on a new model and stale when the id changes. What the card should show needs deciding. Raised by the session reviewer; no change requested.
 - P5 b-note-6: `handleIngest` reads the hook body with an unbounded `io.ReadAll`. The limit is a product and measurement choice (transcript-sized payloads?). Raised by the server reviewer; no change requested.
+- P7 `killWindowAfterRecordFailure` (`internal/server/launcher.go`) has never had a test covering its call path: a `RecordLaunch` or `RecordResume` persist failure after a successful spawn. Driving it needs a store that fails one specific write mid-launch. The gap predates this run. Raised by daemon-tests (D7a); no change requested.
 - P6 Plan IDs in **test** comments and `describe()` strings: 422 test lines in server alone. X1 sweeps non-test code only. Raised in the cleanup session.
 
 - P1 Nine fact records (`hook-await-per-event`, `interrupt-emits-no-turn-end`, …) cite `test/rig/captures/capture-{3,8}.jsonl` in `refs`. That directory is gitignored (`.gitignore:32`), so `make check` fails in any fresh clone or worktree. It passes only in the developer's checkout, where the captures exist. Change requested: no, found while setting up the baseline.

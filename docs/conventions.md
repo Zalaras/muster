@@ -162,8 +162,12 @@ seam (the shape chosen, why, and what it reused or matched).
   (concurrent repeats of one file, retries still 0) — never with a widened timeout or a retry.
 - Every subprocess call gets an injectable run func on the type that owns it; the implementer
   adds it and tests cross the boundary through it (`internal/locate.SpotlightFinder`, `tmux`'s
-  preflighter and its `Client`, `claudecode`'s `execFunc`), never a `$PATH` shim — a fork per test is what made `make test`
-  load-sensitive. Real tmux (per-test socket) appears only where the assertion is about a
+  preflighter and its `Client`), never a `$PATH` shim — a fork per test is what made `make test`
+  load-sensitive. The constructor sets the production run func, unexported; a function-shaped
+  API is an exported no-seam wrapper over an unexported struct (`tmux.Preflight` →
+  `preflighter`); same-package tests overwrite the field, other packages fake at their own
+  consumer port, and the composition root never passes a run func
+  (kb:adr/process-adapter-run-seam-constructor-default). Real tmux (per-test socket) appears only where the assertion is about a
   tmux-observable effect: PTY stream, geometry, liveness, pane env, server options.
 - Don't test what the platform guarantees (SQLite constraint enforcement, tmux's own
   behavior, stdlib routing). Test Muster's behavior.

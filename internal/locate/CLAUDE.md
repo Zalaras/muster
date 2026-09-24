@@ -16,7 +16,7 @@
 - Verified candidates are sorted before the first is chosen; a test asserting which path wins relies on that order.
 
 <!-- kb:trailer -->
-<!-- kb:hash a0ea408dfc01719a -->
+<!-- kb:hash 74783388378f70e7 -->
 - **drop** — File drop pastes the original on-disk path into the pane. → `docs/features/drop/INDEX.md`
-- 3 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 4 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->
