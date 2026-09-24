@@ -38,20 +38,18 @@ type snapshotMessage struct {
 
 // protocolVersion bumps only on a breaking change to an existing message — additive
 // fields don't bump it (docs/protocol.md header). 2: hello.claudeCode replaced
-// {pinned, installed, drift} with {installed, floor, verified, status} (plan
-// version-claude-interface, closes #6).
+// {pinned, installed, drift} with {installed, floor, verified, status}
+// (kb:adr/connection-installed-claude-classified-never-refused, closes #6).
 const protocolVersion = 2
 
 // outboxSize bounds each client's broadcast backlog. A slow/stuck client is dropped
-// (messages skipped) rather than allowed to block the broadcaster (m1-sessions "The
-// state machine — implementation shape": "slow/stuck clients are dropped, never block
-// the worker").
+// (messages skipped) rather than allowed to block the broadcaster.
 const outboxSize = 16
 
 // wsHub tracks every open /ws connection so Server.Shutdown can close them all —
 // otherwise a hijacked WS connection outlives http.Server.Shutdown, which does not wait
 // for (or close) connections taken over via Hijack — and so broadcast can fan a
-// sessionUpsert out to every connected client (m1-sessions REQ-12).
+// sessionUpsert out to every connected client.
 type wsHub struct {
 	mu      sync.Mutex
 	clients map[*websocket.Conn]chan any
@@ -75,10 +73,18 @@ func (h *wsHub) remove(c *websocket.Conn) {
 	delete(h.clients, c)
 }
 
+// closeAll closes every connected client's socket (daemon shutdown). The map is copied
+// out and cleared under the lock, then closed outside it (matching
+// terminalRegistry.closeAll's pattern): Close waits out each peer's close handshake, and
+// holding h.mu for that would block broadcast — including the ingest worker's and the
+// session manager's OnUpsert — for as long as the slowest peer takes to respond.
 func (h *wsHub) closeAll() {
 	h.mu.Lock()
-	defer h.mu.Unlock()
-	for c := range h.clients {
+	clients := h.clients
+	h.clients = make(map[*websocket.Conn]chan any)
+	h.mu.Unlock()
+
+	for c := range clients {
 		_ = c.Close(websocket.StatusNormalClosure, "musterd shutting down")
 	}
 }
@@ -96,7 +102,7 @@ func (h *wsHub) broadcast(msg any) {
 	}
 }
 
-// handleWS upgrades to a WebSocket and sends `hello` then `snapshot` (REQ-7). Origin
+// handleWS upgrades to a WebSocket and sends `hello` then `snapshot`. Origin
 // checking is coder/websocket's own default behaviour (Accept rejects a present Origin
 // whose host doesn't match the request Host with a plain 403, before any upgrade
 // happens) — no bespoke check needed.

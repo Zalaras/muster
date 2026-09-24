@@ -14,14 +14,16 @@ import (
 	"github.com/coder/websocket"
 	"github.com/rs/zerolog"
 
+	"github.com/Zalaras/muster/internal/keyedlock"
 	"github.com/Zalaras/muster/internal/session"
 	"github.com/Zalaras/muster/internal/tmux"
 )
 
-// shellTmuxTimeout bounds every tmux invocation the shell surface makes (session-lifecycle
-// REQ-12): unlike a Claude pane's tmux calls (which run under the HTTP request's own
-// context), Ensure/Kill run with context.WithoutCancel and would otherwise wait on a
-// wedged tmux forever — hanging End/Remove, which call Kill, right along with it.
+// shellTmuxTimeout bounds every tmux invocation the shell surface makes
+// (kb:adr/actions-serialized-per-session): unlike a Claude pane's tmux calls (which run
+// under the HTTP request's own context), Ensure/Kill run with context.WithoutCancel and
+// would otherwise wait on a wedged tmux forever — hanging End/Remove, which call Kill,
+// right along with it.
 const shellTmuxTimeout = 5 * time.Second
 
 // Scroll magnitude clamp (kb:anchor/terminal.shell-ws) — sign carries direction, so the
@@ -52,19 +54,22 @@ type shellRegistry struct {
 	tmux paneSpawner
 	log  zerolog.Logger
 
-	// mu guards idLocks and activeIDs (session-lifecycle REQ-12: the registry's single
-	// global mutex became per-id, so two sessions' Ensure/Kill calls never block each
-	// other); the check-then-spawn/kill sequence itself is serialised by each id's own
-	// lock.
-	mu      sync.Mutex
-	idLocks map[int64]*sync.Mutex
+	// locks is the per-session-id lock (kb:adr/actions-serialized-per-session: two
+	// sessions' Ensure/Kill calls never block each other); the check-then-spawn/kill
+	// sequence itself is serialised by each id's own lock. The same keyedlock.Locks type
+	// session.Manager.LockSession uses, rather than each package hand-rolling the same
+	// map+mutex.
+	locks keyedlock.Locks[int64]
+
+	// mu guards activeIDs only.
+	mu sync.Mutex
 	// activeIDs is the set of session ids this daemon instance believes currently have
 	// a shell — Ensure adds, Kill removes. It is deliberately not decremented when a
 	// shell exits on its own (`exit`, or an external kill): the shell-activity poller's
 	// own tmux read is what notices that (its busy diff drops the session), so
 	// overcounting here costs a few extra idle polls, never a stuck indicator. Its only
 	// job is HasAny's gate, the poller's own optimisation for the common case of a
-	// session with no shell tab ever opened (plan Gotchas).
+	// session with no shell tab ever opened.
 	activeIDs map[int64]struct{}
 }
 
@@ -73,22 +78,10 @@ func newShellRegistry(tmuxClient paneSpawner, log zerolog.Logger) *shellRegistry
 	return &shellRegistry{tmux: tmuxClient, log: log}
 }
 
-// lockID acquires id's per-session lock (REQ-12), creating it on first use, and returns
-// the func that releases it.
+// lockID acquires id's per-session lock (kb:adr/actions-serialized-per-session), creating
+// it on first use, and returns the func that releases it.
 func (r *shellRegistry) lockID(id int64) (unlock func()) {
-	r.mu.Lock()
-	if r.idLocks == nil {
-		r.idLocks = make(map[int64]*sync.Mutex)
-	}
-	l, ok := r.idLocks[id]
-	if !ok {
-		l = &sync.Mutex{}
-		r.idLocks[id] = l
-	}
-	r.mu.Unlock()
-
-	l.Lock()
-	return l.Unlock
+	return r.locks.Lock(id)
 }
 
 // PaneExists reports whether name's tmux pane is currently live, bounded by
@@ -138,8 +131,8 @@ func (r *shellRegistry) Ensure(ctx context.Context, id int64, dir string) (targe
 	cancel()
 	if spawnErr != nil {
 		if errors.Is(spawnErr, tmux.ErrSessionExists) {
-			// REQ-12: a concurrent spawn elsewhere on the socket (or a stale check) beat
-			// this one to it — re-check rather than failing with shell_spawn_failed.
+			// A concurrent spawn elsewhere on the socket (or a stale check) beat this one
+			// to it — re-check rather than failing with shell_spawn_failed.
 			nowExists, recheckErr := r.PaneExists(ctx, name)
 			if recheckErr == nil && nowExists {
 				r.markActive(id)
@@ -166,7 +159,7 @@ func (r *shellRegistry) markActive(id int64) {
 
 // HasAny reports whether this daemon instance currently believes any session has a
 // shell — the shell-activity poller's gate to skip its own tmux exec entirely for the
-// common case of no shell ever opened (plan Gotchas; kb:anchor/ws.shell-activity).
+// common case of no shell ever opened (kb:anchor/ws.shell-activity).
 func (r *shellRegistry) HasAny() bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -175,8 +168,11 @@ func (r *shellRegistry) HasAny() bool {
 
 // Kill kills session id's shell tmux session, if any (Remove's path). A no-op, not an
 // error surfaced to the caller, when no shell exists — Remove must succeed whether or
-// not a shell was ever started. The lock entry is reclaimed afterward: Remove is the only
-// caller and a session id is never reissued (REQ-2), so nothing can contend on it again.
+// not a shell was ever started. The lock entry is reclaimed afterward: handleRemoveSession
+// only calls Kill once session.Manager.Remove has already succeeded, and
+// shellFeature.handleCreateShell re-checks the session's existence under that same
+// session.Manager.LockSession(id) before ever calling Ensure — so no Ensure for this id can
+// start after Remove has completed, and the lock entry can never be contended on again.
 func (r *shellRegistry) Kill(ctx context.Context, id int64) {
 	unlock := r.lockID(id)
 
@@ -188,8 +184,8 @@ func (r *shellRegistry) Kill(ctx context.Context, id int64) {
 	cancel()
 	unlock()
 
+	r.locks.Forget(id)
 	r.mu.Lock()
-	delete(r.idLocks, id)
 	delete(r.activeIDs, id)
 	r.mu.Unlock()
 }
@@ -202,9 +198,9 @@ type createShellResponse struct {
 }
 
 // shellFeature owns the plain-shell surface: spawning (POST /api/sessions/{id}/shell)
-// and attaching (GET /ws/shell/{id}) — plan code-breakup REQ-6. terminals is the shared
-// takeover registry also used by terminalFeature (Claude surface) and sessionsFeature
-// (End/Remove's socket teardown).
+// and attaching (GET /ws/shell/{id}). terminals is the shared takeover registry also
+// used by terminalFeature (Claude surface) and sessionsFeature (End/Remove's socket
+// teardown).
 type shellFeature struct {
 	registry  *shellRegistry
 	terminals *terminalRegistry
@@ -232,14 +228,28 @@ func (f *shellFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.H
 	mux.Handle("GET /ws/shell/{id}", guard(http.HandlerFunc(f.handleShellTerminal)))
 }
 
-// handleCreateShell is POST /api/sessions/{id}/shell (plan plain-terminal-session REQ-1,
-// kb:anchor/sessions.shell). Deliberately not gated on alive (REQ-7) — a shell may be
-// started on a dead session and never consults the manager's liveness field.
+// handleCreateShell is POST /api/sessions/{id}/shell (kb:anchor/sessions.shell).
+// Deliberately not gated on alive (kb:adr/surfaces-shell-is-attach-target-not-session) —
+// a shell may be started on a dead session and never consults the manager's liveness
+// field.
+//
+// The whole existence-check-then-spawn runs under id's session.Manager lock:
+// session.Manager.Remove holds that same lock for its entire removal, so this check can
+// never observe a session that a concurrent Remove is in the middle of dropping, and any
+// Remove that starts after this check passes must wait for Ensure to finish first —
+// either way, a shell can never be spawned for an id whose Remove has started or already
+// succeeded. Without this, the earlier sessionOr404 check and the Ensure call below raced
+// Remove independently, so a Remove could complete between them and Ensure would spawn a
+// shell for an id that no longer exists.
 func (f *shellFeature) handleCreateShell(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseSessionID(w, r)
 	if !ok {
 		return
 	}
+
+	unlock := f.manager.LockSession(id)
+	defer unlock()
+
 	sess, ok := sessionOr404(w, f.manager, id)
 	if !ok {
 		return
@@ -263,7 +273,8 @@ func (f *shellFeature) handleCreateShell(w http.ResponseWriter, r *http.Request)
 // (the requireCookie wrapper) and Origin check, 404/409 validation, then the attach-and-pump
 // lifecycle both surfaces share (attachAndPump). Attach only — POST
 // /api/sessions/{id}/shell (handleCreateShell) is the only thing that spawns a shell; alive
-// is not consulted, in either direction (REQ-7). The 404 here is its own not_found check
+// is not consulted, in either direction (kb:adr/surfaces-shell-is-attach-target-not-session).
+// The 404 here is its own not_found check
 // (manager.Exists, not sessionOr404's manager.Get) because a dead session with no live shell
 // still answers no_shell, never not_found.
 func (f *shellFeature) handleShellTerminal(w http.ResponseWriter, r *http.Request) {
@@ -292,24 +303,27 @@ func (f *shellFeature) handleShellTerminal(w http.ResponseWriter, r *http.Reques
 
 	attachAndPump(w, r, f.log, f.terminals, f.manager, id, f.attach, terminalPump{
 		target: shellTarget,
-		// The Claude surface's key is untouched (INV-3), so opening the shell socket never
-		// supersedes a live Claude socket for the same session, and vice versa.
+		// The Claude surface's key is untouched
+		// (kb:adr/surfaces-one-live-client-per-attach-target), so opening the shell
+		// socket never supersedes a live Claude socket for the same session, and vice
+		// versa.
 		key: terminalKey{sessionID: id, surface: surfaceShell},
 		// nudge is nil: a shell's death is not its session's death (kb:anchor/terminal.shell-ws) — a
 		// live session must never take a liveness flap because a shell under it exited.
 		nudge: nil,
 		socketToPTY: func(ctx context.Context, c *websocket.Conn, bridge paneConn) {
 			// The shell socket's own variant: decodes the `scroll` control frame the Claude
-			// socket does not accept, and cancels copy-mode before writing input (REQ-10).
+			// socket does not accept, and cancels copy-mode before writing input
+			// (kb:adr/surfaces-shell-scroll-via-daemon-copy-mode).
 			pumpShellSocketToPTY(ctx, f.log, c, bridge, f.scroll, shellTarget)
 		},
 	})
 }
 
 // shellTextFrame is the shell socket's client→server JSON: everything resizeFrame
-// accepts, plus `scroll` (kb:anchor/terminal.shell-ws). The Claude socket keeps decoding into
-// resizeFrame/applyResizeFrame unchanged (REQ-9) — this type and pumpShellSocketToPTY
-// below are reached only from GET /ws/shell/{id}.
+// accepts, plus `scroll` (kb:anchor/terminal.shell-ws). The Claude socket keeps decoding
+// into resizeFrame/applyResizeFrame unchanged — this type and pumpShellSocketToPTY below
+// are reached only from GET /ws/shell/{id}.
 type shellTextFrame struct {
 	Type  string `json:"type"`
 	Cols  int    `json:"cols"`
@@ -318,7 +332,7 @@ type shellTextFrame struct {
 }
 
 // clampScrollLines clamps a scroll frame's magnitude to [minScrollLines,
-// maxScrollLines] (D3) while preserving its sign; 0 stays 0 (nothing to scroll).
+// maxScrollLines] while preserving its sign; 0 stays 0 (nothing to scroll).
 func clampScrollLines(v int) int {
 	if v == 0 {
 		return 0
@@ -332,7 +346,8 @@ func clampScrollLines(v int) int {
 
 // pumpShellSocketToPTY is pumpSocketToPTY's shell-surface variant (kb:anchor/terminal.shell-ws):
 // binary frames are raw input, but the daemon cancels copy-mode first when it knows this
-// pane may still be in one (REQ-10), so a keystroke always reaches the shell and returns
+// pane may still be in one (kb:adr/surfaces-shell-scroll-via-daemon-copy-mode), so a
+// keystroke always reaches the shell and returns
 // it to the live bottom; text frames add `scroll` to the resize frame pumpSocketToPTY
 // already accepts. inCopyMode lives only in this one connection's read loop — never
 // shared, so it needs no lock.
@@ -364,9 +379,9 @@ func pumpShellSocketToPTY(ctx context.Context, log zerolog.Logger, c *websocket.
 // applyShellTextFrame parses one shell-socket text frame and dispatches resize or
 // scroll; an unparseable or unknown frame is ignored and logged, never fatal, the same
 // contract as applyResizeFrame. inCopyMode is set from ScrollCopyMode's own entered
-// result, never assumed from a nil error — REQ-12/edge case 10's "nothing to scroll to"
-// no-op returns entered=false, and a `lines` of 0 after clamping (frame carried 0)
-// never calls ScrollCopyMode at all.
+// result, never assumed from a nil error — ScrollCopyMode's own "nothing to scroll to"
+// no-op returns entered=false even though err is nil, and a `lines` of 0 after clamping
+// (frame carried 0) never calls ScrollCopyMode at all.
 func applyShellTextFrame(ctx context.Context, log zerolog.Logger, bridge paneConn, scroller shellScroller, target string, data []byte, inCopyMode *bool) {
 	var frame shellTextFrame
 	if err := json.Unmarshal(data, &frame); err != nil {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"github.com/Zalaras/muster/internal/keyedlock"
 	"github.com/Zalaras/muster/internal/store"
 	"github.com/Zalaras/muster/internal/tmux"
 )
@@ -102,32 +103,32 @@ type Manager struct {
 	interval        time.Duration
 	watcher         Watcher
 
-	// mu guards sessions, byClaude, idLocks, writeChain and nextRailPos below: every map's
-	// own entries, and every field of a *Session sessions holds — a *Session is mutable
-	// only while mu is held (this is the rule applyBind used to break by mutating a
-	// Model a released Clone() already shared). Every exported read (Get/List/
-	// Exists/Resolve/PaneOf/…) takes its own Clone() before releasing mu, so a caller never
-	// holds a pointer another goroutine can still mutate.
+	// mu guards sessions, byClaude, writeChain and nextRailPos below: every map's own
+	// entries, and every field of a *Session sessions holds — a *Session is mutable only
+	// while mu is held (this is the rule applyBind used to break by mutating a Model a
+	// released Clone() already shared). Every exported read (Get/List/Exists/Resolve/
+	// PaneOf/…) takes its own Clone() before releasing mu, so a caller never holds a
+	// pointer another goroutine can still mutate.
 	mu       sync.Mutex
 	sessions map[int64]*Session
 	byClaude map[string]int64 // claude session id -> muster session id
 
-	// idLocks is the per-session-id lock (kb:adr/actions-serialized-per-session), guarded
-	// by mu itself (map access only — never held across tmux I/O). LockSession serialises one id's
-	// Launch/Resume/End/Remove check-then-act without blocking a different id's; Remove
-	// reclaims an id's entry once its row is gone (the id is never reissued, so nothing
-	// after that could ever contend on it again). Created eagerly by NewManager, like
-	// sessions/byClaude — LockSession no longer lazily initialises it.
-	idLocks map[int64]*sync.Mutex
+	// locks is the per-session-id lock (kb:adr/actions-serialized-per-session), guarded by
+	// its own mutex, not mu — the same keyedlock.Locks type internal/server's shellRegistry
+	// uses, rather than each package hand-rolling the same map. Guards Launch/Resume/
+	// End/Remove's whole check-then-act without blocking a different id's. Remove reclaims
+	// an id's entry once its row is gone (the id is never reissued, so nothing after that
+	// could ever contend on it again).
+	locks keyedlock.Locks[int64]
 
 	// writeChain is a per-session write-ordering turnstile, guarded by mu itself (map
-	// access only, same discipline as idLocks): writeChain[id] is always the completion
-	// signal of the most recently *scheduled* persist for id. nextWriteTurnLocked draws a
-	// ticket (replacing the entry) while the caller still holds mu, so tickets are handed
-	// out in exactly the order their mutations happened; finishWrite waits for the
-	// previous ticket to close before persisting, so two setters racing to write the same
-	// id can never persist — or broadcast — out of that order. Remove reclaims an id's
-	// entry the same way it reclaims idLocks.
+	// access only, same discipline locks above keeps for its own map): writeChain[id] is
+	// always the completion signal of the most recently *scheduled* persist for id.
+	// nextWriteTurnLocked draws a ticket (replacing the entry) while the caller still holds
+	// mu, so tickets are handed out in exactly the order their mutations happened;
+	// finishWrite waits for the previous ticket to close before persisting, so two setters
+	// racing to write the same id can never persist — or broadcast — out of that order.
+	// Remove reclaims an id's entry the same way it reclaims locks' entry (Forget).
 	writeChain map[int64]chan struct{}
 
 	// nextRailPos is the RailPos CreateSession hands to the next new session, guarded by mu
@@ -158,20 +159,12 @@ type Manager struct {
 
 // LockSession acquires id's per-session lock (kb:adr/actions-serialized-per-session) and
 // returns the func that releases it. Held across a whole logical action — including its
-// tmux I/O — never across mu
-// itself; internal/server's sessionLauncher uses this directly to serialise Launch and
-// Resume the same way End/Remove do internally.
+// tmux I/O — never across mu itself; internal/server's sessionLauncher and shellFeature use
+// this directly to serialise their own actions the same way End/Remove do internally, so a
+// shell can never be spawned for an id whose Remove has started or finished — both go
+// through this same lock.
 func (m *Manager) LockSession(id int64) (unlock func()) {
-	m.mu.Lock()
-	l, ok := m.idLocks[id]
-	if !ok {
-		l = &sync.Mutex{}
-		m.idLocks[id] = l
-	}
-	m.mu.Unlock()
-
-	l.Lock()
-	return l.Unlock
+	return m.locks.Lock(id)
 }
 
 // NewManager builds a Manager. PaneChecker, PaneSnapshotter and TmuxSessions are all
@@ -200,7 +193,6 @@ func NewManager(cfg Config) *Manager {
 		watcher:         cfg.Watcher,
 		sessions:        make(map[int64]*Session),
 		byClaude:        make(map[string]int64),
-		idLocks:         make(map[int64]*sync.Mutex),
 	}
 }
 
@@ -323,12 +315,11 @@ func (m *Manager) removeSessionRecord(ctx context.Context, id int64, notify bool
 	m.removeFromMemory(id)
 
 	// The id is never reissued (kb:adr/lifecycle-session-ids-monotonic-never-reused), so
-	// nothing can ever contend on this lock again —
-	// reclaim it rather than growing the map for the life of the daemon. writeChain's
-	// entry is reclaimed the same way and for the same reason: no write for a removed,
-	// never-reused id can ever be scheduled again.
+	// nothing can ever contend on this lock again — reclaim it rather than growing the map
+	// for the life of the daemon. writeChain's entry is reclaimed the same way and for the
+	// same reason: no write for a removed, never-reused id can ever be scheduled again.
+	m.locks.Forget(id)
 	m.mu.Lock()
-	delete(m.idLocks, id)
 	delete(m.writeChain, id)
 	m.mu.Unlock()
 

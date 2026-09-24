@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/rs/zerolog"
 
@@ -30,11 +31,13 @@ const defaultRailSort = "manual"
 const defaultTheme = "follow"
 
 // defaultRailDensity is prefs.railDensity's default — the rail and Tiles-strip card
-// density before any PUT ever names one (plan rail-card-improvements REQ-3).
+// density before any PUT ever names one
+// (kb:adr/rail-card-title-leads-and-density-ramp-corrected).
 const defaultRailDensity = "comfortable"
 
 // defaultRailActivity is prefs.railActivity's default — which text a card's activity
-// line shows before any PUT ever names one (plan rail-card-improvements REQ-13).
+// line shows before any PUT ever names one
+// (kb:adr/rail-activity-line-turn-aware-default-with-pref).
 const defaultRailActivity = "turn"
 
 // validThemePattern is prefs.theme's wire pattern (kb:anchor/prefs.put): 1-32 chars,
@@ -61,7 +64,8 @@ func validRailSort(v string) bool { return v == "manual" || v == "attention" }
 func validTheme(v string) bool    { return validThemePattern.MatchString(v) }
 
 // validRailDensity/validRailActivity are prefs.railDensity/prefs.railActivity's enums
-// (plan rail-card-improvements REQ-3/REQ-13).
+// (kb:adr/rail-card-title-leads-and-density-ramp-corrected,
+// kb:adr/rail-activity-line-turn-aware-default-with-pref).
 func validRailDensity(v string) bool {
 	return v == "compact" || v == "comfortable" || v == "expanded"
 }
@@ -123,7 +127,7 @@ type storedPrefs struct {
 
 // prefsMessage is the WS `prefs` broadcast (kb:anchor/ws.prefs): a full-object echo
 // of the persisted prefs, sent to every connected UI socket on every accepted PUT
-// (INV-4).
+// (kb:spec/settings).
 type prefsMessage struct {
 	Type  string    `json:"type"`
 	Prefs PrefsInfo `json:"prefs"`
@@ -189,13 +193,21 @@ type checkEnabledSetter interface {
 	SetCheckEnabled(enabled bool)
 }
 
-// prefsFeature owns PUT /api/prefs and the snapshot's prefs object (plan code-breakup
-// REQ-6).
+// prefsFeature owns PUT /api/prefs and the snapshot's prefs object.
 type prefsFeature struct {
 	store         *store.Store
 	hub           *wsHub
 	updateChecker checkEnabledSetter
 	log           zerolog.Logger
+
+	// mu serialises the whole load-merge-persist-broadcast sequence of PUT /api/prefs: the
+	// kv row is one blob, read-modify-written with no compare-and-set underneath
+	// (store.KVSet), so two PUTs that both load before either persists would otherwise
+	// apply their fields to the same base object — the second's write and broadcast
+	// silently discard the first's field and its check-enabled transition. Held from
+	// loadPrefs through the broadcast/SetCheckEnabled call, never across request
+	// decode/validation (which only touches the request body, not the stored object).
+	mu sync.Mutex
 }
 
 func newPrefsFeature(st *store.Store, hub *wsHub, updateChecker checkEnabledSetter, log zerolog.Logger) *prefsFeature {
@@ -273,7 +285,7 @@ func prefsFields(req *prefsRequest) []prefsField {
 }
 
 // handlePutPrefs is PUT /api/prefs: validates, persists the merged prefs object to kv,
-// and broadcasts the full object to every UI socket (INV-4).
+// and broadcasts the full object to every UI socket (kb:spec/settings).
 func (f *prefsFeature) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 	var req prefsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -302,6 +314,14 @@ func (f *prefsFeature) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
+
+	// One PUT's load-merge-persist-broadcast is atomic against every other: without this
+	// lock, two concurrent single-field PUTs can both loadPrefs the same base object, so
+	// the second's KVSet/broadcast overwrites the first's field with a value that never
+	// included it.
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
 	prefs := loadPrefs(ctx, f.store)
 	updateCheckChanged := false
 	for _, field := range fields {
@@ -328,9 +348,9 @@ func (f *prefsFeature) handlePutPrefs(w http.ResponseWriter, r *http.Request) {
 
 	f.hub.broadcast(prefsMessage{Type: "prefs", Prefs: prefs})
 
-	// REQ-3: the check-enabled side effect fires only on an actual transition — a PUT
-	// that merely re-states the current value must not clear an in-flight check's result
-	// or force an extra immediate poll.
+	// The check-enabled side effect (kb:adr/update-check-pref-governs-automatic-checking-only)
+	// fires only on an actual transition — a PUT that merely re-states the current value
+	// must not clear an in-flight check's result or force an extra immediate poll.
 	if updateCheckChanged && f.updateChecker != nil {
 		f.updateChecker.SetCheckEnabled(prefs.UpdateCheck)
 	}

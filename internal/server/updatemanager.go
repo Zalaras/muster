@@ -12,6 +12,7 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"github.com/Zalaras/muster/internal/boundedwait"
 	"github.com/Zalaras/muster/internal/selfupdate"
 )
 
@@ -47,9 +48,10 @@ type updateManagerConfig struct {
 	OnChange     func(UpdateInfo)
 }
 
-// updateManager owns the whole auto-update state machine: the periodic check
-// (REQ-1..7), REQ-26's out-of-band-swap detection, and apply serialisation (REQ-20)
-// both within this daemon (mutex + inFlight) and across processes (selfupdate.AcquireLock).
+// updateManager owns the whole auto-update state machine: the periodic release check
+// (kb:adr/update-check-runs-in-daemon-daily), checkSwap's out-of-band-swap detection
+// below, and apply serialisation (kb:adr/update-install-kinds-decide-who-may-apply) both
+// within this daemon (mutex + inFlight) and across processes (selfupdate.AcquireLock).
 type updateManager struct {
 	client   *http.Client
 	base     string
@@ -62,7 +64,7 @@ type updateManager struct {
 	log      zerolog.Logger
 	onChange func(UpdateInfo)
 
-	startInfo os.FileInfo // stat at construction — REQ-26's "startup stat" reference point
+	startInfo os.FileInfo // stat at construction — checkSwap's reference point for detecting an out-of-band binary swap
 
 	mu            sync.Mutex
 	checkEnabled  bool
@@ -74,11 +76,17 @@ type updateManager struct {
 	applyVersion  *string
 	applyError    *string
 	applyInFlight bool
-	shuttingDown  bool
+	// applyCancel cancels the context the in-flight apply's goroutine runs under; nil when
+	// no apply is in flight. Guarded by mu like every other apply-state field above.
+	applyCancel  context.CancelFunc
+	shuttingDown bool
 
 	refresh         chan struct{}
 	restartRequests chan struct{}
 	bg              bgLoop
+	// applyWG tracks the apply goroutine RequestApply starts — separate from bg's own wg,
+	// which only tracks the tick loop: Stop cancels and bounded-waits for both.
+	applyWG sync.WaitGroup
 }
 
 // newUpdateManager builds a manager. checkEnabled is the persisted prefs.updateCheck
@@ -110,9 +118,11 @@ func newUpdateManager(cfg updateManagerConfig) *updateManager {
 	return m
 }
 
-// Start begins the tick loop with an immediate first tick (REQ-4), on its own goroutine
-// so it never delays the caller (Server.Start, ahead of accepting connections). A dev
-// install never ticks at all — REQ-8's "never checks" is structural, not a per-tick guard.
+// Start begins the tick loop with an immediate first tick
+// (kb:adr/update-check-runs-in-daemon-daily), on its own goroutine so it never delays the
+// caller (Server.Start, ahead of accepting connections). A dev install never ticks at
+// all — checking is never enabled for it, structurally, not as a per-tick guard
+// (kb:adr/update-install-kinds-decide-who-may-apply).
 func (m *updateManager) Start() {
 	if m.install.Kind == selfupdate.KindDev {
 		return
@@ -123,17 +133,32 @@ func (m *updateManager) Start() {
 // Stop cancels the tick loop and waits for it to exit, giving up when ctx is done
 // (mirrors usagePoller.Stop). Marks the manager as shutting down first, so any apply
 // already in flight — and any new POST /api/update/apply racing shutdown — observes
-// errShuttingDown (Edge Case 25).
+// errShuttingDown.
+//
+// It also cancels an in-flight apply and bounded-waits for it: before this, RequestApply's
+// goroutine ran under context.WithoutCancel and outlived Stop entirely, so a SIGTERM
+// mid-download could exit the process in the middle of selfupdate.Apply, leaving its temp
+// file behind. Cancellation aborts the download/verify in progress; runApply/
+// finishApplyFailed's existing error path (an apply reads an error from a canceled
+// ctx.Err() exactly as it would any other download failure) records it as a failed apply
+// rather than a successful one.
 func (m *updateManager) Stop(ctx context.Context) {
 	m.mu.Lock()
 	m.shuttingDown = true
+	cancelApply := m.applyCancel
 	m.mu.Unlock()
+
+	if cancelApply != nil {
+		cancelApply()
+	}
+	boundedwait.Wait(ctx, &m.applyWG, m.log, "update apply did not stop before shutdown deadline")
 
 	m.bg.stop(ctx, m.log, "update manager did not stop before shutdown deadline")
 }
 
-// tick runs REQ-26's swap detection unconditionally (a local stat, never a network
-// request) and, only while checking is enabled, the availability check (REQ-1..7).
+// tick runs checkSwap's out-of-band swap detection unconditionally (a local stat, never
+// a network request) and, only while checking is enabled, the periodic availability
+// check (kb:adr/update-check-runs-in-daemon-daily).
 func (m *updateManager) tick(ctx context.Context) {
 	m.checkSwap(ctx)
 
@@ -144,20 +169,22 @@ func (m *updateManager) tick(ctx context.Context) {
 		return
 	}
 	// The tick loop discards the error; it is already logged at debug inside
-	// checkAvailability, and D13 keeps the wire untouched on a failed automatic check.
+	// checkAvailability, and a failed automatic check deliberately keeps the wire
+	// untouched (kb:adr/update-check-runs-in-daemon-daily).
 	_ = m.checkAvailability(ctx, false)
 }
 
 // checkAvailability is one release-check poll attempt, run by both the tick loop
-// (manual false, D13's silent-on-failure path — plan rail-card-improvements-2) and
-// POST /api/update/check (manual true, REQ-7): a failure is logged at debug and, for
-// a manual caller, returned so handleCheckUpdate can map it onto a wire error code
+// (manual false, the daily schedule's silent-on-failure path,
+// kb:adr/update-check-runs-in-daemon-daily) and POST /api/update/check (manual true,
+// kb:adr/update-manual-check-is-a-synchronous-post): a failure is logged at debug and,
+// for a manual caller, returned so handleCheckUpdate can map it onto a wire error code
 // (kb:anchor/update.check). A success updates available/checkedAt and always broadcasts
 // (checkedAt changes on every successful check, regardless of whether available itself
 // did) — unless this is the automatic path and the pref was turned off while the check
-// was in flight (D16), in which case the result is discarded and nothing is broadcast.
-// A manual check keeps its result even then (Edge Case 9): prefs.updateCheck governs
-// only the daemon's own schedule (REQ-8).
+// was in flight, in which case the result is discarded and nothing is broadcast. A
+// manual check keeps its result even then: prefs.updateCheck governs only the daemon's
+// own schedule (kb:adr/update-check-pref-governs-automatic-checking-only).
 func (m *updateManager) checkAvailability(ctx context.Context, manual bool) error {
 	if manual {
 		m.mu.Lock()
@@ -194,11 +221,11 @@ func (m *updateManager) checkAvailability(ctx context.Context, manual bool) erro
 	return nil
 }
 
-// checkSwap is REQ-26: at each tick, stat the running executable; if size/mtime differ
-// from the startup stat and this daemon did not perform the swap itself, probe the
-// swapped file's own -version output and, on success, set `installed`. A failed or
-// hanging probe (D24) leaves `installed` null and is retried next tick — no different
-// from never having detected a change at all.
+// checkSwap detects an out-of-band binary swap: at each tick, stat the running
+// executable; if size/mtime differ from the startup stat and this daemon did not
+// perform the swap itself, probe the swapped file's own -version output and, on
+// success, set `installed`. A failed or hanging probe leaves `installed` null and is
+// retried next tick — no different from never having detected a change at all.
 func (m *updateManager) checkSwap(ctx context.Context) {
 	if m.exePath == "" || m.exeRun == nil {
 		return
@@ -233,10 +260,12 @@ func (m *updateManager) checkSwap(ctx context.Context) {
 	m.emit()
 }
 
-// SetCheckEnabled applies a pref change (REQ-3): disabling clears available/checkedAt
-// and broadcasts once (D15); enabling wakes an immediate check rather than waiting for
-// the next tick. A dev install ignores this entirely — checking is never enabled for it
-// regardless of the persisted pref (REQ-8).
+// SetCheckEnabled applies a pref change
+// (kb:adr/update-check-pref-governs-automatic-checking-only): disabling clears
+// available/checkedAt and broadcasts once; enabling wakes an immediate check rather
+// than waiting for the next tick. A dev install ignores this entirely — checking is
+// never enabled for it regardless of the persisted pref
+// (kb:adr/update-install-kinds-decide-who-may-apply).
 func (m *updateManager) SetCheckEnabled(enabled bool) {
 	if m.install.Kind == selfupdate.KindDev {
 		return
@@ -261,7 +290,7 @@ func (m *updateManager) SetCheckEnabled(enabled bool) {
 // coalesced — a refresh already pending in the buffered channel makes this a no-op, so
 // any number of concurrent calls collapse into at most one extra tick. Safe to call
 // while checking is disabled: the resulting tick's own checkEnabled guard makes it a
-// no-op that touches no network (D14).
+// no-op that touches no network.
 func (m *updateManager) Refresh() {
 	select {
 	case m.refresh <- struct{}{}:
@@ -280,7 +309,8 @@ func (m *updateManager) Remedy() string {
 	return m.install.Remedy
 }
 
-// RequestApply starts (or joins) one apply (REQ-20). A nil error means the apply is
+// RequestApply starts (or joins) one apply — applies are serialised
+// (kb:adr/update-install-kinds-decide-who-may-apply). A nil error means the apply is
 // under way — either just started, or already in flight; RequestApply's own restart
 // argument is ignored by a join (the first request's restart value wins, per
 // kb:anchor/update.apply). ctx should already have its cancellation detached from the
@@ -308,25 +338,39 @@ func (m *updateManager) RequestApply(ctx context.Context, restart bool) error {
 	}
 	// kb:anchor/update.apply: the download is skipped when installed already equals
 	// available (already on disk, nothing newer to fetch) or when available is null and
-	// installed is set (REQ-25's restart-only case).
+	// installed is set (a restart-only apply, with nothing new to fetch).
 	skipDownload := (installed != nil && available != nil && *installed == *available) ||
 		(available == nil && installed != nil)
 	version := available
 	if version == nil {
 		version = installed
 	}
+	// applyCtx is Stop's handle on this apply: ctx is already context.WithoutCancel of the
+	// HTTP request that triggered it (the apply must outlive that request/response), but it
+	// must not outlive the daemon itself.
+	applyCtx, cancel := context.WithCancel(ctx)
 	m.applyInFlight = true
+	m.applyCancel = cancel
 	m.mu.Unlock()
 
-	go m.runApply(ctx, *version, restart, skipDownload)
+	m.applyWG.Add(1)
+	go m.runApply(applyCtx, *version, restart, skipDownload)
 	return nil
 }
 
 func (m *updateManager) runApply(ctx context.Context, version string, restart, skipDownload bool) {
 	defer func() {
 		m.mu.Lock()
+		cancel := m.applyCancel
 		m.applyInFlight = false
+		m.applyCancel = nil
 		m.mu.Unlock()
+		// Releases applyCtx's resources once this apply is done either way; a no-op if
+		// Stop already called it first (context.CancelFunc is safe to call more than once).
+		if cancel != nil {
+			cancel()
+		}
+		m.applyWG.Done()
 	}()
 
 	if !skipDownload {

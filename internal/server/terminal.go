@@ -12,6 +12,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/rs/zerolog"
 
+	"github.com/Zalaras/muster/internal/keyedlock"
 	"github.com/Zalaras/muster/internal/session"
 )
 
@@ -50,7 +51,7 @@ const terminalReadBufSize = 32 * 1024
 
 // terminalConn is one live terminal socket's paired WS connection and PTY bridge, held
 // by the takeover registry so a superseding connect can tear both down before its own
-// attach starts (REQ-2).
+// attach starts.
 type terminalConn struct {
 	ws     *websocket.Conn
 	bridge paneConn
@@ -58,8 +59,9 @@ type terminalConn struct {
 
 // terminalSurface distinguishes a session's Claude pane from its plain-shell surface
 // (kb:anchor/sessions.shell / kb:anchor/terminal.shell-ws): the two are different attach targets ("muster-<id>" vs
-// "muster-<id>-shell"), so the one-live-client law (INV-3) is enforced per (session,
-// surface), not per session alone.
+// "muster-<id>-shell"), so the one-live-client law
+// (kb:adr/surfaces-one-live-client-per-attach-target) is enforced per (session, surface),
+// not per session alone.
 type terminalSurface int
 
 const (
@@ -73,14 +75,27 @@ type terminalKey struct {
 	surface   terminalSurface
 }
 
-// terminalRegistry enforces the one-live-client law (INV-1/INV-3, kb:anchor/terminal.ws / kb:anchor/terminal.shell-ws): at
-// most one open terminal socket per (session, surface). A new connection supersedes
-// (close code 4000) and tears down the old PTY before its own attach begins; a session's
-// Claude socket and its shell socket are independent keys and never supersede each
-// other. It is shared: terminalFeature (Claude surface) and shellFeature (shell surface)
-// both take a pointer to the same instance, and sessionsFeature closes entries out of it
-// on End/Remove — one registry, three consumers, exactly one map (Implementation Notes).
+// terminalRegistry enforces the one-live-client law
+// (kb:adr/surfaces-one-live-client-per-attach-target, kb:anchor/terminal.ws /
+// kb:anchor/terminal.shell-ws): at most one open terminal socket per (session, surface).
+// A new connection supersedes (close code 4000) and tears down the old PTY before its
+// own attach begins; a session's Claude socket and its shell socket are independent keys
+// and never supersede each other. It is shared: terminalFeature (Claude surface) and
+// shellFeature (shell surface) both take a pointer to the same instance, and
+// sessionsFeature closes entries out of it on End/Remove — one registry, three
+// consumers, exactly one map.
+//
+// Two separate guards, never nested in the other order: keyLocks serialises one key's
+// whole takeover — including the old socket's Close and the new attach's I/O — so a
+// second evict can never race a first attach that hasn't registered yet; mu guards only
+// conns map reads/writes and is never held across that I/O. session.Manager.Apply calls
+// Watched (below) while holding session.Manager.mu, so a takeover that instead held mu
+// across a slow peer's close handshake would stall every session read in the daemon for as
+// long as that handshake takes — Watched must only ever need mu's brief hold, never
+// keyLocks'.
 type terminalRegistry struct {
+	keyLocks keyedlock.Locks[terminalKey]
+
 	mu    sync.Mutex
 	conns map[terminalKey]*terminalConn
 }
@@ -89,22 +104,28 @@ func newTerminalRegistry() *terminalRegistry {
 	return &terminalRegistry{conns: make(map[terminalKey]*terminalConn)}
 }
 
-// takeover evicts whatever connection is currently registered for key — closing
-// its socket (4000 superseded) and tearing down its PTY — and, still holding the
-// registry lock, calls attach to build the replacement and installs it. Holding the lock
-// across both steps (not just around the map swap) is what actually delivers REQ-2's
-// "old PTY torn down before the new attach starts": the previous version evicted and
-// installed atomically but ran the new termbridge.Attach *after* releasing the lock and
-// after already being installed, so a slow attach let two PTYs/tmux clients coexist on
-// the session for its duration (review.md Major 1). It also serializes two concurrent
-// connects for the same key, so a second evict can never race a first attach that
-// hasn't registered yet.
+// takeover evicts whatever connection is currently registered for key — closing its
+// socket (4000 superseded) and tearing down its PTY — then calls attach to build the
+// replacement and installs it. keyLocks' per-key lock is held across the whole sequence
+// (not just the map swap), which is what actually delivers the guarantee that the old PTY
+// is torn down before the new attach starts: an earlier version evicted and installed
+// atomically but ran the new termbridge.Attach *after* releasing its lock and after
+// already being installed, so a slow attach let two PTYs/tmux clients coexist on the
+// session for its duration. It also serializes two concurrent connects for the same key,
+// so a second evict can never race a first attach that hasn't registered yet. mu itself is
+// only ever held for the map read/write on either side of that I/O — a Watched call
+// concurrent with a takeover in progress briefly sees no entry for key rather than
+// blocking until the takeover finishes.
 func (r *terminalRegistry) takeover(ctx context.Context, key terminalKey, attach func(context.Context) (*terminalConn, error)) (*terminalConn, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	unlock := r.keyLocks.Lock(key)
+	defer unlock()
 
-	if old := r.conns[key]; old != nil {
-		delete(r.conns, key)
+	r.mu.Lock()
+	old := r.conns[key]
+	delete(r.conns, key)
+	r.mu.Unlock()
+
+	if old != nil {
 		_ = old.ws.Close(closeSuperseded, "superseded")
 		_ = old.bridge.Close()
 	}
@@ -113,13 +134,17 @@ func (r *terminalRegistry) takeover(ctx context.Context, key terminalKey, attach
 	if err != nil {
 		return nil, err
 	}
+
+	r.mu.Lock()
 	r.conns[key] = conn
+	r.mu.Unlock()
 	return conn, nil
 }
 
-// Watched satisfies internal/session.Watcher (plan rail-card-improvements REQ-8): true
-// iff a connection is currently registered for sessionID on either surface — the Claude
-// terminal or the plain shell.
+// Watched satisfies internal/session.Watcher
+// (kb:adr/rail-unread-inferred-from-live-terminal-client): true iff a connection is
+// currently registered for sessionID on either surface — the Claude terminal or the
+// plain shell.
 func (r *terminalRegistry) Watched(sessionID int64) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -157,13 +182,15 @@ func (r *terminalRegistry) closeSurface(key terminalKey) {
 // closeSession closes sessionID's live Claude terminal socket, if any, with 4001
 // pane_ended — End's pre-kill step (closing here first means the UI's dead-surface
 // overlay arrives ahead of the alive:false sessionUpsert). Deliberately leaves the shell
-// socket alone (REQ-9: ending a session does not touch its shell).
+// socket alone: ending a session does not touch its shell
+// (kb:adr/surfaces-shell-dies-at-kill-shutdown-too).
 func (r *terminalRegistry) closeSession(sessionID int64) {
 	r.closeSurface(terminalKey{sessionID: sessionID, surface: surfaceClaude})
 }
 
 // closeSessionAndShell closes both sessionID's Claude and shell terminal sockets — the
-// Remove path (REQ-9: removing a session kills its shell alongside the Claude one).
+// Remove path (removing a session kills its shell alongside the Claude one,
+// kb:adr/surfaces-shell-dies-at-kill-shutdown-too).
 func (r *terminalRegistry) closeSessionAndShell(sessionID int64) {
 	r.closeSurface(terminalKey{sessionID: sessionID, surface: surfaceClaude})
 	r.closeSurface(terminalKey{sessionID: sessionID, surface: surfaceShell})
@@ -201,10 +228,9 @@ func clampInt(v, lo, hi int) int {
 	return v
 }
 
-// terminalFeature owns the Claude-surface terminal socket: GET /ws/terminal/{id}
-// (plan code-breakup REQ-6). registry is shared with shellFeature (the shell surface)
-// and sessionsFeature (End/Remove's socket teardown) — see terminalRegistry's doc
-// comment.
+// terminalFeature owns the Claude-surface terminal socket: GET /ws/terminal/{id}.
+// registry is shared with shellFeature (the shell surface) and sessionsFeature
+// (End/Remove's socket teardown) — see terminalRegistry's doc comment.
 type terminalFeature struct {
 	registry *terminalRegistry
 	manager  *session.Manager
@@ -248,8 +274,9 @@ func (f *terminalFeature) handleTerminal(w http.ResponseWriter, r *http.Request)
 	attachAndPump(w, r, f.log, f.registry, f.manager, id, f.attach, terminalPump{
 		target: sess.TmuxTarget,
 		key:    terminalKey{sessionID: id, surface: surfaceClaude},
-		// nudge is set: a Claude pane's death is its session's death (REQ-6) — a clean
-		// PTY EOF nudges the liveness poll rather than waiting out the ~5s interval.
+		// nudge is set: a Claude pane's death is its session's death
+		// (kb:adr/lifecycle-liveness-from-pane-existence) — a clean PTY EOF nudges the
+		// liveness poll rather than waiting out the ~5s interval.
 		nudge: f.manager.Nudge,
 		socketToPTY: func(ctx context.Context, c *websocket.Conn, bridge paneConn) {
 			pumpSocketToPTY(ctx, f.log, c, bridge)
@@ -271,7 +298,7 @@ type terminalPump struct {
 // attachAndPump is the terminal-socket lifecycle shared by the Claude surface
 // (terminalFeature.handleTerminal) and the shell surface (shellFeature.handleShellTerminal):
 // Accept, takeover with an attach closure (evicting whatever was previously registered for
-// p.key before the new attach starts, REQ-2 — see terminalRegistry.takeover's doc comment),
+// p.key before the new attach starts — see terminalRegistry.takeover's doc comment),
 // MarkSeen, the PTY->socket pump running in the background, the surface's own socket->PTY
 // pump, then teardown in the order pumpPTYToSocket's ctx.Err() check depends on.
 func attachAndPump(w http.ResponseWriter, r *http.Request, log zerolog.Logger, registry *terminalRegistry, manager *session.Manager, sessionID int64, attach attachFunc, p terminalPump) {
@@ -298,9 +325,10 @@ func attachAndPump(w http.ResponseWriter, r *http.Request, log zerolog.Logger, r
 	defer func() { _ = bridge.Close() }()
 	defer registry.release(p.key, conn)
 
-	// REQ-8's attach side effect applies to both surfaces: a successful takeover marks the
-	// session seen, before any PTY byte is forwarded (kb:anchor/terminal.ws / kb:anchor/terminal.shell-ws
-	// Protocol Contract delta).
+	// Marking the session seen on attach applies to both surfaces
+	// (kb:adr/rail-unread-inferred-from-live-terminal-client): a successful takeover
+	// marks the session seen, before any PTY byte is forwarded (kb:anchor/terminal.ws /
+	// kb:anchor/terminal.shell-ws Protocol Contract delta).
 	if err := manager.MarkSeen(r.Context(), sessionID); err != nil {
 		log.Warn().Err(err).Int64("session_id", sessionID).Msg("marking session seen failed")
 	}
@@ -333,9 +361,11 @@ func attachAndPump(w http.ResponseWriter, r *http.Request, log zerolog.Logger, r
 
 // pumpPTYToSocket streams raw PTY output to the client verbatim (kb:anchor/terminal.ws / kb:anchor/terminal.shell-ws) until
 // EOF or the socket dies. A clean EOF (tmux pane gone) always closes with 4001; it calls
-// nudge only when nudgeOnEOF is true (the Claude surface, REQ-6) — a shell surface's EOF
-// (kb:anchor/terminal.shell-ws) must never nudge its session's liveness (a shell's death is not its session's
-// death), so shellFeature passes nudgeOnEOF=false and a nil nudge.
+// nudge only when nudgeOnEOF is true (the Claude surface,
+// kb:adr/lifecycle-liveness-from-pane-existence) — a shell surface's EOF
+// (kb:anchor/terminal.shell-ws) must never nudge its session's liveness (a shell's death
+// is not its session's death, kb:adr/surfaces-one-live-client-per-attach-target), so
+// shellFeature passes nudgeOnEOF=false and a nil nudge.
 func pumpPTYToSocket(ctx context.Context, log zerolog.Logger, c *websocket.Conn, bridge paneConn, sessionID int64, nudgeOnEOF bool, nudge func(context.Context, int64)) {
 	buf := make([]byte, terminalReadBufSize)
 	for {
@@ -404,8 +434,8 @@ const maxLoggedFrameLen = 200
 
 // logUnknownTextFrame logs one unparseable/unknown text frame at Debug, truncated to
 // maxLoggedFrameLen — shared by applyResizeFrame (kb:anchor/terminal.ws) and
-// applyShellTextFrame (kb:anchor/terminal.shell-ws), which both treat this as "ignored, never
-// fatal" (D6: a `scroll` frame on the Claude socket takes this same path).
+// applyShellTextFrame (kb:anchor/terminal.shell-ws), which both treat this as "ignored,
+// never fatal" — including a `scroll` frame arriving on the Claude socket.
 func logUnknownTextFrame(log zerolog.Logger, data []byte, err error) {
 	logged := data
 	if len(logged) > maxLoggedFrameLen {
@@ -415,9 +445,10 @@ func logUnknownTextFrame(log zerolog.Logger, data []byte, err error) {
 }
 
 // applyResizeFrame parses and clamps one resize control frame, applying it via
-// Bridge.Resize (pty.Setsize then tmux resize-window — FINDINGS §7(d)). An unparseable
-// or unknown text frame is ignored and logged, never fatal — including a `scroll` frame
-// (D6), which decodes fine but has Type != "resize".
+// Bridge.Resize (pty.Setsize then tmux resize-window,
+// kb:adr/surfaces-shared-attach-single-pty). An unparseable or unknown text frame is
+// ignored and logged, never fatal — including a `scroll` frame, which decodes fine but
+// has Type != "resize".
 func applyResizeFrame(ctx context.Context, log zerolog.Logger, bridge paneConn, data []byte) {
 	var frame resizeFrame
 	if err := json.Unmarshal(data, &frame); err != nil || frame.Type != "resize" {
