@@ -106,6 +106,8 @@ Fix:
 - [ ] **Check the Focus view's first-attach terminal height** — the size note's reserved row
   was restored; confirm the terminal is not a row short on first attach.
 - [ ] **A card's model name is empty or stale after the model changes in a session.**
+- [ ] **Switching a session to its shell leaves keyboard focus on the `shell` button** — typing
+  goes nowhere until the terminal is clicked. Same on `main` before the cleanup.
 
 Refactor:
 
