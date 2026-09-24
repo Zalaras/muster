@@ -70,6 +70,46 @@ func (c *Client) socketFlag() []string {
 	return []string{"-L", c.socket}
 }
 
+// exactTarget formats t (a bare session name, e.g. "muster-7", or a
+// "name:@windowID" pair) as tmux's exact-match target syntax. Every -t argument this
+// package builds from a Muster-owned name goes through this.
+//
+// The leading "=" alone is exact for a target-session command (kill-session,
+// attach-session): measured on tmux 3.7b (private-socket probe, scratch dir) that a
+// bare-name target silently prefix-matches when no session has that literal name —
+// "kill-session -t muster-1" with only "muster-12" and "muster-3" live exits 0 and
+// kills muster-12 — while "=muster-1" against the same two instead reports "can't find
+// session: muster-1", never touching muster-12 ("=muster-12" still kills exactly
+// muster-12 when that is the live name).
+//
+// But "=" alone is NOT exact for a target-window command (list-panes, resize-window,
+// display-message) when t is a bare, colonless session name: tmux's target-window
+// resolver only applies the "="-exact-match rule to the session part once a ":" is
+// present, so a colonless "=muster-1" still prefix-matches muster-12 there even though
+// the identical string is exact for kill-session (measured: "list-panes -t '=muster-1'"
+// against {muster-12, muster-3} resolves to muster-12's own pane, exit 0; "resize-window
+// -t '=muster-1'" against the same set resizes muster-12's window, exit 0). Appending a
+// trailing ":" closes this for every command class alike — measured exact (errors
+// "can't find session: muster-1", never touching muster-12) for target-session
+// (kill-session, attach-session), target-window (list-panes, resize-window,
+// display-message) and target-pane (capture-pane, send-keys, copy-mode) commands, and
+// still correctly operates on an existing exact match ("=muster-12:" resizes/kills/reads
+// exactly muster-12, same as the colonless "=muster-12" already did).
+//
+// A t that already carries a ":" (a window id, e.g. "muster-12:@0") is left as
+// plain "=" + t rather than gaining a second trailing colon: it is already exact for
+// every command class (probe: "list-panes -t '=muster-9:@2'" round-trips to muster-9's
+// own pane; a window id owned by a different session already fails safely — "list-panes
+// -t muster-1:@1", @1 owned by a different session, reports "can't find window: @1"
+// rather than misdirecting), so appending a second colon would only add an ambiguous
+// extra segment tmux's target grammar does not expect.
+func exactTarget(t string) string {
+	if strings.Contains(t, ":") {
+		return "=" + t
+	}
+	return "=" + t + ":"
+}
+
 // serverOptions are the tmux options measured to make shared-attach terminal rendering
 // work correctly, plus `prefix`/`prefix2 None` so keystrokes (including C-b) pass through to claude
 // instead of being swallowed as a tmux prefix (verified manually: with `prefix None` set,
@@ -293,13 +333,13 @@ func (c *Client) applyServerOptions(ctx context.Context) error {
 // invoked via a prefix key; the daemon drives tmux only through CLI commands.
 func (c *Client) AttachArgv(target string) []string {
 	argv := append([]string{"tmux"}, c.socketFlag()...)
-	return append(argv, "attach-session", "-t", target)
+	return append(argv, "attach-session", "-t", exactTarget(target))
 }
 
 // ResizeWindow applies `tmux resize-window` to target: always called after pty.Setsize,
 // never the pane-level primitive that silently no-ops (kb:lesson/resize-pane-silent-noop).
 func (c *Client) ResizeWindow(ctx context.Context, target string, cols, rows int) error {
-	if _, err := c.run(ctx, "resize-window", "-t", target, "-x", strconv.Itoa(cols), "-y", strconv.Itoa(rows)); err != nil {
+	if _, err := c.run(ctx, "resize-window", "-t", exactTarget(target), "-x", strconv.Itoa(cols), "-y", strconv.Itoa(rows)); err != nil {
 		return fmt.Errorf("tmux resize-window %q: %w", target, err)
 	}
 	return nil
@@ -319,7 +359,7 @@ func (c *Client) DisplayVar(ctx context.Context, target, format string) (string,
 // comment guards against (kb:adr/surfaces-shell-busy-from-tmux-process-state makes the
 // same distinction for the busy poller).
 func (c *Client) displayVar(ctx context.Context, target, format string) (string, error) {
-	out, err := c.run(ctx, "display-message", "-p", "-t", target, format)
+	out, err := c.run(ctx, "display-message", "-p", "-t", exactTarget(target), format)
 	if err != nil {
 		return "", fmt.Errorf("tmux display-message %q %q: %w", target, format, err)
 	}
@@ -400,7 +440,7 @@ func (c *Client) paneCopyModeState(ctx context.Context, target string) (inMode b
 // ScrollCopyMode translates one wheel gesture into tmux copy-mode commands against
 // target (kb:anchor/terminal.shell-ws, kb:adr/surfaces-shell-scroll-via-daemon-copy-mode).
 // lines is signed: positive scrolls back into history (`scroll-up`), negative toward the
-// live bottom (`scroll-down`); the caller (internal/server/terminal.go) is responsible
+// live bottom (`scroll-down`); the caller (internal/server/shells.go) is responsible
 // for clamping its magnitude to [1, 200]. Enters copy-mode with `-e` only when the pane
 // is not already in a mode and has real history to scroll to (`#{history_size}` > 0)
 // — `-e` is what makes tmux leave copy-mode by itself once scrolled
@@ -408,7 +448,7 @@ func (c *Client) paneCopyModeState(ctx context.Context, target string) (inMode b
 // `send-keys -X -N <n>` rather than n separate invocations, to avoid n round trips for
 // one gesture. entered reports whether
 // the pane is now (or already was) in a mode, so the caller's own inCopyMode tracking
-// (terminal.go's pumpShellSocketToPTY) stays accurate for the "nothing to scroll
+// (shells.go's pumpShellSocketToPTY) stays accurate for the "nothing to scroll
 // to" no-op — where entered is false even though err is nil.
 func (c *Client) ScrollCopyMode(ctx context.Context, target string, lines int) (entered bool, err error) {
 	if lines == 0 {
@@ -422,7 +462,7 @@ func (c *Client) ScrollCopyMode(ctx context.Context, target string, lines int) (
 		if historySize <= 0 {
 			return false, nil
 		}
-		if _, err := c.run(ctx, "copy-mode", "-e", "-t", target); err != nil {
+		if _, err := c.run(ctx, "copy-mode", "-e", "-t", exactTarget(target)); err != nil {
 			return false, fmt.Errorf("tmux copy-mode %q: %w", target, err)
 		}
 	}
@@ -430,7 +470,7 @@ func (c *Client) ScrollCopyMode(ctx context.Context, target string, lines int) (
 	if lines < 0 {
 		direction, n = "scroll-down", -lines
 	}
-	if _, err := c.run(ctx, "send-keys", "-X", "-N", strconv.Itoa(n), "-t", target, direction); err != nil {
+	if _, err := c.run(ctx, "send-keys", "-X", "-N", strconv.Itoa(n), "-t", exactTarget(target), direction); err != nil {
 		return false, fmt.Errorf("tmux send-keys %s %q: %w", direction, target, err)
 	}
 	return true, nil
@@ -440,7 +480,7 @@ func (c *Client) ScrollCopyMode(ctx context.Context, target string, lines int) (
 // live bottom — called before writing input bytes to a pane the daemon knows
 // may still be in a mode.
 func (c *Client) CancelCopyMode(ctx context.Context, target string) error {
-	if _, err := c.run(ctx, "send-keys", "-X", "-t", target, "cancel"); err != nil {
+	if _, err := c.run(ctx, "send-keys", "-X", "-t", exactTarget(target), "cancel"); err != nil {
 		return fmt.Errorf("tmux send-keys cancel %q: %w", target, err)
 	}
 	return nil
@@ -453,7 +493,7 @@ func (c *Client) CancelCopyMode(ctx context.Context, target string) error {
 // "muster-<id>", whether the stored value is the InsertSession placeholder or a stale
 // window id. Returns an error if the session (or its window) doesn't exist.
 func (c *Client) ResolveSessionTarget(ctx context.Context, name string) (target, pane string, err error) {
-	out, err := c.run(ctx, "list-panes", "-t", name, "-F", "#{window_id} #{pane_id}")
+	out, err := c.run(ctx, "list-panes", "-t", exactTarget(name), "-F", "#{window_id} #{pane_id}")
 	if err != nil {
 		return "", "", fmt.Errorf("resolving target for %q: %w", name, err)
 	}
@@ -476,13 +516,14 @@ func (c *Client) ResolveSessionTarget(ctx context.Context, name string) (target,
 // that one stable shape (stderr's "error connecting to <path> …") so it surfaces as an
 // error — "I could not ask" — instead of being folded into "not there". An expired ctx is
 // the same story: run wraps ctx.Err() rather than returning a bare ExitError, so
-// errors.As(err, &exitErr) below misses and this returns (false, err) — never (false,
-// nil) — with errors.Is(err, context.DeadlineExceeded) holding on the returned error.
+// tmuxAbsence's errors.As(err, &exitErr) misses and this returns (false, err) — never
+// (false, nil) — with errors.Is(err, context.DeadlineExceeded) holding on the returned
+// error.
 func (c *Client) PaneExists(ctx context.Context, target string) (bool, error) {
 	if target == "" {
 		return false, nil
 	}
-	_, err := c.run(ctx, "list-panes", "-t", target)
+	_, err := c.run(ctx, "list-panes", "-t", exactTarget(target))
 	if err == nil {
 		return true, nil
 	}
@@ -515,7 +556,7 @@ func tmuxAbsence(err error) (absent bool, checkErr error) {
 // to <socket> (Permission denied)" diagnostic (kb:adr/actions-kill-is-idempotent) — a
 // socket that exists and could hold a live server, but this process lacks
 // permission to reach it, as opposed to tmux reaching the socket and reporting the
-// target absent. run folds CombinedOutput's stderr into the returned error (tmux.go's
+// target absent. run folds stdout and stderr together into the returned error (tmux.go's
 // run doc comment), so the fragment is available on err.Error() without a second
 // command.
 //
@@ -559,7 +600,7 @@ func isConnectionFailure(err error) bool {
 // tmux session has exactly one window (kb:adr/surfaces-one-tmux-session-per-session), so
 // killing it kills the session too.
 func (c *Client) KillWindow(ctx context.Context, target string) error {
-	if _, err := c.run(ctx, "kill-window", "-t", target); err != nil {
+	if _, err := c.run(ctx, "kill-window", "-t", exactTarget(target)); err != nil {
 		return fmt.Errorf("tmux kill-window %q: %w", target, err)
 	}
 	return nil
@@ -583,7 +624,7 @@ func (c *Client) KillWindow(ctx context.Context, target string) error {
 // wraps ctx.Err() instead of a bare ExitError, so errors.As below misses and the original
 // (deadline) error is returned without a PaneExists verify.
 func (c *Client) KillSession(ctx context.Context, name string) error {
-	_, err := c.run(ctx, "kill-session", "-t", name)
+	_, err := c.run(ctx, "kill-session", "-t", exactTarget(name))
 	if err == nil {
 		return nil
 	}
@@ -613,7 +654,7 @@ func (c *Client) KillSession(ctx context.Context, name string) error {
 // which rows are still alive (kb:adr/lifecycle-reconcile-converges-with-the-socket), so an
 // unreachable socket used to read as "no sessions at
 // all" rather than "I couldn't find out". Mirrors PaneExists' own distinction, including
-// for an expired ctx: run's wrapped ctx.Err() misses errors.As below the same way.
+// for an expired ctx: run's wrapped ctx.Err() misses tmuxAbsence's errors.As the same way.
 func (c *Client) ListSessions(ctx context.Context) ([]string, error) {
 	out, err := c.run(ctx, "list-sessions", "-F", "#{session_name}")
 	if err != nil {
@@ -634,7 +675,7 @@ func (c *Client) ListSessions(ctx context.Context) ([]string, error) {
 // rule) and never logged by any caller (may hold prompt text). Trailing blank lines are
 // trimmed so the UI's `pre.snapshot` doesn't scroll into emptiness.
 func (c *Client) CapturePane(ctx context.Context, target string) (string, error) {
-	out, err := c.runCapture(ctx, "capture-pane", "-p", "-t", target)
+	out, err := c.runCapture(ctx, "capture-pane", "-p", "-t", exactTarget(target))
 	if err != nil {
 		return "", fmt.Errorf("tmux capture-pane %q: %w", target, err)
 	}
@@ -670,8 +711,8 @@ func (c *Client) run(ctx context.Context, args ...string) (string, error) {
 		}
 		// tmux writes an ordinary query's error only to one of the two streams (its
 		// replies on success, a diagnostic on stderr on failure), so folding both into
-		// the message reproduces execCombinedOutput's old single-buffer text without
-		// this method needing to know which stream tmux used.
+		// the message covers either one without this method needing to know which
+		// stream tmux used.
 		return string(stdout), fmt.Errorf("%w: %s", err, strings.TrimSpace(string(stdout)+string(stderr)))
 	}
 	return string(stdout), nil
@@ -695,9 +736,9 @@ func execSeparated(ctx context.Context, name string, args ...string) (stdout, st
 	return outBuf.Bytes(), errBuf.Bytes(), err
 }
 
-// runCapture is run's capture-pane-only variant, through the same Client.exec seam
-// (rather than a second exec.CommandContext of its own, which also missed run's
-// ctx-expiry wrapping below): unlike run, it never folds the
+// runCapture is run's capture-pane-only variant, through the same Client.exec seam —
+// which is what gives it run's own ctx-expiry wrapping below without a second
+// exec.CommandContext of its own. Unlike run, it never folds the
 // subprocess's stdout into the returned error. For `capture-pane -p`, stdout *is* the
 // live pane text — which may hold prompt content — and no caller may ever log it
 // (CLAUDE.md hard rule). Stdout and stderr are kept separate so a failure's error can

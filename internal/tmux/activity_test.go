@@ -343,7 +343,7 @@ func TestCancelCopyMode_IssuesSendKeysCancelWithTarget(t *testing.T) {
 	assert.True(t, slices.Contains(gotArgs, "send-keys"))
 	assert.True(t, slices.Contains(gotArgs, "-X"))
 	assert.True(t, slices.Contains(gotArgs, "cancel"))
-	assert.True(t, slices.Contains(gotArgs, "muster-7-shell"))
+	assert.True(t, slices.Contains(gotArgs, "=muster-7-shell:"))
 }
 
 // TestCancelCopyMode_ErrorPropagates covers the tmux command failing.

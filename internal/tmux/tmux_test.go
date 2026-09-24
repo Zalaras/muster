@@ -305,7 +305,7 @@ func TestAttachArgv_IncludesTheSocketFlagAndTarget(t *testing.T) {
 
 	argv := c.AttachArgv("muster-7:@1")
 
-	assert.Equal(t, []string{"tmux", "-S", "/tmp/scratch/tmux.sock", "attach-session", "-t", "muster-7:@1"}, argv)
+	assert.Equal(t, []string{"tmux", "-S", "/tmp/scratch/tmux.sock", "attach-session", "-t", "=muster-7:@1"}, argv)
 }
 
 // TestResizeWindowAndDisplayVar_RoundTripTheRequestedGeometry covers D4: a
@@ -327,6 +327,39 @@ func TestResizeWindowAndDisplayVar_RoundTripTheRequestedGeometry(t *testing.T) {
 	height, err := c.DisplayVar(context.Background(), target, "#{window_height}")
 	require.NoError(t, err)
 	assert.Equal(t, "40", height)
+}
+
+// TestResizeWindow_RealTmux_NeverPrefixMatchesADifferentLiveSession is a second,
+// independent measurement of the same residual gap
+// TestExactTarget_RealTmux_NeverPrefixMatchesADifferentLiveSession documents for
+// PaneExists/ResolveSessionTarget/KillSession: `resize-window` is a target-window
+// command too (session:window form, tmux's own TARGET SPECIFICATION section), and a
+// bare, colonless "=muster-1" does not get tmux's session-level exact-match treatment
+// the way a target-session command (kill-session) does — probed by hand against tmux
+// 3.7b: `resize-window -t '=muster-1'` against {muster-12, muster-3} silently resizes
+// muster-12 (exit 0), while the same target with a trailing colon,
+// `resize-window -t '=muster-1:'`, correctly reports "can't find session: muster-1"
+// (exit 1). exactTarget's own doc comment claims "the same collapse reaches
+// list-panes/display-message/etc." fixed uniformly by leading with "=" alone; this
+// disproves that for the target-window family when the target has no window part —
+// resize-window is the most consequential instance, since geometry is applied to
+// whichever session lives at the mismatched name (CLAUDE.md: "pty.Setsize AND
+// resize-window").
+func TestResizeWindow_RealTmux_NeverPrefixMatchesADifferentLiveSession(t *testing.T) {
+	c := New(newTestSocket(t))
+	dir := t.TempDir()
+
+	target12, _, err := c.NewNamedSession(context.Background(), "muster-12", dir, nil, sleepCommand())
+	require.NoError(t, err)
+	widthBefore, err := c.DisplayVar(context.Background(), target12, "#{window_width}")
+	require.NoError(t, err)
+
+	resizeErr := c.ResizeWindow(context.Background(), "muster-1", 55, 20)
+	require.Error(t, resizeErr, "resizing a name with no live session must error, never silently resize a DIFFERENT live session (muster-12)")
+
+	widthAfter, err := c.DisplayVar(context.Background(), target12, "#{window_width}")
+	require.NoError(t, err)
+	assert.Equal(t, widthBefore, widthAfter, "muster-12's geometry must be untouched by a resize-window call targeting the unrelated name \"muster-1\"")
 }
 
 // TestDisplayVar_UnknownTargetReturnsEmptyWithNoError documents measured tmux behaviour
@@ -578,6 +611,67 @@ func TestKillSession_RemovesTheWholeSessionIdempotentForAnUnknownName(t *testing
 
 	err = c.KillSession(context.Background(), "muster-does-not-exist")
 	assert.NoError(t, err, "REQ-6: killing an already-gone session name must be treated as a successful kill")
+}
+
+// TestExactTarget_RealTmux_NeverPrefixMatchesADifferentLiveSession covers review-work
+// Major 3/Major 7 for real, against a real per-test socket rather than a fake exec seam:
+// exactTarget's whole reason to exist (tmux.go's own doc comment) is a measured tmux
+// prefix-match hazard — a bare "muster-1" -t target silently matches a differently-named
+// live session when "muster-1" itself has no live session of its own. Two independent
+// collisions are checked, each on its own fresh socket: "muster-1" is a prefix of both
+// "muster-12" (a longer numeric id) and "muster-1-shell" (the shell-session naming
+// convention, tmux.go's shellSessionSuffix) — kept on separate sockets deliberately,
+// because with BOTH candidates live at once tmux's own resolver reports neither a match
+// nor an "ambiguous session" error but a bare "can't find session", which would mask
+// each collision's own hazard rather than reproduce it (probed by hand: two candidates
+// sharing the "muster-1" prefix make tmux report not-found even though a single one of
+// them, alone, resolves and gets silently killed). Every method exactTarget's doc
+// comment names (KillSession, PaneExists, ResolveSessionTarget, ListSessions as the
+// oracle) is exercised — this must fail against the pre-exactTarget code the same way
+// the reviewer's own repro did: KillSession(ctx, "muster-1") kills the other live
+// session instead of reporting "not there", and PaneExists/ResolveSessionTarget
+// ("muster-1") report true/a resolved target instead of absent.
+func TestExactTarget_RealTmux_NeverPrefixMatchesADifferentLiveSession(t *testing.T) {
+	cases := []struct {
+		name       string
+		colliding  string // a live session name that shares the "muster-1" prefix
+		collidesOn string // description of why it collides, for assertion messages
+	}{
+		{"a longer numeric id", "muster-12", "muster-12"},
+		{"the shell-session suffix", "muster-1-shell", "muster-1-shell"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := New(newTestSocket(t))
+			dir := t.TempDir()
+
+			targetColliding, _, err := c.NewNamedSession(context.Background(), tc.colliding, dir, nil, sleepCommand())
+			require.NoError(t, err)
+			target3, _, err := c.NewNamedSession(context.Background(), "muster-3", dir, nil, sleepCommand())
+			require.NoError(t, err)
+
+			killErr := c.KillSession(context.Background(), "muster-1")
+			require.NoError(t, killErr, "REQ-6: killing a name with no live session is a successful (idempotent) no-op — it must not report success by having killed "+tc.collidesOn+" instead")
+
+			exists1, err := c.PaneExists(context.Background(), "muster-1")
+			require.NoError(t, err)
+			assert.False(t, exists1, "muster-1 was never created — PaneExists must not report it alive via a "+tc.collidesOn+" prefix match")
+
+			existsColliding, err := c.PaneExists(context.Background(), targetColliding)
+			require.NoError(t, err)
+			assert.True(t, existsColliding, "KillSession(\"muster-1\") must never touch "+tc.collidesOn)
+			exists3, err := c.PaneExists(context.Background(), target3)
+			require.NoError(t, err)
+			assert.True(t, exists3, "KillSession(\"muster-1\") must never touch muster-3")
+
+			names, err := c.ListSessions(context.Background())
+			require.NoError(t, err)
+			assert.ElementsMatch(t, []string{tc.colliding, "muster-3"}, names, "both other sessions must still be listed, untouched")
+
+			_, _, resolveErr := c.ResolveSessionTarget(context.Background(), "muster-1")
+			assert.Error(t, resolveErr, "resolving a target for a name with no live session must error, never silently resolve to "+tc.collidesOn+"'s own window")
+		})
+	}
 }
 
 // TestKillSession_UnreachableSocketReturnsAnErrorWhileTheSessionIsStillAlive covers plan
