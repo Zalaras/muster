@@ -31,7 +31,7 @@ import (
 //     event is a reordered straggler from a conversation this session has moved on
 //     from (typically the `/clear` pair's own `SessionEnd(reason:"clear")`, since
 //     delivery is unordered per CLAUDE.md's hard rule). Rebinding is **monotonic**
-//     (kb:adr/ingest-envelope-authoritative-binding): it is routed and applied below,
+//     (kb:adr/ingest-monotonic-rebind): it is routed and applied below,
 //     but it never rebinds *backwards* — the current binding, context gauge and
 //     compaction counter are left untouched.
 //
@@ -96,14 +96,14 @@ func (m *Manager) Apply(ctx context.Context, musterSessionID int64, claudeSessio
 	wait, done := m.nextWriteTurnLocked(musterSessionID)
 	m.mu.Unlock()
 
-	// Apply spells out its own tail rather than calling persistWholeRow: byClaude is
+	// Apply spells out its own tail rather than calling persistWholeRowLocked: byClaude is
 	// Manager-level map state, not a field of sess, so restoring it can't go through
 	// restoreChangedFields' per-field Session CAS — it's put back unconditionally to what
 	// it held before this call, the same outcome a whole-struct restore would have given a
-	// single in-flight write (persistWholeRow's doc), and reverting it further finely
+	// single in-flight write (persistWholeRowLocked's doc), and reverting it further finely
 	// would need tracking a second writer's claim on the same claude id, which nothing in
 	// this package does today.
-	fieldRestore := restoreChangedFields(prev, post)
+	fieldRestore := m.restoreChangedFields(musterSessionID, prev, post)
 	restore := func(cur *Session) {
 		fieldRestore(cur)
 		if hadPrevOwner {
@@ -113,11 +113,10 @@ func (m *Manager) Apply(ctx context.Context, musterSessionID int64, claudeSessio
 		}
 	}
 
-	persist, result := m.wholeRowPersist(ctx, musterSessionID, sess)
+	persist, result := m.wholeRowPersist(ctx, musterSessionID, sess, true)
 	if err := m.finishWrite(musterSessionID, sess, wait, done, persist, nil, restore); err != nil {
 		return nil, fmt.Errorf("persisting session %d: %w", musterSessionID, err)
 	}
-	m.broadcast(*result)
 	return *result, nil
 }
 
@@ -141,7 +140,7 @@ func isBindKind(kind claudecode.InputKind) bool {
 // (kb:adr/connection-whole-object-session-upserts). Never a state source:
 // applyStatusUpdate has no path to state/stateSince/attention/failure/alive/compactions/
 // permissionMode — status posts never drive the state machine
-// (kb:adr/ingest-envelope-authoritative-binding).
+// (kb:anchor/state.transitions).
 func (m *Manager) ApplyStatus(ctx context.Context, musterSessionID int64, update claudecode.StatusUpdate) (*Session, error) {
 	m.mu.Lock()
 	sess, ok := m.sessions[musterSessionID]
@@ -174,7 +173,7 @@ func (m *Manager) ApplyStatus(ctx context.Context, musterSessionID int64, update
 	// (kb:adr/rename-muster-owned-title-override-wins).
 	broadcast := !stringPtrEqual(beforeDisplay, sess.DisplayTitle()) || beforeModel != sess.Model || beforeContext != sess.Context
 
-	snapshot, err := m.persistWholeRow(ctx, musterSessionID, sess, prev, post, broadcast)
+	snapshot, err := m.persistWholeRowLocked(ctx, musterSessionID, sess, prev, post, broadcast)
 	if err != nil {
 		return nil, fmt.Errorf("persisting status update for session %d: %w", musterSessionID, err)
 	}

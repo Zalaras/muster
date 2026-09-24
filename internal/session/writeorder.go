@@ -2,6 +2,8 @@ package session
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 	"slices"
 )
 
@@ -20,6 +22,18 @@ func (m *Manager) nextWriteTurnLocked(id int64) (wait <-chan struct{}, done func
 	return wait, func() { close(mine) }
 }
 
+// recordPersistedLocked records row as the last one this id's chain actually got into the
+// DB — must be called with m.mu held. wholeRowPersist and railPersist both call it, inside
+// their own persist closures, right after a successful store write and before broadcasting
+// — see restoreChangedFields' doc for why the value recorded here, not a failing write's
+// own pre-mutation clone, is what a later failure on the same id restores a field to.
+func (m *Manager) recordPersistedLocked(id int64, row *Session) {
+	if m.lastPersisted == nil {
+		m.lastPersisted = make(map[int64]*Session)
+	}
+	m.lastPersisted[id] = row
+}
+
 // finishWrite is the single writer tail shared by every method that persists a Session
 // row: called after the caller has released m.mu having already drawn wait/done via
 // nextWriteTurnLocked while it still held the lock, it waits for any earlier write on the
@@ -28,10 +42,13 @@ func (m *Manager) nextWriteTurnLocked(id int64) (wait <-chan struct{}, done func
 // removed entirely in the meantime). One persist-failure policy for every setter: memory
 // never claims what the DB doesn't hold. On success it broadcasts snapshot, skipped when
 // snapshot is nil — every whole-row setter passes nil here and broadcasts itself from
-// inside persist instead (persistWholeRow's doc says why); SetTranscript's silent write
-// and storeSnapshot's display-only cache pass nil because they never broadcast at all.
-// done is always called before returning, whether persist succeeded or failed, so the next
-// queued write — if any — is never blocked by this one's outcome.
+// inside persist instead, and so does the rail batch's own persist (wholeRowPersist's and
+// railPersist's docs say why it has to happen there, not after finishWrite returns);
+// SetTranscript's silent write and storeSnapshot's display-only cache pass nil because they
+// never broadcast at all. done is always called before returning, whether persist
+// succeeded or failed, so the next queued write — if any — is never blocked by this one's
+// outcome, and never unblocked before this one's own broadcast (when it has one) has
+// already gone out.
 func (m *Manager) finishWrite(id int64, sess *Session, wait <-chan struct{}, done func(), persist func() error, snapshot *Session, restore func(*Session)) error {
 	if wait != nil {
 		<-wait
@@ -52,7 +69,7 @@ func (m *Manager) finishWrite(id int64, sess *Session, wait <-chan struct{}, don
 	return nil
 }
 
-// persistWholeRow is the shared tail every whole-row setter (SetTitle, MarkSeen,
+// persistWholeRowLocked is the shared tail every whole-row setter (SetTitle, MarkSeen,
 // SetTranscript, SetPlan, MarkPlanWritten, ApplyPlanScan, RecordLaunch, RecordResume,
 // markEnded, RepairOwnedSession, reviveOwnedSession, ApplyStatus) calls once its mutation
 // is done, in place of hand-writing finishWrite's row/ticket/persist/restore wiring itself.
@@ -77,28 +94,40 @@ func (m *Manager) finishWrite(id int64, sess *Session, wait <-chan struct{}, don
 // Returns the session as it stood right after a successful persist (nil on failure or on
 // an id removed out from under this write, e.g. by a Remove queued ahead of it in the same
 // turnstile — persist declines to resurrect a row that's gone).
-func (m *Manager) persistWholeRow(ctx context.Context, id int64, sess, prev, post *Session, broadcast bool) (*Session, error) {
+func (m *Manager) persistWholeRowLocked(ctx context.Context, id int64, sess, prev, post *Session, broadcast bool) (*Session, error) {
 	wait, done := m.nextWriteTurnLocked(id)
 	m.mu.Unlock()
 
-	persist, result := m.wholeRowPersist(ctx, id, sess)
-	if err := m.finishWrite(id, sess, wait, done, persist, nil, restoreChangedFields(prev, post)); err != nil {
+	persist, result := m.wholeRowPersist(ctx, id, sess, broadcast)
+	if err := m.finishWrite(id, sess, wait, done, persist, nil, m.restoreChangedFields(id, prev, post)); err != nil {
 		return nil, err
-	}
-	if broadcast {
-		m.broadcast(*result)
 	}
 	return *result, nil
 }
 
-// wholeRowPersist builds the persist closure persistWholeRow (and Apply, which needs an
-// extra byClaude restore step beyond restoreChangedFields, so it can't call
-// persistWholeRow itself) hand to finishWrite: re-reads id's row from live memory, and
-// clones it into *result, only once finishWrite actually invokes the closure — see
-// persistWholeRow's own doc for why that timing matters. *result stays nil until a
-// successful persist. Split out of persistWholeRow so this identity-checked read lives in
-// one place regardless of which restore a caller needs.
-func (m *Manager) wholeRowPersist(ctx context.Context, id int64, sess *Session) (persist func() error, result **Session) {
+// wholeRowPersist builds the persist closure every whole-row write hands to finishWrite —
+// persistWholeRowLocked's own callers, Apply (which needs an extra byClaude restore step
+// beyond restoreChangedFields, so it can't call persistWholeRowLocked itself), and
+// persistAndBroadcastRail's per-write loop (manager_rail.go), which already drew its own
+// write ticket in applyRailChangesLocked and so calls this directly rather than through
+// persistWholeRowLocked. One identity-checked live read of id's row, for every write in the
+// package, is the point: re-reads id's row from live memory and clones it into *result,
+// only once finishWrite actually invokes the closure — see persistWholeRowLocked's own doc
+// for why that timing matters.
+//
+// When broadcast is true, the closure sends the fresh sessionUpsert itself, and records the
+// persisted clone as id's new m.lastPersisted entry, before returning — both still inside
+// finishWrite's call to persist(), and therefore strictly before finishWrite's own deferred
+// done() releases the next write queued on the same id. Doing this here, not after
+// finishWrite returns, is what keeps persist order and broadcast order both following
+// ticket order: a broadcast sent after done() could race a later write's own persist and
+// reach clients out of mutation order, or let a write queued ahead of a Remove broadcast
+// its sessionUpsert after that Remove's sessionRemoved.
+//
+// *result stays nil until a successful persist. A rail write ignores it (persistAndBroadcastRail
+// only needs the error) — persistWholeRowLocked's own callers are the ones that need the
+// resulting Session.
+func (m *Manager) wholeRowPersist(ctx context.Context, id int64, sess *Session, broadcast bool) (persist func() error, result **Session) {
 	var out *Session
 	return func() error {
 		m.mu.Lock()
@@ -110,74 +139,157 @@ func (m *Manager) wholeRowPersist(ctx context.Context, id int64, sess *Session) 
 		row := sessionToRow(cur)
 		out = cur.Clone()
 		m.mu.Unlock()
-		return m.store.UpdateSession(ctx, row)
+		if err := m.store.UpdateSession(ctx, row); err != nil {
+			return err
+		}
+		m.mu.Lock()
+		m.recordPersistedLocked(id, out)
+		m.mu.Unlock()
+		if broadcast {
+			m.broadcast(out)
+		}
+		return nil
 	}, &out
 }
 
-// restoreIfUnchanged reverts *field to prev iff it still reads as post — i.e. nothing has
-// changed it since the mutation prev/post recorded — leaving it alone otherwise.
+// restoreIfUnchanged reverts *field to target iff it still reads as post — i.e. nothing
+// has changed it since the mutation post recorded — leaving it alone otherwise.
 // restoreChangedFields' one primitive, parameterized over each field's type rather than
 // repeated inline once per field.
-func restoreIfUnchanged[T comparable](field *T, prev, post T) {
+func restoreIfUnchanged[T comparable](field *T, post, target T) {
 	if *field == post {
-		*field = prev
+		*field = target
 	}
 }
 
-// restoreChangedFields returns finishWrite's restore func for the common case: prev is
+// restoreChangedFields returns finishWrite's restore func for one write on id: prev is
 // sess's clone from immediately before this write's mutation, post its clone from
 // immediately after (both taken in the same locked section, so nothing else could have
-// touched sess in between) — the pair records exactly this write's own diff. On failure,
-// each field is only reverted to prev's value if it still reads as post's value, i.e.
-// nobody else's write has changed it since; a field a write queued behind this one has
-// already moved on from is left alone. This is a strict refinement of a whole-struct
-// restore, not a different policy: with no write racing on the same id, every field still
-// equals post and the effect is identical to copying prev back whole.
+// touched sess in between) — the pair identifies exactly this write's own diff. On
+// failure, each field this write changed is reverted only if cur still reads as post for
+// it, i.e. nobody else's write has changed it since (a field a write queued behind this
+// one has already moved on from is left alone) — but the value it reverts *to* is
+// m.lastPersisted[id]'s field, the last row this id's write chain actually got into the
+// DB, falling back to prev only when nothing has persisted for id yet (a fresh session, or
+// this manager's own first write on it).
+//
+// Reverting to prev itself, rather than the last persisted row, would be wrong once any
+// write is queued behind another on the same id: an earlier write in the turnstile can
+// already have persisted and broadcast a live-read row that carries this write's own
+// still-in-flight field (wholeRowPersist builds its row from live memory at its own turn,
+// not from a value frozen at mutation time), and reverting past that committed value on
+// this write's failure would leave memory disagreeing with both the DB and the last
+// broadcast — not just with this write's own failed mutation. With no write racing on the
+// same id, m.lastPersisted[id] already equals prev, so the effect on a single in-flight
+// write is identical to the old copy-prev-back behaviour; this is a refinement of it, not a
+// different policy, for any queue depth or mix of success/failure:
+//
+//   - earlier write succeeds, later write (same or a different field) fails: the later
+//     write's restore target is the earlier write's own committed value, not this write's
+//     stale prev — memory ends up matching the DB and the last broadcast.
+//   - earlier write fails, later write succeeds: the earlier write's restore leaves the
+//     later write's already-mutated field alone (post-comparison unchanged), same as
+//     before.
+//   - both fail: neither committed anything, so m.lastPersisted[id] never moved — both
+//     restores land on the same pre-chain value prev already held, matching the DB, which
+//     never saw either write.
+//   - a rail batch write behind a plain setter, or vice versa, on the same id: the shared
+//     m.lastPersisted[id] makes no distinction between a whole-row and a rail write: it is
+//     an update to id, not to a particular setter's shape.
 //
 // Only fields some setter can actually mutate after creation are listed — ID, RepoID,
 // Directory, Branch, IsWorktree, FirstLaunchHere and CreatedAt never change once a session
 // exists, so there's nothing to restore there. currentPromptID/closedPromptIDs are
 // in-memory-only guard fields (session.go's doc), never part of SessionRow, but Apply is
-// still the only writer that ever touches them, so restoring them the same CAS way keeps
-// them exactly in step with the state-machine fields Apply's own restore reverts them
-// alongside (manager_writeorder_test.go's TestPersistFailure_RollsBackEveryMutationUniformly
-// asserts full byte-identity, guard fields included).
-func restoreChangedFields(prev, post *Session) func(*Session) {
+// still the only writer that ever touches them, and a failed Apply must roll every field it
+// touched back together, guard fields included, or memory would disagree with itself about
+// which fields a rejected Apply call actually took effect for — so they go through the same
+// CAS as every state-machine field. See mustCoverEverySessionField below for what keeps
+// this list, and the immutable list above it, honest against Session's own field set.
+func (m *Manager) restoreChangedFields(id int64, prev, post *Session) func(*Session) {
 	return func(cur *Session) {
-		restoreIfUnchanged(&cur.TmuxTarget, prev.TmuxTarget, post.TmuxTarget)
-		restoreIfUnchanged(&cur.TmuxPane, prev.TmuxPane, post.TmuxPane)
-		restoreIfUnchanged(&cur.ClaudeSessionID, prev.ClaudeSessionID, post.ClaudeSessionID)
-		restoreIfUnchanged(&cur.Title, prev.Title, post.Title)
-		restoreIfUnchanged(&cur.State, prev.State, post.State)
-		restoreIfUnchanged(&cur.StateSince, prev.StateSince, post.StateSince)
-		restoreIfUnchanged(&cur.PermissionMode, prev.PermissionMode, post.PermissionMode)
-		restoreIfUnchanged(&cur.PermissionModeSource, prev.PermissionModeSource, post.PermissionModeSource)
-		// Model/Context/Attention/Failure compare by pointer identity: a real change always
-		// allocates a fresh pointer rather than writing through the old one (Critical 1's
-		// rule, Session.Clone's doc), so pointer equality is exactly "unchanged since post".
-		restoreIfUnchanged(&cur.Model, prev.Model, post.Model)
-		restoreIfUnchanged(&cur.Context, prev.Context, post.Context)
-		restoreIfUnchanged(&cur.Compactions, prev.Compactions, post.Compactions)
-		restoreIfUnchanged(&cur.Attention, prev.Attention, post.Attention)
-		restoreIfUnchanged(&cur.Failure, prev.Failure, post.Failure)
-		restoreIfUnchanged(&cur.LastActivity, prev.LastActivity, post.LastActivity)
-		restoreIfUnchanged(&cur.Alive, prev.Alive, post.Alive)
-		restoreIfUnchanged(&cur.EndedAt, prev.EndedAt, post.EndedAt)
-		restoreIfUnchanged(&cur.LastSnapshot, prev.LastSnapshot, post.LastSnapshot)
-		restoreIfUnchanged(&cur.LastSnapshotAt, prev.LastSnapshotAt, post.LastSnapshotAt)
-		restoreIfUnchanged(&cur.Pinned, prev.Pinned, post.Pinned)
-		restoreIfUnchanged(&cur.RailPos, prev.RailPos, post.RailPos)
-		restoreIfUnchanged(&cur.TitleOverride, prev.TitleOverride, post.TitleOverride)
-		restoreIfUnchanged(&cur.TranscriptPath, prev.TranscriptPath, post.TranscriptPath)
-		restoreIfUnchanged(&cur.PlanPath, prev.PlanPath, post.PlanPath)
-		restoreIfUnchanged(&cur.PlanExists, prev.PlanExists, post.PlanExists)
-		restoreIfUnchanged(&cur.Unread, prev.Unread, post.Unread)
-		restoreIfUnchanged(&cur.LastPrompt, prev.LastPrompt, post.LastPrompt)
-		restoreIfUnchanged(&cur.currentPromptID, prev.currentPromptID, post.currentPromptID)
+		last := m.lastPersisted[id]
+		if last == nil {
+			last = prev
+		}
+		restoreIfUnchanged(&cur.TmuxTarget, post.TmuxTarget, last.TmuxTarget)
+		restoreIfUnchanged(&cur.TmuxPane, post.TmuxPane, last.TmuxPane)
+		restoreIfUnchanged(&cur.ClaudeSessionID, post.ClaudeSessionID, last.ClaudeSessionID)
+		restoreIfUnchanged(&cur.Title, post.Title, last.Title)
+		restoreIfUnchanged(&cur.State, post.State, last.State)
+		restoreIfUnchanged(&cur.StateSince, post.StateSince, last.StateSince)
+		restoreIfUnchanged(&cur.PermissionMode, post.PermissionMode, last.PermissionMode)
+		restoreIfUnchanged(&cur.PermissionModeSource, post.PermissionModeSource, last.PermissionModeSource)
+		// Model/Context/Attention/Failure compare by pointer identity: a real change
+		// always allocates a fresh pointer rather than writing through the old one
+		// (applyBind's doc, machine.go; Session.Clone's own contract), so pointer
+		// equality is exactly "unchanged since post".
+		restoreIfUnchanged(&cur.Model, post.Model, last.Model)
+		restoreIfUnchanged(&cur.Context, post.Context, last.Context)
+		restoreIfUnchanged(&cur.Compactions, post.Compactions, last.Compactions)
+		restoreIfUnchanged(&cur.Attention, post.Attention, last.Attention)
+		restoreIfUnchanged(&cur.Failure, post.Failure, last.Failure)
+		restoreIfUnchanged(&cur.LastActivity, post.LastActivity, last.LastActivity)
+		restoreIfUnchanged(&cur.Alive, post.Alive, last.Alive)
+		restoreIfUnchanged(&cur.EndedAt, post.EndedAt, last.EndedAt)
+		restoreIfUnchanged(&cur.LastSnapshot, post.LastSnapshot, last.LastSnapshot)
+		restoreIfUnchanged(&cur.LastSnapshotAt, post.LastSnapshotAt, last.LastSnapshotAt)
+		restoreIfUnchanged(&cur.Pinned, post.Pinned, last.Pinned)
+		restoreIfUnchanged(&cur.RailPos, post.RailPos, last.RailPos)
+		restoreIfUnchanged(&cur.TitleOverride, post.TitleOverride, last.TitleOverride)
+		restoreIfUnchanged(&cur.TranscriptPath, post.TranscriptPath, last.TranscriptPath)
+		restoreIfUnchanged(&cur.PlanPath, post.PlanPath, last.PlanPath)
+		restoreIfUnchanged(&cur.PlanExists, post.PlanExists, last.PlanExists)
+		restoreIfUnchanged(&cur.Unread, post.Unread, last.Unread)
+		restoreIfUnchanged(&cur.LastPrompt, post.LastPrompt, last.LastPrompt)
+		restoreIfUnchanged(&cur.currentPromptID, post.currentPromptID, last.currentPromptID)
 		// closedPromptIDs is a []string, not comparable, so it can't go through
 		// restoreIfUnchanged's generic — slices.Equal is its "unchanged since post" test.
 		if slices.Equal(cur.closedPromptIDs, post.closedPromptIDs) {
-			cur.closedPromptIDs = prev.closedPromptIDs
+			cur.closedPromptIDs = last.closedPromptIDs
 		}
 	}
+}
+
+// restoredSessionFields names every Session field the restoreIfUnchanged calls above
+// actually cover. immutableSessionFields names every field restoreChangedFields' own doc
+// says never changes once a session exists, so there is nothing to restore there. Together
+// they are a second, hand-written list that must agree with Session's own field set — the
+// same "two places that must agree will not" hazard restoreChangedFields' single copy of
+// the DB row already avoids. CheckSessionFieldCoverage below is what keeps them honest.
+var restoredSessionFields = []string{
+	"TmuxTarget", "TmuxPane", "ClaudeSessionID", "Title", "State", "StateSince",
+	"PermissionMode", "PermissionModeSource", "Model", "Context", "Compactions",
+	"Attention", "Failure", "LastActivity", "Alive", "EndedAt", "LastSnapshot",
+	"LastSnapshotAt", "Pinned", "RailPos", "TitleOverride", "TranscriptPath",
+	"PlanPath", "PlanExists", "Unread", "LastPrompt", "currentPromptID", "closedPromptIDs",
+}
+
+var immutableSessionFields = []string{
+	"ID", "RepoID", "Directory", "Branch", "IsWorktree", "FirstLaunchHere", "CreatedAt",
+}
+
+// CheckSessionFieldCoverage reports every Session field name that restoredSessionFields
+// and immutableSessionFields between them fail to account for exactly once: left out of
+// both (a new mutable field that forgot to be added to restoreChangedFields, and would
+// otherwise silently survive a failed write's restore), or named in both (ambiguous). An
+// empty result means the two lists are a complete, non-overlapping partition of Session's
+// actual fields — CLAUDE.md's "no init() magic" rule keeps this out of an init(), so a
+// caller (daemon-tests: one assertion against an empty slice) runs it instead.
+func CheckSessionFieldCoverage() []string {
+	seen := make(map[string]int, len(restoredSessionFields)+len(immutableSessionFields))
+	for _, group := range [][]string{restoredSessionFields, immutableSessionFields} {
+		for _, name := range group {
+			seen[name]++
+		}
+	}
+	var problems []string
+	t := reflect.TypeOf(Session{})
+	for i := range t.NumField() {
+		name := t.Field(i).Name
+		if seen[name] != 1 {
+			problems = append(problems, fmt.Sprintf("Session.%s: listed %d times across restoredSessionFields/immutableSessionFields, want exactly 1", name, seen[name]))
+		}
+	}
+	return problems
 }

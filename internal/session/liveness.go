@@ -68,7 +68,7 @@ func (m *Manager) captureAndStoreSnapshot(captureCtx, persistCtx context.Context
 // storeSnapshot persists text for id iff it differs from what's already stored — written
 // only when the text changes. Never logs text (may hold prompt text) and never
 // broadcasts — the snapshot isn't part of the Session wire object (kb:anchor/sessions.pane's
-// own GET endpoint serves it). Spells out its own persistWholeRow-shaped tail rather than
+// own GET endpoint serves it). Spells out its own persistWholeRowLocked-shaped tail rather than
 // calling that helper: UpdateSnapshot writes only the two snapshot columns, a narrower
 // persist than every other setter's whole-row UpdateSession.
 func (m *Manager) storeSnapshot(ctx context.Context, id int64, text string) {
@@ -95,7 +95,7 @@ func (m *Manager) storeSnapshot(ctx context.Context, id int64, text string) {
 	// id's write ticket and the same persist-failure policy as every other setter (memory
 	// must not claim a snapshot the DB doesn't hold).
 	persist := func() error { return m.store.UpdateSnapshot(ctx, id, text, now) }
-	if err := m.finishWrite(id, sess, wait, done, persist, nil, restoreChangedFields(prev, post)); err != nil {
+	if err := m.finishWrite(id, sess, wait, done, persist, nil, m.restoreChangedFields(id, prev, post)); err != nil {
 		m.log.Error().Err(err).Int64("session_id", id).Msg("persisting pane snapshot failed")
 	}
 }
@@ -211,7 +211,7 @@ func (m *Manager) markEnded(ctx context.Context, id int64) (*Session, error) {
 	sess.EndedAt = &endedAt
 	post := sess.Clone()
 
-	snapshot, err := m.persistWholeRow(ctx, id, sess, prev, post, true)
+	snapshot, err := m.persistWholeRowLocked(ctx, id, sess, prev, post, true)
 	if err != nil {
 		return nil, fmt.Errorf("persisting ended session %d: %w", id, err)
 	}

@@ -56,13 +56,17 @@ func writeJSONErrorPaths(w http.ResponseWriter, status int, code, message string
 	writeJSON(w, status, resp)
 }
 
-// msgUnknownSession is the fixed 404 body for kb:anchor/transport's "unknown_session" code
-// — every source of it (a malformed {id}, a manager miss, an ErrUnknownSession from a later
-// mutation) answers with this same code+message pair, spelled once here.
-const msgUnknownSession = "unknown session id"
+// codeUnknownSession and msgUnknownSession are kb:anchor/transport's "unknown_session"
+// error pair — every source of it (a malformed {id}, a manager miss, an ErrUnknownSession
+// from a later mutation, launcher.go's Resume miss) answers with this same code+message,
+// spelled once here.
+const (
+	codeUnknownSession = "unknown_session"
+	msgUnknownSession  = "unknown session id"
+)
 
 func writeUnknownSession(w http.ResponseWriter) {
-	writeJSONError(w, http.StatusNotFound, "unknown_session", msgUnknownSession)
+	writeJSONError(w, http.StatusNotFound, codeUnknownSession, msgUnknownSession)
 }
 
 // parseSessionID reads the {id} path value, writing 404 unknown_session itself on a

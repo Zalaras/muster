@@ -19,25 +19,21 @@ import (
 
 // Store owns the daemon's single SQLite connection.
 type Store struct {
-	db  *sql.DB
+	db *sql.DB
+	// log is set once by Open and never written again — scanSession's corrupt-row
+	// warnings (decodeRowTime/decodeRowTimePtr) are its only reader, from any goroutine.
 	log zerolog.Logger
-}
-
-// SetLogger installs the logger scanSession's corrupt-row warnings use (see
-// decodeRowTime/decodeRowTimePtr) — internal/server/server.go calls this once, right
-// after Open, the same way it wires every other package's logger. Left unset (the
-// zero value, zerolog.Logger{}, which is a working no-op logger) a corrupt row just logs
-// nowhere, which is what every store.Open(ctx, path) two-arg test call gets: adding a
-// required logger parameter to Open would force a signature change onto every one of
-// those call sites instead of only the one that wants the log.
-func (s *Store) SetLogger(l zerolog.Logger) {
-	s.log = l
 }
 
 // Open opens (creating if absent) the SQLite database at path, enables WAL mode, and
 // applies any pending migrations. A single connection is used deliberately: it serialises
 // every writer, so SQLite's own one-writer-at-a-time rule never surfaces as SQLITE_BUSY.
-func Open(ctx context.Context, path string) (*Store, error) {
+// log is scanSession's corrupt-row warnings sink (see decodeRowTime/decodeRowTimePtr) —
+// wired at construction, the same way session.NewManager takes Config.Logger and every
+// internal/server feature constructor takes a trailing log zerolog.Logger. The zero value
+// (zerolog.Logger{}) is a working no-op, so a caller with nothing to wire (most tests) can
+// pass one and a corrupt row just logs nowhere.
+func Open(ctx context.Context, path string, log zerolog.Logger) (*Store, error) {
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		return nil, fmt.Errorf("opening sqlite database %q: %w", path, err)
@@ -72,7 +68,7 @@ func Open(ctx context.Context, path string) (*Store, error) {
 		}
 	}
 
-	return &Store{db: db}, nil
+	return &Store{db: db, log: log}, nil
 }
 
 // Close closes the underlying database connection.

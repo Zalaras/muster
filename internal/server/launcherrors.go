@@ -40,9 +40,11 @@ func launchFailed() *launchError {
 // notFound, notResumable and directoryMissing are Resume's own error codes
 // (kb:anchor/sessions.resume) — reusing launchError's shape rather than
 // a parallel type, since the server-side handling (writeJSONError(status, code,
-// message)) is identical.
-func notFound(message string) *launchError {
-	return &launchError{status: http.StatusNotFound, code: "unknown_session", message: message}
+// message)) is identical. notFound's code+message pair is respond.go's owned
+// unknown_session pair (its only call site never needs a different message, unlike
+// notResumable/directoryMissing below).
+func notFound() *launchError {
+	return &launchError{status: http.StatusNotFound, code: codeUnknownSession, message: msgUnknownSession}
 }
 
 func notResumable(message string) *launchError {

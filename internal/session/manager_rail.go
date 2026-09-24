@@ -32,10 +32,10 @@ func (m *Manager) railEntriesLocked() []railEntry {
 
 // railWrite is one changed session's rail write, captured while applyRailChangesLocked
 // still holds m.mu: sess/prev/post/wait/done all reflect that lock scope's mutation.
-// persistAndBroadcastRail's own persist closure re-reads the row and broadcast snapshot
-// from live memory at each write's turn rather than freezing them here — the same reason
-// persistWholeRow does: a bystander write on the same id queued in between must never be
-// baked over or wiped out.
+// persistAndBroadcastRail persists and broadcasts each one through wholeRowPersist, which
+// re-reads the row and broadcast snapshot from live memory at each write's turn rather than
+// freezing them here — the same reason persistWholeRowLocked does: a bystander write on the
+// same id queued in between must never be baked over or wiped out.
 type railWrite struct {
 	id   int64
 	sess *Session // live pointer, for finishWrite's identity-checked restore
@@ -72,43 +72,37 @@ func (m *Manager) applyRailChangesLocked(changed []railEntry) []railWrite {
 	return writes
 }
 
-// railPersist builds w's persist closure: like persistWholeRow, it re-reads w.id's row
-// (and, on success, the broadcast snapshot) from live memory only when finishWrite actually
-// calls it — at w's own turn, after every earlier write on the same id has resolved —
-// rather than from a value frozen back when applyRailChangesLocked mutated it.
-func (m *Manager) railPersist(ctx context.Context, w railWrite) func() error {
-	return func() error {
-		m.mu.Lock()
-		cur, ok := m.sessions[w.id]
-		if !ok || cur != w.sess {
-			m.mu.Unlock()
-			return ErrUnknownSession
-		}
-		row := sessionToRow(cur)
-		snapshot := cur.Clone()
-		m.mu.Unlock()
-		if err := m.store.UpdateSession(ctx, row); err != nil {
-			return err
-		}
-		m.broadcast(snapshot)
-		return nil
-	}
-}
-
 // persistAndBroadcastRail persists and broadcasts each of writes in turn — the tail
 // shared by SetPinned/SetOrder once the in-memory mutation is done and the lock released:
-// every session whose pinned or railPos changed is broadcast. Stops at
-// the first persist failure and rolls that one back plus every write still queued behind
-// it (a batch that stops partway must never leave memory claiming rail positions the DB
-// never recorded) — writes already persisted and broadcast earlier in this call stand.
+// every session whose pinned or railPos changed is broadcast. Each write's persist closure
+// is wholeRowPersist itself — the identical identity-checked live read, DB write,
+// m.lastPersisted record and in-turn broadcast every whole-row setter uses, not a second
+// copy of it. w's own write ticket was already drawn by applyRailChangesLocked, so this
+// calls wholeRowPersist directly rather than persistWholeRowLocked, which would draw a
+// second one for the same write.
+//
+// A write whose session was removed out from under it (ErrUnknownSession — a Remove queued
+// ahead of it in the same per-id turnstile) is skipped, not treated as a batch failure:
+// finishWrite's own identity check already declined to persist or broadcast it and never
+// calls restore for an id no longer in m.sessions, so there is nothing to roll back, and
+// the rest of the batch is for sessions that are still very much there. Any other failure
+// stops the batch and rolls that write back plus every write still queued behind it (a
+// batch that stops partway must never leave memory claiming rail positions the DB never
+// recorded) — writes already persisted and broadcast earlier in this call stand.
 func (m *Manager) persistAndBroadcastRail(ctx context.Context, writes []railWrite) error {
 	for i, w := range writes {
-		if err := m.finishWrite(w.id, w.sess, w.wait, w.done, m.railPersist(ctx, w), nil, restoreChangedFields(w.prev, w.post)); err != nil {
-			for _, rest := range writes[i+1:] {
-				_ = m.finishWrite(rest.id, rest.sess, rest.wait, rest.done, func() error { return errRailWriteAborted }, nil, restoreChangedFields(rest.prev, rest.post))
-			}
-			return fmt.Errorf("persisting rail order for session %d: %w", w.id, err)
+		persist, _ := m.wholeRowPersist(ctx, w.id, w.sess, true)
+		err := m.finishWrite(w.id, w.sess, w.wait, w.done, persist, nil, m.restoreChangedFields(w.id, w.prev, w.post))
+		if err == nil {
+			continue
 		}
+		if errors.Is(err, ErrUnknownSession) {
+			continue
+		}
+		for _, rest := range writes[i+1:] {
+			_ = m.finishWrite(rest.id, rest.sess, rest.wait, rest.done, func() error { return errRailWriteAborted }, nil, m.restoreChangedFields(rest.id, rest.prev, rest.post))
+		}
+		return fmt.Errorf("persisting rail order for session %d: %w", w.id, err)
 	}
 	return nil
 }
@@ -169,7 +163,7 @@ func (m *Manager) MarkSeen(ctx context.Context, id int64) error {
 	prev := sess.Clone()
 	sess.Unread = false
 	post := sess.Clone()
-	if _, err := m.persistWholeRow(ctx, id, sess, prev, post, true); err != nil {
+	if _, err := m.persistWholeRowLocked(ctx, id, sess, prev, post, true); err != nil {
 		return fmt.Errorf("marking session %d seen: %w", id, err)
 	}
 	return nil

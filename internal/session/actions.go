@@ -24,7 +24,7 @@ func (m *Manager) RecordLaunch(ctx context.Context, id int64, tmuxTarget, tmuxPa
 	sess.TmuxPane = tmuxPane
 	post := sess.Clone()
 
-	snapshot, err := m.persistWholeRow(ctx, id, sess, prev, post, true)
+	snapshot, err := m.persistWholeRowLocked(ctx, id, sess, prev, post, true)
 	if err != nil {
 		return nil, fmt.Errorf("persisting launch for session %d: %w", id, err)
 	}
@@ -238,7 +238,7 @@ func (m *Manager) RecordResume(ctx context.Context, id int64, tmuxTarget, tmuxPa
 
 	// A persist failure rolls every field this call touched back — a half-resumed session
 	// must never look alive in memory while the DB still has it dead.
-	snapshot, err := m.persistWholeRow(ctx, id, sess, prev, post, true)
+	snapshot, err := m.persistWholeRowLocked(ctx, id, sess, prev, post, true)
 	if err != nil {
 		return nil, fmt.Errorf("persisting resume for session %d: %w", id, err)
 	}

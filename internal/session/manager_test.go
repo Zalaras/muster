@@ -31,7 +31,7 @@ func sleepCommand() []string {
 
 func openTestStore(t *testing.T) *store.Store {
 	t.Helper()
-	st, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "muster.db"))
+	st, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "muster.db"), zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 	return st

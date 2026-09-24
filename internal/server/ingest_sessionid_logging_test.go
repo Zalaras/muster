@@ -28,10 +28,10 @@ import (
 // InsertEvent, which runs first in process() and would otherwise mask this log entirely.
 func TestProcess_ApplyPersistFailureLogsSessionID(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "muster.db")
-	mgrStore, err := store.Open(context.Background(), path)
+	mgrStore, err := store.Open(context.Background(), path, zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = mgrStore.Close() })
-	ingestStore, err := store.Open(context.Background(), path)
+	ingestStore, err := store.Open(context.Background(), path, zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = ingestStore.Close() })
 

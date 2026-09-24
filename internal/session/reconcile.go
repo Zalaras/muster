@@ -236,7 +236,7 @@ func (m *Manager) RepairOwnedSession(ctx context.Context, id int64) (*Session, e
 	sess.TmuxPane = pane
 	post := sess.Clone()
 
-	snapshot, err := m.persistWholeRow(ctx, id, sess, prev, post, true)
+	snapshot, err := m.persistWholeRowLocked(ctx, id, sess, prev, post, true)
 	if err != nil {
 		return nil, fmt.Errorf("persisting repaired session %d: %w", id, err)
 	}
@@ -279,7 +279,7 @@ func (m *Manager) reviveOwnedSession(ctx context.Context, id int64, tmuxName str
 		return
 	}
 	post := sess.Clone()
-	if _, err := m.persistWholeRow(ctx, id, sess, prev, post, true); err != nil {
+	if _, err := m.persistWholeRowLocked(ctx, id, sess, prev, post, true); err != nil {
 		m.log.Warn().Err(err).Int64("session_id", id).Msg("reconcile: persisting repaired session failed")
 	}
 }

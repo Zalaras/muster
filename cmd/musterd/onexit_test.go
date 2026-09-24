@@ -28,6 +28,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -370,7 +372,7 @@ func TestOnExit_Kill_LiveSessionIsKilledAndRowMarkedDead(t *testing.T) {
 	assert.Empty(t, tmuxSessionNames(d.tmuxSocket), "-on-exit=kill must kill the tmux session before exiting")
 	assert.Contains(t, d.stderr.String(), "ended live sessions on shutdown", "REQ-3's kill log line")
 
-	st, err := store.Open(context.Background(), filepath.Join(d.dataDir, "muster.db"))
+	st, err := store.Open(context.Background(), filepath.Join(d.dataDir, "muster.db"), zerolog.Nop())
 	require.NoError(t, err)
 	defer func() { _ = st.Close() }()
 	rows, err := st.ListSessions(context.Background())

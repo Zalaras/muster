@@ -202,7 +202,7 @@ func TestLauncher_CorruptSettingsFileRefusesAndRollsBackTheSessionRow(t *testing
 
 func openLauncherTestStore(t *testing.T) *store.Store {
 	t.Helper()
-	st, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "muster.db"))
+	st, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "muster.db"), zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 	return st
@@ -688,7 +688,7 @@ func TestHandleCreateSession_OrphanedTmuxSessionDoesNotBlockLaunch(t *testing.T)
 	require.NoError(t, err)
 
 	dbPath := filepath.Join(t.TempDir(), "muster.db")
-	st, err := store.Open(context.Background(), dbPath)
+	st, err := store.Open(context.Background(), dbPath, zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 	logBuf := &syncBuffer{}

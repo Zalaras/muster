@@ -41,14 +41,10 @@ const (
 	PermissionAuto PermissionMode = PermissionMode(claudecode.PermissionAuto)
 )
 
-// PermissionModes lists every mode as this package's own typed enum — internal/server
-// validates incoming requests against it rather than re-spelling the four literals
-// itself.
-var PermissionModes = []PermissionMode{PermissionDefault, PermissionPlan, PermissionAcceptEdits, PermissionAuto}
-
-// ValidPermissionMode reports whether s is one of PermissionModes. Delegates to
-// claudecode.ValidPermissionMode, the one owner of the underlying set, rather than
-// walking PermissionModes itself — one validation, not two.
+// ValidPermissionMode reports whether s is one of the four permission modes. Delegates to
+// claudecode.ValidPermissionMode, the one owner of the underlying set (internal/server's
+// launcher validates incoming requests against claudecode.PermissionModes directly) —
+// one validation, not two.
 func ValidPermissionMode(s string) bool {
 	return claudecode.ValidPermissionMode(s)
 }
@@ -147,7 +143,7 @@ type Session struct {
 	// surface). Display-only, independent of Alive, survives a restart.
 	Unread bool
 
-	// LastPrompt (kb:adr/rail-unread-inferred-from-live-terminal-client): the user's most
+	// LastPrompt (kb:adr/rail-activity-line-turn-aware-default-with-pref): the user's most
 	// recent prompt, truncated to 200 chars, nil until a first prompt or after /clear.
 	// Set by KindTurnActivity when the adapter supplied one; display-only, never read by
 	// the state machine.

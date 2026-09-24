@@ -96,11 +96,12 @@ type SessionRow struct {
 	PlanPath       *string
 	PlanExists     bool
 
-	// Unread/LastPrompt (kb:adr/rail-unread-inferred-from-live-terminal-client): Unread
-	// is true iff the session's turn closed with no terminal client attached, since
-	// cleared by a non-idle transition or an attach. LastPrompt is the user's most
-	// recent prompt, truncated to 200 chars, NULL until a first prompt or after /clear.
-	// Both display-only, never read by the state machine.
+	// Unread (kb:adr/rail-unread-inferred-from-live-terminal-client) is true iff the
+	// session's turn closed with no terminal client attached, since cleared by a
+	// non-idle transition or an attach. LastPrompt
+	// (kb:adr/rail-activity-line-turn-aware-default-with-pref) is the user's most recent
+	// prompt, truncated to 200 chars, NULL until a first prompt or after /clear. Both
+	// display-only, never read by the state machine.
 	Unread     bool
 	LastPrompt *string
 }

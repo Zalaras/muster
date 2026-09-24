@@ -457,3 +457,14 @@ func TestWriteTurns_FinishWriteOrdersPersistsByTicketNotGoroutineStartOrder(t *t
 
 	assert.Equal(t, []int{1, 2, 3}, order, "persists must run in exactly the order their tickets were drawn, regardless of goroutine start order or injected delay")
 }
+
+// --- restoreChangedFields' two hand-written field lists must stay a complete partition
+// of Session's own fields ---
+
+// TestCheckSessionFieldCoverage_SessionFieldsFullyPartitioned proves restoredSessionFields
+// and immutableSessionFields between them name every field Session actually has, exactly
+// once each: a field left out of both would silently survive a failed write's restore, and
+// a field named in both would be ambiguous about whether it can even change after creation.
+func TestCheckSessionFieldCoverage_SessionFieldsFullyPartitioned(t *testing.T) {
+	assert.Empty(t, CheckSessionFieldCoverage())
+}

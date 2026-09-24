@@ -32,7 +32,7 @@ func (m *Manager) SetTranscript(ctx context.Context, id int64, claudeSessionID, 
 	// write-ordering turnstile — it writes the same whole row every other setter does, so
 	// an out-of-turn persist here would just as easily clobber a newer field elsewhere in
 	// the row.
-	if _, err := m.persistWholeRow(ctx, id, sess, prev, post, false); err != nil {
+	if _, err := m.persistWholeRowLocked(ctx, id, sess, prev, post, false); err != nil {
 		return false, fmt.Errorf("persisting transcript path for session %d: %w", id, err)
 	}
 	return true, nil
@@ -44,12 +44,12 @@ func (m *Manager) SetTranscript(ctx context.Context, id int64, claudeSessionID, 
 // binding (kb:spec/reader) — a straggler's scan or write must never move the plan.
 // path == "" is the wire plan:null.
 //
-// No production code calls SetPlan today (`rg '\.SetPlan\(' internal -g '!*_test.go'`
-// finds nothing): ApplyPlanScan is production's one writer for a transcript scan's
-// result, and MarkPlanWritten is production's one writer for the exists-flip. SetPlan
-// stays as a lower-level primitive tests use to seed PlanPath/PlanExists directly, without
-// going through ApplyPlanScan's sticky-retention decision or MarkPlanWritten's
-// compare-and-set — it bypasses both, which is exactly why production never calls it.
+// No production code calls SetPlan: ApplyPlanScan is production's one writer for a
+// transcript scan's result, and MarkPlanWritten is production's one writer for the
+// exists-flip. SetPlan stays as a lower-level primitive tests use to seed
+// PlanPath/PlanExists directly, without going through ApplyPlanScan's sticky-retention
+// decision or MarkPlanWritten's compare-and-set — it bypasses both, which is exactly why
+// production never calls it.
 func (m *Manager) SetPlan(ctx context.Context, id int64, claudeSessionID, path string, exists bool) (*Session, bool, error) {
 	m.mu.Lock()
 	sess, ok := m.sessions[id]
@@ -67,7 +67,7 @@ func (m *Manager) SetPlan(ctx context.Context, id int64, claudeSessionID, path s
 	sess.PlanExists = exists
 	post := sess.Clone()
 
-	snapshot, err := m.persistWholeRow(ctx, id, sess, prev, post, true)
+	snapshot, err := m.persistWholeRowLocked(ctx, id, sess, prev, post, true)
 	if err != nil {
 		return nil, false, fmt.Errorf("persisting plan for session %d: %w", id, err)
 	}
@@ -99,7 +99,7 @@ func (m *Manager) MarkPlanWritten(ctx context.Context, id int64, claudeSessionID
 	sess.PlanExists = true
 	post := sess.Clone()
 
-	snapshot, err := m.persistWholeRow(ctx, id, sess, prev, post, true)
+	snapshot, err := m.persistWholeRowLocked(ctx, id, sess, prev, post, true)
 	if err != nil {
 		return nil, false, fmt.Errorf("persisting plan for session %d: %w", id, err)
 	}
@@ -153,7 +153,7 @@ func (m *Manager) ApplyPlanScan(ctx context.Context, id int64, claudeSessionID, 
 	sess.PlanExists = exists
 	post := sess.Clone()
 
-	snapshot, err := m.persistWholeRow(ctx, id, sess, prev, post, true)
+	snapshot, err := m.persistWholeRowLocked(ctx, id, sess, prev, post, true)
 	if err != nil {
 		return nil, false, fmt.Errorf("persisting plan for session %d: %w", id, err)
 	}

@@ -23,7 +23,7 @@ import (
 func openTestStore(t *testing.T) (*store.Store, string) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "muster.db")
-	st, err := store.Open(context.Background(), path)
+	st, err := store.Open(context.Background(), path, zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 	return st, path

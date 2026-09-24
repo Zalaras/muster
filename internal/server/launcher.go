@@ -369,7 +369,7 @@ func (l *sessionLauncher) Resume(ctx context.Context, id int64) (*session.Sessio
 
 	sess, ok := l.manager.Get(id)
 	if !ok {
-		return nil, notFound("unknown session id")
+		return nil, notFound()
 	}
 	// The two causes are named separately in the message — only one of them is ever
 	// recoverable (an alive session becomes resumable once it ends; a session that never

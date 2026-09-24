@@ -246,7 +246,7 @@ func TestServer_ClaudeThemePollZeroConstructsNoPoller(t *testing.T) {
 // assertion needs a counterpart for.
 func TestServer_ClaudeThemePollPositiveConstructsAPoller(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "muster.db")
-	st, err := store.Open(context.Background(), dbPath)
+	st, err := store.Open(context.Background(), dbPath, zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 

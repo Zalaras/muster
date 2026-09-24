@@ -433,7 +433,7 @@ func TestUpdateManager_CheckSwap_ProbeFailureOrTimeoutLeavesInstalledNull(t *tes
 func newUpdateTestServer(t *testing.T, mutate func(*Config)) *testServer {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "muster.db")
-	st, err := store.Open(context.Background(), dbPath)
+	st, err := store.Open(context.Background(), dbPath, zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 
@@ -743,7 +743,7 @@ func assertINV4(t *testing.T, apply struct {
 func newRestartImpactTestServer(t *testing.T) *testServer {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "muster.db")
-	st, err := store.Open(context.Background(), dbPath)
+	st, err := store.Open(context.Background(), dbPath, zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 

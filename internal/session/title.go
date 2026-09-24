@@ -30,7 +30,7 @@ func (m *Manager) SetTitle(ctx context.Context, id int64, title *string) (bool, 
 	}
 
 	post := sess.Clone()
-	if _, err := m.persistWholeRow(ctx, id, sess, prev, post, true); err != nil {
+	if _, err := m.persistWholeRowLocked(ctx, id, sess, prev, post, true); err != nil {
 		return false, fmt.Errorf("persisting title for session %d: %w", id, err)
 	}
 	return true, nil

@@ -227,12 +227,11 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 	defer cancel()
 
 	dbPath := filepath.Join(f.dataDir, "muster.db")
-	st, err := store.Open(ctx, dbPath)
+	st, err := store.Open(ctx, dbPath, log)
 	if err != nil {
 		return fmt.Errorf("opening store: %w", err)
 	}
 	defer func() { _ = st.Close() }()
-	st.SetLogger(log) // scanSession's corrupt-row warnings (internal/store/session.go)
 
 	serving, err := prepareServing(ctx, f, st, log)
 	if err != nil {

@@ -17,7 +17,7 @@ import (
 func openTestStore(t *testing.T) *Store {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "muster.db")
-	st, err := Open(context.Background(), path)
+	st, err := Open(context.Background(), path, zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 	return st
@@ -34,11 +34,11 @@ func TestOpen_EnablesWALMode(t *testing.T) {
 func TestOpen_SecondOpenOnSamePathDoesNotReapplyMigrations(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "muster.db")
 
-	st1, err := Open(context.Background(), path)
+	st1, err := Open(context.Background(), path, zerolog.Nop())
 	require.NoError(t, err)
 	require.NoError(t, st1.Close())
 
-	st2, err := Open(context.Background(), path)
+	st2, err := Open(context.Background(), path, zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st2.Close() })
 
@@ -59,7 +59,7 @@ func TestOpen_SecondOpenOnSamePathDoesNotReapplyMigrations(t *testing.T) {
 func TestOpen_RestrictsPermissionsOnDatabaseAndSidecars(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "muster.db")
 
-	st, err := Open(context.Background(), path)
+	st, err := Open(context.Background(), path, zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 
@@ -361,9 +361,10 @@ func TestCorruptStoredTime_SurfacesAsScanError(t *testing.T) {
 // reached), and a warning names the table, row id and column, so the corruption is still
 // surfaced somewhere.
 func TestScanSession_CorruptStoredTimeReadsAsZeroAndLogsWarning(t *testing.T) {
-	st := openTestStore(t)
 	var logBuf bytes.Buffer
-	st.SetLogger(zerolog.New(&logBuf))
+	st, err := Open(context.Background(), filepath.Join(t.TempDir(), "muster.db"), zerolog.New(&logBuf))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = st.Close() })
 	repoID := seedTestRepo(t, st)
 	ctx := context.Background()
 

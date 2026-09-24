@@ -80,12 +80,11 @@ type Config struct {
 	PaneSnapshotter PaneSnapshotter
 	TmuxSessions    TmuxSessions
 	// OnUpsert, OnRemoved and Watcher are wired by production exactly like the three tmux
-	// ports above, but stay nil-tolerant rather than required: unlike a nil tmux port —
-	// which had no safe meaning and forced a whole second, unsafe classification path
-	// before the ports became required — a nil value here already has a real, defined
-	// meaning documented on the field itself (skip the broadcast; count every session as
-	// unwatched). Tests lean on that tolerance to build a Manager without wiring a
-	// websocket hub or a terminal registry.
+	// ports above, but stay nil-tolerant rather than required: a nil tmux port has no safe
+	// meaning (NewManager panics on one), whereas a nil value here already has a real,
+	// defined meaning documented on the field itself (skip the broadcast; count every
+	// session as unwatched). Tests lean on that tolerance to build a Manager without wiring
+	// a websocket hub or a terminal registry.
 	OnUpsert     func(*Session) // broadcasts a sessionUpsert; may be nil in tests
 	OnRemoved    func(id int64) // broadcasts sessionRemoved (kb:anchor/ws.session-removed); may be nil in tests
 	Watcher      Watcher        // nil counts every session as unwatched
@@ -135,6 +134,16 @@ type Manager struct {
 	// entry once its own turn comes (dropSessionFromMemory), so a write queued behind a
 	// removal always finds the id already gone at its own turn.
 	writeChain map[int64]chan struct{}
+
+	// lastPersisted is a per-session cache of the row last actually written to the DB,
+	// guarded by mu itself (map access only, same discipline as writeChain). wholeRowPersist
+	// and railPersist both call recordPersistedLocked right after a successful store write,
+	// inside the same persist closure finishWrite invokes at that write's own turn —
+	// restoreChangedFields reads it, under the same mu.Lock() finishWrite already holds on a
+	// later failure, as the value to revert a field to instead of that failing write's own
+	// stale pre-mutation clone (its doc says why). Never read anywhere else: List/Get/
+	// broadcast all use the live *Session in m.sessions.
+	lastPersisted map[int64]*Session
 
 	// nextRailPos is the RailPos CreateSession hands to the next new session, guarded by mu
 	// itself. Deciding and advancing it in one critical section is what makes two
@@ -304,15 +313,17 @@ func (m *Manager) removeFromMemory(id int64) {
 	m.mu.Unlock()
 }
 
-// dropSessionFromMemory removes id's in-memory entry, write-ticket chain and per-id lock
-// — removeSessionRecord's tail once the store side of a removal is settled, whichever way
-// (see removeSessionRecord's announced/unannounced split). The id is never reissued
-// (kb:adr/lifecycle-session-ids-monotonic-never-reused), so its writeChain/locks entries
-// can never be scheduled or locked again through the ordinary lookup-by-id paths.
+// dropSessionFromMemory removes id's in-memory entry, write-ticket chain, last-persisted
+// cache and per-id lock — removeSessionRecord's tail once the store side of a removal is
+// settled, whichever way (see removeSessionRecord's announced/unannounced split). The id is
+// never reissued (kb:adr/lifecycle-session-ids-monotonic-never-reused), so its
+// writeChain/lastPersisted/locks entries can never be scheduled, restored against or locked
+// again through the ordinary lookup-by-id paths.
 func (m *Manager) dropSessionFromMemory(id int64) {
 	m.removeFromMemory(id)
 	m.mu.Lock()
 	delete(m.writeChain, id)
+	delete(m.lastPersisted, id)
 	m.mu.Unlock()
 	m.locks.Forget(id)
 }
@@ -322,7 +333,7 @@ func (m *Manager) dropSessionFromMemory(id int64) {
 // does and waits its turn, so a write already queued for id finishes (persisted, or rolled
 // back) before the row is deleted, and any write queued *behind* this call finds the
 // session already gone at its own turn and declines to persist or broadcast
-// (persistWholeRow's doc) — removal is sequenced through the same turnstile a write is,
+// (persistWholeRowLocked's doc) — removal is sequenced through the same turnstile a write is,
 // not a side channel next to it.
 //
 // announced controls the store/memory order, because the two removal callers need
@@ -372,8 +383,7 @@ func (m *Manager) removeSessionRecord(ctx context.Context, id int64, announced b
 
 // collectSessions builds a worklist from every session for which include reports true,
 // taking a value under m.mu via take — the shared shape behind Reconcile's ownership
-// classification, EndAll's alive-id worklist and checkLiveness's alive-target worklist,
-// each of which used to hand-write the same lock/iterate/append loop.
+// classification, EndAll's alive-id worklist and checkLiveness's alive-target worklist.
 func collectSessions[T any](m *Manager, include func(*Session) bool, take func(*Session) T) []T {
 	m.mu.Lock()
 	defer m.mu.Unlock()

@@ -5,13 +5,17 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Zalaras/muster/internal/store"
 )
 
 // recordingPaneConn is a paneConn whose Close records that it happened — this test's
@@ -122,4 +126,52 @@ func TestTerminalRegistry_TakeoverAfterCloseAllClosesNewConnWithShutdownCode(t *
 	_, present := r.conns[key]
 	r.mu.Unlock()
 	assert.False(t, present, "a takeover whose attach finishes after closeAll must never install its connection into the registry")
+}
+
+// TestAttachAndPump_RegistryAlreadyClosedGetsShutdownCloseFrame covers takeover's *first*
+// closed check — before attach ever runs — through the actual caller that owns the
+// accepted *websocket.Conn at that point, attachAndPump, rather than calling
+// r.takeover directly the way the test above does. Unlike the second check (which closes
+// the conn itself, inside takeover), the first check hands errRegistryClosed back with the
+// conn still unclosed; attachAndPump's own errRegistryClosed branch is what has to give it
+// the shutdown close frame.
+func TestAttachAndPump_RegistryAlreadyClosedGetsShutdownCloseFrame(t *testing.T) {
+	st, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "muster.db"), zerolog.Nop())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = st.Close() })
+	mgr := newSessionTestManager(t, st)
+
+	registry := newTerminalRegistry()
+	registry.closeAll() // the registry is already closed before this connect even starts
+
+	var attachCalled atomic.Bool
+	attach := func(context.Context, string) (paneConn, error) {
+		attachCalled.Store(true)
+		return instantPaneConn{}, nil
+	}
+
+	upgrader := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attachAndPump(w, r, zerolog.Nop(), registry, mgr, 1, attach, terminalPump{
+			target: "muster-1",
+			key:    terminalKey{sessionID: 1, surface: surfaceClaude},
+			socketToPTY: func(ctx context.Context, c *websocket.Conn, bridge paneConn) {
+				pumpSocketToPTY(ctx, zerolog.Nop(), c, bridge)
+			},
+		})
+	}))
+	t.Cleanup(upgrader.Close)
+
+	wsURL := "ws" + upgrader.URL[len("http"):]
+	dialCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	c, _, err := websocket.Dial(dialCtx, wsURL, nil) //nolint:bodyclose // coder/websocket Dial nils out resp.Body on success (dial.go); there is nothing to close
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.CloseNow() })
+
+	_, _, readErr := c.Read(context.Background())
+	var ce websocket.CloseError
+	require.ErrorAs(t, readErr, &ce, "the client must see a close frame, not a bare connection drop")
+	assert.Equal(t, websocket.StatusNormalClosure, ce.Code, "the same shutdown code closeAll and takeover's second check both use")
+	assert.Equal(t, "musterd shutting down", ce.Reason)
+	assert.False(t, attachCalled.Load(), "takeover's first closed check must refuse before attach ever runs")
 }

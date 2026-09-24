@@ -112,10 +112,22 @@ func newTerminalRegistry() *terminalRegistry {
 }
 
 // errRegistryClosed is takeover's sentinel for "closeAll has already run" — attachAndPump
-// treats it as teardown, not an attach failure worth logging: the connection has already
-// been (or is about to be) closed with the shutdown code, either by closeAll itself or by
-// takeover's own second closed check below.
+// treats it as teardown, not an attach failure worth logging, and is what actually gives
+// the refused socket its shutdown close frame: takeover's first check returns it before
+// attach ever runs, so the accepted *websocket.Conn is still only known to attachAndPump's
+// own scope at that point; takeover's second check (below) already closed the socket
+// itself once attach has built it, so attachAndPump's own close on that path is a no-op
+// against an already-closed conn (coder/websocket: "Additional calls to Close are
+// no-ops"). Either way, attachAndPump closing on this sentinel is what guarantees the
+// socket never lingers with no close frame at all.
 var errRegistryClosed = errors.New("terminal registry closed")
+
+// closeShutdown closes ws with the daemon-shutdown normal-close code — the one
+// implementation shared by takeover's second closed check, closeAll's teardown loop, and
+// attachAndPump's errRegistryClosed handling (kb:anchor/terminal.ws).
+func closeShutdown(ws *websocket.Conn) {
+	_ = ws.Close(websocket.StatusNormalClosure, "musterd shutting down")
+}
 
 // takeover evicts whatever connection is currently registered for key — closing its
 // socket (4000 superseded) and tearing down its PTY — then calls attach to build the
@@ -157,7 +169,7 @@ func (r *terminalRegistry) takeover(ctx context.Context, key terminalKey, attach
 	r.mu.Lock()
 	if r.closed {
 		r.mu.Unlock()
-		_ = conn.ws.Close(websocket.StatusNormalClosure, "musterd shutting down")
+		closeShutdown(conn.ws)
 		_ = conn.bridge.Close()
 		return nil, errRegistryClosed
 	}
@@ -234,7 +246,7 @@ func (r *terminalRegistry) closeAll() {
 	r.mu.Unlock()
 
 	for _, c := range conns {
-		_ = c.ws.Close(websocket.StatusNormalClosure, "musterd shutting down")
+		closeShutdown(c.ws)
 		_ = c.bridge.Close()
 	}
 }
@@ -346,8 +358,13 @@ func attachAndPump(w http.ResponseWriter, r *http.Request, log zerolog.Logger, r
 	})
 	if err != nil {
 		if errors.Is(err, errRegistryClosed) {
-			// closeAll already closed c with the shutdown code (or is about to, via
-			// takeover's own second check) — nothing more to do here.
+			// takeover refused before attach ever ran (closeAll had already run), so c
+			// has never been closed by anything yet — give it the shutdown close frame
+			// here. If instead takeover's second check is what produced this error, it
+			// already closed c itself; this call is then a no-op against an
+			// already-closed conn (coder/websocket: "Additional calls to Close are
+			// no-ops"), which is safe either way this sentinel was reached.
+			closeShutdown(c)
 			return
 		}
 		log.Error().Err(err).Int64("session_id", sessionID).Str("tmux_target", p.target).Msg("attaching terminal bridge failed")

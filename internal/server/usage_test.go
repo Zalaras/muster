@@ -26,7 +26,7 @@ import (
 func newUsageRefreshTestServer(t *testing.T, fakeUsageAPI *httptest.Server) *Server {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "muster.db")
-	st, err := store.Open(context.Background(), dbPath)
+	st, err := store.Open(context.Background(), dbPath, zerolog.Nop())
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = st.Close() })
 
