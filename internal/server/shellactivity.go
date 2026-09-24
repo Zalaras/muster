@@ -75,8 +75,7 @@ type shellActivityPoller struct {
 	mu   sync.RWMutex
 	busy map[int64]bool // session ids currently reported busy
 
-	cancel context.CancelFunc
-	wg     sync.WaitGroup
+	bg bgLoop
 }
 
 func newShellActivityPoller(lister paneActivityLister, canonical ttyCanonicalChecker, hasShells func() bool, shellBase string, interval time.Duration, broadcast func(int64, bool), log zerolog.Logger) *shellActivityPoller {
@@ -94,31 +93,13 @@ func newShellActivityPoller(lister paneActivityLister, canonical ttyCanonicalChe
 
 // Start begins the poll loop with an immediate first tick. Call once.
 func (p *shellActivityPoller) Start() {
-	ctx, cancel := context.WithCancel(context.Background())
-	p.cancel = cancel
-	p.wg.Add(1)
-	go func() {
-		defer p.wg.Done()
-		p.loop(ctx)
-	}()
+	p.bg.start(func(ctx context.Context) { runTicked(ctx, p.interval, nil, p.tick) })
 }
 
 // Stop cancels the poll loop and waits for it to exit, giving up when ctx is done
 // (mirrors usagePoller.Stop / themePoller.Stop).
 func (p *shellActivityPoller) Stop(ctx context.Context) {
-	if p.cancel != nil {
-		p.cancel()
-	}
-	done := make(chan struct{})
-	go func() {
-		p.wg.Wait()
-		close(done)
-	}()
-	select {
-	case <-done:
-	case <-ctx.Done():
-		p.log.Warn().Msg("shell activity poller did not stop before shutdown deadline")
-	}
+	p.bg.stop(ctx, p.log, "shell activity poller did not stop before shutdown deadline")
 }
 
 // Current returns every session id currently reported busy, sorted — always non-nil
@@ -132,20 +113,6 @@ func (p *shellActivityPoller) Current() []int64 {
 	}
 	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
 	return ids
-}
-
-func (p *shellActivityPoller) loop(ctx context.Context) {
-	p.tick(ctx)
-	ticker := time.NewTicker(p.interval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			p.tick(ctx)
-		}
-	}
 }
 
 // tick reads every shell pane's tmux-reported state and reconciles it against the

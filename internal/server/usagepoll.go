@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -30,8 +29,7 @@ type usagePoller struct {
 	log         zerolog.Logger
 
 	refresh chan struct{}
-	cancel  context.CancelFunc
-	wg      sync.WaitGroup
+	bg      bgLoop
 }
 
 func newUsagePoller(client *http.Client, baseURL string, tokenReader claudecode.TokenReader, interval time.Duration, ms *usage.ModelScoped, log zerolog.Logger) *usagePoller {
@@ -48,31 +46,13 @@ func newUsagePoller(client *http.Client, baseURL string, tokenReader claudecode.
 
 // Start begins the poll loop with an immediate first fetch (REQ-1). Call once.
 func (p *usagePoller) Start() {
-	ctx, cancel := context.WithCancel(context.Background())
-	p.cancel = cancel
-	p.wg.Add(1)
-	go func() {
-		defer p.wg.Done()
-		p.loop(ctx)
-	}()
+	p.bg.start(func(ctx context.Context) { runTicked(ctx, p.interval, p.refresh, p.tick) })
 }
 
 // Stop cancels the poll loop and waits for it to exit, giving up when ctx is done
 // (mirrors session.Manager.Stop / the ingest queue's Stop).
 func (p *usagePoller) Stop(ctx context.Context) {
-	if p.cancel != nil {
-		p.cancel()
-	}
-	done := make(chan struct{})
-	go func() {
-		p.wg.Wait()
-		close(done)
-	}()
-	select {
-	case <-done:
-	case <-ctx.Done():
-		p.log.Warn().Msg("usage poller did not stop before shutdown deadline")
-	}
+	p.bg.stop(ctx, p.log, "usage poller did not stop before shutdown deadline")
 }
 
 // Refresh wakes the poller for an immediate fetch (kb:anchor/usage.refresh). Coalesced: a
@@ -85,22 +65,6 @@ func (p *usagePoller) Refresh() {
 	select {
 	case p.refresh <- struct{}{}:
 	default:
-	}
-}
-
-func (p *usagePoller) loop(ctx context.Context) {
-	p.tick(ctx) // REQ-1: immediate fetch on Start, before the first ticker interval elapses.
-	ticker := time.NewTicker(p.interval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			p.tick(ctx)
-		case <-p.refresh:
-			p.tick(ctx)
-		}
 	}
 }
 

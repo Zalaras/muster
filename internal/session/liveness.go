@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/Zalaras/muster/internal/boundedwait"
 )
 
 // Start begins the liveness poll loop. Call once, after LoadAll.
@@ -27,16 +29,7 @@ func (m *Manager) Stop(ctx context.Context) {
 	if m.cancel != nil {
 		m.cancel()
 	}
-	done := make(chan struct{})
-	go func() {
-		m.wg.Wait()
-		close(done)
-	}()
-	select {
-	case <-done:
-	case <-ctx.Done():
-		m.log.Warn().Msg("session manager liveness poll did not stop before shutdown deadline")
-	}
+	boundedwait.Wait(ctx, &m.wg, m.log, "session manager liveness poll did not stop before shutdown deadline")
 }
 
 // Snapshot returns id's last captured pane screen, if any (REQ-4's GET .../pane read

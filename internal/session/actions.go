@@ -116,11 +116,12 @@ func (m *Manager) EndAll(ctx context.Context) int {
 	return ended
 }
 
-// shellNamesOnSocket lists every muster-<n>-shell tmux session name currently on the
-// socket — KillAllShells and ShellCount's shared read, matching the same
-// tmux.IsShellSessionName predicate reconcile's own unconditional shell-kill loop uses
-// (reportAndSweepUnknown above).
-func (m *Manager) shellNamesOnSocket(ctx context.Context) ([]string, error) {
+// ShellNames lists every muster-<n>-shell tmux session name currently on the socket —
+// KillAllShells and ShellCount's shared read, matching the same tmux.IsShellSessionName
+// predicate reconcile's own unconditional shell-kill loop uses (reportAndSweepUnknown
+// above). Exported so internal/server's restart-impact endpoint asks this one place too,
+// rather than listing tmux sessions on its own (maintainability-cleanup review, Minor 8).
+func (m *Manager) ShellNames(ctx context.Context) ([]string, error) {
 	names, err := m.tmuxSessions.ListSessions(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("listing tmux sessions: %w", err)
@@ -141,7 +142,7 @@ func (m *Manager) shellNamesOnSocket(ctx context.Context) ([]string, error) {
 // failure is logged and does not stop the rest. Returns how many were successfully
 // killed.
 func (m *Manager) KillAllShells(ctx context.Context) (int, error) {
-	shells, err := m.shellNamesOnSocket(ctx)
+	shells, err := m.ShellNames(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -160,7 +161,7 @@ func (m *Manager) KillAllShells(ctx context.Context) (int, error) {
 // prompt's shell count (REQ-13). A caller treats an error as zero shells and proceeds
 // with shutdown regardless (never a blocker).
 func (m *Manager) ShellCount(ctx context.Context) (int, error) {
-	shells, err := m.shellNamesOnSocket(ctx)
+	shells, err := m.ShellNames(ctx)
 	if err != nil {
 		return 0, err
 	}

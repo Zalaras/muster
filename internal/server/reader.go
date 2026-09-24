@@ -398,7 +398,12 @@ var errWalkCap = errors.New("reader: walk file cap reached")
 
 func walkMarkdown(dir string) (paths []string, listing string, truncated bool) {
 	var md []string
-	walkErr := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+	// The walk's own top-level error (beyond the cap sentinel, handled inline below) is
+	// never inspected: walkMarkdown has no logger (kept pure per Implementation Notes),
+	// the caller (listMarkdown) already logs the git-fallback path, and it means a root
+	// that vanished mid-walk — rare enough that the partial md collected so far is an
+	// adequate answer.
+	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil //nolint:nilerr // deliberately continue past one unreadable entry rather than failing the whole listing
 		}
@@ -424,13 +429,6 @@ func walkMarkdown(dir string) (paths []string, listing string, truncated bool) {
 		}
 		return nil
 	})
-	if walkErr != nil && !errors.Is(walkErr, errWalkCap) {
-		// Not logged here: walkMarkdown has no logger (kept pure per Implementation
-		// Notes); the caller (listMarkdown) already logs the git-fallback path, and a
-		// walk error beyond the cap sentinel means a root that vanished mid-walk —
-		// rare enough that surfacing an empty/partial listing is an adequate answer.
-		_ = walkErr
-	}
 	truncated = len(md) >= maxWalkFiles
 	sort.Strings(md)
 	return md, "walk", truncated

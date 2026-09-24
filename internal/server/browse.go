@@ -1,6 +1,9 @@
 package server
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -10,6 +13,14 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/Zalaras/muster/internal/gitutil"
+)
+
+// Fixed 4xx reasons browseDirectory can fail with — the handler maps each to its wire
+// status/code; anything else (home-directory resolution) is browseDirectory's one 500.
+var (
+	errBrowsePathNotAbsolute = errors.New("path must be an absolute directory path")
+	errBrowseDirNotFound     = errors.New("directory does not exist or is not a directory")
+	errBrowseDirNotReadable  = errors.New("directory is not readable")
 )
 
 // browseDirWire is one subdirectory entry in a GET /api/browse response.
@@ -46,37 +57,51 @@ func (f *browseFeature) mount(mux *http.ServeMux, guard func(http.Handler) http.
 // absolute path. The browse root (-browse-root; empty = the user's home directory)
 // is the no-param default and the "Up" ceiling; explicit paths elsewhere stay allowed.
 func (f *browseFeature) handleBrowse(w http.ResponseWriter, r *http.Request) {
-	root := f.root
+	resp, err := browseDirectory(r.Context(), f.root, r.URL.Query().Get("path"))
+	if err != nil {
+		switch {
+		case errors.Is(err, errBrowsePathNotAbsolute):
+			writeJSONError(w, http.StatusBadRequest, "invalid_request", err.Error())
+		case errors.Is(err, errBrowseDirNotFound), errors.Is(err, errBrowseDirNotReadable):
+			writeJSONError(w, http.StatusNotFound, "not_found", err.Error())
+		default:
+			f.log.Error().Err(err).Msg("determining home directory failed")
+			writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+// browseDirectory is handleBrowse's domain call (§ Go "handlers decode, delegate,
+// encode"; maintainability-cleanup review Minor 14): resolves the effective root,
+// validates and cleans path, and lists path's non-dot subdirectories with each one's
+// isGit probe, sorted, plus the "Up" parent (nil at the root).
+func browseDirectory(ctx context.Context, root, path string) (browseResponse, error) {
 	if root == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			f.log.Error().Err(err).Msg("determining home directory failed")
-			writeJSONError(w, http.StatusInternalServerError, "internal_error", msgInternalError)
-			return
+			return browseResponse{}, fmt.Errorf("determining home directory: %w", err)
 		}
 		root = home
 	}
 	root = filepath.Clean(root)
 
-	path := r.URL.Query().Get("path")
 	if path == "" {
 		path = root
 	} else if !filepath.IsAbs(path) {
-		writeJSONError(w, http.StatusBadRequest, "invalid_request", "path must be an absolute directory path")
-		return
+		return browseResponse{}, errBrowsePathNotAbsolute
 	}
 	path = filepath.Clean(path)
 
 	info, err := os.Stat(path)
 	if err != nil || !info.IsDir() {
-		writeJSONError(w, http.StatusNotFound, "not_found", "directory does not exist or is not a directory")
-		return
+		return browseResponse{}, errBrowseDirNotFound
 	}
 
 	entries, err := os.ReadDir(path)
 	if err != nil {
-		writeJSONError(w, http.StatusNotFound, "not_found", "directory is not readable")
-		return
+		return browseResponse{}, errBrowseDirNotReadable
 	}
 
 	dirs := make([]browseDirWire, 0, len(entries))
@@ -85,7 +110,7 @@ func (f *browseFeature) handleBrowse(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		sub := filepath.Join(path, e.Name())
-		dirs = append(dirs, browseDirWire{Name: e.Name(), Path: sub, IsGit: gitutil.IsRepo(r.Context(), sub)})
+		dirs = append(dirs, browseDirWire{Name: e.Name(), Path: sub, IsGit: gitutil.IsRepo(ctx, sub)})
 	}
 	sort.Slice(dirs, func(i, j int) bool { return dirs[i].Name < dirs[j].Name })
 
@@ -94,5 +119,5 @@ func (f *browseFeature) handleBrowse(w http.ResponseWriter, r *http.Request) {
 		parent = &p
 	}
 
-	writeJSON(w, http.StatusOK, browseResponse{Path: path, Parent: parent, Dirs: dirs})
+	return browseResponse{Path: path, Parent: parent, Dirs: dirs}, nil
 }

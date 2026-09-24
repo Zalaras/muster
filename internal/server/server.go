@@ -107,7 +107,6 @@ type Server struct {
 	hub        *wsHub
 	manager    *session.Manager
 	tmuxClient paneSpawner
-	tmuxLister tmuxSessionLister
 	// features is Start/Stop order (REQ-11): a property of the order register(s, f) is
 	// called in below, independent of the order each f was constructed in — usage and
 	// ingest are constructed out of registration order (ingest's constructor takes
@@ -150,7 +149,6 @@ func New(cfg Config) *Server {
 		spawner = cfg.TmuxClient
 	}
 	s.tmuxClient = spawner
-	s.tmuxLister = tmuxClient // always the real client — restart-impact lists real tmux state
 	attach := cfg.Attach
 	if attach == nil {
 		attach = func(ctx context.Context, target string) (paneConn, error) {
@@ -201,7 +199,7 @@ func New(cfg Config) *Server {
 	// straight from the constructor — update's own initial checkEnabled value comes from
 	// its own loadPrefs read (update.go), not from a *prefsFeature, so there is no cycle
 	// forcing the reverse order.
-	updateFeat := newUpdateFeature(cfg.Update, httpClient, cfg.DaemonVersion, cfg.Store, s.tmuxLister, s.manager, s.hub, cfg.Logger)
+	updateFeat := newUpdateFeature(cfg.Update, httpClient, cfg.DaemonVersion, cfg.Store, s.manager, s.hub, cfg.Logger)
 	s.prefs = register(s, newPrefsFeature(cfg.Store, s.hub, updateFeat, cfg.Logger))
 
 	// usage is built before ingest so ingest's constructor can take its aggregator; both

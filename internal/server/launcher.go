@@ -129,9 +129,7 @@ func validateLaunchRequest(req createSessionRequest) *launchError {
 	if req.Model == "" {
 		return invalidRequest("model must not be empty")
 	}
-	switch req.PermissionMode {
-	case "default", "plan", "acceptEdits", "auto":
-	default:
+	if !session.ValidPermissionMode(req.PermissionMode) {
 		return invalidRequest("permissionMode must be one of default, plan, acceptEdits, auto")
 	}
 	return nil

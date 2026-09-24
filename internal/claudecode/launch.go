@@ -1,12 +1,41 @@
 package claudecode
 
+// PermissionDefault, PermissionPlan, PermissionAcceptEdits and PermissionAuto are every
+// value Claude Code's `--permission-mode` flag accepts (spike S2's `plan`/`acceptEdits`,
+// and the 2026-09-03 permission-mode probe against 2.1.259 for `auto`,
+// docs/history/spikes/canary-fields.md § Hook payloads) — Claude-Code-format vocabulary,
+// so this package is its one owner (CLAUDE.md hard rule; maintainability-cleanup review
+// Major 6/c-Minor 11). internal/session's PermissionMode constants derive from these
+// (session already imports claudecode, so that direction never cycles); internal/server
+// validates incoming requests through whichever of the two it already has in hand.
+const (
+	PermissionDefault     = "default"
+	PermissionPlan        = "plan"
+	PermissionAcceptEdits = "acceptEdits"
+	PermissionAuto        = "auto"
+)
+
+// PermissionModes lists every value above, in the order BuildArgv/ValidPermissionMode
+// iterate them.
+var PermissionModes = []string{PermissionDefault, PermissionPlan, PermissionAcceptEdits, PermissionAuto}
+
+// ValidPermissionMode reports whether s is one of PermissionModes.
+func ValidPermissionMode(s string) bool {
+	for _, m := range PermissionModes {
+		if m == s {
+			return true
+		}
+	}
+	return false
+}
+
 // LaunchParams are the neutral inputs to building the `claude` CLI invocation
 // (kb:anchor/sessions.create). Validation of these values (non-empty model, a known
 // permission mode) is the caller's job — BuildArgv only assembles argv.
 type LaunchParams struct {
 	Model          string
 	Title          string // optional; empty omits --name
-	PermissionMode string // "default" | "plan" | "acceptEdits" | "auto"
+	PermissionMode string // one of PermissionModes
 
 	// ResumeSessionID is non-empty for a resume relaunch (m4-reconcile REQ-7 / docs/
 	// kb:anchor/sessions.resume): emits `--resume <id>` and omits `--name` (D13) — the only place
@@ -15,14 +44,13 @@ type LaunchParams struct {
 }
 
 // BuildArgv returns the full argv (binary included) for launching `claude` with p.
-// `--permission-mode` is confirmed by spike S2 (`--permission-mode plan`,
-// `--permission-mode acceptEdits`) and by the 2026-09-03 permission-mode probe against
-// 2.1.259 (`--permission-mode auto`, docs/history/spikes/canary-fields.md § Hook payloads).
 // Every accepted mode, "default" included, is now sent explicitly: with no flag at all
 // Claude Code starts in its own configured default, which the 2026-09-23 probe measured
 // as auto on the developer's machine, not manual
 // (kb:fact/permission-mode-no-flag-follows-configured-default) — omitting the flag for
-// "default" no longer means manual.
+// "default" no longer means manual. An unrecognized PermissionMode adds no flag at all
+// (validation is the caller's job, per LaunchParams' doc) rather than passing an
+// unvalidated value straight to the `claude` argv.
 func BuildArgv(binary string, p LaunchParams) []string {
 	args := []string{binary, "--model", p.Model}
 	if p.ResumeSessionID != "" {
@@ -30,8 +58,7 @@ func BuildArgv(binary string, p LaunchParams) []string {
 	} else if p.Title != "" {
 		args = append(args, "--name", p.Title)
 	}
-	switch p.PermissionMode {
-	case "default", "plan", "acceptEdits", "auto":
+	if ValidPermissionMode(p.PermissionMode) {
 		args = append(args, "--permission-mode", p.PermissionMode)
 	}
 	return args

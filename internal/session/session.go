@@ -7,6 +7,8 @@ package session
 import (
 	"time"
 	"unicode/utf8"
+
+	"github.com/Zalaras/muster/internal/claudecode"
 )
 
 // State is one of the six displayed states (kb:anchor/state.displayed).
@@ -22,17 +24,35 @@ const (
 )
 
 // PermissionMode is the latched last-known permission mode (kb:anchor/state.tracked).
+// The four values are Claude Code's own `--permission-mode` vocabulary
+// (kb:fact/permission-mode-no-flag-follows-configured-default), owned by
+// internal/claudecode (CLAUDE.md hard rule; maintainability-cleanup review Major
+// 6/c-Minor 11) — this package's constants derive from that owner rather than
+// re-declaring the literals, since session already imports claudecode (for StateInput),
+// so this direction never cycles.
 type PermissionMode string
 
 const (
-	PermissionDefault     PermissionMode = "default"
-	PermissionPlan        PermissionMode = "plan"
-	PermissionAcceptEdits PermissionMode = "acceptEdits"
+	PermissionDefault     PermissionMode = PermissionMode(claudecode.PermissionDefault)
+	PermissionPlan        PermissionMode = PermissionMode(claudecode.PermissionPlan)
+	PermissionAcceptEdits PermissionMode = PermissionMode(claudecode.PermissionAcceptEdits)
 	// PermissionAuto is Claude Code's distinct "auto" mode, measured 2026-09-03 against
 	// 2.1.259 (docs/history/spikes/canary-fields.md § Hook payloads, "Permission-mode probe"): reports
 	// permission_mode "auto" on hooks; model-gated (falls back to "default" on haiku).
-	PermissionAuto PermissionMode = "auto"
+	PermissionAuto PermissionMode = PermissionMode(claudecode.PermissionAuto)
 )
+
+// PermissionModes lists every mode as this package's own typed enum — internal/server
+// validates incoming requests against it rather than re-spelling the four literals
+// itself (maintainability-cleanup review, Major 6).
+var PermissionModes = []PermissionMode{PermissionDefault, PermissionPlan, PermissionAcceptEdits, PermissionAuto}
+
+// ValidPermissionMode reports whether s is one of PermissionModes. Delegates to
+// claudecode.ValidPermissionMode, the one owner of the underlying set, rather than
+// walking PermissionModes itself — one validation, not two.
+func ValidPermissionMode(s string) bool {
+	return claudecode.ValidPermissionMode(s)
+}
 
 // Attention is non-nil iff State == StateNeedsInput.
 type Attention struct {

@@ -108,8 +108,7 @@ type themePoller struct {
 	mu      sync.RWMutex
 	current claudecode.ThemeFamily
 
-	cancel context.CancelFunc
-	wg     sync.WaitGroup
+	bg bgLoop
 }
 
 func newThemePoller(path string, reader themeReader, interval time.Duration, broadcast func(claudecode.ThemeFamily), log zerolog.Logger) *themePoller {
@@ -125,31 +124,13 @@ func newThemePoller(path string, reader themeReader, interval time.Duration, bro
 
 // Start begins the poll loop with an immediate first tick (REQ-14). Call once.
 func (p *themePoller) Start() {
-	ctx, cancel := context.WithCancel(context.Background())
-	p.cancel = cancel
-	p.wg.Add(1)
-	go func() {
-		defer p.wg.Done()
-		p.loop(ctx)
-	}()
+	p.bg.start(func(ctx context.Context) { runTicked(ctx, p.interval, nil, p.tick) })
 }
 
 // Stop cancels the poll loop and waits for it to exit, giving up when ctx is done
 // (mirrors usagePoller.Stop).
 func (p *themePoller) Stop(ctx context.Context) {
-	if p.cancel != nil {
-		p.cancel()
-	}
-	done := make(chan struct{})
-	go func() {
-		p.wg.Wait()
-		close(done)
-	}()
-	select {
-	case <-done:
-	case <-ctx.Done():
-		p.log.Warn().Msg("theme poller did not stop before shutdown deadline")
-	}
+	p.bg.stop(ctx, p.log, "theme poller did not stop before shutdown deadline")
 }
 
 // Current returns the poller's latest family — used to fill snapshot.claudeTheme
@@ -158,20 +139,6 @@ func (p *themePoller) Current() claudecode.ThemeFamily {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.current
-}
-
-func (p *themePoller) loop(ctx context.Context) {
-	p.tick(ctx) // REQ-14: immediate fetch on Start, before the first ticker interval elapses.
-	ticker := time.NewTicker(p.interval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			p.tick(ctx)
-		}
-	}
 }
 
 // tick runs one read attempt, applying the torn-write retry guard (REQ-14) before

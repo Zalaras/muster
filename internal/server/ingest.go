@@ -10,6 +10,7 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"github.com/Zalaras/muster/internal/boundedwait"
 	"github.com/Zalaras/muster/internal/claudecode"
 	"github.com/Zalaras/muster/internal/session"
 	"github.com/Zalaras/muster/internal/store"
@@ -108,16 +109,7 @@ func (q *ingestQueue) Start() {
 // ticking.
 func (q *ingestQueue) Stop(ctx context.Context) {
 	close(q.ch)
-	done := make(chan struct{})
-	go func() {
-		q.wg.Wait()
-		close(done)
-	}()
-	select {
-	case <-done:
-	case <-ctx.Done():
-		q.log.Warn().Msg("ingest queue drain did not finish before shutdown deadline")
-	}
+	boundedwait.Wait(ctx, &q.wg, q.log, "ingest queue drain did not finish before shutdown deadline")
 }
 
 // process parses, routes and persists one job, then feeds the routed event into the kb:anchor/state
@@ -156,10 +148,14 @@ func (q *ingestQueue) process(job ingestJob) {
 		return
 	}
 
-	// status_line never reaches Interpret/manager.Apply — it takes the ApplyStatus +
+	// A status post never reaches Interpret/manager.Apply — it takes the ApplyStatus +
 	// aggregator.Record path instead, so a status post's title/model/context refresh is
 	// broadcast only on real change, never as a no-op sessionUpsert on every tool use.
-	if ev.Type == "status_line" {
+	// job.kind is already the typed value ParseIngestBody classified the post as
+	// (claudecode.KindStatus mints ev.Type "status_line"); comparing job.kind here instead
+	// of ev.Type keeps that event-type string inside internal/claudecode (CLAUDE.md hard
+	// rule, maintainability-cleanup review Minor 7).
+	if job.kind == claudecode.KindStatus {
 		q.processStatus(ctx, *sessionID, ev.Payload)
 		return
 	}
