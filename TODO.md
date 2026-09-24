@@ -73,23 +73,7 @@ Both were filed by the developer 2026-09-23 from the interface probe that settle
 
 - [ ] **I lost my session from yesterday (I think)** ([#47](https://github.com/Zalaras/muster/issues/47)) — three sessions left open were
   gone after stopping musterd and killing tmux. They should come back on restart as resumable
-  rows, even though Claude itself has quit. Mechanism, read from the ownership classifier's row
-  classes (`internal/session/manager.go:376-383`) and not yet reproduced: a row whose pane is
-  absent but which is still `alive=true` is "marked ended and kept — the resume chance is not
-  lost", and only the *following* startup sweeps it. That one-restart grace assumes a crash. A
-  graceful shutdown under `-on-exit=kill` runs `Manager.EndAll`, which marks every row
-  `alive:false` and persists it before exit, so the next startup sees "absent, alive=false" and
-  sweeps immediately — the grace is spent by the shutdown itself, and a cleanly stopped session
-  gets zero resume chances rather than one. `-on-exit=leave` should preserve the row; `ask` (the
-  default) depends on what was answered. Confirm with a test before planning. Changing it means
-  superseding kb:adr/lifecycle-reconcile-converges-with-the-socket, which is what ties a kept row
-  to having been alive at Reconcile time. The resume path itself already exists
-  (kb:anchor/sessions.resume).
-
-  Same mechanism as the entry above: both are the one-restart grace of the sweep rule,
-  reached by different routes — a crash that took the tmux server there, a clean
-  `-on-exit=kill` shutdown here — so the superseding ADR each asks for is one ADR, and the
-  archive policy of #39 is where a kept row eventually goes.
+  rows, even though Claude itself has quit.
 
 ### Together — the Settings Updates panel (#53, and the update-check error below)
 
