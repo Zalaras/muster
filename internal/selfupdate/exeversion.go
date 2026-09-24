@@ -13,11 +13,17 @@ import (
 // never wedge the update manager's tick loop.
 const ProbeVersionTimeout = 5 * time.Second
 
-// versionPattern matches musterd's own `-version` output ("musterd %s (Claude Code
-// verified %s)", cmd/musterd/main.go): an optional "v" then MAJOR.MINOR.PATCH,
-// immediately after "musterd ". "musterd dev" has no digit run at this position and
-// correctly fails to match (D25).
-var versionPattern = regexp.MustCompile(`^musterd v?(\d+\.\d+\.\d+)\b`)
+// VersionLinePrefix is the literal prefix of musterd's own `-version` output, immediately
+// followed by the version itself: cmd/musterd's -version printer and versionPattern below
+// are the format's only two consumers, and both build off this one declaration rather than
+// each spelling "musterd " by hand.
+const VersionLinePrefix = "musterd "
+
+// versionPattern matches musterd's own `-version` output (VersionLinePrefix followed by
+// "%s (Claude Code verified %s)", cmd/musterd's -version printer): an optional "v" then
+// MAJOR.MINOR.PATCH, immediately after VersionLinePrefix. "musterd dev" has no digit run
+// at this position and correctly fails to match (D25).
+var versionPattern = regexp.MustCompile(`^` + regexp.QuoteMeta(VersionLinePrefix) + `v?(\d+\.\d+\.\d+)\b`)
 
 // ProbeVersion runs `exePath -version` via run — an injectable seam
 // (docs/conventions.md "every subprocess call gets an injectable run func"), never a
