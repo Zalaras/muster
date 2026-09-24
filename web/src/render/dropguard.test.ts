@@ -2,7 +2,7 @@
 // "did something more specific already claim this event?" (`event.defaultPrevented`).
 // Per docs/conventions.md ("interaction and rendering are Playwright's job") this isn't a
 // rendering test — no real DOM, no jsdom — it's the same minimal-fake-listener technique
-// render/tiledrag.test.ts already established for exactly this kind of DOM event-wiring
+// render/dragreorder.test.ts already established for exactly this kind of DOM event-wiring
 // glue: a `FakeDoc` stands in for `Document`, recording listeners so a test can dispatch a
 // synthetic event object directly instead of simulating real browser DnD dispatch.
 import { describe, expect, it } from "vitest";

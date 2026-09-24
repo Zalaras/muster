@@ -6,7 +6,7 @@ date: 2026-09-03
 summary: Internal tile and rail reorder drags carry a Muster-specific MIME type instead of text/plain, so a dragover can tell a reorder from dragged text.
 features: [drop, rail, tiles]
 tags: [ux]
-files: [web/src/render/dragreorder.ts, web/src/render/tiledrag.ts, web/src/render/dropguard.ts]
+files: [web/src/render/dragreorder.ts, web/src/dragmime.ts, web/src/render/dropguard.ts]
 tests: [web/e2e/rail-order.spec.ts, web/e2e/tiles.spec.ts, web/e2e/drop.spec.ts]
 refs: [docs/history/spec-changelog.md, plan:file-drop-fix, kb:adr/drop-daemon-locates-original-never-stages, kb:adr/rail-whole-card-drag-drop-decides-pin, kb:adr/tiles-drag-reorder-header-handle-insert-shift]
 supersedes: []

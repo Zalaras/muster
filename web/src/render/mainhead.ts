@@ -9,7 +9,7 @@ import type { Session } from "../protocol/session";
 import { buildCardViewModel, canResume, resumeDisabledReason } from "../sessions/card";
 import { ageAgo } from "../sessions/format";
 import type { ShellActivityIndicator } from "../terminal/shellactivity";
-import { DEFAULT_SURFACE_STATE, type SessionSurfaceState } from "../terminal/surfaceswitch";
+import type { SessionSurfaceState } from "../terminal/surfaceswitch";
 import { updateSurfaceSegment, type SurfaceSegmentRefs } from "./surfaceseg";
 
 export interface MainheadElements {
@@ -25,11 +25,8 @@ export interface MainheadElements {
   renameBtn: HTMLButtonElement;
   // Plan plain-terminal-session REQ-4: the `claude | shell` segment, built once by
   // features/focus.ts at startup and inserted between `.meta` and `.acts` — this module
-  // only ever updates its attributes (below), never rebuilds it. Optional for the same
-  // reason render/tiles.ts's `actsEl`/`rename` are (mainhead.test.ts's pre-existing
-  // hand-built `MainheadElements` fixtures, built before this plan, have no such field) —
-  // every real caller (features/focus.ts) always supplies one.
-  surfaceSegment?: SurfaceSegmentRefs;
+  // only ever updates its attributes (below), never rebuilds it.
+  surfaceSegment: SurfaceSegmentRefs;
 }
 
 /** REQ-10's meta line: "repo/branch · model · `ended <age>` when dead" — reuses
@@ -54,17 +51,15 @@ function mainheadMeta(session: Session, now: Date): string {
  * surface-switch state (features/surfaces.ts's `surfaceSwitchState`, or the default when there is no
  * focused session) — updated every pass regardless of the `!session` branch below, since
  * `updateSurfaceSegment` only ever writes attributes and is harmless while `root` is
- * hidden. Defaults to the "no shell yet" state so a caller with no `surfaceSegment`
- * element (mainhead.test.ts's pre-plan fixtures) never needs to pass it. `activity`
- * (plan terminal-fixes-cleanup) is that same session's `shell` segment busy/done verdict
- * (`features/surfaces.ts`'s `activityFor`); defaults to `"none"` for the same reason. */
+ * hidden. `activity` (plan terminal-fixes-cleanup) is that same session's `shell` segment
+ * busy/done verdict (`features/surfaces.ts`'s `activityFor`). */
 export function renderMainhead(
   elements: MainheadElements,
   session: Session | null,
   now: Date,
   connected: boolean,
-  surfaceState: SessionSurfaceState = DEFAULT_SURFACE_STATE,
-  activity: ShellActivityIndicator = "none",
+  surfaceState: SessionSurfaceState,
+  activity: ShellActivityIndicator,
   // Review Minor 3: asks the rename controller directly (features/focus.ts's caller reads
   // its own `deps.getRename().isEditing()`), rather than this module reading
   // `render/rename.ts`'s `data-editing` DOM attribute off `elements.nameEl` itself.
@@ -84,8 +79,7 @@ export function renderMainhead(
     // hidden in this state, so the button (and any stale text on it) is not visible;
     // only `metaEl` needs clearing here.
     elements.metaEl.textContent = "";
-    if (elements.surfaceSegment)
-      updateSurfaceSegment(elements.surfaceSegment, surfaceState, connected, activity);
+    updateSurfaceSegment(elements.surfaceSegment, surfaceState, connected, activity);
     return;
   }
   elements.root.hidden = false;
@@ -106,6 +100,5 @@ export function renderMainhead(
   // REQ-17/W3: a disabled-for-no-claudeSessionId Resume says why, not just sits greyed.
   elements.resumeBtn.title = resumeDisabledReason(session) ?? "";
   elements.removeBtn.disabled = !connected;
-  if (elements.surfaceSegment)
-    updateSurfaceSegment(elements.surfaceSegment, surfaceState, connected, activity);
+  updateSurfaceSegment(elements.surfaceSegment, surfaceState, connected, activity);
 }

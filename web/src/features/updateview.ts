@@ -5,7 +5,6 @@
 // a DOM; `render/update.ts`'s `renderUpdateSection` stays the DOM half, taking the
 // `UpdateViewModel` this produces as a parameter (that split already existed — only the
 // derivation itself moves here).
-import type { Prefs } from "../protocol/prefs";
 import type { UpdateInfo } from "../protocol/update";
 import type { UpdateViewModel } from "../render/update";
 import { ageAgo } from "../sessions/format";
@@ -78,17 +77,13 @@ function statusText(update: UpdateInfo, checkError: string | null): string {
  * throwing. */
 export function buildUpdateViewModel(
   update: UpdateInfo | null,
-  prefs: Prefs | null,
   now: Date,
   check: CheckState,
 ): UpdateViewModel {
-  const updateCheck = prefs?.updateCheck ?? true;
-
   if (!update) {
     return {
       running: "unknown",
       available: "not checked yet",
-      toggleChecked: updateCheck,
       toggleDisabled: true,
       buttonsVisible: false,
       updateEnabled: false,
@@ -124,7 +119,6 @@ export function buildUpdateViewModel(
   return {
     running,
     available,
-    toggleChecked: updateCheck,
     toggleDisabled: isDev,
     buttonsVisible: !isDev,
     updateEnabled,

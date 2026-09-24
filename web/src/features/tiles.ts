@@ -28,10 +28,10 @@ import {
   type TileRefs,
   type TileRenameHandlers,
 } from "../render/tiles";
+import { installDragReorder } from "../render/dragreorder";
 import { captureFocusedControl, type FocusedControl } from "../render/focuskeep";
 import { reconcileKeyedOrder, type KeyedReorderEntry } from "../render/keyedreorder";
 import { mountSlotRoot } from "../render/slotmount";
-import { installTileDrag } from "../render/tiledrag";
 import { applyDensity, densityCount, initialLive, moveTile, promote } from "../sessions/live";
 import { orderRail } from "../sessions/sort";
 import {
@@ -106,7 +106,7 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
   }
 
   function cancelTileRenames(): void {
-    for (const refs of tileElements.values()) refs.rename?.cancel();
+    for (const refs of tileElements.values()) refs.rename.cancel();
   }
 
   /** Review Minor 11: the one tile-teardown routine — cancel (no request) and detach the
@@ -116,8 +116,8 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
   function teardownTile(id: number): void {
     const refs = tileElements.get(id);
     if (!refs) return;
-    refs.rename?.cancel();
-    refs.rename?.dispose();
+    refs.rename.cancel();
+    refs.rename.dispose();
     refs.root.remove();
     tileElements.delete(id);
   }
@@ -152,10 +152,16 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
     }
   });
 
-  installTileDrag(tilesGridEl, (draggedId, targetId, focusedBeforeDrag) => {
-    tilesLive = moveTile(tilesLive, draggedId, targetId);
-    pendingTileFocus = focusedBeforeDrag;
-    app.render();
+  // The tile grid's handle is `.thead` — only a drag that starts there reorders the grid;
+  // the body/footer are not drag handles (plan move-tiles REQ-4/REQ-5/REQ-6).
+  installDragReorder(tilesGridEl, {
+    itemSelector: "article.tile",
+    handleSelector: ".thead",
+    onMove: (draggedId, targetId, focusedBeforeDrag) => {
+      tilesLive = moveTile(tilesLive, draggedId, targetId);
+      pendingTileFocus = focusedBeforeDrag;
+      app.render();
+    },
   });
 
   /** Tears down every tile whose session is no longer live, via `teardownTile` above —
@@ -263,16 +269,14 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
       const sessionSurfaceState = getSurfaceState(deps.getSurfaces().state(), session.id);
       renderTileBody(refs, session, sessionSurfaceState.selected, now, connected);
 
-      if (refs.actsEl)
-        renderTileFooterActions(refs.actsEl, session, now, connected, deps.actions.dispatch);
-      if (refs.surfaceSegment)
-        updateSurfaceSegment(
-          refs.surfaceSegment,
-          sessionSurfaceState,
-          connected,
-          deps.getSurfaces().activityFor(session.id),
-        );
-      refs.rename?.setEnabled(connected);
+      renderTileFooterActions(refs.actsEl, session, now, connected, deps.actions.dispatch);
+      updateSurfaceSegment(
+        refs.surfaceSegment,
+        sessionSurfaceState,
+        connected,
+        deps.getSurfaces().activityFor(session.id),
+      );
+      refs.rename.setEnabled(connected);
     }
 
     reconcileKeyedOrder(tilesGridEl, entries, focused);

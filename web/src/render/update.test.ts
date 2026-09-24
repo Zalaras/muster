@@ -9,7 +9,6 @@
 // models these DOM functions render.
 import { describe, expect, it, vi } from "vitest";
 import type { RestartImpactShell } from "../api/update";
-import type { Prefs } from "../protocol/prefs";
 import type { UpdateInfo } from "../protocol/update";
 import {
   initRestartConfirm,
@@ -34,28 +33,12 @@ const baseUpdate: UpdateInfo = {
   apply: idleApply,
 };
 
-const onPrefs: Prefs = {
-  view: "focus",
-  density: "2x2",
-  usageModel: "Fable",
-  railSort: "manual",
-  theme: "follow",
-  updateCheck: true,
-  railDensity: "comfortable",
-  railActivity: "turn",
-};
-
 const NOW = new Date("2026-09-10T20:02:00Z");
 const idleCheck: CheckState = { inFlight: false, error: null };
 const busyCheck: CheckState = { inFlight: true, error: null };
 
-function buildVm(
-  update: UpdateInfo | null,
-  prefs: Prefs | null,
-  check: CheckState = idleCheck,
-  now: Date = NOW,
-) {
-  return buildUpdateViewModel(update, prefs, now, check);
+function buildVm(update: UpdateInfo | null, check: CheckState = idleCheck, now: Date = NOW) {
+  return buildUpdateViewModel(update, now, check);
 }
 
 // --- DOM-facing functions: plain fakes, no jsdom (see file header). ---
@@ -91,10 +74,11 @@ function fakeSectionElements(): UpdateSectionElements & {
 describe("renderUpdateSection — applies a view model to the DOM refs", () => {
   it("writes running/available text, toggle.disabled, status text, and never touches toggle.checked", () => {
     const els = fakeSectionElements();
-    const vm = buildVm(
-      { ...baseUpdate, available: "0.11.0", checkedAt: "2026-09-10T20:00:00Z" },
-      onPrefs,
-    );
+    const vm = buildVm({
+      ...baseUpdate,
+      available: "0.11.0",
+      checkedAt: "2026-09-10T20:00:00Z",
+    });
     (els.toggle as unknown as { checked: boolean }).checked = false;
     renderUpdateSection(els, vm);
     expect(els.runningEl.textContent).toBe("v0.10.0");
@@ -107,23 +91,23 @@ describe("renderUpdateSection — applies a view model to the DOM refs", () => {
 
   it("REQ-10: writes checkBtn.disabled from checkEnabled", () => {
     const els = fakeSectionElements();
-    renderUpdateSection(els, buildVm({ ...baseUpdate, canCheck: true }, onPrefs, idleCheck));
+    renderUpdateSection(els, buildVm({ ...baseUpdate, canCheck: true }, idleCheck));
     expect(els.checkBtn.disabled).toBe(false);
-    renderUpdateSection(els, buildVm({ ...baseUpdate, canCheck: false }, onPrefs, idleCheck));
+    renderUpdateSection(els, buildVm({ ...baseUpdate, canCheck: false }, idleCheck));
     expect(els.checkBtn.disabled).toBe(true);
   });
 
   it("REQ-13: sets aria-busy='true' on checkBtn while this window's own check is in flight, and removes it once it isn't", () => {
     const els = fakeSectionElements();
-    renderUpdateSection(els, buildVm(baseUpdate, onPrefs, busyCheck));
+    renderUpdateSection(els, buildVm(baseUpdate, busyCheck));
     expect(els.checkAttrs.get("aria-busy")).toBe("true");
-    renderUpdateSection(els, buildVm(baseUpdate, onPrefs, idleCheck));
+    renderUpdateSection(els, buildVm(baseUpdate, idleCheck));
     expect(els.checkAttrs.has("aria-busy")).toBe(false);
   });
 
   it("hides both buttons for a dev install", () => {
     const els = fakeSectionElements();
-    const vm = buildVm({ ...baseUpdate, install: "dev" }, onPrefs);
+    const vm = buildVm({ ...baseUpdate, install: "dev" });
     renderUpdateSection(els, vm);
     expect(els.applyBtn.hidden).toBe(true);
     expect(els.restartBtn.hidden).toBe(true);
@@ -131,7 +115,7 @@ describe("renderUpdateSection — applies a view model to the DOM refs", () => {
 
   it("shows and enables both buttons when an update is available", () => {
     const els = fakeSectionElements();
-    const vm = buildVm({ ...baseUpdate, available: "0.11.0" }, onPrefs);
+    const vm = buildVm({ ...baseUpdate, available: "0.11.0" });
     renderUpdateSection(els, vm);
     expect(els.applyBtn.hidden).toBe(false);
     expect(els.applyBtn.disabled).toBe(false);
@@ -140,17 +124,17 @@ describe("renderUpdateSection — applies a view model to the DOM refs", () => {
 
   it("writes the restart button's label ('Restart now' once installed)", () => {
     const els = fakeSectionElements();
-    const vm = buildVm({ ...baseUpdate, installed: "0.11.0" }, onPrefs);
+    const vm = buildVm({ ...baseUpdate, installed: "0.11.0" });
     renderUpdateSection(els, vm);
     expect(els.restartBtn.textContent).toBe("Restart now");
   });
 
   it("sets aria-busy='true' on the section while an apply phase is in flight", () => {
     const els = fakeSectionElements();
-    const vm = buildVm(
-      { ...baseUpdate, apply: { phase: "downloading", version: "0.11.0", error: null } },
-      onPrefs,
-    );
+    const vm = buildVm({
+      ...baseUpdate,
+      apply: { phase: "downloading", version: "0.11.0", error: null },
+    });
     renderUpdateSection(els, vm);
     expect(els.attrs.get("aria-busy")).toBe("true");
   });
@@ -158,7 +142,7 @@ describe("renderUpdateSection — applies a view model to the DOM refs", () => {
   it("removes aria-busy once no phase is in flight", () => {
     const els = fakeSectionElements();
     els.attrs.set("aria-busy", "true"); // simulate a previous busy render
-    const vm = buildVm(baseUpdate, onPrefs);
+    const vm = buildVm(baseUpdate);
     renderUpdateSection(els, vm);
     expect(els.attrs.has("aria-busy")).toBe(false);
   });

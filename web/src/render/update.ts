@@ -14,14 +14,6 @@ import type { RestartImpactShell } from "../api/update";
 export interface UpdateViewModel {
   running: string;
   available: string;
-  /** Text rules > Toggle: `checked iff prefs.updateCheck` — kept here for W5's full
-   * table-test contract, even though the DOM write of `.checked` happens in
-   * features/update.ts's own `prefs` subscription (review Major 7: this module wires its
-   * own toggle now), never optimistically from the toggle's own `change` handler (INV-7's
-   * "only ever from the prefs broadcast" discipline, same code path the theme/rail-activity
-   * radios use in `render/settings.ts`).
-   * `renderUpdateSection` below never reads this field. */
-  toggleChecked: boolean;
   toggleDisabled: boolean;
   buttonsVisible: boolean;
   updateEnabled: boolean;
@@ -34,7 +26,7 @@ export interface UpdateViewModel {
   busy: boolean;
   /** REQ-10 (plan rail-card-improvements-2): `Check now`'s own `disabled` state —
    * `update.canCheck` and no check of its own already in flight. Independent of
-   * `toggleChecked`/`updateEnabled` — a user-initiated check runs regardless of the
+   * `prefs.updateCheck`/`updateEnabled` — a user-initiated check runs regardless of the
    * daily-check toggle (REQ-8). */
   checkEnabled: boolean;
   /** Whether this window's own `Check now` request is in flight — `aria-busy` on the

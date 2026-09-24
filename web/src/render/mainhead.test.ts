@@ -21,7 +21,9 @@
 // Playwright per docs/conventions.md's split.
 import { describe, expect, it } from "vitest";
 import type { Session } from "../protocol/session";
+import { DEFAULT_SURFACE_STATE } from "../terminal/surfaceswitch";
 import { renderMainhead, type MainheadElements } from "./mainhead";
+import type { SurfaceSegmentRefs } from "./surfaceseg";
 
 function fakeElement(): HTMLElement {
   return { textContent: "", hidden: false } as unknown as HTMLElement;
@@ -78,6 +80,28 @@ function fakeNameEl(renameBtn: HTMLButtonElement): HTMLElement & { attached: () 
   } as unknown as HTMLElement & { attached: () => boolean };
 }
 
+/** A minimal `SurfaceSegmentRefs` fake — mainhead.test.ts never asserts on the surface
+ * segment itself (render/surfaceseg.test.ts owns `updateSurfaceSegment`'s own contract);
+ * this just needs to survive `renderMainhead`'s unconditional call into it without
+ * throwing. */
+function fakeSurfaceSegmentRefs(): SurfaceSegmentRefs {
+  const shellActEl = { dataset: {}, remove() {} } as unknown as HTMLElement;
+  const surfaceBtn = () =>
+    ({
+      setAttribute() {},
+      disabled: false,
+      contains: () => false,
+      prepend() {},
+    }) as unknown as HTMLButtonElement;
+  return {
+    root: fakeElement(),
+    claudeBtn: surfaceBtn(),
+    shellBtn: surfaceBtn(),
+    docsBtn: surfaceBtn(),
+    shellActEl,
+  };
+}
+
 function fakeMainheadElements(): MainheadElements & { attached: () => boolean } {
   const renameBtn = fakeButton();
   const nameEl = fakeNameEl(renameBtn);
@@ -89,6 +113,7 @@ function fakeMainheadElements(): MainheadElements & { attached: () => boolean } 
     resumeBtn: fakeButton(),
     removeBtn: fakeButton(),
     renameBtn,
+    surfaceSegment: fakeSurfaceSegmentRefs(),
     attached: nameEl.attached,
   };
 }
@@ -128,7 +153,7 @@ describe("renderMainhead — no-session branch must not detach the rename button
   it("leaves button.rename attached to nameEl after a render with no focused session", () => {
     const elements = fakeMainheadElements();
 
-    renderMainhead(elements, null, NOW, true);
+    renderMainhead(elements, null, NOW, true, DEFAULT_SURFACE_STATE, "none");
 
     expect(elements.root.hidden).toBe(true);
     expect(elements.attached()).toBe(true);
@@ -138,9 +163,9 @@ describe("renderMainhead — no-session branch must not detach the rename button
   it("survives repeated zero-session render passes (the dashboard's actual startup shape: one or more empty ticks before the first sessionUpsert)", () => {
     const elements = fakeMainheadElements();
 
-    renderMainhead(elements, null, NOW, true);
-    renderMainhead(elements, null, NOW, false);
-    renderMainhead(elements, null, NOW, true);
+    renderMainhead(elements, null, NOW, true, DEFAULT_SURFACE_STATE, "none");
+    renderMainhead(elements, null, NOW, false, DEFAULT_SURFACE_STATE, "none");
+    renderMainhead(elements, null, NOW, true, DEFAULT_SURFACE_STATE, "none");
 
     expect(elements.attached()).toBe(true);
   });
@@ -149,8 +174,8 @@ describe("renderMainhead — no-session branch must not detach the rename button
     const elements = fakeMainheadElements();
     const session = makeSession({ id: 1, title: "fix the thing" });
 
-    renderMainhead(elements, null, NOW, true); // the startup zero-session tick
-    renderMainhead(elements, session, NOW, true); // the first sessionUpsert
+    renderMainhead(elements, null, NOW, true, DEFAULT_SURFACE_STATE, "none"); // the startup zero-session tick
+    renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none"); // the first sessionUpsert
 
     expect(elements.attached()).toBe(true);
     expect(elements.nameEl.querySelector("button.rename")).toBe(elements.renameBtn);
@@ -166,7 +191,7 @@ describe("renderMainhead — Resume disabled reason (REQ-17/W3)", () => {
     const elements = fakeMainheadElements();
     const session = makeSession({ id: 1, alive: false, claudeSessionId: null });
 
-    renderMainhead(elements, session, NOW, true);
+    renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none");
 
     expect(elements.resumeBtn.disabled).toBe(true);
     expect(resumeDisabledReason(elements.resumeBtn)).not.toBe("");
@@ -176,7 +201,7 @@ describe("renderMainhead — Resume disabled reason (REQ-17/W3)", () => {
     const elements = fakeMainheadElements();
     const session = makeSession({ id: 1, alive: false, claudeSessionId: "claude-sess" });
 
-    renderMainhead(elements, session, NOW, true);
+    renderMainhead(elements, session, NOW, true, DEFAULT_SURFACE_STATE, "none");
 
     expect(elements.resumeBtn.disabled).toBe(false);
     expect(resumeDisabledReason(elements.resumeBtn)).toBe("");

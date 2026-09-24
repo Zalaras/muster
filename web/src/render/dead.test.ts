@@ -12,6 +12,23 @@ import {
   type PaneState,
 } from "./dead";
 
+/** Shared across every describe block below (renderDeadSurface, showDeadSurfaceNotice,
+ * the Resume-disabled-reason block) — a plain-fake `DeadSurfaceRefs`, matching this file's
+ * no-jsdom convention. `overrides` lets a block swap in a richer fake for the one field it
+ * actually exercises (e.g. a `resumeBtn` with `setAttribute`/`getAttribute`, or a real
+ * `noticeEl`) without rebuilding the other four fields. */
+function fakeDeadSurfaceRefs(overrides: Partial<DeadSurfaceRefs> = {}): DeadSurfaceRefs {
+  return {
+    root: {} as HTMLElement,
+    endbarEl: { textContent: "" } as unknown as HTMLElement,
+    snapshotEl: { textContent: "" } as unknown as HTMLElement,
+    capBodyEl: { textContent: "" } as unknown as HTMLElement,
+    resumeBtn: { dataset: {}, disabled: false } as unknown as HTMLButtonElement,
+    noticeEl: { hidden: true, textContent: "" } as unknown as HTMLElement,
+    ...overrides,
+  };
+}
+
 // review m4-reconcile cycle-3 Minor 5: REQ-19's "· captured <age>" clause (nice-to-have,
 // design-system §6.8: possibly-stale state shows its age) had no test on either side —
 // `renderDeadSurface` is pure enough (it only assigns `.textContent`/`.dataset`/
@@ -20,15 +37,7 @@ import {
 describe("renderDeadSurface — REQ-19's '· captured <age>' clause", () => {
   const NOW = new Date("2026-08-27T00:10:00Z");
 
-  function fakeRefs(): DeadSurfaceRefs {
-    return {
-      root: {} as HTMLElement,
-      endbarEl: { textContent: "" } as unknown as HTMLElement,
-      snapshotEl: { textContent: "" } as unknown as HTMLElement,
-      capBodyEl: { textContent: "" } as unknown as HTMLElement,
-      resumeBtn: { dataset: {}, disabled: false } as unknown as HTMLButtonElement,
-    };
-  }
+  const fakeRefs = fakeDeadSurfaceRefs;
 
   function makeSession(overrides: Partial<Session> & { id: number }): Session {
     return {
@@ -159,14 +168,7 @@ describe("showDeadSurfaceNotice (review Major 1): the dead surface's own role=st
   }
 
   function fakeRefsWithNotice(noticeEl: HTMLElement): DeadSurfaceRefs {
-    return {
-      root: {} as HTMLElement,
-      endbarEl: { textContent: "" } as unknown as HTMLElement,
-      snapshotEl: { textContent: "" } as unknown as HTMLElement,
-      capBodyEl: { textContent: "" } as unknown as HTMLElement,
-      resumeBtn: { dataset: {}, disabled: false } as unknown as HTMLButtonElement,
-      noticeEl,
-    };
+    return fakeDeadSurfaceRefs({ noticeEl });
   }
 
   beforeEach(() => {
@@ -231,19 +233,6 @@ describe("showDeadSurfaceNotice (review Major 1): the dead surface's own role=st
     expect(noticeEl.hidden).toBe(true);
     expect(noticeEl.textContent).toBe("");
   });
-
-  it("is a safe no-op when refs.noticeEl is undefined — dead.test.ts's own pre-existing fakeRefs() fixture (renderDeadSurface's describe block above) predates this field", () => {
-    const refsWithoutNotice: DeadSurfaceRefs = {
-      root: {} as HTMLElement,
-      endbarEl: { textContent: "" } as unknown as HTMLElement,
-      snapshotEl: { textContent: "" } as unknown as HTMLElement,
-      capBodyEl: { textContent: "" } as unknown as HTMLElement,
-      resumeBtn: { dataset: {}, disabled: false } as unknown as HTMLButtonElement,
-    };
-
-    expect(() => showDeadSurfaceNotice(refsWithoutNotice, "text")).not.toThrow();
-    expect(() => showDeadSurfaceNotice(refsWithoutNotice, null)).not.toThrow();
-  });
 });
 
 // REQ-17/W3 (plan session-lifecycle): a session that never bound a Claude session id is
@@ -256,11 +245,7 @@ describe("renderDeadSurface — Resume disabled reason (REQ-17/W3)", () => {
 
   function fakeRefs(): DeadSurfaceRefs {
     const attrs: Record<string, string> = {};
-    return {
-      root: {} as HTMLElement,
-      endbarEl: { textContent: "" } as unknown as HTMLElement,
-      snapshotEl: { textContent: "" } as unknown as HTMLElement,
-      capBodyEl: { textContent: "" } as unknown as HTMLElement,
+    return fakeDeadSurfaceRefs({
       resumeBtn: {
         dataset: {},
         disabled: false,
@@ -272,7 +257,7 @@ describe("renderDeadSurface — Resume disabled reason (REQ-17/W3)", () => {
           return attrs[name] ?? null;
         },
       } as unknown as HTMLButtonElement,
-    };
+    });
   }
 
   // See mainhead.test.ts's identical helper for why both mechanisms are accepted.

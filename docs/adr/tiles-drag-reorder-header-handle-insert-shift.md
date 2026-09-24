@@ -6,7 +6,7 @@ date: 2026-08-29
 summary: Tiles reorder by dragging the tile header only; a drop on another tile inserts and shifts, never swaps, with neutral feedback and no daemon involvement.
 features: [tiles]
 tags: [ux]
-files: [web/src/render/tiledrag.ts, web/src/features/tiles.ts]
+files: [web/src/render/dragreorder.ts, web/src/features/tiles.ts]
 tests: [web/e2e/tiles.spec.ts]
 refs: [docs/history/spec-changelog.md, plan:move-tiles, kb:adr/tiles-slot-stable-grid-never-self-sorts]
 supersedes: []

@@ -7,7 +7,7 @@ summary: Tiles view: slot-stable grid, strip, tile drag, density, snapshot-not-l
 features: [tiles]
 tags: [ux]
 go: []
-web: [web/src/features/tiles.ts, web/src/render/tiles*.ts, web/src/render/tiledrag*.ts]
+web: [web/src/features/tiles.ts, web/src/render/tiles*.ts]
 e2e: [web/e2e/tiles.spec.ts]
 protocol: []
 refs: [kb:adr/tiles-live-top-n-snapshot-rest, kb:adr/tiles-sticky-live-membership, kb:adr/tiles-slot-stable-grid-never-self-sorts, kb:adr/tiles-drag-reorder-header-handle-insert-shift, kb:adr/tiles-order-ephemeral-per-window, kb:adr/tiles-launched-session-promoted-into-grid, kb:adr/launch-new-session-button-in-masthead, kb:adr/launch-opens-launched-session, kb:adr/surfaces-one-live-client-per-session, docs/design/ux-flows.md]

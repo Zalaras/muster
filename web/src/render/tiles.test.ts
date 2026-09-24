@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 import type { Session } from "../protocol/session";
 import type { RenameEditorController } from "./rename";
+import type { SurfaceSegmentRefs } from "./surfaceseg";
 import { renderStrip, renderTileGeometry, updateTile, type TileRefs } from "./tiles";
 
 function fakeElement(): HTMLElement {
@@ -43,12 +44,37 @@ function fakeNameEl(): HTMLElement {
   } as unknown as HTMLElement;
 }
 
-function fakeRefs(): TileRefs {
+/** A minimal `SurfaceSegmentRefs` fake — no test in this file asserts on the surface
+ * segment itself (render/surfaceseg.test.ts owns `updateSurfaceSegment`'s own contract);
+ * `TileRefs.surfaceSegment` just needs to exist, since neither `updateTile` nor
+ * `renderTileGeometry` reads it (only `features/tiles.ts`'s own render pass does). */
+function fakeSurfaceSegmentRefs(): SurfaceSegmentRefs {
   return {
     root: fakeElement(),
+    claudeBtn: fakeElement() as unknown as HTMLButtonElement,
+    shellBtn: fakeElement() as unknown as HTMLButtonElement,
+    docsBtn: fakeElement() as unknown as HTMLButtonElement,
+    shellActEl: fakeElement(),
+  };
+}
+
+/** Every `TileRefs` fixture in this file, in one place (review maintainability Major 6:
+ * `actsEl`/`rename`/`surfaceSegment` are required now, matching every real tile
+ * `buildTile` produces) — `root` and `rename` are the only fields any test below actually
+ * varies, so those are the two overridable parameters; `actsEl`/`surfaceSegment` are inert
+ * fakes neither `updateTile` nor `renderTileGeometry` touches. */
+function fakeTileRefs(
+  root: HTMLElement = fakeElement(),
+  rename?: RenameEditorController,
+): TileRefs {
+  return {
+    root,
     bodySlot: fakeElement(),
     geoEl: fakeElement(),
     markerEl: fakeElement(),
+    actsEl: fakeElement(),
+    rename: rename ?? fakeRenameController().controller,
+    surfaceSegment: fakeSurfaceSegmentRefs(),
   };
 }
 
@@ -110,7 +136,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
 
 /** A root whose `.querySelector` resolves the four chrome selectors `updateTileChrome`
  * mutates, backed by plain fake elements — no real DOM/template involved, matching this
- * file's existing `fakeElement`/`fakeRefs` convention. */
+ * file's existing `fakeElement`/`fakeTileRefs` convention. */
 function fakeTileRoot(): HTMLElement & { className: string } {
   const nm = fakeNameEl();
   const wh = fakeElement();
@@ -132,7 +158,7 @@ function fakeTileRoot(): HTMLElement & { className: string } {
 
 describe("renderTileGeometry — REQ-15's tile footer: real geometry + live/stopped marker driven by `alive`, not geometry nullability (review m2-terminal Critical 5)", () => {
   it("renders cols×rows and the 'live' marker when alive and geometry is present", () => {
-    const refs = fakeRefs();
+    const refs = fakeTileRefs();
     renderTileGeometry(refs, true, { cols: 100, rows: 30 });
     expect(refs.geoEl.textContent).toBe("100×30");
     expect(refs.markerEl.textContent).toBe("live");
@@ -140,7 +166,7 @@ describe("renderTileGeometry — REQ-15's tile footer: real geometry + live/stop
   });
 
   it("renders an empty geometry string and the 'stopped' marker when not alive and geometry is null (the surface never attached)", () => {
-    const refs = fakeRefs();
+    const refs = fakeTileRefs();
     renderTileGeometry(refs, false, null);
     expect(refs.geoEl.textContent).toBe("");
     expect(refs.markerEl.textContent).toBe("stopped");
@@ -148,7 +174,7 @@ describe("renderTileGeometry — REQ-15's tile footer: real geometry + live/stop
   });
 
   it("renders the 'stopped' marker even though geometry is still non-null — a session that died while its tile was live must not keep reading 'live' off its last-known geometry", () => {
-    const refs = fakeRefs();
+    const refs = fakeTileRefs();
     renderTileGeometry(refs, false, { cols: 100, rows: 30 });
     expect(refs.geoEl.textContent).toBe("100×30");
     expect(refs.markerEl.textContent).toBe("stopped");
@@ -156,7 +182,7 @@ describe("renderTileGeometry — REQ-15's tile footer: real geometry + live/stop
   });
 
   it("renders the 'live' marker even though geometry is null — alive is the sole source of truth, not geometry presence", () => {
-    const refs = fakeRefs();
+    const refs = fakeTileRefs();
     renderTileGeometry(refs, true, null);
     expect(refs.geoEl.textContent).toBe("");
     expect(refs.markerEl.textContent).toBe("live");
@@ -167,12 +193,7 @@ describe("renderTileGeometry — REQ-15's tile footer: real geometry + live/stop
 describe("updateTile — refreshes existing chrome in place, never touches bodySlot (review m2-terminal Critical 2)", () => {
   it("writes the shared view-model's title/repoLine/contextText/timer/stateClass onto the existing chrome nodes", () => {
     const root = fakeTileRoot();
-    const refs: TileRefs = {
-      root,
-      bodySlot: fakeElement(),
-      geoEl: fakeElement(),
-      markerEl: fakeElement(),
-    };
+    const refs = fakeTileRefs(root);
     const session = makeSession({ id: 1, title: "fix the thing", state: "working" });
 
     updateTile(refs, session, NOW);
@@ -185,12 +206,7 @@ describe("updateTile — refreshes existing chrome in place, never touches bodyS
 
   it("re-derives the view-model fresh on every call, so a stale title/state from a prior render is overwritten rather than left behind", () => {
     const root = fakeTileRoot();
-    const refs: TileRefs = {
-      root,
-      bodySlot: fakeElement(),
-      geoEl: fakeElement(),
-      markerEl: fakeElement(),
-    };
+    const refs = fakeTileRefs(root);
 
     updateTile(refs, makeSession({ id: 1, title: "first", state: "idle" }), NOW);
     expect(root.querySelector(".nm")?.textContent).toBe("first");
@@ -203,8 +219,8 @@ describe("updateTile — refreshes existing chrome in place, never touches bodyS
 
   it("never touches bodySlot (the mounted live surface's container) — only chrome nodes are read via querySelector", () => {
     const root = fakeTileRoot();
-    const bodySlot = fakeElement();
-    const refs: TileRefs = { root, bodySlot, geoEl: fakeElement(), markerEl: fakeElement() };
+    const refs = fakeTileRefs(root);
+    const bodySlot = refs.bodySlot;
 
     updateTile(refs, makeSession({ id: 1 }), NOW);
 
@@ -229,12 +245,7 @@ describe("updateTile — REQ-9 (plan move-tiles): the state dot gets a title = t
   for (const { state, word } of cases) {
     it(`sets .sdot's title to "${word}" for state "${state}"`, () => {
       const root = fakeTileRoot();
-      const refs: TileRefs = {
-        root,
-        bodySlot: fakeElement(),
-        geoEl: fakeElement(),
-        markerEl: fakeElement(),
-      };
+      const refs = fakeTileRefs(root);
 
       updateTile(refs, makeSession({ id: 1, state }), NOW);
 
@@ -246,12 +257,7 @@ describe("updateTile — REQ-9 (plan move-tiles): the state dot gets a title = t
 
   it("updates the title on every pass, so a stale state's word doesn't linger after a transition", () => {
     const root = fakeTileRoot();
-    const refs: TileRefs = {
-      root,
-      bodySlot: fakeElement(),
-      geoEl: fakeElement(),
-      markerEl: fakeElement(),
-    };
+    const refs = fakeTileRefs(root);
 
     updateTile(refs, makeSession({ id: 1, state: "working" }), NOW);
     expect((root.querySelector(".sdot") as (HTMLElement & { title: string }) | null)?.title).toBe(
@@ -266,12 +272,7 @@ describe("updateTile — REQ-9 (plan move-tiles): the state dot gets a title = t
 
   it("does not touch the dot's size or colour — className carries the state class, not the dot's own attributes", () => {
     const root = fakeTileRoot();
-    const refs: TileRefs = {
-      root,
-      bodySlot: fakeElement(),
-      geoEl: fakeElement(),
-      markerEl: fakeElement(),
-    };
+    const refs = fakeTileRefs(root);
 
     updateTile(refs, makeSession({ id: 1, state: "failed" }), NOW);
 
@@ -288,13 +289,7 @@ describe("updateTile — REQ-15/INV-4: skips the title write while refs.rename?.
   it("leaves the rename button's text untouched while an edit is open, even though a new sessionUpsert carries a different title", () => {
     const root = fakeTileRoot();
     const { controller, setEditing } = fakeRenameController();
-    const refs: TileRefs = {
-      root,
-      bodySlot: fakeElement(),
-      geoEl: fakeElement(),
-      markerEl: fakeElement(),
-      rename: controller,
-    };
+    const refs = fakeTileRefs(root, controller);
     updateTile(refs, makeSession({ id: 1, title: "before" }), NOW);
     expect(root.querySelector(".nm")?.textContent).toBe("before");
 
@@ -307,13 +302,7 @@ describe("updateTile — REQ-15/INV-4: skips the title write while refs.rename?.
   it("writes the title once the edit closes (isEditing() false again) — not stuck stale forever", () => {
     const root = fakeTileRoot();
     const { controller, setEditing } = fakeRenameController();
-    const refs: TileRefs = {
-      root,
-      bodySlot: fakeElement(),
-      geoEl: fakeElement(),
-      markerEl: fakeElement(),
-      rename: controller,
-    };
+    const refs = fakeTileRefs(root, controller);
     updateTile(refs, makeSession({ id: 1, title: "before" }), NOW);
 
     setEditing(true);
@@ -323,22 +312,6 @@ describe("updateTile — REQ-15/INV-4: skips the title write while refs.rename?.
     setEditing(false);
     updateTile(refs, makeSession({ id: 1, title: "committed name" }), NOW);
     expect(root.querySelector(".nm")?.textContent).toBe("committed name");
-  });
-
-  it("writes the title normally when refs.rename is absent (the pre-plan fixture shape, treated as not-editing)", () => {
-    const root = fakeTileRoot();
-    const refs: TileRefs = {
-      root,
-      bodySlot: fakeElement(),
-      geoEl: fakeElement(),
-      markerEl: fakeElement(),
-    };
-
-    updateTile(refs, makeSession({ id: 1, title: "first" }), NOW);
-    expect(root.querySelector(".nm")?.textContent).toBe("first");
-
-    updateTile(refs, makeSession({ id: 1, title: "second" }), NOW);
-    expect(root.querySelector(".nm")?.textContent).toBe("second");
   });
 });
 

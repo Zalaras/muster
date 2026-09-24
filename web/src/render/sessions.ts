@@ -10,6 +10,7 @@ import {
   type CardViewModel,
   type SessionAction,
 } from "../sessions/card";
+import { requireElement } from "../dom";
 import { renderContextRow } from "./context";
 import { captureFocusedControl, type FocusedControl } from "./focuskeep";
 import { reconcileKeyedOrder, type KeyedReorderEntry } from "./keyedreorder";
@@ -22,11 +23,11 @@ import { buildActionButton } from "./actionbutton";
  * only matters to `buildSessionCardElement` (the click/keydown listeners are wired once,
  * never on an update); every other field is read by both build and update. */
 export interface CardOptions {
+  onClick: (id: number, source: "pointer" | "keyboard") => void;
   // `| undefined` spelled out (not just `?:`) so a caller forwarding its own optional
   // callback field — `render/tiles.ts`'s `StripOptions.onAction`, say — can assign it
   // straight through: `exactOptionalPropertyTypes` treats `field?: T` and `field?: T |
   // undefined` differently when the *value* being assigned is itself `T | undefined`.
-  onClick?: ((id: number, source: "pointer" | "keyboard") => void) | undefined;
   onAction?: ((action: SessionAction, id: number) => void) | undefined;
   connected: boolean;
   /** REQ-10: manual-mode rail cards are draggable; attention-mode rail cards and every
@@ -43,8 +44,8 @@ export interface CardOptions {
 export interface CardListOptions extends CardOptions {
   /** Plan order-sidebar REQ-16: a rail drag's initiating `mousedown` blurs whatever
    * control currently has focus before `dragstart`/`drop` ever runs (same mechanism as
-   * `installTileDrag`'s `pendingTileFocus` — see render/dragreorder.ts's header comment),
-   * so by the time this reconcile runs a *live* `captureFocusedControl` would find
+   * `features/tiles.ts`'s own `pendingTileFocus` — see render/dragreorder.ts's header
+   * comment), so by the time this reconcile runs a *live* `captureFocusedControl` would find
    * nothing. `features/rail.ts` passes the pre-blur snapshot it stashed from
    * `installDragReorder`'s `onMove` here instead; every other caller (a plain render
    * tick, a pin click, a strip reconcile) omits this and gets the live capture. */
@@ -100,33 +101,25 @@ function reconcileActsRow(
   );
 }
 
-/** Writes the card's per-render text into the slots the template already built. Each slot
- * is optional because the two callers share one markup template but the honest-empty-state
- * Vitest fixtures build only the subset they assert on. */
+/** Writes the card's per-render text into the slots the template already built. Every
+ * slot is required — `session-card-template` (index.html) always carries the full set,
+ * shared unchanged by the rail card and the strip card. */
 function applyCardText(card: HTMLElement, vm: CardViewModel, session: Session): void {
-  const name = card.querySelector<HTMLElement>(".name");
-  if (name) {
-    name.textContent = vm.title;
-    // REQ-2: `.name` always carries `title` equal to the display title, so a title
-    // clamped to one line in compact density can still be read in full on hover.
-    name.title = vm.title;
-  }
+  const name = requireElement<HTMLElement>(".name", card);
+  name.textContent = vm.title;
+  // REQ-2: `.name` always carries `title` equal to the display title, so a title
+  // clamped to one line in compact density can still be read in full on hover.
+  name.title = vm.title;
 
-  const badge = card.querySelector<HTMLElement>(".badge");
-  if (badge) badge.textContent = vm.badge;
+  requireElement<HTMLElement>(".badge", card).textContent = vm.badge;
+  requireElement<HTMLElement>(".timer", card).textContent = vm.timer;
 
-  const timer = card.querySelector<HTMLElement>(".timer");
-  if (timer) timer.textContent = vm.timer;
+  const repoLine = requireElement<HTMLElement>(".r2", card);
+  repoLine.textContent = vm.repoLine;
+  // REQ-2: `.r2` always carries `title` equal to its own text, same reasoning as `.name`.
+  repoLine.title = vm.repoLine;
 
-  const repoLine = card.querySelector<HTMLElement>(".r2");
-  if (repoLine) {
-    repoLine.textContent = vm.repoLine;
-    // REQ-2: `.r2` always carries `title` equal to its own text, same reasoning as `.name`.
-    repoLine.title = vm.repoLine;
-  }
-
-  const contextRow = card.querySelector<HTMLElement>(".r3");
-  if (contextRow) renderContextRow(contextRow, session.context, "r3");
+  renderContextRow(requireElement<HTMLElement>(".r3", card), session.context, "r3");
 
   // REQ-14: the two activity lines write independently — either may be hidden while the
   // other shows, and both are hidden when neither source has data yet.
@@ -134,31 +127,26 @@ function applyCardText(card: HTMLElement, vm: CardViewModel, session: Session): 
   // same reasoning as `.name`/`.r2` above — comfortable now clamps this line to three
   // lines, so the hover title is the only way to read text beyond that. Cleared (not
   // left stale) when the line is hidden.
-  const activityYou = card.querySelector<HTMLElement>(".activity.you");
-  if (activityYou) {
-    activityYou.hidden = vm.activity.you === null;
-    activityYou.textContent = vm.activity.you ?? "";
-    activityYou.title = vm.activity.you ?? "";
-  }
-  const activityClaude = card.querySelector<HTMLElement>(".activity.claude");
-  if (activityClaude) {
-    activityClaude.hidden = vm.activity.claude === null;
-    activityClaude.textContent = vm.activity.claude ?? "";
-    activityClaude.title = vm.activity.claude ?? "";
-  }
+  const activityYou = requireElement<HTMLElement>(".activity.you", card);
+  activityYou.hidden = vm.activity.you === null;
+  activityYou.textContent = vm.activity.you ?? "";
+  activityYou.title = vm.activity.you ?? "";
 
-  const note = card.querySelector<HTMLElement>(".note");
-  if (note) {
-    note.hidden = vm.noteText === null;
-    note.textContent = vm.noteText ?? "";
-    // Only "failure" gets the rose-border visual treatment (design-system §5: the
-    // trust-prompt and no-signal notes are sanctioned to render as a plain amber note,
-    // same as "attention" — see review m1-sessions cycle-2 note on this). The full
-    // NoteKind (including "trust"/"no-signal") is still carried onto the DOM via
-    // data-note-kind below so the distinction isn't discarded outright (review Minor 3).
-    note.className = vm.noteKind === "failure" ? "note fail" : "note";
-    note.dataset.noteKind = vm.noteKind;
-  }
+  const activityClaude = requireElement<HTMLElement>(".activity.claude", card);
+  activityClaude.hidden = vm.activity.claude === null;
+  activityClaude.textContent = vm.activity.claude ?? "";
+  activityClaude.title = vm.activity.claude ?? "";
+
+  const note = requireElement<HTMLElement>(".note", card);
+  note.hidden = vm.noteText === null;
+  note.textContent = vm.noteText ?? "";
+  // Only "failure" gets the rose-border visual treatment (design-system §5: the
+  // trust-prompt and no-signal notes are sanctioned to render as a plain amber note,
+  // same as "attention" — see review m1-sessions cycle-2 note on this). The full
+  // NoteKind (including "trust"/"no-signal") is still carried onto the DOM via
+  // data-note-kind below so the distinction isn't discarded outright (review Minor 3).
+  note.className = vm.noteKind === "failure" ? "note fail" : "note";
+  note.dataset.noteKind = vm.noteKind;
 }
 
 /** The card's `class` attribute — extracted from `updateSessionCardContent` to keep it
@@ -213,18 +201,16 @@ function updateSessionCardContent(
   // REQ-11: End on a live card, Resume+Remove on an ended one — `vm.actions` already
   // carries the exact label set and order (sessions/card.ts). Resume additionally needs
   // a claudeSessionId to ever be enabled, same rule as the mainhead (REQ-10).
-  const actsRow = card.querySelector<HTMLElement>(".acts-row");
-  if (actsRow) {
-    actsRow.hidden = false;
-    reconcileActsRow(
-      actsRow,
-      vm.actions,
-      session.id,
-      session.claudeSessionId,
-      options.connected,
-      options.onAction,
-    );
-  }
+  const actsRow = requireElement<HTMLElement>(".acts-row", card);
+  actsRow.hidden = false;
+  reconcileActsRow(
+    actsRow,
+    vm.actions,
+    session.id,
+    session.claudeSessionId,
+    options.connected,
+    options.onAction,
+  );
 
   // REQ-8/REQ-17: the pin button's aria-label/aria-pressed/title follow `pinned` on
   // every pass. `data-action`/`data-id` (not the `.acts-row` buttons' own convention,
@@ -233,21 +219,18 @@ function updateSessionCardContent(
   // (render/focuskeep.ts: "an action button (data-action + data-id)") — REQ-16's focus
   // survival needs no new code path, just this button carrying the same two attributes
   // `buildActionButton` already sets.
-  const pinBtn = card.querySelector<HTMLButtonElement>(".pin");
-  if (pinBtn) {
-    pinBtn.setAttribute("aria-label", vm.pinned ? "Unpin" : "Pin");
-    pinBtn.setAttribute("aria-pressed", vm.pinned ? "true" : "false");
-    pinBtn.title = vm.pinned ? "Unpin" : "Pin to top";
-    pinBtn.dataset["action"] = "pin";
-    pinBtn.dataset["id"] = String(session.id);
-  }
+  const pinBtn = requireElement<HTMLButtonElement>(".pin", card);
+  pinBtn.setAttribute("aria-label", vm.pinned ? "Unpin" : "Pin");
+  pinBtn.setAttribute("aria-pressed", vm.pinned ? "true" : "false");
+  pinBtn.title = vm.pinned ? "Unpin" : "Pin to top";
+  pinBtn.dataset["action"] = "pin";
+  pinBtn.dataset["id"] = String(session.id);
 }
 
 /** Builds one session card element (rail card in Focus, or — reusing this exact markup —
- * a strip card in Tiles). `options.onClick` is optional so the honest-empty-state-only
- * Vitest coverage in sessions.test.ts keeps working unchanged; every real caller (rail,
- * strip) supplies one (clicking a rail card moves focus; clicking a strip card promotes
- * it). The callback also learns its source — `"pointer"` for a mouse click, `"keyboard"`
+ * a strip card in Tiles). Every caller supplies `options.onClick` (clicking a rail card
+ * moves focus; clicking a strip card promotes it). The callback also learns its source —
+ * `"pointer"` for a mouse click, `"keyboard"`
  * for Enter/Space activation — so a caller that only wants to move keyboard focus into the
  * terminal on a deliberate pointer selection (features/rail.ts's rail callback) can tell
  * the two apart without a second callback or a DOM flag. Listeners are wired up exactly
@@ -266,36 +249,34 @@ export function buildSessionCardElement(
 
   // REQ-8: wired once, like the click/keydown listeners below — reconcileCards never
   // rebuilds an existing card, so this never double-attaches on a later render tick.
-  const pinBtn = card.querySelector<HTMLButtonElement>(".pin");
-  pinBtn?.addEventListener("click", (event) => {
+  const pinBtn = requireElement<HTMLButtonElement>(".pin", card);
+  pinBtn.addEventListener("click", (event) => {
     event.stopPropagation();
     options.onAction?.("pin", session.id);
   });
 
   const onClick = options.onClick;
-  if (onClick) {
-    card.tabIndex = 0;
-    // plan terminal-focus REQ-8: the pointer path is the only one features/rail.ts's rail
-    // callback uses to move keyboard focus into the terminal (REQ-1/REQ-4) — the
-    // keyboard-activation branch below reports itself as "keyboard" so that callback can
-    // decline to do so and leave focus on the card.
-    card.addEventListener("click", () => onClick(session.id, "pointer"));
-    card.addEventListener("keydown", (event) => {
-      // review m4-reconcile Major 5: this listener is on `.card`, but REQ-11 nests real
-      // `<button>`s inside it (.acts-row) whose own keydown (Enter/Space) bubbles up
-      // here. Without this guard, `event.preventDefault()` below ran for every bubbled
-      // keydown regardless of origin and cancelled the button's own Enter/Space
-      // activation — verified live (focused card's End button, Enter key,
-      // `endDialogOpen` stayed false and focus dropped to BODY). Only handle the key when
-      // the card itself is the target, i.e. it wasn't a nested control that already owns
-      // the key.
-      if (event.target !== card) return;
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        onClick(session.id, "keyboard");
-      }
-    });
-  }
+  card.tabIndex = 0;
+  // plan terminal-focus REQ-8: the pointer path is the only one features/rail.ts's rail
+  // callback uses to move keyboard focus into the terminal (REQ-1/REQ-4) — the
+  // keyboard-activation branch below reports itself as "keyboard" so that callback can
+  // decline to do so and leave focus on the card.
+  card.addEventListener("click", () => onClick(session.id, "pointer"));
+  card.addEventListener("keydown", (event) => {
+    // review m4-reconcile Major 5: this listener is on `.card`, but REQ-11 nests real
+    // `<button>`s inside it (.acts-row) whose own keydown (Enter/Space) bubbles up
+    // here. Without this guard, `event.preventDefault()` below ran for every bubbled
+    // keydown regardless of origin and cancelled the button's own Enter/Space
+    // activation — verified live (focused card's End button, Enter key,
+    // `endDialogOpen` stayed false and focus dropped to BODY). Only handle the key when
+    // the card itself is the target, i.e. it wasn't a nested control that already owns
+    // the key.
+    if (event.target !== card) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onClick(session.id, "keyboard");
+    }
+  });
 
   return card;
 }
@@ -394,8 +375,7 @@ export function reconcileCards(
 
 /** Renders the honest empty state ("No sessions yet" — never a placeholder list) or one
  * card per session, in the order given (sorting is sessions/sort.ts's job, applied by
- * the caller). `options.onClick` is the rail's focus action (REQ-7) — omitted only by
- * sessions.test.ts's empty-state check. */
+ * the caller). `options.onClick` is the rail's focus action (REQ-7). */
 export function renderSessions(
   el: HTMLElement,
   sessions: readonly Session[],

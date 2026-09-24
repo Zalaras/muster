@@ -16,7 +16,6 @@ import {
   type UpdateSectionElements,
 } from "../render/update";
 import { buildUpdateViewModel, type CheckState } from "./updateview";
-import type { Prefs } from "../protocol/prefs";
 import type { UpdateInfo } from "../protocol/update";
 
 export function initUpdate(app: App): void {
@@ -33,7 +32,6 @@ export function initUpdate(app: App): void {
   };
 
   let currentUpdate: UpdateInfo | null = null;
-  let currentPrefs: Prefs | null = null;
   // REQ-10/REQ-12/REQ-13: this window's own `Check now` request state — never derived
   // from `UpdateInfo` (see render/update.ts's `CheckState` doc comment).
   const checkState: CheckState = { inFlight: false, error: null };
@@ -103,7 +101,6 @@ export function initUpdate(app: App): void {
     currentUpdate = update;
   });
   app.on("prefs", (prefs) => {
-    currentPrefs = prefs;
     // INV-7: the toggle's checked state only ever comes from the prefs broadcast, never
     // optimistically from its own `change` handler above — same discipline
     // `render/settings.ts`'s theme/rail-activity radios follow.
@@ -115,7 +112,7 @@ export function initUpdate(app: App): void {
 
   // Render phase 3 (UI Specifications > Render phase order).
   app.onRender((frame) => {
-    const vm = buildUpdateViewModel(currentUpdate, currentPrefs, frame.now, checkState);
+    const vm = buildUpdateViewModel(currentUpdate, frame.now, checkState);
     renderUpdateSection(updateSectionElements, vm);
     renderSettingsBadge(settingsButtonEl, vm.badged);
   });

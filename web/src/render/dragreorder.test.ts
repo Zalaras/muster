@@ -1,34 +1,38 @@
-// tiledrag.ts is DOM event-wiring glue (delegated listeners mapping DOM events to
-// session ids, calling back into main.ts) — per docs/conventions.md, "interaction and
-// rendering are Playwright's job", and e2e/actions.spec.ts's REQ-10/E6 already covers the
-// real-browser drag+focus behaviour end to end (a focused tile-footer button surviving a
-// drag-drop reorder). This file does NOT re-test that: no template cloning, no visual
-// `.dragging`/`.drop-target` class assertions (already Playwright's/E2E's, see plan
-// move-tiles Testable UI Elements), no rendering.
+// dragreorder.ts is DOM event-wiring glue (delegated listeners mapping DOM events to
+// session ids, calling back into features/tiles.ts/features/rail.ts) — per
+// docs/conventions.md, "interaction and rendering are Playwright's job", and
+// e2e/actions.spec.ts's REQ-10/E6 already covers the real-browser drag+focus behaviour end
+// to end (a focused tile-footer button surviving a drag-drop reorder). This file does NOT
+// re-test that: no template cloning, no visual `.dragging`/`.drop-target` class assertions
+// (already Playwright's/E2E's, see plan move-tiles Testable UI Elements), no rendering.
 //
-// What IS a pinnable unit here, added in web-impl's Fix Attempt 2: the *sequencing*
-// decision that the focused-control snapshot is taken on the drag's initiating
-// `mousedown` (before `dragstart`, before the browser's own blur-on-mousedown default
-// action can run) and threaded through to `onMove` exactly once per drag — never reused
-// by a later, unrelated drag. That's glue logic, not rendering, and it is invisible to a
-// real-browser test that only ever asserts the end state (focus restored) — a race here
-// would flake in exactly the way the E2E validate agent originally caught, so pinning the
-// sequencing itself (independent of the real blur timing) is worth a fast, deterministic
-// unit test.
+// What IS a pinnable unit here, added in plan move-tiles' web-impl Fix Attempt 2 (originally
+// against the tile-only `installTileDrag` wrapper this module has since absorbed — review
+// maintainability Major 6: the wrapper only existed so this file's predecessor,
+// `tiledrag.test.ts`, kept compiling, once `features/tiles.ts` was the wrapper's only
+// caller and it called `installDragReorder` directly like `features/rail.ts` already did):
+// the *sequencing* decision that the focused-control snapshot is taken on the drag's
+// initiating `mousedown` (before `dragstart`, before the browser's own blur-on-mousedown
+// default action can run) and threaded through to `onMove` exactly once per drag — never
+// reused by a later, unrelated drag. That's glue logic, not rendering, and it is invisible
+// to a real-browser test that only ever asserts the end state (focus restored) — a race
+// here would flake in exactly the way the E2E validate agent originally caught, so pinning
+// the sequencing itself (independent of the real blur timing) is worth a fast,
+// deterministic unit test.
 //
 // Technique matches render/focuskeep.test.ts's own precedent for the same seam
 // (captureFocusedControl): minimal hand-rolled stand-ins for just the DOM surface
-// tiledrag.ts actually touches (closest/classList/dataset), with `globalThis.Element`
-// patched so tiledrag.ts's `instanceof Element` guards resolve — not a jsdom/DOM-simulation
-// suite. `./focuskeep`'s own capture logic is mocked out (it's already covered by
-// focuskeep.test.ts) so this file tests only tiledrag.ts's use of it.
+// dragreorder.ts actually touches (closest/classList/dataset), with `globalThis.Element`
+// patched so its `instanceof Element` guards resolve — not a jsdom/DOM-simulation suite.
+// `./focuskeep`'s own capture logic is mocked out (it's already covered by
+// focuskeep.test.ts) so this file tests only dragreorder.ts's use of it.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FocusedControl } from "./focuskeep";
 
 const { captureFocusedControl } = vi.hoisted(() => ({ captureFocusedControl: vi.fn() }));
 vi.mock("./focuskeep", () => ({ captureFocusedControl }));
 
-const { installTileDrag } = await import("./tiledrag");
+const { installDragReorder } = await import("./dragreorder");
 
 class FakeClassList {
   private readonly classes = new Set<string>();
@@ -43,7 +47,7 @@ class FakeClassList {
   }
 }
 
-/** Just enough of `Element` for tileOf/sessionIdOf's `closest`/`dataset` walk — see file
+/** Just enough of `Element` for itemOf/sessionIdOf's `closest`/`dataset` walk — see file
  * header. Each instance "matches" only the selectors it was built with, mirroring how a
  * real `.thead`/`article.tile` element would answer `matches()` inside `closest()`. */
 class FakeElement {
@@ -86,9 +90,10 @@ function fakeDataTransfer(): {
 
 type Handler = (event: unknown) => void;
 
-/** Stands in for `gridEl`: records the delegated listeners `installTileDrag` registers so
- * a test can fire them directly with a synthetic event, in the exact sequence a real drag
- * would (mousedown -> dragstart -> drop), without simulating real browser DnD dispatch. */
+/** Stands in for `container`: records the delegated listeners `installDragReorder`
+ * registers so a test can fire them directly with a synthetic event, in the exact sequence
+ * a real drag would (mousedown -> dragstart -> drop), without simulating real browser DnD
+ * dispatch. */
 class FakeGrid {
   private readonly listeners = new Map<string, Handler[]>();
   addEventListener(type: string, handler: Handler): void {
@@ -103,7 +108,21 @@ class FakeGrid {
 
 const SNAPSHOT: FocusedControl = { sessionId: 9, action: "end", element: {} as unknown as Element };
 
-describe("installTileDrag — pre-blur focus snapshot passthrough (Fix Attempt 2, REQ-10)", () => {
+/** Every test below installs against the Tiles grid's own options (`article.tile`
+ * item, `.thead` handle) — the same shape `features/tiles.ts` passes in production — since
+ * the sequencing behaviour under test doesn't depend on which caller's selectors are used. */
+function install(
+  grid: FakeGrid,
+  onMove: (draggedId: number, targetId: number, focusedBeforeDrag: FocusedControl | null) => void,
+): void {
+  installDragReorder(grid as unknown as HTMLElement, {
+    itemSelector: "article.tile",
+    handleSelector: ".thead",
+    onMove,
+  });
+}
+
+describe("installDragReorder — pre-blur focus snapshot passthrough (Fix Attempt 2, REQ-10)", () => {
   let savedElement: unknown;
 
   beforeEach(() => {
@@ -119,7 +138,7 @@ describe("installTileDrag — pre-blur focus snapshot passthrough (Fix Attempt 2
   it("captures the snapshot on mousedown inside .thead, before dragstart, and hands it to onMove on drop", () => {
     const grid = new FakeGrid();
     const onMove = vi.fn();
-    installTileDrag(grid as unknown as HTMLElement, onMove);
+    install(grid, onMove);
     const a = makeTile(1);
     const b = makeTile(2);
     captureFocusedControl.mockReturnValueOnce(SNAPSHOT);
@@ -136,7 +155,7 @@ describe("installTileDrag — pre-blur focus snapshot passthrough (Fix Attempt 2
   it("does not capture a snapshot when the initiating mousedown lands outside any .thead", () => {
     const grid = new FakeGrid();
     const onMove = vi.fn();
-    installTileDrag(grid as unknown as HTMLElement, onMove);
+    install(grid, onMove);
     const a = makeTile(1);
     const b = makeTile(2);
 
@@ -152,7 +171,7 @@ describe("installTileDrag — pre-blur focus snapshot passthrough (Fix Attempt 2
   it("consumes the snapshot once: a later drag with no fresh mousedown never reuses a prior drag's snapshot", () => {
     const grid = new FakeGrid();
     const onMove = vi.fn();
-    installTileDrag(grid as unknown as HTMLElement, onMove);
+    install(grid, onMove);
     const a = makeTile(1);
     const b = makeTile(2);
     captureFocusedControl.mockReturnValueOnce(SNAPSHOT);
@@ -174,7 +193,7 @@ describe("installTileDrag — pre-blur focus snapshot passthrough (Fix Attempt 2
   it("clears the snapshot on an aborted drag (dragend without drop, e.g. Escape) — it does not leak into the next drag", () => {
     const grid = new FakeGrid();
     const onMove = vi.fn();
-    installTileDrag(grid as unknown as HTMLElement, onMove);
+    install(grid, onMove);
     const a = makeTile(1);
     const b = makeTile(2);
     captureFocusedControl.mockReturnValueOnce(SNAPSHOT);

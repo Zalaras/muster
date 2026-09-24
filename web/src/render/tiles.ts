@@ -33,20 +33,16 @@ export interface TileRefs {
   bodySlot: HTMLElement;
   geoEl: HTMLElement;
   markerEl: HTMLElement;
-  /** REQ-12's footer action row — optional so `tiles.test.ts`'s existing hand-built
-   * `TileRefs` fixtures (built before this plan, with only the four original fields) keep
-   * typechecking unchanged; every real tile built via `buildTile` always has one. */
-  actsEl?: HTMLElement;
-  /** REQ-13/REQ-15: this tile's rename editor, attached to `.thead .nm` — optional for
-   * the same pre-plan-fixture reason as `actsEl` above; every real tile built via
-   * `buildTile` always has one. `features/tiles.ts` calls `cancel()`/`dispose()` on demotion
-   * (before the tile leaves the grid) and `setEnabled()` on every connection change. */
-  rename?: RenameEditorController;
+  /** REQ-12's footer action row — built once, in `buildTile` below. */
+  actsEl: HTMLElement;
+  /** REQ-13/REQ-15: this tile's rename editor, attached to `.thead .nm`, built once in
+   * `buildTile` below. `features/tiles.ts` calls `cancel()`/`dispose()` on demotion (before
+   * the tile leaves the grid) and `setEnabled()` on every connection change. */
+  rename: RenameEditorController;
   /** Plan plain-terminal-session REQ-4: this tile's `claude | shell` segment, built once
-   * in `buildTile` and prepended into `.tfoot .acts` — optional for the same pre-plan-
-   * fixture reason as `actsEl`/`rename` above; every real tile built via `buildTile`
-   * always has one. `features/tiles.ts` calls `updateSurfaceSegment` on it every render pass. */
-  surfaceSegment?: SurfaceSegmentRefs;
+   * in `buildTile` and prepended into `.tfoot .acts`. `features/tiles.ts` calls
+   * `updateSurfaceSegment` on it every render pass. */
+  surfaceSegment: SurfaceSegmentRefs;
 }
 
 /** `features/rename.ts` supplies one pair of callbacks, shared by every tile — `getSession` is
@@ -183,7 +179,7 @@ export function buildTile(
  * whether it's editing (review Minor 3), rather than reading the `data-editing` DOM
  * attribute `render/rename.ts` sets. */
 export function updateTile(refs: TileRefs, session: Session, now: Date): void {
-  updateTileChrome(refs.root, session, now, refs.rename?.isEditing() ?? false);
+  updateTileChrome(refs.root, session, now, refs.rename.isEditing());
 }
 
 /** Tile footer geometry + live/stopped marker (REQ-15's "tile footers show their real
@@ -272,10 +268,7 @@ export function renderTileFooterActions(
 ): void {
   // REQ-4/REQ-13: `.surfseg` (built once in `buildTile`, prepended into `.acts`) is a
   // permanent fixture of this row, never part of the shape checks or rebuilds below —
-  // only the children AFTER it (End, or age+Resume+Remove) are ever touched. Falls back
-  // to treating every child as "tail" when there's no surfseg present (pre-plan hand-
-  // built fixtures, none of which exist for this function today, but matching the same
-  // defensive shape as `TileRefs`'s other optional fields).
+  // only the children AFTER it (End, or age+Resume+Remove) are ever touched.
   const surfaceSegment = actsEl.querySelector<HTMLElement>(":scope > .surfseg");
   const tail = Array.from(actsEl.children).filter((el) => el !== surfaceSegment);
 

@@ -23,13 +23,9 @@ export interface DeadSurfaceRefs {
    * (`.terminal-notice`, same class/CSS `terminal/pane.ts`'s `TerminalSurface` uses), for
    * the one case that has no live surface to route a notice through — a spawn failure
    * (REQ-12) on a session whose `claude` surface is currently this dead surface, not a
-   * live pane. Optional for the same pre-existing-fixture reason as
-   * `MainheadElements.surfaceSegment`/`TileRefs.surfaceSegment` (`render/mainhead.ts`,
-   * `render/tiles.ts`): `dead.test.ts`'s hand-built `fakeRefs()` (used only to test
-   * `renderDeadSurface`, which never touches `noticeEl`) predates this field. Every real
-   * instance — always built via `refsFromRoot` below — has one; only `refsFromRoot`
-   * and `showDeadSurfaceNotice` ever read it. */
-  noticeEl?: HTMLElement;
+   * live pane. Built once, in `collectDeadSurfaceRefs` below; only `showDeadSurfaceNotice`
+   * reads it. */
+  noticeEl: HTMLElement;
 }
 
 /** The three fetch outcomes render/dead.ts cares about — `capturedAt` is carried for
@@ -127,7 +123,5 @@ export function renderDeadSurface(
  * always-5s-auto-hide contract `dead.test.ts` already asserts unchanged (REQ-13 changes
  * only `terminal/pane.ts`). */
 export function showDeadSurfaceNotice(refs: DeadSurfaceRefs, text: string | null): void {
-  const noticeEl = refs.noticeEl;
-  if (!noticeEl) return; // only unset for dead.test.ts's pre-existing fakeRefs() fixture
-  showNotice(noticeEl, text);
+  showNotice(refs.noticeEl, text);
 }
