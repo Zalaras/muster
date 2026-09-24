@@ -10,6 +10,7 @@ import type { App, RenderFrame } from "../app";
 import { requireElement } from "../dom";
 import { renderFocusMain, renderSizenote } from "../render/focusview";
 import { renderMainhead, type MainheadElements } from "../render/mainhead";
+import { mountSlotRoot } from "../render/slotmount";
 import type { SessionAction } from "../sessions/card";
 import {
   collectDeadSurfaceRefs,
@@ -20,6 +21,7 @@ import {
 import {
   DEFAULT_SURFACE_STATE,
   getSurfaceState,
+  surfaceBodyKind,
   type SessionSurfaceState,
   type SurfaceKind,
   type SurfaceSwitchState,
@@ -57,8 +59,10 @@ export interface FocusDeps {
 }
 
 export interface FocusHandle {
-  /** For `actions.ts`'s `findDeadSurfaceRefs` thunk. */
-  readonly deadSurfaceRefs: DeadSurfaceRefs;
+  /** Review Major 9: `null` unless `id` is the currently-focused session in Focus view —
+   * `actions.ts`'s `findDeadSurfaceRefs` thunk asks this instead of reaching into Focus's
+   * own markup itself. */
+  deadSurfaceRefsFor(id: number): DeadSurfaceRefs | null;
   /** For `rename.ts`'s mainhead editor attachment. */
   readonly nameEl: HTMLElement;
   /** ⌥⌘1–9: focus (or, in Tiles, promote) session n of the rail's own order. */
@@ -155,11 +159,7 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
   function mountReader(session: Session): void {
     const readerRoot = deps.getReader().rootFor(session.id);
     mainSlotEl.hidden = readerRoot === null;
-    if (readerRoot && mainSlotEl.firstElementChild !== readerRoot) {
-      mainSlotEl.replaceChildren(readerRoot);
-    } else if (!readerRoot) {
-      mainSlotEl.replaceChildren();
-    }
+    mountSlotRoot(mainSlotEl, readerRoot);
     renderSizenote(sizenoteEl, null);
   }
 
@@ -169,14 +169,12 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
   function mountTerminalSurface(session: Session, surfaceState: SessionSurfaceState): void {
     const surface = deps.getSurfaces().get(session.id, surfaceState.selected as SurfaceKind);
     if (!surface) {
-      mainSlotEl.replaceChildren();
+      mountSlotRoot(mainSlotEl, null);
       renderSizenote(sizenoteEl, null);
       return;
     }
     mainSlotEl.hidden = false;
-    if (mainSlotEl.firstElementChild !== surface.root) {
-      mainSlotEl.replaceChildren(surface.root);
-    }
+    mountSlotRoot(mainSlotEl, surface.root);
     // Reserve the sizenote line's layout space BEFORE fitting (review m2-terminal Minor
     // 1) — a non-breaking space keeps the reserved line the same height real geometry
     // text would, so even the very first attach reserves the right amount of space. Must
@@ -217,11 +215,14 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
       return;
     }
 
-    // Plan plain-terminal-session, edge case 5: the dead surface only replaces the slot
-    // when `claude` is the selected surface.
-    if (!session.alive && surfaceState.selected === "claude") {
+    // Review Major 3: the one "what does this session's slot show?" decision, shared with
+    // features/tiles.ts — plan plain-terminal-session edge case 5 (dead only for `claude`)
+    // and markdown-viewing REQ-2/REQ-3 (`docs` replaces the pane regardless of `alive`).
+    const bodyKind = surfaceBodyKind(surfaceState.selected, session.alive);
+
+    if (bodyKind === "dead") {
       mainSlotEl.hidden = true;
-      mainSlotEl.replaceChildren();
+      mountSlotRoot(mainSlotEl, null);
       deadSurfaceEl.hidden = false;
       deps.actions.ensurePaneFetch(session.id);
       renderDeadSurface(
@@ -237,10 +238,7 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
 
     deadSurfaceEl.hidden = true;
 
-    // Plan markdown-viewing REQ-2: the reader replaces the pane for `docs`, regardless
-    // of `alive` (REQ-3) — the earlier dead-surface branch above only ever fires for
-    // `claude`, so a dead session with `docs` selected falls through to here.
-    if (surfaceState.selected === "docs") {
+    if (bodyKind === "docs") {
       mountReader(session);
       return;
     }
@@ -249,7 +247,9 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
   }
 
   return {
-    deadSurfaceRefs,
+    deadSurfaceRefsFor(id) {
+      return app.state.view === "focus" && app.state.focusedId === id ? deadSurfaceRefs : null;
+    },
     nameEl: mainheadElements.nameEl,
     nth,
     neediest,

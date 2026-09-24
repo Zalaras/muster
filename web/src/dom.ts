@@ -21,3 +21,18 @@ export function requireElements<T extends HTMLElement>(
   if (els.length === 0) throw new Error(`missing required elements: ${selector}`);
   return els;
 }
+
+/** Checks exactly the radio in `radios` whose `value` matches, explicitly unchecking every
+ * other one — review Minor 6: this "sync a radio group from external state" idiom was
+ * hand-rolled in `features/launch.ts` (models/permission-mode) and again in
+ * `render/settings.ts` (theme/rail-activity); one shared helper for both. Returns whether
+ * any radio matched, for a caller that falls back when the stored value has no radio
+ * (`features/launch.ts`'s "unknown model -> `other`"). */
+export function checkRadioValue(radios: readonly HTMLInputElement[], value: string): boolean {
+  let matched = false;
+  for (const radio of radios) {
+    radio.checked = radio.value === value;
+    if (radio.checked) matched = true;
+  }
+  return matched;
+}

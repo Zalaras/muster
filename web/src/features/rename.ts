@@ -22,7 +22,11 @@ export interface RenameHandle {
 
 // W6/INV-4: structural, not a sibling import of FocusHandle from the focus module —
 // this module only ever touches focus's `nameEl`.
-export function initRename(app: App, deps: { focus: { nameEl: HTMLElement } }): RenameHandle {
+export interface RenameDeps {
+  focus: { nameEl: HTMLElement };
+}
+
+export function initRename(app: App, deps: RenameDeps): RenameHandle {
   /** REQ-13/REQ-14: the one `putTitle` dispatcher both the mainhead's editor and every
    * tile's editor route through — fire-and-forget; the resulting `sessionUpsert` (or
    * nothing, on a failed request) drives the redraw, never a locally-typed title. */

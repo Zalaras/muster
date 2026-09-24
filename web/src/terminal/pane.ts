@@ -7,18 +7,9 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
-import { locateDroppedFile } from "../api/terminal";
-import { DRAG_MIME } from "../dragmime";
 import type { Session } from "../protocol/session";
 import { wsUrl } from "../ws";
-import {
-  classifyApiFailure,
-  classifyDrop,
-  escapePath,
-  locatingText,
-  MAX_DROP_BYTES,
-  noticeForFailure,
-} from "./drop";
+import { installTerminalDrop } from "./dropwire";
 import { showNotice as showNoticeOn } from "./notice";
 import { overlayForCloseCode, overlayText, type OverlayKind } from "./overlay";
 import { PIXELS_PER_LINE, shellKeyBytes, wheelDeltaToScrollLines } from "./shellkeys";
@@ -39,6 +30,15 @@ export interface TerminalSurfaceGeometry {
 function cssVar(name: string, fallback: string): string {
   const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   return value || fallback;
+}
+
+/** review Minor 16: the one place xterm's theme colors are read off the design-system
+ * tokens — the constructor and `applyTheme()` used to each build this object separately. */
+function terminalThemeColors(): { background: string; foreground: string } {
+  return {
+    background: cssVar("--term", "Canvas"),
+    foreground: cssVar("--term-fg", "CanvasText"),
+  };
 }
 
 /**
@@ -117,7 +117,10 @@ export class TerminalSurface {
     this.noticeEl.hidden = true;
 
     this.root.append(this.bodyEl, this.overlayEl, this.noticeEl);
-    this.installDropHandlers();
+    // review Minor 16: installed from outside, through the small `DropSurface` interface
+    // this class satisfies structurally — the drop feature's own DOM/fetch logic no
+    // longer lives inside this constructor.
+    installTerminalDrop(this.root, this.sessionId, this);
 
     if (kind === "claude" && !session.alive) {
       this.setOverlay("ended");
@@ -132,16 +135,13 @@ export class TerminalSurface {
       fontFamily: cssVar("--mono", "monospace"),
       fontSize: 12.5,
       lineHeight: 1.65,
-      theme: {
-        // Neutral CSS system-color keywords, not a literal duplicate of --term/--term-fg's
-        // hex values (review m2-terminal Minor 5) — these only ever apply if the token
-        // read itself comes back empty, which in practice never happens since both are
-        // always declared on :root. --term-fg (not --fg, plan new-ui-design-colors REQ-1):
-        // the pane's foreground follows Claude Code's own theme family, independent of
-        // the Muster chrome theme (design-system §7.5).
-        background: cssVar("--term", "Canvas"),
-        foreground: cssVar("--term-fg", "CanvasText"),
-      },
+      // Neutral CSS system-color keywords, not a literal duplicate of --term/--term-fg's
+      // hex values (review m2-terminal Minor 5) — these only ever apply if the token read
+      // itself comes back empty, which in practice never happens since both are always
+      // declared on :root. --term-fg (not --fg, plan new-ui-design-colors REQ-1): the
+      // pane's foreground follows Claude Code's own theme family, independent of the
+      // Muster chrome theme (design-system §7.5).
+      theme: terminalThemeColors(),
     });
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
@@ -259,107 +259,20 @@ export class TerminalSurface {
   }
 
   // ── file-drop-fix: drag-and-drop onto this surface ──────────────────────────────────
+  // review Minor 16: the DOM/fetch wiring for this feature moved to `./dropwire.ts`'s
+  // `installTerminalDrop`, installed from the constructor above — this class exposes only
+  // the small `DropSurface` surface it needs (`hasTerminal`/`canPasteNow`/`pasteText`/
+  // `showNotice`/`focus`, all below).
 
-  /** Edge case 1 / INV-3: a tile-header or rail-card reorder drag carries
-   * `render/dragreorder.ts`'s own MIME, never `Files` or plain `text/plain` — checking
-   * for its presence (rather than sniffing the absence of `Files`/`text/plain`, which a
-   * real text drop would satisfy identically) is what lets an internal reorder drag pass
-   * straight through a terminal surface it happens to cross (Tiles: a tile header dragged
-   * over another tile's body) to the grid/rail container's own listener further up the
-   * bubble chain, instead of being wrongly claimed here as a foreign drop. */
-  private isInternalDrag(event: DragEvent): boolean {
-    return event.dataTransfer?.types.includes(DRAG_MIME) ?? false;
+  /** Whether this surface has ever constructed an xterm instance — `dropwire.ts`'s outer
+   * drag guard (a dead `"claude"` surface still swallows the browser's default drop
+   * navigation, but shows no drop-target styling and attempts no paste). `canPasteNow`
+   * below is the stricter "and the socket is open right now" check the per-drop logic uses. */
+  hasTerminal(): boolean {
+    return this.term !== null;
   }
 
-  /** Installs the three drag listeners on `root` (UI Specifications: "Focus pane and
-   * Tiles tiles ... become a drop target"). Called unconditionally from the constructor —
-   * REQ-8: even a dead session's surface (`this.term` still null when these fire) installs
-   * the handlers, they just prevent the browser's default navigation and stop there; no
-   * notice, no request, no drop-target styling for that case. */
-  private installDropHandlers(): void {
-    this.root.addEventListener("dragover", (event) => {
-      if (this.isInternalDrag(event)) return;
-      event.preventDefault();
-      if (!this.term) return;
-      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
-      this.root.classList.add("drop-target");
-    });
-
-    this.root.addEventListener("dragleave", (event) => {
-      const related = event.relatedTarget;
-      if (related instanceof Node && this.root.contains(related)) return;
-      this.root.classList.remove("drop-target");
-    });
-
-    this.root.addEventListener("drop", (event) => {
-      if (this.isInternalDrag(event)) return;
-      event.preventDefault();
-      this.root.classList.remove("drop-target");
-      if (!this.term) return;
-      void this.handleDrop(event);
-    });
-  }
-
-  /** REQ-2/REQ-10: classifies the drop and either runs the sequential locate→paste loop
-   * (files) or pastes verbatim (text-only). A `"none"` classification (neither files nor
-   * text) is silently swallowed — nothing here for this feature to do, and the drop was
-   * already prevented above. */
-  private async handleDrop(event: DragEvent): Promise<void> {
-    const dt = event.dataTransfer;
-    if (!dt) return;
-    const kind = classifyDrop(Array.from(dt.types), dt.files.length);
-    if (kind === "none") return;
-
-    if (kind === "text") {
-      const text = dt.getData("text/plain");
-      if (!text) return;
-      if (!this.canPasteNow()) {
-        this.showNotice(noticeForFailure("", { kind: "not_connected" }));
-        return;
-      }
-      if (this.pasteText(text)) {
-        this.showNotice(null);
-        this.focus();
-      }
-      return;
-    }
-
-    // "files": sequential, not parallel (Implementation Notes) — pasted paths keep drop
-    // order and the notice always names the file currently in flight.
-    for (const file of Array.from(dt.files)) {
-      await this.locateAndPasteOne(file);
-    }
-  }
-
-  private async locateAndPasteOne(file: File): Promise<void> {
-    if (!this.canPasteNow()) {
-      // REQ-8: no request when there's nowhere to paste — checked before the size cap
-      // and before the network call, so a disconnected pane never issues either.
-      this.showNotice(noticeForFailure(file.name, { kind: "not_connected" }));
-      return;
-    }
-    if (file.size > MAX_DROP_BYTES) {
-      this.showNotice(noticeForFailure(file.name, { kind: "too_large" }));
-      return;
-    }
-    // REQ-13: in-flight, not an outcome — stays visible for as long as the request
-    // takes, however long that is, instead of vanishing at 5s while it's still running.
-    this.showNotice(locatingText(file.name), "inflight");
-    const result = await locateDroppedFile(this.sessionId, file);
-    if (!result.ok) {
-      this.showNotice(noticeForFailure(file.name, classifyApiFailure(result.error)));
-      return;
-    }
-    if (this.pasteText(escapePath(result.value.path) + " ")) {
-      this.showNotice(null);
-      this.focus();
-    } else {
-      // Edge case 3: the session/socket died between the request and the response.
-      this.showNotice(noticeForFailure(file.name, { kind: "not_connected" }));
-    }
-  }
-
-  private canPasteNow(): boolean {
+  canPasteNow(): boolean {
     return this.term !== null && this.socket?.readyState === WebSocket.OPEN;
   }
 
@@ -377,8 +290,8 @@ export class TerminalSurface {
   /** Shows (or, given `null`, clears) the one `role="status"` notice this surface owns —
    * a new outcome always replaces whatever text was there (edge case 19), cancelling any
    * pending auto-hide timer first. Delegates to `terminal/notice.ts` (plan v1-cleanup
-   * REQ-12): an `"outcome"` text (the default — every caller but the in-flight locate
-   * text in `locateAndPasteOne` above) auto-hides after ~5s (REQ-6); an `"inflight"` text
+   * REQ-12): an `"outcome"` text (the default — every caller but `dropwire.ts`'s
+   * in-flight locate text) auto-hides after ~5s (REQ-6); an `"inflight"` text
    * stays up until something else replaces it (REQ-13); `null` hides immediately with no
    * timer either way. */
   showNotice(text: string | null, kind: "outcome" | "inflight" = "outcome"): void {
@@ -431,10 +344,7 @@ export class TerminalSurface {
    * (`this.term` is null — it never had a terminal to restyle). */
   applyTheme(): void {
     if (!this.term) return;
-    this.term.options.theme = {
-      background: cssVar("--term", "Canvas"),
-      foreground: cssVar("--term-fg", "CanvasText"),
-    };
+    this.term.options.theme = terminalThemeColors();
   }
 
   /** Moves DOM focus into xterm's input. Called via features/surfaces.ts's

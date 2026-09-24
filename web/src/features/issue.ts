@@ -18,6 +18,7 @@ import { pad2 } from "../sessions/format";
 import { orderRail } from "../sessions/sort";
 import type { Session } from "../protocol/session";
 import { buildSessionOptions, DASHBOARD_SCOPE_VALUE, renderIssueButton } from "../render/issue";
+import { renderActionError } from "../render/actionerror";
 
 export interface IssueDialogElements {
   dialog: HTMLDialogElement;
@@ -90,18 +91,16 @@ function initIssueDialog(elements: IssueDialogElements): IssueDialogController {
   let captureRequestId = 0;
   let submitting = false;
 
+  // Review Minor 6: two message regions, each already covered by
+  // `render/actionerror.ts`'s `renderActionError` (write the text, toggle `hidden`).
   function clearError(): void {
-    elements.errorEl.textContent = "";
-    elements.errorEl.hidden = true;
-    elements.errorDetailEl.textContent = "";
-    elements.errorDetailEl.hidden = true;
+    renderActionError(elements.errorEl, null);
+    renderActionError(elements.errorDetailEl, null);
   }
 
   function showError(summary: string, err: ApiErrorBody): void {
-    elements.errorEl.textContent = summary;
-    elements.errorEl.hidden = false;
-    elements.errorDetailEl.textContent = formatErrorDetail(err);
-    elements.errorDetailEl.hidden = false;
+    renderActionError(elements.errorEl, summary);
+    renderActionError(elements.errorDetailEl, formatErrorDetail(err));
   }
 
   /** States: "no data yet" (fetching…), "capture failed" (snapshot unavailable, error

@@ -1,12 +1,17 @@
 // `themeChoice`/`claudeFamily`, `<html>` attributes, and the first-paint hint (plan
-// code-breakup vocabulary: "theme"; plan new-ui-design-colors). `deps.surfaces` is a real
-// value — `surfaces` is constructed before `theme` (main.ts's init order).
+// code-breakup vocabulary: "theme"; plan new-ui-design-colors). No dependency on any other
+// controller (review Major 8): re-theming live terminals and reader diagrams used to be a
+// direct `deps.surfaces.applyTheme()` call from here, with the reader instead watching
+// `<html data-theme>` itself via its own `MutationObserver` — two different mechanisms for
+// the same "a theme changed" fact, which is what forced `doc.ts` to fake a no-op
+// `surfaces.applyTheme`. This module now only emits `app.emit("themeChanged")`; every
+// listener (features/surfaces.ts, features/reader.ts) reacts on its own account, the same
+// way every other broadcast in this app works.
 import type { App } from "../app";
 import { resolveTheme, writeThemeHint } from "../theme";
 import type { ClaudeFamily } from "../protocol/theme";
 
-// W6/INV-4: structural, not a sibling import of SurfacesHandle from the surfaces module.
-export function initTheme(app: App, deps: { surfaces: { applyTheme(): void } }): void {
+export function initTheme(app: App): void {
   // Plan new-ui-design-colors: both default to the values a fresh daemon reports before
   // any snapshot arrives. Neither is applied to the DOM until the first real message —
   // the `<head>` hint script already painted the last-known theme before any JS ran
@@ -23,8 +28,11 @@ export function initTheme(app: App, deps: { surfaces: { applyTheme(): void } }):
     const theme = resolveTheme(themeChoice, claudeFamily);
     document.documentElement.dataset["theme"] = theme;
     document.documentElement.dataset["claudeFamily"] = claudeFamily;
-    deps.surfaces.applyTheme();
     writeThemeHint({ theme, family: claudeFamily });
+    // Review Major 8: the one signal every live terminal (features/surfaces.ts) and every
+    // reader diagram instance (features/reader.ts) reacts to — emitted after the DOM
+    // attributes above are written, since both listeners read the theme back off them.
+    app.emit("themeChanged");
   }
 
   app.on("prefs", (prefs) => {

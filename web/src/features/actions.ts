@@ -2,17 +2,19 @@
 // cache (plan code-breakup vocabulary: "actions"; plan m4-reconcile). Every mainhead,
 // rail card, tile footer and dead-surface cap routes through `dispatch`.
 //
-// `deps.focusDeadSurfaceRefs`/`deps.tileBodySlot` are lazy thunks, not eager values:
-// `actions` is constructed before `focus`/`tiles` exist (main.ts's init order — both of
-// them depend on `actions`, e.g. for `dispatch`/`ensurePaneFetch`), so main.ts passes
-// `() => focus.deadSurfaceRefs` / `(id) => tiles.bodySlotFor(id)` closures that only
-// resolve the real `const` when `findDeadSurfaceRefs` is actually called, well after
-// every controller has finished construction (never during it).
+// `deps.getFocusDeadSurfaceRefs`/`deps.getTileDeadSurfaceRefs` are lazy thunks, not eager
+// values: `actions` is constructed before `focus`/`tiles` exist (main.ts's init order —
+// both of them depend on `actions`, e.g. for `dispatch`/`ensurePaneFetch`), so main.ts
+// passes `(id) => focus.deadSurfaceRefsFor(id)` / `(id) => tiles.deadSurfaceRefsFor(id)`
+// closures that only resolve the real `const` when `findDeadSurfaceRefs` is actually
+// called, well after every controller has finished construction (never during it). Review
+// Major 9: each closure asks the view that owns the markup, rather than this module
+// querying a tile's `.dead-surface` itself — `focus`/`tiles` are the only two places that
+// know what a dead surface looks like in their own view.
 import type { App } from "../app";
 import { endSession, fetchPane, pinSession, removeSession, resumeSession } from "../api/sessions";
 import { requireElement } from "../dom";
-import { forget } from "../reader/memory";
-import { collectDeadSurfaceRefs, type DeadSurfaceRefs, type PaneState } from "../render/dead";
+import type { DeadSurfaceRefs, PaneState } from "../render/dead";
 import { renderActionError } from "../render/actionerror";
 import { initConfirmDialogs, type ConfirmDialogs } from "../render/confirm";
 import { endDialogBody, removeDialogBody } from "./actionscopy";
@@ -33,8 +35,10 @@ export async function loadPane(id: number): Promise<PaneState> {
 }
 
 export interface ActionsDeps {
-  focusDeadSurfaceRefs(): DeadSurfaceRefs;
-  tileBodySlot(id: number): HTMLElement | null;
+  /** `null` unless `id` is currently shown as Focus's dead surface. */
+  getFocusDeadSurfaceRefs(id: number): DeadSurfaceRefs | null;
+  /** `null` unless `id` currently has a dead tile mounted. */
+  getTileDeadSurfaceRefs(id: number): DeadSurfaceRefs | null;
 }
 
 export interface ActionsHandle {
@@ -103,7 +107,6 @@ export function initActions(app: App, deps: ActionsDeps): ActionsHandle {
 
   function handleRemoved(id: number): void {
     app.store.remove(id);
-    forget(window.localStorage, id);
     app.emit("sessionRemoved", id);
     app.render();
   }
@@ -196,10 +199,7 @@ export function initActions(app: App, deps: ActionsDeps): ActionsHandle {
       );
     },
     findDeadSurfaceRefs(id) {
-      if (app.state.view === "focus" && app.state.focusedId === id)
-        return deps.focusDeadSurfaceRefs();
-      const tileDeadEl = deps.tileBodySlot(id)?.querySelector<HTMLElement>(".dead-surface") ?? null;
-      return tileDeadEl ? collectDeadSurfaceRefs(tileDeadEl) : null;
+      return deps.getFocusDeadSurfaceRefs(id) ?? deps.getTileDeadSurfaceRefs(id);
     },
     ensurePaneFetch,
     paneState,

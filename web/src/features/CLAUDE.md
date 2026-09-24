@@ -17,6 +17,7 @@
 - Render phase order is behaviour-bearing, numbered in `main.ts`.
 - A `prefs` handler compares the message against its own last value, not `app.state`, which it is about to overwrite (`views.ts`).
 - `connection.ts` shows "connecting…" until the first `hello`; the banner appears only after that (kb:adr/connection-banner-only-after-first-hello).
+- One `init<Name>(app, deps)` shape (review Minor 4): `deps` is always a named exported `<Name>Deps` interface, never typed inline; a thunk reaching a controller constructed later is named `get<Noun>`; `init` returns a handle only when a caller uses it.
 
 <!-- kb:trailer -->
 <!-- kb:hash 4c730b5fa0012bc3 -->

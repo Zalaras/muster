@@ -17,6 +17,7 @@
 - `render/surfaceseg.ts`'s segment control is built once per host and mutated afterwards, never rebuilt on a render tick (kb:lesson/select-rebuilt-every-tick-passed-selectoption).
 - Fit is observed, never pattern-matched from footer geometry (kb:lesson/tiles-never-refit-behind-pattern-match).
 - Dropped paths escape Terminal.app-style: backslash before every space and metacharacter, non-ASCII untouched (`drop.ts`).
+- Drop wiring (`dropwire.ts`) attaches to a surface from outside, through the small `DropSurface` interface — like `render/dragreorder.ts`'s `install*(root, ...)` shape, never built into `TerminalSurface`'s own constructor.
 - `docs` never has a `TerminalSurface` (INV-1) — `isSurfaceAttachable` always answers `false` for it; the reader itself lives in `web/src/features/reader.ts`/`web/src/render/reader.ts`, not here.
 
 <!-- kb:trailer -->

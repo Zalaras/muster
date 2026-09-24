@@ -106,6 +106,20 @@ export function isSurfaceAttachable(
   return current.selected === "shell" ? current.shellRunning : alive;
 }
 
+/** What a session's slot should show right now (review Major 3): the reader (`docs`,
+ * regardless of `alive` — INV-1 — the reader replaces the pane either way), the dead-surface
+ * cap (`claude` selected on a session that has exited), or the live/attachable surface
+ * itself (including a `shell` on a dead session — REQ-7 never consults `alive` for shell).
+ * `features/focus.ts` and `features/tiles.ts` each re-derived this branch, in a different
+ * order and with inverted conditions — this is the one decision both call. */
+export type SurfaceBodyKind = "dead" | "docs" | "surface";
+
+export function surfaceBodyKind(selected: SurfaceKind, alive: boolean): SurfaceBodyKind {
+  if (selected === "docs") return "docs";
+  if (selected === "claude" && !alive) return "dead";
+  return "surface";
+}
+
 const SURFACE_KEY_SEPARATOR = ":";
 
 /** The composite key features/surfaces.ts's surface manager keys its `TerminalSurface` map by (id,

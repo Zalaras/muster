@@ -7,7 +7,7 @@ summary: Focus view: mainhead, main slot, dead surface, default focus, focus mar
 features: [focus]
 tags: [ux]
 go: []
-web: [web/src/features/focus.ts, web/src/render/mainhead*.ts, web/src/render/focus*.ts]
+web: [web/src/features/focus.ts, web/src/render/mainhead*.ts, web/src/render/focus*.ts, web/src/render/slotmount*.ts]
 e2e: [web/e2e/focus-marker.spec.ts, web/e2e/sessions.spec.ts]
 protocol: []
 refs: [kb:adr/focus-rail-plus-one-live-pane, kb:adr/focus-rail-click-focuses-terminal, kb:adr/rail-current-marker-means-shown-in-focus, kb:adr/actions-placement-mainhead-and-card-rows, kb:adr/launch-opens-launched-session, docs/design/ux-flows.md]

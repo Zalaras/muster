@@ -48,7 +48,7 @@ afterEach(() => {
 describe("initSurfaces select() — stale shell-spawn response guard (Minor 8)", () => {
   it("does not override a newer selection for the same session once the stale spawn resolves", async () => {
     const app = createApp();
-    const handle = initSurfaces(app, { tilesLive: () => [] });
+    const handle = initSurfaces(app, { getTilesLive: () => [] });
     const spawn = deferred();
     createShellMock.mockReturnValueOnce(spawn.promise);
 
@@ -71,7 +71,7 @@ describe("initSurfaces select() — stale shell-spawn response guard (Minor 8)",
 
   it("keeps each session's spawn guard independent — resolving one id's stale spawn never touches another id's pending one", async () => {
     const app = createApp();
-    const handle = initSurfaces(app, { tilesLive: () => [] });
+    const handle = initSurfaces(app, { getTilesLive: () => [] });
     const spawnA = deferred();
     const spawnB = deferred();
     createShellMock.mockReturnValueOnce(spawnA.promise).mockReturnValueOnce(spawnB.promise);

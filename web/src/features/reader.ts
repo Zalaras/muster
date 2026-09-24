@@ -15,7 +15,14 @@ import type { DocChanged } from "../protocol/messages";
 import type { Session } from "../protocol/session";
 import { changedText } from "../reader/freshness";
 import { renderMarkdown, type OutlineEntry } from "../reader/markdown";
-import { isDirty, loadMemory, saveMemory, withOpened, type ReaderMemory } from "../reader/memory";
+import {
+  forget,
+  isDirty,
+  loadMemory,
+  saveMemory,
+  withOpened,
+  type ReaderMemory,
+} from "../reader/memory";
 import { mermaidThemeFor } from "../reader/mermaid";
 import { classifyDocChanged, deriveNotice, UNKNOWN_SESSION_TEXT } from "../reader/notice";
 import { basename, loadingText } from "../reader/paths";
@@ -35,7 +42,7 @@ import {
 import { getSurfaceState, type SurfaceSwitchState } from "../terminal/surfaceswitch";
 
 export interface ReaderDeps {
-  tilesLive(): readonly number[];
+  getTilesLive(): readonly number[];
   getSurfaces(): { state(): SurfaceSwitchState };
 }
 
@@ -137,7 +144,6 @@ class ReaderInstance {
    * `nextDiagramInstanceId` at the call site below — never a value fixed for this
    * instance's lifetime (REQ-14/E9, W14). */
   private diagramPass: Promise<void> = Promise.resolve();
-  private readonly themeObserver: MutationObserver;
 
   constructor(
     sessionId: number,
@@ -180,14 +186,6 @@ class ReaderInstance {
       },
     );
     this.loadListing();
-    // REQ-7: re-renders every diagram in the mapped theme whenever `data-theme` changes —
-    // attached once here, disconnected in `dispose`, so it never fires for an instance
-    // that's gone.
-    this.themeObserver = new MutationObserver(() => this.handleThemeChange());
-    this.themeObserver.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["data-theme"],
-    });
   }
 
   get root(): HTMLElement {
@@ -197,7 +195,6 @@ class ReaderInstance {
   dispose(): void {
     this.disposed = true;
     this.disposeScrollSpy?.();
-    this.themeObserver.disconnect();
     this.refs.root.remove();
   }
 
@@ -392,8 +389,12 @@ class ReaderInstance {
    * pass is already in flight (the initial `renderDiagrams` from the current open, or a
    * previous theme flip) rather than racing it; `seq` pins this re-render to the file open
    * that was current when the theme changed, so a document switched in the meantime
-   * discards it via the same `isCurrent` guard every other diagram write uses. */
-  private handleThemeChange(): void {
+   * discards it via the same `isCurrent` guard every other diagram write uses. Called by
+   * `initReader`'s own `app.on("themeChanged", ...)` for every mounted instance (review
+   * Major 8) — this used to be each instance's own `MutationObserver` on `<html
+   * data-theme>`, which is what forced `doc.ts` to fake a no-op `surfaces.applyTheme` for
+   * `features/theme.ts`'s other push path; both surfaces now react to the same signal. */
+  handleThemeChange(): void {
     const theme = currentMermaidTheme();
     const seq = this.fetchSeq;
     const instance = nextDiagramInstanceId++;
@@ -520,7 +521,7 @@ class ReaderInstance {
  * selected as their surface. */
 function visibleDocsIds(app: App, deps: ReaderDeps): readonly number[] {
   const state = deps.getSurfaces().state();
-  return visibleIds(app.state.view, app.state.focusedId, deps.tilesLive()).filter(
+  return visibleIds(app.state.view, app.state.focusedId, deps.getTilesLive()).filter(
     (id) => getSurfaceState(state, id).selected === "docs",
   );
 }
@@ -600,6 +601,12 @@ export function initReader(
     for (const instance of instances.values()) instance.refetchOpenFile();
   });
 
+  // Review Major 8: the one theme-change signal features/theme.ts emits, replacing each
+  // instance's own `<html data-theme>` `MutationObserver`.
+  app.on("themeChanged", () => {
+    for (const instance of instances.values()) instance.handleThemeChange();
+  });
+
   window.addEventListener("focus", () => {
     for (const instance of instances.values()) instance.handleWindowFocus();
   });
@@ -608,6 +615,9 @@ export function initReader(
     app.on("sessionRemoved", (id) => {
       instances.get(id)?.dispose();
       instances.delete(id);
+      // Review Minor 10: reader memory is created/saved/forgotten only by this feature —
+      // `features/actions.ts`'s `handleRemoved` used to clear it directly.
+      forget(window.localStorage, id);
     });
   }
 

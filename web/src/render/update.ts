@@ -15,10 +15,11 @@ export interface UpdateViewModel {
   running: string;
   available: string;
   /** Text rules > Toggle: `checked iff prefs.updateCheck` — kept here for W5's full
-   * table-test contract, even though the DOM write of `.checked` happens through
-   * settings.ts's `setChecked` (INV-7's "only ever from the prefs broadcast" discipline,
-   * same code path the theme radios already use — see features/settings.ts's `prefs`
-   * subscription, which calls `setChecked`).
+   * table-test contract, even though the DOM write of `.checked` happens in
+   * features/update.ts's own `prefs` subscription (review Major 7: this module wires its
+   * own toggle now), never optimistically from the toggle's own `change` handler (INV-7's
+   * "only ever from the prefs broadcast" discipline, same code path the theme/rail-activity
+   * radios use in `render/settings.ts`).
    * `renderUpdateSection` below never reads this field. */
   toggleChecked: boolean;
   toggleDisabled: boolean;

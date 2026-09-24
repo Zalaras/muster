@@ -20,9 +20,9 @@ import {
 } from "../api/launch";
 import type { App } from "../app";
 import { permissionModeToCheck, type PermissionMode } from "../sessions/permission";
-import { requireElement, requireElements } from "../dom";
+import { checkRadioValue, requireElement, requireElements } from "../dom";
+import { renderActionError } from "../render/actionerror";
 import type { Session } from "../protocol/session";
-import { matchShortcut } from "../shortcuts";
 import { renderCrumbs } from "../render/crumbs";
 import {
   renderBrowseListing,
@@ -62,20 +62,26 @@ export interface LaunchModalHandlers {
   onLaunched: (session: Session) => void;
 }
 
-function checkRadio(radios: readonly HTMLInputElement[], value: string): boolean {
-  let matched = false;
-  for (const radio of radios) {
-    radio.checked = radio.value === value;
-    if (radio.checked) matched = true;
-  }
-  return matched;
+export interface LaunchHandle {
+  /** ⌥⌘N: opens the launch dialog — idempotent while it's already open. */
+  open(): void;
+  /** Whether the dialog is currently open — review Minor 7: `features/shortcuts.ts`'s one
+   * window keydown listener checks this before dispatching ⌘↑, replacing the dialog-open
+   * guard that used to live inside this module's own listener. */
+  isOpen(): boolean;
+  /** ⌘↑ (REQ-6): navigates to the parent of the listed directory. Callers only invoke
+   * this once `isOpen()` is true (dialog-scoped, not listing-scoped — edge case 11). */
+  navigateToParentDir(): void;
 }
 
 function checkedValue(radios: readonly HTMLInputElement[]): string | null {
   return radios.find((radio) => radio.checked)?.value ?? null;
 }
 
-function initLaunchModal(elements: LaunchModalElements, handlers: LaunchModalHandlers): void {
+function initLaunchModal(
+  elements: LaunchModalElements,
+  handlers: LaunchModalHandlers,
+): LaunchHandle {
   // The picker's whole state: what GET /api/browse most recently returned (null before
   // the first successful browse of this open), the served MRU list, whether that list has
   // resolved at all yet, and a monotonic counter guarding against a stale response landing
@@ -107,9 +113,9 @@ function initLaunchModal(elements: LaunchModalElements, handlers: LaunchModalHan
   function setModel(value: string): void {
     const matched =
       MODEL_PRESETS.includes(value as (typeof MODEL_PRESETS)[number]) &&
-      checkRadio(elements.modelRadios, value);
+      checkRadioValue(elements.modelRadios, value);
     if (!matched) {
-      checkRadio(elements.modelRadios, "other");
+      checkRadioValue(elements.modelRadios, "other");
       elements.customModelInput.value = value;
     }
     updateCustomModelVisibility();
@@ -121,7 +127,7 @@ function initLaunchModal(elements: LaunchModalElements, handlers: LaunchModalHan
   // caller-side coercion to `""`). `setPermissionMode` here and `selectedPermissionMode`
   // just below are this file's two callers.
   function setPermissionMode(value: string | null): void {
-    checkRadio(elements.permissionModeRadios, permissionModeToCheck(value));
+    checkRadioValue(elements.permissionModeRadios, permissionModeToCheck(value));
   }
 
   function selectedModel(): string {
@@ -135,9 +141,10 @@ function initLaunchModal(elements: LaunchModalElements, handlers: LaunchModalHan
     return permissionModeToCheck(checkedValue(elements.permissionModeRadios));
   }
 
+  // Review Minor 6: the "write the message, toggle hidden" message-region idiom already
+  // has one implementation, `render/actionerror.ts`'s `renderActionError`.
   function showError(message: string): void {
-    elements.launchError.textContent = message;
-    elements.launchError.hidden = false;
+    renderActionError(elements.launchError, message);
     reposErrorPersistent = false;
   }
 
@@ -145,14 +152,12 @@ function initLaunchModal(elements: LaunchModalElements, handlers: LaunchModalHan
   // not be wiped by the browse-root fallback that `initOpen()` runs immediately
   // afterwards (there is no user action, inside this dialog, that fixes GET /api/repos).
   function showReposError(message: string): void {
-    elements.launchError.textContent = message;
-    elements.launchError.hidden = false;
+    renderActionError(elements.launchError, message);
     reposErrorPersistent = true;
   }
 
   function clearError(): void {
-    elements.launchError.textContent = "";
-    elements.launchError.hidden = true;
+    renderActionError(elements.launchError, null);
     reposErrorPersistent = false;
   }
 
@@ -369,32 +374,11 @@ function initLaunchModal(elements: LaunchModalElements, handlers: LaunchModalHan
     button.addEventListener("click", openModal);
   }
 
-  // ⌥⌘N opens the launch modal from anywhere in the shell (plan shortcut-fixes — ⌘N is
-  // reserved by the browser, spikes/S5-key-probe.md). Matching lives in shortcuts.ts
-  // (REQ-3); this dispatches on the returned action only.
-  window.addEventListener("keydown", (event) => {
-    const action = matchShortcut(event);
-    if (action === null) return;
-    if (action.type === "new-session") {
-      // preventDefault unconditionally, even with the dialog already open (REQ-8;
-      // review m1-sessions cycle-3 minor: preventDefault must precede the open-guard).
-      // REQ-2: the browser's own bare ⌘N is left alone — this only ever fires for ⌥⌘N.
-      event.preventDefault();
-      if (elements.dialog.open) return;
-      openModal();
-    } else if (action.type === "launch-parent-dir") {
-      // REQ-6: ⌘↑ navigates to the parent of the listed directory. Dialog-scoped, not
-      // listing-scoped (edge case 11 — it still fires with focus in the Title input).
-      if (!elements.dialog.open) return;
-      event.preventDefault();
-      void navigateUp();
-    }
-  });
-
   // REQ-15: with focus on a child entry, ↑/↓ move focus between entries and →/Enter
   // descend (Enter already works for free — it's a <button>); ← is ⌘↑'s synonym, but only
-  // when focus is inside the listing (the window-level handler above covers the ⌘↑ case
-  // everywhere else, so this bows out whenever the meta key is held).
+  // when focus is inside the listing (review Minor 7: features/shortcuts.ts's one window
+  // keydown listener covers the ⌘↑ case everywhere else, so this bows out whenever the
+  // meta key is held).
   /** Roving-focus arrow handling for the browse list. Returns false for any key the list
    * does not own, so the caller leaves that event entirely alone. */
   function handleBrowseArrowKey(
@@ -460,21 +444,29 @@ function initLaunchModal(elements: LaunchModalElements, handlers: LaunchModalHan
     event.preventDefault();
     void submit();
   });
+
+  return {
+    open: openModal,
+    isOpen: () => elements.dialog.open,
+    navigateToParentDir: () => {
+      void navigateUp();
+    },
+  };
 }
 
 /** REQ-2's controller entry: locates the launch dialog + its two open buttons, wires
  * `onLaunched` to the store and (REQ-7/REQ-8, plan new-session-improvement) opening the
  * launched session — focused in Focus, promoted in Tiles, keyboard focus in its terminal
- * in both views (plan code-breakup vocabulary: "launch"). */
+ * in both views (plan code-breakup vocabulary: "launch"). Returns the `LaunchHandle`
+ * `features/shortcuts.ts` dispatches ⌥⌘N/⌘↑ through (review Minor 7). */
 // W6/INV-4: structural, not a sibling import of FocusHandle/SurfacesHandle from their
 // owning sibling modules.
-export function initLaunch(
-  app: App,
-  deps: {
-    focus: { bringForward(session: Session): void };
-    surfaces: { focusSelected(id: number): void };
-  },
-): void {
+export interface LaunchDeps {
+  focus: { bringForward(session: Session): void };
+  surfaces: { focusSelected(id: number): void };
+}
+
+export function initLaunch(app: App, deps: LaunchDeps): LaunchHandle {
   const elements: LaunchModalElements = {
     dialog: requireElement<HTMLDialogElement>("#launch-dialog"),
     openButtons: [requireElement<HTMLButtonElement>("#new-session-button")],
@@ -495,7 +487,7 @@ export function initLaunch(
     form: requireElement<HTMLFormElement>("#launch-form"),
   };
 
-  initLaunchModal(elements, {
+  return initLaunchModal(elements, {
     // REQ-2: the card must appear the instant the 201 comes back — before any hook can
     // possibly arrive. The `sessionUpsert` the daemon also broadcasts for this same
     // launch is a harmless duplicate upsert once the WS delivers it.

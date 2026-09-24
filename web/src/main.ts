@@ -37,11 +37,11 @@ import { coreWsHandlers } from "./wsapp";
 const app = createApp();
 
 const actions = initActions(app, {
-  focusDeadSurfaceRefs: () => focus.deadSurfaceRefs,
-  tileBodySlot: (id) => tiles.bodySlotFor(id),
+  getFocusDeadSurfaceRefs: (id) => focus.deadSurfaceRefsFor(id),
+  getTileDeadSurfaceRefs: (id) => tiles.deadSurfaceRefsFor(id),
 });
 initUsage(app);
-const update = initUpdate(app);
+initUpdate(app);
 initIssue(app);
 const tiles = initTiles(app, {
   actions,
@@ -56,8 +56,11 @@ const focus = initFocus(app, {
   getReader: () => reader,
   getRename: () => rename,
 });
-const surfaces = initSurfaces(app, { tilesLive: () => tiles.liveIds() });
-const reader = initReader(app, { tilesLive: () => tiles.liveIds(), getSurfaces: () => surfaces });
+const surfaces = initSurfaces(app, { getTilesLive: () => tiles.liveIds() });
+const reader = initReader(app, {
+  getTilesLive: () => tiles.liveIds(),
+  getSurfaces: () => surfaces,
+});
 initRail(app, { actions, surfaces });
 // Render phase order (UI Specifications > Render phase order — behaviour-bearing):
 //  1. actions  — dead-pane tracking (registered inside initActions)
@@ -74,10 +77,10 @@ initRail(app, { actions, surfaces });
 //     inherently split across two controllers by shared state (views.ts).
 const views = initViews(app, { focus, tiles });
 const rename = initRename(app, { focus });
-initTheme(app, { surfaces });
-initLaunch(app, { focus, surfaces });
-initSettings(app, { update });
-initShortcuts(app, { views, focus, actions });
+initTheme(app);
+const launch = initLaunch(app, { focus, surfaces });
+initSettings(app);
+initShortcuts(app, { views, focus, actions, launch });
 const connection = initConnection(app);
 
 // plan file-drop-fix REQ-1: a document-level foreign-drag/drop guard, installed once at

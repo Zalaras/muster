@@ -1,8 +1,12 @@
 // The Updates section, restart confirm, Settings badge, and apply handlers (plan
 // code-breakup vocabulary: "update"; plan auto-update). No dependency on any other
-// controller — `settings.ts` depends on this module's exposed elements/methods instead.
+// controller — review Major 7: this module now wires its own toggle/apply/restart/check
+// buttons directly (features/CLAUDE.md "Owns": "each controller wires listeners on the
+// elements it looked up itself"). `settings.ts` used to take an `update` dep purely to
+// relay those clicks; it no longer references this module at all.
 import type { App } from "../app";
 import { applyUpdate, checkForUpdate, fetchRestartImpact } from "../api/update";
+import { requestPrefs } from "../api/prefs";
 import { requireElement } from "../dom";
 import {
   initRestartConfirm,
@@ -15,27 +19,7 @@ import { buildUpdateViewModel, type CheckState } from "./updateview";
 import type { Prefs } from "../protocol/prefs";
 import type { UpdateInfo } from "../protocol/update";
 
-export interface UpdateHandle {
-  /** For `settings.ts`'s `SettingsDialogElements` — the same DOM nodes, shared so the
-   * Settings dialog can wire their listeners while this module owns their rendered
-   * state. */
-  readonly toggle: HTMLInputElement;
-  readonly applyBtn: HTMLButtonElement;
-  readonly restartBtn: HTMLButtonElement;
-  /** REQ-10 (plan rail-card-improvements-2): `#update-check-button`, same
-   * shared-element-shape reason as the three above — `settings.ts` wires its `click`. */
-  readonly checkBtn: HTMLButtonElement;
-  /** Plan auto-update User Flow 2: `POST /api/update/apply {}`. */
-  apply(): void;
-  /** Plan auto-update User Flow 3: fetch the restart impact, then open the confirm. */
-  applyAndRestart(): void;
-  /** REQ-7/REQ-13 (plan rail-card-improvements-2): `POST /api/update/check`. A no-op
-   * while this window's own check is already in flight (W4/edge case 16) — `settings.ts`
-   * fires this straight from the button's click handler, same shape as `apply`. */
-  check(): void;
-}
-
-export function initUpdate(app: App): UpdateHandle {
+export function initUpdate(app: App): void {
   const settingsButtonEl = requireElement<HTMLButtonElement>("#settings-button");
   const updateSectionElements: UpdateSectionElements = {
     section: requireElement<HTMLElement>("#settings-update"),
@@ -103,6 +87,15 @@ export function initUpdate(app: App): UpdateHandle {
     { onConfirm: handleRestartConfirmed },
   );
 
+  // Review Major 7: this module wires its own Updates-section buttons — no other
+  // controller reaches into these elements.
+  updateSectionElements.toggle.addEventListener("change", () => {
+    requestPrefs({ updateCheck: updateSectionElements.toggle.checked });
+  });
+  updateSectionElements.applyBtn.addEventListener("click", () => apply());
+  updateSectionElements.restartBtn.addEventListener("click", () => applyAndRestart());
+  updateSectionElements.checkBtn.addEventListener("click", () => check());
+
   app.on("snapshot", (snapshot) => {
     currentUpdate = snapshot.update;
   });
@@ -111,6 +104,10 @@ export function initUpdate(app: App): UpdateHandle {
   });
   app.on("prefs", (prefs) => {
     currentPrefs = prefs;
+    // INV-7: the toggle's checked state only ever comes from the prefs broadcast, never
+    // optimistically from its own `change` handler above — same discipline
+    // `render/settings.ts`'s theme/rail-activity radios follow.
+    updateSectionElements.toggle.checked = prefs.updateCheck;
   });
   // States: "the Settings dialog closes ... the confirm dialog closes too" — a request
   // against a dead daemon can't be confirmed as done.
@@ -122,14 +119,4 @@ export function initUpdate(app: App): UpdateHandle {
     renderUpdateSection(updateSectionElements, vm);
     renderSettingsBadge(settingsButtonEl, vm.badged);
   });
-
-  return {
-    toggle: updateSectionElements.toggle,
-    applyBtn: updateSectionElements.applyBtn,
-    restartBtn: updateSectionElements.restartBtn,
-    checkBtn: updateSectionElements.checkBtn,
-    apply,
-    applyAndRestart,
-    check,
-  };
 }

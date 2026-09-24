@@ -30,18 +30,20 @@ import {
 } from "../render/tiles";
 import { captureFocusedControl, type FocusedControl } from "../render/focuskeep";
 import { reconcileKeyedOrder, type KeyedReorderEntry } from "../render/keyedreorder";
+import { mountSlotRoot } from "../render/slotmount";
 import { installTileDrag } from "../render/tiledrag";
 import { applyDensity, densityCount, initialLive, moveTile, promote } from "../sessions/live";
 import { orderRail } from "../sessions/sort";
 import {
   getSurfaceState,
+  surfaceBodyKind,
   type SurfaceKind,
   type SurfaceSwitchState,
 } from "../terminal/surfaceswitch";
 import { updateSurfaceSegment } from "../render/surfaceseg";
 import type { TerminalSurface } from "../terminal/pane";
 import type { ShellActivityIndicator } from "../terminal/shellactivity";
-import type { DeadSurfaceRefs, PaneState } from "../render/dead";
+import { collectDeadSurfaceRefs, type DeadSurfaceRefs, type PaneState } from "../render/dead";
 import type { Session } from "../protocol/session";
 import type { SessionAction } from "../sessions/card";
 
@@ -70,8 +72,10 @@ export interface TilesHandle {
   promote(id: number): void;
   /** For `surfaces.ts`'s render-phase visibility diff. */
   liveIds(): readonly number[];
-  /** For `actions.ts`'s `findDeadSurfaceRefs` thunk. */
-  bodySlotFor(id: number): HTMLElement | null;
+  /** Review Major 9: `null` unless `id` currently has a dead tile mounted —
+   * `actions.ts`'s `findDeadSurfaceRefs` thunk asks this instead of reaching into a
+   * tile's body slot itself. */
+  deadSurfaceRefsFor(id: number): DeadSurfaceRefs | null;
   /** Render phase 10 in Tiles. */
   renderView(frame: RenderFrame): void;
 }
@@ -104,6 +108,19 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
   function cancelTileRenames(): void {
     for (const refs of tileElements.values()) refs.rename?.cancel();
   }
+
+  /** Review Minor 11: the one tile-teardown routine — cancel (no request) and detach the
+   * rename editor's own listener before the tile leaves the DOM, then drop its refs. A
+   * no-op for an id with no mounted tile. Shared by the `sessionRemoved` handler and
+   * `dropTilesNotIn` below, which used to repeat this body verbatim. */
+  function teardownTile(id: number): void {
+    const refs = tileElements.get(id);
+    if (!refs) return;
+    refs.rename?.cancel();
+    refs.rename?.dispose();
+    refs.root.remove();
+    tileElements.delete(id);
+  }
   app.on("cancelRenames", cancelTileRenames);
   app.on("status", () => cancelTileRenames());
 
@@ -121,15 +138,9 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
   });
 
   app.on("sessionRemoved", (id) => {
-    const tileRefs = tileElements.get(id);
-    if (tileRefs) {
-      // REQ-15/edge case 18: cancel (no request) and detach the editor's own listener
-      // before the tile itself is removed from the DOM.
-      tileRefs.rename?.cancel();
-      tileRefs.rename?.dispose();
-      tileRefs.root.remove();
-      tileElements.delete(id);
-    }
+    // REQ-15/edge case 18: cancel (no request) and detach the editor's own listener
+    // before the tile itself is removed from the DOM.
+    teardownTile(id);
     tilesLive = tilesLive.filter((x) => x !== id);
   });
 
@@ -147,64 +158,38 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
     app.render();
   });
 
-  /** Tears down every tile whose session is no longer live, cancelling an in-flight rename
-   * before the node leaves the document. */
+  /** Tears down every tile whose session is no longer live, via `teardownTile` above —
+   * deleting the current entry mid-iteration is safe (`Map`'s iterator never revisits a
+   * key removed during its own pass). */
   function dropTilesNotIn(desiredIds: ReadonlySet<number>): void {
-    for (const [id, refs] of tileElements) {
-      if (!desiredIds.has(id)) {
-        refs.rename?.cancel();
-        refs.rename?.dispose();
-        refs.root.remove();
-        tileElements.delete(id);
-      }
+    for (const id of tileElements.keys()) {
+      if (!desiredIds.has(id)) teardownTile(id);
     }
   }
 
-  /** Fills one tile's body slot: the selected surface, or the dead-pane surface when the
-   * session has exited and Claude is the selected surface. Owns the tile's geometry frame
-   * either way, so the two paths cannot disagree about what was rendered. */
   /** Plan markdown-viewing REQ-15: the reader replaces the tile body for `docs`,
-   * regardless of `alive` — no `TerminalSurface` ever exists for it (INV-1). Split out
-   * of `renderTileBody` purely to keep that function's cognitive complexity under the
-   * project ceiling. */
-  function renderReaderTileBody(refs: TileRefs, session: Session, isNewTile: boolean): void {
+   * regardless of `alive` — no `TerminalSurface` ever exists for it (INV-1). */
+  function renderReaderTileBody(refs: TileRefs, session: Session): void {
     const readerRoot = deps.getReader().rootFor(session.id);
-    if (readerRoot && (isNewTile || refs.bodySlot.firstElementChild !== readerRoot)) {
-      refs.bodySlot.replaceChildren(readerRoot);
-    } else if (!readerRoot) {
-      refs.bodySlot.replaceChildren();
-    }
+    mountSlotRoot(refs.bodySlot, readerRoot);
     renderTileGeometry(refs, session.alive, null);
   }
 
-  function renderTileBody(
+  function renderSurfaceTileBody(refs: TileRefs, session: Session, selected: SurfaceKind): void {
+    const surface = deps.getSurfaces().get(session.id, selected);
+    if (surface) {
+      mountSlotRoot(refs.bodySlot, surface.root);
+      surface.refit();
+    }
+    renderTileGeometry(refs, session.alive, surface?.geometry ?? null);
+  }
+
+  function renderDeadTileBody(
     refs: TileRefs,
     session: Session,
-    selected: SurfaceKind,
-    isNewTile: boolean,
     now: Date,
     connected: boolean,
   ): void {
-    // This must be checked before the generic surface branch below, which would
-    // otherwise find nothing (docs never has a `TerminalSurface`) and leave the tile
-    // body empty.
-    if (selected === "docs") {
-      renderReaderTileBody(refs, session, isNewTile);
-      return;
-    }
-
-    if (session.alive || selected !== "claude") {
-      const surface = deps.getSurfaces().get(session.id, selected);
-      if (surface) {
-        if (isNewTile || refs.bodySlot.firstElementChild !== surface.root) {
-          refs.bodySlot.replaceChildren(surface.root);
-        }
-        surface.refit();
-      }
-      renderTileGeometry(refs, session.alive, surface?.geometry ?? null);
-      return;
-    }
-
     deps.actions.ensurePaneFetch(session.id);
     mountTileDeadSurface(
       refs.bodySlot,
@@ -216,6 +201,28 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
       deps.actions.dispatch,
     );
     renderTileGeometry(refs, false, null);
+  }
+
+  /** Fills one tile's body slot: the reader, the selected surface, or the dead-pane
+   * surface — review Major 3's shared `surfaceBodyKind` decision, the same one
+   * features/focus.ts's main slot uses, so the two views can't drift on the branch order
+   * or conditions. Owns the tile's geometry frame either way, so the three paths cannot
+   * disagree about what was rendered. */
+  function renderTileBody(
+    refs: TileRefs,
+    session: Session,
+    selected: SurfaceKind,
+    now: Date,
+    connected: boolean,
+  ): void {
+    const kind = surfaceBodyKind(selected, session.alive);
+    if (kind === "docs") {
+      renderReaderTileBody(refs, session);
+    } else if (kind === "dead") {
+      renderDeadTileBody(refs, session, now, connected);
+    } else {
+      renderSurfaceTileBody(refs, session, selected);
+    }
   }
 
   function reconcileTilesGrid(
@@ -240,8 +247,10 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
     const entries: KeyedReorderEntry[] = [];
     for (const session of liveSessions) {
       let refs = tileElements.get(session.id);
-      const isNewTile = !refs;
       if (!refs) {
+        // A freshly built tile's `bodySlot` starts empty (its template has no children
+        // there), so `mountSlotRoot`'s own firstElementChild diff already mounts on the
+        // first pass — no separate "is this a new tile" force-mount flag needed.
         refs = buildTile(session, now, tileTemplate, deps.getRenameHandlers(), (id, kind) =>
           deps.getSurfaces().select(id, kind, () => deps.actions.findDeadSurfaceRefs(id)),
         );
@@ -252,7 +261,7 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
       entries.push({ id: session.id, root: refs.root });
 
       const sessionSurfaceState = getSurfaceState(deps.getSurfaces().state(), session.id);
-      renderTileBody(refs, session, sessionSurfaceState.selected, isNewTile, now, connected);
+      renderTileBody(refs, session, sessionSurfaceState.selected, now, connected);
 
       if (refs.actsEl)
         renderTileFooterActions(refs.actsEl, session, now, connected, deps.actions.dispatch);
@@ -274,29 +283,25 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
     const hasSessions = sessions.length > 0;
     tilesEmptyEl.hidden = hasSessions;
     tilesGridEl.hidden = !hasSessions;
+
+    // Review Minor 11: one `renderStrip` call per pass — `stripSessions` is `[]` in the
+    // empty-dashboard case, same as the two call sites used to pass by hand.
+    let stripSessions: readonly Session[] = [];
     if (!hasSessions) {
       tilesGridEl.replaceChildren();
       tileElements.clear();
-      renderStrip(tilesStripEl, [], now, sessionCardTemplate, promoteSession, {
-        onAction: deps.actions.dispatch,
-        connected,
-        railActivity: app.state.railActivity,
-      });
-      return;
+    } else {
+      tilesGridEl.dataset["density"] = app.state.density;
+      const liveSessions = tilesLive
+        .map((id) => sessions.find((s) => s.id === id))
+        .filter((s): s is Session => s !== undefined);
+      const liveIds = new Set(tilesLive);
+      stripSessions = orderRail(
+        sessions.filter((s) => !liveIds.has(s.id)),
+        app.state.railSort,
+      );
+      reconcileTilesGrid(liveSessions, now, connected);
     }
-
-    tilesGridEl.dataset["density"] = app.state.density;
-
-    const liveSessions = tilesLive
-      .map((id) => sessions.find((s) => s.id === id))
-      .filter((s): s is Session => s !== undefined);
-    const liveIds = new Set(tilesLive);
-    const stripSessions = orderRail(
-      sessions.filter((s) => !liveIds.has(s.id)),
-      app.state.railSort,
-    );
-
-    reconcileTilesGrid(liveSessions, now, connected);
 
     renderStrip(tilesStripEl, stripSessions, now, sessionCardTemplate, promoteSession, {
       onAction: deps.actions.dispatch,
@@ -308,7 +313,11 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
   return {
     promote: promoteSession,
     liveIds: () => tilesLive,
-    bodySlotFor: (id) => tileElements.get(id)?.bodySlot ?? null,
+    deadSurfaceRefsFor(id) {
+      const tileDeadEl =
+        tileElements.get(id)?.bodySlot.querySelector<HTMLElement>(".dead-surface") ?? null;
+      return tileDeadEl ? collectDeadSurfaceRefs(tileDeadEl) : null;
+    },
     renderView,
   };
 }

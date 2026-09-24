@@ -17,6 +17,7 @@ import {
   selectSurface,
   setShellRunning,
   shellEnded,
+  surfaceBodyKind,
   surfaceKey,
   type SurfaceSwitchState,
 } from "./surfaceswitch";
@@ -251,5 +252,27 @@ describe("surfaceswitch — surfaceKey / parseSurfaceKey (the composite key main
     const parsed = parseSurfaceKey("not-a-key");
     expect(parsed.kind).toBe("claude");
     expect(Number.isNaN(parsed.id)).toBe(true);
+  });
+});
+
+// review Major 3: the one decision features/focus.ts and features/tiles.ts each
+// re-derived, in a different branch order and with inverted conditions.
+describe("surfaceswitch — surfaceBodyKind (the one decision focus.ts and tiles.ts each re-derived)", () => {
+  it("docs selected always yields docs, regardless of alive (INV-1)", () => {
+    expect(surfaceBodyKind("docs", true)).toBe("docs");
+    expect(surfaceBodyKind("docs", false)).toBe("docs");
+  });
+
+  it("claude selected on a dead session yields dead", () => {
+    expect(surfaceBodyKind("claude", false)).toBe("dead");
+  });
+
+  it("claude selected on a live session yields surface", () => {
+    expect(surfaceBodyKind("claude", true)).toBe("surface");
+  });
+
+  it("shell selected yields surface regardless of alive (REQ-7: shell never consults alive)", () => {
+    expect(surfaceBodyKind("shell", true)).toBe("surface");
+    expect(surfaceBodyKind("shell", false)).toBe("surface");
   });
 });

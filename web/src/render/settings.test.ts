@@ -50,20 +50,12 @@ function fakeInput(value: string, checked = false): HTMLInputElement & { fireCha
 function fakeElements(): SettingsDialogElements & {
   themeRadios: (HTMLInputElement & { fireChange: () => void })[];
   railActivityRadios: (HTMLInputElement & { fireChange: () => void })[];
-  updateToggle: HTMLInputElement & { fireChange: () => void };
   closeBtn: HTMLButtonElement & { click: () => void };
-  checkBtn: HTMLButtonElement & { click: () => void };
-  applyBtn: HTMLButtonElement & { click: () => void };
-  restartBtn: HTMLButtonElement & { click: () => void };
 } {
   return {
     dialog: fakeDialog(),
     themeRadios: [fakeInput("follow"), fakeInput("dark"), fakeInput("light")],
     closeBtn: fakeClickButton(),
-    updateToggle: fakeInput("", false),
-    applyBtn: fakeClickButton(),
-    restartBtn: fakeClickButton(),
-    checkBtn: fakeClickButton(),
     railActivityRadios: [
       fakeInput("turn"),
       fakeInput("prompt"),
@@ -76,10 +68,6 @@ function fakeElements(): SettingsDialogElements & {
 function fakeHandlers(): SettingsDialogHandlers {
   return {
     onChooseTheme: vi.fn(),
-    onToggleUpdateCheck: vi.fn(),
-    onUpdate: vi.fn(),
-    onUpdateAndRestart: vi.fn(),
-    onCheckNow: vi.fn(),
     onChooseRailActivity: vi.fn(),
   };
 }
@@ -167,39 +155,21 @@ describe("initSettingsDialog — rail activity radios (REQ-13, INV-4)", () => {
   });
 });
 
-describe("initSettingsDialog — Updates section wiring (plan auto-update, rail-card-improvements-2)", () => {
-  it("onToggleUpdateCheck receives the toggle's current checked state", () => {
-    const els = fakeElements();
-    const handlers = fakeHandlers();
-    initSettingsDialog(els, handlers);
-    els.updateToggle.checked = true;
-    els.updateToggle.fireChange();
-    expect(handlers.onToggleUpdateCheck).toHaveBeenCalledWith(true);
-    els.updateToggle.checked = false;
-    els.updateToggle.fireChange();
-    expect(handlers.onToggleUpdateCheck).toHaveBeenCalledWith(false);
-  });
-
-  it("wires checkBtn/applyBtn/restartBtn clicks to onCheckNow/onUpdate/onUpdateAndRestart", () => {
-    const els = fakeElements();
-    const handlers = fakeHandlers();
-    initSettingsDialog(els, handlers);
-    els.checkBtn.click();
-    els.applyBtn.click();
-    els.restartBtn.click();
-    expect(handlers.onCheckNow).toHaveBeenCalledTimes(1);
-    expect(handlers.onUpdate).toHaveBeenCalledTimes(1);
-    expect(handlers.onUpdateAndRestart).toHaveBeenCalledTimes(1);
-  });
-});
-
+// review Major 7: the Updates section's toggle/apply/restart/check wiring moved to
+// features/update.ts, which wires its own elements directly (no `SettingsDialogHandlers`
+// entries for it any more). That module has no direct unit test of its own — same as
+// features/usage.ts/features/actions.ts's controller-level code — but the wiring itself is
+// covered end to end: unchecking/rechecking the toggle in e2e/update.spec.ts's E3
+// ("unchecking the toggle clears the badge and available version; rechecking triggers an
+// immediate check"), Update in E4 ("clicking Update swaps the on-disk binary..."), Update
+// and restart in E5/E6, and Check now in E9-E12 (e.g. "pressing Check now with a newer
+// release published shows that version...").
 describe("initSettingsDialog — setChecked (INV-7: the broadcast is the only source of the checked radio)", () => {
-  it("checks exactly the theme radio matching the given theme, the toggle, and the rail-activity radio", () => {
+  it("checks exactly the theme radio matching the given theme and the rail-activity radio", () => {
     const els = fakeElements();
     const controller = initSettingsDialog(els, fakeHandlers());
-    controller.setChecked("dark", true, "prompt");
+    controller.setChecked("dark", "prompt");
     expect(els.themeRadios.map((r) => r.checked)).toEqual([false, true, false]);
-    expect(els.updateToggle.checked).toBe(true);
     expect(els.railActivityRadios.map((r) => r.checked)).toEqual([false, true, false, false]);
   });
 
@@ -207,7 +177,7 @@ describe("initSettingsDialog — setChecked (INV-7: the broadcast is the only so
     const els = fakeElements();
     for (const radio of els.themeRadios) radio.checked = true; // simulate a stale prior check
     const controller = initSettingsDialog(els, fakeHandlers());
-    controller.setChecked("some-removed-theme", false, "turn");
+    controller.setChecked("some-removed-theme", "turn");
     expect(els.themeRadios.every((r) => !r.checked)).toBe(true);
   });
 });

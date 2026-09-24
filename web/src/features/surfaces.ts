@@ -5,9 +5,10 @@
 // per-session surface-switch state (`claude`/`shell` selection) — plan
 // plain-terminal-session (plan code-breakup vocabulary: "surfaces").
 //
-// `deps.tilesLive` is a thunk: `tiles` is constructed after `surfaces` (main.ts's init
-// order — tiles needs `surfaces.get`/`select` at render time), so this closes over the
-// later `const` rather than taking a value now.
+// `deps.getTilesLive` reads `tiles`'s current live-id list on every call — `tiles` is
+// already constructed by the time `surfaces` is (main.ts's init order: `tiles` itself
+// takes a forward-reference thunk for `surfaces`, the other half of that pair), but this
+// module's deps keep the same `get<Noun>` naming its sibling thunks use (review Minor 4).
 import type { App, RenderFrame } from "../app";
 import type { Session } from "../protocol/session";
 import { createShell } from "../api/sessions";
@@ -45,7 +46,7 @@ import {
 } from "../terminal/surfaceswitch";
 
 export interface SurfacesDeps {
-  tilesLive(): readonly number[];
+  getTilesLive(): readonly number[];
 }
 
 export interface SurfacesHandle {
@@ -56,7 +57,6 @@ export interface SurfacesHandle {
    * consulted only on a shell-creation failure with no live surface to route the notice
    * through. */
   select(id: number, kind: SurfaceKind, findDeadRefs: () => DeadSurfaceRefs | null): void;
-  applyTheme(): void;
   focusSelected(id: number): void;
   /** Plan terminal-fixes-cleanup: the `shell` segment's busy/done verdict for `id`, per
    * `terminal/shellactivity.ts`'s reducer — `render/mainhead.ts` and `features/tiles.ts`
@@ -158,7 +158,7 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
   }
 
   function visibleSessionIds(): readonly number[] {
-    return visibleIds(app.state.view, app.state.focusedId, deps.tilesLive());
+    return visibleIds(app.state.view, app.state.focusedId, deps.getTilesLive());
   }
 
   /** The `(id, kind)` pairs that should have a mounted surface right now — a visible
@@ -220,6 +220,13 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
     const desiredKeys = new Set(desiredEntries.map((entry) => surfaceKey(entry.id, entry.kind)));
     closeSurfacesNotIn(desiredKeys);
     openMissingSurfaces(desiredEntries, sessions);
+  });
+
+  // Review Major 8: the one theme-change signal features/theme.ts emits — re-themes every
+  // live terminal in place, replacing the removed `SurfacesHandle.applyTheme()` that used
+  // to be called directly from there.
+  app.on("themeChanged", () => {
+    for (const surface of surfaces.values()) surface.applyTheme();
   });
 
   app.on("sessionRemoved", (id) => {
@@ -294,9 +301,6 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
       return surfaces.get(surfaceKey(id, kind));
     },
     select,
-    applyTheme() {
-      for (const surface of surfaces.values()) surface.applyTheme();
-    },
     focusSelected(id) {
       surfaces.get(surfaceKey(id, getSurfaceState(surfaceSwitchState, id).selected))?.focus();
     },

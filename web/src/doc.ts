@@ -38,7 +38,7 @@ if (target === null) {
   const reader = initReader(
     app,
     {
-      tilesLive: () => [],
+      getTilesLive: () => [],
       getSurfaces: () => ({ state: () => new Map() }),
     },
     target,
@@ -46,10 +46,12 @@ if (target === null) {
   const root = reader.rootFor(target.sessionId);
   if (root) host.replaceChildren(root);
 
-  // REQ-9: same controller `main.ts` registers, with a no-op `surfaces.applyTheme` — this
-  // page has no terminal surfaces to re-theme. Registered before the socket starts, like
-  // `main.ts`'s own init order, so nothing it listens for can fire before it's wired.
-  initTheme(app, { surfaces: { applyTheme() {} } });
+  // REQ-9: same controller `main.ts` registers — review Major 8: `initTheme` no longer
+  // takes a `surfaces` dep at all (it emits `app.emit("themeChanged")`, and this page's
+  // own `reader` above already subscribes to it), so there is no fake to write here
+  // anymore. Registered before the socket starts, like `main.ts`'s own init order, so
+  // nothing it listens for can fire before it's wired.
+  initTheme(app);
 
   setInterval(app.render, 1000);
   app.render();

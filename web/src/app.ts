@@ -62,6 +62,11 @@ export interface AppEvents {
   // Plan terminal-fixes-cleanup: WS shellActivity — features/surfaces.ts's activity
   // reducer is the only listener.
   shellActivity: (sessionId: number, busy: boolean) => void;
+  // Review Major 8: emitted by features/theme.ts once it has written the `<html>`
+  // theme/family attributes — the one signal both features/surfaces.ts's live terminals
+  // and features/reader.ts's diagram instances react to, replacing a `deps.surfaces`
+  // callback on one side and a per-instance `MutationObserver` on the other.
+  themeChanged: () => void;
 }
 
 export interface App {
