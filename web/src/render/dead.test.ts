@@ -5,13 +5,8 @@
 // moved to `features/actions.ts` — its tests live in `../features/actions.test.ts`.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Session } from "../protocol/session";
-import { deadEndbarText } from "../sessions/card";
-import {
-  renderDeadSurface,
-  showDeadSurfaceNotice,
-  type DeadSurfaceRefs,
-  type PaneState,
-} from "./dead";
+import { deadCapPrefix, deadEndbarText, type PaneState } from "../sessions/card";
+import { renderDeadSurface, showDeadSurfaceNotice, type DeadSurfaceRefs } from "./dead";
 
 /** Shared across every describe block below (renderDeadSurface, showDeadSurfaceNotice,
  * the Resume-disabled-reason block) — a plain-fake `DeadSurfaceRefs`, matching this file's
@@ -30,15 +25,12 @@ function fakeDeadSurfaceRefs(overrides: Partial<DeadSurfaceRefs> = {}): DeadSurf
   };
 }
 
-// review m4-reconcile cycle-3 Minor 5: REQ-19's "· captured <age>" clause (nice-to-have,
-// design-system §6.8: possibly-stale state shows its age) had no test on either side —
-// `renderDeadSurface` is pure enough (it only assigns `.textContent`/`.dataset`/
-// `.disabled` on already-built refs, no querySelector/cloneNode involved) to test
-// directly against plain stub refs, matching this file's existing no-jsdom convention.
-describe("renderDeadSurface — REQ-19's '· captured <age>' clause", () => {
+// renderDeadSurface only assigns `sessions/card.ts`'s `deadSurfaceText` output to the
+// three DOM fields — the string composition itself (the "· captured <age>" clause, the
+// missing/loading/defensive cases) is deadSurfaceText's own contract, covered directly by
+// card.test.ts's "deadSurfaceText" describe block with no DOM involved.
+describe("renderDeadSurface — assigns deadSurfaceText's output to the endbar/snapshot/capBody elements", () => {
   const NOW = new Date("2026-08-27T00:10:00Z");
-
-  const fakeRefs = fakeDeadSurfaceRefs;
 
   function makeSession(overrides: Partial<Session> & { id: number }): Session {
     return {
@@ -69,93 +61,48 @@ describe("renderDeadSurface — REQ-19's '· captured <age>' clause", () => {
     };
   }
 
-  function okPane(capturedAt: string, text = "$ claude\nWorking..."): PaneState {
-    return { status: "ok", text, capturedAt };
-  }
-
-  it("appends ' · captured <age>' after the base endbar text when the pane fetch succeeded", () => {
-    const refs = fakeRefs();
+  it("assigns the composed endbar, snapshot and capBody text to their elements", () => {
+    const refs = fakeDeadSurfaceRefs();
     const session = makeSession({ id: 1, state: "idle", endedAt: "2026-08-27T00:05:00Z" });
-    renderDeadSurface(refs, session, okPane("2026-08-27T00:04:00Z"), NOW, true);
+    const pane: PaneState = {
+      status: "ok",
+      text: "$ claude\nWorking...",
+      capturedAt: "2026-08-27T00:04:00Z",
+    };
+    renderDeadSurface(refs, session, pane, NOW, true);
 
     expect(refs.endbarEl.textContent).toBe(`${deadEndbarText(session, NOW)} · captured 6m ago`);
+    expect(refs.snapshotEl.textContent).toBe("$ claude\nWorking...");
+    expect(refs.capBodyEl.textContent).toBe(deadCapPrefix(session, NOW));
   });
 
-  it("never renders 'captured now ago' — sub-minute capture age reads 'captured now' (mirrors the endbar age's own honesty rule)", () => {
-    const refs = fakeRefs();
-    const session = makeSession({ id: 1, endedAt: "2026-08-27T00:09:55Z" });
-    // capturedAt 10s before now — elapsed 10s, well under the 60s "now" bucket.
-    renderDeadSurface(refs, session, okPane("2026-08-27T00:09:50Z"), NOW, true);
-
-    expect(refs.endbarEl.textContent).toMatch(/· captured now$/);
-    expect(refs.endbarEl.textContent).not.toContain("captured now ago");
-  });
-
-  it("crosses the now/1m-ago boundary at exactly 60 elapsed seconds", () => {
-    const justUnder = fakeRefs();
-    renderDeadSurface(justUnder, makeSession({ id: 1 }), okPane("2026-08-27T00:09:01Z"), NOW, true); // 59s elapsed
-    expect(justUnder.endbarEl.textContent).toMatch(/· captured now$/);
-
-    const atBoundary = fakeRefs();
-    renderDeadSurface(
-      atBoundary,
-      makeSession({ id: 1 }),
-      okPane("2026-08-27T00:09:00Z"),
-      NOW,
-      true,
-    ); // 60s elapsed
-    expect(atBoundary.endbarEl.textContent).toMatch(/· captured 1m ago$/);
-  });
-
-  it("renders an hour bucket once the capture is over an hour old", () => {
-    const refs = fakeRefs();
-    // 3661s elapsed (1h 1m 1s) — falls in the "<86400" hour bucket.
-    renderDeadSurface(refs, makeSession({ id: 1 }), okPane("2026-08-26T23:08:59Z"), NOW, true);
-    expect(refs.endbarEl.textContent).toMatch(/· captured 1h ago$/);
-  });
-
-  it("does not append a captured clause when the pane is 'missing' (no snapshot captured) — the base copy's own 'last captured screen' wording is unaffected", () => {
-    const refs = fakeRefs();
+  it("assigns the 'missing' outcome's honesty text ('no snapshot captured', empty snapshot)", () => {
+    const refs = fakeDeadSurfaceRefs();
     const session = makeSession({ id: 1 });
     renderDeadSurface(refs, session, { status: "missing" }, NOW, true);
 
     expect(refs.endbarEl.textContent).toBe(deadEndbarText(session, NOW));
+    expect(refs.snapshotEl.textContent).toBe("");
     expect(refs.capBodyEl.textContent).toBe("no snapshot captured");
   });
 
-  it("does not append a captured clause while the pane fetch is still 'loading'", () => {
-    const refs = fakeRefs();
+  it("assigns the 'loading' outcome's honesty text ('loading last screen…', empty snapshot)", () => {
+    const refs = fakeDeadSurfaceRefs();
     const session = makeSession({ id: 1 });
     renderDeadSurface(refs, session, { status: "loading" }, NOW, true);
 
     expect(refs.endbarEl.textContent).toBe(deadEndbarText(session, NOW));
+    expect(refs.snapshotEl.textContent).toBe("");
     expect(refs.capBodyEl.textContent).toBe("loading last screen…");
-  });
-
-  it("still appends the captured clause when the session's own endedAt is null (defensive branch, no leading age)", () => {
-    const refs = fakeRefs();
-    const session = makeSession({ id: 1, endedAt: null });
-    renderDeadSurface(refs, session, okPane("2026-08-27T00:09:00Z"), NOW, true);
-
-    expect(refs.endbarEl.textContent).toBe(`${deadEndbarText(session, NOW)} · captured 1m ago`);
-  });
-
-  it("the captured age can differ from the endbar's own ended age — snapshot capture and End don't share a clock (design-system §6.8)", () => {
-    const refs = fakeRefs();
-    // Session ended 10 minutes ago; the last capture was taken 3 minutes before *that*.
-    const session = makeSession({ id: 1, endedAt: "2026-08-27T00:00:00Z" });
-    renderDeadSurface(refs, session, okPane("2026-08-26T23:57:00Z"), NOW, true);
-
-    expect(refs.endbarEl.textContent).toBe(`${deadEndbarText(session, NOW)} · captured 13m ago`);
   });
 });
 
-// review plain-terminal-session cycle-1 Major 1 (Fix Attempt 1): showDeadSurfaceNotice is,
-// like renderDeadSurface above, pure enough to test against plain stub refs — it only
-// assigns `.textContent`/`.hidden` and schedules/clears a setTimeout keyed on the notice
-// element's own identity (module-level WeakMap in dead.ts). No querySelector/cloneNode
-// involved, so this stays inside the file's existing no-jsdom convention.
-describe("showDeadSurfaceNotice (review Major 1): the dead surface's own role=status notice, mirroring TerminalSurface.showNotice's contract exactly", () => {
+// showDeadSurfaceNotice is, like renderDeadSurface above, pure enough to test against
+// plain stub refs — it only assigns `.textContent`/`.hidden` and schedules/clears a
+// setTimeout keyed on the notice element's own identity (module-level WeakMap in
+// dead.ts). No querySelector/cloneNode involved, so this stays inside the file's existing
+// no-jsdom convention.
+describe("showDeadSurfaceNotice: the dead surface's own role=status notice, mirroring TerminalSurface.showNotice's contract exactly", () => {
   function fakeNoticeEl(): HTMLElement {
     return { hidden: true, textContent: "" } as unknown as HTMLElement;
   }

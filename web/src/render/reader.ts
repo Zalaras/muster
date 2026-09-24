@@ -356,7 +356,7 @@ function applyTreeAttrs(container: HTMLElement, entries: readonly FlatTreeEntry[
  * yet" placeholder) but its own class rather than a literal `.f.none` — the plan slot's
  * "no plan yet" can render before the listing fetch resolves (it reads `session.plan`,
  * not `this.listing`), so a `.rnav .f.none` locator would otherwise match both at once.
- * Not a button (Testable UI Elements: not focusable). */
+ * Not a button — a loading row is never focusable. */
 function buildTreeLoadingRow(): HTMLDivElement {
   const row = document.createElement("div");
   row.className = "f loading-row";

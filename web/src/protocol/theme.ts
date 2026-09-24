@@ -1,6 +1,7 @@
 // Wire types and parser for the daemon's Claude Code theme read and its `claudeTheme`
 // broadcast (docs/protocol.md, kb:anchor/ws.claude-theme) — one of the protocol/ concept
-// modules split out of the former protocol.ts.
+// modules, each owning one wire concept's type and parser; `decode.ts` holds the
+// primitives every one of them shares.
 
 import { isRecord } from "./decode";
 

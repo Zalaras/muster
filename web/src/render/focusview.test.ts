@@ -1,27 +1,45 @@
 import { describe, expect, it } from "vitest";
-import { renderFocusMain, renderSizenote, type FocusMainElements } from "./focusview";
+import {
+  renderFocusMain,
+  renderSizenote,
+  setMainSlotHidden,
+  type FocusMainElements,
+} from "./focusview";
 
 function fakeElement(): HTMLElement {
   return { textContent: "", hidden: false } as unknown as HTMLElement;
 }
 
-describe("renderFocusMain — toggles between the empty state and the terminal slot", () => {
+describe("renderFocusMain — toggles the empty state", () => {
   function elements(): FocusMainElements {
-    return { emptyEl: fakeElement(), slotEl: fakeElement() };
+    return { emptyEl: fakeElement() };
   }
 
-  it("shows the empty state and hides the terminal slot when there are no sessions", () => {
+  it("shows the empty state when there are no sessions", () => {
     const els = elements();
     renderFocusMain(els, false);
     expect(els.emptyEl.hidden).toBe(false);
-    expect(els.slotEl.hidden).toBe(true);
   });
 
-  it("hides the empty state and shows the terminal slot when sessions exist", () => {
+  it("hides the empty state when sessions exist", () => {
     const els = elements();
     renderFocusMain(els, true);
     expect(els.emptyEl.hidden).toBe(true);
-    expect(els.slotEl.hidden).toBe(false);
+  });
+});
+
+describe("setMainSlotHidden — the main slot's one hidden writer", () => {
+  it("sets hidden true", () => {
+    const el = fakeElement();
+    setMainSlotHidden(el, true);
+    expect(el.hidden).toBe(true);
+  });
+
+  it("sets hidden false", () => {
+    const el = fakeElement();
+    el.hidden = true;
+    setMainSlotHidden(el, false);
+    expect(el.hidden).toBe(false);
   });
 });
 

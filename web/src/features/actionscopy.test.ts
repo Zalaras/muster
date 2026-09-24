@@ -6,8 +6,6 @@ import { describe, expect, it } from "vitest";
 import type { Session } from "../protocol/session";
 import { endDialogBody, removeDialogBody } from "./actionscopy";
 
-const NOW = new Date("2026-08-27T00:10:00Z");
-
 function makeSession(overrides: Partial<Session> & { id: number }): Session {
   return {
     title: "some-session",
@@ -40,7 +38,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
 describe("endDialogBody", () => {
   it("names the session by title and directory basename (no repo) and never mentions Resume-can't", () => {
     const session = makeSession({ id: 1, title: "fix auth", directory: "/Users/bob/muster" });
-    expect(endDialogBody(session, NOW)).toBe(
+    expect(endDialogBody(session)).toBe(
       "fix auth — muster. Kills the tmux pane and the claude inside it. The card stays in the rail " +
         "as ended — Resume can pick the conversation back up if this was a slip.",
     );
@@ -48,7 +46,7 @@ describe("endDialogBody", () => {
 
   it("falls back to 'untitled' when the session has no title (same rule as the card)", () => {
     const session = makeSession({ id: 1, title: null, directory: "/Users/bob/muster" });
-    expect(endDialogBody(session, NOW)).toContain("untitled — muster.");
+    expect(endDialogBody(session)).toContain("untitled — muster.");
   });
 
   it("uses 'repo / branch' when the session has a repo, matching buildCardViewModel's repoLine", () => {
@@ -57,13 +55,13 @@ describe("endDialogBody", () => {
       title: "fix auth",
       repo: { name: "muster", branch: "plan/foo", isWorktree: false },
     });
-    expect(endDialogBody(session, NOW)).toContain("fix auth — muster / plan/foo.");
+    expect(endDialogBody(session)).toContain("fix auth — muster / plan/foo.");
   });
 
   it("does not vary with session.alive — End's copy is the same whether or not the session is alive", () => {
     const alive = makeSession({ id: 1, title: "fix auth", alive: true });
     const dead = makeSession({ id: 1, title: "fix auth", alive: false });
-    expect(endDialogBody(alive, NOW)).toBe(endDialogBody(dead, NOW));
+    expect(endDialogBody(alive)).toBe(endDialogBody(dead));
   });
 });
 
@@ -75,7 +73,7 @@ describe("removeDialogBody", () => {
       directory: "/Users/bob/muster",
       alive: false,
     });
-    expect(removeDialogBody(session, NOW)).toBe(
+    expect(removeDialogBody(session)).toBe(
       "fix auth — muster. Deletes it from Muster for good — the card disappears and it can no longer " +
         "be resumed from here.",
     );
@@ -88,7 +86,7 @@ describe("removeDialogBody", () => {
       directory: "/Users/bob/muster",
       alive: true,
     });
-    expect(removeDialogBody(session, NOW)).toBe(
+    expect(removeDialogBody(session)).toBe(
       "fix auth — muster. This ends the session first. Deletes it from Muster for good — the card " +
         "disappears and it can no longer be resumed from here.",
     );
@@ -96,6 +94,6 @@ describe("removeDialogBody", () => {
 
   it("falls back to 'untitled' when the session has no title, same as endDialogBody", () => {
     const session = makeSession({ id: 1, title: null, alive: false });
-    expect(removeDialogBody(session, NOW)).toContain("untitled — muster.");
+    expect(removeDialogBody(session)).toContain("untitled — muster.");
   });
 });

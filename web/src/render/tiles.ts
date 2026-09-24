@@ -4,18 +4,14 @@
 // rail card on its side.
 import type { RailActivity } from "../protocol/prefs";
 import type { Session } from "../protocol/session";
-import {
-  buildDeadSurfaceFromTemplate,
-  collectDeadSurfaceRefs,
-  renderDeadSurface,
-  type PaneState,
-} from "./dead";
+import { buildDeadSurfaceFromTemplate, collectDeadSurfaceRefs, renderDeadSurface } from "./dead";
 import {
   buildCardViewModel,
   canResume,
   stateBadgeText,
   tileFooterAgeText,
   tileHeaderTimerText,
+  type PaneState,
   type SessionAction,
 } from "../sessions/card";
 import { requireElement } from "../dom";
@@ -131,8 +127,8 @@ export function buildTile(
 
   // Built once, prepended as `.acts`'s permanent first child (kb:adr/surfaces-shell-control-in-tile-footer) —
   // `renderTileFooterActions` below never touches it, only the End/Resume/Remove/age
-  // nodes that follow it (Testable UI Elements: "scope through
-  // article.tile[data-session-id]").
+  // nodes that follow it, so a locator scoped through `article.tile[data-session-id]`
+  // finds each control exactly once.
   const surfaceSegment = buildSurfaceSegment((kind) => onSurfaceSelect(session.id, kind));
   actsEl.append(surfaceSegment.root);
 

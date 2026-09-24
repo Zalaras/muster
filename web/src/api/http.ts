@@ -1,6 +1,4 @@
-// Shared HTTP plumbing for every daemon endpoint wrapper under `web/src/api/` — this used to
-// be 8 copy-pasted decode-empty blocks, 21 repeated `credentials` lines and 19 hand-formatted
-// `console.error` sites spread across features/. This module
+// Shared HTTP plumbing for every daemon endpoint wrapper under `web/src/api/`. This module
 // is the *only* place that calls `fetch`, decodes a response, or logs a failure — every
 // `api/*.ts` endpoint file calls one of the four `request*` functions below and never
 // touches `fetch`, `Response` or `console` itself.

@@ -5,8 +5,10 @@ rendering + outline extraction (`markdown.ts`), splitting a leading frontmatter 
 a file's raw text into a table/raw-fallback shape (`frontmatter.ts`), heading-id slugging
 (`slug.ts`), the nav tree (`tree.ts`), the freshness cue's text (`freshness.ts`), the
 browser-side "last open file / which writes are acknowledged" memory (`memory.ts`),
-basename plus the loading-cue status text (`paths.ts`), mermaid fence/theme/error-text/id
-helpers (`mermaid.ts`) and the diagram modal's zoom/pan arithmetic (`zoom.ts`). `render/reader.ts`
+the loading-cue status text (`paths.ts`, built on `basename` from `sessions/paths.ts` — that
+one function lives below `reader/` so the directory graph stays acyclic), mermaid
+fence/theme/error-text/id helpers (`mermaid.ts`) and the diagram modal's zoom/pan
+arithmetic (`zoom.ts`). `render/reader.ts`
 draws the results; `render/mermaid.ts` and `render/diagrams.ts` are the DOM half of the
 diagram pass, and `render/frontmatter.ts` is the DOM half of the frontmatter split —
 `markdown.ts`'s `renderMarkdown` returns the parsed `Frontmatter` alongside the body

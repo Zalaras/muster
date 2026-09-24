@@ -4,8 +4,8 @@
 // also shared by every feature controller that dispatches a card/mainhead/tile action.
 import { PREF_DEFAULTS, type RailActivity } from "../protocol/prefs";
 import type { Session } from "../protocol/session";
-import { basename } from "../reader/paths";
 import { ageAgo, elapsedSeconds, formatAge, formatTimer } from "./format";
+import { basename } from "./paths";
 
 export type NoteKind = "attention" | "failure" | "trust" | "no-signal" | "none";
 
@@ -146,8 +146,10 @@ export function tileFooterAgeText(session: Session, now: Date): string {
 /** The dead surface's endbar base text — "ended <age> · last state <badge> · last
  * captured screen, not a live client", or without the age clause when `endedAt` is null
  * (defensive; `endedAt`/`alive:false` are a paired invariant per
- * kb:anchor/state.liveness). render/dead.ts appends the pane's own "captured <age>"
- * clause afterwards, since that derives from `PaneState`, not `Session`. */
+ * kb:anchor/state.liveness). `deadSurfaceText` below appends the pane's own "captured
+ * <age>" clause, since that derives from `PaneState`, not `Session`. Exported for
+ * card.test.ts's own coverage of the base text; every render caller goes through
+ * `deadSurfaceText`. */
 export function deadEndbarText(session: Session, now: Date): string {
   const age = session.endedAt ? ageAgo(session.endedAt, now) : null;
   const badge = stateBadgeText(session.state);
@@ -157,13 +159,52 @@ export function deadEndbarText(session: Session, now: Date): string {
 }
 
 /** The dead surface's cap body prefix for a captured pane — "<age> · last state:
- * <badge>", or without the age clause when `endedAt` is null. render/dead.ts substitutes
- * its own text for the other two pane-fetch states ("no snapshot captured", "loading
- * last screen…"). */
+ * <badge>", or without the age clause when `endedAt` is null. `deadSurfaceText` below
+ * substitutes its own text for the other two pane-fetch states ("no snapshot captured",
+ * "loading last screen…"). Exported for card.test.ts's own coverage; every render caller
+ * goes through `deadSurfaceText`. */
 export function deadCapPrefix(session: Session, now: Date): string {
   const age = session.endedAt ? ageAgo(session.endedAt, now) : null;
   const badge = stateBadgeText(session.state);
   return age ? `${age} · last state: ${badge}` : `last state: ${badge}`;
+}
+
+/** The three fetch outcomes the dead surface cares about — `capturedAt` is carried for
+ * the endbar's optional "captured … ago" addendum, not required by the honesty text
+ * itself. Owned here, not by `render/dead.ts`, so a pure module can derive from it
+ * (render/CLAUDE.md: "a builder here takes the computed value, never the raw data"). */
+export type PaneState =
+  | { status: "loading" }
+  | { status: "ok"; text: string; capturedAt: string }
+  | { status: "missing" };
+
+/** Every string `render/dead.ts`'s `renderDeadSurface` assigns to the dead surface,
+ * composed in one place so the endbar's captured-age clause and the cap body's
+ * pane-outcome text can never be split across `sessions/` and `render/` again.
+ * `render/dead.ts` only assigns these three fields to their elements. */
+export function deadSurfaceText(
+  session: Session,
+  pane: PaneState,
+  now: Date,
+): { endbar: string; snapshot: string; capBody: string } {
+  if (pane.status === "ok") {
+    // design-system §6.8: possibly-stale state shows its age — the snapshot can be a few
+    // seconds older than the endbar's own age (End freezes the ended timer, but the
+    // capture that produced this text was taken slightly earlier still). `ageAgo` is the
+    // same "never 'now ago'" helper `deadEndbarText`/`deadCapPrefix` already use.
+    return {
+      endbar: `${deadEndbarText(session, now)} · captured ${ageAgo(pane.capturedAt, now)}`,
+      snapshot: pane.text,
+      capBody: deadCapPrefix(session, now),
+    };
+  }
+  if (pane.status === "missing") {
+    return { endbar: deadEndbarText(session, now), snapshot: "", capBody: "no snapshot captured" };
+  }
+  // While the pane fetch is in flight, an empty string would be indistinguishable from a
+  // session that ended on a genuinely blank screen ("no snapshot captured" reads as a
+  // confirmed negative, not "don't know yet") — say so explicitly instead.
+  return { endbar: deadEndbarText(session, now), snapshot: "", capBody: "loading last screen…" };
 }
 
 /** design-system §3: the attention note pairs the reason with a

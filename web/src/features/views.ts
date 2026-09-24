@@ -85,8 +85,7 @@ export function initViews(app: App, deps: ViewsDeps): ViewsHandle {
   // Render phase 10 (main.ts's numbered render-phase order): the switcher/density
   // control and the two view containers' `hidden`, then — inherently split across two
   // other controllers by shared state, so registered here rather than inside either
-  // one's own init (main.ts formerly registered this second half itself) — Focus's or
-  // Tiles' own content render for whichever view is current.
+  // one's own init — Focus's or Tiles' own content render for whichever view is current.
   app.onRender((frame) => {
     renderViewSwitcher({ focusButton: viewFocusBtn, tilesButton: viewTilesBtn }, app.state.view);
     renderDensityControl(

@@ -8,12 +8,13 @@
 //
 // Init order below is dependency order, not the render-phase order (the two are
 // independent — see the numbered block further down): most controllers take real handle
-// values from controllers already constructed; `tiles`, `focus`, `surfaces` and `reader`
-// instead take a small thunk (`() => laterConst.method(...)`) for the one or two methods
-// they need from a controller constructed *after* them, since those thunks are only ever
-// invoked later (a click, a render pass) — never synchronously during the referencing
-// controller's own init call. This is what lets their mutual needs resolve without a
-// construction cycle.
+// values from controllers already constructed; `tiles` and `focus` instead take a small
+// thunk (`() => laterConst.method(...)`) for the one or two methods they need from a
+// controller constructed *after* them — `surfaces` and `reader` are each constructed
+// before their only consumers need them, so both take real values — since those thunks
+// are only ever invoked later (a click, a render pass) — never synchronously during the
+// referencing controller's own init call. This is what lets their mutual needs resolve
+// without a construction cycle.
 import { createApp } from "./app";
 import { initActions } from "./features/actions";
 import { initUsage } from "./features/usage";

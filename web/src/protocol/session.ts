@@ -1,5 +1,6 @@
-// Wire type and parser for one `Session` (docs/protocol.md, kb:anchor/ws.session) — one of the protocol/
-// concept modules split out of the former protocol.ts.
+// Wire type and parser for one `Session` (docs/protocol.md, kb:anchor/ws.session) — one of
+// the protocol/ concept modules, each owning one wire concept's type and parser;
+// `decode.ts` holds the primitives every one of them shares.
 
 import { asNumber, isRecord, parseNullable } from "./decode";
 

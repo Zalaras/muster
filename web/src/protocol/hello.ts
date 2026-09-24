@@ -1,6 +1,7 @@
 // Wire types and parser for the daemon's `hello` message and the protocol-version gate
-// (docs/protocol.md, protocol version 2) — one of the protocol/ concept modules split out
-// of the former protocol.ts.
+// (docs/protocol.md, protocol version 2) — one of the protocol/ concept modules, each
+// owning one wire concept's type and parser; `decode.ts` holds the primitives every one
+// of them shares.
 
 import { isRecord } from "./decode";
 

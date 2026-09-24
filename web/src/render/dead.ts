@@ -4,12 +4,12 @@
 // `#dead-surface-template` into that tile's `.tbody-slot` (render/tiles.ts's
 // `mountTileDeadSurface`) — both share this module's pure builder/render functions so the
 // two surfaces never drift out of sync with each other. DOM only: `features/actions.ts`'s
-// `loadPane` owns the `GET .../pane` fetch and passes the resulting `PaneState` in, so no
-// path here opens a request — caching *when* to fetch is features/actions.ts's job
-// (`ensurePaneFetch`/`paneState`).
+// `loadPane` owns the `GET .../pane` fetch and passes the resulting `PaneState`
+// (`sessions/card.ts`) in, so no path here opens a request — caching *when* to fetch is
+// features/actions.ts's job (`ensurePaneFetch`/`paneState`). Every displayed string is
+// `sessions/card.ts`'s `deadSurfaceText`; this module only assigns it.
 import type { Session } from "../protocol/session";
-import { canResume, deadCapPrefix, deadEndbarText, resumeDisabledReason } from "../sessions/card";
-import { ageAgo } from "../sessions/format";
+import { canResume, deadSurfaceText, resumeDisabledReason, type PaneState } from "../sessions/card";
 import { showNotice } from "../terminal/notice";
 
 export interface DeadSurfaceRefs {
@@ -25,13 +25,6 @@ export interface DeadSurfaceRefs {
    * `collectDeadSurfaceRefs` below; only `showDeadSurfaceNotice` reads it. */
   noticeEl: HTMLElement;
 }
-
-/** The three fetch outcomes render/dead.ts cares about — `capturedAt` is carried for the
- * optional "captured … ago" addendum below, not required by the honesty text itself. */
-export type PaneState =
-  | { status: "loading" }
-  | { status: "ok"; text: string; capturedAt: string }
-  | { status: "missing" };
 
 /** Reads refs off an already-mounted `.dead-surface` root (Focus's static `#dead-surface`,
  * or a tile's previously-cloned instance) — never re-clones, mirroring render/tiles.ts's
@@ -59,7 +52,7 @@ export function buildDeadSurfaceFromTemplate(template: HTMLTemplateElement): Dea
 }
 
 /** Copy transcribed verbatim from the mockups, never composed as new strings — the end
- * bar always starts with "ended " (Testable UI Elements: `/^ended /`), the cap always
+ * bar always starts with "ended " (matching `/^ended /`), the cap always
  * contains "session ended" plus a Resume button, and the
  * 404 `no_snapshot` case swaps the cap's body for the "unknown, not empty" honesty text
  * rather than a blank one. `connected` gates the Resume button the same way the mainhead
@@ -71,26 +64,10 @@ export function renderDeadSurface(
   now: Date,
   connected: boolean,
 ): void {
-  refs.endbarEl.textContent = deadEndbarText(session, now);
-
-  if (pane.status === "ok") {
-    // design-system §6.8: possibly-stale state shows its age — the snapshot can be a few
-    // seconds older than the endbar's own age (End freezes the ended timer, but the
-    // capture that produced this text was taken slightly earlier still). `ageAgo` is the
-    // same "never 'now ago'" helper `deadEndbarText`/`deadCapPrefix` already use.
-    refs.endbarEl.textContent += ` · captured ${ageAgo(pane.capturedAt, now)}`;
-    refs.snapshotEl.textContent = pane.text;
-    refs.capBodyEl.textContent = deadCapPrefix(session, now);
-  } else if (pane.status === "missing") {
-    refs.snapshotEl.textContent = "";
-    refs.capBodyEl.textContent = "no snapshot captured";
-  } else {
-    // While the pane fetch is in flight, an empty string would be indistinguishable from
-    // a session that ended on a genuinely blank screen ("no snapshot captured" reads as a
-    // confirmed negative, not "don't know yet") — say so explicitly instead.
-    refs.snapshotEl.textContent = "";
-    refs.capBodyEl.textContent = "loading last screen…";
-  }
+  const text = deadSurfaceText(session, pane, now);
+  refs.endbarEl.textContent = text.endbar;
+  refs.snapshotEl.textContent = text.snapshot;
+  refs.capBodyEl.textContent = text.capBody;
 
   refs.resumeBtn.dataset["action"] = "resume";
   refs.resumeBtn.dataset["id"] = String(session.id);

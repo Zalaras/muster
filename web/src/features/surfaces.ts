@@ -251,7 +251,7 @@ export function initSurfaces(app: App, deps: SurfacesDeps): SurfacesHandle {
     selectRequestId.delete(id);
   });
 
-  // A live `shellActivity` transition for one session — the Protocol Contract's `/ws`
+  // A live `shellActivity` transition for one session — docs/protocol.md's `/ws`
   // broadcast, independent of whichever shell socket (if any) is currently attached.
   app.on("shellActivity", (sessionId, busy) => {
     applyActivity(

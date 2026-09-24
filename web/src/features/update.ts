@@ -32,7 +32,7 @@ export function initUpdate(app: App): void {
 
   let currentUpdate: UpdateInfo | null = null;
   // This window's own `Check now` request state — never derived from `UpdateInfo` (see
-  // render/update.ts's `CheckState` doc comment; kb:adr/update-manual-check-is-a-synchronous-post).
+  // features/updateview.ts's `CheckState` doc comment; kb:adr/update-manual-check-is-a-synchronous-post).
   const checkState: CheckState = { inFlight: false, error: null };
 
   // http.ts's `logApiFailure` already logs a failed request under its own route — this

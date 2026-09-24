@@ -19,8 +19,8 @@ import { buildActionButton } from "./actionbutton";
 /** The card/rail options every render function in this module needs,
  * travelling as one named object rather than a positional tail of booleans and
  * nullables — `renderReader(refs, vm)`/`renderUpdateSection(elements, vm)` are this
- * module's siblings for the same shape (`render/mainhead.ts`'s `renderMainhead` still
- * takes a positional tail, unconverted). `onClick`
+ * module's siblings for the same shape (`render/mainhead.ts`'s `renderMainhead` takes a
+ * positional tail instead). `onClick`
  * only matters to `buildSessionCardElement` (the click/keydown listeners are wired once,
  * never on an update); every other field is read by both build and update. */
 export interface CardOptions {
@@ -188,7 +188,7 @@ function updateSessionCardContent(
   // The reconciliation key `reconcileCards` uses to match existing DOM nodes against
   // incoming sessions.
   card.dataset["sessionId"] = String(session.id);
-  // Explicit "false" (not just an absent attribute) per the Testable UI Elements table.
+  // Explicit "false" (not just an absent attribute) so a locator can assert either state.
   card.setAttribute("draggable", options.draggable ? "true" : "false");
   // The marker means "the session the Focus pane is showing" (kb:adr/rail-current-marker-means-shown-in-focus);
   // a strip card's

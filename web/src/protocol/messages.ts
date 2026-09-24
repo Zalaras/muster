@@ -2,8 +2,8 @@
 // envelope — `UsageMessage`, `PrefsMessage`, `UpdateMessage`, `ClaudeThemeMessage` — lives
 // beside that concept's parser instead), the `Message` union, and the one entry point
 // (`parseMessage`) that dispatches a decoded WS frame to its parser (docs/protocol.md,
-// protocol version 2) — one of the protocol/ concept modules split
-// out of the former protocol.ts.
+// protocol version 2) — one of the protocol/ concept modules, each owning one wire
+// concept's type and parser; `decode.ts` holds the primitives every one of them shares.
 //
 // Unknown message types and unknown fields are ignored per kb:anchor/conventions's "additive
 // evolution" rule — parsing here only ever reads the fields it knows about, so future

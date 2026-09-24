@@ -12,7 +12,7 @@ export function overlayForCloseCode(code: number): OverlayKind {
   return "disconnected";
 }
 
-/** Testable UI Elements: one overlay element per live surface matching
+/** One overlay element per live surface, its text always matching
  * `/disconnected|another window|session ended/`. */
 export function overlayText(kind: OverlayKind): string {
   switch (kind) {

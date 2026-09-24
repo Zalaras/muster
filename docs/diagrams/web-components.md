@@ -63,7 +63,7 @@ C4Component
             Component(terminal, "terminal/", "8 modules", "xterm.js surfaces, the per-terminal socket to musterd, shell key translation, drop wiring and the shell activity reducer")
             Component(dom, "dom.ts", "helpers", "Element lookup")
             Component(reader, "reader/", "10 modules", "Markdown render, nav tree, per-session memory")
-            Component(sessions, "sessions/", "11 modules", "Pure derivation — view-models, sort, tile math, formatters")
+            Component(sessions, "sessions/", "12 modules", "Pure derivation — view-models, sort, tile math, formatters, a path basename")
             Component(theme, "theme.ts", "registry", "Theme choice; first-paint hint")
             Component(shortcuts, "shortcuts.ts", "pure", "Keyboard chord table")
             Component(storage, "storage.ts", "seam", "The one localStorage read/write-JSON seam")

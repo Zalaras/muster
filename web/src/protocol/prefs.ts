@@ -1,6 +1,6 @@
 // Wire types and parser for `Prefs` and its `prefs` broadcast (docs/protocol.md,
-// kb:anchor/prefs.put) — one of the protocol/ concept modules split
-// out of the former protocol.ts.
+// kb:anchor/prefs.put) — one of the protocol/ concept modules, each owning one wire
+// concept's type and parser; `decode.ts` holds the primitives every one of them shares.
 
 import { isBoolean, isRecord, isString } from "./decode";
 

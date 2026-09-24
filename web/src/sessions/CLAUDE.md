@@ -1,6 +1,6 @@
 # web/src/sessions — pure session logic, no DOM
 
-**Owns**: the in-memory session store and every derivation the views display: card view-model, context gauge maths, time formatters, rail sort and manual-order drop maths, sticky Tiles membership, rename commit semantics. No DOM, no socket, no fetch; `web/src/render/` draws the results and `web/src/features/` calls in. **Features**: lifecycle, rail, rename, usage.
+**Owns**: the in-memory session store and every derivation the views display: card view-model (including the dead-surface endbar/cap/snapshot text, `card.ts`), context gauge maths, time formatters, a path basename (`paths.ts`, shared downward with `reader/`, never the other way — kb:diagram/web-components), rail sort and manual-order drop maths, sticky Tiles membership, rename commit semantics. No DOM, no socket, no fetch; `web/src/render/` draws the results and `web/src/features/` calls in. **Features**: lifecycle, rail, rename, usage.
 
 **Invariants** (violations are review-Critical):
 - Every module is Vitest-testable with no DOM; a function that needs an element belongs in `render/`.

@@ -1,6 +1,6 @@
 // Wire types and parser for `Usage` and its `usage` broadcast (docs/protocol.md,
-// kb:anchor/ws.usage) — one of the protocol/ concept modules split
-// out of the former protocol.ts.
+// kb:anchor/ws.usage) — one of the protocol/ concept modules, each owning one wire
+// concept's type and parser; `decode.ts` holds the primitives every one of them shares.
 
 import { isRecord, parseListOf, parseNullable } from "./decode";
 import { parseModelInfo, type SessionModelInfo } from "./session";
@@ -82,12 +82,11 @@ function isModelScopedError(value: unknown): value is ModelScopedError {
   return (MODEL_SCOPED_ERRORS as readonly unknown[]).includes(value);
 }
 
-/** Scores 23 on cognitive complexity (down from 33 before the shared decoders absorbed the
- * two-line nullable-of pattern into one call each), still over Biome's 15 ceiling: the
- * remainder is the four `if ("key" in value)` blocks that
- * implement present-only additive evolution (kb:anchor/conventions), each carrying the
- * comment explaining why an absent key must stay absent rather than become `null`.
- * Splitting the function strands those comments away from the fields they govern. */
+/** Scores 23 on cognitive complexity, still over Biome's 15 ceiling: the remainder is the
+ * four `if ("key" in value)` blocks that implement present-only additive evolution
+ * (kb:anchor/conventions), each carrying the comment explaining why an absent key must
+ * stay absent rather than become `null`. Splitting the function strands those comments
+ * away from the fields they govern. */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: flat guards plus present-only key blocks whose comments must stay with their fields
 export function parseUsage(value: unknown): Usage | null {
   if (!isRecord(value)) return null;

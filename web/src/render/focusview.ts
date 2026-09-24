@@ -4,33 +4,33 @@
 
 export interface FocusMainElements {
   emptyEl: HTMLElement;
-  slotEl: HTMLElement;
 }
 
-/** Toggles Focus's main area between the honest empty state and the terminal slot — the
- * slot's contents (a TerminalSurface's root) are features/surfaces.ts's job, not
- * this module's (docs/conventions.md: DOM here, sockets/pane lifecycle in features/surfaces.ts). */
+/** Toggles Focus's honest "no sessions at all" empty state. The main slot's own
+ * `hidden` is decided entirely by `setMainSlotHidden` below, from `features/focus.ts`'s
+ * `renderView` — every one of its branches (no focused session, dead, docs, terminal)
+ * calls that once it knows which of them the slot is actually showing, so this function
+ * never touches the slot itself: one writer for one piece of state. */
 export function renderFocusMain(elements: FocusMainElements, hasSessions: boolean): void {
   elements.emptyEl.hidden = hasSessions;
-  elements.slotEl.hidden = !hasSessions;
 }
 
-/** The one writer for the main slot's `hidden` beyond `renderFocusMain`'s own initial
- * "no sessions at all" default above — `features/focus.ts`'s `renderView` overrides that
- * default once it knows which of dead/docs/terminal the slot is actually showing, calling
- * this instead of assigning `.hidden` on the element itself. */
+/** The main slot's one `hidden` writer — `features/focus.ts`'s `renderView` calls this
+ * instead of assigning `.hidden` on the element itself, from every branch that decides
+ * what the slot is currently showing. */
 export function setMainSlotHidden(el: HTMLElement, hidden: boolean): void {
   el.hidden = hidden;
 }
 
 /** The sizenote line: `<cols>×<rows> · one live client · geometry owned by this
  * pane`. `null` geometry (no focused session, or one not yet laid out) hides the line
- * entirely rather than rendering a half-formed one — unless `reserving`, which shows an
- * NBSP placeholder instead of hiding: `features/focus.ts` sets this the instant a
- * terminal surface mounts, before its `refit()` (which needs the line's real height
- * already reserved) can report the real geometry. Must stay a literal NBSP (U+00A0), not
- * an ASCII space: `.sizenote` is flex, and a flex item holding only collapsible
- * whitespace renders at zero height. */
+ * entirely rather than rendering a half-formed one — unless `reserving`, which writes a
+ * literal NBSP (U+00A0) placeholder below instead of hiding: `features/focus.ts` sets
+ * this the instant a terminal surface mounts, before its `refit()` (which needs the
+ * line's real height already reserved) can report the real geometry. It must be the NBSP
+ * and not an ASCII space: `.sizenote` is flex, and a flex item holding only collapsible
+ * whitespace renders at zero height, which would leave nothing for `refit()` to reserve
+ * against. */
 export function renderSizenote(
   el: HTMLElement,
   geometry: { cols: number; rows: number } | null,

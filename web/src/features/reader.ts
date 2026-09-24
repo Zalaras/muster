@@ -25,9 +25,10 @@ import {
 } from "../reader/memory";
 import { mermaidThemeFor } from "../reader/mermaid";
 import { classifyDocChanged, deriveNotice, UNKNOWN_SESSION_TEXT } from "../reader/notice";
-import { basename, loadingText } from "../reader/paths";
+import { loadingText } from "../reader/paths";
 import { buildTree, filterTree, flattenTree, type FlatTreeEntry } from "../reader/tree";
 import { visibleIds } from "../sessions/live";
+import { basename } from "../sessions/paths";
 import { renderDiagrams, rerenderDiagrams } from "../render/diagrams";
 import {
   attachScrollSpy,

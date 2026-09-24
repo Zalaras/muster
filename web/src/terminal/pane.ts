@@ -53,10 +53,9 @@ function terminalThemeColors(): { background: string; foreground: string } {
  * no equivalent dead-on-arrival check — the shell route never consults `alive` either.
  */
 export class TerminalSurface {
-  /** The aria-labelled container the Testable UI Elements table pins
-   * (`Terminal: <title>` / `Shell: <title>`) — callers mount this wherever the live
-   * surface belongs (Focus's slot, or a Tiles tile's body slot) and never reach into its
-   * internals. */
+  /** The aria-labelled container, always labelled `Terminal: <title>` / `Shell: <title>` —
+   * callers mount this wherever the live surface belongs (Focus's slot, or a Tiles tile's
+   * body slot) and never reach into its internals. */
   readonly root: HTMLElement;
   private readonly bodyEl: HTMLElement;
   private readonly overlayEl: HTMLElement;

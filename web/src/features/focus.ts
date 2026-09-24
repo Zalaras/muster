@@ -12,13 +12,8 @@ import { renderFocusMain, renderSizenote, setMainSlotHidden } from "../render/fo
 import { renderMainhead, type MainheadElements } from "../render/mainhead";
 import { attachRenameEditor, type RenameEditorHandlers } from "../render/rename";
 import { mountSlotRoot } from "../render/slotmount";
-import type { SessionAction } from "../sessions/card";
-import {
-  collectDeadSurfaceRefs,
-  renderDeadSurface,
-  type DeadSurfaceRefs,
-  type PaneState,
-} from "../render/dead";
+import type { PaneState, SessionAction } from "../sessions/card";
+import { collectDeadSurfaceRefs, renderDeadSurface, type DeadSurfaceRefs } from "../render/dead";
 import {
   DEFAULT_SURFACE_STATE,
   getSurfaceState,
@@ -61,10 +56,8 @@ export interface FocusDeps {
 export interface FocusHandle {
   /** `null` unless `id` is the currently-focused session in Focus view — Focus's own
    * dead-surface lookup, passed directly to `surfaces.select` for a spawn-failure notice
-   * (never reached through `features/actions.ts`, which carries no dead-surface API). */
+   * (`features/actions.ts`'s header states why this lives here, not there). */
   deadSurfaceRefsFor(id: number): DeadSurfaceRefs | null;
-  /** For `rename.ts`'s mainhead editor attachment. */
-  readonly nameEl: HTMLElement;
   /** ⌥⌘1–9: focus (or, in Tiles, promote) session n of the rail's own order. */
   nth(n: number): void;
   /** ⌥⌘0: jump to the single highest-attention live session. */
@@ -111,6 +104,10 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
   // tile's own editor with its `renameHandlers` — `features/rename.ts` holds no editor of
   // its own.
   const mainheadRename = attachRenameEditor(mainheadElements.nameEl, deps.renameHandlers);
+  // Cancels the mainhead's open rename editor, with no request sent either way, on every
+  // trigger that must not let a blur-driven commit through — a disconnect, a `view` change
+  // arriving over the wire, or a direct mousedown on the Focus/Tiles masthead buttons
+  // (views.ts's own guard, kb:adr/views-active-segment-click-commits-rename).
   app.on("cancelRenames", () => mainheadRename.cancel());
   app.on("status", () => mainheadRename.cancel());
   // focusChanged: today's `setFocusedId` always cancelled the mainhead editor first.
@@ -203,7 +200,7 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
   function renderView(frame: RenderFrame): void {
     const { sessions, now, connected } = frame;
     const hasSessions = sessions.length > 0;
-    renderFocusMain({ emptyEl: mainEmptyEl, slotEl: mainSlotEl }, hasSessions);
+    renderFocusMain({ emptyEl: mainEmptyEl }, hasSessions);
     const session = sessions.find((s) => s.id === app.state.focusedId) ?? null;
     const surfaceState = session
       ? getSurfaceState(deps.getSurfaces().state(), session.id)
@@ -260,7 +257,6 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
 
   return {
     deadSurfaceRefsFor,
-    nameEl: mainheadElements.nameEl,
     nth,
     neediest,
     bringForward,

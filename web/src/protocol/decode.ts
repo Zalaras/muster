@@ -1,6 +1,5 @@
 // Shared decoder building blocks: the primitive value guards/adapters, a JSON object
-// guard, an array-of-T decoder, and a null-or-T decoder. Every wire parser in this
-// codebase hand-wrote these shapes at its own call site; this module owns how a JSON
+// guard, an array-of-T decoder, and a null-or-T decoder. This module owns how a JSON
 // primitive, "a JSON object", "an array of these", and "null or one of these" are
 // recognised — a parser still owns what its own fields mean. Every module under
 // `web/src/protocol/` and `web/src/api/` imports from here rather than from each other.
@@ -9,7 +8,7 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function isNumber(value: unknown): value is number {
+function isNumber(value: unknown): value is number {
   return typeof value === "number";
 }
 

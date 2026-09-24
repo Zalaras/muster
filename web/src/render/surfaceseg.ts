@@ -23,20 +23,19 @@ export interface SurfaceSegmentRefs {
    * `<button>` exactly like its siblings — no indicator, no `shellRunning`-style flag of
    * its own. */
   docsBtn: HTMLButtonElement;
-  /** The activity indicator `<span>` (Testable UI Elements: `span.shellact`,
-   * `aria-hidden` so the shell button's accessible name stays exactly "shell" in every
-   * indicator state) — kept detached from `shellBtn` (via `.remove()`) until
-   * `updateSurfaceSegment` re-attaches it, rather than toggled via `hidden`/`display`,
-   * per the table's "presence and `data-act` value are the contract" (a caller asserts
-   * `toHaveCount`/`toHaveAttribute`, not visibility). */
+  /** The activity indicator `<span class="shellact">`, `aria-hidden` so the shell
+   * button's accessible name stays exactly "shell" in every indicator state — kept
+   * detached from `shellBtn` (via `.remove()`) until `updateSurfaceSegment` re-attaches
+   * it, rather than toggled via `hidden`/`display`, so presence and `data-act` value are
+   * the contract a caller asserts (`toHaveCount`/`toHaveAttribute`, not visibility). */
   shellActEl: HTMLElement;
 }
 
-/** Builds the segmented control once (Testable UI Elements: `role="group"
- * aria-label="Surface"`, native `<button>`s named exactly `claude`/`shell`). `onSelect`
- * fires on every click of either segment, including the currently-selected one — callers
- * short-circuit a same-surface click themselves (features/surfaces.ts's `select`), same
- * shape as the existing Focus/Tiles view-switch buttons. */
+/** Builds the segmented control once: `role="group" aria-label="Surface"`, native
+ * `<button>`s named exactly `claude`/`shell`. `onSelect` fires on every click of either
+ * segment, including the currently-selected one — callers short-circuit a same-surface
+ * click themselves (features/surfaces.ts's `select`), same shape as the existing
+ * Focus/Tiles view-switch buttons. */
 export function buildSurfaceSegment(onSelect: (kind: SurfaceKind) => void): SurfaceSegmentRefs {
   const root = document.createElement("div");
   root.className = "surfseg";

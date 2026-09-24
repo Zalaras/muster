@@ -12,7 +12,9 @@ export type PrefsRequest = Partial<Prefs>;
 
 /** `PUT /api/prefs` (kb:anchor/prefs.put). `204` with no body on success — the new prefs
  * value reaches every UI socket (this one included) via the `prefs` WS broadcast
- * (kb:adr/connection-commands-http-ws-push-only). */
+ * (kb:adr/connection-commands-http-ws-push-only). Exported for `prefs.test.ts`'s and
+ * `http.test.ts`'s direct coverage of the request/response shape — every production
+ * caller goes through `sendPrefsPatch` below, never this directly. */
 export async function putPrefs(body: PrefsRequest): Promise<ApiResult<null>> {
   return requestEmpty("PUT", "/api/prefs", 204, body);
 }

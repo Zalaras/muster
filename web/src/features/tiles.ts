@@ -43,9 +43,9 @@ import {
 import { updateSurfaceSegment } from "../render/surfaceseg";
 import type { TerminalSurface } from "../terminal/pane";
 import type { ShellActivityIndicator } from "../terminal/shellactivity";
-import { collectDeadSurfaceRefs, type DeadSurfaceRefs, type PaneState } from "../render/dead";
+import { collectDeadSurfaceRefs, type DeadSurfaceRefs } from "../render/dead";
 import type { Session } from "../protocol/session";
-import type { SessionAction } from "../sessions/card";
+import type { PaneState, SessionAction } from "../sessions/card";
 
 export interface TilesDeps {
   actions: {
@@ -72,8 +72,8 @@ export interface TilesHandle {
   /** For `surfaces.ts`'s render-phase visibility diff. */
   liveIds(): readonly number[];
   /** `null` unless `id` currently has a dead tile mounted — Tiles' own dead-surface
-   * lookup, passed directly to `surfaces.select` for a spawn-failure notice (never
-   * reached through `features/actions.ts`, which carries no dead-surface API). */
+   * lookup, passed directly to `surfaces.select` for a spawn-failure notice
+   * (`features/actions.ts`'s header states why this lives here, not there). */
   deadSurfaceRefsFor(id: number): DeadSurfaceRefs | null;
   /** Render phase 10 in Tiles. */
   renderView(frame: RenderFrame): void;
@@ -98,10 +98,8 @@ export function initTiles(app: App, deps: TilesDeps): TilesHandle {
   let lastView = app.state.view;
   let lastDensity = app.state.density;
 
-  /** `null` unless `id` currently has a dead tile mounted — passed directly to
-   * `surfaces.select` for a spawn-failure notice, and returned on `TilesHandle` for the
-   * same reason (never reached through `features/actions.ts`, which carries no
-   * dead-surface API). */
+  /** `TilesHandle.deadSurfaceRefsFor`'s own doc above states why this exists apart from
+   * `features/actions.ts`. */
   function deadSurfaceRefsFor(id: number): DeadSurfaceRefs | null {
     const tileDeadEl =
       tileElements.get(id)?.bodySlot.querySelector<HTMLElement>(".dead-surface") ?? null;

@@ -1,6 +1,6 @@
 // Wire types and parser for `UpdateInfo` and its `update` broadcast (docs/protocol.md,
-// kb:anchor/ws.update) — one of the protocol/ concept modules split
-// out of the former protocol.ts.
+// kb:anchor/ws.update) — one of the protocol/ concept modules, each owning one wire
+// concept's type and parser; `decode.ts` holds the primitives every one of them shares.
 
 import { isRecord } from "./decode";
 

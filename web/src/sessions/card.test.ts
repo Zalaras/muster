@@ -5,7 +5,9 @@ import {
   buildCardViewModel,
   deadCapPrefix,
   deadEndbarText,
+  deadSurfaceText,
   mainheadMeta,
+  type PaneState,
   tileFooterAgeText,
   tileHeaderTimerText,
   unreadLabel,
@@ -252,10 +254,9 @@ describe("buildCardViewModel — unread (REQ-9): passes session.unread through u
 });
 
 describe("buildCardViewModel — note precedence: attention > failure > first-launch", () => {
-  // Review cycle 1 / Fix Attempt 2 (Major 4): the attention note now appends a
-  // since-timer derived from `attention.since` (not `stateSince`) — plan line 287 +
-  // design-system §3's escalating Needs-Input timer. NOW is 10s after `since` in these
-  // fixtures, so `formatTimer` yields "00:10".
+  // The attention note appends a since-timer derived from `attention.since` (not
+  // `stateSince`) — design-system §3's escalating Needs-Input timer. NOW is 10s after
+  // `since` in these fixtures, so `formatTimer` yields "00:10".
   it("shows the permission attention note with reason 'permission', plus the since-timer", () => {
     const vm = buildCardViewModel(
       makeSession({
@@ -589,5 +590,79 @@ describe("deadCapPrefix: '<age> · last state: <badge>', or without the age clau
   it("omits the age clause when endedAt is null, defensively", () => {
     const session = makeSession({ id: 1, alive: false, state: "idle", endedAt: null });
     expect(deadCapPrefix(session, NOW)).toBe("last state: idle");
+  });
+});
+
+// The one composer render/dead.ts's renderDeadSurface calls for every dead-surface
+// string — covered directly here since deadSurfaceText itself, not renderDeadSurface's DOM
+// assignment, is what decides these strings.
+describe("deadSurfaceText: the endbar/snapshot/capBody triple for each pane fetch outcome", () => {
+  function okPane(capturedAt: string, text = "$ claude\nWorking..."): PaneState {
+    return { status: "ok", text, capturedAt };
+  }
+
+  it("appends ' · captured <age>' after the base endbar text when the pane fetch succeeded", () => {
+    const session = makeSession({ id: 1, state: "idle", endedAt: "2026-08-22T00:00:05Z" });
+    const result = deadSurfaceText(session, okPane("2026-08-21T23:54:10Z"), NOW);
+
+    expect(result.endbar).toBe(`${deadEndbarText(session, NOW)} · captured 6m ago`);
+    expect(result.snapshot).toBe("$ claude\nWorking...");
+    expect(result.capBody).toBe(deadCapPrefix(session, NOW));
+  });
+
+  it("never renders 'captured now ago' — sub-minute capture age reads 'captured now'", () => {
+    const session = makeSession({ id: 1, endedAt: "2026-08-22T00:00:05Z" });
+    const result = deadSurfaceText(session, okPane("2026-08-22T00:00:00Z"), NOW); // 10s elapsed
+
+    expect(result.endbar).toMatch(/· captured now$/);
+    expect(result.endbar).not.toContain("captured now ago");
+  });
+
+  it("crosses the now/1m-ago boundary at exactly 60 elapsed seconds", () => {
+    const session = makeSession({ id: 1 });
+    const justUnder = deadSurfaceText(session, okPane("2026-08-21T23:59:11Z"), NOW); // 59s
+    expect(justUnder.endbar).toMatch(/· captured now$/);
+
+    const atBoundary = deadSurfaceText(session, okPane("2026-08-21T23:59:10Z"), NOW); // 60s
+    expect(atBoundary.endbar).toMatch(/· captured 1m ago$/);
+  });
+
+  it("renders an hour bucket once the capture is over an hour old", () => {
+    const session = makeSession({ id: 1 });
+    const result = deadSurfaceText(session, okPane("2026-08-21T23:00:09Z"), NOW); // 3661s
+    expect(result.endbar).toMatch(/· captured 1h ago$/);
+  });
+
+  it("does not append a captured clause when the pane is 'missing' — 'no snapshot captured' reads as a confirmed negative", () => {
+    const session = makeSession({ id: 1 });
+    const result = deadSurfaceText(session, { status: "missing" }, NOW);
+
+    expect(result.endbar).toBe(deadEndbarText(session, NOW));
+    expect(result.snapshot).toBe("");
+    expect(result.capBody).toBe("no snapshot captured");
+  });
+
+  it("does not append a captured clause while the pane fetch is still 'loading' — distinct from 'missing', not silently blank", () => {
+    const session = makeSession({ id: 1 });
+    const result = deadSurfaceText(session, { status: "loading" }, NOW);
+
+    expect(result.endbar).toBe(deadEndbarText(session, NOW));
+    expect(result.snapshot).toBe("");
+    expect(result.capBody).toBe("loading last screen…");
+  });
+
+  it("still appends the captured clause when the session's own endedAt is null (defensive branch, no leading age)", () => {
+    const session = makeSession({ id: 1, endedAt: null });
+    const result = deadSurfaceText(session, okPane("2026-08-21T23:59:10Z"), NOW); // 60s
+
+    expect(result.endbar).toBe(`${deadEndbarText(session, NOW)} · captured 1m ago`);
+  });
+
+  it("the captured age can differ from the endbar's own ended age — snapshot capture and End don't share a clock", () => {
+    // Session ended 10 minutes ago; the last capture was taken 3 minutes before that.
+    const session = makeSession({ id: 1, endedAt: "2026-08-21T23:50:10Z" });
+    const result = deadSurfaceText(session, okPane("2026-08-21T23:47:10Z"), NOW);
+
+    expect(result.endbar).toBe(`${deadEndbarText(session, NOW)} · captured 13m ago`);
   });
 });

@@ -1,8 +1,7 @@
 // The shared getSession/onCommit pair every rename editor uses — the mainhead's
 // (features/focus.ts) and every tile's (features/tiles.ts's `render/tiles.ts`'s
 // `buildTile`). This module holds no editor of its own and touches no DOM: each host
-// attaches its own `render/rename.ts` editor(s) directly, using the handlers here, the
-// same way a tile already did before this module owned the mainhead's too.
+// attaches its own `render/rename.ts` editor(s) directly, using the handlers here.
 import type { App } from "../app";
 import { putTitle } from "../api/sessions";
 import type { RenameEditorHandlers } from "../render/rename";

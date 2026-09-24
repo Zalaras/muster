@@ -38,18 +38,19 @@ export interface UpdateSectionElements {
   section: HTMLElement;
   runningEl: HTMLElement;
   availableEl: HTMLElement;
+  /** `.checked` is written only by `features/update.ts`'s `prefs` handler, straight from
+   * `prefs.updateCheck` — `renderUpdateSection` below never touches it, only `.disabled`. */
   toggle: HTMLInputElement;
   statusEl: HTMLElement;
   applyBtn: HTMLButtonElement;
   restartBtn: HTMLButtonElement;
-  /** `#update-check-button`, the first child of
-   * `.update-actions` (Testable UI Elements). */
+  /** `#update-check-button`, always the first child of `.update-actions`. */
   checkBtn: HTMLButtonElement;
 }
 
 /** Applies one `UpdateViewModel` to the Updates section's DOM. Never writes
- * `toggle.checked` (see the field's own doc comment) — only its `disabled` state, which
- * (unlike `checked`) depends on `install`, something only this view model carries. */
+ * `toggle.checked` (see the field's own doc comment above) — only its `disabled` state,
+ * which (unlike `checked`) depends on `install`, something only this view model carries. */
 export function renderUpdateSection(elements: UpdateSectionElements, vm: UpdateViewModel): void {
   elements.runningEl.textContent = vm.running;
   elements.availableEl.textContent = vm.available;
