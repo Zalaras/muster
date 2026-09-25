@@ -156,9 +156,8 @@ agents exist to fix such issues, and "approved with a Major" just hands the orch
 defect) is tagged `[orchestrator]` and does **not** block approval.
 
   **Also Major: a statement in a user-facing document (`README.md`, `docs/`, the hand-written part of a touched package's `CLAUDE.md`) *or in a code comment*
-  that is false about behaviour this plan shipped, that contradicts one of the plan's acceptance
-  criteria, or that cites a path, `make` target or `musterd` flag that does not exist (`gates.sh`'s
-  `dead-refs` line).** It ships to the reader. Tag it to the agent that owns the file so it rides a
+  that is false about behaviour this plan shipped or contradicts one of the plan's acceptance
+  criteria.** It ships to the reader. Tag it to the agent that owns the file so it rides a
   fix wave (kb:lesson/finding-severity-misrouted).
   **Also Major, tagged `[orchestrator]`: a `deviation:` line in a `## Decisions` log with no
   `→ kb:adr/…`, or whose record is missing, not `proposed` with `refs: plan:<plan>`, or describes

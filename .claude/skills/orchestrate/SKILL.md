@@ -364,8 +364,7 @@ Two concrete ways a flat fan-out goes wrong: an impl agent moves or renames a sy
   may edit; the impl agent's Handoff names each such file. `gates.sh --wave 1` therefore runs
   `make lint` and `make web-build` tolerating only compile errors confined to test files
   (`_test.go` typecheck, `*.test.ts` tsc) and prints those files as a NOTE — check that the Handoff
-  names every one; any other failure is real. `gates.sh --wave 2` runs both strictly, which is what
-  proves the handoff was honoured (kb:lesson/sanctioned-test-break-blinds-lint).
+  names every one; any other failure is real (kb:lesson/sanctioned-test-break-blinds-lint).
 - **Plan amendments mid-run.** A review issue may prove a plan requirement wrong
   (kb:lesson/tiles-never-refit-behind-pattern-match). Protocol-contract changes always stop the
   pipeline (above). A **non-protocol** requirement may be amended without stopping iff:
