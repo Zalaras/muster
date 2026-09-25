@@ -79,7 +79,7 @@ func TestPack_OpensWithTheWordCountThenEmitsSectionsInTheFixedOrder(t *testing.T
 	// the body only — the block reports on the pack without inflating it.
 	summary, body, ok := strings.Cut(strings.TrimPrefix(out, marker), "\n# Rules\n")
 	require.True(t, ok, out)
-	assert.Regexp(t, `^kb: pack \d+ words \(budget 8000\)\nkb: sections — `, summary)
+	assert.Regexp(t, `^kb: pack \d+ words \(budget 20000\)\nkb: sections — `, summary)
 	assert.Equal(t, len(strings.Fields(marker))+len(strings.Fields("\n# Rules\n"+body)), n)
 
 	assert.NotContains(t, out, "# Decisions (proposed for this plan)", "only review and planner see proposals")

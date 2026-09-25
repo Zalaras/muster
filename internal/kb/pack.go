@@ -143,11 +143,20 @@ func writeRules(b *strings.Builder, ix *Index, opts PackOptions) error {
 	return nil
 }
 
+// contractlessRoles read no contract slice: the browser reviewer measures the running app and
+// the maintainability reviewer judges shape, and neither codes against the wire. The generated
+// contracts were 5,800 of a three-feature pack's 7,300 feature words (audit 2026-09-25).
+var contractlessRoles = []string{"review-browser", "review-maintainability"}
+
 // writeFeatureSections writes each feature's spec body followed by its contract slice.
 func writeFeatureSections(b *strings.Builder, ix *Index, opts PackOptions) {
 	for _, name := range opts.Features {
 		f := ix.Feature(name)
 		fmt.Fprintf(b, "\n# Feature: %s\n\n%s\n", name, strings.TrimSpace(f.Spec.Body))
+		if contains(contractlessRoles, opts.Role) {
+			fmt.Fprintf(b, "\n_contract: `go run ./tools/kb show %s` — not packed for this role_\n", f.Spec.Token())
+			continue
+		}
 		b.WriteString("\n" + strings.TrimSpace(renderContract(ix, f)) + "\n")
 	}
 }
