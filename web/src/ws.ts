@@ -35,6 +35,10 @@ export function backoffDelay(attempt: number): number {
 export interface WsClientHandlers {
   onConnecting?: () => void;
   onHello?: (hello: Hello) => void;
+  /** Every hello, matched or protocol-mismatched — fires before the version gate below,
+   * so a subscriber (features/updaterestart.ts, kb:adr/update-restart-reloads-dashboard)
+   * can act before `onProtocolMismatch` would otherwise run. */
+  onHelloArrived?: () => void;
   onSnapshot?: (snapshot: Snapshot) => void;
   onSessionUpsert?: (session: Session) => void;
   onPrefs?: (prefs: Prefs) => void;
@@ -122,6 +126,7 @@ export class WsClient {
   dispatch(message: Message | null): void {
     if (!message) return;
     if (message.type === "hello") {
+      this.handlers.onHelloArrived?.();
       if (!isSupportedProtocolVersion(message.protocolVersion)) {
         this.handlers.onProtocolMismatch?.(message.protocolVersion);
         return;

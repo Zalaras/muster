@@ -2,8 +2,10 @@ package selfupdate
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -53,12 +55,18 @@ func TestClassify_Table(t *testing.T) {
 			access: writableAccess, wantKind: KindHomebrew, wantRemedy: HomebrewRemedy,
 		},
 		{
+			// D1: the composed remedy (wantRemedy filled in below, once exePath/dir are
+			// both known) names the resolved path, its directory, and the probe's
+			// innermost error text — not a shared fixed string; InstallerRemedy no longer
+			// exists (kb:adr/update-remedy-names-path-and-cause).
 			name: "non-writable exe dir is unmanaged", version: "0.10.0", exePath: "/scratch/bin/musterd",
-			access: unwritableAccess, wantKind: KindUnmanaged, wantRemedy: InstallerRemedy,
+			access: unwritableAccess, wantKind: KindUnmanaged,
 		},
 		{
+			// D2: the composed remedy (wantRemedy filled in below) names the resolved
+			// path and the checkout root the git walk found.
 			name: "git tree below home is unmanaged", version: "0.10.0",
-			access: writableAccess, wantKind: KindUnmanaged, wantRemedy: InstallerRemedy,
+			access: writableAccess, wantKind: KindUnmanaged,
 			// exePath/home are set up per-case below via a real .git directory.
 		},
 		{
@@ -74,7 +82,13 @@ func TestClassify_Table(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			exePath, home := tt.exePath, tt.home
+			wantRemedy := tt.wantRemedy
 			switch tt.name {
+			case "non-writable exe dir is unmanaged":
+				// D1's exact composed sentence: unwritableAccess's own error ("not
+				// writable") is innermostCause's whole (unwrapped) text here.
+				wantRemedy = fmt.Sprintf("can't update %s: %s is not writable (%s) — %s",
+					exePath, filepath.Dir(exePath), "not writable", installScriptRemedy)
 			case "git tree below home is unmanaged":
 				root := t.TempDir()
 				home = filepath.Join(root, "home")
@@ -82,6 +96,10 @@ func TestClassify_Table(t *testing.T) {
 				require.NoError(t, os.MkdirAll(filepath.Join(repo, ".git"), 0o755))
 				require.NoError(t, os.MkdirAll(filepath.Join(repo, "bin"), 0o755))
 				exePath = filepath.Join(repo, "bin", "musterd")
+				// D2's exact composed sentence: the checkout root is repo, not exePath's
+				// own immediate directory.
+				wantRemedy = fmt.Sprintf("can't update %s: it is inside the git checkout %s — %s",
+					exePath, repo, installScriptRemedy)
 			case "git at home itself is installer, not unmanaged (D13)":
 				root := t.TempDir()
 				home = root
@@ -97,13 +115,176 @@ func TestClassify_Table(t *testing.T) {
 
 			assert.Equal(t, tt.wantKind, got.Kind)
 			assert.Equal(t, exePath, got.Path)
-			if tt.wantRemedy != "" {
-				assert.Equal(t, tt.wantRemedy, got.Remedy)
+			if wantRemedy != "" {
+				assert.Equal(t, wantRemedy, got.Remedy)
 			} else {
 				assert.Empty(t, got.Remedy)
 			}
 		})
 	}
+}
+
+// TestReclassify_UnwritableDirectoryRemedy covers D1 exhaustively: the composed remedy
+// names the resolved path, its directory, and the write probe's innermost error text, for
+// both a plain unwrapped error and the wrapped os.PathError/syscall.Errno chain
+// WritableDir's own production error actually forms.
+func TestReclassify_UnwritableDirectoryRemedy(t *testing.T) {
+	tests := []struct {
+		name      string
+		probeErr  error
+		wantCause string
+	}{
+		{"a plain unwrapped error reports its own text", errors.New("boom"), "boom"},
+		{
+			"a wrapped os.PathError/syscall.Errno chain unwraps to the errno text",
+			fmt.Errorf("directory not writable: %w", &os.PathError{Op: "open", Path: "/scratch/bin/.musterd-writable-x", Err: syscall.EACCES}),
+			syscall.EACCES.Error(),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			exePath := "/scratch/bin/musterd"
+
+			got := Reclassify(exePath, t.TempDir(), func(string) error { return tt.probeErr })
+
+			require.Equal(t, KindUnmanaged, got.Kind)
+			want := fmt.Sprintf("can't update %s: %s is not writable (%s) — %s", exePath, "/scratch/bin", tt.wantCause, installScriptRemedy)
+			assert.Equal(t, want, got.Remedy)
+		})
+	}
+}
+
+// TestReclassify_UnwritableDirectory_RealFilesystem covers D1 against a real chmod'd
+// directory through the production access func (WritableDir) — the same fixture E2
+// drives end to end, proven here at the pure-function level too.
+func TestReclassify_UnwritableDirectory_RealFilesystem(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores directory write permission bits")
+	}
+	dir := t.TempDir()
+	require.NoError(t, os.Chmod(dir, 0o555))
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) }) // let t.TempDir()'s own cleanup remove it
+	exePath := filepath.Join(dir, "musterd")
+
+	got := Reclassify(exePath, t.TempDir(), WritableDir)
+
+	require.Equal(t, KindUnmanaged, got.Kind)
+	want := fmt.Sprintf("can't update %s: %s is not writable (permission denied) — %s", exePath, dir, installScriptRemedy)
+	assert.Equal(t, want, got.Remedy)
+}
+
+// TestReclassify_GitTreeRemedy covers D2 exhaustively: the composed remedy names the
+// checkout root the walk actually found — one level up, several levels up, and never for
+// a .git at home itself — plus the write-probe/git-tree precedence Reclassify's own code
+// order implies (an unwritable directory reports REQ-1's remedy even when it also sits
+// inside a git checkout, never REQ-2's).
+func TestReclassify_GitTreeRemedy(t *testing.T) {
+	t.Run("git in the immediate parent directory", func(t *testing.T) {
+		home := t.TempDir()
+		repo := filepath.Join(home, "projects", "scratch")
+		require.NoError(t, os.MkdirAll(filepath.Join(repo, ".git"), 0o755))
+		require.NoError(t, os.MkdirAll(filepath.Join(repo, "bin"), 0o755))
+		exePath := filepath.Join(repo, "bin", "musterd")
+
+		got := Reclassify(exePath, home, writableAccess)
+
+		require.Equal(t, KindUnmanaged, got.Kind)
+		want := fmt.Sprintf("can't update %s: it is inside the git checkout %s — %s", exePath, repo, installScriptRemedy)
+		assert.Equal(t, want, got.Remedy)
+	})
+
+	t.Run("git two levels above the executable", func(t *testing.T) {
+		home := t.TempDir()
+		repo := filepath.Join(home, "code", "scratch")
+		require.NoError(t, os.MkdirAll(filepath.Join(repo, ".git"), 0o755))
+		nested := filepath.Join(repo, "cmd", "bin")
+		require.NoError(t, os.MkdirAll(nested, 0o755))
+		exePath := filepath.Join(nested, "musterd")
+
+		got := Reclassify(exePath, home, writableAccess)
+
+		require.Equal(t, KindUnmanaged, got.Kind)
+		want := fmt.Sprintf("can't update %s: it is inside the git checkout %s — %s", exePath, repo, installScriptRemedy)
+		assert.Equal(t, want, got.Remedy)
+	})
+
+	t.Run("git at home itself is installer, not unmanaged", func(t *testing.T) {
+		home := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(home, ".git"), 0o755))
+		exePath := filepath.Join(home, "bin", "musterd")
+		require.NoError(t, os.MkdirAll(filepath.Dir(exePath), 0o755))
+
+		got := Reclassify(exePath, home, writableAccess)
+
+		assert.Equal(t, KindInstaller, got.Kind)
+		assert.Empty(t, got.Remedy)
+	})
+
+	t.Run("an unwritable directory reports the write-probe remedy, not the git one, even inside a checkout", func(t *testing.T) {
+		home := t.TempDir()
+		repo := filepath.Join(home, "projects", "scratch")
+		require.NoError(t, os.MkdirAll(filepath.Join(repo, ".git"), 0o755))
+		require.NoError(t, os.MkdirAll(filepath.Join(repo, "bin"), 0o755))
+		exePath := filepath.Join(repo, "bin", "musterd")
+
+		got := Reclassify(exePath, home, unwritableAccess)
+
+		require.Equal(t, KindUnmanaged, got.Kind)
+		assert.Contains(t, got.Remedy, "is not writable")
+		assert.NotContains(t, got.Remedy, "git checkout")
+	})
+}
+
+// TestReclassify_FlipsBetweenInstallerAndUnmanaged covers D4 at the pure-function level:
+// Reclassify is stateless, so the same exePath/home flips kind whenever the caller's
+// access func's own answer changes — installer to unmanaged and back, matching a
+// directory's writability changing between two checks.
+func TestReclassify_FlipsBetweenInstallerAndUnmanaged(t *testing.T) {
+	exePath := filepath.Join(t.TempDir(), "musterd")
+	home := t.TempDir()
+	writable := true
+	access := func(string) error {
+		if writable {
+			return nil
+		}
+		return errors.New("blocked")
+	}
+
+	got := Reclassify(exePath, home, access)
+	require.Equal(t, KindInstaller, got.Kind)
+	assert.Empty(t, got.Remedy)
+
+	writable = false
+	got = Reclassify(exePath, home, access)
+	require.Equal(t, KindUnmanaged, got.Kind)
+	assert.NotEmpty(t, got.Remedy)
+
+	writable = true
+	got = Reclassify(exePath, home, access)
+	assert.Equal(t, KindInstaller, got.Kind)
+	assert.Empty(t, got.Remedy)
+}
+
+// TestReclassify_FlipsWhenGitTreeIsRemoved covers D4/edge case 1 at the pure-function
+// level: removing the .git ancestor between two Reclassify calls flips unmanaged back to
+// installer.
+func TestReclassify_FlipsWhenGitTreeIsRemoved(t *testing.T) {
+	home := t.TempDir()
+	repo := filepath.Join(home, "scratch")
+	gitDir := filepath.Join(repo, ".git")
+	require.NoError(t, os.MkdirAll(gitDir, 0o755))
+	bin := filepath.Join(repo, "bin")
+	require.NoError(t, os.MkdirAll(bin, 0o755))
+	exePath := filepath.Join(bin, "musterd")
+
+	got := Reclassify(exePath, home, writableAccess)
+	require.Equal(t, KindUnmanaged, got.Kind)
+
+	require.NoError(t, os.RemoveAll(gitDir))
+
+	got = Reclassify(exePath, home, writableAccess)
+	assert.Equal(t, KindInstaller, got.Kind)
+	assert.Empty(t, got.Remedy)
 }
 
 // TestClassify_HomebrewChecksBeforeWritability covers REQ-21's precedence: a homebrew

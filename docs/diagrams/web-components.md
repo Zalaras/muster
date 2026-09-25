@@ -2,7 +2,7 @@
 id: web-components
 type: diagram
 status: active
-date: 2026-09-15
+date: 2026-09-25
 kind: component
 summary: The dashboard's modules by directory — two Vite entries over one app seam, features above render, derivation below, protocol at the bottom.
 features: []
@@ -13,10 +13,8 @@ refs: [kb:diagram/containers, kb:adr/process-composition-roots-registration-only
 ---
 Drawn from the `import` statements at directory granularity: `features/`, `render/`,
 `sessions/`, `terminal/`, `reader/`, `protocol/` and `api/` are one node each, the root
-modules are their own. `protocol.ts` and `api.ts` were single files; each is now a
-directory split per concept/endpoint family, with no barrel (`docs/conventions.md` —
-`web/src` has no barrels), and every former importer re-points at the specific file it
-needs.
+modules are their own. `protocol/` and `api/` are split per concept/endpoint family, with
+no barrel (`docs/conventions.md`).
 
 Two Vite entries (`web/vite.config.ts`), each a composition root that only wires
 (kb:adr/process-composition-roots-registration-only): `main.ts` for the dashboard,
@@ -36,7 +34,8 @@ the daemon, matching kb:adr/connection-commands-http-ws-push-only: `api/` holds 
 `fetch`, `ws.ts` the server-to-client state socket, and `terminal/pane.ts` the one WebSocket
 constructed outside `ws.ts`, per live terminal. `localStorage` is reached through one seam,
 `storage.ts`'s `readJson`/`writeJson`, by the reader's per-session memory and the first-paint
-theme hint only, never session state. `protocol/` is imported by every layer for wire types,
+theme hint, never session state; `sessionStorage` through the same seam, by the update
+restart handoff only (kb:adr/update-restart-reloads-dashboard). `protocol/` is imported by every layer for wire types,
 so those seven wires sit on its box rather than drawn. `dragmime.ts` is the other root-level
 leaf: the drag-reorder MIME marker `render/dragreorder.ts` sets and `terminal/pane.ts`
 checks, owned by neither.
@@ -47,8 +46,8 @@ C4Component
 
     Container_Boundary(dashboard, "Dashboard") {
         Boundary(ctl, "Entries and controllers") {
-            Component(main, "main.ts", "entry", "Dashboard composition root: inits 16 controllers, owns render order")
-            Component(features, "features/", "22 modules", "16 stateful per-feature controllers, own their elements and listeners, plus 6 DOM-free helpers each owned by one controller")
+            Component(main, "main.ts", "entry", "Dashboard composition root: inits 17 controllers, owns render order")
+            Component(features, "features/", "23 modules", "17 stateful per-feature controllers (the update feature has two: its Settings panel and its restart banner/reload), own their elements and listeners, plus 6 DOM-free helpers each owned by one controller")
             Component(doc, "doc.ts", "entry", "Pop-out reader composition root")
             Component(wsapp, "wsapp.ts", "mapping", "The WS-to-app mapping both entries register, then layer their own handlers on top of")
         }
@@ -66,7 +65,7 @@ C4Component
             Component(sessions, "sessions/", "12 modules", "Pure derivation — view-models, sort, tile math, formatters, a path basename")
             Component(theme, "theme.ts", "registry", "Theme choice; first-paint hint")
             Component(shortcuts, "shortcuts.ts", "pure", "Keyboard chord table")
-            Component(storage, "storage.ts", "seam", "The one localStorage read/write-JSON seam")
+            Component(storage, "storage.ts", "seam", "The one localStorage/sessionStorage read/write-JSON seam")
             Component(dragmime, "dragmime.ts", "const", "The drag-reorder MIME marker, owned by neither render nor terminal")
         }
     }
@@ -106,6 +105,7 @@ C4Component
     Rel(reader, app, "connection state")
     Rel(reader, storage, "per-session memory")
     Rel(theme, storage, "first-paint hint")
+    Rel(features, storage, "restart handoff")
     Rel(app, sessions, "SessionStore")
 
     UpdateRelStyle(main, app, $offsetY="-22")

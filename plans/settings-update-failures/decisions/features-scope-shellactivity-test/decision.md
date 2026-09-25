@@ -1,0 +1,7 @@
+# Decision: features-scope-shellactivity-test
+
+**Outcome**: A — widen the plan's **Features** header to `update, connection, surfaces` (one plan.md line; remaining agents' packs gain the surfaces records; the Doc Delta names no surfaces change).
+**Reached by**: consensus (advocate-b conceded in turn 2)
+**Decisive argument**: Both ways of doing B bring back the defect review cycle 2 maintainability Minor 1 measured. One is the only post-construction field patch in `New`; the other is a silent zero-value hub that drops the drain warning. A scope-based Decisions reason answers neither harm. And doc-reconcile Step 1 would block on the surfaces-owned line anyway unless the header names it. Turn 2: "every B variant brings back the defect that cycle 2 Minor 1 measured, and a scope-based Decisions reason doesn't answer it … A costs only extra pack context, with no doc claim and no ADR side effects."
+**Dissent to honour**: The surfaces records don't serve this change, because the changed line calls a connection-owned constructor. The added pack context (about +6k words, 42–49 KB per remaining role) is dilution, not harm; nothing has measured a cost to reviewers. `kb ls --feature surfaces --status proposed` is empty, so Completion step 4 and `/land` see no side effects.
+**Landed in**: `plans/settings-update-failures/plan.md` (**Features** header and its *Amended* note), `docs/adr/process-features-widened-for-a-refactor-call-site.md` (proposed)

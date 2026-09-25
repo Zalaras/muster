@@ -1,7 +1,7 @@
 ---
 id: update-install-kinds-decide-who-may-apply
 type: decision
-status: accepted
+status: superseded
 date: 2026-09-10
 summary: The binary classifies its install at startup as dev, homebrew, unmanaged or installer; only installer may apply, the others badge with a remedy or stay silent.
 features: [update]

@@ -37,7 +37,7 @@ defines the **roles**; it does not repeat the numbers.
 | `--amber-line` `--rose-line` `--violet-line` `--teal-line` | state border tints: badge borders, Blocked/Failed tile borders (exempt — redundant carriers; the word and position carry state) |
 | `--amber-note` / `--rose-note` | the card note's copy (Needs-Input reason / Failed reason) |
 | `--amber-fg` | text on an amber fill (the one filled primary per surface) |
-| `--banner-bg` / `--banner-line` / `--banner-fg` | daemon-down banner (§6.7) — never `--rose` |
+| `--banner-bg` / `--banner-line` / `--banner-fg` | daemon-down banner (§6.7), the update-restart banner included — never `--rose`; the post-update `Updated to v…` confirmation uses the neutral `.banner.neutral` modifier instead (`--bg-raised` ground, `--fg-muted` text, `--line-control` border) — information, not an alarm |
 | `--danger` / `--danger-line` / `--danger-fg` | destructive actions (§3: rose is never delete) |
 | `--disabled-fg` / `--disabled-line` / `--disabled-bg` | every `.btn:disabled` (§5) — exempt from the contrast bar (inactive components) |
 | `--term-dark-bg`/`-fg`, `--term-light-bg`/`-fg` | the two terminal pairs every theme supplies |
@@ -276,7 +276,10 @@ makes the UI assert something Muster does not know.
 7. **Surface daemon-down loudly.** While it is down every managed pane fills with hook-error
    lines; the UI must explain that noise or it reads as sessions failing. The banner grounds
    on the dedicated `--banner-*` tokens (§1), never on `--rose` — per §3 a state colour may
-   only ever mean its state, and the banner is about the daemon, not a session.
+   only ever mean its state, and the banner is about the daemon, not a session. After an
+   update restart the window that saw it reads `Updating musterd to v… — restarting; hook
+   output in open panes is Muster's absence, not session failure.` for up to 30 s, then the
+   ordinary unreachable text; the same pane-noise explanation rides both.
 8. **Stale is labelled, not hidden.** Hook delivery is lossy and unordered; when state may be
    stale, show its age rather than implying freshness.
 

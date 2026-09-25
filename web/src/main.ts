@@ -19,6 +19,7 @@ import { createApp } from "./app";
 import { initActions } from "./features/actions";
 import { initUsage } from "./features/usage";
 import { initUpdate } from "./features/update";
+import { initUpdateRestart } from "./features/updaterestart";
 import { initIssue } from "./features/issue";
 import { initTiles } from "./features/tiles";
 import { initFocus } from "./features/focus";
@@ -41,6 +42,7 @@ const app = createApp();
 const actions = initActions(app);
 initUsage(app);
 initUpdate(app);
+const updateRestart = initUpdateRestart(app);
 initIssue(app);
 const rename = initRename(app);
 const tiles = initTiles(app, {
@@ -73,12 +75,17 @@ initRail(app, { actions, surfaces });
 // 10. views    — switcher, density control, view containers' hidden, then focus (view) in
 //     Focus, else tiles (view) in Tiles — registered inside initViews, since that phase is
 //     inherently split across two controllers by shared state (views.ts).
+// 11. connection — banner text/visibility, time-based as well as status-driven
+//     (initConnection, registered further down once `updateRestart` exists to supply it)
 const views = initViews(app, { focus, tiles });
 initTheme(app);
 const launch = initLaunch(app, { focus, surfaces });
 initSettings(app);
 initShortcuts(app, { views, focus, actions, launch });
-const connection = initConnection(app);
+const connection = initConnection(app, {
+  restartBanner: updateRestart.bannerOverride,
+  reloading: updateRestart.reloading,
+});
 
 // A document-level foreign-drag/drop guard, installed once at
 // startup — swallows a drag/drop anywhere it isn't already claimed by a terminal

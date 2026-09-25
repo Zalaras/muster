@@ -149,7 +149,7 @@ func New(cfg Config) *Server {
 		tmuxSocket:    cfg.TmuxSocket,
 		daemonVersion: cfg.DaemonVersion,
 		claudeCode:    cfg.ClaudeCode,
-		hub:           newWSHub(),
+		hub:           newWSHub(cfg.Logger),
 	}
 
 	// Always constructed (cheap); the default attachFunc closes over this concrete

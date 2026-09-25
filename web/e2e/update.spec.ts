@@ -1,17 +1,18 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, realpath, rm } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { buildVersionedMusterd, type StagedBinary, stageBinary } from "./helpers/daemon";
 import { expect, settleFor, test } from "./helpers/fixtures";
-import { FakeReleaseServer, type TamperKind } from "./helpers/releases";
+import { archiveAssetName, FakeReleaseServer, goArch, type TamperKind } from "./helpers/releases";
 import { launchSession, scratchDirectory, sessionCard } from "./helpers/session";
 import { createShellViaApi, shellTmuxTarget } from "./helpers/shell";
 import { terminalRegion } from "./helpers/terminal";
 import { openSettingsDialog, settingsButton, settingsCloseButton } from "./helpers/theme";
 import {
+  expectRemedyContained,
   openUpdateRestartConfirm,
   restartConfirmBody,
   restartConfirmButton,
@@ -35,7 +36,13 @@ import {
 // Every daemon here is `startDaemon` (never the plain `daemon` fixture), because every
 // test needs its own FakeReleaseServer URL and minisign public-key-file path — exactly
 // the "spawn options depend on a value computed inside the test" case
-// `helpers/fixtures.ts` reserves `startDaemon` for. `binary`/`env`/`updateBaseURL`/
+// `helpers/fixtures.ts` reserves `startDaemon` for. Two exceptions below take the plain
+// `daemon` fixture instead, per `helpers/fixtures.ts`'s own decision rule, because
+// neither involves a release check or apply: the throwing `sessionStorage` accessor
+// case (asserts only that the dashboard boots and connects at all) and the
+// protocol-mismatch-on-reconnect case (arms its restart record and rewrites the
+// reconnect's `hello` directly over a routed `/ws`, never through a real download).
+// `binary`/`env`/`updateBaseURL`/
 // `updateCheckInterval`/`updatePublicKeyFile` are new `ScratchDaemonOptions` fields, and
 // `buildVersionedMusterd`/`stageBinary` are new `helpers/daemon.ts` exports — all listed
 // under the plan's own "Web Affected Files" (web-impl's, not e2e-specs'). Until web-impl
@@ -1034,4 +1041,485 @@ test("Check now disables the button the instant it starts and shows its result t
     if (staged) await staged.cleanup();
     await cleanup();
   }
+});
+
+// Plan settings-update-failures — E1 through E6 (#53 and the two sibling items).
+// REQ-4's recheck-on-every-check means E1/E2 below assert BOTH the initial remedy text
+// (REQ-1/REQ-2's exact composed sentence, not the old plan's loose install.sh-or-curl
+// match those tests keep — see Implementation Notes: E7/E11/E13 above are untouched) AND
+// that clearing the blocker and pressing Check now enables Update without a restart —
+// the actual behaviour this plan adds on top of the existing one-time startup
+// classification. E5/E6 assert only the settled post-reload state: the transient
+// "Updating musterd… — restarting" banner (REQ-14) is a sub-second display during a real
+// restart and is review-browser's job per the plan's own W11, not this suite's.
+
+test("a binary staged inside a scratch git tree shows the checkout root in the remedy; removing .git and pressing Check now enables Update and clears the status line (E1, REQ-2)", async ({
+  page,
+  startDaemon,
+}) => {
+  const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
+  let scratchRoot: string | undefined;
+  let staged: StagedBinary | undefined;
+  try {
+    const oldBinary = await buildVersionedMusterd(OLD_VERSION);
+    const newBinary = await buildVersionedMusterd(NEW_VERSION);
+    await fakeServer.publish({ tag: NEW_TAG, binaryPath: newBinary });
+    fakeServer.setLatest(NEW_TAG);
+
+    // Same symlink-resolution precedent as the pre-existing Homebrew test (E9) above:
+    // `mkdtemp(tmpdir())` on macOS returns a `/var/folders/...` path that is itself a
+    // symlink to `/private/var/folders/...`, and REQ-2's `<root>` is built from the
+    // daemon's own resolved executable path, so the expected string here must be built
+    // from the same resolved form or the two can never agree.
+    scratchRoot = await mkdtemp(join(tmpdir(), "muster-e2e-settings-git-"));
+    const resolvedRoot = await realpath(scratchRoot);
+    staged = await stageBinary(oldBinary, resolvedRoot);
+    await execFileAsync("git", ["init"], { cwd: resolvedRoot });
+
+    const daemon = await startDaemon({
+      binary: staged.path,
+      updateBaseURL: fakeServer.baseURL,
+      updatePublicKeyFile: pubKeyPath,
+    });
+
+    await page.goto(daemon.dashboardUrl);
+    await expect(settingsBadgeDot(page)).toBeVisible();
+    const dialog = await openSettingsDialog(page);
+    await expect(updateStatusLine(dialog)).toHaveText(
+      `can't update ${staged.path}: it is inside the git checkout ${resolvedRoot} — install with: curl -fsSL https://raw.githubusercontent.com/Zalaras/muster/main/scripts/install.sh | sh`,
+    );
+    await expect(updateApplyButton(dialog)).toBeDisabled();
+    await expect(updateRestartButton(dialog)).toBeDisabled();
+    // kb:adr/update-remedy-names-path-and-cause: the remedy's long unbreakable tokens
+    // (the checkout root here) must not widen the dialog past its own edge, clipping the
+    // Theme/Rail-card controls beside the status line — `toHaveText` above never touches
+    // either box.
+    await expectRemedyContained(dialog);
+
+    await rm(join(resolvedRoot, ".git"), { recursive: true, force: true });
+    await updateCheckButton(dialog).click();
+    await expect(updateApplyButton(dialog)).toBeEnabled();
+    await expect(updateRestartButton(dialog)).toBeEnabled();
+    await expect(updateStatusLine(dialog)).toHaveText("");
+  } finally {
+    if (staged) await staged.cleanup();
+    await cleanup();
+    if (scratchRoot) await rm(scratchRoot, { recursive: true, force: true });
+  }
+});
+
+test("a binary staged in a chmod 0555 directory shows the not-writable remedy; chmod 0755 and pressing Check now enables Update (E2, REQ-1)", async ({
+  page,
+  startDaemon,
+}) => {
+  const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
+  let scratchRoot: string | undefined;
+  let staged: StagedBinary | undefined;
+  let restoredPerms = false;
+  try {
+    const oldBinary = await buildVersionedMusterd(OLD_VERSION);
+    const newBinary = await buildVersionedMusterd(NEW_VERSION);
+    await fakeServer.publish({ tag: NEW_TAG, binaryPath: newBinary });
+    fakeServer.setLatest(NEW_TAG);
+
+    scratchRoot = await mkdtemp(join(tmpdir(), "muster-e2e-settings-perm-"));
+    const resolvedRoot = await realpath(scratchRoot);
+    staged = await stageBinary(oldBinary, resolvedRoot);
+    await chmod(resolvedRoot, 0o555);
+
+    const daemon = await startDaemon({
+      binary: staged.path,
+      updateBaseURL: fakeServer.baseURL,
+      updatePublicKeyFile: pubKeyPath,
+    });
+
+    await page.goto(daemon.dashboardUrl);
+    await expect(settingsBadgeDot(page)).toBeVisible();
+    const dialog = await openSettingsDialog(page);
+    await expect(updateStatusLine(dialog)).toHaveText(
+      `can't update ${staged.path}: ${resolvedRoot} is not writable (permission denied) — install with: curl -fsSL https://raw.githubusercontent.com/Zalaras/muster/main/scripts/install.sh | sh`,
+    );
+    await expect(updateApplyButton(dialog)).toBeDisabled();
+    await expect(updateRestartButton(dialog)).toBeDisabled();
+    // kb:adr/update-remedy-names-path-and-cause: the remedy's long unbreakable tokens
+    // (the staged path here) must not widen the dialog past its own edge, clipping the
+    // Theme/Rail-card controls beside the status line — `toHaveText` above never touches
+    // either box.
+    await expectRemedyContained(dialog);
+
+    // Restored on the happy path here, and in `finally` below for a thrown assertion
+    // (the plan's own Implementation Notes calls out exactly this: the chmod must be
+    // undone so cleanup can delete the directory either way).
+    await chmod(resolvedRoot, 0o755);
+    restoredPerms = true;
+    await updateCheckButton(dialog).click();
+    await expect(updateApplyButton(dialog)).toBeEnabled();
+    await expect(updateRestartButton(dialog)).toBeEnabled();
+    await expect(updateStatusLine(dialog)).toHaveText("");
+  } finally {
+    if (!restoredPerms && scratchRoot) {
+      await chmod(scratchRoot, 0o755).catch(() => {});
+    }
+    if (staged) await staged.cleanup();
+    await cleanup();
+    if (scratchRoot) await rm(scratchRoot, { recursive: true, force: true });
+  }
+});
+
+test("Check now against a stopped release host shows the exact couldn't-reach-the-release-host sentence (E3, REQ-8)", async ({
+  page,
+  startDaemon,
+}) => {
+  const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
+  let staged: StagedBinary | undefined;
+  try {
+    staged = await stageInstaller(OLD_VERSION);
+    // Stopped before the daemon even starts: its own on-listen check also fails this
+    // way, but that failure is silent (automatic checks never surface an error, REQ-11's
+    // "stays at debug"), so the only reason this sentence can appear on screen is the
+    // Check now click below.
+    await fakeServer.stop();
+    const daemon = await startDaemon({
+      binary: staged.path,
+      updateBaseURL: fakeServer.baseURL,
+      updatePublicKeyFile: pubKeyPath,
+    });
+
+    await page.goto(daemon.dashboardUrl);
+    const dialog = await openSettingsDialog(page);
+    await updateCheckButton(dialog).click();
+    await expect(updateStatusLine(dialog)).toHaveText(
+      "update check failed: couldn't reach the release host (connection refused)",
+    );
+  } finally {
+    if (staged) await staged.cleanup();
+    await cleanup();
+  }
+});
+
+test("Update fails with the exact download-failure sentence when the release host stops before the click, leaving the on-disk binary byte-identical (E4, REQ-9)", async ({
+  page,
+  startDaemon,
+}) => {
+  const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
+  let staged: StagedBinary | undefined;
+  try {
+    staged = await stageInstaller(OLD_VERSION);
+    const newBinary = await buildVersionedMusterd(NEW_VERSION);
+    await fakeServer.publish({ tag: NEW_TAG, binaryPath: newBinary });
+    fakeServer.setLatest(NEW_TAG);
+    const daemon = await startDaemon({
+      binary: staged.path,
+      updateBaseURL: fakeServer.baseURL,
+      updatePublicKeyFile: pubKeyPath,
+    });
+
+    await page.goto(daemon.dashboardUrl);
+    // The on-listen check already succeeded (badge visible) before the host stops, so
+    // Update is enabled and the download itself — not the version check — is what fails.
+    await expect(settingsBadgeDot(page)).toBeVisible();
+    const dialog = await openSettingsDialog(page);
+    const shaBefore = await sha256File(staged.path);
+
+    await fakeServer.stop();
+    await updateApplyButton(dialog).click();
+
+    const assetName = archiveAssetName(NEW_VERSION, goArch());
+    await expect(updateStatusLine(dialog)).toHaveText(
+      `Update failed: couldn't download ${assetName} (connection refused); nothing was installed`,
+    );
+    const shaAfter = await sha256File(staged.path);
+    expect(shaAfter).toBe(shaBefore);
+  } finally {
+    if (staged) await staged.cleanup();
+    await cleanup();
+  }
+});
+
+test("Update and restart reloads the page: a pre-restart window marker is gone afterwards, the banner confirms the new version then hides, and Running shows it (E5, E6, REQ-16, REQ-17)", async ({
+  page,
+  startDaemon,
+}) => {
+  const { fakeServer, pubKeyPath, cleanup } = await startReleaseServer();
+  let staged: StagedBinary | undefined;
+  try {
+    staged = await stageInstaller(OLD_VERSION);
+    const newBinary = await buildVersionedMusterd(NEW_VERSION);
+    await fakeServer.publish({ tag: NEW_TAG, binaryPath: newBinary });
+    fakeServer.setLatest(NEW_TAG);
+    const daemon = await startDaemon({
+      binary: staged.path,
+      updateBaseURL: fakeServer.baseURL,
+      updatePublicKeyFile: pubKeyPath,
+    });
+
+    // REQ-17's 3 s is a duration, not just an eventual outcome — a bare `toBeHidden()`
+    // below inherits the 15 s expect timeout, so a confirmation that lingers for
+    // anywhere up to ~15 s would still pass. `addInitScript` re-runs on every fresh
+    // document this `page` loads, including the reload REQ-16 triggers, so the observer
+    // is already attached from the confirmation's very first paint on the post-reload
+    // page — reading its own text/hidden mutations, not Playwright's poll timing, is what
+    // makes the recorded shown/hidden timestamps trustworthy to within a few ms.
+    await page.addInitScript(() => {
+      const attach = (): void => {
+        const banner = document.getElementById("banner");
+        if (!banner) return;
+        const events: Array<{ t: number; hidden: boolean; text: string }> = [];
+        const observer = new MutationObserver(() => {
+          events.push({
+            t: performance.now(),
+            hidden: Boolean(banner.hidden),
+            text: banner.textContent ?? "",
+          });
+        });
+        observer.observe(banner, {
+          attributes: true,
+          attributeFilter: ["hidden"],
+          childList: true,
+          subtree: true,
+          characterData: true,
+        });
+        (window as unknown as { __bannerEvents?: typeof events }).__bannerEvents = events;
+      };
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", attach);
+      } else {
+        attach();
+      }
+    });
+
+    await page.goto(daemon.dashboardUrl);
+    await expect(settingsBadgeDot(page)).toBeVisible();
+    let dialog = await openSettingsDialog(page);
+    await expect(updateRunningReadout(dialog)).toHaveText(`v${OLD_VERSION}`);
+
+    // A marker on `window` survives only a WS reconnect (resilience.spec.ts already
+    // proves an ordinary kill/restart never reloads); its disappearance is this test's
+    // independent proof that REQ-16's `location.reload()` actually ran, alongside the
+    // confirmation banner below.
+    await page.evaluate(() => {
+      (window as unknown as { __e2eMarker?: string }).__e2eMarker = "before-restart";
+    });
+
+    const confirm = await openUpdateRestartConfirm(page, dialog);
+    await restartConfirmButton(confirm).click();
+
+    // REQ-16/17: only the settled, post-reload confirmation is asserted here — the
+    // transient "Updating musterd… — restarting" banner (REQ-14) is a sub-second display
+    // during a real restart (plan Reviewer-Verified W11), which review-browser watches.
+    const banner = page.getByRole("alert");
+    await expect(banner).toHaveText(`Updated to v${NEW_VERSION}.`);
+
+    // Shortened from the config's 15 s default (with this comment, per the harness's
+    // "shorten only" rule): the fix schedules the hide within ~100 ms of the 3 s mark, so
+    // 4.5 s leaves ample margin for CI jitter while still failing fast on the pre-fix
+    // ~4 s behaviour instead of waiting out the full default.
+    await expect(banner).toBeHidden({ timeout: 4_500 });
+
+    const elapsedMs = await page.evaluate((wantText) => {
+      const events = (
+        window as unknown as {
+          __bannerEvents?: Array<{ t: number; hidden: boolean; text: string }>;
+        }
+      ).__bannerEvents;
+      if (!events) return null;
+      const shownEvent = events.find((e) => !e.hidden && e.text === wantText);
+      if (!shownEvent) return null;
+      const hiddenEvent = events.find((e) => e.t > shownEvent.t && e.hidden);
+      if (!hiddenEvent) return null;
+      return hiddenEvent.t - shownEvent.t;
+    }, `Updated to v${NEW_VERSION}.`);
+    // kb:adr/update-restart-reloads-dashboard: the confirmation hides within about
+    // 100 ms of the 3 s mark, widened here to allow for CI scheduling jitter without
+    // admitting a ~1 s-late regression (a confirmation left to the next 1 s render tick
+    // instead of its own scheduled hide misses this window by hundreds of ms).
+    expect(elapsedMs).not.toBeNull();
+    expect(elapsedMs as number).toBeGreaterThan(2_700);
+    expect(elapsedMs as number).toBeLessThan(3_400);
+
+    expect(
+      await page.evaluate(() => (window as unknown as { __e2eMarker?: string }).__e2eMarker),
+    ).toBeUndefined();
+
+    dialog = await openSettingsDialog(page);
+    await expect(updateRunningReadout(dialog)).toHaveText(`v${NEW_VERSION}`);
+  } finally {
+    if (staged) await staged.cleanup();
+    await cleanup();
+  }
+});
+
+test("dashboard still boots and connects when the window.sessionStorage accessor itself throws", async ({
+  page,
+  daemon,
+}) => {
+  // Chrome with site data blocked throws on the `sessionStorage` global GETTER itself,
+  // not just its getItem/setItem/removeItem methods — a stricter case than a stubbed
+  // StorageLike whose methods throw. `updaterestart.test.ts`'s own "edge 18" case proves
+  // `initUpdateRestart` doesn't throw when constructed this way, against a mocked `app`
+  // and `reload`; it can't prove the real dashboard still boots and opens its `/ws`
+  // connection when `main.ts` constructs every controller against a real
+  // `window.sessionStorage` this hostile — only a live page can. `addInitScript` installs
+  // the throwing accessor before any page script runs, on the real built bundle.
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "sessionStorage", {
+      configurable: true,
+      get(): never {
+        throw new DOMException("The operation is insecure.", "SecurityError");
+      },
+    });
+  });
+
+  await page.goto(daemon.dashboardUrl);
+  await expect(page.getByRole("status")).toHaveText(/connected/i);
+
+  // The ordinary daemon-down banner must still surface in this configuration too, not
+  // just the initial connect — a guard that only fixes the boot path and leaves the rest
+  // of the dashboard wired to the same throwing global would pass the two lines above and
+  // still fail here.
+  const banner = page.getByRole("alert");
+  await daemon.kill();
+  await expect(banner).toBeVisible({ timeout: 15_000 });
+  await expect(banner).toHaveText(/musterd unreachable/i);
+});
+
+test("a window holding a restart record reloads on a mismatched-protocol reconnect without ever showing the mismatch screen (REQ-16, edge case 17)", async ({
+  page,
+  daemon,
+}) => {
+  // REQ-16/edge case 17: whatever protocolVersion a held record's first post-drop hello
+  // carries, the window reloads rather than showing #protocol-mismatch. `location.reload()`
+  // only schedules the navigation — ws.ts's dispatch keeps running synchronously past
+  // `onHelloArrived`, so a naive gate could paint the mismatch screen for one frame before
+  // the reload actually navigates away (this is exactly the race
+  // `features/updaterestart.ts`'s `reloading()` plus `features/connection.ts`'s
+  // `showProtocolMismatch()` gate close). Never through a real download or a real daemon
+  // restart — no release check or apply is involved, so the plain `daemon` fixture is used
+  // (per this file's own header note) and the restart record is armed directly by sending
+  // a synthetic `update` broadcast over a routed `/ws`, the same technique actions.spec.ts's E14 test and
+  // general-cleanup.spec.ts's pop-out test use to force a connection outage without
+  // touching the daemon process.
+  const MISMATCHED_PROTOCOL_VERSION = 99;
+
+  // Every #protocol-mismatch/#app `hidden` mutation, timestamped on the Node side (not
+  // the page's own clock, which resets across the reload this test triggers) via an
+  // exposed function — `page.exposeFunction`-installed bindings "survive navigations"
+  // (Playwright docs), unlike anything stored on `window`, so the log isn't lost when the
+  // fix's own reload fires mid-test.
+  const events: Array<{ t: number; mismatchHidden: boolean; appHidden: boolean }> = [];
+  await page.exposeFunction(
+    "__reportMismatchState",
+    (mismatchHidden: boolean, appHidden: boolean) => {
+      events.push({ t: Date.now(), mismatchHidden, appHidden });
+    },
+  );
+  // Re-attaches on every fresh document (including the reload), same idiom as the E5/E6
+  // test above's `#banner` observer.
+  await page.addInitScript(() => {
+    const attach = (): void => {
+      const mismatchEl = document.getElementById("protocol-mismatch");
+      const appEl = document.getElementById("app");
+      if (!mismatchEl || !appEl) return;
+      const report = (): void => {
+        (
+          window as unknown as {
+            __reportMismatchState: (mismatchHidden: boolean, appHidden: boolean) => void;
+          }
+        ).__reportMismatchState(Boolean(mismatchEl.hidden), Boolean(appEl.hidden));
+      };
+      report();
+      const observer = new MutationObserver(report);
+      observer.observe(mismatchEl, { attributes: true, attributeFilter: ["hidden"] });
+      observer.observe(appEl, { attributes: true, attributeFilter: ["hidden"] });
+    };
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", attach);
+    } else {
+      attach();
+    }
+  });
+
+  // Proxies the dashboard's one `/ws` transparently, except: (a) it exposes a way to push
+  // a message to the page directly (arming the restart record with no real apply), (b) it
+  // exposes a way to close the server-side connection (forcing a real disconnect/
+  // reconnect, mirroring a daemon bounce, same technique actions.spec.ts's E14 test
+  // uses), and (c) once armed, it rewrites the very next `hello` the real daemon sends to
+  // carry an unsupported `protocolVersion` before relaying it — every other frame passes
+  // through unchanged.
+  const wsRoute: {
+    sendToPage: ((raw: string) => void) | null;
+    closeServer: (() => Promise<void>) | null;
+  } = { sendToPage: null, closeServer: null };
+  let rewriteNextHello = false;
+  await page.routeWebSocket("**/ws", (ws) => {
+    wsRoute.sendToPage = (raw) => ws.send(raw);
+    const server = ws.connectToServer();
+    wsRoute.closeServer = () => server.close();
+    server.onMessage((message) => {
+      if (rewriteNextHello && typeof message === "string") {
+        const parsed: unknown = JSON.parse(message);
+        if (
+          parsed !== null &&
+          typeof parsed === "object" &&
+          (parsed as { type?: unknown }).type === "hello"
+        ) {
+          rewriteNextHello = false; // only the reconnect's own first hello is mismatched
+          ws.send(JSON.stringify({ ...parsed, protocolVersion: MISMATCHED_PROTOCOL_VERSION }));
+          return;
+        }
+      }
+      ws.send(message);
+    });
+  });
+
+  await page.goto(daemon.dashboardUrl);
+  await expect(page.getByRole("status")).toHaveText(/connected/i);
+
+  // Only the reload this test triggers below should land here — the initial `goto`'s own
+  // load has already resolved by the time this listener is registered.
+  const loadTimes: number[] = [];
+  page.on("load", () => loadTimes.push(Date.now()));
+
+  // Arms a held restart record with no real apply — a hand-built, fully valid `update`
+  // broadcast (every field `protocol/update.ts`'s `parseUpdateInfo` requires) with
+  // `apply.phase: "restarting"`, the one shape `features/updaterestart.ts`'s `app.on(
+  // "update", ...)` handler reads to set `record`.
+  if (!wsRoute.sendToPage) throw new Error("expected the WS route to be active");
+  wsRoute.sendToPage(
+    JSON.stringify({
+      type: "update",
+      update: {
+        running: "0.1.0",
+        install: "installer",
+        remedy: null,
+        canCheck: true,
+        available: "0.2.0",
+        checkedAt: null,
+        installed: null,
+        apply: { phase: "restarting", version: "0.2.0", error: null },
+      },
+    }),
+  );
+
+  rewriteNextHello = true;
+  if (!wsRoute.closeServer) throw new Error("expected the WS route to be active");
+  await wsRoute.closeServer();
+
+  // The reconnect's mismatched hello triggers the reload this test is checking for.
+  await page.waitForEvent("load", { timeout: 10_000 });
+  const reloadAt = loadTimes[0];
+  if (reloadAt === undefined) throw new Error("expected the reload's load event to fire");
+
+  // The reloaded page reconnects normally (its own hello is unmodified — the rewrite
+  // only ever applied to the one hello that triggered the reload above), proving the
+  // window ends up fully functional, not stuck.
+  await expect(page.getByRole("status")).toHaveText(/connected/i, { timeout: 15_000 });
+
+  // Guards against a vacuous pass: if the observer never attached, `events` would stay
+  // empty and the filter below would trivially find nothing to complain about.
+  expect(events.length).toBeGreaterThan(0);
+  const beforeUnload = events.filter((e) => e.t < reloadAt);
+  expect(beforeUnload.length).toBeGreaterThan(0);
+  const flashed = beforeUnload.filter((e) => !e.mismatchHidden || e.appHidden);
+  expect(flashed).toEqual([]);
 });

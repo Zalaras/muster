@@ -1,7 +1,7 @@
 // The WS-to-App mapping: every WS message's app-side effect (store write, emit, render).
 // `coreWsHandlers` is what both `main.ts` and `doc.ts` register unchanged; `dashboardWsHandlers`
 // layers the dashboard-only messages on top (session-removed/usage/update/shell-activity/
-// mismatch), which the pop-out has no feature to receive. Connection-status handling itself
+// mismatch/hello-arrived), which the pop-out has no feature to receive. Connection-status handling itself
 // stays owned by `features/connection.ts` — this module only calls into whatever
 // `WsAppConnection` the caller already built.
 import type { App } from "./app";
@@ -82,5 +82,9 @@ export function dashboardWsHandlers(
       app.render();
     },
     onProtocolMismatch: () => connection.showProtocolMismatch(),
+    // features/updaterestart.ts's own `app.on("helloArrived", ...)` decides what to do
+    // with it (kb:adr/update-restart-reloads-dashboard) — this module only relays the
+    // raw WS signal onto the event bus, same as every other message above.
+    onHelloArrived: () => app.emit("helloArrived"),
   };
 }

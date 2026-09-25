@@ -15,13 +15,41 @@ import (
 // stall the daemon's check loop.
 const CheckTimeout = 10 * time.Second
 
+// TransportError marks a failed network round trip to the release host — classified by
+// failure.go's DescribeCheckFailure into the "couldn't reach the release host" wire class,
+// as opposed to a redirect that came back but failed to parse (StatusError/TagError) or a
+// request that failed to build at all.
+type TransportError struct{ Err error }
+
+func (e *TransportError) Error() string { return fmt.Sprintf("requesting the release host: %s", e.Err) }
+func (e *TransportError) Unwrap() error { return e.Err }
+
+// StatusError is a non-redirect response to the latest-release HEAD — classified into the
+// "answered <status>, not a redirect" wire class.
+type StatusError struct{ Status int }
+
+func (e *StatusError) Error() string {
+	return fmt.Sprintf("latest release request returned status %d, want a redirect", e.Status)
+}
+
+// TagError is a redirect tag that doesn't parse as a release version — classified into the
+// "is not a release version" wire class.
+type TagError struct{ Tag string }
+
+func (e *TagError) Error() string {
+	return fmt.Sprintf("redirect tag %q is not a release version", e.Tag)
+}
+
 // LatestTag resolves {base}/latest's redirect to a release tag
 // (kb:adr/release-latest-resolved-via-redirect-not-api): a HEAD request
 // (the redirect is unmetered, unlike the rate-limited REST API scripts/install.sh also
 // avoids), following no redirects itself — the Location header is read directly off the
 // 3xx response. The Location may be absolute or path-relative (both measured against
 // github.com's real redirect shape); only its last path
-// segment is used, and it must parse as a release tag.
+// segment is used, and it must parse as a release tag. Every failure returns one of
+// TransportError/StatusError/TagError, or a plain error for anything else (e.g. no
+// Location header) — DescribeCheckFailure (failure.go) classifies these into the wire
+// text (kb:adr/update-failure-one-sentence-chain-in-log).
 func LatestTag(ctx context.Context, client *http.Client, base string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, CheckTimeout)
 	defer cancel()
@@ -49,12 +77,12 @@ func LatestTag(ctx context.Context, client *http.Client, base string) (string, e
 
 	resp, err := noRedirect.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("requesting %s: %w", latestURL, err)
+		return "", &TransportError{Err: err}
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 300 || resp.StatusCode >= 400 {
-		return "", fmt.Errorf("latest release request returned status %d, want a redirect", resp.StatusCode)
+		return "", &StatusError{Status: resp.StatusCode}
 	}
 	loc := resp.Header.Get("Location")
 	if loc == "" {
@@ -67,7 +95,7 @@ func LatestTag(ctx context.Context, client *http.Client, base string) (string, e
 	}
 	tag := path.Base(u.Path)
 	if _, ok := ParseRelease(tag); !ok {
-		return "", fmt.Errorf("redirect tag %q is not a release version", tag)
+		return "", &TagError{Tag: tag}
 	}
 	return tag, nil
 }
@@ -113,7 +141,7 @@ func CheckNewer(ctx context.Context, client *http.Client, base, running string) 
 	}
 	latest, ok := ParseRelease(tag)
 	if !ok {
-		return Version{}, "", false, fmt.Errorf("latest tag %q is not a release version", tag)
+		return Version{}, "", false, &TagError{Tag: tag}
 	}
 	runningVer, ok := ParseRelease(running)
 	if !ok {

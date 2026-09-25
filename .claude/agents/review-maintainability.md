@@ -72,6 +72,16 @@ a citation is a `[note]`. Paste the `rg` output that shows a duplicate; quote th
 signature beside the new one. The fix agents will act on exactly what you write, so name the file
 and line and say what a fix must make true — not how to write it.
 
+## Delta Re-review
+
+Applies **only** when the spawn prompt says the previous cycle's only open agent-tagged issues
+were Minors. Read that cycle's part (`plans/<plan-name>/review.maintainability.cycle<N-1>.md`) and
+verify each of its Minors against `git diff <review_commits[N-1]>..HEAD` (from `python3
+.claude/skills/orchestrate/scripts/orch-state.py <plan-name> show`): the fix is present and does
+what the Minor asked. Then ask the per-file questions above of the non-test files that diff
+touches, not the whole branch. Record each prior Minor in a `## Delta` table (prior Minor, fix
+commit, verified how); verdict rules are unchanged.
+
 ## Severity and Tags
 
 `review-work`'s scale and tags: **Critical** (a hard-rule layer breach — adapter leak, composition
@@ -95,7 +105,7 @@ commits all reviewers' parts with the merged `review.md`.
 **Verdict**: approved | needs-changes
 **Cycle**: <N>
 **Pack**: <kb pack summary line>
-**Scope**: <N files from `git diff main...HEAD`, or the Scope line>
+**Scope**: <N files from `git diff main...HEAD`, the delta diff, or the Scope line>
 
 ## Files
 

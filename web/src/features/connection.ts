@@ -1,14 +1,37 @@
 // Connection status readout, daemon-down banner, protocol mismatch, and the Claude Code
 // version readout (kb:adr/process-one-name-per-feature: "connection"). Owns `everConnected` —
 // only true once a `hello` has ever been received, so a socket that hasn't connected yet
-// reads "connecting…" rather than flashing "musterd unreachable" on first load.
+// reads "connecting…" rather than flashing "musterd unreachable" on first load. Also owns
+// whether a mismatched hello actually shows the mismatch screen: a window mid update-restart
+// reload suppresses it (kb:adr/update-restart-reloads-dashboard), decided here via
+// `ConnectionDeps.reloading` rather than by the WS-message caller.
 import type { App, ConnectionStatus } from "../app";
 import { requireElement } from "../dom";
 import { isRestorableControl, shouldRestoreFocus } from "./connectionrestore";
 import { describeClaudeVersion } from "./connectionversion";
-import { renderBanner } from "../render/banner";
+import { DAEMON_ABSENCE_CLAUSE, renderBanner, renderBannerContent } from "../render/banner";
 import { renderClaudeVersion, renderConnectionStatus } from "../render/masthead";
 import type { ClaudeCodeInfo } from "../protocol/hello";
+
+const DAEMON_DOWN_TEXT = `musterd unreachable — ${DAEMON_ABSENCE_CLAUSE}`;
+
+/** features/updaterestart.ts's implementation, typed structurally per convention (no
+ * controller imports a sibling) — this is the one cross-feature contact point
+ * update-restart state crosses through, as data rather than a second module reaching into
+ * this module's elements or decisions (kb:adr/update-restart-reloads-dashboard).
+ * `restartBanner` returns `null` for "no override", so this module falls through to its
+ * own ordinary daemon-down text; this module stays the banner's sole writer. `reloading`
+ * is read by `showProtocolMismatch` below, so the mismatch-suppression decision has the
+ * same one home as the banner override. */
+export interface ConnectionDeps {
+  restartBanner(now: Date, status: ConnectionStatus): { text: string; neutral: boolean } | null;
+  /** True once this window has kicked off its update-restart reload for a held record.
+   * `location.reload()` only schedules the navigation, so a protocol-mismatched hello on
+   * the same tick that triggered it would otherwise still reach `showProtocolMismatch`
+   * (kb:adr/update-restart-reloads-dashboard) — checked first thing there, so it is a
+   * no-op for that hello. */
+  reloading(): boolean;
+}
 
 export interface ConnectionHandle {
   /** WS `onHello`: marks the daemon reachable, sets status "connected", and renders the
@@ -19,7 +42,9 @@ export interface ConnectionHandle {
   disconnected(): void;
   /** The shell vanishes under this fatal state; moving focus onto the (fatal,
    * tabindex="-1") mismatch element gives a keyboard/screen-reader user somewhere
-   * sensible to land. */
+   * sensible to land. A no-op while `deps.reloading()` is true — that hello is about to
+   * be superseded by an update-restart reload, not a real mismatch
+   * (kb:adr/update-restart-reloads-dashboard). */
   showProtocolMismatch(): void;
 }
 
@@ -57,7 +82,7 @@ export function createConnectionState(
   };
 }
 
-export function initConnection(app: App): ConnectionHandle {
+export function initConnection(app: App, deps: ConnectionDeps): ConnectionHandle {
   const connectionStatusEl = requireElement<HTMLElement>("#connection-status");
   const bannerEl = requireElement<HTMLElement>("#banner");
   const claudeVersionEl = requireElement<HTMLElement>("#claude-version");
@@ -72,12 +97,18 @@ export function initConnection(app: App): ConnectionHandle {
   // across the disconnect->reconnect pair of renders — never per-site.
   let remembered: (HTMLButtonElement | HTMLSelectElement) | null = null;
 
+  // The banner's own last-written text/neutral/visible, held by this instance
+  // (render/CLAUDE.md's render-state rule: a builder's cross-call state belongs to the
+  // caller that holds refs it built once, not the builder itself) — `null` never equals
+  // a real string, so the first tick always writes. Read by the render phase below to
+  // skip a DOM write when nothing changed, so a steady daemon-down produces no
+  // `#banner` mutations for its `role="alert"` to re-announce.
+  let lastBannerText: string | null = null;
+  let lastBannerNeutral = false;
+  let lastBannerVisible = false;
+
   const state = createConnectionState(app, (status) => {
     renderConnectionStatus(connectionStatusEl, status);
-    // Equivalent to the original `everConnected && status !== "connected"`: `disconnected()`
-    // can only produce "reconnecting" when a hello has ever arrived, and only "connecting"
-    // when it hasn't, so the banner condition collapses to this one comparison.
-    renderBanner(bannerEl, status === "reconnecting");
     // Broadcasts every non-connected status (disconnected, daemon down) so any open
     // dialog can close itself — each dialog controller subscribes to this event
     // itself rather than being reached from here.
@@ -110,6 +141,28 @@ export function initConnection(app: App): ConnectionHandle {
     }
   });
 
+  // Its own render phase, not folded into the `onChange` callback above: the restart
+  // fallback and confirmation hide (kb:adr/update-restart-reloads-dashboard) are
+  // time-based, not status-change-based, so the banner needs re-evaluating on every tick
+  // (main.ts's `setInterval(app.render, 1000)`), not only when `state.connection`
+  // changes. `onChange`'s own unconditional `app.render()` call above still covers every
+  // status change through this same phase.
+  app.onRender((frame) => {
+    const override = deps.restartBanner(frame.now, frame.connection);
+    const text = override?.text ?? DAEMON_DOWN_TEXT;
+    const neutral = override?.neutral ?? false;
+    const visible = override !== null || frame.connection === "reconnecting";
+    if (text !== lastBannerText || neutral !== lastBannerNeutral) {
+      renderBannerContent(bannerEl, text, neutral);
+      lastBannerText = text;
+      lastBannerNeutral = neutral;
+    }
+    if (visible !== lastBannerVisible) {
+      renderBanner(bannerEl, visible);
+      lastBannerVisible = visible;
+    }
+  });
+
   return {
     connected(claudeCode) {
       state.connected();
@@ -119,6 +172,7 @@ export function initConnection(app: App): ConnectionHandle {
       state.disconnected();
     },
     showProtocolMismatch() {
+      if (deps.reloading()) return;
       shellEl.hidden = true;
       mismatchEl.hidden = false;
       mismatchEl.focus();

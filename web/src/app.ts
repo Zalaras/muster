@@ -55,6 +55,13 @@ export interface AppEvents {
   claudeTheme: (family: ClaudeFamily) => void;
   usage: (usage: Usage) => void;
   update: (update: UpdateInfo) => void;
+  // WS hello, matched or protocol-mismatched — fires before the mismatch gate, so
+  // features/updaterestart.ts can reload instead of showing it
+  // (kb:adr/update-restart-reloads-dashboard). Dashboard-only (wsapp.ts's
+  // dashboardWsHandlers); the pop-out never emits it. Named to match
+  // `WsClientHandlers.onHelloArrived` (ws.ts) end to end, like every other relay in
+  // wsapp.ts (`onUpdate` → `"update"`, `onUsage` → `"usage"`, …).
+  helloArrived: () => void;
   sessionRemoved: (id: number) => void; // WS sessionRemoved, and a successful DELETE
   focusChanged: (id: number | null) => void; // before the render that follows app.focus
   cancelRenames: () => void; // any trigger that must not let a blur-commit through

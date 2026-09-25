@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -17,14 +16,15 @@ import (
 )
 
 // Sentinel errors updateManager.RequestApply returns — handleApplyUpdate maps each to
-// its wire error code (kb:anchor/update.apply). errCheckFailed is checkAvailability's
-// own sentinel, wrapping the release host's own error text — handleCheckUpdate maps it
-// to 502 (kb:anchor/update.check); errShuttingDown is reused by both.
+// its wire error code (kb:anchor/update.apply). errShuttingDown is reused by
+// checkAvailability/handleCheckUpdate too (kb:anchor/update.check); anything else
+// checkAvailability returns is the release host's own error, unwrapped, so
+// selfupdate.DescribeCheckFailure composes its 502 body from that error alone rather than
+// a server-added wrapper.
 var (
 	errUpdateUnsupported = errors.New("update unsupported for this install")
 	errNothingToApply    = errors.New("no newer release is known")
 	errShuttingDown      = errors.New("musterd is shutting down")
-	errCheckFailed       = errors.New("update check failed")
 )
 
 // probeVersionFunc reads the version a swapped-in binary reports — checkSwap's
@@ -34,6 +34,18 @@ var (
 // rather than forking a real `#!/bin/sh` stub per test
 // (kb:lesson/first-exec-of-fresh-script-costs-270ms).
 type probeVersionFunc func(ctx context.Context, exePath string) (string, error)
+
+// reclassifyFunc re-derives the installer/unmanaged half of an install classification —
+// updateManager's seam over selfupdate.Reclassify (kb:adr/update-install-rechecked-on-every-check).
+// Unlike probeVersionFunc above, production is built in cmd/musterd's resolveInstall and
+// threaded through updateManagerConfig rather than defaulted here: the threaded closure
+// captures the same exePath/home resolveInstall already resolved once for the startup
+// Classify call (kb:adr/process-adapter-run-seam-constructor-default's constructor-default
+// shape is for an adapter's own subprocess call, which never varies — this closure instead
+// carries state a fresh call would otherwise have to re-resolve), so every later reclassify
+// reuses exactly the values Classify used rather than risking a different answer from a
+// $HOME re-read at check time.
+type reclassifyFunc func() selfupdate.Install
 
 // updateManagerConfig configures a newUpdateManager call. Constructed only when
 // -update-base-url is non-empty (newUpdateFeature); a nil um field on updateFeature means
@@ -49,6 +61,12 @@ type updateManagerConfig struct {
 	CheckEnabled bool
 	Log          zerolog.Logger
 	OnChange     func(UpdateInfo)
+	// Reclassify re-derives installer/unmanaged at the start of every check
+	// (kb:adr/update-install-rechecked-on-every-check) — see reclassifyFunc's doc comment
+	// for why cmd/musterd builds and threads this closure rather than the constructor
+	// defaulting it. Nil (every existing same-package test that doesn't care about
+	// reclassification) defaults to returning Install unchanged.
+	Reclassify reclassifyFunc
 }
 
 // updateManager owns the whole auto-update state machine: the periodic release check
@@ -60,7 +78,6 @@ type updateManager struct {
 	base     string
 	interval time.Duration
 	pubKey   []byte
-	install  selfupdate.Install
 	running  string
 	exePath  string
 	log      zerolog.Logger
@@ -70,10 +87,17 @@ type updateManager struct {
 	// below — never threaded through updateManagerConfig or the composition root, since
 	// it never varies in production (kb:adr/process-adapter-run-seam-constructor-default).
 	probeVersion probeVersionFunc
+	// reclassifyFn re-derives installer/unmanaged; see reclassifyFunc's doc comment.
+	reclassifyFn reclassifyFunc
 
 	startInfo os.FileInfo // stat at construction — checkSwap's reference point for detecting an out-of-band binary swap
 
-	mu            sync.Mutex
+	mu sync.Mutex
+	// install is the live classification — mutable, unlike at construction: reclassify
+	// (kb:adr/update-install-rechecked-on-every-check) can change installer↔unmanaged at
+	// the start of every check, so every read (installKind, Remedy, RequestApply's
+	// MayApply check, Current) goes through mu.
+	install       selfupdate.Install
 	checkEnabled  bool
 	available     *string
 	checkedAt     *string
@@ -106,6 +130,10 @@ func newUpdateManager(cfg updateManagerConfig) *updateManager {
 		// construction of one without a Client.
 		client = http.DefaultClient
 	}
+	reclassifyFn := cfg.Reclassify
+	if reclassifyFn == nil {
+		reclassifyFn = func() selfupdate.Install { return cfg.Install }
+	}
 	m := &updateManager{
 		client:          client,
 		base:            cfg.Base,
@@ -119,6 +147,7 @@ func newUpdateManager(cfg updateManagerConfig) *updateManager {
 		checkEnabled:    cfg.CheckEnabled && cfg.Install.Kind != selfupdate.KindDev,
 		applyPhase:      selfupdate.PhaseIdle,
 		probeVersion:    selfupdate.ProbeVersion,
+		reclassifyFn:    reclassifyFn,
 		refresh:         make(chan struct{}, 1),
 		restartRequests: make(chan struct{}, 1),
 	}
@@ -134,7 +163,7 @@ func newUpdateManager(cfg updateManagerConfig) *updateManager {
 // all — checking is never enabled for it, structurally, not as a per-tick guard
 // (kb:adr/update-install-kinds-decide-who-may-apply).
 func (m *updateManager) Start() {
-	if m.install.Kind == selfupdate.KindDev {
+	if m.installKind() == selfupdate.KindDev {
 		return
 	}
 	m.bg.start(func(ctx context.Context) { runTicked(ctx, m.interval, m.refresh, m.tick) })
@@ -188,14 +217,16 @@ func (m *updateManager) tick(ctx context.Context) {
 // checkAvailability is one release-check poll attempt, run by both the tick loop
 // (manual false, the daily schedule's silent-on-failure path,
 // kb:adr/update-check-runs-in-daemon-daily) and POST /api/update/check (manual true,
-// kb:adr/update-manual-check-is-a-synchronous-post): a failure is logged at debug and,
-// for a manual caller, returned so handleCheckUpdate can map it onto a wire error code
-// (kb:anchor/update.check). A success updates available/checkedAt and always broadcasts
-// (checkedAt changes on every successful check, regardless of whether available itself
-// did) — unless this is the automatic path and the pref was turned off while the check
-// was in flight, in which case the result is discarded and nothing is broadcast. A
-// manual check keeps its result even then: prefs.updateCheck governs only the daemon's
-// own schedule (kb:adr/update-check-pref-governs-automatic-checking-only).
+// kb:adr/update-manual-check-is-a-synchronous-post): a failure is logged (warn for a
+// manual caller, since a user is waiting on the result; debug for the automatic daily
+// poll, which stays silent by design) and, for a manual caller, returned so
+// handleCheckUpdate can map it onto a wire error code (kb:anchor/update.check). A success
+// updates available/checkedAt and always broadcasts (checkedAt changes on every successful
+// check, regardless of whether available itself did) — unless this is the automatic path
+// and the pref was turned off while the check was in flight, in which case the result is
+// discarded and nothing is broadcast. A manual check keeps its result even then:
+// prefs.updateCheck governs only the daemon's own schedule
+// (kb:adr/update-check-pref-governs-automatic-checking-only).
 func (m *updateManager) checkAvailability(ctx context.Context, manual bool) error {
 	if manual {
 		m.mu.Lock()
@@ -206,10 +237,22 @@ func (m *updateManager) checkAvailability(ctx context.Context, manual bool) erro
 		}
 	}
 
+	// Re-derived before, and regardless of, the network request below
+	// (kb:adr/update-install-rechecked-on-every-check).
+	m.reclassify()
+
 	latest, _, newer, err := selfupdate.CheckNewer(ctx, m.client, m.base, m.running)
 	if err != nil {
-		m.log.Debug().Err(err).Msg("update check failed")
-		return fmt.Errorf("%w: %w", errCheckFailed, err)
+		if manual {
+			m.log.Warn().Err(err).Msg("update check failed")
+		} else {
+			m.log.Debug().Err(err).Msg("update check failed")
+		}
+		// Returned as-is, never wrapped: selfupdate.DescribeCheckFailure (called by
+		// handleCheckUpdate) composes the 502 body straight from the release host's own
+		// error so its one-sentence fallback for an unclassified error never has to strip
+		// a server-added prefix back off (kb:adr/update-failure-one-sentence-chain-in-log).
+		return err
 	}
 
 	var available *string
@@ -230,6 +273,32 @@ func (m *updateManager) checkAvailability(ctx context.Context, manual bool) erro
 
 	m.emit()
 	return nil
+}
+
+// reclassify re-derives the installer/unmanaged half of the install classification
+// (kb:adr/update-install-rechecked-on-every-check), called by checkAvailability as its
+// first step, before the network request. dev and homebrew are decided once at startup
+// and never reach reclassifyFn again. A change to Kind or Remedy broadcasts once; every
+// other read of m.install in this file (installKind, Remedy, RequestApply's
+// MayApply check, Current) then sees the new classification, never the startup one.
+func (m *updateManager) reclassify() {
+	m.mu.Lock()
+	kind := m.install.Kind
+	m.mu.Unlock()
+	if kind == selfupdate.KindDev || kind == selfupdate.KindHomebrew {
+		return
+	}
+
+	next := m.reclassifyFn()
+
+	m.mu.Lock()
+	changed := next != m.install
+	m.install = next
+	m.mu.Unlock()
+
+	if changed {
+		m.emit()
+	}
 }
 
 // checkSwap detects an out-of-band binary swap: at each tick, stat the running
@@ -278,7 +347,7 @@ func (m *updateManager) checkSwap(ctx context.Context) {
 // never enabled for it regardless of the persisted pref
 // (kb:adr/update-install-kinds-decide-who-may-apply).
 func (m *updateManager) SetCheckEnabled(enabled bool) {
-	if m.install.Kind == selfupdate.KindDev {
+	if m.installKind() == selfupdate.KindDev {
 		return
 	}
 
@@ -309,14 +378,18 @@ func (m *updateManager) Refresh() {
 	}
 }
 
-// installKind reports the fixed install classification (immutable after construction —
-// no lock needed).
+// installKind reports the live install classification (reclassify can change it between
+// calls, so every read goes through mu).
 func (m *updateManager) installKind() selfupdate.Kind {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return m.install.Kind
 }
 
-// Remedy returns the install's remedy sentence (empty for "installer").
+// Remedy returns the current install's remedy sentence (empty for "installer").
 func (m *updateManager) Remedy() string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return m.install.Remedy
 }
 
@@ -433,13 +506,16 @@ func (m *updateManager) runApply(ctx context.Context, version string, restart, s
 	}
 }
 
+// setApplyPhase records one apply phase, composing applyErr (if any) into its one-sentence
+// wire text via selfupdate.DescribeApplyFailure — the full error stays only in
+// finishApplyFailed's log line below.
 func (m *updateManager) setApplyPhase(phase selfupdate.Phase, version string, applyErr error) {
 	m.mu.Lock()
 	m.applyPhase = phase
 	v := version
 	m.applyVersion = &v
 	if applyErr != nil {
-		msg := applyErr.Error()
+		msg := selfupdate.DescribeApplyFailure(applyErr)
 		m.applyError = &msg
 	} else {
 		m.applyError = nil
@@ -448,7 +524,12 @@ func (m *updateManager) setApplyPhase(phase selfupdate.Phase, version string, ap
 	m.emit()
 }
 
+// finishApplyFailed logs the full error chain at warn — an apply is always
+// request-triggered, never automatic, so it is always the user-initiated case that gets
+// logged at warn, never the automatic path's debug — then records the short wire text via
+// setApplyPhase.
 func (m *updateManager) finishApplyFailed(version string, err error) {
+	m.log.Warn().Err(err).Msg("update apply failed")
 	m.setApplyPhase(selfupdate.PhaseFailed, version, err)
 }
 

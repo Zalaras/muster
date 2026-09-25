@@ -293,8 +293,13 @@ func TestBuildServerConfig_MapsEveryFlagOntoTheServerConfig(t *testing.T) {
 	}
 	install := selfupdate.Install{Kind: selfupdate.KindHomebrew, Remedy: selfupdate.HomebrewRemedy}
 	pubKey := []byte("minisign-public-key")
+	// A distinct sentinel result, not install itself, so the assertion below can tell
+	// "buildServerConfig threaded the caller's own reclassify closure through" apart from
+	// "it silently rebuilt one from cfg.Update.Install".
+	reclassifyResult := selfupdate.Install{Kind: selfupdate.KindInstaller, Path: "reclassify-sentinel-path"}
+	reclassify := func() selfupdate.Install { return reclassifyResult }
 
-	cfg := buildServerConfig(f, nil, zerolog.Nop(), serving, install, "/usr/local/bin/musterd", pubKey)
+	cfg := buildServerConfig(f, nil, zerolog.Nop(), serving, install, reclassify, "/usr/local/bin/musterd", pubKey)
 
 	assert.Equal(t, "ui-token", cfg.UIToken)
 	assert.Equal(t, "ingest-token", cfg.IngestToken)
@@ -326,6 +331,8 @@ func TestBuildServerConfig_MapsEveryFlagOntoTheServerConfig(t *testing.T) {
 	assert.Equal(t, pubKey, cfg.Update.PublicKey)
 	assert.Equal(t, install, cfg.Update.Install)
 	assert.Equal(t, "/usr/local/bin/musterd", cfg.Update.ExePath)
+	require.NotNil(t, cfg.Update.Reclassify, "the reclassify seam must be threaded through to the server config")
+	assert.Equal(t, reclassifyResult, cfg.Update.Reclassify(), "buildServerConfig must pass the caller's own reclassify closure through, not rebuild one")
 }
 
 // TestParseFlags_RejectsInvalidValues covers the two post-parse validations parseFlags

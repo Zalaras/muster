@@ -116,7 +116,7 @@ def stamp_plan_status(plan_dir, value):
 
 REVIEW_PARTS = [("code", "Correctness review"), ("browser", "Browser review"),
                 ("maintainability", "Maintainability review")]
-AGENT_TAG = re.compile(r"^\d+\. \*\*\[(daemon-impl|web-impl|daemon-tests|web-tests|e2e-specs)\]\*\*")
+AGENT_TAG = re.compile(r"^\d+\. \*\*(?:\[[a-z:-]+\] ?)*\[(daemon-impl|web-impl|daemon-tests|web-tests|e2e-specs)\]")  # dual tags too: "**[daemon-impl] [web-impl]**"
 VERDICT_LINE = re.compile(r"^\*\*Verdict\*\*:\s*(\S+)", re.M)
 
 def part_verdict(text):
@@ -136,6 +136,53 @@ def has_agent_tagged_issue(text):
         elif blocking and AGENT_TAG.match(line):
             return True
     return False
+
+def scope_warnings(plan_dir, parts):
+    """WARN lines for agent-tagged issues naming a source path owned by a feature outside the plan's
+    **Features** — the fix would trip features-scope.sh at its wave gate, and widening the header is
+    the developer's call, so it is settled before the wave (settings-update-failures retro: a
+    maintainability Minor's required fix reached a surfaces-owned test and stopped wave 2)."""
+    m = re.search(r"^\*\*Features\*\*:\s*(.+)$", (plan_dir / "plan.md").read_text(), re.M)
+    header = set(re.split(r"[,\s]+", m.group(1).strip())) if m else set()
+    tracked = subprocess.run(["git", "ls-files", "cmd", "internal", "web/src", "web/e2e"],
+                             capture_output=True, text=True).stdout.split()
+    def resolve(tok):   # a bare `name.go` counts when exactly one tracked file has that name
+        if "/" in tok:
+            return tok if tok.startswith(("cmd/", "internal/", "web/src/", "web/e2e/")) else None
+        hits = [t for t in tracked if t.rsplit("/", 1)[-1] == tok]
+        return hits[0] if len(hits) == 1 else None
+    found = []   # (part, severity, number, path) — paths in an issue's fix text only, not its evidence
+    for key, _, f in parts:
+        sev, cur, in_fix = None, None, False
+        for line in f.read_text().splitlines():
+            if line.startswith("### "):
+                sev, cur = line[4:].strip().split()[0], None
+            elif line.startswith("## "):
+                sev, cur = None, None
+            elif sev in ("Critical", "Major", "Minor") and re.match(r"^\d+\. ", line):
+                cur, in_fix = (line.split(".")[0] if AGENT_TAG.match(line) else None), False
+            in_fix = in_fix or bool(re.search(r"\bfix must make true|\*\*Fix\*\*|\bFix:", line, re.I))
+            if cur and in_fix:
+                for tok in re.findall(r"`([\w./-]+\.(?:go|ts|css|html))(?::[\d-]+)?`", line):
+                    path = resolve(tok)
+                    if path:
+                        found.append((key, sev, cur, path))
+    if not found or not header:
+        return []
+    kb = pathlib.Path(subprocess.run(["mktemp", "-d"], capture_output=True, text=True).stdout.strip()) / "kb"
+    if subprocess.run(["go", "build", "-o", str(kb), "./tools/kb"], capture_output=True).returncode:
+        return ["WARN scope: could not build tools/kb — check issue paths against **Features** by hand"]
+    out, owners = [], {}
+    for key, sev, n, path in found:
+        if path not in owners:
+            r = subprocess.run([str(kb), "for", path], capture_output=True, text=True).stdout
+            block = r.split("features:", 1)[1] if "features:" in r else ""
+            owners[path] = [l.split()[0] for l in block.split("records:", 1)[0].splitlines() if l.strip()]
+        for owner in owners[path]:
+            if owner not in header:
+                out.append(f"WARN scope: {key} {sev} {n} names {path} (feature {owner}, not in **Features**) "
+                           "— settle it with the developer before the fix wave")
+    return sorted(set(out))
 
 def merge_review(plan_dir, plan, cycle, gates_failed):
     """Write review.md from whichever parts exist. The verdict is computed, not opined: blocked if
@@ -171,6 +218,8 @@ def merge_review(plan_dir, plan, cycle, gates_failed):
               "\n_Merged by orch-state.py merge-review; the verdict is computed from the parts and the gate run, never edited by hand._\n")
     (plan_dir / "review.md").write_text(header + "".join(bodies))
     print(f"merged {len(parts)} part(s) -> review.md: **Verdict**: {verdict}")
+    for w in scope_warnings(plan_dir, parts):
+        print(w)
     return verdict, [k for k, _ in verdicts]
 
 def approved(plan_dir):

@@ -10,7 +10,7 @@ go: [internal/server/update*.go, internal/selfupdate/**]
 web: [web/src/features/update*.ts, web/src/render/update*.ts]
 e2e: [web/e2e/update.spec.ts, web/e2e/helpers/update.ts, web/e2e/helpers/releases.ts]
 protocol: [update.check, update.apply, update.restart-impact, ws.update]
-refs: [kb:adr/update-check-runs-in-daemon-daily, kb:adr/update-check-pref-governs-automatic-checking-only, kb:adr/update-manual-check-is-a-synchronous-post, kb:adr/update-install-kinds-decide-who-may-apply, kb:adr/update-trust-root-minisign-signed-checksums, kb:adr/update-restart-is-in-place-reexec-not-shutdown, kb:adr/update-release-knowledge-in-selfupdate-package, kb:adr/release-latest-resolved-via-redirect-not-api, kb:adr/stack-selfupdate-minisign-library]
+refs: [kb:adr/update-check-runs-in-daemon-daily, kb:adr/update-check-pref-governs-automatic-checking-only, kb:adr/update-manual-check-is-a-synchronous-post, kb:adr/update-install-rechecked-on-every-check, kb:adr/update-remedy-names-path-and-cause, kb:adr/update-failure-one-sentence-chain-in-log, kb:adr/update-restart-reloads-dashboard, kb:adr/update-trust-root-minisign-signed-checksums, kb:adr/update-restart-is-in-place-reexec-not-shutdown, kb:adr/update-release-knowledge-in-selfupdate-package, kb:adr/release-latest-resolved-via-redirect-not-api, kb:adr/stack-selfupdate-minisign-library]
 ---
 musterd can find, verify and install a newer release of itself and restart into it without
 losing a session.
@@ -26,9 +26,12 @@ kb:adr/update-manual-check-is-a-synchronous-post). An empty base URL disables ch
 apply, as every test daemon sets.
 
 **Install kinds.** At startup the binary classifies its install from the resolved
-executable path as installer, dev, homebrew or unmanaged. Only installer may apply; dev is
-silent, and the other two show a one-line remedy
-(kb:adr/update-install-kinds-decide-who-may-apply).
+executable path as installer, dev, homebrew or unmanaged. Installer and unmanaged are
+re-derived at the start of every release check, so a blocker that clears enables Update
+without a restart; dev and homebrew stay fixed from startup. Only installer may apply; dev
+is silent, and the other two show a one-line remedy. An unmanaged remedy names the binary's
+path and the reason: an unwritable directory with the error, or the enclosing git checkout
+(kb:adr/update-install-rechecked-on-every-check, kb:adr/update-remedy-names-path-and-cause).
 
 **Applying.** `kb:anchor/update.apply` downloads the architecture's archive with the
 release's checksums file and its minisign signature, verifies the signature against a key
@@ -36,15 +39,20 @@ compiled into the binary, verifies the archive's SHA-256 against the signed file
 the binary beside the running one and renames it over the resolved path
 (kb:adr/update-trust-root-minisign-signed-checksums, kb:adr/stack-selfupdate-minisign-library).
 Progress arrives as `kb:anchor/ws.update` phases; any failure leaves the old binary
-untouched and reports an error with a remedy sentence. A second apply during one in flight
-is ignored. `musterd -update` performs the same check and apply from the command line and
-exits.
+untouched and reports one sentence naming what failed and why, never a URL — the full error
+goes to the daemon log (kb:adr/update-failure-one-sentence-chain-in-log). A second apply
+during one in flight is ignored. `musterd -update` performs the same check and apply from
+the command line and exits.
 
 **Restarting.** With restart requested, the daemon stops its listeners and store gracefully,
 never consults the on-exit policy and kills no session, then execs the new binary in place
 under the same PID and arguments; reconcile re-adopts every Claude session on the way up
 (kb:adr/update-restart-is-in-place-reexec-not-shutdown). Shell surfaces do not survive, so
-the Update-and-restart confirm names them from `kb:anchor/update.restart-impact`.
+the Update-and-restart confirm names them from `kb:anchor/update.restart-impact`. Every
+window that saw the restart shows the banner as updating while the daemon is down, falling
+back to the ordinary unreachable text after 30 s; it reloads on its first reconnect — even
+one that speaks a different protocol version — and confirms `Updated to v…` for 3 s when
+the daemon it reached runs that version (kb:adr/update-restart-reloads-dashboard).
 
 **Dashboard.** The Settings dialog's Updates section shows running and available versions,
 the daily-check toggle, a Check now button, status text and the two apply buttons; once a

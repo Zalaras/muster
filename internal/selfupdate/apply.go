@@ -42,6 +42,37 @@ const ApplyTimeout = 120 * time.Second
 // explicit rather than implicit).
 const releaseGOOS = "darwin"
 
+// FetchStatusError is a non-200 response to one of Apply's three small downloads — its
+// "status <code>" cause classified by failure.go's fetchCause.
+type FetchStatusError struct{ Status int }
+
+func (e *FetchStatusError) Error() string { return fmt.Sprintf("status %d", e.Status) }
+
+// DownloadError marks a failed download of one release asset — classified by failure.go's
+// DescribeApplyFailure into the "couldn't download <file> (<cause>); nothing was installed"
+// wire sentence (kb:adr/update-failure-one-sentence-chain-in-log). Asset is the file's own
+// name (e.g. "checksums.txt", or the archive's own name); Err is the fetch failure, a
+// *FetchStatusError or a transport error.
+type DownloadError struct {
+	Asset string
+	Err   error
+}
+
+func (e *DownloadError) Error() string { return fmt.Sprintf("downloading %s: %s", e.Asset, e.Err) }
+func (e *DownloadError) Unwrap() error { return e.Err }
+
+// MissingSignatureError is a 404 on checksums.txt.minisig specifically, checked ahead of
+// the generic DownloadError so failure.go's DescribeApplyFailure can give a missing
+// signature its own distinct wire sentence rather than the generic download-failure one.
+// Error() is the log-only text; failure.go owns the wire sentence (§ Design "One owner
+// per concept" — this package has one home per user-facing failure sentence, this type's
+// own Error() is deliberately not it).
+type MissingSignatureError struct{ Status int }
+
+func (e *MissingSignatureError) Error() string {
+	return fmt.Sprintf("checksums.txt.minisig: status %d (missing signature)", e.Status)
+}
+
 // Options configures one Apply call.
 type Options struct {
 	// Client makes the three downloads. Nil defaults to http.DefaultClient.
@@ -90,15 +121,19 @@ func Apply(ctx context.Context, opts Options) error {
 	report(PhaseDownloading)
 	archiveData, err := fetch(ctx, client, DownloadURL(opts.Base, opts.Tag, asset))
 	if err != nil {
-		return fmt.Errorf("downloading %s: %w", asset, err)
+		return &DownloadError{Asset: asset, Err: err}
 	}
 	checksumsData, err := fetch(ctx, client, DownloadURL(opts.Base, opts.Tag, "checksums.txt"))
 	if err != nil {
-		return fmt.Errorf("downloading checksums.txt: %w", err)
+		return &DownloadError{Asset: "checksums.txt", Err: err}
 	}
 	minisigData, err := fetch(ctx, client, DownloadURL(opts.Base, opts.Tag, "checksums.txt.minisig"))
 	if err != nil {
-		return fmt.Errorf("downloading checksums.txt.minisig: %w — this release has no signature, refusing to apply", err)
+		var statusErr *FetchStatusError
+		if errors.As(err, &statusErr) && statusErr.Status == http.StatusNotFound {
+			return &MissingSignatureError{Status: statusErr.Status}
+		}
+		return &DownloadError{Asset: "checksums.txt.minisig", Err: err}
 	}
 
 	report(PhaseVerifying)
@@ -125,6 +160,9 @@ func Apply(ctx context.Context, opts Options) error {
 	return nil
 }
 
+// fetch GETs url and returns its body, or a *FetchStatusError for a non-200 response —
+// callers (Apply) wrap either into a *DownloadError/*MissingSignatureError naming which
+// asset failed.
 func fetch(ctx context.Context, client *http.Client, url string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -136,7 +174,7 @@ func fetch(ctx context.Context, client *http.Client, url string) ([]byte, error)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("status %d", resp.StatusCode)
+		return nil, &FetchStatusError{Status: resp.StatusCode}
 	}
 	return io.ReadAll(resp.Body)
 }

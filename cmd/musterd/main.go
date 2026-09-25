@@ -164,8 +164,11 @@ func parseFlags(args []string, stderr io.Writer) (*cliFlags, error) {
 // resolveInstall classifies how musterd was installed (kb:adr/update-install-kinds-decide-who-may-apply)
 // and picks the minisign public key releases are verified against. A failure resolving the
 // executable path is not fatal: exePath stays "", which Classify treats no differently than
-// any other unwritable/unresolvable directory.
-func resolveInstall(updatePublicKeyFile string) (string, selfupdate.Install, []byte, error) {
+// any other unwritable/unresolvable directory. The returned reclassify closure re-runs the
+// same write probe and git-tree walk against the same exePath/home
+// (kb:adr/update-install-rechecked-on-every-check) — server.UpdateConfig.Reclassify calls it
+// at the start of every release check.
+func resolveInstall(updatePublicKeyFile string) (string, selfupdate.Install, func() selfupdate.Install, []byte, error) {
 	exePath, resolveErr := os.Executable()
 	if resolveErr == nil {
 		if resolved, err := filepath.EvalSymlinks(exePath); err == nil {
@@ -174,16 +177,19 @@ func resolveInstall(updatePublicKeyFile string) (string, selfupdate.Install, []b
 	}
 	home, _ := os.UserHomeDir()
 	install := selfupdate.Classify(version, exePath, os.Getenv, home, selfupdate.WritableDir)
+	reclassify := func() selfupdate.Install {
+		return selfupdate.Reclassify(exePath, home, selfupdate.WritableDir)
+	}
 
 	updatePublicKey := selfupdate.PublicKey()
 	if updatePublicKeyFile != "" {
 		data, err := os.ReadFile(updatePublicKeyFile)
 		if err != nil {
-			return "", install, nil, fmt.Errorf("reading -update-public-key-file: %w", err)
+			return "", install, reclassify, nil, fmt.Errorf("reading -update-public-key-file: %w", err)
 		}
 		updatePublicKey = data
 	}
-	return exePath, install, updatePublicKey, nil
+	return exePath, install, reclassify, updatePublicKey, nil
 }
 
 func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
@@ -200,7 +206,7 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 	// Install classification happens here — before tmux preflight, data dir creation or
 	// anything else below — because both -update and the normal server path need it, and
 	// -update needs nothing heavier than this to run.
-	exePath, install, updatePublicKey, err := resolveInstall(f.updatePublicKeyFile)
+	exePath, install, reclassify, updatePublicKey, err := resolveInstall(f.updatePublicKeyFile)
 	if err != nil {
 		return err
 	}
@@ -238,7 +244,7 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		return err
 	}
 
-	srv := server.New(buildServerConfig(f, st, log, serving, install, exePath, updatePublicKey))
+	srv := server.New(buildServerConfig(f, st, log, serving, install, reclassify, exePath, updatePublicKey))
 	srv.Start()
 
 	httpServer := &http.Server{Handler: srv.Handler()}
@@ -248,7 +254,7 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) error {
 		serveErr <- httpServer.Serve(serving.listener)
 	}()
 
-	logStartup(log, f, serving, preflight, install)
+	logStartup(log, f, serving, preflight, install, exePath)
 
 	// Fires only when both the flag and stdin's terminal-ness hold — the terminal
 	// condition is load-bearing: it is what guarantees no test run can open a browser,
@@ -391,7 +397,7 @@ func prepareServing(ctx context.Context, f *cliFlags, st *store.Store, log zerol
 // buildServerConfig assembles the server's configuration from the parsed flags and the
 // already-bootstrapped runtime. Pure data assembly: it branches on nothing, so a wiring
 // mistake here is a silent one — main_test.go pins its output field by field.
-func buildServerConfig(f *cliFlags, st *store.Store, log zerolog.Logger, serving *servingEnv, install selfupdate.Install, exePath string, updatePublicKey []byte) server.Config {
+func buildServerConfig(f *cliFlags, st *store.Store, log zerolog.Logger, serving *servingEnv, install selfupdate.Install, reclassify func() selfupdate.Install, exePath string, updatePublicKey []byte) server.Config {
 	return server.Config{
 		Store:         st,
 		Logger:        log,
@@ -431,14 +437,17 @@ func buildServerConfig(f *cliFlags, st *store.Store, log zerolog.Logger, serving
 			PublicKey:     updatePublicKey,
 			Install:       install,
 			ExePath:       exePath,
+			Reclassify:    reclassify,
 		},
 	}
 }
 
-// logStartup writes the one-line startup record, plus the install remedy when there is
-// one: a Homebrew or unmanaged install never sees the Settings-dialog remedy unless they
-// open it, so name it here too (kb:adr/update-install-kinds-decide-who-may-apply).
-func logStartup(log zerolog.Logger, f *cliFlags, serving *servingEnv, preflight tmux.PreflightResult, install selfupdate.Install) {
+// logStartup writes the one-line startup record — including the resolved executable path
+// as exe, one of the inputs (along with home and the write probe) an unmanaged/installer
+// classification is computed from — plus the install remedy when there is one: a Homebrew
+// or unmanaged install never sees the Settings-dialog remedy unless they open it, so name
+// it here too (kb:adr/update-install-kinds-decide-who-may-apply).
+func logStartup(log zerolog.Logger, f *cliFlags, serving *servingEnv, preflight tmux.PreflightResult, install selfupdate.Install, exePath string) {
 	log.Info().
 		Str("version", version).
 		Int("port", serving.port).
@@ -446,6 +455,7 @@ func logStartup(log zerolog.Logger, f *cliFlags, serving *servingEnv, preflight 
 		Str("dashboard_url", serving.dashboardURL).
 		Str("tmux", preflight.Version).
 		Str("install", string(install.Kind)).
+		Str("exe", exePath).
 		Msg("musterd starting")
 
 	if install.Remedy != "" {

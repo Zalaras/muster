@@ -73,23 +73,6 @@ since reported from real use.
   gone after stopping musterd and killing tmux. They should come back on restart as resumable
   rows, even though Claude itself has quit.
 
-### Together — the Settings Updates panel (#53, and the update-check error below)
-
-Both are what `#update-status` tells the developer when an update can't go ahead.
-
-- [ ] **Check update shows the new update but cannot update** ([#53](https://github.com/Zalaras/muster/issues/53)) — on 0.18.0 the panel shows
-  0.18.1 available with Update and Update-and-restart disabled and the unmanaged remedy
-  (`not installed by the muster installer — run: curl … install.sh | sh`), although that copy
-  was installed by `install.sh` on another machine (the developer, 2026-09-23). It should offer
-  the update.
-
-- [ ] **Shorten the Settings update-check error** — with the release host down,
-  `#update-status` prints Go's whole transport chain verbatim (`update check failed: requesting
-  http://…/latest: Head "http://…/latest": dial tcp …: connect: connection refused`): four
-  wrapped lines, the URL twice, pushing the action row down. Decide how much of the chain to
-  show. From `plans/rail-card-improvements-2/`; moved here from Pre-v1
-  2026-09-23 to sit with #53.
-
 ### Together — regressions since the maintainability cleanup (#54, #55, #58)
 
 Filed by the developer 2026-09-25 on 0.18.3, each as new since the cleanup landed.
@@ -152,6 +135,18 @@ Refactor:
 Quality of life:
 
 - [ ] **A card shows alive for up to 5 s after Claude exits** when no terminal is attached.
+
+### Filed 2026-09-25 by the developer from the plans' proposed-backlog.md files
+
+- [ ] **Code cites external docs** — Go and TS comments (and test names) carry `kb:` citations
+  to records under `docs/`; code should carry no citations to external docs. Reverses
+  `docs/conventions.md` § Comments, which asks for them — change it there first. From
+  `plans/settings-update-failures/`.
+- [ ] **The pop-out reader keeps the old dashboard after Update and restart** — dashboard
+  windows reload onto the new version; an open pop-out should too. From
+  `plans/settings-update-failures/`.
+- [ ] **Keyboard focus drops to the page body after Check now** — pressing Check now by
+  keyboard loses focus; it should stay on the button. From `plans/settings-update-failures/`.
 
 ## Pre-v1
 

@@ -246,17 +246,17 @@ parts and commit the result.
    This is review cycle <N>. GATES_LOG_DIR: <the directory from item 1> (<F> failed lines).
    Write your part file only; do not commit — the orchestrator commits all parts together.
    ```
-   For `review-work` on cycle 2+, when the previous cycle's only open agent-tagged issues were
-   Minors (no agent-tagged Critical/Major, in any part), append:
+   For `review-work` and `review-maintainability` on cycle 2+, when the previous cycle's only open
+   agent-tagged issues were Minors (no agent-tagged Critical/Major, in any part), append:
    ```
-   Cycle <N-1>'s only open agent-tagged issues were Minors — your definition's §9 Delta
+   Cycle <N-1>'s only open agent-tagged issues were Minors — your definition's Delta
    Re-review applies; the previous review is plans/<plan-name>/review.cycle<N-1>.md.
    ```
    That archive must exist before the re-spawn — `python3 $S <plan> archive review.md` (State
    Tracking) creates it, so run it before spawning, not after.
 4. **Merge and commit.** When every spawned reviewer has reported:
    ```bash
-   python3 $S <plan> merge-review --gates-failed <F>      # writes review.md; prints the computed verdict
+   python3 $S <plan> merge-review --gates-failed <F>      # writes review.md; prints the verdict and any `WARN scope:` line — a user decision (1a) before wave 1
    git add plans/<plan>/review.md plans/<plan>/review.code.md [plans/<plan>/review.browser.md] [plans/<plan>/review.maintainability.md]
    git commit -- <those paths> -m "review(<plan>): cycle <N> — <verdict>"    # plus the harness trailers
    python3 $S <plan> reviewed "$(git rev-parse HEAD)"     # review_commits[N], for the next cycle's skip rules

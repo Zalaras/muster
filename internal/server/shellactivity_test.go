@@ -436,7 +436,7 @@ func TestPoller_StartStop_ImmediateFirstTickThenPromptStop(t *testing.T) {
 // interval: reconcile is called directly on the feature's own poller (same package), the
 // way a real tick would, and contribute must read it back faithfully.
 func TestShellActivityFeature_ContributeReflectsCurrentBusySet(t *testing.T) {
-	hub := newWSHub()
+	hub := newWSHub(zerolog.Nop())
 	lister := func(context.Context) ([]tmux.PaneActivity, error) { return nil, nil }
 	f := newShellActivityFeature(alwaysHasShells, lister, hub, zerolog.Nop())
 

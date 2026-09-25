@@ -132,9 +132,11 @@ fi
 #     rule, applied before anyone spawns. new-session-improvement hit it at its first wave gate (a 49-minute
 #     stop), and its new files, owned by no feature, kept check-kb red until approval was impossible.
 #     `kb for` resolves a path that does not exist yet, so new files are judged by the globs they will match.
+#     web/src/style.css is exempt: one stylesheet shared by every feature on purpose, so no single owner fits
+#     and naming one would pull that feature into every plan that styles anything.
 header="$(grep -E '^\*\*Features\*\*:' "$P" | head -1 | sed -E 's/^\*\*Features\*\*:[[:space:]]*//; s/,/ /g')"
 paths="$(section 'Affected Files' | grep -oE '`(cmd|internal|web/src|web/e2e)/[^`[:space:]]+\.[a-z]+(:[0-9]+)?`' \
-  | tr -d '`' | sed -E 's/:[0-9]+$//' | grep -vE '(/CLAUDE\.md|^web/src/protocol\.ts)$' | sort -u)"
+  | tr -d '`' | sed -E 's/:[0-9]+$//' | grep -vE '(/CLAUDE\.md|^web/src/protocol\.ts|^web/src/style\.css)$' | sort -u)"
 if [[ -n "$paths" ]]; then
   kb="$(mktemp -d)/kb"
   if go build -o "$kb" ./tools/kb 2>/dev/null; then

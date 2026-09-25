@@ -179,6 +179,7 @@ function makeHandlers(): WsClientHandlers & Record<string, ReturnType<typeof vi.
     onDocChanged: vi.fn(),
     onDisconnected: vi.fn(),
     onProtocolMismatch: vi.fn(),
+    onHelloArrived: vi.fn(),
   };
 }
 
@@ -198,6 +199,29 @@ describe("WsClient.dispatch — pure message application, no socket involved", (
     client.dispatch(badHello);
     expect(handlers.onProtocolMismatch).toHaveBeenCalledWith(3);
     expect(handlers.onHello).not.toHaveBeenCalled();
+  });
+
+  it("REQ-16: fires onHelloArrived for a supported hello, alongside onHello", () => {
+    const handlers = makeHandlers();
+    const client = new WsClient("ws://x", handlers);
+    client.dispatch(hello);
+    expect(handlers.onHelloArrived).toHaveBeenCalledTimes(1);
+  });
+
+  it("REQ-16: fires onHelloArrived for a protocol-mismatched hello too, before the mismatch gate — updaterestart.ts must see every hello", () => {
+    const handlers = makeHandlers();
+    const client = new WsClient("ws://x", handlers);
+    const badHello: Hello = { ...hello, protocolVersion: 3 };
+    client.dispatch(badHello);
+    expect(handlers.onHelloArrived).toHaveBeenCalledTimes(1);
+    expect(handlers.onProtocolMismatch).toHaveBeenCalledWith(3);
+  });
+
+  it("does not fire onHelloArrived for a non-hello message", () => {
+    const handlers = makeHandlers();
+    const client = new WsClient("ws://x", handlers);
+    client.dispatch(snapshot);
+    expect(handlers.onHelloArrived).not.toHaveBeenCalled();
   });
 
   it("routes a snapshot to onSnapshot", () => {

@@ -35,5 +35,18 @@
       "mcp__*"
     ]
   },
-  "enableAllProjectMcpServers": true
+  "enableAllProjectMcpServers": true,
+  "hooks": {
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/skills/orchestrate/scripts/subagent-stop-hook.sh",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
 }

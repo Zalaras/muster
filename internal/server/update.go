@@ -29,12 +29,19 @@ type UpdateConfig struct {
 	// passes the embedded key).
 	PublicKey []byte
 	// Install is the startup install classification (selfupdate.Classify), computed
-	// once in cmd/musterd from the resolved executable path — constant for the
-	// daemon's life.
+	// once in cmd/musterd from the resolved executable path. installer/unmanaged are
+	// re-derived at the start of every check by the Reclassify closure below, from
+	// exePath/home/the write probe, not from this field; Install only decides whether
+	// that re-derivation runs (dev/homebrew stay fixed for the daemon's life).
 	Install selfupdate.Install
 	// ExePath is the resolved (os.Executable + filepath.EvalSymlinks) real path of the
 	// running binary — where an apply installs the new one and what swap detection stats.
 	ExePath string
+	// Reclassify re-derives installer/unmanaged (kb:adr/update-install-rechecked-on-every-check),
+	// built in cmd/musterd from the same exePath/home/access inputs that produced Install.
+	// Nil (every test daemon that doesn't exercise reclassification) means installer/
+	// unmanaged never change after startup.
+	Reclassify func() selfupdate.Install
 }
 
 // updateFeature owns auto-update's two endpoints and the snapshot's update object. It is
@@ -74,6 +81,7 @@ func newUpdateFeature(cfg UpdateConfig, httpClient *http.Client, daemonVersion s
 			OnChange: func(u UpdateInfo) {
 				hub.broadcast(updateMessage{Type: "update", Update: u})
 			},
+			Reclassify: cfg.Reclassify,
 		})
 	}
 	return f
@@ -146,7 +154,7 @@ func (f *updateFeature) handleCheckUpdate(w http.ResponseWriter, r *http.Request
 	case errors.Is(err, errShuttingDown):
 		writeJSONError(w, http.StatusConflict, "shutting_down", "musterd is shutting down")
 	default:
-		writeJSONError(w, http.StatusBadGateway, "check_failed", err.Error())
+		writeJSONError(w, http.StatusBadGateway, "check_failed", selfupdate.DescribeCheckFailure(err))
 	}
 }
 

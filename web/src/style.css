@@ -484,6 +484,16 @@ body {
   display: none;
 }
 
+/* The post-restart confirmation is information, not an alarm
+ * (kb:adr/update-restart-reloads-dashboard) — the neutral token family design-system §5
+ * already uses for the Settings update dot, never the `--banner-*` tokens above (§3: a
+ * state colour may only ever mean its state, and this isn't one). */
+.banner.neutral {
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--line-control);
+  color: var(--fg-muted);
+}
+
 /* REQ-17/W2: End/Resume/Remove failures — same banner/danger token family as `.banner`
  * above (kb:adr/theme-danger-tokens-not-rose), never `--rose` (§3: reserved for session
  * state). Global, not scoped to one surface, since actions dispatch from the mainhead,
@@ -2678,10 +2688,17 @@ dialog.diagram-modal[open] {
 }
 
 /* The hint paragraph spans both grid columns, reading as a full-width line under the
- * Theme row rather than a second labelled field. */
+ * Theme row rather than a second labelled field. An unmanaged-install remedy
+ * (kb:adr/update-remedy-names-path-and-cause) can carry an install-script URL or a long
+ * unbroken filesystem path — `overflow-wrap: anywhere` plus `min-width: 0` let the item
+ * actually shrink to the spanned column instead of forcing the grid's own min-content
+ * width (and the dialog) wider than it, which clipped the Theme/Rail-card controls
+ * beside it. */
 #settings-form .hint {
   grid-column: 1 / -1;
   margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-family: var(--mono);
   font-size: var(--fs-xs);
   line-height: 1.5;

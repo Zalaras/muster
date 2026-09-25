@@ -9,6 +9,7 @@
 // "Settings" })`'s default substring match already covers the badged accessible name
 // "Settings, update available" (REQ-9), and the dialog's own accessible name ("Settings")
 // is unaffected by the new Updates fieldset inside it.
+import { expect } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
 
 /** `#settings-button .update-dot` — visible iff badged (REQ-9/INV-6). `aria-hidden`,
@@ -97,4 +98,25 @@ export async function openUpdateRestartConfirm(
 ): Promise<Locator> {
   await updateRestartButton(settingsDialogLocator).click();
   return restartConfirmDialog(page);
+}
+
+/** Asserts an unmanaged remedy's `#update-status` line is contained inside the Settings
+ * dialog, not clipped past its edge: the status line's right edge sits at or left of the
+ * dialog's own right edge, and the dialog itself never grows a horizontal scrollbar
+ * (`scrollWidth == clientWidth`). Both are the exact oracle review-browser measured for
+ * the dialog-overflow defect (`#update-status` 437–957 against the dialog's 420–860,
+ * `scrollWidth 536 > clientWidth 438`) — `toHaveText` alone never exercises either box. */
+export async function expectRemedyContained(dialog: Locator): Promise<void> {
+  const dialogBox = await dialog.boundingBox();
+  const statusBox = await updateStatusLine(dialog).boundingBox();
+  if (!dialogBox || !statusBox) {
+    throw new Error("expectRemedyContained: dialog or status line has no box (not visible?)");
+  }
+  expect(statusBox.x + statusBox.width).toBeLessThanOrEqual(dialogBox.x + dialogBox.width);
+
+  const overflow = await dialog.evaluate((el) => ({
+    scrollWidth: el.scrollWidth,
+    clientWidth: el.clientWidth,
+  }));
+  expect(overflow.scrollWidth).toBe(overflow.clientWidth);
 }

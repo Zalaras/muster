@@ -1983,3 +1983,33 @@ left (`kb:lesson/mockup-vindicates-markup-not-cascade`).
   session, and in both views keyboard focus moves into its terminal, so typing (or answering the
   trust prompt) reaches it at once. Focus and the number chords share one "bring forward" owner.
   The rail's scroll is left alone, as it is for the chords.
+
+## Together — the Settings Updates panel (#53, and the update-check error) ✅ done 2026-09-25 (plan `settings-update-failures`, via `/orchestrate`; approved review cycle 4)
+
+Both are what `#update-status` tells the developer when an update can't go ahead.
+
+- [x] **Check update shows the new update but cannot update** ([#53](https://github.com/Zalaras/muster/issues/53)) — on 0.18.0 the panel shows
+  0.18.1 available with Update and Update-and-restart disabled and the unmanaged remedy
+  (`not installed by the muster installer — run: curl … install.sh | sh`), although that copy
+  was installed by `install.sh` on another machine (the developer, 2026-09-23). It should offer
+  the update.
+
+  Shipped: the installer-or-unmanaged half of the install classification is re-derived at the
+  start of every release check, automatic or Check now, so a blocker that clears enables Update
+  without a restart. An unmanaged remedy names the running binary's path and the concrete
+  reason (an unwritable directory with the probe's error, or the enclosing git checkout), and
+  `musterd starting` logs the executable path. The cause on the developer's laptop was not
+  recoverable; the next occurrence names itself.
+
+- [x] **Shorten the Settings update-check error** — with the release host down,
+  `#update-status` prints Go's whole transport chain verbatim (`update check failed: requesting
+  http://…/latest: Head "http://…/latest": dial tcp …: connect: connection refused`): four
+  wrapped lines, the URL twice, pushing the action row down. Decide how much of the chain to
+  show. From `plans/rail-card-improvements-2/`; moved here from Pre-v1
+  2026-09-23 to sit with #53.
+
+  Shipped: a failed check or download reaches the panel as one sentence naming what failed and
+  the innermost cause (`couldn't reach the release host (connection refused)`), never a URL;
+  the full chain goes to the daemon log at warn. The Settings dialog also no longer overflows
+  on a long remedy. Added in planning: an Update-and-restart now shows the banner as updating
+  while the daemon is down, reloads each window on reconnect, and confirms `Updated to v…`.
