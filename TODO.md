@@ -27,7 +27,7 @@ grouped under `###` sub-headings by the work they share — a group is a plausib
 work, not a ranking. `/triage` appends new entries at the end of the section; move one into a
 group deliberately, and otherwise don't re-sort this list.
 
-### Together — Needs Input state transitions (#32, #40)
+### Together — Needs Input state transitions (#32, #40, #57)
 
 - [ ] **Stuck on needs input** ([#32](https://github.com/Zalaras/muster/issues/32)) — after suggesting changes to a plan the session stayed on Needs
   Input until the first response came back, only then flipping to Planning.
@@ -35,18 +35,29 @@ group deliberately, and otherwise don't re-sort this list.
 - [ ] **Needs Input disappears while giving input** ([#40](https://github.com/Zalaras/muster/issues/40)) — answering a run of Claude questions
   flips the state back to Planning after the first one, while more remain and Claude is idle.
 
-### Together — turn-state gaps the 2026-09-23 interface probe measured
+- [ ] **Needs Input is shown on /clear** ([#57](https://github.com/Zalaras/muster/issues/57)) — running `/clear` puts the card on
+  Needs Input. A freshly cleared session should read idle.
 
-Both were filed by the developer 2026-09-23 from the interface probe that settled the hook-ordering,
-`StopFailure` and status-line open questions.
+### Together — turn-state gaps (#59, #60)
+
+The first two were filed by the developer 2026-09-23 from the interface probe that settled the
+hook-ordering, `StopFailure` and status-line open questions; #59 is the probe's interrupt gap,
+since reported from real use.
 
 - [ ] **A background subagent clears a main-agent permission wait** — while the main agent
   waits on a permission prompt and a background subagent is still working, the card leaves
   Needs Input and can sit on `working` with the permission dialog on screen until it is
   answered.
 
-- [ ] **An interrupted turn stays `working` forever** — after Esc interrupts a turn, the card
-  reads `working` until the next prompt.
+- [ ] **Interrupt from me still shows working in rail card** ([#59](https://github.com/Zalaras/muster/issues/59)) — after Esc
+  interrupts a turn, the card reads `working` until the next prompt. It should leave `working`
+  when the interrupt lands.
+
+- [ ] **Running a command in Claude does not change the status from IDLE** ([#60](https://github.com/Zalaras/muster/issues/60)) — while
+  a command is still running in the Claude session, the card reads idle. It should show that
+  something is running: `working`, or a new status. If the command is a backgrounded shell,
+  kb:adr/lifecycle-subagent-marked-events-not-stragglers accepted idle for that case and would
+  need superseding first.
 
 ### Together — session retention and clearing (#27, #47; #39 in Post v1 is the same seam)
 
@@ -79,6 +90,20 @@ Both are what `#update-status` tells the developer when an update can't go ahead
   show. From `plans/rail-card-improvements-2/`; moved here from Pre-v1
   2026-09-23 to sit with #53.
 
+### Together — regressions since the maintainability cleanup (#54, #55, #58)
+
+Filed by the developer 2026-09-25 on 0.18.3, each as new since the cleanup landed.
+
+- [ ] **Tool Hook issues - Regression** ([#54](https://github.com/Zalaras/muster/issues/54)) — every `PreToolUse` and
+  `PostToolUse` hook (Bash, Read) prints `hook error` / `Failed with non-blocking status code: No
+  stderr output` in the Claude session. Hooks should run without surfacing errors.
+
+- [ ] **Lag when starting a new session** ([#55](https://github.com/Zalaras/muster/issues/55)) — there is a delay after clicking
+  Launch that was not there before. Launching should feel immediate again.
+
+- [ ] **Scroll in Claude not as smooth as it was before the refactor** ([#58](https://github.com/Zalaras/muster/issues/58)) — scrolling
+  the Claude terminal is choppier than it was. It should scroll as smoothly as before.
+
 ### On their own
 
 - [ ] **Dragging a file does not enable focus** ([#36](https://github.com/Zalaras/muster/issues/36)) — dropping a file on a Claude session does
@@ -88,6 +113,13 @@ Both are what `#update-status` tells the developer when an update can't go ahead
 - [ ] **Issue tag management** ([#43](https://github.com/Zalaras/muster/issues/43)) — define real GitHub labels and have the triage skill apply
   them per its assessment. Needs kb:adr/issue-daemon-creates-issues-only revisited first:
   triage deliberately never labels, assigns or milestones.
+
+- [ ] **Add right click for rail card and remove End button** ([#56](https://github.com/Zalaras/muster/issues/56)) — a custom
+  right-click menu on a rail card carrying each of its actions, with the End button removed from
+  the rail card (only there).
+
+- [ ] **Resume old Claude session** ([#62](https://github.com/Zalaras/muster/issues/62)) — an easy way to resume Claude sessions
+  that were not started in Muster.
 
 ### From the maintainability cleanup (2026-09-24)
 
@@ -228,6 +260,11 @@ tick a sub-item as it lands, the parent when all have.
   `StopFailure.error = "model_not_found"` (kb:fact/unknown-model-fails-first-turn); the card
   shows only the generic failure. Candidate: say "model unavailable" on the card and offer
   Resume with another model. From `plans/new-session-improvement/` (its `## Out of scope`).
+
+- [ ] **Bypass permissions** ([#61](https://github.com/Zalaras/muster/issues/61)) — offer the bypass-permissions mode at launch
+  ("dangerously allow"). kb:adr/launch-bypass-and-dontask-unoffered (rejected, 2026-09-03) holds
+  it back until the permissions UI (§3.4, in the order above) supplies guardrails, so it lands
+  with or after that.
 
 ## v1 Release
 
