@@ -1,7 +1,7 @@
 ---
 id: squash-merge-never-empties-log-range
 type: lesson
-status: active
+status: retired
 date: 2026-08-31
 summary: git log main..plan/<plan> showed 27 commits ahead on an already-landed branch, because a squash creates a new commit; 'something to land' is a tree test.
 features: []

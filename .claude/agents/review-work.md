@@ -192,7 +192,7 @@ Tag every issue with the responsible agent so the orchestrator knows where to ro
   Tag these `[orchestrator:decision]` with the two options as two labelled lines — the orchestrator
   runs the `/decide` debate on exactly that pair. If the decision touches the `decide` skill's
   never-debated list — the protocol contract, plan scope, an accepted ADR, or spending money — tag
-  it `[orchestrator:user-decision]` instead (kb:lesson/protocol-decision-routed-to-debate).
+  it `[orchestrator:user-decision]` instead (kb:lesson/decision-made-inside-a-fix-wave).
 
 ### 9. Delta Re-review
 

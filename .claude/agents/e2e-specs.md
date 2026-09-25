@@ -116,7 +116,7 @@ make web-build build
 
 The harness serves the prebuilt `bin/musterd` and the prebuilt `internal/webui/assets` (the disk
 override) and never rebuilds either, so a bare `npm run e2e` tests whatever was last compiled — in a
-pipeline, usually a binary older than the implementation you are validating (kb:lesson/validate-red-blamed-on-implementation). Order is load-bearing: the
+pipeline, usually a binary older than the implementation you are validating (kb:lesson/concurrent-build-invalidates-running-e2e). Order is load-bearing: the
 binary **embeds** `internal/webui/assets`, so `web-build` runs before `build`. `make e2e` has both
 as ordered prerequisites; a targeted `npm run e2e -- <file>` does not, hence the explicit rebuild
 above.
@@ -199,7 +199,7 @@ somewhere downstream, where nobody can fix it but you. A red soak is yours to fi
 flake to report (kb:lesson/transient-display-is-not-an-oracle).
 
 The plan's approved protocol delta changes wire shapes and value semantics that *pre-existing*
-specs may assert the old way, and those specs are also yours (kb:lesson/validate-red-blamed-on-implementation). Triage each non-plan failure:
+specs may assert the old way, and those specs are also yours (kb:lesson/concurrent-build-invalidates-running-e2e). Triage each non-plan failure:
 
 - **The plan's approved delta (its Protocol Contract section / the merged `docs/protocol.md`)
   directly contradicts the old expectation** → sanctioned breakage. Update the expectation to the

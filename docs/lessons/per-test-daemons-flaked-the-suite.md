@@ -1,7 +1,7 @@
 ---
 id: per-test-daemons-flaked-the-suite
 type: lesson
-status: active
+status: retired
 date: 2026-09-03
 summary: One added spec file made make e2e fail 3 of 6 runs with the implementation innocent: every spec spawned its own daemon. Fixtures are explicit and linted.
 features: []

@@ -11,8 +11,9 @@ files: []
 tests: []
 refs: [CLAUDE.md, plan:canary-full-coverage, plan:mermaid-support, kb:fact/background-completion-new-prompt-id]
 ---
-**What happened.** A subagent started a long gate in the background and then slept and polled, waiting to be told it had finished. A finished background task re-invokes the **main** session as a new prompt; a subagent is never woken, so the poll loop was waiting for a notification that cannot arrive.
+
+**What happened.** A subagent started a long gate in the background, then slept and polled for its completion. A finished background task re-invokes the **main** session as a new prompt; a subagent is never woken, so the loop waited for a notification that cannot arrive.
 
 **Cost.** Sixty minutes of a canary run lost to a wait with no exit condition, on a gate that had finished long before.
 
-**What changed.** Agents run gates in the foreground and read the result when the command returns. Only the main session may wait on a background task, and it never sleeps or polls for a subagent either; the harness delivers the completion. "Run it in the foreground" is not enough on its own: the Bash default timeout is 120 s and the harness auto-backgrounds anything slower, so a gate over ~2 min (`make e2e` measured 2.2–3.2 m on mermaid-support) is backgrounded *for* the agent unless it passes an explicit `timeout` — 600000 ms covers every gate in this repo.
+**What changed.** Agents run gates in the foreground and read the result when the command returns; only the main session may wait on a background task, and it never sleeps or polls either. Foreground alone is not enough: the Bash default timeout is 120 s and the harness backgrounds anything slower, so a gate over ~2 min (`make e2e` measured 2.2–3.2 m) is backgrounded *for* the agent unless it passes an explicit `timeout` — 600000 ms covers every gate in this repo.

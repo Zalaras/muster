@@ -1,7 +1,7 @@
 ---
 id: effect-claimed-from-the-diff
 type: lesson
-status: active
+status: retired
 date: 2026-09-10
 summary: A 'closed' world-readable window left the WAL sidecar readable; 'references updated' missed a Go comment. Effects are measured and pasted, absences grepped.
 features: []

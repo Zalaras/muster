@@ -1,7 +1,7 @@
 ---
 id: worktree-shares-git-config
 type: lesson
-status: active
+status: retired
 date: 2026-09-10
 summary: A scratch git config user.* inside a worktree of this repo landed on the real repo; two commits reached main as a test identity.
 features: []

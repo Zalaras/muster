@@ -1,7 +1,7 @@
 ---
 id: resize-pane-silent-noop
 type: lesson
-status: active
+status: retired
 date: 2026-08-16
 summary: tmux resize-pane exits 0 and does nothing on a single-pane window; sizing needs pty.Setsize and resize-window together, measured zero-diff at five widths.
 features: [surfaces]

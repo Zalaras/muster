@@ -1,7 +1,7 @@
 ---
 id: protocol-decision-routed-to-debate
 type: lesson
-status: active
+status: retired
 date: 2026-08-29
 summary: A cycle-1 Critical needing a protocol change was tagged as debatable; the protocol contract is never debated, so it detoured before reaching the developer.
 features: [ingest, lifecycle]

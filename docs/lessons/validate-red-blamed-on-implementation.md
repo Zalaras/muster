@@ -1,7 +1,7 @@
 ---
 id: validate-red-blamed-on-implementation
 type: lesson
-status: active
+status: retired
 date: 2026-08-23
 summary: 10 of 12 specs failed against a stale prebuilt daemon and looked like implementation bugs; both Criticals were pre-existing specs asserting the old wire shape.
 features: [usage]

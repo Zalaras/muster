@@ -1,7 +1,7 @@
 ---
 id: transient-display-is-not-an-oracle
 type: lesson
-status: active
+status: retired
 date: 2026-09-11
 summary: E12 flaked for weeks on a ~25 ms overlay a later render pass destroys; assert the settled state and prove a flake fix with e2e-soak, not one green run.
 features: [surfaces]

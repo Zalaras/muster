@@ -1,7 +1,7 @@
 ---
 id: completion-claimed-before-approved-verdict
 type: lesson
-status: active
+status: retired
 date: 2026-09-06
 summary: 'Only approved completes it' was prose only; the state script accepted completed regardless, cycle counts were wrong in 2 of 5 runs. The script refuses now.
 features: []

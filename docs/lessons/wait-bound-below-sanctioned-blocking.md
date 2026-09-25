@@ -11,8 +11,9 @@ files: [cmd/musterd/onexit_test.go]
 tests: [TestOnExit_Leave_LiveSessionSurvivesShutdown]
 refs: [docs/history/design/test-strategy.md, plan:post-worktree-spike-issues]
 ---
-**What happened.** The daemon tests' "wrote `tokens.json`" waits were bounded at 10 s on a startup path containing two bounded-but-blocking steps before the write: the tmux preflight (2 s) and the `claude --version` check (5 s). Seven seconds of sanctioned blocking under a ten-second assertion is a threshold, not a margin. `TestOnExit_Leave_LiveSessionSurvivesShutdown` failed one of three full runs at 10.02 s. In the same plan a takeover test wrote its marker into a tmux attach still setting itself up, and a views spec synchronised on a `<select>`'s DOM value rather than the rail order the code under test reads.
+
+**What happened.** The daemon tests' "wrote `tokens.json`" waits were bounded at 10 s on a startup path with two bounded-but-blocking steps before the write: the tmux preflight (2 s) and the `claude --version` check (5 s). Seven seconds of sanctioned blocking under a ten-second assertion is a threshold, not a margin; `TestOnExit_Leave_LiveSessionSurvivesShutdown` failed one run in three at 10.02 s.
 
 **Cost.** A red that read as a shutdown regression and was not one, twice investigated.
 
-**What changed.** The bound is one named constant whose comment names the two timeouts it clears and whose failure message repeats the derivation. Synchronise on the thing production reads, not a proxy that changes earlier. Every other fix in that plan removed a timing dependence instead of widening one; a timing gate on a shared machine is a flake generator.
+**What changed.** The bound is one named constant whose comment names the timeouts it clears and whose failure message repeats the derivation. Synchronise on the thing production reads, not a proxy that changes earlier. Prefer removing a timing dependence to widening one; a timing gate on a shared machine is a flake generator.

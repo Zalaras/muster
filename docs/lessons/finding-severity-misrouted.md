@@ -1,7 +1,7 @@
 ---
 id: finding-severity-misrouted
 type: lesson
-status: active
+status: retired
 date: 2026-09-07
 summary: Approved with a Major, Minors deferred to TODO, a false README filed as a nit, an agent-tagged note: four labelling mistakes that each lost a fix or a wave.
 features: []

@@ -1,7 +1,7 @@
 ---
 id: rg-shim-invisible-to-bare-subshell
 type: lesson
-status: active
+status: retired
 date: 2026-08-29
 summary: An authored check ran rg via bash -c and failed: rg is Claude Code's shell-function shim, not a binary on PATH, so a bare subshell cannot see it.
 features: []
