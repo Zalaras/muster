@@ -137,6 +137,28 @@ size-warn: ## Warn-only: long functions (funlen), duplicated blocks (dupl) and f
 .PHONY: check
 check: lint test web-lint web-test contrast e2e-lint check-versions check-kb refs ## Lint + test + web-lint + web-test + contrast + e2e-lint + check-versions + check-kb + refs
 
+# Pipeline worktrees (kb:adr/process-pipeline-runs-in-sibling-worktree): every /orchestrate run
+# lives in ../<repo>-<plan> on plan/<plan>, created here before the session starts; the primary
+# stays on main for /land. scripts/worktree.sh holds the logic and its refusals.
+BASE ?= main
+.PHONY: worktree
+worktree: ## Create ../<repo>-$(NAME) on plan/$(NAME) from $(BASE), carry the planning edits, copy local files, build (NAME=<plan>)
+	@test -n "$(NAME)" || { echo "usage: make worktree NAME=<plan> [BASE=main]"; exit 2; }
+	scripts/worktree.sh add "$(NAME)" "$(BASE)"
+
+.PHONY: worktree-setup
+worktree-setup: ## In a worktree: copy the gitignored local files from the primary (settings.local.json, node_modules, captures, .env) and build
+	scripts/worktree.sh setup
+
+.PHONY: worktree-rm
+worktree-rm: ## Remove ../<repo>-$(NAME); refuses a dirty tree, unlanded content or a live session unless FORCE=1; never deletes the branch
+	@test -n "$(NAME)" || { echo "usage: make worktree-rm NAME=<plan> [FORCE=1]"; exit 2; }
+	scripts/worktree.sh rm "$(NAME)"
+
+.PHONY: worktrees
+worktrees: ## List every worktree (branch, ahead, landed, dirty) and which plan branches touch the same files
+	scripts/worktree.sh list
+
 .PHONY: hooks
 hooks: ## Arm the commit-msg + pre-commit guards (.githooks/) and the blame-ignore list for this clone — docs/conventions.md § Commits
 	git config core.hooksPath .githooks
