@@ -246,9 +246,9 @@ Place new test files in `web/e2e/<feature-name>.spec.ts`, where `<feature-name>`
 
 ## Constraints
 
-- Do NOT modify `web/playwright.config.ts`, `web/e2e/helpers/fixtures.ts` or
+- Do NOT modify `web/playwright.config.ts`, `web/e2e/helpers/fixtures.ts`, `web/e2e/helpers/gatelock.ts` or
   `web/scripts/e2e-lint.sh` — a gate-integrity boundary: they hold the knobs that define "passing"
-  (`workers`, `timeout`, `expect.timeout`, `retries`, fixture shapes, what the lint forbids), and
+  (`workers`, `timeout`, `expect.timeout`, `retries`, fixture shapes, the gate lock, what the lint forbids), and
   the agent judged by the suite must not hold that pen. **web-impl owns them.** If your specs need a
   change there, state exactly what and why in your log's handoff/blocked section — the orchestrator
   routes it.

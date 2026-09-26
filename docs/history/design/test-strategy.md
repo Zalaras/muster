@@ -257,3 +257,24 @@ This is an operator hazard, not a suite defect, and it is worth writing down pre
 everything else in this file is about real flakes: a red of this shape should be re-run clean
 before it is believed. `gates.sh` runs its checks sequentially, so the pipeline itself is safe —
 the exposure is a human or an agent running a sweep beside a build.
+
+## 2026-09-26: two worktrees, one machine
+
+Measured before adding worktree tooling (i7-9750H 6c/12t, 16 GB, commit c8abb76, idle box,
+463 tests at 4 workers), so the numbers above are the suite at 281 tests and these are it now:
+
+| Run | Wall | Result | CPU |
+|---|---|---|---|
+| `make test` alone | 94 s | green | ~1 core avg — wall-bound (`internal/server` 91 s, `cmd/musterd` 71 s) |
+| `make test-race` alone | 161 s | green | ~1.1 cores, 1 GB RSS |
+| `make e2e` alone | 202 s | green | 4.4 cores avg, peak 8.3/12, 641 CPU-s |
+| 2× `make test`, two worktrees | 101 / 105 s | both green | |
+| `make e2e` + `make test-race`, two worktrees | 226 / 234 s | e2e red (1) | peak 11.8 |
+| 2× `make e2e`, 4 workers each | 316 / 327 s | both red (1, 4) | peak 11.1, no swap |
+| 2× `make e2e`, 2 workers each | 375 / 387 s | both red (1, 4) | peak 9.1 |
+
+The same specs went red every time: `shell.spec.ts:47`, `update.spec.ts:456`,
+`rail-cards.spec.ts:226`, `embedded.spec.ts:76`. No leftover processes, no swap — scheduling
+latency, not exhaustion; fewer workers does not buy it back. The consequence is
+kb:lesson/concurrent-e2e-across-worktrees-goes-red: a sweep is exclusive on the machine
+(`tools/gatelock`), unit runs shared.

@@ -167,6 +167,12 @@ facts carry `guard: none` — `kb:fact/worktree-flag-defaults` and
 `kb:fact/worktree-create-hook-owns-path` want canary or unit coverage when the feature is built,
 and the second is the one to re-measure if a Claude Code bump touches worktrees.
 
+- [ ] **Four E2E specs go red when a second Playwright suite shares the machine** —
+  `shell.spec.ts:47`, `update.spec.ts:456`, `rail-cards.spec.ts:226`, `embedded.spec.ts:76`
+  failed with another suite alive in a second worktree, and passed alone every time
+  (`docs/history/design/test-strategy.md`, 2026-09-26). The gate lock now keeps a second suite
+  out; these four are the ones to look at if the lock ever has to go.
+
 - [ ] **Richer terminal functionality** — a second pass over the shell. The first pass
   (`plans/plain-terminal-session/spec.md`, #21 — cross-reference; the owning entry is in the history file)
   deliberately ships the smallest useful shell: one per Claude session, tethered to its

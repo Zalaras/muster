@@ -231,7 +231,9 @@ parts and commit the result.
    Note the summary's `<F> failed` count; the ledger makes a re-run on an identical tree a reuse,
    which is why nobody runs it twice (kb:adr/process-gates-run-once-by-orchestrator-before-review).
    A red line does **not** stop the review — the reviewers report it as a Critical and one fix wave
-   answers gate and findings together.
+   answers gate and findings together. Exit **75** is not red: the gate lock is busy (another
+   worktree's Playwright run; the output names the holder) — rerun the same command, the ledger
+   makes it cheap; never sleep or poll for it.
 2. **Choose the reviewer set.** `review-work` always. `review-browser` unless the plan's
    `**Work Type**` is `daemon`. On a delta cycle (below), `review-browser` runs only if
    `git diff --name-only <review_commits[N-1]>..HEAD -- web/src ':!*.test.ts'` is non-empty, and
@@ -460,7 +462,8 @@ The script header documents what it runs, how it dedupes, where it logs and how 
 shim. Paste its summary into the completion report. **Every baseline gate and every authored check
 must pass** — otherwise the pipeline is not complete. On a tree unchanged since Step 6's run this is
 a ledger reuse that costs seconds and proves the tree did not move; the `WARN size` line never
-counts against it.
+counts against it. Exit 75 means the gate lock was busy (a sweep in another worktree): rerun,
+nothing failed.
 
 If the plan has no ```checks block, run the baseline gates and say in the summary that the plan
 predates the Automated Checks convention. Do NOT parse prose criteria for backticked commands to
@@ -523,5 +526,5 @@ When all steps pass AND the review verdict is "approved", in this order:
    in context. The pipeline never merges or pushes.
 9. **Tear down what the run started** — `ListAgents`, then `TaskStop` every teammate this pipeline
    spawned (they survive `/clear`; 51 had accumulated across four runs), then
-   `.claude/skills/orchestrate/scripts/orch-cleanup.sh --yes` for orphaned processes, stale `tmux -L` sockets and `$TMPDIR` debris. Report both counts.
+   `.claude/skills/orchestrate/scripts/orch-cleanup.sh --yes` for orphaned processes, stale `tmux -L` sockets and `$TMPDIR` debris. Report both counts. It skips the process kill and the scratch sweep while the gate lock is held elsewhere (another worktree's sweep owns those) and says so — report that, don't force it.
 10. **Decisions section** — for every debate run this pipeline (`plans/<plan>/decisions/*/decision.md`): the two options, the outcome, consensus-or-judged, the decisive argument in one or two sentences, and any dissent. The user may overrule with one line; if they do, `reopen` the affected wave and re-run it with the user's choice quoted.

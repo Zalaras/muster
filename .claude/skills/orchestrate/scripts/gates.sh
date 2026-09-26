@@ -34,11 +34,16 @@
 #     PATH, so a `bash -c` subshell cannot see it (m4-hook-lifetime D25). The shim is
 #     recreated below when no real rg exists.
 #   * Node is pinned via .nvmrc; nvm is sourced if present so `make web-*` see that Node.
+#   * The whole run holds the machine-wide gate lock (tools/gatelock): shared for --wave 1|2
+#     (no Playwright there; two trees' wave gates may overlap), exclusive otherwise. It waits
+#     GATES_LOCK_WAIT (default 150s: the 10-minute Bash ceiling minus a ~390 s baseline) and
+#     exits 75 when the wait expires — busy, not red: rerun, the ledger reuses every PASS.
 set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 cd "$ROOT" || exit 2
 
+ORIG_ARGS=("$@")   # for the re-exec under the gate lock below
 PLAN="${1:-}"
 [[ -n "$PLAN" ]] || { echo "usage: gates.sh <plan> [--no-e2e] [--checks-only] [--baseline-only] [--fresh]" >&2; exit 2; }
 shift
@@ -59,6 +64,15 @@ case "$WAVE" in ''|1|2|3) ;; *) echo "--wave takes 1, 2 or 3 (got: $WAVE)" >&2; 
 
 PLAN_FILE="plans/$PLAN/plan.md"
 [[ -f "$PLAN_FILE" ]] || { echo "no such plan: $PLAN_FILE" >&2; exit 2; }
+
+# Re-exec once under the gate lock (header): only the baseline, wave 3 and --checks-only can
+# reach Playwright, so waves 1 and 2 take it shared. Nested `make test`/`make e2e` below then
+# no-op their own acquire via MUSTER_GATELOCK. Exit 75 = busy (the holder is named).
+if [[ -z "${MUSTER_GATELOCK:-}" ]]; then
+  case "$WAVE" in 1|2) _mode=shared ;; *) _mode=exclusive ;; esac
+  go build -o bin/gatelock ./tools/gatelock || exit 2   # built, not `go run`: go run masks exit codes (75 included)
+  exec bin/gatelock run --$_mode --wait "${GATES_LOCK_WAIT:-150s}" -- "$0" "${ORIG_ARGS[@]}"
+fi
 
 LOG_DIR="${GATES_LOG_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/muster-gates-$PLAN.XXXXXX")}"
 mkdir -p "$LOG_DIR"
@@ -255,9 +269,11 @@ if [[ -n "$WAVE" ]]; then
   # A wave runs every authored check except the suites a later wave owns — this is what makes
   # `make web-lint` (and any other static check the plan authored) part of every wave gate.
   # Wave 1 also leaves the full lint and web-build to wave 2 (sanctioned test-file breakage above).
+  # Waves 1 and 2 hold the gate lock shared, so any authored Playwright line (`make e2e*` or a
+  # raw `playwright test`) is skipped there rather than refused as a self-deadlock; wave 3 owns it.
   case "$WAVE" in
-    1) WAVE_SKIP='^(make test|make web-test|make e2e|make lint|make web-build)$' ;;
-    2) WAVE_SKIP='^(make e2e)$' ;;
+    1) WAVE_SKIP='^(make test|make web-test|make e2e.*|make lint|make web-build|.*playwright.*)$' ;;
+    2) WAVE_SKIP='^(make e2e.*|.*playwright.*)$' ;;
     3) WAVE_SKIP='^$' ;;
   esac
   RUN_BASELINE=0
@@ -266,7 +282,7 @@ fi
 if (( RUN_BASELINE )); then
   echo "== baseline gates (plan $PLAN)"
   run_one build "go build ./..."
-  run_one test  "make test-race"           # the race detector is a real failure; ~100 s (2026-09-22), so only the baseline pays for it
+  run_one test  "make test-race"           # the race detector is a real failure; ~161 s (2026-09-26), so only the baseline pays for it
   # A green race run is a superset of `make test`, so an authored check naming the plain
   # command dedupes to this PASS instead of running the suite a second time.
   [[ "$(seen_status "make test-race")" == PASS ]] && SEEN="$SEEN

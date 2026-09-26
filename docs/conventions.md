@@ -157,6 +157,11 @@ seam (the shape chosen, why, and what it reused or matched).
   `workers` caps the daemons alive at once. A spec may *shorten* a timeout, with a comment
   saying why, never lengthen one; a fixed hold exists only as `settleFor()` for a
   stays-unchanged check. Rationale and measurements: `docs/history/design/test-strategy.md`.
+- A Playwright run has the machine to itself: it holds the gate lock (`tools/gatelock`)
+  exclusively from `playwright.config.ts`'s globalSetup, so a direct `npx playwright test`
+  counts too; `make test` / `make test-race` hold it shared (unit runs may overlap each other,
+  never a sweep — kb:lesson/concurrent-e2e-across-worktrees-goes-red). A busy lock waits and
+  names its holder every 15 s; when the wait expires it exits 75 — rerun, nothing failed.
 - Assert the state the UI *settles* in, never a display a later render pass replaces — the
   `4001` "session ended" overlay lasts ~25 ms before the dead surface (e2e-lint rule 4). A
   change that fixes or touches a flaky spec is proven with `make e2e-soak SPEC=<file> N=10`
