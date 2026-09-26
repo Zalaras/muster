@@ -14,6 +14,11 @@ import { defineConfig, devices } from "@playwright/test";
 // hold the knobs that decide what "passing" means.
 export default defineConfig({
   testDir: "./e2e",
+  // Every run holds the machine-wide gate lock exclusively (helpers/gatelock.ts; its
+  // returned function is the teardown that releases it). A second sweep, or a unit-test
+  // run in another worktree, turns this suite red — kb:lesson/concurrent-e2e-across-worktrees-goes-red.
+  // `--list` never runs globalSetup, so listing tests is not serialised.
+  globalSetup: "./e2e/helpers/gatelock.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: 0,
