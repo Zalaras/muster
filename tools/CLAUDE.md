@@ -1,6 +1,6 @@
 # tools — dev tools, never shipped
 
-**Owns**: three `go run`-only commands: `tools/kb` (index, gate and generate the `docs/` knowledge base), `tools/versions` (the Claude Code verified-range record and its fragments), `tools/triage` (the program half of `/triage`). `.goreleaser.yaml` builds only `./cmd/musterd`. **Features**: canary, knowledge, triage.
+**Owns**: four `go run`-only commands: `tools/kb` (index, gate and generate the `docs/` knowledge base), `tools/versions` (the Claude Code verified-range record and its fragments), `tools/triage` (the program half of `/triage`), `tools/gatelock` (the machine-wide gate lock: exclusive round every Playwright run, shared round `make test`/`test-race`; exit 75 = busy, rerun). `.goreleaser.yaml` builds only `./cmd/musterd`. **Features**: canary, knowledge, triage.
 
 **Invariants** (violations are review-Critical):
 - A `main.go` only dispatches; logic lives in `internal/kb`, `internal/triage`, or beside the command with table tests.
