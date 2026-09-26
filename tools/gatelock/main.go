@@ -5,9 +5,11 @@
 // globalSetup), `make test` / `make test-race` hold it shared, and `gates.sh` holds it
 // once around a whole gate run.
 //
-//	go run ./tools/gatelock run  (--exclusive|--shared) [--wait <dur>] -- <cmd> [args…]
-//	go run ./tools/gatelock hold (--exclusive|--shared) [--wait <dur>]
-//	go run ./tools/gatelock status
+//	go build -o bin/gatelock ./tools/gatelock   # never `go run`: it exits 1 for any non-zero
+//	                                            # program exit, masking the child's code and 75
+//	bin/gatelock run  (--exclusive|--shared) [--wait <dur>] -- <cmd> [args…]
+//	bin/gatelock hold (--exclusive|--shared) [--wait <dur>]
+//	bin/gatelock status
 //
 // `run` execs cmd as a child with the lock held and exits with its code. `hold` prints
 // `acquired` once it has the lock, then blocks until stdin closes — a Node parent that

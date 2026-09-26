@@ -1,6 +1,6 @@
 # tools — dev tools, never shipped
 
-**Owns**: four `go run`-only commands: `tools/kb` (index, gate and generate the `docs/` knowledge base), `tools/versions` (the Claude Code verified-range record and its fragments), `tools/triage` (the program half of `/triage`), `tools/gatelock` (the machine-wide gate lock: exclusive round every Playwright run, shared round `make test`/`test-race`; exit 75 = busy, rerun). `.goreleaser.yaml` builds only `./cmd/musterd`. **Features**: canary, knowledge, triage.
+**Owns**: four dev-only commands: `tools/kb` (index, gate and generate the `docs/` knowledge base), `tools/versions` (the Claude Code verified-range record and its fragments), `tools/triage` (the program half of `/triage`) — all `go run` — and `tools/gatelock` (the machine-wide gate lock: exclusive round every Playwright run, shared round `make test`/`test-race`; exit 75 = busy, rerun), built to `bin/gatelock` because `go run` exits 1 for any non-zero program exit and would mask that 75. `.goreleaser.yaml` builds only `./cmd/musterd`. **Features**: canary, knowledge, triage.
 
 **Invariants** (violations are review-Critical):
 - A `main.go` only dispatches; logic lives in `internal/kb`, `internal/triage`, or beside the command with table tests.
@@ -19,9 +19,9 @@
 - A nested `CLAUDE.md` is budgeted at 400 words outside kb fragments, the root at 150 lines (`internal/kb/budget.go`).
 
 <!-- kb:trailer -->
-<!-- kb:hash 68ee979b520da974 -->
+<!-- kb:hash e9869f560d44b4e4 -->
 - **canary** — The verified Claude Code version range, canary tiers, and the fragments tools/versions regenerates. → `docs/features/canary/INDEX.md`
 - **knowledge** — Typed knowledge records, the kb tool that indexes and gates them, and the generated rules and indexes. → `docs/features/knowledge/INDEX.md`
 - **triage** — GitHub issues into TODO.md through a program, and the pre-commit link guard. → `docs/features/triage/INDEX.md`
-- 5 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 6 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->
