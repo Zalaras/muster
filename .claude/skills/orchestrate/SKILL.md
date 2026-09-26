@@ -34,14 +34,19 @@ If no plan name was provided, list available plans from the `plans/` directory a
      validate (kb:lesson/orchestrator-work-spawned-as-agent).
    - `none` → skip Steps 1 and 5
 4. Determine the project root (the directory containing `.claude/`)
-4a. **Branch.** The pipeline never commits on `main`. Read `git status --short` and act on the first matching row; never `git add -A`, never stash (kb:lesson/tree-not-clean-at-pipeline-start):
-
-| Tree state | Action |
-|---|---|
-| `plan/<plan-name>` exists | `git checkout` it. Resume only if it has commits `main` lacks (`git log --oneline main..plan/<plan-name>`); zero unique commits means planning landed elsewhere — `git merge --ff-only main` before spawning anyone. |
-| Only the plan's own directory or planning-session doc edits are dirty (`docs/*`, `SPEC.md`, `TODO.md`, `CLAUDE.md`, `README.md`, `spikes/*`, `.claude/skills/*`, `.claude/agents/*`) | `git checkout -b plan/<plan-name>`, `git add <those files>`, `git commit -m "docs(<plan-name>): approved plan and planning-session edits"`. |
-| Any other **tracked** file is dirty | Stop and offer three dispositions: **(a)** the user commits it on `main`, the pipeline branches from a clean tree; **(b)** the pipeline commits it onto `plan/<plan-name>`; **(c)** it stays dirty and every agent is told to leave it alone — unsafe when the file is in the plan's Affected Files (its owner would fold the user's change into its own commit). |
-| An **untracked** file outside the plan's directory that nothing references (a stray screenshot, a scratch note) | Does not block: leave it, tell every agent to leave it alone, never `git add` it, list it in the completion summary. |
+4a. **Worktree.** The pipeline never commits on `main` and never runs in the primary checkout
+   (kb:adr/process-pipeline-runs-in-sibling-worktree). This session must be running in
+   `../muster-<plan-name>` on `plan/<plan-name>`: `git rev-parse --show-toplevel` ends in
+   `muster-<plan-name>`, `git rev-parse --abbrev-ref HEAD` prints `plan/<plan-name>`, and
+   `git rev-parse --git-common-dir` is not `.git`. Otherwise **stop**: `make worktree NAME=<plan-name>`
+   from the primary creates the tree (branching from `main`, committing the planning-session edits
+   onto the branch, copying the local files, building) and the `/orchestrate` session is started
+   *there* — a session cannot move into a tree, its hooks and subagents key off the directory it
+   started in. In the tree, `git status --short` shows nothing but untracked strays nothing
+   references: leave them, tell every agent to leave them alone, never `git add` them, list them in
+   the completion summary; never `git add -A`, never stash (kb:lesson/tree-not-clean-at-pipeline-start).
+   Run `make worktrees` and carry any `overlap` line (another plan branch touching the same files)
+   into the summary — it is the early warning `/land` will otherwise give late.
 
    **Commits.** Every agent commits its own files at the end of its step (their definitions say
    how); an agent finishing with uncommitted files is a Handoff defect — have it commit before its

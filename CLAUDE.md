@@ -35,7 +35,9 @@ Feature work goes through the multi-agent pipeline, not ad-hoc editing:
    requirements as observable consequence → `plans/<name>/spec.md`, `Status: Approved`.
 2. `/plan-work <name>` — interactive plan with protocol-contract delta, Testable UI
    Elements, a Doc Delta and an Automated Checks block → `plans/<name>/plan.md`. User approves.
-3. `/orchestrate <name>` — runs e2e-specs (authoring) → daemon-impl ∥ web-impl →
+3. `/orchestrate <name>` — in its own worktree, `../muster-<name>` on `plan/<name>`, made by
+   `make worktree NAME=<name>` from the primary checkout (which stays on `main` for `/land`);
+   runs e2e-specs (authoring) → daemon-impl ∥ web-impl →
    daemon-tests ∥ web-tests → e2e-validate → gates (orchestrator, once) → review-work ∥
    review-browser ∥ review-maintainability (Opus; merged into one computed verdict) →
    doc-reconcile, with fix waves and `orchestration-state.json` resume. Only a merged review

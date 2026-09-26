@@ -49,10 +49,15 @@ Check all of these before touching anything. If any fails, stop and say exactly 
    Equal means merging would change nothing — already landed, so say "nothing to land" and stop.
    A squash of an empty range produces an empty commit, the worst outcome available here.
 6. For each name in the plan's `**Features**`, `go run ./tools/kb ls --feature <f> --status
-   proposed` lists no record with `refs: plan:<plan>`, and `make check-kb` exits 0 on the
-   branch. A `proposed` ADR here means orchestrate's Completion step 4 was skipped — send it back
-   rather than flipping it yourself. The only files this command ever edits are `TODO.md` and
-   `proposed-backlog.md` files, in step 2, on the user's answers.
+   proposed` lists no record with `refs: plan:<plan>`, and `make -C ../muster-<plan> check-kb`
+   exits 0 on the branch. A `proposed` ADR here means orchestrate's Completion step 4 was skipped —
+   send it back rather than flipping it yourself. The only files this command ever edits are
+   `TODO.md` and `proposed-backlog.md` files, in step 2, on the user's answers.
+7. The plan's worktree is there and idle: `make worktrees` lists `../muster-<plan>` on
+   `plan/<plan>` (kb:adr/process-pipeline-runs-in-sibling-worktree), and no `claude` has it as
+   its cwd (`lsof -a -d cwd -c claude -Fn` prints no `n<that path>` line) — end that session
+   first; this command runs from the primary checkout, on `main`. A plan from before worktrees
+   has no tree: then step 2 and preflight 6 use `git checkout plan/<plan>` here, as they used to.
 
 A plan that never went through `/orchestrate` (no state file, no review) is not landable by this
 command. Say so and let the user commit it themselves.
@@ -80,7 +85,9 @@ already done, duplicates. **Ask in prose, not an `AskUserQuestion` menu**: the u
 number — yes, not doing, defer, or a changed wording ("add as an investigation"). Asked to
 explain one, explain it plainly and wait.
 
-**Apply**, on `plan/<plan>` (`git checkout plan/<plan>`):
+**Apply**, on `plan/<plan>` in its worktree — edit `../muster-<plan>/TODO.md` and the
+`proposed-backlog.md` files there and commit with `git -C ../muster-<plan>` (the branch is
+checked out in that tree, so a `git checkout plan/<plan>` here is refused):
 
 - Each yes → `TODO.md`, in the section the user names, else at the end of **Pre-v1**, under a
   `Filed <date> by the developer from the plans' proposed-backlog.md files` lead line: `- [ ] **Title** — body … From \`plans/<plan>/\`.` An
@@ -89,9 +96,9 @@ explain one, explain it plainly and wait.
   file: `filed: TODO.md § <section>, "<title>"`, `not doing`, `already done: <evidence>. Not
   filed.`, or `deferred`.
 - Commit the files by name, `docs(<plan>): file follow-ups from proposed-backlog`, then
-  `make check-kb` and `python3 .claude/skills/orchestrate/scripts/dead-refs.py --all` exit 0,
-  and `git merge-tree --write-tree main plan/<plan>` exits 0 (1 means the edit now conflicts
-  with `main` — stop and ask).
+  `make -C ../muster-<plan> check-kb` and `../muster-<plan>/.claude/skills/orchestrate/scripts/dead-refs.py --all`
+  (it works in its own checkout) exit 0, and `git merge-tree --write-tree main plan/<plan>`
+  exits 0 (1 means the edit now conflicts with `main` — stop and ask).
 
 ## 3. Compose the subject
 
@@ -202,6 +209,11 @@ being unlanded. Don't delete on that alone; establish all three:
 
 If any of the three is unclear, keep the branch and ask. A branch costs nothing; lost work does.
 
+Then, in order: `git worktree remove ../muster-<plan>` — never `--force`; a refusal means the
+tree is dirty, so stop and ask — and only then `git branch -D plan/<plan>`, which git refuses
+while the branch is checked out in a tree. `git worktree remove` is deliberately not in
+`.claude/settings.json`'s allowlist: like `git push`, the point of no return prompts on its own.
+
 ## 7. Report
 
 - the squash SHA on `main` and the subject that landed;
@@ -220,5 +232,6 @@ Then remind the user that `/triage --audit` will show any issue whose close sile
   `MUSTER_BREAKING=1`, which only a human sets), and never write the breaking-footer phrase
   anywhere in a commit message.
 - Never delete a branch whose diff against `main` is non-empty.
+- Never `git worktree remove --force`, and never remove a tree a `claude` session still has as its cwd.
 - Never file a proposal the user did not choose, and never mark one already done or duplicate
   without evidence.
