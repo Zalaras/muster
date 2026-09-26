@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Session } from "../protocol/session";
-import { browse, fetchRepos, launchSession } from "./launch";
+import { browse, checkModels, fetchRepos, launchSession } from "./launch";
 import { fakeResponse, fakeResponseThatThrows } from "./testfakes";
 
 const validSession: Session = {
@@ -354,5 +354,183 @@ describe("launch — browse (GET /api/browse)", () => {
       ok: false,
       error: { code: "not_found", message: "no such directory" },
     });
+  });
+});
+
+describe("launch — checkModels (GET /api/models, plan maintainability-regressions REQ-1)", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("sends one repeated model= query parameter per requested model, in order", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { models: [] }));
+    await checkModels(["sonnet", "opus", "haiku", "fable"]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/models?model=sonnet&model=opus&model=haiku&model=fable",
+      {
+        method: "GET",
+        credentials: "same-origin",
+      },
+    );
+  });
+
+  it("URL-encodes a custom model value", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { models: [] }));
+    await checkModels(["my model"]);
+    expect(fetchMock).toHaveBeenCalledWith("/api/models?model=my+model", {
+      method: "GET",
+      credentials: "same-origin",
+    });
+  });
+
+  it("decodes a 200 with one entry per verdict kind, message present only on unrecognized", async () => {
+    const models = [
+      { model: "sonnet", verdict: "recognized" as const },
+      {
+        model: "fable",
+        verdict: "unrecognized" as const,
+        message:
+          'Claude Code doesn\'t recognise the model "fable" — update Claude Code, or pick another model',
+      },
+      { model: "opus", verdict: "unchecked" as const },
+    ];
+    fetchMock.mockResolvedValue(fakeResponse(true, { models }));
+    const result = await checkModels(["sonnet", "fable", "opus"]);
+    expect(result).toEqual({ ok: true, value: models });
+  });
+
+  it("decodes an empty models array as a valid, distinct empty result", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { models: [] }));
+    const result = await checkModels(["sonnet"]);
+    expect(result).toEqual({ ok: true, value: [] });
+  });
+
+  it("rejects an unrecognized verdict with no message", async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(true, { models: [{ model: "fable", verdict: "unrecognized" }] }),
+    );
+    const result = await checkModels(["fable"]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+
+  it("rejects an unrecognized verdict whose message is not a string", async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(true, {
+        models: [{ model: "fable", verdict: "unrecognized", message: 42 }],
+      }),
+    );
+    const result = await checkModels(["fable"]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+
+  it("ignores a message field on a recognized verdict rather than rejecting it", async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(true, {
+        models: [{ model: "sonnet", verdict: "recognized", message: "unexpected" }],
+      }),
+    );
+    const result = await checkModels(["sonnet"]);
+    expect(result).toEqual({ ok: true, value: [{ model: "sonnet", verdict: "recognized" }] });
+  });
+
+  it("rejects a non-string model field", async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(true, { models: [{ model: 7, verdict: "recognized" }] }),
+    );
+    const result = await checkModels(["sonnet"]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+
+  it("rejects a non-array models field", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { models: "sonnet" }));
+    const result = await checkModels(["sonnet"]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+
+  it("rejects a body with no models key", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, {}));
+    const result = await checkModels(["sonnet"]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+
+  it("rejects a non-record top-level value (null, array, or bare string)", async () => {
+    for (const body of [null, ["sonnet"], "sonnet"]) {
+      fetchMock.mockResolvedValue(fakeResponse(true, body));
+      const result = await checkModels(["sonnet"]);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error.code).toBe("unknown_error");
+    }
+  });
+
+  it("rejects the whole list when one element among several is malformed (all-or-nothing)", async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(true, {
+        models: [
+          { model: "sonnet", verdict: "recognized" },
+          { model: "opus", verdict: "nope" },
+        ],
+      }),
+    );
+    const result = await checkModels(["sonnet", "opus"]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+
+  it("decodes a 400 invalid_request (D6 shape: no parameter / too many / empty value)", async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, {
+        error: {
+          code: "invalid_request",
+          message: "model must be given 1 to 8 times, each non-empty",
+        },
+      }),
+    );
+    const result = await checkModels(["sonnet"]);
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        code: "invalid_request",
+        message: "model must be given 1 to 8 times, each non-empty",
+      },
+    });
+  });
+
+  it("decodes a 401 unauthorized without the UI cookie", async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, { error: { code: "unauthorized", message: "no session cookie" } }),
+    );
+    const result = await checkModels(["sonnet"]);
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "unauthorized", message: "no session cookie" },
+    });
+  });
+
+  it("falls back to a generic error when the success body doesn't match the verdict shape (REQ-10 fail path)", async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(true, { models: [{ model: "sonnet", verdict: "maybe" }] }),
+    );
+    const result = await checkModels(["sonnet"]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+
+  it("never throws when the daemon is unreachable (REQ-10 — a failed request marks nothing)", async () => {
+    fetchMock.mockRejectedValue(new Error("connection refused"));
+    const result = await checkModels(["sonnet"]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("network_error");
   });
 });

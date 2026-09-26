@@ -113,6 +113,12 @@ const STUB_CLAUDE_SCRIPT = [
   // model starting with `muster-e2e-unrecognized` gets the measured catalog-refusal
   // sentence on stderr; every other model passes through clean and exit 1 either way,
   // matching the real binary's "the sentence is the only signal" contract.
+  //
+  // Plan maintainability-regressions: `GET /api/models` (kb:anchor/models.check) checks
+  // arbitrary preset names (sonnet/opus/haiku/fable), which the prefix rule above can't
+  // mark unrecognised — a per-run list of exact names, `MUSTER_E2E_STUB_UNRECOGNIZED_MODELS`
+  // (space-separated, `ScratchDaemonOptions.stubUnrecognizedModels`), is checked alongside
+  // it so a scratch daemon can make any preset the catalog "doesn't describe".
   `if [ "$1" = "--bare" ]; then`,
   `  model=""`,
   `  prev=""`,
@@ -120,11 +126,16 @@ const STUB_CLAUDE_SCRIPT = [
   `    if [ "$prev" = "--model" ]; then model="$arg"; fi`,
   `    prev="$arg"`,
   `  done`,
+  `  unrecognized=0`,
   `  case "$model" in`,
-  `    muster-e2e-unrecognized*)`,
-  `      echo "\\"$model\\" isn't described by this version's model catalog; update Claude Code, or map it with behavesAs on a modelPicker row." >&2`,
-  `      ;;`,
+  `    muster-e2e-unrecognized*) unrecognized=1 ;;`,
   `  esac`,
+  `  for stubbed in \${MUSTER_E2E_STUB_UNRECOGNIZED_MODELS:-}; do`,
+  `    if [ "$stubbed" = "$model" ]; then unrecognized=1; fi`,
+  `  done`,
+  `  if [ "$unrecognized" = "1" ]; then`,
+  `    echo "\\"$model\\" isn't described by this version's model catalog; update Claude Code, or map it with behavesAs on a modelPicker row." >&2`,
+  `  fi`,
   '  echo "Error: Input must be provided either through stdin or as a prompt argument when using --print" >&2',
   "  exit 1",
   "fi",
@@ -297,6 +308,15 @@ export interface ScratchDaemonOptions {
    * version-answering stub.
    */
   stubClaudeVersionFails?: boolean;
+  /**
+   * Plan maintainability-regressions test seam: exact model names the stub's `--bare`
+   * branch answers as unrecognised (`MUSTER_E2E_STUB_UNRECOGNIZED_MODELS`, space-joined),
+   * for `GET /api/models`/`POST /api/sessions` fixtures that need a *preset* (sonnet,
+   * opus, haiku, fable) to fail the catalog check — the pre-existing
+   * `muster-e2e-unrecognized*` prefix only covers a custom model's own free-text value.
+   * Omit (default `[]`) to leave the stub answering every preset as recognised.
+   */
+  stubUnrecognizedModels?: string[];
   /**
    * Plan auto-update test seam: `-update-base-url` base. Unlike every opt-in flag above,
    * this one is passed UNCONDITIONALLY for every scratch daemon (Implementation Notes >
@@ -479,6 +499,9 @@ export class ScratchDaemon {
   /** Plan version-claude-interface REQ-13: true iff this run's stub answers
    * `--version` with a failure instead of a version string. */
   private readonly stubClaudeVersionFails: boolean;
+  /** Plan maintainability-regressions: exact model names this run's stub answers as
+   * unrecognised from its `--bare` branch (`MUSTER_E2E_STUB_UNRECOGNIZED_MODELS`). */
+  private readonly stubUnrecognizedModels: string[];
   /** Plan auto-update: `-update-base-url` value, always passed (never omitted) — `""` by
    * default, structurally guaranteeing no scratch daemon ever reaches a real host. */
   private readonly updateBaseURL: string;
@@ -509,6 +532,7 @@ export class ScratchDaemon {
     updateCheckInterval?: string,
     updatePublicKeyFile?: string,
     extraEnv?: Record<string, string>,
+    stubUnrecognizedModels: string[] = [],
   ) {
     this.port = port;
     this.baseURL = `http://127.0.0.1:${port}`;
@@ -537,6 +561,7 @@ export class ScratchDaemon {
     this.updateCheckInterval = updateCheckInterval;
     this.updatePublicKeyFile = updatePublicKeyFile;
     this.extraEnv = extraEnv;
+    this.stubUnrecognizedModels = stubUnrecognizedModels;
   }
 
   static async start(opts: ScratchDaemonOptions = {}): Promise<ScratchDaemon> {
@@ -578,6 +603,7 @@ export class ScratchDaemon {
         opts.updateCheckInterval,
         opts.updatePublicKeyFile,
         opts.env,
+        opts.stubUnrecognizedModels ?? [],
       );
       daemon.denyStubServer = denyStubServer;
       await mkdir(daemon.browseRoot, { recursive: true });
@@ -748,6 +774,9 @@ export class ScratchDaemon {
         ? { MUSTER_E2E_STUB_VERSION: this.stubClaudeVersion }
         : {}),
       ...(this.stubClaudeVersionFails ? { MUSTER_E2E_STUB_VERSION_FAIL: "1" } : {}),
+      ...(this.stubUnrecognizedModels.length > 0
+        ? { MUSTER_E2E_STUB_UNRECOGNIZED_MODELS: this.stubUnrecognizedModels.join(" ") }
+        : {}),
     };
   }
 

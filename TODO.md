@@ -73,21 +73,21 @@ since reported from real use.
   gone after stopping musterd and killing tmux. They should come back on restart as resumable
   rows, even though Claude itself has quit.
 
-### Together — regressions since the maintainability cleanup (#54, #55, #58)
+### Together — a launch request in flight
 
-Filed by the developer 2026-09-25 on 0.18.3, each as new since the cleanup landed.
+Filed 2026-09-26 by the developer from `plans/maintainability-regressions/proposed-backlog.md`.
 
-- [ ] **Tool Hook issues - Regression** ([#54](https://github.com/Zalaras/muster/issues/54)) — every `PreToolUse` and
-  `PostToolUse` hook (Bash, Read) prints `hook error` / `Failed with non-blocking status code: No
-  stderr output` in the Claude session. Hooks should run without surfacing errors.
-
-- [ ] **Lag when starting a new session** ([#55](https://github.com/Zalaras/muster/issues/55)) — there is a delay after clicking
-  Launch that was not there before. Launching should feel immediate again.
-
-- [ ] **Scroll in Claude not as smooth as it was before the refactor** ([#58](https://github.com/Zalaras/muster/issues/58)) — scrolling
-  the Claude terminal is choppier than it was. It should scroll as smoothly as before.
+- [ ] **Launch can be pressed again while a launch is in flight** — during the ~1 s pre-check a
+  second press sends a second launch. Launch should stay disabled until the first one answers.
+  From `plans/maintainability-regressions/`.
+- [ ] **A model refusal can move focus after the selection changed** — in one open dialog:
+  submit model A (refused), change to B and submit, change back to A and click Title; B's
+  refusal moves focus to the custom-model field. A refusal should move focus only while the
+  refused model is still the selection. From `plans/maintainability-regressions/`.
 
 ### On their own
+
+- [ ] **Watch until 2026-10-02: tool hooks surfaced `hook error` after an update** ([#54](https://github.com/Zalaras/muster/issues/54)) — closed by plan `maintainability-regressions`. Remove this entry on 2026-10-02 if no hook error of the same kind has been logged since; otherwise reopen #54.
 
 - [ ] **Dragging a file does not enable focus** ([#36](https://github.com/Zalaras/muster/issues/36)) — dropping a file on a Claude session does
   not snap focus back to that terminal. Confirm the behaviour in a plain terminal first
@@ -131,6 +131,9 @@ Refactor:
 - [ ] **Plan IDs remain in test-file comments** — about 370 lines; production code is clean.
 - [ ] **No test covers the launch rollback after a failed record.**
 - [ ] **`internal/boundedwait` has no tests of its own.**
+- [ ] **The self-updater swaps in the new binary with its own temp-file-and-rename writer** —
+  it should use the daemon's shared atomic write (a fresh temp name, synced before the rename).
+  From `plans/maintainability-regressions/`.
 
 Quality of life:
 

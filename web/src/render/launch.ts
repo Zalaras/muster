@@ -113,6 +113,118 @@ export function renderBrowseLoading(container: HTMLElement): void {
   container.replaceChildren(loading);
 }
 
+/** Which control currently governs Launch/marking: the checked preset's value, or the
+ * custom-model input's current (trimmed) text when `other…` is checked. The DOM-free
+ * counterpart, `features/launchmodels.ts`'s `deriveModelRowState`, takes this same shape
+ * as a parameter — declared here, not there, so that module (a pure decision with one
+ * controller caller) imports its parameter types downward from the builder that also
+ * consumes them, the same direction as `render/crumbs.ts`'s `Crumb` /
+ * `features/launchcrumbs.ts`. */
+export interface ModelSelection {
+  selected: string;
+  isCustom: boolean;
+}
+
+/** The Model row's whole derived state from (verdicts so far, current selection) —
+ * `features/launchmodels.ts` recomputes this on every verdict arrival and every selection
+ * change; `renderModelRowState` below draws whatever it returns onto the DOM. */
+export interface ModelRowState {
+  /** Preset values to disable: unrecognized and not the current selection. */
+  disabledPresets: ReadonlySet<string>;
+  /** The selected model's own verdict is unrecognized (design-system §5 invalid-field
+   * pattern). */
+  invalid: boolean;
+  /** `#model-error`'s text, or `null` when `invalid` is false. */
+  errorMessage: string | null;
+}
+
+/** `#model-error`: hidden with no children while `message` is `null`, otherwise an
+ * `aria-hidden` `⚠` glyph followed by the message text — the glyph sits outside the
+ * accessible name (design-system §5 invalid-field pattern) so a caller matching this
+ * element's text (e2e/helpers/picker.ts's `modelError`) needs a substring match, never an
+ * exact one. */
+function renderModelError(el: HTMLElement, message: string | null): void {
+  if (message === null) {
+    el.hidden = true;
+    el.replaceChildren();
+    return;
+  }
+  const glyph = document.createElement("span");
+  glyph.setAttribute("aria-hidden", "true");
+  glyph.textContent = "⚠";
+  el.replaceChildren(glyph, document.createTextNode(` ${message}`));
+  el.hidden = false;
+}
+
+function toggleControlInvalid(el: HTMLElement, invalid: boolean): void {
+  if (invalid) {
+    el.setAttribute("aria-invalid", "true");
+    el.setAttribute("aria-describedby", "model-error");
+  } else {
+    el.removeAttribute("aria-invalid");
+    el.removeAttribute("aria-describedby");
+  }
+}
+
+/** The one control the current selection names: a preset radio, or the custom input when
+ * `other…` is checked. `undefined` only if `selection.selected` names no radio in
+ * `modelRadios`, which does not happen for a preset selection (the radio set is fixed). */
+function invalidControl(
+  modelRadios: readonly HTMLInputElement[],
+  customModelInput: HTMLInputElement,
+  selection: ModelSelection,
+): HTMLElement | undefined {
+  if (selection.isCustom) return customModelInput;
+  return modelRadios.find((radio) => radio.value === selection.selected);
+}
+
+/** The Model row's invalid-field pattern (design-system §5,
+ * kb:adr/launch-unrecognized-model-marked-blocks-launch): a disabled preset takes `title`;
+ * the one control matching the current selection — a preset radio or the custom input —
+ * carries `aria-invalid`/`aria-describedby` when its own verdict is unrecognized;
+ * `#model-error` and the Launch button both follow `state.invalid`.
+ *
+ * Focus rule (stated once here; `features/launch.ts`'s callers reference this comment
+ * rather than restate it). By default this never moves focus off a control that stays
+ * enabled — a verdict landing from the dialog-open request, a restore, or a selection
+ * change touches only the row's own controls, never Title or the browse list. The one
+ * default-path exception is Launch itself: disabling it while it holds focus would
+ * otherwise drop focus to `<body>` (browsers never move it themselves), so that one case
+ * hands focus to the invalid control instead — the field the developer needs to fix next.
+ *
+ * `forceFocusInvalid` is a second, deliberate exception on top of that default: a
+ * launch-time `model_unrecognized` refusal (kb:adr/launch-model-refusal-shown-in-field-error-only)
+ * forces focus onto the invalid control regardless of what currently holds it, because
+ * `#model-error` has no live-region role and moving focus is the refusal's only
+ * announcement. The caller (`features/launch.ts`'s `submit`) is the only one that passes
+ * `true`, and only once it has confirmed the refusal was merged into the *current* dialog's
+ * store (the same generation guard `applyVerdicts` applies to the write itself) — a stale
+ * refusal from a cancelled-and-reopened dialog moves nothing, focus included. */
+export function renderModelRowState(
+  modelRadios: readonly HTMLInputElement[],
+  customModelInput: HTMLInputElement,
+  modelError: HTMLElement,
+  launchButton: HTMLButtonElement,
+  state: ModelRowState,
+  selection: ModelSelection,
+  forceFocusInvalid = false,
+): void {
+  for (const radio of modelRadios) {
+    if (radio.value === "other") continue;
+    radio.disabled = state.disabledPresets.has(radio.value);
+    radio.title = radio.disabled ? "Claude Code doesn't recognise this model" : "";
+    const isSelected = !selection.isCustom && selection.selected === radio.value;
+    toggleControlInvalid(radio, isSelected && state.invalid);
+  }
+  toggleControlInvalid(customModelInput, selection.isCustom && state.invalid);
+  renderModelError(modelError, state.invalid ? state.errorMessage : null);
+  const launchHadFocus = document.activeElement === launchButton;
+  launchButton.disabled = state.invalid;
+  if (state.invalid && (launchHadFocus || forceFocusInvalid)) {
+    invalidControl(modelRadios, customModelInput, selection)?.focus();
+  }
+}
+
 /** The footer's target readout: an em dash and no branch while nothing is listed yet,
  * else the path and — the browse endpoint never reports the listed directory's own
  * branch, so the only honest source is a recent whose served path matches — that

@@ -20,7 +20,7 @@
 - Rail card and strip card share one template; scope locators to the host.
 
 <!-- kb:trailer -->
-<!-- kb:hash 80e4d24d208804e0 -->
+<!-- kb:hash 68ce4228fb22a300 -->
 - **actions** — End, Resume and Remove a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
 - **drop** — File drop pastes the original on-disk path into the pane. → `docs/features/drop/INDEX.md`
@@ -39,5 +39,5 @@
 - **update** — Release check, minisign-verified apply, in-place restart with sessions re-adopted. → `docs/features/update/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
 - **views** — Focus and Tiles switch, density preference, view containers. → `docs/features/views/INDEX.md`
-- 13 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 14 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

@@ -250,7 +250,19 @@ border (≥ 3:1 on the surface they sit on — nothing else marks a field's exte
 **Segmented control** — mono, `--fs-xs` (11.25px), 1px `--edge` track border; native radio inputs
 visually hidden inside their labels, the checked segment taking `--bg-hover` ground and
 `--fg` text, focus-visible an amber 1px inset outline. Used by the Focus/Tiles view switcher,
-the launch form's Model and Start-in rows, and the Settings dialog's theme picker.
+the launch form's Model and Start-in rows, and the Settings dialog's theme picker. A
+**disabled segment** (its radio `disabled`) takes `--disabled-fg` text, the `.btn:disabled`
+family.
+
+**Invalid field** — the standard form-validation idiom, used where a value is known to be
+wrong but stays selected (the launch form's Model row, plan `maintainability-regressions`):
+the control carries `aria-invalid="true"` and `aria-describedby` naming its message; the field
+(a segment's label, or the text input) takes a 1px `--banner-line` outline and `--banner-fg`
+text; the message is a `.field-error` paragraph directly after the field — mono, `--fs-xs`,
+`--banner-fg`, prefixed with an `aria-hidden` `⚠` so the accessible text is the message alone
+— and the form's submit is disabled while any field is invalid. The tone is `.launch-error`'s,
+because `--rose` is the Failed state and `--danger` is destructive action (§3). No asterisk:
+it means "required", not "invalid".
 
 **Gauge thresholds** — a masthead usage bar takes `warn` and a context track takes `hot`
 at **≥ 60% used** (settled by m3-gauges planning, 2026-08-23 — the mockups' 61%-warn /

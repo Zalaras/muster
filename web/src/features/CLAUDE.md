@@ -1,6 +1,6 @@
 # web/src/features — controllers, one per feature (update: two)
 
-**Owns**: one controller per feature, except **update** (two: `update.ts`'s `initUpdate`; `updaterestart.ts`'s `initUpdateRestart`, split off since it's driven by connection/WS lifecycle events `update.ts` never touches — its header comment says why). Each `init<Name>(app, deps)` looks up its elements, attaches listeners, subscribes via `app.on`, registers a render phase via `app.onRender`, returns a small handle. `web/src/main.ts` registers each in one line; `web/src/app.ts` is the shared seam (store, `AppState`, event bus, render frame). Pure logic shared across directories lives in `sessions/` or `terminal/`, DOM building in `render/`. A pure decision with exactly one controller caller lives beside that controller in `features/` instead — either inline in the controller's own file (a short one-off: features/issue.ts's `composeNoteSection`/`composePreview`/`formatCaptureTime`/`formatErrorDetail`, features/reader.ts's `parseStandaloneQuery`/`visibleDocsIds`, features/launch.ts's `checkedValue`) or, once it carries enough of its own reasoning/doc comment to want separation from the controller's own init/render code, in its own `<owner><concern>.ts` file — one exception, `updaterestart.ts`, is a controller, not a pure decision (the pure ones: `actionscopy.ts`, `connectionrestore.ts`, `connectionversion.ts`, `launchcrumbs.ts`, `launchrestore.ts`, `updateview.ts`). **Features**: actions, connection, focus, issue, launch, rail, reader, rename, settings, shortcuts, surfaces, theme, tiles, update, usage, views.
+**Owns**: one controller per feature, except **update** (two: `update.ts`'s `initUpdate`; `updaterestart.ts`'s `initUpdateRestart`, split off since it's driven by connection/WS lifecycle events `update.ts` never touches — its header comment says why). Each `init<Name>(app, deps)` looks up its elements, attaches listeners, subscribes via `app.on`, registers a render phase via `app.onRender`, returns a small handle. `web/src/main.ts` registers each in one line; `web/src/app.ts` is the shared seam (store, `AppState`, event bus, render frame). Pure logic shared across directories lives in `sessions/` or `terminal/`, DOM building in `render/`. A pure decision with exactly one controller caller lives beside that controller in `features/` instead — either inline in the controller's own file (a short one-off: features/issue.ts's `composeNoteSection`/`composePreview`/`formatCaptureTime`/`formatErrorDetail`, features/reader.ts's `parseStandaloneQuery`/`visibleDocsIds`, features/launch.ts's `checkedValue`) or, once it carries enough of its own reasoning/doc comment to want separation from the controller's own init/render code, in its own `<owner><concern>.ts` file — one exception, `updaterestart.ts`, is a controller, not a pure decision (the pure ones: `actionscopy.ts`, `connectionrestore.ts`, `connectionversion.ts`, `launchcrumbs.ts`, `launchmodels.ts`, `launchrestore.ts`, `updateview.ts`). **Features**: actions, connection, focus, issue, launch, rail, reader, rename, settings, shortcuts, surfaces, theme, tiles, update, usage, views.
 
 **Invariants** (violations are review-Critical):
 - `main.ts` holds no DOM lookup, listener, or module-level mutable state (kb:adr/process-composition-roots-registration-only).
@@ -20,7 +20,7 @@
 - One `init<Name>(app, deps)` shape: `deps` is always a named exported `<Name>Deps` interface, never typed inline; a thunk reaching a controller constructed later is named `get<Noun>`; `init` returns a handle only when a caller uses it.
 
 <!-- kb:trailer -->
-<!-- kb:hash fb62eb16471916c7 -->
+<!-- kb:hash 167c9f936bcb314c -->
 - **actions** — End, Resume and Remove a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
 - **focus** — Focus view: mainhead, main slot, dead surface, default focus, focus marker. → `docs/features/focus/INDEX.md`
@@ -37,5 +37,5 @@
 - **update** — Release check, minisign-verified apply, in-place restart with sessions re-adopted. → `docs/features/update/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
 - **views** — Focus and Tiles switch, density preference, view containers. → `docs/features/views/INDEX.md`
-- 46 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 48 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

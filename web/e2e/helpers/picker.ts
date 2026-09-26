@@ -72,6 +72,15 @@ export function launchError(dialog: Locator): Locator {
   return dialog.locator("#launch-error");
 }
 
+/** `#model-error` — the Model row's invalid-field message (plan
+ * maintainability-regressions REQ-8/9). Its `⚠` glyph sits in its own `aria-hidden` span,
+ * so callers match its text with `toHaveText(/regex/)` (a substring test) rather than an
+ * exact string, since the glyph is still part of `textContent` even though it is excluded
+ * from the accessible name. */
+export function modelError(dialog: Locator): Locator {
+  return dialog.locator("#model-error");
+}
+
 /** Escapes a string for safe interpolation into a `RegExp` — directory basenames here
  * come from `mkdtemp` (word characters and hyphens only) so this is mostly defensive. */
 export function escapeForRegExp(value: string): string {

@@ -112,7 +112,7 @@ Write `decision.md`:
 
 Then land it where it belongs — you are the only party allowed to edit these:
 
-- the plan: an *Amended* note inline on the affected REQ / UI row citing `decisions/<slug>`;
+- the plan: *Amended* note, citing `decisions/<slug>`, on each row the outcome or conceded dissent changes;
 - `docs/adr/<slug>.md`, the citable record: `status: proposed` with `refs: [plan:<plan>,
   plans/<plan>/decisions/<slug>/decision.md]` inside a pipeline (orchestrate Completion step 4
   accepts it), `accepted` standalone with the user present; `tags: [consensus]` or `[judged]`.

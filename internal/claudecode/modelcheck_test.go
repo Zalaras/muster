@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -232,4 +233,95 @@ func TestRunModelCheck_HarmlessSmokeTestNeverUsesRealClaude(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Empty(t, string(stderr), "echo writes to stdout, not stderr")
+}
+
+// --- ResolveBinaryIdentity (REQ-2/REQ-3: the binary-identity cache key modelsFeature
+// invalidates on) ---
+
+// writeExecutableOnPath creates an executable file dir/name and points $PATH at dir
+// alone. ResolveBinaryIdentity never execs what it finds (exec.LookPath only checks the
+// executable bit), so the file's content is never run.
+func writeExecutableOnPath(t *testing.T, dir, name string) string {
+	t.Helper()
+	path := filepath.Join(dir, name)
+	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\n"), 0o755))
+	t.Setenv("PATH", dir)
+	return path
+}
+
+func TestResolveBinaryIdentity_ResolvesPathSizeAndModTime(t *testing.T) {
+	dir := t.TempDir()
+	path := writeExecutableOnPath(t, dir, "claude")
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+
+	id, err := ResolveBinaryIdentity("claude")
+	require.NoError(t, err)
+
+	resolved, err := filepath.EvalSymlinks(path)
+	require.NoError(t, err)
+	assert.Equal(t, resolved, id.Path)
+	assert.Equal(t, info.Size(), id.Size)
+	assert.True(t, info.ModTime().Equal(id.ModTime))
+}
+
+// TestResolveBinaryIdentity_FollowsSymlink covers the Homebrew-install shape: `claude` on
+// $PATH is a symlink into a versioned Cellar path. The identity must be the resolved
+// target's own path, size and mtime, not the symlink's.
+func TestResolveBinaryIdentity_FollowsSymlink(t *testing.T) {
+	realDir := t.TempDir()
+	realPath := filepath.Join(realDir, "claude-real")
+	require.NoError(t, os.WriteFile(realPath, []byte("#!/bin/sh\n"), 0o755))
+
+	linkDir := t.TempDir()
+	linkPath := filepath.Join(linkDir, "claude")
+	require.NoError(t, os.Symlink(realPath, linkPath))
+	t.Setenv("PATH", linkDir)
+
+	id, err := ResolveBinaryIdentity("claude")
+	require.NoError(t, err)
+
+	resolvedReal, err := filepath.EvalSymlinks(realPath)
+	require.NoError(t, err)
+	assert.Equal(t, resolvedReal, id.Path, "the identity must be the symlink's target, not the link itself")
+}
+
+// TestResolveBinaryIdentity_NotOnPath_Errors and
+// TestResolveBinaryIdentity_DanglingSymlink_Errors are REQ-3's "cannot resolve the
+// binary's identity" trigger: modelsFeature treats either as unchecked, never cached.
+func TestResolveBinaryIdentity_NotOnPath_Errors(t *testing.T) {
+	t.Setenv("PATH", t.TempDir()) // an empty dir: nothing named this is on $PATH
+
+	_, err := ResolveBinaryIdentity("claude-does-not-exist-anywhere")
+
+	require.Error(t, err)
+}
+
+func TestResolveBinaryIdentity_DanglingSymlink_Errors(t *testing.T) {
+	dir := t.TempDir()
+	link := filepath.Join(dir, "claude")
+	require.NoError(t, os.Symlink(filepath.Join(dir, "does-not-exist"), link))
+	t.Setenv("PATH", dir)
+
+	_, err := ResolveBinaryIdentity("claude")
+
+	require.Error(t, err)
+}
+
+// TestResolveBinaryIdentity_ChangedContentChangesIdentity is D3's identity half: a binary
+// replaced at the same path (a Claude Code update, or any in-place replacement) changes
+// size, which is the whole invalidation signal modelsFeature relies on (REQ-2) — never
+// Claude Code's own versions/ layout.
+func TestResolveBinaryIdentity_ChangedContentChangesIdentity(t *testing.T) {
+	dir := t.TempDir()
+	path := writeExecutableOnPath(t, dir, "claude")
+	before, err := ResolveBinaryIdentity("claude")
+	require.NoError(t, err)
+
+	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\n# a longer replacement binary\n"), 0o755))
+
+	after, err := ResolveBinaryIdentity("claude")
+	require.NoError(t, err)
+
+	assert.NotEqual(t, before, after)
 }

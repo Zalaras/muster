@@ -113,12 +113,12 @@ only client→server WS traffic in v1 is terminal input/resize on the terminal s
 // response: 201 + the Session object (kb:anchor/ws.session), state "started"
 ```
 
-Pre-check (kb:adr/launch-refuses-model-outside-binary-catalog): after the `invalid_request` rules
-and before any side effect, the daemon runs `claude --bare --no-session-persistence --model
-<model> -p ""` in `directory` (≤ 5 s, zero tokens, no hooks —
-kb:fact/model-catalog-precheck-zero-token). If its stderr carries the model-catalog warning the
-launch is refused with `400 model_unrecognized` and nothing is written; a check that cannot run,
-times out, or prints no warning lets the launch proceed.
+Pre-check (kb:adr/launch-model-check-cached-per-binary-identity): after the `invalid_request`
+rules and before any side effect, the daemon takes the model's verdict from the catalog cache
+`kb:anchor/models.check` describes; on a miss it runs the zero-token check once and caches a
+definite verdict. `unrecognized` refuses the launch with `400 model_unrecognized` and nothing is
+written; `unchecked` (the check could not run, timed out, or the binary could not be identified)
+lets the launch proceed.
 
 Side effects (ux-flows §1.3): upsert `repo` row; create the tmux window on the `muster`
 socket with `MUSTER_SESSION` set in the pane environment (`kb:anchor/ingest.envelope`); ensure the directory's
@@ -144,6 +144,43 @@ anyway — a race, or a second daemon on the socket — the spawn is retried at 
 three attempts; `launch_failed` is returned only once those are spent, and its message names the
 tmux session. Ids are therefore sparse after a failed launch or a Remove; they were always opaque
 to the UI.
+
+<!-- kb:anchor models.check -->
+### `GET /api/models`
+
+**Auth**: UI cookie (401 `unauthorized` without it).
+**Request:** query parameter `model`, given 1 to 8 times; each value non-empty and passed
+verbatim as `--model`, the same rule as `kb:anchor/sessions.create`'s `model`. Duplicates are
+collapsed. `GET /api/models?model=sonnet&model=opus&model=haiku&model=fable`
+**Response 200:**
+
+```jsonc
+{ "models": [                                   // one entry per distinct requested model, in first-seen request order
+  { "model": "sonnet", "verdict": "recognized" },
+  { "model": "fable",  "verdict": "unrecognized",
+    "message": "Claude Code doesn't recognise the model \"fable\" — update Claude Code, or pick another model" },
+  { "model": "opus",   "verdict": "unchecked" }
+] }
+// verdict: "recognized" | "unrecognized" | "unchecked"
+//   recognized   — the installed binary's catalog describes it (kb:fact/model-catalog-precheck-zero-token)
+//   unrecognized — its stderr carried the catalog sentence; kb:anchor/sessions.create would refuse it with model_unrecognized
+//   unchecked    — the check errored, timed out, or the binary could not be identified; fail-open, a launch would proceed
+// message: string, present iff verdict is "unrecognized" — exactly the model_unrecognized message kb:anchor/sessions.create returns for that model
+```
+
+The response waits for every requested verdict. A cached one answers at once; an uncached one
+runs `claude --bare --no-session-persistence --model <model> -p ""` (≤ 5 s each, zero tokens,
+no hooks), all misses in parallel, in a daemon-chosen directory — the catalog is built into the
+binary. Definite verdicts are cached in memory against the **binary identity**: the
+`-claude-bin` value resolved on `$PATH` with symlinks followed, plus that file's size and
+modification time. A Claude Code update, or any replacement of that file, misses on the next
+lookup; `unchecked` is never cached. `kb:anchor/sessions.create`'s pre-check reads the same
+cache, and concurrent lookups of one model share one run
+(kb:adr/launch-model-check-cached-per-binary-identity).
+
+**Errors:**
+- 400 `invalid_request`: no `model` parameter, more than 8 distinct values, or an empty value.
+  `{"error": {"code": "invalid_request", "message": "model must be given 1 to 8 times, each non-empty"}}`
 
 <!-- kb:anchor repos.list -->
 ### `GET /api/repos`

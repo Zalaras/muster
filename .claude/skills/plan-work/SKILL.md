@@ -197,9 +197,9 @@ If the plan or protocol states a rule that must hold **at all times** — an "if
 is `needs_input`") — list it as a **named invariant**, not
 just in a requirement's prose. Invariants get a different test shape: assert them from **every
 reachable source state**, not the convenient one. Before approval, walk every state-changing
-path Affected Files and Implementation Notes name against each named invariant: a path the plan
-calls "unchanged" or "untouched" that an invariant now reaches is a fix wave the tester will
-spend (kb:lesson/invariant-missed-by-per-transition-tests). A "run every
+path Affected Files and Implementation Notes name against each named invariant: a path or
+existing test the plan calls "unchanged" that an invariant or User Flow now reaches costs a
+fix wave (kb:lesson/invariant-missed-by-per-transition-tests). A "run every
 input against every starting state, assert the invariant after" table is cheap; write it into
 the acceptance criteria explicitly.
 

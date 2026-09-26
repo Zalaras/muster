@@ -1,0 +1,7 @@
+# Decision: model-refusal-message-placement
+
+**Outcome**: A — "A `model_unrecognized` refusal goes to `#model-error` only (no `showError` for that code). E6's two existing tests move their assertion to `#model-error`, and the plan records that E6 changed."
+**Reached by**: consensus (advocate-b conceded in turn 1)
+**Decisive argument**: advocate-a's turn 1, points 2 and 3: "Under A the only refusal text is `#model-error`. INV-2 (plan.md:267) derives it from the *selected* model's latest verdict. So 'no visible refusal text names a model no longer selected' holds by construction." Under B, `#launch-error` is a second copy that no invariant governs. It must be cleared from the radio `change`, the custom `input` and `setModel`, and it needs a new flag so the clear does not wipe the directory, model-empty, browse and repos errors that share `#launch-error`. It still diverges when the refused text is retyped.
+**Dissent to honour**: advocate-b's accessibility point. `#launch-error` is `role="alert"` (web/index.html:169) and `#model-error` has no live-region role, so under A nothing announces the refusal by itself. advocate-b dropped the point only because browser Minor 1's required fix moves focus to the invalid control after the refusal, and that control is `aria-describedby="model-error"`. **Browser Minor 1 is therefore a condition of this outcome, not an optional polish.**
+**Landed in**: plans/maintainability-regressions/plan.md (E6 and User Flow 5, *Amended* notes); docs/adr/launch-model-refusal-shown-in-field-error-only.md (proposed).

@@ -1,7 +1,7 @@
 ---
 id: launch-refuses-model-outside-binary-catalog
 type: decision
-status: accepted
+status: superseded
 date: 2026-09-23
 summary: Launch refuses a model the installed Claude Code's catalog does not describe, via a fail-open zero-token --bare check run on every launch, uncached.
 features: [launch]

@@ -47,7 +47,7 @@ C4Component
     Container_Boundary(dashboard, "Dashboard") {
         Boundary(ctl, "Entries and controllers") {
             Component(main, "main.ts", "entry", "Dashboard composition root: inits 17 controllers, owns render order")
-            Component(features, "features/", "23 modules", "17 stateful per-feature controllers (the update feature has two: its Settings panel and its restart banner/reload), own their elements and listeners, plus 6 DOM-free helpers each owned by one controller")
+            Component(features, "features/", "24 modules", "17 stateful per-feature controllers (the update feature has two: its Settings panel and its restart banner/reload), own their elements and listeners, plus 7 DOM-free helpers each owned by one controller")
             Component(doc, "doc.ts", "entry", "Pop-out reader composition root")
             Component(wsapp, "wsapp.ts", "mapping", "The WS-to-app mapping both entries register, then layer their own handlers on top of")
         }

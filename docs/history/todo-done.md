@@ -2013,3 +2013,26 @@ Both are what `#update-status` tells the developer when an update can't go ahead
   the full chain goes to the daemon log at warn. The Settings dialog also no longer overflows
   on a long remedy. Added in planning: an Update-and-restart now shows the banner as updating
   while the daemon is down, reloads each window on reconnect, and confirms `Updated to v…`.
+
+## Together — regressions since the maintainability cleanup (#54, #55, #58) ✅ done 2026-09-26 (plan `maintainability-regressions`, via `/orchestrate`; approved review cycle 4)
+
+Filed by the developer 2026-09-25 on 0.18.3, each as new since the cleanup landed. None of the
+three came from the cleanup. #54's entry stays in `TODO.md` as a watch entry until 2026-10-02.
+
+- [x] **Lag when starting a new session** ([#55](https://github.com/Zalaras/muster/issues/55)) — there is a delay after clicking
+  Launch that was not there before. Launching should feel immediate again.
+
+  Shipped: the model-catalog check (about 1 s, shipped in v0.18.1, not the cleanup) now runs when
+  the New Session dialog opens, for the four presets in parallel, and its verdicts are cached
+  against the resolved `claude` binary's path, size and mtime, so a Claude Code update re-checks.
+  Launch reads the cache and normally runs no check. An unrecognised preset that is not selected
+  is disabled; an unrecognised selected model stays selected, is marked invalid with the reason
+  under the Model row, and blocks Launch until another is picked.
+
+- [x] **Scroll in Claude not as smooth as it was before the refactor** ([#58](https://github.com/Zalaras/muster/issues/58)) — scrolling
+  the Claude terminal is choppier than it was. It should scroll as smoothly as before.
+
+  Investigated — no Muster change: nothing on the Claude surface's scroll path changed across
+  the cleanup (xterm options, wheel handling, PTY pump, scroll-speed env, dependencies). Likely
+  Claude Code's self-update to 2.1.281/2.1.282 in the same days; the developer's manual A/B
+  against 2.1.280 settles it.

@@ -79,31 +79,42 @@ type sessionLauncher struct {
 
 	// hookScript/statusLineScript are the generated command-hook wrapper script paths
 	// (internal/claudecode.WriteWrapperScripts) — the launcher holds no ingest URL at
-	// all; the URL lives only inside the scripts themselves, rewritten at every daemon
-	// start (kb:adr/ingest-all-hooks-command-wrappers).
+	// all; the URL lives only inside the scripts themselves, replaced at daemon start
+	// whenever their content changed (kb:adr/ingest-all-hooks-command-wrappers).
 	hookScript       string
 	statusLineScript string
 	// legacyScripts lists prior wrapper paths MergeSettings must still recognise and
 	// drop from an already-instrumented directory.
 	legacyScripts []string
 
-	// checkModel is the model-catalog pre-check (kb:adr/launch-refuses-model-outside-binary-catalog),
-	// run between validateLaunchRequest and UpsertRepo. nil means no check — every
-	// *sessionLauncher literal a test constructs directly leaves it unset and skips it
-	// entirely.
+	// checkModel is the model-catalog pre-check
+	// (kb:adr/launch-model-check-cached-per-binary-identity), run between
+	// validateLaunchRequest and UpsertRepo. nil means no check — every *sessionLauncher
+	// literal a test constructs directly leaves it unset and skips it entirely. dir is
+	// unused by production's own closure (the check runs in the cache's daemon-chosen
+	// directory, never a launch directory) but stays part of the signature so every
+	// existing test literal setting this field directly keeps compiling.
 	checkModel func(ctx context.Context, dir, model string) (claudecode.ModelVerdict, error)
 }
 
-// newSessionLauncher builds the launch/resume service, defaulting cfg.ClaudeBin to
-// "claude" (main's flag default is never empty, but a zero-value Config must still spawn
-// something nameable). Test call sites construct *sessionLauncher literals directly
-// instead, so they can leave checkModel nil (see its own doc comment) — this constructor
-// is production's one path.
-func newSessionLauncher(store *store.Store, manager *session.Manager, tmux paneSpawner, cfg LaunchConfig, log zerolog.Logger) *sessionLauncher {
-	claudeBin := cfg.ClaudeBin
-	if claudeBin == "" {
-		claudeBin = "claude"
+// defaultClaudeBin resolves LaunchConfig.ClaudeBin's default (main's flag default is
+// never empty, but a zero-value Config must still name something spawnable/checkable) —
+// shared by newSessionLauncher and server.go's newModelsFeature construction, so the two
+// features spawning `claude` can never resolve a different default from each other.
+func defaultClaudeBin(bin string) string {
+	if bin == "" {
+		return "claude"
 	}
+	return bin
+}
+
+// newSessionLauncher builds the launch/resume service. Test call sites construct
+// *sessionLauncher literals directly instead, so they can leave checkModel nil (see its
+// own doc comment) — this constructor is production's one path, and models is always a
+// real *modelsFeature there (kb:adr/launch-model-check-cached-per-binary-identity: exactly
+// one cache owner, shared with GET /api/models).
+func newSessionLauncher(store *store.Store, manager *session.Manager, tmux paneSpawner, cfg LaunchConfig, models *modelsFeature, log zerolog.Logger) *sessionLauncher {
+	claudeBin := defaultClaudeBin(cfg.ClaudeBin)
 	return &sessionLauncher{
 		store:            store,
 		manager:          manager,
@@ -113,8 +124,11 @@ func newSessionLauncher(store *store.Store, manager *session.Manager, tmux paneS
 		hookScript:       cfg.HookScript,
 		statusLineScript: cfg.StatusLineScript,
 		legacyScripts:    cfg.LegacyScripts,
-		checkModel: func(ctx context.Context, dir, model string) (claudecode.ModelVerdict, error) {
-			return claudecode.CheckModel(ctx, claudeBin, dir, model)
+		checkModel: func(ctx context.Context, _, model string) (claudecode.ModelVerdict, error) {
+			if models.verdict(ctx, model) == catalogUnrecognized {
+				return claudecode.ModelUnrecognised, nil
+			}
+			return claudecode.ModelRecognised, nil
 		},
 	}
 }
@@ -208,10 +222,12 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 	dir := req.Directory
 
 	// checkModel runs after validation and before any write (UpsertRepo is next), so a
-	// refusal leaves nothing to roll back. A check that errors fails open — the launch
-	// proceeds regardless (kb:adr/launch-refuses-model-outside-binary-catalog) — and is
-	// logged at warn without the stderr body: that sentence is Claude-Code wire-format
-	// detail, kept inside internal/claudecode.
+	// refusal leaves nothing to roll back. Production's own closure (newSessionLauncher)
+	// takes its verdict from the model-catalog cache rather than running a fresh
+	// subprocess, so this is normally a cache hit; a check that errors fails open — the
+	// launch proceeds regardless (kb:adr/launch-model-check-cached-per-binary-identity) —
+	// and is logged at warn without the stderr body: that sentence is Claude-Code
+	// wire-format detail, kept inside internal/claudecode.
 	if l.checkModel != nil {
 		verdict, err := l.checkModel(ctx, dir, req.Model)
 		if err != nil {
@@ -456,36 +472,13 @@ func (l *sessionLauncher) writeSettings(dir string) error {
 	if err = os.MkdirAll(settingsDir, 0o700); err != nil {
 		return fmt.Errorf("creating %s: %w", settingsDir, err)
 	}
-	// write-then-rename, not a direct WriteFile. The per-id lock only serialises the
-	// same session id — two different sessions launching into the same directory (a
-	// shared repo, two launches) still race on this same settings.local.json, and a
-	// torn write there refuses every future launch in the directory
-	// (kb:adr/actions-serialized-per-session's Consequences). The temp file is created
-	// in the same directory so the rename is atomic (same filesystem).
-	tmp, err := os.CreateTemp(settingsDir, "."+filepath.Base(path)+".tmp-*")
-	if err != nil {
-		return fmt.Errorf("creating temp file in %s: %w", settingsDir, err)
-	}
-	tmpPath := tmp.Name()
-	defer func() { _ = os.Remove(tmpPath) }() // no-op once the rename below succeeds
-	if _, err := tmp.Write(merged); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("writing %s: %w", tmpPath, err)
-	}
-	// fsync before the rename, or a crash between them can still lose the write despite
-	// the rename itself being atomic (durable, not just atomic).
-	if err := tmp.Sync(); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("syncing %s: %w", tmpPath, err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("closing %s: %w", tmpPath, err)
-	}
-	if err := os.Chmod(tmpPath, 0o600); err != nil {
-		return fmt.Errorf("setting permissions on %s: %w", tmpPath, err)
-	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		return fmt.Errorf("renaming %s to %s: %w", tmpPath, path, err)
+	// claudecode.AtomicWriteFile, not a direct WriteFile. The per-id lock only
+	// serialises the same session id — two different sessions launching into the same
+	// directory (a shared repo, two launches) still race on this same
+	// settings.local.json, and a torn write there refuses every future launch in the
+	// directory (kb:adr/actions-serialized-per-session's Consequences).
+	if err := claudecode.AtomicWriteFile(path, merged, 0o600); err != nil {
+		return fmt.Errorf("writing %s: %w", path, err)
 	}
 	return nil
 }

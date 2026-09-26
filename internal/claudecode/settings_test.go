@@ -2,10 +2,12 @@ package claudecode
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -748,4 +750,85 @@ func TestWriteEnvelopeScript_NeverWritesToStdoutOrStderr(t *testing.T) {
 	assert.Contains(t, text, "--output /dev/null")
 	lines := strings.Split(strings.TrimRight(text, "\n"), "\n")
 	assert.Equal(t, "exit 0", lines[len(lines)-1], "the script must end in an unconditional exit 0")
+}
+
+// --- writeScriptAtomically (REQ-11/REQ-12/INV-5: atomic replace, skip when unchanged) ---
+
+// TestWriteScriptAtomically_ReplacesByRenameAndFdKeepsReadingOldContent is D7: a reader
+// that already opened the old file must keep reading the complete old script even after
+// a rewrite lands new content at the same path, no temp file survives the rewrite, and
+// the new file's mode is 0o700.
+func TestWriteScriptAtomically_ReplacesByRenameAndFdKeepsReadingOldContent(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hook.sh")
+	oldContent := []byte("#!/bin/sh\necho old\n")
+	require.NoError(t, writeScriptAtomically(path, oldContent))
+
+	fd, err := os.Open(path)
+	require.NoError(t, err)
+	defer fd.Close()
+
+	newContent := []byte("#!/bin/sh\necho new\n")
+	require.NoError(t, writeScriptAtomically(path, newContent))
+
+	// INV-5: an fd opened on the old file keeps reading the complete old script — a
+	// rename unlinks the old directory entry, it never touches the old inode's data.
+	stale, err := io.ReadAll(fd)
+	require.NoError(t, err)
+	assert.Equal(t, oldContent, stale, "an fd opened before the rewrite must still read the complete old content")
+
+	fresh, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, newContent, fresh, "a fresh open after the rewrite must read the complete new content")
+
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o700), info.Mode().Perm())
+
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	assert.Len(t, entries, 1, "no temp file must remain after a successful rewrite")
+	assert.Equal(t, "hook.sh", entries[0].Name())
+}
+
+// TestWriteScriptAtomically_UnchangedContentLeavesInodeAndMtimeUntouched is D8/REQ-12:
+// the common daemon-restart case, where every wrapper script's content is unchanged,
+// must be a complete no-op — no write, no rename, the same inode and mtime.
+func TestWriteScriptAtomically_UnchangedContentLeavesInodeAndMtimeUntouched(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hook.sh")
+	content := []byte("#!/bin/sh\necho same\n")
+	require.NoError(t, writeScriptAtomically(path, content))
+
+	before, err := os.Stat(path)
+	require.NoError(t, err)
+	// mtimes can be coarser than the wall clock; sleeping guarantees a rewrite (if one
+	// happened) would be observable as a changed ModTime rather than a coincidental match.
+	time.Sleep(10 * time.Millisecond)
+
+	require.NoError(t, writeScriptAtomically(path, content))
+
+	after, err := os.Stat(path)
+	require.NoError(t, err)
+	assert.True(t, os.SameFile(before, after), "REQ-12: the same inode — no rename happened")
+	assert.Equal(t, before.ModTime(), after.ModTime(), "REQ-12: the same mtime — no write happened")
+
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	assert.Len(t, entries, 1, "no temp file must be created for an unchanged rewrite")
+}
+
+// TestWriteScriptAtomically_FreshPathWritesContent covers the first-ever-write case (no
+// prior file at path, the daemon's first start): the "does content already match" read
+// must treat a missing path as "no existing content", not an error.
+func TestWriteScriptAtomically_FreshPathWritesContent(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "status-line.sh")
+	content := []byte("#!/bin/sh\necho fresh\n")
+
+	require.NoError(t, writeScriptAtomically(path, content))
+
+	got, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, content, got)
 }

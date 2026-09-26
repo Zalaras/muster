@@ -135,7 +135,7 @@ type Server struct {
 
 // New builds a Server and wires its routes. Nothing here starts a goroutine; call Start
 // once the caller is ready to begin processing. Its length is one construction-plus-register
-// line per feature (13 features) plus the four Config overrides below whose default is
+// line per feature (15 features) plus the four Config overrides below whose default is
 // another root-built object (spawner, attach, httpClient, shellScroll) — every one of those
 // four is resolved here, in this one place, and nowhere else
 // (kb:adr/process-size-linters-warn-never-fail: the funlen warning this trips has that
@@ -198,8 +198,12 @@ func New(cfg Config) *Server {
 		OnUpsert:        func(sess *session.Session) { s.hub.broadcast(sessionUpsertWire(sess)) },
 		OnRemoved:       func(id int64) { s.hub.broadcast(sessionRemovedWire(id)) },
 	})
+	// models is the one model-catalog verdict cache (kb:adr/launch-model-check-cached-per-binary-identity):
+	// registered for GET /api/models and handed into newSessionLauncher below so Launch's
+	// own pre-check reads the same cache rather than a second one.
+	models := register(s, newModelsFeature(defaultClaudeBin(cfg.Launch.ClaudeBin), cfg.Logger))
 	shells := newShellRegistry(spawner, cfg.Logger)
-	launcher := newSessionLauncher(cfg.Store, s.manager, spawner, cfg.Launch, cfg.Logger)
+	launcher := newSessionLauncher(cfg.Store, s.manager, spawner, cfg.Launch, models, cfg.Logger)
 
 	// reader has no dependency on sessions (only on manager/hub, already built above), so
 	// it's built first and handed into newSessionsFeature — sessions' only use of it is

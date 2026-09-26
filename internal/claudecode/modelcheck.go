@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -22,7 +25,7 @@ type ModelVerdict int
 const (
 	// ModelRecognised covers every outcome except the measured refusal: a known model, an
 	// older binary with no catalog, or a check that could not run — the check fails open
-	// (kb:adr/launch-refuses-model-outside-binary-catalog).
+	// (kb:adr/launch-model-check-cached-per-binary-identity).
 	ModelRecognised ModelVerdict = iota
 	// ModelUnrecognised means stderr carried modelCatalogSentence.
 	ModelUnrecognised
@@ -33,9 +36,10 @@ const (
 // value is runModelCheck. It returns the run's stderr; a nil error covers any process
 // completion, including the catalog run's own always-exit-1
 // (kb:fact/model-catalog-precheck-zero-token). name/args carry the argv the same way
-// every sibling run-func does; dir is prepended because this check must run in the
-// launch directory, the same "one signature per output need, plus a working-dir input
-// where one is needed" shape gitutil.gitRunner's run field uses
+// every sibling run-func does; dir is prepended because the caller picks which directory
+// the check runs in — the catalog is built into the binary, so the directory never feeds
+// the verdict — the same "one signature per output need, plus a working-dir input where
+// one is needed" shape gitutil.gitRunner's run field uses
 // (kb:adr/process-adapter-run-seam-constructor-default).
 type modelCheckRun func(ctx context.Context, dir, name string, args ...string) ([]byte, error)
 
@@ -58,9 +62,9 @@ const modelCheckWaitDelay = 2 * time.Second
 
 // modelCheckTimeout bounds the pre-check subprocess (kb:fact/model-catalog-precheck-zero-token
 // measured it at about 1 s; 5 s leaves slack for a wedged binary before the check's own
-// fail-open (kb:adr/launch-refuses-model-outside-binary-catalog) lets the launch proceed)
-// — applied inside CheckModel itself, the way credentials.go's keychainExecTimeout is
-// applied inside KeychainTokenReader.
+// fail-open (kb:adr/launch-model-check-cached-per-binary-identity) lets the launch
+// proceed) — applied inside CheckModel itself, the way credentials.go's
+// keychainExecTimeout is applied inside KeychainTokenReader.
 const modelCheckTimeout = 5 * time.Second
 
 // runModelCheck is CheckModel's production modelCheckRun: runs name with args, in dir,
@@ -98,8 +102,9 @@ func runModelCheck(ctx context.Context, dir, name string, args ...string) ([]byt
 // CheckModel runs the zero-token pre-check (kb:fact/model-catalog-precheck-zero-token) for
 // model in dir: `<bin> --bare --no-session-persistence --model <model> -p ""`, bounded by
 // modelCheckTimeout. A run error (the binary can't start, or blocks past the deadline) is
-// returned to the caller so Launch can fail open and log a warning without the stderr
-// body (kb:adr/launch-refuses-model-outside-binary-catalog); the verdict is
+// returned to the caller — the model-catalog cache (modelsFeature) is what turns it into
+// an uncached "unchecked" verdict and lets the launch fail open
+// (kb:adr/launch-model-check-cached-per-binary-identity); the verdict is
 // ModelUnrecognised iff stderr carries modelCatalogSentence, never the exit code.
 func CheckModel(ctx context.Context, bin, dir, model string) (ModelVerdict, error) {
 	return newModelChecker().check(ctx, bin, dir, model)
@@ -122,4 +127,36 @@ func (m *modelChecker) check(ctx context.Context, bin, dir, model string) (Model
 // refusal sentence — the only thing the pre-check trusts.
 func stderrSaysUnrecognised(stderr []byte) bool {
 	return strings.Contains(string(stderr), modelCatalogSentence)
+}
+
+// BinaryIdentity is a resolved `claude` binary's cache key
+// (kb:adr/launch-model-check-cached-per-binary-identity): the path exec.LookPath and
+// EvalSymlinks resolve it to, plus that file's size and modification time. It is generic
+// file identity, not anything about Claude Code's own versions/ layout — a Homebrew
+// upgrade or an in-place binary replacement changes size and/or mtime either way, so both
+// invalidate a cache keyed on this the same way. Comparable with ==, a plain value type.
+type BinaryIdentity struct {
+	Path    string
+	Size    int64
+	ModTime time.Time
+}
+
+// ResolveBinaryIdentity resolves bin on $PATH (following symlinks) and stats the result.
+// A binary that can't be found, has a dangling symlink, or can't be stat'd returns an
+// error — the caller treats that the same as a check that couldn't run: unchecked, and
+// never cached.
+func ResolveBinaryIdentity(bin string) (BinaryIdentity, error) {
+	resolved, err := exec.LookPath(bin)
+	if err != nil {
+		return BinaryIdentity{}, fmt.Errorf("resolving %s on PATH: %w", bin, err)
+	}
+	resolved, err = filepath.EvalSymlinks(resolved)
+	if err != nil {
+		return BinaryIdentity{}, fmt.Errorf("resolving symlinks for %s: %w", resolved, err)
+	}
+	info, err := os.Stat(resolved)
+	if err != nil {
+		return BinaryIdentity{}, fmt.Errorf("stat %s: %w", resolved, err)
+	}
+	return BinaryIdentity{Path: resolved, Size: info.Size(), ModTime: info.ModTime()}, nil
 }

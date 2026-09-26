@@ -10,7 +10,7 @@ go: [internal/server/ingest*.go, internal/claudecode/ingest*.go, internal/claude
 web: []
 e2e: [web/e2e/general-cleanup.spec.ts, web/e2e/ingest.spec.ts, web/e2e/subagent-status.spec.ts, web/e2e/helpers/payloads.ts]
 protocol: [ingest, ingest.transport, ingest.envelope]
-refs: [kb:adr/ingest-all-hooks-command-wrappers, kb:adr/ingest-sessionstart-command-wrapper, kb:adr/ingest-envelope-binds-never-cwd, kb:adr/ingest-envelope-pane-must-corroborate, kb:adr/ingest-envelope-authoritative-binding, kb:adr/ingest-monotonic-rebind, kb:adr/ingest-seq-assigned-at-ingest, kb:adr/ingest-separate-token-in-url-path, kb:adr/ingest-hook-entries-permanent, kb:adr/ingest-shell-quote-at-write-boundary, kb:fact/sessionstart-not-over-http, kb:fact/command-hooks-inherit-pane-env, kb:fact/hook-commands-are-shell-lines, kb:fact/hook-delivery-best-effort, kb:fact/hook-payload-fields, kb:fact/status-line-keys, kb:fact/stopfailure-error-taxonomy, kb:fact/permission-mode-presence-split, kb:fact/local-settings-honoured]
+refs: [kb:adr/ingest-all-hooks-command-wrappers, kb:adr/ingest-sessionstart-command-wrapper, kb:adr/ingest-envelope-binds-never-cwd, kb:adr/ingest-envelope-pane-must-corroborate, kb:adr/ingest-envelope-authoritative-binding, kb:adr/ingest-monotonic-rebind, kb:adr/ingest-seq-assigned-at-ingest, kb:adr/ingest-separate-token-in-url-path, kb:adr/ingest-hook-entries-permanent, kb:adr/ingest-shell-quote-at-write-boundary, kb:adr/ingest-wrapper-scripts-replaced-atomically, kb:fact/sessionstart-not-over-http, kb:fact/command-hooks-inherit-pane-env, kb:fact/hook-commands-are-shell-lines, kb:fact/hook-delivery-best-effort, kb:fact/hook-payload-fields, kb:fact/status-line-keys, kb:fact/stopfailure-error-taxonomy, kb:fact/permission-mode-presence-split, kb:fact/local-settings-honoured]
 ---
 Ingest is how Claude Code's hooks and status line reach the daemon. Two endpoints,
 `POST /ingest/{token}/hook` and `POST /ingest/{token}/status` (`kb:anchor/ingest`), receive
@@ -33,10 +33,14 @@ Every hook and the status line is a `type:"command"` wrapper script that posts i
 and exits 0 silently when the session is unmanaged or the daemon is unreachable
 (kb:adr/ingest-all-hooks-command-wrappers, kb:adr/ingest-sessionstart-command-wrapper,
 kb:fact/sessionstart-not-over-http). Muster writes no `type:"http"` entries and no
-`allowedHttpHookUrls`. The wrappers live in the data directory and are rewritten at every
-daemon start; the settings entries reference their paths as single-quoted shell words
-(kb:adr/ingest-shell-quote-at-write-boundary, kb:fact/hook-commands-are-shell-lines) in the
-directory's project-scoped `.claude/settings.local.json` (kb:fact/local-settings-honoured).
+`allowedHttpHookUrls`. The wrappers live in the data directory and are replaced atomically at
+daemon start when their content changed, so a hook never runs a partly written script
+(kb:adr/ingest-wrapper-scripts-replaced-atomically) — the same write path (a temp file in the
+same directory, fsync'd, renamed over the target; skipped when the content on disk already
+matches) also writes the directory's project-scoped `.claude/settings.local.json` at launch.
+The settings entries reference the scripts' paths as single-quoted shell words
+(kb:adr/ingest-shell-quote-at-write-boundary, kb:fact/hook-commands-are-shell-lines) in that
+same file (kb:fact/local-settings-honoured).
 Entries are permanent once written (kb:adr/ingest-hook-entries-permanent). Hook timeouts
 are short, never five seconds. A separate ingest token sits in the URL path; a bad token is a
 404 (kb:adr/ingest-separate-token-in-url-path).

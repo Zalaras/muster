@@ -11,6 +11,7 @@
 // child click, crumb click, ⌘↑, a recent click and open all call it.
 import {
   browse,
+  checkModels,
   fetchRepos,
   launchSession,
   type BrowseResult,
@@ -27,12 +28,21 @@ import {
   renderBrowseListing,
   renderBrowseLoading,
   renderLaunchFooter,
+  renderModelRowState,
   renderRecentsList,
+  type ModelSelection,
 } from "../render/launch";
 import { splitCrumbs } from "./launchcrumbs";
+import {
+  applyVerdicts,
+  deriveModelRowState,
+  EMPTY_VERDICT_STORE,
+  isPresetModel,
+  MODEL_PRESETS,
+  resetVerdictStore,
+  type VerdictStore,
+} from "./launchmodels";
 import { DEFAULT_MODEL, initialRestore, repoRestore, type Touched } from "./launchrestore";
-
-const MODEL_PRESETS = ["sonnet", "opus", "haiku", "fable"] as const;
 
 export interface LaunchModalElements {
   dialog: HTMLDialogElement;
@@ -49,11 +59,15 @@ export interface LaunchModalElements {
   modelRadios: HTMLInputElement[];
   customModelRow: HTMLElement;
   customModelInput: HTMLInputElement;
+  /** The invalid-field message, shared by the whole Model row — not owned by either
+   * control (`kb:adr/launch-unrecognized-model-marked-blocks-launch`). */
+  modelError: HTMLElement;
   permissionModeRadios: HTMLInputElement[];
   launchError: HTMLElement;
   launchTargetPath: HTMLElement;
   launchTargetBranch: HTMLElement;
   cancelButton: HTMLButtonElement;
+  launchButton: HTMLButtonElement;
   form: HTMLFormElement;
 }
 
@@ -101,6 +115,14 @@ function initLaunchModal(
   // to clear. Reset whenever a non-repos error replaces it or the error is
   // explicitly cleared.
   let reposErrorPersistent = false;
+  // The model-catalog check's accumulated verdicts for this dialog "session" —
+  // `resetVerdictStore` bumps its generation on every open, so a response still in flight
+  // from a closed dialog is dropped rather than merged. Written by `requestModelVerdicts`
+  // (below, generation captured before its `await`), `resetForm` (via `resetVerdictStore`,
+  // a fresh generation) and `submit` (a launch-time refusal, generation likewise captured
+  // before its `await` — see there for why that capture matters); read by
+  // `updateModelRowState`.
+  let modelVerdicts: VerdictStore = EMPTY_VERDICT_STORE;
 
   function updateCustomModelVisibility(): void {
     const isOther = checkedValue(elements.modelRadios) === "other";
@@ -108,15 +130,61 @@ function initLaunchModal(
     elements.customModelInput.hidden = !isOther;
   }
 
+  /** Recomputes and applies the Model row's derived state (disabled presets, the
+   * invalid mark, `#model-error`, Launch's own disabled flag) from the current selection
+   * and whatever verdicts have arrived so far — the one place `deriveModelRowState`
+   * (features/launchmodels.ts) is called, so every selection change and every verdict
+   * arrival goes through the same render.
+   *
+   * `forceFocusInvalid` is `submit`'s way of telling `renderModelRowState` this is a
+   * launch-time refusal (kb:adr/launch-model-refusal-shown-in-field-error-only) — see that
+   * function's doc comment (render/launch.ts) for the exact focus rule this threads into and
+   * the guard `submit` applies before passing `true`. Every other caller here (a verdict
+   * landing from the dialog-open request or a restore, a radio `change`, the custom input's
+   * own `input`) leaves it at the default. */
+  function updateModelRowState(forceFocusInvalid = false): void {
+    const isCustom = checkedValue(elements.modelRadios) === "other";
+    const selection: ModelSelection = { selected: selectedModel(), isCustom };
+    const state = deriveModelRowState(modelVerdicts.verdicts, selection);
+    renderModelRowState(
+      elements.modelRadios,
+      elements.customModelInput,
+      elements.modelError,
+      elements.launchButton,
+      state,
+      selection,
+      forceFocusInvalid,
+    );
+  }
+
+  /** Fires `GET /api/models` for exactly `models`, folding the response into
+   * `modelVerdicts` only while it's still this open's current generation — a failed fetch
+   * (daemon down) leaves the store untouched, so nothing marks or disables. */
+  function requestModelVerdicts(models: readonly string[]): void {
+    const generation = modelVerdicts.generation;
+    void (async () => {
+      const result = await checkModels(models);
+      if (result.ok) modelVerdicts = applyVerdicts(modelVerdicts, generation, result.value);
+      updateModelRowState();
+    })();
+  }
+
   function setModel(value: string): void {
-    const matched =
-      MODEL_PRESETS.includes(value as (typeof MODEL_PRESETS)[number]) &&
-      checkRadioValue(elements.modelRadios, value);
+    const matched = isPresetModel(value) && checkRadioValue(elements.modelRadios, value);
     if (!matched) {
       checkRadioValue(elements.modelRadios, "other");
       elements.customModelInput.value = value;
     }
     updateCustomModelVisibility();
+    updateModelRowState();
+  }
+
+  /** Applies a restored model (initial-open restore or a clicked Recent) and requests its
+   * own verdict when it isn't one of the four presets the dialog-open request already
+   * covers. */
+  function applyModelRestore(value: string): void {
+    setModel(value);
+    if (!isPresetModel(value)) requestModelVerdicts([value]);
   }
 
   // A stored value the dialog has no radio for (a future Claude Code mode,
@@ -168,7 +236,7 @@ function initLaunchModal(
       const outcome = await navigate(repo.path);
       if (outcome === "ok") {
         const values = repoRestore(repo);
-        setModel(values.model);
+        applyModelRestore(values.model);
         setPermissionMode(values.mode);
       }
     })();
@@ -277,7 +345,7 @@ function initLaunchModal(
    * filter — a plain caller of the pure decision. */
   function applyInitialRestore(first: Repo): void {
     const restore = initialRestore(touched, first);
-    if (restore.model !== undefined) setModel(restore.model);
+    if (restore.model !== undefined) applyModelRestore(restore.model);
     if (restore.mode !== undefined) setPermissionMode(restore.mode);
   }
 
@@ -321,6 +389,7 @@ function initLaunchModal(
     repos = [];
     reposLoaded = false;
     touched = { model: false, mode: false };
+    modelVerdicts = resetVerdictStore(modelVerdicts);
     elements.titleInput.value = "";
     elements.customModelInput.value = "";
     setModel(DEFAULT_MODEL);
@@ -351,9 +420,35 @@ function initLaunchModal(
     const title = elements.titleInput.value.trim();
     if (title) body.title = title;
 
+    // Captured before the `await`, exactly like `requestModelVerdicts` above: a refusal
+    // that lands after the dialog was cancelled and reopened must merge into no store —
+    // `applyVerdicts` drops it once `generation` no longer matches the (by-then-newer)
+    // open's, the same guard as any other verdict response.
+    const generation = modelVerdicts.generation;
     const result = await launchSession(body);
     if (!result.ok) {
-      showError(result.error.message);
+      // A `model_unrecognized` refusal shows only in `#model-error` — folding it into the
+      // same verdict store a dialog-open check would have filled marks whichever control
+      // (a preset or the custom field) currently holds the refused model, and never
+      // outlives that selection (kb:adr/launch-model-refusal-shown-in-field-error-only).
+      // Every other refusal still goes through `#launch-error` as before.
+      if (result.error.code === "model_unrecognized") {
+        // Same guard `applyVerdicts` applies to the write, checked here too: the write and
+        // the force-focus below are two separate effects of one response, and a stale
+        // refusal must change neither. The "capture, compare on arrival" idiom is
+        // `navigate()`'s own `requestId !== browseRequestId`, just above.
+        const appliedToCurrentStore = generation === modelVerdicts.generation;
+        modelVerdicts = applyVerdicts(modelVerdicts, generation, [
+          { model, verdict: "unrecognized", message: result.error.message },
+        ]);
+        // Force focus onto the invalid control (see render/launch.ts's doc on
+        // `renderModelRowState` for the rule this is the exception to) — but only when the
+        // refusal actually landed in the dialog now open; a dropped, stale refusal moves
+        // nothing, focus included.
+        updateModelRowState(appliedToCurrentStore);
+      } else {
+        showError(result.error.message);
+      }
       return;
     }
     elements.dialog.close();
@@ -363,6 +458,7 @@ function initLaunchModal(
   function openModal(): void {
     if (elements.dialog.open) return;
     resetForm();
+    requestModelVerdicts(MODEL_PRESETS);
     elements.dialog.showModal();
     void initOpen();
   }
@@ -421,10 +517,14 @@ function initLaunchModal(
     radio.addEventListener("change", () => {
       touched.model = true;
       updateCustomModelVisibility();
+      updateModelRowState();
     });
   }
   elements.customModelInput.addEventListener("input", () => {
     touched.model = true;
+    // Edited text has no verdict yet, so re-deriving against the new value clears any mark
+    // the previous text carried — no separate "clear" branch needed.
+    updateModelRowState();
   });
   for (const radio of elements.permissionModeRadios) {
     radio.addEventListener("change", () => {
@@ -475,11 +575,13 @@ export function initLaunch(app: App, deps: LaunchDeps): LaunchHandle {
     modelRadios: requireElements<HTMLInputElement>('input[name="model"]'),
     customModelRow: requireElement<HTMLElement>("#custom-model-row"),
     customModelInput: requireElement<HTMLInputElement>("#custom-model-input"),
+    modelError: requireElement<HTMLElement>("#model-error"),
     permissionModeRadios: requireElements<HTMLInputElement>('input[name="permission-mode"]'),
     launchError: requireElement<HTMLElement>("#launch-error"),
     launchTargetPath: requireElement<HTMLElement>("#launch-target b"),
     launchTargetBranch: requireElement<HTMLElement>("#launch-target .branch"),
     cancelButton: requireElement<HTMLButtonElement>("#cancel-button"),
+    launchButton: requireElement<HTMLButtonElement>("#launch-button"),
     form: requireElement<HTMLFormElement>("#launch-form"),
   };
 

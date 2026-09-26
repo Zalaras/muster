@@ -2861,6 +2861,28 @@ fieldset.seg legend {
   outline-offset: -1px;
 }
 
+/* A preset the installed Claude Code doesn't recognise, disabled because it isn't the
+ * current selection (kb:adr/launch-unrecognized-model-marked-blocks-launch) — the same
+ * `.btn:disabled` token family as every other disabled control (design-system §5), not a
+ * bespoke tone. */
+.seg-track label:has(input:disabled) {
+  color: var(--disabled-fg);
+  cursor: default;
+}
+
+.seg-track input:disabled {
+  cursor: default;
+}
+
+/* The invalid-field pattern's error tone (design-system §5) on the *selected* preset's own
+ * segment — `--banner-fg`/`--banner-line`, the same tone `.launch-error` and
+ * `.field-error` use, since --rose stays reserved for the Failed state. */
+.seg-track label:has(input[aria-invalid="true"]) {
+  color: var(--banner-fg);
+  outline: 1px solid var(--banner-line);
+  outline-offset: -1px;
+}
+
 .launch-error {
   margin: 0;
   padding: 8px 16px 0;
@@ -2874,6 +2896,30 @@ fieldset.seg legend {
 
 .launch-error[hidden] {
   display: none;
+}
+
+/* `#model-error`, the invalid-field message (design-system §5) — same *tone* as
+ * `.launch-error` (`--banner-fg`), but `--fs-xs` rather than `.launch-error`'s `--fs-sm`:
+ * design-system §5 pins the invalid-field message at `--fs-xs`. Spans `#launch-form
+ * .fields`'s two grid columns since it sits as a sibling of the Model fieldset, not a
+ * labelled row. Visibility's `[hidden]` companion is already `.fields [hidden]` above
+ * (`#model-error` is one of its children); this rule sets no `display` of its own, so
+ * there is nothing for that rule to lose to. */
+.field-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--banner-fg);
+}
+
+/* The custom-model field's own invalid mark (design-system §5) — the input isn't inside
+ * `.seg-track`, so it gets the same outline/text-colour treatment directly rather than
+ * through a `:has()` selector. */
+#custom-model-input[aria-invalid="true"] {
+  outline: 1px solid var(--banner-line);
+  outline-offset: -1px;
+  color: var(--banner-fg);
 }
 
 .modal-foot {

@@ -55,13 +55,21 @@ func directoryMissing(message string) *launchError {
 	return &launchError{status: http.StatusConflict, code: "directory_missing", message: message}
 }
 
+// modelUnrecognizedMessage is the fixed, %q-quoted refusal text both POST /api/sessions'
+// 400 model_unrecognized and GET /api/models' "unrecognized" verdict use verbatim
+// (Protocol Contract: GET /api/models' `message` is "exactly the model_unrecognized
+// message POST /api/sessions returns for that model") — declared once so the two can
+// never drift apart.
+func modelUnrecognizedMessage(model string) string {
+	return fmt.Sprintf("Claude Code doesn't recognise the model %q — update Claude Code, or pick another model", model)
+}
+
 // modelUnrecognized is the 400 for a model the installed Claude Code's catalog does not
-// describe (kb:anchor/sessions.create, kb:adr/launch-refuses-model-outside-binary-catalog).
-// %q reproduces the fixed message's quoting exactly.
+// describe (kb:anchor/sessions.create, kb:adr/launch-model-check-cached-per-binary-identity).
 func modelUnrecognized(model string) *launchError {
 	return &launchError{
 		status:  http.StatusBadRequest,
 		code:    "model_unrecognized",
-		message: fmt.Sprintf("Claude Code doesn't recognise the model %q — update Claude Code, or pick another model", model),
+		message: modelUnrecognizedMessage(model),
 	}
 }
