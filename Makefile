@@ -3,24 +3,32 @@ SHELL := /bin/bash
 
 BIN     := bin/musterd
 PKG     := ./...
+# The machine-wide gate lock (tools/gatelock): a Playwright sweep needs the machine to itself,
+# unit-test runs may overlap each other but never a sweep (kb:lesson/concurrent-e2e-across-worktrees-goes-red).
+# A busy lock waits (default 240 s), naming its holder; nested calls under a holder no-op.
+# Built, never `go run`: go run exits 1 for any non-zero program exit, which would mask the
+# child's code and the tool's own 75 (busy).
+GATELOCK := bin/gatelock
+$(GATELOCK): $(wildcard tools/gatelock/*.go)
+	go build -o $@ ./tools/gatelock
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
 .PHONY: help
 help: ## List targets
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
-		| awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-13s\033[0m %s\n", $$1, $$2}'
+		| awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: build
 build: ## Build the daemon into ./bin/musterd
 	go build -ldflags "-X main.version=$(VERSION)" -o $(BIN) ./cmd/musterd
 
 .PHONY: test
-test: ## Run unit tests (uncached — every gate must be a fresh run)
-	go test -count=1 $(PKG)
+test: $(GATELOCK) ## Run unit tests (uncached — every gate must be a fresh run; shared gate lock)
+	$(GATELOCK) run --shared -- go test -count=1 $(PKG)
 
 .PHONY: test-race
-test-race: ## Unit tests under the race detector (~100 s vs ~40 s plain, measured 2026-09-22) — the gates run this; testers run the fast one
-	go test -race -count=1 $(PKG)
+test-race: $(GATELOCK) ## Unit tests under the race detector (~161 s vs ~94 s plain, measured 2026-09-26) — the gates run this; testers run the fast one
+	$(GATELOCK) run --shared -- go test -race -count=1 $(PKG)
 
 .PHONY: lint
 lint: ## Run golangci-lint
@@ -58,16 +66,22 @@ web-fmt: ## Apply Biome's formatting and safe fixes to web/ (the write half of w
 contrast: ## Contrast/hue/literal gate over web/src/style.css (REQ-4, plan new-ui-design-colors)
 	cd web && npm run contrast
 
-# Order is load-bearing: web-build must produce fresh internal/webui/assets before build
-# compiles them into the binary via go:embed, or the E2E-embedded spec (embedded.spec.ts)
-# runs against stale assets (plan embed-dashboard Edge Case 3/8 — this repo never runs
-# make -j, so make's serial default is what makes this ordering hold).
 .PHONY: e2e-lint
 e2e-lint: ## Mechanical checks on web/e2e (fixtures only from helpers/fixtures.ts, no fixed sleeps)
 	cd web && npm run -s e2e:lint
 
+# e2e and e2e-soak take the exclusive gate lock around the build AND the sweep, so a build
+# never rewrites the served bundle under a neighbour's run (kb:lesson/concurrent-build-invalidates-running-e2e).
+# Order inside is load-bearing: web-build must produce fresh internal/webui/assets before
+# build compiles them into the binary via go:embed, or the E2E-embedded spec (embedded.spec.ts)
+# runs against stale assets (plan embed-dashboard Edge Case 3/8 — this repo never runs
+# make -j, so make's serial default is what makes this ordering hold).
 .PHONY: e2e
-e2e: web-build build ## Playwright E2E suite (runs e2e-lint first via npm run e2e)
+e2e: $(GATELOCK) ## Playwright E2E suite under the exclusive gate lock (builds first; runs e2e-lint via npm run e2e)
+	$(GATELOCK) run --exclusive -- $(MAKE) web-build build e2e-run
+
+.PHONY: e2e-run
+e2e-run: ## The Playwright sweep alone, no build (make e2e runs this under the lock; globalSetup no-ops the nested lock)
 	cd web && npm run e2e
 
 # Proof for a flake fix, not a retry: every repetition must be green (retries stay 0 in
@@ -76,8 +90,12 @@ e2e: web-build build ## Playwright E2E suite (runs e2e-lint first via npm run e2
 # each on its own scratch daemon. Usage: make e2e-soak SPEC=terminal.spec.ts N=20
 N ?= 10
 .PHONY: e2e-soak
-e2e-soak: web-build build ## Repeat one spec file N times in parallel to prove a flake fix (SPEC=<file>.spec.ts, N=10)
+e2e-soak: $(GATELOCK) ## Repeat one spec file N times in parallel to prove a flake fix (SPEC=<file>.spec.ts, N=10)
 	@test -n "$(SPEC)" || { echo "usage: make e2e-soak SPEC=<file>.spec.ts [N=10]"; exit 2; }
+	$(GATELOCK) run --exclusive -- $(MAKE) web-build build e2e-soak-run SPEC=$(SPEC) N=$(N)
+
+.PHONY: e2e-soak-run
+e2e-soak-run: ## The soak alone, no build (make e2e-soak runs this under the lock)
 	cd web && npm run e2e -- $(SPEC) --repeat-each=$(N)
 
 .PHONY: e2e-fixture-leak-check
@@ -89,8 +107,8 @@ run: build web-build ## Run musterd against the real data dir, serving the disk 
 	./$(BIN) -web-dist internal/webui/assets
 
 .PHONY: canary
-canary: ## Drive the real claude (6 haiku turns incl. resume + zero-token unauth/fail-server/model/live checks), assert every field Muster depends on, then extend the verified range on a green run outside it; MUSTER_CANARY_OFFLINE=1 = compile + classify + static binary check only
-	go test -tags=canary -count=1 -timeout 25m -v ./test/canary/... && go run ./tools/versions bump
+canary: $(GATELOCK) ## Drive the real claude (6 haiku turns incl. resume + zero-token unauth/fail-server/model/live checks), assert every field Muster depends on, then extend the verified range on a green run outside it; MUSTER_CANARY_OFFLINE=1 = compile + classify + static binary check only. Exclusive gate lock: a sweep beside it is the same hazard
+	$(GATELOCK) run --exclusive -- go test -tags=canary -count=1 -timeout 25m -v ./test/canary/... && go run ./tools/versions bump
 
 .PHONY: gen-versions
 gen-versions: ## Regenerate the Claude Code version-range fragments in README.md and docs/claude-code-versions.md
