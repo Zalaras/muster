@@ -8,31 +8,31 @@
 // releases when its stdin closes: Playwright ending normally ends the pipe in teardown, and a
 // SIGKILLed runner closes it too, so a dead run can never keep the lock. Under a caller that
 // already holds it (gates.sh, `make e2e`) the child no-ops via MUSTER_GATELOCK.
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { createInterface } from "node:readline";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 // web/e2e/helpers -> repo root
 const repoRoot = resolve(here, "../../..");
+// Built, never `go run`: go run exits 1 for any non-zero program exit, which would turn the
+// tool's 75 (busy) into an anonymous failure. The build is cached and takes well under a second.
+const gatelockBin = join(repoRoot, "bin", "gatelock");
 
 // EX_TEMPFAIL from tools/gatelock: the wait expired. The message leads with the same
 // prefix the tool prints so a reader reruns instead of debugging a "globalSetup failure".
 const EXIT_BUSY = 75;
 
 export default async function globalSetup(): Promise<() => Promise<void>> {
+  execFileSync("go", ["build", "-o", gatelockBin, "./tools/gatelock"], {
+    cwd: repoRoot,
+    stdio: "inherit",
+  });
   // MUSTER_GATELOCK_WAIT overrides the tool's 240 s default (a Go duration, e.g. `0` to
   // fail fast); unset, a run queues for one full sweep before giving up.
   const wait = process.env["MUSTER_GATELOCK_WAIT"];
-  const args = [
-    "run",
-    "./tools/gatelock",
-    "hold",
-    "--exclusive",
-    ...(wait ? ["--wait", wait] : []),
-  ];
-  const child = spawn("go", args, {
+  const child = spawn(gatelockBin, ["hold", "--exclusive", ...(wait ? ["--wait", wait] : [])], {
     cwd: repoRoot,
     stdio: ["pipe", "pipe", "inherit"],
   });
