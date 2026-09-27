@@ -73,6 +73,7 @@ sits on the line before each `##`/`###` heading, and code and docs cite a sectio
 | `POST /api/sessions` | Launch a session |
 | `GET /api/repos` | Directory picker list |
 | `GET /api/browse` | Folder-browser directory listing (`kb:anchor/browse.get`) |
+| `GET /api/past-sessions` | A directory's Claude Code sessions, from its transcripts (`kb:anchor/pastsessions.list`) |
 | `PUT /api/prefs` | Persist UI preferences (view + density + usageModel) |
 | `POST /api/usage/refresh` | Force an immediate per-model usage fetch |
 | `PUT /api/sessions/{id}/pin` | Pin or unpin a session, renumbering `railPos` (`kb:anchor/sessions.pin`) |
@@ -104,14 +105,43 @@ only client→server WS traffic in v1 is terminal input/resize on the terminal s
   "directory": "/Users/bob/code/Projects/muster",  // required, absolute
   "title": "flaky-e2e-hunt",                          // optional → `claude --name`
   "model": "opus",                                     // required; passed to `--model` verbatim — any non-empty string the installed Claude Code's model catalog does not refuse (pre-check below; UI offers sonnet/opus/haiku/fable presets + free-text override)
-  "permissionMode": "acceptEdits"                      // required: "default" | "plan" | "acceptEdits" | "auto" — seeds the latch (kb:anchor/state.transitions).
+  "permissionMode": "acceptEdits"                      // required: "default" | "plan" | "acceptEdits" | "auto" | "bypassPermissions" — seeds the latch (kb:anchor/state.transitions).
                                                        // "default" is Claude Code's manual mode (UI label "manual"). Every value is sent as an
                                                        // explicit `--permission-mode` flag: with no flag Claude Code starts in its configured
-                                                       // default, which can be auto (kb:fact/permission-mode-no-flag-follows-configured-default). "auto" added by
-                                                       // bypassPermissions/dontAsk deliberately not offered (kb:adr/launch-bypass-and-dontask-unoffered).
+                                                       // default, which can be auto (kb:fact/permission-mode-no-flag-follows-configured-default).
+                                                       // "bypassPermissions" (UI label "bypass") behind the dialog's guardrails
+                                                       // (kb:adr/launch-bypass-offered-with-danger-guardrails); dontAsk is not offered.
 }
 // response: 201 + the Session object (kb:anchor/ws.session), state "started"
 ```
+
+**Resume from the list** — the second request form, from the launch dialog's Resume tab:
+
+```jsonc
+{ "directory": "/Users/bob/code/Projects/muster",       // required, absolute; the directory the list was read for
+  "resumeSessionId": "3f2a…" }                          // required; a claudeSessionId from kb:anchor/pastsessions.list for this directory
+// title, model and permissionMode must be absent; no model pre-check runs
+// response: 201 + the Session object, state "started", broadcast before any hook, as for a launch
+```
+
+It spawns `claude --resume <id> --permission-mode <mode>` with no `--model` and no `--name`:
+`<mode>` is the transcript's last recorded permission mode, or `default` when it records none
+(kb:fact/resume-restores-model-and-mode-except-plan, kb:adr/launch-resume-in-original-mode-else-default).
+The row is seeded from the listing: `title` is the past session's title (null without one),
+`model` is `{"id": <the transcript's last assistant model>, "displayName": null}` or null,
+`permissionMode` is `{"value": <mode passed>, "source": "seed"}`. `claudeSessionId` stays null
+until the enveloped `SessionStart{source:"resume"}` binds it. The repo row's MRU position and
+launch count advance; its `lastModel`/`lastPermissionMode` are left as they were (a new repo row
+gets both null). Checked in the order directory → combination → existence → already open:
+
+- `400 invalid_request` — `resumeSessionId` with `title`, `model` or `permissionMode`:
+  `{"error": {"code": "invalid_request", "message": "resumeSessionId cannot be combined with title, model or permissionMode"}}`;
+  an empty one: `{"error": {"code": "invalid_request", "message": "resumeSessionId must not be empty"}}`
+- `404 unknown_claude_session` — no transcript for that id among the directory's past sessions:
+  `{"error": {"code": "unknown_claude_session", "message": "no Claude Code session with that id in this directory"}}`
+- `409 already_open` — an alive Muster session is bound to it; `id` names it:
+  `{"error": {"code": "already_open", "message": "that Claude Code session is already open in Muster", "id": 7}}`
+- `500 launch_failed` — as for a launch.
 
 Pre-check (kb:adr/launch-model-check-cached-per-binary-identity): after the `invalid_request`
 rules and before any side effect, the daemon takes the model's verdict from the catalog cache
@@ -127,7 +157,7 @@ Muster's hooks/status-line/ingest URLs;
 insert the session row and broadcast `sessionUpsert` **immediately** — before any hook
 arrives, because the first hook may be a long way off (trust prompt, ux-flows §1.4).
 Errors: `400 invalid_request` (missing/relative directory; empty/unknown
-`permissionMode` — message `permissionMode must be one of default, plan, acceptEdits, auto`;
+`permissionMode` — message `permissionMode must be one of default, plan, acceptEdits, auto, bypassPermissions`;
 empty `model`; directory that does not exist or is not a directory),
 `400 model_unrecognized` (the pre-check above — checked after every `invalid_request` rule, so
 a request invalid both ways reports `invalid_request`; message `Claude Code doesn't recognise the
@@ -292,9 +322,9 @@ comes back instead of becoming unreachable. Resumes are serialised per session i
 (kb:adr/actions-serialized-per-session), so two concurrent resumes spawn exactly once and the
 loser sees `409 not_resumable`.
 
-`200` + Session object. Errors: `404 unknown_session`; `409 not_resumable` — still alive, or
-`claudeSessionId` null; the message names **which**, since only one of the two is ever
-recoverable; `409 directory_missing` (the directory no longer exists); `500 launch_failed`
+`200` + Session object. Errors: `404 unknown_session`; `409 not_resumable` — still alive,
+`claudeSessionId` null, or another alive session is bound to the same `claudeSessionId`
+(kb:adr/launch-resume-one-alive-row-per-claude-session); the message names **which**; `409 directory_missing` (the directory no longer exists); `500 launch_failed`
 (settings write or tmux spawn failed — row unchanged; never raw tmux stderr for a name collision).
 
 <!-- kb:anchor browse.get -->
@@ -324,6 +354,37 @@ home).
 **Errors:**
 - 400 `invalid_request`: `path` present but not absolute.
 - 404 `not_found`: path doesn't exist or isn't a directory (or is unreadable).
+
+<!-- kb:anchor pastsessions.list -->
+### `GET /api/past-sessions`
+
+**Auth**: UI cookie (401 `unauthorized` without it).
+**Request:** query parameter `directory`, an absolute directory path.
+**Response 200:**
+
+```jsonc
+{ "sessions": [                                  // newest first by lastActiveAt, at most 200
+  { "claudeSessionId": "3f2a…",                  // the transcript's session id
+    "title": "Fix e2e flake in shell.spec",      // string | null — last custom title, else last generated title; null when neither
+    "lastPrompt": "the shell spec still fails…", // string | null — latest prompt, first line, truncated to 200 chars
+    "lastActiveAt": "2026-09-27T09:12:00Z",      // the transcript file's modification time
+    "permissionMode": "plan",                    // string | null — last recorded mode, verbatim (open string); null when none
+    "openSessionId": null } ],                   // number | null — id of an alive Muster session bound to this claudeSessionId
+  "truncated": false }                           // true iff more than 200 matched and only the newest 200 are listed
+```
+
+Only sessions whose recorded working directory equals `directory` (symlinks resolved) are listed
+(kb:fact/transcript-dir-encoding, kb:fact/transcript-session-lines). A directory Claude Code never
+ran in yields `{"sessions": [], "truncated": false}`, as does an unreadable Claude Code projects
+directory (logged). Read-only: the daemon never writes there. `openSessionId` is Muster's own
+rows only — sessions running outside Muster cannot be detected (kb:fact/no-running-session-signal).
+Titles and prompts are never logged.
+
+**Errors:**
+- 400 `invalid_request`: `directory` missing or not absolute.
+  `{"error": {"code": "invalid_request", "message": "directory must be an absolute path"}}`
+- 404 `not_found`: the directory does not exist or is not a directory.
+  `{"error": {"code": "not_found", "message": "directory does not exist or is not a directory"}}`
 
 <!-- kb:anchor sessions.end -->
 ### `POST /api/sessions/{id}/end`
@@ -947,8 +1008,8 @@ is complexity with no payoff, and whole-object replacement is naturally loss-tol
   "failure": { "error": "server_error", "message": "API error ended the turn" }, // non-null iff state == "failed"; error is the RAW token — display it, never switch on it (H2: taxonomy isn't 1:1)
   "directory": "/Users/bob/code/Projects/muster",
   "repo": { "name": "muster", "branch": "feat-e2e", "isWorktree": false },  // null when directory isn't a git checkout
-  "model": { "id": "claude-opus-5", "displayName": "Opus 5" },  // launch value until the status line confirms; null if unknown
-  "permissionMode": { "value": "plan", "source": "hook" },       // source "seed" (launch flag) | "hook" (a payload carried it); ALWAYS last-known, never authoritative (kb:adr/launch-form-seeds-model-and-permission-mode). value is an open string; observed "default" | "plan" | "acceptEdits" | "auto" (2.1.259)
+  "model": { "id": "claude-opus-5", "displayName": "Opus 5" },  // launch value until the status line confirms; null if unknown; displayName null on a session resumed from the list until then
+  "permissionMode": { "value": "plan", "source": "hook" },       // source "seed" (launch flag) | "hook" (a payload carried it); ALWAYS last-known, never authoritative (kb:adr/launch-form-seeds-model-and-permission-mode). value is an open string; observed "default" | "plan" | "acceptEdits" | "auto" (2.1.259), "bypassPermissions" (2.1.283, kb:fact/bypass-permission-mode-on-wire)
   "context": { "usedPct": 42, "totalInputTokens": 84211,
                "windowSize": 200000, "compactions": 2 },          // usedPct/totalInputTokens/windowSize null before first API response → "ctx — unknown"
   "lastActivity": "Fixed the flaky retry; running the suite…",   // truncated last_assistant_message from the closing Stop; null until first Stop

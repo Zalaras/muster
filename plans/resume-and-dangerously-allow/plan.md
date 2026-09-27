@@ -1,12 +1,12 @@
 # Plan: Resume and Dangerously Allow
 
 **Created**: 2026-09-27
-**Status**: draft
+**Status**: approved
 **Work Type**: full-stack
 **E2E Scope**: new-specs
-**Fixture plan**: past-sessions.spec.ts daemon (a resume opens the launched session — auto-focus and rail counts are daemon-global); bypass.spec.ts daemon (a launch opens the launched session, and the chip is asserted on the rail's only card)
-**Features**: launch, lifecycle, actions, rail, focus, connection, rename, past-sessions
-**Description**: Resume a Claude Code session Muster did not start (#62), and offer the bypass-permissions Start-in mode (#61), both from the launch dialog. (`past-sessions` is a new feature; its spec.md is written at approval.)
+**Fixture plan**: past-sessions.spec.ts daemon (a resume opens the launched session — auto-focus and rail counts are daemon-global); bypass.spec.ts daemon (a launch opens the launched session, and the chip is asserted on the rail's only card and its only tile)
+**Features**: launch, lifecycle, actions, rail, focus, tiles, connection, rename
+**Description**: Resume a Claude Code session Muster did not start (#62), and offer the bypass-permissions Start-in mode (#61), both from the launch dialog.
 
 ## Overview
 
@@ -25,7 +25,7 @@ permission mode. A session whose last mode was bypass carries the danger chip, a
 makes the button `Resume without checks`.
 
 After the dialog closes, one guardrail stays: a danger `bypass` chip on the rail card and in the
-Focus mainhead whenever a session's last-known mode is `bypassPermissions`. Claude Code's own
+Focus mainhead and the tile header whenever a session's last-known mode is `bypassPermissions`. Claude Code's own
 bypass warning, which blocks startup like the trust prompt, is surfaced and never answered.
 
 This supersedes `kb:adr/launch-bypass-and-dontask-unoffered` (rejected): the developer judged the
@@ -42,7 +42,7 @@ guardrails below enough without the permissions editor. dont-ask stays unoffered
   reads `Launch without checks`; any other mode shows `Launch`, amber.
 - [ ] REQ-3: A directory's remembered `lastPermissionMode` of `bypassPermissions` is never restored:
   the dialog checks auto instead, on open and on a Recent click.
-- [ ] REQ-4: A rail card and the Focus mainhead show a danger chip reading `bypass` iff the session's
+- [ ] REQ-4: A rail card, the Focus mainhead and a tile header show a danger chip reading `bypass` iff the session's
   `permissionMode.value` is `bypassPermissions`, alive or not.
 - [ ] REQ-5: A session in `started` with no `claudeSessionId` whose `permissionMode` is a
   `bypassPermissions` seed carries the note `likely waiting on Claude Code's bypass warning`
@@ -82,7 +82,8 @@ guardrails below enough without the permissions editor. dont-ask stays unoffered
 ## Protocol Contract
 
 Delta against `docs/protocol.md`. Merged there on approval under `sessions.create`, `ws.session`
-and a new anchor `pastsessions.list` (feature `past-sessions`).
+and a new anchor `pastsessions.list`, listed in the `launch` spec's protocol list so it lands in
+`docs/features/launch/contract.md`.
 
 ### HTTP: POST /api/sessions (changed)
 **Auth**: UI cookie (401 `unauthorized` without it), unchanged.
@@ -161,7 +162,7 @@ creates the row with both null) — a query, not a migration.
 
 ## Diagrams
 
-Resume from the list, end to end. New for the `past-sessions` spec (inline there).
+Resume from the list, end to end. Inline in the new `past-sessions` spec that doc-reconcile writes.
 
 ```mermaid
 sequenceDiagram
@@ -208,7 +209,7 @@ filled button while bypass is selected — still exactly one filled primary), §
 - **Launch dialog, Resume tab** — the picker unchanged (the picker height drops to 220px), then
   `#past-sessions` (head: `Claude sessions in <dir name> · <count>`, filter input, list), then the
   footer. `#launch-form .fields` is hidden.
-- **Rail card** and **Focus mainhead** — the `bypass` chip after the title.
+- **Rail card**, **Focus mainhead** and **tile header** — the `bypass` chip after the title.
 
 ### DOM (feature level)
 - In `#launch-dialog h2`, after the title text: `<span role="tablist" aria-label="Session kind">`
@@ -226,7 +227,7 @@ filled button while bypass is selected — still exactly one filled primary), §
   class="bypass-warn" hidden>` after the fieldset.
 - `#launch-button` keeps its id across all four faces; its class is `btn key` or `btn key-danger`.
 - The chip: `<span class="chip-danger">bypass</span>` (CSS uppercases it; `textContent` is
-  `bypass`), in the card's title row and in `.mainhead` after the title.
+  `bypass`), in the card's title row, in `.mainhead` after the title and in the tile's `.thead` after `.nm`.
 
 ### User Flows
 1. Bypass launch: open the dialog → pick a directory → check `bypass` → the warning shows, the
@@ -268,14 +269,14 @@ filled button while bypass is selected — still exactly one filled primary), §
 | Loading / empty / no match / error lines | — | `Loading sessions…` / `No Claude Code sessions in this directory` / `No sessions match` / `Couldn't read sessions — try again` | inside `#past-list` |
 | Truncation line | — | `Showing the newest 200` | |
 | Footer target (Resume) | — | `Resume <title> in <path>` | `#launch-target` |
-| Bypass chip | — | `bypass` | `.chip-danger` in a rail card and in `.mainhead` |
+| Bypass chip | — | `bypass` | `.chip-danger` in a rail card, in `.mainhead` and in a tile's `.thead` |
 | Bypass-warning note | — | `likely waiting on Claude Code's bypass warning` | card note; with firstLaunchHere: `first launch here — likely waiting on Claude Code's trust prompt, then its bypass warning` |
 
 ### Invariants
-- **INV-1 (chip):** a rail card and the Focus mainhead show the `bypass` chip iff
+- **INV-1 (chip):** a rail card, the Focus mainhead and a tile header show the `bypass` chip iff
   `permissionMode.value === "bypassPermissions"`. Asserted from every state (`started`, `idle`,
   `working`, `needs_input`, `planning`, `failed`), alive and dead, and after the latch changes from
-  bypass to another mode and back, in both hosting views (rail card, mainhead).
+  bypass to another mode and back, in every hosting surface (rail card, mainhead, tile header).
 - **INV-2 (primary face):** `#launch-button` is `key-danger` iff (New tab ∧ bypass checked) ∨
   (Resume tab ∧ the selected row's `permissionMode === "bypassPermissions"`); its label follows
   REQ-2/REQ-11. Asserted from every reachable dialog configuration: each tab × each Start-in value ×
@@ -305,13 +306,13 @@ filled button while bypass is selected — still exactly one filled primary), §
 - `internal/claudecode/launch.go` — `PermissionBypass = "bypassPermissions"` joins
   `PermissionModes`; `BuildArgv` omits `--model` when `Model` is empty; a resume keeps
   `--permission-mode`.
-- `internal/claudecode/transcripts.go` (new) — the only owner of the projects-dir layout:
+- `internal/claudecode/launchtranscripts.go` (new) — the only owner of the projects-dir layout:
   `ProjectsDir()` default, folder-name encoding, `PastSessions(root, dir string) ([]PastSession,
   error)` with the 64 KB tail read, the cwd filter and the 200-char prefix match, returning
   neutral fields (id, title, last prompt, mtime, permission mode, model).
 - `internal/session/session.go` — the `PermissionMode` constant set follows `claudecode`.
 - `internal/session/manager.go` — a lookup of the alive session bound to a Claude session id.
-- `internal/server/pastsessions.go` (new) — the `past-sessions` feature: `GET /api/past-sessions`.
+- `internal/server/launcherpastlist.go` (new) — the `past-sessions` feature: `GET /api/past-sessions`.
 - `internal/server/launcherpast.go` (new) — the `resumeSessionId` branch of `POST /api/sessions`:
   validation, existence, `already_open`, seeds, argv, spawn through the existing
   `spawnAndRecordLaunch`.
@@ -331,7 +332,7 @@ filled button while bypass is selected — still exactly one filled primary), §
 - `web/src/protocol/session.ts` — `PERMISSION_MODES` gains `bypassPermissions`.
 - `web/src/sessions/permission.ts` — `permissionModeToCheck` maps `bypassPermissions` to `auto`;
   new pure `launchPrimaryFace(tab, mode, selectedRowMode) → { label, danger }`.
-- `web/src/sessions/pastsessions.ts` (new) — pure `filterPastSessions(list, query)` and
+- `web/src/features/launchpastlist.ts` (new) — pure `filterPastSessions(list, query)` and
   `defaultSelection(list)`.
 - `web/src/sessions/card.ts` — the bypass-warning note in `firstLaunchNote`; `bypassChip(session)`
   on the view model.
@@ -341,15 +342,19 @@ filled button while bypass is selected — still exactly one filled primary), §
   change, selection, filter, submit.
 - `web/src/features/launch.ts` — the fifth mode, the primary face on mode change, handing the
   Resume tab to `launchresume.ts`.
-- `web/src/render/pastsessions.ts` (new) — list, rows, states.
+- `web/src/render/launchpast.ts` (new) — list, rows, states.
 - `web/src/render/sessions.ts` — the chip in the card's title row.
 - `web/src/render/mainhead.ts` — the chip after the mainhead title.
+- `web/src/render/tiles.ts` — the chip after `.thead .nm`, updated in place with the header chrome.
 
 ### E2E harness (e2e-specs)
-- `web/e2e/helpers/daemon.ts` — pass `-claude-projects-dir <scratch>` to every scratch daemon and
-  expose its path.
-- `web/e2e/helpers/transcripts.ts` (new) — writes fixture transcripts (encoded folder, lines per
-  `kb:fact/transcript-session-lines`) into that dir.
+- `web/e2e/helpers/daemon.ts` — pass `-claude-projects-dir <scratch>` to every scratch daemon, and
+  a `writeTranscript(...)` method that writes a fixture transcript (encoded folder, lines per
+  `kb:fact/transcript-session-lines`) into it.
+
+New files are named under the `launch` spec's existing globs (`internal/claudecode/launch*.go`,
+`internal/server/launcher*.go`, `web/src/features/launch*.ts`, `web/src/render/launch*.ts`), so
+every one has an owner while `make check-kb` still refuses a glob that matches no file.
 
 ## Edge Cases
 
@@ -430,7 +435,8 @@ filled button while bypass is selected — still exactly one filled primary), §
 - **E1**: a bypass launch shows the warning and `Launch without checks`, then POSTs
   `permissionMode: "bypassPermissions"`, and the pane's start command carries the flag.
 - **E2**: the launched bypass session's rail card and mainhead show the chip.
-- **E3**: a hook reporting `permission_mode: "default"` removes the chip from both views.
+- **E3**: a hook reporting `permission_mode: "default"` removes the chip from the rail card and the mainhead.
+- **E12**: in Tiles, the bypass session's tile header shows the chip, and a hook reporting `permission_mode: "default"` removes it.
 - **E4**: a directory remembered with `bypassPermissions` opens and restores on auto.
 - **E5**: the Resume tab lists fixture sessions newest first with the open one disabled.
 - **E6**: resuming a fixture session opens a new session whose pane start command carries
@@ -458,7 +464,7 @@ K1 make check-kb
 Test-file scope for D17: `_test.go` files are outside the net — server tests need fixture
 transcripts, and they get them from a helper exported by `internal/claudecode/claudecodetest`, not
 by spelling the strings (kb:lesson/banned-string-split-to-dodge-gate). `web/e2e/` is outside the
-grep's paths; its fixture writer is `web/e2e/helpers/transcripts.ts`.
+grep's paths; its fixture writer is `ScratchDaemon.writeTranscript` in `web/e2e/helpers/daemon.ts`.
 
 ### Reviewer-Verified
 - **W9**: no `any` types in new web code.
@@ -473,7 +479,7 @@ grep's paths; its fixture writer is `web/e2e/helpers/transcripts.ts`.
 ## Doc Delta
 
 **launch** — becomes true:
-- The dialog's head carries New and Resume tabs; Resume is `kb:spec/past-sessions`.
+- The dialog's head carries New and Resume tabs; the Resume tab is described in `docs/features/past-sessions/spec.md`.
 - Start in offers five modes; `bypass` sends `bypassPermissions`, shows a warning line, and turns
   Launch into a danger `Launch without checks` (kb:adr/launch-bypass-offered-with-danger-guardrails).
 - A remembered bypass is never restored; the dialog checks auto (kb:adr/launch-bypass-never-restored-as-default).
@@ -486,14 +492,18 @@ grep's paths; its fixture writer is `web/e2e/helpers/transcripts.ts`.
 - The mermaid "One launch, end to end" diagram moves to `docs/diagrams/` if the body exceeds 800
   words after the additions.
 
-**past-sessions** (new spec) — becomes true: the whole spec — the list, its source and limits, the
+**past-sessions** (new spec, created by doc-reconcile now that its files exist: `go`/`web` globs
+naming `internal/claudecode/launchtranscripts*.go`, `internal/server/launcherpast*.go`,
+`web/src/features/launchresume*.ts`, `web/src/features/launchpastlist*.ts`,
+`web/src/render/launchpast*.ts`; `e2e: [web/e2e/past-sessions.spec.ts]`; `protocol:
+[pastsessions.list]`, removed from launch's list) — becomes true: the whole spec — the list, its source and limits, the
 running-session guard, resume in the original mode, and the diagram above.
 
 **actions** — becomes true:
 - Resume is also refused when another alive session holds the same Claude session id.
 
-**rail**, **focus** — becomes true:
-- A card / the mainhead shows a danger `bypass` chip while the session's last-known mode is bypass.
+**rail**, **focus**, **tiles** — becomes true:
+- A card / the mainhead / a tile header shows a danger `bypass` chip while the session's last-known mode is bypass.
 
 **lifecycle** — becomes true:
 - `permissionMode` observed values include `bypassPermissions`.
@@ -521,15 +531,20 @@ running-session guard, resume in the original mode, and the diagram above.
 - Never read the `~/.claude/sessions/*.key` files (`kb:fact/no-running-session-signal`).
 - Transcripts hold prompt text: never log `title` or `lastPrompt`.
 - Decisions this plan makes (proposed ADRs, written at approval):
-  `kb:adr/launch-bypass-offered-with-danger-guardrails` (supersedes
-  `kb:adr/launch-bypass-and-dontask-unoffered`), `kb:adr/launch-bypass-never-restored-as-default`,
+  `kb:adr/launch-bypass-offered-with-danger-guardrails` (reverses
+  `kb:adr/launch-bypass-and-dontask-unoffered`; the supersede lands at Completion), `kb:adr/launch-bypass-never-restored-as-default`,
   `kb:adr/launch-bypass-warning-surfaced-never-answered`,
-  `kb:adr/pastsessions-listed-from-transcripts-by-cwd`,
-  `kb:adr/pastsessions-resume-in-original-mode-else-default`,
-  `kb:adr/pastsessions-new-row-one-alive-per-claude-session`,
-  `kb:adr/pastsessions-running-guard-muster-only`.
-- **Doc upkeep (orchestrator):** the `past-sessions` spec stub is created at approval; the Doc
-  Delta is doc-reconcile's; the two `TODO.md` entries (#61, #62) are ticked at Completion.
+  `kb:adr/launch-resume-listed-from-transcripts-by-cwd`,
+  `kb:adr/launch-resume-in-original-mode-else-default`,
+  `kb:adr/launch-resume-one-alive-row-per-claude-session`,
+  `kb:adr/launch-resume-running-guard-muster-only`.
+- **Doc upkeep (orchestrator):** the Doc Delta is doc-reconcile's, including creating the
+  `past-sessions` spec; `web/e2e/bypass.spec.ts` joins the launch spec's `e2e` list then; the two
+  `TODO.md` entries (#61, #62) are ticked at Completion.
+- **At Completion (orchestrator):** `kb:adr/launch-bypass-offered-with-danger-guardrails` gains
+  `supersedes: [launch-bypass-and-dontask-unoffered]` in the same commit that flips it to accepted
+  and the old record to superseded — `check-kb` allows a proposed record to supersede only an
+  accepted one, and that record is rejected.
 
 ## Decisions (interview record) (the developer, 2026-09-27)
 
