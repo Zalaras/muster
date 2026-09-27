@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en" data-theme="instrument"><head><meta charset="utf-8">
+<title>C — Claude Code's own picker</title>
+<link rel="stylesheet" href="../../../web/src/style.css">
+<link rel="stylesheet" href="mockup.css">
+</head><body><div class="frame">
+
+<h1>C — hand resuming to Claude Code's own picker</h1>
+<div class="sub">resume-and-dangerously-allow · option C · <span class="sw">&nbsp;dashed&nbsp;</span> = new</div>
+
+<p>The smallest change. The dialog gains one ghost button, <b>Resume…</b>, beside Launch. It
+launches a normal Muster session in the chosen directory running <code>claude --resume</code> with
+no id, so Claude Code's own session picker opens <b>in the terminal</b>. Muster lists nothing and
+reads no transcripts; the row binds to whichever session you pick when its
+<code>SessionStart</code> arrives. Bypass here is a separate checkbox under Start in: ticking it
+greys the four modes and turns the primary button danger-red.</p>
+
+<div class="stage">
+<dialog class="modal static" id="launch-dialog" open aria-labelledby="t">
+  <h2 id="t">New session <span class="kbd" aria-hidden="true">⌥⌘N</span></h2>
+
+  <div class="picker">
+    <aside class="recents" aria-label="Recent directories">
+      <div class="side-head">Recent</div>
+      <button class="dir" aria-pressed="true">muster<span class="dir-meta"><span>opus</span><span>2h</span></span></button>
+      <button class="dir">ledger-api<span class="dir-meta"><span>sonnet</span><span>1d</span></span></button>
+      <button class="dir">dotfiles<span class="dir-meta"><span>haiku</span><span>6d</span></span></button>
+    </aside>
+    <div class="browse">
+      <nav class="crumbs" aria-label="Path"><button>~</button><span class="sep">/</span><button>code</button><span class="sep">/</span><button>Projects</button><span class="sep">/</span><span aria-current="page">muster</span></nav>
+      <div class="entries">
+        <button class="entry">cmd<span class="chev">›</span></button>
+        <button class="entry">docs<span class="chev">›</span></button>
+        <button class="entry">internal<span class="chev">›</span></button>
+        <button class="entry">plans<span class="chev">›</span></button>
+        <button class="entry">web<span class="chev">›</span></button>
+      </div>
+    </div>
+  </div>
+
+  <form id="launch-form" onsubmit="return false">
+    <div class="fields">
+      <label class="lab" for="title-input">Title</label>
+      <input id="title-input" type="text" autocomplete="off" placeholder="optional — Claude Code auto-generates">
+
+      <fieldset class="seg"><legend>Model</legend>
+        <div class="seg-track" role="radiogroup" aria-label="Model">
+          <label><input type="radio" name="model" value="sonnet">sonnet</label>
+          <label><input type="radio" name="model" value="opus" checked>opus</label>
+          <label><input type="radio" name="model" value="haiku">haiku</label>
+          <label><input type="radio" name="model" value="fable">fable</label>
+          <label><input type="radio" name="model" value="other">other…</label>
+        </div></fieldset>
+
+      <fieldset class="seg" id="pmset"><legend>Start in</legend>
+        <div class="seg-track" role="radiogroup" aria-label="Start in">
+          <label><input type="radio" name="pm" value="default">manual</label>
+          <label><input type="radio" name="pm" value="acceptEdits">accept edits</label>
+          <label><input type="radio" name="pm" value="plan">plan</label>
+          <label><input type="radio" name="pm" value="auto" checked>auto</label>
+        </div></fieldset>
+      <label class="check-row sw"><input type="checkbox" id="bypass"> Skip all permission checks — dangerous</label>
+    </div>
+
+    <div class="modal-foot">
+      <span id="launch-target">Launch in <b>~/code/Projects/muster</b> <span class="branch">main</span></span>
+      <button type="button" class="btn">Cancel</button>
+      <button type="button" class="btn sw" id="resume-btn" title="Opens Claude Code's session picker in the new terminal">Resume…</button>
+      <button type="submit" class="btn key" id="go">Launch</button>
+    </div>
+  </form>
+</dialog>
+
+<div>
+  <div class="stage-cap">after Resume… — the new session's terminal (illustrative, not Claude Code's exact screen)</div>
+  <div class="term"><span class="hl">Resume a conversation</span>   <span class="dim">search…</span>
+
+<span class="sel">❯ Fix e2e flake in shell.spec                     3 hours ago</span>
+  Plan the worktree lifecycle                     1 day ago
+  Gate lock tooling                               just now
+  Bump Go deps                                    4 days ago
+  say hi                                          9 days ago
+
+<span class="dim">↑↓ select · enter resume · esc cancel</span></div>
+  <div style="height:14px"></div>
+  <div class="stage-cap">the rail card meanwhile</div>
+  <div class="mini-card sw"><div class="top">muster <span class="chip-danger" id="chip" hidden>bypass</span><span class="badge">started</span></div>
+  <div class="meta">muster · main · opus · no signal yet</div></div>
+</div>
+</div>
+
+<ul class="notes">
+  <li class="pro">+ Almost no daemon work: no transcript reading, no new endpoint, no new Claude Code format knowledge to measure and guard.</li>
+  <li class="pro">+ Claude Code's picker already has search, previews and every session it knows — it will never be behind.</li>
+  <li class="con">− Muster can't tell you anything before you commit: you pick blind in the dialog, then pick again in the terminal.</li>
+  <li class="con">− Esc in Claude's picker exits <code>claude</code>, leaving an ended card to Remove.</li>
+  <li class="con">− You can pick a session that's already open in the rail — two panes on one conversation — and Muster only learns it after the fact.</li>
+  <li class="con">− The card sits on "started / no signal yet" until you've picked, and Title is ignored.</li>
+</ul>
+</div>
+
+<div class="demo">start in
+  <button class="btn sm" data-b="0" aria-pressed="true">auto</button>
+  <button class="btn sm" data-b="1" aria-pressed="false">bypass</button>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+function sync() {
+  const on = $("#bypass").checked;
+  document.querySelectorAll("#pmset input").forEach(i => i.disabled = on);
+  $("#go").className = on ? "btn key-danger" : "btn key";
+  $("#go").textContent = on ? "Launch without checks" : "Launch";
+  $("#chip").hidden = !on;
+  document.querySelectorAll("[data-b]").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.b === "1") === on)));
+}
+$("#bypass").onchange = sync;
+document.querySelectorAll("[data-b]").forEach(b => b.onclick = () => { $("#bypass").checked = b.dataset.b === "1"; sync(); });
+</script>
+</body></html>

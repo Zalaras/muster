@@ -1,0 +1,99 @@
+/* Mockup-only styles. Every page links the shipped web/src/style.css first, so the dialog
+ * chrome, picker, segmented controls and buttons are the real ones; this file only adds the
+ * page frame and the handful of NEW components each option introduces (marked "new:"). */
+
+body { overflow: auto; padding: 28px 36px 90px; line-height: 1.55; }
+.frame { max-width: 1060px; margin: 0 auto; }
+.frame > h1 { font-size: 21px; letter-spacing: -.02em; margin: 0 0 2px; }
+.frame > .sub { font-family: var(--mono); font-size: var(--fs-2xs); color: var(--fg-dim);
+  letter-spacing: .1em; text-transform: uppercase; margin-bottom: 18px; }
+.frame > p, .notes li { color: var(--fg-muted); font-size: var(--fs-md); max-width: 820px; }
+.notes { padding-left: 20px; }
+.notes b, .frame > p b { color: var(--fg); }
+.frame code { font-family: var(--mono); font-size: .8em; color: var(--teal); }
+.pro { color: #7bc47f; } .con { color: var(--rose); }
+.stage { display: flex; gap: 28px; align-items: flex-start; margin: 22px 0; flex-wrap: wrap; }
+.stage-cap { font-family: var(--mono); font-size: var(--fs-2xs); color: var(--fg-dim);
+  letter-spacing: .08em; text-transform: uppercase; margin: 0 0 6px; }
+
+/* The real dialog, shown statically instead of via showModal(). */
+dialog.modal.static { position: static; display: block; margin: 0; box-shadow: 0 18px 60px rgba(0,0,0,.45); }
+.sw { outline: 2px dashed var(--amber); outline-offset: 2px; }
+
+/* demo bar */
+.demo { position: fixed; right: 18px; bottom: 18px; display: flex; gap: 6px; padding: 8px;
+  background: var(--bg-raised-95); border: 1px solid var(--line-control); z-index: 9;
+  font-family: var(--mono); font-size: var(--fs-2xs); align-items: center; color: var(--fg-dim); }
+.demo button[aria-pressed="true"] { color: var(--fg); border-color: var(--amber); }
+
+/* new: dialog-head mode tabs (option A) */
+.head-tabs { display: inline-flex; margin-left: 14px; border: 1px solid var(--line-control); }
+.head-tabs button { font-family: var(--mono); font-size: var(--fs-xs); font-weight: 400;
+  background: transparent; border: 0; color: var(--fg-muted); padding: 3px 12px; cursor: pointer; }
+.head-tabs button + button { border-left: 1px solid var(--line-control); }
+.head-tabs button[aria-selected="true"] { background: var(--bg-hover); color: var(--fg);
+  box-shadow: inset 0 -2px 0 var(--amber); }
+
+/* new: past-session list */
+.past { display: flex; flex-direction: column; background: var(--well); }
+.past-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  border-bottom: 1px solid var(--line); background: var(--bg-raised);
+  font-family: var(--mono); font-size: var(--fs-2xs); letter-spacing: .06em;
+  text-transform: uppercase; color: var(--fg-dim); }
+.past-head input { margin-left: auto; width: 180px; font-family: var(--mono); font-size: var(--fs-xs);
+  background: var(--well); color: var(--fg); border: 1px solid var(--line-control); padding: 3px 7px;
+  text-transform: none; letter-spacing: 0; }
+.past-list { overflow: auto; }
+.past .row { display: grid; grid-template-columns: 1fr auto; gap: 1px 12px; width: 100%;
+  padding: 7px 12px; border: 0; border-bottom: 1px solid var(--line); background: transparent;
+  text-align: left; cursor: pointer; font-family: var(--mono); color: var(--fg-muted); }
+.past .row:hover { background: var(--bg-hover); color: var(--fg); }
+.past .row[aria-pressed="true"] { background: var(--bg-hover); color: var(--fg); box-shadow: inset 3px 0 0 var(--amber); }
+.past .row[aria-disabled="true"] { cursor: default; color: var(--disabled-fg); }
+.past .row[aria-disabled="true"]:hover { background: transparent; }
+.past .t { font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.past .age { font-size: var(--fs-2xs); color: var(--fg-dim); font-variant-numeric: tabular-nums; text-align: right; }
+.past .lp { grid-column: 1 / -1; font-size: var(--fs-2xs); color: var(--fg-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.past .tag { font-size: var(--fs-2xs); letter-spacing: .06em; color: var(--fg-dim);
+  border: 1px solid var(--line-control); padding: 0 4px; margin-left: 6px; }
+.past .empty { padding: 10px 12px; font-family: var(--mono); font-size: var(--fs-xs); color: var(--fg-dim); }
+
+/* new: the dangerous Start-in segment + its warning */
+.seg-track label.bypass:has(input:checked) { background: var(--danger); color: var(--danger-fg);
+  box-shadow: none; }
+.seg-track label.bypass { color: var(--fg-muted); }
+.bypass-warn { grid-column: 1 / -1; margin: -3px 0 0; padding: 7px 10px; font-family: var(--mono);
+  font-size: var(--fs-xs); color: var(--banner-fg); background: var(--banner-bg);
+  border: 1px solid var(--banner-line); }
+.bypass-warn b { color: var(--danger-fg); }
+.bypass-warn label { display: flex; gap: 8px; align-items: center; margin-top: 6px; color: var(--fg); cursor: pointer; }
+.check-row { grid-column: 2; display: flex; gap: 8px; align-items: center; font-family: var(--mono);
+  font-size: var(--fs-xs); color: var(--fg-muted); }
+.check-row input { accent-color: var(--danger); }
+
+/* new: resuming-summary row that replaces Title (option B) */
+.resuming { font-family: var(--mono); font-size: var(--fs-sm); color: var(--fg); display: flex; gap: 10px; align-items: center; min-width: 0; }
+.resuming .x { margin-left: auto; }
+
+/* new: split footer action (option C) */
+.split { display: inline-flex; }
+.split .btn + .btn { border-left: 0; }
+
+/* new: bypass chip on a rail card / mainhead (all options) */
+.chip-danger { font-family: var(--mono); font-size: var(--fs-2xs); letter-spacing: .06em;
+  text-transform: uppercase; color: var(--danger-fg); background: var(--danger);
+  border: 1px solid var(--danger-line); padding: 0 5px; }
+.mini-card { width: 260px; background: var(--bg-raised); border: 1px solid var(--line);
+  box-shadow: inset 3px 0 0 var(--idle); padding: 9px 12px; font-family: var(--mono); }
+.mini-card .top { display: flex; gap: 8px; align-items: center; font-size: var(--fs-sm); color: var(--fg); }
+.mini-card .badge { margin-left: auto; font-size: var(--fs-2xs); color: var(--idle); letter-spacing: .06em; text-transform: uppercase; }
+.mini-card .meta { font-size: var(--fs-2xs); color: var(--fg-dim); margin-top: 3px; }
+
+/* fake terminal (option C) */
+.term { width: 560px; background: var(--term-dark-bg); color: var(--term-dark-fg); border: 1px solid var(--line);
+  font-family: var(--mono); font-size: 12px; line-height: 1.5; padding: 10px 14px; white-space: pre; }
+.term .hl { color: #56c5d0; } .term .dim { color: #6a7286; } .term .sel { background: #282d3b; display: inline-block; width: 100%; }
+
+/* [hidden] must win over the display rules above */
+.past[hidden], #fields[hidden], .bypass-warn[hidden], .chip-danger[hidden] { display: none; }

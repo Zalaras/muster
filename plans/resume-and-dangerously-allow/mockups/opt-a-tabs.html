@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en" data-theme="instrument"><head><meta charset="utf-8">
+<title>A — New | Resume tabs</title>
+<link rel="stylesheet" href="../../../web/src/style.css">
+<link rel="stylesheet" href="mockup.css">
+</head><body><div class="frame">
+
+<h1>A — a New | Resume switch in the dialog head</h1>
+<div class="sub">resume-and-dangerously-allow · option A · <span class="sw">&nbsp;dashed&nbsp;</span> = new</div>
+
+<p>One dialog, two modes. <b>New</b> is today's dialog plus a fifth Start-in segment. <b>Resume</b>
+keeps the picker (you still pick the directory) and replaces the <b>whole form</b> — Title, Model and
+Start in — with a list of that directory's Claude Code sessions, newest first, read from Claude
+Code's transcripts. A resumed session carries on as it was, so there is nothing to choose but the
+session. Picking one turns the footer into <b>Resume</b>.</p>
+
+<div class="stage">
+<dialog class="modal static" id="launch-dialog" open aria-labelledby="t">
+  <h2 id="t">New session
+    <span class="head-tabs sw" role="tablist" aria-label="Session kind">
+      <button role="tab" id="tab-new" aria-selected="true">New</button>
+      <button role="tab" id="tab-resume" aria-selected="false">Resume</button>
+    </span>
+    <span class="kbd" aria-hidden="true">⌥⌘N</span></h2>
+
+  <div class="picker" id="picker">
+    <aside class="recents" aria-label="Recent directories">
+      <div class="side-head">Recent</div>
+      <button class="dir" aria-pressed="true">muster<span class="dir-meta"><span>opus</span><span>2h</span></span></button>
+      <button class="dir">ledger-api<span class="dir-meta"><span>sonnet</span><span>1d</span></span></button>
+      <button class="dir">dotfiles<span class="dir-meta"><span>haiku</span><span>6d</span></span></button>
+    </aside>
+    <div class="browse">
+      <nav class="crumbs" aria-label="Path"><button>~</button><span class="sep">/</span><button>code</button><span class="sep">/</span><button>Projects</button><span class="sep">/</span><span aria-current="page">muster</span></nav>
+      <div class="entries">
+        <button class="entry">cmd<span class="chev">›</span></button>
+        <button class="entry">docs<span class="chev">›</span></button>
+        <button class="entry">internal<span class="chev">›</span></button>
+        <button class="entry">plans<span class="chev">›</span></button>
+        <button class="entry">web<span class="chev">›</span></button>
+      </div>
+    </div>
+  </div>
+
+  <form id="launch-form" onsubmit="return false">
+    <div class="past sw" id="past" hidden>
+      <div class="past-head">Claude sessions in muster · 14<input placeholder="filter" aria-label="Filter sessions"></div>
+      <div class="past-list" style="max-height:236px">
+        <button class="row" aria-pressed="true"><span class="t">Fix e2e flake in shell.spec</span><span class="age">3h</span><span class="lp">› the shell spec still fails when a second suite runs, can you look</span></button>
+        <button class="row"><span class="t">Plan the worktree lifecycle</span><span class="age">1d</span><span class="lp">› /plan-work worktree-lifecycle</span></button>
+        <button class="row" aria-disabled="true"><span class="t">Gate lock tooling<span class="tag">open · rail 3</span></span><span class="age">now</span><span class="lp">› already running in Muster — open it from the rail</span></button>
+        <button class="row" data-bypass><span class="t">Bump Go deps<span class="chip-danger sw" style="margin-left:6px">bypass</span></span><span class="age">4d</span><span class="lp">› update go deps to latest minor</span></button>
+        <button class="row"><span class="t">(untitled)</span><span class="age">9d</span><span class="lp">› say hi</span></button>
+      </div>
+    </div>
+
+    <div class="fields" id="fields">
+      <label class="lab" for="title-input" id="title-lab">Title</label>
+      <input id="title-input" type="text" autocomplete="off" placeholder="optional — Claude Code auto-generates">
+
+      <fieldset class="seg"><legend>Model</legend>
+        <div class="seg-track" role="radiogroup" aria-label="Model">
+          <label><input type="radio" name="model" value="sonnet">sonnet</label>
+          <label><input type="radio" name="model" value="opus" checked>opus</label>
+          <label><input type="radio" name="model" value="haiku">haiku</label>
+          <label><input type="radio" name="model" value="fable">fable</label>
+          <label><input type="radio" name="model" value="other">other…</label>
+        </div></fieldset>
+
+      <fieldset class="seg"><legend>Start in</legend>
+        <div class="seg-track" role="radiogroup" aria-label="Start in">
+          <label><input type="radio" name="pm" value="default">manual</label>
+          <label><input type="radio" name="pm" value="acceptEdits">accept edits</label>
+          <label><input type="radio" name="pm" value="plan">plan</label>
+          <label><input type="radio" name="pm" value="auto" checked>auto</label>
+          <label class="bypass sw"><input type="radio" name="pm" value="bypassPermissions">bypass</label>
+        </div></fieldset>
+      <p class="bypass-warn sw" id="warn" hidden><b>Bypass permissions</b> — every tool call runs without asking: edits, shell commands, network. Nothing stops a bad command.</p>
+    </div>
+
+    <div class="modal-foot">
+      <span id="launch-target">Launch in <b>~/code/Projects/muster</b> <span class="branch">main</span></span>
+      <button type="button" class="btn">Cancel</button>
+      <button type="submit" class="btn key" id="go">Launch</button>
+    </div>
+  </form>
+</dialog>
+
+<div>
+  <div class="stage-cap">after launch — the rail card</div>
+  <div class="mini-card sw"><div class="top">flaky-e2e-hunt <span class="chip-danger" id="chip" hidden>bypass</span><span class="badge">idle</span></div>
+  <div class="meta">muster · main · opus</div></div>
+  <p style="font-size:var(--fs-xs);color:var(--fg-dim);max-width:260px;font-family:var(--mono)">A danger chip rides on every card and the mainhead while the latched mode is bypass — the one guardrail that survives after the dialog closes.</p>
+</div>
+</div>
+
+<ul class="notes">
+  <li class="pro">+ New and Resume never share a half-filled form — in Resume there is no Title, Model or Start in to wonder about; the session resumes as it was.</li>
+  <li class="pro">+ The list has room: filter box, age, last prompt, and a disabled row for a session already running — in Muster for certain; outside Muster only if the probe finds a reliable signal. Every session is listed the same way, whoever started it.</li>
+  <li>With bypass checked the primary button turns danger-filled and reads <b>Launch without checks</b> (from option C) — the one filled button on the surface stays the one that launches.</li>
+  <li class="con">− One more control in the head; ⌥⌘N always opens on New, so resuming is always one extra click.</li>
+  <li>A listed session whose last mode was bypass carries the danger chip; selecting it turns the button into <b>Resume without checks</b>. A resumed session comes back in its original mode, plan included.</li>
+  <li class="con">− A resume can't change model or starting mode from the dialog — do that inside Claude Code after it opens.</li>
+</ul>
+</div>
+
+<div class="demo">kind
+  <button class="btn sm" data-k="new" aria-pressed="true">new</button>
+  <button class="btn sm" data-k="resume" aria-pressed="false">resume</button>
+  &nbsp;start in
+  <button class="btn sm" data-b="0" aria-pressed="true">auto</button>
+  <button class="btn sm" data-b="1" aria-pressed="false">bypass</button>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+function kind(k) {
+  const r = k === "resume";
+  $("#tab-new").setAttribute("aria-selected", String(!r));
+  $("#tab-resume").setAttribute("aria-selected", String(r));
+  $("#past").hidden = !r;
+  $("#picker").style.height = r ? "220px" : "";
+  $("#fields").hidden = r;
+  $("#go").textContent = r ? "Resume" : "Launch";
+  $("#go").className = "btn key";
+  $("#launch-target").innerHTML = r ? 'Resume <b>Fix e2e flake in shell.spec</b> in ~/code/Projects/muster'
+                                    : 'Launch in <b>~/code/Projects/muster</b> <span class="branch">main</span>';
+  document.querySelectorAll("[data-k]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.k === k)));
+  if (!r) sync();
+}
+function bypass(on) {
+  document.querySelector(`input[name=pm][value=${on ? "bypassPermissions" : "auto"}]`).checked = true;
+  sync();
+}
+function sync() {
+  const on = document.querySelector("input[name=pm]:checked").value === "bypassPermissions";
+  $("#warn").hidden = !on; $("#chip").hidden = !on;
+  if ($("#go").textContent !== "Resume") {
+    $("#go").className = on ? "btn key-danger sw" : "btn key";
+    $("#go").textContent = on ? "Launch without checks" : "Launch";
+  }
+  document.querySelectorAll("[data-b]").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.b === "1") === on)));
+}
+document.querySelectorAll("[data-k]").forEach(b => b.onclick = () => kind(b.dataset.k));
+document.querySelectorAll("[data-b]").forEach(b => b.onclick = () => bypass(b.dataset.b === "1"));
+document.querySelectorAll("[role=tab]").forEach(b => b.onclick = () => kind(b.id === "tab-resume" ? "resume" : "new"));
+document.querySelectorAll("input[name=pm]").forEach(i => i.onchange = sync);
+document.querySelectorAll(".past .row:not([aria-disabled])").forEach(r => r.onclick = () => {
+  document.querySelectorAll(".past .row").forEach(x => x.removeAttribute("aria-pressed"));
+  r.setAttribute("aria-pressed", "true");
+  $("#launch-target").innerHTML = `Resume <b>${r.querySelector(".t").firstChild.textContent}</b> in ~/code/Projects/muster`;
+  const bp = r.hasAttribute("data-bypass");
+  $("#go").className = bp ? "btn key-danger sw" : "btn key";
+  $("#go").textContent = bp ? "Resume without checks" : "Resume";
+});
+</script>
+</body></html>

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en" data-theme="instrument"><head><meta charset="utf-8">
+<title>resume-and-dangerously-allow — mockups</title>
+<link rel="stylesheet" href="../../../web/src/style.css">
+<link rel="stylesheet" href="mockup.css">
+<style>
+.opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 18px 0; }
+.opt { background: var(--bg-raised); border: 1px solid var(--line-control); padding: 14px 16px; }
+.opt h3 { margin: 0 0 6px; font-size: var(--fs-md); }
+.opt h3 a { color: var(--fg); }
+.opt p { margin: 0 0 6px; color: var(--fg-muted); font-size: var(--fs-sm); }
+table { border-collapse: collapse; width: 100%; font-size: var(--fs-sm); margin: 10px 0; }
+th, td { border: 1px solid var(--line-control); padding: 6px 10px; text-align: left; color: var(--fg-muted); }
+th { background: var(--bg-raised); color: var(--fg-dim); font-family: var(--mono); font-size: var(--fs-2xs); letter-spacing: .08em; text-transform: uppercase; font-weight: 400; }
+</style>
+</head><body><div class="frame">
+<h1>resume-and-dangerously-allow — the launch dialog, three ways</h1>
+<div class="sub">plan mockups · 2026-09-27 · built on the shipped web/src/style.css and #launch-dialog markup</div>
+
+<p>Two backlog items, one dialog: <b>Resume old Claude session</b> (#62) — resume a Claude Code
+session that Muster didn't start — and <b>Bypass permissions</b> (#61) — offer the
+<code>bypassPermissions</code> Start-in mode. Each page has a demo bar (bottom right) that flips
+between new / resume and auto / bypass. The resume layout and the bypass treatment are
+independent choices; each page pairs one of each so all three bypass treatments get seen too.</p>
+
+<div class="opts">
+  <div class="opt"><h3><a href="opt-a-tabs.html">A — New | Resume tabs</a></h3>
+    <p>A switch in the dialog head. Resume replaces Title, Model and Start in with a filterable list of the directory's sessions. <b>Chosen 2026-09-27</b>, with C's Launch button: danger-filled "Launch without checks" while bypass is checked.</p>
+    <p>Bypass: a fifth danger segment and a warning line.</p></div>
+  <div class="opt"><h3><a href="opt-b-column.html">B — sessions column</a></h3>
+    <p>The picker gets a third Finder-style column of the listed directory's sessions, headed by New session.</p>
+    <p>Bypass: a fifth segment plus a tick before Launch enables.</p></div>
+  <div class="opt"><h3><a href="opt-c-claude-picker.html">C — Claude Code's picker</a></h3>
+    <p>One Resume… button that launches <code>claude --resume</code> and lets Claude Code's own picker run in the terminal.</p>
+    <p>Bypass: a separate checkbox; the primary button turns danger-red.</p></div>
+</div>
+
+<table>
+  <tr><th></th><th>A tabs</th><th>B column</th><th>C Claude's picker</th></tr>
+  <tr><td>Daemon reads transcripts</td><td>yes — list per directory</td><td>yes — on every navigation</td><td>no</td></tr>
+  <tr><td>New Claude Code facts to measure</td><td>transcript dir encoding, title lines</td><td>same as A</td><td>bare <code>--resume</code> binding only</td></tr>
+  <tr><td>Hides sessions already open in the rail</td><td>yes (disabled row)</td><td>yes</td><td>no — found out after</td></tr>
+  <tr><td>Clicks to resume</td><td>tab, row, Resume</td><td>row, Resume</td><td>Resume…, then pick in terminal</td></tr>
+  <tr><td>Dialog size</td><td>unchanged</td><td>wider always (820px)</td><td>unchanged</td></tr>
+</table>
+
+<p><b>Every option adds the same after-launch guardrail:</b> a danger <code>bypass</code> chip on the
+rail card and mainhead while the session's latched mode is bypass. Today the permission mode is
+shown nowhere on a card, so this is new surface either way.</p>
+</div></body></html>
