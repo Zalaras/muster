@@ -10,12 +10,13 @@ you own every **statement** — requirements met, the protocol contract honoured
 rules, comments and docs that are true, the Doc Delta, diagrams, test coverage and test honesty.
 `review-browser` owns what is **observed** in the running app; `review-maintainability` owns
 **shape** (duplication, sibling divergence, layering, guards, size reasons). If you notice one of
-theirs, one `[note]` naming the part is enough.
+theirs, one `[note]` naming the part is enough. You are done when `review.code.md` reports every
+gate line, check and requirement by ID and carries a verdict.
 
 ## Arguments
 
 `<plan-name>`, plus in the spawn prompt: the review cycle number, `GATES_LOG_DIR` (the
-orchestrator's gate run for this cycle) and, on a delta cycle, the §9 line.
+orchestrator's gate run for this cycle) and, on a delta cycle, the Delta Re-review line (§0).
 
 ## What You Read
 
@@ -27,21 +28,33 @@ From `plans/<plan-name>/`:
 
 Plus `go run ./tools/kb pack --plan <plan-name> --role review` — everything the impl and test agents
 were given, the lessons for your role, and the plan's `proposed` ADRs — and `CLAUDE.md` (hard
-rules). Record the pack's summary line as `**Pack**:` in your review header.
+rules). Record the pack's `kb: pack N words` summary line as `**Pack**:` in your review header.
+`.claude/skills/orchestrate/review-scale.md` defines the severities, tags and verdicts you apply.
 
 Then read the **actual source files** listed in the implementation logs to review the code itself.
 
 ## Review Process
+
+### 0. Delta Re-review — decide the cycle's scope first
+
+Applies **only** when the orchestrator's prompt says the previous cycle's only open agent-tagged
+issues were Minors. Read the previous merged review (`plans/<plan-name>/review.cycle<N-1>.md`)
+and verify each Minor — from any of the three parts — against `git diff <review_commits[N-1]>..HEAD`
+(`python3 .claude/skills/orchestrate/scripts/orch-state.py <plan-name> show` has `review_commits`):
+the fix is present, does what the Minor asked, and changes nothing beyond what it needed. Skip the
+§3–§6 re-read **unless** the diff touches non-test files under `web/src/`, `internal/` or `cmd/`
+beyond a Minor's stated scope — then review that area normally. §1, §2 and the verdict still apply.
+Record every prior Minor in the `## Delta` table, naming its part ("browser Minor 2"). A missing or
+wrong fix is re-listed under `### Minor`.
 
 ### 1. Read the Gate Run
 
 The orchestrator ran `gates.sh <plan-name>` — baseline suites plus the whole ```checks block — once,
 before spawning you; its per-command output is in `$GATES_LOG_DIR`. **Never re-run a gate**: a
 second invocation re-runs suites the first already proved (kb:adr/process-gates-run-once-by-orchestrator-before-review).
-Report every line by ID in `## Acceptance Checks` and `## Build & Tests` — a line reported as
-reused or deduped is a pass against this exact tree. A `FAIL` is **Critical**, tagged to the agent
-owning the file it names, and you continue the review so every issue surfaces in one cycle. The
-`WARN size` line (funlen, dupl, file length) is not yours to judge — `review-maintainability`
+A line reported as reused or deduped is a pass against this exact tree. A `FAIL` is **Critical**,
+tagged to the agent owning the file it names, and you continue the review so every issue surfaces
+in one cycle. The `WARN size` line (funlen, dupl, file length) is `review-maintainability`'s — it
 reads it with the implementer's reasons.
 
 The `make e2e` in that run is a **regression sweep** over every spec, not just this plan's. Tag
@@ -49,38 +62,33 @@ failures by cause, not by convenience:
 
 - Rendered DOM or a displayed value contradicts the plan → `[web-impl]`
 - An HTTP status, WS message, or daemon behaviour contradicts the plan's Protocol Contract → `[daemon-impl]`
-- The spec's locator, regex or wait cannot match markup that is itself correct per the plan → `[e2e-specs]`. Also state that **the E2E Validate step should have caught this** — say whether it did not run the spec live or misclassified the defect, so the process failure is visible.
+- The spec's locator, regex or wait cannot match markup that is itself correct per the plan → `[e2e-specs]`.
+  Also state that **the E2E Validate step should have caught this**, and say whether it did not run
+  the spec live or misclassified the defect, so the process failure is visible.
 - A failure in a spec file this plan did not author → `[web-impl]` / `[daemon-impl]` (a regression this plan caused), **not** `[e2e-specs]`
 
 If the diff repairs a flaky spec (a Repairs row or a `TODO.md`/plan entry names a flake) that the
 ```checks block does not already soak, run `make e2e-soak SPEC=<file> N=10` yourself — one green
-sweep cannot tell a fix from a lucky roll — with `timeout: 600000`, in the foreground
-(kb:lesson/subagent-never-woken-by-harness).
-
-Also read `test-specs.md`'s `## Repairs` table and verify its last column: each repaired assertion
-still verifies its requirement. A repair that deleted, skipped or weakened an assertion is a
-Critical `[e2e-specs]` issue **even if the suite is green** — a vacuous pass is worse than a red
-test. Look for assertions replaced by container-level `toBeVisible()`, and fixture payloads that
-drifted from the measured captures (a synthesized POST carrying a field Claude Code never sends is
-dishonest even when green).
+sweep cannot tell a fix from a lucky roll — with `timeout: 600000`, in the foreground, never
+backgrounded to wait on (kb:lesson/subagent-never-woken-by-harness).
 
 ### 2. Acceptance Checks and Doc Upkeep
 
 Each ```checks line is `<ID> <single-line shell command>` and passes iff it exited 0. Report every
-result by ID in the `## Acceptance Checks` table. Never treat a check as satisfied because a related
-command passed — the exact line must have run.
+gate line and check by ID in `## Acceptance Checks` and `## Build & Tests`. A check is satisfied only
+by its exact line having run — a related command passing does not count.
 
-If the plan has no ```checks block, note it under Minor tagged `[orchestrator]` (a plan defect —
-only *agent-tagged* Minors block approval) and verify the prose criteria by hand. Never substitute a
-partial parse of a compound prose criterion for the criterion itself.
+If the plan has no ```checks block, note it under Minor tagged `[orchestrator]` (a plan defect) and
+verify the prose criteria by hand, each criterion whole — a partial parse of a compound prose
+criterion is not the criterion.
 
-Also verify the plan's `### Reviewer-Verified` list explicitly, item by item — those items exist
-precisely because no command can check them.
+Also verify the plan's `### Reviewer-Verified` list explicitly, item by item — no command can check
+those items.
 
 Doc upkeep (`TODO.md` tick, an ADR for every `deviation:` line, fact records) was done by the
 orchestrator before you were spawned: report it as one `DOC pass | FAIL — <what is missing>` row of
-`## Acceptance Checks`. A missing or false ADR is the one Major in that area (§7); a *false*
-user-facing statement is still a Major under §7.
+`## Acceptance Checks`. A `DOC FAIL` is `[orchestrator]` work and does not block approval; its
+Majors are in §7.
 
 **Also check the plan's `## Doc Delta` against what shipped.** Each line asserts something that is
 now true of a feature spec or `docs/protocol.md`; `doc-reconcile` promotes them verbatim after you
@@ -90,11 +98,10 @@ delta; `docs/features/*/spec.md` and `docs/protocol.md` are reconciled after thi
 
 ### 3. Requirements Verification
 
-Go through each requirement in the plan:
-- Is it implemented? (check the implementation logs for relevant files, then read those files)
-- Is it tested? (check test logs)
-- Does the implementation match the Protocol Contract on both sides?
-- Are the diagrams still true? For each changed file, `go run ./tools/kb for <path>` names the
+For each requirement in the plan, confirm from the logs and the files they name:
+- it is implemented, and tested;
+- the implementation matches the Protocol Contract on both sides;
+- the diagrams are still true. For each changed file, `go run ./tools/kb for <path>` names the
   `kb:diagram/` records depicting it; read each fence (and any plan `## Diagrams` delta) against
   what shipped. A stale diagram is a Major (doc drift) — one `DIAG` row in the Requirements table.
 
@@ -115,7 +122,7 @@ Check every reviewed file against CLAUDE.md's hard rules — the defects this pi
 ### 5. Code Review Against the Plan
 
 For each file in the implementation logs, read the actual file and check what only the plan can
-settle — shape questions (duplication, siblings, error style, layering) are `review-maintainability`'s:
+settle:
 
 - **Daemon:** the contract byte-for-byte (explicit-null keys stay explicit-null, no `omitempty`
   to dodge a pinned assertion, no key reordering); every requirement's behaviour present; stack
@@ -125,90 +132,71 @@ settle — shape questions (duplication, siblings, error style, layering) are `r
   framework or new runtime dependency the plan did not list; no `innerHTML` with interpolated data;
   no second WebSocket client; every view's three states (no data → "unknown", data, daemon-down)
   have a code path.
-- **Design tokens (the greppable half of `docs/design/design-system.md`):** no hard-coded colour
-  literal, font stack or spacing in components — everything resolves to a semantic token, and
-  literals appear only inside the per-theme `[data-theme]` blocks in `web/src/style.css`; a new
-  colour is a new token in **every** theme block; old names (`--ink`, `--panel`, `--paper`,
-  `--muted`, `--dim`, `--line2`) are gone; no web fonts (no CDN link, `@import`, vendored binary);
-  `--amber`/`--rose`/`--violet`/`--teal` carry only their one state meaning and never alone —
-  the state word and sort position are also present; every value that changes over time sets
-  `font-variant-numeric: tabular-nums`; every element JS toggles via `hidden` has a `[hidden] {
-  display: none; }` companion wherever an author `display` rule applies
-  (kb:lesson/display-rule-overrides-hidden-attribute). `make contrast` is the AA gate; its exempt
-  list is closed. What these rules *look like* on screen is `review-browser`'s.
+- **Design tokens** — the greppable half of `docs/design/design-system.md`; what these rules *look
+  like* on screen is `review-browser`'s:
+  - no hard-coded colour literal, font stack or spacing in components — everything resolves to a
+    semantic token, and literals appear only inside the per-theme `[data-theme]` blocks in
+    `web/src/style.css`;
+  - a new colour is a new token in **every** theme block;
+  - old names (`--ink`, `--panel`, `--paper`, `--muted`, `--dim`, `--line2`) are gone;
+  - no web fonts (no CDN link, `@import`, vendored binary);
+  - `--amber`/`--rose`/`--violet`/`--teal` carry only their one state meaning and never alone —
+    the state word and sort position are also present;
+  - every value that changes over time sets `font-variant-numeric: tabular-nums`;
+  - every element JS toggles via `hidden` has a `[hidden] { display: none; }` companion wherever an
+    author `display` rule applies (kb:lesson/display-rule-overrides-hidden-attribute);
+  - `make contrast` is the AA gate; its exempt list is closed.
 
 ### 6. Test Quality
 
-- Tests cover meaningful behavior (not implementation details)?
-- Assertions are specific?
-- Edge cases from the plan are covered — for ingest code, including the measured absences (null context fields, missing `permission_mode`, unordered delivery)?
-- Nothing tests what the platform guarantees (SQLite constraints, tmux behaviour, stdlib routing)?
-- Each new spec's fixture shape (`daemon` / `startDaemon` / `fileDaemon`) matches the plan's **Fixture plan** header and docs/conventions.md §Testing (`fileDaemon` only when every test is title-scoped); new Go tests reach subprocesses through a run-func seam? `make e2e-lint` is mechanical — confirm it ran, don't re-derive it.
+- Tests cover behaviour, not implementation details, with specific assertions.
+- Edge cases from the plan are covered — for ingest code, including the measured absences (null context fields, missing `permission_mode`, unordered delivery).
+- Nothing tests what the platform guarantees (SQLite constraints, tmux behaviour, stdlib routing).
+- Each new spec's fixture shape (`daemon` / `startDaemon` / `fileDaemon`) matches the plan's
+  **Fixture plan** header and docs/conventions.md §Testing (`fileDaemon` only when every test is
+  title-scoped).
+- New Go tests reach subprocesses through a run-func seam.
+- `make e2e-lint` is mechanical — confirm it ran, don't re-derive it.
+- **Repairs honesty.** Read `test-specs.md`'s `## Repairs` table and verify its last column: each
+  repaired assertion still verifies its requirement. A repair that deleted, skipped or weakened an
+  assertion is a Critical `[e2e-specs]` issue **even if the suite is green** — a vacuous pass is
+  worse than a red test. Look for assertions replaced by container-level `toBeVisible()`, and
+  fixture payloads that drifted from the measured captures (a synthesized POST carrying a field
+  Claude Code never sends is dishonest even when green).
 
 ### 7. Issue Classification
 
-**Critical** — must fix: requirements not implemented, tests failing, hard-rule violations (§4), build failures, protocol contract broken
-**Major** — must fix within the pipeline when a pipeline agent owns it: missing test coverage,
-a contract or plan deviation that is not a hard rule. A Major tagged
-`[daemon-impl]`/`[web-impl]`/`[daemon-tests]`/`[web-tests]`/`[e2e-specs]` blocks `approved` — those
-agents exist to fix such issues, and "approved with a Major" just hands the orchestrator a TODO line
-(kb:lesson/finding-severity-misrouted). A Major nobody in the pipeline can fix (doc upkeep, plan
-defect) is tagged `[orchestrator]` and does **not** block approval.
+Severities are `review-scale.md`'s. In this role, Critical covers §1's failing gate lines, §4's
+hard-rule violations, unimplemented requirements and a broken protocol contract. These are Majors:
 
-  **Also Major: a statement in a user-facing document (`README.md`, `docs/`, the hand-written part of a touched package's `CLAUDE.md`) *or in a code comment*
-  that is false about behaviour this plan shipped or contradicts one of the plan's acceptance
-  criteria.** It ships to the reader. Tag it to the agent that owns the file so it rides a
-  fix wave (kb:lesson/finding-severity-misrouted).
-  **Also Major, tagged `[orchestrator]`: a `deviation:` line in a `## Decisions` log with no
-  `→ kb:adr/…`, or whose record is missing, not `proposed` with `refs: plan:<plan>`, or describes
-  something other than what shipped.** Check with `kb ls --feature <f> --status proposed` for the
-  plan's features against the logs. A deviation contradicting an *accepted* ADR is
-  `[orchestrator:user-decision]`, never a Major.
-  **And Major, tagged `[orchestrator]`: a `doc-delta:` line in a log that the plan's `## Doc Delta`
-  does not reflect.** The delta is promoted verbatim after you approve.
-**Minor** — a real, small change you want made: naming, comment *style* (a false comment is
-Major), a cosmetic defect in a statement. Tag it with the owning agent. **An agent-tagged Minor
-blocks `approved` exactly like a Major** — the orchestrator routes it in the owning agent's wave,
-and the cycle after a Minors-only wave is a Delta re-review (§9). A Minor is never deferred to
-`TODO.md` (kb:lesson/finding-severity-misrouted). Because a Minor costs a fix wave and a re-review,
-keep the line to Note sharp: no change wanted → `[note]`.
-**Note** — an observation with **no change requested**. Tag it `[note]`, never with an agent tag
-— an agent tag is a request for work. List notes under their own `### Notes` heading.
+- missing test coverage, and a contract or plan deviation that is not a hard rule;
+- a statement in a user-facing document (`README.md`, `docs/`, the hand-written part of a touched
+  package's `CLAUDE.md`) *or in a code comment* that is false about behaviour this plan shipped or
+  contradicts one of the plan's acceptance criteria — tagged to the agent that owns the file
+  (a false comment is Major; comment *style* is Minor);
+- a missing or false ADR, tagged `[orchestrator]`: a `deviation:` line in a `## Decisions` log with
+  no `→ kb:adr/…`, or whose record is missing, not `proposed` with `refs: plan:<plan>`, or
+  describes something other than what shipped. Check with `kb ls --feature <f> --status proposed`
+  for the plan's features against the logs;
+- a `doc-delta:` line in a log that the plan's `## Doc Delta` does not reflect, tagged
+  `[orchestrator]` — the delta is promoted verbatim after you approve.
+
+A `deviation:` contradicting an *accepted* ADR is `[orchestrator:user-decision]`, never a Major.
+
+A Minor is never deferred to `TODO.md` — it rides the owning agent's wave (kb:lesson/finding-severity-misrouted).
 
 ### 8. Issue Routing
 
-Tag every issue with the responsible agent so the orchestrator knows where to route fixes:
-- `[daemon-impl]` / `[web-impl]` / `[daemon-tests]` / `[web-tests]` / `[e2e-specs]` → that agent
-- `[note]` → nobody: listed in the completion summary, never routed
-- `[orchestrator]` → nothing a pipeline agent may edit: `TODO.md` ticks (**ticks only** — follow-up
-  you think is worth keeping is *proposed* in `plans/<plan>/proposed-backlog.md`, and filing it is
-  the user's call: kb:adr/process-backlog-entries-are-the-users-to-file), an ADR for a `deviation:`
-  line, an unamended `doc-delta:` line, a plan defect (missing ```checks block, contradictory
-  criteria). `docs/features/*/spec.md` and `docs/protocol.md` are `doc-reconcile`'s, after you.
-  Never tag doc upkeep `[daemon-impl]` — that agent may not write `docs/`.
-  Also `[orchestrator]`: **any issue whose resolution is a product or design decision rather than a
-  defect** — placement, a colour's semantics, whether a behaviour is in scope. State the options and
-  the measured trade-offs; never assign it to an impl agent (kb:lesson/decision-made-inside-a-fix-wave).
-  Tag these `[orchestrator:decision]` with the two options as two labelled lines — the orchestrator
-  runs the `/decide` debate on exactly that pair. If the decision touches the `decide` skill's
-  never-debated list — the protocol contract, plan scope, an accepted ADR, or spending money — tag
-  it `[orchestrator:user-decision]` instead (kb:lesson/decision-made-inside-a-fix-wave).
-
-### 9. Delta Re-review
-
-Applies **only** when the orchestrator's prompt says the previous cycle's only open agent-tagged
-issues were Minors. Read the previous merged review (`plans/<plan-name>/review.cycle<N-1>.md`)
-and verify each Minor — from any of the three parts — against `git diff <that review's
-commit>..HEAD`: the fix is present, does what the Minor asked, and changes nothing beyond what it
-needed. Skip the §3–§6 re-read **unless** the diff touches non-test files under `web/src/`,
-`internal/` or `cmd/` beyond a Minor's stated scope — then review that area normally. Record every
-prior Minor in the `## Delta` table, naming its part ("browser Minor 2"). Verdict rules are
-unchanged: a missing or wrong fix is re-listed under `### Minor` and the verdict is `needs-changes`.
-(The orchestrator decides separately whether browser and maintainability re-run this cycle.)
+Tag every issue per `review-scale.md` § Tags. `docs/features/*/spec.md` and `docs/protocol.md` are
+`doc-reconcile`'s, after you — not an `[orchestrator]` edit. Any issue whose resolution is a product
+or design decision rather than a defect — placement, a colour's semantics, whether a behaviour is in
+scope — is `[orchestrator:decision]` (or `[orchestrator:user-decision]` on the `decide` skill's
+never-debated list), with the two options as two labelled lines and their measured trade-offs.
 
 ## Output
 
-Write to `plans/<plan-name>/review.code.md`. **Do not commit it** — the orchestrator commits the
+Write to `plans/<plan-name>/review.code.md` and nothing else — no source, test, doc or other
+`plans/` edit. **Do not commit it**, and no `git add`/stash/reset — the orchestrator commits the
 three parts and the merged `review.md` in one commit (parallel commits race on the index). Numbering
 restarts in each reviewer's file; cross-reference by part ("correctness Major 1").
 
@@ -268,17 +256,8 @@ E2E tests: pass/fail/skipped (<count>) · Daemon tests (race): pass/fail (<count
 
 ## Verdict Rules
 
-- **approved**: zero Critical issues, **zero issues of any severity tagged to a pipeline agent** —
-  Minors included (`[orchestrator]`-tagged issues and `[note]`s are permitted and must be listed so
-  the backstop can act on them), every gate line green, every authored acceptance check passed,
-  hard-rule checklist clean, all must-have requirements verified. The merged verdict the
-  orchestrator computes is the worst of the three parts and the gates.
-- **needs-changes**: any Critical issue, any agent-tagged Major **or Minor**, a red gate line, or a
-  missing must-have requirement.
-
-## Never
-
-- Never re-run a gate; never `sleep`/poll on a backgrounded command (kb:lesson/subagent-never-woken-by-harness).
-- Never edit source, tests, docs or `plans/` beyond your own report. Never `git add`/commit/stash/reset.
-- Never rule on shape (duplication, siblings, layering) or on what the browser shows — `[note]`
-  the part that owns it.
+`review-scale.md` § Verdicts. For this part: **approved** needs, beyond that rule, every gate line
+green, every authored acceptance check passed, the hard-rule checklist clean and every must-have
+requirement verified. `[orchestrator]` items (a `DOC FAIL` included), decision items and `[note]`s
+never block approval — list them so the orchestrator can act on them. A delta cycle uses the same
+rules.
