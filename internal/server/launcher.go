@@ -454,7 +454,7 @@ func (l *sessionLauncher) Resume(ctx context.Context, id int64) (*session.Sessio
 	// One-alive-row guard (kb:adr/launch-resume-one-alive-row-per-claude-session), held
 	// across the whole check-then-spawn body below so a concurrent launchResume or a
 	// second Resume for the same claude session id can never both pass their own check
-	// before the winner's claim is settled (kb:adr/launch-resume-pending-resume-holds-id)
+	// before the winner's claim is settled (kb:adr/launch-resume-pending-hold-persisted)
 	// — see launchResume's identical lock, keyed on the same claude session id rather
 	// than either side's Muster session id.
 	unlockClaude := l.manager.LockClaudeSession(sess.ClaudeSessionID)

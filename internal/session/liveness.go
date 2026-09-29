@@ -209,6 +209,8 @@ func (m *Manager) markEnded(ctx context.Context, id int64) (*Session, error) {
 	sess.Alive = false
 	endedAt := time.Now().UTC()
 	sess.EndedAt = &endedAt
+	// An ended row can never bind, so its hold must not outlive it into a revive.
+	sess.pendingResumeClaudeSessionID = ""
 	post := sess.Clone()
 
 	snapshot, err := m.persistWholeRowLocked(ctx, id, sess, prev, post, true)

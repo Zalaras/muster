@@ -30,7 +30,7 @@ and reconcile.
   directory, branch, worktree flag, launch title, state and its start time, the permission
   latch and its source, model and display name, compaction count, attention and failure
   fields, last activity, `alive` and `ended_at`, the first-launch flag, context figures,
-  the last pane snapshot and its time, `pinned` and `rail_pos`, and `title_override`. Owned
+  the last pane snapshot and its time, `pinned` and `rail_pos`, `title_override`, and `pending_resume_claude_session_id`. Owned
   by lifecycle; the display-only columns are written by rail, rename and actions and never
   read by the state machine.
 - **usage_sample** — account-level five-hour and seven-day readings with model, receipt

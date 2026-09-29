@@ -1672,6 +1672,12 @@ the mobile/responsive pass rem-ifies the pixel layer.
   `plans/resume-and-dangerously-allow/`.
   ✅ done 2026-09-29 (follow-up to plan `resume-and-dangerously-allow`): the mainhead title ellipsises, giving up width before the meta line, and End, Resume and Remove stay in view.
 
+- [x] **The pending-resume hold does not survive a daemon restart** — after musterd restarts, a
+  resumed row that has not yet bound no longer holds its Claude session, so the Resume list
+  offers that session again and a second resume of it starts. Expected: the row keeps holding
+  the session across a restart until it binds or ends. From `plans/resume-and-dangerously-allow/`.
+  ✅ done 2026-09-29 (follow-up to plan `resume-and-dangerously-allow`): the hold is stored with the session row and cleared when it binds or ends (kb:adr/launch-resume-pending-hold-persisted).
+
 ## Post v1
 <!-- kb: adr/connection-installed-claude-classified-never-refused, adr/issue-disabled-button-affordance-deferred -->
 

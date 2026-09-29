@@ -3418,7 +3418,7 @@ func TestAliveByClaudeSessionID_LoadAllPicksTheAliveRowRegardlessOfCreationOrder
 }
 
 // TestAliveByClaudeSessionID_PendingResumeHoldsIDBeforeBind covers
-// kb:adr/launch-resume-pending-resume-holds-id: a resume-from-list spawn registers its
+// kb:adr/launch-resume-pending-hold-persisted: a resume-from-list spawn registers its
 // claim the moment CreateSession returns, before any hook has arrived to bind it —
 // closing the window a second resume of the same id could otherwise pass through.
 func TestAliveByClaudeSessionID_PendingResumeHoldsIDBeforeBind(t *testing.T) {
@@ -3512,6 +3512,60 @@ func TestAliveByClaudeSessionID_PendingResumeReleasesWhenItBindsADifferentID(t *
 	id, ok := mgr.AliveByClaudeSessionID("claude-actual")
 	require.True(t, ok)
 	assert.Equal(t, sess.ID, id)
+}
+
+// TestAliveByClaudeSessionID_PendingHoldAcrossRestart covers
+// kb:adr/launch-resume-pending-hold-persisted: the hold is persisted, so a fresh Manager's
+// LoadAll over the same store still reports the row, each step following the row through
+// its lifecycle (unbound, bound, ended, revived) before the restart.
+func TestAliveByClaudeSessionID_PendingHoldAcrossRestart(t *testing.T) {
+	tests := []struct {
+		name     string
+		advance  func(t *testing.T, mgr *Manager, sess *Session)
+		wantHeld bool
+	}{
+		{name: "created and launched, never bound", advance: func(*testing.T, *Manager, *Session) {}, wantHeld: true},
+		{name: "resume bind landed: held via ClaudeSessionID", advance: func(t *testing.T, mgr *Manager, sess *Session) {
+			_, err := mgr.Apply(context.Background(), sess.ID, "claude-held", nil, claudecode.StateInput{Kind: claudecode.KindResumeBind}, true)
+			require.NoError(t, err)
+		}, wantHeld: true},
+		{name: "ended before any bind", advance: func(t *testing.T, mgr *Manager, sess *Session) {
+			_, err := mgr.markEnded(context.Background(), sess.ID)
+			require.NoError(t, err)
+		}, wantHeld: false},
+		{name: "ended then revived before any bind", advance: func(t *testing.T, mgr *Manager, sess *Session) {
+			_, err := mgr.markEnded(context.Background(), sess.ID)
+			require.NoError(t, err)
+			_, err = mgr.RepairOwnedSession(context.Background(), sess.ID)
+			require.NoError(t, err)
+		}, wantHeld: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := openTestStore(t)
+			tmux := &fakeResolvingTmuxSessions{fakeTmuxSessions: newFakeTmuxSessions(), target: "muster-revived:@1", pane: "%9"}
+			mgr1 := newTestManager(t, st, nil, nil, withTmuxSessions(tmux))
+			dir := t.TempDir()
+			params := createParams(dir)
+			params.RepoID = seedRepo(t, st, dir)
+			params.ResumeClaudeSessionID = "claude-held"
+			sess, err := mgr1.CreateSession(context.Background(), params)
+			require.NoError(t, err)
+			_, err = mgr1.RecordLaunch(context.Background(), sess.ID, "muster-"+strconv.FormatInt(sess.ID, 10)+":@1", "%1")
+			require.NoError(t, err)
+			tt.advance(t, mgr1, sess)
+
+			mgr2 := newTestManager(t, st, nil, nil)
+			require.NoError(t, mgr2.LoadAll(context.Background()))
+
+			id, ok := mgr2.AliveByClaudeSessionID("claude-held")
+			assert.Equal(t, tt.wantHeld, ok)
+			if tt.wantHeld {
+				assert.Equal(t, sess.ID, id)
+			}
+		})
+	}
 }
 
 // TestLockClaudeSession_SerializesTheCheckThenClaimRaceForOneClaudeID pins

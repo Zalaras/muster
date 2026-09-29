@@ -10,7 +10,7 @@ go: [internal/claudecode/launchtranscripts*.go, internal/server/launcherpast*.go
 web: [web/src/features/launchresume*.ts, web/src/features/launchpastlist*.ts, web/src/render/launchpast*.ts]
 e2e: [web/e2e/past-sessions.spec.ts, web/e2e/helpers/resume.ts]
 protocol: [pastsessions.list]
-refs: [kb:spec/launch, kb:adr/launch-resume-listed-from-transcripts-by-cwd, kb:adr/launch-resume-running-guard-muster-only, kb:adr/launch-resume-pending-resume-holds-id, kb:adr/launch-resume-one-alive-row-per-claude-session, kb:adr/launch-resume-in-original-mode-else-default, kb:adr/launch-resume-passes-any-recorded-mode, kb:adr/launch-resume-display-name-falls-back-to-id, kb:fact/transcript-dir-encoding, kb:fact/transcript-session-lines, kb:fact/no-running-session-signal, kb:fact/resume-restores-model-and-mode-except-plan, "#62"]
+refs: [kb:spec/launch, kb:adr/launch-resume-listed-from-transcripts-by-cwd, kb:adr/launch-resume-running-guard-muster-only, kb:adr/launch-resume-pending-hold-persisted, kb:adr/launch-resume-one-alive-row-per-claude-session, kb:adr/launch-resume-in-original-mode-else-default, kb:adr/launch-resume-passes-any-recorded-mode, kb:adr/launch-resume-display-name-falls-back-to-id, kb:fact/transcript-dir-encoding, kb:fact/transcript-session-lines, kb:fact/no-running-session-signal, kb:fact/resume-restores-model-and-mode-except-plan, "#62"]
 ---
 The launch dialog's head carries New and Resume tabs (`kb:spec/launch`); the Resume tab lists a
 directory's own Claude Code sessions and resumes one Muster never started (issue #62).
@@ -33,10 +33,10 @@ the filter hides is dropped.
 
 Each row carries `openSessionId`: the alive Muster session already holding this Claude session id
 — bound to it, or itself spawned to resume it and not yet bound
-(kb:adr/launch-resume-pending-resume-holds-id). Such a row is disabled and its last-prompt line
+(kb:adr/launch-resume-pending-hold-persisted). Such a row is disabled and its last-prompt line
 reads "open in Muster"; the default selection is the first row that isn't
-(kb:adr/launch-resume-running-guard-muster-only). The hold is kept in memory only, so a daemon
-restart releases it. A session running outside Muster — a plain terminal, another tool — cannot be
+(kb:adr/launch-resume-running-guard-muster-only). The hold is stored with the row, so it survives a
+daemon restart until the row binds or ends. A session running outside Muster — a plain terminal, another tool — cannot be
 detected and stays enabled (kb:fact/no-running-session-signal); Claude Code, not Muster, owns two
 processes sharing one conversation.
 

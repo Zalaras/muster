@@ -101,11 +101,6 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
   right-click menu on a rail card carrying each of its actions, with the End button removed from
   the rail card (only there).
 
-- [ ] **The pending-resume hold does not survive a daemon restart** — after musterd restarts, a
-  resumed row that has not yet bound no longer holds its Claude session, so the Resume list
-  offers that session again and a second resume of it starts. Expected: the row keeps holding
-  the session across a restart until it binds or ends. From `plans/resume-and-dangerously-allow/`.
-
 ### From the maintainability cleanup (2026-09-24)
 
 Filed by the developer from the cleanup's proposed backlog (`plans/maintainability-cleanup/proposed-backlog.md`).

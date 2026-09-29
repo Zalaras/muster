@@ -697,6 +697,53 @@ test("an alive, unbound resumed row keeps its claude id disabled and refuses a s
   }
 });
 
+test("a pending resume still holds its claude id across a daemon restart: the row stays disabled and a second resume is refused with 409 already_open", async ({
+  page,
+  daemon,
+}) => {
+  const dir = await browseScratchDirectory(daemon, "muster-e2e-past-pending-restart-");
+  try {
+    await daemon.writeTranscript(dir.path, "claude-past-pending-restart", {
+      title: "Pending resume survives restart",
+      lastPrompt: "sits at the bypass warning across a restart",
+    });
+
+    await page.goto(daemon.dashboardUrl);
+    const first = await postResume(page, daemon, {
+      directory: dir.path,
+      resumeSessionId: "claude-past-pending-restart",
+    });
+    expect(first.status).toBe(201);
+    const firstSession = first.body as { id: number; tmuxTarget: string };
+
+    await daemon.restart();
+    const restored = findSession(await getState(page, daemon), firstSession.id);
+    expect(restored.alive).toBe(true);
+    expect(restored.claudeSessionId).toBeNull();
+    expect(await daemon.tmuxPaneExists(restored.tmuxTarget)).toBe(true);
+
+    await page.reload();
+    const dialog = await openLaunchDialog(page);
+    await crumbButton(dialog, basename(daemon.browseRoot)).click();
+    await childEntry(dialog, basename(dir.path)).click();
+    await resumeTab(dialog).click();
+    const row = pastSessionRow(dialog, "Pending resume survives restart");
+    await expect(row).toBeDisabled();
+    await expect(row.locator(".lp")).toHaveText("open in Muster");
+
+    const second = await postResume(page, daemon, {
+      directory: dir.path,
+      resumeSessionId: "claude-past-pending-restart",
+    });
+    expect(second.status).toBe(409);
+    expect(second.body).toMatchObject({
+      error: { code: "already_open", id: firstSession.id },
+    });
+  } finally {
+    await dir.cleanup();
+  }
+});
+
 test("a session id freed by a /clear rebind is listed and resumable again (edge case 11)", async ({
   page,
   request,

@@ -136,7 +136,7 @@ func applyBind(sess *Session, claudeSessionID string, input claudecode.StateInpu
 	// lands, whichever kind: AliveByClaudeSessionID's ordinary ClaudeSessionID match
 	// already covers this row from here on, so the separate pending marker is cleared
 	// rather than left to shadow a future /clear onto a different id
-	// (kb:adr/launch-resume-pending-resume-holds-id).
+	// (kb:adr/launch-resume-pending-hold-persisted).
 	sess.pendingResumeClaudeSessionID = ""
 	if input.Model != nil {
 		// A fresh pointer, never a field written into the old one: List/Get hand out

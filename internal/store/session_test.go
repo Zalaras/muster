@@ -228,12 +228,16 @@ func TestUpdateSession_RoundTripsEveryField(t *testing.T) {
 	row.ContextUsedPct = &contextUsedPct
 	row.ContextTotalInputTokens = &contextTotalInputTokens
 	row.ContextWindowSize = &contextWindowSize
+	pendingResume := "claude-pending"
+	row.PendingResumeClaudeSessionID = &pendingResume
 
 	require.NoError(t, st.UpdateSession(ctx, row))
 
 	got, err := st.GetSession(ctx, row.ID)
 	require.NoError(t, err)
 
+	require.NotNil(t, got.PendingResumeClaudeSessionID)
+	assert.Equal(t, "claude-pending", *got.PendingResumeClaudeSessionID)
 	assert.Equal(t, "muster:@4", got.TmuxTarget)
 	require.NotNil(t, got.TmuxPane)
 	assert.Equal(t, "%12", *got.TmuxPane)
@@ -273,6 +277,43 @@ func TestUpdateSession_RoundTripsEveryField(t *testing.T) {
 	require.NotNil(t, got.EndedAt)
 	assert.True(t, got.EndedAt.Equal(endedAt))
 	assert.False(t, got.FirstLaunchHere)
+}
+
+// TestInsertSession_PendingResumeClaudeSessionIDRoundTrips covers the persisted
+// pending-resume hold (kb:adr/launch-resume-pending-hold-persisted): a non-nil id written
+// at insert reads back, a nil one stays NULL, and a whole-row update can clear it.
+func TestInsertSession_PendingResumeClaudeSessionIDRoundTrips(t *testing.T) {
+	tests := []struct {
+		name string
+		in   *string
+	}{
+		{name: "non-nil id is stored", in: ptr("claude-pending")},
+		{name: "nil stays nil", in: nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := openTestStore(t)
+			ctx := context.Background()
+			repoID := seedTestRepo(t, st)
+
+			row, err := st.InsertSession(ctx, InsertSessionParams{
+				RepoID: repoID, Directory: "/tmp/proj", PermissionMode: "default",
+				PendingResumeClaudeSessionID: tt.in,
+			})
+			require.NoError(t, err)
+			assert.Equal(t, tt.in, row.PendingResumeClaudeSessionID)
+
+			got, err := st.GetSession(ctx, row.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.in, got.PendingResumeClaudeSessionID)
+
+			got.PendingResumeClaudeSessionID = nil
+			require.NoError(t, st.UpdateSession(ctx, got))
+			cleared, err := st.GetSession(ctx, row.ID)
+			require.NoError(t, err)
+			assert.Nil(t, cleared.PendingResumeClaudeSessionID)
+		})
+	}
 }
 
 // TestUpdateSession_CanClearPointerFieldsBackToNil covers a clear-rebind's reset (no

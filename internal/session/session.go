@@ -158,10 +158,11 @@ type Session struct {
 	// pendingResumeClaudeSessionID is the Claude session id a resume-from-list spawn was
 	// launched to resume, until the enveloped SessionStart(source:"resume") lands and
 	// applyBind clears it in favor of the now-authoritative ClaudeSessionID
-	// (kb:adr/launch-resume-pending-resume-holds-id). Set once, at CreateSession, from
+	// (kb:adr/launch-resume-pending-hold-persisted). Set once, at CreateSession, from
 	// CreateParams.ResumeClaudeSessionID; "" for an ordinary launch, which never held a
-	// claim before its own first bind. In-memory only, like currentPromptID/
-	// closedPromptIDs above: a daemon restart drops it.
+	// claim before its own first bind. Persisted (session.pending_resume_claude_session_id,
+	// written by InsertSession and every whole-row persist) so a daemon restart before the
+	// bind keeps the hold; markEnded clears it, since an ended row can never bind.
 	pendingResumeClaudeSessionID string
 }
 

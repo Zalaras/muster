@@ -37,31 +37,32 @@ func readIDWatermark(ctx context.Context, q dbTx) (int64, error) {
 // the storage-level twin of internal/session.Session; internal/server converts between
 // the two so this package stays free of the kb:anchor/state state machine's own vocabulary.
 type SessionRow struct {
-	ID                   int64
-	TmuxTarget           string
-	TmuxPane             *string
-	ClaudeSessionID      *string
-	RepoID               int64
-	Directory            string
-	Branch               *string
-	IsWorktree           bool
-	Title                *string
-	State                string
-	StateSince           time.Time
-	PermissionMode       string
-	PermissionModeSource string
-	Model                *string
-	ModelDisplayName     *string // NULL = derive the display name from Model (the raw id)
-	Compactions          int
-	AttentionReason      *string
-	AttentionSince       *time.Time
-	FailureError         *string
-	FailureMessage       *string
-	LastActivity         *string
-	Alive                bool
-	EndedAt              *time.Time
-	FirstLaunchHere      bool
-	CreatedAt            time.Time
+	ID                           int64
+	TmuxTarget                   string
+	TmuxPane                     *string
+	ClaudeSessionID              *string
+	PendingResumeClaudeSessionID *string
+	RepoID                       int64
+	Directory                    string
+	Branch                       *string
+	IsWorktree                   bool
+	Title                        *string
+	State                        string
+	StateSince                   time.Time
+	PermissionMode               string
+	PermissionModeSource         string
+	Model                        *string
+	ModelDisplayName             *string // NULL = derive the display name from Model (the raw id)
+	Compactions                  int
+	AttentionReason              *string
+	AttentionSince               *time.Time
+	FailureError                 *string
+	FailureMessage               *string
+	LastActivity                 *string
+	Alive                        bool
+	EndedAt                      *time.Time
+	FirstLaunchHere              bool
+	CreatedAt                    time.Time
 
 	// Context gauge (kb:adr/usage-context-gauge-shows-tokens-and-compactions): always
 	// all-nil or all-non-nil. NULL = unknown — a session that hasn't yet received a
@@ -120,6 +121,10 @@ type InsertSessionParams struct {
 	Model           *string
 	FirstLaunchHere bool
 
+	// PendingResumeClaudeSessionID is the Claude session id a resume-from-list spawn was
+	// launched to resume; nil for an ordinary launch.
+	PendingResumeClaudeSessionID *string
+
 	// RailPos is the manual rail position for the new session
 	// (kb:adr/rail-order-daemon-owned-per-session-fields): the caller
 	// (internal/session.Manager, under its lock) hands in its own monotonic nextRailPos
@@ -176,17 +181,17 @@ func (s *Store) InsertSession(ctx context.Context, p InsertSessionParams) (Sessi
 			title, state, state_since, permission_mode, permission_mode_source, model,
 			compactions, attention_reason, attention_since, failure_error, failure_message,
 			last_activity, alive, ended_at, first_launch_here, created_at, pinned, rail_pos,
-			unread, last_prompt
+			unread, last_prompt, pending_resume_claude_session_id
 		) VALUES (
 			?, '', NULL, NULL, ?, ?, ?, ?,
 			?, 'started', ?, ?, 'seed', ?,
 			0, NULL, NULL, NULL, NULL,
 			NULL, 1, NULL, ?, ?, 0, ?,
-			0, NULL
+			0, NULL, ?
 		)
 	`, id, p.RepoID, p.Directory, p.Branch, boolToInt(p.IsWorktree),
 		p.Title, now, p.PermissionMode, p.Model,
-		boolToInt(p.FirstLaunchHere), now, p.RailPos,
+		boolToInt(p.FirstLaunchHere), now, p.RailPos, p.PendingResumeClaudeSessionID,
 	); err != nil {
 		return SessionRow{}, fmt.Errorf("inserting session for %q: %w", p.Directory, err)
 	}
@@ -274,7 +279,8 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 			last_activity = ?, alive = ?, ended_at = ?, first_launch_here = ?,
 			context_used_pct = ?, context_total_input_tokens = ?, context_window_size = ?,
 			last_snapshot = ?, last_snapshot_at = ?, pinned = ?, rail_pos = ?, title_override = ?,
-			transcript_file = ?, plan_path = ?, plan_exists = ?, unread = ?, last_prompt = ?
+			transcript_file = ?, plan_path = ?, plan_exists = ?, unread = ?, last_prompt = ?,
+			pending_resume_claude_session_id = ?
 		WHERE id = ?
 	`,
 		row.TmuxTarget, row.TmuxPane, row.ClaudeSessionID, row.Directory, row.Branch,
@@ -285,6 +291,7 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 		row.ContextUsedPct, row.ContextTotalInputTokens, row.ContextWindowSize,
 		row.LastSnapshot, lastSnapshotAt, boolToInt(row.Pinned), row.RailPos, row.TitleOverride,
 		row.TranscriptPath, row.PlanPath, boolToInt(row.PlanExists), boolToInt(row.Unread), row.LastPrompt,
+		row.PendingResumeClaudeSessionID,
 		row.ID,
 	)
 	if err != nil {
@@ -300,7 +307,8 @@ const sessionColumns = `
 	failure_message, last_activity, alive, ended_at, first_launch_here, created_at,
 	context_used_pct, context_total_input_tokens, context_window_size,
 	last_snapshot, last_snapshot_at, pinned, rail_pos, title_override,
-	transcript_file, plan_path, plan_exists, unread, last_prompt
+	transcript_file, plan_path, plan_exists, unread, last_prompt,
+	pending_resume_claude_session_id
 `
 
 func (s *Store) GetSession(ctx context.Context, id int64) (SessionRow, error) {
@@ -382,6 +390,7 @@ func (s *Store) scanSession(row rowScanner) (SessionRow, error) {
 		&r.ContextUsedPct, &r.ContextTotalInputTokens, &r.ContextWindowSize,
 		&r.LastSnapshot, &lastSnapshotAt, &pinned, &r.RailPos, &r.TitleOverride,
 		&r.TranscriptPath, &r.PlanPath, &planExists, &unread, &r.LastPrompt,
+		&r.PendingResumeClaudeSessionID,
 	); err != nil {
 		return SessionRow{}, err
 	}

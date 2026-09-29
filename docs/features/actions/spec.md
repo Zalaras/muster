@@ -10,7 +10,7 @@ go: [internal/server/sessions*.go]
 web: [web/src/features/actions*.ts, web/src/render/confirm.ts, web/src/render/dead*.ts, web/src/render/actionerror*.ts]
 e2e: [web/e2e/actions.spec.ts]
 protocol: [sessions.end, sessions.resume, sessions.remove, sessions.pane, ws.session-removed]
-refs: [kb:adr/actions-placement-mainhead-and-card-rows, kb:adr/actions-pane-snapshot-display-only, kb:adr/actions-remove-allowed-on-live-session, kb:adr/lifecycle-resume-rebinds-existing-session, kb:adr/lifecycle-ended-rows-swept-next-start, kb:adr/surfaces-shell-dies-at-kill-shutdown-too, kb:adr/theme-danger-tokens-not-rose, kb:adr/launch-resume-one-alive-row-per-claude-session, kb:adr/launch-resume-pending-resume-holds-id, kb:fact/resume-keeps-session-identity]
+refs: [kb:adr/actions-placement-mainhead-and-card-rows, kb:adr/actions-pane-snapshot-display-only, kb:adr/actions-remove-allowed-on-live-session, kb:adr/lifecycle-resume-rebinds-existing-session, kb:adr/lifecycle-ended-rows-swept-next-start, kb:adr/surfaces-shell-dies-at-kill-shutdown-too, kb:adr/theme-danger-tokens-not-rose, kb:adr/launch-resume-one-alive-row-per-claude-session, kb:adr/launch-resume-pending-hold-persisted, kb:fact/resume-keeps-session-identity]
 ---
 Three actions apply to a session: End, Resume and Remove. They live in the Focus mainhead
 above the terminal and in hover-revealed action rows on rail cards and tile footers, each
@@ -34,8 +34,8 @@ position are kept, the pane target is the new one, and the state stays until the
 kb:fact/resume-keeps-session-identity). Resume is refused while the session is alive, when
 no Claude session id is bound, when the directory no longer exists, or when another alive
 session already holds that Claude session id — bound to it, or itself spawned to resume it and
-not yet bound; that hold lives in memory only, so a daemon restart releases it
-(kb:adr/launch-resume-one-alive-row-per-claude-session, kb:adr/launch-resume-pending-resume-holds-id).
+not yet bound, a hold that survives a daemon restart
+(kb:adr/launch-resume-one-alive-row-per-claude-session, kb:adr/launch-resume-pending-hold-persisted).
 
 **Remove** (`kb:anchor/sessions.remove`) is allowed on a live session: it ends it first and
 the dialog says so (kb:adr/actions-remove-allowed-on-live-session). The row is deleted, any

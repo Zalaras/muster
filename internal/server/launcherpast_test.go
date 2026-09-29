@@ -463,7 +463,7 @@ func TestLauncher_Resume_RefusesADeadSessionWhoseClaudeIDAResumeBoundAliveSessio
 	require.NoError(t, err)
 
 	// A resume-from-list creates the new row with a pending claim before its own bind
-	// lands (kb:adr/launch-resume-pending-resume-holds-id), then the SessionStart
+	// lands (kb:adr/launch-resume-pending-hold-persisted), then the SessionStart
 	// resume-bind arrives.
 	newAlive, err := mgr.CreateSession(context.Background(), session.CreateParams{
 		RepoID: repo.ID, Directory: dir, PermissionMode: session.PermissionDefault, Model: "sonnet",

@@ -69,7 +69,7 @@ func (l *sessionLauncher) launchResume(ctx context.Context, req createSessionReq
 	// any id-collision retry) so a concurrent second resume of claudeSessionID — another
 	// launchResume, or the Resume action reviving a dead row already bound to it — can
 	// never pass its own check before this attempt's claim is settled
-	// (kb:adr/launch-resume-pending-resume-holds-id) — see Resume's identical lock.
+	// (kb:adr/launch-resume-pending-hold-persisted) — see Resume's identical lock.
 	unlockClaude := l.manager.LockClaudeSession(claudeSessionID)
 	defer unlockClaude()
 	if aliveID, bound := l.manager.AliveByClaudeSessionID(claudeSessionID); bound {

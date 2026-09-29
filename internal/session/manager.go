@@ -279,7 +279,7 @@ type CreateParams struct {
 	// ResumeClaudeSessionID is set only by a resume-from-list spawn (launchResume): the
 	// Claude session id this new row was launched to resume, held via
 	// pendingResumeClaudeSessionID until its own bind lands
-	// (kb:adr/launch-resume-pending-resume-holds-id). "" for an ordinary launch, which
+	// (kb:adr/launch-resume-pending-hold-persisted). "" for an ordinary launch, which
 	// binds to whatever id Claude Code's own first SessionStart names instead.
 	ResumeClaudeSessionID string
 
@@ -294,7 +294,7 @@ type CreateParams struct {
 // registers it in memory. No broadcast yet: staying silent until any hook can arrive is
 // satisfied by RecordLaunch, once the real tmux target is known. A non-empty
 // p.ResumeClaudeSessionID also registers the row's resume claim immediately
-// (kb:adr/launch-resume-pending-resume-holds-id): before this call returns, the row
+// (kb:adr/launch-resume-pending-hold-persisted): before this call returns, the row
 // already counts as alive-and-holding that Claude session id for
 // AliveByClaudeSessionID, since InsertSession persists a new row alive from the start.
 func (m *Manager) CreateSession(ctx context.Context, p CreateParams) (*Session, error) {
@@ -319,23 +319,23 @@ func (m *Manager) CreateSession(ctx context.Context, p CreateParams) (*Session, 
 	m.mu.Unlock()
 
 	row, err := m.store.InsertSession(ctx, store.InsertSessionParams{
-		RepoID:          p.RepoID,
-		Directory:       p.Directory,
-		Branch:          p.Branch,
-		IsWorktree:      p.IsWorktree,
-		Title:           p.Title,
-		PermissionMode:  string(p.PermissionMode),
-		Model:           model,
-		FirstLaunchHere: p.FirstLaunchHere,
-		RailPos:         railPos,
-		MinID:           p.MinID,
+		RepoID:                       p.RepoID,
+		Directory:                    p.Directory,
+		Branch:                       p.Branch,
+		IsWorktree:                   p.IsWorktree,
+		Title:                        p.Title,
+		PermissionMode:               string(p.PermissionMode),
+		Model:                        model,
+		FirstLaunchHere:              p.FirstLaunchHere,
+		PendingResumeClaudeSessionID: ptrOrNil(p.ResumeClaudeSessionID),
+		RailPos:                      railPos,
+		MinID:                        p.MinID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("creating session: %w", err)
 	}
 
 	sess := rowToSession(row)
-	sess.pendingResumeClaudeSessionID = p.ResumeClaudeSessionID
 
 	m.mu.Lock()
 	m.sessions[sess.ID] = sess
@@ -503,7 +503,7 @@ func (m *Manager) Resolve(claudeSessionID string) (int64, bool) {
 // shared an id wins depends on load order — both would make this guard answer
 // differently for the same state depending on history or a restart. Checking Alive first
 // on the row itself, instead, needs neither. "Holding" also counts a still-unbound row a
-// resume path has just claimed for this id (kb:adr/launch-resume-pending-resume-holds-id):
+// resume path has just claimed for this id (kb:adr/launch-resume-pending-hold-persisted):
 // pendingResumeClaudeSessionID, set at CreateSession and cleared by applyBind once the
 // row's own resume bind lands.
 func (m *Manager) AliveByClaudeSessionID(claudeSessionID string) (int64, bool) {

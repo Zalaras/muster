@@ -1,7 +1,7 @@
 ---
 id: launch-resume-pending-resume-holds-id
 type: decision
-status: accepted
+status: superseded
 date: 2026-09-28
 summary: An alive session spawned with --resume X counts as holding Claude session X until it binds or dies, so no second resume of X can start in that window.
 features: [launch]
