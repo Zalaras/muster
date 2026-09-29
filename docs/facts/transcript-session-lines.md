@@ -7,10 +7,10 @@ summary: A transcript's title is its last custom-title, else ai-title line; last
 features: [launch]
 tags: [claude-code-format]
 files: []
-tests: []
+tests: [TestTranscriptSessionLines]
 refs: [plan:resume-and-dangerously-allow, kb:fact/transcript-dir-encoding, kb:fact/name-flag-reaches-title]
-verified: 2.1.283..2.1.283
-guard: none
+verified: 2.1.283..canary
+guard: TestTranscriptSessionLines
 ---
 Lines of a session transcript that name it, one JSON object per line, each with `sessionId`:
 

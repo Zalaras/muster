@@ -38,8 +38,8 @@ import (
 //	A  headless, managed   ($MUSTER_SESSION=42) — one Bash tool call        (1 haiku turn)
 //	B  headless, unmanaged (no $MUSTER_SESSION) — must produce zero posts    (1 haiku turn)
 //	C  headless, unauthenticated CLAUDE_CONFIG_DIR, once per launch permission mode
-//	   ($MUSTER_SESSION=43/45/46/47/49: no flag, plan, acceptEdits, auto, explicit
-//	   default — REQ-9's added row)                                          (0 tokens)
+//	   ($MUSTER_SESSION=43/45/46/47/49/53: no flag, plan, acceptEdits, auto, explicit
+//	   default — REQ-9's added row, bypassPermissions)                       (0 tokens)
 //	D  interactive in tmux on a scratch socket ($MUSTER_SESSION=44), launched with
 //	   Title:"Muster Canary", PermissionMode:"plan", "say hi" — then a wait for the
 //	   idle_prompt Notification before the pane is killed                    (1 haiku turn)
@@ -59,7 +59,8 @@ import (
 //	J  interactive against a fail server answering 429 with rate-limit headers
 //	   ($MUSTER_SESSION=52), one prompt that fails                           (0 tokens)
 //
-// Runs G–J live in harness_turns_test.go.
+// Runs G–J live in harness_turns_test.go; K–M, the bypass and resume-defaults runs, in
+// harness_resume_test.go.
 //
 // Isolation: the scratch repo lives under os.MkdirTemp (/var/folders, outside ~/Documents
 // so no parent CLAUDE.md leaks into the session); ~/.claude/settings.json is never read or
@@ -81,6 +82,10 @@ const (
 	sessionInterrupt     int64 = 50 // run G: Esc during a running Bash call
 	sessionToolBatch     int64 = 51 // run H: parallel Reads, PostToolUse responses held
 	sessionFailedTurn    int64 = 52 // run J: interactive, every API call fails with a 429
+	sessionUnauthBypass  int64 = 53 // unauthenticated, --permission-mode bypassPermissions
+	sessionBypassWarning int64 = 54 // run K: interactive bypassPermissions, warning left unanswered
+	sessionResumeUnknown int64 = 55 // run L: --resume of an id with no transcript
+	sessionResumeBare    int64 = 56 // run M: resume of run D's id with no --model or --permission-mode
 	// sessionStopFailureBase is run I's first row; row i is sessionStopFailureBase+i.
 	sessionStopFailureBase int64 = 60
 
@@ -95,6 +100,8 @@ const (
 	interactiveResumeTmuxID int64 = 98 // tmux session "muster-98" on the scratch socket: run E
 	interruptTmuxID         int64 = 97 // tmux session "muster-97" on the scratch socket: run G
 	failedTurnTmuxID        int64 = 96 // tmux session "muster-96" on the scratch socket: run J
+	bypassWarningTmuxID     int64 = 95 // tmux session "muster-95" on the scratch socket: run K
+	resumeBareTmuxID        int64 = 94 // tmux session "muster-94" on the scratch socket: run M
 
 	// refreshIntervalSeconds is the one settings key the canary writes that production never
 	// does (kb:adr/canary-refresh-interval-key-canary-only): MergeSettings emits statusLine
@@ -122,6 +129,7 @@ var unauthRuns = []struct {
 	{sessionUnauthAccept, "acceptEdits"},
 	{sessionUnauthAuto, "auto"},
 	{sessionUnauthDefault, "default"},
+	{sessionUnauthBypass, claudecode.PermissionBypass},
 }
 
 // offlineEnv, when set, skips every test that needs a real run — lets the canary package be
@@ -210,6 +218,10 @@ type fixture struct {
 	interrupt  interruptRun  // run G
 	toolBatch  toolBatchRun  // run H
 	failedTurn failedTurnRun // run J
+
+	bypassWarning bypassWarningRun // run K
+	resumeUnknown resumeUnknownRun // run L
+	resumeBare    resumeBareRun    // run M
 
 	tmuxClient *tmux.Client
 }
@@ -332,6 +344,9 @@ func (f *fixture) build() error {
 		{"run H (parallel Reads, held PostToolUse)", f.runH},
 		{"run I (StopFailure mapping)", f.runI},
 		{"run J (all-failing interactive status line)", f.runJ},
+		{"run K (bypass warning left unanswered)", f.runK},
+		{"run L (resume of an unknown id)", f.runL},
+		{"run M (resume with no model or mode flag)", f.runM},
 	}
 	for _, r := range runs {
 		if err := r.fn(ctx); err != nil {
@@ -626,6 +641,22 @@ func (f *fixture) runD(ctx context.Context) error {
 // capture means none arrived; each caller words that failure itself. On success it gives the
 // REPL 2 s to accept input.
 func (f *fixture) startInteractive(ctx context.Context, tmuxID, session int64, argv, extraEnv []string) (string, *capture, bool, error) {
+	target, err := f.launchPane(ctx, tmuxID, session, argv, extraEnv)
+	if err != nil {
+		return target, nil, false, err
+	}
+	c, trustPromptSeen, err := f.waitForSessionStart(ctx, target, session, 90*time.Second)
+	if c != nil {
+		time.Sleep(2 * time.Second)
+	}
+	return target, c, trustPromptSeen, err
+}
+
+// launchPane starts argv as tmux session muster-<tmuxID> on the scratch socket with
+// $MUSTER_SESSION=session plus extraEnv, sized 200x50, and returns its target without waiting
+// for anything: a caller that must not wait for a SessionStart (a dialog left unanswered)
+// drives the pane itself.
+func (f *fixture) launchPane(ctx context.Context, tmuxID, session int64, argv, extraEnv []string) (string, error) {
 	env := map[string]string{
 		"MUSTER_SESSION": fmt.Sprint(session),
 		"LANG":           "en_US.UTF-8",
@@ -637,16 +668,9 @@ func (f *fixture) startInteractive(ctx context.Context, tmuxID, session int64, a
 	}
 	target, _, err := f.tmuxClient.NewSession(ctx, tmuxID, f.repo, env, argv)
 	if err != nil {
-		return "", nil, false, err
+		return "", err
 	}
-	if err = f.tmuxClient.ResizeWindow(ctx, target, 200, 50); err != nil {
-		return target, nil, false, err
-	}
-	c, trustPromptSeen, err := f.waitForSessionStart(ctx, target, session, 90*time.Second)
-	if c != nil {
-		time.Sleep(2 * time.Second)
-	}
-	return target, c, trustPromptSeen, err
+	return target, f.tmuxClient.ResizeWindow(ctx, target, 200, 50)
 }
 
 // killPane kills muster-<tmuxID> and lets its last posts land. The kill error is returned;
@@ -1057,11 +1081,11 @@ func (f *fixture) teardown() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if f.tmuxClient != nil {
-		// REQ-12: every tmux session (D, E, G, J) before the scratch socket's server itself.
+		// REQ-12: every tmux session (D, E, G, J, K, M) before the scratch socket's server itself.
 		// Each KillSession is a no-op error if that session already exited (e.g. the build
 		// failed before runE ever created muster-98) — ignored the same way run D's kill
 		// always was.
-		for _, id := range []int64{interactiveTmuxID, interactiveResumeTmuxID, interruptTmuxID, failedTurnTmuxID} {
+		for _, id := range []int64{interactiveTmuxID, interactiveResumeTmuxID, interruptTmuxID, failedTurnTmuxID, bypassWarningTmuxID, resumeBareTmuxID} {
 			_ = f.tmuxClient.KillSession(ctx, fmt.Sprintf("muster-%d", id))
 		}
 		args := []string{"kill-server"}

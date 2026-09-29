@@ -16,8 +16,8 @@
 // tier, the real macOS Keychain and usage API — and is therefore neither hermetic nor
 // fast. The harness (harness_test.go) runs the production settings→sh→wrapper→POST chain
 // against a real binary exactly once per process (runs A-F here, G-J in
-// harness_turns_test.go); the tests in this file and turns_test.go are views over those
-// captures. static_test.go scans the installed binary for interface
+// harness_turns_test.go, K-M in harness_resume_test.go); the tests in this file, turns_test.go
+// and resume_test.go are views over those captures. static_test.go scans the installed binary for interface
 // strings Muster cannot drive through a canary run; live_test.go exercises the real
 // Keychain, usage API and theme config. The inventory they all assert is
 // docs/history/spikes/canary-fields.md; the range doc is docs/claude-code-versions.md.
@@ -247,6 +247,7 @@ func TestLaunchFlags(t *testing.T) {
 			{"unauth, explicit default", sessionUnauthDefault, []string{"default"}},
 			{"unauth, plan", sessionUnauthPlan, []string{"plan"}},
 			{"unauth, acceptEdits", sessionUnauthAccept, []string{"acceptEdits"}},
+			{"unauth, bypassPermissions", sessionUnauthBypass, []string{"bypassPermissions"}},
 			// auto is model-gated to default on haiku (canary-fields "permission-mode
 			// probe"); whether the gate applies before auth is unmeasured, so both
 			// values are accepted and the observed one is logged (Edge Case 5).

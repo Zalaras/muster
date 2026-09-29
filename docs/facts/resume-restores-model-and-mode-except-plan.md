@@ -7,10 +7,10 @@ summary: --resume <id> with no model or mode flag keeps the transcript's model a
 features: [launch, actions]
 tags: [claude-code-format]
 files: []
-tests: []
+tests: [TestResumeRestoresModelAndMode]
 refs: [plan:resume-and-dangerously-allow, kb:fact/resume-keeps-session-identity, kb:fact/permission-mode-no-flag-follows-configured-default]
-verified: 2.1.283..2.1.283
-guard: none
+verified: 2.1.283..canary
+guard: TestResumeRestoresModelAndMode
 ---
 `claude --resume <id>` with neither `--model` nor `--permission-mode`:
 
@@ -25,7 +25,11 @@ guard: none
 - `SessionStart{source:"resume"}` carried the original `session_id`, as before.
 
 An id with no transcript prints `No conversation found with session ID: <id>` and exits 1
-before any hook fires.
+with no `SessionStart` and no status-line post; a headless (`-p`) run still sends one
+`SessionEnd` (canary run L, 2.1.284).
 
 Evidence: probe runs A, B and the acceptEdits run (capture-3, 2026-09-27); mode read from the
 TUI footer (capture-pane as oracle) and the hooks.
+
+The guard pins the unknown-id exit and the model, title and session-id halves; the mode half
+(acceptEdits kept, plan to manual) is not re-measured by it.

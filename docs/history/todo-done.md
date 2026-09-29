@@ -1220,6 +1220,12 @@ the mobile/responsive pass rem-ifies the pixel layer.
     session can persist in the opposite order to their in-memory commit, leaving the stored row
     stale until the next write. From `plans/frontmatter/`.
 
+- [x] **Canary coverage for the resume/bypass facts** — the six 2026-09-27 transcript, resume and
+  bypass fact records have no guard test, so a Claude Code bump that changes them passes
+  `make canary`. Expected: each one a canary can observe has a guard. From
+  `plans/resume-and-dangerously-allow/`.
+  ✅ done 2026-09-29 (follow-up to plan `resume-and-dangerously-allow`): five of the six facts now have a canary guard (runs K–M plus a bypass row in run C); `no-running-session-signal` stays unguarded because observing it needs `~/.claude/sessions/`.
+
 ## Issues
 
 - [x] **Ingest: corroborate an envelope against the pane it came from** ✅ done 2026-09-16 (plan `general-cleanup`, via `/orchestrate`; approved review cycle 1) — `resolveSessionID`

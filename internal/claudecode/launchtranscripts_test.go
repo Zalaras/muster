@@ -412,3 +412,37 @@ func mustFind(t *testing.T, sessions []PastSession, claudeSessionID string) Past
 	t.Fatalf("no session with claudeSessionId %q among %d sessions", claudeSessionID, len(sessions))
 	return PastSession{}
 }
+
+func TestTranscriptPath(t *testing.T) {
+	root := t.TempDir()
+	realDir := t.TempDir()
+	link := filepath.Join(t.TempDir(), "link")
+	require.NoError(t, os.Symlink(realDir, link))
+	resolved, err := filepath.EvalSymlinks(realDir)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name    string
+		dir     string
+		id      string
+		want    string
+		wantErr bool
+	}{
+		{name: "plain dir", dir: realDir, id: "abc", want: filepath.Join(root, encodeProjectsDirName(resolved), "abc.jsonl")},
+		{name: "symlinked dir resolves to its target", dir: link, id: "abc", want: filepath.Join(root, encodeProjectsDirName(resolved), "abc.jsonl")},
+		{name: "unresolvable dir is encoded as given", dir: "/no/such.dir/x", id: "abc", want: filepath.Join(root, "-no-such-dir-x", "abc.jsonl")},
+		{name: "empty id errors", dir: realDir, id: "", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := TranscriptPath(root, tt.dir, tt.id)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Empty(t, got)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

@@ -7,10 +7,10 @@ summary: An interactive bypassPermissions launch shows a warning, No-exit presel
 features: [launch]
 tags: [claude-code-format]
 files: []
-tests: []
+tests: [TestBypassAcceptanceBlocksStartup]
 refs: [plan:resume-and-dangerously-allow, kb:fact/trust-prompt-preselects-exit, kb:adr/launch-trust-prompt-never-auto-answered]
-verified: 2.1.283..2.1.283
-guard: none
+verified: 2.1.283..canary
+guard: TestBypassAcceptanceBlocksStartup
 ---
 Launching interactively with `--permission-mode bypassPermissions` shows, before the prompt box:
 

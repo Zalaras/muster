@@ -7,10 +7,10 @@ summary: Transcripts live in ~/.claude/projects/<name>: the resolved path with e
 features: [launch]
 tags: [claude-code-format]
 files: []
-tests: []
+tests: [TestTranscriptDirEncoding]
 refs: [plan:resume-and-dangerously-allow, kb:fact/transcript-session-lines]
-verified: 2.1.283..2.1.283
-guard: none
+verified: 2.1.283..canary
+guard: TestTranscriptDirEncoding
 ---
 Claude Code keeps each session's transcript at `~/.claude/projects/<name>/<session_id>.jsonl`.
 `<name>` is the session's working directory with symlinks resolved (`/tmp/…` becomes

@@ -262,13 +262,6 @@ tick a sub-item as it lands, the parent when all have.
   shows only the generic failure. Candidate: say "model unavailable" on the card and offer
   Resume with another model. From `plans/new-session-improvement/` (its `## Out of scope`).
 
-Filed 2026-09-29 by the developer from the plans' proposed-backlog.md files
-
-- [ ] **Canary coverage for the resume/bypass facts** — the six 2026-09-27 transcript, resume and
-  bypass fact records have no guard test, so a Claude Code bump that changes them passes
-  `make canary`. Expected: each one a canary can observe has a guard. From
-  `plans/resume-and-dangerously-allow/`.
-
 ## v1 Release
 
 The release itself: the Homebrew tap, then cutting v1.0.0 — last, once § Issues and § Pre-v1

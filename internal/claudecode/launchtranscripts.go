@@ -49,6 +49,29 @@ func encodeProjectsDirName(resolvedDir string) string {
 	return nonTranscriptDirChar.ReplaceAllString(resolvedDir, "-")
 }
 
+// resolveTranscriptDir resolves dir's symlinks (falling back to dir itself when it cannot
+// be resolved) and cleans it — the form Claude Code encodes into a transcript folder name.
+func resolveTranscriptDir(dir string) string {
+	resolved := dir
+	if r, err := filepath.EvalSymlinks(dir); err == nil {
+		resolved = r
+	}
+	return filepath.Clean(resolved)
+}
+
+// TranscriptPath returns root/<encoded dir>/<claudeSessionID>.jsonl for the transcript of a
+// session run in dir, dir being symlink-resolved first. For a directory whose encoded name
+// exceeds maxEncodedDirNameLen the real folder carries an unidentified hash suffix, so the
+// path returned is the unsuffixed candidate and will not exist; callers wanting an existing
+// file for such a directory should use PastSessions. The error is reserved for an empty
+// claudeSessionID.
+func TranscriptPath(root, dir, claudeSessionID string) (string, error) {
+	if claudeSessionID == "" {
+		return "", fmt.Errorf("transcript path for %q: empty Claude session id", dir)
+	}
+	return filepath.Join(root, encodeProjectsDirName(resolveTranscriptDir(dir)), claudeSessionID+".jsonl"), nil
+}
+
 // PastSession is one Claude Code session found in the projects directory for a
 // directory (kb:anchor/pastsessions.list) — internal/claudecode never writes under the
 // projects directory, only reads it. Model is not part of the GET /api/past-sessions wire
@@ -68,11 +91,7 @@ type PastSession struct {
 // -claude-projects-dir). An absent or unreadable root yields an empty list, not an error —
 // a fresh machine's Claude Code may never have created one.
 func PastSessions(root, dir string) ([]PastSession, error) {
-	resolvedDir := dir
-	if resolved, err := filepath.EvalSymlinks(dir); err == nil {
-		resolvedDir = resolved
-	}
-	resolvedDir = filepath.Clean(resolvedDir)
+	resolvedDir := resolveTranscriptDir(dir)
 
 	folders := candidateFolders(root, encodeProjectsDirName(resolvedDir))
 
