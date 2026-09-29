@@ -5,9 +5,12 @@ argument-hint: "<plan-name> \"<description>\""
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash
 ---
 
-> **Maintainer note:** This command lives in a skill (not an `.claude/agents/` definition) because it's an interactive, multi-turn interview that runs in the main session — it can't work as a subagent (a subagent returns a single message and can't hold a conversation). Don't re-create an agent twin.
+> Maintainer note: a skill, not an agent — a multi-turn interview needs the main session (a subagent returns one message). Don't re-create an agent twin.
 
-You are an interactive planning agent. Your job is to work with the user to build a thorough, well-structured implementation plan and write it to a markdown file.
+Work with the developer to build an implementation plan and write it to `plans/<plan-name>/plan.md`.
+The plan is what lets the daemon and web agents work in parallel: its protocol contract and UI
+specifications must be detailed enough that neither needs to see the other's code. You are done
+when the developer has approved it and the Approval steps below have run.
 
 ## Arguments
 
@@ -18,47 +21,52 @@ Expected format: `<plan-name> "<description>"`
 - `plan-name`: kebab-case identifier (e.g., `session-list-ui`)
 - `description`: a quoted string describing the work
 
-If no arguments are provided, ask the user for a plan name and description.
+If no arguments are provided, ask the developer for a plan name and description.
 
-## Plan Directory
+## How to plan
 
-All plan artifacts live under `plans/<plan-name>/` in the project root. Create this directory immediately.
+Work through the sections below with the developer as a conversation, not a dump: ask clarifying
+questions, propose approaches, and get confirmation before moving on.
 
-## Standing Authorities
-
-Settle the plan's `**Features**` (names with a `docs/features/<name>/spec.md`) in §1, then run
-`go run ./tools/kb pack --plan <plan-name> --role planner` (`--features a,b` before the header
-exists) and read it before planning; never contradict it: accepted ADRs are settled, `rejected`
-ones are why a cut feature stays cut, facts beat Claude Code's docs, `contract.md` is the
-protocol you state deltas against, conventions choose the stack (a plan never picks
-libraries). `CLAUDE.md` hard rules — a plan that requires violating one is wrong by construction.
-
-## Interactive Planning Process
-
-Work through these sections interactively with the user. Don't just dump a plan — have a conversation. Ask clarifying questions, propose approaches, and get confirmation before moving on.
+- Open the code before asserting current behaviour or patterns, and cite actual file paths, not
+  hypothetical ones.
+- When the description or the spec is vague on a point, ask pointed questions rather than guessing.
+- Save the plan file after each major section so progress isn't lost.
+- The plan stays `draft` until the developer explicitly approves it.
 
 ### 0. Check for Existing Spec
 
-Before starting, check if `plans/<plan-name>/spec.md` exists. If it does:
-- Read it thoroughly — it contains requirements gathered during a prior spec interview
-- **A spec whose `**Status**` is not `Approved` is not a starting point.** Stop and ask the user to
-  finish `/spec <plan-name>`, or to say explicitly that they are abandoning it — a `Draft` spec means
-  the interview never reached agreement, and planning on it silently adopts whatever it guessed.
+Check whether `plans/<plan-name>/spec.md` exists, then create `plans/<plan-name>/` if it doesn't.
+All plan artifacts live there. If a spec exists:
+
+- Read it thoroughly — it contains requirements gathered during a prior spec interview.
+- **A spec whose `**Status**` is not `Approved` is not a starting point.** Stop and ask the developer
+  to finish `/spec <plan-name>`, or to say explicitly that they are abandoning it — a `Draft` spec
+  means the interview never reached agreement, and planning on it silently adopts whatever it guessed.
 - Use it as the starting point. The Goal, Requirements, Scope, Edge Cases, and Acceptance Criteria sections are already defined.
 - Carry its `**Features**` header and its `## Feature Spec Delta` forward — the delta becomes this
   plan's `## Doc Delta` (§10), amended for anything planning changes.
 - Skip questions the spec already answers clearly. Focus on the **implementation-specific details** it doesn't cover: the protocol contract delta, schema changes, UI specifications, affected files, technical approach.
-- If the spec is ambiguous or incomplete on any point, ask the user to clarify.
 
 If no spec exists, proceed normally — the spec step is optional.
 
 ### 1. Understand the Scope
 
-Ask the user to elaborate on what this adds or fixes and which `TODO.md` entry or issue it closes. Read relevant existing code (Grep/Glob) and the pack's feature `spec.md` and ADRs to understand current patterns.
+Ask the developer to elaborate on what this adds or fixes and which `TODO.md` entry or issue it
+closes. Settle the plan's `**Features**` (names with a `docs/features/<name>/spec.md`) — carried from
+the spec, or agreed here when there is none.
+
+Then run `go run ./tools/kb pack --plan <plan-name> --role planner` (`--features a,b` before the
+header exists) and read it before planning; never contradict it: accepted ADRs are settled,
+`rejected` ones are why a cut feature stays cut, facts beat Claude Code's docs, `contract.md` is the
+protocol you state deltas against, conventions choose the stack (a plan never picks libraries).
+`CLAUDE.md` hard rules bind too — a plan that requires violating one is wrong by construction. Read
+relevant existing code (Grep/Glob) and the pack's feature `spec.md` and ADRs to understand current
+patterns.
 
 ### 2. Determine Work Type
 
-Establish which tracks are affected. Ask the user to confirm:
+Establish which tracks are affected. Ask the developer to confirm:
 - **daemon**: Go only — ingest, state machine, storage, tmux/PTY, HTTP/WS server
 - **web**: TypeScript dashboard only
 - **full-stack**: both
@@ -79,7 +87,7 @@ needs the sole session)`. Write `none` when E2E Scope is `none`.
 
 ### 3. Define Requirements
 
-Work with the user to create clear, testable requirements. Each requirement should be:
+Work with the developer to create clear, testable requirements. Each requirement should be:
 - Specific enough to write a test for
 - Scoped to a single behavior or outcome
 - Labeled with a priority (must-have, should-have, nice-to-have)
@@ -89,7 +97,7 @@ Work with the user to create clear, testable requirements. Each requirement shou
 Based on the codebase structure, identify which files will likely need changes:
 
 **Daemon (Go):**
-- `internal/claudecode/` — anything touching hook payloads, status-line JSON, CLI flags (and the ONLY place such knowledge may live)
+- `internal/claudecode/` — anything touching hook payloads, status-line JSON, CLI flags (and the only place such knowledge may live)
 - `internal/<package>/` — state machine, storage, tmux/PTY bridge, server
 - `cmd/musterd/` — wiring
 - Migrations — numbered `.sql` files, `//go:embed`-ed, forward-only
@@ -113,9 +121,9 @@ edit them — the agent judged by the suite cannot hold the knobs that define pa
 config change under the owning impl track's Affected Files explicitly, never in an E2E subsection
 where ownership is ambiguous (kb:lesson/plan-gave-no-single-owner).
 
-### 5. Define the Protocol Contract (Critical for Parallel Execution)
+### 5. Define the Protocol Contract
 
-**This section is essential.** The daemon and web implementation agents run in parallel and use the daemon↔UI protocol as their shared interface — neither reads the other's code. The contract must be complete and unambiguous.
+The daemon and web implementation agents run in parallel and use the daemon↔UI protocol as their shared interface — neither reads the other's code. The contract must be complete and unambiguous.
 
 State this plan's **delta against `docs/protocol.md`**: every WS message and HTTP endpoint added or changed, with full shapes. For each:
 - **WS messages**: direction (daemon→UI / UI→daemon), `type`, full JSON shape with types, which fields are optional/nullable and exactly when (e.g. null before a session's first API response), ordering/delivery caveats
@@ -134,7 +142,7 @@ WS daemon→UI  session_state
 Sent on every state transition. `target` is the tmux target — the session key.
 ```
 
-**On approval, merge the delta into `docs/protocol.md`** under the anchors of the plan's `**Features**`, add each new file's glob to its feature spec's frontmatter, then `make gen-kb` so `docs/features/<f>/contract.md` follows — both agents code against the generated contract. No agent may change the contract unilaterally mid-pipeline — a contract problem stops the pipeline and comes back to the user.
+The delta is merged into `docs/protocol.md` at approval (see Approval). After that, no agent may change the contract unilaterally mid-pipeline — a contract problem stops the pipeline and comes back to the developer.
 
 ### 6. Schema Changes
 
@@ -159,7 +167,7 @@ Define the user-facing behavior clearly enough that the web agent can work witho
 - Which views/screens are added or modified
 - What the DOM structure is at feature level (render functions / `<template>` elements — no framework)
 - User interaction flows
-- **The three mandatory states for every view**: no data yet (**render "unknown", never an empty gauge** — `kb:adr/usage-unknown-renders-word-not-track`), data, and daemon-down
+- **The three mandatory states for every view**: no data yet (render "unknown", never an empty gauge — `kb:adr/usage-unknown-renders-word-not-track`), data, and daemon-down
 - Any specific patterns from the existing codebase to follow
 
 **Design system**: `docs/design/design-system.md` and `docs/design/ux-flows.md` are binding; cite the sections and the mockup that govern every surface this plan touches.
@@ -178,7 +186,7 @@ For each key interactive element that E2E tests will target, define its expected
 - a native element guarantees it (`<button>` → `button`, `<a href>` → `link`, `<input>` → `textbox`, `<select>` → `combobox`), **or**
 - you are explicitly mandating an attribute that creates it (`role="status"`, `aria-label="Usage"` on an `<aside>` → `complementary`)
 
-Bare `<details><summary>`, `<div>` and `<span>` carry **no** implicit ARIA role. When unsure what
+Bare `<details><summary>`, `<div>` and `<span>` carry no implicit ARIA role. When unsure what
 role a piece of markup exposes, put `—` in the Role column and describe the intent in Notes —
 `e2e-specs` verifies its locators against a real DOM and picks a working one. Never resolve the
 uncertainty by requiring an extra `role=` attribute so a test can find the element — that trades
@@ -190,7 +198,7 @@ actually contains — separators, spacing, element boundaries. A composed patter
 mockup lacks and the implementation (correctly following the mockup) won't ship (kb:lesson/plan-asserted-surface-nobody-defined). `textContent` concatenates adjacent
 elements with no whitespace — a pattern spanning sibling spans must not assume spaces.
 
-#### Invariants (kb:lesson/invariant-missed-by-per-transition-tests)
+#### Invariants
 
 If the plan or protocol states a rule that must hold **at all times** — an "iff", an
 "always", a "never", a failure that must *surface* (e.g. "`attention` is non-null iff state
@@ -222,19 +230,19 @@ applicability had expired.
 
 ### 8. Edge Cases and Error Handling
 
-Discuss edge cases and failure scenarios on both sides. For Muster, always cover the standing ones that apply: hook loss/duplication/reordering, `/clear` minting a new `session_id` in the same pane,
+Discuss edge cases and failure scenarios on both sides. For Muster, always cover the standing ones
+that apply: hook loss/duplication/reordering, `/clear` minting a new `session_id` in the same pane,
+daemon restart mid-session, no-data-yet nulls, tmux pane death without `SessionEnd`.
 
-  **Write the late-arrival cases out:** for every rule keyed on `session_id`, one edge case per event of the `/clear` pair arriving *after* the other was applied, and one for a straggler from the previous turn arriving after the rebind.
+**Write the late-arrival cases out:** for every rule keyed on `session_id`, one edge case per event of the `/clear` pair arriving *after* the other was applied, and one for a straggler from the previous turn arriving after the rebind.
 
- daemon restart mid-session, no-data-yet nulls, tmux pane death without `SessionEnd`.
-
-  **Every numbered edge case ends with the criterion that checks it** — `→ E<n>` / `→ W<n>` / `→ D<n>` (written in §9), or `→ untested: <reason>` when it genuinely cannot be driven. An unpinned edge case is tested by nobody until the Opus reviewer tries it; `plan-lint.sh` refuses the plan.
+**Every numbered edge case ends with the criterion that checks it** — `→ E<n>` / `→ W<n>` / `→ D<n>` (written in §9), or `→ untested: <reason>` when it genuinely cannot be driven. An unpinned edge case is tested by nobody until the reviewer tries it; `plan-lint.sh` refuses the plan.
 
 ### 9. Acceptance Criteria
 
 Define clear acceptance criteria that the review agent will check against. Write them as prose, one behaviour per criterion, covering daemon-verifiable and web-verifiable outcomes.
 
-**Two rules:**
+**Three rules:**
 
 1. **One clause per criterion.** Never mix a runnable command with a judgement call in one item:
    "`make test` and `make lint` pass; no `any` types; the gauge shows unknown before first response"
@@ -244,7 +252,7 @@ Define clear acceptance criteria that the review agent will check against. Write
 2. **Number criteria uniquely across the whole section**, not per subsection. Prefix by area: `D1, D2…` (Daemon), `W1, W2…` (Web), `E1, E2…` (E2E). Restarting the count per subsection makes "criterion 12 passed" ambiguous in a review.
 3. **Every UI element a criterion asserts must be defined somewhere in the plan** — a Requirement, the UI Specifications, or the Testable UI Elements table. Cross-check each `E*` criterion against those sections before approval: a criterion *tests* the plan's surface, it does not introduce new surface (kb:lesson/plan-asserted-surface-nobody-defined).
 
-Then, with the user, distil the criteria into an **Automated Checks** block: the subset where
+Then, with the developer, distil the criteria into an **Automated Checks** block: the subset where
 "satisfied" is exactly "this one shell command exits 0". You author this deliberately — only you
 know which backticked things in your prose are commands and which are identifiers, so it cannot be
 left to a parser. Anything needing a human read stays in prose under `### Reviewer-Verified`, so the
@@ -271,7 +279,7 @@ author it here when there is not.
 
 Per feature: the sentences that **become true**, and the sentences that **stop being true**. Write
 each as an assertion about the target file, not an instruction, so it can be re-verified rather than
-merely re-run. The deletions half is not optional — a spec body is capped at 800 words and
+merely re-run. The deletions half is required — a spec body is capped at 800 words and
 `check-kb` hard-fails past it, so a delta that only adds will eventually break the build at the very
 end of a run.
 
@@ -436,13 +444,19 @@ Claude Code quirk handled and `kb:adr/<slug>` for every decision this plan makes
 no ADR is not yet a decision>
 ````
 
-## Important Behaviors
+## Approval
 
-- Open the code before asserting current behaviour or patterns.
-- Be opinionated but open to the user's preferences.
-- If the user's description is vague, ask pointed questions rather than guessing.
-- Keep the plan practical and implementable — avoid over-engineering.
-- Reference actual file paths from the codebase, not hypothetical ones.
-- Save the plan file after each major section so progress isn't lost.
-- Mark the plan status as "draft" until the user explicitly approves it. At approval: run `.claude/skills/orchestrate/scripts/plan-lint.sh <plan-name>` and fix every `FAIL` first, mark it "approved", merge the Protocol Contract delta into `docs/protocol.md`, write each decision the plan makes as a `status: proposed` ADR in `docs/adr/` (`refs: [plan:<plan-name>]`, one decision each), then `make gen-kb && make check-kb`. Close with the two commands that come next, verbatim: `make worktree NAME=<plan-name>` from this primary checkout (it commits these planning edits onto `plan/<plan-name>` and builds `../muster-<plan-name>`), then start the `/orchestrate <plan-name>` session **in that directory** — orchestrate pre-flight refuses to run anywhere else (kb:adr/process-pipeline-runs-in-sibling-worktree).
-- **The protocol contract and UI specs must be detailed enough that the daemon and web agents can work in parallel without needing to see each other's code.**
+When the developer explicitly approves the plan, in this order:
+
+1. Run `.claude/skills/orchestrate/scripts/plan-lint.sh <plan-name>` and fix every `FAIL` first.
+2. Mark the plan's `**Status**` `approved`.
+3. Merge the Protocol Contract delta into `docs/protocol.md` under the anchors of the plan's
+   `**Features**`, add each new file's glob to its feature spec's frontmatter, and let `make gen-kb`
+   (step 5) regenerate `docs/features/<f>/contract.md` — both agents code against it.
+4. Write each decision the plan makes as a `status: proposed` ADR in `docs/adr/`
+   (`refs: [plan:<plan-name>]`, one decision each).
+5. `make gen-kb && make check-kb`.
+6. Close with the two commands that come next, verbatim: `make worktree NAME=<plan-name>` from this
+   primary checkout (it commits these planning edits onto `plan/<plan-name>` and builds
+   `../muster-<plan-name>`), then start the `/orchestrate <plan-name>` session **in that directory** —
+   orchestrate pre-flight refuses to run anywhere else (kb:adr/process-pipeline-runs-in-sibling-worktree).
