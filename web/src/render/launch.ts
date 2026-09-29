@@ -8,6 +8,7 @@
 import type { BrowseEntry, Repo } from "../api/launch";
 import { requireElement } from "../dom";
 import { formatAge } from "../sessions/format";
+import type { LaunchPrimaryFace } from "../sessions/permission";
 
 function buildRecentButton(
   template: HTMLTemplateElement,
@@ -249,4 +250,41 @@ export function renderLaunchFooter(
     branchEl.textContent = "";
     branchEl.hidden = true;
   }
+}
+
+/** The Resume tab's own footer readout, reusing the same `<b>`/suffix pair
+ * `renderLaunchFooter` writes above — never both at once, since only one tab shows at a
+ * time and `features/launch.ts`'s `updateFooter` calls exactly one of the two per pass.
+ * An em dash with no suffix while nothing is selected yet (no data yet / empty / no
+ * match / every row disabled — the same states that leave `#launch-button` disabled).
+ *
+ * `title === null` means "nothing selected" and *only* that —
+ * `features/launchresume.ts`'s `selectedTitle()` already resolves a selected untitled
+ * row's own "(untitled)" fallback before this is ever called, so this function no longer
+ * substitutes one of its own (a fallback here used to fire whenever `title` was null for
+ * *either* reason, so the footer claimed "Resume (untitled) in <path>" with no row
+ * selected at all). */
+export function renderResumeFooter(
+  pathEl: HTMLElement,
+  suffixEl: HTMLElement,
+  title: string | null,
+  directory: string | null,
+): void {
+  if (!directory || title === null) {
+    pathEl.textContent = "—";
+    suffixEl.hidden = true;
+    suffixEl.textContent = "";
+    return;
+  }
+  pathEl.textContent = title;
+  suffixEl.textContent = ` in ${directory}`;
+  suffixEl.hidden = false;
+}
+
+/** `#launch-button`'s two faces — `class` carries `key-danger` iff `face.danger`, the
+ * one filled-button rule the design system pins to exactly one control at a time
+ * (design-system §3). */
+export function renderLaunchButtonFace(button: HTMLButtonElement, face: LaunchPrimaryFace): void {
+  button.textContent = face.label;
+  button.className = face.danger ? "btn key-danger" : "btn key";
 }

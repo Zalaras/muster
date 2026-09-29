@@ -70,8 +70,9 @@ export interface LaunchBody {
   title?: string;
   model?: string;
   /** Plan fix-auto-mode-select: `auto` is a fourth accepted request value
-   * (kb:anchor/sessions.create) alongside the three already here. */
-  permissionMode?: "default" | "plan" | "acceptEdits" | "auto";
+   * (kb:anchor/sessions.create) alongside the three already here. Plan
+   * resume-and-dangerously-allow: `bypassPermissions` is a fifth. */
+  permissionMode?: "default" | "plan" | "acceptEdits" | "auto" | "bypassPermissions";
 }
 
 /** The Session object shape per kb:anchor/ws.session, as returned by the launch/state endpoints. */

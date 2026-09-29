@@ -76,6 +76,7 @@
           <div id="main-empty" class="placeholder">No sessions yet — ⌥⌘N to launch</div>
           <div id="mainhead" class="mainhead" hidden>
             <h2 class="name"><button type="button" class="rename" title="Rename · clear to use Claude Code's name"></button></h2>
+            <span class="chip-danger" hidden>bypass</span>
             <span class="meta"></span>
             <div class="acts">
               <button type="button" class="btn" data-action="end">End</button>
@@ -119,8 +120,13 @@
     </div>
     <div id="protocol-mismatch" role="alert" tabindex="-1" hidden>protocol changed — reload the dashboard</div>
 
-    <dialog id="launch-dialog" class="modal" aria-labelledby="launch-dialog-title">
-      <h2 id="launch-dialog-title">New session <span class="kbd" aria-hidden="true">⌥⌘N</span></h2>
+    <dialog id="launch-dialog" class="modal" aria-labelledby="launch-dialog-name">
+      <h2 id="launch-dialog-title"><span id="launch-dialog-name">New session</span>
+        <span class="head-tabs" role="tablist" aria-label="Session kind">
+          <button type="button" role="tab" id="launch-tab-new" aria-selected="true">New</button>
+          <button type="button" role="tab" id="launch-tab-resume" aria-selected="false">Resume</button>
+        </span>
+        <span class="kbd" aria-hidden="true">⌥⌘N</span></h2>
 
       <div class="picker">
         <aside class="recents" aria-label="Recent directories">
@@ -135,6 +141,12 @@
       </div>
 
       <form id="launch-form">
+        <section id="past-sessions" hidden aria-label="Past sessions">
+          <div class="past-head"></div>
+          <input id="past-filter" type="search" aria-label="Filter sessions" />
+          <div id="past-list" class="past-list"></div>
+        </section>
+
         <div class="fields">
           <label class="lab" for="title-input">Title</label>
           <input id="title-input" type="text" autocomplete="off" placeholder="optional — Claude Code auto-generates" />
@@ -162,14 +174,16 @@
               <label><input type="radio" name="permission-mode" value="acceptEdits" />accept edits</label>
               <label><input type="radio" name="permission-mode" value="plan" />plan</label>
               <label><input type="radio" name="permission-mode" value="auto" checked />auto</label>
+              <label class="bypass"><input type="radio" name="permission-mode" value="bypassPermissions" />bypass</label>
             </div>
           </fieldset>
+          <p id="bypass-warning" class="bypass-warn" hidden><b>Bypass permissions</b> — every tool call runs without asking: edits, shell commands, network. Nothing stops a bad command.</p>
         </div>
 
         <p id="launch-error" class="launch-error" role="alert" hidden></p>
 
         <div class="modal-foot">
-          <span id="launch-target">Launch in <b>—</b><span class="branch" hidden></span></span>
+          <span id="launch-target"><span class="tlabel">Launch in </span><b>—</b><span class="suffix" hidden></span></span>
           <button id="cancel-button" type="button" class="btn">Cancel</button>
           <button id="launch-button" type="submit" class="btn key">Launch</button>
         </div>
@@ -295,6 +309,7 @@
         <div class="card-in">
           <div class="r1">
             <span class="name"></span>
+            <span class="chip-danger" hidden>bypass</span>
           </div>
           <div class="r0">
             <span class="badge"></span>
@@ -316,6 +331,7 @@
         <div class="thead" draggable="true">
           <span class="sdot"></span>
           <span class="nm"></span>
+          <span class="chip-danger" hidden>bypass</span>
           <span class="wh"></span>
           <span class="ctxinfo"></span>
           <span class="tm"></span>

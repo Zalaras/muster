@@ -1,8 +1,8 @@
 ---
 id: launch-bypass-warning-surfaced-never-answered
 type: decision
-status: proposed
-date: 2026-09-27
+status: accepted
+date: 2026-09-28
 summary: Claude Code's bypass warning is surfaced from absence of signal, like the trust prompt, and never answered by Muster.
 features: [launch, rail]
 tags: [ux, security]

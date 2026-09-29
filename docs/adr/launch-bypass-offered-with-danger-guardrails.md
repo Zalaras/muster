@@ -1,15 +1,15 @@
 ---
 id: launch-bypass-offered-with-danger-guardrails
 type: decision
-status: proposed
-date: 2026-09-27
+status: accepted
+date: 2026-09-28
 summary: Start in offers bypass as a danger segment with a warning line and a danger Launch without checks button; a bypass chip marks the session wherever it shows.
 features: [launch, rail, focus, tiles]
 tags: [ux, security, user-decision]
 files: [web/src/features/launch.ts, web/src/sessions/permission.ts, web/src/render/sessions.ts, web/src/render/mainhead.ts, web/src/render/tiles.ts, internal/claudecode/launch.go]
 tests: []
 refs: [plan:resume-and-dangerously-allow, kb:adr/launch-bypass-and-dontask-unoffered, kb:fact/bypass-permission-mode-on-wire, kb:fact/bypass-acceptance-blocks-startup, "#61"]
-supersedes: []
+supersedes: [launch-bypass-and-dontask-unoffered]
 ---
 **Context.** Bypass and dont-ask were held back until a permissions editor supplied guardrails,
 on the grounds that a one-click radio is too easy a place to drop every permission check. Issue

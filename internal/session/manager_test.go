@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -3234,4 +3235,353 @@ func TestPaneOf_UnknownSessionIsNotOK(t *testing.T) {
 
 	assert.False(t, ok)
 	assert.Empty(t, pane)
+}
+
+// --- resume-and-dangerously-allow: AliveByClaudeSessionID ---
+//
+// kb:adr/launch-resume-one-alive-row-per-claude-session's guard is enforced by three
+// call sites (GET /api/past-sessions' openSessionId, the resumeSessionId already_open
+// check, and Resume's not_resumable check), all sharing this one lookup — these tests
+// are its own, package-local coverage; the application-level guard behaviour lives in
+// internal/server's launcher tests.
+
+// bindClaudeSession launches a fresh session in dir and binds it to claudeSessionID via
+// an enveloped SessionStart-shaped KindBind — the shortest path to an alive, bound row
+// this file's other invariant tests already established (createLaunchedSession +
+// advanceToState's own bind step, simplified to skip the state walk this suite doesn't
+// need).
+func bindClaudeSession(t *testing.T, mgr *Manager, st *store.Store, dir, claudeSessionID string) *Session {
+	t.Helper()
+	sess := createLaunchedSession(t, mgr, st, dir)
+	final, err := mgr.Apply(context.Background(), sess.ID, claudeSessionID, nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
+	require.NoError(t, err)
+	return final
+}
+
+func TestAliveByClaudeSessionID_UnknownClaudeIDIsNotOK(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+
+	id, ok := mgr.AliveByClaudeSessionID("never-seen")
+
+	assert.False(t, ok)
+	assert.Zero(t, id)
+}
+
+func TestAliveByClaudeSessionID_BoundAliveSessionReturnsItsID(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+	sess := bindClaudeSession(t, mgr, st, t.TempDir(), "claude-1")
+
+	id, ok := mgr.AliveByClaudeSessionID("claude-1")
+
+	require.True(t, ok)
+	assert.Equal(t, sess.ID, id)
+}
+
+// TestAliveByClaudeSessionID_EndedSessionIsNotOK covers the guard's own reason to exist:
+// a dead session's claude id must never count as "already open".
+func TestAliveByClaudeSessionID_EndedSessionIsNotOK(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+	sess := bindClaudeSession(t, mgr, st, t.TempDir(), "claude-1")
+	_, err := mgr.markEnded(context.Background(), sess.ID)
+	require.NoError(t, err)
+
+	id, ok := mgr.AliveByClaudeSessionID("claude-1")
+
+	assert.False(t, ok, "a dead session's claude id must not be reported as open")
+	assert.Zero(t, id)
+}
+
+// TestAliveByClaudeSessionID_TwoAliveSessionsDoNotCrossOver is the multi-instance check
+// this shared registry needs (kb:lesson/detach-on-destroy-misrouted-keystrokes' shape,
+// applied here to a lookup rather than a destructive path): with two alive sessions
+// bound to two different claude ids at once, looking one up must never return the
+// other's Muster id.
+func TestAliveByClaudeSessionID_TwoAliveSessionsDoNotCrossOver(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+	sessA := bindClaudeSession(t, mgr, st, t.TempDir(), "claude-a")
+	sessB := bindClaudeSession(t, mgr, st, t.TempDir(), "claude-b")
+
+	idA, okA := mgr.AliveByClaudeSessionID("claude-a")
+	idB, okB := mgr.AliveByClaudeSessionID("claude-b")
+
+	require.True(t, okA)
+	require.True(t, okB)
+	assert.Equal(t, sessA.ID, idA)
+	assert.Equal(t, sessB.ID, idB)
+	assert.NotEqual(t, idA, idB)
+
+	// Ending A must not disturb B's own alive binding — the "other session unaffected"
+	// half of the multi-instance check.
+	_, err := mgr.markEnded(context.Background(), sessA.ID)
+	require.NoError(t, err)
+
+	_, okA = mgr.AliveByClaudeSessionID("claude-a")
+	assert.False(t, okA)
+	idB2, okB2 := mgr.AliveByClaudeSessionID("claude-b")
+	require.True(t, okB2, "session B's binding must survive session A's end untouched")
+	assert.Equal(t, sessB.ID, idB2)
+}
+
+// TestAliveByClaudeSessionID_NewAliveBindWinsOverADeadRowsStaleMapping is D12's
+// underlying mechanism: Apply's bind step overwrites byClaude unconditionally
+// (apply.go), so once a second, alive session binds to a claude id a now-dead session
+// also carries, the lookup must report only the new alive row — proving the launcher's
+// AliveByClaudeSessionID(sess.ClaudeSessionID) check (Resume's not_resumable guard) sees
+// the live row rather than stale data left by the session that died.
+func TestAliveByClaudeSessionID_NewAliveBindWinsOverADeadRowsStaleMapping(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+	dead := bindClaudeSession(t, mgr, st, t.TempDir(), "claude-1")
+	_, err := mgr.markEnded(context.Background(), dead.ID)
+	require.NoError(t, err)
+
+	revived := bindClaudeSession(t, mgr, st, t.TempDir(), "claude-1")
+
+	id, ok := mgr.AliveByClaudeSessionID("claude-1")
+
+	require.True(t, ok)
+	assert.Equal(t, revived.ID, id)
+	assert.NotEqual(t, dead.ID, id)
+}
+
+// TestAliveByClaudeSessionID_ClearRebindReleasesTheOldClaudeID pins the case
+// AliveByClaudeSessionID's own doc names directly: byClaude never deletes a session's
+// previous claude id on rebind (apply.go's own doc), so a lookup trusting that index
+// would still report the old id "open" after a /clear moved the session onto a new one.
+// AliveByClaudeSessionID must answer from the row's own current ClaudeSessionID instead,
+// so the old id is released and the new one is held by the same row.
+func TestAliveByClaudeSessionID_ClearRebindReleasesTheOldClaudeID(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+	sess := bindClaudeSession(t, mgr, st, t.TempDir(), "claude-x")
+
+	// A same-pane rebind onto a different claude id escalates to KindClearRebind inside
+	// applyBind (machine.go) exactly as a real /clear's SessionStart does.
+	_, err := mgr.Apply(context.Background(), sess.ID, "claude-y", nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
+	require.NoError(t, err)
+
+	_, stillOpen := mgr.AliveByClaudeSessionID("claude-x")
+	assert.False(t, stillOpen, "the old claude id must stop being reported open once the session /clear-rebinds elsewhere")
+
+	id, ok := mgr.AliveByClaudeSessionID("claude-y")
+	require.True(t, ok)
+	assert.Equal(t, sess.ID, id, "the same row must now hold the new claude id")
+}
+
+// TestAliveByClaudeSessionID_LoadAllPicksTheAliveRowRegardlessOfCreationOrder covers the
+// other case AliveByClaudeSessionID's own doc names: LoadAll fills byClaude from
+// ListSessions' unordered rows, so a lookup trusting that index would answer differently
+// depending on which of a dead and an alive row sharing a claude id happened to load
+// last. Run with the dead row persisted both before and after the alive one, across a
+// simulated daemon restart (a fresh Manager's LoadAll over the same store), the lookup
+// must return the alive row either way.
+func TestAliveByClaudeSessionID_LoadAllPicksTheAliveRowRegardlessOfCreationOrder(t *testing.T) {
+	tests := []struct {
+		name      string
+		deadFirst bool
+	}{
+		{name: "dead row persisted before the alive one", deadFirst: true},
+		{name: "alive row persisted before the dead one", deadFirst: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := openTestStore(t)
+			mgr1 := newTestManager(t, st, nil, nil)
+			var dead, alive *Session
+			if tt.deadFirst {
+				dead = bindClaudeSession(t, mgr1, st, t.TempDir(), "claude-shared")
+				_, err := mgr1.markEnded(context.Background(), dead.ID)
+				require.NoError(t, err)
+				alive = bindClaudeSession(t, mgr1, st, t.TempDir(), "claude-shared")
+			} else {
+				alive = bindClaudeSession(t, mgr1, st, t.TempDir(), "claude-shared")
+				dead = bindClaudeSession(t, mgr1, st, t.TempDir(), "claude-shared")
+				_, err := mgr1.markEnded(context.Background(), dead.ID)
+				require.NoError(t, err)
+			}
+
+			// Simulated restart: a fresh Manager reloads both rows from the store.
+			mgr2 := newTestManager(t, st, nil, nil)
+			require.NoError(t, mgr2.LoadAll(context.Background()))
+
+			id, ok := mgr2.AliveByClaudeSessionID("claude-shared")
+			require.True(t, ok)
+			assert.Equal(t, alive.ID, id, "the alive row must win regardless of load order")
+			assert.NotEqual(t, dead.ID, id)
+		})
+	}
+}
+
+// TestAliveByClaudeSessionID_PendingResumeHoldsIDBeforeBind covers
+// kb:adr/launch-resume-pending-resume-holds-id: a resume-from-list spawn registers its
+// claim the moment CreateSession returns, before any hook has arrived to bind it —
+// closing the window a second resume of the same id could otherwise pass through.
+func TestAliveByClaudeSessionID_PendingResumeHoldsIDBeforeBind(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+	dir := t.TempDir()
+	params := createParams(dir)
+	params.RepoID = seedRepo(t, st, dir)
+	params.ResumeClaudeSessionID = "claude-pending"
+
+	sess, err := mgr.CreateSession(context.Background(), params)
+	require.NoError(t, err)
+
+	id, ok := mgr.AliveByClaudeSessionID("claude-pending")
+	require.True(t, ok, "a resume-spawned row must hold its claim before its own bind lands")
+	assert.Equal(t, sess.ID, id)
+}
+
+// TestAliveByClaudeSessionID_ResumeBindKeepsHoldingTheID covers the case
+// AliveByClaudeSessionID's own doc names: once the SessionStart{source:"resume"}-shaped
+// KindResumeBind lands, the row must still be reported as holding the id — via its
+// now-set ClaudeSessionID rather than the pending marker, which applyBind clears the
+// moment any bind lands (machine.go).
+func TestAliveByClaudeSessionID_ResumeBindKeepsHoldingTheID(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+	dir := t.TempDir()
+	params := createParams(dir)
+	params.RepoID = seedRepo(t, st, dir)
+	params.ResumeClaudeSessionID = "claude-resumed"
+	sess, err := mgr.CreateSession(context.Background(), params)
+	require.NoError(t, err)
+	target := "muster-resume-" + strconv.FormatInt(sess.ID, 10) + ":@1"
+	_, err = mgr.RecordLaunch(context.Background(), sess.ID, target, "%1")
+	require.NoError(t, err)
+
+	_, err = mgr.Apply(context.Background(), sess.ID, "claude-resumed", nil, claudecode.StateInput{Kind: claudecode.KindResumeBind}, true)
+	require.NoError(t, err)
+
+	id, ok := mgr.AliveByClaudeSessionID("claude-resumed")
+	require.True(t, ok, "a resume bind must still count as holding its claude id")
+	assert.Equal(t, sess.ID, id)
+}
+
+// TestAliveByClaudeSessionID_PendingResumeReleasesOnDeath covers
+// pending-resume-holds-id's release half: a resumed row that dies before its own bind
+// ever lands (e.g. stuck at Claude Code's bypass warning, kb:fact/bypass-acceptance-blocks-startup)
+// must stop holding its claim, or a genuinely dead attempt would wedge the id forever.
+func TestAliveByClaudeSessionID_PendingResumeReleasesOnDeath(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+	dir := t.TempDir()
+	params := createParams(dir)
+	params.RepoID = seedRepo(t, st, dir)
+	params.ResumeClaudeSessionID = "claude-pending"
+	sess, err := mgr.CreateSession(context.Background(), params)
+	require.NoError(t, err)
+
+	_, err = mgr.markEnded(context.Background(), sess.ID)
+	require.NoError(t, err)
+
+	_, ok := mgr.AliveByClaudeSessionID("claude-pending")
+	assert.False(t, ok, "a pending resume claim must not survive the row's own death")
+}
+
+// TestAliveByClaudeSessionID_PendingResumeReleasesWhenItBindsADifferentID covers
+// pending-resume-holds-id's other release path: applyBind clears the pending marker
+// unconditionally the instant any bind lands, whichever claude id it names, so the claim
+// can never shadow a later /clear onto a different id (machine.go's own doc on
+// applyBind). The row's held id moves with it: the original claim is released and the
+// newly bound id is held instead.
+func TestAliveByClaudeSessionID_PendingResumeReleasesWhenItBindsADifferentID(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+	dir := t.TempDir()
+	params := createParams(dir)
+	params.RepoID = seedRepo(t, st, dir)
+	params.ResumeClaudeSessionID = "claude-pending"
+	sess, err := mgr.CreateSession(context.Background(), params)
+	require.NoError(t, err)
+	target := "muster-resume-other-" + strconv.FormatInt(sess.ID, 10) + ":@1"
+	_, err = mgr.RecordLaunch(context.Background(), sess.ID, target, "%1")
+	require.NoError(t, err)
+
+	_, err = mgr.Apply(context.Background(), sess.ID, "claude-actual", nil, claudecode.StateInput{Kind: claudecode.KindBind}, true)
+	require.NoError(t, err)
+
+	_, stillPending := mgr.AliveByClaudeSessionID("claude-pending")
+	assert.False(t, stillPending, "the pending claim must release once any bind lands, even onto a different id")
+
+	id, ok := mgr.AliveByClaudeSessionID("claude-actual")
+	require.True(t, ok)
+	assert.Equal(t, sess.ID, id)
+}
+
+// TestLockClaudeSession_SerializesTheCheckThenClaimRaceForOneClaudeID pins
+// LockClaudeSession's own contract (manager.go's doc comment): many goroutines race to
+// resume the same claude id, each holding LockClaudeSession across its own
+// check-then-claim window (mirroring internal/server's launchResume/Resume). Exactly one
+// may see the id unclaimed and go on to create the pending-claim row; every other must
+// observe it already held.
+func TestLockClaudeSession_SerializesTheCheckThenClaimRaceForOneClaudeID(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+	dir := t.TempDir()
+	repoID := seedRepo(t, st, dir)
+
+	const attempts = 20
+	var winners atomic.Int64
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	for range attempts {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			unlock := mgr.LockClaudeSession("claude-race")
+			defer unlock()
+			if _, already := mgr.AliveByClaudeSessionID("claude-race"); already {
+				return
+			}
+			// Widens the check-then-claim window the lock exists to close — without it,
+			// two goroutines could both pass the AliveByClaudeSessionID check above
+			// before either one's CreateSession call registers its claim.
+			time.Sleep(2 * time.Millisecond)
+			params := createParams(dir)
+			params.RepoID = repoID
+			params.ResumeClaudeSessionID = "claude-race"
+			if _, err := mgr.CreateSession(context.Background(), params); err != nil {
+				t.Errorf("CreateSession: %v", err)
+				return
+			}
+			winners.Add(1)
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	assert.EqualValues(t, 1, winners.Load(), "exactly one concurrent resume claim for the same claude id may win")
+}
+
+// TestLockClaudeSession_DifferentClaudeIDsDoNotBlockEachOther is the multi-instance check
+// this shared lock registry needs (kb:lesson/detach-on-destroy-misrouted-keystrokes'
+// shape, applied to a lock rather than a destructive path): LockClaudeSession is keyed
+// per claude session id, not a single global guard, so a resume claim in flight for one
+// id must never stall a concurrent one for a different id.
+func TestLockClaudeSession_DifferentClaudeIDsDoNotBlockEachOther(t *testing.T) {
+	st := openTestStore(t)
+	mgr := newTestManager(t, st, nil, nil)
+
+	unlockA := mgr.LockClaudeSession("claude-a")
+	defer unlockA()
+
+	done := make(chan struct{})
+	go func() {
+		unlockB := mgr.LockClaudeSession("claude-b")
+		unlockB()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("locking claude-b must not block behind claude-a's held lock")
+	}
 }

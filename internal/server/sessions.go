@@ -69,7 +69,7 @@ func (f *sessionsFeature) handleCreateSession(w http.ResponseWriter, r *http.Req
 	// consistent conclusion regardless of the HTTP request's lifetime.
 	sess, lerr := f.launcher.Launch(context.WithoutCancel(r.Context()), req)
 	if lerr != nil {
-		writeJSONError(w, lerr.status, lerr.code, lerr.message)
+		writeLaunchError(w, lerr)
 		return
 	}
 
@@ -150,7 +150,7 @@ func (f *sessionsFeature) handleResumeSession(w http.ResponseWriter, r *http.Req
 
 	sess, lerr := f.launcher.Resume(context.WithoutCancel(r.Context()), id)
 	if lerr != nil {
-		writeJSONError(w, lerr.status, lerr.code, lerr.message)
+		writeLaunchError(w, lerr)
 		return
 	}
 

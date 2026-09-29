@@ -112,6 +112,10 @@ function applyCardText(card: HTMLElement, vm: CardViewModel, session: Session): 
   // clamped to one line in compact density can still be read in full on hover.
   name.title = vm.title;
 
+  // The danger `bypass` chip, shared markup/class with the mainhead and a tile
+  // header (sessions/card.ts's `bypassChip`).
+  requireElement<HTMLElement>(".chip-danger", card).hidden = !vm.bypassChip;
+
   requireElement<HTMLElement>(".badge", card).textContent = vm.badge;
   requireElement<HTMLElement>(".timer", card).textContent = vm.timer;
 

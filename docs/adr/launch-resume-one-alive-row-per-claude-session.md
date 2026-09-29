@@ -1,8 +1,8 @@
 ---
 id: launch-resume-one-alive-row-per-claude-session
 type: decision
-status: proposed
-date: 2026-09-27
+status: accepted
+date: 2026-09-28
 summary: A resume from the list always creates a new Muster session; no path may leave two alive sessions bound to one Claude session id.
 features: [launch, actions]
 tags: [state-machine, user-decision]

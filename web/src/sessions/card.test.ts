@@ -3,6 +3,7 @@ import type { Session } from "../protocol/session";
 import {
   activityLines,
   buildCardViewModel,
+  bypassChip,
   deadCapPrefix,
   deadEndbarText,
   deadSurfaceText,
@@ -405,6 +406,129 @@ describe("buildCardViewModel — REQ-17 first-launch honesty note", () => {
   });
 });
 
+// kb:adr/launch-bypass-offered-with-danger-guardrails: the danger chip a rail card, the
+// Focus mainhead and a tile header all share, driven by one predicate so the three
+// surfaces can never drift onto different conditions (INV-1).
+describe("bypassChip (INV-1)", () => {
+  it("is true when the latched permissionMode is bypassPermissions", () => {
+    const session = makeSession({
+      id: 1,
+      permissionMode: { value: "bypassPermissions", source: "hook" },
+    });
+    expect(bypassChip(session)).toBe(true);
+  });
+
+  it("is false for every other permission mode", () => {
+    for (const value of ["default", "acceptEdits", "plan", "auto"] as const) {
+      const session = makeSession({ id: 1, permissionMode: { value, source: "seed" } });
+      expect(bypassChip(session)).toBe(false);
+    }
+  });
+
+  it("is true regardless of state, alive or not — the chip tracks the latch, not liveness (INV-1)", () => {
+    for (const state of [
+      "started",
+      "idle",
+      "working",
+      "needs_input",
+      "planning",
+      "failed",
+    ] as const) {
+      for (const alive of [true, false]) {
+        const session = makeSession({
+          id: 1,
+          state,
+          alive,
+          permissionMode: { value: "bypassPermissions", source: "hook" },
+        });
+        expect(bypassChip(session)).toBe(true);
+      }
+    }
+  });
+
+  it("flips back to false once a hook corrects the latch away from bypass (edge case 17)", () => {
+    const bypassed = makeSession({
+      id: 1,
+      permissionMode: { value: "bypassPermissions", source: "hook" },
+    });
+    expect(bypassChip(bypassed)).toBe(true);
+    const corrected = {
+      ...bypassed,
+      permissionMode: { value: "default", source: "hook" as const },
+    };
+    expect(bypassChip(corrected)).toBe(false);
+  });
+});
+
+describe("buildCardViewModel — bypassChip field (INV-1)", () => {
+  it("carries bypassChip: true on the view-model when the session is bypass-latched", () => {
+    const vm = buildCardViewModel(
+      makeSession({ id: 1, permissionMode: { value: "bypassPermissions", source: "seed" } }),
+      NOW,
+    );
+    expect(vm.bypassChip).toBe(true);
+  });
+
+  it("carries bypassChip: false on the view-model for an ordinary mode", () => {
+    const vm = buildCardViewModel(makeSession({ id: 1 }), NOW);
+    expect(vm.bypassChip).toBe(false);
+  });
+});
+
+// kb:adr/launch-bypass-warning-surfaced-never-answered: the bypass warning is the trust
+// prompt's twin — surfaced from absence of signal, and (unlike the plain no-signal note)
+// shown immediately, with no NO_SIGNAL_THRESHOLD_SECONDS wait (REQ-5).
+describe("buildCardViewModel — bypass-warning honesty note (REQ-5)", () => {
+  it("shows the combined trust-prompt-then-bypass-warning text on a first launch into a new directory", () => {
+    const vm = buildCardViewModel(
+      makeSession({
+        id: 1,
+        state: "started",
+        claudeSessionId: null,
+        firstLaunchHere: true,
+        createdAt: "2026-08-22T00:00:00Z",
+        permissionMode: { value: "bypassPermissions", source: "seed" },
+      }),
+      new Date("2026-08-22T00:00:00Z"),
+    );
+    expect(vm.noteKind).toBe("trust");
+    expect(vm.noteText).toBe(
+      "first launch here — likely waiting on Claude Code's trust prompt, then its bypass warning",
+    );
+  });
+
+  it("shows the bypass-only warning immediately (0s elapsed) for a known directory, no NO_SIGNAL wait", () => {
+    const vm = buildCardViewModel(
+      makeSession({
+        id: 1,
+        state: "started",
+        claudeSessionId: null,
+        firstLaunchHere: false,
+        createdAt: "2026-08-22T00:00:00Z",
+        permissionMode: { value: "bypassPermissions", source: "seed" },
+      }),
+      new Date("2026-08-22T00:00:00Z"),
+    );
+    expect(vm.noteKind).toBe("trust");
+    expect(vm.noteText).toBe("likely waiting on Claude Code's bypass warning");
+  });
+
+  it("shows no bypass note once claudeSessionId is bound, even while still latched bypass", () => {
+    const vm = buildCardViewModel(
+      makeSession({
+        id: 1,
+        state: "started",
+        claudeSessionId: "claude-session-abc",
+        firstLaunchHere: false,
+        createdAt: "2026-08-22T00:00:00Z",
+        permissionMode: { value: "bypassPermissions", source: "hook" },
+      }),
+      new Date("2026-08-22T00:05:00Z"),
+    );
+    expect(vm.noteKind).toBe("none");
+  });
+});
+
 describe("buildCardViewModel — ended (alive:false, REQ-18 degraded state)", () => {
   it("is false for a live session", () => {
     const vm = buildCardViewModel(makeSession({ id: 1, alive: true }), NOW);
@@ -468,14 +592,16 @@ describe("buildCardViewModel — ended timer (REQ-9): 'ended <age>' from endedAt
   });
 });
 
-describe("mainheadMeta: 'repo/branch · model · ended <age>' — repoLine plus the two optional clauses", () => {
-  it("is just the repo line when there is no model and the session is alive", () => {
+describe("mainheadMeta: 'repo/branch · model · ended <age>' — repoLine, the model clause (never omitted; 'unknown' for a null model), and the optional ended clause", () => {
+  // kb:adr/launch-resume-null-model-reads-unknown: a null model reads the word
+  // "unknown" rather than omitting the clause.
+  it("appends 'unknown' for a null model on an alive session", () => {
     const session = makeSession({
       id: 1,
       repo: { name: "muster", branch: "main", isWorktree: false },
       model: null,
     });
-    expect(mainheadMeta(session, NOW)).toBe("muster / main");
+    expect(mainheadMeta(session, NOW)).toBe("muster / main · unknown");
   });
 
   it("appends the model's display name when present", () => {
@@ -499,14 +625,14 @@ describe("mainheadMeta: 'repo/branch · model · ended <age>' — repoLine plus 
     expect(mainheadMeta(session, NOW)).toBe("muster · Sonnet 5 · ended 6m ago");
   });
 
-  it("omits the ended clause for a dead session with no endedAt (defensive; alive:false always pairs with endedAt)", () => {
+  it("omits the ended clause for a dead session with no endedAt (defensive; alive:false always pairs with endedAt), still appends 'unknown' for the null model", () => {
     const session = makeSession({ id: 1, repo: null, alive: false, endedAt: null, model: null });
-    expect(mainheadMeta(session, NOW)).toBe("muster");
+    expect(mainheadMeta(session, NOW)).toBe("muster · unknown");
   });
 
-  it("falls back to the directory basename when repo is null, same as repoLine", () => {
+  it("falls back to the directory basename when repo is null, same as repoLine, still appends 'unknown' for the null model", () => {
     const session = makeSession({ id: 1, repo: null, directory: "/Users/bob/code/other" });
-    expect(mainheadMeta(session, NOW)).toBe("other");
+    expect(mainheadMeta(session, NOW)).toBe("other · unknown");
   });
 });
 

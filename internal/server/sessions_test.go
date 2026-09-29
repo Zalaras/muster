@@ -133,12 +133,15 @@ func TestHandleCreateSession_ValidationErrors(t *testing.T) {
 	}
 }
 
-// TestHandleCreateSession_UnknownPermissionModeMessageNamesAllFour covers D4: the
-// rejection message must name all four accepted values, not just say "invalid".
-func TestHandleCreateSession_UnknownPermissionModeMessageNamesAllFour(t *testing.T) {
+// TestHandleCreateSession_UnknownPermissionModeMessageNamesAllFive covers D4/REQ-1: the
+// rejection message must name all five accepted values, not just say "invalid" — plan
+// resume-and-dangerously-allow's REQ-1 makes "bypassPermissions" itself a valid mode
+// (kb:lesson/stale-fixture-reshaped-the-wire: this test's own fixture used to be the one
+// value this plan turned valid, so it now spells a value no plan has ever accepted).
+func TestHandleCreateSession_UnknownPermissionModeMessageNamesAllFive(t *testing.T) {
 	srv := newTestServer(t, ClaudeCodeInfo{})
 
-	rec := postSessionsRequest(t, srv, `{"directory":"`+os.TempDir()+`","model":"sonnet","permissionMode":"bypassPermissions"}`)
+	rec := postSessionsRequest(t, srv, `{"directory":"`+os.TempDir()+`","model":"sonnet","permissionMode":"bogus"}`)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	var envelope struct {
@@ -149,7 +152,7 @@ func TestHandleCreateSession_UnknownPermissionModeMessageNamesAllFour(t *testing
 	}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &envelope))
 	assert.Equal(t, "invalid_request", envelope.Error.Code)
-	assert.Equal(t, "permissionMode must be one of default, plan, acceptEdits, auto", envelope.Error.Message)
+	assert.Equal(t, "permissionMode must be one of default, plan, acceptEdits, auto, bypassPermissions", envelope.Error.Message)
 }
 
 // TestHandleCreateSession_ADirectoryThatIsAFileIs400 covers the "not a directory" half

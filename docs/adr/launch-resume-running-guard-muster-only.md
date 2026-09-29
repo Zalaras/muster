@@ -1,9 +1,9 @@
 ---
 id: launch-resume-running-guard-muster-only
 type: decision
-status: proposed
-date: 2026-09-27
-summary: A listed session is disabled only when an alive Muster session is bound to it; sessions running outside Muster cannot be detected and stay enabled.
+status: accepted
+date: 2026-09-28
+summary: A listed session is disabled only while an alive Muster session holds it (bound or resuming); sessions outside Muster cannot be detected and stay enabled.
 features: [launch]
 tags: [user-decision]
 files: []

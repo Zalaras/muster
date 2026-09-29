@@ -128,7 +128,7 @@ It spawns `claude --resume <id> --permission-mode <mode>` with no `--model` and 
 `<mode>` is the transcript's last recorded permission mode, or `default` when it records none
 (kb:fact/resume-restores-model-and-mode-except-plan, kb:adr/launch-resume-in-original-mode-else-default).
 The row is seeded from the listing: `title` is the past session's title (null without one),
-`model` is `{"id": <the transcript's last assistant model>, "displayName": null}` or null,
+`model` is `{"id": <the transcript's last assistant model>, "displayName": <the same id>}` or null,
 `permissionMode` is `{"value": <mode passed>, "source": "seed"}`. `claudeSessionId` stays null
 until the enveloped `SessionStart{source:"resume"}` binds it. The repo row's MRU position and
 launch count advance; its `lastModel`/`lastPermissionMode` are left as they were (a new repo row
@@ -139,7 +139,7 @@ gets both null). Checked in the order directory → combination → existence �
   an empty one: `{"error": {"code": "invalid_request", "message": "resumeSessionId must not be empty"}}`
 - `404 unknown_claude_session` — no transcript for that id among the directory's past sessions:
   `{"error": {"code": "unknown_claude_session", "message": "no Claude Code session with that id in this directory"}}`
-- `409 already_open` — an alive Muster session is bound to it; `id` names it:
+- `409 already_open` — an alive Muster session is bound to it, or was spawned to resume it and has not bound yet; `id` names it:
   `{"error": {"code": "already_open", "message": "that Claude Code session is already open in Muster", "id": 7}}`
 - `500 launch_failed` — as for a launch.
 
@@ -323,7 +323,7 @@ comes back instead of becoming unreachable. Resumes are serialised per session i
 loser sees `409 not_resumable`.
 
 `200` + Session object. Errors: `404 unknown_session`; `409 not_resumable` — still alive,
-`claudeSessionId` null, or another alive session is bound to the same `claudeSessionId`
+`claudeSessionId` null, or another alive session is bound to, or pending a resume of, the same `claudeSessionId`
 (kb:adr/launch-resume-one-alive-row-per-claude-session); the message names **which**; `409 directory_missing` (the directory no longer exists); `500 launch_failed`
 (settings write or tmux spawn failed — row unchanged; never raw tmux stderr for a name collision).
 
@@ -369,7 +369,7 @@ home).
     "lastPrompt": "the shell spec still fails…", // string | null — latest prompt, first line, truncated to 200 chars
     "lastActiveAt": "2026-09-27T09:12:00Z",      // the transcript file's modification time
     "permissionMode": "plan",                    // string | null — last recorded mode, verbatim (open string); null when none
-    "openSessionId": null } ],                   // number | null — id of an alive Muster session bound to this claudeSessionId
+    "openSessionId": null } ],                   // number | null — id of an alive Muster session bound to, or pending a resume of, this claudeSessionId
   "truncated": false }                           // true iff more than 200 matched and only the newest 200 are listed
 ```
 
@@ -1008,7 +1008,7 @@ is complexity with no payoff, and whole-object replacement is naturally loss-tol
   "failure": { "error": "server_error", "message": "API error ended the turn" }, // non-null iff state == "failed"; error is the RAW token — display it, never switch on it (H2: taxonomy isn't 1:1)
   "directory": "/Users/bob/code/Projects/muster",
   "repo": { "name": "muster", "branch": "feat-e2e", "isWorktree": false },  // null when directory isn't a git checkout
-  "model": { "id": "claude-opus-5", "displayName": "Opus 5" },  // launch value until the status line confirms; null if unknown; displayName null on a session resumed from the list until then
+  "model": { "id": "claude-opus-5", "displayName": "Opus 5" },  // launch value until the status line confirms; null if unknown; displayName is the id until the status line confirms it
   "permissionMode": { "value": "plan", "source": "hook" },       // source "seed" (launch flag) | "hook" (a payload carried it); ALWAYS last-known, never authoritative (kb:adr/launch-form-seeds-model-and-permission-mode). value is an open string; observed "default" | "plan" | "acceptEdits" | "auto" (2.1.259), "bypassPermissions" (2.1.283, kb:fact/bypass-permission-mode-on-wire)
   "context": { "usedPct": 42, "totalInputTokens": 84211,
                "windowSize": 200000, "compactions": 2 },          // usedPct/totalInputTokens/windowSize null before first API response → "ctx — unknown"

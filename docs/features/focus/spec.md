@@ -10,7 +10,7 @@ go: []
 web: [web/src/features/focus.ts, web/src/render/mainhead*.ts, web/src/render/focus*.ts, web/src/render/slotmount*.ts]
 e2e: [web/e2e/focus-marker.spec.ts, web/e2e/sessions.spec.ts]
 protocol: []
-refs: [kb:adr/focus-rail-plus-one-live-pane, kb:adr/focus-rail-click-focuses-terminal, kb:adr/rail-current-marker-means-shown-in-focus, kb:adr/actions-placement-mainhead-and-card-rows, kb:adr/launch-opens-launched-session, docs/design/ux-flows.md]
+refs: [kb:adr/focus-rail-plus-one-live-pane, kb:adr/focus-rail-click-focuses-terminal, kb:adr/rail-current-marker-means-shown-in-focus, kb:adr/actions-placement-mainhead-and-card-rows, kb:adr/launch-opens-launched-session, kb:adr/launch-bypass-offered-with-danger-guardrails, kb:adr/launch-resume-null-model-reads-unknown, docs/design/ux-flows.md]
 ---
 Focus is the default view: the rail of static cards (kb:spec/rail) beside exactly one live
 terminal pane, under the persistent masthead (kb:adr/focus-rail-plus-one-live-pane,
@@ -18,7 +18,10 @@ docs/design/ux-flows.md "Shape — Focus"). It answers "who needs me, and let me
 them".
 
 Above the pane sits the mainhead: the session name with its inline rename trigger
-(kb:spec/rename), a meta line of repo and branch, model, and ended age when dead, the
+(kb:spec/rename), a danger `bypass` chip after the name while the session's last-known
+permission mode is bypass (kb:adr/launch-bypass-offered-with-danger-guardrails), a meta line of
+repo and branch, model — a resumed session with no recorded model reads `unknown`, as any null
+model does (kb:adr/launch-resume-null-model-reads-unknown) — and ended age when dead, the
 `claude | shell` surface switch (kb:spec/surfaces) and the End, Resume and Remove action row
 (kb:adr/actions-placement-mainhead-and-card-rows). The main slot hosts the focused
 session's live surface; when the session is dead and the Claude surface is selected it shows

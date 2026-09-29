@@ -132,6 +132,12 @@ func applyBind(sess *Session, claudeSessionID string, input claudecode.StateInpu
 	}
 
 	sess.ClaudeSessionID = claudeSessionID
+	// A resume claim (if any) graduates into ClaudeSessionID itself the moment any bind
+	// lands, whichever kind: AliveByClaudeSessionID's ordinary ClaudeSessionID match
+	// already covers this row from here on, so the separate pending marker is cleared
+	// rather than left to shadow a future /clear onto a different id
+	// (kb:adr/launch-resume-pending-resume-holds-id).
+	sess.pendingResumeClaudeSessionID = ""
 	if input.Model != nil {
 		// A fresh pointer, never a field written into the old one: List/Get hand out
 		// Clone()s that share this *Model, and Session.Clone's contract is that a changed

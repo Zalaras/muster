@@ -57,14 +57,23 @@ type LaunchConfig struct {
 	// no-param default and the "Up" ceiling. Empty means the daemon user's home
 	// directory.
 	BrowseRoot string
+	// ProjectsDir is Claude Code's transcript store (claudecode.ProjectsDir's default, or
+	// -claude-projects-dir): the resume-from-list branch's and GET /api/past-sessions'
+	// one read root, read-only.
+	ProjectsDir string
 }
 
 // createSessionRequest is POST /api/sessions' request body (kb:anchor/sessions.create).
+// ResumeSessionID is nil for an ordinary launch; non-nil (Launch checks the pointer, not
+// its value) routes to the resume-from-list form instead — a pointer so an absent JSON
+// key is distinguishable from an explicit `"resumeSessionId": ""`, which the combination/
+// empty checks in validateResumeRequest need to tell apart.
 type createSessionRequest struct {
-	Directory      string `json:"directory"`
-	Title          string `json:"title"`
-	Model          string `json:"model"`
-	PermissionMode string `json:"permissionMode"`
+	Directory       string  `json:"directory"`
+	Title           string  `json:"title"`
+	Model           string  `json:"model"`
+	PermissionMode  string  `json:"permissionMode"`
+	ResumeSessionID *string `json:"resumeSessionId"`
 }
 
 // sessionLauncher composes store+tmux+claudecode+session.Manager to perform one launch.
@@ -76,6 +85,10 @@ type sessionLauncher struct {
 	log     zerolog.Logger
 
 	claudeBin string
+
+	// projectsDir is Claude Code's transcript store (LaunchConfig.ProjectsDir) —
+	// launchResume's one read root, read-only.
+	projectsDir string
 
 	// hookScript/statusLineScript are the generated command-hook wrapper script paths
 	// (internal/claudecode.WriteWrapperScripts) — the launcher holds no ingest URL at
@@ -121,6 +134,7 @@ func newSessionLauncher(store *store.Store, manager *session.Manager, tmux paneS
 		tmux:             tmux,
 		log:              log,
 		claudeBin:        claudeBin,
+		projectsDir:      cfg.ProjectsDir,
 		hookScript:       cfg.HookScript,
 		statusLineScript: cfg.StatusLineScript,
 		legacyScripts:    cfg.LegacyScripts,
@@ -133,16 +147,36 @@ func newSessionLauncher(store *store.Store, manager *session.Manager, tmux paneS
 	}
 }
 
+// errLaunchDirNotAbsolute and errLaunchDirNotFound are the launch form's directory rule
+// (kb:anchor/sessions.create): an absolute path that exists and is a directory. One
+// owner shared by validateLaunchRequest, validateResumeRequest and GET
+// /api/past-sessions' own directory query, which used to copy this pair of checks
+// verbatim three times over; each caller maps the same two failures to its own error
+// shape (the two POST forms' 400 invalidRequest for both, the GET handler's 400 vs 404
+// split).
+var (
+	errLaunchDirNotAbsolute = errors.New("directory must be an absolute path")
+	errLaunchDirNotFound    = errors.New("directory does not exist or is not a directory")
+)
+
+// validateLaunchDirectory is that one owner.
+func validateLaunchDirectory(dir string) error {
+	if dir == "" || !filepath.IsAbs(dir) {
+		return errLaunchDirNotAbsolute
+	}
+	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+		return errLaunchDirNotFound
+	}
+	return nil
+}
+
 // validateLaunchRequest is Launch's pure prefix: it reads req alone, touches no launcher
 // state and runs before anything has been written, so a rejection here needs no rollback.
 // Check order is load-bearing — it decides which single error a request invalid in
 // several fields at once reports — so keep it as directory, model, permissionMode.
 func validateLaunchRequest(req createSessionRequest) *launchError {
-	if req.Directory == "" || !filepath.IsAbs(req.Directory) {
-		return invalidRequest("directory must be an absolute path")
-	}
-	if info, err := os.Stat(req.Directory); err != nil || !info.IsDir() {
-		return invalidRequest("directory does not exist or is not a directory")
+	if err := validateLaunchDirectory(req.Directory); err != nil {
+		return invalidRequest(err.Error())
 	}
 	if req.Model == "" {
 		return invalidRequest("model must not be empty")
@@ -214,8 +248,14 @@ func (l *sessionLauncher) killSessionAfterRecordFailure(ctx context.Context, id 
 // Launch validates req, runs the model check, upserts the repo row, inserts the
 // session row, writes settings.local.json, spawns the tmux window, and
 // records/broadcasts the finished session — in that order (order matters: the session
-// needs an id before the tmux spawn that puts it in the pane environment).
+// needs an id before the tmux spawn that puts it in the pane environment). A non-nil
+// ResumeSessionID routes to launchResume instead — the resume-from-list form replaces
+// this whole body with its own validation, transcript lookup and already_open check
+// (kb:anchor/sessions.create).
 func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) (*session.Session, *launchError) {
+	if req.ResumeSessionID != nil {
+		return l.launchResume(ctx, req)
+	}
 	if lerr := validateLaunchRequest(req); lerr != nil {
 		return nil, lerr
 	}
@@ -237,13 +277,7 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 		}
 	}
 
-	isGit := gitutil.IsRepo(ctx, dir)
-	var branch *string
-	isWorktree := false
-	if isGit {
-		branch = gitutil.Branch(ctx, dir)
-		isWorktree = gitutil.IsWorktree(ctx, dir)
-	}
+	isGit, branch, isWorktree := repoContext(ctx, dir)
 
 	repo, created, err := l.store.UpsertRepo(ctx, store.UpsertRepoParams{
 		Path:           dir,
@@ -275,6 +309,34 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 		PermissionMode: req.PermissionMode,
 	})
 
+	return l.createAndSpawn(ctx, dir, argv, session.CreateParams{
+		RepoID:          repo.ID,
+		Directory:       dir,
+		Branch:          branch,
+		IsWorktree:      isWorktree,
+		Title:           title,
+		PermissionMode:  session.PermissionMode(req.PermissionMode),
+		Model:           req.Model,
+		FirstLaunchHere: created,
+	})
+}
+
+// repoContext resolves dir's git status and worktree-ness — Launch's and launchResume's
+// shared prefix, both of which need it before their own repo upsert/touch.
+func repoContext(ctx context.Context, dir string) (isGit bool, branch *string, isWorktree bool) {
+	isGit = gitutil.IsRepo(ctx, dir)
+	if isGit {
+		branch = gitutil.Branch(ctx, dir)
+		isWorktree = gitutil.IsWorktree(ctx, dir)
+	}
+	return isGit, branch, isWorktree
+}
+
+// createAndSpawn is Launch's and launchResume's shared tail, once each has assembled its
+// own CreateParams (MinID left zero — this fills it in per attempt) and argv: probes the
+// tmux floor, then creates the session row and spawns its pane, retrying on an id
+// collision (kb:adr/lifecycle-session-ids-monotonic-never-reused).
+func (l *sessionLauncher) createAndSpawn(ctx context.Context, dir string, argv []string, params session.CreateParams) (*session.Session, *launchError) {
 	// probe the tmux socket's own highest id before allocating one, so a fresh store
 	// never lands on an id an orphaned "muster-<N>" already owns (issue #26;
 	// kb:adr/lifecycle-session-ids-monotonic-never-reused). A probe failure degrades to
@@ -286,17 +348,8 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 	}
 
 	for attempt := 1; attempt <= maxLaunchAttempts; attempt++ {
-		sess, err := l.manager.CreateSession(ctx, session.CreateParams{
-			RepoID:          repo.ID,
-			Directory:       dir,
-			Branch:          branch,
-			IsWorktree:      isWorktree,
-			Title:           title,
-			PermissionMode:  session.PermissionMode(req.PermissionMode),
-			Model:           req.Model,
-			FirstLaunchHere: created,
-			MinID:           floor,
-		})
+		params.MinID = floor
+		sess, err := l.manager.CreateSession(ctx, params)
 		if err != nil {
 			l.log.Error().Err(err).Msg("creating session failed")
 			return nil, launchFailed()
@@ -396,6 +449,22 @@ func (l *sessionLauncher) Resume(ctx context.Context, id int64) (*session.Sessio
 	}
 	if sess.ClaudeSessionID == "" {
 		return nil, notResumable("session never started a claude conversation and has no resumable claude session id")
+	}
+
+	// One-alive-row guard (kb:adr/launch-resume-one-alive-row-per-claude-session), held
+	// across the whole check-then-spawn body below so a concurrent launchResume or a
+	// second Resume for the same claude session id can never both pass their own check
+	// before the winner's claim is settled (kb:adr/launch-resume-pending-resume-holds-id)
+	// — see launchResume's identical lock, keyed on the same claude session id rather
+	// than either side's Muster session id.
+	unlockClaude := l.manager.LockClaudeSession(sess.ClaudeSessionID)
+	defer unlockClaude()
+	// A resume-from-list elsewhere may have bound this dead session's Claude id to a
+	// second, now-alive Muster session since this one ended — this row can never be sess
+	// itself (sess.Alive is already false, checked above), so any hit here names a
+	// genuinely different session.
+	if otherID, bound := l.manager.AliveByClaudeSessionID(sess.ClaudeSessionID); bound {
+		return nil, notResumable(fmt.Sprintf("that claude session is already open in Muster session %d", otherID))
 	}
 	if info, err := os.Stat(sess.Directory); err != nil || !info.IsDir() {
 		return nil, directoryMissing("session directory no longer exists")

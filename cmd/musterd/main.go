@@ -83,6 +83,7 @@ type cliFlags struct {
 	claudeBin           string
 	tmuxSocket          string
 	browseRoot          string
+	claudeProjectsDir   string
 	onExit              string
 	usagePoll           time.Duration
 	usageAPIURL         string
@@ -121,6 +122,14 @@ func parseFlags(args []string, stderr io.Writer) (*cliFlags, error) {
 		defaultClaudeConfigFile = p
 	}
 
+	// -claude-projects-dir's default is empty when ProjectsDir itself fails (no home
+	// directory) — the Resume tab then simply lists nothing rather than the daemon
+	// refusing to start, same degrade-gracefully shape as defaultClaudeConfigFile above.
+	defaultClaudeProjectsDir := ""
+	if p, err := claudecode.ProjectsDir(); err == nil {
+		defaultClaudeProjectsDir = p
+	}
+
 	var f cliFlags
 	fset.BoolVar(&f.showVersion, "version", false, "print version and exit")
 	fset.StringVar(&f.addr, "addr", "127.0.0.1:8765", "listen address (localhost only by design)")
@@ -130,6 +139,7 @@ func parseFlags(args []string, stderr io.Writer) (*cliFlags, error) {
 	fset.StringVar(&f.claudeBin, "claude-bin", "claude", "the `claude` binary to spawn for a launched session (lets E2E launch a stub)")
 	fset.StringVar(&f.tmuxSocket, "tmux-socket", "muster", "dedicated tmux socket (never the user's default server); a value containing '/' is used as a filesystem path (-S), otherwise a named socket (-L)")
 	fset.StringVar(&f.browseRoot, "browse-root", "", "root of the launch modal's folder browser — GET /api/browse's no-param default and its Up ceiling (empty = the user's home directory; E2E passes its scratch dir)")
+	fset.StringVar(&f.claudeProjectsDir, "claude-projects-dir", defaultClaudeProjectsDir, "Claude Code's transcript store — GET /api/past-sessions' and a resume-from-list launch's one read root, read-only (default: Claude Code's own projects directory; E2E passes its scratch dir)")
 	fset.StringVar(&f.onExit, "on-exit", "ask", "what to do with live sessions on shutdown: ask (default, prompts once if stdin is a TTY) | leave | kill")
 	fset.DurationVar(&f.usagePoll, "usage-poll", defaultUsagePoll, "how often musterd polls Claude Code's per-model weekly usage endpoint; 0 disables polling (POST /api/usage/refresh then 404s)")
 	fset.StringVar(&f.usageAPIURL, "usage-api-url", "https://api.anthropic.com", "base URL for the per-model usage endpoint — a test seam like -claude-bin")
@@ -412,6 +422,7 @@ func buildServerConfig(f *cliFlags, st *store.Store, log zerolog.Logger, serving
 		Launch: server.LaunchConfig{
 			ClaudeBin:        f.claudeBin,
 			BrowseRoot:       f.browseRoot,
+			ProjectsDir:      f.claudeProjectsDir,
 			HookScript:       serving.hookScript,
 			StatusLineScript: serving.statusLineScript,
 			LegacyScripts:    []string{serving.legacyScript},

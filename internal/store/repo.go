@@ -71,6 +71,43 @@ func (s *Store) UpsertRepo(ctx context.Context, p UpsertRepoParams) (Repo, bool,
 	return r, r.LaunchCount == 1, nil
 }
 
+// TouchRepoParams are the values a resume-from-list launch records on the repo row —
+// MRU and launch count only.
+type TouchRepoParams struct {
+	Path  string
+	Name  string
+	IsGit bool
+}
+
+// TouchRepo is UpsertRepo's sibling for a resume-from-list launch: it advances launch_count and
+// last_launched_at exactly like UpsertRepo, but never writes last_model or
+// last_permission_mode — a resume from the list carries no model or Start-in choice of
+// its own, and must not clobber whatever a real launch last remembered there. A never-
+// before-seen directory's row is created with both columns null (the Schema Changes
+// note's "a query, not a migration"). Same single-statement-atomic reasoning as UpsertRepo:
+// "was this call's branch the INSERT" is read off the returned launch_count, not a
+// follow-up existence check.
+func (s *Store) TouchRepo(ctx context.Context, p TouchRepoParams) (Repo, bool, error) {
+	now := encodeTime(time.Now())
+
+	row := s.db.QueryRowContext(ctx, `
+		INSERT INTO repo (path, name, is_git, pinned, last_launched_at, launch_count, last_model, last_permission_mode, created_at)
+		VALUES (?, ?, ?, 0, ?, 1, NULL, NULL, ?)
+		ON CONFLICT(path) DO UPDATE SET
+			name = excluded.name,
+			is_git = excluded.is_git,
+			last_launched_at = excluded.last_launched_at,
+			launch_count = repo.launch_count + 1
+		RETURNING id, path, name, is_git, pinned, last_launched_at, launch_count, last_model, last_permission_mode, created_at
+	`, p.Path, p.Name, boolToInt(p.IsGit), now, now)
+
+	r, err := scanRepo(row)
+	if err != nil {
+		return Repo{}, false, fmt.Errorf("touching repo %q: %w", p.Path, err)
+	}
+	return r, r.LaunchCount == 1, nil
+}
+
 // GetRepo looks up a repo row by id. No production code calls this today — production
 // always already has the row it needs from ListRepos or UpsertRepo's own return value.
 // It exists for test setup that wants one row back after UpsertRepo without listing

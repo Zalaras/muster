@@ -134,10 +134,13 @@ fi
 #     `kb for` resolves a path that does not exist yet, so new files are judged by the globs they will match.
 #     web/src/style.css is exempt: one stylesheet shared by every feature on purpose, so no single owner fits
 #     and naming one would pull that feature into every plan that styles anything.
+#     A spec named in **Fixture plan** or a criterion must be owned too (only owned — a criterion may cite
+#     another feature's spec as a regression): resume-and-dangerously-allow named its new specs nowhere else.
 header="$(grep -E '^\*\*Features\*\*:' "$P" | head -1 | sed -E 's/^\*\*Features\*\*:[[:space:]]*//; s/,/ /g')"
 paths="$(section 'Affected Files' | grep -oE '`(cmd|internal|web/src|web/e2e)/[^`[:space:]]+\.[a-z]+(:[0-9]+)?`' \
   | tr -d '`' | sed -E 's/:[0-9]+$//' | grep -vE '(/CLAUDE\.md|^web/src/protocol\.ts|^web/src/style\.css)$' | sort -u)"
-if [[ -n "$paths" ]]; then
+named="$({ grep -E '^\*\*Fixture plan\*\*:' "$P"; section 'Acceptance Criteria'; } | grep -oE '[a-z0-9-]+\.spec\.ts' | sed 's|^|web/e2e/|' | sort -u)"
+if [[ -n "$paths$named" ]]; then
   kb="$(mktemp -d)/kb"
   if go build -o "$kb" ./tools/kb 2>/dev/null; then
     while IFS= read -r f; do
@@ -147,6 +150,9 @@ if [[ -n "$paths" ]]; then
         case " $header " in *" $o "*) ;; *) note "$f → feature '$o', not in **Features** — widen the header" ;; esac
       done
     done <<<"$paths"
+    while IFS= read -r f; do
+      [[ -z "$f" ]] || "$kb" for "$f" 2>/dev/null | grep -q '^features:' || note "$f: owned by no feature — add its glob to docs/features/<f>/spec.md at approval"
+    done <<<"$named"
   else
     note "could not build tools/kb to check Affected Files ownership"
   fi

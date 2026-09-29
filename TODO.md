@@ -101,8 +101,15 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
   right-click menu on a rail card carrying each of its actions, with the End button removed from
   the rail card (only there).
 
-- [ ] **Resume old Claude session** ([#62](https://github.com/Zalaras/muster/issues/62)) — an easy way to resume Claude sessions
-  that were not started in Muster.
+- [ ] **Mainhead actions pushed off-screen by an unbreakable title** — a long session title
+  with no break opportunity never ellipsises, so End, Resume and Remove are pushed past the
+  viewport. Expected: the title truncates with an ellipsis and the actions stay in view. From
+  `plans/resume-and-dangerously-allow/`.
+
+- [ ] **The pending-resume hold does not survive a daemon restart** — after musterd restarts, a
+  resumed row that has not yet bound no longer holds its Claude session, so the Resume list
+  offers that session again and a second resume of it starts. Expected: the row keeps holding
+  the session across a restart until it binds or ends. From `plans/resume-and-dangerously-allow/`.
 
 ### From the maintainability cleanup (2026-09-24)
 
@@ -265,10 +272,12 @@ tick a sub-item as it lands, the parent when all have.
   shows only the generic failure. Candidate: say "model unavailable" on the card and offer
   Resume with another model. From `plans/new-session-improvement/` (its `## Out of scope`).
 
-- [ ] **Bypass permissions** ([#61](https://github.com/Zalaras/muster/issues/61)) — offer the bypass-permissions mode at launch
-  ("dangerously allow"). kb:adr/launch-bypass-and-dontask-unoffered (rejected, 2026-09-03) holds
-  it back until the permissions UI (§3.4, in the order above) supplies guardrails, so it lands
-  with or after that.
+Filed 2026-09-29 by the developer from the plans' proposed-backlog.md files
+
+- [ ] **Canary coverage for the resume/bypass facts** — the six 2026-09-27 transcript, resume and
+  bypass fact records have no guard test, so a Claude Code bump that changes them passes
+  `make canary`. Expected: each one a canary can observe has a guard. From
+  `plans/resume-and-dangerously-allow/`.
 
 ## v1 Release
 

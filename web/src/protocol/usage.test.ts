@@ -35,6 +35,18 @@ describe("parseMessage — usage (kb:anchor/ws.usage: broadcast on value/model c
     expect(parseMessage(message)).toEqual(message);
   });
 
+  // kb:adr/launch-resume-display-name-falls-back-to-id: displayName is never null on
+  // the wire — a resumed-from-list session's model carries its transcript's model id as
+  // displayName instead. Usage.model shares parseModelInfo verbatim, so an explicit null
+  // here is rejected the same as it is on Session.model.
+  it("rejects a usage.model with an explicit null displayName", () => {
+    const message = {
+      ...knownUsage,
+      usage: { ...knownUsage.usage, model: { id: "claude-opus-5", displayName: null } },
+    };
+    expect(parseMessage(message)).toBeNull();
+  });
+
   it("rejects a usage.model missing displayName", () => {
     const message = {
       ...knownUsage,

@@ -134,17 +134,19 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
   };
 }
 
-/** A root whose `.querySelector` resolves the four chrome selectors `updateTileChrome`
+/** A root whose `.querySelector` resolves the chrome selectors `updateTileChrome`
  * mutates, backed by plain fake elements — no real DOM/template involved, matching this
  * file's existing `fakeElement`/`fakeTileRefs` convention. */
 function fakeTileRoot(): HTMLElement & { className: string } {
   const nm = fakeNameEl();
+  const chip = fakeElement();
   const wh = fakeElement();
   const ctx = fakeElement();
   const tm = fakeElement();
   const dot = { ...fakeElement(), title: "" } as HTMLElement & { title: string };
   const byClass: Record<string, HTMLElement> = {
     ".nm": nm,
+    ".chip-danger": chip,
     ".wh": wh,
     ".ctxinfo": ctx,
     ".tm": tm,

@@ -10,7 +10,7 @@ go: []
 web: [web/src/features/tiles.ts, web/src/render/tiles*.ts]
 e2e: [web/e2e/tiles.spec.ts]
 protocol: []
-refs: [kb:adr/tiles-live-top-n-snapshot-rest, kb:adr/tiles-sticky-live-membership, kb:adr/tiles-slot-stable-grid-never-self-sorts, kb:adr/tiles-drag-reorder-header-handle-insert-shift, kb:adr/tiles-order-ephemeral-per-window, kb:adr/tiles-launched-session-promoted-into-grid, kb:adr/launch-new-session-button-in-masthead, kb:adr/launch-opens-launched-session, kb:adr/surfaces-one-live-client-per-session, docs/design/ux-flows.md]
+refs: [kb:adr/tiles-live-top-n-snapshot-rest, kb:adr/tiles-sticky-live-membership, kb:adr/tiles-slot-stable-grid-never-self-sorts, kb:adr/tiles-drag-reorder-header-handle-insert-shift, kb:adr/tiles-order-ephemeral-per-window, kb:adr/tiles-launched-session-promoted-into-grid, kb:adr/launch-new-session-button-in-masthead, kb:adr/launch-opens-launched-session, kb:adr/surfaces-one-live-client-per-session, kb:adr/launch-bypass-offered-with-danger-guardrails, docs/design/ux-flows.md]
 ---
 Tiles is the peer view to Focus (kb:spec/views): a grid of live terminal tiles over a
 snapshot strip, under the same masthead (docs/design/ux-flows.md "Shape — Tiles").
@@ -34,7 +34,8 @@ Order and membership are per-window, client-only state and are never persisted
 (kb:adr/tiles-order-ephemeral-per-window).
 
 Density (`prefs.density`, 2×2 or 3×2) sets N and every tile's geometry; each tile states
-its real geometry. A tile carries the title (with inline rename), state, meta, a footer
-action row with End, Resume, Remove and the surface switch, and a dead surface when its
-session is not alive. Snapshot cards render static state only: a session is live on exactly
+its real geometry. A tile carries the title (with inline rename), a danger `bypass` chip after it while the
+session's last-known permission mode is bypass (kb:adr/launch-bypass-offered-with-danger-guardrails),
+state, meta, a footer action row with End, Resume, Remove and the surface switch, and a dead
+surface when its session is not alive. Snapshot cards render static state only: a session is live on exactly
 one surface (kb:adr/surfaces-one-live-client-per-session).

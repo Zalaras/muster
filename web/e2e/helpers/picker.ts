@@ -61,10 +61,14 @@ export function launchTargetPath(dialog: Locator): Locator {
   return dialog.locator("#launch-target b");
 }
 
-/** `#launch-target`'s `.branch` span (` · <branch>`, present only when the selection
- * came from a recent with a non-null branch — REQ-17). */
+/** `#launch-target`'s suffix span (` · <branch>`, present only when the selection came
+ * from a recent with a non-null branch — REQ-17). Renamed from `.branch` to `.suffix`
+ * (plan resume-and-dangerously-allow) when the same `<b>`/suffix pair was reused for the
+ * Resume tab's own footer (`renderResumeFooter`, ` in <path>`) — the class can't stay
+ * named for New's own git-branch meaning once the Resume tab writes into it too. Same
+ * element, same toggled-`hidden`/text-content behaviour, only the class changed. */
 export function launchTargetBranch(dialog: Locator): Locator {
-  return dialog.locator("#launch-target .branch");
+  return dialog.locator("#launch-target .suffix");
 }
 
 /** `#launch-error` (role=alert). */

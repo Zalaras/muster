@@ -243,6 +243,12 @@ func (m *Manager) restoreChangedFields(id int64, prev, post *Session) func(*Sess
 		restoreIfUnchanged(&cur.Unread, post.Unread, last.Unread)
 		restoreIfUnchanged(&cur.LastPrompt, post.LastPrompt, last.LastPrompt)
 		restoreIfUnchanged(&cur.currentPromptID, post.currentPromptID, last.currentPromptID)
+		// pendingResumeClaudeSessionID is in-memory-only too (session.go's doc), and
+		// applyBind is its only writer besides CreateSession: a failed Apply must roll
+		// it back together with the ClaudeSessionID bind it accompanies, or a rejected
+		// resume-bind could leave the row holding neither its old pending claim nor its
+		// new ClaudeSessionID (kb:adr/launch-resume-pending-resume-holds-id).
+		restoreIfUnchanged(&cur.pendingResumeClaudeSessionID, post.pendingResumeClaudeSessionID, last.pendingResumeClaudeSessionID)
 		// closedPromptIDs is a []string, not comparable, so it can't go through
 		// restoreIfUnchanged's generic — slices.Equal is its "unchanged since post" test.
 		if slices.Equal(cur.closedPromptIDs, post.closedPromptIDs) {
@@ -263,6 +269,7 @@ var restoredSessionFields = []string{
 	"Attention", "Failure", "LastActivity", "Alive", "EndedAt", "LastSnapshot",
 	"LastSnapshotAt", "Pinned", "RailPos", "TitleOverride", "TranscriptPath",
 	"PlanPath", "PlanExists", "Unread", "LastPrompt", "currentPromptID", "closedPromptIDs",
+	"pendingResumeClaudeSessionID",
 }
 
 var immutableSessionFields = []string{

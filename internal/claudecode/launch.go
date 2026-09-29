@@ -13,11 +13,16 @@ const (
 	PermissionPlan        = "plan"
 	PermissionAcceptEdits = "acceptEdits"
 	PermissionAuto        = "auto"
+	// PermissionBypass is Claude Code's danger mode (kb:adr/launch-bypass-offered-with-danger-guardrails):
+	// every tool call runs unprompted. Claude Code's own bypass warning blocks startup
+	// like the trust prompt (kb:fact/bypass-acceptance-blocks-startup) — Muster never
+	// answers it.
+	PermissionBypass = "bypassPermissions"
 )
 
 // PermissionModes lists every value above, in the order ValidPermissionMode's error
 // text (internal/server/launcher.go) reports them.
-var PermissionModes = []string{PermissionDefault, PermissionPlan, PermissionAcceptEdits, PermissionAuto}
+var PermissionModes = []string{PermissionDefault, PermissionPlan, PermissionAcceptEdits, PermissionAuto, PermissionBypass}
 
 // ValidPermissionMode reports whether s is one of PermissionModes.
 func ValidPermissionMode(s string) bool {
@@ -25,12 +30,13 @@ func ValidPermissionMode(s string) bool {
 }
 
 // LaunchParams are the neutral inputs to building the `claude` CLI invocation
-// (kb:anchor/sessions.create). Validation of these values (non-empty model, a known
-// permission mode) is the caller's job — BuildArgv only assembles argv.
+// (kb:anchor/sessions.create). BuildArgv assembles argv from these values as given: it
+// never re-validates PermissionMode against PermissionModes (see BuildArgv's own doc),
+// so validating a value here, or deliberately not, is the caller's job.
 type LaunchParams struct {
-	Model          string
+	Model          string // optional; empty omits --model (a resume-from-list never names one — the transcript's own model already comes back)
 	Title          string // optional; empty omits --name
-	PermissionMode string // one of PermissionModes
+	PermissionMode string // any non-empty value is sent verbatim via --permission-mode, whether or not it's in PermissionModes (kb:adr/launch-resume-passes-any-recorded-mode); empty omits the flag
 
 	// ResumeSessionID is non-empty for a resume relaunch (kb:anchor/sessions.resume):
 	// emits `--resume <id>` and omits `--name` — the only place the `--resume` flag
@@ -39,21 +45,28 @@ type LaunchParams struct {
 }
 
 // BuildArgv returns the full argv (binary included) for launching `claude` with p.
-// Every accepted mode, "default" included, is now sent explicitly: with no flag at all
-// Claude Code starts in its own configured default, which the 2026-09-23 probe measured
-// as auto on the developer's machine, not manual
+// Every non-empty PermissionMode is sent as an explicit flag verbatim, "default"
+// included: with no flag at all Claude Code starts in its own configured default, which
+// the 2026-09-23 probe measured as auto on the developer's machine, not manual
 // (kb:fact/permission-mode-no-flag-follows-configured-default) — omitting the flag for
-// "default" no longer means manual. An unrecognized PermissionMode adds no flag at all
-// (validation is the caller's job, per LaunchParams' doc) rather than passing an
-// unvalidated value straight to the `claude` argv.
+// "default" no longer means manual. BuildArgv trusts the string outright rather than
+// re-validating it against ValidPermissionMode a second time (validation, or its
+// deliberate absence, is the caller's job, per LaunchParams' own doc): a resume-from-list
+// passes its transcript's recorded mode through unchanged even when it names one the
+// launch form itself never offers, such as dontAsk (kb:adr/launch-resume-passes-any-recorded-mode).
+// An empty PermissionMode — never produced by any of this package's own callers today —
+// omits the flag.
 func BuildArgv(binary string, p LaunchParams) []string {
-	args := []string{binary, "--model", p.Model}
+	args := []string{binary}
+	if p.Model != "" {
+		args = append(args, "--model", p.Model)
+	}
 	if p.ResumeSessionID != "" {
 		args = append(args, "--resume", p.ResumeSessionID)
 	} else if p.Title != "" {
 		args = append(args, "--name", p.Title)
 	}
-	if ValidPermissionMode(p.PermissionMode) {
+	if p.PermissionMode != "" {
 		args = append(args, "--permission-mode", p.PermissionMode)
 	}
 	return args

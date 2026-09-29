@@ -39,9 +39,12 @@ const (
 	// 2.1.259 (docs/history/spikes/canary-fields.md § Hook payloads, "Permission-mode probe"): reports
 	// permission_mode "auto" on hooks; model-gated (falls back to "default" on haiku).
 	PermissionAuto PermissionMode = PermissionMode(claudecode.PermissionAuto)
+	// PermissionBypass is Claude Code's danger mode (kb:adr/launch-bypass-offered-with-danger-guardrails):
+	// reports permission_mode "bypassPermissions" verbatim (kb:fact/bypass-permission-mode-on-wire).
+	PermissionBypass PermissionMode = PermissionMode(claudecode.PermissionBypass)
 )
 
-// ValidPermissionMode reports whether s is one of the four permission modes. Delegates to
+// ValidPermissionMode reports whether s is one of PermissionModes. Delegates to
 // claudecode.ValidPermissionMode, the one owner of the underlying set (internal/server's
 // launcher validates incoming requests against claudecode.PermissionModes directly) —
 // one validation, not two.
@@ -151,6 +154,15 @@ type Session struct {
 
 	currentPromptID string
 	closedPromptIDs []string // bounded ring, most recent last, capped at maxClosedPrompts
+
+	// pendingResumeClaudeSessionID is the Claude session id a resume-from-list spawn was
+	// launched to resume, until the enveloped SessionStart(source:"resume") lands and
+	// applyBind clears it in favor of the now-authoritative ClaudeSessionID
+	// (kb:adr/launch-resume-pending-resume-holds-id). Set once, at CreateSession, from
+	// CreateParams.ResumeClaudeSessionID; "" for an ordinary launch, which never held a
+	// claim before its own first bind. In-memory only, like currentPromptID/
+	// closedPromptIDs above: a daemon restart drops it.
+	pendingResumeClaudeSessionID string
 }
 
 const maxClosedPrompts = 8

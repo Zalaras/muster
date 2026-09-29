@@ -92,6 +92,9 @@ function updateTileChrome(
   if (!isEditingName) {
     requireElement<HTMLButtonElement>("button.rename", nameEl).textContent = vm.title;
   }
+  // The danger `bypass` chip, shared markup/class with a rail card and the
+  // mainhead (sessions/card.ts's `bypassChip`).
+  requireElement<HTMLElement>(".chip-danger", root).hidden = !vm.bypassChip;
   where.textContent = vm.repoLine;
   renderContextRow(ctx, session.context, "ctxinfo");
   timer.textContent = tileHeaderTimerText(session, now);

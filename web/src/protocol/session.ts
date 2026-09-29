@@ -49,8 +49,17 @@ export interface PermissionModeInfo {
 // kb:anchor/sessions.create: the accepted wire values for `permissionMode` on `POST
 // /api/sessions`, in dialog/cycle order. `default` is Claude Code's manual mode (the UI
 // labels it "manual"); one source for both the request union and the launch dialog's radio
-// guard, so they can't drift apart.
-export const PERMISSION_MODES = ["default", "acceptEdits", "plan", "auto"] as const;
+// guard, so they can't drift apart. `bypassPermissions` (UI label "bypass") joined this set
+// 2026-09-27 (kb:adr/launch-bypass-offered-with-danger-guardrails) — offered in the danger
+// family, never restored as a directory's default (kb:adr/launch-bypass-never-restored-as-default,
+// sessions/permission.ts's `permissionModeToCheck`).
+export const PERMISSION_MODES = [
+  "default",
+  "acceptEdits",
+  "plan",
+  "auto",
+  "bypassPermissions",
+] as const;
 export type PermissionMode = (typeof PERMISSION_MODES)[number];
 
 export function isPermissionMode(value: unknown): value is PermissionMode {

@@ -254,8 +254,8 @@ class FakeDomNode {
 }
 
 /** Mirrors `index.html`'s `#session-card-template` markup (article.card > [.stripe,
- * .card-in > [.r1 > [.name], .r0 > [.badge, .timer, .pin], .r2, .r3, .activity.you,
- * .activity.claude, .note, .acts-row]]) closely enough for `buildSessionCardElement`/
+ * .card-in > [.r1 > [.name, .chip-danger], .r0 > [.badge, .timer, .pin], .r2, .r3,
+ * .activity.you, .activity.claude, .note, .acts-row]]) closely enough for `buildSessionCardElement`/
  * `updateSessionCardContent`'s real `querySelector` calls to resolve every field they
  * touch. Row order follows REQ-4 (plan rail-card-improvements-2): `.r1` (title) leads,
  * `.r0` (badge/timer/pin) follows — but nothing here asserts sibling order itself (no
@@ -273,6 +273,10 @@ function buildCardTemplateFragment(): FakeDomNode {
   const name = new FakeDomNode("span");
   name.className = "name";
   r1.appendChild(name);
+  const chip = new FakeDomNode("span");
+  chip.className = "chip-danger";
+  chip.hidden = true;
+  r1.appendChild(chip);
   const r0 = new FakeDomNode("div");
   r0.className = "r0";
   const badge = new FakeDomNode("span");

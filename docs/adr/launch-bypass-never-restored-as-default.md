@@ -1,8 +1,8 @@
 ---
 id: launch-bypass-never-restored-as-default
 type: decision
-status: proposed
-date: 2026-09-27
+status: accepted
+date: 2026-09-28
 summary: A directory's remembered bypass mode is never restored; the dialog checks auto instead, so bypass is always chosen fresh.
 features: [launch]
 tags: [ux, security, user-decision]

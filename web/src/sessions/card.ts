@@ -6,6 +6,7 @@ import { PREF_DEFAULTS, type RailActivity } from "../protocol/prefs";
 import type { Session } from "../protocol/session";
 import { ageAgo, elapsedSeconds, formatAge, formatTimer } from "./format";
 import { basename } from "./paths";
+import { isBypassMode } from "./permission";
 
 export type NoteKind = "attention" | "failure" | "trust" | "no-signal" | "none";
 
@@ -48,6 +49,9 @@ export interface CardViewModel {
   // kb:adr/rail-unread-marker-neutral-dot: drives the card's `unread` class,
   // `data-unread="true"` and the `unreadLabel` aria-label suffix below.
   unread: boolean;
+  // Drives the `.chip-danger` "bypass" chip shared by a rail card, the mainhead
+  // and a tile header (kb:adr/launch-bypass-offered-with-danger-guardrails).
+  bypassChip: boolean;
 }
 
 // design-system §3: the state->colour token map (applied via CSS class, never inline).
@@ -76,6 +80,15 @@ const BADGE_TEXT: Record<Session["state"], string> = {
  * second copy). */
 export function stateBadgeText(state: Session["state"]): string {
   return BADGE_TEXT[state];
+}
+
+/** The danger `bypass` chip a rail card, the Focus mainhead and a tile header show
+ * whenever a session's last-known permission mode is bypassPermissions — alive or
+ * not, in every state (kb:adr/launch-bypass-offered-with-danger-guardrails). One
+ * predicate shared by `render/sessions.ts`, `render/mainhead.ts` and `render/tiles.ts` so
+ * the three surfaces can never drift onto different conditions. */
+export function bypassChip(session: Session): boolean {
+  return isBypassMode(session.permissionMode.value);
 }
 
 /** Whether a Resume control should be enabled for this `claudeSessionId` — the one place
@@ -120,7 +133,10 @@ export function repoLine(session: Session): string {
  * module, not something render/ composes. */
 export function mainheadMeta(session: Session, now: Date): string {
   const parts: string[] = [repoLine(session)];
-  if (session.model) parts.push(session.model.displayName);
+  // kb:adr/launch-resume-null-model-reads-unknown: a null model reads the word
+  // "unknown" rather than omitting the clause (design-system §6, "unknown data renders
+  // the word unknown, never blank").
+  parts.push(session.model ? session.model.displayName : "unknown");
   if (!session.alive && session.endedAt) parts.push(`ended ${ageAgo(session.endedAt, now)}`);
   return parts.join(" · ");
 }
@@ -227,14 +243,25 @@ function failureNote(session: Session): string | null {
 
 /** kb:adr/launch-trust-prompt-never-auto-answered / ux-flows §1.4: trust-prompt vs.
  * no-signal honesty note, derived client-side from `firstLaunchHere` + elapsed time since
- * launch — never guessed from pane content. */
+ * launch — never guessed from pane content.
+ *
+ * kb:adr/launch-bypass-warning-surfaced-never-answered: Claude Code's bypass
+ * warning is the trust prompt's twin — surfaced from absence of signal, shown
+ * immediately (no NO_SIGNAL_THRESHOLD_SECONDS wait, same as the trust-prompt case just
+ * below), and never answered by Muster either. */
 function firstLaunchNote(session: Session, now: Date): { kind: NoteKind; text: string } | null {
   if (session.state !== "started" || session.claudeSessionId !== null) return null;
+  const bypass = bypassChip(session);
   if (session.firstLaunchHere) {
     return {
       kind: "trust",
-      text: "first launch here — likely waiting on Claude Code's trust prompt",
+      text: bypass
+        ? "first launch here — likely waiting on Claude Code's trust prompt, then its bypass warning"
+        : "first launch here — likely waiting on Claude Code's trust prompt",
     };
+  }
+  if (bypass) {
+    return { kind: "trust", text: "likely waiting on Claude Code's bypass warning" };
   }
   if (elapsedSeconds(session.createdAt, now) >= NO_SIGNAL_THRESHOLD_SECONDS) {
     return { kind: "no-signal", text: "no signal yet" };
@@ -334,5 +361,6 @@ export function buildCardViewModel(
     actions: ended ? ["Resume", "Remove"] : ["End"],
     pinned: session.pinned,
     unread: session.unread,
+    bypassChip: bypassChip(session),
   };
 }

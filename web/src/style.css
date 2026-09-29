@@ -2412,6 +2412,40 @@ dialog.modal h2 {
   padding: 1px 5px;
 }
 
+/* ── New | Resume tab pair — the dialog head switch. */
+.head-tabs {
+  display: inline-flex;
+  margin-left: 14px;
+  border: 1px solid var(--line-control);
+}
+
+.head-tabs button {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  background: transparent;
+  border: 0;
+  color: var(--fg-muted);
+  padding: 3px 12px;
+  cursor: pointer;
+}
+
+.head-tabs button + button {
+  border-left: 1px solid var(--line-control);
+}
+
+.head-tabs button[aria-selected="true"] {
+  background: var(--bg-hover);
+  color: var(--fg);
+  box-shadow: inset 0 -2px 0 var(--amber);
+}
+
+/* The Resume tab's picker is shorter — the past-sessions list below it takes the space
+ * the form would otherwise use (UI Specifications: "the picker height drops to 220px"). */
+.picker.resume {
+  height: 220px;
+}
+
 /* ── confirm dialogs (REQ-14, m4-reconcile) — End/Remove, modelled on the launch
  * dialog's own `dialog.modal` chrome above; `--danger` for the destructive confirm
  * button (review m4-reconcile cycle-3 Major 2, the developer's option A): a state colour may
@@ -2672,6 +2706,15 @@ dialog.diagram-modal[open] {
   align-items: center;
   padding: 14px 16px;
   border-bottom: 1px solid var(--line);
+}
+
+/* The Resume tab hides `.fields` itself (`elements.fieldsEl.hidden`, features/launch.ts) —
+ * `.fields [hidden]` above is a *descendant* selector (covers #model-error/#bypass-warning,
+ * children of `.fields`) and does not match `.fields` carrying the attribute itself; without
+ * this companion the UA's `[hidden]` default loses to `#launch-form .fields`'s own `display:
+ * grid` (kb:lesson/display-rule-overrides-hidden-attribute). */
+#launch-form .fields[hidden] {
+  display: none;
 }
 
 /* REQ-9's Settings dialog reuses the same fields/fieldset.seg/seg-track pattern as the
@@ -2941,12 +2984,203 @@ fieldset.seg legend {
   white-space: nowrap;
 }
 
+/* `#launch-button` never shrinks below its one-line label under `.modal-foot`'s flex
+ * layout, even for a long danger label ("Launch without checks") beside a long path —
+ * `#launch-target` above is the one that tolerates shrinking (it ellipsises); neither
+ * `.btn` nor a flex item sets `flex-shrink`/`white-space` by default, so this needs
+ * stating explicitly. */
+#launch-button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 #launch-target b {
   color: var(--fg);
   font-weight: 500;
 }
 
-#launch-target .branch[hidden] {
+#launch-target .suffix[hidden] {
+  display: none;
+}
+
+/* ── past-sessions list (Resume tab) ── */
+
+#past-sessions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto 1fr;
+  max-height: 260px;
+  background: var(--well);
+  border-bottom: 1px solid var(--line);
+}
+
+#past-sessions[hidden] {
+  display: none;
+}
+
+.past-head {
+  grid-column: 1;
+  grid-row: 1;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-raised);
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+
+#past-filter {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+  margin-right: 12px;
+  width: 180px;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--fg);
+  background: var(--well);
+  border: 1px solid var(--line-control);
+  padding: 3px 7px;
+}
+
+.past-list {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  overflow: auto;
+}
+
+.past-list .row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1px 12px;
+  width: 100%;
+  padding: 7px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--mono);
+  color: var(--fg-muted);
+}
+
+.past-list .row:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.past-list .row[aria-pressed="true"] {
+  background: var(--bg-hover);
+  color: var(--fg);
+  box-shadow: inset 3px 0 0 var(--amber);
+}
+
+.past-list .row:disabled {
+  cursor: default;
+  color: var(--disabled-fg);
+}
+
+/* `.tw` holds `.t` and the chip as flex siblings, never chip-inside-`.t` — `.t`'s own
+ * `overflow:hidden` would clip an appended chip off-screen for a long title. `.t`
+ * shrinks and ellipsises, the chip never does, so the chip stays inside the row for any
+ * title length. */
+.past-list .tw {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.past-list .t {
+  font-size: var(--fs-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.past-list .chip-danger {
+  flex: 0 0 auto;
+}
+
+.past-list .age {
+  font-size: var(--fs-2xs);
+  color: var(--fg-dim);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.past-list .lp {
+  grid-column: 1 / -1;
+  font-size: var(--fs-2xs);
+  color: var(--fg-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.past-list .empty,
+.past-list .trunc {
+  padding: 10px 12px;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--fg-dim);
+}
+
+/* ── the dangerous Start-in segment + its warning (design-system §3: --danger,
+ * never --rose, since --rose stays reserved for the Failed state) ── */
+
+.seg-track label.bypass {
+  color: var(--fg-muted);
+}
+
+.seg-track label.bypass:has(input:checked) {
+  background: var(--danger);
+  color: var(--danger-fg);
+  box-shadow: none;
+}
+
+.bypass-warn {
+  grid-column: 1 / -1;
+  margin: -3px 0 0;
+  padding: 7px 10px;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--banner-fg);
+  background: var(--banner-bg);
+  border: 1px solid var(--banner-line);
+}
+
+.bypass-warn b {
+  /* kb:lesson/mockup-vindicates-markup-not-cascade: the mockup's bold rule used
+   * --danger-fg (text-on-danger-fill) unmeasured on --banner-bg, ~1.2:1 in the light
+   * theme. The warning's own --banner-fg/--banner-bg pair is already contrast-checked
+   * (contrast-pairs.json), so the bold word inherits it instead of borrowing a token
+   * that means something else here. */
+  color: var(--banner-fg);
+}
+
+/* [hidden] is already covered by `.fields [hidden]` above — #bypass-warning is always a
+ * direct child of `.fields`, same as #model-error. */
+
+/* ── the danger `bypass` chip — a rail card's title row, the mainhead and a tile header
+ * (design-system §3: state colour is meaning, --danger only ever means this) ── */
+
+.chip-danger {
+  font-family: var(--mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--danger-fg);
+  background: var(--danger);
+  border: 1px solid var(--danger-line);
+  padding: 0 5px;
+}
+
+.chip-danger[hidden] {
   display: none;
 }
 

@@ -36,6 +36,34 @@ export interface LaunchRequest {
   permissionMode: PermissionMode;
 }
 
+/** kb:anchor/sessions.create's resume-from-list request form: `resumeSessionId`
+ * combined with no `title`/`model`/`permissionMode` — the daemon reads the transcript's
+ * own last mode and model, so the dialog sends neither. */
+export interface ResumeListRequest {
+  directory: string;
+  resumeSessionId: string;
+}
+
+/** kb:anchor/pastsessions.list: one of a directory's Claude Code sessions, read
+ * from its transcripts. `permissionMode` is the transcript's own last permission-mode
+ * line verbatim (an open string, not the dialog's `PermissionMode` union — an unrecognised
+ * value just never matches `"bypassPermissions"` and never matches a Start-in radio).
+ * `openSessionId` is the id of an alive Muster session already bound to this
+ * `claudeSessionId`, or `null` (kb:adr/launch-resume-running-guard-muster-only). */
+export interface PastSession {
+  claudeSessionId: string;
+  title: string | null;
+  lastPrompt: string | null;
+  lastActiveAt: string;
+  permissionMode: string | null;
+  openSessionId: number | null;
+}
+
+export interface PastSessionsResult {
+  sessions: PastSession[];
+  truncated: boolean;
+}
+
 export const MODEL_VERDICT_KINDS = ["recognized", "unrecognized", "unchecked"] as const;
 export type ModelVerdictKind = (typeof MODEL_VERDICT_KINDS)[number];
 
@@ -98,6 +126,33 @@ function parseBrowseEntry(value: unknown): BrowseEntry | null {
   return { name, path, isGit };
 }
 
+function parsePastSession(value: unknown): PastSession | null {
+  if (!isRecord(value)) return null;
+  const claudeSessionId = value["claudeSessionId"];
+  const title = value["title"];
+  const lastPrompt = value["lastPrompt"];
+  const lastActiveAt = value["lastActiveAt"];
+  const permissionMode = value["permissionMode"];
+  const openSessionId = value["openSessionId"];
+  if (typeof claudeSessionId !== "string") return null;
+  if (title !== null && typeof title !== "string") return null;
+  if (lastPrompt !== null && typeof lastPrompt !== "string") return null;
+  if (typeof lastActiveAt !== "string") return null;
+  if (permissionMode !== null && typeof permissionMode !== "string") return null;
+  if (openSessionId !== null && typeof openSessionId !== "number") return null;
+  return { claudeSessionId, title, lastPrompt, lastActiveAt, permissionMode, openSessionId };
+}
+
+/** `GET /api/past-sessions`'s whole body (kb:anchor/pastsessions.list). */
+export function parsePastSessions(value: unknown): PastSessionsResult | null {
+  if (!isRecord(value)) return null;
+  const sessions = parseListOf(value["sessions"], parsePastSession);
+  const truncated = value["truncated"];
+  if (!sessions) return null;
+  if (typeof truncated !== "boolean") return null;
+  return { sessions, truncated };
+}
+
 function parseBrowseResult(value: unknown): BrowseResult | null {
   if (!isRecord(value)) return null;
   const path = value["path"];
@@ -138,6 +193,24 @@ function parseModelVerdicts(value: unknown): ModelVerdict[] | null {
 /** `POST /api/sessions` (kb:anchor/sessions.create). */
 export async function launchSession(body: LaunchRequest): Promise<ApiResult<Session>> {
   return requestJson("POST", "/api/sessions", parseSession, body);
+}
+
+/** `POST /api/sessions` with `resumeSessionId` (kb:anchor/sessions.create's
+ * resume-from-list form). Errors add `404 unknown_claude_session` and
+ * `409 already_open` to the existing `directory`/`launch_failed` set — both surface
+ * through the same `#launch-error` path as any other launch refusal. */
+export async function resumeFromList(body: ResumeListRequest): Promise<ApiResult<Session>> {
+  return requestJson("POST", "/api/sessions", parseSession, body);
+}
+
+/** `GET /api/past-sessions` (kb:anchor/pastsessions.list) — the Resume tab's list,
+ * newest first. */
+export async function fetchPastSessions(directory: string): Promise<ApiResult<PastSessionsResult>> {
+  return requestJson(
+    "GET",
+    `/api/past-sessions?directory=${encodeURIComponent(directory)}`,
+    parsePastSessions,
+  );
 }
 
 /** `GET /api/repos` (kb:anchor/repos.list) — the MRU picker list. */

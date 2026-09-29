@@ -19,20 +19,23 @@ import {
   type Repo,
 } from "../api/launch";
 import type { App } from "../app";
-import { permissionModeToCheck } from "../sessions/permission";
+import { launchPrimaryFace, permissionModeToCheck } from "../sessions/permission";
 import { checkRadioValue, requireElement, requireElements } from "../dom";
 import { renderActionError } from "../render/actionerror";
-import type { PermissionMode, Session } from "../protocol/session";
+import { isPermissionMode, type PermissionMode, type Session } from "../protocol/session";
 import { renderCrumbs } from "../render/crumbs";
 import {
   renderBrowseListing,
   renderBrowseLoading,
+  renderLaunchButtonFace,
   renderLaunchFooter,
   renderModelRowState,
   renderRecentsList,
+  renderResumeFooter,
   type ModelSelection,
 } from "../render/launch";
 import { splitCrumbs } from "./launchcrumbs";
+import { initLaunchResume, type LaunchResumeElements } from "./launchresume";
 import {
   applyVerdicts,
   deriveModelRowState,
@@ -63,12 +66,26 @@ export interface LaunchModalElements {
    * control (`kb:adr/launch-unrecognized-model-marked-blocks-launch`). */
   modelError: HTMLElement;
   permissionModeRadios: HTMLInputElement[];
+  /** Shown iff the New tab's checked mode is `bypassPermissions`
+   * (kb:adr/launch-bypass-offered-with-danger-guardrails). */
+  bypassWarning: HTMLElement;
   launchError: HTMLElement;
+  /** The footer's leading label — "Launch in " (New tab) or "Resume " (Resume tab); the
+   * only piece of `#launch-target` that differs by tab and isn't one of
+   * `renderLaunchFooter`/`renderResumeFooter`'s own params (`updateFooter` below writes
+   * it directly, the same "trivial one-off write stays in the controller" convention
+   * `features/issue.ts`/`features/rail.ts` already use). */
+  launchTargetLabel: HTMLElement;
   launchTargetPath: HTMLElement;
-  launchTargetBranch: HTMLElement;
+  /** Shared by both tabs' footer readouts — a git-branch clause (New) or " in <path>"
+   * (Resume), never both at once. */
+  launchTargetSuffix: HTMLElement;
   cancelButton: HTMLButtonElement;
   launchButton: HTMLButtonElement;
   form: HTMLFormElement;
+  /** The New | Resume tab pair and the Resume tab's own elements — handed to
+   * `./launchresume.ts`'s `initLaunchResume`, this controller's one sub-controller. */
+  resume: LaunchResumeElements;
 }
 
 export interface LaunchModalHandlers {
@@ -123,6 +140,20 @@ function initLaunchModal(
   // before its `await` — see there for why that capture matters); read by
   // `updateModelRowState`.
   let modelVerdicts: VerdictStore = EMPTY_VERDICT_STORE;
+
+  // The Resume tab's own sub-controller (features/launchresume.ts) — owns the tab pair
+  // itself, its fetch/filter/selection state and its own submit call. `onFaceChange`
+  // funnels every event that could move `#launch-button`'s face, its footer text or its
+  // disabled state through the one `refreshDialogFace` recompute below, the same single
+  // recompute the New tab's own mode/model-verdict changes go through.
+  const resume = initLaunchResume(elements.resume, {
+    onFaceChange: () => refreshDialogFace(),
+    // A tab switch or picking a different row drops any stale `#launch-error` (the 404
+    // from a deleted transcript must not survive a switch back to New). Narrower than
+    // `onFaceChange` on purpose — see `LaunchResumeHandlers.onUserAction`'s own doc for
+    // why a fetch landing must not also clear it.
+    onUserAction: () => clearError(),
+  });
 
   function updateCustomModelVisibility(): void {
     const isOther = checkedValue(elements.modelRadios) === "other";
@@ -203,8 +234,13 @@ function initLaunchModal(
     return checkedValue(elements.modelRadios) ?? "";
   }
 
+  // Reads the checked radio's own live value, deliberately NOT via
+  // `permissionModeToCheck` — that function's `bypassPermissions` -> `auto` override is
+  // only for restoring a stored mode; a deliberately checked bypass radio must reach
+  // `submit()` verbatim.
   function selectedPermissionMode(): PermissionMode {
-    return permissionModeToCheck(checkedValue(elements.permissionModeRadios));
+    const value = checkedValue(elements.permissionModeRadios);
+    return isPermissionMode(value) ? value : "auto";
   }
 
   // The "write the message, toggle hidden" message-region idiom already
@@ -280,14 +316,58 @@ function initLaunchModal(
     // only honest source is a recent whose served path matches (derived, like `pressed`,
     // not tracked separately as "how did we get here").
     const branch = path ? (repos.find((repo) => repo.path === path)?.branch ?? null) : null;
-    renderLaunchFooter(elements.launchTargetPath, elements.launchTargetBranch, path, branch);
+    renderLaunchFooter(elements.launchTargetPath, elements.launchTargetSuffix, path, branch);
+  }
+
+  /** The tab-aware half of the footer: New keeps its existing path/branch readout;
+   * Resume shows the selected row's title in the same `<b>`/suffix pair (never both at
+   * once — only one tab is ever showing). */
+  function updateFooter(): void {
+    if (resume.isActive()) {
+      elements.launchTargetLabel.textContent = "Resume ";
+      renderResumeFooter(
+        elements.launchTargetPath,
+        elements.launchTargetSuffix,
+        resume.selectedTitle(),
+        current?.path ?? null,
+      );
+      return;
+    }
+    elements.launchTargetLabel.textContent = "Launch in ";
+    renderFooter();
+  }
+
+  /** The one recompute for everything that follows "which tab, which mode/selection is
+   * showing" — the primary button's face, `#bypass-warning`'s visibility (New tab only),
+   * the footer text and (Resume tab only) `#launch-button`'s disabled state. Runs on
+   * every dialog open/reset, New-tab mode change, and every `resume`-reported change
+   * (`LaunchResumeHandlers.onFaceChange`) — the New tab's own model-verdict-driven
+   * disabling stays `updateModelRowState`'s job, called from here so a tab switch back to
+   * New restores it. */
+  function refreshDialogFace(): void {
+    const tab = resume.isActive() ? "resume" : "new";
+    const mode = selectedPermissionMode();
+    const face = launchPrimaryFace(tab, mode, resume.selectedMode());
+    renderLaunchButtonFace(elements.launchButton, face);
+    // Derived from `face.danger` itself, not a second `=== "bypassPermissions"` literal —
+    // `launchPrimaryFace`'s New-tab branch already computed `danger` from this same
+    // `mode`, so the warning can never disagree with the button it sits beside.
+    // `#bypass-warning` is New-tab-only markup (index.html), hence the `tab === "new"`
+    // gate stays; only the mode comparison moved.
+    elements.bypassWarning.hidden = !(tab === "new" && face.danger);
+    if (tab === "resume") {
+      elements.launchButton.disabled = !resume.hasSelection();
+    } else {
+      updateModelRowState();
+    }
+    updateFooter();
   }
 
   function renderAll(): void {
     renderRecents();
     updateCrumbs();
     renderListing();
-    renderFooter();
+    refreshDialogFace();
   }
 
   /** `navigate()`'s outcome: whether the browse it issued landed, failed, or was
@@ -312,6 +392,10 @@ function initLaunchModal(
       // not — see `showReposError`.
       if (!reposErrorPersistent) clearError();
       current = result.value;
+      // The Resume tab refetches whenever the listed directory changes — every
+      // navigation (initial open, a Recent, a child descend, ⌘↑) goes through this one
+      // door.
+      resume.onDirectoryChanged(current.path);
       renderAll();
       return "ok";
     }
@@ -390,6 +474,8 @@ function initLaunchModal(
     reposLoaded = false;
     touched = { model: false, mode: false };
     modelVerdicts = resetVerdictStore(modelVerdicts);
+    // Every open lands on New, regardless of how the dialog was last left.
+    resume.reset();
     elements.titleInput.value = "";
     elements.customModelInput.value = "";
     setModel(DEFAULT_MODEL);
@@ -401,7 +487,10 @@ function initLaunchModal(
     renderAll();
   }
 
-  async function submit(): Promise<void> {
+  /** The New tab's own submit — split out of `submit()` below purely to keep that
+   * function's cognitive complexity under the project ceiling; `submit()` is still the
+   * one place that decides New vs. Resume. */
+  async function submitNew(): Promise<void> {
     const directory = current?.path;
     if (!directory) {
       showError("Choose a directory to launch into.");
@@ -455,11 +544,31 @@ function initLaunchModal(
     handlers.onLaunched(result.value);
   }
 
+  async function submit(): Promise<void> {
+    if (!resume.isActive()) {
+      await submitNew();
+      return;
+    }
+    const result = await resume.submit();
+    if (!result.ok) {
+      showError(result.error.message);
+      return;
+    }
+    elements.dialog.close();
+    handlers.onLaunched(result.value);
+  }
+
   function openModal(): void {
     if (elements.dialog.open) return;
     resetForm();
     requestModelVerdicts(MODEL_PRESETS);
     elements.dialog.showModal();
+    // The dialog's own default-focus algorithm would otherwise land on
+    // `#launch-tab-new` (the head tab pair is now the first focusable descendant in DOM
+    // order) — same-state Enter on an already-selected tab is a no-op, never reaching the
+    // form. Every open lands on New (`resetForm` above), so the pre-existing target is
+    // always this field.
+    elements.titleInput.focus();
     void initOpen();
   }
 
@@ -529,6 +638,7 @@ function initLaunchModal(
   for (const radio of elements.permissionModeRadios) {
     radio.addEventListener("change", () => {
       touched.mode = true;
+      refreshDialogFace();
     });
   }
 
@@ -563,6 +673,9 @@ export interface LaunchDeps {
  * (kb:adr/launch-opens-launched-session, kb:adr/tiles-launched-session-promoted-into-grid).
  * Returns the `LaunchHandle` `features/shortcuts.ts` dispatches ⌥⌘N/⌘↑ through. */
 export function initLaunch(app: App, deps: LaunchDeps): LaunchHandle {
+  const pickerEl = requireElement<HTMLElement>(".picker");
+  const fieldsEl = requireElement<HTMLElement>("#launch-form .fields");
+
   const elements: LaunchModalElements = {
     dialog: requireElement<HTMLDialogElement>("#launch-dialog"),
     openButtons: [requireElement<HTMLButtonElement>("#new-session-button")],
@@ -577,12 +690,24 @@ export function initLaunch(app: App, deps: LaunchDeps): LaunchHandle {
     customModelInput: requireElement<HTMLInputElement>("#custom-model-input"),
     modelError: requireElement<HTMLElement>("#model-error"),
     permissionModeRadios: requireElements<HTMLInputElement>('input[name="permission-mode"]'),
+    bypassWarning: requireElement<HTMLElement>("#bypass-warning"),
     launchError: requireElement<HTMLElement>("#launch-error"),
+    launchTargetLabel: requireElement<HTMLElement>("#launch-target .tlabel"),
     launchTargetPath: requireElement<HTMLElement>("#launch-target b"),
-    launchTargetBranch: requireElement<HTMLElement>("#launch-target .branch"),
+    launchTargetSuffix: requireElement<HTMLElement>("#launch-target .suffix"),
     cancelButton: requireElement<HTMLButtonElement>("#cancel-button"),
     launchButton: requireElement<HTMLButtonElement>("#launch-button"),
     form: requireElement<HTMLFormElement>("#launch-form"),
+    resume: {
+      tabNewBtn: requireElement<HTMLButtonElement>("#launch-tab-new"),
+      tabResumeBtn: requireElement<HTMLButtonElement>("#launch-tab-resume"),
+      pickerEl,
+      fieldsEl,
+      pastSection: requireElement<HTMLElement>("#past-sessions"),
+      pastHeadEl: requireElement<HTMLElement>("#past-sessions .past-head"),
+      pastFilterInput: requireElement<HTMLInputElement>("#past-filter"),
+      pastListEl: requireElement<HTMLElement>("#past-list"),
+    },
   };
 
   return initLaunchModal(elements, {

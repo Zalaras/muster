@@ -1,11 +1,11 @@
 # Plan: Resume and Dangerously Allow
 
 **Created**: 2026-09-27
-**Status**: approved
+**Status**: completed
 **Work Type**: full-stack
 **E2E Scope**: new-specs
 **Fixture plan**: past-sessions.spec.ts daemon (a resume opens the launched session — auto-focus and rail counts are daemon-global); bypass.spec.ts daemon (a launch opens the launched session, and the chip is asserted on the rail's only card and its only tile)
-**Features**: launch, lifecycle, actions, rail, focus, tiles, connection, rename
+**Features**: launch, past-sessions, lifecycle, actions, rail, focus, tiles, connection, rename, ingest
 **Description**: Resume a Claude Code session Muster did not start (#62), and offer the bypass-permissions Start-in mode (#61), both from the launch dialog.
 
 ## Overview
@@ -50,7 +50,7 @@ guardrails below enough without the permissions editor. dont-ask stays unoffered
   its bypass warning`). Muster never answers either prompt.
 - [ ] REQ-6: `GET /api/past-sessions?directory=<abs>` lists that directory's Claude Code sessions
   from its transcripts, newest first, with title, last prompt, last-active time, last permission
-  mode and the id of an alive Muster session already bound to it.
+  mode and the id of an alive Muster session already bound to it or pending a resume of it (*Amended* 2026-09-27, `decisions/pending-resume-holds-id`).
 - [ ] REQ-7: The dialog head carries a `New` / `Resume` tab pair; ⌥⌘N and the New session button
   always open on New.
 - [ ] REQ-8: The Resume tab shows the picker and the listed directory's past sessions in place of
@@ -64,8 +64,8 @@ guardrails below enough without the permissions editor. dont-ask stays unoffered
 - [ ] REQ-11: Selecting a past session whose `permissionMode` is `bypassPermissions` makes the
   button danger-filled `Resume without checks`; any other selection shows `Resume`, amber.
 - [ ] REQ-12: No path leaves two alive Muster sessions bound to one Claude session id: a
-  `resumeSessionId` already bound to an alive session is refused `409 already_open`, and the
-  Resume action on a dead session whose Claude session id another alive session holds is refused
+  `resumeSessionId` already bound to (or pending a resume by) an alive session is refused `409 already_open`, and the
+  Resume action on a dead session whose Claude session id another alive session holds (bound or pending a resume; *Amended* 2026-09-27, `decisions/pending-resume-holds-id`) is refused
   `409 not_resumable`.
 - [ ] REQ-13: A resumed-from-list session opens like any launch (`kb:adr/launch-opens-launched-session`,
   `kb:adr/tiles-launched-session-promoted-into-grid`).
@@ -107,7 +107,9 @@ The error message becomes `permissionMode must be one of default, plan, acceptEd
 **Response 201:** the Session object (`kb:anchor/ws.session`), `state: "started"`, broadcast as
 `sessionUpsert` before any hook, as a launch is. For a resume from the list: `title` is the past
 session's title (null if it has none), `model` is `{ "id": <the transcript's last assistant model>,
-"displayName": null }` or null when none is recorded, `permissionMode` is
+"displayName": <the same id> }` or null when none is recorded (*Amended* 2026-09-27, user
+decision `decisions/display-name-falls-back-to-id`: the id, as for any launch, until the status line
+confirms it), `permissionMode` is
 `{ "value": <mode passed>, "source": "seed" }`, `claudeSessionId` null until its
 `SessionStart{source:"resume"}` binds it (`kb:adr/ingest-envelope-authoritative-binding`),
 `firstLaunchHere` true iff the directory had no repo row.
@@ -119,7 +121,7 @@ session's title (null if it has none), `model` is `{ "id": <the transcript's las
   `{"error": {"code": "invalid_request", "message": "resumeSessionId must not be empty"}}`
 - 404 `unknown_claude_session`: no transcript for that id among the directory's past sessions.
   `{"error": {"code": "unknown_claude_session", "message": "no Claude Code session with that id in this directory"}}`
-- 409 `already_open`: an alive Muster session is bound to it; `id` is that session.
+- 409 `already_open`: an alive Muster session is bound to it, or was spawned to resume it and has not bound yet; `id` is that session (*Amended* 2026-09-27, user decision `decisions/pending-resume-holds-id`: "bound to" includes an alive row spawned with `--resume` for this id that has not bound yet).
   `{"error": {"code": "already_open", "message": "that Claude Code session is already open in Muster", "id": 7}}`
 
 Existing errors (`directory` rules, `launch_failed`) apply to both forms, checked in the order
@@ -136,7 +138,7 @@ directory → combination → existence → already_open.
     "lastPrompt": "string | null — the last last-prompt line, first line only, truncated to 200 chars",
     "lastActiveAt": "ISO8601 — the transcript file's modification time",
     "permissionMode": "string | null — the last permission-mode line, verbatim (open string); null when none",
-    "openSessionId": "number | null — the id of an alive Muster session bound to this claudeSessionId" } ],
+    "openSessionId": "number | null — the id of an alive Muster session bound to, or pending a resume of, this claudeSessionId" } ],
   "truncated": "boolean — true iff more than 200 sessions matched and only the newest 200 are listed" }
 ```
 Ordered `lastActiveAt` descending. Only sessions whose recorded `cwd` equals the directory (after
@@ -151,8 +153,9 @@ Read-only: the daemon never writes under Claude Code's projects directory.
 
 ### WS: daemon→UI `sessionUpsert` (Session object, changed)
 No shape change. `permissionMode.value`'s observed values gain `"bypassPermissions"`
-(`kb:fact/bypass-permission-mode-on-wire`). `model.displayName` may be null on a resumed-from-list
-session until the status line confirms the model.
+(`kb:fact/bypass-permission-mode-on-wire`). `model.displayName` on a resumed-from-list session is
+the model id until the status line confirms the model, as for any launch (*Amended* 2026-09-27,
+user decision `decisions/display-name-falls-back-to-id`).
 
 ## Schema Changes
 
@@ -184,7 +187,7 @@ sequenceDiagram
     P-->>UI: 200 newest first
     UI->>S: POST /api/sessions {directory, resumeSessionId}
     S->>A: look the id up again (exists? mode? model? title?)
-    alt bound to an alive row
+    alt held by an alive row (bound or pending a resume)
         S-->>UI: 409 already_open
     else found
         S->>S: TouchRepo, MergeSettings, CreateSession (started, seeds)

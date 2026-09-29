@@ -144,3 +144,75 @@ func mustUpsertRepo(t *testing.T, st *Store, path string) Repo {
 	require.NoError(t, err)
 	return repo
 }
+
+// TestTouchRepo_NeverBeforeSeenPathCreatesRowWithNullModelAndMode covers D15/REQ-15's
+// new-directory half: a resume from the list carries no model or Start-in choice of its
+// own, so a first-ever row for its directory gets both columns null, not empty strings.
+func TestTouchRepo_NeverBeforeSeenPathCreatesRowWithNullModelAndMode(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+
+	repo, created, err := st.TouchRepo(ctx, TouchRepoParams{Path: "/tmp/resumed", Name: "resumed", IsGit: true})
+	require.NoError(t, err)
+
+	assert.True(t, created)
+	assert.Equal(t, "/tmp/resumed", repo.Path)
+	assert.Equal(t, "resumed", repo.Name)
+	assert.True(t, repo.IsGit)
+	assert.Equal(t, 1, repo.LaunchCount)
+	assert.Nil(t, repo.LastModel)
+	assert.Nil(t, repo.LastPermissionMode)
+}
+
+// TestTouchRepo_ExistingRowAdvancesMRUAndCountButNeverTouchesModelOrMode is D15's core
+// guarantee: a resume from an already-known directory bumps launch_count and
+// last_launched_at like any launch, refreshes name/is_git like UpsertRepo does, but must
+// never clobber the model/mode a real launch last remembered there.
+func TestTouchRepo_ExistingRowAdvancesMRUAndCountButNeverTouchesModelOrMode(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+
+	first, _, err := st.UpsertRepo(ctx, UpsertRepoParams{
+		Path: "/tmp/proj", Name: "proj", IsGit: false, Model: "opus", PermissionMode: "acceptEdits",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, first.LastModel)
+
+	second, created, err := st.TouchRepo(ctx, TouchRepoParams{Path: "/tmp/proj", Name: "proj-renamed", IsGit: true})
+	require.NoError(t, err)
+
+	assert.False(t, created, "the second call into an already-known path is not firstLaunchHere")
+	assert.Equal(t, first.ID, second.ID, "one repo row, not two")
+	assert.Equal(t, 2, second.LaunchCount)
+	assert.True(t, second.IsGit, "is_git is refreshed, exactly like UpsertRepo")
+	assert.Equal(t, "proj-renamed", second.Name, "name is refreshed, exactly like UpsertRepo")
+	require.NotNil(t, second.LastModel, "TouchRepo must never null out a model UpsertRepo already recorded")
+	assert.Equal(t, "opus", *second.LastModel)
+	require.NotNil(t, second.LastPermissionMode)
+	assert.Equal(t, "acceptEdits", *second.LastPermissionMode)
+
+	rows, err := st.ListRepos(ctx)
+	require.NoError(t, err)
+	assert.Len(t, rows, 1)
+}
+
+// TestTouchRepo_TwoCallsIncrementLaunchCountTwice covers the plain MRU/count bump with
+// no UpsertRepo in between — TouchRepo's own repeat-call shape, not just its interaction
+// with UpsertRepo above.
+func TestTouchRepo_TwoCallsIncrementLaunchCountTwice(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+
+	first, created1, err := st.TouchRepo(ctx, TouchRepoParams{Path: "/tmp/only-resumed", Name: "only-resumed", IsGit: false})
+	require.NoError(t, err)
+	require.True(t, created1)
+	assert.Equal(t, 1, first.LaunchCount)
+	assert.Nil(t, first.LastModel)
+
+	second, created2, err := st.TouchRepo(ctx, TouchRepoParams{Path: "/tmp/only-resumed", Name: "only-resumed", IsGit: false})
+	require.NoError(t, err)
+
+	assert.False(t, created2)
+	assert.Equal(t, 2, second.LaunchCount)
+	assert.Nil(t, second.LastModel, "a path only ever touched, never upserted, still has no model")
+}

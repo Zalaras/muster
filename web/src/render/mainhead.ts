@@ -6,7 +6,8 @@
 // per-session card/tile templates) — features/focus.ts wires the three buttons' click
 // listeners once at startup and this module only ever toggles their `disabled` state.
 import type { Session } from "../protocol/session";
-import { canResume, mainheadMeta, resumeDisabledReason } from "../sessions/card";
+import { requireElement } from "../dom";
+import { bypassChip, canResume, mainheadMeta, resumeDisabledReason } from "../sessions/card";
 import type { ShellActivityIndicator } from "../terminal/shellactivity";
 import type { SessionSurfaceState } from "../terminal/surfaceswitch";
 import { updateSurfaceSegment, type SurfaceSegmentRefs } from "./surfaceseg";
@@ -81,6 +82,11 @@ export function renderMainhead(
   // an open edit on disconnect).
   elements.renameBtn.disabled = !connected;
   elements.metaEl.textContent = mainheadMeta(session, now);
+  // The danger `bypass` chip, shared markup/class with a rail card and a tile
+  // header (sessions/card.ts's `bypassChip`) — looked up on `elements.root` rather than a
+  // dedicated `MainheadElements` field, matching `render/tiles.ts`'s `updateTileChrome`
+  // (a `requireElement` lookup per chrome slot, not one field per slot).
+  requireElement<HTMLElement>(".chip-danger", elements.root).hidden = !bypassChip(session);
   elements.endBtn.disabled = !connected || !session.alive;
   elements.resumeBtn.disabled = !connected || session.alive || !canResume(session.claudeSessionId);
   // A disabled-for-no-claudeSessionId Resume says why, not just sits greyed.

@@ -123,6 +123,27 @@ type Manager struct {
 	// client-supplied id racing it.
 	locks keyedlock.Locks[int64]
 
+	// claudeLocks is the per-Claude-session-id lock guarding the one-alive-row claim
+	// (kb:adr/launch-resume-one-alive-row-per-claude-session): keyed on the Claude
+	// session id being resumed, not a Muster session id, because launchResume's
+	// check-then-claim runs before its own row even exists — locks keyed by Muster id
+	// can't serialise against a row that hasn't been allocated yet. Held by both
+	// launchResume (internal/server/launcherpast.go) and the Resume action
+	// (internal/server/launcher.go) across their whole
+	// check-AliveByClaudeSessionID-then-spawn body, so the two can never both pass the
+	// check for the same Claude session id.
+	//
+	// Unlike locks, no caller ever calls Forget on an entry here, and none should: per
+	// keyedlock.Locks.Forget's own doc, forgetting a key lets a later Lock on it allocate
+	// a fresh *sync.Mutex that shares no exclusion with anyone still queued on the old
+	// one — the exact double-claim this guard exists to prevent, reopened for whichever
+	// Claude session id got Forgotten mid-flight. A Claude session id is never reused the
+	// way a Muster row's id slot is, so leaving every entry in place grows this map by one
+	// small entry per distinct Claude session id ever resumed through Muster, for the
+	// daemon's whole life — accepted as bounded-by-actual-usage growth on a personal,
+	// single-user daemon that restarts periodically, not a correctness issue.
+	claudeLocks keyedlock.Locks[string]
+
 	// writeChain is a per-session write-ordering turnstile, guarded by mu itself (map
 	// access only, same discipline locks above keeps for its own map): writeChain[id] is
 	// always the completion signal of the most recently *scheduled* persist for id.
@@ -182,6 +203,17 @@ type Manager struct {
 // a Remove (keyedlock.Locks.Forget's doc).
 func (m *Manager) LockSession(id int64) (unlock func()) {
 	return m.locks.Lock(id)
+}
+
+// LockClaudeSession acquires claudeSessionID's resume-claim lock and returns the func
+// that releases it (kb:adr/launch-resume-one-alive-row-per-claude-session). Unlike
+// LockSession, it is never held for a whole session's lifetime — only from a resume
+// path's AliveByClaudeSessionID check through the point its claim becomes durably
+// visible in m.sessions (CreateSession's pendingResumeClaudeSessionID, or RecordResume's
+// Alive flip), after which AliveByClaudeSessionID alone keeps the guard without this
+// lock held.
+func (m *Manager) LockClaudeSession(claudeSessionID string) (unlock func()) {
+	return m.claudeLocks.Lock(claudeSessionID)
 }
 
 // NewManager builds a Manager. PaneChecker, PaneSnapshotter and TmuxSessions are all
@@ -244,6 +276,13 @@ type CreateParams struct {
 	Model           string
 	FirstLaunchHere bool
 
+	// ResumeClaudeSessionID is set only by a resume-from-list spawn (launchResume): the
+	// Claude session id this new row was launched to resume, held via
+	// pendingResumeClaudeSessionID until its own bind lands
+	// (kb:adr/launch-resume-pending-resume-holds-id). "" for an ordinary launch, which
+	// binds to whatever id Claude Code's own first SessionStart names instead.
+	ResumeClaudeSessionID string
+
 	// MinID floors the allocated id above this value (0 = no floor) — the launcher's
 	// MaxSessionID probe of the tmux socket, passed straight through to
 	// store.InsertSessionParams.MinID (kb:adr/lifecycle-session-ids-monotonic-never-reused).
@@ -253,9 +292,22 @@ type CreateParams struct {
 // CreateSession inserts the session row (tmuxTarget still a placeholder — the launcher
 // needs this id to build the tmux pane environment before it can spawn the window) and
 // registers it in memory. No broadcast yet: staying silent until any hook can arrive is
-// satisfied by RecordLaunch, once the real tmux target is known.
+// satisfied by RecordLaunch, once the real tmux target is known. A non-empty
+// p.ResumeClaudeSessionID also registers the row's resume claim immediately
+// (kb:adr/launch-resume-pending-resume-holds-id): before this call returns, the row
+// already counts as alive-and-holding that Claude session id for
+// AliveByClaudeSessionID, since InsertSession persists a new row alive from the start.
 func (m *Manager) CreateSession(ctx context.Context, p CreateParams) (*Session, error) {
-	model := p.Model
+	// An ordinary launch always validates a non-empty model, so this only ever produces a
+	// nil column for a resumed-from-list session whose transcript recorded none
+	// (kb:anchor/sessions.create): modelFromRow then reports no Model at all,
+	// rendering "unknown" like any other null-model session
+	// (kb:adr/usage-unknown-renders-word-not-track), rather than a Model with an empty id.
+	var model *string
+	if p.Model != "" {
+		modelID := p.Model
+		model = &modelID
+	}
 
 	// Deciding railPos and advancing nextRailPos happen in the same critical section, so
 	// two concurrent CreateSession calls can never both see the same value — unlike
@@ -273,7 +325,7 @@ func (m *Manager) CreateSession(ctx context.Context, p CreateParams) (*Session, 
 		IsWorktree:      p.IsWorktree,
 		Title:           p.Title,
 		PermissionMode:  string(p.PermissionMode),
-		Model:           &model,
+		Model:           model,
 		FirstLaunchHere: p.FirstLaunchHere,
 		RailPos:         railPos,
 		MinID:           p.MinID,
@@ -283,6 +335,7 @@ func (m *Manager) CreateSession(ctx context.Context, p CreateParams) (*Session, 
 	}
 
 	sess := rowToSession(row)
+	sess.pendingResumeClaudeSessionID = p.ResumeClaudeSessionID
 
 	m.mu.Lock()
 	m.sessions[sess.ID] = sess
@@ -436,6 +489,35 @@ func (m *Manager) Resolve(claudeSessionID string) (int64, bool) {
 	defer m.mu.Unlock()
 	id, ok := m.byClaude[claudeSessionID]
 	return id, ok
+}
+
+// AliveByClaudeSessionID returns the alive Muster session holding claudeSessionID, if
+// any (kb:adr/launch-resume-one-alive-row-per-claude-session's one-alive-row guard) —
+// shared by GET /api/past-sessions' openSessionId, POST /api/sessions' resumeSessionId
+// already_open check and the Resume action's not_resumable check, so the three can never
+// disagree about which session id counts as "already open" for a given Claude session.
+// Scans m.sessions directly rather than the byClaude routing index: byClaude never
+// deletes a session's previous claude id on rebind (Apply's own doc), so after a /clear
+// it can still name a session that has since moved on to a different id, and LoadAll
+// fills it in ListSessions' unordered rows, so which of a dead and an alive row that once
+// shared an id wins depends on load order — both would make this guard answer
+// differently for the same state depending on history or a restart. Checking Alive first
+// on the row itself, instead, needs neither. "Holding" also counts a still-unbound row a
+// resume path has just claimed for this id (kb:adr/launch-resume-pending-resume-holds-id):
+// pendingResumeClaudeSessionID, set at CreateSession and cleared by applyBind once the
+// row's own resume bind lands.
+func (m *Manager) AliveByClaudeSessionID(claudeSessionID string) (int64, bool) {
+	if claudeSessionID == "" {
+		return 0, false
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, sess := range m.sessions {
+		if sess.Alive && (sess.ClaudeSessionID == claudeSessionID || sess.pendingResumeClaudeSessionID == claudeSessionID) {
+			return sess.ID, true
+		}
+	}
+	return 0, false
 }
 
 // PaneOf returns id's recorded tmux pane, if id is known — the ingest worker's

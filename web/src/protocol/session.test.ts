@@ -134,6 +134,18 @@ describe("parseSession — full kb:anchor/ws.session shape", () => {
     expect(parseSession(session)).toBeNull();
   });
 
+  // kb:adr/launch-resume-display-name-falls-back-to-id: a resumed-from-list session's
+  // model.displayName carries the transcript's model id, never null — the wire never
+  // sends null here for any session, so an explicit null is rejected the same as any
+  // other non-string displayName.
+  it("rejects a model with an explicit null displayName", () => {
+    const session = {
+      ...validSession,
+      model: { id: "claude-opus-4-1-20250805", displayName: null },
+    };
+    expect(parseSession(session)).toBeNull();
+  });
+
   it("parses permissionMode with source 'hook'", () => {
     const session = { ...validSession, permissionMode: { value: "acceptEdits", source: "hook" } };
     expect(parseSession(session)).toEqual(session);

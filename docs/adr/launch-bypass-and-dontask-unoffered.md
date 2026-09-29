@@ -1,7 +1,7 @@
 ---
 id: launch-bypass-and-dontask-unoffered
 type: decision
-status: rejected
+status: superseded
 date: 2026-09-03
 summary: The bypass-permissions and dont-ask modes stay unoffered until a permissions UI with guardrails exists; auto's guardrail is Claude Code's classifier.
 features: [launch]

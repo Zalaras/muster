@@ -25,8 +25,10 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  realpath,
   rename,
   rm,
+  utimes,
   writeFile,
 } from "node:fs/promises";
 import { createServer as createHttpServer, type Server as HttpServer } from "node:http";
@@ -210,6 +212,32 @@ async function startIssueDenyStub(): Promise<{ server: HttpServer; url: string }
       }
     });
   });
+}
+
+/**
+ * Options for `ScratchDaemon.writeTranscript()` — see that method for what each option
+ * omitted vs. present means (kb:fact/transcript-session-lines).
+ */
+export interface TranscriptFixtureOpts {
+  /** `ai-title` line's value — Claude Code's own generated title. Omit for the "no title"
+   * fixture (stub/quit-before-turn transcript, edge case 3). */
+  title?: string;
+  /** `custom-title` line's value, written for `--name` — takes precedence over `title`
+   * per the daemon's "last custom-title, else last ai-title" rule (D5); a test exercising
+   * that precedence passes both. */
+  customTitle?: string;
+  /** `last-prompt` line's value. */
+  lastPrompt?: string;
+  /** `permission-mode` line's value. Omit for the "no permission-mode line recorded"
+   * fixture (REQ-10's `default`-fallback path, edge case 16). */
+  permissionMode?: string;
+  /** The `assistant` line's `message.model` value. Omit to write no `assistant` line at
+   * all (a stub transcript never completed a turn). */
+  model?: string;
+  /** This file's mtime — `GET /api/past-sessions`'s `lastActiveAt`/ordering field. Omit to
+   * leave the real write-time mtime (fine for a single fixture; a test building several
+   * for a newest-first assertion should pass distinct, explicit values instead). */
+  mtime?: Date;
 }
 
 export interface ScratchDaemonOptions {
@@ -420,6 +448,14 @@ export class ScratchDaemon {
    */
   readonly browseRoot: string;
   /**
+   * Plan resume-and-dangerously-allow REQ-6: per-run scratch stand-in for Claude Code's
+   * own `~/.claude/projects` (`-claude-projects-dir`), passed unconditionally for every
+   * scratch daemon — same discipline as `usageTokenPath`/`claudeConfigPath` — so
+   * `GET /api/past-sessions` can never read the real developer's transcripts.
+   * `writeTranscript()` is the only writer.
+   */
+  readonly claudeProjectsDir: string;
+  /**
    * Plan usage-model-bar REQ-13/INV-4: always a scratch path inside `dataDir`, passed
    * unconditionally via `-usage-token-file` for every scratch daemon — regardless of
    * whether a given test cares about the usage-model feature — so no E2E run, in this
@@ -544,6 +580,7 @@ export class ScratchDaemon {
     this.tmuxSocket = join(dataDir, "tmux.sock");
     this.claudeBinPath = claudeBinPath; // the run-shared stub, see ensureSharedStubClaude
     this.browseRoot = join(dataDir, "browse-root");
+    this.claudeProjectsDir = join(dataDir, "claude-projects");
     this.usageTokenPath = join(dataDir, "usage-token.json");
     this.issueTokenPath = join(dataDir, "issue-token.txt");
     this.issueApiURL = issueApiURL;
@@ -607,6 +644,7 @@ export class ScratchDaemon {
       );
       daemon.denyStubServer = denyStubServer;
       await mkdir(daemon.browseRoot, { recursive: true });
+      await mkdir(daemon.claudeProjectsDir, { recursive: true });
       if (daemon.serveEmbedded) {
         // Plan embed-dashboard REQ-7: a COPY, not the shared musterdBin in place — the
         // fixture must prove a binary can be moved away from the checkout and still serve
@@ -692,6 +730,11 @@ export class ScratchDaemon {
       // about the theme feature.
       "-claude-config-file",
       this.claudeConfigPath,
+      // Plan resume-and-dangerously-allow REQ-6: unconditional on every scratch daemon —
+      // same discipline as `-claude-config-file` above — so no E2E run can ever read the
+      // real developer's `~/.claude/projects` transcripts.
+      "-claude-projects-dir",
+      this.claudeProjectsDir,
       // Plan auto-update: unconditional on every scratch daemon (Implementation Notes >
       // E2E harness) — `""` by default, which the daemon treats as "construct no update
       // manager at all" (never the real github.com/Zalaras/muster host, and never the
@@ -872,6 +915,93 @@ export class ScratchDaemon {
    */
   async writeClaudeConfig(content: string): Promise<void> {
     await writeFile(this.claudeConfigPath, content, "utf-8");
+  }
+
+  /**
+   * Plan resume-and-dangerously-allow REQ-6: writes one fixture Claude Code transcript
+   * (`<encoded-dir>/<claudeSessionId>.jsonl`) into this run's scratch `claudeProjectsDir`,
+   * for `GET /api/past-sessions` to read. The folder name is `directory`'s resolved
+   * (symlinks followed) path with every character outside `[A-Za-z0-9-]` replaced by `-`
+   * (kb:fact/transcript-dir-encoding) — the long-name-plus-hash case is daemon-unit-tested
+   * (D4) and not reproduced here. Line shapes are the session-naming lines
+   * kb:fact/transcript-session-lines measured — `type`, `sessionId` and the field each
+   * type names; every line also carries `cwd` (kb:fact/transcript-dir-encoding's "every
+   * user, assistant and attachment line carries the real cwd"), which is the only field
+   * `PastSessions` needs to tell two directories sharing one encoded folder apart. The
+   * `user`/`assistant` lines below carry nothing beyond what is measured (`type`,
+   * `sessionId`, `cwd`, and — assistant only — `entrypoint` and `message.model`); their
+   * fuller real shape is unmeasured, so nothing else is guessed here
+   * (docs/conventions.md's "never invent a wire shape"). Options are all omittable: a
+   * caller wanting the "no title" or "no permission-mode line" fixture (edge cases 3 and
+   * 16) simply leaves the corresponding option out, matching how a real stub/quit-before-
+   * turn transcript never writes that line at all.
+   */
+  async writeTranscript(
+    directory: string,
+    claudeSessionId: string,
+    opts: TranscriptFixtureOpts = {},
+  ): Promise<void> {
+    const resolvedDir = await realpath(directory);
+    const folder = resolvedDir.replace(/[^A-Za-z0-9-]/g, "-");
+    const dir = join(this.claudeProjectsDir, folder);
+    await mkdir(dir, { recursive: true });
+    const lines: Record<string, unknown>[] = [
+      { type: "user", sessionId: claudeSessionId, cwd: resolvedDir },
+    ];
+    if (opts.model !== undefined) {
+      lines.push({
+        type: "assistant",
+        sessionId: claudeSessionId,
+        cwd: resolvedDir,
+        entrypoint: "cli",
+        message: { model: opts.model },
+      });
+    }
+    if (opts.title !== undefined) {
+      lines.push({ type: "ai-title", sessionId: claudeSessionId, aiTitle: opts.title });
+    }
+    if (opts.customTitle !== undefined) {
+      lines.push({
+        type: "custom-title",
+        sessionId: claudeSessionId,
+        customTitle: opts.customTitle,
+      });
+    }
+    if (opts.lastPrompt !== undefined) {
+      lines.push({
+        type: "last-prompt",
+        sessionId: claudeSessionId,
+        lastPrompt: opts.lastPrompt,
+        leafUuid: "leaf-1",
+      });
+    }
+    if (opts.permissionMode !== undefined) {
+      lines.push({
+        type: "permission-mode",
+        sessionId: claudeSessionId,
+        permissionMode: opts.permissionMode,
+      });
+    }
+    const path = join(dir, `${claudeSessionId}.jsonl`);
+    await writeFile(path, `${lines.map((line) => JSON.stringify(line)).join("\n")}\n`, "utf-8");
+    // GET /api/past-sessions orders by the file's mtime (lastActiveAt) — an explicit
+    // mtime lets a test build several fixtures with a deterministic newest-first order
+    // with no wall-clock wait between writes (docs/conventions.md's no-sleep rule).
+    if (opts.mtime !== undefined) {
+      await utimes(path, opts.mtime, opts.mtime);
+    }
+  }
+
+  /**
+   * Removes one fixture transcript written by `writeTranscript()` — edge case 7's "a
+   * transcript deleted between list and POST" fixture (D10/E8): the row was listed
+   * successfully, then the file vanishes before the resume POST runs. `force: true`
+   * mirrors `teardown()`'s own tolerance of an already-gone path.
+   */
+  async deleteTranscript(directory: string, claudeSessionId: string): Promise<void> {
+    const resolvedDir = await realpath(directory);
+    const folder = resolvedDir.replace(/[^A-Za-z0-9-]/g, "-");
+    await rm(join(this.claudeProjectsDir, folder, `${claudeSessionId}.jsonl`), { force: true });
   }
 
   /** Kills the process, kills this run's private tmux server, closes this run's own

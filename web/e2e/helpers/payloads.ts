@@ -134,8 +134,10 @@ export function sessionStartResume(
 interface TurnActivityOpts {
   promptId?: string;
   /** Plan fix-auto-mode-select: `auto` is a fourth observed value (2.1.259 probe,
-   * docs/history/spikes/canary-fields.md "Permission-mode probe") alongside the three already here. */
-  permissionMode?: "default" | "plan" | "acceptEdits" | "auto";
+   * docs/history/spikes/canary-fields.md "Permission-mode probe") alongside the three already here.
+   * Plan resume-and-dangerously-allow: `bypassPermissions` is a fifth, reported verbatim
+   * under `--permission-mode bypassPermissions` (kb:fact/bypass-permission-mode-on-wire). */
+  permissionMode?: "default" | "plan" | "acceptEdits" | "auto" | "bypassPermissions";
   /**
    * Plan claude-status-fixes REQ-1: when set, adds the measured subagent marker —
    * `agent_id` plus `agent_type: "general-purpose"` (docs/history/spikes/canary-fields.md "Subagent

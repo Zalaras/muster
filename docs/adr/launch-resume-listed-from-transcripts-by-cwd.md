@@ -1,8 +1,8 @@
 ---
 id: launch-resume-listed-from-transcripts-by-cwd
 type: decision
-status: proposed
-date: 2026-09-27
+status: accepted
+date: 2026-09-28
 summary: The Resume tab lists a directory's Claude Code sessions by reading its transcript folder's tails, filtered by each line's recorded cwd.
 features: [launch]
 tags: [claude-code-format, user-decision]

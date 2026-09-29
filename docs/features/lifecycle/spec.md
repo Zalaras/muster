@@ -10,7 +10,7 @@ go: [internal/session/**, internal/server/sessionwire*.go, internal/store/sessio
 web: [web/src/sessions/store*.ts, web/src/sessions/live*.ts]
 e2e: [web/e2e/reconcile.spec.ts, web/e2e/helpers/session.ts]
 protocol: [state, state.displayed, state.tracked, state.transitions, state.ordering, state.liveness, ws.session, ws.session-upsert]
-refs: [kb:adr/lifecycle-session-identity-is-tmux-target, kb:adr/lifecycle-alive-flag-not-a-state, kb:adr/lifecycle-liveness-from-pane-existence, kb:adr/lifecycle-liveness-writes-stop-at-shutdown, kb:adr/lifecycle-prompt-ordering-guards, kb:adr/lifecycle-subagent-marked-events-not-stragglers, kb:adr/lifecycle-reconcile-before-first-snapshot, kb:adr/lifecycle-ended-rows-swept-next-start, kb:adr/lifecycle-resume-rebinds-existing-session, kb:adr/lifecycle-shutdown-leaves-sessions-running, kb:adr/surfaces-shell-dies-at-kill-shutdown-too, kb:adr/ingest-seq-assigned-at-ingest, kb:adr/rail-unread-inferred-from-live-terminal-client, kb:fact/hook-delivery-best-effort, kb:fact/stopfailure-replaces-stop, kb:fact/sessionend-reason-ambiguous, kb:fact/notification-types-observed, kb:fact/permission-mode-presence-split, kb:fact/subagent-hooks-carry-agent-id, kb:fact/resume-keeps-session-identity, kb:fact/clear-mints-new-session-id, kb:ref/data-model, docs/design/ux-flows.md]
+refs: [kb:adr/lifecycle-session-identity-is-tmux-target, kb:adr/lifecycle-alive-flag-not-a-state, kb:adr/lifecycle-liveness-from-pane-existence, kb:adr/lifecycle-liveness-writes-stop-at-shutdown, kb:adr/lifecycle-prompt-ordering-guards, kb:adr/lifecycle-subagent-marked-events-not-stragglers, kb:adr/lifecycle-reconcile-before-first-snapshot, kb:adr/lifecycle-ended-rows-swept-next-start, kb:adr/lifecycle-resume-rebinds-existing-session, kb:adr/lifecycle-shutdown-leaves-sessions-running, kb:adr/surfaces-shell-dies-at-kill-shutdown-too, kb:adr/ingest-seq-assigned-at-ingest, kb:adr/rail-unread-inferred-from-live-terminal-client, kb:fact/hook-delivery-best-effort, kb:fact/stopfailure-replaces-stop, kb:fact/sessionend-reason-ambiguous, kb:fact/notification-types-observed, kb:fact/permission-mode-presence-split, kb:fact/bypass-permission-mode-on-wire, kb:fact/subagent-hooks-carry-agent-id, kb:fact/resume-keeps-session-identity, kb:fact/clear-mints-new-session-id, kb:ref/data-model, docs/design/ux-flows.md]
 ---
 A Muster session is one `claude` process the daemon launched into its own tmux session.
 Its identity is the tmux target; the Claude `session_id` is a mutable attribute that
@@ -47,6 +47,7 @@ Turn-activity events (`UserPromptSubmit`, `PreToolUse`, `PostToolUse`) enter `wo
 `SessionEnd` changes no state and never writes `alive` (kb:fact/sessionend-reason-ambiguous). The permission
 mode is a last-known latch seeded by the launch form and overwritten by any event that
 carries the field; events without it never reset it (kb:fact/permission-mode-presence-split).
+Observed values include `bypassPermissions` (kb:fact/bypass-permission-mode-on-wire).
 The full table is `kb:anchor/state.transitions`; tracked variables are `kb:anchor/state.tracked`.
 
 ## The machine

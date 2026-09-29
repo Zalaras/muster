@@ -215,6 +215,7 @@ func New(cfg Config) *Server {
 	s.locate = register(s, newLocateFeature(s.manager, cfg.Locator, cfg.Logger))
 	register(s, newBrowseFeature(cfg.Launch.BrowseRoot, cfg.Logger))
 	register(s, newReposFeature(cfg.Store, cfg.Logger))
+	register(s, newPastSessionsFeature(cfg.Launch.ProjectsDir, s.manager, cfg.Logger))
 	s.issue = register(s, newIssueFeature(cfg.Issue, httpClient, s.manager, cfg.Store, cfg.DaemonVersion, cfg.ClaudeCode, cfg.Logger))
 
 	// update is built before prefs so prefs can take it as its checkEnabledSetter

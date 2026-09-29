@@ -2036,3 +2036,15 @@ three came from the cleanup. #54's entry stays in `TODO.md` as a watch entry unt
   the cleanup (xterm options, wheel handling, PTY pump, scroll-speed env, dependencies). Likely
   Claude Code's self-update to 2.1.281/2.1.282 in the same days; the developer's manual A/B
   against 2.1.280 settles it.
+
+## Together — resume a past session and bypass permissions (#61, #62) ✅ done 2026-09-28 (plan `resume-and-dangerously-allow`, via `/orchestrate`; all three review parts approved in cycle 3)
+
+- [x] **Resume old Claude session** ([#62](https://github.com/Zalaras/muster/issues/62)) — an easy way to resume Claude sessions
+  that were not started in Muster.
+  ✅ done 2026-09-28 (plan `resume-and-dangerously-allow`): the New session dialog's Resume tab lists a directory's Claude Code sessions from their transcripts and resumes one in its recorded mode.
+
+- [x] **Bypass permissions** ([#61](https://github.com/Zalaras/muster/issues/61)) — offer the bypass-permissions mode at launch
+  ("dangerously allow"). kb:adr/launch-bypass-and-dontask-unoffered (rejected, 2026-09-03) holds
+  it back until the permissions UI (§3.4, in the order above) supplies guardrails, so it lands
+  with or after that.
+  ✅ done 2026-09-28 (plan `resume-and-dangerously-allow`): a fifth Start-in mode with danger guardrails (warning line, `Launch without checks`, a `bypass` chip), never restored as a default (kb:adr/launch-bypass-offered-with-danger-guardrails).

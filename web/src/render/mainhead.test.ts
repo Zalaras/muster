@@ -102,11 +102,23 @@ function fakeSurfaceSegmentRefs(): SurfaceSegmentRefs {
   };
 }
 
+/** `#mainhead` itself: `renderMainhead` toggles `.hidden` on it directly and looks up its
+ * `.chip-danger` child (render/mainhead.ts's bypass-chip toggle) via a real `querySelector`
+ * rather than a dedicated `MainheadElements` field — see that file's own comment. */
+function fakeMainheadRoot(): HTMLElement {
+  const chip = fakeElement();
+  return {
+    textContent: "",
+    hidden: false,
+    querySelector: (selector: string) => (selector === ".chip-danger" ? chip : null),
+  } as unknown as HTMLElement;
+}
+
 function fakeMainheadElements(): MainheadElements & { attached: () => boolean } {
   const renameBtn = fakeButton();
   const nameEl = fakeNameEl(renameBtn);
   return {
-    root: fakeElement(),
+    root: fakeMainheadRoot(),
     nameEl,
     metaEl: fakeElement(),
     endBtn: fakeButton(),

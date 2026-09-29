@@ -73,7 +73,7 @@ C4Container
     Rel(tmux, claude, "Hosts", "tmux session")
     Rel(claude, datadir, "Runs wrapper scripts", "sh")
     Rel(claude, musterd, "Hooks and status line", "HTTP POST, curl")
-    Rel(musterd, claudefiles, "Finds plan via transcript; reads plan, theme", "filesystem")
+    Rel(musterd, claudefiles, "Finds plan via transcript; lists past sessions; reads plan, theme", "filesystem")
     Rel(musterd, repodir, "Writes local settings, reads .md", "filesystem")
     Rel(musterd, github, "Issues, releases", "HTTPS")
     Rel(musterd, anthropic, "Polls usage", "HTTPS, OAuth")

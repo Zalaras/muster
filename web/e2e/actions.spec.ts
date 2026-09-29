@@ -341,6 +341,143 @@ test("clicking Resume in the ended cap relaunches the session with the same clau
   }
 });
 
+// Plan resume-and-dangerously-allow — REQ-12's second clause
+// (kb:adr/launch-resume-one-alive-row-per-claude-session): Resume is refused when
+// another alive session already holds the dead session's claude id — a third
+// `not_resumable` cause alongside "still alive" (E7's own sibling test, above) and "no
+// claude id" (below). The duplicate-binding shape a resume-from-list would produce is
+// synthesized directly via two enveloped SessionStarts, rather than driven through the
+// dialog's Resume tab, which past-sessions.spec.ts owns.
+test("Resume is refused 409 not_resumable when another alive session already holds the same claude id (REQ-12)", async ({
+  page,
+  request,
+}) => {
+  const dirA = await scratchDirectory();
+  const dirB = await scratchDirectory();
+  try {
+    await page.goto(sharedDaemon().dashboardUrl);
+    const claudeId = "claude-not-resumable-dup";
+    const sessionA = await launchSession(page, sharedDaemon(), {
+      directory: dirA.path,
+      title: "not-resumable-dup-a",
+    });
+    await request.post(sharedDaemon().ingestURL("hook"), {
+      data: envelopedSessionStart(claudeId, await envelopeOpts(sessionA, sharedDaemon())),
+    });
+    const endRes = await page.request.post(
+      `${sharedDaemon().baseURL}/api/sessions/${sessionA.id}/end`,
+    );
+    expect(endRes.status()).toBe(200);
+    const cardA = sessionCard(page, "not-resumable-dup-a");
+    await expect(cardA).toHaveClass(/ended/, { timeout: 15_000 });
+
+    // A second, still-alive session bound to the SAME claude id.
+    const sessionB = await launchSession(page, sharedDaemon(), {
+      directory: dirB.path,
+      title: "not-resumable-dup-b",
+    });
+    await request.post(sharedDaemon().ingestURL("hook"), {
+      data: envelopedSessionStart(claudeId, await envelopeOpts(sessionB, sharedDaemon())),
+    });
+    // Ingest is at-most-once and processed asynchronously after the 200 (CLAUDE.md hard
+    // rule) — poll the daemon's own state rather than assuming the bind has already
+    // landed by the time the next request is sent.
+    await expect
+      .poll(
+        async () => findSession(await getState(page, sharedDaemon()), sessionB.id).claudeSessionId,
+      )
+      .toBe(claudeId);
+
+    const resumeRes = await page.request.post(
+      `${sharedDaemon().baseURL}/api/sessions/${sessionA.id}/resume`,
+    );
+    expect(resumeRes.status()).toBe(409);
+    const body = (await resumeRes.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe("not_resumable");
+    // "the message names which" (kb:anchor/sessions.resume) — the exact phrasing is
+    // daemon-impl's to choose; ruling out the two pre-existing not_resumable messages
+    // proves this is the new third cause (kb:adr/launch-resume-one-alive-row-per-claude-session).
+    expect(body.error.message.length).toBeGreaterThan(0);
+    expect(body.error.message).not.toBe(
+      "session is still alive; resume is only for a dead session",
+    );
+    expect(body.error.message).not.toBe(
+      "session never started a claude conversation and has no resumable claude session id",
+    );
+
+    // The refused row is untouched — still ended, no second spawn.
+    const stateAfter = await getState(page, sharedDaemon());
+    const stillEnded = findSession(stateAfter, sessionA.id);
+    expect(stillEnded.alive).toBe(false);
+    expect(stillEnded.endedAt).not.toBeNull();
+  } finally {
+    await dirA.cleanup();
+    await dirB.cleanup();
+  }
+});
+
+// The sibling test just above binds its bystander with an enveloped
+// SessionStart(source:"startup"); this variant binds it the way a real
+// resume-from-list session actually binds (source:"resume",
+// kb:fact/resume-keeps-session-identity) — a distinct path through
+// `AliveByClaudeSessionID`/`byClaude` the other test never exercises.
+test("Resume is refused 409 not_resumable when the same claude id is held by a resume-bound session (REQ-12)", async ({
+  page,
+  request,
+}) => {
+  const dirA = await scratchDirectory();
+  const dirB = await scratchDirectory();
+  try {
+    await page.goto(sharedDaemon().dashboardUrl);
+    const claudeId = "claude-not-resumable-resume-bound";
+    const sessionA = await launchSession(page, sharedDaemon(), {
+      directory: dirA.path,
+      title: "not-resumable-resume-bound-a",
+    });
+    await request.post(sharedDaemon().ingestURL("hook"), {
+      data: envelopedSessionStart(claudeId, await envelopeOpts(sessionA, sharedDaemon())),
+    });
+    const endRes = await page.request.post(
+      `${sharedDaemon().baseURL}/api/sessions/${sessionA.id}/end`,
+    );
+    expect(endRes.status()).toBe(200);
+    const cardA = sessionCard(page, "not-resumable-resume-bound-a");
+    await expect(cardA).toHaveClass(/ended/, { timeout: 15_000 });
+
+    // A second, still-alive session bound to the SAME claude id, via source:"resume".
+    const sessionB = await launchSession(page, sharedDaemon(), {
+      directory: dirB.path,
+      title: "not-resumable-resume-bound-b",
+    });
+    await request.post(sharedDaemon().ingestURL("hook"), {
+      data: sessionStartResume(claudeId, await envelopeOpts(sessionB, sharedDaemon())),
+    });
+    // See the sibling test above: ingest is processed asynchronously after its 200, so
+    // poll for the bind to actually land before depending on it.
+    await expect
+      .poll(
+        async () => findSession(await getState(page, sharedDaemon()), sessionB.id).claudeSessionId,
+      )
+      .toBe(claudeId);
+
+    const resumeRes = await page.request.post(
+      `${sharedDaemon().baseURL}/api/sessions/${sessionA.id}/resume`,
+    );
+    expect(resumeRes.status()).toBe(409);
+    const body = (await resumeRes.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe("not_resumable");
+    expect(body.error.message.length).toBeGreaterThan(0);
+
+    const stateAfter = await getState(page, sharedDaemon());
+    const stillEnded = findSession(stateAfter, sessionA.id);
+    expect(stillEnded.alive).toBe(false);
+    expect(stillEnded.endedAt).not.toBeNull();
+  } finally {
+    await dirA.cleanup();
+    await dirB.cleanup();
+  }
+});
+
 test("the resume SessionStart lands the card in idle with no attention or failure carried over (E8, E15, INV-6)", async ({
   page,
   request,

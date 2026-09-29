@@ -16,13 +16,15 @@ import (
 
 // errorResponse is the error envelope every non-2xx JSON response shares
 // (kb:anchor/transport): {"error": {"code", "message"}}. Paths is the `ambiguous` route's
-// one extra field (kb:anchor/sessions.locate); every other caller leaves it nil, which
-// omitempty drops, keeping their wire shape unchanged.
+// one extra field (kb:anchor/sessions.locate); ID is already_open's
+// (kb:anchor/sessions.create). Every other caller leaves both nil, which omitempty
+// drops, keeping their wire shape unchanged.
 type errorResponse struct {
 	Error struct {
 		Code    string   `json:"code"`
 		Message string   `json:"message"`
 		Paths   []string `json:"paths,omitempty"`
+		ID      *int64   `json:"id,omitempty"`
 	} `json:"error"`
 }
 
@@ -53,6 +55,17 @@ func writeJSONErrorPaths(w http.ResponseWriter, status int, code, message string
 	resp.Error.Code = code
 	resp.Error.Message = message
 	resp.Error.Paths = paths
+	writeJSON(w, status, resp)
+}
+
+// writeJSONErrorID is writeJSONError plus already_open's extra `id` field
+// (kb:anchor/sessions.create) — the one caller (writeLaunchError) that needs the
+// envelope's optional ID.
+func writeJSONErrorID(w http.ResponseWriter, status int, code, message string, id int64) {
+	var resp errorResponse
+	resp.Error.Code = code
+	resp.Error.Message = message
+	resp.Error.ID = &id
 	writeJSON(w, status, resp)
 }
 

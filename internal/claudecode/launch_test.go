@@ -8,6 +8,32 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestValidPermissionMode covers PermissionModes' membership set directly — every one of
+// the five named constants must be accepted, and an unrecognized value, an empty string
+// and each constant's own name lowercased/uppercased (a case-sensitivity check; Claude
+// Code's own values are case-sensitive) must all be rejected.
+func TestValidPermissionMode(t *testing.T) {
+	for _, mode := range []string{PermissionDefault, PermissionPlan, PermissionAcceptEdits, PermissionAuto, PermissionBypass} {
+		t.Run(mode+" is valid", func(t *testing.T) {
+			assert.True(t, ValidPermissionMode(mode))
+		})
+	}
+
+	for _, mode := range []string{"", "bogus", "BYPASSPERMISSIONS", "Default"} {
+		t.Run(mode+" is invalid", func(t *testing.T) {
+			assert.False(t, ValidPermissionMode(mode))
+		})
+	}
+}
+
+// TestPermissionModes_IncludesBypass pins bypassPermissions' membership in the exported
+// list validateLaunchRequest's error message is built from (internal/server/launcher.go) —
+// a regression here would silently drop it from that message's enumeration.
+func TestPermissionModes_IncludesBypass(t *testing.T) {
+	assert.Contains(t, PermissionModes, PermissionBypass)
+	assert.Equal(t, []string{"default", "plan", "acceptEdits", "auto", "bypassPermissions"}, PermissionModes)
+}
+
 // TestBuildArgv covers the CLI argv construction confirmed by spike S2 and REQ-4: every
 // accepted mode, "default" included, now emits its own --permission-mode flag
 // (kb:fact/permission-mode-no-flag-follows-configured-default — with no flag Claude Code
@@ -52,9 +78,13 @@ func TestBuildArgv(t *testing.T) {
 			want:   []string{"claude", "--model", "haiku", "--name", "My Session", "--permission-mode", "acceptEdits"},
 		},
 		{
-			name:   "an unrecognized permission mode adds no flag (validation is the caller's job)",
+			// kb:adr/launch-resume-passes-any-recorded-mode: BuildArgv trusts the caller
+			// and emits --permission-mode for any non-empty value, recognized or not — a
+			// resume must be able to pass a transcript-recorded mode the launch form
+			// itself never offers (e.g. dontAsk) straight through to argv.
+			name:   "an unrecognized permission mode still reaches argv verbatim (validation is the caller's job)",
 			params: LaunchParams{Model: "sonnet", PermissionMode: "bogus"},
-			want:   []string{"claude", "--model", "sonnet"},
+			want:   []string{"claude", "--model", "sonnet", "--permission-mode", "bogus"},
 		},
 		{
 			name:   "empty title never adds --name",
@@ -75,6 +105,26 @@ func TestBuildArgv(t *testing.T) {
 			params: LaunchParams{Model: "sonnet", PermissionMode: "plan", ResumeSessionID: "abc-123"},
 			want:   []string{"claude", "--model", "sonnet", "--resume", "abc-123", "--permission-mode", "plan"},
 		},
+		{
+			// D1: the bypass mode emits --permission-mode bypassPermissions exactly like
+			// any other recognized mode.
+			name:   "bypassPermissions mode adds --permission-mode bypassPermissions",
+			params: LaunchParams{Model: "sonnet", PermissionMode: "bypassPermissions"},
+			want:   []string{"claude", "--model", "sonnet", "--permission-mode", "bypassPermissions"},
+		},
+		{
+			// D2/REQ-10: a resume-from-list never names a model — the transcript's own
+			// model already comes back without one.
+			name:   "an empty model omits --model",
+			params: LaunchParams{Model: "", PermissionMode: "default"},
+			want:   []string{"claude", "--permission-mode", "default"},
+		},
+		{
+			// D2 combined with D9's resume shape: no --model, --resume present, mode explicit.
+			name:   "an empty model with ResumeSessionID omits --model but keeps --resume and --permission-mode",
+			params: LaunchParams{Model: "", PermissionMode: "plan", ResumeSessionID: "abc-123"},
+			want:   []string{"claude", "--resume", "abc-123", "--permission-mode", "plan"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -88,7 +138,7 @@ func TestBuildArgv(t *testing.T) {
 // TestBuildArgv_PermissionModeAlwaysExplicit is D10/INV-3: every accepted mode emits
 // --permission-mode <mode> exactly once, on both a plain launch and a resume relaunch.
 func TestBuildArgv_PermissionModeAlwaysExplicit(t *testing.T) {
-	for _, mode := range []string{"default", "plan", "acceptEdits", "auto"} {
+	for _, mode := range []string{"default", "plan", "acceptEdits", "auto", "bypassPermissions"} {
 		for _, resumeID := range []string{"", "abc-123"} {
 			name := mode + " resume=" + resumeID
 			t.Run(name, func(t *testing.T) {

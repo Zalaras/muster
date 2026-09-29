@@ -10,9 +10,13 @@
 # SubagentStop hook did, carrying agent_type; its exit 2 kept the agent running on the stderr
 # instruction and the retry arrived with stop_hook_active true. (A kb:fact waits until the canary
 # verifies 2.1.282: check-kb refuses a fact above internal/claudecode/observed_versions.txt.)
+#
+# Parse as JSON, top level only: the payload's background_tasks[] carries every running agent's own
+# agent_type, and a greedy grep picked the last one, so a parallel sibling's role was checked and the
+# wrong agent blocked (interface probe on 2.1.284, 2026-09-29, capture-3; kb:fact/background-tasks-field).
 in="$(cat)"
-case "$in" in *'"stop_hook_active":true'*|*'"stop_hook_active": true'*) exit 0 ;; esac
-role="$(printf '%s' "$in" | sed -nE 's/.*"agent_type"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p')"
+read -r active role < <(printf '%s' "$in" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(str(d.get("stop_hook_active") is True).lower(), d.get("agent_type") or "-")' 2>/dev/null)
+[[ "$active" == true ]] && exit 0
 case "$role" in daemon-impl|web-impl|daemon-tests|web-tests|e2e-specs) ;; *) exit 0 ;; esac
 cd "${CLAUDE_PROJECT_DIR:-.}" || exit 0
 if ! out="$(python3 .claude/skills/orchestrate/scripts/comment-checks.py "$role" 2>&1)"; then

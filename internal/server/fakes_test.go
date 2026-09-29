@@ -41,6 +41,11 @@ type fakeTmux struct {
 	// newSessionIDs records the id passed to every NewSession call, in order — D4's
 	// "the retry's id is strictly greater than the first attempt's" assertion.
 	newSessionIDs []int64
+	// newSessionArgvs records the argv passed to every NewSession call, in order — plan
+	// resume-and-dangerously-allow's D9 ("spawns --resume <id> --permission-mode <mode>
+	// with no --model and no --name") needs the actual argv, which no other fakeTmux
+	// field captures.
+	newSessionArgvs [][]string
 
 	// maxSessionIDErr/maxSessionIDCalls back MaxSessionID (plan session-lifecycle D2's
 	// launcher-degrades-to-floor-0 case).
@@ -59,11 +64,14 @@ func newFakeTmux() *fakeTmux {
 	return &fakeTmux{panes: make(map[string]bool)}
 }
 
-func (f *fakeTmux) NewSession(_ context.Context, id int64, _ string, _ map[string]string, _ []string) (target, pane string, err error) {
+func (f *fakeTmux) NewSession(_ context.Context, id int64, _ string, _ map[string]string, command []string) (target, pane string, err error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.newSessionCalls++
 	f.newSessionIDs = append(f.newSessionIDs, id)
+	argv := make([]string, len(command))
+	copy(argv, command)
+	f.newSessionArgvs = append(f.newSessionArgvs, argv)
 	if len(f.newSessionErrQueue) > 0 {
 		next := f.newSessionErrQueue[0]
 		f.newSessionErrQueue = f.newSessionErrQueue[1:]
@@ -94,6 +102,17 @@ func (f *fakeTmux) newSessionIDsSeen() []int64 {
 	out := make([]int64, len(f.newSessionIDs))
 	copy(out, f.newSessionIDs)
 	return out
+}
+
+// lastNewSessionArgv returns the argv passed to the most recent NewSession call, or nil
+// if NewSession was never called.
+func (f *fakeTmux) lastNewSessionArgv() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.newSessionArgvs) == 0 {
+		return nil
+	}
+	return f.newSessionArgvs[len(f.newSessionArgvs)-1]
 }
 
 // MaxSessionID is REQ-3's floor probe. This fake never inspects panes for it — tests set

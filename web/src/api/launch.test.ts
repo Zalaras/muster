@@ -1,6 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Session } from "../protocol/session";
-import { browse, checkModels, fetchRepos, launchSession } from "./launch";
+import {
+  browse,
+  checkModels,
+  fetchPastSessions,
+  fetchRepos,
+  launchSession,
+  resumeFromList,
+  type PastSession,
+} from "./launch";
 import { fakeResponse, fakeResponseThatThrows } from "./testfakes";
 
 const validSession: Session = {
@@ -167,27 +175,53 @@ describe("launch — launchSession (POST /api/sessions)", () => {
     expect(result).toEqual({ ok: true, value: autoSeeded });
   });
 
-  it("decodes the 400 invalid_request naming all four accepted values for an unknown permissionMode (D4)", async () => {
+  it("decodes the 400 invalid_request naming all five accepted values for an unknown permissionMode (D4)", async () => {
     fetchMock.mockResolvedValue(
       fakeResponse(false, {
         error: {
           code: "invalid_request",
-          message: "permissionMode must be one of default, plan, acceptEdits, auto",
+          message:
+            "permissionMode must be one of default, plan, acceptEdits, auto, bypassPermissions",
         },
       }),
     );
     const result = await launchSession({
       directory: "/tmp",
       model: "sonnet",
-      permissionMode: "bypassPermissions" as never,
+      // dontAsk stays refused (deliberately unoffered) even though bypassPermissions
+      // joined the accepted set — an actually-unrecognised value still needs one.
+      permissionMode: "dontAsk" as never,
     });
     expect(result).toEqual({
       ok: false,
       error: {
         code: "invalid_request",
-        message: "permissionMode must be one of default, plan, acceptEdits, auto",
+        message:
+          "permissionMode must be one of default, plan, acceptEdits, auto, bypassPermissions",
       },
     });
+  });
+
+  // REQ-1: bypassPermissions is now a fifth accepted wire value, launched the same way as
+  // any other mode — no special request shape.
+  it("serialises permissionMode: 'bypassPermissions' on the request body and decodes it back (REQ-1)", async () => {
+    const bypassSeeded: Session = {
+      ...validSession,
+      permissionMode: { value: "bypassPermissions", source: "seed" },
+    };
+    fetchMock.mockResolvedValue(fakeResponse(true, bypassSeeded));
+    const result = await launchSession({
+      directory: "/tmp",
+      model: "sonnet",
+      permissionMode: "bypassPermissions",
+    });
+    const call = fetchMock.mock.calls[0] as [string, { body: string }];
+    expect(JSON.parse(call[1].body)).toEqual({
+      directory: "/tmp",
+      model: "sonnet",
+      permissionMode: "bypassPermissions",
+    });
+    expect(result).toEqual({ ok: true, value: bypassSeeded });
   });
 });
 
@@ -530,6 +564,320 @@ describe("launch — checkModels (GET /api/models, plan maintainability-regressi
   it("never throws when the daemon is unreachable (REQ-10 — a failed request marks nothing)", async () => {
     fetchMock.mockRejectedValue(new Error("connection refused"));
     const result = await checkModels(["sonnet"]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("network_error");
+  });
+});
+
+describe("launch — fetchPastSessions (GET /api/past-sessions, kb:anchor/pastsessions.list)", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const fullSession: PastSession = {
+    claudeSessionId: "3f2a-abc",
+    title: "fix the thing",
+    lastPrompt: "run the tests",
+    lastActiveAt: "2026-09-27T00:00:00Z",
+    permissionMode: "acceptEdits",
+    openSessionId: 7,
+  };
+
+  it("URL-encodes the directory query parameter", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { sessions: [], truncated: false }));
+    await fetchPastSessions("/Users/bob/code/my project");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/past-sessions?directory=%2FUsers%2Fbob%2Fcode%2Fmy%20project",
+      { method: "GET", credentials: "same-origin" },
+    );
+  });
+
+  it("decodes a fully-populated session list, newest first as the wire sends it", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { sessions: [fullSession], truncated: false }));
+    const result = await fetchPastSessions("/Users/bob/code/muster");
+    expect(result).toEqual({ ok: true, value: { sessions: [fullSession], truncated: false } });
+  });
+
+  // A directory Claude Code has never run in, and the measured absences a not-yet-bound
+  // or untitled/unrecorded session sends — every nullable field null at once, not just
+  // one at a time, and this must decode to a real (if blank) session, never be rejected.
+  it("decodes a session with every nullable field null (no title, no prompt, no recorded mode, not open elsewhere)", async () => {
+    const bare: PastSession = {
+      claudeSessionId: "3f2a-abc",
+      title: null,
+      lastPrompt: null,
+      lastActiveAt: "2026-09-27T00:00:00Z",
+      permissionMode: null,
+      openSessionId: null,
+    };
+    fetchMock.mockResolvedValue(fakeResponse(true, { sessions: [bare], truncated: false }));
+    const result = await fetchPastSessions("/Users/bob/code/muster");
+    expect(result).toEqual({ ok: true, value: { sessions: [bare], truncated: false } });
+  });
+
+  it("decodes an empty list for a directory Claude Code has never run in", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { sessions: [], truncated: false }));
+    const result = await fetchPastSessions("/Users/bob/code/never-run");
+    expect(result).toEqual({ ok: true, value: { sessions: [], truncated: false } });
+  });
+
+  it("decodes truncated: true", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { sessions: [fullSession], truncated: true }));
+    const result = await fetchPastSessions("/Users/bob/code/muster");
+    expect(result).toEqual({ ok: true, value: { sessions: [fullSession], truncated: true } });
+  });
+
+  it("rejects a body with no sessions key", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { truncated: false }));
+    const result = await fetchPastSessions("/tmp");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+
+  it("rejects a non-array sessions field", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { sessions: "nope", truncated: false }));
+    const result = await fetchPastSessions("/tmp");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+
+  it("rejects a non-boolean truncated field", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { sessions: [], truncated: "false" }));
+    const result = await fetchPastSessions("/tmp");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+
+  it("rejects the whole list when one element among several is malformed (all-or-nothing)", async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(true, {
+        sessions: [fullSession, { claudeSessionId: "missing-fields" }],
+        truncated: false,
+      }),
+    );
+    const result = await fetchPastSessions("/tmp");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+
+  it("rejects a session element missing claudeSessionId", async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(true, {
+        sessions: [{ ...fullSession, claudeSessionId: undefined }],
+        truncated: false,
+      }),
+    );
+    const result = await fetchPastSessions("/tmp");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+
+  it("rejects a non-record top-level value (null, array, or bare string)", async () => {
+    for (const body of [null, [], "sessions"]) {
+      fetchMock.mockResolvedValue(fakeResponse(true, body));
+      const result = await fetchPastSessions("/tmp");
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error.code).toBe("unknown_error");
+    }
+  });
+
+  it("decodes a 400 invalid_request for a non-absolute directory", async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, {
+        error: { code: "invalid_request", message: "directory must be an absolute path" },
+      }),
+    );
+    const result = await fetchPastSessions("relative/path");
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "invalid_request", message: "directory must be an absolute path" },
+    });
+  });
+
+  it("decodes a 404 not_found for a directory that doesn't exist", async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, {
+        error: { code: "not_found", message: "directory does not exist or is not a directory" },
+      }),
+    );
+    const result = await fetchPastSessions("/tmp/does-not-exist");
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "not_found", message: "directory does not exist or is not a directory" },
+    });
+  });
+
+  it("never throws when the daemon is unreachable", async () => {
+    fetchMock.mockRejectedValue(new Error("connection refused"));
+    const result = await fetchPastSessions("/tmp");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("network_error");
+  });
+
+  it("never throws when the response body isn't valid JSON at all", async () => {
+    fetchMock.mockResolvedValue(fakeResponseThatThrows());
+    const result = await fetchPastSessions("/tmp");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+});
+
+describe("launch — resumeFromList (POST /api/sessions with resumeSessionId, kb:anchor/sessions.create)", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("posts only directory and resumeSessionId — no title/model/permissionMode", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, validSession));
+    await resumeFromList({ directory: "/Users/bob/code/muster", resumeSessionId: "3f2a-abc" });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/sessions",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          directory: "/Users/bob/code/muster",
+          resumeSessionId: "3f2a-abc",
+        }),
+      }),
+    );
+  });
+
+  // Protocol Contract (kb:adr/launch-resume-display-name-falls-back-to-id): a
+  // resume-from-list response's model.displayName carries the transcript's model id
+  // until the status line confirms the display name, the same non-null string every
+  // launch's response carries — never null. permissionMode is seeded (not
+  // hook-sourced), and claudeSessionId stays null until SessionStart{source:"resume"}
+  // binds it.
+  it("decodes a 201 seeded Session — displayName falls back to the model id, permissionMode source 'seed', claudeSessionId still null", async () => {
+    const seeded: Session = {
+      ...validSession,
+      title: "fix the thing",
+      model: { id: "claude-opus-4-1-20250805", displayName: "claude-opus-4-1-20250805" },
+      permissionMode: { value: "plan", source: "seed" },
+      claudeSessionId: null,
+      firstLaunchHere: false,
+    };
+    fetchMock.mockResolvedValue(fakeResponse(true, seeded));
+    const result = await resumeFromList({
+      directory: "/Users/bob/code/muster",
+      resumeSessionId: "3f2a-abc",
+    });
+    expect(result).toEqual({ ok: true, value: seeded });
+  });
+
+  it("decodes a 400 invalid_request when resumeSessionId is combined with title/model/permissionMode", async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, {
+        error: {
+          code: "invalid_request",
+          message: "resumeSessionId cannot be combined with title, model or permissionMode",
+        },
+      }),
+    );
+    const result = await resumeFromList({
+      directory: "/Users/bob/code/muster",
+      resumeSessionId: "3f2a-abc",
+    });
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        code: "invalid_request",
+        message: "resumeSessionId cannot be combined with title, model or permissionMode",
+      },
+    });
+  });
+
+  it("decodes a 400 invalid_request for an empty resumeSessionId", async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, {
+        error: { code: "invalid_request", message: "resumeSessionId must not be empty" },
+      }),
+    );
+    const result = await resumeFromList({
+      directory: "/Users/bob/code/muster",
+      resumeSessionId: "",
+    });
+    expect(result).toEqual({
+      ok: false,
+      error: { code: "invalid_request", message: "resumeSessionId must not be empty" },
+    });
+  });
+
+  it("decodes a 404 unknown_claude_session for a transcript deleted between list and POST (edge case 7)", async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, {
+        error: {
+          code: "unknown_claude_session",
+          message: "no Claude Code session with that id in this directory",
+        },
+      }),
+    );
+    const result = await resumeFromList({
+      directory: "/Users/bob/code/muster",
+      resumeSessionId: "gone",
+    });
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        code: "unknown_claude_session",
+        message: "no Claude Code session with that id in this directory",
+      },
+    });
+  });
+
+  it("decodes a 409 already_open for a session already bound to an alive Muster row (REQ-12)", async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(false, {
+        error: {
+          code: "already_open",
+          message: "that Claude Code session is already open in Muster",
+          id: 7,
+        },
+      }),
+    );
+    const result = await resumeFromList({
+      directory: "/Users/bob/code/muster",
+      resumeSessionId: "already-open",
+    });
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        code: "already_open",
+        message: "that Claude Code session is already open in Muster",
+      },
+    });
+  });
+
+  it("falls back to a generic error when the success body is not a valid Session", async () => {
+    fetchMock.mockResolvedValue(fakeResponse(true, { not: "a session" }));
+    const result = await resumeFromList({
+      directory: "/Users/bob/code/muster",
+      resumeSessionId: "3f2a-abc",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("unknown_error");
+  });
+
+  it("never throws when the daemon is unreachable", async () => {
+    fetchMock.mockRejectedValue(new Error("connection refused"));
+    const result = await resumeFromList({
+      directory: "/Users/bob/code/muster",
+      resumeSessionId: "3f2a-abc",
+    });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("network_error");
   });

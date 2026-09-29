@@ -1,8 +1,8 @@
 ---
 id: launch-resume-in-original-mode-else-default
 type: decision
-status: proposed
-date: 2026-09-27
+status: accepted
+date: 2026-09-28
 summary: A session resumed from the list is launched with its transcript's last permission mode as an explicit flag, or default when none is recorded, and no --model.
 features: [launch]
 tags: [claude-code-format, user-decision]

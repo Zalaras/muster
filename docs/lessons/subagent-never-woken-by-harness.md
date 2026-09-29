@@ -3,13 +3,13 @@ id: subagent-never-woken-by-harness
 type: lesson
 status: active
 date: 2026-09-10
-summary: An agent slept and polled for a backgrounded gate; the harness re-invokes only the main session when a task finishes, so the wait never ended. 60 minutes lost.
+summary: An agent polled a backgrounded gate the harness never woke it for (2.1.26x). 2.1.284 does re-invoke subagents (probe 2026-09-29); gates stay foreground.
 features: []
 tags: [pipeline]
 roles: [orchestrator, daemon-impl, web-impl, daemon-tests, web-tests, e2e-specs, e2e-validate, review]
 files: []
 tests: []
-refs: [CLAUDE.md, plan:canary-full-coverage, plan:mermaid-support, kb:fact/background-completion-new-prompt-id]
+refs: [CLAUDE.md, plan:canary-full-coverage, plan:mermaid-support, plan:resume-and-dangerously-allow, kb:fact/background-completion-new-prompt-id]
 ---
 
 **What happened.** A subagent started a long gate in the background, then slept and polled for its completion. A finished background task re-invokes the **main** session as a new prompt; a subagent is never woken, so the loop waited for a notification that cannot arrive.

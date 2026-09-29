@@ -295,7 +295,7 @@ def main():
         elif a.cmd == "done":
             if not a.next:
                 sys.exit("done needs --next STEP (use 'completed' after review)")
-            if a.next == "completed" and not approved(path.parent):
+            if (a.arg == "review" or a.next == "completed") and not approved(path.parent):
                 sys.exit("review.md does not say '**Verdict**: approved' — the pipeline is not completed")
             if a.arg == "e2e-specs" and (rows := unmarked_authoring_rows(path.parent)):
                 sys.exit("test-specs.md Tests rows marked neither ran-green-at-authoring nor collection-only "

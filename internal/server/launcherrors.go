@@ -11,9 +11,26 @@ type launchError struct {
 	status  int
 	code    string
 	message string
+	// id is already_open's extra `id` field (kb:anchor/sessions.create) — the alive
+	// session already bound to the requested resumeSessionId. nil for every other
+	// launchError, matching writeJSONErrorPaths' Paths field: an extra envelope field one
+	// error needs, left out (via omitempty) everywhere else.
+	id *int64
 }
 
 func (e *launchError) Error() string { return e.message }
+
+// writeLaunchError writes lerr's status/code/message, including its optional `id` field
+// (already_open) when present — sessions.go's one write path for both
+// POST /api/sessions and POST /api/sessions/{id}/resume's *launchError results, so neither
+// handler needs to know which errors carry an id.
+func writeLaunchError(w http.ResponseWriter, lerr *launchError) {
+	if lerr.id != nil {
+		writeJSONErrorID(w, lerr.status, lerr.code, lerr.message, *lerr.id)
+		return
+	}
+	writeJSONError(w, lerr.status, lerr.code, lerr.message)
+}
 
 // Fixed 5xx `message` text (kb:anchor/transport): display text for the user, never
 // a wrapped tmux/OS error string — the raw error goes only to the adjacent log.Error()
@@ -53,6 +70,31 @@ func notResumable(message string) *launchError {
 
 func directoryMissing(message string) *launchError {
 	return &launchError{status: http.StatusConflict, code: "directory_missing", message: message}
+}
+
+// unknownClaudeSession is the resume-from-list 404 for a resumeSessionId that names no
+// transcript among the directory's past sessions (kb:anchor/sessions.create) — the
+// transcript may never have existed, or may have been deleted between listing and this
+// POST (edge case 7).
+func unknownClaudeSession() *launchError {
+	return &launchError{
+		status:  http.StatusNotFound,
+		code:    "unknown_claude_session",
+		message: "no Claude Code session with that id in this directory",
+	}
+}
+
+// alreadyOpen is the resume-from-list 409 for a resumeSessionId already bound to an
+// alive Muster session (kb:anchor/sessions.create,
+// kb:adr/launch-resume-one-alive-row-per-claude-session) — aliveID names it in the
+// envelope's `id` field so the UI can point at the open session.
+func alreadyOpen(aliveID int64) *launchError {
+	return &launchError{
+		status:  http.StatusConflict,
+		code:    "already_open",
+		message: "that Claude Code session is already open in Muster",
+		id:      &aliveID,
+	}
 }
 
 // modelUnrecognizedMessage is the fixed, %q-quoted refusal text both POST /api/sessions'
