@@ -13,5 +13,5 @@ Execute the daemon testing task for plan: $ARGUMENTS
 Project root: <the directory containing .claude/>
 ```
 
-Pass any mode or cycle word in `$ARGUMENTS` through verbatim. Do not read `.claude/agents/daemon-tests.md`
+Pass `$ARGUMENTS` through verbatim. Do not read `.claude/agents/daemon-tests.md`
 and follow it inline: its model, boundaries and output contract only hold when the agent is spawned.

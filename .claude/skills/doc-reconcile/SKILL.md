@@ -13,6 +13,5 @@ Execute the doc reconciliation task for: $ARGUMENTS
 Project root: <the directory containing .claude/>
 ```
 
-With no arguments, pass the working tree against `HEAD` as the changed-file list. Pass any mode word
-in `$ARGUMENTS` through verbatim. Do not read `.claude/agents/doc-reconcile.md` and follow it inline:
+Pass `$ARGUMENTS` through verbatim; with none, the agent reconciles the working tree against `HEAD`. Do not read `.claude/agents/doc-reconcile.md` and follow it inline:
 its boundaries and output contract only hold when the agent is spawned.
