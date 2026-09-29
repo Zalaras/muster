@@ -5,36 +5,32 @@ argument-hint: "[stable | latest | <version>]"
 allowed-tools: Bash, Read, Edit, Grep
 ---
 
-> **Maintainer note:** Authored 2026-09-13. This runs in the main session, not a subagent:
-> a real `make canary` burns six haiku turns of the developer's subscription, and a red run needs
-> a conversation rather than a verdict. `docs/claude-code-versions.md` stays the source of
-> truth for *why* the range works the way it does — this skill is only the driver, so don't
-> restate its rationale here.
->
-> Most of the ritual is already automated: `make canary` ends with
-> `go run ./tools/versions bump`, which appends the row and rewrites the version fragments.
-> What is left is judgement, and that is what the steps below are.
+> Maintainer note: a skill in the main session because a red run needs a conversation, not a
+> verdict; `docs/claude-code-versions.md` is the source of truth for *why* — this is only the driver.
+
+`make canary` already ends with `go run ./tools/versions bump`, which appends the row and rewrites
+the version fragments; what is left is judgement, and that is what the steps below are.
 
 You drive a Claude Code version check to a committed conclusion. Invoked with: **$ARGUMENTS**
 (empty = verify whatever is installed; otherwise an update target to move to first).
 
-## Iron rules (violating any of these is a critical failure)
+## Rules
 
-1. **Never hand-edit `internal/claudecode/observed_versions.txt`**, and never edit anything
-   between `versions:` marker comments in `README.md` or `docs/claude-code-versions.md`.
-   `bump` and `gen` own both. The record's own header says it: "Never edit a version elsewhere."
-2. **A green bump edits no fact record.** Facts spell their ceiling two ways, and the
-   difference is load-bearing: `guard: <test>` carries `verified: <floor>..canary`, a symbolic
-   ceiling `internal/kb` resolves against the record automatically; `guard: none` carries a
-   literal ceiling deliberately frozen at what was last measured. Raising those by hand would
-   assert ~19 things nobody measured, and `make check` would stay green while you did it.
-   Fact records move in the **red** ritual only.
-3. **Never `git commit -am`** — `bump` prints exactly that as its hint, and it would sweep up
-   every unrelated dirty file in the tree. Stage deliberately.
-4. **Never read or modify `~/.claude/settings.json`** (root `CLAUDE.md` hard rule) — the developer's
+1. **Records and generated files change only through their tools.** `bump` and `gen` own
+   `internal/claudecode/observed_versions.txt` and everything between `versions:` marker comments
+   in `README.md` and `docs/claude-code-versions.md` (the record's header: "Never edit a version
+   elsewhere."); `make gen-kb` owns the generated kb files. When `make check` fails on one,
+   regenerate it rather than editing it. Record only a version the canary actually went green on.
+2. **A green bump edits no fact record.** `..canary` ceilings follow the record automatically and
+   `guard: none` literal ceilings stay frozen at what was measured
+   (`docs/claude-code-versions.md` § The green ritual); fact records move in the **red** ritual only.
+3. **Stage by name, never `git commit -am`** — `bump` prints exactly that as its hint, and it
+   would sweep up every unrelated dirty file in the tree.
+4. **`~/.claude/settings.json` is out of bounds** (root `CLAUDE.md` hard rule) — the developer's
    live sessions depend on it. Nothing here needs it.
-5. **A real run costs six haiku turns.** Don't re-run to "be sure". The one exception is the
-   named flake in step 5.
+5. **A real run costs six haiku turns of the developer's subscription**, so run it here in the
+   main session, never in a subagent (the harness wakes only the main session), and don't re-run to
+   "be sure". The one exception is the named flake in step 5.
 
 ## 1. Preflight — refuse, don't warn
 
@@ -58,11 +54,16 @@ cat internal/claudecode/observed_versions.txt
 
 ## 2. Decide whether there is anything to do
 
-- **Installed == the ceiling**, and no argument was given → an unforced canary skips its
-  harness and live tiers (that is the designed behaviour, not a failure: nothing about the
-  installed Claude Code has changed since the last green run). Say so and stop. Offer
-  `MUSTER_CANARY_FORCE=1 make canary` for the one case that needs it — a change inside
-  `internal/claudecode` itself, which an unforced run never exercises.
+With an argument, run step 3 first and classify the version installed after it; the cases below
+then apply to that version.
+
+- **Installed == the ceiling** → an unforced canary skips its harness and live tiers (that is the
+  designed behaviour, not a failure: nothing about the installed Claude Code has changed since the
+  last green run). Say so and stop. Offer `MUSTER_CANARY_FORCE=1 make canary` for the one case that
+  needs it — a change inside `internal/claudecode` itself, which an unforced run never exercises.
+- **Installed is inside the range, below the ceiling** (`verified`) → already recorded; a canary
+  would run in full and `bump` would edit nothing. Say so and stop, unless the developer asks for a
+  re-check — then run step 4 and expect the "already inside the range" outcome in step 5.
 - **Installed is outside the range** (`below` or `above`) → there is something to record.
   Proceed.
 
@@ -86,14 +87,14 @@ release turns out to be red.
 make canary 2>&1 | tee <scratchpad>/canary-<version>.log
 ```
 
-~2.5–3 min. Keep the log — it is the evidence for whatever you claim next. Don't summarise a
-failure you haven't read to the end.
+~2.5–3 min. Keep the log — it is the evidence for whatever you claim next; read a failure to the
+end before summarising it.
 
 ## 5. Read the outcome
 
 **Green, and the installed version was outside the range.** `bump` has already appended the
 row and regenerated the fragments in `README.md` and `docs/claude-code-versions.md`. Two
-things remain, and the first is the one the ritual doc used to omit:
+things remain:
 
 ```sh
 make gen-kb   # the resolved ceiling is embedded in generated kb files — see below
@@ -103,14 +104,15 @@ make check
 Every generated file that lists a `..canary` fact renders the **resolved** ceiling, so a
 ceiling bump makes all of them stale — `docs/INDEX.md`, the per-feature `INDEX.md` files and
 `.claude/rules/*.md`, around 21 files. `make check-kb` fails them "stale — regenerate with
-make gen-kb". This is not hypothetical: commit `30c4cf8` committed only the record and the two
-fragments and left the tree red until an unrelated commit repaired it by accident.
+make gen-kb" (`30c4cf8` left the tree red that way).
 
 Then commit the record, both fragment files and every regenerated kb file **together** —
-generated files ride the same commit as the record (`CLAUDE.md` doc upkeep):
+generated files ride the same commit as the record (`CLAUDE.md` doc upkeep). Stage exactly those:
 
 ```sh
-git add -A && git status   # read it before committing
+git add internal/claudecode/observed_versions.txt README.md docs/claude-code-versions.md \
+  docs/INDEX.md docs/features/*/INDEX.md .claude/rules/*.md
+git status --short   # nothing may remain unstaged — anything that does is outside the bump: stop and ask
 git commit -m "fix(versions): record Claude Code <version> as verified by make canary"
 ```
 
@@ -122,7 +124,7 @@ anyone already on that version.
 nothing needed recording and edited nothing. There is nothing to commit. Say so in one line.
 
 **A known flake.** Two failures are accepted gate flakiness rather than drift: run E's
-`PermissionRequest` wait timing out (haiku answered the plan prompt with text instead of
+`PermissionRequest` wait timing out (the model answered the plan prompt with text instead of
 calling the tool), and the live tier's usage call returning a 5xx. **Rerun once** before
 reading either as an interface change.
 
@@ -135,16 +137,8 @@ Report:
 - that `docs/claude-code-versions.md` § "The red ritual" is the next step, and that rolling
   back with `claude update <version>` is available meanwhile.
 
-Do not edit a fact record, the observed-versions record, or an adapter here.
-
-## Never
-
-- Never record a version the canary did not actually go green on.
-- Never edit a generated file by hand to make `make check` pass — regenerate it.
-- Never delegate the canary run to a subagent: each real run costs tokens, and the harness
-  wakes only the main session.
-- Never widen the commit beyond the bump. If the tree had unrelated work in it, you skipped
-  step 1.
+Leave the fact record, the observed-versions record and the adapter as they are — the red ritual
+changes them, through `/plan-work`.
 
 ## Report
 

@@ -5,12 +5,12 @@ argument-hint: "[plan-name] | --audit"
 allowed-tools: Read, Grep, Glob, Bash, Edit, Write
 ---
 
-> **Maintainer note:** Runs in the main session, normally at the end of the session that ran
-> `/orchestrate` — the orchestrator's own stumbles (a mis-stamped state, an improvised wave, a
-> re-sent prompt) live only in that conversation. It also works later, from the files alone;
-> say so in the header when it does. Authored 2026-09-03 because ad-hoc retros netted +10 to
-> +50 lines each into `.claude/` (`orchestrate/SKILL.md` went 393 → 545 lines in 12 days);
-> re-cut 2026-09-11 when the line budget turned out to be satisfied by longer lines.
+> Maintainer note: exists because ad-hoc retros grew `orchestrate/SKILL.md` 393 → 545 lines in 12
+> days (2026-09-03); re-cut to words 2026-09-11.
+
+Run it in the main session, normally at the end of the session that ran `/orchestrate` — the
+orchestrator's own stumbles (a mis-stamped state, an improvised wave, a re-sent prompt) live only in
+that conversation. It also works later, from the files alone; say so in the header when it does.
 
 Argument: **$ARGUMENTS**
 
@@ -32,7 +32,7 @@ git log --format='%h %s' main..plan/<plan>                  # commit suffixes, w
 Read every `review*.md` (all cycles), each `## Fix Attempt` in the implementation logs, the
 `## Repairs` and `## E2E Implementation Bugs` tables in `test-specs.md`, and any
 `decisions/*/decision.md`. Then add what only you saw: every point in this session where you
-deviated from `orchestrate/SKILL.md`, re-sent a prompt, or were corrected by the user.
+deviated from `orchestrate/SKILL.md`, re-sent a prompt, or were corrected by the developer.
 
 An incident is a **cost with a cause**: a review cycle spent on something an earlier step
 should have caught, a fix that came back, a gate that passed on a broken tree, a step that ran
@@ -54,7 +54,7 @@ must earn it. Then exactly one of:
 | A rule exists and was followed; the cost was the pipeline working | No finding. Say so in one line if it looks like one. |
 | A rule exists and was **broken** | **Never add a sentence.** First count its edits: `git log --oneline -S'<a distinctive phrase of the rule>' -- <file>`. One commit → sharpen it in place, no more words than before. Two or more → rewording has already failed twice; the only proposals allowed are mechanical — a `plan-lint.sh` / `gates.sh` / `dead-refs.py` / `orch-state.py` check, a verdict field the orchestrator must read — or dropping the sentence. |
 | No rule exists | A **lesson record**, not a sentence: `docs/lessons/<slug>.md` with `roles:` (the agents that pay next time), `refs: [plan:<name>, <evidence file>]`, and one sentence of lesson — `kb pack` delivers it to those roles. An agent file changes only for a **rule** (a must/never a gate or the reviewer enforces), in the file the actor reads: agent → its `agents/*.md`; orchestrator → `orchestrate/SKILL.md`; plan shape → `plan-work`; a fact any session in one directory needs → that directory's `CLAUDE.md`, hand-written part. |
-| One-off, environmental, or user preference | No proposal. List it under *Not proposing*. |
+| One-off, environmental, or developer preference | No proposal. List it under *Not proposing*. |
 
 **Every proposal states its net word delta** for the file it edits (`wc -w` before → after).
 A lesson record has no delta to state; it counts toward the pack-size table in § 5 instead.
@@ -78,14 +78,15 @@ line why a script cannot carry the lesson instead.
 
 ## 3. Report — short, then stop
 
-At most three findings, most expensive first. No preamble, no per-step narrative.
+At most three findings, most expensive first, each citing a file, a cycle or a timing row — never
+memory alone. No preamble, no per-step narrative.
 
 ```
 ## Retro: <plan>  (inferred | from files only, in-session stumbles unavailable)
 <total wall-clock>, <N> review cycle(s), <M> fix wave(s), <K> validate attempt(s).
 
 1. **<what went wrong>** — <evidence: file, cycle, minutes>.
-   Proposal: <amend | mechanise | add | remove | retire | lesson> `<file, or docs/lessons/<slug>.md roles [r]>` § <section> — <the sentence, check or lesson, verbatim>. (<file>: <w> → <w> words)
+   Proposal: <amend | mechanise | add (only where no rule exists) | remove | retire | lesson> `<file, or docs/lessons/<slug>.md roles [r]>` § <section> — <the sentence, check or lesson, verbatim>. (<file>: <w> → <w> words)
 
 Not proposing: <one line each, or "nothing">.
 ```
@@ -93,21 +94,25 @@ Not proposing: <one line each, or "nothing">.
 If nothing qualifies: `## Retro: <plan>` and one line saying the run had no incident worth a
 rule. That is a legitimate result, not a failure to look hard enough.
 
-Then stop. The user picks by number in prose; do not offer menus.
+Then stop. The developer picks by number in prose; ask in prose, not with a menu.
 
-## 4. Apply what the user picks
+## 4. Apply what the developer picks — and nothing else, retirements included
 
 - Edit only `.claude/skills/**`, `.claude/agents/**`, any `CLAUDE.md` (root or subdirectory,
   creating one where step 2 placed it), `docs/conventions.md`, and `docs/lessons/*.md`. After a
-  record: `make gen-kb && make check-kb`; the regenerated files ride the same commit. Never `plans/`, never product
-  or test code — a code defect the retro finds is *proposed* in the report, for the user to file
+  record: `make gen-kb && make check-kb`; the regenerated files ride the same commit. Never
+  `plans/` (the one exception is the § 5 audit file, when the developer asks for one), never product
+  or test code — a code defect the retro finds is *proposed* in the report, for the developer to file
   or drop (kb:adr/process-backlog-entries-are-the-users-to-file); never written into `TODO.md`
   and never into this commit.
 - Commit on **the branch the run happened on**, as `docs(retro): <plan> — <what changed, one
   line>`; it rides that plan's squash merge. Stay on `plan/<plan>` — a lesson may then cite
   `plan:<plan>` and the run's own `review.cycle*.md`, which do not exist on `main` until `/land`.
-  Only when that branch is gone (the plan already landed) commit on `main`, and say so. Stage
-  only the files you edited — never `git add -A`, never stash. Never push.
+  Only when that branch is gone (the plan already landed) commit on `main`, and say so. An
+  `--audit` pick has no run branch: commit on the branch checked out where the audit ran
+  (normally `main` in the primary checkout) as `docs(retro): audit — <what changed>`, and name the
+  branch in the report. Stage only the files you edited by name — no `git add -A`, no stash — and
+  leave pushing to the developer.
 - Report the commit sha and the measured delta: `wc -w` and `wc -l` of each edited file before
   and after, and whether any file is over its threshold.
 
@@ -140,16 +145,9 @@ Report, in this order, each item numbered:
    two or more, name the cycle-one Major class they share.
 6. **Pack size** — the table above (each pack now opens with its own count and a per-section
    breakdown, so `wc -w` runs ~40 words high and the section that grew is read off the
-   `kb: sections` line rather than derived); a pack over 8,000 words (`PackWords`, `internal/kb/budget.go`)
+   `kb: sections` line rather than derived); a pack over 20,000 words (`PackWords`, `internal/kb/budget.go`)
    warns exactly like an agent file over its threshold (it is read on top of one) and names the record class that grew (`kb ls --role <r>`, by `date`); a
    lesson no plan has cited in the last five runs is a *retire* proposal.
 
 The previous audit is `plans/_audit/skills-agents-audit.md` (2026-09-06); write the new one
 beside it as `plans/_audit/audit-<date>.md` only if the developer asks for a file.
-
-## Never
-
-- Never write a finding from memory alone — every one cites a file, a cycle, or a timing row.
-- Never propose a rule for a cost that an existing, followed rule already paid for by design.
-- Never add a sentence where a sentence already exists — sharpen it or mechanise it.
-- Never apply an edit the user did not pick, retirements included.

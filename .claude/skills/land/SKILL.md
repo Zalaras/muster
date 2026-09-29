@@ -5,15 +5,8 @@ argument-hint: "<plan-name>"
 allowed-tools: Read, Grep, Glob, Bash, Edit, AskUserQuestion
 ---
 
-> **Maintainer note:** This command lives in a skill and runs in the main session — it is the
-> one step allowed to commit on `main`, and it ends in a push, so it must be able to stop and
-> ask. Authored 2026-08-31. It exists because the merge was previously an undocumented
-> end-of-session request: the subject convention lived only as a pattern in `git log`, and
-> whether an issue closed depended on the merging session noticing that a ticked `TODO.md`
-> item carried an issue link. Step 2 was added 2026-09-23, when 16 proposals across 5 plans'
-> `proposed-backlog.md` files turned out never to have been put to the user (3 already fixed,
-> 2 duplicates): the file was durable but nothing made anyone read it
-> (kb:adr/process-land-decides-proposed-backlog).
+> Maintainer note: a skill in the main session because it is the one step that commits on `main`
+> and pushes, so it must be able to stop and ask (kb:adr/process-land-decides-proposed-backlog).
 
 You land an approved plan branch on `main`. `/orchestrate` deliberately never merges or pushes
 (`.claude/skills/orchestrate/SKILL.md` Completion step 8) — this is that missing step.
@@ -25,7 +18,7 @@ Plan name: **$ARGUMENTS**
 GitHub closes an issue when a commit whose message contains `closes #N` lands on the default
 branch. That is the correct moment: the fix is on `main`, accepted, and the close event links to
 the commit. Nothing earlier qualifies — a review verdict of `approved` is the reviewer's opinion
-of the work, not the user's acceptance of it, and a plan branch can still be rejected or
+of the work, not the developer's acceptance of it, and a plan branch can still be rejected or
 reworked. So `/orchestrate` records the issue numbers and **you** put them in the subject.
 
 ## 1. Preflight — refuse, don't warn
@@ -36,7 +29,8 @@ Check all of these before touching anything. If any fails, stop and say exactly 
    never rely on the conversation (orchestrate's state script refuses `completed` on the same test).
 2. `plans/<plan>/orchestration-state.json` has `"status": "completed"`.
 3. `git status --short` is clean, apart from untracked strays that are not part of the plan
-   (e.g. a stray screenshot). Never `git add -A`, never stash.
+   (e.g. a stray screenshot). Leave those strays where they are: stage nothing with `git add -A`,
+   and never stash.
 4. `git rev-parse --verify plan/<plan>` succeeds.
 5. The branch has something to land. **Do not use `git log main..plan/<plan>` for this** —
    a squash-merge never empties that range (kb:lesson/squash-merge-never-empties-log-range).
@@ -48,24 +42,25 @@ Check all of these before touching anything. If any fails, stop and say exactly 
 
    Equal means merging would change nothing — already landed, so say "nothing to land" and stop.
    A squash of an empty range produces an empty commit, the worst outcome available here.
-6. For each name in the plan's `**Features**`, `go run ./tools/kb ls --feature <f> --status
-   proposed` lists no record with `refs: plan:<plan>`, and `make -C ../muster-<plan> check-kb`
-   exits 0 on the branch. A `proposed` ADR here means orchestrate's Completion step 4 was skipped —
-   send it back rather than flipping it yourself. The only files this command ever edits are
-   `TODO.md` and `proposed-backlog.md` files, in step 2, on the user's answers.
-7. The plan's worktree is there and idle: `make worktrees` lists `../muster-<plan>` on
+6. The plan's worktree is there and idle: `make worktrees` lists `../muster-<plan>` on
    `plan/<plan>` (kb:adr/process-pipeline-runs-in-sibling-worktree), and no `claude` has it as
    its cwd (`lsof -a -d cwd -c claude -Fn` prints no `n<that path>` line) — end that session
    first; this command runs from the primary checkout, on `main`. A plan from before worktrees
-   has no tree: then step 2 and preflight 6 use `git checkout plan/<plan>` here, as they used to.
+   has no tree: then step 2 and preflight 7 use `git checkout plan/<plan>` here instead.
+7. For each name in the plan's `**Features**`, `go run ./tools/kb ls --feature <f> --status
+   proposed` lists no record with `refs: plan:<plan>`, and `make -C ../muster-<plan> check-kb`
+   exits 0 on the branch. A `proposed` ADR here means orchestrate's Completion step 4 was skipped —
+   send it back rather than flipping it yourself. The only files this command ever edits are
+   `TODO.md` and `proposed-backlog.md` files, in step 2, on the developer's answers.
 
 A plan that never went through `/orchestrate` (no state file, no review) is not landable by this
-command. Say so and let the user commit it themselves.
+command. Say so and let the developer commit it themselves.
 
 ## 2. Decide the proposed follow-ups
 
-A run files nothing into `TODO.md`; it proposes in `plans/<plan>/proposed-backlog.md`
-(kb:adr/process-backlog-entries-are-the-users-to-file). This is where the user decides, so the
+A run files nothing into `TODO.md` beyond what the approved plan's `## Out of scope` names, copied
+verbatim; everything else it proposes in `plans/<plan>/proposed-backlog.md`
+(kb:adr/process-backlog-entries-are-the-users-to-file). This is where the developer decides, so the
 decisions ride the same squash as the fix (kb:adr/process-land-decides-proposed-backlog).
 
 **Scope.** This plan's file, plus every other `plans/*/proposed-backlog.md` **as it is on
@@ -77,11 +72,11 @@ the next `/land` and say so. Nothing open → "no proposals", one line, and go t
 **Verify before showing.** For each proposal, check it still holds: grep the symbol or line it
 names, `git log -S` for a fix. Mark one fixed since as **already done** with the commit or line
 as evidence, and one that repeats another proposal or an open `TODO.md` entry as **duplicate of
-#N**. Never mark either without that evidence.
+#N**, each with that evidence.
 
 **Print** a numbered list grouped by plan, one short line each — the block's **Summary** line
 where it has one — tagging **Asked** where **Change requested** is yes, then a tally: distinct,
-already done, duplicates. **Ask in prose, not an `AskUserQuestion` menu**: the user answers per
+already done, duplicates. **Ask in prose, not an `AskUserQuestion` menu**: the developer answers per
 number — yes, not doing, defer, or a changed wording ("add as an investigation"). Asked to
 explain one, explain it plainly and wait.
 
@@ -89,7 +84,7 @@ explain one, explain it plainly and wait.
 `proposed-backlog.md` files there and commit with `git -C ../muster-<plan>` (the branch is
 checked out in that tree, so a `git checkout plan/<plan>` here is refused):
 
-- Each yes → `TODO.md`, in the section the user names, else at the end of **Pre-v1**, under a
+- File only what the developer chose. Each yes → `TODO.md`, in the section they name, else at the end of **Pre-v1**, under a
   `Filed <date> by the developer from the plans' proposed-backlog.md files` lead line: `- [ ] **Title** — body … From \`plans/<plan>/\`.` An
   entry that would reverse an accepted ADR names it.
 - Every decision → one line in a `## Decisions (the developer, <date>)` section appended to its
@@ -112,37 +107,34 @@ type(scope): imperative summary (closes #N, closes #M)
   `fix`, `perf` or `refactor` (patch) when that is what shipped; the remaining types
   (`docs`/`test`/`chore`/`ci`/`build`/`style`/`revert`) release nothing. Read the plan's
   description and the impl logs rather than guessing from the plan name.
-- **`!` needs an explicit go-ahead from the user** — the commit-msg hook rejects it unless a
+- **`!` needs an explicit go-ahead from the developer** — the commit-msg hook rejects it unless a
   human sets `MUSTER_BREAKING=1`, and this skill never sets it on its own. On 0.x it is safe
   when sanctioned: `release.yml` runs `svu next --v0`, so a breaking marker bumps minor, never
-  1.0.0 (`docs/conventions.md` § Commits). The breaking-footer phrase is banned outright — never
-  put it in a commit message; the hook rejects it anywhere, including bodies.
+  1.0.0 (`docs/conventions.md` § Commits). Mark a breaking change with `!` only: the hook rejects
+  the breaking-footer phrase anywhere in a message, bodies included.
 - **Summary** describes what shipped, not what the plan was called, and is **at most 72
   characters** before the `(closes …)` tail.
 
   **This subject is published verbatim as the release note.** `.goreleaser.yaml` sets
   `changelog.use: github` with `include: ^(feat|fix|perf|refactor)`, so every subject of those
   four types — and only those — becomes one bullet in the GitHub Release. Write it for that
-  reader. Do **not** take the length of this repo's older subjects as the house style: measured
-  2026-09-01, `main` carries subjects of 394, 272, 224 and 205 characters, and the `feat(m3)`
-  one is a single 1,138-character sentence published as one changelog bullet (`3f1c7a3`; the
-  longest overall is a 1,155-char docs retro, `5d4e1d6`). They are the mistake this rule exists
-  to stop, not the model. `docs/conventions.md` § Commits has the right shape in its own worked
-  example.
+  reader, taking the shape from `docs/conventions.md` § Commits' worked example — not from this
+  repo's older subjects, which run to 1,138 characters (`3f1c7a3`) and are the mistake this rule
+  exists to stop.
 
 ### The issue references
 
 Read `closes_issues` from `plans/<plan>/orchestration-state.json` — orchestrate writes it at
 completion for every issue the plan **fully** resolves. If the key is absent (an older plan),
-grep the plan's ticked items in `docs/history/todo-done.md` for issue links and ask the user to
+grep the plan's ticked items in `docs/history/todo-done.md` for issue links and ask the developer to
 confirm.
 
 Append one reference per issue, lowercase: `... (closes #2, closes #4)`.
 
 **The subject carries no `(plan <name>)` marker.** It is bookkeeping in a user-facing release
 note, and the plan is always recoverable from the commit itself — the squash includes
-`plans/<name>/`, so `git show --stat <sha> | grep plans/` names it. (Decision 2026-09-01, after
-`v0.2.0` shipped a note in which 48 of 125 characters were bookkeeping.) If a plan closes no
+`plans/<name>/`, so `git show --stat <sha> | grep plans/` names it (`v0.2.0`'s note was 48 of 125
+characters bookkeeping). If a plan closes no
 issues, the subject simply has no tail.
 
 **Only fully-resolved issues.** Ticking a TODO item and closing an issue are different claims —
@@ -161,11 +153,10 @@ Print, and get confirmation:
   — and, for each, whether step 2 filed it or the plan's `## Out of scope` names it. Anything else is a run filing
   work you did not approve (kb:adr/process-backlog-entries-are-the-users-to-file): say so here
   rather than after the merge;
-- the **predicted release**: `feat`→minor; `fix`/`perf`/`refactor`→patch; everything
-  else→none. Note that `.github/workflows/release.yml` computes the actual version on push
-  (`svu next --v0`, plus its perf/refactor patch shim).
-
-Landing chooses the version bump. Make that visible rather than implicit.
+- the **predicted release** — landing chooses the version bump, so make it visible:
+  `feat`→minor; `fix`/`perf`/`refactor`→patch; everything else→none.
+  `.github/workflows/release.yml` computes the actual version on push (`svu next --v0`, plus its
+  perf/refactor patch shim).
 
 ## 5. Land
 
@@ -177,7 +168,8 @@ git push
 ```
 
 `git push` is not in `.claude/settings.json`'s allowlist, so the point of no return prompts on
-its own — leave it that way. The push triggers `release.yml`, which tags and publishes darwin
+its own — leave it that way. Push plainly: no force-push, and no amending a commit already on
+`main`. The push triggers `release.yml`, which tags and publishes darwin
 archives, and GitHub closes the referenced issues.
 
 ## 6. Delete the branch
@@ -185,8 +177,7 @@ archives, and GitHub closes the referenced issues.
 A squash-merge leaves git considering the branch unmerged, so `git branch --merged` is useless
 here and `-d` will refuse. `-D` is therefore required — which means the verification has to be
 real. **`git diff main plan/<plan>` is not it**: it also reports everything `main` gained after
-the branch landed, so a correctly-landed branch shows differences (measured on all four branches
-2026-08-31).
+the branch landed, so a correctly-landed branch shows differences (measured 2026-08-31).
 
 Preferred check — the same tree test as preflight 5:
 
@@ -209,8 +200,8 @@ being unlanded. Don't delete on that alone; establish all three:
 
 If any of the three is unclear, keep the branch and ask. A branch costs nothing; lost work does.
 
-Then, in order: `git worktree remove ../muster-<plan>` — never `--force`; a refusal means the
-tree is dirty, so stop and ask — and only then `git branch -D plan/<plan>`, which git refuses
+Then, in order: `git worktree remove ../muster-<plan>` without `--force` — a refusal means the
+tree is dirty or still in use, so stop and ask — and only then `git branch -D plan/<plan>`, which git refuses
 while the branch is checked out in a tree. `git worktree remove` is deliberately not in
 `.claude/settings.json`'s allowlist: like `git push`, the point of no return prompts on its own.
 
@@ -220,18 +211,7 @@ while the branch is checked out in a tree. `git worktree remove` is deliberately
 - which issues will close, and any deliberately left open with the reason;
 - the proposals decided in step 2 — filed (and where), not doing, already done, deferred;
 - the release workflow triggered and the predicted bump;
-- the branch deleted, with the empty-diff verification stated as evidence.
+- the branch deleted, with the step 6 verification (the no-op tree test, or the three checks)
+  stated as evidence.
 
-Then remind the user that `/triage --audit` will show any issue whose close silently failed.
-
-## Never
-
-- Never land a plan whose review verdict is not `approved`.
-- Never `git add -A`, never stash, never force-push, never amend a commit already on `main`.
-- Never use `!` in the subject without the user's explicit go-ahead (the hook gates it on
-  `MUSTER_BREAKING=1`, which only a human sets), and never write the breaking-footer phrase
-  anywhere in a commit message.
-- Never delete a branch whose diff against `main` is non-empty.
-- Never `git worktree remove --force`, and never remove a tree a `claude` session still has as its cwd.
-- Never file a proposal the user did not choose, and never mark one already done or duplicate
-  without evidence.
+Then remind the developer that `/triage --audit` will show any issue whose close silently failed.

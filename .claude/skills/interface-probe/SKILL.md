@@ -5,38 +5,37 @@ argument-hint: "<question to settle>"
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob
 ---
 
-> **Maintainer note:** This skill runs in the main session — it drives tmux
-> interactively and holds a conversation about ambiguous captures, which a subagent
-> can't. The rig lives in `test/rig/`, shared with the canary/E2E harness (history:
-> `spikes/RIG.md`).
-> The automated counterpart is `make canary` (`test/canary/harness_test.go`), which
-> drives the same production chain but cannot answer *new* questions — that is this
-> skill's job. Gotchas here are fact records; `go run ./tools/kb show kb:fact/<slug>` tells you
-> which versions each holds on.
+> Maintainer note: a skill in the main session because it drives tmux interactively and talks
+> through ambiguous captures, which a subagent can't; the rig is `test/rig/` (history: `spikes/RIG.md`).
+
+`make canary` (`test/canary/harness_test.go`) drives the same production chain automatically but
+cannot answer *new* questions — that is this skill's job. Known gotchas are fact records;
+`go run ./tools/kb show kb:fact/<slug>` tells you which versions each holds on.
 
 You are running an interface probe: a controlled experiment against the **real**
 Claude Code binary to settle a question the docs can't be trusted to answer
 (they have been wrong before — e.g. `SessionStart` over HTTP). The question to
 settle: **$ARGUMENTS**
 
-## Iron rules (violating any of these is a critical failure)
+## Rules
 
-1. **Never read or modify `~/.claude/settings.json` or `settings.local.json`.**
+1. **`~/.claude/settings.json` and `settings.local.json` are never read or modified.**
    The developer has live sessions on them. Isolation comes from the project-scoped
    `.claude/settings.json` the rig writes into each instance's scratch repo —
-   nothing else. Record a baseline before the run and verify it after:
-   `md5 -q ~/.claude/settings.json` (compare the two hashes; don't assume a value).
+   nothing else. The one sanctioned touch is a hash, which reads no content: record
+   `md5 -q ~/.claude/settings.json` before the run and compare it after (§ 6; compare the two
+   hashes, don't assume a value).
 2. **Never set `CLAUDE_CONFIG_DIR` for a session that must reach the API.** It
-   yields a config dir with no credentials and dies with `Not logged in`. Do not
-   attempt to log in. (Its one legitimate use: zero-token `StopFailure` induction,
+   yields a config dir with no credentials and dies with `Not logged in`; leave it unset
+   rather than attempting to log in. (Its one legitimate use: zero-token `StopFailure` induction,
    below.)
 3. **Real sessions burn the developer's subscription.** Always `--model
    claude-haiku-4-5-20251001`, trivial prompts ("say hi"), and tear down when done —
    an orphan keeps burning. Prefer the zero-token inductions wherever they answer
    the question.
 4. **tmux only via the instance's private socket** (`tmux -S "$PROBE_SOCKET"` — env.sh exports a socket *path*, so `-S`, never `-L`),
-   never the user's default server.
-5. Ports are `878<index>` (8780–8789). **5000/7000 are AirPlay — never use them.**
+   never the developer's default server.
+5. Ports are `878<index>` (8780–8789) — 5000 and 7000 belong to AirPlay.
 
 ## 1. Stamp an instance
 
@@ -103,15 +102,16 @@ tmux -S "$PROBE_SOCKET" send-keys -t s1 \
   `LANG`/`TERM` prevent mojibake.
 - **First launch in a fresh repo blocks on the workspace-trust prompt** — no hooks,
   no status line until answered. Poll `tmux -S "$PROBE_SOCKET" capture-pane -p -t s1`
-  for "Quick safety check", then answer it. On 2.1.233 option 1 ("trust") was preselected
-  and a bare `Enter` sufficed; **on 2.1.259 "No, exit" is preselected** — send `Down`,
-  then `Enter`. Read the pane's `❯` marker rather than assuming either.
+  for "Quick safety check", then answer it. The preselected option varies by version (2.1.233:
+  "trust", so a bare `Enter`; 2.1.259: "No, exit", so `Down` then `Enter`) — read the pane's `❯`
+  marker rather than assuming either.
   Headless runs do **not** record trust; interactive hits it anyway.
 - Startup takes 10–20 s; a blank pane is normal, poll — don't conclude failure.
 - Type and submit **separately**: `send-keys -t s1 'say hi'`, wait ~1 s, then
   `send-keys -t s1 Enter`. One combined call gets the newline swallowed.
-- Foreground `sleep` is blocked in this harness — put waits inside a backgrounded
-  bash command. `timeout`/`gtimeout` are not installed.
+- Polling is fine here: this skill runs in the main session, which the harness wakes (the
+  no-poll rule binds subagents). Foreground `sleep` is blocked, so put waits inside a
+  backgrounded bash command. `timeout`/`gtimeout` are not installed.
 
 ## 4. Induction recipes (deterministic, zero real tokens)
 
@@ -165,7 +165,7 @@ Analysis traps (each produced a wrong conclusion once):
   keep a long-lived session in the sample when the question is "when".
 - Flagging a gap is not a licence to assert the conclusion the gap forbids.
 
-## 6. Tear down (always — an orphan burns tokens)
+## 6. Tear down (always)
 
 ```bash
 tmux -S "$PROBE_SOCKET" kill-server 2>/dev/null
@@ -180,10 +180,10 @@ Per CLAUDE.md doc upkeep, before the session ends:
 
 - New wire-format fact → a record in `docs/facts/` with `verified:` the version the payloads
   report, `refs:` the capture path with its count ("n of m sessions"), and `guard:` the canary or
-  unit test that pins it (`none` is allowed; offer the backlog line and let the user file it —
+  unit test that pins it (`none` is allowed; offer the backlog line and let the developer file it —
   kb:adr/process-backlog-entries-are-the-users-to-file). A fact proved wrong
   gets its ceiling pinned and a new record linked by `refs`, never a rewrite.
-- A settled open question → an `accepted` ADR (probes run on `main` with the user present).
+- A settled open question → an `accepted` ADR (probes run on `main` with the developer present).
 - Tick anything this closes in `TODO.md`.
 - `make gen-kb && make check-kb`, generated files in the same commit.
 - State the Claude Code version the evidence was captured against (from

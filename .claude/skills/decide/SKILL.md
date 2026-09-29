@@ -1,6 +1,6 @@
 ---
 name: decide
-description: "Settles a product/design decision by an honest two-agent Opus debate (advocates talk directly, a fresh judge breaks a tie). Used by /orchestrate for [orchestrator:decision] review issues; also usable standalone for a question with exactly two options."
+description: "Settles a product/design decision by an honest two-agent debate (advocates talk directly, a fresh judge breaks a tie). Used by /orchestrate for [orchestrator:decision] review issues; also usable standalone for a question with exactly two options."
 argument-hint: "<plan-name> <slug> | standalone question"
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Agent, SendMessage
 ---
@@ -15,12 +15,13 @@ in the documents that own it. You do not argue and you do not decide — you bri
 ## When this runs
 
 - From `/orchestrate`: for every `review.md` issue tagged `[orchestrator:decision]`, before
-  the fix wave that will implement the outcome. Max **2 debates per pipeline run**; a third
-  decision item stops the pipeline and asks the user.
-- Standalone (`/decide`): when the user poses a question with exactly two options. Ask for the
-  second option if only one was given; do not invent it.
+  the fix wave that will implement the outcome. Max **2 debates per pipeline run** (each costs
+  about one review cycle); a third decision item stops the pipeline and asks the developer.
+- Standalone (`/decide`): when the developer poses a question with exactly two options. Ask for
+  the second option if only one was given rather than inventing it.
 
-**Never debated — stop and ask the user instead:** protocol-contract changes
+**Never debated — stop and ask the developer instead.** This list is the one reviewers and the
+orchestrator route by (`[orchestrator:user-decision]`): protocol-contract changes
 (`docs/protocol.md` / a plan's Protocol Contract), anything that widens or narrows plan scope,
 anything contradicting an accepted or rejected ADR,
 anything that spends money (real `claude` runs), and anything the review marked as a hard-rule
@@ -35,7 +36,7 @@ Create `plans/<plan>/decisions/<slug>/` (standalone: `plans/decisions/<slug>/`) 
 # Decision brief: <slug>
 
 **Question**: <one sentence>
-**Source**: <review.md issue N, cycle M | user question>
+**Source**: <review.md issue N, cycle M | developer question>
 **Option A**: <verbatim from the source>
 **Option B**: <verbatim from the source>
 
@@ -77,10 +78,11 @@ prompt:
   Read the brief and its whole reading list, then <open with turn 1 | wait for turn 1>.
 ```
 
-Then **wait**. Do not poll, do not message either agent, do not read `debate.md` while it is
-live. The advocates' idle/progress notifications will also reach `main` after each turn, and
-their wrap-ups may re-narrate the result — ignore all of it; act only on the one explicit
-report: `consensus: …` or `no consensus — …` (kb:lesson/decision-made-inside-a-fix-wave).
+Then **wait** for the one explicit report — `consensus: …` or `no consensus — …` — and act only
+on it (kb:lesson/decision-made-inside-a-fix-wave). While the debate is live, leave it alone: no
+polling, no messages to either agent, no reading `debate.md`. The advocates' idle/progress
+notifications also reach `main` after each turn, and their wrap-ups may re-narrate the result —
+ignore all of that.
 If both agents' completion notifications arrive with no message to `main`, read `debate.md`
 and treat its last turn as the ending turn.
 
@@ -115,7 +117,7 @@ Then land it where it belongs — you are the only party allowed to edit these:
 - the plan: *Amended* note, citing `decisions/<slug>`, on each row the outcome or conceded dissent changes;
 - `docs/adr/<slug>.md`, the citable record: `status: proposed` with `refs: [plan:<plan>,
   plans/<plan>/decisions/<slug>/decision.md]` inside a pipeline (orchestrate Completion step 4
-  accepts it), `accepted` standalone with the user present; `tags: [consensus]` or `[judged]`.
+  accepts it), `accepted` standalone with the developer present; `tags: [consensus]` or `[judged]`.
   The debate artefacts stay in `decisions/<slug>/`; the ADR is what plans, comments and reviews
   cite.
 - `docs/design/design-system.md` or `ux-flows.md` when the decision is a design rule;
@@ -127,15 +129,14 @@ Return the outcome to the caller (the orchestrator quotes it in the next fix-wav
 
 ## Step 5 — Report
 
-The orchestrator's completion summary gets a **Decisions** section, one block per debate:
-the two options, the outcome, consensus-or-judged, the decisive argument in one or two
-sentences, and any dissent. The user can overrule with one line; the orchestrator then
-reopens the affected wave with the user's choice.
+Inside a pipeline, the orchestrator reports each debate in its completion summary
+(`.claude/skills/orchestrate/SKILL.md` § Completion, the Decisions item). Standalone, report the
+same fields to the developer: the two options, the outcome, consensus-or-judged, the decisive
+argument in one or two sentences, and any dissent.
 
 ## Guards
 
 - A debater that edits anything other than `debate.md`, messages `main` mid-debate, or spawns
   agents has broken protocol: stop the debate, record it in `decision.md` as `aborted`, and
-  ask the user.
+  ask the developer.
 - If `debate.md` and the messages disagree, the file is the record.
-- Cost: ~one Opus review cycle per debate. Do not run more than two per pipeline run.

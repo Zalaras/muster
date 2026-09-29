@@ -5,9 +5,11 @@ argument-hint: "[plan-name]"
 allowed-tools: Read, Glob, Bash
 ---
 
-> **Maintainer note:** This command lives in a skill and runs in the main session, on your session model. It's read-only and could run as a cheap subagent, but it's kept inline for simplicity (a status read is trivial and fast).
+> Maintainer note: read-only and inline in the main session for simplicity; it could run as a cheap subagent.
 
-You are the status agent. Your job is to quickly read the plan directory and present a clear summary of where things stand.
+Read the plan directory and summarise where things stand. This is a read of files already on disk:
+use output-file summaries and **Verdict** fields rather than re-reading code, and run no tests or
+builds.
 
 ## Arguments
 
@@ -20,30 +22,31 @@ This command was invoked with: **$ARGUMENTS** (optional `<plan-name>`)
 
 When no plan name is given:
 
-1. List all directories under `plans/`
-2. For each, read `plan.md` and extract the Status and Work Type fields
-3. Check which output files exist
-4. Present a summary table
+For each directory under `plans/`, take Status and Work Type from `plan.md` and progress from
+`orchestration-state.json` (or, without one, from which output files exist):
 
-Format:
 ```
 | Plan | Status | Work Type | Steps Completed | Current Step |
 |------|--------|-----------|----------------|--------------|
 | session-list-ui | in-progress | full-stack | 3/8 | daemon-tests |
 ```
 
-The pipeline has **8 steps**: e2e specs (authoring), daemon impl, web impl, daemon tests, web tests, e2e validate, review, doc reconcile. Steps a plan's Work Type skips (web agents for `daemon` plans, daemon agents for `web` plans, the E2E steps for `daemon` plans without `E*` criteria) — count those out of the total rather than showing them as pending forever.
+The pipeline has **8 steps**, in `orch-state.py`'s `STEPS` order: `e2e-specs` (authoring),
+`daemon-impl`, `web-impl`, `daemon-tests`, `web-tests`, `e2e-validate`, `review`, `doc-reconcile`.
+
+**Missing vs skipped.** A step the plan's Work Type or E2E Scope skips (web steps for `daemon`
+plans, daemon steps for `web` plans, the E2E steps for `daemon` plans without `E*` criteria or
+with `E2E Scope: none`) is `skipped` — count it out of the total, and give the reason from
+`completed_steps` when there is one. Any other step whose output file does not exist yet is
+`pending`.
 
 ## Detailed Plan Status
 
 When a plan name is given:
 
-1. Read `plans/<plan-name>/plan.md` for overview
-2. Read `plans/<plan-name>/orchestration-state.json` if it exists
-3. Check which output files exist and read their **Verdict** fields (for test and review files)
-4. Present detailed status
+Read `plan.md`, `orchestration-state.json` if it exists, and the **Verdict** field of each
+output file that exists:
 
-Format:
 ```
 # Status: <Plan Name>
 
@@ -55,18 +58,18 @@ Format:
 | Step | Status | Verdict | Details |
 |------|--------|---------|---------|
 | Plan | done | — | Approved |
-| E2E Specs (authoring) | done | authored | 5 tests created, collection clean |
-| Daemon Impl | done | — | 3 files created |
-| Daemon Tests | done | pass | 10/10 passing |
-| Web Impl | done | — | 4 files created |
-| Web Tests | in-progress | impl-bug | 8/10 passing, 2 impl bugs |
-| E2E Validate | pending | — | — |
-| Review | pending | — | — |
-| Doc Reconcile | pending | — | — |
+| e2e-specs (authoring) | done | authored | 5 tests created, collection clean |
+| daemon-impl | done | — | 3 files created |
+| web-impl | done | — | 4 files created |
+| daemon-tests | done | pass | 10/10 passing |
+| web-tests | in-progress | implementation-bug | 8/10 passing, 2 impl bugs |
+| e2e-validate | pending | — | — |
+| review | pending | — | — |
+| doc-reconcile | pending | — | — |
 
 ## Retries
 
-Daemon: 0 | Web: 1 | E2E Specs: 0 | E2E Validate: 0 | Review: 0 | Doc Reconcile: 0
+e2e-specs: 0 | daemon-impl: 0 | web-impl: 0 | daemon-tests: 0 | web-tests: 1 | e2e-validate: 0 | review: 0 | doc-reconcile: 0
 
 ## Knowledge
 
@@ -79,13 +82,6 @@ ADR(s) with `refs: plan:<plan>`, <M> accepted, <K> fact(s). A `completed` plan w
 <summary of failing tests or review issues>
 ```
 
-`test-specs.md` is written by both the authoring step and the E2E Validate step — read its **Mode** field to tell them apart. `Mode: authoring` / `Verdict: authored` means E2E Validate has **not** run yet; don't report it as done. If E2E Validate was skipped, show `skipped` with the reason from `completed_steps` rather than `pending`.
+`test-specs.md` is written by both the authoring step and the E2E Validate step — read its **Mode** field to tell them apart. `Mode: authoring` / `Verdict: authored` means E2E Validate has **not** run yet; report it as pending (or skipped, per the rule above), not done.
 
-Retry counts come from `retry_counts`; `e2e-validate` counts validate re-invocations, `e2e-specs` counts authoring plus review-routed fixes.
-
-## Behaviors
-
-- Be fast — just read and summarize, don't run any tests or builds
-- Use output file summaries and verdict fields rather than re-reading all code
-- If a file doesn't exist, mark that step as "pending"
-- Present information clearly and concisely
+Retry counts come from `retry_counts`, keyed by the same step names; `e2e-validate` counts validate re-invocations, `e2e-specs` counts authoring plus review-routed fixes, and `review` counts review cycles.

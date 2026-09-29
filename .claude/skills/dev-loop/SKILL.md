@@ -4,9 +4,7 @@ description: "Builds and runs musterd locally against the real data dir for manu
 allowed-tools: Bash, Read
 ---
 
-> **Maintainer note:** Authored at m0-skeleton completion per the plan's Implementation
-> Notes. Runs in the main session — it
-> starts a long-lived process the user interacts with.
+> Maintainer note: a skill in the main session because it starts a long-lived process the developer interacts with (m0-skeleton).
 
 Run the Muster daemon locally for manual testing.
 
@@ -27,8 +25,8 @@ Because `make run` occupies the terminal, launch it in the background
 (`run_in_background`) or tell the developer to run `! make run` themself if they want to watch
 the logs.
 
-`make run` now also opens the dashboard in the default browser once it's up (plan
-tmux-installation REQ-6, default `-open=true`) — a real terminal stdin is required for
+`make run` also opens the dashboard in the default browser once it's up (plan
+tmux-installation, default `-open=true`) — a real terminal stdin is required for
 this to fire, so it does nothing when launched via `run_in_background` (no terminal
 stdin there). Pass `-open=false` to suppress it either way; the dashboard URL is on the
 startup log line regardless.
@@ -53,6 +51,10 @@ pass a scratch `-data-dir` (that is exactly what the E2E harness does — prefer
 
 ## Stopping
 
+Send SIGINT/SIGTERM (Ctrl-C in the foreground, `kill <pid>` otherwise) — shutdown is
+graceful: contexts cancelled, ingest queue drained, DB closed. Keep `kill -9` for a wedged
+daemon; find a stray instance with `lsof -i @127.0.0.1:8765`.
+
 **Sessions survive daemon shutdown by policy** (`-on-exit`, default `ask` on a TTY —
 `kb:adr/lifecycle-shutdown-leaves-sessions-running`): the `muster` socket and every `claude` it launched outlive musterd
 unless you choose otherwise at the prompt, and reconcile re-adopts them on the next start. A
@@ -65,7 +67,3 @@ tmux -L muster ls   # must print "no server running" — anything listed is an o
 
 If something is listed, `tmux -L muster kill-session -t <name>` (or `kill-server` if it's
 all orphans). Reconcile marks the row dead on the next start.
-
-Send SIGINT/SIGTERM (Ctrl-C in the foreground, `kill <pid>` otherwise) — shutdown is
-graceful: contexts cancelled, ingest queue drained, DB closed. Don't `kill -9` unless
-it's wedged; find a stray instance with `lsof -i @127.0.0.1:8765`.
