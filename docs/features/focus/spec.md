@@ -23,7 +23,8 @@ permission mode is bypass (kb:adr/launch-bypass-offered-with-danger-guardrails),
 repo and branch, model — a resumed session with no recorded model reads `unknown`, as any null
 model does (kb:adr/launch-resume-null-model-reads-unknown) — and ended age when dead, the
 `claude | shell` surface switch (kb:spec/surfaces) and the End, Resume and Remove action row
-(kb:adr/actions-placement-mainhead-and-card-rows). The main slot hosts the focused
+(kb:adr/actions-placement-mainhead-and-card-rows). A title too long for the row ends in an
+ellipsis, so the action row always stays in view. The main slot hosts the focused
 session's live surface; when the session is dead and the Claude surface is selected it shows
 the dead surface instead (kb:spec/actions). A size note under the pane states the pane's
 real geometry.

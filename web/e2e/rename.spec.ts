@@ -762,3 +762,73 @@ test("a rename works on a dead session (REQ-16)", async ({ page, daemon }) => {
     await cleanup();
   }
 });
+
+test("a 300-character unbroken mainhead title ellipsises in place and never pushes End, Resume or Remove out of view at 900px and 1400px", async ({
+  page,
+  request,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon.dashboardUrl);
+    const session = await launchSession(page, daemon, { directory: dir });
+    const longTitle = "W".repeat(300);
+    // The daemon caps an override at 100 characters, so the 300-character title arrives
+    // the way a long one really can: as Claude's own session name on the status line.
+    const claudeId = "claude-long-title";
+    await request.post(daemon.ingestURL("hook"), {
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon)),
+    });
+    await request.post(daemon.ingestURL("status"), {
+      data: envelopedStatusLineFull(claudeId, {
+        ...(await envelopeOpts(session, daemon)),
+        sessionName: longTitle,
+      }),
+    });
+    await expect(mainheadRenameButton(page)).toHaveText(longTitle);
+
+    for (const width of [900, 1400]) {
+      await page.setViewportSize({ width, height: 800 });
+      const layout = await page.evaluate(() => {
+        const mainhead = document.querySelector("#mainhead") as HTMLElement;
+        const acts = document.querySelector("#mainhead .acts") as HTMLElement;
+        const rename = document.querySelector("#mainhead .rename") as HTMLElement;
+        const actionRight = (name: string) =>
+          (
+            document.querySelector(`#mainhead button[data-action="${name}"]`) as HTMLElement
+          ).getBoundingClientRect().right;
+        return {
+          actsRight: acts.getBoundingClientRect().right,
+          paddingBoxRight:
+            mainhead.getBoundingClientRect().right -
+            Number.parseFloat(getComputedStyle(mainhead).paddingRight),
+          viewportWidth: document.documentElement.clientWidth,
+          endRight: actionRight("end"),
+          resumeRight: actionRight("resume"),
+          removeRight: actionRight("remove"),
+          renameScrollWidth: rename.scrollWidth,
+          renameClientWidth: rename.clientWidth,
+        };
+      });
+      expect(
+        layout.actsRight,
+        `#mainhead .acts stays inside the mainhead's padding box at ${width}px`,
+      ).toBeLessThanOrEqual(layout.paddingBoxRight + 0.5);
+      for (const [name, right] of [
+        ["end", layout.endRight],
+        ["resume", layout.resumeRight],
+        ["remove", layout.removeRight],
+      ] as const) {
+        expect(right, `${name} button is in view at ${width}px`).toBeLessThanOrEqual(
+          layout.viewportWidth,
+        );
+      }
+      expect(
+        layout.renameScrollWidth,
+        `#mainhead .rename is really clipped at ${width}px`,
+      ).toBeGreaterThan(layout.renameClientWidth);
+    }
+  } finally {
+    await cleanup();
+  }
+});

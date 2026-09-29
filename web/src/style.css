@@ -651,6 +651,20 @@ body {
   font-weight: 700;
   font-size: var(--fs-lg);
   letter-spacing: -0.015em;
+  /* A long unbroken title ellipsises instead of pushing `.acts` off-screen: the shrink
+   * weight makes it give up width first, down to its floor, before `.meta` starts to. */
+  min-width: 6rem;
+  flex: 0 1000 auto;
+  overflow: hidden;
+}
+
+/* The button is an atomic inline box, so the ellipsis sits on it, not on the heading. */
+.mainhead .name .rename {
+  display: block;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* REQ-13 (plan ui-text-and-focus, 2026-09-03): the rename trigger — no button chrome,
@@ -687,7 +701,17 @@ body {
   max-width: 100%;
 }
 
+.mainhead .chip-danger {
+  flex: none;
+}
+
 .mainhead .meta {
+  /* Shrinks only once the title (shrink weight 1000) is down to its 6rem floor. */
+  min-width: 0;
+  flex: 0 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-family: var(--mono);
   font-size: var(--fs-xs);
   color: var(--fg-dim);
@@ -696,6 +720,7 @@ body {
 
 .mainhead .acts {
   margin-left: auto;
+  flex: none;
   display: flex;
   gap: 7px;
 }

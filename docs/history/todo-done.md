@@ -1666,6 +1666,12 @@ the mobile/responsive pass rem-ifies the pixel layer.
   masthead text, narrowing the bars to 40px and tightening the gaps below 1840px, and truncating the model
   name with a hover title (kb:adr/usage-masthead-narrow-width-shrinks-bars-truncates-model).
 
+- [x] **Mainhead actions pushed off-screen by an unbreakable title** — a long session title
+  with no break opportunity never ellipsises, so End, Resume and Remove are pushed past the
+  viewport. Expected: the title truncates with an ellipsis and the actions stay in view. From
+  `plans/resume-and-dangerously-allow/`.
+  ✅ done 2026-09-29 (follow-up to plan `resume-and-dangerously-allow`): the mainhead title ellipsises, giving up width before the meta line, and End, Resume and Remove stay in view.
+
 ## Post v1
 <!-- kb: adr/connection-installed-claude-classified-never-refused, adr/issue-disabled-button-affordance-deferred -->
 

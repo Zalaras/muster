@@ -101,11 +101,6 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
   right-click menu on a rail card carrying each of its actions, with the End button removed from
   the rail card (only there).
 
-- [ ] **Mainhead actions pushed off-screen by an unbreakable title** — a long session title
-  with no break opportunity never ellipsises, so End, Resume and Remove are pushed past the
-  viewport. Expected: the title truncates with an ellipsis and the actions stay in view. From
-  `plans/resume-and-dangerously-allow/`.
-
 - [ ] **The pending-resume hold does not survive a daemon restart** — after musterd restarts, a
   resumed row that has not yet bound no longer holds its Claude session, so the Resume list
   offers that session again and a second resume of it starts. Expected: the row keeps holding
