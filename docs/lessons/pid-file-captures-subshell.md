@@ -6,7 +6,7 @@ date: 2026-08-16
 summary: A PID file from $! after a backgrounded cd && nohup chain holds the subshell's PID; a later kill misses or hits a recycled PID. Use pgrep -f.
 features: []
 tags: [testing]
-roles: [daemon-tests, e2e-validate, orchestrator]
+roles: [daemon-tests, e2e-specs, e2e-validate, orchestrator]
 files: []
 tests: []
 refs: [docs/history/spikes/canary-fields.md, .claude/skills/interface-probe/SKILL.md, .claude/skills/orchestrate/scripts/orch-cleanup.sh]

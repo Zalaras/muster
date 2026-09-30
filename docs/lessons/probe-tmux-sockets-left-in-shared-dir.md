@@ -6,7 +6,7 @@ date: 2026-08-23
 summary: A quick probe started tmux with -L names and left sockets in the shared /private/tmp/tmux-*/ dir; probes use -S in a scratch dir and kill-server.
 features: []
 tags: [tmux, testing]
-roles: [daemon-impl, daemon-tests, e2e-validate]
+roles: [daemon-impl, daemon-tests, e2e-specs, e2e-validate]
 files: []
 tests: []
 refs: [plan:m2-terminal, .claude/agents/daemon-impl.md, CLAUDE.md, .claude/skills/orchestrate/scripts/orch-cleanup.sh]
