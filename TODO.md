@@ -101,7 +101,11 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
 
 ### On their own
 
-- [ ] **Watch until 2026-10-02: tool hooks surfaced `hook error` after an update** ([#54](https://github.com/Zalaras/muster/issues/54)) — closed by plan `maintainability-regressions`. Remove this entry on 2026-10-02 if no hook error of the same kind has been logged since; otherwise reopen #54.
+- [ ] **Tool hooks surface `hook error` after a daemon update** ([#54](https://github.com/Zalaras/muster/issues/54)) — seen
+  again 2026-09-30 after plan `maintainability-regressions` closed it: `PreToolUse`/`PostToolUse`
+  report "Failed with non-blocking status code: No stderr output", seemingly only on the first
+  message of the first new session after musterd updates (not yet confirmed). No Muster hook
+  should ever report an error.
 
 - [ ] **Dragging a file does not enable focus** ([#36](https://github.com/Zalaras/muster/issues/36)) — dropping a file on a Claude session does
   not snap focus back to that terminal. Confirm the behaviour in a plain terminal first
