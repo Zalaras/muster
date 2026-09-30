@@ -284,6 +284,11 @@ tick a sub-item as it lands, the parent when all have.
   shows only the generic failure. Candidate: say "model unavailable" on the card and offer
   Resume with another model. From `plans/new-session-improvement/` (its `## Out of scope`).
 
+- [ ] **Resizable side panels** ([#37](https://github.com/Zalaras/muster/issues/37)) — the
+  developer can drag to resize both the session rail on the left and the docs reader's file
+  nav / outline panel on the right, and minimise the rail the way the docs nav already
+  collapses. Each panel keeps its width across reloads.
+
 ## v1 Release
 
 The release itself: the Homebrew tap, then cutting v1.0.0 — last, once § Issues and § Pre-v1
@@ -393,9 +398,6 @@ New post-v1 ideas go here; re-rank when reached.
   all localhost-only (single-user, macOS, no auth beyond LAN trust per `CLAUDE.md`), so this
   implies at minimum an auth story and either a tunnel/relay or a public-facing listener —
   genuinely unsettled, wants a `/spec` pass before planning.
-
-- [ ] **Resize left sidebar** ([#37](https://github.com/Zalaras/muster/issues/37)) — resize the left sidebar, and minimise it the way the docs
-  outline does.
 
 - [ ] **Archive** ([#39](https://github.com/Zalaras/muster/issues/39)) — archive ended sessions rather than only removing them: move them after X
   time or immediately, with a setting to disable it and one to auto-clear the archive.
