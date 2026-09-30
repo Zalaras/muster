@@ -129,9 +129,10 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
   them per its assessment. Needs kb:adr/issue-daemon-creates-issues-only revisited first:
   triage deliberately never labels, assigns or milestones.
 
-- [ ] **Add right click for rail card and remove End button** ([#56](https://github.com/Zalaras/muster/issues/56)) — a custom
-  right-click menu on a rail card carrying each of its actions, with the End button removed from
-  the rail card (only there).
+- [ ] **Add right click for rail card** ([#56](https://github.com/Zalaras/muster/issues/56)) — a custom
+  right-click menu on a rail card carrying each of its actions, End among them: the card itself
+  shows no End button (plan `status-inconsistencies` removes it), so this menu is where End
+  returns to the card.
 
 ### From the maintainability cleanup (2026-09-24)
 
