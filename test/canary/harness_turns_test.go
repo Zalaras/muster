@@ -112,7 +112,7 @@ func failEnv(srv *httptest.Server) []string {
 // pre-allowed on the command line so no permission prompt appears, whatever the developer's
 // global allowlist says (kb:adr/canary-interrupt-run-preallows-bash).
 func (f *fixture) runG(ctx context.Context) error {
-	argv := append(claudecode.BuildArgv("claude", claudecode.LaunchParams{
+	argv := append(claudecode.BuildArgv(claudeBin, claudecode.LaunchParams{
 		Model:          haikuModel,
 		PermissionMode: "default",
 	}), "--allowedTools", "Bash")
@@ -223,7 +223,7 @@ func (f *fixture) runJ(ctx context.Context) error {
 	}))
 	defer srv.Close()
 
-	argv := claudecode.BuildArgv("claude", claudecode.LaunchParams{Model: haikuModel, PermissionMode: "default"})
+	argv := claudecode.BuildArgv(claudeBin, claudecode.LaunchParams{Model: haikuModel, PermissionMode: "default"})
 	target, started, _, err := f.startInteractive(ctx, failedTurnTmuxID, sessionFailedTurn, argv, failEnv(srv))
 	if err != nil {
 		return err

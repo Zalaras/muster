@@ -108,7 +108,11 @@ run: build web-build ## Run musterd against the real data dir, serving the disk 
 
 .PHONY: canary
 canary: $(GATELOCK) ## Drive the real claude (6 haiku turns incl. resume + zero-token unauth/fail-server/model/live checks), assert every field Muster depends on, then extend the verified range on a green run outside it; MUSTER_CANARY_OFFLINE=1 = compile + classify + static binary check only. Exclusive gate lock: a sweep beside it is the same hazard
-	$(GATELOCK) run --exclusive -- go test -tags=canary -count=1 -timeout 25m -v ./test/canary/... && go run ./tools/versions bump
+	@# Pin the resolved, versioned claude binary for the whole run and for bump, so an
+	@# auto-update mid-run can neither switch the binary under later steps nor get recorded.
+	bin="$$(command -v claude)" && bin="$$(realpath "$$bin")" && echo "canary: pinned $$bin" && \
+	  MUSTER_CANARY_CLAUDE_BIN="$$bin" $(GATELOCK) run --exclusive -- go test -tags=canary -count=1 -timeout 25m -v ./test/canary/... && \
+	  go run ./tools/versions bump -claude-bin "$$bin"
 
 .PHONY: gen-versions
 gen-versions: ## Regenerate the Claude Code version-range fragments in README.md and docs/claude-code-versions.md

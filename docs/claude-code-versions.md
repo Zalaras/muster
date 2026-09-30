@@ -76,7 +76,12 @@ The only mechanism is the environment variable, set in the `env` block of
 this section is the reference it follows, and stays the source of truth for why.
 
 `make canary` (non-offline) ends with `go run ./tools/versions bump`, which runs
-automatically after a green `go test`:
+automatically after a green `go test`. The target first resolves `claude` to its versioned
+binary and pins that path for the whole run (`MUSTER_CANARY_CLAUDE_BIN`) and for bump
+(`-claude-bin`). The auto-updater repoints the `claude` symlink, and on 2026-09-30 it did so
+mid-run: the unpinned bump then recorded the new version, which no test had run against.
+Bump records the pinned binary's version and names any newer one now on `PATH` as
+unverified.
 
 - Installed version **inside** the verified range (including the ceiling itself, when
   `MUSTER_CANARY_FORCE` is unset — see "Skipping on an unchanged install" below) — prints

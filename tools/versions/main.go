@@ -13,6 +13,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -59,8 +60,8 @@ func main() {
 }
 
 func run(args []string, stdout io.Writer, runCmd runFunc) error {
-	if len(args) != 1 {
-		return fmt.Errorf("usage: versions <gen|check|bump>")
+	if len(args) == 0 || (args[0] != "bump" && len(args) != 1) {
+		return fmt.Errorf("usage: versions <gen|check|bump [-claude-bin PATH]>")
 	}
 	root, err := repoRoot()
 	if err != nil {
@@ -72,7 +73,11 @@ func run(args []string, stdout io.Writer, runCmd runFunc) error {
 	case "check":
 		return cmdCheck(root, stdout)
 	case "bump":
-		return cmdBump(context.Background(), root, stdout, runCmd, "claude")
+		claudeBin, err := parseBumpArgs(args[1:])
+		if err != nil {
+			return err
+		}
+		return cmdBump(context.Background(), root, stdout, runCmd, claudeBin, "claude")
 	default:
 		return fmt.Errorf("unknown subcommand %q (want gen, check or bump)", args[0])
 	}
@@ -285,13 +290,32 @@ func cmdCheck(root string, stdout io.Writer) error {
 	return nil
 }
 
+// parseBumpArgs reads bump's one optional flag. `make canary` passes -claude-bin as the
+// resolved, versioned binary the canary ran against, so a Claude Code auto-update during the
+// run (which repoints the `claude` symlink) cannot make bump record a version the run never
+// tested. Without it, bump queries `claude` on PATH.
+func parseBumpArgs(args []string) (string, error) {
+	fs := flag.NewFlagSet("bump", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	claudeBin := fs.String("claude-bin", "claude", "the claude binary the canary ran against")
+	if err := fs.Parse(args); err != nil {
+		return "", fmt.Errorf("bump: %w", err)
+	}
+	if fs.NArg() != 0 {
+		return "", fmt.Errorf("bump: unexpected argument %q", fs.Arg(0))
+	}
+	return *claudeBin, nil
+}
+
 // cmdBump is the tail of `make canary` (Makefile): after a green `go test`, record the
 // installed version if it fell outside the observed range, then regenerate. claudeBin is
 // the `claude` binary to query for its version — an injectable seam (docs/conventions.md
 // §Testing: "never a $PATH shim"), the same pattern as musterd's -claude-bin flag: a test
 // points it at an absolute path to a stub script instead of mutating PATH globally, so
-// nothing here forks the real, installed claude.
-func cmdBump(ctx context.Context, root string, stdout io.Writer, runCmd runFunc, claudeBin string) error {
+// nothing here forks the real, installed claude. pathClaude is `claude` on PATH, the same
+// seam: when it now reports a different version from claudeBin, the run was overtaken by an
+// update, and bump says so while still recording only what was tested.
+func cmdBump(ctx context.Context, root string, stdout io.Writer, runCmd runFunc, claudeBin, pathClaude string) error {
 	if os.Getenv(offlineEnv) != "" {
 		fmt.Fprintf(stdout, "versions: %s is set; not checking for a version to record\n", offlineEnv)
 		return nil
@@ -300,6 +324,12 @@ func cmdBump(ctx context.Context, root string, stdout io.Writer, runCmd runFunc,
 	installed, err := claudecode.InstalledVersion(ctx, claudeBin)
 	if err != nil {
 		return fmt.Errorf("determining installed claude version: %w", err)
+	}
+	if claudeBin != pathClaude {
+		if current, curErr := claudecode.InstalledVersion(ctx, pathClaude); curErr == nil && current != installed {
+			fmt.Fprintf(stdout, "versions: the canary ran %s, but claude on PATH is now %s (updated during the run) — %s is unverified until the next make canary\n",
+				installed, current, current)
+		}
 	}
 
 	rows, err := readRecord(root)

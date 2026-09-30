@@ -257,7 +257,7 @@ func harness(t *testing.T) *fixture {
 func TestMain(m *testing.M) {
 	if os.Getenv(offlineEnv) == "" {
 		force := os.Getenv(forceEnv) != ""
-		if installed, err := claudecode.InstalledVersion(context.Background(), "claude"); err == nil {
+		if installed, err := claudecode.InstalledVersion(context.Background(), claudeBin); err == nil {
 			if skip, reason := skipDecision(installed, claudecode.Verified(), force, false); skip {
 				skipReason = reason
 				fmt.Println(reason)
@@ -276,7 +276,7 @@ func (f *fixture) build() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 16*time.Minute)
 	defer cancel()
 
-	installed, err := claudecode.InstalledVersion(ctx, "claude")
+	installed, err := claudecode.InstalledVersion(ctx, claudeBin)
 	if err != nil {
 		return fmt.Errorf("claude must be on PATH: %w", err)
 	}
@@ -497,7 +497,7 @@ func (f *fixture) headlessRun(ctx context.Context, prompt string, flags, extraEn
 	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
 	args := append([]string{"-p", prompt, "--model", haikuModel}, flags...)
-	cmd := exec.CommandContext(ctx, "claude", args...)
+	cmd := exec.CommandContext(ctx, claudeBin, args...)
 	cmd.Dir = f.repo
 	cmd.Env = append(baseEnv(), extraEnv...)
 	out, err := cmd.CombinedOutput()
@@ -576,7 +576,7 @@ func (f *fixture) runD(ctx context.Context) error {
 	// Title + PermissionMode:"plan" (REQ-2): the cross-check that the unauthenticated
 	// sweep in runC reflects the flag, since the flag→wire mapping was measured
 	// authenticated only (plan Carried-over measurements).
-	argv := claudecode.BuildArgv("claude", claudecode.LaunchParams{
+	argv := claudecode.BuildArgv(claudeBin, claudecode.LaunchParams{
 		Model:          haikuModel,
 		Title:          "Muster Canary",
 		PermissionMode: "plan",
@@ -763,7 +763,7 @@ func (f *fixture) runE(ctx context.Context) error {
 		return fmt.Errorf("run D produced no claude session_id to resume")
 	}
 
-	argv := claudecode.BuildArgv("claude", claudecode.LaunchParams{
+	argv := claudecode.BuildArgv(claudeBin, claudecode.LaunchParams{
 		Model:           haikuModel,
 		PermissionMode:  "plan",
 		ResumeSessionID: f.interactive.claudeSessionID,
@@ -803,13 +803,13 @@ func (f *fixture) runE(ctx context.Context) error {
 // the production pre-check itself is broken against the installed binary, not merely that
 // this one launch would have failed open.
 func (f *fixture) runF(ctx context.Context) error {
-	unrec, err := claudecode.CheckModel(ctx, "claude", f.repo, unrecognizedCanaryModel)
+	unrec, err := claudecode.CheckModel(ctx, claudeBin, f.repo, unrecognizedCanaryModel)
 	if err != nil {
 		return fmt.Errorf("CheckModel(%q): %w", unrecognizedCanaryModel, err)
 	}
 	f.modelCheck.unrecognisedVerdict = unrec
 
-	rec, err := claudecode.CheckModel(ctx, "claude", f.repo, haikuModel)
+	rec, err := claudecode.CheckModel(ctx, claudeBin, f.repo, haikuModel)
 	if err != nil {
 		return fmt.Errorf("CheckModel(%q): %w", haikuModel, err)
 	}

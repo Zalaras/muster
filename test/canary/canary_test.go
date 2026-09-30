@@ -54,7 +54,7 @@ import (
 // the installed version against the observed range on every canary invocation, including a
 // skipped one, so the run's own output always states what it did (or didn't) check against.
 func TestInstalledVersionClassifies(t *testing.T) {
-	installed, err := claudecode.InstalledVersion(t.Context(), "claude")
+	installed, err := claudecode.InstalledVersion(t.Context(), claudeBin)
 	require.NoError(t, err, "claude must be on PATH to run the canary")
 	status := claudecode.Classify(installed)
 	t.Logf("installed %s, verified range %s, classified %s",

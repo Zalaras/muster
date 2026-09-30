@@ -65,7 +65,7 @@ type resumeBareRun struct {
 // runK launches interactively in bypassPermissions and leaves the warning unanswered. Nothing
 // is ever typed at it, so no acceptance reaches the developer's user-level Claude Code state.
 func (f *fixture) runK(ctx context.Context) error {
-	argv := claudecode.BuildArgv("claude", claudecode.LaunchParams{
+	argv := claudecode.BuildArgv(claudeBin, claudecode.LaunchParams{
 		Model:          haikuModel,
 		PermissionMode: claudecode.PermissionBypass,
 	})
@@ -122,7 +122,7 @@ func (f *fixture) runL(ctx context.Context) error {
 	run.id = id
 	cctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(cctx, "claude", "-p", "hi", "--model", haikuModel, "--resume", id)
+	cmd := exec.CommandContext(cctx, claudeBin, "-p", "hi", "--model", haikuModel, "--resume", id)
 	cmd.Dir = f.repo
 	cmd.Env = append(baseEnv(), fmt.Sprintf("MUSTER_SESSION=%d", sessionResumeUnknown))
 	out, err := cmd.CombinedOutput()
@@ -159,7 +159,7 @@ func (f *fixture) runM(ctx context.Context) error {
 	}
 	defer func() { _ = os.WriteFile(settingsPath, f.settings, 0o600) }()
 
-	argv := claudecode.BuildArgv("claude", claudecode.LaunchParams{ResumeSessionID: run.claudeID})
+	argv := claudecode.BuildArgv(claudeBin, claudecode.LaunchParams{ResumeSessionID: run.claudeID})
 	_, started, _, err := f.startInteractive(ctx, resumeBareTmuxID, sessionResumeBare, argv, nil)
 	defer func() { _ = f.killPane(ctx, resumeBareTmuxID) }()
 	if err != nil {

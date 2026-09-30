@@ -39,7 +39,7 @@ const (
 // no session and opens no network connection, so it runs under MUSTER_CANARY_OFFLINE=1
 // (REQ-10/INV-1) — it does not call harness(t) or live(t) at all.
 func TestInstalledBinaryCarriesInterfaceStrings(t *testing.T) {
-	binPath, err := exec.LookPath("claude")
+	binPath, err := exec.LookPath(claudeBin)
 	require.NoError(t, err, "claude must be on PATH")
 	resolved, err := filepath.EvalSymlinks(binPath)
 	require.NoErrorf(t, err, "resolving symlinks for %s", binPath)

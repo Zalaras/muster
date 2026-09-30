@@ -161,7 +161,7 @@ func TestCmdBump_OfflineEditsNothing(t *testing.T) {
 	before := mustReadFile(t, filepath.Join(root, recordPath))
 
 	var buf bytes.Buffer
-	err := cmdBump(context.Background(), root, &buf, failingRunCmd(t), "unused-placeholder-claude-bin")
+	err := cmdBump(context.Background(), root, &buf, failingRunCmd(t), "unused-placeholder-claude-bin", "unused-placeholder-claude-bin")
 	require.NoError(t, err)
 	assert.Contains(t, buf.String(), offlineEnv)
 
@@ -177,7 +177,7 @@ func TestCmdBump_InsideRangeEditsNothing(t *testing.T) {
 	before := mustReadFile(t, filepath.Join(root, recordPath))
 
 	var buf bytes.Buffer
-	err := cmdBump(context.Background(), root, &buf, failingRunCmd(t), claudeBin)
+	err := cmdBump(context.Background(), root, &buf, failingRunCmd(t), claudeBin, claudeBin)
 	require.NoError(t, err)
 	assert.Contains(t, buf.String(), "inside the verified range")
 	assert.Contains(t, buf.String(), "2.1.250")
@@ -205,7 +205,7 @@ func TestCmdBump_AboveAppendsAndRegenerates(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := cmdBump(context.Background(), root, &buf, runCmd, claudeBin)
+	err := cmdBump(context.Background(), root, &buf, runCmd, claudeBin, claudeBin)
 	require.NoError(t, err)
 
 	require.Equal(t, []string{"git status --porcelain -- " + recordPath, "git diff --stat"}, gitCalls)
@@ -225,6 +225,44 @@ func TestCmdBump_AboveAppendsAndRegenerates(t *testing.T) {
 	assert.Contains(t, readme, "2.1.246–2.1.270")
 }
 
+// TestCmdBump_RecordsTheTestedBinaryWhenAnUpdateOvertookTheRun: Claude Code updated during
+// the canary, so claude on PATH now reports a newer version than the pinned binary the run
+// exercised. Only the tested version is recorded, and the output names the untested one.
+func TestCmdBump_RecordsTheTestedBinaryWhenAnUpdateOvertookTheRun(t *testing.T) {
+	tested := writeClaudeVersionStub(t, "2.1.270 (Claude Code)")
+	onPath := writeClaudeVersionStub(t, "2.1.271 (Claude Code)")
+	root := newFixtureRoot(t, defaultRecord)
+	runCmd := func(context.Context, string, string, ...string) ([]byte, error) {
+		return []byte(""), nil // a clean record, an empty diff
+	}
+
+	var buf bytes.Buffer
+	require.NoError(t, cmdBump(context.Background(), root, &buf, runCmd, tested, onPath))
+
+	after := mustReadFile(t, filepath.Join(root, recordPath))
+	assert.Contains(t, after, "2.1.270 ")
+	assert.NotContains(t, after, "2.1.271")
+	out := buf.String()
+	assert.Contains(t, out, "recorded 2.1.270")
+	assert.Contains(t, out, "the canary ran 2.1.270, but claude on PATH is now 2.1.271")
+}
+
+func TestParseBumpArgs(t *testing.T) {
+	bin, err := parseBumpArgs(nil)
+	require.NoError(t, err)
+	assert.Equal(t, "claude", bin, "no flag queries claude on PATH")
+
+	bin, err = parseBumpArgs([]string{"-claude-bin", "/opt/claude/versions/2.1.270"})
+	require.NoError(t, err)
+	assert.Equal(t, "/opt/claude/versions/2.1.270", bin)
+
+	_, err = parseBumpArgs([]string{"stray"})
+	require.Error(t, err)
+
+	_, err = parseBumpArgs([]string{"-nope"})
+	require.Error(t, err)
+}
+
 // TestCmdBump_BelowAppendsAndRegenerates is the symmetric case (Edge Case 6): green below
 // the floor moves the floor down, not just the ceiling up.
 func TestCmdBump_BelowAppendsAndRegenerates(t *testing.T) {
@@ -242,7 +280,7 @@ func TestCmdBump_BelowAppendsAndRegenerates(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := cmdBump(context.Background(), root, &buf, runCmd, claudeBin)
+	err := cmdBump(context.Background(), root, &buf, runCmd, claudeBin, claudeBin)
 	require.NoError(t, err)
 
 	after := mustReadFile(t, filepath.Join(root, recordPath))
@@ -266,7 +304,7 @@ func TestCmdBump_RefusesOnDirtyRecord(t *testing.T) {
 		return []byte(" M " + recordPath + "\n"), nil
 	}
 
-	err := cmdBump(context.Background(), root, io.Discard, runCmd, claudeBin)
+	err := cmdBump(context.Background(), root, io.Discard, runCmd, claudeBin, claudeBin)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "uncommitted changes")
 	assert.Contains(t, err.Error(), recordPath)
@@ -286,7 +324,7 @@ func TestCmdBump_RefusesWhenGitFails(t *testing.T) {
 		return []byte("git: command not found"), errors.New("exec: \"git\": executable file not found in $PATH")
 	}
 
-	err := cmdBump(context.Background(), root, io.Discard, runCmd, claudeBin)
+	err := cmdBump(context.Background(), root, io.Discard, runCmd, claudeBin, claudeBin)
 	require.Error(t, err)
 
 	after := mustReadFile(t, filepath.Join(root, recordPath))
@@ -309,7 +347,7 @@ func TestCmdBump_RefusesWhenGitDiffFails(t *testing.T) {
 		return []byte("fatal: not a git repository"), errors.New("exit status 128")
 	}
 
-	err := cmdBump(context.Background(), root, io.Discard, runCmd, claudeBin)
+	err := cmdBump(context.Background(), root, io.Discard, runCmd, claudeBin, claudeBin)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "git diff")
 }
