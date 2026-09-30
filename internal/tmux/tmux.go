@@ -337,7 +337,7 @@ func (c *Client) AttachArgv(target string) []string {
 }
 
 // ResizeWindow applies `tmux resize-window` to target: always called after pty.Setsize,
-// never the pane-level primitive that silently no-ops (kb:lesson/resize-pane-silent-noop).
+// never the pane-level primitive that silently no-ops (kb:adr/surfaces-shared-attach-single-pty).
 func (c *Client) ResizeWindow(ctx context.Context, target string, cols, rows int) error {
 	if _, err := c.run(ctx, "resize-window", "-t", exactTarget(target), "-x", strconv.Itoa(cols), "-y", strconv.Itoa(rows)); err != nil {
 		return fmt.Errorf("tmux resize-window %q: %w", target, err)

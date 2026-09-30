@@ -83,7 +83,7 @@ changes the shipped artifact (`docs/conventions.md` § Commits). Work that relea
   a new one in the same pane).
 - tmux ALWAYS via a dedicated socket (`tmux -L muster`, or a per-test socket) — never
   the user's default server. Sizing: `pty.Setsize` **and** `resize-window`;
-  `resize-pane` exits 0 and silently no-ops on single-pane windows (kb:lesson/resize-pane-silent-noop).
+  `resize-pane` exits 0 and silently no-ops on single-pane windows (kb:adr/surfaces-shared-attach-single-pty).
 - NEVER read or modify `~/.claude/settings.json` / `settings.local.json` — the developer's
   live sessions depend on them. Isolation is always a project-scoped
   `.claude/settings.json` in a scratch repo. `CLAUDE_CONFIG_DIR` breaks subscription
@@ -93,7 +93,7 @@ changes the shipped artifact (`docs/conventions.md` § Commits). Work that relea
   kill the session when done — an orphan keeps burning.
 - Never log hook payloads (they contain prompt text) anywhere world-readable.
 - Never `git config user.*` in this repo **or any worktree of it** — worktrees share
-  `.git/config` (kb:lesson/worktree-shares-git-config). Scratch repos are `git init` in a
+  `.git/config`. Scratch repos are `git init` in a
   temp dir, or pass `-c user.name=… -c user.email=…` per command; `.githooks/pre-commit`
   refuses a repo-local override.
 

@@ -9,7 +9,7 @@ features: []
 tags: [pipeline]
 files: [.claude/skills/spec/SKILL.md, .claude/skills/plan-work/SKILL.md, .claude/skills/orchestrate/SKILL.md, .claude/skills/retro/SKILL.md, .claude/skills/land/SKILL.md, .claude/agents/*.md]
 tests: []
-refs: [kb:adr/process-doc-reconcile-after-review, kb:lesson/squash-merge-never-empties-log-range, plans/_audit/diagrams-from-code.md]
+refs: [kb:adr/process-doc-reconcile-after-review, plans/_audit/diagrams-from-code.md]
 ---
 One feature, end to end. Each arrow into a skill is a gate that refuses rather than warns:
 `/plan-work` refuses a spec whose `Status` is not `Approved`; `/orchestrate` refuses a `draft`

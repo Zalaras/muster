@@ -8,7 +8,7 @@ features: []
 tags: [pipeline, user-decision]
 files: [scripts/worktree.sh, Makefile, .claude/skills/orchestrate/SKILL.md, .claude/skills/land/SKILL.md, .claude/skills/plan-work/SKILL.md]
 tests: []
-refs: [kb:adr/worktree-muster-owned-sibling-path, kb:adr/worktree-merge-queue-daemon-driven, kb:fact/worktree-flag-defaults, kb:lesson/worktree-shares-git-config, kb:adr/process-playwright-runs-exclusive-on-machine, plans/worktree-lifecycle/spec.md]
+refs: [kb:adr/worktree-muster-owned-sibling-path, kb:adr/worktree-merge-queue-daemon-driven, kb:fact/worktree-flag-defaults, kb:adr/process-playwright-runs-exclusive-on-machine, plans/worktree-lifecycle/spec.md]
 supersedes: []
 ---
 **Context.** The pipeline ran every plan on `plan/<name>` inside the one primary checkout, so two plans could not be worked at once, and a live main session forced code work into a hand-made tree that was left behind. The product already decided that Muster creates a sibling tree before the session (kb:adr/worktree-muster-owned-sibling-path) and that merge handling is scripted plumbing with an LLM only for judgment, this repo's rules being an adapter (kb:adr/worktree-merge-queue-daemon-driven). Hooks and subagents key off the directory a session started in, so a session cannot move into a tree.

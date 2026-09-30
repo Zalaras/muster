@@ -118,7 +118,7 @@ export function resolveOnset(
  * `indicator`, so the onset timer `observeBusy` scheduled sees a stale epoch when it
  * fires and never promotes to "busy" — "a command that never raised a spinner never
  * raises a tick." Fixes a bug the shipped implementation's own doc comment used to claim
- * this did (kb:lesson/effect-claimed-from-the-diff) but didn't: the old no-op guard
+ * this did but didn't: the old no-op guard
  * (`current.indicator !== "busy"`) left a still-"none" entry's epoch untouched, so a late
  * `resolveOnset` promoted it to "busy" anyway (fix attempt 1, pinned by
  * shellactivity.test.ts's "a busy period that ends before the onset delay elapses never

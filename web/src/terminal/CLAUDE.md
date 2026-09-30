@@ -13,7 +13,7 @@
 **Exemplar**: `overlay.ts` + `overlay.test.ts` — a pure mapping beside the DOM module that calls it; copy this shape for new bridge logic.
 
 **Gotchas**:
-- The `4001` overlay lives about 25 ms before the dead surface replaces it; no test asserts it (kb:lesson/transient-display-is-not-an-oracle).
+- The `4001` overlay lives about 25 ms before the dead surface replaces it; no test asserts it (kb:adr/process-transient-displays-not-oracles).
 - `render/surfaceseg.ts`'s segment control is built once per host and mutated afterwards, never rebuilt on a render tick (kb:lesson/select-rebuilt-every-tick-passed-selectoption).
 - Fit is observed, never pattern-matched from footer geometry (kb:lesson/tiles-never-refit-behind-pattern-match).
 - Dropped paths escape Terminal.app-style: backslash before every space and metacharacter, non-ASCII untouched (`drop.ts`).

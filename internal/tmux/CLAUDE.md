@@ -5,7 +5,7 @@
 **Invariants** (violations are review-Critical):
 - Never the user's default server: every command carries the socket flag (kb:adr/stack-terminal-backing-tmux).
 - One tmux session per Muster session, named `muster-<id>`, one window (kb:adr/surfaces-one-tmux-session-per-session, kb:adr/surfaces-one-window-per-session).
-- Sizing drives `pty.Setsize` and `resize-window` together; never `resize-pane` (kb:adr/surfaces-shared-attach-single-pty, kb:lesson/resize-pane-silent-noop).
+- Sizing drives `pty.Setsize` and `resize-window` together; never `resize-pane` (kb:adr/surfaces-shared-attach-single-pty).
 - `detach-on-destroy` is on (kb:adr/surfaces-detach-on-destroy-on, kb:lesson/detach-on-destroy-misrouted-keystrokes).
 - `CapturePane` output is display only and may hold prompt text: never a state source, never logged (kb:adr/actions-pane-snapshot-display-only).
 - `ListPaneActivity` and copy-mode's `#{pane_in_mode}`/`#{history_size}` read tmux's own process/mode tracking through its query API, not pane content — that distinction is what lets the shell-busy poller and scroll driver use them without breaching the rule above (kb:adr/surfaces-shell-busy-from-tmux-process-state).

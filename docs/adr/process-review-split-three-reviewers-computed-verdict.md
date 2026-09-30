@@ -8,7 +8,7 @@ features: []
 tags: [pipeline]
 files: [.claude/agents/review-work.md, .claude/agents/review-browser.md, .claude/agents/review-maintainability.md, .claude/skills/orchestrate/SKILL.md, .claude/skills/orchestrate/scripts/orch-state.py, internal/kb/pack.go]
 tests: [TestPack_IncludesOnlyTheConventionsSectionsForTheRole]
-refs: [kb:adr/process-gates-run-once-by-orchestrator-before-review, kb:adr/process-doc-reconcile-after-review, kb:lesson/surface-never-measured-against-its-host, kb:lesson/finding-severity-misrouted, kb:lesson/handoff-commit-defects, plans/_audit/code-quality-2026-09-22.md]
+refs: [kb:adr/process-gates-run-once-by-orchestrator-before-review, kb:adr/process-doc-reconcile-after-review, kb:lesson/surface-never-measured-against-its-host, kb:lesson/handoff-commit-defects, plans/_audit/code-quality-2026-09-22.md]
 supersedes: []
 ---
 **Context.** One 347-line review agent did everything. Across 58 review files it sampled rather

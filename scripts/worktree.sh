@@ -11,13 +11,12 @@
 #
 # Deliberate choices:
 #   - bash 3.2 (macOS), set -u; git plumbing only, no stash, no `git add -A`, no `git config user.*`
-#     (kb:lesson/worktree-shares-git-config — worktrees share .git/config).
+#     (worktrees share .git/config).
 #   - `add` carries exactly the planning-session files onto the branch (orchestrate pre-flight 4a's
 #     row 2, moved earlier). Anything else dirty in the primary stays there: a separate tree cannot
 #     fold it into an agent's commit, which was the only reason 4a used to refuse.
 #   - `rm` refuses a dirty tree, a tree whose branch holds content main lacks (the merge-tree test
-#     /land uses — "unique commits" would refuse every squash-landed branch,
-#     kb:lesson/squash-merge-never-empties-log-range), or one a claude session still has as cwd.
+#     /land uses — "unique commits" would refuse every squash-landed branch), or one a claude session still has as cwd.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"   # this checkout: the primary, or a tree

@@ -161,8 +161,7 @@ func TestPreCommitHookAcceptsARenderedNormalEntry(t *testing.T) {
 	git := func(args ...string) {
 		t.Helper()
 		// -c rather than `git config user.*`: a worktree shares .git/config with the real
-		// repo, and the hook this test runs refuses a repo-local identity for that reason
-		// (kb:lesson/worktree-shares-git-config).
+		// repo, and the hook this test runs refuses a repo-local identity for that reason.
 		cmd := exec.Command("git", append([]string{"-C", repo}, args...)...)
 		out, cerr := cmd.CombinedOutput()
 		require.NoError(t, cerr, "git %v: %s", args, out)

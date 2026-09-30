@@ -15,7 +15,7 @@
 **Gotchas**:
 - Times are RFC3339 UTC text, nanosecond precision for receipt stamps; parse on read, never compare as strings.
 - Ended rows are swept on the next start; live rows whose pane is gone are kept as ended (kb:adr/lifecycle-ended-rows-swept-next-start).
-- "The file is now private" is proven with `ls -l` on all three files, not the diff (kb:lesson/effect-claimed-from-the-diff).
+- "The file is now private" is proven with `ls -l` on all three files, not the diff.
 - Don't test SQLite's own constraint enforcement.
 
 <!-- kb:trailer -->

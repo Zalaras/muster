@@ -8,7 +8,7 @@ features: []
 tags: [pipeline]
 files: [.claude/agents/review-work.md, .claude/skills/orchestrate/SKILL.md, .claude/skills/orchestrate/scripts/gates.sh]
 tests: []
-refs: [kb:adr/process-doc-reconcile-after-review, kb:lesson/subagent-never-woken-by-harness, kb:lesson/transient-display-is-not-an-oracle]
+refs: [kb:adr/process-doc-reconcile-after-review, kb:lesson/subagent-never-woken-by-harness, kb:adr/process-transient-displays-not-oracles]
 ---
 **Context.** A `needs-changes` cycle swept `make e2e` four times over a byte-identical tree: the
 wave-3 fix agent, the wave-3 gate, Final Validation, and the reviewer's §1. Measured 2026-09-16,
