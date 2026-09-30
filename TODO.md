@@ -38,7 +38,7 @@ group deliberately, and otherwise don't re-sort this list.
 - [ ] **Needs Input is shown on /clear** ([#57](https://github.com/Zalaras/muster/issues/57)) — running `/clear` puts the card on
   Needs Input. A freshly cleared session should read idle.
 
-### Together — turn-state gaps (#59, #60)
+### Together — turn-state gaps (#59, #60, #64)
 
 The first two were filed by the developer 2026-09-23 from the interface probe that settled the
 hook-ordering, `StopFailure` and status-line open questions; #59 is the probe's interrupt gap,
@@ -58,6 +58,20 @@ since reported from real use.
   something is running: `working`, or a new status. If the command is a backgrounded shell,
   kb:adr/lifecycle-subagent-marked-events-not-stragglers accepted idle for that case and would
   need superseding first.
+
+- [ ] **IDLE while working** ([#64](https://github.com/Zalaras/muster/issues/64)) — once a
+  subagent finished, the card went idle while the main agent kept working. It should stay
+  `working` until the main agent's turn ends.
+
+### Together — compaction state (#65, #66)
+
+- [ ] **Compacting has not state in Muster** ([#65](https://github.com/Zalaras/muster/issues/65)) — while
+  `/compact` runs the card reads idle, though the session can't take input until it finishes.
+  It should show a busy state, new or reused.
+
+- [ ] **After compaction it goes to Started state** ([#66](https://github.com/Zalaras/muster/issues/66)) — once
+  compaction finishes the card reads `started`. Decide whether it should read idle (unread)
+  instead.
 
 ### Together — session retention and clearing (#27, #47; #39 in Post v1 is the same seam)
 
@@ -100,6 +114,10 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
 - [ ] **Add right click for rail card and remove End button** ([#56](https://github.com/Zalaras/muster/issues/56)) — a custom
   right-click menu on a rail card carrying each of its actions, with the End button removed from
   the rail card (only there).
+
+- [ ] **Text cut off in the file outliner** ([#67](https://github.com/Zalaras/muster/issues/67)) — in the
+  docs reader, long text in the file nav/outline runs off screen. It should stay inside the
+  panel.
 
 ### From the maintainability cleanup (2026-09-24)
 
@@ -380,6 +398,12 @@ New post-v1 ideas go here; re-rank when reached.
 
 - [ ] **Show rendered plan** ([#44](https://github.com/Zalaras/muster/issues/44)) — auto-open the document tab when Claude presents a plan. Likely
   only worth doing once the rendered view carries Accept/Reject and can swap back.
+
+- [ ] **Explore offering Claude Code's dontAsk permission mode** ([#63](https://github.com/Zalaras/muster/issues/63)) —
+  the launch dialog can't start a `dontAsk` session, though a resumed one can come back in that
+  mode. Measure what `dontAsk` does on the pinned Claude Code version and decide whether Start
+  in should offer it; kb:adr/launch-bypass-and-dontask-unoffered records why it was left out
+  and would need superseding.
 
 ## Open questions carried forward
 
