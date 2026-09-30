@@ -1684,6 +1684,13 @@ the mobile/responsive pass rem-ifies the pixel layer.
   the session across a restart until it binds or ends. From `plans/resume-and-dangerously-allow/`.
   ✅ done 2026-09-29 (follow-up to plan `resume-and-dangerously-allow`): the hold is stored with the session row and cleared when it binds or ends (kb:adr/launch-resume-pending-hold-persisted).
 
+- [x] **Text cut off in the file outliner** ([#67](https://github.com/Zalaras/muster/issues/67)) — in the
+  docs reader, long text in the file nav/outline runs off screen. It should stay inside the
+  panel.
+  ✅ done 2026-09-30 (direct fix on `main`, no pipeline): file and folder names in the nav truncate
+  with an ellipsis and show their path on hover, folder counts and changed dots stay in view, and
+  outline headings and the files header's directory path wrap inside the panel.
+
 ## Post v1
 <!-- kb: adr/connection-installed-claude-classified-never-refused, adr/issue-disabled-button-affordance-deferred -->
 

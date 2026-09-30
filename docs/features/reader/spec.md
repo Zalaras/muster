@@ -50,8 +50,9 @@ nothing it serves (kb:adr/issue-preview-is-the-leak-check).
 Bar (plan badge, basename, absolute path, freshness cue, pop-out link, nav toggle), sanitized GFM
 body on the `--well` ground, and a right-hand nav: the plan slot pinned on top, a filterable tree
 of files with folders collapsed and counted, and an outline of the open file's headings with
-scroll-spy. The nav toggle is one button, last in the bar and pinned to its right edge in every
-state (kb:adr/reader-nav-toggle-is-one-fixed-button); it is never hidden, reports the nav on
+scroll-spy. A long file or folder name ends in an ellipsis inside the panel, with its path on
+hover; a long heading or files-header path wraps. The nav toggle is one button, last in the
+bar and pinned to its right edge in every state (kb:adr/reader-nav-toggle-is-one-fixed-button); it is never hidden, reports the nav on
 `aria-expanded`, and is the bar's only auto margin, so nothing re-aligns when the freshness cue
 comes and goes. A user-initiated open greys the reading area out and names the file on the status
 line rather than replacing the body, so a failed open keeps the last render; the body placeholder

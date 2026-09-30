@@ -119,10 +119,6 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
   right-click menu on a rail card carrying each of its actions, with the End button removed from
   the rail card (only there).
 
-- [ ] **Text cut off in the file outliner** ([#67](https://github.com/Zalaras/muster/issues/67)) — in the
-  docs reader, long text in the file nav/outline runs off screen. It should stay inside the
-  panel.
-
 ### From the maintainability cleanup (2026-09-24)
 
 Filed by the developer from the cleanup's proposed backlog (`plans/maintainability-cleanup/proposed-backlog.md`).

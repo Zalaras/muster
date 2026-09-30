@@ -834,3 +834,44 @@ export class ReaderRequestTracker {
     return this.listingCount + this.fileCount;
   }
 }
+
+/** How a nav row's label text is laid out against the nav's own box (#67) — measured on the
+ * element that directly holds the row's label text node, since `text-overflow` acts on that
+ * element and only when it is a block container (a flex container never ellipsizes).
+ * `lines` counts the label's distinct line boxes. */
+export interface NavLabelLayout {
+  display: string;
+  textOverflow: string;
+  overflowX: string;
+  overflowing: boolean;
+  lines: number;
+  labelRight: number;
+  navRight: number;
+}
+
+export async function navLabelLayout(nav: Locator, entry: Locator): Promise<NavLabelLayout> {
+  const navRight = await nav.evaluate((el) => el.getBoundingClientRect().right);
+  const layout = await entry.evaluate((btn) => {
+    const walker = document.createTreeWalker(btn, NodeFilter.SHOW_TEXT);
+    let label: Text | null = null;
+    for (let n = walker.nextNode(); n !== null; n = walker.nextNode()) {
+      const text = n as Text;
+      if (text.data.length > (label?.data.length ?? 0)) label = text;
+    }
+    if (label === null) throw new Error("nav row has no label text");
+    const owner = label.parentElement as HTMLElement;
+    const style = getComputedStyle(owner);
+    const range = document.createRange();
+    range.selectNodeContents(label);
+    const tops = new Set(Array.from(range.getClientRects(), (r) => Math.round(r.top)));
+    return {
+      display: style.display,
+      textOverflow: style.textOverflow,
+      overflowX: style.overflowX,
+      overflowing: owner.scrollWidth > owner.clientWidth,
+      lines: tops.size,
+      labelRight: owner.getBoundingClientRect().right,
+    };
+  });
+  return { ...layout, navRight };
+}

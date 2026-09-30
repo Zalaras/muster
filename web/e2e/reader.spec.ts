@@ -33,6 +33,7 @@ import {
   getReaderFile,
   holdReaderFileResponse,
   holdReaderListingResponse,
+  navLabelLayout,
   navOutlineSection,
   navToggle,
   navTreeSection,
@@ -648,6 +649,57 @@ test("the outline lists the file's headings, clicking one scrolls the body, and 
     await expect(outlineEntry(region, "Top")).toHaveAttribute("aria-current", "true", {
       timeout: 15_000,
     });
+  } finally {
+    await cleanup();
+  }
+});
+
+test("a long file or folder name truncates with an ellipsis and a long heading wraps, all inside the nav (#67)", async ({
+  page,
+  daemon,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  const folder = "a-very-long-folder-name-that-overflows-the-nav";
+  const file = "a-very-long-file-name-that-overflows-the-nav-panel.md";
+  const heading = "A very long heading that is far wider than the outline panel can show";
+  try {
+    await mkdir(join(dir, folder));
+    await writeFile(join(dir, folder, file), `# Top\n\n## ${heading}\n\nBody.\n`);
+    await page.goto(daemon.dashboardUrl);
+    await launchSession(page, daemon, { directory: dir, title: "reader-67" });
+
+    await mainheadSurfaceButton(page, "docs").click();
+    const region = readerRegion(page, "reader-67");
+    const nav = readerNav(region);
+    await folderEntry(region, folder).click();
+    await fileEntry(region, file).click();
+    await expect(outlineEntry(region, heading)).toBeVisible({ timeout: 15_000 });
+
+    for (const entry of [folderEntry(region, folder), fileEntry(region, file)]) {
+      const layout = await navLabelLayout(nav, entry);
+      expect(layout).toMatchObject({ textOverflow: "ellipsis", overflowX: "hidden", lines: 1 });
+      expect(layout.display).not.toMatch(/flex/);
+      expect(layout.overflowing).toBe(true);
+      expect(layout.labelRight).toBeLessThanOrEqual(layout.navRight);
+    }
+    // The folder's count sits after its name — a label that never shrinks pushes it out.
+    const navBox = await nav.boundingBox();
+    const countBox = await folderEntry(region, folder).locator(".cnt").boundingBox();
+    expect(countBox).not.toBeNull();
+    expect((countBox?.x ?? 0) + (countBox?.width ?? 0)).toBeLessThanOrEqual(
+      (navBox?.x ?? 0) + (navBox?.width ?? 0),
+    );
+
+    // The files header carries the scratch directory's full path — long, with unbroken
+    // segments — so it wraps inside the panel too.
+    const dirHeader = await navLabelLayout(nav, filesHeaderToggle(region));
+    expect(dirHeader.overflowing).toBe(false);
+    expect(dirHeader.labelRight).toBeLessThanOrEqual(dirHeader.navRight);
+
+    const outline = await navLabelLayout(nav, outlineEntry(region, heading));
+    expect(outline.lines).toBeGreaterThan(1);
+    expect(outline.overflowing).toBe(false);
+    expect(outline.labelRight).toBeLessThanOrEqual(outline.navRight);
   } finally {
     await cleanup();
   }

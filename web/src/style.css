@@ -1255,7 +1255,15 @@ body {
   color: var(--fg);
 }
 
+/* #67: the files header's directory is a full path — it may break anywhere, so a long
+ * segment wraps inside the panel instead of running past its edge. */
+.rnav .hd .dir {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .rnav .hd .n {
+  flex: none;
   margin-left: auto;
   letter-spacing: 0;
   text-transform: none;
@@ -1325,6 +1333,17 @@ body {
   margin-left: -2px;
 }
 
+/* #67: a row's name is its own `.nm` span because `text-overflow` never acts on a flex
+ * container — a bare text node in the row neither shrank nor ellipsized, and pushed the
+ * count and dot past the panel edge. */
+.rnav .f .nm {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .rnav .f .car,
 .rnav .f .cnt {
   color: var(--fg-dim);
@@ -1371,7 +1390,12 @@ body {
   font-size: 10px;
 }
 
+/* #67: a heading wraps rather than truncating — it is prose the developer reads, so the
+ * row is a block that breaks inside the panel instead of a one-line flex row. */
 .rnav .ol {
+  display: block;
+  white-space: normal;
+  overflow-wrap: anywhere;
   font-family: var(--sans);
   font-size: var(--fs-sm);
 }

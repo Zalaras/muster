@@ -287,10 +287,20 @@ function renderPlanSlot(refs: ReaderRefs, vm: PlanSlotVM): void {
   const badge = document.createElement("span");
   badge.className = "badge";
   badge.textContent = "plan";
-  btn.append(badge, document.createTextNode(vm.basename));
+  btn.title = vm.basename;
+  btn.append(badge, navLabel(vm.basename));
   applyPlanAttrs(btn, vm);
   btn.addEventListener("click", () => refs.callbacks.onSelectPlan());
   refs.planSlot.replaceChildren(btn);
+}
+
+/** A nav row's name, in its own span so it can shrink and ellipsize — a bare text node in
+ * the flex row can do neither, and pushes the count or dot past the panel edge (#67). */
+function navLabel(text: string): HTMLSpanElement {
+  const nm = document.createElement("span");
+  nm.className = "nm";
+  nm.textContent = text;
+  return nm;
 }
 
 function buildTreeButton(refs: ReaderRefs, entry: FlatTreeEntry): HTMLButtonElement {
@@ -301,6 +311,7 @@ function buildTreeButton(refs: ReaderRefs, entry: FlatTreeEntry): HTMLButtonElem
   // Stable key across rebuilds, used only to restore focus onto the equivalent node
   // after a structurally-required rebuild (see file header) — not user-visible.
   btn.dataset["path"] = entry.path;
+  btn.title = entry.path;
   if (entry.kind === "dir") {
     btn.setAttribute("aria-expanded", String(entry.expanded ?? false));
     const car = document.createElement("span");
@@ -311,11 +322,11 @@ function buildTreeButton(refs: ReaderRefs, entry: FlatTreeEntry): HTMLButtonElem
     cnt.className = "cnt";
     cnt.setAttribute("aria-hidden", "true");
     cnt.textContent = String(entry.count ?? 0);
-    btn.append(car, document.createTextNode(`${entry.name}/`), cnt);
+    btn.append(car, navLabel(`${entry.name}/`), cnt);
     btn.addEventListener("click", () => refs.callbacks.onToggleFolder(entry.path));
   } else {
     setAriaCurrent(btn, entry.current);
-    btn.append(document.createTextNode(entry.name));
+    btn.append(navLabel(entry.name));
     setDirtyDot(btn, entry.dirty);
     btn.addEventListener("click", () => refs.callbacks.onSelectPath(entry.path));
   }
@@ -441,6 +452,7 @@ export function renderReader(refs: ReaderRefs, vm: ReaderVM): void {
 
   refs.filesToggle.setAttribute("aria-expanded", String(!vm.filesFolded));
   refs.filesDir.textContent = vm.filesHeader.dir;
+  refs.filesDir.title = vm.filesHeader.dir;
   const existingCount = refs.filesToggle.querySelector<HTMLElement>(".n");
   if (vm.filesHeader.count === null) {
     existingCount?.remove();
