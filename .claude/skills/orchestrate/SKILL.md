@@ -302,8 +302,9 @@ cycle (kb:lesson/decision-made-inside-a-fix-wave).
    - `[note]` items are never routed; list them in the completion summary.
 1a. **Decision items first.**
    - `[orchestrator:user-decision]` (the `decide` skill's never-debated list) →
-     straight to the developer via `AskUserQuestion` with the reviewer's two options quoted verbatim, no
-     debate. Record the outcome in `plans/<plan>/decisions/<slug>/decision.md` with `Reached by:
+     straight to the developer, no debate: first explain both options in plain words — what each
+     changes and what it costs — then ask one `AskUserQuestion` with the reviewer's two options quoted
+     verbatim. Record the outcome in `plans/<plan>/decisions/<slug>/decision.md` with `Reached by:
      user decision` **and** a `proposed` ADR (`tags: [user-decision]`, `refs: [plan:<plan>]`), land
      the protocol/plan edits yourself (only you may edit the contract), then quote the outcome in
      the fix-wave prompt.
@@ -466,8 +467,9 @@ running only the runnable clause reports a pass the plan never earned.
    `make gen-kb && make check-kb`; a `FAIL` is a doc-upkeep defect — fix it now. `/land`
    refuses a branch that still carries one of this plan's `proposed` ADRs.
 5. **Record the issues this plan closes**: `python3 $S <plan> closes <N> ...` — never by
-   hand-editing the JSON — for every issue the Doc-Upkeep Backstop judged **fully** resolved
-   (absent or `[]` means none). `/land` reads it to compose the squash subject's `closes #N`. You
+   hand-editing the JSON — for every issue the Doc-Upkeep Backstop judged **fully** resolved. Run
+   it even when there are none (`closes` with no numbers writes `[]`), so `/land` can tell "closes
+   nothing" from "never recorded". `/land` reads it to compose the squash subject's `closes #N`. You
    never close an issue yourself: the fix exists only on a branch the developer has not accepted, and
    `approved` is the reviewer's opinion, not acceptance. The close fires when `/land` pushes to `main`.
 6. **End with everything committed.** Commit your doc-upkeep and state edits, `proposed-backlog.md`
@@ -484,7 +486,7 @@ running only the runnable clause reports a pass the plan never earned.
    deliberately left open) and at **`/retro`** for this run — this session, while the stumbles are
    in context.
 9. **Tear down what the run started** — `ListAgents`, then `TaskStop` every teammate this pipeline
-   spawned (they survive `/clear`; 51 once piled up across four runs), then
+   spawned (they survive `/clear` and pile up across runs), then
    `.claude/skills/orchestrate/scripts/orch-cleanup.sh --yes` for orphaned processes, stale `tmux -L` sockets and `$TMPDIR` debris. Report both counts. It skips the process kill and the scratch sweep while the gate lock is held elsewhere (another worktree's sweep owns those) and says so — report that, don't force it.
 10. **Decisions section** — for every debate run this pipeline (`plans/<plan>/decisions/*/decision.md`): the two options, the outcome, consensus-or-judged, the decisive argument in one or two sentences, and any dissent. The developer may overrule with one line; if they do, `reopen` the affected wave and re-run it with the developer's choice quoted.
 

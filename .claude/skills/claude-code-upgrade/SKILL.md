@@ -104,7 +104,7 @@ make check
 Every generated file that lists a `..canary` fact renders the **resolved** ceiling, so a
 ceiling bump makes all of them stale — `docs/INDEX.md`, the per-feature `INDEX.md` files and
 `.claude/rules/*.md`, around 21 files. `make check-kb` fails them "stale — regenerate with
-make gen-kb" (`30c4cf8` left the tree red that way).
+make gen-kb" until you regenerate.
 
 Then commit the record, both fragment files and every regenerated kb file **together** —
 generated files ride the same commit as the record (`CLAUDE.md` doc upkeep). Stage exactly those:

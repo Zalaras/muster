@@ -5,8 +5,7 @@ argument-hint: "[plan-name] | --audit"
 allowed-tools: Read, Grep, Glob, Bash, Edit, Write
 ---
 
-> Maintainer note: exists because ad-hoc retros grew `orchestrate/SKILL.md` 393 → 545 lines in 12
-> days (2026-09-03); re-cut to words 2026-09-11.
+> Maintainer note: exists because ad-hoc retros kept growing the pipeline docs.
 
 Run it in the main session, normally at the end of the session that ran `/orchestrate` — the
 orchestrator's own stumbles (a mis-stamped state, an improvised wave, a re-sent prompt) live only in
@@ -149,5 +148,5 @@ Report, in this order, each item numbered:
    warns exactly like an agent file over its threshold (it is read on top of one) and names the record class that grew (`kb ls --role <r>`, by `date`); a
    lesson no plan has cited in the last five runs is a *retire* proposal.
 
-The previous audit is `plans/_audit/skills-agents-audit.md` (2026-09-06); write the new one
+The previous audit is `plans/_audit/skills-agents-audit.md`; write the new one
 beside it as `plans/_audit/audit-<date>.md` only if the developer asks for a file.

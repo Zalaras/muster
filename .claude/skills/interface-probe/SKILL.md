@@ -14,7 +14,7 @@ cannot answer *new* questions — that is this skill's job. Known gotchas are fa
 
 You are running an interface probe: a controlled experiment against the **real**
 Claude Code binary to settle a question the docs can't be trusted to answer
-(they have been wrong before — e.g. `SessionStart` over HTTP). The question to
+(they have been wrong before). The question to
 settle: **$ARGUMENTS**
 
 ## Rules
@@ -142,8 +142,8 @@ cd $PROBE_REPO && ANTHROPIC_BASE_URL=http://127.0.0.1:879$PROBE_IDX \
 ```
 
 `CLAUDE_CODE_MAX_RETRIES=0` skips the ~90 s retry backoff on 429/5xx, so each induction takes
-~5 s. Avoid `-upstream` for anything that sends a prompt: one two-`Read` turn through it
-created ~273k cache tokens (~$0.55 estimated) against ~5–30k without the proxy.
+~5 s. Avoid `-upstream` for anything that sends a prompt: it multiplies cache tokens
+many times over.
 
 ## 5. Read the captures
 
@@ -154,7 +154,7 @@ jq 'select(.path=="/statusline") | .body' "$PROBE_CAPTURE" | tail -40
 
 Each line: `{received_at, path, method, event, headers, body_raw, body, body_is_json}`.
 
-Analysis traps (each produced a wrong conclusion once):
+Analysis traps (each has produced a wrong conclusion):
 
 - **Group by `session_id` before aggregating.** Any field that latches on
   mid-session looks intermittent when pooled across short-lived sessions.

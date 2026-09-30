@@ -119,13 +119,13 @@ type(scope): imperative summary (closes #N, closes #M)
   `changelog.use: github` with `include: ^(feat|fix|perf|refactor)`, so every subject of those
   four types — and only those — becomes one bullet in the GitHub Release. Write it for that
   reader, taking the shape from `docs/conventions.md` § Commits' worked example — not from this
-  repo's older subjects, which run to 1,138 characters (`3f1c7a3`) and are the mistake this rule
-  exists to stop.
+  repo's older, overlong subjects, which are the mistake this rule exists to stop.
 
 ### The issue references
 
 Read `closes_issues` from `plans/<plan>/orchestration-state.json` — orchestrate writes it at
-completion for every issue the plan **fully** resolves. If the key is absent (an older plan),
+completion for every issue the plan **fully** resolves, and `[]` when it closes none. If the key is
+absent (an older plan, or a run that skipped the step),
 grep the plan's ticked items in `docs/history/todo-done.md` for issue links and ask the developer to
 confirm.
 
@@ -133,8 +133,7 @@ Append one reference per issue, lowercase: `... (closes #2, closes #4)`.
 
 **The subject carries no `(plan <name>)` marker.** It is bookkeeping in a user-facing release
 note, and the plan is always recoverable from the commit itself — the squash includes
-`plans/<name>/`, so `git show --stat <sha> | grep plans/` names it (`v0.2.0`'s note was 48 of 125
-characters bookkeeping). If a plan closes no
+`plans/<name>/`, so `git show --stat <sha> | grep plans/` names it. If a plan closes no
 issues, the subject simply has no tail.
 
 **Only fully-resolved issues.** Ticking a TODO item and closing an issue are different claims —
@@ -177,7 +176,7 @@ archives, and GitHub closes the referenced issues.
 A squash-merge leaves git considering the branch unmerged, so `git branch --merged` is useless
 here and `-d` will refuse. `-D` is therefore required — which means the verification has to be
 real. **`git diff main plan/<plan>` is not it**: it also reports everything `main` gained after
-the branch landed, so a correctly-landed branch shows differences (measured 2026-08-31).
+the branch landed, so a correctly-landed branch shows differences.
 
 Preferred check — the same tree test as preflight 5:
 

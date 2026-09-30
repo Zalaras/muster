@@ -50,13 +50,13 @@ spec; `git status --porcelain` must show nothing of yours when you finish.
 ## The Matrix
 
 Build it before you measure anything, and write it into your report even where a cell is N/A. A
-green spec is not a result for a cell — green specs have hidden Criticals in four runs.
+green spec is not a result for a cell — green specs have hidden Criticals before.
 
 - **Rows:** every requirement or Testable UI Elements row with a visible consequence, plus every
   Edge Case that names a display.
 - **Hosts:** every view that can host the surface — focus, tiles, the pop-out (`/doc.html`) where
-  one exists — because each host resolves size differently, and a surface correct in one host was
-  wrong in the next for three cycles (kb:lesson/surface-never-measured-against-its-host).
+  one exists — because each host resolves size differently, and a surface correct in one host can be
+  wrong in the next (kb:lesson/surface-never-measured-against-its-host).
 - **States:** no data yet, data, daemon-down (`SIGTERM` the scratch daemon and look).
 
 Per cell, measure with the instrument the defect class needs — a locator that resolves proves

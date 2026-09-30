@@ -2,11 +2,11 @@
 name: triage
 description: "Pulls open GitHub issues into TODO.md as backlog entries, and audits the two lists against each other."
 argument-hint: "[issue-number | --all | --audit] [--no-comment]"
-allowed-tools: Read, Write, Grep, Glob, Agent, AskUserQuestion, Bash(go run ./tools/triage:*)
+allowed-tools: Read, Write, Grep, Glob, Agent, Bash(go run ./tools/triage:*)
 ---
 
 > Maintainer note: a skill in the main session because step 4 asks the developer, which a subagent
-> cannot; rewritten 2026-09-11 when the repo went public (`docs/history/design/triage-hardening.md`).
+> cannot; its hardening is `docs/history/design/triage-hardening.md`.
 
 muster's masthead `Issue` button files issues; this command brings them into `TODO.md` and keeps
 the two lists honest.
@@ -15,7 +15,7 @@ the two lists honest.
 
 An issue is **never** closed because it has been triaged. It closes when the fix reaches
 `main`, via `closes #N` in the squash subject (`docs/conventions.md` § Commits; `/land`
-composes it). Reasons, settled 2026-08-31 — do not re-litigate:
+composes it). Reasons (settled — do not re-litigate):
 
 - Open/closed is the only status field that survives open-sourcing. Closing someone's report
   as "it's on our backlog" reads as a brush-off.
@@ -128,8 +128,9 @@ Build the table from the pipeline, never from `gh`:
 go run ./tools/triage table --artifacts <dir> --proposals <dir>
 ```
 
-Where an item lands is a ranking judgement that belongs to the developer. Present the candidates via
-`AskUserQuestion` with a one-line rationale each:
+Where an item lands is a ranking judgement that belongs to the developer. Present the candidates in
+plain prose — one line per issue with your recommended section and why — and wait for the developer
+to answer; no pick-list menu. The sections:
 
 - `## Issues` — reported friction to fix before release.
 - `## Pre-v1` — blocks cutting v1.
