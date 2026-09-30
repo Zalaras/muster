@@ -109,9 +109,9 @@ Then stop. The developer picks by number in prose; ask in prose, not with a menu
   line>`; it rides that plan's squash merge. Stay on `plan/<plan>` — a lesson may then cite
   `plan:<plan>` and the run's own `review.cycle*.md`, which do not exist on `main` until `/land`.
   Only when that branch is gone (the plan already landed) commit on `main`, and say so. An
-  `--audit` pick has no run branch: commit on the branch checked out where the audit ran
-  (normally `main` in the primary checkout) as `docs(retro): audit — <what changed>`, and name the
-  branch in the report. Stage only the files you edited by name — no `git add -A`, no stash — and
+  `--audit` pick has no run of its own: commit on the branch checked out where it ran — normally the
+  plan branch of the session that just finished — as `docs(retro): audit — <what changed>`, and name
+  the branch in the report. Stage only the files you edited by name — no `git add -A`, no stash — and
   leave pushing to the developer.
 - Report the commit sha and the measured delta: `wc -w` and `wc -l` of each edited file before
   and after, and whether any file is over its threshold.

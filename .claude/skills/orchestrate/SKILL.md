@@ -297,7 +297,7 @@ cycle (kb:lesson/decision-made-inside-a-fix-wave).
      prompt says to leave those files alone. `make gen-kb` runs between a wave and its gate — it rewrites
      `.claude/rules/*.md` and `internal/<pkg>/CLAUDE.md` trailers wave-1 agents hold
      (kb:lesson/orchestrator-work-spawned-as-agent).
-   - **Every severity routes.** An agent with any tagged issue — Critical, Major or Minor — is spawned in its wave with all of them; Minors are never deferred to `TODO.md` (kb:lesson/finding-severity-misrouted). The cycle after a Minors-only wave is a cheap delta re-review (above).
+   - **Every severity routes.** An agent with any tagged issue — Critical, Major or Minor — is spawned in its wave with all of them; Minors are never deferred to `TODO.md`. The cycle after a Minors-only wave is a cheap delta re-review (above).
    - **Exception — plan-log and doc-label Minors:** a Minor whose whole fix is wording or a label inside `plans/<plan>/*.md`, `docs/` or `TODO.md` (no code, test or assertion) is yours to make while the wave runs, in your own `docs(<plan-name>)` commit, cited in the completion summary; the delta re-review verifies it (kb:lesson/orchestrator-work-spawned-as-agent).
    - `[note]` items are never routed; list them in the completion summary.
 1a. **Decision items first.**

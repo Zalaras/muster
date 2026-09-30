@@ -12,7 +12,7 @@ owns and gives examples at each severity; this file says what the severities and
 - **Major** — must fix within the pipeline when a pipeline agent owns it: missing test coverage, a
   contract or plan deviation that is not a hard rule, a false statement in a user-facing document or
   a code comment about behaviour this plan shipped. Tag it to the agent that owns the file so it
-  rides a fix wave (kb:lesson/finding-severity-misrouted). A Major nobody in the pipeline can fix
+  rides a fix wave. A Major nobody in the pipeline can fix
   (doc upkeep, a plan defect) is tagged `[orchestrator]`.
 - **Minor** — a real, small change you want made: naming, comment *style*, a cosmetic defect. Tag it
   with the owning agent. The orchestrator routes it in that agent's wave, and the cycle after a

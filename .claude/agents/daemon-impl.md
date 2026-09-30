@@ -39,14 +39,12 @@ your log is written and your files are committed.
 Before writing code, read neighbouring files in the package you are changing and match their
 patterns. Go idioms, logging and migrations are your pack's §Go and §Stack.
 
-## Muster Hard Rules (from CLAUDE.md)
+## Hard rules
 
-- Never derive session state by parsing terminal output — hooks and status line only. tmux `capture-pane` is a test oracle and display source, never a state source.
-- Hook handling: return 200 immediately, process asynchronously; assign `seq` at ingest; design for loss (best-effort, at-most-once, unordered, no timestamps).
-- Session identity keys on the tmux target, never Claude's `session_id`.
-- tmux always via a dedicated socket (`tmux -L muster`, or per-test sockets) — never the developer's default server. Sizing drives `pty.Setsize` **and** `resize-window`; never rely on `resize-pane`. Any throwaway tmux server you start for an ad-hoc probe uses a `-S <path>` socket inside a scratch directory you delete, and you `kill-server` it when done (kb:lesson/probe-tmux-sockets-left-in-shared-dir).
-- Never log hook payloads anywhere world-readable.
-- `context.Context` first parameter on anything that blocks or does I/O; the daemon shuts down gracefully.
+CLAUDE.md's hard rules bind you; it loads with this file, so they are not repeated here. One
+addition for probes: any throwaway tmux server you start for an ad-hoc probe uses a `-S <path>`
+socket inside a scratch directory you delete, and you `kill-server` it when done
+(kb:lesson/probe-tmux-sockets-left-in-shared-dir).
 
 ## Principles
 

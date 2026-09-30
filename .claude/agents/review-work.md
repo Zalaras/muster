@@ -183,7 +183,7 @@ hard-rule violations, unimplemented requirements and a broken protocol contract.
 
 A `deviation:` contradicting an *accepted* ADR is `[orchestrator:user-decision]`, never a Major.
 
-A Minor is never deferred to `TODO.md` — it rides the owning agent's wave (kb:lesson/finding-severity-misrouted).
+A Minor is never deferred to `TODO.md` — it rides the owning agent's wave.
 
 ### 8. Issue Routing
 

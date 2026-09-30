@@ -70,7 +70,7 @@ only existence:
 | Keeps focus | `document.activeElement` identity across a render tick (≥ 1.1 s) after focusing by keyboard (kb:lesson/select-rebuilt-every-tick-passed-selectoption) |
 | Operable | an input round-trip a real user has — pointer or keys, never `selectOption`/`dispatchEvent` — and the observed effect |
 | Correct value | cross-checked against an independent oracle (tmux, `/api/state`) re-read inside the same retry (kb:lesson/tiles-never-refit-behind-pattern-match) |
-| Settled | the state after a later render pass, never a transient overlay (kb:lesson/transient-display-is-not-an-oracle) |
+| Settled | the state after a later render pass, never a transient overlay (kb:adr/process-transient-displays-not-oracles) |
 | Hidden | `[hidden]` elements have `display: none` computed wherever an author `display` rule applies (kb:lesson/display-rule-overrides-hidden-attribute) |
 
 A cell the plan makes impossible is `N/A — <why>`. A cell you could not measure is a `[note]`

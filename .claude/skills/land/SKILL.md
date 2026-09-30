@@ -33,7 +33,7 @@ Check all of these before touching anything. If any fails, stop and say exactly 
    and never stash.
 4. `git rev-parse --verify plan/<plan>` succeeds.
 5. The branch has something to land. **Do not use `git log main..plan/<plan>` for this** —
-   a squash-merge never empties that range (kb:lesson/squash-merge-never-empties-log-range).
+   a squash-merge never empties that range.
    Use the tree test instead:
 
    ```bash
