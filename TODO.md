@@ -99,6 +99,20 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
   refusal moves focus to the custom-model field. A refusal should move focus only while the
   refused model is still the selection. From `plans/maintainability-regressions/`.
 
+### Together — a card's branch, directory and model going stale
+
+- [ ] **A session's branch doesn't update after a checkout** — switching branch in a session's
+  directory (from Claude, its shell, or outside Muster) leaves the old branch on the card. The
+  dashboard should show the branch the directory is on now.
+
+- [ ] **Confirm whether a session's directory should follow Claude's working directory** — Claude
+  can change directory mid-session (a `cd`, entering a worktree), but the card keeps the launch
+  directory. Probe what Claude Code reports first; if the directory does move, the card's
+  directory and branch should follow it.
+
+- [ ] **A card's model name is empty or stale after the model changes in a session.** From the
+  maintainability cleanup (2026-09-24).
+
 ### On their own
 
 - [ ] **Tool hooks surface `hook error` after a daemon update** ([#54](https://github.com/Zalaras/muster/issues/54)) — seen
@@ -119,15 +133,6 @@ Filed 2026-09-26 by the developer from `plans/maintainability-regressions/propos
   right-click menu on a rail card carrying each of its actions, with the End button removed from
   the rail card (only there).
 
-- [ ] **A session's branch doesn't update after a checkout** — switching branch in a session's
-  directory (from Claude, its shell, or outside Muster) leaves the old branch on the card. The
-  dashboard should show the branch the directory is on now.
-
-- [ ] **Confirm whether a session's directory should follow Claude's working directory** — Claude
-  can change directory mid-session (a `cd`, entering a worktree), but the card keeps the launch
-  directory. Probe what Claude Code reports first; if the directory does move, the card's
-  directory and branch should follow it.
-
 ### From the maintainability cleanup (2026-09-24)
 
 Filed by the developer from the cleanup's proposed backlog (`plans/maintainability-cleanup/proposed-backlog.md`).
@@ -144,7 +149,6 @@ Fix:
 - [ ] **The ingest endpoint accepts hook bodies of any size.**
 - [ ] **Check the Focus view's first-attach terminal height** — the size note's reserved row
   was restored; confirm the terminal is not a row short on first attach.
-- [ ] **A card's model name is empty or stale after the model changes in a session.**
 - [ ] **Switching a session to its shell leaves keyboard focus on the `shell` button** — typing
   goes nowhere until the terminal is clicked. Same on `main` before the cleanup.
 
