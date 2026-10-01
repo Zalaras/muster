@@ -87,16 +87,16 @@ e2e-run: ## The Playwright sweep alone, no build (make e2e runs this under the l
 # Proof for a flake fix, not a retry: every repetition must be green (retries stay 0 in
 # playwright.config.ts). --repeat-each makes each repetition its own test entry, so copies
 # of the same test run concurrently across the 4 workers — the load that widens races —
-# each on its own scratch daemon. Usage: make e2e-soak SPEC=terminal.spec.ts N=20
+# each on its own scratch daemon. Usage: make e2e-soak SPEC=terminal.spec.ts N=20 [GREP='<title>']
 N ?= 10
 .PHONY: e2e-soak
-e2e-soak: $(GATELOCK) ## Repeat one spec file N times in parallel to prove a flake fix (SPEC=<file>.spec.ts, N=10)
-	@test -n "$(SPEC)" || { echo "usage: make e2e-soak SPEC=<file>.spec.ts [N=10]"; exit 2; }
-	$(GATELOCK) run --exclusive -- $(MAKE) web-build build e2e-soak-run SPEC=$(SPEC) N=$(N)
+e2e-soak: $(GATELOCK) ## Repeat one spec file N times in parallel to prove a flake fix (SPEC=<file>.spec.ts, N=10, GREP=<title> narrows to matching tests)
+	@test -n "$(SPEC)" || { echo "usage: make e2e-soak SPEC=<file>.spec.ts [N=10] [GREP='<title>']"; exit 2; }
+	$(GATELOCK) run --exclusive -- $(MAKE) web-build build e2e-soak-run SPEC=$(SPEC) N=$(N) GREP='$(GREP)'
 
 .PHONY: e2e-soak-run
 e2e-soak-run: ## The soak alone, no build (make e2e-soak runs this under the lock)
-	cd web && npm run e2e -- $(SPEC) --repeat-each=$(N)
+	cd web && npm run e2e -- $(SPEC) --repeat-each=$(N) $(if $(GREP),-g '$(GREP)')
 
 .PHONY: e2e-fixture-leak-check
 e2e-fixture-leak-check: ## Self-test: a failed ScratchDaemon.start() leaves no process, tmux server or tmpdir behind (REQ-4/W1/W3, plan post-worktree-spike-issues)
