@@ -3,7 +3,7 @@
 // DOM code"). render/sessions.ts is the main consumer; the action vocabulary below is
 // also shared by every feature controller that dispatches a card/mainhead/tile action.
 import { PREF_DEFAULTS, type RailActivity } from "../protocol/prefs";
-import type { Session } from "../protocol/session";
+import type { Session, SessionRepo } from "../protocol/session";
 import { ageAgo, elapsedSeconds, formatAge, formatTimer } from "./format";
 import { basename } from "./paths";
 import { isBypassMode } from "./permission";
@@ -37,6 +37,15 @@ export interface CardViewModel {
   badge: string;
   timer: string;
   repoLine: string;
+  // The repo readout split at the `/` (rail card: `.r2`'s `.rf`/`.rb`), and the `↳`
+  // readout for where Claude is — null while it is in the launch checkout — with the hover
+  // texts for it (`claudeHover`) and the tile's visually hidden note (`claudeNote`).
+  repo: RepoParts;
+  claudeAt: RepoParts | null;
+  claudeHover: string | null;
+  claudeNote: string | null;
+  // `locationHover`: the tile header's `.wh` hover.
+  hover: string;
   activity: CardActivity;
   noteKind: NoteKind;
   noteText: string | null;
@@ -115,32 +124,95 @@ export function resumeDisabledReason(session: Session): string | null {
 // 'no signal yet'".
 const NO_SIGNAL_THRESHOLD_SECONDS = 10;
 
-/** "repo / branch" with a worktree marker, or the directory basename when there's no
- * repo at all (design-system §5 card anatomy). Exported for the callers that want only
- * this line (features/actionscopy.ts's dialog copy, render/mainhead.ts's meta line)
- * without building a whole `CardViewModel`. */
-export function repoLine(session: Session): string {
-  if (session.repo) {
-    const branch = session.repo.branch ?? "—";
-    const worktree = session.repo.isWorktree ? " (worktree)" : "";
-    return `${session.repo.name} / ${branch}${worktree}`;
-  }
-  return basename(session.directory);
+/** The two lines of a repo readout: the folder (`<repo> /`, trailing slash included) and
+ * the branch (with ` (worktree)` for a linked worktree). `branch` is null when there is no
+ * repo to name, and `folder` is then the directory's basename with no slash
+ * (kb:adr/rail-repo-line-wraps-at-slash). */
+export interface RepoParts {
+  folder: string;
+  branch: string | null;
 }
 
-/** The mainhead's meta line: "repo/branch · model · `ended <age>` when dead" — reuses
- * `repoLine` above (the same repo-or-basename fallback the rail card shows) rather than
- * re-deriving it. render/mainhead.ts's only caller, features/focus.ts, passes the raw
- * session through; the text itself is a `sessions/` view-model like the rest of this
- * module, not something render/ composes. */
-export function mainheadMeta(session: Session, now: Date): string {
-  const parts: string[] = [repoLine(session)];
-  // kb:adr/launch-resume-null-model-reads-unknown: a null model reads the word
-  // "unknown" rather than omitting the clause (design-system §6, "unknown data renders
-  // the word unknown, never blank").
-  parts.push(session.model ? session.model.displayName : "unknown");
-  if (!session.alive && session.endedAt) parts.push(`ended ${ageAgo(session.endedAt, now)}`);
-  return parts.join(" · ");
+// `markWorktree` is the launch readout's alone: the `↳` block's branch line is the bare
+// branch, since the `↳` already says Claude is elsewhere.
+function partsOf(repo: SessionRepo | null, directory: string, markWorktree: boolean): RepoParts {
+  if (!repo) return { folder: basename(directory), branch: null };
+  const worktree = markWorktree && repo.isWorktree ? " (worktree)" : "";
+  return { folder: `${repo.name} /`, branch: `${repo.branch ?? "—"}${worktree}` };
+}
+
+/** The launch directory's readout, split at the `/` for the rail card and Focus header. */
+export function repoParts(session: Session): RepoParts {
+  return partsOf(session.repo, session.directory, true);
+}
+
+/** The `↳` readout for where Claude is working, or null while it is in the launch checkout.
+ * Same shape as `repoParts`, without the worktree marker; falls back to the location
+ * directory's basename when that directory is not a git checkout. */
+export function claudeLocationParts(session: Session): RepoParts | null {
+  const location = session.claudeLocation;
+  return location ? partsOf(location.repo, location.directory, false) : null;
+}
+
+function joinParts(parts: RepoParts): string {
+  return parts.branch === null ? parts.folder : `${parts.folder} ${parts.branch}`;
+}
+
+/** "repo / branch" with a worktree marker, or the directory basename when there's no
+ * repo at all (design-system §5 card anatomy). The one-line form the tile header,
+ * features/actionscopy.ts's dialog copy and the rail's hover share. */
+export function repoLine(session: Session): string {
+  return joinParts(repoParts(session));
+}
+
+/** `Claude is in <directory>` while Claude works in another checkout, else null. */
+export function claudeNote(session: Session): string | null {
+  const location = session.claudeLocation;
+  return location ? `Claude is in ${location.directory}` : null;
+}
+
+/** The hover lines for where Claude is — the note, then `on <branch>` when that checkout
+ * has a branch — joined with `\n`, or null while not moved. The rail's `.r2c` hover. */
+export function claudeHover(session: Session): string | null {
+  const note = claudeNote(session);
+  if (note === null) return null;
+  const branch = session.claudeLocation?.repo?.branch;
+  return branch ? `${note}\non ${branch}` : note;
+}
+
+/** The location hover (the Focus header's `.loc` and the tile's `.wh`): the repo line, the
+ * launch directory, then — only while moved — where Claude is and its branch, one per
+ * line. */
+export function locationHover(session: Session): string {
+  const lines = [repoLine(session), session.directory];
+  const claude = claudeHover(session);
+  if (claude !== null) lines.push(claude);
+  return lines.join("\n");
+}
+
+/** What the Focus header's `.meta` shows, structured so the DOM half owns no text
+ * composition: the launch repo block, the `↳` block while moved, the hover for both, the
+ * model word, and the ended clause when dead. */
+export interface MainheadMeta {
+  repo: RepoParts;
+  claudeAt: RepoParts | null;
+  hover: string;
+  model: string;
+  // `ended <age>` while dead, else null.
+  ended: string | null;
+}
+
+export function mainheadMeta(session: Session, now: Date): MainheadMeta {
+  return {
+    repo: repoParts(session),
+    claudeAt: claudeLocationParts(session),
+    hover: locationHover(session),
+    // kb:adr/launch-resume-null-model-reads-unknown: a null model reads the word
+    // "unknown" rather than omitting the clause (design-system §6, "unknown data renders
+    // the word unknown, never blank").
+    model: session.model ? session.model.displayName : "unknown",
+    ended: !session.alive && session.endedAt ? `ended ${ageAgo(session.endedAt, now)}` : null,
+  };
 }
 
 /** A dead tile's header timer: the bare age, deliberately WITHOUT the "ended" word — a
@@ -364,6 +436,11 @@ export function buildCardViewModel(
     badge: BADGE_TEXT[session.state],
     timer,
     repoLine: repoLine(session),
+    repo: repoParts(session),
+    claudeAt: claudeLocationParts(session),
+    claudeHover: claudeHover(session),
+    claudeNote: claudeNote(session),
+    hover: locationHover(session),
     activity: activityLines(session, mode),
     noteKind,
     noteText,

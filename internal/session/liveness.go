@@ -212,6 +212,12 @@ func (m *Manager) markEnded(ctx context.Context, id int64) (*Session, error) {
 	sess.EndedAt = &endedAt
 	// An ended row can never bind, so its hold must not outlive it into a revive.
 	sess.pendingResumeClaudeSessionID = ""
+	// claudeLocation is null on the wire for a dead session; ClaudeDir itself is kept until
+	// the next launch or resume clears it.
+	sess.ClaudeLocation = nil
+	// A repo-poll reading in flight predates this death: SetRepoState must drop it, or a
+	// checkout made after the card shows ended would reach the dead card.
+	sess.repoEpoch++
 	post := sess.Clone()
 
 	snapshot, err := m.persistWholeRowLocked(ctx, id, sess, prev, post, true)

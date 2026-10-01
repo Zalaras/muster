@@ -14,6 +14,7 @@ const validSession = {
   failure: null,
   directory: "/Users/bob/code/muster",
   repo: { name: "muster", branch: "main", isWorktree: false },
+  claudeLocation: null,
   model: { id: "claude-sonnet-4-5", displayName: "sonnet" },
   permissionMode: { value: "default", source: "seed" },
   context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
@@ -45,6 +46,7 @@ const freshLaunchSession = {
   failure: null,
   directory: "/Users/bob/code/muster",
   repo: null,
+  claudeLocation: null,
   model: null,
   permissionMode: { value: "default", source: "seed" },
   context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
@@ -124,6 +126,69 @@ describe("parseSession — full kb:anchor/ws.session shape", () => {
   it("rejects a repo object missing isWorktree", () => {
     const session = { ...validSession, repo: { name: "muster", branch: "main" } };
     expect(parseSession(session)).toBeNull();
+  });
+
+  // kb:anchor/ws.session claudeLocation: null while Claude is in the launch checkout.
+  describe("claudeLocation", () => {
+    const worktree = {
+      directory: "/Users/bob/code/muster/.claude/worktrees/e7b",
+      repo: { name: "e7b", branch: "worktree-e7b", isWorktree: true },
+    };
+
+    it("reads an absent key as null (an older daemon) rather than rejecting the session", () => {
+      const { claudeLocation: _omitted, ...withoutKey } = validSession;
+      expect(parseSession(withoutKey)).toEqual({
+        ...validSession,
+        claudeLocation: null,
+      });
+    });
+
+    const accepted: Array<{ name: string; claudeLocation: unknown }> = [
+      { name: "an explicit null", claudeLocation: null },
+      { name: "a location in a worktree", claudeLocation: worktree },
+      {
+        name: "a location with a null repo (not a git checkout)",
+        claudeLocation: { directory: "/tmp/scratch", repo: null },
+      },
+      {
+        name: "a location whose repo has a null branch",
+        claudeLocation: {
+          directory: "/tmp/x",
+          repo: { name: "x", branch: null, isWorktree: false },
+        },
+      },
+    ];
+    for (const { name, claudeLocation } of accepted) {
+      it(`parses ${name}`, () => {
+        const session = { ...validSession, claudeLocation };
+        expect(parseSession(session)).toEqual(session);
+      });
+    }
+
+    const rejected: Array<{ name: string; claudeLocation: unknown }> = [
+      { name: "a string", claudeLocation: "/tmp/scratch" },
+      { name: "an object missing directory", claudeLocation: { repo: null } },
+      {
+        name: "a non-string directory",
+        claudeLocation: { directory: 7, repo: null },
+      },
+      {
+        name: "a repo missing isWorktree",
+        claudeLocation: {
+          directory: "/tmp/x",
+          repo: { name: "x", branch: "main" },
+        },
+      },
+      {
+        name: "a non-object repo",
+        claudeLocation: { directory: "/tmp/x", repo: "x" },
+      },
+    ];
+    for (const { name, claudeLocation } of rejected) {
+      it(`rejects the whole session for ${name}`, () => {
+        expect(parseSession({ ...validSession, claudeLocation })).toBeNull();
+      });
+    }
   });
 
   it("parses a null model (before SessionStart's optional model field arrives)", () => {

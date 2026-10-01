@@ -8,6 +8,7 @@
 - No Claude Code payload key or event name appears here; `machine.go` switches on `Kind`, never on strings.
 - An enveloped event never rebinds backwards; stragglers past a Stop persist without transitioning (kb:adr/ingest-monotonic-rebind, kb:adr/lifecycle-prompt-ordering-guards).
 - Attention is non-nil iff `needs_input`; Failure is non-nil iff `failed`. Every transitioning path clears both.
+- `ClaudeDir` and `ClaudeLocation` (where Claude is working) are display-only: only the repo poll's derivation reads `ClaudeDir`; the shell, reader, drop, resume and past-session matching use `Directory` (kb:adr/lifecycle-card-shows-launch-directory-marks-claude-elsewhere).
 - Resume keeps the row and title and rebinds the pane (kb:adr/lifecycle-resume-rebinds-existing-session).
 - Reconcile logs unknown Muster-shaped tmux sessions and never adopts them; it kills every shell (kb:adr/lifecycle-reconcile-before-first-snapshot, kb:adr/surfaces-shell-lifetime-until-exit-remove-or-reconcile).
 
@@ -20,10 +21,11 @@
 - Per-transition tests miss invariants; name each invariant and cross it from every source state (kb:lesson/invariant-missed-by-per-transition-tests).
 
 <!-- kb:trailer -->
-<!-- kb:hash 71a76414a83942d9 -->
+<!-- kb:hash ba1b311e36e778cc -->
+- **card-location** — The card's launch directory, its branch kept fresh by the repo poll, where Claude works when elsewhere, and the bind's model name. → `docs/features/card-location/INDEX.md`
 - **lifecycle** — The session state machine, liveness, reconcile on start, shutdown policy, resume to idle. → `docs/features/lifecycle/INDEX.md`
 - **rail** — Rail cards, attention versus manual order, pin, drag reorder, session count. → `docs/features/rail/INDEX.md`
 - **reader** — The docs surface — a sanitized markdown reader for a session's plan and the .md files under its directory, with a file nav, outline and pop-out. → `docs/features/reader/INDEX.md`
 - **rename** — Muster-owned session title override, inline rename in the mainhead and tiles. → `docs/features/rename/INDEX.md`
-- 55 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 56 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

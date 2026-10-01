@@ -9,7 +9,7 @@
 import type { App, RenderFrame } from "../app";
 import { requireElement } from "../dom";
 import { renderFocusMain, renderSizenote, setMainSlotHidden } from "../render/focusview";
-import { renderMainhead, type MainheadElements } from "../render/mainhead";
+import { fitMainheadMeta, renderMainhead, type MainheadElements } from "../render/mainhead";
 import { attachRenameEditor, type RenameEditorHandlers } from "../render/rename";
 import { mountSlotRoot } from "../render/slotmount";
 import type { PaneState, SessionAction } from "../sessions/card";
@@ -112,6 +112,13 @@ export function initFocus(app: App, deps: FocusDeps): FocusHandle {
   app.on("status", () => mainheadRename.cancel());
   // focusChanged: today's `setFocusedId` always cancelled the mainhead editor first.
   app.on("focusChanged", () => mainheadRename.cancel());
+
+  // The meta's fit depends on the header's width, which changes with the pane, not only on a
+  // render pass. The pane's own size never depends on the header, so refitting cannot loop.
+  const mainheadPane = mainheadElements.root.parentElement;
+  if (mainheadPane) {
+    new ResizeObserver(() => fitMainheadMeta(mainheadElements.metaEl)).observe(mainheadPane);
+  }
 
   const mainEmptyEl = requireElement<HTMLElement>("#main-empty");
   const mainSlotEl = requireElement<HTMLElement>("#main-terminal-slot");

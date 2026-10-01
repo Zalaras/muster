@@ -43,6 +43,10 @@ const defaultUsagePoll = 5 * time.Minute
 // theme config key (kb:adr/theme-claude-theme-read-only-poll).
 const defaultClaudeThemePoll = 10 * time.Second
 
+// defaultRepoPoll is -repo-poll's default: the liveness poll's cadence, so a checkout shows
+// on the card within one tick (kb:adr/lifecycle-branch-refreshed-by-repo-poll).
+const defaultRepoPoll = 5 * time.Second
+
 // defaultUpdateBaseURL is -update-base-url's default — empty disables checking and apply
 // entirely, the same "empty disables the feature" shape -issue-api-url and -usage-api-url
 // use; every E2E daemon passes "" explicitly (web/e2e/helpers/daemon.ts), so this default
@@ -99,6 +103,7 @@ type cliFlags struct {
 	updateBaseURL       string
 	updateCheckInterval time.Duration
 	updatePublicKeyFile string
+	repoPoll            time.Duration
 }
 
 // parseFlags declares, parses and validates musterd's command line. Flag defaults that
@@ -155,6 +160,7 @@ func parseFlags(args []string, stderr io.Writer) (*cliFlags, error) {
 	fset.StringVar(&f.updateBaseURL, "update-base-url", defaultUpdateBaseURL, "base URL for GitHub Releases the auto-updater checks/downloads from — a test seam like -usage-api-url; empty disables update checking and applying entirely")
 	fset.DurationVar(&f.updateCheckInterval, "update-check-interval", defaultUpdateCheckInterval, "how often musterd checks for a newer release while update checking is enabled; must be > 0")
 	fset.StringVar(&f.updatePublicKeyFile, "update-public-key-file", "", "verify releases against this minisign public key file instead of the one compiled into the binary — a test seam like -usage-token-file (empty = the embedded key)")
+	fset.DurationVar(&f.repoPoll, "repo-poll", defaultRepoPoll, "how often musterd re-reads each alive session's launch-directory branch; 0 disables the timer (the poll then runs at start and when Claude's reported directory changes)")
 
 	if err := fset.Parse(args); err != nil {
 		return nil, err
@@ -167,6 +173,9 @@ func parseFlags(args []string, stderr io.Writer) (*cliFlags, error) {
 	}
 	if f.updateCheckInterval <= 0 {
 		return nil, fmt.Errorf("invalid -update-check-interval value %q: must be > 0", f.updateCheckInterval.String())
+	}
+	if f.repoPoll < 0 {
+		return nil, fmt.Errorf("invalid -repo-poll value %q: must be >= 0", f.repoPoll.String())
 	}
 	return &f, nil
 }
@@ -444,6 +453,7 @@ func buildServerConfig(f *cliFlags, st *store.Store, log zerolog.Logger, serving
 			Poll:       f.claudeThemePoll,
 			ConfigFile: f.claudeConfigFile,
 		},
+		RepoRefresh: server.RepoRefreshConfig{Poll: f.repoPoll},
 		Update: server.UpdateConfig{
 			BaseURL:       f.updateBaseURL,
 			CheckInterval: f.updateCheckInterval,

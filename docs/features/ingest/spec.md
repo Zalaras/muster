@@ -25,6 +25,7 @@ the JSON the wrapper scripts post; everything Claude-Code-shaped is parsed insid
 | Permission mode | `permission_mode` from the hook events that carry it, latched forward (kb:fact/permission-mode-presence-split); absent from the status line (kb:fact/status-line-keys) |
 | Failed and its reason | `StopFailure` with its typed `error` (kb:fact/stopfailure-error-taxonomy) |
 | Context, model, title, account usage | the status-line payload, posted by the status-line script |
+| Claude's working directory | `cwd` on every main-agent hook and the status line's `workspace.current_dir`, read in `internal/claudecode` alone; `CwdChanged` stays unregistered (kb:adr/ingest-claude-cwd-read-in-interpret-only) |
 | Terminal content | never ingest; the PTY bridge (kb:spec/surfaces) |
 
 ## Transport
@@ -86,7 +87,7 @@ sequenceDiagram
 
     alt status_line
         Q->>A: InterpretStatus
-        Q->>M: ApplyStatus — title, model, context only
+        Q->>M: ApplyStatus — title, model, context and Claude's directory only
         Q->>U: Record the account sample, when the payload carries one
     else hook event
         Q->>A: Interpret to a neutral StateInput

@@ -89,6 +89,12 @@ type StateInput struct {
 	// (kb:fact/background-completion-new-prompt-id); nil for every other turn-activity
 	// event and whenever the field is absent.
 	Prompt *string
+
+	// Cwd is the working directory a main-agent hook reported (kb:fact/cwd-follows-claude-mid-session),
+	// nil when the event carried none, an empty one, or came from a subagent
+	// (kb:adr/lifecycle-claude-location-from-main-agent-cwd). Display-only: the state machine
+	// never reads it.
+	Cwd *string
 }
 
 // Interpret derives the neutral StateInput for one persisted event. eventType is the
@@ -96,6 +102,34 @@ type StateInput struct {
 // its verbatim inner JSON. This is the only function in Muster that reads
 // event-type-specific payload keys (canary-fields.md is the field inventory).
 func Interpret(eventType string, payload []byte) StateInput {
+	in := interpretKind(eventType, payload)
+	in.Cwd = mainAgentCwd(eventType, payload)
+	return in
+}
+
+// mainAgentCwd is the common cwd key of a hook payload, for the events that speak for the
+// main agent. Never CwdChanged's target field: a cd outside the allowed directories makes
+// Claude reset to the project root, so only cwd is the directory Claude actually works in
+// (kb:fact/cwd-changed-hook). Any event carrying the agent marker, and SubagentStart/
+// SubagentStop, is skipped: a subagent with worktree isolation may report its own directory,
+// which is unmeasured (kb:adr/lifecycle-claude-location-from-main-agent-cwd). A status-line
+// post is read by InterpretStatus, never here.
+func mainAgentCwd(eventType string, payload []byte) *string {
+	if eventType == "SubagentStart" || eventType == "SubagentStop" || eventType == "status_line" {
+		return nil
+	}
+	var f struct {
+		Cwd     string  `json:"cwd"`
+		AgentID *string `json:"agent_id"`
+	}
+	_ = json.Unmarshal(payload, &f)
+	if f.AgentID != nil || f.Cwd == "" {
+		return nil
+	}
+	return &f.Cwd
+}
+
+func interpretKind(eventType string, payload []byte) StateInput {
 	switch eventType {
 	case "SessionStart":
 		return interpretSessionStart(payload)

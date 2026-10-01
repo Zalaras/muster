@@ -279,6 +279,7 @@ func TestBuildServerConfig_MapsEveryFlagOntoTheServerConfig(t *testing.T) {
 		claudeConfigFile:    "/claude/config.json",
 		updateBaseURL:       "https://releases.example",
 		updateCheckInterval: 13 * time.Hour,
+		repoPoll:            17 * time.Second,
 	}
 	installed := "2.1.269"
 	serving := &servingEnv{
@@ -328,6 +329,7 @@ func TestBuildServerConfig_MapsEveryFlagOntoTheServerConfig(t *testing.T) {
 
 	assert.Equal(t, "https://releases.example", cfg.Update.BaseURL)
 	assert.Equal(t, 13*time.Hour, cfg.Update.CheckInterval)
+	assert.Equal(t, 17*time.Second, cfg.RepoRefresh.Poll)
 	assert.Equal(t, pubKey, cfg.Update.PublicKey)
 	assert.Equal(t, install, cfg.Update.Install)
 	assert.Equal(t, "/usr/local/bin/musterd", cfg.Update.ExePath)
@@ -350,9 +352,28 @@ func TestParseFlags_RejectsInvalidValues(t *testing.T) {
 		assert.Contains(t, err.Error(), "must be > 0")
 	})
 
+	t.Run("repo-poll must not be negative", func(t *testing.T) {
+		_, err := parseFlags([]string{"-repo-poll=-1s"}, io.Discard)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid -repo-poll value")
+	})
+
+	t.Run("repo-poll 0 is valid: no timer, nudges only", func(t *testing.T) {
+		f, err := parseFlags([]string{"-repo-poll=0"}, io.Discard)
+		require.NoError(t, err)
+		assert.Zero(t, f.repoPoll)
+	})
+
+	t.Run("repo-poll takes a duration", func(t *testing.T) {
+		f, err := parseFlags([]string{"-repo-poll=200ms"}, io.Discard)
+		require.NoError(t, err)
+		assert.Equal(t, 200*time.Millisecond, f.repoPoll)
+	})
+
 	t.Run("defaults parse", func(t *testing.T) {
 		f, err := parseFlags(nil, io.Discard)
 		require.NoError(t, err)
+		assert.Equal(t, 5*time.Second, f.repoPoll, "the liveness poll's cadence")
 		assert.Equal(t, "ask", f.onExit)
 		assert.Equal(t, defaultUpdateCheckInterval, f.updateCheckInterval)
 		assert.Equal(t, defaultUpdateBaseURL, f.updateBaseURL)

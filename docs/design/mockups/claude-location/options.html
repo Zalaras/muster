@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Claude Location Marker</title>
+<style>
+/* Tokens transcribed from docs/design/mockups/a-instrument.html (Instrument + Light). */
+:root{
+  --mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+:root,:root[data-theme="instrument"]{
+  --bg:#12141c;--bg-raised:#171a24;--bg-hover:#1c2029;--well:#0d0f16;--line:#282d3b;
+  --line-control:#343a4a;--edge:#6a7286;--fg:#e8e6e1;--fg-muted:#b2b6c3;--fg-dim:#a6abbc;
+  --amber:#f2a33c;--teal:#56c5d0;--idle:#989db1;--amber-line:#5c4526;--teal-line:#215058;
+  --violet:#9e91f1;--violet-line:#3e3663;--term:#0d0f16;--term-fg:#e8e6e1;
+}
+:root[data-theme="light"]{
+  --bg:#f3f2ee;--bg-raised:#fbfaf7;--bg-hover:#edece7;--well:#ffffff;--line:#e0ded8;
+  --line-control:#cbc9c2;--edge:#8a8983;--fg:#1c1e26;--fg-muted:#41454f;--fg-dim:#494d5c;
+  --amber:#844800;--teal:#0a6167;--idle:#535764;--amber-line:#efd6ac;--teal-line:#b8e1e3;
+  --violet:#583ad1;--violet-line:#d8d1f4;--term:#ffffff;--term-fg:#1c1e26;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;
+  -webkit-font-smoothing:antialiased;padding:24px 16px 64px}
+.page{max-width:1180px;margin:0 auto}
+h1{font-weight:800;font-size:20px;letter-spacing:-.02em;margin:0 0 6px}
+.lede{color:var(--fg-muted);max-width:760px;line-height:1.55;margin:0 0 8px;font-size:13.5px}
+.switch{font-family:var(--mono);font-size:11px;color:var(--fg-dim);margin:14px 0 26px;display:flex;gap:8px;align-items:center}
+.switch button{font-family:var(--mono);font-size:10.5px;padding:4px 10px;background:transparent;
+  border:1px solid var(--line-control);color:var(--fg-muted);cursor:pointer}
+.switch button.on{background:var(--bg-hover);color:var(--fg)}
+
+.opt{border:1px solid var(--line);background:var(--bg-raised);margin-bottom:28px}
+.opt-h{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+.opt-h b{font-family:var(--mono);font-size:12px;letter-spacing:.06em}
+.opt-h span{color:var(--fg-muted);font-size:13px}
+.opt-b{display:grid;grid-template-columns:290px 1fr;gap:0}
+@media (max-width:820px){.opt-b{grid-template-columns:1fr}}
+.col{padding:14px 16px;border-right:1px solid var(--line);min-width:0}
+.col:last-child{border-right:0}
+.cap{font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--fg-dim);margin:0 0 8px}
+.cap.gap{margin-top:18px}
+.why{padding:10px 16px 14px;border-top:1px solid var(--line);color:var(--fg-muted);font-size:12.5px;line-height:1.55}
+.why b{color:var(--fg)}
+
+/* rail card (a-instrument.html) */
+.rail{border:1px solid var(--line);background:var(--bg-raised)}
+.card{display:flex;border-bottom:1px solid var(--line);position:relative}
+.card:last-child{border-bottom:0}
+.card .stripe{width:3px;flex:none;background:var(--idle)}
+.card-in{padding:10px 12px 11px;flex:1;min-width:0}
+.title{font-weight:700;font-size:13.5px;letter-spacing:-.01em}
+.r1{display:flex;align-items:center;gap:8px;margin-top:5px}
+.state{font-family:var(--mono);font-size:9px;letter-spacing:.11em;text-transform:uppercase;padding:2px 5px;border:1px solid}
+.timer{font-family:var(--mono);font-size:11.5px;color:var(--fg-dim);font-variant-numeric:tabular-nums}
+.r1 .end{margin-left:auto;display:flex;gap:6px;align-items:center;color:var(--fg-dim);font-family:var(--mono);font-size:11px}
+.r2{font-family:var(--mono);font-size:10.5px;color:var(--fg-dim);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:0}
+.r2 .sep{margin:0 5px}
+.r2b{font-family:var(--mono);font-size:10.5px;color:var(--fg-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r3{display:flex;align-items:center;gap:7px;margin-top:7px;font-family:var(--mono);font-size:10px;color:var(--fg-muted)}
+.ctx{width:52px;height:3px;background:var(--line);position:relative}
+.ctx i{position:absolute;inset:0 auto 0 0;background:var(--fg-muted)}
+.s-work .stripe{background:var(--teal)} .s-work .state{color:var(--teal);border-color:var(--teal-line)}
+.s-plan .stripe{background:var(--violet)} .s-plan .state{color:var(--violet);border-color:var(--violet-line)}
+
+/* mainhead + tile header */
+.mainhead{display:flex;align-items:center;gap:12px;padding:10px 16px;border:1px solid var(--line);background:var(--bg-raised)}
+.mainhead .name{font-weight:700;font-size:15px;letter-spacing:-.015em}
+.meta{font-family:var(--mono);font-size:11px;color:var(--fg-dim);display:flex;align-items:center}
+.meta .sep{margin:0 6px}
+.tilehead{display:flex;align-items:center;gap:9px;padding:7px 10px;border:1px solid var(--line);background:var(--bg-raised);font-family:var(--mono);font-size:10.5px;color:var(--fg-dim)}
+.tilehead .dot{width:7px;height:7px;border-radius:50%;background:var(--teal)}
+.tilehead .t{font-family:var(--sans);font-weight:700;font-size:12.5px;color:var(--fg)}
+.tilehead .tm{margin-left:auto}
+.term{background:var(--term);color:var(--term-fg);font-family:var(--mono);font-size:11px;padding:8px 10px;height:46px;border:1px solid var(--line);border-top:0;opacity:.85}
+
+/* the marker variants — neutral tokens only, never a state colour (design-system §3) */
+.mk{display:inline-flex;align-items:center;color:var(--fg-muted);margin-left:6px;position:relative;cursor:default}
+.mk svg{width:11px;height:11px;display:block}
+.chip{font-family:var(--mono);font-size:9px;letter-spacing:.11em;text-transform:uppercase;padding:1px 4px;border:1px solid var(--line-control);color:var(--fg-muted);margin-left:7px}
+.lead{color:var(--fg-muted);margin-right:5px}
+
+/* static tooltip, standing in for the native hover title */
+.tip{position:relative;margin-top:8px;margin-left:24px;background:var(--well);border:1px solid var(--edge);
+  padding:7px 9px;font-family:var(--mono);font-size:10.5px;line-height:1.55;color:var(--fg);max-width:330px}
+.tip .k{color:var(--fg-dim)}
+.tip::before{content:'';position:absolute;top:-5px;left:14px;width:8px;height:8px;background:var(--well);
+  border-left:1px solid var(--edge);border-top:1px solid var(--edge);transform:rotate(45deg)}
+
+.notes{border:1px solid var(--line);background:var(--bg-raised);padding:14px 18px;color:var(--fg-muted);font-size:13px;line-height:1.6}
+.notes h2{font-size:14px;margin:0 0 6px;color:var(--fg)}
+.notes code{font-family:var(--mono);font-size:12px;color:var(--fg)}
+</style>
+</head>
+<body>
+<div class="page">
+<h1>Where Claude is: four ways to mark it</h1>
+<p class="lede">The card keeps the launch directory and its branch. The shell and the docs reader open there too.
+When Claude has moved somewhere else (a <code>cd</code>, an <code>/add-dir</code> directory, <code>EnterWorktree</code>),
+a marker appears and hovering it says where Claude is now. Each option below shows a session still in its launch
+directory, then one that has moved into a worktree, on the three surfaces that carry the repo line: the rail card, the Focus
+header and the tile header. The tooltip is drawn statically under the moved card. In the app it is the native hover <code>title</code>.</p>
+<div class="switch">Theme <button class="on" data-t="instrument">Instrument</button><button data-t="light">Light</button></div>
+
+<template id="tipT">
+  <div class="tip"><span class="k">Claude is in</span> ~/code/muster/.claude/worktrees/probewt<br>
+  <span class="k">on</span> worktree-probewt<br>
+  <span class="k">Shell and docs stay in</span> ~/code/muster</div>
+</template>
+
+<!-- arrow-out glyph used by A and D -->
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="moved" viewBox="0 0 12 12"><path d="M2 10 L9 3 M4.5 3 H9 V7.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="square"/></symbol>
+  <symbol id="folder" viewBox="0 0 12 12"><path d="M1 3 H4.5 L5.5 4 H11 V10 H1 Z" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M5 7 H8.5 M7.2 5.7 L8.5 7 L7.2 8.3" fill="none" stroke="currentColor" stroke-width="1.1"/></symbol>
+</svg>
+
+<!-- ───────── A ───────── -->
+<section class="opt">
+  <div class="opt-h"><b>A · Trailing arrow</b><span>A small ↗ glyph right after <code>repo / branch</code>. Nothing else changes.</span></div>
+  <div class="opt-b">
+    <div class="col">
+      <p class="cap">Rail</p>
+      <div class="rail">
+        <div class="card s-plan"><div class="stripe"></div><div class="card-in">
+          <div class="title">tidy the reader nav</div>
+          <div class="r1"><span class="state">planning</span><span class="timer">4:12</span></div>
+          <div class="r2">muster<span class="sep">/</span>main</div>
+          <div class="r3"><span class="ctx"><i style="width:22%"></i></span>22%</div>
+        </div></div>
+        <div class="card s-work"><div class="stripe"></div><div class="card-in">
+          <div class="title">probe worktree moves</div>
+          <div class="r1"><span class="state">working</span><span class="timer">0:48</span></div>
+          <div class="r2">muster<span class="sep">/</span>main<span class="mk" title="Claude is in ~/code/muster/.claude/worktrees/probewt"><svg><use href="#moved"/></svg></span></div>
+          <div class="r3"><span class="ctx"><i style="width:41%"></i></span>41%</div>
+        </div></div>
+      </div>
+      <div data-tip></div>
+    </div>
+    <div class="col">
+      <p class="cap">Focus header</p>
+      <div class="mainhead"><span class="name">probe worktree moves</span>
+        <span class="meta">muster<span class="sep">/</span>main<span class="mk"><svg><use href="#moved"/></svg></span><span class="sep">·</span>Sonnet 5.5</span></div>
+      <p class="cap gap">Tile header</p>
+      <div class="tilehead"><span class="dot"></span><span class="t">probe worktree moves</span><span>muster / main</span><span class="mk" style="margin-left:-3px"><svg><use href="#moved"/></svg></span><span class="tm">41% · 0:48</span></div>
+      <div class="term">❯ </div>
+    </div>
+  </div>
+  <div class="why"><b>For:</b> smallest change, and it sits right next to the thing it qualifies. <b>Against:</b> an arrow is
+  a guess at a meaning. It could read as "open elsewhere", like the reader's <code>pop out ↗</code>. It also gets cut off with the line when a long branch name ellipsizes.</div>
+</section>
+
+<!-- ───────── B ───────── -->
+<section class="opt">
+  <div class="opt-h"><b>B · Neutral chip</b><span>A small bordered word, <code>moved</code>, after the branch. It looks like a badge but carries no state colour.</span></div>
+  <div class="opt-b">
+    <div class="col">
+      <p class="cap">Rail</p>
+      <div class="rail">
+        <div class="card s-plan"><div class="stripe"></div><div class="card-in">
+          <div class="title">tidy the reader nav</div>
+          <div class="r1"><span class="state">planning</span><span class="timer">4:12</span></div>
+          <div class="r2">muster<span class="sep">/</span>main</div>
+          <div class="r3"><span class="ctx"><i style="width:22%"></i></span>22%</div>
+        </div></div>
+        <div class="card s-work"><div class="stripe"></div><div class="card-in">
+          <div class="title">probe worktree moves</div>
+          <div class="r1"><span class="state">working</span><span class="timer">0:48</span></div>
+          <div class="r2">muster<span class="sep">/</span>main<span class="chip" title="Claude is in ~/code/muster/.claude/worktrees/probewt">moved</span></div>
+          <div class="r3"><span class="ctx"><i style="width:41%"></i></span>41%</div>
+        </div></div>
+      </div>
+      <div data-tip></div>
+    </div>
+    <div class="col">
+      <p class="cap">Focus header</p>
+      <div class="mainhead"><span class="name">probe worktree moves</span>
+        <span class="meta">muster<span class="sep">/</span>main<span class="chip">moved</span><span class="sep">·</span>Sonnet 5.5</span></div>
+      <p class="cap gap">Tile header</p>
+      <div class="tilehead"><span class="dot"></span><span class="t">probe worktree moves</span><span>muster / main</span><span class="chip" style="margin-left:0">moved</span><span class="tm">41% · 0:48</span></div>
+      <div class="term">❯ </div>
+    </div>
+  </div>
+  <div class="why"><b>For:</b> a word means one thing, and it works without hovering. <b>Against:</b> it is the
+  loudest option. A bordered caps word sits close to the state badge, and the card already spends that look on state.</div>
+</section>
+
+<!-- ───────── C ───────── -->
+<section class="opt">
+  <div class="opt-h"><b>C · Second line, only when moved</b><span>A dim <code>↳ where / branch</code> line appears under the repo line. The hover gives the full path.</span></div>
+  <div class="opt-b">
+    <div class="col">
+      <p class="cap">Rail</p>
+      <div class="rail">
+        <div class="card s-plan"><div class="stripe"></div><div class="card-in">
+          <div class="title">tidy the reader nav</div>
+          <div class="r1"><span class="state">planning</span><span class="timer">4:12</span></div>
+          <div class="r2">muster<span class="sep">/</span>main</div>
+          <div class="r3"><span class="ctx"><i style="width:22%"></i></span>22%</div>
+        </div></div>
+        <div class="card s-work"><div class="stripe"></div><div class="card-in">
+          <div class="title">probe worktree moves</div>
+          <div class="r1"><span class="state">working</span><span class="timer">0:48</span></div>
+          <div class="r2">muster<span class="sep">/</span>main</div>
+          <div class="r2b" title="Claude is in ~/code/muster/.claude/worktrees/probewt"><span class="lead">↳</span>probewt / worktree-probewt</div>
+          <div class="r3"><span class="ctx"><i style="width:41%"></i></span>41%</div>
+        </div></div>
+      </div>
+      <div data-tip></div>
+    </div>
+    <div class="col">
+      <p class="cap">Focus header</p>
+      <div class="mainhead"><span class="name">probe worktree moves</span>
+        <span class="meta">muster<span class="sep">/</span>main<span class="sep">·</span><span class="lead" style="margin-right:4px">↳</span>probewt / worktree-probewt<span class="sep">·</span>Sonnet 5.5</span></div>
+      <p class="cap gap">Tile header</p>
+      <div class="tilehead"><span class="dot"></span><span class="t">probe worktree moves</span><span>muster / main</span><span class="mk" style="margin-left:-3px"><svg><use href="#moved"/></svg></span><span class="tm">41% · 0:48</span></div>
+      <div class="term">❯ </div>
+    </div>
+  </div>
+  <div class="why"><b>For:</b> it says where without a hover, so it works on a glance down the rail. <b>Against:</b> the card
+  grows a line, and in compact density that costs height. The tile header has no room for it, so it falls back to A's glyph, which makes two treatments to keep consistent.</div>
+</section>
+
+<!-- ───────── D ───────── -->
+<section class="opt">
+  <div class="opt-h"><b>D · Icon on the state row</b><span>A folder-arrow icon at the right end of the state row, where the pin sits. The repo line is untouched.</span></div>
+  <div class="opt-b">
+    <div class="col">
+      <p class="cap">Rail</p>
+      <div class="rail">
+        <div class="card s-plan"><div class="stripe"></div><div class="card-in">
+          <div class="title">tidy the reader nav</div>
+          <div class="r1"><span class="state">planning</span><span class="timer">4:12</span><span class="end">pin</span></div>
+          <div class="r2">muster<span class="sep">/</span>main</div>
+          <div class="r3"><span class="ctx"><i style="width:22%"></i></span>22%</div>
+        </div></div>
+        <div class="card s-work"><div class="stripe"></div><div class="card-in">
+          <div class="title">probe worktree moves</div>
+          <div class="r1"><span class="state">working</span><span class="timer">0:48</span><span class="end"><span class="mk" style="margin:0" title="Claude is in ~/code/muster/.claude/worktrees/probewt"><svg><use href="#folder"/></svg></span></span></div>
+          <div class="r2">muster<span class="sep">/</span>main</div>
+          <div class="r3"><span class="ctx"><i style="width:41%"></i></span>41%</div>
+        </div></div>
+      </div>
+      <div data-tip></div>
+    </div>
+    <div class="col">
+      <p class="cap">Focus header</p>
+      <div class="mainhead"><span class="name">probe worktree moves</span><span class="mk" style="margin-left:-4px"><svg><use href="#folder"/></svg></span>
+        <span class="meta">muster<span class="sep">/</span>main<span class="sep">·</span>Sonnet 5.5</span></div>
+      <p class="cap gap">Tile header</p>
+      <div class="tilehead"><span class="dot"></span><span class="t">probe worktree moves</span><span class="mk" style="margin-left:-3px"><svg><use href="#folder"/></svg></span><span>muster / main</span><span class="tm">41% · 0:48</span></div>
+      <div class="term">❯ </div>
+    </div>
+  </div>
+  <div class="why"><b>For:</b> it never fights the repo line for width, so a long branch can't push it out. A folder reads as
+  "directory". <b>Against:</b> it sits apart from the directory it qualifies, and the state row is already busy (badge, timer, pin).</div>
+</section>
+
+<div class="notes">
+  <h2>Open questions</h2>
+  <p><b>When does the marker show?</b> Claude's Bash tool often runs <code>cd web &amp;&amp; npm test</code>, and the
+  shell stays in <code>web/</code> afterwards. If any difference shows the marker, it will be on most
+  cards most of the time. The alternative is to show it only when Claude is in a different checkout: a worktree, or
+  another repo added with <code>/add-dir</code>. A subdirectory of the launch directory would not count.</p>
+  <p><b>Keyboard and screen readers.</b> In every option the marker also carries an <code>aria-label</code> with the same text as
+  the hover, so the information never depends on a mouse.</p>
+</div>
+</div>
+<script>
+document.querySelectorAll('[data-tip]').forEach(el=>el.replaceWith(document.getElementById('tipT').content.cloneNode(true)));
+document.querySelectorAll('.switch button').forEach(b=>b.addEventListener('click',()=>{
+  document.documentElement.dataset.theme=b.dataset.t;
+  document.querySelectorAll('.switch button').forEach(x=>x.classList.toggle('on',x===b));
+}));
+</script>
+</body>
+</html>

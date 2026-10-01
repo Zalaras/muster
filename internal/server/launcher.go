@@ -326,10 +326,16 @@ func (l *sessionLauncher) Launch(ctx context.Context, req createSessionRequest) 
 func repoContext(ctx context.Context, dir string) (isGit bool, branch *string, isWorktree bool) {
 	isGit = gitutil.IsRepo(ctx, dir)
 	if isGit {
-		branch = gitutil.Branch(ctx, dir)
-		isWorktree = gitutil.IsWorktree(ctx, dir)
+		branch, isWorktree = checkoutState(ctx, dir)
 	}
 	return isGit, branch, isWorktree
+}
+
+// checkoutState is the branch (nil when detached) and worktree flag of dir, a directory the
+// caller already knows is inside a checkout — the one place both are read, for the launch
+// directory (repoContext) and for the directory Claude is working in (deriveLocation).
+func checkoutState(ctx context.Context, dir string) (branch *string, isWorktree bool) {
+	return gitutil.Branch(ctx, dir), gitutil.IsWorktree(ctx, dir)
 }
 
 // createAndSpawn is Launch's and launchResume's shared tail, once each has assembled its

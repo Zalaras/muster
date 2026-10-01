@@ -1,3 +1,4 @@
+import { scratchRepo } from "./helpers/card-location";
 import { expect, test } from "./helpers/fixtures";
 import { cardContextRow, cardContextTrack } from "./helpers/gauges";
 import {
@@ -127,16 +128,19 @@ test("clicking Compact echoes to body[data-rail-density], persists across a relo
   }
 });
 
-test("a long title wraps to multiple lines in comfortable density and clamps to one line in compact, with title attributes on .name and .r2 throughout (E11)", async ({
+test("a long title wraps to multiple lines in comfortable density and clamps to one line in compact, with title attributes on .name and .r2 throughout (E11, E13)", async ({
   page,
   daemon,
 }) => {
-  const { path: dir, cleanup } = await scratchDirectory();
+  // A real checkout, so `.r2` has a `<repo> / <branch>` to carry: plan
+  // stale-dirs-models-branches E13 rewrote this test's `.r2` assertion, because the repo
+  // block now wraps at the `/` (its `innerText` is two lines) while its `title` stays one.
+  const repo = await scratchRepo();
   try {
     await page.goto(daemon.dashboardUrl);
     const longTitle =
       "a very long session title that should need more than one line to display in full at the rail's fixed column width";
-    await launchSession(page, daemon, { directory: dir, title: longTitle });
+    await launchSession(page, daemon, { directory: repo.path, title: longTitle });
 
     const card = sessionCard(page, longTitle);
     const name = cardName(card);
@@ -146,6 +150,12 @@ test("a long title wraps to multiple lines in comfortable density and clamps to 
     const comfortableHeight = await name.evaluate((el) => el.getBoundingClientRect().height);
     expect(comfortableHeight).toBeGreaterThan(lineHeight * 1.5);
 
+    // E13 (REQ-2, rewritten): `.r2` always carries `title` equal to `<repo> / <branch>`, in
+    // every density — not to its own text, which is two lines when the block wraps.
+    const repoTitle = `${repo.name} / main`;
+    const repoLine = cardRepoLine(card);
+    await expect(repoLine).toHaveAttribute("title", repoTitle);
+
     await railDensityButton(page, "compact").click();
     await expect.poll(() => bodyRailDensity(page)).toBe("compact");
 
@@ -153,13 +163,9 @@ test("a long title wraps to multiple lines in comfortable density and clamps to 
     expect(compactHeight).toBeLessThanOrEqual(lineHeight * 1.5);
     await expect(name).toHaveAttribute("title", longTitle);
 
-    // REQ-2: `.r2` (the repo/branch line) always carries `title` equal to its own text,
-    // in every density.
-    const repoLine = cardRepoLine(card);
-    const repoText = await repoLine.innerText();
-    await expect(repoLine).toHaveAttribute("title", repoText);
+    await expect(repoLine).toHaveAttribute("title", repoTitle);
   } finally {
-    await cleanup();
+    await repo.cleanup();
   }
 });
 

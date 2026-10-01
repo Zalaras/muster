@@ -165,6 +165,10 @@ class FakeDomNode {
     return child;
   }
 
+  append(...nodes: FakeChild[]): void {
+    for (const node of nodes) this.appendChild(node);
+  }
+
   insertBefore(newNode: FakeChild, referenceNode: FakeChild | null): FakeChild {
     if (newNode instanceof FakeDomNode) newNode.detach();
     const index = referenceNode ? this.nodeChildren.indexOf(referenceNode) : -1;
@@ -254,7 +258,7 @@ class FakeDomNode {
 }
 
 /** Mirrors `index.html`'s `#session-card-template` markup (article.card > [.stripe,
- * .card-in > [.r1 > [.name, .chip-danger], .r0 > [.badge, .timer, .pin], .r2, .r3,
+ * .card-in > [.r1 > [.name, .chip-danger], .r0 > [.badge, .timer, .pin], .r2 > .rf, .r2c > [.lead, .rf], .r3,
  * .activity.you, .activity.claude, .note, .acts-row, .bg-tasks]]) closely enough for `buildSessionCardElement`/
  * `updateSessionCardContent`'s real `querySelector` calls to resolve every field they
  * touch. Row order follows REQ-4 (plan rail-card-improvements-2): `.r1` (title) leads,
@@ -293,6 +297,18 @@ function buildCardTemplateFragment(): FakeDomNode {
   r0.appendChild(pin);
   const r2 = new FakeDomNode("div");
   r2.className = "r2";
+  const r2Folder = new FakeDomNode("span");
+  r2Folder.className = "rf";
+  r2.appendChild(r2Folder);
+  const r2c = new FakeDomNode("div");
+  r2c.className = "r2c";
+  r2c.hidden = true;
+  const lead = new FakeDomNode("span");
+  lead.className = "lead";
+  const r2cFolder = new FakeDomNode("span");
+  r2cFolder.className = "rf";
+  r2c.appendChild(lead);
+  r2c.appendChild(r2cFolder);
   const r3 = new FakeDomNode("div");
   r3.className = "r3";
   const activityYou = new FakeDomNode("div");
@@ -313,6 +329,7 @@ function buildCardTemplateFragment(): FakeDomNode {
   cardIn.appendChild(r1);
   cardIn.appendChild(r0);
   cardIn.appendChild(r2);
+  cardIn.appendChild(r2c);
   cardIn.appendChild(r3);
   cardIn.appendChild(activityYou);
   cardIn.appendChild(activityClaude);
@@ -349,6 +366,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     failure: null,
     directory: "/Users/bob/code/muster",
     repo: null,
+    claudeLocation: null,
     model: null,
     permissionMode: { value: "default", source: "seed" },
     context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
@@ -1067,5 +1085,119 @@ describe("reconcileCards — draggable attribute (plan order-sidebar REQ-10/W15/
       baseOptions(),
     );
     expect(el.children[0]?.getAttribute("draggable")).toBe("false");
+  });
+});
+
+// REQ-10, REQ-12 (plan stale-dirs-models-branches): the card's repo block (`.r2`) and the
+// `↳` block (`.r2c`). Pixel layout (truncation, compact inline) is Playwright's
+// (e2e/card-location.spec.ts); this pins which nodes carry which text, title and hidden state.
+describe("reconcileCards — repo block and `↳` block", () => {
+  beforeEach(() => {
+    vi.stubGlobal("HTMLElement", FakeDomNode);
+    vi.stubGlobal("HTMLButtonElement", FakeDomNode);
+    vi.stubGlobal("document", {
+      activeElement: null,
+      createElement: (tag: string) => new FakeDomNode(tag),
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const MOVED = {
+    directory: "/Users/bob/code/muster/.claude/worktrees/e7b",
+    repo: { name: "e7b", branch: "worktree-e7b", isWorktree: true },
+  };
+
+  function renderCard(...sessions: Session[]): FakeDomNode {
+    const el = new FakeDomNode("div");
+    for (const session of sessions) {
+      reconcileCards(el as unknown as HTMLElement, [session], NOW, fakeTemplate(), baseOptions());
+    }
+    return el.children[0] as FakeDomNode;
+  }
+
+  const lines = (host: FakeDomNode | null) =>
+    host?.children.map((c) => [c.className, c.textContent]).filter(([cls]) => cls !== "lead");
+  const r2 = (card: FakeDomNode) => card.querySelector(".r2");
+  const r2c = (card: FakeDomNode) => card.querySelector(".r2c");
+
+  it("splits the launch readout into `.rf` (folder and slash) and `.rb` (branch), with the one-line hover on `.r2`", () => {
+    const card = renderCard(
+      makeSession({
+        id: 1,
+        repo: { name: "muster", branch: "main", isWorktree: false },
+      }),
+    );
+    expect(lines(r2(card))).toEqual([
+      ["rf", "muster /"],
+      ["rb", "main"],
+    ]);
+    expect(r2(card)?.title).toBe("muster / main");
+  });
+
+  it("marks a linked worktree on the launch branch line only", () => {
+    const card = renderCard(
+      makeSession({
+        id: 1,
+        repo: { name: "muster", branch: "x", isWorktree: true },
+      }),
+    );
+    expect(lines(r2(card))?.[1]).toEqual(["rb", "x (worktree)"]);
+  });
+
+  it("a session with no repo holds only `.rf`, the directory basename", () => {
+    const card = renderCard(makeSession({ id: 1, repo: null }));
+    expect(lines(r2(card))).toEqual([["rf", "muster"]]);
+  });
+
+  it("removes `.rb` when a session's repo goes away between renders, and recreates it when it returns", () => {
+    const withRepo = makeSession({
+      id: 1,
+      repo: { name: "muster", branch: "main", isWorktree: false },
+    });
+    const gone = renderCard(withRepo, makeSession({ id: 1, repo: null }));
+    expect(lines(r2(gone))).toEqual([["rf", "muster"]]);
+    const back = renderCard(makeSession({ id: 1, repo: null }), withRepo);
+    expect(lines(r2(back))).toEqual([
+      ["rf", "muster /"],
+      ["rb", "main"],
+    ]);
+  });
+
+  it("keeps `.r2c` hidden with an empty hover while Claude is in the launch checkout", () => {
+    const card = renderCard(makeSession({ id: 1 }));
+    expect(r2c(card)?.hidden).toBe(true);
+    expect(r2c(card)?.title).toBe("");
+  });
+
+  it("shows `.r2c` with the location's folder and bare branch, hover = lines 3 and 4", () => {
+    const card = renderCard(makeSession({ id: 1, claudeLocation: MOVED }));
+    expect(r2c(card)?.hidden).toBe(false);
+    expect(lines(r2c(card))).toEqual([
+      ["rf", "e7b /"],
+      ["rb", "worktree-e7b"],
+    ]);
+    expect(r2c(card)?.title).toBe(
+      "Claude is in /Users/bob/code/muster/.claude/worktrees/e7b\non worktree-e7b",
+    );
+  });
+
+  it("a location with a null repo shows the directory basename alone and a one-line hover", () => {
+    const card = renderCard(
+      makeSession({
+        id: 1,
+        claudeLocation: { directory: "/tmp/scratch", repo: null },
+      }),
+    );
+    expect(lines(r2c(card))).toEqual([["rf", "scratch"]]);
+    expect(r2c(card)?.title).toBe("Claude is in /tmp/scratch");
+  });
+
+  it("hides `.r2c` again when the next render reports the launch checkout (ExitWorktree)", () => {
+    const card = renderCard(makeSession({ id: 1, claudeLocation: MOVED }), makeSession({ id: 1 }));
+    expect(r2c(card)?.hidden).toBe(true);
+    expect(r2c(card)?.title).toBe("");
   });
 });

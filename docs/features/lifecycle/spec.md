@@ -152,4 +152,4 @@ kb:adr/surfaces-shell-dies-at-kill-shutdown-too).
 
 Every change broadcasts the whole Session (`kb:anchor/ws.session`,
 `kb:anchor/ws.session-upsert`); the client replaces by id and sorts for display. Status
-posts refresh title, model and context only, never a state-machine field.
+posts refresh title, model, context and Claude's directory (kb:spec/card-location), never a state-machine field.

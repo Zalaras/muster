@@ -3,8 +3,9 @@ package session
 import "github.com/Zalaras/muster/internal/claudecode"
 
 // applyStatusUpdate mutates sess per kb:anchor/ws.session's value semantics: title, model,
-// and context refresh from a routed status-line post, each adopted only when update
-// carried it and only when it actually differs from the current value. Returns whether
+// and context refresh from a routed status-line post, plus the directory Claude reports
+// (ClaudeDir), each adopted only when update carried it and only when it actually differs
+// from the current value. Returns whether
 // anything changed, so the caller only persists+broadcasts on a real change — status
 // posts fire on every tool use, so a naive always-broadcast would spam sessionUpsert.
 //
@@ -39,6 +40,10 @@ func applyStatusUpdate(sess *Session, update claudecode.StatusUpdate) bool {
 			sess.Context = &next
 			changed = true
 		}
+	}
+
+	if adoptClaudeDir(sess, update.Cwd) {
+		changed = true
 	}
 
 	return changed

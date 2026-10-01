@@ -112,6 +112,11 @@ type SessionRow struct {
 	// anything but the state machine's own persistence round trip and the wire.
 	BackgroundTasks int
 	AttentionAgent  *string
+
+	// ClaudeDir (kb:adr/lifecycle-card-shows-launch-directory-marks-claude-elsewhere) is the
+	// working directory Claude last reported; NULL = nothing reported since the last launch
+	// or resume. Display-only, never read by the state machine.
+	ClaudeDir *string
 }
 
 // InsertSessionParams seeds a new session row: state "started", the permission-mode
@@ -287,7 +292,7 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 			context_used_pct = ?, context_total_input_tokens = ?, context_window_size = ?,
 			last_snapshot = ?, last_snapshot_at = ?, pinned = ?, rail_pos = ?, title_override = ?,
 			transcript_file = ?, plan_path = ?, plan_exists = ?, unread = ?, last_prompt = ?,
-			pending_resume_claude_session_id = ?, background_tasks = ?, attention_agent = ?
+			pending_resume_claude_session_id = ?, background_tasks = ?, attention_agent = ?, claude_dir = ?
 		WHERE id = ?
 	`,
 		row.TmuxTarget, row.TmuxPane, row.ClaudeSessionID, row.Directory, row.Branch,
@@ -298,7 +303,7 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 		row.ContextUsedPct, row.ContextTotalInputTokens, row.ContextWindowSize,
 		row.LastSnapshot, lastSnapshotAt, boolToInt(row.Pinned), row.RailPos, row.TitleOverride,
 		row.TranscriptPath, row.PlanPath, boolToInt(row.PlanExists), boolToInt(row.Unread), row.LastPrompt,
-		row.PendingResumeClaudeSessionID, row.BackgroundTasks, row.AttentionAgent,
+		row.PendingResumeClaudeSessionID, row.BackgroundTasks, row.AttentionAgent, row.ClaudeDir,
 		row.ID,
 	)
 	if err != nil {
@@ -315,7 +320,7 @@ const sessionColumns = `
 	context_used_pct, context_total_input_tokens, context_window_size,
 	last_snapshot, last_snapshot_at, pinned, rail_pos, title_override,
 	transcript_file, plan_path, plan_exists, unread, last_prompt,
-	pending_resume_claude_session_id, background_tasks, attention_agent
+	pending_resume_claude_session_id, background_tasks, attention_agent, claude_dir
 `
 
 func (s *Store) GetSession(ctx context.Context, id int64) (SessionRow, error) {
@@ -397,7 +402,7 @@ func (s *Store) scanSession(row rowScanner) (SessionRow, error) {
 		&r.ContextUsedPct, &r.ContextTotalInputTokens, &r.ContextWindowSize,
 		&r.LastSnapshot, &lastSnapshotAt, &pinned, &r.RailPos, &r.TitleOverride,
 		&r.TranscriptPath, &r.PlanPath, &planExists, &unread, &r.LastPrompt,
-		&r.PendingResumeClaudeSessionID, &r.BackgroundTasks, &r.AttentionAgent,
+		&r.PendingResumeClaudeSessionID, &r.BackgroundTasks, &r.AttentionAgent, &r.ClaudeDir,
 	); err != nil {
 		return SessionRow{}, err
 	}

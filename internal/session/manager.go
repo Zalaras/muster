@@ -90,6 +90,11 @@ type Config struct {
 	Watcher      Watcher        // nil counts every session as unwatched
 	PollInterval time.Duration  // 0 uses defaultPollInterval
 
+	// OnClaudeDirChange fires after Apply or ApplyStatus persisted a changed ClaudeDir, so
+	// the repo poll can derive claudeLocation without waiting out its interval. Nil-tolerant
+	// like OnUpsert. It must not block: it runs on the ingest worker.
+	OnClaudeDirChange func()
+
 	// InterruptChecker reports whether the transcript at path records an interrupt of
 	// promptID. Injected so this package never reads transcript bytes
 	// (kb:adr/lifecycle-interrupt-read-from-transcript); nil disables the interrupt sweep.
@@ -112,8 +117,10 @@ type Manager struct {
 	tmuxSessions    TmuxSessions
 	onUpsert        func(*Session)
 	onRemoved       func(id int64)
-	interval        time.Duration
-	watcher         Watcher
+	// onClaudeDirChange is Config.OnClaudeDirChange.
+	onClaudeDirChange func()
+	interval          time.Duration
+	watcher           Watcher
 	// interruptChecker is Config.InterruptChecker, read only by sweepInterrupts.
 	interruptChecker InterruptChecker
 
@@ -242,18 +249,19 @@ func NewManager(cfg Config) *Manager {
 		interval = defaultPollInterval
 	}
 	return &Manager{
-		store:            cfg.Store,
-		log:              cfg.Logger,
-		paneChecker:      cfg.PaneChecker,
-		paneSnapshotter:  cfg.PaneSnapshotter,
-		tmuxSessions:     cfg.TmuxSessions,
-		onUpsert:         cfg.OnUpsert,
-		onRemoved:        cfg.OnRemoved,
-		interval:         interval,
-		watcher:          cfg.Watcher,
-		interruptChecker: cfg.InterruptChecker,
-		sessions:         make(map[int64]*Session),
-		byClaude:         make(map[string]int64),
+		store:             cfg.Store,
+		log:               cfg.Logger,
+		paneChecker:       cfg.PaneChecker,
+		paneSnapshotter:   cfg.PaneSnapshotter,
+		tmuxSessions:      cfg.TmuxSessions,
+		onUpsert:          cfg.OnUpsert,
+		onRemoved:         cfg.OnRemoved,
+		onClaudeDirChange: cfg.OnClaudeDirChange,
+		interval:          interval,
+		watcher:           cfg.Watcher,
+		interruptChecker:  cfg.InterruptChecker,
+		sessions:          make(map[int64]*Session),
+		byClaude:          make(map[string]int64),
 	}
 }
 
@@ -555,6 +563,14 @@ func (m *Manager) List() []*Session {
 		out = append(out, s.Clone())
 	}
 	return out
+}
+
+// nudgeRepoPoll tells the repo poll that Claude's recorded directory changed, once the
+// change is persisted; a no-op when it did not (or no callback is wired).
+func (m *Manager) nudgeRepoPoll(changed bool) {
+	if changed && m.onClaudeDirChange != nil {
+		m.onClaudeDirChange()
+	}
 }
 
 func (m *Manager) broadcast(s *Session) {

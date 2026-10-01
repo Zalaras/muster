@@ -46,8 +46,9 @@ func TestOpen_SecondOpenOnSamePathDoesNotReapplyMigrations(t *testing.T) {
 	// (m4-reconcile) + 0005_usage_model (usage-model-bar) + 0006_rail_order
 	// (order-sidebar) + 0007_title_override (ui-text-and-focus) + 0008_reader
 	// (markdown-viewing) + 0009_rail_cards (rail-card-improvements) + 0010_pending_resume
-	// (resume-followups).
-	assert.Equal(t, 11, schemaMigrationsCount(t, st2.db))
+	// (resume-followups) + 0011_turn_state (status-inconsistencies) + 0012_claude_dir
+	// (stale-dirs-models-branches).
+	assert.Equal(t, 12, schemaMigrationsCount(t, st2.db))
 }
 
 // TestOpen_RestrictsPermissionsOnDatabaseAndSidecars covers review cycle 2 Major 1: the

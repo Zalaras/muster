@@ -118,6 +118,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     failure: null,
     directory: "/Users/bob/code/muster",
     repo: null,
+    claudeLocation: null,
     model: null,
     permissionMode: { value: "default", source: "seed" },
     context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
@@ -141,7 +142,12 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
 function fakeTileRoot(): HTMLElement & { className: string } {
   const nm = fakeNameEl();
   const chip = fakeElement();
-  const wh = fakeElement();
+  const wh = { ...fakeElement(), title: "" } as HTMLElement & { title: string };
+  const whClaude = fakeElement();
+  const srOnly = fakeElement();
+  (whClaude as unknown as { querySelector: (s: string) => HTMLElement | null }).querySelector = (
+    selector: string,
+  ) => (selector === ".sr-only" ? srOnly : null);
   const ctx = fakeElement();
   const tm = fakeElement();
   const dot = { ...fakeElement(), title: "" } as HTMLElement & { title: string };
@@ -149,6 +155,7 @@ function fakeTileRoot(): HTMLElement & { className: string } {
     ".nm": nm,
     ".chip-danger": chip,
     ".wh": wh,
+    ".wh-claude": whClaude,
     ".ctxinfo": ctx,
     ".tm": tm,
     ".sdot": dot,
@@ -232,6 +239,80 @@ describe("updateTile — refreshes existing chrome in place, never touches bodyS
     // as constructed.
     expect(bodySlot.textContent).toBe("");
     expect(bodySlot.className).toBe("");
+  });
+});
+
+describe("updateTile — Claude-location hover and `↳` marker (REQ-14, REQ-15)", () => {
+  const tileFields = (root: HTMLElement) => ({
+    hover: (root.querySelector(".wh") as HTMLElement).title,
+    markerHidden: (root.querySelector(".wh-claude") as HTMLElement).hidden,
+    markerText: (
+      (root.querySelector(".wh-claude") as HTMLElement).querySelector(".sr-only") as HTMLElement
+    ).textContent,
+  });
+
+  const cases: Array<{
+    name: string;
+    session: Partial<Session>;
+    want: { hover: string; markerHidden: boolean; markerText: string };
+  }> = [
+    {
+      name: "not moved: hover is the repo line and directory, the marker is hidden and empty",
+      session: { repo: { name: "muster", branch: "main", isWorktree: false } },
+      want: {
+        hover: "muster / main\n/Users/bob/code/muster",
+        markerHidden: true,
+        markerText: "",
+      },
+    },
+    {
+      name: "moved into a worktree: hover gains lines 3 and 4, the marker shows with its text",
+      session: {
+        repo: { name: "muster", branch: "main", isWorktree: false },
+        claudeLocation: {
+          directory: "/Users/bob/code/muster/.claude/worktrees/e7b",
+          repo: { name: "e7b", branch: "worktree-e7b", isWorktree: true },
+        },
+      },
+      want: {
+        hover:
+          "muster / main\n/Users/bob/code/muster\nClaude is in /Users/bob/code/muster/.claude/worktrees/e7b\non worktree-e7b",
+        markerHidden: false,
+        markerText: "Claude is in /Users/bob/code/muster/.claude/worktrees/e7b",
+      },
+    },
+    {
+      name: "moved to a non-git directory: hover ends at line 3",
+      session: {
+        claudeLocation: { directory: "/tmp/scratch", repo: null },
+      },
+      want: {
+        hover: "muster\n/Users/bob/code/muster\nClaude is in /tmp/scratch",
+        markerHidden: false,
+        markerText: "Claude is in /tmp/scratch",
+      },
+    },
+  ];
+
+  for (const { name, session, want } of cases) {
+    it(name, () => {
+      const root = fakeTileRoot();
+      updateTile(fakeTileRefs(root), makeSession({ id: 1, ...session }), NOW);
+      expect(tileFields(root)).toEqual(want);
+    });
+  }
+
+  it("hides the marker again once the session returns to the launch checkout (ExitWorktree)", () => {
+    const root = fakeTileRoot();
+    const refs = fakeTileRefs(root);
+    updateTile(
+      refs,
+      makeSession({ id: 1, claudeLocation: { directory: "/tmp/scratch", repo: null } }),
+      NOW,
+    );
+    updateTile(refs, makeSession({ id: 1 }), NOW);
+    expect(tileFields(root).markerHidden).toBe(true);
+    expect(tileFields(root).markerText).toBe("");
   });
 });
 

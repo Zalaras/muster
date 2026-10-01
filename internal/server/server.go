@@ -69,6 +69,7 @@ type Config struct {
 	Theme            ThemeConfig
 	Issue            IssueConfig
 	Update           UpdateConfig
+	RepoRefresh      RepoRefreshConfig
 }
 
 // feature is anything New registers: it mounts its own routes. lifecycle and
@@ -135,6 +136,7 @@ type Server struct {
 	update        *updateFeature
 	locate        *locateFeature
 	reader        *readerFeature
+	repoRefresh   *repoRefreshFeature
 }
 
 // New builds a Server and wires its routes. Nothing here starts a goroutine; call Start
@@ -202,6 +204,9 @@ func New(cfg Config) *Server {
 		InterruptChecker: cfg.InterruptChecker,
 		OnUpsert:         func(sess *session.Session) { s.hub.broadcast(sessionUpsertWire(sess)) },
 		OnRemoved:        func(id int64) { s.hub.broadcast(sessionRemovedWire(id)) },
+		// repoRefresh is assigned below, before Start can run any ingest worker that
+		// calls this.
+		OnClaudeDirChange: func() { s.repoRefresh.nudge() },
 	})
 	// models is the one model-catalog verdict cache (kb:adr/launch-model-check-cached-per-binary-identity):
 	// registered for GET /api/models and handed into newSessionLauncher below so Launch's
@@ -239,6 +244,7 @@ func New(cfg Config) *Server {
 	s.theme = register(s, newThemeFeature(cfg.Theme, s.hub, cfg.Logger))
 	s.shellActivity = register(s, newShellActivityFeature(shells.HasAny, tmuxClient.ListPaneActivity, s.hub, cfg.Logger))
 	s.update = register(s, updateFeat)
+	s.repoRefresh = register(s, newRepoRefreshFeature(cfg.RepoRefresh, s.manager, cfg.Logger))
 
 	s.routes()
 	return s
@@ -302,9 +308,9 @@ func (s *Server) ShellCount(ctx context.Context) (int, error) {
 	return s.manager.ShellCount(ctx)
 }
 
-// StopLivenessPoll stops the session manager's background liveness poll and waits for it
-// to exit, without touching any other feature. Call this first, before any other shutdown
-// step (ShellCount's tmux round trip, the on-exit prompt, EndAllSessions/KillAllShells):
+// StopLivenessPoll stops the session manager's background liveness poll and the repo poll
+// that reads the same rows, and waits for them to exit, without touching any other feature.
+// Call this first, before any other shutdown step (ShellCount's tmux round trip, the on-exit prompt, EndAllSessions/KillAllShells):
 // those steps run for up to several seconds after the shutdown signal arrives, and the
 // poll's own 5s ticker is not otherwise paused during that window. A pane that dies right
 // then would otherwise race its own liveness tick against the fresh process's next-startup
@@ -317,6 +323,7 @@ func (s *Server) ShellCount(ctx context.Context) (int, error) {
 // auto-update restart path, that go straight to it without this earlier call.
 func (s *Server) StopLivenessPoll(ctx context.Context) {
 	s.manager.Stop(ctx)
+	s.repoRefresh.Stop(ctx)
 }
 
 // Shutdown closes every open WS connection (unblocking hijacked-connection goroutines

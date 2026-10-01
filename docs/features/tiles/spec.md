@@ -36,6 +36,6 @@ Order and membership are per-window, client-only state and are never persisted
 Density (`prefs.density`, 2×2 or 3×2) sets N and every tile's geometry; each tile states
 its real geometry. A tile carries the title (with inline rename), a danger `bypass` chip after it while the
 session's last-known permission mode is bypass (kb:adr/launch-bypass-offered-with-danger-guardrails),
-state, meta, a footer action row with End, Resume, Remove and the surface switch, and a dead
+state, meta (the repo readout, with the full launch path and branch as hover text, and a `↳` glyph while Claude works in another checkout), a footer action row with End, Resume, Remove and the surface switch, and a dead
 surface when its session is not alive. Snapshot cards render static state only: a session is live on exactly
 one surface (kb:adr/surfaces-one-live-client-per-session).

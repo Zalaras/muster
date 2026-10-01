@@ -250,6 +250,14 @@ export interface ScratchDaemonOptions {
    */
   usagePoll?: string;
   /**
+   * Plan stale-dirs-models-branches test seam: `-repo-poll` duration string. The daemon's
+   * own default is 5s, too slow for a checkout to show inside the 15 s expect timeout
+   * with margin across a soak, so specs asserting a polled branch pass a short interval
+   * (e.g. `"200ms"`); `"0"` disables the timer, leaving only the nudge a reported move
+   * triggers. Omit to leave the daemon's default.
+   */
+  repoPoll?: string;
+  /**
    * Plan usage-model-bar REQ-13 test seam: `-usage-api-url` base, pointed at a
    * `FakeUsageAPI` (helpers/usageapi.ts) so this run's poller never reaches
    * api.anthropic.com. Omit to leave the daemon's real default — still safe, because
@@ -518,6 +526,9 @@ export class ScratchDaemon {
   /** `-usage-poll` value for this run, or `undefined` to omit the flag (plan
    * usage-model-bar REQ-13). */
   private readonly usagePoll: string | undefined;
+  /** `-repo-poll` value for this run, or `undefined` to omit the flag (plan
+   * stale-dirs-models-branches). */
+  private readonly repoPoll: string | undefined;
   /** `-usage-api-url` value for this run, or `undefined` to omit the flag (plan
    * usage-model-bar REQ-13). */
   private readonly usageApiURL: string | undefined;
@@ -569,6 +580,7 @@ export class ScratchDaemon {
     updatePublicKeyFile?: string,
     extraEnv?: Record<string, string>,
     stubUnrecognizedModels: string[] = [],
+    repoPoll?: string,
   ) {
     this.port = port;
     this.baseURL = `http://127.0.0.1:${port}`;
@@ -599,6 +611,7 @@ export class ScratchDaemon {
     this.updatePublicKeyFile = updatePublicKeyFile;
     this.extraEnv = extraEnv;
     this.stubUnrecognizedModels = stubUnrecognizedModels;
+    this.repoPoll = repoPoll;
   }
 
   static async start(opts: ScratchDaemonOptions = {}): Promise<ScratchDaemon> {
@@ -641,6 +654,7 @@ export class ScratchDaemon {
         opts.updatePublicKeyFile,
         opts.env,
         opts.stubUnrecognizedModels ?? [],
+        opts.repoPoll,
       );
       daemon.denyStubServer = denyStubServer;
       await mkdir(daemon.browseRoot, { recursive: true });
@@ -765,6 +779,9 @@ export class ScratchDaemon {
     }
     if (this.usageApiURL !== undefined) {
       args.push("-usage-api-url", this.usageApiURL);
+    }
+    if (this.repoPoll !== undefined) {
+      args.push("-repo-poll", this.repoPoll);
     }
     // Plan new-ui-design-colors REQ-18: opt-in per run, mirroring -usage-poll — omit to
     // leave the daemon's own 10s default.

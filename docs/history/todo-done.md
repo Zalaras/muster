@@ -2118,3 +2118,20 @@ since reported from real use.
   subagent finished, the card went idle while the main agent kept working. It should stay
   `working` until the main agent's turn ends.
   ✅ done 2026-10-01 (plan `status-inconsistencies`): unable to reproduce on 2.1.285 (probe 2026-09-30, kb:fact/agent-tool-async-by-default; the events were on another machine); closed with the turn-state work.
+
+### Together — a card's branch, directory and model going stale
+
+- [x] **A session's branch doesn't update after a checkout** — switching branch in a session's
+  directory (from Claude, its shell, or outside Muster) leaves the old branch on the card. The
+  dashboard should show the branch the directory is on now.
+  ✅ done 2026-10-01 (plan `stale-dirs-models-branches`): the daemon re-reads the launch directory's branch on a repo poll (`-repo-poll`, default 5 s) while the session is alive (kb:adr/lifecycle-branch-refreshed-by-repo-poll).
+
+- [x] **Confirm whether a session's directory should follow Claude's working directory** — Claude
+  can change directory mid-session (a `cd`, entering a worktree), but the card keeps the launch
+  directory. Probe what Claude Code reports first; if the directory does move, the card's
+  directory and branch should follow it.
+  ✅ done 2026-10-01 (plan `stale-dirs-models-branches`): probed 2026-10-01 (kb:fact/cwd-follows-claude-mid-session); the card, shell and reader stay on the launch directory and a dim `↳` readout shows where Claude is when it works in another checkout (kb:adr/lifecycle-card-shows-launch-directory-marks-claude-elsewhere).
+
+- [x] **A card's model name is empty or stale after the model changes in a session.** From the
+  maintainability cleanup (2026-09-24).
+  ✅ done 2026-10-01 (plan `stale-dirs-models-branches`): a bind naming a different model shows the id until the status line confirms the display name, so it is never blank (kb:adr/lifecycle-bind-model-display-name-is-id).

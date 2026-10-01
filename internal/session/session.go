@@ -65,8 +65,9 @@ type Failure struct {
 }
 
 // Model is the session's model readout (kb:anchor/ws.session value semantics); both
-// fields start at the launch value verbatim, and a routed status-line post refreshes both
-// whenever its model object is present.
+// fields start at the launch value verbatim, a bind naming a different id sets both to that
+// id, and a routed status-line post refreshes both whenever its model object is present.
+// DisplayName is never empty.
 type Model struct {
 	ID          string
 	DisplayName string
@@ -91,9 +92,9 @@ type Session struct {
 	TmuxPane             string
 	ClaudeSessionID      string // "" until bound
 	RepoID               int64
-	Directory            string
-	Branch               *string // nil iff Directory isn't a git checkout
-	IsWorktree           bool
+	Directory            string  // the launch directory, fixed for the row's lifetime
+	Branch               *string // nil iff Directory isn't a git checkout or HEAD is detached; refreshed by the repo poll
+	IsWorktree           bool    // refreshed with Branch
 	Title                *string // Claude's last-known name (status-line session_name, or launch --name until then)
 	State                State
 	StateSince           time.Time
@@ -163,6 +164,25 @@ type Session struct {
 	// Attention is non-nil (clearAttention is the only place either is cleared). Persisted,
 	// never on the wire. Written by applyInput under Manager.mu.
 	AttentionAgent string
+
+	// ClaudeDir (kb:adr/lifecycle-card-shows-launch-directory-marks-claude-elsewhere) is the
+	// working directory Claude last reported, "" = none since the last launch or resume.
+	// Display-only: nothing but the repo poll's derivation of ClaudeLocation reads it. Written
+	// by Apply and ApplyStatus (adoptClaudeDir) and cleared by RecordLaunch/RecordResume, all
+	// under Manager.mu.
+	ClaudeDir string
+
+	// ClaudeLocation is the derived, in-memory-only wire readout of ClaudeDir: non-nil only
+	// while Claude works in a different checkout from Directory (Elsewhere). Written by
+	// SetRepoState and cleared by markEnded, RecordLaunch and RecordResume, under
+	// Manager.mu; always replaced with a fresh pointer, never mutated in place.
+	ClaudeLocation *Location
+
+	// repoEpoch counts this session's deaths (markEnded, under Manager.mu; the only writer),
+	// so a repo-poll reading taken while it was alive (RepoTarget.Epoch) is recognisable as
+	// older than the death, however soon a resume made the session alive again. Never
+	// persisted, never on the wire; guarded by Manager.mu like every other field.
+	repoEpoch uint64
 
 	currentPromptID string
 	closedPromptIDs []string // bounded ring, most recent last, capped at maxClosedPrompts

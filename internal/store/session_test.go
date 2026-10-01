@@ -230,6 +230,8 @@ func TestUpdateSession_RoundTripsEveryField(t *testing.T) {
 	row.ContextWindowSize = &contextWindowSize
 	pendingResume := "claude-pending"
 	row.PendingResumeClaudeSessionID = &pendingResume
+	claudeDir := "/private/tmp/proj/.claude/worktrees/probewt"
+	row.ClaudeDir = &claudeDir
 
 	require.NoError(t, st.UpdateSession(ctx, row))
 
@@ -277,6 +279,15 @@ func TestUpdateSession_RoundTripsEveryField(t *testing.T) {
 	require.NotNil(t, got.EndedAt)
 	assert.True(t, got.EndedAt.Equal(endedAt))
 	assert.False(t, got.FirstLaunchHere)
+	require.NotNil(t, got.ClaudeDir)
+	assert.Equal(t, claudeDir, *got.ClaudeDir)
+
+	// REQ-7: launch and resume clear the column back to NULL, not to an empty string.
+	row.ClaudeDir = nil
+	require.NoError(t, st.UpdateSession(ctx, row))
+	cleared, err := st.GetSession(ctx, row.ID)
+	require.NoError(t, err)
+	assert.Nil(t, cleared.ClaudeDir)
 }
 
 // TestInsertSession_PendingResumeClaudeSessionIDRoundTrips covers the persisted

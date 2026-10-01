@@ -1,7 +1,7 @@
 // Package gitutil shells out to the `git` CLI (docs/conventions.md: "Git/GitHub: never
 // go-git") to answer the small set of questions the daemon needs about a launch
-// directory: is it a git checkout, what branch is it on, is it a linked worktree, and
-// (for the reader) which files does git see there. Nothing here is Claude-Code-format
+// directory: is it a git checkout, where is its top level, what branch is it on, is it a
+// linked worktree, and (for the reader) which files does git see there. Nothing here is Claude-Code-format
 // knowledge; it stays out of internal/claudecode by design.
 package gitutil
 
@@ -60,6 +60,25 @@ func (g *gitRunner) branch(ctx context.Context, dir string) *string {
 		return nil
 	}
 	return &name
+}
+
+// TopLevel returns the root of the checkout containing dir, or nil when dir isn't inside
+// one. The daemon compares it to tell two directories of one checkout from two checkouts
+// (internal/session.Elsewhere); a linked worktree has its own top level.
+func TopLevel(ctx context.Context, dir string) *string {
+	return newGitRunner().topLevel(ctx, dir)
+}
+
+func (g *gitRunner) topLevel(ctx context.Context, dir string) *string {
+	out, err := g.run(ctx, dir, "git", "rev-parse", "--show-toplevel")
+	if err != nil {
+		return nil
+	}
+	top := strings.TrimSpace(string(out))
+	if top == "" {
+		return nil
+	}
+	return &top
 }
 
 // IsWorktree reports whether dir is a linked worktree: its git-dir and the repository's

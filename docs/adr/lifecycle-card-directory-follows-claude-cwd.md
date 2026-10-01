@@ -1,7 +1,7 @@
 ---
 id: lifecycle-card-directory-follows-claude-cwd
 type: decision
-status: accepted
+status: superseded
 date: 2026-10-01
 summary: A card's directory and branch follow the working directory Claude Code reports, not the launch directory; session identity still keys on the tmux target.
 features: [lifecycle, ingest]

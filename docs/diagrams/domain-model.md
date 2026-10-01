@@ -11,13 +11,12 @@ files: []
 tests: []
 refs: [kb:ref/data-model, kb:spec/lifecycle, kb:spec/launch, kb:spec/surfaces, kb:spec/reader, kb:spec/ingest, kb:spec/usage, kb:spec/settings, kb:adr/lifecycle-session-identity-is-tmux-target, kb:adr/surfaces-one-live-client-per-attach-target, kb:adr/launch-hybrid-mru-directory-memory]
 ---
-What Muster keeps track of and how the pieces relate, in the dashboard's words, as it exists
-today; each box names its identity and its vocabularies.
+What Muster tracks and how the pieces relate, in the dashboard's words; each box names its identity and its vocabularies.
 
 A **Session** is one Claude Code run that Muster launched, identified by the Terminal it
 runs in; its Claude session id is an attribute that `/clear` replaces. It is launched into a
 **Repo**, a directory remembered by path with its last launch choices; branch and
-worktree flag are recorded on the session at launch, and Muster never creates a worktree. Every session runs inside a **Terminal** kept
+worktree flag are re-read from the launch directory while alive; Claude's own location is display-only, and Muster never creates a worktree. Every session runs inside a **Terminal** kept
 alive by tmux, and may have a second, shell one that outlives its end; only the Claude
 terminal carries liveness and a snapshot when dead. Claude Code reports back as **Events**,
 numbered per Claude session id; hook events drive state, the status-line event refreshes

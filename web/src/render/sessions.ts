@@ -12,6 +12,7 @@ import {
 } from "../sessions/card";
 import { requireElement } from "../dom";
 import { renderContextRow } from "./context";
+import { renderRepoLines } from "./repolines";
 import { captureFocusedControl, type FocusedControl } from "./focuskeep";
 import { reconcileKeyedOrder, type KeyedReorderEntry } from "./keyedreorder";
 import { buildActionButton } from "./actionbutton";
@@ -102,6 +103,20 @@ function reconcileActsRow(
   );
 }
 
+/** The card's repo block (`.r2`) and, while Claude is in another checkout, the `↳` block
+ * (`.r2c`) that follows it. `.r2`'s hover is the one-line `<repo> / <branch>` the two split
+ * lines no longer show together; `.r2c`'s is where Claude is. */
+function applyRepoBlocks(card: HTMLElement, vm: CardViewModel): void {
+  const repo = requireElement<HTMLElement>(".r2", card);
+  renderRepoLines(repo, vm.repo);
+  repo.title = vm.repoLine;
+
+  const claude = requireElement<HTMLElement>(".r2c", card);
+  claude.hidden = vm.claudeAt === null;
+  if (vm.claudeAt) renderRepoLines(claude, vm.claudeAt);
+  claude.title = vm.claudeHover ?? "";
+}
+
 /** Writes the card's per-render text into the slots the template already built. Every
  * slot is required — `session-card-template` (index.html) always carries the full set,
  * shared unchanged by the rail card and the strip card. */
@@ -119,10 +134,7 @@ function applyCardText(card: HTMLElement, vm: CardViewModel, session: Session): 
   requireElement<HTMLElement>(".badge", card).textContent = vm.badge;
   requireElement<HTMLElement>(".timer", card).textContent = vm.timer;
 
-  const repoLine = requireElement<HTMLElement>(".r2", card);
-  repoLine.textContent = vm.repoLine;
-  // `.r2` always carries `title` equal to its own text, same reasoning as `.name`.
-  repoLine.title = vm.repoLine;
+  applyRepoBlocks(card, vm);
 
   renderContextRow(requireElement<HTMLElement>(".r3", card), session.context, "r3");
 

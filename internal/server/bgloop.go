@@ -11,8 +11,8 @@ import (
 )
 
 // bgLoop is the Start/cancel/bounded-wait-with-warn shape shared by usagePoller,
-// themePoller, shellActivityPoller and updateManager. Embedding it leaves each poller
-// owning only its own tick.
+// themePoller, shellActivityPoller, updateManager and repoRefreshFeature. Embedding it
+// leaves each poller owning only its own tick.
 type bgLoop struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
@@ -39,18 +39,23 @@ func (l *bgLoop) stop(ctx context.Context, log zerolog.Logger, warnMsg string) {
 
 // runTicked runs tick immediately, then on every tick of interval and every receive from
 // refresh, until ctx is done — the tick/ticker/refresh loop body shared by usagePoller,
-// themePoller, shellActivityPoller and updateManager. refresh may be nil: a nil channel is
-// never ready, so pollers with no refresh path (theme, shell activity) simply never take
-// that case.
+// themePoller, shellActivityPoller, updateManager and repoRefreshFeature. refresh may be nil: a
+// nil channel is never ready, so pollers with no refresh path (theme, shell activity) simply
+// never take that case. interval <= 0 runs no timer, leaving the first tick and refresh (the
+// repo poll's -repo-poll 0).
 func runTicked(ctx context.Context, interval time.Duration, refresh <-chan struct{}, tick func(ctx context.Context)) {
 	tick(ctx)
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
+	var timer <-chan time.Time
+	if interval > 0 {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		timer = ticker.C
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-timer:
 			tick(ctx)
 		case <-refresh:
 			tick(ctx)

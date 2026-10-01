@@ -20,7 +20,7 @@
 - One `init<Name>(app, deps)` shape: `deps` is always a named exported `<Name>Deps` interface, never typed inline; a thunk reaching a controller constructed later is named `get<Noun>`; `init` returns a handle only when a caller uses it.
 
 <!-- kb:trailer -->
-<!-- kb:hash 1f9904d8b6585548 -->
+<!-- kb:hash c5a05f649e34d3b5 -->
 - **actions** — End, Resume and Remove a session, the pane snapshot for dead sessions, confirm dialogs. → `docs/features/actions/INDEX.md`
 - **connection** — Token and cookie auth, the /ws hello and snapshot, protocol version, connection banner, Claude version readout. → `docs/features/connection/INDEX.md`
 - **focus** — Focus view: mainhead, main slot, dead surface, default focus, focus marker. → `docs/features/focus/INDEX.md`
@@ -38,5 +38,5 @@
 - **update** — Release check, minisign-verified apply, in-place restart with sessions re-adopted. → `docs/features/update/INDEX.md`
 - **usage** — Masthead usage bars, per-model weekly bar, per-session context gauge, usage poll and Keychain read. → `docs/features/usage/INDEX.md`
 - **views** — Focus and Tiles switch, density preference, view containers. → `docs/features/views/INDEX.md`
-- 50 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
+- 52 records name files in this directory: `go run ./tools/kb for <path>` lists them for one file.
 <!-- /kb:trailer -->

@@ -81,6 +81,7 @@ func (m *Manager) Apply(ctx context.Context, musterSessionID int64, claudeSessio
 	}
 
 	applyInput(sess, claudeSessionID, promptID, input, now)
+	dirChanged := adoptClaudeDir(sess, input.Cwd)
 	if input.Kind == claudecode.KindBind || input.Kind == claudecode.KindClearRebind {
 		m.byClaude[claudeSessionID] = musterSessionID
 	}
@@ -117,6 +118,7 @@ func (m *Manager) Apply(ctx context.Context, musterSessionID int64, claudeSessio
 	if err := m.finishWrite(musterSessionID, sess, wait, done, persist, nil, restore); err != nil {
 		return nil, fmt.Errorf("persisting session %d: %w", musterSessionID, err)
 	}
+	m.nudgeRepoPoll(dirChanged)
 	return *result, nil
 }
 
@@ -166,6 +168,7 @@ func (m *Manager) ApplyStatus(ctx context.Context, musterSessionID int64, update
 	beforeDisplay := sess.DisplayTitle()
 	beforeModel := sess.Model
 	beforeContext := sess.Context
+	beforeDir := sess.ClaudeDir
 
 	if !applyStatusUpdate(sess, update) {
 		snapshot := sess.Clone()
@@ -180,9 +183,14 @@ func (m *Manager) ApplyStatus(ctx context.Context, musterSessionID int64, update
 	// (kb:adr/rename-muster-owned-title-override-wins).
 	broadcast := !stringPtrEqual(beforeDisplay, sess.DisplayTitle()) || beforeModel != sess.Model || beforeContext != sess.Context
 
+	// A ClaudeDir-only change persists without broadcasting for the same reason: the wire
+	// object stays as it was until the repo poll derives claudeLocation from it.
+	dirChanged := sess.ClaudeDir != beforeDir
+
 	snapshot, err := m.persistWholeRowLocked(ctx, musterSessionID, sess, prev, post, broadcast)
 	if err != nil {
 		return nil, fmt.Errorf("persisting status update for session %d: %w", musterSessionID, err)
 	}
+	m.nudgeRepoPoll(dirChanged)
 	return snapshot, nil
 }

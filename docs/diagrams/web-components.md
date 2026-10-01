@@ -52,7 +52,7 @@ C4Component
             Component(wsapp, "wsapp.ts", "mapping", "The WS-to-app mapping both entries register, then layer their own handlers on top of")
         }
         Boundary(rnd, "Render and seam") {
-            Component(render, "render/", "28 modules", "DOM only — view-model in, DOM out")
+            Component(render, "render/", "30 modules", "DOM only — view-model in, DOM out")
             Component(app, "app.ts", "seam", "Session store, shared state (incl. ConnectionStatus), typed event bus, render phases")
         }
         Boundary(leaves, "Leaves") {

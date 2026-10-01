@@ -54,6 +54,14 @@ export interface TileRenameHandlers {
   onCommit: (id: number, command: TitleCommand) => void;
 }
 
+/** The `↳` glyph after `.wh` while Claude works in another checkout. The glyph is
+ * decoration; the visually hidden text beside it is its accessible name. */
+function applyClaudeMarker(root: HTMLElement, note: string | null): void {
+  const marker = requireElement<HTMLElement>(".wh-claude", root);
+  marker.hidden = note === null;
+  requireElement<HTMLElement>(".sr-only", marker).textContent = note ?? "";
+}
+
 /** Updates one tile's header chrome (title/where/context/timer + state class) in place
  * from the shared view-model, without touching `bodySlot`'s mounted live surface — the
  * only two callers are `buildTile` (fresh chrome) and features/tiles.ts's tiles reconciler
@@ -96,6 +104,8 @@ function updateTileChrome(
   // mainhead (sessions/card.ts's `bypassChip`).
   requireElement<HTMLElement>(".chip-danger", root).hidden = !vm.bypassChip;
   where.textContent = vm.repoLine;
+  where.title = vm.hover;
+  applyClaudeMarker(root, vm.claudeNote);
   renderContextRow(ctx, session.context, "ctxinfo");
   timer.textContent = tileHeaderTimerText(session, now);
 }

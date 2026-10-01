@@ -53,15 +53,14 @@ func TestApplyInput_Bind(t *testing.T) {
 		assert.Equal(t, model, sess.Model.ID)
 	})
 
-	t.Run("leaves DisplayName at its launch value when Model already existed", func(t *testing.T) {
+	t.Run("a different model id shows as itself until the status line confirms a name", func(t *testing.T) {
 		sess := newTestSession()
 		sess.Model = &Model{ID: "sonnet", DisplayName: "sonnet"} // launch-time value, both fields equal
 		newID := "claude-haiku-4-5-20251001"
 
 		applyInput(sess, "claude-1", nil, claudecode.StateInput{Kind: claudecode.KindBind, Model: &newID}, fixedNow)
 
-		assert.Equal(t, newID, sess.Model.ID)
-		assert.Equal(t, "sonnet", sess.Model.DisplayName, "a bind updates only the id: displayName stays the verbatim launch string until a status-line post refreshes it (kb:anchor/ws.session value semantics)")
+		assert.Equal(t, &Model{ID: newID, DisplayName: newID}, sess.Model, "kb:adr/lifecycle-bind-model-display-name-is-id: displayName is the id, not the launch alias")
 	})
 
 	t.Run("no model field present leaves Model nil", func(t *testing.T) {
@@ -122,7 +121,7 @@ func TestApplyInput_ClearRebind(t *testing.T) {
 		assert.Equal(t, 0, sess.Compactions, "an unexplained new claude session id must still reset compactions like a real /clear")
 	})
 
-	t.Run("keeps updating the model id on a clear-rebind", func(t *testing.T) {
+	t.Run("a clear-rebind naming a new model shows the new id as its display name", func(t *testing.T) {
 		sess := newTestSession()
 		sess.ClaudeSessionID = "old-claude-id"
 		sess.Model = &Model{ID: "old-model", DisplayName: "Old Model"}
@@ -130,8 +129,7 @@ func TestApplyInput_ClearRebind(t *testing.T) {
 
 		applyInput(sess, "new-claude-id", nil, claudecode.StateInput{Kind: claudecode.KindClearRebind, Model: &newModel}, fixedNow)
 
-		assert.Equal(t, "new-model", sess.Model.ID)
-		assert.Equal(t, "Old Model", sess.Model.DisplayName)
+		assert.Equal(t, &Model{ID: "new-model", DisplayName: "new-model"}, sess.Model)
 	})
 
 	// m3-gauges REQ-9/D12: /clear starts a fresh conversation with no context data yet —
@@ -1115,4 +1113,50 @@ func TestTruncate(t *testing.T) {
 	got := truncate("ab€", 4)
 	assert.Equal(t, "ab", got, "must back off to the rune boundary rather than split the euro sign")
 	assert.True(t, utf8.ValidString(got), "truncate must never return invalid UTF-8")
+}
+
+// TestApplyBind_ModelRule is D3 / REQ-9 / INV-3 as a table: the bound model is crossed with
+// both bind kinds and every machine state, because a bind applies from any of them and the
+// "displayName is never empty" invariant must hold after each, not only from idle.
+func TestApplyBind_ModelRule(t *testing.T) {
+	const x, y = "claude-sonnet-5-5", "claude-haiku-4-5-20251001"
+	confirmed := &Model{ID: x, DisplayName: "Sonnet 5.5"}
+
+	cases := []struct {
+		name     string
+		before   *Model
+		reported *string
+		want     *Model
+		samePtr  bool
+	}{
+		{name: "no model yet, id reported", before: nil, reported: strPtr(x), want: &Model{ID: x, DisplayName: x}},
+		{name: "same id keeps the confirmed display name and the same pointer", before: confirmed, reported: strPtr(x), want: confirmed, samePtr: true},
+		{name: "different id resets the display name to the new id", before: confirmed, reported: strPtr(y), want: &Model{ID: y, DisplayName: y}},
+		{name: "launch alias replaced by the reported id", before: &Model{ID: "sonnet", DisplayName: "sonnet"}, reported: strPtr(x), want: &Model{ID: x, DisplayName: x}},
+		{name: "nothing reported leaves a model alone", before: confirmed, reported: nil, want: confirmed, samePtr: true},
+		{name: "nothing reported and no model stays nil", before: nil, reported: nil, want: nil},
+	}
+	kinds := []claudecode.InputKind{claudecode.KindBind, claudecode.KindClearRebind}
+	states := []State{StateStarted, StateIdle, StateWorking, StateNeedsInput, StateFailed}
+
+	for _, tc := range cases {
+		for _, kind := range kinds {
+			for _, state := range states {
+				t.Run(tc.name+"/"+string(state)+"/"+string(kind), func(t *testing.T) {
+					sess := baselineForState(state)
+					sess.Model = tc.before
+
+					applyInput(sess, "claude-1", nil, claudecode.StateInput{Kind: kind, Model: tc.reported}, fixedNow)
+
+					assert.Equal(t, tc.want, sess.Model)
+					if tc.samePtr {
+						assert.Same(t, tc.before, sess.Model, "an unchanged model is not replaced")
+					}
+					if sess.Model != nil {
+						assert.NotEmpty(t, sess.Model.DisplayName, "INV-3: model non-null implies displayName is never empty")
+					}
+				})
+			}
+		}
+	}
 }

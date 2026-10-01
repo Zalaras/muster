@@ -190,7 +190,11 @@ needs updating or is simply newer than anything verified yet.
 (`--fg` on every surface that hosts the card, kb:adr/rail-card-title-foreground-token)
 wrapping to as many lines as it needs (one line with an ellipsis only in compact density; the
 full text is the hover `title`), then a mono state row (badge, timer, pin),
-`repo / branch` (also its own hover `title`), then the
+the repo block — `repo /` over `branch`, each line truncated at the end on its own, one line
+`repo / branch` in compact density, its one-line text the hover `title` — then, only while
+Claude is working in a different checkout, a dim `↳` block of the same shape naming that
+checkout (`--fg-muted` glyph, `--fg-dim` text, never a state colour; reference
+`mockups/claude-location/c-long-names.html`, kb:adr/rail-repo-line-wraps-at-slash), then the
 context row (gauge, %, absolute tokens, compaction count), then the activity line whose text
 `prefs.railActivity` chooses (turn-aware by default: your prompt while a turn is open, Claude's
 reply once it closes; its full text is its hover `title` too), then either a **note** (amber left-border, for the reason it needs you)
@@ -210,7 +214,9 @@ shows". The rail card's title is plain text, not a rename trigger — renaming h
 the Focus mainhead's heading or a tile's header in Tiles (REQ-13), one shared editor for
 both.
 
-**Tile** (tiled view) — header (state dot, title, where, context, timer), terminal body on
+**Tile** (tiled view) — header (state dot, title, where, context, timer; *where* stays one
+line `repo / branch` with the full location as its hover `title`, followed by a bare `--fg-muted`
+`↳` glyph while Claude works in another checkout), terminal body on
 `--term`, footer stating `live` or `stopped` plus the tile's geometry. Blocked and failed
 tiles take a coloured border (`--amber-line` / `--rose-line`); nothing else does. The header
 is the tile's **drag handle** (`cursor: grab`; the terminal body never starts a drag); while
@@ -221,6 +227,15 @@ header's title is also a **rename trigger** (plan `ui-text-and-focus`, REQ-13, t
 editor the Focus mainhead uses): a click-and-release opens it, a click-and-drag still
 reorders the grid; while an edit is open that header is `draggable="false"` so typing never
 starts a drag.
+
+**Focus mainhead** — the session name (a rename trigger whose hover `title` is the full name),
+then the meta row: the same repo block as the rail card with the folder line capped at 30ch and
+the branch line at 44ch, the `↳` block while Claude is elsewhere, then the model, which never
+truncates at any width: as the row narrows the `↳` block hides whole first (never
+half-drawn), then the title shortens, and the mainhead wraps its surface switch and actions to a second
+row as soon as the repo block would drop below its floor, so the repo block never hides (kb:adr/focus-model-never-truncates-name-blocks-give-way,
+kb:adr/focus-mainhead-wraps-to-second-row-when-narrow). The location group carries a hover `title` with the full repo, the launch directory
+and, while moved, where Claude is (reference `mockups/claude-location/c-long-names.html`).
 
 **Buttons** — mono, `--fs-xs` (11.25px), 1px `--line-control` border, transparent ground. Filled amber
 (`--amber` ground, `--amber-fg` text) for the single primary action. No border-radius above

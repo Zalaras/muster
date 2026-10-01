@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Long Names, Option C</title>
+<style>
+/* Tokens transcribed from docs/design/mockups/a-instrument.html (Instrument + Light). */
+:root{
+  --mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+:root,:root[data-theme="instrument"]{
+  --bg:#12141c;--bg-raised:#171a24;--bg-hover:#1c2029;--well:#0d0f16;--line:#282d3b;
+  --line-control:#343a4a;--edge:#6a7286;--fg:#e8e6e1;--fg-muted:#b2b6c3;--fg-dim:#a6abbc;
+  --amber:#f2a33c;--amber-fg:#12141c;--teal:#56c5d0;--idle:#989db1;--teal-line:#215058;
+  --violet:#9e91f1;--violet-line:#3e3663;--term:#0d0f16;--term-fg:#e8e6e1;
+}
+:root[data-theme="light"]{
+  --bg:#f3f2ee;--bg-raised:#fbfaf7;--bg-hover:#edece7;--well:#ffffff;--line:#e0ded8;
+  --line-control:#cbc9c2;--edge:#8a8983;--fg:#1c1e26;--fg-muted:#41454f;--fg-dim:#494d5c;
+  --amber:#844800;--amber-fg:#ffffff;--teal:#0a6167;--idle:#535764;--teal-line:#b8e1e3;
+  --violet:#583ad1;--violet-line:#d8d1f4;--term:#ffffff;--term-fg:#1c1e26;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;
+  -webkit-font-smoothing:antialiased;padding:24px 16px 64px}
+.page{max-width:1180px;margin:0 auto}
+h1{font-weight:800;font-size:20px;letter-spacing:-.02em;margin:0 0 6px}
+h2{font-size:14px;margin:30px 0 10px}
+.lede{color:var(--fg-muted);max-width:780px;line-height:1.55;margin:0 0 8px;font-size:13.5px}
+.lede code,.rules code{font-family:var(--mono);font-size:12px;color:var(--fg)}
+.switch{font-family:var(--mono);font-size:11px;color:var(--fg-dim);margin:14px 0 10px;display:flex;gap:8px;align-items:center}
+.switch button{font-family:var(--mono);font-size:10.5px;padding:4px 10px;background:transparent;
+  border:1px solid var(--line-control);color:var(--fg-muted);cursor:pointer}
+.switch button.on{background:var(--bg-hover);color:var(--fg)}
+.cap{font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--fg-dim);margin:16px 0 7px}
+
+/* rail card (a-instrument.html), 290px rail */
+.rowwrap{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+.rail{width:290px;border:1px solid var(--line);background:var(--bg-raised)}
+.card{display:flex;border-bottom:1px solid var(--line)}
+.card:last-child{border-bottom:0}
+.card .stripe{width:3px;flex:none;background:var(--idle)}
+.card-in{padding:10px 12px 11px;flex:1;min-width:0}
+.title{font-weight:700;font-size:13.5px;letter-spacing:-.01em}
+.r1{display:flex;align-items:center;gap:8px;margin-top:5px}
+.state{font-family:var(--mono);font-size:9px;letter-spacing:.11em;text-transform:uppercase;padding:2px 5px;border:1px solid}
+.timer{font-family:var(--mono);font-size:11.5px;color:var(--fg-dim)}
+.r2,.r2b{font-family:var(--mono);font-size:10.5px;color:var(--fg-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r2{margin-top:5px}
+.r2b{margin-top:2px}
+.r2b .lead{color:var(--fg-muted);margin-right:5px}
+.r3{display:flex;align-items:center;gap:7px;margin-top:7px;font-family:var(--mono);font-size:10px;color:var(--fg-muted)}
+.ctx{width:52px;height:3px;background:var(--line);position:relative}
+.ctx i{position:absolute;inset:0 auto 0 0;background:var(--fg-muted)}
+.s-work .stripe{background:var(--teal)} .s-work .state{color:var(--teal);border-color:var(--teal-line)}
+.s-plan .stripe{background:var(--violet)} .s-plan .state{color:var(--violet);border-color:var(--violet-line)}
+
+/* Focus header: meta split into capped segments; the model never truncates */
+.mainhead{display:flex;align-items:center;gap:12px;padding:9px 14px;border:1px solid var(--line);background:var(--bg-raised);min-width:0}
+.mainhead .name{font-weight:700;font-size:15px;letter-spacing:-.015em;min-width:6rem;flex:0 1000 auto;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.meta{display:flex;align-items:baseline;min-width:0;flex:0 1 auto;font-family:var(--mono);font-size:11px;color:var(--fg-dim);white-space:nowrap}
+.meta .seg{overflow:hidden;text-overflow:ellipsis;min-width:2ch}
+.meta .repo{max-width:18ch}
+.meta .br{max-width:26ch}
+.meta .sep{margin:0 6px;flex:none}
+.meta .sl{margin:0 4px;flex:none}
+.meta .lead{color:var(--fg-muted);margin-right:4px;flex:none}
+.meta .model{flex:none}
+.pair{display:flex;flex-direction:column;min-width:0;line-height:1.35}
+.pair .seg{max-width:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pair .f{max-width:30ch} .pair .b{max-width:44ch;color:var(--fg-muted)}
+.pairgap{flex:none;width:14px;align-self:stretch;border-left:1px solid var(--line);margin-left:12px}
+.meta.stack{align-items:center}
+.lead2{color:var(--fg-muted);margin-right:5px;flex:none;align-self:flex-start}
+.r2 .b,.r2b .b{display:block;overflow:hidden;text-overflow:ellipsis}
+.acts{margin-left:auto;display:flex;gap:7px;flex:none}
+.btn{font-family:var(--mono);font-size:10.5px;padding:5px 11px;background:transparent;border:1px solid var(--line-control);color:var(--fg-muted)}
+.surf{display:inline-flex;border:1px solid var(--edge);font-family:var(--mono);font-size:10.5px;flex:none}
+.surf span{padding:4px 9px;color:var(--fg-muted)} .surf .on{background:var(--bg-hover);color:var(--fg)}
+.w-wide{width:1100px;max-width:100%}
+.w-narrow{width:680px;max-width:100%}
+
+/* tile header */
+.tile{width:420px;max-width:100%}
+.thead{display:flex;align-items:center;gap:9px;padding:7px 11px;border:1px solid var(--line);background:var(--bg-raised);min-width:0;font-family:var(--mono);font-size:10.5px;color:var(--fg-dim)}
+.thead .sdot{width:7px;height:7px;border-radius:50%;background:var(--teal);flex:none}
+.thead .nm{font-family:var(--sans);font-weight:700;font-size:12.5px;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1000 auto;min-width:5rem}
+.thead .wh{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto}
+.thead .mk{color:var(--fg-muted);flex:none;display:inline-flex}
+.thead .mk svg{width:11px;height:11px}
+.thead .tm{margin-left:auto;flex:none}
+.term{background:var(--term);color:var(--term-fg);font-family:var(--mono);font-size:11px;padding:8px 10px;height:40px;border:1px solid var(--line);border-top:0;opacity:.85}
+
+/* static tooltip, standing in for the native hover title */
+.tip{position:relative;margin-top:8px;background:var(--well);border:1px solid var(--edge);
+  padding:7px 9px;font-family:var(--mono);font-size:10.5px;line-height:1.6;color:var(--fg);max-width:520px;white-space:pre}
+.tip .k{color:var(--fg-dim)}
+.tip::before{content:'';position:absolute;top:-5px;left:18px;width:8px;height:8px;background:var(--well);
+  border-left:1px solid var(--edge);border-top:1px solid var(--edge);transform:rotate(45deg)}
+
+.rules{border:1px solid var(--line);background:var(--bg-raised);padding:14px 18px;color:var(--fg-muted);font-size:13px;line-height:1.6;margin-top:30px}
+.rules h2{margin:0 0 6px;color:var(--fg)}
+.rules ul{margin:0;padding-left:18px}
+</style>
+</head>
+<body>
+<div class="page">
+<h1>Option C with long names</h1>
+<p class="lede">The same samples on every surface: a session launched in <code>mdrostering-scheduling-service</code> on
+<code>feature/MDR-1423-rework-shift-swap-approval-flow</code>. One copy has stayed put. The other has moved into a worktree
+<code>shift-swap-approval-rework</code> on <code>worktree-shift-swap-approval-rework</code>. Names truncate at the end with an ellipsis. Hovering shows the full text,
+drawn statically here under the surface it belongs to.</p>
+<div class="switch">Theme <button class="on" data-t="instrument">Instrument</button><button data-t="light">Light</button></div>
+
+<h2>Rail card (290px rail)</h2>
+<div class="rowwrap">
+  <div>
+    <p class="cap">Not moved</p>
+    <div class="rail">
+      <div class="card s-plan"><div class="stripe"></div><div class="card-in">
+        <div class="title">rework shift-swap approval</div>
+        <div class="r1"><span class="state">planning</span><span class="timer">4:12</span></div>
+        <div class="r2" title="mdrostering-scheduling-service / feature/MDR-1423-rework-shift-swap-approval-flow">mdrostering-scheduling-service /<span class="b">feature/MDR-1423-rework-shift-swap-approval-flow</span></div>
+        <div class="r3"><span class="ctx"><i style="width:22%"></i></span>22%</div>
+      </div></div>
+    </div>
+    <div class="tip">mdrostering-scheduling-service / feature/MDR-1423-rework-shift-swap-approval-flow</div>
+  </div>
+  <div>
+    <p class="cap">Moved into a worktree</p>
+    <div class="rail">
+      <div class="card s-work"><div class="stripe"></div><div class="card-in">
+        <div class="title">rework shift-swap approval</div>
+        <div class="r1"><span class="state">working</span><span class="timer">0:48</span></div>
+        <div class="r2">mdrostering-scheduling-service /<span class="b">feature/MDR-1423-rework-shift-swap-approval-flow</span></div>
+        <div class="r2b"><span class="lead">↳</span>shift-swap-approval-rework /<span class="b" style="padding-left:15px">worktree-shift-swap-approval-rework</span></div>
+        <div class="r3"><span class="ctx"><i style="width:41%"></i></span>41%</div>
+      </div></div>
+    </div>
+    <div class="tip"><span class="k">Claude is in</span> ~/code/mdrostering-scheduling-service/.claude/worktrees/
+             shift-swap-approval-rework
+<span class="k">on</span> worktree-shift-swap-approval-rework</div>
+  </div>
+</div>
+
+<h2>Focus header, wide (1100px)</h2>
+<p class="cap">Not moved</p>
+<div class="mainhead w-wide">
+  <span class="name">rework shift-swap approval</span>
+  <span class="meta stack"><span class="pair"><span class="seg f">mdrostering-scheduling-service /</span><span class="seg b">feature/MDR-1423-rework-shift-swap-approval-flow</span></span><span class="sep">·</span><span class="model">Sonnet 5.5</span></span>
+  <span class="surf"><span class="on">claude</span><span>shell</span><span>docs</span></span>
+  <span class="acts"><span class="btn">Remove</span></span>
+</div>
+<div class="tip">mdrostering-scheduling-service / feature/MDR-1423-rework-shift-swap-approval-flow
+~/code/mdrostering-scheduling-service</div>
+
+<p class="cap">Moved</p>
+<div class="mainhead w-wide">
+  <span class="name">rework shift-swap approval</span>
+  <span class="meta stack"><span class="pair"><span class="seg f">mdrostering-scheduling-service /</span><span class="seg b">feature/MDR-1423-rework-shift-swap-approval-flow</span></span><span class="sep">·</span><span class="lead2">↳</span><span class="pair"><span class="seg f">shift-swap-approval-rework /</span><span class="seg b">worktree-shift-swap-approval-rework</span></span><span class="sep">·</span><span class="model">Sonnet 5.5</span></span>
+  <span class="surf"><span class="on">claude</span><span>shell</span><span>docs</span></span>
+  <span class="acts"><span class="btn">Remove</span></span>
+</div>
+<div class="tip">mdrostering-scheduling-service / feature/MDR-1423-rework-shift-swap-approval-flow
+~/code/mdrostering-scheduling-service
+<span class="k">Claude is in</span> ~/code/mdrostering-scheduling-service/.claude/worktrees/shift-swap-approval-rework
+<span class="k">on</span> worktree-shift-swap-approval-rework</div>
+
+<h2>Focus header, narrow (680px)</h2>
+<p class="lede">The folder sits above its branch, each capped (folder 30 characters, branch 44) and truncated at the end. Once the header runs out of room,
+the session name gives up width first, down to its floor, as it does today. The names go next. The model never truncates.</p>
+<p class="cap">Moved</p>
+<div class="mainhead w-narrow">
+  <span class="name">rework shift-swap approval</span>
+  <span class="meta stack"><span class="pair"><span class="seg f">mdrostering-scheduling-service /</span><span class="seg b">feature/MDR-1423-rework-shift-swap-approval-flow</span></span><span class="sep">·</span><span class="lead2">↳</span><span class="pair"><span class="seg f">shift-swap-approval-rework /</span><span class="seg b">worktree-shift-swap-approval-rework</span></span><span class="sep">·</span><span class="model">Sonnet 5.5</span></span>
+  <span class="acts"><span class="btn">Remove</span></span>
+</div>
+
+<h2>Tile header (a 420px tile)</h2>
+<p class="lede">A tile header has no room for a second location, so C shows just the ↳ glyph here. The hover gives the same text as the Focus header.</p>
+<div class="rowwrap">
+  <div class="tile">
+    <p class="cap">Not moved</p>
+    <div class="thead"><span class="sdot"></span><span class="nm">rework shift-swap approval</span><span class="wh">mdrostering-scheduling-service / feature/MDR-1423-rework-shift-swap-approval-flow</span><span class="tm">22% · 4:12</span></div>
+    <div class="term">❯ </div>
+  </div>
+  <div class="tile">
+    <p class="cap">Moved</p>
+    <div class="thead"><span class="sdot"></span><span class="nm">rework shift-swap approval</span><span class="wh">mdrostering-scheduling-service / feature/MDR-1423-rework-shift-swap-approval-flow</span><span class="mk">↳</span><span class="tm">41% · 0:48</span></div>
+    <div class="term">❯ </div>
+  </div>
+</div>
+
+<div class="rules">
+  <h2>Rules this mockup proposes</h2>
+  <ul>
+    <li>Truncation is at the end, with an ellipsis, on every surface. Nothing wraps.</li>
+    <li>Focus header and rail card wrap at the <code>/</code>: the folder (with its trailing slash) on one line, the branch on the next. Each line truncates on its own, so a long branch never hides the folder or the model.</li>
+    <li>Focus header: hovering the folder/branch block shows the full launch folder, its branch and path, and where Claude is when it has moved.</li>
+    <li>Rail card: the repo block and the ↳ block keep their own hover. Compact density keeps <code>repo / branch</code> on one line, as today.</li>
+    <li>↳ appears only when Claude is in a different checkout from the launch directory (a worktree, or another repo via <code>/add-dir</code>), never for a <code>cd</code> inside the launch checkout.</li>
+    <li>Tile header: one repo line plus the ↳ glyph when moved. The hover matches the Focus header.</li>
+    <li>The ↳ line and glyph use neutral colours only, never a state colour (design-system §3), and carry an <code>aria-label</code> with the hover text.</li>
+  </ul>
+</div>
+</div>
+<script>
+document.querySelectorAll('.switch button').forEach(b=>b.addEventListener('click',()=>{
+  document.documentElement.dataset.theme=b.dataset.t;
+  document.querySelectorAll('.switch button').forEach(x=>x.classList.toggle('on',x===b));
+}));
+</script>
+</body>
+</html>

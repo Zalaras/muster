@@ -11,7 +11,7 @@ import (
 // RecordLaunch stamps the real tmux target/pane once the window has been spawned, and
 // broadcasts the session for the first time. A persist failure rolls the tmux
 // target/pane back to what they were, so memory never claims a target the DB never
-// recorded.
+// recorded. A fresh launch has reported no directory yet, so Claude's recorded one is cleared.
 func (m *Manager) RecordLaunch(ctx context.Context, id int64, tmuxTarget, tmuxPane string) (*Session, error) {
 	m.mu.Lock()
 	sess, ok := m.sessions[id]
@@ -22,6 +22,7 @@ func (m *Manager) RecordLaunch(ctx context.Context, id int64, tmuxTarget, tmuxPa
 	prev := sess.Clone()
 	sess.TmuxTarget = tmuxTarget
 	sess.TmuxPane = tmuxPane
+	sess.clearClaudeLocation()
 	post := sess.Clone()
 
 	snapshot, err := m.persistWholeRowLocked(ctx, id, sess, prev, post, true)
@@ -215,7 +216,8 @@ func (m *Manager) removeLocked(ctx context.Context, id int64) error {
 
 // RecordResume stamps the new tmux target/pane after a successful resume spawn
 // (kb:anchor/sessions.resume): alive:=true, endedAt cleared, the stale snapshot cleared
-// (a fresh pane has nothing captured yet), persisted and broadcast. state is left
+// (a fresh pane has nothing captured yet), Claude's recorded directory cleared (it starts
+// in the launch directory again), persisted and broadcast. state is left
 // untouched — it becomes idle only once the enveloped SessionStart(source:"resume")
 // arrives (kb:adr/lifecycle-resume-rebinds-existing-session, via the ordinary
 // Apply/KindResumeBind path).
@@ -234,6 +236,7 @@ func (m *Manager) RecordResume(ctx context.Context, id int64, tmuxTarget, tmuxPa
 	sess.EndedAt = nil
 	sess.LastSnapshot = ""
 	sess.LastSnapshotAt = time.Time{}
+	sess.clearClaudeLocation()
 	post := sess.Clone()
 
 	// A persist failure rolls every field this call touched back — a half-resumed session

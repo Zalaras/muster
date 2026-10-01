@@ -75,9 +75,18 @@
         <section class="main">
           <div id="main-empty" class="placeholder">No sessions yet — ⌥⌘N to launch</div>
           <div id="mainhead" class="mainhead" hidden>
-            <h2 class="name"><button type="button" class="rename" title="Rename · clear to use Claude Code's name"></button></h2>
+            <h2 class="name"><button type="button" class="rename"></button></h2>
             <span class="chip-danger" hidden>bypass</span>
-            <span class="meta"></span>
+            <span class="meta">
+              <span class="loc">
+                <span class="repo"><span class="rf"></span></span>
+                <span class="sep" hidden>·</span>
+                <span class="claude-at" hidden><span class="lead" aria-hidden="true">↳</span><span class="rf"></span></span>
+                <span class="sep">·</span>
+              </span>
+              <span class="model"></span>
+              <span class="ended-at" hidden><span class="sep">·</span><span class="ended"></span></span>
+            </span>
             <div class="acts">
               <button type="button" class="btn" data-action="end">End</button>
               <button type="button" class="btn" data-action="resume">Resume</button>
@@ -316,7 +325,8 @@
             <span class="timer" aria-label="time in state"></span>
             <button class="pin" type="button" aria-label="Pin" aria-pressed="false" title="Pin to top"></button>
           </div>
-          <div class="r2"></div>
+          <div class="r2"><span class="rf"></span></div>
+          <div class="r2c" hidden><span class="lead" aria-hidden="true">↳</span><span class="rf"></span></div>
           <div class="r3"></div>
           <div class="activity you" hidden></div>
           <div class="activity claude" hidden></div>
@@ -334,6 +344,7 @@
           <span class="nm"></span>
           <span class="chip-danger" hidden>bypass</span>
           <span class="wh"></span>
+          <span class="wh-claude" hidden><span aria-hidden="true">↳</span><span class="sr-only"></span></span>
           <span class="ctxinfo"></span>
           <span class="tm"></span>
         </div>

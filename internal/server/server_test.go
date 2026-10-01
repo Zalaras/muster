@@ -25,12 +25,13 @@ func TestNew_RegistersLifecycleFeaturesInStartOrder(t *testing.T) {
 		}
 	}
 
-	require.Len(t, lifecycles, 5, "exactly five features implement lifecycle: ingest, usage, theme, shellActivity, update")
+	require.Len(t, lifecycles, 6, "exactly six features implement lifecycle: ingest, usage, theme, shellActivity, update, repoRefresh")
 	assert.Same(t, srv.ingest, lifecycles[0], "REQ-11: ingest must start first")
 	assert.Same(t, srv.usage, lifecycles[1], "REQ-11: usage poller must start second")
 	assert.Same(t, srv.theme, lifecycles[2], "REQ-11: theme poller must start third")
 	assert.Same(t, srv.shellActivity, lifecycles[3], "REQ-11: shell activity poller must start fourth")
-	assert.Same(t, srv.update, lifecycles[4], "REQ-11: updates must start last")
+	assert.Same(t, srv.update, lifecycles[4], "REQ-11: updates must start fifth")
+	assert.Same(t, srv.repoRefresh, lifecycles[5], "the repo poll registers last, after the manager it reads exists")
 }
 
 // TestNew_ZeroValueLaunchConfigDefaultsClaudeBin covers REQ-10 for LaunchConfig: a Config

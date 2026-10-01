@@ -20,11 +20,19 @@ them".
 Above the pane sits the mainhead: the session name with its inline rename trigger
 (kb:spec/rename), a danger `bypass` chip after the name while the session's last-known
 permission mode is bypass (kb:adr/launch-bypass-offered-with-danger-guardrails), a meta line of
-repo and branch, model — a resumed session with no recorded model reads `unknown`, as any null
-model does (kb:adr/launch-resume-null-model-reads-unknown) — and ended age when dead, the
+the repo readout (folder over branch, capped at 30ch and 44ch, kb:adr/rail-repo-line-wraps-at-slash),
+a `↳` block while Claude works in another checkout, the model — a resumed session with no recorded
+model reads `unknown`, as any null model does (kb:adr/launch-resume-null-model-reads-unknown) —
+and ended age when dead, the
 `claude | shell` surface switch (kb:spec/surfaces) and the End, Resume and Remove action row
-(kb:adr/actions-placement-mainhead-and-card-rows). A title too long for the row ends in an
-ellipsis, so the action row always stays in view. The main slot hosts the focused
+(kb:adr/actions-placement-mainhead-and-card-rows). The session name and the repo readout carry hover text (the name's is its full title; the
+readout's is the launch path and branch, plus where Claude is when it has moved). A title too
+long for the row ends in an ellipsis, so the action row always stays in view. The model never
+truncates at any width (kb:adr/focus-model-never-truncates-name-blocks-give-way): as the row
+narrows the `↳` block hides whole first, then the title shortens, and the repo block never hides:
+the mainhead wraps the surface switch and actions onto a second row (a third in the narrowest
+windows with the ended age or bypass chip) before the repo block would drop below its floor
+(kb:adr/focus-mainhead-wraps-to-second-row-when-narrow). The main slot hosts the focused
 session's live surface; when the session is dead and the Claude surface is selected it shows
 the dead surface instead (kb:spec/actions). A size note under the pane states the pane's
 real geometry.

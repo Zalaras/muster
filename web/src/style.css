@@ -628,10 +628,16 @@ body {
 
 /* ── mainhead (REQ-10, m4-reconcile) ─────────────────────────────────────────────────── */
 
+/* The header wraps (`.acts` and the surface switch drop to a second row) before the title is
+ * squeezed below its floor or the meta below its own floor — the model plus the repo block at its
+ * 8-character floor (`.meta`). A window too narrow for one row gets two, never a clipped model,
+ * a vanished repo block or an off-screen action; and a repo block that fits at one width fits at
+ * every narrower one, so narrowing never brings it back (kb:adr/focus-mainhead-wraps-to-second-row-when-narrow). */
 .mainhead {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 6px 12px;
   padding: 9px 14px;
   border-bottom: 1px solid var(--line);
   background: var(--bg-raised);
@@ -651,10 +657,15 @@ body {
   font-weight: 700;
   font-size: var(--fs-lg);
   letter-spacing: -0.015em;
-  /* A long unbroken title ellipsises instead of pushing `.acts` off-screen: the shrink
-   * weight makes it give up width first, down to its floor, before `.meta` starts to. */
+  /* A long unbroken title ellipsises instead of pushing `.acts` off-screen. Its flex basis is
+   * its floor, so the row only wraps when even the floor does not fit. Free space goes to the
+   * title ahead of `.meta` (grow 1000 against 1), up to the title's own width: a title is only
+   * ever ellipsized while `.meta` sits at its floor. Room `.loc` would hold but not show (a `↳`
+   * block that gave way, a folder line under the floor) is trimmed by `--loc-cap` (`.mainhead
+   * .meta`), so it goes to the title or to the header's free space instead. */
   min-width: 6rem;
-  flex: 0 1000 auto;
+  flex: 1000 1 6rem;
+  max-width: max-content;
   overflow: hidden;
 }
 
@@ -705,17 +716,128 @@ body {
   flex: none;
 }
 
+/* The model never truncates and the repo block never drops below its floor, at any width
+ * (kb:adr/focus-model-never-truncates-name-blocks-give-way, kb:adr/focus-mainhead-wraps-to-second-row-when-narrow).
+ * The first grid track is `.loc`, at least one repo block at its floor (plus the room its `·`
+ * is drawn in), so the row's `min-content` is that, the model and `.ended-at`, and that is its
+ * flex basis: the header wraps (see `.mainhead`) before the row gives up a pixel of it. Free
+ * space goes to the title first (see `.mainhead .name`) and then to this row, up to its natural
+ * width.
+ *
+ * The lengths the give-way layout shares are declared once, here, and derived everywhere else:
+ * `--floor` (a block's floor, in characters of this mono face), `--sep-gap` (the room after a
+ * block, which its `·` is drawn in), `--loc-lh` (the name blocks' line height) and `--loc-h` (two
+ * of those lines, the height `.loc` clips to). The `↳` glyph's own gap, `--lead-gap`, is owned
+ * by the shared `↳` rule below. `--loc-cap` is set by `render/mainhead.ts`'s `fitMainheadMeta`,
+ * and only while the `↳` block is not drawn: the repo block's width plus its `·` room, which
+ * caps `.loc` (and the track's minimum, for a folder line under the floor) at what it shows. */
 .mainhead .meta {
-  /* Shrinks only once the title (shrink weight 1000) is down to its 6rem floor. */
-  min-width: 0;
-  flex: 0 1 auto;
+  --floor: 8ch;
+  --sep-gap: 2.75ch;
+  --loc-lh: 1.35;
+  --loc-h: calc(2em * var(--loc-lh));
+  display: grid;
+  grid-template-columns: minmax(min(calc(var(--floor) + var(--sep-gap)), var(--loc-cap, 100vw)), max-content) auto auto;
+  align-items: center;
+  flex: 1 1 min-content;
+  max-width: max-content;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   font-family: var(--mono);
   font-size: var(--fs-xs);
   color: var(--fg-dim);
   font-variant-numeric: tabular-nums;
+}
+
+/* kb:adr/rail-repo-line-wraps-at-slash: folder over branch, each capped and ellipsized on
+ * its own, so a long branch can't push the model off the row. The `↳` block repeats the
+ * shape for where Claude is (its layout is shared with the rail card's, at `.r2c`).
+ *
+ * `.loc` is where the `↳` block gives way, whole, never half-drawn: a wrapping flex row
+ * clipped to its first line. The repo block always fits (its floor is the row's minimum width);
+ * the `↳` block, after it, wraps to a second line, which `overflow: hidden` clips, whenever it
+ * does not fit beside it at its own floor. `::before` is a zero-width item as tall as the
+ * two-line blocks: it makes the repo block not the first item on its line (a lone item never
+ * wraps) and pins the first line's height, so the clipped line starts below the clip even when
+ * the blocks on the first line are one line tall. */
+.mainhead .meta .loc {
+  max-width: var(--loc-cap, none);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: flex-start;
+  height: var(--loc-h);
+  min-width: 0;
+  overflow: hidden;
+  line-height: var(--loc-lh);
+}
+
+.mainhead .meta .loc::before {
+  content: "";
+  flex: none;
+  width: 0;
+  height: var(--loc-h);
+}
+
+/* A block's floor is its flex basis (`--floor`, plus the `↳` glyph and its gap on the `↳`
+ * block); it wraps away below that rather than shrink, and grows to its natural width
+ * (`max-width: max-content`). `min-width: 0` lets a wrapped, clipped block shrink to the row
+ * instead of overflowing it. The right margin, `--sep-gap`, is the room its trailing `.sep`
+ * is drawn in. */
+.mainhead .meta .repo,
+.mainhead .meta .claude-at {
+  flex: 1 1 var(--block-floor);
+  min-width: 0;
+  max-width: max-content;
+  margin-right: var(--sep-gap);
+}
+
+.mainhead .meta .repo {
+  --block-floor: var(--floor);
+  display: flex;
+  flex-direction: column;
+}
+
+.mainhead .meta .claude-at {
+  --block-floor: calc(1ch + var(--lead-gap) + var(--floor));
+}
+
+.mainhead .meta .rf,
+.mainhead .meta .rb {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mainhead .meta .rf {
+  max-width: 30ch;
+}
+
+.mainhead .meta .rb {
+  max-width: 44ch;
+}
+
+/* The `·` after a block takes no room of its own: a zero-width box drawn into the margin the
+ * block before it left (centred in it: half of `--sep-gap` plus the glyph's own `1ch`), so it
+ * wraps (and is clipped) with that block and never stands alone. `.loc`'s last `.sep` is the
+ * one before the model; the first, between the blocks, shows only while the `↳` block does. */
+.mainhead .meta .loc .sep {
+  position: relative;
+  left: calc((var(--sep-gap) + 1ch) / -2);
+  flex: none;
+  width: 0;
+}
+
+/* `.ended-at`'s own `·` is an ordinary inline separator. */
+.mainhead .meta .ended-at .sep {
+  margin: 0 6px;
+}
+
+/* The masthead's bare `.model` gives its readout its own size and colour; in the meta the
+ * model reads as part of the line, and never truncates. */
+.mainhead .meta .model {
+  font-size: inherit;
+  color: inherit;
 }
 
 .mainhead .acts {
@@ -1836,6 +1958,11 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* A long repo line must not squeeze the title to `r…`: the title's heavy shrink weight
+   * takes the squeeze only down to its 5rem floor, after which `.wh` ellipsizes. Same shape
+   * as the masthead's `.name`, and as c-long-names.html's tile header. */
+  flex: 0 1000 auto;
+  min-width: 5rem;
 }
 
 .thead .wh {
@@ -1846,6 +1973,27 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+}
+
+/* The `↳` glyph for a move: neutral `--fg-muted`, with its accessible name carried by the
+ * visually hidden text beside it (the glyph itself is decoration). */
+.thead .wh-claude {
+  flex: none;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .thead .ctxinfo {
@@ -2079,6 +2227,63 @@ body {
   text-overflow: ellipsis;
 }
 
+/* kb:adr/rail-repo-line-wraps-at-slash: the repo block is two lines, folder (`<repo> /`)
+ * over branch, each truncating at its own end so a long branch never hides the folder.
+ * `.r2c` is the `↳` block for where Claude is; it takes the same two lines. Both are neutral
+ * (`--fg-dim` text, `--fg-muted` glyph) — a move is not a state, design-system §3. */
+.r2 .rf,
+.r2 .rb,
+.r2c .rf,
+.r2c .rb {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The `↳` block's layout, one declaration for both hosts (`render/repolines.ts` renders the
+ * same `RepoParts` into the rail card's `.r2c` and the focus header's `.claude-at`): glyph
+ * spanning both lines, folder over branch beside it. Each host adds only its own placement
+ * (the card's margin and type; the header's ellipsis caps, floor, margin and line height at
+ * `.mainhead .meta`). Both columns may shrink to 0 and the glyph's gap, `--lead-gap`, is its
+ * own padding rather than a `column-gap`, so a block squeezed narrower than glyph and gap still
+ * keeps its `.rf`/`.rb` boxes inside it (a grid `auto` column or a gap would push them past the
+ * block's right edge). The header's floor reads `--lead-gap` too, so the gap is declared once. */
+.r2c,
+.mainhead .meta .claude-at {
+  --lead-gap: 5px;
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+}
+
+.r2c[hidden],
+.mainhead .meta .claude-at[hidden] {
+  display: none;
+}
+
+.r2c .lead,
+.mainhead .meta .claude-at .lead {
+  grid-row: 1 / span 2;
+  align-self: start;
+  padding-right: var(--lead-gap);
+  color: var(--fg-muted);
+}
+
+.r2c .rf,
+.r2c .rb,
+.mainhead .meta .claude-at .rf,
+.mainhead .meta .claude-at .rb {
+  grid-column: 2;
+}
+
+.r2c {
+  min-width: 0;
+  margin-top: 2px;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--fg-dim);
+}
+
 /* Context row (design-system §5 card anatomy; mockups/a-instrument.html lines 103-111):
  * a flex row of track + percent + tokens + compaction count when known, or plain
  * italic/dim text (`.unk`) when the session has no context data yet — render/context.ts
@@ -2292,6 +2497,32 @@ body[data-rail-density="compact"] .card .name {
 }
 body[data-rail-density="compact"] .r2 {
   margin-top: 3px;
+}
+/* Compact keeps `<repo> / <branch>` on one line. The two lines become flex items that
+ * each ellipsize inside the card, so the branch stays within `.r2` instead of running past
+ * it as an inline box would (kb:adr/rail-repo-line-wraps-at-slash). `.r2c` follows the
+ * same single line, `:not([hidden])` so this `display` never overrides its `hidden`
+ * companion above (kb:lesson/display-rule-overrides-hidden-attribute). */
+body[data-rail-density="compact"] .r2 {
+  display: flex;
+}
+body[data-rail-density="compact"] .r2c:not([hidden]) {
+  display: flex;
+}
+body[data-rail-density="compact"] .r2 .rf,
+body[data-rail-density="compact"] .r2 .rb,
+body[data-rail-density="compact"] .r2c .rf,
+body[data-rail-density="compact"] .r2c .rb {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+body[data-rail-density="compact"] .r2 .rb,
+body[data-rail-density="compact"] .r2c .rb {
+  margin-left: 1ch;
+}
+body[data-rail-density="compact"] .r2c .lead {
+  flex: none;
+  margin-right: 0;
 }
 body[data-rail-density="compact"] .r3 {
   margin-top: 3px;

@@ -11,6 +11,19 @@
 // randomness, no wall-clock reads. Hook payloads carry no timestamp or seq of their own
 // (canary-fields.md "Delivery semantics") — none is synthesized here either.
 
+// Plan stale-dirs-models-branches: every builder omits `cwd` (and the status line's
+// `workspace.current_dir`) unless the caller passes `cwd`. Real Claude Code always sends
+// one, but a hard-coded `/tmp` sits outside every scratch launch directory, so the daemon
+// would mark every E2E session "Claude is elsewhere" (kb:fact/cwd-follows-claude-mid-session);
+// omission changes nothing on the daemon's side (an absent working directory is ignored).
+function withCwd(
+  payload: Record<string, unknown>,
+  cwd: string | undefined,
+): Record<string, unknown> {
+  if (cwd !== undefined) payload.cwd = cwd;
+  return payload;
+}
+
 interface EnvelopeOpts {
   musterSession?: number;
   /** No default (plan general-cleanup REQ-12) — declared `| undefined` so a caller's
@@ -42,16 +55,18 @@ function envelope(
  */
 export function unboundSessionStart(
   sessionId: string,
-  opts: Pick<SessionStartOpts, "source" | "model" | "transcriptPath"> = {},
+  opts: Pick<SessionStartOpts, "source" | "model" | "transcriptPath" | "cwd"> = {},
 ): Record<string, unknown> {
-  const { source = "startup", model, transcriptPath = "/tmp/t.jsonl" } = opts;
-  const payload: Record<string, unknown> = {
-    hook_event_name: "SessionStart",
-    session_id: sessionId,
-    transcript_path: transcriptPath,
-    cwd: "/tmp",
-    source,
-  };
+  const { source = "startup", model, transcriptPath = "/tmp/t.jsonl", cwd } = opts;
+  const payload = withCwd(
+    {
+      hook_event_name: "SessionStart",
+      session_id: sessionId,
+      transcript_path: transcriptPath,
+      source,
+    },
+    cwd,
+  );
   if (model !== null) {
     payload.model = model ?? "claude-haiku-4-5-20251001";
   }
@@ -78,6 +93,8 @@ interface SessionStartOpts extends EnvelopeOpts {
    * a fake transcript built by `helpers/reader.ts`'s `writeFakeTranscript`.
    */
   transcriptPath?: string;
+  /** The hook's common `cwd` (kb:fact/hook-payload-fields). Omitted by default. */
+  cwd?: string;
 }
 
 /**
@@ -100,14 +117,17 @@ export function envelopedSessionStart(
     source = "startup",
     model,
     transcriptPath = "/tmp/t.jsonl",
+    cwd,
   } = opts;
-  const payload: Record<string, unknown> = {
-    hook_event_name: "SessionStart",
-    session_id: sessionId,
-    transcript_path: transcriptPath,
-    cwd: "/tmp",
-    source,
-  };
+  const payload = withCwd(
+    {
+      hook_event_name: "SessionStart",
+      session_id: sessionId,
+      transcript_path: transcriptPath,
+      source,
+    },
+    cwd,
+  );
   if (model !== null) {
     payload.model = model ?? "claude-haiku-4-5-20251001";
   }
@@ -155,6 +175,9 @@ interface TurnActivityOpts {
    * measured background-completion shape (kb:fact/background-completion-new-prompt-id).
    */
   prompt?: string;
+  /** The hook's common `cwd` (kb:fact/hook-payload-fields) — where Claude is working.
+   * Omitted by default (see `withCwd`). */
+  cwd?: string;
 }
 
 /** Raw `UserPromptSubmit` — opens a turn (turn-activity event, kb:anchor/state.transitions). */
@@ -168,16 +191,19 @@ export function rawUserPromptSubmit(
     agentId,
     transcriptPath = "/tmp/t.jsonl",
     prompt = "do the thing",
+    cwd,
   } = opts;
-  const payload: Record<string, unknown> = {
-    hook_event_name: "UserPromptSubmit",
-    session_id: sessionId,
-    transcript_path: transcriptPath,
-    cwd: "/tmp",
-    prompt_id: promptId,
-    permission_mode: permissionMode,
-    prompt,
-  };
+  const payload = withCwd(
+    {
+      hook_event_name: "UserPromptSubmit",
+      session_id: sessionId,
+      transcript_path: transcriptPath,
+      prompt_id: promptId,
+      permission_mode: permissionMode,
+      prompt,
+    },
+    cwd,
+  );
   if (agentId !== undefined) {
     payload.agent_id = agentId;
     payload.agent_type = "general-purpose";
@@ -208,20 +234,23 @@ export function rawPostToolUse(sessionId: string, opts: ToolUseOpts = {}): Recor
     transcriptPath = "/tmp/t.jsonl",
     toolName = "Write",
     filePath = "/tmp/x.txt",
+    cwd,
   } = opts;
-  const payload: Record<string, unknown> = {
-    hook_event_name: "PostToolUse",
-    session_id: sessionId,
-    transcript_path: transcriptPath,
-    cwd: "/tmp",
-    prompt_id: promptId,
-    permission_mode: permissionMode,
-    tool_name: toolName,
-    tool_input: { file_path: filePath },
-    tool_use_id: "tu1",
-    tool_response: { ok: true },
-    duration_ms: 42,
-  };
+  const payload = withCwd(
+    {
+      hook_event_name: "PostToolUse",
+      session_id: sessionId,
+      transcript_path: transcriptPath,
+      prompt_id: promptId,
+      permission_mode: permissionMode,
+      tool_name: toolName,
+      tool_input: { file_path: filePath },
+      tool_use_id: "tu1",
+      tool_response: { ok: true },
+      duration_ms: 42,
+    },
+    cwd,
+  );
   if (agentId !== undefined) {
     payload.agent_id = agentId;
     payload.agent_type = "general-purpose";
@@ -244,18 +273,21 @@ export function rawPreToolUse(sessionId: string, opts: ToolUseOpts = {}): Record
     transcriptPath = "/tmp/t.jsonl",
     toolName = "ExitPlanMode",
     filePath = "/tmp/x.txt",
+    cwd,
   } = opts;
-  const payload: Record<string, unknown> = {
-    hook_event_name: "PreToolUse",
-    session_id: sessionId,
-    transcript_path: transcriptPath,
-    cwd: "/tmp",
-    prompt_id: promptId,
-    permission_mode: permissionMode,
-    tool_name: toolName,
-    tool_input: toolName === "ExitPlanMode" ? {} : { file_path: filePath },
-    tool_use_id: "tu0",
-  };
+  const payload = withCwd(
+    {
+      hook_event_name: "PreToolUse",
+      session_id: sessionId,
+      transcript_path: transcriptPath,
+      prompt_id: promptId,
+      permission_mode: permissionMode,
+      tool_name: toolName,
+      tool_input: toolName === "ExitPlanMode" ? {} : { file_path: filePath },
+      tool_use_id: "tu0",
+    },
+    cwd,
+  );
   if (agentId !== undefined) {
     payload.agent_id = agentId;
     payload.agent_type = "general-purpose";
@@ -271,19 +303,22 @@ export function rawNotification(
   sessionId: string,
   promptId: string,
   notificationType: "permission_prompt" | "idle_prompt",
+  opts: { cwd?: string } = {},
 ): Record<string, unknown> {
-  return {
-    hook_event_name: "Notification",
-    session_id: sessionId,
-    transcript_path: "/tmp/t.jsonl",
-    cwd: "/tmp",
-    prompt_id: promptId,
-    notification_type: notificationType,
-    message:
-      notificationType === "permission_prompt"
-        ? "Claude needs your permission"
-        : "Claude is waiting for your input",
-  };
+  return withCwd(
+    {
+      hook_event_name: "Notification",
+      session_id: sessionId,
+      transcript_path: "/tmp/t.jsonl",
+      prompt_id: promptId,
+      notification_type: notificationType,
+      message:
+        notificationType === "permission_prompt"
+          ? "Claude needs your permission"
+          : "Claude is waiting for your input",
+    },
+    opts.cwd,
+  );
 }
 
 /**
@@ -295,19 +330,21 @@ export function rawNotification(
 export function rawPermissionRequest(
   sessionId: string,
   promptId: string,
-  opts: { agentId?: string; transcriptPath?: string } = {},
+  opts: { agentId?: string; transcriptPath?: string; cwd?: string } = {},
 ): Record<string, unknown> {
-  const payload: Record<string, unknown> = {
-    hook_event_name: "PermissionRequest",
-    session_id: sessionId,
-    transcript_path: opts.transcriptPath ?? "/tmp/t.jsonl",
-    cwd: "/tmp",
-    prompt_id: promptId,
-    permission_mode: "default",
-    tool_name: "Write",
-    tool_input: { file_path: "/tmp/x.txt" },
-    permission_suggestions: [{ type: "setMode", mode: "acceptEdits", destination: "session" }],
-  };
+  const payload = withCwd(
+    {
+      hook_event_name: "PermissionRequest",
+      session_id: sessionId,
+      transcript_path: opts.transcriptPath ?? "/tmp/t.jsonl",
+      prompt_id: promptId,
+      permission_mode: "default",
+      tool_name: "Write",
+      tool_input: { file_path: "/tmp/x.txt" },
+      permission_suggestions: [{ type: "setMode", mode: "acceptEdits", destination: "session" }],
+    },
+    opts.cwd,
+  );
   if (opts.agentId !== undefined) {
     payload.agent_id = opts.agentId;
     payload.agent_type = "general-purpose";
@@ -335,19 +372,22 @@ export function rawStop(sessionId: string, opts: StopOpts = {}): Record<string, 
     lastAssistantMessage = "hi",
     backgroundTasks = [],
     transcriptPath = "/tmp/t.jsonl",
+    cwd,
   } = opts;
-  return {
-    hook_event_name: "Stop",
-    session_id: sessionId,
-    transcript_path: transcriptPath,
-    cwd: "/tmp",
-    prompt_id: promptId,
-    permission_mode: permissionMode,
-    last_assistant_message: lastAssistantMessage,
-    stop_hook_active: false,
-    background_tasks: backgroundTasks,
-    session_crons: [],
-  };
+  return withCwd(
+    {
+      hook_event_name: "Stop",
+      session_id: sessionId,
+      transcript_path: transcriptPath,
+      prompt_id: promptId,
+      permission_mode: permissionMode,
+      last_assistant_message: lastAssistantMessage,
+      stop_hook_active: false,
+      background_tasks: backgroundTasks,
+      session_crons: [],
+    },
+    cwd,
+  );
 }
 
 /**
@@ -386,22 +426,25 @@ export function runningShellTask(id = "shell-1"): Record<string, unknown> {
  */
 export function rawStopFailure(
   sessionId: string,
-  opts: { promptId?: string; error?: string; lastAssistantMessage?: string } = {},
+  opts: { promptId?: string; error?: string; lastAssistantMessage?: string; cwd?: string } = {},
 ): Record<string, unknown> {
   const {
     promptId = "p1",
     error = "server_error",
     lastAssistantMessage = "API error ended the turn",
+    cwd,
   } = opts;
-  return {
-    hook_event_name: "StopFailure",
-    session_id: sessionId,
-    transcript_path: "/tmp/t.jsonl",
-    cwd: "/tmp",
-    prompt_id: promptId,
-    error,
-    last_assistant_message: lastAssistantMessage,
-  };
+  return withCwd(
+    {
+      hook_event_name: "StopFailure",
+      session_id: sessionId,
+      transcript_path: "/tmp/t.jsonl",
+      prompt_id: promptId,
+      error,
+      last_assistant_message: lastAssistantMessage,
+    },
+    cwd,
+  );
 }
 
 /**
@@ -420,17 +463,20 @@ export function rawPostToolBatch(
     permissionMode = "default",
     agentId,
     transcriptPath = "/tmp/t.jsonl",
+    cwd,
   } = opts;
-  const payload: Record<string, unknown> = {
-    hook_event_name: "PostToolBatch",
-    session_id: sessionId,
-    transcript_path: transcriptPath,
-    cwd: "/tmp",
-    scratchpad_dir: "/tmp/scratchpad",
-    prompt_id: promptId,
-    permission_mode: permissionMode,
-    tool_calls: [],
-  };
+  const payload = withCwd(
+    {
+      hook_event_name: "PostToolBatch",
+      session_id: sessionId,
+      transcript_path: transcriptPath,
+      scratchpad_dir: "/tmp/scratchpad",
+      prompt_id: promptId,
+      permission_mode: permissionMode,
+      tool_calls: [],
+    },
+    cwd,
+  );
   if (agentId !== undefined) {
     payload.agent_id = agentId;
     payload.agent_type = "general-purpose";
@@ -446,18 +492,21 @@ export function rawPostToolBatch(
 export function rawExitPlanModePermissionRequest(
   sessionId: string,
   promptId: string,
+  opts: { cwd?: string } = {},
 ): Record<string, unknown> {
-  return {
-    hook_event_name: "PermissionRequest",
-    session_id: sessionId,
-    transcript_path: "/tmp/t.jsonl",
-    cwd: "/tmp",
-    scratchpad_dir: "/tmp/scratchpad",
-    prompt_id: promptId,
-    permission_mode: "plan",
-    tool_name: "ExitPlanMode",
-    tool_input: {},
-  };
+  return withCwd(
+    {
+      hook_event_name: "PermissionRequest",
+      session_id: sessionId,
+      transcript_path: "/tmp/t.jsonl",
+      scratchpad_dir: "/tmp/scratchpad",
+      prompt_id: promptId,
+      permission_mode: "plan",
+      tool_name: "ExitPlanMode",
+      tool_input: {},
+    },
+    opts.cwd,
+  );
 }
 
 /**
@@ -503,14 +552,20 @@ export function interruptTranscriptLine(
 }
 
 /** Raw `PreCompact` — increments the compaction counter only (REQ-21), no transition. */
-export function rawPreCompact(sessionId: string, promptId = "p1"): Record<string, unknown> {
-  return {
-    hook_event_name: "PreCompact",
-    session_id: sessionId,
-    transcript_path: "/tmp/t.jsonl",
-    cwd: "/tmp",
-    prompt_id: promptId,
-  };
+export function rawPreCompact(
+  sessionId: string,
+  promptId = "p1",
+  opts: { cwd?: string } = {},
+): Record<string, unknown> {
+  return withCwd(
+    {
+      hook_event_name: "PreCompact",
+      session_id: sessionId,
+      transcript_path: "/tmp/t.jsonl",
+      prompt_id: promptId,
+    },
+    opts.cwd,
+  );
 }
 
 /**
@@ -520,14 +575,17 @@ export function rawPreCompact(sessionId: string, promptId = "p1"): Record<string
 export function rawSessionEnd(
   sessionId: string,
   reason: "clear" | "other" = "other",
+  opts: { cwd?: string } = {},
 ): Record<string, unknown> {
-  return {
-    hook_event_name: "SessionEnd",
-    session_id: sessionId,
-    transcript_path: "/tmp/t.jsonl",
-    cwd: "/tmp",
-    reason,
-  };
+  return withCwd(
+    {
+      hook_event_name: "SessionEnd",
+      session_id: sessionId,
+      transcript_path: "/tmp/t.jsonl",
+      reason,
+    },
+    opts.cwd,
+  );
 }
 
 /**
@@ -543,16 +601,20 @@ export function rawSessionEnd(
  */
 export function envelopedStatusLinePreFirstResponse(
   sessionId: string,
-  opts: EnvelopeOpts & { sessionName?: string } = {},
+  opts: EnvelopeOpts & { sessionName?: string; cwd?: string } = {},
 ): Record<string, unknown> {
-  const { musterSession = 1, tmuxPane, sessionName } = opts;
+  const { musterSession = 1, tmuxPane, sessionName, cwd } = opts;
   const payload: Record<string, unknown> = {
     session_id: sessionId,
     transcript_path: "/tmp/t.jsonl",
-    cwd: "/tmp",
+    ...(cwd !== undefined ? { cwd } : {}),
     version: "2.1.233",
     model: { id: "claude-haiku-4-5-20251001", display_name: "Haiku 4.5" },
-    workspace: { current_dir: "/tmp", project_dir: "/tmp", added_dirs: [] },
+    workspace: {
+      ...(cwd !== undefined ? { current_dir: cwd } : {}),
+      project_dir: "/tmp",
+      added_dirs: [],
+    },
     output_style: { name: "default" },
     thinking: { enabled: false },
     fast_mode: false,
@@ -596,6 +658,10 @@ interface StatusLineFullOpts extends EnvelopeOpts {
   sevenDayPct?: number;
   /** `rate_limits.seven_day.resets_at` — Unix epoch integer, see `fiveHourResetsAt`. */
   sevenDayResetsAt?: number;
+  /** Where Claude is working: sets the status line's top-level `cwd` and
+   * `workspace.current_dir` together, as the real status line does
+   * (kb:fact/cwd-follows-claude-mid-session). Omitted by default. */
+  cwd?: string;
 }
 
 /**
@@ -625,14 +691,19 @@ export function envelopedStatusLineFull(
     fiveHourResetsAt = 4070908800, // 2099-01-01T00:00:00Z — fixed, always future
     sevenDayPct = 23,
     sevenDayResetsAt = 4070908800,
+    cwd,
   } = opts;
   const payload: Record<string, unknown> = {
     session_id: sessionId,
     transcript_path: "/tmp/t.jsonl",
-    cwd: "/tmp",
+    ...(cwd !== undefined ? { cwd } : {}),
     version: "2.1.233",
     model: { id: model.id, display_name: model.displayName },
-    workspace: { current_dir: "/tmp", project_dir: "/tmp", added_dirs: [] },
+    workspace: {
+      ...(cwd !== undefined ? { current_dir: cwd } : {}),
+      project_dir: "/tmp",
+      added_dirs: [],
+    },
     output_style: { name: "default" },
     thinking: { enabled: false },
     fast_mode: false,
@@ -671,7 +742,6 @@ export function rawHookMissingSessionId(): Record<string, unknown> {
   return {
     hook_event_name: "SessionEnd",
     transcript_path: "/tmp/t.jsonl",
-    cwd: "/tmp",
     reason: "other",
   };
 }

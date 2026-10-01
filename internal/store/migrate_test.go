@@ -35,12 +35,12 @@ func TestMigrate_AppliesInitSchema(t *testing.T) {
 
 	require.NoError(t, Migrate(ctx, db))
 
-	// One row per file in migrations/ (0001_init.sql through 0011_turn_state.sql).
-	assert.Equal(t, 11, schemaMigrationsCount(t, db))
+	// One row per file in migrations/ (0001_init.sql through 0012_claude_dir.sql).
+	assert.Equal(t, 12, schemaMigrationsCount(t, db))
 
 	var version int
 	require.NoError(t, db.QueryRowContext(ctx, `SELECT MAX(version) FROM schema_migrations`).Scan(&version))
-	assert.Equal(t, 11, version)
+	assert.Equal(t, 12, version)
 
 	// The tables the migration creates are usable.
 	_, err := db.ExecContext(ctx, `INSERT INTO kv (key, value) VALUES ('k', 'v')`)
@@ -57,7 +57,7 @@ func TestMigrate_SecondCallIsANoOp(t *testing.T) {
 
 	require.NoError(t, Migrate(ctx, db))
 	before := schemaMigrationsCount(t, db)
-	require.Equal(t, 11, before) // 0001_init + 0002_sessions (m1-sessions) + 0003_gauges (m3-gauges) + 0004_reconcile (m4-reconcile) + 0005_usage_model (usage-model-bar) + 0006_rail_order (order-sidebar) + 0007_title_override (ui-text-and-focus) + 0008_reader (markdown-viewing) + 0009_rail_cards (rail-card-improvements) + 0010_pending_resume (resume-followups) + 0011_turn_state (status-inconsistencies)
+	require.Equal(t, 12, before) // 0001_init + 0002_sessions (m1-sessions) + 0003_gauges (m3-gauges) + 0004_reconcile (m4-reconcile) + 0005_usage_model (usage-model-bar) + 0006_rail_order (order-sidebar) + 0007_title_override (ui-text-and-focus) + 0008_reader (markdown-viewing) + 0009_rail_cards (rail-card-improvements) + 0010_pending_resume (resume-followups) + 0011_turn_state (status-inconsistencies) + 0012_claude_dir (stale-dirs-models-branches)
 
 	require.NoError(t, Migrate(ctx, db))
 	after := schemaMigrationsCount(t, db)

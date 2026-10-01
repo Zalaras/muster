@@ -66,6 +66,17 @@ func EnvelopedHookBody(musterSession int, tmuxPane, event, sessionID string) str
 	}))
 }
 
+// EnvelopedHookInDirectory is EnvelopedHookBody for a main-agent hook that reports dir as
+// the directory Claude is working in (kb:fact/cwd-follows-claude-mid-session), so a test
+// outside internal/claudecode never spells that payload key itself.
+func EnvelopedHookInDirectory(musterSession int, tmuxPane, event, sessionID, dir string) string {
+	return marshal(envelope(musterSession, tmuxPane, map[string]any{
+		"hook_event_name": event,
+		"session_id":      sessionID,
+		"cwd":             dir,
+	}))
+}
+
 // SessionStartOpts customizes EnvelopedSessionStart beyond its defaults (musterSession 1,
 // source "startup", a present model). TmuxPane has no default (REQ-12,
 // kb:adr/ingest-envelope-pane-must-corroborate): left empty, it omits the envelope's

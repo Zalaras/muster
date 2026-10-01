@@ -16,6 +16,7 @@ const validSession: Session = {
   failure: null,
   directory: "/Users/bob/code/muster",
   repo: null,
+  claudeLocation: null,
   model: null,
   permissionMode: { value: "default", source: "seed" },
   context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },

@@ -145,17 +145,14 @@ func applyBind(sess *Session, claudeSessionID string, input claudecode.StateInpu
 	// rather than left to shadow a future /clear onto a different id
 	// (kb:adr/launch-resume-pending-hold-persisted).
 	sess.pendingResumeClaudeSessionID = ""
-	if input.Model != nil {
+	if input.Model != nil && (sess.Model == nil || sess.Model.ID != *input.Model) {
 		// A fresh pointer, never a field written into the old one: List/Get hand out
 		// Clone()s that share this *Model, and Session.Clone's contract is that a changed
-		// model is always a new pointer, never mutated in place. DisplayName is carried
-		// over from the previous Model (empty on a new model, stale on an id change) —
-		// what the card should show on a bind is a separate, undecided question.
-		next := Model{ID: *input.Model}
-		if sess.Model != nil {
-			next.DisplayName = sess.Model.DisplayName
-		}
-		sess.Model = &next
+		// model is always a new pointer, never mutated in place. A bind naming the model
+		// already held changes nothing, so a display name the status line confirmed
+		// survives; a different id shows as itself until the status line confirms a name
+		// (kb:adr/lifecycle-bind-model-display-name-is-id).
+		sess.Model = &Model{ID: *input.Model, DisplayName: *input.Model}
 	}
 
 	// kb:anchor/ws.session's attention-iff-needs_input / failure-iff-failed invariants

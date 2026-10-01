@@ -4,14 +4,14 @@ type: diagram
 status: active
 date: 2026-09-22
 kind: er
-summary: Every SQLite table at its final shape after migrations 0001-0011, with the schema's single foreign key.
+summary: Every SQLite table at its final shape after migrations 0001-0012, with the schema's single foreign key.
 features: []
 tags: [store]
 files: [internal/store/migrations/*.sql, internal/store/*.go]
 tests: [TestMigrate_AppliesInitSchema, TestMigrate_CreatesSchemaMigrationsTableIfAbsent]
 refs: [kb:ref/data-model, kb:adr/lifecycle-session-identity-is-tmux-target, kb:adr/ingest-seq-assigned-at-ingest, kb:adr/ingest-envelope-binds-never-cwd, plans/_audit/diagrams-from-code.md]
 ---
-Final shape, with the additive `ALTER TABLE`s of 0003-0011 folded into `session`. Migrations are
+Final shape, with the additive `ALTER TABLE`s of 0003-0012 folded into `session`. Migrations are
 forward-only and purely additive: no migration has ever changed or dropped a column, and the one
 data statement is 0006's `rail_pos` backfill.
 
@@ -103,6 +103,7 @@ erDiagram
         TEXT pending_resume_claude_session_id "0010, nullable"
         INTEGER background_tasks "0011, NOT NULL DEFAULT 0"
         TEXT attention_agent "0011, NULL = main agent"
+        TEXT claude_dir "0012, last reported cwd, null = none"
     }
 
     event {

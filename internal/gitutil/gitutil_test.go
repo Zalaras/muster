@@ -155,3 +155,66 @@ func TestListFiles_ErrorForANonGitDirectory(t *testing.T) {
 
 	assert.Error(t, err)
 }
+
+// TopLevel is the root `git rev-parse --show-toplevel` names: the daemon compares it to tell
+// two directories of one checkout from two checkouts (internal/session.Elsewhere).
+
+func TestGitRunner_TopLevel(t *testing.T) {
+	cases := []struct {
+		name string
+		out  string
+		err  error
+		want *string
+	}{
+		{name: "trims the trailing newline", out: "/repo\n", want: strPtr("/repo")},
+		{name: "empty output is not a checkout", out: "\n", want: nil},
+		{name: "a git error is not a checkout", err: errors.New("exit status 128: not a git repository"), want: nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var gotArgs []string
+			g := &gitRunner{run: func(_ context.Context, _, _ string, args ...string) ([]byte, error) {
+				gotArgs = args
+				return []byte(tc.out), tc.err
+			}}
+
+			assert.Equal(t, tc.want, g.topLevel(context.Background(), "/repo/sub"))
+			assert.Equal(t, []string{"rev-parse", "--show-toplevel"}, gotArgs)
+		})
+	}
+}
+
+func TestTopLevel_RealGit(t *testing.T) {
+	repo := initRepoWithOneCommit(t)
+	require.NoError(t, os.Mkdir(filepath.Join(repo, "sub"), 0o755))
+	worktree := filepath.Join(t.TempDir(), "linked")
+	runGitFixture(t, repo, "worktree", "add", "-q", "-b", "feature/x", worktree)
+	// macOS spells a temp dir /var/... while git reports /private/var/...; compare resolved.
+	resolve := func(p string) string {
+		r, err := filepath.EvalSymlinks(p)
+		require.NoError(t, err)
+		return r
+	}
+
+	t.Run("the checkout root for the root itself and a subdirectory", func(t *testing.T) {
+		for _, dir := range []string{repo, filepath.Join(repo, "sub")} {
+			got := TopLevel(context.Background(), dir)
+			require.NotNil(t, got, dir)
+			assert.Equal(t, resolve(repo), resolve(*got))
+		}
+	})
+
+	t.Run("a linked worktree has its own top level", func(t *testing.T) {
+		got := TopLevel(context.Background(), worktree)
+		require.NotNil(t, got)
+		assert.Equal(t, resolve(worktree), resolve(*got))
+		assert.NotEqual(t, resolve(repo), resolve(*got))
+	})
+
+	t.Run("nil for a plain directory and a missing one", func(t *testing.T) {
+		assert.Nil(t, TopLevel(context.Background(), t.TempDir()))
+		assert.Nil(t, TopLevel(context.Background(), filepath.Join(t.TempDir(), "missing")))
+	})
+}
+
+func strPtr(s string) *string { return &s }

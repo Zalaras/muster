@@ -393,7 +393,7 @@ Every fix-wave prompt carries:
 
 ### Rules
 
-- **Skip empty waves.** Start at the first wave with issues and skip the gates of waves that did not run; a review whose criticals were all E2E locator defects starts at wave 2 or 3. **Never spawn a fix agent with no issues tagged for it** — an agent invoked in fix mode with nothing to fix invents unrequested changes.
+- **Skip empty waves.** Start at the first wave with issues and skip the gates of waves that did not run; a review whose criticals were all E2E locator defects starts at wave 2 or 3. **Never spawn a fix agent with nothing tagged for it or named in its track's impl Handoff** — one with nothing to fix invents changes.
 - **An impl fix and a test fix touching the same feature** land in different waves by construction — that is the whole point.
 - **Both impl agents tagged** → they run in parallel; their file trees are disjoint (`cmd/`/`internal/` vs `web/src/`). **Exception:** a review issue asking for a change to the protocol contract (the plan's **Protocol Contract** section or `docs/protocol.md`) goes to the developer as Step 6 item 1a's user decision before any wave runs. The contract is what lets the two agents work independently; neither may redefine it.
 - **Sanctioned test-file breakage.** A wave-1 signature change may break a test file only wave 2

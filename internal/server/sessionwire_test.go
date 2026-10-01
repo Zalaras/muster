@@ -215,6 +215,7 @@ func TestSessionWire_JSONShapeHasNoUnexpectedNulls(t *testing.T) {
 		"id", "title", "state", "stateSince", "alive", "endedAt", "attention", "failure",
 		"directory", "repo", "model", "permissionMode", "context", "lastActivity",
 		"claudeSessionId", "tmuxTarget", "firstLaunchHere", "createdAt", "pinned", "railPos",
+		"claudeLocation",
 	} {
 		assert.Contains(t, got, field)
 	}
@@ -257,4 +258,97 @@ func TestSessionWire_BackgroundTasksIsAlwaysPresentAndAttentionAgentNeverOnTheWi
 			assert.NotContains(t, string(b), "agent-a7f3", "the wait owner's id must not leak onto the wire")
 		})
 	}
+}
+
+// wireJSON is the marshalled form of a session's wire object, decoded generically.
+func wireJSON(t *testing.T, s *session.Session) map[string]any {
+	t.Helper()
+	b, err := json.Marshal(toWireSession(s))
+	require.NoError(t, err)
+	var got map[string]any
+	require.NoError(t, json.Unmarshal(b, &got))
+	return got
+}
+
+// TestToWireSession_ClaudeLocationKeyIsAlwaysPresent is D10: the key is on every Session
+// object, JSON null when there is no location, so the dashboard can tell "not moved" from a
+// daemon that predates the field.
+func TestToWireSession_ClaudeLocationKeyIsAlwaysPresent(t *testing.T) {
+	branch := "main"
+	cases := []struct {
+		name   string
+		mutate func(s *session.Session)
+	}{
+		{"fresh session", func(*session.Session) {}},
+		{"with a repo", func(s *session.Session) { s.Branch = &branch }},
+		{"dead", func(s *session.Session) { s.Alive = false }},
+		{"directory recorded but no derived location", func(s *session.Session) { s.ClaudeDir = "/elsewhere" }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := minimalSession()
+			tc.mutate(s)
+
+			got := wireJSON(t, s)
+
+			require.Contains(t, got, "claudeLocation")
+			assert.Nil(t, got["claudeLocation"])
+		})
+	}
+}
+
+// TestToWireSession_ClaudeLocationShape pins the object and the rule that the launch
+// directory stays the wire's `directory` (the shell, reader, drop and resume all read it).
+func TestToWireSession_ClaudeLocationShape(t *testing.T) {
+	cases := []struct {
+		name string
+		loc  *session.Location
+		want map[string]any
+	}{
+		{
+			name: "a worktree with its repo",
+			loc:  &session.Location{Directory: "/proj/.claude/worktrees/probewt", Repo: &session.LocationRepo{Name: "probewt", Branch: "worktree-probewt", IsWorktree: true}},
+			want: map[string]any{
+				"directory": "/proj/.claude/worktrees/probewt",
+				"repo":      map[string]any{"name": "probewt", "branch": "worktree-probewt", "isWorktree": true},
+			},
+		},
+		{
+			name: "a plain directory outside any checkout has a null repo",
+			loc:  &session.Location{Directory: "/private/tmp"},
+			want: map[string]any{"directory": "/private/tmp", "repo": nil},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := minimalSession()
+			s.ClaudeDir = tc.loc.Directory
+			s.ClaudeLocation = tc.loc
+
+			got := wireJSON(t, s)
+
+			assert.Equal(t, tc.want, got["claudeLocation"])
+			assert.Equal(t, "/tmp/proj", got["directory"], "directory is always the launch directory")
+			assert.NotContains(t, got, "claudeDir", "INV-2: the raw recorded directory never reaches the wire")
+		})
+	}
+}
+
+// TestToWireSession_RepoFollowsTheRefreshedBranch: repo.branch/isWorktree come from
+// the session's current fields, so a poll's change is what the next upsert carries; a
+// detached HEAD (nil branch) is repo null.
+func TestToWireSession_RepoFollowsTheRefreshedBranch(t *testing.T) {
+	s := minimalSession()
+	first, second := "main", "fix"
+	s.Branch = &first
+	require.Equal(t, "main", *toWireSession(s).Repo.Branch)
+
+	s.Branch, s.IsWorktree = &second, true
+	w := toWireSession(s)
+	require.NotNil(t, w.Repo)
+	assert.Equal(t, "fix", *w.Repo.Branch)
+	assert.True(t, w.Repo.IsWorktree)
+
+	s.Branch = nil
+	assert.Nil(t, toWireSession(s).Repo, "a detached HEAD reads as repo null")
 }

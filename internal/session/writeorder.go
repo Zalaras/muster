@@ -198,8 +198,8 @@ func restoreIfUnchanged[T comparable](field *T, post, target T) {
 //     an update to id, not to a particular setter's shape.
 //
 // Only fields some setter can actually mutate after creation are listed — ID, RepoID,
-// Directory, Branch, IsWorktree, FirstLaunchHere and CreatedAt never change once a session
-// exists, so there's nothing to restore there. currentPromptID/closedPromptIDs are
+// Directory, FirstLaunchHere and CreatedAt never change once a session exists, so there's
+// nothing to restore there. currentPromptID/closedPromptIDs are
 // in-memory-only guard fields (session.go's doc), never part of SessionRow, but Apply is
 // still the only writer that ever touches them, and a failed Apply must roll every field it
 // touched back together, guard fields included, or memory would disagree with itself about
@@ -214,6 +214,11 @@ func (m *Manager) restoreChangedFields(id int64, prev, post *Session) func(*Sess
 		}
 		restoreIfUnchanged(&cur.TmuxTarget, post.TmuxTarget, last.TmuxTarget)
 		restoreIfUnchanged(&cur.TmuxPane, post.TmuxPane, last.TmuxPane)
+		restoreIfUnchanged(&cur.Branch, post.Branch, last.Branch)
+		restoreIfUnchanged(&cur.IsWorktree, post.IsWorktree, last.IsWorktree)
+		restoreIfUnchanged(&cur.ClaudeDir, post.ClaudeDir, last.ClaudeDir)
+		restoreIfUnchanged(&cur.ClaudeLocation, post.ClaudeLocation, last.ClaudeLocation)
+		restoreIfUnchanged(&cur.repoEpoch, post.repoEpoch, last.repoEpoch)
 		restoreIfUnchanged(&cur.ClaudeSessionID, post.ClaudeSessionID, last.ClaudeSessionID)
 		restoreIfUnchanged(&cur.Title, post.Title, last.Title)
 		restoreIfUnchanged(&cur.State, post.State, last.State)
@@ -266,7 +271,8 @@ func (m *Manager) restoreChangedFields(id int64, prev, post *Session) func(*Sess
 // same "two places that must agree will not" hazard restoreChangedFields' single copy of
 // the DB row already avoids. CheckSessionFieldCoverage below is what keeps them honest.
 var restoredSessionFields = []string{
-	"TmuxTarget", "TmuxPane", "ClaudeSessionID", "Title", "State", "StateSince",
+	"TmuxTarget", "TmuxPane", "Branch", "IsWorktree", "ClaudeDir", "ClaudeLocation", "repoEpoch",
+	"ClaudeSessionID", "Title", "State", "StateSince",
 	"PermissionMode", "PermissionModeSource", "Model", "Context", "Compactions",
 	"Attention", "Failure", "LastActivity", "Alive", "EndedAt", "LastSnapshot",
 	"LastSnapshotAt", "Pinned", "RailPos", "TitleOverride", "TranscriptPath",
@@ -276,7 +282,7 @@ var restoredSessionFields = []string{
 }
 
 var immutableSessionFields = []string{
-	"ID", "RepoID", "Directory", "Branch", "IsWorktree", "FirstLaunchHere", "CreatedAt",
+	"ID", "RepoID", "Directory", "FirstLaunchHere", "CreatedAt",
 }
 
 // CheckSessionFieldCoverage reports every Session field name that restoredSessionFields

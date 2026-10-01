@@ -13,6 +13,10 @@ type statusPayload struct {
 	Model         *statusModel      `json:"model"`
 	ContextWindow *statusContext    `json:"context_window"`
 	RateLimits    *statusRateLimits `json:"rate_limits"`
+	Workspace     *struct {
+		CurrentDir string `json:"current_dir"`
+	} `json:"workspace"`
+	Cwd string `json:"cwd"`
 }
 
 type statusModel struct {
@@ -85,6 +89,9 @@ type StatusUpdate struct {
 	Model   *StatusModel
 	Context *StatusContext
 	Account *StatusAccount
+	// Cwd is the directory Claude reports working in (workspace.current_dir, else the
+	// top-level cwd); nil when neither is non-empty.
+	Cwd *string
 }
 
 // InterpretStatus derives the neutral StatusUpdate for one status-line payload. It is a
@@ -104,6 +111,10 @@ func InterpretStatus(payload []byte) StatusUpdate {
 
 	if p.Model != nil {
 		out.Model = &StatusModel{ID: p.Model.ID, DisplayName: p.Model.DisplayName}
+	}
+
+	if dir := statusDir(p); dir != "" {
+		out.Cwd = &dir
 	}
 
 	// Adopt the context block only when used_percentage is non-null
@@ -134,4 +145,13 @@ func InterpretStatus(payload []byte) StatusUpdate {
 	}
 
 	return out
+}
+
+// statusDir prefers workspace.current_dir, which tracks Claude's directory, over the
+// top-level cwd (kb:fact/status-line-keys).
+func statusDir(p statusPayload) string {
+	if p.Workspace != nil && p.Workspace.CurrentDir != "" {
+		return p.Workspace.CurrentDir
+	}
+	return p.Cwd
 }

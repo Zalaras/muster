@@ -10,17 +10,21 @@ import (
 // server-package-local: the only Claude-Code-format-free translation from
 // internal/session's domain type to what crosses the wire.
 type sessionWire struct {
-	ID              int64                     `json:"id"`
-	Title           *string                   `json:"title"`
-	TitleOverride   *string                   `json:"titleOverride"`
-	State           string                    `json:"state"`
-	StateSince      string                    `json:"stateSince"`
-	Alive           bool                      `json:"alive"`
-	EndedAt         *string                   `json:"endedAt"`
-	Attention       *sessionWireAttention     `json:"attention"`
-	Failure         *sessionWireFailure       `json:"failure"`
-	Directory       string                    `json:"directory"`
-	Repo            *sessionWireRepo          `json:"repo"`
+	ID            int64                 `json:"id"`
+	Title         *string               `json:"title"`
+	TitleOverride *string               `json:"titleOverride"`
+	State         string                `json:"state"`
+	StateSince    string                `json:"stateSince"`
+	Alive         bool                  `json:"alive"`
+	EndedAt       *string               `json:"endedAt"`
+	Attention     *sessionWireAttention `json:"attention"`
+	Failure       *sessionWireFailure   `json:"failure"`
+	Directory     string                `json:"directory"`
+	Repo          *sessionWireRepo      `json:"repo"`
+	// ClaudeLocation (kb:anchor/ws.session): where Claude is working when that is a
+	// different checkout from Directory, null otherwise. Required key on every Session
+	// object, so it carries no omitempty.
+	ClaudeLocation  *sessionWireLocation      `json:"claudeLocation"`
 	Model           *sessionWireModel         `json:"model"`
 	PermissionMode  sessionWirePermissionMode `json:"permissionMode"`
 	Context         sessionWireContext        `json:"context"`
@@ -59,6 +63,11 @@ type sessionWireRepo struct {
 	Name       string  `json:"name"`
 	Branch     *string `json:"branch"`
 	IsWorktree bool    `json:"isWorktree"`
+}
+
+type sessionWireLocation struct {
+	Directory string           `json:"directory"`
+	Repo      *sessionWireRepo `json:"repo"`
 }
 
 type sessionWireModel struct {
@@ -148,6 +157,9 @@ func toWireSession(s *session.Session) sessionWire {
 	if s.Branch != nil {
 		w.Repo = &sessionWireRepo{Name: filepath.Base(s.Directory), Branch: s.Branch, IsWorktree: s.IsWorktree}
 	}
+	if s.ClaudeLocation != nil {
+		w.ClaudeLocation = toWireLocation(s.ClaudeLocation)
+	}
 	if s.Model != nil {
 		w.Model = &sessionWireModel{ID: s.Model.ID, DisplayName: s.Model.DisplayName}
 	}
@@ -162,6 +174,15 @@ func toWireSession(s *session.Session) sessionWire {
 	if s.ClaudeSessionID != "" {
 		v := s.ClaudeSessionID
 		w.ClaudeSessionID = &v
+	}
+	return w
+}
+
+func toWireLocation(l *session.Location) *sessionWireLocation {
+	w := &sessionWireLocation{Directory: l.Directory}
+	if l.Repo != nil {
+		branch := l.Repo.Branch
+		w.Repo = &sessionWireRepo{Name: l.Repo.Name, Branch: &branch, IsWorktree: l.Repo.IsWorktree}
 	}
 	return w
 }

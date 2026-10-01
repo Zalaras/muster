@@ -33,6 +33,14 @@ export interface SessionRepo {
   isWorktree: boolean;
 }
 
+// kb:anchor/ws.session: where Claude is working when that is a different checkout from the
+// launch `directory`. `repo` is null for a directory that is not a git checkout (or has a
+// detached HEAD) — the card then shows the directory's basename.
+export interface ClaudeLocation {
+  directory: string;
+  repo: SessionRepo | null;
+}
+
 export interface SessionModelInfo {
   id: string;
   displayName: string;
@@ -98,6 +106,10 @@ export interface Session {
   failure: SessionFailure | null;
   directory: string;
   repo: SessionRepo | null;
+  // kb:anchor/ws.session: non-null only while Claude works in a different checkout from
+  // `directory` (kb:adr/lifecycle-card-shows-launch-directory-marks-claude-elsewhere).
+  // Display-only: nothing but the `↳` readouts reads it.
+  claudeLocation: ClaudeLocation | null;
   model: SessionModelInfo | null;
   permissionMode: PermissionModeInfo;
   context: SessionContext;
@@ -180,6 +192,15 @@ function parseRepoInfo(value: unknown): SessionRepo | null {
   return { name, branch, isWorktree };
 }
 
+function parseClaudeLocation(value: unknown): ClaudeLocation | null {
+  if (!isRecord(value)) return null;
+  const directory = value["directory"];
+  if (typeof directory !== "string") return null;
+  const repo = parseNullable(value["repo"], parseRepoInfo);
+  if (repo === undefined) return null;
+  return { directory, repo };
+}
+
 // Exported: usage.ts's `parseUsage` decodes the same shape for `Usage.model`
 // (kb:anchor/ws.usage) rather than keeping its own copy.
 export function parseModelInfo(value: unknown): SessionModelInfo | null {
@@ -247,6 +268,9 @@ export function parseSession(value: unknown): Session | null {
   const rawFailure = value["failure"];
   const directory = value["directory"];
   const rawRepo = value["repo"];
+  // An older daemon omits the key; absent reads as "not moved" rather than rejecting the
+  // whole session (the one field here that is not required — kb:anchor/ws.session).
+  const rawClaudeLocation = value["claudeLocation"] ?? null;
   const rawModel = value["model"];
   const lastActivity = value["lastActivity"];
   const backgroundTasks = value["backgroundTasks"];
@@ -278,6 +302,9 @@ export function parseSession(value: unknown): Session | null {
 
   const repo = parseNullable(rawRepo, parseRepoInfo);
   if (repo === undefined) return null;
+
+  const claudeLocation = parseNullable(rawClaudeLocation, parseClaudeLocation);
+  if (claudeLocation === undefined) return null;
 
   const model = parseNullable(rawModel, parseModelInfo);
   if (model === undefined) return null;
@@ -321,6 +348,7 @@ export function parseSession(value: unknown): Session | null {
     failure,
     directory,
     repo,
+    claudeLocation,
     model,
     permissionMode,
     context,

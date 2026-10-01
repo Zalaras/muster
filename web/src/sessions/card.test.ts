@@ -8,8 +8,15 @@ import {
   deadCapPrefix,
   deadEndbarText,
   deadSurfaceText,
+  claudeHover,
+  claudeLocationParts,
+  claudeNote,
+  locationHover,
   mainheadMeta,
   type PaneState,
+  type RepoParts,
+  repoLine,
+  repoParts,
   tileFooterAgeText,
   tileHeaderTimerText,
   unreadLabel,
@@ -30,6 +37,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     failure: null,
     directory: "/Users/bob/code/muster",
     repo: null,
+    claudeLocation: null,
     model: null,
     permissionMode: { value: "default", source: "seed" },
     context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
@@ -594,48 +602,238 @@ describe("buildCardViewModel — ended timer (REQ-9): 'ended <age>' from endedAt
   });
 });
 
-describe("mainheadMeta: 'repo/branch · model · ended <age>' — repoLine, the model clause (never omitted; 'unknown' for a null model), and the optional ended clause", () => {
+const WORKTREE_AT = {
+  directory: "/Users/bob/code/muster/.claude/worktrees/e7b",
+  repo: { name: "e7b", branch: "worktree-e7b", isWorktree: true },
+};
+
+// REQ-10 (W1): the launch directory's readout split at the slash; the one-line `repoLine`
+// is derived from the same parts, so the two cannot disagree.
+describe("repoParts — the launch readout split into folder and branch lines (W1)", () => {
+  const cases: Array<{
+    name: string;
+    session: Partial<Session>;
+    want: RepoParts;
+    line: string;
+  }> = [
+    {
+      name: "repo with a branch",
+      session: { repo: { name: "muster", branch: "main", isWorktree: false } },
+      want: { folder: "muster /", branch: "main" },
+      line: "muster / main",
+    },
+    {
+      name: "linked worktree gets the marker on the branch line",
+      session: { repo: { name: "muster", branch: "x", isWorktree: true } },
+      want: { folder: "muster /", branch: "x (worktree)" },
+      line: "muster / x (worktree)",
+    },
+    {
+      name: "detached or unreadable branch reads an em-dash, never empty",
+      session: { repo: { name: "muster", branch: null, isWorktree: false } },
+      want: { folder: "muster /", branch: "—" },
+      line: "muster / —",
+    },
+    {
+      name: "no repo: the directory basename, no slash, no branch line",
+      session: { repo: null, directory: "/Users/bob/code/muster" },
+      want: { folder: "muster", branch: null },
+      line: "muster",
+    },
+    {
+      name: "no repo and a trailing slash on the directory",
+      session: { repo: null, directory: "/Users/bob/code/muster/" },
+      want: { folder: "muster", branch: null },
+      line: "muster",
+    },
+  ];
+
+  for (const { name, session, want, line } of cases) {
+    it(name, () => {
+      const s = makeSession({ id: 1, ...session });
+      expect(repoParts(s)).toEqual(want);
+      expect(repoLine(s)).toBe(line);
+    });
+  }
+});
+
+// REQ-12 (W2).
+describe("claudeLocationParts — the `↳` readout (W2)", () => {
+  const cases: Array<{
+    name: string;
+    location: Session["claudeLocation"];
+    want: RepoParts | null;
+  }> = [
+    {
+      name: "null while Claude is in the launch checkout",
+      location: null,
+      want: null,
+    },
+    {
+      name: "same shape as repoParts, with the bare branch (no worktree marker) for a worktree",
+      location: WORKTREE_AT,
+      want: { folder: "e7b /", branch: "worktree-e7b" },
+    },
+    {
+      name: "a null branch reads an em-dash",
+      location: {
+        directory: "/Users/bob/other",
+        repo: { name: "other", branch: null, isWorktree: false },
+      },
+      want: { folder: "other /", branch: "—" },
+    },
+    {
+      name: "falls back to the location directory's basename when its repo is null",
+      location: { directory: "/tmp/scratch/", repo: null },
+      want: { folder: "scratch", branch: null },
+    },
+  ];
+
+  for (const { name, location, want } of cases) {
+    it(name, () => {
+      expect(claudeLocationParts(makeSession({ id: 1, claudeLocation: location }))).toEqual(want);
+    });
+  }
+});
+
+// REQ-14, REQ-15 (W3): lines 1-2 always, 3 while moved, 4 while moved with a location branch.
+describe("locationHover, claudeHover, claudeNote — the hover text (W3)", () => {
+  const base = { repo: { name: "muster", branch: "main", isWorktree: false } };
+  const cases: Array<{
+    name: string;
+    session: Partial<Session>;
+    hover: string;
+    claudeHover: string | null;
+    note: string | null;
+  }> = [
+    {
+      name: "not moved: exactly lines 1 and 2",
+      session: base,
+      hover: "muster / main\n/Users/bob/code/muster",
+      claudeHover: null,
+      note: null,
+    },
+    {
+      name: "moved: lines 1 to 4",
+      session: { ...base, claudeLocation: WORKTREE_AT },
+      hover:
+        "muster / main\n/Users/bob/code/muster\nClaude is in /Users/bob/code/muster/.claude/worktrees/e7b\non worktree-e7b",
+      claudeHover: "Claude is in /Users/bob/code/muster/.claude/worktrees/e7b\non worktree-e7b",
+      note: "Claude is in /Users/bob/code/muster/.claude/worktrees/e7b",
+    },
+    {
+      name: "moved with a null location repo: lines 1 to 3",
+      session: {
+        ...base,
+        claudeLocation: { directory: "/tmp/scratch", repo: null },
+      },
+      hover: "muster / main\n/Users/bob/code/muster\nClaude is in /tmp/scratch",
+      claudeHover: "Claude is in /tmp/scratch",
+      note: "Claude is in /tmp/scratch",
+    },
+    {
+      name: "moved with a null location branch: line 4 is omitted, not 'on —'",
+      session: {
+        ...base,
+        claudeLocation: {
+          directory: "/tmp/detached",
+          repo: { name: "detached", branch: null, isWorktree: false },
+        },
+      },
+      hover: "muster / main\n/Users/bob/code/muster\nClaude is in /tmp/detached",
+      claudeHover: "Claude is in /tmp/detached",
+      note: "Claude is in /tmp/detached",
+    },
+    {
+      name: "launch session with no repo: line 1 is the basename",
+      session: { repo: null },
+      hover: "muster\n/Users/bob/code/muster",
+      claudeHover: null,
+      note: null,
+    },
+  ];
+
+  for (const { name, session, hover, claudeHover: ch, note } of cases) {
+    it(name, () => {
+      const s = makeSession({ id: 1, ...session });
+      expect(locationHover(s)).toBe(hover);
+      expect(claudeHover(s)).toBe(ch);
+      expect(claudeNote(s)).toBe(note);
+    });
+  }
+});
+
+describe("buildCardViewModel — carries the split readout and hover texts", () => {
+  it("fills repo, claudeAt, claudeHover, claudeNote and hover from the same session", () => {
+    const session = makeSession({
+      id: 1,
+      repo: { name: "muster", branch: "main", isWorktree: false },
+      claudeLocation: WORKTREE_AT,
+    });
+    const vm = buildCardViewModel(session, NOW);
+    expect(vm.repo).toEqual({ folder: "muster /", branch: "main" });
+    expect(vm.repoLine).toBe("muster / main");
+    expect(vm.claudeAt).toEqual({ folder: "e7b /", branch: "worktree-e7b" });
+    expect(vm.claudeHover).toBe(claudeHover(session));
+    expect(vm.claudeNote).toBe(claudeNote(session));
+    expect(vm.hover).toBe(locationHover(session));
+  });
+
+  it("leaves the `↳` fields null for a session in its launch checkout", () => {
+    const vm = buildCardViewModel(makeSession({ id: 1 }), NOW);
+    expect([vm.claudeAt, vm.claudeHover, vm.claudeNote]).toEqual([null, null, null]);
+  });
+});
+
+describe("mainheadMeta — the structured Focus header view-model (W4)", () => {
   // kb:adr/launch-resume-null-model-reads-unknown: a null model reads the word
   // "unknown" rather than omitting the clause.
-  it("appends 'unknown' for a null model on an alive session", () => {
+  it("reads 'unknown' for a null model", () => {
+    expect(mainheadMeta(makeSession({ id: 1, model: null }), NOW).model).toBe("unknown");
+  });
+
+  it("reads the model's display name when present", () => {
+    const session = makeSession({
+      id: 1,
+      model: { id: "claude-x", displayName: "Sonnet 5" },
+    });
+    expect(mainheadMeta(session, NOW).model).toBe("Sonnet 5");
+  });
+
+  it("carries the repo block, the `↳` block and the hover", () => {
     const session = makeSession({
       id: 1,
       repo: { name: "muster", branch: "main", isWorktree: false },
-      model: null,
+      claudeLocation: WORKTREE_AT,
     });
-    expect(mainheadMeta(session, NOW)).toBe("muster / main · unknown");
+    const meta = mainheadMeta(session, NOW);
+    expect(meta.repo).toEqual(repoParts(session));
+    expect(meta.claudeAt).toEqual(claudeLocationParts(session));
+    expect(meta.hover).toBe(locationHover(session));
   });
 
-  it("appends the model's display name when present", () => {
-    const session = makeSession({
-      id: 1,
-      repo: { name: "muster", branch: "main", isWorktree: false },
-      model: { id: "claude-x", displayName: "Sonnet 5" },
+  const ended: Array<{
+    name: string;
+    session: Partial<Session>;
+    want: string | null;
+  }> = [
+    { name: "alive session: no ended clause", session: {}, want: null },
+    {
+      name: "dead with an endedAt: 'ended <age>'",
+      session: { alive: false, endedAt: "2026-08-21T23:54:00Z" }, // 6 minutes before NOW
+      want: "ended 6m ago",
+    },
+    {
+      name: "dead with no endedAt (defensive; alive:false always pairs with endedAt): no clause",
+      session: { alive: false, endedAt: null },
+      want: null,
+    },
+  ];
+  for (const { name, session, want } of ended) {
+    it(name, () => {
+      expect(mainheadMeta(makeSession({ id: 1, ...session }), NOW).ended).toBe(want);
     });
-    expect(mainheadMeta(session, NOW)).toBe("muster / main · Sonnet 5");
-  });
-
-  it("appends 'ended <age>' only once the session is dead and has an endedAt", () => {
-    const session = makeSession({
-      id: 1,
-      repo: null,
-      directory: "/Users/bob/code/muster",
-      model: { id: "claude-x", displayName: "Sonnet 5" },
-      alive: false,
-      endedAt: "2026-08-21T23:54:00Z", // 6 minutes before NOW
-    });
-    expect(mainheadMeta(session, NOW)).toBe("muster · Sonnet 5 · ended 6m ago");
-  });
-
-  it("omits the ended clause for a dead session with no endedAt (defensive; alive:false always pairs with endedAt), still appends 'unknown' for the null model", () => {
-    const session = makeSession({ id: 1, repo: null, alive: false, endedAt: null, model: null });
-    expect(mainheadMeta(session, NOW)).toBe("muster · unknown");
-  });
-
-  it("falls back to the directory basename when repo is null, same as repoLine, still appends 'unknown' for the null model", () => {
-    const session = makeSession({ id: 1, repo: null, directory: "/Users/bob/code/other" });
-    expect(mainheadMeta(session, NOW)).toBe("other · unknown");
-  });
+  }
 });
 
 describe("tileHeaderTimerText: alive ticks via formatTimer; dead shows the bare age, no 'ended' prefix", () => {
