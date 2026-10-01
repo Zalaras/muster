@@ -16,7 +16,8 @@ Top-level keys of every status-line post: `context_window`, `cost`, `cwd`,
 `exceeds_200k_tokens`, `fast_mode`, `model`, `output_style`, `prompt_id`, `rate_limits`,
 `session_id`, `session_name`, `thinking`, `transcript_path`, `version`, `workspace`. Added
 later, superset only: `scratchpad_dir` (2.1.259+), `prompt_cache` (first seen 2.1.267,
-contents uninspected, nothing reads it).
+contents uninspected, nothing reads it). Conditional, so absent from most posts: `effort`
+(kb:fact/status-line-effort-key) and `worktree` (kb:fact/enter-worktree-moves-project-dir).
 
 `permission_mode` is absent from every capture — read it from hooks. `rate_limits` is absent
 until the first API response (kb:fact/unknown-before-first-response) and `session_name` until a
