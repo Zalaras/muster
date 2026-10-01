@@ -16,8 +16,8 @@ import (
 	"github.com/Zalaras/muster/test/rig/failapi"
 )
 
-// Runs G–J: how a turn ends when it does not end normally, and when Claude Code waits on a
-// hook. G and H spend one haiku turn each; I and J point ANTHROPIC_BASE_URL at an in-test
+// Runs G–J and N: how a turn ends when it does not end normally, and when Claude Code waits
+// on a hook; N also moves the shell with `!cd`. G and H spend one haiku turn each; I and J point ANTHROPIC_BASE_URL at an in-test
 // fail server and spend nothing (kb:adr/canary-api-failures-induced-in-process). As in runs
 // A–F, a claude or tmux that will not run at all fails the build. A run that ran but did not
 // get what it waited for records that and returns nil, so it fails only the tests that read
@@ -80,6 +80,18 @@ type failedTurnRun struct {
 	promptAt        time.Time
 	fiveHourResets  int64 // injected -5h-reset
 	sevenDayResets  int64 // injected -7d-reset
+	err             error
+}
+
+// bangCdRun is what run N observed; TestCwdFollowsShellCd and
+// TestBangCommandFiresNoPromptSubmit read it. Both directories have their symlinks resolved
+// (/var is /private/var), as Claude Code reports them.
+type bangCdRun struct {
+	claudeSessionID string
+	repoDir         string    // the scratch repo: the launch directory
+	subDir          string    // <repo>/sub, where `!cd sub` moves the shell
+	cdSubAt         time.Time // when `!cd sub` was submitted
+	cdRootAt        time.Time // when `!cd /` was submitted
 	err             error
 }
 
@@ -251,4 +263,113 @@ func (f *fixture) runJ(ctx context.Context) error {
 	failedAt := f.firstHook(sessionFailedTurn, "StopFailure").at
 	_ = f.waitFor(10*time.Second, func() bool { return f.statusPostAfter(sessionFailedTurn, id, failedAt) != nil })
 	return nil
+}
+
+// runN types two `!` shell commands into an interactive session whose every API call fails,
+// so the follow-up turn each one starts spends nothing. `!cd sub` stays inside the project;
+// `!cd /` leaves it, which Claude Code resets to the project root
+// (kb:fact/cwd-follows-claude-mid-session). Each step waits for a status post at the
+// expected directory and for the failed turn's hook.
+func (f *fixture) runN(ctx context.Context) error {
+	if err := os.MkdirAll(filepath.Join(f.repo, "sub"), 0o755); err != nil {
+		return err
+	}
+	repo, err := filepath.EvalSymlinks(f.repo)
+	if err != nil {
+		return err
+	}
+	f.bangCd.repoDir = repo
+	f.bangCd.subDir = filepath.Join(repo, "sub")
+
+	srv := httptest.NewServer(failapi.Handler(failapi.Failure{
+		Status: http.StatusInternalServerError, Type: "api_error", Message: "canary-induced failure",
+	}))
+	defer srv.Close()
+
+	argv := claudecode.BuildArgv(claudeBin, claudecode.LaunchParams{Model: haikuModel, PermissionMode: "default"})
+	target, started, _, err := f.startInteractive(ctx, bangCdTmuxID, sessionBangCd, argv, failEnv(srv))
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.killPane(ctx, bangCdTmuxID) }()
+	if started == nil {
+		f.bangCd.err = fmt.Errorf("no SessionStart within 90s (run N)")
+		return nil
+	}
+	id := started.ev.SessionID
+	f.bangCd.claudeSessionID = id
+	if !f.waitFor(30*time.Second, func() bool { return len(f.statusPostsFor(sessionBangCd, id)) > 0 }) {
+		f.bangCd.err = fmt.Errorf("no startup status-line post within 30s")
+		return nil
+	}
+
+	steps := []struct {
+		cmd string
+		at  *time.Time
+		dir string
+	}{
+		{"cd sub", &f.bangCd.cdSubAt, f.bangCd.subDir},
+		{"cd /", &f.bangCd.cdRootAt, f.bangCd.repoDir},
+	}
+	for _, s := range steps {
+		*s.at = time.Now()
+		if err := f.bang(ctx, target, s.cmd); err != nil {
+			return err
+		}
+		from := *s.at
+		if !f.waitFor(15*time.Second, func() bool {
+			return f.statusPostAtDir(sessionBangCd, id, from, s.dir) != nil &&
+				len(f.hooksAfter(sessionBangCd, id, from)) > 0
+		}) {
+			f.bangCd.err = fmt.Errorf("`!%s`: no status post at %s and hook within 15s; hooks seen: %v",
+				s.cmd, s.dir, f.hookTypes(sessionBangCd))
+			return nil
+		}
+		f.settle(2 * time.Second)
+	}
+	return nil
+}
+
+// bang submits cmd as a `!` shell command: a lone `!` switches the prompt to shell mode, then
+// cmd is typed and submitted as a prompt is.
+func (f *fixture) bang(ctx context.Context, target, cmd string) error {
+	if err := f.sendKeys(ctx, target, "!"); err != nil {
+		return err
+	}
+	time.Sleep(500 * time.Millisecond)
+	return f.submit(ctx, target, cmd)
+}
+
+// statusPostAtDir is claudeID's first status post at or after from whose cwd resolves to dir.
+func (f *fixture) statusPostAtDir(session int64, claudeID string, from time.Time, dir string) *capture {
+	for _, c := range f.statusPostsFor(session, claudeID) {
+		if !c.at.Before(from) && sameDir(c.payload["cwd"], dir) {
+			c := c
+			return &c
+		}
+	}
+	return nil
+}
+
+// hooksAfter is claudeID's hooks, in arrival order, at or after from.
+func (f *fixture) hooksAfter(session int64, claudeID string, from time.Time) []capture {
+	var out []capture
+	for _, c := range f.hookEvents(session) {
+		if c.ev.SessionID == claudeID && !c.at.Before(from) {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// sameDir reports whether a payload's directory field names dir once symlinks are resolved.
+func sameDir(field any, dir string) bool {
+	s, ok := field.(string)
+	if !ok || s == "" {
+		return false
+	}
+	if resolved, err := filepath.EvalSymlinks(s); err == nil {
+		s = resolved
+	}
+	return filepath.Clean(s) == filepath.Clean(dir)
 }

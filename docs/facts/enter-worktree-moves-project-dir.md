@@ -7,10 +7,10 @@ summary: EnterWorktree moves cwd and project_dir into the worktree and adds a st
 features: [ingest, lifecycle]
 tags: [claude-code-format]
 files: []
-tests: []
+tests: [TestInstalledBinaryCarriesInterfaceStrings]
 refs: [test/rig/captures/capture-3.jsonl, kb:fact/cwd-changed-hook, kb:fact/worktree-flag-defaults]
-verified: 2.1.286..2.1.286
-guard: none
+verified: 2.1.286..canary
+guard: TestInstalledBinaryCarriesInterfaceStrings
 ---
 Claude's `EnterWorktree` tool (no `WorktreeCreate` hook configured) creates
 `<repo>/.claude/worktrees/<name>` on branch `worktree-<name>`. It then moves the session into
@@ -37,3 +37,5 @@ The bundle's status-line builder also has conditional `agent{name}`, `remote{ses
 
 Evidence: probe instance 3, 2026-10-01, sessions `8b5e8581` (enter + exit, tracked settings)
 and `f0f21860` (enter, local-only settings).
+
+The guard checks only that the worktree object's `original_cwd`/`original_branch` keys are still in the bundle. No canary run enters a worktree.

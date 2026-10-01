@@ -58,8 +58,10 @@ import (
 //	   ($MUSTER_SESSION=60 onward, one per row)                              (0 tokens)
 //	J  interactive against a fail server answering 429 with rate-limit headers
 //	   ($MUSTER_SESSION=52), one prompt that fails                           (0 tokens)
+//	N  interactive against a fail server ($MUSTER_SESSION=57): `!cd sub`, then `!cd /`
+//	   outside the project — each a shell command whose follow-up turn fails (0 tokens)
 //
-// Runs G–J live in harness_turns_test.go; K–M, the bypass and resume-defaults runs, in
+// Runs G–J and N live in harness_turns_test.go; K–M, the bypass and resume-defaults runs, in
 // harness_resume_test.go.
 //
 // Isolation: the scratch repo lives under os.MkdirTemp (/var/folders, outside ~/Documents
@@ -86,6 +88,7 @@ const (
 	sessionBypassWarning int64 = 54 // run K: interactive bypassPermissions, warning left unanswered
 	sessionResumeUnknown int64 = 55 // run L: --resume of an id with no transcript
 	sessionResumeBare    int64 = 56 // run M: resume of run D's id with no --model or --permission-mode
+	sessionBangCd        int64 = 57 // run N: `!cd` shell commands against a fail server
 	// sessionStopFailureBase is run I's first row; row i is sessionStopFailureBase+i.
 	sessionStopFailureBase int64 = 60
 
@@ -102,6 +105,7 @@ const (
 	failedTurnTmuxID        int64 = 96 // tmux session "muster-96" on the scratch socket: run J
 	bypassWarningTmuxID     int64 = 95 // tmux session "muster-95" on the scratch socket: run K
 	resumeBareTmuxID        int64 = 94 // tmux session "muster-94" on the scratch socket: run M
+	bangCdTmuxID            int64 = 93 // tmux session "muster-93" on the scratch socket: run N
 
 	// refreshIntervalSeconds is the one settings key the canary writes that production never
 	// does (kb:adr/canary-refresh-interval-key-canary-only): MergeSettings emits statusLine
@@ -222,6 +226,7 @@ type fixture struct {
 	bypassWarning bypassWarningRun // run K
 	resumeUnknown resumeUnknownRun // run L
 	resumeBare    resumeBareRun    // run M
+	bangCd        bangCdRun        // run N
 
 	tmuxClient *tmux.Client
 }
@@ -347,6 +352,7 @@ func (f *fixture) build() error {
 		{"run K (bypass warning left unanswered)", f.runK},
 		{"run L (resume of an unknown id)", f.runL},
 		{"run M (resume with no model or mode flag)", f.runM},
+		{"run N (`!cd` against a failing API)", f.runN},
 	}
 	for _, r := range runs {
 		if err := r.fn(ctx); err != nil {

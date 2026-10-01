@@ -7,10 +7,10 @@ summary: Hooks' cwd and the status line's cwd/current_dir follow a mid-session c
 features: [ingest, lifecycle]
 tags: [claude-code-format]
 files: []
-tests: []
+tests: [TestCwdFollowsShellCd]
 refs: [test/rig/captures/capture-3.jsonl, kb:fact/cwd-changed-hook, kb:fact/enter-worktree-moves-project-dir]
-verified: 2.1.286..2.1.286
-guard: none
+verified: 2.1.286..canary
+guard: TestCwdFollowsShellCd
 ---
 A session's working directory is not fixed at launch. After a `cd` — typed as a `!` shell
 command or run by Claude's own Bash tool — the next hooks (`PostToolUse`, `Stop`, …) carry the
@@ -33,3 +33,5 @@ that directory: an added directory can be a different repo.
 
 Evidence: probe instance 3, 2026-10-01, 2 interactive sessions (`50447df0`, `8b5e8581`): 3 in-project
 `cd`s, 2 outside-project resets, 1 `/add-dir` `cd` into a repo on branch `otherbranch`.
+
+The guard is canary run N: `!cd sub`, then `!cd /` against a failing API, at zero tokens. It asserts the in-project move and the reset. The `/add-dir` case is not guarded.

@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Views over runs G–J (harness_turns_test.go).
+// Views over runs G–J and N (harness_turns_test.go).
 
 // TestInterruptEmitsNoTurnEnd guards kb:fact/interrupt-emits-no-turn-end: Esc during a running
 // tool ends the turn with no hook at all, and no idle_prompt follows. This is why an
@@ -186,6 +186,68 @@ func TestStatusLineAroundFailedTurns(t *testing.T) {
 		assert.Equal(t, before.payload["context_window"], after.payload["context_window"])
 		t.Logf("first post %.2fs after StopFailure", after.at.Sub(failure.at).Seconds())
 	})
+}
+
+// TestCwdFollowsShellCd guards kb:fact/cwd-follows-claude-mid-session on run N. After
+// `!cd sub`, every hook and the status line's cwd and workspace.current_dir name the
+// subdirectory, while workspace.project_dir stays the launch directory. After `!cd /`, outside
+// the project, the shell is reset and both report the project root again. A card that keeps
+// the launch directory goes stale on exactly this (kb:adr/lifecycle-card-directory-follows-claude-cwd).
+func TestCwdFollowsShellCd(t *testing.T) {
+	f := harness(t)
+	r := f.bangCd
+	require.NoError(t, r.err, "run N did not complete")
+	id := r.claudeSessionID
+
+	t.Run("inside the project the cwd moves", func(t *testing.T) {
+		post := f.statusPostAtDir(sessionBangCd, id, r.cdSubAt, r.subDir)
+		require.NotNil(t, post, "no status post at the subdirectory after `!cd sub`")
+		ws, _ := post.payload["workspace"].(map[string]any)
+		require.NotNil(t, ws, "status post has no workspace object")
+		assert.True(t, sameDir(ws["current_dir"], r.subDir), "workspace.current_dir must follow the cd")
+		assert.True(t, sameDir(ws["project_dir"], r.repoDir), "workspace.project_dir must stay the launch directory")
+
+		hooks := hooksBefore(f.hooksAfter(sessionBangCd, id, r.cdSubAt), r.cdRootAt)
+		require.NotEmpty(t, hooks, "no hook between `!cd sub` and `!cd /`")
+		for _, c := range hooks {
+			assert.Truef(t, sameDir(c.payload["cwd"], r.subDir), "%s cwd must be the subdirectory", c.ev.Type)
+		}
+	})
+
+	t.Run("outside the project the shell is reset to the root", func(t *testing.T) {
+		require.NotNil(t, f.statusPostAtDir(sessionBangCd, id, r.cdRootAt, r.repoDir),
+			"no status post back at the project root after `!cd /`")
+		hooks := f.hooksAfter(sessionBangCd, id, r.cdRootAt)
+		require.NotEmpty(t, hooks, "no hook after `!cd /`")
+		for _, c := range hooks {
+			assert.Truef(t, sameDir(c.payload["cwd"], r.repoDir), "%s cwd must be the project root", c.ev.Type)
+		}
+	})
+}
+
+// TestBangCommandFiresNoPromptSubmit guards kb:fact/bang-command-turn-has-no-prompt-submit on
+// run N. Each `!` command starts a turn that ends with a hook, but no UserPromptSubmit opens
+// it, and the command itself fires no tool hooks. Run N's API always fails, so how the turn
+// ends is logged, never asserted; the fact's Stop was measured against a working API.
+func TestBangCommandFiresNoPromptSubmit(t *testing.T) {
+	f := harness(t)
+	require.NoError(t, f.bangCd.err, "run N did not complete")
+	types := eventTypes(f.hooksAfter(sessionBangCd, f.bangCd.claudeSessionID, f.bangCd.cdSubAt))
+	require.NotEmpty(t, types, "no hook after the first `!` command")
+	for _, event := range []string{"UserPromptSubmit", "PreToolUse", "PostToolUse"} {
+		assert.NotContainsf(t, types, event, "a `!` command must fire no %s", event)
+	}
+	t.Logf("hooks after the `!` commands: %v", types)
+}
+
+// hooksBefore is the prefix of hooks that arrived before t.
+func hooksBefore(hooks []capture, t time.Time) []capture {
+	for i, c := range hooks {
+		if !c.at.Before(t) {
+			return hooks[:i]
+		}
+	}
+	return hooks
 }
 
 // ---------------------------------------------------------------------------------------

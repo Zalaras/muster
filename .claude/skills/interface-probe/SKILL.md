@@ -56,7 +56,10 @@ Muster's and the developer's instructions. Captures still land in `test/rig/capt
 Idempotent — re-running rewrites settings/scripts, leaves the repo and captures
 alone. The generated settings register **every** hook event at the capture server
 (http, 2 s timeouts), plus a `type:"command"` wrapper for `SessionStart` (which
-silently never fires over http), plus the status line.
+silently never fires over http), plus the status line. Events added after 2.1.233 post twice,
+command at `/hook/<event>` and http at `/hook/<event>-http` — count one path per event.
+`WorktreeCreate`/`WorktreeRemove` are registered only with `MUSTER_PROBE_WORKTREE_HOOK=1`, since
+the server's empty 200 fails `--worktree` and `EnterWorktree` (kb:fact/worktree-create-hook-owns-path).
 
 ## 2. Start the capture server
 

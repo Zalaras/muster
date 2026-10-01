@@ -391,6 +391,23 @@ func TestStatusLineFields(t *testing.T) {
 	}
 	// permission_mode is NOT in the status line — read it from hooks instead.
 	assert.NotContains(t, keys(last), "permission_mode")
+	// effort appears only while the model supports it (kb:fact/status-line-effort-key), and
+	// Haiku 4.5 does not, so no Haiku post from any run may carry it.
+	haikuPosts := 0
+	for _, c := range f.all() {
+		if c.kind != claudecode.KindStatus {
+			continue
+		}
+		if m, _ := c.payload["model"].(map[string]any); m["id"] != haikuModel {
+			continue
+		}
+		haikuPosts++
+		if _, ok := c.payload["effort"]; ok {
+			t.Errorf("a Haiku status post carries effort %v; the key is model-gated", c.payload["effort"])
+			break
+		}
+	}
+	t.Logf("checked %d Haiku status posts for effort", haikuPosts)
 
 	rl, _ := last["rate_limits"].(map[string]any)
 	require.NotNil(t, rl, "rate_limits absent on the post-turn status line (%d posts captured)", len(posts))

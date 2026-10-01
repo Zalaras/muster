@@ -73,6 +73,23 @@ func TestInstalledBinaryCarriesInterfaceStrings(t *testing.T) {
 	needles["PostToolBatch hook event"] = "PostToolBatch"
 	needles["interrupt marker text"] = "[Request interrupted by user]"
 	needles["interrupt-for-tool-use marker text"] = "[Request interrupted by user for tool use]"
+	// The 2026-10-01 probe's surface that no canary run can drive. Production registers none
+	// of these hook events, and changing model or effort live means /model or /effort, which
+	// write ~/.claude/settings.json (kb:fact/slash-model-effort-write-user-settings). Presence
+	// only: kb:fact/cwd-changed-hook, kb:fact/model-switch-hooks,
+	// kb:fact/status-line-effort-key (the status-line builder's literal as minified in
+	// 2.1.286), kb:fact/enter-worktree-moves-project-dir, and the reset half of
+	// kb:fact/cwd-follows-claude-mid-session.
+	needles["CwdChanged hook event"] = "CwdChanged"
+	needles["CwdChanged old_cwd field"] = "old_cwd"
+	needles["CwdChanged new_cwd field"] = "new_cwd"
+	needles["PreModelSwitch hook event"] = "PreModelSwitch"
+	needles["PostModelSwitch hook event"] = "PostModelSwitch"
+	needles["model-switch requested_model field"] = "requested_model"
+	needles["status-line effort builder"] = "effort:{level:"
+	needles["status-line worktree original_branch"] = "original_branch"
+	needles["status-line worktree original_cwd"] = "original_cwd"
+	needles["shell cwd reset message"] = "Shell cwd was reset to"
 
 	misses, err := scanForNeedles(resolved, needles)
 	require.NoErrorf(t, err, "scanning %s", resolved)

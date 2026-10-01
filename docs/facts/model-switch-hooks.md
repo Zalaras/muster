@@ -7,10 +7,10 @@ summary: /model fires PreModelSwitch and PostModelSwitch (from_model, to_model, 
 features: [ingest, lifecycle, usage]
 tags: [claude-code-format]
 files: [internal/claudecode/status.go, internal/claudecode/interpret.go]
-tests: []
+tests: [TestInstalledBinaryCarriesInterfaceStrings]
 refs: [test/rig/captures/capture-3.jsonl, kb:fact/status-model-is-object, kb:fact/sessionstart-model-optional-string]
-verified: 2.1.286..2.1.286
-guard: none
+verified: 2.1.286..canary
+guard: TestInstalledBinaryCarriesInterfaceStrings
 ---
 A mid-session model change is reported two ways, with no prompt needed.
 
@@ -36,3 +36,5 @@ The bundle describes `PreModelSwitch` as covering "/model, model picker, set_mod
 
 Evidence: probe instance 3, 2026-10-01, sessions `c80dcde6` (haiku→sonnet) and `8b5e8581`
 (haiku→sonnet→haiku).
+
+The guard checks only that both events and `requested_model` are still in the bundle. A live check would need `/model`, which writes the user settings (kb:fact/slash-model-effort-write-user-settings).

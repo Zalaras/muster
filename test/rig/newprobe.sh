@@ -76,26 +76,46 @@ EOF
 chmod +x "$INST/hook-cmd.sh"
 
 # --- settings.json ------------------------------------------------------------
-# Every hook event the pinned binary supports, all pointed at the capture server.
+# Every hook event the 2.1.286 bundle lists (kb:fact/cwd-changed-hook), all pointed at the
+# capture server. WorktreeCreate/WorktreeRemove only with MUSTER_PROBE_WORKTREE_HOOK=1: a
+# WorktreeCreate hook takes --worktree and EnterWorktree over entirely, and the capture
+# server's empty 200 reads as "no worktree path", failing both
+# (kb:fact/worktree-create-hook-owns-path).
 # http timeouts are 2 s per the CLAUDE.md hard rule (a slow hook taxes every turn
 # by its timeout, additively). The SessionStart command wrapper keeps 10 s — it
 # fires once at startup, not per turn.
 write_settings() {
-python3 - "$1" "$BASE" "$INST/statusline.sh" "$INST/hook-cmd.sh" <<'PY'
+python3 - "$1" "$BASE" "$INST/statusline.sh" "$INST/hook-cmd.sh" "${MUSTER_PROBE_WORKTREE_HOOK:-}" <<'PY'
 import json, sys
-out, base, statusline, hookcmd = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+out, base, statusline, hookcmd, worktree_hook = sys.argv[1:6]
 
+# The original list: http only, at /hook/<event>.
 events = [
     "PreToolUse", "PostToolUse", "UserPromptSubmit", "SessionStart", "SessionEnd",
     "Stop", "StopFailure", "SubagentStop", "PreCompact", "Notification",
-    "PermissionRequest", "TeammateIdle", "TaskCompleted", "WorktreeCreate",
-    "WorktreeRemove",
+    "PermissionRequest", "TeammateIdle", "TaskCompleted",
+]
+if worktree_hook == "1":
+    events += ["WorktreeCreate", "WorktreeRemove"]
+# Added from the 2.1.286 bundle: a command wrapper at /hook/<event> AND http at
+# /hook/<event>-http, as SessionStart below, so an event that skips http shows as a missing
+# duplicate rather than a silent absence. Count one path per event when analysing.
+dual_events = [
+    "PostToolUseFailure", "PostToolBatch", "UserPromptExpansion", "SubagentStart",
+    "PostCompact", "PreModelSwitch", "PostModelSwitch", "PermissionDenied", "Setup",
+    "TaskCreated", "Elicitation", "ElicitationResult", "ConfigChange",
+    "InstructionsLoaded", "CwdChanged", "FileChanged", "DirectoryAdded", "MessageDisplay",
 ]
 
 hooks = {
     e: [{"hooks": [{"type": "http", "url": f"{base}/hook/{e}", "timeout": 2}]}]
     for e in events
 }
+for e in dual_events:
+    hooks[e] = [{"hooks": [
+        {"type": "http", "url": f"{base}/hook/{e}-http", "timeout": 2},
+        {"type": "command", "command": f"{hookcmd} {e}", "timeout": 10},
+    ]}]
 # SessionStart is command-only; http never fires. Keep both so a future version
 # that starts honouring http is visible as a duplicate rather than a gap.
 hooks["SessionStart"] = [{"hooks": [

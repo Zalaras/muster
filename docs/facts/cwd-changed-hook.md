@@ -7,10 +7,10 @@ summary: CwdChanged fires (http and command) after a shell cd with old_cwd/new_c
 features: [ingest]
 tags: [claude-code-format]
 files: []
-tests: []
+tests: [TestInstalledBinaryCarriesInterfaceStrings]
 refs: [test/rig/captures/capture-3.jsonl, kb:fact/cwd-follows-claude-mid-session]
-verified: 2.1.286..2.1.286
-guard: none
+verified: 2.1.286..canary
+guard: TestInstalledBinaryCarriesInterfaceStrings
 ---
 `CwdChanged` is a hook event: it reaches both an http hook and a `type:"command"` wrapper.
 The payload is the common set
@@ -48,3 +48,5 @@ DirectoryAdded MessageDisplay`. `DirectoryAdded` was registered and did not fire
 
 Evidence: probe instance 3, 2026-10-01, sessions `8b5e8581` and `f0f21860`: 3 `CwdChanged` per
 transport.
+
+The guard checks only that the event and its two fields are still in the bundle. Production registers no `CwdChanged` hook, so no canary run can observe it.
