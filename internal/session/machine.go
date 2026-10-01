@@ -46,11 +46,17 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 			text := truncate(*input.Prompt, 200)
 			sess.LastPrompt = &text
 		}
+		// Another agent's activity neither clears a permission wait nor leaves needs_input
+		// (INV-B, kb:adr/lifecycle-attention-owned-by-raising-agent): the latch and prompt
+		// adoption above already happened, nothing below does.
+		if sess.waitOwnedByOther(input.Agent) {
+			return
+		}
 		// kb:anchor/ws.session's attention-iff-needs_input / failure-iff-failed
 		// invariants are unconditional: every transitioning path here — whether the
 		// prompt was open or a subagent-marked closed prompt — clears both, so a stale
 		// permission wait or failure note never survives into the next working state.
-		sess.Attention = nil
+		sess.clearAttention()
 		sess.Failure = nil
 		sess.setState(sess.activeState(), now)
 
@@ -61,6 +67,11 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 		// A subagent-marked PermissionRequest for a closed prompt corroborates a
 		// background permission wait (measured 2.1.259) exactly like the open-prompt
 		// case — same transition, no prompt reopening.
+		// A Notification cannot name its agent, so a wait already raised keeps its owner;
+		// otherwise the raising event's own agent owns it.
+		if !input.AgentUnknown || sess.State != StateNeedsInput {
+			sess.AttentionAgent = input.Agent
+		}
 		sess.Attention = &Attention{Reason: "permission", Since: now}
 		// kb:anchor/ws.session's failure-iff-failed invariant is unconditional: this
 		// branch always transitions to needs_input, so a failure note carried over
@@ -70,9 +81,12 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 		sess.setState(StateNeedsInput, now)
 
 	case claudecode.KindNeedsInputIdle:
-		if promptID != nil && sess.promptClosed(*promptID) {
+		// An idle_prompt with no prompt id follows /clear and says nothing about the new
+		// conversation (kb:fact/clear-idle-prompt-carries-no-prompt-id): persist only.
+		if promptID == nil || sess.promptClosed(*promptID) {
 			return
 		}
+		sess.AttentionAgent = ""
 		sess.Attention = &Attention{Reason: "idle", Since: now}
 		// Same reasoning as KindNeedsInputPermission above — this branch is also
 		// reachable from failed (an unseen fresh prompt id when the preceding
@@ -81,23 +95,16 @@ func applyInput(sess *Session, claudeSessionID string, promptID *string, input c
 		sess.setState(StateNeedsInput, now)
 
 	case claudecode.KindTurnClosed:
-		latchPermissionMode(sess, input.PermissionMode)
-		if promptID != nil {
-			sess.closePrompt(*promptID)
-		}
-		sess.Attention = nil
-		sess.Failure = nil
-		if input.LastActivity != nil {
-			text := truncate(*input.LastActivity, 200)
-			sess.LastActivity = &text
-		}
-		sess.setState(StateIdle, now)
+		applyTurnClosed(sess, promptID, input, now)
+
+	case claudecode.KindTurnInterrupted:
+		applyTurnInterrupted(sess, promptID, now)
 
 	case claudecode.KindTurnFailed:
 		if promptID != nil {
 			sess.closePrompt(*promptID)
 		}
-		sess.Attention = nil
+		sess.clearAttention()
 		var errTok, msg string
 		if input.FailureError != nil {
 			errTok = *input.FailureError
@@ -158,13 +165,16 @@ func applyBind(sess *Session, claudeSessionID string, input claudecode.StateInpu
 	// reaches the escalation above) — may land on `started` while still carrying a
 	// previous turn's blocked-or-failed note. This reset covers both the clear-rebind
 	// and the plain re-bind path, not just clear-rebind.
-	sess.Attention = nil
+	sess.clearAttention()
 	sess.Failure = nil
 
 	if kind == claudecode.KindClearRebind {
 		sess.Compactions = 0
+		sess.BackgroundTasks = 0
 		sess.currentPromptID = ""
-		sess.closedPromptIDs = nil
+		// closedPromptIDs survives: prompt ids are unique per conversation, so the new
+		// conversation never collides with them, and keeping them lets a straggler
+		// idle_prompt from the old conversation read as already-closed.
 		// /clear starts a fresh conversation: LastActivity resets too — kb:anchor/ws.session: "null until
 		// a first Stop". This part is genuinely /clear-only semantics, unlike the
 		// attention/failure reset above.
@@ -191,6 +201,7 @@ func applyBind(sess *Session, claudeSessionID string, input claudecode.StateInpu
 	// that actually happened; a resume-bind hook that outraces or follows a pane's real
 	// death must never override that.
 	if kind == claudecode.KindResumeBind {
+		sess.BackgroundTasks = 0
 		sess.setState(StateIdle, now)
 		return
 	}
@@ -203,4 +214,44 @@ func latchPermissionMode(sess *Session, mode *string) {
 	}
 	sess.PermissionMode = PermissionMode(*mode)
 	sess.PermissionModeSource = "hook"
+}
+
+// applyTurnClosed applies a Stop: closes the prompt, captures the Stop's fields, and
+// goes idle unless a subagent's permission wait outlives the main turn. Callers hold
+// the manager's lock.
+func applyTurnClosed(sess *Session, promptID *string, input claudecode.StateInput, now time.Time) {
+	latchPermissionMode(sess, input.PermissionMode)
+	if promptID != nil {
+		sess.closePrompt(*promptID)
+	}
+	if input.LastActivity != nil {
+		text := truncate(*input.LastActivity, 200)
+		sess.LastActivity = &text
+	}
+	if input.BackgroundTasks != nil {
+		sess.BackgroundTasks = *input.BackgroundTasks
+	}
+	// The main turn ending does not end a wait a subagent raised: the prompt is closed
+	// and the Stop's fields captured, but the session stays in needs_input
+	// (kb:adr/lifecycle-attention-owned-by-raising-agent).
+	if sess.State == StateNeedsInput && sess.AttentionAgent != "" {
+		return
+	}
+	sess.clearAttention()
+	sess.Failure = nil
+	sess.setState(StateIdle, now)
+}
+
+// applyTurnInterrupted applies the transcript sweep's interrupt verdict. Only the
+// daemon's sweep produces this kind, and it decided on a snapshot: re-check under the
+// lock that the prompt is still the current one of an open turn. Callers hold the
+// manager's lock.
+func applyTurnInterrupted(sess *Session, promptID *string, now time.Time) {
+	if promptID == nil || sess.currentPromptID != *promptID || !sess.inOpenTurn() {
+		return
+	}
+	sess.closePrompt(*promptID)
+	sess.clearAttention()
+	sess.Failure = nil
+	sess.setState(StateIdle, now)
 }

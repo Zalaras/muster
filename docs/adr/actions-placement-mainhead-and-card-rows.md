@@ -1,7 +1,7 @@
 ---
 id: actions-placement-mainhead-and-card-rows
 type: decision
-status: accepted
+status: superseded
 date: 2026-08-27
 summary: End, Resume and Remove live in a mainhead above the focused terminal and in hover-revealed action rows on rail cards and tile footers, behind confirm dialogs.
 features: [actions, focus, rail, tiles]

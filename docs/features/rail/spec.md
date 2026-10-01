@@ -10,7 +10,7 @@ go: [internal/server/sessions*.go, internal/session/railorder*.go]
 web: [web/src/features/rail.ts, web/src/render/sessions*.ts, web/src/render/actionbutton*.ts, web/src/render/dragreorder*.ts, web/src/render/keyedreorder*.ts, web/src/sessions/card*.ts, web/src/sessions/railorder*.ts, web/src/sessions/reorder*.ts, web/src/sessions/format*.ts, web/src/sessions/paths*.ts, web/src/sessions/sort*.ts, web/src/dragmime*.ts]
 e2e: [web/e2e/rail-order.spec.ts, web/e2e/rail-cards.spec.ts, web/e2e/rail-unread.spec.ts, web/e2e/rail-layout.spec.ts, web/e2e/rail-activity.spec.ts, web/e2e/helpers/railorder.ts, web/e2e/helpers/railcards.ts]
 protocol: [sessions.pin, sessions.order]
-refs: [kb:adr/rail-user-owned-manual-order-default, kb:adr/rail-attention-order-your-turn-before-active, kb:adr/rail-order-daemon-owned-per-session-fields, kb:adr/rail-whole-card-drag-drop-decides-pin, kb:adr/rail-current-marker-means-shown-in-focus, kb:adr/focus-rail-click-focuses-terminal, kb:adr/usage-context-gauge-shows-tokens-and-compactions, kb:adr/drop-reorder-drag-mime-custom-type, kb:adr/rail-card-title-leads-and-density-ramp-corrected, kb:adr/rail-activity-line-turn-aware-default-with-pref, kb:adr/rail-unread-inferred-from-live-terminal-client, kb:adr/rail-unread-marker-neutral-dot, kb:adr/rail-card-title-foreground-token, kb:adr/launch-bypass-offered-with-danger-guardrails, docs/design/ux-flows.md, docs/design/design-system.md]
+refs: [kb:adr/rail-user-owned-manual-order-default, kb:adr/rail-attention-order-your-turn-before-active, kb:adr/rail-order-daemon-owned-per-session-fields, kb:adr/rail-whole-card-drag-drop-decides-pin, kb:adr/rail-current-marker-means-shown-in-focus, kb:adr/focus-rail-click-focuses-terminal, kb:adr/usage-context-gauge-shows-tokens-and-compactions, kb:adr/drop-reorder-drag-mime-custom-type, kb:adr/rail-card-title-leads-and-density-ramp-corrected, kb:adr/rail-activity-line-turn-aware-default-with-pref, kb:adr/rail-unread-inferred-from-live-terminal-client, kb:adr/rail-unread-marker-neutral-dot, kb:adr/rail-card-title-foreground-token, kb:adr/launch-bypass-offered-with-danger-guardrails, kb:adr/rail-live-card-offers-no-actions, docs/design/ux-flows.md, docs/design/design-system.md]
 ---
 The rail is the session list in the Focus view; the Tiles strip is the same list laid on
 its side (kb:spec/tiles). Every session has a card.
@@ -30,8 +30,9 @@ the title, in every state (kb:adr/launch-bypass-offered-with-danger-guardrails).
 A reason line still follows: the attention reason for `needs_input`, the raw error for `failed`, and the
 first-launch or no-signal note for `started` (docs/design/ux-flows.md "Rail card",
 "Degraded and honest states"). Unknown context renders the word unknown, never an empty
-gauge. A dead card greys out and offers Resume and Remove in its hover-revealed action row
-(kb:spec/actions). Cards render a static state summary, never a live terminal.
+gauge. While background work runs, `1 background task` (or `<n> background tasks`) is the card's last
+line. A live card offers no action button (kb:adr/rail-live-card-offers-no-actions); a dead card greys out and
+offers Resume and Remove in its hover-revealed action row (kb:spec/actions). Cards render a static state summary, never a live terminal.
 
 An idle session that finished a turn while no window had its terminal open is unread until
 one attaches — the daemon infers this from its terminal registry

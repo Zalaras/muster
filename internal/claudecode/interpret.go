@@ -25,6 +25,7 @@ const (
 	KindNeedsInputPermission InputKind = "needs_input_permission"
 	KindNeedsInputIdle       InputKind = "needs_input_idle"
 	KindTurnClosed           InputKind = "turn_closed"
+	KindTurnInterrupted      InputKind = "turn_interrupted"
 	KindTurnFailed           InputKind = "turn_failed"
 	KindCompaction           InputKind = "compaction"
 	KindDeathHint            InputKind = "death_hint"
@@ -64,6 +65,24 @@ type StateInput struct {
 	// internal/session sees only this neutral bool, never the marker's payload key name.
 	FromSubagent bool
 
+	// Agent is the subagent's opaque id when the payload carries the agent marker, "" for
+	// the main agent — derived for exactly the events FromSubagent is. It names who raised
+	// or performed the event, so the state machine can tell one subagent from another
+	// (kb:adr/lifecycle-attention-owned-by-raising-agent); never compared with a payload
+	// key, only with another Agent value.
+	Agent string
+
+	// AgentUnknown is true for an event that cannot say which agent it concerns — a
+	// Notification never carries the marker, so its empty Agent means "unknown", not
+	// "main". The state machine keeps the recorded owner of a permission wait rather than
+	// overwriting it with "".
+	AgentUnknown bool
+
+	// BackgroundTasks is a Stop's count of background_tasks entries still running; nil for
+	// every other event and for a Stop that carried no list (the count then stays as it was,
+	// kb:adr/lifecycle-background-tasks-count-not-state).
+	BackgroundTasks *int
+
 	// Prompt is a genuine user prompt's text, truncation left to internal/session
 	// (mirrors LastActivity): present only for a real prompt-submit turn-activity event
 	// whose text isn't the synthetic background-completion re-invocation
@@ -87,18 +106,18 @@ func Interpret(eventType string, payload []byte) StateInput {
 			Prompt         *string `json:"prompt"`
 		}
 		_ = json.Unmarshal(payload, &f)
-		in := StateInput{Kind: KindTurnActivity, PermissionMode: f.PermissionMode, FromSubagent: f.AgentID != nil}
+		in := StateInput{Kind: KindTurnActivity, PermissionMode: f.PermissionMode, FromSubagent: f.AgentID != nil, Agent: agentOf(f.AgentID)}
 		if f.Prompt != nil && !strings.HasPrefix(*f.Prompt, backgroundCompletionTag) {
 			in.Prompt = f.Prompt
 		}
 		return in
-	case "PreToolUse", "PostToolUse":
+	case "PreToolUse", "PostToolUse", "PostToolBatch":
 		var f struct {
 			PermissionMode *string `json:"permission_mode"`
 			AgentID        *string `json:"agent_id"`
 		}
 		_ = json.Unmarshal(payload, &f)
-		return StateInput{Kind: KindTurnActivity, PermissionMode: f.PermissionMode, FromSubagent: f.AgentID != nil}
+		return StateInput{Kind: KindTurnActivity, PermissionMode: f.PermissionMode, FromSubagent: f.AgentID != nil, Agent: agentOf(f.AgentID)}
 	case "Notification":
 		return interpretNotification(payload)
 	case "PermissionRequest":
@@ -107,14 +126,9 @@ func Interpret(eventType string, payload []byte) StateInput {
 			AgentID        *string `json:"agent_id"`
 		}
 		_ = json.Unmarshal(payload, &f)
-		return StateInput{Kind: KindNeedsInputPermission, PermissionMode: f.PermissionMode, FromSubagent: f.AgentID != nil}
+		return StateInput{Kind: KindNeedsInputPermission, PermissionMode: f.PermissionMode, FromSubagent: f.AgentID != nil, Agent: agentOf(f.AgentID)}
 	case "Stop":
-		var f struct {
-			PermissionMode       *string `json:"permission_mode"`
-			LastAssistantMessage *string `json:"last_assistant_message"`
-		}
-		_ = json.Unmarshal(payload, &f)
-		return StateInput{Kind: KindTurnClosed, PermissionMode: f.PermissionMode, LastActivity: f.LastAssistantMessage}
+		return interpretStop(payload)
 	case "StopFailure":
 		var f struct {
 			Error                string  `json:"error"`
@@ -139,6 +153,38 @@ func Interpret(eventType string, payload []byte) StateInput {
 		// (forward compatibility, kb:anchor/state.transitions's last row).
 		return StateInput{Kind: KindInert}
 	}
+}
+
+// interpretStop reads a Stop: the turn closing, plus the count of background tasks it
+// reports still running (kb:fact/background-tasks-field).
+func interpretStop(payload []byte) StateInput {
+	var f struct {
+		PermissionMode       *string `json:"permission_mode"`
+		LastAssistantMessage *string `json:"last_assistant_message"`
+		BackgroundTasks      *[]struct {
+			Status string `json:"status"`
+		} `json:"background_tasks"`
+	}
+	_ = json.Unmarshal(payload, &f)
+	in := StateInput{Kind: KindTurnClosed, PermissionMode: f.PermissionMode, LastActivity: f.LastAssistantMessage}
+	if f.BackgroundTasks != nil {
+		running := 0
+		for _, task := range *f.BackgroundTasks {
+			if task.Status == "running" {
+				running++
+			}
+		}
+		in.BackgroundTasks = &running
+	}
+	return in
+}
+
+// agentOf is the marker's opaque id, or "" when the payload carried no marker (main agent).
+func agentOf(id *string) string {
+	if id == nil {
+		return ""
+	}
+	return *id
 }
 
 func interpretSessionStart(payload []byte) StateInput {
@@ -192,7 +238,7 @@ func interpretNotification(payload []byte) StateInput {
 	_ = json.Unmarshal(payload, &f)
 	switch f.NotificationType {
 	case "permission_prompt":
-		return StateInput{Kind: KindNeedsInputPermission}
+		return StateInput{Kind: KindNeedsInputPermission, AgentUnknown: true}
 	case "idle_prompt":
 		return StateInput{Kind: KindNeedsInputIdle}
 	default:

@@ -107,7 +107,7 @@ func TestWrapperScriptsShellRoundTrip(t *testing.T) {
 
 	hookScript, statusLineScript, legacyScript, err := claudecode.WriteWrapperScripts(dataDir, hs.URL, testIngestToken)
 	require.NoError(t, err)
-	assert.Equal(t, filepath.Join(dataDir, "hook.sh"), hookScript, "REQ-5: one hook.sh serves all eleven events")
+	assert.Equal(t, filepath.Join(dataDir, "hook.sh"), hookScript, "REQ-5: one hook.sh serves every event")
 	assert.Equal(t, filepath.Join(dataDir, "hook-sessionstart.sh"), legacyScript)
 
 	merged, err := claudecode.MergeSettings(nil, claudecode.SettingsConfig{
@@ -131,7 +131,7 @@ func TestWrapperScriptsShellRoundTrip(t *testing.T) {
 	assert.Equal(t, "'"+hookScript+"'", hookCmd)
 	assert.Equal(t, "'"+statusLineScript+"'", statusLineCmd)
 
-	// REQ-1: every one of the eleven events carries the exact same command string —
+	// REQ-1: every registered event carries the exact same command string —
 	// spot-check a plain-HTTP-hook event too, not just SessionStart.
 	require.Len(t, doc.Hooks["PreToolUse"], 1)
 	require.Len(t, doc.Hooks["PreToolUse"][0].Hooks, 1)

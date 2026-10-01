@@ -678,7 +678,9 @@ test("action buttons are disabled while the daemon connection is down (E14)", as
     await expect(mainhead.getByRole("button", { name: "End" })).toBeDisabled();
     await expect(mainhead.getByRole("button", { name: "Resume" })).toBeDisabled();
     await expect(mainhead.getByRole("button", { name: "Remove" })).toBeDisabled();
-    await expect(card.getByRole("button", { name: "End" })).toBeDisabled();
+    // REQ-7 (plan status-inconsistencies): a live card offers no End at all, so there is
+    // nothing on it to disable — the mainhead's End above is the one that goes disabled.
+    await expect(card.getByRole("button", { name: "End" })).toHaveCount(0);
 
     await daemon.restart();
     await expect(banner).toBeHidden({ timeout: 15_000 });
@@ -961,73 +963,6 @@ test("a late resume SessionStart hook after End does not revive the session or o
     expect(tracker.totalOpened).toBe(1);
   } finally {
     await cleanup();
-  }
-});
-
-// Plan session-lifecycle — REQ-6 (kill-session on an already-gone tmux session is
-// success, not the undocumented 500 `end_failed` this plan closes). Fresh per-test
-// `daemon`: this kills a tmux window directly on the daemon's own socket, which would
-// corrupt any concurrently-running test sharing that process.
-//
-// A decoy session (A) is launched first and left as Focus's default
-// auto-focus-top-of-sort target, so the session under test (B) never gets an attached
-// terminal of its own. Measured directly (not assumed): an attached terminal's own PTY
-// bridge notices a killed window's EOF within ~60ms, well inside this test's own setup
-// time — a different (and already-covered, INV-5) path, not the "UI still believes
-// alive, the kill happens inside End itself" race this test targets. With no terminal
-// attached to B, it stays alive in the UI for multiple seconds after the kill (measured:
-// still alive past 3s), giving comfortable, non-racy room to click End on B's own rail
-// card before the ~5s poll would ever reach it.
-test("killing the pane then clicking End before the ~5s liveness poll notices shows no error and the card goes dead (E5)", async ({
-  page,
-  request,
-  daemon,
-}) => {
-  const [dirA, dirB] = await Promise.all([scratchDirectory(), scratchDirectory()]);
-  try {
-    await page.goto(daemon.dashboardUrl);
-    const sessionA = await launchSession(page, daemon, {
-      directory: dirA.path,
-      title: "decoy-focused-a5",
-    });
-    const sessionB = await launchSession(page, daemon, {
-      directory: dirB.path,
-      title: "end-race-e5",
-    });
-    await request.post(daemon.ingestURL("hook"), {
-      data: envelopedSessionStart("claude-end-race-e5-decoy", await envelopeOpts(sessionA, daemon)),
-    });
-
-    const cardB = sessionCard(page, "end-race-e5");
-    await expect(cardB).toBeVisible();
-
-    // Kill B's pane out from under the row, then click End immediately — well inside
-    // the ~5s liveness poll window, so it's End's OWN kill (not the poll) that
-    // discovers the pane is gone. Before REQ-6 this raced an undocumented 500
-    // `end_failed`; now KillSession treats "already gone" as success.
-    await daemon.killTmuxWindow(sessionB.tmuxTarget);
-
-    await cardB.getByRole("button", { name: "End" }).click();
-    const dialog = page.getByRole("dialog", { name: "End session?" });
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole("button", { name: "End session" }).click();
-    await expect(dialog).toBeHidden();
-
-    // REQ-17/W2: no failure surface — the action succeeded, it just found the pane
-    // already gone.
-    await expect(page.locator("#action-error")).toBeHidden();
-    await expect(cardB).toHaveClass(/ended/, { timeout: 15_000 });
-    await expect(cardB.getByText(/^ended /)).toBeVisible();
-
-    const state = await getState(page, daemon);
-    const found = findSession(state, sessionB.id);
-    expect(found.alive).toBe(false);
-    expect(found.endedAt).not.toBeNull();
-
-    // The decoy (A) is unaffected by B's End.
-    expect(await daemon.tmuxPaneExists(sessionA.tmuxTarget)).toBe(true);
-  } finally {
-    await Promise.all([dirA.cleanup(), dirB.cleanup()]);
   }
 });
 

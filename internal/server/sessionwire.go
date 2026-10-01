@@ -40,6 +40,9 @@ type sessionWire struct {
 	// Session object.
 	Unread     bool    `json:"unread"`
 	LastPrompt *string `json:"lastPrompt"`
+	// BackgroundTasks (kb:anchor/ws.session, kb:adr/lifecycle-background-tasks-count-not-state):
+	// the running background work the latest Stop reported; required key, 0 when none.
+	BackgroundTasks int `json:"backgroundTasks"`
 }
 
 type sessionWireAttention struct {
@@ -132,6 +135,7 @@ func toWireSession(s *session.Session) sessionWire {
 		Plan:            toWireSessionPlan(s),
 		Unread:          s.Unread,
 		LastPrompt:      s.LastPrompt,
+		BackgroundTasks: s.BackgroundTasks,
 		EndedAt:         wireTimePtr(s.EndedAt),
 	}
 

@@ -20,15 +20,29 @@
 // realism only (plan decision 3) — never asserted as a state input, only posted so the
 // `Stop` payload matches what a real background-work `Stop` actually carries.
 //
+// Plan status-inconsistencies adds E1-E4 at the bottom (REQ-1 through REQ-4, REQ-8): a
+// prompt-less idle_prompt changes nothing (kb:fact/clear-idle-prompt-carries-no-prompt-id),
+// PostToolBatch is turn activity (kb:fact/plan-feedback-emits-only-post-tool-batch), a
+// permission wait is cleared only by the agent that raised it
+// (kb:fact/subagent-hooks-during-permission-wait), and an interrupt, which emits no hook,
+// is read from the transcript the hooks name (kb:fact/interrupt-recorded-in-transcript).
+// Those tests assert new behaviour and were collection-only at authoring.
+//
 // One scratch daemon per file via fileDaemon(): every test launches its own titled
 // session into its own scratch directory and asserts only on that card.
 import { queryEvents } from "./helpers/db";
-import { expect, fileDaemon, test } from "./helpers/fixtures";
+import { expect, fileDaemon, settleFor, test } from "./helpers/fixtures";
+import { appendTranscriptLine, transcriptPathIn, writeTranscript } from "./helpers/interrupt";
 import {
   envelopedSessionStart,
+  interruptTranscriptLine,
+  rawExitPlanModePermissionRequest,
+  rawIdlePromptWithoutPromptId,
   rawNotification,
   rawPermissionRequest,
+  rawPostToolBatch,
   rawPostToolUse,
+  rawPreToolUse,
   rawStop,
   rawStopFailure,
   rawUserPromptSubmit,
@@ -261,6 +275,365 @@ test("subagent tool activity past the parent Stop keeps the card working, with s
     await expect(stateBadge(card)).toHaveText(/working/i);
     await request.post(daemon().ingestURL("hook"), { data: rawStop(claudeId, { promptId: "p2" }) });
     await expect(stateBadge(card)).toHaveText(/idle/i);
+  } finally {
+    await cleanup();
+  }
+});
+
+// Plan status-inconsistencies E1 (REQ-1, #57): after /clear Claude Code posts an idle_prompt
+// with no prompt_id; Muster used to read the missing id as an open turn and flip the card to
+// needs input.
+test("a prompt-less idle_prompt leaves an idle card idle with no attention (E1, REQ-1)", async ({
+  page,
+  request,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon().dashboardUrl);
+    const session = await launchSession(page, daemon(), { directory: dir, title: "status-e1" });
+    const card = sessionCard(page, "status-e1");
+    const claudeId = "claude-status-e1";
+
+    await request.post(daemon().ingestURL("hook"), {
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon())),
+    });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawUserPromptSubmit(claudeId, { promptId: "p1" }),
+    });
+    await request.post(daemon().ingestURL("hook"), { data: rawStop(claudeId, { promptId: "p1" }) });
+    await expect(stateBadge(card)).toHaveText(/idle/i);
+    const before = findSession(await getState(page, daemon()), session.id);
+
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawIdlePromptWithoutPromptId(claudeId),
+    });
+    // The event is persisted even though it changes nothing: wait for that, not a sleep.
+    await expect
+      .poll(async () => (await queryEvents(daemon().dbPath, claudeId)).length, {
+        message: "waiting for the prompt-less idle_prompt to be persisted",
+      })
+      .toBe(4); // SessionStart, UserPromptSubmit, Stop, Notification
+
+    await expect(stateBadge(card)).toHaveText(/idle/i);
+    await expect(card.getByText(/needs input/i)).toHaveCount(0);
+    const after = findSession(await getState(page, daemon()), session.id);
+    expect(after.state).toBe("idle");
+    expect(after.attention).toBeNull();
+    expect(after.failure).toBeNull();
+    expect(after.stateSince).toBe(before.stateSince);
+  } finally {
+    await cleanup();
+  }
+});
+
+// E2 (REQ-2, #32): rejecting a plan with feedback emits only PostToolBatch, so it has to
+// count as turn activity and take the wait to planning (the session is still in plan mode).
+test("an unmarked PostToolBatch moves a card waiting on ExitPlanMode from needs input to planning (E2, REQ-2)", async ({
+  page,
+  request,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon().dashboardUrl);
+    const session = await launchSession(page, daemon(), { directory: dir, title: "status-e2" });
+    const card = sessionCard(page, "status-e2");
+    const claudeId = "claude-status-e2";
+
+    await request.post(daemon().ingestURL("hook"), {
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon())),
+    });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawUserPromptSubmit(claudeId, { promptId: "p1", permissionMode: "plan" }),
+    });
+    await expect(stateBadge(card)).toHaveText(/planning/i);
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawPreToolUse(claudeId, { promptId: "p1" }),
+    });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawExitPlanModePermissionRequest(claudeId, "p1"),
+    });
+    await expect(stateBadge(card)).toHaveText(/needs input/i);
+    expect(findSession(await getState(page, daemon()), session.id).attention?.reason).toBe(
+      "permission",
+    );
+
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawPostToolBatch(claudeId, { promptId: "p1", permissionMode: "plan" }),
+    });
+    await expect(stateBadge(card)).toHaveText(/planning/i);
+    await expect(card.getByText(/needs input/i)).toHaveCount(0);
+    expect(findSession(await getState(page, daemon()), session.id).attention).toBeNull();
+  } finally {
+    await cleanup();
+  }
+});
+
+// E3 (REQ-3, #40): a background subagent keeps emitting tool hooks while the main agent
+// waits on a permission prompt; only the main agent's own activity ends that wait.
+test("subagent-marked tool activity leaves a main-agent permission wait on needs input, and the main agent's own PostToolUse then ends it (E3, REQ-3)", async ({
+  page,
+  request,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon().dashboardUrl);
+    const session = await launchSession(page, daemon(), { directory: dir, title: "status-e3" });
+    const card = sessionCard(page, "status-e3");
+    const claudeId = "claude-status-e3";
+
+    await request.post(daemon().ingestURL("hook"), {
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon())),
+    });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawUserPromptSubmit(claudeId, { promptId: "p1" }),
+    });
+    await request.post(daemon().ingestURL("hook"), { data: rawPermissionRequest(claudeId, "p1") });
+    await expect(stateBadge(card)).toHaveText(/needs input/i);
+    const waiting = findSession(await getState(page, daemon()), session.id);
+    const attentionSince = waiting.attention?.since;
+    expect(attentionSince).toBeTruthy();
+
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawPreToolUse(claudeId, {
+        promptId: "p1",
+        permissionMode: "default",
+        agentId: "agent-1",
+        toolName: "Read",
+      }),
+    });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawPostToolUse(claudeId, { promptId: "p1", agentId: "agent-1" }),
+    });
+    await expect
+      .poll(async () => (await queryEvents(daemon().dbPath, claudeId)).length, {
+        message: "waiting for the subagent's tool hooks to be persisted",
+      })
+      .toBe(5); // SessionStart, UserPromptSubmit, PermissionRequest, PreToolUse, PostToolUse
+
+    await expect(stateBadge(card)).toHaveText(/needs input/i);
+    const stillWaiting = findSession(await getState(page, daemon()), session.id);
+    expect(stillWaiting.state).toBe("needs_input");
+    expect(stillWaiting.attention?.reason).toBe("permission");
+    expect(stillWaiting.attention?.since).toBe(attentionSince);
+
+    // Control: the agent that raised the wait ends it, so the events above were applied
+    // rather than dropped.
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawPostToolUse(claudeId, { promptId: "p1" }),
+    });
+    await expect(stateBadge(card)).toHaveText(/working/i);
+    expect(findSession(await getState(page, daemon()), session.id).attention).toBeNull();
+  } finally {
+    await cleanup();
+  }
+});
+
+// REQ-3's other half: a wait raised by a subagent is ended by that subagent, and is not
+// ended by the main agent's unmarked activity or a second subagent's.
+test("a subagent-raised permission wait survives main-agent and second-subagent activity and ends on the owning subagent's PostToolUse (REQ-3, INV-B)", async ({
+  page,
+  request,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon().dashboardUrl);
+    const session = await launchSession(page, daemon(), { directory: dir, title: "status-e3b" });
+    const card = sessionCard(page, "status-e3b");
+    const claudeId = "claude-status-e3b";
+
+    await request.post(daemon().ingestURL("hook"), {
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon())),
+    });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawUserPromptSubmit(claudeId, { promptId: "p1" }),
+    });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawPermissionRequest(claudeId, "p1", { agentId: "agent-1" }),
+    });
+    await expect(stateBadge(card)).toHaveText(/needs input/i);
+
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawPostToolUse(claudeId, { promptId: "p1" }),
+    });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawPostToolUse(claudeId, { promptId: "p1", agentId: "agent-2" }),
+    });
+    await expect
+      .poll(async () => (await queryEvents(daemon().dbPath, claudeId)).length, {
+        message: "waiting for the other agents' PostToolUse hooks to be persisted",
+      })
+      .toBe(5); // SessionStart, UserPromptSubmit, PermissionRequest, PostToolUse x2
+    await expect(stateBadge(card)).toHaveText(/needs input/i);
+    const held = findSession(await getState(page, daemon()), session.id);
+    expect(held.state).toBe("needs_input");
+    expect(held.attention?.reason).toBe("permission");
+
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawPostToolUse(claudeId, { promptId: "p1", agentId: "agent-1" }),
+    });
+    await expect(stateBadge(card)).toHaveText(/working/i);
+    expect(findSession(await getState(page, daemon()), session.id).attention).toBeNull();
+  } finally {
+    await cleanup();
+  }
+});
+
+// REQ-8: the main turn ending does not answer a subagent's open prompt.
+test("a main Stop while a subagent owns the permission wait keeps needs input and its attention (REQ-8)", async ({
+  page,
+  request,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon().dashboardUrl);
+    const session = await launchSession(page, daemon(), { directory: dir, title: "status-req8" });
+    const card = sessionCard(page, "status-req8");
+    const claudeId = "claude-status-req8";
+
+    await request.post(daemon().ingestURL("hook"), {
+      data: envelopedSessionStart(claudeId, await envelopeOpts(session, daemon())),
+    });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawUserPromptSubmit(claudeId, { promptId: "p1" }),
+    });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawPermissionRequest(claudeId, "p1", { agentId: "agent-1" }),
+    });
+    await expect(stateBadge(card)).toHaveText(/needs input/i);
+
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawStop(claudeId, { promptId: "p1", backgroundTasks: [runningSubagentTask()] }),
+    });
+    await expect
+      .poll(async () => findSession(await getState(page, daemon()), session.id).backgroundTasks, {
+        message: "waiting for the Stop to be applied (it carries one running task)",
+      })
+      .toBe(1);
+    await expect(stateBadge(card)).toHaveText(/needs input/i);
+    const after = findSession(await getState(page, daemon()), session.id);
+    expect(after.state).toBe("needs_input");
+    expect(after.attention?.reason).toBe("permission");
+  } finally {
+    await cleanup();
+  }
+});
+
+// E4 (REQ-4, #59): Esc emits no hook at all; the daemon finds the interrupt in the
+// transcript the hooks name, on its ~5 s liveness-poll tick.
+test("a working card whose transcript gains an interrupt line for its current prompt reads idle within 10 s (E4, REQ-4)", async ({
+  page,
+  request,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon().dashboardUrl);
+    const session = await launchSession(page, daemon(), { directory: dir, title: "status-e4" });
+    const card = sessionCard(page, "status-e4");
+    const claudeId = "claude-status-e4";
+    const transcriptPath = transcriptPathIn(dir);
+
+    await request.post(daemon().ingestURL("hook"), {
+      data: envelopedSessionStart(claudeId, {
+        ...(await envelopeOpts(session, daemon())),
+        transcriptPath,
+      }),
+    });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawUserPromptSubmit(claudeId, { promptId: "p1", transcriptPath }),
+    });
+    await expect(stateBadge(card)).toHaveText(/working/i);
+    const working = findSession(await getState(page, daemon()), session.id);
+
+    await writeTranscript(transcriptPath, [interruptTranscriptLine("p1")]);
+
+    // Shortened from the 15 s default to the plan's own bound: one poll tick is ~5 s.
+    await expect(stateBadge(card)).toHaveText(/idle/i, { timeout: 10_000 });
+    const idle = findSession(await getState(page, daemon()), session.id);
+    expect(idle.state).toBe("idle");
+    expect(idle.attention).toBeNull();
+    expect(idle.failure).toBeNull();
+    expect(idle.lastActivity).toBe(working.lastActivity);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("declining a permission prompt, an interrupt for tool use, takes a needs input card to idle and clears its attention (E4, REQ-4)", async ({
+  page,
+  request,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon().dashboardUrl);
+    const session = await launchSession(page, daemon(), { directory: dir, title: "status-e4c" });
+    const card = sessionCard(page, "status-e4c");
+    const claudeId = "claude-status-e4c";
+    const transcriptPath = transcriptPathIn(dir);
+
+    await request.post(daemon().ingestURL("hook"), {
+      data: envelopedSessionStart(claudeId, {
+        ...(await envelopeOpts(session, daemon())),
+        transcriptPath,
+      }),
+    });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawUserPromptSubmit(claudeId, { promptId: "p1", transcriptPath }),
+    });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawPermissionRequest(claudeId, "p1", { transcriptPath }),
+    });
+    await expect(stateBadge(card)).toHaveText(/needs input/i);
+
+    await writeTranscript(transcriptPath, [interruptTranscriptLine("p1", true)]);
+
+    // Shortened from 15 s to the plan's 10 s bound for one ~5 s poll tick.
+    await expect(stateBadge(card)).toHaveText(/idle/i, { timeout: 10_000 });
+    const idle = findSession(await getState(page, daemon()), session.id);
+    expect(idle.attention).toBeNull();
+    expect(idle.failure).toBeNull();
+  } finally {
+    await cleanup();
+  }
+});
+
+// Edge case 7 (D8): an interrupt line for an older prompt is not the current turn's.
+test("an interrupt line for an older prompt id leaves a working card working until the current prompt's line arrives (REQ-4)", async ({
+  page,
+  request,
+}) => {
+  const { path: dir, cleanup } = await scratchDirectory();
+  try {
+    await page.goto(daemon().dashboardUrl);
+    const session = await launchSession(page, daemon(), { directory: dir, title: "status-e4d" });
+    const card = sessionCard(page, "status-e4d");
+    const claudeId = "claude-status-e4d";
+    const transcriptPath = transcriptPathIn(dir);
+
+    await request.post(daemon().ingestURL("hook"), {
+      data: envelopedSessionStart(claudeId, {
+        ...(await envelopeOpts(session, daemon())),
+        transcriptPath,
+      }),
+    });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawUserPromptSubmit(claudeId, { promptId: "p1", transcriptPath }),
+    });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawStop(claudeId, { promptId: "p1", transcriptPath }),
+    });
+    await request.post(daemon().ingestURL("hook"), {
+      data: rawUserPromptSubmit(claudeId, { promptId: "p2", transcriptPath }),
+    });
+    await expect(stateBadge(card)).toHaveText(/working/i);
+
+    await writeTranscript(transcriptPath, [interruptTranscriptLine("p1")]);
+    // A stays-unchanged hold over more than one ~5 s poll tick.
+    await settleFor(page, 6_000);
+    await expect(stateBadge(card)).toHaveText(/working/i);
+
+    await appendTranscriptLine(transcriptPath, interruptTranscriptLine("p2"));
+    // Shortened from 15 s to the plan's 10 s bound for one ~5 s poll tick.
+    await expect(stateBadge(card)).toHaveText(/idle/i, { timeout: 10_000 });
   } finally {
     await cleanup();
   }

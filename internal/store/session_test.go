@@ -515,3 +515,44 @@ func TestUpdateSession_ReaderFieldsRoundTrip(t *testing.T) {
 	require.NotNil(t, cleared.TranscriptPath, "clearing the plan must not touch the unrelated transcript column")
 	assert.Equal(t, transcript, *cleared.TranscriptPath)
 }
+
+// TestSession_TurnStateColumnsDefaultAndRoundTrip covers D12: background_tasks and
+// attention_agent default to 0 / NULL on a fresh row, round-trip a set value, and a
+// non-nil owner cleared back to nil (main agent / no wait) persists as NULL.
+func TestSession_TurnStateColumnsDefaultAndRoundTrip(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	repoID := seedTestRepo(t, st)
+
+	row, err := st.InsertSession(ctx, InsertSessionParams{RepoID: repoID, Directory: "/tmp/proj", PermissionMode: "default"})
+	require.NoError(t, err)
+	got, err := st.GetSession(ctx, row.ID)
+	require.NoError(t, err)
+	assert.Zero(t, got.BackgroundTasks, "fresh row: no background work")
+	assert.Nil(t, got.AttentionAgent, "fresh row: no wait owner")
+
+	agent := "agent-a7f3"
+	row.BackgroundTasks = 3
+	row.AttentionAgent = &agent
+	require.NoError(t, st.UpdateSession(ctx, row))
+
+	got, err = st.GetSession(ctx, row.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 3, got.BackgroundTasks)
+	require.NotNil(t, got.AttentionAgent)
+	assert.Equal(t, agent, *got.AttentionAgent)
+
+	listed, err := st.ListSessions(ctx)
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	assert.Equal(t, 3, listed[0].BackgroundTasks, "the list path scans the same columns")
+	require.NotNil(t, listed[0].AttentionAgent)
+
+	row.BackgroundTasks = 0
+	row.AttentionAgent = nil
+	require.NoError(t, st.UpdateSession(ctx, row))
+	got, err = st.GetSession(ctx, row.ID)
+	require.NoError(t, err)
+	assert.Zero(t, got.BackgroundTasks)
+	assert.Nil(t, got.AttentionAgent)
+}

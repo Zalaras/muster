@@ -65,6 +65,14 @@ func TestInstalledBinaryCarriesInterfaceStrings(t *testing.T) {
 	needles["model catalog sentence"] = "isn't described by this version's model catalog"
 	needles["--bare flag"] = "--bare"
 	needles["--no-session-persistence flag"] = "--no-session-persistence"
+	// REQ-9 (status-inconsistencies): the hook event and the two transcript marker texts the
+	// turn-state fixes depend on — internal/claudecode's own literals (the hook list and the
+	// marker prefix are unexported), mirrored for the same reason.
+	// A rename silently breaks plan-feedback recovery (kb:fact/plan-feedback-emits-only-post-tool-batch)
+	// and interrupt detection (kb:fact/interrupt-recorded-in-transcript).
+	needles["PostToolBatch hook event"] = "PostToolBatch"
+	needles["interrupt marker text"] = "[Request interrupted by user]"
+	needles["interrupt-for-tool-use marker text"] = "[Request interrupted by user for tool use]"
 
 	misses, err := scanForNeedles(resolved, needles)
 	require.NoErrorf(t, err, "scanning %s", resolved)

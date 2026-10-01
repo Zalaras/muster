@@ -80,7 +80,7 @@ C4Component
     Rel(cmd, server, "constructs, serves")
     Rel(cmd, store, "opens")
     Rel(cmd, tmuxpkg, "preflight")
-    Rel(cmd, cc, "wrapper scripts, version")
+    Rel(cmd, cc, "wrapper scripts, version, interrupt checker")
     Rel(cmd, webui, "serves")
     Rel(cmd, locate, "constructs")
     Rel(cmd, selfupd, "classifies, re-execs")

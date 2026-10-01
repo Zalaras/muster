@@ -2073,3 +2073,48 @@ three came from the cleanup. #54's entry stays in `TODO.md` as a watch entry unt
   it back until the permissions UI (§3.4, in the order above) supplies guardrails, so it lands
   with or after that.
   ✅ done 2026-09-28 (plan `resume-and-dangerously-allow`): a fifth Start-in mode with danger guardrails (warning line, `Launch without checks`, a `bypass` chip), never restored as a default (kb:adr/launch-bypass-offered-with-danger-guardrails).
+
+## Together — Needs Input transitions and turn-state gaps (#32, #40, #57, #59, #60, #64) ✅ done 2026-10-01 (plan `status-inconsistencies`, via `/orchestrate`; all three review parts approved in cycle 2)
+
+### Together — Needs Input state transitions (#32, #40, #57)
+
+- [x] **Stuck on needs input** ([#32](https://github.com/Zalaras/muster/issues/32)) — after suggesting changes to a plan the session stayed on Needs
+  Input until the first response came back, only then flipping to Planning.
+  ✅ done 2026-10-01 (plan `status-inconsistencies`): feedback on a plan fires only `PostToolBatch`, which Muster now registers as turn activity, so the card moves to Planning at once (kb:fact/plan-feedback-emits-only-post-tool-batch).
+
+- [x] **Needs Input disappears while giving input** ([#40](https://github.com/Zalaras/muster/issues/40)) — answering a run of Claude questions
+  flips the state back to Planning after the first one, while more remain and Claude is idle.
+  ✅ done 2026-10-01 (plan `status-inconsistencies`): answering a question fires nothing; the flip came from a background subagent's hooks. A wait now ends only on activity from the agent that raised it (kb:adr/lifecycle-attention-owned-by-raising-agent).
+
+- [x] **Needs Input is shown on /clear** ([#57](https://github.com/Zalaras/muster/issues/57)) — running `/clear` puts the card on
+  Needs Input. A freshly cleared session should read idle.
+  ✅ done 2026-10-01 (plan `status-inconsistencies`): the idle notice that follows `/clear` carries no prompt id and now changes nothing (kb:fact/clear-idle-prompt-carries-no-prompt-id).
+
+### Together — turn-state gaps (#59, #60, #64)
+
+The first two were filed by the developer 2026-09-23 from the interface probe that settled the
+hook-ordering, `StopFailure` and status-line open questions; #59 is the probe's interrupt gap,
+since reported from real use.
+
+- [x] **A background subagent clears a main-agent permission wait** — while the main agent
+  waits on a permission prompt and a background subagent is still working, the card leaves
+  Needs Input and can sit on `working` with the permission dialog on screen until it is
+  answered.
+  ✅ done 2026-10-01 (plan `status-inconsistencies`): subagent activity no longer ends a main-agent wait, and a main Stop keeps a subagent's wait (kb:adr/lifecycle-attention-owned-by-raising-agent).
+
+- [x] **Interrupt from me still shows working in rail card** ([#59](https://github.com/Zalaras/muster/issues/59)) — after Esc
+  interrupts a turn, the card reads `working` until the next prompt. It should leave `working`
+  when the interrupt lands.
+  ✅ done 2026-10-01 (plan `status-inconsistencies`): an interrupt emits no hook; the daemon reads the transcript's interrupt line each poll tick and lands `idle` within ~5 s, also for Esc or No on a permission prompt (kb:adr/lifecycle-interrupt-read-from-transcript).
+
+- [x] **Running a command in Claude does not change the status from IDLE** ([#60](https://github.com/Zalaras/muster/issues/60)) — while
+  a command is still running in the Claude session, the card reads idle. It should show that
+  something is running: `working`, or a new status. If the command is a backgrounded shell,
+  kb:adr/lifecycle-subagent-marked-events-not-stragglers accepted idle for that case and would
+  need superseding first.
+  ✅ done 2026-10-01 (plan `status-inconsistencies`): the card stays `idle` and shows `1 background task` (or `<n> background tasks`) as its last line while the latest Stop reports background work running (kb:adr/lifecycle-background-tasks-count-not-state).
+
+- [x] **IDLE while working** ([#64](https://github.com/Zalaras/muster/issues/64)) — once a
+  subagent finished, the card went idle while the main agent kept working. It should stay
+  `working` until the main agent's turn ends.
+  ✅ done 2026-10-01 (plan `status-inconsistencies`): unable to reproduce on 2.1.285 (probe 2026-09-30, kb:fact/agent-tool-async-by-default; the events were on another machine); closed with the turn-state work.

@@ -28,8 +28,8 @@ If no arguments are provided, ask the developer for a plan name and description.
 Work through the sections below with the developer as a conversation, not a dump: ask clarifying
 questions, propose approaches, and get confirmation before moving on.
 
-- Open the code before asserting current behaviour or patterns, and cite actual file paths, not
-  hypothetical ones.
+- Open the code before asserting current behaviour, an edge case's "because" included, and cite
+  real file paths.
 - When the description or the spec is vague on a point, ask pointed questions rather than guessing.
 - Save the plan file after each major section so progress isn't lost.
 - The plan stays `draft` until the developer explicitly approves it.
@@ -451,12 +451,12 @@ When the developer explicitly approves the plan, in this order:
 1. Run `.claude/skills/orchestrate/scripts/plan-lint.sh <plan-name>` and fix every `FAIL` first.
 2. Mark the plan's `**Status**` `approved`.
 3. Merge the Protocol Contract delta into `docs/protocol.md` under the anchors of the plan's
-   `**Features**`, add each new file's glob to its feature spec's frontmatter, and let `make gen-kb`
+   `**Features**`, and let `make gen-kb`
    (step 5) regenerate `docs/features/<f>/contract.md` — both agents code against it.
 4. Write each decision the plan makes as a `status: proposed` ADR in `docs/adr/`
    (`refs: [plan:<plan-name>]`, one decision each).
 5. `make gen-kb && make check-kb`.
-6. Close with the two commands that come next, verbatim: `make worktree NAME=<plan-name>` from this
+6. Hand the developer the next two commands, verbatim: `make worktree NAME=<plan-name>` from this
    primary checkout (it commits these planning edits onto `plan/<plan-name>` and builds
    `../muster-<plan-name>`), then start the `/orchestrate <plan-name>` session **in that directory** —
    orchestrate pre-flight refuses to run anywhere else (kb:adr/process-pipeline-runs-in-sibling-worktree).

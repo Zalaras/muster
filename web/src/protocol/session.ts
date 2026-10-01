@@ -102,6 +102,9 @@ export interface Session {
   permissionMode: PermissionModeInfo;
   context: SessionContext;
   lastActivity: string | null;
+  // kb:anchor/ws.session: background tasks (subagents, backgrounded shells) the latest Stop
+  // reported running. Display-only; the UI hides it for a dead session.
+  backgroundTasks: number;
   claudeSessionId: string | null;
   tmuxTarget: string;
   // kb:anchor/ws.session: true iff the launch created this directory's repo row —
@@ -246,6 +249,7 @@ export function parseSession(value: unknown): Session | null {
   const rawRepo = value["repo"];
   const rawModel = value["model"];
   const lastActivity = value["lastActivity"];
+  const backgroundTasks = value["backgroundTasks"];
   const claudeSessionId = value["claudeSessionId"];
   const tmuxTarget = value["tmuxTarget"];
   const firstLaunchHere = value["firstLaunchHere"];
@@ -285,6 +289,13 @@ export function parseSession(value: unknown): Session | null {
   if (!context) return null;
 
   if (lastActivity !== null && typeof lastActivity !== "string") return null;
+  // Range-checked, unlike compactions/railPos: kb:anchor/ws.session types this "integer >= 0", so a bad count is a wire error, not a value to render.
+  if (
+    typeof backgroundTasks !== "number" ||
+    !Number.isInteger(backgroundTasks) ||
+    backgroundTasks < 0
+  )
+    return null;
   if (claudeSessionId !== null && typeof claudeSessionId !== "string") return null;
   if (typeof tmuxTarget !== "string") return null;
   if (typeof firstLaunchHere !== "boolean") return null;
@@ -314,6 +325,7 @@ export function parseSession(value: unknown): Session | null {
     permissionMode,
     context,
     lastActivity,
+    backgroundTasks,
     claudeSessionId,
     tmuxTarget,
     firstLaunchHere,

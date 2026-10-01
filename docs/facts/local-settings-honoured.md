@@ -7,7 +7,7 @@ summary: Project-scoped .claude/settings.json and settings.local.json alone each
 features: [launch, ingest]
 tags: [claude-code-format, security]
 files: [internal/claudecode/settings.go]
-tests: [TestMergeSettings_FreshFileRegistersCommandEntryOnAllElevenEvents]
+tests: [TestMergeSettings_FreshFileRegistersCommandEntryOnAllTwelveEvents]
 refs: [spikes/FINDINGS.md]
 verified: 2.1.237..canary
 guard: TestLocalSettingsHonoured

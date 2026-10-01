@@ -105,6 +105,13 @@ type SessionRow struct {
 	// display-only, never read by the state machine.
 	Unread     bool
 	LastPrompt *string
+
+	// BackgroundTasks (kb:adr/lifecycle-background-tasks-count-not-state) is the running
+	// background work the latest Stop reported; AttentionAgent is the subagent id that
+	// raised the current wait, NULL for the main agent or no wait. Neither is read by
+	// anything but the state machine's own persistence round trip and the wire.
+	BackgroundTasks int
+	AttentionAgent  *string
 }
 
 // InsertSessionParams seeds a new session row: state "started", the permission-mode
@@ -280,7 +287,7 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 			context_used_pct = ?, context_total_input_tokens = ?, context_window_size = ?,
 			last_snapshot = ?, last_snapshot_at = ?, pinned = ?, rail_pos = ?, title_override = ?,
 			transcript_file = ?, plan_path = ?, plan_exists = ?, unread = ?, last_prompt = ?,
-			pending_resume_claude_session_id = ?
+			pending_resume_claude_session_id = ?, background_tasks = ?, attention_agent = ?
 		WHERE id = ?
 	`,
 		row.TmuxTarget, row.TmuxPane, row.ClaudeSessionID, row.Directory, row.Branch,
@@ -291,7 +298,7 @@ func (s *Store) UpdateSession(ctx context.Context, row SessionRow) error {
 		row.ContextUsedPct, row.ContextTotalInputTokens, row.ContextWindowSize,
 		row.LastSnapshot, lastSnapshotAt, boolToInt(row.Pinned), row.RailPos, row.TitleOverride,
 		row.TranscriptPath, row.PlanPath, boolToInt(row.PlanExists), boolToInt(row.Unread), row.LastPrompt,
-		row.PendingResumeClaudeSessionID,
+		row.PendingResumeClaudeSessionID, row.BackgroundTasks, row.AttentionAgent,
 		row.ID,
 	)
 	if err != nil {
@@ -308,7 +315,7 @@ const sessionColumns = `
 	context_used_pct, context_total_input_tokens, context_window_size,
 	last_snapshot, last_snapshot_at, pinned, rail_pos, title_override,
 	transcript_file, plan_path, plan_exists, unread, last_prompt,
-	pending_resume_claude_session_id
+	pending_resume_claude_session_id, background_tasks, attention_agent
 `
 
 func (s *Store) GetSession(ctx context.Context, id int64) (SessionRow, error) {
@@ -390,7 +397,7 @@ func (s *Store) scanSession(row rowScanner) (SessionRow, error) {
 		&r.ContextUsedPct, &r.ContextTotalInputTokens, &r.ContextWindowSize,
 		&r.LastSnapshot, &lastSnapshotAt, &pinned, &r.RailPos, &r.TitleOverride,
 		&r.TranscriptPath, &r.PlanPath, &planExists, &unread, &r.LastPrompt,
-		&r.PendingResumeClaudeSessionID,
+		&r.PendingResumeClaudeSessionID, &r.BackgroundTasks, &r.AttentionAgent,
 	); err != nil {
 		return SessionRow{}, err
 	}

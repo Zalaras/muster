@@ -21,7 +21,7 @@ the JSON the wrapper scripts post; everything Claude-Code-shaped is parsed insid
 
 | Signal | Source |
 |---|---|
-| Session lifecycle | `SessionStart`, `Stop`, `StopFailure`, `SessionEnd`, `Notification` (`permission_prompt`, `idle_prompt`), `PermissionRequest`, `PreCompact`; tool hooks as turn activity (kb:fact/hook-payload-fields) |
+| Session lifecycle | `SessionStart`, `Stop`, `StopFailure`, `SessionEnd`, `Notification` (`permission_prompt`, `idle_prompt`), `PermissionRequest`, `PreCompact`, `SubagentStop`; `PreToolUse`, `PostToolUse` and `PostToolBatch` as turn activity (kb:fact/hook-payload-fields) |
 | Permission mode | `permission_mode` from the hook events that carry it, latched forward (kb:fact/permission-mode-presence-split); absent from the status line (kb:fact/status-line-keys) |
 | Failed and its reason | `StopFailure` with its typed `error` (kb:fact/stopfailure-error-taxonomy) |
 | Context, model, title, account usage | the status-line payload, posted by the status-line script |
@@ -29,7 +29,7 @@ the JSON the wrapper scripts post; everything Claude-Code-shaped is parsed insid
 
 ## Transport
 
-Every hook and the status line is a `type:"command"` wrapper script that posts its stdin
+Every hook (twelve events registered, `PostToolBatch` among them) and the status line is a `type:"command"` wrapper script that posts its stdin
 and exits 0 silently when the session is unmanaged or the daemon is unreachable
 (kb:adr/ingest-all-hooks-command-wrappers, kb:adr/ingest-sessionstart-command-wrapper,
 kb:fact/sessionstart-not-over-http). Muster writes no `type:"http"` entries and no

@@ -149,6 +149,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     permissionMode: { value: "default", source: "seed" },
     context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
     lastActivity: null,
+    backgroundTasks: 0,
     claudeSessionId: "claude-sess",
     tmuxTarget: "muster:@1",
     firstLaunchHere: false,

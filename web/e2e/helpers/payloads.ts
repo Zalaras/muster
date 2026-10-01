@@ -295,12 +295,12 @@ export function rawNotification(
 export function rawPermissionRequest(
   sessionId: string,
   promptId: string,
-  opts: { agentId?: string } = {},
+  opts: { agentId?: string; transcriptPath?: string } = {},
 ): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     hook_event_name: "PermissionRequest",
     session_id: sessionId,
-    transcript_path: "/tmp/t.jsonl",
+    transcript_path: opts.transcriptPath ?? "/tmp/t.jsonl",
     cwd: "/tmp",
     prompt_id: promptId,
     permission_mode: "default",
@@ -318,9 +318,10 @@ export function rawPermissionRequest(
 interface StopOpts extends TurnActivityOpts {
   lastAssistantMessage?: string;
   /**
-   * `background_tasks` is fixture realism for the E2E specs only, never a state input —
-   * a `Stop` with a non-empty list still lands `idle`, and only the first marked
-   * subagent hook returns the session to `working`. Defaults to `[]`. Use
+   * `background_tasks` never drives state — a `Stop` with a non-empty list still lands
+   * `idle`, and only the first marked subagent hook returns the session to `working`.
+   * Plan status-inconsistencies REQ-5: the daemon counts its `status:"running"` entries
+   * onto `Session.backgroundTasks`, which the card shows. Defaults to `[]`. Use
    * `runningSubagentTask()` / `runningShellTask()` for the measured non-empty entry shapes.
    */
   backgroundTasks?: unknown[];
@@ -333,11 +334,12 @@ export function rawStop(sessionId: string, opts: StopOpts = {}): Record<string, 
     permissionMode = "default",
     lastAssistantMessage = "hi",
     backgroundTasks = [],
+    transcriptPath = "/tmp/t.jsonl",
   } = opts;
   return {
     hook_event_name: "Stop",
     session_id: sessionId,
-    transcript_path: "/tmp/t.jsonl",
+    transcript_path: transcriptPath,
     cwd: "/tmp",
     prompt_id: promptId,
     permission_mode: permissionMode,
@@ -399,6 +401,104 @@ export function rawStopFailure(
     prompt_id: promptId,
     error,
     last_assistant_message: lastAssistantMessage,
+  };
+}
+
+/**
+ * Raw `PostToolBatch` (kb:fact/plan-feedback-emits-only-post-tool-batch): keys `cwd`,
+ * `hook_event_name`, `permission_mode`, `prompt_id`, `scratchpad_dir`, `session_id`,
+ * `tool_calls`, `transcript_path`; a subagent's also carries `agent_id` (3 of 3). Muster
+ * never reads `tool_calls`, and the fact does not record its element shape, so it is sent
+ * empty (needs an /interface-probe before any spec may assert on its contents).
+ */
+export function rawPostToolBatch(
+  sessionId: string,
+  opts: TurnActivityOpts = {},
+): Record<string, unknown> {
+  const {
+    promptId = "p1",
+    permissionMode = "default",
+    agentId,
+    transcriptPath = "/tmp/t.jsonl",
+  } = opts;
+  const payload: Record<string, unknown> = {
+    hook_event_name: "PostToolBatch",
+    session_id: sessionId,
+    transcript_path: transcriptPath,
+    cwd: "/tmp",
+    scratchpad_dir: "/tmp/scratchpad",
+    prompt_id: promptId,
+    permission_mode: permissionMode,
+    tool_calls: [],
+  };
+  if (agentId !== undefined) {
+    payload.agent_id = agentId;
+    payload.agent_type = "general-purpose";
+  }
+  return payload;
+}
+
+/**
+ * Raw `PermissionRequest` for `ExitPlanMode` in plan mode: the measured key set on this
+ * request has no `permission_suggestions` (kb:fact/permission-suggestions-optional) and
+ * its `permission_mode` is `plan` (kb:fact/plan-mode-hook-sequence).
+ */
+export function rawExitPlanModePermissionRequest(
+  sessionId: string,
+  promptId: string,
+): Record<string, unknown> {
+  return {
+    hook_event_name: "PermissionRequest",
+    session_id: sessionId,
+    transcript_path: "/tmp/t.jsonl",
+    cwd: "/tmp",
+    scratchpad_dir: "/tmp/scratchpad",
+    prompt_id: promptId,
+    permission_mode: "plan",
+    tool_name: "ExitPlanMode",
+    tool_input: {},
+  };
+}
+
+/**
+ * Raw `idle_prompt` Notification as it arrives after `/clear`: `hook_event_name`,
+ * `message`, `notification_type`, `session_id` and nothing else — no `prompt_id` key, no
+ * `transcript_path`, no `cwd` (kb:fact/clear-idle-prompt-carries-no-prompt-id).
+ */
+export function rawIdlePromptWithoutPromptId(sessionId: string): Record<string, unknown> {
+  return {
+    hook_event_name: "Notification",
+    session_id: sessionId,
+    notification_type: "idle_prompt",
+    message: "Claude is waiting for your input",
+  };
+}
+
+/**
+ * The transcript line Claude Code writes when the user interrupts a turn: `type:"user"`,
+ * `promptId` the turn's `prompt_id`, and a text content block reading exactly
+ * `[Request interrupted by user]` (mid-stream) or `[Request interrupted by user for tool
+ * use]`. Measured: all four interrupt lines in the probe instance's own transcripts are `{type:"user", promptId, message:{role:"user", content:[{type:"text",
+ * text}]}}` (kb:fact/interrupt-recorded-in-transcript).
+ */
+export function interruptTranscriptLine(
+  promptId: string,
+  forToolUse = false,
+): Record<string, unknown> {
+  return {
+    type: "user",
+    promptId,
+    message: {
+      role: "user",
+      content: [
+        {
+          type: "text",
+          text: forToolUse
+            ? "[Request interrupted by user for tool use]"
+            : "[Request interrupted by user]",
+        },
+      ],
+    },
   };
 }
 

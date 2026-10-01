@@ -27,7 +27,8 @@ Claude Code never addresses musterd itself. musterd launches it inside a new tmu
 with the Muster session id in the pane environment; on every hook and status-line refresh
 Claude Code runs a wrapper script from the data directory, and that script posts the JSON
 to the ingest endpoints with curl, the ingest token in the URL path. musterd scans Claude
-Code's transcript only to locate the plan file, reads the plan and the global config, and
+Code's transcript for the plan file and, while a turn is open, the interrupt line no hook
+reports; it reads the plan and the global config, and
 writes each launched directory's project-scoped local settings. The remaining wires are outbound
 polls and command lines.
 
@@ -73,7 +74,7 @@ C4Container
     Rel(tmux, claude, "Hosts", "tmux session")
     Rel(claude, datadir, "Runs wrapper scripts", "sh")
     Rel(claude, musterd, "Hooks and status line", "HTTP POST, curl")
-    Rel(musterd, claudefiles, "Finds plan via transcript; lists past sessions; reads plan, theme", "filesystem")
+    Rel(musterd, claudefiles, "Finds plan and interrupts via transcript; lists past sessions; reads plan, theme", "filesystem")
     Rel(musterd, repodir, "Writes local settings, reads .md", "filesystem")
     Rel(musterd, github, "Issues, releases", "HTTPS")
     Rel(musterd, anthropic, "Polls usage", "HTTPS, OAuth")

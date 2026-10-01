@@ -62,12 +62,13 @@ func migrationFixture() []byte {
 	}`)
 }
 
-// TestMergeSettings_FreshFileRegistersCommandEntryOnAllElevenEvents covers D1/REQ-1: a
-// fresh file gets a type:"command" entry on every one of the eleven events
+// TestMergeSettings_FreshFileRegistersCommandEntryOnAllTwelveEvents covers D1/REQ-1: a
+// fresh file gets a type:"command" entry on every one of the twelve events
 // (httpHookEvents + SessionStart), each pointing at the single-quoted hook script path
 // with the 2s timeout — and D5: it must never gain an allowedHttpHookUrls key.
-func TestMergeSettings_FreshFileRegistersCommandEntryOnAllElevenEvents(t *testing.T) {
-	require.Len(t, allHookEvents, 11, "sanity: REQ-1 names eleven events")
+func TestMergeSettings_FreshFileRegistersCommandEntryOnAllTwelveEvents(t *testing.T) {
+	require.Len(t, allHookEvents, 12, "sanity: twelve events, PostToolBatch among them")
+	assert.Contains(t, allHookEvents, "PostToolBatch", "D16: REQ-2 registers PostToolBatch")
 	cfg := testSettingsConfig()
 
 	out, err := MergeSettings(nil, cfg)
@@ -133,7 +134,7 @@ func TestMergeSettings_OutputContainsNoTokenOrURL(t *testing.T) {
 // covers D2/D3/Edge Case 1 — the scenario the plan calls "most likely to be got wrong":
 // every existing user directory has ten http entries and a legacy SessionStart command
 // entry (both a bare and a quoted form observed in the wild across daemon versions).
-// After the merge: eleven command entries (one each), no http entries anywhere, and
+// After the merge: twelve command entries (one each), no http entries anywhere, and
 // neither legacy form of hook-sessionstart.sh survives.
 func TestMergeSettings_MigrationFixture_ExactlyOneMusterEntryPerEventNoLegacySurvives(t *testing.T) {
 	cfg := testSettingsConfig()
@@ -458,7 +459,7 @@ func TestShellQuote(t *testing.T) {
 }
 
 // TestMergeSettings_CommandFieldIsShellQuotedForSpaceBearingPath covers D1/REQ-1: every
-// one of the eleven events, and the status line, gets the single-quoted shell word of
+// one of the twelve events, and the status line, gets the single-quoted shell word of
 // the configured path when that path contains a space — the default macOS data dir
 // shape (spikes/FINDINGS.md 2026-08-25 addendum).
 func TestMergeSettings_CommandFieldIsShellQuotedForSpaceBearingPath(t *testing.T) {
@@ -641,7 +642,7 @@ func TestMergeSettings_ForeignCommandHookOnSessionStartSurvives(t *testing.T) {
 // TestWriteWrapperScripts covers D9/REQ-5/REQ-6/REQ-7/REQ-15: the generated command-hook
 // wrapper script paths, executable mode, a 2s curl timeout (never 5, CLAUDE.md hard
 // rule), always exit 0, and the envelope fields built from the pane environment — one
-// hook.sh script now serves all eleven events.
+// hook.sh script now serves all twelve events.
 func TestWriteWrapperScripts(t *testing.T) {
 	dir := t.TempDir()
 

@@ -27,42 +27,6 @@ grouped under `###` sub-headings by the work they share — a group is a plausib
 work, not a ranking. `/triage` appends new entries at the end of the section; move one into a
 group deliberately, and otherwise don't re-sort this list.
 
-### Together — Needs Input state transitions (#32, #40, #57)
-
-- [ ] **Stuck on needs input** ([#32](https://github.com/Zalaras/muster/issues/32)) — after suggesting changes to a plan the session stayed on Needs
-  Input until the first response came back, only then flipping to Planning.
-
-- [ ] **Needs Input disappears while giving input** ([#40](https://github.com/Zalaras/muster/issues/40)) — answering a run of Claude questions
-  flips the state back to Planning after the first one, while more remain and Claude is idle.
-
-- [ ] **Needs Input is shown on /clear** ([#57](https://github.com/Zalaras/muster/issues/57)) — running `/clear` puts the card on
-  Needs Input. A freshly cleared session should read idle.
-
-### Together — turn-state gaps (#59, #60, #64)
-
-The first two were filed by the developer 2026-09-23 from the interface probe that settled the
-hook-ordering, `StopFailure` and status-line open questions; #59 is the probe's interrupt gap,
-since reported from real use.
-
-- [ ] **A background subagent clears a main-agent permission wait** — while the main agent
-  waits on a permission prompt and a background subagent is still working, the card leaves
-  Needs Input and can sit on `working` with the permission dialog on screen until it is
-  answered.
-
-- [ ] **Interrupt from me still shows working in rail card** ([#59](https://github.com/Zalaras/muster/issues/59)) — after Esc
-  interrupts a turn, the card reads `working` until the next prompt. It should leave `working`
-  when the interrupt lands.
-
-- [ ] **Running a command in Claude does not change the status from IDLE** ([#60](https://github.com/Zalaras/muster/issues/60)) — while
-  a command is still running in the Claude session, the card reads idle. It should show that
-  something is running: `working`, or a new status. If the command is a backgrounded shell,
-  kb:adr/lifecycle-subagent-marked-events-not-stragglers accepted idle for that case and would
-  need superseding first.
-
-- [ ] **IDLE while working** ([#64](https://github.com/Zalaras/muster/issues/64)) — once a
-  subagent finished, the card went idle while the main agent kept working. It should stay
-  `working` until the main agent's turn ends.
-
 ### Together — compaction state (#65, #66)
 
 - [ ] **Compacting has not state in Muster** ([#65](https://github.com/Zalaras/muster/issues/65)) — while

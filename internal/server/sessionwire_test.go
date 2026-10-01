@@ -224,3 +224,37 @@ func TestSessionWire_JSONShapeHasNoUnexpectedNulls(t *testing.T) {
 	assert.Equal(t, "default", permMode["value"])
 	assert.Equal(t, "seed", permMode["source"])
 }
+
+// TestSessionWire_BackgroundTasksIsAlwaysPresentAndAttentionAgentNeverOnTheWire covers D15:
+// every serialized Session carries backgroundTasks as an integer — 0 included, never
+// omitted or null — and the wait owner (AttentionAgent) stays daemon-internal.
+func TestSessionWire_BackgroundTasksIsAlwaysPresentAndAttentionAgentNeverOnTheWire(t *testing.T) {
+	tests := []struct {
+		name string
+		n    int
+		dead bool
+	}{
+		{"zero at launch", 0, false},
+		{"one running", 1, false},
+		{"several running", 3, false},
+		{"dead session keeps the count (the UI hides it)", 2, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := minimalSession()
+			s.BackgroundTasks = tt.n
+			s.Alive = !tt.dead
+			s.AttentionAgent = "agent-a7f3"
+
+			b, err := json.Marshal(toWireSession(s))
+			require.NoError(t, err)
+			var got map[string]any
+			require.NoError(t, json.Unmarshal(b, &got))
+
+			require.Contains(t, got, "backgroundTasks")
+			assert.Equal(t, float64(tt.n), got["backgroundTasks"])
+			assert.NotContains(t, got, "attentionAgent")
+			assert.NotContains(t, string(b), "agent-a7f3", "the wait owner's id must not leak onto the wire")
+		})
+	}
+}

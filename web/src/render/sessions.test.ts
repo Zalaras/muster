@@ -255,7 +255,7 @@ class FakeDomNode {
 
 /** Mirrors `index.html`'s `#session-card-template` markup (article.card > [.stripe,
  * .card-in > [.r1 > [.name, .chip-danger], .r0 > [.badge, .timer, .pin], .r2, .r3,
- * .activity.you, .activity.claude, .note, .acts-row]]) closely enough for `buildSessionCardElement`/
+ * .activity.you, .activity.claude, .note, .acts-row, .bg-tasks]]) closely enough for `buildSessionCardElement`/
  * `updateSessionCardContent`'s real `querySelector` calls to resolve every field they
  * touch. Row order follows REQ-4 (plan rail-card-improvements-2): `.r1` (title) leads,
  * `.r0` (badge/timer/pin) follows — but nothing here asserts sibling order itself (no
@@ -307,6 +307,9 @@ function buildCardTemplateFragment(): FakeDomNode {
   const actsRow = new FakeDomNode("div");
   actsRow.className = "acts-row";
   actsRow.hidden = true;
+  const bgTasks = new FakeDomNode("div");
+  bgTasks.className = "bg-tasks";
+  bgTasks.hidden = true;
   cardIn.appendChild(r1);
   cardIn.appendChild(r0);
   cardIn.appendChild(r2);
@@ -315,6 +318,7 @@ function buildCardTemplateFragment(): FakeDomNode {
   cardIn.appendChild(activityClaude);
   cardIn.appendChild(note);
   cardIn.appendChild(actsRow);
+  cardIn.appendChild(bgTasks);
   card.appendChild(stripe);
   card.appendChild(cardIn);
   fragment.appendChild(card);
@@ -349,6 +353,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     permissionMode: { value: "default", source: "seed" },
     context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
     lastActivity: null,
+    backgroundTasks: 0,
     claudeSessionId: "claude-sess",
     tmuxTarget: "muster:@1",
     firstLaunchHere: false,
@@ -511,16 +516,20 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
   // logical identity before the reorder loop and re-focuses the same logical target
   // afterwards if the move blurred it.
   describe("focus capture/restore across a reorder (Fix Attempt 3)", () => {
+    // A live card offers no action button (W1), so the focusable action button is an ended card's.
+    const endedSession = (id: number) =>
+      makeSession({ id, alive: false, endedAt: "2026-08-27T00:00:00Z" });
+
     it("shim contract: detaching a node that contains the focused element blurs it (the Chrome behaviour under test)", () => {
       const el = container();
       reconcileCards(
         el as unknown as HTMLElement,
-        [makeSession({ id: 1 }), makeSession({ id: 2 })],
+        [endedSession(1), endedSession(2)],
         NOW,
         fakeTemplate(),
         baseOptions(),
       );
-      const endBtn = el.children[1]?.querySelector('[data-action="end"]');
+      const endBtn = el.children[1]?.querySelector('[data-action="resume"]');
       endBtn?.focus();
       expect(fakeDocument.activeElement).toBe(endBtn);
       // Move card 2 ahead of card 1 with a raw insertBefore, bypassing reconcileCards.
@@ -532,18 +541,18 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
       const el = container();
       reconcileCards(
         el as unknown as HTMLElement,
-        [makeSession({ id: 1 }), makeSession({ id: 2 })],
+        [endedSession(1), endedSession(2)],
         NOW,
         fakeTemplate(),
         baseOptions(),
       );
-      const endBtn = el.children[1]?.querySelector('[data-action="end"]') as FakeDomNode;
+      const endBtn = el.children[1]?.querySelector('[data-action="resume"]') as FakeDomNode;
       endBtn.focus();
       const realFocus = endBtn.focus.bind(endBtn);
       endBtn.focus = () => {};
       reconcileCards(
         el as unknown as HTMLElement,
-        [makeSession({ id: 2 }), makeSession({ id: 1 })],
+        [endedSession(2), endedSession(1)],
         NOW,
         fakeTemplate(),
         baseOptions(),
@@ -556,15 +565,12 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
       const el = container();
       reconcileCards(
         el as unknown as HTMLElement,
-        [
-          makeSession({ id: 1, alive: false, endedAt: "2026-08-27T00:00:00Z" }),
-          makeSession({ id: 2 }),
-        ],
+        [endedSession(1), endedSession(2)],
         NOW,
         fakeTemplate(),
         baseOptions(),
       );
-      const endBtn = el.children[1]?.querySelector('[data-action="end"]');
+      const endBtn = el.children[1]?.querySelector('[data-action="resume"]');
       expect(endBtn).toBeTruthy();
       endBtn?.focus();
       expect(fakeDocument.activeElement).toBe(endBtn);
@@ -572,10 +578,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
       // Session 2 moves ahead of session 1 — a real reorder, not just a content update.
       reconcileCards(
         el as unknown as HTMLElement,
-        [
-          makeSession({ id: 2 }),
-          makeSession({ id: 1, alive: false, endedAt: "2026-08-27T00:00:00Z" }),
-        ],
+        [endedSession(2), endedSession(1)],
         NOW,
         fakeTemplate(),
         baseOptions(),
@@ -583,7 +586,7 @@ describe("reconcileCards (review m4-reconcile cycle-3 Minor 4)", () => {
 
       const activeAfter = fakeDocument.activeElement;
       expect(activeAfter).not.toBeNull();
-      expect(activeAfter?.dataset["action"]).toBe("end");
+      expect(activeAfter?.dataset["action"]).toBe("resume");
       expect(activeAfter?.dataset["id"]).toBe("2");
     });
 

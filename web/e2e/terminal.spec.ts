@@ -545,7 +545,7 @@ test("clicking a card's pin button pins the session, leaves the live pane unchan
   }
 });
 
-test("clicking a live card's End button opens the confirm dialog without selecting the session or moving focus into a terminal (REQ-5, INV-3)", async ({
+test("a live rail card offers no End button, and the mainhead's End opens the confirm dialog without moving focus into a terminal (REQ-5, REQ-7, INV-3)", async ({
   page,
   daemon,
 }) => {
@@ -556,8 +556,8 @@ test("clicking a live card's End button opens the confirm dialog without selecti
     await launchSession(page, daemon, { directory: dirB.path, title: "focus-inv3-end-b" });
     await expect(terminalRegion(page, "focus-inv3-end-a")).toBeVisible();
 
-    const cardB = railCard(page, "focus-inv3-end-b");
-    await cardB.getByRole("button", { name: "End" }).click();
+    const mainhead = page.locator("#mainhead");
+    await mainhead.getByRole("button", { name: "End", exact: true }).click();
 
     const dialog = page.getByRole("dialog", { name: "End session?" });
     await expect(dialog).toBeVisible();
@@ -566,6 +566,14 @@ test("clicking a live card's End button opens the confirm dialog without selecti
 
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toBeHidden();
+
+    // Plan status-inconsistencies REQ-7/INV-D: neither live card offers End.
+    await expect(
+      railCard(page, "focus-inv3-end-b").getByRole("button", { name: "End" }),
+    ).toHaveCount(0);
+    await expect(
+      railCard(page, "focus-inv3-end-a").getByRole("button", { name: "End" }),
+    ).toHaveCount(0);
   } finally {
     await Promise.all([dirA.cleanup(), dirB.cleanup()]);
   }

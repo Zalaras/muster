@@ -242,6 +242,8 @@ func (m *Manager) restoreChangedFields(id int64, prev, post *Session) func(*Sess
 		restoreIfUnchanged(&cur.PlanExists, post.PlanExists, last.PlanExists)
 		restoreIfUnchanged(&cur.Unread, post.Unread, last.Unread)
 		restoreIfUnchanged(&cur.LastPrompt, post.LastPrompt, last.LastPrompt)
+		restoreIfUnchanged(&cur.BackgroundTasks, post.BackgroundTasks, last.BackgroundTasks)
+		restoreIfUnchanged(&cur.AttentionAgent, post.AttentionAgent, last.AttentionAgent)
 		restoreIfUnchanged(&cur.currentPromptID, post.currentPromptID, last.currentPromptID)
 		// pendingResumeClaudeSessionID's writers are CreateSession, applyBind and
 		// markEnded: a failed Apply must roll it back together with the ClaudeSessionID
@@ -268,7 +270,8 @@ var restoredSessionFields = []string{
 	"PermissionMode", "PermissionModeSource", "Model", "Context", "Compactions",
 	"Attention", "Failure", "LastActivity", "Alive", "EndedAt", "LastSnapshot",
 	"LastSnapshotAt", "Pinned", "RailPos", "TitleOverride", "TranscriptPath",
-	"PlanPath", "PlanExists", "Unread", "LastPrompt", "currentPromptID", "closedPromptIDs",
+	"PlanPath", "PlanExists", "Unread", "LastPrompt", "BackgroundTasks", "AttentionAgent",
+	"currentPromptID", "closedPromptIDs",
 	"pendingResumeClaudeSessionID",
 }
 

@@ -89,7 +89,17 @@ type Config struct {
 	OnRemoved    func(id int64) // broadcasts sessionRemoved (kb:anchor/ws.session-removed); may be nil in tests
 	Watcher      Watcher        // nil counts every session as unwatched
 	PollInterval time.Duration  // 0 uses defaultPollInterval
+
+	// InterruptChecker reports whether the transcript at path records an interrupt of
+	// promptID. Injected so this package never reads transcript bytes
+	// (kb:adr/lifecycle-interrupt-read-from-transcript); nil disables the interrupt sweep.
+	InterruptChecker InterruptChecker
 }
+
+// InterruptChecker reports whether the transcript at path records an interrupt of
+// promptID. The one declaration of the seam: session.Config, server.Config and the
+// Manager field all use it, so a signature change happens here.
+type InterruptChecker func(path, promptID string) (bool, error)
 
 // Manager is the in-memory session registry and the kb:anchor/state state machine's home. Every
 // mutation persists the full row and (unless OnUpsert is nil) broadcasts the fresh
@@ -104,6 +114,8 @@ type Manager struct {
 	onRemoved       func(id int64)
 	interval        time.Duration
 	watcher         Watcher
+	// interruptChecker is Config.InterruptChecker, read only by sweepInterrupts.
+	interruptChecker InterruptChecker
 
 	// mu guards sessions, byClaude, writeChain and nextRailPos below: every map's own
 	// entries, and every field of a *Session sessions holds — a *Session is mutable only
@@ -230,17 +242,18 @@ func NewManager(cfg Config) *Manager {
 		interval = defaultPollInterval
 	}
 	return &Manager{
-		store:           cfg.Store,
-		log:             cfg.Logger,
-		paneChecker:     cfg.PaneChecker,
-		paneSnapshotter: cfg.PaneSnapshotter,
-		tmuxSessions:    cfg.TmuxSessions,
-		onUpsert:        cfg.OnUpsert,
-		onRemoved:       cfg.OnRemoved,
-		interval:        interval,
-		watcher:         cfg.Watcher,
-		sessions:        make(map[int64]*Session),
-		byClaude:        make(map[string]int64),
+		store:            cfg.Store,
+		log:              cfg.Logger,
+		paneChecker:      cfg.PaneChecker,
+		paneSnapshotter:  cfg.PaneSnapshotter,
+		tmuxSessions:     cfg.TmuxSessions,
+		onUpsert:         cfg.OnUpsert,
+		onRemoved:        cfg.OnRemoved,
+		interval:         interval,
+		watcher:          cfg.Watcher,
+		interruptChecker: cfg.InterruptChecker,
+		sessions:         make(map[int64]*Session),
+		byClaude:         make(map[string]int64),
 	}
 }
 

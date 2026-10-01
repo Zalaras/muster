@@ -8,9 +8,9 @@ features: [lifecycle]
 tags: [state-machine, store, tmux]
 go: [internal/session/**, internal/server/sessionwire*.go, internal/store/session*.go, internal/store/store*.go, internal/store/migrate*.go, internal/store/migrations/**, internal/boundedwait/**, internal/keyedlock/**]
 web: [web/src/sessions/store*.ts, web/src/sessions/live*.ts]
-e2e: [web/e2e/reconcile.spec.ts, web/e2e/helpers/session.ts]
+e2e: [web/e2e/reconcile.spec.ts, web/e2e/helpers/session.ts, web/e2e/helpers/interrupt.ts]
 protocol: [state, state.displayed, state.tracked, state.transitions, state.ordering, state.liveness, ws.session, ws.session-upsert]
-refs: [kb:adr/lifecycle-session-identity-is-tmux-target, kb:adr/lifecycle-alive-flag-not-a-state, kb:adr/lifecycle-liveness-from-pane-existence, kb:adr/lifecycle-liveness-writes-stop-at-shutdown, kb:adr/lifecycle-prompt-ordering-guards, kb:adr/lifecycle-subagent-marked-events-not-stragglers, kb:adr/lifecycle-reconcile-before-first-snapshot, kb:adr/lifecycle-ended-rows-swept-next-start, kb:adr/lifecycle-resume-rebinds-existing-session, kb:adr/lifecycle-shutdown-leaves-sessions-running, kb:adr/surfaces-shell-dies-at-kill-shutdown-too, kb:adr/ingest-seq-assigned-at-ingest, kb:adr/rail-unread-inferred-from-live-terminal-client, kb:fact/hook-delivery-best-effort, kb:fact/stopfailure-replaces-stop, kb:fact/sessionend-reason-ambiguous, kb:fact/notification-types-observed, kb:fact/permission-mode-presence-split, kb:fact/bypass-permission-mode-on-wire, kb:fact/subagent-hooks-carry-agent-id, kb:fact/resume-keeps-session-identity, kb:fact/clear-mints-new-session-id, kb:ref/data-model, docs/design/ux-flows.md]
+refs: [kb:adr/lifecycle-session-identity-is-tmux-target, kb:adr/lifecycle-alive-flag-not-a-state, kb:adr/lifecycle-liveness-from-pane-existence, kb:adr/lifecycle-liveness-writes-stop-at-shutdown, kb:adr/lifecycle-prompt-ordering-guards, kb:adr/lifecycle-subagent-marked-events-not-stragglers, kb:adr/lifecycle-interrupt-read-from-transcript, kb:adr/lifecycle-attention-owned-by-raising-agent, kb:adr/lifecycle-background-tasks-count-not-state, kb:adr/lifecycle-reconcile-before-first-snapshot, kb:adr/lifecycle-ended-rows-swept-next-start, kb:adr/lifecycle-resume-rebinds-existing-session, kb:adr/lifecycle-shutdown-leaves-sessions-running, kb:adr/surfaces-shell-dies-at-kill-shutdown-too, kb:adr/ingest-seq-assigned-at-ingest, kb:adr/rail-unread-inferred-from-live-terminal-client, kb:fact/hook-delivery-best-effort, kb:fact/stopfailure-replaces-stop, kb:fact/sessionend-reason-ambiguous, kb:fact/notification-types-observed, kb:fact/permission-mode-presence-split, kb:fact/bypass-permission-mode-on-wire, kb:fact/subagent-hooks-carry-agent-id, kb:fact/interrupt-recorded-in-transcript, kb:fact/clear-idle-prompt-carries-no-prompt-id, kb:fact/subagent-hooks-during-permission-wait, kb:fact/resume-keeps-session-identity, kb:fact/clear-mints-new-session-id, kb:ref/data-model, docs/design/ux-flows.md]
 ---
 A Muster session is one `claude` process the daemon launched into its own tmux session.
 Its identity is the tmux target; the Claude `session_id` is a mutable attribute that
@@ -29,21 +29,26 @@ message) and `idle` (a turn finished, with `lastActivity`, the user's `lastPromp
 transition out of idle or by an attach — kb:adr/rail-unread-inferred-from-live-terminal-client).
 There is deliberately no
 "Done": Claude Code knows a turn ended, not that a task completed, so `idle` plus the last
-activity line is the honest representation (docs/design/ux-flows.md "States and ordering").
+activity line is the honest picture (docs/design/ux-flows.md "States and ordering").
 Liveness is an orthogonal `alive` flag, never a seventh state
 (kb:adr/lifecycle-alive-flag-not-a-state): a dead session keeps its last state, greys out,
 sorts last and offers Resume or Remove.
 
 ## Inputs
 
-State is derived only from ingested hook events, Muster's own launch and resume actions and
-tmux pane liveness. Terminal output is never a state source. The interpreter in the Claude
-Code adapter turns each event into a neutral input kind; the state machine sees no payload
+State is derived only from ingested hook events, Muster's own launch and resume actions, tmux
+pane liveness and, for interrupts only (no hook), the transcript's interrupt line, read each poll
+tick while a turn is open and closing the turn into `idle`
+(kb:adr/lifecycle-interrupt-read-from-transcript, kb:fact/interrupt-recorded-in-transcript).
+Terminal output is never a state source. The Claude Code adapter turns each event into a neutral input kind; the machine sees no payload
 vocabulary. `Stop` closes a turn into `idle`; `StopFailure` closes it into `failed`
 (kb:fact/stopfailure-replaces-stop). Notification `permission_prompt` and `idle_prompt`,
-and `PermissionRequest`, enter `needs_input` (kb:fact/notification-types-observed).
-Turn-activity events (`UserPromptSubmit`, `PreToolUse`, `PostToolUse`) enter `working` or
-`planning` and clear attention and failure. `PreCompact` increments the compaction counter.
+and `PermissionRequest`, enter `needs_input` (kb:fact/notification-types-observed); an
+`idle_prompt` with no prompt id follows `/clear` and changes nothing
+(kb:fact/clear-idle-prompt-carries-no-prompt-id).
+Turn-activity events (`UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PostToolBatch`) enter `working` or
+`planning` and clear attention and failure. `PreCompact` increments the compaction counter. `backgroundTasks` counts the background work the
+latest `Stop` reported running, never a state input (kb:adr/lifecycle-background-tasks-count-not-state).
 `SessionEnd` changes no state and never writes `alive` (kb:fact/sessionend-reason-ambiguous). The permission
 mode is a last-known latch seeded by the launch form and overwritten by any event that
 carries the field; events without it never reset it (kb:fact/permission-mode-presence-split).
@@ -52,15 +57,16 @@ The full table is `kb:anchor/state.transitions`; tracked variables are `kb:ancho
 
 ## The machine
 
-Every transition below is one `applyInput` arm in `internal/session/machine.go`, keyed on the
-neutral input kind the adapter derived. No arm guards on the source state, so every arrow is
+Each transition is one `applyInput` arm in `internal/session/machine.go`, keyed on the
+adapter's neutral input kind. Only the interrupt and turn-activity arms guard on the source state; every other arrow is
 drawn from every state. The latch picks planning while the permission mode reads plan, else
-working. A bind or resume_bind carrying a different Claude session id escalates to clear_rebind
-and lands in started. compaction, death_hint, clear_death_hint and inert change no state. A
-turn_activity or needs_input_permission for a prompt a Stop already closed returns early and
-transitions nothing unless it is subagent-marked; a closed-prompt needs_input_idle always returns
-early. Liveness is not in the diagram: `alive` is orthogonal, so a dead session keeps whichever
-state it was last in.
+working. A bind or resume_bind with a different Claude session id escalates to clear_rebind
+(started). turn_interrupted lands only from an open turn (working, planning or needs_input).
+compaction, death_hint, clear_death_hint and inert change no state. A closed-prompt
+needs_input_idle always returns early; see Ordering for the other closed-prompt inputs. A permission wait remembers the agent that raised it
+(kb:adr/lifecycle-attention-owned-by-raising-agent): turn activity from another agent changes no
+state and keeps `attention`, and a main `Stop` does not end a subagent's wait
+(kb:fact/subagent-hooks-during-permission-wait). Liveness is not in the diagram (`alive` is orthogonal).
 
 ```mermaid
 stateDiagram-v2
@@ -90,6 +96,9 @@ stateDiagram-v2
     failed --> idle : turn_closed
     idle --> idle : turn_closed
 
+    active --> idle : turn_interrupted
+    needs_input --> idle : turn_interrupted
+
     started --> failed : turn_failed
     active --> failed : turn_failed
     needs_input --> failed : turn_failed
@@ -116,7 +125,8 @@ event closes its `prompt_id`; an unmarked later event for a closed prompt is a s
 that changes nothing, while a subagent-marked one moves the session back to active without
 reopening the prompt (kb:adr/lifecycle-prompt-ordering-guards,
 kb:adr/lifecycle-subagent-marked-events-not-stragglers, kb:fact/subagent-hooks-carry-agent-id).
-Any unseen `prompt_id` starts a turn, so every transition self-heals a lost predecessor.
+A clear-rebind keeps the closed prompt ids, so a straggler of the previous conversation stays
+inert. Any unseen `prompt_id` starts a turn, so every transition self-heals a lost predecessor.
 Delivery is lossy and unordered by nature (kb:fact/hook-delivery-best-effort); the machine
 never waits for an event to make progress (`kb:anchor/state.ordering`).
 
@@ -124,24 +134,22 @@ never waits for an event to make progress (`kb:anchor/state.ordering`).
 
 `alive` is decided by pane existence on the muster socket, polled and nudged by
 PTY EOF and End (kb:adr/lifecycle-liveness-from-pane-existence,
-`kb:anchor/state.liveness`). Once shutdown has begun, the periodic poll and the PTY-EOF
-nudge stop persisting `alive=false`; the on-exit policy, or else the next boot's reconcile,
-is the sole authority on a session's final `alive` state — End's own path is unaffected
+`kb:anchor/state.liveness`). Once shutdown begins, the poll and the PTY-EOF nudge stop
+persisting `alive=false`; the on-exit policy or the next boot's reconcile decides the final
+state, End's own path excepted
 (kb:adr/lifecycle-liveness-writes-stop-at-shutdown). Reconcile at daemon start runs before
 the first snapshot is served: rows already ended are deleted, live rows whose pane is gone
 are marked ended at startup time and kept for one resume chance, unknown `muster-` names
 are logged, never adopted; shells are killed
 (kb:adr/lifecycle-reconcile-before-first-snapshot, kb:adr/lifecycle-ended-rows-swept-next-start).
-Resume relaunches a dead session with `--resume` into a fresh pane under the same Muster row
-and title; the resume `SessionStart` rebinds it and lands it in `idle`
+Resume relaunches a dead session with `--resume` in a fresh pane under the same row and title; the resume `SessionStart` rebinds it and lands it in `idle`
 (kb:adr/lifecycle-resume-rebinds-existing-session, kb:fact/resume-keeps-session-identity).
-Shutdown leaves sessions running by default; the `-on-exit` flag offers ask, leave and kill —
-kill also kills every shell and the prompt counts them, leave leaves shells as it leaves
-sessions (kb:adr/lifecycle-shutdown-leaves-sessions-running,
+Shutdown leaves sessions running by default; `-on-exit` offers ask, leave and kill; kill also
+kills every shell (the prompt counts them), leave leaves shells running (kb:adr/lifecycle-shutdown-leaves-sessions-running,
 kb:adr/surfaces-shell-dies-at-kill-shutdown-too).
 
 ## Wire
 
-Every change broadcasts the whole Session object (`kb:anchor/ws.session`,
+Every change broadcasts the whole Session (`kb:anchor/ws.session`,
 `kb:anchor/ws.session-upsert`); the client replaces by id and sorts for display. Status
-posts refresh title, model and context only and never touch a state-machine field.
+posts refresh title, model and context only, never a state-machine field.

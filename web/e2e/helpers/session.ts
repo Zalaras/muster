@@ -123,6 +123,11 @@ export interface SessionObject {
    * `/clear`.
    */
   lastPrompt: string | null;
+  /**
+   * Plan status-inconsistencies kb:anchor/ws.session (REQ-5): how many `status:"running"`
+   * entries the latest `Stop` listed in `background_tasks`. Never null on the wire.
+   */
+  backgroundTasks: number;
 }
 
 /**

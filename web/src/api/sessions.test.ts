@@ -20,6 +20,7 @@ const validSession: Session = {
   permissionMode: { value: "default", source: "seed" },
   context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
   lastActivity: null,
+  backgroundTasks: 0,
   claudeSessionId: null,
   tmuxTarget: "muster:@1",
   firstLaunchHere: true,

@@ -18,6 +18,7 @@ const validSession = {
   permissionMode: { value: "default", source: "seed" },
   context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
   lastActivity: null,
+  backgroundTasks: 0,
   claudeSessionId: "claude-session-abc",
   tmuxTarget: "muster:@1",
   firstLaunchHere: false,
@@ -48,6 +49,7 @@ const freshLaunchSession = {
   permissionMode: { value: "default", source: "seed" },
   context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
   lastActivity: null,
+  backgroundTasks: 0,
   claudeSessionId: null,
   tmuxTarget: "muster:@2",
   firstLaunchHere: true,
@@ -352,5 +354,29 @@ describe("parseSession — unread/lastPrompt (plan rail-card-improvements kb:anc
 
   it("rejects a non-string, non-null lastPrompt (e.g. numeric)", () => {
     expect(parseSession({ ...validSession, lastPrompt: 42 })).toBeNull();
+  });
+});
+
+describe("parseSession — backgroundTasks (W4: required non-negative integer)", () => {
+  it.each([0, 1, 7])("parses backgroundTasks %d", (n) => {
+    expect(parseSession({ ...validSession, backgroundTasks: n })).toEqual({
+      ...validSession,
+      backgroundTasks: n,
+    });
+  });
+
+  it("rejects a session missing backgroundTasks", () => {
+    const { backgroundTasks: _omit, ...rest } = validSession;
+    expect(parseSession(rest)).toBeNull();
+  });
+
+  it.each([
+    ["negative", -1],
+    ["fractional", 1.5],
+    ["NaN", Number.NaN],
+    ["null", null],
+    ["a string", "2"],
+  ])("rejects backgroundTasks that is %s", (_name, value) => {
+    expect(parseSession({ ...validSession, backgroundTasks: value })).toBeNull();
   });
 });

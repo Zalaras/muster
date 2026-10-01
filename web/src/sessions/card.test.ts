@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Session } from "../protocol/session";
 import {
   activityLines,
+  backgroundLine,
   buildCardViewModel,
   bypassChip,
   deadCapPrefix,
@@ -33,6 +34,7 @@ function makeSession(overrides: Partial<Session> & { id: number }): Session {
     permissionMode: { value: "default", source: "seed" },
     context: { usedPct: null, totalInputTokens: null, windowSize: null, compactions: 0 },
     lastActivity: null,
+    backgroundTasks: 0,
     claudeSessionId: null,
     tmuxTarget: "muster:@1",
     firstLaunchHere: false,
@@ -543,10 +545,10 @@ describe("buildCardViewModel — ended (alive:false, REQ-18 degraded state)", ()
   });
 });
 
-describe("buildCardViewModel — actions (REQ-11: live -> End; ended -> Resume, Remove)", () => {
-  it("offers only End for a live session", () => {
+describe("buildCardViewModel — actions (W1: live -> none; ended -> Resume, Remove)", () => {
+  it("offers no action for a live session", () => {
     const vm = buildCardViewModel(makeSession({ id: 1, alive: true }), NOW);
-    expect(vm.actions).toEqual(["End"]);
+    expect(vm.actions).toEqual([]);
   });
 
   it("offers Resume then Remove, in that order, for an ended session", () => {
@@ -790,5 +792,21 @@ describe("deadSurfaceText: the endbar/snapshot/capBody triple for each pane fetc
     const result = deadSurfaceText(session, okPane("2026-08-21T23:47:10Z"), NOW);
 
     expect(result.endbar).toBe(`${deadEndbarText(session, NOW)} · captured 13m ago`);
+  });
+});
+
+describe("backgroundLine (W2, W3)", () => {
+  it.each([
+    { alive: true, n: 0, want: null },
+    { alive: true, n: 1, want: "1 background task" },
+    { alive: true, n: 2, want: "2 background tasks" },
+    { alive: true, n: 12, want: "12 background tasks" },
+    { alive: false, n: 0, want: null },
+    { alive: false, n: 1, want: null },
+    { alive: false, n: 5, want: null },
+  ])("alive=$alive n=$n -> $want", ({ alive, n, want }) => {
+    const session = makeSession({ id: 1, alive, backgroundTasks: n });
+    expect(backgroundLine(session)).toBe(want);
+    expect(buildCardViewModel(session, NOW).backgroundLine).toBe(want);
   });
 });

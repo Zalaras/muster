@@ -10,9 +10,9 @@ import { isBypassMode } from "./permission";
 
 export type NoteKind = "attention" | "failure" | "trust" | "no-signal" | "none";
 
-/** kb:adr/actions-placement-mainhead-and-card-rows's card action-row contract: a live card
- * offers only End; an ended card offers Resume then Remove, in that order — the exact
- * button label text a test locator matches. */
+/** kb:adr/rail-live-card-offers-no-actions's card action-row contract: a live card offers
+ * no action button; an ended card offers Resume then Remove, in that order — the exact
+ * button label text a test locator matches. End lives on the mainhead and tile footer. */
 export type CardAction = "End" | "Resume" | "Remove";
 
 /** The action a card/mainhead/tile dispatches when its End/Resume/Remove/pin control
@@ -42,6 +42,8 @@ export interface CardViewModel {
   noteText: string | null;
   ended: boolean;
   actions: readonly CardAction[];
+  // The neutral bottom line while background work runs (`1 background task`), else null.
+  backgroundLine: string | null;
   // kb:adr/rail-whole-card-drag-drop-decides-pin: drives the pin button's
   // aria-label/aria-pressed/title and the card's `pinned` class — render/sessions.ts is the
   // only consumer.
@@ -311,6 +313,14 @@ export function unreadLabel(title: string, unread: boolean): string {
   return unread ? `${title}, unread` : title;
 }
 
+/** The card's bottom line for background work the latest Stop reported running — null when
+ * there is none or the session is dead (a dead session's count is last-known, not live). */
+export function backgroundLine(session: Session): string | null {
+  const n = session.backgroundTasks;
+  if (!session.alive || n <= 0) return null;
+  return n === 1 ? "1 background task" : `${n} background tasks`;
+}
+
 export function buildCardViewModel(
   session: Session,
   now: Date,
@@ -358,7 +368,8 @@ export function buildCardViewModel(
     noteKind,
     noteText,
     ended,
-    actions: ended ? ["Resume", "Remove"] : ["End"],
+    actions: ended ? ["Resume", "Remove"] : [],
+    backgroundLine: backgroundLine(session),
     pinned: session.pinned,
     unread: session.unread,
     bypassChip: bypassChip(session),

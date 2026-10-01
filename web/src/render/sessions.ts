@@ -63,7 +63,7 @@ interface CardRenderOptions extends CardOptions {
 }
 
 /** Reconciles one card's `.acts-row` in place: when the label sequence is unchanged
- * (the common case — a live card stays End-only, an ended card stays Resume+Remove, on
+ * (the common case — a live card stays empty, an ended card stays Resume+Remove, on
  * every 1s tick) only each existing button's `disabled` state is refreshed, so the exact
  * button node a keyboard user has focused survives the tick — an unconditional
  * `replaceChildren` every render would destroy and rebuild every action button once a
@@ -152,6 +152,11 @@ function applyCardText(card: HTMLElement, vm: CardViewModel, session: Session): 
   // data-note-kind below so the distinction isn't discarded outright.
   note.className = vm.noteKind === "failure" ? "note fail" : "note";
   note.dataset.noteKind = vm.noteKind;
+
+  const bgTasks = requireElement<HTMLElement>(".bg-tasks", card);
+  bgTasks.hidden = vm.backgroundLine === null;
+  bgTasks.textContent = vm.backgroundLine ?? "";
+  bgTasks.title = vm.backgroundLine ?? "";
 }
 
 /** The card's `class` attribute — extracted from `updateSessionCardContent` to keep it
@@ -203,11 +208,11 @@ function updateSessionCardContent(
 
   applyCardText(card, vm, session);
 
-  // End on a live card, Resume+Remove on an ended one — `vm.actions` already
+  // No buttons on a live card, Resume+Remove on an ended one — `vm.actions` already
   // carries the exact label set and order (sessions/card.ts). Resume additionally needs
   // a claudeSessionId to ever be enabled, same rule as the mainhead.
   const actsRow = requireElement<HTMLElement>(".acts-row", card);
-  actsRow.hidden = false;
+  actsRow.hidden = vm.actions.length === 0;
   reconcileActsRow(
     actsRow,
     vm.actions,

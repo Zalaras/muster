@@ -7,7 +7,7 @@ summary: Every hook and the status line is a command wrapper that exits silently
 features: [ingest, launch]
 tags: [claude-code-format, envelope, security]
 files: [internal/claudecode/settings.go, internal/server/sessions.go]
-tests: [TestMergeSettings_FreshFileRegistersCommandEntryOnAllElevenEvents, TestMergeSettings_FreshFileHasNoHTTPEntry, TestWriteEnvelopeScript_EarlyExitIsTheFirstNonCommentLine, TestWrapperScriptsShellRoundTrip_DaemonUnreachableExitsSilentlyAndFast, TestCommandHooksCarryEnvelopeOnEveryEvent]
+tests: [TestMergeSettings_FreshFileRegistersCommandEntryOnAllTwelveEvents, TestMergeSettings_FreshFileHasNoHTTPEntry, TestWriteEnvelopeScript_EarlyExitIsTheFirstNonCommentLine, TestWrapperScriptsShellRoundTrip_DaemonUnreachableExitsSilentlyAndFast, TestCommandHooksCarryEnvelopeOnEveryEvent]
 refs: [docs/history/spec-changelog.md, plan:m4-hook-lifetime, kb:fact/command-hooks-inherit-pane-env, kb:fact/sessionstart-not-over-http, kb:anchor/ingest.transport, kb:anchor/ingest.envelope]
 supersedes: [ingest-sessionstart-command-wrapper]
 ---

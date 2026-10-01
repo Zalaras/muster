@@ -88,7 +88,7 @@ func TestApplyInput_Bind(t *testing.T) {
 // TestApplyInput_ClearRebind covers REQ-10/D14 and Edge Case 5: both an explicit
 // SessionStart(source:"clear") and a Bind whose claude session id differs from an
 // already-bound one (loss-tolerant auto-detection) must rebind, reset compactions and
-// the prompt-close guards, and set state to started while leaving Muster identity
+// the current-prompt guard (closed prompt ids are kept), and set state to started while leaving Muster identity
 // (id/tmuxTarget/title) untouched — the manager, not the machine, owns those fields, so
 // this test only asserts what applyInput itself is responsible for.
 func TestApplyInput_ClearRebind(t *testing.T) {
@@ -105,7 +105,7 @@ func TestApplyInput_ClearRebind(t *testing.T) {
 		assert.Equal(t, "new-claude-id", sess.ClaudeSessionID)
 		assert.Equal(t, 0, sess.Compactions)
 		assert.Empty(t, sess.currentPromptID)
-		assert.Empty(t, sess.closedPromptIDs)
+		assert.Equal(t, []string{"p0"}, sess.closedPromptIDs, "closed prompt ids survive a clear-rebind: stragglers from the old conversation stay closed")
 		assert.Equal(t, StateStarted, sess.State)
 	})
 

@@ -145,13 +145,20 @@ if [[ -n "$paths$named" ]]; then
   if go build -o "$kb" ./tools/kb 2>/dev/null; then
     while IFS= read -r f; do
       owners="$("$kb" for "$f" 2>/dev/null | awk '/^features:/{on=1;next} /^[a-z]+:/{on=0} on && NF{print $1}')"
-      [[ -z "$owners" ]] && { note "$f: owned by no feature — add its glob to docs/features/<f>/spec.md at approval"; continue; }
+      if [[ -z "$owners" ]]; then
+        # check-kb refuses a glob matching no file, so a not-yet-existing file cannot be registered at approval.
+        if [[ -e "$f" ]]; then note "$f: owned by no feature — add its glob to docs/features/<f>/spec.md at approval"
+        else echo "NOTE  $f: new, owned by no feature — the orchestrator adds its glob once it exists (kb:adr/process-unowned-file-globs-land-before-approval)"; fi
+        continue
+      fi
       for o in $owners; do
         case " $header " in *" $o "*) ;; *) note "$f → feature '$o', not in **Features** — widen the header" ;; esac
       done
     done <<<"$paths"
     while IFS= read -r f; do
-      [[ -z "$f" ]] || "$kb" for "$f" 2>/dev/null | grep -q '^features:' || note "$f: owned by no feature — add its glob to docs/features/<f>/spec.md at approval"
+      [[ -z "$f" ]] || "$kb" for "$f" 2>/dev/null | grep -q '^features:' || { [[ -e "$f" ]] \
+        && note "$f: owned by no feature — add its glob to docs/features/<f>/spec.md at approval" \
+        || echo "NOTE  $f: new, owned by no feature — the orchestrator adds its glob once it exists (kb:adr/process-unowned-file-globs-land-before-approval)"; }
     done <<<"$named"
   else
     note "could not build tools/kb to check Affected Files ownership"

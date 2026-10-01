@@ -74,7 +74,8 @@ changes the shipped artifact (`docs/conventions.md` § Commits). Work that relea
 - All Claude-Code-format knowledge (hook payloads, status-line JSON, CLI flags,
   transcript paths) lives in `internal/claudecode/` — never let it leak into other
   packages. If a fix wants to leak outward, the boundary is being violated.
-- NEVER derive session state by parsing terminal output — hooks and status line only.
+- NEVER derive session state by parsing terminal output — hooks, the status line, and (for
+  interrupts only, which emit no hook) the transcript's interrupt line (kb:adr/lifecycle-interrupt-read-from-transcript).
   tmux `capture-pane` is a test oracle and display source, never a state source.
 - Hook delivery is best-effort, at-most-once, unordered, and carries no timestamps:
   design for loss, assign `seq` at ingest, return 200 immediately and process

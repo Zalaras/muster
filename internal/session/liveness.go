@@ -109,6 +109,7 @@ func (m *Manager) pollLoop(ctx context.Context) {
 			return
 		case <-ticker.C:
 			m.checkLiveness(ctx)
+			m.sweepInterrupts(ctx)
 		}
 	}
 }

@@ -154,10 +154,7 @@ func RawPostToolUseFile(sessionID, toolName, filePath string, opts ToolFileOpts)
 		"tool_response":   map[string]any{"ok": true},
 		"duration_ms":     42,
 	}
-	if opts.AgentID != "" {
-		body["agent_id"] = opts.AgentID
-		body["agent_type"] = "general-purpose"
-	}
+	markSubagent(body, opts.AgentID)
 	return marshal(body)
 }
 
@@ -177,10 +174,7 @@ func RawPreToolUseTool(sessionID, toolName string, opts ToolFileOpts) string {
 		"tool_input":      map[string]any{},
 		"tool_use_id":     "tu0",
 	}
-	if opts.AgentID != "" {
-		body["agent_id"] = opts.AgentID
-		body["agent_type"] = "general-purpose"
-	}
+	markSubagent(body, opts.AgentID)
 	return marshal(body)
 }
 
@@ -234,10 +228,25 @@ func RawNotification(sessionID, promptID, notificationType string) string {
 	})
 }
 
+// markSubagent adds the subagent marker (kb:fact/subagent-hooks-carry-agent-id) to a
+// hook body when agentID is non-empty; the one place agent_type's value lives.
+func markSubagent(body map[string]any, agentID string) {
+	if agentID != "" {
+		body["agent_id"] = agentID
+		body["agent_type"] = "general-purpose"
+	}
+}
+
 // RawPermissionRequest returns a raw `PermissionRequest` — corroborates a
 // permission-prompt needs_input (kb:anchor/state.transitions).
 func RawPermissionRequest(sessionID, promptID string) string {
-	return marshal(map[string]any{
+	return RawSubagentPermissionRequest(sessionID, promptID, "")
+}
+
+// RawSubagentPermissionRequest returns a raw `PermissionRequest` fired by the subagent
+// agentID (kb:fact/subagent-hooks-carry-agent-id); an empty agentID is the main agent's.
+func RawSubagentPermissionRequest(sessionID, promptID, agentID string) string {
+	body := map[string]any{
 		"hook_event_name":        "PermissionRequest",
 		"session_id":             sessionID,
 		"transcript_path":        defaultTranscriptPath,
@@ -247,6 +256,63 @@ func RawPermissionRequest(sessionID, promptID string) string {
 		"tool_name":              "Write",
 		"tool_input":             map[string]any{"file_path": "/tmp/x.txt"},
 		"permission_suggestions": []any{map[string]any{"type": "setMode", "mode": "acceptEdits", "destination": "session"}},
+	}
+	markSubagent(body, agentID)
+	return marshal(body)
+}
+
+// RawPostToolBatch returns a raw `PostToolBatch` (kb:fact/plan-feedback-emits-only-post-tool-batch):
+// the event a rejected plan leaves as its only post-tool trace. opts.AgentID marks it
+// subagent-fired, exactly as on RawPostToolUseFile.
+func RawPostToolBatch(sessionID string, opts ToolFileOpts) string {
+	body := map[string]any{
+		"hook_event_name": "PostToolBatch",
+		"session_id":      sessionID,
+		"transcript_path": opts.transcriptPath(),
+		"cwd":             defaultCWD,
+		"prompt_id":       opts.promptID(),
+		"permission_mode": orDefault(opts.PermissionMode, defaultPermissionMode),
+	}
+	markSubagent(body, opts.AgentID)
+	return marshal(body)
+}
+
+// RawPromptlessIdleNotification returns a raw `Notification` of type idle_prompt with no
+// prompt_id key — the shape that follows /clear (kb:fact/clear-idle-prompt-carries-no-prompt-id).
+func RawPromptlessIdleNotification(sessionID string) string {
+	return marshal(map[string]any{
+		"hook_event_name":   "Notification",
+		"session_id":        sessionID,
+		"transcript_path":   defaultTranscriptPath,
+		"cwd":               defaultCWD,
+		"notification_type": "idle_prompt",
+		"message":           "Claude is waiting for your input",
+	})
+}
+
+// InterruptLine returns one transcript JSONL line recording an interrupt of promptID
+// (kb:fact/interrupt-recorded-in-transcript); forToolUse picks the "for tool use" text.
+func InterruptLine(promptID string, forToolUse bool) string {
+	text := "[Request interrupted by user]"
+	if forToolUse {
+		text = "[Request interrupted by user for tool use]"
+	}
+	return marshal(map[string]any{
+		"type":     "user",
+		"promptId": promptID,
+		"message":  map[string]any{"role": "user", "content": []any{map[string]any{"type": "text", "text": text}}},
+	})
+}
+
+// PlanRejectionLine returns one transcript JSONL line for a plan rejected with feedback:
+// a tool_result block only, never the interrupt text.
+func PlanRejectionLine(promptID string) string {
+	return marshal(map[string]any{
+		"type":     "user",
+		"promptId": promptID,
+		"message": map[string]any{"role": "user", "content": []any{
+			map[string]any{"type": "tool_result", "tool_use_id": "tu1", "content": "The user doesn't want to proceed", "is_error": true},
+		}},
 	})
 }
 
@@ -255,6 +321,23 @@ type StopOpts struct {
 	PromptID             string
 	PermissionMode       string
 	LastAssistantMessage string
+	// RunningShells adds that many backgrounded-shell entries with status "running" to
+	// background_tasks (kb:fact/background-tasks-field); CompletedShells adds finished ones.
+	RunningShells   int
+	CompletedShells int
+}
+
+// backgroundTasks builds RawStop's background_tasks list from opts.
+func (o StopOpts) backgroundTasks() []any {
+	tasks := []any{}
+	add := func(n int, status string) {
+		for i := range n {
+			tasks = append(tasks, map[string]any{"type": "shell", "id": "sh" + status + string(rune('a'+i)), "command": "sleep 600", "description": "sleep", "status": status})
+		}
+	}
+	add(o.RunningShells, "running")
+	add(o.CompletedShells, "completed")
+	return tasks
 }
 
 // RawStop returns a raw (non-enveloped) `Stop` — the common shape for ordinary
@@ -269,7 +352,7 @@ func RawStop(sessionID string, opts StopOpts) string {
 		"permission_mode":        orDefault(opts.PermissionMode, defaultPermissionMode),
 		"last_assistant_message": orDefault(opts.LastAssistantMessage, "hi"),
 		"stop_hook_active":       false,
-		"background_tasks":       []any{},
+		"background_tasks":       opts.backgroundTasks(),
 		"session_crons":          []any{},
 	})
 }

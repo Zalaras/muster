@@ -18,7 +18,7 @@ import {
   railDensityButton,
   railDensityGroup,
 } from "./helpers/railcards";
-import { railSortSelect } from "./helpers/railorder";
+import { pinButton, railSortSelect } from "./helpers/railorder";
 import {
   envelopeOpts,
   launchSession,
@@ -222,7 +222,7 @@ test("in compact density a long title is truly ellipsized within the card, not o
   }
 });
 
-test("a card's End button keeps focus and node identity when a density button is clicked (E12, REQ-15)", async ({
+test("a card's Pin button keeps focus and node identity when a density button is clicked (E12, REQ-15)", async ({
   page,
   daemon,
 }) => {
@@ -233,21 +233,24 @@ test("a card's End button keeps focus and node identity when a density button is
 
     const card = sessionCard(page, "density-focus-e12");
     await expect(card).toBeVisible();
-    const endBtn = card.getByRole("button", { name: "End" });
-    await endBtn.focus();
-    await expect(endBtn).toBeFocused();
-    await endBtn.evaluate((el) => {
-      (el as HTMLElement & { __e2eTag?: string }).__e2eTag = "original-end-btn";
+    // A live card no longer offers End (plan status-inconsistencies REQ-7); Pin is the
+    // focusable control it still has.
+    const pinBtn = pinButton(card);
+    await pinBtn.focus();
+    await expect(pinBtn).toBeFocused();
+    await pinBtn.evaluate((el) => {
+      (el as HTMLElement & { __e2eTag?: string }).__e2eTag = "original-pin-btn";
     });
 
     await railDensityButton(page, "expanded").click();
     await expect.poll(() => bodyRailDensity(page)).toBe("expanded");
 
-    await expect(endBtn).toBeFocused();
-    const stillTagged = await endBtn.evaluate(
-      (el) => (el as HTMLElement & { __e2eTag?: string }).__e2eTag === "original-end-btn",
+    await expect(pinBtn).toBeFocused();
+    const stillTagged = await pinBtn.evaluate(
+      (el) => (el as HTMLElement & { __e2eTag?: string }).__e2eTag === "original-pin-btn",
     );
     expect(stillTagged).toBe(true);
+    await expect(card.getByRole("button", { name: "End" })).toHaveCount(0);
   } finally {
     await cleanup();
   }

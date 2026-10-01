@@ -89,7 +89,7 @@ func TestInterpret_SessionStart(t *testing.T) {
 // TestInterpret_TurnActivityEvents covers UserPromptSubmit/PreToolUse/PostToolUse, all
 // of which always carry permission_mode per canary-fields.md's measured split.
 func TestInterpret_TurnActivityEvents(t *testing.T) {
-	for _, event := range []string{"UserPromptSubmit", "PreToolUse", "PostToolUse"} {
+	for _, event := range []string{"UserPromptSubmit", "PreToolUse", "PostToolUse", "PostToolBatch"} {
 		t.Run(event, func(t *testing.T) {
 			payload := []byte(`{"hook_event_name":"` + event + `","session_id":"c1","prompt_id":"p1","permission_mode":"plan"}`)
 
@@ -338,3 +338,132 @@ func innerPayload(t *testing.T, envelopedBody string) []byte {
 	require.NoError(t, json.Unmarshal([]byte(envelopedBody), &env))
 	return env.Payload
 }
+
+// TestInterpret_PostToolBatch covers D4's interpreter half: the wire-shaped PostToolBatch
+// is turn activity with its permission_mode latched, and the marker derives FromSubagent
+// and the opaque Agent id exactly as on PostToolUse (kb:fact/plan-feedback-emits-only-post-tool-batch).
+func TestInterpret_PostToolBatch(t *testing.T) {
+	tests := []struct {
+		name         string
+		opts         claudecodetest.ToolFileOpts
+		wantMode     string
+		wantSubagent bool
+		wantAgent    string
+	}{
+		{"main agent", claudecodetest.ToolFileOpts{PermissionMode: "plan"}, "plan", false, ""},
+		{"default permission mode", claudecodetest.ToolFileOpts{}, "default", false, ""},
+		{"subagent marker", claudecodetest.ToolFileOpts{AgentID: "agent-a7f3"}, "default", true, "agent-a7f3"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			in := Interpret("PostToolBatch", []byte(claudecodetest.RawPostToolBatch("c1", tt.opts)))
+
+			assert.Equal(t, KindTurnActivity, in.Kind)
+			require.NotNil(t, in.PermissionMode)
+			assert.Equal(t, tt.wantMode, *in.PermissionMode)
+			assert.Equal(t, tt.wantSubagent, in.FromSubagent)
+			assert.Equal(t, tt.wantAgent, in.Agent)
+			assert.Nil(t, in.Prompt)
+		})
+	}
+}
+
+// TestInterpret_AgentIdentity covers REQ-3's interpreter half: Agent is the marker's opaque
+// id for the events FromSubagent is derived on, "" for the main agent, and a Notification
+// permission_prompt is AgentUnknown (it cannot say) while every other kind is not.
+func TestInterpret_AgentIdentity(t *testing.T) {
+	t.Run("marked PermissionRequest carries the subagent id", func(t *testing.T) {
+		in := Interpret("PermissionRequest", []byte(claudecodetest.RawSubagentPermissionRequest("c1", "p1", "agent-a7f3")))
+
+		assert.Equal(t, KindNeedsInputPermission, in.Kind)
+		assert.True(t, in.FromSubagent)
+		assert.Equal(t, "agent-a7f3", in.Agent)
+		assert.False(t, in.AgentUnknown)
+	})
+
+	t.Run("unmarked PermissionRequest is the main agent, known", func(t *testing.T) {
+		in := Interpret("PermissionRequest", []byte(claudecodetest.RawPermissionRequest("c1", "p1")))
+
+		assert.Empty(t, in.Agent)
+		assert.False(t, in.AgentUnknown, "a PermissionRequest names its agent: empty means main")
+	})
+
+	t.Run("marked PreToolUse and UserPromptSubmit carry the id", func(t *testing.T) {
+		for _, event := range []string{"PreToolUse", "PostToolUse", "UserPromptSubmit"} {
+			payload := []byte(`{"hook_event_name":"` + event + `","session_id":"c1","prompt_id":"p1","agent_id":"agent-b","agent_type":"general-purpose"}`)
+			assert.Equal(t, "agent-b", Interpret(event, payload).Agent, event)
+		}
+	})
+
+	t.Run("an explicit agent_id:null is the main agent", func(t *testing.T) {
+		in := Interpret("PreToolUse", []byte(`{"hook_event_name":"PreToolUse","session_id":"c1","prompt_id":"p1","agent_id":null}`))
+
+		assert.Empty(t, in.Agent)
+		assert.False(t, in.FromSubagent)
+	})
+
+	t.Run("a permission_prompt notification cannot say which agent", func(t *testing.T) {
+		in := Interpret("Notification", []byte(claudecodetest.RawNotification("c1", "p1", "permission_prompt")))
+
+		assert.Equal(t, KindNeedsInputPermission, in.Kind)
+		assert.True(t, in.AgentUnknown)
+		assert.Empty(t, in.Agent)
+	})
+
+	t.Run("no other event is AgentUnknown", func(t *testing.T) {
+		for _, tc := range []struct{ event, body string }{
+			{"Notification", claudecodetest.RawNotification("c1", "p1", "idle_prompt")},
+			{"Stop", claudecodetest.RawStop("c1", claudecodetest.StopOpts{})},
+			{"StopFailure", claudecodetest.RawStopFailure("c1", claudecodetest.StopFailureOpts{})},
+			{"PostToolBatch", claudecodetest.RawPostToolBatch("c1", claudecodetest.ToolFileOpts{})},
+		} {
+			assert.False(t, Interpret(tc.event, []byte(tc.body)).AgentUnknown, tc.event)
+		}
+	})
+}
+
+// TestInterpret_IdlePromptWithAndWithoutPromptID pins the interpreter's half of REQ-1: a
+// prompt-less idle_prompt (the shape after /clear) still interprets as needs_input_idle;
+// the machine, which sees no prompt id, is what makes it a no-op.
+func TestInterpret_IdlePromptWithAndWithoutPromptID(t *testing.T) {
+	in := Interpret("Notification", []byte(claudecodetest.RawPromptlessIdleNotification("c1")))
+
+	assert.Equal(t, KindNeedsInputIdle, in.Kind)
+	assert.False(t, in.AgentUnknown)
+}
+
+// TestInterpret_StopBackgroundTasks covers D13's interpreter half: the running count is the
+// number of status:"running" entries (subagents and shells alike), nil when the payload
+// carries no list at all, and 0 for an empty list (kb:fact/background-tasks-field).
+func TestInterpret_StopBackgroundTasks(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want *int
+	}{
+		{"empty list", claudecodetest.RawStop("c1", claudecodetest.StopOpts{}), intPtr(0)},
+		{"one running shell", claudecodetest.RawStop("c1", claudecodetest.StopOpts{RunningShells: 1}), intPtr(1)},
+		{"two running shells", claudecodetest.RawStop("c1", claudecodetest.StopOpts{RunningShells: 2}), intPtr(2)},
+		{"completed entries do not count", claudecodetest.RawStop("c1", claudecodetest.StopOpts{RunningShells: 1, CompletedShells: 2}), intPtr(1)},
+		{"only completed entries", claudecodetest.RawStop("c1", claudecodetest.StopOpts{CompletedShells: 2}), intPtr(0)},
+		{"running subagent and shell", `{"hook_event_name":"Stop","session_id":"c1","background_tasks":[{"type":"subagent","id":"a","status":"running"},{"type":"shell","id":"s","status":"running"},{"type":"shell","id":"t","status":"killed"}]}`, intPtr(2)},
+		{"no background_tasks key: count is left alone", `{"hook_event_name":"Stop","session_id":"c1","last_assistant_message":"hi"}`, nil},
+		{"background_tasks null is absent", `{"hook_event_name":"Stop","session_id":"c1","background_tasks":null}`, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			in := Interpret("Stop", []byte(tt.body))
+
+			assert.Equal(t, KindTurnClosed, in.Kind)
+			assert.Equal(t, tt.want, in.BackgroundTasks)
+		})
+	}
+
+	t.Run("StopFailure carries no count", func(t *testing.T) {
+		in := Interpret("StopFailure", []byte(claudecodetest.RawStopFailure("c1", claudecodetest.StopFailureOpts{})))
+
+		assert.Nil(t, in.BackgroundTasks)
+	})
+}
+
+func intPtr(n int) *int { return &n }

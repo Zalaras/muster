@@ -2192,6 +2192,21 @@ body {
   display: none;
 }
 
+/* Neutral bottom line: background work the latest Stop reported running. No state colour
+ * (design-system §3) and no border — it sits on the card's own ground. */
+.card .bg-tasks {
+  margin-top: 7px;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.card .bg-tasks[hidden] {
+  display: none;
+}
+
 /* state colours (design-system §3: colour is never the only carrier — the badge word
  * and sort position always agree with it). */
 .s-blocked .stripe {

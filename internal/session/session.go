@@ -152,6 +152,18 @@ type Session struct {
 	// the state machine.
 	LastPrompt *string
 
+	// BackgroundTasks (kb:adr/lifecycle-background-tasks-count-not-state): the running
+	// background work the latest Stop reported. Display-only, never read by the state
+	// machine. Written by applyInput's KindTurnClosed arm (set) and applyBind (reset) —
+	// both under Manager.mu.
+	BackgroundTasks int
+
+	// AttentionAgent (kb:adr/lifecycle-attention-owned-by-raising-agent) is who raised
+	// Attention: "" for the main agent, else a subagent's opaque id. Non-empty only while
+	// Attention is non-nil (clearAttention is the only place either is cleared). Persisted,
+	// never on the wire. Written by applyInput under Manager.mu.
+	AttentionAgent string
+
 	currentPromptID string
 	closedPromptIDs []string // bounded ring, most recent last, capped at maxClosedPrompts
 
@@ -184,6 +196,26 @@ func (s *Session) DisplayTitle() *string {
 		return s.TitleOverride
 	}
 	return s.Title
+}
+
+// clearAttention drops the permission/idle wait and its owner together, so AttentionAgent
+// can never outlive Attention.
+func (s *Session) clearAttention() {
+	s.Attention = nil
+	s.AttentionAgent = ""
+}
+
+// waitOwnedByOther reports whether the session is in a needs_input wait that agent did
+// not raise: activity from such an agent neither clears the wait nor leaves needs_input
+// (kb:adr/lifecycle-attention-owned-by-raising-agent).
+func (s *Session) waitOwnedByOther(agent string) bool {
+	return s.State == StateNeedsInput && agent != s.AttentionAgent
+}
+
+// inOpenTurn reports whether a turn is in progress in a state the interrupt sweep
+// watches: working, planning or needs_input.
+func (s *Session) inOpenTurn() bool {
+	return s.State == StateWorking || s.State == StatePlanning || s.State == StateNeedsInput
 }
 
 func (s *Session) promptClosed(id string) bool {

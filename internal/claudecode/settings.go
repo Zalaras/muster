@@ -55,18 +55,18 @@ func ProjectSettingsPath(dir string) string {
 
 // httpHookEvents was every event Claude Code delivered over plain HTTP before Muster
 // moved every hook to a command wrapper (kb:adr/ingest-all-hooks-command-wrappers). It is
-// kept as the ten non-SessionStart event names because allHookEvents below is built from
+// kept as the eleven non-SessionStart event names because allHookEvents below is built from
 // it (plus SessionStart) and settings_test.go iterates it — not because legacy-http-entry
-// stripping treats these ten differently from SessionStart: isMusterEntry strips a Muster
-// http entry the same way on all eleven events; SessionStart's legacy entry was always a
+// stripping treats these eleven differently from SessionStart: isMusterEntry strips a Muster
+// http entry the same way on all twelve events; SessionStart's legacy entry was always a
 // command hook, handled separately.
 var httpHookEvents = []string{
-	"UserPromptSubmit", "PreToolUse", "PostToolUse", "Notification",
+	"UserPromptSubmit", "PreToolUse", "PostToolUse", "PostToolBatch", "Notification",
 	"PermissionRequest", "Stop", "StopFailure", "PreCompact", "SubagentStop", "SessionEnd",
 }
 
 // allHookEvents is every event Muster's single command-hook wrapper is registered on:
-// httpHookEvents plus SessionStart, eleven events total
+// httpHookEvents plus SessionStart, twelve events total
 // (kb:adr/ingest-all-hooks-command-wrappers). Every one of them gets the same
 // type:"command" entry — there is no longer an event that needs different treatment.
 var allHookEvents = append([]string{"SessionStart"}, httpHookEvents...)
@@ -307,7 +307,7 @@ func mustMarshal(v any) json.RawMessage {
 }
 
 // WriteWrapperScripts generates the two command-hook wrapper scripts — the single hook
-// wrapper serving all eleven events and the status line — into dataDir, returning their
+// wrapper serving all twelve events and the status line — into dataDir, returning their
 // absolute paths plus the original legacy SessionStart-only script path (for
 // SettingsConfig.LegacyCommands) whose file this also best-effort removes. Each script
 // reads stdin, wraps it in the kb:anchor/ingest.envelope envelope from

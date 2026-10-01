@@ -1,7 +1,7 @@
 ---
 id: lifecycle-subagent-marked-events-not-stragglers
 type: decision
-status: accepted
+status: superseded
 date: 2026-09-03
 summary: A subagent-marked hook for a closed prompt moves the session to working or needs-input without reopening it; unmarked stragglers stay inert.
 features: [lifecycle, ingest]

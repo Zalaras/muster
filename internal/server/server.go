@@ -60,11 +60,15 @@ type Config struct {
 	ShellScroll shellScroller
 	// Locator resolves a dropped file's path (kb:anchor/sessions.locate); nil answers 500, never a panic.
 	Locator *locate.Locator
-	Launch  LaunchConfig
-	Usage   UsageConfig
-	Theme   ThemeConfig
-	Issue   IssueConfig
-	Update  UpdateConfig
+	// InterruptChecker is handed to the session manager's interrupt sweep
+	// (session.Config.InterruptChecker); nil disables it. cmd/musterd wires the Claude Code
+	// transcript reader, so internal/server stays free of transcript knowledge.
+	InterruptChecker session.InterruptChecker
+	Launch           LaunchConfig
+	Usage            UsageConfig
+	Theme            ThemeConfig
+	Issue            IssueConfig
+	Update           UpdateConfig
 }
 
 // feature is anything New registers: it mounts its own routes. lifecycle and
@@ -189,14 +193,15 @@ func New(cfg Config) *Server {
 	// already knows who's attached to what, so the manager needs no separate bookkeeping.
 	terminals := newTerminalRegistry()
 	s.manager = session.NewManager(session.Config{
-		Store:           cfg.Store,
-		Logger:          cfg.Logger,
-		PaneChecker:     tmuxClient,
-		PaneSnapshotter: tmuxClient,
-		TmuxSessions:    tmuxClient,
-		Watcher:         terminals,
-		OnUpsert:        func(sess *session.Session) { s.hub.broadcast(sessionUpsertWire(sess)) },
-		OnRemoved:       func(id int64) { s.hub.broadcast(sessionRemovedWire(id)) },
+		Store:            cfg.Store,
+		Logger:           cfg.Logger,
+		PaneChecker:      tmuxClient,
+		PaneSnapshotter:  tmuxClient,
+		TmuxSessions:     tmuxClient,
+		Watcher:          terminals,
+		InterruptChecker: cfg.InterruptChecker,
+		OnUpsert:         func(sess *session.Session) { s.hub.broadcast(sessionUpsertWire(sess)) },
+		OnRemoved:        func(id int64) { s.hub.broadcast(sessionRemovedWire(id)) },
 	})
 	// models is the one model-catalog verdict cache (kb:adr/launch-model-check-cached-per-binary-identity):
 	// registered for GET /api/models and handed into newSessionLauncher below so Launch's
