@@ -160,9 +160,9 @@ describe("groupscopy — rail count", () => {
     expect(railCountText(0, 5, true)).toBe("0 of 5");
   });
 
-  it("is blank with no sessions at all", () => {
-    expect(railCountText(0, 0, false)).toBe("");
-    expect(railCountText(0, 0, true)).toBe("");
+  it("reads 0 with no sessions at all", () => {
+    expect(railCountText(0, 0, false)).toBe("0");
+    expect(railCountText(0, 0, true)).toBe("0");
   });
 
   it.each([

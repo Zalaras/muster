@@ -67,14 +67,14 @@ test("the masthead's New session button opens the dialog from Focus and Tiles, O
   await expect(dialog).toBeVisible();
 });
 
-test("an empty rail still shows the sort select and the density control with an empty count (edge case 22)", async ({
+test("an empty rail still shows the sort select and the density control with a zero count (edge case 22)", async ({
   page,
   daemon,
 }) => {
   await page.goto(daemon.dashboardUrl);
   await expect(railSortSelect(page)).toBeVisible();
   await expect(railDensityGroup(page)).toBeVisible();
-  await expect(page.locator("#rail-count")).toHaveText("");
+  await expect(page.locator("#rail-count")).toHaveText("0");
   await expect(page.locator("#main-empty")).toContainText("No sessions yet");
 });
 

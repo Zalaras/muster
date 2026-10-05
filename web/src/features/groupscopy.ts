@@ -39,10 +39,9 @@ export function selectionCount(n: number): string {
   return n === 0 ? "Select sessions" : `${n} selected`;
 }
 
-/** `#rail-count`: the plain total, or `n of m` while the filter hides a card. */
+/** `#rail-count`: the plain total (`0` with no sessions), or `n of m` while the filter hides a card. */
 export function railCountText(shown: number, total: number, hides: boolean): string {
-  if (total === 0) return "";
-  return hides ? `${shown} of ${total}` : String(total);
+  return hides && total > 0 ? `${shown} of ${total}` : String(total);
 }
 
 export function stopManyTitle(n: number): string {
