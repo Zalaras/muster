@@ -402,10 +402,8 @@ func TestHandleTerminal_SecondSocketSupersedesTheFirst(t *testing.T) {
 	c2 := dialTerminalOK(t, httpSrv, sess.ID)
 	defer func() { _ = c2.CloseNow() }()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	_, _, readErr := c1.Read(ctx)
-	require.Error(t, readErr)
+	// tmux's attach repaint can be queued on c1 ahead of the close, so drain to the error.
+	readErr := readUntilError(t, c1, 3*time.Second)
 	assert.Equal(t, websocket.StatusCode(4000), websocket.CloseStatus(readErr))
 }
 

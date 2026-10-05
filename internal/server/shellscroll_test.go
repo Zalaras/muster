@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -192,7 +193,9 @@ func TestHandleShellTerminal_ScrollErrorIsLoggedNotFatal(t *testing.T) {
 	require.NoError(t, c.Write(context.Background(), websocket.MessageBinary, []byte("STILL_ALIVE")))
 
 	require.Eventually(t, func() bool { return len(scroller.calls()) == 1 }, 3*time.Second, 20*time.Millisecond)
-	assert.Contains(t, srv.logs.String(), "shell scroll failed", "a failed scroll must be logged, never silently dropped")
+	// The log line is written after ScrollCopyMode returns, so wait for it rather than read once.
+	require.Eventually(t, func() bool { return strings.Contains(srv.logs.String(), "shell scroll failed") },
+		3*time.Second, 20*time.Millisecond, "a failed scroll must be logged, never silently dropped")
 }
 
 // TestHandleShellTerminal_CopyModeCancelOnNextInput covers REQ-10/E10 and REQ-12/edge
