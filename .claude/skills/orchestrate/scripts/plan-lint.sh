@@ -166,5 +166,11 @@ if [[ -n "$paths$named" ]]; then
   rm -rf "$(dirname "$kb")"
 fi
 
+# 13. Warn, never fail: Affected Files is an impact read, so a backticked call or signature there pins
+#     a shape that is the implementer's (kb:adr/process-plan-fixes-boundaries-not-shape).
+section 'Affected Files' | grep -E '`[A-Za-z_][A-Za-z0-9_.]*\(' | while IFS= read -r l; do
+  echo "NOTE  Affected Files names a signature — the shape is the implementer's: ${l:0:100}"
+done || true
+
 if (( FAILS )); then echo "plan-lint: $FAILS failure(s) in $P"; exit 1; fi
 echo "plan-lint: $P clean"

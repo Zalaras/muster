@@ -28,8 +28,10 @@ If no arguments are provided, ask the developer for a plan name and description.
 Work through the sections below with the developer as a conversation, not a dump: ask clarifying
 questions, propose approaches, and get confirmation before moving on.
 
-- Open the code before asserting current behaviour, an edge case's "because" included, and cite
-  real file paths.
+- Read the code to state current behaviour (an edge case's "because" included), what a change
+  touches and which tests it breaks, citing real paths — never to design it. A plan fixes only what
+  crosses an agent boundary (protocol, schema, Testable UI, invariants, ADR'd decisions); the shape
+  is the implementer's (`docs/conventions.md` § Design, kb:adr/process-plan-fixes-boundaries-not-shape).
 - When the description or the spec is vague on a point, ask pointed questions rather than guessing.
 - Save the plan file after each major section so progress isn't lost.
 - The plan stays `draft` until the developer explicitly approves it.
@@ -46,7 +48,7 @@ All plan artifacts live there. If a spec exists:
 - Use it as the starting point. The Goal, Requirements, Scope, Edge Cases, and Acceptance Criteria sections are already defined.
 - Carry its `**Features**` header and its `## Feature Spec Delta` forward — the delta becomes this
   plan's `## Doc Delta` (§10), amended for anything planning changes.
-- Skip questions the spec already answers clearly. Focus on the **implementation-specific details** it doesn't cover: the protocol contract delta, schema changes, UI specifications, affected files, technical approach.
+- Skip questions the spec already answers clearly. Focus on the **implementation-specific details** it doesn't cover: the protocol contract delta, schema changes, UI specifications, affected files and their owners.
 
 If no spec exists, proceed normally — the spec step is optional.
 
@@ -92,18 +94,16 @@ Work with the developer to create clear, testable requirements. Each requirement
 - Scoped to a single behavior or outcome
 - Labeled with a priority (must-have, should-have, nice-to-have)
 
-### 4. Identify Affected Files
+### 4. Identify Affected Files and owners
 
-Based on the codebase structure, identify which files will likely need changes:
-
-**Daemon (Go):**
-- `internal/claudecode/` — anything touching hook payloads, status-line JSON, CLI flags (and the only place such knowledge may live)
-- `internal/<package>/` — state machine, storage, tmux/PTY bridge, server
-- `cmd/musterd/` — wiring
-- Migrations — numbered `.sql` files, `//go:embed`-ed, forward-only
-
-**Web (TypeScript, `web/src/`):**
-- Protocol/message modules, state-derivation modules, per-feature render modules, the single WebSocket client module
+Affected Files is your impact read, not a fence. Per impl track, list **existing files by exact path**
+and **new code by the feature glob it falls under** (`` new under `internal/claudecode/launch*.go` ``)
+— never a bare directory, which plan-lint's ownership check skips. Each line names the REQs it
+carries and the behaviour that changes there, never a signature, type, field, helper or constant.
+What reading the code taught you that could save the implementer time (an existing helper, a bound
+that suffices) goes under Implementation Notes → Hints, which are non-binding. Then list **Existing
+tests this breaks** per owning test agent — the tests asserting behaviour the plan changes, with line
+numbers when known; the impl log's `## Handoff` confirms or corrects it.
 
 **`TODO.md`, `docs/adr/`, `docs/diagrams/`, `SPEC.md`, `docs/features/*/spec.md` and generated kb files are never listed under an impl track** (the hand-written part of a touched package's `CLAUDE.md` is the exception and belongs to that impl track). They are the orchestrator's (Doc-Upkeep Backstop / Completion), and the review rules forbid an impl agent from touching `SPEC.md`. Put the required upkeep under Implementation Notes → Doc upkeep, addressed to the orchestrator (kb:lesson/plan-gave-no-single-owner).
 A composition root (`web/src/main.ts`, `internal/server/server.go`) may appear under Affected Files only for a one-line registration; anything more is a new feature module (`docs/conventions.md` § Composition roots).
@@ -111,9 +111,10 @@ A composition root (`web/src/main.ts`, `internal/server/server.go`) may appear u
 **Every requirement's test coverage names exactly one owning test agent — no conditional routing.**
 "A unit test if the logic is unit-testable, otherwise E4 covers it" resolves to nobody
 (kb:lesson/conditional-test-routing-resolves-to-nobody). If you cannot tell at
-planning whether the logic is unit-testable, that is a finding about the implementation: require the
-impl agent to expose it as a pure function under Affected Files and route the test to the unit
-agent. A genuinely E2E-only requirement says so and names the `E*` criterion that carries it.
+planning whether the logic is unit-testable, route the test to the unit agent and require the logic
+to be unit-testable; where it lives and the seam's shape are the implementer's, reported as a
+`design:` line the tester reads. A seam must decide something its caller could not write as the
+same branch (kb:lesson/plan-placement-never-overrides-directory-rule). A genuinely E2E-only requirement says so and names the `E*` criterion that carries it.
 
 **Tooling/config files belong to an impl track, never to a test agent.** `web/playwright.config.ts`,
 `web/e2e/helpers/fixtures.ts` and `web/scripts/e2e-lint.sh` are **web-impl**'s (e2e-specs may not
@@ -165,10 +166,9 @@ the developer rather than decide. plan-lint fails a fence whose keyword is outsi
 
 Define the user-facing behavior clearly enough that the web agent can work without seeing the daemon code:
 - Which views/screens are added or modified
-- What the DOM structure is at feature level (render functions / `<template>` elements — no framework)
+- The DOM structure E2E tests and the design system rely on (`<template>` elements — no framework)
 - User interaction flows
 - **The three mandatory states for every view**: no data yet (render "unknown", never an empty gauge — `kb:adr/usage-unknown-renders-word-not-track`), data, and daemon-down
-- Any specific patterns from the existing codebase to follow
 
 **Design system**: `docs/design/design-system.md` and `docs/design/ux-flows.md` are binding; cite the sections and the mockup that govern every surface this plan touches.
 
@@ -205,7 +205,7 @@ If the plan or protocol states a rule that must hold **at all times** — an "if
 is `needs_input`") — list it as a **named invariant**, not
 just in a requirement's prose. Invariants get a different test shape: assert them from **every
 reachable source state**, not the convenient one. Before approval, walk every state-changing
-path Affected Files and Implementation Notes name against each named invariant: a path or
+path in the code Affected Files names against each named invariant: a path or
 existing test the plan calls "unchanged" that an invariant or User Flow now reaches costs a
 fix wave (kb:lesson/invariant-missed-by-per-transition-tests). A "run every
 input against every starting state, assert the invariant after" table is cheap; write it into
@@ -265,7 +265,7 @@ The orchestrator and the review agent execute the block **verbatim**, so every l
 check's prose twin (or a note beside the block) whether `_test.go` / `*.test.ts` / `e2e/` files are
 inside the grep's net, and why. Tests often legitimately need the banned strings (a boundary test
 POSTing a real wire body) — if test files are in scope, the plan must say how tests obtain those
-strings legally (typically a helper exported from the boundary package), or agents contort around
+strings legally (from the boundary package, in a shape the implementer picks), or agents contort around
 the check (kb:lesson/banned-string-split-to-dodge-gate). `plan-lint.sh` runs the dry-runs against
 the plan text and the tree; put every hit it lists under **Affected Files** against the agent that
 owns it, or re-scope the check.
@@ -368,11 +368,17 @@ Delta against `docs/protocol.md` (merged there on approval; `docs/features/<f>/c
 
 ## Affected Files
 
-### Daemon
-- `path/to/file.go` — <what changes>
+The planner's impact read, not a fence: existing files by path, new code by feature glob; REQs and behaviour, never shape.
 
-### Web
-- `web/src/path/file.ts` — <what changes>
+### Daemon (daemon-impl)
+- `internal/session/machine.go` — REQ-1: <behaviour that changes>
+- new under `internal/claudecode/launch*.go` — REQ-2: <behaviour>
+
+### Web (web-impl)
+- `web/src/render/sessions.ts` — REQ-3: <behaviour that changes>
+
+### Existing tests this breaks
+- <owning test agent>: `path/to/existing_test.go:<line>` — <the behaviour it asserts that stops being true>
 
 ## Edge Cases
 
@@ -439,7 +445,9 @@ Anything the run discovers later is proposed, never filed. "Nothing." is accepta
 
 ## Implementation Notes
 
-<any additional context, patterns to follow, gotchas — cite `kb:fact/<slug>` for every measured
+**Hints (non-binding):** <what reading the code found that may save the implementer time>
+
+<any additional context and gotchas — cite `kb:fact/<slug>` for every measured
 Claude Code quirk handled and `kb:adr/<slug>` for every decision this plan makes — a decision with
 no ADR is not yet a decision>
 ````

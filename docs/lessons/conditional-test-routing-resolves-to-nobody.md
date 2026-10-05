@@ -15,4 +15,4 @@ refs: [plan:fix-auto-mode-select, .claude/skills/plan-work/SKILL.md, .claude/age
 
 **Cost.** A review cycle and an untested Should-Have.
 
-**What changed.** Every requirement names exactly one owning test agent. If unit-testability is unknown at planning, the plan requires the implementer to expose a pure function and routes the test to the unit agent. A tester who finds no covering test owns the item or reports implementation-bug; "not mine" is never a verdict.
+**What changed.** Every requirement names exactly one owning test agent. If unit-testability is unknown at planning, the plan routes the test to the unit agent and requires the logic to be unit-testable; the implementer chooses the seam and reports it. A tester who finds no covering test owns the item or reports implementation-bug; "not mine" is never a verdict.

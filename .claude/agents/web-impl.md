@@ -64,6 +64,8 @@ comes from the fixtures (fresh per test by default, no server reuse), `workers`/
   The maintainability reviewer looks with the sibling modules open (`docs/conventions.md` § Design:
   the plan says *what*; the shape is yours to choose and yours to report). A new module in
   `features/`, `render/`, `sessions/` or `terminal/` takes its neighbours' shape or says why not.
+  The plan's Affected Files is its impact read, not a fence, and its Implementation Notes Hints
+  are non-binding: take or drop each, saying which in a `design:` line.
 - Runtime dependencies are the plan's to list. When the work seems to need one the plan does not
   list, build it from what the stack has, or record the need as a `deviation:` in `## Decisions`.
 

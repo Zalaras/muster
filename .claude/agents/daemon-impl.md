@@ -57,7 +57,8 @@ and paste the grep in `## Decisions`; name the sibling in the package whose shap
 none fit and why. A pattern is named by the problem it solves here, never by its label. Shared state
 names its writers and its guard where it is declared. The maintainability reviewer reads your
 `design:` lines with the sibling files open — a reported divergence is a decision, an unreported one
-is a finding.
+is a finding. The plan's Affected Files is its impact read, not a fence, and its Implementation Notes
+Hints are non-binding: take or drop each, saying which in a `design:` line.
 
 ## Code Quality
 
